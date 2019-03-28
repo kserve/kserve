@@ -1,0 +1,140 @@
+// Copyright 2018 The Go Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
+package lsp
+
+import (
+	"bytes"
+	"fmt"
+	"sort"
+	"strings"
+
+	"golang.org/x/tools/internal/lsp/protocol"
+	"golang.org/x/tools/internal/lsp/source"
+)
+
+func toProtocolCompletionItems(candidates []source.CompletionItem, prefix string, pos protocol.Position, snippetsSupported, signatureHelpEnabled bool) []protocol.CompletionItem {
+	insertTextFormat := protocol.PlainTextTextFormat
+	if snippetsSupported {
+		insertTextFormat = protocol.SnippetTextFormat
+	}
+	sort.SliceStable(candidates, func(i, j int) bool {
+		return candidates[i].Score > candidates[j].Score
+	})
+	items := []protocol.CompletionItem{}
+	for i, candidate := range candidates {
+		// Matching against the label.
+		if !strings.HasPrefix(candidate.Label, prefix) {
+			continue
+		}
+		// InsertText is deprecated in favor of TextEdits.
+		// TODO(rstambler): Remove this logic when we are confident that we no
+		// longer need to support it.
+		insertText, triggerSignatureHelp := labelToProtocolSnippets(candidate.Label, candidate.Kind, insertTextFormat, signatureHelpEnabled)
+		if strings.HasPrefix(insertText, prefix) {
+			insertText = insertText[len(prefix):]
+		}
+		item := protocol.CompletionItem{
+			Label:  candidate.Label,
+			Detail: candidate.Detail,
+			Kind:   toProtocolCompletionItemKind(candidate.Kind),
+			TextEdit: &protocol.TextEdit{
+				NewText: insertText,
+				Range: protocol.Range{
+					Start: pos,
+					End:   pos,
+				},
+			},
+			// This is a hack so that the client sorts completion results in the order
+			// according to their score. This can be removed upon the resolution of
+			// https://github.com/Microsoft/language-server-protocol/issues/348.
+			SortText:   fmt.Sprintf("%05d", i),
+			FilterText: insertText,
+			Preselect:  i == 0,
+		}
+		// If we are completing a function, we should trigger signature help if possible.
+		if triggerSignatureHelp && signatureHelpEnabled {
+			item.Command = &protocol.Command{
+				Command: "editor.action.triggerParameterHints",
+			}
+		}
+		items = append(items, item)
+	}
+	return items
+}
+
+func toProtocolCompletionItemKind(kind source.CompletionItemKind) protocol.CompletionItemKind {
+	switch kind {
+	case source.InterfaceCompletionItem:
+		return protocol.InterfaceCompletion
+	case source.StructCompletionItem:
+		return protocol.StructCompletion
+	case source.TypeCompletionItem:
+		return protocol.TypeParameterCompletion // ??
+	case source.ConstantCompletionItem:
+		return protocol.ConstantCompletion
+	case source.FieldCompletionItem:
+		return protocol.FieldCompletion
+	case source.ParameterCompletionItem, source.VariableCompletionItem:
+		return protocol.VariableCompletion
+	case source.FunctionCompletionItem:
+		return protocol.FunctionCompletion
+	case source.MethodCompletionItem:
+		return protocol.MethodCompletion
+	case source.PackageCompletionItem:
+		return protocol.ModuleCompletion // ??
+	default:
+		return protocol.TextCompletion
+	}
+}
+
+func labelToProtocolSnippets(label string, kind source.CompletionItemKind, insertTextFormat protocol.InsertTextFormat, signatureHelpEnabled bool) (string, bool) {
+	switch kind {
+	case source.ConstantCompletionItem:
+		// The label for constants is of the format "<identifier> = <value>".
+		// We should not insert the " = <value>" part of the label.
+		if i := strings.Index(label, " ="); i >= 0 {
+			return label[:i], false
+		}
+	case source.FunctionCompletionItem, source.MethodCompletionItem:
+		var trimmed, params string
+		if i := strings.Index(label, "("); i >= 0 {
+			trimmed = label[:i]
+			params = strings.Trim(label[i:], "()")
+		}
+		if params == "" || trimmed == "" {
+			return label, true
+		}
+		// Don't add parameters or parens for the plaintext insert format.
+		if insertTextFormat == protocol.PlainTextTextFormat {
+			return trimmed, true
+		}
+		// If we do have signature help enabled, the user can see parameters as
+		// they type in the function, so we just return empty parentheses.
+		if signatureHelpEnabled {
+			return trimmed + "($1)", true
+		}
+		// If signature help is not enabled, we should give the user parameters
+		// that they can tab through. The insert text format follows the
+		// specification defined by Microsoft for LSP. The "$", "}, and "\"
+		// characters should be escaped.
+		r := strings.NewReplacer(
+			`\`, `\\`,
+			`}`, `\}`,
+			`$`, `\$`,
+		)
+		b := bytes.NewBufferString(trimmed)
+		b.WriteByte('(')
+		for i, p := range strings.Split(params, ",") {
+			if i != 0 {
+				b.WriteString(", ")
+			}
+			fmt.Fprintf(b, "${%v:%v}", i+1, r.Replace(strings.Trim(p, " ")))
+		}
+		b.WriteByte(')')
+		return b.String(), false
+
+	}
+	return label, false
+}
