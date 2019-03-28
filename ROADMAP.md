@@ -2,17 +2,20 @@
 ## Q2 2019
 
 ### Core CUJs
+Objective: "Simplify the user experience and provide a low barrier to entry by minimizing the amount of YAML necessary to deploy a trained model."
 * High Level Interfaces
     * Deploy a Tensorflow model without specifying a Tensorflow Serving Technology.
     * Deploy a XGBoost model without specifying a XGBoost Serving Technology.
     * Deploy a ScikitLearn model without specifying a ScikitLearn Serving Technology.
-    * Deploy a Custom Containerized model by specifying.
+    * Deploy a Custom Containerized model by specifying your docker image and args.
 
+Objective: "Empower users to safely deploy production models by enabling a variety of deployment strategies." 
 * Model Rollout
     * Rollout a model using a blue-green strategy.
     * Rollout a model using a pinned strategy.
     * Rollout a model using a canary strategy.
 
+Objective: "Reduce the total cost of ownership for models by minimizing the delta between provisioned resources and request load."
 * Autoscaling 
     * Scale a model to zero.
     * Scale a model from zero without dropping traffic.
