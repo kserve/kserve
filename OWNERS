@@ -1,4 +1,7 @@
 approvers:
-  ellis-bigelow
-  lluunn
+  - ellis-bigelow
+  - lluunn
 reviewers:
+  - rakelkar
+  - yuzisun
+  - cliveseldon
