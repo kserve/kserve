@@ -7,6 +7,7 @@ Objective: "Simplify the user experience and provide a low barrier to entry by m
     * Deploy a Tensorflow model without specifying a Tensorflow Serving Technology.
     * Deploy a XGBoost model without specifying a XGBoost Serving Technology.
     * Deploy a ScikitLearn model without specifying a ScikitLearn Serving Technology.
+    * Deploy a Pytorch model without specifying a Pytorch Serving Technology.
     * Deploy a Custom Containerized model by specifying your docker image and args.
 
 Objective: "Empower users to safely deploy production models by enabling a variety of deployment strategies." 
