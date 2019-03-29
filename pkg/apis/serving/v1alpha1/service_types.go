@@ -32,8 +32,8 @@ type ServiceSpec struct {
 	// This percentage of traffic is routed to the second revision, the remainder to the first.
 	RolloutPercent int `json:"rolloutPercent,omitempty"`
 
-	MinReplicas string `json:"minReplicas,omitempty"`
-	MaxReplicas string `json:"maxReplicas,omitempty"`
+	MinReplicas *int32 `json:"minReplicas,omitempty"`
+	MaxReplicas *int32 `json:"maxReplicas,omitempty"`
 
 	/*
 		The following fields follow a "1-of" semantic. Users must specify exactly one spec.
@@ -74,10 +74,6 @@ type ScikitLearnSpec struct {
 // CustomSpec provides a hook for arbitrary container configuration.
 type CustomSpec struct {
 	Container v1.Container `json:"container"`
-	// Defaults to /healthz.
-	LivenessProbe *v1.Probe `json:"livenessProbe,omitempty"`
-	// Defaults to /healthz.
-	ReadinessProbe *v1.Probe `json:"readinessProbe,omitempty"`
 }
 
 // ServiceStatus defines the observed state of Service
@@ -107,7 +103,7 @@ type ConditionsSpec struct {
 	Type   ConditionType      `json:"type"`
 	Status v1.ConditionStatus `json:"status"`
 
-	// Last time the condition transitioned from one status to another.
+	// Last time the condition was probed.
 	LastProbeTime metav1.Time `json:"lastProbeTime,omitempty" protobuf:"bytes,3,opt,name=lastProbeTime"`
 	// Last time the condition transitioned from one status to another.
 	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty" protobuf:"bytes,4,opt,name=lastTransitionTime"`
