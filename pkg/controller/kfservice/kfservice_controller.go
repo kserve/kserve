@@ -45,7 +45,7 @@ var log = logf.Log.WithName("controller")
 * business logic.  Delete these comments after modifying this file.*
  */
 
-// Add creates a new Service Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
+// Add creates a new KFService Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(mgr manager.Manager) error {
 	return add(mgr, newReconciler(mgr))
@@ -64,17 +64,17 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	// Watch for changes to Service
-	err = c.Watch(&source.Kind{Type: &servingv1alpha1.Service{}}, &handler.EnqueueRequestForObject{})
+	// Watch for changes to KFService
+	err = c.Watch(&source.Kind{Type: &servingv1alpha1.KFService{}}, &handler.EnqueueRequestForObject{})
 	if err != nil {
 		return err
 	}
 
 	// TODO(user): Modify this to be the types you create
-	// Uncomment watch a Deployment created by Service - change this for objects you create
+	// Uncomment watch a Deployment created by KFService - change this for objects you create
 	err = c.Watch(&source.Kind{Type: &appsv1.Deployment{}}, &handler.EnqueueRequestForOwner{
 		IsController: true,
-		OwnerType:    &servingv1alpha1.Service{},
+		OwnerType:    &servingv1alpha1.KFService{},
 	})
 	if err != nil {
 		return err
@@ -101,8 +101,8 @@ type ReconcileService struct {
 // +kubebuilder:rbac:groups=kfserving.kubeflow.org,resources=services,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=kfserving.kubeflow.org,resources=services/status,verbs=get;update;patch
 func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Result, error) {
-	// Fetch the Service instance
-	instance := &servingv1alpha1.Service{}
+	// Fetch the KFService instance
+	instance := &servingv1alpha1.KFService{}
 	err := r.Get(context.TODO(), request.NamespacedName, instance)
 	if err != nil {
 		if errors.IsNotFound(err) {

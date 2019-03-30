@@ -4,12 +4,12 @@ metadata:
   creationTimestamp: null
   labels:
     controller-tools.k8s.io: "1.0"
-  name: services.serving.kubeflow.org
+  name: kfservices.serving.kubeflow.org
 spec:
   group: serving.kubeflow.org
   names:
     kind: KFService
-    plural: services
+    plural: kfservices
   scope: Namespaced
   validation:
     openAPIV3Schema:
@@ -34,19 +34,15 @@ spec:
               properties:
                 container:
                   type: object
-                livenessProbe:
-                  description: Defaults to /healthz.
-                  type: object
-                readinessProbe:
-                  description: Defaults to /healthz.
-                  type: object
               required:
               - container
               type: object
             maxReplicas:
-              type: string
+              format: int32
+              type: integer
             minReplicas:
-              type: string
+              format: int32
+              type: integer
             revisions:
               description: Must contain either one or two elements. The first is the
                 "active" revisions and the second is the "candidate" revision.
@@ -107,8 +103,7 @@ spec:
             conditions:
               properties:
                 lastProbeTime:
-                  description: Last time the condition transitioned from one status
-                    to another.
+                  description: Last time the condition was probed.
                   format: date-time
                   type: string
                 lastTransitionTime:

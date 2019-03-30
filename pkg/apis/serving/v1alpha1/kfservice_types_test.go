@@ -30,7 +30,7 @@ func TestStorageService(t *testing.T) {
 		Name:      "foo",
 		Namespace: "default",
 	}
-	created := &Service{
+	created := &KFService{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "foo",
 			Namespace: "default",
@@ -38,7 +38,7 @@ func TestStorageService(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	// Test Create
-	fetched := &Service{}
+	fetched := &KFService{}
 	g.Expect(c.Create(context.TODO(), created)).NotTo(gomega.HaveOccurred())
 
 	g.Expect(c.Get(context.TODO(), key, fetched)).NotTo(gomega.HaveOccurred())

@@ -21,8 +21,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// ServiceSpec defines the desired state of Service
-type ServiceSpec struct {
+// KFServiceSpec defines the desired state of KFService
+type KFServiceSpec struct {
 	// If specified, passes name to generated Revision.
 	RevisionName string `json:"rollout,omitempty"`
 	// Must contain either one or two elements.
@@ -76,8 +76,8 @@ type CustomSpec struct {
 	Container v1.Container `json:"container"`
 }
 
-// ServiceStatus defines the observed state of Service
-type ServiceStatus struct {
+// KFServiceStatus defines the observed state of KFService
+type KFServiceStatus struct {
 	Conditions                ConditionsSpec  `json:"conditions,omitempty"`
 	URI                       URISpec         `json:"uri,omitempty"`
 	Revisions                 []RevisionsSpec `json:"revisions,omitempty"`
@@ -128,25 +128,25 @@ const (
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// Service is the Schema for the services API
+// KFService is the Schema for the services API
 // +k8s:openapi-gen=true
-type Service struct {
+type KFService struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   ServiceSpec   `json:"spec,omitempty"`
-	Status ServiceStatus `json:"status,omitempty"`
+	Spec   KFServiceSpec   `json:"spec,omitempty"`
+	Status KFServiceStatus `json:"status,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// ServiceList contains a list of Service
-type ServiceList struct {
+// KFServiceList contains a list of Service
+type KFServiceList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []Service `json:"items"`
+	Items           []KFService `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&Service{}, &ServiceList{})
+	SchemeBuilder.Register(&KFService{}, &KFServiceList{})
 }

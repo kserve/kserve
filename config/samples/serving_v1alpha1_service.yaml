@@ -1,5 +1,5 @@
 apiVersion: serving.kubeflow.org/v1alpha1
-kind: Service
+kind: KFService
 metadata:
   labels:
     controller-tools.k8s.io: "1.0"
