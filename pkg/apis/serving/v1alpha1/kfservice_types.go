@@ -48,7 +48,7 @@ type CanarySpec struct {
 type TensorflowSpec struct {
 	ModelUri string `json:"modelUri"`
 	// Defaults to latest TF Version.
-	RuntimeVersion string `json:"runtimeVersion, omitempty"`
+	RuntimeVersion string `json:"runtimeVersion,omitempty"`
 	// Defaults to requests and limits of 1CPU, 2Gb MEM.
 	Resources v1.ResourceRequirements `json:"resources,omitempty"`
 }
@@ -78,11 +78,10 @@ type CustomSpec struct {
 
 // KFServiceStatus defines the observed state of KFService
 type KFServiceStatus struct {
-	Conditions                ConditionsSpec  `json:"conditions,omitempty"`
-	URI                       URISpec         `json:"uri,omitempty"`
-	Revisions                 []RevisionsSpec `json:"revisions,omitempty"`
-	LatestCreatedRevisionName string          `json:"latestCreatedRevisionName,omitempty"`
-	LatestReadyRevisionName   string          `json:"latestReadyRevisionName,omitempty"`
+	Conditions StatusConditionsSpec    `json:"conditions,omitempty"`
+	URI        URISpec                 `json:"uri,omitempty"`
+	Default    StatusConfigurationSpec `json:"default,omitempty"`
+	Canary     StatusConfigurationSpec `json:"canary,omitempty"`
 }
 
 // URISpec describes the available network endpoints for the service.
@@ -91,15 +90,15 @@ type URISpec struct {
 	External string `json:"external,omitempty"`
 }
 
-// RevisionsSpec describes the current revisions receiving traffic.
-type RevisionsSpec struct {
+// StatusConfigurationSpec describes the state of the configuration receiving traffic.
+type StatusConfigurationSpec struct {
 	Name     string `json:"name,omitempty"`
 	Replicas int    `json:"replicas,omitempty"`
 	Traffic  int    `json:"traffic,omitempty"`
 }
 
-// ConditionsSpec displays the current conditions of the resource.
-type ConditionsSpec struct {
+// StatusConditionsSpec displays the current conditions of the resource.
+type StatusConditionsSpec struct {
 	Type   ConditionType      `json:"type"`
 	Status v1.ConditionStatus `json:"status"`
 

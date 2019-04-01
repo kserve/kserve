@@ -28,14 +28,56 @@ spec:
           type: object
         spec:
           properties:
-            custom:
-              description: "\t\tThe following fields follow a \"1-of\" semantic. Users
-                must specify exactly one spec."
+            default:
               properties:
-                container:
+                custom:
+                  description: The following fields follow a "1-of" semantic. Users
+                    must specify exactly one spec.
+                  properties:
+                    container:
+                      type: object
+                  required:
+                  - container
                   type: object
-              required:
-              - container
+                scikitLearn:
+                  properties:
+                    modelUri:
+                      type: string
+                    resources:
+                      description: Defaults to requests and limits of 1CPU, 2Gb MEM.
+                      type: object
+                    runtimeVersion:
+                      description: Defaults to latest ScikitLearn Version.
+                      type: string
+                  required:
+                  - modelUri
+                  type: object
+                tensorflow:
+                  properties:
+                    modelUri:
+                      type: string
+                    resources:
+                      description: Defaults to requests and limits of 1CPU, 2Gb MEM.
+                      type: object
+                    runtimeVersion:
+                      description: Defaults to latest TF Version.
+                      type: string
+                  required:
+                  - modelUri
+                  type: object
+                xgBoost:
+                  properties:
+                    modelUri:
+                      type: string
+                    resources:
+                      description: Defaults to requests and limits of 1CPU, 2Gb MEM.
+                      type: object
+                    runtimeVersion:
+                      description: Defaults to latest XGBoost Version.
+                      type: string
+                  required:
+                  - modelUri
+                  type: object
               type: object
             maxReplicas:
               format: int32
@@ -43,63 +85,20 @@ spec:
             minReplicas:
               format: int32
               type: integer
-            revisions:
-              description: Must contain either one or two elements. The first is the
-                "active" revisions and the second is the "candidate" revision.
-              items:
-                type: string
-              type: array
-            rollout:
-              description: If specified, passes name to generated Revision.
-              type: string
-            rolloutPercent:
-              description: May only be specified if revisions has two elements. Defaults
-                to 0. This percentage of traffic is routed to the second revision,
-                the remainder to the first.
-              format: int64
-              type: integer
-            scikitLearn:
-              properties:
-                modelUri:
-                  type: string
-                resources:
-                  description: Defaults to requests and limits of 1CPU, 2Gb MEM.
-                  type: object
-                runtimeVersion:
-                  description: Defaults to latest ScikitLearn Version.
-                  type: string
-              required:
-              - modelUri
-              type: object
-            tensorflow:
-              properties:
-                modelUri:
-                  type: string
-                resources:
-                  description: Defaults to requests and limits of 1CPU, 2Gb MEM.
-                  type: object
-                runtimeVersion:
-                  description: Defaults to latest TF Version.
-                  type: string
-              required:
-              - modelUri
-              type: object
-            xgBoost:
-              properties:
-                modelUri:
-                  type: string
-                resources:
-                  description: Defaults to requests and limits of 1CPU, 2Gb MEM.
-                  type: object
-                runtimeVersion:
-                  description: Defaults to latest XGBoost Version.
-                  type: string
-              required:
-              - modelUri
-              type: object
           type: object
         status:
           properties:
+            canary:
+              properties:
+                name:
+                  type: string
+                replicas:
+                  format: int64
+                  type: integer
+                traffic:
+                  format: int64
+                  type: integer
+              type: object
             conditions:
               properties:
                 lastProbeTime:
@@ -127,23 +126,17 @@ spec:
               - type
               - status
               type: object
-            latestCreatedRevisionName:
-              type: string
-            latestReadyRevisionName:
-              type: string
-            revisions:
-              items:
-                properties:
-                  name:
-                    type: string
-                  replicas:
-                    format: int64
-                    type: integer
-                  traffic:
-                    format: int64
-                    type: integer
-                type: object
-              type: array
+            default:
+              properties:
+                name:
+                  type: string
+                replicas:
+                  format: int64
+                  type: integer
+                traffic:
+                  format: int64
+                  type: integer
+              type: object
             uri:
               properties:
                 external:
