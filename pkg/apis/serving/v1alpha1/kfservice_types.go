@@ -1,5 +1,5 @@
 /*
-Copyright 2019 Kubeflow Community.
+Copyright 2019 kubeflow.org.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -23,32 +23,32 @@ import (
 
 // KFServiceSpec defines the desired state of KFService
 type KFServiceSpec struct {
-	// If specified, passes name to generated Revision.
-	RevisionName string `json:"rollout,omitempty"`
-	// Must contain either one or two elements.
-	// The first is the "active" revisions and the second is the "candidate" revision.
-	Revisions []string `json:"revisions,omitempty"`
-	// May only be specified if revisions has two elements. Defaults to 0.
-	// This percentage of traffic is routed to the second revision, the remainder to the first.
-	RolloutPercent int `json:"rolloutPercent,omitempty"`
+	MinReplicas int32 `json:"minReplicas,omitempty"`
+	MaxReplicas int32 `json:"maxReplicas,omitempty"`
 
-	MinReplicas *int32 `json:"minReplicas,omitempty"`
-	MaxReplicas *int32 `json:"maxReplicas,omitempty"`
+	Default *DefaultSpec `json:"default,omitempty"`
+}
 
-	/*
-		The following fields follow a "1-of" semantic. Users must specify exactly one spec.
-	*/
+// DefaultSpec defines the default configuration to route traffic.
+type DefaultSpec struct {
+	// The following fields follow a "1-of" semantic. Users must specify exactly one spec.
 	Custom      *CustomSpec      `json:"custom,omitempty"`
 	Tensorflow  *TensorflowSpec  `json:"tensorflow,omitempty"`
 	XGBoost     *XGBoostSpec     `json:"xgBoost,omitempty"`
 	ScikitLearn *ScikitLearnSpec `json:"scikitLearn,omitempty"`
 }
 
+// CanarySpec defines an alternate configuration to route a percentage of traffic.
+type CanarySpec struct {
+	DefaultSpec    `json:",inline"`
+	TrafficPercent int32 `json:"trafficPercent"`
+}
+
 // TensorflowSpec defines arguments for configuring Tensorflow model serving.
 type TensorflowSpec struct {
 	ModelUri string `json:"modelUri"`
 	// Defaults to latest TF Version.
-	RuntimeVersion string `json:"runtimeVersion,omitempty"`
+	RuntimeVersion string `json:"runtimeVersion, omitempty"`
 	// Defaults to requests and limits of 1CPU, 2Gb MEM.
 	Resources v1.ResourceRequirements `json:"resources,omitempty"`
 }
@@ -58,7 +58,7 @@ type XGBoostSpec struct {
 	ModelUri string `json:"modelUri"`
 	// Defaults to latest XGBoost Version.
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
-	//Defaults to requests and limits of 1CPU, 2Gb MEM.
+	// Defaults to requests and limits of 1CPU, 2Gb MEM.
 	Resources v1.ResourceRequirements `json:"resources,omitempty"`
 }
 
