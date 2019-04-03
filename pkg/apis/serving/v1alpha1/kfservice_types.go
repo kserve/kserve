@@ -23,14 +23,16 @@ import (
 
 // KFServiceSpec defines the desired state of KFService
 type KFServiceSpec struct {
-	MinReplicas int32 `json:"minReplicas,omitempty"`
-	MaxReplicas int32 `json:"maxReplicas,omitempty"`
+	MinReplicas int32 `json:"minReplicas"`
+	MaxReplicas int32 `json:"maxReplicas"`
 
-	Default *ModelSpecs `json:"default,omitempty"`
+	Default ModelSpec `json:"default"`
+	// Optional Canary definition
+	Canary *CanarySpec `json:"canary,omitempty"`
 }
 
-// ModelSpecs defines the default configuration to route traffic.
-type ModelSpecs struct {
+// ModelSpec defines the default configuration to route traffic.
+type ModelSpec struct {
 	// The following fields follow a "1-of" semantic. Users must specify exactly one spec.
 	Custom      *CustomSpec      `json:"custom,omitempty"`
 	Tensorflow  *TensorflowSpec  `json:"tensorflow,omitempty"`
