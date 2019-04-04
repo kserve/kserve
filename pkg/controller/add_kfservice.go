@@ -16,7 +16,7 @@ limitations under the License.
 
 package controller
 
-import kfservice "kfserving/pkg/controller/kfservice"
+import kfservice "github.com/kubeflow/kfserving/pkg/controller/kfservice"
 
 func init() {
 	// AddToManagerFuncs is a list of functions to create controllers and add them to a manager.
