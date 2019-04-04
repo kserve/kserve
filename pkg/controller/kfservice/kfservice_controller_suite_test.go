@@ -23,7 +23,7 @@ import (
 	"sync"
 	"testing"
 
-	"kfserving/pkg/apis"
+	"github.com/kubeflow/kfserving/pkg/apis"
 
 	"github.com/onsi/gomega"
 	"k8s.io/client-go/kubernetes/scheme"

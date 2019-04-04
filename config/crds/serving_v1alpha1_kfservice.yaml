@@ -28,6 +28,63 @@ spec:
           type: object
         spec:
           properties:
+            canary:
+              description: Optional Canary definition
+              properties:
+                custom:
+                  description: The following fields follow a "1-of" semantic. Users
+                    must specify exactly one spec.
+                  properties:
+                    container:
+                      type: object
+                  required:
+                  - container
+                  type: object
+                scikitLearn:
+                  properties:
+                    modelUri:
+                      type: string
+                    resources:
+                      description: Defaults to requests and limits of 1CPU, 2Gb MEM.
+                      type: object
+                    runtimeVersion:
+                      description: Defaults to latest ScikitLearn Version.
+                      type: string
+                  required:
+                  - modelUri
+                  type: object
+                tensorflow:
+                  properties:
+                    modelUri:
+                      type: string
+                    resources:
+                      description: Defaults to requests and limits of 1CPU, 2Gb MEM.
+                      type: object
+                    runtimeVersion:
+                      description: Defaults to latest TF Version.
+                      type: string
+                  required:
+                  - modelUri
+                  type: object
+                trafficPercent:
+                  format: int32
+                  type: integer
+                xgBoost:
+                  properties:
+                    modelUri:
+                      type: string
+                    resources:
+                      description: Defaults to requests and limits of 1CPU, 2Gb MEM.
+                      type: object
+                    runtimeVersion:
+                      description: Defaults to latest XGBoost Version.
+                      type: string
+                  required:
+                  - modelUri
+                  type: object
+              required:
+              - trafficPercent
+              type: object
             default:
               properties:
                 custom:
@@ -85,6 +142,10 @@ spec:
             minReplicas:
               format: int32
               type: integer
+          required:
+          - minReplicas
+          - maxReplicas
+          - default
           type: object
         status:
           properties:

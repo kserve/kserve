@@ -20,7 +20,7 @@ import (
 	"context"
 	"reflect"
 
-	servingv1alpha1 "kfserving/pkg/apis/serving/v1alpha1"
+	servingv1alpha1 "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"

@@ -20,9 +20,9 @@ import (
 	"flag"
 	"os"
 
-	"kfserving/pkg/apis"
-	"kfserving/pkg/controller"
-	"kfserving/pkg/webhook"
+	"github.com/kubeflow/kfserving/pkg/apis"
+	"github.com/kubeflow/kfserving/pkg/controller"
+	"github.com/kubeflow/kfserving/pkg/webhook"
 
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
