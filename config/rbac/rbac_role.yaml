@@ -5,9 +5,9 @@ metadata:
   name: manager-role
 rules:
 - apiGroups:
-  - apps
+  - serving.knative.dev
   resources:
-  - deployments
+  - services
   verbs:
   - get
   - list
@@ -17,9 +17,9 @@ rules:
   - patch
   - delete
 - apiGroups:
-  - apps
+  - serving.knative.dev
   resources:
-  - deployments/status
+  - services/status
   verbs:
   - get
   - update

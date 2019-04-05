@@ -22,6 +22,13 @@ import (
 )
 
 var (
+	// QueueLength is a prometheus metric which counts the current reconcile
+	// queue length per controller
+	QueueLength = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "controller_runtime_reconcile_queue_length",
+		Help: "Length of reconcile queue per controller",
+	}, []string{"controller"})
+
 	// ReconcileTotal is a prometheus counter metrics which holds the total
 	// number of reconciliations per controller. It has two labels. controller label refers
 	// to the controller name and result label refers to the reconcile result i.e
@@ -48,6 +55,7 @@ var (
 
 func init() {
 	metrics.Registry.MustRegister(
+		QueueLength,
 		ReconcileTotal,
 		ReconcileErrors,
 		ReconcileTime,

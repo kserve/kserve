@@ -26,7 +26,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/appscode/jsonpatch"
+	"github.com/mattbaird/jsonpatch"
 
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
