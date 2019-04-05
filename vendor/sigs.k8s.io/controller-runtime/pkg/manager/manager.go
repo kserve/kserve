@@ -118,29 +118,14 @@ type Options struct {
 	// for serving prometheus metrics
 	MetricsBindAddress string
 
-	// Functions to all for a user to customize the values that will be injected.
-
-	// NewCache is the function that will create the cache to be used
-	// by the manager. If not set this will use the default new cache function.
-	NewCache NewCacheFunc
-
-	// NewClient will create the client to be used by the manager.
-	// If not set this will create the default DelegatingClient that will
-	// use the cache for reads and the client for writes.
-	NewClient NewClientFunc
-
 	// Dependency injection for testing
+	newCache            func(config *rest.Config, opts cache.Options) (cache.Cache, error)
+	newClient           func(config *rest.Config, options client.Options) (client.Client, error)
 	newRecorderProvider func(config *rest.Config, scheme *runtime.Scheme, logger logr.Logger) (recorder.Provider, error)
 	newResourceLock     func(config *rest.Config, recorderProvider recorder.Provider, options leaderelection.Options) (resourcelock.Interface, error)
 	newAdmissionDecoder func(scheme *runtime.Scheme) (types.Decoder, error)
 	newMetricsListener  func(addr string) (net.Listener, error)
 }
-
-// NewCacheFunc allows a user to define how to create a cache
-type NewCacheFunc func(config *rest.Config, opts cache.Options) (cache.Cache, error)
-
-// NewClientFunc allows a user to define how to create a client
-type NewClientFunc func(cache cache.Cache, config *rest.Config, options client.Options) (client.Client, error)
 
 // Runnable allows a component to be started.
 type Runnable interface {
@@ -174,13 +159,14 @@ func New(config *rest.Config, options Options) (Manager, error) {
 		return nil, err
 	}
 
-	// Create the cache for the cached read client and registering informers
-	cache, err := options.NewCache(config, cache.Options{Scheme: options.Scheme, Mapper: mapper, Resync: options.SyncPeriod, Namespace: options.Namespace})
+	// Create the Client for Write operations.
+	writeObj, err := options.newClient(config, client.Options{Scheme: options.Scheme, Mapper: mapper})
 	if err != nil {
 		return nil, err
 	}
 
-	writeObj, err := options.NewClient(cache, config, client.Options{Scheme: options.Scheme, Mapper: mapper})
+	// Create the cache for the cached read client and registering informers
+	cache, err := options.newCache(config, cache.Options{Scheme: options.Scheme, Mapper: mapper, Resync: options.SyncPeriod, Namespace: options.Namespace})
 	if err != nil {
 		return nil, err
 	}
@@ -223,31 +209,20 @@ func New(config *rest.Config, options Options) (Manager, error) {
 		errChan:          make(chan error),
 		cache:            cache,
 		fieldIndexes:     cache,
-		client:           writeObj,
+		client: client.DelegatingClient{
+			Reader: &client.DelegatingReader{
+				CacheReader:  cache,
+				ClientReader: writeObj,
+			},
+			Writer:       writeObj,
+			StatusClient: writeObj,
+		},
 		recorderProvider: recorderProvider,
 		resourceLock:     resourceLock,
 		mapper:           mapper,
 		metricsListener:  metricsListener,
 		internalStop:     stop,
 		internalStopper:  stop,
-	}, nil
-}
-
-// defaultNewClient creates the default caching client
-func defaultNewClient(cache cache.Cache, config *rest.Config, options client.Options) (client.Client, error) {
-	// Create the Client for Write operations.
-	c, err := client.New(config, options)
-	if err != nil {
-		return nil, err
-	}
-
-	return &client.DelegatingClient{
-		Reader: &client.DelegatingReader{
-			CacheReader:  cache,
-			ClientReader: c,
-		},
-		Writer:       c,
-		StatusClient: c,
 	}, nil
 }
 
@@ -263,13 +238,13 @@ func setOptionsDefaults(options Options) Options {
 	}
 
 	// Allow newClient to be mocked
-	if options.NewClient == nil {
-		options.NewClient = defaultNewClient
+	if options.newClient == nil {
+		options.newClient = client.New
 	}
 
 	// Allow newCache to be mocked
-	if options.NewCache == nil {
-		options.NewCache = cache.New
+	if options.newCache == nil {
+		options.newCache = cache.New
 	}
 
 	// Allow newRecorderProvider to be mocked

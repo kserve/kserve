@@ -174,7 +174,6 @@ func CreateCRDs(config *rest.Config, crds []*apiextensionsv1beta1.CustomResource
 
 	// Create each CRD
 	for _, crd := range crds {
-		log.V(1).Info("installing CRD", "crd", crd)
 		if _, err := cs.ApiextensionsV1beta1().CustomResourceDefinitions().Create(crd); err != nil {
 			return err
 		}
@@ -187,7 +186,6 @@ func readCRDs(path string) ([]*apiextensionsv1beta1.CustomResourceDefinition, er
 	// Get the CRD files
 	var files []os.FileInfo
 	var err error
-	log.V(1).Info("reading CRDs from path", "path", path)
 	if files, err = ioutil.ReadDir(path); err != nil {
 		return nil, err
 	}
@@ -217,7 +215,6 @@ func readCRDs(path string) ([]*apiextensionsv1beta1.CustomResourceDefinition, er
 			continue
 		}
 
-		log.V(1).Info("read CRD from file", "file", file)
 		crds = append(crds, crd)
 	}
 	return crds, nil

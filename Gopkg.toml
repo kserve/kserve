@@ -18,20 +18,42 @@ required = [
 
 [prune]
   go-tests = true
-
-
-# STANZAS BELOW ARE GENERATED AND MAY BE WRITTEN - DO NOT MODIFY BELOW THIS LINE.
-
-[[constraint]]
-  name="sigs.k8s.io/controller-runtime"
-  version="v0.1.1"
-
-[[constraint]]
-  name="sigs.k8s.io/controller-tools"
-  version="v0.1.1"
+  unused-packages = true
+  non-go = true
 
 # For dependency below: Refer to issue https://github.com/golang/dep/issues/1799
 [[override]]
 name = "gopkg.in/fsnotify.v1"
 source = "https://github.com/fsnotify/fsnotify.git"
 version="v1.4.7"
+
+[[constraint]]
+  name = "github.com/knative/serving"
+  version = "v0.5.0"
+
+[[override]]
+  name="sigs.k8s.io/controller-runtime"
+  # 0.1.9 is most recent version that still uses K8s 1.12. 0.1.10 uses K8s 1.13.
+  version = "=v0.1.9"
+
+[[override]]
+  name = "github.com/knative/pkg"
+  # HEAD as of 2019-04-02
+  revision = "281cda84ceb316a70c2eafc5b3250a4b72c2d468"
+
+[[override]]
+  name = "k8s.io/api"
+  version = "kubernetes-1.12.6"
+
+[[override]]
+  name = "k8s.io/apimachinery"
+  version = "kubernetes-1.12.6"
+
+[[override]]
+  name = "k8s.io/code-generator"
+  version = "kubernetes-1.12.6"
+
+[[override]]
+  name = "k8s.io/client-go"
+  version = "kubernetes-1.12.6"
+
