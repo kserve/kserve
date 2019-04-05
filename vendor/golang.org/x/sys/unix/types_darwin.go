@@ -70,14 +70,14 @@ struct sockaddr_any {
 */
 import "C"
 
-// Machine characteristics
+// Machine characteristics; for internal use.
 
 const (
-	SizeofPtr      = C.sizeofPtr
-	SizeofShort    = C.sizeof_short
-	SizeofInt      = C.sizeof_int
-	SizeofLong     = C.sizeof_long
-	SizeofLongLong = C.sizeof_longlong
+	sizeofPtr      = C.sizeofPtr
+	sizeofShort    = C.sizeof_short
+	sizeofInt      = C.sizeof_int
+	sizeofLong     = C.sizeof_long
+	sizeofLongLong = C.sizeof_longlong
 )
 
 // Basic types
@@ -275,9 +275,3 @@ const (
 // uname
 
 type Utsname C.struct_utsname
-
-// Clockinfo
-
-const SizeofClockinfo = C.sizeof_struct_clockinfo
-
-type Clockinfo C.struct_clockinfo

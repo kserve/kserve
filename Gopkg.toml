@@ -57,8 +57,3 @@ version="v1.4.7"
   name = "k8s.io/client-go"
   version = "kubernetes-1.12.6"
 
-[[override]]
-  name = "github.com/rogpeppe/go-internal"
-  # HEAD as of 2019-01-09
-  # Needed because release 1.0.0 does not contain a LICENSE file
-  revision = "4bbc89b6501cca7dd6b5557d78d70c8d2c6e8b97"
