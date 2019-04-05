@@ -248,5 +248,6 @@ func (c *Controller) InjectFunc(f inject.Func) error {
 
 // updateMetrics updates prometheus metrics within the controller
 func (c *Controller) updateMetrics(reconcileTime time.Duration) {
+	ctrlmetrics.QueueLength.WithLabelValues(c.Name).Set(float64(c.Queue.Len()))
 	ctrlmetrics.ReconcileTime.WithLabelValues(c.Name).Observe(reconcileTime.Seconds())
 }
