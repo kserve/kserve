@@ -48,7 +48,6 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(SchemeGroupVersion,
 		&CustomResourceDefinition{},
 		&CustomResourceDefinitionList{},
-		&ConversionReview{},
 	)
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
 	return nil
