@@ -18,14 +18,16 @@ package service
 
 import (
 	"context"
-	"reflect"
+	"github.com/kubeflow/kfserving/pkg/reconciler/knservice"
+	"k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/client-go/tools/record"
 
 	knservingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	kfservingv1alpha1 "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -34,6 +36,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+)
+
+const (
+	ControllerName = "service-controller"
 )
 
 var log = logf.Log.WithName("controller")
@@ -51,13 +57,19 @@ func Add(mgr manager.Manager) error {
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
-	return &ReconcileService{Client: mgr.GetClient(), scheme: mgr.GetScheme()}
+	eventBroadcaster := record.NewBroadcaster()
+	return &ReconcileService{
+		Client: mgr.GetClient(),
+		scheme: mgr.GetScheme(),
+		Recorder: eventBroadcaster.NewRecorder(
+			mgr.GetScheme(), v1.EventSource{Component: ControllerName}),
+	}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Create a new controller
-	c, err := controller.New("service-controller", mgr, controller.Options{Reconciler: r})
+	c, err := controller.New(ControllerName, mgr, controller.Options{Reconciler: r})
 	if err != nil {
 		return err
 	}
@@ -85,7 +97,8 @@ var _ reconcile.Reconciler = &ReconcileService{}
 // ReconcileService reconciles a Service object
 type ReconcileService struct {
 	client.Client
-	scheme *runtime.Scheme
+	scheme   *runtime.Scheme
+	Recorder record.EventRecorder
 }
 
 // Reconcile reads that state of the cluster for a Service object and makes changes based on the state read
@@ -109,28 +122,37 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 	}
 
 	// TODO(@yuzisun): Define the desired service object
-	service := &knservingv1alpha1.Service{}
-	if err := controllerutil.SetControllerReference(instance, service, r.scheme); err != nil {
+	desiredService := &knservingv1alpha1.Service{}
+	if err := controllerutil.SetControllerReference(instance, desiredService, r.scheme); err != nil {
 		return reconcile.Result{}, err
 	}
 
-	found := &knservingv1alpha1.Service{}
-	err = r.Get(context.TODO(), types.NamespacedName{Name: service.Name, Namespace: service.Namespace}, found)
-	if err != nil && errors.IsNotFound(err) {
-		log.Info("Creating service", "namespace", service.Namespace, "name", service.Name)
-		err = r.Create(context.TODO(), service)
-		return reconcile.Result{}, err
-	} else if err != nil {
+	instanceAfterReconcile := instance.DeepCopy()
+	serviceReconciler := knservice.NewServiceReconcile(r.Client)
+	knService, err := serviceReconciler.Reconcile(context.TODO(), desiredService)
+	if err != nil {
+		log.Error(err, "Failed to reconcile knservice", "name", knService.Name)
+		r.Recorder.Eventf(instanceAfterReconcile, v1.EventTypeWarning, "InternalError", err.Error())
 		return reconcile.Result{}, err
 	}
+	instanceAfterReconcile.Status.URI.Internal = knService.Status.Address.Hostname
+	if equality.Semantic.DeepEqual(instance.Status, instanceAfterReconcile.Status) {
+		// If we didn't change anything then don't call updateStatus.
+		// This is important because the copy we loaded from the informer's
+		// cache may be stale and we don't want to overwrite a prior update
+		// to status with this stale state.
 
-	if !reflect.DeepEqual(service.Spec, found.Spec) {
-		found.Spec = service.Spec
-		log.Info("Updating service", "namespace", service.Namespace, "name", service.Name)
-		err = r.Update(context.TODO(), found)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
+	} else if uErr := r.Update(context.TODO(), instanceAfterReconcile); uErr != nil {
+		log.Error(uErr, "Failed to update kfservice status")
+		r.Recorder.Eventf(instanceAfterReconcile, v1.EventTypeWarning, "UpdateFailed",
+			"Failed to update status for Service %q: %v", instanceAfterReconcile.Name, uErr)
+		return reconcile.Result{}, uErr
+	} else if err == nil {
+		// If there was a difference and there was no error.
+		r.Recorder.Eventf(instanceAfterReconcile, v1.EventTypeNormal, "Updated", "Updated Service %q", instanceAfterReconcile.GetName())
+	}
+	if err != nil {
+		r.Recorder.Eventf(instanceAfterReconcile, v1.EventTypeWarning, "InternalError", err.Error())
 	}
 	return reconcile.Result{}, nil
 }
