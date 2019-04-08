@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"log"
 	"os"
 	"path/filepath"
@@ -37,6 +38,13 @@ func TestMain(m *testing.M) {
 	}
 
 	err := SchemeBuilder.AddToScheme(scheme.Scheme)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = v1alpha1.SchemeBuilder.AddToScheme(scheme.Scheme)
+
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -101,6 +101,14 @@ type StatusConfigurationSpec struct {
 
 // StatusConditionsSpec displays the current conditions of the resource.
 type StatusConditionsSpec struct {
+	// Conditions the latest available observations of a resource's current state.
+	// +optional
+	// +patchMergeKey=type
+	// +patchStrategy=merge
+	Conditions []Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
+}
+
+type Condition struct {
 	Type   ConditionType      `json:"type"`
 	Status v1.ConditionStatus `json:"status"`
 
@@ -121,7 +129,7 @@ type ConditionType string
 const (
 	Ready              ConditionType = "Ready"
 	RoutingReady       ConditionType = "RoutingReady"
-	ResourcesAvailable ConditionType = "ResourcesAvailabe"
+	ResourcesAvailable ConditionType = "ResourcesAvailable"
 	ContainerHealthy   ConditionType = "ContainerHealthy"
 	RevisionReady      ConditionType = "RevisionReady"
 )
