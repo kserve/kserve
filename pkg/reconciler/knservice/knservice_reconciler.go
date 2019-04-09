@@ -33,7 +33,7 @@ func (c *ServiceReconciler) Reconcile(ctx context.Context, desiredService *knser
 	if err != nil && errors.IsNotFound(err) {
 		log.Info("Creating service", "namespace", service.Namespace, "name", service.Name)
 		err = c.client.Create(context.TODO(), desiredService)
-		return nil, err
+		return desiredService, err
 	} else if err != nil {
 		return nil, err
 	}

@@ -19,6 +19,7 @@ package service
 import (
 	"context"
 	"github.com/kubeflow/kfserving/pkg/reconciler/knservice"
+	"github.com/kubeflow/kfserving/pkg/reconciler/knservice/resources"
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/client-go/tools/record"
@@ -39,7 +40,7 @@ import (
 )
 
 const (
-	ControllerName = "service-controller"
+	ControllerName = "kfserving-controller"
 )
 
 var log = logf.Log.WithName("controller")
@@ -121,38 +122,58 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 		return reconcile.Result{}, err
 	}
 
-	// TODO(@yuzisun): Define the desired service object
-	desiredService := &knservingv1alpha1.Service{}
+	desiredService, err := resources.CreateKnService(instance)
+	if err != nil {
+		log.Error(err, "Failed to create desired knservice", "name", desiredService.Name)
+		r.Recorder.Eventf(instance, v1.EventTypeWarning, "InternalError", err.Error())
+		return reconcile.Result{}, err
+	}
 	if err := controllerutil.SetControllerReference(instance, desiredService, r.scheme); err != nil {
 		return reconcile.Result{}, err
 	}
 
-	instanceAfterReconcile := instance.DeepCopy()
 	serviceReconciler := knservice.NewServiceReconcile(r.Client)
+
 	knService, err := serviceReconciler.Reconcile(context.TODO(), desiredService)
 	if err != nil {
-		log.Error(err, "Failed to reconcile knservice", "name", knService.Name)
-		r.Recorder.Eventf(instanceAfterReconcile, v1.EventTypeWarning, "InternalError", err.Error())
+		log.Error(err, "Failed to reconcile knservice", "name", desiredService.Name)
+		r.Recorder.Eventf(instance, v1.EventTypeWarning, "InternalError", err.Error())
 		return reconcile.Result{}, err
 	}
-	instanceAfterReconcile.Status.URI.Internal = knService.Status.Address.Hostname
-	if equality.Semantic.DeepEqual(instance.Status, instanceAfterReconcile.Status) {
-		// If we didn't change anything then don't call updateStatus.
-		// This is important because the copy we loaded from the informer's
-		// cache may be stale and we don't want to overwrite a prior update
-		// to status with this stale state.
-
-	} else if uErr := r.Update(context.TODO(), instanceAfterReconcile); uErr != nil {
-		log.Error(uErr, "Failed to update kfservice status")
-		r.Recorder.Eventf(instanceAfterReconcile, v1.EventTypeWarning, "UpdateFailed",
-			"Failed to update status for Service %q: %v", instanceAfterReconcile.Name, uErr)
-		return reconcile.Result{}, uErr
-	} else if err == nil {
-		// If there was a difference and there was no error.
-		r.Recorder.Eventf(instanceAfterReconcile, v1.EventTypeNormal, "Updated", "Updated Service %q", instanceAfterReconcile.GetName())
-	}
+    
+	err = r.updateStatus(instance, knService)
 	if err != nil {
-		r.Recorder.Eventf(instanceAfterReconcile, v1.EventTypeWarning, "InternalError", err.Error())
+		r.Recorder.Eventf(instance, v1.EventTypeWarning, "InternalError", err.Error())
 	}
 	return reconcile.Result{}, nil
+}
+
+func (r *ReconcileService) updateStatus(before *kfservingv1alpha1.KFService, knService *knservingv1alpha1.Service) error {
+	after := before.DeepCopy()
+	if knService.Status.Address != nil {
+		after.Status.URI.Internal = knService.Status.Address.Hostname
+	}
+	if before.Spec.Canary == nil ||
+		(before.Spec.Canary.TrafficPercent == 0 && before.Spec.Canary != nil) {
+		after.Status.Default.Name = knService.Status.LatestCreatedRevisionName
+	} else {
+		after.Status.Canary.Name = knService.Status.LatestCreatedRevisionName
+	}
+	if equality.Semantic.DeepEqual(before.Status, after.Status) {
+		// If we didn't change anything then don't call updateStatus.
+		// This is important because the copy we loaded from the informer's
+		// cache may be stale and we don't want to ove                                                                                                 rwrite a prior update
+		// to status with this stale state.
+
+	} else if err := r.Update(context.TODO(), after); err != nil {
+		log.Error(err, "Failed to update kfservice status")
+		r.Recorder.Eventf(after, v1.EventTypeWarning, "UpdateFailed",
+			"Failed to update status for Service %q: %v", after.Name, err)
+		return err
+	} else if err == nil {
+		// If there was a difference and there was no error.
+		r.Recorder.Eventf(after, v1.EventTypeNormal, "Updated", "Updated Service %q", after.GetName())
+	}
+
+	return nil
 }

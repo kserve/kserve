@@ -66,7 +66,7 @@ type XGBoostSpec struct {
 
 // ScikitLearnSpec defines arguments for configuring ScikitLearn model serving.
 type ScikitLearnSpec struct {
-	ModelURI string `json:"modelUri"`
+	ModelUri string `json:"modelUri"`
 	// Defaults to latest ScikitLearn Version.
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
 	// Defaults to requests and limits of 1CPU, 2Gb MEM.
