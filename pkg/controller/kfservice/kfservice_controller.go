@@ -18,8 +18,8 @@ package service
 
 import (
 	"context"
-	"github.com/kubeflow/kfserving/pkg/reconciler/knservice"
-	"github.com/kubeflow/kfserving/pkg/reconciler/knservice/resources"
+	"github.com/kubeflow/kfserving/pkg/reconciler/ksvc"
+	"github.com/kubeflow/kfserving/pkg/reconciler/ksvc/resources"
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/client-go/tools/record"
@@ -43,7 +43,7 @@ const (
 	ControllerName = "kfserving-controller"
 )
 
-var log = logf.Log.WithName("controller")
+var log = logf.Log.WithName(ControllerName)
 
 /**
 * USER ACTION REQUIRED: This is a scaffold file intended for the user to modify with their own Controller
@@ -110,8 +110,8 @@ type ReconcileService struct {
 // +kubebuilder:rbac:groups=kfserving.kubeflow.org,resources=services/status,verbs=get;update;patch
 func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	// Fetch the KFService instance
-	instance := &kfservingv1alpha1.KFService{}
-	err := r.Get(context.TODO(), request.NamespacedName, instance)
+	kfsvc := &kfservingv1alpha1.KFService{}
+	err := r.Get(context.TODO(), request.NamespacedName, kfsvc)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Object not found, return.  Created objects are automatically garbage collected.
@@ -122,51 +122,51 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 		return reconcile.Result{}, err
 	}
 
-	desiredService, err := resources.CreateKnService(instance)
+	desiredService, err := resources.CreateKnativeService(kfsvc)
 	if err != nil {
-		log.Error(err, "Failed to create desired knservice", "name", desiredService.Name)
-		r.Recorder.Eventf(instance, v1.EventTypeWarning, "InternalError", err.Error())
+		log.Error(err, "Failed to create desired ksvc", "name", desiredService.Name)
+		r.Recorder.Eventf(kfsvc, v1.EventTypeWarning, "InternalError", err.Error())
 		return reconcile.Result{}, err
 	}
-	if err := controllerutil.SetControllerReference(instance, desiredService, r.scheme); err != nil {
+	if err := controllerutil.SetControllerReference(kfsvc, desiredService, r.scheme); err != nil {
 		return reconcile.Result{}, err
 	}
 
-	serviceReconciler := knservice.NewServiceReconcile(r.Client)
+	serviceReconciler := ksvc.NewServiceReconciler(r.Client)
 
-	knService, err := serviceReconciler.Reconcile(context.TODO(), desiredService)
+	ksvc, err := serviceReconciler.Reconcile(context.TODO(), desiredService)
 	if err != nil {
-		log.Error(err, "Failed to reconcile knservice", "name", desiredService.Name)
-		r.Recorder.Eventf(instance, v1.EventTypeWarning, "InternalError", err.Error())
+		log.Error(err, "Failed to reconcile ksvc", "name", desiredService.Name)
+		r.Recorder.Eventf(kfsvc, v1.EventTypeWarning, "InternalError", err.Error())
 		return reconcile.Result{}, err
 	}
-    
-	err = r.updateStatus(instance, knService)
-	if err != nil {
-		r.Recorder.Eventf(instance, v1.EventTypeWarning, "InternalError", err.Error())
+
+	if err = r.updateStatus(kfsvc, ksvc); err != nil {
+		r.Recorder.Eventf(kfsvc, v1.EventTypeWarning, "InternalError", err.Error())
 	}
 	return reconcile.Result{}, nil
 }
 
-func (r *ReconcileService) updateStatus(before *kfservingv1alpha1.KFService, knService *knservingv1alpha1.Service) error {
+func (r *ReconcileService) updateStatus(before *kfservingv1alpha1.KFService, ksvc *knservingv1alpha1.Service) error {
 	after := before.DeepCopy()
-	if knService.Status.Address != nil {
-		after.Status.URI.Internal = knService.Status.Address.Hostname
+	if ksvc.Status.Address != nil {
+		after.Status.URI.Internal = ksvc.Status.Address.Hostname
 	}
 	if before.Spec.Canary == nil ||
 		(before.Spec.Canary.TrafficPercent == 0 && before.Spec.Canary != nil) {
-		after.Status.Default.Name = knService.Status.LatestCreatedRevisionName
+		after.Status.Default.Name = ksvc.Status.LatestCreatedRevisionName
+		after.Status.Canary.Name = ""
 	} else {
-		after.Status.Canary.Name = knService.Status.LatestCreatedRevisionName
+		after.Status.Canary.Name = ksvc.Status.LatestCreatedRevisionName
 	}
 	if equality.Semantic.DeepEqual(before.Status, after.Status) {
 		// If we didn't change anything then don't call updateStatus.
 		// This is important because the copy we loaded from the informer's
-		// cache may be stale and we don't want to ove                                                                                                 rwrite a prior update
+		// cache may be stale and we don't want to overwrite a prior update                                                                                               rwrite a prior update
 		// to status with this stale state.
 
 	} else if err := r.Update(context.TODO(), after); err != nil {
-		log.Error(err, "Failed to update kfservice status")
+		log.Error(err, "Failed to update kfsvc status")
 		r.Recorder.Eventf(after, v1.EventTypeWarning, "UpdateFailed",
 			"Failed to update status for Service %q: %v", after.Name, err)
 		return err

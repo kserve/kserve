@@ -1,10 +1,26 @@
+/*
+Copyright 2019 kubeflow.org.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package knservice
 
 import (
 	"context"
 	"github.com/google/go-cmp/cmp"
 	knservingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/kubeflow/kfserving/pkg/containers/tensorflow"
+	"github.com/kubeflow/kfserving/pkg/frameworks/tensorflow"
 	"github.com/onsi/gomega"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -27,7 +43,7 @@ func TestKnativeServiceReconcile(t *testing.T) {
 								Image:   "tensorflow/serving:1.13",
 								Command: []string{tensorflow.TensorflowEntrypointCommand},
 								Args: []string{
-									"--port=" + tensorflow.TensorflowServingPort,
+									"--port=" + tensorflow.TensorflowServingGRPCPort,
 									"--rest_api_port=" + tensorflow.TensorflowServingRestPort,
 									"--model_name=mnist",
 									"--model_base_path=s3://test/mnist/export",
@@ -62,7 +78,7 @@ func TestKnativeServiceReconcile(t *testing.T) {
 										Image:   "tensorflow/serving:1.13",
 										Command: []string{tensorflow.TensorflowEntrypointCommand},
 										Args: []string{
-											"--port=" + tensorflow.TensorflowServingPort,
+											"--port=" + tensorflow.TensorflowServingGRPCPort,
 											"--rest_api_port=" + tensorflow.TensorflowServingRestPort,
 											"--model_name=mnist",
 											"--model_base_path=s3://test/mnist/export",
@@ -92,7 +108,7 @@ func TestKnativeServiceReconcile(t *testing.T) {
 										Image:   "tensorflow/serving:1.13",
 										Command: []string{tensorflow.TensorflowEntrypointCommand},
 										Args: []string{
-											"--port=" + tensorflow.TensorflowServingPort,
+											"--port=" + tensorflow.TensorflowServingGRPCPort,
 											"--rest_api_port=" + tensorflow.TensorflowServingRestPort,
 											"--model_name=mnist",
 											"--model_base_path=s3://test/mnist-v2/export",
@@ -107,7 +123,7 @@ func TestKnativeServiceReconcile(t *testing.T) {
 		},
 	}
 
-	serviceReconciler := NewServiceReconcile(c)
+	serviceReconciler := NewServiceReconciler(c)
 	for name, scenario := range scenarios {
 		if scenario.update {
 			g.Expect(c.Create(context.TODO(), existingService)).NotTo(gomega.HaveOccurred())

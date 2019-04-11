@@ -48,7 +48,7 @@ type CanarySpec struct {
 
 // TensorflowSpec defines arguments for configuring Tensorflow model serving.
 type TensorflowSpec struct {
-	ModelUri string `json:"modelUri"`
+	ModelURI string `json:"modelUri"`
 	// Defaults to latest TF Version.
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
 	// Defaults to requests and limits of 1CPU, 2Gb MEM.
@@ -57,7 +57,7 @@ type TensorflowSpec struct {
 
 // XGBoostSpec defines arguments for configuring XGBoost model serving.
 type XGBoostSpec struct {
-	ModelUri string `json:"modelUri"`
+	ModelURI string `json:"modelUri"`
 	// Defaults to latest XGBoost Version.
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
 	// Defaults to requests and limits of 1CPU, 2Gb MEM.
@@ -66,7 +66,7 @@ type XGBoostSpec struct {
 
 // ScikitLearnSpec defines arguments for configuring ScikitLearn model serving.
 type ScikitLearnSpec struct {
-	ModelUri string `json:"modelUri"`
+	ModelURI string `json:"modelUri"`
 	// Defaults to latest ScikitLearn Version.
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
 	// Defaults to requests and limits of 1CPU, 2Gb MEM.

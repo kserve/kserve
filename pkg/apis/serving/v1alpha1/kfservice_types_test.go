@@ -25,7 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-func TestKfService(t *testing.T) {
+func TestKFService(t *testing.T) {
 	key := types.NamespacedName{
 		Name:      "foo",
 		Namespace: "default",
@@ -40,7 +40,7 @@ func TestKfService(t *testing.T) {
 			MaxReplicas: 3,
 			Default: ModelSpec{
 				Tensorflow: &TensorflowSpec{
-					ModelUri:       "s3://test/mnist/export",
+					ModelURI:       "s3://test/mnist/export",
 					RuntimeVersion: "1.13",
 				},
 			},
@@ -48,7 +48,7 @@ func TestKfService(t *testing.T) {
 				TrafficPercent: 20,
 				ModelSpec: ModelSpec{
 					Tensorflow: &TensorflowSpec{
-						ModelUri:       "s3://test/mnist-2/export",
+						ModelURI:       "s3://test/mnist-2/export",
 						RuntimeVersion: "1.13",
 					},
 				},

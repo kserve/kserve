@@ -18,7 +18,7 @@ package service
 
 import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/kubeflow/kfserving/pkg/containers/tensorflow"
+	"github.com/kubeflow/kfserving/pkg/frameworks/tensorflow"
 	"k8s.io/api/core/v1"
 	"testing"
 	"time"
@@ -46,7 +46,6 @@ var kfserviceKey = types.NamespacedName{Name: "foo", Namespace: "default"}
 const timeout = time.Second * 5
 
 func TestReconcile(t *testing.T) {
-	println("testing")
 	g := gomega.NewGomegaWithT(t)
 	instance := &servingv1alpha1.KFService{
 		ObjectMeta: metav1.ObjectMeta{
@@ -58,7 +57,7 @@ func TestReconcile(t *testing.T) {
 			MaxReplicas: 3,
 			Default: servingv1alpha1.ModelSpec{
 				Tensorflow: &servingv1alpha1.TensorflowSpec{
-					ModelUri:       "s3://test/mnist/export",
+					ModelURI:       "s3://test/mnist/export",
 					RuntimeVersion: "1.13",
 				},
 			},
@@ -80,7 +79,7 @@ func TestReconcile(t *testing.T) {
 								Image:   "tensorflow/serving:1.13",
 								Command: []string{tensorflow.TensorflowEntrypointCommand},
 								Args: []string{
-									"--port=" + tensorflow.TensorflowServingPort,
+									"--port=" + tensorflow.TensorflowServingGRPCPort,
 									"--rest_api_port=" + tensorflow.TensorflowServingRestPort,
 									"--model_name=foo",
 									"--model_base_path=s3://test/mnist/export",
@@ -158,7 +157,7 @@ func TestReconcile(t *testing.T) {
 		TrafficPercent: 20,
 		ModelSpec: servingv1alpha1.ModelSpec{
 			Tensorflow: &servingv1alpha1.TensorflowSpec{
-				ModelUri:       "s3://test/mnist-2/export",
+				ModelURI:       "s3://test/mnist-2/export",
 				RuntimeVersion: "1.13",
 			},
 		},
