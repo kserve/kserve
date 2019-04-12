@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	knservingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	stdlog "log"
 	"os"
 	"path/filepath"
@@ -39,9 +40,14 @@ func TestMain(m *testing.M) {
 	t := &envtest.Environment{
 		CRDDirectoryPaths: []string{filepath.Join("..", "..", "..", "config", "crds")},
 	}
-	apis.AddToScheme(scheme.Scheme)
-
-	var err error
+	err := apis.AddToScheme(scheme.Scheme)
+	if err != nil {
+		log.Error(err, "failed to add to scheme")
+	}
+	err = knservingv1alpha1.SchemeBuilder.AddToScheme(scheme.Scheme)
+	if err != nil {
+		log.Error(err, "failed to add kn service to scheme")
+	}
 	if cfg, err = t.Start(); err != nil {
 		stdlog.Fatal(err)
 	}

@@ -267,7 +267,7 @@
   revision = "281cda84ceb316a70c2eafc5b3250a4b72c2d468"
 
 [[projects]]
-  digest = "1:a9e1c051fce18116746655820d0ff3f15159dac0e6db9c4bf324543fe6760b5d"
+  digest = "1:064806c29b26a327b108454d29a5c40350a4719e6144e3429218d9cf6e4fb3b5"
   name = "github.com/knative/serving"
   packages = [
     "pkg/apis/autoscaling",
@@ -277,7 +277,7 @@
     "pkg/apis/serving",
     "pkg/apis/serving/v1alpha1",
   ]
-  pruneopts = "NUT"
+  pruneopts = "UT"
   revision = "ca4fffb4743924c58e98badcf5bd3f17a3634d43"
   version = "v0.5.0"
 
@@ -554,15 +554,15 @@
   revision = "9f3314589c9a9136388751d9adae6b0ed400978a"
 
 [[projects]]
-  branch = "release-branch.go1.11"
-  digest = "1:ec76a40fbfda0c329ee58f4e3b14b4279a939efce89eca020e934e2e5234eddd"
+  branch = "master"
+  digest = "1:27de45f3a245d407b62b2d4fb48b9e6e6dd45d06168c2168f8ffc9cd9a57b033"
   name = "golang.org/x/sys"
   packages = [
     "unix",
     "windows",
   ]
   pruneopts = "NUT"
-  revision = "98c5dad5d1a0e8a73845ecc8897d0bd56586511d"
+  revision = "4b34438f7a67ee5f45cc6132e2bad873a20324e9"
 
 [[projects]]
   digest = "1:8a12cbc891b7130d3f660f8a309e5c0b083f831e6ac38cdaa1f12e63c12d6bea"
@@ -609,7 +609,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:59b401940f79c311efa01c10e2fa8e78522a978538127f369fb39690a03c3eb4"
+  digest = "1:797d26136f04e8b3731c21e7ed71cd881d95325f46d81f8a6bc24b1c80cb0e8a"
   name = "golang.org/x/tools"
   packages = [
     "go/ast/astutil",
@@ -625,7 +625,7 @@
     "internal/semver",
   ]
   pruneopts = "NUT"
-  revision = "1058ed41f41a753118f11138e463285d488ceee9"
+  revision = "0fdf0c73855bae8482c5d3907a9e06f33ff70a10"
 
 [[projects]]
   digest = "1:a4824d8df1fd1f63c6b3690bf4801d6ff1722adcb3e13c0489196a7e248d868a"
@@ -1069,13 +1069,15 @@
   analyzer-version = 1
   input-imports = [
     "github.com/emicklei/go-restful",
+    "github.com/knative/pkg/apis/duck/v1alpha1",
+    "github.com/knative/pkg/kmp",
     "github.com/knative/serving/pkg/apis/serving/v1alpha1",
     "github.com/onsi/ginkgo",
     "github.com/onsi/gomega",
     "golang.org/x/net/context",
-    "k8s.io/api/apps/v1",
     "k8s.io/api/core/v1",
     "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1",
+    "k8s.io/apimachinery/pkg/api/equality",
     "k8s.io/apimachinery/pkg/api/errors",
     "k8s.io/apimachinery/pkg/apis/meta/v1",
     "k8s.io/apimachinery/pkg/runtime",
@@ -1084,6 +1086,7 @@
     "k8s.io/client-go/kubernetes/scheme",
     "k8s.io/client-go/plugin/pkg/client/auth/gcp",
     "k8s.io/client-go/rest",
+    "k8s.io/client-go/tools/record",
     "k8s.io/code-generator/cmd/client-gen",
     "k8s.io/code-generator/cmd/deepcopy-gen",
     "sigs.k8s.io/controller-runtime/pkg/client",

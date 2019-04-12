@@ -48,7 +48,7 @@ type CanarySpec struct {
 
 // TensorflowSpec defines arguments for configuring Tensorflow model serving.
 type TensorflowSpec struct {
-	ModelUri string `json:"modelUri"`
+	ModelURI string `json:"modelUri"`
 	// Defaults to latest TF Version.
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
 	// Defaults to requests and limits of 1CPU, 2Gb MEM.
@@ -57,7 +57,7 @@ type TensorflowSpec struct {
 
 // XGBoostSpec defines arguments for configuring XGBoost model serving.
 type XGBoostSpec struct {
-	ModelUri string `json:"modelUri"`
+	ModelURI string `json:"modelUri"`
 	// Defaults to latest XGBoost Version.
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
 	// Defaults to requests and limits of 1CPU, 2Gb MEM.
@@ -101,6 +101,14 @@ type StatusConfigurationSpec struct {
 
 // StatusConditionsSpec displays the current conditions of the resource.
 type StatusConditionsSpec struct {
+	// Conditions the latest available observations of a resource's current state.
+	// +optional
+	// +patchMergeKey=type
+	// +patchStrategy=merge
+	Conditions []Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
+}
+
+type Condition struct {
 	Type   ConditionType      `json:"type"`
 	Status v1.ConditionStatus `json:"status"`
 
@@ -121,7 +129,7 @@ type ConditionType string
 const (
 	Ready              ConditionType = "Ready"
 	RoutingReady       ConditionType = "RoutingReady"
-	ResourcesAvailable ConditionType = "ResourcesAvailabe"
+	ResourcesAvailable ConditionType = "ResourcesAvailable"
 	ContainerHealthy   ConditionType = "ContainerHealthy"
 	RevisionReady      ConditionType = "RevisionReady"
 )
