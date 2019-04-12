@@ -23,7 +23,6 @@ import (
 	knservingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/kubeflow/kfserving/pkg/apis"
 	"github.com/kubeflow/kfserving/pkg/controller"
-	"github.com/kubeflow/kfserving/pkg/webhook"
 
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
@@ -75,12 +74,6 @@ func main() {
 	log.Info("Setting up controller")
 	if err := controller.AddToManager(mgr); err != nil {
 		log.Error(err, "unable to register controllers to the manager")
-		os.Exit(1)
-	}
-
-	log.Info("setting up webhooks")
-	if err := webhook.AddToManager(mgr); err != nil {
-		log.Error(err, "unable to register webhooks to the manager")
 		os.Exit(1)
 	}
 
