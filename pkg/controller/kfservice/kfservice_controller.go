@@ -18,14 +18,17 @@ package service
 
 import (
 	"context"
-	"reflect"
+	"github.com/kubeflow/kfserving/pkg/reconciler/ksvc"
+	"github.com/kubeflow/kfserving/pkg/reconciler/ksvc/resources"
+	"k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/client-go/tools/record"
 
 	knservingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	kfservingv1alpha1 "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -36,7 +39,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
-var log = logf.Log.WithName("controller")
+const (
+	ControllerName = "kfserving-controller"
+)
+
+var log = logf.Log.WithName(ControllerName)
 
 /**
 * USER ACTION REQUIRED: This is a scaffold file intended for the user to modify with their own Controller
@@ -51,13 +58,19 @@ func Add(mgr manager.Manager) error {
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
-	return &ReconcileService{Client: mgr.GetClient(), scheme: mgr.GetScheme()}
+	eventBroadcaster := record.NewBroadcaster()
+	return &ReconcileService{
+		Client: mgr.GetClient(),
+		scheme: mgr.GetScheme(),
+		Recorder: eventBroadcaster.NewRecorder(
+			mgr.GetScheme(), v1.EventSource{Component: ControllerName}),
+	}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Create a new controller
-	c, err := controller.New("service-controller", mgr, controller.Options{Reconciler: r})
+	c, err := controller.New(ControllerName, mgr, controller.Options{Reconciler: r})
 	if err != nil {
 		return err
 	}
@@ -85,7 +98,8 @@ var _ reconcile.Reconciler = &ReconcileService{}
 // ReconcileService reconciles a Service object
 type ReconcileService struct {
 	client.Client
-	scheme *runtime.Scheme
+	scheme   *runtime.Scheme
+	Recorder record.EventRecorder
 }
 
 // Reconcile reads that state of the cluster for a Service object and makes changes based on the state read
@@ -96,8 +110,8 @@ type ReconcileService struct {
 // +kubebuilder:rbac:groups=kfserving.kubeflow.org,resources=services/status,verbs=get;update;patch
 func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	// Fetch the KFService instance
-	instance := &kfservingv1alpha1.KFService{}
-	err := r.Get(context.TODO(), request.NamespacedName, instance)
+	kfsvc := &kfservingv1alpha1.KFService{}
+	err := r.Get(context.TODO(), request.NamespacedName, kfsvc)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Object not found, return.  Created objects are automatically garbage collected.
@@ -108,29 +122,58 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 		return reconcile.Result{}, err
 	}
 
-	// TODO(@yuzisun): Define the desired service object
-	service := &knservingv1alpha1.Service{}
-	if err := controllerutil.SetControllerReference(instance, service, r.scheme); err != nil {
+	desiredService, err := resources.CreateKnativeService(kfsvc)
+	if err != nil {
+		log.Error(err, "Failed to create desired ksvc", "name", desiredService.Name)
+		r.Recorder.Eventf(kfsvc, v1.EventTypeWarning, "InternalError", err.Error())
+		return reconcile.Result{}, err
+	}
+	if err := controllerutil.SetControllerReference(kfsvc, desiredService, r.scheme); err != nil {
 		return reconcile.Result{}, err
 	}
 
-	found := &knservingv1alpha1.Service{}
-	err = r.Get(context.TODO(), types.NamespacedName{Name: service.Name, Namespace: service.Namespace}, found)
-	if err != nil && errors.IsNotFound(err) {
-		log.Info("Creating service", "namespace", service.Namespace, "name", service.Name)
-		err = r.Create(context.TODO(), service)
-		return reconcile.Result{}, err
-	} else if err != nil {
+	serviceReconciler := ksvc.NewServiceReconciler(r.Client)
+
+	ksvc, err := serviceReconciler.Reconcile(context.TODO(), desiredService)
+	if err != nil {
+		log.Error(err, "Failed to reconcile ksvc", "name", desiredService.Name)
+		r.Recorder.Eventf(kfsvc, v1.EventTypeWarning, "InternalError", err.Error())
 		return reconcile.Result{}, err
 	}
 
-	if !reflect.DeepEqual(service.Spec, found.Spec) {
-		found.Spec = service.Spec
-		log.Info("Updating service", "namespace", service.Namespace, "name", service.Name)
-		err = r.Update(context.TODO(), found)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
+	if err = r.updateStatus(kfsvc, ksvc); err != nil {
+		r.Recorder.Eventf(kfsvc, v1.EventTypeWarning, "InternalError", err.Error())
 	}
 	return reconcile.Result{}, nil
+}
+
+func (r *ReconcileService) updateStatus(before *kfservingv1alpha1.KFService, ksvc *knservingv1alpha1.Service) error {
+	after := before.DeepCopy()
+	if ksvc.Status.Address != nil {
+		after.Status.URI.Internal = ksvc.Status.Address.Hostname
+	}
+	if before.Spec.Canary == nil ||
+		(before.Spec.Canary.TrafficPercent == 0 && before.Spec.Canary != nil) {
+		after.Status.Default.Name = ksvc.Status.LatestCreatedRevisionName
+		after.Status.Canary.Name = ""
+	} else {
+		after.Status.Canary.Name = ksvc.Status.LatestCreatedRevisionName
+	}
+	if equality.Semantic.DeepEqual(before.Status, after.Status) {
+		// If we didn't change anything then don't call updateStatus.
+		// This is important because the copy we loaded from the informer's
+		// cache may be stale and we don't want to overwrite a prior update                                                                                               rwrite a prior update
+		// to status with this stale state.
+
+	} else if err := r.Update(context.TODO(), after); err != nil {
+		log.Error(err, "Failed to update kfsvc status")
+		r.Recorder.Eventf(after, v1.EventTypeWarning, "UpdateFailed",
+			"Failed to update status for Service %q: %v", after.Name, err)
+		return err
+	} else if err == nil {
+		// If there was a difference and there was no error.
+		r.Recorder.Eventf(after, v1.EventTypeNormal, "Updated", "Updated Service %q", after.GetName())
+	}
+
+	return nil
 }

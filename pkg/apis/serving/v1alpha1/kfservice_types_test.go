@@ -25,7 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-func TestStorageService(t *testing.T) {
+func TestKFService(t *testing.T) {
 	key := types.NamespacedName{
 		Name:      "foo",
 		Namespace: "default",
@@ -34,7 +34,27 @@ func TestStorageService(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "foo",
 			Namespace: "default",
-		}}
+		},
+		Spec: KFServiceSpec{
+			MinReplicas: 1,
+			MaxReplicas: 3,
+			Default: ModelSpec{
+				Tensorflow: &TensorflowSpec{
+					ModelURI:       "s3://test/mnist/export",
+					RuntimeVersion: "1.13",
+				},
+			},
+			Canary: &CanarySpec{
+				TrafficPercent: 20,
+				ModelSpec: ModelSpec{
+					Tensorflow: &TensorflowSpec{
+						ModelURI:       "s3://test/mnist-2/export",
+						RuntimeVersion: "1.13",
+					},
+				},
+			},
+		},
+	}
 	g := gomega.NewGomegaWithT(t)
 
 	// Test Create
@@ -51,6 +71,28 @@ func TestStorageService(t *testing.T) {
 
 	g.Expect(c.Get(context.TODO(), key, fetched)).NotTo(gomega.HaveOccurred())
 	g.Expect(fetched).To(gomega.Equal(updated))
+
+	// Test status update
+	statusUpdated := fetched.DeepCopy()
+	statusUpdated.Status = KFServiceStatus{
+		URI: URISpec{
+			Internal: "example.svc.cluster.local",
+			External: "example.dev.com",
+		},
+		Default: StatusConfigurationSpec{
+			Name:     "v1",
+			Traffic:  20,
+			Replicas: 2,
+		},
+		Canary: StatusConfigurationSpec{
+			Name:     "v2",
+			Traffic:  80,
+			Replicas: 3,
+		},
+	}
+	g.Expect(c.Update(context.TODO(), statusUpdated)).NotTo(gomega.HaveOccurred())
+	g.Expect(c.Get(context.TODO(), key, fetched)).NotTo(gomega.HaveOccurred())
+	g.Expect(fetched).To(gomega.Equal(statusUpdated))
 
 	// Test Delete
 	g.Expect(c.Delete(context.TODO(), fetched)).NotTo(gomega.HaveOccurred())
