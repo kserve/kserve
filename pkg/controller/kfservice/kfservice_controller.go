@@ -159,6 +159,15 @@ func (r *ReconcileService) updateStatus(before *kfservingv1alpha1.KFService, ksv
 	} else {
 		after.Status.Canary.Name = ksvc.Status.LatestCreatedRevisionName
 	}
+	for _, traffic := range ksvc.Status.Traffic {
+		switch traffic.RevisionName {
+		case after.Status.Default.Name:
+			after.Status.Default.Traffic = traffic.Percent
+		case after.Status.Canary.Name:
+			after.Status.Canary.Traffic = traffic.Percent
+		default:
+		}
+	}
 	if equality.Semantic.DeepEqual(before.Status, after.Status) {
 		// If we didn't change anything then don't call updateStatus.
 		// This is important because the copy we loaded from the informer's
