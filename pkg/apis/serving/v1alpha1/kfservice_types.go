@@ -1,12 +1,9 @@
 /*
 Copyright 2019 kubeflow.org.
-
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
-
     http://www.apache.org/licenses/LICENSE-2.0
-
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -21,10 +18,23 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// TFExampleKFService provides an example to the reader and may also be used by tests
+var TFExampleKFService = &KFService{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:      "foo",
+		Namespace: "default",
+	},
+	Spec: KFServiceSpec{
+		Default: ModelSpec{
+			Tensorflow: &TensorflowSpec{ModelURI: "gs://testbucket/testmodel"},
+		},
+	},
+}
+
 // KFServiceSpec defines the desired state of KFService
 type KFServiceSpec struct {
-	MinReplicas int32 `json:"minReplicas"`
-	MaxReplicas int32 `json:"maxReplicas"`
+	MinReplicas int `json:"minReplicas,omitempty"`
+	MaxReplicas int `json:"maxReplicas,omitempty"`
 
 	Default ModelSpec `json:"default"`
 	// Optional Canary definition
@@ -43,7 +53,7 @@ type ModelSpec struct {
 // CanarySpec defines an alternate configuration to route a percentage of traffic.
 type CanarySpec struct {
 	ModelSpec      `json:",inline"`
-	TrafficPercent int32 `json:"trafficPercent"`
+	TrafficPercent int `json:"trafficPercent"`
 }
 
 // TensorflowSpec defines arguments for configuring Tensorflow model serving.
@@ -108,6 +118,7 @@ type StatusConditionsSpec struct {
 	Conditions []Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
 }
 
+// Condition is a generic definition for Status Conditions of the resource.
 type Condition struct {
 	Type   ConditionType      `json:"type"`
 	Status v1.ConditionStatus `json:"status"`
