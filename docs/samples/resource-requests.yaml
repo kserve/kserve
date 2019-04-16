@@ -1,0 +1,15 @@
+apiVersion: "serving.kubeflow.org/v1alpha1"
+kind: "KFService"
+metadata:
+  name: "myModel"
+  annotations:
+    cloud.google.com/gke-accelerator: nvidia-tesla-t4
+spec:
+  default:
+    tensorflow:
+      modelUri: "gs://mybucket/mymodel"
+      resources:
+        requests:
+          memory: 1Gi
+          cpu: 400m
+          nvidia.com/gpu: 1
