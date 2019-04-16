@@ -1,0 +1,13 @@
+apiVersion: "serving.kubeflow.org/v1alpha1"
+kind: "KFService"
+metadata:
+  name: "myModel"
+spec:
+  default: 
+    tensorflow:
+      modelUri: "gs://mybucket/mymodel-2"
+  canary:
+    # Canary is created but no traffic is directly forwarded
+    trafficPercent: 0
+    tensorflow:
+      modelUri: "gs://mybucket/mymodel-3"
