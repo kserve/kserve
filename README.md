@@ -4,3 +4,5 @@ KF Serving provides a Custom Resource Definition for serving ML Models on arbitr
 A KFService encapsulates the complexity of autoscaling, networking, health checking, server configuration, and more, to provide customers with a simple and seamless experience when deploying models.
 
 In the future, we hope to support more advanced use cases such as skew detection, explainability, and performance profiling across infrastructure configurations.
+
+This project is an evolution of the original proposal: https://github.com/kubeflow/kubeflow/issues/2306
