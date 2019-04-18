@@ -124,7 +124,7 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 
 	desiredService, err := resources.CreateKnativeService(kfsvc)
 	if err != nil {
-		log.Error(err, "Failed to create desired ksvc", "name", desiredService.Name)
+		log.Error(err, "Failed to create desired Knative Serving Service", "name", kfsvc.Name)
 		r.Recorder.Eventf(kfsvc, v1.EventTypeWarning, "InternalError", err.Error())
 		return reconcile.Result{}, err
 	}
@@ -136,7 +136,7 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 
 	ksvc, err := serviceReconciler.Reconcile(context.TODO(), desiredService)
 	if err != nil {
-		log.Error(err, "Failed to reconcile ksvc", "name", desiredService.Name)
+		log.Error(err, "Failed to reconcile Knative Serving Service", "name", desiredService.Name)
 		r.Recorder.Eventf(kfsvc, v1.EventTypeWarning, "InternalError", err.Error())
 		return reconcile.Result{}, err
 	}
@@ -152,8 +152,7 @@ func (r *ReconcileService) updateStatus(before *kfservingv1alpha1.KFService, ksv
 	if ksvc.Status.Address != nil {
 		after.Status.URI.Internal = ksvc.Status.Address.Hostname
 	}
-	if before.Spec.Canary == nil ||
-		(before.Spec.Canary.TrafficPercent == 0 && before.Spec.Canary != nil) {
+	if before.Spec.Canary == nil || before.Spec.Canary.TrafficPercent == 0 {
 		after.Status.Default.Name = ksvc.Status.LatestCreatedRevisionName
 		after.Status.Canary.Name = ""
 	} else {
@@ -166,9 +165,9 @@ func (r *ReconcileService) updateStatus(before *kfservingv1alpha1.KFService, ksv
 		// to status with this stale state.
 
 	} else if err := r.Update(context.TODO(), after); err != nil {
-		log.Error(err, "Failed to update kfsvc status")
+		log.Error(err, "Failed to update KFService status")
 		r.Recorder.Eventf(after, v1.EventTypeWarning, "UpdateFailed",
-			"Failed to update status for Service %q: %v", after.Name, err)
+			"Failed to update status for KFService %q: %v", after.Name, err)
 		return err
 	} else if err == nil {
 		// If there was a difference and there was no error.
