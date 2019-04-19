@@ -165,9 +165,9 @@ func (r *ReconcileService) updateStatus(before *kfservingv1alpha1.KFService, ksv
 		// to status with this stale state.
 
 	} else if err := r.Update(context.TODO(), after); err != nil {
-		log.Error(err, "Failed to update KFService status")
+		log.Error(err, "Failed to update kfserving service status")
 		r.Recorder.Eventf(after, v1.EventTypeWarning, "UpdateFailed",
-			"Failed to update status for KFService %q: %v", after.Name, err)
+			"Failed to update status for kfserving service %q: %v", after.Name, err)
 		return err
 	} else if err == nil {
 		// If there was a difference and there was no error.
