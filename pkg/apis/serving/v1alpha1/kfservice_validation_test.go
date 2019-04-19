@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"k8s.io/api/core/v1"
 	"testing"
 
 	"github.com/onsi/gomega"
@@ -74,4 +75,18 @@ func TestBadReplicaValues(t *testing.T) {
 	kfsvc.Spec.MinReplicas = 2
 	kfsvc.Spec.MaxReplicas = 1
 	g.Expect(kfsvc.ValidateCreate()).Should(gomega.MatchError("MinReplicas cannot be greater than MaxReplicas"))
+}
+
+
+func TestCustomValueName(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	kfsvc := TFExampleKFService.DeepCopy()
+	kfsvc.Spec.Default.Tensorflow = nil
+	kfsvc.Spec.Default.Custom = &CustomSpec{
+		v1.Container{
+			Name:"foo",
+			Image:"custom:0.1",
+		},
+	}
+	g.Expect(kfsvc.ValidateCreate()).Should(gomega.MatchError("must not set the field(s): name"))
 }

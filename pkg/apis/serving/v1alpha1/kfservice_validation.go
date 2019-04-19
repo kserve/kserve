@@ -20,7 +20,9 @@ import (
 	"fmt"
 
 	runtime "k8s.io/apimachinery/pkg/runtime"
+	knserving "github.com/knative/serving/pkg/apis/serving"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 var logger = logf.Log.WithName("kfservice-validation")
@@ -56,6 +58,7 @@ func validateKFService(kfsvc *KFService) error {
 	if err := validateCanarySpec(kfsvc.Spec.Canary); err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -76,6 +79,12 @@ func validateDefaultSpec(defaultSpec ModelSpec) error {
 	if err := validateOneModelSpec(defaultSpec); err != nil {
 		return err
 	}
+	if defaultSpec.Custom != nil {
+		if err := validateContainer(defaultSpec.Custom); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -88,6 +97,11 @@ func validateCanarySpec(canarySpec *CanarySpec) error {
 	}
 	if canarySpec.TrafficPercent < 0 || canarySpec.TrafficPercent > 100 {
 		return fmt.Errorf("TrafficPercent must be between [0, 100]")
+	}
+	if canarySpec.Custom != nil {
+		if err := validateContainer(canarySpec.Custom); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -110,4 +124,9 @@ func validateOneModelSpec(modelSpec ModelSpec) error {
 		return fmt.Errorf("Exactly one of [Custom, Tensorflow, ScikitLearn, XGBoost] should be specified in ModelSpec")
 	}
 	return nil
+}
+
+
+func validateContainer(customSpec *CustomSpec) error {
+	return fmt.Errorf(knserving.ValidateContainer(customSpec.Container,sets.String{}).Error())
 }
