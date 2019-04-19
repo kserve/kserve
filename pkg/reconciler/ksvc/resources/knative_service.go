@@ -37,8 +37,7 @@ func CreateKnativeService(kfsvc *v1alpha1.KFService) (*knservingv1alpha1.Service
 	var revisions []string
 	container := &v1.Container{}
 	routingPercent := 0
-	if kfsvc.Spec.Canary == nil ||
-		(kfsvc.Spec.Canary.TrafficPercent == 0 && kfsvc.Spec.Canary != nil) {
+	if kfsvc.Spec.Canary == nil || kfsvc.Spec.Canary.TrafficPercent == 0 {
 		//TODO(@yuzisun) should we add model name to the spec, can be different than service name?
 		container = CreateModelServingContainer(kfsvc.Name, &kfsvc.Spec.Default)
 		revisions = []string{knservingv1alpha1.ReleaseLatestRevisionKeyword}
