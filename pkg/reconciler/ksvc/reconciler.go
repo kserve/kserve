@@ -48,9 +48,9 @@ func (c *ServiceReconciler) Reconcile(ctx context.Context, desiredService *knser
 	err := c.client.Get(context.TODO(), types.NamespacedName{Name: desiredService.Name, Namespace: desiredService.Namespace}, service)
 	if err != nil {
 		if errors.IsNotFound(err) {
-		  log.Info("Creating Knative Serving Service", "namespace", service.Namespace, "name", service.Name)
-		  err = c.client.Create(context.TODO(), desiredService)
-		  return desiredService, err
+			log.Info("Creating Knative Serving Service", "namespace", service.Namespace, "name", service.Name)
+			err = c.client.Create(context.TODO(), desiredService)
+			return desiredService, err
 		}
 		return nil, err
 	}
