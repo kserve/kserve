@@ -106,8 +106,8 @@ type ReconcileService struct {
 // and what is in the Service.Spec
 // +kubebuilder:rbac:groups=serving.knative.dev,resources=services,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=serving.knative.dev,resources=services/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=kfserving.kubeflow.org,resources=services,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=kfserving.kubeflow.org,resources=services/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=serving.kubeflow.org,resources=kfservices,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=serving.kubeflow.org,resources=kfservices/status,verbs=get;update;patch
 func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	// Fetch the KFService instance
 	kfsvc := &kfservingv1alpha1.KFService{}

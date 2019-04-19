@@ -10,3 +10,4 @@ spec:
       # Change the value of image field below to your controller image URL
       - image: kfserving-controller:latest
         name: manager
+        imagePullPolicy: IfNotPresent
