@@ -1,5 +1,5 @@
 # KFServing
-KFServing provides a [Custom Resource Definition](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/) for serving ML Models on arbitrary frameworks. It aims to solve majority of model serving use cases by providing performant, high abstraction interfaces for common ML frameworks like Tensorflow, XGBoost, ScikitLearn, PyTorch, and custom containers. Using KFServing you should be able to deploy, scale up or down to zero and perform A/B tests on your models in a consistent and standardized way.
+KFServing provides a [Custom Resource Definition](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/) for serving ML Models on arbitrary frameworks. It aims to solve 80% of model serving use cases by providing performant, high abstraction interfaces for common ML frameworks like Tensorflow, XGBoost, ScikitLearn, PyTorch, and custom containers. KFServing brings cutting edge serving features like Scale to Zero and Canary Rollouts to your ML deployments.
 
 A KFService encapsulates the complexity of autoscaling, networking, health checking, server configuration, and more, to provide customers with a simple and seamless experience when deploying models.
 
