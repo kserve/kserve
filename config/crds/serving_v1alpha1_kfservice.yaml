@@ -67,7 +67,7 @@ spec:
                   - modelUri
                   type: object
                 trafficPercent:
-                  format: int32
+                  format: int64
                   type: integer
                 xgBoost:
                   properties:
@@ -137,14 +137,12 @@ spec:
                   type: object
               type: object
             maxReplicas:
-              format: int32
+              format: int64
               type: integer
             minReplicas:
-              format: int32
+              format: int64
               type: integer
           required:
-          - minReplicas
-          - maxReplicas
           - default
           type: object
         status:
