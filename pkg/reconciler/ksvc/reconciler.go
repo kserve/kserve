@@ -46,11 +46,12 @@ func NewServiceReconciler(client client.Client) *ServiceReconciler {
 func (c *ServiceReconciler) Reconcile(ctx context.Context, desiredService *knservingv1alpha1.Service) (*knservingv1alpha1.Service, error) {
 	service := &knservingv1alpha1.Service{}
 	err := c.client.Get(context.TODO(), types.NamespacedName{Name: desiredService.Name, Namespace: desiredService.Namespace}, service)
-	if err != nil && errors.IsNotFound(err) {
-		log.Info("Creating service", "namespace", service.Namespace, "name", service.Name)
-		err = c.client.Create(context.TODO(), desiredService)
-		return desiredService, err
-	} else if err != nil {
+	if err != nil {
+		if errors.IsNotFound(err) {
+		  log.Info("Creating Knative Serving Service", "namespace", service.Namespace, "name", service.Name)
+		  err = c.client.Create(context.TODO(), desiredService)
+		  return desiredService, err
+		}
 		return nil, err
 	}
 

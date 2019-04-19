@@ -107,7 +107,7 @@ func validateOneModelSpec(modelSpec ModelSpec) error {
 		count++
 	}
 	if count != 1 {
-		return fmt.Errorf("Exactly one of [Custom, Tensorflow, ScikitLearn, XGBoost] may be specified in ModelSpec")
+		return fmt.Errorf("Exactly one of [Custom, Tensorflow, ScikitLearn, XGBoost] should be specified in ModelSpec")
 	}
 	return nil
 }
