@@ -1,10 +1,10 @@
 # Data Plane Specification
 
-This document is a work in progress to disucss the data plane requirements for machine learning serving.
+This document is a work in progress to discuss the data plane requirements for machine learning serving.
 
 Its aims:
 
- * Provide a set of schemas for generic machine learning  components, such as model servers, explainers, outlier detectors.
+ * Provide a set of schemas for generic machine learning  components, such as predictors, explainers, outlier detectors.
  * Provide a set of proposals for components to advertise the schemas they support.
 
 ## Data Plane Schemas
@@ -43,8 +43,18 @@ TODO
 
 ## Combined Schema
 
-There is an open question whether we define a combined schema to return the aggregation from the various components or we assume only the model response is returned and other components (model explanation etc) return their response asychronously to some metrics/logging channel.
+There is an open question whether we define a combined schema to return the aggregation from the various components or we assume only the model response is returned and other components (model explanation etc) return their response asynchronously to some metrics/logging channel.
 
+The control plane will allow switching off/on of components so a synchronous response could provide some subset of all data payloads, e.g. prediction, explanation. In proto buffers representation a combined payload could look like:
+
+```
+message KFServing {
+  KFPrediction prediction = 1;
+  KFExplanation explanation = 2;
+  KFOutlier outlier = 3;
+  KFSkew skew = 4;
+}
+```
 
 ## Metadata
 
@@ -56,5 +66,5 @@ It unclear whether we should impose any other metadata.
 
 Components should be able to advertise what schemas they respect to allow the control plane to do static validation. Static validation will be important if we allow pipelines of components in future.
 
-KNative has a [propsoal](https://github.com/knative/eventing/blob/6155ebb1f662e7d8930d27d3446e47103bde5c85/docs/registry/README.md) in the context of KNative eventing.
+KNative has a [proposal](https://github.com/knative/eventing/blob/6155ebb1f662e7d8930d27d3446e47103bde5c85/docs/registry/README.md) in the context of KNative eventing.
 

@@ -126,7 +126,7 @@ status:
 ```
 
 ### Conditions
-Conditions provide realtime feedback to users on the underlying state of their deployment. As the feature set of Service grows, additional Conditions will be added to the set. We will use the convention of positive-true conditions; the resource is healthy if there are no conditions who's status is False. If no conditions are present on the resource (e.g. Ready is not present), the resource is not healthy. Only one condition for each type can be available.  
+Conditions provide realtime feedback to users on the underlying state of their deployment. As the feature set of Service grows, additional Conditions will be added to the set. We will use the convention of positive-true conditions; the resource is healthy if there are no conditions whose status is False. If no conditions are present on the resource (e.g. Ready is not present), the resource is not healthy. Only one condition for each type can be available.  
 
 | Type        | Description |
 | ----------- | ----------- | 
