@@ -1,24 +1,24 @@
 # Data Plane Specification
 
-This document is a work in progress to discuss the data plane requirements for machine learning serving.
+This document is a work in progress to discuss the data plane requirements for machine learning inference.
 
 Its aims:
 
- * Provide a set of schemas for generic machine learning  components, such as predictors, explainers, outlier detectors.
+ * Provide a set of schemas for machine learning inference including the predictor and associated components such as model explainers, outlier and skew detectors.
  * Provide a set of proposals for components to advertise the schemas they support.
 
 ## Data Plane Schemas
 
-There are various components that are useful for ML inference, these include
+There are various components that are useful for machine learning inference, these include
 
- * The core machine learning model
+ * The core predictor
  * Model explanation
  * Outlier detection
  * Concept drift (skew) detection
 
-Schemas will be needed for each.
+Schemas will be needed for each. The aim is to provide a set of schemas for the core predictive model along with associated schemas for the most common tasks in helping data scientists, users and devops teams monitor and understand the running model.
 
-### Models
+### Predictors
 
 Data planes for request/response to machine learning models are the most well defined in the ecosystem. Existing examples are:
 
