@@ -27,6 +27,15 @@ var logger = logf.Log.WithName("kfservice-validation")
 
 // ValidateCreate implements https://godoc.org/sigs.k8s.io/controller-runtime/pkg/webhook/admission#Validator
 func (kfsvc *KFService) ValidateCreate() error {
+	return kfsvc.validate()
+}
+
+// ValidateUpdate implements https://godoc.org/sigs.k8s.io/controller-runtime/pkg/webhook/admission#Validator
+func (kfsvc *KFService) ValidateUpdate(old runtime.Object) error {
+	return kfsvc.validate()
+}
+
+func (kfsvc *KFService) validate() error {
 	logger.Info("Validating KFService", "namespace", kfsvc.Namespace, "name", kfsvc.Name)
 	if err := validateKFService(kfsvc); err != nil {
 		logger.Info("Failed to validate KFService", "namespace", kfsvc.Namespace, "name", kfsvc.Name, err.Error())
@@ -34,11 +43,6 @@ func (kfsvc *KFService) ValidateCreate() error {
 	}
 	logger.Info("Successfully validated KFService", "namespace", kfsvc.Namespace, "name", kfsvc.Name)
 	return nil
-}
-
-// ValidateUpdate implements https://godoc.org/sigs.k8s.io/controller-runtime/pkg/webhook/admission#Validator
-func (kfsvc *KFService) ValidateUpdate(old runtime.Object) error {
-	return kfsvc.ValidateCreate()
 }
 
 func validateKFService(kfsvc *KFService) error {
