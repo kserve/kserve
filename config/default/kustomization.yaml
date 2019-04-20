@@ -6,7 +6,7 @@ namespace: kubeflow-system
 # "wordpress" becomes "alices-wordpress".
 # Note that it should also match with the prefix (text before '-') of the namespace
 # field above.
-namePrefix: kubeflow-
+namePrefix: kfserving-
 
 # Labels to add to all resources and selectors.
 #commonLabels:

@@ -25,13 +25,20 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"github.com/kubeflow/kfserving/pkg/apis/serving"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/runtime/scheme"
 )
 
 var (
+	// KFServiceAPIName is the name of the API for KFService objects
+	KFServiceAPIName = "kfservices"
+
+	// APIVersion is the current API version used to register these objects
+	APIVersion = "v1alpha1"
+
 	// SchemeGroupVersion is group version used to register these objects
-	SchemeGroupVersion = schema.GroupVersion{Group: "serving.kubeflow.org", Version: "v1alpha1"}
+	SchemeGroupVersion = schema.GroupVersion{Group: serving.APIGroupName, Version: APIVersion}
 
 	// SchemeBuilder is used to add go types to the GroupVersionKind scheme
 	SchemeBuilder = &scheme.Builder{GroupVersion: SchemeGroupVersion}
