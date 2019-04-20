@@ -66,5 +66,5 @@ It unclear whether we should impose any other metadata.
 
 Components should be able to advertise what schemas they respect to allow the control plane to do static validation. Static validation will be important if we allow pipelines of components in future.
 
-KNative has a [proposal](https://github.com/knative/eventing/blob/6155ebb1f662e7d8930d27d3446e47103bde5c85/docs/registry/README.md) in the context of KNative eventing.
+Knative has a [proposal](https://github.com/knative/eventing/blob/6155ebb1f662e7d8930d27d3446e47103bde5c85/docs/registry/README.md) in the context of Knative eventing.
 
