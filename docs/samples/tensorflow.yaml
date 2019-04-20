@@ -1,7 +1,7 @@
 apiVersion: "serving.kubeflow.org/v1alpha1"
 kind: "KFService"
 metadata:
-  name: "myModel"
+  name: "my-model"
 spec:
   default:
     tensorflow:

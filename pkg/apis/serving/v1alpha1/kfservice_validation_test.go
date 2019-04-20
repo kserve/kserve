@@ -26,13 +26,13 @@ func TestRejectMultipleModelSpecs(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	kfsvc := TFExampleKFService.DeepCopy()
 	kfsvc.Spec.Default.ScikitLearn = &ScikitLearnSpec{ModelURI: "gs://testbucket/testmodel"}
-	g.Expect(kfsvc.ValidateCreate()).Should(gomega.MatchError("Exactly one of [Custom, Tensorflow, ScikitLearn, XGBoost] may be specified in ModelSpec"))
+	g.Expect(kfsvc.ValidateCreate()).Should(gomega.MatchError("Exactly one of [Custom, Tensorflow, ScikitLearn, XGBoost] should be specified in ModelSpec"))
 }
 func TestRejectModelSpecMissing(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	kfsvc := TFExampleKFService.DeepCopy()
 	kfsvc.Spec.Default.Tensorflow = nil
-	g.Expect(kfsvc.ValidateCreate()).Should(gomega.MatchError("Exactly one of [Custom, Tensorflow, ScikitLearn, XGBoost] may be specified in ModelSpec"))
+	g.Expect(kfsvc.ValidateCreate()).Should(gomega.MatchError("Exactly one of [Custom, Tensorflow, ScikitLearn, XGBoost] should be specified in ModelSpec"))
 }
 func TestRejectMultipleCanaryModelSpecs(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
@@ -41,14 +41,14 @@ func TestRejectMultipleCanaryModelSpecs(t *testing.T) {
 		ScikitLearn: &ScikitLearnSpec{ModelURI: "gs://testbucket/testmodel"},
 		Tensorflow:  kfsvc.Spec.Default.Tensorflow,
 	}}
-	g.Expect(kfsvc.ValidateCreate()).Should(gomega.MatchError("Exactly one of [Custom, Tensorflow, ScikitLearn, XGBoost] may be specified in ModelSpec"))
+	g.Expect(kfsvc.ValidateCreate()).Should(gomega.MatchError("Exactly one of [Custom, Tensorflow, ScikitLearn, XGBoost] should be specified in ModelSpec"))
 }
 
 func TestRejectCanaryModelSpecMissing(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	kfsvc := TFExampleKFService.DeepCopy()
 	kfsvc.Spec.Canary = &CanarySpec{ModelSpec: ModelSpec{}}
-	g.Expect(kfsvc.ValidateCreate()).Should(gomega.MatchError("Exactly one of [Custom, Tensorflow, ScikitLearn, XGBoost] may be specified in ModelSpec"))
+	g.Expect(kfsvc.ValidateCreate()).Should(gomega.MatchError("Exactly one of [Custom, Tensorflow, ScikitLearn, XGBoost] should be specified in ModelSpec"))
 }
 
 func TestRejectBadCanaryTrafficValues(t *testing.T) {

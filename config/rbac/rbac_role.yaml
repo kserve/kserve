@@ -25,7 +25,52 @@ rules:
   - update
   - patch
 - apiGroups:
-  - kfserving.kubeflow.org
+  - serving.kubeflow.org
+  resources:
+  - kfservices
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - serving.kubeflow.org
+  resources:
+  - kfservices/status
+  verbs:
+  - get
+  - update
+  - patch
+- apiGroups:
+  - admissionregistration.k8s.io
+  resources:
+  - mutatingwebhookconfigurations
+  - validatingwebhookconfigurations
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - ""
   resources:
   - services
   verbs:
@@ -36,11 +81,3 @@ rules:
   - update
   - patch
   - delete
-- apiGroups:
-  - kfserving.kubeflow.org
-  resources:
-  - services/status
-  verbs:
-  - get
-  - update
-  - patch

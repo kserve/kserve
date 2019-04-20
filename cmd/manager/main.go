@@ -23,7 +23,7 @@ import (
 	knservingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/kubeflow/kfserving/pkg/apis"
 	"github.com/kubeflow/kfserving/pkg/controller"
-
+	"github.com/kubeflow/kfserving/pkg/webhook"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -39,7 +39,7 @@ func main() {
 	log := logf.Log.WithName("entrypoint")
 
 	// Get a config to talk to the apiserver
-	log.Info("setting up client for manager")
+	log.Info("Setting up client for manager")
 	cfg, err := config.GetConfig()
 	if err != nil {
 		log.Error(err, "unable to set up client config")
@@ -47,7 +47,7 @@ func main() {
 	}
 
 	// Create a new Cmd to provide shared dependencies and start components
-	log.Info("setting up manager")
+	log.Info("Setting up manager")
 	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: metricsAddr})
 	if err != nil {
 		log.Error(err, "unable to set up overall controller manager")
@@ -57,14 +57,14 @@ func main() {
 	log.Info("Registering Components.")
 
 	// Setup Scheme for all resources
-	log.Info("setting up scheme")
+	log.Info("Setting up scheme")
 	if err := apis.AddToScheme(mgr.GetScheme()); err != nil {
 		log.Error(err, "unable add APIs to scheme")
 		os.Exit(1)
 	}
 
 	// Setup Scheme for all resources
-	log.Info("setting up Knative scheme")
+	log.Info("Setting up Knative scheme")
 	if err := knservingv1alpha1.AddToScheme(mgr.GetScheme()); err != nil {
 		log.Error(err, "unable add Knative APIs to scheme")
 		os.Exit(1)
@@ -74,6 +74,12 @@ func main() {
 	log.Info("Setting up controller")
 	if err := controller.AddToManager(mgr); err != nil {
 		log.Error(err, "unable to register controllers to the manager")
+		os.Exit(1)
+	}
+
+	log.Info("Setting up webhooks")
+	if err := webhook.AddToManager(mgr); err != nil {
+		log.Error(err, "unable to register webhooks to the manager")
 		os.Exit(1)
 	}
 
