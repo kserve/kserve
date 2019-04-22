@@ -20,7 +20,7 @@ import (
 	knservingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 	"github.com/kubeflow/kfserving/pkg/frameworks/tensorflow"
-	v1 "k8s.io/api/core/v1"
+	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -41,7 +41,6 @@ func CreateKnativeService(kfsvc *v1alpha1.KFService) (*knservingv1alpha1.Service
 		//TODO(@yuzisun) should we add model name to the spec, can be different than service name?
 		container = CreateModelServingContainer(kfsvc.Name, &kfsvc.Spec.Default)
 		revisions = []string{knservingv1alpha1.ReleaseLatestRevisionKeyword}
-		routingPercent = 0
 	} else {
 		container = CreateModelServingContainer(kfsvc.Name, &kfsvc.Spec.Canary.ModelSpec)
 		revisions = []string{kfsvc.Status.Default.Name, knservingv1alpha1.ReleaseLatestRevisionKeyword}

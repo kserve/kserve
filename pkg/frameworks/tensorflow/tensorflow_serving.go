@@ -25,12 +25,13 @@ const (
 	TensorflowEntrypointCommand = "/usr/bin/tensorflow_model_server"
 	TensorflowServingGRPCPort   = "9000"
 	TensorflowServingRestPort   = "8080"
+	TensorflowServingImageName  = "tensorflow/serving"
 )
 
 func CreateTensorflowContainer(modelName string, tfSpec *v1alpha1.TensorflowSpec) *v1.Container {
 	//TODO(@yuzisun) add configmap for image, default resources, readiness/liveness probe
 	return &v1.Container{
-		Image:   "tensorflow/serving:" + tfSpec.RuntimeVersion,
+		Image:   TensorflowServingImageName + ":" + tfSpec.RuntimeVersion,
 		Command: []string{TensorflowEntrypointCommand},
 		Args: []string{
 			"--port=" + TensorflowServingGRPCPort,
