@@ -52,12 +52,16 @@ func AddToManager(manager manager.Manager) error {
 	if err := register(manager, server); err != nil {
 		return err
 	}
+
 	return nil
 }
 
+// In 1.13, replace with the following webhook generators: ValidatingWebhookFor, DefaultingWebhookFor
+// https://github.com/kubernetes-sigs/controller-runtime/blob/master/pkg/webhook/admission/validator.go#L35
+// https://github.com/kubernetes-sigs/controller-runtime/blob/master/pkg/webhook/admission/defaulter.go#L34
 func register(manager manager.Manager, server *webhook.Server) error {
 	return server.Register(&admission.Webhook{
-		Name: KFServingWebhookServerName + serving.APIGroupName,
+		Name: KFServingWebhookServerName + serving.APIGroupName + "-validator",
 		Type: webooktypes.WebhookTypeValidating,
 		Rules: []v1beta1.RuleWithOperations{{
 			Operations: []v1beta1.OperationType{
@@ -72,6 +76,26 @@ func register(manager manager.Manager, server *webhook.Server) error {
 		}},
 		Handlers: []admission.Handler{
 			&kfservice.Validator{
+				Client:  manager.GetClient(),
+				Decoder: manager.GetAdmissionDecoder(),
+			},
+		},
+	}, &admission.Webhook{
+		Name: KFServingWebhookServerName + serving.APIGroupName + "-defaulter",
+		Type: webooktypes.WebhookTypeMutating,
+		Rules: []v1beta1.RuleWithOperations{{
+			Operations: []v1beta1.OperationType{
+				v1beta1.Create,
+				v1beta1.Update,
+			},
+			Rule: v1beta1.Rule{
+				APIGroups:   []string{serving.APIGroupName},
+				APIVersions: []string{v1alpha1.APIVersion},
+				Resources:   []string{v1alpha1.KFServiceAPIName},
+			},
+		}},
+		Handlers: []admission.Handler{
+			&kfservice.Defaulter{
 				Client:  manager.GetClient(),
 				Decoder: manager.GetAdmissionDecoder(),
 			},
