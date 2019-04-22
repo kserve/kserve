@@ -20,10 +20,7 @@ import (
 	"fmt"
 
 	runtime "k8s.io/apimachinery/pkg/runtime"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
-
-var logger = logf.Log.WithName("kfservice-validation")
 
 // ValidateCreate implements https://godoc.org/sigs.k8s.io/controller-runtime/pkg/webhook/admission#Validator
 func (kfsvc *KFService) ValidateCreate() error {
