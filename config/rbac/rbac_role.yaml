@@ -25,9 +25,9 @@ rules:
   - update
   - patch
 - apiGroups:
-  - kfserving.kubeflow.org
+  - serving.kubeflow.org
   resources:
-  - services
+  - kfservices
   verbs:
   - get
   - list
@@ -37,9 +37,9 @@ rules:
   - patch
   - delete
 - apiGroups:
-  - kfserving.kubeflow.org
+  - serving.kubeflow.org
   resources:
-  - services/status
+  - kfservices/status
   verbs:
   - get
   - update

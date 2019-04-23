@@ -25,6 +25,18 @@ deploy: manifests
 	kubectl apply -f config/crds
 	kustomize build config/default | kubectl apply -f -
 
+deploy-dev: manifests
+	kubectl apply -f config/crds
+	kustomize build config/overlays/development | kubectl apply -f -
+
+undeploy: manifests
+	kustomize build config/default | kubectl delete -f -
+	kubectl delete -f config/crds
+
+undeploy-dev: manifests
+	kustomize build config/overlays/development | kubectl delete -f -
+	kubectl delete -f config/crds
+
 # Generate manifests e.g. CRD, RBAC etc.
 manifests:
 	go run vendor/sigs.k8s.io/controller-tools/cmd/controller-gen/main.go all
