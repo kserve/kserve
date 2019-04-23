@@ -16,7 +16,3 @@ limitations under the License.
 
 // Package serving contains serving API versions
 package serving
-
-var (
-	APIGroupName = "serving.kubeflow.org"
-)

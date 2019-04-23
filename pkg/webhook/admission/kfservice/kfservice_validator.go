@@ -24,7 +24,7 @@ func (validator *Validator) Handle(ctx context.Context, req admissiontypes.Reque
 	kfsvc := &kfservingv1alpha1.KFService{}
 
 	if err := validator.Decoder.Decode(req, kfsvc); err != nil {
-		return admission.ErrorResponse(http.StatusBadRequest, err)
+		return admission.ErrorResponse(http.StatusInternalServerError, err)
 	}
 
 	if err := kfsvc.ValidateCreate(); err != nil {

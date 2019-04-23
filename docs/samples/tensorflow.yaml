@@ -6,6 +6,3 @@ spec:
   default:
     tensorflow:
       modelUri: "gs://mybucket/mymodel"
-      resources:
-        requests:
-          cpu: 2
