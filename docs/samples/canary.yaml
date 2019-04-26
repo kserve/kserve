@@ -1,7 +1,7 @@
 apiVersion: "serving.kubeflow.org/v1alpha1"
 kind: "KFService"
 metadata:
-  name: "myModel"
+  name: "my-model"
 spec:
   default: 
     # 90% of traffic is sent to this model

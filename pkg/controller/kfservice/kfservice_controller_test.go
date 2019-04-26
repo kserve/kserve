@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/frameworks/tensorflow"
 	"k8s.io/api/core/v1"
 	"testing"
@@ -40,15 +41,21 @@ var c client.Client
 const timeout = time.Second * 5
 
 var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: "foo", Namespace: "default"}}
-var serviceKey = types.NamespacedName{Name: "foo", Namespace: "default"}
+var serviceKey = expectedRequest.NamespacedName
+var configurationKey = types.NamespacedName{Name: constants.MakeDefaultConfigurationName(serviceKey.Name),
+	Namespace: serviceKey.Namespace}
 
-var expectedCanaryRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: "foo-canary", Namespace: "default"}}
-var canaryKey = types.NamespacedName{Name: "foo-canary", Namespace: "default"}
+var expectedCanaryRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: "bar", Namespace: "default"}}
+var canaryServiceKey = expectedCanaryRequest.NamespacedName
+var defaultConfigurationKey = types.NamespacedName{Name: constants.MakeDefaultConfigurationName(canaryServiceKey.Name),
+	Namespace: canaryServiceKey.Namespace}
+var canaryConfigurationKey = types.NamespacedName{Name: constants.MakeCanaryConfigurationName(canaryServiceKey.Name),
+	Namespace: canaryServiceKey.Namespace}
 
 var instance = &servingv1alpha1.KFService{
 	ObjectMeta: metav1.ObjectMeta{
-		Name:      "foo",
-		Namespace: "default",
+		Name:      serviceKey.Name,
+		Namespace: serviceKey.Namespace,
 	},
 	Spec: servingv1alpha1.KFServiceSpec{
 		MinReplicas: 1,
@@ -64,8 +71,8 @@ var instance = &servingv1alpha1.KFService{
 
 var canary = &servingv1alpha1.KFService{
 	ObjectMeta: metav1.ObjectMeta{
-		Name:      "foo-canary",
-		Namespace: "default",
+		Name:      canaryServiceKey.Name,
+		Namespace: canaryServiceKey.Namespace,
 	},
 	Spec: servingv1alpha1.KFServiceSpec{
 		MinReplicas: 1,
@@ -88,7 +95,7 @@ var canary = &servingv1alpha1.KFService{
 	},
 	Status: servingv1alpha1.KFServiceStatus{
 		URI: servingv1alpha1.URISpec{
-			Internal: "foo-canary.svc.cluster.local",
+			Internal: canaryServiceKey.Name + ".svc.cluster.local",
 		},
 		Default: servingv1alpha1.StatusConfigurationSpec{
 			Name: "revision-v1",
@@ -114,60 +121,61 @@ func TestReconcile(t *testing.T) {
 		mgrStopped.Wait()
 	}()
 
-	// Create the KFService object and expect the Reconcile and Knative service to be created
+	// Create the KFService object and expect the Reconcile and Knative configuration/routes to be created
 	g.Expect(c.Create(context.TODO(), instance)).NotTo(gomega.HaveOccurred())
 
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	defer c.Delete(context.TODO(), instance)
 	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
 
-	ksvc := &knservingv1alpha1.Service{}
-	g.Eventually(func() error { return c.Get(context.TODO(), serviceKey, ksvc) }, timeout).
+	configuation := &knservingv1alpha1.Configuration{}
+	g.Eventually(func() error { return c.Get(context.TODO(), configurationKey, configuation) }, timeout).
 		Should(gomega.Succeed())
-	expectedService := &knservingv1alpha1.Service{
+	expectedConfiguration := &knservingv1alpha1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      instance.Name,
+			Name:      constants.MakeDefaultConfigurationName(instance.Name),
 			Namespace: instance.Namespace,
 		},
-		Spec: knservingv1alpha1.ServiceSpec{
-			Release: &knservingv1alpha1.ReleaseType{
-				Revisions: []string{"@latest"},
-				Configuration: knservingv1alpha1.ConfigurationSpec{
-					RevisionTemplate: knservingv1alpha1.RevisionTemplateSpec{
-						Spec: knservingv1alpha1.RevisionSpec{
-							Container: v1.Container{
-								Image: tensorflow.TensorflowServingImageName + ":" +
-									instance.Spec.Default.Tensorflow.RuntimeVersion,
-								Command: []string{tensorflow.TensorflowEntrypointCommand},
-								Args: []string{
-									"--port=" + tensorflow.TensorflowServingGRPCPort,
-									"--rest_api_port=" + tensorflow.TensorflowServingRestPort,
-									"--model_name=" + instance.Name,
-									"--model_base_path=" + instance.Spec.Default.Tensorflow.ModelURI,
-								},
-							},
+		Spec: knservingv1alpha1.ConfigurationSpec{
+			RevisionTemplate: knservingv1alpha1.RevisionTemplateSpec{
+				Spec: knservingv1alpha1.RevisionSpec{
+					Container: v1.Container{
+						Image: tensorflow.TensorflowServingImageName + ":" +
+							instance.Spec.Default.Tensorflow.RuntimeVersion,
+						Command: []string{tensorflow.TensorflowEntrypointCommand},
+						Args: []string{
+							"--port=" + tensorflow.TensorflowServingGRPCPort,
+							"--rest_api_port=" + tensorflow.TensorflowServingRestPort,
+							"--model_name=" + instance.Name,
+							"--model_base_path=" + instance.Spec.Default.Tensorflow.ModelURI,
 						},
 					},
 				},
 			},
 		},
 	}
-	g.Expect(ksvc.Spec).To(gomega.Equal(expectedService.Spec))
+	g.Expect(configuation.Spec).To(gomega.Equal(expectedConfiguration.Spec))
 
-	// mock update knative service status since knative serving controller is not running in test
-	updated := ksvc.DeepCopy()
-	updated.Status.Address = &duckv1alpha1.Addressable{
-		Hostname: "foo.svc.cluster.local",
-	}
+	route := &knservingv1alpha1.Route{}
+	g.Eventually(func() error { return c.Get(context.TODO(), serviceKey, route) }, timeout).
+		Should(gomega.Succeed())
+	// mock update knative configuration/route status since knative serving controller is not running in test
+	updated := configuation.DeepCopy()
 	updated.Status.LatestCreatedRevisionName = "revision-v1"
 	updated.Status.LatestReadyRevisionName = "revision-v1"
 	g.Expect(c.Status().Update(context.TODO(), updated)).NotTo(gomega.HaveOccurred())
 	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
 
-	// verify if kf serving service status is updated
+	updatedRoute := route.DeepCopy()
+	updatedRoute.Status.Address = &duckv1alpha1.Addressable{
+		Hostname: serviceKey.Name + ".svc.cluster.local",
+	}
+	g.Expect(c.Status().Update(context.TODO(), updatedRoute)).NotTo(gomega.HaveOccurred())
+	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
+	// verify if KFService status is updated
 	expectedKfsvcStatus := servingv1alpha1.KFServiceStatus{
 		URI: servingv1alpha1.URISpec{
-			Internal: updated.Status.Address.Hostname,
+			Internal: updatedRoute.Status.Address.Hostname,
 		},
 		Default: servingv1alpha1.StatusConfigurationSpec{
 			Name: "revision-v1",
@@ -205,48 +213,78 @@ func TestCanaryReconcile(t *testing.T) {
 	defer c.Delete(context.TODO(), canary)
 	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedCanaryRequest)))
 
-	ksvc := &knservingv1alpha1.Service{}
-	g.Eventually(func() error { return c.Get(context.TODO(), canaryKey, ksvc) }, timeout).
+	defaultConfiguration := &knservingv1alpha1.Configuration{}
+	g.Eventually(func() error { return c.Get(context.TODO(), defaultConfigurationKey, defaultConfiguration) }, timeout).
 		Should(gomega.Succeed())
-	expectedCanaryService := &knservingv1alpha1.Service{
+
+	canaryConfiguration := &knservingv1alpha1.Configuration{}
+	g.Eventually(func() error { return c.Get(context.TODO(), canaryConfigurationKey, canaryConfiguration) }, timeout).
+		Should(gomega.Succeed())
+	expectedCanaryConfiguration := &knservingv1alpha1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      canary.Name,
 			Namespace: canary.Namespace,
 		},
-		Spec: knservingv1alpha1.ServiceSpec{
-			Release: &knservingv1alpha1.ReleaseType{
-				Revisions:      []string{canary.Status.Default.Name, "@latest"},
-				RolloutPercent: 20,
-				Configuration: knservingv1alpha1.ConfigurationSpec{
-					RevisionTemplate: knservingv1alpha1.RevisionTemplateSpec{
-						Spec: knservingv1alpha1.RevisionSpec{
-							Container: v1.Container{
-								Image: tensorflow.TensorflowServingImageName + ":" +
-									canary.Spec.Canary.Tensorflow.RuntimeVersion,
-								Command: []string{tensorflow.TensorflowEntrypointCommand},
-								Args: []string{
-									"--port=" + tensorflow.TensorflowServingGRPCPort,
-									"--rest_api_port=" + tensorflow.TensorflowServingRestPort,
-									"--model_name=" + canary.Name,
-									"--model_base_path=" + canary.Spec.Canary.Tensorflow.ModelURI,
-								},
-							},
+		Spec: knservingv1alpha1.ConfigurationSpec{
+			RevisionTemplate: knservingv1alpha1.RevisionTemplateSpec{
+				Spec: knservingv1alpha1.RevisionSpec{
+					Container: v1.Container{
+						Image: tensorflow.TensorflowServingImageName + ":" +
+							canary.Spec.Canary.Tensorflow.RuntimeVersion,
+						Command: []string{tensorflow.TensorflowEntrypointCommand},
+						Args: []string{
+							"--port=" + tensorflow.TensorflowServingGRPCPort,
+							"--rest_api_port=" + tensorflow.TensorflowServingRestPort,
+							"--model_name=" + canary.Name,
+							"--model_base_path=" + canary.Spec.Canary.Tensorflow.ModelURI,
 						},
 					},
 				},
 			},
 		},
 	}
-	g.Expect(ksvc.Spec).To(gomega.Equal(expectedCanaryService.Spec))
-
-	// mock update knative service status since knative serving controller is not running in test
-	updateCanary := ksvc.DeepCopy()
-	updateCanary.Status.Address = &duckv1alpha1.Addressable{
-		Hostname: "foo-canary.svc.cluster.local",
+	g.Expect(canaryConfiguration.Spec).To(gomega.Equal(expectedCanaryConfiguration.Spec))
+	route := &knservingv1alpha1.Route{}
+	g.Eventually(func() error { return c.Get(context.TODO(), canaryServiceKey, route) }, timeout).
+		Should(gomega.Succeed())
+	expectedRoute := knservingv1alpha1.Route{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      canary.Name,
+			Namespace: canary.Namespace,
+		},
+		Spec: knservingv1alpha1.RouteSpec{
+			Traffic: []knservingv1alpha1.TrafficTarget{
+				{
+					ConfigurationName: constants.MakeDefaultConfigurationName(canary.Name),
+					Percent:           80,
+				},
+				{
+					ConfigurationName: constants.MakeCanaryConfigurationName(canary.Name),
+					Percent:           20,
+				},
+			},
+		},
 	}
+	g.Expect(route.Spec).To(gomega.Equal(expectedRoute.Spec))
+
+	// mock update knative configuration status since knative serving controller is not running in test
+	updateDefault := defaultConfiguration.DeepCopy()
+	updateDefault.Status.LatestCreatedRevisionName = "revision-v1"
+	updateDefault.Status.LatestReadyRevisionName = "revision-v1"
+	g.Expect(c.Status().Update(context.TODO(), updateDefault)).NotTo(gomega.HaveOccurred())
+	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedCanaryRequest)))
+
+	updateCanary := canaryConfiguration.DeepCopy()
 	updateCanary.Status.LatestCreatedRevisionName = "revision-v2"
 	updateCanary.Status.LatestReadyRevisionName = "revision-v2"
-	updateCanary.Status.Traffic = []knservingv1alpha1.TrafficTarget{
+	g.Expect(c.Status().Update(context.TODO(), updateCanary)).NotTo(gomega.HaveOccurred())
+	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedCanaryRequest)))
+
+	updatedRoute := route.DeepCopy()
+	updatedRoute.Status.Address = &duckv1alpha1.Addressable{
+		Hostname: canaryServiceKey.Name + ".svc.cluster.local",
+	}
+	updatedRoute.Status.Traffic = []knservingv1alpha1.TrafficTarget{
 		{
 			Name:         "candidate",
 			RevisionName: "revision-v2",
@@ -258,13 +296,13 @@ func TestCanaryReconcile(t *testing.T) {
 			Percent:      80,
 		},
 	}
-	g.Expect(c.Status().Update(context.TODO(), updateCanary)).NotTo(gomega.HaveOccurred())
+	g.Expect(c.Status().Update(context.TODO(), updatedRoute)).NotTo(gomega.HaveOccurred())
 	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedCanaryRequest)))
 
-	// verify if kf serving service status is updated
+	// verify if KFService status is updated
 	expectedKfsvcStatus := servingv1alpha1.KFServiceStatus{
 		URI: servingv1alpha1.URISpec{
-			Internal: updateCanary.Status.Address.Hostname,
+			Internal: updatedRoute.Status.Address.Hostname,
 		},
 		Default: servingv1alpha1.StatusConfigurationSpec{
 			Name:    "revision-v1",
@@ -277,7 +315,7 @@ func TestCanaryReconcile(t *testing.T) {
 	}
 	g.Eventually(func() *servingv1alpha1.KFServiceStatus {
 		kfsvc := &servingv1alpha1.KFService{}
-		err := c.Get(context.TODO(), canaryKey, kfsvc)
+		err := c.Get(context.TODO(), canaryServiceKey, kfsvc)
 		if err != nil {
 			return nil
 		}
