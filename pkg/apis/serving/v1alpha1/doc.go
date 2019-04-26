@@ -21,3 +21,9 @@ limitations under the License.
 // +k8s:defaulter-gen=TypeMeta
 // +groupName=serving.kubeflow.org
 package v1alpha1
+
+import (
+	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
+)
+
+var logger = logf.Log.WithName("kfserving-v1alpha1-types")

@@ -51,7 +51,6 @@ func TestRejectCanaryModelSpecMissing(t *testing.T) {
 	kfsvc.Spec.Canary = &CanarySpec{ModelSpec: ModelSpec{}}
 	g.Expect(kfsvc.ValidateCreate()).Should(gomega.MatchError(ExactlyOneModelSpecViolatedError))
 }
-
 func TestRejectBadCanaryTrafficValues(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	kfsvc := TFExampleKFService.DeepCopy()
