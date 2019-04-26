@@ -15,7 +15,7 @@
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
-  name: services.serving.knative.dev
+  name: configurations.serving.knative.dev
   labels:
     serving.knative.dev/release: devel
     knative.dev/crd-install: "true"
@@ -23,23 +23,20 @@ spec:
   group: serving.knative.dev
   version: v1alpha1
   names:
-    kind: Service
-    plural: services
-    singular: service
+    kind: Configuration
+    plural: configurations
+    singular: configuration
     categories:
       - all
       - knative
       - serving
     shortNames:
-      - kservice
-      - ksvc
+      - config
+      - cfg
   scope: Namespaced
   subresources:
     status: {}
   additionalPrinterColumns:
-    - name: Domain
-      type: string
-      JSONPath: .status.domain
     - name: LatestCreated
       type: string
       JSONPath: .status.latestCreatedRevisionName
