@@ -74,9 +74,6 @@ type ConditionManager interface {
 	// InitializeConditions updates all Conditions in the ConditionSet to Unknown
 	// if not set.
 	InitializeConditions()
-
-	// InitializeCondition updates a Condition to Unknown if not set.
-	InitializeCondition(t ConditionType)
 }
 
 // NewLivingConditionSet returns a ConditionSet to hold the conditions for the
@@ -302,19 +299,37 @@ func (r conditionsImpl) MarkFalse(t ConditionType, reason, messageFormat string,
 // InitializeConditions updates all Conditions in the ConditionSet to Unknown
 // if not set.
 func (r conditionsImpl) InitializeConditions() {
-	for _, t := range r.dependents {
-		r.InitializeCondition(t)
+	happy := r.GetCondition(r.happy)
+	if happy == nil {
+		happy = &Condition{
+			Type:     r.happy,
+			Status:   corev1.ConditionUnknown,
+			Severity: ConditionSeverityError,
+		}
+		r.SetCondition(*happy)
 	}
-	r.InitializeCondition(r.happy)
+	// If the happy state is true, it implies that all of the terminal
+	// subconditions must be true, so initialize any unset conditions to
+	// true if our happy condition is true, otherwise unknown.
+	status := corev1.ConditionUnknown
+	if happy.Status == corev1.ConditionTrue {
+		status = corev1.ConditionTrue
+	}
+	for _, t := range r.dependents {
+		r.initializeTerminalCondition(t, status)
+	}
 }
 
-// InitializeCondition updates a Condition to Unknown if not set.
-func (r conditionsImpl) InitializeCondition(t ConditionType) {
-	if c := r.GetCondition(t); c == nil {
-		r.SetCondition(Condition{
-			Type:     t,
-			Status:   corev1.ConditionUnknown,
-			Severity: r.severity(t),
-		})
+// initializeTerminalCondition initializes a Condition to the given status if unset.
+func (r conditionsImpl) initializeTerminalCondition(t ConditionType, status corev1.ConditionStatus) *Condition {
+	if c := r.GetCondition(t); c != nil {
+		return c
 	}
+	c := Condition{
+		Type:     t,
+		Status:   status,
+		Severity: ConditionSeverityError,
+	}
+	r.SetCondition(c)
+	return &c
 }

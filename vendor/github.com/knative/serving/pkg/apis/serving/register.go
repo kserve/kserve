@@ -49,6 +49,10 @@ const (
 	// which Autoscaler deployment it is created.
 	AutoscalerLabelKey = GroupName + "/autoscaler"
 
+	// KubernetesServiceLabelKey is the label key attached to the decider, that contains
+	// the kubernetes service is uses for pod counting.
+	KubernetesServiceLabelKey = GroupName + "/kubernetesService"
+
 	// ServiceLabelKey is the label key attached to a Route and Configuration indicating by
 	// which Service they are created.
 	ServiceLabelKey = GroupName + "/service"
@@ -64,4 +68,11 @@ const (
 	// BuildHashLabelKey is the label key attached to a Build indicating the
 	// hash of the spec from which they were created.
 	BuildHashLabelKey = GroupName + "/buildHash"
+
+	// CreatorAnnotation is the annotation key to describe the user that
+	// created the resource.
+	CreatorAnnotation = GroupName + "/creator"
+	// UpdaterAnnotation is the annotation key to describe the user that
+	// last updated the resource.
+	UpdaterAnnotation = GroupName + "/lastModifier"
 )

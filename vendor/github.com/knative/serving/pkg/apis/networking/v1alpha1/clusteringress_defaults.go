@@ -18,20 +18,15 @@ package v1alpha1
 
 import (
 	"context"
-	"time"
 
+	"github.com/knative/pkg/apis"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-)
 
-const (
-	// DefaultTimeout will be set if timeout not specified.
-	DefaultTimeout = 10 * time.Minute
-	// DefaultRetryCount will be set if Attempts not specified.
-	DefaultRetryCount = 3
+	"github.com/knative/serving/pkg/apis/networking"
 )
 
 func (c *ClusterIngress) SetDefaults(ctx context.Context) {
-	c.Spec.SetDefaults(ctx)
+	c.Spec.SetDefaults(apis.WithinSpec(ctx))
 }
 
 func (c *IngressSpec) SetDefaults(ctx context.Context) {
@@ -74,16 +69,16 @@ func (p *HTTPClusterIngressPath) SetDefaults(ctx context.Context) {
 	}
 
 	if p.Timeout == nil {
-		p.Timeout = &metav1.Duration{Duration: DefaultTimeout}
+		p.Timeout = &metav1.Duration{Duration: networking.DefaultTimeout}
 	}
 
 	if p.Retries == nil {
 		p.Retries = &HTTPRetry{
-			PerTryTimeout: &metav1.Duration{Duration: DefaultTimeout},
-			Attempts:      DefaultRetryCount,
+			PerTryTimeout: &metav1.Duration{Duration: networking.DefaultTimeout},
+			Attempts:      networking.DefaultRetryCount,
 		}
 	}
 	if p.Retries.PerTryTimeout == nil {
-		p.Retries.PerTryTimeout = &metav1.Duration{Duration: DefaultTimeout}
+		p.Retries.PerTryTimeout = &metav1.Duration{Duration: networking.DefaultTimeout}
 	}
 }

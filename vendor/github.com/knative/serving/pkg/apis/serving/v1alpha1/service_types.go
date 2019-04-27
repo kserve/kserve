@@ -20,7 +20,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/knative/pkg/apis"
-	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
+	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
 	"github.com/knative/pkg/kmeta"
 )
 
@@ -154,18 +154,18 @@ type PinnedType struct {
 const (
 	// ServiceConditionReady is set when the service is configured
 	// and has available backends ready to receive traffic.
-	ServiceConditionReady = duckv1alpha1.ConditionReady
+	ServiceConditionReady = apis.ConditionReady
 	// ServiceConditionRoutesReady is set when the service's underlying
 	// routes have reported readiness.
-	ServiceConditionRoutesReady duckv1alpha1.ConditionType = "RoutesReady"
+	ServiceConditionRoutesReady apis.ConditionType = "RoutesReady"
 	// ServiceConditionConfigurationsReady is set when the service's underlying
 	// configurations have reported readiness.
-	ServiceConditionConfigurationsReady duckv1alpha1.ConditionType = "ConfigurationsReady"
+	ServiceConditionConfigurationsReady apis.ConditionType = "ConfigurationsReady"
 )
 
 // ServiceStatus represents the Status stanza of the Service resource.
 type ServiceStatus struct {
-	duckv1alpha1.Status `json:",inline"`
+	duckv1beta1.Status `json:",inline"`
 
 	RouteStatusFields `json:",inline"`
 

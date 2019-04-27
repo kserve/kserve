@@ -17,11 +17,12 @@ limitations under the License.
 package v1alpha1
 
 import (
-	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
+	"github.com/knative/pkg/apis"
+	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-var serverlessServiceCondSet = duckv1alpha1.NewLivingConditionSet(
+var serverlessServiceCondSet = apis.NewLivingConditionSet(
 	ServerlessServiceConditionEndspointsPopulated,
 )
 
@@ -31,7 +32,7 @@ func (ss *ServerlessService) GetGroupVersionKind() schema.GroupVersionKind {
 }
 
 // GetCondition returns the value of the condition `t`.
-func (sss *ServerlessServiceStatus) GetCondition(t duckv1alpha1.ConditionType) *duckv1alpha1.Condition {
+func (sss *ServerlessServiceStatus) GetCondition(t apis.ConditionType) *apis.Condition {
 	return serverlessServiceCondSet.Manage(sss).GetCondition(t)
 }
 
@@ -40,12 +41,30 @@ func (sss *ServerlessServiceStatus) InitializeConditions() {
 	serverlessServiceCondSet.Manage(sss).InitializeConditions()
 }
 
-// MarkEndpointsPopulated marks the ServerlessServiceStatus endpoints populated condition to true.
-func (sss *ServerlessServiceStatus) MarkEndpointsPopulated() {
+// MarkEndpointsReady marks the ServerlessServiceStatus endpoints populated condition to true.
+func (sss *ServerlessServiceStatus) MarkEndpointsReady() {
 	serverlessServiceCondSet.Manage(sss).MarkTrue(ServerlessServiceConditionEndspointsPopulated)
+}
+
+// MarkEndpointsNotOwned marks that we don't own K8s service.
+func (sss *ServerlessServiceStatus) MarkEndpointsNotOwned(kind, name string) {
+	serverlessServiceCondSet.Manage(sss).MarkFalse(
+		ServerlessServiceConditionEndspointsPopulated, "NotOwned",
+		"Resource %s of type %s is not owned by SKS", name, kind)
+}
+
+// MarkEndpointsNotReady marks the ServerlessServiceStatus endpoints populated conditiohn to unknown.
+func (sss *ServerlessServiceStatus) MarkEndpointsNotReady(reason string) {
+	serverlessServiceCondSet.Manage(sss).MarkUnknown(
+		ServerlessServiceConditionEndspointsPopulated, reason,
+		"K8s Service is not ready")
 }
 
 // IsReady returns true if ServerlessService is ready.
 func (sss *ServerlessServiceStatus) IsReady() bool {
 	return serverlessServiceCondSet.Manage(sss).IsHappy()
+}
+
+func (sss *ServerlessServiceStatus) duck() *duckv1beta1.Status {
+	return &sss.Status
 }

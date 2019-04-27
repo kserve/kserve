@@ -17,7 +17,8 @@ limitations under the License.
 package v1alpha1
 
 import (
-	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
+	"github.com/knative/pkg/apis"
+	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
@@ -37,7 +38,7 @@ func (cs *CertificateStatus) IsReady() bool {
 }
 
 // GetCondition gets a speicifc condition of the Certificate status.
-func (cs *CertificateStatus) GetCondition(t duckv1alpha1.ConditionType) *duckv1alpha1.Condition {
+func (cs *CertificateStatus) GetCondition(t apis.ConditionType) *apis.Condition {
 	return certificateCondSet.Manage(cs).GetCondition(t)
 }
 
@@ -45,12 +46,16 @@ func (cs *CertificateStatus) GetCondition(t duckv1alpha1.ConditionType) *duckv1a
 const (
 	// CertificateConditionReady is set when the requested certificate
 	// is provioned and valid.
-	CertificateCondidtionReady = duckv1alpha1.ConditionReady
+	CertificateCondidtionReady = apis.ConditionReady
 )
 
-var certificateCondSet = duckv1alpha1.NewLivingConditionSet(CertificateCondidtionReady)
+var certificateCondSet = apis.NewLivingConditionSet(CertificateCondidtionReady)
 
 // GetGroupVersionKind returns the GroupVersionKind of Certificate.
 func (c *Certificate) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("Certificate")
+}
+
+func (cs *CertificateStatus) duck() *duckv1beta1.Status {
+	return &cs.Status
 }

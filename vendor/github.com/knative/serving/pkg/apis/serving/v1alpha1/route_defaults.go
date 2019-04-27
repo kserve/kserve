@@ -16,11 +16,18 @@ limitations under the License.
 
 package v1alpha1
 
-import "context"
+import (
+	"context"
+
+	"github.com/knative/pkg/apis"
+)
 
 func (r *Route) SetDefaults(ctx context.Context) {
-	r.Spec.SetDefaults(ctx)
+	r.Spec.SetDefaults(apis.WithinSpec(ctx))
 }
 
 func (rs *RouteSpec) SetDefaults(ctx context.Context) {
+	for i := range rs.Traffic {
+		rs.Traffic[i].SetDefaults(ctx)
+	}
 }
