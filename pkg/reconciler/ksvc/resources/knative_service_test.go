@@ -26,6 +26,57 @@ import (
 	"testing"
 )
 
+var kfsvc = &v1alpha1.KFService{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:      "mnist",
+		Namespace: "default",
+	},
+	Spec: v1alpha1.KFServiceSpec{
+		MinReplicas: 1,
+		MaxReplicas: 3,
+		Default: v1alpha1.ModelSpec{
+			Tensorflow: &v1alpha1.TensorflowSpec{
+				ModelURI:       "s3://test/mnist/export",
+				RuntimeVersion: "1.13",
+			},
+		},
+	},
+}
+
+var ksvcConfiguration = knservingv1alpha1.ConfigurationSpec{
+	RevisionTemplate: knservingv1alpha1.RevisionTemplateSpec{
+		Spec: knservingv1alpha1.RevisionSpec{
+			Container: v1.Container{
+				Image:   tensorflow.TensorflowServingImageName + ":" + kfsvc.Spec.Default.Tensorflow.RuntimeVersion,
+				Command: []string{tensorflow.TensorflowEntrypointCommand},
+				Args: []string{
+					"--port=" + tensorflow.TensorflowServingGRPCPort,
+					"--rest_api_port=" + tensorflow.TensorflowServingRestPort,
+					"--model_name=mnist",
+					"--model_base_path=" + kfsvc.Spec.Default.Tensorflow.ModelURI,
+				},
+			},
+		},
+	},
+}
+
+var ksvcCanaryConfiguration = knservingv1alpha1.ConfigurationSpec{
+	RevisionTemplate: knservingv1alpha1.RevisionTemplateSpec{
+		Spec: knservingv1alpha1.RevisionSpec{
+			Container: v1.Container{
+				Image:   tensorflow.TensorflowServingImageName + ":" + kfsvc.Spec.Default.Tensorflow.RuntimeVersion,
+				Command: []string{tensorflow.TensorflowEntrypointCommand},
+				Args: []string{
+					"--port=" + tensorflow.TensorflowServingGRPCPort,
+					"--rest_api_port=" + tensorflow.TensorflowServingRestPort,
+					"--model_name=mnist",
+					"--model_base_path=s3://test/mnist-2/export",
+				},
+			},
+		},
+	},
+}
+
 func TestKnativeServiceSpec(t *testing.T) {
 	scenarios := map[string]struct {
 		kfService    *v1alpha1.KFService
@@ -33,6 +84,21 @@ func TestKnativeServiceSpec(t *testing.T) {
 		shouldFail   bool
 	}{
 		"RunLatestModel": {
+			kfService: kfsvc,
+			expectedSpec: &knservingv1alpha1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "mnist",
+					Namespace: "default",
+				},
+				Spec: knservingv1alpha1.ServiceSpec{
+					Release: &knservingv1alpha1.ReleaseType{
+						Revisions:     []string{"@latest"},
+						Configuration: ksvcConfiguration,
+					},
+				},
+			},
+		},
+		"CanaryRollback": {
 			kfService: &v1alpha1.KFService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "mnist",
@@ -47,6 +113,20 @@ func TestKnativeServiceSpec(t *testing.T) {
 							RuntimeVersion: "1.13",
 						},
 					},
+					Canary: &v1alpha1.CanarySpec{
+						ModelSpec: v1alpha1.ModelSpec{
+							Tensorflow: &v1alpha1.TensorflowSpec{
+								ModelURI:       "s3://test/mnist-2/export",
+								RuntimeVersion: "1.13",
+							},
+						},
+						TrafficPercent: 0,
+					},
+				},
+				Status: v1alpha1.KFServiceStatus{
+					Default: v1alpha1.StatusConfigurationSpec{
+						Name: "v1",
+					},
 				},
 			},
 			expectedSpec: &knservingv1alpha1.Service{
@@ -56,23 +136,8 @@ func TestKnativeServiceSpec(t *testing.T) {
 				},
 				Spec: knservingv1alpha1.ServiceSpec{
 					Release: &knservingv1alpha1.ReleaseType{
-						Revisions: []string{"@latest"},
-						Configuration: knservingv1alpha1.ConfigurationSpec{
-							RevisionTemplate: knservingv1alpha1.RevisionTemplateSpec{
-								Spec: knservingv1alpha1.RevisionSpec{
-									Container: v1.Container{
-										Image:   "tensorflow/serving:1.13",
-										Command: []string{tensorflow.TensorflowEntrypointCommand},
-										Args: []string{
-											"--port=" + tensorflow.TensorflowServingGRPCPort,
-											"--rest_api_port=" + tensorflow.TensorflowServingRestPort,
-											"--model_name=mnist",
-											"--model_base_path=s3://test/mnist/export",
-										},
-									},
-								},
-							},
-						},
+						Revisions:     []string{"@latest"},
+						Configuration: ksvcConfiguration,
 					},
 				},
 			},
@@ -117,22 +182,7 @@ func TestKnativeServiceSpec(t *testing.T) {
 					Release: &knservingv1alpha1.ReleaseType{
 						Revisions:      []string{"v1", "@latest"},
 						RolloutPercent: 20,
-						Configuration: knservingv1alpha1.ConfigurationSpec{
-							RevisionTemplate: knservingv1alpha1.RevisionTemplateSpec{
-								Spec: knservingv1alpha1.RevisionSpec{
-									Container: v1.Container{
-										Image:   "tensorflow/serving:1.13",
-										Command: []string{tensorflow.TensorflowEntrypointCommand},
-										Args: []string{
-											"--port=" + tensorflow.TensorflowServingGRPCPort,
-											"--rest_api_port=" + tensorflow.TensorflowServingRestPort,
-											"--model_name=mnist",
-											"--model_base_path=s3://test/mnist-2/export",
-										},
-									},
-								},
-							},
-						},
+						Configuration:  ksvcCanaryConfiguration,
 					},
 				},
 			},
@@ -174,23 +224,58 @@ func TestKnativeServiceSpec(t *testing.T) {
 				},
 				Spec: knservingv1alpha1.ServiceSpec{
 					Release: &knservingv1alpha1.ReleaseType{
-						Revisions: []string{"@latest"},
-						Configuration: knservingv1alpha1.ConfigurationSpec{
-							RevisionTemplate: knservingv1alpha1.RevisionTemplateSpec{
-								Spec: knservingv1alpha1.RevisionSpec{
-									Container: v1.Container{
-										Image:   "tensorflow/serving:1.13",
-										Command: []string{tensorflow.TensorflowEntrypointCommand},
-										Args: []string{
-											"--port=" + tensorflow.TensorflowServingGRPCPort,
-											"--rest_api_port=" + tensorflow.TensorflowServingRestPort,
-											"--model_name=mnist",
-											"--model_base_path=s3://test/mnist-2/export",
-										},
-									},
-								},
+						Revisions:     []string{"@latest"},
+						Configuration: ksvcCanaryConfiguration,
+					},
+				},
+			},
+		},
+		"CanaryIncreasePercent": {
+			kfService: &v1alpha1.KFService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "mnist",
+					Namespace: "default",
+				},
+				Spec: v1alpha1.KFServiceSpec{
+					MinReplicas: 1,
+					MaxReplicas: 3,
+					Default: v1alpha1.ModelSpec{
+						Tensorflow: &v1alpha1.TensorflowSpec{
+							ModelURI:       "s3://test/mnist/export",
+							RuntimeVersion: "1.13",
+						},
+					},
+					Canary: &v1alpha1.CanarySpec{
+						ModelSpec: v1alpha1.ModelSpec{
+							Tensorflow: &v1alpha1.TensorflowSpec{
+								ModelURI:       "s3://test/mnist-2/export",
+								RuntimeVersion: "1.13",
 							},
 						},
+						TrafficPercent: 50,
+					},
+				},
+				Status: v1alpha1.KFServiceStatus{
+					Default: v1alpha1.StatusConfigurationSpec{
+						Name:    "v1",
+						Traffic: 80,
+					},
+					Canary: v1alpha1.StatusConfigurationSpec{
+						Name:    "v2",
+						Traffic: 20,
+					},
+				},
+			},
+			expectedSpec: &knservingv1alpha1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "mnist",
+					Namespace: "default",
+				},
+				Spec: knservingv1alpha1.ServiceSpec{
+					Release: &knservingv1alpha1.ReleaseType{
+						Revisions:      []string{"v1", "@latest"},
+						Configuration:  ksvcCanaryConfiguration,
+						RolloutPercent: 50,
 					},
 				},
 			},

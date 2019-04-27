@@ -21,14 +21,33 @@ import (
 
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	knserving "github.com/knative/serving/pkg/apis/serving"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
-var logger = logf.Log.WithName("kfservice-validation")
+const (
+	// MinReplicasShouldBeLessThanMaxError is an known error message
+	MinReplicasShouldBeLessThanMaxError = "MinReplicas cannot be greater than MaxReplicas"
+	// MinReplicasLowerBoundExceededError is an known error message
+	MinReplicasLowerBoundExceededError = "MinReplicas cannot be less than 0"
+	// MaxReplicasLowerBoundExceededError is an known error message
+	MaxReplicasLowerBoundExceededError = "MaxReplicas cannot be less than 0"
+	// TrafficBoundsExceededError is an known error message
+	TrafficBoundsExceededError = "TrafficPercent must be between [0, 100]"
+	// ExactlyOneModelSpecViolatedError is a known error message
+	ExactlyOneModelSpecViolatedError = "Exactly one of [Custom, Tensorflow, ScikitLearn, XGBoost] should be specified in ModelSpec"
+)
 
 // ValidateCreate implements https://godoc.org/sigs.k8s.io/controller-runtime/pkg/webhook/admission#Validator
 func (kfsvc *KFService) ValidateCreate() error {
+	return kfsvc.validate()
+}
+
+// ValidateUpdate implements https://godoc.org/sigs.k8s.io/controller-runtime/pkg/webhook/admission#Validator
+func (kfsvc *KFService) ValidateUpdate(old runtime.Object) error {
+	return kfsvc.validate()
+}
+
+func (kfsvc *KFService) validate() error {
 	logger.Info("Validating KFService", "namespace", kfsvc.Namespace, "name", kfsvc.Name)
 	if err := validateKFService(kfsvc); err != nil {
 		logger.Info("Failed to validate KFService", "namespace", kfsvc.Namespace, "name", kfsvc.Name, err.Error())
@@ -36,11 +55,6 @@ func (kfsvc *KFService) ValidateCreate() error {
 	}
 	logger.Info("Successfully validated KFService", "namespace", kfsvc.Namespace, "name", kfsvc.Name)
 	return nil
-}
-
-// ValidateUpdate implements https://godoc.org/sigs.k8s.io/controller-runtime/pkg/webhook/admission#Validator
-func (kfsvc *KFService) ValidateUpdate(old runtime.Object) error {
-	return kfsvc.ValidateCreate()
 }
 
 func validateKFService(kfsvc *KFService) error {
@@ -64,13 +78,13 @@ func validateKFService(kfsvc *KFService) error {
 
 func validateReplicas(minReplicas int, maxReplicas int) error {
 	if minReplicas < 0 {
-		return fmt.Errorf("MinReplicas cannot be less than 0")
+		return fmt.Errorf(MinReplicasLowerBoundExceededError)
 	}
 	if maxReplicas < 0 {
-		return fmt.Errorf("MaxReplicas cannot be less than 0")
+		return fmt.Errorf(MaxReplicasLowerBoundExceededError)
 	}
 	if minReplicas > maxReplicas && maxReplicas != 0 {
-		return fmt.Errorf("MinReplicas cannot be greater than MaxReplicas")
+		return fmt.Errorf(MinReplicasShouldBeLessThanMaxError)
 	}
 	return nil
 }
@@ -96,7 +110,7 @@ func validateCanarySpec(canarySpec *CanarySpec) error {
 		return err
 	}
 	if canarySpec.TrafficPercent < 0 || canarySpec.TrafficPercent > 100 {
-		return fmt.Errorf("TrafficPercent must be between [0, 100]")
+		return fmt.Errorf(TrafficBoundsExceededError)
 	}
 	if canarySpec.Custom != nil {
 		if err := validateContainer(canarySpec.Custom); err != nil {
@@ -121,7 +135,7 @@ func validateOneModelSpec(modelSpec ModelSpec) error {
 		count++
 	}
 	if count != 1 {
-		return fmt.Errorf("Exactly one of [Custom, Tensorflow, ScikitLearn, XGBoost] should be specified in ModelSpec")
+		return fmt.Errorf(ExactlyOneModelSpecViolatedError)
 	}
 	return nil
 }
