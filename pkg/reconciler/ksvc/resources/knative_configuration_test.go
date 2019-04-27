@@ -46,7 +46,7 @@ var kfsvc = &v1alpha1.KFService{
 
 var defaultConfiguration = knservingv1alpha1.Configuration{
 	ObjectMeta: metav1.ObjectMeta{
-		Name:        constants.MakeDefaultConfigurationName("mnist"),
+		Name:        constants.DefaultConfigurationName("mnist"),
 		Namespace:   "default",
 		Annotations: map[string]string{"autoscaling.knative.dev/maxScale": "3", "autoscaling.knative.dev/minScale": "1"},
 	},
@@ -70,7 +70,7 @@ var defaultConfiguration = knservingv1alpha1.Configuration{
 
 var canaryConfiguration = knservingv1alpha1.Configuration{
 	ObjectMeta: metav1.ObjectMeta{
-		Name:        constants.MakeCanaryConfigurationName("mnist"),
+		Name:        constants.CanaryConfigurationName("mnist"),
 		Namespace:   "default",
 		Annotations: map[string]string{"autoscaling.knative.dev/maxScale": "3", "autoscaling.knative.dev/minScale": "1"},
 	},
@@ -154,7 +154,7 @@ func TestKnativeConfiguration(t *testing.T) {
 			},
 			expectedDefault: &knservingv1alpha1.Configuration{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      constants.MakeDefaultConfigurationName("scikit"),
+					Name:      constants.DefaultConfigurationName("scikit"),
 					Namespace: "default",
 				},
 				Spec: knservingv1alpha1.ConfigurationSpec{

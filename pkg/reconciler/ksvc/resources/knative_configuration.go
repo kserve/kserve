@@ -39,7 +39,7 @@ func CreateKnativeConfiguration(kfsvc *v1alpha1.KFService) (*knservingv1alpha1.C
 	}
 	defaultConfiguration := &knservingv1alpha1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      constants.MakeDefaultConfigurationName(kfsvc.Name),
+			Name:      constants.DefaultConfigurationName(kfsvc.Name),
 			Namespace: kfsvc.Namespace,
 			Labels:    kfsvc.Labels,
 		},
@@ -57,10 +57,9 @@ func CreateKnativeConfiguration(kfsvc *v1alpha1.KFService) (*knservingv1alpha1.C
 	if canaryContainer != nil {
 		canaryConfiguration := &knservingv1alpha1.Configuration{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:        constants.MakeCanaryConfigurationName(kfsvc.Name),
-				Namespace:   kfsvc.Namespace,
-				Labels:      kfsvc.Labels,
-				Annotations: annotations,
+				Name:      constants.CanaryConfigurationName(kfsvc.Name),
+				Namespace: kfsvc.Namespace,
+				Labels:    kfsvc.Labels,
 			},
 			Spec: knservingv1alpha1.ConfigurationSpec{
 				RevisionTemplate: knservingv1alpha1.RevisionTemplateSpec{

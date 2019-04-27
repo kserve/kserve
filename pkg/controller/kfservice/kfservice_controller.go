@@ -18,10 +18,11 @@ package service
 
 import (
 	"context"
+	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/kubeflow/kfserving/pkg/reconciler/ksvc"
 	"github.com/kubeflow/kfserving/pkg/reconciler/ksvc/resources"
-	v1 "k8s.io/api/core/v1"
+	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/client-go/tools/record"
 
@@ -82,20 +83,19 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	// Watch for changes to Knative Configuration
-	err = c.Watch(&source.Kind{Type: &knservingv1alpha1.Configuration{}}, &handler.EnqueueRequestForOwner{
+	kfservingController := &handler.EnqueueRequestForOwner{
 		IsController: true,
 		OwnerType:    &kfservingv1alpha1.KFService{},
-	})
+	}
+
+	// Watch for changes to Knative Configuration
+	err = c.Watch(&source.Kind{Type: &knservingv1alpha1.Configuration{}}, kfservingController)
 	if err != nil {
 		return err
 	}
 
 	// Watch for changes to Knative Route
-	err = c.Watch(&source.Kind{Type: &knservingv1alpha1.Route{}}, &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    &kfservingv1alpha1.KFService{},
-	})
+	err = c.Watch(&source.Kind{Type: &knservingv1alpha1.Route{}}, kfservingController)
 	if err != nil {
 		return err
 	}
@@ -135,11 +135,7 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 	}
 
 	desiredDefault, desiredCanary := resources.CreateKnativeConfiguration(kfsvc)
-	if err != nil {
-		log.Error(err, "Failed to create desired Knative Serving configuration for default spec", "name", kfsvc.Name)
-		r.Recorder.Eventf(kfsvc, v1.EventTypeWarning, "InternalError", err.Error())
-		return reconcile.Result{}, err
-	}
+
 	if err := controllerutil.SetControllerReference(kfsvc, desiredDefault, r.scheme); err != nil {
 		return reconcile.Result{}, err
 	}
@@ -151,23 +147,26 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 
 	serviceReconciler := ksvc.NewServiceReconciler(r.Client)
 
+	// Reconcile configurations
 	defaultConfiguration, err := serviceReconciler.Reconcile(context.TODO(), desiredDefault)
 	if err != nil {
 		log.Error(err, "Failed to reconcile default model spec", "name", desiredDefault.Name)
 		r.Recorder.Eventf(kfsvc, v1.EventTypeWarning, "InternalError", err.Error())
 		return reconcile.Result{}, err
 	}
+	kfsvc.Status.PropagateDefaultConfigurationStatus(&defaultConfiguration.Status)
 
-	var canaryConfiguration *knservingv1alpha1.Configuration
 	if desiredCanary != nil {
-		canaryConfiguration, err = serviceReconciler.Reconcile(context.TODO(), desiredCanary)
+		canaryConfiguration, err := serviceReconciler.Reconcile(context.TODO(), desiredCanary)
 		if err != nil {
 			log.Error(err, "Failed to reconcile canary model spec", "name", desiredDefault.Name)
 			r.Recorder.Eventf(kfsvc, v1.EventTypeWarning, "InternalError", err.Error())
 			return reconcile.Result{}, err
 		}
+		kfsvc.Status.PropagateCanaryConfigurationStatus(&canaryConfiguration.Status)
 	}
 
+	// Reconcile route
 	desiredRoute := resources.CreateKnativeRoute(kfsvc)
 	if err := controllerutil.SetControllerReference(kfsvc, desiredRoute, r.scheme); err != nil {
 		return reconcile.Result{}, err
@@ -178,50 +177,36 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 		r.Recorder.Eventf(kfsvc, v1.EventTypeWarning, "InternalError", err.Error())
 		return reconcile.Result{}, err
 	}
+	kfsvc.Status.PropagateRouteStatus(&route.Status)
 
-	if err = r.updateStatus(kfsvc, defaultConfiguration, canaryConfiguration, route); err != nil {
+	if err = r.updateStatus(kfsvc); err != nil {
 		r.Recorder.Eventf(kfsvc, v1.EventTypeWarning, "InternalError", err.Error())
 	}
 	return reconcile.Result{}, nil
 }
 
-func (r *ReconcileService) updateStatus(before *kfservingv1alpha1.KFService,
-	defaultConfiguration *knservingv1alpha1.Configuration,
-	canaryConfiguration *knservingv1alpha1.Configuration,
-	route *knservingv1alpha1.Route) error {
-
-	after := before.DeepCopy()
-	after.Status.Default.Name = defaultConfiguration.Status.LatestCreatedRevisionName
-	if route.Status.Address != nil {
-		after.Status.URI.Internal = route.Status.Address.Hostname
-	}
-	if canaryConfiguration != nil {
-		after.Status.Canary.Name = canaryConfiguration.Status.LatestCreatedRevisionName
-	}
-
-	for _, traffic := range route.Status.Traffic {
-		switch traffic.RevisionName {
-		case after.Status.Default.Name:
-			after.Status.Default.Traffic = traffic.Percent
-		case after.Status.Canary.Name:
-			after.Status.Canary.Traffic = traffic.Percent
-		default:
+func (r *ReconcileService) updateStatus(desiredService *kfservingv1alpha1.KFService) error {
+	existing := &kfservingv1alpha1.KFService{}
+	err := r.Get(context.TODO(), types.NamespacedName{Name: desiredService.Name, Namespace: desiredService.Namespace}, existing)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return err
 		}
+		return err
 	}
-
-	if equality.Semantic.DeepEqual(before.Status, after.Status) {
+	if equality.Semantic.DeepEqual(existing.Status, desiredService.Status) {
 		// If we didn't change anything then don't call updateStatus.
 		// This is important because the copy we loaded from the informer's
 		// cache may be stale and we don't want to overwrite a prior update
 		// to status with this stale state.
-	} else if err := r.Update(context.TODO(), after); err != nil {
-		log.Error(err, "Failed to update kfserving service status")
-		r.Recorder.Eventf(after, v1.EventTypeWarning, "UpdateFailed",
-			"Failed to update status for kfserving service %q: %v", after.Name, err)
+	} else if err := r.Update(context.TODO(), desiredService); err != nil {
+		log.Error(err, "Failed to update KFService status")
+		r.Recorder.Eventf(desiredService, v1.EventTypeWarning, "UpdateFailed",
+			"Failed to update status for KFService %q: %v", desiredService.Name, err)
 		return err
 	} else if err == nil {
 		// If there was a difference and there was no error.
-		r.Recorder.Eventf(after, v1.EventTypeNormal, "Updated", "Updated Service %q", after.GetName())
+		r.Recorder.Eventf(desiredService, v1.EventTypeNormal, "Updated", "Updated Service %q", desiredService.GetName())
 	}
 
 	return nil
