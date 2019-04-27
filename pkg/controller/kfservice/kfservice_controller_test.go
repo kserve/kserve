@@ -138,9 +138,9 @@ func TestReconcile(t *testing.T) {
 			Namespace: instance.Namespace,
 		},
 		Spec: knservingv1alpha1.ConfigurationSpec{
-			RevisionTemplate: knservingv1alpha1.RevisionTemplateSpec{
+			RevisionTemplate: &knservingv1alpha1.RevisionTemplateSpec{
 				Spec: knservingv1alpha1.RevisionSpec{
-					Container: v1.Container{
+					Container: &v1.Container{
 						Image: tensorflow.TensorflowServingImageName + ":" +
 							instance.Spec.Default.Tensorflow.RuntimeVersion,
 						Command: []string{tensorflow.TensorflowEntrypointCommand},
@@ -227,9 +227,9 @@ func TestCanaryReconcile(t *testing.T) {
 			Namespace: canary.Namespace,
 		},
 		Spec: knservingv1alpha1.ConfigurationSpec{
-			RevisionTemplate: knservingv1alpha1.RevisionTemplateSpec{
+			RevisionTemplate: &knservingv1alpha1.RevisionTemplateSpec{
 				Spec: knservingv1alpha1.RevisionSpec{
-					Container: v1.Container{
+					Container: &v1.Container{
 						Image: tensorflow.TensorflowServingImageName + ":" +
 							canary.Spec.Canary.Tensorflow.RuntimeVersion,
 						Command: []string{tensorflow.TensorflowEntrypointCommand},
@@ -256,12 +256,16 @@ func TestCanaryReconcile(t *testing.T) {
 		Spec: knservingv1alpha1.RouteSpec{
 			Traffic: []knservingv1alpha1.TrafficTarget{
 				{
-					ConfigurationName: constants.DefaultConfigurationName(canary.Name),
-					Percent:           80,
+					TrafficTarget: v1beta1.TrafficTarget{
+						ConfigurationName: constants.DefaultConfigurationName(canary.Name),
+						Percent:           80,
+					},
 				},
 				{
-					ConfigurationName: constants.CanaryConfigurationName(canary.Name),
-					Percent:           20,
+					TrafficTarget: v1beta1.TrafficTarget{
+						ConfigurationName: constants.CanaryConfigurationName(canary.Name),
+						Percent:           20,
+					},
 				},
 			},
 		},
