@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"github.com/kubeflow/kfserving/pkg/frameworks/tensorflow"
 	"k8s.io/api/core/v1"
 	"testing"
@@ -133,9 +134,9 @@ func TestReconcile(t *testing.T) {
 			Release: &knservingv1alpha1.ReleaseType{
 				Revisions: []string{"@latest"},
 				Configuration: knservingv1alpha1.ConfigurationSpec{
-					RevisionTemplate: knservingv1alpha1.RevisionTemplateSpec{
+					RevisionTemplate: &knservingv1alpha1.RevisionTemplateSpec{
 						Spec: knservingv1alpha1.RevisionSpec{
-							Container: v1.Container{
+							Container: &v1.Container{
 								Image: tensorflow.TensorflowServingImageName + ":" +
 									instance.Spec.Default.Tensorflow.RuntimeVersion,
 								Command: []string{tensorflow.TensorflowEntrypointCommand},
@@ -218,9 +219,9 @@ func TestCanaryReconcile(t *testing.T) {
 				Revisions:      []string{canary.Status.Default.Name, "@latest"},
 				RolloutPercent: 20,
 				Configuration: knservingv1alpha1.ConfigurationSpec{
-					RevisionTemplate: knservingv1alpha1.RevisionTemplateSpec{
+					RevisionTemplate: &knservingv1alpha1.RevisionTemplateSpec{
 						Spec: knservingv1alpha1.RevisionSpec{
-							Container: v1.Container{
+							Container: &v1.Container{
 								Image: tensorflow.TensorflowServingImageName + ":" +
 									canary.Spec.Canary.Tensorflow.RuntimeVersion,
 								Command: []string{tensorflow.TensorflowEntrypointCommand},
@@ -248,14 +249,12 @@ func TestCanaryReconcile(t *testing.T) {
 	updateCanary.Status.LatestReadyRevisionName = "revision-v2"
 	updateCanary.Status.Traffic = []knservingv1alpha1.TrafficTarget{
 		{
-			Name:         "candidate",
-			RevisionName: "revision-v2",
-			Percent:      20,
+			Name:          "candidate",
+			TrafficTarget: v1beta1.TrafficTarget{RevisionName: "revision-v2", Percent: 20},
 		},
 		{
-			Name:         "current",
-			RevisionName: "revision-v1",
-			Percent:      80,
+			Name:          "current",
+			TrafficTarget: v1beta1.TrafficTarget{RevisionName: "revision-v1", Percent: 80},
 		},
 	}
 	g.Expect(c.Status().Update(context.TODO(), updateCanary)).NotTo(gomega.HaveOccurred())

@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"fmt"
 	"k8s.io/api/core/v1"
 	"testing"
 
@@ -77,16 +78,33 @@ func TestBadReplicaValues(t *testing.T) {
 	g.Expect(kfsvc.ValidateCreate()).Should(gomega.MatchError(MinReplicasShouldBeLessThanMaxError))
 }
 
-
-func TestCustomValueName(t *testing.T) {
+func TestCustomBadFields(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	kfsvc := TFExampleKFService.DeepCopy()
 	kfsvc.Spec.Default.Tensorflow = nil
 	kfsvc.Spec.Default.Custom = &CustomSpec{
 		v1.Container{
-			Name:"foo",
-			Image:"custom:0.1",
+			Name:      "foo",
+			Image:     "custom:0.1",
+			Stdin:     true,
+			StdinOnce: true,
 		},
 	}
-	g.Expect(kfsvc.ValidateCreate()).Should(gomega.MatchError("must not set the field(s): name"))
+	err := kfsvc.ValidateCreate()
+	fmt.Println(err)
+	g.Expect(kfsvc.ValidateCreate()).Should(gomega.MatchError("Custom: must not set the field(s): name, stdin, stdinOnce"))
+}
+
+func TestCustomOK(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	kfsvc := TFExampleKFService.DeepCopy()
+	kfsvc.Spec.Default.Tensorflow = nil
+	kfsvc.Spec.Default.Custom = &CustomSpec{
+		v1.Container{
+			Image: "custom:0.1",
+		},
+	}
+	err := kfsvc.ValidateCreate()
+	fmt.Println(err)
+	g.Expect(kfsvc.ValidateCreate()).Should(gomega.Succeed())
 }

@@ -6,7 +6,5 @@ import (
 )
 
 func CreateCustomContainer(customSpec *v1alpha1.CustomSpec) *v1.Container {
-
 	return &customSpec.Container
-
 }

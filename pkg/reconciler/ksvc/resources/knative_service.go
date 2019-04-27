@@ -19,6 +19,7 @@ package resources
 import (
 	knservingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
+	"github.com/kubeflow/kfserving/pkg/frameworks/custom"
 	"github.com/kubeflow/kfserving/pkg/frameworks/tensorflow"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -27,6 +28,8 @@ import (
 func CreateModelServingContainer(modelName string, modelSpec *v1alpha1.ModelSpec) *v1.Container {
 	if modelSpec.Tensorflow != nil {
 		return tensorflow.CreateTensorflowContainer(modelName, modelSpec.Tensorflow)
+	} else if modelSpec.Custom != nil {
+		return custom.CreateCustomContainer(modelSpec.Custom)
 	} else {
 		//TODO(@yuzisun) handle other model types
 		return &v1.Container{}
@@ -58,9 +61,9 @@ func CreateKnativeService(kfsvc *v1alpha1.KFService) (*knservingv1alpha1.Service
 				Revisions:      revisions,
 				RolloutPercent: int(routingPercent),
 				Configuration: knservingv1alpha1.ConfigurationSpec{
-					RevisionTemplate: knservingv1alpha1.RevisionTemplateSpec{
+					RevisionTemplate: &knservingv1alpha1.RevisionTemplateSpec{
 						Spec: knservingv1alpha1.RevisionSpec{
-							Container: *container,
+							Container: container,
 						},
 					},
 				},
