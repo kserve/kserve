@@ -16,12 +16,16 @@ limitations under the License.
 
 package v1alpha1
 
-import "context"
+import (
+	"context"
+
+	"github.com/knative/pkg/apis"
+)
 
 func (c *Configuration) SetDefaults(ctx context.Context) {
-	c.Spec.SetDefaults(ctx)
+	c.Spec.SetDefaults(apis.WithinSpec(ctx))
 }
 
 func (cs *ConfigurationSpec) SetDefaults(ctx context.Context) {
-	cs.RevisionTemplate.Spec.SetDefaults(ctx)
+	cs.GetTemplate().Spec.SetDefaults(ctx)
 }

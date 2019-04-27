@@ -17,14 +17,29 @@ limitations under the License.
 package v1alpha1
 
 import (
-	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
+	"github.com/knative/pkg/apis"
+	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-var confCondSet = duckv1alpha1.NewLivingConditionSet()
+var confCondSet = apis.NewLivingConditionSet()
 
 func (r *Configuration) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("Configuration")
+}
+
+// GetTemplate returns a pointer to the relevant RevisionTemplateSpec field.
+// It is never nil and should be exactly the specified template as guaranteed
+// by validation.
+func (cs *ConfigurationSpec) GetTemplate() *RevisionTemplateSpec {
+	if cs.RevisionTemplate != nil {
+		return cs.RevisionTemplate
+	}
+	if cs.Template != nil {
+		return cs.Template
+	}
+	// Should be unreachable post-validation, but here to ease testing.
+	return &RevisionTemplateSpec{}
 }
 
 // IsReady looks at the conditions to see if they are happy.
@@ -40,7 +55,7 @@ func (cs *ConfigurationStatus) IsLatestReadyRevisionNameUpToDate() bool {
 		cs.LatestCreatedRevisionName == cs.LatestReadyRevisionName
 }
 
-func (cs *ConfigurationStatus) GetCondition(t duckv1alpha1.ConditionType) *duckv1alpha1.Condition {
+func (cs *ConfigurationStatus) GetCondition(t apis.ConditionType) *apis.Condition {
 	return confCondSet.Manage(cs).GetCondition(t)
 }
 
@@ -82,4 +97,8 @@ func (cs *ConfigurationStatus) MarkLatestReadyDeleted() {
 		ConfigurationConditionReady,
 		"RevisionDeleted",
 		"Revision %q was deleted.", cs.LatestReadyRevisionName)
+}
+
+func (cs *ConfigurationStatus) duck() *duckv1beta1.Status {
+	return &cs.Status
 }

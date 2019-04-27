@@ -22,11 +22,12 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
+	"github.com/knative/pkg/apis"
+	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
 )
 
-var routeCondSet = duckv1alpha1.NewLivingConditionSet(
+var routeCondSet = apis.NewLivingConditionSet(
 	RouteConditionAllTrafficAssigned,
 	RouteConditionIngressReady,
 )
@@ -39,7 +40,7 @@ func (rs *RouteStatus) IsReady() bool {
 	return routeCondSet.Manage(rs).IsHappy()
 }
 
-func (rs *RouteStatus) GetCondition(t duckv1alpha1.ConditionType) *duckv1alpha1.Condition {
+func (rs *RouteStatus) GetCondition(t apis.ConditionType) *apis.Condition {
 	return routeCondSet.Manage(rs).GetCondition(t)
 }
 
@@ -107,4 +108,8 @@ func (rs *RouteStatus) PropagateClusterIngressStatus(cs v1alpha1.IngressStatus) 
 	case cc.Status == corev1.ConditionFalse:
 		routeCondSet.Manage(rs).MarkFalse(RouteConditionIngressReady, cc.Reason, cc.Message)
 	}
+}
+
+func (rs *RouteStatus) duck() *duckv1beta1.Status {
+	return &rs.Status
 }

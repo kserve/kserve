@@ -27,7 +27,7 @@ import (
 
 // Validate inspects and validates ClusterIngress object.
 func (ci *ClusterIngress) Validate(ctx context.Context) *apis.FieldError {
-	return ci.Spec.Validate(ctx).ViaField("spec")
+	return ci.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec")
 }
 
 // Validate inspects and validates IngressSpec object.
@@ -122,7 +122,7 @@ func (s ClusterIngressBackendSplit) Validate(ctx context.Context) *apis.FieldErr
 	var all *apis.FieldError
 	// Percent must be between 0 and 100.
 	if s.Percent < 0 || s.Percent > 100 {
-		all = all.Also(apis.ErrInvalidValue(strconv.Itoa(s.Percent), "percent"))
+		all = all.Also(apis.ErrInvalidValue(s.Percent, "percent"))
 	}
 	return all.Also(s.ClusterIngressBackend.Validate(ctx))
 }
@@ -151,7 +151,7 @@ func (b ClusterIngressBackend) Validate(ctx context.Context) *apis.FieldError {
 func (r *HTTPRetry) Validate(ctx context.Context) *apis.FieldError {
 	// Attempts must be greater than 0.
 	if r.Attempts < 0 {
-		return apis.ErrInvalidValue(strconv.Itoa(r.Attempts), "attempts")
+		return apis.ErrInvalidValue(r.Attempts, "attempts")
 	}
 	return nil
 }
