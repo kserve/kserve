@@ -16,7 +16,11 @@ limitations under the License.
 
 package networking
 
-import "github.com/knative/pkg/apis"
+import (
+	"context"
+
+	"github.com/knative/pkg/apis"
+)
 
 // This files contains the versionless types and enums that are strongly
 // unlikely to change from version to version.
@@ -33,10 +37,10 @@ const (
 )
 
 // Validate validates that ProtocolType has a correct enum value.
-func (p ProtocolType) Validate() *apis.FieldError {
+func (p ProtocolType) Validate(context.Context) *apis.FieldError {
 	switch p {
 	case ProtocolH2C, ProtocolHTTP1:
 		return nil
 	}
-	return apis.ErrInvalidValue(string(p), apis.CurrentField)
+	return apis.ErrInvalidValue(p, apis.CurrentField)
 }

@@ -16,10 +16,36 @@ limitations under the License.
 
 package v1alpha1
 
-import "context"
+import (
+	"context"
+
+	"github.com/knative/pkg/apis"
+	"k8s.io/apimachinery/pkg/api/equality"
+
+	"github.com/knative/serving/pkg/apis/serving"
+)
 
 func (s *Service) SetDefaults(ctx context.Context) {
-	s.Spec.SetDefaults(ctx)
+	s.Spec.SetDefaults(apis.WithinSpec(ctx))
+
+	if ui := apis.GetUserInfo(ctx); ui != nil {
+		ans := s.GetAnnotations()
+		if ans == nil {
+			ans = map[string]string{}
+			defer s.SetAnnotations(ans)
+		}
+
+		if apis.IsInUpdate(ctx) {
+			old := apis.GetBaseline(ctx).(*Service)
+			if equality.Semantic.DeepEqual(old.Spec, s.Spec) {
+				return
+			}
+			ans[serving.UpdaterAnnotation] = ui.Username
+		} else {
+			ans[serving.CreatorAnnotation] = ui.Username
+			ans[serving.UpdaterAnnotation] = ui.Username
+		}
+	}
 }
 
 func (ss *ServiceSpec) SetDefaults(ctx context.Context) {

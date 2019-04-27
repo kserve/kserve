@@ -18,9 +18,10 @@ package v1alpha1
 
 import (
 	"github.com/knative/pkg/apis"
-	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
+	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
 	"github.com/knative/pkg/kmeta"
 	networking "github.com/knative/serving/pkg/apis/networking"
+	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -92,10 +93,9 @@ type ServerlessServiceSpec struct {
 	// Mode describes the mode of operation of the ServerlessService.
 	Mode ServerlessServiceOperationMode `json:"mode,omitempty"`
 
-	// Selector describes the pod labels for selection of pods for the
-	// revision. Same as K8s service selector.
-	// See: https://kubernetes.io/docs/concepts/services-networking/service/.
-	Selector map[string]string `json:"selector,omitempty"`
+	// ObjectRef defines the resource that this ServerlessService
+	// is responsible for making "serverless".
+	ObjectRef autoscalingv1.CrossVersionObjectReference `json:"objectRef"`
 
 	// The application-layer protocol. Matches `RevisionProtocolType` set on the owning pa/revision.
 	// serving imports networking, so just use string.
@@ -104,21 +104,26 @@ type ServerlessServiceSpec struct {
 
 // ServerlessServiceStatus describes the current state of the ServerlessService.
 type ServerlessServiceStatus struct {
-	duckv1alpha1.Status `json:",inline"`
+	duckv1beta1.Status `json:",inline"`
 
 	// ServiceName holds the name of a core K8s Service resource that
 	// load balances over the pods backing this Revision (activator or revision).
 	// +optional
 	ServiceName string `json:"serviceName,omitempty"`
+
+	// PrivateServiceName holds the name of a core K8s Service resource that
+	// load balances over the user service pods backing this Revision.
+	// +optional
+	PrivateServiceName string `json:"privateServiceName,omitempty"`
 }
 
 // ConditionType represents a ServerlessService condition value
 const (
 	// ServerlessServiceConditionReady is set when the clusterIngress networking setting is
 	// configured and it has a load balancer address.
-	ServerlessServiceConditionReady = duckv1alpha1.ConditionReady
+	ServerlessServiceConditionReady = apis.ConditionReady
 
 	// ServerlessServiceConditionEndspointsPopulated is set when the ServerlessService's underlying
 	// Revision K8s Service has been populated with endpoints.
-	ServerlessServiceConditionEndspointsPopulated duckv1alpha1.ConditionType = "EndpointsPopulated"
+	ServerlessServiceConditionEndspointsPopulated apis.ConditionType = "EndpointsPopulated"
 )

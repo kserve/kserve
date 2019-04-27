@@ -19,11 +19,12 @@ package v1alpha1
 import (
 	"fmt"
 
-	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
+	"github.com/knative/pkg/apis"
+	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-var clusterIngressCondSet = duckv1alpha1.NewLivingConditionSet(
+var clusterIngressCondSet = apis.NewLivingConditionSet(
 	ClusterIngressConditionNetworkConfigured,
 	ClusterIngressConditionLoadBalancerReady,
 )
@@ -37,7 +38,7 @@ func (ci *ClusterIngress) IsPublic() bool {
 	return ci.Spec.Visibility == "" || ci.Spec.Visibility == IngressVisibilityExternalIP
 }
 
-func (cis *IngressStatus) GetCondition(t duckv1alpha1.ConditionType) *duckv1alpha1.Condition {
+func (cis *IngressStatus) GetCondition(t apis.ConditionType) *apis.Condition {
 	return clusterIngressCondSet.Manage(cis).GetCondition(t)
 }
 
@@ -70,4 +71,8 @@ func (cis *IngressStatus) MarkLoadBalancerReady(lbs []LoadBalancerIngressStatus)
 // ClusterIngressConditionReady returns true if ConditionStatus is True
 func (cis *IngressStatus) IsReady() bool {
 	return clusterIngressCondSet.Manage(cis).IsHappy()
+}
+
+func (cis *IngressStatus) duck() *duckv1beta1.Status {
+	return &cis.Status
 }

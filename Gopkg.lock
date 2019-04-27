@@ -126,24 +126,25 @@
   version = "v1.0.0"
 
 [[projects]]
-  digest = "1:2e3c336fc7fde5c984d2841455a658a6d626450b1754a854b3b32e7a8f49a07a"
+  branch = "master"
+  digest = "1:bf40199583e5143d1472fc34d10d6f4b69d97572142acf343b3e43136da40823"
   name = "github.com/google/go-cmp"
   packages = [
     "cmp",
     "cmp/internal/diff",
+    "cmp/internal/flags",
     "cmp/internal/function",
     "cmp/internal/value",
   ]
   pruneopts = "NUT"
-  revision = "3af367b6b30c263d47e8895973edcca9a49cf029"
-  version = "v0.2.0"
+  revision = "6f77996f0c42f7b84e5a2b252227263f93432e9b"
 
 [[projects]]
-  digest = "1:c280fbe00363f7c8db868a738b94df33586ce05c10d26578c3adf544d010eb64"
+  digest = "1:d7494e14f3dc2296fb1106fd59a3190f93017891d63c5025600f5794ced8b900"
   name = "github.com/google/go-containerregistry"
   packages = ["pkg/name"]
   pruneopts = "NUT"
-  revision = "dbc4da98389f9d0c42eb314c2b346bf1d2a27310"
+  revision = "ec69c4a8a1bff25fcbe096fcb32c9a6543fbdccf"
 
 [[projects]]
   branch = "master"
@@ -253,21 +254,23 @@
   version = "v0.5.0"
 
 [[projects]]
-  digest = "1:51825319e83b3f6c6e518157da0cb0844e3e83cc7b95a492d50978af2fe919d7"
+  digest = "1:9c2a7fa4137540fbd9b182ab62ffe70c8f1062473a8cdd85cb8a6df9847de9f1"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
     "apis/duck",
     "apis/duck/v1alpha1",
+    "apis/duck/v1beta1",
     "configmap",
     "kmeta",
     "kmp",
+    "ptr",
   ]
   pruneopts = "NUT"
-  revision = "281cda84ceb316a70c2eafc5b3250a4b72c2d468"
+  revision = "3c8c4a93547f62b542013c273068f51875b5c942"
 
 [[projects]]
-  digest = "1:a9e1c051fce18116746655820d0ff3f15159dac0e6db9c4bf324543fe6760b5d"
+  digest = "1:ebde0ea4b207e53602a0cc152c1f19824349b8225ebc138822b0c3d7d0f58d70"
   name = "github.com/knative/serving"
   packages = [
     "pkg/apis/autoscaling",
@@ -276,10 +279,10 @@
     "pkg/apis/networking/v1alpha1",
     "pkg/apis/serving",
     "pkg/apis/serving/v1alpha1",
+    "pkg/apis/serving/v1beta1",
   ]
   pruneopts = "NUT"
-  revision = "ca4fffb4743924c58e98badcf5bd3f17a3634d43"
-  version = "v0.5.0"
+  revision = "a44e3578ce27cc1455b3e1c7f74b09b82dda57f5"
 
 [[projects]]
   digest = "1:56dbf15e091bf7926cb33a57cb6bdfc658fc6d3498d2f76f10a97ce7856f1fde"
@@ -1072,10 +1075,14 @@
     "github.com/google/go-cmp/cmp",
     "github.com/knative/pkg/apis/duck/v1alpha1",
     "github.com/knative/pkg/kmp",
+    "github.com/knative/serving/pkg/apis/serving",
     "github.com/knative/serving/pkg/apis/serving/v1alpha1",
+    "github.com/knative/serving/pkg/apis/serving/v1beta1",
+    "github.com/mattbaird/jsonpatch",
     "github.com/onsi/ginkgo",
     "github.com/onsi/gomega",
     "golang.org/x/net/context",
+    "k8s.io/api/admission/v1beta1",
     "k8s.io/api/admissionregistration/v1beta1",
     "k8s.io/api/core/v1",
     "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1",
@@ -1086,6 +1093,7 @@
     "k8s.io/apimachinery/pkg/runtime",
     "k8s.io/apimachinery/pkg/runtime/schema",
     "k8s.io/apimachinery/pkg/types",
+    "k8s.io/apimachinery/pkg/util/sets",
     "k8s.io/client-go/kubernetes/scheme",
     "k8s.io/client-go/plugin/pkg/client/auth/gcp",
     "k8s.io/client-go/rest",
