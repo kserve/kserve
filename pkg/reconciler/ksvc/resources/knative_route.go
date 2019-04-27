@@ -16,20 +16,22 @@ func CreateKnativeRoute(kfsvc *v1alpha1.KFService) *knservingv1alpha1.Route {
 	}
 	trafficTargets := []knservingv1alpha1.TrafficTarget{
 		{
-			ConfigurationName: constants.MakeDefaultConfigurationName(kfsvc.Name),
+			ConfigurationName: constants.DefaultConfigurationName(kfsvc.Name),
 			Percent:           defaultPercent,
 		},
 	}
 	if kfsvc.Spec.Canary != nil {
 		trafficTargets = append(trafficTargets, knservingv1alpha1.TrafficTarget{
-			ConfigurationName: constants.MakeCanaryConfigurationName(kfsvc.Name),
+			ConfigurationName: constants.CanaryConfigurationName(kfsvc.Name),
 			Percent:           canaryPercent,
 		})
 	}
 	return &knservingv1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      kfsvc.Name,
-			Namespace: kfsvc.Namespace,
+			Name:        kfsvc.Name,
+			Namespace:   kfsvc.Namespace,
+			Labels:      kfsvc.Labels,
+			Annotations: kfsvc.Annotations,
 		},
 		Spec: knservingv1alpha1.RouteSpec{
 			Traffic: trafficTargets,

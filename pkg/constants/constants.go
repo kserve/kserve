@@ -42,10 +42,10 @@ func getEnvOrDefault(key string, fallback string) string {
 	return fallback
 }
 
-func MakeDefaultConfigurationName(name string) string {
+func DefaultConfigurationName(name string) string {
 	return name + "-default"
 }
 
-func MakeCanaryConfigurationName(name string) string {
+func CanaryConfigurationName(name string) string {
 	return name + "-canary"
 }

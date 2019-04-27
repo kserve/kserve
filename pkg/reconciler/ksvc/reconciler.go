@@ -89,7 +89,7 @@ func (c *ServiceReconciler) ReconcileRoute(ctx context.Context, desiredRoute *kn
 		return nil, err
 	}
 
-	if routeserviceSemanticEquals(desiredRoute, route) {
+	if routeSemanticEquals(desiredRoute, route) {
 		// No differences to reconcile.
 		return route, nil
 	}
@@ -109,14 +109,14 @@ func (c *ServiceReconciler) ReconcileRoute(ctx context.Context, desiredRoute *kn
 	return route, nil
 }
 
-func serviceSemanticEquals(desiredService, service *knservingv1alpha1.Configuration) bool {
-	return equality.Semantic.DeepEqual(desiredService.Spec, service.Spec) &&
-		equality.Semantic.DeepEqual(desiredService.ObjectMeta.Labels, service.ObjectMeta.Labels) &&
-		equality.Semantic.DeepEqual(desiredService.ObjectMeta.Annotations, service.ObjectMeta.Annotations)
+func serviceSemanticEquals(desiredConfiguration, configuration *knservingv1alpha1.Configuration) bool {
+	return equality.Semantic.DeepEqual(desiredConfiguration.Spec, configuration.Spec) &&
+		equality.Semantic.DeepEqual(desiredConfiguration.ObjectMeta.Labels, configuration.ObjectMeta.Labels) &&
+		equality.Semantic.DeepEqual(desiredConfiguration.ObjectMeta.Annotations, configuration.ObjectMeta.Annotations)
 }
 
-func routeserviceSemanticEquals(desiredService, service *knservingv1alpha1.Route) bool {
-	return equality.Semantic.DeepEqual(desiredService.Spec, service.Spec) &&
-		equality.Semantic.DeepEqual(desiredService.ObjectMeta.Labels, service.ObjectMeta.Labels) &&
-		equality.Semantic.DeepEqual(desiredService.ObjectMeta.Annotations, service.ObjectMeta.Annotations)
+func routeSemanticEquals(desiredRoute, route *knservingv1alpha1.Route) bool {
+	return equality.Semantic.DeepEqual(desiredRoute.Spec, route.Spec) &&
+		equality.Semantic.DeepEqual(desiredRoute.ObjectMeta.Labels, route.ObjectMeta.Labels) &&
+		equality.Semantic.DeepEqual(desiredRoute.ObjectMeta.Annotations, route.ObjectMeta.Annotations)
 }

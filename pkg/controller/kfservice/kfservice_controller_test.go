@@ -43,14 +43,14 @@ const timeout = time.Second * 5
 
 var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: "foo", Namespace: "default"}}
 var serviceKey = expectedRequest.NamespacedName
-var configurationKey = types.NamespacedName{Name: constants.MakeDefaultConfigurationName(serviceKey.Name),
+var configurationKey = types.NamespacedName{Name: constants.DefaultConfigurationName(serviceKey.Name),
 	Namespace: serviceKey.Namespace}
 
 var expectedCanaryRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: "bar", Namespace: "default"}}
 var canaryServiceKey = expectedCanaryRequest.NamespacedName
-var defaultConfigurationKey = types.NamespacedName{Name: constants.MakeDefaultConfigurationName(canaryServiceKey.Name),
+var defaultConfigurationKey = types.NamespacedName{Name: constants.DefaultConfigurationName(canaryServiceKey.Name),
 	Namespace: canaryServiceKey.Namespace}
-var canaryConfigurationKey = types.NamespacedName{Name: constants.MakeCanaryConfigurationName(canaryServiceKey.Name),
+var canaryConfigurationKey = types.NamespacedName{Name: constants.CanaryConfigurationName(canaryServiceKey.Name),
 	Namespace: canaryServiceKey.Namespace}
 
 var instance = &servingv1alpha1.KFService{
@@ -129,12 +129,12 @@ func TestReconcile(t *testing.T) {
 	defer c.Delete(context.TODO(), instance)
 	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
 
-	configuation := &knservingv1alpha1.Configuration{}
-	g.Eventually(func() error { return c.Get(context.TODO(), configurationKey, configuation) }, timeout).
+	configuration := &knservingv1alpha1.Configuration{}
+	g.Eventually(func() error { return c.Get(context.TODO(), configurationKey, configuration) }, timeout).
 		Should(gomega.Succeed())
 	expectedConfiguration := &knservingv1alpha1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      constants.MakeDefaultConfigurationName(instance.Name),
+			Name:      constants.DefaultConfigurationName(instance.Name),
 			Namespace: instance.Namespace,
 		},
 		Spec: knservingv1alpha1.ConfigurationSpec{
@@ -155,13 +155,13 @@ func TestReconcile(t *testing.T) {
 			},
 		},
 	}
-	g.Expect(configuation.Spec).To(gomega.Equal(expectedConfiguration.Spec))
+	g.Expect(configuration.Spec).To(gomega.Equal(expectedConfiguration.Spec))
 
 	route := &knservingv1alpha1.Route{}
 	g.Eventually(func() error { return c.Get(context.TODO(), serviceKey, route) }, timeout).
 		Should(gomega.Succeed())
 	// mock update knative configuration/route status since knative serving controller is not running in test
-	updated := configuation.DeepCopy()
+	updated := configuration.DeepCopy()
 	updated.Status.LatestCreatedRevisionName = "revision-v1"
 	updated.Status.LatestReadyRevisionName = "revision-v1"
 	g.Expect(c.Status().Update(context.TODO(), updated)).NotTo(gomega.HaveOccurred())
@@ -256,11 +256,11 @@ func TestCanaryReconcile(t *testing.T) {
 		Spec: knservingv1alpha1.RouteSpec{
 			Traffic: []knservingv1alpha1.TrafficTarget{
 				{
-					ConfigurationName: constants.MakeDefaultConfigurationName(canary.Name),
+					ConfigurationName: constants.DefaultConfigurationName(canary.Name),
 					Percent:           80,
 				},
 				{
-					ConfigurationName: constants.MakeCanaryConfigurationName(canary.Name),
+					ConfigurationName: constants.CanaryConfigurationName(canary.Name),
 					Percent:           20,
 				},
 			},
