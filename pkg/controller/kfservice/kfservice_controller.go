@@ -144,7 +144,7 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 		}
 	}
 
-	defaultConfiguration, err := serviceReconciler.Reconcile(context.TODO(), desiredDefault)
+	defaultConfiguration, err := serviceReconciler.ReconcileConfiguarion(context.TODO(), desiredDefault)
 	if err != nil {
 		log.Error(err, "Failed to reconcile default model spec", "name", desiredDefault.Name)
 		r.Recorder.Eventf(kfsvc, v1.EventTypeWarning, "InternalError", err.Error())
@@ -153,7 +153,7 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 	kfsvc.Status.PropagateDefaultConfigurationStatus(&defaultConfiguration.Status)
 
 	if desiredCanary != nil {
-		canaryConfiguration, err := serviceReconciler.Reconcile(context.TODO(), desiredCanary)
+		canaryConfiguration, err := serviceReconciler.ReconcileConfiguarion(context.TODO(), desiredCanary)
 		if err != nil {
 			log.Error(err, "Failed to reconcile canary model spec", "name", desiredCanary.Name)
 			r.Recorder.Eventf(kfsvc, v1.EventTypeWarning, "InternalError", err.Error())

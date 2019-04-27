@@ -51,9 +51,9 @@ var defaultConfiguration = knservingv1alpha1.Configuration{
 		Annotations: map[string]string{"autoscaling.knative.dev/maxScale": "3", "autoscaling.knative.dev/minScale": "1"},
 	},
 	Spec: knservingv1alpha1.ConfigurationSpec{
-		RevisionTemplate: knservingv1alpha1.RevisionTemplateSpec{
+		RevisionTemplate: &knservingv1alpha1.RevisionTemplateSpec{
 			Spec: knservingv1alpha1.RevisionSpec{
-				Container: v1.Container{
+				Container: &v1.Container{
 					Image:   tensorflow.TensorflowServingImageName + ":" + kfsvc.Spec.Default.Tensorflow.RuntimeVersion,
 					Command: []string{tensorflow.TensorflowEntrypointCommand},
 					Args: []string{
@@ -75,9 +75,9 @@ var canaryConfiguration = knservingv1alpha1.Configuration{
 		Annotations: map[string]string{"autoscaling.knative.dev/maxScale": "3", "autoscaling.knative.dev/minScale": "1"},
 	},
 	Spec: knservingv1alpha1.ConfigurationSpec{
-		RevisionTemplate: knservingv1alpha1.RevisionTemplateSpec{
+		RevisionTemplate: &knservingv1alpha1.RevisionTemplateSpec{
 			Spec: knservingv1alpha1.RevisionSpec{
-				Container: v1.Container{
+				Container: &v1.Container{
 					Image:   tensorflow.TensorflowServingImageName + ":" + kfsvc.Spec.Default.Tensorflow.RuntimeVersion,
 					Command: []string{tensorflow.TensorflowEntrypointCommand},
 					Args: []string{
@@ -158,9 +158,9 @@ func TestKnativeConfiguration(t *testing.T) {
 					Namespace: "default",
 				},
 				Spec: knservingv1alpha1.ConfigurationSpec{
-					RevisionTemplate: knservingv1alpha1.RevisionTemplateSpec{
+					RevisionTemplate: &knservingv1alpha1.RevisionTemplateSpec{
 						Spec: knservingv1alpha1.RevisionSpec{
-							Container: v1.Container{
+							Container: &v1.Container{
 								//TODO(@yuzisun) fill in once scikit is implemented
 							},
 						},

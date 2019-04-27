@@ -20,6 +20,7 @@ import (
 	"context"
 	"github.com/google/go-cmp/cmp"
 	knservingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 	"github.com/kubeflow/kfserving/pkg/frameworks/tensorflow"
 	"github.com/onsi/gomega"
@@ -35,9 +36,9 @@ func TestKnativeConfigurationReconcile(t *testing.T) {
 			Namespace: "default",
 		},
 		Spec: knservingv1alpha1.ConfigurationSpec{
-			RevisionTemplate: knservingv1alpha1.RevisionTemplateSpec{
+			RevisionTemplate: &knservingv1alpha1.RevisionTemplateSpec{
 				Spec: knservingv1alpha1.RevisionSpec{
-					Container: v1.Container{
+					Container: &v1.Container{
 						Image: tensorflow.TensorflowServingImageName + ":" +
 							v1alpha1.DefaultTensorflowVersion,
 						Command: []string{tensorflow.TensorflowEntrypointCommand},
@@ -66,9 +67,9 @@ func TestKnativeConfigurationReconcile(t *testing.T) {
 					Namespace: "default",
 				},
 				Spec: knservingv1alpha1.ConfigurationSpec{
-					RevisionTemplate: knservingv1alpha1.RevisionTemplateSpec{
+					RevisionTemplate: &knservingv1alpha1.RevisionTemplateSpec{
 						Spec: knservingv1alpha1.RevisionSpec{
-							Container: v1.Container{
+							Container: &v1.Container{
 								Image: tensorflow.TensorflowServingImageName + ":" +
 									v1alpha1.DefaultTensorflowVersion,
 								Command: []string{tensorflow.TensorflowEntrypointCommand},
@@ -92,9 +93,9 @@ func TestKnativeConfigurationReconcile(t *testing.T) {
 					Namespace: "default",
 				},
 				Spec: knservingv1alpha1.ConfigurationSpec{
-					RevisionTemplate: knservingv1alpha1.RevisionTemplateSpec{
+					RevisionTemplate: &knservingv1alpha1.RevisionTemplateSpec{
 						Spec: knservingv1alpha1.RevisionSpec{
-							Container: v1.Container{
+							Container: &v1.Container{
 								Image: tensorflow.TensorflowServingImageName + ":" +
 									v1alpha1.DefaultTensorflowVersion,
 								Command: []string{tensorflow.TensorflowEntrypointCommand},
@@ -117,7 +118,7 @@ func TestKnativeConfigurationReconcile(t *testing.T) {
 		if scenario.update {
 			g.Expect(c.Create(context.TODO(), existingConfiguration)).NotTo(gomega.HaveOccurred())
 		}
-		configuration, err := serviceReconciler.Reconcile(context.TODO(), scenario.desiredConfiguration)
+		configuration, err := serviceReconciler.ReconcileConfiguarion(context.TODO(), scenario.desiredConfiguration)
 		// Validate
 		if scenario.shouldFail && err == nil {
 			t.Errorf("Test %q failed: returned success but expected error", name)
@@ -143,8 +144,10 @@ func TestKnativeRouteReconcile(t *testing.T) {
 		Spec: knservingv1alpha1.RouteSpec{
 			Traffic: []knservingv1alpha1.TrafficTarget{
 				{
-					ConfigurationName: "mnist-default",
-					Percent:           100,
+					TrafficTarget: v1beta1.TrafficTarget{
+						ConfigurationName: "mnist-default",
+						Percent:           100,
+					},
 				},
 			},
 		},
@@ -165,8 +168,10 @@ func TestKnativeRouteReconcile(t *testing.T) {
 				Spec: knservingv1alpha1.RouteSpec{
 					Traffic: []knservingv1alpha1.TrafficTarget{
 						{
-							ConfigurationName: "mnist-default",
-							Percent:           100,
+							TrafficTarget: v1beta1.TrafficTarget{
+								ConfigurationName: "mnist-default",
+								Percent:           100,
+							},
 						},
 					},
 				},
@@ -182,12 +187,16 @@ func TestKnativeRouteReconcile(t *testing.T) {
 				Spec: knservingv1alpha1.RouteSpec{
 					Traffic: []knservingv1alpha1.TrafficTarget{
 						{
-							ConfigurationName: "mnist-default",
-							Percent:           80,
+							TrafficTarget: v1beta1.TrafficTarget{
+								ConfigurationName: "mnist-default",
+								Percent:           80,
+							},
 						},
 						{
-							ConfigurationName: "mnist-canary",
-							Percent:           20,
+							TrafficTarget: v1beta1.TrafficTarget{
+								ConfigurationName: "mnist-canary",
+								Percent:           20,
+							},
 						},
 					},
 				},

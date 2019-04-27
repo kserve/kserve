@@ -3,6 +3,7 @@ package resources
 import (
 	"github.com/google/go-cmp/cmp"
 	knservingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"testing"
@@ -39,8 +40,10 @@ func TestKnativeRoute(t *testing.T) {
 				Spec: knservingv1alpha1.RouteSpec{
 					Traffic: []knservingv1alpha1.TrafficTarget{
 						{
-							ConfigurationName: "mnist-default",
-							Percent:           100,
+							TrafficTarget: v1beta1.TrafficTarget{
+								ConfigurationName: "mnist-default",
+								Percent:           100,
+							},
 						},
 					},
 				},
@@ -85,12 +88,16 @@ func TestKnativeRoute(t *testing.T) {
 				Spec: knservingv1alpha1.RouteSpec{
 					Traffic: []knservingv1alpha1.TrafficTarget{
 						{
-							ConfigurationName: "mnist-default",
-							Percent:           80,
+							TrafficTarget: v1beta1.TrafficTarget{
+								ConfigurationName: "mnist-default",
+								Percent:           80,
+							},
 						},
 						{
-							ConfigurationName: "mnist-canary",
-							Percent:           20,
+							TrafficTarget: v1beta1.TrafficTarget{
+								ConfigurationName: "mnist-canary",
+								Percent:           20,
+							},
 						},
 					},
 				},
