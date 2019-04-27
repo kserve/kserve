@@ -21,7 +21,9 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/knative/pkg/apis"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
+	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
 	net "github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
 	corev1 "k8s.io/api/core/v1"
@@ -44,7 +46,7 @@ const (
 
 	// RequestQueuePort specifies the port number to use for http requests
 	// in queue-proxy container.
-	RequestQueuePort = 8012
+	RequestQueuePort = serving.RequestQueuePort
 
 	// RequestQueueAdminPortName specifies the port name for
 	// health check and lifecyle hooks for queue-proxy.
@@ -52,18 +54,22 @@ const (
 
 	// RequestQueueAdminPort specifies the port number for
 	// health check and lifecyle hooks for queue-proxy.
-	RequestQueueAdminPort = 8022
+	RequestQueueAdminPort = serving.RequestQueueAdminPort
 
 	// RequestQueueMetricsPort specifies the port number for metrics emitted
 	// by queue-proxy.
-	RequestQueueMetricsPort = 9090
+	RequestQueueMetricsPort = serving.RequestQueueMetricsPort
 
 	// RequestQueueMetricsPortName specifies the port name to use for metrics
 	// emitted by queue-proxy.
 	RequestQueueMetricsPortName = "queue-metrics"
+
+	// ServiceQueueMetricsPortName is the name of the port that serves metrics
+	// on the Kubernetes service.
+	ServiceQueueMetricsPortName = "metrics"
 )
 
-var revCondSet = duckv1alpha1.NewLivingConditionSet(
+var revCondSet = apis.NewLivingConditionSet(
 	RevisionConditionResourcesAvailable,
 	RevisionConditionContainerHealthy,
 	RevisionConditionBuildSucceeded,
@@ -73,6 +79,20 @@ var buildCondSet = duckv1alpha1.NewBatchConditionSet()
 
 func (r *Revision) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("Revision")
+}
+
+// GetContainer returns a pointer to the relevant corev1.Container field.
+// It is never nil and should be exactly the specified container as guaranteed
+// by validation.
+func (rs *RevisionSpec) GetContainer() *corev1.Container {
+	if rs.Container != nil {
+		return rs.Container
+	}
+	if len(rs.Containers) > 0 {
+		return &rs.Containers[0]
+	}
+	// Should be unreachable post-validation, but here to ease testing.
+	return &corev1.Container{}
 }
 
 func (r *Revision) BuildRef() *corev1.ObjectReference {
@@ -98,7 +118,7 @@ func (r *Revision) BuildRef() *corev1.ObjectReference {
 
 // GetProtocol returns the app level network protocol.
 func (r *Revision) GetProtocol() net.ProtocolType {
-	ports := r.Spec.Container.Ports
+	ports := r.Spec.GetContainer().Ports
 	if len(ports) > 0 && ports[0].Name == string(net.ProtocolH2C) {
 		return net.ProtocolH2C
 	}
@@ -120,7 +140,7 @@ func (rs *RevisionStatus) IsActivationRequired() bool {
 	return false
 }
 
-func (rs *RevisionStatus) GetCondition(t duckv1alpha1.ConditionType) *duckv1alpha1.Condition {
+func (rs *RevisionStatus) GetCondition(t apis.ConditionType) *apis.Condition {
 	return revCondSet.Manage(rs).GetCondition(t)
 }
 
@@ -270,4 +290,8 @@ func (r *Revision) GetLastPinned() (time.Time, error) {
 	}
 
 	return time.Unix(secs, 0), nil
+}
+
+func (rs *RevisionStatus) duck() *duckv1beta1.Status {
+	return &rs.Status
 }

@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+
+	"github.com/knative/pkg/kmp"
 )
 
 // CurrentField is a constant to supply as a fieldPath for when there is
@@ -300,17 +302,17 @@ func ErrDisallowedFields(fieldPaths ...string) *FieldError {
 	}
 }
 
-// ErrInvalidArrayValue consturcts a FieldError for a repetetive `field`
+// ErrInvalidArrayValue constructs a FieldError for a repetetive `field`
 // at `index` that has received an invalid string value.
-func ErrInvalidArrayValue(value, field string, index int) *FieldError {
+func ErrInvalidArrayValue(value interface{}, field string, index int) *FieldError {
 	return ErrInvalidValue(value, CurrentField).ViaFieldIndex(field, index)
 }
 
 // ErrInvalidValue constructs a FieldError for a field that has received an
 // invalid string value.
-func ErrInvalidValue(value, fieldPath string) *FieldError {
+func ErrInvalidValue(value interface{}, fieldPath string) *FieldError {
 	return &FieldError{
-		Message: fmt.Sprintf("invalid value %q", value),
+		Message: fmt.Sprintf("invalid value: %v", value),
 		Paths:   []string{fieldPath},
 	}
 }
@@ -335,9 +337,9 @@ func ErrMultipleOneOf(fieldPaths ...string) *FieldError {
 
 // ErrInvalidKeyName is a variadic helper method for constructing a FieldError
 // that specifies a key name that is invalid.
-func ErrInvalidKeyName(value, fieldPath string, details ...string) *FieldError {
+func ErrInvalidKeyName(key, fieldPath string, details ...string) *FieldError {
 	return &FieldError{
-		Message: fmt.Sprintf("invalid key name %q", value),
+		Message: fmt.Sprintf("invalid key name %q", key),
 		Paths:   []string{fieldPath},
 		Details: strings.Join(details, ", "),
 	}
@@ -345,9 +347,24 @@ func ErrInvalidKeyName(value, fieldPath string, details ...string) *FieldError {
 
 // ErrOutOfBoundsValue constructs a FieldError for a field that has received an
 // out of bound value.
-func ErrOutOfBoundsValue(value, lower, upper, fieldPath string) *FieldError {
+func ErrOutOfBoundsValue(value, lower, upper interface{}, fieldPath string) *FieldError {
 	return &FieldError{
-		Message: fmt.Sprintf("expected %s <= %s <= %s", lower, value, upper),
+		Message: fmt.Sprintf("expected %v <= %v <= %v", lower, value, upper),
 		Paths:   []string{fieldPath},
 	}
+}
+
+// CheckDisallowedFields compares the request object against a masked request object. Fields
+// that are set in the request object that are unset in the mask are reported back as disallowed fields. If
+// there is an error comparing the two objects FieldError of "Internal Error" is returned.
+func CheckDisallowedFields(request, maskedRequest interface{}) *FieldError {
+	if disallowed, err := kmp.CompareSetFields(request, maskedRequest); err != nil {
+		return &FieldError{
+			Message: fmt.Sprintf("Internal Error"),
+			Paths:   []string{CurrentField},
+		}
+	} else if len(disallowed) > 0 {
+		return ErrDisallowedFields(disallowed...)
+	}
+	return nil
 }

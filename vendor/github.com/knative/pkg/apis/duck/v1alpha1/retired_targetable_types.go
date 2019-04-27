@@ -67,7 +67,7 @@ var _ duck.Populatable = (*Target)(nil)
 var _ apis.Listable = (*Target)(nil)
 
 // GetFullType implements duck.Implementable
-func (_ *Targetable) GetFullType() duck.Populatable {
+func (*Targetable) GetFullType() duck.Populatable {
 	return &Target{}
 }
 
@@ -82,7 +82,7 @@ func (t *Target) Populate() {
 }
 
 // GetListType implements apis.Listable
-func (r *Target) GetListType() runtime.Object {
+func (*Target) GetListType() runtime.Object {
 	return &TargetList{}
 }
 

@@ -18,7 +18,7 @@ package v1alpha1
 
 import (
 	"github.com/knative/pkg/apis"
-	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
+	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
 	"github.com/knative/pkg/kmeta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -79,16 +79,21 @@ type ConfigurationSpec struct {
 	// RevisionTemplate's BuildName field will be populated with the name of
 	// the Build object created to produce the container for the Revision.
 	// +optional
-	RevisionTemplate RevisionTemplateSpec `json:"revisionTemplate"`
+	RevisionTemplate *RevisionTemplateSpec `json:"revisionTemplate,omitempty"`
+
+	// Template holds the latest specification for the Revision to
+	// be stamped out.
+	// +optional
+	Template *RevisionTemplateSpec `json:"template,omitempty"`
 }
 
 const (
 	// ConfigurationConditionReady is set when the configuration's latest
 	// underlying revision has reported readiness.
-	ConfigurationConditionReady = duckv1alpha1.ConditionReady
+	ConfigurationConditionReady = apis.ConditionReady
 )
 
-// ConfigurationStatusFields holds all of the non-duckv1alpha1.Status status fields of a Route.
+// ConfigurationStatusFields holds all of the non-duckv1beta1.Status status fields of a Route.
 // These are defined outline so that we can also inline them into Service, and more easily
 // copy them.
 type ConfigurationStatusFields struct {
@@ -105,7 +110,7 @@ type ConfigurationStatusFields struct {
 
 // ConfigurationStatus communicates the observed state of the Configuration (from the controller).
 type ConfigurationStatus struct {
-	duckv1alpha1.Status `json:",inline"`
+	duckv1beta1.Status `json:",inline"`
 
 	ConfigurationStatusFields `json:",inline"`
 }
