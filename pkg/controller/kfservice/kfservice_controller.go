@@ -78,8 +78,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	// Watch for changes to KFService
-	err = c.Watch(&source.Kind{Type: &kfservingv1alpha1.KFService{}}, &handler.EnqueueRequestForObject{})
-	if err != nil {
+	if err = c.Watch(&source.Kind{Type: &kfservingv1alpha1.KFService{}}, &handler.EnqueueRequestForObject{}); err != nil {
 		return err
 	}
 
@@ -89,14 +88,12 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	// Watch for changes to Knative Configuration
-	err = c.Watch(&source.Kind{Type: &knservingv1alpha1.Configuration{}}, kfservingController)
-	if err != nil {
+	if err = c.Watch(&source.Kind{Type: &knservingv1alpha1.Configuration{}}, kfservingController); err != nil {
 		return err
 	}
 
 	// Watch for changes to Knative Route
-	err = c.Watch(&source.Kind{Type: &knservingv1alpha1.Route{}}, kfservingController)
-	if err != nil {
+	if err = c.Watch(&source.Kind{Type: &knservingv1alpha1.Route{}}, kfservingController); err != nil {
 		return err
 	}
 
@@ -123,8 +120,7 @@ type ReconcileService struct {
 func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	// Fetch the KFService instance
 	kfsvc := &kfservingv1alpha1.KFService{}
-	err := r.Get(context.TODO(), request.NamespacedName, kfsvc)
-	if err != nil {
+	if err := r.Get(context.TODO(), request.NamespacedName, kfsvc); err != nil {
 		if errors.IsNotFound(err) {
 			// Object not found, return.  Created objects are automatically garbage collected.
 			// For additional cleanup logic use finalizers.
@@ -134,20 +130,20 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 		return reconcile.Result{}, err
 	}
 
+	serviceReconciler := ksvc.NewServiceReconciler(r.Client)
+	// Reconcile configurations
 	desiredDefault, desiredCanary := resources.CreateKnativeConfiguration(kfsvc)
 
 	if err := controllerutil.SetControllerReference(kfsvc, desiredDefault, r.scheme); err != nil {
 		return reconcile.Result{}, err
 	}
+
 	if desiredCanary != nil {
 		if err := controllerutil.SetControllerReference(kfsvc, desiredCanary, r.scheme); err != nil {
 			return reconcile.Result{}, err
 		}
 	}
 
-	serviceReconciler := ksvc.NewServiceReconciler(r.Client)
-
-	// Reconcile configurations
 	defaultConfiguration, err := serviceReconciler.Reconcile(context.TODO(), desiredDefault)
 	if err != nil {
 		log.Error(err, "Failed to reconcile default model spec", "name", desiredDefault.Name)
@@ -159,7 +155,7 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 	if desiredCanary != nil {
 		canaryConfiguration, err := serviceReconciler.Reconcile(context.TODO(), desiredCanary)
 		if err != nil {
-			log.Error(err, "Failed to reconcile canary model spec", "name", desiredDefault.Name)
+			log.Error(err, "Failed to reconcile canary model spec", "name", desiredCanary.Name)
 			r.Recorder.Eventf(kfsvc, v1.EventTypeWarning, "InternalError", err.Error())
 			return reconcile.Result{}, err
 		}
@@ -187,8 +183,8 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 
 func (r *ReconcileService) updateStatus(desiredService *kfservingv1alpha1.KFService) error {
 	existing := &kfservingv1alpha1.KFService{}
-	err := r.Get(context.TODO(), types.NamespacedName{Name: desiredService.Name, Namespace: desiredService.Namespace}, existing)
-	if err != nil {
+	namespacedName := types.NamespacedName{Name: desiredService.Name, Namespace: desiredService.Namespace}
+	if err := r.Get(context.TODO(), namespacedName, existing); err != nil {
 		if errors.IsNotFound(err) {
 			return err
 		}
