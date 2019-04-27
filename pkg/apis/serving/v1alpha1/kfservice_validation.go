@@ -93,12 +93,9 @@ func validateDefaultSpec(defaultSpec ModelSpec) error {
 	if err := validateOneModelSpec(defaultSpec); err != nil {
 		return err
 	}
-	if defaultSpec.Custom != nil {
-		if err := validateContainer(defaultSpec.Custom); err != nil {
-			return err
-		}
+	if err := validateContainer(defaultSpec.Custom); err != nil {
+		return err
 	}
-
 	return nil
 }
 
