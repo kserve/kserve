@@ -19,7 +19,9 @@ package v1alpha1
 import (
 	"fmt"
 
+	knserving "github.com/knative/serving/pkg/apis/serving"
 	runtime "k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 const (
@@ -70,6 +72,7 @@ func validateKFService(kfsvc *KFService) error {
 	if err := validateCanarySpec(kfsvc.Spec.Canary); err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -90,6 +93,9 @@ func validateDefaultSpec(defaultSpec ModelSpec) error {
 	if err := validateOneModelSpec(defaultSpec); err != nil {
 		return err
 	}
+	if err := validateContainer(defaultSpec.Custom); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -102,6 +108,9 @@ func validateCanarySpec(canarySpec *CanarySpec) error {
 	}
 	if canarySpec.TrafficPercent < 0 || canarySpec.TrafficPercent > 100 {
 		return fmt.Errorf(TrafficBoundsExceededError)
+	}
+	if err := validateContainer(canarySpec.Custom); err != nil {
+		return err
 	}
 	return nil
 }
@@ -122,6 +131,17 @@ func validateOneModelSpec(modelSpec ModelSpec) error {
 	}
 	if count != 1 {
 		return fmt.Errorf(ExactlyOneModelSpecViolatedError)
+	}
+	return nil
+}
+
+func validateContainer(customSpec *CustomSpec) error {
+	if customSpec == nil {
+		return nil
+	}
+	knativeErrs := knserving.ValidateContainer(customSpec.Container, sets.String{})
+	if knativeErrs != nil {
+		return fmt.Errorf("Custom: " + knativeErrs.Error())
 	}
 	return nil
 }
