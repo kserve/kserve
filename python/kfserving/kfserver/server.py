@@ -1,8 +1,19 @@
 import tornado.ioloop
 import tornado.web
+import argparse
 
-class KFServer():
+
+parser = argparse.ArgumentParser(description='Process some integers.')
+
+parser.add_argument('--model_uri', help='A URI pointer to the model file')
+
+class KFServer(object):
     def start(self):
+        args = parser.parse_args()
+        self.port = args.port
+        print(self.port)
+
+
         self._server = tornado.web.Application([
             # Server Liveness API returns 200 if server is alive.
             (r"/", LivenessHandler),
@@ -14,14 +25,16 @@ class KFServer():
             (r"/model/([a-zA-Z0-9_-]+):predict", ModelPredictHandler, dict(predict=self.predict)),
         ])
 
+        self.load()
         self._server.listen(8000)
         tornado.ioloop.IOLoop.current().start()
 
+    # load attempts to download the arg-specified model-file to local storage
     def load(self):
-        raise NotImplementedError
+        print("Downloading model")
 
     # predict must be overriden by the implementing class
-    def predict(self, tensor):
+    def predict(self, request):
         raise NotImplementedError
 
 class LivenessHandler(tornado.web.RequestHandler):

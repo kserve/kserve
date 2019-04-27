@@ -10,9 +10,10 @@ setup(
     description='Model Server for arbitrary python ML frameworks.',
     long_description=open('README.md').read(),
     python_requires='>3.4',
-    packages=find_packages(),
+    packages=['kfserving.kfserver', 'kfserving.xgboost'],
     install_requires=[
         "tornado >= 1.4.1",
-        "xgboost == 0.82"
+        "xgboost == 0.82",
+        "argparse >= 1.4.0"
     ],
 )
