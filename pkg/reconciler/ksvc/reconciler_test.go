@@ -37,9 +37,9 @@ func TestKnativeServiceReconcile(t *testing.T) {
 			Release: &knservingv1alpha1.ReleaseType{
 				Revisions: []string{"@latest"},
 				Configuration: knservingv1alpha1.ConfigurationSpec{
-					RevisionTemplate: knservingv1alpha1.RevisionTemplateSpec{
+					RevisionTemplate: &knservingv1alpha1.RevisionTemplateSpec{
 						Spec: knservingv1alpha1.RevisionSpec{
-							Container: v1.Container{
+							Container: &v1.Container{
 								Image:   "tensorflow/serving:1.13",
 								Command: []string{tensorflow.TensorflowEntrypointCommand},
 								Args: []string{
@@ -72,9 +72,9 @@ func TestKnativeServiceReconcile(t *testing.T) {
 					Release: &knservingv1alpha1.ReleaseType{
 						Revisions: []string{"@latest"},
 						Configuration: knservingv1alpha1.ConfigurationSpec{
-							RevisionTemplate: knservingv1alpha1.RevisionTemplateSpec{
+							RevisionTemplate: &knservingv1alpha1.RevisionTemplateSpec{
 								Spec: knservingv1alpha1.RevisionSpec{
-									Container: v1.Container{
+									Container: &v1.Container{
 										Image:   "tensorflow/serving:1.13",
 										Command: []string{tensorflow.TensorflowEntrypointCommand},
 										Args: []string{
@@ -102,9 +102,9 @@ func TestKnativeServiceReconcile(t *testing.T) {
 					Release: &knservingv1alpha1.ReleaseType{
 						Revisions: []string{"@latest"},
 						Configuration: knservingv1alpha1.ConfigurationSpec{
-							RevisionTemplate: knservingv1alpha1.RevisionTemplateSpec{
+							RevisionTemplate: &knservingv1alpha1.RevisionTemplateSpec{
 								Spec: knservingv1alpha1.RevisionSpec{
-									Container: v1.Container{
+									Container: &v1.Container{
 										Image:   "tensorflow/serving:1.13",
 										Command: []string{tensorflow.TensorflowEntrypointCommand},
 										Args: []string{
