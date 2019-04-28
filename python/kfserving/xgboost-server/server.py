@@ -3,7 +3,7 @@ import xgboost as xgb
 
 class XGBoostServer(KFServer):
     def __init__(self):
-        self.load("foo")
+        super().__init__()
     
     def predict(self, request):
         try:
