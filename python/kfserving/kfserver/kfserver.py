@@ -61,7 +61,7 @@ class KFServer(object):
         ])
 
         self._http_server.listen(self.http_port)
-        logging.info("Listening on port {}".format(self.http_port))
+        logging.info("Listening on port %s" % self.http_port)
         tornado.ioloop.IOLoop.current().start()
 
 
@@ -91,7 +91,7 @@ class ModelHealthHandler(tornado.web.RequestHandler):
         if name not in self.models:
             raise tornado.web.HTTPError(
                 status_code=404,
-                reason="Model with name {} does not exist.".format(name)
+                reason="Model with name %s does not exist." % name
             )
 
         model = self.models[name]
@@ -109,7 +109,7 @@ class ModelPredictHandler(tornado.web.RequestHandler):
         if name not in self.models:
             raise tornado.web.HTTPError(
                 status_code=404,
-                reason="Model with name {} does not exist.".format(name)
+                reason="Model with name %s does not exist." % name
             )
 
         # TODO Add metrics
@@ -118,7 +118,14 @@ class ModelPredictHandler(tornado.web.RequestHandler):
         if not model.ready:
             model.load()
 
-        inputs = model.preprocess(json.loads(self.request.body))
+        body = json.loads(self.request.body)
+        if "instances" not in body:
+            raise tornado.web.HTTPError(
+                status_code=404,
+                reason="Expected instances in request body"
+            )
+
+        inputs = model.preprocess(json.loads(self.request.body)["instances"])
         results = model.predict(inputs)
         outputs = model.postprocess(results)
         return outputs

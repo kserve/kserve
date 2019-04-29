@@ -1,6 +1,6 @@
 class KFModel(object):
     def predict(self, inputs):
-        raise NotImplementedError
+            raise NotImplementedError
     
     def preprocess(self, inputs):
         return inputs

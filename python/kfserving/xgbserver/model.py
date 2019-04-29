@@ -1,6 +1,7 @@
 from kfserving.kfserver import KFModel
 from kfserving.kfserver import Storage
 import xgboost as xgb
+import pandas as pd
 
 
 class XGBoostModel(KFModel):
@@ -13,13 +14,15 @@ class XGBoostModel(KFModel):
         self._booster = xgb.Booster(model_file=self.model_file)
         self.ready = True
 
-    def predict(self, inputs):
+    def preprocess(self, inputs):
         try:
-            dmatrix = xgb.DMatrix(inputs)
+            return xgb.DMatrix(inputs)
         except Exception as e:
             raise Exception(
-                "Failed to initialize DMatrix from inputs: {}, {}".format(inputs, e))
+                "Failed to initialize DMatrix from inputs: %s, %s" % (e, inputs))
+
+    def predict(self, inputs):
         try:
-            return self._booster.predict(dmatrix)
+            return self._booster.predict(inputs)
         except Exception as e:
-            raise Exception("Failed to predict {}".format(e))
+            raise Exception("Failed to predict %s" % e)

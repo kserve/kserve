@@ -11,15 +11,12 @@ class XGBoostServer(KFServer):
     def __init__(self):
         super().__init__()
 
-        local_model_dir = os.path.join(self.local_model_dir, self.model_name)
-        local_model_file = os.path.join(local_model_dir, DEFAULT_XGB_FILE)
-
-        logging.info("Copying contents of directory %s" % self.model_dir)
-        Storage.download(self.model_dir, local_model_dir)
+        logging.info("Copying contents of directory %s to local" % self.model_dir)
+        local_dir = Storage.download(self.model_dir)
+        model_file = os.path.join(local_dir, DEFAULT_XGB_FILE)
         logging.info("Successfully copied %s" % self.model_dir)
 
-        
-        model = XGBoostModel(self.model_name, local_model_file)
+        model = XGBoostModel(self.model_name, model_file)
 
         # Starts up a singleton model server with the arg-specified model
         logging.info("Starting XGBoost Server for model %s" % model.name)
