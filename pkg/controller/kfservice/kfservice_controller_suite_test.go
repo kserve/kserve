@@ -38,7 +38,8 @@ var cfg *rest.Config
 
 func TestMain(m *testing.M) {
 	t := &envtest.Environment{
-		CRDDirectoryPaths: []string{filepath.Join("..", "..", "..", "config", "crds")},
+		CRDDirectoryPaths: []string{filepath.Join("..", "..", "..", "config", "crds"),
+			filepath.Join("..", "..", "..", "test", "crds")},
 	}
 	err := apis.AddToScheme(scheme.Scheme)
 	if err != nil {
@@ -46,7 +47,7 @@ func TestMain(m *testing.M) {
 	}
 	err = knservingv1alpha1.SchemeBuilder.AddToScheme(scheme.Scheme)
 	if err != nil {
-		log.Error(err, "failed to add kn service to scheme")
+		log.Error(err, "failed to add knative serving to scheme")
 	}
 	if cfg, err = t.Start(); err != nil {
 		stdlog.Fatal(err)

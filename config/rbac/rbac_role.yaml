@@ -7,7 +7,7 @@ rules:
 - apiGroups:
   - serving.knative.dev
   resources:
-  - services
+  - configurations
   verbs:
   - get
   - list
@@ -19,7 +19,27 @@ rules:
 - apiGroups:
   - serving.knative.dev
   resources:
-  - services/status
+  - configurations/status
+  verbs:
+  - get
+  - update
+  - patch
+- apiGroups:
+  - serving.knative.dev
+  resources:
+  - routes
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - serving.knative.dev
+  resources:
+  - routes/status
   verbs:
   - get
   - update
