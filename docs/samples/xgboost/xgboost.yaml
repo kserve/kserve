@@ -1,0 +1,8 @@
+apiVersion: "serving.kubeflow.org/v1alpha1"
+kind: "KFService"
+metadata:
+  name: "sample-xgboost"
+spec:
+  default:
+    xgboost:
+      modelUri: "gs://kfserving-samples/models/xgboost/census"
