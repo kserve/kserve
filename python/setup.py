@@ -14,6 +14,7 @@ setup(
     install_requires=[
         "tornado >= 1.4.1",
         "xgboost == 0.82",
+        "scikit-learn == 0.20.3",
         "argparse >= 1.4.0"
     ],
 )
