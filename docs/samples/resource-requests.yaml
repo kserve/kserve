@@ -1,7 +1,7 @@
 apiVersion: "serving.kubeflow.org/v1alpha1"
 kind: "KFService"
 metadata:
-  name: "myModel"
+  name: "my-model"
   annotations:
     cloud.google.com/gke-accelerator: nvidia-tesla-t4
 spec:

@@ -33,7 +33,8 @@ var c client.Client
 
 func TestMain(m *testing.M) {
 	t := &envtest.Environment{
-		CRDDirectoryPaths: []string{filepath.Join("..", "..", "..", "config", "crds")},
+		CRDDirectoryPaths: []string{filepath.Join("..", "..", "..", "config", "crds"),
+			filepath.Join("..", "..", "..", "test", "crds")},
 	}
 
 	err := v1alpha1.SchemeBuilder.AddToScheme(scheme.Scheme)
