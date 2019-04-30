@@ -1,3 +1,5 @@
+from http import HTTPStatus
+
 import tornado.ioloop
 import tornado.web
 import argparse
@@ -7,23 +9,14 @@ import json
 
 DEFAULT_HTTP_PORT = 8080
 DEFAULT_GRPC_PORT = 8081
-DEFAULT_PROTOCOL = "tensorflow/serving/predict.proto"
-DEFAULT_MODEL_NAME = "default"
-DEFAULT_LOCAL_MODEL_DIR = "/tmp/model"
+DEFAULT_PROTOCOL = "tensorflow/serving/proto/predict.proto"
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--http_port', default=DEFAULT_HTTP_PORT,
                     help='The HTTP Port listened to by the model server.')
 parser.add_argument('--grpc_port', default=DEFAULT_GRPC_PORT,
                     help='The GRPC Port listened to by the model server.')
-parser.add_argument('--model_dir', required=True,
-                    help='A URI pointer to the model directory')
-parser.add_argument('--model_name', default=DEFAULT_MODEL_NAME,
-                    help='The name that the model is served under.')
-parser.add_argument("--local_model_dir", default=DEFAULT_LOCAL_MODEL_DIR,
-                    help="The local path to copy model_dir.")
-
-args = parser.parse_args()
+args, _ = parser.parse_known_args()
 
 KFSERVER_LOGLEVEL = os.environ.get('KFSERVER_LOGLEVEL', 'INFO').upper()
 logging.basicConfig(level=KFSERVER_LOGLEVEL)
@@ -106,26 +99,35 @@ class ModelPredictHandler(tornado.web.RequestHandler):
         self.models = models
 
     def post(self, name):
+        # TODO Add metrics
         if name not in self.models:
             raise tornado.web.HTTPError(
-                status_code=404,
+                status_code=HTTPStatus.NOT_FOUND,
                 reason="Model with name %s does not exist." % name
             )
 
-        # TODO Add metrics
         model = self.models[name]
-
         if not model.ready:
             model.load()
 
-        body = json.loads(self.request.body)
-        if "instances" not in body:
+        try:
+            body = json.loads(self.request.body)
+        except json.decoder.JSONDecodeError as e:
             raise tornado.web.HTTPError(
-                status_code=404,
-                reason="Expected instances in request body"
+                status_code=HTTPStatus.BAD_REQUEST,
+                reason="Unrecognized request format: %s" % e
             )
 
-        inputs = model.preprocess(json.loads(self.request.body)["instances"])
+        if "instances" not in body:
+            raise tornado.web.HTTPError(
+                status_code=HTTPStatus.BAD_REQUEST,
+                reason="Expected key \"instances\" in request body"
+            )
+
+        inputs = model.preprocess(body["instances"])
         results = model.predict(inputs)
         outputs = model.postprocess(results)
-        return outputs
+
+        self.write({
+            "predictions": outputs
+        })

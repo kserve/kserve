@@ -3,16 +3,18 @@ import shutil
 import errno
 import logging
 import random
+import tempfile
+
+
 _GCS_PREFIX = "gs://"
 _S3_PREFIX = "s3://"
 _LOCAL_PREFIX = "/"
-
-import tempfile
 
 
 class Storage(object):
     @staticmethod
     def download(uri):
+        logging.info("Copying contents of %s to local" % uri)
         if uri.startswith(_LOCAL_PREFIX):
             return uri
 
@@ -23,6 +25,8 @@ class Storage(object):
             Storage._download_s3(uri, temp_dir)
         else:
             raise Exception("Cannot recognize storage type for " + uri)
+
+        logging.info("Successfully copied %s to " % (uri, temp_dir))
         return temp_dir
 
     @staticmethod

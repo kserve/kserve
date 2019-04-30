@@ -1,8 +1,8 @@
 apiVersion: "serving.kubeflow.org/v1alpha1"
 kind: "KFService"
 metadata:
-  name: "sample-xgboost"
+  name: "xgboost-iris"
 spec:
   default:
     xgboost:
-      modelUri: "gs://kfserving-samples/models/xgboost/census"
+      modelUri: "gs://kfserving-samples/models/xgboost/iris"
