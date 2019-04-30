@@ -24,6 +24,7 @@ logging.basicConfig(level=KFSERVER_LOGLEVEL)
 
 class KFServer(object):
     def __init__(self):
+        self.models = {}
         self.http_port = args.http_port
         self.grpc_port = args.grpc_port
         self.protocol = DEFAULT_PROTOCOL
@@ -32,8 +33,10 @@ class KFServer(object):
         self.model_dir = args.model_dir
         self.local_model_dir = args.local_model_dir
 
-    def start(self, models):
+    def start(self, models=[]):
         # TODO add a GRPC server
+        for model in models:
+            self.register_model(model)
 
         self._http_server = tornado.web.Application([
             # Server Liveness API returns 200 if server is alive.
@@ -41,21 +44,26 @@ class KFServer(object):
             # Protocol Discovery API that returns the serving protocol supported by this server.
             (r"/protocol", ProtocolHandler),
             # Prometheus Metrics API that returns metrics for model servers
-            (r"/metrics", MetricsHandler, dict(models=models)),
+            (r"/metrics", MetricsHandler, dict(models=self.models)),
             # Model Health API returns 200 if model is ready to serve.
             (r"/model/([a-zA-Z0-9_-]+)",
-             ModelHealthHandler, dict(models=models)),
+             ModelHealthHandler, dict(models=self.models)),
             # Predict API executes executes predict on input tensors
             (r"/model/([a-zA-Z0-9_-]+)",
-             ModelPredictHandler, dict(models=models)),
+             ModelPredictHandler, dict(models=self.models)),
             # Optional Custom Predict Verb for Tensorflow compatibility
             (r"/model/([a-zA-Z0-9_-]+):predict",
-             ModelPredictHandler, dict(models=models)),
+             ModelPredictHandler, dict(models=self.models)),
         ])
 
         self._http_server.listen(self.http_port)
         logging.info("Listening on port %s" % self.http_port)
         tornado.ioloop.IOLoop.current().start()
+
+    def register_model(self, model):
+        if not model.name:
+            raise Exception("Failed to register model, invalid model name")
+        self.models[model.name] = model
 
 
 class LivenessHandler(tornado.web.RequestHandler):
