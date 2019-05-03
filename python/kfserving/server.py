@@ -9,7 +9,7 @@ import json
 
 DEFAULT_HTTP_PORT = 8080
 DEFAULT_GRPC_PORT = 8081
-DEFAULT_PROTOCOL = "tensorflow/serving/proto/predict.proto"
+DEFAULT_PROTOCOL = "tensorflow/HTTP"
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--http_port', default=DEFAULT_HTTP_PORT,
@@ -24,46 +24,45 @@ logging.basicConfig(level=KFSERVER_LOGLEVEL)
 
 class KFServer(object):
     def __init__(self):
-        self.models = {}
+        self.registered_models = {}
         self.http_port = args.http_port
         self.grpc_port = args.grpc_port
         self.protocol = DEFAULT_PROTOCOL
 
-        self.model_name = args.model_name
-        self.model_dir = args.model_dir
-        self.local_model_dir = args.local_model_dir
+        self._http_server = None
 
     def start(self, models=[]):
         # TODO add a GRPC server
         for model in models:
             self.register_model(model)
 
-        self._http_server = tornado.web.Application([
+        self._http_server = tornado.httpserver.HTTPServer(tornado.web.Application([
             # Server Liveness API returns 200 if server is alive.
             (r"/", LivenessHandler),
             # Protocol Discovery API that returns the serving protocol supported by this server.
             (r"/protocol", ProtocolHandler),
             # Prometheus Metrics API that returns metrics for model servers
-            (r"/metrics", MetricsHandler, dict(models=self.models)),
+            (r"/metrics", MetricsHandler, dict(models=self.registered_models)),
             # Model Health API returns 200 if model is ready to serve.
-            (r"/model/([a-zA-Z0-9_-]+)",
-             ModelHealthHandler, dict(models=self.models)),
+            (r"/models/([a-zA-Z0-9_-]+)",
+             ModelHealthHandler, dict(models=self.registered_models)),
             # Predict API executes executes predict on input tensors
-            (r"/model/([a-zA-Z0-9_-]+)",
-             ModelPredictHandler, dict(models=self.models)),
+            (r"/models/([a-zA-Z0-9_-]+)",
+             ModelPredictHandler, dict(models=self.registered_models)),
             # Optional Custom Predict Verb for Tensorflow compatibility
-            (r"/model/([a-zA-Z0-9_-]+):predict",
-             ModelPredictHandler, dict(models=self.models)),
-        ])
-
-        self._http_server.listen(self.http_port)
+            (r"/models/([a-zA-Z0-9_-]+):predict",
+             ModelPredictHandler, dict(models=self.registered_models)),
+        ]))
+        
         logging.info("Listening on port %s" % self.http_port)
+        self._http_server.bind(self.http_port)
+        self._http_server.start(0) # Forks workers equal to host's cores
         tornado.ioloop.IOLoop.current().start()
 
     def register_model(self, model):
         if not model.name:
-            raise Exception("Failed to register model, invalid model name")
-        self.models[model.name] = model
+            raise Exception("Failed to register model, model.name must be provided.")
+        self.registered_models[model.name] = model
 
 
 class LivenessHandler(tornado.web.RequestHandler):
@@ -136,6 +135,6 @@ class ModelPredictHandler(tornado.web.RequestHandler):
         results = model.predict(inputs)
         outputs = model.postprocess(results)
 
-        self.write({
+        self.write(str({
             "predictions": outputs
-        })
+        }))

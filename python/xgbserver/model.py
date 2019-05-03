@@ -1,7 +1,6 @@
 import kfserving
 import xgboost as xgb
 import os
-import logging
 
 BOOSTER_FILE = "model.bst"
 

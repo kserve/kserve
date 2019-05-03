@@ -1,10 +1,5 @@
-import os
-import shutil
-import errno
 import logging
-import random
 import tempfile
-
 
 _GCS_PREFIX = "gs://"
 _S3_PREFIX = "s3://"
@@ -26,7 +21,7 @@ class Storage(object):
         else:
             raise Exception("Cannot recognize storage type for " + uri)
 
-        logging.info("Successfully copied %s to " % (uri, temp_dir))
+        logging.info("Successfully copied %s to %s" % (uri, temp_dir))
         return temp_dir
 
     @staticmethod
