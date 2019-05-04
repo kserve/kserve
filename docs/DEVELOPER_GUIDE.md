@@ -1,1 +1,158 @@
-todo
+# Development
+
+This doc explains how to setup a development environment so you can get started
+[contributing](../CONTRIBUTING.md)
+to `kfserving`. Also take a look at:
+
+- [How to add and run tests](../test/README.md)
+- [Iterating](#iterating)
+
+## Prerequisites
+
+Follow the instructions below to set up your development environment. Once you
+meet these requirements, you can make changes and
+[deploy your own version of kfserving](#starting-kfserving)!
+
+Before submitting a PR, see also [CONTRIBUTING.md](../CONTRIBUTING.md).
+
+### Sign up for GitHub
+
+Start by creating [a GitHub account](https://github.com/join), then setup
+[GitHub access via SSH](https://help.github.com/articles/connecting-to-github-with-ssh/).
+
+### Install requirements
+
+You must install these tools:
+
+1. [`go`](https://golang.org/doc/install): KFServing controller is written in Go
+1. [`git`](https://help.github.com/articles/set-up-git/): For source control
+1. [`dep`](https://github.com/golang/dep): For managing external Go
+   dependencies.
+1. [`ko`](https://github.com/google/ko):
+   For development.
+1. [`kubectl`](https://kubernetes.io/docs/tasks/tools/install-kubectl/): For
+   managing development environments.
+
+### Install Knative on a Kubernetes cluster
+
+1. [Set up a kubernetes cluster and install Knative](https://knative.dev/docs/install/)
+
+This step is required since `KFServing` relies on `Knative Serving` for serving the ML models.
+
+### Setup your environment
+
+To start your environment you'll need to set these environment variables (we
+recommend adding them to your `.bashrc`):
+
+1. `GOPATH`: If you don't have one, simply pick a directory and add
+   `export GOPATH=...`
+1. `$GOPATH/bin` on `PATH`: This is so that tooling installed via `go get` will
+   work properly.
+1. `KO_DOCKER_REPO`: The docker repository to which developer images should be
+   pushed (e.g. `docker.io/<username>/[project]`).
+
+- **Note**: Set up a docker repository for pushing images. You can use any container image registry by adjusting 
+the authentication methods and repository paths mentioned in the sections below.
+   - [Google Container Registry quickstart](https://cloud.google.com/container-registry/docs/pushing-and-pulling)
+   - [Docker Hub quickstart](https://docs.docker.com/docker-hub/)
+- **Note**: if you are using docker hub to store your images your
+  `KO_DOCKER_REPO` variable should be `docker.io/<username>`.
+- **Note**: Currently Docker Hub doesn't let you create subdirs under your
+  username.
+
+`.bashrc` example:
+
+```shell
+export GOPATH="$HOME/go"
+export PATH="${PATH}:${GOPATH}/bin"
+export KO_DOCKER_REPO='docker.io/<username>'
+```
+
+### Checkout your fork
+
+The Go tools require that you clone the repository to the
+`src/github.com/kubeflow/kfserving` directory in your
+[`GOPATH`](https://github.com/golang/go/wiki/SettingGOPATH).
+
+To check out this repository:
+
+1. Create your own
+   [fork of this repo](https://help.github.com/articles/fork-a-repo/)
+1. Clone it to your machine:
+
+```shell
+mkdir -p ${GOPATH}/src/github.com/kubeflow
+cd ${GOPATH}/src/github.com/kubeflow
+git clone git@github.com:${YOUR_GITHUB_USERNAME}/kfserving.git
+cd serving
+git remote add upstream git@github.com:kubeflow/kfserving.git
+git remote set-url --push upstream no_push
+```
+
+_Adding the `upstream` remote sets you up nicely for regularly
+[syncing your fork](https://help.github.com/articles/syncing-a-fork/)._
+
+Once you reach this point you are ready to do a full build and deploy as
+described below.
+
+## Deploy KFServing
+
+### Check Knative Serving installation
+Once you've [setup your development environment](#prerequisites), you can see things running with:
+
+```console
+kubectl -n knative-serving get pods
+NAME                          READY     STATUS    RESTARTS   AGE
+activator-c8495dc9-z7xpz      2/2       Running   0          6d
+autoscaler-66897845df-t5cwg   2/2       Running   0          6d
+controller-699fb46bb5-xhlkg   1/1       Running   0          6d
+webhook-76b87b8459-tzj6r      1/1       Running   0          6d
+```
+### Deploy KFServing from default
+
+```bash
+make deploy
+```
+
+After above step you can see things running with:
+```console
+kubectl get pods -n kubeflow-system -l control-plane=kfserving-controller-manager
+NAME                             READY   STATUS    RESTARTS   AGE
+kfserving-controller-manager-0   2/2     Running   0          13m
+```
+
+### Deploy KFServing with your own version
+```bash
+make deploy-test
+```
+
+- **Note**: By default it installs to `kubeflow-system` namespace.
+
+## Iterating
+
+As you make changes to the code-base, there are two special cases to be aware
+of:
+
+- **If you change an input to generated code**, then you must run
+  `make manifests`. Inputs include:
+
+  - API type definitions in
+    [pkg/apis/serving/v1alpha1/](../pkg/apis/serving/v1alpha1/.),
+  - Types definitions annotated with `// +k8s:deepcopy-gen=true`.
+
+- **If you change a package's deps** (including adding external dep), then you
+  must run `dep ensure`.
+
+These are both idempotent, and we expect that running these at `HEAD` to have no
+diffs. Code generation and dependencies are automatically checked to produce no
+diffs for each pull request.
+
+update-deps.sh runs "dep ensure" command. In some cases, if newer dependencies
+are required, you need to run "dep ensure -update package-name" manually.
+
+Once the codegen and dependency information is correct, redeploying the
+controller is simply:
+
+```shell
+make deploy-test
+```
