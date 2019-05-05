@@ -11,7 +11,7 @@ to `kfserving`. Also take a look at:
 
 Follow the instructions below to set up your development environment. Once you
 meet these requirements, you can make changes and
-[deploy your own version of kfserving](#starting-kfserving)!
+[deploy your own version of kfserving](#deploy-kfserving)!
 
 Before submitting a PR, see also [CONTRIBUTING.md](../CONTRIBUTING.md).
 
@@ -120,13 +120,24 @@ kubectl get pods -n kubeflow-system -l control-plane=kfserving-controller-manage
 NAME                             READY   STATUS    RESTARTS   AGE
 kfserving-controller-manager-0   2/2     Running   0          13m
 ```
+- **Note**: By default it installs to `kubeflow-system` namespace.
 
 ### Deploy KFServing with your own version
 ```bash
 make deploy-test
 ```
 
-- **Note**: By default it installs to `kubeflow-system` namespace.
+### Smoke test after deployment
+```bash
+kubectl apply -f docs/samples/tensorflow.yaml
+```
+You should see model serving deployment running under default or your specified namespace.
+
+```console
+kubectl get pods -n default -l serving.knative.dev/configuration=my-model-default
+NAME                                                READY   STATUS    RESTARTS   AGE
+my-model-default-htz8r-deployment-8fd979f9b-w2qbv   3/3     Running   0          10s
+```
 
 ## Iterating
 
@@ -138,7 +149,7 @@ of:
 
   - API type definitions in
     [pkg/apis/serving/v1alpha1/](../pkg/apis/serving/v1alpha1/.),
-  - Types definitions annotated with `// +k8s:deepcopy-gen=true`.
+  - Manifests or kustomize patches stored in [config](../config).
 
 - **If you change a package's deps** (including adding external dep), then you
   must run `dep ensure`.
@@ -147,7 +158,7 @@ These are both idempotent, and we expect that running these at `HEAD` to have no
 diffs. Code generation and dependencies are automatically checked to produce no
 diffs for each pull request.
 
-update-deps.sh runs "dep ensure" command. In some cases, if newer dependencies
+In some cases, if newer dependencies
 are required, you need to run "dep ensure -update package-name" manually.
 
 Once the codegen and dependency information is correct, redeploying the
