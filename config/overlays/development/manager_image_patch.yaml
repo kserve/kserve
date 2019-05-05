@@ -7,4 +7,6 @@ spec:
     spec:
       containers:
         - name: manager
+          command:
+          image: index.docker.io/yuzisun/manager-74c72c260668d14fbfb2548007233c7f@sha256:0add1cf87ca87feb6b6e9e604789b9b939e8a57717cdf55176f92596444cbff7
           imagePullPolicy: IfNotPresent
