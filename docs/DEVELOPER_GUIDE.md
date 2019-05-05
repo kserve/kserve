@@ -120,12 +120,16 @@ kubectl get pods -n kubeflow-system -l control-plane=kfserving-controller-manage
 NAME                             READY   STATUS    RESTARTS   AGE
 kfserving-controller-manager-0   2/2     Running   0          13m
 ```
-- **Note**: By default it installs to `kubeflow-system` namespace.
+- **Note**: By default it installs to `kubeflow-system` namespace with the published
+`kfserving-controller-manager` image.
 
 ### Deploy KFServing with your own version
 ```bash
 make deploy-test
 ```
+- **Note**: `deploy-test` builds the image from your local code, publishes to `KO_DOCKER_REPO`
+and deploys the `kfserving-controller-manager` with the image digest to your cluster for testing.
+
 
 ### Smoke test after deployment
 ```bash
