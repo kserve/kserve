@@ -7,7 +7,7 @@ import (
 
 // Default Values
 var (
-	DefaultTensorflowVersion  = "1.12"
+	DefaultTensorflowVersion  = "1.13.0"
 	DefaultXGBoostVersion     = "1.12"
 	DefaultScikitLearnVersion = "1.12"
 
