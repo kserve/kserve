@@ -1,5 +1,4 @@
 from setuptools import setup, find_packages
-import os
 
 setup(
     name='xgbserver',
@@ -13,7 +12,6 @@ setup(
     packages=find_packages("xgbserver"),
     install_requires=[
         "kfserver==0.1.0",
-        "tornado >= 1.4.1",
         "xgboost == 0.82",
         "scikit-learn == 0.20.3",
         "argparse >= 1.4.0"
