@@ -5,4 +5,4 @@ A KFService encapsulates the complexity of autoscaling, networking, health check
 
 In the future, we hope to support more advanced use cases such as skew detection, explainability, and performance profiling across infrastructure configurations.
 
-This project is an evolution of the original proposal: https://github.com/kubeflow/kubeflow/issues/2306
+This project is an evolution of the [original proposal in the Kubeflow repo](https://github.com/kubeflow/kubeflow/issues/2306). To know more about KFServing architecture, and about the control plan and data plane specifications, please [follow along here](/docs)

@@ -2,7 +2,7 @@
 
 This document is a work in progress to discuss the data plane requirements for machine learning inference.
 
-Its aims:
+Its aims to:
 
  * Provide a set of schemas for machine learning inference including the predictor and associated components such as model explainers, outlier and skew detectors.
  * Provide a set of proposals for components to advertise the schemas they support.
@@ -12,20 +12,20 @@ Its aims:
 There are various components that are useful for machine learning inference, these include
 
  * The core predictor
- * Model explanation
- * Outlier detection
- * Concept drift (skew) detection
+ * Model explainer
+ * Outlier detector
+ * Concept drift (skew) detector
 
-Schemas will be needed for each. The aim is to provide a set of schemas for the core predictive model along with associated schemas for the most common tasks in helping data scientists, users and devops teams monitor and understand the running model.
+Schemas will be needed for each. The aim is to provide a set of schemas for the core predictive model along with associated schemas for the most common tasks in helping data scientists, users and devops teams to monitor, understand and manage the lifecyle of the running model.
 
 ### Predictors
 
-Data planes for request/response to machine learning models are the most well defined in the ecosystem. Existing examples are:
+Data planes for request/response to machine learning models are well defined in the ecosystem. Existing examples are:
 
  * [Tensorflow Serving](https://github.com/tensorflow/serving/blob/master/tensorflow_serving/apis/prediction_service.proto)
  * [Seldon Core](https://github.com/SeldonIO/seldon-core/blob/master/proto/prediction.proto)
 
-It is suggested we don't define a new data plane for model input/output at present but allow models to publish the input/output schema they respect.
+At present, it is suggested we don't define a new data plane for model input/output but allow models to publish the input/output schema they respect. In future, we may provide an additional standard data plane schema for kfserving, independent of the backing model runtimes.
 
 
 ### Model Explanation
@@ -39,7 +39,6 @@ TODO
 ### Concept Drift
 
 TODO
-
 
 ## Combined Schema
 
@@ -60,7 +59,7 @@ message KFServing {
 
   * There should be a unified prediction id so responses from varied components can be tied together for monitoring and auditing.
 
-It unclear whether we should impose any other metadata.
+It is unclear whether we should impose any other metadata.
 
 ## Schema Publishing
 

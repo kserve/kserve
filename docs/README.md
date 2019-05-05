@@ -1,5 +1,6 @@
 
 # Design Docs
+KFService architecture consists of two main specifications, around control pland and data plane. Control plane is responsible for deploying and managing the lifecycle of models, while data plane is responsible for defining the contracts to interact with models once deployed.
 
  * [KFserving control plane specification](control-plane.md)
    * Defines the specification of the `kfserving` resource.
@@ -7,7 +8,7 @@
    * Defines the data payloads to enable interoperability between `kfserving` components.
 
 # Architecture Overview
-The KFService Data Plane architecture consists of a static graph of components that implements a limited set of features. Advanced features such as Ensembling, A/B testing, and Multi-Arm-Bandits should be built at a layer above KFServices. The diagram may not be up to date with the current set of features available in the graph, but the overall mechanism holds:
+The KFService Data Plane architecture consists of a static graph of components which implement a limited set of features. Advanced features such as Ensembling, A/B testing, and Multi-Arm-Bandits should be built at a layer above KFServices. The diagram reflects the overall architecture for a viable offering, but at this point in time may not accurately reflect the current set of features available in the graph, but the overall mechanism holds:
 
 - The User defines the components they wish to use in a KFService.
   - The only required component is a Predictor.
