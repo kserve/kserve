@@ -69,6 +69,7 @@ func (c *ServiceReconciler) ReconcileConfiguarion(ctx context.Context, desiredCo
 	log.Info("Reconciling configuration diff (-desired, +observed): %s", "diff", diff)
 
 	configuration.Spec = desiredConfiguration.Spec
+	configuration.ObjectMeta.Labels = desiredConfiguration.ObjectMeta.Labels
 	log.Info("Updating configuration", "namespace", configuration.Namespace, "name", configuration.Name)
 	err = c.client.Update(context.TODO(), configuration)
 	if err != nil {
@@ -101,6 +102,7 @@ func (c *ServiceReconciler) ReconcileRoute(ctx context.Context, desiredRoute *kn
 	log.Info("Reconciling route diff (-desired, +observed): %s", "diff", diff)
 
 	route.Spec = desiredRoute.Spec
+	route.ObjectMeta.Labels = desiredRoute.ObjectMeta.Labels
 	log.Info("Updating route", "namespace", route.Namespace, "name", route.Name)
 	err = c.client.Update(context.TODO(), route)
 	if err != nil {
