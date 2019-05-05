@@ -29,6 +29,10 @@ deploy-dev: manifests
 	kubectl apply -f config/crds
 	kustomize build config/overlays/development | kubectl apply -f -
 
+deploy-test:
+	./image_patch_dev.sh
+	kustomize build config/overlays/development | kubectl apply -f -
+
 undeploy: manifests
 	kustomize build config/default | kubectl delete -f -
 	kubectl delete -f config/crds
