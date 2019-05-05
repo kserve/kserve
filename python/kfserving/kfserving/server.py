@@ -11,7 +11,7 @@ DEFAULT_HTTP_PORT = 8080
 DEFAULT_GRPC_PORT = 8081
 DEFAULT_PROTOCOL = "tensorflow/HTTP"
 
-parser = argparse.ArgumentParser()
+parser = argparse.ArgumentParser(add_help=False)
 parser.add_argument('--http_port', default=DEFAULT_HTTP_PORT,
                     help='The HTTP Port listened to by the model server.')
 parser.add_argument('--grpc_port', default=DEFAULT_GRPC_PORT,
@@ -53,7 +53,7 @@ class KFServer(object):
             (r"/models/([a-zA-Z0-9_-]+):predict",
              ModelPredictHandler, dict(models=self.registered_models)),
         ]))
-        
+
         logging.info("Listening on port %s" % self.http_port)
         self._http_server.bind(self.http_port)
         self._http_server.start(0) # Forks workers equal to host's cores
