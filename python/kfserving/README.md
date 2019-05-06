@@ -1,21 +1,15 @@
 # KFServing
 
-KFServing is a unit of model serving, and every model type (XGBosst, PyTorch, Tensorflow etc.) extends KFServing. At a highlevel it defines a model, a server and storage mechanism for models.
+KFServing is a unit of model serving. KFServing's python libraries implement a standardized KFServer library that is extended by model serving frameworks such as XGBoost and PyTorch. It encapsulates data plane API definitions and storage retrieval for models.
 
-A model has essentially three functions:
-
-* Pre processing
-* Prediction 
-* Post processing
-
-A server on the other hand provides many funtionalities, inclding among others
+KFServing provides many funtionalities, including among others:
 
 * Registering a model and starting the server
 * Prediction Handler
 * Liveness Handler 
 * Metrics Handler 
 
-Models to load in KFServing can come from following three types of storage locations currently
+KFServing supports the following storage providers:
 
 * Google Cloud Storage with a prefix: "gs://"
 * S3 Compatible Object Storage with a prefix "s3://"
@@ -27,7 +21,7 @@ To start the server locally on your machine for development needs, run the follo
 pip3 install -e .
 ```
 
-You would see an output similar to the one below, indicating that kfserving has been installed.
+The following output indicates a successful install.
 
 ```
 Obtaining file:///Users/animeshsingh/DevAdv/kfserving/python/kfserving

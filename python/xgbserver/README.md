@@ -1,6 +1,6 @@
-# XG Boost Server
+# XGBoost Server
 
-[XGBoost](https://xgboost.readthedocs.io/en/latest/index.html ) server is an implementation of KFServing for serving XGBoost models, an provides an XGBoost model implementation for 
+[XGBoost](https://xgboost.readthedocs.io/en/latest/index.html ) server is an implementation of KFServing for serving XGBoost models, and provides an XGBoost model implementation for 
 
 * Pre processing
 * Prediction 
@@ -14,7 +14,7 @@ To start the server locally for development needs, run the following command und
 pip install -e .
 ```
 
-You would see output similar to the one below, indicating that XGBoost server has been installed.
+The following output indicates a successful install.
 
 ```
 Obtaining file://kfserving/python/xgbserver
@@ -33,7 +33,7 @@ Successfully installed numpy-1.16.3 scikit-learn-0.20.3 scipy-1.2.1 xgboost-0.82
 
 ```
 
-Once XGBoost server is up and running, you can check for the installation by running the following command
+Once XGBoost server is up and running, you can check for successful installation by running the following command
 
 ```
 python3 -m xgbserver
