@@ -24,20 +24,24 @@ Start by creating [a GitHub account](https://github.com/join), then setup
 
 You must install these tools:
 
-1. [`go`](https://golang.org/doc/install): KFServing controller is written in Go
-1. [`git`](https://help.github.com/articles/set-up-git/): For source control
+1. [`go`](https://golang.org/doc/install): KFServing controller is written in Go.
+1. [`git`](https://help.github.com/articles/set-up-git/): For source control.
 1. [`dep`](https://github.com/golang/dep): For managing external Go
    dependencies.
 1. [`ko`](https://github.com/google/ko):
    For development.
 1. [`kubectl`](https://kubernetes.io/docs/tasks/tools/install-kubectl/): For
    managing development environments.
+1. [`kustomize`](https://github.com/kubernetes-sigs/kustomize/) To customize YAMLs for different environments
 
 ### Install Knative on a Kubernetes cluster
 
-1. [Set up a kubernetes cluster and install Knative](https://knative.dev/docs/install/)
+1. [Set up a kubernetes cluster and install Knative Serving](https://knative.dev/docs/install/)
 
-This step is required since `KFServing` relies on `Knative Serving` for serving the ML models.
+- **Note**: KFServing currently only requires `Knative Serving` for auto-scaling, canary rollout,
+ `Istio` for traffic routing and ingress. You can follow instructions on
+ [Custom Install](https://knative.dev/docs/install/knative-custom-install) to install `Istio` and `Knative Serving`,
+ observability plug-ins are good to have for monitoring.
 
 ### Setup your environment
 
@@ -55,6 +59,7 @@ recommend adding them to your `.bashrc`):
 the authentication methods and repository paths mentioned in the sections below.
    - [Google Container Registry quickstart](https://cloud.google.com/container-registry/docs/pushing-and-pulling)
    - [Docker Hub quickstart](https://docs.docker.com/docker-hub/)
+   - [Azure Container Registry quickstart](https://docs.microsoft.com/en-us/azure/container-registry/container-registry-get-started-portal)
 - **Note**: if you are using docker hub to store your images your
   `KO_DOCKER_REPO` variable should be `docker.io/<username>`.
 - **Note**: Currently Docker Hub doesn't let you create subdirs under your
@@ -156,7 +161,8 @@ of:
   - Manifests or kustomize patches stored in [config](../config).
 
 - **If you change a package's deps** (including adding external dep), then you
-  must run `dep ensure`.
+  must run `dep ensure`. Dependency changes should be a separate commit and not
+  mixed with logic changes.
 
 These are both idempotent, and we expect that running these at `HEAD` to have no
 diffs. Code generation and dependencies are automatically checked to produce no
