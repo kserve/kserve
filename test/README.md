@@ -7,6 +7,10 @@ This directory contains tests and testing docs for `KFServing`:
 - [End-to-end tests](#running-end-to-end-tests):
   - They are in [`/test/e2e`](./e2e)
 
+## Prerequisite
+`kfserving-controller-manager` has a few integration tests which requires mock apiserver
+and etcd, they get installed along with [`kubebuilder`](https://book.kubebuilder.io/getting_started/installation_and_setup.html).
+
 ## Running unit/integration tests
 
 To run all unit tests:
