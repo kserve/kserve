@@ -14,7 +14,7 @@ To start the server locally for development needs, run the following command und
 pip install -e .
 ```
 
-You would see output similar to the one below, indicating that kfserving has been installed.
+You would see output similar to the one below, indicating that XGBoost server has been installed.
 
 ```
 Obtaining file://kfserving/python/xgbserver
