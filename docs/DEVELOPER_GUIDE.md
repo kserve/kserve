@@ -1,3 +1,22 @@
+<!-- START doctoc generated TOC please keep comment here to allow auto update -->
+<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
+**Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
+
+- [Development](#development)
+  - [Prerequisites](#prerequisites)
+    - [Install requirements](#install-requirements)
+    - [Install Knative on a Kubernetes cluster](#install-knative-on-a-kubernetes-cluster)
+    - [Setup your environment](#setup-your-environment)
+    - [Checkout your fork](#checkout-your-fork)
+  - [Deploy KFServing](#deploy-kfserving)
+    - [Check Knative Serving installation](#check-knative-serving-installation)
+    - [Deploy KFServing from default](#deploy-kfserving-from-default)
+    - [Deploy KFServing with your own version](#deploy-kfserving-with-your-own-version)
+    - [Smoke test after deployment](#smoke-test-after-deployment)
+  - [Iterating](#iterating)
+
+<!-- END doctoc generated TOC please keep comment here to allow auto update -->
+
 # Development
 
 This doc explains how to setup a development environment so you can get started
@@ -14,11 +33,6 @@ meet these requirements, you can make changes and
 [deploy your own version of kfserving](#deploy-kfserving)!
 
 Before submitting a PR, see also [CONTRIBUTING.md](../CONTRIBUTING.md).
-
-### Sign up for GitHub
-
-Start by creating [a GitHub account](https://github.com/join), then setup
-[GitHub access via SSH](https://help.github.com/articles/connecting-to-github-with-ssh/).
 
 ### Install requirements
 
@@ -89,7 +103,7 @@ To check out this repository:
 mkdir -p ${GOPATH}/src/github.com/kubeflow
 cd ${GOPATH}/src/github.com/kubeflow
 git clone git@github.com:${YOUR_GITHUB_USERNAME}/kfserving.git
-cd serving
+cd kfserving
 git remote add upstream git@github.com:kubeflow/kfserving.git
 git remote set-url --push upstream no_push
 ```
@@ -106,7 +120,7 @@ described below.
 Once you've [setup your development environment](#prerequisites), you can see things running with:
 
 ```console
-kubectl -n knative-serving get pods
+$ kubectl -n knative-serving get pods
 NAME                          READY     STATUS    RESTARTS   AGE
 activator-c8495dc9-z7xpz      2/2       Running   0          6d
 autoscaler-66897845df-t5cwg   2/2       Running   0          6d
@@ -121,7 +135,7 @@ make deploy
 
 After above step you can see things running with:
 ```console
-kubectl get pods -n kubeflow-system -l control-plane=kfserving-controller-manager
+$ kubectl get pods -n kubeflow-system -l control-plane=kfserving-controller-manager
 NAME                             READY   STATUS    RESTARTS   AGE
 kfserving-controller-manager-0   2/2     Running   0          13m
 ```
@@ -130,9 +144,9 @@ kfserving-controller-manager-0   2/2     Running   0          13m
 
 ### Deploy KFServing with your own version
 ```bash
-make deploy-test
+make deploy-dev
 ```
-- **Note**: `deploy-test` builds the image from your local code, publishes to `KO_DOCKER_REPO`
+- **Note**: `deploy-dev` builds the image from your local code, publishes to `KO_DOCKER_REPO`
 and deploys the `kfserving-controller-manager` with the image digest to your cluster for testing.
 
 
@@ -143,7 +157,7 @@ kubectl apply -f docs/samples/tensorflow.yaml
 You should see model serving deployment running under default or your specified namespace.
 
 ```console
-kubectl get pods -n default -l serving.knative.dev/configuration=my-model-default
+$ kubectl get pods -n default -l serving.knative.dev/configuration=my-model-default
 NAME                                                READY   STATUS    RESTARTS   AGE
 my-model-default-htz8r-deployment-8fd979f9b-w2qbv   3/3     Running   0          10s
 ```
@@ -175,5 +189,5 @@ Once the codegen and dependency information is correct, redeploying the
 controller is simply:
 
 ```shell
-make deploy-test
+make deploy-dev
 ```
