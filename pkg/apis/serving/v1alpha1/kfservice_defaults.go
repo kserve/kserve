@@ -7,9 +7,9 @@ import (
 
 // Default Values
 var (
-	DefaultTensorflowVersion  = "1.13.0"
-	DefaultXGBoostVersion     = "1.12"
-	DefaultScikitLearnVersion = "1.12"
+	DefaultTensorflowServingVersion  = "1.13.0"
+	DefaultXGBoostServingVersion     = "0.1.0"
+	DefaultScikitLearnServingVersion = "0.1.0"
 
 	DefaultMemoryRequests = resource.MustParse("2Gi")
 	DefaultCPURequests    = resource.MustParse("1")
@@ -38,21 +38,21 @@ func setModelSpecDefaults(modelSpec *ModelSpec) {
 
 func setTensorflowDefaults(tensorflowSpec *TensorflowSpec) {
 	if tensorflowSpec.RuntimeVersion == "" {
-		tensorflowSpec.RuntimeVersion = DefaultTensorflowVersion
+		tensorflowSpec.RuntimeVersion = DefaultTensorflowServingVersion
 	}
 	setResourceRequirementDefaults(&tensorflowSpec.Resources)
 }
 
 func setXGBoostDefaults(xgBoostSpec *XGBoostSpec) {
 	if xgBoostSpec.RuntimeVersion == "" {
-		xgBoostSpec.RuntimeVersion = DefaultXGBoostVersion
+		xgBoostSpec.RuntimeVersion = DefaultXGBoostServingVersion
 	}
 	setResourceRequirementDefaults(&xgBoostSpec.Resources)
 }
 
 func setScikitLearnDefaults(scikitLearnSpec *ScikitLearnSpec) {
 	if scikitLearnSpec.RuntimeVersion == "" {
-		scikitLearnSpec.RuntimeVersion = DefaultScikitLearnVersion
+		scikitLearnSpec.RuntimeVersion = DefaultScikitLearnServingVersion
 	}
 	setResourceRequirementDefaults(&scikitLearnSpec.Resources)
 }
