@@ -25,7 +25,7 @@ Data planes for request/response to machine learning models are well defined in 
  * [Tensorflow Serving](https://github.com/tensorflow/serving/blob/master/tensorflow_serving/apis/prediction_service.proto)
  * [Seldon Core](https://github.com/SeldonIO/seldon-core/blob/master/proto/prediction.proto)
 
-At present, it is suggested we don't define a new data plane for model input/output but allow models to publish the input/output schema they respect. In future, we may provide an additional standard data plane schema for kfserving, independent of the backing model runtimes.
+At present, we don't define a new data plane for model input/output but allow models to publish the input/output schema they respect. In future, we may provide an additional standard data plane schema for kfserving, independent of the backing model runtimes.
 
 
 ### Model Explanation

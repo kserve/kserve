@@ -1,7 +1,6 @@
 # Control Plane Specification
-
 ## KFService
-Control plane is responsible for the lifecycle of a KFService. A KFService is a unit of model serving. Users may have many KFServices, including different definitions across dev, test, and prod environments, as well as across different model use cases. KFServices are defined using the [Kubernetes Custom Resources](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/) standard. 
+A KFService is a unit of model serving. Users may have many KFServices, including different definitions across dev, test, and prod environments, as well as across different model use cases. KFServices are defined using the [Kubernetes Custom Resources](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/) standard. 
 
 ## Specifying a Service
 ### Resource Definition
