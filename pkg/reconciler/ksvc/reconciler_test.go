@@ -111,6 +111,38 @@ func TestKnativeConfigurationReconcile(t *testing.T) {
 				},
 			},
 		},
+		"Reconcile new labels and annotations": {
+                        update: true,
+                        desiredConfiguration: &knservingv1alpha1.Configuration{
+                                ObjectMeta: metav1.ObjectMeta{
+                                        Name:      "mnist",
+                                        Namespace: "default",
+                                        Labels: map[string]string{
+                                                "serving.knative.dev/configuration": "dream",
+                                        },
+                                        Annotations: map[string]string{
+                                                "serving.knative.dev/lastPinned": "1111111111",
+                                        },
+                                },
+                                Spec: knservingv1alpha1.ConfigurationSpec{
+                                        RevisionTemplate: &knservingv1alpha1.RevisionTemplateSpec{
+                                                Spec: knservingv1alpha1.RevisionSpec{
+                                                        Container: &v1.Container{
+                                                                Image: tensorflow.TensorflowServingImageName + ":" +
+                                                                        v1alpha1.DefaultTensorflowVersion,
+                                                                Command: []string{tensorflow.TensorflowEntrypointCommand},
+                                                                Args: []string{
+                                                                        "--port=" + tensorflow.TensorflowServingGRPCPort,
+                                                                        "--rest_api_port=" + tensorflow.TensorflowServingRestPort,
+                                                                        "--model_name=mnist",
+                                                                        "--model_base_path=s3://test/mnist/export",
+                                                                },
+                                                        },
+                                                },
+                                        },
+                                },
+                        },
+                },
 	}
 
 	serviceReconciler := NewServiceReconciler(c)
@@ -127,7 +159,7 @@ func TestKnativeConfigurationReconcile(t *testing.T) {
 			if err != nil {
 				t.Errorf("Test %q failed: returned error: %v", name, err)
 			}
-			if diff := cmp.Diff(scenario.desiredConfiguration.Spec, configuration.Spec); diff != "" {
+			if diff := cmp.Diff(scenario.desiredConfiguration, configuration); diff != "" {
 				t.Errorf("Test %q unexpected configuration (-want +got): %v", name, diff)
 			}
 		}
@@ -202,6 +234,31 @@ func TestKnativeRouteReconcile(t *testing.T) {
 				},
 			},
 		},
+		"Reconcile new labels and annotations": {
+                        update: true,
+                        desiredRoute: &knservingv1alpha1.Route{
+                                ObjectMeta: metav1.ObjectMeta{
+                                        Name:        "mnist",
+                                        Namespace:   "default",
+                                        Labels:      map[string]string{
+                                                "serving.knative.dev/route": "dream",
+                                        },
+                                        Annotations: map[string]string{
+                                                "cherub": "rock",
+                                        },
+                                },
+                                Spec: knservingv1alpha1.RouteSpec{
+                                        Traffic: []knservingv1alpha1.TrafficTarget{
+                                                {
+                                                        TrafficTarget: v1beta1.TrafficTarget{
+                                                                ConfigurationName: "mnist-default",
+                                                                Percent:           100,
+                                                        },
+                                                },
+                                        },
+                                },
+                        },
+                },
 	}
 
 	serviceReconciler := NewServiceReconciler(c)
@@ -218,7 +275,7 @@ func TestKnativeRouteReconcile(t *testing.T) {
 			if err != nil {
 				t.Errorf("Test %q failed: returned error: %v", name, err)
 			}
-			if diff := cmp.Diff(scenario.desiredRoute.Spec, route.Spec); diff != "" {
+			if diff := cmp.Diff(scenario.desiredRoute, route); diff != "" {
 				t.Errorf("Test %q unexpected configuration (-want +got): %v", name, diff)
 			}
 		}
