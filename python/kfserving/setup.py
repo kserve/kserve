@@ -1,5 +1,4 @@
 from setuptools import setup, find_packages
-import os
 
 setup(
     name='kfserver',
@@ -13,6 +12,11 @@ setup(
     packages=find_packages("kfserving"),
     install_requires=[
         "tornado >= 1.4.1",
-        "argparse >= 1.4.0"
+        "argparse >= 1.4.0",
+        "tensorflow"
     ],
+    tests_require=[
+        'pytest',
+        'pytest-tornasync'
+    ]
 )
