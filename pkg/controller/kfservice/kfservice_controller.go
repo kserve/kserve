@@ -132,30 +132,30 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 
 	serviceReconciler := ksvc.NewServiceReconciler(r.Client)
 	// Reconcile configurations
-	desiredDefaultConfiguration, desiredCanaryConfiguration := resources.CreateKnativeConfiguration(kfsvc)
+	desiredDefault, desiredCanary := resources.CreateKnativeConfiguration(kfsvc)
 
-	if err := controllerutil.SetControllerReference(kfsvc, desiredDefaultConfiguration, r.scheme); err != nil {
+	if err := controllerutil.SetControllerReference(kfsvc, desiredDefault, r.scheme); err != nil {
 		return reconcile.Result{}, err
 	}
 
-	if desiredCanaryConfiguration != nil {
-		if err := controllerutil.SetControllerReference(kfsvc, desiredCanaryConfiguration, r.scheme); err != nil {
+	if desiredCanary != nil {
+		if err := controllerutil.SetControllerReference(kfsvc, desiredCanary, r.scheme); err != nil {
 			return reconcile.Result{}, err
 		}
 	}
 
-	defaultConfiguration, err := serviceReconciler.ReconcileConfiguarion(context.TODO(), desiredDefaultConfiguration)
+	defaultConfiguration, err := serviceReconciler.ReconcileConfiguarion(context.TODO(), desiredDefault)
 	if err != nil {
-		log.Error(err, "Failed to reconcile default model spec", "name", desiredDefaultConfiguration.Name)
+		log.Error(err, "Failed to reconcile default model spec", "name", desiredDefault.Name)
 		r.Recorder.Eventf(kfsvc, v1.EventTypeWarning, "InternalError", err.Error())
 		return reconcile.Result{}, err
 	}
 	kfsvc.Status.PropagateDefaultConfigurationStatus(&defaultConfiguration.Status)
 
-	if desiredCanaryConfiguration != nil {
-		canaryConfiguration, err := serviceReconciler.ReconcileConfiguarion(context.TODO(), desiredCanaryConfiguration)
+	if desiredCanary != nil {
+		canaryConfiguration, err := serviceReconciler.ReconcileConfiguarion(context.TODO(), desiredCanary)
 		if err != nil {
-			log.Error(err, "Failed to reconcile canary model spec", "name", desiredCanaryConfiguration.Name)
+			log.Error(err, "Failed to reconcile canary model spec", "name", desiredCanary.Name)
 			r.Recorder.Eventf(kfsvc, v1.EventTypeWarning, "InternalError", err.Error())
 			return reconcile.Result{}, err
 		}
