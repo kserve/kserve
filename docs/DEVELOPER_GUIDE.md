@@ -157,7 +157,7 @@ kubectl apply -f docs/samples/tensorflow.yaml
 You should see model serving deployment running under default or your specified namespace.
 
 ```console
-$ kubectl get pods -n default -l serving.knative.dev/configuration=my-model-default
+$ kubectl get pods -n default -l serving.kubeflow.org/kfservice=my-model
 NAME                                                READY   STATUS    RESTARTS   AGE
 my-model-default-htz8r-deployment-8fd979f9b-w2qbv   3/3     Running   0          10s
 ```
