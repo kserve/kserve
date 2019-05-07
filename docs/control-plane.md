@@ -1,4 +1,5 @@
-# KFServing
+# Control Plane Specification
+## KFService
 A KFService is a unit of model serving. Users may have many KFServices, including different definitions across dev, test, and prod environments, as well as across different model use cases. KFServices are defined using the [Kubernetes Custom Resources](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/) standard. 
 
 ## Specifying a Service
@@ -24,7 +25,7 @@ The Metadata section of the resource definition contains resource identification
 | metadata.annotations | Map<String, String> | A set of key value pairs used to enable specific features available in different kubernetes environments (e.g., Google Cloud ML Engine vs AzureML). |
 
 ### Spec
-The Spec section of the resource definition encapsulates the desired state of the User's serving resources. Changes made to the spec will enacted upon the underlying servers in an eventually consistent manner. This infrastructure-as-code paradigm enables the coveted GitOps design pattern, where configurations are checked into git and may be reverted and applied to restore previous configurations. All fields are mutable and may be applied idempotently.
+The Spec section of the resource definition encapsulates the desired state of the user's model serving resources. Changes made to the spec will be enacted upon the underlying servers in an eventually consistent manner. This infrastructure-as-code paradigm enables the coveted GitOps design pattern, where configurations are checked into git and may be reverted and applied to restore previous configurations. All fields are mutable and may be applied idempotently.
 
 | Field       | Value       | Description |
 | ----------- | ----------- | ----------- |
@@ -126,7 +127,7 @@ status:
 ```
 
 ### Conditions
-Conditions provide realtime feedback to users on the underlying state of their deployment. As the feature set of Service grows, additional Conditions will be added to the set. We will use the convention of positive-true conditions; the resource is healthy if there are no conditions whose status is False. If no conditions are present on the resource (e.g. Ready is not present), the resource is not healthy. Only one condition for each type can be available.  
+Conditions provide realtime feedback to users on the underlying state of their deployment. As the feature set of KFService grows, additional conditions will be added to the set. We will use the convention of positive-true conditions; the resource is healthy if there are no conditions whose status is False. If no conditions are present on the resource (e.g. Ready is not present), the resource is not healthy. Only one condition for each type can be available.  
 
 | Type        | Description |
 | ----------- | ----------- | 
