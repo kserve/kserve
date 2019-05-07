@@ -17,12 +17,13 @@ limitations under the License.
 package service
 
 import (
+	"testing"
+	"time"
+
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/frameworks/tensorflow"
-	"k8s.io/api/core/v1"
-	"testing"
-	"time"
+	v1 "k8s.io/api/core/v1"
 
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	knservingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -139,6 +140,9 @@ func TestReconcile(t *testing.T) {
 		},
 		Spec: knservingv1alpha1.ConfigurationSpec{
 			RevisionTemplate: &knservingv1alpha1.RevisionTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{"serving.kubeflow.org/kfservice": "foo"},
+				},
 				Spec: knservingv1alpha1.RevisionSpec{
 					Container: &v1.Container{
 						Image: tensorflow.TensorflowServingImageName + ":" +
@@ -228,6 +232,9 @@ func TestCanaryReconcile(t *testing.T) {
 		},
 		Spec: knservingv1alpha1.ConfigurationSpec{
 			RevisionTemplate: &knservingv1alpha1.RevisionTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{"serving.kubeflow.org/kfservice": "bar"},
+				},
 				Spec: knservingv1alpha1.RevisionSpec{
 					Container: &v1.Container{
 						Image: tensorflow.TensorflowServingImageName + ":" +
