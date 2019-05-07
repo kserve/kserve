@@ -2,25 +2,19 @@ package resources
 
 import (
 	"fmt"
+
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	knservingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 	"github.com/kubeflow/kfserving/pkg/constants"
-	"github.com/kubeflow/kfserving/pkg/frameworks/custom"
-	"github.com/kubeflow/kfserving/pkg/frameworks/tensorflow"
-	"k8s.io/api/core/v1"
+	fwk "github.com/kubeflow/kfserving/pkg/frameworks"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func CreateModelServingContainer(modelName string, modelSpec *v1alpha1.ModelSpec) *v1.Container {
-	if modelSpec.Tensorflow != nil {
-		return tensorflow.CreateTensorflowContainer(modelName, modelSpec.Tensorflow)
-	} else if modelSpec.Custom != nil {
-		return custom.CreateCustomContainer(modelSpec.Custom)
-	} else {
-		//TODO(@yuzisun) handle other model types
-		return &v1.Container{}
-	}
+	fwkHandler, _ := fwk.Get(modelSpec)
+	return fwkHandler.CreateModelServingContainer(modelName)
 }
 
 func CreateKnativeConfiguration(kfsvc *v1alpha1.KFService) (*knservingv1alpha1.Configuration, *knservingv1alpha1.Configuration) {

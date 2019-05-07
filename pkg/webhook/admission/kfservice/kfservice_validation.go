@@ -14,14 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha1
+package kfservice
 
 import (
 	"fmt"
 
-	knserving "github.com/knative/serving/pkg/apis/serving"
+	fwk "github.com/kubeflow/kfserving/pkg/frameworks"
 	runtime "k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 const (
@@ -65,7 +64,7 @@ func validateKFService(kfsvc *KFService) error {
 		return err
 	}
 
-	if err := validateDefaultSpec(kfsvc.Spec.Default); err != nil {
+	if err := validateSpec(kfsvc.Spec.Default); err != nil {
 		return err
 	}
 
@@ -89,59 +88,24 @@ func validateReplicas(minReplicas int, maxReplicas int) error {
 	return nil
 }
 
-func validateDefaultSpec(defaultSpec ModelSpec) error {
-	if err := validateOneModelSpec(defaultSpec); err != nil {
+// TODO HERE
+func validateSpec(defaultSpec ModelSpec) error {
+	fwkHandler, err := fwk.Get(defaultSpec)
+	if err != nil {
 		return err
 	}
-	if err := validateContainer(defaultSpec.Custom); err != nil {
-		return err
-	}
-	return nil
+	return fwkHandler.ValidateContainer()
 }
 
 func validateCanarySpec(canarySpec *CanarySpec) error {
 	if canarySpec == nil {
 		return nil
 	}
-	if err := validateOneModelSpec(canarySpec.ModelSpec); err != nil {
+	if err := validateSpec(canarySpec.ModelSpec); err != nil {
 		return err
 	}
 	if canarySpec.TrafficPercent < 0 || canarySpec.TrafficPercent > 100 {
 		return fmt.Errorf(TrafficBoundsExceededError)
-	}
-	if err := validateContainer(canarySpec.Custom); err != nil {
-		return err
-	}
-	return nil
-}
-
-func validateOneModelSpec(modelSpec ModelSpec) error {
-	count := 0
-	if modelSpec.Custom != nil {
-		count++
-	}
-	if modelSpec.ScikitLearn != nil {
-		count++
-	}
-	if modelSpec.XGBoost != nil {
-		count++
-	}
-	if modelSpec.Tensorflow != nil {
-		count++
-	}
-	if count != 1 {
-		return fmt.Errorf(ExactlyOneModelSpecViolatedError)
-	}
-	return nil
-}
-
-func validateContainer(customSpec *CustomSpec) error {
-	if customSpec == nil {
-		return nil
-	}
-	knativeErrs := knserving.ValidateContainer(customSpec.Container, sets.String{})
-	if knativeErrs != nil {
-		return fmt.Errorf("Custom: " + knativeErrs.Error())
 	}
 	return nil
 }
