@@ -1,6 +1,6 @@
 
 # Design Docs
-KFServing architecture consists of two main specifications, around control pland and data plane. Control plane is responsible for deploying and managing the lifecycle of models, while data plane is responsible for defining the contracts to interact with models once deployed.
+KFServing architecture consists of two main specifications, around control plane and data plane. Control plane is responsible for deploying and managing the lifecycle of models, while data plane is responsible for defining the contracts to interact with models once deployed.
 
  * [KFserving control plane specification](control-plane.md)
    * Defines the specification of the `kfserving` resource.
