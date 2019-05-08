@@ -135,11 +135,11 @@ make deploy
 
 After above step you can see things running with:
 ```console
-$ kubectl get pods -n kubeflow-system -l control-plane=kfserving-controller-manager
+$ kubectl get pods -n kfserving-system -l control-plane=kfserving-controller-manager
 NAME                             READY   STATUS    RESTARTS   AGE
 kfserving-controller-manager-0   2/2     Running   0          13m
 ```
-- **Note**: By default it installs to `kubeflow-system` namespace with the published
+- **Note**: By default it installs to `kfserving-system` namespace with the published
 `kfserving-controller-manager` image.
 
 ### Deploy KFServing with your own version
