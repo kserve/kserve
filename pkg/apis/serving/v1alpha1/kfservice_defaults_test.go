@@ -32,7 +32,7 @@ func TestTensorflowDefaults(t *testing.T) {
 	kfsvc.Spec.Canary.Tensorflow.Resources.Requests = v1.ResourceList{v1.ResourceMemory: resource.MustParse("3Gi")}
 	kfsvc.Default()
 
-	g.Expect(kfsvc.Spec.Default.Tensorflow.RuntimeVersion).To(gomega.Equal(DefaultTensorflowVersion))
+	g.Expect(kfsvc.Spec.Default.Tensorflow.RuntimeVersion).To(gomega.Equal(DefaultTensorflowServingVersion))
 	g.Expect(kfsvc.Spec.Default.Tensorflow.Resources.Requests[v1.ResourceCPU]).To(gomega.Equal(DefaultCPURequests))
 	g.Expect(kfsvc.Spec.Default.Tensorflow.Resources.Requests[v1.ResourceMemory]).To(gomega.Equal(DefaultMemoryRequests))
 	g.Expect(kfsvc.Spec.Canary.Tensorflow.RuntimeVersion).To(gomega.Equal("1.11"))

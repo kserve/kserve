@@ -18,11 +18,12 @@ package service
 
 import (
 	"context"
+
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/kubeflow/kfserving/pkg/reconciler/ksvc"
 	"github.com/kubeflow/kfserving/pkg/reconciler/ksvc/resources"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/client-go/tools/record"
 
