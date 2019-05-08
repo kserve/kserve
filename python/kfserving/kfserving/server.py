@@ -8,8 +8,9 @@ import os
 import logging
 import json
 
-from kfserving.tfserving import TFServingProtocol
-from kfserving.seldon import SeldonProtocol
+from kfserving.protocols.tensorflow_http import TFServingProtocol
+from kfserving.protocols.seldon_http import SeldonProtocol
+from kfserving.protocols.protocol import RequestHandler
 
 DEFAULT_HTTP_PORT = 8080
 DEFAULT_GRPC_PORT = 8081
@@ -37,9 +38,9 @@ class KFServer(object):
         self.grpc_port = grpc_port
         self.protocol = protocol
         if self.protocol == TFSERVING_HTTP_PROTOCOL:
-            self.protocol_handler = TFServingProtocol()
+            self.protocol_handler: RequestHandler = TFServingProtocol()
         elif self.protocol == SELDON_HTTP_PROTOCOL:
-            self.protocol_handler = SeldonProtocol()
+            self.protocol_handler: RequestHandler = SeldonProtocol()
         #TODO handle seldon protocol
         self._http_server = None
 
@@ -82,7 +83,7 @@ class KFServer(object):
 
 
 class ModelPredictHandler(tornado.web.RequestHandler):
-    def initialize(self, protocol_handler, models):
+    def initialize(self, protocol_handler: RequestHandler, models):
         self.models = models
         self.protocol_handler = protocol_handler
 
@@ -106,23 +107,17 @@ class ModelPredictHandler(tornado.web.RequestHandler):
                 reason="Unrecognized request format: %s" % e
             )
 
-        output = self.protocol_handler.handleRequest(body,model)
+        # Protocol specific validation and extraction of data
+        self.protocol_handler.validate_request(body)
+        extracted_inputs = self.protocol_handler.extract_inputs(body)
+        # model specific processing
+        inputs = model.preprocess(extracted_inputs)
+        results = model.predict(inputs)
+        outputs = model.postprocess(results)
+        # Protocol specific response handling
+        response = self.protocol_handler.create_response(body,outputs)
 
-        #if "instances" not in body:
-        #    raise tornado.web.HTTPError(
-        #        status_code=HTTPStatus.BAD_REQUEST,
-        #        reason="Expected key \"instances\" in request body"
-        #    )
-
-        #inputs = model.preprocess(body["instances"])
-        #results = model.predict(inputs)
-        #outputs = model.postprocess(results)
-
-        #self.write(str({
-        #    "predictions": outputs
-        #}))
-
-        self.write(str(output))
+        self.write(str(response))
 
 class LivenessHandler(tornado.web.RequestHandler):
     def get(self):
