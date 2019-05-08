@@ -16,8 +16,9 @@ var (
 
 // KFService Constants
 var (
-	KFServiceName    = "kfservice"
-	KFServiceAPIName = "kfservices"
+	KFServiceName        = "kfservice"
+	KFServiceAPIName     = "kfservices"
+	KFServicePodLabelKey = KFServingAPIGroupName + "/" + KFServiceName
 )
 
 // Controller Constants
