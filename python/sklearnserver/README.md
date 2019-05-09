@@ -12,7 +12,7 @@ The following output indicates a successful install.
 
 ```
 Obtaining file://kfserving/python/sklearn
-Requirement already satisfied: kfserver==0.1.0 in /Users/animeshsingh/Desktop/kfserving/python/kfserving (from sklearnserver==0.1.0) (0.1.0)
+Requirement already satisfied: kfserver==0.1.0 in /Users/username/Desktop/kfserving/python/kfserving (from sklearnserver==0.1.0) (0.1.0)
 Requirement already satisfied: scikit-learn==0.20.3 in /anaconda3/lib/python3.6/site-packages (from sklearnserver==0.1.0) (0.20.3)
 Requirement already satisfied: argparse>=1.4.0 in /anaconda3/lib/python3.6/site-packages (from sklearnserver==0.1.0) (1.4.0)
 Requirement already satisfied: numpy>=1.8.2 in /anaconda3/lib/python3.6/site-packages (from sklearnserver==0.1.0) (1.16.2)
