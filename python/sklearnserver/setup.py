@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 setup(
     name='sklearnserver',
     version='0.1.0',
-    author_email='singhan@us.ibm.com, tommy.chaoping.li@ibm.com',
+    author_email='singhan@us.ibm.com',
     license='https://github.com/kubeflow/kfserving/LICENSE',
     url='https://github.com/kubeflow/kfserving/python/sklearnserver',
     description='Model Server implementation for scikit-learn. Not intended for use outside KFServing Frameworks Images',
