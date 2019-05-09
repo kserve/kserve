@@ -1,8 +1,7 @@
 import kfserving
-from joblib import load
+import joblib 
 import numpy as np
 import os
-
 
 class SKLearnModel(kfserving.KFModel):
     def __init__(self, name, model_dir):
@@ -12,7 +11,7 @@ class SKLearnModel(kfserving.KFModel):
 
     def load(self):
         model_file = kfserving.Storage.download(self.model_dir)
-        self._model = load(model_file)
+        self._joblib = joblib.load(model_file)
         self.ready = True
 
     def preprocess(self, inputs):
@@ -27,7 +26,7 @@ class SKLearnModel(kfserving.KFModel):
 
     def predict(self, inputs):
         try:
-            result = self._model.predict(inputs)
+            result = self._joblib.predict(inputs)
             return result
         except Exception as e:
             raise Exception("Failed to predict %s" % e)
