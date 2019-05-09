@@ -15,18 +15,19 @@ class SKLearnModel(kfserving.KFModel):
         self.ready = True
 
     def preprocess(self, inputs):
-        try:
-            return np.array(inputs)
-        except Exception as e:
-            raise Exception(
-                "Failed to initialize NumPy array from inputs: %s, %s" % (e, inputs))
-
+        return inputs
+        
     def postprocess(self, outputs):
-        return outputs.tolist()
+        return outputs
 
     def predict(self, inputs):
         try:
-            result = self._joblib.predict(inputs)
+            inputs = np.array(inputs)
+        except Exception as e:
+            raise Exception(
+                "Failed to initialize NumPy array from inputs: %s, %s" % (e, inputs))
+        try:
+            result = self._joblib.predict(inputs).tolist()
             return result
         except Exception as e:
             raise Exception("Failed to predict %s" % e)
