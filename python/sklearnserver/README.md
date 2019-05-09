@@ -35,4 +35,4 @@ usage: __main__.py [-h] [--http_port HTTP_PORT] [--grpc_port GRPC_PORT]
 __main__.py: error: the following arguments are required: --model_dir
 ```
 
-You can now point to your `joblib` model file and use the server to load the model and test for prediction. Models can be on local filesystem, S3 compatible object storage or Google Cloud Storage. Please follow [this sample](../docs/samples/sklearn/) to test your server by generating your own model. 
+You can now point to your `joblib` model file and use the server to load the model and test for prediction. Models can be on local filesystem, S3 compatible object storage or Google Cloud Storage. Please follow [this sample](../../../docs/samples/sklearn/) to test your server by generating your own model. 
