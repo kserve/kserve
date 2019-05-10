@@ -43,7 +43,7 @@ func CreateKnativeConfiguration(kfsvc *v1alpha1.KFService) (*knservingv1alpha1.C
 			Annotations: union(kfsvc.Annotations, annotations),
 		},
 		Spec: knservingv1alpha1.ConfigurationSpec{
-			Template: &knservingv1alpha1.RevisionTemplateSpec{
+			RevisionTemplate: &knservingv1alpha1.RevisionTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: union(kfsvc.Labels, map[string]string{
 						constants.KFServicePodLabelKey: kfsvc.Name,
@@ -66,7 +66,7 @@ func CreateKnativeConfiguration(kfsvc *v1alpha1.KFService) (*knservingv1alpha1.C
 				Annotations: union(kfsvc.Annotations, annotations),
 			},
 			Spec: knservingv1alpha1.ConfigurationSpec{
-				Template: &knservingv1alpha1.RevisionTemplateSpec{
+				RevisionTemplate: &knservingv1alpha1.RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: union(kfsvc.Labels, map[string]string{
 							constants.KFServicePodLabelKey: kfsvc.Name,

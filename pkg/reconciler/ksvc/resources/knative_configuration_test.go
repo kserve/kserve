@@ -52,7 +52,7 @@ var defaultConfiguration = knservingv1alpha1.Configuration{
 		Annotations: map[string]string{"autoscaling.knative.dev/maxScale": "3", "autoscaling.knative.dev/minScale": "1"},
 	},
 	Spec: knservingv1alpha1.ConfigurationSpec{
-		Template: &knservingv1alpha1.RevisionTemplateSpec{
+		RevisionTemplate: &knservingv1alpha1.RevisionTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels: map[string]string{"serving.kubeflow.org/kfservice": "mnist"},
 			},
@@ -79,7 +79,7 @@ var canaryConfiguration = knservingv1alpha1.Configuration{
 		Annotations: map[string]string{"autoscaling.knative.dev/maxScale": "3", "autoscaling.knative.dev/minScale": "1"},
 	},
 	Spec: knservingv1alpha1.ConfigurationSpec{
-		Template: &knservingv1alpha1.RevisionTemplateSpec{
+		RevisionTemplate: &knservingv1alpha1.RevisionTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels: map[string]string{"serving.kubeflow.org/kfservice": "mnist"},
 			},
@@ -166,7 +166,7 @@ func TestKnativeConfiguration(t *testing.T) {
 					Annotations: map[string]string{},
 				},
 				Spec: knservingv1alpha1.ConfigurationSpec{
-					Template: &knservingv1alpha1.RevisionTemplateSpec{
+					RevisionTemplate: &knservingv1alpha1.RevisionTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{"serving.kubeflow.org/kfservice": "scikit"},
 						},
