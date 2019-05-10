@@ -54,7 +54,8 @@ var defaultConfiguration = knservingv1alpha1.Configuration{
 	Spec: knservingv1alpha1.ConfigurationSpec{
 		RevisionTemplate: &knservingv1alpha1.RevisionTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
-				Labels: map[string]string{"serving.kubeflow.org/kfservice": "mnist"},
+				Labels:      map[string]string{"serving.kubeflow.org/kfservice": "mnist"},
+				Annotations: map[string]string{"traffic.sidecar.istio.io/includeOutboundIPRanges": ""},
 			},
 			Spec: knservingv1alpha1.RevisionSpec{
 				Container: &v1.Container{
@@ -81,7 +82,8 @@ var canaryConfiguration = knservingv1alpha1.Configuration{
 	Spec: knservingv1alpha1.ConfigurationSpec{
 		RevisionTemplate: &knservingv1alpha1.RevisionTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
-				Labels: map[string]string{"serving.kubeflow.org/kfservice": "mnist"},
+				Labels:      map[string]string{"serving.kubeflow.org/kfservice": "mnist"},
+				Annotations: map[string]string{"traffic.sidecar.istio.io/includeOutboundIPRanges": ""},
 			},
 			Spec: knservingv1alpha1.RevisionSpec{
 				Container: &v1.Container{
@@ -168,7 +170,8 @@ func TestKnativeConfiguration(t *testing.T) {
 				Spec: knservingv1alpha1.ConfigurationSpec{
 					RevisionTemplate: &knservingv1alpha1.RevisionTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
-							Labels: map[string]string{"serving.kubeflow.org/kfservice": "scikit"},
+							Labels:      map[string]string{"serving.kubeflow.org/kfservice": "scikit"},
+							Annotations: map[string]string{"traffic.sidecar.istio.io/includeOutboundIPRanges": ""},
 						},
 						Spec: knservingv1alpha1.RevisionSpec{
 							Container: &v1.Container{

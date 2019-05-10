@@ -35,6 +35,12 @@ func CreateKnativeConfiguration(kfsvc *v1alpha1.KFService) (*knservingv1alpha1.C
 		annotations[autoscaling.MaxScaleAnnotationKey] = fmt.Sprint(kfsvc.Spec.MaxReplicas)
 	}
 
+	// Workaround to cause istio to allow outbound access to cloud providers.
+	// Eventually this should be done intelligently with dynamic ServiceEntries,
+	// according to gcsUri, but this is prohibitively complex for now.
+	revisionannotations := make(map[string]string)
+	revisionannotations["traffic.sidecar.istio.io/includeOutboundIPRanges"] = ""
+
 	defaultConfiguration := &knservingv1alpha1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        constants.DefaultConfigurationName(kfsvc.Name),
@@ -48,7 +54,7 @@ func CreateKnativeConfiguration(kfsvc *v1alpha1.KFService) (*knservingv1alpha1.C
 					Labels: union(kfsvc.Labels, map[string]string{
 						constants.KFServicePodLabelKey: kfsvc.Name,
 					}),
-					Annotations: kfsvc.Annotations,
+					Annotations: union(kfsvc.Annotations, revisionannotations),
 				},
 				Spec: knservingv1alpha1.RevisionSpec{
 					Container: CreateModelServingContainer(kfsvc.Name, &kfsvc.Spec.Default),
@@ -71,7 +77,7 @@ func CreateKnativeConfiguration(kfsvc *v1alpha1.KFService) (*knservingv1alpha1.C
 						Labels: union(kfsvc.Labels, map[string]string{
 							constants.KFServicePodLabelKey: kfsvc.Name,
 						}),
-						Annotations: kfsvc.Annotations,
+						Annotations: union(kfsvc.Annotations, revisionannotations),
 					},
 					Spec: knservingv1alpha1.RevisionSpec{
 						Container: CreateModelServingContainer(kfsvc.Name, &kfsvc.Spec.Canary.ModelSpec),

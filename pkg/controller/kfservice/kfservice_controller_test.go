@@ -141,7 +141,8 @@ func TestReconcile(t *testing.T) {
 		Spec: knservingv1alpha1.ConfigurationSpec{
 			RevisionTemplate: &knservingv1alpha1.RevisionTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{"serving.kubeflow.org/kfservice": "foo"},
+					Labels:      map[string]string{"serving.kubeflow.org/kfservice": "foo"},
+					Annotations: map[string]string{"traffic.sidecar.istio.io/includeOutboundIPRanges": ""},
 				},
 				Spec: knservingv1alpha1.RevisionSpec{
 					Container: &v1.Container{
@@ -233,7 +234,8 @@ func TestCanaryReconcile(t *testing.T) {
 		Spec: knservingv1alpha1.ConfigurationSpec{
 			RevisionTemplate: &knservingv1alpha1.RevisionTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{"serving.kubeflow.org/kfservice": "bar"},
+					Labels:      map[string]string{"serving.kubeflow.org/kfservice": "bar"},
+					Annotations: map[string]string{"traffic.sidecar.istio.io/includeOutboundIPRanges": ""},
 				},
 				Spec: knservingv1alpha1.RevisionSpec{
 					Container: &v1.Container{
