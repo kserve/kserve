@@ -14,7 +14,7 @@ DEFAULT_HTTP_PORT = 8080
 DEFAULT_GRPC_PORT = 8081
 TFSERVING_HTTP_PROTOCOL = "tensorflow.http"
 SELDON_HTTP_PROTOCOL = "seldon.http"
-PROTOCOLS = [TFSERVING_HTTP_PROTOCOL,SELDON_HTTP_PROTOCOL]
+PROTOCOLS = [TFSERVING_HTTP_PROTOCOL, SELDON_HTTP_PROTOCOL]
 
 parser = argparse.ArgumentParser(add_help=False)
 parser.add_argument('--http_port', default=DEFAULT_HTTP_PORT, type=int,
@@ -30,8 +30,8 @@ logging.basicConfig(level=KFSERVER_LOGLEVEL)
 
 
 class KFServer(object):
-    def __init__(self,protocol: str = args.protocol,http_port: int = args.http_port,grpc_port: int = args.grpc_port):
-        self.registered_models: Dict[str,KFModel] = {}
+    def __init__(self, protocol: str = args.protocol, http_port: int = args.http_port, grpc_port: int = args.grpc_port):
+        self.registered_models: Dict[str, KFModel] = {}
         self.http_port = http_port
         self.grpc_port = grpc_port
         self.protocol = protocol
@@ -65,7 +65,7 @@ class KFServer(object):
 
         logging.info("Listening on port %s" % self.http_port)
         self._http_server.bind(self.http_port)
-        self._http_server.start(0) # Forks workers equal to host's cores
+        self._http_server.start(0)  # Forks workers equal to host's cores
         tornado.ioloop.IOLoop.current().start()
 
     def register_model(self, model: KFModel):
@@ -75,7 +75,7 @@ class KFServer(object):
 
 
 class ModelPredictHandler(tornado.web.RequestHandler):
-    def initialize(self, models: Dict[str,KFModel]):
+    def initialize(self, models: Dict[str, KFModel]):
         self.models = models
 
     def post(self, name: str):
@@ -102,6 +102,7 @@ class ModelPredictHandler(tornado.web.RequestHandler):
 
         self.write(str(results))
 
+
 class LivenessHandler(tornado.web.RequestHandler):
     def get(self):
         self.write("Alive")
@@ -121,7 +122,7 @@ class MetricsHandler(tornado.web.RequestHandler):
 
 
 class ModelHealthHandler(tornado.web.RequestHandler):
-    def initialize(self, models: Dict[str,KFModel]):
+    def initialize(self, models: Dict[str, KFModel]):
         self.models = models
 
     def get(self, name: str):
