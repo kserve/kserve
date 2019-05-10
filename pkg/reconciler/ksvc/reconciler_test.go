@@ -37,7 +37,7 @@ func TestKnativeConfigurationReconcile(t *testing.T) {
 			Namespace: "default",
 		},
 		Spec: knservingv1alpha1.ConfigurationSpec{
-			RevisionTemplate: &knservingv1alpha1.RevisionTemplateSpec{
+			Template: &knservingv1alpha1.RevisionTemplateSpec{
 				Spec: knservingv1alpha1.RevisionSpec{
 					Container: &v1.Container{
 						Image: tensorflow.TensorflowServingImageName + ":" +
@@ -68,7 +68,7 @@ func TestKnativeConfigurationReconcile(t *testing.T) {
 					Namespace: "default",
 				},
 				Spec: knservingv1alpha1.ConfigurationSpec{
-					RevisionTemplate: &knservingv1alpha1.RevisionTemplateSpec{
+					Template: &knservingv1alpha1.RevisionTemplateSpec{
 						Spec: knservingv1alpha1.RevisionSpec{
 							Container: &v1.Container{
 								Image: tensorflow.TensorflowServingImageName + ":" +
@@ -100,7 +100,7 @@ func TestKnativeConfigurationReconcile(t *testing.T) {
 					},
 				},
 				Spec: knservingv1alpha1.ConfigurationSpec{
-					RevisionTemplate: &knservingv1alpha1.RevisionTemplateSpec{
+					Template: &knservingv1alpha1.RevisionTemplateSpec{
 						Spec: knservingv1alpha1.RevisionSpec{
 							Container: &v1.Container{
 								Image: tensorflow.TensorflowServingImageName + ":" +
