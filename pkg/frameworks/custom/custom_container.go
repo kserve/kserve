@@ -9,16 +9,14 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
-type CustomFramework struct {
-	Spec *v1alpha1.CustomSpec
+type CustomSpec v1alpha1.CustomSpec
+
+func (c *CustomSpec) CreateModelServingContainer(modelName string) *v1.Container {
+	return &c.Container
 }
 
-func (c *CustomFramework) CreateModelServingContainer(modelName string) *v1.Container {
-	return &c.Spec.Container
-}
-
-func (c *CustomFramework) ValidateSpec() error {
-	knativeErrs := knserving.ValidateContainer(c.Spec.Container, sets.String{})
+func (c *CustomSpec) ValidateSpec() error {
+	knativeErrs := knserving.ValidateContainer(c.Container, sets.String{})
 	if knativeErrs != nil {
 		return fmt.Errorf("Custom: " + knativeErrs.Error())
 	}

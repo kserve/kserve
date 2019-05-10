@@ -17,14 +17,15 @@ limitations under the License.
 package resources
 
 import (
+	"testing"
+
 	"github.com/google/go-cmp/cmp"
 	knservingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/frameworks/tensorflow"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"testing"
 )
 
 var kfsvc = &v1alpha1.KFService{
@@ -137,16 +138,16 @@ func TestKnativeConfiguration(t *testing.T) {
 			expectedDefault: &defaultConfiguration,
 			expectedCanary:  &canaryConfiguration,
 		},
-		"RunScikitModel": {
+		"RunTensorflowModel": {
 			kfService: &v1alpha1.KFService{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "scikit",
+					Name:      "tfserving",
 					Namespace: "default",
 				},
 				Spec: v1alpha1.KFServiceSpec{
 					Default: v1alpha1.ModelSpec{
-						ScikitLearn: &v1alpha1.ScikitLearnSpec{
-							ModelURI:       "s3://test/scikit/export",
+						Tensorflow: &v1alpha1.TensorflowSpec{
+							ModelURI:       "s3://test/tf.pb",
 							RuntimeVersion: "1.0",
 						},
 					},
@@ -154,14 +155,22 @@ func TestKnativeConfiguration(t *testing.T) {
 			},
 			expectedDefault: &knservingv1alpha1.Configuration{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      constants.DefaultConfigurationName("scikit"),
+					Name:      constants.DefaultConfigurationName("tfserving"),
 					Namespace: "default",
 				},
 				Spec: knservingv1alpha1.ConfigurationSpec{
 					RevisionTemplate: &knservingv1alpha1.RevisionTemplateSpec{
 						Spec: knservingv1alpha1.RevisionSpec{
 							Container: &v1.Container{
-								//TODO(@yuzisun) fill in once scikit is implemented
+								Name:    "",
+								Image:   "tensorflow/serving:1.0",
+								Command: []string{"/usr/bin/tensorflow_model_server"},
+								Args: []string{
+									"--port=9000",
+									"--rest_api_port=8080",
+									"--model_name=tfserving",
+									"--model_base_path=s3://test/tf.pb",
+								},
 							},
 						},
 					},

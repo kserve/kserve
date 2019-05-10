@@ -19,8 +19,8 @@ package kfservice
 import (
 	"fmt"
 
+	kfservingv1alpha1 "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 	fwk "github.com/kubeflow/kfserving/pkg/frameworks"
-	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 
 const (
@@ -32,31 +32,16 @@ const (
 	MaxReplicasLowerBoundExceededError = "MaxReplicas cannot be less than 0"
 	// TrafficBoundsExceededError is an known error message
 	TrafficBoundsExceededError = "TrafficPercent must be between [0, 100]"
-	// ExactlyOneModelSpecViolatedError is a known error message
-	ExactlyOneModelSpecViolatedError = "Exactly one of [Custom, Tensorflow, ScikitLearn, XGBoost] should be specified in ModelSpec"
 )
 
-// ValidateCreate implements https://godoc.org/sigs.k8s.io/controller-runtime/pkg/webhook/admission#Validator
-func (kfsvc *KFService) ValidateCreate() error {
-	return kfsvc.validate()
-}
-
-// ValidateUpdate implements https://godoc.org/sigs.k8s.io/controller-runtime/pkg/webhook/admission#Validator
-func (kfsvc *KFService) ValidateUpdate(old runtime.Object) error {
-	return kfsvc.validate()
-}
-
-func (kfsvc *KFService) validate() error {
-	logger.Info("Validating KFService", "namespace", kfsvc.Namespace, "name", kfsvc.Name)
+func ValidateCreate(kfsvc *kfservingv1alpha1.KFService) error {
 	if err := validateKFService(kfsvc); err != nil {
-		logger.Info("Failed to validate KFService", "namespace", kfsvc.Namespace, "name", kfsvc.Name, err.Error())
 		return err
 	}
-	logger.Info("Successfully validated KFService", "namespace", kfsvc.Namespace, "name", kfsvc.Name)
 	return nil
 }
 
-func validateKFService(kfsvc *KFService) error {
+func validateKFService(kfsvc *kfservingv1alpha1.KFService) error {
 	if kfsvc == nil {
 		return fmt.Errorf("Unable to validate, KFService is nil")
 	}
@@ -64,7 +49,7 @@ func validateKFService(kfsvc *KFService) error {
 		return err
 	}
 
-	if err := validateSpec(kfsvc.Spec.Default); err != nil {
+	if err := validateSpec(&kfsvc.Spec.Default); err != nil {
 		return err
 	}
 
@@ -89,19 +74,19 @@ func validateReplicas(minReplicas int, maxReplicas int) error {
 }
 
 // TODO HERE
-func validateSpec(defaultSpec ModelSpec) error {
-	fwkHandler, err := fwk.Get(defaultSpec)
+func validateSpec(defaultSpec *kfservingv1alpha1.ModelSpec) error {
+	fwkHandler, err := fwk.MakeHandler(defaultSpec)
 	if err != nil {
 		return err
 	}
-	return fwkHandler.ValidateContainer()
+	return fwkHandler.ValidateSpec()
 }
 
-func validateCanarySpec(canarySpec *CanarySpec) error {
+func validateCanarySpec(canarySpec *kfservingv1alpha1.CanarySpec) error {
 	if canarySpec == nil {
 		return nil
 	}
-	if err := validateSpec(canarySpec.ModelSpec); err != nil {
+	if err := validateSpec(&canarySpec.ModelSpec); err != nil {
 		return err
 	}
 	if canarySpec.TrafficPercent < 0 || canarySpec.TrafficPercent > 100 {

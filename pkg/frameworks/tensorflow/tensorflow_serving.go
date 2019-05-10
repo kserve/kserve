@@ -28,24 +28,22 @@ const (
 	TensorflowServingImageName  = "tensorflow/serving"
 )
 
-type TensorflowFramework struct {
-	Spec *v1alpha1.TensorflowSpec
-}
+type TensorflowSpec v1alpha1.TensorflowSpec
 
-func (t *TensorflowFramework) CreateModelServingContainer(modelName string) *v1.Container {
+func (t *TensorflowSpec) CreateModelServingContainer(modelName string) *v1.Container {
 	//TODO(@yuzisun) add configmap for image, default resources, readiness/liveness probe
 	return &v1.Container{
-		Image:   TensorflowServingImageName + ":" + t.Spec.RuntimeVersion,
+		Image:   TensorflowServingImageName + ":" + t.RuntimeVersion,
 		Command: []string{TensorflowEntrypointCommand},
 		Args: []string{
 			"--port=" + TensorflowServingGRPCPort,
 			"--rest_api_port=" + TensorflowServingRestPort,
 			"--model_name=" + modelName,
-			"--model_base_path=" + t.Spec.ModelURI,
+			"--model_base_path=" + t.ModelURI,
 		},
 	}
 }
 
-func (t *TensorflowFramework) ValidateSpec() error {
+func (t *TensorflowSpec) ValidateSpec() error {
 	return nil
 }

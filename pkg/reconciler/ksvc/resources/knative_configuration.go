@@ -13,7 +13,8 @@ import (
 )
 
 func CreateModelServingContainer(modelName string, modelSpec *v1alpha1.ModelSpec) *v1.Container {
-	fwkHandler, _ := fwk.Get(modelSpec)
+	// ignoring error response since we assume validation ensured the modelSpec is valid
+	fwkHandler, _ := fwk.MakeHandler(modelSpec)
 	return fwkHandler.CreateModelServingContainer(modelName)
 }
 

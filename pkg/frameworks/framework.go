@@ -14,21 +14,28 @@ type FrameworkHandler interface {
 	ValidateSpec() error
 }
 
-func Get(modelSpec *v1alpha1.ModelSpec) (interface{ FrameworkHandler }, error) {
+const (
+	// ExactlyOneModelSpecViolatedError is a known error message
+	ExactlyOneModelSpecViolatedError = "Exactly one of [Custom, Tensorflow, ScikitLearn, XGBoost] must be specified in ModelSpec"
+	// AtLeastOneModelSpecViolatedError is a known error message
+	AtLeastOneModelSpecViolatedError = "At least one of [Custom, Tensorflow, ScikitLearn, XGBoost] must be specified in ModelSpec"
+)
+
+func MakeHandler(modelSpec *v1alpha1.ModelSpec) (interface{ FrameworkHandler }, error) {
 	handlers := []interface{ FrameworkHandler }{}
 	if modelSpec.Custom != nil {
-		handlers = append(handlers, &custom.CustomFramework{Spec: modelSpec.Custom})
+		customSpec := custom.CustomSpec(*modelSpec.Custom)
+		handlers = append(handlers, &customSpec)
 	}
 	if modelSpec.XGBoost != nil {
 		// TODO: add fwk for xgboost
-		handlers = append(handlers, &custom.CustomFramework{Spec: modelSpec.Custom})
 	}
 	if modelSpec.ScikitLearn != nil {
 		// TODO: add fwk for sklearn
-		handlers = append(handlers, &custom.CustomFramework{Spec: modelSpec.Custom})
 	}
 	if modelSpec.Tensorflow != nil {
-		handlers = append(handlers, &tensorflow.TensorflowFramework{Spec: modelSpec.Tensorflow})
+		tfSpec := tensorflow.TensorflowSpec(*modelSpec.Tensorflow)
+		handlers = append(handlers, &tfSpec)
 	}
 	if len(handlers) == 0 {
 		return nil, fmt.Errorf(AtLeastOneModelSpecViolatedError)

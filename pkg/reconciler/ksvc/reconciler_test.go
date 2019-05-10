@@ -18,15 +18,16 @@ package ksvc
 
 import (
 	"context"
+	"testing"
+
 	"github.com/google/go-cmp/cmp"
 	knservingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 	"github.com/kubeflow/kfserving/pkg/frameworks/tensorflow"
 	"github.com/onsi/gomega"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"testing"
 )
 
 func TestKnativeConfigurationReconcile(t *testing.T) {
@@ -40,7 +41,7 @@ func TestKnativeConfigurationReconcile(t *testing.T) {
 				Spec: knservingv1alpha1.RevisionSpec{
 					Container: &v1.Container{
 						Image: tensorflow.TensorflowServingImageName + ":" +
-							v1alpha1.DefaultTensorflowVersion,
+							v1alpha1.DefaultTensorflowServingVersion,
 						Command: []string{tensorflow.TensorflowEntrypointCommand},
 						Args: []string{
 							"--port=" + tensorflow.TensorflowServingGRPCPort,
@@ -71,7 +72,7 @@ func TestKnativeConfigurationReconcile(t *testing.T) {
 						Spec: knservingv1alpha1.RevisionSpec{
 							Container: &v1.Container{
 								Image: tensorflow.TensorflowServingImageName + ":" +
-									v1alpha1.DefaultTensorflowVersion,
+									v1alpha1.DefaultTensorflowServingVersion,
 								Command: []string{tensorflow.TensorflowEntrypointCommand},
 								Args: []string{
 									"--port=" + tensorflow.TensorflowServingGRPCPort,
@@ -97,7 +98,7 @@ func TestKnativeConfigurationReconcile(t *testing.T) {
 						Spec: knservingv1alpha1.RevisionSpec{
 							Container: &v1.Container{
 								Image: tensorflow.TensorflowServingImageName + ":" +
-									v1alpha1.DefaultTensorflowVersion,
+									v1alpha1.DefaultTensorflowServingVersion,
 								Command: []string{tensorflow.TensorflowEntrypointCommand},
 								Args: []string{
 									"--port=" + tensorflow.TensorflowServingGRPCPort,

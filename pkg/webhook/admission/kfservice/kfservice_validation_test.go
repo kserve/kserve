@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"testing"
 
+	kfservingv1alpha1 "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
+	fwk "github.com/kubeflow/kfserving/pkg/frameworks"
 	v1 "k8s.io/api/core/v1"
 
 	"github.com/onsi/gomega"
@@ -27,83 +29,83 @@ import (
 
 func TestRejectMultipleModelSpecs(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	kfsvc := TFExampleKFService.DeepCopy()
-	kfsvc.Spec.Default.ScikitLearn = &ScikitLearnSpec{ModelURI: "gs://testbucket/testmodel"}
-	g.Expect(kfsvc.ValidateCreate()).Should(gomega.MatchError(ExactlyOneModelSpecViolatedError))
+	kfsvc := kfservingv1alpha1.TFExampleKFService.DeepCopy()
+	kfsvc.Spec.Default.Custom = &kfservingv1alpha1.CustomSpec{}
+	g.Expect(ValidateCreate(kfsvc)).Should(gomega.MatchError(fwk.ExactlyOneModelSpecViolatedError))
 }
 
 func TestRejectModelSpecMissing(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	kfsvc := TFExampleKFService.DeepCopy()
+	kfsvc := kfservingv1alpha1.TFExampleKFService.DeepCopy()
 	kfsvc.Spec.Default.Tensorflow = nil
-	g.Expect(kfsvc.ValidateCreate()).Should(gomega.MatchError(ExactlyOneModelSpecViolatedError))
+	g.Expect(ValidateCreate(kfsvc)).Should(gomega.MatchError(fwk.AtLeastOneModelSpecViolatedError))
 }
 func TestRejectMultipleCanaryModelSpecs(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	kfsvc := TFExampleKFService.DeepCopy()
-	kfsvc.Spec.Canary = &CanarySpec{ModelSpec: ModelSpec{
-		ScikitLearn: &ScikitLearnSpec{ModelURI: "gs://testbucket/testmodel"},
-		Tensorflow:  kfsvc.Spec.Default.Tensorflow,
+	kfsvc := kfservingv1alpha1.TFExampleKFService.DeepCopy()
+	kfsvc.Spec.Canary = &kfservingv1alpha1.CanarySpec{ModelSpec: kfservingv1alpha1.ModelSpec{
+		Custom:     &kfservingv1alpha1.CustomSpec{},
+		Tensorflow: kfsvc.Spec.Default.Tensorflow,
 	}}
-	g.Expect(kfsvc.ValidateCreate()).Should(gomega.MatchError(ExactlyOneModelSpecViolatedError))
+	g.Expect(ValidateCreate(kfsvc)).Should(gomega.MatchError(fwk.ExactlyOneModelSpecViolatedError))
 }
 
 func TestRejectCanaryModelSpecMissing(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	kfsvc := TFExampleKFService.DeepCopy()
-	kfsvc.Spec.Canary = &CanarySpec{ModelSpec: ModelSpec{}}
-	g.Expect(kfsvc.ValidateCreate()).Should(gomega.MatchError(ExactlyOneModelSpecViolatedError))
+	kfsvc := kfservingv1alpha1.TFExampleKFService.DeepCopy()
+	kfsvc.Spec.Canary = &kfservingv1alpha1.CanarySpec{ModelSpec: kfservingv1alpha1.ModelSpec{}}
+	g.Expect(ValidateCreate(kfsvc)).Should(gomega.MatchError(fwk.AtLeastOneModelSpecViolatedError))
 }
 func TestRejectBadCanaryTrafficValues(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	kfsvc := TFExampleKFService.DeepCopy()
-	kfsvc.Spec.Canary = &CanarySpec{
+	kfsvc := kfservingv1alpha1.TFExampleKFService.DeepCopy()
+	kfsvc.Spec.Canary = &kfservingv1alpha1.CanarySpec{
 		TrafficPercent: -1,
 		ModelSpec:      kfsvc.Spec.Default,
 	}
-	g.Expect(kfsvc.ValidateCreate()).Should(gomega.MatchError(TrafficBoundsExceededError))
+	g.Expect(ValidateCreate(kfsvc)).Should(gomega.MatchError(TrafficBoundsExceededError))
 	kfsvc.Spec.Canary.TrafficPercent = 101
-	g.Expect(kfsvc.ValidateCreate()).Should(gomega.MatchError(TrafficBoundsExceededError))
+	g.Expect(ValidateCreate(kfsvc)).Should(gomega.MatchError(TrafficBoundsExceededError))
 }
 
 func TestBadReplicaValues(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	kfsvc := TFExampleKFService.DeepCopy()
+	kfsvc := kfservingv1alpha1.TFExampleKFService.DeepCopy()
 	kfsvc.Spec.MinReplicas = -1
-	g.Expect(kfsvc.ValidateCreate()).Should(gomega.MatchError(MinReplicasLowerBoundExceededError))
+	g.Expect(ValidateCreate(kfsvc)).Should(gomega.MatchError(MinReplicasLowerBoundExceededError))
 	kfsvc.Spec.MinReplicas = 1
 	kfsvc.Spec.MaxReplicas = -1
-	g.Expect(kfsvc.ValidateCreate()).Should(gomega.MatchError(MaxReplicasLowerBoundExceededError))
+	g.Expect(ValidateCreate(kfsvc)).Should(gomega.MatchError(MaxReplicasLowerBoundExceededError))
 	kfsvc.Spec.MinReplicas = 2
 	kfsvc.Spec.MaxReplicas = 1
-	g.Expect(kfsvc.ValidateCreate()).Should(gomega.MatchError(MinReplicasShouldBeLessThanMaxError))
+	g.Expect(ValidateCreate(kfsvc)).Should(gomega.MatchError(MinReplicasShouldBeLessThanMaxError))
 }
 
 func TestCustomBadFields(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	kfsvc := TFExampleKFService.DeepCopy()
+	kfsvc := kfservingv1alpha1.TFExampleKFService.DeepCopy()
 	kfsvc.Spec.Default.Tensorflow = nil
-	kfsvc.Spec.Default.Custom = &CustomSpec{
-		v1.Container{
+	kfsvc.Spec.Default.Custom = &kfservingv1alpha1.CustomSpec{
+		Container: v1.Container{
 			Name:      "foo",
 			Image:     "custom:0.1",
 			Stdin:     true,
 			StdinOnce: true,
 		},
 	}
-	g.Expect(kfsvc.ValidateCreate()).Should(gomega.MatchError("Custom: must not set the field(s): name, stdin, stdinOnce"))
+	g.Expect(ValidateCreate(kfsvc)).Should(gomega.MatchError("Custom: must not set the field(s): name, stdin, stdinOnce"))
 }
 
 func TestCustomOK(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	kfsvc := TFExampleKFService.DeepCopy()
+	kfsvc := kfservingv1alpha1.TFExampleKFService.DeepCopy()
 	kfsvc.Spec.Default.Tensorflow = nil
-	kfsvc.Spec.Default.Custom = &CustomSpec{
-		v1.Container{
+	kfsvc.Spec.Default.Custom = &kfservingv1alpha1.CustomSpec{
+		Container: v1.Container{
 			Image: "custom:0.1",
 		},
 	}
-	err := kfsvc.ValidateCreate()
+	err := ValidateCreate(kfsvc)
 	fmt.Println(err)
-	g.Expect(kfsvc.ValidateCreate()).Should(gomega.Succeed())
+	g.Expect(ValidateCreate(kfsvc)).Should(gomega.Succeed())
 }
