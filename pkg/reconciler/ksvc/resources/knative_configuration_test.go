@@ -168,7 +168,7 @@ func TestKnativeConfiguration(t *testing.T) {
 				Spec: knservingv1alpha1.ConfigurationSpec{
 					Template: &knservingv1alpha1.RevisionTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
-							Labels: map[string]string{"serving.kubeflow.org/kfservice": "scikit"},
+							Labels: map[string]string{"serving.kubeflow.org/kfservice": "tfserving"},
 						},
 						Spec: knservingv1alpha1.RevisionSpec{
 							Container: &v1.Container{
