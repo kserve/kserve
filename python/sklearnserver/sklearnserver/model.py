@@ -14,12 +14,6 @@ class SKLearnModel(kfserving.KFModel):
         self._joblib = joblib.load(model_file)
         self.ready = True
 
-    def preprocess(self, inputs):
-        return inputs
-        
-    def postprocess(self, outputs):
-        return outputs
-
     def predict(self, inputs):
         try:
             inputs = np.array(inputs)
