@@ -6,4 +6,4 @@ test:
 	pytest -W ignore
 
 type_check:
-	mypy --ignore-missing-imports --no-strict-optional kfserving
+	mypy --ignore-missing-imports --no-strict-optional xgbserver

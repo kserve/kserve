@@ -16,4 +16,9 @@ setup(
         "scikit-learn == 0.20.3",
         "argparse >= 1.4.0"
     ],
+    tests_require=[
+        'pytest',
+        'pytest-tornasync',
+        'mypy'
+    ]
 )

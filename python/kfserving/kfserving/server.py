@@ -7,10 +7,8 @@ import argparse
 import os
 import logging
 import json
-
-from kfserving.protocols.tensorflow_http import TFServingProtocol
-from kfserving.protocols.seldon_http import SeldonProtocol
-from kfserving.protocols.protocol import RequestHandler
+from kfserving.model import KFModel
+from typing import List, Dict
 
 DEFAULT_HTTP_PORT = 8080
 DEFAULT_GRPC_PORT = 8081
@@ -19,11 +17,11 @@ SELDON_HTTP_PROTOCOL = "seldon.http"
 PROTOCOLS = [TFSERVING_HTTP_PROTOCOL,SELDON_HTTP_PROTOCOL]
 
 parser = argparse.ArgumentParser(add_help=False)
-parser.add_argument('--http_port', default=DEFAULT_HTTP_PORT,
+parser.add_argument('--http_port', default=DEFAULT_HTTP_PORT, type=int,
                     help='The HTTP Port listened to by the model server.')
-parser.add_argument('--grpc_port', default=DEFAULT_GRPC_PORT,
+parser.add_argument('--grpc_port', default=DEFAULT_GRPC_PORT, type=int,
                     help='The GRPC Port listened to by the model server.')
-parser.add_argument('--protocol', default=TFSERVING_HTTP_PROTOCOL, choices=PROTOCOLS,
+parser.add_argument('--protocol', default=TFSERVING_HTTP_PROTOCOL, choices=PROTOCOLS, type=str,
                     help='The protocol served by the model server')
 args, _ = parser.parse_known_args()
 
@@ -32,18 +30,12 @@ logging.basicConfig(level=KFSERVER_LOGLEVEL)
 
 
 class KFServer(object):
-    def __init__(self,protocol=args.protocol,http_port=args.http_port,grpc_port=args.grpc_port):
-        self.registered_models = {}
+    def __init__(self,protocol: str = args.protocol,http_port: int = args.http_port,grpc_port: int = args.grpc_port):
+        self.registered_models: Dict[str,KFModel] = {}
         self.http_port = http_port
         self.grpc_port = grpc_port
         self.protocol = protocol
-        if self.protocol == TFSERVING_HTTP_PROTOCOL:
-            self.protocol_handler: RequestHandler = TFServingProtocol()
-        elif self.protocol == SELDON_HTTP_PROTOCOL:
-            self.protocol_handler: RequestHandler = SeldonProtocol()
-        #TODO handle seldon protocol
-        self._http_server = None
-
+        self._http_server: tornado.httpserver.HTTPServer = None
 
     def createApplication(self):
         return tornado.web.Application([
@@ -58,13 +50,13 @@ class KFServer(object):
              ModelHealthHandler, dict(models=self.registered_models)),
             # Predict API executes executes predict on input tensors
             (r"/models/([a-zA-Z0-9_-]+)",
-             ModelPredictHandler, dict(protocol_handler=self.protocol_handler,models=self.registered_models)),
+             ModelPredictHandler, dict(models=self.registered_models)),
             # Optional Custom Predict Verb for Tensorflow compatibility
             (r"/models/([a-zA-Z0-9_-]+):predict",
-             ModelPredictHandler, dict(protocol_handler=self.protocol_handler,models=self.registered_models)),
+             ModelPredictHandler, dict(models=self.registered_models)),
         ])
 
-    def start(self, models=[]):
+    def start(self, models: List[KFModel] = []):
         # TODO add a GRPC server
         for model in models:
             self.register_model(model)
@@ -76,18 +68,17 @@ class KFServer(object):
         self._http_server.start(0) # Forks workers equal to host's cores
         tornado.ioloop.IOLoop.current().start()
 
-    def register_model(self, model):
+    def register_model(self, model: KFModel):
         if not model.name:
             raise Exception("Failed to register model, model.name must be provided.")
         self.registered_models[model.name] = model
 
 
 class ModelPredictHandler(tornado.web.RequestHandler):
-    def initialize(self, protocol_handler: RequestHandler, models):
+    def initialize(self, models: Dict[str,KFModel]):
         self.models = models
-        self.protocol_handler = protocol_handler
 
-    def post(self, name):
+    def post(self, name: str):
         # TODO Add metrics
         if name not in self.models:
             raise tornado.web.HTTPError(
@@ -107,17 +98,9 @@ class ModelPredictHandler(tornado.web.RequestHandler):
                 reason="Unrecognized request format: %s" % e
             )
 
-        # Protocol specific validation and extraction of data
-        self.protocol_handler.validate_request(body)
-        extracted_inputs = self.protocol_handler.extract_inputs(body)
-        # model specific processing
-        inputs = model.preprocess(extracted_inputs)
-        results = model.predict(inputs)
-        outputs = model.postprocess(results)
-        # Protocol specific response handling
-        response = self.protocol_handler.create_response(body,outputs)
+        results = model.predict(body)
 
-        self.write(str(response))
+        self.write(str(results))
 
 class LivenessHandler(tornado.web.RequestHandler):
     def get(self):
@@ -125,7 +108,7 @@ class LivenessHandler(tornado.web.RequestHandler):
 
 
 class ProtocolHandler(tornado.web.RequestHandler):
-    def initialize(self, protocol):
+    def initialize(self, protocol: str):
         self.protocol = protocol
 
     def get(self):
@@ -138,10 +121,10 @@ class MetricsHandler(tornado.web.RequestHandler):
 
 
 class ModelHealthHandler(tornado.web.RequestHandler):
-    def initialize(self, models):
+    def initialize(self, models: Dict[str,KFModel]):
         self.models = models
 
-    def get(self, name):
+    def get(self, name: str):
         if name not in self.models:
             raise tornado.web.HTTPError(
                 status_code=404,

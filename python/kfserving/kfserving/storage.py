@@ -8,7 +8,7 @@ _LOCAL_PREFIX = "/"
 
 class Storage(object):
     @staticmethod
-    def download(uri):
+    def download(uri: str) -> str:
         logging.info("Copying contents of %s to local" % uri)
         if uri.startswith(_LOCAL_PREFIX):
             return uri
@@ -25,9 +25,9 @@ class Storage(object):
         return temp_dir
 
     @staticmethod
-    def _download_s3(uri, temp_dir):
+    def _download_s3(uri, temp_dir: str):
         raise NotImplementedError
 
     @staticmethod
-    def _download_gcs(uri, temp_dir):
+    def _download_gcs(uri, temp_dir: str):
         raise NotImplementedError

@@ -36,19 +36,19 @@ Successfully installed kfserver
 
 To install development requirements
 
-```
+```bash
 pip install -r dev_requirements.txt
 ```
 
 To run tests:
 
-```
+```bash
 make test
 ```
 
 The following shows the type of output you should see:
 
-```bash
+```
 pytest -W ignore
 =================================================== test session starts ===================================================
 platform linux -- Python 3.7.3, pytest-4.4.1, py-1.8.0, pluggy-0.9.0

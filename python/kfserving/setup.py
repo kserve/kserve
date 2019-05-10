@@ -13,10 +13,11 @@ setup(
     install_requires=[
         "tornado >= 1.4.1",
         "argparse >= 1.4.0",
-        "tensorflow"
+        "numpy"
     ],
     tests_require=[
         'pytest',
-        'pytest-tornasync'
+        'pytest-tornasync',
+        'mypy'
     ]
 )

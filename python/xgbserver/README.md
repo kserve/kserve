@@ -37,3 +37,34 @@ __main__.py: error: the following arguments are required: --model_dir
 ```
 
 You can now point to your model file and use the server to load the model and test for prediction. Models can be on local filesystem, S3 compatible object storage or Google Cloud Storage.
+
+
+## Development
+
+Install the development dependencies with:
+
+```bash
+pip install -r dev_requirements.txt
+```
+
+to run tests:
+
+```bash
+make tests
+```
+
+The following shows the type of output you should see:
+
+```
+pytest -W ignore
+================================================= test session starts =================================================
+platform linux -- Python 3.7.3, pytest-4.4.2, py-1.8.0, pluggy-0.11.0
+rootdir: /home/clive/go/src/github.com/kubeflow/kfserving/python/xgbserver
+plugins: tornasync-0.6.0.post1
+collected 2 items                                                                                                     
+
+xgbserver/test_model.py ..                                                                                      [100%]
+
+============================================== 2 passed in 0.44 seconds ===============================================
+
+```

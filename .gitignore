@@ -22,3 +22,6 @@ bin
 *.swp
 *.swo
 *~
+
+# Python dev
+.mypy_cache
