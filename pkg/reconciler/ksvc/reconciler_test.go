@@ -37,7 +37,7 @@ func TestKnativeConfigurationReconcile(t *testing.T) {
 			Namespace: "default",
 		},
 		Spec: knservingv1alpha1.ConfigurationSpec{
-			RevisionTemplate: &knservingv1alpha1.RevisionTemplateSpec{
+			Template: &knservingv1alpha1.RevisionTemplateSpec{
 				Spec: knservingv1alpha1.RevisionSpec{
 					Container: &v1.Container{
 						Image: tensorflow.TensorflowServingImageName + ":" +
@@ -68,7 +68,7 @@ func TestKnativeConfigurationReconcile(t *testing.T) {
 					Namespace: "default",
 				},
 				Spec: knservingv1alpha1.ConfigurationSpec{
-					RevisionTemplate: &knservingv1alpha1.RevisionTemplateSpec{
+					Template: &knservingv1alpha1.RevisionTemplateSpec{
 						Spec: knservingv1alpha1.RevisionSpec{
 							Container: &v1.Container{
 								Image: tensorflow.TensorflowServingImageName + ":" +
@@ -86,15 +86,21 @@ func TestKnativeConfigurationReconcile(t *testing.T) {
 				},
 			},
 		},
-		"Reconcile model path update": {
+		"Reconcile model path, labels and annotations update": {
 			update: true,
 			desiredConfiguration: &knservingv1alpha1.Configuration{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "mnist",
 					Namespace: "default",
+					Labels: map[string]string{
+						"serving.knative.dev/configuration": "dream",
+					},
+					Annotations: map[string]string{
+						"serving.knative.dev/lastPinned": "1111111111",
+					},
 				},
 				Spec: knservingv1alpha1.ConfigurationSpec{
-					RevisionTemplate: &knservingv1alpha1.RevisionTemplateSpec{
+					Template: &knservingv1alpha1.RevisionTemplateSpec{
 						Spec: knservingv1alpha1.RevisionSpec{
 							Container: &v1.Container{
 								Image: tensorflow.TensorflowServingImageName + ":" +
@@ -129,7 +135,13 @@ func TestKnativeConfigurationReconcile(t *testing.T) {
 				t.Errorf("Test %q failed: returned error: %v", name, err)
 			}
 			if diff := cmp.Diff(scenario.desiredConfiguration.Spec, configuration.Spec); diff != "" {
-				t.Errorf("Test %q unexpected configuration (-want +got): %v", name, diff)
+				t.Errorf("Test %q unexpected configuration spec (-want +got): %v", name, diff)
+			}
+			if diff := cmp.Diff(scenario.desiredConfiguration.ObjectMeta.Labels, configuration.ObjectMeta.Labels); diff != "" {
+				t.Errorf("Test %q unexpected configuration labels (-want +got): %v", name, diff)
+			}
+			if diff := cmp.Diff(scenario.desiredConfiguration.ObjectMeta.Annotations, configuration.ObjectMeta.Annotations); diff != "" {
+				t.Errorf("Test %q unexpected configuration annotations (-want +got): %v", name, diff)
 			}
 		}
 		g.Expect(c.Delete(context.TODO(), existingConfiguration)).NotTo(gomega.HaveOccurred())
@@ -184,6 +196,12 @@ func TestKnativeRouteReconcile(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "mnist",
 					Namespace: "default",
+					Labels: map[string]string{
+						"serving.knative.dev/route": "dream",
+					},
+					Annotations: map[string]string{
+						"cherub": "rock",
+					},
 				},
 				Spec: knservingv1alpha1.RouteSpec{
 					Traffic: []knservingv1alpha1.TrafficTarget{
@@ -220,7 +238,13 @@ func TestKnativeRouteReconcile(t *testing.T) {
 				t.Errorf("Test %q failed: returned error: %v", name, err)
 			}
 			if diff := cmp.Diff(scenario.desiredRoute.Spec, route.Spec); diff != "" {
-				t.Errorf("Test %q unexpected configuration (-want +got): %v", name, diff)
+				t.Errorf("Test %q unexpected route spec (-want +got): %v", name, diff)
+			}
+			if diff := cmp.Diff(scenario.desiredRoute.ObjectMeta.Labels, route.ObjectMeta.Labels); diff != "" {
+				t.Errorf("Test %q unexpected route labels (-want +got): %v", name, diff)
+			}
+			if diff := cmp.Diff(scenario.desiredRoute.ObjectMeta.Annotations, route.ObjectMeta.Annotations); diff != "" {
+				t.Errorf("Test %q unexpected route annotations (-want +got): %v", name, diff)
 			}
 		}
 		g.Expect(c.Delete(context.TODO(), existingRoute)).NotTo(gomega.HaveOccurred())

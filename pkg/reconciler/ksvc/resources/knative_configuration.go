@@ -19,59 +19,68 @@ func CreateModelServingContainer(modelName string, modelSpec *v1alpha1.ModelSpec
 }
 
 func CreateKnativeConfiguration(kfsvc *v1alpha1.KFService) (*knservingv1alpha1.Configuration, *knservingv1alpha1.Configuration) {
-	var canaryContainer *v1.Container
-	defaultContainer := CreateModelServingContainer(kfsvc.Name, &kfsvc.Spec.Default)
-	if kfsvc.Spec.Canary != nil {
-		canaryContainer = CreateModelServingContainer(kfsvc.Name, &kfsvc.Spec.Canary.ModelSpec)
-	}
 	annotations := make(map[string]string)
-
 	if kfsvc.Spec.MinReplicas != 0 {
 		annotations[autoscaling.MinScaleAnnotationKey] = fmt.Sprint(kfsvc.Spec.MinReplicas)
 	}
 	if kfsvc.Spec.MaxReplicas != 0 {
 		annotations[autoscaling.MaxScaleAnnotationKey] = fmt.Sprint(kfsvc.Spec.MaxReplicas)
 	}
-	for k, v := range kfsvc.Annotations {
-		annotations[k] = v
-	}
+
 	defaultConfiguration := &knservingv1alpha1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      constants.DefaultConfigurationName(kfsvc.Name),
-			Namespace: kfsvc.Namespace,
-			Labels:    kfsvc.Labels,
+			Name:        constants.DefaultConfigurationName(kfsvc.Name),
+			Namespace:   kfsvc.Namespace,
+			Labels:      kfsvc.Labels,
+			Annotations: union(kfsvc.Annotations, annotations),
 		},
 		Spec: knservingv1alpha1.ConfigurationSpec{
-			RevisionTemplate: &knservingv1alpha1.RevisionTemplateSpec{
+			Template: &knservingv1alpha1.RevisionTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: union(kfsvc.Labels, map[string]string{
+						constants.KFServicePodLabelKey: kfsvc.Name,
+					}),
+					Annotations: kfsvc.Annotations,
+				},
 				Spec: knservingv1alpha1.RevisionSpec{
-					Container: defaultContainer,
+					Container: CreateModelServingContainer(kfsvc.Name, &kfsvc.Spec.Default),
 				},
 			},
 		},
 	}
-	if len(annotations) > 0 {
-		defaultConfiguration.Annotations = annotations
-	}
-	if canaryContainer != nil {
-		canaryConfiguration := &knservingv1alpha1.Configuration{
+
+	if kfsvc.Spec.Canary != nil {
+		return defaultConfiguration, &knservingv1alpha1.Configuration{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      constants.CanaryConfigurationName(kfsvc.Name),
-				Namespace: kfsvc.Namespace,
-				Labels:    kfsvc.Labels,
+				Name:        constants.CanaryConfigurationName(kfsvc.Name),
+				Namespace:   kfsvc.Namespace,
+				Labels:      kfsvc.Labels,
+				Annotations: union(kfsvc.Annotations, annotations),
 			},
 			Spec: knservingv1alpha1.ConfigurationSpec{
-				RevisionTemplate: &knservingv1alpha1.RevisionTemplateSpec{
+				Template: &knservingv1alpha1.RevisionTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Labels: union(kfsvc.Labels, map[string]string{
+							constants.KFServicePodLabelKey: kfsvc.Name,
+						}),
+						Annotations: kfsvc.Annotations,
+					},
 					Spec: knservingv1alpha1.RevisionSpec{
-						Container: canaryContainer,
+						Container: CreateModelServingContainer(kfsvc.Name, &kfsvc.Spec.Canary.ModelSpec),
 					},
 				},
 			},
 		}
-		if len(annotations) > 0 {
-			canaryConfiguration.Annotations = annotations
-		}
-		return defaultConfiguration, canaryConfiguration
-	} else {
-		return defaultConfiguration, nil
 	}
+	return defaultConfiguration, nil
+}
+
+func union(maps ...map[string]string) map[string]string {
+	result := make(map[string]string)
+	for _, m := range maps {
+		for k, v := range m {
+			result[k] = v
+		}
+	}
+	return result
 }

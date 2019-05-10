@@ -52,7 +52,10 @@ var defaultConfiguration = knservingv1alpha1.Configuration{
 		Annotations: map[string]string{"autoscaling.knative.dev/maxScale": "3", "autoscaling.knative.dev/minScale": "1"},
 	},
 	Spec: knservingv1alpha1.ConfigurationSpec{
-		RevisionTemplate: &knservingv1alpha1.RevisionTemplateSpec{
+		Template: &knservingv1alpha1.RevisionTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				Labels: map[string]string{"serving.kubeflow.org/kfservice": "mnist"},
+			},
 			Spec: knservingv1alpha1.RevisionSpec{
 				Container: &v1.Container{
 					Image:   tensorflow.TensorflowServingImageName + ":" + kfsvc.Spec.Default.Tensorflow.RuntimeVersion,
@@ -76,7 +79,10 @@ var canaryConfiguration = knservingv1alpha1.Configuration{
 		Annotations: map[string]string{"autoscaling.knative.dev/maxScale": "3", "autoscaling.knative.dev/minScale": "1"},
 	},
 	Spec: knservingv1alpha1.ConfigurationSpec{
-		RevisionTemplate: &knservingv1alpha1.RevisionTemplateSpec{
+		Template: &knservingv1alpha1.RevisionTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				Labels: map[string]string{"serving.kubeflow.org/kfservice": "mnist"},
+			},
 			Spec: knservingv1alpha1.RevisionSpec{
 				Container: &v1.Container{
 					Image:   tensorflow.TensorflowServingImageName + ":" + kfsvc.Spec.Default.Tensorflow.RuntimeVersion,
@@ -155,11 +161,15 @@ func TestKnativeConfiguration(t *testing.T) {
 			},
 			expectedDefault: &knservingv1alpha1.Configuration{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      constants.DefaultConfigurationName("tfserving"),
-					Namespace: "default",
+					Name:        constants.DefaultConfigurationName("tfserving"),
+					Namespace:   "default",
+					Annotations: map[string]string{},
 				},
 				Spec: knservingv1alpha1.ConfigurationSpec{
-					RevisionTemplate: &knservingv1alpha1.RevisionTemplateSpec{
+					Template: &knservingv1alpha1.RevisionTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: map[string]string{"serving.kubeflow.org/kfservice": "scikit"},
+						},
 						Spec: knservingv1alpha1.RevisionSpec{
 							Container: &v1.Container{
 								Name:    "",
