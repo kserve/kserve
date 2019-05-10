@@ -37,7 +37,35 @@ Successfully installed kfserver
 To install development requirements
 
 ```bash
-pip install -r dev_requirements.txt
+pip install -e .[test]
+```
+
+The following indicates a successful install.
+
+```
+Obtaining file:///home/clive/go/src/github.com/kubeflow/kfserving/python/kfserving
+Requirement already satisfied: tornado>=1.4.1 in /home/clive/anaconda3/envs/kfserving/lib/python3.7/site-packages (from kfserver==0.1.0) (6.0.2)
+Requirement already satisfied: argparse>=1.4.0 in /home/clive/anaconda3/envs/kfserving/lib/python3.7/site-packages (from kfserver==0.1.0) (1.4.0)
+Requirement already satisfied: numpy in /home/clive/anaconda3/envs/kfserving/lib/python3.7/site-packages (from kfserver==0.1.0) (1.16.3)
+Requirement already satisfied: pytest in /home/clive/anaconda3/envs/kfserving/lib/python3.7/site-packages (from kfserver==0.1.0) (4.4.2)
+Requirement already satisfied: pytest-tornasync in /home/clive/anaconda3/envs/kfserving/lib/python3.7/site-packages (from kfserver==0.1.0) (0.6.0.post1)
+Requirement already satisfied: mypy in /home/clive/anaconda3/envs/kfserving/lib/python3.7/site-packages (from kfserver==0.1.0) (0.701)
+Requirement already satisfied: setuptools in /home/clive/anaconda3/envs/kfserving/lib/python3.7/site-packages (from pytest->kfserver==0.1.0) (41.0.1)
+Requirement already satisfied: py>=1.5.0 in /home/clive/anaconda3/envs/kfserving/lib/python3.7/site-packages (from pytest->kfserver==0.1.0) (1.8.0)
+Requirement already satisfied: attrs>=17.4.0 in /home/clive/anaconda3/envs/kfserving/lib/python3.7/site-packages (from pytest->kfserver==0.1.0) (19.1.0)
+Requirement already satisfied: six>=1.10.0 in /home/clive/anaconda3/envs/kfserving/lib/python3.7/site-packages (from pytest->kfserver==0.1.0) (1.12.0)
+Requirement already satisfied: atomicwrites>=1.0 in /home/clive/anaconda3/envs/kfserving/lib/python3.7/site-packages (from pytest->kfserver==0.1.0) (1.3.0)
+Requirement already satisfied: pluggy>=0.11 in /home/clive/anaconda3/envs/kfserving/lib/python3.7/site-packages (from pytest->kfserver==0.1.0) (0.11.0)
+Requirement already satisfied: more-itertools>=4.0.0; python_version > "2.7" in /home/clive/anaconda3/envs/kfserving/lib/python3.7/site-packages (from pytest->kfserver==0.1.0) (7.0.0)
+Requirement already satisfied: typed-ast<1.4.0,>=1.3.1 in /home/clive/anaconda3/envs/kfserving/lib/python3.7/site-packages (from mypy->kfserver==0.1.0) (1.3.5)
+Requirement already satisfied: mypy-extensions<0.5.0,>=0.4.0 in /home/clive/anaconda3/envs/kfserving/lib/python3.7/site-packages (from mypy->kfserver==0.1.0) (0.4.1)
+Installing collected packages: kfserver
+  Found existing installation: kfserver 0.1.0
+    Uninstalling kfserver-0.1.0:
+      Successfully uninstalled kfserver-0.1.0
+  Running setup.py develop for kfserver
+Successfully installed kfserver
+
 ```
 
 To run tests:
@@ -60,3 +88,10 @@ kfserving/test_server.py .......                                                
 
 ================================================ 7 passed in 1.02 seconds =================================================
 ```
+
+To run static type checks:
+
+```bash
+mypy --ignore-missing-imports xgbserver
+```
+An empty result will indicate success.

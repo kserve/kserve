@@ -1,5 +1,12 @@
 from setuptools import setup, find_packages
 
+tests_require = [
+        'pytest',
+        'pytest-tornasync',
+        'mypy'
+    ]
+
+
 setup(
     name='xgbserver',
     version='0.1.0',
@@ -16,9 +23,6 @@ setup(
         "scikit-learn == 0.20.3",
         "argparse >= 1.4.0"
     ],
-    tests_require=[
-        'pytest',
-        'pytest-tornasync',
-        'mypy'
-    ]
+    tests_require=tests_require,
+    extras_require={'test': tests_require}
 )

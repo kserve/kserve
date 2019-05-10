@@ -8,7 +8,7 @@ import os
 import logging
 import json
 from kfserving.model import KFModel
-from typing import List, Dict
+from typing import List, Dict, Optional
 
 DEFAULT_HTTP_PORT = 8080
 DEFAULT_GRPC_PORT = 8081
@@ -35,7 +35,7 @@ class KFServer(object):
         self.http_port = http_port
         self.grpc_port = grpc_port
         self.protocol = protocol
-        self._http_server: tornado.httpserver.HTTPServer = None
+        self._http_server: Optional[tornado.httpserver.HTTPServer] = None
 
     def createApplication(self):
         return tornado.web.Application([

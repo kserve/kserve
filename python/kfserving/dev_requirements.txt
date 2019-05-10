@@ -1,4 +1,0 @@
-pytest
-pytest-tornasync
-mypy
-
