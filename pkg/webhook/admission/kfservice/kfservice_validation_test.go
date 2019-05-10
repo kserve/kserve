@@ -21,7 +21,7 @@ import (
 	"testing"
 
 	kfservingv1alpha1 "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
-	fwk "github.com/kubeflow/kfserving/pkg/frameworks"
+	"github.com/kubeflow/kfserving/pkg/frameworks"
 	v1 "k8s.io/api/core/v1"
 
 	"github.com/onsi/gomega"
@@ -31,14 +31,14 @@ func TestRejectMultipleModelSpecs(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	kfsvc := kfservingv1alpha1.TFExampleKFService.DeepCopy()
 	kfsvc.Spec.Default.Custom = &kfservingv1alpha1.CustomSpec{}
-	g.Expect(ValidateCreate(kfsvc)).Should(gomega.MatchError(fwk.ExactlyOneModelSpecViolatedError))
+	g.Expect(ValidateCreate(kfsvc)).Should(gomega.MatchError(frameworks.ExactlyOneModelSpecViolatedError))
 }
 
 func TestRejectModelSpecMissing(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	kfsvc := kfservingv1alpha1.TFExampleKFService.DeepCopy()
 	kfsvc.Spec.Default.Tensorflow = nil
-	g.Expect(ValidateCreate(kfsvc)).Should(gomega.MatchError(fwk.AtLeastOneModelSpecViolatedError))
+	g.Expect(ValidateCreate(kfsvc)).Should(gomega.MatchError(frameworks.AtLeastOneModelSpecViolatedError))
 }
 func TestRejectMultipleCanaryModelSpecs(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
@@ -47,14 +47,14 @@ func TestRejectMultipleCanaryModelSpecs(t *testing.T) {
 		Custom:     &kfservingv1alpha1.CustomSpec{},
 		Tensorflow: kfsvc.Spec.Default.Tensorflow,
 	}}
-	g.Expect(ValidateCreate(kfsvc)).Should(gomega.MatchError(fwk.ExactlyOneModelSpecViolatedError))
+	g.Expect(ValidateCreate(kfsvc)).Should(gomega.MatchError(frameworks.ExactlyOneModelSpecViolatedError))
 }
 
 func TestRejectCanaryModelSpecMissing(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	kfsvc := kfservingv1alpha1.TFExampleKFService.DeepCopy()
 	kfsvc.Spec.Canary = &kfservingv1alpha1.CanarySpec{ModelSpec: kfservingv1alpha1.ModelSpec{}}
-	g.Expect(ValidateCreate(kfsvc)).Should(gomega.MatchError(fwk.AtLeastOneModelSpecViolatedError))
+	g.Expect(ValidateCreate(kfsvc)).Should(gomega.MatchError(frameworks.AtLeastOneModelSpecViolatedError))
 }
 func TestRejectBadCanaryTrafficValues(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)

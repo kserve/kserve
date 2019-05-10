@@ -20,7 +20,7 @@ import (
 	"fmt"
 
 	kfservingv1alpha1 "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
-	fwk "github.com/kubeflow/kfserving/pkg/frameworks"
+	"github.com/kubeflow/kfserving/pkg/frameworks"
 )
 
 const (
@@ -75,7 +75,7 @@ func validateReplicas(minReplicas int, maxReplicas int) error {
 
 // TODO HERE
 func validateSpec(defaultSpec *kfservingv1alpha1.ModelSpec) error {
-	fwkHandler, err := fwk.MakeHandler(defaultSpec)
+	fwkHandler, err := frameworks.MakeHandler(defaultSpec)
 	if err != nil {
 		return err
 	}

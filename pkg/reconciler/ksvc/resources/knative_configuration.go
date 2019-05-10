@@ -7,14 +7,14 @@ import (
 	knservingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 	"github.com/kubeflow/kfserving/pkg/constants"
-	fwk "github.com/kubeflow/kfserving/pkg/frameworks"
+	"github.com/kubeflow/kfserving/pkg/frameworks"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func CreateModelServingContainer(modelName string, modelSpec *v1alpha1.ModelSpec) *v1.Container {
 	// ignoring error response since we assume validation ensured the modelSpec is valid
-	fwkHandler, _ := fwk.MakeHandler(modelSpec)
+	fwkHandler, _ := frameworks.MakeHandler(modelSpec)
 	return fwkHandler.CreateModelServingContainer(modelName)
 }
 
