@@ -25,3 +25,6 @@ bin
 
 # Python dev
 .mypy_cache
+
+# development overlay for image patch not to be checked in
+config/overlays/development/manager_image_patch.yaml
