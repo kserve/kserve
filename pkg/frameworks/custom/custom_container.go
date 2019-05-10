@@ -15,7 +15,7 @@ func (c *CustomSpec) CreateModelServingContainer(modelName string) *v1.Container
 	return &c.Container
 }
 
-func (c *CustomSpec) ValidateSpec() error {
+func (c *CustomSpec) Validate() error {
 	knativeErrs := knserving.ValidateContainer(c.Container, sets.String{})
 	if knativeErrs != nil {
 		return fmt.Errorf("Custom: " + knativeErrs.Error())

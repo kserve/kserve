@@ -44,6 +44,6 @@ func (t *TensorflowSpec) CreateModelServingContainer(modelName string) *v1.Conta
 	}
 }
 
-func (t *TensorflowSpec) ValidateSpec() error {
+func (t *TensorflowSpec) Validate() error {
 	return nil
 }

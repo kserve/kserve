@@ -11,7 +11,7 @@ import (
 
 type FrameworkHandler interface {
 	CreateModelServingContainer(modelName string) *v1.Container
-	ValidateSpec() error
+	Validate() error
 }
 
 const (

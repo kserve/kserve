@@ -49,7 +49,7 @@ func validateKFService(kfsvc *kfservingv1alpha1.KFService) error {
 		return err
 	}
 
-	if err := validateSpec(&kfsvc.Spec.Default); err != nil {
+	if err := Validate(&kfsvc.Spec.Default); err != nil {
 		return err
 	}
 
@@ -74,19 +74,19 @@ func validateReplicas(minReplicas int, maxReplicas int) error {
 }
 
 // TODO HERE
-func validateSpec(defaultSpec *kfservingv1alpha1.ModelSpec) error {
+func Validate(defaultSpec *kfservingv1alpha1.ModelSpec) error {
 	fwkHandler, err := frameworks.MakeHandler(defaultSpec)
 	if err != nil {
 		return err
 	}
-	return fwkHandler.ValidateSpec()
+	return fwkHandler.Validate()
 }
 
 func validateCanarySpec(canarySpec *kfservingv1alpha1.CanarySpec) error {
 	if canarySpec == nil {
 		return nil
 	}
-	if err := validateSpec(&canarySpec.ModelSpec); err != nil {
+	if err := Validate(&canarySpec.ModelSpec); err != nil {
 		return err
 	}
 	if canarySpec.TrafficPercent < 0 || canarySpec.TrafficPercent > 100 {
