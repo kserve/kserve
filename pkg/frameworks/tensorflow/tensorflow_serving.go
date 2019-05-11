@@ -33,6 +33,7 @@ func CreateTensorflowContainer(modelName string, tfSpec *v1alpha1.TensorflowSpec
 	return &v1.Container{
 		Image:     TensorflowServingImageName + ":" + tfSpec.RuntimeVersion,
 		Command:   []string{TensorflowEntrypointCommand},
+		Resources: tfSpec.Resources,
 		Args: []string{
 			"--port=" + TensorflowServingGRPCPort,
 			"--rest_api_port=" + TensorflowServingRestPort,
