@@ -171,7 +171,7 @@ func TestKnativeConfiguration(t *testing.T) {
 						},
 						Spec: knservingv1alpha1.RevisionSpec{
 							Container: &v1.Container{
-								//TODO(@yuzisun) fill in once scikit is implemented
+								Image: "notimplementedyet",
 							},
 						},
 					},

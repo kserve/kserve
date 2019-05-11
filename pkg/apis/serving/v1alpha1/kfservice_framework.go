@@ -83,7 +83,7 @@ func makeHandler(modelSpec *ModelSpec) (interface{ FrameworkHandler }, error) {
 		// TODO: add fwk for xgboost
 	}
 	if modelSpec.ScikitLearn != nil {
-		// TODO: add fwk for sklearn
+		handlers = append(handlers, modelSpec.ScikitLearn)
 	}
 	if modelSpec.Tensorflow != nil {
 		handlers = append(handlers, modelSpec.Tensorflow)
