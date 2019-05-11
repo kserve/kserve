@@ -45,5 +45,6 @@ func (t *TensorflowSpec) CreateModelServingContainer(modelName string) *v1.Conta
 }
 
 func (t *TensorflowSpec) Validate() error {
+	// TODO: https://github.com/kubeflow/kfserving/issues/84
 	return nil
 }
