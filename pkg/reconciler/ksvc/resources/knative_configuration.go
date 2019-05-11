@@ -26,10 +26,16 @@ func CreateKnativeConfiguration(kfsvc *v1alpha1.KFService, name string, modelSpe
 		annotations[autoscaling.MaxScaleAnnotationKey] = fmt.Sprint(modelSpec.MaxReplicas)
 	}
 
-	//Default to 1 for now we may need to expose this field
-	annotations[autoscaling.TargetAnnotationKey] = constants.DefaultScalingTarget
-	//Do we need to support HPA ?
-	annotations[autoscaling.ClassAnnotationKey] = autoscaling.KPA
+	//User can pass down scaling target annotation to overwrite the target default 1
+	if _, ok := kfsvc.Annotations[autoscaling.TargetAnnotationKey]; !ok {
+		annotations[autoscaling.TargetAnnotationKey] = constants.DefaultScalingTarget
+	}
+	//User can pass down scaling class annotation to overwrite the default scaling KPA
+	if _, ok := kfsvc.Annotations[autoscaling.ClassAnnotationKey]; !ok {
+		annotations[autoscaling.ClassAnnotationKey] = autoscaling.KPA
+	}
+
+	kfsvcAnnotations := filter(kfsvc.Annotations, isFilteredConfigurationAnnotation)
 
 	configuration := &knservingv1alpha1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
@@ -43,6 +49,7 @@ func CreateKnativeConfiguration(kfsvc *v1alpha1.KFService, name string, modelSpe
 					Labels: union(kfsvc.Labels, map[string]string{
 						constants.KFServicePodLabelKey: kfsvc.Name,
 					}),
+					Annotations: union(kfsvcAnnotations, annotations),
 				},
 				Spec: knservingv1alpha1.RevisionSpec{
 					RevisionSpec: v1beta1.RevisionSpec{
@@ -58,12 +65,13 @@ func CreateKnativeConfiguration(kfsvc *v1alpha1.KFService, name string, modelSpe
 	return configuration
 }
 
-func union(maps ...map[string]string) map[string]string {
-	result := make(map[string]string)
-	for _, m := range maps {
-		for k, v := range m {
-			result[k] = v
-		}
+func isFilteredConfigurationAnnotation(annotationKey string) bool {
+	switch annotationKey {
+	case autoscaling.TargetAnnotationKey:
+		return true
+	case autoscaling.ClassAnnotationKey:
+		return true
+	default:
+		return false
 	}
-	return result
 }

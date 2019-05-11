@@ -32,9 +32,7 @@ The Spec section of the resource definition encapsulates the desired state of th
 | spec.default               | [ModelSpec](#ModelSpec) | The default traffic route serving a ModelSpec. |
 | spec.canary                | [ModelSpec](#ModelSpec) | An optional traffic route serving a percent of traffic. |
 | spec.canary.trafficPercent | Integer                 | The amount of traffic to sent to the canary, defaults to 0. |
-| spec.minReplicas           | Integer                 | An optional integer specifying the minimum scale of the default model definition. |
-| spec.maxReplicas           | Integer                 | An optional integer specifying the maximum scale of the default model definition. |
- 
+
 ### Status
 The Status section of the resource definition provides critical feedback to the user about the current state of the resource. A typical user workflow would include modifying the Spec and then monitoring the Status until it reflects the desired changes. Any dynamic information such as replica scale or error conditions will appear in the spec.
 
@@ -57,6 +55,8 @@ KFService offers a few high level specifications for common ML technologies. The
 | spec.[default,canary].scikitlearn | [ScikitLearn](#ScikitLearn) | A high level specification for ScikitLearn models. |
 | spec.[default,canary].pytorch     | [Pytorch](#Pytorch)         | A high level specification for Pytorch models. |
 | spec.[default,canary].custom      | [Custom](#Custom)           | A flexible custom specification for arbitrary customer provided containers. |
+| spec.[default,canary].minReplicas | Integer                     | An optional integer specifying the minimum scale of the default model definition. |
+| spec.[default,canary].maxReplicas | Integer                     | An optional integer specifying the maximum scale of the default model definition. |
 
 ### Rollouts
 The traffic management rules are specifically targetting Rollout use cases. A/B Testing, Multi-Armed-Bandit, and Ensemble Inferencing should not be implemented using KFService's default/canary mechanism. More complex controllers for these features should be purpose built and operate at a higher level than a KFService, perhaps even implemented using multiple KFServices or a KFGraph. This decoupling is critical to enable features like canarying a change to a Multi-Armed-Bandit inferencing graph.

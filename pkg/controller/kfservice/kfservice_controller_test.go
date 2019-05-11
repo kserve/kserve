@@ -143,6 +143,12 @@ func TestReconcile(t *testing.T) {
 			RevisionTemplate: &knservingv1alpha1.RevisionTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{"serving.kubeflow.org/kfservice": "foo"},
+					Annotations: map[string]string{
+						"autoscaling.knative.dev/target":   "1",
+						"autoscaling.knative.dev/class":    "kpa.autoscaling.knative.dev",
+						"autoscaling.knative.dev/maxScale": "3",
+						"autoscaling.knative.dev/minScale": "1",
+					},
 				},
 				Spec: knservingv1alpha1.RevisionSpec{
 					RevisionSpec: v1beta1.RevisionSpec{
@@ -238,6 +244,12 @@ func TestCanaryReconcile(t *testing.T) {
 			RevisionTemplate: &knservingv1alpha1.RevisionTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{"serving.kubeflow.org/kfservice": "bar"},
+					Annotations: map[string]string{
+						"autoscaling.knative.dev/target":   "1",
+						"autoscaling.knative.dev/class":    "kpa.autoscaling.knative.dev",
+						"autoscaling.knative.dev/maxScale": "3",
+						"autoscaling.knative.dev/minScale": "1",
+					},
 				},
 				Spec: knservingv1alpha1.RevisionSpec{
 					RevisionSpec: v1beta1.RevisionSpec{

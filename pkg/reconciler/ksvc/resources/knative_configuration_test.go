@@ -54,6 +54,12 @@ var defaultConfiguration = knservingv1alpha1.Configuration{
 		RevisionTemplate: &knservingv1alpha1.RevisionTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels: map[string]string{"serving.kubeflow.org/kfservice": "mnist"},
+				Annotations: map[string]string{
+					"autoscaling.knative.dev/class":    "kpa.autoscaling.knative.dev",
+					"autoscaling.knative.dev/target":   "1",
+					"autoscaling.knative.dev/minScale": "1",
+					"autoscaling.knative.dev/maxScale": "3",
+				},
 			},
 			Spec: knservingv1alpha1.RevisionSpec{
 				RevisionSpec: v1beta1.RevisionSpec{
@@ -83,6 +89,12 @@ var canaryConfiguration = knservingv1alpha1.Configuration{
 		RevisionTemplate: &knservingv1alpha1.RevisionTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels: map[string]string{"serving.kubeflow.org/kfservice": "mnist"},
+				Annotations: map[string]string{
+					"autoscaling.knative.dev/class":    "kpa.autoscaling.knative.dev",
+					"autoscaling.knative.dev/target":   "1",
+					"autoscaling.knative.dev/minScale": "1",
+					"autoscaling.knative.dev/maxScale": "3",
+				},
 			},
 			Spec: knservingv1alpha1.RevisionSpec{
 				RevisionSpec: v1beta1.RevisionSpec{
@@ -131,6 +143,8 @@ func TestKnativeConfiguration(t *testing.T) {
 					Canary: &v1alpha1.CanarySpec{
 						TrafficPercent: 20,
 						ModelSpec: v1alpha1.ModelSpec{
+							MinReplicas: 1,
+							MaxReplicas: 3,
 							Tensorflow: &v1alpha1.TensorflowSpec{
 								ModelURI:       "s3://test/mnist-2/export",
 								RuntimeVersion: "1.13",
@@ -171,6 +185,10 @@ func TestKnativeConfiguration(t *testing.T) {
 					RevisionTemplate: &knservingv1alpha1.RevisionTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{"serving.kubeflow.org/kfservice": "scikit"},
+							Annotations: map[string]string{
+								"autoscaling.knative.dev/class":  "kpa.autoscaling.knative.dev",
+								"autoscaling.knative.dev/target": "1",
+							},
 						},
 						Spec: knservingv1alpha1.RevisionSpec{
 							RevisionSpec: v1beta1.RevisionSpec{
