@@ -31,8 +31,8 @@ const (
 func CreateTensorflowContainer(modelName string, tfSpec *v1alpha1.TensorflowSpec) *v1.Container {
 	//TODO(@yuzisun) add configmap for image, default resources, readiness/liveness probe
 	return &v1.Container{
-		Image:   TensorflowServingImageName + ":" + tfSpec.RuntimeVersion,
-		Command: []string{TensorflowEntrypointCommand},
+		Image:     TensorflowServingImageName + ":" + tfSpec.RuntimeVersion,
+		Command:   []string{TensorflowEntrypointCommand},
 		Args: []string{
 			"--port=" + TensorflowServingGRPCPort,
 			"--rest_api_port=" + TensorflowServingRestPort,
