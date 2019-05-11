@@ -59,9 +59,6 @@ func validateKFService(kfsvc *KFService) error {
 	if kfsvc == nil {
 		return fmt.Errorf("Unable to validate, KFService is nil")
 	}
-	if err := validateReplicas(kfsvc.Spec.MinReplicas, kfsvc.Spec.MaxReplicas); err != nil {
-		return err
-	}
 
 	if err := validateModelSpec(kfsvc.Spec.Default); err != nil {
 		return err

@@ -36,9 +36,9 @@ func TestKFService(t *testing.T) {
 			Namespace: "default",
 		},
 		Spec: KFServiceSpec{
-			MinReplicas: 1,
-			MaxReplicas: 3,
 			Default: ModelSpec{
+				MinReplicas: 1,
+				MaxReplicas: 3,
 				Tensorflow: &TensorflowSpec{
 					ModelURI:       "s3://test/mnist/export",
 					RuntimeVersion: "1.13",
@@ -47,6 +47,8 @@ func TestKFService(t *testing.T) {
 			Canary: &CanarySpec{
 				TrafficPercent: 20,
 				ModelSpec: ModelSpec{
+					MinReplicas: 1,
+					MaxReplicas: 3,
 					Tensorflow: &TensorflowSpec{
 						ModelURI:       "s3://test/mnist-2/export",
 						RuntimeVersion: "1.13",
