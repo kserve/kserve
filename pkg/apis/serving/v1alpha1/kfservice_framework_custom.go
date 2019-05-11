@@ -25,6 +25,10 @@ func (c *CustomSpec) CreateModelServingContainer(modelName string) *v1.Container
 	return &c.Container
 }
 
+func (c *CustomSpec) ApplyDefaults() {
+	setResourceRequirementDefaults(&c.Container.Resources)
+}
+
 func (c *CustomSpec) Validate() error {
 	knativeErrs := knserving.ValidateContainer(c.Container, sets.String{})
 	if knativeErrs != nil {

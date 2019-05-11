@@ -18,10 +18,12 @@ import (
 	"log"
 
 	v1 "k8s.io/api/core/v1"
+	resource "k8s.io/apimachinery/pkg/api/resource"
 )
 
 type FrameworkHandler interface {
 	CreateModelServingContainer(modelName string) *v1.Container
+	ApplyDefaults()
 	Validate() error
 }
 
@@ -32,18 +34,44 @@ const (
 	AtLeastOneModelSpecViolatedError = "At least one of [Custom, Tensorflow, ScikitLearn, XGBoost] must be specified in ModelSpec"
 )
 
-func (m *ModelSpec) CreateModelServingContainer(modelName string) *v1.Container {
-	handler, err := makeHandler(m)
-	if err != nil {
-		log.Fatal(err)
-	}
+var (
+	DefaultMemoryRequests = resource.MustParse("2Gi")
+	DefaultCPURequests    = resource.MustParse("1")
+)
 
-	return handler.CreateModelServingContainer(modelName)
+func (m *ModelSpec) CreateModelServingContainer(modelName string) *v1.Container {
+	return getHandler(m).CreateModelServingContainer(modelName)
+}
+
+func (m *ModelSpec) ApplyDefaults() {
+	getHandler(m).ApplyDefaults()
 }
 
 func (m *ModelSpec) Validate() error {
 	_, err := makeHandler(m)
 	return err
+}
+
+func setResourceRequirementDefaults(requirements *v1.ResourceRequirements) {
+	if requirements.Requests == nil {
+		requirements.Requests = v1.ResourceList{}
+	}
+
+	if _, ok := requirements.Requests[v1.ResourceCPU]; !ok {
+		requirements.Requests[v1.ResourceCPU] = DefaultCPURequests
+	}
+	if _, ok := requirements.Requests[v1.ResourceMemory]; !ok {
+		requirements.Requests[v1.ResourceMemory] = DefaultMemoryRequests
+	}
+}
+
+func getHandler(modelSpec *ModelSpec) interface{ FrameworkHandler } {
+	handler, err := makeHandler(modelSpec)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return handler
 }
 
 func makeHandler(modelSpec *ModelSpec) (interface{ FrameworkHandler }, error) {
@@ -67,8 +95,4 @@ func makeHandler(modelSpec *ModelSpec) (interface{ FrameworkHandler }, error) {
 		return nil, fmt.Errorf(ExactlyOneModelSpecViolatedError)
 	}
 	return handlers[0], nil
-}
-
-func init() {
-	SchemeBuilder.Register(&KFService{}, &KFServiceList{})
 }

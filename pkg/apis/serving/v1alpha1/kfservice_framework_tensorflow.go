@@ -22,6 +22,8 @@ const (
 	TensorflowServingGRPCPort   = "9000"
 	TensorflowServingRestPort   = "8080"
 	TensorflowServingImageName  = "tensorflow/serving"
+
+	DefaultTensorflowServingVersion = "1.13.0"
 )
 
 func (t *TensorflowSpec) CreateModelServingContainer(modelName string) *v1.Container {
@@ -36,6 +38,14 @@ func (t *TensorflowSpec) CreateModelServingContainer(modelName string) *v1.Conta
 			"--model_base_path=" + t.ModelURI,
 		},
 	}
+}
+
+func (t *TensorflowSpec) ApplyDefaults() {
+	if t.RuntimeVersion == "" {
+		t.RuntimeVersion = DefaultTensorflowServingVersion
+	}
+
+	setResourceRequirementDefaults(&t.Resources)
 }
 
 func (t *TensorflowSpec) Validate() error {
