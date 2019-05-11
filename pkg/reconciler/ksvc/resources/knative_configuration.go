@@ -2,6 +2,7 @@ package resources
 
 import (
 	"fmt"
+	"log"
 
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	knservingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -13,8 +14,10 @@ import (
 )
 
 func CreateModelServingContainer(modelName string, modelSpec *v1alpha1.ModelSpec) *v1.Container {
-	// ignoring error response since we assume validation ensured the modelSpec is valid
-	fwkHandler, _ := frameworks.MakeHandler(modelSpec)
+	fwkHandler, err := frameworks.MakeHandler(modelSpec)
+	if err != nil {
+		log.Fatal(err)
+	}
 	return fwkHandler.CreateModelServingContainer(modelName)
 }
 
