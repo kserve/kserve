@@ -38,6 +38,8 @@ func CreateKnativeConfiguration(kfsvc *v1alpha1.KFService, name string, modelSpe
 	if modelSpec.MaxReplicas != 0 {
 		annotations[autoscaling.MaxScaleAnnotationKey] = fmt.Sprint(modelSpec.MaxReplicas)
 	}
+
+	//Default to 1 for now we may need to expose this field
 	annotations[autoscaling.TargetAnnotationKey] = constants.DefaultScalingTarget
 	//Do we need to support HPA ?
 	annotations[autoscaling.ClassAnnotationKey] = autoscaling.KPA
