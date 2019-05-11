@@ -22,8 +22,6 @@ func TestKnativeRoute(t *testing.T) {
 					Namespace: "default",
 				},
 				Spec: v1alpha1.KFServiceSpec{
-					MinReplicas: 1,
-					MaxReplicas: 3,
 					Default: v1alpha1.ModelSpec{
 						Tensorflow: &v1alpha1.TensorflowSpec{
 							ModelURI:       "s3://test/mnist/export",
@@ -56,8 +54,6 @@ func TestKnativeRoute(t *testing.T) {
 					Namespace: "default",
 				},
 				Spec: v1alpha1.KFServiceSpec{
-					MinReplicas: 1,
-					MaxReplicas: 3,
 					Default: v1alpha1.ModelSpec{
 						Tensorflow: &v1alpha1.TensorflowSpec{
 							ModelURI:       "s3://test/mnist/export",

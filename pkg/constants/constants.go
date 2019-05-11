@@ -23,8 +23,9 @@ var (
 
 // Controller Constants
 var (
-	ControllerLabelName       = KFServingName + "-controller-manager"
-	DefaultTimeout      int64 = 300
+	ControllerLabelName        = KFServingName + "-controller-manager"
+	DefaultTimeout       int64 = 300
+	DefaultScalingTarget       = "1"
 )
 
 // Webhook Constants

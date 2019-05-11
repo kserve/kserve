@@ -60,9 +60,9 @@ var instance = &servingv1alpha1.KFService{
 		Namespace: serviceKey.Namespace,
 	},
 	Spec: servingv1alpha1.KFServiceSpec{
-		MinReplicas: 1,
-		MaxReplicas: 3,
 		Default: servingv1alpha1.ModelSpec{
+			MinReplicas: 1,
+			MaxReplicas: 3,
 			Tensorflow: &servingv1alpha1.TensorflowSpec{
 				ModelURI:       "s3://test/mnist/export",
 				RuntimeVersion: "1.13",
@@ -77,9 +77,9 @@ var canary = &servingv1alpha1.KFService{
 		Namespace: canaryServiceKey.Namespace,
 	},
 	Spec: servingv1alpha1.KFServiceSpec{
-		MinReplicas: 1,
-		MaxReplicas: 3,
 		Default: servingv1alpha1.ModelSpec{
+			MinReplicas: 1,
+			MaxReplicas: 3,
 			Tensorflow: &servingv1alpha1.TensorflowSpec{
 				ModelURI:       "s3://test/mnist/export",
 				RuntimeVersion: "1.13",
@@ -88,6 +88,8 @@ var canary = &servingv1alpha1.KFService{
 		Canary: &servingv1alpha1.CanarySpec{
 			TrafficPercent: 20,
 			ModelSpec: servingv1alpha1.ModelSpec{
+				MinReplicas: 1,
+				MaxReplicas: 3,
 				Tensorflow: &servingv1alpha1.TensorflowSpec{
 					ModelURI:       "s3://test/mnist-2/export",
 					RuntimeVersion: "1.13",
@@ -144,6 +146,9 @@ func TestReconcile(t *testing.T) {
 					Labels: map[string]string{"serving.kubeflow.org/kfservice": "foo"},
 				},
 				Spec: knservingv1alpha1.RevisionSpec{
+					RevisionSpec: v1beta1.RevisionSpec{
+						TimeoutSeconds: &constants.DefaultTimeout,
+					},
 					Container: &v1.Container{
 						Image: tensorflow.TensorflowServingImageName + ":" +
 							instance.Spec.Default.Tensorflow.RuntimeVersion,
@@ -236,6 +241,9 @@ func TestCanaryReconcile(t *testing.T) {
 					Labels: map[string]string{"serving.kubeflow.org/kfservice": "bar"},
 				},
 				Spec: knservingv1alpha1.RevisionSpec{
+					RevisionSpec: v1beta1.RevisionSpec{
+						TimeoutSeconds: &constants.DefaultTimeout,
+					},
 					Container: &v1.Container{
 						Image: tensorflow.TensorflowServingImageName + ":" +
 							canary.Spec.Canary.Tensorflow.RuntimeVersion,

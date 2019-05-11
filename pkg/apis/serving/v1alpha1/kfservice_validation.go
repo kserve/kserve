@@ -61,9 +61,6 @@ func validateKFService(kfsvc *KFService) error {
 	if kfsvc == nil {
 		return fmt.Errorf("Unable to validate, KFService is nil")
 	}
-	if err := validateReplicas(kfsvc.Spec.MinReplicas, kfsvc.Spec.MaxReplicas); err != nil {
-		return err
-	}
 
 	if err := validateDefaultSpec(kfsvc.Spec.Default); err != nil {
 		return err
@@ -90,6 +87,9 @@ func validateReplicas(minReplicas int, maxReplicas int) error {
 }
 
 func validateDefaultSpec(defaultSpec ModelSpec) error {
+	if err := validateReplicas(defaultSpec.MinReplicas, defaultSpec.MaxReplicas); err != nil {
+		return err
+	}
 	if err := validateOneModelSpec(defaultSpec); err != nil {
 		return err
 	}
@@ -102,6 +102,9 @@ func validateDefaultSpec(defaultSpec ModelSpec) error {
 func validateCanarySpec(canarySpec *CanarySpec) error {
 	if canarySpec == nil {
 		return nil
+	}
+	if err := validateReplicas(canarySpec.MinReplicas, canarySpec.MaxReplicas); err != nil {
+		return err
 	}
 	if err := validateOneModelSpec(canarySpec.ModelSpec); err != nil {
 		return err

@@ -33,9 +33,6 @@ var TFExampleKFService = &KFService{
 
 // KFServiceSpec defines the desired state of KFService
 type KFServiceSpec struct {
-	MinReplicas int `json:"minReplicas,omitempty"`
-	MaxReplicas int `json:"maxReplicas,omitempty"`
-
 	Default ModelSpec `json:"default"`
 	// Optional Canary definition
 	Canary *CanarySpec `json:"canary,omitempty"`
@@ -43,6 +40,8 @@ type KFServiceSpec struct {
 
 // ModelSpec defines the default configuration to route traffic.
 type ModelSpec struct {
+	MinReplicas int `json:"minReplicas,omitempty"`
+	MaxReplicas int `json:"maxReplicas,omitempty"`
 	// The following fields follow a "1-of" semantic. Users must specify exactly one spec.
 	Custom      *CustomSpec      `json:"custom,omitempty"`
 	Tensorflow  *TensorflowSpec  `json:"tensorflow,omitempty"`
