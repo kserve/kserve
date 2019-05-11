@@ -33,8 +33,6 @@ const (
 	MaxReplicasLowerBoundExceededError = "MaxReplicas cannot be less than 0"
 	// TrafficBoundsExceededError is an known error message
 	TrafficBoundsExceededError = "TrafficPercent must be between [0, 100]"
-	// ExactlyOneModelSpecViolatedError is a known error message
-	ExactlyOneModelSpecViolatedError = "Exactly one of [Custom, Tensorflow, ScikitLearn, XGBoost] should be specified in ModelSpec"
 )
 
 // ValidateCreate implements https://godoc.org/sigs.k8s.io/controller-runtime/pkg/webhook/admission#Validator
@@ -65,7 +63,7 @@ func validateKFService(kfsvc *KFService) error {
 		return err
 	}
 
-	if err := validateDefaultSpec(kfsvc.Spec.Default); err != nil {
+	if err := validateSpec(kfsvc.Spec.Default); err != nil {
 		return err
 	}
 
@@ -89,12 +87,15 @@ func validateReplicas(minReplicas int, maxReplicas int) error {
 	return nil
 }
 
-func validateDefaultSpec(defaultSpec ModelSpec) error {
-	if err := validateOneModelSpec(defaultSpec); err != nil {
+func validateSpec(spec ModelSpec) error {
+	if err := spec.Validate(); err != nil {
 		return err
 	}
-	if err := validateContainer(defaultSpec.Custom); err != nil {
-		return err
+
+	container := spec.CreateModelServingContainer("any")
+	knativeErrs := knserving.ValidateContainer(*container, sets.String{})
+	if knativeErrs != nil {
+		return fmt.Errorf("Custom: " + knativeErrs.Error())
 	}
 	return nil
 }
@@ -103,45 +104,11 @@ func validateCanarySpec(canarySpec *CanarySpec) error {
 	if canarySpec == nil {
 		return nil
 	}
-	if err := validateOneModelSpec(canarySpec.ModelSpec); err != nil {
+	if err := validateSpec(canarySpec.ModelSpec); err != nil {
 		return err
 	}
 	if canarySpec.TrafficPercent < 0 || canarySpec.TrafficPercent > 100 {
 		return fmt.Errorf(TrafficBoundsExceededError)
-	}
-	if err := validateContainer(canarySpec.Custom); err != nil {
-		return err
-	}
-	return nil
-}
-
-func validateOneModelSpec(modelSpec ModelSpec) error {
-	count := 0
-	if modelSpec.Custom != nil {
-		count++
-	}
-	if modelSpec.ScikitLearn != nil {
-		count++
-	}
-	if modelSpec.XGBoost != nil {
-		count++
-	}
-	if modelSpec.Tensorflow != nil {
-		count++
-	}
-	if count != 1 {
-		return fmt.Errorf(ExactlyOneModelSpecViolatedError)
-	}
-	return nil
-}
-
-func validateContainer(customSpec *CustomSpec) error {
-	if customSpec == nil {
-		return nil
-	}
-	knativeErrs := knserving.ValidateContainer(customSpec.Container, sets.String{})
-	if knativeErrs != nil {
-		return fmt.Errorf("Custom: " + knativeErrs.Error())
 	}
 	return nil
 }

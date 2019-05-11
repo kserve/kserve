@@ -7,24 +7,8 @@ import (
 	knservingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 	"github.com/kubeflow/kfserving/pkg/constants"
-	"github.com/kubeflow/kfserving/pkg/frameworks/custom"
-	"github.com/kubeflow/kfserving/pkg/frameworks/tensorflow"
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
-
-func CreateModelServingContainer(modelName string, modelSpec *v1alpha1.ModelSpec) *v1.Container {
-	if modelSpec == nil {
-		return nil
-	} else if modelSpec.Tensorflow != nil {
-		return tensorflow.CreateTensorflowContainer(modelName, modelSpec.Tensorflow)
-	} else if modelSpec.Custom != nil {
-		return custom.CreateCustomContainer(modelSpec.Custom)
-	} else {
-		//TODO(@yuzisun) handle other model types
-		return &v1.Container{}
-	}
-}
 
 func CreateKnativeConfiguration(kfsvc *v1alpha1.KFService) (*knservingv1alpha1.Configuration, *knservingv1alpha1.Configuration) {
 	annotations := make(map[string]string)
@@ -51,7 +35,7 @@ func CreateKnativeConfiguration(kfsvc *v1alpha1.KFService) (*knservingv1alpha1.C
 					Annotations: kfsvc.Annotations,
 				},
 				Spec: knservingv1alpha1.RevisionSpec{
-					Container: CreateModelServingContainer(kfsvc.Name, &kfsvc.Spec.Default),
+					Container: kfsvc.Spec.Default.CreateModelServingContainer(kfsvc.Name),
 				},
 			},
 		},
@@ -74,7 +58,7 @@ func CreateKnativeConfiguration(kfsvc *v1alpha1.KFService) (*knservingv1alpha1.C
 						Annotations: kfsvc.Annotations,
 					},
 					Spec: knservingv1alpha1.RevisionSpec{
-						Container: CreateModelServingContainer(kfsvc.Name, &kfsvc.Spec.Canary.ModelSpec),
+						Container: kfsvc.Spec.Canary.ModelSpec.CreateModelServingContainer(kfsvc.Name),
 					},
 				},
 			},

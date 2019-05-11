@@ -5,6 +5,7 @@ import (
 	resource "k8s.io/apimachinery/pkg/api/resource"
 )
 
+// TODO (rakelkar): kill this and  move this into frameworks
 // Default Values
 var (
 	DefaultTensorflowServingVersion  = "1.13.0"
