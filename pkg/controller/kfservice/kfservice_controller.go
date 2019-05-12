@@ -134,8 +134,8 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 
 	serviceReconciler := ksvc.NewServiceReconciler(r.Client)
 	// Reconcile configurations
-	desiredDefault := resources.CreateKnativeConfiguration(kfsvc, constants.DefaultConfigurationName(kfsvc.Name),
-		&kfsvc.Spec.Default)
+	desiredDefault := resources.CreateKnativeConfiguration(constants.DefaultConfigurationName(kfsvc.Name),
+		kfsvc.ObjectMeta, &kfsvc.Spec.Default)
 
 	if err := controllerutil.SetControllerReference(kfsvc, desiredDefault, r.scheme); err != nil {
 		return reconcile.Result{}, err
@@ -150,8 +150,8 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 	kfsvc.Status.PropagateDefaultConfigurationStatus(&defaultConfiguration.Status)
 
 	if kfsvc.Spec.Canary != nil {
-		desiredCanary := resources.CreateKnativeConfiguration(kfsvc, constants.CanaryConfigurationName(kfsvc.Name),
-			&kfsvc.Spec.Canary.ModelSpec)
+		desiredCanary := resources.CreateKnativeConfiguration(constants.CanaryConfigurationName(kfsvc.Name),
+			kfsvc.ObjectMeta, &kfsvc.Spec.Canary.ModelSpec)
 
 		if err := controllerutil.SetControllerReference(kfsvc, desiredCanary, r.scheme); err != nil {
 			return reconcile.Result{}, err

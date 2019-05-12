@@ -93,8 +93,7 @@ func validateModelSpec(spec ModelSpec) error {
 		return err
 	}
 	container := spec.CreateModelServingContainer("any")
-	err := knserving.ValidateContainer(*container, sets.String{})
-	if err != nil {
+	if err := knserving.ValidateContainer(*container, sets.String{}); err != nil {
 		return fmt.Errorf("container validation error: %s", err.Error())
 	}
 	return nil

@@ -205,16 +205,16 @@ func TestKnativeConfiguration(t *testing.T) {
 	}
 
 	for name, scenario := range scenarios {
-		defaultConfiguration := CreateKnativeConfiguration(scenario.kfService,
-			constants.DefaultConfigurationName(scenario.kfService.Name), &scenario.kfService.Spec.Default)
+		defaultConfiguration := CreateKnativeConfiguration(constants.DefaultConfigurationName(scenario.kfService.Name),
+			scenario.kfService.ObjectMeta, &scenario.kfService.Spec.Default)
 
 		if diff := cmp.Diff(scenario.expectedDefault, defaultConfiguration); diff != "" {
 			t.Errorf("Test %q unexpected default configuration (-want +got): %v", name, diff)
 		}
 
 		if scenario.kfService.Spec.Canary != nil {
-			canaryConfiguration := CreateKnativeConfiguration(scenario.kfService,
-				constants.CanaryConfigurationName(kfsvc.Name), &scenario.kfService.Spec.Canary.ModelSpec)
+			canaryConfiguration := CreateKnativeConfiguration(constants.CanaryConfigurationName(kfsvc.Name),
+				scenario.kfService.ObjectMeta, &scenario.kfService.Spec.Canary.ModelSpec)
 
 			if diff := cmp.Diff(scenario.expectedCanary, canaryConfiguration); diff != "" {
 				t.Errorf("Test %q unexpected canary configuration (-want +got): %v", name, diff)

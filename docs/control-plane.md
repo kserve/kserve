@@ -55,8 +55,8 @@ KFService offers a few high level specifications for common ML technologies. The
 | spec.[default,canary].scikitlearn | [ScikitLearn](#ScikitLearn) | A high level specification for ScikitLearn models. |
 | spec.[default,canary].pytorch     | [Pytorch](#Pytorch)         | A high level specification for Pytorch models. |
 | spec.[default,canary].custom      | [Custom](#Custom)           | A flexible custom specification for arbitrary customer provided containers. |
-| spec.[default,canary].minReplicas | Integer                     | An optional integer specifying the minimum scale of the default model definition. |
-| spec.[default,canary].maxReplicas | Integer                     | An optional integer specifying the maximum scale of the default model definition. |
+| spec.[default,canary].minReplicas | Integer                     | An optional integer specifying the minimum scale of the default/canary model definition. |
+| spec.[default,canary].maxReplicas | Integer                     | An optional integer specifying the maximum scale of the default/canary model definition. |
 
 ### Rollouts
 The traffic management rules are specifically targetting Rollout use cases. A/B Testing, Multi-Armed-Bandit, and Ensemble Inferencing should not be implemented using KFService's default/canary mechanism. More complex controllers for these features should be purpose built and operate at a higher level than a KFService, perhaps even implemented using multiple KFServices or a KFGraph. This decoupling is critical to enable features like canarying a change to a Multi-Armed-Bandit inferencing graph.
@@ -110,9 +110,10 @@ In addition to specifying nvidia/gpu count, users may target specific GPUs on sp
 ### Replicas
 KFService is a serverless platform. By default, replicas will scale to zero, and replicas will be dynamically generated based on request volume. For those familiar with Knative Services, KFService uses a concurrency of 1 as it's scale metric.
 
-Some use cases are not tolerant to the limitations of auto-scaling. To accomodate these use cases, it is possible to specify `spec.minReplicas` and `spec.maxReplicas`.
+Some use cases are not tolerant to the limitations of auto-scaling. To accommodate these use cases, it is possible to specify `spec.[default,canary].minReplicas` and `spec.[default,canary].maxReplicas`.
+It is important to note that this may result in large resource usage during rollout if `minReplicas` is set to a large value on both default and canary.
 
-Replicas will be surfaced as part of `status.canary` and `status.default`. It is important to note that `spec.minReplicas` and `spec.maxReplicas` apply to both `default` and `canary`. This may result in large resource usage during rollout if `spec.minReplicas` is set to a large value.
+Replicas will be surfaced as part of `status.canary` and `status.default`.
 
 ```
 status:
