@@ -114,7 +114,7 @@ class ModelPredictHandler(tornado.web.RequestHandler):
         results = model.predict(request)
         response = requestHandler.wrap_response(results)
 
-        self.write(str(response))
+        self.write(response)
 
 
 class LivenessHandler(tornado.web.RequestHandler):

@@ -3,7 +3,12 @@ import tornado
 import numpy as np
 from typing import Dict, Tuple, List
 from kfserving.protocols.request_handler import RequestHandler
+from enum import Enum
 
+class SeldonPayload(Enum):
+    TENSOR = 1
+    NDARRAY =2
+    TFTENSOR = 3
 
 def _extract_list(body: Dict) -> List:
     data_def = body["data"]
@@ -12,40 +17,33 @@ def _extract_list(body: Dict) -> List:
         return arr.tolist()
     elif "ndarray" in data_def:
         return data_def.get("ndarray")
-    # Not presently supported
-    # elif "tftensor" in data_def:
-    #    tfp = TensorProto()
-    #    json_format.ParseDict(data_def.get("tftensor"),tfp, ignore_unknown_fields=False)
-    #    arr = tf.make_ndarray(tfp)
-    #    return arr.tolist()
+    else:
+        raise Exception("Could not extract seldon payload %s" % body)
 
-
-def _create_seldon_data_def(array: np.array, ty: str):
+def _create_seldon_data_def(array: np.array, ty: SeldonPayload):
     datadef = {}
-    if ty == "tensor":
+    if ty == SeldonPayload.TENSOR:
         datadef["tensor"] = {
             "shape": array.shape,
             "values": array.ravel().tolist()
         }
-    elif ty == "ndarray":
+    elif ty == SeldonPayload.NDARRAY:
         datadef["ndarray"] = array.tolist()
-    # elif ty == "tftensor":
-    #    tftensor = tf.make_tensor_proto(array)
-    #    j_str_tensor = json_format.MessageToJson(tftensor)
-    #    j_tensor = json.loads(j_str_tensor)
-    #    datadef["tftensor"] = j_tensor
-
+    elif ty == SeldonPayload.TFTENSOR:
+        raise NotImplementedError("Seldon payload %s not supported" % ty)
+    else:
+        raise Exception("Unknown Seldon payload %s" % ty)
     return datadef
 
 
-def _get_request_ty(request: Dict):
+def _get_request_ty(request: Dict) -> SeldonPayload:
     data_def = request["data"]
     if "tensor" in data_def:
-        return "tensor"
+        return SeldonPayload.TENSOR
     elif "ndarray" in data_def:
-        return "ndarray"
+        return SeldonPayload.NDARRAY
     elif "tftensor" in data_def:
-        return "tftensor"
+        return SeldonPayload.TFTENSOR
 
 
 class SeldonRequestHandler(RequestHandler):
@@ -59,8 +57,8 @@ class SeldonRequestHandler(RequestHandler):
                 status_code=HTTPStatus.BAD_REQUEST,
                 reason="Expected key \"data\" in request body"
             )
-        data = self.request["data"]
-        if not ("tensor" in data or "ndarray" in data):
+        ty = _get_request_ty(self.request)
+        if not (ty == SeldonPayload.TENSOR or ty == SeldonPayload.NDARRAY):
             raise tornado.web.HTTPError(
                 status_code=HTTPStatus.BAD_REQUEST,
                 reason="\"data\" key should contain either \"tensor\",\"ndarray\""

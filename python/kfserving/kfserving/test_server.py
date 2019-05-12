@@ -43,7 +43,7 @@ class TestTFHttpServer(object):
     async def test_predict(selfself, http_server_client):
         resp = await http_server_client.fetch('/models/TestModel:predict', method="POST", body=b'{"instances":[[1,2]]}')
         assert resp.code == 200
-        assert resp.body == b"{'predictions': [[1, 2]]}"
+        assert resp.body == b'{"predictions": [[1, 2]]}'
 
 
 class TestSeldonHttpServer(object):
@@ -66,10 +66,17 @@ class TestSeldonHttpServer(object):
         assert resp.code == 200
         assert resp.body == b"seldon.http"
 
-    async def test_model(self, http_server_client):
+    async def test_model_ndarray(self, http_server_client):
         resp = await http_server_client.fetch('/models/TestModelSeldon:predict', method="POST",
                                               body=b'{"data":{"ndarray":[[1,2]]}}')
         assert resp.code == 200
+        assert resp.body == b'{"data": {"ndarray": [[1, 2]]}}'
+
+    async def test_model_tensor(self, http_server_client):
+        resp = await http_server_client.fetch('/models/TestModelSeldon:predict', method="POST",
+                                              body=b'{"data":{"tensor":{"shape":[1,2],"values":[1,2]}}}')
+        assert resp.code == 200
+        assert resp.body == b'{"data": {"tensor": {"shape": [1, 2], "values": [1, 2]}}}'
 
     async def test_model_tftensor(self, http_server_client):
         with pytest.raises(HTTPClientError):
