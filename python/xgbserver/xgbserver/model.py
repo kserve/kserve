@@ -1,15 +1,21 @@
 import kfserving
 import xgboost as xgb
+from xgboost import XGBModel
 import os
+import numpy as np
+from typing import List, Any
 
 BOOSTER_FILE = "model.bst"
 
 
 class XGBoostModel(kfserving.KFModel):
-    def __init__(self, name, model_dir):
+    def __init__(self, name: str, model_dir: str, booster: XGBModel = None):
+        super().__init__(name)
         self.name = name
         self.model_dir = model_dir
-        self.ready = False
+        if not booster is None:
+            self._booster = booster
+            self.ready = True
 
     def load(self):
         model_file = os.path.join(
@@ -17,19 +23,11 @@ class XGBoostModel(kfserving.KFModel):
         self._booster = xgb.Booster(model_file=model_file)
         self.ready = True
 
-    def preprocess(self, inputs):
+    def predict(self, body: List) -> List:
         try:
-            return xgb.DMatrix(inputs)
-        except Exception as e:
-            raise Exception(
-                "Failed to initialize DMatrix from inputs: %s, %s" % (e, inputs))
-
-    def postprocess(self, outputs):
-        return list(outputs)
-
-    def predict(self, inputs):
-        try:
-            result = self._booster.predict(inputs)
-            return result
+            # Use of list as input is deprecated see https://github.com/dmlc/xgboost/pull/3970
+            arr = np.array(body)
+            result: np.array = self._booster.predict(arr)
+            return result.tolist()
         except Exception as e:
             raise Exception("Failed to predict %s" % e)
