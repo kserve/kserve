@@ -110,9 +110,9 @@ In addition to specifying nvidia/gpu count, users may target specific GPUs on sp
 ### Replicas
 KFService is a serverless platform. By default, replicas will scale to zero, and replicas will be dynamically generated based on request volume. For those familiar with Knative Services, KFService uses a concurrency of 1 as it's scale metric.
 
-Some use cases are not tolerant to the limitations of auto-scaling. To accomodate these use cases, it is possible to specify `spec.minReplicas` and `spec.maxReplicas`.
+Some use cases are not tolerant to the limitations of auto-scaling. To accommodate these use cases, it is possible to specify `minReplicas` and `maxReplicas` on default and canary spec so that user can do canary rollout with min/max scale change.
 
-Replicas will be surfaced as part of `status.canary` and `status.default`. It is important to note that `spec.minReplicas` and `spec.maxReplicas` apply to both `default` and `canary`. This may result in large resource usage during rollout if `spec.minReplicas` is set to a large value.
+Replicas will be surfaced as part of `status.canary` and `status.default`.
 
 ```
 status:

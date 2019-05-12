@@ -32,7 +32,7 @@ func CreateKnativeRoute(kfsvc *v1alpha1.KFService) *knservingv1alpha1.Route {
 		})
 	}
 	var kfsvcAnnotations map[string]string
-	filteredAnnotations := filter(kfsvc.Annotations, isFilteredRouteAnnotation)
+	filteredAnnotations := filter(kfsvc.Annotations, routeAnnotationFilter)
 	if len(filteredAnnotations) > 0 {
 		kfsvcAnnotations = filteredAnnotations
 	}
@@ -49,7 +49,7 @@ func CreateKnativeRoute(kfsvc *v1alpha1.KFService) *knservingv1alpha1.Route {
 	}
 }
 
-func isFilteredRouteAnnotation(annotationKey string) bool {
+func routeAnnotationFilter(annotationKey string) bool {
 	switch annotationKey {
 	default:
 		return false
