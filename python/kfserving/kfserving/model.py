@@ -1,3 +1,6 @@
+from typing import List, Any
+
+
 class KFModel(object):
 
     def __init__(self, name: str):
@@ -7,18 +10,19 @@ class KFModel(object):
     def load(self):
         raise NotImplementedError
 
-    def preprocess(self, inputs):
+    def preprocess(self, inputs: List) -> List:
         raise NotImplementedError
 
-    def predict(self, inputs):
+    def predict(self, inputs: List) -> List:
         raise NotImplementedError
 
-    def postprocess(self, inputs):
+    def postprocess(self, inputs: List) -> List:
         raise NotImplementedError
 
-    def explain(self, inputs):
+    # TODO return type TBD
+    def explain(self, inputs: List) -> Any:
         raise NotImplementedError
 
-    def detectOutlier(self, inputs):
+    # TODO return type TBD
+    def detectOutlier(self, inputs: List):
         raise NotImplementedError
-

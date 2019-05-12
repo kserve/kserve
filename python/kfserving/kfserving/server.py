@@ -9,6 +9,9 @@ import logging
 import json
 from kfserving.model import KFModel
 from typing import List, Dict, Optional
+from kfserving.protocols.request_handler import RequestHandler
+from kfserving.protocols.tensorflow_http import TensorflowRequestHandler
+from kfserving.protocols.seldon_http import SeldonRequestHandler
 
 DEFAULT_HTTP_PORT = 8080
 DEFAULT_GRPC_PORT = 8081
@@ -50,10 +53,10 @@ class KFServer(object):
              ModelHealthHandler, dict(models=self.registered_models)),
             # Predict API executes executes predict on input tensors
             (r"/models/([a-zA-Z0-9_-]+)",
-             ModelPredictHandler, dict(models=self.registered_models)),
+             ModelPredictHandler, dict(protocol=self.protocol, models=self.registered_models)),
             # Optional Custom Predict Verb for Tensorflow compatibility
             (r"/models/([a-zA-Z0-9_-]+):predict",
-             ModelPredictHandler, dict(models=self.registered_models)),
+             ModelPredictHandler, dict(protocol=self.protocol, models=self.registered_models)),
         ])
 
     def start(self, models: List[KFModel] = []):
@@ -75,8 +78,15 @@ class KFServer(object):
 
 
 class ModelPredictHandler(tornado.web.RequestHandler):
-    def initialize(self, models: Dict[str, KFModel]):
+    def initialize(self, protocol: str, models: Dict[str, KFModel]):
+        self.protocol = protocol
         self.models = models
+
+    def _getRequestHandler(self, request: Dict) -> RequestHandler:
+        if self.protocol == TFSERVING_HTTP_PROTOCOL:
+            return TensorflowRequestHandler(request)
+        else:
+            return SeldonRequestHandler(request)
 
     def post(self, name: str):
         # TODO Add metrics
@@ -98,9 +108,13 @@ class ModelPredictHandler(tornado.web.RequestHandler):
                 reason="Unrecognized request format: %s" % e
             )
 
-        results = model.predict(body)
+        requestHandler: RequestHandler = self._getRequestHandler(body)
+        requestHandler.validate()
+        request = requestHandler.extract_request()
+        results = model.predict(request)
+        response = requestHandler.wrap_response(results)
 
-        self.write(str(results))
+        self.write(str(response))
 
 
 class LivenessHandler(tornado.web.RequestHandler):

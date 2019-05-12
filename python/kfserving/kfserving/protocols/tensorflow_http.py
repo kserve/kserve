@@ -1,22 +1,23 @@
 from http import HTTPStatus
 import tornado
-from typing import Dict, Any
-import numpy as np
+from typing import Dict, List
+from kfserving.protocols.request_handler import RequestHandler
 
 
-def _validate(body: Dict):
-    if "instances" not in body:
-        raise tornado.web.HTTPError(
-            status_code=HTTPStatus.BAD_REQUEST,
-            reason="Expected key \"instances\" in request body"
-        )
+class TensorflowRequestHandler(RequestHandler):
 
+    def __init__(self, request: Dict):
+        super().__init__(request)
 
-# TODO clarify how instances are hanlded given lists are deprectaed in xgboost : https://github.com/dmlc/xgboost/pull/3970
-def tensorflow_request_to_list(body: Dict) -> Any:
-    _validate(body)
-    return body["instances"]
+    def validate(self):
+        if "instances" not in self.request:
+            raise tornado.web.HTTPError(
+                status_code=HTTPStatus.BAD_REQUEST,
+                reason="Expected key \"instances\" in request body"
+            )
 
+    def extract_request(self) -> List:
+        return self.request["instances"]
 
-def ndarray_to_tensorflow_response(outputs: np.ndarray) -> Dict:
-    return {"predictions": outputs.tolist()}
+    def wrap_response(self, response: List) -> Dict:
+        return {"predictions": response}

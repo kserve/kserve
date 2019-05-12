@@ -1,23 +1,23 @@
 from http import HTTPStatus
 import tornado
 import numpy as np
-from typing import Dict, Tuple
+from typing import Dict, Tuple, List
+from kfserving.protocols.request_handler import RequestHandler
 
 
-def _extract_tensor(body: Dict) -> Tuple[np.array, str]:
+def _extract_list(body: Dict) -> List:
     data_def = body["data"]
     if "tensor" in data_def:
         arr = np.array(data_def.get("tensor").get("values")).reshape(data_def.get("tensor").get("shape"))
-        return arr, "tensor"
+        return arr.tolist()
     elif "ndarray" in data_def:
-        arr = np.array(data_def.get("ndarray"))
-        return arr, "ndarray"
+        return data_def.get("ndarray")
     # Not presently supported
     # elif "tftensor" in data_def:
     #    tfp = TensorProto()
     #    json_format.ParseDict(data_def.get("tftensor"),tfp, ignore_unknown_fields=False)
     #    arr = tf.make_ndarray(tfp)
-    #    return arr,"tftensor"
+    #    return arr.tolist()
 
 
 def _create_seldon_data_def(array: np.array, ty: str):
@@ -48,27 +48,29 @@ def _get_request_ty(request: Dict):
         return "tftensor"
 
 
-def _validate(body: Dict):
-    if not "data" in body:
-        raise tornado.web.HTTPError(
-            status_code=HTTPStatus.BAD_REQUEST,
-            reason="Expected key \"data\" in request body"
-        )
-    data = body["data"]
-    if not ("tensor" in data or "ndarray" in data):
-        raise tornado.web.HTTPError(
-            status_code=HTTPStatus.BAD_REQUEST,
-            reason="\"data\" key should contain either \"tensor\",\"ndarray\""
-        )
+class SeldonRequestHandler(RequestHandler):
 
+    def __init__(self, request: Dict):
+        super().__init__(request)
 
-def seldon_request_to_ndarray(body: Dict) -> np.array:
-    _validate(body)
-    arr, ty = _extract_tensor(body)
-    return arr
+    def validate(self):
+        if not "data" in self.request:
+            raise tornado.web.HTTPError(
+                status_code=HTTPStatus.BAD_REQUEST,
+                reason="Expected key \"data\" in request body"
+            )
+        data = self.request["data"]
+        if not ("tensor" in data or "ndarray" in data):
+            raise tornado.web.HTTPError(
+                status_code=HTTPStatus.BAD_REQUEST,
+                reason="\"data\" key should contain either \"tensor\",\"ndarray\""
+            )
 
+    def extract_request(self) -> List:
+        return _extract_list(self.request)
 
-def ndarray_to_seldon_response(request: Dict, outputs: np.array) -> Dict:
-    ty = _get_request_ty(request)
-    seldon_datadef = _create_seldon_data_def(outputs, ty)
-    return {"data": seldon_datadef}
+    def wrap_response(self, response: List) -> Dict:
+        arr = np.array(response)
+        ty = _get_request_ty(self.request)
+        seldon_datadef = _create_seldon_data_def(arr, ty)
+        return {"data": seldon_datadef}
