@@ -18,16 +18,16 @@ package v1alpha1
 
 import (
 	"fmt"
-	"k8s.io/api/core/v1"
 	"testing"
 
 	"github.com/onsi/gomega"
+	v1 "k8s.io/api/core/v1"
 )
 
 func TestRejectMultipleModelSpecs(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	kfsvc := TFExampleKFService.DeepCopy()
-	kfsvc.Spec.Default.ScikitLearn = &ScikitLearnSpec{ModelURI: "gs://testbucket/testmodel"}
+	kfsvc.Spec.Default.Custom = &CustomSpec{Container: v1.Container{}}
 	g.Expect(kfsvc.ValidateCreate()).Should(gomega.MatchError(ExactlyOneModelSpecViolatedError))
 }
 
@@ -35,14 +35,14 @@ func TestRejectModelSpecMissing(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	kfsvc := TFExampleKFService.DeepCopy()
 	kfsvc.Spec.Default.Tensorflow = nil
-	g.Expect(kfsvc.ValidateCreate()).Should(gomega.MatchError(ExactlyOneModelSpecViolatedError))
+	g.Expect(kfsvc.ValidateCreate()).Should(gomega.MatchError(AtLeastOneModelSpecViolatedError))
 }
 func TestRejectMultipleCanaryModelSpecs(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	kfsvc := TFExampleKFService.DeepCopy()
 	kfsvc.Spec.Canary = &CanarySpec{ModelSpec: ModelSpec{
-		ScikitLearn: &ScikitLearnSpec{ModelURI: "gs://testbucket/testmodel"},
-		Tensorflow:  kfsvc.Spec.Default.Tensorflow,
+		Custom:     &CustomSpec{Container: v1.Container{}},
+		Tensorflow: kfsvc.Spec.Default.Tensorflow,
 	}}
 	g.Expect(kfsvc.ValidateCreate()).Should(gomega.MatchError(ExactlyOneModelSpecViolatedError))
 }
@@ -51,7 +51,7 @@ func TestRejectCanaryModelSpecMissing(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	kfsvc := TFExampleKFService.DeepCopy()
 	kfsvc.Spec.Canary = &CanarySpec{ModelSpec: ModelSpec{}}
-	g.Expect(kfsvc.ValidateCreate()).Should(gomega.MatchError(ExactlyOneModelSpecViolatedError))
+	g.Expect(kfsvc.ValidateCreate()).Should(gomega.MatchError(AtLeastOneModelSpecViolatedError))
 }
 func TestRejectBadCanaryTrafficValues(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)

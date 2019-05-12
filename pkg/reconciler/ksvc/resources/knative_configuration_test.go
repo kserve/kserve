@@ -23,7 +23,6 @@ import (
 	knservingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 	"github.com/kubeflow/kfserving/pkg/constants"
-	"github.com/kubeflow/kfserving/pkg/frameworks/tensorflow"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -58,11 +57,11 @@ var defaultConfiguration = knservingv1alpha1.Configuration{
 			},
 			Spec: knservingv1alpha1.RevisionSpec{
 				Container: &v1.Container{
-					Image:   tensorflow.TensorflowServingImageName + ":" + kfsvc.Spec.Default.Tensorflow.RuntimeVersion,
-					Command: []string{tensorflow.TensorflowEntrypointCommand},
+					Image:   v1alpha1.TensorflowServingImageName + ":" + kfsvc.Spec.Default.Tensorflow.RuntimeVersion,
+					Command: []string{v1alpha1.TensorflowEntrypointCommand},
 					Args: []string{
-						"--port=" + tensorflow.TensorflowServingGRPCPort,
-						"--rest_api_port=" + tensorflow.TensorflowServingRestPort,
+						"--port=" + v1alpha1.TensorflowServingGRPCPort,
+						"--rest_api_port=" + v1alpha1.TensorflowServingRestPort,
 						"--model_name=mnist",
 						"--model_base_path=" + kfsvc.Spec.Default.Tensorflow.ModelURI,
 					},
@@ -85,11 +84,11 @@ var canaryConfiguration = knservingv1alpha1.Configuration{
 			},
 			Spec: knservingv1alpha1.RevisionSpec{
 				Container: &v1.Container{
-					Image:   tensorflow.TensorflowServingImageName + ":" + kfsvc.Spec.Default.Tensorflow.RuntimeVersion,
-					Command: []string{tensorflow.TensorflowEntrypointCommand},
+					Image:   v1alpha1.TensorflowServingImageName + ":" + kfsvc.Spec.Default.Tensorflow.RuntimeVersion,
+					Command: []string{v1alpha1.TensorflowEntrypointCommand},
 					Args: []string{
-						"--port=" + tensorflow.TensorflowServingGRPCPort,
-						"--rest_api_port=" + tensorflow.TensorflowServingRestPort,
+						"--port=" + v1alpha1.TensorflowServingGRPCPort,
+						"--rest_api_port=" + v1alpha1.TensorflowServingRestPort,
 						"--model_name=mnist",
 						"--model_base_path=s3://test/mnist-2/export",
 					},
@@ -172,7 +171,7 @@ func TestKnativeConfiguration(t *testing.T) {
 						},
 						Spec: knservingv1alpha1.RevisionSpec{
 							Container: &v1.Container{
-								//TODO(@yuzisun) fill in once scikit is implemented
+								Image: "notimplementedyet",
 							},
 						},
 					},
