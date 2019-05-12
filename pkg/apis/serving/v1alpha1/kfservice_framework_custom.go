@@ -30,9 +30,9 @@ func (c *CustomSpec) ApplyDefaults() {
 }
 
 func (c *CustomSpec) Validate() error {
-	knativeErrs := knserving.ValidateContainer(c.Container, sets.String{})
-	if knativeErrs != nil {
-		return fmt.Errorf("Custom: " + knativeErrs.Error())
+	err := knserving.ValidateContainer(c.Container, sets.String{})
+	if err != nil {
+		return fmt.Errorf("Custom: %s", err.Error())
 	}
 	return nil
 }

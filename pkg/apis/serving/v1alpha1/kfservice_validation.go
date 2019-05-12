@@ -48,7 +48,8 @@ func (kfsvc *KFService) ValidateUpdate(old runtime.Object) error {
 func (kfsvc *KFService) validate() error {
 	logger.Info("Validating KFService", "namespace", kfsvc.Namespace, "name", kfsvc.Name)
 	if err := validateKFService(kfsvc); err != nil {
-		logger.Info("Failed to validate KFService", "namespace", kfsvc.Namespace, "name", kfsvc.Name, err.Error())
+		logger.Info("Failed to validate KFService", "namespace", kfsvc.Namespace, "name", kfsvc.Name,
+			"error", err.Error())
 		return err
 	}
 	logger.Info("Successfully validated KFService", "namespace", kfsvc.Namespace, "name", kfsvc.Name)
@@ -88,11 +89,13 @@ func validateModelSpec(spec ModelSpec) error {
 	if err := spec.Validate(); err != nil {
 		return err
 	}
-
+	if err := validateReplicas(spec.MinReplicas, spec.MaxReplicas); err != nil {
+		return err
+	}
 	container := spec.CreateModelServingContainer("any")
-	knativeErrs := knserving.ValidateContainer(*container, sets.String{})
-	if knativeErrs != nil {
-		return fmt.Errorf("Custom: " + knativeErrs.Error())
+	err := knserving.ValidateContainer(*container, sets.String{})
+	if err != nil {
+		return fmt.Errorf("container validation error: %s", err.Error())
 	}
 	return nil
 }
@@ -101,9 +104,11 @@ func validateCanarySpec(canarySpec *CanarySpec) error {
 	if canarySpec == nil {
 		return nil
 	}
+
 	if err := validateModelSpec(canarySpec.ModelSpec); err != nil {
 		return err
 	}
+
 	if canarySpec.TrafficPercent < 0 || canarySpec.TrafficPercent > 100 {
 		return fmt.Errorf(TrafficBoundsExceededError)
 	}

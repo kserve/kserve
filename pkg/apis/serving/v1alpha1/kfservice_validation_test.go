@@ -90,7 +90,7 @@ func TestCustomBadFields(t *testing.T) {
 			StdinOnce: true,
 		},
 	}
-	g.Expect(kfsvc.ValidateCreate()).Should(gomega.MatchError("Custom: must not set the field(s): name, stdin, stdinOnce"))
+	g.Expect(kfsvc.ValidateCreate()).Should(gomega.MatchError("container validation error: must not set the field(s): name, stdin, stdinOnce"))
 }
 
 func TestCustomOK(t *testing.T) {
