@@ -22,7 +22,6 @@ import (
 
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"github.com/kubeflow/kfserving/pkg/constants"
-	"github.com/kubeflow/kfserving/pkg/frameworks/tensorflow"
 	v1 "k8s.io/api/core/v1"
 
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
@@ -145,12 +144,12 @@ func TestReconcile(t *testing.T) {
 				},
 				Spec: knservingv1alpha1.RevisionSpec{
 					Container: &v1.Container{
-						Image: tensorflow.TensorflowServingImageName + ":" +
+						Image: servingv1alpha1.TensorflowServingImageName + ":" +
 							instance.Spec.Default.Tensorflow.RuntimeVersion,
-						Command: []string{tensorflow.TensorflowEntrypointCommand},
+						Command: []string{servingv1alpha1.TensorflowEntrypointCommand},
 						Args: []string{
-							"--port=" + tensorflow.TensorflowServingGRPCPort,
-							"--rest_api_port=" + tensorflow.TensorflowServingRestPort,
+							"--port=" + servingv1alpha1.TensorflowServingGRPCPort,
+							"--rest_api_port=" + servingv1alpha1.TensorflowServingRestPort,
 							"--model_name=" + instance.Name,
 							"--model_base_path=" + instance.Spec.Default.Tensorflow.ModelURI,
 						},
@@ -237,12 +236,12 @@ func TestCanaryReconcile(t *testing.T) {
 				},
 				Spec: knservingv1alpha1.RevisionSpec{
 					Container: &v1.Container{
-						Image: tensorflow.TensorflowServingImageName + ":" +
+						Image: servingv1alpha1.TensorflowServingImageName + ":" +
 							canary.Spec.Canary.Tensorflow.RuntimeVersion,
-						Command: []string{tensorflow.TensorflowEntrypointCommand},
+						Command: []string{servingv1alpha1.TensorflowEntrypointCommand},
 						Args: []string{
-							"--port=" + tensorflow.TensorflowServingGRPCPort,
-							"--rest_api_port=" + tensorflow.TensorflowServingRestPort,
+							"--port=" + servingv1alpha1.TensorflowServingGRPCPort,
+							"--rest_api_port=" + servingv1alpha1.TensorflowServingRestPort,
 							"--model_name=" + canary.Name,
 							"--model_base_path=" + canary.Spec.Canary.Tensorflow.ModelURI,
 						},

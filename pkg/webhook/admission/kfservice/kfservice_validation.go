@@ -14,14 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha1
+package kfservice
 
 import (
 	"fmt"
 
-	knserving "github.com/knative/serving/pkg/apis/serving"
-	runtime "k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/sets"
+	kfservingv1alpha1 "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 )
 
 const (
@@ -35,27 +33,14 @@ const (
 	TrafficBoundsExceededError = "TrafficPercent must be between [0, 100]"
 )
 
-// ValidateCreate implements https://godoc.org/sigs.k8s.io/controller-runtime/pkg/webhook/admission#Validator
-func (kfsvc *KFService) ValidateCreate() error {
-	return kfsvc.validate()
-}
-
-// ValidateUpdate implements https://godoc.org/sigs.k8s.io/controller-runtime/pkg/webhook/admission#Validator
-func (kfsvc *KFService) ValidateUpdate(old runtime.Object) error {
-	return kfsvc.validate()
-}
-
-func (kfsvc *KFService) validate() error {
-	logger.Info("Validating KFService", "namespace", kfsvc.Namespace, "name", kfsvc.Name)
+func ValidateCreate(kfsvc *kfservingv1alpha1.KFService) error {
 	if err := validateKFService(kfsvc); err != nil {
-		logger.Info("Failed to validate KFService", "namespace", kfsvc.Namespace, "name", kfsvc.Name, err.Error())
 		return err
 	}
-	logger.Info("Successfully validated KFService", "namespace", kfsvc.Namespace, "name", kfsvc.Name)
 	return nil
 }
 
-func validateKFService(kfsvc *KFService) error {
+func validateKFService(kfsvc *kfservingv1alpha1.KFService) error {
 	if kfsvc == nil {
 		return fmt.Errorf("Unable to validate, KFService is nil")
 	}
@@ -63,7 +48,7 @@ func validateKFService(kfsvc *KFService) error {
 		return err
 	}
 
-	if err := validateModelSpec(kfsvc.Spec.Default); err != nil {
+	if err := kfsvc.Spec.Default.Validate(); err != nil {
 		return err
 	}
 
@@ -87,24 +72,11 @@ func validateReplicas(minReplicas int, maxReplicas int) error {
 	return nil
 }
 
-func validateModelSpec(spec ModelSpec) error {
-	if err := spec.Validate(); err != nil {
-		return err
-	}
-
-	container := spec.CreateModelServingContainer("any")
-	knativeErrs := knserving.ValidateContainer(*container, sets.String{})
-	if knativeErrs != nil {
-		return fmt.Errorf("Custom: " + knativeErrs.Error())
-	}
-	return nil
-}
-
-func validateCanarySpec(canarySpec *CanarySpec) error {
+func validateCanarySpec(canarySpec *kfservingv1alpha1.CanarySpec) error {
 	if canarySpec == nil {
 		return nil
 	}
-	if err := validateModelSpec(canarySpec.ModelSpec); err != nil {
+	if err := canarySpec.ModelSpec.Validate(); err != nil {
 		return err
 	}
 	if canarySpec.TrafficPercent < 0 || canarySpec.TrafficPercent > 100 {
