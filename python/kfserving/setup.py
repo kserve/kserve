@@ -1,5 +1,11 @@
 from setuptools import setup, find_packages
 
+tests_require = [
+    'pytest',
+    'pytest-tornasync',
+    'mypy'
+]
+
 setup(
     name='kfserver',
     version='0.1.0',
@@ -12,6 +18,9 @@ setup(
     packages=find_packages("kfserving"),
     install_requires=[
         "tornado >= 1.4.1",
-        "argparse >= 1.4.0"
+        "argparse >= 1.4.0",
+        "numpy"
     ],
+    tests_require=tests_require,
+    extras_require={'test': tests_require}
 )
