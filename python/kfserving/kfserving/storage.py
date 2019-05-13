@@ -1,5 +1,6 @@
 import logging
 import tempfile
+import os
 
 _GCS_PREFIX = "gs://"
 _S3_PREFIX = "s3://"
@@ -10,7 +11,7 @@ class Storage(object):
     @staticmethod
     def download(uri: str) -> str:
         logging.info("Copying contents of %s to local" % uri)
-        if uri.startswith(_LOCAL_PREFIX):
+        if uri.startswith(_LOCAL_PREFIX) or os.path.exists(uri):
             return uri
 
         temp_dir = tempfile.mkdtemp()
