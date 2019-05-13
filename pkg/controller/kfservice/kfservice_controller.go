@@ -18,6 +18,7 @@ package service
 
 import (
 	"context"
+	"github.com/kubeflow/kfserving/pkg/constants"
 
 	"k8s.io/apimachinery/pkg/types"
 
@@ -133,16 +134,11 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 
 	serviceReconciler := ksvc.NewServiceReconciler(r.Client)
 	// Reconcile configurations
-	desiredDefault, desiredCanary := resources.CreateKnativeConfiguration(kfsvc)
+	desiredDefault := resources.CreateKnativeConfiguration(constants.DefaultConfigurationName(kfsvc.Name),
+		kfsvc.ObjectMeta, &kfsvc.Spec.Default)
 
 	if err := controllerutil.SetControllerReference(kfsvc, desiredDefault, r.scheme); err != nil {
 		return reconcile.Result{}, err
-	}
-
-	if desiredCanary != nil {
-		if err := controllerutil.SetControllerReference(kfsvc, desiredCanary, r.scheme); err != nil {
-			return reconcile.Result{}, err
-		}
 	}
 
 	defaultConfiguration, err := serviceReconciler.ReconcileConfiguarion(context.TODO(), desiredDefault)
@@ -153,7 +149,13 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 	}
 	kfsvc.Status.PropagateDefaultConfigurationStatus(&defaultConfiguration.Status)
 
-	if desiredCanary != nil {
+	if kfsvc.Spec.Canary != nil {
+		desiredCanary := resources.CreateKnativeConfiguration(constants.CanaryConfigurationName(kfsvc.Name),
+			kfsvc.ObjectMeta, &kfsvc.Spec.Canary.ModelSpec)
+
+		if err := controllerutil.SetControllerReference(kfsvc, desiredCanary, r.scheme); err != nil {
+			return reconcile.Result{}, err
+		}
 		canaryConfiguration, err := serviceReconciler.ReconcileConfiguarion(context.TODO(), desiredCanary)
 		if err != nil {
 			log.Error(err, "Failed to reconcile canary model spec", "name", desiredCanary.Name)
