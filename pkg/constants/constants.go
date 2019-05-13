@@ -30,6 +30,13 @@ var (
 	DefaultScalingTarget       = "1"
 )
 
+// Credential Constants
+const (
+	GCSCredentialVolumeName      = "/var/secrets/user-gcp-sa"
+	GCSCredentialVolumeMountPath = "/var/secrets/user-gcp-sa.json"
+	GCSCredentialEnvKey          = "GOOGLE_APPLICATION_CREDENTIALS"
+)
+
 // Webhook Constants
 var (
 	WebhookServerName              = KFServingName + "-webhook-server"
