@@ -59,9 +59,9 @@ var instance = &servingv1alpha1.KFService{
 		Namespace: serviceKey.Namespace,
 	},
 	Spec: servingv1alpha1.KFServiceSpec{
-		MinReplicas: 1,
-		MaxReplicas: 3,
 		Default: servingv1alpha1.ModelSpec{
+			MinReplicas: 1,
+			MaxReplicas: 3,
 			Tensorflow: &servingv1alpha1.TensorflowSpec{
 				ModelURI:       "s3://test/mnist/export",
 				RuntimeVersion: "1.13",
@@ -76,9 +76,9 @@ var canary = &servingv1alpha1.KFService{
 		Namespace: canaryServiceKey.Namespace,
 	},
 	Spec: servingv1alpha1.KFServiceSpec{
-		MinReplicas: 1,
-		MaxReplicas: 3,
 		Default: servingv1alpha1.ModelSpec{
+			MinReplicas: 1,
+			MaxReplicas: 3,
 			Tensorflow: &servingv1alpha1.TensorflowSpec{
 				ModelURI:       "s3://test/mnist/export",
 				RuntimeVersion: "1.13",
@@ -87,6 +87,8 @@ var canary = &servingv1alpha1.KFService{
 		Canary: &servingv1alpha1.CanarySpec{
 			TrafficPercent: 20,
 			ModelSpec: servingv1alpha1.ModelSpec{
+				MinReplicas: 1,
+				MaxReplicas: 3,
 				Tensorflow: &servingv1alpha1.TensorflowSpec{
 					ModelURI:       "s3://test/mnist-2/export",
 					RuntimeVersion: "1.13",
@@ -141,8 +143,17 @@ func TestReconcile(t *testing.T) {
 			RevisionTemplate: &knservingv1alpha1.RevisionTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{"serving.kubeflow.org/kfservice": "foo"},
+					Annotations: map[string]string{
+						"autoscaling.knative.dev/target":   "1",
+						"autoscaling.knative.dev/class":    "kpa.autoscaling.knative.dev",
+						"autoscaling.knative.dev/maxScale": "3",
+						"autoscaling.knative.dev/minScale": "1",
+					},
 				},
 				Spec: knservingv1alpha1.RevisionSpec{
+					RevisionSpec: v1beta1.RevisionSpec{
+						TimeoutSeconds: &constants.DefaultTimeout,
+					},
 					Container: &v1.Container{
 						Image: servingv1alpha1.TensorflowServingImageName + ":" +
 							instance.Spec.Default.Tensorflow.RuntimeVersion,
@@ -233,8 +244,17 @@ func TestCanaryReconcile(t *testing.T) {
 			RevisionTemplate: &knservingv1alpha1.RevisionTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{"serving.kubeflow.org/kfservice": "bar"},
+					Annotations: map[string]string{
+						"autoscaling.knative.dev/target":   "1",
+						"autoscaling.knative.dev/class":    "kpa.autoscaling.knative.dev",
+						"autoscaling.knative.dev/maxScale": "3",
+						"autoscaling.knative.dev/minScale": "1",
+					},
 				},
 				Spec: knservingv1alpha1.RevisionSpec{
+					RevisionSpec: v1beta1.RevisionSpec{
+						TimeoutSeconds: &constants.DefaultTimeout,
+					},
 					Container: &v1.Container{
 						Image: servingv1alpha1.TensorflowServingImageName + ":" +
 							canary.Spec.Canary.Tensorflow.RuntimeVersion,

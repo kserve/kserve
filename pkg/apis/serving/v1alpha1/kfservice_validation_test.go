@@ -68,13 +68,13 @@ func TestRejectBadCanaryTrafficValues(t *testing.T) {
 func TestBadReplicaValues(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	kfsvc := TFExampleKFService.DeepCopy()
-	kfsvc.Spec.MinReplicas = -1
+	kfsvc.Spec.Default.MinReplicas = -1
 	g.Expect(kfsvc.ValidateCreate()).Should(gomega.MatchError(MinReplicasLowerBoundExceededError))
-	kfsvc.Spec.MinReplicas = 1
-	kfsvc.Spec.MaxReplicas = -1
+	kfsvc.Spec.Default.MinReplicas = 1
+	kfsvc.Spec.Default.MaxReplicas = -1
 	g.Expect(kfsvc.ValidateCreate()).Should(gomega.MatchError(MaxReplicasLowerBoundExceededError))
-	kfsvc.Spec.MinReplicas = 2
-	kfsvc.Spec.MaxReplicas = 1
+	kfsvc.Spec.Default.MinReplicas = 2
+	kfsvc.Spec.Default.MaxReplicas = 1
 	g.Expect(kfsvc.ValidateCreate()).Should(gomega.MatchError(MinReplicasShouldBeLessThanMaxError))
 }
 
@@ -90,7 +90,7 @@ func TestCustomBadFields(t *testing.T) {
 			StdinOnce: true,
 		},
 	}
-	g.Expect(kfsvc.ValidateCreate()).Should(gomega.MatchError("Custom: must not set the field(s): name, stdin, stdinOnce"))
+	g.Expect(kfsvc.ValidateCreate()).Should(gomega.MatchError("container validation error: must not set the field(s): name, stdin, stdinOnce"))
 }
 
 func TestCustomOK(t *testing.T) {

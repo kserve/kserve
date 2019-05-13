@@ -31,15 +31,27 @@ func CreateKnativeRoute(kfsvc *v1alpha1.KFService) *knservingv1alpha1.Route {
 			},
 		})
 	}
+	var kfsvcAnnotations map[string]string
+	filteredAnnotations := filter(kfsvc.Annotations, routeAnnotationFilter)
+	if len(filteredAnnotations) > 0 {
+		kfsvcAnnotations = filteredAnnotations
+	}
 	return &knservingv1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        kfsvc.Name,
 			Namespace:   kfsvc.Namespace,
 			Labels:      kfsvc.Labels,
-			Annotations: kfsvc.Annotations,
+			Annotations: kfsvcAnnotations,
 		},
 		Spec: knservingv1alpha1.RouteSpec{
 			Traffic: trafficTargets,
 		},
+	}
+}
+
+func routeAnnotationFilter(annotationKey string) bool {
+	switch annotationKey {
+	default:
+		return false
 	}
 }
