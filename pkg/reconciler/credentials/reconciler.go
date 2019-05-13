@@ -20,6 +20,7 @@ import (
 	"context"
 	knservingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/kubeflow/kfserving/pkg/constants"
+	"github.com/kubeflow/kfserving/pkg/reconciler/credentials/gcs"
 	"github.com/kubeflow/kfserving/pkg/reconciler/credentials/s3"
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -63,9 +64,20 @@ func (c *CredentialReconciler) ReconcileServiceAccount(ctx context.Context, name
 		if endpoint, ok := secret.Annotations[constants.KFServiceS3SecretAnnotation]; ok {
 			s3Envs := s3.CreateS3SecretEnvs(secret, endpoint)
 			envs = append(envs, s3Envs...)
+			configuration.Spec.RevisionTemplate.Spec.Container.Env = append(configuration.Spec.RevisionTemplate.Spec.Container.Env, envs...)
+		} else if _, ok := secret.Annotations[constants.KFServiceGCSSecretAnnotation]; ok {
+			vol, vm := gcs.CreateGCSSecretVolume(secret)
+			configuration.Spec.RevisionTemplate.Spec.Volumes =
+				append(configuration.Spec.RevisionTemplate.Spec.Volumes, vol)
+			configuration.Spec.RevisionTemplate.Spec.Container.VolumeMounts =
+				append(configuration.Spec.RevisionTemplate.Spec.Container.VolumeMounts, vm)
+			configuration.Spec.RevisionTemplate.Spec.Container.Env = append(configuration.Spec.RevisionTemplate.Spec.Container.Env,
+				v1.EnvVar{
+					Name:  constants.GCSCredentialEnvKey,
+					Value: constants.GCSCredentialVolumeMountPath,
+				})
 		}
 	}
-	configuration.Spec.RevisionTemplate.Spec.Container.Env = append(configuration.Spec.RevisionTemplate.Spec.Container.Env, envs...)
 
 	return nil
 }
