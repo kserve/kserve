@@ -101,6 +101,6 @@ sklearnserver/test_model.py .                                                   
 To run static type checks:
 
 ```bash
-mypy --ignore-missing-imports xgbserver
+mypy --ignore-missing-imports sklearnserver
 ```
 An empty result will indicate success.

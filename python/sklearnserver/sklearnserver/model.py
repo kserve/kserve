@@ -22,7 +22,6 @@ class SKLearnModel(kfserving.KFModel):
     def predict(self, body: List) -> List:
         try:
             inputs = np.array(body)
-            print(inputs)
         except Exception as e:
             raise Exception(
                 "Failed to initialize NumPy array from inputs: %s, %s" % (e, inputs))
