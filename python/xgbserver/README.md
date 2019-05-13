@@ -79,7 +79,7 @@ Successfully installed xgbserver
 ```
 
 
-to run tests:
+To run tests:
 
 ```bash
 make test

@@ -4,7 +4,7 @@ from sklearnserver import SKLearnModel
 import joblib
 import os
 
-model_dir = "/kfserving/docs/samples/sklearn"
+model_dir = "/path/to/kfserving/docs/samples/sklearn"
 JOBLIB_FILE = "model.joblib"
 
 def test_model():
@@ -15,6 +15,7 @@ def test_model():
      model_file = os.path.join((model_dir),JOBLIB_FILE)
      joblib.dump(value=sklearn_model, filename=model_file)
      server = SKLearnModel("sklearnmodel", model_dir)
-     request = [X[0:1].tolist()]
+     server.load()
+     request = X[0:1].tolist()
      response = server.predict(request)
      assert response == [0]
