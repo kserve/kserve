@@ -19,12 +19,12 @@ package service
 import (
 	"context"
 	"github.com/kubeflow/kfserving/pkg/constants"
-
+	"github.com/kubeflow/kfserving/pkg/reconciler/credentials"
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/kubeflow/kfserving/pkg/reconciler/ksvc"
 	"github.com/kubeflow/kfserving/pkg/reconciler/ksvc/resources"
-	v1 "k8s.io/api/core/v1"
+	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/client-go/tools/record"
 
@@ -132,8 +132,11 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 		return reconcile.Result{}, err
 	}
 
+	credentialReconciler := credentials.NewCredentialReconciler(r.Client)
+
 	serviceReconciler := ksvc.NewServiceReconciler(r.Client)
 	// Reconcile configurations
+
 	desiredDefault := resources.CreateKnativeConfiguration(constants.DefaultConfigurationName(kfsvc.Name),
 		kfsvc.ObjectMeta, &kfsvc.Spec.Default)
 
@@ -141,7 +144,10 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 		return reconcile.Result{}, err
 	}
 
-	defaultConfiguration, err := serviceReconciler.ReconcileConfiguarion(context.TODO(), desiredDefault)
+	envs, _ := credentialReconciler.ReconcileServiceAccount(context.TODO(), request.Namespace, kfsvc.Spec.Default.ServiceAccountName)
+	desiredDefault.Spec.RevisionTemplate.Spec.Container.Env = append(desiredDefault.Spec.RevisionTemplate.Spec.Container.Env, envs...)
+
+	defaultConfiguration, err := serviceReconciler.ReconcileConfiguration(context.TODO(), desiredDefault)
 	if err != nil {
 		log.Error(err, "Failed to reconcile default model spec", "name", desiredDefault.Name)
 		r.Recorder.Eventf(kfsvc, v1.EventTypeWarning, "InternalError", err.Error())
@@ -156,7 +162,11 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 		if err := controllerutil.SetControllerReference(kfsvc, desiredCanary, r.scheme); err != nil {
 			return reconcile.Result{}, err
 		}
-		canaryConfiguration, err := serviceReconciler.ReconcileConfiguarion(context.TODO(), desiredCanary)
+
+		envs, _ := credentialReconciler.ReconcileServiceAccount(context.TODO(), request.Namespace, kfsvc.Spec.Canary.ServiceAccountName)
+		desiredCanary.Spec.RevisionTemplate.Spec.Container.Env = append(desiredCanary.Spec.RevisionTemplate.Spec.Container.Env, envs...)
+
+		canaryConfiguration, err := serviceReconciler.ReconcileConfiguration(context.TODO(), desiredCanary)
 		if err != nil {
 			log.Error(err, "Failed to reconcile canary model spec", "name", desiredCanary.Name)
 			r.Recorder.Eventf(kfsvc, v1.EventTypeWarning, "InternalError", err.Error())

@@ -40,7 +40,11 @@ type KFServiceSpec struct {
 
 // ModelSpec defines the default configuration to route traffic.
 type ModelSpec struct {
+	// Service Account Name
+	ServiceAccountName string `json:"serviceAccountName,omitempty"`
+	// Minimum number of replicas, pods won't scale down to 0 in case of no traffic
 	MinReplicas int `json:"minReplicas,omitempty"`
+	// This is the up bound for autoscaler to scale to
 	MaxReplicas int `json:"maxReplicas,omitempty"`
 	// The following fields follow a "1-of" semantic. Users must specify exactly one spec.
 	Custom      *CustomSpec      `json:"custom,omitempty"`

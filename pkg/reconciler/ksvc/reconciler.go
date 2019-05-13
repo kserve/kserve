@@ -43,7 +43,7 @@ func NewServiceReconciler(client client.Client) *ServiceReconciler {
 // Reconcile compares the actual state with the desired, and attempts to
 // converge the two. It then updates the Status block of the Service resource
 // with the current status of the resource.
-func (c *ServiceReconciler) ReconcileConfiguarion(ctx context.Context, desiredConfiguration *knservingv1alpha1.Configuration) (*knservingv1alpha1.Configuration, error) {
+func (c *ServiceReconciler) ReconcileConfiguration(ctx context.Context, desiredConfiguration *knservingv1alpha1.Configuration) (*knservingv1alpha1.Configuration, error) {
 	configuration := &knservingv1alpha1.Configuration{}
 	err := c.client.Get(context.TODO(), types.NamespacedName{Name: desiredConfiguration.Name,
 		Namespace: desiredConfiguration.Namespace}, configuration)
