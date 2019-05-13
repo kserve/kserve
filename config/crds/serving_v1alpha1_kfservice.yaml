@@ -41,9 +41,12 @@ spec:
                   - container
                   type: object
                 maxReplicas:
+                  description: This is the up bound for autoscaler to scale to
                   format: int64
                   type: integer
                 minReplicas:
+                  description: Minimum number of replicas, pods won't scale down to
+                    0 in case of no traffic
                   format: int64
                   type: integer
                 scikitLearn:
@@ -59,6 +62,9 @@ spec:
                   required:
                   - modelUri
                   type: object
+                serviceAccountName:
+                  description: Service Account Name
+                  type: string
                 tensorflow:
                   properties:
                     modelUri:
@@ -103,9 +109,12 @@ spec:
                   - container
                   type: object
                 maxReplicas:
+                  description: This is the up bound for autoscaler to scale to
                   format: int64
                   type: integer
                 minReplicas:
+                  description: Minimum number of replicas, pods won't scale down to
+                    0 in case of no traffic
                   format: int64
                   type: integer
                 scikitLearn:
@@ -121,6 +130,9 @@ spec:
                   required:
                   - modelUri
                   type: object
+                serviceAccountName:
+                  description: Service Account Name
+                  type: string
                 tensorflow:
                   properties:
                     modelUri:

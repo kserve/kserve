@@ -119,6 +119,8 @@ type ReconcileService struct {
 // +kubebuilder:rbac:groups=serving.knative.dev,resources=routes/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=serving.kubeflow.org,resources=kfservices,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=serving.kubeflow.org,resources=kfservices/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=,resources=serviceaccounts,verbs=get;list;watch
+// +kubebuilder:rbac:groups=,resources=secrets,verbs=get;list;watch
 func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	// Fetch the KFService instance
 	kfsvc := &kfservingv1alpha1.KFService{}
@@ -144,8 +146,10 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 		return reconcile.Result{}, err
 	}
 
-	envs, _ := credentialReconciler.ReconcileServiceAccount(context.TODO(), request.Namespace, kfsvc.Spec.Default.ServiceAccountName)
-	desiredDefault.Spec.RevisionTemplate.Spec.Container.Env = append(desiredDefault.Spec.RevisionTemplate.Spec.Container.Env, envs...)
+	if err := credentialReconciler.ReconcileServiceAccount(context.TODO(), request.Namespace, kfsvc.Spec.Default.ServiceAccountName,
+		desiredDefault); err != nil {
+		log.Error(err, "Failed to reconcile credentials", "name", kfsvc.Spec.Default.ServiceAccountName)
+	}
 
 	defaultConfiguration, err := serviceReconciler.ReconcileConfiguration(context.TODO(), desiredDefault)
 	if err != nil {
@@ -163,8 +167,10 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 			return reconcile.Result{}, err
 		}
 
-		envs, _ := credentialReconciler.ReconcileServiceAccount(context.TODO(), request.Namespace, kfsvc.Spec.Canary.ServiceAccountName)
-		desiredCanary.Spec.RevisionTemplate.Spec.Container.Env = append(desiredCanary.Spec.RevisionTemplate.Spec.Container.Env, envs...)
+		if err := credentialReconciler.ReconcileServiceAccount(context.TODO(), request.Namespace, kfsvc.Spec.Canary.ServiceAccountName,
+			desiredCanary); err != nil {
+			log.Error(err, "Failed to reconcile credentials", "name", kfsvc.Spec.Canary.ServiceAccountName)
+		}
 
 		canaryConfiguration, err := serviceReconciler.ReconcileConfiguration(context.TODO(), desiredCanary)
 		if err != nil {

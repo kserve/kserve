@@ -18,6 +18,7 @@ package credentials
 
 import (
 	"context"
+	knservingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/reconciler/credentials/s3"
 	"k8s.io/api/core/v1"
@@ -38,7 +39,8 @@ func NewCredentialReconciler(client client.Client) *CredentialReconciler {
 	}
 }
 
-func (c *CredentialReconciler) ReconcileServiceAccount(ctx context.Context, namespace string, serviceAccountName string) ([]v1.EnvVar, error) {
+func (c *CredentialReconciler) ReconcileServiceAccount(ctx context.Context, namespace string, serviceAccountName string,
+	configuration *knservingv1alpha1.Configuration) error {
 	if serviceAccountName == "" {
 		serviceAccountName = "default"
 	}
@@ -47,7 +49,7 @@ func (c *CredentialReconciler) ReconcileServiceAccount(ctx context.Context, name
 		Namespace: namespace}, serviceAccount)
 	if err != nil {
 		log.Error(err, "Failed to find service account")
-		return []v1.EnvVar{}, err
+		return err
 	}
 	envs := make([]v1.EnvVar, 0)
 	for _, secretRef := range serviceAccount.Secrets {
@@ -63,5 +65,7 @@ func (c *CredentialReconciler) ReconcileServiceAccount(ctx context.Context, name
 			envs = append(envs, s3Envs...)
 		}
 	}
-	return envs, nil
+	configuration.Spec.RevisionTemplate.Spec.Container.Env = append(configuration.Spec.RevisionTemplate.Spec.Container.Env, envs...)
+
+	return nil
 }
