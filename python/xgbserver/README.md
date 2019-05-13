@@ -82,7 +82,7 @@ Successfully installed xgbserver
 to run tests:
 
 ```bash
-make tests
+make test
 ```
 
 The following shows the type of output you should see:

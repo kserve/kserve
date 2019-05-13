@@ -7,7 +7,6 @@ from typing import List, Any
 
 BOOSTER_FILE = "model.bst"
 
-
 class XGBoostModel(kfserving.KFModel):
     def __init__(self, name: str, model_dir: str, booster: XGBModel = None):
         super().__init__(name)
