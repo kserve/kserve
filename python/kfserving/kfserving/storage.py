@@ -11,7 +11,7 @@ class Storage(object):
     @staticmethod
     def download(uri: str) -> str:
         logging.info("Copying contents of %s to local" % uri)
-        if uri.startswith(_LOCAL_PREFIX):
+        if uri.startswith(_LOCAL_PREFIX) or os.path.exists(uri):
             return Storage._download_local(uri)
 
         temp_dir = tempfile.mkdtemp()
