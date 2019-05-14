@@ -1,5 +1,10 @@
 from setuptools import setup, find_packages
 
+tests_require = [
+    'pytest',
+    'pytest-tornasync',
+    'mypy'
+]
 setup(
     name='sklearnserver',
     version='0.1.0',
@@ -17,4 +22,6 @@ setup(
         "numpy >= 1.8.2",
         "joblib >= 0.13.0"
     ],
+    tests_require=tests_require,
+    extras_require={'test': tests_require}
 )

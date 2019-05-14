@@ -7,4 +7,4 @@ test: type_check
 	pytest -W ignore
 
 type_check:
-	mypy --ignore-missing-imports xgbserver
+	mypy --ignore-missing-imports sklearnserver
