@@ -6,14 +6,14 @@ KFServing provides many funtionalities, including among others:
 
 * Registering a model and starting the server
 * Prediction Handler
-* Liveness Handler 
-* Metrics Handler 
+* Liveness Handler
+* Metrics Handler
 
 KFServing supports the following storage providers:
 
 * Google Cloud Storage with a prefix: "gs://"
 * S3 Compatible Object Storage with a prefix "s3://"
-* Local filesystem with a prefix "/"
+* Local filesystem with a prefix "file://"
 
 To start the server locally on your machine for development needs, run the following command under this folder
 
