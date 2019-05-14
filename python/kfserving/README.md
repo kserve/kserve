@@ -2,7 +2,7 @@
 
 KFServing is a unit of model serving. KFServing's python libraries implement a standardized KFServer library that is extended by model serving frameworks such as XGBoost and PyTorch. It encapsulates data plane API definitions and storage retrieval for models.
 
-KFServing provides many funtionalities, including among others:
+KFServing provides many functionalities, including among others:
 
 * Registering a model and starting the server
 * Prediction Handler
@@ -13,9 +13,10 @@ KFServing supports the following storage providers:
 
 * Google Cloud Storage with a prefix: "gs://"
 * S3 Compatible Object Storage with a prefix "s3://"
-* Local filesystem either with a prefix "file://" or without any prefix. For example:
-    * Absolute path: `file:///absolute/path` or `/absolute/path`
-    * Relative path: `file://relative/path` or `relative/path`
+* Local filesystem either without any prefix or with a prefix "file://". For example:
+    * Absolute path: `/absolute/path` or `file:///absolute/path`
+    * Relative path: `relative/path` or `file://relative/path`
+    * For local filesystem, we recommended to use relative path without any prefix.
 
 To start the server locally on your machine for development needs, run the following command under this folder
 
