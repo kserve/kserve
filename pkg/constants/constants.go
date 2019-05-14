@@ -16,11 +16,14 @@ var (
 
 // KFService Constants
 var (
-	KFServiceName                = "kfservice"
-	KFServiceAPIName             = "kfservices"
-	KFServicePodLabelKey         = KFServingAPIGroupName + "/" + KFServiceName
-	KFServiceS3SecretAnnotation  = KFServingAPIGroupName + "/" + "s3"
-	KFServiceGCSSecretAnnotation = KFServingAPIGroupName + "/" + "gcs"
+	KFServiceName                       = "kfservice"
+	KFServiceAPIName                    = "kfservices"
+	KFServicePodLabelKey                = KFServingAPIGroupName + "/" + KFServiceName
+	KFServiceS3SecretEndpointAnnotation = KFServingAPIGroupName + "/" + "s3-endpoint"
+	KFServiceS3SecretRegionAnnotation   = KFServingAPIGroupName + "/" + "s3-region"
+	KFServiceS3SecretSSLAnnotation      = KFServingAPIGroupName + "/" + "s3-verifyssl"
+	KFServiceS3SecretHttpsAnnotation    = KFServingAPIGroupName + "/" + "s3-usehttps"
+	KFServiceGCSSecretAnnotation        = KFServingAPIGroupName + "/" + "gcs"
 )
 
 // Controller Constants
@@ -32,7 +35,7 @@ var (
 
 // Credential Constants
 const (
-	GCSCredentialVolumeName      = "/var/secrets/user-gcp-sa"
+	GCSCredentialVolumeName      = "user-gcp-sa"
 	GCSCredentialVolumeMountPath = "/var/secrets/user-gcp-sa.json"
 	GCSCredentialEnvKey          = "GOOGLE_APPLICATION_CREDENTIALS"
 )

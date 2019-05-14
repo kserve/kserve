@@ -21,17 +21,19 @@ import (
 	"k8s.io/api/core/v1"
 )
 
-func CreateGCSSecretVolume(secret *v1.Secret) (v1.Volume, v1.VolumeMount) {
-	return v1.Volume{
-			Name: constants.GCSCredentialVolumeName,
-			VolumeSource: v1.VolumeSource{
-				Secret: &v1.SecretVolumeSource{
-					SecretName: secret.Name,
-				},
+func BuildSecretVolume(secret *v1.Secret) (v1.Volume, v1.VolumeMount) {
+	volume := v1.Volume{
+		Name: constants.GCSCredentialVolumeName,
+		VolumeSource: v1.VolumeSource{
+			Secret: &v1.SecretVolumeSource{
+				SecretName: secret.Name,
 			},
-		}, v1.VolumeMount{
-			MountPath: constants.GCSCredentialVolumeMountPath,
-			Name:      constants.GCSCredentialVolumeName,
-			ReadOnly:  true,
-		}
+		},
+	}
+	volumeMount := v1.VolumeMount{
+		MountPath: constants.GCSCredentialVolumeMountPath,
+		Name:      constants.GCSCredentialVolumeName,
+		ReadOnly:  true,
+	}
+	return volume, volumeMount
 }

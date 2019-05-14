@@ -49,10 +49,9 @@ func (c *CredentialReconciler) ReconcileServiceAccount(ctx context.Context, name
 	err := c.client.Get(context.TODO(), types.NamespacedName{Name: serviceAccountName,
 		Namespace: namespace}, serviceAccount)
 	if err != nil {
-		log.Error(err, "Failed to find service account")
+		log.Error(err, "Failed to find service account", "ServiceAccountName", serviceAccountName)
 		return err
 	}
-	envs := make([]v1.EnvVar, 0)
 	for _, secretRef := range serviceAccount.Secrets {
 		secret := &v1.Secret{}
 		err := c.client.Get(context.TODO(), types.NamespacedName{Name: secretRef.Name,
@@ -61,21 +60,24 @@ func (c *CredentialReconciler) ReconcileServiceAccount(ctx context.Context, name
 			log.Error(err, "Failed to find secret", "SecretName", secretRef.Name)
 			continue
 		}
-		if endpoint, ok := secret.Annotations[constants.KFServiceS3SecretAnnotation]; ok {
-			s3Envs := s3.CreateS3SecretEnvs(secret, endpoint)
-			envs = append(envs, s3Envs...)
+		if _, ok := secret.Data[s3.AWSSecretAccessKeyName]; ok {
+			log.Info("Reconciling secret for s3", "S3Secret", secret.Name)
+			envs := s3.BuildSecretEnvs(secret)
 			configuration.Spec.RevisionTemplate.Spec.Container.Env = append(configuration.Spec.RevisionTemplate.Spec.Container.Env, envs...)
 		} else if _, ok := secret.Annotations[constants.KFServiceGCSSecretAnnotation]; ok {
-			vol, vm := gcs.CreateGCSSecretVolume(secret)
+			log.Info("Reconciling secret for gcs", "GCSSecret", secret.Name)
+			volume, volumeMount := gcs.BuildSecretVolume(secret)
 			configuration.Spec.RevisionTemplate.Spec.Volumes =
-				append(configuration.Spec.RevisionTemplate.Spec.Volumes, vol)
+				append(configuration.Spec.RevisionTemplate.Spec.Volumes, volume)
 			configuration.Spec.RevisionTemplate.Spec.Container.VolumeMounts =
-				append(configuration.Spec.RevisionTemplate.Spec.Container.VolumeMounts, vm)
+				append(configuration.Spec.RevisionTemplate.Spec.Container.VolumeMounts, volumeMount)
 			configuration.Spec.RevisionTemplate.Spec.Container.Env = append(configuration.Spec.RevisionTemplate.Spec.Container.Env,
 				v1.EnvVar{
 					Name:  constants.GCSCredentialEnvKey,
 					Value: constants.GCSCredentialVolumeMountPath,
 				})
+		} else {
+			log.V(5).Info("Skipping non gcs/s3 secret", "Secret", secret.Name)
 		}
 	}
 
