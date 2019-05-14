@@ -13,7 +13,9 @@ KFServing supports the following storage providers:
 
 * Google Cloud Storage with a prefix: "gs://"
 * S3 Compatible Object Storage with a prefix "s3://"
-* Local filesystem with a prefix "file://"
+* Local filesystem with a prefix "file://". For example:
+    * With absolute path: `file:///absolute/path`
+    * With relative path: `file://./relative/path` or `file://relative/path`
 
 To start the server locally on your machine for development needs, run the following command under this folder
 
