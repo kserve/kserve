@@ -18,9 +18,8 @@ package v1alpha1
 
 import (
 	"fmt"
-
 	knserving "github.com/knative/serving/pkg/apis/serving"
-	runtime "k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
@@ -82,7 +81,7 @@ func validateModelSpec(spec *ModelSpec) error {
 	if err := validateReplicas(spec.MinReplicas, spec.MaxReplicas); err != nil {
 		return err
 	}
-	container := spec.CreateModelServingContainer("any")
+	container := spec.CreateModelServingContainer("any", map[string]string{})
 	if err := knserving.ValidateContainer(*container, sets.String{}); err != nil {
 		return fmt.Errorf("container validation error: %s", err.Error())
 	}

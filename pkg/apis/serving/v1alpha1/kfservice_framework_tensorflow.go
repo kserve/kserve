@@ -18,18 +18,22 @@ import (
 )
 
 const (
-	TensorflowEntrypointCommand = "/usr/bin/tensorflow_model_server"
-	TensorflowServingGRPCPort   = "9000"
-	TensorflowServingRestPort   = "8080"
-	TensorflowServingImageName  = "tensorflow/serving"
-
+	TensorflowEntrypointCommand     = "/usr/bin/tensorflow_model_server"
+	TensorflowServingGRPCPort       = "9000"
+	TensorflowServingRestPort       = "8080"
+	TensorflowServingImageName      = "tensorflow/serving"
 	DefaultTensorflowServingVersion = "1.13.0"
 )
 
-func (t *TensorflowSpec) CreateModelServingContainer(modelName string) *v1.Container {
-	//TODO(@yuzisun) add configmap for image, default resources, readiness/liveness probe
+var _ FrameworkHandler = (*TensorflowSpec)(nil)
+
+func (t *TensorflowSpec) CreateModelServingContainer(modelName string, configs map[string]string) *v1.Container {
+	tensorflowServingImage := TensorflowServingImageName
+	if image, ok := configs[TensorflowServingImageConfigName]; ok {
+		tensorflowServingImage = image
+	}
 	return &v1.Container{
-		Image:     TensorflowServingImageName + ":" + t.RuntimeVersion,
+		Image:     tensorflowServingImage + ":" + t.RuntimeVersion,
 		Command:   []string{TensorflowEntrypointCommand},
 		Resources: t.Resources,
 		Args: []string{

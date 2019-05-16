@@ -121,6 +121,7 @@ type ReconcileService struct {
 // +kubebuilder:rbac:groups=serving.kubeflow.org,resources=kfservices/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=,resources=serviceaccounts,verbs=get;list;watch
 // +kubebuilder:rbac:groups=,resources=secrets,verbs=get;list;watch
+// +kubebuilder:rbac:groups=,resources=configmaps,verbs=get;list;watch;create;update;patch;delete
 func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	// Fetch the KFService instance
 	kfsvc := &kfservingv1alpha1.KFService{}
@@ -135,12 +136,19 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 	}
 
 	credentialBuilder := ksvc.NewCredentialBulder(r.Client)
+	configMap := &v1.ConfigMap{}
+	err := r.Get(context.TODO(), types.NamespacedName{Name: constants.KFServingConfigMapName, Namespace: constants.KFServingNamespace}, configMap)
+	if err != nil {
+		log.Error(err, "Failed to find config map", "name", constants.KFServingConfigMapName)
+		// Error reading the object - requeue the request.
+		return reconcile.Result{}, err
+	}
 
 	serviceReconciler := ksvc.NewServiceReconciler(r.Client)
 	// Reconcile configurations
 
 	desiredDefault := resources.CreateKnativeConfiguration(constants.DefaultConfigurationName(kfsvc.Name),
-		kfsvc.ObjectMeta, &kfsvc.Spec.Default)
+		kfsvc.ObjectMeta, &kfsvc.Spec.Default, configMap.Data)
 
 	if err := controllerutil.SetControllerReference(kfsvc, desiredDefault, r.scheme); err != nil {
 		return reconcile.Result{}, err
@@ -161,7 +169,7 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 
 	if kfsvc.Spec.Canary != nil {
 		desiredCanary := resources.CreateKnativeConfiguration(constants.CanaryConfigurationName(kfsvc.Name),
-			kfsvc.ObjectMeta, kfsvc.Spec.Canary)
+			kfsvc.ObjectMeta, kfsvc.Spec.Canary, configMap.Data)
 
 		if err := controllerutil.SetControllerReference(kfsvc, desiredCanary, r.scheme); err != nil {
 			return reconcile.Result{}, err

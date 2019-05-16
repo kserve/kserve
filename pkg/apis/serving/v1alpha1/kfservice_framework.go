@@ -22,7 +22,7 @@ import (
 )
 
 type FrameworkHandler interface {
-	CreateModelServingContainer(modelName string) *v1.Container
+	CreateModelServingContainer(modelName string, configs map[string]string) *v1.Container
 	ApplyDefaults()
 	Validate() error
 }
@@ -32,6 +32,10 @@ const (
 	ExactlyOneModelSpecViolatedError = "Exactly one of [Custom, Tensorflow, SKLearn, XGBoost] must be specified in ModelSpec"
 	// AtLeastOneModelSpecViolatedError is a known error message
 	AtLeastOneModelSpecViolatedError = "At least one of [Custom, Tensorflow, SKLearn, XGBoost] must be specified in ModelSpec"
+
+	TensorflowServingImageConfigName = "TensorflowServingImage"
+	XgboostServingImageConfigName    = "XgboostServingImage"
+	SklearnServingImageConfigName    = "SklearnServingImage"
 )
 
 var (
@@ -39,8 +43,8 @@ var (
 	DefaultCPURequests    = resource.MustParse("1")
 )
 
-func (m *ModelSpec) CreateModelServingContainer(modelName string) *v1.Container {
-	return getHandler(m).CreateModelServingContainer(modelName)
+func (m *ModelSpec) CreateModelServingContainer(modelName string, configs map[string]string) *v1.Container {
+	return getHandler(m).CreateModelServingContainer(modelName, configs)
 }
 
 func (m *ModelSpec) ApplyDefaults() {
@@ -65,7 +69,7 @@ func setResourceRequirementDefaults(requirements *v1.ResourceRequirements) {
 	}
 }
 
-func getHandler(modelSpec *ModelSpec) interface{ FrameworkHandler } {
+func getHandler(modelSpec *ModelSpec) FrameworkHandler {
 	handler, err := makeHandler(modelSpec)
 	if err != nil {
 		log.Fatal(err)
@@ -74,8 +78,8 @@ func getHandler(modelSpec *ModelSpec) interface{ FrameworkHandler } {
 	return handler
 }
 
-func makeHandler(modelSpec *ModelSpec) (interface{ FrameworkHandler }, error) {
-	handlers := []interface{ FrameworkHandler }{}
+func makeHandler(modelSpec *ModelSpec) (FrameworkHandler, error) {
+	handlers := []FrameworkHandler{}
 	if modelSpec.Custom != nil {
 		handlers = append(handlers, modelSpec.Custom)
 	}

@@ -21,7 +21,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
-func (c *CustomSpec) CreateModelServingContainer(modelName string) *v1.Container {
+var _ FrameworkHandler = (*CustomSpec)(nil)
+
+func (c *CustomSpec) CreateModelServingContainer(modelName string, configs map[string]string) *v1.Container {
 	return &c.Container
 }
 

@@ -25,8 +25,9 @@ const (
 	DefaultSKLearnServingVersion = "latest"
 )
 
-func (s *SKLearnSpec) CreateModelServingContainer(modelName string) *v1.Container {
-	//TODO add configmap for image, default resources, readiness/liveness probe
+var _ FrameworkHandler = (*ScikitLearnSpec)(nil)
+
+func (s *SKLearnSpec) CreateModelServingContainer(modelName string, configs map[string]string) *v1.Container {
 	return &v1.Container{
 		Image:     SKLearnServingImageName + ":" + s.RuntimeVersion,
 		Resources: s.Resources,

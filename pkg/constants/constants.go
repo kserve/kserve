@@ -25,9 +25,10 @@ import (
 
 // KFServing Constants
 var (
-	KFServingName         = "kfserving"
-	KFServingAPIGroupName = "serving.kubeflow.org"
-	KFServingNamespace    = getEnvOrDefault("POD_NAMESPACE", "kfserving-system")
+	KFServingName          = "kfserving"
+	KFServingAPIGroupName  = "serving.kubeflow.org"
+	KFServingNamespace     = getEnvOrDefault("POD_NAMESPACE", "kfserving-system")
+	KFServingConfigMapName = "kfserving-config"
 )
 
 // KFService Constants

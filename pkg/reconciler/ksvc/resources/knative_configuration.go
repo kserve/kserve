@@ -26,7 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func CreateKnativeConfiguration(name string, metadata metav1.ObjectMeta, modelSpec *v1alpha1.ModelSpec) *knservingv1alpha1.Configuration {
+func CreateKnativeConfiguration(name string, metadata metav1.ObjectMeta, modelSpec *v1alpha1.ModelSpec, configs map[string]string) *knservingv1alpha1.Configuration {
 	if modelSpec == nil {
 		return nil
 	}
@@ -69,7 +69,7 @@ func CreateKnativeConfiguration(name string, metadata metav1.ObjectMeta, modelSp
 						// we may need to expose this field in future
 						TimeoutSeconds: &constants.DefaultTimeout,
 					},
-					Container: modelSpec.CreateModelServingContainer(metadata.Name),
+					Container: modelSpec.CreateModelServingContainer(metadata.Name, configs),
 				},
 			},
 		},

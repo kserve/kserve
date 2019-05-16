@@ -122,10 +122,23 @@ func TestReconcile(t *testing.T) {
 		mgrStopped.Wait()
 	}()
 
+	// Create configmap
+	var configMap = &v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      constants.KFServingConfigMapName,
+			Namespace: constants.KFServingNamespace,
+		},
+		Data: map[string]string{
+			servingv1alpha1.TensorflowServingImageConfigName: "tensorflow/serving",
+			servingv1alpha1.SklearnServingImageConfigName:    "gcr.io/kfserving/sklearn",
+			servingv1alpha1.XgboostServingImageConfigName:    "gcr.io/kfserving/xgboost",
+		},
+	}
+	g.Expect(c.Create(context.TODO(), configMap)).NotTo(gomega.HaveOccurred())
+	defer c.Delete(context.TODO(), configMap)
+
 	// Create the KFService object and expect the Reconcile and Knative configuration/routes to be created
 	g.Expect(c.Create(context.TODO(), instance)).NotTo(gomega.HaveOccurred())
-
-	g.Expect(err).NotTo(gomega.HaveOccurred())
 	defer c.Delete(context.TODO(), instance)
 	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
 
@@ -153,7 +166,7 @@ func TestReconcile(t *testing.T) {
 						TimeoutSeconds: &constants.DefaultTimeout,
 					},
 					Container: &v1.Container{
-						Image: servingv1alpha1.TensorflowServingImageName + ":" +
+						Image: configMap.Data[servingv1alpha1.TensorflowServingImageConfigName] + ":" +
 							instance.Spec.Default.Tensorflow.RuntimeVersion,
 						Command: []string{servingv1alpha1.TensorflowEntrypointCommand},
 						Args: []string{
@@ -221,6 +234,21 @@ func TestCanaryReconcile(t *testing.T) {
 		mgrStopped.Wait()
 	}()
 
+	// Create configmap
+	var configMap = &v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      constants.KFServingConfigMapName,
+			Namespace: constants.KFServingNamespace,
+		},
+		Data: map[string]string{
+			servingv1alpha1.TensorflowServingImageConfigName: "tensorflow/serving",
+			servingv1alpha1.SklearnServingImageConfigName:    "gcr.io/kfserving/sklearn",
+			servingv1alpha1.XgboostServingImageConfigName:    "gcr.io/kfserving/xgboost",
+		},
+	}
+	g.Expect(c.Create(context.TODO(), configMap)).NotTo(gomega.HaveOccurred())
+	defer c.Delete(context.TODO(), configMap)
+
 	// Create the KFService object and expect the Reconcile and knative service to be created
 	g.Expect(c.Create(context.TODO(), canary)).NotTo(gomega.HaveOccurred())
 	defer c.Delete(context.TODO(), canary)
@@ -254,7 +282,7 @@ func TestCanaryReconcile(t *testing.T) {
 						TimeoutSeconds: &constants.DefaultTimeout,
 					},
 					Container: &v1.Container{
-						Image: servingv1alpha1.TensorflowServingImageName + ":" +
+						Image: configMap.Data[servingv1alpha1.TensorflowServingImageConfigName] + ":" +
 							canary.Spec.Canary.Tensorflow.RuntimeVersion,
 						Command: []string{servingv1alpha1.TensorflowEntrypointCommand},
 						Args: []string{

@@ -46,6 +46,12 @@ var kfsvc = &v1alpha1.KFService{
 	},
 }
 
+var configMap = map[string]string{
+	v1alpha1.TensorflowServingImageConfigName: "tensorflow/serving",
+	v1alpha1.SklearnServingImageConfigName:    "gcr.io/kfserving/sklearn",
+	v1alpha1.XgboostServingImageConfigName:    "gcr.io/kfserving/xgboost",
+}
+
 var defaultConfiguration = knservingv1alpha1.Configuration{
 	ObjectMeta: metav1.ObjectMeta{
 		Name:      constants.DefaultConfigurationName("mnist"),
@@ -67,7 +73,8 @@ var defaultConfiguration = knservingv1alpha1.Configuration{
 					TimeoutSeconds: &constants.DefaultTimeout,
 				},
 				Container: &v1.Container{
-					Image:   v1alpha1.TensorflowServingImageName + ":" + kfsvc.Spec.Default.Tensorflow.RuntimeVersion,
+					Image: configMap[v1alpha1.TensorflowServingImageConfigName] + ":" +
+						kfsvc.Spec.Default.Tensorflow.RuntimeVersion,
 					Command: []string{v1alpha1.TensorflowEntrypointCommand},
 					Args: []string{
 						"--port=" + v1alpha1.TensorflowServingGRPCPort,
@@ -102,7 +109,8 @@ var canaryConfiguration = knservingv1alpha1.Configuration{
 					TimeoutSeconds: &constants.DefaultTimeout,
 				},
 				Container: &v1.Container{
-					Image:   v1alpha1.TensorflowServingImageName + ":" + kfsvc.Spec.Default.Tensorflow.RuntimeVersion,
+					Image: configMap[v1alpha1.TensorflowServingImageConfigName] + ":" +
+						kfsvc.Spec.Default.Tensorflow.RuntimeVersion,
 					Command: []string{v1alpha1.TensorflowEntrypointCommand},
 					Args: []string{
 						"--port=" + v1alpha1.TensorflowServingGRPCPort,
@@ -209,7 +217,7 @@ func TestKnativeConfiguration(t *testing.T) {
 
 	for name, scenario := range scenarios {
 		defaultConfiguration := CreateKnativeConfiguration(constants.DefaultConfigurationName(scenario.kfService.Name),
-			scenario.kfService.ObjectMeta, &scenario.kfService.Spec.Default)
+			scenario.kfService.ObjectMeta, &scenario.kfService.Spec.Default, configMap)
 
 		if diff := cmp.Diff(scenario.expectedDefault, defaultConfiguration); diff != "" {
 			t.Errorf("Test %q unexpected default configuration (-want +got): %v", name, diff)
@@ -217,7 +225,7 @@ func TestKnativeConfiguration(t *testing.T) {
 
 		if scenario.kfService.Spec.Canary != nil {
 			canaryConfiguration := CreateKnativeConfiguration(constants.CanaryConfigurationName(kfsvc.Name),
-				scenario.kfService.ObjectMeta, scenario.kfService.Spec.Canary)
+				scenario.kfService.ObjectMeta, scenario.kfService.Spec.Canary, configMap)
 
 			if diff := cmp.Diff(scenario.expectedCanary, canaryConfiguration); diff != "" {
 				t.Errorf("Test %q unexpected canary configuration (-want +got): %v", name, diff)
