@@ -7,4 +7,4 @@ In the future, we hope to support more advanced use cases such as outlier detect
 
 This project is an evolution of the [original proposal in the Kubeflow repo](https://github.com/kubeflow/kubeflow/issues/2306). To know more about KFServing, please [read the docs](/docs)
 
-To deploy, develop and test KFServing on top of your Knative deployment, please [follow this doc](/docs/DEVELOPER_GUIDE.md).
+For developers looking to contribute, please [follow this doc](/docs/DEVELOPER_GUIDE.md).

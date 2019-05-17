@@ -14,6 +14,7 @@
     - [Deploy KFServing with your own version](#deploy-kfserving-with-your-own-version)
     - [Smoke test after deployment](#smoke-test-after-deployment)
   - [Iterating](#iterating)
+  - [Troubleshooting](#troubleshooting)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
