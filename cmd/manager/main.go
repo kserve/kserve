@@ -59,14 +59,14 @@ func main() {
 	// Setup Scheme for all resources
 	log.Info("Setting up scheme")
 	if err := apis.AddToScheme(mgr.GetScheme()); err != nil {
-		log.Error(err, "unable add APIs to scheme")
+		log.Error(err, "unable to add APIs to scheme")
 		os.Exit(1)
 	}
 
 	// Setup Scheme for all resources
 	log.Info("Setting up Knative scheme")
 	if err := knservingv1alpha1.AddToScheme(mgr.GetScheme()); err != nil {
-		log.Error(err, "unable add Knative APIs to scheme")
+		log.Error(err, "unable to add Knative APIs to scheme")
 		os.Exit(1)
 	}
 
