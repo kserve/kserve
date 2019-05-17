@@ -4,7 +4,7 @@ from sklearnserver import SKLearnModel
 import joblib
 import os
 
-model_dir = "/path/to/kfserving/docs/samples/sklearn"
+model_dir = "../../docs/samples/sklearn"
 JOBLIB_FILE = "model.joblib"
 
 def test_model():
