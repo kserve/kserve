@@ -1,0 +1,8 @@
+steps:
+- name: 'gcr.io/cloud-builders/go'
+  args: ['install', './cmd/manager']
+  env: 
+    - 'PROJECT_ROOT=github.com/kubeflow/kfserving'
+- name: 'gcr.io/cloud-builders/docker'
+  args: ['build', '-t', 'gcr.io/kfserving/kfserving-controller-${_VERSION}', '.']
+images: ['gcr.io/kfserving/kfserving-controller-${_VERSION}']
