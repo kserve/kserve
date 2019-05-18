@@ -18,7 +18,6 @@ package gcs
 
 import (
 	"github.com/google/go-cmp/cmp"
-	"github.com/kubeflow/kfserving/pkg/constants"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"testing"
@@ -34,18 +33,18 @@ func TestGcsSecret(t *testing.T) {
 			secret: &v1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "user-gcp-sa",
-					Annotations: map[string]string{
-						constants.KFServiceGCSSecretAnnotation: "",
-					},
+				},
+				Data: map[string][]byte{
+					GCSCredentialFileName: {},
 				},
 			},
 			expectedVolumeMount: v1.VolumeMount{
-				Name:      constants.GCSCredentialVolumeName,
+				Name:      GCSCredentialVolumeName,
 				ReadOnly:  true,
-				MountPath: constants.GCSCredentialVolumeMountPath,
+				MountPath: GCSCredentialVolumeMountPath,
 			},
 			expectedVolume: v1.Volume{
-				Name: constants.GCSCredentialVolumeName,
+				Name: GCSCredentialVolumeName,
 				VolumeSource: v1.VolumeSource{
 					Secret: &v1.SecretVolumeSource{
 						SecretName: "user-gcp-sa",

@@ -19,7 +19,6 @@ package service
 import (
 	"context"
 	"github.com/kubeflow/kfserving/pkg/constants"
-	"github.com/kubeflow/kfserving/pkg/reconciler/credentials"
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/kubeflow/kfserving/pkg/reconciler/ksvc"
@@ -134,7 +133,7 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 		return reconcile.Result{}, err
 	}
 
-	credentialReconciler := credentials.NewCredentialReconciler(r.Client)
+	credentialBuilder := ksvc.NewCredentialBulder(r.Client)
 
 	serviceReconciler := ksvc.NewServiceReconciler(r.Client)
 	// Reconcile configurations
@@ -146,9 +145,9 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 		return reconcile.Result{}, err
 	}
 
-	if err := credentialReconciler.ReconcileServiceAccount(context.TODO(), request.Namespace, kfsvc.Spec.Default.ServiceAccountName,
+	if err := credentialBuilder.CreateSecretVolumeAndEnv(context.TODO(), request.Namespace, kfsvc.Spec.Default.ServiceAccountName,
 		desiredDefault); err != nil {
-		log.Error(err, "Failed to reconcile credentials", "name", kfsvc.Spec.Default.ServiceAccountName)
+		log.Error(err, "Failed to create credential volume or envs", "ServiceAccount", kfsvc.Spec.Default.ServiceAccountName)
 	}
 
 	defaultConfiguration, err := serviceReconciler.ReconcileConfiguration(context.TODO(), desiredDefault)
@@ -167,9 +166,9 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 			return reconcile.Result{}, err
 		}
 
-		if err := credentialReconciler.ReconcileServiceAccount(context.TODO(), request.Namespace, kfsvc.Spec.Canary.ServiceAccountName,
+		if err := credentialBuilder.CreateSecretVolumeAndEnv(context.TODO(), request.Namespace, kfsvc.Spec.Canary.ServiceAccountName,
 			desiredCanary); err != nil {
-			log.Error(err, "Failed to reconcile credentials", "name", kfsvc.Spec.Canary.ServiceAccountName)
+			log.Error(err, "Failed to create credential volume or envs", "ServiceAccount", kfsvc.Spec.Canary.ServiceAccountName)
 		}
 
 		canaryConfiguration, err := serviceReconciler.ReconcileConfiguration(context.TODO(), desiredCanary)

@@ -23,7 +23,6 @@ var (
 	KFServiceS3SecretRegionAnnotation   = KFServingAPIGroupName + "/" + "s3-region"
 	KFServiceS3SecretSSLAnnotation      = KFServingAPIGroupName + "/" + "s3-verifyssl"
 	KFServiceS3SecretHttpsAnnotation    = KFServingAPIGroupName + "/" + "s3-usehttps"
-	KFServiceGCSSecretAnnotation        = KFServingAPIGroupName + "/" + "gcs"
 )
 
 // Controller Constants
@@ -31,13 +30,6 @@ var (
 	ControllerLabelName        = KFServingName + "-controller-manager"
 	DefaultTimeout       int64 = 300
 	DefaultScalingTarget       = "1"
-)
-
-// Credential Constants
-const (
-	GCSCredentialVolumeName      = "user-gcp-sa"
-	GCSCredentialVolumeMountPath = "/var/secrets/user-gcp-sa.json"
-	GCSCredentialEnvKey          = "GOOGLE_APPLICATION_CREDENTIALS"
 )
 
 // Webhook Constants
