@@ -14,6 +14,7 @@
     - [Deploy KFServing with your own version](#deploy-kfserving-with-your-own-version)
     - [Smoke test after deployment](#smoke-test-after-deployment)
   - [Iterating](#iterating)
+  - [Troubleshooting](#troubleshooting)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
@@ -147,7 +148,7 @@ kfserving-controller-manager-0   2/2     Running   0          13m
 make deploy-dev
 ```
 - **Note**: `deploy-dev` builds the image from your local code, publishes to `KO_DOCKER_REPO`
-and deploys the `kfserving-controller-manager` with the image digest to your cluster for testing.
+and deploys the `kfserving-controller-manager` with the image digest to your cluster for testing. Please also ensure you are logged in to `KO_DOCKER_REPO` from your client machine.
 
 
 ### Smoke test after deployment
@@ -191,3 +192,30 @@ controller is simply:
 ```shell
 make deploy-dev
 ```
+
+## Troubleshooting
+
+1. When you run make deploy, you may encounter an error like this:
+
+```shell
+error: error validating "STDIN": error validating data: ValidationError(CustomResourceDefinition.spec.validation.openAPIV3Schema.properties.status.properties.conditions.properties.conditions.items): invalid type for io.k8s.apiextensions-apiserver.pkg.apis.apiextensions.v1beta1.JSONSchemaPropsOrArray: got "map", expected ""; if you choose to ignore these errors, turn validation off with --validate=false
+make: *** [deploy] Error 1
+```
+
+To fix it, please ensure you have a matching version of kubectl client as the master. If not, please update accordingly.
+
+```shell
+kubectl version
+Client Version: version.Info{Major:"1", Minor:"13", GitVersion:"v1.13.6", GitCommit:"abdda3f9fefa29172298a2e42f5102e777a8ec25", GitTreeState:"clean", BuildDate:"2019-05-08T13:53:53Z", GoVersion:"go1.11.5", Compiler:"gc", Platform:"darwin/amd64"}
+Server Version: version.Info{Major:"1", Minor:"13", GitVersion:"v1.13.6+IKS", GitCommit:"ac5f7341d5d0ce8ea8f206ba5b030dc9e9d4cc97", GitTreeState:"clean", BuildDate:"2019-05-09T13:26:51Z", GoVersion:"go1.11.5", Compiler:"gc", Platform:"linux/amd64"}
+```
+
+2. When you run make deploy-dev, you may see an error like the one below:
+
+```shell
+2019/05/17 15:13:54 error processing import paths in "config/default/manager/manager.yaml": unsupported status code 401; body: 
+kustomize build config/overlays/development | kubectl apply -f -
+Error: reading strategic merge patches [manager_image_patch.yaml]: evalsymlink failure on '/Users/animeshsingh/go/src/github.com/kubeflow/kfserving/config/overlays/development/manager_image_patch.yaml' : lstat /Users/animeshsingh/go/src/github.com/kubeflow/kfserving/config/overlays/development/manager_image_patch.yaml: no such file or directory
+```
+
+It`s a red herring. To resolve it, please ensure you have logged into dockerhub from you client machine.
