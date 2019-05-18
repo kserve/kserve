@@ -17,13 +17,19 @@ limitations under the License.
 package gcs
 
 import (
-	"github.com/kubeflow/kfserving/pkg/constants"
 	"k8s.io/api/core/v1"
+)
+
+const (
+	GCSCredentialFileName        = "gcloud-application-credentials.json"
+	GCSCredentialVolumeName      = "user-gcp-sa"
+	GCSCredentialVolumeMountPath = "/var/secrets/gcloud-application-credentials.json"
+	GCSCredentialEnvKey          = "GOOGLE_APPLICATION_CREDENTIALS"
 )
 
 func BuildSecretVolume(secret *v1.Secret) (v1.Volume, v1.VolumeMount) {
 	volume := v1.Volume{
-		Name: constants.GCSCredentialVolumeName,
+		Name: GCSCredentialVolumeName,
 		VolumeSource: v1.VolumeSource{
 			Secret: &v1.SecretVolumeSource{
 				SecretName: secret.Name,
@@ -31,8 +37,8 @@ func BuildSecretVolume(secret *v1.Secret) (v1.Volume, v1.VolumeMount) {
 		},
 	}
 	volumeMount := v1.VolumeMount{
-		MountPath: constants.GCSCredentialVolumeMountPath,
-		Name:      constants.GCSCredentialVolumeName,
+		MountPath: GCSCredentialVolumeMountPath,
+		Name:      GCSCredentialVolumeName,
 		ReadOnly:  true,
 	}
 	return volume, volumeMount

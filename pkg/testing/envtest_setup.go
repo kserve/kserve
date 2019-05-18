@@ -29,7 +29,7 @@ var log = logf.Log.WithName("TestingEnvSetup")
 
 func SetupEnvTest() *envtest.Environment {
 	t := &envtest.Environment{
-		CRDDirectoryPaths: []string{filepath.Join("..", "..", "..", "config", "crds"),
+		CRDDirectoryPaths: []string{filepath.Join("..", "..", "..", "config", "default", "crds"),
 			filepath.Join("..", "..", "..", "test", "crds")},
 	}
 

@@ -33,6 +33,13 @@ const (
 	S3VerifySSL            = "S3_VERIFY_SSL"
 )
 
+var (
+	KFServiceS3SecretEndpointAnnotation = constants.KFServingAPIGroupName + "/" + "s3-endpoint"
+	KFServiceS3SecretRegionAnnotation   = constants.KFServingAPIGroupName + "/" + "s3-region"
+	KFServiceS3SecretSSLAnnotation      = constants.KFServingAPIGroupName + "/" + "s3-verifyssl"
+	KFServiceS3SecretHttpsAnnotation    = constants.KFServingAPIGroupName + "/" + "s3-usehttps"
+)
+
 func BuildSecretEnvs(secret *v1.Secret) []v1.EnvVar {
 	envs := []v1.EnvVar{
 		{
@@ -59,11 +66,11 @@ func BuildSecretEnvs(secret *v1.Secret) []v1.EnvVar {
 		},
 	}
 
-	if s3Endpoint, ok := secret.Annotations[constants.KFServiceS3SecretEndpointAnnotation]; ok {
+	if s3Endpoint, ok := secret.Annotations[KFServiceS3SecretEndpointAnnotation]; ok {
 		s3EndpointUrl := "https://" + s3Endpoint
-		if s3UseHttps, ok := secret.Annotations[constants.KFServiceS3SecretHttpsAnnotation]; ok {
+		if s3UseHttps, ok := secret.Annotations[KFServiceS3SecretHttpsAnnotation]; ok {
 			if s3UseHttps == "0" {
-				s3EndpointUrl = "http://" + secret.Annotations[constants.KFServiceS3SecretEndpointAnnotation]
+				s3EndpointUrl = "http://" + secret.Annotations[KFServiceS3SecretEndpointAnnotation]
 			}
 			envs = append(envs, v1.EnvVar{
 				Name:  S3UseHttps,
@@ -80,14 +87,14 @@ func BuildSecretEnvs(secret *v1.Secret) []v1.EnvVar {
 		})
 	}
 
-	if s3Region, ok := secret.Annotations[constants.KFServiceS3SecretRegionAnnotation]; ok {
+	if s3Region, ok := secret.Annotations[KFServiceS3SecretRegionAnnotation]; ok {
 		envs = append(envs, v1.EnvVar{
 			Name:  AWSRegion,
 			Value: s3Region,
 		})
 	}
 
-	if val, ok := secret.Annotations[constants.KFServiceS3SecretSSLAnnotation]; ok {
+	if val, ok := secret.Annotations[KFServiceS3SecretSSLAnnotation]; ok {
 		envs = append(envs, v1.EnvVar{
 			Name:  S3VerifySSL,
 			Value: val,

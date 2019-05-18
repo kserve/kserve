@@ -18,7 +18,6 @@ package s3
 
 import (
 	"github.com/google/go-cmp/cmp"
-	"github.com/kubeflow/kfserving/pkg/constants"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"testing"
@@ -34,7 +33,7 @@ func TestS3Secret(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "s3-secret",
 					Annotations: map[string]string{
-						constants.KFServiceS3SecretEndpointAnnotation: "s3.aws.com",
+						KFServiceS3SecretEndpointAnnotation: "s3.aws.com",
 					},
 				},
 			},
@@ -77,9 +76,9 @@ func TestS3Secret(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "s3-secret",
 					Annotations: map[string]string{
-						constants.KFServiceS3SecretEndpointAnnotation: "s3.aws.com",
-						constants.KFServiceS3SecretHttpsAnnotation:    "0",
-						constants.KFServiceS3SecretSSLAnnotation:      "0",
+						KFServiceS3SecretEndpointAnnotation: "s3.aws.com",
+						KFServiceS3SecretHttpsAnnotation:    "0",
+						KFServiceS3SecretSSLAnnotation:      "0",
 					},
 				},
 			},
