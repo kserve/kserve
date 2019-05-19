@@ -29,7 +29,8 @@ spec:
         spec:
           properties:
             canary:
-              description: Optional Canary definition
+              description: Canary defines an alternate configuration to route a percentage
+                of traffic.
               properties:
                 custom:
                   description: The following fields follow a "1-of" semantic. Users
@@ -72,9 +73,6 @@ spec:
                   required:
                   - modelUri
                   type: object
-                trafficPercent:
-                  format: int64
-                  type: integer
                 xgBoost:
                   properties:
                     modelUri:
@@ -88,9 +86,10 @@ spec:
                   required:
                   - modelUri
                   type: object
-              required:
-              - trafficPercent
               type: object
+            canaryTrafficPercent:
+              format: int64
+              type: integer
             default:
               properties:
                 custom:
@@ -150,6 +149,7 @@ spec:
               type: object
           required:
           - default
+          - canaryTrafficPercent
           type: object
         status:
           properties:
