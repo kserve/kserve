@@ -6,10 +6,25 @@ metadata:
     controller-tools.k8s.io: "1.0"
   name: kfservices.serving.kubeflow.org
 spec:
+  additionalPrinterColumns:
+  - JSONPath: .status.uri.external
+    name: uri
+    type: string
+  - JSONPath: .status.conditions[?(@.type==\"READY\")].status
+    name: status
+    type: string
+  - JSONPath: .status.default.traffic
+    name: defaulttraffic
+    type: integer
+  - JSONPath: .status.canary.traffic
+    name: canarytraffic
+    type: integer
   group: serving.kubeflow.org
   names:
     kind: KFService
     plural: kfservices
+    shortNames:
+    - kfservice
   scope: Namespaced
   validation:
     openAPIV3Schema:

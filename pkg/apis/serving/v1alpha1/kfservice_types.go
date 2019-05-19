@@ -148,6 +148,11 @@ const (
 
 // KFService is the Schema for the services API
 // +k8s:openapi-gen=true
+// +kubebuilder:printcolumn:name="uri",type="string",JSONPath=".status.uri.external"
+// +kubebuilder:printcolumn:name="status",type="string",JSONPath=".status.conditions[?(@.type==\"READY\")].status"
+// +kubebuilder:printcolumn:name="defaulttraffic",type="integer",JSONPath=".status.default.traffic"
+// +kubebuilder:printcolumn:name="canarytraffic",type="integer",JSONPath=".status.canary.traffic"
+// +kubebuilder:resource:path=kfservices,shortName=kfservice
 type KFService struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
