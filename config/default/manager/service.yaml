@@ -4,6 +4,7 @@ metadata:
   labels:
     control-plane: kfserving-controller-manager
     controller-tools.k8s.io: "1.0"
+    istio-injection: disabled
   name: system
 ---
 apiVersion: v1
