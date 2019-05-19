@@ -40,28 +40,26 @@ func TestRejectModelSpecMissing(t *testing.T) {
 func TestRejectMultipleCanaryModelSpecs(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	kfsvc := TFExampleKFService.DeepCopy()
-	kfsvc.Spec.Canary = &CanarySpec{ModelSpec: ModelSpec{
+	kfsvc.Spec.Canary = &ModelSpec{
 		Custom:     &CustomSpec{Container: v1.Container{}},
 		Tensorflow: kfsvc.Spec.Default.Tensorflow,
-	}}
+	}
 	g.Expect(kfsvc.ValidateCreate()).Should(gomega.MatchError(ExactlyOneModelSpecViolatedError))
 }
 
 func TestRejectCanaryModelSpecMissing(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	kfsvc := TFExampleKFService.DeepCopy()
-	kfsvc.Spec.Canary = &CanarySpec{ModelSpec: ModelSpec{}}
+	kfsvc.Spec.Canary = &ModelSpec{}
 	g.Expect(kfsvc.ValidateCreate()).Should(gomega.MatchError(AtLeastOneModelSpecViolatedError))
 }
 func TestRejectBadCanaryTrafficValues(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	kfsvc := TFExampleKFService.DeepCopy()
-	kfsvc.Spec.Canary = &CanarySpec{
-		TrafficPercent: -1,
-		ModelSpec:      kfsvc.Spec.Default,
-	}
+	kfsvc.Spec.Canary = &kfsvc.Spec.Default
+	kfsvc.Spec.CanaryTrafficPercent = -1
 	g.Expect(kfsvc.ValidateCreate()).Should(gomega.MatchError(TrafficBoundsExceededError))
-	kfsvc.Spec.Canary.TrafficPercent = 101
+	kfsvc.Spec.CanaryTrafficPercent = 101
 	g.Expect(kfsvc.ValidateCreate()).Should(gomega.MatchError(TrafficBoundsExceededError))
 }
 

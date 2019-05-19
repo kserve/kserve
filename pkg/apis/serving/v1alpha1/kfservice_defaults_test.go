@@ -27,7 +27,7 @@ import (
 func TestTensorflowDefaults(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	kfsvc := TFExampleKFService.DeepCopy()
-	kfsvc.Spec.Canary = &CanarySpec{ModelSpec: *kfsvc.Spec.Default.DeepCopy()}
+	kfsvc.Spec.Canary = kfsvc.Spec.Default.DeepCopy()
 	kfsvc.Spec.Canary.Tensorflow.RuntimeVersion = "1.11"
 	kfsvc.Spec.Canary.Tensorflow.Resources.Requests = v1.ResourceList{v1.ResourceMemory: resource.MustParse("3Gi")}
 	kfsvc.Default()

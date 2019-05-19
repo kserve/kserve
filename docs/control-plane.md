@@ -31,7 +31,7 @@ The Spec section of the resource definition encapsulates the desired state of th
 | ----------- | ----------- | ----------- |
 | spec.default               | [ModelSpec](#ModelSpec) | The default traffic route serving a ModelSpec. |
 | spec.canary                | [ModelSpec](#ModelSpec) | An optional traffic route serving a percent of traffic. |
-| spec.canary.trafficPercent | Integer                 | The amount of traffic to sent to the canary, defaults to 0. |
+| spec.canaryTrafficPercent  | Integer                 | The amount of traffic to sent to the canary, defaults to 0. |
 
 ### Status
 The Status section of the resource definition provides critical feedback to the user about the current state of the resource. A typical user workflow would include modifying the Spec and then monitoring the Status until it reflects the desired changes. Any dynamic information such as replica scale or error conditions will appear in the spec.
@@ -50,13 +50,13 @@ KFService offers a few high level specifications for common ML technologies. The
 ### ModelSpec
 | Field       | Value       | Description |
 | ----------- | ----------- | ----------- |
-| spec.[default,canary].tensorflow  | [Tensorflow](#Tensorflow)   | A high level specification for Tensorflow models. |
-| spec.[default,canary].xgboost     | [XGBoost](#XGBoost)         | A high level specification for XGBoost models. |
-| spec.[default,canary].scikitlearn | [ScikitLearn](#ScikitLearn) | A high level specification for ScikitLearn models. |
-| spec.[default,canary].pytorch     | [Pytorch](#Pytorch)         | A high level specification for Pytorch models. |
-| spec.[default,canary].custom      | [Custom](#Custom)           | A flexible custom specification for arbitrary customer provided containers. |
-| spec.[default,canary].minReplicas | Integer                     | An optional integer specifying the minimum scale of the default/canary model definition. |
-| spec.[default,canary].maxReplicas | Integer                     | An optional integer specifying the maximum scale of the default/canary model definition. |
+| tensorflow  | [Tensorflow](#Tensorflow)   | A high level specification for Tensorflow models. |
+| xgboost     | [XGBoost](#XGBoost)         | A high level specification for XGBoost models. |
+| scikitlearn | [ScikitLearn](#ScikitLearn) | A high level specification for ScikitLearn models. |
+| pytorch     | [Pytorch](#Pytorch)         | A high level specification for Pytorch models. |
+| custom      | [Custom](#Custom)           | A flexible custom specification for arbitrary customer provided containers. |
+| minReplicas | Integer                     | An optional integer specifying the minimum scale of the default/canary model definition. |
+| maxReplicas | Integer                     | An optional integer specifying the maximum scale of the default/canary model definition. |
 
 ### Rollouts
 The traffic management rules are specifically targetting Rollout use cases. A/B Testing, Multi-Armed-Bandit, and Ensemble Inferencing should not be implemented using KFService's default/canary mechanism. More complex controllers for these features should be purpose built and operate at a higher level than a KFService, perhaps even implemented using multiple KFServices or a KFGraph. This decoupling is critical to enable features like canarying a change to a Multi-Armed-Bandit inferencing graph.
@@ -69,7 +69,7 @@ For more cautious and manual workflows, users may follow the Pinned Release patt
 
 * Start with a KFService that has a "stable" or "golden" default definition.
 * Modify the KFService to set the new ModelSpec under the `canary`.
-* Set trafficPercent to 0
+* Set canaryTrafficPercent to 0
 * Observe the KFService until the new revision progresses
     * Note: traffic is still sent to "default"
 * Execute any inspection or testing against `canary`
@@ -82,12 +82,12 @@ For the most advanced deployments, users may follow the Canary Rollout Pattern. 
 
 * Start with a KFService that has a "stable" or "golden" default definition.
 * Modify the KFService to set the new ModelSpec under the `canary`.
-* Set trafficPercent to some integer value (e.g. 10)
+* Set canaryTrafficPercent to some integer value (e.g. 10)
 * Observe the KFService until the new revision progresses
-    * `trafficPercent` is sent to `canary`
-    * `100 - trafficPercent` is sent to `default`
-* Continue incrementing trafficPercent in accordance with your desired canarying strategy
-* Once complete, change the key `canary` to `default` and delete the original `default` section and `trafficPercent`.
+    * `canaryTrafficPercent` is sent to `canary`
+    * `100 - canaryTrafficPercent` is sent to `default`
+* Continue incrementing canaryTrafficPercent in accordance with your desired canarying strategy
+* Once complete, change the key `canary` to `default` and delete the original `default` section and `canaryTrafficPercent`.
 * The underlying resource will swap traffic which can be observed in `status`
 
 #### Rollback
