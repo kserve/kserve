@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	XGBoostEntrypointCommand = ""
+	XGBoostEntrypointCommand = "python"
 	XGBoostServingGRPCPort   = "9000"
 	XGBoostServingRestPort   = "8080"
 	XGBoostServingImageName  = "animeshsingh/xgboostserver"
@@ -33,10 +33,13 @@ func (x *XGBoostSpec) CreateModelServingContainer(modelName string) *v1.Containe
 		Command:   []string{XGBoostEntrypointCommand},
 		Resources: x.Resources,
 		Args: []string{
-			"--port=" + XGBoostServingGRPCPort,
-			"--rest_api_port=" + XGBoostServingRestPort,
+			//          TODO: Allow setting rest and grpc ports @nimeshsingh
+			//			"--port=" + XGBoostServingGRPCPort,
+			//			"--rest_api_port=" + XGBoostServingRestPort,
+			"-m",
+			"xgbserver",
 			"--model_name=" + modelName,
-			"--model_base_path=" + x.ModelURI,
+			"--model_dir=" + x.ModelURI,
 		},
 	}
 }

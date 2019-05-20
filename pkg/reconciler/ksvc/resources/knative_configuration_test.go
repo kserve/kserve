@@ -17,8 +17,9 @@ limitations under the License.
 package resources
 
 import (
-	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"testing"
+
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 
 	"github.com/google/go-cmp/cmp"
 	knservingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -169,9 +170,9 @@ func TestKnativeConfiguration(t *testing.T) {
 				},
 				Spec: v1alpha1.KFServiceSpec{
 					Default: v1alpha1.ModelSpec{
-						ScikitLearn: &v1alpha1.ScikitLearnSpec{
+						SKLearn: &v1alpha1.SKLearnSpec{
 							ModelURI:       "s3://test/scikit/export",
-							RuntimeVersion: "1.0",
+							RuntimeVersion: "",
 						},
 					},
 				},
