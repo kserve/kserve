@@ -33,9 +33,9 @@ func (s *SKLearnSpec) CreateModelServingContainer(modelName string) *v1.Containe
 		Command:   []string{SKLearnEntrypointCommand},
 		Resources: s.Resources,
 		Args: []string{
-			//          TODO: Allow setting rest and grpc ports @nimeshsingh
-			//			"--port=" + SKLearnServingGRPCPort,
-			//			"--rest_api_port=" + SKLearnServingRestPort,
+			// TODO: Allow setting rest and grpc ports @animeshsingh
+			// "--port=" + SKLearnServingGRPCPort,
+			// "--rest_api_port=" + SKLearnServingRestPort,
 			"-m",
 			"sklearnserver",
 			"--model_name=" + modelName,
