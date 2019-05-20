@@ -8,8 +8,8 @@ metadata:
   labels:
     control-plane: controller-manager
     controller-tools.k8s.io: "1.0"
-  name: controller-manager-metrics-service
-  namespace: system
+  name: kfserving-controller-manager-metrics-service
+  namespace: kfserving-system
 spec:
   ports:
   - name: https

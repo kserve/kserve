@@ -1,13 +1,6 @@
 # Adds namespace to all resources.
 namespace: kfserving-system
 
-# Value of this field is prepended to the
-# names of all resources, e.g. a deployment named
-# "wordpress" becomes "alices-wordpress".
-# Note that it should also match with the prefix (text before '-') of the namespace
-# field above.
-namePrefix: kfserving-
-
 # Labels to add to all resources and selectors.
 #commonLabels:
 #  someName: someValue
@@ -42,10 +35,3 @@ patches:
   # Only one of manager_auth_proxy_patch.yaml and
   # manager_prometheus_metrics_patch.yaml should be enabled.
 #- manager_prometheus_metrics_patch.yaml
-
-vars:
-- name: WEBHOOK_SECRET_NAME
-  objref:
-    kind: Secret
-    name: webhook-server-secret
-    apiVersion: v1

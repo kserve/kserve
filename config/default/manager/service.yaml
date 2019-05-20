@@ -5,13 +5,13 @@ metadata:
     control-plane: kfserving-controller-manager
     controller-tools.k8s.io: "1.0"
     istio-injection: disabled
-  name: system
+  name: kfserving-system
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: controller-manager-service
-  namespace: system
+  name: kfserving-controller-manager-service
+  namespace: kfserving-system
   labels:
     control-plane: kfserving-controller-manager
     controller-tools.k8s.io: "1.0"
