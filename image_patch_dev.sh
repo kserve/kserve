@@ -5,7 +5,7 @@ cat > config/overlays/development/manager_image_patch.yaml << EOF
 apiVersion: apps/v1
 kind: StatefulSet 
 metadata:
-  name: controller-manager
+  name: kfserving-controller-manager
 spec:
   template:
     spec:
