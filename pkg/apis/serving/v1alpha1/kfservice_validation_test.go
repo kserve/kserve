@@ -63,6 +63,13 @@ func TestRejectBadCanaryTrafficValues(t *testing.T) {
 	g.Expect(kfsvc.ValidateCreate()).Should(gomega.MatchError(TrafficBoundsExceededError))
 }
 
+func TestRejectTrafficProvidedWithoutCanary(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	kfsvc := TFExampleKFService.DeepCopy()
+	kfsvc.Spec.CanaryTrafficPercent = 1
+	g.Expect(kfsvc.ValidateCreate()).Should(gomega.MatchError(TrafficProvidedWithoutCanaryError))
+}
+
 func TestBadReplicaValues(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	kfsvc := TFExampleKFService.DeepCopy()

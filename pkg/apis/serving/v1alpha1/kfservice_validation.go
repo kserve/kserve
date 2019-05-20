@@ -24,15 +24,13 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
+// Known error messages
 const (
-	// MinReplicasShouldBeLessThanMaxError is an known error message
 	MinReplicasShouldBeLessThanMaxError = "MinReplicas cannot be greater than MaxReplicas"
-	// MinReplicasLowerBoundExceededError is an known error message
-	MinReplicasLowerBoundExceededError = "MinReplicas cannot be less than 0"
-	// MaxReplicasLowerBoundExceededError is an known error message
-	MaxReplicasLowerBoundExceededError = "MaxReplicas cannot be less than 0"
-	// TrafficBoundsExceededError is an known error message
-	TrafficBoundsExceededError = "TrafficPercent must be between [0, 100]"
+	MinReplicasLowerBoundExceededError  = "MinReplicas cannot be less than 0"
+	MaxReplicasLowerBoundExceededError  = "MaxReplicas cannot be less than 0"
+	TrafficBoundsExceededError          = "TrafficPercent must be between [0, 100]"
+	TrafficProvidedWithoutCanaryError   = "Canary may not be unspecified if CanaryTrafficPercent is provided."
 )
 
 // ValidateCreate implements https://godoc.org/sigs.k8s.io/controller-runtime/pkg/webhook/admission#Validator
@@ -68,7 +66,7 @@ func validateKFService(kfsvc *KFService) error {
 		return err
 	}
 
-	if err := validateCanaryTrafficPercent(kfsvc.Spec.CanaryTrafficPercent); err != nil {
+	if err := validateCanaryTrafficPercent(kfsvc.Spec); err != nil {
 		return err
 	}
 	return nil
@@ -104,8 +102,12 @@ func validateReplicas(minReplicas int, maxReplicas int) error {
 	return nil
 }
 
-func validateCanaryTrafficPercent(percent int) error {
-	if percent < 0 || percent > 100 {
+func validateCanaryTrafficPercent(spec KFServiceSpec) error {
+	if spec.Canary == nil && spec.CanaryTrafficPercent != 0 {
+		return fmt.Errorf(TrafficProvidedWithoutCanaryError)
+	}
+
+	if spec.CanaryTrafficPercent < 0 || spec.CanaryTrafficPercent > 100 {
 		return fmt.Errorf(TrafficBoundsExceededError)
 	}
 	return nil
