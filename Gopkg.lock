@@ -1075,6 +1075,7 @@
     "github.com/google/go-cmp/cmp",
     "github.com/knative/pkg/apis/duck/v1alpha1",
     "github.com/knative/pkg/kmp",
+    "github.com/knative/serving/pkg/apis/autoscaling",
     "github.com/knative/serving/pkg/apis/serving",
     "github.com/knative/serving/pkg/apis/serving/v1alpha1",
     "github.com/knative/serving/pkg/apis/serving/v1beta1",

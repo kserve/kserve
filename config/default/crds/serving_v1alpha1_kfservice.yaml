@@ -31,6 +31,19 @@ spec:
             canary:
               description: Optional Canary definition
               properties:
+                SKLearn:
+                  properties:
+                    modelUri:
+                      type: string
+                    resources:
+                      description: Defaults to requests and limits of 1CPU, 2Gb MEM.
+                      type: object
+                    runtimeVersion:
+                      description: Defaults to latest SKLearn Version.
+                      type: string
+                  required:
+                  - modelUri
+                  type: object
                 custom:
                   description: The following fields follow a "1-of" semantic. Users
                     must specify exactly one spec.
@@ -46,19 +59,6 @@ spec:
                 minReplicas:
                   format: int64
                   type: integer
-                scikitLearn:
-                  properties:
-                    modelUri:
-                      type: string
-                    resources:
-                      description: Defaults to requests and limits of 1CPU, 2Gb MEM.
-                      type: object
-                    runtimeVersion:
-                      description: Defaults to latest ScikitLearn Version.
-                      type: string
-                  required:
-                  - modelUri
-                  type: object
                 tensorflow:
                   properties:
                     modelUri:
@@ -93,6 +93,19 @@ spec:
               type: object
             default:
               properties:
+                SKLearn:
+                  properties:
+                    modelUri:
+                      type: string
+                    resources:
+                      description: Defaults to requests and limits of 1CPU, 2Gb MEM.
+                      type: object
+                    runtimeVersion:
+                      description: Defaults to latest SKLearn Version.
+                      type: string
+                  required:
+                  - modelUri
+                  type: object
                 custom:
                   description: The following fields follow a "1-of" semantic. Users
                     must specify exactly one spec.
@@ -108,19 +121,6 @@ spec:
                 minReplicas:
                   format: int64
                   type: integer
-                scikitLearn:
-                  properties:
-                    modelUri:
-                      type: string
-                    resources:
-                      description: Defaults to requests and limits of 1CPU, 2Gb MEM.
-                      type: object
-                    runtimeVersion:
-                      description: Defaults to latest ScikitLearn Version.
-                      type: string
-                  required:
-                  - modelUri
-                  type: object
                 tensorflow:
                   properties:
                     modelUri:

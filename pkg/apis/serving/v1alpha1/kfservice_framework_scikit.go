@@ -17,17 +17,38 @@ import (
 	v1 "k8s.io/api/core/v1"
 )
 
-func (s *ScikitLearnSpec) CreateModelServingContainer(modelName string) *v1.Container {
-	// TODO: https://github.com/kubeflow/kfserving/issues/58
+const (
+	SKLearnEntrypointCommand = ""
+	SKLearnServingGRPCPort   = "9000"
+	SKLearnServingRestPort   = "8080"
+	SKLearnServingImageName  = "animeshsingh/sklearnserver"
+
+	DefaultSKLearnServingVersion = "latest"
+)
+
+func (s *SKLearnSpec) CreateModelServingContainer(modelName string) *v1.Container {
+	//TODO(@animeshsingh) add configmap for image, default resources, readiness/liveness probe
 	return &v1.Container{
-		Image: "notimplementedyet",
+		Image:     SKLearnServingImageName + ":" + s.RuntimeVersion,
+		Command:   []string{SKLearnEntrypointCommand},
+		Resources: s.Resources,
+		Args: []string{
+			"--port=" + SKLearnServingGRPCPort,
+			"--rest_api_port=" + SKLearnServingRestPort,
+			"--model_name=" + modelName,
+			"--model_base_path=" + s.ModelURI,
+		},
 	}
 }
 
-func (s *ScikitLearnSpec) ApplyDefaults() {
+func (s *SKLearnSpec) ApplyDefaults() {
+	if s.RuntimeVersion == "" {
+		s.RuntimeVersion = DefaultSKLearnServingVersion
+	}
+
 	setResourceRequirementDefaults(&s.Resources)
 }
 
-func (t *ScikitLearnSpec) Validate() error {
+func (s *SKLearnSpec) Validate() error {
 	return nil
 }
