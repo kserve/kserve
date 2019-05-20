@@ -33,3 +33,49 @@ res = requests.post('http://localhost:8080/models/svm:predict', json=formData)
 print(res)
 print(res.text)
 ```
+
+## To test using KFService constructs, please follow the instructions below
+## Create the KFService
+
+Apply the CRD
+```
+kubectl apply -f sklearn.yaml
+```
+
+Expected Output
+```
+$ kfservice.serving.kubeflow.org/sklearn-iris configured
+```
+
+## Run a prediction
+
+```
+MODEL_NAME=sklearn-iris
+INPUT_PATH=@./iris-input.json
+CLUSTER_IP=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+
+curl -v -H "Host: sklearn-iris.default.svc.cluster.local" http://$CLUSTER_IP/models/$MODEL_NAME:predict -d $INPUT_PATH
+```
+Expected Output
+```
+*   Trying 169.63.251.68...
+* TCP_NODELAY set
+* Connected to 169.63.251.68 (169.63.251.68) port 80 (#0)
+> POST /models/sklearn-iris:predict HTTP/1.1
+> Host: sklearn-iris.default.svc.cluster.local
+> User-Agent: curl/7.60.0
+> Accept: */*
+> Content-Length: 76
+> Content-Type: application/x-www-form-urlencoded
+>
+* upload completely sent off: 76 out of 76 bytes
+< HTTP/1.1 200 OK
+< content-length: 23
+< content-type: application/json; charset=UTF-8
+< date: Mon, 20 May 2019 20:49:02 GMT
+< server: istio-envoy
+< x-envoy-upstream-service-time: 1943
+<
+* Connection #0 to host 169.63.251.68 left intact
+{"predictions": [1, 1]}
+```

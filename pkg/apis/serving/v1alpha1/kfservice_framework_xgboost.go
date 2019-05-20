@@ -33,9 +33,9 @@ func (x *XGBoostSpec) CreateModelServingContainer(modelName string) *v1.Containe
 		Command:   []string{XGBoostEntrypointCommand},
 		Resources: x.Resources,
 		Args: []string{
-			//          TODO: Allow setting rest and grpc ports @nimeshsingh
-			//			"--port=" + XGBoostServingGRPCPort,
-			//			"--rest_api_port=" + XGBoostServingRestPort,
+			// TODO: Allow setting rest and grpc ports @animeshsingh
+			// "--port=" + XGBoostServingGRPCPort,
+			// "--rest_api_port=" + XGBoostServingRestPort,
 			"-m",
 			"xgbserver",
 			"--model_name=" + modelName,
