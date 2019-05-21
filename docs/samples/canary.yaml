@@ -7,8 +7,8 @@ spec:
     # 90% of traffic is sent to this model
     tensorflow:
       modelUri: "gs://mybucket/mymodel-2"
+  canaryTrafficPercent: 10
   canary:
     # 10% of traffic is sent to this model
-    trafficPercent: 10
     tensorflow:
       modelUri: "gs://mybucket/mymodel-3"

@@ -18,6 +18,7 @@ package service
 
 import (
 	"context"
+
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -160,7 +161,7 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 
 	if kfsvc.Spec.Canary != nil {
 		desiredCanary := resources.CreateKnativeConfiguration(constants.CanaryConfigurationName(kfsvc.Name),
-			kfsvc.ObjectMeta, &kfsvc.Spec.Canary.ModelSpec)
+			kfsvc.ObjectMeta, kfsvc.Spec.Canary)
 
 		if err := controllerutil.SetControllerReference(kfsvc, desiredCanary, r.scheme); err != nil {
 			return reconcile.Result{}, err

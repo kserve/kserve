@@ -6,8 +6,9 @@ spec:
   default: 
     tensorflow:
       modelUri: "gs://mybucket/mymodel-2"
+  # Defaults to zero, so can also be omitted or explicitly set to zero.
+  canaryTrafficPercent: 0
   canary:
-    # Canary is created but no traffic is directly forwarded
-    trafficPercent: 0
+    # Canary is created but no traffic is directly forwarded.
     tensorflow:
       modelUri: "gs://mybucket/mymodel-3"

@@ -84,15 +84,13 @@ var canary = &servingv1alpha1.KFService{
 				RuntimeVersion: "1.13",
 			},
 		},
-		Canary: &servingv1alpha1.CanarySpec{
-			TrafficPercent: 20,
-			ModelSpec: servingv1alpha1.ModelSpec{
-				MinReplicas: 1,
-				MaxReplicas: 3,
-				Tensorflow: &servingv1alpha1.TensorflowSpec{
-					ModelURI:       "s3://test/mnist-2/export",
-					RuntimeVersion: "1.13",
-				},
+		CanaryTrafficPercent: 20,
+		Canary: &servingv1alpha1.ModelSpec{
+			MinReplicas: 1,
+			MaxReplicas: 3,
+			Tensorflow: &servingv1alpha1.TensorflowSpec{
+				ModelURI:       "s3://test/mnist-2/export",
+				RuntimeVersion: "1.13",
 			},
 		},
 	},
