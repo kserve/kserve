@@ -34,7 +34,13 @@ print(res)
 print(res.text)
 ```
 
-## To test using KFService constructs, please follow the instructions below
+# Predict on a KFService using SKLearn
+
+## Setup
+1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/blob/master/docs/DEVELOPER_GUIDE.md#deploy-kfserving).
+2. Your cluster's Istio Ingress gateway must be network accessible.
+3. Your cluster's Istio Egresss gateway must [allow Google Cloud Storage](https://knative.dev/docs/serving/outbound-network-access/)
+
 ## Create the KFService
 
 Apply the CRD
@@ -46,7 +52,6 @@ Expected Output
 ```
 $ kfservice.serving.kubeflow.org/sklearn-iris configured
 ```
-
 ## Run a prediction
 
 ```
@@ -57,6 +62,7 @@ CLUSTER_IP=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpat
 curl -v -H "Host: sklearn-iris.default.svc.cluster.local" http://$CLUSTER_IP/models/$MODEL_NAME:predict -d $INPUT_PATH
 ```
 Expected Output
+
 ```
 *   Trying 169.63.251.68...
 * TCP_NODELAY set

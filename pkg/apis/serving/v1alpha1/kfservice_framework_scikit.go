@@ -21,7 +21,7 @@ const (
 	SKLearnEntrypointCommand = "python"
 	SKLearnServingGRPCPort   = "9000"
 	SKLearnServingRestPort   = "8080"
-	SKLearnServingImageName  = "animeshsingh/sklearnserver"
+	SKLearnServingImageName  = "tomcli/sklearnserver"
 
 	DefaultSKLearnServingVersion = "latest"
 )

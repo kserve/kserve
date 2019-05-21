@@ -45,8 +45,8 @@ type ModelSpec struct {
 	// The following fields follow a "1-of" semantic. Users must specify exactly one spec.
 	Custom     *CustomSpec     `json:"custom,omitempty"`
 	Tensorflow *TensorflowSpec `json:"tensorflow,omitempty"`
-	XGBoost    *XGBoostSpec    `json:"xgBoost,omitempty"`
-	SKLearn    *SKLearnSpec    `json:"SKLearn,omitempty"`
+	XGBoost    *XGBoostSpec    `json:"xgboost,omitempty"`
+	SKLearn    *SKLearnSpec    `json:"sklearn,omitempty"`
 }
 
 // CanarySpec defines an alternate configuration to route a percentage of traffic.

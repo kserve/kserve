@@ -21,7 +21,7 @@ const (
 	XGBoostEntrypointCommand = "python"
 	XGBoostServingGRPCPort   = "9000"
 	XGBoostServingRestPort   = "8080"
-	XGBoostServingImageName  = "animeshsingh/xgboostserver"
+	XGBoostServingImageName  = "tomcli/xgboostserver"
 
 	DefaultXGBoostServingVersion = "latest"
 )
