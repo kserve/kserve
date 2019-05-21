@@ -198,12 +198,6 @@ func TestKnativeConfiguration(t *testing.T) {
 							Container: &v1.Container{
 								Image:   "animeshsingh/sklearnserver:",
 								Command: []string{"python"},
-								Args: []string{
-									"-m",
-									"sklearnserver",
-									"--model_name=sklearn",
-									"--model_dir=s3://test/sklearn/export",
-								},
 							},
 						},
 					},
