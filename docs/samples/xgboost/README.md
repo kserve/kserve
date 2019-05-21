@@ -16,7 +16,7 @@ xgb_model.save_model("model.bst")
 Then, we can run the XGBoost Server using the generated model and test for prediction. Models can be on local filesystem, S3 compatible object storage or Google Cloud Storage.
 
 ```shell
-python -m xgboostserver --model_dir /path/to/model_dir --model_name xgboost
+python -m xgbserver --model_dir /path/to/model_dir --model_name xgb
 ```
 
 We can also use the inbuilt sklearn support for sample datasets and do some simple predictions
@@ -27,12 +27,12 @@ import requests
 from sklearn.datasets import load_digits
 from xgbserver import XGBoostModel
 digits = load_digits(2)
-y = digits['target']
+y = np.array(digits['target'])
 X = digits['data']
 formData = {
     'instances': X[0].tolist()
 }
-res = requests.post('http://localhost:8080/models/xgboost:predict', json=formData)
+res = requests.post('http://localhost:8080/models/xgb:predict', json=formData)
 print(res)
 print(res.text)
 ```

@@ -26,7 +26,7 @@ class XGBoostModel(kfserving.KFModel):
         try:
             # Use of list as input is deprecated see https://github.com/dmlc/xgboost/pull/3970
             arr = np.array(body)
-            result: np.array = self._booster.predict(arr)
+            result = self._booster.predict(arr)
             return result.tolist()
         except Exception as e:
             raise Exception("Failed to predict %s" % e)

@@ -1,6 +1,6 @@
-## Creating your own model and testing the SKLearn server.
+## Creating your own model and testing the Scikit-Learn server.
 
-To test the ScikitLearn Server, first we need to generate a simple scikit-learn model using Python. 
+To test the [Scikit-Learn](https://scikit-learn.org/stable/) server, first we need to generate a simple scikit-learn model using Python. 
 
 ```python
 from sklearn import svm
@@ -13,7 +13,7 @@ clf.fit(X, y)
 dump(clf, 'model.joblib')
 ```
 
-Then, we can run the Scikit-learn Server using the generated model and test for prediction. Models can be on local filesystem, S3 compatible object storage or Google Cloud Storage.
+Then, we can run the scikit-learn server using the generated model and test for prediction. Models can be on local filesystem, S3 compatible object storage or Google Cloud Storage.
 
 ```shell
 python -m sklearnserver --model_dir model.joblib --model_name svm
