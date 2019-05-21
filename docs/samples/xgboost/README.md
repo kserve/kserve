@@ -4,9 +4,10 @@ To test the XGBoost Server, first we need to generate a simple XGBoost model usi
 
 ```python
 import xgboost as xgb
-from sklearn.datasets import load_digits
+from sklearn.datasets import load_iris
 import os
 from xgbserver import XGBoostModel
+
 model_dir = "."
 BST_FILE = "model.bst"
 
@@ -35,9 +36,8 @@ python -m xgbserver --model_dir /path/to/model_dir --model_name xgb
 We can also use the inbuilt sklearn support for sample datasets and do some simple predictions
 
 ```python
-import xgboost as xgb
+from sklearn.datasets import load_iris
 import requests
-from sklearn.datasets import load_digits
 from xgbserver import XGBoostModel
 
 model_dir = "."
@@ -49,7 +49,7 @@ X = iris['data']
 
 request = [X[0].tolist()]
 formData = {
-    'instances': X[0].tolist()
+    'instances': request
 }
 res = requests.post('http://localhost:8080/models/xgb:predict', json=formData)
 print(res)
@@ -88,5 +88,24 @@ curl -v -H "Host: xgboost-iris.default.svc.cluster.local" http://$CLUSTER_IP/mod
 Expected Output
 
 ```
-
+*   Trying 169.63.251.68...
+* TCP_NODELAY set
+* Connected to 169.63.251.68 (169.63.251.68) port 80 (#0)
+> POST /models/xgboost-iris:predict HTTP/1.1
+> Host: xgboost-iris.default.svc.cluster.local
+> User-Agent: curl/7.60.0
+> Accept: */*
+> Content-Length: 76
+> Content-Type: application/x-www-form-urlencoded
+>
+* upload completely sent off: 76 out of 76 bytes
+< HTTP/1.1 200 OK
+< content-length: 27
+< content-type: application/json; charset=UTF-8
+< date: Tue, 21 May 2019 22:40:09 GMT
+< server: istio-envoy
+< x-envoy-upstream-service-time: 13032
+<
+* Connection #0 to host 169.63.251.68 left intact
+{"predictions": [1.0, 1.0]}
 ```
