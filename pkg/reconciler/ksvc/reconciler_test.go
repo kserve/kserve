@@ -124,7 +124,7 @@ func TestKnativeConfigurationReconcile(t *testing.T) {
 		if scenario.update {
 			g.Expect(c.Create(context.TODO(), existingConfiguration)).NotTo(gomega.HaveOccurred())
 		}
-		configuration, err := serviceReconciler.ReconcileConfiguarion(context.TODO(), scenario.desiredConfiguration)
+		configuration, err := serviceReconciler.ReconcileConfiguration(context.TODO(), scenario.desiredConfiguration)
 		// Validate
 		if scenario.shouldFail && err == nil {
 			t.Errorf("Test %q failed: returned success but expected error", name)

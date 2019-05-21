@@ -17,38 +17,22 @@ limitations under the License.
 package service
 
 import (
-	knservingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	pkgtest "github.com/kubeflow/kfserving/pkg/testing"
+	"github.com/onsi/gomega"
+	"k8s.io/client-go/rest"
 	stdlog "log"
 	"os"
-	"path/filepath"
-	"sync"
-	"testing"
-
-	"github.com/kubeflow/kfserving/pkg/apis"
-
-	"github.com/onsi/gomega"
-	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/rest"
-	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sync"
+	"testing"
 )
 
 var cfg *rest.Config
 
 func TestMain(m *testing.M) {
-	t := &envtest.Environment{
-		CRDDirectoryPaths: []string{filepath.Join("..", "..", "..", "config", "default", "crds"),
-			filepath.Join("..", "..", "..", "test", "crds")},
-	}
-	err := apis.AddToScheme(scheme.Scheme)
-	if err != nil {
-		log.Error(err, "failed to add to scheme")
-	}
-	err = knservingv1alpha1.SchemeBuilder.AddToScheme(scheme.Scheme)
-	if err != nil {
-		log.Error(err, "failed to add knative serving to scheme")
-	}
+	t := pkgtest.SetupEnvTest()
+	var err error
 	if cfg, err = t.Start(); err != nil {
 		stdlog.Fatal(err)
 	}
