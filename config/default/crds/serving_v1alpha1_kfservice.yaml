@@ -8,17 +8,20 @@ metadata:
 spec:
   additionalPrinterColumns:
   - JSONPath: .status.uri.external
-    name: uri
+    name: URI
     type: string
   - JSONPath: .status.conditions[?(@.type==\"READY\")].status
-    name: status
+    name: Status
     type: string
   - JSONPath: .status.default.traffic
-    name: defaulttraffic
+    name: Default Traffic
     type: integer
   - JSONPath: .status.canary.traffic
-    name: canarytraffic
+    name: Canary Traffic
     type: integer
+  - JSONPath: .metadata.creationTimestamp
+    name: Age
+    type: date
   group: serving.kubeflow.org
   names:
     kind: KFService
