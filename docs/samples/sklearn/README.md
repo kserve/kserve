@@ -1,6 +1,6 @@
 ## Creating your own model and testing the SKLearn server.
 
-To test the Scikit-learn Server, first we need to generate a simple scikit-learn model using Python. Sample model is also added in this directory to reuse if needed.
+To test the ScikitLearn Server, first we need to generate a simple scikit-learn model using Python. 
 
 ```python
 from sklearn import svm
@@ -50,7 +50,7 @@ kubectl apply -f sklearn.yaml
 
 Expected Output
 ```
-$ kfservice.serving.kubeflow.org/sklearn-iris configured
+$ kfservice.serving.kubeflow.org/sklearn-iris created
 ```
 ## Run a prediction
 
@@ -61,6 +61,7 @@ CLUSTER_IP=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpat
 
 curl -v -H "Host: sklearn-iris.default.svc.cluster.local" http://$CLUSTER_IP/models/$MODEL_NAME:predict -d $INPUT_PATH
 ```
+
 Expected Output
 
 ```
