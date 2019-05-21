@@ -26,11 +26,11 @@ import (
 
 // Known error messages
 const (
-	MinReplicasShouldBeLessThanMaxError = "MinReplicas cannot be greater than MaxReplicas"
-	MinReplicasLowerBoundExceededError  = "MinReplicas cannot be less than 0"
-	MaxReplicasLowerBoundExceededError  = "MaxReplicas cannot be less than 0"
-	TrafficBoundsExceededError          = "TrafficPercent must be between [0, 100]"
-	TrafficProvidedWithoutCanaryError   = "Canary may not be unspecified if CanaryTrafficPercent is provided."
+	MinReplicasShouldBeLessThanMaxError = "MinReplicas cannot be greater than MaxReplicas."
+	MinReplicasLowerBoundExceededError  = "MinReplicas cannot be less than 0."
+	MaxReplicasLowerBoundExceededError  = "MaxReplicas cannot be less than 0."
+	TrafficBoundsExceededError          = "TrafficPercent must be between [0, 100]."
+	TrafficProvidedWithoutCanaryError   = "Canary must be specified when CanaryTrafficPercent > 0."
 )
 
 // ValidateCreate implements https://godoc.org/sigs.k8s.io/controller-runtime/pkg/webhook/admission#Validator
