@@ -17,12 +17,13 @@ limitations under the License.
 package resources
 
 import (
+	"testing"
+
 	"github.com/google/go-cmp/cmp"
 	knservingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"testing"
 )
 
 func TestKnativeRoute(t *testing.T) {
@@ -76,13 +77,11 @@ func TestKnativeRoute(t *testing.T) {
 							RuntimeVersion: "1.13",
 						},
 					},
-					Canary: &v1alpha1.CanarySpec{
-						TrafficPercent: 20,
-						ModelSpec: v1alpha1.ModelSpec{
-							Tensorflow: &v1alpha1.TensorflowSpec{
-								ModelURI:       "s3://test/mnist-2/export",
-								RuntimeVersion: "1.13",
-							},
+					CanaryTrafficPercent: 20,
+					Canary: &v1alpha1.ModelSpec{
+						Tensorflow: &v1alpha1.TensorflowSpec{
+							ModelURI:       "s3://test/mnist-2/export",
+							RuntimeVersion: "1.13",
 						},
 					},
 				},

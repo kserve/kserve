@@ -28,8 +28,8 @@ func CreateKnativeRoute(kfsvc *v1alpha1.KFService) *knservingv1alpha1.Route {
 	defaultPercent := 100
 	canaryPercent := 0
 	if kfsvc.Spec.Canary != nil {
-		defaultPercent = 100 - kfsvc.Spec.Canary.TrafficPercent
-		canaryPercent = kfsvc.Spec.Canary.TrafficPercent
+		defaultPercent = 100 - kfsvc.Spec.CanaryTrafficPercent
+		canaryPercent = kfsvc.Spec.CanaryTrafficPercent
 	}
 	trafficTargets := []knservingv1alpha1.TrafficTarget{
 		{

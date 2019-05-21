@@ -24,15 +24,13 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
+// Known error messages
 const (
-	// MinReplicasShouldBeLessThanMaxError is an known error message
-	MinReplicasShouldBeLessThanMaxError = "MinReplicas cannot be greater than MaxReplicas"
-	// MinReplicasLowerBoundExceededError is an known error message
-	MinReplicasLowerBoundExceededError = "MinReplicas cannot be less than 0"
-	// MaxReplicasLowerBoundExceededError is an known error message
-	MaxReplicasLowerBoundExceededError = "MaxReplicas cannot be less than 0"
-	// TrafficBoundsExceededError is an known error message
-	TrafficBoundsExceededError = "TrafficPercent must be between [0, 100]"
+	MinReplicasShouldBeLessThanMaxError = "MinReplicas cannot be greater than MaxReplicas."
+	MinReplicasLowerBoundExceededError  = "MinReplicas cannot be less than 0."
+	MaxReplicasLowerBoundExceededError  = "MaxReplicas cannot be less than 0."
+	TrafficBoundsExceededError          = "TrafficPercent must be between [0, 100]."
+	TrafficProvidedWithoutCanaryError   = "Canary must be specified when CanaryTrafficPercent > 0."
 )
 
 // ValidateCreate implements https://godoc.org/sigs.k8s.io/controller-runtime/pkg/webhook/admission#Validator
@@ -60,15 +58,34 @@ func validateKFService(kfsvc *KFService) error {
 	if kfsvc == nil {
 		return fmt.Errorf("Unable to validate, KFService is nil")
 	}
-
-	if err := validateModelSpec(kfsvc.Spec.Default); err != nil {
+	if err := validateModelSpec(&kfsvc.Spec.Default); err != nil {
 		return err
 	}
 
-	if err := validateCanarySpec(kfsvc.Spec.Canary); err != nil {
+	if err := validateModelSpec(kfsvc.Spec.Canary); err != nil {
 		return err
 	}
 
+	if err := validateCanaryTrafficPercent(kfsvc.Spec); err != nil {
+		return err
+	}
+	return nil
+}
+
+func validateModelSpec(spec *ModelSpec) error {
+	if spec == nil {
+		return nil
+	}
+	if err := spec.Validate(); err != nil {
+		return err
+	}
+	if err := validateReplicas(spec.MinReplicas, spec.MaxReplicas); err != nil {
+		return err
+	}
+	container := spec.CreateModelServingContainer("any")
+	if err := knserving.ValidateContainer(*container, sets.String{}); err != nil {
+		return fmt.Errorf("container validation error: %s", err.Error())
+	}
 	return nil
 }
 
@@ -85,30 +102,12 @@ func validateReplicas(minReplicas int, maxReplicas int) error {
 	return nil
 }
 
-func validateModelSpec(spec ModelSpec) error {
-	if err := spec.Validate(); err != nil {
-		return err
-	}
-	if err := validateReplicas(spec.MinReplicas, spec.MaxReplicas); err != nil {
-		return err
-	}
-	container := spec.CreateModelServingContainer("any")
-	if err := knserving.ValidateContainer(*container, sets.String{}); err != nil {
-		return fmt.Errorf("container validation error: %s", err.Error())
-	}
-	return nil
-}
-
-func validateCanarySpec(canarySpec *CanarySpec) error {
-	if canarySpec == nil {
-		return nil
+func validateCanaryTrafficPercent(spec KFServiceSpec) error {
+	if spec.Canary == nil && spec.CanaryTrafficPercent != 0 {
+		return fmt.Errorf(TrafficProvidedWithoutCanaryError)
 	}
 
-	if err := validateModelSpec(canarySpec.ModelSpec); err != nil {
-		return err
-	}
-
-	if canarySpec.TrafficPercent < 0 || canarySpec.TrafficPercent > 100 {
+	if spec.CanaryTrafficPercent < 0 || spec.CanaryTrafficPercent > 100 {
 		return fmt.Errorf(TrafficBoundsExceededError)
 	}
 	return nil
