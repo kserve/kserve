@@ -34,25 +34,24 @@ var TFExampleKFService = &KFService{
 // KFServiceSpec defines the desired state of KFService
 type KFServiceSpec struct {
 	Default ModelSpec `json:"default"`
-	// Optional Canary definition
-	Canary *CanarySpec `json:"canary,omitempty"`
+	// Canary defines an alternate configuration to route a percentage of traffic.
+	Canary               *ModelSpec `json:"canary,omitempty"`
+	CanaryTrafficPercent int        `json:"canaryTrafficPercent,omitempty"`
 }
 
 // ModelSpec defines the default configuration to route traffic.
 type ModelSpec struct {
+	// Service Account Name
+	ServiceAccountName string `json:"serviceAccountName,omitempty"`
+	// Minimum number of replicas, pods won't scale down to 0 in case of no traffic
 	MinReplicas int `json:"minReplicas,omitempty"`
+	// This is the up bound for autoscaler to scale to
 	MaxReplicas int `json:"maxReplicas,omitempty"`
 	// The following fields follow a "1-of" semantic. Users must specify exactly one spec.
 	Custom     *CustomSpec     `json:"custom,omitempty"`
 	Tensorflow *TensorflowSpec `json:"tensorflow,omitempty"`
 	XGBoost    *XGBoostSpec    `json:"xgboost,omitempty"`
 	SKLearn    *SKLearnSpec    `json:"sklearn,omitempty"`
-}
-
-// CanarySpec defines an alternate configuration to route a percentage of traffic.
-type CanarySpec struct {
-	ModelSpec      `json:",inline"`
-	TrafficPercent int `json:"trafficPercent"`
 }
 
 // TensorflowSpec defines arguments for configuring Tensorflow model serving.

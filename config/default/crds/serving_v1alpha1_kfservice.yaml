@@ -29,7 +29,8 @@ spec:
         spec:
           properties:
             canary:
-              description: Optional Canary definition
+              description: Canary defines an alternate configuration to route a percentage
+                of traffic.
               properties:
                 custom:
                   description: The following fields follow a "1-of" semantic. Users
@@ -41,9 +42,12 @@ spec:
                   - container
                   type: object
                 maxReplicas:
+                  description: This is the up bound for autoscaler to scale to
                   format: int64
                   type: integer
                 minReplicas:
+                  description: Minimum number of replicas, pods won't scale down to
+                    0 in case of no traffic
                   format: int64
                   type: integer
                 sklearn:
@@ -59,6 +63,9 @@ spec:
                   required:
                   - modelUri
                   type: object
+                serviceAccountName:
+                  description: Service Account Name
+                  type: string
                 tensorflow:
                   properties:
                     modelUri:
@@ -72,9 +79,6 @@ spec:
                   required:
                   - modelUri
                   type: object
-                trafficPercent:
-                  format: int64
-                  type: integer
                 xgboost:
                   properties:
                     modelUri:
@@ -88,9 +92,10 @@ spec:
                   required:
                   - modelUri
                   type: object
-              required:
-              - trafficPercent
               type: object
+            canaryTrafficPercent:
+              format: int64
+              type: integer
             default:
               properties:
                 custom:
@@ -103,9 +108,12 @@ spec:
                   - container
                   type: object
                 maxReplicas:
+                  description: This is the up bound for autoscaler to scale to
                   format: int64
                   type: integer
                 minReplicas:
+                  description: Minimum number of replicas, pods won't scale down to
+                    0 in case of no traffic
                   format: int64
                   type: integer
                 sklearn:
@@ -121,6 +129,9 @@ spec:
                   required:
                   - modelUri
                   type: object
+                serviceAccountName:
+                  description: Service Account Name
+                  type: string
                 tensorflow:
                   properties:
                     modelUri:

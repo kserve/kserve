@@ -141,15 +141,13 @@ func TestKnativeConfiguration(t *testing.T) {
 							RuntimeVersion: "1.13",
 						},
 					},
-					Canary: &v1alpha1.CanarySpec{
-						TrafficPercent: 20,
-						ModelSpec: v1alpha1.ModelSpec{
-							MinReplicas: 1,
-							MaxReplicas: 3,
-							Tensorflow: &v1alpha1.TensorflowSpec{
-								ModelURI:       "s3://test/mnist-2/export",
-								RuntimeVersion: "1.13",
-							},
+					CanaryTrafficPercent: 20,
+					Canary: &v1alpha1.ModelSpec{
+						MinReplicas: 1,
+						MaxReplicas: 3,
+						Tensorflow: &v1alpha1.TensorflowSpec{
+							ModelURI:       "s3://test/mnist-2/export",
+							RuntimeVersion: "1.13",
 						},
 					},
 				},
@@ -222,7 +220,7 @@ func TestKnativeConfiguration(t *testing.T) {
 
 		if scenario.kfService.Spec.Canary != nil {
 			canaryConfiguration := CreateKnativeConfiguration(constants.CanaryConfigurationName(kfsvc.Name),
-				scenario.kfService.ObjectMeta, &scenario.kfService.Spec.Canary.ModelSpec)
+				scenario.kfService.ObjectMeta, scenario.kfService.Spec.Canary)
 
 			if diff := cmp.Diff(scenario.expectedCanary, canaryConfiguration); diff != "" {
 				t.Errorf("Test %q unexpected canary configuration (-want +got): %v", name, diff)

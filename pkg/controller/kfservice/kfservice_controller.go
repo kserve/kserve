@@ -18,13 +18,13 @@ package service
 
 import (
 	"context"
-	"github.com/kubeflow/kfserving/pkg/constants"
 
+	"github.com/kubeflow/kfserving/pkg/constants"
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/kubeflow/kfserving/pkg/reconciler/ksvc"
 	"github.com/kubeflow/kfserving/pkg/reconciler/ksvc/resources"
-	v1 "k8s.io/api/core/v1"
+	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/client-go/tools/record"
 
@@ -119,6 +119,8 @@ type ReconcileService struct {
 // +kubebuilder:rbac:groups=serving.knative.dev,resources=routes/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=serving.kubeflow.org,resources=kfservices,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=serving.kubeflow.org,resources=kfservices/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=,resources=serviceaccounts,verbs=get;list;watch
+// +kubebuilder:rbac:groups=,resources=secrets,verbs=get;list;watch
 func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	// Fetch the KFService instance
 	kfsvc := &kfservingv1alpha1.KFService{}
@@ -132,8 +134,11 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 		return reconcile.Result{}, err
 	}
 
+	credentialBuilder := ksvc.NewCredentialBulder(r.Client)
+
 	serviceReconciler := ksvc.NewServiceReconciler(r.Client)
 	// Reconcile configurations
+
 	desiredDefault := resources.CreateKnativeConfiguration(constants.DefaultConfigurationName(kfsvc.Name),
 		kfsvc.ObjectMeta, &kfsvc.Spec.Default)
 
@@ -141,7 +146,12 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 		return reconcile.Result{}, err
 	}
 
-	defaultConfiguration, err := serviceReconciler.ReconcileConfiguarion(context.TODO(), desiredDefault)
+	if err := credentialBuilder.CreateSecretVolumeAndEnv(context.TODO(), request.Namespace, kfsvc.Spec.Default.ServiceAccountName,
+		desiredDefault); err != nil {
+		log.Error(err, "Failed to create credential volume or envs", "ServiceAccount", kfsvc.Spec.Default.ServiceAccountName)
+	}
+
+	defaultConfiguration, err := serviceReconciler.ReconcileConfiguration(context.TODO(), desiredDefault)
 	if err != nil {
 		log.Error(err, "Failed to reconcile default model spec", "name", desiredDefault.Name)
 		r.Recorder.Eventf(kfsvc, v1.EventTypeWarning, "InternalError", err.Error())
@@ -151,12 +161,18 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 
 	if kfsvc.Spec.Canary != nil {
 		desiredCanary := resources.CreateKnativeConfiguration(constants.CanaryConfigurationName(kfsvc.Name),
-			kfsvc.ObjectMeta, &kfsvc.Spec.Canary.ModelSpec)
+			kfsvc.ObjectMeta, kfsvc.Spec.Canary)
 
 		if err := controllerutil.SetControllerReference(kfsvc, desiredCanary, r.scheme); err != nil {
 			return reconcile.Result{}, err
 		}
-		canaryConfiguration, err := serviceReconciler.ReconcileConfiguarion(context.TODO(), desiredCanary)
+
+		if err := credentialBuilder.CreateSecretVolumeAndEnv(context.TODO(), request.Namespace, kfsvc.Spec.Canary.ServiceAccountName,
+			desiredCanary); err != nil {
+			log.Error(err, "Failed to create credential volume or envs", "ServiceAccount", kfsvc.Spec.Canary.ServiceAccountName)
+		}
+
+		canaryConfiguration, err := serviceReconciler.ReconcileConfiguration(context.TODO(), desiredCanary)
 		if err != nil {
 			log.Error(err, "Failed to reconcile canary model spec", "name", desiredCanary.Name)
 			r.Recorder.Eventf(kfsvc, v1.EventTypeWarning, "InternalError", err.Error())

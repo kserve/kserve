@@ -1,8 +1,8 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: controller-manager
-  namespace: system
+  name: kfserving-controller-manager
+  namespace: kfserving-system
   labels:
     control-plane: kfserving-controller-manager
     controller-tools.k8s.io: "1.0"
@@ -30,7 +30,7 @@ spec:
               fieldRef:
                 fieldPath: metadata.namespace
           - name: SECRET_NAME
-            value: $(WEBHOOK_SECRET_NAME)
+            value: kfserving-webhook-server-secret
         resources:
           limits:
             cpu: 100m
@@ -51,10 +51,10 @@ spec:
       - name: cert
         secret:
           defaultMode: 420
-          secretName: webhook-server-secret
+          secretName: kfserving-webhook-server-secret
 ---
 apiVersion: v1
 kind: Secret
 metadata:
-  name: webhook-server-secret
-  namespace: system
+  name: kfserving-webhook-server-secret
+  namespace: kfserving-system
