@@ -5,12 +5,25 @@ To test the XGBoost Server, first we need to generate a simple XGBoost model usi
 ```python
 import xgboost as xgb
 from sklearn.datasets import load_digits
+import os
 from xgbserver import XGBoostModel
-digits = load_digits(2)
-y = digits['target']
-X = digits['data']
-xgb_model = xgb.XGBClassifier(random_state=42).fit(X, y)
-xgb_model.save_model("model.bst") 
+model_dir = "."
+BST_FILE = "model.bst"
+
+iris = load_iris()
+y = iris['target']
+X = iris['data']
+dtrain = xgb.DMatrix(X, label=y)
+param = {'max_depth': 6,
+            'eta': 0.1,
+            'silent': 1,
+            'nthread': 4,
+            'num_class': 10,
+            'objective': 'multi:softmax'
+            }
+xgb_model = xgb.train(params=param, dtrain=dtrain)
+model_file = os.path.join((model_dir), BST_FILE)
+xgb_model.save_model(model_file)
 ```
 
 Then, we can run the XGBoost Server using the generated model and test for prediction. Models can be on local filesystem, S3 compatible object storage or Google Cloud Storage.
@@ -26,9 +39,15 @@ import xgboost as xgb
 import requests
 from sklearn.datasets import load_digits
 from xgbserver import XGBoostModel
-digits = load_digits(2)
-y = np.array(digits['target'])
-X = digits['data']
+
+model_dir = "."
+BST_FILE = "model.bst"
+
+iris = load_iris()
+y = iris['target']
+X = iris['data']
+
+request = [X[0].tolist()]
 formData = {
     'instances': X[0].tolist()
 }
