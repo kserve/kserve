@@ -17,14 +17,11 @@ limitations under the License.
 package ksvc
 
 import (
-	knservingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
+	pkgtest "github.com/kubeflow/kfserving/pkg/testing"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"os"
-	"path/filepath"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"testing"
 )
 
@@ -32,21 +29,8 @@ var cfg *rest.Config
 var c client.Client
 
 func TestMain(m *testing.M) {
-	t := &envtest.Environment{
-		CRDDirectoryPaths: []string{filepath.Join("..", "..", "..", "config", "default", "crds"),
-			filepath.Join("..", "..", "..", "test", "crds")},
-	}
-
-	err := v1alpha1.SchemeBuilder.AddToScheme(scheme.Scheme)
-
-	if err != nil {
-		log.Error(err, "Failed to add kfserving scheme")
-	}
-
-	if err = knservingv1alpha1.SchemeBuilder.AddToScheme(scheme.Scheme); err != nil {
-		log.Error(err, "Failed to add knative serving scheme")
-	}
-
+	t := pkgtest.SetupEnvTest()
+	var err error
 	if cfg, err = t.Start(); err != nil {
 		log.Error(err, "Failed to start testing panel")
 	}
