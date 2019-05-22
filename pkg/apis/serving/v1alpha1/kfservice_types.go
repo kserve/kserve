@@ -14,7 +14,8 @@ limitations under the License.
 package v1alpha1
 
 import (
-	v1 "k8s.io/api/core/v1"
+	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
+	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -75,10 +76,10 @@ type CustomSpec struct {
 
 // KFServiceStatus defines the observed state of KFService
 type KFServiceStatus struct {
-	Conditions StatusConditionsSpec    `json:"conditions,omitempty"`
-	URL        string                  `json:"url,omitempty"`
-	Default    StatusConfigurationSpec `json:"default,omitempty"`
-	Canary     StatusConfigurationSpec `json:"canary,omitempty"`
+	duckv1alpha1.Status `json:",inline"`
+	URL                 string                  `json:"url,omitempty"`
+	Default             StatusConfigurationSpec `json:"default,omitempty"`
+	Canary              StatusConfigurationSpec `json:"canary,omitempty"`
 }
 
 // StatusConfigurationSpec describes the state of the configuration receiving traffic.
@@ -94,22 +95,7 @@ type StatusConditionsSpec struct {
 	// +optional
 	// +patchMergeKey=type
 	// +patchStrategy=merge
-	Conditions []Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
-}
-
-// Condition is a generic definition for Status Conditions of the resource.
-type Condition struct {
-	Type   ConditionType      `json:"type"`
-	Status v1.ConditionStatus `json:"status"`
-
-	// Last time the condition was probed.
-	LastProbeTime metav1.Time `json:"lastProbeTime,omitempty" protobuf:"bytes,3,opt,name=lastProbeTime"`
-	// Last time the condition transitioned from one status to another.
-	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty" protobuf:"bytes,4,opt,name=lastTransitionTime"`
-	// Unique, one-word, CamelCase reason for the condition's last transition.
-	Reason string `json:"reason,omitempty"`
-	// Human-readable message indicating details about last transition.
-	Message string `json:"message,omitempty"`
+	Conditions duckv1alpha1.Conditions `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
 }
 
 // ConditionType is the of status conditions.
