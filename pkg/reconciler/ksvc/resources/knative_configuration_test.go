@@ -194,11 +194,8 @@ func TestKnativeConfiguration(t *testing.T) {
 								TimeoutSeconds: &constants.DefaultTimeout,
 							},
 							Container: &v1.Container{
-								Image:   "animeshsingh/sklearnserver:",
-								Command: []string{"python"},
+								Image: "animeshsingh/sklearnserver:",
 								Args: []string{
-									"-m",
-									"sklearnserver",
 									"--model_name=sklearn",
 									"--model_dir=s3://test/sklearn/export",
 								},

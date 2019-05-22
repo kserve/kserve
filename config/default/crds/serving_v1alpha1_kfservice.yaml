@@ -50,6 +50,9 @@ spec:
                     0 in case of no traffic
                   format: int64
                   type: integer
+                serviceAccountName:
+                  description: Service Account Name
+                  type: string
                 sklearn:
                   properties:
                     modelUri:
@@ -63,9 +66,6 @@ spec:
                   required:
                   - modelUri
                   type: object
-                serviceAccountName:
-                  description: Service Account Name
-                  type: string
                 tensorflow:
                   properties:
                     modelUri:
@@ -116,6 +116,9 @@ spec:
                     0 in case of no traffic
                   format: int64
                   type: integer
+                serviceAccountName:
+                  description: Service Account Name
+                  type: string
                 sklearn:
                   properties:
                     modelUri:
@@ -129,9 +132,6 @@ spec:
                   required:
                   - modelUri
                   type: object
-                serviceAccountName:
-                  description: Service Account Name
-                  type: string
                 tensorflow:
                   properties:
                     modelUri:

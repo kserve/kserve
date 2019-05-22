@@ -18,26 +18,19 @@ import (
 )
 
 const (
-	XGBoostEntrypointCommand = "python"
-	XGBoostServingGRPCPort   = "9000"
-	XGBoostServingRestPort   = "8080"
-	XGBoostServingImageName  = "animeshsingh/xgbserver"
+	XGBoostServingGRPCPort  = "9000"
+	XGBoostServingRestPort  = "8080"
+	XGBoostServingImageName = "animeshsingh/xgbserver"
 
 	DefaultXGBoostServingVersion = "latest"
 )
 
 func (x *XGBoostSpec) CreateModelServingContainer(modelName string) *v1.Container {
-	//TODO(@animeshsingh) add configmap for image, default resources, readiness/liveness probe
+	//TODO add configmap for image, default resources, readiness/liveness probe
 	return &v1.Container{
 		Image:     XGBoostServingImageName + ":" + x.RuntimeVersion,
-		Command:   []string{XGBoostEntrypointCommand},
 		Resources: x.Resources,
 		Args: []string{
-			// TODO: Allow setting rest and grpc ports @animeshsingh
-			// "--port=" + XGBoostServingGRPCPort,
-			// "--rest_api_port=" + XGBoostServingRestPort,
-			"-m",
-			"xgbserver",
 			"--model_name=" + modelName,
 			"--model_dir=" + x.ModelURI,
 		},

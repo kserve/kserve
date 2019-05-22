@@ -18,26 +18,19 @@ import (
 )
 
 const (
-	SKLearnEntrypointCommand = "python"
-	SKLearnServingGRPCPort   = "9000"
-	SKLearnServingRestPort   = "8080"
-	SKLearnServingImageName  = "animeshsingh/sklearnserver"
+	SKLearnServingGRPCPort  = "9000"
+	SKLearnServingRestPort  = "8080"
+	SKLearnServingImageName = "animeshsingh/sklearnserver"
 
 	DefaultSKLearnServingVersion = "latest"
 )
 
 func (s *SKLearnSpec) CreateModelServingContainer(modelName string) *v1.Container {
-	//TODO(@animeshsingh) add configmap for image, default resources, readiness/liveness probe
+	//TODO add configmap for image, default resources, readiness/liveness probe
 	return &v1.Container{
 		Image:     SKLearnServingImageName + ":" + s.RuntimeVersion,
-		Command:   []string{SKLearnEntrypointCommand},
 		Resources: s.Resources,
 		Args: []string{
-			// TODO: Allow setting rest and grpc ports @animeshsingh
-			// "--port=" + SKLearnServingGRPCPort,
-			// "--rest_api_port=" + SKLearnServingRestPort,
-			"-m",
-			"sklearnserver",
 			"--model_name=" + modelName,
 			"--model_dir=" + s.ModelURI,
 		},
