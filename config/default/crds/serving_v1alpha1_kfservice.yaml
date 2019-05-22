@@ -50,7 +50,10 @@ spec:
                     0 in case of no traffic
                   format: int64
                   type: integer
-                scikitLearn:
+                serviceAccountName:
+                  description: Service Account Name
+                  type: string
+                sklearn:
                   properties:
                     modelUri:
                       type: string
@@ -58,14 +61,11 @@ spec:
                       description: Defaults to requests and limits of 1CPU, 2Gb MEM.
                       type: object
                     runtimeVersion:
-                      description: Defaults to latest ScikitLearn Version.
+                      description: Defaults to latest SKLearn Version.
                       type: string
                   required:
                   - modelUri
                   type: object
-                serviceAccountName:
-                  description: Service Account Name
-                  type: string
                 tensorflow:
                   properties:
                     modelUri:
@@ -79,7 +79,7 @@ spec:
                   required:
                   - modelUri
                   type: object
-                xgBoost:
+                xgboost:
                   properties:
                     modelUri:
                       type: string
@@ -116,7 +116,10 @@ spec:
                     0 in case of no traffic
                   format: int64
                   type: integer
-                scikitLearn:
+                serviceAccountName:
+                  description: Service Account Name
+                  type: string
+                sklearn:
                   properties:
                     modelUri:
                       type: string
@@ -124,14 +127,11 @@ spec:
                       description: Defaults to requests and limits of 1CPU, 2Gb MEM.
                       type: object
                     runtimeVersion:
-                      description: Defaults to latest ScikitLearn Version.
+                      description: Defaults to latest SKLearn Version.
                       type: string
                   required:
                   - modelUri
                   type: object
-                serviceAccountName:
-                  description: Service Account Name
-                  type: string
                 tensorflow:
                   properties:
                     modelUri:
@@ -145,7 +145,7 @@ spec:
                   required:
                   - modelUri
                   type: object
-                xgBoost:
+                xgboost:
                   properties:
                     modelUri:
                       type: string

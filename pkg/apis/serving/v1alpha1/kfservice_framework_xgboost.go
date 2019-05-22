@@ -18,33 +18,33 @@ import (
 )
 
 const (
-	SKLearnServingGRPCPort  = "9000"
-	SKLearnServingRestPort  = "8080"
-	SKLearnServingImageName = "animeshsingh/sklearnserver"
+	XGBoostServingGRPCPort  = "9000"
+	XGBoostServingRestPort  = "8080"
+	XGBoostServingImageName = "animeshsingh/xgbserver"
 
-	DefaultSKLearnServingVersion = "latest"
+	DefaultXGBoostServingVersion = "latest"
 )
 
-func (s *SKLearnSpec) CreateModelServingContainer(modelName string) *v1.Container {
+func (x *XGBoostSpec) CreateModelServingContainer(modelName string) *v1.Container {
 	//TODO add configmap for image, default resources, readiness/liveness probe
 	return &v1.Container{
-		Image:     SKLearnServingImageName + ":" + s.RuntimeVersion,
-		Resources: s.Resources,
+		Image:     XGBoostServingImageName + ":" + x.RuntimeVersion,
+		Resources: x.Resources,
 		Args: []string{
 			"--model_name=" + modelName,
-			"--model_dir=" + s.ModelURI,
+			"--model_dir=" + x.ModelURI,
 		},
 	}
 }
 
-func (s *SKLearnSpec) ApplyDefaults() {
-	if s.RuntimeVersion == "" {
-		s.RuntimeVersion = DefaultSKLearnServingVersion
+func (x *XGBoostSpec) ApplyDefaults() {
+	if x.RuntimeVersion == "" {
+		x.RuntimeVersion = DefaultXGBoostServingVersion
 	}
 
-	setResourceRequirementDefaults(&s.Resources)
+	setResourceRequirementDefaults(&x.Resources)
 }
 
-func (s *SKLearnSpec) Validate() error {
+func (x *XGBoostSpec) Validate() error {
 	return nil
 }
