@@ -16,6 +16,7 @@ package v1alpha1
 import (
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	knservingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"k8s.io/api/core/v1"
 )
 
 // ConditionType represents a Service condition value
@@ -37,18 +38,68 @@ var serviceCondSet = duckv1alpha1.NewLivingConditionSet(
 	ServiceConditionRoutesReady,
 )
 
+var _ duckv1alpha1.ConditionsAccessor = (*KFServiceStatus)(nil)
+
+func (ss *KFServiceStatus) InitializeConditions() {
+	serviceCondSet.Manage(ss).InitializeConditions()
+}
+
+// IsReady returns if the service is ready to serve the requested configuration.
+func (ss *KFServiceStatus) IsReady() bool {
+	return serviceCondSet.Manage(ss).IsHappy()
+}
+
+// GetCondition returns the condition by name.
+func (ss *KFServiceStatus) GetCondition(t duckv1alpha1.ConditionType) *duckv1alpha1.Condition {
+	return serviceCondSet.Manage(ss).GetCondition(t)
+}
+
+// GetConditions returns the Conditions array. This enables generic handling of
+// conditions by implementing the duckv1alpha1.Conditions interface.
+func (ss *KFServiceStatus) GetConditions() duckv1alpha1.Conditions {
+	return ss.Conditions
+}
+
+// SetConditions sets the Conditions array. This enables generic handling of
+// conditions by implementing the duckv1alpha1.Conditions interface.
+func (ss *KFServiceStatus) SetConditions(conditions duckv1alpha1.Conditions) {
+	ss.Conditions = conditions
+}
+
 // PropagateDefaultConfigurationStatus propagates the default Configuration status and applies its values
 // to the Service status.
 func (ss *KFServiceStatus) PropagateDefaultConfigurationStatus(dcs *knservingv1alpha1.ConfigurationStatus) {
 	ss.Default.Name = dcs.LatestCreatedRevisionName
-	//TODO @yuzisun populate configuration status conditions
+	cc := dcs.GetCondition(knservingv1alpha1.ConfigurationConditionReady)
+	if cc == nil {
+		return
+	}
+	switch {
+	case cc.Status == v1.ConditionUnknown:
+		serviceCondSet.Manage(ss).MarkUnknown(ServiceConditionDefaultConfigurationsReady, cc.Reason, cc.Message)
+	case cc.Status == v1.ConditionTrue:
+		serviceCondSet.Manage(ss).MarkTrue(ServiceConditionDefaultConfigurationsReady)
+	case cc.Status == v1.ConditionFalse:
+		serviceCondSet.Manage(ss).MarkFalse(ServiceConditionDefaultConfigurationsReady, cc.Reason, cc.Message)
+	}
 }
 
 // PropagateCanaryConfigurationStatus propagates the canary Configuration status and applies its values
 // to the Service status.
 func (ss *KFServiceStatus) PropagateCanaryConfigurationStatus(ccs *knservingv1alpha1.ConfigurationStatus) {
 	ss.Canary.Name = ccs.LatestCreatedRevisionName
-	//TODO @yuzisun populate configuration status conditions
+	cc := ccs.GetCondition(knservingv1alpha1.ConfigurationConditionReady)
+	if cc == nil {
+		return
+	}
+	switch {
+	case cc.Status == v1.ConditionUnknown:
+		serviceCondSet.Manage(ss).MarkUnknown(ServiceConditionCanaryConfigurationsReady, cc.Reason, cc.Message)
+	case cc.Status == v1.ConditionTrue:
+		serviceCondSet.Manage(ss).MarkTrue(ServiceConditionCanaryConfigurationsReady)
+	case cc.Status == v1.ConditionFalse:
+		serviceCondSet.Manage(ss).MarkFalse(ServiceConditionCanaryConfigurationsReady, cc.Reason, cc.Message)
+	}
 }
 
 // PropagateRouteStatus propagates route's status to the service's status.
@@ -65,5 +116,16 @@ func (ss *KFServiceStatus) PropagateRouteStatus(rs *knservingv1alpha1.RouteStatu
 		}
 	}
 
-	//TODO @yuzisun populate route status conditions
+	rc := rs.GetCondition(knservingv1alpha1.RouteConditionReady)
+	if rc == nil {
+		return
+	}
+	switch {
+	case rc.Status == v1.ConditionUnknown:
+		serviceCondSet.Manage(ss).MarkUnknown(ServiceConditionRoutesReady, rc.Reason, rc.Message)
+	case rc.Status == v1.ConditionTrue:
+		serviceCondSet.Manage(ss).MarkTrue(ServiceConditionRoutesReady)
+	case rc.Status == v1.ConditionFalse:
+		serviceCondSet.Manage(ss).MarkFalse(ServiceConditionRoutesReady, rc.Reason, rc.Message)
+	}
 }
