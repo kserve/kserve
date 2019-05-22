@@ -134,7 +134,14 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 		return reconcile.Result{}, err
 	}
 
-	credentialBuilder := ksvc.NewCredentialBulder(r.Client)
+	configMap := &v1.ConfigMap{}
+	err := r.Get(context.TODO(), types.NamespacedName{Name: constants.KFServiceConfigMapName, Namespace: constants.KFServingNamespace}, configMap)
+	if err != nil {
+		log.Error(err, "Failed to find config map", "name", constants.KFServiceConfigMapName)
+		// Error reading the object - requeue the request.
+		return reconcile.Result{}, err
+	}
+	credentialBuilder := ksvc.NewCredentialBulder(r.Client, configMap)
 
 	serviceReconciler := ksvc.NewServiceReconciler(r.Client)
 	// Reconcile configurations

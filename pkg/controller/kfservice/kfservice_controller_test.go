@@ -104,6 +104,12 @@ var canary = &servingv1alpha1.KFService{
 	},
 }
 
+var configs = map[string]string{
+	servingv1alpha1.TensorflowServingImageConfigName: "tensorflow/serving",
+	servingv1alpha1.SklearnServingImageConfigName:    "gcr.io/kfserving/sklearn",
+	servingv1alpha1.XgboostServingImageConfigName:    "gcr.io/kfserving/xgboost",
+}
+
 func TestReconcile(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
@@ -121,6 +127,17 @@ func TestReconcile(t *testing.T) {
 		close(stopMgr)
 		mgrStopped.Wait()
 	}()
+
+	// Create configmap
+	var configMap = &v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      constants.KFServiceConfigMapName,
+			Namespace: constants.KFServingNamespace,
+		},
+		Data: configs,
+	}
+	g.Expect(c.Create(context.TODO(), configMap)).NotTo(gomega.HaveOccurred())
+	defer c.Delete(context.TODO(), configMap)
 
 	// Create the KFService object and expect the Reconcile and Knative configuration/routes to be created
 	g.Expect(c.Create(context.TODO(), instance)).NotTo(gomega.HaveOccurred())
@@ -221,6 +238,20 @@ func TestCanaryReconcile(t *testing.T) {
 		mgrStopped.Wait()
 	}()
 
+<<<<<<< HEAD
+=======
+	// Create configmap
+	var configMap = &v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      constants.KFServiceConfigMapName,
+			Namespace: constants.KFServingNamespace,
+		},
+		Data: configs,
+	}
+	g.Expect(c.Create(context.TODO(), configMap)).NotTo(gomega.HaveOccurred())
+	defer c.Delete(context.TODO(), configMap)
+
+>>>>>>> ab4bcf4... Make gcs credential file and s3 access key names configurable
 	// Create the KFService object and expect the Reconcile and knative service to be created
 	g.Expect(c.Create(context.TODO(), canary)).NotTo(gomega.HaveOccurred())
 	defer c.Delete(context.TODO(), canary)

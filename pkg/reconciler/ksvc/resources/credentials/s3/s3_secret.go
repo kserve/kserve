@@ -22,15 +22,17 @@ import (
 )
 
 const (
-	AWSAccessKeyId         = "AWS_ACCESS_KEY_ID"
-	AWSSecretAccessKey     = "AWS_SECRET_ACCESS_KEY"
-	AWSAccessKeyIdName     = "awsAccessKeyID"
-	AWSSecretAccessKeyName = "awsSecretAccessKey"
-	AWSEndpointUrl         = "AWS_ENDPOINT_URL"
-	AWSRegion              = "AWS_REGION"
-	S3Endpoint             = "S3_ENDPOINT"
-	S3UseHttps             = "S3_USE_HTTPS"
-	S3VerifySSL            = "S3_VERIFY_SSL"
+	AWSAccessKeyId              = "AWS_ACCESS_KEY_ID"
+	AWSSecretAccessKey          = "AWS_SECRET_ACCESS_KEY"
+	AWSAccessKeyIdName          = "awsAccessKeyID"
+	AWSSecretAccessKeyName      = "awsSecretAccessKey"
+	AWSEndpointUrl              = "AWS_ENDPOINT_URL"
+	AWSRegion                   = "AWS_REGION"
+	S3Endpoint                  = "S3_ENDPOINT"
+	S3UseHttps                  = "S3_USE_HTTPS"
+	S3VerifySSL                 = "S3_VERIFY_SSL"
+	S3AccessKeyIdConfigName     = "S3AccessKeyIDName"
+	S3SecretAccessKeyConfigName = "S3SecretAccessKeyName"
 )
 
 var (
@@ -40,7 +42,7 @@ var (
 	KFServiceS3SecretHttpsAnnotation    = constants.KFServingAPIGroupName + "/" + "s3-usehttps"
 )
 
-func BuildSecretEnvs(secret *v1.Secret) []v1.EnvVar {
+func BuildSecretEnvs(secret *v1.Secret, s3AccessKeyIdName string, s3SecretAccessKeyName string) []v1.EnvVar {
 	envs := []v1.EnvVar{
 		{
 			Name: AWSAccessKeyId,
@@ -49,7 +51,7 @@ func BuildSecretEnvs(secret *v1.Secret) []v1.EnvVar {
 					LocalObjectReference: v1.LocalObjectReference{
 						Name: secret.Name,
 					},
-					Key: AWSAccessKeyIdName,
+					Key: s3AccessKeyIdName,
 				},
 			},
 		},
@@ -60,7 +62,7 @@ func BuildSecretEnvs(secret *v1.Secret) []v1.EnvVar {
 					LocalObjectReference: v1.LocalObjectReference{
 						Name: secret.Name,
 					},
-					Key: AWSSecretAccessKeyName,
+					Key: s3SecretAccessKeyName,
 				},
 			},
 		},

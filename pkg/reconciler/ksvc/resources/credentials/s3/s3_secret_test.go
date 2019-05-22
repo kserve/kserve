@@ -127,7 +127,7 @@ func TestS3Secret(t *testing.T) {
 	}
 
 	for name, scenario := range scenarios {
-		envs := BuildSecretEnvs(scenario.secret)
+		envs := BuildSecretEnvs(scenario.secret, AWSAccessKeyIdName, AWSSecretAccessKeyName)
 
 		if diff := cmp.Diff(scenario.expected, envs); diff != "" {
 			t.Errorf("Test %q unexpected result (-want +got): %v", name, diff)
