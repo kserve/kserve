@@ -163,27 +163,27 @@ func TestKnativeConfiguration(t *testing.T) {
 		"RunScikitModel": {
 			kfService: &v1alpha1.KFService{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "scikit",
+					Name:      "sklearn",
 					Namespace: "default",
 				},
 				Spec: v1alpha1.KFServiceSpec{
 					Default: v1alpha1.ModelSpec{
-						ScikitLearn: &v1alpha1.ScikitLearnSpec{
-							ModelURI:       "s3://test/scikit/export",
-							RuntimeVersion: "1.0",
+						SKLearn: &v1alpha1.SKLearnSpec{
+							ModelURI:       "s3://test/sklearn/export",
+							RuntimeVersion: "",
 						},
 					},
 				},
 			},
 			expectedDefault: &knservingv1alpha1.Configuration{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      constants.DefaultConfigurationName("scikit"),
+					Name:      constants.DefaultConfigurationName("sklearn"),
 					Namespace: "default",
 				},
 				Spec: knservingv1alpha1.ConfigurationSpec{
 					RevisionTemplate: &knservingv1alpha1.RevisionTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
-							Labels: map[string]string{"serving.kubeflow.org/kfservice": "scikit"},
+							Labels: map[string]string{"serving.kubeflow.org/kfservice": "sklearn"},
 							Annotations: map[string]string{
 								"autoscaling.knative.dev/class":  "kpa.autoscaling.knative.dev",
 								"autoscaling.knative.dev/target": "1",
@@ -194,7 +194,11 @@ func TestKnativeConfiguration(t *testing.T) {
 								TimeoutSeconds: &constants.DefaultTimeout,
 							},
 							Container: &v1.Container{
-								Image: "notimplementedyet",
+								Image: "animeshsingh/sklearnserver:",
+								Args: []string{
+									"--model_name=sklearn",
+									"--model_dir=s3://test/sklearn/export",
+								},
 							},
 						},
 					},

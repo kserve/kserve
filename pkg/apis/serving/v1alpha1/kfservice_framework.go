@@ -29,9 +29,9 @@ type FrameworkHandler interface {
 
 const (
 	// ExactlyOneModelSpecViolatedError is a known error message
-	ExactlyOneModelSpecViolatedError = "Exactly one of [Custom, Tensorflow, ScikitLearn, XGBoost] must be specified in ModelSpec"
+	ExactlyOneModelSpecViolatedError = "Exactly one of [Custom, Tensorflow, SKLearn, XGBoost] must be specified in ModelSpec"
 	// AtLeastOneModelSpecViolatedError is a known error message
-	AtLeastOneModelSpecViolatedError = "At least one of [Custom, Tensorflow, ScikitLearn, XGBoost] must be specified in ModelSpec"
+	AtLeastOneModelSpecViolatedError = "At least one of [Custom, Tensorflow, SKLearn, XGBoost] must be specified in ModelSpec"
 )
 
 var (
@@ -80,10 +80,10 @@ func makeHandler(modelSpec *ModelSpec) (interface{ FrameworkHandler }, error) {
 		handlers = append(handlers, modelSpec.Custom)
 	}
 	if modelSpec.XGBoost != nil {
-		// TODO: add fwk for xgboost
+		handlers = append(handlers, modelSpec.XGBoost)
 	}
-	if modelSpec.ScikitLearn != nil {
-		handlers = append(handlers, modelSpec.ScikitLearn)
+	if modelSpec.SKLearn != nil {
+		handlers = append(handlers, modelSpec.SKLearn)
 	}
 	if modelSpec.Tensorflow != nil {
 		handlers = append(handlers, modelSpec.Tensorflow)

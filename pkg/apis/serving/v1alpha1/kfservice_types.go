@@ -48,10 +48,10 @@ type ModelSpec struct {
 	// This is the up bound for autoscaler to scale to
 	MaxReplicas int `json:"maxReplicas,omitempty"`
 	// The following fields follow a "1-of" semantic. Users must specify exactly one spec.
-	Custom      *CustomSpec      `json:"custom,omitempty"`
-	Tensorflow  *TensorflowSpec  `json:"tensorflow,omitempty"`
-	XGBoost     *XGBoostSpec     `json:"xgBoost,omitempty"`
-	ScikitLearn *ScikitLearnSpec `json:"scikitLearn,omitempty"`
+	Custom     *CustomSpec     `json:"custom,omitempty"`
+	Tensorflow *TensorflowSpec `json:"tensorflow,omitempty"`
+	XGBoost    *XGBoostSpec    `json:"xgboost,omitempty"`
+	SKLearn    *SKLearnSpec    `json:"sklearn,omitempty"`
 }
 
 // TensorflowSpec defines arguments for configuring Tensorflow model serving.
@@ -72,10 +72,10 @@ type XGBoostSpec struct {
 	Resources v1.ResourceRequirements `json:"resources,omitempty"`
 }
 
-// ScikitLearnSpec defines arguments for configuring ScikitLearn model serving.
-type ScikitLearnSpec struct {
+// SKLearnSpec defines arguments for configuring SKLearn model serving.
+type SKLearnSpec struct {
 	ModelURI string `json:"modelUri"`
-	// Defaults to latest ScikitLearn Version.
+	// Defaults to latest SKLearn Version.
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
 	// Defaults to requests and limits of 1CPU, 2Gb MEM.
 	Resources v1.ResourceRequirements `json:"resources,omitempty"`
