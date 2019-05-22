@@ -29,6 +29,14 @@ import (
 	"testing"
 )
 
+var configMap = &v1.ConfigMap{
+	Data: map[string]string{
+		s3.S3SecretAccessKeyConfigName:  "secretAccessKey",
+		s3.S3AccessKeyIdConfigName:      "accessKeyID",
+		gcs.GCSCredentialFileConfigName: "user-gcp-sa.json",
+	},
+}
+
 func TestS3CredentialBuilder(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	existingServiceAccount := &v1.ServiceAccount{
@@ -52,8 +60,8 @@ func TestS3CredentialBuilder(t *testing.T) {
 			},
 		},
 		Data: map[string][]byte{
-			s3.AWSAccessKeyIdName:     {},
-			s3.AWSSecretAccessKeyName: {},
+			configMap.Data[s3.S3AccessKeyIdConfigName]:     {},
+			configMap.Data[s3.S3SecretAccessKeyConfigName]: {},
 		},
 	}
 	scenarios := map[string]struct {
@@ -86,7 +94,7 @@ func TestS3CredentialBuilder(t *testing.T) {
 												LocalObjectReference: v1.LocalObjectReference{
 													Name: "s3-secret",
 												},
-												Key: s3.AWSAccessKeyIdName,
+												Key: configMap.Data[s3.S3AccessKeyIdConfigName],
 											},
 										},
 									},
@@ -97,7 +105,7 @@ func TestS3CredentialBuilder(t *testing.T) {
 												LocalObjectReference: v1.LocalObjectReference{
 													Name: "s3-secret",
 												},
-												Key: s3.AWSSecretAccessKeyName,
+												Key: configMap.Data[s3.S3SecretAccessKeyConfigName],
 											},
 										},
 									},
@@ -119,7 +127,7 @@ func TestS3CredentialBuilder(t *testing.T) {
 		},
 	}
 
-	builder := NewCredentialBulder(c)
+	builder := NewCredentialBulder(c, configMap)
 	for name, scenario := range scenarios {
 		g.Expect(c.Create(context.TODO(), existingServiceAccount)).NotTo(gomega.HaveOccurred())
 		g.Expect(c.Create(context.TODO(), existingS3Secret)).NotTo(gomega.HaveOccurred())
@@ -164,7 +172,7 @@ func TestGCSCredentialBuilder(t *testing.T) {
 			Namespace: "default",
 		},
 		Data: map[string][]byte{
-			gcs.GCSCredentialFileName: {},
+			configMap.Data[gcs.GCSCredentialFileConfigName]: {},
 		},
 	}
 	scenarios := map[string]struct {
@@ -193,13 +201,13 @@ func TestGCSCredentialBuilder(t *testing.T) {
 									{
 										Name:      gcs.GCSCredentialVolumeName,
 										ReadOnly:  true,
-										MountPath: gcs.GCSCredentialVolumeMountPath,
+										MountPath: gcs.GCSCredentialVolumeMountPathPrefix + configMap.Data[gcs.GCSCredentialFileConfigName],
 									},
 								},
 								Env: []v1.EnvVar{
 									{
 										Name:  gcs.GCSCredentialEnvKey,
-										Value: gcs.GCSCredentialVolumeMountPath,
+										Value: gcs.GCSCredentialVolumeMountPathPrefix + configMap.Data[gcs.GCSCredentialFileConfigName],
 									},
 								},
 							},
@@ -225,7 +233,7 @@ func TestGCSCredentialBuilder(t *testing.T) {
 		},
 	}
 
-	builder := NewCredentialBulder(c)
+	builder := NewCredentialBulder(c, configMap)
 	for name, scenario := range scenarios {
 		g.Expect(c.Create(context.TODO(), existingServiceAccount)).NotTo(gomega.HaveOccurred())
 		g.Expect(c.Create(context.TODO(), existingGCSSecret)).NotTo(gomega.HaveOccurred())

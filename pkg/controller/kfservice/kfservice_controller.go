@@ -121,7 +121,7 @@ type ReconcileService struct {
 // +kubebuilder:rbac:groups=serving.kubeflow.org,resources=kfservices/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=,resources=serviceaccounts,verbs=get;list;watch
 // +kubebuilder:rbac:groups=,resources=secrets,verbs=get;list;watch
-// +kubebuilder:rbac:groups=,resources=configmaps,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=,resources=configmaps,verbs=get;list;watch
 func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	// Fetch the KFService instance
 	kfsvc := &kfservingv1alpha1.KFService{}
@@ -135,7 +135,6 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 		return reconcile.Result{}, err
 	}
 
-	credentialBuilder := ksvc.NewCredentialBulder(r.Client)
 	configMap := &v1.ConfigMap{}
 	err := r.Get(context.TODO(), types.NamespacedName{Name: constants.KFServingConfigMapName, Namespace: constants.KFServingNamespace}, configMap)
 	if err != nil {
@@ -143,6 +142,7 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 		// Error reading the object - requeue the request.
 		return reconcile.Result{}, err
 	}
+	credentialBuilder := ksvc.NewCredentialBulder(r.Client, configMap)
 
 	serviceReconciler := ksvc.NewServiceReconciler(r.Client)
 	// Reconcile configurations

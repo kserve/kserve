@@ -104,6 +104,12 @@ var canary = &servingv1alpha1.KFService{
 	},
 }
 
+var configs = map[string]string{
+	servingv1alpha1.TensorflowServingImageConfigName: "tensorflow/serving",
+	servingv1alpha1.SklearnServingImageConfigName:    "gcr.io/kfserving/sklearn",
+	servingv1alpha1.XgboostServingImageConfigName:    "gcr.io/kfserving/xgboost",
+}
+
 func TestReconcile(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
@@ -128,11 +134,7 @@ func TestReconcile(t *testing.T) {
 			Name:      constants.KFServingConfigMapName,
 			Namespace: constants.KFServingNamespace,
 		},
-		Data: map[string]string{
-			servingv1alpha1.TensorflowServingImageConfigName: "tensorflow/serving",
-			servingv1alpha1.SklearnServingImageConfigName:    "gcr.io/kfserving/sklearn",
-			servingv1alpha1.XgboostServingImageConfigName:    "gcr.io/kfserving/xgboost",
-		},
+		Data: configs,
 	}
 	g.Expect(c.Create(context.TODO(), configMap)).NotTo(gomega.HaveOccurred())
 	defer c.Delete(context.TODO(), configMap)
@@ -240,11 +242,7 @@ func TestCanaryReconcile(t *testing.T) {
 			Name:      constants.KFServingConfigMapName,
 			Namespace: constants.KFServingNamespace,
 		},
-		Data: map[string]string{
-			servingv1alpha1.TensorflowServingImageConfigName: "tensorflow/serving",
-			servingv1alpha1.SklearnServingImageConfigName:    "gcr.io/kfserving/sklearn",
-			servingv1alpha1.XgboostServingImageConfigName:    "gcr.io/kfserving/xgboost",
-		},
+		Data: configs,
 	}
 	g.Expect(c.Create(context.TODO(), configMap)).NotTo(gomega.HaveOccurred())
 	defer c.Delete(context.TODO(), configMap)

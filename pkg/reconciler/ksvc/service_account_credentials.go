@@ -28,11 +28,13 @@ import (
 
 type CredentialBuilder struct {
 	client client.Client
+	config *v1.ConfigMap
 }
 
-func NewCredentialBulder(client client.Client) *CredentialBuilder {
+func NewCredentialBulder(client client.Client, config *v1.ConfigMap) *CredentialBuilder {
 	return &CredentialBuilder{
 		client: client,
+		config: config,
 	}
 }
 
@@ -40,6 +42,22 @@ func (c *CredentialBuilder) CreateSecretVolumeAndEnv(ctx context.Context, namesp
 	configuration *knservingv1alpha1.Configuration) error {
 	if serviceAccountName == "" {
 		serviceAccountName = "default"
+	}
+	s3AccessKeyIdName := s3.AWSAccessKeyIdName
+	s3SecretAccessKeyName := s3.AWSSecretAccessKeyName
+	gcsCredentialFileName := gcs.GCSCredentialFileConfigName
+	if c.config != nil {
+		if value, ok := c.config.Data[s3.S3AccessKeyIdConfigName]; ok {
+			s3AccessKeyIdName = value
+		}
+
+		if value, ok := c.config.Data[s3.S3SecretAccessKeyConfigName]; ok {
+			s3SecretAccessKeyName = value
+		}
+
+		if value, ok := c.config.Data[gcs.GCSCredentialFileConfigName]; ok {
+			gcsCredentialFileName = value
+		}
 	}
 	serviceAccount := &v1.ServiceAccount{}
 	err := c.client.Get(context.TODO(), types.NamespacedName{Name: serviceAccountName,
@@ -56,13 +74,13 @@ func (c *CredentialBuilder) CreateSecretVolumeAndEnv(ctx context.Context, namesp
 			log.Error(err, "Failed to find secret", "SecretName", secretRef.Name)
 			continue
 		}
-		if _, ok := secret.Data[s3.AWSSecretAccessKeyName]; ok {
+		if _, ok := secret.Data[s3SecretAccessKeyName]; ok {
 			log.Info("Setting secret envs for s3", "S3Secret", secret.Name)
-			envs := s3.BuildSecretEnvs(secret)
+			envs := s3.BuildSecretEnvs(secret, s3AccessKeyIdName, s3SecretAccessKeyName)
 			configuration.Spec.RevisionTemplate.Spec.Container.Env = append(configuration.Spec.RevisionTemplate.Spec.Container.Env, envs...)
-		} else if _, ok := secret.Data[gcs.GCSCredentialFileName]; ok {
+		} else if _, ok := secret.Data[gcsCredentialFileName]; ok {
 			log.Info("Setting secret volume for gcs", "GCSSecret", secret.Name)
-			volume, volumeMount := gcs.BuildSecretVolume(secret)
+			volume, volumeMount := gcs.BuildSecretVolume(secret, gcsCredentialFileName)
 			configuration.Spec.RevisionTemplate.Spec.Volumes =
 				append(configuration.Spec.RevisionTemplate.Spec.Volumes, volume)
 			configuration.Spec.RevisionTemplate.Spec.Container.VolumeMounts =
@@ -70,7 +88,7 @@ func (c *CredentialBuilder) CreateSecretVolumeAndEnv(ctx context.Context, namesp
 			configuration.Spec.RevisionTemplate.Spec.Container.Env = append(configuration.Spec.RevisionTemplate.Spec.Container.Env,
 				v1.EnvVar{
 					Name:  gcs.GCSCredentialEnvKey,
-					Value: gcs.GCSCredentialVolumeMountPath,
+					Value: gcs.GCSCredentialVolumeMountPathPrefix + gcsCredentialFileName,
 				})
 		} else {
 			log.V(5).Info("Skipping non gcs/s3 secret", "Secret", secret.Name)
