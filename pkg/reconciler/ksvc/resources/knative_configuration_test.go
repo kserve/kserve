@@ -48,8 +48,8 @@ var kfsvc = &v1alpha1.KFService{
 
 var configMap = map[string]string{
 	v1alpha1.TensorflowServingImageConfigName: "tensorflow/serving",
-	v1alpha1.SklearnServingImageConfigName:    "gcr.io/kfserving/sklearn",
-	v1alpha1.XgboostServingImageConfigName:    "gcr.io/kfserving/xgboost",
+	v1alpha1.SklearnServingImageConfigName:    v1alpha1.SKLearnServingImageName,
+	v1alpha1.XgboostServingImageConfigName:    v1alpha1.XGBoostServingImageName,
 }
 
 var defaultConfiguration = knservingv1alpha1.Configuration{
@@ -168,7 +168,7 @@ func TestKnativeConfiguration(t *testing.T) {
 			expectedDefault: &defaultConfiguration,
 			expectedCanary:  &canaryConfiguration,
 		},
-		"RunScikitModel": {
+		"RunSklearnModel": {
 			kfService: &v1alpha1.KFService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "sklearn",
@@ -178,7 +178,7 @@ func TestKnativeConfiguration(t *testing.T) {
 					Default: v1alpha1.ModelSpec{
 						SKLearn: &v1alpha1.SKLearnSpec{
 							ModelURI:       "s3://test/sklearn/export",
-							RuntimeVersion: "",
+							RuntimeVersion: "latest",
 						},
 					},
 				},
@@ -202,10 +202,55 @@ func TestKnativeConfiguration(t *testing.T) {
 								TimeoutSeconds: &constants.DefaultTimeout,
 							},
 							Container: &v1.Container{
-								Image: "animeshsingh/sklearnserver:",
+								Image: v1alpha1.SKLearnServingImageName + ":" + v1alpha1.DefaultSKLearnServingVersion,
 								Args: []string{
 									"--model_name=sklearn",
 									"--model_dir=s3://test/sklearn/export",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		"RunXgboostModel": {
+			kfService: &v1alpha1.KFService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "xgboost",
+					Namespace: "default",
+				},
+				Spec: v1alpha1.KFServiceSpec{
+					Default: v1alpha1.ModelSpec{
+						XGBoost: &v1alpha1.XGBoostSpec{
+							ModelURI:       "s3://test/xgboost/export",
+							RuntimeVersion: "latest",
+						},
+					},
+				},
+			},
+			expectedDefault: &knservingv1alpha1.Configuration{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.DefaultConfigurationName("xgboost"),
+					Namespace: "default",
+				},
+				Spec: knservingv1alpha1.ConfigurationSpec{
+					RevisionTemplate: &knservingv1alpha1.RevisionTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: map[string]string{"serving.kubeflow.org/kfservice": "xgboost"},
+							Annotations: map[string]string{
+								"autoscaling.knative.dev/class":  "kpa.autoscaling.knative.dev",
+								"autoscaling.knative.dev/target": "1",
+							},
+						},
+						Spec: knservingv1alpha1.RevisionSpec{
+							RevisionSpec: v1beta1.RevisionSpec{
+								TimeoutSeconds: &constants.DefaultTimeout,
+							},
+							Container: &v1.Container{
+								Image: v1alpha1.XGBoostServingImageName + ":" + v1alpha1.DefaultXGBoostServingVersion,
+								Args: []string{
+									"--model_name=xgboost",
+									"--model_dir=s3://test/xgboost/export",
 								},
 							},
 						},

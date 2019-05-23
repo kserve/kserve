@@ -20,16 +20,20 @@ import (
 const (
 	SKLearnServingGRPCPort  = "9000"
 	SKLearnServingRestPort  = "8080"
-	SKLearnServingImageName = "animeshsingh/sklearnserver"
+	SKLearnServingImageName = "gcr.io/kfserving/sklearnserver"
 
 	DefaultSKLearnServingVersion = "latest"
 )
 
-var _ FrameworkHandler = (*ScikitLearnSpec)(nil)
+var _ FrameworkHandler = (*SKLearnSpec)(nil)
 
 func (s *SKLearnSpec) CreateModelServingContainer(modelName string, configs map[string]string) *v1.Container {
+	sklearnServingImage := SKLearnServingImageName
+	if image, ok := configs[SklearnServingImageConfigName]; ok {
+		sklearnServingImage = image
+	}
 	return &v1.Container{
-		Image:     SKLearnServingImageName + ":" + s.RuntimeVersion,
+		Image:     sklearnServingImage + ":" + s.RuntimeVersion,
 		Resources: s.Resources,
 		Args: []string{
 			"--model_name=" + modelName,

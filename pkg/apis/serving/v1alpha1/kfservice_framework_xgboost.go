@@ -20,15 +20,20 @@ import (
 const (
 	XGBoostServingGRPCPort  = "9000"
 	XGBoostServingRestPort  = "8080"
-	XGBoostServingImageName = "animeshsingh/xgbserver"
+	XGBoostServingImageName = "gcr.io/kfserving/xgbserver"
 
 	DefaultXGBoostServingVersion = "latest"
 )
 
-func (x *XGBoostSpec) CreateModelServingContainer(modelName string) *v1.Container {
-	//TODO add configmap for image, default resources, readiness/liveness probe
+var _ FrameworkHandler = (*XGBoostSpec)(nil)
+
+func (x *XGBoostSpec) CreateModelServingContainer(modelName string, configs map[string]string) *v1.Container {
+	xgboostServingImage := XGBoostServingImageName
+	if image, ok := configs[XgboostServingImageConfigName]; ok {
+		xgboostServingImage = image
+	}
 	return &v1.Container{
-		Image:     XGBoostServingImageName + ":" + x.RuntimeVersion,
+		Image:     xgboostServingImage + ":" + x.RuntimeVersion,
 		Resources: x.Resources,
 		Args: []string{
 			"--model_name=" + modelName,
