@@ -170,7 +170,7 @@ func TestKnativeConfiguration(t *testing.T) {
 					Default: v1alpha1.ModelSpec{
 						SKLearn: &v1alpha1.SKLearnSpec{
 							ModelURI:       "s3://test/sklearn/export",
-							RuntimeVersion: "",
+							RuntimeVersion: "latest",
 						},
 					},
 				},
@@ -194,7 +194,7 @@ func TestKnativeConfiguration(t *testing.T) {
 								TimeoutSeconds: &constants.DefaultTimeout,
 							},
 							Container: &v1.Container{
-								Image: "animeshsingh/sklearnserver:",
+								Image: v1alpha1.SKLearnServerImageName + ":latest",
 								Args: []string{
 									"--model_name=sklearn",
 									"--model_dir=s3://test/sklearn/export",

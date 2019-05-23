@@ -21,6 +21,7 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 	"github.com/kubeflow/kfserving/pkg/constants"
+	"github.com/kubeflow/kfserving/pkg/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -48,7 +49,7 @@ func CreateKnativeRoute(kfsvc *v1alpha1.KFService) *knservingv1alpha1.Route {
 		})
 	}
 	var kfsvcAnnotations map[string]string
-	filteredAnnotations := filter(kfsvc.Annotations, routeAnnotationFilter)
+	filteredAnnotations := utils.Filter(kfsvc.Annotations, routeAnnotationFilter)
 	if len(filteredAnnotations) > 0 {
 		kfsvcAnnotations = filteredAnnotations
 	}

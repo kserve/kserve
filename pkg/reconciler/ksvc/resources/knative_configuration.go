@@ -18,11 +18,13 @@ package resources
 
 import (
 	"fmt"
+
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	knservingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 	"github.com/kubeflow/kfserving/pkg/constants"
+	"github.com/kubeflow/kfserving/pkg/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -47,7 +49,7 @@ func CreateKnativeConfiguration(name string, metadata metav1.ObjectMeta, modelSp
 		annotations[autoscaling.ClassAnnotationKey] = autoscaling.KPA
 	}
 
-	kfsvcAnnotations := filter(metadata.Annotations, configurationAnnotationFilter)
+	kfsvcAnnotations := utils.Filter(metadata.Annotations, configurationAnnotationFilter)
 
 	configuration := &knservingv1alpha1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
@@ -58,10 +60,10 @@ func CreateKnativeConfiguration(name string, metadata metav1.ObjectMeta, modelSp
 		Spec: knservingv1alpha1.ConfigurationSpec{
 			RevisionTemplate: &knservingv1alpha1.RevisionTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: union(metadata.Labels, map[string]string{
+					Labels: utils.Union(metadata.Labels, map[string]string{
 						constants.KFServicePodLabelKey: metadata.Name,
 					}),
-					Annotations: union(kfsvcAnnotations, annotations),
+					Annotations: utils.Union(kfsvcAnnotations, annotations),
 				},
 				Spec: knservingv1alpha1.RevisionSpec{
 					RevisionSpec: v1beta1.RevisionSpec{

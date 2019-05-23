@@ -14,21 +14,27 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"fmt"
+	"strings"
+
+	"github.com/kubeflow/kfserving/pkg/utils"
 	v1 "k8s.io/api/core/v1"
 )
 
-const (
-	XGBoostServingGRPCPort  = "9000"
-	XGBoostServingRestPort  = "8080"
-	XGBoostServingImageName = "animeshsingh/xgbserver"
-
-	DefaultXGBoostServingVersion = "latest"
+// TODO add image name to to configmap
+var (
+	AllowedXGBoostRuntimeVersions = []string{
+		"latest",
+	}
+	InvalidXGBoostRuntimeVersionError = "RuntimeVersion must be one of " + strings.Join(AllowedXGBoostRuntimeVersions, ", ")
+	XGBoostServerImageName            = "gcr.io/kfserving/xgbserver"
+	XGBoostDefaultRuntimeVersion      = "latest"
 )
 
 func (x *XGBoostSpec) CreateModelServingContainer(modelName string) *v1.Container {
 	//TODO add configmap for image, default resources, readiness/liveness probe
 	return &v1.Container{
-		Image:     XGBoostServingImageName + ":" + x.RuntimeVersion,
+		Image:     XGBoostServerImageName + ":" + x.RuntimeVersion,
 		Resources: x.Resources,
 		Args: []string{
 			"--model_name=" + modelName,
@@ -39,12 +45,15 @@ func (x *XGBoostSpec) CreateModelServingContainer(modelName string) *v1.Containe
 
 func (x *XGBoostSpec) ApplyDefaults() {
 	if x.RuntimeVersion == "" {
-		x.RuntimeVersion = DefaultXGBoostServingVersion
+		x.RuntimeVersion = XGBoostDefaultRuntimeVersion
 	}
 
 	setResourceRequirementDefaults(&x.Resources)
 }
 
 func (x *XGBoostSpec) Validate() error {
-	return nil
+	if utils.Includes(AllowedXGBoostRuntimeVersions, x.RuntimeVersion) {
+		return nil
+	}
+	return fmt.Errorf(InvalidXGBoostRuntimeVersionError)
 }
