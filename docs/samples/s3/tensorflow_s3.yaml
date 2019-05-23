@@ -1,0 +1,9 @@
+apiVersion: "serving.kubeflow.org/v1alpha1"
+kind: "KFService"
+metadata:
+  name: "mnist-s3"
+spec:
+  default:
+    tensorflow:
+      # serviceAccountName: sa   // overwrite default service account
+      modelUri: "s3://mnist/v1/export"
