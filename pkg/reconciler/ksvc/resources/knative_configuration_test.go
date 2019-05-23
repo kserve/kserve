@@ -42,6 +42,7 @@ var kfsvc = &v1alpha1.KFService{
 				ModelURI:       "s3://test/mnist/export",
 				RuntimeVersion: "1.13",
 			},
+			ServiceAccountName: "testsvcacc",
 		},
 	},
 }
@@ -65,6 +66,9 @@ var defaultConfiguration = knservingv1alpha1.Configuration{
 			Spec: knservingv1alpha1.RevisionSpec{
 				RevisionSpec: v1beta1.RevisionSpec{
 					TimeoutSeconds: &constants.DefaultTimeout,
+					PodSpec: v1beta1.PodSpec{
+						ServiceAccountName: "testsvcacc",
+					},
 				},
 				Container: &v1.Container{
 					Image:   v1alpha1.TensorflowServingImageName + ":" + kfsvc.Spec.Default.Tensorflow.RuntimeVersion,
@@ -140,6 +144,7 @@ func TestKnativeConfiguration(t *testing.T) {
 							ModelURI:       "s3://test/mnist/export",
 							RuntimeVersion: "1.13",
 						},
+						ServiceAccountName: "testsvcacc",
 					},
 					CanaryTrafficPercent: 20,
 					Canary: &v1alpha1.ModelSpec{
