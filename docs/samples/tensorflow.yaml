@@ -1,8 +1,0 @@
-apiVersion: "serving.kubeflow.org/v1alpha1"
-kind: "KFService"
-metadata:
-  name: "my-model"
-spec:
-  default:
-    tensorflow:
-      modelUri: "gs://mybucket/mymodel"
