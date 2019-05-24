@@ -48,8 +48,8 @@ var kfsvc = &v1alpha1.KFService{
 
 var configMap = map[string]string{
 	v1alpha1.TensorflowServingImageConfigName: "tensorflow/serving",
-	v1alpha1.SklearnServingImageConfigName:    v1alpha1.SKLearnServingImageName,
-	v1alpha1.XgboostServingImageConfigName:    v1alpha1.XGBoostServingImageName,
+	v1alpha1.SKLearnServingImageConfigName:    v1alpha1.SKLearnServingImageName,
+	v1alpha1.XGBoostServingImageConfigName:    v1alpha1.XGBoostServingImageName,
 }
 
 var defaultConfiguration = knservingv1alpha1.Configuration{

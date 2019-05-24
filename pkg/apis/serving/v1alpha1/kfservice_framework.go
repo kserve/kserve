@@ -33,9 +33,9 @@ const (
 	// AtLeastOneModelSpecViolatedError is a known error message
 	AtLeastOneModelSpecViolatedError = "At least one of [Custom, Tensorflow, SKLearn, XGBoost] must be specified in ModelSpec"
 
-	TensorflowServingImageConfigName = "TensorflowServingImage"
-	XgboostServingImageConfigName    = "XgboostServingImage"
-	SklearnServingImageConfigName    = "SklearnServingImage"
+	TensorflowServingImageConfigName = "TensorflowServingImageName"
+	XGBoostServingImageConfigName    = "XGBoostServingImageName"
+	SKLearnServingImageConfigName    = "SKLearnServingImageName"
 )
 
 var (

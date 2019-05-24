@@ -106,8 +106,8 @@ var canary = &servingv1alpha1.KFService{
 
 var configs = map[string]string{
 	servingv1alpha1.TensorflowServingImageConfigName: "tensorflow/serving",
-	servingv1alpha1.SklearnServingImageConfigName:    "gcr.io/kfserving/sklearn",
-	servingv1alpha1.XgboostServingImageConfigName:    "gcr.io/kfserving/xgboost",
+	servingv1alpha1.SKLearnServingImageConfigName:    "gcr.io/kfserving/sklearn",
+	servingv1alpha1.XGBoostServingImageConfigName:    "gcr.io/kfserving/xgboost",
 }
 
 func TestReconcile(t *testing.T) {

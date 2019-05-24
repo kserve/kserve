@@ -29,7 +29,7 @@ var _ FrameworkHandler = (*XGBoostSpec)(nil)
 
 func (x *XGBoostSpec) CreateModelServingContainer(modelName string, configs map[string]string) *v1.Container {
 	xgboostServingImage := XGBoostServingImageName
-	if image, ok := configs[XgboostServingImageConfigName]; ok {
+	if image, ok := configs[XGBoostServingImageConfigName]; ok {
 		xgboostServingImage = image
 	}
 	return &v1.Container{

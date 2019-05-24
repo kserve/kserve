@@ -29,7 +29,7 @@ var _ FrameworkHandler = (*SKLearnSpec)(nil)
 
 func (s *SKLearnSpec) CreateModelServingContainer(modelName string, configs map[string]string) *v1.Container {
 	sklearnServingImage := SKLearnServingImageName
-	if image, ok := configs[SklearnServingImageConfigName]; ok {
+	if image, ok := configs[SKLearnServingImageConfigName]; ok {
 		sklearnServingImage = image
 	}
 	return &v1.Container{
