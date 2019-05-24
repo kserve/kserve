@@ -14,9 +14,15 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package resources
+package utils
 
-func filter(origin map[string]string, predicate func(string) bool) map[string]string {
+/* NOTE TO AUTHORS:
+ *
+ * Only you can prevent ... the proliferation of useless "utility" classes.
+ * Please add functional style container operations sparingly and intentionally.
+ */
+
+func Filter(origin map[string]string, predicate func(string) bool) map[string]string {
 	result := make(map[string]string)
 	for k, v := range origin {
 		if predicate(k) {
@@ -26,7 +32,7 @@ func filter(origin map[string]string, predicate func(string) bool) map[string]st
 	return result
 }
 
-func union(maps ...map[string]string) map[string]string {
+func Union(maps ...map[string]string) map[string]string {
 	result := make(map[string]string)
 	for _, m := range maps {
 		for k, v := range m {
@@ -34,4 +40,13 @@ func union(maps ...map[string]string) map[string]string {
 		}
 	}
 	return result
+}
+
+func Includes(slice []string, value string) bool {
+	for _, v := range slice {
+		if v == value {
+			return true
+		}
+	}
+	return false
 }

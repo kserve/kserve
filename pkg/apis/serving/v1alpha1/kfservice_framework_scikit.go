@@ -14,21 +14,26 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"fmt"
+	"strings"
+
+	"github.com/kubeflow/kfserving/pkg/utils"
 	v1 "k8s.io/api/core/v1"
 )
 
-const (
-	SKLearnServingGRPCPort  = "9000"
-	SKLearnServingRestPort  = "8080"
-	SKLearnServingImageName = "animeshsingh/sklearnserver"
-
-	DefaultSKLearnServingVersion = "latest"
+// TODO add image name to to configmap
+var (
+	AllowedSKLearnRuntimeVersions = []string{
+		"latest",
+	}
+	InvalidSKLearnRuntimeVersionError = "RuntimeVersion must be one of " + strings.Join(AllowedSKLearnRuntimeVersions, ", ")
+	SKLearnServerImageName            = "gcr.io/kfserving/sklearnserver"
+	DefaultSKLearnRuntimeVersion      = "latest"
 )
 
 func (s *SKLearnSpec) CreateModelServingContainer(modelName string) *v1.Container {
-	//TODO add configmap for image, default resources, readiness/liveness probe
 	return &v1.Container{
-		Image:     SKLearnServingImageName + ":" + s.RuntimeVersion,
+		Image:     SKLearnServerImageName + ":" + s.RuntimeVersion,
 		Resources: s.Resources,
 		Args: []string{
 			"--model_name=" + modelName,
@@ -39,12 +44,15 @@ func (s *SKLearnSpec) CreateModelServingContainer(modelName string) *v1.Containe
 
 func (s *SKLearnSpec) ApplyDefaults() {
 	if s.RuntimeVersion == "" {
-		s.RuntimeVersion = DefaultSKLearnServingVersion
+		s.RuntimeVersion = DefaultSKLearnRuntimeVersion
 	}
 
 	setResourceRequirementDefaults(&s.Resources)
 }
 
 func (s *SKLearnSpec) Validate() error {
-	return nil
+	if utils.Includes(AllowedSKLearnRuntimeVersions, s.RuntimeVersion) {
+		return nil
+	}
+	return fmt.Errorf(InvalidSKLearnRuntimeVersionError)
 }
