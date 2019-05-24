@@ -15,6 +15,8 @@
 import pytest
 import kfserving
 import os
+from minio import error
+from google.cloud import exceptions
 
 # Environment for testing
 GCS_PRIVATE_PATH = 'gs://bucket/path'
@@ -72,6 +74,7 @@ def test_private_s3():
 def test_no_permission_buckets():
     bad_s3_path = "s3://random/path"
     bad_gcs_path = "gs://random/path"
-    with pytest.raises(Exception):
+    with pytest.raises(error.AccessDenied):
         kfserving.Storage.download(bad_s3_path)
+    with pytest.raises(exceptions.Forbidden):
         kfserving.Storage.download(bad_gcs_path)
