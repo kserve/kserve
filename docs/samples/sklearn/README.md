@@ -86,3 +86,12 @@ Expected Output
 * Connection #0 to host 169.63.251.68 left intact
 {"predictions": [1, 1]}
 ```
+
+## Canary Rollout
+
+To run a canary rollout, you can use the sklearn-canary.yaml 
+
+Apply the CRD
+```
+kubectl apply -f sklearn-canary.yaml 
+```

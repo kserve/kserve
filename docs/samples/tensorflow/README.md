@@ -58,3 +58,12 @@ Expected Output
 * Connection #0 to host 34.83.190.188 left intact
 }%
 ```
+## Canary Rollout
+
+To run a canary rollout, you can use the tensorflow-canary.yaml 
+
+Apply the CRD
+```
+kubectl apply -f tensorflow-canary.yaml 
+```
+

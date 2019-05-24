@@ -1,0 +1,15 @@
+apiVersion: "serving.kubeflow.org/v1alpha1"
+kind: "KFService"
+metadata:
+  name: "sklearn-iris"
+spec:
+  default:
+    sklearn:
+#     Fos testing purposes, using a local embedded model until S3/GCS gets implemented
+#     modelUri: "gs://kfserving-samples/models/sklearn/joblib"
+      modelUri: "/tmp/models"
+canaryTrafficPercent: 10
+  canary:
+    # 10% of traffic is sent to this model
+    sklearn::
+      modelUri: "/tmp/models/"
