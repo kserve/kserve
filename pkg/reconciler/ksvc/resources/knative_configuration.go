@@ -18,6 +18,7 @@ package resources
 
 import (
 	"fmt"
+
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	knservingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
@@ -68,6 +69,9 @@ func CreateKnativeConfiguration(name string, metadata metav1.ObjectMeta, modelSp
 						// Defaulting here since this always shows a diff with nil vs 300s(knative default)
 						// we may need to expose this field in future
 						TimeoutSeconds: &constants.DefaultTimeout,
+						PodSpec: v1beta1.PodSpec{
+							ServiceAccountName: modelSpec.ServiceAccountName,
+						},
 					},
 					Container: modelSpec.CreateModelServingContainer(metadata.Name),
 				},
