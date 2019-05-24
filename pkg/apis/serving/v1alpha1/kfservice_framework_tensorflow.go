@@ -14,16 +14,24 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"fmt"
+	"strings"
+
+	"github.com/kubeflow/kfserving/pkg/utils"
 	v1 "k8s.io/api/core/v1"
 )
 
-const (
-	TensorflowEntrypointCommand = "/usr/bin/tensorflow_model_server"
-	TensorflowServingGRPCPort   = "9000"
-	TensorflowServingRestPort   = "8080"
-	TensorflowServingImageName  = "tensorflow/serving"
-
-	DefaultTensorflowServingVersion = "1.13.0"
+var (
+	AllowedTensorflowRuntimeVersions = []string{
+		"latest",
+		"1.13.0",
+	}
+	InvalidTensorflowRuntimeVersionError = "RuntimeVersion must be one of " + strings.Join(AllowedTensorflowRuntimeVersions, ", ")
+	TensorflowServingImageName           = "tensorflow/serving"
+	DefaultTensorflowRuntimeVersion      = "latest"
+	TensorflowEntrypointCommand          = "/usr/bin/tensorflow_model_server"
+	TensorflowServingGRPCPort            = "9000"
+	TensorflowServingRestPort            = "8080"
 )
 
 func (t *TensorflowSpec) CreateModelServingContainer(modelName string) *v1.Container {
@@ -43,13 +51,15 @@ func (t *TensorflowSpec) CreateModelServingContainer(modelName string) *v1.Conta
 
 func (t *TensorflowSpec) ApplyDefaults() {
 	if t.RuntimeVersion == "" {
-		t.RuntimeVersion = DefaultTensorflowServingVersion
+		t.RuntimeVersion = DefaultTensorflowRuntimeVersion
 	}
 
 	setResourceRequirementDefaults(&t.Resources)
 }
 
 func (t *TensorflowSpec) Validate() error {
-	// TODO: https://github.com/kubeflow/kfserving/issues/84
-	return nil
+	if utils.Includes(AllowedTensorflowRuntimeVersions, t.RuntimeVersion) {
+		return nil
+	}
+	return fmt.Errorf(InvalidTensorflowRuntimeVersionError)
 }

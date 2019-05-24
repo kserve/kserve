@@ -40,7 +40,7 @@ func TestKnativeConfigurationReconcile(t *testing.T) {
 				Spec: knservingv1alpha1.RevisionSpec{
 					Container: &v1.Container{
 						Image: v1alpha1.TensorflowServingImageName + ":" +
-							v1alpha1.DefaultTensorflowServingVersion,
+							v1alpha1.DefaultTensorflowRuntimeVersion,
 						Command: []string{v1alpha1.TensorflowEntrypointCommand},
 						Args: []string{
 							"--port=" + v1alpha1.TensorflowServingGRPCPort,
@@ -71,7 +71,7 @@ func TestKnativeConfigurationReconcile(t *testing.T) {
 						Spec: knservingv1alpha1.RevisionSpec{
 							Container: &v1.Container{
 								Image: v1alpha1.TensorflowServingImageName + ":" +
-									v1alpha1.DefaultTensorflowServingVersion,
+									v1alpha1.DefaultTensorflowRuntimeVersion,
 								Command: []string{v1alpha1.TensorflowEntrypointCommand},
 								Args: []string{
 									"--port=" + v1alpha1.TensorflowServingGRPCPort,
@@ -103,7 +103,7 @@ func TestKnativeConfigurationReconcile(t *testing.T) {
 						Spec: knservingv1alpha1.RevisionSpec{
 							Container: &v1.Container{
 								Image: v1alpha1.TensorflowServingImageName + ":" +
-									v1alpha1.DefaultTensorflowServingVersion,
+									v1alpha1.DefaultTensorflowRuntimeVersion,
 								Command: []string{v1alpha1.TensorflowEntrypointCommand},
 								Args: []string{
 									"--port=" + v1alpha1.TensorflowServingGRPCPort,

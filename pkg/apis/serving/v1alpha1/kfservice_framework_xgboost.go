@@ -28,7 +28,7 @@ var (
 	}
 	InvalidXGBoostRuntimeVersionError = "RuntimeVersion must be one of " + strings.Join(AllowedXGBoostRuntimeVersions, ", ")
 	XGBoostServerImageName            = "gcr.io/kfserving/xgbserver"
-	XGBoostDefaultRuntimeVersion      = "latest"
+	DefaultXGBoostRuntimeVersion      = "latest"
 )
 
 func (x *XGBoostSpec) CreateModelServingContainer(modelName string) *v1.Container {
@@ -45,7 +45,7 @@ func (x *XGBoostSpec) CreateModelServingContainer(modelName string) *v1.Containe
 
 func (x *XGBoostSpec) ApplyDefaults() {
 	if x.RuntimeVersion == "" {
-		x.RuntimeVersion = XGBoostDefaultRuntimeVersion
+		x.RuntimeVersion = DefaultXGBoostRuntimeVersion
 	}
 
 	setResourceRequirementDefaults(&x.Resources)
