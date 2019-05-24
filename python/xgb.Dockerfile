@@ -9,7 +9,8 @@ RUN apt-get update && apt-get install -y google-cloud-sdk
 
 
 COPY . .
-RUN pip install -e ./kfserving && pip install -e ./xgbserver
-COPY model.bst /tmp/models/model.bst
+RUN pip install --upgrade pip && pip install -e ./kfserving
+RUN pip install -e ./xgbserver
+COPY xgbserver/model.bst /tmp/models/model.bst
 
 ENTRYPOINT ["python", "-m", "xgbserver"]

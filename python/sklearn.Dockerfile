@@ -7,7 +7,8 @@ RUN curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -
 RUN apt-get update && apt-get install -y google-cloud-sdk
 
 COPY . .
-RUN pip install -e ./kfserving && pip install -e ./sklearnserver
-COPY model.joblib /tmp/models/model.joblib
+RUN pip install --upgrade pip && pip install -e ./kfserving
+RUN pip install -e ./sklearnserver
+COPY sklearnserver/model.joblib /tmp/models/model.joblib
 
 ENTRYPOINT ["python", "-m", "sklearnserver"]
