@@ -18,15 +18,6 @@ import os
 from minio import error
 from google.cloud import exceptions
 
-# Environment for testing
-GCS_PRIVATE_PATH = 'gs://bucket/path'
-GOOGLE_APPLICATION_CREDENTIALS = ''
-
-S3_PATH = 's3://bucket/path'
-S3_ENDPOINT = ''
-AWS_ACCESS_KEY_ID = ''
-AWS_SECRET_ACCESS_KEY = ''
-
 
 def test_storage_local_path():
     abs_path = 'file:///'
@@ -54,19 +45,15 @@ def test_public_gcs():
 
 
 def test_private_gcs():
-    if GOOGLE_APPLICATION_CREDENTIALS:
-        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = GOOGLE_APPLICATION_CREDENTIALS
-        assert kfserving.Storage.download(GCS_PRIVATE_PATH)
+    if os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "") and os.getenv("GCS_PRIVATE_PATH", ""):
+        assert kfserving.Storage.download(os.getenv("GCS_PRIVATE_PATH", ""))
     else:
         print('Ignore private GCS bucket test since credentials are not provided')
 
 
 def test_private_s3():
-    if S3_ENDPOINT and AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY:
-        os.environ["S3_ENDPOINT"] = S3_ENDPOINT
-        os.environ["AWS_ACCESS_KEY_ID"] = AWS_ACCESS_KEY_ID
-        os.environ["AWS_SECRET_ACCESS_KEY"] = AWS_SECRET_ACCESS_KEY
-        assert kfserving.Storage.download(S3_PATH)
+    if os.getenv("S3_ENDPOINT", "") and os.getenv("AWS_ACCESS_KEY_ID", "") and os.getenv("AWS_SECRET_ACCESS_KEY", "") and os.getenv("S3_PRIVATE_PATH", ""):
+        assert kfserving.Storage.download(os.getenv("S3_PRIVATE_PATH", ""))
     else:
         print('Ignore S3 bucket test since credentials are not provided')
 
