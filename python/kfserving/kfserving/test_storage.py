@@ -14,6 +14,16 @@
 
 import pytest
 import kfserving
+import os
+
+# Environment for testing
+GCS_PRIVATE_PATH = 'gs://bucket/path'
+GOOGLE_APPLICATION_CREDENTIALS = ''
+
+S3_PATH = 's3://bucket/path'
+S3_ENDPOINT = ''
+AWS_ACCESS_KEY_ID = ''
+AWS_SECRET_ACCESS_KEY = ''
 
 
 def test_storage_local_path():
@@ -34,3 +44,34 @@ def test_no_prefix_local_path():
     relative_path = '.'
     assert kfserving.Storage.download(abs_path) == abs_path
     assert kfserving.Storage.download(relative_path) == relative_path
+
+
+def test_public_gcs():
+    gcs_path = 'gs://kfserving-samples/models/tensorflow/flowers'
+    assert kfserving.Storage.download(gcs_path)
+
+
+def test_private_gcs():
+    if GOOGLE_APPLICATION_CREDENTIALS:
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = GOOGLE_APPLICATION_CREDENTIALS
+        assert kfserving.Storage.download(GCS_PRIVATE_PATH)
+    else:
+        print('Ignore private GCS bucket test since credentials are not provided')
+
+
+def test_private_s3():
+    if S3_ENDPOINT and AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY:
+        os.environ["S3_ENDPOINT"] = S3_ENDPOINT
+        os.environ["AWS_ACCESS_KEY_ID"] = AWS_ACCESS_KEY_ID
+        os.environ["AWS_SECRET_ACCESS_KEY"] = AWS_SECRET_ACCESS_KEY
+        assert kfserving.Storage.download(S3_PATH)
+    else:
+        print('Ignore S3 bucket test since credentials are not provided')
+
+
+def test_no_permission_buckets():
+    bad_s3_path = "s3://random/path"
+    bad_gcs_path = "gs://random/path"
+    with pytest.raises(Exception):
+        kfserving.Storage.download(bad_s3_path)
+        kfserving.Storage.download(bad_gcs_path)

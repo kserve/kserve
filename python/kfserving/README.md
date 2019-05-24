@@ -12,7 +12,10 @@ KFServing provides many functionalities, including among others:
 KFServing supports the following storage providers:
 
 * Google Cloud Storage with a prefix: "gs://"
+    * By default, it uses `GOOGLE_APPLICATION_CREDENTIALS` environment variable for user authentication.
+    * If the GCS data source is public, `gsutil` will be used to download the artifacts.
 * S3 Compatible Object Storage with a prefix "s3://"
+    * By default, it uses `S3_ENDPOINT`, `AWS_ACCESS_KEY_ID`, and `AWS_SECRET_ACCESS_KEY` environment variables for user authentication.
 * Local filesystem either without any prefix or with a prefix "file://". For example:
     * Absolute path: `/absolute/path` or `file:///absolute/path`
     * Relative path: `relative/path` or `file://relative/path`

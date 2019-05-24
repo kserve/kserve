@@ -15,6 +15,10 @@
 import logging
 import tempfile
 import os
+import subprocess
+import re
+from minio import Minio
+from google.cloud import storage
 
 _GCS_PREFIX = "gs://"
 _S3_PREFIX = "s3://"
@@ -43,11 +47,43 @@ class Storage(object):
 
     @staticmethod
     def _download_s3(uri, temp_dir: str):
-        raise NotImplementedError
+        client = Storage._create_minio_client()
+        try:
+            bucket_args = uri.replace(_S3_PREFIX, "", 1).split("/", 1)
+            bucket_name = bucket_args[0]
+            bucket_path = bucket_args[1] if len(bucket_args) > 1 else ""
+            objects = client.list_objects(bucket_name, prefix=bucket_path, recursive=True)
+            for obj in objects:
+                object_file_name = obj.object_name.replace(bucket_path, "", 1).strip("/")
+                client.fget_object(bucket_name, obj.object_name, temp_dir + "/" + object_file_name)
+        except Exception as e:
+            raise Exception(e)
+
 
     @staticmethod
     def _download_gcs(uri, temp_dir: str):
-        raise NotImplementedError
+        try:
+            storage_client = storage.Client()
+            bucket_args = uri.replace(_GCS_PREFIX, "", 1).split("/", 1)
+            bucket_name = bucket_args[0]
+            bucket_path = bucket_args[1] if len(bucket_args) > 1 else ""
+            bucket = storage_client.get_bucket(bucket_name)
+            blobs = bucket.list_blobs(prefix=bucket_path)
+            for blob in blobs:
+                object_file_name = blob.name.replace(bucket_path, "", 1).strip("/")
+                blob.download_to_filename(temp_dir + "/" + object_file_name)
+        except Exception as e:
+            try:
+                logging.info("Google cloud storage Python SDK failed. Trying with gsutil to access the data in public")
+                uri_files = uri.strip("/") + "/*"
+                process = subprocess.run(["gsutil", "cp", "-r", uri_files, temp_dir], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                logging.info(process.stdout)
+                logging.info(process.stderr)
+                if process.returncode != 0:
+                    raise Exception("gsutil error: files didn't copy to temp_dir. Please double check the GCS path.")
+            except Exception as e:
+                raise Exception(e)
+
 
     @staticmethod
     def _download_local(uri):
@@ -55,3 +91,18 @@ class Storage(object):
         if not os.path.exists(local_path):
             raise Exception("Local path %s does not exist." % (uri))
         return local_path
+
+    @staticmethod
+    def _create_minio_client():
+        try:
+            # Remove possible http scheme for Minio
+            url = re.compile(r"https?://")
+            minioClient = Minio(url.sub("", os.getenv("S3_ENDPOINT", "")),
+                                access_key=os.getenv("AWS_ACCESS_KEY_ID", ""),
+                                secret_key=os.getenv("AWS_SECRET_ACCESS_KEY", ""),
+                                secure=True)
+        except IndexError as err:
+            raise Exception('Error: Incorrect syntax with the S3 endpoint or credentials. \n' + err)
+        except Exception as e:
+            raise Exception(e)
+        return minioClient
