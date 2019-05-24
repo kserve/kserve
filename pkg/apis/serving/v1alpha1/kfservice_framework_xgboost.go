@@ -31,10 +31,13 @@ var (
 	DefaultXGBoostRuntimeVersion      = "latest"
 )
 
-func (x *XGBoostSpec) CreateModelServingContainer(modelName string) *v1.Container {
-	//TODO add configmap for image, default resources, readiness/liveness probe
+func (x *XGBoostSpec) CreateModelServingContainer(modelName string, configs map[string]string) *v1.Container {
+	imageName := XGBoostServerImageName
+	if image, ok := configs[XGBoostServingImageConfigName]; ok {
+		imageName = image
+	}
 	return &v1.Container{
-		Image:     XGBoostServerImageName + ":" + x.RuntimeVersion,
+		Image:     imageName + ":" + x.RuntimeVersion,
 		Resources: x.Resources,
 		Args: []string{
 			"--model_name=" + modelName,

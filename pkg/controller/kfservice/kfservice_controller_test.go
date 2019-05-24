@@ -238,8 +238,6 @@ func TestCanaryReconcile(t *testing.T) {
 		mgrStopped.Wait()
 	}()
 
-<<<<<<< HEAD
-=======
 	// Create configmap
 	var configMap = &v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
@@ -251,7 +249,6 @@ func TestCanaryReconcile(t *testing.T) {
 	g.Expect(c.Create(context.TODO(), configMap)).NotTo(gomega.HaveOccurred())
 	defer c.Delete(context.TODO(), configMap)
 
->>>>>>> ab4bcf4... Make gcs credential file and s3 access key names configurable
 	// Create the KFService object and expect the Reconcile and knative service to be created
 	g.Expect(c.Create(context.TODO(), canary)).NotTo(gomega.HaveOccurred())
 	defer c.Delete(context.TODO(), canary)

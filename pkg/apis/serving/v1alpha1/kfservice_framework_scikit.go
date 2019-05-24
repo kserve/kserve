@@ -31,9 +31,15 @@ var (
 	DefaultSKLearnRuntimeVersion      = "latest"
 )
 
-func (s *SKLearnSpec) CreateModelServingContainer(modelName string) *v1.Container {
+var _ FrameworkHandler = (*SKLearnSpec)(nil)
+
+func (s *SKLearnSpec) CreateModelServingContainer(modelName string, configs map[string]string) *v1.Container {
+	imageName := SKLearnServerImageName
+	if image, ok := configs[SKLearnServingImageConfigName]; ok {
+		imageName = image
+	}
 	return &v1.Container{
-		Image:     SKLearnServerImageName + ":" + s.RuntimeVersion,
+		Image:     imageName + ":" + s.RuntimeVersion,
 		Resources: s.Resources,
 		Args: []string{
 			"--model_name=" + modelName,

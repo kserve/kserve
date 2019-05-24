@@ -130,7 +130,6 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 			// For additional cleanup logic use finalizers.
 			return reconcile.Result{}, nil
 		}
-		// Error reading the object - requeue the request.
 		return reconcile.Result{}, err
 	}
 
@@ -147,7 +146,7 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 	// Reconcile configurations
 
 	desiredDefault := resources.CreateKnativeConfiguration(constants.DefaultConfigurationName(kfsvc.Name),
-		kfsvc.ObjectMeta, &kfsvc.Spec.Default)
+		kfsvc.ObjectMeta, &kfsvc.Spec.Default, configMap.Data)
 
 	if err := controllerutil.SetControllerReference(kfsvc, desiredDefault, r.scheme); err != nil {
 		return reconcile.Result{}, err
@@ -168,7 +167,7 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 
 	if kfsvc.Spec.Canary != nil {
 		desiredCanary := resources.CreateKnativeConfiguration(constants.CanaryConfigurationName(kfsvc.Name),
-			kfsvc.ObjectMeta, kfsvc.Spec.Canary)
+			kfsvc.ObjectMeta, kfsvc.Spec.Canary, configMap.Data)
 
 		if err := controllerutil.SetControllerReference(kfsvc, desiredCanary, r.scheme); err != nil {
 			return reconcile.Result{}, err

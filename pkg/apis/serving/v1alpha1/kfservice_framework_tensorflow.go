@@ -34,10 +34,13 @@ var (
 	TensorflowServingRestPort            = "8080"
 )
 
-func (t *TensorflowSpec) CreateModelServingContainer(modelName string) *v1.Container {
-	//TODO(@yuzisun) add configmap for image, default resources, readiness/liveness probe
+func (t *TensorflowSpec) CreateModelServingContainer(modelName string, configs map[string]string) *v1.Container {
+	imageName := TensorflowServingImageName
+	if image, ok := configs[TensorflowServingImageConfigName]; ok {
+		imageName = image
+	}
 	return &v1.Container{
-		Image:     TensorflowServingImageName + ":" + t.RuntimeVersion,
+		Image:     imageName + ":" + t.RuntimeVersion,
 		Command:   []string{TensorflowEntrypointCommand},
 		Resources: t.Resources,
 		Args: []string{
