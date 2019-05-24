@@ -14,12 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package resources
+package utils
 
 import (
-	"github.com/google/go-cmp/cmp"
-	"github.com/knative/serving/pkg/apis/autoscaling"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
 )
 
 func TestFilterUtil(t *testing.T) {
@@ -28,21 +28,19 @@ func TestFilterUtil(t *testing.T) {
 		predicate func(string) bool
 		expected  map[string]string
 	}{
-		"ConfigurationAnnotationFilter": {
-			input: map[string]string{"kubectl.kubernetes.io/last-applied-configuration": "1",
-				autoscaling.TargetAnnotationKey: "1", autoscaling.ClassAnnotationKey: "KPA"},
-			predicate: configurationAnnotationFilter,
-			expected:  map[string]string{autoscaling.TargetAnnotationKey: "1", autoscaling.ClassAnnotationKey: "KPA"},
+		"TruthyFilter": {
+			input:     map[string]string{"key1": "val1", "key2": "val2"},
+			predicate: func(key string) bool { return true },
+			expected:  map[string]string{"key1": "val1", "key2": "val2"},
 		},
-		"RouteAnnotationFilter": {
-			input: map[string]string{"kubectl.kubernetes.io/last-applied-configuration": "1",
-				"random annotation": "test"},
-			predicate: routeAnnotationFilter,
+		"FalsyFilter": {
+			input:     map[string]string{"key1": "val1", "key2": "val2"},
+			predicate: func(key string) bool { return false },
 			expected:  map[string]string{},
 		},
 	}
 	for name, scenario := range scenarios {
-		result := filter(scenario.input, scenario.predicate)
+		result := Filter(scenario.input, scenario.predicate)
 
 		if diff := cmp.Diff(scenario.expected, result); diff != "" {
 			t.Errorf("Test %q unexpected result (-want +got): %v", name, diff)
@@ -83,8 +81,38 @@ func TestUnionUtil(t *testing.T) {
 		},
 	}
 	for name, scenario := range scenarios {
-		result := union(scenario.input1, scenario.input2)
+		result := Union(scenario.input1, scenario.input2)
 
+		if diff := cmp.Diff(scenario.expected, result); diff != "" {
+			t.Errorf("Test %q unexpected result (-want +got): %v", name, diff)
+		}
+	}
+}
+
+func TestContainsUtil(t *testing.T) {
+	scenarios := map[string]struct {
+		input1   []string
+		input2   string
+		expected bool
+	}{
+		"SliceContainsString": {
+			input1:   []string{"hey", "hello"},
+			input2:   "hey",
+			expected: true,
+		},
+		"SliceDoesNotContainString": {
+			input1:   []string{"hey", "hello"},
+			input2:   "he",
+			expected: false,
+		},
+		"SliceIsEmpty": {
+			input1:   []string{},
+			input2:   "hey",
+			expected: false,
+		},
+	}
+	for name, scenario := range scenarios {
+		result := Includes(scenario.input1, scenario.input2)
 		if diff := cmp.Diff(scenario.expected, result); diff != "" {
 			t.Errorf("Test %q unexpected result (-want +got): %v", name, diff)
 		}
