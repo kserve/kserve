@@ -24,8 +24,8 @@ kustomize edit add configmap mnist-map-training --from-literal=modelDir=s3://mni
 kustomize edit add configmap mnist-map-training --from-literal=exportDir=s3://mnist/v1/export
 ```
 
-## Create S3 Secret
-If you already have a S3 secret created you can skip this step, since `KFServing` is relying on secret annotations to setup proper
+## Create S3 Secret and attach to Service Account
+If you already have a S3 secret created from last step you can skip this step, since `KFServing` is relying on secret annotations to setup proper
 S3 environment variables you may still need to add following annotations to your secret to overwrite S3 endpoint or other S3 options.
 ```yaml
 apiVersion: v1
@@ -40,18 +40,9 @@ data:
   awsAccessKeyID: XXXX
   awsSecretAccessKey: XXXXXXXX
 ```
-Create or update the secret
-```bash
-kubectl apply -f s3_secret.yaml 
-```
 
-## Attach S3 Secret to Service Account
-`KFServing` gets the S3 secrets from service account, it requires user to append the above created or existing secret to your service account's secret list.
-By default `KFServing` uses **default** service account in the namespace where `KFService` deploys to, user can also specify the service account on `KFService` CRD.
-
-```bash
-kubectl edit sa default
-```
+`KFServing` gets the secrets from your service account, you need to add the above created or existing secret to your service account's secret list. 
+By default `KFServing` uses `default` service account, user can also specify the service account on `KFService` CRD.
 
 ```yaml
 apiVersion: v1
@@ -59,13 +50,17 @@ kind: ServiceAccount
 metadata:
   name: default # change to your service account name
 secrets:
-- name: default-token-zjpsv
-- name: mysecret # append the s3 secret here and save
+- name: mysecret
+```
+
+Apply the secret and service account
+```bash
+kubectl apply -f s3_secret.yaml
 ```
 
 ## Create the KFService
 Apply the CRD
-```
+```bash
 kubectl apply -f tensorflow_s3.yaml 
 ```
 
@@ -76,7 +71,7 @@ $ kfservice.serving.kubeflow.org/mnist-s3 created
 
 ## Run a prediction
 
-```
+```bash
 MODEL_NAME=mnist-s3
 INPUT_PATH=@./input.json
 CLUSTER_IP=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
