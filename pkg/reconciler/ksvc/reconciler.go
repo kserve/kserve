@@ -57,7 +57,7 @@ func (c *ServiceReconciler) ReconcileConfiguration(ctx context.Context, desiredC
 		return nil, err
 	}
 
-	if serviceSemanticEquals(desiredConfiguration, configuration) {
+	if configurationSemanticEquals(desiredConfiguration, configuration) {
 		// No differences to reconcile.
 		return configuration, nil
 	}
@@ -113,7 +113,43 @@ func (c *ServiceReconciler) ReconcileRoute(ctx context.Context, desiredRoute *kn
 	return route, nil
 }
 
-func serviceSemanticEquals(desiredConfiguration, configuration *knservingv1alpha1.Configuration) bool {
+func (c *ServiceReconciler) ReconcileService(ctx context.Context, desiredService *knservingv1alpha1.Service) (*knservingv1alpha1.Service, error) {
+	service := &knservingv1alpha1.Service{}
+	err := c.client.Get(context.TODO(), types.NamespacedName{Name: desiredService.Name,
+		Namespace: desiredService.Namespace}, service)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			log.Info("Creating Knative Serving service", "namespace",
+				desiredService.Namespace, "name", desiredService.Name)
+			err = c.client.Create(context.TODO(), desiredService)
+			return desiredService, err
+		}
+		return nil, err
+	}
+
+	if serviceSemanticEquals(desiredService, service) {
+		// No differences to reconcile.
+		return service, nil
+	}
+
+	diff, err := kmp.SafeDiff(desiredService.Spec, service.Spec)
+	if err != nil {
+		return service, fmt.Errorf("failed to diff service: %v", err)
+	}
+	log.Info("Reconciling service diff (-desired, +observed): %s", "diff", diff)
+
+	service.Spec = desiredService.Spec
+	service.ObjectMeta.Labels = desiredService.ObjectMeta.Labels
+	service.ObjectMeta.Annotations = desiredService.ObjectMeta.Annotations
+	log.Info("Updating service", "namespace", service.Namespace, "name", service.Name)
+	err = c.client.Update(context.TODO(), service)
+	if err != nil {
+		return service, err
+	}
+	return service, nil
+}
+
+func configurationSemanticEquals(desiredConfiguration, configuration *knservingv1alpha1.Configuration) bool {
 	return equality.Semantic.DeepEqual(desiredConfiguration.Spec, configuration.Spec) &&
 		equality.Semantic.DeepEqual(desiredConfiguration.ObjectMeta.Labels, configuration.ObjectMeta.Labels) &&
 		equality.Semantic.DeepEqual(desiredConfiguration.ObjectMeta.Annotations, configuration.ObjectMeta.Annotations)
@@ -123,4 +159,10 @@ func routeSemanticEquals(desiredRoute, route *knservingv1alpha1.Route) bool {
 	return equality.Semantic.DeepEqual(desiredRoute.Spec, route.Spec) &&
 		equality.Semantic.DeepEqual(desiredRoute.ObjectMeta.Labels, route.ObjectMeta.Labels) &&
 		equality.Semantic.DeepEqual(desiredRoute.ObjectMeta.Annotations, route.ObjectMeta.Annotations)
+}
+
+func serviceSemanticEquals(desiredService, service *knservingv1alpha1.Service) bool {
+	return equality.Semantic.DeepEqual(desiredService.Spec, service.Spec) &&
+		equality.Semantic.DeepEqual(desiredService.ObjectMeta.Labels, service.ObjectMeta.Labels) &&
+		equality.Semantic.DeepEqual(desiredService.ObjectMeta.Annotations, service.ObjectMeta.Annotations)
 }

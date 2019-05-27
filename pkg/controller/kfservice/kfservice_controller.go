@@ -99,6 +99,11 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
+	// Watch for changes to Knative Service
+	if err = c.Watch(&source.Kind{Type: &knservingv1alpha1.Service{}}, kfservingController); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -117,6 +122,8 @@ type ReconcileService struct {
 // +kubebuilder:rbac:groups=serving.knative.dev,resources=configurations/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=serving.knative.dev,resources=routes,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=serving.knative.dev,resources=routes/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=serving.knative.dev,resources=services,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=serving.knative.dev,resources=services/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=serving.kubeflow.org,resources=kfservices,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=serving.kubeflow.org,resources=kfservices/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=,resources=serviceaccounts,verbs=get;list;watch
@@ -137,20 +144,30 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 	credentialBuilder := ksvc.NewCredentialBulder(r.Client)
 
 	serviceReconciler := ksvc.NewServiceReconciler(r.Client)
-	// Reconcile configurations
 
-	desiredDefault := resources.CreateKnativeConfiguration(constants.DefaultConfigurationName(kfsvc.Name),
+	// Reconcile Default Model
+	desiredDefaultSvc := resources.CreateKnativeService(constants.DefaultModelServiceName(kfsvc.Name),
 		kfsvc.ObjectMeta, &kfsvc.Spec.Default)
-
-	if err := controllerutil.SetControllerReference(kfsvc, desiredDefault, r.scheme); err != nil {
+	if err := controllerutil.SetControllerReference(kfsvc, desiredDefaultSvc, r.scheme); err != nil {
+		return reconcile.Result{}, err
+	}
+	if err := credentialBuilder.CreateSecretVolumeAndEnv(context.TODO(), request.Namespace, kfsvc.Spec.Default.ServiceAccountName,
+		&desiredDefaultSvc.Spec.RunLatest.Configuration); err != nil {
+		log.Error(err, "Failed to create credential volume or envs", "ServiceAccount", kfsvc.Spec.Default.ServiceAccountName)
+	}
+	_, err := serviceReconciler.ReconcileService(context.TODO(), desiredDefaultSvc)
+	if err != nil {
+		log.Error(err, "Failed to reconcile default model spec", "name", desiredDefaultSvc.Name)
+		r.Recorder.Eventf(kfsvc, v1.EventTypeWarning, "InternalError", err.Error())
 		return reconcile.Result{}, err
 	}
 
-	if err := credentialBuilder.CreateSecretVolumeAndEnv(context.TODO(), request.Namespace, kfsvc.Spec.Default.ServiceAccountName,
-		desiredDefault); err != nil {
-		log.Error(err, "Failed to create credential volume or envs", "ServiceAccount", kfsvc.Spec.Default.ServiceAccountName)
+	// Reconcile configurations
+	desiredDefault := resources.CreateOrchKnativeConfiguration(constants.DefaultConfigurationName(kfsvc.Name),
+		kfsvc.ObjectMeta, constants.DefaultModelServiceName(kfsvc.Name)+"."+kfsvc.Namespace+".svc.cluster.local")
+	if err := controllerutil.SetControllerReference(kfsvc, desiredDefault, r.scheme); err != nil {
+		return reconcile.Result{}, err
 	}
-
 	defaultConfiguration, err := serviceReconciler.ReconcileConfiguration(context.TODO(), desiredDefault)
 	if err != nil {
 		log.Error(err, "Failed to reconcile default model spec", "name", desiredDefault.Name)
@@ -168,7 +185,7 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 		}
 
 		if err := credentialBuilder.CreateSecretVolumeAndEnv(context.TODO(), request.Namespace, kfsvc.Spec.Canary.ServiceAccountName,
-			desiredCanary); err != nil {
+			&desiredCanary.Spec); err != nil {
 			log.Error(err, "Failed to create credential volume or envs", "ServiceAccount", kfsvc.Spec.Canary.ServiceAccountName)
 		}
 

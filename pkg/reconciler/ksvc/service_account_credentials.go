@@ -37,7 +37,7 @@ func NewCredentialBulder(client client.Client) *CredentialBuilder {
 }
 
 func (c *CredentialBuilder) CreateSecretVolumeAndEnv(ctx context.Context, namespace string, serviceAccountName string,
-	configuration *knservingv1alpha1.Configuration) error {
+	configuration *knservingv1alpha1.ConfigurationSpec) error {
 	if serviceAccountName == "" {
 		serviceAccountName = "default"
 	}
@@ -59,15 +59,15 @@ func (c *CredentialBuilder) CreateSecretVolumeAndEnv(ctx context.Context, namesp
 		if _, ok := secret.Data[s3.AWSSecretAccessKeyName]; ok {
 			log.Info("Setting secret envs for s3", "S3Secret", secret.Name)
 			envs := s3.BuildSecretEnvs(secret)
-			configuration.Spec.RevisionTemplate.Spec.Container.Env = append(configuration.Spec.RevisionTemplate.Spec.Container.Env, envs...)
+			configuration.RevisionTemplate.Spec.Container.Env = append(configuration.RevisionTemplate.Spec.Container.Env, envs...)
 		} else if _, ok := secret.Data[gcs.GCSCredentialFileName]; ok {
 			log.Info("Setting secret volume for gcs", "GCSSecret", secret.Name)
 			volume, volumeMount := gcs.BuildSecretVolume(secret)
-			configuration.Spec.RevisionTemplate.Spec.Volumes =
-				append(configuration.Spec.RevisionTemplate.Spec.Volumes, volume)
-			configuration.Spec.RevisionTemplate.Spec.Container.VolumeMounts =
-				append(configuration.Spec.RevisionTemplate.Spec.Container.VolumeMounts, volumeMount)
-			configuration.Spec.RevisionTemplate.Spec.Container.Env = append(configuration.Spec.RevisionTemplate.Spec.Container.Env,
+			configuration.RevisionTemplate.Spec.Volumes =
+				append(configuration.RevisionTemplate.Spec.Volumes, volume)
+			configuration.RevisionTemplate.Spec.Container.VolumeMounts =
+				append(configuration.RevisionTemplate.Spec.Container.VolumeMounts, volumeMount)
+			configuration.RevisionTemplate.Spec.Container.Env = append(configuration.RevisionTemplate.Spec.Container.Env,
 				v1.EnvVar{
 					Name:  gcs.GCSCredentialEnvKey,
 					Value: gcs.GCSCredentialVolumeMountPath,

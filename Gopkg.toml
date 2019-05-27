@@ -38,9 +38,9 @@ version="v1.4.7"
 
 [[override]]
   name = "github.com/knative/pkg"
-  # HEAD as of 2019-04-19
-  revision = "3c8c4a93547f62b542013c273068f51875b5c942"
-
+  # HEAD as of 2919-05-11
+  revision = "9e0db8f0a7f47def18cf65e0859066d5e0377304"
+      
 [[override]]
   name = "k8s.io/api"
   version = "kubernetes-1.12.6"

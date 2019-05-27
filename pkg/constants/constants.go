@@ -68,3 +68,11 @@ func DefaultConfigurationName(name string) string {
 func CanaryConfigurationName(name string) string {
 	return name + "-canary"
 }
+
+func DefaultModelServiceName(name string) string {
+	return name + "-default-model"
+}
+
+func CanaryModelServiceName(name string) string {
+	return name + "-canary-model"
+}

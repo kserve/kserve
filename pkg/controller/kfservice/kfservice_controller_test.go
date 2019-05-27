@@ -46,6 +46,9 @@ var serviceKey = expectedRequest.NamespacedName
 var configurationKey = types.NamespacedName{Name: constants.DefaultConfigurationName(serviceKey.Name),
 	Namespace: serviceKey.Namespace}
 
+var serviceModelKey = types.NamespacedName{Name: constants.DefaultModelServiceName(serviceKey.Name),
+	Namespace: serviceKey.Namespace}
+
 var expectedCanaryRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: "bar", Namespace: "default"}}
 var canaryServiceKey = expectedCanaryRequest.NamespacedName
 var defaultConfigurationKey = types.NamespacedName{Name: constants.DefaultConfigurationName(canaryServiceKey.Name),
@@ -129,45 +132,82 @@ func TestReconcile(t *testing.T) {
 	defer c.Delete(context.TODO(), instance)
 	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
 
-	configuration := &knservingv1alpha1.Configuration{}
-	g.Eventually(func() error { return c.Get(context.TODO(), configurationKey, configuration) }, timeout).
+	service := &knservingv1alpha1.Service{}
+	g.Eventually(func() error { return c.Get(context.TODO(), serviceModelKey, service) }, timeout).
 		Should(gomega.Succeed())
-	expectedConfiguration := &knservingv1alpha1.Configuration{
+	expectedService := &knservingv1alpha1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      constants.DefaultConfigurationName(instance.Name),
 			Namespace: instance.Namespace,
 		},
-		Spec: knservingv1alpha1.ConfigurationSpec{
-			RevisionTemplate: &knservingv1alpha1.RevisionTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{"serving.kubeflow.org/kfservice": "foo"},
-					Annotations: map[string]string{
-						"autoscaling.knative.dev/target":   "1",
-						"autoscaling.knative.dev/class":    "kpa.autoscaling.knative.dev",
-						"autoscaling.knative.dev/maxScale": "3",
-						"autoscaling.knative.dev/minScale": "1",
-					},
-				},
-				Spec: knservingv1alpha1.RevisionSpec{
-					RevisionSpec: v1beta1.RevisionSpec{
-						TimeoutSeconds: &constants.DefaultTimeout,
-					},
-					Container: &v1.Container{
-						Image: servingv1alpha1.TensorflowServingImageName + ":" +
-							instance.Spec.Default.Tensorflow.RuntimeVersion,
-						Command: []string{servingv1alpha1.TensorflowEntrypointCommand},
-						Args: []string{
-							"--port=" + servingv1alpha1.TensorflowServingGRPCPort,
-							"--rest_api_port=" + servingv1alpha1.TensorflowServingRestPort,
-							"--model_name=" + instance.Name,
-							"--model_base_path=" + instance.Spec.Default.Tensorflow.ModelURI,
+		Spec: knservingv1alpha1.ServiceSpec{
+			RunLatest: &knservingv1alpha1.RunLatestType{
+				Configuration: knservingv1alpha1.ConfigurationSpec{
+					RevisionTemplate: &knservingv1alpha1.RevisionTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: map[string]string{"serving.kubeflow.org/kfservice": "foo"},
+							Annotations: map[string]string{
+								"autoscaling.knative.dev/target":   "1",
+								"autoscaling.knative.dev/class":    "kpa.autoscaling.knative.dev",
+								"autoscaling.knative.dev/maxScale": "3",
+								"autoscaling.knative.dev/minScale": "1",
+							},
+						},
+						Spec: knservingv1alpha1.RevisionSpec{
+							RevisionSpec: v1beta1.RevisionSpec{
+								TimeoutSeconds: &constants.DefaultTimeout,
+							},
+							Container: &v1.Container{
+								Image: servingv1alpha1.TensorflowServingImageName + ":" +
+									instance.Spec.Default.Tensorflow.RuntimeVersion,
+								Command: []string{servingv1alpha1.TensorflowEntrypointCommand},
+								Args: []string{
+									"--port=" + servingv1alpha1.TensorflowServingGRPCPort,
+									"--rest_api_port=" + servingv1alpha1.TensorflowServingRestPort,
+									"--model_name=" + instance.Name,
+									"--model_base_path=" + instance.Spec.Default.Tensorflow.ModelURI,
+								},
+							},
 						},
 					},
 				},
 			},
 		},
 	}
+	g.Expect(service.Spec).To(gomega.Equal(expectedService.Spec))
+
+	configuration := &knservingv1alpha1.Configuration{}
+	g.Eventually(func() error { return c.Get(context.TODO(), configurationKey, configuration) }, timeout).
+		Should(gomega.Succeed())
+
+	expectedConfiguration := &knservingv1alpha1.Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      constants.DefaultConfigurationName(instance.Name),
+				Namespace: instance.Namespace,
+			},
+			Spec: knservingv1alpha1.ConfigurationSpec{
+				RevisionTemplate: &knservingv1alpha1.RevisionTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Labels: map[string]string{"serving.kubeflow.org/kfservice": "foo"},
+					},
+					Spec: knservingv1alpha1.RevisionSpec{
+						RevisionSpec: v1beta1.RevisionSpec{
+							// Defaulting here since this always shows a diff with nil vs 300s(knative default)
+							// we may need to expose this field in future
+							TimeoutSeconds: &constants.DefaultTimeout,
+						},
+						Container: &v1.Container{
+							//FIXME change to official image
+							Image:           "cliveseldon/kfserving-orchestrator:latest",
+							Args:            []string{"-service=foo-default-model.default.svc.cluster.local"},
+							ImagePullPolicy: "Always",
+						},
+					},
+				},
+			},
+		}
 	g.Expect(configuration.Spec).To(gomega.Equal(expectedConfiguration.Spec))
+
 
 	route := &knservingv1alpha1.Route{}
 	g.Eventually(func() error { return c.Get(context.TODO(), serviceKey, route) }, timeout).

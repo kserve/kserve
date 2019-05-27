@@ -18,6 +18,7 @@ package resources
 
 import (
 	"fmt"
+	v1 "k8s.io/api/core/v1"
 
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	knservingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -27,6 +28,39 @@ import (
 	"github.com/kubeflow/kfserving/pkg/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+func CreateOrchKnativeConfiguration(name string, metadata metav1.ObjectMeta, serviceFQDN string) *knservingv1alpha1.Configuration {
+	configuration := &knservingv1alpha1.Configuration{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: metadata.Namespace,
+			Labels:    metadata.Labels,
+		},
+		Spec: knservingv1alpha1.ConfigurationSpec{
+			RevisionTemplate: &knservingv1alpha1.RevisionTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: utils.Union(metadata.Labels, map[string]string{
+						constants.KFServicePodLabelKey: metadata.Name,
+					}),
+				},
+				Spec: knservingv1alpha1.RevisionSpec{
+					RevisionSpec: v1beta1.RevisionSpec{
+						// Defaulting here since this always shows a diff with nil vs 300s(knative default)
+						// we may need to expose this field in future
+						TimeoutSeconds: &constants.DefaultTimeout,
+					},
+					Container: &v1.Container{
+						//FIXME change to official image
+						Image:           "cliveseldon/kfserving-orchestrator:latest",
+						Args:            []string{"-service=" + serviceFQDN},
+						ImagePullPolicy: "Always",
+					},
+				},
+			},
+		},
+	}
+	return configuration
+}
 
 func CreateKnativeConfiguration(name string, metadata metav1.ObjectMeta, modelSpec *v1alpha1.ModelSpec) *knservingv1alpha1.Configuration {
 	if modelSpec == nil {

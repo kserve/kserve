@@ -1,6 +1,7 @@
 
 # Image URL to use all building/pushing image targets
 IMG ?= kfserving-controller:latest
+ORCH-IMG ?= kfserving-orchestrator:latest
 
 all: test manager
 
@@ -66,3 +67,9 @@ docker-build: test
 # Push the docker image
 docker-push:
 	docker push ${IMG}
+
+docker-build-orchestrator: #test
+	docker build -f Dockerfile.orchestrator . -t ${ORCH-IMG}
+
+docker-push-orchestrator:
+	docker push ${ORCH-IMG}
