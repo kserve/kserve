@@ -15,8 +15,11 @@
 import pytest
 import kfserving
 import os
-from minio import error
+from minio import Minio, error
 from google.cloud import exceptions
+import unittest.mock as mock
+
+STORAGE_MODULE = 'kfserving.storage'
 
 
 def test_storage_local_path():
@@ -39,28 +42,36 @@ def test_no_prefix_local_path():
     assert kfserving.Storage.download(relative_path) == relative_path
 
 
-def test_public_gcs():
-    gcs_path = 'gs://kfserving-samples/models/tensorflow/flowers'
+@mock.patch(STORAGE_MODULE + '.storage')
+def test_mock_gcs(mock_storage):
+    gcs_path = 'gs://foo/bar'
+    mock_obj = mock.MagicMock()
+    mock_obj.name = 'mock.object'
+    mock_storage.Client().bucket().list_blobs().__iter__.return_value = [mock_obj]
     assert kfserving.Storage.download(gcs_path)
 
 
-def test_private_gcs():
-    if os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "") and os.getenv("GCS_PRIVATE_PATH", ""):
-        assert kfserving.Storage.download(os.getenv("GCS_PRIVATE_PATH", ""))
-    else:
-        print('Ignore private GCS bucket test since credentials are not provided')
+@mock.patch('urllib3.PoolManager')
+@mock.patch(STORAGE_MODULE + '.Minio')
+def test_mock_minio(mock_connection, mock_minio):
+    minio_path = 's3://foo/bar'
+    # Create mock connection
+    mock_server = mock.MagicMock()
+    mock_connection.return_value = mock_server
+    # Create mock client
+    mock_minio.return_value = Minio("s3.us.cloud-object-storage.appdomain.cloud", secure=True)
+    mock_obj = mock.MagicMock()
+    mock_obj.object_name = 'mock.object'
+    mock_minio.list_objects().__iter__.return_value = [mock_obj]
+    assert kfserving.Storage.download(minio_path)
 
 
-def test_private_s3():
-    if os.getenv("S3_ENDPOINT", "") and os.getenv("AWS_ACCESS_KEY_ID", "") and os.getenv("AWS_SECRET_ACCESS_KEY", "") and os.getenv("S3_PRIVATE_PATH", ""):
-        assert kfserving.Storage.download(os.getenv("S3_PRIVATE_PATH", ""))
-    else:
-        print('Ignore S3 bucket test since credentials are not provided')
-
-
-def test_no_permission_buckets():
+@mock.patch(STORAGE_MODULE + '.Minio')
+def test_no_permission_buckets(mock_minio):
     bad_s3_path = "s3://random/path"
     bad_gcs_path = "gs://random/path"
+    # Access private buckets without credentials
+    mock_minio.return_value = Minio("s3.us.cloud-object-storage.appdomain.cloud", secure=True)
     with pytest.raises(error.AccessDenied):
         kfserving.Storage.download(bad_s3_path)
     with pytest.raises(exceptions.Forbidden):

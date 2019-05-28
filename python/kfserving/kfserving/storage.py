@@ -53,8 +53,9 @@ class Storage(object):
         bucket_path = bucket_args[1] if len(bucket_args) > 1 else ""
         objects = client.list_objects(bucket_name, prefix=bucket_path, recursive=True)
         for obj in objects:
-            object_file_name = obj.object_name.replace(bucket_path, "", 1).strip("/")
-            client.fget_object(bucket_name, obj.object_name, temp_dir + "/" + object_file_name)
+            # Replace any prefix from the object key with temp_dir
+            subdir_object_key = obj.object_name.replace(bucket_path, "", 1).strip("/")
+            client.fget_object(bucket_name, obj.object_name, os.path.join(temp_dir, subdir_object_key))
 
     @staticmethod
     def _download_gcs(uri, temp_dir: str):
@@ -68,13 +69,14 @@ class Storage(object):
         bucket = storage_client.bucket(bucket_name)
         blobs = bucket.list_blobs(prefix=bucket_path)
         for blob in blobs:
-            object_file_name = blob.name.replace(bucket_path, "", 1).strip("/")
-            # Create necessary subdirectory
-            if "/" in object_file_name:
-                object_file_path = temp_dir + "/" + object_file_name.rsplit("/", 1)[0]
-                if not os.path.isdir(object_file_path):
-                    os.makedirs(object_file_path)
-            blob.download_to_filename(temp_dir + "/" + object_file_name)
+            # Replace any prefix from the object key with temp_dir
+            subdir_object_key = blob.name.replace(bucket_path, "", 1).strip("/")
+            # Create necessary subdirectory to store the object locally
+            if "/" in subdir_object_key:
+                local_object_dir = os.path.join(temp_dir, subdir_object_key.rsplit("/", 1)[0])
+                if not os.path.isdir(local_object_dir):
+                    os.makedirs(local_object_dir, exist_ok=True)
+            blob.download_to_filename(os.path.join(temp_dir, subdir_object_key))
 
     @staticmethod
     def _download_local(uri):
