@@ -109,12 +109,3 @@ Expected Output
 * Connection #0 to host 169.63.251.68 left intact
 {"predictions": [1.0, 1.0]}
 ```
-
-## Canary Rollout
-
-To run a canary rollout, you can use the xgboost-canary.yaml 
-
-Apply the CRD
-```
-kubectl apply -f xgboost-canary.yaml 
-```
