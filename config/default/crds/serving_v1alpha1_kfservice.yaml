@@ -7,11 +7,8 @@ metadata:
   name: kfservices.serving.kubeflow.org
 spec:
   additionalPrinterColumns:
-  - JSONPath: .status.uri.external
+  - JSONPath: .status.uri
     name: URI
-    type: string
-  - JSONPath: .status.conditions[?(@.type==\"READY\")].status
-    name: Status
     type: string
   - JSONPath: .status.default.traffic
     name: Default Traffic
@@ -239,12 +236,7 @@ spec:
                   type: integer
               type: object
             uri:
-              properties:
-                external:
-                  type: string
-                internal:
-                  type: string
-              type: object
+              type: string
           type: object
   version: v1alpha1
 status:

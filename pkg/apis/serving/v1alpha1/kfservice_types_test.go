@@ -75,10 +75,7 @@ func TestKFService(t *testing.T) {
 	// Test status update
 	statusUpdated := fetched.DeepCopy()
 	statusUpdated.Status = KFServiceStatus{
-		URI: URISpec{
-			Internal: "example.svc.cluster.local",
-			External: "example.dev.com",
-		},
+		URI: "example.dev.com",
 		Default: StatusConfigurationSpec{
 			Name:     "v1",
 			Traffic:  20,
