@@ -1,13 +1,12 @@
 
-# Minio
 
-A lot of the examples here use S3/GCS storage backend. If you want to use locally, you can create your default deployment for Minio in this cluster
-
-kubectl create -f https://github.com/minio/minio/blob/master/docs/orchestration/kubernetes/minio-standalone-pvc.yaml?raw=true
-persistentvolumeclaim "minio-pv-claim" created
-
-
+# Design Docs
 KFServing architecture consists of two main specifications, around control plane and data plane. Control plane is responsible for deploying and managing the lifecycle of models, while data plane is responsible for defining the contracts to interact with models once deployed.
+
+ * [KFserving control plane specification](control-plane.md)
+   * Defines the specification of the `kfserving` resource.
+ * [KFserving data plane specification](data-plane.md)
+   * Defines the data payloads to enable interoperability between `kfserving` components.
 
  * [KFserving control plane specification](control-plane.md)
    * Defines the specification of the `kfserving` resource.
