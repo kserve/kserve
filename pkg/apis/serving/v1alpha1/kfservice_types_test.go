@@ -75,7 +75,7 @@ func TestKFService(t *testing.T) {
 	// Test status update
 	statusUpdated := fetched.DeepCopy()
 	statusUpdated.Status = KFServiceStatus{
-		URI: "example.dev.com",
+		URL: "example.dev.com",
 		Default: StatusConfigurationSpec{
 			Name:     "v1",
 			Traffic:  20,

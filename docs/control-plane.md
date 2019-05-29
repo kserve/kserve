@@ -38,8 +38,7 @@ The Status section of the resource definition provides critical feedback to the 
 
 | Field       | Value       | Description |
 | ----------- | ----------- | ----------- |
-| status.uri.external | String                          | The uri for accessing the Service from outside the cluster. |
-| status.uri.internal | String                          | The uri for accessing the Service from inside the cluster. |
+| status.url          | String                          | The url for accessing the Service. |
 | status.default      | StatusConfigurationSpec         | The status of the configuration including name, replicas, and traffic. |
 | status.canary       | StatusConfigurationSpec         | The status of the configuration including name, replicas, and traffic. |
 | status.conditions   | List\<[Condition](#Conditions)> | The name for your Service. This will ultimately derive DNS name. |

@@ -94,7 +94,7 @@ var canary = &servingv1alpha1.KFService{
 		},
 	},
 	Status: servingv1alpha1.KFServiceStatus{
-		URI: canaryServiceKey.Name + ".svc.cluster.local",
+		URL: canaryServiceKey.Name + ".svc.cluster.local",
 		Default: servingv1alpha1.StatusConfigurationSpec{
 			Name: "revision-v1",
 		},
@@ -182,7 +182,7 @@ func TestReconcile(t *testing.T) {
 	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
 	// verify if KFService status is updated
 	expectedKfsvcStatus := servingv1alpha1.KFServiceStatus{
-		URI: updatedRoute.Status.Domain,
+		URL: updatedRoute.Status.Domain,
 		Default: servingv1alpha1.StatusConfigurationSpec{
 			Name: "revision-v1",
 		},
@@ -319,7 +319,7 @@ func TestCanaryReconcile(t *testing.T) {
 
 	// verify if KFService status is updated
 	expectedKfsvcStatus := servingv1alpha1.KFServiceStatus{
-		URI: updatedRoute.Status.Domain,
+		URL: updatedRoute.Status.Domain,
 		Default: servingv1alpha1.StatusConfigurationSpec{
 			Name:    "revision-v1",
 			Traffic: 80,

@@ -89,7 +89,7 @@ type CustomSpec struct {
 // KFServiceStatus defines the observed state of KFService
 type KFServiceStatus struct {
 	Conditions StatusConditionsSpec    `json:"conditions,omitempty"`
-	URI        string                  `json:"uri,omitempty"`
+	URL        string                  `json:"url,omitempty"`
 	Default    StatusConfigurationSpec `json:"default,omitempty"`
 	Canary     StatusConfigurationSpec `json:"canary,omitempty"`
 }
@@ -142,7 +142,7 @@ const (
 
 // KFService is the Schema for the services API
 // +k8s:openapi-gen=true
-// +kubebuilder:printcolumn:name="URI",type="string",JSONPath=".status.uri"
+// +kubebuilder:printcolumn:name="URL",type="string",JSONPath=".status.url"
 // +kubebuilder:printcolumn:name="Default Traffic",type="integer",JSONPath=".status.default.traffic"
 // +kubebuilder:printcolumn:name="Canary Traffic",type="integer",JSONPath=".status.canary.traffic"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"

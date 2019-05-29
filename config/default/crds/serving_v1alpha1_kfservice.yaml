@@ -7,8 +7,8 @@ metadata:
   name: kfservices.serving.kubeflow.org
 spec:
   additionalPrinterColumns:
-  - JSONPath: .status.uri
-    name: URI
+  - JSONPath: .status.url
+    name: URL
     type: string
   - JSONPath: .status.default.traffic
     name: Default Traffic
@@ -235,7 +235,7 @@ spec:
                   format: int64
                   type: integer
               type: object
-            uri:
+            url:
               type: string
           type: object
   version: v1alpha1
