@@ -58,6 +58,15 @@ Expected Output
 * Connection #0 to host 34.83.190.188 left intact
 }%
 ```
+
+If you stop making requests to the application, you should eventually see that your application scales itself back down to zero. Watch the pod until you see that it is `Terminating`. This should take approximately 90 seconds.
+
+    ```
+    kubectl get pods --watch
+    ```
+
+    Note: To exit the watch, use `ctrl + c`.
+
 ## Canary Rollout
 
 To run a canary rollout, you can use the tensorflow-canary.yaml 
@@ -67,3 +76,47 @@ Apply the CRD
 kubectl apply -f tensorflow-canary.yaml 
 ```
 
+To check for traffic split, and in general working with Knative, we would recommend using the [
+
+To test if your traffic split percenage is applied correctly, you can use the following command using the [Knative CLI](knative-cli)
+
+```
+knctl revision list 
+Revisions
+
+Service                 Name                          Tags  Annotations                                                 Conditions  Age  Traffic  
+flowers-sample-canary   flowers-sample-canary-6kpt6   -     autoscaling.knative.dev/class: kpa.autoscaling.knative.dev  4 OK / 5    40m  10% -> flowers-sample.default.example.com  
+                                                            autoscaling.knative.dev/target: "1"                                            
+flowers-sample-default  flowers-sample-default-l9c24  -     autoscaling.knative.dev/class: kpa.autoscaling.knative.dev  4 OK / 5    40m  90% -> flowers-sample.default.example.com  
+                                                            autoscaling.knative.dev/target: "1"  
+```
+
+### Knative CLI:
+
+Knative CLI (`knctl`)](https://github.com/cppforlife/knctl) provides simple set of commands to interact with a [Knative installation](https://github.com/knative/docs). You can grab pre-built binaries from the [Releases page](https://github.com/cppforlife/knctl/releases). Once downloaded, you can run the following commands to get it working.
+
+```
+# compare checksum output to what's included in the release notes
+$ shasum -a 265 ~/Downloads/knctl-*
+
+# move binary to your system’s /usr/local/bin -- might require root password
+$ mv ~/Downloads/knctl-* /usr/local/bin/knctl
+
+# make the newly copied file executable -- might require root password
+$ chmod +x /usr/local/bin/knctl
+```
+
+You can check for successful installation using the following command
+
+```
+knctl ingress list
+
+Ingresses
+
+Name                    Addresses  Ports         Age
+knative-ingressgateway  x.x.x.x    80,443,32400  18h
+
+1 ingress 
+
+Succeeded
+```

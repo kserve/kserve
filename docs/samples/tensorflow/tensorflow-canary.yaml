@@ -9,6 +9,6 @@ spec:
       modelUri: "gs://kfserving-samples/models/tensorflow/flowers"
   canaryTrafficPercent: 10
   canary:
-    # 10% of traffic is sent to this model
+   # 10% of traffic is sent to this model
     tensorflow:
-      modelUri: "gs://kfserving-samples/models/tensorflow/flowers"
+      modelUri: "gs://kfserving-samples/models/tensorflow/flowers-2"
