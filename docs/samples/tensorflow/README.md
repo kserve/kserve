@@ -103,18 +103,3 @@ $ mv ~/Downloads/knctl-* /usr/local/bin/knctl
 # make the newly copied file executable -- might require root password
 $ chmod +x /usr/local/bin/knctl
 ```
-
-You can check for successful installation using the following command
-
-```
-knctl ingress list
-
-Ingresses
-
-Name                    Addresses  Ports         Age
-knative-ingressgateway  x.x.x.x    80,443,32400  18h
-
-1 ingress 
-
-Succeeded
-```
