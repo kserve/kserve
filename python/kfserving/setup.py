@@ -33,6 +33,8 @@ setup(
     install_requires=[
         "tornado >= 1.4.1",
         "argparse >= 1.4.0",
+        "minio >= 4.0.9",
+        "google-cloud-storage >= 1.16.0",
         "numpy"
     ],
     tests_require=tests_require,
