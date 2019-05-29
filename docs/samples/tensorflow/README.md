@@ -69,16 +69,14 @@ If you stop making requests to the application, you should eventually see that y
 
 ## Canary Rollout
 
-To run a canary rollout, you can use the tensorflow-canary.yaml 
+To test a canary rollout, you can use the tensorflow-canary.yaml 
 
 Apply the CRD
 ```
 kubectl apply -f tensorflow-canary.yaml 
 ```
 
-To check for traffic split, and in general working with Knative, we would recommend using the [
-
-To test if your traffic split percenage is applied correctly, you can use the following command using the [Knative CLI](knative-cli)
+To verify if your traffic split percenage is applied correctly, you can use the following command using the [Knative CLI](#knative-cli)
 
 ```
 knctl revision list 
@@ -93,7 +91,7 @@ flowers-sample-default  flowers-sample-default-l9c24  -     autoscaling.knative.
 
 ### Knative CLI:
 
-Knative CLI (`knctl`)](https://github.com/cppforlife/knctl) provides simple set of commands to interact with a [Knative installation](https://github.com/knative/docs). You can grab pre-built binaries from the [Releases page](https://github.com/cppforlife/knctl/releases). Once downloaded, you can run the following commands to get it working.
+[Knative CLI (`knctl`)](https://github.com/cppforlife/knctl) provides simple set of commands to interact with a [Knative installation](https://github.com/knative/docs). You can grab pre-built binaries from the [Releases page](https://github.com/cppforlife/knctl/releases). Once downloaded, you can run the following commands to get it working.
 
 ```
 # compare checksum output to what's included in the release notes
