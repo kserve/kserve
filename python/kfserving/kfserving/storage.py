@@ -15,6 +15,10 @@
 import logging
 import tempfile
 import os
+import re
+from minio import Minio
+from google.cloud import storage
+from google.auth import exceptions
 
 _GCS_PREFIX = "gs://"
 _S3_PREFIX = "s3://"
@@ -43,11 +47,36 @@ class Storage(object):
 
     @staticmethod
     def _download_s3(uri, temp_dir: str):
-        raise NotImplementedError
+        client = Storage._create_minio_client()
+        bucket_args = uri.replace(_S3_PREFIX, "", 1).split("/", 1)
+        bucket_name = bucket_args[0]
+        bucket_path = bucket_args[1] if len(bucket_args) > 1 else ""
+        objects = client.list_objects(bucket_name, prefix=bucket_path, recursive=True)
+        for obj in objects:
+            # Replace any prefix from the object key with temp_dir
+            subdir_object_key = obj.object_name.replace(bucket_path, "", 1).strip("/")
+            client.fget_object(bucket_name, obj.object_name, os.path.join(temp_dir, subdir_object_key))
 
     @staticmethod
     def _download_gcs(uri, temp_dir: str):
-        raise NotImplementedError
+        try:
+            storage_client = storage.Client()
+        except exceptions.DefaultCredentialsError as e:
+            storage_client = storage.Client.create_anonymous_client()
+        bucket_args = uri.replace(_GCS_PREFIX, "", 1).split("/", 1)
+        bucket_name = bucket_args[0]
+        bucket_path = bucket_args[1] if len(bucket_args) > 1 else ""
+        bucket = storage_client.bucket(bucket_name)
+        blobs = bucket.list_blobs(prefix=bucket_path)
+        for blob in blobs:
+            # Replace any prefix from the object key with temp_dir
+            subdir_object_key = blob.name.replace(bucket_path, "", 1).strip("/")
+            # Create necessary subdirectory to store the object locally
+            if "/" in subdir_object_key:
+                local_object_dir = os.path.join(temp_dir, subdir_object_key.rsplit("/", 1)[0])
+                if not os.path.isdir(local_object_dir):
+                    os.makedirs(local_object_dir, exist_ok=True)
+            blob.download_to_filename(os.path.join(temp_dir, subdir_object_key))
 
     @staticmethod
     def _download_local(uri):
@@ -55,3 +84,13 @@ class Storage(object):
         if not os.path.exists(local_path):
             raise Exception("Local path %s does not exist." % (uri))
         return local_path
+
+    @staticmethod
+    def _create_minio_client():
+        # Remove possible http scheme for Minio
+        url = re.compile(r"https?://")
+        minioClient = Minio(url.sub("", os.getenv("S3_ENDPOINT", "")),
+                            access_key=os.getenv("AWS_ACCESS_KEY_ID", ""),
+                            secret_key=os.getenv("AWS_SECRET_ACCESS_KEY", ""),
+                            secure=True)
+        return minioClient
