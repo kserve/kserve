@@ -24,7 +24,6 @@ import (
 	"github.com/kubeflow/kfserving/pkg/constants"
 	v1 "k8s.io/api/core/v1"
 
-	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	knservingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	servingv1alpha1 "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 
@@ -95,9 +94,7 @@ var canary = &servingv1alpha1.KFService{
 		},
 	},
 	Status: servingv1alpha1.KFServiceStatus{
-		URI: servingv1alpha1.URISpec{
-			Internal: canaryServiceKey.Name + ".svc.cluster.local",
-		},
+		URL: canaryServiceKey.Name + ".svc.cluster.local",
 		Default: servingv1alpha1.StatusConfigurationSpec{
 			Name: "revision-v1",
 		},
@@ -180,16 +177,12 @@ func TestReconcile(t *testing.T) {
 	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
 
 	updatedRoute := route.DeepCopy()
-	updatedRoute.Status.Address = &duckv1alpha1.Addressable{
-		Hostname: serviceKey.Name + ".svc.cluster.local",
-	}
+	updatedRoute.Status.Domain = serviceKey.Name + ".svc.cluster.local"
 	g.Expect(c.Status().Update(context.TODO(), updatedRoute)).NotTo(gomega.HaveOccurred())
 	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
 	// verify if KFService status is updated
 	expectedKfsvcStatus := servingv1alpha1.KFServiceStatus{
-		URI: servingv1alpha1.URISpec{
-			Internal: updatedRoute.Status.Address.Hostname,
-		},
+		URL: updatedRoute.Status.Domain,
 		Default: servingv1alpha1.StatusConfigurationSpec{
 			Name: "revision-v1",
 		},
@@ -310,9 +303,7 @@ func TestCanaryReconcile(t *testing.T) {
 	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedCanaryRequest)))
 
 	updatedRoute := route.DeepCopy()
-	updatedRoute.Status.Address = &duckv1alpha1.Addressable{
-		Hostname: canaryServiceKey.Name + ".svc.cluster.local",
-	}
+	updatedRoute.Status.Domain = canaryServiceKey.Name + ".svc.cluster.local"
 	updatedRoute.Status.Traffic = []knservingv1alpha1.TrafficTarget{
 		{
 			Name:          "candidate",
@@ -328,9 +319,7 @@ func TestCanaryReconcile(t *testing.T) {
 
 	// verify if KFService status is updated
 	expectedKfsvcStatus := servingv1alpha1.KFServiceStatus{
-		URI: servingv1alpha1.URISpec{
-			Internal: updatedRoute.Status.Address.Hostname,
-		},
+		URL: updatedRoute.Status.Domain,
 		Default: servingv1alpha1.StatusConfigurationSpec{
 			Name:    "revision-v1",
 			Traffic: 80,

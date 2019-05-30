@@ -6,10 +6,25 @@ metadata:
     controller-tools.k8s.io: "1.0"
   name: kfservices.serving.kubeflow.org
 spec:
+  additionalPrinterColumns:
+  - JSONPath: .status.url
+    name: URL
+    type: string
+  - JSONPath: .status.default.traffic
+    name: Default Traffic
+    type: integer
+  - JSONPath: .status.canary.traffic
+    name: Canary Traffic
+    type: integer
+  - JSONPath: .metadata.creationTimestamp
+    name: Age
+    type: date
   group: serving.kubeflow.org
   names:
     kind: KFService
     plural: kfservices
+    shortNames:
+    - kfservice
   scope: Namespaced
   validation:
     openAPIV3Schema:
@@ -220,13 +235,8 @@ spec:
                   format: int64
                   type: integer
               type: object
-            uri:
-              properties:
-                external:
-                  type: string
-                internal:
-                  type: string
-              type: object
+            url:
+              type: string
           type: object
   version: v1alpha1
 status:
