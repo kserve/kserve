@@ -17,13 +17,13 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"log"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 )
@@ -39,15 +39,15 @@ func TestMain(m *testing.M) {
 	err := SchemeBuilder.AddToScheme(scheme.Scheme)
 
 	if err != nil {
-		log.Fatal(err)
+		klog.Fatal(err)
 	}
 
 	if cfg, err = t.Start(); err != nil {
-		log.Fatal(err)
+		klog.Fatal(err)
 	}
 
 	if c, err = client.New(cfg, client.Options{Scheme: scheme.Scheme}); err != nil {
-		log.Fatal(err)
+		klog.Fatal(err)
 	}
 
 	code := m.Run()

@@ -20,7 +20,7 @@ import (
 	pkgtest "github.com/kubeflow/kfserving/pkg/testing"
 	"github.com/onsi/gomega"
 	"k8s.io/client-go/rest"
-	stdlog "log"
+	"k8s.io/klog"
 	"os"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -34,7 +34,7 @@ func TestMain(m *testing.M) {
 	t := pkgtest.SetupEnvTest()
 	var err error
 	if cfg, err = t.Start(); err != nil {
-		stdlog.Fatal(err)
+		klog.Fatal(err)
 	}
 
 	code := m.Run()
