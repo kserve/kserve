@@ -4,6 +4,6 @@ metadata:
   name: "mnist-s3"
 spec:
   default:
+    serviceAccountName: sa
     tensorflow:
-      # serviceAccountName: sa   // overwrite default service account
       modelUri: "s3://mnist/v1/export"

@@ -42,13 +42,13 @@ data:
 ```
 
 `KFServing` gets the secrets from your service account, you need to add the above created or existing secret to your service account's secret list. 
-By default `KFServing` uses `default` service account, user can also specify the service account on `KFService` CRD.
+By default `KFServing` uses `default` service account, user can use own service account and overwrite on `KFService` CRD.
 
 ```yaml
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: default # change to your service account name
+  name: sa
 secrets:
 - name: mysecret
 ```
