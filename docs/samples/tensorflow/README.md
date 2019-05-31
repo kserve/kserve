@@ -76,7 +76,15 @@ Apply the CRD
 kubectl apply -f tensorflow-canary.yaml 
 ```
 
-To verify if your traffic split percenage is applied correctly, you can use the following command using the [Knative CLI](#knative-cli)
+To verify if your traffic split percenage is applied correctly, you can use the following command:
+
+```
+kubectl get kfservices
+NAME             URL                                  DEFAULT TRAFFIC   CANARY TRAFFIC   AGE
+flowers-sample   flowers-sample.default.example.com   90                10               48s
+```
+
+If you are using the [Knative CLI (knctl)](#knative-cli)
 
 ```
 knctl revision list 
