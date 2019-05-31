@@ -5,6 +5,4 @@ metadata:
 spec:
   default:
     xgboost:
-#     Fos testing purposes, using a local embedded model until S3/GCS gets implemented
-#     modelUri: "gs://kfserving-samples/models/xgboost/iris"
-      modelUri: "/tmp/models"
+      modelUri: "gs://kfserving-samples/models/xgboost/iris/"
