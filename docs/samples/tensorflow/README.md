@@ -84,7 +84,7 @@ NAME             URL                                  DEFAULT TRAFFIC   CANARY T
 flowers-sample   flowers-sample.default.example.com   90                10               48s
 ```
 
-If you are using the [Knative CLI (knctl)](#knative-cli)
+If you are using the [Knative CLI (knctl)](#knative-cli), run the following command
 
 ```
 knctl revision list 
