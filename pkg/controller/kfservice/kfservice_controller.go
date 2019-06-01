@@ -100,6 +100,11 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
+	// Watch for configmap changes
+	// if err = c.Watch(&source.Kind{Type: &v1.ConfigMap{}}, &handler.EnqueueRequestsFromMapFunc{}); err != nil {
+	// return err
+	//}
+
 	return nil
 }
 
@@ -122,6 +127,7 @@ type ReconcileService struct {
 // +kubebuilder:rbac:groups=serving.kubeflow.org,resources=kfservices/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=,resources=serviceaccounts,verbs=get;list;watch
 // +kubebuilder:rbac:groups=,resources=secrets,verbs=get;list;watch
+// +kubebuilder:rbac:groups=,resources=configmaps,verbs=get;list;watch
 func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	// Fetch the KFService instance
 	kfsvc := &kfservingv1alpha1.KFService{}
@@ -143,11 +149,12 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 	}
 	credentialBuilder := credentials.NewCredentialBulder(r.Client, configMap)
 
-	configurationReconciler := knative.NewConfigurationReconciler(r.Client)
 	// Reconcile configurations
+	configurationReconciler := knative.NewConfigurationReconciler(r.Client)
+	resourceBuilder := resources.NewConfigurationBuilder(configMap)
 
-	desiredDefault := resources.CreateKnativeConfiguration(constants.DefaultConfigurationName(kfsvc.Name),
-		kfsvc.ObjectMeta, &kfsvc.Spec.Default, configMap.Data)
+	desiredDefault := resourceBuilder.CreateKnativeConfiguration(constants.DefaultConfigurationName(kfsvc.Name),
+		kfsvc.ObjectMeta, &kfsvc.Spec.Default)
 
 	if err := controllerutil.SetControllerReference(kfsvc, desiredDefault, r.scheme); err != nil {
 		return reconcile.Result{}, err
@@ -167,8 +174,8 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 	kfsvc.Status.PropagateDefaultConfigurationStatus(&defaultConfiguration.Status)
 
 	if kfsvc.Spec.Canary != nil {
-		desiredCanary := resources.CreateKnativeConfiguration(constants.CanaryConfigurationName(kfsvc.Name),
-			kfsvc.ObjectMeta, kfsvc.Spec.Canary, configMap.Data)
+		desiredCanary := resourceBuilder.CreateKnativeConfiguration(constants.CanaryConfigurationName(kfsvc.Name),
+			kfsvc.ObjectMeta, kfsvc.Spec.Canary)
 
 		if err := controllerutil.SetControllerReference(kfsvc, desiredCanary, r.scheme); err != nil {
 			return reconcile.Result{}, err
@@ -190,8 +197,8 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 
 	// Reconcile route
 	routeReconciler := knative.NewRouteReconciler(r.Client)
-
-	desiredRoute := resources.CreateKnativeRoute(kfsvc)
+	routeBuilder := resources.NewRouteBuilder(configMap)
+	desiredRoute := routeBuilder.CreateKnativeRoute(kfsvc)
 	if err := controllerutil.SetControllerReference(kfsvc, desiredRoute, r.scheme); err != nil {
 		return reconcile.Result{}, err
 	}

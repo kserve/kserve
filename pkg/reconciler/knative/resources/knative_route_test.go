@@ -117,7 +117,8 @@ func TestKnativeRoute(t *testing.T) {
 	}
 
 	for name, scenario := range scenarios {
-		route := CreateKnativeRoute(scenario.kfService)
+		routeBuilder := NewRouteBuilder(nil)
+		route := routeBuilder.CreateKnativeRoute(scenario.kfService)
 		// Validate
 		if scenario.shouldFail {
 			t.Errorf("Test %q failed: returned success but expected error", name)

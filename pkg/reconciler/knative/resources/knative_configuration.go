@@ -18,17 +18,27 @@ package resources
 
 import (
 	"fmt"
-
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	knservingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/utils"
+	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func CreateKnativeConfiguration(name string, metadata metav1.ObjectMeta, modelSpec *v1alpha1.ModelSpec, configs map[string]string) *knservingv1alpha1.Configuration {
+type ConfigurationBuilder struct {
+	config *v1.ConfigMap
+}
+
+func NewConfigurationBuilder(config *v1.ConfigMap) *ConfigurationBuilder {
+	return &ConfigurationBuilder{
+		config: config,
+	}
+}
+
+func (c *ConfigurationBuilder) CreateKnativeConfiguration(name string, metadata metav1.ObjectMeta, modelSpec *v1alpha1.ModelSpec) *knservingv1alpha1.Configuration {
 	if modelSpec == nil {
 		return nil
 	}
@@ -74,12 +84,32 @@ func CreateKnativeConfiguration(name string, metadata metav1.ObjectMeta, modelSp
 							ServiceAccountName: modelSpec.ServiceAccountName,
 						},
 					},
-					Container: modelSpec.CreateModelServingContainer(metadata.Name, configs),
+					Container: modelSpec.CreateModelServingContainer(metadata.Name, c.getFrameworkImage(modelSpec)),
 				},
 			},
 		},
 	}
 	return configuration
+}
+
+func (c *ConfigurationBuilder) getFrameworkImage(modelSpec *v1alpha1.ModelSpec) string {
+	if modelSpec.XGBoost != nil {
+		if imageName, ok := c.config.Data[v1alpha1.XGBoostServingImageConfigName]; ok {
+			return imageName
+		}
+		return v1alpha1.XGBoostServerImageName
+	} else if modelSpec.Tensorflow != nil {
+		if imageName, ok := c.config.Data[v1alpha1.TensorflowServingImageConfigName]; ok {
+			return imageName
+		}
+		return v1alpha1.TensorflowServingImageName
+	} else if modelSpec.SKLearn != nil {
+		if imageName, ok := c.config.Data[v1alpha1.SKLearnServingImageConfigName]; ok {
+			return imageName
+		}
+		return v1alpha1.SKLearnServerImageName
+	}
+	return ""
 }
 
 func configurationAnnotationFilter(annotationKey string) bool {

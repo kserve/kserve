@@ -31,10 +31,10 @@ var (
 	DefaultXGBoostRuntimeVersion      = "latest"
 )
 
-func (x *XGBoostSpec) CreateModelServingContainer(modelName string, configs map[string]string) *v1.Container {
-	imageName := XGBoostServerImageName
-	if image, ok := configs[XGBoostServingImageConfigName]; ok {
-		imageName = image
+func (x *XGBoostSpec) CreateModelServingContainer(modelName string, modelServingImageName string) *v1.Container {
+	imageName := TensorflowServingImageName
+	if modelServingImageName != "" {
+		imageName = modelServingImageName
 	}
 	return &v1.Container{
 		Image:     imageName + ":" + x.RuntimeVersion,
