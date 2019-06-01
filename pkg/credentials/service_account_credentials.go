@@ -14,22 +14,25 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package ksvc
+package credentials
 
 import (
 	"context"
 	knservingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/kubeflow/kfserving/pkg/reconciler/ksvc/resources/credentials/gcs"
-	"github.com/kubeflow/kfserving/pkg/reconciler/ksvc/resources/credentials/s3"
+	"github.com/kubeflow/kfserving/pkg/credentials/gcs"
+	"github.com/kubeflow/kfserving/pkg/credentials/s3"
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
 
 type CredentialBuilder struct {
 	client client.Client
 	config *v1.ConfigMap
 }
+
+var log = logf.Log.WithName("CredentialBulder")
 
 func NewCredentialBulder(client client.Client, config *v1.ConfigMap) *CredentialBuilder {
 	return &CredentialBuilder{

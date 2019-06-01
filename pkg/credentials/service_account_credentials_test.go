@@ -14,15 +14,15 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package ksvc
+package credentials
 
 import (
 	"context"
 	"github.com/google/go-cmp/cmp"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
-	"github.com/kubeflow/kfserving/pkg/reconciler/ksvc/resources/credentials/gcs"
-	"github.com/kubeflow/kfserving/pkg/reconciler/ksvc/resources/credentials/s3"
+	"github.com/kubeflow/kfserving/pkg/credentials/gcs"
+	"github.com/kubeflow/kfserving/pkg/credentials/s3"
 	"github.com/onsi/gomega"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
