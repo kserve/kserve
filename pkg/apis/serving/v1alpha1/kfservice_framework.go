@@ -22,7 +22,7 @@ import (
 )
 
 type FrameworkHandler interface {
-	CreateModelServingContainer(modelName string, configs map[string]string) *v1.Container
+	CreateModelServingContainer(modelName string, modelServingImageName string) *v1.Container
 	ApplyDefaults()
 	Validate() error
 }
@@ -43,8 +43,8 @@ var (
 	DefaultCPURequests    = resource.MustParse("1")
 )
 
-func (m *ModelSpec) CreateModelServingContainer(modelName string, configs map[string]string) *v1.Container {
-	return getHandler(m).CreateModelServingContainer(modelName, configs)
+func (m *ModelSpec) CreateModelServingContainer(modelName string, modelServingImageName string) *v1.Container {
+	return getHandler(m).CreateModelServingContainer(modelName, modelServingImageName)
 }
 
 func (m *ModelSpec) ApplyDefaults() {
