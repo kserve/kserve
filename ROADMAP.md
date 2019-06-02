@@ -5,6 +5,7 @@
 Objective: "Simplify the user experience and provide a low barrier to entry by minimizing the amount of YAML necessary to deploy a trained model."
 * High Level Interfaces
     * Deploy a Tensorflow model without specifying a Tensorflow Serving Technology.
+    * Deploy a TensorRT model without specifying a TensorRT Serving Technology.
     * Deploy a XGBoost model without specifying a XGBoost Serving Technology.
     * Deploy a ScikitLearn model without specifying a ScikitLearn Serving Technology.
     * Deploy a Pytorch model without specifying a Pytorch Serving Technology.

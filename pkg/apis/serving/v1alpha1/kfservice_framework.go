@@ -16,9 +16,9 @@ package v1alpha1
 import (
 	"fmt"
 
-	"k8s.io/klog"
 	v1 "k8s.io/api/core/v1"
 	resource "k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/klog"
 )
 
 type FrameworkHandler interface {
@@ -29,9 +29,9 @@ type FrameworkHandler interface {
 
 const (
 	// ExactlyOneModelSpecViolatedError is a known error message
-	ExactlyOneModelSpecViolatedError = "Exactly one of [Custom, Tensorflow, SKLearn, XGBoost] must be specified in ModelSpec"
+	ExactlyOneModelSpecViolatedError = "Exactly one of [Custom, Tensorflow, TensorRT, SKLearn, XGBoost] must be specified in ModelSpec"
 	// AtLeastOneModelSpecViolatedError is a known error message
-	AtLeastOneModelSpecViolatedError = "At least one of [Custom, Tensorflow, SKLearn, XGBoost] must be specified in ModelSpec"
+	AtLeastOneModelSpecViolatedError = "At least one of [Custom, Tensorflow, TensorRT, SKLearn, XGBoost] must be specified in ModelSpec"
 )
 
 var (
@@ -87,6 +87,9 @@ func makeHandler(modelSpec *ModelSpec) (interface{ FrameworkHandler }, error) {
 	}
 	if modelSpec.Tensorflow != nil {
 		handlers = append(handlers, modelSpec.Tensorflow)
+	}
+	if modelSpec.TensorRT != nil {
+		handlers = append(handlers, modelSpec.TensorRT)
 	}
 	if len(handlers) == 0 {
 		return nil, fmt.Errorf(AtLeastOneModelSpecViolatedError)
