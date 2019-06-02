@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
 
-	ohandler "github.com/kubeflow/kfserving/pkg/executor"
+	ehandler "github.com/kubeflow/kfserving/pkg/executor"
 	perrors "github.com/pkg/errors"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
@@ -28,13 +28,13 @@ func main() {
 
 	stopCh := signals.SetupSignalHandler()
 
-	var oh http.Handler = ohandler.New(log, *preprocess, *predictor, *postprocess)
+	var eh http.Handler = ehandler.New(log, *preprocess, *predictor, *postprocess)
 
 	port := 8080
 
 	h1s := &http.Server{
 		Addr:    fmt.Sprintf(":%d", port),
-		Handler: h2c.NewHandler(oh, &http2.Server{}),
+		Handler: h2c.NewHandler(eh, &http2.Server{}),
 	}
 
 	log.Info("Starting", "port", port)

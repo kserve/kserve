@@ -11,7 +11,7 @@ import (
 	"net/url"
 )
 
-type orchestratorHandler struct {
+type executorHandler struct {
 	log         logr.Logger
 	preprocess  string
 	predictor   string
@@ -20,7 +20,7 @@ type orchestratorHandler struct {
 }
 
 func New(log logr.Logger, preprocess, predictor, postprocess string) http.Handler {
-	return &orchestratorHandler{
+	return &executorHandler{
 		log:         log,
 		preprocess:  preprocess,
 		predictor:   predictor,
@@ -29,11 +29,11 @@ func New(log logr.Logger, preprocess, predictor, postprocess string) http.Handle
 }
 
 // Return a postProcessor function which can be called by the rever proxy to change the response.
-func (oh *orchestratorHandler) createPostProcessor() func(response *http.Response) error {
+func (eh *executorHandler) createPostProcessor() func(response *http.Response) error {
 
 	f := func(resp *http.Response) (err error) {
 
-		oh.log.Info("Calling post-processor")
+		eh.log.Info("Calling post-processor")
 
 		b, err := ioutil.ReadAll(resp.Body) //Read html
 		if err != nil {
@@ -46,10 +46,10 @@ func (oh *orchestratorHandler) createPostProcessor() func(response *http.Respons
 
 		target := &url.URL{
 			Scheme: "http",
-			Host:   oh.postprocess,
+			Host:   eh.postprocess,
 		}
 		reader := bytes.NewReader(b)
-		oh.log.Info("Calling postprocessor", "url", target.String())
+		eh.log.Info("Calling postprocessor", "url", target.String())
 		respPost, err := http.Post(target.String(), resp.Header.Get("Content-Type"), reader)
 
 		b, err = ioutil.ReadAll(respPost.Body) //Read html
@@ -71,19 +71,18 @@ func (oh *orchestratorHandler) createPostProcessor() func(response *http.Respons
 }
 
 // Call a preprocessor and change the incoming request with its response
-func (oh *orchestratorHandler) preProcess(r *http.Request) error {
+func (eh *executorHandler) preProcess(r *http.Request) error {
 	target := &url.URL{
 		Scheme: "http",
-		Host:   oh.preprocess,
+		Host:   eh.preprocess,
 	}
-	oh.log.Info("Calling preprocessor", "url", target.String())
+	eh.log.Info("Calling preprocessor", "url", target.String())
 	respPost, err := http.Post(target.String(), r.Header.Get("Content-Type"), r.Body)
 
 	b, err := ioutil.ReadAll(respPost.Body) //Read html
 	if err != nil {
 		return err
 	}
-	oh.log.Info("Received preprocess response ", "value", string(b))
 	err = respPost.Body.Close()
 	if err != nil {
 		return err
@@ -96,10 +95,10 @@ func (oh *orchestratorHandler) preProcess(r *http.Request) error {
 }
 
 // Create a reverse proxy to call the predictor with optional pre and post processing
-func (oh *orchestratorHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (eh *executorHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
-	if len(oh.preprocess) > 0 {
-		err := oh.preProcess(r)
+	if len(eh.preprocess) > 0 {
+		err := eh.preProcess(r)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -108,20 +107,19 @@ func (oh *orchestratorHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 
 	target := &url.URL{
 		Scheme: "http",
-		//Host:   "istio-ingressgateway.istio-system.svc.cluster.local",
-		Host: oh.predictor,
+		Host:   eh.predictor,
 	}
 
 	r.URL.Host = target.Host
 	r.URL.Scheme = target.Scheme
 	r.Header.Set("X-Forwarded-Host", r.Header.Get("Host"))
-	r.Host = oh.predictor
+	r.Host = eh.predictor
 
-	oh.log.Info("About to proxy request", "host", oh.predictor)
+	eh.log.Info("About to proxy request", "host", eh.predictor)
 
 	proxy := httputil.NewSingleHostReverseProxy(target)
-	if len(oh.postprocess) > 0 {
-		proxy.ModifyResponse = oh.createPostProcessor()
+	if len(eh.postprocess) > 0 {
+		proxy.ModifyResponse = eh.createPostProcessor()
 	}
 
 	proxy.ServeHTTP(w, r)
