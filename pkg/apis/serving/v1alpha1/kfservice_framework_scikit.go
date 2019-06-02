@@ -33,10 +33,10 @@ var (
 
 var _ FrameworkHandler = (*SKLearnSpec)(nil)
 
-func (s *SKLearnSpec) CreateModelServingContainer(modelName string, modelServingImageName string) *v1.Container {
+func (s *SKLearnSpec) CreateModelServingContainer(modelName string, config *FrameworksConfig) *v1.Container {
 	imageName := SKLearnServerImageName
-	if modelServingImageName != "" {
-		imageName = modelServingImageName
+	if config.SKlearn.ContainerImage != "" {
+		imageName = config.SKlearn.ContainerImage
 	}
 	return &v1.Container{
 		Image:     imageName + ":" + s.RuntimeVersion,

@@ -22,18 +22,23 @@ import (
 )
 
 const (
-	AWSAccessKeyId              = "AWS_ACCESS_KEY_ID"
-	AWSSecretAccessKey          = "AWS_SECRET_ACCESS_KEY"
-	AWSAccessKeyIdName          = "awsAccessKeyID"
-	AWSSecretAccessKeyName      = "awsSecretAccessKey"
-	AWSEndpointUrl              = "AWS_ENDPOINT_URL"
-	AWSRegion                   = "AWS_REGION"
-	S3Endpoint                  = "S3_ENDPOINT"
-	S3UseHttps                  = "S3_USE_HTTPS"
-	S3VerifySSL                 = "S3_VERIFY_SSL"
-	S3AccessKeyIdConfigName     = "S3AccessKeyIDName"
-	S3SecretAccessKeyConfigName = "S3SecretAccessKeyName"
+	AWSAccessKeyId         = "AWS_ACCESS_KEY_ID"
+	AWSSecretAccessKey     = "AWS_SECRET_ACCESS_KEY"
+	AWSAccessKeyIdName     = "awsAccessKeyID"
+	AWSSecretAccessKeyName = "awsSecretAccessKey"
+	AWSEndpointUrl         = "AWS_ENDPOINT_URL"
+	AWSRegion              = "AWS_REGION"
+	S3Endpoint             = "S3_ENDPOINT"
+	S3UseHttps             = "S3_USE_HTTPS"
+	S3VerifySSL            = "S3_VERIFY_SSL"
 )
+
+type S3Config struct {
+	S3AccessKeyIDName     string `json:"s3AccessKeyIDName,omitempty"`
+	S3SecretAccessKeyName string `json:"s3SecretAccessKeyName,omitempty"`
+	S3Endpoint            string `json:"s3Endpoint,omitempty"`
+	S3UseHttps            string `json:"s3UseHttps,omitempty"`
+}
 
 var (
 	KFServiceS3SecretEndpointAnnotation = constants.KFServingAPIGroupName + "/" + "s3-endpoint"
@@ -42,7 +47,16 @@ var (
 	KFServiceS3SecretHttpsAnnotation    = constants.KFServingAPIGroupName + "/" + "s3-usehttps"
 )
 
-func BuildSecretEnvs(secret *v1.Secret, s3AccessKeyIdName string, s3SecretAccessKeyName string) []v1.EnvVar {
+func BuildSecretEnvs(secret *v1.Secret, s3Config *S3Config) []v1.EnvVar {
+	s3SecretAccessKeyName := AWSSecretAccessKeyName
+	s3AccessKeyIdName := AWSAccessKeyIdName
+	if s3Config.S3AccessKeyIDName != "" {
+		s3AccessKeyIdName = s3Config.S3AccessKeyIDName
+	}
+
+	if s3Config.S3SecretAccessKeyName != "" {
+		s3SecretAccessKeyName = s3Config.S3SecretAccessKeyName
+	}
 	envs := []v1.EnvVar{
 		{
 			Name: AWSAccessKeyId,
@@ -82,6 +96,23 @@ func BuildSecretEnvs(secret *v1.Secret, s3AccessKeyIdName string, s3SecretAccess
 		envs = append(envs, v1.EnvVar{
 			Name:  S3Endpoint,
 			Value: s3Endpoint,
+		})
+		envs = append(envs, v1.EnvVar{
+			Name:  AWSEndpointUrl,
+			Value: s3EndpointUrl,
+		})
+	} else if s3Config.S3Endpoint != "" {
+		s3EndpointUrl := "https://" + s3Config.S3Endpoint
+		if s3Config.S3UseHttps == "0" {
+			s3EndpointUrl = "http://" + s3Config.S3Endpoint
+			envs = append(envs, v1.EnvVar{
+				Name:  S3UseHttps,
+				Value: s3Config.S3UseHttps,
+			})
+		}
+		envs = append(envs, v1.EnvVar{
+			Name:  S3Endpoint,
+			Value: s3Config.S3Endpoint,
 		})
 		envs = append(envs, v1.EnvVar{
 			Name:  AWSEndpointUrl,

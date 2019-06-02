@@ -17,6 +17,7 @@ limitations under the License.
 package resources
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	knservingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -28,13 +29,24 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	FRAMEWORK_CONFIG_KEY_NAME = "frameworks"
+)
+
 type ConfigurationBuilder struct {
-	config *v1.ConfigMap
+	frameworksConfig *v1alpha1.FrameworksConfig
 }
 
 func NewConfigurationBuilder(config *v1.ConfigMap) *ConfigurationBuilder {
+	frameworkConfig := &v1alpha1.FrameworksConfig{}
+	if fmks, ok := config.Data[FRAMEWORK_CONFIG_KEY_NAME]; ok {
+		err := json.Unmarshal([]byte(fmks), &frameworkConfig)
+		if err != nil {
+			panic(fmt.Errorf("Unable to unmarshall json string due to %v ", err))
+		}
+	}
 	return &ConfigurationBuilder{
-		config: config,
+		frameworksConfig: frameworkConfig,
 	}
 }
 
@@ -84,32 +96,12 @@ func (c *ConfigurationBuilder) CreateKnativeConfiguration(name string, metadata 
 							ServiceAccountName: modelSpec.ServiceAccountName,
 						},
 					},
-					Container: modelSpec.CreateModelServingContainer(metadata.Name, c.getFrameworkImage(modelSpec)),
+					Container: modelSpec.CreateModelServingContainer(metadata.Name, c.frameworksConfig),
 				},
 			},
 		},
 	}
 	return configuration
-}
-
-func (c *ConfigurationBuilder) getFrameworkImage(modelSpec *v1alpha1.ModelSpec) string {
-	if modelSpec.XGBoost != nil {
-		if imageName, ok := c.config.Data[v1alpha1.XGBoostServingImageConfigName]; ok {
-			return imageName
-		}
-		return v1alpha1.XGBoostServerImageName
-	} else if modelSpec.Tensorflow != nil {
-		if imageName, ok := c.config.Data[v1alpha1.TensorflowServingImageConfigName]; ok {
-			return imageName
-		}
-		return v1alpha1.TensorflowServingImageName
-	} else if modelSpec.SKLearn != nil {
-		if imageName, ok := c.config.Data[v1alpha1.SKLearnServingImageConfigName]; ok {
-			return imageName
-		}
-		return v1alpha1.SKLearnServerImageName
-	}
-	return ""
 }
 
 func configurationAnnotationFilter(annotationKey string) bool {

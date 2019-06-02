@@ -31,9 +31,13 @@ import (
 
 var configMap = &v1.ConfigMap{
 	Data: map[string]string{
-		s3.S3SecretAccessKeyConfigName:  "secretAccessKey",
-		s3.S3AccessKeyIdConfigName:      "accessKeyID",
-		gcs.GCSCredentialFileConfigName: "user-gcp-sa.json",
+		"credentials": `{
+			"gcs" : {"gcsCredentialFileName": "gcloud-application-credentials.json"},
+			"s3" : {
+				"s3AccessKeyIDName": "awsAccessKeyID",
+				"s3SecretAccessKeyName": "awsSecretAccessKey"
+			}
+	    }`,
 	},
 }
 
@@ -60,8 +64,8 @@ func TestS3CredentialBuilder(t *testing.T) {
 			},
 		},
 		Data: map[string][]byte{
-			configMap.Data[s3.S3AccessKeyIdConfigName]:     {},
-			configMap.Data[s3.S3SecretAccessKeyConfigName]: {},
+			"awsAccessKeyID":     {},
+			"awsSecretAccessKey": {},
 		},
 	}
 	scenarios := map[string]struct {
@@ -94,7 +98,7 @@ func TestS3CredentialBuilder(t *testing.T) {
 												LocalObjectReference: v1.LocalObjectReference{
 													Name: "s3-secret",
 												},
-												Key: configMap.Data[s3.S3AccessKeyIdConfigName],
+												Key: "awsAccessKeyID",
 											},
 										},
 									},
@@ -105,7 +109,7 @@ func TestS3CredentialBuilder(t *testing.T) {
 												LocalObjectReference: v1.LocalObjectReference{
 													Name: "s3-secret",
 												},
-												Key: configMap.Data[s3.S3SecretAccessKeyConfigName],
+												Key: "awsSecretAccessKey",
 											},
 										},
 									},
@@ -172,7 +176,7 @@ func TestGCSCredentialBuilder(t *testing.T) {
 			Namespace: "default",
 		},
 		Data: map[string][]byte{
-			configMap.Data[gcs.GCSCredentialFileConfigName]: {},
+			"gcloud-application-credentials.json": {},
 		},
 	}
 	scenarios := map[string]struct {
@@ -201,13 +205,13 @@ func TestGCSCredentialBuilder(t *testing.T) {
 									{
 										Name:      gcs.GCSCredentialVolumeName,
 										ReadOnly:  true,
-										MountPath: gcs.GCSCredentialVolumeMountPathPrefix + configMap.Data[gcs.GCSCredentialFileConfigName],
+										MountPath: gcs.GCSCredentialVolumeMountPathPrefix + "gcloud-application-credentials.json",
 									},
 								},
 								Env: []v1.EnvVar{
 									{
 										Name:  gcs.GCSCredentialEnvKey,
-										Value: gcs.GCSCredentialVolumeMountPathPrefix + configMap.Data[gcs.GCSCredentialFileConfigName],
+										Value: gcs.GCSCredentialVolumeMountPathPrefix + "gcloud-application-credentials.json",
 									},
 								},
 							},

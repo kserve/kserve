@@ -100,10 +100,10 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	// Watch for configmap changes
+	// TODO enqueue all kfservices to reconcile
 	// if err = c.Watch(&source.Kind{Type: &v1.ConfigMap{}}, &handler.EnqueueRequestsFromMapFunc{}); err != nil {
-	// return err
-	//}
+	//	return err
+	// }
 
 	return nil
 }
@@ -147,12 +147,15 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 		// Error reading the object - requeue the request.
 		return reconcile.Result{}, err
 	}
+
+	// Create builders and reconcilers
 	credentialBuilder := credentials.NewCredentialBulder(r.Client, configMap)
+	resourceBuilder := resources.NewConfigurationBuilder(configMap)
+	routeBuilder := resources.NewRouteBuilder()
+	configurationReconciler := knative.NewConfigurationReconciler(r.Client)
+	routeReconciler := knative.NewRouteReconciler(r.Client)
 
 	// Reconcile configurations
-	configurationReconciler := knative.NewConfigurationReconciler(r.Client)
-	resourceBuilder := resources.NewConfigurationBuilder(configMap)
-
 	desiredDefault := resourceBuilder.CreateKnativeConfiguration(constants.DefaultConfigurationName(kfsvc.Name),
 		kfsvc.ObjectMeta, &kfsvc.Spec.Default)
 
@@ -196,8 +199,6 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 	}
 
 	// Reconcile route
-	routeReconciler := knative.NewRouteReconciler(r.Client)
-	routeBuilder := resources.NewRouteBuilder(configMap)
 	desiredRoute := routeBuilder.CreateKnativeRoute(kfsvc)
 	if err := controllerutil.SetControllerReference(kfsvc, desiredRoute, r.scheme); err != nil {
 		return reconcile.Result{}, err

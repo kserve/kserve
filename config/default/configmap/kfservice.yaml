@@ -2,10 +2,27 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: kfservice-config
+  namespace: kfserving-system
 data:
-  TensorflowServingImageName: tensorflow/serving
-  SKLearnServingImageName: gcr.io/kfserving/sklearnserver
-  XGBoostServingImageName: gcr.io/kfserving/xgbserver
-  GCSCredentialFileName: gcloud-application-credentials.json
-  S3AccessKeyIDName: awsAccessKeyID
-  S3SecretAccessKeyName: awsSecretAccessKey
+  frameworks: |-
+    {
+        "tensorflow" : {
+            "image" : "tensorflow/serving"
+        },
+        "sklearn" : {
+            "image" : "gcr.io/kfserving/sklearnserver"
+        },
+        "xgboost" : {
+            "image" : "gcr.io/kfserving/xgbserver"
+        }
+    }
+  credentials: |-
+    {
+       "gcs" : {
+           "gcsCredentialFileName": "gcloud-application-credentials.json"
+       },
+       "s3" : {
+           "s3AccessKeyIDName": "awsAccessKeyID",
+           "s3SecretAccessKeyName": "awsSecretAccessKey"
+       }
+    }
