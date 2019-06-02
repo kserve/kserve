@@ -208,7 +208,7 @@ $ mv ~/Downloads/knctl-* /usr/local/bin/knctl
 $ chmod +x /usr/local/bin/knctl
 ```
 
-You can the run a smoke test by running the following command to show the details of tensorflow sample revision.
+You can then run a smoke test by running the following command to show the details of tensorflow sample revision.
 
 ```
 knctl revision show -r flowers-sample-default-4s74r
