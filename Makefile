@@ -1,8 +1,9 @@
 
 # Image URL to use all building/pushing image targets
 IMG ?= kfserving-controller:latest
+EXECUTOR-IMG ?= kfserving-executor:latest
 
-all: test manager
+all: test manager 
 
 # Run tests
 test: generate fmt vet manifests
@@ -11,6 +12,10 @@ test: generate fmt vet manifests
 # Build manager binary
 manager: generate fmt vet
 	go build -o bin/manager ./cmd/manager
+
+# Build manager binary
+executor: fmt vet
+	go build -o bin/executor ./cmd/executor
 
 # Run against the configured Kubernetes cluster in ~/.kube/config
 run: generate fmt vet
@@ -66,3 +71,9 @@ docker-build: test
 # Push the docker image
 docker-push:
 	docker push ${IMG}
+
+docker-build-executor: test
+	docker build -f Dockerfile.executor . -t ${EXECUTOR-IMG}
+
+docker-push-executor:
+	docker push ${EXECUTOR-IMG}
