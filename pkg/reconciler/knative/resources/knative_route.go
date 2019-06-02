@@ -22,18 +22,14 @@ import (
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/utils"
-	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type RouteBuilder struct {
-	config *v1.ConfigMap
 }
 
-func NewRouteBuilder(config *v1.ConfigMap) *RouteBuilder {
-	return &RouteBuilder{
-		config: config,
-	}
+func NewRouteBuilder() *RouteBuilder {
+	return &RouteBuilder{}
 }
 
 func (r *RouteBuilder) CreateKnativeRoute(kfsvc *v1alpha1.KFService) *knservingv1alpha1.Route {

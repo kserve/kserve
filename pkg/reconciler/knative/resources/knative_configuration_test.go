@@ -48,9 +48,17 @@ var kfsvc = &v1alpha1.KFService{
 }
 
 var configMapData = map[string]string{
-	v1alpha1.TensorflowServingImageConfigName: "tensorflow/serving",
-	v1alpha1.SKLearnServingImageConfigName:    "sklearn/serving",
-	v1alpha1.XGBoostServingImageConfigName:    "xgboost/serving",
+	"frameworks": `{
+        "tensorflow" : {
+            "image" : "tensorflow/tfserving"
+        },
+        "sklearn" : {
+            "image" : "kfserving/sklearnserver"
+        },
+        "xgboost" : {
+            "image" : "kfserving/xgbserver"
+        }
+    }`,
 }
 
 var defaultConfiguration = knservingv1alpha1.Configuration{
@@ -128,6 +136,7 @@ var canaryConfiguration = knservingv1alpha1.Configuration{
 
 func TestKnativeConfiguration(t *testing.T) {
 	scenarios := map[string]struct {
+		configMapData                   map[string]string
 		kfService                       *v1alpha1.KFService
 		expectedDefault, expectedCanary *knservingv1alpha1.Configuration
 	}{
@@ -205,7 +214,7 @@ func TestKnativeConfiguration(t *testing.T) {
 								TimeoutSeconds: &constants.DefaultTimeout,
 							},
 							Container: &v1.Container{
-								Image: configMapData[v1alpha1.SKLearnServingImageConfigName] + ":" + v1alpha1.DefaultSKLearnRuntimeVersion,
+								Image: v1alpha1.SKLearnServerImageName + ":" + v1alpha1.DefaultSKLearnRuntimeVersion,
 								Args: []string{
 									"--model_name=sklearn",
 									"--model_dir=s3://test/sklearn/export",
@@ -250,7 +259,53 @@ func TestKnativeConfiguration(t *testing.T) {
 								TimeoutSeconds: &constants.DefaultTimeout,
 							},
 							Container: &v1.Container{
-								Image: configMapData[v1alpha1.XGBoostServingImageConfigName] + ":" + v1alpha1.DefaultXGBoostRuntimeVersion,
+								Image: v1alpha1.XGBoostServerImageName + ":" + v1alpha1.DefaultXGBoostRuntimeVersion,
+								Args: []string{
+									"--model_name=xgboost",
+									"--model_dir=s3://test/xgboost/export",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		"TestConfigOverride": {
+			configMapData: configMapData,
+			kfService: &v1alpha1.KFService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "xgboost",
+					Namespace: "default",
+				},
+				Spec: v1alpha1.KFServiceSpec{
+					Default: v1alpha1.ModelSpec{
+						XGBoost: &v1alpha1.XGBoostSpec{
+							ModelURI:       "s3://test/xgboost/export",
+							RuntimeVersion: "latest",
+						},
+					},
+				},
+			},
+			expectedDefault: &knservingv1alpha1.Configuration{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.DefaultConfigurationName("xgboost"),
+					Namespace: "default",
+				},
+				Spec: knservingv1alpha1.ConfigurationSpec{
+					RevisionTemplate: &knservingv1alpha1.RevisionTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: map[string]string{"serving.kubeflow.org/kfservice": "xgboost"},
+							Annotations: map[string]string{
+								"autoscaling.knative.dev/class":  "kpa.autoscaling.knative.dev",
+								"autoscaling.knative.dev/target": "1",
+							},
+						},
+						Spec: knservingv1alpha1.RevisionSpec{
+							RevisionSpec: v1beta1.RevisionSpec{
+								TimeoutSeconds: &constants.DefaultTimeout,
+							},
+							Container: &v1.Container{
+								Image: "kfserving/xgbserver:" + v1alpha1.DefaultXGBoostRuntimeVersion,
 								Args: []string{
 									"--model_name=xgboost",
 									"--model_dir=s3://test/xgboost/export",
@@ -265,7 +320,7 @@ func TestKnativeConfiguration(t *testing.T) {
 
 	for name, scenario := range scenarios {
 		configurationBuilder := NewConfigurationBuilder(&v1.ConfigMap{
-			Data: configMapData,
+			Data: scenario.configMapData,
 		})
 		defaultConfiguration := configurationBuilder.CreateKnativeConfiguration(constants.DefaultConfigurationName(scenario.kfService.Name),
 			scenario.kfService.ObjectMeta, &scenario.kfService.Spec.Default)

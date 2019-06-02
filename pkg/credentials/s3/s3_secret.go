@@ -22,17 +22,15 @@ import (
 )
 
 const (
-	AWSAccessKeyId              = "AWS_ACCESS_KEY_ID"
-	AWSSecretAccessKey          = "AWS_SECRET_ACCESS_KEY"
-	AWSAccessKeyIdName          = "awsAccessKeyID"
-	AWSSecretAccessKeyName      = "awsSecretAccessKey"
-	AWSEndpointUrl              = "AWS_ENDPOINT_URL"
-	AWSRegion                   = "AWS_REGION"
-	S3Endpoint                  = "S3_ENDPOINT"
-	S3UseHttps                  = "S3_USE_HTTPS"
-	S3VerifySSL                 = "S3_VERIFY_SSL"
-	S3AccessKeyIdConfigName     = "S3AccessKeyIDName"
-	S3SecretAccessKeyConfigName = "S3SecretAccessKeyName"
+	AWSAccessKeyId         = "AWS_ACCESS_KEY_ID"
+	AWSSecretAccessKey     = "AWS_SECRET_ACCESS_KEY"
+	AWSAccessKeyIdName     = "awsAccessKeyID"
+	AWSSecretAccessKeyName = "awsSecretAccessKey"
+	AWSEndpointUrl         = "AWS_ENDPOINT_URL"
+	AWSRegion              = "AWS_REGION"
+	S3Endpoint             = "S3_ENDPOINT"
+	S3UseHttps             = "S3_USE_HTTPS"
+	S3VerifySSL            = "S3_VERIFY_SSL"
 )
 
 var (

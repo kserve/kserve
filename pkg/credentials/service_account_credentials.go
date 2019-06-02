@@ -18,6 +18,8 @@ package credentials
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	knservingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/kubeflow/kfserving/pkg/credentials/gcs"
 	"github.com/kubeflow/kfserving/pkg/credentials/s3"
@@ -27,17 +29,44 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
 
+const (
+	CREDENTIAL_CONFIG_KEY_NAME = "credentials"
+)
+
+type S3Config struct {
+	S3AccessKeyIDName     string `json:"s3AccessKeyIDName,omitempty"`
+	S3SecretAccessKeyName string `json:"s3SecretAccessKeyName,omitempty"`
+	S3Endpoint            string `json:"s3Endpoint,omitempty"`
+	S3UseHttps            string `json:"s3UseHttps,omitempty"`
+}
+
+type GCSConfig struct {
+	GCSCredentialFileName string `json:"gcsCredentialFileName,omitempty"`
+}
+
+type CredentialConfig struct {
+	S3  S3Config  `json:"s3,omitempty"`
+	GCS GCSConfig `json:"gcs,omitempty"`
+}
+
 type CredentialBuilder struct {
 	client client.Client
-	config *v1.ConfigMap
+	config CredentialConfig
 }
 
 var log = logf.Log.WithName("CredentialBulder")
 
 func NewCredentialBulder(client client.Client, config *v1.ConfigMap) *CredentialBuilder {
+	credentialConfig := CredentialConfig{}
+	if credential, ok := config.Data[CREDENTIAL_CONFIG_KEY_NAME]; ok {
+		err := json.Unmarshal([]byte(credential), &credentialConfig)
+		if err != nil {
+			panic(fmt.Errorf("Unable to unmarshall json string due to %v ", err))
+		}
+	}
 	return &CredentialBuilder{
 		client: client,
-		config: config,
+		config: credentialConfig,
 	}
 }
 
@@ -48,20 +77,19 @@ func (c *CredentialBuilder) CreateSecretVolumeAndEnv(ctx context.Context, namesp
 	}
 	s3AccessKeyIdName := s3.AWSAccessKeyIdName
 	s3SecretAccessKeyName := s3.AWSSecretAccessKeyName
-	gcsCredentialFileName := gcs.GCSCredentialFileConfigName
-	if c.config != nil {
-		if value, ok := c.config.Data[s3.S3AccessKeyIdConfigName]; ok {
-			s3AccessKeyIdName = value
-		}
-
-		if value, ok := c.config.Data[s3.S3SecretAccessKeyConfigName]; ok {
-			s3SecretAccessKeyName = value
-		}
-
-		if value, ok := c.config.Data[gcs.GCSCredentialFileConfigName]; ok {
-			gcsCredentialFileName = value
-		}
+	gcsCredentialFileName := gcs.GCSCredentialFileName
+	if c.config.S3.S3AccessKeyIDName != "" {
+		s3AccessKeyIdName = c.config.S3.S3AccessKeyIDName
 	}
+
+	if c.config.S3.S3SecretAccessKeyName != "" {
+		s3SecretAccessKeyName = c.config.S3.S3SecretAccessKeyName
+	}
+
+	if c.config.GCS.GCSCredentialFileName != "" {
+		gcsCredentialFileName = c.config.GCS.GCSCredentialFileName
+	}
+
 	serviceAccount := &v1.ServiceAccount{}
 	err := c.client.Get(context.TODO(), types.NamespacedName{Name: serviceAccountName,
 		Namespace: namespace}, serviceAccount)

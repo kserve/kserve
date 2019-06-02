@@ -22,7 +22,7 @@ import (
 )
 
 type FrameworkHandler interface {
-	CreateModelServingContainer(modelName string, modelServingImageName string) *v1.Container
+	CreateModelServingContainer(modelName string, config *FrameworksConfig) *v1.Container
 	ApplyDefaults()
 	Validate() error
 }
@@ -32,10 +32,6 @@ const (
 	ExactlyOneModelSpecViolatedError = "Exactly one of [Custom, Tensorflow, SKLearn, XGBoost] must be specified in ModelSpec"
 	// AtLeastOneModelSpecViolatedError is a known error message
 	AtLeastOneModelSpecViolatedError = "At least one of [Custom, Tensorflow, SKLearn, XGBoost] must be specified in ModelSpec"
-
-	TensorflowServingImageConfigName = "TensorflowServingImageName"
-	XGBoostServingImageConfigName    = "XGBoostServingImageName"
-	SKLearnServingImageConfigName    = "SKLearnServingImageName"
 )
 
 var (
@@ -43,8 +39,8 @@ var (
 	DefaultCPURequests    = resource.MustParse("1")
 )
 
-func (m *ModelSpec) CreateModelServingContainer(modelName string, modelServingImageName string) *v1.Container {
-	return getHandler(m).CreateModelServingContainer(modelName, modelServingImageName)
+func (m *ModelSpec) CreateModelServingContainer(modelName string, config *FrameworksConfig) *v1.Container {
+	return getHandler(m).CreateModelServingContainer(modelName, config)
 }
 
 func (m *ModelSpec) ApplyDefaults() {
@@ -54,6 +50,17 @@ func (m *ModelSpec) ApplyDefaults() {
 func (m *ModelSpec) Validate() error {
 	_, err := makeHandler(m)
 	return err
+}
+
+type FrameworkConfig struct {
+	ContainerImage string `json:"image"`
+
+	//TODO add readiness/liveness probe config
+}
+type FrameworksConfig struct {
+	Tensorflow FrameworkConfig `json:"tensorflow,omitempty"`
+	Xgboost    FrameworkConfig `json:"xgboost,omitempty"`
+	SKlearn    FrameworkConfig `json:"sklearn,omitempty"`
 }
 
 func setResourceRequirementDefaults(requirements *v1.ResourceRequirements) {

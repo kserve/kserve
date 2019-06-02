@@ -117,7 +117,7 @@ func TestKnativeRoute(t *testing.T) {
 	}
 
 	for name, scenario := range scenarios {
-		routeBuilder := NewRouteBuilder(nil)
+		routeBuilder := NewRouteBuilder()
 		route := routeBuilder.CreateKnativeRoute(scenario.kfService)
 		// Validate
 		if scenario.shouldFail {

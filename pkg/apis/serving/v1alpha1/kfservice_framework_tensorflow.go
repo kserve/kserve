@@ -34,10 +34,10 @@ var (
 	TensorflowServingRestPort            = "8080"
 )
 
-func (t *TensorflowSpec) CreateModelServingContainer(modelName string, modelServingImageName string) *v1.Container {
+func (t *TensorflowSpec) CreateModelServingContainer(modelName string, config *FrameworksConfig) *v1.Container {
 	imageName := TensorflowServingImageName
-	if modelServingImageName != "" {
-		imageName = modelServingImageName
+	if config.Tensorflow.ContainerImage != "" {
+		imageName = config.Tensorflow.ContainerImage
 	}
 	return &v1.Container{
 		Image:     imageName + ":" + t.RuntimeVersion,
