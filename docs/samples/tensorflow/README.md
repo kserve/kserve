@@ -61,11 +61,11 @@ Expected Output
 
 If you stop making requests to the application, you should eventually see that your application scales itself back down to zero. Watch the pod until you see that it is `Terminating`. This should take approximately 90 seconds.
 
-    ```
-    kubectl get pods --watch
-    ```
+```
+kubectl get pods --watch
+```
 
-    Note: To exit the watch, use `ctrl + c`.
+Note: To exit the watch, use `ctrl + c`.
 
 ## Canary Rollout
 
@@ -87,27 +87,26 @@ flowers-sample   flowers-sample.default.example.com   90                10      
 If you are using the [Knative CLI (knctl)](#knative-cli), run the following command
 
 ```
-knctl revision list 
-Revisions
+knctl route show --route flowers-sample 
+Route 'flowers-sample'
 
-Service                 Name                          Tags  Annotations                                                 Conditions  Age  Traffic  
-flowers-sample-canary   flowers-sample-canary-6kpt6   -     autoscaling.knative.dev/class: kpa.autoscaling.knative.dev  4 OK / 5    40m  10% -> flowers-sample.default.example.com  
-                                                            autoscaling.knative.dev/target: "1"                                            
-flowers-sample-default  flowers-sample-default-l9c24  -     autoscaling.knative.dev/class: kpa.autoscaling.knative.dev  4 OK / 5    40m  90% -> flowers-sample.default.example.com  
-                                                            autoscaling.knative.dev/target: "1"  
-```
+Name             flowers-sample  
+Domain           flowers-sample.default.example.com  
+Internal Domain  flowers-sample.default.svc.cluster.local  
+Age              1m  
 
-### Knative CLI:
+Targets
 
-[Knative CLI (`knctl`)](https://github.com/cppforlife/knctl) provides simple set of commands to interact with a [Knative installation](https://github.com/knative/docs). You can grab pre-built binaries from the [Releases page](https://github.com/cppforlife/knctl/releases). Once downloaded, you can run the following commands to get it working.
+Percent  Revision                      Service  Domain  
+90%      flowers-sample-default-4s74r  -        flowers-sample.default.example.com  
+10%      flowers-sample-canary-bjdkm   -        flowers-sample.default.example.com  
 
-```
-# compare checksum output to what's included in the release notes
-$ shasum -a 265 ~/Downloads/knctl-*
+Conditions
 
-# move binary to your system’s /usr/local/bin -- might require root password
-$ mv ~/Downloads/knctl-* /usr/local/bin/knctl
+Type                Status  Age  Reason  Message  
+AllTrafficAssigned  True    46s  -       -  
+IngressReady        True    45s  -       -  
+Ready               True    45s  -       -  
 
-# make the newly copied file executable -- might require root password
-$ chmod +x /usr/local/bin/knctl
+Succeeded
 ```
