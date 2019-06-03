@@ -96,7 +96,7 @@ func validateReplicas(minReplicas int, maxReplicas int) error {
 	if maxReplicas < 0 {
 		return fmt.Errorf(MaxReplicasLowerBoundExceededError)
 	}
-	if minReplicas > maxReplicas && maxReplicas != 0 {
+	if minReplicas > maxReplicas {
 		return fmt.Errorf(MinReplicasShouldBeLessThanMaxError)
 	}
 	return nil
