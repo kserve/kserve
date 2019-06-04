@@ -22,7 +22,7 @@ import (
 )
 
 type FrameworkHandler interface {
-	CreateModelServingContainer(modelName string) *v1.Container
+	CreateModelServingContainer(modelName string, config *FrameworksConfig) *v1.Container
 	ApplyDefaults()
 	Validate() error
 }
@@ -39,8 +39,8 @@ var (
 	DefaultCPURequests    = resource.MustParse("1")
 )
 
-func (m *ModelSpec) CreateModelServingContainer(modelName string) *v1.Container {
-	return getHandler(m).CreateModelServingContainer(modelName)
+func (m *ModelSpec) CreateModelServingContainer(modelName string, config *FrameworksConfig) *v1.Container {
+	return getHandler(m).CreateModelServingContainer(modelName, config)
 }
 
 func (m *ModelSpec) ApplyDefaults() {
@@ -50,6 +50,17 @@ func (m *ModelSpec) ApplyDefaults() {
 func (m *ModelSpec) Validate() error {
 	_, err := makeHandler(m)
 	return err
+}
+
+type FrameworkConfig struct {
+	ContainerImage string `json:"image"`
+
+	//TODO add readiness/liveness probe config
+}
+type FrameworksConfig struct {
+	Tensorflow FrameworkConfig `json:"tensorflow,omitempty"`
+	Xgboost    FrameworkConfig `json:"xgboost,omitempty"`
+	SKlearn    FrameworkConfig `json:"sklearn,omitempty"`
 }
 
 func setResourceRequirementDefaults(requirements *v1.ResourceRequirements) {
@@ -65,7 +76,7 @@ func setResourceRequirementDefaults(requirements *v1.ResourceRequirements) {
 	}
 }
 
-func getHandler(modelSpec *ModelSpec) interface{ FrameworkHandler } {
+func getHandler(modelSpec *ModelSpec) FrameworkHandler {
 	handler, err := makeHandler(modelSpec)
 	if err != nil {
 		klog.Fatal(err)
@@ -74,8 +85,8 @@ func getHandler(modelSpec *ModelSpec) interface{ FrameworkHandler } {
 	return handler
 }
 
-func makeHandler(modelSpec *ModelSpec) (interface{ FrameworkHandler }, error) {
-	handlers := []interface{ FrameworkHandler }{}
+func makeHandler(modelSpec *ModelSpec) (FrameworkHandler, error) {
+	handlers := []FrameworkHandler{}
 	if modelSpec.Custom != nil {
 		handlers = append(handlers, modelSpec.Custom)
 	}

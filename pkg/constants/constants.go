@@ -32,9 +32,10 @@ var (
 
 // KFService Constants
 var (
-	KFServiceName        = "kfservice"
-	KFServiceAPIName     = "kfservices"
-	KFServicePodLabelKey = KFServingAPIGroupName + "/" + KFServiceName
+	KFServiceName          = "kfservice"
+	KFServiceAPIName       = "kfservices"
+	KFServicePodLabelKey   = KFServingAPIGroupName + "/" + KFServiceName
+	KFServiceConfigMapName = "kfservice-config"
 )
 
 // Controller Constants
