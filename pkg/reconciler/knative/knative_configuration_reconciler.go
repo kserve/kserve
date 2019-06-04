@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package ksvc
+package knative
 
 import (
 	"context"
@@ -28,14 +28,14 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
 
-var log = logf.Log.WithName("ServiceReconciler")
+var log = logf.Log.WithName("Reconciler")
 
-type ServiceReconciler struct {
+type ConfigurationReconciler struct {
 	client client.Client
 }
 
-func NewServiceReconciler(client client.Client) *ServiceReconciler {
-	return &ServiceReconciler{
+func NewConfigurationReconciler(client client.Client) *ConfigurationReconciler {
+	return &ConfigurationReconciler{
 		client: client,
 	}
 }
@@ -43,7 +43,7 @@ func NewServiceReconciler(client client.Client) *ServiceReconciler {
 // Reconcile compares the actual state with the desired, and attempts to
 // converge the two. It then updates the Status block of the Service resource
 // with the current status of the resource.
-func (c *ServiceReconciler) ReconcileConfiguration(ctx context.Context, desiredConfiguration *knservingv1alpha1.Configuration) (*knservingv1alpha1.Configuration, error) {
+func (c *ConfigurationReconciler) Reconcile(ctx context.Context, desiredConfiguration *knservingv1alpha1.Configuration) (*knservingv1alpha1.Configuration, error) {
 	configuration := &knservingv1alpha1.Configuration{}
 	err := c.client.Get(context.TODO(), types.NamespacedName{Name: desiredConfiguration.Name,
 		Namespace: desiredConfiguration.Namespace}, configuration)
@@ -66,7 +66,7 @@ func (c *ServiceReconciler) ReconcileConfiguration(ctx context.Context, desiredC
 	if err != nil {
 		return configuration, fmt.Errorf("failed to diff configuration: %v", err)
 	}
-	log.Info("Reconciling configuration diff (-desired, +observed): %s", "diff", diff)
+	log.Info("Reconciling configuration diff (-desired, +observed):", "diff", diff)
 
 	configuration.Spec = desiredConfiguration.Spec
 	configuration.ObjectMeta.Labels = desiredConfiguration.ObjectMeta.Labels
@@ -79,48 +79,8 @@ func (c *ServiceReconciler) ReconcileConfiguration(ctx context.Context, desiredC
 	return configuration, nil
 }
 
-func (c *ServiceReconciler) ReconcileRoute(ctx context.Context, desiredRoute *knservingv1alpha1.Route) (*knservingv1alpha1.Route, error) {
-	route := &knservingv1alpha1.Route{}
-	err := c.client.Get(context.TODO(), types.NamespacedName{Name: desiredRoute.Name, Namespace: desiredRoute.Namespace}, route)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			log.Info("Creating Knative Serving route", "namespace", desiredRoute.Namespace, "name", desiredRoute.Name)
-			err = c.client.Create(context.TODO(), desiredRoute)
-			return desiredRoute, err
-		}
-		return nil, err
-	}
-
-	if routeSemanticEquals(desiredRoute, route) {
-		// No differences to reconcile.
-		return route, nil
-	}
-
-	diff, err := kmp.SafeDiff(desiredRoute.Spec, route.Spec)
-	if err != nil {
-		return route, fmt.Errorf("failed to diff route: %v", err)
-	}
-	log.Info("Reconciling route diff (-desired, +observed): %s", "diff", diff)
-
-	route.Spec = desiredRoute.Spec
-	route.ObjectMeta.Labels = desiredRoute.ObjectMeta.Labels
-	route.ObjectMeta.Annotations = desiredRoute.ObjectMeta.Annotations
-	log.Info("Updating route", "namespace", route.Namespace, "name", route.Name)
-	err = c.client.Update(context.TODO(), route)
-	if err != nil {
-		return route, err
-	}
-	return route, nil
-}
-
 func serviceSemanticEquals(desiredConfiguration, configuration *knservingv1alpha1.Configuration) bool {
 	return equality.Semantic.DeepEqual(desiredConfiguration.Spec, configuration.Spec) &&
 		equality.Semantic.DeepEqual(desiredConfiguration.ObjectMeta.Labels, configuration.ObjectMeta.Labels) &&
 		equality.Semantic.DeepEqual(desiredConfiguration.ObjectMeta.Annotations, configuration.ObjectMeta.Annotations)
-}
-
-func routeSemanticEquals(desiredRoute, route *knservingv1alpha1.Route) bool {
-	return equality.Semantic.DeepEqual(desiredRoute.Spec, route.Spec) &&
-		equality.Semantic.DeepEqual(desiredRoute.ObjectMeta.Labels, route.ObjectMeta.Labels) &&
-		equality.Semantic.DeepEqual(desiredRoute.ObjectMeta.Annotations, route.ObjectMeta.Annotations)
 }

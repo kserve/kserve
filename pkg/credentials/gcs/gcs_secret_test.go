@@ -41,7 +41,7 @@ func TestGcsSecret(t *testing.T) {
 			expectedVolumeMount: v1.VolumeMount{
 				Name:      GCSCredentialVolumeName,
 				ReadOnly:  true,
-				MountPath: GCSCredentialVolumeMountPath,
+				MountPath: GCSCredentialVolumeMountPathPrefix + GCSCredentialFileName,
 			},
 			expectedVolume: v1.Volume{
 				Name: GCSCredentialVolumeName,
@@ -55,7 +55,7 @@ func TestGcsSecret(t *testing.T) {
 	}
 
 	for name, scenario := range scenarios {
-		volume, volumeMount := BuildSecretVolume(scenario.secret)
+		volume, volumeMount := BuildSecretVolume(scenario.secret, GCSCredentialFileName)
 
 		if diff := cmp.Diff(scenario.expectedVolume, volume); diff != "" {
 			t.Errorf("Test %q unexpected volume (-want +got): %v", name, diff)
