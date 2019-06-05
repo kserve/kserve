@@ -6,11 +6,11 @@ EXECUTOR-IMG ?= kfserving-executor:latest
 all: test manager 
 
 # Run tests
-test: generate fmt vet manifests
+test: generate fmt vet lint manifests
 	go test ./pkg/... ./cmd/... -coverprofile cover.out
 
 # Build manager binary
-manager: generate fmt vet
+manager: generate fmt vet lint
 	go build -o bin/manager ./cmd/manager
 
 # Build manager binary
@@ -18,7 +18,7 @@ executor: fmt vet
 	go build -o bin/executor ./cmd/executor
 
 # Run against the configured Kubernetes cluster in ~/.kube/config
-run: generate fmt vet
+run: generate fmt vet lint
 	go run ./cmd/manager/main.go
 
 # Install CRDs into a cluster
@@ -51,6 +51,10 @@ fmt:
 # Run go vet against code
 vet:
 	go vet ./pkg/... ./cmd/...
+
+# Run go lint against code
+lint:
+	hack/verify-golint.sh
 
 # Generate code
 generate:

@@ -17,18 +17,40 @@ limitations under the License.
 package resources
 
 import (
+	"encoding/json"
 	"fmt"
-
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	knservingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/utils"
+	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func CreateKnativeConfiguration(name string, metadata metav1.ObjectMeta, modelSpec *v1alpha1.ModelSpec) *knservingv1alpha1.Configuration {
+const (
+	FRAMEWORK_CONFIG_KEY_NAME = "frameworks"
+)
+
+type ConfigurationBuilder struct {
+	frameworksConfig *v1alpha1.FrameworksConfig
+}
+
+func NewConfigurationBuilder(config *v1.ConfigMap) *ConfigurationBuilder {
+	frameworkConfig := &v1alpha1.FrameworksConfig{}
+	if fmks, ok := config.Data[FRAMEWORK_CONFIG_KEY_NAME]; ok {
+		err := json.Unmarshal([]byte(fmks), &frameworkConfig)
+		if err != nil {
+			panic(fmt.Errorf("Unable to unmarshall json string due to %v ", err))
+		}
+	}
+	return &ConfigurationBuilder{
+		frameworksConfig: frameworkConfig,
+	}
+}
+
+func (c *ConfigurationBuilder) CreateKnativeConfiguration(name string, metadata metav1.ObjectMeta, modelSpec *v1alpha1.ModelSpec) *knservingv1alpha1.Configuration {
 	if modelSpec == nil {
 		return nil
 	}
@@ -74,7 +96,7 @@ func CreateKnativeConfiguration(name string, metadata metav1.ObjectMeta, modelSp
 							ServiceAccountName: modelSpec.ServiceAccountName,
 						},
 					},
-					Container: modelSpec.CreateModelServingContainer(metadata.Name),
+					Container: modelSpec.CreateModelServingContainer(metadata.Name, c.frameworksConfig),
 				},
 			},
 		},

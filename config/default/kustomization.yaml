@@ -12,6 +12,7 @@ namespace: kfserving-system
 # markers ("---").
 resources:
 - crds/serving_v1alpha1_kfservice.yaml
+- configmap/kfservice.yaml
 - rbac/rbac_role.yaml
 - rbac/rbac_role_binding.yaml
 - manager/manager.yaml

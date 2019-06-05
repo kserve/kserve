@@ -14,20 +14,32 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package ksvc
+package credentials
 
 import (
 	"context"
 	"github.com/google/go-cmp/cmp"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
-	"github.com/kubeflow/kfserving/pkg/reconciler/ksvc/resources/credentials/gcs"
-	"github.com/kubeflow/kfserving/pkg/reconciler/ksvc/resources/credentials/s3"
+	"github.com/kubeflow/kfserving/pkg/credentials/gcs"
+	"github.com/kubeflow/kfserving/pkg/credentials/s3"
 	"github.com/onsi/gomega"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"testing"
 )
+
+var configMap = &v1.ConfigMap{
+	Data: map[string]string{
+		"credentials": `{
+			"gcs" : {"gcsCredentialFileName": "gcloud-application-credentials.json"},
+			"s3" : {
+				"s3AccessKeyIDName": "awsAccessKeyID",
+				"s3SecretAccessKeyName": "awsSecretAccessKey"
+			}
+	    }`,
+	},
+}
 
 func TestS3CredentialBuilder(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
@@ -52,8 +64,8 @@ func TestS3CredentialBuilder(t *testing.T) {
 			},
 		},
 		Data: map[string][]byte{
-			s3.AWSAccessKeyIdName:     {},
-			s3.AWSSecretAccessKeyName: {},
+			"awsAccessKeyID":     {},
+			"awsSecretAccessKey": {},
 		},
 	}
 	scenarios := map[string]struct {
@@ -86,7 +98,7 @@ func TestS3CredentialBuilder(t *testing.T) {
 												LocalObjectReference: v1.LocalObjectReference{
 													Name: "s3-secret",
 												},
-												Key: s3.AWSAccessKeyIdName,
+												Key: "awsAccessKeyID",
 											},
 										},
 									},
@@ -97,7 +109,7 @@ func TestS3CredentialBuilder(t *testing.T) {
 												LocalObjectReference: v1.LocalObjectReference{
 													Name: "s3-secret",
 												},
-												Key: s3.AWSSecretAccessKeyName,
+												Key: "awsSecretAccessKey",
 											},
 										},
 									},
@@ -119,7 +131,7 @@ func TestS3CredentialBuilder(t *testing.T) {
 		},
 	}
 
-	builder := NewCredentialBulder(c)
+	builder := NewCredentialBulder(c, configMap)
 	for name, scenario := range scenarios {
 		g.Expect(c.Create(context.TODO(), existingServiceAccount)).NotTo(gomega.HaveOccurred())
 		g.Expect(c.Create(context.TODO(), existingS3Secret)).NotTo(gomega.HaveOccurred())
@@ -164,7 +176,7 @@ func TestGCSCredentialBuilder(t *testing.T) {
 			Namespace: "default",
 		},
 		Data: map[string][]byte{
-			gcs.GCSCredentialFileName: {},
+			"gcloud-application-credentials.json": {},
 		},
 	}
 	scenarios := map[string]struct {
@@ -193,13 +205,13 @@ func TestGCSCredentialBuilder(t *testing.T) {
 									{
 										Name:      gcs.GCSCredentialVolumeName,
 										ReadOnly:  true,
-										MountPath: gcs.GCSCredentialVolumeMountPath,
+										MountPath: gcs.GCSCredentialVolumeMountPathPrefix + "gcloud-application-credentials.json",
 									},
 								},
 								Env: []v1.EnvVar{
 									{
 										Name:  gcs.GCSCredentialEnvKey,
-										Value: gcs.GCSCredentialVolumeMountPath,
+										Value: gcs.GCSCredentialVolumeMountPathPrefix + "gcloud-application-credentials.json",
 									},
 								},
 							},
@@ -225,7 +237,7 @@ func TestGCSCredentialBuilder(t *testing.T) {
 		},
 	}
 
-	builder := NewCredentialBulder(c)
+	builder := NewCredentialBulder(c, configMap)
 	for name, scenario := range scenarios {
 		g.Expect(c.Create(context.TODO(), existingServiceAccount)).NotTo(gomega.HaveOccurred())
 		g.Expect(c.Create(context.TODO(), existingGCSSecret)).NotTo(gomega.HaveOccurred())
