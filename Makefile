@@ -3,7 +3,7 @@
 IMG ?= kfserving-controller:latest
 EXECUTOR-IMG ?= kfserving-executor:latest
 
-all: test manager 
+all: test manager executor
 
 # Run tests
 test: generate fmt vet lint manifests
