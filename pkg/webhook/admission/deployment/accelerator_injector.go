@@ -40,6 +40,7 @@ const (
 	KFServingGkeAcceleratorAnnotation = "kfserving.kubeflow.org/gke-accelerator"
 	GkeAccleratorNodeSelector         = "cloud.google.com/gke-accelerator"
 	NvidiaGPUResourceType             = "nvidia.com/gpu"
+	NvidiaGPUTaintValue               = "present"
 )
 
 // Handle decodes the incoming Pod and executes mutation logic.
@@ -75,12 +76,15 @@ func injectGKEAcceleratorSelector(deployment *appsv1.Deployment) error {
 
 func injectGPUToleration(deployment *appsv1.Deployment) error {
 	for _, container := range deployment.Spec.Template.Spec.Containers {
-		_, hasGPU := container.Resources.Limits[NvidiaGPUResourceType]
-		if hasGPU {
-			deployment.Spec.Template.Spec.Tolerations = append(deployment.Spec.Template.Spec.Tolerations, v1.Toleration{
-				Key:      NvidiaGPUResourceType,
-				Operator: v1.TolerationOpEqual,
-			})
+		if _, ok := container.Resources.Limits[NvidiaGPUResourceType]; ok {
+			deployment.Spec.Template.Spec.Tolerations = append(
+				deployment.Spec.Template.Spec.Tolerations,
+				v1.Toleration{
+					Key:      NvidiaGPUResourceType,
+					Value:    NvidiaGPUTaintValue,
+					Operator: v1.TolerationOpEqual,
+					Effect:   v1.TaintEffectPreferNoSchedule,
+				})
 		}
 	}
 	return nil
