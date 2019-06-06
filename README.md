@@ -3,10 +3,13 @@ KFServing provides a Kubernetes [Custom Resource Definition](https://kubernetes.
 
 A KFService encapsulates the complexity of autoscaling, networking, health checking, server configuration, and more, to provide customers with a simple and seamless experience when deploying models.
 
-In the future, we hope to support more advanced use cases such as outlier detection, bias detection, explainability, pre/post processing, and performance profiling across infrastructure configurations.
+This project is an evolution of the [original proposal in the Kubeflow repo](https://github.com/kubeflow/kubeflow/issues/2306). 
 
-This project is an evolution of the [original proposal in the Kubeflow repo](https://github.com/kubeflow/kubeflow/issues/2306). To know more about KFServing, please [read the docs](/docs)
+### Learn More
+* [Read the Docs](/docs)
+* [KFServing 101](https://www.youtube.com/watch?v=hGIvlFADMhU)
 
-For developers looking to contribute, please [follow this doc](/docs/DEVELOPER_GUIDE.md).
+### Contribute
+* [Developer Guide](/docs/DEVELOPER_GUIDE.md).
 
 ![KFServing](./docs/diagrams/kfserving.png)
