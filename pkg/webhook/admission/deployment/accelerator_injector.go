@@ -20,6 +20,8 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/kubeflow/kfserving/pkg/utils"
+
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 
@@ -38,7 +40,7 @@ type Mutator struct {
 // These constants are used for detecting and applying GPU selectors
 const (
 	KFServingGkeAcceleratorAnnotation = "kfserving.kubeflow.org/gke-accelerator"
-	GkeAccleratorNodeSelector         = "cloud.google.com/gke-accelerator"
+	GkeAcceleratorNodeSelector        = "cloud.google.com/gke-accelerator"
 	NvidiaGPUResourceType             = "nvidia.com/gpu"
 	NvidiaGPUTaintValue               = "present"
 )
@@ -51,11 +53,11 @@ func (mutator *Mutator) Handle(ctx context.Context, req types.Request) types.Res
 		return admission.ErrorResponse(http.StatusBadRequest, err)
 	}
 
-	if err := injectGPUToleration(deployment); err != nil {
+	if err := InjectGPUToleration(deployment); err != nil {
 		return admission.ErrorResponse(http.StatusInternalServerError, err)
 	}
 
-	if err := injectGKEAcceleratorSelector(deployment); err != nil {
+	if err := InjectGKEAcceleratorSelector(deployment); err != nil {
 		return admission.ErrorResponse(http.StatusInternalServerError, err)
 	}
 
@@ -67,14 +69,17 @@ func (mutator *Mutator) Handle(ctx context.Context, req types.Request) types.Res
 	return third_party.PatchResponseFromRaw(req.AdmissionRequest.Object.Raw, patch)
 }
 
-func injectGKEAcceleratorSelector(deployment *appsv1.Deployment) error {
+func InjectGKEAcceleratorSelector(deployment *appsv1.Deployment) error {
 	if gpuSelector, ok := deployment.Annotations[KFServingGkeAcceleratorAnnotation]; ok {
-		deployment.Spec.Template.Spec.NodeSelector[GkeAccleratorNodeSelector] = gpuSelector
+		deployment.Spec.Template.Spec.NodeSelector = utils.Union(
+			deployment.Spec.Template.Spec.NodeSelector,
+			map[string]string{GkeAcceleratorNodeSelector: gpuSelector},
+		)
 	}
 	return nil
 }
 
-func injectGPUToleration(deployment *appsv1.Deployment) error {
+func InjectGPUToleration(deployment *appsv1.Deployment) error {
 	for _, container := range deployment.Spec.Template.Spec.Containers {
 		if _, ok := container.Resources.Limits[NvidiaGPUResourceType]; ok {
 			deployment.Spec.Template.Spec.Tolerations = append(

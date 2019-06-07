@@ -16,21 +16,71 @@ limitations under the License.
 package deployment
 
 import (
+	"fmt"
 	"testing"
 
-	"github.com/onsi/gomega"
+	"github.com/google/go-cmp/cmp"
+	appsv1 "k8s.io/api/apps/v1"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func TestHasGPUToleration(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-	g.Expect(true).Should(gomega.Equal(true))
-}
-func TestHasGKEAcceleratorAnnotation(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-	g.Expect(true).Should(gomega.Equal(true))
-}
+func TestAcceleratorInjector(t *testing.T) {
+	scenarios := map[string]struct {
+		original *appsv1.Deployment
+		mutated  *appsv1.Deployment
+	}{
+		"AddGPUSelector": {
+			original: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "deployment",
+					Annotations: map[string]string{
+						KFServingGkeAcceleratorAnnotation: "nvidia-tesla-v100",
+					},
+				},
+				Spec: appsv1.DeploymentSpec{
+					Template: v1.PodTemplateSpec{
+						Spec: v1.PodSpec{
+							Containers: []v1.Container{{
+								Resources: v1.ResourceRequirements{
+									Limits: v1.ResourceList{NvidiaGPUResourceType: resource.MustParse("1")},
+								},
+							}},
+						},
+					},
+				},
+			},
+			mutated: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "deployment",
+					Annotations: map[string]string{
+						KFServingGkeAcceleratorAnnotation: "nvidia-tesla-v100",
+					},
+				},
+				Spec: appsv1.DeploymentSpec{
+					Template: v1.PodTemplateSpec{
+						Spec: v1.PodSpec{
+							NodeSelector: map[string]string{
+								GkeAcceleratorNodeSelector: "nvidia-tesla-v100",
+							},
+							Containers: []v1.Container{{
+								Resources: v1.ResourceRequirements{
+									Limits: v1.ResourceList{NvidiaGPUResourceType: resource.MustParse("1")},
+								},
+							}},
+						},
+					},
+				},
+			},
+		},
+	}
 
-func TestIsNotGPUWorkload(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-	g.Expect(true).Should(gomega.Equal(true))
+	for name, scenario := range scenarios {
+
+		fmt.Sprint(InjectGKEAcceleratorSelector(scenario.original))
+		if diff := cmp.Diff(scenario.mutated, InjectGKEAcceleratorSelector(scenario.original)); diff != "" {
+			t.Errorf("Test %q unexpected result (-want +got): %v", name, diff)
+		}
+	}
 }
