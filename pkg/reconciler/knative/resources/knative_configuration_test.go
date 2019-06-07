@@ -33,6 +33,9 @@ var kfsvc = &v1alpha1.KFService{
 	ObjectMeta: metav1.ObjectMeta{
 		Name:      "mnist",
 		Namespace: "default",
+		Annotations: map[string]string{
+			constants.KFServiceGKEAcceleratorAnnotationKey: "nvidia-tesla-t4",
+		},
 	},
 	Spec: v1alpha1.KFServiceSpec{
 		Default: v1alpha1.ModelSpec{
@@ -71,10 +74,11 @@ var defaultConfiguration = knservingv1alpha1.Configuration{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels: map[string]string{"serving.kubeflow.org/kfservice": "mnist"},
 				Annotations: map[string]string{
-					"autoscaling.knative.dev/class":    "kpa.autoscaling.knative.dev",
-					"autoscaling.knative.dev/target":   "1",
-					"autoscaling.knative.dev/minScale": "1",
-					"autoscaling.knative.dev/maxScale": "3",
+					"autoscaling.knative.dev/class":                "kpa.autoscaling.knative.dev",
+					"autoscaling.knative.dev/target":               "1",
+					"autoscaling.knative.dev/minScale":             "1",
+					"autoscaling.knative.dev/maxScale":             "3",
+					constants.KFServiceGKEAcceleratorAnnotationKey: "nvidia-tesla-t4",
 				},
 			},
 			Spec: knservingv1alpha1.RevisionSpec{
@@ -109,10 +113,11 @@ var canaryConfiguration = knservingv1alpha1.Configuration{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels: map[string]string{"serving.kubeflow.org/kfservice": "mnist"},
 				Annotations: map[string]string{
-					"autoscaling.knative.dev/class":    "kpa.autoscaling.knative.dev",
-					"autoscaling.knative.dev/target":   "1",
-					"autoscaling.knative.dev/minScale": "1",
-					"autoscaling.knative.dev/maxScale": "3",
+					"autoscaling.knative.dev/class":                "kpa.autoscaling.knative.dev",
+					"autoscaling.knative.dev/target":               "1",
+					"autoscaling.knative.dev/minScale":             "1",
+					"autoscaling.knative.dev/maxScale":             "3",
+					constants.KFServiceGKEAcceleratorAnnotationKey: "nvidia-tesla-t4",
 				},
 			},
 			Spec: knservingv1alpha1.RevisionSpec{
@@ -150,6 +155,9 @@ func TestKnativeConfiguration(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "mnist",
 					Namespace: "default",
+					Annotations: map[string]string{
+						constants.KFServiceGKEAcceleratorAnnotationKey: "nvidia-tesla-t4",
+					},
 				},
 				Spec: v1alpha1.KFServiceSpec{
 					Default: v1alpha1.ModelSpec{
