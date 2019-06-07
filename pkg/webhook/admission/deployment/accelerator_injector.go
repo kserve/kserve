@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/utils"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -41,7 +42,6 @@ type Mutator struct {
 const (
 	KFServingGkeAcceleratorAnnotation = "kfserving.kubeflow.org/gke-accelerator"
 	GkeAcceleratorNodeSelector        = "cloud.google.com/gke-accelerator"
-	NvidiaGPUResourceType             = "nvidia.com/gpu"
 	NvidiaGPUTaintValue               = "present"
 )
 
@@ -88,11 +88,11 @@ func injectGKEAcceleratorSelector(deployment *appsv1.Deployment) error {
 
 func injectGPUToleration(deployment *appsv1.Deployment) error {
 	for _, container := range deployment.Spec.Template.Spec.Containers {
-		if _, ok := container.Resources.Limits[NvidiaGPUResourceType]; ok {
+		if _, ok := container.Resources.Limits[constants.NvidiaGPUResourceType]; ok {
 			deployment.Spec.Template.Spec.Tolerations = append(
 				deployment.Spec.Template.Spec.Tolerations,
 				v1.Toleration{
-					Key:      NvidiaGPUResourceType,
+					Key:      constants.NvidiaGPUResourceType,
 					Value:    NvidiaGPUTaintValue,
 					Operator: v1.TolerationOpEqual,
 					Effect:   v1.TaintEffectPreferNoSchedule,
