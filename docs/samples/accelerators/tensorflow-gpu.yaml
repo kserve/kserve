@@ -1,7 +1,7 @@
 apiVersion: "serving.kubeflow.org/v1alpha1"
 kind: "KFService"
 metadata:
-  name: "flowers-gpu-sample"
+  name: "tensorflow-gpu"
   annotations:
     "serving.kubeflow.org/gke-accelerator": "nvidia-tesla-t4"
 spec:
