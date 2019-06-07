@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/kubeflow/kfserving/pkg/constants"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -43,7 +44,7 @@ func TestAcceleratorInjector(t *testing.T) {
 						Spec: v1.PodSpec{
 							Containers: []v1.Container{{
 								Resources: v1.ResourceRequirements{
-									Limits: v1.ResourceList{NvidiaGPUResourceType: resource.MustParse("1")},
+									Limits: v1.ResourceList{constants.NvidiaGPUResourceType: resource.MustParse("1")},
 								},
 							}},
 						},
@@ -65,11 +66,11 @@ func TestAcceleratorInjector(t *testing.T) {
 							},
 							Containers: []v1.Container{{
 								Resources: v1.ResourceRequirements{
-									Limits: v1.ResourceList{NvidiaGPUResourceType: resource.MustParse("1")},
+									Limits: v1.ResourceList{constants.NvidiaGPUResourceType: resource.MustParse("1")},
 								},
 							}},
 							Tolerations: []v1.Toleration{v1.Toleration{
-								Key:      NvidiaGPUResourceType,
+								Key:      constants.NvidiaGPUResourceType,
 								Value:    NvidiaGPUTaintValue,
 								Operator: v1.TolerationOpEqual,
 								Effect:   v1.TaintEffectPreferNoSchedule,
@@ -89,7 +90,7 @@ func TestAcceleratorInjector(t *testing.T) {
 						Spec: v1.PodSpec{
 							Containers: []v1.Container{{
 								Resources: v1.ResourceRequirements{
-									Limits: v1.ResourceList{NvidiaGPUResourceType: resource.MustParse("1")},
+									Limits: v1.ResourceList{constants.NvidiaGPUResourceType: resource.MustParse("1")},
 								},
 							}},
 						},
@@ -105,11 +106,11 @@ func TestAcceleratorInjector(t *testing.T) {
 						Spec: v1.PodSpec{
 							Containers: []v1.Container{{
 								Resources: v1.ResourceRequirements{
-									Limits: v1.ResourceList{NvidiaGPUResourceType: resource.MustParse("1")},
+									Limits: v1.ResourceList{constants.NvidiaGPUResourceType: resource.MustParse("1")},
 								},
 							}},
 							Tolerations: []v1.Toleration{v1.Toleration{
-								Key:      NvidiaGPUResourceType,
+								Key:      constants.NvidiaGPUResourceType,
 								Value:    NvidiaGPUTaintValue,
 								Operator: v1.TolerationOpEqual,
 								Effect:   v1.TaintEffectPreferNoSchedule,

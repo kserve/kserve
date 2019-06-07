@@ -57,6 +57,11 @@ var (
 	WebhookFailurePolicy                 = v1beta1.Fail
 )
 
+// GPU Constants
+const (
+	NvidiaGPUResourceType = "nvidia.com/gpu"
+)
+
 func getEnvOrDefault(key string, fallback string) string {
 	if value, ok := os.LookupEnv(key); ok {
 		return value
