@@ -3,11 +3,12 @@ kind: "KFService"
 metadata:
   name: "flowers-gpu-sample"
   annotations:
-    "kfserving.kubeflow.org/gke-accelerator": "nvidia-telsa-v100"
+    "serving.kubeflow.org/gke-accelerator": "nvidia-telsa-t4"
 spec:
   default:
     tensorflow:
       modelUri: "gs://kfserving-samples/models/tensorflow/flowers"
+      runtimeVersion: "1.11.0-gpu"
       resources:
         limits:
           nvidia.com/gpu: 1

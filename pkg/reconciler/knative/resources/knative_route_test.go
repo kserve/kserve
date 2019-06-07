@@ -42,7 +42,7 @@ func TestKnativeRoute(t *testing.T) {
 					Default: v1alpha1.ModelSpec{
 						Tensorflow: &v1alpha1.TensorflowSpec{
 							ModelURI:       "s3://test/mnist/export",
-							RuntimeVersion: "1.13",
+							RuntimeVersion: "1.13.0",
 						},
 					},
 				},
@@ -74,14 +74,14 @@ func TestKnativeRoute(t *testing.T) {
 					Default: v1alpha1.ModelSpec{
 						Tensorflow: &v1alpha1.TensorflowSpec{
 							ModelURI:       "s3://test/mnist/export",
-							RuntimeVersion: "1.13",
+							RuntimeVersion: "1.13.0",
 						},
 					},
 					CanaryTrafficPercent: 20,
 					Canary: &v1alpha1.ModelSpec{
 						Tensorflow: &v1alpha1.TensorflowSpec{
 							ModelURI:       "s3://test/mnist-2/export",
-							RuntimeVersion: "1.13",
+							RuntimeVersion: "1.13.0",
 						},
 					},
 				},
