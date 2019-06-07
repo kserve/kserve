@@ -43,7 +43,7 @@ var kfsvc = &v1alpha1.KFService{
 			MaxReplicas: 3,
 			Tensorflow: &v1alpha1.TensorflowSpec{
 				ModelURI:       "s3://test/mnist/export",
-				RuntimeVersion: "1.13",
+				RuntimeVersion: "1.13.0",
 			},
 			ServiceAccountName: "testsvcacc",
 		},
@@ -165,7 +165,7 @@ func TestKnativeConfiguration(t *testing.T) {
 						MaxReplicas: 3,
 						Tensorflow: &v1alpha1.TensorflowSpec{
 							ModelURI:       "s3://test/mnist/export",
-							RuntimeVersion: "1.13",
+							RuntimeVersion: "1.13.0",
 						},
 						ServiceAccountName: "testsvcacc",
 					},
@@ -175,7 +175,7 @@ func TestKnativeConfiguration(t *testing.T) {
 						MaxReplicas: 3,
 						Tensorflow: &v1alpha1.TensorflowSpec{
 							ModelURI:       "s3://test/mnist-2/export",
-							RuntimeVersion: "1.13",
+							RuntimeVersion: "1.13.0",
 						},
 					},
 				},

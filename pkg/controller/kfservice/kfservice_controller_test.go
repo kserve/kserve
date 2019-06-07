@@ -63,7 +63,7 @@ var instance = &servingv1alpha1.KFService{
 			MaxReplicas: 3,
 			Tensorflow: &servingv1alpha1.TensorflowSpec{
 				ModelURI:       "s3://test/mnist/export",
-				RuntimeVersion: "1.13",
+				RuntimeVersion: "1.13.0",
 			},
 		},
 	},
@@ -80,7 +80,7 @@ var canary = &servingv1alpha1.KFService{
 			MaxReplicas: 3,
 			Tensorflow: &servingv1alpha1.TensorflowSpec{
 				ModelURI:       "s3://test/mnist/export",
-				RuntimeVersion: "1.13",
+				RuntimeVersion: "1.13.0",
 			},
 		},
 		CanaryTrafficPercent: 20,
@@ -89,7 +89,7 @@ var canary = &servingv1alpha1.KFService{
 			MaxReplicas: 3,
 			Tensorflow: &servingv1alpha1.TensorflowSpec{
 				ModelURI:       "s3://test/mnist-2/export",
-				RuntimeVersion: "1.13",
+				RuntimeVersion: "1.13.0",
 			},
 		},
 	},
