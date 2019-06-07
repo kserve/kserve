@@ -16,7 +16,6 @@ limitations under the License.
 package deployment
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -29,7 +28,7 @@ import (
 func TestAcceleratorInjector(t *testing.T) {
 	scenarios := map[string]struct {
 		original *appsv1.Deployment
-		mutated  *appsv1.Deployment
+		expected *appsv1.Deployment
 	}{
 		"AddGPUSelector": {
 			original: &appsv1.Deployment{
@@ -51,7 +50,7 @@ func TestAcceleratorInjector(t *testing.T) {
 					},
 				},
 			},
-			mutated: &appsv1.Deployment{
+			expected: &appsv1.Deployment{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "deployment",
 					Annotations: map[string]string{
@@ -69,6 +68,52 @@ func TestAcceleratorInjector(t *testing.T) {
 									Limits: v1.ResourceList{NvidiaGPUResourceType: resource.MustParse("1")},
 								},
 							}},
+							Tolerations: []v1.Toleration{v1.Toleration{
+								Key:      NvidiaGPUResourceType,
+								Value:    NvidiaGPUTaintValue,
+								Operator: v1.TolerationOpEqual,
+								Effect:   v1.TaintEffectPreferNoSchedule,
+							}},
+						},
+					},
+				},
+			},
+		},
+		"DoNotAddGPUSelector": {
+			original: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "deployment",
+				},
+				Spec: appsv1.DeploymentSpec{
+					Template: v1.PodTemplateSpec{
+						Spec: v1.PodSpec{
+							Containers: []v1.Container{{
+								Resources: v1.ResourceRequirements{
+									Limits: v1.ResourceList{NvidiaGPUResourceType: resource.MustParse("1")},
+								},
+							}},
+						},
+					},
+				},
+			},
+			expected: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "deployment",
+				},
+				Spec: appsv1.DeploymentSpec{
+					Template: v1.PodTemplateSpec{
+						Spec: v1.PodSpec{
+							Containers: []v1.Container{{
+								Resources: v1.ResourceRequirements{
+									Limits: v1.ResourceList{NvidiaGPUResourceType: resource.MustParse("1")},
+								},
+							}},
+							Tolerations: []v1.Toleration{v1.Toleration{
+								Key:      NvidiaGPUResourceType,
+								Value:    NvidiaGPUTaintValue,
+								Operator: v1.TolerationOpEqual,
+								Effect:   v1.TaintEffectPreferNoSchedule,
+							}},
 						},
 					},
 				},
@@ -77,10 +122,20 @@ func TestAcceleratorInjector(t *testing.T) {
 	}
 
 	for name, scenario := range scenarios {
-
-		fmt.Sprint(InjectGKEAcceleratorSelector(scenario.original))
-		if diff := cmp.Diff(scenario.mutated, InjectGKEAcceleratorSelector(scenario.original)); diff != "" {
+		Mutate(scenario.original)
+		// cmd.Diff complains on ResourceList when Nvidia is key. Objects are explicitly compared
+		if diff := cmp.Diff(
+			scenario.expected.Spec.Template.Spec.NodeSelector,
+			scenario.original.Spec.Template.Spec.NodeSelector,
+		); diff != "" {
 			t.Errorf("Test %q unexpected result (-want +got): %v", name, diff)
 		}
+		if diff := cmp.Diff(
+			scenario.expected.Spec.Template.Spec.Tolerations,
+			scenario.original.Spec.Template.Spec.Tolerations,
+		); diff != "" {
+			t.Errorf("Test %q unexpected result (-want +got): %v", name, diff)
+		}
+
 	}
 }

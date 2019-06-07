@@ -56,3 +56,7 @@ version="v1.4.7"
 [[override]]
   name = "k8s.io/client-go"
   version = "kubernetes-1.12.6"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/google/go-cmp"

@@ -53,11 +53,7 @@ func (mutator *Mutator) Handle(ctx context.Context, req types.Request) types.Res
 		return admission.ErrorResponse(http.StatusBadRequest, err)
 	}
 
-	if err := InjectGPUToleration(deployment); err != nil {
-		return admission.ErrorResponse(http.StatusInternalServerError, err)
-	}
-
-	if err := InjectGKEAcceleratorSelector(deployment); err != nil {
+	if err := Mutate(deployment); err != nil {
 		return admission.ErrorResponse(http.StatusInternalServerError, err)
 	}
 
@@ -69,7 +65,18 @@ func (mutator *Mutator) Handle(ctx context.Context, req types.Request) types.Res
 	return third_party.PatchResponseFromRaw(req.AdmissionRequest.Object.Raw, patch)
 }
 
-func InjectGKEAcceleratorSelector(deployment *appsv1.Deployment) error {
+func Mutate(deployment *appsv1.Deployment) error {
+	if err := injectGPUToleration(deployment); err != nil {
+		return err
+	}
+
+	if err := injectGKEAcceleratorSelector(deployment); err != nil {
+		return err
+	}
+	return nil
+}
+
+func injectGKEAcceleratorSelector(deployment *appsv1.Deployment) error {
 	if gpuSelector, ok := deployment.Annotations[KFServingGkeAcceleratorAnnotation]; ok {
 		deployment.Spec.Template.Spec.NodeSelector = utils.Union(
 			deployment.Spec.Template.Spec.NodeSelector,
@@ -79,7 +86,7 @@ func InjectGKEAcceleratorSelector(deployment *appsv1.Deployment) error {
 	return nil
 }
 
-func InjectGPUToleration(deployment *appsv1.Deployment) error {
+func injectGPUToleration(deployment *appsv1.Deployment) error {
 	for _, container := range deployment.Spec.Template.Spec.Containers {
 		if _, ok := container.Resources.Limits[NvidiaGPUResourceType]; ok {
 			deployment.Spec.Template.Spec.Tolerations = append(
