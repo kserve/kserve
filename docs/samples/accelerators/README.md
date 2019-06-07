@@ -30,6 +30,6 @@ Apply the GKE Accelerator annotation as follows:
 ```
 metadata:
   annotations:
-    "serving.kubeflow.org/gke-accelerator": "nvidia-telsa-k80"
+    "serving.kubeflow.org/gke-accelerator": "nvidia-tesla-k80"
 ```
 The list of types is available at https://cloud.google.com/kubernetes-engine/docs/how-to/gpus#multiple_gpus.
