@@ -38,6 +38,11 @@ var (
 	KFServiceConfigMapName = "kfservice-config"
 )
 
+// KFService Annotations
+var (
+	KFServiceGKEAcceleratorAnnotationKey = KFServingAPIGroupName + "/gke-accelerator"
+)
+
 // Controller Constants
 var (
 	ControllerLabelName        = KFServingName + "-controller-manager"

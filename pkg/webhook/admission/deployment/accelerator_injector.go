@@ -40,9 +40,8 @@ type Mutator struct {
 
 // These constants are used for detecting and applying GPU selectors
 const (
-	KFServingGkeAcceleratorAnnotation = "kfserving.kubeflow.org/gke-accelerator"
-	GkeAcceleratorNodeSelector        = "cloud.google.com/gke-accelerator"
-	NvidiaGPUTaintValue               = "present"
+	GkeAcceleratorNodeSelector = "cloud.google.com/gke-accelerator"
+	NvidiaGPUTaintValue        = "present"
 )
 
 // Handle decodes the incoming Pod and executes mutation logic.
@@ -77,7 +76,7 @@ func Mutate(deployment *appsv1.Deployment) error {
 }
 
 func injectGKEAcceleratorSelector(deployment *appsv1.Deployment) error {
-	if gpuSelector, ok := deployment.Annotations[KFServingGkeAcceleratorAnnotation]; ok {
+	if gpuSelector, ok := deployment.Annotations[constants.KFServiceGKEAcceleratorAnnotationKey]; ok {
 		deployment.Spec.Template.Spec.NodeSelector = utils.Union(
 			deployment.Spec.Template.Spec.NodeSelector,
 			map[string]string{GkeAcceleratorNodeSelector: gpuSelector},
