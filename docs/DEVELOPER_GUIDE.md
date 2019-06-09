@@ -158,10 +158,16 @@ kubectl apply -f docs/samples/tensorflow/tensorflow.yaml
 You should see model serving deployment running under default or your specified namespace.
 
 ```console
+$ kubectl get kfservice -n default
+NAME             URL                                  DEFAULT TRAFFIC   CANARY TRAFFIC   AGE
+flowers-sample   flowers-sample.default.example.com   100                                1h
+
 $ kubectl get pods -n default -l serving.kubeflow.org/kfservice=flowers-sample
 NAME                                                READY   STATUS    RESTARTS   AGE
 flowers-sample-default-htz8r-deployment-8fd979f9b-w2qbv   3/3     Running   0          10s
 ```
+NOTE: KFService scales pods to 0 in the absence of traffic. If you dont see any pods, try sending out a query via curl using instructions in the tensorflow sample: https://github.com/kubeflow/kfserving/tree/master/docs/samples/tensorflow
+
 
 ## Iterating
 
