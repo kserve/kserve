@@ -25,6 +25,7 @@ import (
 
 func TestS3Secret(t *testing.T) {
 	scenarios := map[string]struct {
+		config   S3Config
 		secret   *v1.Secret
 		expected []v1.EnvVar
 	}{
@@ -124,10 +125,60 @@ func TestS3Secret(t *testing.T) {
 				},
 			},
 		},
+
+		"S3Config": {
+			config: S3Config{
+				S3AccessKeyIDName:     "test-keyId",
+				S3SecretAccessKeyName: "test-access-key",
+				S3UseHttps:            "0",
+				S3Endpoint:            "s3.aws.com",
+			},
+			secret: &v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "s3-secret",
+				},
+			},
+			expected: []v1.EnvVar{
+				{
+					Name: AWSAccessKeyId,
+					ValueFrom: &v1.EnvVarSource{
+						SecretKeyRef: &v1.SecretKeySelector{
+							LocalObjectReference: v1.LocalObjectReference{
+								Name: "s3-secret",
+							},
+							Key: "test-keyId",
+						},
+					},
+				},
+				{
+					Name: AWSSecretAccessKey,
+					ValueFrom: &v1.EnvVarSource{
+						SecretKeyRef: &v1.SecretKeySelector{
+							LocalObjectReference: v1.LocalObjectReference{
+								Name: "s3-secret",
+							},
+							Key: "test-access-key",
+						},
+					},
+				},
+				{
+					Name:  S3UseHttps,
+					Value: "0",
+				},
+				{
+					Name:  S3Endpoint,
+					Value: "s3.aws.com",
+				},
+				{
+					Name:  AWSEndpointUrl,
+					Value: "http://s3.aws.com",
+				},
+			},
+		},
 	}
 
 	for name, scenario := range scenarios {
-		envs := BuildSecretEnvs(scenario.secret)
+		envs := BuildSecretEnvs(scenario.secret, &scenario.config)
 
 		if diff := cmp.Diff(scenario.expected, envs); diff != "" {
 			t.Errorf("Test %q unexpected result (-want +got): %v", name, diff)

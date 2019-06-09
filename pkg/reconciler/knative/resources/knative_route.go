@@ -25,7 +25,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func CreateKnativeRoute(kfsvc *v1alpha1.KFService) *knservingv1alpha1.Route {
+type RouteBuilder struct {
+}
+
+func NewRouteBuilder() *RouteBuilder {
+	return &RouteBuilder{}
+}
+
+func (r *RouteBuilder) CreateKnativeRoute(kfsvc *v1alpha1.KFService) *knservingv1alpha1.Route {
 	defaultPercent := 100
 	canaryPercent := 0
 	if kfsvc.Spec.Canary != nil {
