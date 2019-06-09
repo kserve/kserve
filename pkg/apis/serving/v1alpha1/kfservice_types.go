@@ -66,7 +66,7 @@ type TensorflowSpec struct {
 
 // TensorRTSpec defines arguments for configuring TensorRT model serving.
 type TensorRTSpec struct {
-	ModelRepositoryURI string `json:"modelUri"`
+	ModelURI string `json:"modelUri"`
 	// Defaults to latest TensorRT Version.
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
 	// Defaults to requests and limits of 1CPU, 2Gb MEM.

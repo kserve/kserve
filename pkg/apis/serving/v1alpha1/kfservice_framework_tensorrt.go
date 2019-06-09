@@ -25,7 +25,9 @@ var (
 	TensorRTISImageName             = "nvcr.io/nvidia/tensorrtserver"
 	DefaultTensorRTISRuntimeVersion = "19.05-py3"
 	TensorRTISEntrypointCommand     = "trtserver"
-	InvalidModelRepositoryURIError  = "Model repository URI must be prefixed by gs:// (only Google Cloud Storage paths are supported)"
+	InvalidModelURIError            = "Model URI must be prefixed by gs:// (only Google Cloud Storage paths are supported)"
+	TensorRTISGRPCPort              = int32(9000)
+	TensorRTISRestPort              = int32(8080)
 )
 
 func (t *TensorRTSpec) CreateModelServingContainer(modelName string) *v1.Container {
@@ -35,16 +37,21 @@ func (t *TensorRTSpec) CreateModelServingContainer(modelName string) *v1.Contain
 		Command:   []string{TensorRTISEntrypointCommand},
 		Resources: t.Resources,
 		Args: []string{
-			"--model-store=" + t.ModelRepositoryURI,
+			"--model-store=" + t.ModelURI,
+			"--allow-poll-model-repository=false",
+			"--allow-grpc=true",
+			"--allow-http=true",
+			"--grpc-port=" + fmt.Sprint(TensorRTISGRPCPort),
+			"--rest-port=" + fmt.Sprint(TensorRTISRestPort),
 		},
 		Ports: []v1.ContainerPort{
 			v1.ContainerPort{
 				Name:          "http",
-				ContainerPort: 8000,
+				ContainerPort: TensorRTISRestPort,
 			},
 			v1.ContainerPort{
 				Name:          "grpc",
-				ContainerPort: 8001,
+				ContainerPort: TensorRTISGRPCPort,
 			},
 		},
 		LivenessProbe: &v1.Probe{
@@ -54,8 +61,6 @@ func (t *TensorRTSpec) CreateModelServingContainer(modelName string) *v1.Contain
 					Port: intstr.FromString("http"),
 				},
 			},
-			InitialDelaySeconds: 10,
-			PeriodSeconds:       5,
 		},
 		ReadinessProbe: &v1.Probe{
 			Handler: v1.Handler{
@@ -64,8 +69,6 @@ func (t *TensorRTSpec) CreateModelServingContainer(modelName string) *v1.Contain
 					Port: intstr.FromString("http"),
 				},
 			},
-			InitialDelaySeconds: 10,
-			PeriodSeconds:       5,
 		},
 	}
 }
@@ -79,8 +82,9 @@ func (t *TensorRTSpec) ApplyDefaults() {
 }
 
 func (t *TensorRTSpec) Validate() error {
-	if !strings.HasPrefix(t.ModelRepositoryURI, "gs://") {
-		return fmt.Errorf(InvalidModelRepositoryURIError)
+	// TODO: support other sources (https://github.com/kubeflow/kfserving/issues/137)
+	if !strings.HasPrefix(t.ModelURI, "gs://") {
+		return fmt.Errorf(InvalidModelURIError)
 	}
 	return nil
 }
