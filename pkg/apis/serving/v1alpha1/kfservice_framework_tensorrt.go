@@ -30,10 +30,15 @@ var (
 	TensorRTISRestPort              = int32(8080)
 )
 
-func (t *TensorRTSpec) CreateModelServingContainer(modelName string) *v1.Container {
+func (t *TensorRTSpec) CreateModelServingContainer(modelName string, config *FrameworksConfig) *v1.Container {
+	imageName := TensorRTISImageName
+	if config.TensorRT.ContainerImage != "" {
+		imageName = config.TensorRT.ContainerImage
+	}
+
 	// based on example at: https://github.com/NVIDIA/tensorrt-laboratory/blob/master/examples/Deployment/Kubernetes/basic-trtis-deployment/deploy.yml
 	return &v1.Container{
-		Image:     TensorRTISImageName + ":" + t.RuntimeVersion,
+		Image:     imageName + ":" + t.RuntimeVersion,
 		Command:   []string{TensorRTISEntrypointCommand},
 		Resources: t.Resources,
 		Args: []string{

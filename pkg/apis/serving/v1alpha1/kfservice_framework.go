@@ -59,6 +59,7 @@ type FrameworkConfig struct {
 }
 type FrameworksConfig struct {
 	Tensorflow FrameworkConfig `json:"tensorflow,omitempty"`
+	TensorRT   FrameworkConfig `json:"tensorrt,omitempty"`
 	Xgboost    FrameworkConfig `json:"xgboost,omitempty"`
 	SKlearn    FrameworkConfig `json:"sklearn,omitempty"`
 }
