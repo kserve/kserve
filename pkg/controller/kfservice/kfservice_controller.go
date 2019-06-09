@@ -18,6 +18,7 @@ package service
 
 import (
 	"context"
+
 	"github.com/kubeflow/kfserving/pkg/credentials"
 
 	"github.com/kubeflow/kfserving/pkg/constants"
@@ -25,11 +26,12 @@ import (
 
 	"github.com/kubeflow/kfserving/pkg/reconciler/knative"
 	"github.com/kubeflow/kfserving/pkg/reconciler/knative/resources"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/client-go/tools/record"
 
 	knservingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 	kfservingv1alpha1 "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -117,6 +119,11 @@ type ReconcileService struct {
 	Recorder record.EventRecorder
 }
 
+// Reconciler is implemented by all subresources
+type Reconciler interface {
+	Reconcile(kfsvc *v1alpha1.KFService) error
+}
+
 // Reconcile reads that state of the cluster for a Service object and makes changes based on the state read
 // and what is in the Service.Spec
 // +kubebuilder:rbac:groups=serving.knative.dev,resources=configurations,verbs=get;list;watch;create;update;patch;delete
@@ -148,12 +155,26 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 		return reconcile.Result{}, err
 	}
 
+	reconcilers := []Reconciler{
+		knative.NewRouteReconciler(r.Client, r.scheme),
+	}
+
+	for _, reconciler := range reconcilers {
+		if err := reconciler.Reconcile(kfsvc); err != nil {
+			log.Error(err, "Failed to reconcile")
+			r.Recorder.Eventf(kfsvc, v1.EventTypeWarning, "InternalError", err.Error())
+			return reconcile.Result{}, err
+		}
+	}
+
+	// ###############################################################
+	// Refactor BELOW pieces if proposed refactor accepted.
+	// ###############################################################
+
 	// Create builders and reconcilers
 	credentialBuilder := credentials.NewCredentialBulder(r.Client, configMap)
 	resourceBuilder := resources.NewConfigurationBuilder(configMap)
-	routeBuilder := resources.NewRouteBuilder()
 	configurationReconciler := knative.NewConfigurationReconciler(r.Client)
-	routeReconciler := knative.NewRouteReconciler(r.Client)
 
 	// Reconcile configurations
 	desiredDefault := resourceBuilder.CreateKnativeConfiguration(constants.DefaultConfigurationName(kfsvc.Name),
@@ -198,18 +219,9 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 		kfsvc.Status.PropagateCanaryConfigurationStatus(&canaryConfiguration.Status)
 	}
 
-	// Reconcile route
-	desiredRoute := routeBuilder.CreateKnativeRoute(kfsvc)
-	if err := controllerutil.SetControllerReference(kfsvc, desiredRoute, r.scheme); err != nil {
-		return reconcile.Result{}, err
-	}
-	route, err := routeReconciler.Reconcile(context.TODO(), desiredRoute)
-	if err != nil {
-		log.Error(err, "Failed to reconcile route", "name", desiredRoute.Name)
-		r.Recorder.Eventf(kfsvc, v1.EventTypeWarning, "InternalError", err.Error())
-		return reconcile.Result{}, err
-	}
-	kfsvc.Status.PropagateRouteStatus(&route.Status)
+	// ###############################################################
+	// Refactor ABOVE pieces if proposed refactor accepted.
+	// ###############################################################
 
 	if err = r.updateStatus(kfsvc); err != nil {
 		r.Recorder.Eventf(kfsvc, v1.EventTypeWarning, "InternalError", err.Error())
