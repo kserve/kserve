@@ -1,0 +1,16 @@
+language: go
+
+go:
+  - "1.12.5"
+
+go_import_path: github.com/kubeflow/kfserving
+
+install:
+  - curl -L -O "https://github.com/kubernetes-sigs/kubebuilder/releases/download/v1.0.7/kubebuilder_1.0.7_linux_amd64.tar.gz"
+  - tar -zxvf kubebuilder_1.0.7_linux_amd64.tar.gz
+  - sudo mv kubebuilder_1.0.7_linux_amd64 /usr/local/kubebuilder
+  - export PATH=$PATH:/usr/local/kubebuilder/bin
+
+script:
+  - make test
+

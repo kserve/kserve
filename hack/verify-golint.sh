@@ -25,11 +25,7 @@ KUBE_ROOT=$(dirname "${BASH_SOURCE}")/..
 if ! which golint > /dev/null; then
   echo 'Can not find golint, install with:'
   echo 'go get -u golang.org/x/lint/golint'
-  go get -u golang.org/x/lint/golint
-  if [ $? -ne 0 ]; then
-    echo 'Fail to install golint'
-    exit 1
-  fi
+  exit 1
 fi
 
 cd "${KUBE_ROOT}"
