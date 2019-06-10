@@ -32,10 +32,13 @@ setup(
     packages=find_packages("alibiexplainer"),
     install_requires=[
         "kfserver==0.1.0",
-        "scikit-learn == 0.20.3",
-        "argparse >= 1.4.0",
-        "seldon-core >= 0.3",
-        "requests >= 2.22.0"
+        "alibi==0.2.0",
+        "scikit-learn>=0.20.3",
+        "argparse>=1.4.0",
+        "requests>=2.22.0",
+        "joblib>=0.13.2",
+        "pandas>=0.24.2",
+        "numpy>=1.16.3"
     ],
     tests_require=tests_require,
     extras_require={'test': tests_require}

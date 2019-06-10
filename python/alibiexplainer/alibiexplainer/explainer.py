@@ -1,15 +1,13 @@
 import kfserving
 from enum import Enum
-from typing import List, Any, Optional
+from typing import List, Any
 import numpy as np
-import alibi
 import kfserving.protocols.seldon_http as seldon
 from kfserving.protocols.seldon_http import SeldonRequestHandler
 import requests
 import json
 import logging
 from alibiexplainer.anchor_tabular import AnchorTabular
-from alibiexplainer.explainer_method import ExplainerMethodImpl
 
 logging.basicConfig(level=kfserving.server.KFSERVER_LOGLEVEL)
 
