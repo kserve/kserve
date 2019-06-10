@@ -52,6 +52,8 @@ func AddToManager(manager manager.Manager) error {
 					"control-plane": constants.ControllerLabelName,
 				},
 			},
+			ValidatingWebhookConfigName: constants.KFServiceValidatingWebhookConfigName,
+			MutatingWebhookConfigName:   constants.KFServiceMutatingWebhookConfigName,
 		},
 	})
 	if err != nil {
