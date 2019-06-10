@@ -15,32 +15,19 @@
 import kfserving
 import argparse
 from alibiexplainer import AlibiExplainer
-from alibiexplainer.explainer import ExplainerAlgorithm, ExplainerModelType, ExplainerModelFeatures, ModelProtocol
+from alibiexplainer.explainer import ExplainerMethod
 
 parser = argparse.ArgumentParser(parents=[kfserving.server.parser])
 parser.add_argument('--model_url', help='The URL for the model predict function', required=True)
-parser.add_argument('--algorithm',
-                    type=ExplainerAlgorithm, choices=list(ExplainerAlgorithm), default="anchors",
-                    help='Explainer algorithhm')
-parser.add_argument('--model_type', default="classification",
-                    type=ExplainerModelType, choices=list(ExplainerModelType),
-                    help='The type of model to explain')
-parser.add_argument('--model_features', default="tabular",
-                    type=ExplainerModelFeatures, choices=list(ExplainerModelFeatures),
-                    help='The type of features the model accepts')
-parser.add_argument('--training_data', help='The URL for the training data pickle')
-parser.add_argument('--feature_names', help='The URL for the feature names pickle')
-parser.add_argument('--categorical_map', help='The URL for the categorical mapping pickle')
+parser.add_argument('--method',
+                    type=ExplainerMethod, choices=list(ExplainerMethod), default="anchor_tabular",
+                    help='Explainer method')
+
 args, _ = parser.parse_known_args()
 
 if __name__ == "__main__":
     explainer = AlibiExplainer(args.model_url,
                                args.protocol,
-                               ExplainerAlgorithm(args.algorithm),
-                               ExplainerModelType(args.model_type),
-                               ExplainerModelFeatures(args.model_features),
-                               training_data_uri=args.training_data,
-                               feature_names_uri=args.feature_names,
-                               categorical_map_uri=args.categorical_map)
+                               ExplainerMethod(args.method))
     explainer.load()
-    kfserving.KFServer().start(models=[],explainer=explainer)
+    kfserving.KFServer().start(models=[], explainer=explainer)
