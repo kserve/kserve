@@ -11,7 +11,9 @@ workflows:
     - cmd/*
     - config/*
     - test/*
+    - hack/*
     - Dockerfile
+    - Makefile
     - python/*
     - vendor/*
     params:
@@ -25,8 +27,6 @@ workflows:
     include_dirs:
     - pkg/*
     - cmd/*
-    - config/*
-    - test/*
     - Dockerfile
     - python/*
     - vendor/*
