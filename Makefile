@@ -1,3 +1,5 @@
+HAS_LINT := $(shell command -v golint;)
+
 
 # Image URL to use all building/pushing image targets
 IMG ?= kfserving-controller:latest
@@ -47,8 +49,11 @@ fmt:
 vet:
 	go vet ./pkg/... ./cmd/...
 
-# Run go lint against code
 lint:
+ifndef HAS_LINT
+	go get -u golang.org/x/lint/golint
+	echo "installing golint"
+endif
 	hack/verify-golint.sh
 
 # Generate code
