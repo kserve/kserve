@@ -193,6 +193,12 @@
                 }],
                 [
                   {
+                    name: "unit-test",
+                    template: "unit-test",
+                  },
+                ],
+                [
+                  {
                     name: "build-kfserving",
                     template: "build-kfserving",
                   },
@@ -231,6 +237,9 @@
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-kfserving", testWorkerImage, [
               "test/scripts/build-kfserving.sh",
             ]),  // build-kfserving
+            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("unit-test", testWorkerImage, [
+              "test/scripts/unit-test.sh",
+            ]),  // unit test
           ],  // templates
         },
       },  // e2e

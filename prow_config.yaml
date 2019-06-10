@@ -10,9 +10,10 @@ workflows:
     - pkg/*
     - cmd/*
     - config/*
-    - hack/*
     - test/*
+    - hack/*
     - Dockerfile
+    - Makefile
     - python/*
     - vendor/*
     params:
