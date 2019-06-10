@@ -10,6 +10,7 @@ workflows:
     - pkg/*
     - cmd/*
     - config/*
+    - hack/*
     - test/*
     - Dockerfile
     - python/*
@@ -25,8 +26,6 @@ workflows:
     include_dirs:
     - pkg/*
     - cmd/*
-    - config/*
-    - test/*
     - Dockerfile
     - python/*
     - vendor/*
