@@ -20,6 +20,9 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/kubeflow/kfserving/pkg/credentials"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	knservingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
@@ -35,10 +38,11 @@ const (
 )
 
 type ConfigurationBuilder struct {
-	frameworksConfig *v1alpha1.FrameworksConfig
+	frameworksConfig  *v1alpha1.FrameworksConfig
+	credentialBuilder *credentials.CredentialBuilder
 }
 
-func NewConfigurationBuilder(config *v1.ConfigMap) *ConfigurationBuilder {
+func NewConfigurationBuilder(client client.Client, config *v1.ConfigMap) ConfigurationBuilder {
 	frameworkConfig := &v1alpha1.FrameworksConfig{}
 	if fmks, ok := config.Data[FRAMEWORK_CONFIG_KEY_NAME]; ok {
 		err := json.Unmarshal([]byte(fmks), &frameworkConfig)
@@ -46,12 +50,14 @@ func NewConfigurationBuilder(config *v1.ConfigMap) *ConfigurationBuilder {
 			panic(fmt.Errorf("Unable to unmarshall json string due to %v ", err))
 		}
 	}
-	return &ConfigurationBuilder{
-		frameworksConfig: frameworkConfig,
+
+	return ConfigurationBuilder{
+		frameworksConfig:  frameworkConfig,
+		credentialBuilder: credentials.NewCredentialBulder(client, config),
 	}
 }
 
-func (c *ConfigurationBuilder) CreateKnativeConfiguration(name string, metadata metav1.ObjectMeta, modelSpec *v1alpha1.ModelSpec) *knservingv1alpha1.Configuration {
+func (c *ConfigurationBuilder) CreateKnativeConfiguration(name string, metadata metav1.ObjectMeta, modelSpec *v1alpha1.ModelSpec) (*knservingv1alpha1.Configuration, error) {
 	annotations := make(map[string]string)
 	if modelSpec.MinReplicas != 0 {
 		annotations[autoscaling.MinScaleAnnotationKey] = fmt.Sprint(modelSpec.MinReplicas)
@@ -99,7 +105,12 @@ func (c *ConfigurationBuilder) CreateKnativeConfiguration(name string, metadata 
 			},
 		},
 	}
-	return configuration
+
+	if err := c.credentialBuilder.CreateSecretVolumeAndEnv(metadata.Namespace, modelSpec.ServiceAccountName, configuration); err != nil {
+		return nil, err
+	}
+
+	return configuration, nil
 }
 
 func configurationAnnotationFilter(annotationKey string) bool {

@@ -20,10 +20,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+
 	knservingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/kubeflow/kfserving/pkg/credentials/gcs"
 	"github.com/kubeflow/kfserving/pkg/credentials/s3"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
@@ -59,7 +60,7 @@ func NewCredentialBulder(client client.Client, config *v1.ConfigMap) *Credential
 	}
 }
 
-func (c *CredentialBuilder) CreateSecretVolumeAndEnv(ctx context.Context, namespace string, serviceAccountName string,
+func (c *CredentialBuilder) CreateSecretVolumeAndEnv(namespace string, serviceAccountName string,
 	configuration *knservingv1alpha1.Configuration) error {
 	if serviceAccountName == "" {
 		serviceAccountName = "default"
