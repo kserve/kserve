@@ -34,9 +34,5 @@ class KFModel(object):
         raise NotImplementedError
 
     # TODO return type TBD
-    def explain(self, inputs: List) -> Any:
-        raise NotImplementedError
-
-    # TODO return type TBD
     def detectOutlier(self, inputs: List):
         raise NotImplementedError

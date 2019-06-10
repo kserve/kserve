@@ -1,4 +1,4 @@
-from typing import List, Any
+from typing import List, Dict
 
 
 class KFExplainer(object):
@@ -9,6 +9,5 @@ class KFExplainer(object):
     def load(self):
         raise NotImplementedError
 
-    # TODO return type TBD
-    def explain(self, inputs: List) -> Any:
+    def explain(self, inputs: List) -> Dict:
         raise NotImplementedError
