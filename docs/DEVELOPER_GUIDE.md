@@ -166,7 +166,7 @@ $ kubectl get pods -n default -l serving.kubeflow.org/kfservice=flowers-sample
 NAME                                                READY   STATUS    RESTARTS   AGE
 flowers-sample-default-htz8r-deployment-8fd979f9b-w2qbv   3/3     Running   0          10s
 ```
-NOTE: KFServing scales pods to 0 in the absence of traffic. If you dont see any pods, try sending out a query via curl using instructions in the tensorflow sample: https://github.com/kubeflow/kfserving/tree/master/docs/samples/tensorflow
+NOTE: KFServing scales pods to 0 in the absence of traffic. If you don't see any pods, try sending out a query via curl using instructions in the tensorflow sample: https://github.com/kubeflow/kfserving/tree/master/docs/samples/tensorflow
 
 
 ## Iterating
