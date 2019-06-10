@@ -59,6 +59,9 @@ def _get_request_ty(request: Dict) -> SeldonPayload:
     elif "tftensor" in data_def:
         return SeldonPayload.TFTENSOR
 
+def create_request(arr: np.ndarray, ty: SeldonPayload) -> Dict:
+    seldon_datadef = _create_seldon_data_def(arr, ty)
+    return {"data": seldon_datadef}
 
 class SeldonRequestHandler(RequestHandler):
 
@@ -86,3 +89,5 @@ class SeldonRequestHandler(RequestHandler):
         ty = _get_request_ty(self.request)
         seldon_datadef = _create_seldon_data_def(arr, ty)
         return {"data": seldon_datadef}
+
+

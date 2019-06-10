@@ -22,6 +22,7 @@ import os
 import logging
 import json
 from kfserving.model import KFModel
+from kfserving.explainer import KFExplainer
 from typing import List, Dict, Optional
 from kfserving.protocols.request_handler import RequestHandler
 from kfserving.protocols.tensorflow_http import TensorflowRequestHandler
@@ -53,6 +54,7 @@ class KFServer(object):
         self.grpc_port = grpc_port
         self.protocol = protocol
         self._http_server: Optional[tornado.httpserver.HTTPServer] = None
+        self.explainer = None
 
     def createApplication(self):
         return tornado.web.Application([
@@ -71,12 +73,15 @@ class KFServer(object):
             # Optional Custom Predict Verb for Tensorflow compatibility
             (r"/models/([a-zA-Z0-9_-]+):predict",
              ModelPredictHandler, dict(protocol=self.protocol, models=self.registered_models)),
+            (r"/explain",
+             ModelExplainHandler, dict(protocol=self.protocol, explainer=self.explainer)),
         ])
 
-    def start(self, models: List[KFModel] = []):
+    def start(self, models: List[KFModel] = [], explainer: KFExplainer = None):
         # TODO add a GRPC server
         for model in models:
             self.register_model(model)
+        self.explainer = explainer
 
         self._http_server = tornado.httpserver.HTTPServer(self.createApplication())
 
@@ -91,16 +96,42 @@ class KFServer(object):
         self.registered_models[model.name] = model
 
 
+def _getRequestHandler(protocol, request: Dict) -> RequestHandler:
+    if protocol == TFSERVING_HTTP_PROTOCOL:
+        return TensorflowRequestHandler(request)
+    else:
+        return SeldonRequestHandler(request)
+
+class ModelExplainHandler(tornado.web.RequestHandler):
+
+    def initialize(self, protocol: str, explainer: KFExplainer):
+        self.protocol = protocol
+        self.explainer = explainer
+
+    def post(self):
+
+        if not self.explainer.ready:
+            self.explainer.load()
+
+        try:
+            body = json.loads(self.request.body)
+        except json.decoder.JSONDecodeError as e:
+            raise tornado.web.HTTPError(
+                status_code=HTTPStatus.BAD_REQUEST,
+                reason="Unrecognized request format: %s" % e
+            )
+
+        requestHandler: RequestHandler = _getRequestHandler(self.protocol,body)
+        requestHandler.validate()
+        request = requestHandler.extract_request()
+        explanation = self.explainer.explain(request)
+
+        self.write(explanation)
+
 class ModelPredictHandler(tornado.web.RequestHandler):
     def initialize(self, protocol: str, models: Dict[str, KFModel]):
         self.protocol = protocol
         self.models = models
-
-    def _getRequestHandler(self, request: Dict) -> RequestHandler:
-        if self.protocol == TFSERVING_HTTP_PROTOCOL:
-            return TensorflowRequestHandler(request)
-        else:
-            return SeldonRequestHandler(request)
 
     def post(self, name: str):
         # TODO Add metrics
@@ -122,7 +153,7 @@ class ModelPredictHandler(tornado.web.RequestHandler):
                 reason="Unrecognized request format: %s" % e
             )
 
-        requestHandler: RequestHandler = self._getRequestHandler(body)
+        requestHandler: RequestHandler = _getRequestHandler(self.protocol,body)
         requestHandler.validate()
         request = requestHandler.extract_request()
         results = model.predict(request)
