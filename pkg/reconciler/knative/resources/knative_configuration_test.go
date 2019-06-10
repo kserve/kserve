@@ -41,6 +41,9 @@ var kfsvc = &v1alpha1.KFService{
 			Tensorflow: &v1alpha1.TensorflowSpec{
 				ModelURI:       "s3://test/mnist/export",
 				RuntimeVersion: "1.13",
+				persistentVolumeClaim:
+					name: "test-pvc"
+					mountPath: "/mnt"
 			},
 			ServiceAccountName: "testsvcacc",
 		},
@@ -75,6 +78,8 @@ var defaultConfiguration = knservingv1alpha1.Configuration{
 					"autoscaling.knative.dev/target":   "1",
 					"autoscaling.knative.dev/minScale": "1",
 					"autoscaling.knative.dev/maxScale": "3",
+					"persistentVolumeClaim.mountPath": "/mnt",
+					"persistentVolumeClaim.name": "test-pvc",
 				},
 			},
 			Spec: knservingv1alpha1.RevisionSpec{
@@ -113,6 +118,8 @@ var canaryConfiguration = knservingv1alpha1.Configuration{
 					"autoscaling.knative.dev/target":   "1",
 					"autoscaling.knative.dev/minScale": "1",
 					"autoscaling.knative.dev/maxScale": "3",
+					"persistentVolumeClaim.mountPath": "/mnt",
+					"persistentVolumeClaim.name": "test-pvc",
 				},
 			},
 			Spec: knservingv1alpha1.RevisionSpec{
@@ -207,6 +214,8 @@ func TestKnativeConfiguration(t *testing.T) {
 							Annotations: map[string]string{
 								"autoscaling.knative.dev/class":  "kpa.autoscaling.knative.dev",
 								"autoscaling.knative.dev/target": "1",
+								"persistentVolumeClaim.mountPath": "/mnt",
+								"persistentVolumeClaim.name": "test-pvc",
 							},
 						},
 						Spec: knservingv1alpha1.RevisionSpec{
@@ -252,6 +261,8 @@ func TestKnativeConfiguration(t *testing.T) {
 							Annotations: map[string]string{
 								"autoscaling.knative.dev/class":  "kpa.autoscaling.knative.dev",
 								"autoscaling.knative.dev/target": "1",
+								"persistentVolumeClaim.mountPath": "/mnt",
+								"persistentVolumeClaim.name": "test-pvc",
 							},
 						},
 						Spec: knservingv1alpha1.RevisionSpec{
@@ -298,6 +309,8 @@ func TestKnativeConfiguration(t *testing.T) {
 							Annotations: map[string]string{
 								"autoscaling.knative.dev/class":  "kpa.autoscaling.knative.dev",
 								"autoscaling.knative.dev/target": "1",
+								"persistentVolumeClaim.mountPath": "/mnt",
+								"persistentVolumeClaim.name": "test-pvc",
 							},
 						},
 						Spec: knservingv1alpha1.RevisionSpec{

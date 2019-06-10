@@ -1,0 +1,11 @@
+apiVersion: "serving.kubeflow.org/v1alpha1"
+kind: "KFService"
+metadata:
+  name: "flowers-sample"
+spec:
+  default:
+    tensorflow:
+      modelUri: "/mnt/models/tensorflow/flowers"
+      persistentVolumeClaim:
+        name: "test-pvc"
+        mountPath: "/mnt"

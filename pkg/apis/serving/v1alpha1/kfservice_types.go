@@ -61,6 +61,8 @@ type TensorflowSpec struct {
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
 	// Defaults to requests and limits of 1CPU, 2Gb MEM.
 	Resources v1.ResourceRequirements `json:"resources,omitempty"`
+	// Mount a PersistentVolumeClaim for model
+	PersistentVolumeClaim *PersistentVolumeClaim `json:"persistentVolumeClaim,omitempty"`
 }
 
 // XGBoostSpec defines arguments for configuring XGBoost model serving.
@@ -70,6 +72,8 @@ type XGBoostSpec struct {
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
 	// Defaults to requests and limits of 1CPU, 2Gb MEM.
 	Resources v1.ResourceRequirements `json:"resources,omitempty"`
+	// Mount a PersistentVolumeClaim for model
+	PersistentVolumeClaim *PersistentVolumeClaim `json:"persistentVolumeClaim,omitempty"`
 }
 
 // SKLearnSpec defines arguments for configuring SKLearn model serving.
@@ -79,11 +83,19 @@ type SKLearnSpec struct {
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
 	// Defaults to requests and limits of 1CPU, 2Gb MEM.
 	Resources v1.ResourceRequirements `json:"resources,omitempty"`
+	// Mount a PersistentVolumeClaim for model
+	PersistentVolumeClaim *PersistentVolumeClaim `json:"persistentVolumeClaim,omitempty"`
 }
 
 // CustomSpec provides a hook for arbitrary container configuration.
 type CustomSpec struct {
 	Container v1.Container `json:"container"`
+}
+
+// Define a PersistentVolumeClaim for model
+type PersistentVolumeClaim struct {
+	Name string `json:"name"`
+	MountPath string `json:"mountPath,omitempty"`
 }
 
 // KFServiceStatus defines the observed state of KFService

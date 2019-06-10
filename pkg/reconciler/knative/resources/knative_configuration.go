@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+   http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -69,6 +69,33 @@ func (c *ConfigurationBuilder) CreateKnativeConfiguration(name string, metadata 
 	// User can pass down scaling class annotation to overwrite the default scaling KPA
 	if _, ok := metadata.Annotations[autoscaling.ClassAnnotationKey]; !ok {
 		annotations[autoscaling.ClassAnnotationKey] = autoscaling.KPA
+	}
+
+	// Pass the PVC and mountPath for Webhook
+	// TBD @jinchihe Need a handler to reduce code duplication.
+	if modelSpec.Tensorflow != nil {
+		if modelSpec.Tensorflow.PersistentVolumeClaim.Name != "" {
+			annotations["persistentVolumeClaim.name"] = fmt.Sprint(modelSpec.Tensorflow.PersistentVolumeClaim.Name)
+		}
+		if modelSpec.Tensorflow.PersistentVolumeClaim.MountPath != "" {
+			annotations["persistentVolumeClaim.mountPath"] = fmt.Sprint(modelSpec.Tensorflow.PersistentVolumeClaim.MountPath)
+		}
+	}
+	if modelSpec.SKLearn != nil {
+		if modelSpec.SKLearn.PersistentVolumeClaim.Name != "" {
+			annotations["persistentVolumeClaim.name"] = fmt.Sprint(modelSpec.SKLearn.PersistentVolumeClaim.Name)
+		}
+		if modelSpec.SKLearn.PersistentVolumeClaim.MountPath != "" {
+			annotations["persistentVolumeClaim.mountPath"] = fmt.Sprint(modelSpec.SKLearn.PersistentVolumeClaim.MountPath)
+		}
+	}
+	if modelSpec.XGBoost != nil {
+		if modelSpec.XGBoost.PersistentVolumeClaim.Name != "" {
+			annotations["persistentVolumeClaim.name"] = fmt.Sprint(modelSpec.XGBoost.PersistentVolumeClaim.Name)
+		}
+		if modelSpec.XGBoost.PersistentVolumeClaim.MountPath != "" {
+			annotations["persistentVolumeClaim.mountPath"] = fmt.Sprint(modelSpec.XGBoost.PersistentVolumeClaim.MountPath)
+		}
 	}
 
 	kfsvcAnnotations := utils.Filter(metadata.Annotations, configurationAnnotationFilter)

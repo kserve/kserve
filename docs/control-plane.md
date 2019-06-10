@@ -142,6 +142,7 @@ Conditions provide realtime feedback to users on the underlying state of their d
 | modelUri       | String                                                                                             | URI pointing to Saved Model assets |
 | runtimeVersion | String                                                                                             | Defaults to latest the version of Tensorflow. |
 | resources      | [Resources](https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/) | Defaults to requests and limits of 1CPU, 2Gb MEM. |
+| persistentVolumeClaim      | [persistentVolumeClaim](#PersistentVolumeClaim) | Mount a [persistent volume claim (PVC)](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistentvolumeclaims) to get model |
 
 ### XGBoost
 Currently, this is identical to [Tensorflow](#Tensorflow)
@@ -154,3 +155,10 @@ Currently, this is identical to [Tensorflow](#Tensorflow)
 
 ### Custom
 TODO Elaborate
+
+### PersistentVolumeClaim
+
+| Field       | Value       | Description |
+| ----------- | ----------- | ----------- |
+| name       | String   | The persistentVolumeClaim name. |
+| mountPath | String      | Optional. The mount path of the persistentVolumeClaim, the default value is `/mnt`. |
