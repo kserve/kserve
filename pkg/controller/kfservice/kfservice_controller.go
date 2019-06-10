@@ -19,13 +19,10 @@ package service
 import (
 	"context"
 
-	"github.com/kubeflow/kfserving/pkg/credentials"
-
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/kubeflow/kfserving/pkg/reconciler/knative"
-	"github.com/kubeflow/kfserving/pkg/reconciler/knative/resources"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/client-go/tools/record"
@@ -38,7 +35,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -166,62 +162,6 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 			return reconcile.Result{}, err
 		}
 	}
-
-	// ###############################################################
-	// Refactor BELOW pieces if proposed refactor accepted.
-	// ###############################################################
-
-	// Create builders and reconcilers
-	credentialBuilder := credentials.NewCredentialBulder(r.Client, configMap)
-	resourceBuilder := resources.NewConfigurationBuilder(configMap)
-	configurationReconciler := knative.NewConfigurationReconciler(r.Client)
-
-	// Reconcile configurations
-	desiredDefault := resourceBuilder.CreateKnativeConfiguration(constants.DefaultConfigurationName(kfsvc.Name),
-		kfsvc.ObjectMeta, &kfsvc.Spec.Default)
-
-	if err := controllerutil.SetControllerReference(kfsvc, desiredDefault, r.scheme); err != nil {
-		return reconcile.Result{}, err
-	}
-
-	if err := credentialBuilder.CreateSecretVolumeAndEnv(context.TODO(), request.Namespace, kfsvc.Spec.Default.ServiceAccountName,
-		desiredDefault); err != nil {
-		log.Error(err, "Failed to create credential volume or envs", "ServiceAccount", kfsvc.Spec.Default.ServiceAccountName)
-	}
-
-	defaultConfiguration, err := configurationReconciler.Reconcile(context.TODO(), desiredDefault)
-	if err != nil {
-		log.Error(err, "Failed to reconcile default model spec", "name", desiredDefault.Name)
-		r.Recorder.Eventf(kfsvc, v1.EventTypeWarning, "InternalError", err.Error())
-		return reconcile.Result{}, err
-	}
-	kfsvc.Status.PropagateDefaultConfigurationStatus(&defaultConfiguration.Status)
-
-	if kfsvc.Spec.Canary != nil {
-		desiredCanary := resourceBuilder.CreateKnativeConfiguration(constants.CanaryConfigurationName(kfsvc.Name),
-			kfsvc.ObjectMeta, kfsvc.Spec.Canary)
-
-		if err := controllerutil.SetControllerReference(kfsvc, desiredCanary, r.scheme); err != nil {
-			return reconcile.Result{}, err
-		}
-
-		if err := credentialBuilder.CreateSecretVolumeAndEnv(context.TODO(), request.Namespace, kfsvc.Spec.Canary.ServiceAccountName,
-			desiredCanary); err != nil {
-			log.Error(err, "Failed to create credential volume or envs", "ServiceAccount", kfsvc.Spec.Canary.ServiceAccountName)
-		}
-
-		canaryConfiguration, err := configurationReconciler.Reconcile(context.TODO(), desiredCanary)
-		if err != nil {
-			log.Error(err, "Failed to reconcile canary model spec", "name", desiredCanary.Name)
-			r.Recorder.Eventf(kfsvc, v1.EventTypeWarning, "InternalError", err.Error())
-			return reconcile.Result{}, err
-		}
-		kfsvc.Status.PropagateCanaryConfigurationStatus(&canaryConfiguration.Status)
-	}
-
-	// ###############################################################
-	// Refactor ABOVE pieces if proposed refactor accepted.
-	// ###############################################################
 
 	if err = r.updateStatus(kfsvc); err != nil {
 		r.Recorder.Eventf(kfsvc, v1.EventTypeWarning, "InternalError", err.Error())
