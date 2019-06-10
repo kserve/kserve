@@ -110,6 +110,10 @@ func configurationAnnotationFilter(annotationKey string) bool {
 		return true
 	case autoscaling.ClassAnnotationKey:
 		return true
+	case constants.PvcNameAnnotation:
+		return true
+	case constants.PvcMountPathAnnotation:
+		return true
 	default:
 		return false
 	}

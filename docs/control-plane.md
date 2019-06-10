@@ -139,7 +139,7 @@ Conditions provide realtime feedback to users on the underlying state of their d
 ### ModelSpec
 | Field       | Value       | Description |
 | ----------- | ----------- | ----------- |
-| modelUri       | String                                                                                             | URI pointing to Saved Model assets |
+| modelUri       | String                                                                                             | URI pointing to Saved Model assets. KFService supports loading Saved Model assets from [PersistentVolumeClaim (PVC)](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistentvolumeclaims). To mount the PVC with containers, user needs to define PVC name as `pvcName` and mount path as `pvcMountPath` in [metadata.annotations](#Metadata).|
 | runtimeVersion | String                                                                                             | Defaults to latest the version of Tensorflow. |
 | resources      | [Resources](https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/) | Defaults to requests and limits of 1CPU, 2Gb MEM. |
 

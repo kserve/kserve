@@ -47,14 +47,23 @@ var (
 
 // Webhook Constants
 var (
-	WebhookServerName                    = KFServingName + "-webhook-server"
-	WebhookServerServiceName             = WebhookServerName + "-service"
-	WebhookServerSecretName              = WebhookServerName + "-secret"
-	KFServiceValidatingWebhookName       = strings.Join([]string{KFServiceName, WebhookServerName, "validator"}, ".")
-	KFServiceDefaultingWebhookName       = strings.Join([]string{KFServiceName, WebhookServerName, "defaulter"}, ".")
-	WebhookFailurePolicy                 = v1beta1.Fail
-	KFServiceValidatingWebhookConfigName = strings.Join([]string{KFServiceName, KFServingAPIGroupName}, ".")
-	KFServiceMutatingWebhookConfigName   = strings.Join([]string{KFServiceName, KFServingAPIGroupName}, ".")
+	WebhookServerName               = KFServingName + "-webhook-server"
+	WebhookServerServiceName        = WebhookServerName + "-service"
+	WebhookServerSecretName         = WebhookServerName + "-secret"
+	KFServiceValidatingWebhookName  = strings.Join([]string{KFServiceName, WebhookServerName, "validator"}, ".")
+	KFServiceDefaultingWebhookName  = strings.Join([]string{KFServiceName, WebhookServerName, "defaulter"}, ".")
+	KFServiceMountingPvcWebhookName = strings.Join([]string{KFServiceName, WebhookServerName, "mountor"}, ".")
+	WebhookFailurePolicy            = v1beta1.Fail
+        KFServiceValidatingWebhookConfigName = strings.Join([]string{KFServiceName, KFServingAPIGroupName}, ".")
+        KFServiceMutatingWebhookConfigName   = strings.Join([]string{KFServiceName, KFServingAPIGroupName}, ".")
+)
+
+// PersistentVolumeClaim Constants
+var (
+	PvcNameAnnotation      = "pvcName"
+	PvcMountPathAnnotation = "pvcMountPath"	
+	PvcMountingName        = "kfserving-local-storage"
+	PvcDefaultMountPath    = "/mnt"
 )
 
 func getEnvOrDefault(key string, fallback string) string {
