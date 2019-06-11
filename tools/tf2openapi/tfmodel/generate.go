@@ -23,37 +23,37 @@ func GenerateTFModel(model pb.SavedModel) *TFSavedModel {
 		tfSigDefs := &[]*TFSignatureDef{}
 		for sigDefKey, sigDefPtr := range metaGraph.SignatureDef {
 			tfSigDef := &TFSignatureDef{}
-			tfSigDef.SetName(sigDefKey)
+			tfSigDef.Name = sigDefKey
 			tfSigDefInputs := &[]*TFTensor{}
 			tfSigDefOutputs := &[]*TFTensor{}
 			sigDef := *sigDefPtr
 			generateTFSigDef(sigDef.Inputs, tfSigDefInputs)
 			generateTFSigDef(sigDef.Outputs, tfSigDefOutputs)
-			tfSigDef.SetInputs(*tfSigDefInputs)
-			tfSigDef.SetOutputs(*tfSigDefOutputs)
+			tfSigDef.Inputs = *tfSigDefInputs
+			tfSigDef.Outputs = *tfSigDefOutputs
 			*tfSigDefs = append(*tfSigDefs, tfSigDef)
 		}
-		tfMetaGraph.SetSignatureDefs(*tfSigDefs)
+		tfMetaGraph.SignatureDefs = *tfSigDefs
 		*tfMetaGraphs = append(*tfMetaGraphs, tfMetaGraph)
 	}
-	tfSavedModel.SetMetaGraphs(*tfMetaGraphs)
+	tfSavedModel.MetaGraphs = *tfMetaGraphs
 	return tfSavedModel
 }
 
 func generateTFSigDef(sigDefMapping map[string]*pb.TensorInfo, sigDefArr *[]*TFTensor) {
 	for key, tensorInfo := range sigDefMapping {
 		tfTensor := &TFTensor{}
-		tfTensor.SetKey(key)
+		tfTensor.Key = key
 		tfShape := TFShape{}
 		if tensorInfo.TensorShape.UnknownRank {
-			tfTensor.SetRank(-1)
+			tfTensor.Rank = -1
 		} else {
 			for _, d := range tensorInfo.TensorShape.Dim {
 				tfShape = append(tfShape, d.Size)
 			}
-			tfTensor.SetRank(int64(len(tfShape)))
+			tfTensor.Rank = int64(len(tfShape))
 		}
-		tfTensor.SetShape(tfShape)
+		tfTensor.Shape = tfShape
 		generateTFDType(tensorInfo.Dtype.String(), tfTensor)
 		*sigDefArr = append(*sigDefArr, tfTensor)
 	}
@@ -62,27 +62,27 @@ func generateTFSigDef(sigDefMapping map[string]*pb.TensorInfo, sigDefArr *[]*TFT
 func generateTFDType(tensorInfoDType string, tfTensor *TFTensor) {
 	switch tensorInfoDType {
 	case "DT_BOOL":
-		tfTensor.SetDType(DT_BOOL)
+		tfTensor.DType = DT_BOOL
 	case "DT_STRING":
-		tfTensor.SetDType(DT_STRING)
+		tfTensor.DType = DT_STRING
 	case "DT_INT8":
-		tfTensor.SetDType(DT_INT8)
+		tfTensor.DType = DT_INT8
 	case "DT_UINT8":
-		tfTensor.SetDType(DT_UINT8)
+		tfTensor.DType = DT_UINT8
 	case "DT_INT16":
-		tfTensor.SetDType(DT_INT16)
+		tfTensor.DType = DT_INT16
 	case "DT_INT32":
-		tfTensor.SetDType(DT_INT32)
+		tfTensor.DType = DT_INT32
 	case "DT_UINT32":
-		tfTensor.SetDType(DT_UINT32)
+		tfTensor.DType = DT_UINT32
 	case "DT_INT64":
-		tfTensor.SetDType(DT_INT64)
+		tfTensor.DType = DT_INT64
 	case "DT_UINT64":
-		tfTensor.SetDType(DT_UINT64)
+		tfTensor.DType = DT_UINT64
 	case "DT_FLOAT":
-		tfTensor.SetDType(DT_FLOAT)
+		tfTensor.DType = DT_FLOAT
 	case "DT_DOUBLE":
-		tfTensor.SetDType(DT_DOUBLE)
+		tfTensor.DType = DT_DOUBLE
 	default:
 		panic("Unsupported data type for generating payloads")
 	}

@@ -1,20 +1,16 @@
 package tfmodel
 
+/** TFSavedModel is the high level serialization format for TensorFlow saved models.
+It is the internal model representation for the SavedModel defined in the TensorFlow repository
+[tensorflow/core/protobuf/saved_model.proto]
+*/
 type TFSavedModel struct {
-	metaGraphs [] *TFMetaGraph
-}
-
-func (m *TFSavedModel) MetaGraphs() [] *TFMetaGraph {
-	return m.metaGraphs
-}
-
-func (m *TFSavedModel) SetMetaGraphs(metaGraphs [] *TFMetaGraph) {
-	m.metaGraphs = metaGraphs
+	MetaGraphs [] *TFMetaGraph
 }
 
 func (m *TFSavedModel) Accept(w Visitor) {
 	w.VisitSavedModel(m)
-	for _, x := range m.MetaGraphs() {
+	for _, x := range m.MetaGraphs {
 		x.Accept(w)
 	}
 }

@@ -2,6 +2,7 @@ package tfmodel
 
 import "fmt"
 
+/** Implements the Visitor interface **/
 type OpenAPIVisitor struct {
 }
 

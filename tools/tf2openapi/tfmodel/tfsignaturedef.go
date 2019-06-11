@@ -1,41 +1,21 @@
 package tfmodel
 
+/** TFSignatureDef defines the signature of supported computations in the TensorFlow graph, including their inputs and
+outputs. It is the internal model representation for the SignatureDef defined in the TensorFlow repository
+[tensorflow/core/protobuf/meta_graph.proto]
+*/
 type TFSignatureDef struct {
-	name    string
-	inputs  [] *TFTensor
-	outputs [] *TFTensor
-}
-
-func (m *TFSignatureDef) Name() string {
-	return m.name
-}
-
-func (m *TFSignatureDef) SetName(name string) {
-	m.name = name
-}
-
-func (m *TFSignatureDef) Outputs() []*TFTensor {
-	return m.outputs
-}
-
-func (m *TFSignatureDef) SetOutputs(outputs []*TFTensor) {
-	m.outputs = outputs
-}
-
-func (m *TFSignatureDef) Inputs() []*TFTensor {
-	return m.inputs
-}
-
-func (m *TFSignatureDef) SetInputs(inputs []*TFTensor) {
-	m.inputs = inputs
+	Name    string
+	Inputs  [] *TFTensor
+	Outputs [] *TFTensor
 }
 
 func (m *TFSignatureDef) Accept(w Visitor) {
 	w.VisitSignatureDef(m)
-	for _, x := range m.Inputs() {
+	for _, x := range m.Inputs {
 		x.Accept(w)
 	}
-	for _, x := range m.Outputs() {
+	for _, x := range m.Outputs {
 		x.Accept(w)
 	}
 }

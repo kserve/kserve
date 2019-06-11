@@ -1,46 +1,20 @@
 package tfmodel
 
+/**
+TFTensor represents a logical tensor. It contains fields from TensorInfo in the TensorFlow repository
+[tensorflow/core/protobuf/meta_graph.proto] but is named after the user-facing input/output (hence being a logical
+tensor and not an actual tensor).
+ */
 type TFTensor struct {
-	dType TFDType
+	//Name of the logical tensor
+	Key   string
+	DType TFDType
 
 	// Length of the shape is 0 when rank <= 0
-	shape TFShape
+	Shape TFShape
 
 	// If rank = -1, the shape is unknown. Otherwise, rank corresponds to the number of dimensions in this tensor
-	rank  int64
-	key   string
-}
-
-func (m *TFTensor) Rank() int64 {
-	return m.rank
-}
-
-func (m *TFTensor) SetRank(rank int64) {
-	m.rank = rank
-}
-
-func (m *TFTensor) Key() string {
-	return m.key
-}
-
-func (m *TFTensor) SetKey(key string) {
-	m.key = key
-}
-
-func (m *TFTensor) DType() TFDType {
-	return m.dType
-}
-
-func (m *TFTensor) SetDType(dType TFDType) {
-	m.dType = dType
-}
-
-func (m *TFTensor) Shape() TFShape {
-	return m.shape
-}
-
-func (m *TFTensor) SetShape(shape TFShape) {
-	m.shape = shape
+	Rank int64
 }
 
 func (m *TFTensor) Accept(w Visitor) {
