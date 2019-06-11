@@ -23,12 +23,25 @@ import (
 	"github.com/google/go-cmp/cmp"
 	knservingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
+	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
 func TestKnativeConfigurationReconcile(t *testing.T) {
+	mgr, err := manager.New(cfg, manager.Options{})
+	g := gomega.NewGomegaWithT(t)
+	configMap := &v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      constants.KFServiceConfigMapName,
+			Namespace: constants.KFServingNamespace,
+		},
+	}
+	g.Expect(c.Create(context.TODO(), configMap)).NotTo(gomega.HaveOccurred())
+	defer c.Delete(context.TODO(), configMap)
+
 	existingConfiguration := &knservingv1alpha1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "mnist",
@@ -52,14 +65,18 @@ func TestKnativeConfigurationReconcile(t *testing.T) {
 			},
 		},
 	}
-	g := gomega.NewGomegaWithT(t)
 	scenarios := map[string]struct {
+		kfsvc                v1alpha1.KFService
 		desiredConfiguration *knservingv1alpha1.Configuration
 		update               bool
 		shouldFail           bool
 	}{
 		"Reconcile new model serving ": {
 			update: false,
+			kfsvc: v1alpha1.KFService{
+				Name:      "mnist",
+				Namespace: "default",
+			},
 			desiredConfiguration: &knservingv1alpha1.Configuration{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "mnist",
@@ -118,12 +135,12 @@ func TestKnativeConfigurationReconcile(t *testing.T) {
 		},
 	}
 
-	configurationReconciler := NewConfigurationReconciler(c)
+	configurationReconciler := NewConfigurationReconciler(c, mgr.GetScheme(), configMap)
 	for name, scenario := range scenarios {
 		if scenario.update {
 			g.Expect(c.Create(context.TODO(), existingConfiguration)).NotTo(gomega.HaveOccurred())
 		}
-		configuration, err := configurationReconciler.Reconcile(context.TODO(), scenario.desiredConfiguration)
+		err := configurationReconciler.Reconcile(scenario.desiredConfiguration)
 		// Validate
 		if scenario.shouldFail && err == nil {
 			t.Errorf("Test %q failed: returned success but expected error", name)

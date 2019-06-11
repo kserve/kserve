@@ -22,8 +22,8 @@ import (
 	"fmt"
 
 	knservingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/kubeflow/kfserving/pkg/credentials/gcs"
-	"github.com/kubeflow/kfserving/pkg/credentials/s3"
+	"github.com/kubeflow/kfserving/pkg/resources/credentials/gcs"
+	"github.com/kubeflow/kfserving/pkg/resources/credentials/s3"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -31,7 +31,7 @@ import (
 )
 
 const (
-	CREDENTIAL_CONFIG_KEY_NAME = "credentials"
+	CredentialConfigKeyName = "credentials"
 )
 
 type CredentialConfig struct {
@@ -48,7 +48,7 @@ var log = logf.Log.WithName("CredentialBulder")
 
 func NewCredentialBulder(client client.Client, config *v1.ConfigMap) *CredentialBuilder {
 	credentialConfig := CredentialConfig{}
-	if credential, ok := config.Data[CREDENTIAL_CONFIG_KEY_NAME]; ok {
+	if credential, ok := config.Data[CredentialConfigKeyName]; ok {
 		err := json.Unmarshal([]byte(credential), &credentialConfig)
 		if err != nil {
 			panic(fmt.Errorf("Unable to unmarshall json string due to %v ", err))
@@ -81,7 +81,7 @@ func (c *CredentialBuilder) CreateSecretVolumeAndEnv(namespace string, serviceAc
 		Namespace: namespace}, serviceAccount)
 	if err != nil {
 		log.Error(err, "Failed to find service account", "ServiceAccountName", serviceAccountName)
-		return err
+		return nil
 	}
 	for _, secretRef := range serviceAccount.Secrets {
 		secret := &v1.Secret{}

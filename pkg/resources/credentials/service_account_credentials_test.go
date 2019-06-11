@@ -18,15 +18,16 @@ package credentials
 
 import (
 	"context"
+	"testing"
+
 	"github.com/google/go-cmp/cmp"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
-	"github.com/kubeflow/kfserving/pkg/credentials/gcs"
-	"github.com/kubeflow/kfserving/pkg/credentials/s3"
+	"github.com/kubeflow/kfserving/pkg/resources/credentials/gcs"
+	"github.com/kubeflow/kfserving/pkg/resources/credentials/s3"
 	"github.com/onsi/gomega"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"testing"
 )
 
 var configMap = &v1.ConfigMap{
@@ -136,7 +137,7 @@ func TestS3CredentialBuilder(t *testing.T) {
 		g.Expect(c.Create(context.TODO(), existingServiceAccount)).NotTo(gomega.HaveOccurred())
 		g.Expect(c.Create(context.TODO(), existingS3Secret)).NotTo(gomega.HaveOccurred())
 
-		err := builder.CreateSecretVolumeAndEnv(context.TODO(), scenario.serviceAccount.Namespace, scenario.serviceAccount.Name,
+		err := builder.CreateSecretVolumeAndEnv(scenario.serviceAccount.Namespace, scenario.serviceAccount.Name,
 			scenario.inputConfiguration)
 		if scenario.shouldFail && err == nil {
 			t.Errorf("Test %q failed: returned success but expected error", name)
@@ -242,7 +243,7 @@ func TestGCSCredentialBuilder(t *testing.T) {
 		g.Expect(c.Create(context.TODO(), existingServiceAccount)).NotTo(gomega.HaveOccurred())
 		g.Expect(c.Create(context.TODO(), existingGCSSecret)).NotTo(gomega.HaveOccurred())
 
-		err := builder.CreateSecretVolumeAndEnv(context.TODO(), scenario.serviceAccount.Namespace, scenario.serviceAccount.Name,
+		err := builder.CreateSecretVolumeAndEnv(scenario.serviceAccount.Namespace, scenario.serviceAccount.Name,
 			scenario.inputConfiguration)
 		if scenario.shouldFail && err == nil {
 			t.Errorf("Test %q failed: returned success but expected error", name)

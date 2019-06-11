@@ -20,9 +20,9 @@ import (
 	"context"
 
 	"github.com/kubeflow/kfserving/pkg/constants"
+	"github.com/kubeflow/kfserving/pkg/controller/kfservice/reconcilers/knative"
 	"k8s.io/apimachinery/pkg/types"
 
-	"github.com/kubeflow/kfserving/pkg/reconciler/knative"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/client-go/tools/record"
@@ -47,11 +47,6 @@ const (
 )
 
 var log = logf.Log.WithName(ControllerName)
-
-/**
-* USER ACTION REQUIRED: This is a scaffold file intended for the user to modify with their own Controller
-* business logic.  Delete these comments after modifying this file.*
- */
 
 // Add creates a new KFService Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
