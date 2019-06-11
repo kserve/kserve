@@ -24,8 +24,8 @@ import (
 	knservingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 	"github.com/kubeflow/kfserving/pkg/constants"
-	"github.com/kubeflow/kfserving/pkg/credentials"
-	"github.com/kubeflow/kfserving/pkg/reconciler/knative/resources"
+	"github.com/kubeflow/kfserving/pkg/resources/knative"
+
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -41,15 +41,14 @@ var log = logf.Log.WithName("Reconciler")
 type ConfigurationReconciler struct {
 	client               client.Client
 	scheme               *runtime.Scheme
-	configurationBuilder resources.ConfigurationBuilder
-	credentialBuilder    credentials.CredentialBuilder
+	configurationBuilder *knative.ConfigurationBuilder
 }
 
 func NewConfigurationReconciler(client client.Client, scheme *runtime.Scheme, config *v1.ConfigMap) *ConfigurationReconciler {
 	return &ConfigurationReconciler{
 		client:               client,
 		scheme:               scheme,
-		configurationBuilder: resources.NewConfigurationBuilder(client, config),
+		configurationBuilder: knative.NewConfigurationBuilder(client, config),
 	}
 }
 
@@ -64,11 +63,11 @@ func (r *ConfigurationReconciler) Reconcile(kfsvc *v1alpha1.KFService) error {
 		return err
 	}
 
-	if err := controllerutil.SetControllerReference(kfsvc, defaultConfiguration, r.scheme); err != nil {
+	if err := controllerutil.SetControllerReference(kfsvc, &defaultConfiguration, r.scheme); err != nil {
 		return err
 	}
 
-	if err := r.reconcileConfiguration(kfsvc, defaultConfiguration); err != nil {
+	if err := r.reconcileConfiguration(kfsvc, &defaultConfiguration); err != nil {
 		return err
 	}
 
@@ -88,11 +87,11 @@ func (r *ConfigurationReconciler) Reconcile(kfsvc *v1alpha1.KFService) error {
 		return err
 	}
 
-	if err := controllerutil.SetControllerReference(kfsvc, canaryConfiguration, r.scheme); err != nil {
+	if err := controllerutil.SetControllerReference(kfsvc, &canaryConfiguration, r.scheme); err != nil {
 		return err
 	}
 
-	if err := r.reconcileConfiguration(kfsvc, canaryConfiguration); err != nil {
+	if err := r.reconcileConfiguration(kfsvc, &canaryConfiguration); err != nil {
 		return err
 	}
 

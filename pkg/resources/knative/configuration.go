@@ -20,7 +20,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/kubeflow/kfserving/pkg/credentials"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/knative/serving/pkg/apis/autoscaling"
@@ -28,13 +27,14 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 	"github.com/kubeflow/kfserving/pkg/constants"
+	"github.com/kubeflow/kfserving/pkg/resources/credentials"
 	"github.com/kubeflow/kfserving/pkg/utils"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
-	FRAMEWORK_CONFIG_KEY_NAME = "frameworks"
+	FrameworkConfigKeyName = "frameworks"
 )
 
 type ConfigurationBuilder struct {
@@ -42,22 +42,22 @@ type ConfigurationBuilder struct {
 	credentialBuilder *credentials.CredentialBuilder
 }
 
-func NewConfigurationBuilder(client client.Client, config *v1.ConfigMap) ConfigurationBuilder {
+func NewConfigurationBuilder(client client.Client, config *v1.ConfigMap) *ConfigurationBuilder {
 	frameworkConfig := &v1alpha1.FrameworksConfig{}
-	if fmks, ok := config.Data[FRAMEWORK_CONFIG_KEY_NAME]; ok {
+	if fmks, ok := config.Data[FrameworkConfigKeyName]; ok {
 		err := json.Unmarshal([]byte(fmks), &frameworkConfig)
 		if err != nil {
 			panic(fmt.Errorf("Unable to unmarshall json string due to %v ", err))
 		}
 	}
 
-	return ConfigurationBuilder{
+	return &ConfigurationBuilder{
 		frameworksConfig:  frameworkConfig,
 		credentialBuilder: credentials.NewCredentialBulder(client, config),
 	}
 }
 
-func (c *ConfigurationBuilder) CreateKnativeConfiguration(name string, metadata metav1.ObjectMeta, modelSpec *v1alpha1.ModelSpec) (*knservingv1alpha1.Configuration, error) {
+func (c *ConfigurationBuilder) CreateKnativeConfiguration(name string, metadata metav1.ObjectMeta, modelSpec *v1alpha1.ModelSpec) (knservingv1alpha1.Configuration, error) {
 	annotations := make(map[string]string)
 	if modelSpec.MinReplicas != 0 {
 		annotations[autoscaling.MinScaleAnnotationKey] = fmt.Sprint(modelSpec.MinReplicas)
@@ -77,7 +77,7 @@ func (c *ConfigurationBuilder) CreateKnativeConfiguration(name string, metadata 
 
 	kfsvcAnnotations := utils.Filter(metadata.Annotations, configurationAnnotationFilter)
 
-	configuration := &knservingv1alpha1.Configuration{
+	configuration := knservingv1alpha1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: metadata.Namespace,
@@ -106,8 +106,12 @@ func (c *ConfigurationBuilder) CreateKnativeConfiguration(name string, metadata 
 		},
 	}
 
-	if err := c.credentialBuilder.CreateSecretVolumeAndEnv(metadata.Namespace, modelSpec.ServiceAccountName, configuration); err != nil {
-		return nil, err
+	if err := c.credentialBuilder.CreateSecretVolumeAndEnv(
+		metadata.Namespace,
+		modelSpec.ServiceAccountName,
+		&configuration,
+	); err != nil {
+		return knservingv1alpha1.Configuration{}, err
 	}
 
 	return configuration, nil
