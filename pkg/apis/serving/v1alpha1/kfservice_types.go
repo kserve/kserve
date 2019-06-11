@@ -52,6 +52,7 @@ type ModelSpec struct {
 	Tensorflow *TensorflowSpec `json:"tensorflow,omitempty"`
 	XGBoost    *XGBoostSpec    `json:"xgboost,omitempty"`
 	SKLearn    *SKLearnSpec    `json:"sklearn,omitempty"`
+	PyTorch    *PyTorchSpec    `json:"pytorch,omitempty"`
 }
 
 // TensorflowSpec defines arguments for configuring Tensorflow model serving.
@@ -76,6 +77,15 @@ type XGBoostSpec struct {
 type SKLearnSpec struct {
 	ModelURI string `json:"modelUri"`
 	// Defaults to latest SKLearn Version.
+	RuntimeVersion string `json:"runtimeVersion,omitempty"`
+	// Defaults to requests and limits of 1CPU, 2Gb MEM.
+	Resources v1.ResourceRequirements `json:"resources,omitempty"`
+}
+
+// PyTorchSpec defines arguments for configuring PyTorch model serving.
+type PyTorchSpec struct {
+	ModelURI string `json:"modelUri"`
+	// Defaults to latest PyTorch Version.
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
 	// Defaults to requests and limits of 1CPU, 2Gb MEM.
 	Resources v1.ResourceRequirements `json:"resources,omitempty"`

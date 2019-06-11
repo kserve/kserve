@@ -61,6 +61,7 @@ type FrameworksConfig struct {
 	Tensorflow FrameworkConfig `json:"tensorflow,omitempty"`
 	Xgboost    FrameworkConfig `json:"xgboost,omitempty"`
 	SKlearn    FrameworkConfig `json:"sklearn,omitempty"`
+	PyTorch    FrameworkConfig `json:"pytorch,omitempty"`
 }
 
 func setResourceRequirementDefaults(requirements *v1.ResourceRequirements) {
@@ -98,6 +99,9 @@ func makeHandler(modelSpec *ModelSpec) (FrameworkHandler, error) {
 	}
 	if modelSpec.Tensorflow != nil {
 		handlers = append(handlers, modelSpec.Tensorflow)
+	}
+	if modelSpec.PyTorch != nil {
+		handlers = append(handlers, modelSpec.PyTorch)
 	}
 	if len(handlers) == 0 {
 		return nil, fmt.Errorf(AtLeastOneModelSpecViolatedError)
