@@ -5,11 +5,11 @@
 Objective: "Simplify the user experience and provide a low barrier to entry by minimizing the amount of YAML necessary to deploy a trained model."
 * High Level Interfaces
     * Deploy a Tensorflow model without specifying a Tensorflow Serving Technology.
-    * Deploy a TensorRT model without specifying a TensorRT Serving Technology.
     * Deploy a XGBoost model without specifying a XGBoost Serving Technology.
     * Deploy a ScikitLearn model without specifying a ScikitLearn Serving Technology.
     * Deploy a Pytorch model without specifying a Pytorch Serving Technology.
     * Deploy a Custom Containerized model by specifying your docker image and args.
+    * Deploy a model to run using TensorRT Serving Technology.
 
 Objective: "Empower users to safely deploy production models by enabling a variety of deployment strategies." 
 * Model Rollout
