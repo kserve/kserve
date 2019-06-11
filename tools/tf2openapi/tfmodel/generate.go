@@ -14,20 +14,6 @@ func UnmarshalSavedModelPb(in []byte) pb.SavedModel {
 	return *model
 }
 
-func generateTFSigDef(sigDefMapping map[string]*pb.TensorInfo, sigDefArr *[]*TFTensor) {
-	for key := range sigDefMapping {
-		tfTensor := &TFTensor{}
-		tfTensor.SetKey(key)
-		tfTensor.SetShape(append(ShapeInternal{}, 1))
-		tfTensor.SetDType(DTypeInternal(2))
-		//TODO *tensorPtr.Dtype
-		//TODO *tensorPtr.TensorShape.Dim
-		//> unknown rank
-		//> otherwise
-		*sigDefArr = append(*sigDefArr, tfTensor)
-	}
-}
-
 func GenerateTFModel(model pb.SavedModel) *TFSavedModel {
 	tfSavedModel := &TFSavedModel{}
 	tfMetaGraphs := &[]*TFMetaGraph{}
@@ -52,4 +38,52 @@ func GenerateTFModel(model pb.SavedModel) *TFSavedModel {
 	}
 	tfSavedModel.SetMetaGraphs(*tfMetaGraphs)
 	return tfSavedModel
+}
+
+func generateTFSigDef(sigDefMapping map[string]*pb.TensorInfo, sigDefArr *[]*TFTensor) {
+	for key, tensorInfo := range sigDefMapping {
+		tfTensor := &TFTensor{}
+		tfTensor.SetKey(key)
+		tfShape := TFShape{}
+		if tensorInfo.TensorShape.UnknownRank {
+			tfTensor.SetRank(-1)
+		} else {
+			for _, d := range tensorInfo.TensorShape.Dim {
+				tfShape = append(tfShape, d.Size)
+			}
+			tfTensor.SetRank(int64(len(tfShape)))
+		}
+		tfTensor.SetShape(tfShape)
+		generateTFDType(tensorInfo.Dtype.String(), tfTensor)
+		*sigDefArr = append(*sigDefArr, tfTensor)
+	}
+}
+
+func generateTFDType(tensorInfoDType string, tfTensor *TFTensor) {
+	switch tensorInfoDType {
+	case "DT_BOOL":
+		tfTensor.SetDType(DT_BOOL)
+	case "DT_STRING":
+		tfTensor.SetDType(DT_STRING)
+	case "DT_INT8":
+		tfTensor.SetDType(DT_INT8)
+	case "DT_UINT8":
+		tfTensor.SetDType(DT_UINT8)
+	case "DT_INT16":
+		tfTensor.SetDType(DT_INT16)
+	case "DT_INT32":
+		tfTensor.SetDType(DT_INT32)
+	case "DT_UINT32":
+		tfTensor.SetDType(DT_UINT32)
+	case "DT_INT64":
+		tfTensor.SetDType(DT_INT64)
+	case "DT_UINT64":
+		tfTensor.SetDType(DT_UINT64)
+	case "DT_FLOAT":
+		tfTensor.SetDType(DT_FLOAT)
+	case "DT_DOUBLE":
+		tfTensor.SetDType(DT_DOUBLE)
+	default:
+		panic("Unsupported data type for generating payloads")
+	}
 }
