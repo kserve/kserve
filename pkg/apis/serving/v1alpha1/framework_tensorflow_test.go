@@ -17,45 +17,53 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
 	v1 "k8s.io/api/core/v1"
 	resource "k8s.io/apimachinery/pkg/api/resource"
 )
 
-func TestAcceptGoodRuntimeVersion(t *testing.T) {
+func TestFrameworkTensorflor(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	tensorflow := TensorflowSpec{
-		RuntimeVersion: DefaultTensorflowRuntimeVersion,
-	}
-	g.Expect(tensorflow.Validate()).Should(gomega.Succeed())
-}
 
-func TestRejectBadRuntimeVersion(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-	tensorflow := TensorflowSpec{
-		RuntimeVersion: "",
-	}
-	g.Expect(tensorflow.Validate()).Should(gomega.MatchError(InvalidTensorflowRuntimeVersionError))
-}
-
-func TestRejectGPUResourcesExcluded(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-	tensorflow := TensorflowSpec{
-		RuntimeVersion: DefaultTensorflowRuntimeVersionGPU,
-	}
-	g.Expect(tensorflow.Validate()).Should(gomega.MatchError(InvalidTensorflowRuntimeExcludesGPU))
-}
-
-func TestRejectGPUResourcesIncluded(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-	tensorflow := TensorflowSpec{
-		RuntimeVersion: DefaultTensorflowRuntimeVersion,
-		Resources: v1.ResourceRequirements{
-			Limits: v1.ResourceList{constants.NvidiaGPUResourceType: resource.MustParse("1")},
+	scenarios := map[string]struct {
+		spec    TensorflowSpec
+		matcher types.GomegaMatcher
+	}{
+		"AcceptGoodRuntimeVersion": {
+			spec: TensorflowSpec{
+				RuntimeVersion: DefaultTensorflowRuntimeVersion,
+			},
+			matcher: gomega.Succeed(),
+		},
+		"RejectBadRuntimeVersion": {
+			spec: TensorflowSpec{
+				RuntimeVersion: "",
+			},
+			matcher: gomega.MatchError(InvalidTensorflowRuntimeVersionError),
+		},
+		"RejectGPUResourcesExcluded": {
+			spec: TensorflowSpec{
+				RuntimeVersion: DefaultTensorflowRuntimeVersionGPU,
+			},
+			matcher: gomega.MatchError(InvalidTensorflowRuntimeExcludesGPU),
+		},
+		"RejectGPUResourcesIncluded": {
+			spec: TensorflowSpec{
+				RuntimeVersion: DefaultTensorflowRuntimeVersion,
+				Resources: v1.ResourceRequirements{
+					Limits: v1.ResourceList{constants.NvidiaGPUResourceType: resource.MustParse("1")},
+				},
+			},
+			matcher: gomega.MatchError(InvalidTensorflowRuntimeIncludesGPU),
 		},
 	}
-	g.Expect(tensorflow.Validate()).Should(gomega.MatchError(InvalidTensorflowRuntimeIncludesGPU))
+
+	for name, scenario := range scenarios {
+		g.Expect(scenario.spec.Validate()).Should(scenario.matcher, fmt.Sprintf("Testing %s", name))
+	}
 }

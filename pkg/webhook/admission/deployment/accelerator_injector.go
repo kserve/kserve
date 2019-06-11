@@ -24,7 +24,6 @@ import (
 	"github.com/kubeflow/kfserving/pkg/utils"
 
 	appsv1 "k8s.io/api/apps/v1"
-	v1 "k8s.io/api/core/v1"
 
 	"github.com/kubeflow/kfserving/pkg/webhook/third_party"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -65,10 +64,6 @@ func (mutator *Mutator) Handle(ctx context.Context, req types.Request) types.Res
 }
 
 func Mutate(deployment *appsv1.Deployment) error {
-	if err := injectGPUToleration(deployment); err != nil {
-		return err
-	}
-
 	if err := injectGKEAcceleratorSelector(deployment); err != nil {
 		return err
 	}
@@ -81,22 +76,6 @@ func injectGKEAcceleratorSelector(deployment *appsv1.Deployment) error {
 			deployment.Spec.Template.Spec.NodeSelector,
 			map[string]string{GkeAcceleratorNodeSelector: gpuSelector},
 		)
-	}
-	return nil
-}
-
-func injectGPUToleration(deployment *appsv1.Deployment) error {
-	for _, container := range deployment.Spec.Template.Spec.Containers {
-		if _, ok := container.Resources.Limits[constants.NvidiaGPUResourceType]; ok {
-			deployment.Spec.Template.Spec.Tolerations = append(
-				deployment.Spec.Template.Spec.Tolerations,
-				v1.Toleration{
-					Key:      constants.NvidiaGPUResourceType,
-					Value:    NvidiaGPUTaintValue,
-					Operator: v1.TolerationOpEqual,
-					Effect:   v1.TaintEffectPreferNoSchedule,
-				})
-		}
 	}
 	return nil
 }

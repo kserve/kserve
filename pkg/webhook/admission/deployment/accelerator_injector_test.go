@@ -69,12 +69,6 @@ func TestAcceleratorInjector(t *testing.T) {
 									Limits: v1.ResourceList{constants.NvidiaGPUResourceType: resource.MustParse("1")},
 								},
 							}},
-							Tolerations: []v1.Toleration{v1.Toleration{
-								Key:      constants.NvidiaGPUResourceType,
-								Value:    NvidiaGPUTaintValue,
-								Operator: v1.TolerationOpEqual,
-								Effect:   v1.TaintEffectPreferNoSchedule,
-							}},
 						},
 					},
 				},
@@ -108,12 +102,6 @@ func TestAcceleratorInjector(t *testing.T) {
 								Resources: v1.ResourceRequirements{
 									Limits: v1.ResourceList{constants.NvidiaGPUResourceType: resource.MustParse("1")},
 								},
-							}},
-							Tolerations: []v1.Toleration{v1.Toleration{
-								Key:      constants.NvidiaGPUResourceType,
-								Value:    NvidiaGPUTaintValue,
-								Operator: v1.TolerationOpEqual,
-								Effect:   v1.TaintEffectPreferNoSchedule,
 							}},
 						},
 					},
