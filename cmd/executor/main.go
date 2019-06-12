@@ -53,6 +53,9 @@ func main() {
 		log.Error(err, "Failed to run HTTP server")
 	}
 
-	h1s.Shutdown(context.Background())
+	err := h1s.Shutdown(context.Background())
+	if err != nil {
+		log.Error(err, "Failed to shutdown HTTP server")
+	}
 
 }

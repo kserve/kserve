@@ -7,25 +7,25 @@ import (
 	"net/url"
 )
 
-// Call a preprocessor and change the incoming request with its response
+// Call a preprocessor
 func (eh *executorHandler) preprocess(r *http.Request) error {
-	target := &url.URL{
-		Scheme: "http",
-		Host:   eh.preprocessHost,
-	}
-	eh.log.Info("Calling preprocessor", "url", target.String())
-	respPost, err := http.Post(target.String(), r.Header.Get("Content-Type"), r.Body)
-
-	b, err := ioutil.ReadAll(respPost.Body) //Read html
+	b, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		return err
 	}
-	if err = respPost.Body.Close(); err != nil {
-		return err
+	eh.log.Info("Preprocess will send ", "msg", string(b))
+	target := &url.URL{
+		Scheme: "http",
+		Host:   eh.preprocessHost,
+		Path:   r.URL.Path,
 	}
-
-	r.Body = ioutil.NopCloser(bytes.NewReader(b))
-	r.ContentLength = int64(len(b))
-
+	b, err = eh.callServer(target, b, r.Header.Get("Content-Type"))
+	if err != nil {
+		return err
+	} else {
+		eh.log.Info("Preprocess result ", "msg", string(b))
+		r.Body = ioutil.NopCloser(bytes.NewReader(b))
+		r.ContentLength = int64(len(b))
+	}
 	return nil
 }
