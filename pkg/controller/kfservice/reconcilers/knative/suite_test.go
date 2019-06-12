@@ -17,12 +17,13 @@ limitations under the License.
 package knative
 
 import (
-	pkgtest "github.com/kubeflow/kfserving/pkg/testing"
-	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/rest"
 	"os"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"testing"
+
+	pkgtest "github.com/kubeflow/kfserving/pkg/testing"
+	"k8s.io/client-go/rest"
+	"k8s.io/klog"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var cfg *rest.Config
@@ -32,12 +33,9 @@ func TestMain(m *testing.M) {
 	t := pkgtest.SetupEnvTest()
 	var err error
 	if cfg, err = t.Start(); err != nil {
-		log.Error(err, "Failed to start testing panel")
+		klog.Fatal(err)
 	}
 
-	if c, err = client.New(cfg, client.Options{Scheme: scheme.Scheme}); err != nil {
-		log.Error(err, "Failed to start client")
-	}
 	code := m.Run()
 	t.Stop()
 	os.Exit(code)

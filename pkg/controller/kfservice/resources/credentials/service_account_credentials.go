@@ -22,8 +22,8 @@ import (
 	"fmt"
 
 	knservingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/kubeflow/kfserving/pkg/resources/credentials/gcs"
-	"github.com/kubeflow/kfserving/pkg/resources/credentials/s3"
+	"github.com/kubeflow/kfserving/pkg/controller/kfservice/resources/credentials/gcs"
+	"github.com/kubeflow/kfserving/pkg/controller/kfservice/resources/credentials/s3"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"

@@ -23,7 +23,7 @@ import (
 	"github.com/knative/pkg/kmp"
 	knservingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
-	"github.com/kubeflow/kfserving/pkg/resources/knative"
+	"github.com/kubeflow/kfserving/pkg/controller/kfservice/resources/knative"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
