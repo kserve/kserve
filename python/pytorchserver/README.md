@@ -1,8 +1,8 @@
 # PyTorch Server
 
-[PyTorch](https://PyTorch.org) server is an implementation of KFServing for serving PyTorch models, and provides a PyTorch model implementation for prediction, pre and post processing. 
+[PyTorch](https://PyTorch.org) server is an implementation of KFServing for serving PyTorch models, and provides a PyTorch model implementation for prediction, pre and post processing.
 
-To start the server locally for development needs, run the following command under this folder in your github repository. 
+To start the server locally for development needs, run the following command under this folder in your github repository.
 
 ```
 pip install -e .
@@ -27,7 +27,7 @@ usage: __main__.py [-h] [--http_port HTTP_PORT] [--grpc_port GRPC_PORT]
 __main__.py: error: the following arguments are required: --model_dir
 ```
 
-You can now point to your `pytorch` model file and use the server to load the model and test for prediction. Models can be on local filesystem, S3 compatible object storage or Google Cloud Storage. Please follow [this sample](https://github.com/kubeflow/kfserving/tree/master/docs/samples/pytorch) to test your server by generating your own model. 
+You can now point to your `pytorch` model file and use the server to load the model and test for prediction. Models can be on local filesystem, S3 compatible object storage or Google Cloud Storage. Please follow [this sample](https://github.com/kubeflow/kfserving/tree/master/docs/samples/pytorch) to test your server by generating your own model.
 
 ## Development
 
@@ -62,7 +62,7 @@ mypy --ignore-missing-imports pytorchserver
 ```
 An empty result will indicate success.
 
-## Building your own PyTorch erver Docker Image
+## Building your own PyTorch server Docker Image
 
 You can build and publish your own image for development needs. Please ensure that you modify the kfservice files for PyTorch in the api directory to point to your own image.
 
@@ -78,7 +78,7 @@ You should see an output similar to this
 p
 ```
 
-To push your image to your dockerhub repo, 
+To push your image to your dockerhub repo,
 
 ```bash
 docker push docker_user_name/pytorchserver:latest

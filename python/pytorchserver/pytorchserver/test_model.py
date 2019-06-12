@@ -14,13 +14,26 @@
 
 from pytorchserver import PyTorchModel
 import os
+import torch
+import torchvision
+import torchvision.transforms as transforms
 
 model_dir = "../../docs/samples/pytorch"
-JOBLIB_FILE = "model.pt"
+MODEL_FILE = "model.pt"
 
 def test_model():
-     server = PyTorchModel("pytorchmodel", "model_class_file", "model_class_name", model_dir)
-     server.load()
-     request = X[0:1].tolist()
-     response = server.predict(request)
-     assert response == [0]
+    server = PyTorchModel("pytorchmodel", "Net", "cifar10.py", model_dir)
+    server.load()
+
+    transform = transforms.Compose([transforms.ToTensor(),
+                                    transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+    testset = torchvision.datasets.CIFAR10(root='./data', train=False,
+                                           download=True, transform=transform)
+    testloader = torch.utils.data.DataLoader(testset, batch_size=4,
+                                             shuffle=False, num_workers=2)
+    dataiter = iter(testloader)
+    images, labels = dataiter.next()
+
+    request = images[0:1].tolist()
+    response = server.predict(request)
+    assert isinstance(response[0], list)
