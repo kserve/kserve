@@ -19,13 +19,14 @@ package resources
 import (
 	"encoding/json"
 	"fmt"
+
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	knservingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/utils"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -51,9 +52,6 @@ func NewConfigurationBuilder(config *v1.ConfigMap) *ConfigurationBuilder {
 }
 
 func (c *ConfigurationBuilder) CreateKnativeConfiguration(name string, metadata metav1.ObjectMeta, modelSpec *v1alpha1.ModelSpec) *knservingv1alpha1.Configuration {
-	if modelSpec == nil {
-		return nil
-	}
 	annotations := make(map[string]string)
 	if modelSpec.MinReplicas != 0 {
 		annotations[autoscaling.MinScaleAnnotationKey] = fmt.Sprint(modelSpec.MinReplicas)
@@ -109,6 +107,8 @@ func configurationAnnotationFilter(annotationKey string) bool {
 	case autoscaling.TargetAnnotationKey:
 		return true
 	case autoscaling.ClassAnnotationKey:
+		return true
+	case constants.KFServiceGKEAcceleratorAnnotationKey:
 		return true
 	default:
 		return false
