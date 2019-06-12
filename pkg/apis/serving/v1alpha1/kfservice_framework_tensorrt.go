@@ -18,7 +18,6 @@ import (
 	"strings"
 
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 var (
@@ -51,28 +50,8 @@ func (t *TensorRTSpec) CreateModelServingContainer(modelName string, config *Fra
 		},
 		Ports: []v1.ContainerPort{
 			v1.ContainerPort{
-				Name:          "http",
+				Name:          "h2c",
 				ContainerPort: TensorRTISRestPort,
-			},
-			v1.ContainerPort{
-				Name:          "grpc",
-				ContainerPort: TensorRTISGRPCPort,
-			},
-		},
-		LivenessProbe: &v1.Probe{
-			Handler: v1.Handler{
-				HTTPGet: &v1.HTTPGetAction{
-					Path: "/api/health/live",
-					Port: intstr.FromString("http"),
-				},
-			},
-		},
-		ReadinessProbe: &v1.Probe{
-			Handler: v1.Handler{
-				HTTPGet: &v1.HTTPGetAction{
-					Path: "/api/health/ready",
-					Port: intstr.FromString("http"),
-				},
 			},
 		},
 	}
@@ -82,7 +61,6 @@ func (t *TensorRTSpec) ApplyDefaults() {
 	if t.RuntimeVersion == "" {
 		t.RuntimeVersion = DefaultTensorRTISRuntimeVersion
 	}
-
 	setResourceRequirementDefaults(&t.Resources)
 }
 

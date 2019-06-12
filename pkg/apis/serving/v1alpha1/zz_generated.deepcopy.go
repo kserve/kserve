@@ -79,6 +79,7 @@ func (in *FrameworkConfig) DeepCopy() *FrameworkConfig {
 func (in *FrameworksConfig) DeepCopyInto(out *FrameworksConfig) {
 	*out = *in
 	out.Tensorflow = in.Tensorflow
+	out.TensorRT = in.TensorRT
 	out.Xgboost = in.Xgboost
 	out.SKlearn = in.SKlearn
 	return
