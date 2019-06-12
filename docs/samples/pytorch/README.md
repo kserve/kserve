@@ -1,12 +1,32 @@
-## Creating your own model and testing the Scikit-Learn server.
+## Creating your own model and testing the PyTorch server.
 
 To test the [PyTorch](https://pytorch.org/) server, first we need to generate a simple cifar10 model using PyTorch.
 
 ```shell
 python cifar10.py
 ```
+You should see an output similar to this
 
-Then, we can run the PyTorch server using the generated model and test for prediction. Models can be on local filesystem, S3 compatible object storage or Google Cloud Storage.
+```shell
+Downloading https://www.cs.toronto.edu/~kriz/cifar-10-python.tar.gz to ./data/cifar-10-python.tar.gz
+Failed download. Trying https -> http instead. Downloading http://www.cs.toronto.edu/~kriz/cifar-10-python.tar.gz to ./data/cifar-10-python.tar.gz
+100.0%Files already downloaded and verified
+[1,  2000] loss: 2.232
+[1,  4000] loss: 1.913
+[1,  6000] loss: 1.675
+[1,  8000] loss: 1.555
+[1, 10000] loss: 1.492
+[1, 12000] loss: 1.488
+[2,  2000] loss: 1.412
+[2,  4000] loss: 1.358
+[2,  6000] loss: 1.362
+[2,  8000] loss: 1.338
+[2, 10000] loss: 1.315
+[2, 12000] loss: 1.278
+Finished Training
+```
+
+Then, we can run the PyTorch server using the trained model and test for predictions. Models can be on local filesystem, S3 compatible object storage or Google Cloud Storage.
 
 ```shell
 python -m pytorchserver --model_dir ./ --model_name pytorchmodel --model_class_name Net --model_class_file cifar10.py
