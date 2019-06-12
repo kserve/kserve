@@ -32,7 +32,7 @@ func (c *CustomSpec) ApplyDefaults() {
 func (c *CustomSpec) Validate() error {
 	err := knserving.ValidateContainer(c.Container, sets.String{})
 	if err != nil {
-		return fmt.Errorf("Custom: %s", err.Error())
+		return fmt.Errorf("Custom container validation error: %s", err.Error())
 	}
 	return nil
 }
