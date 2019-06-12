@@ -1,0 +1,13 @@
+#!/usr/bin/env python3
+import sys
+import kfserving
+
+if len(sys.argv) != 3:
+    print("Usage: download src_uri dest_path")
+    sys.exit()
+
+src_uri = sys.argv[1]
+dest_path = sys.argv[2]
+
+print("Downloading from:", src_uri, " to", dest_path)
+kfserving.Storage.download(src_uri, dest_path)
