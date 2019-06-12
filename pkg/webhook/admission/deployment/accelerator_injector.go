@@ -51,7 +51,7 @@ func (mutator *Mutator) Handle(ctx context.Context, req types.Request) types.Res
 		return admission.ErrorResponse(http.StatusBadRequest, err)
 	}
 
-	if err := Mutate(deployment); err != nil {
+	if err := mutate(deployment); err != nil {
 		return admission.ErrorResponse(http.StatusInternalServerError, err)
 	}
 
@@ -63,7 +63,7 @@ func (mutator *Mutator) Handle(ctx context.Context, req types.Request) types.Res
 	return third_party.PatchResponseFromRaw(req.AdmissionRequest.Object.Raw, patch)
 }
 
-func Mutate(deployment *appsv1.Deployment) error {
+func mutate(deployment *appsv1.Deployment) error {
 	if err := injectGKEAcceleratorSelector(deployment); err != nil {
 		return err
 	}

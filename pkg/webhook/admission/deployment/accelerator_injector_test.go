@@ -111,7 +111,7 @@ func TestAcceleratorInjector(t *testing.T) {
 	}
 
 	for name, scenario := range scenarios {
-		Mutate(scenario.original)
+		mutate(scenario.original)
 		// cmd.Diff complains on ResourceList when Nvidia is key. Objects are explicitly compared
 		if diff := cmp.Diff(
 			scenario.expected.Spec.Template.Spec.NodeSelector,
