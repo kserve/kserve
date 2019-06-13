@@ -1,13 +1,15 @@
 package tfmodel
 
 /**
-TFTensor represents a logical tensor. It contains fields from TensorInfo in the TensorFlow repository
+TFTensor represents a logical tensor. It contains the information from TensorInfo in the TensorFlow repository
 [tensorflow/core/protobuf/meta_graph.proto] but is named after the user-facing input/output (hence being a logical
 tensor and not an actual tensor).
  */
 type TFTensor struct {
 	//Name of the logical tensor
 	Key   string
+
+	// Data type contained in this tensor
 	DType TFDType
 
 	// Length of the shape is 0 when rank <= 0
@@ -29,6 +31,7 @@ const (
 	// all the possible constants that can be JSON-ified according to
 	// https://www.tensorflow.org/tfx/serving/api_rest#json_mapping
 	DT_BOOL TFDType = iota
+	DT_B64_STRING
 	DT_STRING
 	DT_INT8
 	DT_UINT8
