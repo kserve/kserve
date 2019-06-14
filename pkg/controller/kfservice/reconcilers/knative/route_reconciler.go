@@ -45,50 +45,59 @@ func NewRouteReconciler(client client.Client, scheme *runtime.Scheme) *RouteReco
 }
 
 func (r *RouteReconciler) Reconcile(kfsvc *v1alpha1.KFService) error {
-	desiredRoute := knative.NewRouteBuilder().CreateKnativeRoute(kfsvc)
-	if err := controllerutil.SetControllerReference(kfsvc, &desiredRoute, r.scheme); err != nil {
+	desired := knative.NewRouteBuilder().CreateKnativeRoute(kfsvc)
+	if err := controllerutil.SetControllerReference(kfsvc, &desired, r.scheme); err != nil {
 		return err
 	}
 
-	// Create route if does not exist
-	route := knservingv1alpha1.Route{}
-	err := r.client.Get(context.TODO(), types.NamespacedName{Name: desiredRoute.Name, Namespace: desiredRoute.Namespace}, &route)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			log.Info("Creating Knative Serving route", "namespace", desiredRoute.Namespace, "name", desiredRoute.Name)
-			err = r.client.Create(context.TODO(), &desiredRoute)
-			return err
-		}
-		return err
-	}
-
-	// Return if no differences to reconcile.
-	if routeSemanticEquals(desiredRoute, route) {
-		return nil
-	}
-
-	// Reconcile differences and update
-	diff, err := kmp.SafeDiff(desiredRoute.Spec, route.Spec)
-	if err != nil {
-		return fmt.Errorf("failed to diff route: %v", err)
-	}
-	log.Info("Reconciling route diff (-desired, +observed):", "diff", diff)
-	log.Info("Updating route", "namespace", route.Namespace, "name", route.Name)
-	route.Spec = desiredRoute.Spec
-	route.ObjectMeta.Labels = desiredRoute.ObjectMeta.Labels
-	route.ObjectMeta.Annotations = desiredRoute.ObjectMeta.Annotations
-	err = r.client.Update(context.TODO(), &route)
+	status, err := r.reconcileRoute(kfsvc, &desired)
 	if err != nil {
 		return err
 	}
 
 	// Update parent object's status
-	kfsvc.Status.PropagateRouteStatus(&route.Status)
+	kfsvc.Status.PropagateRouteStatus(&status)
 	return nil
 }
 
-func routeSemanticEquals(desiredRoute, route knservingv1alpha1.Route) bool {
-	return equality.Semantic.DeepEqual(desiredRoute.Spec, route.Spec) &&
-		equality.Semantic.DeepEqual(desiredRoute.ObjectMeta.Labels, route.ObjectMeta.Labels) &&
-		equality.Semantic.DeepEqual(desiredRoute.ObjectMeta.Annotations, route.ObjectMeta.Annotations)
+func (r *RouteReconciler) reconcileRoute(kfsvc *v1alpha1.KFService, desired *knservingv1alpha1.Route) (knservingv1alpha1.RouteStatus, error) {
+	// Create route if does not exist
+	existing := &knservingv1alpha1.Route{}
+	err := r.client.Get(context.TODO(), types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, existing)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			log.Info("Creating Knative Serving route", "namespace", desired.Namespace, "name", desired.Name)
+			err = r.client.Create(context.TODO(), desired)
+			return desired.Status, err
+		}
+		return desired.Status, err
+	}
+
+	// Return if no differences to reconcile.
+	if routeSemanticEquals(desired, existing) {
+		return existing.Status, nil
+	}
+
+	// Reconcile differences and update
+	diff, err := kmp.SafeDiff(desired.Spec, existing.Spec)
+	if err != nil {
+		return existing.Status, fmt.Errorf("failed to diff route: %v", err)
+	}
+	log.Info("Reconciling route diff (-desired, +observed):", "diff", diff)
+	log.Info("Updating route", "namespace", existing.Namespace, "name", existing.Name)
+	existing.Spec = desired.Spec
+	existing.ObjectMeta.Labels = desired.ObjectMeta.Labels
+	existing.ObjectMeta.Annotations = desired.ObjectMeta.Annotations
+	err = r.client.Update(context.TODO(), existing)
+	if err != nil {
+		return existing.Status, err
+	}
+
+	return existing.Status, nil
+}
+
+func routeSemanticEquals(desired, existing *knservingv1alpha1.Route) bool {
+	return equality.Semantic.DeepEqual(desired.Spec, existing.Spec) &&
+		equality.Semantic.DeepEqual(desired.ObjectMeta.Labels, existing.ObjectMeta.Labels) &&
+		equality.Semantic.DeepEqual(desired.ObjectMeta.Annotations, existing.ObjectMeta.Annotations)
 }

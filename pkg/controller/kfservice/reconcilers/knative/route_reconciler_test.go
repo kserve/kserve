@@ -1,104 +1,104 @@
 package knative
 
-// func TestKnativeRouteReconcile(t *testing.T) {
-// 	existingRoute := &knservingv1alpha1.Route{
-// 		ObjectMeta: metav1.ObjectMeta{
-// 			Name:      "mnist",
-// 			Namespace: "default",
-// 		},
-// 		Spec: knservingv1alpha1.RouteSpec{
-// 			Traffic: []knservingv1alpha1.TrafficTarget{
-// 				{
-// 					TrafficTarget: v1beta1.TrafficTarget{
-// 						ConfigurationName: "mnist-default",
-// 						Percent:           100,
-// 					},
-// 				},
-// 			},
-// 		},
-// 	}
-// 	g := gomega.NewGomegaWithT(t)
-// 	scenarios := map[string]struct {
-// 		desiredRoute *knservingv1alpha1.Route
-// 		update       bool
-// 		shouldFail   bool
-// 	}{
-// 		"Reconcile new model serving": {
-// 			update: false,
-// 			desiredRoute: &knservingv1alpha1.Route{
-// 				ObjectMeta: metav1.ObjectMeta{
-// 					Name:      "mnist",
-// 					Namespace: "default",
-// 				},
-// 				Spec: knservingv1alpha1.RouteSpec{
-// 					Traffic: []knservingv1alpha1.TrafficTarget{
-// 						{
-// 							TrafficTarget: v1beta1.TrafficTarget{
-// 								ConfigurationName: "mnist-default",
-// 								Percent:           100,
-// 							},
-// 						},
-// 					},
-// 				},
-// 			},
-// 		},
-// 		"Reconcile route update": {
-// 			update: true,
-// 			desiredRoute: &knservingv1alpha1.Route{
-// 				ObjectMeta: metav1.ObjectMeta{
-// 					Name:      "mnist",
-// 					Namespace: "default",
-// 					Labels: map[string]string{
-// 						"serving.knative.dev/route": "dream",
-// 					},
-// 					Annotations: map[string]string{
-// 						"cherub": "rock",
-// 					},
-// 				},
-// 				Spec: knservingv1alpha1.RouteSpec{
-// 					Traffic: []knservingv1alpha1.TrafficTarget{
-// 						{
-// 							TrafficTarget: v1beta1.TrafficTarget{
-// 								ConfigurationName: "mnist-default",
-// 								Percent:           80,
-// 							},
-// 						},
-// 						{
-// 							TrafficTarget: v1beta1.TrafficTarget{
-// 								ConfigurationName: "mnist-canary",
-// 								Percent:           20,
-// 							},
-// 						},
-// 					},
-// 				},
-// 			},
-// 		},
-// 	}
+import (
+	"context"
+	"testing"
 
-// 	routeReconciler := NewRouteReconciler(c)
-// 	for name, scenario := range scenarios {
-// 		if scenario.update {
-// 			g.Expect(c.Create(context.TODO(), existingRoute)).NotTo(gomega.HaveOccurred())
-// 		}
-// 		route, err := routeReconciler.Reconcile(context.TODO(), scenario.desiredRoute)
-// 		// Validate
-// 		if scenario.shouldFail && err == nil {
-// 			t.Errorf("Test %q failed: returned success but expected error", name)
-// 		}
-// 		if !scenario.shouldFail {
-// 			if err != nil {
-// 				t.Errorf("Test %q failed: returned error: %v", name, err)
-// 			}
-// 			if diff := cmp.Diff(scenario.desiredRoute.Spec, route.Spec); diff != "" {
-// 				t.Errorf("Test %q unexpected route spec (-want +got): %v", name, diff)
-// 			}
-// 			if diff := cmp.Diff(scenario.desiredRoute.ObjectMeta.Labels, route.ObjectMeta.Labels); diff != "" {
-// 				t.Errorf("Test %q unexpected route labels (-want +got): %v", name, diff)
-// 			}
-// 			if diff := cmp.Diff(scenario.desiredRoute.ObjectMeta.Annotations, route.ObjectMeta.Annotations); diff != "" {
-// 				t.Errorf("Test %q unexpected route annotations (-want +got): %v", name, diff)
-// 			}
-// 		}
-// 		g.Expect(c.Delete(context.TODO(), existingRoute)).NotTo(gomega.HaveOccurred())
-// 	}
-// }
+	"github.com/google/go-cmp/cmp"
+	knservingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
+	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
+	testutils "github.com/kubeflow/kfserving/pkg/testing"
+	"github.com/onsi/gomega"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+
+	"sigs.k8s.io/controller-runtime/pkg/manager"
+)
+
+func TestKnativeRouteReconcile(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	mgr, err := manager.New(cfg, manager.Options{})
+	stopMgr, mgrStopped := testutils.StartTestManager(mgr, g)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	c := mgr.GetClient()
+
+	defer func() {
+		close(stopMgr)
+		mgrStopped.Wait()
+	}()
+
+	routeReconciler := NewRouteReconciler(c, mgr.GetScheme())
+	scenarios := map[string]struct {
+		kfsvc        v1alpha1.KFService
+		desiredRoute knservingv1alpha1.Route
+	}{
+		"Reconcile new model serving": {
+			kfsvc: v1alpha1.KFService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "mnist",
+					Namespace: "default",
+				},
+				Spec: v1alpha1.KFServiceSpec{
+					Default: v1alpha1.ModelSpec{
+						Tensorflow: &v1alpha1.TensorflowSpec{
+							RuntimeVersion: v1alpha1.DefaultTensorflowRuntimeVersion,
+							ModelURI:       "gs://testuri",
+						},
+					},
+				},
+			},
+			desiredRoute: knservingv1alpha1.Route{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "mnist",
+					Namespace: "default",
+				},
+				Spec: knservingv1alpha1.RouteSpec{
+					Traffic: []knservingv1alpha1.TrafficTarget{
+						{
+							TrafficTarget: v1beta1.TrafficTarget{
+								ConfigurationName: "mnist-default",
+								Percent:           100,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Logf("Scenario: %s", name)
+		g.Expect(c.Create(context.TODO(), &scenario.kfsvc)).NotTo(gomega.HaveOccurred())
+		g.Expect(c.Create(context.TODO(), &knservingv1alpha1.Route{ObjectMeta: scenario.desiredRoute.ObjectMeta})).NotTo(gomega.HaveOccurred())
+
+		if err := routeReconciler.Reconcile(&scenario.kfsvc); err != nil {
+			t.Errorf("Test %q failed: returned error: %v", name, err)
+		}
+
+		// Assert default
+		actualRoute := knservingv1alpha1.Route{}
+		g.Eventually(func() error {
+			return c.Get(context.TODO(), types.NamespacedName{
+				Name:      scenario.kfsvc.Name,
+				Namespace: scenario.kfsvc.Namespace,
+			}, &actualRoute)
+		}, timeout).Should(gomega.Succeed())
+
+		if err != nil {
+			t.Errorf("Test %q failed: returned error: %v", name, err)
+		}
+		if diff := cmp.Diff(scenario.desiredRoute.Spec, actualRoute.Spec); diff != "" {
+			t.Errorf("Test %q unexpected route spec (-want +got): %v", name, diff)
+		}
+		if diff := cmp.Diff(scenario.desiredRoute.ObjectMeta.Labels, actualRoute.ObjectMeta.Labels); diff != "" {
+			t.Errorf("Test %q unexpected route labels (-want +got): %v", name, diff)
+		}
+		if diff := cmp.Diff(scenario.desiredRoute.ObjectMeta.Annotations, actualRoute.ObjectMeta.Annotations); diff != "" {
+			t.Errorf("Test %q unexpected route annotations (-want +got): %v", name, diff)
+		}
+		g.Expect(c.Delete(context.TODO(), &scenario.kfsvc)).NotTo(gomega.HaveOccurred())
+		g.Expect(c.Delete(context.TODO(), &knservingv1alpha1.Route{ObjectMeta: scenario.desiredRoute.ObjectMeta})).NotTo(gomega.HaveOccurred())
+	}
+}
