@@ -19,9 +19,11 @@ package knative
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	knservingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	testutils "github.com/kubeflow/kfserving/pkg/testing"
@@ -32,24 +34,22 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
+const timeout = time.Second * 5
+
 func TestKnativeConfigurationReconcile(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	mgr, err := manager.New(cfg, manager.Options{})
 	stopMgr, mgrStopped := testutils.StartTestManager(mgr, g)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
-	c = mgr.GetClient()
+	c := mgr.GetClient()
 
 	defer func() {
 		close(stopMgr)
 		mgrStopped.Wait()
 	}()
 
-	configurationReconciler := NewConfigurationReconciler(
-		mgr.GetClient(),
-		mgr.GetScheme(),
-		&v1.ConfigMap{},
-	)
+	configurationReconciler := NewConfigurationReconciler(c, mgr.GetScheme(), &v1.ConfigMap{})
 
 	scenarios := map[string]struct {
 		kfsvc          v1alpha1.KFService
@@ -132,28 +132,38 @@ func TestKnativeConfigurationReconcile(t *testing.T) {
 				Spec: v1alpha1.KFServiceSpec{
 					Default: v1alpha1.ModelSpec{
 						Tensorflow: &v1alpha1.TensorflowSpec{
-							ModelURI: "gs://testuri",
+							RuntimeVersion: v1alpha1.DefaultTensorflowRuntimeVersion,
+							ModelURI:       "gs://testuri",
 						},
 					},
 				},
 			},
 			desiredDefault: knservingv1alpha1.Configuration{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "mnist",
+					Name:      "mnist-default",
 					Namespace: "default",
 				},
 				Spec: knservingv1alpha1.ConfigurationSpec{
 					RevisionTemplate: &knservingv1alpha1.RevisionTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: map[string]string{"serving.kubeflow.org/kfservice": "mnist"},
+							Annotations: map[string]string{
+								"autoscaling.knative.dev/class":  "kpa.autoscaling.knative.dev",
+								"autoscaling.knative.dev/target": "1",
+							},
+						},
 						Spec: knservingv1alpha1.RevisionSpec{
+							RevisionSpec: v1beta1.RevisionSpec{
+								TimeoutSeconds: &constants.DefaultTimeout,
+							},
 							Container: &v1.Container{
-								Image: v1alpha1.TensorflowServingImageName + ":" +
-									v1alpha1.DefaultTensorflowRuntimeVersion,
+								Image:   v1alpha1.TensorflowServingImageName + ":" + v1alpha1.DefaultTensorflowRuntimeVersion,
 								Command: []string{v1alpha1.TensorflowEntrypointCommand},
 								Args: []string{
 									"--port=" + v1alpha1.TensorflowServingGRPCPort,
 									"--rest_api_port=" + v1alpha1.TensorflowServingRestPort,
 									"--model_name=mnist",
-									"--model_base_path=s3://test/mnist/export",
+									"--model_base_path=gs://testuri",
 								},
 							},
 						},
@@ -164,12 +174,15 @@ func TestKnativeConfigurationReconcile(t *testing.T) {
 		},
 	}
 	for name, scenario := range scenarios {
+		t.Logf("Scenario: %s", name)
+		g.Expect(c.Create(context.TODO(), &scenario.kfsvc)).NotTo(gomega.HaveOccurred())
+		defer c.Delete(context.TODO(), &scenario.kfsvc)
 		if scenario.update {
 			g.Expect(c.Create(context.TODO(), &scenario.desiredDefault)).NotTo(gomega.HaveOccurred())
-			// defer c.Delete(context.TODO(), &scenario.desiredDefault)
+			defer c.Delete(context.TODO(), &scenario.desiredDefault)
 			if scenario.desiredCanary != nil {
 				g.Expect(c.Create(context.TODO(), scenario.desiredCanary)).NotTo(gomega.HaveOccurred())
-				// defer c.Delete(context.TODO(), scenario.desiredCanary)
+				defer c.Delete(context.TODO(), scenario.desiredCanary)
 			}
 		}
 
@@ -177,19 +190,15 @@ func TestKnativeConfigurationReconcile(t *testing.T) {
 			t.Errorf("Test %q failed: returned error: %v", name, err)
 		}
 
-		actualDefault := knservingv1alpha1.Configuration{}
-		g.Expect(c.Get(context.TODO(), types.NamespacedName{
-			Name:      constants.DefaultConfigurationName(scenario.kfsvc.Name),
-			Namespace: scenario.kfsvc.Namespace,
-		}, &actualDefault)).NotTo(gomega.HaveOccurred())
-
-		actualCanary := knservingv1alpha1.Configuration{}
-		g.Expect(c.Get(context.TODO(), types.NamespacedName{
-			Name:      constants.CanaryConfigurationName(scenario.kfsvc.Name),
-			Namespace: scenario.kfsvc.Namespace,
-		}, &actualCanary)).NotTo(gomega.HaveOccurred())
-
 		// Assert default
+		actualDefault := knservingv1alpha1.Configuration{}
+		g.Eventually(func() error {
+			return c.Get(context.TODO(), types.NamespacedName{
+				Name:      constants.DefaultConfigurationName(scenario.kfsvc.Name),
+				Namespace: scenario.kfsvc.Namespace,
+			}, &actualDefault)
+		}, timeout).Should(gomega.Succeed())
+
 		if diff := cmp.Diff(scenario.desiredDefault.Spec, actualDefault.Spec); diff != "" {
 			t.Errorf("Test %q unexpected configuration spec (-want +got): %v", name, diff)
 		}
@@ -201,14 +210,23 @@ func TestKnativeConfigurationReconcile(t *testing.T) {
 		}
 
 		// Assert Canary
-		if diff := cmp.Diff(scenario.desiredCanary.Spec, actualCanary.Spec); diff != "" {
-			t.Errorf("Test %q unexpected configuration spec (-want +got): %v", name, diff)
-		}
-		if diff := cmp.Diff(scenario.desiredCanary.ObjectMeta.Labels, actualCanary.ObjectMeta.Labels); diff != "" {
-			t.Errorf("Test %q unexpected configuration labels (-want +got): %v", name, diff)
-		}
-		if diff := cmp.Diff(scenario.desiredCanary.ObjectMeta.Annotations, actualCanary.ObjectMeta.Annotations); diff != "" {
-			t.Errorf("Test %q unexpected configuration annotations (-want +got): %v", name, diff)
+		if scenario.desiredCanary != nil {
+			actualCanary := knservingv1alpha1.Configuration{}
+			g.Eventually(func() error {
+				return c.Get(context.TODO(), types.NamespacedName{
+					Name:      constants.CanaryConfigurationName(scenario.kfsvc.Name),
+					Namespace: scenario.kfsvc.Namespace,
+				}, &actualCanary)
+			}, timeout).Should(gomega.Succeed())
+			if diff := cmp.Diff(scenario.desiredCanary.Spec, actualCanary.Spec); diff != "" {
+				t.Errorf("Test %q unexpected configuration spec (-want +got): %v", name, diff)
+			}
+			if diff := cmp.Diff(scenario.desiredCanary.ObjectMeta.Labels, actualCanary.ObjectMeta.Labels); diff != "" {
+				t.Errorf("Test %q unexpected configuration labels (-want +got): %v", name, diff)
+			}
+			if diff := cmp.Diff(scenario.desiredCanary.ObjectMeta.Annotations, actualCanary.ObjectMeta.Annotations); diff != "" {
+				t.Errorf("Test %q unexpected configuration annotations (-want +got): %v", name, diff)
+			}
 		}
 	}
 }

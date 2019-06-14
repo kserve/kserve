@@ -23,11 +23,9 @@ import (
 	pkgtest "github.com/kubeflow/kfserving/pkg/testing"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var cfg *rest.Config
-var c client.Client
 
 func TestMain(m *testing.M) {
 	t := pkgtest.SetupEnvTest()
