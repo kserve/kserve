@@ -5,9 +5,14 @@ TFTensor represents a logical tensor. It contains the information from TensorInf
 [tensorflow/core/protobuf/meta_graph.proto] but is named after the user-facing input/output (hence being a logical
 tensor and not an actual tensor).
  */
+
+import (
+	"github.com/getkin/kin-openapi/openapi3"
+)
+
 type TFTensor struct {
 	//Name of the logical tensor
-	Key   string
+	Key string
 
 	// Data type contained in this tensor
 	DType TFDType
@@ -19,8 +24,11 @@ type TFTensor struct {
 	Rank int64
 }
 
-func (m *TFTensor) Accept(w Visitor) {
-	w.VisitTensor(m)
+
+func (tensor *TFTensor) Schema() *openapi3.Schema {
+	// TODO insert real constraints here
+	tensorSchema := openapi3.NewStringSchema()
+	return tensorSchema
 }
 
 type TFShape []int64

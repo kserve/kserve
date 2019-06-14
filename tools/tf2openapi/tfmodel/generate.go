@@ -8,7 +8,7 @@ import (
 )
 
 /**
-Raises errors when model is missing fields that would pose an issue for OpenAPI generation
+Raises errors when model is missing fields that would pose an issue for Schema generation
  */
 
 const servingMetaGraphTag string = "serve"
