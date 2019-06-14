@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"net/http"
+	"os"
 	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
 
 	"github.com/kubeflow/kfserving/pkg/executor"
@@ -26,6 +27,11 @@ func main() {
 
 	logf.SetLogger(logf.ZapLogger(false))
 	log := logf.Log.WithName("entrypoint")
+
+	if *predictor == "" {
+		log.Info("predictor argument must not be empty.")
+		os.Exit(-1)
+	}
 
 	stopCh := signals.SetupSignalHandler()
 
