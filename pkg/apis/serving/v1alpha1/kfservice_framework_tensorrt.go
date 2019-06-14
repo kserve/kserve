@@ -46,7 +46,7 @@ func (t *TensorRTSpec) CreateModelServingContainer(modelName string, config *Fra
 			"--allow-grpc=true",
 			"--allow-http=true",
 			"--grpc-port=" + fmt.Sprint(TensorRTISGRPCPort),
-			"--rest-port=" + fmt.Sprint(TensorRTISRestPort),
+			"--http-port=" + fmt.Sprint(TensorRTISRestPort),
 		},
 		Ports: []v1.ContainerPort{
 			v1.ContainerPort{
