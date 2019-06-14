@@ -16,6 +16,7 @@ type OpenAPIVisitor struct {
 func OpenAPIPrint(v OpenAPIVisitor) {
 
 	swagger := &openapi3.Swagger{
+		OpenAPI: "3.0",
 		//Servers: openapi3.Servers{
 		//	{
 		//		URL: "http://example.com/api/",
@@ -41,7 +42,7 @@ func OpenAPIPrint(v OpenAPIVisitor) {
 		},
 		Info: openapi3.Info{
 			Title: "TFServing Predict Request API",
-			Version: "3.0",
+			Version: "1.0",
 		},
 	}
 	jsonSerialized, _ := (*swagger).MarshalJSON()
@@ -59,6 +60,7 @@ func (w *OpenAPIVisitor) VisitMetaGraph(node *TFMetaGraph) {
 	w.savedModelRep.OneOf = append(w.savedModelRep.OneOf, w.metaGraphRep.NewRef())
 	log.Println("Metagraph")
 	log.Println(w.metaGraphRep)
+
 }
 
 func (w *OpenAPIVisitor) VisitSignatureDef(node *TFSignatureDef) {
