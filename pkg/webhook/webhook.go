@@ -19,8 +19,10 @@ package webhook
 import (
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 	"github.com/kubeflow/kfserving/pkg/constants"
+	"github.com/kubeflow/kfserving/pkg/webhook/admission/deployment"
 	"github.com/kubeflow/kfserving/pkg/webhook/admission/kfservice"
 	"k8s.io/api/admissionregistration/v1beta1"
+	v1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/types"
 
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -52,6 +54,8 @@ func AddToManager(manager manager.Manager) error {
 					"control-plane": constants.ControllerLabelName,
 				},
 			},
+			ValidatingWebhookConfigName: constants.KFServiceValidatingWebhookConfigName,
+			MutatingWebhookConfigName:   constants.KFServiceMutatingWebhookConfigName,
 		},
 	})
 	if err != nil {
@@ -107,6 +111,27 @@ func register(manager manager.Manager, server *webhook.Server) error {
 		}},
 		Handlers: []admission.Handler{
 			&kfservice.Defaulter{
+				Client:  manager.GetClient(),
+				Decoder: manager.GetAdmissionDecoder(),
+			},
+		},
+	}, &admission.Webhook{
+		Name:          constants.AcceleratorInjectorMutatorWebhookName,
+		FailurePolicy: &constants.WebhookFailurePolicy,
+		Type:          webhooktypes.WebhookTypeMutating,
+		Rules: []v1beta1.RuleWithOperations{{
+			Operations: []v1beta1.OperationType{
+				v1beta1.Create,
+				v1beta1.Update,
+			},
+			Rule: v1beta1.Rule{
+				APIGroups:   []string{v1.GroupName},
+				APIVersions: []string{v1.SchemeGroupVersion.Version},
+				Resources:   []string{"deployments"},
+			},
+		}},
+		Handlers: []admission.Handler{
+			&deployment.Mutator{
 				Client:  manager.GetClient(),
 				Decoder: manager.GetAdmissionDecoder(),
 			},

@@ -19,9 +19,7 @@ package v1alpha1
 import (
 	"fmt"
 
-	knserving "github.com/knative/serving/pkg/apis/serving"
 	runtime "k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 // Known error messages
@@ -81,10 +79,6 @@ func validateModelSpec(spec *ModelSpec) error {
 	}
 	if err := validateReplicas(spec.MinReplicas, spec.MaxReplicas); err != nil {
 		return err
-	}
-	container := spec.CreateModelServingContainer("any", &FrameworksConfig{})
-	if err := knserving.ValidateContainer(*container, sets.String{}); err != nil {
-		return fmt.Errorf("container validation error: %s", err.Error())
 	}
 	return nil
 }
