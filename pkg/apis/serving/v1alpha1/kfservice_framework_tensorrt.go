@@ -38,9 +38,9 @@ func (t *TensorRTSpec) CreateModelServingContainer(modelName string, config *Fra
 	// based on example at: https://github.com/NVIDIA/tensorrt-laboratory/blob/master/examples/Deployment/Kubernetes/basic-trtis-deployment/deploy.yml
 	return &v1.Container{
 		Image:     imageName + ":" + t.RuntimeVersion,
-		Command:   []string{TensorRTISEntrypointCommand},
 		Resources: t.Resources,
 		Args: []string{
+			TensorRTISEntrypointCommand,
 			"--model-store=" + t.ModelURI,
 			"--allow-poll-model-repository=false",
 			"--allow-grpc=true",
