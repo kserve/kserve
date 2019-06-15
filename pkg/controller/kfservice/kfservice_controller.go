@@ -156,7 +156,7 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 	routeReconciler := knative.NewRouteReconciler(r.Client)
 
 	// Initialize conditions
-	// kfsvc.Status.InitializeConditions()
+	kfsvc.Status.InitializeConditions()
 	// Reconcile configurations
 	desiredDefault := resourceBuilder.CreateKnativeConfiguration(constants.DefaultConfigurationName(kfsvc.Name),
 		kfsvc.ObjectMeta, &kfsvc.Spec.Default)

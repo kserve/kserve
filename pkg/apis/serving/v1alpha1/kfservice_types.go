@@ -14,7 +14,7 @@ limitations under the License.
 package v1alpha1
 
 import (
-	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
+	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -76,10 +76,10 @@ type CustomSpec struct {
 
 // KFServiceStatus defines the observed state of KFService
 type KFServiceStatus struct {
-	duckv1alpha1.Status `json:",inline"`
-	URL                 string                  `json:"url,omitempty"`
-	Default             StatusConfigurationSpec `json:"default,omitempty"`
-	Canary              StatusConfigurationSpec `json:"canary,omitempty"`
+	duckv1beta1.Status `json:",inline"`
+	URL                string                  `json:"url,omitempty"`
+	Default            StatusConfigurationSpec `json:"default,omitempty"`
+	Canary             StatusConfigurationSpec `json:"canary,omitempty"`
 }
 
 // StatusConfigurationSpec describes the state of the configuration receiving traffic.
@@ -88,27 +88,6 @@ type StatusConfigurationSpec struct {
 	Replicas int    `json:"replicas,omitempty"`
 	Traffic  int    `json:"traffic,omitempty"`
 }
-
-// StatusConditionsSpec displays the current conditions of the resource.
-type StatusConditionsSpec struct {
-	// Conditions the latest available observations of a resource's current state.
-	// +optional
-	// +patchMergeKey=type
-	// +patchStrategy=merge
-	Conditions duckv1alpha1.Conditions `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
-}
-
-// ConditionType is the of status conditions.
-type ConditionType string
-
-// These are valid conditions of a service.
-const (
-	Ready              ConditionType = "Ready"
-	RoutingReady       ConditionType = "RoutingReady"
-	ResourcesAvailable ConditionType = "ResourcesAvailable"
-	ContainerHealthy   ConditionType = "ContainerHealthy"
-	RevisionReady      ConditionType = "RevisionReady"
-)
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
