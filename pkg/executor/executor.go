@@ -25,18 +25,17 @@ func New(log logr.Logger, preprocess, predictor, postprocess string) http.Handle
 	}
 }
 
-func (eh *executorHandler) callServer(target *url.URL, payload []byte, contentType string) ([]byte, error) {
-	reader := bytes.NewReader(payload)
-	eh.log.Info("Calling server", "url", target.String(), "contentType", contentType)
-	respPost, err := http.Post(target.String(), contentType, reader)
+func (eh *executorHandler) post(url *url.URL, body []byte, contentType string) ([]byte, error) {
+	eh.log.Info("Calling server", "url", url.String(), "contentType", contentType)
+	response, err := http.Post(url.String(), contentType, bytes.NewReader(body))
 	if err != nil {
 		return nil, err
 	}
-	b, err := ioutil.ReadAll(respPost.Body)
+	b, err := ioutil.ReadAll(response.Body)
 	if err != nil {
 		return nil, err
 	}
-	if err = respPost.Body.Close(); err != nil {
+	if err = response.Body.Close(); err != nil {
 		return nil, err
 	}
 	return b, nil
@@ -44,15 +43,11 @@ func (eh *executorHandler) callServer(target *url.URL, payload []byte, contentTy
 
 // call optional preprocess, predict and optional postprocess
 func (eh *executorHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-
 	// Preprocess
 	if eh.preprocessHost != "" {
-		err := eh.preprocess(r)
-		if err != nil {
+		if err := eh.preprocess(r); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
-		} else {
-			eh.log.Info("Process ok ")
 		}
 	}
 

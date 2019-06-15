@@ -3,7 +3,7 @@ HAS_LINT := $(shell command -v golint;)
 
 # Image URL to use all building/pushing image targets
 IMG ?= kfserving-controller:latest
-EXECUTOR-IMG ?= kfserving-executor:latest
+EXECUTOR_IMG ?= kfserving-executor:latest
 
 all: test manager executor
 
@@ -82,7 +82,7 @@ docker-push:
 	docker push ${IMG}
 
 docker-build-executor: test
-	docker build -f Dockerfile.executor . -t ${EXECUTOR-IMG}
+	docker build -f Dockerfile.executor . -t ${EXECUTOR_IMG}
 
 docker-push-executor:
-	docker push ${EXECUTOR-IMG}
+	docker push ${EXECUTOR_IMG}
