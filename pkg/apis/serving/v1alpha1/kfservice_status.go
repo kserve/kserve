@@ -14,31 +14,33 @@ limitations under the License.
 package v1alpha1
 
 import (
-	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
+	"github.com/knative/pkg/apis"
 	knservingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"k8s.io/api/core/v1"
 )
 
 // ConditionType represents a Service condition value
 const (
-	// ServiceConditionRoutesReady is set when the service's underlying
+	// KFServiceConditionRoutesReady is set when the service's underlying
 	// routes have reported readiness.
-	ServiceConditionRoutesReady duckv1alpha1.ConditionType = "RoutesReady"
-	// ServiceConditionDefaultConfigurationsReady is set when the service's underlying
+	KFServiceConditionRoutesReady apis.ConditionType = "RoutesReady"
+	// KFServiceConditionDefaultConfigurationsReady is set when the service's underlying
 	// default configuration have reported readiness.
-	ServiceConditionDefaultConfigurationsReady duckv1alpha1.ConditionType = "DefaultConfigurationReady"
+	KFServiceConditionDefaultConfigurationsReady apis.ConditionType = "DefaultConfigurationReady"
 	// ServiceConditionCanaryConfigurationsReady is set when the service's underlying
 	// canary configuration have reported readiness.
-	ServiceConditionCanaryConfigurationsReady duckv1alpha1.ConditionType = "CanaryConfigurationReady"
+	KFServiceConditionCanaryConfigurationsReady apis.ConditionType = "CanaryConfigurationReady"
 )
 
-var serviceCondSet = duckv1alpha1.NewLivingConditionSet(
-	ServiceConditionDefaultConfigurationsReady,
-	ServiceConditionCanaryConfigurationsReady,
-	ServiceConditionRoutesReady,
+// KFService Ready condition is depending on default configuration and route readiness condition
+// canary configuration readiness condition only present when canary is used and currently does
+// not affect KFService readiness condition.
+var serviceCondSet = apis.NewLivingConditionSet(
+	KFServiceConditionDefaultConfigurationsReady,
+	KFServiceConditionRoutesReady,
 )
 
-var _ duckv1alpha1.ConditionsAccessor = (*KFServiceStatus)(nil)
+var _ apis.ConditionsAccessor = (*KFServiceStatus)(nil)
 
 func (ss *KFServiceStatus) InitializeConditions() {
 	serviceCondSet.Manage(ss).InitializeConditions()
@@ -50,20 +52,8 @@ func (ss *KFServiceStatus) IsReady() bool {
 }
 
 // GetCondition returns the condition by name.
-func (ss *KFServiceStatus) GetCondition(t duckv1alpha1.ConditionType) *duckv1alpha1.Condition {
+func (ss *KFServiceStatus) GetCondition(t apis.ConditionType) *apis.Condition {
 	return serviceCondSet.Manage(ss).GetCondition(t)
-}
-
-// GetConditions returns the Conditions array. This enables generic handling of
-// conditions by implementing the duckv1alpha1.Conditions interface.
-func (ss *KFServiceStatus) GetConditions() duckv1alpha1.Conditions {
-	return ss.Conditions
-}
-
-// SetConditions sets the Conditions array. This enables generic handling of
-// conditions by implementing the duckv1alpha1.Conditions interface.
-func (ss *KFServiceStatus) SetConditions(conditions duckv1alpha1.Conditions) {
-	ss.Conditions = conditions
 }
 
 // PropagateDefaultConfigurationStatus propagates the default Configuration status and applies its values
@@ -76,11 +66,11 @@ func (ss *KFServiceStatus) PropagateDefaultConfigurationStatus(dcs *knservingv1a
 	}
 	switch {
 	case cc.Status == v1.ConditionUnknown:
-		serviceCondSet.Manage(ss).MarkUnknown(ServiceConditionDefaultConfigurationsReady, cc.Reason, cc.Message)
+		serviceCondSet.Manage(ss).MarkUnknown(KFServiceConditionDefaultConfigurationsReady, cc.Reason, cc.Message)
 	case cc.Status == v1.ConditionTrue:
-		serviceCondSet.Manage(ss).MarkTrue(ServiceConditionDefaultConfigurationsReady)
+		serviceCondSet.Manage(ss).MarkTrue(KFServiceConditionDefaultConfigurationsReady)
 	case cc.Status == v1.ConditionFalse:
-		serviceCondSet.Manage(ss).MarkFalse(ServiceConditionDefaultConfigurationsReady, cc.Reason, cc.Message)
+		serviceCondSet.Manage(ss).MarkFalse(KFServiceConditionDefaultConfigurationsReady, cc.Reason, cc.Message)
 	}
 }
 
@@ -94,11 +84,11 @@ func (ss *KFServiceStatus) PropagateCanaryConfigurationStatus(ccs *knservingv1al
 	}
 	switch {
 	case cc.Status == v1.ConditionUnknown:
-		serviceCondSet.Manage(ss).MarkUnknown(ServiceConditionCanaryConfigurationsReady, cc.Reason, cc.Message)
+		serviceCondSet.Manage(ss).MarkUnknown(KFServiceConditionCanaryConfigurationsReady, cc.Reason, cc.Message)
 	case cc.Status == v1.ConditionTrue:
-		serviceCondSet.Manage(ss).MarkTrue(ServiceConditionCanaryConfigurationsReady)
+		serviceCondSet.Manage(ss).MarkTrue(KFServiceConditionCanaryConfigurationsReady)
 	case cc.Status == v1.ConditionFalse:
-		serviceCondSet.Manage(ss).MarkFalse(ServiceConditionCanaryConfigurationsReady, cc.Reason, cc.Message)
+		serviceCondSet.Manage(ss).MarkFalse(KFServiceConditionCanaryConfigurationsReady, cc.Reason, cc.Message)
 	}
 }
 
@@ -122,10 +112,10 @@ func (ss *KFServiceStatus) PropagateRouteStatus(rs *knservingv1alpha1.RouteStatu
 	}
 	switch {
 	case rc.Status == v1.ConditionUnknown:
-		serviceCondSet.Manage(ss).MarkUnknown(ServiceConditionRoutesReady, rc.Reason, rc.Message)
+		serviceCondSet.Manage(ss).MarkUnknown(KFServiceConditionRoutesReady, rc.Reason, rc.Message)
 	case rc.Status == v1.ConditionTrue:
-		serviceCondSet.Manage(ss).MarkTrue(ServiceConditionRoutesReady)
+		serviceCondSet.Manage(ss).MarkTrue(KFServiceConditionRoutesReady)
 	case rc.Status == v1.ConditionFalse:
-		serviceCondSet.Manage(ss).MarkFalse(ServiceConditionRoutesReady, rc.Reason, rc.Message)
+		serviceCondSet.Manage(ss).MarkFalse(KFServiceConditionRoutesReady, rc.Reason, rc.Message)
 	}
 }

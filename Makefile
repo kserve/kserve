@@ -44,6 +44,7 @@ undeploy-dev:
 # Generate manifests e.g. CRD, RBAC etc.
 manifests:
 	go run vendor/sigs.k8s.io/controller-tools/cmd/controller-gen/main.go crd --output-dir=config/default/crds
+	kustomize build config/default/crds -o config/default/crds/serving_v1alpha1_kfservice.yaml
 	go run vendor/sigs.k8s.io/controller-tools/cmd/controller-gen/main.go rbac --output-dir=config/default/rbac
 
 # Run go fmt against code
