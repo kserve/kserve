@@ -46,7 +46,7 @@ var spec = TensorRTSpec{
 
 var config = FrameworksConfig{
 	TensorRT: FrameworkConfig{
-		ContainerImage: "someImage",
+		ContainerImage: "someOtherImage",
 	},
 }
 
@@ -54,8 +54,8 @@ func TestCreateModelServingContainer(t *testing.T) {
 
 	g := gomega.NewGomegaWithT(t)
 
-	expectedContainer := v1.Container{
-		Image:     "nvcr.io/nvidia/tensorrtserver:19.05-py3",
+	expectedContainer := &v1.Container{
+		Image:     "someOtherImage:19.05-py3",
 		Resources: requestedResource,
 		Args: []string{
 			"trtserver",
@@ -68,7 +68,6 @@ func TestCreateModelServingContainer(t *testing.T) {
 		},
 		Ports: []v1.ContainerPort{
 			v1.ContainerPort{
-				Name:          "h2c",
 				ContainerPort: 8080,
 			},
 		},
@@ -79,7 +78,7 @@ func TestCreateModelServingContainer(t *testing.T) {
 	g.Expect(container).To(gomega.Equal(expectedContainer))
 
 	// Test Create with config
-	expectedContainer.Image = "someImage:someVersion"
+	expectedContainer.Image = "nvcr.io/nvidia/tensorrtserver:19.05-py3"
 	emptyConfig := FrameworksConfig{TensorRT: FrameworkConfig{}}
 	container = spec.CreateModelServingContainer("someName", &emptyConfig)
 	g.Expect(container).To(gomega.Equal(expectedContainer))
