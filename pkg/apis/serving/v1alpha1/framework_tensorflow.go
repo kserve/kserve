@@ -45,7 +45,7 @@ var (
 )
 
 func (t *TensorflowSpec) MapSourceUri() (sourceURI string, localPath string, ok bool) {
-	return t.ModelURI, DefaultModelLocalMountPath, true
+	return t.ModelURI, constants.DefaultModelLocalMountPath, true
 }
 
 func (t *TensorflowSpec) CreateModelServingContainer(modelName string, config *FrameworksConfig) *v1.Container {
@@ -62,7 +62,7 @@ func (t *TensorflowSpec) CreateModelServingContainer(modelName string, config *F
 			"--port=" + TensorflowServingGRPCPort,
 			"--rest_api_port=" + TensorflowServingRestPort,
 			"--model_name=" + modelName,
-			"--model_base_path=" + DefaultModelLocalMountPath,
+			"--model_base_path=" + constants.DefaultModelLocalMountPath,
 		},
 	}
 }

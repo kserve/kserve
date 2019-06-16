@@ -37,9 +37,6 @@ const (
 	AtLeastOneModelSpecViolatedError = "At least one of [Custom, Tensorflow, SKLearn, XGBoost] must be specified in ModelSpec"
 )
 
-// DefaultModelLocalMountPath is where models will be mounted by default unless overriden by a framework
-const DefaultModelLocalMountPath = "/mnt/model"
-
 var (
 	DefaultMemoryRequests = resource.MustParse("2Gi")
 	DefaultCPURequests    = resource.MustParse("1")

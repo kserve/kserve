@@ -32,7 +32,7 @@ var (
 )
 
 func (x *XGBoostSpec) MapSourceUri() (sourceURI string, localPath string, ok bool) {
-	return x.ModelURI, DefaultModelLocalMountPath, true
+	return x.ModelURI, constants.DefaultModelLocalMountPath, true
 }
 
 func (x *XGBoostSpec) CreateModelServingContainer(modelName string, config *FrameworksConfig) *v1.Container {
@@ -45,7 +45,7 @@ func (x *XGBoostSpec) CreateModelServingContainer(modelName string, config *Fram
 		Resources: x.Resources,
 		Args: []string{
 			"--model_name=" + modelName,
-			"--model_dir=" + DefaultModelLocalMountPath,
+			"--model_dir=" + constants.DefaultModelLocalMountPath,
 		},
 	}
 }

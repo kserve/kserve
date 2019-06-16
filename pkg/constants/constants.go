@@ -70,6 +70,9 @@ const (
 	NvidiaGPUResourceType = "nvidia.com/gpu"
 )
 
+// constants.DefaultModelLocalMountPath is where models will be mounted by default unless overriden by a framework
+const DefaultModelLocalMountPath = "/mnt/model"
+
 func getEnvOrDefault(key string, fallback string) string {
 	if value, ok := os.LookupEnv(key); ok {
 		return value
