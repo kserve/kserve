@@ -5,6 +5,9 @@
 2. Your cluster's Istio Ingress gateway must be network accessible.
 3. Your cluster's Istio Egresss gateway must [allow Google Cloud Storage](https://knative.dev/docs/serving/outbound-network-access/)
 
+
+> Knative is not able to resolve containers from the NVIDIA container registry.
+To work around this you need to skip resolution for nvcr.io by editing knative config-deployment.yaml. See details here: https://github.com/knative/serving/issues/4355
 ## Create the KFService
 Apply the CRD
 ```
