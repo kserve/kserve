@@ -15,9 +15,7 @@ package v1alpha1
 
 import (
 	"fmt"
-
 	"github.com/kubeflow/kfserving/pkg/constants"
-
 	v1 "k8s.io/api/core/v1"
 	resource "k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/klog"
