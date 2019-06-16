@@ -136,5 +136,26 @@ func register(manager manager.Manager, server *webhook.Server) error {
 				Decoder: manager.GetAdmissionDecoder(),
 			},
 		},
+	}, &admission.Webhook{
+		Name:          constants.DownloaderInjectorMutatorWebhookName,
+		FailurePolicy: &constants.WebhookFailurePolicy,
+		Type:          webhooktypes.WebhookTypeMutating,
+		Rules: []v1beta1.RuleWithOperations{{
+			Operations: []v1beta1.OperationType{
+				v1beta1.Create,
+				v1beta1.Update,
+			},
+			Rule: v1beta1.Rule{
+				APIGroups:   []string{v1.GroupName},
+				APIVersions: []string{v1.SchemeGroupVersion.Version},
+				Resources:   []string{"deployments"},
+			},
+		}},
+		Handlers: []admission.Handler{
+			&deployment.Downloader{
+				Client:  manager.GetClient(),
+				Decoder: manager.GetAdmissionDecoder(),
+			},
+		},
 	})
 }

@@ -60,6 +60,7 @@ var (
 	KFServiceValidatingWebhookName        = strings.Join([]string{KFServiceName, WebhookServerName, "validator"}, ".")
 	KFServiceDefaultingWebhookName        = strings.Join([]string{KFServiceName, WebhookServerName, "defaulter"}, ".")
 	AcceleratorInjectorMutatorWebhookName = strings.Join([]string{KFServiceName, WebhookServerName, "accelerator-injector"}, ".")
+	DownloaderInjectorMutatorWebhookName  = strings.Join([]string{KFServiceName, WebhookServerName, "downloader-injector"}, ".")
 	WebhookFailurePolicy                  = v1beta1.Fail
 )
 
