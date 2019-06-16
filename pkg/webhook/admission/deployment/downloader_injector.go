@@ -11,27 +11,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package kfservice
+package deployment
 
 import (
-	"context"
-	"encoding/json"
-	"net/http"
 	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
-
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
-	"sigs.k8s.io/controller-runtime/pkg/webhook/admission/types"
 )
-
-// Downloader adds an init container to download data and mounts to the user container
-type Downloader struct {
-	Client  client.Client
-	Decoder types.Decoder
-}
 
 const (
 	downloaderSrcURIAnnotation    = "downloaderSrcUri"
@@ -42,27 +29,8 @@ const (
 	downloadContainerImage        = "kcorer/downloader"
 )
 
-// Handle decodes the incoming deployment and executes mounting logic.
-func (d *Downloader) Handle(ctx context.Context, req types.Request) types.Response {
-	deployment := &appsv1.Deployment{}
-
-	if err := d.Decoder.Decode(req, deployment); err != nil {
-		return admission.ErrorResponse(http.StatusBadRequest, err)
-	}
-
-	if err := injectDownloader(deployment); err != nil {
-		return admission.ErrorResponse(http.StatusInternalServerError, err)
-	}
-
-	patch, err := json.Marshal(deployment)
-	if err != nil {
-		return admission.ErrorResponse(http.StatusInternalServerError, err)
-	}
-
-	return patchResponseFromRaw(req.AdmissionRequest.Object.Raw, patch)
-}
-
-func injectDownloader(deployment *appsv1.Deployment) error {
+// InjectDownloader injects an init container to download data and mounts to the user container
+func InjectDownloader(deployment *appsv1.Deployment) error {
 
 	var srcURI, mountPath string
 

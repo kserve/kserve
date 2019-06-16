@@ -52,16 +52,15 @@ var (
 
 // Webhook Constants
 var (
-	WebhookServerName                     = KFServingName + "-webhook-server"
-	WebhookServerServiceName              = WebhookServerName + "-service"
-	WebhookServerSecretName               = WebhookServerName + "-secret"
-	KFServiceValidatingWebhookConfigName  = strings.Join([]string{KFServiceName, KFServingAPIGroupName}, ".")
-	KFServiceMutatingWebhookConfigName    = strings.Join([]string{KFServiceName, KFServingAPIGroupName}, ".")
-	KFServiceValidatingWebhookName        = strings.Join([]string{KFServiceName, WebhookServerName, "validator"}, ".")
-	KFServiceDefaultingWebhookName        = strings.Join([]string{KFServiceName, WebhookServerName, "defaulter"}, ".")
-	AcceleratorInjectorMutatorWebhookName = strings.Join([]string{KFServiceName, WebhookServerName, "accelerator-injector"}, ".")
-	DownloaderInjectorMutatorWebhookName  = strings.Join([]string{KFServiceName, WebhookServerName, "downloader-injector"}, ".")
-	WebhookFailurePolicy                  = v1beta1.Fail
+	WebhookServerName                    = KFServingName + "-webhook-server"
+	WebhookServerServiceName             = WebhookServerName + "-service"
+	WebhookServerSecretName              = WebhookServerName + "-secret"
+	KFServiceValidatingWebhookConfigName = strings.Join([]string{KFServiceName, KFServingAPIGroupName}, ".")
+	KFServiceMutatingWebhookConfigName   = strings.Join([]string{KFServiceName, KFServingAPIGroupName}, ".")
+	KFServiceValidatingWebhookName       = strings.Join([]string{KFServiceName, WebhookServerName, "validator"}, ".")
+	KFServiceDefaultingWebhookName       = strings.Join([]string{KFServiceName, WebhookServerName, "defaulter"}, ".")
+	DeploymentMutatorWebhookName         = strings.Join([]string{KFServiceName, WebhookServerName, "deployment-mutator"}, ".")
+	WebhookFailurePolicy                 = v1beta1.Fail
 )
 
 // GPU Constants
