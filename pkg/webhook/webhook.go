@@ -19,6 +19,7 @@ package webhook
 import (
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 	"github.com/kubeflow/kfserving/pkg/constants"
+	"github.com/kubeflow/kfserving/pkg/webhook/admission/deployment"
 	"github.com/kubeflow/kfserving/pkg/webhook/admission/kfservice"
 	"k8s.io/api/admissionregistration/v1beta1"
 	v1 "k8s.io/api/apps/v1"
@@ -115,7 +116,7 @@ func register(manager manager.Manager, server *webhook.Server) error {
 			},
 		},
 	}, &admission.Webhook{
-		Name:          constants.KFServiceDefaultingWebhookName,
+		Name:          constants.AcceleratorInjectorMutatorWebhookName,
 		FailurePolicy: &constants.WebhookFailurePolicy,
 		Type:          webhooktypes.WebhookTypeMutating,
 		Rules: []v1beta1.RuleWithOperations{{
@@ -130,7 +131,7 @@ func register(manager manager.Manager, server *webhook.Server) error {
 			},
 		}},
 		Handlers: []admission.Handler{
-			&kfservice.Defaulter{
+			&deployment.Mutator{
 				Client:  manager.GetClient(),
 				Decoder: manager.GetAdmissionDecoder(),
 			},
