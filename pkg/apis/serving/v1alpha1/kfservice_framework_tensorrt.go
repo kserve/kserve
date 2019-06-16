@@ -50,7 +50,6 @@ func (t *TensorRTSpec) CreateModelServingContainer(modelName string, config *Fra
 		},
 		Ports: []v1.ContainerPort{
 			v1.ContainerPort{
-				Name:          "h2c",
 				ContainerPort: TensorRTISRestPort,
 			},
 		},
