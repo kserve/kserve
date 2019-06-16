@@ -40,7 +40,9 @@ var (
 
 // KFService Annotations
 var (
-	KFServiceGKEAcceleratorAnnotationKey = KFServingAPIGroupName + "/gke-accelerator"
+	KFServiceGKEAcceleratorAnnotationKey      = KFServingAPIGroupName + "/gke-accelerator"
+	KFServiceModelSourceURIAnnotationKey      = KFServingAPIGroupName + "/sourceURI"
+	KFServiceModelLocalMountPathAnnotationKey = KFServingAPIGroupName + "/localMountPath"
 )
 
 // Controller Constants
