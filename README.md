@@ -5,7 +5,7 @@ KFServing encapsulates the complexity of autoscaling, networking, health checkin
 
 ### Learn More
 * [Read the Docs](/docs)
-* [Roadmap]()
+* [Roadmap](/ROADMAP.md)
 * [KFServing 101 Slides](https://drive.google.com/file/d/16oqz6dhY5BR0u74pi9mDThU97Np__AFb/view)
 * [KFServing 101 Tech Talk](https://www.youtube.com/watch?v=hGIvlFADMhU)
 * This project is an evolution of the [original proposal in the Kubeflow repo](https://github.com/kubeflow/kubeflow/issues/2306). 

@@ -24,7 +24,7 @@ arch=amd64
 curl -L -O https://storage.googleapis.com/kubebuilder-release/kubebuilder_master_linux_${arch}.tar.gz
 tar -zxvf kubebuilder_master_linux_${arch}.tar.gz
 mv kubebuilder_master_linux_${arch} kubebuilder && mv kubebuilder /usr/local/
-export PATH=$PATH:/usr/local/kubebuilder/bin
+export PATH=$PATH:/usr/local/kubebuilder/bin:${GOPATH}/bin
 GO_DIR=${GOPATH}/src/github.com/${REPO_OWNER}/${REPO_NAME}
 mkdir -p ${GO_DIR}
 cp -r ./* ${GO_DIR}
