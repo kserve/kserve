@@ -24,6 +24,7 @@ import (
 )
 
 type FrameworkHandler interface {
+	MapSourceUri() (sourceURI string, localPath string, ok bool)
 	CreateModelServingContainer(modelName string, config *FrameworksConfig) *v1.Container
 	ApplyDefaults()
 	Validate() error
@@ -36,10 +37,17 @@ const (
 	AtLeastOneModelSpecViolatedError = "At least one of [Custom, Tensorflow, SKLearn, XGBoost] must be specified in ModelSpec"
 )
 
+// DefaultModelLocalMountPath is where models will be mounted by default unless overriden by a framework
+const DefaultModelLocalMountPath = "/mnt/model"
+
 var (
 	DefaultMemoryRequests = resource.MustParse("2Gi")
 	DefaultCPURequests    = resource.MustParse("1")
 )
+
+func (m *ModelSpec) MapSourceUri() (sourceURI string, localPath string, ok bool) {
+	return getHandler(m).MapSourceUri()
+}
 
 func (m *ModelSpec) CreateModelServingContainer(modelName string, config *FrameworksConfig) *v1.Container {
 	return getHandler(m).CreateModelServingContainer(modelName, config)

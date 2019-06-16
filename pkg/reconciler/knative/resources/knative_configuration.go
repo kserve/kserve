@@ -69,6 +69,11 @@ func (c *ConfigurationBuilder) CreateKnativeConfiguration(name string, metadata 
 		annotations[autoscaling.ClassAnnotationKey] = autoscaling.KPA
 	}
 
+	if sourceUri, localPath, ok := modelSpec.MapSourceUri(); ok {
+		annotations["downloaderSrcUri"] = sourceUri
+		annotations["downloaderMountPath"] = localPath
+	}
+
 	kfsvcAnnotations := utils.Filter(metadata.Annotations, configurationAnnotationFilter)
 
 	configuration := &knservingv1alpha1.Configuration{

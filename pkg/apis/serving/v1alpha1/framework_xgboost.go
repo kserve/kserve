@@ -31,6 +31,10 @@ var (
 	DefaultXGBoostRuntimeVersion      = "latest"
 )
 
+func (x *XGBoostSpec) MapSourceUri() (sourceURI string, localPath string, ok bool) {
+	return x.ModelURI, DefaultModelLocalMountPath, true
+}
+
 func (x *XGBoostSpec) CreateModelServingContainer(modelName string, config *FrameworksConfig) *v1.Container {
 	imageName := XGBoostServerImageName
 	if config.Xgboost.ContainerImage != "" {
@@ -41,7 +45,7 @@ func (x *XGBoostSpec) CreateModelServingContainer(modelName string, config *Fram
 		Resources: x.Resources,
 		Args: []string{
 			"--model_name=" + modelName,
-			"--model_dir=" + x.ModelURI,
+			"--model_dir=" + DefaultModelLocalMountPath,
 		},
 	}
 }
