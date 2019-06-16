@@ -18,19 +18,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// TFExampleKFService provides an example to the reader and may also be used by tests
-var TFExampleKFService = &KFService{
-	ObjectMeta: metav1.ObjectMeta{
-		Name:      "foo",
-		Namespace: "default",
-	},
-	Spec: KFServiceSpec{
-		Default: ModelSpec{
-			Tensorflow: &TensorflowSpec{ModelURI: "gs://testbucket/testmodel"},
-		},
-	},
-}
-
 // KFServiceSpec defines the desired state of KFService
 type KFServiceSpec struct {
 	Default ModelSpec `json:"default"`

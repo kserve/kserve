@@ -16,6 +16,8 @@ package v1alpha1
 import (
 	"fmt"
 
+	"github.com/kubeflow/kfserving/pkg/constants"
+
 	v1 "k8s.io/api/core/v1"
 	resource "k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/klog"
@@ -48,8 +50,11 @@ func (m *ModelSpec) ApplyDefaults() {
 }
 
 func (m *ModelSpec) Validate() error {
-	_, err := makeHandler(m)
-	return err
+	handler, err := makeHandler(m)
+	if err != nil {
+		return err
+	}
+	return handler.Validate()
 }
 
 type FrameworkConfig struct {
@@ -75,6 +80,11 @@ func setResourceRequirementDefaults(requirements *v1.ResourceRequirements) {
 	if _, ok := requirements.Requests[v1.ResourceMemory]; !ok {
 		requirements.Requests[v1.ResourceMemory] = DefaultMemoryRequests
 	}
+}
+
+func isGPUEnabled(requirements v1.ResourceRequirements) bool {
+	_, ok := requirements.Limits[constants.NvidiaGPUResourceType]
+	return ok
 }
 
 func getHandler(modelSpec *ModelSpec) FrameworkHandler {
