@@ -5,4 +5,4 @@ metadata:
 spec:
   default:
     tensorrt:
-      modelUri: "gs://rakelkar1/trt_sample"
+      modelUri: "gs://kfserving-samples/models/tensorrt"
