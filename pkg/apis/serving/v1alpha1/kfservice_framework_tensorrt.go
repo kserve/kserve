@@ -23,7 +23,7 @@ import (
 var (
 	TensorRTISImageName             = "nvcr.io/nvidia/tensorrtserver"
 	DefaultTensorRTISRuntimeVersion = "19.05-py3"
-	InvalidModelURIError            = "Model URI must be prefixed by gs:// (only Google Cloud Storage paths are supported)"
+	InvalidModelURIError            = "Model URI must be prefixed by gs:// (only Google Cloud Storage paths are supported for now. See https://github.com/kubeflow/kfserving/issues/148)"
 	TensorRTISGRPCPort              = int32(9000)
 	TensorRTISRestPort              = int32(8080)
 )
