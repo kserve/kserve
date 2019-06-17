@@ -21,15 +21,17 @@ import (
 )
 
 var (
-	TensorRTISImageName             = "nvcr.io/nvidia/tensorrtserver"
-	DefaultTensorRTISRuntimeVersion = "19.05-py3"
-	InvalidModelURIError            = "Model URI must be prefixed by gs:// (only Google Cloud Storage paths are supported for now. See https://github.com/kubeflow/kfserving/issues/148)"
-	TensorRTISGRPCPort              = int32(9000)
-	TensorRTISRestPort              = int32(8080)
+	defaultTensorRTISImageName = "nvcr.io/nvidia/tensorrtserver"
+	// For versioning see https://github.com/NVIDIA/tensorrt-inference-server/releases
+	defaultTensorRTISRuntimeVersion = "19.05-py3"
+	// InvalidModelURIError issue fix is tracked by https://github.com/kubeflow/kfserving/issues/148
+	InvalidModelURIError = "Model URI must be prefixed by gs:// (only Google Cloud Storage paths are supported for now."
+	TensorRTISGRPCPort   = int32(9000)
+	TensorRTISRestPort   = int32(8080)
 )
 
 func (t *TensorRTSpec) CreateModelServingContainer(modelName string, config *FrameworksConfig) *v1.Container {
-	imageName := TensorRTISImageName
+	imageName := defaultTensorRTISImageName
 	if config.TensorRT.ContainerImage != "" {
 		imageName = config.TensorRT.ContainerImage
 	}
@@ -57,7 +59,7 @@ func (t *TensorRTSpec) CreateModelServingContainer(modelName string, config *Fra
 
 func (t *TensorRTSpec) ApplyDefaults() {
 	if t.RuntimeVersion == "" {
-		t.RuntimeVersion = DefaultTensorRTISRuntimeVersion
+		t.RuntimeVersion = defaultTensorRTISRuntimeVersion
 	}
 	setResourceRequirementDefaults(&t.Resources)
 }
