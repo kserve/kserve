@@ -16,7 +16,7 @@ kubectl apply -f tensorrt.yaml
 
 Expected Output
 ```
-kfservice.serving.kubeflow.org/simple-string created
+kfservice.serving.kubeflow.org/tensorrt-simple-string created
 ```
 
 ## Run a prediction
@@ -30,18 +30,18 @@ echo $CLUSTER_IP
 ```
 2. check server status
 ```
-curl -H "Host: simple-string.default.example.com" http://${CLUSTER_IP}/api/status
+curl -H "Host: tensorrt-simple-string.default.example.com" http://${CLUSTER_IP}/api/status
 ```
-3. edit /etc/hosts to map the CLUSTER IP to simple-string.default.example.com
+3. edit /etc/hosts to map the CLUSTER IP to tensorrt-simple-string.default.example.com
 4. run the client
 ```
 docker run -it --rm --net=host kcorer/tensorrtserver_client:19.05
-./build/simple_string_client -u simple-string.default.example.com
+./build/simple_string_client -u tensorrt-simple-string.default.example.com
 ```
 
 You should see output like:
 ```
-root@trantor:/workspace# ./build/simple_string_client -u simple-string.default.example.com
+root@trantor:/workspace# ./build/simple_string_client -u tensorrt-simple-string.default.example.com
 0 + 1 = 1
 0 - 1 = -1
 1 + 1 = 2
