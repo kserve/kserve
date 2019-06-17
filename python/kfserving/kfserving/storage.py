@@ -69,18 +69,23 @@ class Storage(object):
         bucket_name = bucket_args[0]
         bucket_path = bucket_args[1] if len(bucket_args) > 1 else ""
         bucket = storage_client.bucket(bucket_name)
-        blobs = bucket.list_blobs(prefix=bucket_path)
+        prefix = bucket_path
+        if not prefix.endswith("/"):
+            prefix = prefix + "/"
+        blobs = bucket.list_blobs(prefix=prefix)
         for blob in blobs:
             # Replace any prefix from the object key with temp_dir
             subdir_object_key = blob.name.replace(bucket_path, "", 1).strip("/")
+
             # Create necessary subdirectory to store the object locally
             if "/" in subdir_object_key:
                 local_object_dir = os.path.join(temp_dir, subdir_object_key.rsplit("/", 1)[0])
                 if not os.path.isdir(local_object_dir):
                     os.makedirs(local_object_dir, exist_ok=True)
-            if subdir_object_key.strip() != "":
-                print(subdir_object_key)
-                blob.download_to_filename(os.path.join(temp_dir, subdir_object_key))
+            if subdir_object_key.strip() != "": 
+                dest_path = os.path.join(temp_dir, subdir_object_key)
+                print(dest_path)
+                blob.download_to_filename(dest_path)
 
     @staticmethod
     def _download_local(uri):

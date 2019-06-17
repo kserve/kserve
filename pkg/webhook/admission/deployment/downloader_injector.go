@@ -23,10 +23,11 @@ import (
 )
 
 const (
-	defaultMountName       = "kfserving-download-location"
-	defaultMountPath       = "/mnt"
-	userContainerName      = "user-container"
-	downloadContainerImage = "kcorer/downloader"
+	defaultMountName         = "kfserving-download-location"
+	defaultMountPath         = "/mnt"
+	userContainerName        = "user-container"
+	downloadContainerImage   = "kcorer/kfdownloader"
+	downloadContainerVersion = "latest"
 )
 
 // InjectDownloader injects an init container to download data and mounts to the user container
@@ -61,6 +62,14 @@ func InjectDownloader(deployment *appsv1.Deployment) error {
 		return nil
 	}
 
+	volume := v1.Volume{
+		Name: defaultMountName,
+		VolumeSource: v1.VolumeSource{
+			EmptyDir: &v1.EmptyDirVolumeSource{},
+		},
+	}
+	podSpec.Volumes = append(podSpec.Volumes, volume)
+
 	initMount := buildVolumeMount(mountPath, false)
 	initContianer := buildInitContainer(srcURI, mountPath, initMount)
 	podSpec.Containers = append(podSpec.Containers, initContianer)
@@ -73,7 +82,8 @@ func InjectDownloader(deployment *appsv1.Deployment) error {
 
 func buildInitContainer(srcURI string, mountPath string, volumeMount v1.VolumeMount) v1.Container {
 	initContianer := v1.Container{
-		Image: downloadContainerImage,
+		Name:  "downloader",
+		Image: downloadContainerImage + ":" + downloadContainerVersion,
 		Args: []string{
 			srcURI,
 			mountPath,
