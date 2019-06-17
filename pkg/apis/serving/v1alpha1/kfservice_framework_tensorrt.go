@@ -23,7 +23,6 @@ import (
 var (
 	TensorRTISImageName             = "nvcr.io/nvidia/tensorrtserver"
 	DefaultTensorRTISRuntimeVersion = "19.05-py3"
-	TensorRTISEntrypointCommand     = "trtserver"
 	InvalidModelURIError            = "Model URI must be prefixed by gs:// (only Google Cloud Storage paths are supported)"
 	TensorRTISGRPCPort              = int32(9000)
 	TensorRTISRestPort              = int32(8080)
@@ -40,7 +39,7 @@ func (t *TensorRTSpec) CreateModelServingContainer(modelName string, config *Fra
 		Image:     imageName + ":" + t.RuntimeVersion,
 		Resources: t.Resources,
 		Args: []string{
-			TensorRTISEntrypointCommand,
+			"trtserver",
 			"--model-store=" + t.ModelURI,
 			"--allow-poll-model-repository=false",
 			"--allow-grpc=true",
