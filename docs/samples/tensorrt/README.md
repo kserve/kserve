@@ -23,20 +23,23 @@ kfservice.serving.kubeflow.org/tensorrt-simple-string created
 Uses the client at: https://docs.nvidia.com/deeplearning/sdk/tensorrt-inference-server-guide/docs/client.html#section-client-api
 
 
-1. get the cluster IP
+1. setup vars
 ```
+SERVICE_HOSTNAME=$(kubectl get kfservice flowers-sample -o jsonpath='{.status.url}')
+echo $SERVICE_HOSTNAME
+
 CLUSTER_IP=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 echo $CLUSTER_IP
 ```
 2. check server status
 ```
-curl -H "Host: tensorrt-simple-string.default.example.com" http://${CLUSTER_IP}/api/status
+curl -H "Host: ${SERVICE_HOSTNAME}" http://${CLUSTER_IP}/api/status
 ```
 3. edit /etc/hosts to map the CLUSTER IP to tensorrt-simple-string.default.example.com
 4. run the client
 ```
 docker run -it --rm --net=host kcorer/tensorrtserver_client:19.05
-./build/simple_string_client -u tensorrt-simple-string.default.example.com
+./build/simple_string_client -u $SERVICE_HOSTNAME
 ```
 
 You should see output like:
