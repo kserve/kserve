@@ -1,4 +1,4 @@
-package constants
+package types
 
 const (
 	servingMetaGraphTag    string = "serve"
