@@ -72,7 +72,7 @@ func InjectDownloader(deployment *appsv1.Deployment) error {
 
 	initMount := buildVolumeMount(mountPath, false)
 	initContianer := buildInitContainer(srcURI, mountPath, initMount)
-	podSpec.Containers = append(podSpec.Containers, initContianer)
+	podSpec.InitContainers = append(podSpec.InitContainers, initContianer)
 
 	userMount := buildVolumeMount(mountPath, true)
 	podSpec.Containers[userContainerIndex].VolumeMounts = append(podSpec.Containers[userContainerIndex].VolumeMounts, userMount)
