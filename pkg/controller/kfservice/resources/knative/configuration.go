@@ -57,7 +57,7 @@ func NewConfigurationBuilder(client client.Client, config *v1.ConfigMap) *Config
 	}
 }
 
-func (c *ConfigurationBuilder) CreateKnativeConfiguration(name string, metadata metav1.ObjectMeta, modelSpec *v1alpha1.ModelSpec) (knservingv1alpha1.Configuration, error) {
+func (c *ConfigurationBuilder) CreateKnativeConfiguration(name string, metadata metav1.ObjectMeta, modelSpec *v1alpha1.ModelSpec) (*knservingv1alpha1.Configuration, error) {
 	annotations := make(map[string]string)
 	if modelSpec.MinReplicas != 0 {
 		annotations[autoscaling.MinScaleAnnotationKey] = fmt.Sprint(modelSpec.MinReplicas)
@@ -77,7 +77,7 @@ func (c *ConfigurationBuilder) CreateKnativeConfiguration(name string, metadata 
 
 	kfsvcAnnotations := utils.Filter(metadata.Annotations, configurationAnnotationFilter)
 
-	configuration := knservingv1alpha1.Configuration{
+	configuration := &knservingv1alpha1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: metadata.Namespace,
@@ -109,9 +109,9 @@ func (c *ConfigurationBuilder) CreateKnativeConfiguration(name string, metadata 
 	if err := c.credentialBuilder.CreateSecretVolumeAndEnv(
 		metadata.Namespace,
 		modelSpec.ServiceAccountName,
-		&configuration,
+		configuration,
 	); err != nil {
-		return knservingv1alpha1.Configuration{}, err
+		return nil, err
 	}
 
 	return configuration, nil

@@ -32,7 +32,7 @@ func NewRouteBuilder() *RouteBuilder {
 	return &RouteBuilder{}
 }
 
-func (r *RouteBuilder) CreateKnativeRoute(kfsvc *v1alpha1.KFService) knservingv1alpha1.Route {
+func (r *RouteBuilder) CreateKnativeRoute(kfsvc *v1alpha1.KFService) *knservingv1alpha1.Route {
 	defaultPercent := 100
 	canaryPercent := 0
 	if kfsvc.Spec.Canary != nil {
@@ -60,7 +60,7 @@ func (r *RouteBuilder) CreateKnativeRoute(kfsvc *v1alpha1.KFService) knservingv1
 	if len(filteredAnnotations) > 0 {
 		kfsvcAnnotations = filteredAnnotations
 	}
-	return knservingv1alpha1.Route{
+	return &knservingv1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        kfsvc.Name,
 			Namespace:   kfsvc.Namespace,

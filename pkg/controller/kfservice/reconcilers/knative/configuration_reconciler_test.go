@@ -54,7 +54,7 @@ func TestKnativeConfigurationReconcile(t *testing.T) {
 	configurationReconciler := NewConfigurationReconciler(c, mgr.GetScheme(), &v1.ConfigMap{})
 	scenarios := map[string]struct {
 		kfsvc          v1alpha1.KFService
-		desiredDefault knservingv1alpha1.Configuration
+		desiredDefault *knservingv1alpha1.Configuration
 		desiredCanary  *knservingv1alpha1.Configuration
 	}{
 		"Reconcile creates default and canary configurations": {
@@ -78,7 +78,7 @@ func TestKnativeConfigurationReconcile(t *testing.T) {
 					},
 				},
 			},
-			desiredDefault: knservingv1alpha1.Configuration{
+			desiredDefault: &knservingv1alpha1.Configuration{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "mnist-default",
 					Namespace: "default",
@@ -158,7 +158,7 @@ func TestKnativeConfigurationReconcile(t *testing.T) {
 					},
 				},
 			},
-			desiredDefault: knservingv1alpha1.Configuration{
+			desiredDefault: &knservingv1alpha1.Configuration{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "mnist-default",
 					Namespace: "default",
@@ -205,10 +205,8 @@ func TestKnativeConfigurationReconcile(t *testing.T) {
 			t.Errorf("Test %q failed: returned error: %v", name, err)
 		}
 
-		g.Eventually(func() error { return awaitDesired(c, &scenario.desiredDefault) }, timeout).Should(gomega.Succeed())
-		if scenario.desiredCanary != nil {
-			g.Eventually(func() error { return awaitDesired(c, scenario.desiredCanary) }, timeout).Should(gomega.Succeed())
-		}
+		g.Eventually(func() error { return awaitDesired(c, scenario.desiredDefault) }, timeout).Should(gomega.Succeed())
+		g.Eventually(func() error { return awaitDesired(c, scenario.desiredCanary) }, timeout).Should(gomega.Succeed())
 
 		g.Expect(c.Delete(context.TODO(), &scenario.kfsvc)).NotTo(gomega.HaveOccurred())
 		g.Expect(c.Delete(context.TODO(), &knservingv1alpha1.Configuration{ObjectMeta: scenario.desiredDefault.ObjectMeta})).NotTo(gomega.HaveOccurred())
@@ -219,11 +217,11 @@ func TestKnativeConfigurationReconcile(t *testing.T) {
 }
 
 func awaitDesired(c client.Client, desired *knservingv1alpha1.Configuration) error {
+	if desired == nil {
+		return nil
+	}
 	actual := knservingv1alpha1.Configuration{}
-	if err := c.Get(context.TODO(), types.NamespacedName{
-		Name:      desired.Name,
-		Namespace: desired.Namespace,
-	}, &actual); err != nil {
+	if err := c.Get(context.TODO(), types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, &actual); err != nil {
 		return err
 	}
 	if diff := cmp.Diff(desired.Spec, actual.Spec); diff != "" {

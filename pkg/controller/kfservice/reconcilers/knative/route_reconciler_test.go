@@ -2,6 +2,7 @@ package knative
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -13,6 +14,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
@@ -32,7 +34,7 @@ func TestKnativeRouteReconcile(t *testing.T) {
 	routeReconciler := NewRouteReconciler(c, mgr.GetScheme())
 	scenarios := map[string]struct {
 		kfsvc        v1alpha1.KFService
-		desiredRoute knservingv1alpha1.Route
+		desiredRoute *knservingv1alpha1.Route
 	}{
 		"Reconcile new model serving": {
 			kfsvc: v1alpha1.KFService{
@@ -49,7 +51,7 @@ func TestKnativeRouteReconcile(t *testing.T) {
 					},
 				},
 			},
-			desiredRoute: knservingv1alpha1.Route{
+			desiredRoute: &knservingv1alpha1.Route{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "mnist",
 					Namespace: "default",
@@ -78,27 +80,27 @@ func TestKnativeRouteReconcile(t *testing.T) {
 		}
 
 		// Assert default
-		actualRoute := knservingv1alpha1.Route{}
-		g.Eventually(func() error {
-			return c.Get(context.TODO(), types.NamespacedName{
-				Name:      scenario.kfsvc.Name,
-				Namespace: scenario.kfsvc.Namespace,
-			}, &actualRoute)
-		}, timeout).Should(gomega.Succeed())
 
-		if err != nil {
-			t.Errorf("Test %q failed: returned error: %v", name, err)
-		}
-		if diff := cmp.Diff(scenario.desiredRoute.Spec, actualRoute.Spec); diff != "" {
-			t.Errorf("Test %q unexpected route spec (-want +got): %v", name, diff)
-		}
-		if diff := cmp.Diff(scenario.desiredRoute.ObjectMeta.Labels, actualRoute.ObjectMeta.Labels); diff != "" {
-			t.Errorf("Test %q unexpected route labels (-want +got): %v", name, diff)
-		}
-		if diff := cmp.Diff(scenario.desiredRoute.ObjectMeta.Annotations, actualRoute.ObjectMeta.Annotations); diff != "" {
-			t.Errorf("Test %q unexpected route annotations (-want +got): %v", name, diff)
-		}
+		g.Eventually(func() error { return awaitDesiredRoute(c, scenario.desiredRoute) }, timeout).Should(gomega.Succeed())
+
 		g.Expect(c.Delete(context.TODO(), &scenario.kfsvc)).NotTo(gomega.HaveOccurred())
 		g.Expect(c.Delete(context.TODO(), &knservingv1alpha1.Route{ObjectMeta: scenario.desiredRoute.ObjectMeta})).NotTo(gomega.HaveOccurred())
 	}
+}
+
+func awaitDesiredRoute(c client.Client, desired *knservingv1alpha1.Route) error {
+	actual := knservingv1alpha1.Route{}
+	if err := c.Get(context.TODO(), types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, &actual); err != nil {
+		return err
+	}
+	if diff := cmp.Diff(desired.Spec, actual.Spec); diff != "" {
+		return fmt.Errorf("Unexpected route spec (-want +got): %v", diff)
+	}
+	if diff := cmp.Diff(desired.ObjectMeta.Labels, actual.ObjectMeta.Labels); diff != "" {
+		return fmt.Errorf("Unexpected route labels (-want +got): %v", diff)
+	}
+	if diff := cmp.Diff(desired.ObjectMeta.Annotations, actual.ObjectMeta.Annotations); diff != "" {
+		return fmt.Errorf("Unexpected route annotations (-want +got): %v", diff)
+	}
+	return nil
 }

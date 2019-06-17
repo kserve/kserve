@@ -29,7 +29,7 @@ import (
 func TestKnativeRoute(t *testing.T) {
 	scenarios := map[string]struct {
 		kfService     v1alpha1.KFService
-		expectedRoute knservingv1alpha1.Route
+		expectedRoute *knservingv1alpha1.Route
 		shouldFail    bool
 	}{
 		"RunLatestModel": {
@@ -47,7 +47,7 @@ func TestKnativeRoute(t *testing.T) {
 					},
 				},
 			},
-			expectedRoute: knservingv1alpha1.Route{
+			expectedRoute: &knservingv1alpha1.Route{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "mnist",
 					Namespace: "default",
@@ -91,7 +91,7 @@ func TestKnativeRoute(t *testing.T) {
 					},
 				},
 			},
-			expectedRoute: knservingv1alpha1.Route{
+			expectedRoute: &knservingv1alpha1.Route{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "mnist",
 					Namespace: "default",

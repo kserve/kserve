@@ -72,20 +72,12 @@ func (r *ConfigurationReconciler) reconcileDefault(kfsvc *v1alpha1.KFService) er
 		return err
 	}
 
-	if err := controllerutil.SetControllerReference(kfsvc, &defaultConfiguration, r.scheme); err != nil {
-		return err
-	}
-
-	status, err := r.reconcileConfiguration(kfsvc, &defaultConfiguration)
+	status, err := r.reconcileConfiguration(kfsvc, defaultConfiguration)
 	if err != nil {
 		return err
 	}
 
-	kfsvc.Status.PropagateDefaultConfigurationStatus(&status)
-
-	if kfsvc.Spec.Canary == nil {
-		return nil
-	}
+	kfsvc.Status.PropagateDefaultConfigurationStatus(status)
 	return nil
 }
 
@@ -103,40 +95,39 @@ func (r *ConfigurationReconciler) reconcileCanary(kfsvc *v1alpha1.KFService) err
 		return err
 	}
 
-	if err := controllerutil.SetControllerReference(kfsvc, &canaryConfiguration, r.scheme); err != nil {
-		return err
-	}
-
-	status, err := r.reconcileConfiguration(kfsvc, &canaryConfiguration)
+	status, err := r.reconcileConfiguration(kfsvc, canaryConfiguration)
 	if err != nil {
 		return err
 	}
 
-	kfsvc.Status.PropagateCanaryConfigurationStatus(&status)
+	kfsvc.Status.PropagateCanaryConfigurationStatus(status)
 	return nil
 }
 
-func (r *ConfigurationReconciler) reconcileConfiguration(kfsvc *v1alpha1.KFService, desired *knservingv1alpha1.Configuration) (knservingv1alpha1.ConfigurationStatus, error) {
+func (r *ConfigurationReconciler) reconcileConfiguration(kfsvc *v1alpha1.KFService, desired *knservingv1alpha1.Configuration) (*knservingv1alpha1.ConfigurationStatus, error) {
+	if err := controllerutil.SetControllerReference(kfsvc, desired, r.scheme); err != nil {
+		return nil, err
+	}
 	// Create configuration if does not exist
 	existing := &knservingv1alpha1.Configuration{}
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, existing)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			log.Info("Creating Knative Serving configuration", "namespace", desired.Namespace, "name", desired.Name)
-			return desired.Status, r.client.Create(context.TODO(), desired)
+			return &desired.Status, r.client.Create(context.TODO(), desired)
 		}
-		return desired.Status, err
+		return nil, err
 	}
 
 	// Return if no differences to reconcile.
 	if semanticEquals(desired, existing) {
-		return existing.Status, nil
+		return &existing.Status, nil
 	}
 
 	// Reconcile differences and update
 	diff, err := kmp.SafeDiff(desired.Spec, existing.Spec)
 	if err != nil {
-		return existing.Status, fmt.Errorf("failed to diff configuration: %v", err)
+		return &existing.Status, fmt.Errorf("failed to diff configuration: %v", err)
 	}
 	log.Info("Reconciling configuration diff (-desired, +observed):", "diff", diff)
 	log.Info("Updating configuration", "namespace", desired.Namespace, "name", desired.Name)
@@ -144,10 +135,10 @@ func (r *ConfigurationReconciler) reconcileConfiguration(kfsvc *v1alpha1.KFServi
 	existing.ObjectMeta.Labels = desired.ObjectMeta.Labels
 	existing.ObjectMeta.Annotations = desired.ObjectMeta.Annotations
 	if err := r.client.Update(context.TODO(), existing); err != nil {
-		return existing.Status, err
+		return &existing.Status, err
 	}
 
-	return existing.Status, nil
+	return &existing.Status, nil
 }
 
 func semanticEquals(desiredConfiguration, configuration *knservingv1alpha1.Configuration) bool {
