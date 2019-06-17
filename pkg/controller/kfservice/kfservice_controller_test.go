@@ -164,10 +164,12 @@ func TestReconcile(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{"serving.kubeflow.org/kfservice": "foo"},
 					Annotations: map[string]string{
-						"autoscaling.knative.dev/target":   "1",
-						"autoscaling.knative.dev/class":    "kpa.autoscaling.knative.dev",
-						"autoscaling.knative.dev/maxScale": "3",
-						"autoscaling.knative.dev/minScale": "1",
+						"autoscaling.knative.dev/target":                    "1",
+						"autoscaling.knative.dev/class":                     "kpa.autoscaling.knative.dev",
+						"autoscaling.knative.dev/maxScale":                  "3",
+						"autoscaling.knative.dev/minScale":                  "1",
+						constants.KFServiceModelSourceURIAnnotationKey:      instance.Spec.Default.Tensorflow.ModelURI,
+						constants.KFServiceModelLocalMountPathAnnotationKey: constants.DefaultModelLocalMountPath,
 					},
 				},
 				Spec: knservingv1alpha1.RevisionSpec{
@@ -182,7 +184,7 @@ func TestReconcile(t *testing.T) {
 							"--port=" + servingv1alpha1.TensorflowServingGRPCPort,
 							"--rest_api_port=" + servingv1alpha1.TensorflowServingRestPort,
 							"--model_name=" + instance.Name,
-							"--model_base_path=" + instance.Spec.Default.Tensorflow.ModelURI,
+							"--model_base_path=" + constants.DefaultModelLocalMountPath,
 						},
 					},
 				},
@@ -272,10 +274,12 @@ func TestCanaryReconcile(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{"serving.kubeflow.org/kfservice": "bar"},
 					Annotations: map[string]string{
-						"autoscaling.knative.dev/target":   "1",
-						"autoscaling.knative.dev/class":    "kpa.autoscaling.knative.dev",
-						"autoscaling.knative.dev/maxScale": "3",
-						"autoscaling.knative.dev/minScale": "1",
+						"autoscaling.knative.dev/target":                    "1",
+						"autoscaling.knative.dev/class":                     "kpa.autoscaling.knative.dev",
+						"autoscaling.knative.dev/maxScale":                  "3",
+						"autoscaling.knative.dev/minScale":                  "1",
+						constants.KFServiceModelSourceURIAnnotationKey:      canary.Spec.Canary.Tensorflow.ModelURI,
+						constants.KFServiceModelLocalMountPathAnnotationKey: constants.DefaultModelLocalMountPath,
 					},
 				},
 				Spec: knservingv1alpha1.RevisionSpec{
@@ -290,7 +294,7 @@ func TestCanaryReconcile(t *testing.T) {
 							"--port=" + servingv1alpha1.TensorflowServingGRPCPort,
 							"--rest_api_port=" + servingv1alpha1.TensorflowServingRestPort,
 							"--model_name=" + canary.Name,
-							"--model_base_path=" + canary.Spec.Canary.Tensorflow.ModelURI,
+							"--model_base_path=" + constants.DefaultModelLocalMountPath,
 						},
 					},
 				},
