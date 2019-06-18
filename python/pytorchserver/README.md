@@ -18,7 +18,6 @@ Requirement already satisfied: argparse>=1.4.0 in /Library/Frameworks/Python.fra
 Requirement already satisfied: numpy>=1.8.2 in /Library/Frameworks/Python.framework/Versions/3.7/lib/python3.7/site-packages (from pytorchserver==0.1.0) (1.16.3)
 Collecting torchvision>=0.2.2 (from pytorchserver==0.1.0)
   Downloading https://files.pythonhosted.org/packages/af/7c/247d46a1f76dee688636d4d5394e440bb32c4e251ea8afe4442c91296830/torchvision-0.3.0-cp37-cp37m-macosx_10_7_x86_64.whl (231kB)
-     |████████████████████████████████| 235kB 1.7MB/s
 Requirement already satisfied: tornado>=1.4.1 in /Library/Frameworks/Python.framework/Versions/3.7/lib/python3.7/site-packages (from kfserver==0.1.0->pytorchserver==0.1.0) (6.0.2)
 Requirement already satisfied: six in /Library/Frameworks/Python.framework/Versions/3.7/lib/python3.7/site-packages (from torchvision>=0.2.2->pytorchserver==0.1.0) (1.12.0)
 Requirement already satisfied: pillow>=4.1.1 in /Library/Frameworks/Python.framework/Versions/3.7/lib/python3.7/site-packages (from torchvision>=0.2.2->pytorchserver==0.1.0) (6.0.0)
@@ -93,7 +92,14 @@ make test
 The following shows the type of output you should see:
 
 ```
+pytest -W ignore
+=========================================================== test session starts ============================================================
+platform darwin -- Python 3.7.3, pytest-4.5.0, py-1.8.0, pluggy-0.11.0
+rootdir: /Users/animeshsingh/go/src/github.com/kubeflow/kfserving/python/pytorchserver
+plugins: tornasync-0.6.0.post1
+collected 1 item                                                                                                                           
 
+pytorchserver/test_model.py .                        
 ```
 
 To run static type checks:
@@ -101,6 +107,7 @@ To run static type checks:
 ```bash
 mypy --ignore-missing-imports pytorchserver
 ```
+
 An empty result will indicate success.
 
 ## Building your own PyTorch server Docker Image
@@ -113,10 +120,23 @@ To build your own image, run
 docker build -t animeshsingh/pytorchserver -f pytorch.Dockerfile .
 ```
 
-You should see an output similar to this
+You should see an output with an ending similar to this
 
 ```bash
-
+Installing collected packages: torch, pillow, torchvision, pytorchserver
+  Found existing installation: torch 1.0.1.post2
+    Uninstalling torch-1.0.1.post2:
+      Successfully uninstalled torch-1.0.1.post2
+  Running setup.py develop for pytorchserver
+Successfully installed pillow-6.0.0 pytorchserver torch-1.1.0 torchvision-0.3.0
+Removing intermediate container 2412cd3e0885
+ ---> caed4145f72c
+Step 5/5 : ENTRYPOINT ["python", "-m", "pytorchserver"]
+ ---> Running in 86f392765ac1
+Removing intermediate container 86f392765ac1
+ ---> 7d0c2a187937
+Successfully built 7d0c2a187937
+Successfully tagged animeshsingh/pytorchserver:latest
 ```
 
 To push your image to your dockerhub repo,
