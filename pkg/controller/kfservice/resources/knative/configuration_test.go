@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package resources
+package knative
 
 import (
 	"testing"
@@ -29,7 +29,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var kfsvc = &v1alpha1.KFService{
+var kfsvc = v1alpha1.KFService{
 	ObjectMeta: metav1.ObjectMeta{
 		Name:      "mnist",
 		Namespace: "default",
@@ -64,7 +64,7 @@ var configMapData = map[string]string{
     }`,
 }
 
-var defaultConfiguration = knservingv1alpha1.Configuration{
+var defaultConfiguration = &knservingv1alpha1.Configuration{
 	ObjectMeta: metav1.ObjectMeta{
 		Name:      constants.DefaultConfigurationName("mnist"),
 		Namespace: "default",
@@ -103,7 +103,7 @@ var defaultConfiguration = knservingv1alpha1.Configuration{
 	},
 }
 
-var canaryConfiguration = knservingv1alpha1.Configuration{
+var canaryConfiguration = &knservingv1alpha1.Configuration{
 	ObjectMeta: metav1.ObjectMeta{
 		Name:      constants.CanaryConfigurationName("mnist"),
 		Namespace: "default",
@@ -141,17 +141,18 @@ var canaryConfiguration = knservingv1alpha1.Configuration{
 
 func TestKnativeConfiguration(t *testing.T) {
 	scenarios := map[string]struct {
-		configMapData                   map[string]string
-		kfService                       *v1alpha1.KFService
-		expectedDefault, expectedCanary *knservingv1alpha1.Configuration
+		configMapData   map[string]string
+		kfService       v1alpha1.KFService
+		expectedDefault *knservingv1alpha1.Configuration
+		expectedCanary  *knservingv1alpha1.Configuration
 	}{
 		"RunLatestModel": {
 			kfService:       kfsvc,
-			expectedDefault: &defaultConfiguration,
+			expectedDefault: defaultConfiguration,
 			expectedCanary:  nil,
 		},
 		"RunCanaryModel": {
-			kfService: &v1alpha1.KFService{
+			kfService: v1alpha1.KFService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "mnist",
 					Namespace: "default",
@@ -185,11 +186,11 @@ func TestKnativeConfiguration(t *testing.T) {
 					},
 				},
 			},
-			expectedDefault: &defaultConfiguration,
-			expectedCanary:  &canaryConfiguration,
+			expectedDefault: defaultConfiguration,
+			expectedCanary:  canaryConfiguration,
 		},
 		"RunSklearnModel": {
-			kfService: &v1alpha1.KFService{
+			kfService: v1alpha1.KFService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "sklearn",
 					Namespace: "default",
@@ -234,7 +235,7 @@ func TestKnativeConfiguration(t *testing.T) {
 			},
 		},
 		"RunXgboostModel": {
-			kfService: &v1alpha1.KFService{
+			kfService: v1alpha1.KFService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "xgboost",
 					Namespace: "default",
@@ -280,7 +281,7 @@ func TestKnativeConfiguration(t *testing.T) {
 		},
 		"TestConfigOverride": {
 			configMapData: configMapData,
-			kfService: &v1alpha1.KFService{
+			kfService: v1alpha1.KFService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "xgboost",
 					Namespace: "default",
@@ -327,20 +328,31 @@ func TestKnativeConfiguration(t *testing.T) {
 	}
 
 	for name, scenario := range scenarios {
-		configurationBuilder := NewConfigurationBuilder(&v1.ConfigMap{
+		configurationBuilder := NewConfigurationBuilder(c, &v1.ConfigMap{
 			Data: scenario.configMapData,
 		})
-		defaultConfiguration := configurationBuilder.CreateKnativeConfiguration(constants.DefaultConfigurationName(scenario.kfService.Name),
-			scenario.kfService.ObjectMeta, &scenario.kfService.Spec.Default)
+		defaultConfiguration, err := configurationBuilder.CreateKnativeConfiguration(
+			constants.DefaultConfigurationName(scenario.kfService.Name),
+			scenario.kfService.ObjectMeta,
+			&scenario.kfService.Spec.Default,
+		)
+		if err != nil {
+			t.Errorf("Test %q unexpected error %s", name, err.Error())
+		}
 
 		if diff := cmp.Diff(scenario.expectedDefault, defaultConfiguration); diff != "" {
 			t.Errorf("Test %q unexpected default configuration (-want +got): %v", name, diff)
 		}
 
 		if scenario.kfService.Spec.Canary != nil {
-			canaryConfiguration := configurationBuilder.CreateKnativeConfiguration(constants.CanaryConfigurationName(kfsvc.Name),
-				scenario.kfService.ObjectMeta, scenario.kfService.Spec.Canary)
-
+			canaryConfiguration, err := configurationBuilder.CreateKnativeConfiguration(
+				constants.CanaryConfigurationName(kfsvc.Name),
+				scenario.kfService.ObjectMeta,
+				scenario.kfService.Spec.Canary,
+			)
+			if err != nil {
+				t.Errorf("Test %q unexpected error %s", name, err.Error())
+			}
 			if diff := cmp.Diff(scenario.expectedCanary, canaryConfiguration); diff != "" {
 				t.Errorf("Test %q unexpected canary configuration (-want +got): %v", name, diff)
 			}
