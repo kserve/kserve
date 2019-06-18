@@ -25,7 +25,3 @@ func extractMetaGraphs(metaGraphs []*pb.MetaGraphDef) []TFMetaGraph {
 func (t *TFSavedModel) Schema() *openapi3.Schema {
 	return &openapi3.Schema{}
 }
-
-func ToOpenAPI(schema *openapi3.Schema) string {
-	return ""
-}

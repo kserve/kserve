@@ -1,7 +1,7 @@
 package types
 
 const (
-	servingMetaGraphTag    string = "serve"
-	b64KeySuffix           string = "_bytes"
-	predictReqSigDefMethod string = "tensorflow/serving/predict"
+	ServingMetaGraphTag    string = "serve"
+	B64KeySuffix           string = "_bytes"
+	PredictReqSigDefMethod string = "tensorflow/serving/predict"
 )
