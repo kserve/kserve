@@ -13,4 +13,3 @@ The outcome of this project is a TensorFlow-to-OpenAPI transformer which takes S
 
 ## Caveats
 * There is a dependency on protobufs defined by TensorFlow, e.g. [tensorflow/core/protobuf](https://github.com/tensorflow/tensorflow/tree/master/tensorflow/core/protobuf). Specific protos must be compiled into Go using [protoc](https://github.com/golang/protobuf/tree/master/protoc-gen-go) in the order: tensorflow/core/lib/core/\*.proto, tensorflow/core/framework/\*.proto, tensorflow/core/protobuf/meta_graph.proto, tensorflow/core/protobuf/saved_model.proto, tensorflow/core/protobuf/saver.proto  
-

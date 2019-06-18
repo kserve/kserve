@@ -5,10 +5,12 @@ TFTensor represents a logical tensor. It contains the information from TensorInf
 [tensorflow/core/protobuf/meta_graph.proto] but is named after the user-facing input/output (hence being a logical
 tensor and not an actual tensor).
  */
+
 import (
 	fw "github.com/tensorflow/tensorflow/tensorflow/go/core/framework"
 	"github.com/getkin/kin-openapi/openapi3"
 	pb "github.com/tensorflow/tensorflow/tensorflow/go/core/protobuf"
+	"strings"
 )
 
 const B64KeySuffix string = "_bytes"
@@ -34,30 +36,78 @@ type TFDType int
 const (
 	// all the possible constants that can be JSON-ified according to
 	// https://www.tensorflow.org/tfx/serving/api_rest#json_mapping
-	DT_BOOL TFDType = iota
-	DT_B64_STRING
-	DT_STRING
-	DT_INT8
-	DT_UINT8
-	DT_INT16
-	DT_INT32
-	DT_UINT32
-	DT_INT64
-	DT_UINT64
-	DT_FLOAT
-	DT_DOUBLE
+	// along with a representation for B64 strings
+	DtBool TFDType = iota
+	DtB64String
+	DtString
+	DtInt8
+	DtUInt8
+	DtInt16
+	DtInt32
+	DtUInt32
+	DtInt64
+	DtUint64
+	DtFloat
+	DtDouble
 )
 
-func NewTFTensor(key string, tensorInfo pb.TensorInfo) TFTensor {
-	return TFTensor{}
+func NewTFTensor(key string, tensor pb.TensorInfo) TFTensor {
+	if tensor.TensorShape.UnknownRank {
+		return TFTensor{
+			Key:   key,
+			DType: NewTFDType(tensor.Dtype.String(), key),
+			Rank:  -1,
+		}
+	} else {
+		tfShape := NewTFShape(tensor.TensorShape.Dim)
+		return TFTensor{
+			Key:   key,
+			DType: NewTFDType(tensor.Dtype.String(), key),
+			Shape: tfShape,
+			Rank:  int64(len(tfShape)),
+		}
+	}
 }
 
 func NewTFShape(dimensions []*fw.TensorShapeProto_Dim) TFShape {
-	return TFShape{}
+	tfShape := TFShape{}
+	for _, d := range dimensions {
+		tfShape = append(tfShape, d.Size)
+	}
+	return tfShape
 }
 
 func NewTFDType(dType string, name string) TFDType {
-	return TFDType(0)
+	switch dType {
+	case "DT_BOOL":
+		return DtBool
+	case "DT_STRING":
+		if strings.HasSuffix(name, B64KeySuffix) {
+			return DtB64String
+		} else {
+			return DtString
+		}
+	case "DT_INT8":
+		return DtInt8
+	case "DT_UINT8":
+		return DtUInt8
+	case "DT_INT16":
+		return DtInt16
+	case "DT_INT32":
+		return DtInt32
+	case "DT_UINT32":
+		return DtUInt32
+	case "DT_INT64":
+		return DtInt64
+	case "DT_UINT64":
+		return DtUint64
+	case "DT_FLOAT":
+		return DtFloat
+	case "DT_DOUBLE":
+		return DtDouble
+	default:
+		panic("Unsupported data type for generating payloads")
+	}
 }
 
 func (t *TFTensor) Schema() *openapi3.Schema {
