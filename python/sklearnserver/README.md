@@ -105,7 +105,7 @@ mypy --ignore-missing-imports sklearnserver
 ```
 An empty result will indicate success.
 
-## Building your own Scikit-Learn erver Docker Image
+## Building your own Scikit-Learn Server Docker Image
 
 You can build and publish your own image for development needs. Please ensure that you modify the kfservice files for XGBoost in the api directory to point to your own image.
 
