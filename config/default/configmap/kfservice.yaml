@@ -14,7 +14,7 @@ data:
         },
         "xgboost" : {
             "image" : "gcr.io/kfserving/xgbserver"
-        }
+        },
         "tensorrt" : {
             "image": "nvcr.io/nvidia/tensorrtserver"
         }
