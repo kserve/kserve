@@ -17,11 +17,19 @@ type TFSignatureDef struct {
 }
 
 func NewTFSignatureDef(key string, inputs map[string]*pb.TensorInfo, outputs map[string]*pb.TensorInfo) TFSignatureDef {
-	return TFSignatureDef{}
+	return TFSignatureDef{
+		Name:    key,
+		Inputs:  extractTensors(inputs),
+		Outputs: extractTensors(outputs),
+	}
 }
 
 func extractTensors(tensors map[string]*pb.TensorInfo) []TFTensor {
-	return []TFTensor{}
+	tfTensors := []TFTensor{}
+	for key, tensor := range tensors {
+		tfTensors = append(tfTensors, NewTFTensor(key, *tensor))
+	}
+	return tfTensors
 }
 
 func (t *TFSignatureDef) Schema() *openapi3.Schema {
