@@ -12,4 +12,5 @@ This project is motivated by the following uses of an OpenAPI specification:
 The outcome of this project is a TensorFlow-to-OpenAPI transformer which takes SavedModel protobuf binary files and generates an OpenAPI specification for prediction requests.
 
 ## Caveats
-* There is a dependency on protobufs defined by TensorFlow, e.g. [tensorflow/core/protobuf](https://github.com/tensorflow/tensorflow/tree/master/tensorflow/core/protobuf). When compiling proto source files from the TensorFlow repository, ensure that the field `option go_package` is defined; otherwise, there will be missing Go files, causing problems with Go imports.
+* There is a dependency on protobufs defined by TensorFlow, e.g. [tensorflow/core/protobuf](https://github.com/tensorflow/tensorflow/tree/master/tensorflow/core/protobuf). Specific protos must be compiled into Go using [protoc](https://github.com/golang/protobuf/tree/master/protoc-gen-go) in the order: tensorflow/core/lib/core/\*.proto, tensorflow/core/framework/\*.proto, tensorflow/core/protobuf/meta_graph.proto, tensorflow/core/protobuf/saved_model.proto, tensorflow/core/protobuf/saver.proto  
+
