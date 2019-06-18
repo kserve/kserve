@@ -17,13 +17,18 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/kubeflow/kfserving/pkg/utils"
 	v1 "k8s.io/api/core/v1"
 )
 
 var (
 	DefaultTensorRTISImageName = "nvcr.io/nvidia/tensorrtserver"
 	// For versioning see https://github.com/NVIDIA/tensorrt-inference-server/releases
-	DefaultTensorRTISRuntimeVersion = "19.05-py3"
+	DefaultTensorRTISRuntimeVersion  = "19.05-py3"
+	AllowedTensorRTISRuntimeVersions = []string{
+		"19.05-py3",
+	}
+	InvalidTensorRTISRuntimeVersionError = "RuntimeVersion must be one of " + strings.Join(AllowedTensorRTISRuntimeVersions, ", ")
 	// InvalidModelURIError issue fix is tracked by https://github.com/kubeflow/kfserving/issues/148
 	InvalidModelURIError = "Model URI must be prefixed by gs:// (only Google Cloud Storage paths are supported for now."
 	TensorRTISGRPCPort   = int32(9000)
@@ -65,6 +70,10 @@ func (t *TensorRTSpec) ApplyDefaults() {
 }
 
 func (t *TensorRTSpec) Validate() error {
+	if !utils.Includes(AllowedTensorRTISRuntimeVersions, t.RuntimeVersion) {
+		return fmt.Errorf(InvalidTensorRTISRuntimeVersionError)
+	}
+
 	// TODO: support other sources (https://github.com/kubeflow/kfserving/issues/137)
 	if !strings.HasPrefix(t.ModelURI, "gs://") {
 		return fmt.Errorf(InvalidModelURIError)
