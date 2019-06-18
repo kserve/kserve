@@ -8,6 +8,7 @@ It is the internal model representation for the SavedModel defined in the Tensor
 import (
 	"github.com/getkin/kin-openapi/openapi3"
 	pb "github.com/kubeflow/kfserving/tools/tf2openapi/generated/protobuf"
+	"github.com/kubeflow/kfserving/pkg/utils"
 )
 
 const ServingMetaGraphTag string = "serve"
@@ -17,11 +18,23 @@ type TFSavedModel struct {
 }
 
 func NewTFSavedModel(model pb.SavedModel) TFSavedModel {
-	return TFSavedModel{}
+	if tfMetaGraphs := extractMetaGraphs(model.MetaGraphs); len(tfMetaGraphs) == 0 {
+		panic("No graph to serve from SavedModel.")
+	} else {
+		return TFSavedModel{
+			MetaGraphs: tfMetaGraphs,
+		}
+	}
 }
 
 func extractMetaGraphs(metaGraphs []*pb.MetaGraphDef) []TFMetaGraph {
-	return []TFMetaGraph{}
+	tfMetaGraphs := []TFMetaGraph{}
+	for _, metaGraph := range metaGraphs {
+		if utils.Includes(metaGraph.MetaInfoDef.Tags, ServingMetaGraphTag) {
+			tfMetaGraphs = append(tfMetaGraphs, NewTFMetaGraph(*metaGraph))
+		}
+	}
+	return tfMetaGraphs
 }
 
 func (t *TFSavedModel) Schema() *openapi3.Schema {
