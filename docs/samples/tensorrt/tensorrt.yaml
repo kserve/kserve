@@ -5,4 +5,4 @@ metadata:
 spec:
   default:
     tensorrt:
-      modelUri: "gs://kfserving-samples/models/tensorrt/simple-string"
+      modelUri: "gs://kfserving-samples/models/tensorrt"
