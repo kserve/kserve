@@ -3,13 +3,14 @@ package main
 import (
 	"flag"
 	"github.com/golang/protobuf/proto"
-	"github.com/kfserving/tools/tf2openapi/generator"
-	pb "github.com/tensorflow/tensorflow/tensorflow/go/core/protobuf"
+	"github.com/kubeflow/kfserving/tools/tf2openapi/generator"
+	pb "github.com/kubeflow/kfserving/tools/tf2openapi/generated/protobuf"
 	"io/ioutil"
 	"log"
 )
 
-var model = flag.String("model", "", "Absolute path of SavedModel file")
+var (
+	model = flag.String("model", "", "Absolute path of SavedModel file")
 
 func main() {
 	flag.Parse()
