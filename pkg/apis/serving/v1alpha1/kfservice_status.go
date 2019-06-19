@@ -21,74 +21,71 @@ import (
 
 // ConditionType represents a Service condition value
 const (
-	// KFServiceConditionRoutesReady is set when the service's underlying
-	// routes have reported readiness.
-	KFServiceConditionRoutesReady apis.ConditionType = "RoutesReady"
-	// KFServiceConditionDefaultConfigurationsReady is set when the service's underlying
-	// default configuration have reported readiness.
-	KFServiceConditionDefaultConfigurationsReady apis.ConditionType = "DefaultConfigurationReady"
-	// ServiceConditionCanaryConfigurationsReady is set when the service's underlying
-	// canary configuration have reported readiness.
-	KFServiceConditionCanaryConfigurationsReady apis.ConditionType = "CanaryConfigurationReady"
+	// RoutesReady is set when network configuration has completed.
+	RoutesReady apis.ConditionType = "RoutesReady"
+	// DefaultPredictorReady is set when default predictor has reported readiness.
+	DefaultPredictorReady apis.ConditionType = "DefaultPredictorReady"
+	// CanaryPredictorReady is set when canary predictor has reported readiness.
+	CanaryPredictorReady apis.ConditionType = "CanaryPredictorReady"
 )
 
-// KFService Ready condition is depending on default configuration and route readiness condition
-// canary configuration readiness condition only present when canary is used and currently does
+// KFService Ready condition is depending on default predictor and route readiness condition
+// canary readiness condition only present when canary is used and currently does
 // not affect KFService readiness condition.
-var serviceCondSet = apis.NewLivingConditionSet(
-	KFServiceConditionDefaultConfigurationsReady,
-	KFServiceConditionRoutesReady,
+var conditionSet = apis.NewLivingConditionSet(
+	DefaultPredictorReady,
+	RoutesReady,
 )
 
 var _ apis.ConditionsAccessor = (*KFServiceStatus)(nil)
 
 func (ss *KFServiceStatus) InitializeConditions() {
-	serviceCondSet.Manage(ss).InitializeConditions()
+	conditionSet.Manage(ss).InitializeConditions()
 }
 
 // IsReady returns if the service is ready to serve the requested configuration.
 func (ss *KFServiceStatus) IsReady() bool {
-	return serviceCondSet.Manage(ss).IsHappy()
+	return conditionSet.Manage(ss).IsHappy()
 }
 
 // GetCondition returns the condition by name.
 func (ss *KFServiceStatus) GetCondition(t apis.ConditionType) *apis.Condition {
-	return serviceCondSet.Manage(ss).GetCondition(t)
+	return conditionSet.Manage(ss).GetCondition(t)
 }
 
 // PropagateDefaultConfigurationStatus propagates the default Configuration status and applies its values
 // to the Service status.
-func (ss *KFServiceStatus) PropagateDefaultConfigurationStatus(dcs *knservingv1alpha1.ConfigurationStatus) {
-	ss.Default.Name = dcs.LatestCreatedRevisionName
-	cc := dcs.GetCondition(knservingv1alpha1.ConfigurationConditionReady)
-	if cc == nil {
+func (ss *KFServiceStatus) PropagateDefaultConfigurationStatus(defaultConfigurationStatus *knservingv1alpha1.ConfigurationStatus) {
+	ss.Default.Name = defaultConfigurationStatus.LatestCreatedRevisionName
+	configurationCondition := defaultConfigurationStatus.GetCondition(knservingv1alpha1.ConfigurationConditionReady)
+	if configurationCondition == nil {
 		return
 	}
 	switch {
-	case cc.Status == v1.ConditionUnknown:
-		serviceCondSet.Manage(ss).MarkUnknown(KFServiceConditionDefaultConfigurationsReady, cc.Reason, cc.Message)
-	case cc.Status == v1.ConditionTrue:
-		serviceCondSet.Manage(ss).MarkTrue(KFServiceConditionDefaultConfigurationsReady)
-	case cc.Status == v1.ConditionFalse:
-		serviceCondSet.Manage(ss).MarkFalse(KFServiceConditionDefaultConfigurationsReady, cc.Reason, cc.Message)
+	case configurationCondition.Status == v1.ConditionUnknown:
+		conditionSet.Manage(ss).MarkUnknown(DefaultPredictorReady, configurationCondition.Reason, configurationCondition.Message)
+	case configurationCondition.Status == v1.ConditionTrue:
+		conditionSet.Manage(ss).MarkTrue(DefaultPredictorReady)
+	case configurationCondition.Status == v1.ConditionFalse:
+		conditionSet.Manage(ss).MarkFalse(DefaultPredictorReady, configurationCondition.Reason, configurationCondition.Message)
 	}
 }
 
 // PropagateCanaryConfigurationStatus propagates the canary Configuration status and applies its values
 // to the Service status.
-func (ss *KFServiceStatus) PropagateCanaryConfigurationStatus(ccs *knservingv1alpha1.ConfigurationStatus) {
-	ss.Canary.Name = ccs.LatestCreatedRevisionName
-	cc := ccs.GetCondition(knservingv1alpha1.ConfigurationConditionReady)
-	if cc == nil {
+func (ss *KFServiceStatus) PropagateCanaryConfigurationStatus(canaryConfigurationStatus *knservingv1alpha1.ConfigurationStatus) {
+	ss.Canary.Name = canaryConfigurationStatus.LatestCreatedRevisionName
+	configurationCondition := canaryConfigurationStatus.GetCondition(knservingv1alpha1.ConfigurationConditionReady)
+	if configurationCondition == nil {
 		return
 	}
 	switch {
-	case cc.Status == v1.ConditionUnknown:
-		serviceCondSet.Manage(ss).MarkUnknown(KFServiceConditionCanaryConfigurationsReady, cc.Reason, cc.Message)
-	case cc.Status == v1.ConditionTrue:
-		serviceCondSet.Manage(ss).MarkTrue(KFServiceConditionCanaryConfigurationsReady)
-	case cc.Status == v1.ConditionFalse:
-		serviceCondSet.Manage(ss).MarkFalse(KFServiceConditionCanaryConfigurationsReady, cc.Reason, cc.Message)
+	case configurationCondition.Status == v1.ConditionUnknown:
+		conditionSet.Manage(ss).MarkUnknown(CanaryPredictorReady, configurationCondition.Reason, configurationCondition.Message)
+	case configurationCondition.Status == v1.ConditionTrue:
+		conditionSet.Manage(ss).MarkTrue(CanaryPredictorReady)
+	case configurationCondition.Status == v1.ConditionFalse:
+		conditionSet.Manage(ss).MarkFalse(CanaryPredictorReady, configurationCondition.Reason, configurationCondition.Message)
 	}
 }
 
@@ -112,10 +109,10 @@ func (ss *KFServiceStatus) PropagateRouteStatus(rs *knservingv1alpha1.RouteStatu
 	}
 	switch {
 	case rc.Status == v1.ConditionUnknown:
-		serviceCondSet.Manage(ss).MarkUnknown(KFServiceConditionRoutesReady, rc.Reason, rc.Message)
+		conditionSet.Manage(ss).MarkUnknown(RoutesReady, rc.Reason, rc.Message)
 	case rc.Status == v1.ConditionTrue:
-		serviceCondSet.Manage(ss).MarkTrue(KFServiceConditionRoutesReady)
+		conditionSet.Manage(ss).MarkTrue(RoutesReady)
 	case rc.Status == v1.ConditionFalse:
-		serviceCondSet.Manage(ss).MarkFalse(KFServiceConditionRoutesReady, rc.Reason, rc.Message)
+		conditionSet.Manage(ss).MarkFalse(RoutesReady, rc.Reason, rc.Message)
 	}
 }

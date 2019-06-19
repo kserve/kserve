@@ -223,7 +223,7 @@ func TestReconcile(t *testing.T) {
 		Status: duckv1beta1.Status{
 			Conditions: duckv1beta1.Conditions{
 				{
-					Type:   servingv1alpha1.KFServiceConditionDefaultConfigurationsReady,
+					Type:   servingv1alpha1.DefaultPredictorReady,
 					Status: "True",
 				},
 				{
@@ -231,7 +231,7 @@ func TestReconcile(t *testing.T) {
 					Status: "True",
 				},
 				{
-					Type:   servingv1alpha1.KFServiceConditionRoutesReady,
+					Type:   servingv1alpha1.RoutesReady,
 					Status: "True",
 				},
 			},
@@ -405,12 +405,12 @@ func TestCanaryReconcile(t *testing.T) {
 		Status: duckv1beta1.Status{
 			Conditions: duckv1beta1.Conditions{
 				{
-					Type:     servingv1alpha1.KFServiceConditionCanaryConfigurationsReady,
+					Type:     servingv1alpha1.CanaryPredictorReady,
 					Severity: "Info",
 					Status:   "True",
 				},
 				{
-					Type:   servingv1alpha1.KFServiceConditionDefaultConfigurationsReady,
+					Type:   servingv1alpha1.DefaultPredictorReady,
 					Status: "True",
 				},
 				{
@@ -418,7 +418,7 @@ func TestCanaryReconcile(t *testing.T) {
 					Status: "True",
 				},
 				{
-					Type:   servingv1alpha1.KFServiceConditionRoutesReady,
+					Type:   servingv1alpha1.RoutesReady,
 					Status: "True",
 				},
 			},
