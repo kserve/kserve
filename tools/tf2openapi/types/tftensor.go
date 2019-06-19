@@ -63,6 +63,7 @@ func NewTFTensor(key string, tensor pb.TensorInfo) TFTensor {
 		return TFTensor{
 			Key:   key,
 			DType: NewTFDType(tensor.Dtype.String(), key),
+			// TODO add what happens to scalars
 			Shape: tfShape,
 			Rank:  int64(len(tfShape)),
 		}
