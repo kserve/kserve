@@ -164,12 +164,12 @@ func TestReconcile(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{"serving.kubeflow.org/kfservice": "foo"},
 					Annotations: map[string]string{
-						"autoscaling.knative.dev/target":                    "1",
-						"autoscaling.knative.dev/class":                     "kpa.autoscaling.knative.dev",
-						"autoscaling.knative.dev/maxScale":                  "3",
-						"autoscaling.knative.dev/minScale":                  "1",
-						constants.KFServiceModelSourceURIAnnotationKey:      instance.Spec.Default.Tensorflow.ModelURI,
-						constants.KFServiceModelLocalMountPathAnnotationKey: constants.DefaultModelLocalMountPath,
+						"autoscaling.knative.dev/target":                           "1",
+						"autoscaling.knative.dev/class":                            "kpa.autoscaling.knative.dev",
+						"autoscaling.knative.dev/maxScale":                         "3",
+						"autoscaling.knative.dev/minScale":                         "1",
+						constants.KFServiceModelProvisioningSourceURIAnnotationKey: instance.Spec.Default.Tensorflow.ModelURI,
+						constants.KFServiceModelProvisioningMountPathAnnotationKey: constants.DefaultModelLocalMountPath,
 					},
 				},
 				Spec: knservingv1alpha1.RevisionSpec{
@@ -274,12 +274,12 @@ func TestCanaryReconcile(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{"serving.kubeflow.org/kfservice": "bar"},
 					Annotations: map[string]string{
-						"autoscaling.knative.dev/target":                    "1",
-						"autoscaling.knative.dev/class":                     "kpa.autoscaling.knative.dev",
-						"autoscaling.knative.dev/maxScale":                  "3",
-						"autoscaling.knative.dev/minScale":                  "1",
-						constants.KFServiceModelSourceURIAnnotationKey:      canary.Spec.Canary.Tensorflow.ModelURI,
-						constants.KFServiceModelLocalMountPathAnnotationKey: constants.DefaultModelLocalMountPath,
+						"autoscaling.knative.dev/target":                           "1",
+						"autoscaling.knative.dev/class":                            "kpa.autoscaling.knative.dev",
+						"autoscaling.knative.dev/maxScale":                         "3",
+						"autoscaling.knative.dev/minScale":                         "1",
+						constants.KFServiceModelProvisioningSourceURIAnnotationKey: canary.Spec.Canary.Tensorflow.ModelURI,
+						constants.KFServiceModelProvisioningMountPathAnnotationKey: constants.DefaultModelLocalMountPath,
 					},
 				},
 				Spec: knservingv1alpha1.RevisionSpec{

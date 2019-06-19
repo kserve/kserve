@@ -71,9 +71,11 @@ func (c *ConfigurationBuilder) CreateKnativeConfiguration(name string, metadata 
 
 	kfsvcAnnotations := utils.Filter(metadata.Annotations, configurationAnnotationFilter)
 
+	// KNative does not support INIT containers or mounting, so we add annotations that trigger the
+	// ModelProvisioning injector to mutate the underlying deployment to provision model data
 	if sourceURI, localPath, ok := modelSpec.MapSourceUri(); ok {
-		kfsvcAnnotations[constants.KFServiceModelSourceURIAnnotationKey] = sourceURI
-		kfsvcAnnotations[constants.KFServiceModelLocalMountPathAnnotationKey] = localPath
+		kfsvcAnnotations[constants.KFServiceModelProvisioningSourceURIAnnotationKey] = sourceURI
+		kfsvcAnnotations[constants.KFServiceModelProvisioningMountPathAnnotationKey] = localPath
 	}
 
 	configuration := &knservingv1alpha1.Configuration{
