@@ -98,7 +98,7 @@ class KFServer(object):
         self.registered_models[model.name] = model
 
 
-def _getRequestHandler(protocol, request: Dict) -> RequestHandler:
+def getRequestHandler(protocol, request: Dict) -> RequestHandler:
     if protocol == Protocol.tensorflow_http:
         return TensorflowRequestHandler(request)
     else:
@@ -132,7 +132,7 @@ class ModelExplainHandler(tornado.web.RequestHandler):
                 reason="Unrecognized request format: %s" % e
             )
 
-        requestHandler: RequestHandler = _getRequestHandler(self.protocol, body)
+        requestHandler: RequestHandler = getRequestHandler(self.protocol, body)
         requestHandler.validate()
         request = requestHandler.extract_request()
         explanation = model.explain(request)
@@ -165,7 +165,7 @@ class ModelPredictHandler(tornado.web.RequestHandler):
                 reason="Unrecognized request format: %s" % e
             )
 
-        requestHandler: RequestHandler = _getRequestHandler(self.protocol, body)
+        requestHandler: RequestHandler = getRequestHandler(self.protocol, body)
         requestHandler.validate()
         request = requestHandler.extract_request()
         results = model.predict(request)
