@@ -9,9 +9,7 @@ import (
 	"log"
 )
 
-var (
-	model = flag.String("model", "", "Absolute path of SavedModel file")
-)
+var model = flag.String("model", "", "Absolute path of SavedModel file")
 
 func main() {
 	flag.Parse()
@@ -23,10 +21,10 @@ func main() {
 	}
 
 	/** Convert Go struct to inner model */
-	m := UnmarshalSavedModelPb(in)
+	model := UnmarshalSavedModelPb(in)
 
 	/** Schema generation example **/
-	log.Println(generator.GenerateOpenAPI(m))
+	log.Println(generator.GenerateOpenAPI(model))
 }
 
 /**
