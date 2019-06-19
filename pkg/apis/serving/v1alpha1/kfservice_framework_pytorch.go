@@ -43,6 +43,8 @@ func (s *PyTorchSpec) CreateModelServingContainer(modelName string, config *Fram
 		Resources: s.Resources,
 		Args: []string{
 			"--model_name=" + modelName,
+			"--model_class_name=" + s.ModelClassName,
+			"--model_class_file=" + s.ModelClassFile,
 			"--model_dir=" + s.ModelURI,
 		},
 	}

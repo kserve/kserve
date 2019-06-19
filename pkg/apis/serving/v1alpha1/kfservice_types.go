@@ -86,6 +86,8 @@ type SKLearnSpec struct {
 type PyTorchSpec struct {
 	ModelURI string `json:"modelUri"`
 	// Defaults to latest PyTorch Version.
+	ModelClassName string `json:"modelClassName"`
+	ModelClassFile string `json:"modelClassFile"`
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
 	// Defaults to requests and limits of 1CPU, 2Gb MEM.
 	Resources v1.ResourceRequirements `json:"resources,omitempty"`

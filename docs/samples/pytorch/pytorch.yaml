@@ -5,4 +5,6 @@ metadata:
 spec:
   default:
     pytorch:
-      modelUri: "gs://kfserving-samples/models/pytorch/cifar10/"
+      modelUri: "gs://tomcli-test/"
+      modelClassName: "Net"
+      modelClassFile: "cifar10.py"

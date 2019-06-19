@@ -53,3 +53,32 @@ res = requests.post('http://localhost:8080/models/pytorchmodel:predict', json=fo
 print(res)
 print(res.text)
 ```
+
+# Predict on a KFService using PyTorch
+
+## Setup
+1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/blob/master/docs/DEVELOPER_GUIDE.md#deploy-kfserving).
+2. Your cluster's Istio Ingress gateway must be network accessible.
+3. Your cluster's Istio Egresss gateway must [allow Google Cloud Storage](https://knative.dev/docs/serving/outbound-network-access/)
+
+## Create the KFService
+
+Apply the CRD
+```
+kubectl apply -f pytorch.yaml
+```
+
+Expected Output
+```
+$ kfservice.serving.kubeflow.org/pytorch-cifar10 created
+```
+
+## Run a prediction
+
+```
+MODEL_NAME=pytorch-cifar10
+INPUT_PATH=@./input.json
+CLUSTER_IP=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+
+curl -v -H "Host: pytorch-cifar10.default.svc.cluster.local" http://$CLUSTER_IP/v1/models/$MODEL_NAME:predict -d $INPUT_PATH
+```
