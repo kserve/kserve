@@ -158,10 +158,16 @@ kubectl apply -f docs/samples/tensorflow/tensorflow.yaml
 You should see model serving deployment running under default or your specified namespace.
 
 ```console
+$ kubectl get kfservices -n default
+NAME             URL                                  DEFAULT TRAFFIC   CANARY TRAFFIC   AGE
+flowers-sample   flowers-sample.default.example.com   100                                1h
+
 $ kubectl get pods -n default -l serving.kubeflow.org/kfservice=flowers-sample
 NAME                                                READY   STATUS    RESTARTS   AGE
 flowers-sample-default-htz8r-deployment-8fd979f9b-w2qbv   3/3     Running   0          10s
 ```
+NOTE: KFServing scales pods to 0 in the absence of traffic. If you don't see any pods, try sending out a query via curl using instructions in the tensorflow sample: https://github.com/kubeflow/kfserving/tree/master/docs/samples/tensorflow
+
 
 ## Iterating
 
@@ -191,6 +197,51 @@ controller is simply:
 
 ```shell
 make deploy-dev
+```
+
+### Knative CLI (knctl):
+
+You can also use [Knative CLI (`knctl`)](https://github.com/cppforlife/knctl) to interact with models deployed on KFServing. It provides a simple set of commands to interact with a [Knative installation](https://github.com/knative/docs). You can grab pre-built binaries from the [Releases page](https://github.com/cppforlife/knctl/releases). Once downloaded, you can run the following commands to get it working.
+
+```
+# compare checksum output to what's included in the release notes
+$ shasum -a 265 ~/Downloads/knctl-*
+
+# move binary to your system’s /usr/local/bin -- might require root password
+$ mv ~/Downloads/knctl-* /usr/local/bin/knctl
+
+# make the newly copied file executable -- might require root password
+$ chmod +x /usr/local/bin/knctl
+```
+
+You can then run a smoke test by running the following command to show the details of tensorflow sample revision.
+
+```
+knctl revision show -r flowers-sample-default-4s74r
+Revision 'flowers-sample-default-4s74r'
+
+Name          flowers-sample-default-4s74r  
+Tags          -  
+Image digest  index.docker.io/tensorflow/serving@sha256:df3c6fe1fbe5ccc3a916984ff313cc2d17e617f7b8782fc31e762c491325d813  
+Log URL       http://localhost:8001/api/v1/namespaces/knative-monitoring/services/kibana-logging/proxy/app/kibana#/discover?_a=(query:(match:(kubernetes.labels.knative-dev%2FrevisionUID:(query:'1135797e-8585-11e9-adbd-b680f8334647',type:phrase))))  
+Annotations   autoscaling.knative.dev/class: kpa.autoscaling.knative.dev  
+              autoscaling.knative.dev/target: "1"  
+Age           1h  
+
+Conditions
+
+Type                Status  Age  Reason     Message  
+Active              False   59m  NoTraffic  The target is not receiving traffic.  
+BuildSucceeded      True    1h   -          -  
+ContainerHealthy    True    1h   -          -  
+Ready               True    1h   -          -  
+ResourcesAvailable  True    1h   -          -  
+
+Pods conditions
+
+Pod  Type  Status  Age  Reason  Message  
+
+Succeeded 
 ```
 
 ## Troubleshooting

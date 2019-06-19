@@ -63,7 +63,7 @@ var instance = &servingv1alpha1.KFService{
 			MaxReplicas: 3,
 			Tensorflow: &servingv1alpha1.TensorflowSpec{
 				ModelURI:       "s3://test/mnist/export",
-				RuntimeVersion: "1.13",
+				RuntimeVersion: "1.13.0",
 			},
 		},
 	},
@@ -80,7 +80,7 @@ var canary = &servingv1alpha1.KFService{
 			MaxReplicas: 3,
 			Tensorflow: &servingv1alpha1.TensorflowSpec{
 				ModelURI:       "s3://test/mnist/export",
-				RuntimeVersion: "1.13",
+				RuntimeVersion: "1.13.0",
 			},
 		},
 		CanaryTrafficPercent: 20,
@@ -89,7 +89,7 @@ var canary = &servingv1alpha1.KFService{
 			MaxReplicas: 3,
 			Tensorflow: &servingv1alpha1.TensorflowSpec{
 				ModelURI:       "s3://test/mnist-2/export",
-				RuntimeVersion: "1.13",
+				RuntimeVersion: "1.13.0",
 			},
 		},
 	},
@@ -99,6 +99,20 @@ var canary = &servingv1alpha1.KFService{
 			Name: "revision-v1",
 		},
 	},
+}
+
+var configs = map[string]string{
+	"frameworks": `{
+        "tensorflow" : {
+            "image" : "tensorflow/serving"
+        },
+        "sklearn" : {
+            "image" : "kfserving/sklearnserver"
+        },
+        "xgboost" : {
+            "image" : "kfserving/xgbserver"
+        }
+    }`,
 }
 
 func TestReconcile(t *testing.T) {
@@ -118,6 +132,17 @@ func TestReconcile(t *testing.T) {
 		close(stopMgr)
 		mgrStopped.Wait()
 	}()
+
+	// Create configmap
+	var configMap = &v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      constants.KFServiceConfigMapName,
+			Namespace: constants.KFServingNamespace,
+		},
+		Data: configs,
+	}
+	g.Expect(c.Create(context.TODO(), configMap)).NotTo(gomega.HaveOccurred())
+	defer c.Delete(context.TODO(), configMap)
 
 	// Create the KFService object and expect the Reconcile and Knative configuration/routes to be created
 	g.Expect(c.Create(context.TODO(), instance)).NotTo(gomega.HaveOccurred())
@@ -213,6 +238,17 @@ func TestCanaryReconcile(t *testing.T) {
 		close(stopMgr)
 		mgrStopped.Wait()
 	}()
+
+	// Create configmap
+	var configMap = &v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      constants.KFServiceConfigMapName,
+			Namespace: constants.KFServingNamespace,
+		},
+		Data: configs,
+	}
+	g.Expect(c.Create(context.TODO(), configMap)).NotTo(gomega.HaveOccurred())
+	defer c.Delete(context.TODO(), configMap)
 
 	// Create the KFService object and expect the Reconcile and knative service to be created
 	g.Expect(c.Create(context.TODO(), canary)).NotTo(gomega.HaveOccurred())

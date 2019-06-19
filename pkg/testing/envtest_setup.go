@@ -17,11 +17,16 @@ limitations under the License.
 package testing
 
 import (
+	"path/filepath"
+	"sync"
+
 	knserving "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
+	"github.com/onsi/gomega"
 	"k8s.io/client-go/kubernetes/scheme"
-	"path/filepath"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
 
@@ -29,8 +34,14 @@ var log = logf.Log.WithName("TestingEnvSetup")
 
 func SetupEnvTest() *envtest.Environment {
 	t := &envtest.Environment{
-		CRDDirectoryPaths: []string{filepath.Join("..", "..", "..", "config", "default", "crds"),
-			filepath.Join("..", "..", "..", "test", "crds")},
+		// The relative paths must be provided for each level of test nesting
+		// This code should be illegal
+		CRDDirectoryPaths: []string{
+			filepath.Join("..", "..", "..", "..", "..", "config", "default", "crds"),
+			filepath.Join("..", "..", "..", "..", "..", "test", "crds"),
+			filepath.Join("..", "..", "..", "config", "default", "crds"),
+			filepath.Join("..", "..", "..", "test", "crds"),
+		},
 	}
 
 	err := v1alpha1.SchemeBuilder.AddToScheme(scheme.Scheme)
@@ -43,4 +54,28 @@ func SetupEnvTest() *envtest.Environment {
 		log.Error(err, "Failed to add knative serving scheme")
 	}
 	return t
+}
+
+// SetupTestReconcile returns a reconcile.Reconcile implementation that delegates to inner and
+// writes the request to requests after Reconcile is finished.
+func SetupTestReconcile(inner reconcile.Reconciler) (reconcile.Reconciler, chan reconcile.Request) {
+	requests := make(chan reconcile.Request)
+	fn := reconcile.Func(func(req reconcile.Request) (reconcile.Result, error) {
+		result, err := inner.Reconcile(req)
+		requests <- req
+		return result, err
+	})
+	return fn, requests
+}
+
+// StartTestManager adds recFn
+func StartTestManager(mgr manager.Manager, g *gomega.GomegaWithT) (chan struct{}, *sync.WaitGroup) {
+	stop := make(chan struct{})
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		g.Expect(mgr.Start(stop)).NotTo(gomega.HaveOccurred())
+	}()
+	return stop, wg
 }

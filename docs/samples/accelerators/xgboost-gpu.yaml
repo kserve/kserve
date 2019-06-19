@@ -1,0 +1,11 @@
+apiVersion: "serving.kubeflow.org/v1alpha1"
+kind: "KFService"
+metadata:
+  name: "xgboost-gpu"
+spec:
+  default:
+    xgboost:
+      modelUri: "gs://kfserving-samples/models/xgboost/iris"
+      resources:
+        limits:
+          nvidia.com/gpu: 1

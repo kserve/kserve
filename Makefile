@@ -1,19 +1,26 @@
+HAS_LINT := $(shell command -v golint;)
+
 
 # Image URL to use all building/pushing image targets
 IMG ?= kfserving-controller:latest
+EXECUTOR_IMG ?= kfserving-executor:latest
 
-all: test manager
+all: test manager executor
 
 # Run tests
-test: generate fmt vet manifests
+test: generate fmt vet lint manifests
 	go test ./pkg/... ./cmd/... -coverprofile cover.out
 
 # Build manager binary
-manager: generate fmt vet
+manager: generate fmt vet lint
 	go build -o bin/manager ./cmd/manager
 
+# Build manager binary
+executor: fmt vet
+	go build -o bin/executor ./cmd/executor
+
 # Run against the configured Kubernetes cluster in ~/.kube/config
-run: generate fmt vet
+run: generate fmt vet lint
 	go run ./cmd/manager/main.go
 
 # Install CRDs into a cluster
@@ -25,7 +32,7 @@ deploy: manifests
 	kustomize build config/default | kubectl apply -f -
 
 deploy-dev: manifests
-	./image_patch_dev.sh
+	./hack/image_patch_dev.sh
 	kustomize build config/overlays/development | kubectl apply -f -
 
 undeploy:
@@ -47,6 +54,13 @@ fmt:
 vet:
 	go vet ./pkg/... ./cmd/...
 
+lint:
+ifndef HAS_LINT
+	go get -u golang.org/x/lint/golint
+	echo "installing golint"
+endif
+	hack/verify-golint.sh
+
 # Generate code
 generate:
 ifndef GOPATH
@@ -66,3 +80,9 @@ docker-build: test
 # Push the docker image
 docker-push:
 	docker push ${IMG}
+
+docker-build-executor: test
+	docker build -f Dockerfile.executor . -t ${EXECUTOR_IMG}
+
+docker-push-executor:
+	docker push ${EXECUTOR_IMG}

@@ -32,9 +32,15 @@ var (
 
 // KFService Constants
 var (
-	KFServiceName        = "kfservice"
-	KFServiceAPIName     = "kfservices"
-	KFServicePodLabelKey = KFServingAPIGroupName + "/" + KFServiceName
+	KFServiceName          = "kfservice"
+	KFServiceAPIName       = "kfservices"
+	KFServicePodLabelKey   = KFServingAPIGroupName + "/" + KFServiceName
+	KFServiceConfigMapName = "kfservice-config"
+)
+
+// KFService Annotations
+var (
+	KFServiceGKEAcceleratorAnnotationKey = KFServingAPIGroupName + "/gke-accelerator"
 )
 
 // Controller Constants
@@ -46,12 +52,20 @@ var (
 
 // Webhook Constants
 var (
-	WebhookServerName              = KFServingName + "-webhook-server"
-	WebhookServerServiceName       = WebhookServerName + "-service"
-	WebhookServerSecretName        = WebhookServerName + "-secret"
-	KFServiceValidatingWebhookName = strings.Join([]string{KFServiceName, WebhookServerName, "validator"}, ".")
-	KFServiceDefaultingWebhookName = strings.Join([]string{KFServiceName, WebhookServerName, "defaulter"}, ".")
-	WebhookFailurePolicy           = v1beta1.Fail
+	WebhookServerName                     = KFServingName + "-webhook-server"
+	WebhookServerServiceName              = WebhookServerName + "-service"
+	WebhookServerSecretName               = WebhookServerName + "-secret"
+	KFServiceValidatingWebhookConfigName  = strings.Join([]string{KFServiceName, KFServingAPIGroupName}, ".")
+	KFServiceMutatingWebhookConfigName    = strings.Join([]string{KFServiceName, KFServingAPIGroupName}, ".")
+	KFServiceValidatingWebhookName        = strings.Join([]string{KFServiceName, WebhookServerName, "validator"}, ".")
+	KFServiceDefaultingWebhookName        = strings.Join([]string{KFServiceName, WebhookServerName, "defaulter"}, ".")
+	AcceleratorInjectorMutatorWebhookName = strings.Join([]string{KFServiceName, WebhookServerName, "accelerator-injector"}, ".")
+	WebhookFailurePolicy                  = v1beta1.Fail
+)
+
+// GPU Constants
+const (
+	NvidiaGPUResourceType = "nvidia.com/gpu"
 )
 
 func getEnvOrDefault(key string, fallback string) string {

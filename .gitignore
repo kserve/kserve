@@ -5,6 +5,7 @@
 *.dll
 *.so
 *.dylib
+*.pyc
 bin
 
 # Test binary, build with `go test -c`
