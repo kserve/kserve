@@ -19,13 +19,14 @@ class ExplainerMethod(Enum):
     anchor_tabular = "anchor_tabular"
 
 
-class AlibiExplainer(kfserving.KFExplainer):
+class AlibiExplainer(kfserving.KFModel):
     def __init__(self,
+                 name: str,
                  predict_url: str,
                  protocol: Protocol,
                  method: ExplainerMethod,
                  training_data_url: str = None):
-        super().__init__()
+        super().__init__(name)
         self.predict_url = predict_url
         self.protocol = protocol
         self.method = method

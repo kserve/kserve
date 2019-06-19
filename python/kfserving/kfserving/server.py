@@ -23,7 +23,6 @@ import logging
 import json
 from enum import Enum
 from kfserving.model import KFModel
-from kfserving.explainer import KFExplainer
 from typing import List, Dict, Optional, Any
 from kfserving.protocols.request_handler import RequestHandler
 from kfserving.protocols.tensorflow_http import TensorflowRequestHandler
@@ -59,7 +58,6 @@ class KFServer(object):
         self.grpc_port = grpc_port
         self.protocol = protocol
         self._http_server: Optional[tornado.httpserver.HTTPServer] = None
-        self.explainer = None
 
     def createApplication(self):
         return tornado.web.Application([
@@ -78,15 +76,14 @@ class KFServer(object):
             # Optional Custom Predict Verb for Tensorflow compatibility
             (r"/models/([a-zA-Z0-9_-]+):predict",
              ModelPredictHandler, dict(protocol=self.protocol, models=self.registered_models)),
-            (r"/explain",
-             ModelExplainHandler, dict(protocol=self.protocol, explainer=self.explainer)),
+            (r"/models/([a-zA-Z0-9_-]+):explain",
+             ModelExplainHandler, dict(protocol=self.protocol, models=self.registered_models)),
         ])
 
-    def start(self, models: List[KFModel] = [], explainer=None):
+    def start(self, models: List[KFModel] = []):
         # TODO add a GRPC server
         for model in models:
             self.register_model(model)
-        self.explainer: Optional[KFExplainer] = explainer
 
         self._http_server = tornado.httpserver.HTTPServer(self.createApplication())
 
@@ -110,14 +107,22 @@ def _getRequestHandler(protocol, request: Dict) -> RequestHandler:
 
 class ModelExplainHandler(tornado.web.RequestHandler):
 
-    def initialize(self, protocol: str, explainer: KFExplainer):
+    def initialize(self, protocol: str,  models: Dict[str, KFModel]):
         self.protocol = protocol
-        self.explainer = explainer
+        self.models = models
 
-    def post(self):
+    def post(self, name: str):
 
-        if not self.explainer.ready:
-            self.explainer.load()
+        # TODO Add metrics
+        if name not in self.models:
+            raise tornado.web.HTTPError(
+                status_code=HTTPStatus.NOT_FOUND,
+                reason="Model with name %s does not exist." % name
+            )
+
+        model = self.models[name]
+        if not model.ready:
+            model.load()
 
         try:
             body = json.loads(self.request.body)
@@ -130,7 +135,7 @@ class ModelExplainHandler(tornado.web.RequestHandler):
         requestHandler: RequestHandler = _getRequestHandler(self.protocol, body)
         requestHandler.validate()
         request = requestHandler.extract_request()
-        explanation = self.explainer.explain(request)
+        explanation = model.explain(request)
 
         self.write(explanation)
 

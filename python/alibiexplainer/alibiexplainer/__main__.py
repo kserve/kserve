@@ -17,7 +17,11 @@ import argparse
 from alibiexplainer import AlibiExplainer
 from alibiexplainer.explainer import ExplainerMethod
 
+DEFAULT_MODEL_NAME = "model"
+
 parser = argparse.ArgumentParser(parents=[kfserving.server.parser])
+parser.add_argument('--model_name', default=DEFAULT_MODEL_NAME,
+                    help='The name that the model is served under.')
 parser.add_argument('--predict_url', help='The URL for the model predict function', required=True)
 parser.add_argument('--method',
                     type=ExplainerMethod, choices=list(ExplainerMethod), default="anchor_tabular",
@@ -27,9 +31,10 @@ parser.add_argument('--training_data', help='The URL for the training data')
 args, _ = parser.parse_known_args()
 
 if __name__ == "__main__":
-    explainer = AlibiExplainer(args.predict_url,
+    explainer = AlibiExplainer(args.model_name,
+                               args.predict_url,
                                args.protocol,
                                ExplainerMethod(args.method),
                                training_data_url=args.training_data)
     explainer.load()
-    kfserving.KFServer().start(models=[], explainer=explainer)
+    kfserving.KFServer().start(models=[explainer])

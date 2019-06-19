@@ -14,5 +14,4 @@
 
 from .server import KFServer
 from .model import KFModel
-from .explainer import KFExplainer
 from .storage import Storage

@@ -23,13 +23,13 @@ python -m sklearnserver --model_dir ./  --model_name income --protocol seldon.ht
 In a different terminal start the Alibi Explainer:
 
 ```
-FEATURE_NAMES_URL=./features.joblib CATEGORICAL_MAP_URL=./category_map.joblib python -m alibiexplainer --predict_url http://localhost:8080/models/income:predict --protocol seldon.http --http_port 8081 --training_data ./train.joblib
+FEATURE_NAMES_URL=./features.joblib CATEGORICAL_MAP_URL=./category_map.joblib python -m alibiexplainer --model_name income --predict_url http://localhost:8080/models/income:predict --protocol seldon.http --http_port 8081 --training_data ./train.joblib
 ```
 
 You can now get an explaination for some particular features:
 
 ```
-curl -H "Content-Type: application/json" -d '{"data":{"ndarray":[[39, 7, 1, 1, 1, 1, 4, 1, 2174, 0, 40, 9]]}}' http://localhost:8081/explain
+curl -H "Content-Type: application/json" -d '{"data":{"ndarray":[[39, 7, 1, 1, 1, 1, 4, 1, 2174, 0, 40, 9]]}}' http://localhost:8081/models/income:explain
 ```
 
 You should receive an output like the following which contains the core explanation and various examples and counter examples:

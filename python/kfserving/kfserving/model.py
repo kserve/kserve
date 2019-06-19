@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import List, Any
+from typing import List, Dict
 
 
 class KFModel(object):
@@ -31,6 +31,9 @@ class KFModel(object):
         raise NotImplementedError
 
     def postprocess(self, inputs: List) -> List:
+        raise NotImplementedError
+
+    def explain(self, inputs: List) -> Dict:
         raise NotImplementedError
 
     # TODO return type TBD
