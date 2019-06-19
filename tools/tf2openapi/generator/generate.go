@@ -6,7 +6,9 @@ import (
 )
 
 func GenerateOpenAPI(model pb.SavedModel) string {
-	schema := types.NewTFSavedModel(model).Schema()
+	m := types.NewTFSavedModel(model)
+	m.Schema()
+
 	// TODO logic for generating API
 	return ""
 }
