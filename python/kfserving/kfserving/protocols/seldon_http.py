@@ -15,14 +15,16 @@
 from http import HTTPStatus
 import tornado
 import numpy as np
-from typing import Dict, Tuple, List
+from typing import Dict, List
 from kfserving.protocols.request_handler import RequestHandler
 from enum import Enum
 
+
 class SeldonPayload(Enum):
     TENSOR = 1
-    NDARRAY =2
+    NDARRAY = 2
     TFTENSOR = 3
+
 
 def _extract_list(body: Dict) -> List:
     data_def = body["data"]
@@ -33,6 +35,7 @@ def _extract_list(body: Dict) -> List:
         return data_def.get("ndarray")
     else:
         raise Exception("Could not extract seldon payload %s" % body)
+
 
 def _create_seldon_data_def(array: np.array, ty: SeldonPayload):
     datadef = {}
@@ -59,9 +62,11 @@ def _get_request_ty(request: Dict) -> SeldonPayload:
     elif "tftensor" in data_def:
         return SeldonPayload.TFTENSOR
 
+
 def create_request(arr: np.ndarray, ty: SeldonPayload) -> Dict:
     seldon_datadef = _create_seldon_data_def(arr, ty)
     return {"data": seldon_datadef}
+
 
 class SeldonRequestHandler(RequestHandler):
 
@@ -89,5 +94,3 @@ class SeldonRequestHandler(RequestHandler):
         ty = _get_request_ty(self.request)
         seldon_datadef = _create_seldon_data_def(arr, ty)
         return {"data": seldon_datadef}
-
-

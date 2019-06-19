@@ -21,25 +21,29 @@ import argparse
 import os
 import logging
 import json
+from enum import Enum
 from kfserving.model import KFModel
 from kfserving.explainer import KFExplainer
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
 from kfserving.protocols.request_handler import RequestHandler
 from kfserving.protocols.tensorflow_http import TensorflowRequestHandler
 from kfserving.protocols.seldon_http import SeldonRequestHandler
 
 DEFAULT_HTTP_PORT = 8080
 DEFAULT_GRPC_PORT = 8081
-TFSERVING_HTTP_PROTOCOL = "tensorflow.http"
-SELDON_HTTP_PROTOCOL = "seldon.http"
-PROTOCOLS = [TFSERVING_HTTP_PROTOCOL, SELDON_HTTP_PROTOCOL]
+
+
+class Protocol(Enum):
+    tensorflow_http = "tensorflow.http"
+    seldon_http = "seldon.http"
+
 
 parser = argparse.ArgumentParser(add_help=False)
 parser.add_argument('--http_port', default=DEFAULT_HTTP_PORT, type=int,
                     help='The HTTP Port listened to by the model server.')
 parser.add_argument('--grpc_port', default=DEFAULT_GRPC_PORT, type=int,
                     help='The GRPC Port listened to by the model server.')
-parser.add_argument('--protocol', default=TFSERVING_HTTP_PROTOCOL, choices=PROTOCOLS, type=str,
+parser.add_argument('--protocol', type=Protocol, choices=list(Protocol),
                     help='The protocol served by the model server')
 args, _ = parser.parse_known_args()
 
@@ -48,7 +52,8 @@ logging.basicConfig(level=KFSERVER_LOGLEVEL)
 
 
 class KFServer(object):
-    def __init__(self, protocol: str = args.protocol, http_port: int = args.http_port, grpc_port: int = args.grpc_port):
+    def __init__(self, protocol: Protocol = args.protocol, http_port: int = args.http_port,
+                 grpc_port: int = args.grpc_port):
         self.registered_models: Dict[str, KFModel] = {}
         self.http_port = http_port
         self.grpc_port = grpc_port
@@ -77,11 +82,11 @@ class KFServer(object):
              ModelExplainHandler, dict(protocol=self.protocol, explainer=self.explainer)),
         ])
 
-    def start(self, models: List[KFModel] = [], explainer: KFExplainer = None):
+    def start(self, models: List[KFModel] = [], explainer=None):
         # TODO add a GRPC server
         for model in models:
             self.register_model(model)
-        self.explainer = explainer
+        self.explainer: Optional[KFExplainer] = explainer
 
         self._http_server = tornado.httpserver.HTTPServer(self.createApplication())
 
@@ -97,10 +102,11 @@ class KFServer(object):
 
 
 def _getRequestHandler(protocol, request: Dict) -> RequestHandler:
-    if protocol == TFSERVING_HTTP_PROTOCOL:
+    if protocol == Protocol.tensorflow_http:
         return TensorflowRequestHandler(request)
     else:
         return SeldonRequestHandler(request)
+
 
 class ModelExplainHandler(tornado.web.RequestHandler):
 
@@ -121,12 +127,13 @@ class ModelExplainHandler(tornado.web.RequestHandler):
                 reason="Unrecognized request format: %s" % e
             )
 
-        requestHandler: RequestHandler = _getRequestHandler(self.protocol,body)
+        requestHandler: RequestHandler = _getRequestHandler(self.protocol, body)
         requestHandler.validate()
         request = requestHandler.extract_request()
         explanation = self.explainer.explain(request)
 
         self.write(explanation)
+
 
 class ModelPredictHandler(tornado.web.RequestHandler):
     def initialize(self, protocol: str, models: Dict[str, KFModel]):
@@ -153,7 +160,7 @@ class ModelPredictHandler(tornado.web.RequestHandler):
                 reason="Unrecognized request format: %s" % e
             )
 
-        requestHandler: RequestHandler = _getRequestHandler(self.protocol,body)
+        requestHandler: RequestHandler = _getRequestHandler(self.protocol, body)
         requestHandler.validate()
         request = requestHandler.extract_request()
         results = model.predict(request)
@@ -168,11 +175,11 @@ class LivenessHandler(tornado.web.RequestHandler):
 
 
 class ProtocolHandler(tornado.web.RequestHandler):
-    def initialize(self, protocol: str):
+    def initialize(self, protocol: Protocol):
         self.protocol = protocol
 
     def get(self):
-        self.write(self.protocol)
+        self.write(str(self.protocol.value))
 
 
 class MetricsHandler(tornado.web.RequestHandler):

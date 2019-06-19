@@ -1,6 +1,5 @@
 
 dev_install:
-	pip install -e .
 	pip install -e .[test]
 
 test: type_check

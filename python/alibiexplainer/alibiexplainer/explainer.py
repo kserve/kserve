@@ -8,6 +8,9 @@ import requests
 import json
 import logging
 from alibiexplainer.anchor_tabular import AnchorTabular
+from kfserving.server import Protocol
+from kfserving.protocols.util import NumpyEncoder
+from alibiexplainer.explainer_method import ExplainerMethodImpl
 
 logging.basicConfig(level=kfserving.server.KFSERVER_LOGLEVEL)
 
@@ -18,30 +21,31 @@ class ExplainerMethod(Enum):
 
 class AlibiExplainer(kfserving.KFExplainer):
     def __init__(self,
-                 model_url: str,
-                 protocol: str,
+                 predict_url: str,
+                 protocol: Protocol,
                  method: ExplainerMethod,
                  training_data_url: str = None):
         super().__init__()
-        self.model_url = model_url
+        self.predict_url = predict_url
         self.protocol = protocol
         self.method = method
-        self.training_data_uri = training_data_url
-        self.training_data = None
+        self.training_data_url = training_data_url
         if self.method is ExplainerMethod.anchor_tabular:
-            self.explainer = AnchorTabular(self._predict_fn)
+            self.explainer: ExplainerMethodImpl = AnchorTabular(self._predict_fn)
+            self.explainer.validate(self.training_data_url)
         else:
             raise NotImplementedError
 
     def load(self):
-        logging.info("Loading explainer")
-        self.explainer.prepare()
-        self.ready = True
+        if not self.ready:
+            logging.info("Loading explainer")
+            self.explainer.prepare(self.training_data_url)
+            self.ready = True
 
     def _predict_fn(self, arr: np.ndarray) -> np.ndarray:
-        if self.protocol == "seldon.http":
+        if self.protocol == Protocol.seldon_http:
             payload = seldon.create_request(arr, seldon.SeldonPayload.NDARRAY)
-            response_raw = requests.post(self.model_url, json=payload)
+            response_raw = requests.post(self.predict_url, json=payload)
             if response_raw.status_code == 200:
                 rh = SeldonRequestHandler(response_raw.json())
                 response_list = rh.extract_request()
@@ -57,16 +61,3 @@ class AlibiExplainer(kfserving.KFExplainer):
             return json.loads(json.dumps(explaination, cls=NumpyEncoder))
         else:
             raise NotImplementedError
-
-
-class NumpyEncoder(json.JSONEncoder):
-    def default(self, obj):
-        if isinstance(obj, (
-                np.int_, np.intc, np.intp, np.int8, np.int16, np.int32, np.int64, np.uint8, np.uint16, np.uint32,
-                np.uint64)):
-            return int(obj)
-        elif isinstance(obj, (np.float_, np.float16, np.float32, np.float64)):
-            return float(obj)
-        elif isinstance(obj, (np.ndarray,)):
-            return obj.tolist()
-        return json.JSONEncoder.default(self, obj)

@@ -1,4 +1,4 @@
-from typing import Callable, List, Dict, Optional
+from typing import Callable, List, Dict, Optional, Any
 import kfserving
 import logging
 import os
@@ -15,17 +15,20 @@ class AnchorTabular(ExplainerMethodImpl):
 
     def __init__(self, predict_fn: Callable):
         self.predict_fn = predict_fn
-        self.cmap = None
+        self.cmap: Optional[Dict[Any, Any]] = None
         self.anchors_tabular: Optional[alibi.explainers.AnchorTabular] = None
 
-    def prepare(self):
-        training_data_url = os.environ.get("TRAINING_DATA_URL")
+    def validate(self, training_data_url: Optional[str]):
+        if training_data_url is None:
+            raise Exception("Anchor_tabular requires training data")
+
+    def prepare(self, training_data_url: str):
         if not training_data_url is None:
             logging.info("Loading training file %s" % training_data_url)
             training_data_file = kfserving.Storage.download(training_data_url)
             training_data = joblib.load(training_data_file)
         else:
-            raise Exception("Anchor_tabular required TRAINING_DATA_URL to be set")
+            raise Exception("Anchor_tabular requires training data")
 
         feature_names_url = os.environ.get("FEATURE_NAMES_URL")
         if not feature_names_url is None:

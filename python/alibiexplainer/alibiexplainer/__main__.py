@@ -18,16 +18,18 @@ from alibiexplainer import AlibiExplainer
 from alibiexplainer.explainer import ExplainerMethod
 
 parser = argparse.ArgumentParser(parents=[kfserving.server.parser])
-parser.add_argument('--model_url', help='The URL for the model predict function', required=True)
+parser.add_argument('--predict_url', help='The URL for the model predict function', required=True)
 parser.add_argument('--method',
                     type=ExplainerMethod, choices=list(ExplainerMethod), default="anchor_tabular",
                     help='Explainer method')
+parser.add_argument('--training_data', help='The URL for the training data')
 
 args, _ = parser.parse_known_args()
 
 if __name__ == "__main__":
-    explainer = AlibiExplainer(args.model_url,
+    explainer = AlibiExplainer(args.predict_url,
                                args.protocol,
-                               ExplainerMethod(args.method))
+                               ExplainerMethod(args.method),
+                               training_data_url=args.training_data)
     explainer.load()
     kfserving.KFServer().start(models=[], explainer=explainer)
