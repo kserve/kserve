@@ -178,7 +178,7 @@ func TestModelProvisioningInjector(t *testing.T) {
 					Template: v1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Annotations: map[string]string{
-								constants.KFServiceModelProvisioningSourceURIAnnotationKey: "pvc://foo/bar/baz",
+								constants.KFServiceModelProvisioningSourceURIAnnotationKey: "pvc://mypvcname/some/path/on/pvc",
 							},
 						},
 						Spec: v1.PodSpec{
@@ -196,7 +196,7 @@ func TestModelProvisioningInjector(t *testing.T) {
 					Template: v1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Annotations: map[string]string{
-								constants.KFServiceModelProvisioningSourceURIAnnotationKey: "pvc://foo/bar/baz",
+								constants.KFServiceModelProvisioningSourceURIAnnotationKey: "pvc://mypvcname/some/path/on/pvc",
 							},
 						},
 						Spec: v1.PodSpec{
@@ -216,7 +216,7 @@ func TestModelProvisioningInjector(t *testing.T) {
 								v1.Container{
 									Name:  "model-provisioner",
 									Image: "kcorer/kfdownloader:latest",
-									Args:  []string{"/mnt/pvc/bar/baz", "/mnt/model"},
+									Args:  []string{"/mnt/pvc/some/path/on/pvc", "/mnt/model"},
 									VolumeMounts: []v1.VolumeMount{
 										{
 											Name:      "kfserving-pvc-source",
@@ -235,7 +235,7 @@ func TestModelProvisioningInjector(t *testing.T) {
 									Name: "kfserving-pvc-source",
 									VolumeSource: v1.VolumeSource{
 										PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-											ClaimName: "foo",
+											ClaimName: "mypvcname",
 											ReadOnly:  false,
 										},
 									},
