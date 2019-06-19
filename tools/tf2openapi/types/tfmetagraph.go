@@ -10,6 +10,8 @@ import (
 	pb "github.com/tensorflow/tensorflow/tensorflow/go/core/protobuf"
 )
 
+const PredictReqSigDefMethod string = "tensorflow/serving/predict"
+
 type TFMetaGraph struct {
 	SignatureDefs [] TFSignatureDef
 }

@@ -11,6 +11,8 @@ import (
 	pb "github.com/tensorflow/tensorflow/tensorflow/go/core/protobuf"
 )
 
+const B64KeySuffix string = "_bytes"
+
 type TFTensor struct {
 	//Name of the logical tensor
 	Key string

@@ -10,6 +10,8 @@ import (
 	pb "github.com/tensorflow/tensorflow/tensorflow/go/core/protobuf"
 )
 
+const ServingMetaGraphTag string = "serve"
+
 type TFSavedModel struct {
 	MetaGraphs [] TFMetaGraph
 }
