@@ -25,7 +25,8 @@ type TFTensor struct {
 	// Length of the shape is 0 when rank <= 0
 	Shape TFShape
 
-	// If rank = -1, the shape is unknown. Otherwise, rank corresponds to the number of dimensions in this tensor
+	// If rank = -1, the Shape is unknown and nil. Otherwise, rank corresponds to the number of dimensions in
+	// this tensor
 	Rank int64
 }
 
@@ -56,6 +57,7 @@ func NewTFTensor(key string, tensor pb.TensorInfo) TFTensor {
 		return TFTensor{
 			Key:   key,
 			DType: NewTFDType(tensor.Dtype.String(), key),
+			Shape: nil,
 			Rank:  -1,
 		}
 	} else {
