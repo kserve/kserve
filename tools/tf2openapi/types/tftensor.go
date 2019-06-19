@@ -63,7 +63,6 @@ func NewTFTensor(key string, tensor pb.TensorInfo) TFTensor {
 		return TFTensor{
 			Key:   key,
 			DType: NewTFDType(tensor.Dtype.String(), key),
-			// TODO add what happens to scalars
 			Shape: tfShape,
 			Rank:  int64(len(tfShape)),
 		}
@@ -72,7 +71,8 @@ func NewTFTensor(key string, tensor pb.TensorInfo) TFTensor {
 
 func NewTFShape(dimensions []*fw.TensorShapeProto_Dim) TFShape {
 	tfShape := TFShape{}
-	for _, d := range dimensions {
+	// There will always be -1 in dimensions[0] for batch size, so ignore
+	for _, d := range dimensions[1:] {
 		tfShape = append(tfShape, d.Size)
 	}
 	return tfShape
