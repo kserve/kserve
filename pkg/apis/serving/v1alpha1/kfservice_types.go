@@ -37,6 +37,7 @@ type ModelSpec struct {
 	// The following fields follow a "1-of" semantic. Users must specify exactly one spec.
 	Custom     *CustomSpec     `json:"custom,omitempty"`
 	Tensorflow *TensorflowSpec `json:"tensorflow,omitempty"`
+	TensorRT   *TensorRTSpec   `json:"tensorrt,omitempty"`
 	XGBoost    *XGBoostSpec    `json:"xgboost,omitempty"`
 	SKLearn    *SKLearnSpec    `json:"sklearn,omitempty"`
 }
@@ -45,6 +46,15 @@ type ModelSpec struct {
 type TensorflowSpec struct {
 	ModelURI string `json:"modelUri"`
 	// Defaults to latest TF Version.
+	RuntimeVersion string `json:"runtimeVersion,omitempty"`
+	// Defaults to requests and limits of 1CPU, 2Gb MEM.
+	Resources v1.ResourceRequirements `json:"resources,omitempty"`
+}
+
+// TensorRTSpec defines arguments for configuring TensorRT model serving.
+type TensorRTSpec struct {
+	ModelURI string `json:"modelUri"`
+	// Defaults to latest TensorRT Version.
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
 	// Defaults to requests and limits of 1CPU, 2Gb MEM.
 	Resources v1.ResourceRequirements `json:"resources,omitempty"`
