@@ -18,23 +18,18 @@ type TFSavedModel struct {
 }
 
 func NewTFSavedModel(model pb.SavedModel) TFSavedModel {
-	if tfMetaGraphs := extractMetaGraphs(model.MetaGraphs); len(tfMetaGraphs) == 0 {
-		panic("No graph to serve from SavedModel.")
-	} else {
-		return TFSavedModel{
-			MetaGraphs: tfMetaGraphs,
-		}
-	}
-}
-
-func extractMetaGraphs(metaGraphs []*pb.MetaGraphDef) []TFMetaGraph {
 	tfMetaGraphs := []TFMetaGraph{}
-	for _, metaGraph := range metaGraphs {
+	for _, metaGraph := range model.MetaGraphs {
 		if utils.Includes(metaGraph.MetaInfoDef.Tags, ServingMetaGraphTag) {
 			tfMetaGraphs = append(tfMetaGraphs, NewTFMetaGraph(*metaGraph))
 		}
 	}
-	return tfMetaGraphs
+	if len(tfMetaGraphs) == 0 {
+		panic("Model does not contain any servable MetaGraphs")
+	}
+	return TFSavedModel{
+		MetaGraphs: tfMetaGraphs,
+	}
 }
 
 func (t *TFSavedModel) Schema() *openapi3.Schema {

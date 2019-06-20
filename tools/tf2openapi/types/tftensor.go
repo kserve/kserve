@@ -46,7 +46,7 @@ const (
 	DtInt32
 	DtUInt32
 	DtInt64
-	DtUint64
+	DtUInt64
 	DtFloat
 	DtDouble
 )
@@ -58,57 +58,52 @@ func NewTFTensor(key string, tensor pb.TensorInfo) TFTensor {
 			DType: NewTFDType(tensor.Dtype.String(), key),
 			Rank:  -1,
 		}
-	} else {
-		tfShape := NewTFShape(tensor.TensorShape.Dim)
-		return TFTensor{
-			Key:   key,
-			DType: NewTFDType(tensor.Dtype.String(), key),
-			Shape: tfShape,
-			Rank:  int64(len(tfShape)),
-		}
 	}
+	tfShape := NewTFShape(tensor.TensorShape.Dim)
+	return TFTensor{
+		Key:   key,
+		DType: NewTFDType(tensor.Dtype.String(), key),
+		Shape: tfShape,
+		Rank:  int64(len(tfShape)),
+	}
+
 }
 
 func NewTFShape(dimensions []*fw.TensorShapeProto_Dim) TFShape {
 	tfShape := TFShape{}
 	// There will always be -1 in dimensions[0] for batch size, so ignore
+	// TODO check this case for TFServing
 	for _, d := range dimensions[1:] {
 		tfShape = append(tfShape, d.Size)
 	}
 	return tfShape
 }
 
+func stringType(name string) TFDType {
+	if strings.HasSuffix(name, B64KeySuffix) {
+		return DtB64String
+	}
+	return DtString
+}
+
 func NewTFDType(dType string, name string) TFDType {
-	switch dType {
-	case "DT_BOOL":
-		return DtBool
-	case "DT_STRING":
-		if strings.HasSuffix(name, B64KeySuffix) {
-			return DtB64String
-		} else {
-			return DtString
-		}
-	case "DT_INT8":
-		return DtInt8
-	case "DT_UINT8":
-		return DtUInt8
-	case "DT_INT16":
-		return DtInt16
-	case "DT_INT32":
-		return DtInt32
-	case "DT_UINT32":
-		return DtUInt32
-	case "DT_INT64":
-		return DtInt64
-	case "DT_UINT64":
-		return DtUint64
-	case "DT_FLOAT":
-		return DtFloat
-	case "DT_DOUBLE":
-		return DtDouble
-	default:
+	tfDType, ok := map[string]TFDType{
+		"DT_BOOL":   DtBool,
+		"DT_INT8":   DtInt8,
+		"DT_UINT8":  DtUInt8,
+		"DT_INT16":  DtInt16,
+		"DT_INT32":  DtInt32,
+		"DT_UINT32": DtUInt32,
+		"DT_INT64":  DtInt64,
+		"DT_UINT64": DtUInt64,
+		"DT_FLOAT":  DtFloat,
+		"DT_DOUBLE": DtDouble,
+		"DT_STRING": stringType(name),
+	}[dType]
+	if !ok {
 		panic("Unsupported data type for generating payloads")
 	}
+	return tfDType
 }
 
 func (t *TFTensor) Schema() *openapi3.Schema {
