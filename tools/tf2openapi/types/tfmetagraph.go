@@ -17,19 +17,15 @@ type TFMetaGraph struct {
 }
 
 func NewTFMetaGraph(metaGraph pb.MetaGraphDef) TFMetaGraph {
-	return TFMetaGraph{
-		SignatureDefs: extractSigDefs(metaGraph.SignatureDef),
-	}
-}
-
-func extractSigDefs(sigDefs map[string]*pb.SignatureDef) []TFSignatureDef {
 	tfSigDefs := []TFSignatureDef{}
-	for key, definition := range sigDefs {
+	for key, definition := range metaGraph.SignatureDef {
 		if definition.MethodName == PredictReqSigDefMethod {
 			tfSigDefs = append(tfSigDefs, NewTFSignatureDef(key, definition.Inputs, definition.Outputs))
 		}
 	}
-	return tfSigDefs
+	return TFMetaGraph{
+		SignatureDefs: tfSigDefs,
+	}
 }
 
 func (t *TFMetaGraph) Schema() *openapi3.Schema {
