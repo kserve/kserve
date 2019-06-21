@@ -123,19 +123,19 @@ docker build -t animeshsingh/pytorchserver -f pytorch.Dockerfile .
 You should see an output with an ending similar to this
 
 ```bash
-Installing collected packages: torch, pillow, torchvision, pytorchserver
-  Found existing installation: torch 1.0.1.post2
-    Uninstalling torch-1.0.1.post2:
-      Successfully uninstalled torch-1.0.1.post2
+Installing collected packages: torch, pytorchserver
+  Found existing installation: torch 1.0.0
+    Uninstalling torch-1.0.0:
+      Successfully uninstalled torch-1.0.0
   Running setup.py develop for pytorchserver
-Successfully installed pillow-6.0.0 pytorchserver torch-1.1.0 torchvision-0.3.0
-Removing intermediate container 2412cd3e0885
- ---> caed4145f72c
-Step 5/5 : ENTRYPOINT ["python", "-m", "pytorchserver"]
- ---> Running in 86f392765ac1
-Removing intermediate container 86f392765ac1
- ---> 7d0c2a187937
-Successfully built 7d0c2a187937
+Successfully installed pytorchserver torch-1.1.0
+Removing intermediate container 9f6cb904ec57
+ ---> 1272c4674955
+Step 11/11 : ENTRYPOINT ["python", "-m", "pytorchserver"]
+ ---> Running in 6bbbdda829ec
+Removing intermediate container 6bbbdda829ec
+ ---> c5ac6833fdfe
+Successfully built c5ac6833fdfe
 Successfully tagged animeshsingh/pytorchserver:latest
 ```
 

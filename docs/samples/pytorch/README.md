@@ -75,10 +75,34 @@ $ kfservice.serving.kubeflow.org/pytorch-cifar10 created
 
 ## Run a prediction
 
-```
+
 MODEL_NAME=pytorch-cifar10
 INPUT_PATH=@./input.json
 CLUSTER_IP=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 
-curl -v -H "Host: pytorch-cifar10.default.svc.cluster.local" http://$CLUSTER_IP/v1/models/$MODEL_NAME:predict -d $INPUT_PATH
+curl -v -H "Host: pytorch-cifar10.default.svc.cluster.local" -d $INPUT_PATH http://$CLUSTER_IP/models/$MODEL_NAME:predict
+```
+
+You should see an output similar to the one below:
+
+```
+> POST /models/pytorch-cifar10:predict HTTP/1.1
+> Host: pytorch-cifar10.default.svc.cluster.local
+> User-Agent: curl/7.54.0
+> Accept: */*
+> Content-Length: 110681
+> Content-Type: application/x-www-form-urlencoded
+> Expect: 100-continue
+> 
+< HTTP/1.1 100 Continue
+* We are completely uploaded and fine
+< HTTP/1.1 200 OK
+< content-length: 221
+< content-type: application/json; charset=UTF-8
+< date: Fri, 21 Jun 2019 04:05:39 GMT
+< server: istio-envoy
+< x-envoy-upstream-service-time: 35292
+< 
+
+{"predictions": [[-0.8955065011978149, -1.4453213214874268, 0.1515328735113144, 2.638284683227539, -1.00240159034729, 2.270702600479126, 0.22645258903503418, -0.880557119846344, 0.08783778548240662, -1.5551214218139648]]
 ```
