@@ -16,7 +16,7 @@ type TFMetaGraph struct {
 	SignatureDefs [] TFSignatureDef
 }
 
-func NewTFMetaGraph(metaGraph pb.MetaGraphDef) TFMetaGraph {
+func NewTFMetaGraph(metaGraph *pb.MetaGraphDef) TFMetaGraph {
 	tfSigDefs := []TFSignatureDef{}
 	for key, definition := range metaGraph.SignatureDef {
 		if definition.MethodName == PredictReqSigDefMethod {

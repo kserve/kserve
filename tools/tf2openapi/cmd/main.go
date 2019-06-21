@@ -17,6 +17,7 @@ var (
 	outFile = flag.String("outFile", "", "Absolute path of file to write OpenAPI spec to")
 )
 
+/** Convert SavedModel to OpenAPI. Note that the SavedModel must have at least one signature defined**/
 func main() {
 	flag.Parse()
 	if *out == "file" && *outFile == "" {
@@ -33,6 +34,7 @@ func main() {
 
 	/** Schema generation example **/
 	spec := generator.GenerateOpenAPI(model)
+	spec = "hel"
 	if *out == "file" {
 		f, err := os.Create(*outFile)
 		if err != nil {
@@ -50,10 +52,10 @@ func main() {
 /**
 Raises errors when model is missing fields that would pose an issue for Schema generation
  */
-func UnmarshalSavedModelPb(modelPb []byte) pb.SavedModel {
+func UnmarshalSavedModelPb(modelPb []byte) *pb.SavedModel {
 	model := &pb.SavedModel{}
 	if err := proto.Unmarshal(modelPb, model); err != nil {
 		log.Fatalln("SavedModel not in expected format. May be corrupted: " + err.Error())
 	}
-	return *model
+	return model
 }
