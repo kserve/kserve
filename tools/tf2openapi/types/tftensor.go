@@ -51,8 +51,8 @@ const (
 	DtDouble
 )
 
-func NewTFTensor(key string, tensor pb.TensorInfo) TFTensor {
-	if tensor.TensorShape.UnknownRank {
+func NewTFTensor(key string, tensor *pb.TensorInfo) TFTensor {
+	if tensor.TensorShape == nil || tensor.TensorShape.UnknownRank {
 		return TFTensor{
 			Key:   key,
 			DType: NewTFDType(tensor.Dtype.String(), key),
@@ -71,9 +71,8 @@ func NewTFTensor(key string, tensor pb.TensorInfo) TFTensor {
 
 func NewTFShape(dimensions []*fw.TensorShapeProto_Dim) TFShape {
 	tfShape := TFShape{}
-	// There will always be -1 in dimensions[0] for batch size, so ignore
-	// TODO check this case for TFServing
-	for _, d := range dimensions[1:] {
+
+	for _, d := range dimensions {
 		tfShape = append(tfShape, d.Size)
 	}
 	return tfShape

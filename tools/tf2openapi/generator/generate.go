@@ -5,7 +5,7 @@ import (
 	"github.com/kubeflow/kfserving/tools/tf2openapi/types"
 )
 
-func GenerateOpenAPI(model pb.SavedModel) string {
+func GenerateOpenAPI(model *pb.SavedModel) string {
 	m := types.NewTFSavedModel(model)
 	m.Schema()
 

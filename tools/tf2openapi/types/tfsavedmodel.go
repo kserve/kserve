@@ -17,11 +17,11 @@ type TFSavedModel struct {
 	MetaGraphs [] TFMetaGraph
 }
 
-func NewTFSavedModel(model pb.SavedModel) TFSavedModel {
+func NewTFSavedModel(model *pb.SavedModel) TFSavedModel {
 	tfMetaGraphs := []TFMetaGraph{}
 	for _, metaGraph := range model.MetaGraphs {
 		if utils.Includes(metaGraph.MetaInfoDef.Tags, ServingMetaGraphTag) {
-			tfMetaGraphs = append(tfMetaGraphs, NewTFMetaGraph(*metaGraph))
+			tfMetaGraphs = append(tfMetaGraphs, NewTFMetaGraph(metaGraph))
 		}
 	}
 	if len(tfMetaGraphs) == 0 {

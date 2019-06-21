@@ -27,7 +27,7 @@ func NewTFSignatureDef(key string, inputs map[string]*pb.TensorInfo, outputs map
 func extractTensors(tensors map[string]*pb.TensorInfo) []TFTensor {
 	tfTensors := []TFTensor{}
 	for key, tensor := range tensors {
-		tfTensors = append(tfTensors, NewTFTensor(key, *tensor))
+		tfTensors = append(tfTensors, NewTFTensor(key, tensor))
 	}
 	return tfTensors
 }
