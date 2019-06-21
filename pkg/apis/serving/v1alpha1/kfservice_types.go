@@ -18,19 +18,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// TFExampleKFService provides an example to the reader and may also be used by tests
-var TFExampleKFService = &KFService{
-	ObjectMeta: metav1.ObjectMeta{
-		Name:      "foo",
-		Namespace: "default",
-	},
-	Spec: KFServiceSpec{
-		Default: ModelSpec{
-			Tensorflow: &TensorflowSpec{ModelURI: "gs://testbucket/testmodel"},
-		},
-	},
-}
-
 // KFServiceSpec defines the desired state of KFService
 type KFServiceSpec struct {
 	Default ModelSpec `json:"default"`
@@ -50,6 +37,7 @@ type ModelSpec struct {
 	// The following fields follow a "1-of" semantic. Users must specify exactly one spec.
 	Custom     *CustomSpec     `json:"custom,omitempty"`
 	Tensorflow *TensorflowSpec `json:"tensorflow,omitempty"`
+	TensorRT   *TensorRTSpec   `json:"tensorrt,omitempty"`
 	XGBoost    *XGBoostSpec    `json:"xgboost,omitempty"`
 	SKLearn    *SKLearnSpec    `json:"sklearn,omitempty"`
 	PyTorch    *PyTorchSpec    `json:"pytorch,omitempty"`
@@ -59,6 +47,15 @@ type ModelSpec struct {
 type TensorflowSpec struct {
 	ModelURI string `json:"modelUri"`
 	// Defaults to latest TF Version.
+	RuntimeVersion string `json:"runtimeVersion,omitempty"`
+	// Defaults to requests and limits of 1CPU, 2Gb MEM.
+	Resources v1.ResourceRequirements `json:"resources,omitempty"`
+}
+
+// TensorRTSpec defines arguments for configuring TensorRT model serving.
+type TensorRTSpec struct {
+	ModelURI string `json:"modelUri"`
+	// Defaults to latest TensorRT Version.
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
 	// Defaults to requests and limits of 1CPU, 2Gb MEM.
 	Resources v1.ResourceRequirements `json:"resources,omitempty"`

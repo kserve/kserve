@@ -1,8 +1,11 @@
+HAS_LINT := $(shell command -v golint;)
+
 
 # Image URL to use all building/pushing image targets
 IMG ?= kfserving-controller:latest
+EXECUTOR_IMG ?= kfserving-executor:latest
 
-all: test manager
+all: test manager executor
 
 # Run tests
 test: generate fmt vet lint manifests
@@ -11,6 +14,10 @@ test: generate fmt vet lint manifests
 # Build manager binary
 manager: generate fmt vet lint
 	go build -o bin/manager ./cmd/manager
+
+# Build manager binary
+executor: fmt vet
+	go build -o bin/executor ./cmd/executor
 
 # Run against the configured Kubernetes cluster in ~/.kube/config
 run: generate fmt vet lint
@@ -47,8 +54,11 @@ fmt:
 vet:
 	go vet ./pkg/... ./cmd/...
 
-# Run go lint against code
 lint:
+ifndef HAS_LINT
+	go get -u golang.org/x/lint/golint
+	echo "installing golint"
+endif
 	hack/verify-golint.sh
 
 # Generate code
@@ -70,3 +80,9 @@ docker-build: test
 # Push the docker image
 docker-push:
 	docker push ${IMG}
+
+docker-build-executor: test
+	docker build -f Dockerfile.executor . -t ${EXECUTOR_IMG}
+
+docker-push-executor:
+	docker push ${EXECUTOR_IMG}

@@ -113,6 +113,19 @@ spec:
                   required:
                   - modelUri
                   type: object
+                tensorrt:
+                  properties:
+                    modelUri:
+                      type: string
+                    resources:
+                      description: Defaults to requests and limits of 1CPU, 2Gb MEM.
+                      type: object
+                    runtimeVersion:
+                      description: Defaults to latest TensorRT Version.
+                      type: string
+                  required:
+                  - modelUri
+                  type: object
                 xgboost:
                   properties:
                     modelUri:
@@ -194,6 +207,19 @@ spec:
                       type: object
                     runtimeVersion:
                       description: Defaults to latest TF Version.
+                      type: string
+                  required:
+                  - modelUri
+                  type: object
+                tensorrt:
+                  properties:
+                    modelUri:
+                      type: string
+                    resources:
+                      description: Defaults to requests and limits of 1CPU, 2Gb MEM.
+                      type: object
+                    runtimeVersion:
+                      description: Defaults to latest TensorRT Version.
                       type: string
                   required:
                   - modelUri

@@ -4,8 +4,6 @@ KFServing architecture consists of two main specifications, around control plane
 
  * [KFserving control plane specification](control-plane.md)
    * Defines the specification of the `kfserving` resource.
- * [KFserving data plane specification](data-plane.md)
-   * Defines the data payloads to enable interoperability between `kfserving` components.
 
 # Architecture Overview
 The KFService Data Plane architecture consists of a static graph of components which implement a limited set of features. Advanced features such as Ensembling, A/B testing, and Multi-Arm-Bandits should be built at a layer above KFServices. The diagram reflects the overall architecture for a viable offering, but at this point in time may not accurately reflect the current set of features available in the graph, but the overall mechanism holds:
