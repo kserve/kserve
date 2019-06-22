@@ -34,7 +34,6 @@ func main() {
 
 	/** Schema generation example **/
 	spec := generator.GenerateOpenAPI(model)
-	spec = "hel"
 	if *out == "file" {
 		f, err := os.Create(*outFile)
 		if err != nil {
