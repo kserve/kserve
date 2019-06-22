@@ -72,6 +72,7 @@ func NewTFTensor(key string, tensor *pb.TensorInfo) TFTensor {
 func NewTFShape(dimensions []*fw.TensorShapeProto_Dim) TFShape {
 	tfShape := TFShape{}
 
+	//TODO change depending on how rank 0 is represented by tensor_shape.proto
 	for _, d := range dimensions {
 		tfShape = append(tfShape, d.Size)
 	}
