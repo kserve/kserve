@@ -206,13 +206,13 @@ func TestGCSCredentialBuilder(t *testing.T) {
 									{
 										Name:      gcs.GCSCredentialVolumeName,
 										ReadOnly:  true,
-										MountPath: gcs.GCSCredentialVolumeMountPathPrefix + "gcloud-application-credentials.json",
+										MountPath: gcs.GCSCredentialVolumeMountPath,
 									},
 								},
 								Env: []v1.EnvVar{
 									{
 										Name:  gcs.GCSCredentialEnvKey,
-										Value: gcs.GCSCredentialVolumeMountPathPrefix + "gcloud-application-credentials.json",
+										Value: gcs.GCSCredentialVolumeMountPath + "gcloud-application-credentials.json",
 									},
 								},
 							},
