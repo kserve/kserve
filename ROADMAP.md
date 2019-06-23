@@ -1,7 +1,45 @@
 # KF Serving 2019 Roadmap
-## Q2 2019
+## Q3 2019
+### v0.3 Performance and Stability (ETA: September 1, 2019)
+Objective: "Prevent feature regressions with 80% e2e test coverage against a live Cluster."
+* Automated End-to-End Tests
+    * Execute against a Kubeflow maintained GKE Cluster.
+    * Achieve >80% Test Coverage of Supported Features.
 
-### Core CUJs
+Objective: "Prevent performance regressions across a known set of representative models."
+* Automated Performance Tests 
+    * Define a set of Models to test covering a wide array of usecases and frameworks.
+    * Publish performance results in a temporally comparable way.
+
+Objective: "Improve the Serverless Experience by reducing cold starts/stops to 10 seconds on warmed models."
+* Model Caching
+    * Reduce model download time by caching models from cloud storage on Persistent Volumes.
+* Image Caching
+    * Reduce container download time by ensuring images are cached in all cloud environments.
+* Server Shutdown
+    * Ensure that all model servers shutdown within 10 seconds of not receiving traffic.
+
+### v0.2 Integrate with the ML Ecosystem (ETA: August 15, 2019)
+Objective: "Continue to simplify the user experience by deeply integrating with the Kubeflow Ecosystem."
+* Kubeflow Integration
+    * Prepare KFServing to release v0.2 and v0.3 alongside Kubeflow 0.7.
+    * Integrate with `kfctl generate` and `kfctl apply`.
+    * Deploy as a [Kubernetes Application](https://github.com/kubernetes-sigs/application).
+    * Integrate with PVCs to enable integration with Kubeflow Pipelines
+    * Integrate with Fairing to enable deployment from a Notebook
+
+Objective: "Empower users to deeply understand their predictions and validate KFServing's static graph architecture."
+* Explainability
+    * Deploy a predictor and explainer, powered by Alibi.
+    * Deploy a predictor and explainer, powered by user specified explainer container.
+
+Objective: "Increase coverage of ML frameworks to support previously unsupported customer workloads."
+* Frameworks
+    * Deploy a ONNX model
+    * Deploy a TensorRT Model
+
+## Q2 2019
+### v0.1: KFService Minimum Viable Product (ETA: June 30, 2019)
 Objective: "Simplify the user experience and provide a low barrier to entry by minimizing the amount of YAML necessary to deploy a trained model."
 * High Level Interfaces
     * Deploy a Tensorflow model without specifying a Tensorflow Serving Technology.
@@ -23,20 +61,16 @@ Objective: "Reduce the total cost of ownership for models by minimizing the delt
     * Scale a model that is GPU bound.
     * Scale a model that is CPU bound.
 
-### High Level Work Items
-* Define the API specification (owner ellisbigelow@)
-    * Explain complete data model
-    * Document common usage patterns to meet CUJs
-
-* Implement the API specification with a CRD (owner yuzisun@)
-    * Generate a Kubebuilder CRD
-    * Define golang protos as per spec
-    * Implement ValidatingAdmissionController for API Validation
-    * Implement ReconciliationHandler to generate subresources
-
-* Integrate a KFServing component with a SeldonDeployment (owner cliveseldon@)
-    * Determine integration strategy
-    * Implement integration
-
-## Beyond Q2
-TBD
+## Future Unscheduled Work
+* Multi-Model Serving.
+    * Multiple KFServices share resources in the backend.
+    * GPU Sharing.
+* Flexible Inference Graphs [MLGraph CRD](https://github.com/SeldonIO/mlgraph).
+    * Model Experimentation.
+    * Ensembling.
+    * Multi Arm Bandit.
+* Skew and Outlier Detection.
+    * Online support in graph.
+    * Offline support with Payload Logging.
+* Meta-Protocol Definition.
+    * Unify disparate protocols across frameworks.
