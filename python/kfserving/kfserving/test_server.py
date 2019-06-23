@@ -15,7 +15,7 @@
 import pytest
 import kfserving
 from tornado.httpclient import HTTPClientError
-
+from kfserving.server import Protocol
 
 class DummyModel(kfserving.KFModel):
     def __init__(self, name):
@@ -37,7 +37,7 @@ class TestTFHttpServer(object):
         import kfserving
         model = DummyModel("TestModel")
         model.load()
-        server = kfserving.KFServer(kfserving.server.TFSERVING_HTTP_PROTOCOL)
+        server = kfserving.KFServer(Protocol.tensorflow_http)
         server.register_model(model)
         return server.createApplication()
 
@@ -67,7 +67,7 @@ class TestSeldonHttpServer(object):
         import kfserving
         model = DummyModel("TestModelSeldon")
         model.load()
-        server = kfserving.KFServer(kfserving.server.SELDON_HTTP_PROTOCOL)
+        server = kfserving.KFServer(Protocol.seldon_http)
         server.register_model(model)
         return server.createApplication()
 
