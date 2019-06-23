@@ -19,10 +19,12 @@ import re
 from minio import Minio
 from google.cloud import storage
 from google.auth import exceptions
+from azure.storage.blob import BlockBlobService, PublicAccess
 
 _GCS_PREFIX = "gs://"
 _S3_PREFIX = "s3://"
 _LOCAL_PREFIX = "file://"
+_BLOB_RE = "https://(.+?).blob.core.windows.net/(.+)"
 
 
 class Storage(object):
@@ -37,6 +39,8 @@ class Storage(object):
             Storage._download_gcs(uri, temp_dir)
         elif uri.startswith(_S3_PREFIX):
             Storage._download_s3(uri, temp_dir)
+        elif re.search(_BLOB_RE, uri):
+            Storage._download_blob(uri, temp_dir)
         else:
             raise Exception("Cannot recognize storage type for " + uri +
                             "\n'%s', '%s', and '%s' are the current available storage type." %
@@ -77,6 +81,32 @@ class Storage(object):
                 if not os.path.isdir(local_object_dir):
                     os.makedirs(local_object_dir, exist_ok=True)
             blob.download_to_filename(os.path.join(temp_dir, subdir_object_key))
+
+    @staticmethod
+    def _download_blob(uri, temp_dir: str):
+        m = re.search(_BLOB_RE, uri)
+        account_name = m.group(1)
+        storage_url = m.group(2)
+        container_name, blob_url = storage_url.split("/", 1)
+
+        block_blob_service = BlockBlobService(account_name=account_name)
+
+        blobs = block_blob_service.list_blobs(container_name, prefix=blob_url)
+
+        for blob in blobs:
+            print(blob.name)
+            if "/" in "{}".format(blob.name):
+                head, tail = os.path.split("{}".format(blob.name))
+                file_path = temp_dir + "/" + head + "/" + tail
+                dir_path = temp_dir + "/" + head
+
+                if (os.path.isdir(dir_path)):
+                    block_blob_service.get_blob_to_path(container_name, blob.name, file_path)
+                else:
+                    os.makedirs(dir_path, exist_ok=True)
+                    block_blob_service.get_blob_to_path(container_name, blob.name, file_path)
+            else:
+                block_blob_service.get_blob_to_path(container_name, blob.name, temp_dir + "/" + blob.name)
 
     @staticmethod
     def _download_local(uri):
