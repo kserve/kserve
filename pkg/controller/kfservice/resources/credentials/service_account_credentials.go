@@ -97,7 +97,7 @@ func (c *CredentialBuilder) CreateSecretVolumeAndEnv(namespace string, serviceAc
 			configuration.Spec.RevisionTemplate.Spec.Container.Env = append(configuration.Spec.RevisionTemplate.Spec.Container.Env, envs...)
 		} else if _, ok := secret.Data[gcsCredentialFileName]; ok {
 			log.Info("Setting secret volume for gcs", "GCSSecret", secret.Name)
-			volume, volumeMount := gcs.BuildSecretVolume(secret, gcsCredentialFileName)
+			volume, volumeMount := gcs.BuildSecretVolume(secret)
 			configuration.Spec.RevisionTemplate.Spec.Volumes =
 				append(configuration.Spec.RevisionTemplate.Spec.Volumes, volume)
 			configuration.Spec.RevisionTemplate.Spec.Container.VolumeMounts =
@@ -105,7 +105,7 @@ func (c *CredentialBuilder) CreateSecretVolumeAndEnv(namespace string, serviceAc
 			configuration.Spec.RevisionTemplate.Spec.Container.Env = append(configuration.Spec.RevisionTemplate.Spec.Container.Env,
 				v1.EnvVar{
 					Name:  gcs.GCSCredentialEnvKey,
-					Value: gcs.GCSCredentialVolumeMountPathPrefix + gcsCredentialFileName,
+					Value: gcs.GCSCredentialVolumeMountPath + gcsCredentialFileName,
 				})
 		} else {
 			log.V(5).Info("Skipping non gcs/s3 secret", "Secret", secret.Name)
