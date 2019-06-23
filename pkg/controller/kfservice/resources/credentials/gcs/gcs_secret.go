@@ -21,17 +21,17 @@ import (
 )
 
 const (
-	GCSCredentialFileName              = "gcloud-application-credentials.json"
-	GCSCredentialVolumeName            = "user-gcp-sa"
-	GCSCredentialVolumeMountPathPrefix = "/var/secrets/"
-	GCSCredentialEnvKey                = "GOOGLE_APPLICATION_CREDENTIALS"
+	GCSCredentialFileName        = "gcloud-application-credentials.json"
+	GCSCredentialVolumeName      = "user-gcp-sa"
+	GCSCredentialVolumeMountPath = "/var/secrets/"
+	GCSCredentialEnvKey          = "GOOGLE_APPLICATION_CREDENTIALS"
 )
 
 type GCSConfig struct {
 	GCSCredentialFileName string `json:"gcsCredentialFileName,omitempty"`
 }
 
-func BuildSecretVolume(secret *v1.Secret, gcsCredentialFileName string) (v1.Volume, v1.VolumeMount) {
+func BuildSecretVolume(secret *v1.Secret) (v1.Volume, v1.VolumeMount) {
 	volume := v1.Volume{
 		Name: GCSCredentialVolumeName,
 		VolumeSource: v1.VolumeSource{
@@ -41,7 +41,7 @@ func BuildSecretVolume(secret *v1.Secret, gcsCredentialFileName string) (v1.Volu
 		},
 	}
 	volumeMount := v1.VolumeMount{
-		MountPath: GCSCredentialVolumeMountPathPrefix + gcsCredentialFileName,
+		MountPath: GCSCredentialVolumeMountPath,
 		Name:      GCSCredentialVolumeName,
 		ReadOnly:  true,
 	}
