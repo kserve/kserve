@@ -15,7 +15,7 @@ package v1alpha1
 
 import (
 	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -23,8 +23,20 @@ import (
 type KFServiceSpec struct {
 	Default ModelSpec `json:"default"`
 	// Canary defines an alternate configuration to route a percentage of traffic.
-	Canary               *ModelSpec `json:"canary,omitempty"`
-	CanaryTrafficPercent int        `json:"canaryTrafficPercent,omitempty"`
+	Canary      *CanarySpec      `json:"canary,omitempty"`
+	Explanation *ExplanationSpec `json:"explanation,omitempty"` // Model Explainability
+	Analysis    *AnalysisSpec    `json:"analysis,omitempty"`    // Skew/Outlier/Reporting config
+}
+
+// TemplateSpec provides a duck-typed core/v1.PodSpec for arbitrary container configuration.
+type TemplateSpec struct {
+	v1.PodSpec `json:",inline"`
+}
+
+// CanarySpec defines the canary configuration to route traffic.
+type CanarySpec struct {
+	ModelSpec      `json:",inline"`
+	TrafficPercent int `json:"TrafficPercent,omitempty"` // Should this go back into the CanarySpec?
 }
 
 // ModelSpec defines the default configuration to route traffic.
@@ -36,7 +48,7 @@ type ModelSpec struct {
 	// This is the up bound for autoscaler to scale to
 	MaxReplicas int `json:"maxReplicas,omitempty"`
 	// The following fields follow a "1-of" semantic. Users must specify exactly one spec.
-	Custom     *CustomSpec     `json:"custom,omitempty"`
+	Template   *TemplateSpec   `json:"template,omitempty"`
 	Tensorflow *TensorflowSpec `json:"tensorflow,omitempty"`
 	TensorRT   *TensorRTSpec   `json:"tensorrt,omitempty"`
 	XGBoost    *XGBoostSpec    `json:"xgboost,omitempty"`
@@ -79,9 +91,35 @@ type SKLearnSpec struct {
 	Resources v1.ResourceRequirements `json:"resources,omitempty"`
 }
 
-// CustomSpec provides a hook for arbitrary container configuration.
-type CustomSpec struct {
-	Container v1.Container `json:"container"`
+// ExplanationSpec defines the configuration of the model explainer.
+type ExplanationSpec struct {
+	Async bool `json:"omitempty"` // Defaults false. If true, creates and outputs to a well known (named) Knative Channel
+
+	// The following fields follow a "1-of" semantic. Users must specify exactly one spec.
+	Template *TemplateSpec       `json:"template,omitempty"`
+	Alibi    *AlibiExplainerSpec `json:"alibi,omitempty"`
+	// Include other OSS out-of-the-box explainers here
+}
+
+type AlibiExplainerSpec struct {
+	// TODO(clivecox)
+}
+
+// AnalysisSpec defines the configuration of the analyzer default configuration to route traffic.
+type AnalysisSpec struct {
+	Skew    *SkewSpec    // TODO
+	Bias    *BiasSpec    // TODO
+	Logging *LoggingSpec // TODO
+	// TODO Include configuration of backend datastore. KFServing should provide an image
+}
+
+type SkewSpec struct {
+}
+
+type BiasSpec struct {
+}
+
+type LoggingSpec struct {
 }
 
 // KFServiceStatus defines the observed state of KFService
