@@ -58,10 +58,9 @@ func (ss *KFServiceStatus) GetCondition(t apis.ConditionType) *apis.Condition {
 func (ss *KFServiceStatus) PropagateDefaultConfigurationStatus(defaultConfigurationStatus *knservingv1alpha1.ConfigurationStatus) {
 	ss.Default.Name = defaultConfigurationStatus.LatestCreatedRevisionName
 	configurationCondition := defaultConfigurationStatus.GetCondition(knservingv1alpha1.ConfigurationConditionReady)
-	if configurationCondition == nil {
-		return
-	}
+
 	switch {
+	case configurationCondition == nil:
 	case configurationCondition.Status == v1.ConditionUnknown:
 		conditionSet.Manage(ss).MarkUnknown(DefaultPredictorReady, configurationCondition.Reason, configurationCondition.Message)
 	case configurationCondition.Status == v1.ConditionTrue:
@@ -76,10 +75,9 @@ func (ss *KFServiceStatus) PropagateDefaultConfigurationStatus(defaultConfigurat
 func (ss *KFServiceStatus) PropagateCanaryConfigurationStatus(canaryConfigurationStatus *knservingv1alpha1.ConfigurationStatus) {
 	ss.Canary.Name = canaryConfigurationStatus.LatestCreatedRevisionName
 	configurationCondition := canaryConfigurationStatus.GetCondition(knservingv1alpha1.ConfigurationConditionReady)
-	if configurationCondition == nil {
-		return
-	}
+
 	switch {
+	case configurationCondition == nil:
 	case configurationCondition.Status == v1.ConditionUnknown:
 		conditionSet.Manage(ss).MarkUnknown(CanaryPredictorReady, configurationCondition.Reason, configurationCondition.Message)
 	case configurationCondition.Status == v1.ConditionTrue:
@@ -104,10 +102,9 @@ func (ss *KFServiceStatus) PropagateRouteStatus(rs *knservingv1alpha1.RouteStatu
 	}
 
 	rc := rs.GetCondition(knservingv1alpha1.RouteConditionReady)
-	if rc == nil {
-		return
-	}
+
 	switch {
+	case rc == nil:
 	case rc.Status == v1.ConditionUnknown:
 		conditionSet.Manage(ss).MarkUnknown(RoutesReady, rc.Reason, rc.Message)
 	case rc.Status == v1.ConditionTrue:

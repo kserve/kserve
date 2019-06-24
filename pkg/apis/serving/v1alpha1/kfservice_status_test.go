@@ -25,7 +25,7 @@ import (
 )
 
 func TestKFServiceDuckType(t *testing.T) {
-	tests := []struct {
+	cases := []struct {
 		name string
 		t    duck.Implementable
 	}{{
@@ -33,7 +33,7 @@ func TestKFServiceDuckType(t *testing.T) {
 		t:    &duckv1beta1.Conditions{},
 	}}
 
-	for _, test := range tests {
+	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
 			err := duck.VerifyType(&KFService{}, test.t)
 			if err != nil {
@@ -194,12 +194,14 @@ func TestKFServiceIsReady(t *testing.T) {
 	}}
 
 	for _, tc := range cases {
-		status := KFServiceStatus{}
-		status.PropagateDefaultConfigurationStatus(&tc.defaultConfigurationStatus)
-		status.PropagateCanaryConfigurationStatus(&tc.canaryConfigurationStatus)
-		status.PropagateRouteStatus(&tc.routeStatus)
-		if e, a := tc.isReady, status.IsReady(); e != a {
-			t.Errorf("%q expected: %v got: %v", tc.name, e, a)
-		}
+		t.Run(tc.name, func(t *testing.T) {
+			status := KFServiceStatus{}
+			status.PropagateDefaultConfigurationStatus(&tc.defaultConfigurationStatus)
+			status.PropagateCanaryConfigurationStatus(&tc.canaryConfigurationStatus)
+			status.PropagateRouteStatus(&tc.routeStatus)
+			if e, a := tc.isReady, status.IsReady(); e != a {
+				t.Errorf("%q expected: %v got: %v", tc.name, e, a)
+			}
+		})
 	}
 }
