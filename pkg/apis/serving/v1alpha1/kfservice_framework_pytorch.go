@@ -27,7 +27,7 @@ var (
 		"latest",
 	}
 	InvalidPyTorchRuntimeVersionError = "RuntimeVersion must be one of " + strings.Join(AllowedPyTorchRuntimeVersions, ", ")
-	PyTorchServerImageName            = "animeshsingh/pytorchserver"
+	PyTorchServerImageName            = "gcr.io/kfserving/pytorchserver"
 	DefaultPyTorchRuntimeVersion      = "latest"
 )
 

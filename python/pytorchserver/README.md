@@ -117,7 +117,7 @@ You can build and publish your own image for development needs. Please ensure th
 To build your own image, run
 
 ```bash
-docker build -t animeshsingh/pytorchserver -f pytorch.Dockerfile .
+docker build -t docker_user_name/pytorchserver -f pytorch.Dockerfile .
 ```
 
 You should see an output with an ending similar to this
