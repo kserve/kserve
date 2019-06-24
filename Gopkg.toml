@@ -21,6 +21,15 @@ required = [
   unused-packages = true
   non-go = true
 
+  [[prune.project]]
+    name = "k8s.io/code-generator"
+    non-go = false
+    unused-packages = false
+
+  [[prune.project]]
+    name = "k8s.io/gengo"
+    unused-packages = false 
+    
 # For dependency below: Refer to issue https://github.com/golang/dep/issues/1799
 [[override]]
 name = "gopkg.in/fsnotify.v1"
