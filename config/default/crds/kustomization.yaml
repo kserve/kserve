@@ -1,0 +1,18 @@
+# Labels to add to all resources and selectors.
+#commonLabels:
+#  someName: someValue
+
+# Each entry in this list must resolve to an existing
+# resource definition in YAML.  These are the resource
+# files that kustomize reads, modifies and emits as a
+# YAML string, with resources separated by document
+# markers ("---").
+resources:
+- serving_v1alpha1_kfservice.yaml
+
+patches:
+  # Knative uses VolatileTime in place of metav1.Time to exclude this from creating equality.Semantic difference,
+  # however when generating crd last transition time is tagged as object thus getting validation error while updating
+  # status object(status.conditions.lastTransitionTime in body must be of type object: "string").
+  # Controller-runtime 2.0 supports +kubebuilder:validation:Type=string but we are still on 1.9.0 due to knative dep.
+- crd_status_condition_patch.yaml
