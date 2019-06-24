@@ -73,7 +73,6 @@ func TestKnativeRouteReconcile(t *testing.T) {
 	for name, scenario := range scenarios {
 		t.Logf("Scenario: %s", name)
 		g.Expect(c.Create(context.TODO(), &scenario.kfsvc)).NotTo(gomega.HaveOccurred())
-		g.Expect(c.Create(context.TODO(), &knservingv1alpha1.Route{ObjectMeta: scenario.desiredRoute.ObjectMeta})).NotTo(gomega.HaveOccurred())
 
 		if err := routeReconciler.Reconcile(&scenario.kfsvc); err != nil {
 			t.Errorf("Test %q failed: returned error: %v", name, err)
@@ -84,7 +83,6 @@ func TestKnativeRouteReconcile(t *testing.T) {
 		g.Eventually(func() error { return awaitDesiredRoute(c, scenario.desiredRoute) }, timeout).Should(gomega.Succeed())
 
 		g.Expect(c.Delete(context.TODO(), &scenario.kfsvc)).NotTo(gomega.HaveOccurred())
-		g.Expect(c.Delete(context.TODO(), &knservingv1alpha1.Route{ObjectMeta: scenario.desiredRoute.ObjectMeta})).NotTo(gomega.HaveOccurred())
 	}
 }
 

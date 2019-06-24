@@ -217,39 +217,39 @@ spec:
                   type: integer
               type: object
             conditions:
-              properties:
-                conditions:
-                  description: Conditions the latest available observations of a resource's
-                    current state. +patchMergeKey=type +patchStrategy=merge
-                  items:
-                    properties:
-                      lastProbeTime:
-                        description: Last time the condition was probed.
-                        format: date-time
-                        type: string
-                      lastTransitionTime:
-                        description: Last time the condition transitioned from one
-                          status to another.
-                        format: date-time
-                        type: string
-                      message:
-                        description: Human-readable message indicating details about
-                          last transition.
-                        type: string
-                      reason:
-                        description: Unique, one-word, CamelCase reason for the condition's
-                          last transition.
-                        type: string
-                      status:
-                        type: string
-                      type:
-                        type: string
-                    required:
-                    - type
-                    - status
-                    type: object
-                  type: array
-              type: object
+              description: Conditions the latest available observations of a resource's
+                current state. +patchMergeKey=type +patchStrategy=merge
+              items:
+                properties:
+                  lastTransitionTime:
+                    description: LastTransitionTime is the last time the condition
+                      transitioned from one status to another. We use VolatileTime
+                      in place of metav1.Time to exclude this from creating equality.Semantic
+                      differences (all other things held constant).
+                    type: string
+                  message:
+                    description: A human readable message indicating details about
+                      the transition.
+                    type: string
+                  reason:
+                    description: The reason for the condition's last transition.
+                    type: string
+                  severity:
+                    description: Severity with which to treat failures of this type
+                      of condition. When this is not specified, it defaults to Error.
+                    type: string
+                  status:
+                    description: Status of the condition, one of True, False, Unknown.
+                      +required
+                    type: string
+                  type:
+                    description: Type of condition. +required
+                    type: string
+                required:
+                - type
+                - status
+                type: object
+              type: array
             default:
               properties:
                 name:
@@ -261,6 +261,11 @@ spec:
                   format: int64
                   type: integer
               type: object
+            observedGeneration:
+              description: ObservedGeneration is the 'Generation' of the Service that
+                was last processed by the controller.
+              format: int64
+              type: integer
             url:
               type: string
           type: object
