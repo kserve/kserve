@@ -43,6 +43,7 @@ parser.add_argument('--http_port', default=DEFAULT_HTTP_PORT, type=int,
 parser.add_argument('--grpc_port', default=DEFAULT_GRPC_PORT, type=int,
                     help='The GRPC Port listened to by the model server.')
 parser.add_argument('--protocol', type=Protocol, choices=list(Protocol),
+                    default="tensorflow.http",
                     help='The protocol served by the model server')
 args, _ = parser.parse_known_args()
 
