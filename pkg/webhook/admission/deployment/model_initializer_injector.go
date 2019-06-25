@@ -24,7 +24,7 @@ import (
 )
 
 const (
-	ModelProvisioningContainerName    = "model-provisioner"
+	ModelInitializerContainerName     = "model-initializer"
 	ModelProvisioningVolumeName       = "kfserving-provision-location"
 	ModelProvisioningContainerImage   = "kcorer/kfdownloader"
 	ModelProvisioningContainerVersion = "latest"
@@ -74,7 +74,7 @@ func InjectModelInitializer(deployment *appsv1.Deployment) error {
 	}
 
 	podVolumes := []v1.Volume{}
-	provisionerMounts := []v1.VolumeMount{}
+	modelInitializerMounts := []v1.VolumeMount{}
 
 	// For PVC source URIs we need to mount the source to be able to access it
 	// See design and discussion here: https://github.com/kubeflow/kfserving/issues/148
@@ -101,13 +101,13 @@ func InjectModelInitializer(deployment *appsv1.Deployment) error {
 			MountPath: PvcSourceMountPath,
 			ReadOnly:  true,
 		}
-		provisionerMounts = append(provisionerMounts, pvcSourceVolumeMount)
+		modelInitializerMounts = append(modelInitializerMounts, pvcSourceVolumeMount)
 
 		// modify the sourceURI to point to the PVC path
 		srcURI = PvcSourceMountPath + "/" + pvcPath
 	}
 
-	// Create a volume that is shared between the provisioner and user-container
+	// Create a volume that is shared between the model-initializer and user-container
 	sharedVolume := v1.Volume{
 		Name: ModelProvisioningVolumeName,
 		VolumeSource: v1.VolumeSource{
@@ -122,17 +122,17 @@ func InjectModelInitializer(deployment *appsv1.Deployment) error {
 		MountPath: constants.DefaultModelLocalMountPath,
 		ReadOnly:  false,
 	}
-	provisionerMounts = append(provisionerMounts, sharedVolumeWriteMount)
+	modelInitializerMounts = append(modelInitializerMounts, sharedVolumeWriteMount)
 
 	// Add an init container to run provisioning logic to the PodSpec
 	initContianer := v1.Container{
-		Name:  ModelProvisioningContainerName,
+		Name:  ModelInitializerContainerName,
 		Image: ModelProvisioningContainerImage + ":" + ModelProvisioningContainerVersion,
 		Args: []string{
 			srcURI,
 			constants.DefaultModelLocalMountPath,
 		},
-		VolumeMounts: provisionerMounts,
+		VolumeMounts: modelInitializerMounts,
 	}
 	podSpec.InitContainers = append(podSpec.InitContainers, initContianer)
 

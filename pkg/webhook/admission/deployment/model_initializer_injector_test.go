@@ -102,7 +102,7 @@ func TestModelProvisioningInjector(t *testing.T) {
 				},
 			},
 		},
-		"ProvisionerInjected": {
+		"ModelInitializerInjected": {
 			original: &appsv1.Deployment{
 				Spec: appsv1.DeploymentSpec{
 					Template: v1.PodTemplateSpec{
@@ -144,7 +144,7 @@ func TestModelProvisioningInjector(t *testing.T) {
 							},
 							InitContainers: []v1.Container{
 								v1.Container{
-									Name:  "model-provisioner",
+									Name:  "model-initializer",
 									Image: "kcorer/kfdownloader:latest",
 									Args:  []string{"gs://foo", "/mnt/somewhere"},
 									VolumeMounts: []v1.VolumeMount{
@@ -168,7 +168,7 @@ func TestModelProvisioningInjector(t *testing.T) {
 				},
 			},
 		},
-		"ProvisionerInjectedAndMountsPvc": {
+		"ModelInitializerInjectedAndMountsPvc": {
 			original: &appsv1.Deployment{
 				Spec: appsv1.DeploymentSpec{
 					Template: v1.PodTemplateSpec{
@@ -210,7 +210,7 @@ func TestModelProvisioningInjector(t *testing.T) {
 							},
 							InitContainers: []v1.Container{
 								v1.Container{
-									Name:  "model-provisioner",
+									Name:  "model-initializer",
 									Image: "kcorer/kfdownloader:latest",
 									Args:  []string{"/mnt/pvc/some/path/on/pvc", "/mnt/model"},
 									VolumeMounts: []v1.VolumeMount{
