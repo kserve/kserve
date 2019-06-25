@@ -11,7 +11,7 @@ ignore=CVS
 
 # Add files or directories matching the regex patterns to the blacklist. The
 # regex matches against base names, not paths.
-ignore-patterns=
+ignore-patterns=server.py,anchor_tabular.py,explainer.py,model.py
 
 # Python code to execute, usually for sys.path manipulation such as
 # pygtk.require().
@@ -144,7 +144,9 @@ disable=print-statement,
         wrong-import-order,
         fixme,
         invalid-name,
-        no-member
+        no-member,
+        abstract-method,
+        no-self-use,
 
 # Enable the message, report, category or checker with the given id(s). You can
 # either give multiple identifier separated by comma (,) or put this option

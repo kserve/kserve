@@ -15,11 +15,11 @@
 import kfserving
 import argparse
 from alibiexplainer import AlibiExplainer
-from alibiexplainer.explainer import ExplainerMethod
+from alibiexplainer.explainer import ExplainerMethod #pylint:disable=no-name-in-module
 
 DEFAULT_MODEL_NAME = "model"
 
-parser = argparse.ArgumentParser(parents=[kfserving.server.parser])
+parser = argparse.ArgumentParser(parents=[kfserving.server.parser]) #pylint:disable=c-extension-no-member
 parser.add_argument('--model_name', default=DEFAULT_MODEL_NAME,
                     help='The name that the model is served under.')
 parser.add_argument('--predict_url', help='The URL for the model predict function', required=True)
@@ -37,4 +37,4 @@ if __name__ == "__main__":
                                ExplainerMethod(args.method),
                                training_data_url=args.training_data)
     explainer.load()
-    kfserving.KFServer().start(models=[explainer])
+    kfserving.KFServer().start(models=[explainer]) #pylint:disable=c-extension-no-member
