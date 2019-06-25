@@ -24,8 +24,6 @@ required = [
 
 [[prune.project]]
   name = "github.com/tensorflow/tensorflow"
-  non-go = false
-  go-tests = false
   unused-packages = false
 
 # For dependency below: Refer to issue https://github.com/golang/dep/issues/1799
