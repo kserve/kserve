@@ -34,11 +34,11 @@ const (
 	UserContainerName                 = "user-container"
 )
 
-// InjectModelProvisioner injects an init container to provision model data
+// InjectModelInitializer injects an init container to provision model data
 // for the serving container in a unified way across storage tech by injecting
 // a provisioning INIT container. This is a work around because KNative does not
 // support INIT containers: https://github.com/knative/serving/issues/4307
-func InjectModelProvisioner(deployment *appsv1.Deployment) error {
+func InjectModelInitializer(deployment *appsv1.Deployment) error {
 
 	var srcURI, mountPath string
 
