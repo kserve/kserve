@@ -1,6 +1,6 @@
 VENDOR_DIR := $(GOPATH)/src/github.com/kubeflow/kfserving/vendor
 TF_PROTO_SRC := $(VENDOR_DIR)/github.com/tensorflow/tensorflow
-TF_PROTO_OUT := tf
+TF_PROTO_OUT := generated
 
 # Generate code
 generate:
