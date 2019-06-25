@@ -32,8 +32,8 @@ var (
 	DefaultXGBoostRuntimeVersion      = "latest"
 )
 
-func (x *XGBoostSpec) MapSourceUri() (sourceURI string, localPath string, ok bool) {
-	return x.ModelURI, constants.DefaultModelLocalMountPath, true
+func (x *XGBoostSpec) GetModelSourceUri() string {
+	return x.ModelURI
 }
 
 func (x *XGBoostSpec) CreateModelServingContainer(modelName string, config *FrameworksConfig) *v1.Container {

@@ -21,8 +21,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
-func (c *CustomSpec) MapSourceUri() (sourceURI string, localPath string, ok bool) {
-	return "", "", false
+func (c *CustomSpec) GetModelSourceUri() string {
+	return ""
 }
 
 func (c *CustomSpec) CreateModelServingContainer(modelName string, config *FrameworksConfig) *v1.Container {

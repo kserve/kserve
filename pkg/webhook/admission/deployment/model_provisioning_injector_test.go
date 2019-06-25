@@ -70,8 +70,7 @@ func TestModelProvisioningInjector(t *testing.T) {
 					Template: v1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Annotations: map[string]string{
-								constants.KFServiceModelProvisioningSourceURIAnnotationKey: "haha://foo",
-								constants.KFServiceModelProvisioningMountPathAnnotationKey: "/mnt",
+								constants.KFServiceModelInitializerSourceURIInternalAnnotationKey: "haha://foo",
 							},
 						},
 						Spec: v1.PodSpec{
@@ -89,8 +88,7 @@ func TestModelProvisioningInjector(t *testing.T) {
 					Template: v1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Annotations: map[string]string{
-								constants.KFServiceModelProvisioningSourceURIAnnotationKey: "haha://foo",
-								constants.KFServiceModelProvisioningMountPathAnnotationKey: "/mnt",
+								constants.KFServiceModelInitializerSourceURIInternalAnnotationKey: "haha://foo",
 							},
 						},
 						Spec: v1.PodSpec{
@@ -110,8 +108,7 @@ func TestModelProvisioningInjector(t *testing.T) {
 					Template: v1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Annotations: map[string]string{
-								constants.KFServiceModelProvisioningSourceURIAnnotationKey: "gs://foo",
-								constants.KFServiceModelProvisioningMountPathAnnotationKey: "/mnt/somewhere",
+								constants.KFServiceModelInitializerSourceURIInternalAnnotationKey: "gs://foo",
 							},
 						},
 						Spec: v1.PodSpec{
@@ -129,8 +126,7 @@ func TestModelProvisioningInjector(t *testing.T) {
 					Template: v1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Annotations: map[string]string{
-								constants.KFServiceModelProvisioningSourceURIAnnotationKey: "gs://foo",
-								constants.KFServiceModelProvisioningMountPathAnnotationKey: "/mnt/somewhere",
+								constants.KFServiceModelInitializerSourceURIInternalAnnotationKey: "gs://foo",
 							},
 						},
 						Spec: v1.PodSpec{
@@ -178,7 +174,7 @@ func TestModelProvisioningInjector(t *testing.T) {
 					Template: v1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Annotations: map[string]string{
-								constants.KFServiceModelProvisioningSourceURIAnnotationKey: "pvc://mypvcname/some/path/on/pvc",
+								constants.KFServiceModelInitializerSourceURIInternalAnnotationKey: "pvc://mypvcname/some/path/on/pvc",
 							},
 						},
 						Spec: v1.PodSpec{
@@ -196,7 +192,7 @@ func TestModelProvisioningInjector(t *testing.T) {
 					Template: v1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Annotations: map[string]string{
-								constants.KFServiceModelProvisioningSourceURIAnnotationKey: "pvc://mypvcname/some/path/on/pvc",
+								constants.KFServiceModelInitializerSourceURIInternalAnnotationKey: "pvc://mypvcname/some/path/on/pvc",
 							},
 						},
 						Spec: v1.PodSpec{

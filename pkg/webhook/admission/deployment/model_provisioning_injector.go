@@ -46,16 +46,10 @@ func InjectModelProvisioner(deployment *appsv1.Deployment) error {
 	podSpec := &deployment.Spec.Template.Spec
 
 	// Only inject if the required annotations are set
-	if _, ok := annotations[constants.KFServiceModelProvisioningSourceURIAnnotationKey]; ok {
-		srcURI = annotations[constants.KFServiceModelProvisioningSourceURIAnnotationKey]
+	if _, ok := annotations[constants.KFServiceModelInitializerSourceURIInternalAnnotationKey]; ok {
+		srcURI = annotations[constants.KFServiceModelInitializerSourceURIInternalAnnotationKey]
 	} else {
 		return nil
-	}
-
-	if _, ok := annotations[constants.KFServiceModelProvisioningMountPathAnnotationKey]; ok {
-		mountPath = annotations[constants.KFServiceModelProvisioningMountPathAnnotationKey]
-	} else {
-		mountPath = constants.DefaultModelLocalMountPath
 	}
 
 	// Only inject provisioning for supported URIs
@@ -125,7 +119,7 @@ func InjectModelProvisioner(deployment *appsv1.Deployment) error {
 	// Create a write mount into the shared volume
 	sharedVolumeWriteMount := v1.VolumeMount{
 		Name:      ModelProvisioningVolumeName,
-		MountPath: mountPath,
+		MountPath: constants.DefaultModelLocalMountPath,
 		ReadOnly:  false,
 	}
 	provisionerMounts = append(provisionerMounts, sharedVolumeWriteMount)
@@ -136,7 +130,7 @@ func InjectModelProvisioner(deployment *appsv1.Deployment) error {
 		Image: ModelProvisioningContainerImage + ":" + ModelProvisioningContainerVersion,
 		Args: []string{
 			srcURI,
-			mountPath,
+			constants.DefaultModelLocalMountPath,
 		},
 		VolumeMounts: provisionerMounts,
 	}

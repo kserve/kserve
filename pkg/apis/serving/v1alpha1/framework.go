@@ -24,7 +24,7 @@ import (
 )
 
 type FrameworkHandler interface {
-	MapSourceUri() (sourceURI string, localPath string, ok bool)
+	GetModelSourceUri() string
 	CreateModelServingContainer(modelName string, config *FrameworksConfig) *v1.Container
 	ApplyDefaults()
 	Validate() error
@@ -42,8 +42,8 @@ var (
 	DefaultCPURequests    = resource.MustParse("1")
 )
 
-func (m *ModelSpec) MapSourceUri() (sourceURI string, localPath string, ok bool) {
-	return getHandler(m).MapSourceUri()
+func (m *ModelSpec) GetModelSourceUri() string {
+	return getHandler(m).GetModelSourceUri()
 }
 
 func (m *ModelSpec) CreateModelServingContainer(modelName string, config *FrameworksConfig) *v1.Container {

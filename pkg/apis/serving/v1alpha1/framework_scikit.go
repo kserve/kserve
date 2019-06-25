@@ -34,8 +34,8 @@ var (
 
 var _ FrameworkHandler = (*SKLearnSpec)(nil)
 
-func (s *SKLearnSpec) MapSourceUri() (sourceURI string, localPath string, ok bool) {
-	return s.ModelURI, constants.DefaultModelLocalMountPath, true
+func (s *SKLearnSpec) GetModelSourceUri() string {
+	return s.ModelURI
 }
 
 func (s *SKLearnSpec) CreateModelServingContainer(modelName string, config *FrameworksConfig) *v1.Container {

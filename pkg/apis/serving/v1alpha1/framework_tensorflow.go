@@ -45,8 +45,8 @@ var (
 	InvalidTensorflowRuntimeExcludesGPU  = "RuntimeVersion is GPU enabled but GPU resources are not requested. " + InvalidTensorflowRuntimeVersionError
 )
 
-func (t *TensorflowSpec) MapSourceUri() (sourceURI string, localPath string, ok bool) {
-	return t.ModelURI, constants.DefaultModelLocalMountPath, true
+func (t *TensorflowSpec) GetModelSourceUri() string {
+	return t.ModelURI
 }
 
 func (t *TensorflowSpec) CreateModelServingContainer(modelName string, config *FrameworksConfig) *v1.Container {
