@@ -485,6 +485,14 @@
   version = "v1.0.3"
 
 [[projects]]
+  digest = "1:b66db26a1d6a21daa8b99a9d5922880566e4619bd6fb6b2e5c23eb51e151abd8"
+  name = "github.com/tensorflow/tensorflow"
+  packages = ["tensorflow/go"]
+  pruneopts = ""
+  revision = "6612da89516247503f03ef76e974b51a434fb52e"
+  version = "v1.13.1"
+
+[[projects]]
   digest = "1:22f696cee54865fb8e9ff91df7b633f6b8f22037a8015253c6b6a71ca82219c7"
   name = "go.uber.org/atomic"
   packages = ["."]
@@ -1083,7 +1091,9 @@
     "github.com/mattbaird/jsonpatch",
     "github.com/onsi/ginkgo",
     "github.com/onsi/gomega",
+    "github.com/onsi/gomega/types",
     "github.com/pkg/errors",
+    "github.com/tensorflow/tensorflow/tensorflow/go",
     "golang.org/x/net/context",
     "golang.org/x/net/http2",
     "golang.org/x/net/http2/h2c",
