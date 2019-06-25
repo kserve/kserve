@@ -15,6 +15,7 @@
 # limitations under the License.
 
 set -o errexit
+set -o nounset
 set -o pipefail
 
 STARTUP_DIR="$( cd "$( dirname "$0" )" && pwd )"
