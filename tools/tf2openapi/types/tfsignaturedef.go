@@ -71,7 +71,7 @@ func NewTFMethod(key string, method string) (TFMethod, error) {
 	return tfMethod, nil
 }
 
-func CanHaveRowSchema(t []TFTensor) bool {
+func canHaveRowSchema(t []TFTensor) bool {
 	for _, input := range t {
 		// unknown rank
 		if input.Rank == -1 {
@@ -86,10 +86,28 @@ func CanHaveRowSchema(t []TFTensor) bool {
 	return true
 }
 
+func (t *TFSignatureDef) rowSchema() *openapi3.Schema {
+	if len(t.Inputs) == 1 {
+		// only one named input tensor
+		// schema is of the form [val1, val2, etc.]
+		singleTensorSchema := t.Inputs[0].Schema(true)
+		return openapi3.NewArraySchema().WithItems(singleTensorSchema)
+	}
+	// multiple named input tensors
+	// schema is of the form [{tensor1: val1, tensor2: val3, ..}, {tensor1: val2, tensor2: val4, ..}..]
+	multiTensorSchema := openapi3.NewObjectSchema().WithProperties(make(map[string]*openapi3.Schema))
+	schema := openapi3.NewArraySchema().WithItems(multiTensorSchema)
+	for _, i := range t.Inputs {
+		schema.Items.Value.Properties[i.Name] = i.Schema(true).NewRef()
+		schema.Items.Value.Required = append(schema.Items.Value.Required, i.Name)
+	}
+	return schema
+}
+
 func (t *TFSignatureDef) Schema() *openapi3.Schema {
 	// Prefer the row format (https://www.tensorflow.org/tfx/serving/api_rest#specifying_input_tensors_in_row_format)
 	// when possible - it's more readable
-	if CanHaveRowSchema(t.Inputs) {
+	if canHaveRowSchema(t.Inputs) {
 		if len(t.Inputs) == 1 {
 			// single input tensor
 			singleTensorSchema := t.Inputs[0].Schema(true)
@@ -106,7 +124,6 @@ func (t *TFSignatureDef) Schema() *openapi3.Schema {
 			schema.Items.Value.Required = append(schema.Items.Value.Required, i.Name)
 		}
 		return schema
-
 	}
 	// Else, use the column format (https://www.tensorflow.org/tfx/serving/api_rest#specifying_input_tensors_in_column_format)
 	return &openapi3.Schema{}
