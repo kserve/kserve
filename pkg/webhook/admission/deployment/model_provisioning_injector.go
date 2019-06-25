@@ -31,6 +31,7 @@ const (
 	PvcURIPrefix                      = "pvc://"
 	PvcSourceMountName                = "kfserving-pvc-source"
 	PvcSourceMountPath                = "/mnt/pvc"
+	UserContainerName                 = "user-container"
 )
 
 // InjectModelProvisioner injects an init container to provision model data
@@ -68,14 +69,14 @@ func InjectModelProvisioner(deployment *appsv1.Deployment) error {
 	// Find the knative user-container (this is the model inference server)
 	userContainerIndex := -1
 	for idx, container := range podSpec.Containers {
-		if strings.Compare(container.Name, "user-container") == 0 {
+		if strings.Compare(container.Name, UserContainerName) == 0 {
 			userContainerIndex = idx
 			break
 		}
 	}
 
 	if userContainerIndex < 0 {
-		return fmt.Errorf("aargh no conuser container: %s", srcURI)
+		return fmt.Errorf("Invalid configuration: cannot find container: %s", UserContainerName)
 	}
 
 	podVolumes := []v1.Volume{}
