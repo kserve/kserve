@@ -111,14 +111,17 @@ func NewTFDType(name string, dType string) (TFDType, error) {
 	return tfDType, nil
 }
 
-func (t *TFTensor) Schema() *openapi3.Schema {
+// Corresponds to how each entry in an "instances" or "inputs" object should look
+func (t *TFTensor) Schema(row bool) *openapi3.Schema {
+	if row {
+		// Ignore the 0th dimension because it is always -1 in row fmt to represent batchable input
+		return Schema(1, t.Shape, t.Rank, t.DType)
+	}
 	if t.Rank == -1 {
 		// accept any schema if rank is unknown
 		return openapi3.NewSchema()
-	} else {
-		// https://www.tensorflow.org/guide/tensors#shape
-		return Schema(0, t.Shape, t.Rank, t.DType)
 	}
+	return &openapi3.Schema{}
 }
 
 // TODO column vs row:
@@ -127,37 +130,36 @@ func (t *TFTensor) Schema() *openapi3.Schema {
 // 	-scalars
 // - check how to columns, edge cases
 // 	-scalars
-func Schema(ind int64, shape TFShape, dims int64, dType TFDType) *openapi3.Schema {
-	if ind == dims {
-		// 0th dimension is a scalar
+func Schema(dim int64, shape TFShape, rank int64, dType TFDType) *openapi3.Schema {
+	if dim == rank {
 		return dType.Schema()
 	} else {
-		if shape[ind] == -1 {
-			// unknown length
-			return openapi3.NewArraySchema().WithItems(Schema(ind+1, shape, dims, dType))
+		if shape[dim] == -1 {
+			// unknown length in this dimension
+			return openapi3.NewArraySchema().WithItems(Schema(dim+1, shape, rank, dType))
 		} else {
-			return openapi3.NewArraySchema().WithLength(shape[ind]).WithItems(Schema(ind+1, shape, dims, dType))
+			return openapi3.NewArraySchema().WithLength(shape[dim]).WithItems(Schema(dim+1, shape, rank, dType))
 		}
 	}
 }
 
 func (t *TFDType) Schema() *openapi3.Schema {
 	schema, ok := map[TFDType]*openapi3.Schema{
-		DtBool: openapi3.NewBoolSchema(),
-		DtString: openapi3.NewStringSchema(),
+		DtBool:      openapi3.NewBoolSchema(),
+		DtString:    openapi3.NewStringSchema(),
 		DtB64String: openapi3.NewObjectSchema().WithProperty("b64", openapi3.NewStringSchema()),
 		// JSON should be a decimal number for Ints and UInts
-		DtInt8: openapi3.NewFloat64Schema(),
-		DtUInt8: openapi3.NewFloat64Schema(),
-		DtInt16: openapi3.NewFloat64Schema(),
-		DtInt32: openapi3.NewFloat64Schema(),
+		DtInt8:   openapi3.NewFloat64Schema(),
+		DtUInt8:  openapi3.NewFloat64Schema(),
+		DtInt16:  openapi3.NewFloat64Schema(),
+		DtInt32:  openapi3.NewFloat64Schema(),
 		DtUInt32: openapi3.NewFloat64Schema(),
-		DtInt64: openapi3.NewFloat64Schema(),
+		DtInt64:  openapi3.NewFloat64Schema(),
 		DtUInt64: openapi3.NewFloat64Schema(),
 		// OpenAPI does NOT support NaN, Inf, -Inf
 		// unlike TFServing which permits using these values as numbers for Floats and Doubles
 		// (https://www.tensorflow.org/tfx/serving/api_rest#json_conformance)
-		DtFloat: openapi3.NewFloat64Schema(),
+		DtFloat:  openapi3.NewFloat64Schema(),
 		DtDouble: openapi3.NewFloat64Schema(),
 	}[*t]
 	if !ok {
