@@ -26,7 +26,8 @@ setup(
     author_email='cc@seldon.io',
     license='../../LICENSE.txt',
     url='https://github.com/kubeflow/kfserving/python/kfserving/alibiexplainer',
-    description='Model Explaination Server. Not intended for use outside KFServing Frameworks Images',
+    description='Model Explaination Server. \
+                 Not intended for use outside KFServing Frameworks Images',
     long_description=open('README.md').read(),
     python_requires='>=3.6',
     packages=find_packages("alibiexplainer"),
