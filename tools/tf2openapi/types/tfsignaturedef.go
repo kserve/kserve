@@ -71,6 +71,43 @@ func NewTFMethod(key string, method string) (TFMethod, error) {
 	return tfMethod, nil
 }
 
+func CanHaveRowSchema(t []TFTensor) bool {
+	for _, input := range t {
+		// unknown rank
+		if input.Rank == -1 {
+			return false
+		}
+		// not batchable: either 1. tensor is a scalar or
+		// 2. model builder didn't follow the convention of having -1 in all 0th dim to indicate batchable inputs
+		if len(input.Shape) == 0 || input.Shape[0] != -1 {
+			return false
+		}
+	}
+	return true
+}
+
 func (t *TFSignatureDef) Schema() *openapi3.Schema {
+	// Prefer the row format (https://www.tensorflow.org/tfx/serving/api_rest#specifying_input_tensors_in_row_format)
+	// when possible - it's more readable
+	if CanHaveRowSchema(t.Inputs) {
+		if len(t.Inputs) == 1 {
+			// single input tensor
+			singleTensorSchema := t.Inputs[0].Schema()
+			return openapi3.NewArraySchema().WithItems(singleTensorSchema)
+
+		}
+		// multi-input tensor
+		// TODO how it differs for row v column
+
+		multiTensorSchema := openapi3.NewObjectSchema().WithProperties(make(map[string]*openapi3.Schema))
+		schema := openapi3.NewArraySchema().WithItems(multiTensorSchema)
+		for _, i := range t.Inputs {
+			schema.Items.Value.Properties[i.Name] = i.Schema().NewRef()
+			schema.Items.Value.Required = append(schema.Items.Value.Required, i.Name)
+
+		}
+
+	}
+	// Else, use the column format (https://www.tensorflow.org/tfx/serving/api_rest#specifying_input_tensors_in_column_format)
 	return &openapi3.Schema{}
 }
