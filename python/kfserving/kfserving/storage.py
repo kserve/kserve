@@ -25,10 +25,10 @@ _S3_PREFIX = "s3://"
 _LOCAL_PREFIX = "file://"
 
 
-class Storage(object):
+class Storage(object): # pylint: disable=too-few-public-methods
     @staticmethod
     def download(uri: str) -> str:
-        logging.info("Copying contents of %s to local" % uri)
+        logging.info("Copying contents of %s to local", uri)
         if uri.startswith(_LOCAL_PREFIX) or os.path.exists(uri):
             return Storage._download_local(uri)
 
@@ -42,7 +42,7 @@ class Storage(object):
                             "\n'%s', '%s', and '%s' are the current available storage type." %
                             (_GCS_PREFIX, _S3_PREFIX, _LOCAL_PREFIX))
 
-        logging.info("Successfully copied %s to %s" % (uri, temp_dir))
+        logging.info("Successfully copied %s to %s", uri, temp_dir)
         return temp_dir
 
     @staticmethod
@@ -55,13 +55,14 @@ class Storage(object):
         for obj in objects:
             # Replace any prefix from the object key with temp_dir
             subdir_object_key = obj.object_name.replace(bucket_path, "", 1).strip("/")
-            client.fget_object(bucket_name, obj.object_name, os.path.join(temp_dir, subdir_object_key))
+            client.fget_object(bucket_name, obj.object_name,
+                               os.path.join(temp_dir, subdir_object_key))
 
     @staticmethod
     def _download_gcs(uri, temp_dir: str):
         try:
             storage_client = storage.Client()
-        except exceptions.DefaultCredentialsError as e:
+        except exceptions.DefaultCredentialsError:
             storage_client = storage.Client.create_anonymous_client()
         bucket_args = uri.replace(_GCS_PREFIX, "", 1).split("/", 1)
         bucket_name = bucket_args[0]
