@@ -121,15 +121,9 @@ func (t *TFTensor) Schema(row bool) *openapi3.Schema {
 		// accept any schema if rank is unknown
 		return openapi3.NewSchema()
 	}
-	return &openapi3.Schema{}
+	return Schema(0, t.Shape, t.Rank, t.DType)
 }
 
-// TODO column vs row:
-// - check if can be rows
-// - check how to rows, edge cases
-// 	-scalars
-// - check how to columns, edge cases
-// 	-scalars
 func Schema(dim int64, shape TFShape, rank int64, dType TFDType) *openapi3.Schema {
 	if dim == rank {
 		return dType.Schema()
