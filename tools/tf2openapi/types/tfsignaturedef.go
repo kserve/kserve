@@ -92,7 +92,7 @@ func (t *TFSignatureDef) Schema() *openapi3.Schema {
 	if CanHaveRowSchema(t.Inputs) {
 		if len(t.Inputs) == 1 {
 			// single input tensor
-			singleTensorSchema := t.Inputs[0].Schema()
+			singleTensorSchema := t.Inputs[0].Schema(true)
 			return openapi3.NewArraySchema().WithItems(singleTensorSchema)
 
 		}
@@ -102,10 +102,10 @@ func (t *TFSignatureDef) Schema() *openapi3.Schema {
 		multiTensorSchema := openapi3.NewObjectSchema().WithProperties(make(map[string]*openapi3.Schema))
 		schema := openapi3.NewArraySchema().WithItems(multiTensorSchema)
 		for _, i := range t.Inputs {
-			schema.Items.Value.Properties[i.Name] = i.Schema().NewRef()
+			schema.Items.Value.Properties[i.Name] = i.Schema(true).NewRef()
 			schema.Items.Value.Required = append(schema.Items.Value.Required, i.Name)
-
 		}
+		return schema
 
 	}
 	// Else, use the column format (https://www.tensorflow.org/tfx/serving/api_rest#specifying_input_tensors_in_column_format)
