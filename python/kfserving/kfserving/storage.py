@@ -84,7 +84,7 @@ class Storage(object):
                     os.makedirs(local_object_dir, exist_ok=True)
             if subdir_object_key.strip() != "": 
                 dest_path = os.path.join(temp_dir, subdir_object_key)
-                print(dest_path)
+                logging.info("Downloading: %s" % dest_path)
                 blob.download_to_filename(dest_path)
 
     @staticmethod
