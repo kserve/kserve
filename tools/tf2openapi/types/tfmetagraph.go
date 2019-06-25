@@ -30,6 +30,14 @@ func NewTFMetaGraph(metaGraph *pb.MetaGraphDef, sigDefKey string) (TFMetaGraph, 
 	}, nil
 }
 
+
 func (t *TFMetaGraph) Schema() *openapi3.Schema {
-	return &openapi3.Schema{}
+	schema := openapi3.NewOneOfSchema()
+	for _, s := range t.SignatureDefs {
+		// TODO may change for columnar format
+		// make required
+		rowSchemaRef := openapi3.NewObjectSchema().WithProperty("instances", s.Schema()).NewRef()
+		schema.OneOf = append(schema.OneOf, rowSchemaRef)
+	}
+	return schema
 }
