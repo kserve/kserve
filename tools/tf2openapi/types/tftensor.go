@@ -112,5 +112,56 @@ func stringType(name string) TFDType {
 }
 
 func (t *TFTensor) Schema() *openapi3.Schema {
-	return &openapi3.Schema{}
+	if t.Rank == -1 {
+		// accept any schema if rank is unknown
+		return openapi3.NewSchema()
+	} else {
+		// https://www.tensorflow.org/guide/tensors#shape
+		return Schema(0, t.Shape, t.Rank, t.DType)
+	}
+}
+
+// TODO column vs row:
+// - check if can be rows
+// - check how to rows, edge cases
+// 	-scalars
+// - check how to columns, edge cases
+// 	-scalars
+func Schema(ind int64, shape TFShape, dims int64, dType TFDType) *openapi3.Schema {
+	if ind == dims {
+		// 0th dimension is a scalar
+		return dType.Schema()
+	} else {
+		if shape[ind] == -1 {
+			// unknown length
+			return openapi3.NewArraySchema().WithItems(Schema(ind+1, shape, dims, dType))
+		} else {
+			return openapi3.NewArraySchema().WithLength(shape[ind]).WithItems(Schema(ind+1, shape, dims, dType))
+		}
+	}
+}
+
+func (t *TFDType) Schema() *openapi3.Schema {
+	schema, ok := map[TFDType]*openapi3.Schema{
+		DtBool: openapi3.NewBoolSchema(),
+		DtString: openapi3.NewStringSchema(),
+		DtB64String: openapi3.NewObjectSchema().WithProperty("b64", openapi3.NewStringSchema()),
+		// JSON should be a decimal number for Ints and UInts
+		DtInt8: openapi3.NewFloat64Schema(),
+		DtUInt8: openapi3.NewFloat64Schema(),
+		DtInt16: openapi3.NewFloat64Schema(),
+		DtInt32: openapi3.NewFloat64Schema(),
+		DtUInt32: openapi3.NewFloat64Schema(),
+		DtInt64: openapi3.NewFloat64Schema(),
+		DtUInt64: openapi3.NewFloat64Schema(),
+		// OpenAPI does NOT support NaN, Inf, -Inf
+		// unlike TFServing which permits using these values as numbers for Floats and Doubles
+		// (https://www.tensorflow.org/tfx/serving/api_rest#json_conformance)
+		DtFloat: openapi3.NewFloat64Schema(),
+		DtDouble: openapi3.NewFloat64Schema(),
+	}[*t]
+	if !ok {
+		panic("Unsupported data type for generating payloads")
+	}
+	return schema
 }
