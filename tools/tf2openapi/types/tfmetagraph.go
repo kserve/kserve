@@ -30,14 +30,17 @@ func NewTFMetaGraph(metaGraph *pb.MetaGraphDef) (TFMetaGraph, error) {
 	return tfMetaGraph, nil
 }
 
-
 func (t *TFMetaGraph) Schema() *openapi3.Schema {
 	schema := openapi3.NewOneOfSchema()
 	for _, s := range t.SignatureDefs {
-		// TODO may change for columnar format
-		// make required
-		rowSchemaRef := openapi3.NewObjectSchema().WithProperty("instances", s.Schema()).NewRef()
-		schema.OneOf = append(schema.OneOf, rowSchemaRef)
+		sigDefSchemaRef := s.Schema().NewRef()
+		schema.OneOf = append(schema.OneOf, sigDefSchemaRef)
 	}
 	return schema
+
+	// Uncomment to see sample payloads in Swagger UI
+	//for _, s := range t.SignatureDefs {
+	//	return s.Schema()
+	//}
+	//return &openapi3.Schema{}
 }
