@@ -62,7 +62,8 @@ func canHaveRowSchema(t []TFTensor) bool {
 func (t *TFSignatureDef) rowSchema() *openapi3.Schema {
 	if len(t.Inputs) == 1 {
 		// only one named input tensor
-		// schema is of the form [val1, val2, etc.]
+		// while schema can be [{tensor: val1}, {tensor: val2}, ..]
+		// choose this schema of the form [val1, val2, etc.]
 		singleTensorSchema := t.Inputs[0].Schema(true)
 		return openapi3.NewArraySchema().WithItems(singleTensorSchema)
 	}
@@ -75,6 +76,27 @@ func (t *TFSignatureDef) rowSchema() *openapi3.Schema {
 		schema.Items.Value.Required = append(schema.Items.Value.Required, i.Name)
 	}
 	return schema
+}
+
+func (t *TFSignatureDef) colSchema() *openapi3.Schema {
+	if len(t.Inputs) == 1 {
+		// only one named input tensor
+		// while schema can be {tensor name: val}
+		// choose the schema of the form val
+		// see description of FillTensorMapFromInputsMap in TFServing
+		// https://github.com/tensorflow/serving/blob/master/tensorflow_serving/util/json_tensor.cc
+		return t.Inputs[0].Schema(false)
+	}
+
+	// multiple named input tensors
+	// schema is of the form {tensor1: [val1, val2, ..], tensor2: [val3, val4, ..] ..}
+	schema := openapi3.NewObjectSchema().WithProperties(make(map[string]*openapi3.Schema))
+	for _, i := range t.Inputs {
+		schema.Properties[i.Name] = i.Schema(false).NewRef()
+		schema.Required = append(schema.Required, i.Name)
+	}
+	return schema
+
 }
 
 func (t *TFSignatureDef) Schema() *openapi3.Schema {
@@ -98,6 +120,8 @@ func (t *TFSignatureDef) Schema() *openapi3.Schema {
 		}
 		return schema
 	}
+
 	// Else, use the column format (https://www.tensorflow.org/tfx/serving/api_rest#specifying_input_tensors_in_column_format)
-	return &openapi3.Schema{}
+	colSchema := t.colSchema()
+	return openapi3.NewObjectSchema().WithProperty("inputs", colSchema)
 }
