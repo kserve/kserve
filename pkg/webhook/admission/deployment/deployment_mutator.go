@@ -59,7 +59,7 @@ func mutate(deployment *appsv1.Deployment) error {
 		return err
 	}
 
-	if err := InjectModelProvisioner(deployment); err != nil {
+	if err := InjectModelInitializer(deployment); err != nil {
 		return err
 	}
 

@@ -251,7 +251,7 @@ func TestModelProvisioningInjector(t *testing.T) {
 	}
 
 	for name, scenario := range scenarios {
-		if err := InjectModelProvisioner(scenario.original); err != nil {
+		if err := InjectModelInitializer(scenario.original); err != nil {
 			t.Errorf("Test %q unexpected result: %s", name, err)
 		}
 		if diff := cmp.Diff(scenario.expected.Spec, scenario.original.Spec); diff != "" {
