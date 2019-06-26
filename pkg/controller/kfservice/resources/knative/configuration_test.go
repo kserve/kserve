@@ -358,7 +358,7 @@ func TestKnativeConfiguration(t *testing.T) {
 			if err != nil {
 				t.Errorf("Test %q unexpected error %s", name, err.Error())
 			}
-			if diff := cmp.Diff(scenario.expectedCanary, canaryConfiguration); diff != "" {
+			if diff := cmp.Diff(scenario.expectedCanary, actualCanaryConfiguration); diff != "" {
 				t.Errorf("Test %q unexpected canary configuration (-want +got): %v", name, diff)
 			}
 		}
