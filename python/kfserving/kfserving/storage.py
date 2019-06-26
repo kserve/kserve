@@ -19,7 +19,7 @@ import re
 from minio import Minio
 from google.cloud import storage
 from google.auth import exceptions
-from azure.storage.blob import BlockBlobService, PublicAccess
+from azure.storage.blob import BlockBlobService
 
 _GCS_PREFIX = "gs://"
 _S3_PREFIX = "s3://"
@@ -90,7 +90,6 @@ class Storage(object):
         container_name, blob_url = storage_url.split("/", 1)
 
         block_blob_service = BlockBlobService(account_name=account_name)
-
         blobs = block_blob_service.list_blobs(container_name, prefix=blob_url)
 
         for blob in blobs:
