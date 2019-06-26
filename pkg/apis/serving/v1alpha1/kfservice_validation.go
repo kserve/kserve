@@ -35,7 +35,7 @@ const (
 )
 
 var (
-	SuppotedModelSourceURIPrefixList = []string{"gs://", "s3://", "pvc://", "file://"}
+	SupportedModelSourceURIPrefixList = []string{"gs://", "s3://", "pvc://", "file://"}
 )
 
 // ValidateCreate implements https://godoc.org/sigs.k8s.io/controller-runtime/pkg/webhook/admission#Validator
@@ -104,13 +104,13 @@ func validateModelURI(modelSourceURI string) error {
 	}
 
 	// one of the prefixes we know?
-	for _, prefix := range SuppotedModelSourceURIPrefixList {
+	for _, prefix := range SupportedModelSourceURIPrefixList {
 		if strings.HasPrefix(modelSourceURI, prefix) {
 			return nil
 		}
 	}
 
-	return fmt.Errorf(UnsupportedModelURIFormatError, strings.Join(SuppotedModelSourceURIPrefixList, ", "), modelSourceURI)
+	return fmt.Errorf(UnsupportedModelURIFormatError, strings.Join(SupportedModelSourceURIPrefixList, ", "), modelSourceURI)
 }
 
 func validateReplicas(minReplicas int, maxReplicas int) error {

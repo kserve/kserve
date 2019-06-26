@@ -43,7 +43,7 @@ func makeTestKFService() KFService {
 
 func TestValidModelURIPrefixOK(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	for _, prefix := range SuppotedModelSourceURIPrefixList {
+	for _, prefix := range SupportedModelSourceURIPrefixList {
 		kfsvc := makeTestKFService()
 		kfsvc.Spec.Default.Tensorflow.ModelURI = prefix + "foo/bar"
 		g.Expect(kfsvc.ValidateCreate()).Should(gomega.Succeed())
