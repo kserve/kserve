@@ -45,6 +45,17 @@
   version = "v4.1.0"
 
 [[projects]]
+  digest = "1:1bc05108527c7941ba26861f769912a4c587d6a46a12dc1fa78ded6e87cecfbb"
+  name = "github.com/getkin/kin-openapi"
+  packages = [
+    "jsoninfo",
+    "openapi3",
+  ]
+  pruneopts = "NUT"
+  revision = "90a7df014b4e7699507bf82aa5601503a9ba85da"
+  version = "v0.2.0"
+
+[[projects]]
   digest = "1:81466b4218bf6adddac2572a30ac733a9255919bc2f470b4827a317bd4ee1756"
   name = "github.com/ghodss/yaml"
   packages = ["."]
@@ -1080,7 +1091,10 @@
   analyzer-version = 1
   input-imports = [
     "github.com/emicklei/go-restful",
+    "github.com/getkin/kin-openapi/openapi3",
     "github.com/go-logr/logr",
+    "github.com/golang/protobuf/proto",
+    "github.com/golang/protobuf/ptypes/any",
     "github.com/google/go-cmp/cmp",
     "github.com/knative/pkg/apis",
     "github.com/knative/pkg/apis/duck",
