@@ -40,7 +40,7 @@ const (
 // support INIT containers: https://github.com/knative/serving/issues/4307
 func InjectModelInitializer(deployment *appsv1.Deployment) error {
 
-	var srcURI, mountPath string
+	var srcURI string
 
 	annotations := deployment.Spec.Template.ObjectMeta.Annotations
 	podSpec := &deployment.Spec.Template.Spec
@@ -49,14 +49,6 @@ func InjectModelInitializer(deployment *appsv1.Deployment) error {
 	if _, ok := annotations[constants.KFServiceModelInitializerSourceURIInternalAnnotationKey]; ok {
 		srcURI = annotations[constants.KFServiceModelInitializerSourceURIInternalAnnotationKey]
 	} else {
-		return nil
-	}
-
-	// Only inject provisioning for supported URIs
-	if !strings.HasPrefix(srcURI, "gs://") &&
-		!strings.HasPrefix(srcURI, "s3://") &&
-		!strings.HasPrefix(srcURI, "pvc://") {
-		// TODO: would be nice to log something here so that future generations know what happened?
 		return nil
 	}
 
@@ -139,7 +131,7 @@ func InjectModelInitializer(deployment *appsv1.Deployment) error {
 	// Add a mount the shared volume on the user-container, update the PodSpec
 	sharedVolumeReadMount := v1.VolumeMount{
 		Name:      ModelProvisioningVolumeName,
-		MountPath: mountPath,
+		MountPath: constants.DefaultModelLocalMountPath,
 		ReadOnly:  true,
 	}
 	podSpec.Containers[userContainerIndex].VolumeMounts = append(podSpec.Containers[userContainerIndex].VolumeMounts, sharedVolumeReadMount)

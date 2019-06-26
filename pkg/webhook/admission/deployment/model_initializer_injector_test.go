@@ -64,44 +64,6 @@ func TestModelProvisioningInjector(t *testing.T) {
 				},
 			},
 		},
-		"UnsupportedProtocol": {
-			original: &appsv1.Deployment{
-				Spec: appsv1.DeploymentSpec{
-					Template: v1.PodTemplateSpec{
-						ObjectMeta: metav1.ObjectMeta{
-							Annotations: map[string]string{
-								constants.KFServiceModelInitializerSourceURIInternalAnnotationKey: "haha://foo",
-							},
-						},
-						Spec: v1.PodSpec{
-							Containers: []v1.Container{
-								v1.Container{
-									Name: "user-container",
-								},
-							},
-						},
-					},
-				},
-			},
-			expected: &appsv1.Deployment{
-				Spec: appsv1.DeploymentSpec{
-					Template: v1.PodTemplateSpec{
-						ObjectMeta: metav1.ObjectMeta{
-							Annotations: map[string]string{
-								constants.KFServiceModelInitializerSourceURIInternalAnnotationKey: "haha://foo",
-							},
-						},
-						Spec: v1.PodSpec{
-							Containers: []v1.Container{
-								v1.Container{
-									Name: "user-container",
-								},
-							},
-						},
-					},
-				},
-			},
-		},
 		"ModelInitializerInjected": {
 			original: &appsv1.Deployment{
 				Spec: appsv1.DeploymentSpec{
@@ -136,7 +98,7 @@ func TestModelProvisioningInjector(t *testing.T) {
 									VolumeMounts: []v1.VolumeMount{
 										{
 											Name:      "kfserving-provision-location",
-											MountPath: "/mnt/somewhere",
+											MountPath: constants.DefaultModelLocalMountPath,
 											ReadOnly:  true,
 										},
 									},
@@ -146,11 +108,11 @@ func TestModelProvisioningInjector(t *testing.T) {
 								v1.Container{
 									Name:  "model-initializer",
 									Image: "kcorer/kfdownloader:latest",
-									Args:  []string{"gs://foo", "/mnt/somewhere"},
+									Args:  []string{"gs://foo", constants.DefaultModelLocalMountPath},
 									VolumeMounts: []v1.VolumeMount{
 										{
 											Name:      "kfserving-provision-location",
-											MountPath: "/mnt/somewhere",
+											MountPath: constants.DefaultModelLocalMountPath,
 										},
 									},
 								},
