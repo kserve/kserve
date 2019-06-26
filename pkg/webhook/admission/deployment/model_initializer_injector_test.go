@@ -25,7 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func TestModelProvisioningInjector(t *testing.T) {
+func TestModelInitializerInjector(t *testing.T) {
 	scenarios := map[string]struct {
 		original *appsv1.Deployment
 		expected *appsv1.Deployment
@@ -107,7 +107,7 @@ func TestModelProvisioningInjector(t *testing.T) {
 							InitContainers: []v1.Container{
 								v1.Container{
 									Name:  "model-initializer",
-									Image: "kcorer/kfdownloader:latest",
+									Image: ModelInitializerContainerImage + ":" + ModelInitializerContainerVersion,
 									Args:  []string{"gs://foo", constants.DefaultModelLocalMountPath},
 									VolumeMounts: []v1.VolumeMount{
 										{
@@ -173,7 +173,7 @@ func TestModelProvisioningInjector(t *testing.T) {
 							InitContainers: []v1.Container{
 								v1.Container{
 									Name:  "model-initializer",
-									Image: "kcorer/kfdownloader:latest",
+									Image: ModelInitializerContainerImage + ":" + ModelInitializerContainerVersion,
 									Args:  []string{"/mnt/pvc/some/path/on/pvc", "/mnt/model"},
 									VolumeMounts: []v1.VolumeMount{
 										{

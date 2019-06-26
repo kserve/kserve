@@ -24,14 +24,14 @@ import (
 )
 
 const (
-	ModelInitializerContainerName     = "model-initializer"
-	ModelProvisioningVolumeName       = "kfserving-provision-location"
-	ModelProvisioningContainerImage   = "kcorer/kfdownloader"
-	ModelProvisioningContainerVersion = "latest"
-	PvcURIPrefix                      = "pvc://"
-	PvcSourceMountName                = "kfserving-pvc-source"
-	PvcSourceMountPath                = "/mnt/pvc"
-	UserContainerName                 = "user-container"
+	ModelInitializerContainerName    = "model-initializer"
+	ModelInitializerVolumeName       = "kfserving-provision-location"
+	ModelInitializerContainerImage   = "gcr.io/kfserving/model-initializer"
+	ModelInitializerContainerVersion = "latest"
+	PvcURIPrefix                     = "pvc://"
+	PvcSourceMountName               = "kfserving-pvc-source"
+	PvcSourceMountPath               = "/mnt/pvc"
+	UserContainerName                = "user-container"
 )
 
 // InjectModelInitializer injects an init container to provision model data
@@ -101,7 +101,7 @@ func InjectModelInitializer(deployment *appsv1.Deployment) error {
 
 	// Create a volume that is shared between the model-initializer and user-container
 	sharedVolume := v1.Volume{
-		Name: ModelProvisioningVolumeName,
+		Name: ModelInitializerVolumeName,
 		VolumeSource: v1.VolumeSource{
 			EmptyDir: &v1.EmptyDirVolumeSource{},
 		},
@@ -110,7 +110,7 @@ func InjectModelInitializer(deployment *appsv1.Deployment) error {
 
 	// Create a write mount into the shared volume
 	sharedVolumeWriteMount := v1.VolumeMount{
-		Name:      ModelProvisioningVolumeName,
+		Name:      ModelInitializerVolumeName,
 		MountPath: constants.DefaultModelLocalMountPath,
 		ReadOnly:  false,
 	}
@@ -119,7 +119,7 @@ func InjectModelInitializer(deployment *appsv1.Deployment) error {
 	// Add an init container to run provisioning logic to the PodSpec
 	initContianer := v1.Container{
 		Name:  ModelInitializerContainerName,
-		Image: ModelProvisioningContainerImage + ":" + ModelProvisioningContainerVersion,
+		Image: ModelInitializerContainerImage + ":" + ModelInitializerContainerVersion,
 		Args: []string{
 			srcURI,
 			constants.DefaultModelLocalMountPath,
@@ -130,7 +130,7 @@ func InjectModelInitializer(deployment *appsv1.Deployment) error {
 
 	// Add a mount the shared volume on the user-container, update the PodSpec
 	sharedVolumeReadMount := v1.VolumeMount{
-		Name:      ModelProvisioningVolumeName,
+		Name:      ModelInitializerVolumeName,
 		MountPath: constants.DefaultModelLocalMountPath,
 		ReadOnly:  true,
 	}
