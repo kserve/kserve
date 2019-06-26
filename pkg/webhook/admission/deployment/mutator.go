@@ -55,12 +55,15 @@ func (mutator *Mutator) Handle(ctx context.Context, req types.Request) types.Res
 }
 
 func mutate(deployment *appsv1.Deployment) error {
-	if err := InjectGKEAcceleratorSelector(deployment); err != nil {
-		return err
+	mutators := []func(deployment *appsv1.Deployment) error{
+		InjectGKEAcceleratorSelector,
+		InjectModelInitializer,
 	}
 
-	if err := InjectModelInitializer(deployment); err != nil {
-		return err
+	for _, mutator := range mutators {
+		if err := mutator(deployment); err != nil {
+			return err
+		}
 	}
 
 	return nil
