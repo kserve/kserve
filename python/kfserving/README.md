@@ -20,6 +20,8 @@ KFServing supports the following storage providers:
     * Absolute path: `/absolute/path` or `file:///absolute/path`
     * Relative path: `relative/path` or `file://relative/path`
     * For local filesystem, we recommended to use relative path without any prefix.
+* Azure blob Storage with a format: "https://<<StrorageAccountName>>.blob.core.windows.net/<<Path>>"
+    * By default, it uses anonymous client to download the artifacts.
 
 To start the server locally on your machine for development needs, run the following command under this folder
 

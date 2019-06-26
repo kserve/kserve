@@ -94,19 +94,18 @@ class Storage(object):
         blobs = block_blob_service.list_blobs(container_name, prefix=blob_url)
 
         for blob in blobs:
-            print(blob.name)
-            if "/" in "{}".format(blob.name):
-                head, tail = os.path.split("{}".format(blob.name))
-                file_path = temp_dir + "/" + head + "/" + tail
-                dir_path = temp_dir + "/" + head
+            if "/" in blob.name:
+                head, tail = os.path.split(blob.name)
+                file_path = os.path.join(temp_dir, head, tail)
+                dir_path = os.path.join(temp_dir, head)
 
-                if (os.path.isdir(dir_path)):
+                if os.path.isdir(dir_path):
                     block_blob_service.get_blob_to_path(container_name, blob.name, file_path)
                 else:
                     os.makedirs(dir_path, exist_ok=True)
                     block_blob_service.get_blob_to_path(container_name, blob.name, file_path)
             else:
-                block_blob_service.get_blob_to_path(container_name, blob.name, temp_dir + "/" + blob.name)
+                block_blob_service.get_blob_to_path(container_name, blob.name, os.path.join(temp_dir, blob.name))
 
     @staticmethod
     def _download_local(uri):
