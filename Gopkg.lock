@@ -45,6 +45,17 @@
   version = "v4.1.0"
 
 [[projects]]
+  digest = "1:1bc05108527c7941ba26861f769912a4c587d6a46a12dc1fa78ded6e87cecfbb"
+  name = "github.com/getkin/kin-openapi"
+  packages = [
+    "jsoninfo",
+    "openapi3",
+  ]
+  pruneopts = "NUT"
+  revision = "90a7df014b4e7699507bf82aa5601503a9ba85da"
+  version = "v0.2.0"
+
+[[projects]]
   digest = "1:81466b4218bf6adddac2572a30ac733a9255919bc2f470b4827a317bd4ee1756"
   name = "github.com/ghodss/yaml"
   packages = ["."]
@@ -485,10 +496,10 @@
   version = "v1.0.3"
 
 [[projects]]
-  digest = "1:b66db26a1d6a21daa8b99a9d5922880566e4619bd6fb6b2e5c23eb51e151abd8"
+  digest = "1:db9b3a118bf699613ba46e1b9671bd7cf8471c60045f0f4c9a2dda2c843d878f"
   name = "github.com/tensorflow/tensorflow"
   packages = ["tensorflow/go"]
-  pruneopts = ""
+  pruneopts = "T"
   revision = "6612da89516247503f03ef76e974b51a434fb52e"
   version = "v1.13.1"
 
@@ -1080,9 +1091,14 @@
   analyzer-version = 1
   input-imports = [
     "github.com/emicklei/go-restful",
+    "github.com/getkin/kin-openapi/openapi3",
     "github.com/go-logr/logr",
+    "github.com/golang/protobuf/proto",
+    "github.com/golang/protobuf/ptypes/any",
     "github.com/google/go-cmp/cmp",
-    "github.com/knative/pkg/apis/duck/v1alpha1",
+    "github.com/knative/pkg/apis",
+    "github.com/knative/pkg/apis/duck",
+    "github.com/knative/pkg/apis/duck/v1beta1",
     "github.com/knative/pkg/kmp",
     "github.com/knative/serving/pkg/apis/autoscaling",
     "github.com/knative/serving/pkg/apis/serving",
@@ -1091,6 +1107,7 @@
     "github.com/mattbaird/jsonpatch",
     "github.com/onsi/ginkgo",
     "github.com/onsi/gomega",
+    "github.com/onsi/gomega/format",
     "github.com/onsi/gomega/types",
     "github.com/pkg/errors",
     "github.com/tensorflow/tensorflow/tensorflow/go",
