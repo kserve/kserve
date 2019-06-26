@@ -25,7 +25,8 @@ setup(
     author_email='singhan@us.ibm.com',
     license='https://github.com/kubeflow/kfserving/LICENSE',
     url='https://github.com/kubeflow/kfserving/python/sklearnserver',
-    description='Model Server implementation for scikit-learn. Not intended for use outside KFServing Frameworks Images',
+    description='Model Server implementation for scikit-learn. \
+                 Not intended for use outside KFServing Frameworks Images',
     long_description=open('README.md').read(),
     python_requires='>3.4',
     packages=find_packages("sklearnserver"),

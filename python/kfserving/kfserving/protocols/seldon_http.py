@@ -15,24 +15,28 @@
 from http import HTTPStatus
 import tornado
 import numpy as np
-from typing import Dict, Tuple, List
-from kfserving.protocols.request_handler import RequestHandler
+from typing import Dict, List
+from kfserving.protocols.request_handler import RequestHandler #pylint: disable=no-name-in-module
 from enum import Enum
+
 
 class SeldonPayload(Enum):
     TENSOR = 1
-    NDARRAY =2
+    NDARRAY = 2
     TFTENSOR = 3
+
 
 def _extract_list(body: Dict) -> List:
     data_def = body["data"]
     if "tensor" in data_def:
-        arr = np.array(data_def.get("tensor").get("values")).reshape(data_def.get("tensor").get("shape"))
+        arr = np.array(data_def.get("tensor").get("values"))\
+              .reshape(data_def.get("tensor").get("shape"))
         return arr.tolist()
     elif "ndarray" in data_def:
         return data_def.get("ndarray")
     else:
         raise Exception("Could not extract seldon payload %s" % body)
+
 
 def _create_seldon_data_def(array: np.array, ty: SeldonPayload):
     datadef = {}
@@ -50,7 +54,7 @@ def _create_seldon_data_def(array: np.array, ty: SeldonPayload):
     return datadef
 
 
-def _get_request_ty(request: Dict) -> SeldonPayload:
+def _get_request_ty(request: Dict) -> SeldonPayload: #pylint: disable=inconsistent-return-statements
     data_def = request["data"]
     if "tensor" in data_def:
         return SeldonPayload.TENSOR
@@ -60,9 +64,14 @@ def _get_request_ty(request: Dict) -> SeldonPayload:
         return SeldonPayload.TFTENSOR
 
 
+def create_request(arr: np.ndarray, ty: SeldonPayload) -> Dict:
+    seldon_datadef = _create_seldon_data_def(arr, ty)
+    return {"data": seldon_datadef}
+
+
 class SeldonRequestHandler(RequestHandler):
 
-    def __init__(self, request: Dict):
+    def __init__(self, request: Dict): #pylint: disable=useless-super-delegation
         super().__init__(request)
 
     def validate(self):

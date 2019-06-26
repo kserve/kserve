@@ -15,12 +15,12 @@
 from http import HTTPStatus
 import tornado
 from typing import Dict, List
-from kfserving.protocols.request_handler import RequestHandler
+from kfserving.protocols.request_handler import RequestHandler # pylint: disable=no-name-in-module
 
 
 class TensorflowRequestHandler(RequestHandler):
 
-    def __init__(self, request: Dict):
+    def __init__(self, request: Dict): #pylint: disable=useless-super-delegation
         super().__init__(request)
 
     def validate(self):

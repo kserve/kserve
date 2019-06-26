@@ -3,8 +3,9 @@ HAS_LINT := $(shell command -v golint;)
 
 # Image URL to use all building/pushing image targets
 IMG ?= kfserving-controller:latest
+EXECUTOR_IMG ?= kfserving-executor:latest
 
-all: test manager
+all: test manager executor
 
 # Run tests
 test: generate fmt vet lint manifests
@@ -13,6 +14,10 @@ test: generate fmt vet lint manifests
 # Build manager binary
 manager: generate fmt vet lint
 	go build -o bin/manager ./cmd/manager
+
+# Build manager binary
+executor: fmt vet
+	go build -o bin/executor ./cmd/executor
 
 # Run against the configured Kubernetes cluster in ~/.kube/config
 run: generate fmt vet lint
@@ -39,6 +44,7 @@ undeploy-dev:
 # Generate manifests e.g. CRD, RBAC etc.
 manifests:
 	go run vendor/sigs.k8s.io/controller-tools/cmd/controller-gen/main.go crd --output-dir=config/default/crds
+	kustomize build config/default/crds -o config/default/crds/serving_v1alpha1_kfservice.yaml
 	go run vendor/sigs.k8s.io/controller-tools/cmd/controller-gen/main.go rbac --output-dir=config/default/rbac
 
 # Run go fmt against code
@@ -75,3 +81,9 @@ docker-build: test
 # Push the docker image
 docker-push:
 	docker push ${IMG}
+
+docker-build-executor: test
+	docker build -f Dockerfile.executor . -t ${EXECUTOR_IMG}
+
+docker-push-executor:
+	docker push ${EXECUTOR_IMG}

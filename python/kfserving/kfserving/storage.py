@@ -25,7 +25,7 @@ _S3_PREFIX = "s3://"
 _LOCAL_PREFIX = "file://"
 
 
-class Storage(object):
+class Storage(object): # pylint: disable=too-few-public-methods
     @staticmethod
     def download(uri: str, out_dir: str = None) -> str:
         logging.info("Copying contents of %s to local" % uri)
@@ -57,13 +57,14 @@ class Storage(object):
         for obj in objects:
             # Replace any prefix from the object key with temp_dir
             subdir_object_key = obj.object_name.replace(bucket_path, "", 1).strip("/")
-            client.fget_object(bucket_name, obj.object_name, os.path.join(temp_dir, subdir_object_key))
+            client.fget_object(bucket_name, obj.object_name,
+                               os.path.join(temp_dir, subdir_object_key))
 
     @staticmethod
     def _download_gcs(uri, temp_dir: str):
         try:
             storage_client = storage.Client()
-        except exceptions.DefaultCredentialsError as e:
+        except exceptions.DefaultCredentialsError:
             storage_client = storage.Client.create_anonymous_client()
         bucket_args = uri.replace(_GCS_PREFIX, "", 1).split("/", 1)
         bucket_name = bucket_args[0]

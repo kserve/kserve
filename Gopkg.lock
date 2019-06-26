@@ -126,7 +126,6 @@
   version = "v1.0.0"
 
 [[projects]]
-  branch = "master"
   digest = "1:bf40199583e5143d1472fc34d10d6f4b69d97572142acf343b3e43136da40823"
   name = "github.com/google/go-cmp"
   packages = [
@@ -486,6 +485,14 @@
   version = "v1.0.3"
 
 [[projects]]
+  digest = "1:b66db26a1d6a21daa8b99a9d5922880566e4619bd6fb6b2e5c23eb51e151abd8"
+  name = "github.com/tensorflow/tensorflow"
+  packages = ["tensorflow/go"]
+  pruneopts = ""
+  revision = "6612da89516247503f03ef76e974b51a434fb52e"
+  version = "v1.13.1"
+
+[[projects]]
   digest = "1:22f696cee54865fb8e9ff91df7b633f6b8f22037a8015253c6b6a71ca82219c7"
   name = "go.uber.org/atomic"
   packages = ["."]
@@ -526,7 +533,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:688cd20f802390a837db5df98e8dae042c3d2690e487ee6cebd4e2233676db32"
+  digest = "1:6600ce3bc1792e9c510f35a649b1504b634f32c0f6e4eeac1f81e2f07e7ef401"
   name = "golang.org/x/net"
   packages = [
     "context",
@@ -536,6 +543,7 @@
     "html/charset",
     "http/httpguts",
     "http2",
+    "http2/h2c",
     "http2/hpack",
     "idna",
   ]
@@ -1072,6 +1080,7 @@
   analyzer-version = 1
   input-imports = [
     "github.com/emicklei/go-restful",
+    "github.com/go-logr/logr",
     "github.com/google/go-cmp/cmp",
     "github.com/knative/pkg/apis/duck/v1alpha1",
     "github.com/knative/pkg/kmp",
@@ -1082,7 +1091,12 @@
     "github.com/mattbaird/jsonpatch",
     "github.com/onsi/ginkgo",
     "github.com/onsi/gomega",
+    "github.com/onsi/gomega/types",
+    "github.com/pkg/errors",
+    "github.com/tensorflow/tensorflow/tensorflow/go",
     "golang.org/x/net/context",
+    "golang.org/x/net/http2",
+    "golang.org/x/net/http2/h2c",
     "k8s.io/api/admission/v1beta1",
     "k8s.io/api/admissionregistration/v1beta1",
     "k8s.io/api/apps/v1",
