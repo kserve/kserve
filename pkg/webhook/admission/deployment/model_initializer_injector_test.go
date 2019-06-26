@@ -164,7 +164,7 @@ func TestModelInitializerInjector(t *testing.T) {
 									VolumeMounts: []v1.VolumeMount{
 										{
 											Name:      "kfserving-provision-location",
-											MountPath: "/mnt/model",
+											MountPath: constants.DefaultModelLocalMountPath,
 											ReadOnly:  true,
 										},
 									},
@@ -174,7 +174,7 @@ func TestModelInitializerInjector(t *testing.T) {
 								v1.Container{
 									Name:  "model-initializer",
 									Image: ModelInitializerContainerImage + ":" + ModelInitializerContainerVersion,
-									Args:  []string{"/mnt/pvc/some/path/on/pvc", "/mnt/model"},
+									Args:  []string{"/mnt/pvc/some/path/on/pvc", constants.DefaultModelLocalMountPath},
 									VolumeMounts: []v1.VolumeMount{
 										{
 											Name:      "kfserving-pvc-source",
@@ -183,7 +183,7 @@ func TestModelInitializerInjector(t *testing.T) {
 										},
 										{
 											Name:      "kfserving-provision-location",
-											MountPath: "/mnt/model",
+											MountPath: constants.DefaultModelLocalMountPath,
 										},
 									},
 								},
