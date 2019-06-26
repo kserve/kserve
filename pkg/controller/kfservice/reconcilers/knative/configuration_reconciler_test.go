@@ -196,10 +196,6 @@ func TestKnativeConfigurationReconcile(t *testing.T) {
 	for name, scenario := range scenarios {
 		t.Logf("Scenario: %s", name)
 		g.Expect(c.Create(context.TODO(), &scenario.kfsvc)).NotTo(gomega.HaveOccurred())
-		g.Expect(c.Create(context.TODO(), &knservingv1alpha1.Configuration{ObjectMeta: scenario.desiredDefault.ObjectMeta})).NotTo(gomega.HaveOccurred())
-		if scenario.desiredCanary != nil {
-			g.Expect(c.Create(context.TODO(), &knservingv1alpha1.Configuration{ObjectMeta: scenario.desiredCanary.ObjectMeta})).NotTo(gomega.HaveOccurred())
-		}
 
 		if err := configurationReconciler.Reconcile(&scenario.kfsvc); err != nil {
 			t.Errorf("Test %q failed: returned error: %v", name, err)
@@ -209,10 +205,6 @@ func TestKnativeConfigurationReconcile(t *testing.T) {
 		g.Eventually(func() error { return awaitDesired(c, scenario.desiredCanary) }, timeout).Should(gomega.Succeed())
 
 		g.Expect(c.Delete(context.TODO(), &scenario.kfsvc)).NotTo(gomega.HaveOccurred())
-		g.Expect(c.Delete(context.TODO(), &knservingv1alpha1.Configuration{ObjectMeta: scenario.desiredDefault.ObjectMeta})).NotTo(gomega.HaveOccurred())
-		if scenario.desiredCanary != nil {
-			g.Expect(c.Delete(context.TODO(), &knservingv1alpha1.Configuration{ObjectMeta: scenario.desiredCanary.ObjectMeta})).NotTo(gomega.HaveOccurred())
-		}
 	}
 }
 

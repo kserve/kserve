@@ -20,7 +20,7 @@ from xgbserver import XGBoostModel
 DEFAULT_MODEL_NAME = "default"
 DEFAULT_LOCAL_MODEL_DIR = "/tmp/model"
 
-parser = argparse.ArgumentParser(parents=[kfserving.server.parser])
+parser = argparse.ArgumentParser(parents=[kfserving.server.parser]) #pylint:disable=c-extension-no-member
 parser.add_argument('--model_dir', required=True,
                     help='A URI pointer to the model directory')
 parser.add_argument('--model_name', default=DEFAULT_MODEL_NAME,
@@ -30,4 +30,4 @@ args, _ = parser.parse_known_args()
 if __name__ == "__main__":
     model = XGBoostModel(args.model_name, args.model_dir)
     model.load()
-    kfserving.KFServer().start([model])
+    kfserving.KFServer().start([model]) #pylint:disable=c-extension-no-member

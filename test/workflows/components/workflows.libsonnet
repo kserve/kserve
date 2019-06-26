@@ -42,11 +42,13 @@
       local testDir = mountPath + "/" + name;
       // outputDir is the directory to sync to GCS to contain the output for this job.
       local outputDir = testDir + "/output";
+      local artifactsDir = outputDir + "/artifacts";
       local goDir = testDir + "/go";
       // Source directory where all repos should be checked out
       local srcRootDir = testDir + "/src";
       // The directory containing the kubeflow/kfserving repo
       local srcDir = srcRootDir + "/kubeflow/kfserving";
+      local pylintSrcDir = srcDir + "/python";
       local testWorkerImage = "gcr.io/kubeflow-ci/test-worker";
       local golangImage = "golang:1.9.4-stretch";
       // TODO(jose5918) Build our own helm image
@@ -183,6 +185,8 @@
               },
             },
           ],  // volumes
+          // onExit specifies the template that should always run when the workflow completes.
+          onExit: "exit-handler",
           templates: [
             {
               name: "e2e",
@@ -195,6 +199,10 @@
                   {
                     name: "unit-test",
                     template: "unit-test",
+                  },
+                  {
+                    name: "pylint-checking",
+                    template: "pylint-checking",
                   },
                 ],
                 [
@@ -215,6 +223,15 @@
                     template: "verify-codegen",
                   },
                 ],
+              ],
+            },
+            {
+              name: "exit-handler",
+              steps: [
+                [{
+                  name: "copy-artifacts",
+                  template: "copy-artifacts",
+                }],
               ],
             },
             {
@@ -249,6 +266,21 @@
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("verify-codegen", testWorkerImage, [
               "hack/verify-codegen.sh",
             ]),  // verify codegen
+            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("pylint-checking", testWorkerImage, [
+              "python",
+              "-m",
+              "kubeflow.testing.test_py_lint",
+              "--artifacts_dir=" + artifactsDir,
+              "--src_dir=" + pylintSrcDir,
+            ]),  // pylint-checking
+            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("copy-artifacts", testWorkerImage, [
+              "python",
+              "-m",
+              "kubeflow.testing.prow_artifacts",
+              "--artifacts_dir=" + outputDir,
+              "copy_artifacts",
+              "--bucket=" + bucket,
+            ]),  // copy-artifacts
           ],  // templates
         },
       },  // e2e
