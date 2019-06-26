@@ -36,10 +36,10 @@ func NewTFMetaGraph(metaGraph *pb.MetaGraphDef) (TFMetaGraph, error) {
 	return tfMetaGraph, nil
 }
 
-func (t *TFMetaGraph) Schema(sigDefKey string) (*openapi3.Schema, error) {
+func (t *TFMetaGraph) Schema(sigDefKey string, schemaType SchemaType) (*openapi3.Schema, error) {
 	for _, sigDef := range t.SignatureDefs {
 		if sigDefKey == sigDef.Key {
-			return sigDef.Schema()
+			return sigDef.Schema(schemaType)
 		}
 	}
 	return &openapi3.Schema{}, fmt.Errorf(SignatureDefNotFoundError, sigDefKey)

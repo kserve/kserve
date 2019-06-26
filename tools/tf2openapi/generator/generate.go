@@ -12,6 +12,8 @@ const (
 	DefaultTag       = "serve"
 )
 
+type SchemaType int
+
 // Known error messages
 const (
 	SpecGenerationError     = "missing info to generate OpenAPI specification\n error: %s"
