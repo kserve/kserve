@@ -4,11 +4,10 @@ package types
 TFTensor represents a logical tensor. It contains the information from TensorInfo in the TensorFlow repository
 [tensorflow/core/protobuf/meta_graph.proto] but is named after the user-facing input/output (hence being a logical
 tensor and not an actual tensor).
- */
-
+*/
 import (
-	fw "github.com/kubeflow/kfserving/tools/tf2openapi/generated/framework"
 	"github.com/getkin/kin-openapi/openapi3"
+	fw "github.com/kubeflow/kfserving/tools/tf2openapi/generated/framework"
 	pb "github.com/kubeflow/kfserving/tools/tf2openapi/generated/protobuf"
 	"strings"
 )
@@ -16,13 +15,13 @@ import (
 const B64KeySuffix string = "_bytes"
 
 type TFTensor struct {
-	//Name of the logical tensor
+	// Name of the logical tensor
 	Key string
 
 	// Data type contained in this tensor
 	DType TFDType
 
-	// Length of the shape is 0 when rank <= 0
+	// Length of the shape is rank when rank >= 0, nil otherwise
 	Shape TFShape
 
 	// If rank = -1, the shape is unknown. Otherwise, rank corresponds to the number of dimensions in this tensor
@@ -52,27 +51,27 @@ const (
 )
 
 func NewTFTensor(key string, tensor *pb.TensorInfo) TFTensor {
-	if tensor.TensorShape == nil || tensor.TensorShape.UnknownRank {
+	// TODO need to confirm whether there is a default shape when TensorShape is nil
+	if tensor.TensorShape == nil || tensor.TensorShape.UnknownRank || tensor.TensorShape.Dim == nil {
 		return TFTensor{
 			Key:   key,
 			DType: NewTFDType(tensor.Dtype.String(), key),
 			Rank:  -1,
 		}
 	}
+	// If rank is known and the tensor is a scalar, len(Dim) = 0 so Dim is not nil
 	tfShape := NewTFShape(tensor.TensorShape.Dim)
 	return TFTensor{
+		// For both sparse & dense tensors
 		Key:   key,
 		DType: NewTFDType(tensor.Dtype.String(), key),
 		Shape: tfShape,
 		Rank:  int64(len(tfShape)),
 	}
-
 }
 
 func NewTFShape(dimensions []*fw.TensorShapeProto_Dim) TFShape {
 	tfShape := TFShape{}
-
-	//TODO change depending on how rank 0 is represented by tensor_shape.proto
 	for _, d := range dimensions {
 		tfShape = append(tfShape, d.Size)
 	}
