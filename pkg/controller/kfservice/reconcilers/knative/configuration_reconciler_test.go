@@ -88,8 +88,9 @@ func TestKnativeConfigurationReconcile(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{"serving.kubeflow.org/kfservice": "mnist"},
 							Annotations: map[string]string{
-								"autoscaling.knative.dev/class":  "kpa.autoscaling.knative.dev",
-								"autoscaling.knative.dev/target": "1",
+								"autoscaling.knative.dev/class":                             "kpa.autoscaling.knative.dev",
+								"autoscaling.knative.dev/target":                            "1",
+								"serving.kubeflow.org/internal/model-initializer/sourceURI": "gs://testuri",
 							},
 						},
 						Spec: knservingv1alpha1.RevisionSpec{
@@ -103,7 +104,7 @@ func TestKnativeConfigurationReconcile(t *testing.T) {
 									"--port=" + v1alpha1.TensorflowServingGRPCPort,
 									"--rest_api_port=" + v1alpha1.TensorflowServingRestPort,
 									"--model_name=mnist",
-									"--model_base_path=gs://testuri",
+									"--model_base_path=" + constants.DefaultModelLocalMountPath,
 								},
 							},
 						},
@@ -120,8 +121,9 @@ func TestKnativeConfigurationReconcile(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{"serving.kubeflow.org/kfservice": "mnist"},
 							Annotations: map[string]string{
-								"autoscaling.knative.dev/class":  "kpa.autoscaling.knative.dev",
-								"autoscaling.knative.dev/target": "1",
+								"autoscaling.knative.dev/class":                             "kpa.autoscaling.knative.dev",
+								"autoscaling.knative.dev/target":                            "1",
+								"serving.kubeflow.org/internal/model-initializer/sourceURI": "gs://testuri2",
 							},
 						},
 						Spec: knservingv1alpha1.RevisionSpec{
@@ -135,7 +137,7 @@ func TestKnativeConfigurationReconcile(t *testing.T) {
 									"--port=" + v1alpha1.TensorflowServingGRPCPort,
 									"--rest_api_port=" + v1alpha1.TensorflowServingRestPort,
 									"--model_name=mnist",
-									"--model_base_path=gs://testuri2",
+									"--model_base_path=" + constants.DefaultModelLocalMountPath,
 								},
 							},
 						},
@@ -168,8 +170,9 @@ func TestKnativeConfigurationReconcile(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{"serving.kubeflow.org/kfservice": "mnist"},
 							Annotations: map[string]string{
-								"autoscaling.knative.dev/class":  "kpa.autoscaling.knative.dev",
-								"autoscaling.knative.dev/target": "1",
+								"autoscaling.knative.dev/class":                             "kpa.autoscaling.knative.dev",
+								"autoscaling.knative.dev/target":                            "1",
+								"serving.kubeflow.org/internal/model-initializer/sourceURI": "gs://testuri",
 							},
 						},
 						Spec: knservingv1alpha1.RevisionSpec{
@@ -183,7 +186,7 @@ func TestKnativeConfigurationReconcile(t *testing.T) {
 									"--port=" + v1alpha1.TensorflowServingGRPCPort,
 									"--rest_api_port=" + v1alpha1.TensorflowServingRestPort,
 									"--model_name=mnist",
-									"--model_base_path=gs://testuri",
+									"--model_base_path=" + constants.DefaultModelLocalMountPath,
 								},
 							},
 						},
