@@ -7,7 +7,7 @@ It is the internal model representation for the SavedModel defined in the Tensor
 */
 import (
 	"github.com/getkin/kin-openapi/openapi3"
-	pb "github.com/tensorflow/tensorflow/tensorflow/go/core/protobuf"
+	pb "github.com/kubeflow/kfserving/tools/tf2openapi/generated/protobuf"
 )
 
 const ServingMetaGraphTag string = "serve"
