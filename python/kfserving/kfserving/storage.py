@@ -28,7 +28,7 @@ _LOCAL_PREFIX = "file://"
 class Storage(object): # pylint: disable=too-few-public-methods
     @staticmethod
     def download(uri: str, out_dir: str = None) -> str:
-        logging.info("Copying contents of %s to local" % uri)
+        logging.info("Copying contents of %s to local", uri)
         if uri.startswith(_LOCAL_PREFIX) or os.path.exists(uri):
             return Storage._download_local(uri)
 
@@ -44,7 +44,7 @@ class Storage(object): # pylint: disable=too-few-public-methods
                             "\n'%s', '%s', and '%s' are the current available storage type." %
                             (_GCS_PREFIX, _S3_PREFIX, _LOCAL_PREFIX))
 
-        logging.info("Successfully copied %s to %s" % (uri, out_dir))
+        logging.info("Successfully copied %s to %s", uri, out_dir)
         return out_dir
 
     @staticmethod
@@ -83,9 +83,9 @@ class Storage(object): # pylint: disable=too-few-public-methods
                 local_object_dir = os.path.join(temp_dir, subdir_object_key.rsplit("/", 1)[0])
                 if not os.path.isdir(local_object_dir):
                     os.makedirs(local_object_dir, exist_ok=True)
-            if subdir_object_key.strip() != "": 
+            if subdir_object_key.strip() != "":
                 dest_path = os.path.join(temp_dir, subdir_object_key)
-                logging.info("Downloading: %s" % dest_path)
+                logging.info("Downloading: %s", dest_path)
                 blob.download_to_filename(dest_path)
 
     @staticmethod
