@@ -23,7 +23,6 @@ func main() {
 	if *out == "file" && *outFile == "" {
 		log.Fatalln("Please specify output file name using the 'outFile' flag")
 	}
-
 	modelPb, err := ioutil.ReadFile(*model)
 	if err != nil {
 		log.Fatalln("Error reading file \n" + err.Error())

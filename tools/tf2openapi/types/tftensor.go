@@ -52,6 +52,7 @@ const (
 )
 
 func NewTFTensor(key string, tensor *pb.TensorInfo) TFTensor {
+	// TODO need to differentiate TensorShape is nil from unknown rank?
 	if tensor.TensorShape == nil || tensor.TensorShape.UnknownRank {
 		return TFTensor{
 			Key:   key,
@@ -59,8 +60,11 @@ func NewTFTensor(key string, tensor *pb.TensorInfo) TFTensor {
 			Rank:  -1,
 		}
 	}
+	// If rank is known and the tensor is a scalar, len(Dim) = 0
+	// TODO nil check dim - what happens if it is nil?
 	tfShape := NewTFShape(tensor.TensorShape.Dim)
 	return TFTensor{
+		// For both sparse & dense tensors
 		Key:   key,
 		DType: NewTFDType(tensor.Dtype.String(), key),
 		Shape: tfShape,
@@ -72,8 +76,8 @@ func NewTFTensor(key string, tensor *pb.TensorInfo) TFTensor {
 func NewTFShape(dimensions []*fw.TensorShapeProto_Dim) TFShape {
 	tfShape := TFShape{}
 
-	//TODO change depending on how rank 0 is represented by tensor_shape.proto
 	for _, d := range dimensions {
+		// TODO what happens if dim.size = 0?
 		tfShape = append(tfShape, d.Size)
 	}
 	return tfShape
