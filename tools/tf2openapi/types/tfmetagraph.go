@@ -16,16 +16,21 @@ type TFMetaGraph struct {
 	SignatureDefs [] TFSignatureDef
 }
 
-func NewTFMetaGraph(metaGraph *pb.MetaGraphDef) TFMetaGraph {
+func NewTFMetaGraph(metaGraph *pb.MetaGraphDef) (TFMetaGraph, error) {
 	tfSigDefs := []TFSignatureDef{}
 	for key, definition := range metaGraph.SignatureDef {
-		if definition.MethodName == PredictReqSigDefMethod {
-			tfSigDefs = append(tfSigDefs, NewTFSignatureDef(key, definition.Inputs, definition.Outputs))
+		if definition.MethodName != PredictReqSigDefMethod {
+			continue
 		}
+		tfSigDef, err := NewTFSignatureDef(key, definition.Inputs, definition.Outputs)
+		if err != nil {
+			return TFMetaGraph{}, err
+		}
+		tfSigDefs = append(tfSigDefs, tfSigDef)
 	}
 	return TFMetaGraph{
 		SignatureDefs: tfSigDefs,
-	}
+	}, nil
 }
 
 func (t *TFMetaGraph) Schema() *openapi3.Schema {

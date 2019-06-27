@@ -31,7 +31,10 @@ func main() {
 	model := UnmarshalSavedModelPb(modelPb)
 
 	/** Schema generation example **/
-	spec := generator.GenerateOpenAPI(model)
+	spec, err := generator.GenerateOpenAPI(model)
+	if err != nil {
+		log.Fatalln(err.Error())
+	}
 	if *outFile != "" {
 		f, err := os.Create(*outFile)
 		if err != nil {

@@ -6,10 +6,10 @@ TFTensor represents a logical tensor. It contains the information from TensorInf
 tensor and not an actual tensor).
 */
 import (
+	"fmt"
 	"github.com/getkin/kin-openapi/openapi3"
 	fw "github.com/kubeflow/kfserving/tools/tf2openapi/generated/framework"
 	pb "github.com/kubeflow/kfserving/tools/tf2openapi/generated/protobuf"
-	"log"
 	"strings"
 )
 
@@ -51,24 +51,29 @@ const (
 	DtDouble
 )
 
-func NewTFTensor(name string, tensor *pb.TensorInfo) TFTensor {
+func NewTFTensor(name string, tensor *pb.TensorInfo) (TFTensor, error) {
 	// TODO need to confirm whether there is a default shape when TensorShape is nil
+	tfDType, err := NewTFDType(name, tensor.Dtype.String())
+	if err != nil {
+		return TFTensor{}, err
+	}
+
 	if tensor.TensorShape == nil || tensor.TensorShape.UnknownRank || tensor.TensorShape.Dim == nil {
 		return TFTensor{
 			Name:  name,
-			DType: NewTFDType(name, tensor.Dtype.String()),
+			DType: tfDType,
 			Rank:  -1,
-		}
+		}, nil
 	}
 	// If rank is known and the tensor is a scalar, len(Dim) = 0 so Dim is not nil
 	tfShape := NewTFShape(tensor.TensorShape.Dim)
 	return TFTensor{
 		// For both sparse & dense tensors
 		Name:  name,
-		DType: NewTFDType(name, tensor.Dtype.String()),
+		DType: tfDType,
 		Shape: tfShape,
 		Rank:  int64(len(tfShape)),
-	}
+	}, nil
 }
 
 func NewTFShape(dimensions []*fw.TensorShapeProto_Dim) TFShape {
@@ -86,7 +91,7 @@ func stringType(name string) TFDType {
 	return DtString
 }
 
-func NewTFDType(name string, dType string) TFDType {
+func NewTFDType(name string, dType string) (TFDType, error) {
 	tfDType, ok := map[string]TFDType{
 		"DT_BOOL":   DtBool,
 		"DT_INT8":   DtInt8,
@@ -101,9 +106,9 @@ func NewTFDType(name string, dType string) TFDType {
 		"DT_STRING": stringType(name),
 	}[dType]
 	if !ok {
-		log.Fatalf("Tensor (%s) contains unsupported data type (%s) for generating payloads", name, dType)
+		return TFDType(0), fmt.Errorf("tensor (%s) contains unsupported data type (%s) for generating payloads", name, dType)
 	}
-	return tfDType
+	return tfDType, nil
 }
 
 func (t *TFTensor) Schema() *openapi3.Schema {
