@@ -28,7 +28,7 @@ Finished Training
 
 Then, we can run the PyTorch server using the trained model and test for predictions. Models can be on local filesystem, S3 compatible object storage or Google Cloud Storage. 
 
-Note: Currently we support PyTorch models saved using [state_dict](https://pytorch.org/tutorials/beginner/saving_loading_models.html#saving-loading-model-for-inference) method which is PyTorch's recomemnted way of saving models for inference. The KFServing interface for PyTorch expects user has uploaded the model_class_file in same location as their PyTorch model, and expects the model_class_name to be passed in as a runtime input. If model class name is not specified, we use 'PyTorchModel' as the default class name. The current interface may undergo changes as we evolve this to support PyTorch models saved using other methods as well.
+Note: Currently KFServing supports PyTorch models saved using [state_dict method]((https://pytorch.org/tutorials/beginner/saving_loading_models.html#saving-loading-model-for-inference), PyTorch's recommended way of saving models for inference. The KFServing interface for PyTorch expects users to upload the model_class_file in same location as the PyTorch model, and accepts an optional model_class_name to be passed in as a runtime input. If model class name is not specified, we use 'PyTorchModel' as the default class name. The current interface may undergo changes as we evolve this to support PyTorch models saved using other methods as well.
 
 ```shell
 python -m pytorchserver --model_dir ./ --model_name pytorchmodel --model_class_name Net
