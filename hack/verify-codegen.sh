@@ -26,8 +26,8 @@ fi
 
 SCRIPT_ROOT="${STARTUP_DIR}/.."
 
-DIFFROOT="${SCRIPT_ROOT}/pkg"
-TMP_DIFFROOT="${SCRIPT_ROOT}/_tmp/pkg"
+DIFFROOT="${SCRIPT_ROOT}/pkg/client"
+TMP_DIFFROOT="${SCRIPT_ROOT}/_tmp/pkg/client"
 _tmp="${SCRIPT_ROOT}/_tmp"
 
 cleanup() {

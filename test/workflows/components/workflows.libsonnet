@@ -217,12 +217,6 @@
                     template: "run-tests",
                   },
                 ],
-                [
-                  {
-                    name: "verify-codegen",
-                    template: "verify-codegen",
-                  },
-                ],
               ],
             },
             {
@@ -263,9 +257,6 @@
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("unit-test", testWorkerImage, [
               "test/scripts/unit-test.sh",
             ]),  // unit test
-            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("verify-codegen", testWorkerImage, [
-              "hack/verify-codegen.sh",
-            ]),  // verify codegen
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("pylint-checking", testWorkerImage, [
               "python",
               "-m",
