@@ -82,7 +82,7 @@ type SKLearnSpec struct {
 // PyTorchSpec defines arguments for configuring PyTorch model serving.
 type PyTorchSpec struct {
 	ModelURI       string `json:"modelUri"`
-	ModelClassName string `json:"modelClassName"`
+	ModelClassName string `json:"modelClassName,omitempty"`
 	// Defaults to  PyTorchModel
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
 	// Defaults to latest Runtime Version.

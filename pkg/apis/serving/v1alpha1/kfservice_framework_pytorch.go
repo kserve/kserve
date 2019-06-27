@@ -29,6 +29,7 @@ var (
 	InvalidPyTorchRuntimeVersionError = "RuntimeVersion must be one of " + strings.Join(AllowedPyTorchRuntimeVersions, ", ")
 	PyTorchServerImageName            = "gcr.io/kfserving/pytorchserver"
 	DefaultPyTorchRuntimeVersion      = "latest"
+	DefaultPyTorchModelClassName      = "PyTorchModel"
 )
 
 var _ FrameworkHandler = (*PyTorchSpec)(nil)
@@ -53,7 +54,9 @@ func (s *PyTorchSpec) ApplyDefaults() {
 	if s.RuntimeVersion == "" {
 		s.RuntimeVersion = DefaultPyTorchRuntimeVersion
 	}
-
+	if s.ModelClassName == "" {
+		s.ModelClassName = DefaultPyTorchModelClassName
+	}
 	setResourceRequirementDefaults(&s.Resources)
 }
 
