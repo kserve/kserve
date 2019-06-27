@@ -14,7 +14,6 @@
 
 import pytest
 import kfserving
-import os
 from minio import Minio, error
 from google.cloud import exceptions
 import unittest.mock as mock

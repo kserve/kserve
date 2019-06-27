@@ -45,6 +45,17 @@
   version = "v4.1.0"
 
 [[projects]]
+  digest = "1:1bc05108527c7941ba26861f769912a4c587d6a46a12dc1fa78ded6e87cecfbb"
+  name = "github.com/getkin/kin-openapi"
+  packages = [
+    "jsoninfo",
+    "openapi3",
+  ]
+  pruneopts = "NUT"
+  revision = "90a7df014b4e7699507bf82aa5601503a9ba85da"
+  version = "v0.2.0"
+
+[[projects]]
   digest = "1:81466b4218bf6adddac2572a30ac733a9255919bc2f470b4827a317bd4ee1756"
   name = "github.com/ghodss/yaml"
   packages = ["."]
@@ -483,6 +494,14 @@
   pruneopts = "NUT"
   revision = "298182f68c66c05229eb03ac171abe6e309ee79a"
   version = "v1.0.3"
+
+[[projects]]
+  digest = "1:db9b3a118bf699613ba46e1b9671bd7cf8471c60045f0f4c9a2dda2c843d878f"
+  name = "github.com/tensorflow/tensorflow"
+  packages = ["tensorflow/go"]
+  pruneopts = "T"
+  revision = "6612da89516247503f03ef76e974b51a434fb52e"
+  version = "v1.13.1"
 
 [[projects]]
   digest = "1:22f696cee54865fb8e9ff91df7b633f6b8f22037a8015253c6b6a71ca82219c7"
@@ -940,7 +959,7 @@
   version = "kubernetes-1.12.6"
 
 [[projects]]
-  digest = "1:8f839fb947ad22741d59124907e269f481663925781b5e0d0bac92d89126f2d7"
+  digest = "1:26b81b5e76e3f84ea5140da4f74649576e470f79091d2ef8e0d1b5000bc636ca"
   name = "k8s.io/code-generator"
   packages = [
     "cmd/client-gen",
@@ -955,13 +974,13 @@
     "cmd/deepcopy-gen/args",
     "pkg/util",
   ]
-  pruneopts = "NUT"
+  pruneopts = "T"
   revision = "b1289fc74931d4b6b04bd1a259acfc88a2cb0a66"
   version = "kubernetes-1.12.6"
 
 [[projects]]
   branch = "master"
-  digest = "1:6dc0e912aaeea5f98199e018d3601b4c98b7549afd0cd5ef4ca025911e0a90b2"
+  digest = "1:be219f9a8b4ec4488dc55bb2b321e801193f37b8b0825c015ec389a7de011a90"
   name = "k8s.io/gengo"
   packages = [
     "args",
@@ -972,7 +991,7 @@
     "parser",
     "types",
   ]
-  pruneopts = "NUT"
+  pruneopts = "NT"
   revision = "e17681d19d3ac4837a019ece36c2a0ec31ffe985"
 
 [[projects]]
@@ -1072,9 +1091,14 @@
   analyzer-version = 1
   input-imports = [
     "github.com/emicklei/go-restful",
+    "github.com/getkin/kin-openapi/openapi3",
     "github.com/go-logr/logr",
+    "github.com/golang/protobuf/proto",
+    "github.com/golang/protobuf/ptypes/any",
     "github.com/google/go-cmp/cmp",
-    "github.com/knative/pkg/apis/duck/v1alpha1",
+    "github.com/knative/pkg/apis",
+    "github.com/knative/pkg/apis/duck",
+    "github.com/knative/pkg/apis/duck/v1beta1",
     "github.com/knative/pkg/kmp",
     "github.com/knative/serving/pkg/apis/autoscaling",
     "github.com/knative/serving/pkg/apis/serving",
@@ -1083,7 +1107,10 @@
     "github.com/mattbaird/jsonpatch",
     "github.com/onsi/ginkgo",
     "github.com/onsi/gomega",
+    "github.com/onsi/gomega/format",
+    "github.com/onsi/gomega/types",
     "github.com/pkg/errors",
+    "github.com/tensorflow/tensorflow/tensorflow/go",
     "golang.org/x/net/context",
     "golang.org/x/net/http2",
     "golang.org/x/net/http2/h2c",

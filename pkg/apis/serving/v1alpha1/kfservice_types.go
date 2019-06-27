@@ -14,7 +14,8 @@ limitations under the License.
 package v1alpha1
 
 import (
-	v1 "k8s.io/api/core/v1"
+	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
+	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -37,6 +38,7 @@ type ModelSpec struct {
 	// The following fields follow a "1-of" semantic. Users must specify exactly one spec.
 	Custom     *CustomSpec     `json:"custom,omitempty"`
 	Tensorflow *TensorflowSpec `json:"tensorflow,omitempty"`
+	TensorRT   *TensorRTSpec   `json:"tensorrt,omitempty"`
 	XGBoost    *XGBoostSpec    `json:"xgboost,omitempty"`
 	SKLearn    *SKLearnSpec    `json:"sklearn,omitempty"`
 }
@@ -45,6 +47,15 @@ type ModelSpec struct {
 type TensorflowSpec struct {
 	ModelURI string `json:"modelUri"`
 	// Defaults to latest TF Version.
+	RuntimeVersion string `json:"runtimeVersion,omitempty"`
+	// Defaults to requests and limits of 1CPU, 2Gb MEM.
+	Resources v1.ResourceRequirements `json:"resources,omitempty"`
+}
+
+// TensorRTSpec defines arguments for configuring TensorRT model serving.
+type TensorRTSpec struct {
+	ModelURI string `json:"modelUri"`
+	// Defaults to latest TensorRT Version.
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
 	// Defaults to requests and limits of 1CPU, 2Gb MEM.
 	Resources v1.ResourceRequirements `json:"resources,omitempty"`
@@ -75,10 +86,10 @@ type CustomSpec struct {
 
 // KFServiceStatus defines the observed state of KFService
 type KFServiceStatus struct {
-	Conditions StatusConditionsSpec    `json:"conditions,omitempty"`
-	URL        string                  `json:"url,omitempty"`
-	Default    StatusConfigurationSpec `json:"default,omitempty"`
-	Canary     StatusConfigurationSpec `json:"canary,omitempty"`
+	duckv1beta1.Status `json:",inline"`
+	URL                string                  `json:"url,omitempty"`
+	Default            StatusConfigurationSpec `json:"default,omitempty"`
+	Canary             StatusConfigurationSpec `json:"canary,omitempty"`
 }
 
 // StatusConfigurationSpec describes the state of the configuration receiving traffic.
@@ -87,42 +98,6 @@ type StatusConfigurationSpec struct {
 	Replicas int    `json:"replicas,omitempty"`
 	Traffic  int    `json:"traffic,omitempty"`
 }
-
-// StatusConditionsSpec displays the current conditions of the resource.
-type StatusConditionsSpec struct {
-	// Conditions the latest available observations of a resource's current state.
-	// +optional
-	// +patchMergeKey=type
-	// +patchStrategy=merge
-	Conditions []Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
-}
-
-// Condition is a generic definition for Status Conditions of the resource.
-type Condition struct {
-	Type   ConditionType      `json:"type"`
-	Status v1.ConditionStatus `json:"status"`
-
-	// Last time the condition was probed.
-	LastProbeTime metav1.Time `json:"lastProbeTime,omitempty" protobuf:"bytes,3,opt,name=lastProbeTime"`
-	// Last time the condition transitioned from one status to another.
-	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty" protobuf:"bytes,4,opt,name=lastTransitionTime"`
-	// Unique, one-word, CamelCase reason for the condition's last transition.
-	Reason string `json:"reason,omitempty"`
-	// Human-readable message indicating details about last transition.
-	Message string `json:"message,omitempty"`
-}
-
-// ConditionType is the of status conditions.
-type ConditionType string
-
-// These are valid conditions of a service.
-const (
-	Ready              ConditionType = "Ready"
-	RoutingReady       ConditionType = "RoutingReady"
-	ResourcesAvailable ConditionType = "ResourcesAvailable"
-	ContainerHealthy   ConditionType = "ContainerHealthy"
-	RevisionReady      ConditionType = "RevisionReady"
-)
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

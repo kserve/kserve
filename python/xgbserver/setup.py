@@ -26,7 +26,8 @@ setup(
     author_email='ellisbigelow@google.com',
     license='../../LICENSE.txt',
     url='https://github.com/kubeflow/kfserving/python/kfserving/xgbserver',
-    description='Model Server implementation for XGBoost. Not intended for use outside KFServing Frameworks Images',
+    description='Model Server implementation for XGBoost. \
+                 Not intended for use outside KFServing Frameworks Images',
     long_description=open('README.md').read(),
     python_requires='>3.4',
     packages=find_packages("xgbserver"),

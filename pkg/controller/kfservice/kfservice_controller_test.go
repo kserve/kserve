@@ -17,16 +17,17 @@ limitations under the License.
 package service
 
 import (
+	"github.com/knative/pkg/apis"
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
+	"github.com/kubeflow/kfserving/pkg/constants"
+	testutils "github.com/kubeflow/kfserving/pkg/testing"
+	v1 "k8s.io/api/core/v1"
 	"testing"
 	"time"
 
-	"github.com/knative/serving/pkg/apis/serving/v1beta1"
-	"github.com/kubeflow/kfserving/pkg/constants"
-	v1 "k8s.io/api/core/v1"
-
+	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
 	knservingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	servingv1alpha1 "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
-
 	"github.com/onsi/gomega"
 	"golang.org/x/net/context"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -198,15 +199,43 @@ func TestReconcile(t *testing.T) {
 	updated := configuration.DeepCopy()
 	updated.Status.LatestCreatedRevisionName = "revision-v1"
 	updated.Status.LatestReadyRevisionName = "revision-v1"
+	updated.Status.Conditions = duckv1beta1.Conditions{
+		{
+			Type:   knservingv1alpha1.ConfigurationConditionReady,
+			Status: "True",
+		},
+	}
 	g.Expect(c.Status().Update(context.TODO(), updated)).NotTo(gomega.HaveOccurred())
 	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
 
 	updatedRoute := route.DeepCopy()
 	updatedRoute.Status.Domain = serviceKey.Name + ".svc.cluster.local"
+	updatedRoute.Status.Conditions = duckv1beta1.Conditions{
+		{
+			Type:   knservingv1alpha1.RouteConditionReady,
+			Status: "True",
+		},
+	}
 	g.Expect(c.Status().Update(context.TODO(), updatedRoute)).NotTo(gomega.HaveOccurred())
 	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
 	// verify if KFService status is updated
 	expectedKfsvcStatus := servingv1alpha1.KFServiceStatus{
+		Status: duckv1beta1.Status{
+			Conditions: duckv1beta1.Conditions{
+				{
+					Type:   servingv1alpha1.DefaultPredictorReady,
+					Status: "True",
+				},
+				{
+					Type:   apis.ConditionReady,
+					Status: "True",
+				},
+				{
+					Type:   servingv1alpha1.RoutesReady,
+					Status: "True",
+				},
+			},
+		},
 		URL: updatedRoute.Status.Domain,
 		Default: servingv1alpha1.StatusConfigurationSpec{
 			Name: "revision-v1",
@@ -219,7 +248,7 @@ func TestReconcile(t *testing.T) {
 			return nil
 		}
 		return &kfsvc.Status
-	}, timeout).Should(gomega.Equal(&expectedKfsvcStatus))
+	}, timeout).Should(testutils.BeSematicEqual(&expectedKfsvcStatus))
 }
 
 func TestCanaryReconcile(t *testing.T) {
@@ -329,12 +358,24 @@ func TestCanaryReconcile(t *testing.T) {
 	updateDefault := defaultConfiguration.DeepCopy()
 	updateDefault.Status.LatestCreatedRevisionName = "revision-v1"
 	updateDefault.Status.LatestReadyRevisionName = "revision-v1"
+	updateDefault.Status.Conditions = duckv1beta1.Conditions{
+		{
+			Type:   knservingv1alpha1.ConfigurationConditionReady,
+			Status: "True",
+		},
+	}
 	g.Expect(c.Status().Update(context.TODO(), updateDefault)).NotTo(gomega.HaveOccurred())
 	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedCanaryRequest)))
 
 	updateCanary := canaryConfiguration.DeepCopy()
 	updateCanary.Status.LatestCreatedRevisionName = "revision-v2"
 	updateCanary.Status.LatestReadyRevisionName = "revision-v2"
+	updateCanary.Status.Conditions = duckv1beta1.Conditions{
+		{
+			Type:   knservingv1alpha1.ConfigurationConditionReady,
+			Status: "True",
+		},
+	}
 	g.Expect(c.Status().Update(context.TODO(), updateCanary)).NotTo(gomega.HaveOccurred())
 	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedCanaryRequest)))
 
@@ -350,11 +391,38 @@ func TestCanaryReconcile(t *testing.T) {
 			TrafficTarget: v1beta1.TrafficTarget{RevisionName: "revision-v1", Percent: 80},
 		},
 	}
+	updatedRoute.Status.Conditions = duckv1beta1.Conditions{
+		{
+			Type:   knservingv1alpha1.RouteConditionReady,
+			Status: "True",
+		},
+	}
 	g.Expect(c.Status().Update(context.TODO(), updatedRoute)).NotTo(gomega.HaveOccurred())
 	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedCanaryRequest)))
 
 	// verify if KFService status is updated
 	expectedKfsvcStatus := servingv1alpha1.KFServiceStatus{
+		Status: duckv1beta1.Status{
+			Conditions: duckv1beta1.Conditions{
+				{
+					Type:     servingv1alpha1.CanaryPredictorReady,
+					Severity: "Info",
+					Status:   "True",
+				},
+				{
+					Type:   servingv1alpha1.DefaultPredictorReady,
+					Status: "True",
+				},
+				{
+					Type:   apis.ConditionReady,
+					Status: "True",
+				},
+				{
+					Type:   servingv1alpha1.RoutesReady,
+					Status: "True",
+				},
+			},
+		},
 		URL: updatedRoute.Status.Domain,
 		Default: servingv1alpha1.StatusConfigurationSpec{
 			Name:    "revision-v1",
@@ -372,5 +440,5 @@ func TestCanaryReconcile(t *testing.T) {
 			return nil
 		}
 		return &kfsvc.Status
-	}, timeout).Should(gomega.Equal(&expectedKfsvcStatus))
+	}, timeout).Should(testutils.BeSematicEqual(&expectedKfsvcStatus))
 }
