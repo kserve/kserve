@@ -7,4 +7,3 @@ spec:
     pytorch:
       modelUri: "gs://tomcli-test/"
       modelClassName: "Net"
-      modelClassFile: "cifar10.py"

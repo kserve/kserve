@@ -22,7 +22,7 @@ model_dir = "../../docs/samples/pytorch"
 MODEL_FILE = "model.pt"
 
 def test_model():
-    server = PyTorchModel("pytorchmodel", "Net", "cifar10.py", model_dir)
+    server = PyTorchModel("pytorchmodel", "Net", model_dir)
     server.load()
 
     transform = transforms.Compose([transforms.ToTensor(),

@@ -1,6 +1,6 @@
 ## Creating your own model and testing the PyTorch server.
 
-To test the [PyTorch](https://pytorch.org/) server, first we need to generate a simple cifar10 model using PyTorch.
+To test the [PyTorch](https://pytorch.org/) server, first we need to generate a simple cifar10 model using PyTorch. 
 
 ```shell
 python cifar10.py
@@ -26,10 +26,12 @@ Failed download. Trying https -> http instead. Downloading http://www.cs.toronto
 Finished Training
 ```
 
-Then, we can run the PyTorch server using the trained model and test for predictions. Models can be on local filesystem, S3 compatible object storage or Google Cloud Storage.
+Then, we can run the PyTorch server using the trained model and test for predictions. Models can be on local filesystem, S3 compatible object storage or Google Cloud Storage. 
+
+Note: Currently we support PyTorch models saved using [state_dict](https://pytorch.org/tutorials/beginner/saving_loading_models.html#saving-loading-model-for-inference) method which is PyTorch's recomemnted way of saving models for inference. The KFServing interface for PyTorch expects user has uploaded the model_class_file in same location as their PyTorch model, and expects the model_class_name to be passed in as a runtime input. If model class name is not specified, we use 'PyTorchModel' as the default class name. The current interface may undergo changes as we evolve this to support PyTorch models saved using other methods as well.
 
 ```shell
-python -m pytorchserver --model_dir ./ --model_name pytorchmodel --model_class_name Net --model_class_file cifar10.py
+python -m pytorchserver --model_dir ./ --model_name pytorchmodel --model_class_name Net
 ```
 
 We can also use the inbuilt PyTorch support for sample datasets and do some simple predictions

@@ -37,11 +37,10 @@ usage: __main__.py [-h] [--http_port HTTP_PORT] [--grpc_port GRPC_PORT]
                    [--protocol {tensorflow.http,seldon.http}] --model_dir
                    MODEL_DIR [--model_name MODEL_NAME]
                    [--model_class_name MODEL_CLASS_NAME]
-                   [--model_class_file MODEL_CLASS_FILE]
 __main__.py: error: the following arguments are required: --model_dir
 ```
 
-You can now point to your `pytorch` model file and use the server to load the model and test for prediction. Models can be on local filesystem, S3 compatible object storage or Google Cloud Storage. Please follow [this sample](https://github.com/kubeflow/kfserving/tree/master/docs/samples/pytorch) to test your server by generating your own model.
+You can now point to your `pytorch` model directory and use the server to load the model and test for prediction. Model and associaed model class file can be on local filesystem, S3 compatible object storage or Google Cloud Storage. Please follow [this sample](https://github.com/kubeflow/kfserving/tree/master/docs/samples/pytorch) to test your server by generating your own model. 
 
 ## Development
 

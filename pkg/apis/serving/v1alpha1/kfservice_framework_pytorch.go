@@ -27,7 +27,7 @@ var (
 		"latest",
 	}
 	InvalidPyTorchRuntimeVersionError = "RuntimeVersion must be one of " + strings.Join(AllowedPyTorchRuntimeVersions, ", ")
-	PyTorchServerImageName            = "gcr.io/kfserving/pytorchserver"
+	PyTorchServerImageName            = "animeshsingh/pytorchserver"
 	DefaultPyTorchRuntimeVersion      = "latest"
 )
 
@@ -44,7 +44,6 @@ func (s *PyTorchSpec) CreateModelServingContainer(modelName string, config *Fram
 		Args: []string{
 			"--model_name=" + modelName,
 			"--model_class_name=" + s.ModelClassName,
-			"--model_class_file=" + s.ModelClassFile,
 			"--model_dir=" + s.ModelURI,
 		},
 	}

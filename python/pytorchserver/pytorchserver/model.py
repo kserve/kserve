@@ -25,19 +25,27 @@ import sys
 PYTORCH_FILE = "model.pt"
 
 class PyTorchModel(kfserving.KFModel):
-    def __init__(self, name: str, model_class_name: str, model_class_file: str, model_dir: str):
+    def __init__(self, name: str, model_class_name: str, model_dir: str):
         super().__init__(name)
         self.name = name
         self.model_class_name = model_class_name
-        self.model_class_file = model_class_file
         self.model_dir = model_dir
         self.ready = False
 
     def load(self):
-        model_file = os.path.join(
-            kfserving.Storage.download(self.model_dir), PYTORCH_FILE)
-        model_class_file = os.path.join(
-            kfserving.Storage.download(self.model_dir), self.model_class_file)
+        model_file_dir = kfserving.Storage.download(self.model_dir)
+        model_file = os.path.join(model_file_dir, PYTORCH_FILE)
+        py_files = []
+        for filename in os.listdir(model_file_dir):
+            if filename.endswith('.py'):
+                py_files.append(filename)
+        if len(py_files) == 1:
+            model_class_file = os.path.join(model_file_dir, py_files[0])
+        elif len(py_files) == 0:
+            raise Exception('Missing PyTorch Model Class File.')
+        else:
+            raise Exception('More than one Python file is detected',
+                            'Only one Python file is allowed within model_dir.')
         model_class_name = self.model_class_name
 
         # Load the python class into memory
@@ -54,7 +62,7 @@ class PyTorchModel(kfserving.KFModel):
 
     def predict(self, body: List) -> List:
         try:
-            inputs = torch.FloatTensor(body)
+            inputs = torch.tensor(body)
         except Exception as e:
             raise Exception(
                 "Failed to initialize Torch Tensor from inputs: %s, %s" % (e, inputs))

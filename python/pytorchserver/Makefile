@@ -2,7 +2,7 @@
 dev_install:
 	pip install -e .[test]
 
-test:
+test: type_check
 	pytest -W ignore
 
 type_check:
