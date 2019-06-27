@@ -9,6 +9,7 @@ import (
 	"github.com/getkin/kin-openapi/openapi3"
 	fw "github.com/kubeflow/kfserving/tools/tf2openapi/generated/framework"
 	pb "github.com/kubeflow/kfserving/tools/tf2openapi/generated/protobuf"
+	"log"
 	"strings"
 )
 
@@ -16,7 +17,7 @@ const B64KeySuffix string = "_bytes"
 
 type TFTensor struct {
 	// Name of the logical tensor
-	Key string
+	Name string
 
 	// Data type contained in this tensor
 	DType TFDType
@@ -50,12 +51,12 @@ const (
 	DtDouble
 )
 
-func NewTFTensor(key string, tensor *pb.TensorInfo) TFTensor {
+func NewTFTensor(name string, tensor *pb.TensorInfo) TFTensor {
 	// TODO need to confirm whether there is a default shape when TensorShape is nil
 	if tensor.TensorShape == nil || tensor.TensorShape.UnknownRank || tensor.TensorShape.Dim == nil {
 		return TFTensor{
-			Key:   key,
-			DType: NewTFDType(tensor.Dtype.String(), key),
+			Name:  name,
+			DType: NewTFDType(name, tensor.Dtype.String()),
 			Rank:  -1,
 		}
 	}
@@ -63,8 +64,8 @@ func NewTFTensor(key string, tensor *pb.TensorInfo) TFTensor {
 	tfShape := NewTFShape(tensor.TensorShape.Dim)
 	return TFTensor{
 		// For both sparse & dense tensors
-		Key:   key,
-		DType: NewTFDType(tensor.Dtype.String(), key),
+		Name:  name,
+		DType: NewTFDType(name, tensor.Dtype.String()),
 		Shape: tfShape,
 		Rank:  int64(len(tfShape)),
 	}
@@ -85,7 +86,7 @@ func stringType(name string) TFDType {
 	return DtString
 }
 
-func NewTFDType(dType string, name string) TFDType {
+func NewTFDType(name string, dType string) TFDType {
 	tfDType, ok := map[string]TFDType{
 		"DT_BOOL":   DtBool,
 		"DT_INT8":   DtInt8,
@@ -100,7 +101,7 @@ func NewTFDType(dType string, name string) TFDType {
 		"DT_STRING": stringType(name),
 	}[dType]
 	if !ok {
-		panic("Unsupported data type for generating payloads")
+		log.Fatalf("Tensor (%s) contains unsupported data type (%s) for generating payloads", name, dType)
 	}
 	return tfDType
 }

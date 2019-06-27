@@ -9,6 +9,7 @@ import (
 	"github.com/getkin/kin-openapi/openapi3"
 	pb "github.com/kubeflow/kfserving/tools/tf2openapi/generated/protobuf"
 	"github.com/kubeflow/kfserving/pkg/utils"
+	"log"
 )
 
 const ServingMetaGraphTag string = "serve"
@@ -25,7 +26,7 @@ func NewTFSavedModel(model *pb.SavedModel) TFSavedModel {
 		}
 	}
 	if len(tfMetaGraphs) == 0 {
-		panic("Model does not contain any servable MetaGraphs")
+		log.Fatalln("Model does not contain any servable MetaGraphs")
 	}
 	return TFSavedModel{
 		MetaGraphs: tfMetaGraphs,

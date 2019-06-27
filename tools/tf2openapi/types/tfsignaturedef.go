@@ -11,14 +11,14 @@ import (
 )
 
 type TFSignatureDef struct {
-	Name    string
+	Key     string
 	Inputs  [] TFTensor
 	Outputs [] TFTensor
 }
 
 func NewTFSignatureDef(key string, inputs map[string]*pb.TensorInfo, outputs map[string]*pb.TensorInfo) TFSignatureDef {
 	return TFSignatureDef{
-		Name:    key,
+		Key:     key,
 		Inputs:  extractTensors(inputs),
 		Outputs: extractTensors(outputs),
 	}

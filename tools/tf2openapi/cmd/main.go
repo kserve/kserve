@@ -11,17 +11,15 @@ import (
 )
 
 var (
-	model = flag.String("model", "", "Absolute path of SavedModel file")
-	out   = flag.String("out", "std", "Either 'std' to display on standard out or 'file' to save output")
-	// outFile not required if output option is std
-	outFile = flag.String("outFile", "", "Absolute path of file to write OpenAPI spec to")
+	model   = flag.String("model", "", "Absolute path of SavedModel file")
+	outFile = flag.String("output-file", "", "Absolute path of file to write OpenAPI spec to")
 )
 
 /** Convert SavedModel to OpenAPI. Note that the SavedModel must have at least one signature defined**/
 func main() {
 	flag.Parse()
-	if *out == "file" && *outFile == "" {
-		log.Fatalln("Please specify output file name using the 'outFile' flag")
+	if *model == "" {
+		log.Fatalln("Please specify the absolute path of the SavedModel file")
 	}
 
 	modelPb, err := ioutil.ReadFile(*model)
@@ -34,7 +32,7 @@ func main() {
 
 	/** Schema generation example **/
 	spec := generator.GenerateOpenAPI(model)
-	if *out == "file" {
+	if *outFile != "" {
 		f, err := os.Create(*outFile)
 		if err != nil {
 			panic(err)
@@ -44,6 +42,7 @@ func main() {
 			panic(err)
 		}
 	} else {
+		// default to std::out
 		log.Println(spec)
 	}
 }
