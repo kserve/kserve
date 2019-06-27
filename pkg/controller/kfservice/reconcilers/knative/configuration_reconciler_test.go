@@ -90,7 +90,7 @@ func TestKnativeConfigurationReconcile(t *testing.T) {
 							Annotations: map[string]string{
 								"autoscaling.knative.dev/class":                             "kpa.autoscaling.knative.dev",
 								"autoscaling.knative.dev/target":                            "1",
-								"serving.kubeflow.org/internal/model-initializer/sourceURI": "gs://testuri",
+								"internal.serving.kubeflow.org/model-initializer-sourceURI": "gs://testuri",
 							},
 						},
 						Spec: knservingv1alpha1.RevisionSpec{
@@ -123,7 +123,7 @@ func TestKnativeConfigurationReconcile(t *testing.T) {
 							Annotations: map[string]string{
 								"autoscaling.knative.dev/class":                             "kpa.autoscaling.knative.dev",
 								"autoscaling.knative.dev/target":                            "1",
-								"serving.kubeflow.org/internal/model-initializer/sourceURI": "gs://testuri2",
+								"internal.serving.kubeflow.org/model-initializer-sourceURI": "gs://testuri2",
 							},
 						},
 						Spec: knservingv1alpha1.RevisionSpec{
@@ -172,7 +172,7 @@ func TestKnativeConfigurationReconcile(t *testing.T) {
 							Annotations: map[string]string{
 								"autoscaling.knative.dev/class":                             "kpa.autoscaling.knative.dev",
 								"autoscaling.knative.dev/target":                            "1",
-								"serving.kubeflow.org/internal/model-initializer/sourceURI": "gs://testuri",
+								"internal.serving.kubeflow.org/model-initializer-sourceURI": "gs://testuri",
 							},
 						},
 						Spec: knservingv1alpha1.RevisionSpec{
