@@ -67,8 +67,6 @@ spec:
                   type: integer
                 pytorch:
                   properties:
-                    modelClassFile:
-                      type: string
                     modelClassName:
                       description: Defaults to latest PyTorch Version.
                       type: string
@@ -81,8 +79,6 @@ spec:
                       type: string
                   required:
                   - modelUri
-                  - modelClassName
-                  - modelClassFile
                   type: object
                 serviceAccountName:
                   description: Service Account Name
@@ -165,8 +161,6 @@ spec:
                   type: integer
                 pytorch:
                   properties:
-                    modelClassFile:
-                      type: string
                     modelClassName:
                       description: Defaults to latest PyTorch Version.
                       type: string
@@ -179,8 +173,6 @@ spec:
                       type: string
                   required:
                   - modelUri
-                  - modelClassName
-                  - modelClassFile
                   type: object
                 serviceAccountName:
                   description: Service Account Name
