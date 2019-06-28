@@ -8,7 +8,7 @@ import (
 )
 
 /* Expected values */
-func makeExpectedTFTensor() TFTensor {
+func expectedTFTensor() TFTensor {
 	return TFTensor{
 		Name:  "Logical name",
 		DType: DtInt8,
@@ -17,7 +17,7 @@ func makeExpectedTFTensor() TFTensor {
 	}
 }
 
-func makeExpectedTFTensorWithUnknowns() TFTensor {
+func expectedTFTensorWithUnknowns() TFTensor {
 	return TFTensor{
 		Name:  "Logical name",
 		DType: DtInt8,
@@ -26,7 +26,7 @@ func makeExpectedTFTensorWithUnknowns() TFTensor {
 }
 
 /* Fake protobuf structs to use as test inputs */
-func makeDimsPb() []*framework.TensorShapeProto_Dim {
+func dimsPb() []*framework.TensorShapeProto_Dim {
 	return []*framework.TensorShapeProto_Dim{
 		{
 			Size: -1,
@@ -37,11 +37,11 @@ func makeDimsPb() []*framework.TensorShapeProto_Dim {
 	}
 }
 
-func makeTensorInfoPb() *pb.TensorInfo {
+func tensorInfoPb() *pb.TensorInfo {
 	return &pb.TensorInfo{
 		Dtype: framework.DataType_DT_INT8,
 		TensorShape: &framework.TensorShapeProto{
-			Dim:         makeDimsPb(),
+			Dim:         dimsPb(),
 			UnknownRank: false,
 		},
 	}
@@ -49,16 +49,16 @@ func makeTensorInfoPb() *pb.TensorInfo {
 
 func TestCreateTFTensorTypical(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	tensorInfoPb := makeTensorInfoPb()
+	tensorInfoPb := tensorInfoPb()
 	tfTensor, err := NewTFTensor("Logical name", tensorInfoPb)
-	expectedTFTensor := makeExpectedTFTensor()
+	expectedTFTensor := expectedTFTensor()
 	g.Expect(err).Should(gomega.BeNil())
 	g.Expect(tfTensor).Should(gomega.Equal(expectedTFTensor))
 }
 
 func TestCreateTFTensorUnsupportedDType(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	tensorInfoPb := makeTensorInfoPb()
+	tensorInfoPb := tensorInfoPb()
 	tensorInfoPb.Dtype = framework.DataType_DT_COMPLEX128
 	_, err := NewTFTensor("Logical name", tensorInfoPb)
 	g.Expect(err).Should(gomega.Not(gomega.BeNil()))
@@ -66,38 +66,38 @@ func TestCreateTFTensorUnsupportedDType(t *testing.T) {
 
 func TestCreateTFTensorUnknownShape(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	tensorInfoPb := makeTensorInfoPb()
+	tensorInfoPb := tensorInfoPb()
 	tensorInfoPb.TensorShape = nil
 	tfTensor, err := NewTFTensor("Logical name", tensorInfoPb)
-	expectedTFTensor := makeExpectedTFTensorWithUnknowns()
+	expectedTFTensor := expectedTFTensorWithUnknowns()
 	g.Expect(err).Should(gomega.BeNil())
 	g.Expect(tfTensor).Should(gomega.Equal(expectedTFTensor))
 }
 
 func TestCreateTFTensorUnknownRank(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	tensorInfoPb := makeTensorInfoPb()
+	tensorInfoPb := tensorInfoPb()
 	tensorInfoPb.TensorShape.UnknownRank = true
 	tensorInfoPb.TensorShape.Dim = []*framework.TensorShapeProto_Dim{}
 	tfTensor, err := NewTFTensor("Logical name", tensorInfoPb)
-	expectedTFTensor := makeExpectedTFTensorWithUnknowns()
+	expectedTFTensor := expectedTFTensorWithUnknowns()
 	g.Expect(err).Should(gomega.BeNil())
 	g.Expect(tfTensor).Should(gomega.Equal(expectedTFTensor))
 }
 
 func TestCreateTFTensorKnownRankUnknownDims(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	tensorInfoPb := makeTensorInfoPb()
+	tensorInfoPb := tensorInfoPb()
 	tensorInfoPb.TensorShape.Dim = nil
 	tfTensor, err := NewTFTensor("Logical name", tensorInfoPb)
-	expectedTFTensor := makeExpectedTFTensorWithUnknowns()
+	expectedTFTensor := expectedTFTensorWithUnknowns()
 	g.Expect(err).Should(gomega.BeNil())
 	g.Expect(tfTensor).Should(gomega.Equal(expectedTFTensor))
 }
 
 func TestCreateTFShapeTypical(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	tfShape := NewTFShape(makeDimsPb())
+	tfShape := NewTFShape(dimsPb())
 	expectedTFShape := TFShape{-1, 3}
 	g.Expect(tfShape).Should(gomega.Equal(expectedTFShape))
 }

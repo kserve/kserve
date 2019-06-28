@@ -6,23 +6,21 @@ It is the internal model representation for the MetaGraph defined in the TensorF
 [tensorflow/core/protobuf/meta_graph.proto]
 */
 import (
-	"errors"
+	"fmt"
 	"github.com/getkin/kin-openapi/openapi3"
 	pb "github.com/kubeflow/kfserving/tools/tf2openapi/generated/protobuf"
 )
-
-const PredictReqSigDefMethod string = "tensorflow/serving/predict"
 
 type TFMetaGraph struct {
 	SignatureDefs [] TFSignatureDef
 }
 
-func NewTFMetaGraph(metaGraph *pb.MetaGraphDef) (TFMetaGraph, error) {
+func NewTFMetaGraph(metaGraph *pb.MetaGraphDef, sigDefKey string) (TFMetaGraph, error) {
 	tfMetaGraph := TFMetaGraph{
 		SignatureDefs: []TFSignatureDef{},
 	}
 	for key, definition := range metaGraph.SignatureDef {
-		if definition.MethodName != PredictReqSigDefMethod {
+		if key != sigDefKey {
 			continue
 		}
 		tfSigDef, err := NewTFSignatureDef(key, definition.Inputs, definition.Outputs)
@@ -30,11 +28,11 @@ func NewTFMetaGraph(metaGraph *pb.MetaGraphDef) (TFMetaGraph, error) {
 			return TFMetaGraph{}, err
 		}
 		tfMetaGraph.SignatureDefs = append(tfMetaGraph.SignatureDefs, tfSigDef)
+		return tfMetaGraph, nil
 	}
-	if len(tfMetaGraph.SignatureDefs) == 0 {
-		return TFMetaGraph{}, errors.New("model does not contain any SignatureDefs for prediction")
-	}
-	return tfMetaGraph, nil
+	// len(tfMetaGraph.SignatureDefs) is 0
+	return TFMetaGraph{}, fmt.Errorf("model does not contain desired SignatureDef (%s)", sigDefKey)
+
 }
 
 func (t *TFMetaGraph) Schema() *openapi3.Schema {
