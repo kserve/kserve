@@ -50,7 +50,7 @@ func viewAPI(cmd *cobra.Command, args []string) {
 	model := UnmarshalSavedModelPb(modelPb)
 
 	/** Schema generation example **/
-	spec, err := generator.GenerateOpenAPI(model, sigDefKey)
+	spec, err := generator.GenerateOpenAPI(model, modelName, modelVersion, sigDefKey)
 	if err != nil {
 		log.Fatalln(err.Error())
 	}
