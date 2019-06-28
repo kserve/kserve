@@ -56,7 +56,7 @@ You must install these tools:
 - **Note**: KFServing currently only requires `Knative Serving` for auto-scaling, canary rollout,
  `Istio` for traffic routing and ingress. You can follow instructions on
  [Custom Install](https://knative.dev/docs/install/knative-custom-install) to install `Istio` and `Knative Serving`,
- observability plug-ins are good to have for monitoring.
+ observability plug-ins are good to have for monitoring. If you already have `Istio` (e.g. from a kubeflow install) then simply skip the `Istio` steps.
 
 ### Setup your environment
 
