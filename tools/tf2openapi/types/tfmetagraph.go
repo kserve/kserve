@@ -6,6 +6,7 @@ It is the internal model representation for the MetaGraph defined in the TensorF
 [tensorflow/core/protobuf/meta_graph.proto]
 */
 import (
+	"errors"
 	"github.com/getkin/kin-openapi/openapi3"
 	pb "github.com/kubeflow/kfserving/tools/tf2openapi/generated/protobuf"
 )
@@ -29,6 +30,9 @@ func NewTFMetaGraph(metaGraph *pb.MetaGraphDef) (TFMetaGraph, error) {
 			return TFMetaGraph{}, err
 		}
 		tfMetaGraph.SignatureDefs = append(tfMetaGraph.SignatureDefs, tfSigDef)
+	}
+	if len(tfMetaGraph.SignatureDefs) == 0 {
+		return TFMetaGraph{}, errors.New("model does not contain any SignatureDefs for prediction")
 	}
 	return tfMetaGraph, nil
 }
