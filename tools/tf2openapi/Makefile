@@ -3,6 +3,10 @@ TF_PROTO_SRC := $(VENDOR_DIR)/github.com/tensorflow/tensorflow
 TF_PROTO_OUT := generated
 TEMP_DIR:=$(shell mktemp -d /tmp/tf2openapi.XXX)
 
+# Run tests
+test: generate
+	go test ./types/...
+
 # Generate code
 generate:
 ifndef GOPATH
@@ -19,10 +23,11 @@ endif
 	protoc -I $(TF_PROTO_SRC) --go_out=$(TEMP_DIR) $(TF_PROTO_SRC)/tensorflow/core/protobuf/meta_graph.proto
 	protoc -I $(TF_PROTO_SRC) --go_out=$(TEMP_DIR) $(TF_PROTO_SRC)/tensorflow/core/protobuf/saved_model.proto
 
-	# move compiled protos out of temp dir
-	if [ ! -d "./$(TF_PROTO_OUT)" ]; then \
-		mkdir $(TF_PROTO_OUT); \
+ 	# move compiled protos out of temp dir
+	if [ -d "./$(TF_PROTO_OUT)" ]; then \
+		rm -rf $(TF_PROTO_OUT); \
 	fi
+	mkdir $(TF_PROTO_OUT);
 	for dir in lib framework protobuf; do \
 		echo "$$dir"; \
 		if [ ! -d "./$(TF_PROTO_OUT)/$$dir" ]; then \
