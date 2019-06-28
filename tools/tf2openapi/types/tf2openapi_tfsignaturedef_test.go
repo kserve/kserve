@@ -8,7 +8,7 @@ import (
 )
 
 /* Expected values */
-func makeExpectedTFSignatureDef() TFSignatureDef {
+func expectedTFSignatureDef() TFSignatureDef {
 	return TFSignatureDef{
 		Key: "Signature Def Key",
 		Inputs: []TFTensor{
@@ -31,7 +31,7 @@ func makeExpectedTFSignatureDef() TFSignatureDef {
 }
 
 /* Fake protobuf structs to use as test inputs */
-func makeTensorsPb(name string, willErr bool) map[string]*pb.TensorInfo {
+func tensorsPb(name string, willErr bool) map[string]*pb.TensorInfo {
 	if willErr {
 		return map[string]*pb.TensorInfo{
 			name: {
@@ -71,25 +71,25 @@ func makeTensorsPb(name string, willErr bool) map[string]*pb.TensorInfo {
 func TestCreateTFSignatureDefTypical(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	tfSignatureDef, err := NewTFSignatureDef("Signature Def Key",
-		makeTensorsPb("input", false),
-		makeTensorsPb("output", false))
-	expectedSignatureDef := makeExpectedTFSignatureDef()
+		tensorsPb("input", false),
+		tensorsPb("output", false))
+	expectedSignatureDef := expectedTFSignatureDef()
 	g.Expect(err).Should(gomega.BeNil())
 	g.Expect(tfSignatureDef).Should(gomega.Equal(expectedSignatureDef))
 }
 
 func TestCreateTFSignatureDefWithErrInputs(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	inputTensors := makeTensorsPb("input", true)
-	outputTensors := makeTensorsPb("output", false)
+	inputTensors := tensorsPb("input", true)
+	outputTensors := tensorsPb("output", false)
 	_, err := NewTFSignatureDef("Signature Def Key", inputTensors, outputTensors)
 	g.Expect(err).Should(gomega.Not(gomega.BeNil()))
 }
 
 func TestCreateTFSignatureDefWithErrOutputs(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	inputTensors := makeTensorsPb("input", false)
-	outputTensors := makeTensorsPb("output", true)
+	inputTensors := tensorsPb("input", false)
+	outputTensors := tensorsPb("output", true)
 	_, err := NewTFSignatureDef("Signature Def Key", inputTensors, outputTensors)
 	g.Expect(err).Should(gomega.Not(gomega.BeNil()))
 }

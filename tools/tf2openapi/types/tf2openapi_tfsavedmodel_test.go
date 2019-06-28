@@ -8,7 +8,7 @@ import (
 )
 
 /* Expected values */
-func makeExpectedTFSavedModel() TFSavedModel {
+func expectedTFSavedModel() TFSavedModel {
 	return TFSavedModel{
 		MetaGraphs: []TFMetaGraph{
 			{
@@ -39,7 +39,7 @@ func makeExpectedTFSavedModel() TFSavedModel {
 }
 
 /* Fake protobuf structs to use as test inputs */
-func makeSavedModelPb() *pb.SavedModel {
+func savedModelPb() *pb.SavedModel {
 	return &pb.SavedModel{
 		MetaGraphs: []*pb.MetaGraphDef{
 			{
@@ -92,24 +92,25 @@ func makeSavedModelPb() *pb.SavedModel {
 
 func TestNewTFSavedModelTypical(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	tfSavedModel, err := NewTFSavedModel(makeSavedModelPb())
-	expectedSavedModel := makeExpectedTFSavedModel()
+	tfSavedModel, err := NewTFSavedModel(savedModelPb(), "sigDefKey")
+	expectedSavedModel := expectedTFSavedModel()
 	g.Expect(err).Should(gomega.BeNil())
 	g.Expect(tfSavedModel).Should(gomega.Equal(expectedSavedModel))
 }
 
 func TestNewTFSavedModelWithErrMetaGraph(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	savedModelPb := makeSavedModelPb()
-	savedModelPb.MetaGraphs[0].SignatureDef["sigDefKey"].MethodName = "tensorflow/serving/classify"
-	_, err := NewTFSavedModel(savedModelPb)
+	savedModelPb := savedModelPb()
+	savedModelPb.MetaGraphs[0].SignatureDef["undesiredSigDefKey"] = savedModelPb.MetaGraphs[0].SignatureDef["sigDefKey"]
+	delete(savedModelPb.MetaGraphs[0].SignatureDef, "sigDefKey")
+	_, err := NewTFSavedModel(savedModelPb, "sigDefKey")
 	g.Expect(err).Should(gomega.Not(gomega.BeNil()))
 }
 
 func TestNewTFSavedModelWithNoServableMetaGraph(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	savedModelPb := makeSavedModelPb()
+	savedModelPb := savedModelPb()
 	savedModelPb.MetaGraphs[0].MetaInfoDef.Tags[0] = "tag"
-	_, err := NewTFSavedModel(savedModelPb)
+	_, err := NewTFSavedModel(savedModelPb, "sigDefKey")
 	g.Expect(err).Should(gomega.Not(gomega.BeNil()))
 }
