@@ -147,8 +147,8 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 	}
 
 	reconcilers := []Reconciler{
-		knative.NewRouteReconciler(r.Client, r.scheme),
 		knative.NewConfigurationReconciler(r.Client, r.scheme, configMap),
+		knative.NewRouteReconciler(r.Client, r.scheme),
 	}
 
 	for _, reconciler := range reconcilers {
