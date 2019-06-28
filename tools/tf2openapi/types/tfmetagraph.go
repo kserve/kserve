@@ -17,7 +17,9 @@ type TFMetaGraph struct {
 }
 
 func NewTFMetaGraph(metaGraph *pb.MetaGraphDef) (TFMetaGraph, error) {
-	tfSigDefs := []TFSignatureDef{}
+	tfMetaGraph := TFMetaGraph{
+		SignatureDefs: []TFSignatureDef{},
+	}
 	for key, definition := range metaGraph.SignatureDef {
 		if definition.MethodName != PredictReqSigDefMethod {
 			continue
@@ -26,11 +28,9 @@ func NewTFMetaGraph(metaGraph *pb.MetaGraphDef) (TFMetaGraph, error) {
 		if err != nil {
 			return TFMetaGraph{}, err
 		}
-		tfSigDefs = append(tfSigDefs, tfSigDef)
+		tfMetaGraph.SignatureDefs = append(tfMetaGraph.SignatureDefs, tfSigDef)
 	}
-	return TFMetaGraph{
-		SignatureDefs: tfSigDefs,
-	}, nil
+	return tfMetaGraph, nil
 }
 
 func (t *TFMetaGraph) Schema() *openapi3.Schema {

@@ -24,7 +24,7 @@ func main() {
 
 	modelPb, err := ioutil.ReadFile(*model)
 	if err != nil {
-		log.Fatalln("Error reading file \n" + err.Error())
+		log.Fatalf("Error reading file %s \n%s", *model, err.Error())
 	}
 
 	/** Convert Go struct to inner model */

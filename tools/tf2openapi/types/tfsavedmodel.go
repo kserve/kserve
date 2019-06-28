@@ -19,7 +19,9 @@ type TFSavedModel struct {
 }
 
 func NewTFSavedModel(model *pb.SavedModel) (TFSavedModel, error) {
-	tfMetaGraphs := []TFMetaGraph{}
+	tfSavedModel := TFSavedModel{
+		MetaGraphs: []TFMetaGraph{},
+	}
 	for _, metaGraph := range model.MetaGraphs {
 		if !utils.Includes(metaGraph.MetaInfoDef.Tags, ServingMetaGraphTag) {
 			continue
@@ -28,15 +30,13 @@ func NewTFSavedModel(model *pb.SavedModel) (TFSavedModel, error) {
 		if err != nil {
 			return TFSavedModel{}, err
 		}
-		tfMetaGraphs = append(tfMetaGraphs, tfMetaGraph)
+		tfSavedModel.MetaGraphs = append(tfSavedModel.MetaGraphs, tfMetaGraph)
 
 	}
-	if len(tfMetaGraphs) == 0 {
-		return TFSavedModel{}, errors.New("Model does not contain any servable MetaGraphs")
+	if len(tfSavedModel.MetaGraphs) == 0 {
+		return TFSavedModel{}, errors.New("model does not contain any servable MetaGraphs")
 	}
-	return TFSavedModel{
-		MetaGraphs: tfMetaGraphs,
-	}, nil
+	return tfSavedModel, nil
 }
 
 func (t *TFSavedModel) Schema() *openapi3.Schema {

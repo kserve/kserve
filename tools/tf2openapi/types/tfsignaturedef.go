@@ -18,10 +18,10 @@ type TFSignatureDef struct {
 
 func NewTFSignatureDef(key string, inputs map[string]*pb.TensorInfo, outputs map[string]*pb.TensorInfo) (TFSignatureDef, error) {
 	inputTensors, inputErr := extractTensors(inputs)
-	outputTensors, outputErr := extractTensors(outputs)
 	if inputErr != nil {
 		return TFSignatureDef{}, inputErr
 	}
+	outputTensors, outputErr := extractTensors(outputs)
 	if outputErr != nil {
 		return TFSignatureDef{}, outputErr
 	}
