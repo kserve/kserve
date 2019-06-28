@@ -1,6 +1,7 @@
 package generator
 
 import (
+	"fmt"
 	"github.com/getkin/kin-openapi/openapi3"
 	pb "github.com/kubeflow/kfserving/tools/tf2openapi/generated/protobuf"
 	"github.com/kubeflow/kfserving/tools/tf2openapi/types"
@@ -9,7 +10,7 @@ import (
 
 const defaultSigDefKey = "serving_default"
 
-func GenerateOpenAPI(model *pb.SavedModel, sigDefKey string) (string, error) {
+func GenerateOpenAPI(model *pb.SavedModel, name string, version string, sigDefKey string) (string, error) {
 	if sigDefKey == "" {
 		sigDefKey = defaultSigDefKey
 	}
@@ -19,12 +20,8 @@ func GenerateOpenAPI(model *pb.SavedModel, sigDefKey string) (string, error) {
 	}
 	schema := m.Schema()
 	response := &openapi3.Response{
-		Description: "Some response",
+		Description: "Model output",
 	}
-	//complexArgSchema := openapi3.NewObjectSchema().
-	//	WithProperty("name", openapi3.NewStringSchema()).
-	//	WithProperty("id", openapi3.NewStringSchema().WithMaxLength(2))
-	//schema = complexArgSchema
 	requestBody := &openapi3.RequestBody{
 		Content: openapi3.NewContentWithJSONSchema(schema),
 	}
@@ -33,29 +30,26 @@ func GenerateOpenAPI(model *pb.SavedModel, sigDefKey string) (string, error) {
 		OpenAPI: "3.0.0",
 		Components: openapi3.Components{
 			Responses: map[string]*openapi3.ResponseRef{
-				"someResponse": {
+				"modelOutput": {
 					Value: response,
 				},
 			},
 			RequestBodies: map[string]*openapi3.RequestBodyRef{
-				"someRequestBody": {
+				"modelInput": {
 					Value: requestBody,
 				},
 			},
 		},
 		Paths: openapi3.Paths{
-			// TODO fix parameters and response, etc.
-			"/models": &openapi3.PathItem{
-
+			fmt.Sprintf("/v1/models/%s/versions/%s:predict", name, version): &openapi3.PathItem{
 				Post: &openapi3.Operation{
-
 					RequestBody: &openapi3.RequestBodyRef{
-						Ref: "#/components/requestBodies/someRequestBody",
+						Ref: "#/components/requestBodies/modelInput",
 					},
 
 					Responses: openapi3.Responses{
 						"200": &openapi3.ResponseRef{
-							Ref: "#/components/responses/someResponse",
+							Ref: "#/components/responses/modelOutput",
 						},
 					},
 				},
@@ -80,7 +74,6 @@ func GenerateOpenAPI(model *pb.SavedModel, sigDefKey string) (string, error) {
 			log.Println(e)
 			log.Println("HELLO VALIDATED!")
 		}
-
 		return string(json), nil
 	}
 }
