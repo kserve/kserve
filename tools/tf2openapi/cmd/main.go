@@ -11,8 +11,10 @@ import (
 )
 
 var (
-	model   = flag.String("model", "", "Absolute path of SavedModel file")
-	outFile = flag.String("output-file", "", "Absolute path of file to write OpenAPI spec to")
+	model        = flag.String("model", "", "Absolute path of SavedModel file")
+	modelName    = flag.String("name", "model", "Name of model")
+	modelVersion = flag.String("version", "1", "Model version")
+	outFile      = flag.String("output-file", "", "Absolute path of file to write OpenAPI spec to")
 	sigDefKey = flag.String("signature-def", "", "Serving Signature Def Key ")
 )
 
@@ -32,7 +34,7 @@ func main() {
 	model := UnmarshalSavedModelPb(modelPb)
 
 	/** Schema generation example **/
-	spec, err := generator.GenerateOpenAPI(model, *sigDefKey)
+	spec, err := generator.GenerateOpenAPI(model, *modelName, *modelVersion, *sigDefKey)
 	if err != nil {
 		log.Fatalln(err.Error())
 	}
