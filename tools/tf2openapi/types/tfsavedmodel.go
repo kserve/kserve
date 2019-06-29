@@ -29,5 +29,5 @@ func NewTFSavedModel(model *pb.SavedModel) (TFSavedModel, error) {
 }
 
 func (t *TFSavedModel) Schema() *openapi3.Schema {
-	return t.MetaGraphs[0].Schema()
+	return t.MetaGraph.Schema()
 }
