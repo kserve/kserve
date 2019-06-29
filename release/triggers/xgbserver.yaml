@@ -1,10 +1,10 @@
 ---
+### Specify as necessary ###
 description: XGB Server Autobuilder
 substitutions:
-  ### Specify as necessary ###
   _COMPONENT: "xgbserver"
   _DOCKERFILE: "./python/xgb.Dockerfile"
-  ###########################
+###########################
 github:
   owner: kubeflow
   name: kfserving

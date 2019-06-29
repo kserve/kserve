@@ -1,10 +1,10 @@
 ---
+### Specify as necessary ###
 description: Executor Autobuilder
 substitutions:
-  ### Specify as necessary ###
   _COMPONENT: "executor"
   _DOCKERFILE: "./executor.Dockerfile"
-  ###########################
+###########################
 github:
   owner: kubeflow
   name: kfserving

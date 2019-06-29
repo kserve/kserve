@@ -1,10 +1,10 @@
 ---
+### Specify as necessary ###
 description: Sklearn Server Autobuilder
 substitutions:
-  ### Specify as necessary ###
   _COMPONENT: "sklearnserver"
   _DOCKERFILE: "./python/sklearn.Dockerfile"
-  ###########################
+###########################
 github:
   owner: kubeflow
   name: kfserving

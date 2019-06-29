@@ -1,9 +1,9 @@
 ---
 ### Specify as necessary ###
-description: KFServing Controller Autobuilder
+description: Pytorch Server Autobuilder
 substitutions:
-  _COMPONENT: "kfserving-controller"
-  _DOCKERFILE: "./Dockerfile"
+  _COMPONENT: "pytorchserver"
+  _DOCKERFILE: "./python/pytorch.Dockerfile"
 ###########################
 github:
   owner: kubeflow
@@ -12,9 +12,7 @@ github:
     tag: v0.*.*
 ### Specify as necessary ###
 includedFiles:
-- pkg/**
-- cmd/**
-- vendor/**
+- python/**
 ###########################
 build:
   steps:

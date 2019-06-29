@@ -1,9 +1,9 @@
 ---
 ### Specify as necessary ###
-description: KFServing Controller Autobuilder
+description: Alibi Explainer Autobuilder
 substitutions:
-  _COMPONENT: "kfserving-controller"
-  _DOCKERFILE: "./Dockerfile"
+  _COMPONENT: "alibi-explainer"
+  _DOCKERFILE: "./python/alibiexplainer.Dockerfile"
 ###########################
 github:
   owner: kubeflow
@@ -12,9 +12,7 @@ github:
     tag: v0.*.*
 ### Specify as necessary ###
 includedFiles:
-- pkg/**
-- cmd/**
-- vendor/**
+- python/**
 ###########################
 build:
   steps:
