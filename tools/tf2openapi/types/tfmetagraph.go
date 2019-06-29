@@ -38,9 +38,6 @@ func (t *TFMetaGraph) Schema() *openapi3.Schema {
 	}
 	return schema
 
-	// Uncomment to see sample payloads in Swagger UI
-	//for _, s := range t.SignatureDefs {
-	//	return s.Schema()
-	//}
-	//return &openapi3.Schema{}
+	// Comment the above and uncomment below to see sample payloads in Swagger UI
+	//return t.SignatureDefs[0].Schema()
 }
