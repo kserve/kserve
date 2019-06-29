@@ -1,3 +1,24 @@
+<!-- START doctoc generated TOC please keep comment here to allow auto update -->
+<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
+**Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
+
+- [Autoscale KFService with your inference workload](#autoscale-kfservice-with-your-inference-workload)
+  - [Setup](#setup)
+  - [Load your KFService with target concurrency](#load-your-kfservice-with-target-concurrency)
+    - [Create the KFService](#create-the-kfservice)
+    - [Load KFService with concurrent requests](#load-kfservice-with-concurrent-requests)
+    - [Check Dashboard](#check-dashboard)
+  - [Load your KFService with target QPS](#load-your-kfservice-with-target-qps)
+    - [Create the KFService](#create-the-kfservice-1)
+    - [Load KFService with target QPS](#load-kfservice-with-target-qps)
+    - [Check Dashboard](#check-dashboard-1)
+  - [Autoscaling on GPU!](#autoscaling-on-gpu)
+    - [Create the KFService with GPU resource](#create-the-kfservice-with-gpu-resource)
+    - [Load KFService with concurrent requests](#load-kfservice-with-concurrent-requests-1)
+  - [Autoscaling Customization](#autoscaling-customization)
+
+<!-- END doctoc generated TOC please keep comment here to allow auto update -->
+
 
 # Autoscale KFService with your inference workload
 ## Setup
@@ -7,7 +28,7 @@
 4. [Metrics installation](https://knative.dev/docs/serving/installing-logging-metrics-traces) for viewing scaling graphs (optional).
 5. The hey load generator installed (go get -u github.com/rakyll/hey).
 
-## Load the KFService with target concurrency
+## Load your KFService with target concurrency
 
 ### Create the KFService
 Apply the tensorflow example CRD
@@ -184,7 +205,7 @@ however it also calculates the 6 second panic window and will enter into panic m
 From the dashboard you can see that it enters panic mode in which autoscaler operates on shorter and more sensitive window. Once the panic
 conditions are no longer met for 60 seconds, autoscaler will return back to 60 seconds stable window.
 
-## Autoscaling with GPU !
+## Autoscaling on GPU!
 Autoscaling on GPU is hard with GPU metrics, however thanks to Knative's concurrency based autoscaler scaling on GPU
 is pretty easy and effective!
 
