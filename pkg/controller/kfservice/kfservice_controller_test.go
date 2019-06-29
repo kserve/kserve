@@ -17,13 +17,16 @@ limitations under the License.
 package service
 
 import (
+	"testing"
+	"time"
+
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/knative/pkg/apis"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	testutils "github.com/kubeflow/kfserving/pkg/testing"
 	v1 "k8s.io/api/core/v1"
-	"testing"
-	"time"
 
 	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
 	knservingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -433,12 +436,13 @@ func TestCanaryReconcile(t *testing.T) {
 			Traffic: 20,
 		},
 	}
-	g.Eventually(func() *servingv1alpha1.KFServiceStatus {
+	g.Eventually(func() string {
 		kfsvc := &servingv1alpha1.KFService{}
 		err := c.Get(context.TODO(), canaryServiceKey, kfsvc)
 		if err != nil {
-			return nil
+			return err.Error()
 		}
-		return &kfsvc.Status
-	}, timeout).Should(testutils.BeSematicEqual(&expectedKfsvcStatus))
+		diff := cmp.Diff(&expectedKfsvcStatus, &kfsvc.Status, cmpopts.IgnoreTypes(apis.VolatileTime{}))
+		return diff
+	}, timeout).Should(gomega.BeEmpty())
 }
