@@ -114,7 +114,7 @@ func stringType(name string) TFDType {
 // Corresponds to how each entry in an "instances" or "inputs" object should look
 func (t *TFTensor) Schema(row bool) *openapi3.Schema {
 	if row {
-		// Ignore the 0th dimension because it is always -1 in row fmt to represent batchable input
+		// ignore the 0th dimension because it is always -1 in row fmt to represent batchable input
 		return Schema(1, t.Shape, t.Rank, t.DType)
 	}
 	if t.Rank == -1 {
