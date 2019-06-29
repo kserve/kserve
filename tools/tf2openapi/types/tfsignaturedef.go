@@ -11,17 +11,37 @@ import (
 )
 
 type TFSignatureDef struct {
-	Name    string
+	Key     string
 	Inputs  [] TFTensor
 	Outputs [] TFTensor
 }
 
-func NewTFSignatureDef(key string, inputs map[string]*pb.TensorInfo, outputs map[string]*pb.TensorInfo) TFSignatureDef {
-	return TFSignatureDef{}
+func NewTFSignatureDef(key string, inputs map[string]*pb.TensorInfo, outputs map[string]*pb.TensorInfo) (TFSignatureDef, error) {
+	inputTensors, inputErr := extractTensors(inputs)
+	if inputErr != nil {
+		return TFSignatureDef{}, inputErr
+	}
+	outputTensors, outputErr := extractTensors(outputs)
+	if outputErr != nil {
+		return TFSignatureDef{}, outputErr
+	}
+	return TFSignatureDef{
+		Key:     key,
+		Inputs:  inputTensors,
+		Outputs: outputTensors,
+	}, nil
 }
 
-func extractTensors(tensors map[string]*pb.TensorInfo) []TFTensor {
-	return []TFTensor{}
+func extractTensors(tensors map[string]*pb.TensorInfo) ([]TFTensor, error) {
+	tfTensors := []TFTensor{}
+	for key, tensor := range tensors {
+		tfTensor, err := NewTFTensor(key, tensor)
+		if err != nil {
+			return nil, err
+		}
+		tfTensors = append(tfTensors, tfTensor)
+	}
+	return tfTensors, nil
 }
 
 func (t *TFSignatureDef) Schema() *openapi3.Schema {
