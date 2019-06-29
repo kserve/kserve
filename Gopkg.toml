@@ -30,7 +30,7 @@ required = [
 [[prune.project]]
   name = "k8s.io/gengo"
   unused-packages = false 
-  
+
 [[prune.project]]
   name = "github.com/tensorflow/tensorflow"
   unused-packages = false
