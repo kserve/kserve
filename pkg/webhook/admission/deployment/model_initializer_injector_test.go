@@ -70,7 +70,7 @@ func TestModelInitializerInjector(t *testing.T) {
 					Template: v1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Annotations: map[string]string{
-								constants.KFServiceModelInitializerSourceURIInternalAnnotationKey: "gs://foo",
+								constants.ModelInitializerSourceUriInternalAnnotationKey: "gs://foo",
 							},
 						},
 						Spec: v1.PodSpec{
@@ -88,7 +88,7 @@ func TestModelInitializerInjector(t *testing.T) {
 					Template: v1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Annotations: map[string]string{
-								constants.KFServiceModelInitializerSourceURIInternalAnnotationKey: "gs://foo",
+								constants.ModelInitializerSourceUriInternalAnnotationKey: "gs://foo",
 							},
 						},
 						Spec: v1.PodSpec{
@@ -136,7 +136,7 @@ func TestModelInitializerInjector(t *testing.T) {
 					Template: v1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Annotations: map[string]string{
-								constants.KFServiceModelInitializerSourceURIInternalAnnotationKey: "pvc://mypvcname/some/path/on/pvc",
+								constants.ModelInitializerSourceUriInternalAnnotationKey: "pvc://mypvcname/some/path/on/pvc",
 							},
 						},
 						Spec: v1.PodSpec{
@@ -154,7 +154,7 @@ func TestModelInitializerInjector(t *testing.T) {
 					Template: v1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Annotations: map[string]string{
-								constants.KFServiceModelInitializerSourceURIInternalAnnotationKey: "pvc://mypvcname/some/path/on/pvc",
+								constants.ModelInitializerSourceUriInternalAnnotationKey: "pvc://mypvcname/some/path/on/pvc",
 							},
 						},
 						Spec: v1.PodSpec{

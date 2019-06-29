@@ -17,13 +17,14 @@ limitations under the License.
 package service
 
 import (
+	"testing"
+	"time"
+
 	"github.com/knative/pkg/apis"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	testutils "github.com/kubeflow/kfserving/pkg/testing"
 	v1 "k8s.io/api/core/v1"
-	"testing"
-	"time"
 
 	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
 	knservingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -165,11 +166,11 @@ func TestReconcile(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{"serving.kubeflow.org/kfservice": "foo"},
 					Annotations: map[string]string{
-						"autoscaling.knative.dev/target":                                  "1",
-						"autoscaling.knative.dev/class":                                   "kpa.autoscaling.knative.dev",
-						"autoscaling.knative.dev/maxScale":                                "3",
-						"autoscaling.knative.dev/minScale":                                "1",
-						constants.KFServiceModelInitializerSourceURIInternalAnnotationKey: instance.Spec.Default.Tensorflow.ModelURI,
+						"autoscaling.knative.dev/target":                         "1",
+						"autoscaling.knative.dev/class":                          "kpa.autoscaling.knative.dev",
+						"autoscaling.knative.dev/maxScale":                       "3",
+						"autoscaling.knative.dev/minScale":                       "1",
+						constants.ModelInitializerSourceUriInternalAnnotationKey: instance.Spec.Default.Tensorflow.ModelURI,
 					},
 				},
 				Spec: knservingv1alpha1.RevisionSpec{
@@ -302,11 +303,11 @@ func TestCanaryReconcile(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{"serving.kubeflow.org/kfservice": "bar"},
 					Annotations: map[string]string{
-						"autoscaling.knative.dev/target":                                  "1",
-						"autoscaling.knative.dev/class":                                   "kpa.autoscaling.knative.dev",
-						"autoscaling.knative.dev/maxScale":                                "3",
-						"autoscaling.knative.dev/minScale":                                "1",
-						constants.KFServiceModelInitializerSourceURIInternalAnnotationKey: canary.Spec.Canary.Tensorflow.ModelURI,
+						"autoscaling.knative.dev/target":                         "1",
+						"autoscaling.knative.dev/class":                          "kpa.autoscaling.knative.dev",
+						"autoscaling.knative.dev/maxScale":                       "3",
+						"autoscaling.knative.dev/minScale":                       "1",
+						constants.ModelInitializerSourceUriInternalAnnotationKey: canary.Spec.Canary.Tensorflow.ModelURI,
 					},
 				},
 				Spec: knservingv1alpha1.RevisionSpec{

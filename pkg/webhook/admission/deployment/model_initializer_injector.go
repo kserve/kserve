@@ -46,8 +46,8 @@ func InjectModelInitializer(deployment *appsv1.Deployment) error {
 	podSpec := &deployment.Spec.Template.Spec
 
 	// Only inject if the required annotations are set
-	if _, ok := annotations[constants.KFServiceModelInitializerSourceURIInternalAnnotationKey]; ok {
-		srcURI = annotations[constants.KFServiceModelInitializerSourceURIInternalAnnotationKey]
+	if _, ok := annotations[constants.ModelInitializerSourceUriInternalAnnotationKey]; ok {
+		srcURI = annotations[constants.ModelInitializerSourceUriInternalAnnotationKey]
 	} else {
 		return nil
 	}
