@@ -18,28 +18,21 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-STARTUP_DIR="$( cd "$( dirname "$0" )" && pwd )"
-
-if [ -z "${GOPATH:-}" ]; then
-    export GOPATH=$(go env GOPATH)
-fi
-
-SCRIPT_ROOT="${STARTUP_DIR}/.."
-
+SCRIPT_ROOT=$(dirname "${BASH_SOURCE}")/..
 DIFFROOT="${SCRIPT_ROOT}/pkg/client"
 TMP_DIFFROOT="${SCRIPT_ROOT}/_tmp/pkg/client"
 _tmp="${SCRIPT_ROOT}/_tmp"
-
+# Cleanup script to remove tmp folder
 cleanup() {
   rm -rf "${_tmp}"
 }
 trap "cleanup" EXIT SIGINT
-
+# Running cleanup
 cleanup
-
+# Creating tmp folder to compare generated client code
 mkdir -p "${TMP_DIFFROOT}"
 cp -a "${DIFFROOT}"/* "${TMP_DIFFROOT}"
-
+# Generating client code to verify
 "${SCRIPT_ROOT}/hack/update-codegen.sh"
 echo "diffing ${DIFFROOT} against freshly generated codegen"
 ret=0

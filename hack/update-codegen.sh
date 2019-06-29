@@ -18,14 +18,10 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-STARTUP_DIR="$( cd "$( dirname "$0" )" && pwd )"
-
+KUBE_ROOT=$(dirname "${BASH_SOURCE}")/..
+CODEGEN_PKG=${KUBE_ROOT}/vendor/k8s.io/code-generator
 if [ -z "${GOPATH:-}" ]; then
     export GOPATH=$(go env GOPATH)
 fi
-
-CODEGEN_PKG=${STARTUP_DIR}/../vendor/k8s.io/code-generator
-
-echo ${CODEGEN_PKG}
-
+# Generating KFservice client files
 ${CODEGEN_PKG}/generate-groups.sh all "github.com/kubeflow/kfserving/pkg/client" "github.com/kubeflow/kfserving/pkg/apis" serving:v1alpha1
