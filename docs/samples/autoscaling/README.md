@@ -7,10 +7,12 @@
 4. [Metrics installation](https://knative.dev/docs/serving/installing-logging-metrics-traces) for viewing scaling graphs (optional).
 5. The hey load generator installed (go get -u github.com/rakyll/hey).
 
-## Create the KFService
-Apply the CRD
+## Load the KFService with target concurrency
+
+### Create the KFService
+Apply the tensorflow example CRD
 ```
-kubectl apply -f ../tensorflow/tensorflow.yaml 
+kubectl apply -f ../tensorflow/tensorflow.yaml
 ```
 
 Expected Output
@@ -18,8 +20,8 @@ Expected Output
 $ kfservice.serving.kubeflow.org/flowers-sample configured
 ```
 
-## Load the KFService with concurrent requests
-Send 30 seconds of traffic maintaining 5 in-flight requests
+### Load KFService with concurrent requests
+Send 30 seconds of traffic maintaining 5 in-flight requests.
 ```
 MODEL_NAME=flowers-sample
 INPUT_PATH=../tensorflow/input.json
@@ -72,11 +74,11 @@ Details (average, fastest, slowest):
 Status code distribution:
   [200]	4126 responses
 ```
-Check the number of pods that are running now, `KFServing` uses `Knative Serving`'s autoscaling which is based on the 
+Check the number of pods that are running now, `KFServing` uses `Knative Serving`'s autoscaler which is based on the
 average number of in-flight requests per pod(concurrency). `KFServing` by default sets target concurrency to be 1 and we
 load the service with 5 concurrent requests so that autoscaler tries scaling up to 5 pods. Notice that out of all the requests there are 
 5 requests on the histogram that take around 10s, that's the cold start time cost to initially spawn the pods, download model to be ready
-to serve the workload. The cold start may take longer(to pull the serving image) if the image is not cached on the node that the pod is scheduled on.
+to serve the inference workload. The cold start may take longer(to pull the serving image) if the image is not cached on the node that the pod is scheduled on.
 ```
 $ kubectl get pods
 NAME                                                       READY   STATUS            RESTARTS   AGE
@@ -87,7 +89,7 @@ flowers-sample-default-7kqt6-deployment-75d577dcdb-vdlp9         3/3     Running
 flowers-sample-default-7kqt6-deployment-75d577dcdb-vm58d         3/3     Running       0          42s
 ```
 
-## Check Dashboard
+### Check Dashboard
 View the Knative Serving Scaling dashboards (if configured).
 
 ```bash
@@ -98,7 +100,20 @@ kubectl port-forward --namespace knative-monitoring $(kubectl get pods --namespa
 
 
 ## Load your KFService with target QPS
-Send 30 seconds of traffic maintaining 50 qps
+
+### Create the KFService
+Apply the tensorflow example CRD
+```
+kubectl apply -f ../tensorflow/tensorflow.yaml
+```
+
+Expected Output
+```
+$ kfservice.serving.kubeflow.org/flowers-sample configured
+```
+
+### Load KFService with target QPS
+Send 30 seconds of traffic maintaining 50 qps.
 ```bash
 MODEL_NAME=flowers-sample
 INPUT_PATH=../tensorflow/input.json
@@ -153,9 +168,9 @@ Status code distribution:
 ```
 
 Check the number of pods now, we are loading the service with 50 requests per second, and from the dashboard you can see
-that it hits the max concurrency 10 and autoscaler tries scaling up to 10 pods.
+that it hits the average concurrency 10 and autoscaler tries scaling up to 10 pods.
 
-## Check Dashboard
+### Check Dashboard
 View the Knative Serving Scaling dashboards (if configured).
 
 ```bash
@@ -164,8 +179,90 @@ kubectl port-forward --namespace knative-monitoring $(kubectl get pods --namespa
 
 ![scaling dashboard](scaling_debug_qps.png)
 
-## Scaling customization
+Autoscaler calculates average concurrency over 60 second window so it takes a minute to stabilize at the desired concurrency level,
+however it also calculates the 6 second panic window and will enter into panic mode if that window reaches 2x target concurrency.
+From the dashboard you can see that it enters panic mode in which autoscaler operates on shorter and more sensitive window. Once the panic
+conditions are no longer met for 60 seconds, autoscaler will return back to 60 seconds stable window.
+
+## Autoscaling with GPU !
+Autoscaling on GPU is hard with GPU metrics, however thanks to Knative's concurrency based autoscaler scaling on GPU
+is pretty easy and effective!
+
+### Create the KFService with GPU resource
+Apply the tensorflow gpu example CRD
+```
+apiVersion: "serving.kubeflow.org/v1alpha1"
+kind: "KFService"
+metadata:
+  name: "flowers-sample-gpu"
+spec:
+  default:
+    tensorflow:
+      modelUri: "gs://kfserving-samples/models/tensorflow/flowers"
+      runtimeVersion: "1.13.0-gpu"
+      resources:
+        limits:
+          nvidia.com/gpu: 1
+```
+
+### Load KFService with concurrent requests
+Send 30 seconds of traffic maintaining 5 in-flight requests.
+```
+MODEL_NAME=flowers-sample-gpu
+INPUT_PATH=../tensorflow/input.json
+CLUSTER_IP=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+HOST=$(kubectl get kfservice $MODEL_NAME -o jsonpath='{.status.url}')
+hey -z 30s -c 5 -host ${HOST} -D $INPUT_PATH http://$CLUSTER_IP/v1/models/$MODEL_NAME:predict
+```
+Expected output
+```shell
+Summary:
+  Total:	30.0152 secs
+  Slowest:	9.7581 secs
+  Fastest:	0.0142 secs
+  Average:	0.0350 secs
+  Requests/sec:	142.9942
+  
+  Total data:	948532 bytes
+  Size/request:	221 bytes
+
+Response time histogram:
+  0.014 [1]	|
+  0.989 [4286]	|■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+  1.963 [0]	|
+  2.937 [0]	|
+  3.912 [0]	|
+  4.886 [0]	|
+  5.861 [0]	|
+  6.835 [0]	|
+  7.809 [0]	|
+  8.784 [0]	|
+  9.758 [5]	|
+
+
+Latency distribution:
+  10% in 0.0181 secs
+  25% in 0.0189 secs
+  50% in 0.0198 secs
+  75% in 0.0210 secs
+  90% in 0.0230 secs
+  95% in 0.0276 secs
+  99% in 0.0511 secs
+
+Details (average, fastest, slowest):
+  DNS+dialup:	0.0000 secs, 0.0142 secs, 9.7581 secs
+  DNS-lookup:	0.0000 secs, 0.0000 secs, 0.0291 secs
+  req write:	0.0000 secs, 0.0000 secs, 0.0023 secs
+  resp wait:	0.0348 secs, 0.0141 secs, 9.7158 secs
+  resp read:	0.0001 secs, 0.0000 secs, 0.0021 secs
+
+Status code distribution:
+  [200]	4292 responses
+```
+
+## Autoscaling Customization
 You can also customize the target concurrency by adding annotation `autoscaling.knative.dev/target: "10"` on `KFService` CRD.
+
 ```yaml
 apiVersion: "serving.kubeflow.org/v1alpha1"
 kind: "KFService"
