@@ -34,6 +34,10 @@ var (
 
 var _ FrameworkHandler = (*PyTorchSpec)(nil)
 
+func (s *PyTorchSpec) GetModelSourceUri() string {
+	return s.ModelURI
+}
+
 func (s *PyTorchSpec) CreateModelServingContainer(modelName string, config *FrameworksConfig) *v1.Container {
 	imageName := PyTorchServerImageName
 	if config.PyTorch.ContainerImage != "" {
