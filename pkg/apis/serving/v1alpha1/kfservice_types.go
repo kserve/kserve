@@ -82,13 +82,13 @@ type SKLearnSpec struct {
 
 // PyTorchSpec defines arguments for configuring PyTorch model serving.
 type PyTorchSpec struct {
-	ModelURI       string `json:"modelUri"`
+	ModelURI string `json:"modelUri"`
+	// Defaults PyTorch model class name to 'PyTorchModel'
 	ModelClassName string `json:"modelClassName,omitempty"`
-	// Defaults to  PyTorchModel
+	// Defaults to latest PyTorch Version
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
-	// Defaults to latest Runtime Version.
-	Resources v1.ResourceRequirements `json:"resources,omitempty"`
 	// Defaults to requests and limits of 1CPU, 2Gb MEM.
+	Resources v1.ResourceRequirements `json:"resources,omitempty"`
 }
 
 // CustomSpec provides a hook for arbitrary container configuration.
