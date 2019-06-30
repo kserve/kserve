@@ -68,7 +68,7 @@ spec:
                 pytorch:
                   properties:
                     modelClassName:
-                      description: Name of the model class for PyTorch model
+                      description: Defaults PyTorch model class name to 'PyTorchModel'
                       type: string
                     modelUri:
                       type: string
@@ -76,6 +76,7 @@ spec:
                       description: Defaults to requests and limits of 1CPU, 2Gb MEM.
                       type: object
                     runtimeVersion:
+                      description: Defaults to latest PyTorch Version
                       type: string
                   required:
                   - modelUri
@@ -162,7 +163,7 @@ spec:
                 pytorch:
                   properties:
                     modelClassName:
-                      description: Defaults to latest PyTorch Version.
+                      description: Defaults PyTorch model class name to 'PyTorchModel'
                       type: string
                     modelUri:
                       type: string
@@ -170,6 +171,7 @@ spec:
                       description: Defaults to requests and limits of 1CPU, 2Gb MEM.
                       type: object
                     runtimeVersion:
+                      description: Defaults to latest PyTorch Version
                       type: string
                   required:
                   - modelUri
