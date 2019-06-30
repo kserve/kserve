@@ -73,7 +73,7 @@ spec:
                     modelUri:
                       type: string
                     resources:
-                      description: Defaults to latest Runtime Version.
+                      description: Defaults to requests and limits of 1CPU, 2Gb MEM.
                       type: object
                     runtimeVersion:
                       description: Defaults to latest PyTorch Version
@@ -168,7 +168,7 @@ spec:
                     modelUri:
                       type: string
                     resources:
-                      description: Defaults to latest Runtime Version.
+                      description: Defaults to requests and limits of 1CPU, 2Gb MEM.
                       type: object
                     runtimeVersion:
                       description: Defaults to latest PyTorch Version
