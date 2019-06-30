@@ -16,6 +16,7 @@ limitations under the License.
 package deployment
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -218,6 +219,45 @@ func TestModelInitializerInjector(t *testing.T) {
 		}
 		if diff := cmp.Diff(scenario.expected.Spec, scenario.original.Spec); diff != "" {
 			t.Errorf("Test %q unexpected result (-want +got): %v", name, diff)
+		}
+	}
+}
+
+func TestModelInitializerFailureCases(t *testing.T) {
+	scenarios := map[string]struct {
+		original            *appsv1.Deployment
+		expectedErrorPrefix string
+	}{
+		"MissingUserContainer": {
+			original: &appsv1.Deployment{
+				Spec: appsv1.DeploymentSpec{
+					Template: v1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Annotations: map[string]string{
+								constants.ModelInitializerSourceUriInternalAnnotationKey: "pvc://mypvcname/some/path/on/pvc",
+							},
+						},
+						Spec: v1.PodSpec{
+							Containers: []v1.Container{
+								v1.Container{
+									Name: "random-container",
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedErrorPrefix: "Invalid configuration: cannot find container",
+		},
+	}
+
+	for name, scenario := range scenarios {
+		if err := InjectModelInitializer(scenario.original); err != nil {
+			if !strings.HasPrefix(err.Error(), scenario.expectedErrorPrefix) {
+				t.Errorf("Test %q unexpected failure [%s], expected: %s", name, err.Error(), scenario.expectedErrorPrefix)
+			}
+		} else {
+			t.Errorf("Test %q should have failed with: %s", name, scenario.expectedErrorPrefix)
 		}
 	}
 }

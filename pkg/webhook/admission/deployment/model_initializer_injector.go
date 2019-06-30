@@ -40,28 +40,25 @@ const (
 // support INIT containers: https://github.com/knative/serving/issues/4307
 func InjectModelInitializer(deployment *appsv1.Deployment) error {
 
-	var srcURI string
-
 	annotations := deployment.Spec.Template.ObjectMeta.Annotations
 	podSpec := &deployment.Spec.Template.Spec
 
 	// Only inject if the required annotations are set
-	if _, ok := annotations[constants.ModelInitializerSourceUriInternalAnnotationKey]; ok {
-		srcURI = annotations[constants.ModelInitializerSourceUriInternalAnnotationKey]
-	} else {
+	srcURI, ok := annotations[constants.ModelInitializerSourceUriInternalAnnotationKey]
+	if !ok {
 		return nil
 	}
 
 	// Find the knative user-container (this is the model inference server)
-	userContainerIndex := -1
+	var userContainer *v1.Container
 	for idx, container := range podSpec.Containers {
 		if strings.Compare(container.Name, UserContainerName) == 0 {
-			userContainerIndex = idx
+			userContainer = &podSpec.Containers[idx]
 			break
 		}
 	}
 
-	if userContainerIndex < 0 {
+	if userContainer == nil {
 		return fmt.Errorf("Invalid configuration: cannot find container: %s", UserContainerName)
 	}
 
@@ -134,7 +131,7 @@ func InjectModelInitializer(deployment *appsv1.Deployment) error {
 		MountPath: constants.DefaultModelLocalMountPath,
 		ReadOnly:  true,
 	}
-	podSpec.Containers[userContainerIndex].VolumeMounts = append(podSpec.Containers[userContainerIndex].VolumeMounts, sharedVolumeReadMount)
+	userContainer.VolumeMounts = append(userContainer.VolumeMounts, sharedVolumeReadMount)
 
 	// Add volumes to the PodSpec
 	podSpec.Volumes = append(podSpec.Volumes, podVolumes...)
