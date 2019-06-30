@@ -1,0 +1,26 @@
+---
+### Specify as necessary ###
+description: Model Initializer Autobuilder
+substitutions:
+  _COMPONENT: "model-initializer"
+  _DOCKERFILE: "./python/model-initializer.Dockerfile"
+###########################
+github:
+  owner: kubeflow
+  name: kfserving
+  push:
+    tag: v0.*.*
+### Specify as necessary ###
+includedFiles:
+- python/**
+###########################
+build:
+  steps:
+  - name: docker
+    args:
+    - "build"
+    - "-t"
+    - "gcr.io/$REPO_NAME/${_COMPONENT}:$TAG_NAME"
+    - "${_DOCKERFILE}"
+  images:
+  - gcr.io/$REPO_NAME/${_COMPONENT}:$TAG_NAME
