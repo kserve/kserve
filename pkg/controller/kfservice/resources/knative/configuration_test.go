@@ -74,11 +74,12 @@ var defaultConfiguration = &knservingv1alpha1.Configuration{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels: map[string]string{"serving.kubeflow.org/kfservice": "mnist"},
 				Annotations: map[string]string{
-					"autoscaling.knative.dev/class":                "kpa.autoscaling.knative.dev",
-					"autoscaling.knative.dev/target":               "1",
-					"autoscaling.knative.dev/minScale":             "1",
-					"autoscaling.knative.dev/maxScale":             "3",
-					constants.KFServiceGKEAcceleratorAnnotationKey: "nvidia-tesla-t4",
+					"autoscaling.knative.dev/class":                          "kpa.autoscaling.knative.dev",
+					"autoscaling.knative.dev/target":                         "1",
+					"autoscaling.knative.dev/minScale":                       "1",
+					"autoscaling.knative.dev/maxScale":                       "3",
+					constants.KFServiceGKEAcceleratorAnnotationKey:           "nvidia-tesla-t4",
+					constants.ModelInitializerSourceUriInternalAnnotationKey: kfsvc.Spec.Default.Tensorflow.ModelURI,
 				},
 			},
 			Spec: knservingv1alpha1.RevisionSpec{
@@ -95,7 +96,7 @@ var defaultConfiguration = &knservingv1alpha1.Configuration{
 						"--port=" + v1alpha1.TensorflowServingGRPCPort,
 						"--rest_api_port=" + v1alpha1.TensorflowServingRestPort,
 						"--model_name=mnist",
-						"--model_base_path=" + kfsvc.Spec.Default.Tensorflow.ModelURI,
+						"--model_base_path=" + constants.DefaultModelLocalMountPath,
 					},
 				},
 			},
@@ -113,11 +114,12 @@ var canaryConfiguration = &knservingv1alpha1.Configuration{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels: map[string]string{"serving.kubeflow.org/kfservice": "mnist"},
 				Annotations: map[string]string{
-					"autoscaling.knative.dev/class":                "kpa.autoscaling.knative.dev",
-					"autoscaling.knative.dev/target":               "1",
-					"autoscaling.knative.dev/minScale":             "1",
-					"autoscaling.knative.dev/maxScale":             "3",
-					constants.KFServiceGKEAcceleratorAnnotationKey: "nvidia-tesla-t4",
+					"autoscaling.knative.dev/class":                          "kpa.autoscaling.knative.dev",
+					"autoscaling.knative.dev/target":                         "1",
+					"autoscaling.knative.dev/minScale":                       "1",
+					"autoscaling.knative.dev/maxScale":                       "3",
+					constants.KFServiceGKEAcceleratorAnnotationKey:           "nvidia-tesla-t4",
+					constants.ModelInitializerSourceUriInternalAnnotationKey: "s3://test/mnist-2/export",
 				},
 			},
 			Spec: knservingv1alpha1.RevisionSpec{
@@ -131,7 +133,7 @@ var canaryConfiguration = &knservingv1alpha1.Configuration{
 						"--port=" + v1alpha1.TensorflowServingGRPCPort,
 						"--rest_api_port=" + v1alpha1.TensorflowServingRestPort,
 						"--model_name=mnist",
-						"--model_base_path=s3://test/mnist-2/export",
+						"--model_base_path=" + constants.DefaultModelLocalMountPath,
 					},
 				},
 			},
@@ -165,7 +167,7 @@ func TestKnativeConfiguration(t *testing.T) {
 						MinReplicas: 1,
 						MaxReplicas: 3,
 						Tensorflow: &v1alpha1.TensorflowSpec{
-							ModelURI:       "s3://test/mnist/export",
+							ModelURI:       kfsvc.Spec.Default.Tensorflow.ModelURI,
 							RuntimeVersion: "1.13.0",
 						},
 						ServiceAccountName: "testsvcacc",
@@ -214,8 +216,9 @@ func TestKnativeConfiguration(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{"serving.kubeflow.org/kfservice": "sklearn"},
 							Annotations: map[string]string{
-								"autoscaling.knative.dev/class":  "kpa.autoscaling.knative.dev",
-								"autoscaling.knative.dev/target": "1",
+								constants.ModelInitializerSourceUriInternalAnnotationKey: "s3://test/sklearn/export",
+								"autoscaling.knative.dev/class":                          "kpa.autoscaling.knative.dev",
+								"autoscaling.knative.dev/target":                         "1",
 							},
 						},
 						Spec: knservingv1alpha1.RevisionSpec{
@@ -226,7 +229,7 @@ func TestKnativeConfiguration(t *testing.T) {
 								Image: v1alpha1.SKLearnServerImageName + ":" + v1alpha1.DefaultSKLearnRuntimeVersion,
 								Args: []string{
 									"--model_name=sklearn",
-									"--model_dir=s3://test/sklearn/export",
+									"--model_dir=" + constants.DefaultModelLocalMountPath,
 								},
 							},
 						},
@@ -259,8 +262,9 @@ func TestKnativeConfiguration(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{"serving.kubeflow.org/kfservice": "xgboost"},
 							Annotations: map[string]string{
-								"autoscaling.knative.dev/class":  "kpa.autoscaling.knative.dev",
-								"autoscaling.knative.dev/target": "1",
+								constants.ModelInitializerSourceUriInternalAnnotationKey: "s3://test/xgboost/export",
+								"autoscaling.knative.dev/class":                          "kpa.autoscaling.knative.dev",
+								"autoscaling.knative.dev/target":                         "1",
 							},
 						},
 						Spec: knservingv1alpha1.RevisionSpec{
@@ -271,7 +275,7 @@ func TestKnativeConfiguration(t *testing.T) {
 								Image: v1alpha1.XGBoostServerImageName + ":" + v1alpha1.DefaultXGBoostRuntimeVersion,
 								Args: []string{
 									"--model_name=xgboost",
-									"--model_dir=s3://test/xgboost/export",
+									"--model_dir=" + constants.DefaultModelLocalMountPath,
 								},
 							},
 						},
@@ -305,8 +309,9 @@ func TestKnativeConfiguration(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{"serving.kubeflow.org/kfservice": "xgboost"},
 							Annotations: map[string]string{
-								"autoscaling.knative.dev/class":  "kpa.autoscaling.knative.dev",
-								"autoscaling.knative.dev/target": "1",
+								constants.ModelInitializerSourceUriInternalAnnotationKey: "s3://test/xgboost/export",
+								"autoscaling.knative.dev/class":                          "kpa.autoscaling.knative.dev",
+								"autoscaling.knative.dev/target":                         "1",
 							},
 						},
 						Spec: knservingv1alpha1.RevisionSpec{
@@ -317,7 +322,7 @@ func TestKnativeConfiguration(t *testing.T) {
 								Image: "kfserving/xgbserver:" + v1alpha1.DefaultXGBoostRuntimeVersion,
 								Args: []string{
 									"--model_name=xgboost",
-									"--model_dir=s3://test/xgboost/export",
+									"--model_dir=" + constants.DefaultModelLocalMountPath,
 								},
 							},
 						},
@@ -331,7 +336,7 @@ func TestKnativeConfiguration(t *testing.T) {
 		configurationBuilder := NewConfigurationBuilder(c, &v1.ConfigMap{
 			Data: scenario.configMapData,
 		})
-		defaultConfiguration, err := configurationBuilder.CreateKnativeConfiguration(
+		actualDefaultConfiguration, err := configurationBuilder.CreateKnativeConfiguration(
 			constants.DefaultConfigurationName(scenario.kfService.Name),
 			scenario.kfService.ObjectMeta,
 			&scenario.kfService.Spec.Default,
@@ -340,12 +345,12 @@ func TestKnativeConfiguration(t *testing.T) {
 			t.Errorf("Test %q unexpected error %s", name, err.Error())
 		}
 
-		if diff := cmp.Diff(scenario.expectedDefault, defaultConfiguration); diff != "" {
+		if diff := cmp.Diff(scenario.expectedDefault, actualDefaultConfiguration); diff != "" {
 			t.Errorf("Test %q unexpected default configuration (-want +got): %v", name, diff)
 		}
 
 		if scenario.kfService.Spec.Canary != nil {
-			canaryConfiguration, err := configurationBuilder.CreateKnativeConfiguration(
+			actualCanaryConfiguration, err := configurationBuilder.CreateKnativeConfiguration(
 				constants.CanaryConfigurationName(kfsvc.Name),
 				scenario.kfService.ObjectMeta,
 				scenario.kfService.Spec.Canary,
@@ -353,7 +358,7 @@ func TestKnativeConfiguration(t *testing.T) {
 			if err != nil {
 				t.Errorf("Test %q unexpected error %s", name, err.Error())
 			}
-			if diff := cmp.Diff(scenario.expectedCanary, canaryConfiguration); diff != "" {
+			if diff := cmp.Diff(scenario.expectedCanary, actualCanaryConfiguration); diff != "" {
 				t.Errorf("Test %q unexpected canary configuration (-want +got): %v", name, diff)
 			}
 		}

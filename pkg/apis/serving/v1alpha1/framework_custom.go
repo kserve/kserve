@@ -21,6 +21,10 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
+func (c *CustomSpec) GetModelSourceUri() string {
+	return ""
+}
+
 func (c *CustomSpec) CreateModelServingContainer(modelName string, config *FrameworksConfig) *v1.Container {
 	return &c.Container
 }

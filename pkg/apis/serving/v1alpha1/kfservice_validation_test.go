@@ -41,6 +41,42 @@ func makeTestKFService() KFService {
 	return kfservice
 }
 
+func TestValidModelURIPrefixOK(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	for _, prefix := range SupportedModelSourceURIPrefixList {
+		kfsvc := makeTestKFService()
+		kfsvc.Spec.Default.Tensorflow.ModelURI = prefix + "foo/bar"
+		g.Expect(kfsvc.ValidateCreate()).Should(gomega.Succeed())
+	}
+}
+
+func TestEmptyModelURIPrefixOK(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	kfsvc := makeTestKFService()
+	kfsvc.Spec.Default.Tensorflow.ModelURI = ""
+	g.Expect(kfsvc.ValidateCreate()).Should(gomega.Succeed())
+}
+
+func TestLocalPathModelURIPrefixOK(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	kfsvc := makeTestKFService()
+	kfsvc.Spec.Default.Tensorflow.ModelURI = "some/relative/path"
+	g.Expect(kfsvc.ValidateCreate()).Should(gomega.Succeed())
+	kfsvc.Spec.Default.Tensorflow.ModelURI = "/some/absolute/path"
+	g.Expect(kfsvc.ValidateCreate()).Should(gomega.Succeed())
+	kfsvc.Spec.Default.Tensorflow.ModelURI = "/"
+	g.Expect(kfsvc.ValidateCreate()).Should(gomega.Succeed())
+	kfsvc.Spec.Default.Tensorflow.ModelURI = "foo"
+	g.Expect(kfsvc.ValidateCreate()).Should(gomega.Succeed())
+}
+
+func TestUnkownModelURIPrefixFails(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	kfsvc := makeTestKFService()
+	kfsvc.Spec.Default.Tensorflow.ModelURI = "blob://foo/bar"
+	g.Expect(kfsvc.ValidateCreate()).ShouldNot(gomega.Succeed())
+}
+
 func TestRejectMultipleModelSpecs(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	kfsvc := makeTestKFService()

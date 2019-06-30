@@ -35,6 +35,10 @@ var (
 	TensorRTISRestPort   = int32(8080)
 )
 
+func (t *TensorRTSpec) GetModelSourceUri() string {
+	return t.ModelURI
+}
+
 func (t *TensorRTSpec) CreateModelServingContainer(modelName string, config *FrameworksConfig) *v1.Container {
 	imageName := DefaultTensorRTISImageName
 	if config.TensorRT.ContainerImage != "" {
