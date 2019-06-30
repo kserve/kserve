@@ -77,6 +77,12 @@ func (c *ConfigurationBuilder) CreateKnativeConfiguration(name string, metadata 
 
 	kfsvcAnnotations := utils.Filter(metadata.Annotations, configurationAnnotationFilter)
 
+	// KNative does not support INIT containers or mounting, so we add annotations that trigger the
+	// ModelInitializer injector to mutate the underlying deployment to provision model data
+	if sourceURI := modelSpec.GetModelSourceUri(); sourceURI != "" {
+		kfsvcAnnotations[constants.ModelInitializerSourceUriInternalAnnotationKey] = sourceURI
+	}
+
 	configuration := &knservingv1alpha1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,

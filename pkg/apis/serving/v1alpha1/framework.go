@@ -23,6 +23,7 @@ import (
 )
 
 type FrameworkHandler interface {
+	GetModelSourceUri() string
 	CreateModelServingContainer(modelName string, config *FrameworksConfig) *v1.Container
 	ApplyDefaults()
 	Validate() error
@@ -39,6 +40,11 @@ var (
 	DefaultMemoryRequests = resource.MustParse("2Gi")
 	DefaultCPURequests    = resource.MustParse("1")
 )
+
+// Returns a URI to the model. This URI is passed to the model-initializer via the ModelInitializerSourceUriInternalAnnotationKey
+func (m *ModelSpec) GetModelSourceUri() string {
+	return getHandler(m).GetModelSourceUri()
+}
 
 func (m *ModelSpec) CreateModelServingContainer(modelName string, config *FrameworksConfig) *v1.Container {
 	return getHandler(m).CreateModelServingContainer(modelName, config)

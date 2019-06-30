@@ -116,7 +116,7 @@ func register(manager manager.Manager, server *webhook.Server) error {
 			},
 		},
 	}, &admission.Webhook{
-		Name:          constants.AcceleratorInjectorMutatorWebhookName,
+		Name:          constants.DeploymentMutatorWebhookName,
 		FailurePolicy: &constants.WebhookFailurePolicy,
 		Type:          webhooktypes.WebhookTypeMutating,
 		Rules: []v1beta1.RuleWithOperations{{

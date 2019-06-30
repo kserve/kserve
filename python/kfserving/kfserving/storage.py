@@ -27,23 +27,25 @@ _LOCAL_PREFIX = "file://"
 
 class Storage(object): # pylint: disable=too-few-public-methods
     @staticmethod
-    def download(uri: str) -> str:
+    def download(uri: str, out_dir: str = None) -> str:
         logging.info("Copying contents of %s to local", uri)
         if uri.startswith(_LOCAL_PREFIX) or os.path.exists(uri):
             return Storage._download_local(uri)
 
-        temp_dir = tempfile.mkdtemp()
+        if out_dir is None:
+            out_dir = tempfile.mkdtemp()
+
         if uri.startswith(_GCS_PREFIX):
-            Storage._download_gcs(uri, temp_dir)
+            Storage._download_gcs(uri, out_dir)
         elif uri.startswith(_S3_PREFIX):
-            Storage._download_s3(uri, temp_dir)
+            Storage._download_s3(uri, out_dir)
         else:
             raise Exception("Cannot recognize storage type for " + uri +
                             "\n'%s', '%s', and '%s' are the current available storage type." %
                             (_GCS_PREFIX, _S3_PREFIX, _LOCAL_PREFIX))
 
-        logging.info("Successfully copied %s to %s", uri, temp_dir)
-        return temp_dir
+        logging.info("Successfully copied %s to %s", uri, out_dir)
+        return out_dir
 
     @staticmethod
     def _download_s3(uri, temp_dir: str):
@@ -68,16 +70,23 @@ class Storage(object): # pylint: disable=too-few-public-methods
         bucket_name = bucket_args[0]
         bucket_path = bucket_args[1] if len(bucket_args) > 1 else ""
         bucket = storage_client.bucket(bucket_name)
-        blobs = bucket.list_blobs(prefix=bucket_path)
+        prefix = bucket_path
+        if not prefix.endswith("/"):
+            prefix = prefix + "/"
+        blobs = bucket.list_blobs(prefix=prefix)
         for blob in blobs:
             # Replace any prefix from the object key with temp_dir
             subdir_object_key = blob.name.replace(bucket_path, "", 1).strip("/")
+
             # Create necessary subdirectory to store the object locally
             if "/" in subdir_object_key:
                 local_object_dir = os.path.join(temp_dir, subdir_object_key.rsplit("/", 1)[0])
                 if not os.path.isdir(local_object_dir):
                     os.makedirs(local_object_dir, exist_ok=True)
-            blob.download_to_filename(os.path.join(temp_dir, subdir_object_key))
+            if subdir_object_key.strip() != "":
+                dest_path = os.path.join(temp_dir, subdir_object_key)
+                logging.info("Downloading: %s", dest_path)
+                blob.download_to_filename(dest_path)
 
     @staticmethod
     def _download_local(uri):

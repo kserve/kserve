@@ -43,6 +43,12 @@ var (
 	KFServiceGKEAcceleratorAnnotationKey = KFServingAPIGroupName + "/gke-accelerator"
 )
 
+// KFService Internal Annotations
+var (
+	KFServiceInternalAnnotationsPrefix             = "internal." + KFServingAPIGroupName
+	ModelInitializerSourceUriInternalAnnotationKey = KFServiceInternalAnnotationsPrefix + "/model-initializer-sourceuri"
+)
+
 // Controller Constants
 var (
 	ControllerLabelName        = KFServingName + "-controller-manager"
@@ -52,21 +58,24 @@ var (
 
 // Webhook Constants
 var (
-	WebhookServerName                     = KFServingName + "-webhook-server"
-	WebhookServerServiceName              = WebhookServerName + "-service"
-	WebhookServerSecretName               = WebhookServerName + "-secret"
-	KFServiceValidatingWebhookConfigName  = strings.Join([]string{KFServiceName, KFServingAPIGroupName}, ".")
-	KFServiceMutatingWebhookConfigName    = strings.Join([]string{KFServiceName, KFServingAPIGroupName}, ".")
-	KFServiceValidatingWebhookName        = strings.Join([]string{KFServiceName, WebhookServerName, "validator"}, ".")
-	KFServiceDefaultingWebhookName        = strings.Join([]string{KFServiceName, WebhookServerName, "defaulter"}, ".")
-	AcceleratorInjectorMutatorWebhookName = strings.Join([]string{KFServiceName, WebhookServerName, "accelerator-injector"}, ".")
-	WebhookFailurePolicy                  = v1beta1.Fail
+	WebhookServerName                    = KFServingName + "-webhook-server"
+	WebhookServerServiceName             = WebhookServerName + "-service"
+	WebhookServerSecretName              = WebhookServerName + "-secret"
+	KFServiceValidatingWebhookConfigName = strings.Join([]string{KFServiceName, KFServingAPIGroupName}, ".")
+	KFServiceMutatingWebhookConfigName   = strings.Join([]string{KFServiceName, KFServingAPIGroupName}, ".")
+	KFServiceValidatingWebhookName       = strings.Join([]string{KFServiceName, WebhookServerName, "validator"}, ".")
+	KFServiceDefaultingWebhookName       = strings.Join([]string{KFServiceName, WebhookServerName, "defaulter"}, ".")
+	DeploymentMutatorWebhookName         = strings.Join([]string{KFServiceName, WebhookServerName, "deployment-mutator"}, ".")
+	WebhookFailurePolicy                 = v1beta1.Fail
 )
 
 // GPU Constants
 const (
 	NvidiaGPUResourceType = "nvidia.com/gpu"
 )
+
+// DefaultModelLocalMountPath is where models will be mounted by the model-initializer
+const DefaultModelLocalMountPath = "/mnt/models"
 
 func getEnvOrDefault(key string, fallback string) string {
 	if value, ok := os.LookupEnv(key); ok {
