@@ -41,6 +41,7 @@ var (
 	DefaultCPURequests    = resource.MustParse("1")
 )
 
+// Returns a URI to the model. This URI is passed to the model-initializer via the ModelInitializerSourceUriInternalAnnotationKey
 func (m *ModelSpec) GetModelSourceUri() string {
 	return getHandler(m).GetModelSourceUri()
 }
