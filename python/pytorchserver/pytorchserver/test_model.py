@@ -13,7 +13,6 @@
 # limitations under the License.
 
 from pytorchserver import PyTorchModel
-import os
 import torch
 import torchvision
 import torchvision.transforms as transforms
@@ -32,7 +31,7 @@ def test_model():
     testloader = torch.utils.data.DataLoader(testset, batch_size=4,
                                              shuffle=False, num_workers=2)
     dataiter = iter(testloader)
-    images, labels = dataiter.next()
+    images, _ = dataiter.next()
 
     request = images[0:1].tolist()
     response = server.predict(request)
