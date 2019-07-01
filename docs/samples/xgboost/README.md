@@ -27,7 +27,7 @@ model_file = os.path.join((model_dir), BST_FILE)
 xgb_model.save_model(model_file)
 ```
 
-Then, we can run the XGBoost Server using the generated model and test for prediction. Models can be on local filesystem, S3 compatible object storage or Google Cloud Storage.
+Then, we can run the XGBoost Server using the generated model and test for prediction. Models can be on local filesystem, S3 compatible object storage, Azure Blob Storage, or Google Cloud Storage.
 
 ```shell
 python -m xgbserver --model_dir /path/to/model_dir --model_name xgb
