@@ -16,6 +16,9 @@ KFServing supports the following storage providers:
     * If `GOOGLE_APPLICATION_CREDENTIALS` is not provided, anonymous client will be used to download the artifacts.
 * S3 Compatible Object Storage with a prefix "s3://"
     * By default, it uses `S3_ENDPOINT`, `AWS_ACCESS_KEY_ID`, and `AWS_SECRET_ACCESS_KEY` environment variables for user authentication.
+* Azure Blob Storage with the format: "https://{STORAGE_ACCOUNT_NAME}.blob.core.windows.net/{CONTAINER}/{PATH}"
+    * By default, it uses anonymous client to download the artifacts.
+    * For e.g. https://kfserving.blob.core.windows.net/tensorrt/simple_string/
 * Local filesystem either without any prefix or with a prefix "file://". For example:
     * Absolute path: `/absolute/path` or `file:///absolute/path`
     * Relative path: `relative/path` or `file://relative/path`
