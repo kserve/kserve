@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/utils"
 	v1 "k8s.io/api/core/v1"
 )
@@ -49,7 +50,7 @@ func (s *PyTorchSpec) CreateModelServingContainer(modelName string, config *Fram
 		Args: []string{
 			"--model_name=" + modelName,
 			"--model_class_name=" + s.ModelClassName,
-			"--model_dir=" + s.ModelURI,
+			"--model_dir=" + constants.DefaultModelLocalMountPath,
 		},
 	}
 }
