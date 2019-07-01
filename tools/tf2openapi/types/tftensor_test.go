@@ -1,6 +1,7 @@
 package types
 
 import (
+	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/kubeflow/kfserving/tools/tf2openapi/generated/framework"
 	pb "github.com/kubeflow/kfserving/tools/tf2openapi/generated/protobuf"
 	"github.com/onsi/gomega"
@@ -117,7 +118,7 @@ func TestCreateTFDTypeTypical(t *testing.T) {
 	g.Expect(err).Should(gomega.BeNil())
 }
 
-func TestCreateTFDTypeBinary(t *testing.T) {
+func TestCreateTFDTypeB64(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	tfDType, err := NewTFDType("tensor_name_bytes", "DT_STRING")
 	expectedTFDType := DtB64String
@@ -129,4 +130,183 @@ func TestCreateTFDTypeUnsupported(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	_, err := NewTFDType("tensor_name", "BAD TYPE")
 	g.Expect(err).Should(gomega.Not(gomega.BeNil()))
+}
+
+func TestTFTensorRowSchemaTypical(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	tfTensor := expectedTFTensor()
+	schema := tfTensor.RowSchema()
+	expectedSchema := &openapi3.Schema{
+		Type:     "array",
+		MaxItems: func(u uint64) *uint64 { return &u }(3),
+		MinItems: 3,
+		Items:    openapi3.NewFloat64Schema().NewRef(),
+	}
+	g.Expect(schema).Should(gomega.Equal(expectedSchema))
+}
+
+func TestTFTensorRowSchemaScalarPerInstance(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	tfTensor := TFTensor{
+		Name:  "Logical name",
+		DType: DtInt8,
+		Shape: TFShape{-1},
+		Rank:  1,
+	}
+	schema := tfTensor.RowSchema()
+	expectedSchema := &openapi3.Schema{
+		Type: "number",
+	}
+	g.Expect(schema).Should(gomega.Equal(expectedSchema))
+}
+
+func TestTFTensorRowSchemaNested(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	tfTensor := TFTensor{
+		Name:  "Logical name",
+		DType: DtInt8,
+		Shape: TFShape{-1, 1, 2},
+		Rank:  3,
+	}
+	schema := tfTensor.RowSchema()
+	expectedSchema := &openapi3.Schema{
+		Type:     "array",
+		MaxItems: func(u uint64) *uint64 { return &u }(1),
+		MinItems: 1,
+		Items: &openapi3.SchemaRef{
+			Value: &openapi3.Schema{
+				Type:     "array",
+				MaxItems: func(u uint64) *uint64 { return &u }(2),
+				MinItems: 2,
+				Items: &openapi3.SchemaRef{
+					Value: &openapi3.Schema{
+						Type: "number",
+					},
+				},
+			},
+		},
+	}
+	g.Expect(schema).Should(gomega.Equal(expectedSchema))
+}
+
+func TestTFTensorRowSchemaZeroDimSize(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	tfTensor := TFTensor{
+		Name:  "Logical name",
+		DType: DtInt8,
+		Shape: TFShape{-1, 0, 3},
+		Rank:  3,
+	}
+	schema := tfTensor.RowSchema()
+	expectedSchema := &openapi3.Schema{
+		Type:     "array",
+		MaxItems: func(u uint64) *uint64 { return &u }(0),
+		MinItems: 0,
+	}
+	g.Expect(schema).Should(gomega.Equal(expectedSchema))
+}
+
+func TestTFTensorRowSchemaUnknownDimSize(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	tfTensor := TFTensor{
+		Name:  "Logical name",
+		DType: DtInt8,
+		Shape: TFShape{-1, -1, 2},
+		Rank:  3,
+	}
+	schema := tfTensor.RowSchema()
+	expectedSchema := &openapi3.Schema{
+		Type: "array",
+		Items: &openapi3.SchemaRef{
+			Value: &openapi3.Schema{
+				Type:     "array",
+				MaxItems: func(u uint64) *uint64 { return &u }(2),
+				MinItems: 2,
+				Items: &openapi3.SchemaRef{
+					Value: &openapi3.Schema{
+						Type: "number",
+					},
+				},
+			},
+		},
+	}
+	g.Expect(schema).Should(gomega.Equal(expectedSchema))
+}
+
+func TestTFTensorColSchemaUnknownRank(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	tfTensor := TFTensor{
+		Name:  "Logical name",
+		DType: DtInt8,
+		Rank:  -1,
+	}
+	schema := tfTensor.ColSchema()
+	expectedSchema := &openapi3.Schema{}
+	g.Expect(schema).Should(gomega.Equal(expectedSchema))
+}
+
+func TestTFTensorColSchemaTypicalRowEquiv(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	tfTensor := expectedTFTensor()
+	schema := tfTensor.ColSchema()
+	expectedSchema := &openapi3.Schema{
+		Type: "array",
+		Items: (&openapi3.Schema{
+			Type:     "array",
+			MaxItems: func(u uint64) *uint64 { return &u }(3),
+			MinItems: 3,
+			Items:    openapi3.NewFloat64Schema().NewRef(),
+		}).NewRef(),
+	}
+	g.Expect(schema).Should(gomega.Equal(expectedSchema))
+}
+
+func TestTFTensorColSchemaNonBatchable(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	tfTensor := TFTensor{
+		Name:  "Logical name",
+		DType: DtInt8,
+		Shape: TFShape{1, 2},
+		Rank:  2,
+	}
+	schema := tfTensor.ColSchema()
+	expectedSchema := &openapi3.Schema{
+		Type:     "array",
+		MaxItems: func(u uint64) *uint64 { return &u }(1),
+		MinItems: 1,
+		Items: &openapi3.SchemaRef{
+			Value: &openapi3.Schema{
+				Type:     "array",
+				MaxItems: func(u uint64) *uint64 { return &u }(2),
+				MinItems: 2,
+				Items: &openapi3.SchemaRef{
+					Value: &openapi3.Schema{
+						Type: "number",
+					},
+				},
+			},
+		},
+	}
+	g.Expect(schema).Should(gomega.Equal(expectedSchema))
+}
+
+func TestTFDTypeSchemaTypical(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	tfDType := DtString
+	schema := tfDType.Schema()
+	expectedSchema := openapi3.NewStringSchema()
+	g.Expect(schema).Should(gomega.Equal(expectedSchema))
+}
+
+func TestTFDTypeSchemaB64(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	tfDType := DtB64String
+	schema := tfDType.Schema()
+	expectedSchema := &openapi3.Schema{
+		Type: "object",
+		Properties: map[string]*openapi3.SchemaRef{
+			"b64": openapi3.NewStringSchema().NewRef(),
+		},
+	}
+	g.Expect(schema).Should(gomega.Equal(expectedSchema))
 }

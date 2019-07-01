@@ -126,6 +126,14 @@ func (t *TFTensor) ColSchema() *openapi3.Schema {
 func schema(dim int64, shape TFShape, rank int64, dType TFDType) *openapi3.Schema {
 	if dim == rank {
 		return dType.Schema()
+	} else {
+		if shape[dim] == -1 {
+			return openapi3.NewArraySchema().WithItems(schema(dim+1, shape, rank, dType))
+		} else if shape[dim] == 0 {
+			return openapi3.NewArraySchema().WithMaxItems(0)
+		} else {
+			return openapi3.NewArraySchema().WithMinItems(shape[dim]).WithMaxItems(shape[dim]).WithItems(schema(dim+1, shape, rank, dType))
+		}
 	}
 	if shape[dim] == -1 {
 		return openapi3.NewArraySchema().WithItems(schema(dim+1, shape, rank, dType))
@@ -159,6 +167,7 @@ func (t *TFDType) Schema() *openapi3.Schema {
 		DtDouble: openapi3.NewFloat64Schema(),
 	}[*t]
 	if !ok {
+		// should never be here
 		panic(fmt.Sprintf("valid dtype (%v) not mapped to schema", t))
 	}
 	return schema
