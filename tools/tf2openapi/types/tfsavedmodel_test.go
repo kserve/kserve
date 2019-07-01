@@ -10,27 +10,24 @@ import (
 /* Expected values */
 func expectedTFSavedModel() TFSavedModel {
 	return TFSavedModel{
-		MetaGraphs: []TFMetaGraph{
-			{
-				SignatureDefs: []TFSignatureDef{
+		MetaGraph: TFMetaGraph{
+			SignatureDef: TFSignatureDef{
+
+				Key: "sigDefKey",
+				Inputs: []TFTensor{
 					{
-						Key: "sigDefKey",
-						Inputs: []TFTensor{
-							{
-								Name:  "inputTensorName",
-								DType: DtInt8,
-								Shape: TFShape{-1, 3},
-								Rank:  2,
-							},
-						},
-						Outputs: []TFTensor{
-							{
-								Name:  "outputTensorName",
-								DType: DtInt8,
-								Shape: TFShape{-1, 3},
-								Rank:  2,
-							},
-						},
+						Name:  "inputTensorName",
+						DType: DtInt8,
+						Shape: TFShape{-1, 3},
+						Rank:  2,
+					},
+				},
+				Outputs: []TFTensor{
+					{
+						Name:  "outputTensorName",
+						DType: DtInt8,
+						Shape: TFShape{-1, 3},
+						Rank:  2,
 					},
 				},
 			},
@@ -94,16 +91,14 @@ func TestNewTFSavedModelTypical(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	tfSavedModel, err := NewTFSavedModel(savedModelPb(), "sigDefKey")
 	expectedSavedModel := expectedTFSavedModel()
-	g.Expect(err).Should(gomega.BeNil())
 	g.Expect(tfSavedModel).Should(gomega.Equal(expectedSavedModel))
+	g.Expect(err).Should(gomega.BeNil())
 }
 
 func TestNewTFSavedModelWithErrMetaGraph(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	savedModelPb := savedModelPb()
-	savedModelPb.MetaGraphs[0].SignatureDef["undesiredSigDefKey"] = savedModelPb.MetaGraphs[0].SignatureDef["sigDefKey"]
-	delete(savedModelPb.MetaGraphs[0].SignatureDef, "sigDefKey")
-	_, err := NewTFSavedModel(savedModelPb, "sigDefKey")
+	_, err := NewTFSavedModel(savedModelPb, "missingSigDefKey")
 	g.Expect(err).Should(gomega.Not(gomega.BeNil()))
 }
 
