@@ -4,6 +4,7 @@ description: Model Initializer Autobuilder
 substitutions:
   _COMPONENT: "model-initializer"
   _DOCKERFILE: "./python/model-initializer.Dockerfile"
+  _CONTEXT: "./python"
 ###########################
 github:
   owner: kubeflow
@@ -21,6 +22,8 @@ build:
     - "build"
     - "-t"
     - "gcr.io/$REPO_NAME/${_COMPONENT}:$TAG_NAME"
+    - "-f"
     - "${_DOCKERFILE}"
+    - "${_CONTEXT}"
   images:
   - gcr.io/$REPO_NAME/${_COMPONENT}:$TAG_NAME

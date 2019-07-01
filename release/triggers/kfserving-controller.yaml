@@ -4,6 +4,7 @@ description: KFServing Controller Autobuilder
 substitutions:
   _COMPONENT: "kfserving-controller"
   _DOCKERFILE: "./Dockerfile"
+  _CONTEXT: "."
 ###########################
 github:
   owner: kubeflow
@@ -23,6 +24,8 @@ build:
     - "build"
     - "-t"
     - "gcr.io/$REPO_NAME/${_COMPONENT}:$TAG_NAME"
+    - "-f"
     - "${_DOCKERFILE}"
+    - "${_CONTEXT}"
   images:
   - gcr.io/$REPO_NAME/${_COMPONENT}:$TAG_NAME
