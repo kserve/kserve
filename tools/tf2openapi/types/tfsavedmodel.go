@@ -15,13 +15,10 @@ import (
 const ServingMetaGraphTag string = "serve"
 
 type TFSavedModel struct {
-	MetaGraphs [] TFMetaGraph
+	MetaGraph TFMetaGraph
 }
 
 func NewTFSavedModel(model *pb.SavedModel, sigDefKey string) (TFSavedModel, error) {
-	tfSavedModel := TFSavedModel{
-		MetaGraphs: []TFMetaGraph{},
-	}
 	for _, metaGraph := range model.MetaGraphs {
 		if !utils.Includes(metaGraph.MetaInfoDef.Tags, ServingMetaGraphTag) {
 			continue
@@ -30,10 +27,10 @@ func NewTFSavedModel(model *pb.SavedModel, sigDefKey string) (TFSavedModel, erro
 		if err != nil {
 			return TFSavedModel{}, err
 		}
-		tfSavedModel.MetaGraphs = append(tfSavedModel.MetaGraphs, tfMetaGraph)
-		return tfSavedModel, nil
+		return TFSavedModel{
+			MetaGraph: tfMetaGraph,
+		}, nil
 	}
-	// len(tfSavedModel.MetaGraphs) is 0
 	return TFSavedModel{}, errors.New("model does not contain any servable MetaGraphs")
 }
 

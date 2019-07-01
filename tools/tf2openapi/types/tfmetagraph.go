@@ -12,27 +12,22 @@ import (
 )
 
 type TFMetaGraph struct {
-	SignatureDefs [] TFSignatureDef
+	SignatureDef TFSignatureDef
 }
 
 func NewTFMetaGraph(metaGraph *pb.MetaGraphDef, sigDefKey string) (TFMetaGraph, error) {
-	tfMetaGraph := TFMetaGraph{
-		SignatureDefs: []TFSignatureDef{},
+	sigDef, ok := metaGraph.SignatureDef[sigDefKey]
+	if !ok {
+		return TFMetaGraph{}, fmt.Errorf("model does not contain desired SignatureDef (%s)", sigDefKey)
 	}
-	for key, definition := range metaGraph.SignatureDef {
-		if key != sigDefKey {
-			continue
-		}
-		tfSigDef, err := NewTFSignatureDef(key, definition.Inputs, definition.Outputs)
-		if err != nil {
-			return TFMetaGraph{}, err
-		}
-		tfMetaGraph.SignatureDefs = append(tfMetaGraph.SignatureDefs, tfSigDef)
-		return tfMetaGraph, nil
+	tfSigDef, err := NewTFSignatureDef(sigDefKey, sigDef.Inputs, sigDef.Outputs)
+	if err != nil {
+		return TFMetaGraph{}, err
 	}
-	// len(tfMetaGraph.SignatureDefs) is 0
-	return TFMetaGraph{}, fmt.Errorf("model does not contain desired SignatureDef (%s)", sigDefKey)
 
+	return TFMetaGraph{
+		SignatureDef: tfSigDef,
+	}, nil
 }
 
 func (t *TFMetaGraph) Schema() *openapi3.Schema {

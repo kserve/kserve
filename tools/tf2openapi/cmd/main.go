@@ -10,12 +10,10 @@ import (
 	"os"
 )
 
-const defaultSigDefKey = "serving_default"
-
 var (
 	model   = flag.String("model", "", "Absolute path of SavedModel file")
 	outFile = flag.String("output-file", "", "Absolute path of file to write OpenAPI spec to")
-	sigDefKey = flag.String("signature-def", defaultSigDefKey, "Serving Signature Def Key ")
+	sigDefKey = flag.String("signature-def", "", "Serving Signature Def Key ")
 )
 
 /** Convert SavedModel to OpenAPI. Note that the SavedModel must have at least one signature defined**/
@@ -34,7 +32,7 @@ func main() {
 	model := UnmarshalSavedModelPb(modelPb)
 
 	/** Schema generation example **/
-	spec, err := generator.GenerateOpenAPI(model, sigDefKey)
+	spec, err := generator.GenerateOpenAPI(model, *sigDefKey)
 	if err != nil {
 		log.Fatalln(err.Error())
 	}

@@ -31,25 +31,7 @@ func expectedTFSignatureDef() TFSignatureDef {
 }
 
 /* Fake protobuf structs to use as test inputs */
-func tensorsPb(name string, willErr bool) map[string]*pb.TensorInfo {
-	if willErr {
-		return map[string]*pb.TensorInfo{
-			name: {
-				Dtype: framework.DataType_DT_COMPLEX128,
-				TensorShape: &framework.TensorShapeProto{
-					Dim: []*framework.TensorShapeProto_Dim{
-						{
-							Size: -1,
-						},
-						{
-							Size: 3,
-						},
-					},
-					UnknownRank: false,
-				},
-			},
-		}
-	}
+func goodTensorsPb(name string) map[string]*pb.TensorInfo {
 	return map[string]*pb.TensorInfo{
 		name: {
 			Dtype: framework.DataType_DT_INT8,
@@ -68,28 +50,47 @@ func tensorsPb(name string, willErr bool) map[string]*pb.TensorInfo {
 	}
 }
 
+func badTensorsPb(name string) map[string]*pb.TensorInfo{
+		return map[string]*pb.TensorInfo{
+			name: {
+				Dtype: framework.DataType_DT_COMPLEX128,
+				TensorShape: &framework.TensorShapeProto{
+					Dim: []*framework.TensorShapeProto_Dim{
+						{
+							Size: -1,
+						},
+						{
+							Size: 3,
+						},
+					},
+					UnknownRank: false,
+				},
+			},
+		}
+}
+
 func TestCreateTFSignatureDefTypical(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	tfSignatureDef, err := NewTFSignatureDef("Signature Def Key",
-		tensorsPb("input", false),
-		tensorsPb("output", false))
+		goodTensorsPb("input"),
+		goodTensorsPb("output"))
 	expectedSignatureDef := expectedTFSignatureDef()
-	g.Expect(err).Should(gomega.BeNil())
 	g.Expect(tfSignatureDef).Should(gomega.Equal(expectedSignatureDef))
+	g.Expect(err).Should(gomega.BeNil())
 }
 
 func TestCreateTFSignatureDefWithErrInputs(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	inputTensors := tensorsPb("input", true)
-	outputTensors := tensorsPb("output", false)
+	inputTensors := badTensorsPb("input")
+	outputTensors := goodTensorsPb("output")
 	_, err := NewTFSignatureDef("Signature Def Key", inputTensors, outputTensors)
 	g.Expect(err).Should(gomega.Not(gomega.BeNil()))
 }
 
 func TestCreateTFSignatureDefWithErrOutputs(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	inputTensors := tensorsPb("input", false)
-	outputTensors := tensorsPb("output", true)
+	inputTensors := goodTensorsPb("input")
+	outputTensors := badTensorsPb("output")
 	_, err := NewTFSignatureDef("Signature Def Key", inputTensors, outputTensors)
 	g.Expect(err).Should(gomega.Not(gomega.BeNil()))
 }

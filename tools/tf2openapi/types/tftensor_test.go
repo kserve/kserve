@@ -52,8 +52,8 @@ func TestCreateTFTensorTypical(t *testing.T) {
 	tensorInfoPb := tensorInfoPb()
 	tfTensor, err := NewTFTensor("Logical name", tensorInfoPb)
 	expectedTFTensor := expectedTFTensor()
-	g.Expect(err).Should(gomega.BeNil())
 	g.Expect(tfTensor).Should(gomega.Equal(expectedTFTensor))
+	g.Expect(err).Should(gomega.BeNil())
 }
 
 func TestCreateTFTensorUnsupportedDType(t *testing.T) {
@@ -70,8 +70,8 @@ func TestCreateTFTensorUnknownShape(t *testing.T) {
 	tensorInfoPb.TensorShape = nil
 	tfTensor, err := NewTFTensor("Logical name", tensorInfoPb)
 	expectedTFTensor := expectedTFTensorWithUnknowns()
-	g.Expect(err).Should(gomega.BeNil())
 	g.Expect(tfTensor).Should(gomega.Equal(expectedTFTensor))
+	g.Expect(err).Should(gomega.BeNil())
 }
 
 func TestCreateTFTensorUnknownRank(t *testing.T) {
@@ -81,8 +81,8 @@ func TestCreateTFTensorUnknownRank(t *testing.T) {
 	tensorInfoPb.TensorShape.Dim = []*framework.TensorShapeProto_Dim{}
 	tfTensor, err := NewTFTensor("Logical name", tensorInfoPb)
 	expectedTFTensor := expectedTFTensorWithUnknowns()
-	g.Expect(err).Should(gomega.BeNil())
 	g.Expect(tfTensor).Should(gomega.Equal(expectedTFTensor))
+	g.Expect(err).Should(gomega.BeNil())
 }
 
 func TestCreateTFTensorKnownRankUnknownDims(t *testing.T) {
@@ -91,8 +91,8 @@ func TestCreateTFTensorKnownRankUnknownDims(t *testing.T) {
 	tensorInfoPb.TensorShape.Dim = nil
 	tfTensor, err := NewTFTensor("Logical name", tensorInfoPb)
 	expectedTFTensor := expectedTFTensorWithUnknowns()
-	g.Expect(err).Should(gomega.BeNil())
 	g.Expect(tfTensor).Should(gomega.Equal(expectedTFTensor))
+	g.Expect(err).Should(gomega.BeNil())
 }
 
 func TestCreateTFShapeTypical(t *testing.T) {
@@ -112,17 +112,17 @@ func TestCreateTFShapeEmpty(t *testing.T) {
 func TestCreateTFDTypeTypical(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	tfDType, err := NewTFDType("tensor_name", "DT_STRING")
-	g.Expect(err).Should(gomega.BeNil())
 	expectedTFDType := DtString
 	g.Expect(tfDType).Should(gomega.Equal(expectedTFDType))
+	g.Expect(err).Should(gomega.BeNil())
 }
 
 func TestCreateTFDTypeBinary(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	tfDType, err := NewTFDType("tensor_name_bytes", "DT_STRING")
 	expectedTFDType := DtB64String
-	g.Expect(err).Should(gomega.BeNil())
 	g.Expect(tfDType).Should(gomega.Equal(expectedTFDType))
+	g.Expect(err).Should(gomega.BeNil())
 }
 
 func TestCreateTFDTypeUnsupported(t *testing.T) {
