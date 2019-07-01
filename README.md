@@ -14,7 +14,7 @@ KFServing encapsulates the complexity of autoscaling, networking, health checkin
 
 ### Install ###
 ```
-TAG=v0.0.1
+TAG=v0.1.0
 kubectl apply -f ./install/$TAG/kfserving.yaml
 ```
 
