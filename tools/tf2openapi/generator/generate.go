@@ -5,43 +5,65 @@ import (
 	"github.com/getkin/kin-openapi/openapi3"
 	pb "github.com/kubeflow/kfserving/tools/tf2openapi/generated/protobuf"
 	"github.com/kubeflow/kfserving/tools/tf2openapi/types"
-	"log"
 )
 
 const defaultSigDefKey = "serving_default"
 
 func GenerateOpenAPI(model *pb.SavedModel, name string, version string, sigDefKey string) (string, error) {
+	// Create OpenAPI spec
 	if sigDefKey == "" {
 		sigDefKey = defaultSigDefKey
 	}
-	m, err := types.NewTFSavedModel(model, sigDefKey)
+	m, constructionErr := types.NewTFSavedModel(model, sigDefKey)
+	if constructionErr != nil {
+		return "", constructionErr
+	}
+	spec := wrapOpenAPI(m, name, version)
+	json, marshallingErr := (*spec).MarshalJSON()
+	if marshallingErr != nil {
+		return "", fmt.Errorf("generated OpenAPI specification is corrupted\n error: %s \n specification: %s", marshallingErr.Error(), json)
+	}
+	if validationErr := validateOpenAPI(json); validationErr != nil {
+		return "", validationErr
+	}
+	return string(json), nil
+}
+
+func validateOpenAPI(json []byte) error {
+	loader := openapi3.NewSwaggerLoader()
+	swagger, err := loader.LoadSwaggerFromData(json)
 	if err != nil {
-		return "", err
+		return fmt.Errorf("generated OpenAPI specification (below) is corrupted\n error: %s \n specification: %s", err.Error(), json)
 	}
-	schema := m.Schema()
-	response := &openapi3.Response{
-		Description: "Model output",
+	err = swagger.Validate(loader.Context)
+	if err != nil {
+		return fmt.Errorf("generated OpenAPI specification (below) is constructed incorrectly\n error: %s \n specification: %s", err.Error(), json)
 	}
-	requestBody := &openapi3.RequestBody{
-		Content: openapi3.NewContentWithJSONSchema(schema),
-	}
-	log.Print(requestBody)
-	swagger := &openapi3.Swagger{
+	return nil
+}
+
+func wrapOpenAPI(model types.TFSavedModel, name string, version string) *openapi3.Swagger {
+	path := fmt.Sprintf("/v1/models/%s/versions/%s:predict", name, version)
+	return &openapi3.Swagger{
 		OpenAPI: "3.0.0",
 		Components: openapi3.Components{
 			Responses: map[string]*openapi3.ResponseRef{
 				"modelOutput": {
-					Value: response,
+					Value: &openapi3.Response{
+						Description: "Model output",
+					},
 				},
 			},
 			RequestBodies: map[string]*openapi3.RequestBodyRef{
 				"modelInput": {
-					Value: requestBody,
+					Value: &openapi3.RequestBody{
+						Content: openapi3.NewContentWithJSONSchema(model.Schema()),
+					},
 				},
 			},
 		},
 		Paths: openapi3.Paths{
-			fmt.Sprintf("/v1/models/%s/versions/%s:predict", name, version): &openapi3.PathItem{
+			path: &openapi3.PathItem{
 				Post: &openapi3.Operation{
 					RequestBody: &openapi3.RequestBodyRef{
 						Ref: "#/components/requestBodies/modelInput",
@@ -59,21 +81,5 @@ func GenerateOpenAPI(model *pb.SavedModel, name string, version string, sigDefKe
 			Title:   "TFServing Predict Request API",
 			Version: "1.0",
 		},
-	}
-	if json, err := (*swagger).MarshalJSON(); err != nil {
-		panic("Unable to unmarshal json string")
-	} else {
-		log.Println(string(json))
-		loader := openapi3.NewSwaggerLoader()
-		docA, err := loader.LoadSwaggerFromData(json)
-		if err != nil {
-			log.Fatalln(err)
-
-		} else {
-			e := docA.Validate(loader.Context)
-			log.Println(e)
-			log.Println("HELLO VALIDATED!")
-		}
-		return string(json), nil
 	}
 }
