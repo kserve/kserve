@@ -29,10 +29,8 @@ var (
 		"19.05-py3",
 	}
 	InvalidTensorRTISRuntimeVersionError = "RuntimeVersion must be one of " + strings.Join(AllowedTensorRTISRuntimeVersions, ", ")
-	// InvalidModelURIError issue fix is tracked by https://github.com/kubeflow/kfserving/issues/148
-	InvalidModelURIError = "Model URI must be prefixed by gs:// (only Google Cloud Storage paths are supported for now."
-	TensorRTISGRPCPort   = int32(9000)
-	TensorRTISRestPort   = int32(8080)
+	TensorRTISGRPCPort                   = int32(9000)
+	TensorRTISRestPort                   = int32(8080)
 )
 
 func (t *TensorRTSpec) GetModelSourceUri() string {
@@ -78,9 +76,5 @@ func (t *TensorRTSpec) Validate() error {
 		return fmt.Errorf(InvalidTensorRTISRuntimeVersionError)
 	}
 
-	// TODO: support other sources (https://github.com/kubeflow/kfserving/issues/137)
-	if !strings.HasPrefix(t.ModelURI, "gs://") {
-		return fmt.Errorf(InvalidModelURIError)
-	}
 	return nil
 }
