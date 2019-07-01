@@ -35,6 +35,7 @@ setup(
         "argparse >= 1.4.0",
         "minio >= 4.0.9",
         "google-cloud-storage >= 1.16.0",
+        "azure-storage-blob >= 2.0.1",
         "numpy"
     ],
     tests_require=tests_require,

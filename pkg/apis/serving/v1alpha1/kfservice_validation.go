@@ -31,11 +31,12 @@ const (
 	MaxReplicasLowerBoundExceededError  = "MaxReplicas cannot be less than 0."
 	TrafficBoundsExceededError          = "TrafficPercent must be between [0, 100]."
 	TrafficProvidedWithoutCanaryError   = "Canary must be specified when CanaryTrafficPercent > 0."
-	UnsupportedModelURIFormatError      = "ModelURI, must be one of: [%s] or be an absolute or relative local path. Model URI [%s] is not supported."
+	UnsupportedModelURIFormatError      = "ModelURI, must be one of: [%s] or match https://{}.blob.core.windows.net/{}/{} or be an absolute or relative local path. Model URI [%s] is not supported."
 )
 
 var (
 	SupportedModelSourceURIPrefixList = []string{"gs://", "s3://", "pvc://", "file://"}
+	AzureBlobURIRegEx                 = "https://(.+?).blob.core.windows.net/(.+)"
 )
 
 // ValidateCreate implements https://godoc.org/sigs.k8s.io/controller-runtime/pkg/webhook/admission#Validator
@@ -108,6 +109,11 @@ func validateModelURI(modelSourceURI string) error {
 		if strings.HasPrefix(modelSourceURI, prefix) {
 			return nil
 		}
+	}
+
+	azureURIMatcher := regexp.MustCompile(AzureBlobURIRegEx)
+	if parts := azureURIMatcher.FindStringSubmatch(modelSourceURI); parts != nil {
+		return nil
 	}
 
 	return fmt.Errorf(UnsupportedModelURIFormatError, strings.Join(SupportedModelSourceURIPrefixList, ", "), modelSourceURI)

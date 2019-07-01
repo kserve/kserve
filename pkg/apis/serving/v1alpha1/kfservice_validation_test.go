@@ -70,6 +70,33 @@ func TestLocalPathModelURIPrefixOK(t *testing.T) {
 	g.Expect(kfsvc.ValidateCreate()).Should(gomega.Succeed())
 }
 
+func TestAzureBlobOK(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	kfsvc := makeTestKFService()
+	kfsvc.Spec.Default.Tensorflow.ModelURI = "https://kfserving.blob.core.windows.net/tensorrt/simple_string/"
+	g.Expect(kfsvc.ValidateCreate()).Should(gomega.Succeed())
+	kfsvc.Spec.Default.Tensorflow.ModelURI = "https://kfserving.blob.core.windows.net/tensorrt/simple_string"
+	g.Expect(kfsvc.ValidateCreate()).Should(gomega.Succeed())
+	kfsvc.Spec.Default.Tensorflow.ModelURI = "https://kfserving.blob.core.windows.net/tensorrt/"
+	g.Expect(kfsvc.ValidateCreate()).Should(gomega.Succeed())
+	kfsvc.Spec.Default.Tensorflow.ModelURI = "https://kfserving.blob.core.windows.net/tensorrt"
+	g.Expect(kfsvc.ValidateCreate()).Should(gomega.Succeed())
+}
+
+func TestAzureBlobNoAccountFails(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	kfsvc := makeTestKFService()
+	kfsvc.Spec.Default.Tensorflow.ModelURI = "https://blob.core.windows.net/tensorrt/simple_string/"
+	g.Expect(kfsvc.ValidateCreate()).ShouldNot(gomega.Succeed())
+}
+
+func TestAzureBlobNoContainerFails(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	kfsvc := makeTestKFService()
+	kfsvc.Spec.Default.Tensorflow.ModelURI = "https://foo.blob.core.windows.net/"
+	g.Expect(kfsvc.ValidateCreate()).ShouldNot(gomega.Succeed())
+}
+
 func TestUnkownModelURIPrefixFails(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	kfsvc := makeTestKFService()

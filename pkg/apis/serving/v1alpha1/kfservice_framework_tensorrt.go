@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/utils"
 	v1 "k8s.io/api/core/v1"
 )
@@ -29,10 +30,8 @@ var (
 		"19.05-py3",
 	}
 	InvalidTensorRTISRuntimeVersionError = "RuntimeVersion must be one of " + strings.Join(AllowedTensorRTISRuntimeVersions, ", ")
-	// InvalidModelURIError issue fix is tracked by https://github.com/kubeflow/kfserving/issues/148
-	InvalidModelURIError = "Model URI must be prefixed by gs:// (only Google Cloud Storage paths are supported for now."
-	TensorRTISGRPCPort   = int32(9000)
-	TensorRTISRestPort   = int32(8080)
+	TensorRTISGRPCPort                   = int32(9000)
+	TensorRTISRestPort                   = int32(8080)
 )
 
 func (t *TensorRTSpec) GetModelSourceUri() string {
@@ -51,7 +50,7 @@ func (t *TensorRTSpec) CreateModelServingContainer(modelName string, config *Fra
 		Resources: t.Resources,
 		Args: []string{
 			"trtserver",
-			"--model-store=" + t.ModelURI,
+			"--model-store=" + constants.DefaultModelLocalMountPath,
 			"--allow-poll-model-repository=false",
 			"--allow-grpc=true",
 			"--allow-http=true",
@@ -78,9 +77,5 @@ func (t *TensorRTSpec) Validate() error {
 		return fmt.Errorf(InvalidTensorRTISRuntimeVersionError)
 	}
 
-	// TODO: support other sources (https://github.com/kubeflow/kfserving/issues/137)
-	if !strings.HasPrefix(t.ModelURI, "gs://") {
-		return fmt.Errorf(InvalidModelURIError)
-	}
 	return nil
 }
