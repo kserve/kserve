@@ -73,13 +73,13 @@ func NewTFMethod(key string, method string) (TFMethod, error) {
 
 func canHaveRowSchema(t []TFTensor) bool {
 	for _, input := range t {
-		// unknown rank
 		if input.Rank == -1 {
 			return false
 		}
 		// not batchable because either
 		// 1. tensor is a scalar or
-		// 2. model builder didn't follow the convention of having -1 in all 0th dim to indicate batchable inputs
+		// 2. model builder didn't follow the convention of having -1 in all 0th dim to
+		// indicate batchable inputs
 		if len(input.Shape) == 0 || input.Shape[0] != -1 {
 			return false
 		}
@@ -92,7 +92,7 @@ func (t *TFSignatureDef) rowSchema() *openapi3.Schema {
 		// only one named input tensor.
 		// although schema can be [{tensor: val1}, {tensor: val2}, ..]
 		// choose this schema of the form [val1, val2, etc.]
-		singleTensorSchema := t.Inputs[0].Schema(true)
+		singleTensorSchema := t.Inputs[0].RowSchema()
 		return openapi3.NewArraySchema().WithItems(singleTensorSchema)
 	}
 	// multiple named input tensors.
@@ -100,7 +100,7 @@ func (t *TFSignatureDef) rowSchema() *openapi3.Schema {
 	multiTensorSchema := openapi3.NewObjectSchema().WithProperties(make(map[string]*openapi3.Schema))
 	schema := openapi3.NewArraySchema().WithItems(multiTensorSchema)
 	for _, i := range t.Inputs {
-		schema.Items.Value.Properties[i.Name] = i.Schema(true).NewRef()
+		schema.Items.Value.Properties[i.Name] = i.RowSchema().NewRef()
 		schema.Items.Value.Required = append(schema.Items.Value.Required, i.Name)
 	}
 	return schema
@@ -113,14 +113,14 @@ func (t *TFSignatureDef) colSchema() *openapi3.Schema {
 		// choose the schema of the form val
 		// see description of FillTensorMapFromInputsMap in TFServing
 		// https://github.com/tensorflow/serving/blob/master/tensorflow_serving/util/json_tensor.cc
-		return t.Inputs[0].Schema(false)
+		return t.Inputs[0].ColSchema()
 	}
 
 	// multiple named input tensors.
 	// schema is of the form {tensor1: [val1, val2, ..], tensor2: [val3, val4, ..] ..}
 	schema := openapi3.NewObjectSchema().WithProperties(make(map[string]*openapi3.Schema))
 	for _, i := range t.Inputs {
-		schema.Properties[i.Name] = i.Schema(false).NewRef()
+		schema.Properties[i.Name] = i.ColSchema().NewRef()
 		schema.Required = append(schema.Required, i.Name)
 	}
 	return schema
@@ -131,8 +131,7 @@ func (t *TFSignatureDef) Schema() *openapi3.Schema {
 	// prefer the row format (https://www.tensorflow.org/tfx/serving/api_rest#specifying_input_tensors_in_row_format)
 	// when possible - it's more readable
 	if canHaveRowSchema(t.Inputs) {
-		rowSchema := t.rowSchema()
-		return openapi3.NewObjectSchema().WithProperty("instances", rowSchema)
+		return openapi3.NewObjectSchema().WithProperty("instances", t.rowSchema())
 	}
 
 	// column format (https://www.tensorflow.org/tfx/serving/api_rest#specifying_input_tensors_in_column_format)
