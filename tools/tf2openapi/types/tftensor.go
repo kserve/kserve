@@ -111,28 +111,26 @@ func NewTFDType(name string, dType string) (TFDType, error) {
 	return tfDType, nil
 }
 
-// Corresponds to how each entry in an "instances" or "inputs" object should look
-func (t *TFTensor) Schema(row bool) *openapi3.Schema {
-	if row {
-		// ignore the 0th dimension because it is always -1 in row fmt to represent batchable input
-		return Schema(1, t.Shape, t.Rank, t.DType)
-	}
-	if t.Rank == -1 {
-		// accept any schema if rank is unknown
-		return openapi3.NewSchema()
-	}
-	return Schema(0, t.Shape, t.Rank, t.DType)
+func (t *TFTensor) RowSchema() *openapi3.Schema {
+	// ignore the 0th dimension because it is always -1 in row fmt to represent batchable input
+	return schema(1, t.Shape, t.Rank, t.DType)
 }
 
-func Schema(dim int64, shape TFShape, rank int64, dType TFDType) *openapi3.Schema {
+func (t *TFTensor) ColSchema() *openapi3.Schema {
+	if t.Rank == -1 {
+		return openapi3.NewSchema()
+	}
+	return schema(0, t.Shape, t.Rank, t.DType)
+}
+
+func schema(dim int64, shape TFShape, rank int64, dType TFDType) *openapi3.Schema {
 	if dim == rank {
 		return dType.Schema()
 	} else {
 		if shape[dim] == -1 {
-			// unknown length in this dimension
-			return openapi3.NewArraySchema().WithItems(Schema(dim+1, shape, rank, dType))
+			return openapi3.NewArraySchema().WithItems(schema(dim+1, shape, rank, dType))
 		} else {
-			return openapi3.NewArraySchema().WithLength(shape[dim]).WithItems(Schema(dim+1, shape, rank, dType))
+			return openapi3.NewArraySchema().WithLength(shape[dim]).WithItems(schema(dim+1, shape, rank, dType))
 		}
 	}
 }
@@ -157,7 +155,7 @@ func (t *TFDType) Schema() *openapi3.Schema {
 		DtDouble: openapi3.NewFloat64Schema(),
 	}[*t]
 	if !ok {
-		panic("Unsupported data type for generating payloads")
+		panic(fmt.Sprintf("valid dtype (%v) not mapped to schema", t))
 	}
 	return schema
 }
