@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/utils"
 	v1 "k8s.io/api/core/v1"
 )
@@ -49,7 +50,7 @@ func (t *TensorRTSpec) CreateModelServingContainer(modelName string, config *Fra
 		Resources: t.Resources,
 		Args: []string{
 			"trtserver",
-			"--model-store=" + t.ModelURI,
+			"--model-store=" + constants.DefaultModelLocalMountPath,
 			"--allow-poll-model-repository=false",
 			"--allow-grpc=true",
 			"--allow-http=true",
