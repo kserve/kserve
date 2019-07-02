@@ -138,7 +138,9 @@ func TestS3CredentialBuilder(t *testing.T) {
 		g.Expect(c.Create(context.TODO(), existingS3Secret)).NotTo(gomega.HaveOccurred())
 
 		err := builder.CreateSecretVolumeAndEnv(scenario.serviceAccount.Namespace, scenario.serviceAccount.Name,
-			scenario.inputConfiguration)
+			scenario.inputConfiguration.Spec.RevisionTemplate.Spec.Container,
+			&scenario.inputConfiguration.Spec.RevisionTemplate.Spec.Volumes,
+		)
 		if scenario.shouldFail && err == nil {
 			t.Errorf("Test %q failed: returned success but expected error", name)
 		}
@@ -244,7 +246,9 @@ func TestGCSCredentialBuilder(t *testing.T) {
 		g.Expect(c.Create(context.TODO(), existingGCSSecret)).NotTo(gomega.HaveOccurred())
 
 		err := builder.CreateSecretVolumeAndEnv(scenario.serviceAccount.Namespace, scenario.serviceAccount.Name,
-			scenario.inputConfiguration)
+			scenario.inputConfiguration.Spec.RevisionTemplate.Spec.Container,
+			&scenario.inputConfiguration.Spec.RevisionTemplate.Spec.Volumes,
+		)
 		if scenario.shouldFail && err == nil {
 			t.Errorf("Test %q failed: returned success but expected error", name)
 		}

@@ -115,7 +115,8 @@ func (c *ConfigurationBuilder) CreateKnativeConfiguration(name string, metadata 
 	if err := c.credentialBuilder.CreateSecretVolumeAndEnv(
 		metadata.Namespace,
 		modelSpec.ServiceAccountName,
-		configuration,
+		configuration.Spec.RevisionTemplate.Spec.Container,
+		&configuration.Spec.RevisionTemplate.Spec.Volumes,
 	); err != nil {
 		return nil, err
 	}
