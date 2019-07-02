@@ -21,6 +21,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/kubeflow/kfserving/pkg/constants"
+	"github.com/kubeflow/kfserving/pkg/controller/kfservice/resources/credentials"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -214,7 +215,11 @@ func TestModelInitializerInjector(t *testing.T) {
 	}
 
 	for name, scenario := range scenarios {
-		injector := &ModelInitializerInjector{}
+		injector := &ModelInitializerInjector{
+			credentialBuilder: credentials.NewCredentialBulder(c, &v1.ConfigMap{
+				Data: map[string]string{},
+			}),
+		}
 		if err := injector.InjectModelInitializer(scenario.original); err != nil {
 			t.Errorf("Test %q unexpected result: %s", name, err)
 		}
@@ -253,7 +258,11 @@ func TestModelInitializerFailureCases(t *testing.T) {
 	}
 
 	for name, scenario := range scenarios {
-		injector := &ModelInitializerInjector{}
+		injector := &ModelInitializerInjector{
+			credentialBuilder: credentials.NewCredentialBulder(c, &v1.ConfigMap{
+				Data: map[string]string{},
+			}),
+		}
 		if err := injector.InjectModelInitializer(scenario.original); err != nil {
 			if !strings.HasPrefix(err.Error(), scenario.expectedErrorPrefix) {
 				t.Errorf("Test %q unexpected failure [%s], expected: %s", name, err.Error(), scenario.expectedErrorPrefix)
