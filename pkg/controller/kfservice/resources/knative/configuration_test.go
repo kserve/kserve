@@ -80,7 +80,6 @@ var defaultConfiguration = &knservingv1alpha1.Configuration{
 					"autoscaling.knative.dev/maxScale":                                "3",
 					constants.KFServiceGKEAcceleratorAnnotationKey:                    "nvidia-tesla-t4",
 					constants.ModelInitializerSourceUriInternalAnnotationKey:          kfsvc.Spec.Default.Tensorflow.ModelURI,
-					constants.ModelInitializerServiceAccountNameInternalAnnotationKey: "testsvcacc",
 				},
 			},
 			Spec: knservingv1alpha1.RevisionSpec{

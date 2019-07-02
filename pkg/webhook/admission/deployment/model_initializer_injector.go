@@ -141,14 +141,9 @@ func (mi *ModelInitializerInjector) InjectModelInitializer(deployment *appsv1.De
 	// Add volumes to the PodSpec
 	podSpec.Volumes = append(podSpec.Volumes, podVolumes...)
 
-	serviceAccountName, ok := annotations[constants.ModelInitializerServiceAccountNameInternalAnnotationKey]
-	if !ok {
-		serviceAccountName = ""
-	}
-
 	if err := mi.credentialBuilder.CreateSecretVolumeAndEnv(
 		deployment.Namespace,
-		serviceAccountName,
+		podSpec.ServiceAccountName,
 		initContianer,
 		&podSpec.Volumes,
 	); err != nil {

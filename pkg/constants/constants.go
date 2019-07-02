@@ -47,7 +47,6 @@ var (
 var (
 	KFServiceInternalAnnotationsPrefix                      = "internal." + KFServingAPIGroupName
 	ModelInitializerSourceUriInternalAnnotationKey          = KFServiceInternalAnnotationsPrefix + "/model-initializer-sourceuri"
-	ModelInitializerServiceAccountNameInternalAnnotationKey = KFServiceInternalAnnotationsPrefix + "/model-initializer-sa-name"
 )
 
 // Controller Constants
