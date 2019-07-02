@@ -1,0 +1,5 @@
+{
+    "packageName" : "kfserving.sdk",
+    "projectName" : "kfserving",
+    "packageVersion": "0.1"
+}
