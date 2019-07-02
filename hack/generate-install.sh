@@ -33,4 +33,4 @@ INSTALL_DIR=./install/$TAG
 INSTALL_PATH=$INSTALL_DIR/kfserving.yaml
 
 mkdir -p $INSTALL_DIR
-kustomize build config/default > $INSTALL_PATH
+kustomize build config/default | sed s/:latest/:$TAG/ > $INSTALL_PATH
