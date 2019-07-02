@@ -54,7 +54,7 @@ func (mutator *Mutator) Handle(ctx context.Context, req types.Request) types.Res
 	err := mutator.Client.Get(context.TODO(), k8types.NamespacedName{Name: constants.KFServiceConfigMapName, Namespace: constants.KFServingNamespace}, configMap)
 	if err != nil {
 		log.Error(err, "Failed to find config map", "name", constants.KFServiceConfigMapName)
-		return admission.ErrorResponse(http.StatusBadRequest, err)
+		return admission.ErrorResponse(http.StatusInternalServerError, err)
 	}
 
 	if err := mutator.mutate(deployment, configMap); err != nil {
