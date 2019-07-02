@@ -21,7 +21,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	knservingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/kubeflow/kfserving/pkg/controller/kfservice/resources/credentials/gcs"
 	"github.com/kubeflow/kfserving/pkg/controller/kfservice/resources/credentials/s3"
 	v1 "k8s.io/api/core/v1"
@@ -61,7 +60,7 @@ func NewCredentialBulder(client client.Client, config *v1.ConfigMap) *Credential
 }
 
 func (c *CredentialBuilder) CreateSecretVolumeAndEnv(namespace string, serviceAccountName string,
-	configuration *knservingv1alpha1.Configuration) error {
+	container *v1.Container, volumes *[]v1.Volume) error {
 	if serviceAccountName == "" {
 		serviceAccountName = "default"
 	}
@@ -94,15 +93,14 @@ func (c *CredentialBuilder) CreateSecretVolumeAndEnv(namespace string, serviceAc
 		if _, ok := secret.Data[s3SecretAccessKeyName]; ok {
 			log.Info("Setting secret envs for s3", "S3Secret", secret.Name)
 			envs := s3.BuildSecretEnvs(secret, &c.config.S3)
-			configuration.Spec.RevisionTemplate.Spec.Container.Env = append(configuration.Spec.RevisionTemplate.Spec.Container.Env, envs...)
+			container.Env = append(container.Env, envs...)
 		} else if _, ok := secret.Data[gcsCredentialFileName]; ok {
 			log.Info("Setting secret volume for gcs", "GCSSecret", secret.Name)
 			volume, volumeMount := gcs.BuildSecretVolume(secret)
-			configuration.Spec.RevisionTemplate.Spec.Volumes =
-				append(configuration.Spec.RevisionTemplate.Spec.Volumes, volume)
-			configuration.Spec.RevisionTemplate.Spec.Container.VolumeMounts =
-				append(configuration.Spec.RevisionTemplate.Spec.Container.VolumeMounts, volumeMount)
-			configuration.Spec.RevisionTemplate.Spec.Container.Env = append(configuration.Spec.RevisionTemplate.Spec.Container.Env,
+			*volumes = append(*volumes, volume)
+			container.VolumeMounts =
+				append(container.VolumeMounts, volumeMount)
+			container.Env = append(container.Env,
 				v1.EnvVar{
 					Name:  gcs.GCSCredentialEnvKey,
 					Value: gcs.GCSCredentialVolumeMountPath + gcsCredentialFileName,
