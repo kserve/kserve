@@ -14,11 +14,11 @@ func GenerateOpenAPI(model *pb.SavedModel, name string, version string, sigDefKe
 	if sigDefKey == "" {
 		sigDefKey = defaultSigDefKey
 	}
-	m, constructionErr := types.NewTFSavedModel(model, sigDefKey)
+	tfModel, constructionErr := types.NewTFSavedModel(model, sigDefKey)
 	if constructionErr != nil {
 		return "", constructionErr
 	}
-	spec := wrapOpenAPI(m, name, version)
+	spec := wrapOpenAPI(tfModel, name, version)
 	json, marshallingErr := (*spec).MarshalJSON()
 	if marshallingErr != nil {
 		return "", fmt.Errorf("generated OpenAPI specification is corrupted\n error: %s \n specification: %s", marshallingErr.Error(), json)
