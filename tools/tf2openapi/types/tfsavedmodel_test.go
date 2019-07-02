@@ -1,6 +1,7 @@
 package types
 
 import (
+	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/kubeflow/kfserving/tools/tf2openapi/generated/framework"
 	pb "github.com/kubeflow/kfserving/tools/tf2openapi/generated/protobuf"
 	"github.com/onsi/gomega"
@@ -108,4 +109,33 @@ func TestNewTFSavedModelWithNoServableMetaGraph(t *testing.T) {
 	savedModelPb.MetaGraphs[0].MetaInfoDef.Tags[0] = "tag"
 	_, err := NewTFSavedModel(savedModelPb, "sigDefKey")
 	g.Expect(err).Should(gomega.Not(gomega.BeNil()))
+}
+
+func TestTFSavedModelTypical(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	tfSavedModel := expectedTFSavedModel()
+	expectedSchema := &openapi3.Schema{
+		Type: "object",
+		Properties: map[string]*openapi3.SchemaRef{
+			"instances": {
+				Value: &openapi3.Schema{
+					Type: "array",
+					Items: &openapi3.SchemaRef{
+						Value: &openapi3.Schema{
+							Type:     "array",
+							MaxItems: func(u uint64) *uint64 { return &u }(3),
+							MinItems: 3,
+							Items: &openapi3.SchemaRef{
+								Value: &openapi3.Schema{
+									Type: "number",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	schema := tfSavedModel.Schema()
+	g.Expect(schema).Should(gomega.Equal(expectedSchema))
 }

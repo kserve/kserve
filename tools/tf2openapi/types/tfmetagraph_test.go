@@ -1,6 +1,7 @@
 package types
 
 import (
+	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/kubeflow/kfserving/tools/tf2openapi/generated/framework"
 	pb "github.com/kubeflow/kfserving/tools/tf2openapi/generated/protobuf"
 	"github.com/onsi/gomega"
@@ -156,4 +157,33 @@ func TestNewTFMetaGraphWithErrSignatureDef(t *testing.T) {
 	metaGraphPb.SignatureDef["sigDefKey"] = badSigDefPb()
 	_, err := NewTFMetaGraph(metaGraphPb, "sigDefKey")
 	g.Expect(err).Should(gomega.Not(gomega.BeNil()))
+}
+
+func TestTFMetaGraphTypical(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	tfMetaGraph := expectedTFMetaGraph()
+	expectedSchema := &openapi3.Schema{
+		Type: "object",
+		Properties: map[string]*openapi3.SchemaRef{
+			"instances": {
+				Value: &openapi3.Schema{
+					Type: "array",
+					Items: &openapi3.SchemaRef{
+						Value: &openapi3.Schema{
+							Type:     "array",
+							MaxItems: func(u uint64) *uint64 { return &u }(3),
+							MinItems: 3,
+							Items: &openapi3.SchemaRef{
+								Value: &openapi3.Schema{
+									Type: "number",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	schema := tfMetaGraph.Schema()
+	g.Expect(schema).Should(gomega.Equal(expectedSchema))
 }

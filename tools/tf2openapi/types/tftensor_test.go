@@ -140,7 +140,11 @@ func TestTFTensorRowSchemaTypical(t *testing.T) {
 		Type:     "array",
 		MaxItems: func(u uint64) *uint64 { return &u }(3),
 		MinItems: 3,
-		Items:    openapi3.NewFloat64Schema().NewRef(),
+		Items: &openapi3.SchemaRef{
+			Value: &openapi3.Schema{
+				Type: "number",
+			},
+		},
 	}
 	g.Expect(schema).Should(gomega.Equal(expectedSchema))
 }
@@ -251,12 +255,18 @@ func TestTFTensorColSchemaTypicalRowEquiv(t *testing.T) {
 	schema := tfTensor.ColSchema()
 	expectedSchema := &openapi3.Schema{
 		Type: "array",
-		Items: (&openapi3.Schema{
-			Type:     "array",
-			MaxItems: func(u uint64) *uint64 { return &u }(3),
-			MinItems: 3,
-			Items:    openapi3.NewFloat64Schema().NewRef(),
-		}).NewRef(),
+		Items: &openapi3.SchemaRef{
+			Value: &openapi3.Schema{
+				Type:     "array",
+				MaxItems: func(u uint64) *uint64 { return &u }(3),
+				MinItems: 3,
+				Items: &openapi3.SchemaRef{
+					Value: &openapi3.Schema{
+						Type: "number",
+					},
+				},
+			},
+		},
 	}
 	g.Expect(schema).Should(gomega.Equal(expectedSchema))
 }
@@ -305,7 +315,11 @@ func TestTFDTypeSchemaB64(t *testing.T) {
 	expectedSchema := &openapi3.Schema{
 		Type: "object",
 		Properties: map[string]*openapi3.SchemaRef{
-			"b64": openapi3.NewStringSchema().NewRef(),
+			"b64": {
+				Value: &openapi3.Schema{
+					Type: "string",
+				},
+			},
 		},
 	}
 	g.Expect(schema).Should(gomega.Equal(expectedSchema))
