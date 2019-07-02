@@ -18,6 +18,7 @@ import (
 	"strings"
 
 	"github.com/kubeflow/kfserving/pkg/constants"
+	"github.com/kubeflow/kfserving/pkg/controller/kfservice/resources/credentials"
 
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
@@ -34,11 +35,15 @@ const (
 	UserContainerName                = "user-container"
 )
 
+type ModelInitializerInjector struct {
+	credentialBuilder *credentials.CredentialBuilder
+}
+
 // InjectModelInitializer injects an init container to provision model data
 // for the serving container in a unified way across storage tech by injecting
 // a provisioning INIT container. This is a work around because KNative does not
 // support INIT containers: https://github.com/knative/serving/issues/4307
-func InjectModelInitializer(deployment *appsv1.Deployment) error {
+func (mi *ModelInitializerInjector) InjectModelInitializer(deployment *appsv1.Deployment) error {
 
 	annotations := deployment.Spec.Template.ObjectMeta.Annotations
 	podSpec := &deployment.Spec.Template.Spec
@@ -114,7 +119,7 @@ func InjectModelInitializer(deployment *appsv1.Deployment) error {
 	modelInitializerMounts = append(modelInitializerMounts, sharedVolumeWriteMount)
 
 	// Add an init container to run provisioning logic to the PodSpec
-	initContianer := v1.Container{
+	initContianer := &v1.Container{
 		Name:  ModelInitializerContainerName,
 		Image: ModelInitializerContainerImage + ":" + ModelInitializerContainerVersion,
 		Args: []string{
@@ -123,7 +128,7 @@ func InjectModelInitializer(deployment *appsv1.Deployment) error {
 		},
 		VolumeMounts: modelInitializerMounts,
 	}
-	podSpec.InitContainers = append(podSpec.InitContainers, initContianer)
+	podSpec.InitContainers = append(podSpec.InitContainers, *initContianer)
 
 	// Add a mount the shared volume on the user-container, update the PodSpec
 	sharedVolumeReadMount := v1.VolumeMount{
@@ -135,6 +140,20 @@ func InjectModelInitializer(deployment *appsv1.Deployment) error {
 
 	// Add volumes to the PodSpec
 	podSpec.Volumes = append(podSpec.Volumes, podVolumes...)
+
+	serviceAccountName, ok := annotations[constants.ModelInitializerServiceAccountNameInternalAnnotationKey]
+	if !ok {
+		serviceAccountName = ""
+	}
+
+	if err := mi.credentialBuilder.CreateSecretVolumeAndEnv(
+		deployment.Namespace,
+		serviceAccountName,
+		initContianer,
+		&podSpec.Volumes,
+	); err != nil {
+		return err
+	}
 
 	return nil
 }

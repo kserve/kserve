@@ -20,13 +20,21 @@ import (
 	"encoding/json"
 	"net/http"
 
-	appsv1 "k8s.io/api/apps/v1"
+	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 
+	appsv1 "k8s.io/api/apps/v1"
+	v1 "k8s.io/api/core/v1"
+	k8types "k8s.io/apimachinery/pkg/types"
+
+	"github.com/kubeflow/kfserving/pkg/constants"
+	"github.com/kubeflow/kfserving/pkg/controller/kfservice/resources/credentials"
 	"github.com/kubeflow/kfserving/pkg/webhook/third_party"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission/types"
 )
+
+var log = logf.Log.WithName("kfserving-admission-mutator")
 
 // Mutator is a webhook that injects incoming pods
 type Mutator struct {
@@ -42,7 +50,14 @@ func (mutator *Mutator) Handle(ctx context.Context, req types.Request) types.Res
 		return admission.ErrorResponse(http.StatusBadRequest, err)
 	}
 
-	if err := mutate(deployment); err != nil {
+	configMap := &v1.ConfigMap{}
+	err := mutator.Client.Get(context.TODO(), k8types.NamespacedName{Name: constants.KFServiceConfigMapName, Namespace: constants.KFServingNamespace}, configMap)
+	if err != nil {
+		log.Error(err, "Failed to find config map", "name", constants.KFServiceConfigMapName)
+		return admission.ErrorResponse(http.StatusBadRequest, err)
+	}
+
+	if err := mutator.mutate(deployment, configMap); err != nil {
 		return admission.ErrorResponse(http.StatusInternalServerError, err)
 	}
 
@@ -54,10 +69,16 @@ func (mutator *Mutator) Handle(ctx context.Context, req types.Request) types.Res
 	return third_party.PatchResponseFromRaw(req.AdmissionRequest.Object.Raw, patch)
 }
 
-func mutate(deployment *appsv1.Deployment) error {
+func (mutator *Mutator) mutate(deployment *appsv1.Deployment, configMap *v1.ConfigMap) error {
+
+	credentialBuilder := credentials.NewCredentialBulder(mutator.Client, configMap)
+	modelInitializer := &ModelInitializerInjector{
+		credentialBuilder: credentialBuilder,
+	}
+
 	mutators := []func(deployment *appsv1.Deployment) error{
 		InjectGKEAcceleratorSelector,
-		InjectModelInitializer,
+		modelInitializer.InjectModelInitializer,
 	}
 
 	for _, mutator := range mutators {

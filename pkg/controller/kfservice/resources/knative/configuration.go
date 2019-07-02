@@ -81,6 +81,11 @@ func (c *ConfigurationBuilder) CreateKnativeConfiguration(name string, metadata 
 	// ModelInitializer injector to mutate the underlying deployment to provision model data
 	if sourceURI := modelSpec.GetModelSourceUri(); sourceURI != "" {
 		kfsvcAnnotations[constants.ModelInitializerSourceUriInternalAnnotationKey] = sourceURI
+
+		// Also pass the service account name to the model initializer so that it can mount secrets
+		if modelSpec.ServiceAccountName != "" {
+			kfsvcAnnotations[constants.ModelInitializerServiceAccountNameInternalAnnotationKey] = modelSpec.ServiceAccountName
+		}
 	}
 
 	configuration := &knservingv1alpha1.Configuration{
@@ -115,7 +120,8 @@ func (c *ConfigurationBuilder) CreateKnativeConfiguration(name string, metadata 
 	if err := c.credentialBuilder.CreateSecretVolumeAndEnv(
 		metadata.Namespace,
 		modelSpec.ServiceAccountName,
-		configuration,
+		configuration.Spec.RevisionTemplate.Spec.Container,
+		&configuration.Spec.RevisionTemplate.Spec.Volumes,
 	); err != nil {
 		return nil, err
 	}

@@ -214,7 +214,8 @@ func TestModelInitializerInjector(t *testing.T) {
 	}
 
 	for name, scenario := range scenarios {
-		if err := InjectModelInitializer(scenario.original); err != nil {
+		injector := &ModelInitializerInjector{}
+		if err := injector.InjectModelInitializer(scenario.original); err != nil {
 			t.Errorf("Test %q unexpected result: %s", name, err)
 		}
 		if diff := cmp.Diff(scenario.expected.Spec, scenario.original.Spec); diff != "" {
@@ -252,7 +253,8 @@ func TestModelInitializerFailureCases(t *testing.T) {
 	}
 
 	for name, scenario := range scenarios {
-		if err := InjectModelInitializer(scenario.original); err != nil {
+		injector := &ModelInitializerInjector{}
+		if err := injector.InjectModelInitializer(scenario.original); err != nil {
 			if !strings.HasPrefix(err.Error(), scenario.expectedErrorPrefix) {
 				t.Errorf("Test %q unexpected failure [%s], expected: %s", name, err.Error(), scenario.expectedErrorPrefix)
 			}
