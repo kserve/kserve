@@ -1,0 +1,342 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "description": "Python SDK for KFServing",
+    "title": "KFServing",
+    "version": "v0.1"
+  },
+  "paths": {},
+  "definitions": {
+    "kfserving.v1alpha1.CustomSpec": {
+      "description": "CustomSpec provides a hook for arbitrary container configuration.",
+      "required": [
+        "container"
+      ],
+      "properties": {
+        "container": {
+          "$ref": "#/definitions/io.k8s.api.core.v1.Container"
+        }
+      }
+    },
+    "kfserving.v1alpha1.FrameworkConfig": {
+      "required": [
+        "image"
+      ],
+      "properties": {
+        "image": {
+          "type": "string"
+        }
+      }
+    },
+    "kfserving.v1alpha1.FrameworksConfig": {
+      "properties": {
+        "pytorch": {
+          "$ref": "#/definitions/kfserving.v1alpha1.FrameworkConfig"
+        },
+        "sklearn": {
+          "$ref": "#/definitions/kfserving.v1alpha1.FrameworkConfig"
+        },
+        "tensorflow": {
+          "$ref": "#/definitions/kfserving.v1alpha1.FrameworkConfig"
+        },
+        "tensorrt": {
+          "$ref": "#/definitions/kfserving.v1alpha1.FrameworkConfig"
+        },
+        "xgboost": {
+          "$ref": "#/definitions/kfserving.v1alpha1.FrameworkConfig"
+        }
+      }
+    },
+    "kfserving.v1alpha1.KFService": {
+      "description": "KFService is the Schema for the services API",
+      "properties": {
+        "apiVersion": {
+          "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
+          "type": "string"
+        },
+        "kind": {
+          "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds",
+          "type": "string"
+        },
+        "metadata": {
+          "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta"
+        },
+        "spec": {
+          "$ref": "#/definitions/kfserving.v1alpha1.KFServiceSpec"
+        },
+        "status": {
+          "$ref": "#/definitions/kfserving.v1alpha1.KFServiceStatus"
+        }
+      }
+    },
+    "kfserving.v1alpha1.KFServiceList": {
+      "description": "KFServiceList contains a list of Service",
+      "required": [
+        "items"
+      ],
+      "properties": {
+        "apiVersion": {
+          "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
+          "type": "string"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/kfserving.v1alpha1.KFService"
+          }
+        },
+        "kind": {
+          "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds",
+          "type": "string"
+        },
+        "metadata": {
+          "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ListMeta"
+        }
+      }
+    },
+    "kfserving.v1alpha1.KFServiceSpec": {
+      "description": "KFServiceSpec defines the desired state of KFService",
+      "required": [
+        "default"
+      ],
+      "properties": {
+        "canary": {
+          "description": "Canary defines an alternate configuration to route a percentage of traffic.",
+          "$ref": "#/definitions/kfserving.v1alpha1.ModelSpec"
+        },
+        "canaryTrafficPercent": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "default": {
+          "$ref": "#/definitions/kfserving.v1alpha1.ModelSpec"
+        }
+      }
+    },
+    "kfserving.v1alpha1.KFServiceStatus": {
+      "description": "KFServiceStatus defines the observed state of KFService",
+      "properties": {
+        "canary": {
+          "$ref": "#/definitions/kfserving.v1alpha1.StatusConfigurationSpec"
+        },
+        "conditions": {
+          "description": "Conditions the latest available observations of a resource's current state.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/knative.Condition"
+          },
+          "x-kubernetes-patch-merge-key": "type",
+          "x-kubernetes-patch-strategy": "merge"
+        },
+        "default": {
+          "$ref": "#/definitions/kfserving.v1alpha1.StatusConfigurationSpec"
+        },
+        "observedGeneration": {
+          "description": "ObservedGeneration is the 'Generation' of the Service that was last processed by the controller.",
+          "type": "integer",
+          "format": "int64"
+        },
+        "url": {
+          "type": "string"
+        }
+      }
+    },
+    "kfserving.v1alpha1.ModelSpec": {
+      "description": "ModelSpec defines the default configuration to route traffic.",
+      "properties": {
+        "custom": {
+          "description": "The following fields follow a \"1-of\" semantic. Users must specify exactly one openapispec.",
+          "$ref": "#/definitions/kfserving.v1alpha1.CustomSpec"
+        },
+        "maxReplicas": {
+          "description": "This is the up bound for autoscaler to scale to",
+          "type": "integer",
+          "format": "int32"
+        },
+        "minReplicas": {
+          "description": "Minimum number of replicas, pods won't scale down to 0 in case of no traffic",
+          "type": "integer",
+          "format": "int32"
+        },
+        "pytorch": {
+          "$ref": "#/definitions/kfserving.v1alpha1.PyTorchSpec"
+        },
+        "serviceAccountName": {
+          "description": "Service Account Name",
+          "type": "string"
+        },
+        "sklearn": {
+          "$ref": "#/definitions/kfserving.v1alpha1.SKLearnSpec"
+        },
+        "tensorflow": {
+          "$ref": "#/definitions/kfserving.v1alpha1.TensorflowSpec"
+        },
+        "tensorrt": {
+          "$ref": "#/definitions/kfserving.v1alpha1.TensorRTSpec"
+        },
+        "xgboost": {
+          "$ref": "#/definitions/kfserving.v1alpha1.XGBoostSpec"
+        }
+      }
+    },
+    "kfserving.v1alpha1.PyTorchSpec": {
+      "description": "PyTorchSpec defines arguments for configuring PyTorch model serving.",
+      "required": [
+        "modelUri"
+      ],
+      "properties": {
+        "modelClassName": {
+          "description": "Defaults PyTorch model class name to 'PyTorchModel'",
+          "type": "string"
+        },
+        "modelUri": {
+          "type": "string"
+        },
+        "resources": {
+          "description": "Defaults to requests and limits of 1CPU, 2Gb MEM.",
+          "$ref": "#/definitions/io.k8s.api.core.v1.ResourceRequirements"
+        },
+        "runtimeVersion": {
+          "description": "Defaults to latest PyTorch Version",
+          "type": "string"
+        }
+      }
+    },
+    "kfserving.v1alpha1.SKLearnSpec": {
+      "description": "SKLearnSpec defines arguments for configuring SKLearn model serving.",
+      "required": [
+        "modelUri"
+      ],
+      "properties": {
+        "modelUri": {
+          "type": "string"
+        },
+        "resources": {
+          "description": "Defaults to requests and limits of 1CPU, 2Gb MEM.",
+          "$ref": "#/definitions/io.k8s.api.core.v1.ResourceRequirements"
+        },
+        "runtimeVersion": {
+          "description": "Defaults to latest SKLearn Version.",
+          "type": "string"
+        }
+      }
+    },
+    "kfserving.v1alpha1.StatusConfigurationSpec": {
+      "description": "StatusConfigurationSpec describes the state of the configuration receiving traffic.",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "replicas": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "traffic": {
+          "type": "integer",
+          "format": "int32"
+        }
+      }
+    },
+    "kfserving.v1alpha1.TensorRTSpec": {
+      "description": "TensorRTSpec defines arguments for configuring TensorRT model serving.",
+      "required": [
+        "modelUri"
+      ],
+      "properties": {
+        "modelUri": {
+          "type": "string"
+        },
+        "resources": {
+          "description": "Defaults to requests and limits of 1CPU, 2Gb MEM.",
+          "$ref": "#/definitions/io.k8s.api.core.v1.ResourceRequirements"
+        },
+        "runtimeVersion": {
+          "description": "Defaults to latest TensorRT Version.",
+          "type": "string"
+        }
+      }
+    },
+    "kfserving.v1alpha1.TensorflowSpec": {
+      "description": "TensorflowSpec defines arguments for configuring Tensorflow model serving.",
+      "required": [
+        "modelUri"
+      ],
+      "properties": {
+        "modelUri": {
+          "type": "string"
+        },
+        "resources": {
+          "description": "Defaults to requests and limits of 1CPU, 2Gb MEM.",
+          "$ref": "#/definitions/io.k8s.api.core.v1.ResourceRequirements"
+        },
+        "runtimeVersion": {
+          "description": "Defaults to latest TF Version.",
+          "type": "string"
+        }
+      }
+    },
+    "kfserving.v1alpha1.XGBoostSpec": {
+      "description": "XGBoostSpec defines arguments for configuring XGBoost model serving.",
+      "required": [
+        "modelUri"
+      ],
+      "properties": {
+        "modelUri": {
+          "type": "string"
+        },
+        "resources": {
+          "description": "Defaults to requests and limits of 1CPU, 2Gb MEM.",
+          "$ref": "#/definitions/io.k8s.api.core.v1.ResourceRequirements"
+        },
+        "runtimeVersion": {
+          "description": "Defaults to latest XGBoost Version.",
+          "type": "string"
+        }
+      }
+    },
+    "knative.Condition": {
+      "description": "Conditions defines a readiness condition for a Knative resource. See: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#typical-status-properties",
+      "required": [
+        "type",
+        "status"
+      ],
+      "properties": {
+        "lastTransitionTime": {
+          "description": "LastTransitionTime is the last time the condition transitioned from one status to another. We use VolatileTime in place of metav1.Time to exclude this from creating equality.Semantic differences (all other things held constant).",
+          "$ref": "#/definitions/knative.VolatileTime"
+        },
+        "message": {
+          "description": "A human readable message indicating details about the transition.",
+          "type": "string"
+        },
+        "reason": {
+          "description": "The reason for the condition's last transition.",
+          "type": "string"
+        },
+        "severity": {
+          "description": "Severity with which to treat failures of this type of condition. When this is not specified, it defaults to Error.",
+          "type": "string"
+        },
+        "status": {
+          "description": "Status of the condition, one of True, False, Unknown.",
+          "type": "string"
+        },
+        "type": {
+          "description": "Type of condition.",
+          "type": "string"
+        }
+      }
+    },
+    "knative.VolatileTime": {
+      "description": "VolatileTime wraps metav1.Time",
+      "required": [
+        "Inner"
+      ],
+      "properties": {
+        "Inner": {
+          "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Time"
+        }
+      }
+    }
+  }
+}
