@@ -128,7 +128,6 @@ func (mi *ModelInitializerInjector) InjectModelInitializer(deployment *appsv1.De
 		},
 		VolumeMounts: modelInitializerMounts,
 	}
-	podSpec.InitContainers = append(podSpec.InitContainers, *initContainer)
 
 	// Add a mount the shared volume on the user-container, update the PodSpec
 	sharedVolumeReadMount := v1.VolumeMount{
@@ -141,6 +140,7 @@ func (mi *ModelInitializerInjector) InjectModelInitializer(deployment *appsv1.De
 	// Add volumes to the PodSpec
 	podSpec.Volumes = append(podSpec.Volumes, podVolumes...)
 
+	// Inject credentials
 	if err := mi.credentialBuilder.CreateSecretVolumeAndEnv(
 		deployment.Namespace,
 		podSpec.ServiceAccountName,
@@ -149,6 +149,9 @@ func (mi *ModelInitializerInjector) InjectModelInitializer(deployment *appsv1.De
 	); err != nil {
 		return err
 	}
+
+	// Add init container to the spec
+	podSpec.InitContainers = append(podSpec.InitContainers, *initContainer)
 
 	return nil
 }
