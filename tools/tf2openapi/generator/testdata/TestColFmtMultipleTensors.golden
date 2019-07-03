@@ -46,10 +46,13 @@
 										}
 									},
 									"required": ["x", "b"],
+									"additionalProperties": false,
 									"type": "object"
 								}
 							},
-							"type": "object"
+							"type": "object",
+							"required": ["inputs"],
+              "additionalProperties": false
 						}
 					}
 				}

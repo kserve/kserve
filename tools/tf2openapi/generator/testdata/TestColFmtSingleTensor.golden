@@ -20,7 +20,9 @@
 									"type": "array"
 								}
 							},
-							"type": "object"
+							"type": "object",
+							"required": ["inputs"],
+							"additionalProperties": false
 						}
 					}
 				}

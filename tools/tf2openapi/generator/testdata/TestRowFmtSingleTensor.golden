@@ -18,7 +18,9 @@
                   "type": "array"
                 }
               },
-              "type": "object"
+              "type": "object",
+              "required": ["instances"],
+              "additionalProperties": false
             }
           }
         }

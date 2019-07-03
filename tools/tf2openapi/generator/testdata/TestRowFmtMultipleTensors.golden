@@ -22,11 +22,14 @@
 											}
 										},
 										"required": ["key", "image_bytes"],
+										"additionalProperties": false,
 										"type": "object"
 									},
 									"type": "array"
 								}
 							},
+							"required": ["instances"],
+							"additionalProperties": false,
 							"type": "object"
 						}
 					}
