@@ -31,9 +31,9 @@
 ## Load your KFService with target concurrency
 
 ### Create the KFService
-Apply the tensorflow example CRD
+Apply the tensorflow example CR
 ```
-kubectl apply -f ../tensorflow/tensorflow.yaml
+kubectl apply -f autoscale.yaml
 ```
 
 Expected Output
@@ -123,9 +123,9 @@ kubectl port-forward --namespace knative-monitoring $(kubectl get pods --namespa
 ## Load your KFService with target QPS
 
 ### Create the KFService
-Apply the tensorflow example CRD
+Apply the tensorflow example CR
 ```
-kubectl apply -f ../tensorflow/tensorflow.yaml
+kubectl apply -f autoscale.yaml
 ```
 
 Expected Output
@@ -210,7 +210,7 @@ Autoscaling on GPU is hard with GPU metrics, however thanks to Knative's concurr
 is pretty easy and effective!
 
 ### Create the KFService with GPU resource
-Apply the tensorflow gpu example CRD
+Apply the tensorflow gpu example CR
 ```
 apiVersion: "serving.kubeflow.org/v1alpha1"
 kind: "KFService"
@@ -224,6 +224,10 @@ spec:
       resources:
         limits:
           nvidia.com/gpu: 1
+```
+
+```
+kubectl apply -f autoscale_gpu.yaml
 ```
 
 ### Load KFService with concurrent requests
@@ -282,7 +286,7 @@ Status code distribution:
 ```
 
 ## Autoscaling Customization
-You can also customize the target concurrency by adding annotation `autoscaling.knative.dev/target: "10"` on `KFService` CRD.
+You can also customize the target concurrency by adding annotation `autoscaling.knative.dev/target: "10"` on `KFService` CR.
 
 ```yaml
 apiVersion: "serving.kubeflow.org/v1alpha1"
@@ -297,3 +301,6 @@ spec:
       modelUri: "gs://kfserving-samples/models/tensorflow/flowers"
 ```
 
+```bash
+kubectl apply -f autoscale_custom.yaml
+```
