@@ -45,7 +45,7 @@ func TestModelInitializerInjector(t *testing.T) {
 						},
 						Spec: v1.PodSpec{
 							Containers: []v1.Container{
-								v1.Container{
+								{
 									Name: "user-container",
 								},
 							},
@@ -61,7 +61,7 @@ func TestModelInitializerInjector(t *testing.T) {
 						},
 						Spec: v1.PodSpec{
 							Containers: []v1.Container{
-								v1.Container{
+								{
 									Name: "user-container",
 								},
 							},
@@ -81,12 +81,12 @@ func TestModelInitializerInjector(t *testing.T) {
 						},
 						Spec: v1.PodSpec{
 							Containers: []v1.Container{
-								v1.Container{
+								{
 									Name: "user-container",
 								},
 							},
 							InitContainers: []v1.Container{
-								v1.Container{
+								{
 									Name: "model-initializer",
 								},
 							},
@@ -104,12 +104,12 @@ func TestModelInitializerInjector(t *testing.T) {
 						},
 						Spec: v1.PodSpec{
 							Containers: []v1.Container{
-								v1.Container{
+								{
 									Name: "user-container",
 								},
 							},
 							InitContainers: []v1.Container{
-								v1.Container{
+								{
 									Name: "model-initializer",
 								},
 							},
@@ -129,7 +129,7 @@ func TestModelInitializerInjector(t *testing.T) {
 						},
 						Spec: v1.PodSpec{
 							Containers: []v1.Container{
-								v1.Container{
+								{
 									Name: "user-container",
 								},
 							},
@@ -147,7 +147,7 @@ func TestModelInitializerInjector(t *testing.T) {
 						},
 						Spec: v1.PodSpec{
 							Containers: []v1.Container{
-								v1.Container{
+								{
 									Name: "user-container",
 									VolumeMounts: []v1.VolumeMount{
 										{
@@ -159,9 +159,9 @@ func TestModelInitializerInjector(t *testing.T) {
 								},
 							},
 							InitContainers: []v1.Container{
-								v1.Container{
+								{
 									Name:  "model-initializer",
-									Image: ModelInitializerContainerImage + ":" + ModelInitializerContainerVersion,
+									Image: ModelInitializerContainerImage + ":" + ModelInitializerContainerImageVersion,
 									Args:  []string{"gs://foo", constants.DefaultModelLocalMountPath},
 									VolumeMounts: []v1.VolumeMount{
 										{
@@ -172,7 +172,7 @@ func TestModelInitializerInjector(t *testing.T) {
 								},
 							},
 							Volumes: []v1.Volume{
-								v1.Volume{
+								{
 									Name: "kfserving-provision-location",
 									VolumeSource: v1.VolumeSource{
 										EmptyDir: &v1.EmptyDirVolumeSource{},
@@ -195,7 +195,7 @@ func TestModelInitializerInjector(t *testing.T) {
 						},
 						Spec: v1.PodSpec{
 							Containers: []v1.Container{
-								v1.Container{
+								{
 									Name: "user-container",
 								},
 							},
@@ -213,7 +213,7 @@ func TestModelInitializerInjector(t *testing.T) {
 						},
 						Spec: v1.PodSpec{
 							Containers: []v1.Container{
-								v1.Container{
+								{
 									Name: "user-container",
 									VolumeMounts: []v1.VolumeMount{
 										{
@@ -225,9 +225,9 @@ func TestModelInitializerInjector(t *testing.T) {
 								},
 							},
 							InitContainers: []v1.Container{
-								v1.Container{
+								{
 									Name:  "model-initializer",
-									Image: ModelInitializerContainerImage + ":" + ModelInitializerContainerVersion,
+									Image: ModelInitializerContainerImage + ":" + ModelInitializerContainerImageVersion,
 									Args:  []string{"/mnt/pvc/some/path/on/pvc", constants.DefaultModelLocalMountPath},
 									VolumeMounts: []v1.VolumeMount{
 										{
@@ -243,7 +243,7 @@ func TestModelInitializerInjector(t *testing.T) {
 								},
 							},
 							Volumes: []v1.Volume{
-								v1.Volume{
+								{
 									Name: "kfserving-pvc-source",
 									VolumeSource: v1.VolumeSource{
 										PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
@@ -252,7 +252,7 @@ func TestModelInitializerInjector(t *testing.T) {
 										},
 									},
 								},
-								v1.Volume{
+								{
 									Name: "kfserving-provision-location",
 									VolumeSource: v1.VolumeSource{
 										EmptyDir: &v1.EmptyDirVolumeSource{},
@@ -297,7 +297,7 @@ func TestModelInitializerFailureCases(t *testing.T) {
 						},
 						Spec: v1.PodSpec{
 							Containers: []v1.Container{
-								v1.Container{
+								{
 									Name: "random-container",
 								},
 							},
@@ -340,7 +340,7 @@ func makeDeployment() *appsv1.Deployment {
 				},
 				Spec: v1.PodSpec{
 					Containers: []v1.Container{
-						v1.Container{
+						{
 							Name: "user-container",
 						},
 					},
@@ -399,7 +399,7 @@ func TestCredentialInjection(t *testing.T) {
 						},
 						Spec: v1.PodSpec{
 							Containers: []v1.Container{
-								v1.Container{
+								{
 									Name: "user-container",
 									VolumeMounts: []v1.VolumeMount{
 										{
@@ -411,9 +411,9 @@ func TestCredentialInjection(t *testing.T) {
 								},
 							},
 							InitContainers: []v1.Container{
-								v1.Container{
+								{
 									Name:  "model-initializer",
-									Image: ModelInitializerContainerImage + ":" + ModelInitializerContainerVersion,
+									Image: ModelInitializerContainerImage + ":" + ModelInitializerContainerImageVersion,
 									Args:  []string{"gs://foo", constants.DefaultModelLocalMountPath},
 									VolumeMounts: []v1.VolumeMount{
 										{
@@ -517,9 +517,9 @@ func TestCredentialInjection(t *testing.T) {
 								},
 							},
 							InitContainers: []v1.Container{
-								v1.Container{
+								{
 									Name:  "model-initializer",
-									Image: ModelInitializerContainerImage + ":" + ModelInitializerContainerVersion,
+									Image: ModelInitializerContainerImage + ":" + ModelInitializerContainerImageVersion,
 									Args:  []string{"gs://foo", constants.DefaultModelLocalMountPath},
 									VolumeMounts: []v1.VolumeMount{
 										{
@@ -592,5 +592,96 @@ func TestCredentialInjection(t *testing.T) {
 
 		g.Expect(c.Delete(context.TODO(), scenario.sa)).NotTo(gomega.HaveOccurred())
 		g.Expect(c.Delete(context.TODO(), scenario.secret)).NotTo(gomega.HaveOccurred())
+	}
+}
+
+func TestModelInitializerConfigmap(t *testing.T) {
+	scenarios := map[string]struct {
+		original *appsv1.Deployment
+		expected *appsv1.Deployment
+	}{
+		"ModelInitializerConfig": {
+			original: &appsv1.Deployment{
+				Spec: appsv1.DeploymentSpec{
+					Template: v1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Annotations: map[string]string{
+								constants.ModelInitializerSourceUriInternalAnnotationKey: "gs://foo",
+							},
+						},
+						Spec: v1.PodSpec{
+							Containers: []v1.Container{
+								{
+									Name: "user-container",
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: &appsv1.Deployment{
+				Spec: appsv1.DeploymentSpec{
+					Template: v1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Annotations: map[string]string{
+								constants.ModelInitializerSourceUriInternalAnnotationKey: "gs://foo",
+							},
+						},
+						Spec: v1.PodSpec{
+							Containers: []v1.Container{
+								{
+									Name: "user-container",
+									VolumeMounts: []v1.VolumeMount{
+										{
+											Name:      "kfserving-provision-location",
+											MountPath: constants.DefaultModelLocalMountPath,
+											ReadOnly:  true,
+										},
+									},
+								},
+							},
+							InitContainers: []v1.Container{
+								{
+									Name:  "model-initializer",
+									Image: "model-initializer:v0.1",
+									Args:  []string{"gs://foo", constants.DefaultModelLocalMountPath},
+									VolumeMounts: []v1.VolumeMount{
+										{
+											Name:      "kfserving-provision-location",
+											MountPath: constants.DefaultModelLocalMountPath,
+										},
+									},
+								},
+							},
+							Volumes: []v1.Volume{
+								{
+									Name: "kfserving-provision-location",
+									VolumeSource: v1.VolumeSource{
+										EmptyDir: &v1.EmptyDirVolumeSource{},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for name, scenario := range scenarios {
+		injector := &ModelInitializerInjector{
+			credentialBuilder: credentials.NewCredentialBulder(c, &v1.ConfigMap{
+				Data: map[string]string{},
+			}),
+			config: &ModelInitializerConfig{
+				Image: "model-initializer:v0.1",
+			},
+		}
+		if err := injector.InjectModelInitializer(scenario.original); err != nil {
+			t.Errorf("Test %q unexpected result: %s", name, err)
+		}
+		if diff := cmp.Diff(scenario.expected.Spec, scenario.original.Spec); diff != "" {
+			t.Errorf("Test %q unexpected result (-want +got): %v", name, diff)
+		}
 	}
 }

@@ -18,6 +18,7 @@ package deployment
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
@@ -72,8 +73,16 @@ func (mutator *Mutator) Handle(ctx context.Context, req types.Request) types.Res
 func (mutator *Mutator) mutate(deployment *appsv1.Deployment, configMap *v1.ConfigMap) error {
 
 	credentialBuilder := credentials.NewCredentialBulder(mutator.Client, configMap)
+	var modelInitializerConfig ModelInitializerConfig
+	if initializerConfig, ok := configMap.Data[ModelInitializerConfigMapKeyName]; ok {
+		err := json.Unmarshal([]byte(initializerConfig), &modelInitializerConfig)
+		if err != nil {
+			panic(fmt.Errorf("Unable to unmarshall json string due to %v ", err))
+		}
+	}
 	modelInitializer := &ModelInitializerInjector{
 		credentialBuilder: credentialBuilder,
+		config:            &modelInitializerConfig,
 	}
 
 	mutators := []func(deployment *appsv1.Deployment) error{
