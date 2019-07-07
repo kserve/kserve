@@ -153,6 +153,13 @@ func (mi *ModelInitializerInjector) InjectModelInitializer(deployment *appsv1.De
 	}
 	userContainer.VolumeMounts = append(userContainer.VolumeMounts, sharedVolumeReadMount)
 
+	// Change the CustomSpecModelUri env variable value to the default model path if present
+	for index, envVar := range userContainer.Env {
+		if envVar.Name == constants.CustomSpecModelUriEnvVarKey && envVar.Value != "" {
+			userContainer.Env[index].Value = constants.DefaultModelLocalMountPath
+		}
+	}
+
 	// Add volumes to the PodSpec
 	podSpec.Volumes = append(podSpec.Volumes, podVolumes...)
 
