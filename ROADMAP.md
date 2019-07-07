@@ -1,9 +1,31 @@
 # KF Serving 2019 Roadmap
 ## Q3 2019
+### v0.2 Integrate with the ML Ecosystem (ETA: August 15, 2019)
+Objective: "Continue to simplify the user experience by deeply integrating with the Kubeflow Ecosystem."
+* Kubeflow Integration
+    * Prepare KFServing to release v0.2 and v0.3 alongside Kubeflow 0.7.
+    * Integrate with `kfctl generate` and `kfctl apply`.
+    * Deploy as a [Kubernetes Application](https://github.com/kubernetes-sigs/application).
+    * Integrate with Kubeflow Pipelines to enable deployment from a Pipeline.
+    * Integrate with Fairing to enable deployment from a Notebook.
+    * Achieve 20% Test End-to-End Coverage of Supported Features. (See v0.3 for 80%).
+    * Support PVCs to enable integration with on-prem Kubeflow installations.
+    * Document Installation for various cloud providers (GCP, IBM Cloud, Azure, AWS).
+
+Objective: "Empower users to deeply understand their predictions and validate KFServing's static graph architecture."
+* Explainability
+    * Deploy a predictor and explainer, powered by Alibi.
+    * Deploy a predictor and explainer, powered by user specified explainer container.
+
+Objective: "Increase coverage of ML frameworks to support previously unsupported customer workloads."
+* Frameworks
+    * Deploy a ONNX model
+
 ### v0.3 Performance and Stability (ETA: September 1, 2019)
 Objective: "Prevent feature regressions with 80% e2e test coverage against a live Cluster."
 * Automated End-to-End Tests
     * Execute against a Kubeflow maintained GKE Cluster.
+    * Execute against a Kubeflow maintained AKS Cluster.
     * Achieve >80% Test Coverage of Supported Features.
 
 Objective: "Prevent performance regressions across a known set of representative models."
@@ -19,25 +41,24 @@ Objective: "Improve the Serverless Experience by reducing cold starts/stops to 1
 * Server Shutdown
     * Ensure that all model servers shutdown within 10 seconds of not receiving traffic.
 
-### v0.2 Integrate with the ML Ecosystem (ETA: August 15, 2019)
-Objective: "Continue to simplify the user experience by deeply integrating with the Kubeflow Ecosystem."
-* Kubeflow Integration
-    * Prepare KFServing to release v0.2 and v0.3 alongside Kubeflow 0.7.
-    * Integrate with `kfctl generate` and `kfctl apply`.
-    * Deploy as a [Kubernetes Application](https://github.com/kubernetes-sigs/application).
-    * Integrate with PVCs to enable integration with Kubeflow Pipelines
-    * Integrate with Fairing to enable deployment from a Notebook
+# Future 
+## Unscheduled Work
+* Multi-Model Serving.
+    * Multiple KFServices share resources in the backend.
+    * GPU Sharing.
+* Flexible Inference Graphs [MLGraph CRD](https://github.com/SeldonIO/mlgraph).
+    * Model Experimentation.
+    * Ensembling.
+    * Multi Arm Bandit.
+* Bias, Skew, and Outlier Detection.
+    * Online support in graph.
+    * Offline support with Payload Logging.
+* Meta-Protocol Definition.
+    * Unify disparate protocols across frameworks.
+* Adaptive batching support
+    * Queue and batch requests to increase throughput.
 
-Objective: "Empower users to deeply understand their predictions and validate KFServing's static graph architecture."
-* Explainability
-    * Deploy a predictor and explainer, powered by Alibi.
-    * Deploy a predictor and explainer, powered by user specified explainer container.
-
-Objective: "Increase coverage of ML frameworks to support previously unsupported customer workloads."
-* Frameworks
-    * Deploy a ONNX model
-    * Deploy a TensorRT Model
-
+# Historical
 ## Q2 2019
 ### v0.1: KFService Minimum Viable Product (ETA: June 30, 2019)
 Objective: "Simplify the user experience and provide a low barrier to entry by minimizing the amount of YAML necessary to deploy a trained model."
@@ -60,17 +81,3 @@ Objective: "Reduce the total cost of ownership for models by minimizing the delt
     * Scale a model from zero without dropping traffic.
     * Scale a model that is GPU bound.
     * Scale a model that is CPU bound.
-
-## Future Unscheduled Work
-* Multi-Model Serving.
-    * Multiple KFServices share resources in the backend.
-    * GPU Sharing.
-* Flexible Inference Graphs [MLGraph CRD](https://github.com/SeldonIO/mlgraph).
-    * Model Experimentation.
-    * Ensembling.
-    * Multi Arm Bandit.
-* Skew and Outlier Detection.
-    * Online support in graph.
-    * Offline support with Payload Logging.
-* Meta-Protocol Definition.
-    * Unify disparate protocols across frameworks.
