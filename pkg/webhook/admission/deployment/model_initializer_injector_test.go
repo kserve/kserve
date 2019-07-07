@@ -277,6 +277,122 @@ func TestModelInitializerFailureCases(t *testing.T) {
 	}
 }
 
+func TestCustomSpecModelUriInjection(t *testing.T) {
+	scenarios := map[string]struct {
+		original                    *appsv1.Deployment
+		expectedModelUriEnvVariable *v1.EnvVar
+	}{
+		"CustomSpecModelUriSet": {
+			original: &appsv1.Deployment{
+				Spec: appsv1.DeploymentSpec{
+					Template: v1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Annotations: map[string]string{
+								constants.ModelInitializerSourceUriInternalAnnotationKey: "pvc://mypvcname/some/path/on/pvc",
+							},
+						},
+						Spec: v1.PodSpec{
+							Containers: []v1.Container{
+								v1.Container{
+									Name: "user-container",
+									Env: []v1.EnvVar{
+										v1.EnvVar{
+											Name:  constants.CustomSpecModelUriEnvVarKey,
+											Value: "pvc://mypvcname/some/path/on/pvc",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedModelUriEnvVariable: &v1.EnvVar{
+				Name:  constants.CustomSpecModelUriEnvVarKey,
+				Value: constants.DefaultModelLocalMountPath,
+			},
+		},
+		"CustomSpecModelUriEmpty": {
+			original: &appsv1.Deployment{
+				Spec: appsv1.DeploymentSpec{
+					Template: v1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Annotations: map[string]string{
+								constants.ModelInitializerSourceUriInternalAnnotationKey: "pvc://mypvcname/some/path/on/pvc",
+							},
+						},
+						Spec: v1.PodSpec{
+							Containers: []v1.Container{
+								v1.Container{
+									Name: "user-container",
+									Env: []v1.EnvVar{
+										v1.EnvVar{
+											Name:  constants.CustomSpecModelUriEnvVarKey,
+											Value: "",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedModelUriEnvVariable: &v1.EnvVar{
+				Name:  constants.CustomSpecModelUriEnvVarKey,
+				Value: "",
+			},
+		},
+		"CustomSpecModelUriNotSet": {
+			original: &appsv1.Deployment{
+				Spec: appsv1.DeploymentSpec{
+					Template: v1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Annotations: map[string]string{
+								constants.ModelInitializerSourceUriInternalAnnotationKey: "pvc://mypvcname/some/path/on/pvc",
+							},
+						},
+						Spec: v1.PodSpec{
+							Containers: []v1.Container{
+								v1.Container{
+									Name: "user-container",
+									Env: []v1.EnvVar{
+										v1.EnvVar{
+											Name:  "TestRandom",
+											Value: "val",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedModelUriEnvVariable: nil,
+		},
+	}
+
+	for name, scenario := range scenarios {
+		injector := &ModelInitializerInjector{
+			credentialBuilder: credentials.NewCredentialBulder(c, &v1.ConfigMap{
+				Data: map[string]string{},
+			}),
+		}
+		if err := injector.InjectModelInitializer(scenario.original); err != nil {
+			t.Errorf("Test %q unexpected result: %s", name, err)
+		}
+
+		var originalEnvVar *v1.EnvVar
+		for _, envVar := range scenario.original.Spec.Template.Spec.Containers[0].Env {
+			if envVar.Name == constants.CustomSpecModelUriEnvVarKey {
+				originalEnvVar = &envVar
+			}
+		}
+		if diff := cmp.Diff(scenario.expectedModelUriEnvVariable, originalEnvVar); diff != "" {
+			t.Errorf("Test %q unexpected result (-want +got): %v", name, diff)
+		}
+	}
+}
+
 func makeDeployment() *appsv1.Deployment {
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{

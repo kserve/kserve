@@ -77,6 +77,11 @@ const (
 // DefaultModelLocalMountPath is where models will be mounted by the model-initializer
 const DefaultModelLocalMountPath = "/mnt/models"
 
+// KFService Environment Variables
+const (
+	CustomSpecModelUriEnvVarKey = "KFSERVING_CUSTOMSPEC_MODEL_URI"
+)
+
 func getEnvOrDefault(key string, fallback string) string {
 	if value, ok := os.LookupEnv(key); ok {
 		return value
