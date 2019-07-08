@@ -4,18 +4,18 @@ This tool takes TensorFlow SavedModel files as inputs and generates OpenAPI 3.0 
 ## Usage
 ```
 Usage:
-  tf2oas [flags]
+  tf2openapi [flags]
 
 Required Flags:
-  -m, --model string           Absolute path of SavedModel file
-  
+  -m, --model_base_path string           Absolute path of SavedModel file
+
 Flags:
-  -h, --help                   help for tf2oas
-  -m, --model string           Absolute path of SavedModel file
-  -n, --name string            Name of model (default "model")
-  -o, --output-file string     Absolute path of file to write OpenAPI spec to
-  -s, --signature-def string   Serving Signature Def Key
-  -v, --version string         Model version (default "1")
+  -h, --help                     help for tf2openapi
+  -m, --model_base_path string   Absolute path of SavedModel file
+  -n, --name string              Name of model (default "model")
+  -o, --output_file string       Absolute path of file to write OpenAPI spec to
+  -s, --signature_def string     Serving Signature Def Key
+  -v, --version string           Model version (default "1")
 
 ```
 
