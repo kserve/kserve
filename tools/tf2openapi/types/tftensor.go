@@ -84,13 +84,6 @@ func NewTFShape(dimensions []*fw.TensorShapeProto_Dim) TFShape {
 	return tfShape
 }
 
-func stringType(name string) TFDType {
-	if strings.HasSuffix(name, B64KeySuffix) {
-		return DtB64String
-	}
-	return DtString
-}
-
 func NewTFDType(name string, dType string) (TFDType, error) {
 	tfDType, ok := map[string]TFDType{
 		"DT_BOOL":   DtBool,
@@ -109,6 +102,13 @@ func NewTFDType(name string, dType string) (TFDType, error) {
 		return TFDType(0), fmt.Errorf("tensor (%s) contains unsupported data type (%s) for generating payloads", name, dType)
 	}
 	return tfDType, nil
+}
+
+func stringType(name string) TFDType {
+	if strings.HasSuffix(name, B64KeySuffix) {
+		return DtB64String
+	}
+	return DtString
 }
 
 func (t *TFTensor) Schema() *openapi3.Schema {
