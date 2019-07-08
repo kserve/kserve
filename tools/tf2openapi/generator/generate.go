@@ -8,16 +8,52 @@ import (
 )
 
 const defaultSigDefKey = "serving_default"
+const defaultTag = "serve"
 
-func GenerateOpenAPI(model *pb.SavedModel, name string, version string, metaGraphTags []string, sigDefKey string) (string, error) {
-	if sigDefKey == "" {
-		sigDefKey = defaultSigDefKey
+type Factory struct {
+	model         *pb.SavedModel
+	name          string
+	version       string
+	metaGraphTags []string
+	sigDefKey     string
+}
+
+func (f *Factory) WithName(name string) *Factory {
+	f.name = name
+	return f
+}
+
+func (f *Factory) WithVersion(version string) *Factory {
+	f.version = version
+	return f
+}
+
+func (f *Factory) WithMetaGraphTags(metaGraphTags []string) *Factory {
+	f.metaGraphTags = metaGraphTags
+	return f
+}
+
+func (f *Factory) WithSigDefKey(sigDefKey string) *Factory {
+	f.sigDefKey = sigDefKey
+	return f
+}
+
+func NewGenerator(model *pb.SavedModel) Factory {
+	return Factory{
+		model:         model,
+		name:          "model",
+		version:       "1",
+		metaGraphTags: []string{defaultTag},
+		sigDefKey:     defaultSigDefKey,
 	}
-	tfModel, constructionErr := types.NewTFSavedModel(model)
+}
+
+func (f *Factory) GenerateOpenAPI() (string, error) {
+	tfModel, constructionErr := types.NewTFSavedModel(f.model)
 	if constructionErr != nil {
 		return "", constructionErr
 	}
-	spec := wrapOpenAPI(tfModel, name, version)
+	spec := TFServingOpenAPI(tfModel, f.name, f.version)
 	json, marshallingErr := (*spec).MarshalJSON()
 	if marshallingErr != nil {
 		return "", fmt.Errorf("generated OpenAPI specification is corrupted\n error: %s \n specification: %s", marshallingErr.Error(), json)
@@ -39,46 +75,4 @@ func validateOpenAPI(json []byte) error {
 		return fmt.Errorf("generated OpenAPI specification (below) is constructed incorrectly\n error: %s \n specification: %s", err.Error(), json)
 	}
 	return nil
-}
-
-func wrapOpenAPI(model types.TFSavedModel, name string, version string) *openapi3.Swagger {
-	path := fmt.Sprintf("/v1/models/%s/versions/%s:predict", name, version)
-	return &openapi3.Swagger{
-		OpenAPI: "3.0.0",
-		Components: openapi3.Components{
-			Responses: map[string]*openapi3.ResponseRef{
-				"modelOutput": {
-					Value: &openapi3.Response{
-						Description: "Model output",
-					},
-				},
-			},
-			RequestBodies: map[string]*openapi3.RequestBodyRef{
-				"modelInput": {
-					Value: &openapi3.RequestBody{
-						Content: openapi3.NewContentWithJSONSchema(model.Schema()),
-					},
-				},
-			},
-		},
-		Paths: openapi3.Paths{
-			path: &openapi3.PathItem{
-				Post: &openapi3.Operation{
-					RequestBody: &openapi3.RequestBodyRef{
-						Ref: "#/components/requestBodies/modelInput",
-					},
-
-					Responses: openapi3.Responses{
-						"200": &openapi3.ResponseRef{
-							Ref: "#/components/responses/modelOutput",
-						},
-					},
-				},
-			},
-		},
-		Info: openapi3.Info{
-			Title:   "TFServing Predict Request API",
-			Version: "1.0",
-		},
-	}
 }

@@ -126,6 +126,8 @@ func TestTFSavedModelTypical(t *testing.T) {
 			},
 		},
 	}
-	schema := tfSavedModel.Schema()
+	schema, err := tfSavedModel.Schema([]string{"serve"}, "sigDefKey")
 	g.Expect(schema).Should(gomega.Equal(expectedSchema))
+	g.Expect(err).To(gomega.BeNil())
+
 }
