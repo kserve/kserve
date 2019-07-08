@@ -6,11 +6,9 @@ TFTensor represents a logical tensor. It contains the information from TensorInf
 tensor and not an actual tensor).
 */
 import (
-	"fmt"
 	"github.com/getkin/kin-openapi/openapi3"
 	fw "github.com/kubeflow/kfserving/tools/tf2openapi/generated/framework"
 	pb "github.com/kubeflow/kfserving/tools/tf2openapi/generated/protobuf"
-	"strings"
 )
 
 const B64KeySuffix string = "_bytes"
@@ -30,8 +28,6 @@ type TFTensor struct {
 }
 
 type TFShape []int64
-
-type TFDType int
 
 const (
 	// all the possible constants that can be JSON-ified according to
@@ -65,7 +61,6 @@ func NewTFTensor(name string, tensor *pb.TensorInfo) (TFTensor, error) {
 			Rank:  -1,
 		}, nil
 	}
-	// If rank is known and the tensor is a scalar, len(Dim) = 0 so Dim is not nil
 	tfShape := NewTFShape(tensor.TensorShape.Dim)
 	return TFTensor{
 		// For both sparse & dense tensors
@@ -84,36 +79,9 @@ func NewTFShape(dimensions []*fw.TensorShapeProto_Dim) TFShape {
 	return tfShape
 }
 
-func NewTFDType(name string, dType string) (TFDType, error) {
-	tfDType, ok := map[string]TFDType{
-		"DT_BOOL":   DtBool,
-		"DT_INT8":   DtInt8,
-		"DT_UINT8":  DtUInt8,
-		"DT_INT16":  DtInt16,
-		"DT_INT32":  DtInt32,
-		"DT_UINT32": DtUInt32,
-		"DT_INT64":  DtInt64,
-		"DT_UINT64": DtUInt64,
-		"DT_FLOAT":  DtFloat,
-		"DT_DOUBLE": DtDouble,
-		"DT_STRING": stringType(name),
-	}[dType]
-	if !ok {
-		return TFDType(0), fmt.Errorf("tensor (%s) contains unsupported data type (%s) for generating payloads", name, dType)
-	}
-	return tfDType, nil
-}
-
-func stringType(name string) TFDType {
-	if strings.HasSuffix(name, B64KeySuffix) {
-		return DtB64String
-	}
-	return DtString
-}
-
-
 func (t *TFTensor) RowSchema() *openapi3.Schema {
-	// ignore the 0th dimension because it is always -1 in row fmt to represent batchable input
+	// tensor can only have row schema if it's batchable
+	// ignore the 0th dimension: it is always -1 for batchable inputs
 	return schema(1, t.Shape, t.Rank, t.DType)
 }
 
@@ -135,30 +103,4 @@ func schema(dim int64, shape TFShape, rank int64, dType TFDType) *openapi3.Schem
 		return openapi3.NewArraySchema().WithMaxItems(0)
 	}
 	return openapi3.NewArraySchema().WithMinItems(shape[dim]).WithMaxItems(shape[dim]).WithItems(schema(dim+1, shape, rank, dType))
-}
-
-func (t *TFDType) Schema() *openapi3.Schema {
-	schema, ok := map[TFDType]*openapi3.Schema{
-		DtBool:      openapi3.NewBoolSchema(),
-		DtString:    openapi3.NewStringSchema(),
-		DtB64String: openapi3.NewObjectSchema().WithProperty("b64", openapi3.NewStringSchema()),
-		// JSON should be a decimal number for Ints and UInts
-		DtInt8:   openapi3.NewFloat64Schema(),
-		DtUInt8:  openapi3.NewFloat64Schema(),
-		DtInt16:  openapi3.NewFloat64Schema(),
-		DtInt32:  openapi3.NewFloat64Schema(),
-		DtUInt32: openapi3.NewFloat64Schema(),
-		DtInt64:  openapi3.NewFloat64Schema(),
-		DtUInt64: openapi3.NewFloat64Schema(),
-		// OpenAPI does NOT support NaN, Inf, -Inf
-		// unlike TFServing which permits using these values as numbers for Floats and Doubles
-		// (https://www.tensorflow.org/tfx/serving/api_rest#json_conformance)
-		DtFloat:  openapi3.NewFloat64Schema(),
-		DtDouble: openapi3.NewFloat64Schema(),
-	}[*t]
-	if !ok {
-		// should never be here
-		panic(fmt.Sprintf("valid dtype (%v) not mapped to schema", t))
-	}
-	return schema
 }
