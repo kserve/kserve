@@ -11,8 +11,8 @@ import (
 )
 
 var (
-	model   = flag.String("model", "", "Absolute path of SavedModel file")
-	outFile = flag.String("output-file", "", "Absolute path of file to write OpenAPI spec to")
+	model     = flag.String("model", "", "Absolute path of SavedModel file")
+	outFile   = flag.String("output-file", "", "Absolute path of file to write OpenAPI spec to")
 	sigDefKey = flag.String("signature-def", "", "Serving Signature Def Key ")
 )
 

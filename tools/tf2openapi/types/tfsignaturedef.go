@@ -41,7 +41,7 @@ func NewTFSignatureDef(key string, method string, inputs map[string]*pb.TensorIn
 	}
 	return TFSignatureDef{
 		Key:     key,
-		Method: tfMethod,
+		Method:  tfMethod,
 		Inputs:  inputTensors,
 		Outputs: outputTensors,
 	}, nil
@@ -61,9 +61,9 @@ func extractTensors(tensors map[string]*pb.TensorInfo) ([]TFTensor, error) {
 
 func NewTFMethod(key string, method string) (TFMethod, error) {
 	tfMethod, ok := map[string]TFMethod{
-		"tensorflow/serving/predict":   Predict,
+		"tensorflow/serving/predict":  Predict,
 		"tensorflow/serving/classify": Classify,
-		"tensorflow/serving/regress": Regress,
+		"tensorflow/serving/regress":  Regress,
 	}[method]
 	if !ok {
 		return TFMethod(0), fmt.Errorf("signature (%s) contains unsupported method (%s)", key, method)

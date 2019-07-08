@@ -13,7 +13,7 @@ func expectedTFMetaGraph() TFMetaGraph {
 		Tags: []string{"tag"},
 		SignatureDefs: []TFSignatureDef{
 			{
-				Key: "sigDefKey",
+				Key:    "sigDefKey",
 				Method: Predict,
 				Inputs: []TFTensor{
 					{
@@ -133,10 +133,10 @@ func TestNewTFMetaGraphWithMultipleSignatureDefs(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	tfMetaGraph, err := NewTFMetaGraph(metaGraphPbWithMultipleSigDefs())
 	expectedMetaGraph := TFMetaGraph{
-		Tags:[]string{"tag"},
+		Tags: []string{"tag"},
 		SignatureDefs: []TFSignatureDef{
 			{
-				Key: "sigDefKey",
+				Key:    "sigDefKey",
 				Method: Predict,
 				Inputs: []TFTensor{
 					{
@@ -156,7 +156,7 @@ func TestNewTFMetaGraphWithMultipleSignatureDefs(t *testing.T) {
 				},
 			},
 			{
-				Key: "anotherSigDefKey",
+				Key:    "anotherSigDefKey",
 				Method: Predict,
 				Inputs: []TFTensor{
 					{
