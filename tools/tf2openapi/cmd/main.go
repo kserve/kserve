@@ -2,8 +2,8 @@ package main
 
 import (
 	"github.com/golang/protobuf/proto"
+	gen "github.com/kubeflow/kfserving/tools/tf2openapi/generator"
 	pb "github.com/kubeflow/kfserving/tools/tf2openapi/generated/protobuf"
-	"github.com/kubeflow/kfserving/tools/tf2openapi/generator"
 	"github.com/spf13/cobra"
 	"io/ioutil"
 	"log"
@@ -48,8 +48,21 @@ func viewAPI(cmd *cobra.Command, args []string) {
 
 	model := UnmarshalSavedModelPb(modelPb)
 
-	/** Schema generation example **/
-	spec, err := generator.GenerateOpenAPI(model, modelName, modelVersion, sigDefKey)
+	generator := gen.NewGenerator(model)
+	if modelName != "" {
+		generator.WithName(modelName)
+	}
+	if modelVersion != "" {
+		generator.WithVersion(modelVersion)
+	}
+	if sigDefKey != "" {
+		generator.WithSigDefKey(sigDefKey)
+	}
+	//if *metaGraphTags != "" {
+	//	generator.WithMetaGraphTags([]string{*metaGraphTags})
+	//}
+
+	spec, err := generator.GenerateOpenAPI()
 	if err != nil {
 		log.Fatalln(err.Error())
 	}

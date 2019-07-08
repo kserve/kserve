@@ -174,8 +174,9 @@ func TestTFSignatureDefRowSchemaMultipleTensors(t *testing.T) {
 		},
 	}
 
-	schema := tfSigDef.Schema()
+	schema, err := tfSigDef.Schema()
 	g.Expect(schema).Should(gomega.Equal(expectedSchema))
+	g.Expect(err).To(gomega.BeNil())
 }
 
 func TestTFSignatureDefRowSchemaSingleTensor(t *testing.T) {
@@ -203,8 +204,9 @@ func TestTFSignatureDefRowSchemaSingleTensor(t *testing.T) {
 			},
 		},
 	}
-	schema := tfSigDef.Schema()
+	schema, err := tfSigDef.Schema()
 	g.Expect(schema).Should(gomega.Equal(expectedSchema))
+	g.Expect(err).To(gomega.BeNil())
 }
 
 func TestTFSignatureDefColSchemaMultipleTensors(t *testing.T) {
@@ -292,8 +294,9 @@ func TestTFSignatureDefColSchemaMultipleTensors(t *testing.T) {
 			},
 		},
 	}
-	schema := tfSigDef.Schema()
+	schema, err := tfSigDef.Schema()
 	g.Expect(schema).Should(gomega.Equal(expectedSchema))
+	g.Expect(err).To(gomega.BeNil())
 }
 
 func TestTFSignatureDefColSchemaSingleTensor(t *testing.T) {
@@ -341,8 +344,9 @@ func TestTFSignatureDefColSchemaSingleTensor(t *testing.T) {
 			},
 		},
 	}
-	schema := tfSigDef.Schema()
+	schema, err := tfSigDef.Schema()
 	g.Expect(schema).Should(gomega.Equal(expectedSchema))
+	g.Expect(err).To(gomega.BeNil())
 }
 
 func TestTFSignatureDefSchemaUnknownRank(t *testing.T) {
@@ -373,8 +377,9 @@ func TestTFSignatureDefSchemaUnknownRank(t *testing.T) {
 			},
 		},
 	}
-	schema := tfSigDef.Schema()
+	schema, err := tfSigDef.Schema()
 	g.Expect(schema).Should(gomega.Equal(expectedSchema))
+	g.Expect(err).To(gomega.BeNil())
 }
 
 func TestTFSignatureDefSchemaScalar(t *testing.T) {
@@ -408,8 +413,9 @@ func TestTFSignatureDefSchemaScalar(t *testing.T) {
 			},
 		},
 	}
-	schema := tfSigDef.Schema()
+	schema, err := tfSigDef.Schema()
 	g.Expect(schema).Should(gomega.Equal(expectedSchema))
+	g.Expect(err).To(gomega.BeNil())
 }
 
 func TestTFSignatureDefSchemaMultipleScalar(t *testing.T) {
@@ -462,6 +468,7 @@ func TestTFSignatureDefSchemaMultipleScalar(t *testing.T) {
 			},
 		},
 	}
-	schema := tfSigDef.Schema()
+	schema, err := tfSigDef.Schema()
 	g.Expect(schema).Should(gomega.Equal(expectedSchema))
+	g.Expect(err).To(gomega.BeNil())
 }

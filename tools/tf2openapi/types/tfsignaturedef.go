@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"github.com/getkin/kin-openapi/openapi3"
 	pb "github.com/kubeflow/kfserving/tools/tf2openapi/generated/protobuf"
+	"github.com/pkg/errors"
 )
 
 type TFSignatureDef struct {
@@ -71,14 +72,17 @@ func NewTFMethod(key string, method string) (TFMethod, error) {
 	return tfMethod, nil
 }
 
-func (t *TFSignatureDef) Schema() *openapi3.Schema {
+func (t *TFSignatureDef) Schema() (*openapi3.Schema, error) {
+	if t.Method != Predict {
+		return &openapi3.Schema{}, errors.New("schemas for classify/regress APIs currently not supported")
+	}
 	// https://www.tensorflow.org/tfx/serving/api_rest#specifying_input_tensors_in_row_format
 	if canHaveRowSchema(t.Inputs) {
-		return openapi3.NewObjectSchema().WithProperty("instances", t.rowSchema())
+		return openapi3.NewObjectSchema().WithProperty("instances", t.rowSchema()), nil
 	}
 
 	// https://www.tensorflow.org/tfx/serving/api_rest#specifying_input_tensors_in_column_format
-	return openapi3.NewObjectSchema().WithProperty("inputs", t.colSchema())
+	return openapi3.NewObjectSchema().WithProperty("inputs", t.colSchema()), nil
 }
 
 func canHaveRowSchema(t []TFTensor) bool {
