@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import glob
 import logging
 import tempfile
 import os
@@ -31,10 +32,15 @@ class Storage(object): # pylint: disable=too-few-public-methods
     @staticmethod
     def download(uri: str, out_dir: str = None) -> str:
         logging.info("Copying contents of %s to local", uri)
+
+        is_local = False
         if uri.startswith(_LOCAL_PREFIX) or os.path.exists(uri):
-            return Storage._download_local(uri)
+            is_local = True
 
         if out_dir is None:
+            if is_local:
+                # noop if out_dir is not set and the path is local
+                return Storage._download_local(uri)
             out_dir = tempfile.mkdtemp()
 
         if uri.startswith(_GCS_PREFIX):
@@ -43,6 +49,8 @@ class Storage(object): # pylint: disable=too-few-public-methods
             Storage._download_s3(uri, out_dir)
         elif re.search(_BLOB_RE, uri):
             Storage._download_blob(uri, out_dir)
+        elif is_local:
+            return Storage._download_local(uri, out_dir)
         else:
             raise Exception("Cannot recognize storage type for " + uri +
                             "\n'%s', '%s', and '%s' are the current available storage type." %
@@ -115,11 +123,25 @@ class Storage(object): # pylint: disable=too-few-public-methods
             block_blob_service.get_blob_to_path(container_name, blob.name, dest_path)
 
     @staticmethod
-    def _download_local(uri):
+    def _download_local(uri, out_dir=None):
         local_path = uri.replace(_LOCAL_PREFIX, "", 1)
         if not os.path.exists(local_path):
             raise Exception("Local path %s does not exist." % (uri))
-        return local_path
+
+        if out_dir is None:
+            return local_path
+        elif not os.path.isdir(out_dir):
+            os.makedirs(out_dir)
+
+        if os.path.isdir(local_path):
+            local_path = os.path.join(local_path, "*")
+
+        for src in glob.glob(local_path):
+            _, tail = os.path.split(src)
+            dest_path = os.path.join(out_dir, tail)
+            logging.info("Linking: %s to %s", src, dest_path)
+            os.symlink(src, dest_path)
+        return out_dir
 
     @staticmethod
     def _create_minio_client():
