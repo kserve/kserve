@@ -6,28 +6,26 @@ It is the internal model representation for the MetaGraph defined in the TensorF
 [tensorflow/core/protobuf/meta_graph.proto]
 */
 import (
-	"fmt"
 	"github.com/getkin/kin-openapi/openapi3"
 	pb "github.com/kubeflow/kfserving/tools/tf2openapi/generated/protobuf"
 )
 
 type TFMetaGraph struct {
-	SignatureDef TFSignatureDef
+	SignatureDefs [] TFSignatureDef
 }
 
-func NewTFMetaGraph(metaGraph *pb.MetaGraphDef, sigDefKey string) (TFMetaGraph, error) {
-	sigDef, ok := metaGraph.SignatureDef[sigDefKey]
-	if !ok {
-		return TFMetaGraph{}, fmt.Errorf("model does not contain desired SignatureDef (%s)", sigDefKey)
+func NewTFMetaGraph(metaGraph *pb.MetaGraphDef) (TFMetaGraph, error) {
+	tfMetaGraph := TFMetaGraph{
+		SignatureDefs: []TFSignatureDef{},
 	}
-	tfSigDef, err := NewTFSignatureDef(sigDefKey, sigDef.Inputs, sigDef.Outputs)
-	if err != nil {
-		return TFMetaGraph{}, err
+	for key, definition := range metaGraph.SignatureDef {
+		tfSigDef, err := NewTFSignatureDef(key, definition.Inputs, definition.Outputs)
+		if err != nil {
+			return TFMetaGraph{}, err
+		}
+		tfMetaGraph.SignatureDefs = append(tfMetaGraph.SignatureDefs, tfSigDef)
 	}
-
-	return TFMetaGraph{
-		SignatureDef: tfSigDef,
-	}, nil
+	return tfMetaGraph, nil
 }
 
 func (t *TFMetaGraph) Schema() *openapi3.Schema {

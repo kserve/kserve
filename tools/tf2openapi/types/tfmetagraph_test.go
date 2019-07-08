@@ -10,22 +10,24 @@ import (
 /* Expected values */
 func expectedTFMetaGraph() TFMetaGraph {
 	return TFMetaGraph{
-		SignatureDef: TFSignatureDef{
-			Key: "sigDefKey",
-			Inputs: []TFTensor{
-				{
-					Name:  "inputTensorName",
-					DType: DtInt8,
-					Shape: TFShape{-1, 3},
-					Rank:  2,
+		SignatureDefs: []TFSignatureDef{
+			{
+				Key: "sigDefKey",
+				Inputs: []TFTensor{
+					{
+						Name:  "inputTensorName",
+						DType: DtInt8,
+						Shape: TFShape{-1, 3},
+						Rank:  2,
+					},
 				},
-			},
-			Outputs: []TFTensor{
-				{
-					Name:  "outputTensorName",
-					DType: DtInt8,
-					Shape: TFShape{-1, 3},
-					Rank:  2,
+				Outputs: []TFTensor{
+					{
+						Name:  "outputTensorName",
+						DType: DtInt8,
+						Shape: TFShape{-1, 3},
+						Rank:  2,
+					},
 				},
 			},
 		},
@@ -42,12 +44,7 @@ func goodSigDefPb() *pb.SignatureDef {
 				Dtype: framework.DataType_DT_INT8,
 				TensorShape: &framework.TensorShapeProto{
 					Dim: []*framework.TensorShapeProto_Dim{
-						{
-							Size: -1,
-						},
-						{
-							Size: 3,
-						},
+						{Size: -1}, {Size: 3},
 					},
 					UnknownRank: false,
 				},
@@ -58,12 +55,8 @@ func goodSigDefPb() *pb.SignatureDef {
 				Dtype: framework.DataType_DT_INT8,
 				TensorShape: &framework.TensorShapeProto{
 					Dim: []*framework.TensorShapeProto_Dim{
-						{
-							Size: -1,
-						},
-						{
-							Size: 3,
-						},
+						{Size: -1},
+						{Size: 3},
 					},
 					UnknownRank: false,
 				},
@@ -81,9 +74,7 @@ func badSigDefPb() *pb.SignatureDef {
 				Dtype: framework.DataType_DT_HALF,
 				TensorShape: &framework.TensorShapeProto{
 					Dim: []*framework.TensorShapeProto_Dim{
-						{
-							Size: -1,
-						},
+						{Size: -1},
 					},
 					UnknownRank: false,
 				},
@@ -121,15 +112,15 @@ func metaGraphPbWithMultipleSigDefs() *pb.MetaGraphDef {
 			},
 		},
 		SignatureDef: map[string]*pb.SignatureDef{
-			"sigDefKey":          goodSigDefPb(),
-			"undesiredSigDefKey": goodSigDefPb(),
+			"sigDefKey":        goodSigDefPb(),
+			"anotherSigDefKey": goodSigDefPb(),
 		},
 	}
 }
 
 func TestNewTFMetaGraphTypical(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	tfMetaGraph, err := NewTFMetaGraph(metaGraphPb(), "sigDefKey")
+	tfMetaGraph, err := NewTFMetaGraph(metaGraphPb())
 	expectedMetaGraph := expectedTFMetaGraph()
 	g.Expect(tfMetaGraph).Should(gomega.Equal(expectedMetaGraph))
 	g.Expect(err).Should(gomega.BeNil())
@@ -137,23 +128,57 @@ func TestNewTFMetaGraphTypical(t *testing.T) {
 
 func TestNewTFMetaGraphWithMultipleSignatureDefs(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	tfMetaGraph, err := NewTFMetaGraph(metaGraphPbWithMultipleSigDefs(), "sigDefKey")
-	expectedMetaGraph := expectedTFMetaGraph()
+	tfMetaGraph, err := NewTFMetaGraph(metaGraphPbWithMultipleSigDefs())
+	expectedMetaGraph := TFMetaGraph{
+		SignatureDefs: []TFSignatureDef{
+			{
+				Key: "sigDefKey",
+				Inputs: []TFTensor{
+					{
+						Name:  "inputTensorName",
+						DType: DtInt8,
+						Shape: TFShape{-1, 3},
+						Rank:  2,
+					},
+				},
+				Outputs: []TFTensor{
+					{
+						Name:  "outputTensorName",
+						DType: DtInt8,
+						Shape: TFShape{-1, 3},
+						Rank:  2,
+					},
+				},
+			},
+			{
+				Key: "anotherSigDefKey",
+				Inputs: []TFTensor{
+					{
+						Name:  "inputTensorName",
+						DType: DtInt8,
+						Shape: TFShape{-1, 3},
+						Rank:  2,
+					},
+				},
+				Outputs: []TFTensor{
+					{
+						Name:  "outputTensorName",
+						DType: DtInt8,
+						Shape: TFShape{-1, 3},
+						Rank:  2,
+					},
+				},
+			},
+		},
+	}
 	g.Expect(tfMetaGraph).Should(gomega.Equal(expectedMetaGraph))
 	g.Expect(err).Should(gomega.BeNil())
-}
-
-func TestNewTFMetaGraphWithoutDesiredSignatureDef(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-	metaGraphPb := metaGraphPb()
-	_, err := NewTFMetaGraph(metaGraphPb, "missingSigDefKey")
-	g.Expect(err).Should(gomega.Not(gomega.BeNil()))
 }
 
 func TestNewTFMetaGraphWithErrSignatureDef(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	metaGraphPb := metaGraphPb()
 	metaGraphPb.SignatureDef["sigDefKey"] = badSigDefPb()
-	_, err := NewTFMetaGraph(metaGraphPb, "sigDefKey")
+	_, err := NewTFMetaGraph(metaGraphPb)
 	g.Expect(err).Should(gomega.Not(gomega.BeNil()))
 }

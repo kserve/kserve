@@ -6,32 +6,26 @@ It is the internal model representation for the SavedModel defined in the Tensor
 [tensorflow/core/protobuf/saved_model.proto]
 */
 import (
-	"errors"
 	"github.com/getkin/kin-openapi/openapi3"
-	"github.com/kubeflow/kfserving/pkg/utils"
 	pb "github.com/kubeflow/kfserving/tools/tf2openapi/generated/protobuf"
 )
 
-const ServingMetaGraphTag string = "serve"
-
 type TFSavedModel struct {
-	MetaGraph TFMetaGraph
+	MetaGraphs [] TFMetaGraph
 }
 
-func NewTFSavedModel(model *pb.SavedModel, sigDefKey string) (TFSavedModel, error) {
+func NewTFSavedModel(model *pb.SavedModel) (TFSavedModel, error) {
+	tfSavedModel := TFSavedModel{
+		MetaGraphs: []TFMetaGraph{},
+	}
 	for _, metaGraph := range model.MetaGraphs {
-		if !utils.Includes(metaGraph.MetaInfoDef.Tags, ServingMetaGraphTag) {
-			continue
-		}
-		tfMetaGraph, err := NewTFMetaGraph(metaGraph, sigDefKey)
+		tfMetaGraph, err := NewTFMetaGraph(metaGraph)
 		if err != nil {
 			return TFSavedModel{}, err
 		}
-		return TFSavedModel{
-			MetaGraph: tfMetaGraph,
-		}, nil
+		tfSavedModel.MetaGraphs = append(tfSavedModel.MetaGraphs, tfMetaGraph)
 	}
-	return TFSavedModel{}, errors.New("model does not contain any servable MetaGraphs")
+	return tfSavedModel, nil
 }
 
 func (t *TFSavedModel) Schema() *openapi3.Schema {
