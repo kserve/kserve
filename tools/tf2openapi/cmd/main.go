@@ -46,7 +46,6 @@ func viewAPI(cmd *cobra.Command, args []string) {
 		log.Fatalf("Error reading file %s \n%s", modelBasePath, err.Error())
 	}
 
-	/** Convert Go struct to inner model */
 	model := UnmarshalSavedModelPb(modelPb)
 
 	/** Schema generation example **/
@@ -64,7 +63,7 @@ func viewAPI(cmd *cobra.Command, args []string) {
 			panic(err)
 		}
 	} else {
-		// default to std::out
+		// Default to std::out
 		log.Println(spec)
 	}
 }
