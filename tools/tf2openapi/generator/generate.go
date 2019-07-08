@@ -9,12 +9,11 @@ import (
 
 const defaultSigDefKey = "serving_default"
 
-func GenerateOpenAPI(model *pb.SavedModel, name string, version string, sigDefKey string) (string, error) {
-	// Create OpenAPI spec
+func GenerateOpenAPI(model *pb.SavedModel, name string, version string, metaGraphTags []string, sigDefKey string) (string, error) {
 	if sigDefKey == "" {
 		sigDefKey = defaultSigDefKey
 	}
-	tfModel, constructionErr := types.NewTFSavedModel(model, sigDefKey)
+	tfModel, constructionErr := types.NewTFSavedModel(model)
 	if constructionErr != nil {
 		return "", constructionErr
 	}
