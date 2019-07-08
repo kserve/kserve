@@ -11,39 +11,39 @@ import (
 )
 
 var (
-	model        string
-	modelName    string
-	modelVersion string
-	sigDefKey    string
-	outFile      string
+	modelBasePath string
+	modelName     string
+	modelVersion  string
+	sigDefKey     string
+	outFile       string
 )
 
 /** Convert SavedModel to OpenAPI. Note that the SavedModel must have at least one signature defined**/
 func main() {
 	rootCmd := &cobra.Command{
-		Use:   "tf2oas",
-		Short: "tf2oas is an OpenAPI generator for TensorFlow SavedModels",
+		Use:   "tf2openapi",
+		Short: "tf2openapi is an OpenAPI generator for TensorFlow SavedModels",
 		Long: `This tool takes TensorFlow SavedModel files as inputs and generates OpenAPI 3.0 
 			specifications for HTTP prediction requests. The SavedModel files must 
 			contain signature definitions (SignatureDefs) for models.`,
 		Run: viewAPI,
 	}
 
-	rootCmd.Flags().StringVarP(&model, "model", "m", "", "Absolute path of SavedModel file")
-	rootCmd.MarkFlagRequired("model")
+	rootCmd.Flags().StringVarP(&modelBasePath, "model_base_path", "m", "", "Absolute path of SavedModel file")
+	rootCmd.MarkFlagRequired("model_base_path")
 	rootCmd.Flags().StringVarP(&modelName, "name", "n", "model", "Name of model")
 	rootCmd.Flags().StringVarP(&modelVersion, "version", "v", "1", "Model version")
-	rootCmd.Flags().StringVarP(&outFile, "output-file", "o", "", "Absolute path of file to write OpenAPI spec to")
-	rootCmd.Flags().StringVarP(&sigDefKey, "signature-def", "s", "", "Serving Signature Def Key")
+	rootCmd.Flags().StringVarP(&outFile, "output_file", "o", "", "Absolute path of file to write OpenAPI spec to")
+	rootCmd.Flags().StringVarP(&sigDefKey, "signature_def", "s", "", "Serving Signature Def Key")
 	if err := rootCmd.Execute(); err != nil {
 		log.Fatalln(err.Error())
 	}
 }
 
 func viewAPI(cmd *cobra.Command, args []string) {
-	modelPb, err := ioutil.ReadFile(model)
+	modelPb, err := ioutil.ReadFile(modelBasePath)
 	if err != nil {
-		log.Fatalf("Error reading file %s \n%s", model, err.Error())
+		log.Fatalf("Error reading file %s \n%s", modelBasePath, err.Error())
 	}
 
 	/** Convert Go struct to inner model */
