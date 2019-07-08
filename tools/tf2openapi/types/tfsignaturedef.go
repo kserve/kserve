@@ -18,6 +18,14 @@ type TFSignatureDef struct {
 	Outputs [] TFTensor
 }
 
+type TFMethod int
+
+const (
+	Predict TFMethod = iota
+	Classify
+	Regress
+)
+
 func NewTFSignatureDef(key string, method string, inputs map[string]*pb.TensorInfo, outputs map[string]*pb.TensorInfo) (TFSignatureDef, error) {
 	inputTensors, inputErr := extractTensors(inputs)
 	if inputErr != nil {
@@ -51,18 +59,6 @@ func extractTensors(tensors map[string]*pb.TensorInfo) ([]TFTensor, error) {
 	return tfTensors, nil
 }
 
-func (t *TFSignatureDef) Schema() *openapi3.Schema {
-	return &openapi3.Schema{}
-}
-
-type TFMethod int
-
-const (
-	Predict TFMethod = iota
-	Classify
-	Regress
-)
-
 func NewTFMethod(key string, method string) (TFMethod, error) {
 	tfMethod, ok := map[string]TFMethod{
 		"tensorflow/serving/predict":   Predict,
@@ -73,4 +69,8 @@ func NewTFMethod(key string, method string) (TFMethod, error) {
 		return TFMethod(0), fmt.Errorf("signature (%s) contains unsupported method (%s)", key, method)
 	}
 	return tfMethod, nil
+}
+
+func (t *TFSignatureDef) Schema() *openapi3.Schema {
+	return &openapi3.Schema{}
 }
