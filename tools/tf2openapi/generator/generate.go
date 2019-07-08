@@ -53,7 +53,10 @@ func (f *Factory) GenerateOpenAPI() (string, error) {
 	if constructionErr != nil {
 		return "", constructionErr
 	}
-	spec := TFServingOpenAPI(tfModel, f.name, f.version)
+	spec, genErr := TFServingOpenAPI(tfModel, f.name, f.version, f.metaGraphTags, f.sigDefKey)
+	if genErr != nil {
+		return "", fmt.Errorf("missing info to generate OpenAPI specification\n error: %s", genErr.Error())
+	}
 	json, marshallingErr := (*spec).MarshalJSON()
 	if marshallingErr != nil {
 		return "", fmt.Errorf("generated OpenAPI specification is corrupted\n error: %s \n specification: %s", marshallingErr.Error(), json)
