@@ -32,10 +32,10 @@ class Storage(object): # pylint: disable=too-few-public-methods
     @staticmethod
     def download(uri: str, out_dir: str = None) -> str:
         logging.info("Copying contents of %s to local", uri)
-        
+
         is_local = False
         if uri.startswith(_LOCAL_PREFIX) or os.path.exists(uri):
-            is_local = True            
+            is_local = True
 
         if out_dir is None:
             if is_local:
@@ -123,7 +123,7 @@ class Storage(object): # pylint: disable=too-few-public-methods
             block_blob_service.get_blob_to_path(container_name, blob.name, dest_path)
 
     @staticmethod
-    def _download_local(uri, out_dir = None):
+    def _download_local(uri, out_dir=None):
         local_path = uri.replace(_LOCAL_PREFIX, "", 1)
         if not os.path.exists(local_path):
             raise Exception("Local path %s does not exist." % (uri))
@@ -141,6 +141,7 @@ class Storage(object): # pylint: disable=too-few-public-methods
             dest_path = os.path.join(out_dir, tail)
             logging.info("Linking: %s to %s", src, dest_path)
             os.symlink(src, dest_path)
+        return out_dir
 
     @staticmethod
     def _create_minio_client():
