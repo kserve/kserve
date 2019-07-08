@@ -12,10 +12,14 @@ const requestRefTemplate = "#/components/requestBodies/%s"
 const responseRefTemplate = "#/components/responses/%s"
 const pathTemplate = "/v1/models/%s/versions/%s:predict"
 
-func TFServingOpenAPI(model types.TFSavedModel, name string, version string) *openapi3.Swagger {
+func TFServingOpenAPI(model types.TFSavedModel, name string, version string, metaGraphTags []string, sigDefKey string) (*openapi3.Swagger, error) {
 	requestRef := fmt.Sprintf(requestRefTemplate, requestName)
 	responseRef := fmt.Sprintf(responseRefTemplate, responseName)
 	path := fmt.Sprintf(pathTemplate, name, version)
+	schema, err := model.Schema(metaGraphTags, sigDefKey)
+	if err != nil {
+		return &openapi3.Swagger{}, err
+	}
 
 	return &openapi3.Swagger{
 		OpenAPI: "3.0.0",
@@ -30,7 +34,7 @@ func TFServingOpenAPI(model types.TFSavedModel, name string, version string) *op
 			RequestBodies: map[string]*openapi3.RequestBodyRef{
 				requestName: {
 					Value: &openapi3.RequestBody{
-						Content: openapi3.NewContentWithJSONSchema(model.Schema()),
+						Content: openapi3.NewContentWithJSONSchema(schema),
 					},
 				},
 			},
@@ -54,5 +58,5 @@ func TFServingOpenAPI(model types.TFSavedModel, name string, version string) *op
 			Title:   "TFServing Predict Request API",
 			Version: "1.0",
 		},
-	}
+	}, nil
 }

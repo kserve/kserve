@@ -209,6 +209,14 @@ func TestTFSignatureDefRowSchemaSingleTensor(t *testing.T) {
 	g.Expect(err).To(gomega.BeNil())
 }
 
+func TestTFSignatureDefNonPredict(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	tfSigDef := expectedTFSignatureDef()
+	tfSigDef.Method = Classify
+	_, err := tfSigDef.Schema()
+	g.Expect(err).To(gomega.Not(gomega.BeNil()))
+}
+
 func TestTFSignatureDefColSchemaMultipleTensors(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	tfSigDef := TFSignatureDef{

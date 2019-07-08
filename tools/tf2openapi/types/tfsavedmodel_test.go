@@ -129,5 +129,18 @@ func TestTFSavedModelTypical(t *testing.T) {
 	schema, err := tfSavedModel.Schema([]string{"serve"}, "sigDefKey")
 	g.Expect(schema).Should(gomega.Equal(expectedSchema))
 	g.Expect(err).To(gomega.BeNil())
+}
 
+func TestTFSavedModelMissingMetaGraph(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	tfSavedModel := expectedTFSavedModel()
+	_, err := tfSavedModel.Schema([]string{"serve", "missing"}, "sigDefKey")
+	g.Expect(err).To(gomega.Not(gomega.BeNil()))
+}
+
+func TestTFSavedModelErrMetaGraph(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	tfSavedModel := expectedTFSavedModel()
+	_, err := tfSavedModel.Schema([]string{"serve"}, "missingSigDefKey")
+	g.Expect(err).To(gomega.Not(gomega.BeNil()))
 }
