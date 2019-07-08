@@ -12,9 +12,11 @@ func expectedTFSavedModel() TFSavedModel {
 	return TFSavedModel{
 		MetaGraphs: []TFMetaGraph{
 			{
+				Tags: []string{"serve"},
 				SignatureDefs: []TFSignatureDef{
 					{
-						Key: "sigDefKey",
+						Key:    "sigDefKey",
+						Method: Predict,
 						Inputs: []TFTensor{
 							{
 								Name:  "inputTensorName",

@@ -11,6 +11,7 @@ import (
 func expectedTFSignatureDef() TFSignatureDef {
 	return TFSignatureDef{
 		Key: "Signature Def Key",
+		Method: Predict,
 		Inputs: []TFTensor{
 			{
 				Name:  "input",
@@ -63,7 +64,7 @@ func badTensorsPb(name string) map[string]*pb.TensorInfo {
 
 func TestCreateTFSignatureDefTypical(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	tfSignatureDef, err := NewTFSignatureDef("Signature Def Key",
+	tfSignatureDef, err := NewTFSignatureDef("Signature Def Key", "tensorflow/serving/predict",
 		goodTensorsPb("input"),
 		goodTensorsPb("output"))
 	expectedSignatureDef := expectedTFSignatureDef()
@@ -75,7 +76,7 @@ func TestCreateTFSignatureDefWithErrInputs(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	inputTensors := badTensorsPb("input")
 	outputTensors := goodTensorsPb("output")
-	_, err := NewTFSignatureDef("Signature Def Key", inputTensors, outputTensors)
+	_, err := NewTFSignatureDef("Signature Def Key","tensorflow/serving/predict", inputTensors, outputTensors)
 	g.Expect(err).Should(gomega.Not(gomega.BeNil()))
 }
 
@@ -83,6 +84,15 @@ func TestCreateTFSignatureDefWithErrOutputs(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	inputTensors := goodTensorsPb("input")
 	outputTensors := badTensorsPb("output")
-	_, err := NewTFSignatureDef("Signature Def Key", inputTensors, outputTensors)
+	_, err := NewTFSignatureDef("Signature Def Key", "tensorflow/serving/predict",inputTensors, outputTensors)
+	g.Expect(err).Should(gomega.Not(gomega.BeNil()))
+}
+
+
+func TestCreateTFSignatureDefWithErrMethod(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	inputTensors := goodTensorsPb("input")
+	outputTensors := goodTensorsPb("output")
+	_, err := NewTFSignatureDef("Signature Def Key","tensorflow/serving/bad", inputTensors, outputTensors)
 	g.Expect(err).Should(gomega.Not(gomega.BeNil()))
 }

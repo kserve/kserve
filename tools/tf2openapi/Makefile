@@ -2,8 +2,6 @@ VENDOR_DIR := $(GOPATH)/src/github.com/kubeflow/kfserving/vendor
 TF_PROTO_SRC := $(VENDOR_DIR)/github.com/tensorflow/tensorflow
 TF_PROTO_OUT := generated
 
-TEMP_DIR := "$(mktemp -d /tmp/tf2openapi.XXX)"
-
 # Run tests
 test: generate
 	go test ./types/...
@@ -20,7 +18,6 @@ endif
 
 	# compile TensorFlow protos
 	TEMP_DIR=$$(mktemp -d /tmp/tf2openapi.XXX); \
-	echo $$TEMP_DIR; \
 	protoc -I $(TF_PROTO_SRC) --go_out=$$TEMP_DIR $(TF_PROTO_SRC)/tensorflow/core/lib/core/error_codes.proto; \
 	protoc -I $(TF_PROTO_SRC) --go_out=$$TEMP_DIR $(TF_PROTO_SRC)/tensorflow/core/framework/*.proto; \
 	protoc -I $(TF_PROTO_SRC) --go_out=$$TEMP_DIR $(TF_PROTO_SRC)/tensorflow/core/protobuf/saver.proto; \
