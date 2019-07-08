@@ -130,6 +130,8 @@ class Storage(object): # pylint: disable=too-few-public-methods
 
         if out_dir is None:
             return local_path
+        elif not os.path.isdir(out_dir):
+            os.makedirs(out_dir)
 
         if os.path.isdir(local_path):
             local_path = os.path.join(local_path, "*")
