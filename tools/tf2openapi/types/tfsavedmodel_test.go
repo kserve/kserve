@@ -10,24 +10,27 @@ import (
 /* Expected values */
 func expectedTFSavedModel() TFSavedModel {
 	return TFSavedModel{
-		MetaGraph: TFMetaGraph{
-			SignatureDef: TFSignatureDef{
-
-				Key: "sigDefKey",
-				Inputs: []TFTensor{
+		MetaGraphs: []TFMetaGraph{
+			{
+				SignatureDefs: []TFSignatureDef{
 					{
-						Name:  "inputTensorName",
-						DType: DtInt8,
-						Shape: TFShape{-1, 3},
-						Rank:  2,
-					},
-				},
-				Outputs: []TFTensor{
-					{
-						Name:  "outputTensorName",
-						DType: DtInt8,
-						Shape: TFShape{-1, 3},
-						Rank:  2,
+						Key: "sigDefKey",
+						Inputs: []TFTensor{
+							{
+								Name:  "inputTensorName",
+								DType: DtInt8,
+								Shape: TFShape{-1, 3},
+								Rank:  2,
+							},
+						},
+						Outputs: []TFTensor{
+							{
+								Name:  "outputTensorName",
+								DType: DtInt8,
+								Shape: TFShape{-1, 3},
+								Rank:  2,
+							},
+						},
 					},
 				},
 			},
@@ -53,12 +56,8 @@ func savedModelPb() *pb.SavedModel {
 								Dtype: framework.DataType_DT_INT8,
 								TensorShape: &framework.TensorShapeProto{
 									Dim: []*framework.TensorShapeProto_Dim{
-										{
-											Size: -1,
-										},
-										{
-											Size: 3,
-										},
+										{Size: -1},
+										{Size: 3},
 									},
 									UnknownRank: false,
 								},
@@ -69,12 +68,8 @@ func savedModelPb() *pb.SavedModel {
 								Dtype: framework.DataType_DT_INT8,
 								TensorShape: &framework.TensorShapeProto{
 									Dim: []*framework.TensorShapeProto_Dim{
-										{
-											Size: -1,
-										},
-										{
-											Size: 3,
-										},
+										{Size: -1},
+										{Size: 3},
 									},
 									UnknownRank: false,
 								},
@@ -89,7 +84,7 @@ func savedModelPb() *pb.SavedModel {
 
 func TestNewTFSavedModelTypical(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	tfSavedModel, err := NewTFSavedModel(savedModelPb(), "sigDefKey")
+	tfSavedModel, err := NewTFSavedModel(savedModelPb())
 	expectedSavedModel := expectedTFSavedModel()
 	g.Expect(tfSavedModel).Should(gomega.Equal(expectedSavedModel))
 	g.Expect(err).Should(gomega.BeNil())
@@ -98,14 +93,7 @@ func TestNewTFSavedModelTypical(t *testing.T) {
 func TestNewTFSavedModelWithErrMetaGraph(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	savedModelPb := savedModelPb()
-	_, err := NewTFSavedModel(savedModelPb, "missingSigDefKey")
-	g.Expect(err).Should(gomega.Not(gomega.BeNil()))
-}
-
-func TestNewTFSavedModelWithNoServableMetaGraph(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-	savedModelPb := savedModelPb()
-	savedModelPb.MetaGraphs[0].MetaInfoDef.Tags[0] = "tag"
-	_, err := NewTFSavedModel(savedModelPb, "sigDefKey")
+	savedModelPb.MetaGraphs[0].SignatureDef["sigDefKey"].Inputs["inputTensorName"].Dtype = framework.DataType_DT_HALF
+	_, err := NewTFSavedModel(savedModelPb)
 	g.Expect(err).Should(gomega.Not(gomega.BeNil()))
 }

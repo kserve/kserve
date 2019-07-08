@@ -28,12 +28,8 @@ func expectedTFTensorWithUnknowns() TFTensor {
 /* Fake protobuf structs to use as test inputs */
 func dimsPb() []*framework.TensorShapeProto_Dim {
 	return []*framework.TensorShapeProto_Dim{
-		{
-			Size: -1,
-		},
-		{
-			Size: 3,
-		},
+		{Size: -1},
+		{Size: 3},
 	}
 }
 
