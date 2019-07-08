@@ -10,9 +10,11 @@ import (
 /* Expected values */
 func expectedTFMetaGraph() TFMetaGraph {
 	return TFMetaGraph{
+		Tags: []string{"tag"},
 		SignatureDefs: []TFSignatureDef{
 			{
 				Key: "sigDefKey",
+				Method: Predict,
 				Inputs: []TFTensor{
 					{
 						Name:  "inputTensorName",
@@ -44,7 +46,8 @@ func goodSigDefPb() *pb.SignatureDef {
 				Dtype: framework.DataType_DT_INT8,
 				TensorShape: &framework.TensorShapeProto{
 					Dim: []*framework.TensorShapeProto_Dim{
-						{Size: -1}, {Size: 3},
+						{Size: -1},
+						{Size: 3},
 					},
 					UnknownRank: false,
 				},
@@ -130,9 +133,11 @@ func TestNewTFMetaGraphWithMultipleSignatureDefs(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	tfMetaGraph, err := NewTFMetaGraph(metaGraphPbWithMultipleSigDefs())
 	expectedMetaGraph := TFMetaGraph{
+		Tags:[]string{"tag"},
 		SignatureDefs: []TFSignatureDef{
 			{
 				Key: "sigDefKey",
+				Method: Predict,
 				Inputs: []TFTensor{
 					{
 						Name:  "inputTensorName",
@@ -152,6 +157,7 @@ func TestNewTFMetaGraphWithMultipleSignatureDefs(t *testing.T) {
 			},
 			{
 				Key: "anotherSigDefKey",
+				Method: Predict,
 				Inputs: []TFTensor{
 					{
 						Name:  "inputTensorName",
