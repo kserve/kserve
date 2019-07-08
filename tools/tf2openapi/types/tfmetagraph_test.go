@@ -219,3 +219,10 @@ func TestTFMetaGraphTypical(t *testing.T) {
 	g.Expect(schema).Should(gomega.Equal(expectedSchema))
 	g.Expect(err).To(gomega.BeNil())
 }
+
+func TestTFMetaGraphMissingSigDef(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	tfMetaGraph := expectedTFMetaGraph()
+	_, err := tfMetaGraph.Schema("missingSigDefKey")
+	g.Expect(err).To(gomega.Not(gomega.BeNil()))
+}
