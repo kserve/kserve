@@ -178,7 +178,8 @@ func TestNewTFMetaGraphWithMultipleSignatureDefs(t *testing.T) {
 			},
 		},
 	}
-	g.Expect(tfMetaGraph).Should(gomega.Equal(expectedMetaGraph))
+	g.Expect(tfMetaGraph.Tags).Should(gomega.Equal(expectedMetaGraph.Tags))
+	g.Expect(tfMetaGraph.SignatureDefs).Should(gomega.ConsistOf(expectedMetaGraph.SignatureDefs))
 	g.Expect(err).Should(gomega.BeNil())
 }
 
