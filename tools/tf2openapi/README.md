@@ -39,6 +39,7 @@ There are numerous ways to format valid model input payloads to TFServing. Here 
   * Multiple named input tensors: uses `{tensor1: [val1, val2, ..], tensor2: [val3, val4, ..] ..}`
 
 Tf2OpenAPI generates a row format payload whenever possible because it's more intuitive for a user to construct.
+
 ## Caveats
 * There is a dependency on protobufs defined by TensorFlow, e.g. [tensorflow/core/protobuf](https://github.com/tensorflow/tensorflow/tree/master/tensorflow/core/protobuf). Specific protos must be compiled into Go using [protoc](https://github.com/golang/protobuf/tree/master/protoc-gen-go) in the order: tensorflow/core/lib/core/\*.proto, tensorflow/core/framework/\*.proto, tensorflow/core/protobuf/saver.proto, tensorflow/core/protobuf/meta_graph.proto, tensorflow/core/protobuf/saved_model.proto. See Makefile which will automate this.  
 

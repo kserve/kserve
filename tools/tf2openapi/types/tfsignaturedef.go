@@ -6,10 +6,10 @@ outputs. It is the internal model representation for the SignatureDef defined in
 [tensorflow/core/protobuf/meta_graph.proto]
 */
 import (
+	"errors"
 	"fmt"
 	"github.com/getkin/kin-openapi/openapi3"
 	pb "github.com/kubeflow/kfserving/tools/tf2openapi/generated/protobuf"
-	"github.com/pkg/errors"
 )
 
 type TFSignatureDef struct {
