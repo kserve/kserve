@@ -70,6 +70,54 @@ func TestModelInitializerInjector(t *testing.T) {
 				},
 			},
 		},
+		"AlreadyInjected": {
+			original: &appsv1.Deployment{
+				Spec: appsv1.DeploymentSpec{
+					Template: v1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Annotations: map[string]string{
+								constants.ModelInitializerSourceUriInternalAnnotationKey: "gs://foo",
+							},
+						},
+						Spec: v1.PodSpec{
+							Containers: []v1.Container{
+								v1.Container{
+									Name: "user-container",
+								},
+							},
+							InitContainers: []v1.Container{
+								v1.Container{
+									Name: "model-initializer",
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: &appsv1.Deployment{
+				Spec: appsv1.DeploymentSpec{
+					Template: v1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Annotations: map[string]string{
+								constants.ModelInitializerSourceUriInternalAnnotationKey: "gs://foo",
+							},
+						},
+						Spec: v1.PodSpec{
+							Containers: []v1.Container{
+								v1.Container{
+									Name: "user-container",
+								},
+							},
+							InitContainers: []v1.Container{
+								v1.Container{
+									Name: "model-initializer",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
 		"ModelInitializerInjected": {
 			original: &appsv1.Deployment{
 				Spec: appsv1.DeploymentSpec{

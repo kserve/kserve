@@ -54,6 +54,13 @@ func (mi *ModelInitializerInjector) InjectModelInitializer(deployment *appsv1.De
 		return nil
 	}
 
+	// Dont inject if InitContianer already injected
+	for _, container := range podSpec.InitContainers {
+		if strings.Compare(container.Name, ModelInitializerContainerName) == 0 {
+			return nil
+		}
+	}
+
 	// Find the knative user-container (this is the model inference server)
 	var userContainer *v1.Container
 	for idx, container := range podSpec.Containers {
