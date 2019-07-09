@@ -1,6 +1,24 @@
 # Tf2OpenAPI
 This tool takes TensorFlow SavedModel files as inputs and generates OpenAPI 3.0 specifications for HTTP prediction requests. The SavedModel files must contain signature definitions (SignatureDefs) for models.
 
+## Usage
+```
+Usage:
+  tf2openapi [flags]
+
+Required Flags:
+  -m, --model_base_path string           Absolute path of SavedModel file
+
+Flags:
+  -h, --help                     help for tf2openapi
+  -m, --model_base_path string   Absolute path of SavedModel file
+  -n, --name string              Name of model (default "model")
+  -o, --output_file string       Absolute path of file to write OpenAPI spec to
+  -s, --signature_def string     Serving Signature Def Key
+  -v, --version string           Model version (default "1")
+
+```
+
 ## Overview
 ### Use Cases for OpenAPI
 This project is motivated by the following uses of an OpenAPI specification:
@@ -14,5 +32,5 @@ The outcome of this project is a TensorFlow-to-OpenAPI transformer which takes S
 ## Caveats
 * There is a dependency on protobufs defined by TensorFlow, e.g. [tensorflow/core/protobuf](https://github.com/tensorflow/tensorflow/tree/master/tensorflow/core/protobuf). Specific protos must be compiled into Go using [protoc](https://github.com/golang/protobuf/tree/master/protoc-gen-go) in the order: tensorflow/core/lib/core/\*.proto, tensorflow/core/framework/\*.proto, tensorflow/core/protobuf/saver.proto, tensorflow/core/protobuf/meta_graph.proto, tensorflow/core/protobuf/saved_model.proto. See Makefile which will automate this.  
 
-  ## TensorFlow Compatibility
+## TensorFlow Compatibility
 * This tool is compatible with TensorFlow versions 1.xx up to and including 1.13.1. To make it compatible with future TensorFlow versions, you will need to compile the TensorFlow protos and convert them to the internal models. See [DEVELOPER_GUIDE](DEVELOPER_GUIDE.md) for potential issues and solutions.
