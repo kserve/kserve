@@ -55,6 +55,10 @@ Objective: "Simplify User Experience."
     * Model Experimentation.
     * Ensembling.
     * Multi Arm Bandit.
+* Payload Logging
+    * Finalize the design and implementation for [Payload Logging](https://docs.google.com/document/d/1MBl5frM9l_wyQkYEaDeHOP6Mrsuz9YOob7276AAN9_c/edit?usp=sharing)
+    * Leverage existing infrastructure (e.g. Istio Sidecars) as much as possible
+    * Provide ability to support multiple storage mechanisms
 * Bias, Skew, and Outlier Detection.
     * Online support in graph.
     * Offline support with Payload Logging.
