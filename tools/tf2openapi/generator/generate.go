@@ -10,7 +10,7 @@ import (
 const defaultSigDefKey = "serving_default"
 const defaultTag = "serve"
 
-type Factory struct {
+type Generator struct {
 	model         *pb.SavedModel
 	name          string
 	version       string
@@ -18,29 +18,24 @@ type Factory struct {
 	sigDefKey     string
 }
 
-func (f *Factory) WithName(name string) *Factory {
-	f.name = name
-	return f
+func (g *Generator) WithName(name string) {
+	g.name = name
 }
 
-func (f *Factory) WithVersion(version string) *Factory {
-	f.version = version
-	return f
+func (g *Generator) WithVersion(version string) {
+	g.version = version
 }
 
-func (f *Factory) WithMetaGraphTags(metaGraphTags []string) *Factory {
-	f.metaGraphTags = metaGraphTags
-	return f
+func (g *Generator) WithMetaGraphTags(metaGraphTags []string) {
+	g.metaGraphTags = metaGraphTags
 }
 
-func (f *Factory) WithSigDefKey(sigDefKey string) *Factory {
-	f.sigDefKey = sigDefKey
-	return f
+func (g *Generator) WithSigDefKey(sigDefKey string) {
+	g.sigDefKey = sigDefKey
 }
 
-func NewGenerator(model *pb.SavedModel) Factory {
-	return Factory{
-		model:         model,
+func NewGenerator() Generator {
+	return Generator{
 		name:          "model",
 		version:       "1",
 		metaGraphTags: []string{defaultTag},
@@ -48,12 +43,12 @@ func NewGenerator(model *pb.SavedModel) Factory {
 	}
 }
 
-func (f *Factory) GenerateOpenAPI() (string, error) {
-	tfModel, constructionErr := types.NewTFSavedModel(f.model)
+func (g *Generator) GenerateOpenAPI(model *pb.SavedModel) (string, error) {
+	tfModel, constructionErr := types.NewTFSavedModel(model)
 	if constructionErr != nil {
 		return "", constructionErr
 	}
-	spec, genErr := TFServingOpenAPI(tfModel, f.name, f.version, f.metaGraphTags, f.sigDefKey)
+	spec, genErr := g.tfServingOpenAPI(tfModel)
 	if genErr != nil {
 		return "", fmt.Errorf("missing info to generate OpenAPI specification\n error: %s", genErr.Error())
 	}

@@ -47,8 +47,7 @@ func viewAPI(cmd *cobra.Command, args []string) {
 	}
 
 	model := UnmarshalSavedModelPb(modelPb)
-
-	generator := gen.NewGenerator(model)
+	generator := gen.NewGenerator()
 	if modelName != "" {
 		generator.WithName(modelName)
 	}
@@ -62,7 +61,7 @@ func viewAPI(cmd *cobra.Command, args []string) {
 	//	generator.WithMetaGraphTags([]string{*metaGraphTags})
 	//}
 
-	spec, err := generator.GenerateOpenAPI()
+	spec, err := generator.GenerateOpenAPI(model)
 	if err != nil {
 		log.Fatalln(err.Error())
 	}
