@@ -15,6 +15,7 @@ var (
 	modelName     string
 	modelVersion  string
 	sigDefKey     string
+	metaGraphTags []string
 	outFile       string
 )
 
@@ -34,7 +35,9 @@ func main() {
 	rootCmd.Flags().StringVarP(&modelName, "name", "n", "model", "Name of model")
 	rootCmd.Flags().StringVarP(&modelVersion, "version", "v", "1", "Model version")
 	rootCmd.Flags().StringVarP(&outFile, "output_file", "o", "", "Absolute path of file to write OpenAPI spec to")
-	rootCmd.Flags().StringVarP(&sigDefKey, "signature_def", "s", "", "Serving Signature Def Key")
+	rootCmd.Flags().StringVarP(&sigDefKey, "signature_def", "s", "", "Serving SignatureDef Key")
+	rootCmd.Flags().StringSliceVarP(&metaGraphTags, "metagraph_tags", "t", []string{}, "All tags identifying desired MetaGraph")
+
 	if err := rootCmd.Execute(); err != nil {
 		log.Fatalln(err.Error())
 	}
@@ -57,10 +60,9 @@ func viewAPI(cmd *cobra.Command, args []string) {
 	if sigDefKey != "" {
 		generator.WithSigDefKey(sigDefKey)
 	}
-	//if *metaGraphTags != "" {
-	//	generator.WithMetaGraphTags([]string{*metaGraphTags})
-	//}
-
+	if len(metaGraphTags) != 0 {
+		generator.WithMetaGraphTags(metaGraphTags)
+	}
 	spec, err := generator.GenerateOpenAPI(model)
 	if err != nil {
 		log.Fatalln(err.Error())
