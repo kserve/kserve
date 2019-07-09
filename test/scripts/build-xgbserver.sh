@@ -20,22 +20,14 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-export PATH=${GOPATH}/bin:/usr/local/go/bin:${PATH}
 REGISTRY="${GCP_REGISTRY}"
 PROJECT="${GCP_PROJECT}"
-GO_DIR=${GOPATH}/src/github.com/${REPO_OWNER}/${REPO_NAME}-server
 VERSION=$(git describe --tags --always --dirty)
 
 echo "Activating service-account"
 gcloud auth activate-service-account --key-file=${GOOGLE_APPLICATION_CREDENTIALS}
 
-echo "Copy source to GOPATH"
-mkdir -p ${GO_DIR}
-cp -r cmd ${GO_DIR}/cmd
-cp -r pkg ${GO_DIR}/pkg
-cp -r vendor ${GO_DIR}/vendor
-cp Dockerfile ${GO_DIR}
-
-cd ${GO_DIR}
-gcloud builds submit . --tag=${REGISTRY}/${REPO_NAME}/kfserving-controller:${VERSION} --project=${PROJECT}
-gcloud container images add-tag --quiet ${REGISTRY}/${REPO_NAME}/kfserving-controller:${VERSION} ${REGISTRY}/${REPO_NAME}/kfserving-controller:latest --verbosity=info
+cd python
+cp xgb.Dockerfile Dockerfile
+gcloud builds submit . --tag=${REGISTRY}/${REPO_NAME}/xgbserver:${VERSION} --project=${PROJECT}
+gcloud container images add-tag --quiet ${REGISTRY}/${REPO_NAME}/xgbserver:${VERSION} ${REGISTRY}/${REPO_NAME}/xgbserver:latest --verbosity=info
