@@ -20,6 +20,16 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
+cd python
+if [ ! $# -eq 2 ]; then
+  echo "build-python-image.sh dockerFile imageName"
+  exit -1
+fi
+if [ ! -f $1 ]; then
+  echo "dockerFile $1 doesn't exist"
+  exit -1
+fi
+
 REGISTRY="${GCP_REGISTRY}"
 PROJECT="${GCP_PROJECT}"
 VERSION=$(git describe --tags --always --dirty)
@@ -27,7 +37,6 @@ VERSION=$(git describe --tags --always --dirty)
 echo "Activating service-account"
 gcloud auth activate-service-account --key-file=${GOOGLE_APPLICATION_CREDENTIALS}
 
-cd python
-cp alibiexplainer.Dockerfile Dockerfile
-gcloud builds submit . --tag=${REGISTRY}/${REPO_NAME}/alibi-explainer:${VERSION} --project=${PROJECT}
-gcloud container images add-tag --quiet ${REGISTRY}/${REPO_NAME}/alibi-explainer:${VERSION} ${REGISTRY}/${REPO_NAME}/alibi-explainer:latest --verbosity=info
+cp $1 Dockerfile
+gcloud builds submit . --tag=${REGISTRY}/${REPO_NAME}/$2:${VERSION} --project=${PROJECT}
+gcloud container images add-tag --quiet ${REGISTRY}/${REPO_NAME}/$2:${VERSION} ${REGISTRY}/${REPO_NAME}/$2:latest --verbosity=info
