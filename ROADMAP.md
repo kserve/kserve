@@ -42,9 +42,9 @@ Objective: "Improve the Serverless Experience by reducing cold starts/stops to 1
 * Server Shutdown
     * Ensure that all model servers shutdown within 10 seconds of not receiving traffic.
 
-Objective: "Simplify User Experience."
+Objective: "Simplify user experience with handling credentials for storage backends."
 * Secure storage mechanisms
-    * Explore simplifying user experience with storage backends protected by credentials (e.g. S3/GCS accounts with credentials)
+    * Implement a simplified user experience with storage backends protected by credentials (e.g. S3/GCS accounts with credentials)
 
 # Future 
 ## Unscheduled Work
@@ -57,8 +57,6 @@ Objective: "Simplify User Experience."
     * Multi Arm Bandit.
 * Payload Logging
     * Finalize the design and implementation for [Payload Logging](https://docs.google.com/document/d/1MBl5frM9l_wyQkYEaDeHOP6Mrsuz9YOob7276AAN9_c/edit?usp=sharing)
-    * Leverage existing infrastructure (e.g. Istio Sidecars) as much as possible
-    * Provide ability to support multiple storage mechanisms
 * Bias, Skew, and Outlier Detection.
     * Online support in graph.
     * Offline support with Payload Logging.
