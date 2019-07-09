@@ -12,15 +12,14 @@ const requestRefTemplate = "#/components/requestBodies/%s"
 const responseRefTemplate = "#/components/responses/%s"
 const pathTemplate = "/v1/models/%s/versions/%s:predict"
 
-func TFServingOpenAPI(model types.TFSavedModel, name string, version string, metaGraphTags []string, sigDefKey string) (*openapi3.Swagger, error) {
+func (g *Generator) tfServingOpenAPI(model types.TFSavedModel) (*openapi3.Swagger, error) {
 	requestRef := fmt.Sprintf(requestRefTemplate, requestName)
 	responseRef := fmt.Sprintf(responseRefTemplate, responseName)
-	path := fmt.Sprintf(pathTemplate, name, version)
-	schema, err := model.Schema(metaGraphTags, sigDefKey)
+	path := fmt.Sprintf(pathTemplate, g.name, g.version)
+	schema, err := model.Schema(g.metaGraphTags, g.sigDefKey)
 	if err != nil {
 		return &openapi3.Swagger{}, err
 	}
-
 	return &openapi3.Swagger{
 		OpenAPI: "3.0.0",
 		Components: openapi3.Components{
