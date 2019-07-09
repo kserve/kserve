@@ -11,6 +11,7 @@ Required Flags:
 
 Flags:
   -h, --help                     help for tf2openapi
+  -t, --metagraph_tags strings   All tags identifying desired MetaGraph
   -m, --model_base_path string   Absolute path of SavedModel file
   -n, --name string              Name of model (default "model")
   -o, --output_file string       Absolute path of file to write OpenAPI spec to
