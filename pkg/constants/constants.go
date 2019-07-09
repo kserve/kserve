@@ -46,6 +46,7 @@ var (
 // KFService Internal Annotations
 var (
 	KFServiceInternalAnnotationsPrefix             = "internal." + KFServingAPIGroupName
+	DeploymentMutatedInternalAnnotationKey         = KFServiceInternalAnnotationsPrefix + "/deployment-mutated"
 	ModelInitializerSourceUriInternalAnnotationKey = KFServiceInternalAnnotationsPrefix + "/model-initializer-sourceuri"
 )
 
