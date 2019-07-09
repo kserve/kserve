@@ -8,6 +8,24 @@ import (
 
 type TFDType int
 
+const (
+	// all the possible constants that can be JSON-ified according to
+	// https://www.tensorflow.org/tfx/serving/api_rest#json_mapping
+	// along with a representation for B64 strings
+	DtBool TFDType = iota
+	DtB64String
+	DtString
+	DtInt8
+	DtUInt8
+	DtInt16
+	DtInt32
+	DtUInt32
+	DtInt64
+	DtUInt64
+	DtFloat
+	DtDouble
+)
+
 func NewTFDType(name string, dType string) (TFDType, error) {
 	tfDType, ok := map[string]TFDType{
 		"DT_BOOL":   DtBool,
