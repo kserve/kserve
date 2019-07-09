@@ -505,16 +505,19 @@ data:
     }
   frameworks: |-
     {
-        "tensorflow" : {
-            "image" : "tensorflow/serving"
+        "tensorflow": {
+            "image": "tensorflow/serving"
         },
-        "sklearn" : {
-            "image" : "gcr.io/kfserving/sklearnserver"
+        "sklearn": {
+            "image": "gcr.io/kfserving/sklearnserver"
         },
-        "xgboost" : {
-            "image" : "gcr.io/kfserving/xgbserver"
+        "pytorch": {
+            "image": "gcr.io/kfserving/pytorchserver"
+        }
+        "xgboost": {
+            "image": "gcr.io/kfserving/xgbserver"
         },
-        "tensorrt" : {
+        "tensorrt": {
             "image": "nvcr.io/nvidia/tensorrtserver"
         }
     }
