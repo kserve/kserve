@@ -71,12 +71,6 @@ func (mutator *Mutator) Handle(ctx context.Context, req types.Request) types.Res
 
 func (mutator *Mutator) mutate(deployment *appsv1.Deployment, configMap *v1.ConfigMap) error {
 
-	// only mutate if not already mutated
-	mutated, ok := deployment.Spec.Template.ObjectMeta.Annotations[constants.DeploymentMutatedInternalAnnotationKey]
-	if ok && mutated == "true" {
-		return nil
-	}
-
 	credentialBuilder := credentials.NewCredentialBulder(mutator.Client, configMap)
 	modelInitializer := &ModelInitializerInjector{
 		credentialBuilder: credentialBuilder,
@@ -92,9 +86,6 @@ func (mutator *Mutator) mutate(deployment *appsv1.Deployment, configMap *v1.Conf
 			return err
 		}
 	}
-
-	// finally set flag to we dont mutate again (on autoscale for instance)
-	deployment.Spec.Template.ObjectMeta.Annotations[constants.DeploymentMutatedInternalAnnotationKey] = "true"
 
 	return nil
 }
