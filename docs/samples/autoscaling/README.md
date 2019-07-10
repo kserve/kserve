@@ -26,7 +26,7 @@
 2. Your cluster's Istio Ingress gateway must be network accessible.
 3. Make sure your istio network policy [allow Google Cloud Storage](https://knative.dev/docs/serving/outbound-network-access/)
 4. [Metrics installation](https://knative.dev/docs/serving/installing-logging-metrics-traces) for viewing scaling graphs (optional).
-5. The hey load generator installed (go get -u github.com/rakyll/hey).
+5. The [hey](https://github.com/rakyll/hey) load generator installed (go get -u github.com/rakyll/hey).
 
 ## Load your KFService with target concurrency
 
