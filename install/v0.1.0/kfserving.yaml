@@ -513,7 +513,7 @@ data:
         },
         "pytorch": {
             "image": "gcr.io/kfserving/pytorchserver"
-        }
+        },
         "xgboost": {
             "image": "gcr.io/kfserving/xgbserver"
         },
