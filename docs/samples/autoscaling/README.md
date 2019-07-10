@@ -24,7 +24,7 @@
 ## Setup
 1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/blob/master/docs/DEVELOPER_GUIDE.md#deploy-kfserving).
 2. Your cluster's Istio Ingress gateway must be network accessible.
-3. Your cluster's Istio Egresss gateway must [allow Google Cloud Storage](https://knative.dev/docs/serving/outbound-network-access/)
+3. Make sure your istio network policy [allow Google Cloud Storage](https://knative.dev/docs/serving/outbound-network-access/)
 4. [Metrics installation](https://knative.dev/docs/serving/installing-logging-metrics-traces) for viewing scaling graphs (optional).
 5. The hey load generator installed (go get -u github.com/rakyll/hey).
 
@@ -42,13 +42,13 @@ $ kfservice.serving.kubeflow.org/flowers-sample configured
 ```
 
 ### Load KFService with concurrent requests
-Send 30 seconds of traffic maintaining 5 in-flight requests.
+Send traffic in 30 seconds spurts maintaining 5 in-flight requests.
 ```
 MODEL_NAME=flowers-sample
 INPUT_PATH=../tensorflow/input.json
 CLUSTER_IP=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 HOST=$(kubectl get kfservice $MODEL_NAME -o jsonpath='{.status.url}')
-hey -z 30s -c 5 -host ${HOST} -D $INPUT_PATH http://$CLUSTER_IP/v1/models/$MODEL_NAME:predict
+hey -z 30s -c 5 -m POST -host ${HOST} -D $INPUT_PATH http://$CLUSTER_IP/v1/models/$MODEL_NAME:predict
 ```
 Expected Output
 ```shell
@@ -95,11 +95,11 @@ Details (average, fastest, slowest):
 Status code distribution:
   [200]	4126 responses
 ```
-Check the number of pods that are running now, `KFServing` uses `Knative Serving`'s autoscaler which is based on the
+Check the number of running pods now, `KFServing` uses `Knative Serving` autoscaler which is based on the
 average number of in-flight requests per pod(concurrency). `KFServing` by default sets target concurrency to be 1 and we
-load the service with 5 concurrent requests so that autoscaler tries scaling up to 5 pods. Notice that out of all the requests there are 
-5 requests on the histogram that take around 10s, that's the cold start time cost to initially spawn the pods, download model to be ready
-to serve the inference workload. The cold start may take longer(to pull the serving image) if the image is not cached on the node that the pod is scheduled on.
+load the service with 5 concurrent requests, so the autoscaler tries scaling up to 5 pods. Notice that out of all the requests there are 
+5 requests on the histogram that take around 10s, that's the cold start time cost to initially spawn the pods and download model to be ready
+to serve. The cold start may take longer(to pull the serving image) if the image is not cached on the node that the pod is scheduled on.
 ```
 $ kubectl get pods
 NAME                                                       READY   STATUS            RESTARTS   AGE
@@ -140,7 +140,7 @@ MODEL_NAME=flowers-sample
 INPUT_PATH=../tensorflow/input.json
 CLUSTER_IP=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 HOST=$(kubectl get kfservice $MODEL_NAME -o jsonpath='{.status.url}')
-hey -z 30s -q 50 -host ${HOST} -D $INPUT_PATH http://$CLUSTER_IP/v1/models/$MODEL_NAME:predict
+hey -z 30s -q 50 -m POST -host ${HOST} -D $INPUT_PATH http://$CLUSTER_IP/v1/models/$MODEL_NAME:predict
 ```
 
 ```shell
@@ -188,7 +188,7 @@ Status code distribution:
   [200]	20525 responses
 ```
 
-Check the number of pods now, we are loading the service with 50 requests per second, and from the dashboard you can see
+Check the number of running pods now, we are loading the service with 50 requests per second, and from the dashboard you can see
 that it hits the average concurrency 10 and autoscaler tries scaling up to 10 pods.
 
 ### Check Dashboard
@@ -201,7 +201,7 @@ kubectl port-forward --namespace knative-monitoring $(kubectl get pods --namespa
 ![scaling dashboard](scaling_debug_qps.png)
 
 Autoscaler calculates average concurrency over 60 second window so it takes a minute to stabilize at the desired concurrency level,
-however it also calculates the 6 second panic window and will enter into panic mode if that window reaches 2x target concurrency.
+however it also calculates the 6 second panic window and will enter into [panic mode](https://github.com/knative/serving/blob/master/docs/scaling/DEVELOPMENT.md#panic-mode) if that window reaches 2x target concurrency.
 From the dashboard you can see that it enters panic mode in which autoscaler operates on shorter and more sensitive window. Once the panic
 conditions are no longer met for 60 seconds, autoscaler will return back to 60 seconds stable window.
 
@@ -237,7 +237,7 @@ MODEL_NAME=flowers-sample-gpu
 INPUT_PATH=../tensorflow/input.json
 CLUSTER_IP=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 HOST=$(kubectl get kfservice $MODEL_NAME -o jsonpath='{.status.url}')
-hey -z 30s -c 5 -host ${HOST} -D $INPUT_PATH http://$CLUSTER_IP/v1/models/$MODEL_NAME:predict
+hey -z 30s -c 5 -m POST -host ${HOST} -D $INPUT_PATH http://$CLUSTER_IP/v1/models/$MODEL_NAME:predict
 ```
 Expected output
 ```shell
