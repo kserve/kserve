@@ -21,16 +21,23 @@ import (
 
 // KFServiceSpec defines the desired state of KFService
 type KFServiceSpec struct {
-	Default ModelSpec `json:"default"`
+	Default PredictorSpec `json:"default"`
 	// Canary defines an alternate configuration to route a percentage of traffic.
-	Canary               *ModelSpec `json:"canary,omitempty"`
-	CanaryTrafficPercent int        `json:"canaryTrafficPercent,omitempty"`
+	Canary               *PredictorSpec `json:"canary,omitempty"`
+	CanaryTrafficPercent int            `json:"canaryTrafficPercent,omitempty"`
 }
 
-// ModelSpec defines the default configuration to route traffic.
-type ModelSpec struct {
+// PredictorSpec defines the predictor for default or canary routes
+type PredictorSpec struct {
 	// Service Account Name
-	ServiceAccountName string `json:"serviceAccountName,omitempty"`
+	ServiceAccountName string    `json:"serviceAccountName,omitempty"`
+	Predict            ModelSpec `json:"predict"`
+	// Optional explainer
+	Explain *ExplainerSpec `json:"explain,omitempty"`
+}
+
+// ModelSpec defines the configuration to route traffic to a predictor.
+type ModelSpec struct {
 	// Minimum number of replicas, pods won't scale down to 0 in case of no traffic
 	MinReplicas int `json:"minReplicas,omitempty"`
 	// This is the up bound for autoscaler to scale to
@@ -42,6 +49,28 @@ type ModelSpec struct {
 	XGBoost    *XGBoostSpec    `json:"xgboost,omitempty"`
 	SKLearn    *SKLearnSpec    `json:"sklearn,omitempty"`
 	PyTorch    *PyTorchSpec    `json:"pytorch,omitempty"`
+}
+
+// ExplainerSpec defines the arguments for a model explanation server
+type ExplainerSpec struct {
+	// The following fields follow a "1-of" semantic. Users must specify exactly one spec.
+	Alibi  *AlibiExplainerSpec `json:"alibi,omitempty"`
+	Custom *CustomSpec         `json:"custom,omitempty"`
+}
+
+// AlibiExplainerSpec defines the arguments for configuring an Alibi explanation serving
+type AlibiExplainerSpec struct {
+	// The following fields follow a "1-of" semantic. Users must specify exactly one of Type or ExplainerURI.
+	// The kind of Alibi explanation server to create, e.g. AnchorTabular
+	Type string `json:"type"`
+	// The location of a fit explanation model
+	SavedExplainerURI string `json:"savedExplainerUri,omitempty"`
+	// Defaults to latest Alibi Version.
+	RuntimeVersion string `json:"runtimeVersion,omitempty"`
+	// Defaults to requests and limits of 1CPU, 2Gb MEM.
+	Resources v1.ResourceRequirements `json:"resources,omitempty"`
+	// Inline custom parameter settings for explainer
+	Config v1.ConfigMap `json:"config,omitempty"`
 }
 
 // TensorflowSpec defines arguments for configuring Tensorflow model serving.
