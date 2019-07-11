@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/utils"
 	v1 "k8s.io/api/core/v1"
 )
@@ -44,6 +45,10 @@ var (
 	InvalidTensorflowRuntimeExcludesGPU  = "RuntimeVersion is GPU enabled but GPU resources are not requested. " + InvalidTensorflowRuntimeVersionError
 )
 
+func (t *TensorflowSpec) GetModelSourceUri() string {
+	return t.ModelURI
+}
+
 func (t *TensorflowSpec) CreateModelServingContainer(modelName string, config *FrameworksConfig) *v1.Container {
 	imageName := TensorflowServingImageName
 	if config.Tensorflow.ContainerImage != "" {
@@ -58,7 +63,7 @@ func (t *TensorflowSpec) CreateModelServingContainer(modelName string, config *F
 			"--port=" + TensorflowServingGRPCPort,
 			"--rest_api_port=" + TensorflowServingRestPort,
 			"--model_name=" + modelName,
-			"--model_base_path=" + t.ModelURI,
+			"--model_base_path=" + constants.DefaultModelLocalMountPath,
 		},
 	}
 }

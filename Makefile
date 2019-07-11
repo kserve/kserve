@@ -23,10 +23,6 @@ executor: fmt vet
 run: generate fmt vet lint
 	go run ./cmd/manager/main.go
 
-# Install CRDs into a cluster
-install: manifests
-	kubectl apply -f config/default/crds
-
 # Deploy controller in the configured Kubernetes cluster in ~/.kube/config
 deploy: manifests
 	kustomize build config/default | kubectl apply -f -
@@ -68,6 +64,7 @@ ifndef GOPATH
 	$(error GOPATH not defined, please define GOPATH. Run "go help gopath" to learn more about GOPATH)
 endif
 	go generate ./pkg/... ./cmd/...
+	hack/update-codegen.sh
 
 # Build the docker image
 docker-build: test

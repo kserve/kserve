@@ -6,25 +6,28 @@ metadata:
 data:
   frameworks: |-
     {
-        "tensorflow" : {
-            "image" : "tensorflow/serving"
+        "tensorflow": {
+            "image": "tensorflow/serving"
         },
-        "sklearn" : {
-            "image" : "gcr.io/kfserving/sklearnserver"
+        "sklearn": {
+            "image": "gcr.io/kfserving/sklearnserver"
         },
-        "xgboost" : {
-            "image" : "gcr.io/kfserving/xgbserver"
+        "xgboost": {
+            "image": "gcr.io/kfserving/xgbserver"
         },
-        "tensorrt" : {
+        "pytorch": {
+            "image": "gcr.io/kfserving/pytorchserver"
+        },
+        "tensorrt": {
             "image": "nvcr.io/nvidia/tensorrtserver"
         }
     }
   credentials: |-
     {
-       "gcs" : {
+       "gcs": {
            "gcsCredentialFileName": "gcloud-application-credentials.json"
        },
-       "s3" : {
+       "s3": {
            "s3AccessKeyIDName": "awsAccessKeyID",
            "s3SecretAccessKeyName": "awsSecretAccessKey"
        }

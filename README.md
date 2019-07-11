@@ -6,10 +6,17 @@ KFServing encapsulates the complexity of autoscaling, networking, health checkin
 ### Learn More
 * Join our [Working Group](https://groups.google.com/forum/#!forum/kfserving) for meeting invites and discussion.
 * [Read the Docs](/docs).
+* [Examples](./docs/samples).
 * [Roadmap](/ROADMAP.md).
 * [KFServing 101 Slides](https://drive.google.com/file/d/16oqz6dhY5BR0u74pi9mDThU97Np__AFb/view).
 * [KFServing 101 Tech Talk](https://www.youtube.com/watch?v=hGIvlFADMhU).
 * This project is an evolution of the [original proposal in the Kubeflow repo](https://github.com/kubeflow/kubeflow/issues/2306). 
+
+### Install ###
+```
+TAG=v0.1.0
+kubectl apply -f ./install/$TAG/kfserving.yaml
+```
 
 ### Contribute
 * [Developer Guide](/docs/DEVELOPER_GUIDE.md).

@@ -10,18 +10,22 @@ import (
 	pb "github.com/kubeflow/kfserving/tools/tf2openapi/generated/protobuf"
 )
 
-const ServingMetaGraphTag string = "serve"
-
 type TFSavedModel struct {
 	MetaGraphs [] TFMetaGraph
 }
 
-func NewTFSavedModel(model pb.SavedModel) TFSavedModel {
-	return TFSavedModel{}
-}
-
-func extractMetaGraphs(metaGraphs []*pb.MetaGraphDef) []TFMetaGraph {
-	return []TFMetaGraph{}
+func NewTFSavedModel(model *pb.SavedModel) (TFSavedModel, error) {
+	tfSavedModel := TFSavedModel{
+		MetaGraphs: []TFMetaGraph{},
+	}
+	for _, metaGraph := range model.MetaGraphs {
+		tfMetaGraph, err := NewTFMetaGraph(metaGraph)
+		if err != nil {
+			return TFSavedModel{}, err
+		}
+		tfSavedModel.MetaGraphs = append(tfSavedModel.MetaGraphs, tfMetaGraph)
+	}
+	return tfSavedModel, nil
 }
 
 func (t *TFSavedModel) Schema() *openapi3.Schema {

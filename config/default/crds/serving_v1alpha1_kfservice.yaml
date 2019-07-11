@@ -65,6 +65,22 @@ spec:
                     0 in case of no traffic
                   format: int64
                   type: integer
+                pytorch:
+                  properties:
+                    modelClassName:
+                      description: Defaults PyTorch model class name to 'PyTorchModel'
+                      type: string
+                    modelUri:
+                      type: string
+                    resources:
+                      description: Defaults to requests and limits of 1CPU, 2Gb MEM.
+                      type: object
+                    runtimeVersion:
+                      description: Defaults to latest PyTorch Version
+                      type: string
+                  required:
+                  - modelUri
+                  type: object
                 serviceAccountName:
                   description: Service Account Name
                   type: string
@@ -144,6 +160,22 @@ spec:
                     0 in case of no traffic
                   format: int64
                   type: integer
+                pytorch:
+                  properties:
+                    modelClassName:
+                      description: Defaults PyTorch model class name to 'PyTorchModel'
+                      type: string
+                    modelUri:
+                      type: string
+                    resources:
+                      description: Defaults to requests and limits of 1CPU, 2Gb MEM.
+                      type: object
+                    runtimeVersion:
+                      description: Defaults to latest PyTorch Version
+                      type: string
+                  required:
+                  - modelUri
+                  type: object
                 serviceAccountName:
                   description: Service Account Name
                   type: string

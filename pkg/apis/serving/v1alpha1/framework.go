@@ -15,6 +15,7 @@ package v1alpha1
 
 import (
 	"fmt"
+
 	"github.com/kubeflow/kfserving/pkg/constants"
 	v1 "k8s.io/api/core/v1"
 	resource "k8s.io/apimachinery/pkg/api/resource"
@@ -22,6 +23,7 @@ import (
 )
 
 type FrameworkHandler interface {
+	GetModelSourceUri() string
 	CreateModelServingContainer(modelName string, config *FrameworksConfig) *v1.Container
 	ApplyDefaults()
 	Validate() error
@@ -38,6 +40,11 @@ var (
 	DefaultMemoryRequests = resource.MustParse("2Gi")
 	DefaultCPURequests    = resource.MustParse("1")
 )
+
+// Returns a URI to the model. This URI is passed to the model-initializer via the ModelInitializerSourceUriInternalAnnotationKey
+func (m *ModelSpec) GetModelSourceUri() string {
+	return getHandler(m).GetModelSourceUri()
+}
 
 func (m *ModelSpec) CreateModelServingContainer(modelName string, config *FrameworksConfig) *v1.Container {
 	return getHandler(m).CreateModelServingContainer(modelName, config)
@@ -65,6 +72,7 @@ type FrameworksConfig struct {
 	TensorRT   FrameworkConfig `json:"tensorrt,omitempty"`
 	Xgboost    FrameworkConfig `json:"xgboost,omitempty"`
 	SKlearn    FrameworkConfig `json:"sklearn,omitempty"`
+	PyTorch    FrameworkConfig `json:"pytorch,omitempty"`
 }
 
 func setResourceRequirementDefaults(requirements *v1.ResourceRequirements) {
@@ -107,6 +115,9 @@ func makeHandler(modelSpec *ModelSpec) (FrameworkHandler, error) {
 	}
 	if modelSpec.Tensorflow != nil {
 		handlers = append(handlers, modelSpec.Tensorflow)
+	}
+	if modelSpec.PyTorch != nil {
+		handlers = append(handlers, modelSpec.PyTorch)
 	}
 	if modelSpec.TensorRT != nil {
 		handlers = append(handlers, modelSpec.TensorRT)

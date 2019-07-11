@@ -18,6 +18,8 @@ package v1alpha1
 
 import (
 	"fmt"
+	"regexp"
+	"strings"
 
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
@@ -29,6 +31,12 @@ const (
 	MaxReplicasLowerBoundExceededError  = "MaxReplicas cannot be less than 0."
 	TrafficBoundsExceededError          = "TrafficPercent must be between [0, 100]."
 	TrafficProvidedWithoutCanaryError   = "Canary must be specified when CanaryTrafficPercent > 0."
+	UnsupportedModelURIFormatError      = "ModelURI, must be one of: [%s] or match https://{}.blob.core.windows.net/{}/{} or be an absolute or relative local path. Model URI [%s] is not supported."
+)
+
+var (
+	SupportedModelSourceURIPrefixList = []string{"gs://", "s3://", "pvc://", "file://"}
+	AzureBlobURIRegEx                 = "https://(.+?).blob.core.windows.net/(.+)"
 )
 
 // ValidateCreate implements https://godoc.org/sigs.k8s.io/controller-runtime/pkg/webhook/admission#Validator
@@ -77,10 +85,38 @@ func validateModelSpec(spec *ModelSpec) error {
 	if err := spec.Validate(); err != nil {
 		return err
 	}
+	if err := validateModelURI(spec.GetModelSourceUri()); err != nil {
+		return err
+	}
 	if err := validateReplicas(spec.MinReplicas, spec.MaxReplicas); err != nil {
 		return err
 	}
 	return nil
+}
+
+func validateModelURI(modelSourceURI string) error {
+	if modelSourceURI == "" {
+		return nil
+	}
+
+	// local path (not some protocol?)
+	if !regexp.MustCompile("\\w+?://").MatchString(modelSourceURI) {
+		return nil
+	}
+
+	// one of the prefixes we know?
+	for _, prefix := range SupportedModelSourceURIPrefixList {
+		if strings.HasPrefix(modelSourceURI, prefix) {
+			return nil
+		}
+	}
+
+	azureURIMatcher := regexp.MustCompile(AzureBlobURIRegEx)
+	if parts := azureURIMatcher.FindStringSubmatch(modelSourceURI); parts != nil {
+		return nil
+	}
+
+	return fmt.Errorf(UnsupportedModelURIFormatError, strings.Join(SupportedModelSourceURIPrefixList, ", "), modelSourceURI)
 }
 
 func validateReplicas(minReplicas int, maxReplicas int) error {

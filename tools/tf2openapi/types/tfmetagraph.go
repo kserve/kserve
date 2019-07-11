@@ -10,18 +10,24 @@ import (
 	pb "github.com/kubeflow/kfserving/tools/tf2openapi/generated/protobuf"
 )
 
-const PredictReqSigDefMethod string = "tensorflow/serving/predict"
-
 type TFMetaGraph struct {
 	SignatureDefs [] TFSignatureDef
+	Tags          [] string
 }
 
-func NewTFMetaGraph(metaGraph pb.MetaGraphDef) TFMetaGraph {
-	return TFMetaGraph{}
-}
-
-func extractSigDefs(sigDefs map[string]*pb.SignatureDef) []TFSignatureDef {
-	return []TFSignatureDef{}
+func NewTFMetaGraph(metaGraph *pb.MetaGraphDef) (TFMetaGraph, error) {
+	tfMetaGraph := TFMetaGraph{
+		SignatureDefs: []TFSignatureDef{},
+		Tags:          metaGraph.MetaInfoDef.Tags,
+	}
+	for key, definition := range metaGraph.SignatureDef {
+		tfSigDef, err := NewTFSignatureDef(key, definition.MethodName, definition.Inputs, definition.Outputs)
+		if err != nil {
+			return TFMetaGraph{}, err
+		}
+		tfMetaGraph.SignatureDefs = append(tfMetaGraph.SignatureDefs, tfSigDef)
+	}
+	return tfMetaGraph, nil
 }
 
 func (t *TFMetaGraph) Schema() *openapi3.Schema {

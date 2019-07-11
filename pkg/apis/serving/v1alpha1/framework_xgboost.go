@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/utils"
 	v1 "k8s.io/api/core/v1"
 )
@@ -31,6 +32,10 @@ var (
 	DefaultXGBoostRuntimeVersion      = "latest"
 )
 
+func (x *XGBoostSpec) GetModelSourceUri() string {
+	return x.ModelURI
+}
+
 func (x *XGBoostSpec) CreateModelServingContainer(modelName string, config *FrameworksConfig) *v1.Container {
 	imageName := XGBoostServerImageName
 	if config.Xgboost.ContainerImage != "" {
@@ -41,7 +46,7 @@ func (x *XGBoostSpec) CreateModelServingContainer(modelName string, config *Fram
 		Resources: x.Resources,
 		Args: []string{
 			"--model_name=" + modelName,
-			"--model_dir=" + x.ModelURI,
+			"--model_dir=" + constants.DefaultModelLocalMountPath,
 		},
 	}
 }

@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/utils"
 	v1 "k8s.io/api/core/v1"
 )
@@ -33,6 +34,10 @@ var (
 
 var _ FrameworkHandler = (*SKLearnSpec)(nil)
 
+func (s *SKLearnSpec) GetModelSourceUri() string {
+	return s.ModelURI
+}
+
 func (s *SKLearnSpec) CreateModelServingContainer(modelName string, config *FrameworksConfig) *v1.Container {
 	imageName := SKLearnServerImageName
 	if config.SKlearn.ContainerImage != "" {
@@ -43,7 +48,7 @@ func (s *SKLearnSpec) CreateModelServingContainer(modelName string, config *Fram
 		Resources: s.Resources,
 		Args: []string{
 			"--model_name=" + modelName,
-			"--model_dir=" + s.ModelURI,
+			"--model_dir=" + constants.DefaultModelLocalMountPath,
 		},
 	}
 }
