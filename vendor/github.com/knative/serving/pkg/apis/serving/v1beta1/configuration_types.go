@@ -18,7 +18,7 @@ package v1beta1
 
 import (
 	"github.com/knative/pkg/apis"
-	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
+	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
 	"github.com/knative/pkg/kmeta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -49,6 +49,9 @@ var (
 	_ apis.Validatable = (*Configuration)(nil)
 	_ apis.Defaultable = (*Configuration)(nil)
 
+	// Check that Configuration can be converted to higher versions.
+	_ apis.Convertible = (*Configuration)(nil)
+
 	// Check that we can create OwnerReferences to a Configuration.
 	_ kmeta.OwnerRefable = (*Configuration)(nil)
 )
@@ -63,7 +66,7 @@ type ConfigurationSpec struct {
 const (
 	// ConfigurationConditionReady is set when the configuration's latest
 	// underlying revision has reported readiness.
-	ConfigurationConditionReady = duckv1alpha1.ConditionReady
+	ConfigurationConditionReady = apis.ConditionReady
 )
 
 // ConfigurationStatusFields holds the fields of Configuration's status that
@@ -83,7 +86,7 @@ type ConfigurationStatusFields struct {
 
 // ConfigurationStatus communicates the observed state of the Configuration (from the controller).
 type ConfigurationStatus struct {
-	duckv1alpha1.Status `json:",inline"`
+	duckv1beta1.Status `json:",inline"`
 
 	ConfigurationStatusFields `json:",inline"`
 }

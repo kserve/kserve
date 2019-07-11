@@ -23,15 +23,15 @@ import (
 	"github.com/knative/pkg/apis"
 )
 
-func getIntGT0(m map[string]string, k string) (int64, *apis.FieldError) {
+func getIntGE0(m map[string]string, k string) (int64, *apis.FieldError) {
 	v, ok := m[k]
 	if !ok {
 		return 0, nil
 	}
 	i, err := strconv.ParseInt(v, 10, 32)
-	if err != nil || i < 1 {
+	if err != nil || i < 0 {
 		return 0, &apis.FieldError{
-			Message: fmt.Sprintf("Invalid %s annotation value: must be an integer greater than 0", k),
+			Message: fmt.Sprintf("Invalid %s annotation value: must be an integer equal or greater than 0", k),
 			Paths:   []string{k},
 		}
 	}
@@ -43,11 +43,11 @@ func ValidateAnnotations(annotations map[string]string) *apis.FieldError {
 		return nil
 	}
 
-	min, err := getIntGT0(annotations, MinScaleAnnotationKey)
+	min, err := getIntGE0(annotations, MinScaleAnnotationKey)
 	if err != nil {
 		return err
 	}
-	max, err := getIntGT0(annotations, MaxScaleAnnotationKey)
+	max, err := getIntGE0(annotations, MaxScaleAnnotationKey)
 	if err != nil {
 		return err
 	}

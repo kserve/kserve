@@ -21,7 +21,6 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"github.com/kubeflow/kfserving/pkg/controller/kfservice/resources/credentials/gcs"
 	"github.com/kubeflow/kfserving/pkg/controller/kfservice/resources/credentials/s3"
@@ -71,56 +70,64 @@ func TestS3CredentialBuilder(t *testing.T) {
 	}
 	scenarios := map[string]struct {
 		serviceAccount        *v1.ServiceAccount
-		inputConfiguration    *v1alpha1.Configuration
-		expectedConfiguration *v1alpha1.Configuration
+		inputConfiguration    *v1beta1.Configuration
+		expectedConfiguration *v1beta1.Configuration
 		shouldFail            bool
 	}{
 		"Build s3 secrets envs": {
 			serviceAccount: existingServiceAccount,
-			inputConfiguration: &v1alpha1.Configuration{
-				Spec: v1alpha1.ConfigurationSpec{
-					RevisionTemplate: &v1alpha1.RevisionTemplateSpec{
-						Spec: v1alpha1.RevisionSpec{
-							Container: &v1.Container{},
+			inputConfiguration: &v1beta1.Configuration{
+				Spec: v1beta1.ConfigurationSpec{
+					Template: v1beta1.RevisionTemplateSpec{
+						Spec: v1beta1.RevisionSpec{
+							PodSpec: v1.PodSpec{
+								Containers: []v1.Container{
+									{},
+								},
+							},
 						},
 					},
 				},
 			},
-			expectedConfiguration: &v1alpha1.Configuration{
-				Spec: v1alpha1.ConfigurationSpec{
-					RevisionTemplate: &v1alpha1.RevisionTemplateSpec{
-						Spec: v1alpha1.RevisionSpec{
-							Container: &v1.Container{
-								Env: []v1.EnvVar{
+			expectedConfiguration: &v1beta1.Configuration{
+				Spec: v1beta1.ConfigurationSpec{
+					Template: v1beta1.RevisionTemplateSpec{
+						Spec: v1beta1.RevisionSpec{
+							PodSpec: v1.PodSpec{
+								Containers: []v1.Container{
 									{
-										Name: s3.AWSAccessKeyId,
-										ValueFrom: &v1.EnvVarSource{
-											SecretKeyRef: &v1.SecretKeySelector{
-												LocalObjectReference: v1.LocalObjectReference{
-													Name: "s3-secret",
+										Env: []v1.EnvVar{
+											{
+												Name: s3.AWSAccessKeyId,
+												ValueFrom: &v1.EnvVarSource{
+													SecretKeyRef: &v1.SecretKeySelector{
+														LocalObjectReference: v1.LocalObjectReference{
+															Name: "s3-secret",
+														},
+														Key: "awsAccessKeyID",
+													},
 												},
-												Key: "awsAccessKeyID",
+											},
+											{
+												Name: s3.AWSSecretAccessKey,
+												ValueFrom: &v1.EnvVarSource{
+													SecretKeyRef: &v1.SecretKeySelector{
+														LocalObjectReference: v1.LocalObjectReference{
+															Name: "s3-secret",
+														},
+														Key: "awsSecretAccessKey",
+													},
+												},
+											},
+											{
+												Name:  s3.S3Endpoint,
+												Value: "s3.aws.com",
+											},
+											{
+												Name:  s3.AWSEndpointUrl,
+												Value: "https://s3.aws.com",
 											},
 										},
-									},
-									{
-										Name: s3.AWSSecretAccessKey,
-										ValueFrom: &v1.EnvVarSource{
-											SecretKeyRef: &v1.SecretKeySelector{
-												LocalObjectReference: v1.LocalObjectReference{
-													Name: "s3-secret",
-												},
-												Key: "awsSecretAccessKey",
-											},
-										},
-									},
-									{
-										Name:  s3.S3Endpoint,
-										Value: "s3.aws.com",
-									},
-									{
-										Name:  s3.AWSEndpointUrl,
-										Value: "https://s3.aws.com",
 									},
 								},
 							},
@@ -138,8 +145,8 @@ func TestS3CredentialBuilder(t *testing.T) {
 		g.Expect(c.Create(context.TODO(), existingS3Secret)).NotTo(gomega.HaveOccurred())
 
 		err := builder.CreateSecretVolumeAndEnv(scenario.serviceAccount.Namespace, scenario.serviceAccount.Name,
-			scenario.inputConfiguration.Spec.RevisionTemplate.Spec.Container,
-			&scenario.inputConfiguration.Spec.RevisionTemplate.Spec.Volumes,
+			&scenario.inputConfiguration.Spec.Template.Spec.Containers[0],
+			&scenario.inputConfiguration.Spec.Template.Spec.Volumes,
 		)
 		if scenario.shouldFail && err == nil {
 			t.Errorf("Test %q failed: returned success but expected error", name)
@@ -184,49 +191,51 @@ func TestGCSCredentialBuilder(t *testing.T) {
 	}
 	scenarios := map[string]struct {
 		serviceAccount        *v1.ServiceAccount
-		inputConfiguration    *v1alpha1.Configuration
-		expectedConfiguration *v1alpha1.Configuration
+		inputConfiguration    *v1beta1.Configuration
+		expectedConfiguration *v1beta1.Configuration
 		shouldFail            bool
 	}{
 		"Build gcs secrets volume": {
 			serviceAccount: existingServiceAccount,
-			inputConfiguration: &v1alpha1.Configuration{
-				Spec: v1alpha1.ConfigurationSpec{
-					RevisionTemplate: &v1alpha1.RevisionTemplateSpec{
-						Spec: v1alpha1.RevisionSpec{
-							Container: &v1.Container{},
+			inputConfiguration: &v1beta1.Configuration{
+				Spec: v1beta1.ConfigurationSpec{
+					Template: v1beta1.RevisionTemplateSpec{
+						Spec: v1beta1.RevisionSpec{
+							PodSpec: v1.PodSpec{
+								Containers: []v1.Container{{}},
+							},
 						},
 					},
 				},
 			},
-			expectedConfiguration: &v1alpha1.Configuration{
-				Spec: v1alpha1.ConfigurationSpec{
-					RevisionTemplate: &v1alpha1.RevisionTemplateSpec{
-						Spec: v1alpha1.RevisionSpec{
-							Container: &v1.Container{
-								VolumeMounts: []v1.VolumeMount{
+			expectedConfiguration: &v1beta1.Configuration{
+				Spec: v1beta1.ConfigurationSpec{
+					Template: v1beta1.RevisionTemplateSpec{
+						Spec: v1beta1.RevisionSpec{
+							PodSpec: v1.PodSpec{
+								Containers: []v1.Container{
 									{
-										Name:      gcs.GCSCredentialVolumeName,
-										ReadOnly:  true,
-										MountPath: gcs.GCSCredentialVolumeMountPath,
+										VolumeMounts: []v1.VolumeMount{
+											{
+												Name:      gcs.GCSCredentialVolumeName,
+												ReadOnly:  true,
+												MountPath: gcs.GCSCredentialVolumeMountPath,
+											},
+										},
+										Env: []v1.EnvVar{
+											{
+												Name:  gcs.GCSCredentialEnvKey,
+												Value: gcs.GCSCredentialVolumeMountPath + "gcloud-application-credentials.json",
+											},
+										},
 									},
 								},
-								Env: []v1.EnvVar{
+								Volumes: []v1.Volume{
 									{
-										Name:  gcs.GCSCredentialEnvKey,
-										Value: gcs.GCSCredentialVolumeMountPath + "gcloud-application-credentials.json",
-									},
-								},
-							},
-							RevisionSpec: v1beta1.RevisionSpec{
-								PodSpec: v1beta1.PodSpec{
-									Volumes: []v1.Volume{
-										{
-											Name: gcs.GCSCredentialVolumeName,
-											VolumeSource: v1.VolumeSource{
-												Secret: &v1.SecretVolumeSource{
-													SecretName: "user-gcp-sa",
-												},
+										Name: gcs.GCSCredentialVolumeName,
+										VolumeSource: v1.VolumeSource{
+											Secret: &v1.SecretVolumeSource{
+												SecretName: "user-gcp-sa",
 											},
 										},
 									},
@@ -246,8 +255,8 @@ func TestGCSCredentialBuilder(t *testing.T) {
 		g.Expect(c.Create(context.TODO(), existingGCSSecret)).NotTo(gomega.HaveOccurred())
 
 		err := builder.CreateSecretVolumeAndEnv(scenario.serviceAccount.Namespace, scenario.serviceAccount.Name,
-			scenario.inputConfiguration.Spec.RevisionTemplate.Spec.Container,
-			&scenario.inputConfiguration.Spec.RevisionTemplate.Spec.Volumes,
+			&scenario.inputConfiguration.Spec.Template.Spec.Containers[0],
+			&scenario.inputConfiguration.Spec.Template.Spec.Volumes,
 		)
 		if scenario.shouldFail && err == nil {
 			t.Errorf("Test %q failed: returned success but expected error", name)

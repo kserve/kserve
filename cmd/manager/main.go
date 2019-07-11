@@ -20,7 +20,7 @@ import (
 	"flag"
 	"os"
 
-	knservingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	knservingv1beta1 "github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"github.com/kubeflow/kfserving/pkg/apis"
 	"github.com/kubeflow/kfserving/pkg/controller"
 	"github.com/kubeflow/kfserving/pkg/webhook"
@@ -65,7 +65,7 @@ func main() {
 
 	// Setup Scheme for all resources
 	log.Info("Setting up Knative scheme")
-	if err := knservingv1alpha1.AddToScheme(mgr.GetScheme()); err != nil {
+	if err := knservingv1beta1.AddToScheme(mgr.GetScheme()); err != nil {
 		log.Error(err, "unable to add Knative APIs to scheme")
 		os.Exit(1)
 	}

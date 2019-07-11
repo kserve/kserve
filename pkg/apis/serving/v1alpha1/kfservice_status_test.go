@@ -19,7 +19,7 @@ package v1alpha1
 import (
 	"github.com/knative/pkg/apis/duck"
 	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"k8s.io/api/core/v1"
 	"testing"
 )
@@ -46,18 +46,18 @@ func TestKFServiceDuckType(t *testing.T) {
 func TestKFServiceIsReady(t *testing.T) {
 	cases := []struct {
 		name                       string
-		defaultConfigurationStatus v1alpha1.ConfigurationStatus
-		canaryConfigurationStatus  v1alpha1.ConfigurationStatus
-		routeStatus                v1alpha1.RouteStatus
+		defaultConfigurationStatus v1beta1.ConfigurationStatus
+		canaryConfigurationStatus  v1beta1.ConfigurationStatus
+		routeStatus                v1beta1.RouteStatus
 		isReady                    bool
 	}{{
 		name:                       "empty status should not be ready",
-		defaultConfigurationStatus: v1alpha1.ConfigurationStatus{},
-		routeStatus:                v1alpha1.RouteStatus{},
+		defaultConfigurationStatus: v1beta1.ConfigurationStatus{},
+		routeStatus:                v1beta1.RouteStatus{},
 		isReady:                    false,
 	}, {
 		name: "Different condition type should not be ready",
-		defaultConfigurationStatus: v1alpha1.ConfigurationStatus{
+		defaultConfigurationStatus: v1beta1.ConfigurationStatus{
 			Status: duckv1beta1.Status{
 				Conditions: duckv1beta1.Conditions{{
 					Type:   "Foo",
@@ -68,10 +68,10 @@ func TestKFServiceIsReady(t *testing.T) {
 		isReady: false,
 	}, {
 		name: "False condition status should not be ready",
-		defaultConfigurationStatus: v1alpha1.ConfigurationStatus{
+		defaultConfigurationStatus: v1beta1.ConfigurationStatus{
 			Status: duckv1beta1.Status{
 				Conditions: duckv1beta1.Conditions{{
-					Type:   v1alpha1.ConfigurationConditionReady,
+					Type:   v1beta1.ConfigurationConditionReady,
 					Status: v1.ConditionFalse,
 				}},
 			},
@@ -79,10 +79,10 @@ func TestKFServiceIsReady(t *testing.T) {
 		isReady: false,
 	}, {
 		name: "Unknown condition status should not be ready",
-		defaultConfigurationStatus: v1alpha1.ConfigurationStatus{
+		defaultConfigurationStatus: v1beta1.ConfigurationStatus{
 			Status: duckv1beta1.Status{
 				Conditions: duckv1beta1.Conditions{{
-					Type:   v1alpha1.ConfigurationConditionReady,
+					Type:   v1beta1.ConfigurationConditionReady,
 					Status: v1.ConditionUnknown,
 				}},
 			},
@@ -90,28 +90,28 @@ func TestKFServiceIsReady(t *testing.T) {
 		isReady: false,
 	}, {
 		name: "Missing condition status should not be ready",
-		defaultConfigurationStatus: v1alpha1.ConfigurationStatus{
+		defaultConfigurationStatus: v1beta1.ConfigurationStatus{
 			Status: duckv1beta1.Status{
 				Conditions: duckv1beta1.Conditions{{
-					Type: v1alpha1.ConfigurationConditionReady,
+					Type: v1beta1.ConfigurationConditionReady,
 				}},
 			},
 		},
 		isReady: false,
 	}, {
 		name: "True condition status should be ready",
-		defaultConfigurationStatus: v1alpha1.ConfigurationStatus{
+		defaultConfigurationStatus: v1beta1.ConfigurationStatus{
 			Status: duckv1beta1.Status{
 				Conditions: duckv1beta1.Conditions{{
-					Type:   v1alpha1.ConfigurationConditionReady,
+					Type:   v1beta1.ConfigurationConditionReady,
 					Status: v1.ConditionTrue,
 				}},
 			},
 		},
-		routeStatus: v1alpha1.RouteStatus{
+		routeStatus: v1beta1.RouteStatus{
 			Status: duckv1beta1.Status{
 				Conditions: duckv1beta1.Conditions{{
-					Type:   v1alpha1.RouteConditionReady,
+					Type:   v1beta1.RouteConditionReady,
 					Status: v1.ConditionTrue,
 				}},
 			},
@@ -119,22 +119,22 @@ func TestKFServiceIsReady(t *testing.T) {
 		isReady: true,
 	}, {
 		name: "Default configuration, route conditions with ready status should be ready",
-		defaultConfigurationStatus: v1alpha1.ConfigurationStatus{
+		defaultConfigurationStatus: v1beta1.ConfigurationStatus{
 			Status: duckv1beta1.Status{
 				Conditions: duckv1beta1.Conditions{{
 					Type:   "Foo",
 					Status: v1.ConditionTrue,
 				}, {
-					Type:   v1alpha1.ConfigurationConditionReady,
+					Type:   v1beta1.ConfigurationConditionReady,
 					Status: v1.ConditionTrue,
 				},
 				},
 			},
 		},
-		routeStatus: v1alpha1.RouteStatus{
+		routeStatus: v1beta1.RouteStatus{
 			Status: duckv1beta1.Status{
 				Conditions: duckv1beta1.Conditions{{
-					Type:   v1alpha1.RouteConditionReady,
+					Type:   v1beta1.RouteConditionReady,
 					Status: v1.ConditionTrue,
 				}},
 			},
@@ -142,28 +142,28 @@ func TestKFServiceIsReady(t *testing.T) {
 		isReady: true,
 	}, {
 		name: "Default/canary configuration, route conditions with ready status should be ready",
-		defaultConfigurationStatus: v1alpha1.ConfigurationStatus{
+		defaultConfigurationStatus: v1beta1.ConfigurationStatus{
 			Status: duckv1beta1.Status{
 				Conditions: duckv1beta1.Conditions{{
-					Type:   v1alpha1.ConfigurationConditionReady,
+					Type:   v1beta1.ConfigurationConditionReady,
 					Status: v1.ConditionTrue,
 				},
 				},
 			},
 		},
-		canaryConfigurationStatus: v1alpha1.ConfigurationStatus{
+		canaryConfigurationStatus: v1beta1.ConfigurationStatus{
 			Status: duckv1beta1.Status{
 				Conditions: duckv1beta1.Conditions{{
-					Type:   v1alpha1.ConfigurationConditionReady,
+					Type:   v1beta1.ConfigurationConditionReady,
 					Status: v1.ConditionTrue,
 				},
 				},
 			},
 		},
-		routeStatus: v1alpha1.RouteStatus{
+		routeStatus: v1beta1.RouteStatus{
 			Status: duckv1beta1.Status{
 				Conditions: duckv1beta1.Conditions{{
-					Type:   v1alpha1.RouteConditionReady,
+					Type:   v1beta1.RouteConditionReady,
 					Status: v1.ConditionTrue,
 				}},
 			},
@@ -171,21 +171,21 @@ func TestKFServiceIsReady(t *testing.T) {
 		isReady: true,
 	}, {
 		name: "Multiple conditions with ready status false should not be ready",
-		defaultConfigurationStatus: v1alpha1.ConfigurationStatus{
+		defaultConfigurationStatus: v1beta1.ConfigurationStatus{
 			Status: duckv1beta1.Status{
 				Conditions: duckv1beta1.Conditions{{
 					Type:   "Foo",
 					Status: v1.ConditionTrue,
 				}, {
-					Type:   v1alpha1.ConfigurationConditionReady,
+					Type:   v1beta1.ConfigurationConditionReady,
 					Status: v1.ConditionFalse,
 				}},
 			},
 		},
-		routeStatus: v1alpha1.RouteStatus{
+		routeStatus: v1beta1.RouteStatus{
 			Status: duckv1beta1.Status{
 				Conditions: duckv1beta1.Conditions{{
-					Type:   v1alpha1.RouteConditionReady,
+					Type:   v1beta1.RouteConditionReady,
 					Status: v1.ConditionTrue,
 				}},
 			},

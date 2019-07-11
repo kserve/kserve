@@ -135,7 +135,7 @@ func (tt *TrafficTarget) Validate(ctx context.Context) *apis.FieldError {
 	}
 
 	// Check that we set the URL appropriately.
-	if tt.URL != "" {
+	if tt.URL.String() != "" {
 		// URL is not allowed in traffic under spec.
 		if apis.IsInSpec(ctx) {
 			errs = errs.Also(apis.ErrDisallowedFields("url"))

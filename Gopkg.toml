@@ -45,7 +45,8 @@ version="v1.4.7"
 
 [[constraint]]
   name = "github.com/knative/serving"
-  revision = "a44e3578ce27cc1455b3e1c7f74b09b82dda57f5"
+  #revision = "a44e3578ce27cc1455b3e1c7f74b09b82dda57f5"
+  version = "=v0.7.1"
 
 [[override]]
   name="sigs.k8s.io/controller-runtime"
@@ -55,7 +56,8 @@ version="v1.4.7"
 [[override]]
   name = "github.com/knative/pkg"
   # HEAD as of 2019-04-19
-  revision = "3c8c4a93547f62b542013c273068f51875b5c942"
+  #revision = "3c8c4a93547f62b542013c273068f51875b5c942"
+  revision = "d82505e6c5b4ce46562d6c242be0e706791f35bd"
 
 [[override]]
   name = "k8s.io/api"

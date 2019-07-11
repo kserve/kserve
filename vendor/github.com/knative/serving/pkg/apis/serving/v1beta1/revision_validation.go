@@ -21,16 +21,16 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/knative/serving/pkg/apis/config"
+
 	"github.com/knative/pkg/apis"
 	"github.com/knative/pkg/kmp"
-	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
 )
 
 // Validate ensures Revision is properly configured.
 func (r *Revision) Validate(ctx context.Context) *apis.FieldError {
 	errs := serving.ValidateObjectMetadata(r.GetObjectMeta()).ViaField("metadata")
-	errs = errs.Also(r.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
 	errs = errs.Also(r.Status.Validate(apis.WithinStatus(ctx)).ViaField("status"))
 
 	if apis.IsInUpdate(ctx) {
@@ -48,6 +48,8 @@ func (r *Revision) Validate(ctx context.Context) *apis.FieldError {
 				Details: diff,
 			}
 		}
+	} else {
+		errs = errs.Also(r.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
 	}
 
 	return errs
@@ -105,40 +107,18 @@ func (current *RevisionTemplateSpec) VerifyNameChange(ctx context.Context, og Re
 	return nil
 }
 
-// Validate helps implement apis.Validatable
-func (ps *PodSpec) Validate(ctx context.Context) (errs *apis.FieldError) {
-	// TODO(mattmoor): Once we have the whole corev1.PodSpec, this should
-	// move to pkg/apis/serving/k8s_validation.go and needs a field mask.
-
-	volumes, err := serving.ValidateVolumes(ps.Volumes)
-	if err != nil {
-		errs = errs.Also(err.ViaField("volumes"))
-	}
-
-	switch len(ps.Containers) {
-	case 0:
-		errs = errs.Also(apis.ErrMissingField("containers"))
-	case 1:
-		errs = errs.Also(serving.ValidateContainer(ps.Containers[0], volumes).
-			ViaFieldIndex("containers", 0))
-	default:
-		errs = errs.Also(apis.ErrMultipleOneOf("containers"))
-	}
-	return errs
-}
-
 // Validate implements apis.Validatable
 func (rs *RevisionSpec) Validate(ctx context.Context) *apis.FieldError {
 	err := rs.ContainerConcurrency.Validate(ctx).ViaField("containerConcurrency")
 
-	err = err.Also(rs.PodSpec.Validate(ctx))
+	err = err.Also(serving.ValidatePodSpec(rs.PodSpec))
 
 	if rs.TimeoutSeconds != nil {
 		ts := *rs.TimeoutSeconds
-		max := int64(networking.DefaultTimeout.Seconds())
-		if ts < 0 || ts > max {
+		cfg := config.FromContextOrDefaults(ctx)
+		if ts < 0 || ts > cfg.Defaults.MaxRevisionTimeoutSeconds {
 			err = err.Also(apis.ErrOutOfBoundsValue(
-				ts, 0, max, "timeoutSeconds"))
+				ts, 0, cfg.Defaults.MaxRevisionTimeoutSeconds, "timeoutSeconds"))
 		}
 	}
 

@@ -150,11 +150,11 @@
   revision = "6f77996f0c42f7b84e5a2b252227263f93432e9b"
 
 [[projects]]
-  digest = "1:d7494e14f3dc2296fb1106fd59a3190f93017891d63c5025600f5794ced8b900"
+  digest = "1:7915c656a10819b240db94ffd6afc6a621af4687db735341d9919668750485ec"
   name = "github.com/google/go-containerregistry"
   packages = ["pkg/name"]
   pruneopts = "NUT"
-  revision = "ec69c4a8a1bff25fcbe096fcb32c9a6543fbdccf"
+  revision = "abf9ef06abd9f532944e28e8942644ea4b710a40"
 
 [[projects]]
   branch = "master"
@@ -253,23 +253,11 @@
   version = "v1.1.6"
 
 [[projects]]
-  digest = "1:0836bde83bdc49aae7710e22d04e2555d9bd25cd133fbb78508c492307081aea"
-  name = "github.com/knative/build"
-  packages = [
-    "pkg/apis/build",
-    "pkg/apis/build/v1alpha1",
-  ]
-  pruneopts = "NUT"
-  revision = "4fc8663ff9c48a66c52684b2e4cdf06ec83117c8"
-  version = "v0.5.0"
-
-[[projects]]
-  digest = "1:9c2a7fa4137540fbd9b182ab62ffe70c8f1062473a8cdd85cb8a6df9847de9f1"
+  digest = "1:0614ee7fb431ca15db43d3bb0ee880d6d042557067fc1e597fab41de4a600d25"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
     "apis/duck",
-    "apis/duck/v1alpha1",
     "apis/duck/v1beta1",
     "configmap",
     "kmeta",
@@ -277,22 +265,21 @@
     "ptr",
   ]
   pruneopts = "NUT"
-  revision = "3c8c4a93547f62b542013c273068f51875b5c942"
+  revision = "d82505e6c5b4ce46562d6c242be0e706791f35bd"
 
 [[projects]]
-  digest = "1:ebde0ea4b207e53602a0cc152c1f19824349b8225ebc138822b0c3d7d0f58d70"
+  digest = "1:a76dc999a3bebc2cf1c7ff5bdc6bc27263ae66da31cdc1771e601e3f015850d3"
   name = "github.com/knative/serving"
   packages = [
     "pkg/apis/autoscaling",
     "pkg/apis/config",
     "pkg/apis/networking",
-    "pkg/apis/networking/v1alpha1",
     "pkg/apis/serving",
-    "pkg/apis/serving/v1alpha1",
     "pkg/apis/serving/v1beta1",
   ]
   pruneopts = "NUT"
-  revision = "a44e3578ce27cc1455b3e1c7f74b09b82dda57f5"
+  revision = "ce4ce706afb5d9c323d1c073746d64562a722f8f"
+  version = "v0.7.1"
 
 [[projects]]
   digest = "1:56dbf15e091bf7926cb33a57cb6bdfc658fc6d3498d2f76f10a97ce7856f1fde"
@@ -1104,7 +1091,6 @@
     "github.com/knative/pkg/kmp",
     "github.com/knative/serving/pkg/apis/autoscaling",
     "github.com/knative/serving/pkg/apis/serving",
-    "github.com/knative/serving/pkg/apis/serving/v1alpha1",
     "github.com/knative/serving/pkg/apis/serving/v1beta1",
     "github.com/mattbaird/jsonpatch",
     "github.com/onsi/ginkgo",

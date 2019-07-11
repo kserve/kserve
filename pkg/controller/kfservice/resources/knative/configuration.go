@@ -20,10 +20,10 @@ import (
 	"encoding/json"
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/knative/serving/pkg/apis/autoscaling"
-	knservingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 	"github.com/kubeflow/kfserving/pkg/constants"
@@ -57,7 +57,7 @@ func NewConfigurationBuilder(client client.Client, config *v1.ConfigMap) *Config
 	}
 }
 
-func (c *ConfigurationBuilder) CreateKnativeConfiguration(name string, metadata metav1.ObjectMeta, modelSpec *v1alpha1.ModelSpec) (*knservingv1alpha1.Configuration, error) {
+func (c *ConfigurationBuilder) CreateKnativeConfiguration(name string, metadata metav1.ObjectMeta, modelSpec *v1alpha1.ModelSpec) (*v1beta1.Configuration, error) {
 	annotations := make(map[string]string)
 	if modelSpec.MinReplicas != 0 {
 		annotations[autoscaling.MinScaleAnnotationKey] = fmt.Sprint(modelSpec.MinReplicas)
@@ -83,30 +83,31 @@ func (c *ConfigurationBuilder) CreateKnativeConfiguration(name string, metadata 
 		kfsvcAnnotations[constants.ModelInitializerSourceUriInternalAnnotationKey] = sourceURI
 	}
 
-	configuration := &knservingv1alpha1.Configuration{
+	configuration := &v1beta1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: metadata.Namespace,
 			Labels:    metadata.Labels,
 		},
-		Spec: knservingv1alpha1.ConfigurationSpec{
-			RevisionTemplate: &knservingv1alpha1.RevisionTemplateSpec{
+		Spec: v1beta1.ConfigurationSpec{
+			Template: v1beta1.RevisionTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: utils.Union(metadata.Labels, map[string]string{
 						constants.KFServicePodLabelKey: metadata.Name,
 					}),
 					Annotations: utils.Union(kfsvcAnnotations, annotations),
 				},
-				Spec: knservingv1alpha1.RevisionSpec{
-					RevisionSpec: v1beta1.RevisionSpec{
-						// Defaulting here since this always shows a diff with nil vs 300s(knative default)
-						// we may need to expose this field in future
-						TimeoutSeconds: &constants.DefaultTimeout,
-						PodSpec: v1beta1.PodSpec{
-							ServiceAccountName: modelSpec.ServiceAccountName,
+				Spec: v1beta1.RevisionSpec{
+					// Defaulting here since this always shows a diff with nil vs 300s(knative default)
+					// we may need to expose this field in future
+					TimeoutSeconds: &constants.DefaultTimeout,
+					PodSpec: corev1.PodSpec{
+						ServiceAccountName: modelSpec.ServiceAccountName,
+						Containers: []corev1.Container{
+							*modelSpec.CreateModelServingContainer(metadata.Name, c.frameworksConfig),
 						},
 					},
-					Container: modelSpec.CreateModelServingContainer(metadata.Name, c.frameworksConfig),
+					//Container: modelSpec.CreateModelServingContainer(metadata.Name, c.frameworksConfig),
 				},
 			},
 		},
@@ -115,8 +116,8 @@ func (c *ConfigurationBuilder) CreateKnativeConfiguration(name string, metadata 
 	if err := c.credentialBuilder.CreateSecretVolumeAndEnv(
 		metadata.Namespace,
 		modelSpec.ServiceAccountName,
-		configuration.Spec.RevisionTemplate.Spec.Container,
-		&configuration.Spec.RevisionTemplate.Spec.Volumes,
+		&configuration.Spec.Template.Spec.Containers[0],
+		&configuration.Spec.Template.Spec.Volumes,
 	); err != nil {
 		return nil, err
 	}

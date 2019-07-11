@@ -21,7 +21,7 @@ import (
 	"fmt"
 
 	"github.com/knative/pkg/kmp"
-	knservingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	knservingv1beta1 "github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/controller/kfservice/resources/knative"
@@ -104,12 +104,12 @@ func (r *ConfigurationReconciler) reconcileCanary(kfsvc *v1alpha1.KFService) err
 	return nil
 }
 
-func (r *ConfigurationReconciler) reconcileConfiguration(kfsvc *v1alpha1.KFService, desired *knservingv1alpha1.Configuration) (*knservingv1alpha1.ConfigurationStatus, error) {
+func (r *ConfigurationReconciler) reconcileConfiguration(kfsvc *v1alpha1.KFService, desired *knservingv1beta1.Configuration) (*knservingv1beta1.ConfigurationStatus, error) {
 	if err := controllerutil.SetControllerReference(kfsvc, desired, r.scheme); err != nil {
 		return nil, err
 	}
 	// Create configuration if does not exist
-	existing := &knservingv1alpha1.Configuration{}
+	existing := &knservingv1beta1.Configuration{}
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, existing)
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -141,7 +141,7 @@ func (r *ConfigurationReconciler) reconcileConfiguration(kfsvc *v1alpha1.KFServi
 	return &existing.Status, nil
 }
 
-func semanticEquals(desiredConfiguration, configuration *knservingv1alpha1.Configuration) bool {
+func semanticEquals(desiredConfiguration, configuration *knservingv1beta1.Configuration) bool {
 	return equality.Semantic.DeepEqual(desiredConfiguration.Spec, configuration.Spec) &&
 		equality.Semantic.DeepEqual(desiredConfiguration.ObjectMeta.Labels, configuration.ObjectMeta.Labels) &&
 		equality.Semantic.DeepEqual(desiredConfiguration.ObjectMeta.Annotations, configuration.ObjectMeta.Annotations)
