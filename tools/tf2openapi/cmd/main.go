@@ -49,7 +49,6 @@ func viewAPI(cmd *cobra.Command, args []string) {
 		log.Fatalf("Error reading file %s \n%s", modelBasePath, err.Error())
 	}
 
-	model := UnmarshalSavedModelPb(modelPb)
 	generator := gen.NewGenerator()
 	if modelName != "" {
 		generator.WithName(modelName)
@@ -63,6 +62,8 @@ func viewAPI(cmd *cobra.Command, args []string) {
 	if len(metaGraphTags) != 0 {
 		generator.WithMetaGraphTags(metaGraphTags)
 	}
+
+	model := UnmarshalSavedModelPb(modelPb)
 	spec, err := generator.GenerateOpenAPI(model)
 	if err != nil {
 		log.Fatalln(err.Error())
