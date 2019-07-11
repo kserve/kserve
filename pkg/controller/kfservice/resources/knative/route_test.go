@@ -20,7 +20,6 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	knservingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -29,7 +28,7 @@ import (
 func TestKnativeRoute(t *testing.T) {
 	scenarios := map[string]struct {
 		kfService     v1alpha1.KFService
-		expectedRoute *knservingv1alpha1.Route
+		expectedRoute *v1beta1.Route
 		shouldFail    bool
 	}{
 		"RunLatestModel": {
@@ -47,18 +46,16 @@ func TestKnativeRoute(t *testing.T) {
 					},
 				},
 			},
-			expectedRoute: &knservingv1alpha1.Route{
+			expectedRoute: &v1beta1.Route{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "mnist",
 					Namespace: "default",
 				},
-				Spec: knservingv1alpha1.RouteSpec{
-					Traffic: []knservingv1alpha1.TrafficTarget{
-						{
-							TrafficTarget: v1beta1.TrafficTarget{
-								ConfigurationName: "mnist-default",
-								Percent:           100,
-							},
+				Spec: v1beta1.RouteSpec{
+					Traffic: []v1beta1.TrafficTarget{
+						v1beta1.TrafficTarget{
+							ConfigurationName: "mnist-default",
+							Percent:           100,
 						},
 					},
 				},
@@ -91,24 +88,20 @@ func TestKnativeRoute(t *testing.T) {
 					},
 				},
 			},
-			expectedRoute: &knservingv1alpha1.Route{
+			expectedRoute: &v1beta1.Route{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "mnist",
 					Namespace: "default",
 				},
-				Spec: knservingv1alpha1.RouteSpec{
-					Traffic: []knservingv1alpha1.TrafficTarget{
-						{
-							TrafficTarget: v1beta1.TrafficTarget{
-								ConfigurationName: "mnist-default",
-								Percent:           80,
-							},
+				Spec: v1beta1.RouteSpec{
+					Traffic: []v1beta1.TrafficTarget{
+						v1beta1.TrafficTarget{
+							ConfigurationName: "mnist-default",
+							Percent:           80,
 						},
-						{
-							TrafficTarget: v1beta1.TrafficTarget{
-								ConfigurationName: "mnist-canary",
-								Percent:           20,
-							},
+						v1beta1.TrafficTarget{
+							ConfigurationName: "mnist-canary",
+							Percent:           20,
 						},
 					},
 				},

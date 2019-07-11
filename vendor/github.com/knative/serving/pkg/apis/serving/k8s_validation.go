@@ -20,9 +20,11 @@ import (
 	"fmt"
 	"math"
 	"path/filepath"
+	"strings"
 
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/knative/pkg/apis"
+	"github.com/knative/serving/pkg/apis/networking"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -30,18 +32,6 @@ import (
 )
 
 const (
-	// RequestQueuePort specifies the port number to use for http requests
-	// in queue-proxy container.
-	RequestQueuePort = 8012
-
-	// RequestQueueAdminPort specifies the port number for
-	// health check and lifecyle hooks for queue-proxy.
-	RequestQueueAdminPort = 8022
-
-	// RequestQueueMetricsPort specifies the port number for metrics emitted
-	// by queue-proxy.
-	RequestQueueMetricsPort = 9090
-
 	minUserID = 0
 	maxUserID = math.MaxInt32
 )
@@ -54,6 +44,17 @@ var (
 		"/tmp",
 		"/var",
 		"/var/log",
+	)
+
+	reservedContainerNames = sets.NewString(
+		"queue-proxy",
+	)
+
+	reservedEnvVars = sets.NewString(
+		"PORT",
+		"K_SERVICE",
+		"K_CONFIGURATION",
+		"K_REVISION",
 	)
 
 	// The port is named "user-port" on the deployment, but a user cannot set an arbitrary name on the port
@@ -93,8 +94,69 @@ func validateVolume(volume corev1.Volume) *apis.FieldError {
 
 	vs := volume.VolumeSource
 	errs = errs.Also(apis.CheckDisallowedFields(vs, *VolumeSourceMask(&vs)))
-	if vs.Secret == nil && vs.ConfigMap == nil {
+	specified := []string{}
+	if vs.Secret != nil {
+		specified = append(specified, "secret")
+	}
+	if vs.ConfigMap != nil {
+		specified = append(specified, "configMap")
+	}
+	if vs.Projected != nil {
+		specified = append(specified, "projected")
+		for i, proj := range vs.Projected.Sources {
+			errs = errs.Also(validateProjectedVolumeSource(proj).ViaFieldIndex("projected", i))
+		}
+	}
+	if len(specified) == 0 {
+		errs = errs.Also(apis.ErrMissingOneOf("secret", "configMap", "projected"))
+	} else if len(specified) > 1 {
+		errs = errs.Also(apis.ErrMultipleOneOf(specified...))
+	}
+
+	return errs
+}
+
+func validateProjectedVolumeSource(vp corev1.VolumeProjection) *apis.FieldError {
+	errs := apis.CheckDisallowedFields(vp, *VolumeProjectionMask(&vp))
+	specified := []string{}
+	if vp.Secret != nil {
+		specified = append(specified, "secret")
+		errs = errs.Also(validateSecretProjection(vp.Secret).ViaField("secret"))
+	}
+	if vp.ConfigMap != nil {
+		specified = append(specified, "configMap")
+		errs = errs.Also(validateConfigMapProjection(vp.ConfigMap).ViaField("configMap"))
+	}
+	if len(specified) == 0 {
 		errs = errs.Also(apis.ErrMissingOneOf("secret", "configMap"))
+	} else if len(specified) > 1 {
+		errs = errs.Also(apis.ErrMultipleOneOf(specified...))
+	}
+	return errs
+}
+
+func validateConfigMapProjection(cmp *corev1.ConfigMapProjection) *apis.FieldError {
+	errs := apis.CheckDisallowedFields(*cmp, *ConfigMapProjectionMask(cmp))
+	errs = errs.Also(apis.CheckDisallowedFields(
+		cmp.LocalObjectReference, *LocalObjectReferenceMask(&cmp.LocalObjectReference)))
+	if cmp.Name == "" {
+		errs = errs.Also(apis.ErrMissingField("name"))
+	}
+	for i, item := range cmp.Items {
+		errs = errs.Also(apis.CheckDisallowedFields(item, *KeyToPathMask(&item)).ViaIndex(i))
+	}
+	return errs
+}
+
+func validateSecretProjection(sp *corev1.SecretProjection) *apis.FieldError {
+	errs := apis.CheckDisallowedFields(*sp, *SecretProjectionMask(sp))
+	errs = errs.Also(apis.CheckDisallowedFields(
+		sp.LocalObjectReference, *LocalObjectReferenceMask(&sp.LocalObjectReference)))
+	if sp.Name == "" {
+		errs = errs.Also(apis.ErrMissingField("name"))
+	}
+	for i, item := range sp.Items {
+		errs = errs.Also(apis.CheckDisallowedFields(item, *KeyToPathMask(&item)).ViaIndex(i))
 	}
 	return errs
 }
@@ -106,11 +168,25 @@ func validateEnvValueFrom(source *corev1.EnvVarSource) *apis.FieldError {
 	return apis.CheckDisallowedFields(*source, *EnvVarSourceMask(source))
 }
 
+func validateEnvVar(env corev1.EnvVar) *apis.FieldError {
+	errs := apis.CheckDisallowedFields(env, *EnvVarMask(&env))
+
+	if env.Name == "" {
+		errs = errs.Also(apis.ErrMissingField("name"))
+	} else if reservedEnvVars.Has(env.Name) {
+		errs = errs.Also(&apis.FieldError{
+			Message: fmt.Sprintf("%q is a reserved environment variable", env.Name),
+			Paths:   []string{"name"},
+		})
+	}
+
+	return errs.Also(validateEnvValueFrom(env.ValueFrom).ViaField("valueFrom"))
+}
+
 func validateEnv(envVars []corev1.EnvVar) *apis.FieldError {
 	var errs *apis.FieldError
 	for i, env := range envVars {
-		errs = errs.Also(apis.CheckDisallowedFields(env, *EnvVarMask(&env)).ViaIndex(i)).Also(
-			validateEnvValueFrom(env.ValueFrom).ViaField("valueFrom").ViaIndex(i))
+		errs = errs.Also(validateEnvVar(env).ViaIndex(i))
 	}
 	return errs
 }
@@ -142,6 +218,32 @@ func validateEnvFrom(envFromList []corev1.EnvFromSource) *apis.FieldError {
 	return errs
 }
 
+func ValidatePodSpec(ps corev1.PodSpec) *apis.FieldError {
+	// This is inlined, and so it makes for a less meaningful
+	// error message.
+	// if equality.Semantic.DeepEqual(ps, corev1.PodSpec{}) {
+	// 	return apis.ErrMissingField(apis.CurrentField)
+	// }
+
+	errs := apis.CheckDisallowedFields(ps, *PodSpecMask(&ps))
+
+	volumes, err := ValidateVolumes(ps.Volumes)
+	if err != nil {
+		errs = errs.Also(err.ViaField("volumes"))
+	}
+
+	switch len(ps.Containers) {
+	case 0:
+		errs = errs.Also(apis.ErrMissingField("containers"))
+	case 1:
+		errs = errs.Also(ValidateContainer(ps.Containers[0], volumes).
+			ViaFieldIndex("containers", 0))
+	default:
+		errs = errs.Also(apis.ErrMultipleOneOf("containers"))
+	}
+	return errs
+}
+
 func ValidateContainer(container corev1.Container, volumes sets.String) *apis.FieldError {
 	if equality.Semantic.DeepEqual(container, corev1.Container{}) {
 		return apis.ErrMissingField(apis.CurrentField)
@@ -149,12 +251,21 @@ func ValidateContainer(container corev1.Container, volumes sets.String) *apis.Fi
 
 	errs := apis.CheckDisallowedFields(container, *ContainerMask(&container))
 
+	if reservedContainerNames.Has(container.Name) {
+		errs = errs.Also(&apis.FieldError{
+			Message: fmt.Sprintf("%q is a reserved container name", container.Name),
+			Paths:   []string{"name"},
+		})
+	}
+
 	// Env
 	errs = errs.Also(validateEnv(container.Env).ViaField("env"))
 	// EnvFrom
 	errs = errs.Also(validateEnvFrom(container.EnvFrom).ViaField("envFrom"))
 	// Image
-	if _, err := name.ParseReference(container.Image, name.WeakValidation); err != nil {
+	if container.Image == "" {
+		errs = errs.Also(apis.ErrMissingField("image"))
+	} else if _, err := name.ParseReference(container.Image, name.WeakValidation); err != nil {
 		fe := &apis.FieldError{
 			Message: "Failed to parse image reference",
 			Paths:   []string{"image"},
@@ -210,9 +321,9 @@ func validateVolumeMounts(mounts []corev1.VolumeMount, volumes sets.String) *api
 	var errs *apis.FieldError
 	// Check that volume mounts match names in "volumes", that "volumes" has 100%
 	// coverage, and the field restrictions.
-	seen := sets.NewString()
+	seenName := sets.NewString()
+	seenMountPath := sets.NewString()
 	for i, vm := range mounts {
-
 		errs = errs.Also(apis.CheckDisallowedFields(vm, *VolumeMountMask(&vm)).ViaIndex(i))
 		// This effectively checks that Name is non-empty because Volume name must be non-empty.
 		if !volumes.Has(vm.Name) {
@@ -221,7 +332,7 @@ func validateVolumeMounts(mounts []corev1.VolumeMount, volumes sets.String) *api
 				Paths:   []string{"name"},
 			}).ViaIndex(i))
 		}
-		seen.Insert(vm.Name)
+		seenName.Insert(vm.Name)
 
 		if vm.MountPath == "" {
 			errs = errs.Also(apis.ErrMissingField("mountPath").ViaIndex(i))
@@ -232,14 +343,19 @@ func validateVolumeMounts(mounts []corev1.VolumeMount, volumes sets.String) *api
 			}).ViaIndex(i))
 		} else if !filepath.IsAbs(vm.MountPath) {
 			errs = errs.Also(apis.ErrInvalidValue(vm.MountPath, "mountPath").ViaIndex(i))
+		} else if seenMountPath.Has(filepath.Clean(vm.MountPath)) {
+			errs = errs.Also(apis.ErrInvalidValue(
+				fmt.Sprintf("%q must be unique", vm.MountPath), "mountPath").ViaIndex(i))
 		}
+		seenMountPath.Insert(filepath.Clean(vm.MountPath))
+
 		if !vm.ReadOnly {
 			errs = errs.Also(apis.ErrMissingField("readOnly").ViaIndex(i))
 		}
 
 	}
 
-	if missing := volumes.Difference(seen); missing.Len() > 0 {
+	if missing := volumes.Difference(seenName); missing.Len() > 0 {
 		errs = errs.Also(&apis.FieldError{
 			Message: fmt.Sprintf("volumes not mounted: %v", missing.List()),
 			Paths:   []string{apis.CurrentField},
@@ -276,9 +392,11 @@ func validateContainerPorts(ports []corev1.ContainerPort) *apis.FieldError {
 	}
 
 	// Don't allow userPort to conflict with QueueProxy sidecar
-	if userPort.ContainerPort == RequestQueuePort ||
-		userPort.ContainerPort == RequestQueueAdminPort ||
-		userPort.ContainerPort == RequestQueueMetricsPort {
+	if userPort.ContainerPort == networking.BackendHTTPPort ||
+		userPort.ContainerPort == networking.BackendHTTP2Port ||
+		userPort.ContainerPort == networking.QueueAdminPort ||
+		userPort.ContainerPort == networking.AutoscalingQueueMetricsPort ||
+		userPort.ContainerPort == networking.UserQueueMetricsPort {
 		errs = errs.Also(apis.ErrInvalidValue(userPort.ContainerPort, "containerPort"))
 	}
 
@@ -312,6 +430,30 @@ func validateProbe(p *corev1.Probe) *apis.FieldError {
 		errs = errs.Also(apis.CheckDisallowedFields(*h.HTTPGet, *HTTPGetActionMask(h.HTTPGet))).ViaField("httpGet")
 	case h.TCPSocket != nil:
 		errs = errs.Also(apis.CheckDisallowedFields(*h.TCPSocket, *TCPSocketActionMask(h.TCPSocket))).ViaField("tcpSocket")
+	}
+	return errs
+}
+
+func ValidateNamespacedObjectReference(p *corev1.ObjectReference) *apis.FieldError {
+	if p == nil {
+		return nil
+	}
+	errs := apis.CheckDisallowedFields(*p, *NamespacedObjectReferenceMask(p))
+
+	if p.APIVersion == "" {
+		errs = errs.Also(apis.ErrMissingField("apiVersion"))
+	} else if verrs := validation.IsQualifiedName(p.APIVersion); len(verrs) != 0 {
+		errs = errs.Also(apis.ErrInvalidValue(strings.Join(verrs, ", "), "apiVersion"))
+	}
+	if p.Kind == "" {
+		errs = errs.Also(apis.ErrMissingField("kind"))
+	} else if verrs := validation.IsCIdentifier(p.Kind); len(verrs) != 0 {
+		errs = errs.Also(apis.ErrInvalidValue(strings.Join(verrs, ", "), "kind"))
+	}
+	if p.Name == "" {
+		errs = errs.Also(apis.ErrMissingField("name"))
+	} else if verrs := validation.IsDNS1123Label(p.Name); len(verrs) != 0 {
+		errs = errs.Also(apis.ErrInvalidValue(strings.Join(verrs, ", "), "name"))
 	}
 	return errs
 }

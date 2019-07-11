@@ -34,3 +34,19 @@ func WithDefaultConfigurationName(ctx context.Context) context.Context {
 func HasDefaultConfigurationName(ctx context.Context) bool {
 	return ctx.Value(hdcnKey{}) != nil
 }
+
+// lemonadeKey is used as the key for associating information
+// with a context.Context.
+type lemonadeKey struct{}
+
+// WithUpgradeViaDefaulting notes on the context that we want defaulting to rewrite
+// from v1alpha1 to v1beta1.
+func WithUpgradeViaDefaulting(ctx context.Context) context.Context {
+	return context.WithValue(ctx, lemonadeKey{}, struct{}{})
+}
+
+// IsUpgradeViaDefaulting checks whether we should be "defaulting" from v1alpha1 to
+// the v1beta1 subset.
+func IsUpgradeViaDefaulting(ctx context.Context) bool {
+	return ctx.Value(lemonadeKey{}) != nil
+}

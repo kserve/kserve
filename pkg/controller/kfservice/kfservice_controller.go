@@ -27,7 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/client-go/tools/record"
 
-	knservingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	knservingv1beta1 "github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 	kfservingv1alpha1 "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 
@@ -84,12 +84,12 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	// Watch for changes to Knative Configuration
-	if err = c.Watch(&source.Kind{Type: &knservingv1alpha1.Configuration{}}, kfservingController); err != nil {
+	if err = c.Watch(&source.Kind{Type: &knservingv1beta1.Configuration{}}, kfservingController); err != nil {
 		return err
 	}
 
 	// Watch for changes to Knative Route
-	if err = c.Watch(&source.Kind{Type: &knservingv1alpha1.Route{}}, kfservingController); err != nil {
+	if err = c.Watch(&source.Kind{Type: &knservingv1beta1.Route{}}, kfservingController); err != nil {
 		return err
 	}
 

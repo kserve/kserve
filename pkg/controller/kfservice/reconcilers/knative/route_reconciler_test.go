@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	knservingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 	testutils "github.com/kubeflow/kfserving/pkg/testing"
@@ -34,7 +33,7 @@ func TestKnativeRouteReconcile(t *testing.T) {
 	routeReconciler := NewRouteReconciler(c, mgr.GetScheme())
 	scenarios := map[string]struct {
 		kfsvc        v1alpha1.KFService
-		desiredRoute *knservingv1alpha1.Route
+		desiredRoute *v1beta1.Route
 	}{
 		"Reconcile new model serving": {
 			kfsvc: v1alpha1.KFService{
@@ -51,18 +50,16 @@ func TestKnativeRouteReconcile(t *testing.T) {
 					},
 				},
 			},
-			desiredRoute: &knservingv1alpha1.Route{
+			desiredRoute: &v1beta1.Route{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "mnist",
 					Namespace: "default",
 				},
-				Spec: knservingv1alpha1.RouteSpec{
-					Traffic: []knservingv1alpha1.TrafficTarget{
-						{
-							TrafficTarget: v1beta1.TrafficTarget{
-								ConfigurationName: "mnist-default",
-								Percent:           100,
-							},
+				Spec: v1beta1.RouteSpec{
+					Traffic: []v1beta1.TrafficTarget{
+						v1beta1.TrafficTarget{
+							ConfigurationName: "mnist-default",
+							Percent:           100,
 						},
 					},
 				},
@@ -86,8 +83,8 @@ func TestKnativeRouteReconcile(t *testing.T) {
 	}
 }
 
-func awaitDesiredRoute(c client.Client, desired *knservingv1alpha1.Route) error {
-	actual := knservingv1alpha1.Route{}
+func awaitDesiredRoute(c client.Client, desired *v1beta1.Route) error {
+	actual := v1beta1.Route{}
 	if err := c.Get(context.TODO(), types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, &actual); err != nil {
 		return err
 	}

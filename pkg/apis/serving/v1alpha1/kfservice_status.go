@@ -15,7 +15,7 @@ package v1alpha1
 
 import (
 	"github.com/knative/pkg/apis"
-	knservingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	knservingv1beta1 "github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"k8s.io/api/core/v1"
 )
 
@@ -55,9 +55,9 @@ func (ss *KFServiceStatus) GetCondition(t apis.ConditionType) *apis.Condition {
 
 // PropagateDefaultConfigurationStatus propagates the default Configuration status and applies its values
 // to the Service status.
-func (ss *KFServiceStatus) PropagateDefaultConfigurationStatus(defaultConfigurationStatus *knservingv1alpha1.ConfigurationStatus) {
+func (ss *KFServiceStatus) PropagateDefaultConfigurationStatus(defaultConfigurationStatus *knservingv1beta1.ConfigurationStatus) {
 	ss.Default.Name = defaultConfigurationStatus.LatestCreatedRevisionName
-	configurationCondition := defaultConfigurationStatus.GetCondition(knservingv1alpha1.ConfigurationConditionReady)
+	configurationCondition := defaultConfigurationStatus.GetCondition(knservingv1beta1.ConfigurationConditionReady)
 
 	switch {
 	case configurationCondition == nil:
@@ -72,9 +72,9 @@ func (ss *KFServiceStatus) PropagateDefaultConfigurationStatus(defaultConfigurat
 
 // PropagateCanaryConfigurationStatus propagates the canary Configuration status and applies its values
 // to the Service status.
-func (ss *KFServiceStatus) PropagateCanaryConfigurationStatus(canaryConfigurationStatus *knservingv1alpha1.ConfigurationStatus) {
+func (ss *KFServiceStatus) PropagateCanaryConfigurationStatus(canaryConfigurationStatus *knservingv1beta1.ConfigurationStatus) {
 	ss.Canary.Name = canaryConfigurationStatus.LatestCreatedRevisionName
-	configurationCondition := canaryConfigurationStatus.GetCondition(knservingv1alpha1.ConfigurationConditionReady)
+	configurationCondition := canaryConfigurationStatus.GetCondition(knservingv1beta1.ConfigurationConditionReady)
 
 	switch {
 	case configurationCondition == nil:
@@ -88,9 +88,10 @@ func (ss *KFServiceStatus) PropagateCanaryConfigurationStatus(canaryConfiguratio
 }
 
 // PropagateRouteStatus propagates route's status to the service's status.
-func (ss *KFServiceStatus) PropagateRouteStatus(rs *knservingv1alpha1.RouteStatus) {
-	ss.URL = rs.Domain
-
+func (ss *KFServiceStatus) PropagateRouteStatus(rs *knservingv1beta1.RouteStatus) {
+	if rs.URL != nil {
+		ss.URL = rs.URL.Host
+	}
 	for _, traffic := range rs.Traffic {
 		switch traffic.RevisionName {
 		case ss.Default.Name:
@@ -101,7 +102,7 @@ func (ss *KFServiceStatus) PropagateRouteStatus(rs *knservingv1alpha1.RouteStatu
 		}
 	}
 
-	rc := rs.GetCondition(knservingv1alpha1.RouteConditionReady)
+	rc := rs.GetCondition(knservingv1beta1.RouteConditionReady)
 
 	switch {
 	case rc == nil:

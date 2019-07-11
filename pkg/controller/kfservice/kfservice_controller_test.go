@@ -27,7 +27,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 
 	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
-	knservingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	servingv1alpha1 "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 	"github.com/onsi/gomega"
 	"golang.org/x/net/context"
@@ -153,16 +152,16 @@ func TestReconcile(t *testing.T) {
 	defer c.Delete(context.TODO(), instance)
 	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
 
-	configuration := &knservingv1alpha1.Configuration{}
+	configuration := &v1beta1.Configuration{}
 	g.Eventually(func() error { return c.Get(context.TODO(), configurationKey, configuration) }, timeout).
 		Should(gomega.Succeed())
-	expectedConfiguration := &knservingv1alpha1.Configuration{
+	expectedConfiguration := &v1beta1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      constants.DefaultConfigurationName(instance.Name),
 			Namespace: instance.Namespace,
 		},
-		Spec: knservingv1alpha1.ConfigurationSpec{
-			RevisionTemplate: &knservingv1alpha1.RevisionTemplateSpec{
+		Spec: v1beta1.ConfigurationSpec{
+			Template: v1beta1.RevisionTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{"serving.kubeflow.org/kfservice": "foo"},
 					Annotations: map[string]string{
@@ -173,19 +172,21 @@ func TestReconcile(t *testing.T) {
 						constants.ModelInitializerSourceUriInternalAnnotationKey: instance.Spec.Default.Tensorflow.ModelURI,
 					},
 				},
-				Spec: knservingv1alpha1.RevisionSpec{
-					RevisionSpec: v1beta1.RevisionSpec{
-						TimeoutSeconds: &constants.DefaultTimeout,
-					},
-					Container: &v1.Container{
-						Image: servingv1alpha1.TensorflowServingImageName + ":" +
-							instance.Spec.Default.Tensorflow.RuntimeVersion,
-						Command: []string{servingv1alpha1.TensorflowEntrypointCommand},
-						Args: []string{
-							"--port=" + servingv1alpha1.TensorflowServingGRPCPort,
-							"--rest_api_port=" + servingv1alpha1.TensorflowServingRestPort,
-							"--model_name=" + instance.Name,
-							"--model_base_path=" + constants.DefaultModelLocalMountPath,
+				Spec: v1beta1.RevisionSpec{
+					TimeoutSeconds: &constants.DefaultTimeout,
+					PodSpec: v1.PodSpec{
+						Containers: []v1.Container{
+							{
+								Image: servingv1alpha1.TensorflowServingImageName + ":" +
+									instance.Spec.Default.Tensorflow.RuntimeVersion,
+								Command: []string{servingv1alpha1.TensorflowEntrypointCommand},
+								Args: []string{
+									"--port=" + servingv1alpha1.TensorflowServingGRPCPort,
+									"--rest_api_port=" + servingv1alpha1.TensorflowServingRestPort,
+									"--model_name=" + instance.Name,
+									"--model_base_path=" + constants.DefaultModelLocalMountPath,
+								},
+							},
 						},
 					},
 				},
@@ -194,7 +195,7 @@ func TestReconcile(t *testing.T) {
 	}
 	g.Expect(configuration.Spec).To(gomega.Equal(expectedConfiguration.Spec))
 
-	route := &knservingv1alpha1.Route{}
+	route := &v1beta1.Route{}
 	g.Eventually(func() error { return c.Get(context.TODO(), serviceKey, route) }, timeout).
 		Should(gomega.Succeed())
 	// mock update knative configuration/route status since knative serving controller is not running in test
@@ -203,7 +204,7 @@ func TestReconcile(t *testing.T) {
 	updated.Status.LatestReadyRevisionName = "revision-v1"
 	updated.Status.Conditions = duckv1beta1.Conditions{
 		{
-			Type:   knservingv1alpha1.ConfigurationConditionReady,
+			Type:   v1beta1.ConfigurationConditionReady,
 			Status: "True",
 		},
 	}
@@ -211,10 +212,10 @@ func TestReconcile(t *testing.T) {
 	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
 
 	updatedRoute := route.DeepCopy()
-	updatedRoute.Status.Domain = serviceKey.Name + ".svc.cluster.local"
+	updatedRoute.Status.URL = &apis.URL{Scheme: "http", Host: serviceKey.Name + ".svc.cluster.local"}
 	updatedRoute.Status.Conditions = duckv1beta1.Conditions{
 		{
-			Type:   knservingv1alpha1.RouteConditionReady,
+			Type:   v1beta1.RouteConditionReady,
 			Status: "True",
 		},
 	}
@@ -238,7 +239,7 @@ func TestReconcile(t *testing.T) {
 				},
 			},
 		},
-		URL: updatedRoute.Status.Domain,
+		URL: updatedRoute.Status.URL.Host,
 		Default: servingv1alpha1.StatusConfigurationSpec{
 			Name: "revision-v1",
 		},
@@ -286,20 +287,20 @@ func TestCanaryReconcile(t *testing.T) {
 	defer c.Delete(context.TODO(), canary)
 	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedCanaryRequest)))
 
-	defaultConfiguration := &knservingv1alpha1.Configuration{}
+	defaultConfiguration := &v1beta1.Configuration{}
 	g.Eventually(func() error { return c.Get(context.TODO(), defaultConfigurationKey, defaultConfiguration) }, timeout).
 		Should(gomega.Succeed())
 
-	canaryConfiguration := &knservingv1alpha1.Configuration{}
+	canaryConfiguration := &v1beta1.Configuration{}
 	g.Eventually(func() error { return c.Get(context.TODO(), canaryConfigurationKey, canaryConfiguration) }, timeout).
 		Should(gomega.Succeed())
-	expectedCanaryConfiguration := &knservingv1alpha1.Configuration{
+	expectedCanaryConfiguration := &v1beta1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      canary.Name,
 			Namespace: canary.Namespace,
 		},
-		Spec: knservingv1alpha1.ConfigurationSpec{
-			RevisionTemplate: &knservingv1alpha1.RevisionTemplateSpec{
+		Spec: v1beta1.ConfigurationSpec{
+			Template: v1beta1.RevisionTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{"serving.kubeflow.org/kfservice": "bar"},
 					Annotations: map[string]string{
@@ -310,19 +311,21 @@ func TestCanaryReconcile(t *testing.T) {
 						constants.ModelInitializerSourceUriInternalAnnotationKey: canary.Spec.Canary.Tensorflow.ModelURI,
 					},
 				},
-				Spec: knservingv1alpha1.RevisionSpec{
-					RevisionSpec: v1beta1.RevisionSpec{
-						TimeoutSeconds: &constants.DefaultTimeout,
-					},
-					Container: &v1.Container{
-						Image: servingv1alpha1.TensorflowServingImageName + ":" +
-							canary.Spec.Canary.Tensorflow.RuntimeVersion,
-						Command: []string{servingv1alpha1.TensorflowEntrypointCommand},
-						Args: []string{
-							"--port=" + servingv1alpha1.TensorflowServingGRPCPort,
-							"--rest_api_port=" + servingv1alpha1.TensorflowServingRestPort,
-							"--model_name=" + canary.Name,
-							"--model_base_path=" + constants.DefaultModelLocalMountPath,
+				Spec: v1beta1.RevisionSpec{
+					TimeoutSeconds: &constants.DefaultTimeout,
+					PodSpec: v1.PodSpec{
+						Containers: []v1.Container{
+							{
+								Image: servingv1alpha1.TensorflowServingImageName + ":" +
+									canary.Spec.Canary.Tensorflow.RuntimeVersion,
+								Command: []string{servingv1alpha1.TensorflowEntrypointCommand},
+								Args: []string{
+									"--port=" + servingv1alpha1.TensorflowServingGRPCPort,
+									"--rest_api_port=" + servingv1alpha1.TensorflowServingRestPort,
+									"--model_name=" + canary.Name,
+									"--model_base_path=" + constants.DefaultModelLocalMountPath,
+								},
+							},
 						},
 					},
 				},
@@ -330,27 +333,23 @@ func TestCanaryReconcile(t *testing.T) {
 		},
 	}
 	g.Expect(canaryConfiguration.Spec).To(gomega.Equal(expectedCanaryConfiguration.Spec))
-	route := &knservingv1alpha1.Route{}
+	route := &v1beta1.Route{}
 	g.Eventually(func() error { return c.Get(context.TODO(), canaryServiceKey, route) }, timeout).
 		Should(gomega.Succeed())
-	expectedRoute := knservingv1alpha1.Route{
+	expectedRoute := v1beta1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      canary.Name,
 			Namespace: canary.Namespace,
 		},
-		Spec: knservingv1alpha1.RouteSpec{
-			Traffic: []knservingv1alpha1.TrafficTarget{
-				{
-					TrafficTarget: v1beta1.TrafficTarget{
-						ConfigurationName: constants.DefaultConfigurationName(canary.Name),
-						Percent:           80,
-					},
+		Spec: v1beta1.RouteSpec{
+			Traffic: []v1beta1.TrafficTarget{
+				v1beta1.TrafficTarget{
+					ConfigurationName: constants.DefaultConfigurationName(canary.Name),
+					Percent:           80,
 				},
-				{
-					TrafficTarget: v1beta1.TrafficTarget{
-						ConfigurationName: constants.CanaryConfigurationName(canary.Name),
-						Percent:           20,
-					},
+				v1beta1.TrafficTarget{
+					ConfigurationName: constants.CanaryConfigurationName(canary.Name),
+					Percent:           20,
 				},
 			},
 		},
@@ -363,7 +362,7 @@ func TestCanaryReconcile(t *testing.T) {
 	updateDefault.Status.LatestReadyRevisionName = "revision-v1"
 	updateDefault.Status.Conditions = duckv1beta1.Conditions{
 		{
-			Type:   knservingv1alpha1.ConfigurationConditionReady,
+			Type:   v1beta1.ConfigurationConditionReady,
 			Status: "True",
 		},
 	}
@@ -375,7 +374,7 @@ func TestCanaryReconcile(t *testing.T) {
 	updateCanary.Status.LatestReadyRevisionName = "revision-v2"
 	updateCanary.Status.Conditions = duckv1beta1.Conditions{
 		{
-			Type:   knservingv1alpha1.ConfigurationConditionReady,
+			Type:   v1beta1.ConfigurationConditionReady,
 			Status: "True",
 		},
 	}
@@ -383,20 +382,14 @@ func TestCanaryReconcile(t *testing.T) {
 	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedCanaryRequest)))
 
 	updatedRoute := route.DeepCopy()
-	updatedRoute.Status.Domain = canaryServiceKey.Name + ".svc.cluster.local"
-	updatedRoute.Status.Traffic = []knservingv1alpha1.TrafficTarget{
-		{
-			Name:          "candidate",
-			TrafficTarget: v1beta1.TrafficTarget{RevisionName: "revision-v2", Percent: 20},
-		},
-		{
-			Name:          "current",
-			TrafficTarget: v1beta1.TrafficTarget{RevisionName: "revision-v1", Percent: 80},
-		},
+	updatedRoute.Status.URL = &apis.URL{Scheme: "http", Host: canaryServiceKey.Name + ".svc.cluster.local"}
+	updatedRoute.Status.Traffic = []v1beta1.TrafficTarget{
+		v1beta1.TrafficTarget{RevisionName: "revision-v2", Percent: 20},
+		v1beta1.TrafficTarget{RevisionName: "revision-v1", Percent: 80},
 	}
 	updatedRoute.Status.Conditions = duckv1beta1.Conditions{
 		{
-			Type:   knservingv1alpha1.RouteConditionReady,
+			Type:   v1beta1.RouteConditionReady,
 			Status: "True",
 		},
 	}
@@ -426,7 +419,7 @@ func TestCanaryReconcile(t *testing.T) {
 				},
 			},
 		},
-		URL: updatedRoute.Status.Domain,
+		URL: updatedRoute.Status.URL.Host,
 		Default: servingv1alpha1.StatusConfigurationSpec{
 			Name:    "revision-v1",
 			Traffic: 80,

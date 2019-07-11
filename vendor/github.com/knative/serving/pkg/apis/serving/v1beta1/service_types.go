@@ -57,6 +57,9 @@ var (
 	_ apis.Validatable = (*Service)(nil)
 	_ apis.Defaultable = (*Service)(nil)
 
+	// Check that Service can be converted to higher versions.
+	_ apis.Convertible = (*Service)(nil)
+
 	// Check that we can create OwnerReferences to a Service.
 	_ kmeta.OwnerRefable = (*Service)(nil)
 )
