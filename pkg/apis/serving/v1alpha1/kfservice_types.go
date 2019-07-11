@@ -21,23 +21,15 @@ import (
 
 // KFServiceSpec defines the desired state of KFService
 type KFServiceSpec struct {
-	Default PredictorSpec `json:"default"`
+	Default ModelSpec `json:"default"`
 	// Canary defines an alternate configuration to route a percentage of traffic.
-	Canary               *PredictorSpec `json:"canary,omitempty"`
-	CanaryTrafficPercent int            `json:"canaryTrafficPercent,omitempty"`
-}
-
-// PredictorSpec defines the predictor for default or canary routes
-type PredictorSpec struct {
-	// Service Account Name
-	ServiceAccountName string    `json:"serviceAccountName,omitempty"`
-	Predict            ModelSpec `json:"predict"`
-	// Optional explainer
-	Explain *ExplainerSpec `json:"explain,omitempty"`
+	Canary               *ModelSpec `json:"canary,omitempty"`
+	CanaryTrafficPercent int        `json:"canaryTrafficPercent,omitempty"`
 }
 
 // ModelSpec defines the configuration to route traffic to a predictor.
 type ModelSpec struct {
+	ServiceAccountName string `json:"serviceAccountName,omitempty"`
 	// Minimum number of replicas, pods won't scale down to 0 in case of no traffic
 	MinReplicas int `json:"minReplicas,omitempty"`
 	// This is the up bound for autoscaler to scale to
@@ -49,6 +41,7 @@ type ModelSpec struct {
 	XGBoost    *XGBoostSpec    `json:"xgboost,omitempty"`
 	SKLearn    *SKLearnSpec    `json:"sklearn,omitempty"`
 	PyTorch    *PyTorchSpec    `json:"pytorch,omitempty"`
+	Explain    *ExplainerSpec  `json:"explain,omitempty"`
 }
 
 // ExplainerSpec defines the arguments for a model explanation server
