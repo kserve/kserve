@@ -443,7 +443,6 @@ func TestCanaryReconcile(t *testing.T) {
 		if err := c.Get(context.TODO(), canaryServiceKey, kfsvc); err != nil {
 			return err.Error()
 		}
-		diff := cmp.Diff(&expectedKfsvcStatus, &kfsvc.Status, cmpopts.IgnoreTypes(apis.VolatileTime{}))
-		return diff
+		return cmp.Diff(&expectedKfsvcStatus, &kfsvc.Status, cmpopts.IgnoreTypes(apis.VolatileTime{}))
 	}, timeout).Should(gomega.BeEmpty())
 }
