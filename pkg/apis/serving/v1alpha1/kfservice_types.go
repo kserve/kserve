@@ -41,18 +41,18 @@ type ModelSpec struct {
 	XGBoost    *XGBoostSpec    `json:"xgboost,omitempty"`
 	SKLearn    *SKLearnSpec    `json:"sklearn,omitempty"`
 	PyTorch    *PyTorchSpec    `json:"pytorch,omitempty"`
-	Explain    *ExplainerSpec  `json:"explain,omitempty"`
+	Explain    *ExplainSpec    `json:"explain,omitempty"`
 }
 
-// ExplainerSpec defines the arguments for a model explanation server
-type ExplainerSpec struct {
+// ExplainSpec defines the arguments for a model explanation server
+type ExplainSpec struct {
 	// The following fields follow a "1-of" semantic. Users must specify exactly one spec.
-	Alibi  *AlibiExplainerSpec `json:"alibi,omitempty"`
-	Custom *CustomSpec         `json:"custom,omitempty"`
+	Alibi  *AlibiExplainSpec `json:"alibi,omitempty"`
+	Custom *CustomSpec       `json:"custom,omitempty"`
 }
 
-// AlibiExplainerSpec defines the arguments for configuring an Alibi explanation serving
-type AlibiExplainerSpec struct {
+// AlibiExplainSpec defines the arguments for configuring an Alibi Explanation Server
+type AlibiExplainSpec struct {
 	// The following fields follow a "1-of" semantic. Users must specify exactly one of Type or ExplainerURI.
 	// The kind of Alibi explanation server to create, e.g. AnchorTabular
 	Type string `json:"type"`
@@ -63,7 +63,7 @@ type AlibiExplainerSpec struct {
 	// Defaults to requests and limits of 1CPU, 2Gb MEM.
 	Resources v1.ResourceRequirements `json:"resources,omitempty"`
 	// Inline custom parameter settings for explainer
-	Config v1.ConfigMap `json:"config,omitempty"`
+	Config map[string]string `json:"config,omitempty"`
 }
 
 // TensorflowSpec defines arguments for configuring Tensorflow model serving.

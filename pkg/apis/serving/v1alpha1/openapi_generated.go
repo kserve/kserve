@@ -99,6 +99,59 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 			Dependencies: []string{
 				"k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
 		},
+		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.AlibiExplainSpec": {
+			Schema: openapispec.Schema{
+				SchemaProps: openapispec.SchemaProps{
+					Description: "AlibiExplainSpec defines the arguments for configuring an Alibi Explanation Server",
+					Properties: map[string]openapispec.Schema{
+						"type": {
+							SchemaProps: openapispec.SchemaProps{
+								Description: "The following fields follow a \"1-of\" semantic. Users must specify exactly one of Type or ExplainerURI. The kind of Alibi explanation server to create, e.g. AnchorTabular",
+								Type:        []string{"string"},
+								Format:      "",
+							},
+						},
+						"savedExplainerUri": {
+							SchemaProps: openapispec.SchemaProps{
+								Description: "The location of a fit explanation model",
+								Type:        []string{"string"},
+								Format:      "",
+							},
+						},
+						"runtimeVersion": {
+							SchemaProps: openapispec.SchemaProps{
+								Description: "Defaults to latest Alibi Version.",
+								Type:        []string{"string"},
+								Format:      "",
+							},
+						},
+						"resources": {
+							SchemaProps: openapispec.SchemaProps{
+								Description: "Defaults to requests and limits of 1CPU, 2Gb MEM.",
+								Ref:         ref("k8s.io/api/core/v1.ResourceRequirements"),
+							},
+						},
+						"config": {
+							SchemaProps: openapispec.SchemaProps{
+								Description: "Inline custom parameter settings for explainer",
+								Type:        []string{"object"},
+								AdditionalProperties: &openapispec.SchemaOrBool{
+									Schema: &openapispec.Schema{
+										SchemaProps: openapispec.SchemaProps{
+											Type:   []string{"string"},
+											Format: "",
+										},
+									},
+								},
+							},
+						},
+					},
+					Required: []string{"type"},
+				},
+			},
+			Dependencies: []string{
+				"k8s.io/api/core/v1.ResourceRequirements"},
+		},
 		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.CustomSpec": {
 			Schema: openapispec.Schema{
 				SchemaProps: openapispec.SchemaProps{
@@ -115,6 +168,28 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 			},
 			Dependencies: []string{
 				"k8s.io/api/core/v1.Container"},
+		},
+		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.ExplainSpec": {
+			Schema: openapispec.Schema{
+				SchemaProps: openapispec.SchemaProps{
+					Description: "ExplainSpec defines the arguments for a model explanation server",
+					Properties: map[string]openapispec.Schema{
+						"alibi": {
+							SchemaProps: openapispec.SchemaProps{
+								Description: "The following fields follow a \"1-of\" semantic. Users must specify exactly one openapispec.",
+								Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.AlibiExplainSpec"),
+							},
+						},
+						"custom": {
+							SchemaProps: openapispec.SchemaProps{
+								Ref: ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.CustomSpec"),
+							},
+						},
+					},
+				},
+			},
+			Dependencies: []string{
+				"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.AlibiExplainSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.CustomSpec"},
 		},
 		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.FrameworkConfig": {
 			Schema: openapispec.Schema{
@@ -335,13 +410,12 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.ModelSpec": {
 			Schema: openapispec.Schema{
 				SchemaProps: openapispec.SchemaProps{
-					Description: "ModelSpec defines the default configuration to route traffic.",
+					Description: "ModelSpec defines the configuration to route traffic to a predictor.",
 					Properties: map[string]openapispec.Schema{
 						"serviceAccountName": {
 							SchemaProps: openapispec.SchemaProps{
-								Description: "Service Account Name",
-								Type:        []string{"string"},
-								Format:      "",
+								Type:   []string{"string"},
+								Format: "",
 							},
 						},
 						"minReplicas": {
@@ -389,11 +463,16 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Ref: ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.PyTorchSpec"),
 							},
 						},
+						"explain": {
+							SchemaProps: openapispec.SchemaProps{
+								Ref: ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.ExplainSpec"),
+							},
+						},
 					},
 				},
 			},
 			Dependencies: []string{
-				"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.CustomSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.PyTorchSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.SKLearnSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.TensorRTSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.TensorflowSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.XGBoostSpec"},
+				"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.CustomSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.ExplainSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.PyTorchSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.SKLearnSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.TensorRTSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.TensorflowSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.XGBoostSpec"},
 		},
 		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.PyTorchSpec": {
 			Schema: openapispec.Schema{
