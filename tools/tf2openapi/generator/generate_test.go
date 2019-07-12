@@ -4,10 +4,13 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/golang/protobuf/proto"
+	"github.com/kubeflow/kfserving/tools/tf2openapi/generated/framework"
 	pb "github.com/kubeflow/kfserving/tools/tf2openapi/generated/protobuf"
+	"github.com/kubeflow/kfserving/tools/tf2openapi/types"
 	"github.com/onsi/gomega"
 	"io/ioutil"
 	"net/http"
@@ -15,56 +18,152 @@ import (
 	"testing"
 )
 
-func testReadFiles(t *testing.T) (*pb.SavedModel, []byte) {
-	model := &pb.SavedModel{}
-	modelPb, err := ioutil.ReadFile(filepath.Join("testdata", t.Name()+".pb"))
-	if err != nil {
-		t.Fatalf("failed reading .pb: %s", err)
+func TestGeneratorBuilderSpecifiedFields(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	builder := &Builder{}
+	builder.SetName("model")
+	builder.SetVersion("1")
+	builder.SetMetaGraphTags([]string{"tag"})
+	builder.SetSigDefKey("sigDefKey")
+	generator := builder.Build()
+	expectedGenerator := Generator{
+		name:          "model",
+		version:       "1",
+		metaGraphTags: []string{"tag"},
+		sigDefKey:     "sigDefKey",
 	}
-	if err := proto.Unmarshal(modelPb, model); err != nil {
-		t.Fatal("SavedModel not in expected format. May be corrupted: " + err.Error())
-	}
-	openAPI, err := ioutil.ReadFile(filepath.Join("testdata", t.Name()+".golden"))
-	if err != nil {
-		t.Fatalf("failed reading .golden: %s", err)
-	}
-	return model, openAPI
+	g.Expect(generator).Should(gomega.Equal(expectedGenerator))
 }
 
-func testLoadPayload(t *testing.T) (*openapi3.Swagger, []byte) {
-	loader := openapi3.NewSwaggerLoader()
-	swagger, e1 := loader.LoadSwaggerFromFile(filepath.Join("testdata", t.Name()+".golden"))
-	if e1 != nil {
-		t.Fatalf("failed reading .golden: %s", e1)
-	}
-	payload, e2 := ioutil.ReadFile(filepath.Join("testdata", t.Name()+"Req.json"))
-	if e2 != nil {
-		t.Fatalf("failed reading .json: %s", e2)
-	}
-	return swagger, payload
+func TestGeneratorBuilderDefault(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	builder := &Builder{}
+	builder.SetName("model")
+	builder.SetVersion("1")
+	generator := builder.Build()
+	expectedGenerator := defaultGenerator()
+	g.Expect(generator).Should(gomega.Equal(expectedGenerator))
 }
 
-func TestRowFmtMultipleTensors(t *testing.T) {
+func TestGenerateOpenAPIConstructionErr(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	generator := defaultGenerator()
+	model := &pb.SavedModel{
+		MetaGraphs: []*pb.MetaGraphDef{
+			{
+				MetaInfoDef: &pb.MetaGraphDef_MetaInfoDef{
+					Tags: []string{
+						"serve",
+					},
+				},
+				SignatureDef: map[string]*pb.SignatureDef{
+					"sigDefKey": {
+						MethodName: "tensorflow/serving/predict",
+						Inputs: map[string]*pb.TensorInfo{
+							"inputTensorName": {
+								// Unsupported data type will err
+								Dtype: framework.DataType_DT_COMPLEX128,
+								TensorShape: &framework.TensorShapeProto{
+									Dim: []*framework.TensorShapeProto_Dim{
+										{Size: -1},
+										{Size: 3},
+									},
+									UnknownRank: false,
+								},
+							},
+						},
+						Outputs: map[string]*pb.TensorInfo{
+							"outputTensorName": {
+								Dtype: framework.DataType_DT_INT8,
+								TensorShape: &framework.TensorShapeProto{
+									Dim: []*framework.TensorShapeProto_Dim{
+										{Size: -1},
+										{Size: 3},
+									},
+									UnknownRank: false,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	_, specErr := generator.GenerateOpenAPI(model)
+	expectedErr := fmt.Sprintf(types.UnsupportedDataTypeError, "inputTensorName", "DT_COMPLEX128")
+	g.Expect(specErr).To(gomega.MatchError(expectedErr))
+}
+
+func TestGenerateOpenAPISpecGenerationErr(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	generator := defaultGenerator()
+	model := &pb.SavedModel{
+		MetaGraphs: []*pb.MetaGraphDef{
+			{
+				MetaInfoDef: &pb.MetaGraphDef_MetaInfoDef{
+					Tags: []string{
+						"serve",
+					},
+				},
+				SignatureDef: map[string]*pb.SignatureDef{
+					"serving_default": {
+						MethodName: "tensorflow/serving/classify",
+						Inputs: map[string]*pb.TensorInfo{
+							"inputTensorName": {
+								Dtype: framework.DataType_DT_INT8,
+								TensorShape: &framework.TensorShapeProto{
+									Dim: []*framework.TensorShapeProto_Dim{
+										{Size: -1},
+										{Size: 3},
+									},
+									UnknownRank: false,
+								},
+							},
+						},
+						Outputs: map[string]*pb.TensorInfo{
+							"outputTensorName": {
+								Dtype: framework.DataType_DT_INT8,
+								TensorShape: &framework.TensorShapeProto{
+									Dim: []*framework.TensorShapeProto_Dim{
+										{Size: -1},
+										{Size: 3},
+									},
+									UnknownRank: false,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	_, specErr := generator.GenerateOpenAPI(model)
+	expectedErr := fmt.Sprintf(SpecGenerationError, types.UnsupportedAPISchemaError)
+	g.Expect(specErr).To(gomega.MatchError(expectedErr))
+}
+
+
+func TestGenerateOpenAPIForRowFmtMultipleTensors(t *testing.T) {
 	// model src: gs://kfserving-samples/models/tensorflow/flowers
 	g := gomega.NewGomegaWithT(t)
-
-	// OpenAPI spec is as expected (API has not changed)
-	model, goldenFile := testReadFiles(t)
-	spec, specErr := GenerateOpenAPI(model, "model", "1", "serving_default")
+	model := model(t, "TestRowFmtMultipleTensors")
+	generator := defaultGenerator()
+	spec, specErr := generator.GenerateOpenAPI(model)
 	g.Expect(specErr).Should(gomega.BeNil())
-	expectedSpec := string(goldenFile)
-	var swagger openapi3.Swagger
-	var expectedSwagger openapi3.Swagger
+
+	swagger := &openapi3.Swagger{}
 	g.Expect(json.Unmarshal([]byte(spec), &swagger)).To(gomega.Succeed())
 
-	// remove any formatting from golden file: tabs or newlines
+	expectedSpec := string(openAPI(t, "TestRowFmtMultipleTensors"))
+	expectedSwagger := &openapi3.Swagger{}
+	// remove any formatting from expectedSpec
 	buffer := new(bytes.Buffer)
 	if err := json.Compact(buffer, []byte(expectedSpec)); err != nil {
 		t.Fatal(err)
 	}
-	json.Unmarshal(buffer.Bytes(), &expectedSwagger)
+	g.Expect(json.Unmarshal(buffer.Bytes(), &expectedSwagger)).To(gomega.Succeed())
 
-	// walk through structure because can't do a simple JSON comparison- gomega checks for order in array, but "required" array is unordered
+	// test equality, ignoring order in JSON arrays
 	instances := swagger.Components.RequestBodies["modelInput"].Value.Content.Get("application/json").
 		Schema.Value.Properties["instances"].Value
 	expectedInstances := expectedSwagger.Components.RequestBodies["modelInput"].Value.Content.
@@ -74,43 +173,28 @@ func TestRowFmtMultipleTensors(t *testing.T) {
 	g.Expect(instances.Items.Value.AdditionalPropertiesAllowed).Should(gomega.Not(gomega.BeNil()))
 	g.Expect(instances.Items.Value.AdditionalPropertiesAllowed).Should(gomega.Equal(expectedInstances.Items.Value.AdditionalPropertiesAllowed))
 	g.Expect(instances.Items.Value.Properties).Should(gomega.Equal(expectedInstances.Items.Value.Properties))
-
-	// OpenAPI accepts real, valid input
-	openapi, payload := testLoadPayload(t)
-	router := openapi3filter.NewRouter().WithSwagger(openapi)
-	req, _ := http.NewRequest(http.MethodPost, "/v1/models/model/versions/1:predict", bytes.NewReader(payload))
-	route, pathParams, _ := router.FindRoute(req.Method, req.URL)
-	req.Header.Set("Content-Type", "application/json")
-	requestValidationInput := &openapi3filter.RequestValidationInput{
-		Request:    req,
-		PathParams: pathParams,
-		Route:      route,
-	}
-	payloadErr := openapi3filter.ValidateRequest(context.TODO(), requestValidationInput)
-	g.Expect(payloadErr).Should(gomega.BeNil())
 }
 
-func TestColFmtMultipleTensors(t *testing.T) {
+func TestGenerateOpenAPIForColFmtMultipleTensors(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-
-	// OpenAPI spec is as expected (API has not changed)
-	model, goldenFile := testReadFiles(t)
-	spec, specErr := GenerateOpenAPI(model, "model", "1", "serving_default")
+	model := model(t, "TestColFmtMultipleTensors")
+	generator := defaultGenerator()
+	spec, specErr := generator.GenerateOpenAPI(model)
 	g.Expect(specErr).Should(gomega.BeNil())
 
-	expectedSpec := string(goldenFile)
-	var swagger openapi3.Swagger
-	var expectedSwagger openapi3.Swagger
+	swagger := &openapi3.Swagger{}
 	g.Expect(json.Unmarshal([]byte(spec), &swagger)).To(gomega.Succeed())
 
-	// remove any formatting from golden file: tabs or newlines
+	expectedSpec := string(openAPI(t, "TestColFmtMultipleTensors"))
+	expectedSwagger := &openapi3.Swagger{}
+	// remove any formatting from expectedSpec
 	buffer := new(bytes.Buffer)
 	if err := json.Compact(buffer, []byte(expectedSpec)); err != nil {
 		t.Fatal(err)
 	}
-	json.Unmarshal(buffer.Bytes(), &expectedSwagger)
+	g.Expect(json.Unmarshal(buffer.Bytes(), &expectedSwagger)).To(gomega.Succeed())
 
-	// walk through structure because can't do a simple JSON comparison- gomega checks for order in array, but "required" array is unordered
+	// ignore order in JSON arrays
 	inputs := swagger.Components.RequestBodies["modelInput"].Value.Content.Get("application/json").
 		Schema.Value.Properties["inputs"].Value
 	expectedInputs := expectedSwagger.Components.RequestBodies["modelInput"].Value.Content.
@@ -119,135 +203,106 @@ func TestColFmtMultipleTensors(t *testing.T) {
 	g.Expect(inputs.Required).To(gomega.ConsistOf(expectedInputs.Required))
 	g.Expect(inputs.Properties).Should(gomega.Equal(expectedInputs.Properties))
 	g.Expect(inputs.AdditionalPropertiesAllowed).Should(gomega.Equal(expectedInputs.AdditionalPropertiesAllowed))
-
-	// OpenAPI accepts real, valid input
-	openapi, payload := testLoadPayload(t)
-	router := openapi3filter.NewRouter().WithSwagger(openapi)
-	req, _ := http.NewRequest(http.MethodPost, "/v1/models/model/versions/1:predict", bytes.NewReader(payload))
-	route, pathParams, _ := router.FindRoute(req.Method, req.URL)
-	req.Header.Set("Content-Type", "application/json")
-	requestValidationInput := &openapi3filter.RequestValidationInput{
-		Request:    req,
-		PathParams: pathParams,
-		Route:      route,
-	}
-	payloadErr := openapi3filter.ValidateRequest(context.TODO(), requestValidationInput)
-	g.Expect(payloadErr).Should(gomega.BeNil())
 }
 
-func TestColFmtSingleTensor(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-
-	// OpenAPI spec is as expected (API has not changed)
-	model, goldenFile := testReadFiles(t)
-	spec, specErr := GenerateOpenAPI(model, "model", "1", "serving_default")
-	expectedSpec := string(goldenFile)
-	g.Expect(spec).Should(gomega.MatchJSON(expectedSpec))
-	g.Expect(specErr).Should(gomega.BeNil())
-
-	// OpenAPI accepts real, valid input
-	swagger, payload := testLoadPayload(t)
-	router := openapi3filter.NewRouter().WithSwagger(swagger)
-	req, _ := http.NewRequest(http.MethodPost, "/v1/models/model/versions/1:predict", bytes.NewReader(payload))
-	route, pathParams, _ := router.FindRoute(req.Method, req.URL)
-	req.Header.Set("Content-Type", "application/json")
-	requestValidationInput := &openapi3filter.RequestValidationInput{
-		Request:    req,
-		PathParams: pathParams,
-		Route:      route,
+func TestGenerateOpenAPIForVariousFmtsStrictly(t *testing.T) {
+	inputFmts := []struct {
+		name string
+	}{
+		{"TestColFmtSingleTensor"}, {"TestColFmtScalar"}, {"TestRowFmtSingleTensor"},
 	}
-	payloadErr := openapi3filter.ValidateRequest(context.TODO(), requestValidationInput)
-	g.Expect(payloadErr).Should(gomega.BeNil())
+	for _, fmt := range inputFmts {
+		g := gomega.NewGomegaWithT(t)
+		model := model(t, fmt.name)
+		generator := defaultGenerator()
+		spec, specErr := generator.GenerateOpenAPI(model)
+		expectedSpec := openAPI(t, fmt.name)
+		g.Expect(spec).Should(gomega.MatchJSON(expectedSpec))
+		g.Expect(specErr).Should(gomega.BeNil())
+	}
 }
 
-func TestColFmtScalar(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-
-	// OpenAPI spec is as expected (API has not changed)
-	model, goldenFile := testReadFiles(t)
-	spec, specErr := GenerateOpenAPI(model, "model", "1", "serving_default")
-	expectedSpec := string(goldenFile)
-	g.Expect(spec).Should(gomega.MatchJSON(expectedSpec))
-	g.Expect(specErr).Should(gomega.BeNil())
-
-	// OpenAPI accepts real, valid input
-	swagger, payload := testLoadPayload(t)
-	router := openapi3filter.NewRouter().WithSwagger(swagger)
-	req, _ := http.NewRequest(http.MethodPost, "/v1/models/model/versions/1:predict", bytes.NewReader(payload))
-	route, pathParams, _ := router.FindRoute(req.Method, req.URL)
-	req.Header.Set("Content-Type", "application/json")
-	requestValidationInput := &openapi3filter.RequestValidationInput{
-		Request:    req,
-		PathParams: pathParams,
-		Route:      route,
+func TestAcceptsValidTFServingInput(t *testing.T) {
+	inputFmts := []struct {
+		name string
+	}{
+		{"TestColFmtSingleTensor"},
+		{"TestColFmtScalar"},
+		{"TestRowFmtSingleTensor"},
+		{"TestColFmtMultipleTensors"},
+		{"TestRowFmtMultipleTensors"},
 	}
-	payloadErr := openapi3filter.ValidateRequest(context.TODO(), requestValidationInput)
-	g.Expect(payloadErr).Should(gomega.BeNil())
+	for _, fmt := range inputFmts {
+		g := gomega.NewGomegaWithT(t)
+		g.Expect(acceptsValidReq(t, fmt.name)).Should(gomega.BeNil())
+	}
 }
 
-func TestRowFmtSingleTensor(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-
-	// OpenAPI spec is as expected (API has not changed)
-	model, goldenFile := testReadFiles(t)
-	spec, specErr := GenerateOpenAPI(model, "model", "1", "serving_default")
-	expectedSpec := string(goldenFile)
-	g.Expect(spec).Should(gomega.MatchJSON(expectedSpec))
-	g.Expect(specErr).Should(gomega.BeNil())
-
-	// OpenAPI accepts real, valid input
-	swagger, payload := testLoadPayload(t)
-	router := openapi3filter.NewRouter().WithSwagger(swagger)
-	req, _ := http.NewRequest(http.MethodPost, "/v1/models/model/versions/1:predict", bytes.NewReader(payload))
-	route, pathParams, _ := router.FindRoute(req.Method, req.URL)
-	req.Header.Set("Content-Type", "application/json")
-	requestValidationInput := &openapi3filter.RequestValidationInput{
-		Request:    req,
-		PathParams: pathParams,
-		Route:      route,
+func defaultGenerator() Generator {
+	return Generator{
+		name:          "model",
+		version:       "1",
+		metaGraphTags: []string{DefaultTag},
+		sigDefKey:     DefaultSigDefKey,
 	}
-	payloadErr := openapi3filter.ValidateRequest(context.TODO(), requestValidationInput)
-	g.Expect(payloadErr).Should(gomega.BeNil())
 }
 
-func TestComplex(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-
+func model(t *testing.T, fName string) *pb.SavedModel {
 	model := &pb.SavedModel{}
-	modelPb, err := ioutil.ReadFile(("testdata/saved_model.pb"))
+	fPath := filepath.Join("testdata", fName+".pb")
+	modelPb, err := ioutil.ReadFile(fPath)
 	if err != nil {
-		t.Fatalf("failed reading .pb: %s", err)
+		t.Fatalf("failed reading %s: %s", fPath, err)
 	}
 	if err := proto.Unmarshal(modelPb, model); err != nil {
 		t.Fatal("SavedModel not in expected format. May be corrupted: " + err.Error())
 	}
+	return model
+}
 
-	// OpenAPI spec is as expected (API has not changed)
-	spec, specErr := GenerateOpenAPI(model, "model", "1", "predict")
-	g.Expect(specErr).Should(gomega.BeNil())
+func openAPI(t *testing.T, fName string) []byte {
+	fPath := filepath.Join("testdata", fName+".golden")
+	openAPI, err := ioutil.ReadFile(fPath)
+	if err != nil {
+		t.Fatalf("failed reading %s: %s", fPath, err)
+	}
+	return openAPI
+}
 
-	// remove any formatting from golden file: tabs or newlines
-	loader := openapi3.NewSwaggerLoader()
-	swagger, e1 := loader.LoadSwaggerFromData([]byte(spec))
-	if e1 != nil {
-		t.Fatalf("eep: %s", e1)
+func acceptsValidReq(t *testing.T, fName string) error {
+	router := openapi3filter.NewRouter().WithSwagger(loadSwagger(t, fName))
+	req, reqErr := http.NewRequest(http.MethodPost, "/v1/models/model/versions/1:predict",
+		bytes.NewReader(loadPayload(t, fName)))
+	if reqErr != nil {
+		t.Fatalf("error creating request: %s", reqErr)
 	}
-	payload, e2 := ioutil.ReadFile("testdata/req.json")
-	if e2 != nil {
-		t.Fatalf("failed reading .json: %s", e2)
+	route, pathParams, routeErr := router.FindRoute(req.Method, req.URL)
+	if routeErr != nil {
+		t.Fatalf("error finding route: %s", routeErr)
 	}
-	// OpenAPI accepts real, valid input
-	router := openapi3filter.NewRouter().WithSwagger(swagger)
-	req, err := http.NewRequest(http.MethodPost, "/v1/models/model/versions/1:predict", bytes.NewReader(payload))
-	g.Expect(err).Should(gomega.BeNil())
-	route, pathParams, err2 := router.FindRoute(req.Method, req.URL)
-	g.Expect(err2).Should(gomega.BeNil())
 	req.Header.Set("Content-Type", "application/json")
 	requestValidationInput := &openapi3filter.RequestValidationInput{
 		Request:    req,
 		PathParams: pathParams,
 		Route:      route,
 	}
-	payloadErr := openapi3filter.ValidateRequest(context.TODO(), requestValidationInput)
-	g.Expect(payloadErr).Should(gomega.BeNil())
+	return openapi3filter.ValidateRequest(context.TODO(), requestValidationInput)
+}
+
+func loadSwagger(t *testing.T, fName string) *openapi3.Swagger {
+	fPath := filepath.Join("testdata", fName+".golden")
+	swagger, err := openapi3.NewSwaggerLoader().LoadSwaggerFromFile(fPath)
+	if err != nil {
+		t.Fatalf("failed reading %s: %s", fPath, err)
+	}
+	return swagger
+}
+
+func loadPayload(t *testing.T, fName string) []byte {
+	fPath := filepath.Join("testdata", fName+"Req.json")
+	payload, err := ioutil.ReadFile(fPath)
+	if err != nil {
+		t.Fatalf("failed reading %s: %s", fPath, err)
+	}
+	return payload
 }
