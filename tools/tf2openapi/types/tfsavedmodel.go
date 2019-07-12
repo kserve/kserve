@@ -17,6 +17,11 @@ type TFSavedModel struct {
 	MetaGraphs [] TFMetaGraph
 }
 
+// Known error messages
+const (
+	MetaGraphNotFoundError = "model does not contain MetaGraph with tags %v"
+)
+
 func NewTFSavedModel(model *pb.SavedModel) (TFSavedModel, error) {
 	tfSavedModel := TFSavedModel{
 		MetaGraphs: []TFMetaGraph{},
@@ -33,16 +38,18 @@ func NewTFSavedModel(model *pb.SavedModel) (TFSavedModel, error) {
 
 func (t *TFSavedModel) Schema(metaGraphTags []string, sigDefKey string) (*openapi3.Schema, error) {
 	for _, metaGraph := range t.MetaGraphs {
-		sort.Strings(metaGraph.Tags)
-		sort.Strings(metaGraphTags)
-		if !cmp.Equal(metaGraphTags, metaGraph.Tags) {
-			continue
+		if setEquals(metaGraphTags, metaGraph.Tags) {
+			return metaGraph.Schema(sigDefKey)
 		}
-		schema, err := metaGraph.Schema(sigDefKey)
-		if err != nil {
-			return &openapi3.Schema{}, err
-		}
-		return schema, nil
 	}
-	return &openapi3.Schema{}, fmt.Errorf("model does not contain MetaGraph with tags %v", metaGraphTags)
+	return &openapi3.Schema{}, fmt.Errorf(MetaGraphNotFoundError, metaGraphTags)
+}
+
+func setEquals(a, b []string) bool {
+	sort.Strings(a)
+	sort.Strings(b)
+	if cmp.Equal(a, b) {
+		return true
+	}
+	return false
 }

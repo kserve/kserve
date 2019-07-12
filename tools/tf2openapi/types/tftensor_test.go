@@ -1,6 +1,7 @@
 package types
 
 import (
+	"fmt"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/kubeflow/kfserving/tools/tf2openapi/generated/framework"
 	pb "github.com/kubeflow/kfserving/tools/tf2openapi/generated/protobuf"
@@ -58,7 +59,8 @@ func TestCreateTFTensorUnsupportedDType(t *testing.T) {
 	tensorInfoPb := tensorInfoPb()
 	tensorInfoPb.Dtype = framework.DataType_DT_COMPLEX128
 	_, err := NewTFTensor("Logical name", tensorInfoPb)
-	g.Expect(err).Should(gomega.Not(gomega.BeNil()))
+	expectedErr := fmt.Sprintf(UnsupportedDataTypeError, "Logical name", "DT_COMPLEX128")
+	g.Expect(err).Should(gomega.MatchError(expectedErr))
 }
 
 func TestCreateTFTensorUnknownShape(t *testing.T) {

@@ -1,6 +1,7 @@
 package types
 
 import (
+	"fmt"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/kubeflow/kfserving/tools/tf2openapi/generated/framework"
 	pb "github.com/kubeflow/kfserving/tools/tf2openapi/generated/protobuf"
@@ -188,7 +189,8 @@ func TestNewTFMetaGraphWithErrSignatureDef(t *testing.T) {
 	metaGraphPb := metaGraphPb()
 	metaGraphPb.SignatureDef["sigDefKey"] = badSigDefPb()
 	_, err := NewTFMetaGraph(metaGraphPb)
-	g.Expect(err).Should(gomega.Not(gomega.BeNil()))
+	expectedErr := fmt.Sprintf(UnsupportedDataTypeError, "inputTensorName", "DT_HALF")
+	g.Expect(err).Should(gomega.MatchError(expectedErr))
 }
 
 func TestTFMetaGraphTypical(t *testing.T) {
@@ -225,5 +227,6 @@ func TestTFMetaGraphMissingSigDef(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	tfMetaGraph := expectedTFMetaGraph()
 	_, err := tfMetaGraph.Schema("missingSigDefKey")
-	g.Expect(err).To(gomega.Not(gomega.BeNil()))
+	expectedErr := fmt.Sprintf(SignatureDefNotFoundError, "missingSigDefKey")
+	g.Expect(err).To(gomega.MatchError(expectedErr))
 }

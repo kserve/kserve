@@ -13,9 +13,6 @@ const responseRefTemplate = "#/components/responses/%s"
 const pathTemplate = "/v1/models/%s/versions/%s:predict"
 
 func (g *Generator) tfServingOpenAPI(model types.TFSavedModel) (*openapi3.Swagger, error) {
-	requestRef := fmt.Sprintf(requestRefTemplate, requestName)
-	responseRef := fmt.Sprintf(responseRefTemplate, responseName)
-	path := fmt.Sprintf(pathTemplate, g.name, g.version)
 	schema, err := model.Schema(g.metaGraphTags, g.sigDefKey)
 	if err != nil {
 		return &openapi3.Swagger{}, err
@@ -39,15 +36,15 @@ func (g *Generator) tfServingOpenAPI(model types.TFSavedModel) (*openapi3.Swagge
 			},
 		},
 		Paths: openapi3.Paths{
-			path: &openapi3.PathItem{
+			fmt.Sprintf(pathTemplate, g.name, g.version): &openapi3.PathItem{
 				Post: &openapi3.Operation{
 					RequestBody: &openapi3.RequestBodyRef{
-						Ref: requestRef,
+						Ref: fmt.Sprintf(requestRefTemplate, requestName),
 					},
 
 					Responses: openapi3.Responses{
 						"200": &openapi3.ResponseRef{
-							Ref: responseRef,
+							Ref: fmt.Sprintf(responseRefTemplate, responseName),
 						},
 					},
 				},

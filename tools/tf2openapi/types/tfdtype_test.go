@@ -1,6 +1,7 @@
 package types
 
 import (
+	"fmt"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/onsi/gomega"
 	"testing"
@@ -25,7 +26,8 @@ func TestCreateTFDTypeB64(t *testing.T) {
 func TestCreateTFDTypeUnsupported(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	_, err := NewTFDType("tensor_name", "BAD TYPE")
-	g.Expect(err).Should(gomega.Not(gomega.BeNil()))
+	expectedErr := fmt.Sprintf(UnsupportedDataTypeError, "tensor_name", "BAD TYPE")
+	g.Expect(err).Should(gomega.MatchError(expectedErr))
 }
 
 func TestTFDTypeSchemaTypical(t *testing.T) {
