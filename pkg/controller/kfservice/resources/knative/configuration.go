@@ -107,7 +107,6 @@ func (c *ConfigurationBuilder) CreateKnativeConfiguration(name string, metadata 
 							*modelSpec.CreateModelServingContainer(metadata.Name, c.frameworksConfig),
 						},
 					},
-					//Container: modelSpec.CreateModelServingContainer(metadata.Name, c.frameworksConfig),
 				},
 			},
 		},
