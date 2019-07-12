@@ -1,0 +1,10 @@
+# The OWNERS file is used by prow to automatically merge approved PRs.
+
+approvers:
+- serving-api-approvers
+
+reviewers:
+- serving-api-reviewers
+
+labels:
+- area/API

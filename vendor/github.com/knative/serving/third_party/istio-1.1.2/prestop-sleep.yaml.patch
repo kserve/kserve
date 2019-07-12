@@ -1,0 +1,7 @@
+512a513,518
+>         # PATCH #2: Delay Envoy lameduck a bit, since Endpoint propagation may be slow.
+>         lifecycle:
+>           preStop:
+>             exec:
+>               command: ["sleep", "20"]
+>         # PATCH #2 ends.

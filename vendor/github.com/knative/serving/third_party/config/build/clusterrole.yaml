@@ -1,0 +1,13 @@
+# This ClusterRole enables the aggregated ClusterRole used by the
+# knative/serving controller to interact with Build resources.
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: knative-serving-build
+  labels:
+    serving.knative.dev/release: devel
+    serving.knative.dev/controller: "true"
+rules:
+  - apiGroups: ["build.knative.dev"]
+    resources: ["builds"]
+    verbs: ["get", "list", "create", "update", "delete", "patch", "watch"]

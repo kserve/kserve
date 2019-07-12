@@ -1,0 +1,10 @@
+# The OWNERS file is used by prow to automatically merge approved PRs.
+
+approvers:
+- networking-approvers
+
+reviewers:
+- networking-reviewers
+
+labels:
+- area/networking

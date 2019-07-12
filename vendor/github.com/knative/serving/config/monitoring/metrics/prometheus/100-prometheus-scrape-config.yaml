@@ -1,0 +1,363 @@
+# Copyright 2018 The Knative Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-scrape-config
+  labels:
+    name: prometheus-scrape-config
+    serving.knative.dev/release: devel
+  namespace: knative-monitoring
+data:
+  prometheus.yml: |-
+    global:
+      scrape_interval: 30s
+      scrape_timeout: 10s
+      evaluation_interval: 30s
+    scrape_configs:
+    # Controller endpoint
+    - job_name: controller
+      scrape_interval: 3s
+      scrape_timeout: 3s
+      kubernetes_sd_configs:
+      - role: pod
+      relabel_configs:
+      # Scrape only the the targets matching the following metadata
+      - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_pod_label_app, __meta_kubernetes_pod_container_port_name]
+        action: keep
+        regex: knative-serving;controller;metrics
+      # Rename metadata labels to be reader friendly
+      - source_labels: [__meta_kubernetes_namespace]
+        target_label: namespace
+      - source_labels: [__meta_kubernetes_pod_name]
+        target_label: pod
+      - source_labels: [__meta_kubernetes_service_name]
+        target_label: service
+    # Autoscaler endpoint
+    - job_name: autoscaler
+      scrape_interval: 3s
+      scrape_timeout: 3s
+      kubernetes_sd_configs:
+      - role: pod
+      relabel_configs:
+      # Scrape only the the targets matching the following metadata
+      - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_pod_label_app, __meta_kubernetes_pod_container_port_name]
+        action: keep
+        regex: knative-serving;autoscaler;metrics
+      # Rename metadata labels to be reader friendly
+      - source_labels: [__meta_kubernetes_namespace]
+        target_label: namespace
+      - source_labels: [__meta_kubernetes_pod_name]
+        target_label: pod
+      - source_labels: [__meta_kubernetes_service_name]
+        target_label: service
+    # Activator pods
+    - job_name: activator
+      scrape_interval: 3s
+      scrape_timeout: 3s
+      kubernetes_sd_configs:
+      - role: pod
+      relabel_configs:
+      # Scrape only the the targets matching the following metadata
+      - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_pod_label_app, __meta_kubernetes_pod_container_port_name]
+        action: keep
+        regex: knative-serving;activator;metrics-port
+      # Rename metadata labels to be reader friendly
+      - source_labels: [__meta_kubernetes_namespace]
+        target_label: namespace
+      - source_labels: [__meta_kubernetes_pod_name]
+        target_label: pod
+      - source_labels: [__meta_kubernetes_service_name]
+        target_label: service
+    # Fluentd daemonset
+    - job_name: fluentd-ds
+      kubernetes_sd_configs:
+      - role: endpoints
+      relabel_configs:
+      # Scrape only the the targets matching the following metadata
+      - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_label_app, __meta_kubernetes_endpoint_port_name]
+        action: keep
+        regex: knative-monitoring;fluentd-ds;prometheus-metrics
+      # Rename metadata labels to be reader friendly
+      - source_labels: [__meta_kubernetes_namespace]
+        target_label: namespace
+      - source_labels: [__meta_kubernetes_pod_name]
+        target_label: pod
+      - source_labels: [__meta_kubernetes_service_name]
+        target_label: service
+    # Istio mesh
+    - job_name: istio-mesh
+      scrape_interval: 5s
+      kubernetes_sd_configs:
+      - role: endpoints
+      relabel_configs:
+      # Scrape only the the targets matching the following metadata
+      - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+        action: keep
+        regex: istio-system;istio-telemetry;prometheus
+      # Rename metadata labels to be reader friendly
+      - source_labels: [__meta_kubernetes_namespace]
+        target_label: namespace
+      - source_labels: [__meta_kubernetes_pod_name]
+        target_label: pod
+      - source_labels: [__meta_kubernetes_service_name]
+        target_label: service
+    # Istio Envoy
+    # These are very noisy and not enabled by default.
+    # - job_name: istio-envoy
+    #   scrape_interval: 5s
+    #   kubernetes_sd_configs:
+    #   - role: endpoints
+    #   relabel_configs:
+    #   # Scrape only the the targets matching the following metadata
+    #   - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+    #     action: keep
+    #     regex: istio-system;istio-statsd-prom-bridge;statsd-prom
+    #   # Rename metadata labels to be reader friendly
+    #   - source_labels: [__meta_kubernetes_namespace]
+    #     target_label: namespace
+    #   - source_labels: [__meta_kubernetes_pod_name]
+    #     target_label: pod
+    #   - source_labels: [__meta_kubernetes_service_name]
+    #     target_label: service
+    # Istio policy
+    - job_name: istio-policy
+      scrape_interval: 5s
+      kubernetes_sd_configs:
+      - role: endpoints
+      relabel_configs:
+      # Scrape only the the targets matching the following metadata
+      - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+        action: keep
+        regex: istio-system;istio-policy;http-monitoring
+      # Rename metadata labels to be reader friendly
+      - source_labels: [__meta_kubernetes_namespace]
+        target_label: namespace
+      - source_labels: [__meta_kubernetes_pod_name]
+        target_label: pod
+      - source_labels: [__meta_kubernetes_service_name]
+        target_label: service
+    # Istio telemetry
+    - job_name: istio-telemetry
+      scrape_interval: 5s
+      kubernetes_sd_configs:
+      - role: endpoints
+      relabel_configs:
+      # Scrape only the the targets matching the following metadata
+      - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+        action: keep
+        regex: istio-system;istio-telemetry;http-monitoring
+      # Rename metadata labels to be reader friendly
+      - source_labels: [__meta_kubernetes_namespace]
+        target_label: namespace
+      - source_labels: [__meta_kubernetes_pod_name]
+        target_label: pod
+      - source_labels: [__meta_kubernetes_service_name]
+        target_label: service
+    # Istio pilot
+    - job_name: istio-pilot
+      scrape_interval: 5s
+      kubernetes_sd_configs:
+      - role: endpoints
+      relabel_configs:
+      # Scrape only the the targets matching the following metadata
+      - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+        action: keep
+        regex: istio-system;istio-pilot;http-monitoring
+      # Rename metadata labels to be reader friendly
+      - source_labels: [__meta_kubernetes_namespace]
+        target_label: namespace
+      - source_labels: [__meta_kubernetes_pod_name]
+        target_label: pod
+      - source_labels: [__meta_kubernetes_service_name]
+        target_label: service
+    # Kube API server
+    - job_name: kube-apiserver
+      scheme: https
+      kubernetes_sd_configs:
+      - role: endpoints
+      bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+      tls_config:
+        ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        server_name: kubernetes
+        insecure_skip_verify: false
+      relabel_configs:
+      # Scrape only the the targets matching the following metadata
+      - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_label_component, __meta_kubernetes_service_label_provider, __meta_kubernetes_endpoint_port_name]
+        action: keep
+        regex: default;apiserver;kubernetes;https
+      # Rename metadata labels to be reader friendly
+      - source_labels: [__meta_kubernetes_namespace]
+        target_label: namespace
+      - source_labels: [__meta_kubernetes_pod_name]
+        target_label: pod
+      - source_labels: [__meta_kubernetes_service_name]
+        target_label: service
+    # Kube controller manager
+    - job_name: kube-controller-manager
+      kubernetes_sd_configs:
+      - role: endpoints
+      relabel_configs:
+      # Scrape only the the targets matching the following metadata
+      - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_label_app, __meta_kubernetes_endpoint_port_name]
+        action: keep
+        regex: knative-monitoring;kube-controller-manager;http-metrics
+      # Rename metadata labels to be reader friendly
+      - source_labels: [__meta_kubernetes_namespace]
+        target_label: namespace
+      - source_labels: [__meta_kubernetes_pod_name]
+        target_label: pod
+      - source_labels: [__meta_kubernetes_service_name]
+        target_label: service
+    # Kube scheduler
+    - job_name: kube-scheduler
+      kubernetes_sd_configs:
+      - role: endpoints
+      relabel_configs:
+      # Scrape only the the targets matching the following metadata
+      - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_label_k8s_app, __meta_kubernetes_endpoint_port_name]
+        action: keep
+        regex: kube-system;kube-scheduler;http-metrics
+      # Rename metadata labels to be reader friendly
+      - source_labels: [__meta_kubernetes_namespace]
+        target_label: namespace
+      - source_labels: [__meta_kubernetes_pod_name]
+        target_label: pod
+      - source_labels: [__meta_kubernetes_service_name]
+        target_label: service
+    # Kube state metrics on https-main port
+    - job_name: kube-state-metrics-https-main
+      honor_labels: true
+      scheme: https
+      kubernetes_sd_configs:
+      - role: endpoints
+      bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+      tls_config:
+        insecure_skip_verify: true
+      relabel_configs:
+      # Scrape only the the targets matching the following metadata
+      - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_label_app, __meta_kubernetes_endpoint_port_name]
+        action: keep
+        regex: knative-monitoring;kube-state-metrics;https-main
+      # Rename metadata labels to be reader friendly
+      - source_labels: [__meta_kubernetes_namespace]
+        target_label: namespace
+      - source_labels: [__meta_kubernetes_pod_name]
+        target_label: pod
+      - source_labels: [__meta_kubernetes_service_name]
+        target_label: service
+    # Kube state metrics on https-self port
+    - job_name: kube-state-metrics-https-self
+      scheme: https
+      kubernetes_sd_configs:
+      - role: endpoints
+      bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+      tls_config:
+        insecure_skip_verify: true
+      relabel_configs:
+      # Scrape only the the targets matching the following metadata
+      - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_label_app, __meta_kubernetes_endpoint_port_name]
+        action: keep
+        regex: knative-monitoring;kube-state-metrics;https-self
+      # Rename metadata labels to be reader friendly
+      - source_labels: [__meta_kubernetes_namespace]
+        target_label: namespace
+      - source_labels: [__meta_kubernetes_pod_name]
+        target_label: pod
+      - source_labels: [__meta_kubernetes_service_name]
+        target_label: service
+    # Kubelet - nodes
+    # Rather than connecting directly to the node, the scrape is proxied though the
+    # Kubernetes apiserver.  This means it will work if Prometheus is running out of
+    # cluster, or can't connect to nodes for some other reason (e.g. because of
+    # firewalling).
+    - job_name: kubernetes-nodes
+      scheme: https
+      tls_config:
+        ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+      bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+      kubernetes_sd_configs:
+      - role: node
+      relabel_configs:
+      - action: labelmap
+        regex: __meta_kubernetes_node_label_(.+)
+      - target_label: __address__
+        replacement: kubernetes.default.svc:443
+      - source_labels: [__meta_kubernetes_node_name]
+        target_label: __metrics_path__
+        replacement: /api/v1/nodes/${1}/proxy/metrics
+    # Kubelet - cAdvisor
+    #
+    # This is required for Kubernetes 1.7.3 and later, where cAdvisor metrics
+    # (those whose names begin with 'container_') have been removed from the
+    # Kubelet metrics endpoint.  This job scrapes the cAdvisor endpoint to
+    # retrieve those metrics.
+    #
+    # In Kubernetes 1.7.0-1.7.2, these metrics are only exposed on the cAdvisor
+    # HTTP endpoint; use "replacement: /api/v1/nodes/${1}:4194/proxy/metrics"
+    # in that case (and ensure cAdvisor's HTTP server hasn't been disabled with
+    # the --cadvisor-port=0 Kubelet flag).
+    - job_name: kubernetes-cadvisor
+      scrape_interval: 15s
+      scheme: https
+      tls_config:
+        ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+      bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+      kubernetes_sd_configs:
+      - role: node
+      relabel_configs:
+      - action: labelmap
+        regex: __meta_kubernetes_node_label_(.+)
+      - target_label: __address__
+        replacement: kubernetes.default.svc:443
+      - source_labels: [__meta_kubernetes_node_name]
+        target_label: __metrics_path__
+        replacement: /api/v1/nodes/${1}/proxy/metrics/cadvisor
+    # Node exporter
+    - job_name: node-exporter
+      scheme: https
+      kubernetes_sd_configs:
+      - role: endpoints
+      bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+      tls_config:
+        insecure_skip_verify: true
+      relabel_configs:
+      # Scrape only the the targets matching the following metadata
+      - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_label_app, __meta_kubernetes_endpoint_port_name]
+        action: keep
+        regex: knative-monitoring;node-exporter;https
+      # Rename metadata labels to be reader friendly
+      - source_labels: [__meta_kubernetes_namespace]
+        target_label: namespace
+      - source_labels: [__meta_kubernetes_pod_name]
+        target_label: pod
+      - source_labels: [__meta_kubernetes_service_name]
+        target_label: service
+    # Prometheus
+    - job_name: prometheus
+      kubernetes_sd_configs:
+      - role: endpoints
+      relabel_configs:
+      # Scrape only the the targets matching the following metadata
+      - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_label_app, __meta_kubernetes_endpoint_port_name]
+        action: keep
+        regex: knative-monitoring;prometheus;web
+      # Rename metadata labels to be reader friendly
+      - source_labels: [__meta_kubernetes_namespace]
+        target_label: namespace
+      - source_labels: [__meta_kubernetes_pod_name]
+        target_label: pod
+      - source_labels: [__meta_kubernetes_service_name]
+        target_label: service
