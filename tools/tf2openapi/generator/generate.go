@@ -7,7 +7,6 @@ import (
 	"github.com/kubeflow/kfserving/tools/tf2openapi/types"
 )
 
-// Default builder constants
 const (
 	defaultSigDefKey = "serving_default"
 	defaultTag       = "serve"
@@ -22,7 +21,6 @@ const (
 )
 
 type Generator struct {
-	model         *pb.SavedModel
 	name          string
 	version       string
 	metaGraphTags []string
@@ -57,15 +55,6 @@ func (g *GeneratorBuilder) SetMetaGraphTags(metaGraphTags []string) {
 
 func (g *GeneratorBuilder) SetSigDefKey(sigDefKey string) {
 	g.Generator.sigDefKey = sigDefKey
-}
-
-func NewGenerator() Generator {
-	return Generator{
-		name:          "model",
-		version:       "1",
-		metaGraphTags: []string{defaultTag},
-		sigDefKey:     defaultSigDefKey,
-	}
 }
 
 func (g *Generator) GenerateOpenAPI(model *pb.SavedModel) (string, error) {
