@@ -76,6 +76,6 @@ func (r *RouteBuilder) CreateKnativeRoute(kfsvc *v1alpha1.KFService) *knservingv
 func routeAnnotationFilter(annotationKey string) bool {
 	switch annotationKey {
 	default:
-		return false
+		return true
 	}
 }

@@ -17,9 +17,8 @@ limitations under the License.
 package knative
 
 import (
-	"testing"
-
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
+	"testing"
 
 	"github.com/google/go-cmp/cmp"
 	knservingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -341,6 +340,63 @@ func TestKnativeConfiguration(t *testing.T) {
 											},
 										},
 									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		"TestAnnotation": {
+			kfService: v1alpha1.KFService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "sklearn",
+					Namespace: "default",
+					Annotations: map[string]string{
+						"sourceName":                       "srcName",
+						"prop1":                            "val1",
+						"autoscaling.knative.dev/minScale": "2",
+						"autoscaling.knative.dev/target":   "2",
+						constants.ModelInitializerSourceUriInternalAnnotationKey: "test",
+					},
+				},
+				Spec: v1alpha1.KFServiceSpec{
+					Default: v1alpha1.ModelSpec{
+						SKLearn: &v1alpha1.SKLearnSpec{
+							ModelURI:       "s3://test/sklearn/export",
+							RuntimeVersion: "latest",
+						},
+						MinReplicas: 1,
+					},
+				},
+			},
+			expectedDefault: &knservingv1alpha1.Configuration{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.DefaultConfigurationName("sklearn"),
+					Namespace: "default",
+				},
+				Spec: knservingv1alpha1.ConfigurationSpec{
+					RevisionTemplate: &knservingv1alpha1.RevisionTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: map[string]string{"serving.kubeflow.org/kfservice": "sklearn"},
+							Annotations: map[string]string{
+								constants.ModelInitializerSourceUriInternalAnnotationKey: "s3://test/sklearn/export",
+								"autoscaling.knative.dev/class":                          "kpa.autoscaling.knative.dev",
+								"autoscaling.knative.dev/target":                         "2",
+								"autoscaling.knative.dev/minScale":                       "1",
+								"sourceName":                                             "srcName",
+								"prop1":                                                  "val1",
+							},
+						},
+						Spec: knservingv1alpha1.RevisionSpec{
+							RevisionSpec: v1beta1.RevisionSpec{
+								TimeoutSeconds: &constants.DefaultTimeout,
+							},
+							Container: &v1.Container{
+								Image: v1alpha1.SKLearnServerImageName + ":" + v1alpha1.DefaultSKLearnRuntimeVersion,
+								Args: []string{
+									"--model_name=sklearn",
+									"--model_dir=" + constants.DefaultModelLocalMountPath,
 								},
 							},
 						},
