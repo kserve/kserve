@@ -31,30 +31,30 @@ type Builder struct {
 	Generator
 }
 
-func (g *Builder) Build() Generator {
-	if g.Generator.sigDefKey == "" {
-		g.SetSigDefKey(defaultSigDefKey)
+func (b *Builder) Build() Generator {
+	if b.Generator.sigDefKey == "" {
+		b.SetSigDefKey(defaultSigDefKey)
 	}
-	if len(g.Generator.metaGraphTags) == 0 {
-		g.SetMetaGraphTags([]string{defaultTag})
+	if len(b.Generator.metaGraphTags) == 0 {
+		b.SetMetaGraphTags([]string{defaultTag})
 	}
-	return g.Generator
+	return b.Generator
 }
 
-func (g *Builder) SetName(name string) {
-	g.Generator.name = name
+func (b *Builder) SetName(name string) {
+	b.Generator.name = name
 }
 
-func (g *Builder) SetVersion(version string) {
-	g.Generator.version = version
+func (b *Builder) SetVersion(version string) {
+	b.Generator.version = version
 }
 
-func (g *Builder) SetMetaGraphTags(metaGraphTags []string) {
-	g.Generator.metaGraphTags = metaGraphTags
+func (b *Builder) SetMetaGraphTags(metaGraphTags []string) {
+	b.Generator.metaGraphTags = metaGraphTags
 }
 
-func (g *Builder) SetSigDefKey(sigDefKey string) {
-	g.Generator.sigDefKey = sigDefKey
+func (b *Builder) SetSigDefKey(sigDefKey string) {
+	b.Generator.sigDefKey = sigDefKey
 }
 
 func (g *Generator) GenerateOpenAPI(model *pb.SavedModel) (string, error) {
