@@ -27,6 +27,12 @@ const (
 	Regress
 )
 
+//Known error messages
+const (
+	UnsupportedSignatureMethodError = "signature (%s) contains unsupported method (%s)"
+	UnsupportedAPISchemaError       = "schemas for classify/regress APIs currently not supported"
+)
+
 func NewTFSignatureDef(key string, method string, inputs map[string]*pb.TensorInfo, outputs map[string]*pb.TensorInfo) (TFSignatureDef, error) {
 	inputTensors, inputErr := extractTensors(inputs)
 	if inputErr != nil {
@@ -67,14 +73,14 @@ func NewTFMethod(key string, method string) (TFMethod, error) {
 		"tensorflow/serving/regress":  Regress,
 	}[method]
 	if !ok {
-		return TFMethod(0), fmt.Errorf("signature (%s) contains unsupported method (%s)", key, method)
+		return TFMethod(0), fmt.Errorf(UnsupportedSignatureMethodError, key, method)
 	}
 	return tfMethod, nil
 }
 
 func (t *TFSignatureDef) Schema() (*openapi3.Schema, error) {
 	if t.Method != Predict {
-		return &openapi3.Schema{}, errors.New("schemas for classify/regress APIs currently not supported")
+		return &openapi3.Schema{}, errors.New(UnsupportedAPISchemaError)
 	}
 	// https://www.tensorflow.org/tfx/serving/api_rest#specifying_input_tensors_in_row_format
 	if canHaveRowSchema(t.Inputs) {
@@ -127,5 +133,4 @@ func (t *TFSignatureDef) colSchema() *openapi3.Schema {
 		schema.Required = append(schema.Required, i.Name)
 	}
 	return schema
-
 }

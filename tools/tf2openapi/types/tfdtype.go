@@ -26,6 +26,11 @@ const (
 	DtDouble
 )
 
+// Known error messages
+const (
+	UnsupportedDataTypeError = "tensor (%s) contains unsupported data type (%s) for generating payloads"
+)
+
 func NewTFDType(name string, dType string) (TFDType, error) {
 	tfDType, ok := map[string]TFDType{
 		"DT_BOOL":   DtBool,
@@ -41,7 +46,7 @@ func NewTFDType(name string, dType string) (TFDType, error) {
 		"DT_STRING": stringType(name),
 	}[dType]
 	if !ok {
-		return TFDType(0), fmt.Errorf("tensor (%s) contains unsupported data type (%s) for generating payloads", name, dType)
+		return TFDType(0), fmt.Errorf(UnsupportedDataTypeError, name, dType)
 	}
 	return tfDType, nil
 }
@@ -73,7 +78,6 @@ func (t *TFDType) Schema() *openapi3.Schema {
 		DtDouble: openapi3.NewFloat64Schema(),
 	}[*t]
 	if !ok {
-		// should never be here
 		panic(fmt.Sprintf("valid dtype (%v) not mapped to schema", t))
 	}
 	return schema

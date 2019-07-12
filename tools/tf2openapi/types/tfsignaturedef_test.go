@@ -1,6 +1,7 @@
 package types
 
 import (
+	"fmt"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/kubeflow/kfserving/tools/tf2openapi/generated/framework"
 	pb "github.com/kubeflow/kfserving/tools/tf2openapi/generated/protobuf"
@@ -78,7 +79,8 @@ func TestCreateTFSignatureDefWithErrInputs(t *testing.T) {
 	inputTensors := badTensorsPb("input")
 	outputTensors := goodTensorsPb("output")
 	_, err := NewTFSignatureDef("Signature Def Key", "tensorflow/serving/predict", inputTensors, outputTensors)
-	g.Expect(err).Should(gomega.Not(gomega.BeNil()))
+	expectedErr := fmt.Sprintf(UnsupportedDataTypeError, "input", "DT_COMPLEX128")
+	g.Expect(err).Should(gomega.MatchError(expectedErr))
 }
 
 func TestCreateTFSignatureDefWithErrOutputs(t *testing.T) {
@@ -86,7 +88,8 @@ func TestCreateTFSignatureDefWithErrOutputs(t *testing.T) {
 	inputTensors := goodTensorsPb("input")
 	outputTensors := badTensorsPb("output")
 	_, err := NewTFSignatureDef("Signature Def Key", "tensorflow/serving/predict", inputTensors, outputTensors)
-	g.Expect(err).Should(gomega.Not(gomega.BeNil()))
+	expectedErr := fmt.Sprintf(UnsupportedDataTypeError, "output", "DT_COMPLEX128")
+	g.Expect(err).Should(gomega.MatchError(expectedErr))
 }
 
 func TestCreateTFSignatureDefWithErrMethod(t *testing.T) {
@@ -94,7 +97,8 @@ func TestCreateTFSignatureDefWithErrMethod(t *testing.T) {
 	inputTensors := goodTensorsPb("input")
 	outputTensors := goodTensorsPb("output")
 	_, err := NewTFSignatureDef("Signature Def Key", "tensorflow/serving/bad", inputTensors, outputTensors)
-	g.Expect(err).Should(gomega.Not(gomega.BeNil()))
+	expectedErr := fmt.Sprintf(UnsupportedSignatureMethodError, "Signature Def Key", "tensorflow/serving/bad")
+	g.Expect(err).Should(gomega.MatchError(expectedErr))
 }
 
 func TestTFSignatureDefRowSchemaMultipleTensors(t *testing.T) {
@@ -214,7 +218,7 @@ func TestTFSignatureDefNonPredict(t *testing.T) {
 	tfSigDef := expectedTFSignatureDef()
 	tfSigDef.Method = Classify
 	_, err := tfSigDef.Schema()
-	g.Expect(err).To(gomega.Not(gomega.BeNil()))
+	g.Expect(err).To(gomega.MatchError(UnsupportedAPISchemaError))
 }
 
 func TestTFSignatureDefColSchemaMultipleTensors(t *testing.T) {

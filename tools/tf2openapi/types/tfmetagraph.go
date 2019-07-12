@@ -16,6 +16,11 @@ type TFMetaGraph struct {
 	Tags          [] string
 }
 
+// Known error messages
+const (
+	SignatureDefNotFoundError = "SignatureDef (%s) not found in specified MetaGraph"
+)
+
 func NewTFMetaGraph(metaGraph *pb.MetaGraphDef) (TFMetaGraph, error) {
 	tfMetaGraph := TFMetaGraph{
 		SignatureDefs: []TFSignatureDef{},
@@ -33,14 +38,9 @@ func NewTFMetaGraph(metaGraph *pb.MetaGraphDef) (TFMetaGraph, error) {
 
 func (t *TFMetaGraph) Schema(sigDefKey string) (*openapi3.Schema, error) {
 	for _, sigDef := range t.SignatureDefs {
-		if sigDefKey != sigDef.Key {
-			continue
+		if sigDefKey == sigDef.Key {
+			return sigDef.Schema()
 		}
-		schema, err := sigDef.Schema()
-		if err != nil {
-			return &openapi3.Schema{}, err
-		}
-		return schema, nil
 	}
-	return &openapi3.Schema{}, fmt.Errorf("SignatureDef (%s) not found in specified MetaGraph", sigDefKey)
+	return &openapi3.Schema{}, fmt.Errorf(SignatureDefNotFoundError, sigDefKey)
 }

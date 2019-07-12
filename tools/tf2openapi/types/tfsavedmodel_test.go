@@ -1,6 +1,7 @@
 package types
 
 import (
+	"fmt"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/kubeflow/kfserving/tools/tf2openapi/generated/framework"
 	pb "github.com/kubeflow/kfserving/tools/tf2openapi/generated/protobuf"
@@ -98,7 +99,8 @@ func TestNewTFSavedModelWithErrMetaGraph(t *testing.T) {
 	savedModelPb := savedModelPb()
 	savedModelPb.MetaGraphs[0].SignatureDef["sigDefKey"].Inputs["inputTensorName"].Dtype = framework.DataType_DT_HALF
 	_, err := NewTFSavedModel(savedModelPb)
-	g.Expect(err).Should(gomega.Not(gomega.BeNil()))
+	expectedErr := fmt.Sprintf(UnsupportedDataTypeError, "inputTensorName", "DT_HALF")
+	g.Expect(err).Should(gomega.MatchError(expectedErr))
 }
 
 func TestTFSavedModelTypical(t *testing.T) {
@@ -135,12 +137,15 @@ func TestTFSavedModelMissingMetaGraph(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	tfSavedModel := expectedTFSavedModel()
 	_, err := tfSavedModel.Schema([]string{"serve", "missing"}, "sigDefKey")
-	g.Expect(err).To(gomega.Not(gomega.BeNil()))
+	expectedErr := fmt.Sprintf(MetaGraphNotFoundError, "[missing serve]")
+	expectedErrPermuted := fmt.Sprintf(MetaGraphNotFoundError, "[serve missing]")
+	g.Expect(err).To(gomega.Or(gomega.MatchError(expectedErr), gomega.MatchError(expectedErrPermuted)))
 }
 
 func TestTFSavedModelErrMetaGraph(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	tfSavedModel := expectedTFSavedModel()
 	_, err := tfSavedModel.Schema([]string{"serve"}, "missingSigDefKey")
-	g.Expect(err).To(gomega.Not(gomega.BeNil()))
+	expectedErr := fmt.Sprintf(SignatureDefNotFoundError, "missingSigDefKey")
+	g.Expect(err).To(gomega.MatchError(expectedErr))
 }

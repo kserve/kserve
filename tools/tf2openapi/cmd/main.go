@@ -2,7 +2,7 @@ package main
 
 import (
 	"github.com/golang/protobuf/proto"
-	gen "github.com/kubeflow/kfserving/tools/tf2openapi/generator"
+	"github.com/kubeflow/kfserving/tools/tf2openapi/generator"
 	pb "github.com/kubeflow/kfserving/tools/tf2openapi/generated/protobuf"
 	"github.com/spf13/cobra"
 	"io/ioutil"
@@ -49,20 +49,20 @@ func viewAPI(cmd *cobra.Command, args []string) {
 		log.Fatalf("Error reading file %s \n%s", modelBasePath, err.Error())
 	}
 
-	generator := gen.NewGenerator()
+	gb := &generator.GeneratorBuilder{}
 	if modelName != "" {
-		generator.WithName(modelName)
+		gb.SetName(modelName)
 	}
 	if modelVersion != "" {
-		generator.WithVersion(modelVersion)
+		gb.SetVersion(modelVersion)
 	}
 	if sigDefKey != "" {
-		generator.WithSigDefKey(sigDefKey)
+		gb.SetSigDefKey(sigDefKey)
 	}
 	if len(metaGraphTags) != 0 {
-		generator.WithMetaGraphTags(metaGraphTags)
+		gb.SetMetaGraphTags(metaGraphTags)
 	}
-
+	generator := gb.Build()
 	model := UnmarshalSavedModelPb(modelPb)
 	spec, err := generator.GenerateOpenAPI(model)
 	if err != nil {
