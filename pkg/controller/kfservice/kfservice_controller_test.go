@@ -440,8 +440,7 @@ func TestCanaryReconcile(t *testing.T) {
 	}
 	g.Eventually(func() string {
 		kfsvc := &servingv1alpha1.KFService{}
-		err := c.Get(context.TODO(), canaryServiceKey, kfsvc)
-		if err != nil {
+		if err := c.Get(context.TODO(), canaryServiceKey, kfsvc); err != nil {
 			return err.Error()
 		}
 		diff := cmp.Diff(&expectedKfsvcStatus, &kfsvc.Status, cmpopts.IgnoreTypes(apis.VolatileTime{}))
