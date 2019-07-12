@@ -1,0 +1,10 @@
+[!exec:cat] stop
+
+# hello world
+exec cat hello.text
+cp stdout got
+cmp got hello.text
+
+-- hello.text --
+hello world
+

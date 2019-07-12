@@ -1,0 +1,78 @@
+# Copyright 2018 The Knative Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: autoscaler
+  namespace: knative-serving
+  labels:
+    serving.knative.dev/release: devel
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: autoscaler
+  template:
+    metadata:
+      annotations:
+        sidecar.istio.io/inject: "true"
+      labels:
+        app: autoscaler
+        serving.knative.dev/release: devel
+    spec:
+      serviceAccountName: controller
+      containers:
+      - name: autoscaler
+        # This is the Go import path for the binary that is containerized
+        # and substituted here.
+        image: github.com/knative/serving/cmd/autoscaler
+        resources:
+          # Request 2x what we saw running e2e
+          requests:
+            cpu: 30m
+            memory: 40Mi
+          # Limit to 10x the request (20x the observed peak during e2e)
+          limits:
+            cpu: 300m
+            memory: 400Mi
+        ports:
+        - name: websocket
+          containerPort: 8080
+        - name: metrics
+          containerPort: 9090
+        volumeMounts:
+        - name: config-autoscaler
+          mountPath: /etc/config-autoscaler
+        - name: config-logging
+          mountPath: /etc/config-logging
+        - name: config-observability
+          mountPath: /etc/config-observability
+        env:
+        - name: SYSTEM_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: CONFIG_LOGGING_NAME
+          value: config-logging
+      volumes:
+        - name: config-autoscaler
+          configMap:
+            name: config-autoscaler
+        - name: config-logging
+          configMap:
+            name: config-logging
+        - name: config-observability
+          configMap:
+            name: config-observability

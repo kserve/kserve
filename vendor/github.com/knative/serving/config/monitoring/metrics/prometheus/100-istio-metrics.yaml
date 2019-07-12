@@ -1,0 +1,174 @@
+# Copyright 2018 The Knative Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: "config.istio.io/v1alpha2"
+kind: metric
+metadata:
+  name: revisionrequestcount
+  namespace: istio-system
+  labels:
+    serving.knative.dev/release: devel
+spec:
+  value: "1"
+  dimensions:
+    source_k8s_service: source.service | "unknown"
+    destination_k8s_service: destination.service | "unknown"
+    destination_namespace: destination.namespace | "unknown"
+    destination_revision: destination.labels["serving.knative.dev/revision"] | "unknown"
+    destination_configuration: destination.labels["serving.knative.dev/configuration"] | "unknown"
+    destination_service: destination.labels["serving.knative.dev/service"] | "unknown"
+    response_code: response.code | 200
+  monitored_resource_type: '"UNSPECIFIED"'
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: metric
+metadata:
+  name: revisionrequestduration
+  namespace: istio-system
+  labels:
+    serving.knative.dev/release: devel
+spec:
+  value: response.duration | "0ms"
+  dimensions:
+    source_k8s_service: source.service | "unknown"
+    destination_k8s_service: destination.service | "unknown"
+    destination_namespace: destination.namespace | "unknown"
+    destination_revision: destination.labels["serving.knative.dev/revision"] | "unknown"
+    destination_configuration: destination.labels["serving.knative.dev/configuration"] | "unknown"
+    destination_service: destination.labels["serving.knative.dev/service"] | "unknown"
+    response_code: response.code | 200
+  monitored_resource_type: '"UNSPECIFIED"'
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: metric
+metadata:
+  name: revisionrequestsize
+  namespace: istio-system
+  labels:
+    serving.knative.dev/release: devel
+spec:
+  value: request.size | 0
+  dimensions:
+    source_k8s_service: source.service | "unknown"
+    destination_k8s_service: destination.service | "unknown"
+    destination_namespace: destination.namespace | "unknown"
+    destination_revision: destination.labels["serving.knative.dev/revision"] | "unknown"
+    destination_configuration: destination.labels["serving.knative.dev/configuration"] | "unknown"
+    destination_service: destination.labels["serving.knative.dev/service"] | "unknown"
+    response_code: response.code | 200
+  monitored_resource_type: '"UNSPECIFIED"'
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: metric
+metadata:
+  name: revisionresponsesize
+  namespace: istio-system
+  labels:
+    serving.knative.dev/release: devel
+spec:
+  value: response.size | 0
+  dimensions:
+    source_k8s_service: source.service | "unknown"
+    destination_k8s_service: destination.service | "unknown"
+    destination_namespace: destination.namespace | "unknown"
+    destination_revision: destination.labels["serving.knative.dev/revision"] | "unknown"
+    destination_configuration: destination.labels["serving.knative.dev/configuration"] | "unknown"
+    destination_service: destination.labels["serving.knative.dev/service"] | "unknown"
+    response_code: response.code | 200
+  monitored_resource_type: '"UNSPECIFIED"'
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: prometheus
+metadata:
+  name: revisionpromhandler
+  namespace: istio-system
+  labels:
+    serving.knative.dev/release: devel
+spec:
+  metrics:
+  - name: revision_request_count
+    instance_name: revisionrequestcount.metric.istio-system
+    kind: COUNTER
+    label_names:
+    - source_k8s_service
+    - destination_k8s_service
+    - destination_namespace
+    - destination_revision
+    - destination_configuration
+    - destination_service
+    - response_code
+  - name: revision_request_duration
+    instance_name: revisionrequestduration.metric.istio-system
+    kind: DISTRIBUTION
+    label_names:
+    - source_k8s_service
+    - destination_k8s_service
+    - destination_namespace
+    - destination_revision
+    - destination_configuration
+    - destination_service
+    - response_code
+    buckets:
+      explicit_buckets:
+        bounds: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10]
+  - name: revision_request_size
+    instance_name: revisionrequestsize.metric.istio-system
+    kind: DISTRIBUTION
+    label_names:
+    - source_k8s_service
+    - destination_k8s_service
+    - destination_namespace
+    - destination_revision
+    - destination_configuration
+    - destination_service
+    - response_code
+    buckets:
+      exponentialBuckets:
+        numFiniteBuckets: 8
+        scale: 1
+        growthFactor: 10
+  - name: revision_response_size
+    instance_name: revisionresponsesize.metric.istio-system
+    kind: DISTRIBUTION
+    label_names:
+    - source_k8s_service
+    - destination_k8s_service
+    - destination_namespace
+    - destination_revision
+    - destination_configuration
+    - destination_service
+    - response_code
+    buckets:
+      exponentialBuckets:
+        numFiniteBuckets: 8
+        scale: 1
+        growthFactor: 10
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: revisionpromhttp
+  namespace: istio-system
+  labels:
+    istio-protocol: http
+    serving.knative.dev/release: devel
+spec:
+  actions:
+  - handler: revisionpromhandler.prometheus
+    instances:
+    - revisionrequestcount.metric
+    - revisionrequestduration.metric
+    - revisionrequestsize.metric
+    - revisionresponsesize.metric
+---

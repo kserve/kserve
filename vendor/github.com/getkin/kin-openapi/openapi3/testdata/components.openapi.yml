@@ -1,0 +1,44 @@
+---
+openapi: 3.0.0
+info:
+  title: ''
+  version: '1'
+paths: {}
+components:
+  schemas:
+    Name:
+      type: string
+    CustomTestSchema:
+      "$ref": "#/components/schemas/Name"
+  responses:
+    Name:
+      description: description
+    CustomTestResponse:
+      "$ref": "#/components/responses/Name"
+  parameters:
+    Name:
+      name: id
+      in: header
+    CustomTestParameter:
+      "$ref": "#/components/parameters/Name"
+  examples:
+    Name:
+      description: description
+    CustomTestExample:
+      "$ref": "#/components/examples/Name"
+  requestBodies:
+    Name:
+      content: {}
+    CustomTestRequestBody:
+      "$ref": "#/components/requestBodies/Name"
+  headers:
+    Name:
+      description: description
+    CustomTestHeader:
+      "$ref": "#/components/headers/Name"
+  securitySchemes:
+    Name:
+      type: cookie
+      description: description
+    CustomTestSecurityScheme:
+      "$ref": "#/components/securitySchemes/Name"

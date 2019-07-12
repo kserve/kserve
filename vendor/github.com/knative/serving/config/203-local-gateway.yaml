@@ -1,0 +1,21 @@
+# A cluster local gateway to allow pods outside of the mesh to access
+# Services and Routes not exposing through an ingress.  If the users
+# do have a service mesh setup, this isn't required.
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: cluster-local-gateway
+  namespace: knative-serving
+  labels:
+    serving.knative.dev/release: devel
+    networking.knative.dev/ingress-provider: istio
+spec:
+  selector:
+    istio: cluster-local-gateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "*"
