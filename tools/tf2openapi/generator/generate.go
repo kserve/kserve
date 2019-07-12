@@ -27,33 +27,33 @@ type Generator struct {
 	sigDefKey     string
 }
 
-type GeneratorBuilder struct {
+type Builder struct {
 	Generator
 }
 
-func (gb *GeneratorBuilder) Build() Generator {
-	if gb.Generator.sigDefKey == "" {
-		gb.SetSigDefKey(defaultSigDefKey)
+func (g *Builder) Build() Generator {
+	if g.Generator.sigDefKey == "" {
+		g.SetSigDefKey(defaultSigDefKey)
 	}
-	if len(gb.Generator.metaGraphTags) == 0 {
-		gb.SetMetaGraphTags([]string{defaultTag})
+	if len(g.Generator.metaGraphTags) == 0 {
+		g.SetMetaGraphTags([]string{defaultTag})
 	}
-	return gb.Generator
+	return g.Generator
 }
 
-func (g *GeneratorBuilder) SetName(name string) {
+func (g *Builder) SetName(name string) {
 	g.Generator.name = name
 }
 
-func (g *GeneratorBuilder) SetVersion(version string) {
+func (g *Builder) SetVersion(version string) {
 	g.Generator.version = version
 }
 
-func (g *GeneratorBuilder) SetMetaGraphTags(metaGraphTags []string) {
+func (g *Builder) SetMetaGraphTags(metaGraphTags []string) {
 	g.Generator.metaGraphTags = metaGraphTags
 }
 
-func (g *GeneratorBuilder) SetSigDefKey(sigDefKey string) {
+func (g *Builder) SetSigDefKey(sigDefKey string) {
 	g.Generator.sigDefKey = sigDefKey
 }
 
