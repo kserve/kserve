@@ -3,12 +3,12 @@
 ### v0.2 Integrate with the ML Ecosystem (ETA: August 15, 2019)
 Objective: "Continue to simplify the user experience by deeply integrating with the Kubeflow Ecosystem."
 * Kubeflow Integration
-    * Prepare KFServing to release v0.2 and v0.3 alongside Kubeflow 0.7.
+    * Prepare KFServing to release v0.2 and v0.3 alongside Kubeflow v0.7.
     * Integrate with `kfctl generate` and `kfctl apply`.
     * Deploy as a [Kubernetes Application](https://github.com/kubernetes-sigs/application).
-    * Integrate with Kubeflow Pipelines to enable deployment from a Pipeline.
-    * Integrate with Fairing to enable deployment from a Notebook.
-    * Achieve 20% Test End-to-End Coverage of Supported Features. (See v0.3 for 80%).
+    * Integrate with Kubeflow Pipelines to enable model deployment from a Pipeline.
+    * Integrate with Fairing to enable model deployment from a Notebook.
+    * Achieve 20% End-to-End Test Coverage of Supported Features. (See v0.3 for 80%).
     * Support PVCs to enable integration with on-prem Kubeflow installations.
     * Document Installation for various cloud providers (GCP, IBM Cloud, Azure, AWS).
 
@@ -20,9 +20,10 @@ Objective: "Empower users to deeply understand their predictions and validate KF
 Objective: "Increase coverage of ML frameworks to support previously unsupported customer workloads."
 * Frameworks
     * Deploy a ONNX model
+    * Explore supporting other model serialization mechanisms for certain frameworks (e.g. saving PyTorch models with dill)
 
 ### v0.3 Performance and Stability (ETA: September 1, 2019)
-Objective: "Prevent feature regressions with 80% e2e test coverage against a live Cluster."
+Objective: "Prevent feature regressions with 80% end-to-end test coverage against a live Cluster."
 * Automated End-to-End Tests
     * Execute against a Kubeflow maintained GKE Cluster.
     * Execute against a Kubeflow maintained AKS Cluster.
@@ -41,6 +42,10 @@ Objective: "Improve the Serverless Experience by reducing cold starts/stops to 1
 * Server Shutdown
     * Ensure that all model servers shutdown within 10 seconds of not receiving traffic.
 
+Objective: "Simplify user experience with handling credentials for storage backends."
+* Secure storage mechanisms
+    * Implement a simplified user experience with storage backends protected by credentials (e.g. S3/GCS accounts with credentials)
+
 # Future 
 ## Unscheduled Work
 * Multi-Model Serving.
@@ -50,6 +55,8 @@ Objective: "Improve the Serverless Experience by reducing cold starts/stops to 1
     * Model Experimentation.
     * Ensembling.
     * Multi Arm Bandit.
+* Payload Logging
+    * Finalize the design and implementation for [Payload Logging](https://docs.google.com/document/d/1MBl5frM9l_wyQkYEaDeHOP6Mrsuz9YOob7276AAN9_c/edit?usp=sharing)
 * Bias, Skew, and Outlier Detection.
     * Online support in graph.
     * Offline support with Payload Logging.

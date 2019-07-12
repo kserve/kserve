@@ -23,10 +23,6 @@ executor: fmt vet
 run: generate fmt vet lint
 	go run ./cmd/manager/main.go
 
-# Install CRDs into a cluster
-install: manifests
-	kubectl apply -f config/default/crds
-
 # Deploy controller in the configured Kubernetes cluster in ~/.kube/config
 deploy: manifests
 	kustomize build config/default | kubectl apply -f -
@@ -69,6 +65,7 @@ ifndef GOPATH
 endif
 	go generate ./pkg/... ./cmd/...
 	hack/update-codegen.sh
+	hack/update-openapigen.sh
 
 # Build the docker image
 docker-build: test

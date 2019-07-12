@@ -17,7 +17,7 @@ data:
         },
         "pytorch": {
             "image": "gcr.io/kfserving/pytorchserver"
-        }
+        },
         "tensorrt": {
             "image": "nvcr.io/nvidia/tensorrtserver"
         }
