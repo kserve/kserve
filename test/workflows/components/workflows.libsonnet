@@ -207,8 +207,32 @@
                 ],
                 [
                   {
-                    name: "build-kfserving",
+                    name: "build-kfserving-manager",
                     template: "build-kfserving",
+                  },
+                  {
+                    name: "build-alibi-explainer",
+                    template: "build-alibi-explainer",
+                  },
+                  {
+                    name: "build-model-initializer",
+                    template: "build-model-initializer",
+                  },
+                  {
+                    name: "build-xgbserver",
+                    template: "build-xgbserver",
+                  },
+                  {
+                    name: "build-kfserving-executor",
+                    template: "build-kfserving-executor",
+                  },
+                  {
+                    name: "build-pytorchserver",
+                    template: "build-pytorchserver",
+                  },
+                  {
+                    name: "build-sklearnserver",
+                    template: "build-sklearnserver",
                   },
                 ],
                 [
@@ -254,6 +278,24 @@
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-kfserving", testWorkerImage, [
               "test/scripts/build-kfserving.sh",
             ]),  // build-kfserving
+            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-alibi-explainer", testWorkerImage, [
+              "test/scripts/build-python-image.sh", "alibiexplainer.Dockerfile", "alibi-explainer",
+            ]),  // build-alibi-explainer
+            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-model-initializer", testWorkerImage, [
+              "test/scripts/build-python-image.sh", "model-initializer.Dockerfile", "model-initializer",
+            ]),  // build-model-initializer
+            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-xgbserver", testWorkerImage, [
+              "test/scripts/build-python-image.sh", "xgb.Dockerfile", "xgbserver",
+            ]),  // build-xgbserver
+            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-kfserving-executor", testWorkerImage, [
+              "test/scripts/build-kfserving-executor.sh",
+            ]),  // build-kfserving-executor
+            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-pytorchserver", testWorkerImage, [
+              "test/scripts/build-python-image.sh", "pytorch.Dockerfile", "pytorchserver",
+            ]),  // build-pytorchserver
+            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-sklearnserver", testWorkerImage, [
+              "test/scripts/build-python-image.sh", "sklearn.Dockerfile", "sklearnserver",
+            ]),  // build-sklearnserver
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("unit-test", testWorkerImage, [
               "test/scripts/unit-test.sh",
             ]),  // unit test
