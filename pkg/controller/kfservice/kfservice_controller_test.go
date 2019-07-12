@@ -95,7 +95,7 @@ var canary = &servingv1alpha1.KFService{
 		},
 	},
 	Status: servingv1alpha1.KFServiceStatus{
-		URL: canaryServiceKey.Name + ".svc.cluster.local",
+		URL: &apis.URL{Scheme: "http", Host: canaryServiceKey.Name + ".svc.cluster.local"},
 		Default: servingv1alpha1.StatusConfigurationSpec{
 			Name: "revision-v1",
 		},
@@ -239,7 +239,7 @@ func TestReconcile(t *testing.T) {
 				},
 			},
 		},
-		URL: updatedRoute.Status.URL.Host,
+		URL: updatedRoute.Status.URL,
 		Default: servingv1alpha1.StatusConfigurationSpec{
 			Name: "revision-v1",
 		},
@@ -419,7 +419,7 @@ func TestCanaryReconcile(t *testing.T) {
 				},
 			},
 		},
-		URL: updatedRoute.Status.URL.Host,
+		URL: updatedRoute.Status.URL,
 		Default: servingv1alpha1.StatusConfigurationSpec{
 			Name:    "revision-v1",
 			Traffic: 80,

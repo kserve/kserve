@@ -19,6 +19,7 @@ package v1alpha1
 import (
 	"testing"
 
+	"github.com/knative/pkg/apis"
 	"github.com/onsi/gomega"
 	"golang.org/x/net/context"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -75,7 +76,7 @@ func TestKFService(t *testing.T) {
 	// Test status update
 	statusUpdated := fetched.DeepCopy()
 	statusUpdated.Status = KFServiceStatus{
-		URL: "example.dev.com",
+		URL: &apis.URL{Scheme: "http", Host: "example.dev.com"},
 		Default: StatusConfigurationSpec{
 			Name:     "v1",
 			Traffic:  20,
