@@ -57,6 +57,9 @@ spec:
                   - container
                   type: object
                 explain:
+                  description: Optional Explain specification to add a model explainer
+                    next to the chosen predictor. In future v1alpha2 the above model
+                    predictors would be moved down a level.
                   properties:
                     alibi:
                       description: The following fields follow a "1-of" semantic.
@@ -186,6 +189,9 @@ spec:
                   - container
                   type: object
                 explain:
+                  description: Optional Explain specification to add a model explainer
+                    next to the chosen predictor. In future v1alpha2 the above model
+                    predictors would be moved down a level.
                   properties:
                     alibi:
                       description: The following fields follow a "1-of" semantic.

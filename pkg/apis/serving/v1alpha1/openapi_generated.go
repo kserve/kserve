@@ -465,7 +465,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						},
 						"explain": {
 							SchemaProps: openapispec.SchemaProps{
-								Ref: ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.ExplainSpec"),
+								Description: "Optional Explain specification to add a model explainer next to the chosen predictor. In future v1alpha2 the above model predictors would be moved down a level.",
+								Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.ExplainSpec"),
 							},
 						},
 					},

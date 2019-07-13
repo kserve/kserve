@@ -41,7 +41,9 @@ type ModelSpec struct {
 	XGBoost    *XGBoostSpec    `json:"xgboost,omitempty"`
 	SKLearn    *SKLearnSpec    `json:"sklearn,omitempty"`
 	PyTorch    *PyTorchSpec    `json:"pytorch,omitempty"`
-	Explain    *ExplainSpec    `json:"explain,omitempty"`
+	// Optional Explain specification to add a model explainer next to the chosen predictor.
+	// In future v1alpha2 the above model predictors would be moved down a level.
+	Explain *ExplainSpec `json:"explain,omitempty"`
 }
 
 // ExplainSpec defines the arguments for a model explanation server
