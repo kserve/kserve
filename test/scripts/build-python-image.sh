@@ -37,6 +37,8 @@ VERSION=$(git describe --tags --always --dirty)
 echo "Activating service-account"
 gcloud auth activate-service-account --key-file=${GOOGLE_APPLICATION_CREDENTIALS}
 
-cp $1 Dockerfile
+mkdir $2
+cp $1 $2/Dockerfile
+cd $2
 gcloud builds submit . --tag=${REGISTRY}/${REPO_NAME}/$2:${VERSION} --project=${PROJECT}
 gcloud container images add-tag --quiet ${REGISTRY}/${REPO_NAME}/$2:${VERSION} ${REGISTRY}/${REPO_NAME}/$2:latest --verbosity=info
