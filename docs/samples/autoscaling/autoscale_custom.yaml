@@ -1,0 +1,10 @@
+apiVersion: "serving.kubeflow.org/v1alpha1"
+kind: "KFService"
+metadata:
+  name: "flowers-sample"
+  annotations:
+    autoscaling.knative.dev/target: "10"
+spec:
+  default:
+    tensorflow:
+      modelUri: "gs://kfserving-samples/models/tensorflow/flowers"

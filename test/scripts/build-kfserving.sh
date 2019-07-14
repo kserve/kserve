@@ -37,5 +37,5 @@ cp -r vendor ${GO_DIR}/vendor
 cp Dockerfile ${GO_DIR}
 
 cd ${GO_DIR}
-gcloud builds submit . --tag=${REGISTRY}/${REPO_NAME}/kfserving:${VERSION} --project=${PROJECT}
-gcloud container images add-tag --quiet ${REGISTRY}/${REPO_NAME}/kfserving:${VERSION} ${REGISTRY}/${REPO_NAME}/kfserving:latest --verbosity=info
+gcloud builds submit . --tag=${REGISTRY}/${REPO_NAME}/kfserving-controller:${VERSION} --project=${PROJECT}
+gcloud container images add-tag --quiet ${REGISTRY}/${REPO_NAME}/kfserving-controller:${VERSION} ${REGISTRY}/${REPO_NAME}/kfserving-controller:latest --verbosity=info

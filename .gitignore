@@ -29,3 +29,6 @@ bin
 
 # development overlay for image patch not to be checked in
 config/overlays/development/manager_image_patch.yaml
+
+# swagger-codegen tools
+hack/sdk-gen/swagger-codegen-cli.jar
