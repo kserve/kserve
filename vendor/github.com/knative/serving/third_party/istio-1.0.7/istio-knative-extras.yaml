@@ -1,0 +1,297 @@
+---
+# Source: istio/charts/gateways/templates/serviceaccount.yaml
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cluster-local-gateway-service-account
+  namespace: istio-system
+  labels:
+    app: cluster-local-gateway
+    chart: gateways-1.0.6
+    heritage: Tiller
+    release: release-name
+---
+
+---
+# Source: istio/charts/gateways/templates/clusterrole.yaml
+
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  labels:
+    app: gateways
+    chart: gateways-1.0.6
+    heritage: Tiller
+    release: release-name
+  name: cluster-local-gateway-istio-system
+rules:
+- apiGroups: ["extensions"]
+  resources: ["thirdpartyresources", "virtualservices", "destinationrules", "gateways"]
+  verbs: ["get", "watch", "list", "update"]
+---
+
+---
+# Source: istio/charts/gateways/templates/clusterrolebindings.yaml
+
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: cluster-local-gateway-istio-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-local-gateway-istio-system
+subjects:
+  - kind: ServiceAccount
+    name: cluster-local-gateway-service-account
+    namespace: istio-system
+---
+
+---
+# Source: istio/charts/gateways/templates/service.yaml
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: cluster-local-gateway
+  namespace: istio-system
+  annotations:
+  labels:
+    chart: gateways-1.0.6
+    release: release-name
+    heritage: Tiller
+    app: cluster-local-gateway
+    istio: cluster-local-gateway
+spec:
+  type: ClusterIP
+  selector:
+    app: cluster-local-gateway
+    istio: cluster-local-gateway
+  ports:
+    -
+      name: http2
+      port: 80
+      targetPort: 80
+    -
+      name: https
+      port: 443
+    -
+      name: tcp
+      port: 31400
+    -
+      name: tcp-pilot-grpc-tls
+      port: 15011
+      targetPort: 15011
+    -
+      name: tcp-citadel-grpc-tls
+      port: 8060
+      targetPort: 8060
+    -
+      name: http2-prometheus
+      port: 15030
+      targetPort: 15030
+    -
+      name: http2-grafana
+      port: 15031
+      targetPort: 15031
+---
+
+---
+# Source: istio/charts/gateways/templates/deployment.yaml
+
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: cluster-local-gateway
+  namespace: istio-system
+  labels:
+    chart: gateways-1.0.6
+    release: release-name
+    heritage: Tiller
+    app: cluster-local-gateway
+    istio: cluster-local-gateway
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: cluster-local-gateway
+        istio: cluster-local-gateway
+      annotations:
+        sidecar.istio.io/inject: "false"
+        scheduler.alpha.kubernetes.io/critical-pod: ""
+    spec:
+      serviceAccountName: cluster-local-gateway-service-account
+      containers:
+        - name: istio-proxy
+          image: "docker.io/istio/proxyv2:1.0.7"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 80
+            - containerPort: 443
+            - containerPort: 31400
+            - containerPort: 15011
+            - containerPort: 8060
+            - containerPort: 15030
+            - containerPort: 15031
+
+            - containerPort: 15090
+              protocol: TCP
+              name: http-envoy-prom
+
+          args:
+          - proxy
+          - router
+          - -v
+          - "2"
+          - --discoveryRefreshDelay
+          - '1s' #discoveryRefreshDelay
+          - --drainDuration
+          - '45s' #drainDuration
+          - --parentShutdownDuration
+          - '1m0s' #parentShutdownDuration
+          - --connectTimeout
+          - '10s' #connectTimeout
+          - --serviceCluster
+          - cluster-local-gateway
+          - --zipkinAddress
+          - zipkin.istio-system:9411
+          - --proxyAdminPort
+          - "15000"
+          - --controlPlaneAuthPolicy
+          - NONE
+          - --discoveryAddress
+          - istio-pilot.istio-system:8080
+          resources:
+            requests:
+              cpu: 10m
+
+          env:
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+          - name: INSTANCE_IP
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: status.podIP
+          - name: ISTIO_META_POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          volumeMounts:
+          - name: istio-certs
+            mountPath: /etc/certs
+            readOnly: true
+          - name: clusterlocalgateway-certs
+            mountPath: "/etc/istio/clusterlocalgateway-certs"
+            readOnly: true
+          - name: clusterlocalgateway-ca-certs
+            mountPath: "/etc/istio/clusterlocalgateway-ca-certs"
+            readOnly: true
+      volumes:
+      - name: istio-certs
+        secret:
+          secretName: istio.cluster-local-gateway-service-account
+          optional: true
+      - name: clusterlocalgateway-certs
+        secret:
+          secretName: "istio-clusterlocalgateway-certs"
+          optional: true
+      - name: clusterlocalgateway-ca-certs
+        secret:
+          secretName: "istio-clusterlocalgateway-ca-certs"
+          optional: true
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - amd64
+                - ppc64le
+                - s390x
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 2
+            preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - amd64
+          - weight: 2
+            preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - ppc64le
+          - weight: 2
+            preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - s390x
+---
+
+---
+# Source: istio/charts/gateways/templates/autoscale.yaml
+
+apiVersion: autoscaling/v2beta1
+kind: HorizontalPodAutoscaler
+metadata:
+    name: cluster-local-gateway
+    namespace: istio-system
+spec:
+    maxReplicas: 1
+    minReplicas: 1
+    scaleTargetRef:
+      apiVersion: apps/v1beta1
+      kind: Deployment
+      name: cluster-local-gateway
+    metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        targetAverageUtilization: 60
+---
+
+---
+# Source: istio/charts/telemetry-gateway/templates/gateway.yaml
+
+
+---
+# Source: istio/templates/configmap.yaml
+
+
+---
+# Source: istio/templates/crds.yaml
+#
+# these CRDs only make sense when pilot is enabled
+#
+
+# these CRDs only make sense when security is enabled
+#
+
+#
+#
+
+---
+# Source: istio/templates/install-custom-resources.sh.tpl
+
+
+---
+# Source: istio/templates/sidecar-injector-configmap.yaml
+
+

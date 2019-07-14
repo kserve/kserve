@@ -1,0 +1,57 @@
+# Copyright 2019 The Knative Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: default-domain
+  namespace: knative-serving
+  labels:
+    app: "default-domain"
+    networking.knative.dev/ingress-provider: istio
+spec:
+  template:
+    metadata:
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      # Piggyback on the controller's service account.
+      serviceAccountName: controller
+      containers:
+      - name: default-domain
+        # This is the Go import path for the binary that is containerized
+        # and substituted here.
+        image: github.com/knative/serving/cmd/default-domain
+        args: ["-magic-dns=xip.io"]
+        env:
+          - name: SYSTEM_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+        # We don't actually read these volume mounts, but using them
+        # to make sure the pod starts after the ConfigMaps exist.
+        volumeMounts:
+        - name: config-domain
+          mountPath: /etc/config-domain
+        - name: config-istio
+          mountPath: /etc/config-istio
+      volumes:
+        - name: config-domain
+          configMap:
+            name: config-domain
+        - name: config-istio
+          configMap:
+            name: config-istio
+      restartPolicy: Never
+  backoffLimit: 10

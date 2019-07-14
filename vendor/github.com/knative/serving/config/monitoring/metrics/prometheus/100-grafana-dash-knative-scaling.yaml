@@ -1,0 +1,1083 @@
+# Copyright 2018 The Knative Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: scaling-config
+  namespace: knative-monitoring
+  labels:
+    serving.knative.dev/release: devel
+data:
+  scaling-dashboard.json: |+
+      {  
+         "__inputs":[  
+            {  
+               "name":"prometheus",
+               "label":"prometheus",
+               "description":"",
+               "type":"datasource",
+               "pluginId":"prometheus",
+               "pluginName":"Prometheus"
+            }
+         ],
+         "__requires":[  
+            {  
+               "type":"grafana",
+               "id":"grafana",
+               "name":"Grafana",
+               "version":"5.0.3"
+            },
+            {  
+               "id":"graph",
+               "name":"Graph",
+               "type":"panel",
+               "version":"5.0.0"
+            },
+            {  
+               "type":"datasource",
+               "id":"prometheus",
+               "name":"Prometheus",
+               "version":"5.0.0"
+            }
+         ],
+         "annotations":{  
+            "list":[  
+               {  
+                  "builtIn":1,
+                  "datasource":"-- Grafana --",
+                  "enable":true,
+                  "hide":true,
+                  "iconColor":"rgba(0, 211, 255, 1)",
+                  "name":"Annotations & Alerts",
+                  "type":"dashboard"
+               }
+            ]
+         },
+         "description":"Knative Serving - Scaling Debugging",
+         "editable":false,
+         "gnetId":null,
+         "graphTooltip":0,
+         "id":null,
+         "iteration":1527886043818,
+         "links":[  
+
+         ],
+         "panels":[  
+            {  
+
+               "collapsed":true,
+               "gridPos":{  
+                  "h":1,
+                  "w":24,
+                  "x":0,
+                  "y":0
+               },
+               "id":14,
+               "panels":[  
+                  {  
+                     "aliasColors":{  
+
+                     },
+                     "bars":false,
+                     "dashLength":10,
+                     "dashes":false,
+                     "datasource":"prometheus",
+                     "fill":1,
+                     "gridPos":{  
+                        "h":11,
+                        "w":24,
+                        "x":0,
+                        "y":1
+                     },
+                     "id":2,
+                     "legend":{  
+                        "avg":false,
+                        "current":false,
+                        "max":false,
+                        "min":false,
+                        "show":true,
+                        "total":false,
+                        "values":false
+                     },
+                     "lines":true,
+                     "linewidth":1,
+                     "links":[  
+
+                     ],
+                     "nullPointMode":"null",
+                     "percentage":false,
+                     "pointradius":5,
+                     "points":false,
+                     "renderer":"flot",
+                     "seriesOverrides":[  
+
+                     ],
+                     "spaceLength":10,
+                     "stack":false,
+                     "steppedLine":true,
+                     "targets":[  
+                        {  
+                           "expr":"sum(autoscaler_actual_pods{namespace_name=\"$namespace\", configuration_name=\"$configuration\", revision_name=\"$revision\"})",
+                           "format":"time_series",
+                           "interval":"1s",
+                           "intervalFactor":1,
+                           "legendFormat":"Actual Pods",
+                           "refId":"A"
+                        },
+                        {  
+                           "expr":"sum(autoscaler_requested_pods{namespace_name=\"$namespace\", configuration_name=\"$configuration\", revision_name=\"$revision\"})",
+                           "format":"time_series",
+                           "interval":"1s",
+                           "intervalFactor":1,
+                           "legendFormat":"Requested Pods",
+                           "refId":"C"
+                        }
+                     ],
+                     "thresholds":[  
+
+                     ],
+                     "timeFrom":null,
+                     "timeShift":null,
+                     "title":"Revision Pod Counts",
+                     "tooltip":{  
+                        "shared":true,
+                        "sort":0,
+                        "value_type":"individual"
+                     },
+                     "type":"graph",
+                     "xaxis":{  
+                        "buckets":null,
+                        "mode":"time",
+                        "name":null,
+                        "show":true,
+                        "values":[  
+
+                        ]
+                     },
+                     "yaxes":[  
+                        {  
+                           "format":"short",
+                           "label":null,
+                           "logBase":1,
+                           "max":null,
+                           "min":null,
+                           "show":true
+                        },
+                        {  
+                           "decimals":null,
+                           "format":"short",
+                           "label":"Concurrency",
+                           "logBase":1,
+                           "max":"1",
+                           "min":null,
+                           "show":false
+                        }
+                     ]
+                  }
+               ],
+               "title":"Revision Pod Counts",
+               "type":"row"
+            },
+            {  
+               "collapsed":true,
+               "gridPos":{  
+                  "h":1,
+                  "w":24,
+                  "x":0,
+                  "y":1
+               },
+               "id":18,
+               "panels":[  
+                  {  
+                     "aliasColors":{  
+
+                     },
+                     "bars":false,
+                     "dashLength":10,
+                     "dashes":false,
+                     "datasource":"prometheus",
+                     "fill":1,
+                     "gridPos":{  
+                        "h":9,
+                        "w":12,
+                        "x":0,
+                        "y":13
+                     },
+                     "id":4,
+                     "legend":{  
+                        "avg":false,
+                        "current":false,
+                        "max":false,
+                        "min":false,
+                        "show":true,
+                        "total":false,
+                        "values":false
+                     },
+                     "lines":true,
+                     "linewidth":1,
+                     "links":[  
+
+                     ],
+                     "nullPointMode":"null",
+                     "percentage":false,
+                     "pointradius":5,
+                     "points":false,
+                     "renderer":"flot",
+                     "seriesOverrides":[  
+
+                     ],
+                     "spaceLength":10,
+                     "stack":false,
+                     "steppedLine":false,
+                     "targets":[  
+                        {  
+                           "expr":"sum(kube_pod_container_resource_requests_cpu_cores{namespace=\"$namespace\", pod=~\"$revision-deployment-.*\"})",
+                           "format":"time_series",
+                           "interval":"",
+                           "intervalFactor":1,
+                           "legendFormat":"Cores requested",
+                           "refId":"A"
+                        },
+                        {  
+                           "expr":"sum(rate(container_cpu_usage_seconds_total{namespace=\"$namespace\", pod_name=~\"$revision-deployment-.*\"}[1m]))",
+                           "format":"time_series",
+                           "intervalFactor":1,
+                           "legendFormat":"Cores used",
+                           "refId":"B"
+                        },
+                        {  
+                           "expr":"sum(kube_pod_container_resource_limits_cpu_cores{namespace=\"$namespace\", pod=~\"$revision-deployment-.*\"})",
+                           "format":"time_series",
+                           "intervalFactor":1,
+                           "legendFormat":"Core limit",
+                           "refId":"C"
+                        }
+                     ],
+                     "thresholds":[  
+
+                     ],
+                     "timeFrom":null,
+                     "timeShift":null,
+                     "title":"Revision CPU Usage",
+                     "tooltip":{  
+                        "shared":true,
+                        "sort":2,
+                        "value_type":"individual"
+                     },
+                     "type":"graph",
+                     "xaxis":{  
+                        "buckets":null,
+                        "mode":"time",
+                        "name":null,
+                        "show":true,
+                        "values":[  
+
+                        ]
+                     },
+                     "yaxes":[  
+                        {  
+                           "decimals":null,
+                           "format":"short",
+                           "label":null,
+                           "logBase":1,
+                           "max":null,
+                           "min":null,
+                           "show":true
+                        },
+                        {  
+                           "format":"short",
+                           "label":null,
+                           "logBase":1,
+                           "max":null,
+                           "min":null,
+                           "show":false
+                        }
+                     ]
+                  },
+                  {  
+                     "aliasColors":{  
+
+                     },
+                     "bars":false,
+                     "dashLength":10,
+                     "dashes":false,
+                     "datasource":"prometheus",
+                     "fill":1,
+                     "gridPos":{  
+                        "h":9,
+                        "w":12,
+                        "x":12,
+                        "y":13
+                     },
+                     "id":6,
+                     "legend":{  
+                        "avg":false,
+                        "current":false,
+                        "max":false,
+                        "min":false,
+                        "show":true,
+                        "total":false,
+                        "values":false
+                     },
+                     "lines":true,
+                     "linewidth":1,
+                     "links":[  
+
+                     ],
+                     "nullPointMode":"null",
+                     "percentage":false,
+                     "pointradius":5,
+                     "points":false,
+                     "renderer":"flot",
+                     "seriesOverrides":[  
+
+                     ],
+                     "spaceLength":10,
+                     "stack":false,
+                     "steppedLine":false,
+                     "targets":[  
+                        {  
+                           "expr":"sum(kube_pod_container_resource_requests_memory_bytes{namespace=\"$namespace\", pod=~\"$revision-deployment-.*\"})",
+                           "format":"time_series",
+                           "interval":"",
+                           "intervalFactor":1,
+                           "legendFormat":"Memory requested",
+                           "refId":"A"
+                        },
+                        {  
+                           "expr":"sum(container_memory_usage_bytes{namespace=\"$namespace\", pod_name=~\"$revision-deployment-.*\"})",
+                           "format":"time_series",
+                           "hide":false,
+                           "intervalFactor":1,
+                           "legendFormat":"Memory used",
+                           "refId":"B"
+                        },
+                        {  
+                           "expr":"sum(kube_pod_container_resource_limits_memory_bytes{namespace=\"$namespace\", pod=~\"$revision-deployment-.*\"})",
+                           "format":"time_series",
+                           "intervalFactor":1,
+                           "refId":"C"
+                        }
+                     ],
+                     "thresholds":[  
+
+                     ],
+                     "timeFrom":null,
+                     "timeShift":null,
+                     "title":"Pod Memory Usage",
+                     "tooltip":{  
+                        "shared":true,
+                        "sort":2,
+                        "value_type":"individual"
+                     },
+                     "type":"graph",
+                     "xaxis":{  
+                        "buckets":null,
+                        "mode":"time",
+                        "name":null,
+                        "show":true,
+                        "values":[  
+
+                        ]
+                     },
+                     "yaxes":[  
+                        {  
+                           "format":"decbytes",
+                           "label":null,
+                           "logBase":1,
+                           "max":null,
+                           "min":null,
+                           "show":true
+                        },
+                        {  
+                           "format":"short",
+                           "label":null,
+                           "logBase":1,
+                           "max":null,
+                           "min":null,
+                           "show":false
+                        }
+                     ]
+                  }
+               ],
+               "title":"Resource Usages",
+               "type":"row"
+            },
+            {  
+               "collapsed":true,
+               "gridPos":{  
+                  "h":1,
+                  "w":24,
+                  "x":0,
+                  "y":2
+               },
+               "id":16,
+               "panels":[  
+                  {  
+                     "aliasColors":{  
+
+                     },
+                     "bars":false,
+                     "dashLength":10,
+                     "dashes":false,
+                     "datasource":"prometheus",
+                     "fill":1,
+                     "gridPos":{  
+                        "h":10,
+                        "w":24,
+                        "x":0,
+                        "y":3
+                     },
+                     "id":10,
+                     "legend":{  
+                        "avg":false,
+                        "current":false,
+                        "max":false,
+                        "min":false,
+                        "show":true,
+                        "total":false,
+                        "values":false
+                     },
+                     "lines":true,
+                     "linewidth":1,
+                     "links":[  
+
+                     ],
+                     "nullPointMode":"null",
+                     "percentage":false,
+                     "pointradius":5,
+                     "points":false,
+                     "renderer":"flot",
+                     "seriesOverrides":[  
+
+                     ],
+                     "spaceLength":10,
+                     "stack":false,
+                     "steppedLine":true,
+                     "targets":[  
+                        {  
+                           "expr":"sum(autoscaler_desired_pods{namespace_name=\"$namespace\", configuration_name=\"$configuration\", revision_name=\"$revision\"}) ",
+                           "format":"time_series",
+                           "intervalFactor":1,
+                           "legendFormat":"Desired Pods",
+                           "refId":"A"
+                        },
+                        {  
+                           "expr":"sum(autoscaler_observed_pods{namespace_name=\"$namespace\", configuration_name=\"$configuration\", revision_name=\"$revision\"})",
+                           "format":"time_series",
+                           "intervalFactor":1,
+                           "legendFormat":"Observed Pods",
+                           "refId":"B"
+                        }
+                     ],
+                     "thresholds":[  
+
+                     ],
+                     "timeFrom":null,
+                     "timeShift":null,
+                     "title":"Pod Counts",
+                     "tooltip":{  
+                        "shared":true,
+                        "sort":0,
+                        "value_type":"individual"
+                     },
+                     "type":"graph",
+                     "xaxis":{  
+                        "buckets":null,
+                        "mode":"time",
+                        "name":null,
+                        "show":true,
+                        "values":[  
+
+                        ]
+                     },
+                     "yaxes":[  
+                        {  
+                           "format":"short",
+                           "label":null,
+                           "logBase":1,
+                           "max":null,
+                           "min":null,
+                           "show":true
+                        },
+                        {  
+                           "format":"short",
+                           "label":null,
+                           "logBase":1,
+                           "max":null,
+                           "min":null,
+                           "show":true
+                        }
+                     ]
+                  },
+                  {  
+                     "aliasColors":{  
+
+                     },
+                     "bars":false,
+                     "dashLength":10,
+                     "dashes":false,
+                     "datasource":"prometheus",
+                     "fill":1,
+                     "gridPos":{  
+                        "h":9,
+                        "w":24,
+                        "x":0,
+                        "y":13
+                     },
+                     "id":8,
+                     "legend":{  
+                        "avg":false,
+                        "current":false,
+                        "max":false,
+                        "min":false,
+                        "show":true,
+                        "total":false,
+                        "values":false
+                     },
+                     "lines":true,
+                     "linewidth":1,
+                     "links":[  
+
+                     ],
+                     "nullPointMode":"null",
+                     "percentage":false,
+                     "pointradius":5,
+                     "points":false,
+                     "renderer":"flot",
+                     "seriesOverrides":[  
+                        {  
+                           "alias":"Panic Mode",
+                           "color":"#ea6460",
+                           "dashes":true,
+                           "fill":2,
+                           "linewidth":2,
+                           "steppedLine":true,
+                           "yaxis":2
+                        },
+                        {  
+                           "alias":"Target Concurrency Per Pod",
+                           "color":"#0a50a1",
+                           "dashes":true,
+                           "steppedLine":false
+                        }
+                     ],
+                     "spaceLength":10,
+                     "stack":false,
+                     "steppedLine":true,
+                     "targets":[  
+                        {  
+                           "expr":"sum(autoscaler_stable_request_concurrency{namespace_name=\"$namespace\", configuration_name=\"$configuration\", revision_name=\"$revision\"})",
+                           "format":"time_series",
+                           "interval":"1s",
+                           "intervalFactor":1,
+                           "legendFormat":"60 Second Average Concurrency",
+                           "refId":"A"
+                        },
+                        {  
+                           "expr":"sum(autoscaler_panic_request_concurrency{namespace_name=\"$namespace\", configuration_name=\"$configuration\", revision_name=\"$revision\"})",
+                           "format":"time_series",
+                           "interval":"1s",
+                           "intervalFactor":1,
+                           "legendFormat":"6 Second Average Panic Concurrency",
+                           "refId":"B"
+                        },
+                        {  
+                           "expr":"sum(autoscaler_target_concurrency_per_pod{namespace_name=\"$namespace\", configuration_name=\"$configuration\", revision_name=\"$revision\"})",
+                           "format":"time_series",
+                           "intervalFactor":1,
+                           "legendFormat":"60 Second Target Concurrency",
+                           "refId":"C"
+                        }
+                     ],
+                     "thresholds":[  
+
+                     ],
+                     "timeFrom":null,
+                     "timeShift":null,
+                     "title":"Observed Concurrency",
+                     "tooltip":{  
+                        "shared":true,
+                        "sort":0,
+                        "value_type":"individual"
+                     },
+                     "type":"graph",
+                     "xaxis":{  
+                        "buckets":null,
+                        "mode":"time",
+                        "name":null,
+                        "show":true,
+                        "values":[  
+
+                        ]
+                     },
+                     "yaxes":[  
+                        {  
+                           "format":"short",
+                           "label":"",
+                           "logBase":1,
+                           "max":null,
+                           "min":null,
+                           "show":true
+                        },
+                        {  
+                           "format":"short",
+                           "label":"",
+                           "logBase":1,
+                           "max":null,
+                           "min":null,
+                           "show":false
+                        }
+                     ]
+                  },
+                  {  
+                     "aliasColors":{  
+
+                     },
+                     "bars":false,
+                     "dashLength":10,
+                     "dashes":false,
+                     "datasource":"prometheus",
+                     "decimals":null,
+                     "fill":1,
+                     "gridPos":{  
+                        "h":9,
+                        "w":24,
+                        "x":0,
+                        "y":22
+                     },
+                     "id":12,
+                     "legend":{  
+                        "avg":false,
+                        "current":false,
+                        "hideZero":false,
+                        "max":false,
+                        "min":false,
+                        "show":false,
+                        "total":false,
+                        "values":false
+                     },
+                     "lines":true,
+                     "linewidth":1,
+                     "links":[  
+
+                     ],
+                     "nullPointMode":"null",
+                     "percentage":false,
+                     "pointradius":5,
+                     "points":false,
+                     "renderer":"flot",
+                     "seriesOverrides":[  
+                        {  
+                           "alias":"Panic Mode",
+                           "color":"#e24d42",
+                           "linewidth":2,
+                           "yaxis":2
+                        }
+                     ],
+                     "spaceLength":10,
+                     "stack":false,
+                     "steppedLine":true,
+                     "targets":[  
+                        {  
+                           "expr":"sum(autoscaler_panic_mode{namespace_name=\"$namespace\", configuration_name=\"$configuration\", revision_name=\"$revision\"} )",
+                           "format":"time_series",
+                           "intervalFactor":1,
+                           "legendFormat":"Panic Mode",
+                           "refId":"A"
+                        }
+                     ],
+                     "thresholds":[  
+
+                     ],
+                     "timeFrom":null,
+                     "timeShift":null,
+                     "title":"Panic Mode",
+                     "tooltip":{  
+                        "shared":true,
+                        "sort":0,
+                        "value_type":"individual"
+                     },
+                     "type":"graph",
+                     "xaxis":{  
+                        "buckets":null,
+                        "mode":"time",
+                        "name":null,
+                        "show":true,
+                        "values":[  
+
+                        ]
+                     },
+                     "yaxes":[  
+                        {  
+                           "format":"short",
+                           "label":null,
+                           "logBase":1,
+                           "max":"1.0",
+                           "min":"0",
+                           "show":true
+                        },
+                        {  
+                           "format":"short",
+                           "label":null,
+                           "logBase":1,
+                           "max":null,
+                           "min":null,
+                           "show":false
+                        }
+                     ]
+                  }
+               ],
+               "title":"Autoscaler Metrics",
+               "type":"row"
+            },
+            {  
+               "collapsed":true,
+               "gridPos":{  
+                  "h":1,
+                  "w":24,
+                  "x":0,
+                  "y":3
+               },
+               "id":20,
+               "panels":[  
+                           {  
+                              "aliasColors":{  
+
+                              },
+                              "bars":false,
+                              "dashLength":10,
+                              "dashes":false,
+                              "datasource":"prometheus",
+                              "fill":1,
+                              "gridPos":{  
+                                 "h":10,
+                                 "w":24,
+                                 "x":0,
+                                 "y":12
+                              },
+                              "id":24,
+                              "legend":{  
+                                 "avg":false,
+                                 "current":false,
+                                 "max":false,
+                                 "min":false,
+                                 "show":true,
+                                 "total":false,
+                                 "values":false
+                              },
+                              "lines":true,
+                              "linewidth":1,
+                              "links":[  
+
+                              ],
+                              "nullPointMode":"null",
+                              "percentage":false,
+                              "pointradius":5,
+                              "points":false,
+                              "renderer":"flot",
+                              "seriesOverrides":[  
+
+                              ],
+                              "spaceLength":10,
+                              "stack":false,
+                              "steppedLine":false,
+                              "targets":[  
+                                 {  
+                                    "expr":"round(sum(increase(activator_request_count{namespace_name=\"$namespace\", configuration_name=~\"$configuration\",revision_name=~\"$revision\"}[1m])) by (response_code))",
+                                    "format":"time_series",
+                                    "intervalFactor":1,
+                                    "legendFormat":"{{ response_code }}",
+                                    "refId":"A"
+                                 }
+                              ],
+                              "thresholds":[  
+
+                              ],
+                              "timeFrom":null,
+                              "timeShift":null,
+                              "title":"Request Count in last minute by Response Code",
+                              "tooltip":{  
+                                 "shared":true,
+                                 "sort":0,
+                                 "value_type":"individual"
+                              },
+                              "type":"graph",
+                              "xaxis":{  
+                                 "buckets":null,
+                                 "mode":"time",
+                                 "name":null,
+                                 "show":true,
+                                 "values":[  
+
+                                 ]
+                              },
+                              "yaxes":[  
+                                 {  
+                                    "format":"none",
+                                    "label":null,
+                                    "logBase":1,
+                                    "max":null,
+                                    "min":"0",
+                                    "show":true
+                                 },
+                                 {  
+                                    "format":"short",
+                                    "label":null,
+                                    "logBase":1,
+                                    "max":null,
+                                    "min":null,
+                                    "show":true
+                                 }
+                              ]
+                           },
+                           {  
+                              "aliasColors":{  
+
+                              },
+                              "bars":false,
+                              "dashLength":10,
+                              "dashes":false,
+                              "datasource":"prometheus",
+                              "fill":1,
+                              "gridPos":{  
+                                 "h":10,
+                                 "w":24,
+                                 "x":0,
+                                 "y":32
+                              },
+                              "id":28,
+                              "legend":{  
+                                 "avg":true,
+                                 "current":false,
+                                 "max":false,
+                                 "min":false,
+                                 "show":true,
+                                 "total":false,
+                                 "values":true
+                              },
+                              "lines":true,
+                              "linewidth":1,
+                              "links":[  
+
+                              ],
+                              "nullPointMode":"null",
+                              "percentage":false,
+                              "pointradius":5,
+                              "points":false,
+                              "renderer":"flot",
+                              "seriesOverrides":[  
+
+                              ],
+                              "spaceLength":10,
+                              "stack":false,
+                              "steppedLine":false,
+                              "targets":[  
+                                 {  
+                                    "expr":"label_replace(histogram_quantile(0.50, sum(rate(activator_request_latencies_bucket{namespace_name=\"$namespace\", configuration_name=~\"$configuration\",revision_name=~\"$revision\"}[1m])) by (revision_name, le)), \"revision_name\", \"$2\", \"revision_name\", \"$configuration(-+)(.*)\")",
+                                    "format":"time_series",
+                                    "intervalFactor":1,
+                                    "legendFormat":"{{ revision_name }} (p50)",
+                                    "refId":"A"
+                                 },
+                                 {  
+                                    "expr":"label_replace(histogram_quantile(0.90, sum(rate(activator_request_latencies_bucket{namespace_name=\"$namespace\", configuration_name=~\"$configuration\",revision_name=~\"$revision\"}[1m])) by (revision_name, le)), \"revision_name\", \"$2\", \"revision_name\", \"$configuration(-+)(.*)\")",
+                                    "format":"time_series",
+                                    "intervalFactor":1,
+                                    "legendFormat":"{{ revision_name }} (p90)",
+                                    "refId":"B"
+                                 },
+                                 {  
+                                    "expr":"label_replace(histogram_quantile(0.95, sum(rate(activator_request_latencies_bucket{namespace_name=\"$namespace\", configuration_name=~\"$configuration\",revision_name=~\"$revision\"}[1m])) by (revision_name, le)), \"revision_name\", \"$2\", \"revision_name\", \"$configuration(-+)(.*)\")",
+                                    "format":"time_series",
+                                    "intervalFactor":1,
+                                    "legendFormat":"{{ revision_name }} (p95)",
+                                    "refId":"C"
+                                 },
+                                 {  
+                                    "expr":"label_replace(histogram_quantile(0.99, sum(rate(activator_request_latencies_bucket{namespace_name=\"$namespace\", configuration_name=~\"$configuration\",revision_name=~\"$revision\"}[1m])) by (revision_name, le)), \"revision_name\", \"$2\", \"revision_name\", \"$configuration(-+)(.*)\")",
+                                    "format":"time_series",
+                                    "intervalFactor":1,
+                                    "legendFormat":"{{ revision_name }} (p99)",
+                                    "refId":"D"
+                                 }
+                              ],
+                              "thresholds":[  
+
+                              ],
+                              "timeFrom":null,
+                              "timeShift":null,
+                              "title":"Response Time in last minute",
+                              "tooltip":{  
+                                 "shared":true,
+                                 "sort":0,
+                                 "value_type":"individual"
+                              },
+                              "type":"graph",
+                              "xaxis":{  
+                                 "buckets":null,
+                                 "mode":"time",
+                                 "name":null,
+                                 "show":true,
+                                 "values":[  
+
+                                 ]
+                              },
+                              "yaxes":[  
+                                 {  
+                                    "format":"ms",
+                                    "label":null,
+                                    "logBase":1,
+                                    "max":null,
+                                    "min":null,
+                                    "show":true
+                                 },
+                                 {  
+                                    "format":"short",
+                                    "label":null,
+                                    "logBase":1,
+                                    "max":null,
+                                    "min":null,
+                                    "show":true
+                                 }
+                               ]
+                             }     
+               ],
+               "title":"Activator Metrics",
+               "type":"row"
+            }
+         ],
+         "refresh":false,
+         "schemaVersion":16,
+         "style":"dark",
+         "tags":[  
+
+         ],
+         "templating":{  
+            "list":[  
+               {  
+                  "allValue":null,
+                  "current":{  
+
+                  },
+                  "datasource":"prometheus",
+                  "hide":0,
+                  "includeAll":false,
+                  "label":"Namespace",
+                  "multi":false,
+                  "name":"namespace",
+                  "options":[  
+
+                  ],
+                  "query":"label_values(autoscaler_observed_pods, namespace_name)",
+                  "refresh":1,
+                  "regex":"",
+                  "sort":1,
+                  "tagValuesQuery":"",
+                  "tags":[  
+
+                  ],
+                  "tagsQuery":"",
+                  "type":"query",
+                  "useTags":false
+               },
+               {  
+                  "allValue":null,
+                  "current":{  
+
+                  },
+                  "datasource":"prometheus",
+                  "hide":0,
+                  "includeAll":false,
+                  "label":"Configuration",
+                  "multi":false,
+                  "name":"configuration",
+                  "options":[  
+
+                  ],
+                  "query":"label_values(autoscaler_observed_pods{namespace_name=\"$namespace\"}, configuration_name)",
+                  "refresh":1,
+                  "regex":"",
+                  "sort":1,
+                  "tagValuesQuery":"",
+                  "tags":[  
+
+                  ],
+                  "tagsQuery":"",
+                  "type":"query",
+                  "useTags":false
+               },
+               {  
+                  "allValue":null,
+                  "current":{  
+
+                  },
+                  "datasource":"prometheus",
+                  "hide":0,
+                  "includeAll":false,
+                  "label":"Revision",
+                  "multi":false,
+                  "name":"revision",
+                  "options":[  
+
+                  ],
+                  "query":"label_values(autoscaler_observed_pods{namespace_name=\"$namespace\", configuration_name=\"$configuration\"}, revision_name)",
+                  "refresh":1,
+                  "regex":"",
+                  "sort":2,
+                  "tagValuesQuery":"",
+                  "tags":[  
+
+                  ],
+                  "tagsQuery":"",
+                  "type":"query",
+                  "useTags":false
+               }
+            ]
+         },
+         "time":{  
+            "from":"now-15m",
+            "to":"now"
+         },
+         "timepicker":{  
+            "refresh_intervals":[  
+               "5s",
+               "10s",
+               "30s",
+               "1m",
+               "5m",
+               "15m",
+               "30m",
+               "1h",
+               "2h",
+               "1d"
+            ],
+            "time_options":[  
+               "5m",
+               "15m",
+               "1h",
+               "6h",
+               "12h",
+               "24h",
+               "2d",
+               "7d",
+               "30d"
+            ]
+         },
+         "timezone":"",
+         "title":"Knative Serving - Scaling Debugging",
+         "uid":"u_-9SIMiz",
+         "version":2
+      }
