@@ -81,3 +81,7 @@ version="v1.4.7"
 [[override]]
   name = "github.com/tensorflow/tensorflow"
   version = "=v1.13.1"
+
+[[constraint]]
+  name = "github.com/google/go-cmp"
+  revision = "6f77996f0c42f7b84e5a2b252227263f93432e9b"
