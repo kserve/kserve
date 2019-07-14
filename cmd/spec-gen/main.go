@@ -51,9 +51,9 @@ func main() {
 			Paths:       &spec.Paths{Paths: map[string]spec.PathItem{}},
 			Info: &spec.Info{
 				InfoProps: spec.InfoProps{
-					Title:       "KFServing",
+					Title: "KFServing",
 					Description: "Python SDK for KFServing",
-					Version:     version,
+					Version: version,
 				},
 			},
 		},
@@ -64,6 +64,7 @@ func main() {
 	}
 	fmt.Println(string(jsonBytes))
 }
+
 
 func swaggify(name string) string {
 	name = strings.Replace(name, "github.com/kubeflow/kfserving/pkg/apis/serving/", "", -1)
