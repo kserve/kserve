@@ -25,18 +25,23 @@ import (
 )
 
 const (
-	ModelInitializerContainerName    = "model-initializer"
-	ModelInitializerVolumeName       = "kfserving-provision-location"
-	ModelInitializerContainerImage   = "gcr.io/kfserving/model-initializer"
-	ModelInitializerContainerVersion = "latest"
-	PvcURIPrefix                     = "pvc://"
-	PvcSourceMountName               = "kfserving-pvc-source"
-	PvcSourceMountPath               = "/mnt/pvc"
-	UserContainerName                = "user-container"
+	ModelInitializerContainerName         = "model-initializer"
+	ModelInitializerConfigMapKeyName      = "modelInitializer"
+	ModelInitializerVolumeName            = "kfserving-provision-location"
+	ModelInitializerContainerImage        = "gcr.io/kfserving/model-initializer"
+	ModelInitializerContainerImageVersion = "latest"
+	PvcURIPrefix                          = "pvc://"
+	PvcSourceMountName                    = "kfserving-pvc-source"
+	PvcSourceMountPath                    = "/mnt/pvc"
+	UserContainerName                     = "user-container"
 )
 
+type ModelInitializerConfig struct {
+	Image string `json:"image"`
+}
 type ModelInitializerInjector struct {
 	credentialBuilder *credentials.CredentialBuilder
+	config            *ModelInitializerConfig
 }
 
 // InjectModelInitializer injects an init container to provision model data
@@ -125,10 +130,14 @@ func (mi *ModelInitializerInjector) InjectModelInitializer(deployment *appsv1.De
 	}
 	modelInitializerMounts = append(modelInitializerMounts, sharedVolumeWriteMount)
 
+	modelInitializerImage := ModelInitializerContainerImage + ":" + ModelInitializerContainerImageVersion
+	if mi.config != nil && mi.config.Image != "" {
+		modelInitializerImage = mi.config.Image
+	}
 	// Add an init container to run provisioning logic to the PodSpec
 	initContainer := &v1.Container{
 		Name:  ModelInitializerContainerName,
-		Image: ModelInitializerContainerImage + ":" + ModelInitializerContainerVersion,
+		Image: modelInitializerImage,
 		Args: []string{
 			srcURI,
 			constants.DefaultModelLocalMountPath,

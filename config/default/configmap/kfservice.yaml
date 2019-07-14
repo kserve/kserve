@@ -22,6 +22,10 @@ data:
             "image": "nvcr.io/nvidia/tensorrtserver"
         }
     }
+  modelInitializer: |-
+    {
+        "image" : "gcr.io/kfserving/model-initializer:latest"
+    }
   credentials: |-
     {
        "gcs": {
