@@ -643,7 +643,7 @@ func TestModelInitializerConfigmap(t *testing.T) {
 							InitContainers: []v1.Container{
 								{
 									Name:  "model-initializer",
-									Image: "model-initializer:v0.1",
+									Image: "kfserving/model-initializer@sha256:xxx",
 									Args:  []string{"gs://foo", constants.DefaultModelLocalMountPath},
 									VolumeMounts: []v1.VolumeMount{
 										{
@@ -674,7 +674,7 @@ func TestModelInitializerConfigmap(t *testing.T) {
 				Data: map[string]string{},
 			}),
 			config: &ModelInitializerConfig{
-				Image: "model-initializer:v0.1",
+				Image: "kfserving/model-initializer@sha256:xxx",
 			},
 		}
 		if err := injector.InjectModelInitializer(scenario.original); err != nil {
