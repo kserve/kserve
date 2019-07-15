@@ -22,8 +22,8 @@ func TestFlowers(t *testing.T) {
 	cmd := exec.Command(cmdName, cmdArgs...)
 	spec, err := cmd.Output()
 	g.Expect(err).Should(gomega.BeNil())
-	acceptableSpec := readFile("TestFlowers.golden", t)
-	acceptableSpecPermuted := readFile("TestFlowers2.golden", t)
+	acceptableSpec := readFile("TestFlowers.golden.json", t)
+	acceptableSpecPermuted := readFile("TestFlowers2.golden.json", t)
 	g.Expect(spec).Should(gomega.Or(gomega.MatchJSON(acceptableSpec), gomega.MatchJSON(acceptableSpecPermuted)))
 }
 
@@ -39,7 +39,7 @@ func TestCensus(t *testing.T) {
 	swagger := &openapi3.Swagger{}
 	g.Expect(json.Unmarshal([]byte(spec), &swagger)).To(gomega.Succeed())
 
-	expectedSpec := readFile("TestCensus.golden", t)
+	expectedSpec := readFile("TestCensus.golden.json", t)
 	expectedSwagger := &openapi3.Swagger{}
 	g.Expect(json.Unmarshal(expectedSpec, &expectedSwagger)).To(gomega.Succeed())
 
@@ -85,7 +85,7 @@ func TestCustomFlags(t *testing.T) {
 	swagger := &openapi3.Swagger{}
 	g.Expect(json.Unmarshal([]byte(spec), &swagger)).To(gomega.Succeed())
 
-	expectedSpec := readFile("TestCustomFlags.golden", t)
+	expectedSpec := readFile("TestCustomFlags.golden.json", t)
 	expectedSwagger := &openapi3.Swagger{}
 	g.Expect(json.Unmarshal(expectedSpec, &expectedSwagger)).To(gomega.Succeed())
 
@@ -153,8 +153,8 @@ func TestOutputToFile(t *testing.T) {
 	_, err := cmd.CombinedOutput()
 	g.Expect(err).Should(gomega.BeNil())
 	spec := readFile(outputFileName, t)
-	acceptableSpec := readFile("TestFlowers.golden", t)
-	acceptableSpecPermuted := readFile("TestFlowers2.golden", t)
+	acceptableSpec := readFile("TestFlowers.golden.json", t)
+	acceptableSpecPermuted := readFile("TestFlowers2.golden.json", t)
 	g.Expect(spec).Should(gomega.Or(gomega.MatchJSON(acceptableSpec), gomega.MatchJSON(acceptableSpecPermuted)))
 }
 
