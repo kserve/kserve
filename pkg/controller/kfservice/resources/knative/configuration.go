@@ -135,6 +135,8 @@ func configurationAnnotationFilter(annotationKey string) bool {
 		return false
 	case constants.ModelInitializerSourceUriInternalAnnotationKey:
 		return false
+	case "kubectl.kubernetes.io/last-applied-configuration":
+		return false
 	default:
 		return true
 	}
