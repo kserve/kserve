@@ -37,3 +37,5 @@ from kfserving.models.v1alpha1_status_configuration_spec import V1alpha1StatusCo
 from kfserving.models.v1alpha1_tensor_rt_spec import V1alpha1TensorRTSpec
 from kfserving.models.v1alpha1_tensorflow_spec import V1alpha1TensorflowSpec
 from kfserving.models.v1alpha1_xg_boost_spec import V1alpha1XGBoostSpec
+# import apis into api package
+from kfserving.api.kf_serving_api import KFServingApi
