@@ -55,8 +55,12 @@ from pprint import pprint
 
 ## Documentation for API Endpoints
 
-Class | Method | HTTP request | Description
------------- | ------------- | ------------- | -------------
+Class | Method |  Description
+------------ | ------------- | -------------
+[KFServingApi](docs/KFServingApi.md) | [deploy](docs/KFServingApi.md#deploy) | Create the provided KFService in the specified namespace|
+[KFServingApi](docs/KFServingApi.md) | [get](docs/KFServingApi.md#get)    | Get the deployed KFService in the specified namespace|
+[KFServingApi](docs/KFServingApi.md) | [patch](docs/KFServingApi.md#patch)   | Patch the deployed KFService in the specified namespace |
+[KFServingApi](docs/KFServingApi.md) | [delete](docs/KFServingApi.md#delete) | Delete the deployed KFService in the specified namespace |
 
 
 ## Documentation For Models
