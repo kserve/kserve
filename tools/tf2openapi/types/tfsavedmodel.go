@@ -6,13 +6,21 @@ It is the internal model representation for the SavedModel defined in the Tensor
 [tensorflow/core/protobuf/saved_model.proto]
 */
 import (
+	"fmt"
 	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/google/go-cmp/cmp"
 	pb "github.com/kubeflow/kfserving/tools/tf2openapi/generated/protobuf"
+	"sort"
 )
 
 type TFSavedModel struct {
 	MetaGraphs [] TFMetaGraph
 }
+
+// Known error messages
+const (
+	MetaGraphNotFoundError = "model does not contain MetaGraph with tags %v"
+)
 
 func NewTFSavedModel(model *pb.SavedModel) (TFSavedModel, error) {
 	tfSavedModel := TFSavedModel{
@@ -28,6 +36,20 @@ func NewTFSavedModel(model *pb.SavedModel) (TFSavedModel, error) {
 	return tfSavedModel, nil
 }
 
-func (t *TFSavedModel) Schema() *openapi3.Schema {
-	return &openapi3.Schema{}
+func (t *TFSavedModel) Schema(metaGraphTags []string, sigDefKey string) (*openapi3.Schema, error) {
+	for _, metaGraph := range t.MetaGraphs {
+		if setEquals(metaGraphTags, metaGraph.Tags) {
+			return metaGraph.Schema(sigDefKey)
+		}
+	}
+	return &openapi3.Schema{}, fmt.Errorf(MetaGraphNotFoundError, metaGraphTags)
+}
+
+func setEquals(a, b []string) bool {
+	sort.Strings(a)
+	sort.Strings(b)
+	if cmp.Equal(a, b) {
+		return true
+	}
+	return false
 }

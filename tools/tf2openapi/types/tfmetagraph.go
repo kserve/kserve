@@ -6,6 +6,7 @@ It is the internal model representation for the MetaGraph defined in the TensorF
 [tensorflow/core/protobuf/meta_graph.proto]
 */
 import (
+	"fmt"
 	"github.com/getkin/kin-openapi/openapi3"
 	pb "github.com/kubeflow/kfserving/tools/tf2openapi/generated/protobuf"
 )
@@ -14,6 +15,11 @@ type TFMetaGraph struct {
 	SignatureDefs [] TFSignatureDef
 	Tags          [] string
 }
+
+// Known error messages
+const (
+	SignatureDefNotFoundError = "SignatureDef (%s) not found in specified MetaGraph"
+)
 
 func NewTFMetaGraph(metaGraph *pb.MetaGraphDef) (TFMetaGraph, error) {
 	tfMetaGraph := TFMetaGraph{
@@ -30,6 +36,11 @@ func NewTFMetaGraph(metaGraph *pb.MetaGraphDef) (TFMetaGraph, error) {
 	return tfMetaGraph, nil
 }
 
-func (t *TFMetaGraph) Schema() *openapi3.Schema {
-	return &openapi3.Schema{}
+func (t *TFMetaGraph) Schema(sigDefKey string) (*openapi3.Schema, error) {
+	for _, sigDef := range t.SignatureDefs {
+		if sigDefKey == sigDef.Key {
+			return sigDef.Schema()
+		}
+	}
+	return &openapi3.Schema{}, fmt.Errorf(SignatureDefNotFoundError, sigDefKey)
 }

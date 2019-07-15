@@ -15,6 +15,7 @@ var (
 	modelName     string
 	modelVersion  string
 	sigDefKey     string
+	metaGraphTags []string
 	outFile       string
 )
 
@@ -34,7 +35,9 @@ func main() {
 	rootCmd.Flags().StringVarP(&modelName, "name", "n", "model", "Name of model")
 	rootCmd.Flags().StringVarP(&modelVersion, "version", "v", "1", "Model version")
 	rootCmd.Flags().StringVarP(&outFile, "output_file", "o", "", "Absolute path of file to write OpenAPI spec to")
-	rootCmd.Flags().StringVarP(&sigDefKey, "signature_def", "s", "", "Serving Signature Def Key")
+	rootCmd.Flags().StringVarP(&sigDefKey, "signature_def", "s", "", "Serving SignatureDef Key")
+	rootCmd.Flags().StringSliceVarP(&metaGraphTags, "metagraph_tags", "t", []string{}, "All tags identifying desired MetaGraph")
+
 	if err := rootCmd.Execute(); err != nil {
 		log.Fatalln(err.Error())
 	}
@@ -46,11 +49,23 @@ func viewAPI(cmd *cobra.Command, args []string) {
 		log.Fatalf("Error reading file %s \n%s", modelBasePath, err.Error())
 	}
 
-	/** Convert Go struct to inner model */
-	model := UnmarshalSavedModelPb(modelPb)
+	generatorBuilder := &generator.Builder{}
+	if modelName != "" {
+		generatorBuilder.SetName(modelName)
+	}
+	if modelVersion != "" {
+		generatorBuilder.SetVersion(modelVersion)
+	}
+	if sigDefKey != "" {
+		generatorBuilder.SetSigDefKey(sigDefKey)
+	}
+	if len(metaGraphTags) != 0 {
+		generatorBuilder.SetMetaGraphTags(metaGraphTags)
+	}
 
-	/** Schema generation example **/
-	spec, err := generator.GenerateOpenAPI(model, sigDefKey)
+	model := UnmarshalSavedModelPb(modelPb)
+	gen := generatorBuilder.Build()
+	spec, err :=  gen.GenerateOpenAPI(model)
 	if err != nil {
 		log.Fatalln(err.Error())
 	}
@@ -64,7 +79,7 @@ func viewAPI(cmd *cobra.Command, args []string) {
 			panic(err)
 		}
 	} else {
-		// default to std::out
+		// Default to std::out
 		log.Println(spec)
 	}
 }
