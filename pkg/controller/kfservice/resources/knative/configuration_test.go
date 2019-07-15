@@ -358,6 +358,7 @@ func TestKnativeConfiguration(t *testing.T) {
 						"autoscaling.knative.dev/minScale": "2",
 						"autoscaling.knative.dev/target":   "2",
 						constants.ModelInitializerSourceUriInternalAnnotationKey: "test",
+						"kubectl.kubernetes.io/last-applied-configuration": "test2",
 					},
 				},
 				Spec: v1alpha1.KFServiceSpec{

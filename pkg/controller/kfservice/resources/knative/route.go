@@ -75,6 +75,8 @@ func (r *RouteBuilder) CreateKnativeRoute(kfsvc *v1alpha1.KFService) *knservingv
 
 func routeAnnotationFilter(annotationKey string) bool {
 	switch annotationKey {
+	case "kubectl.kubernetes.io/last-applied-configuration":
+		return false
 	default:
 		return true
 	}
