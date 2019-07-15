@@ -261,7 +261,7 @@ func model(t *testing.T, fName string) *pb.SavedModel {
 }
 
 func openAPI(t *testing.T, fName string) []byte {
-	fPath := filepath.Join("testdata", fName+".golden")
+	fPath := filepath.Join("testdata", fName+".golden.json")
 	openAPI, err := ioutil.ReadFile(fPath)
 	if err != nil {
 		t.Fatalf("failed reading %s: %s", fPath, err)
@@ -290,7 +290,7 @@ func acceptsValidReq(t *testing.T, fName string) error {
 }
 
 func loadSwagger(t *testing.T, fName string) *openapi3.Swagger {
-	fPath := filepath.Join("testdata", fName+".golden")
+	fPath := filepath.Join("testdata", fName+".golden.json")
 	swagger, err := openapi3.NewSwaggerLoader().LoadSwaggerFromFile(fPath)
 	if err != nil {
 		t.Fatalf("failed reading %s: %s", fPath, err)
