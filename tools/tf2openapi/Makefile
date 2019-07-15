@@ -4,7 +4,7 @@ TF_PROTO_OUT := generated
 
 # Run tests
 test: generate
-	go test ./types/...
+	go test ./types/... ./generator/...
 
 # Generate code
 generate:

@@ -71,6 +71,7 @@ func TestRowFmtMultipleTensors(t *testing.T) {
 		Get("application/json").Schema.Value.Properties["instances"].Value
 	g.Expect(instances.Items.Value.Required).Should(gomega.Not(gomega.BeNil()))
 	g.Expect(instances.Items.Value.Required).To(gomega.ConsistOf(expectedInstances.Items.Value.Required))
+	g.Expect(instances.Items.Value.AdditionalPropertiesAllowed).Should(gomega.Not(gomega.BeNil()))
 	g.Expect(instances.Items.Value.AdditionalPropertiesAllowed).Should(gomega.Equal(expectedInstances.Items.Value.AdditionalPropertiesAllowed))
 	g.Expect(instances.Items.Value.Properties).Should(gomega.Equal(expectedInstances.Items.Value.Properties))
 
