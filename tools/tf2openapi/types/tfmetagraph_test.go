@@ -1,6 +1,8 @@
 package types
 
 import (
+	"fmt"
+	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/kubeflow/kfserving/tools/tf2openapi/generated/framework"
 	pb "github.com/kubeflow/kfserving/tools/tf2openapi/generated/protobuf"
 	"github.com/onsi/gomega"
@@ -177,7 +179,8 @@ func TestNewTFMetaGraphWithMultipleSignatureDefs(t *testing.T) {
 			},
 		},
 	}
-	g.Expect(tfMetaGraph).Should(gomega.Equal(expectedMetaGraph))
+	g.Expect(tfMetaGraph.Tags).Should(gomega.Equal(expectedMetaGraph.Tags))
+	g.Expect(tfMetaGraph.SignatureDefs).Should(gomega.ConsistOf(expectedMetaGraph.SignatureDefs))
 	g.Expect(err).Should(gomega.BeNil())
 }
 
@@ -186,5 +189,44 @@ func TestNewTFMetaGraphWithErrSignatureDef(t *testing.T) {
 	metaGraphPb := metaGraphPb()
 	metaGraphPb.SignatureDef["sigDefKey"] = badSigDefPb()
 	_, err := NewTFMetaGraph(metaGraphPb)
-	g.Expect(err).Should(gomega.Not(gomega.BeNil()))
+	expectedErr := fmt.Sprintf(UnsupportedDataTypeError, "inputTensorName", "DT_HALF")
+	g.Expect(err).Should(gomega.MatchError(expectedErr))
+}
+
+func TestTFMetaGraphTypical(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	tfMetaGraph := expectedTFMetaGraph()
+	expectedSchema := &openapi3.Schema{
+		Type: "object",
+		Properties: map[string]*openapi3.SchemaRef{
+			"instances": {
+				Value: &openapi3.Schema{
+					Type: "array",
+					Items: &openapi3.SchemaRef{
+						Value: &openapi3.Schema{
+							Type:     "array",
+							MaxItems: func(u uint64) *uint64 { return &u }(3),
+							MinItems: 3,
+							Items: &openapi3.SchemaRef{
+								Value: &openapi3.Schema{
+									Type: "number",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	schema, err := tfMetaGraph.Schema("sigDefKey")
+	g.Expect(schema).Should(gomega.Equal(expectedSchema))
+	g.Expect(err).To(gomega.BeNil())
+}
+
+func TestTFMetaGraphMissingSigDef(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	tfMetaGraph := expectedTFMetaGraph()
+	_, err := tfMetaGraph.Schema("missingSigDefKey")
+	expectedErr := fmt.Sprintf(SignatureDefNotFoundError, "missingSigDefKey")
+	g.Expect(err).To(gomega.MatchError(expectedErr))
 }

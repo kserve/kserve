@@ -1,6 +1,8 @@
 package types
 
 import (
+	"fmt"
+	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/kubeflow/kfserving/tools/tf2openapi/generated/framework"
 	pb "github.com/kubeflow/kfserving/tools/tf2openapi/generated/protobuf"
 	"github.com/onsi/gomega"
@@ -97,5 +99,53 @@ func TestNewTFSavedModelWithErrMetaGraph(t *testing.T) {
 	savedModelPb := savedModelPb()
 	savedModelPb.MetaGraphs[0].SignatureDef["sigDefKey"].Inputs["inputTensorName"].Dtype = framework.DataType_DT_HALF
 	_, err := NewTFSavedModel(savedModelPb)
-	g.Expect(err).Should(gomega.Not(gomega.BeNil()))
+	expectedErr := fmt.Sprintf(UnsupportedDataTypeError, "inputTensorName", "DT_HALF")
+	g.Expect(err).Should(gomega.MatchError(expectedErr))
+}
+
+func TestTFSavedModelTypical(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	tfSavedModel := expectedTFSavedModel()
+	expectedSchema := &openapi3.Schema{
+		Type: "object",
+		Properties: map[string]*openapi3.SchemaRef{
+			"instances": {
+				Value: &openapi3.Schema{
+					Type: "array",
+					Items: &openapi3.SchemaRef{
+						Value: &openapi3.Schema{
+							Type:     "array",
+							MaxItems: func(u uint64) *uint64 { return &u }(3),
+							MinItems: 3,
+							Items: &openapi3.SchemaRef{
+								Value: &openapi3.Schema{
+									Type: "number",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	schema, err := tfSavedModel.Schema([]string{"serve"}, "sigDefKey")
+	g.Expect(schema).Should(gomega.Equal(expectedSchema))
+	g.Expect(err).To(gomega.BeNil())
+}
+
+func TestTFSavedModelMissingMetaGraph(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	tfSavedModel := expectedTFSavedModel()
+	_, err := tfSavedModel.Schema([]string{"serve", "missing"}, "sigDefKey")
+	expectedErr := fmt.Sprintf(MetaGraphNotFoundError, "[missing serve]")
+	expectedErrPermuted := fmt.Sprintf(MetaGraphNotFoundError, "[serve missing]")
+	g.Expect(err).To(gomega.Or(gomega.MatchError(expectedErr), gomega.MatchError(expectedErrPermuted)))
+}
+
+func TestTFSavedModelErrMetaGraph(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	tfSavedModel := expectedTFSavedModel()
+	_, err := tfSavedModel.Schema([]string{"serve"}, "missingSigDefKey")
+	expectedErr := fmt.Sprintf(SignatureDefNotFoundError, "missingSigDefKey")
+	g.Expect(err).To(gomega.MatchError(expectedErr))
 }
