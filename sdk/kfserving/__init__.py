@@ -20,6 +20,10 @@ from __future__ import absolute_import
 # import ApiClient
 from kfserving.api_client import ApiClient
 from kfserving.configuration import Configuration
+# import apis into sdk package
+from kfserving.api.kf_serving_api import KFServingApi
+# import constants into sdk package
+from kfserving.constants import constants
 # import models into sdk package
 from kfserving.models.knative_condition import KnativeCondition
 from kfserving.models.knative_volatile_time import KnativeVolatileTime
@@ -37,3 +41,5 @@ from kfserving.models.v1alpha1_status_configuration_spec import V1alpha1StatusCo
 from kfserving.models.v1alpha1_tensor_rt_spec import V1alpha1TensorRTSpec
 from kfserving.models.v1alpha1_tensorflow_spec import V1alpha1TensorflowSpec
 from kfserving.models.v1alpha1_xg_boost_spec import V1alpha1XGBoostSpec
+# import util into sdk package
+from kfserving.utils import utils
