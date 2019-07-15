@@ -201,6 +201,10 @@
                     template: "unit-test",
                   },
                   {
+                    name: "sdk-test",
+                    template: "sdk-test",
+                  },
+                  {
                     name: "pylint-checking",
                     template: "pylint-checking",
                   },
@@ -299,6 +303,9 @@
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("unit-test", testWorkerImage, [
               "test/scripts/unit-test.sh",
             ]),  // unit test
+            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("sdk-test", testWorkerImage, [
+              "test/scripts/sdk-test.sh",
+            ]),  // sdk unit test
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("pylint-checking", testWorkerImage, [
               "python",
               "-m",
