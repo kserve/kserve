@@ -8,8 +8,10 @@ import (
 	"os/exec"
 	"path/filepath"
 	"testing"
+
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/onsi/gomega"
+
 	"github.com/kubeflow/kfserving/tools/tf2openapi/types"
 )
 
@@ -44,19 +46,7 @@ func TestCensus(t *testing.T) {
 	g.Expect(json.Unmarshal(expectedSpec, &expectedSwagger)).To(gomega.Succeed())
 
 	// test equality, ignoring order in JSON arrays
-	instances := swagger.Components.RequestBodies["modelInput"].Value.Content.Get("application/json").
-		Schema.Value.Properties["instances"].Value
-	expectedInstances := expectedSwagger.Components.RequestBodies["modelInput"].Value.Content.
-		Get("application/json").Schema.Value.Properties["instances"].Value
-	g.Expect(swagger.Paths).Should(gomega.Equal(expectedSwagger.Paths))
-	g.Expect(swagger.OpenAPI).Should(gomega.Equal(expectedSwagger.OpenAPI))
-	g.Expect(swagger.Info).Should(gomega.Equal(expectedSwagger.Info))
-	g.Expect(swagger.Components.Responses).Should(gomega.Equal(expectedSwagger.Components.Responses))
-	g.Expect(instances.Items.Value.Required).Should(gomega.Not(gomega.BeNil()))
-	g.Expect(instances.Items.Value.Required).To(gomega.ConsistOf(expectedInstances.Items.Value.Required))
-	g.Expect(instances.Items.Value.AdditionalPropertiesAllowed).Should(gomega.Not(gomega.BeNil()))
-	g.Expect(instances.Items.Value.AdditionalPropertiesAllowed).Should(gomega.Equal(expectedInstances.Items.Value.AdditionalPropertiesAllowed))
-	g.Expect(instances.Items.Value.Properties).Should(gomega.Equal(expectedInstances.Items.Value.Properties))
+	expectJsonEquality(swagger, expectedSwagger, g)
 }
 
 func TestInvalidFilePath(t *testing.T) {
@@ -90,19 +80,7 @@ func TestCustomFlags(t *testing.T) {
 	g.Expect(json.Unmarshal(expectedSpec, &expectedSwagger)).To(gomega.Succeed())
 
 	// test equality, ignoring order in JSON arrays
-	instances := swagger.Components.RequestBodies["modelInput"].Value.Content.Get("application/json").
-		Schema.Value.Properties["instances"].Value
-	expectedInstances := expectedSwagger.Components.RequestBodies["modelInput"].Value.Content.
-		Get("application/json").Schema.Value.Properties["instances"].Value
-	g.Expect(swagger.Paths).Should(gomega.Equal(expectedSwagger.Paths))
-	g.Expect(swagger.OpenAPI).Should(gomega.Equal(expectedSwagger.OpenAPI))
-	g.Expect(swagger.Info).Should(gomega.Equal(expectedSwagger.Info))
-	g.Expect(swagger.Components.Responses).Should(gomega.Equal(expectedSwagger.Components.Responses))
-	g.Expect(instances.Items.Value.Required).Should(gomega.Not(gomega.BeNil()))
-	g.Expect(instances.Items.Value.Required).To(gomega.ConsistOf(expectedInstances.Items.Value.Required))
-	g.Expect(instances.Items.Value.AdditionalPropertiesAllowed).Should(gomega.Not(gomega.BeNil()))
-	g.Expect(instances.Items.Value.AdditionalPropertiesAllowed).Should(gomega.Equal(expectedInstances.Items.Value.AdditionalPropertiesAllowed))
-	g.Expect(instances.Items.Value.Properties).Should(gomega.Equal(expectedInstances.Items.Value.Properties))
+	expectJsonEquality(swagger, expectedSwagger, g)
 }
 
 func TestInvalidCommand(t *testing.T) {
@@ -193,4 +171,20 @@ func workingDir(t *testing.T) string {
 
 func cmd(wd string) string {
 	return filepath.Dir(wd) + "/bin/tf2openapi"
+}
+
+func expectJsonEquality(swagger *openapi3.Swagger, expectedSwagger *openapi3.Swagger, g *gomega.GomegaWithT) {
+	instances := swagger.Components.RequestBodies["modelInput"].Value.Content.Get("application/json").
+		Schema.Value.Properties["instances"].Value
+	expectedInstances := expectedSwagger.Components.RequestBodies["modelInput"].Value.Content.
+		Get("application/json").Schema.Value.Properties["instances"].Value
+	g.Expect(swagger.Paths).Should(gomega.Equal(expectedSwagger.Paths))
+	g.Expect(swagger.OpenAPI).Should(gomega.Equal(expectedSwagger.OpenAPI))
+	g.Expect(swagger.Info).Should(gomega.Equal(expectedSwagger.Info))
+	g.Expect(swagger.Components.Responses).Should(gomega.Equal(expectedSwagger.Components.Responses))
+	g.Expect(instances.Items.Value.Required).Should(gomega.Not(gomega.BeNil()))
+	g.Expect(instances.Items.Value.Required).To(gomega.ConsistOf(expectedInstances.Items.Value.Required))
+	g.Expect(instances.Items.Value.AdditionalPropertiesAllowed).Should(gomega.Not(gomega.BeNil()))
+	g.Expect(instances.Items.Value.AdditionalPropertiesAllowed).Should(gomega.Equal(expectedInstances.Items.Value.AdditionalPropertiesAllowed))
+	g.Expect(instances.Items.Value.Properties).Should(gomega.Equal(expectedInstances.Items.Value.Properties))
 }

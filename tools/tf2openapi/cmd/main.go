@@ -14,7 +14,7 @@ import (
 // Known error messages
 const (
 	ModelBasePathError    = "Error reading file %s \n%s"
-	OutputFilePathError = "failed writing to %s: %s"
+	OutputFilePathError = "Failed writing to %s: %s"
 	SavedModelFormatError = "SavedModel not in expected format. May be corrupted: "
 )
 
