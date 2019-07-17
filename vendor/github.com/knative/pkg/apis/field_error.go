@@ -302,6 +302,15 @@ func ErrDisallowedFields(fieldPaths ...string) *FieldError {
 	}
 }
 
+// ErrDisallowedUpdateDeprecatedFields is a variadic helper method for
+// constructing a FieldError for updating of deprecated fields.
+func ErrDisallowedUpdateDeprecatedFields(fieldPaths ...string) *FieldError {
+	return &FieldError{
+		Message: "must not update deprecated field(s)",
+		Paths:   fieldPaths,
+	}
+}
+
 // ErrInvalidArrayValue constructs a FieldError for a repetetive `field`
 // at `index` that has received an invalid string value.
 func ErrInvalidArrayValue(value interface{}, field string, index int) *FieldError {

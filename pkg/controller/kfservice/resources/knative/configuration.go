@@ -90,7 +90,7 @@ func (c *ConfigurationBuilder) CreateKnativeConfiguration(name string, metadata 
 			Labels:    metadata.Labels,
 		},
 		Spec: knservingv1alpha1.ConfigurationSpec{
-			RevisionTemplate: &knservingv1alpha1.RevisionTemplateSpec{
+			Template: &knservingv1alpha1.RevisionTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: utils.Union(metadata.Labels, map[string]string{
 						constants.KFServicePodLabelKey: metadata.Name,
@@ -102,11 +102,13 @@ func (c *ConfigurationBuilder) CreateKnativeConfiguration(name string, metadata 
 						// Defaulting here since this always shows a diff with nil vs 300s(knative default)
 						// we may need to expose this field in future
 						TimeoutSeconds: &constants.DefaultTimeout,
-						PodSpec: v1beta1.PodSpec{
+						PodSpec: v1.PodSpec{
 							ServiceAccountName: modelSpec.ServiceAccountName,
+							Containers: []v1.Container{
+								*modelSpec.CreateModelServingContainer(metadata.Name, c.frameworksConfig),
+							},
 						},
 					},
-					Container: modelSpec.CreateModelServingContainer(metadata.Name, c.frameworksConfig),
 				},
 			},
 		},
@@ -115,8 +117,8 @@ func (c *ConfigurationBuilder) CreateKnativeConfiguration(name string, metadata 
 	if err := c.credentialBuilder.CreateSecretVolumeAndEnv(
 		metadata.Namespace,
 		modelSpec.ServiceAccountName,
-		configuration.Spec.RevisionTemplate.Spec.Container,
-		&configuration.Spec.RevisionTemplate.Spec.Volumes,
+		&configuration.Spec.Template.Spec.Containers[0],
+		&configuration.Spec.Template.Spec.Volumes,
 	); err != nil {
 		return nil, err
 	}

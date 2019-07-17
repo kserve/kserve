@@ -16,6 +16,12 @@ limitations under the License.
 
 package ptr
 
+// Int32 is a helper for turning integers into pointers for use in
+// API types that want *int32.
+func Int32(i int32) *int32 {
+	return &i
+}
+
 // Int64 is a helper for turning integers into pointers for use in
 // API types that want *int64.
 func Int64(i int64) *int64 {

@@ -52,11 +52,36 @@ func (rs *RevisionSpec) SetDefaults(ctx context.Context) {
 		rs.PodSpec.Containers = []corev1.Container{container}
 	}()
 
+	if container.Name == "" {
+		container.Name = cfg.Defaults.UserContainerName(ctx)
+	}
+
 	if container.Resources.Requests == nil {
 		container.Resources.Requests = corev1.ResourceList{}
 	}
 	if _, ok := container.Resources.Requests[corev1.ResourceCPU]; !ok {
-		container.Resources.Requests[corev1.ResourceCPU] = cfg.Defaults.RevisionCPURequest
+		if rsrc := cfg.Defaults.RevisionCPURequest; rsrc != nil {
+			container.Resources.Requests[corev1.ResourceCPU] = *rsrc
+		}
+	}
+	if _, ok := container.Resources.Requests[corev1.ResourceMemory]; !ok {
+		if rsrc := cfg.Defaults.RevisionMemoryRequest; rsrc != nil {
+			container.Resources.Requests[corev1.ResourceMemory] = *rsrc
+		}
+	}
+
+	if container.Resources.Limits == nil {
+		container.Resources.Limits = corev1.ResourceList{}
+	}
+	if _, ok := container.Resources.Limits[corev1.ResourceCPU]; !ok {
+		if rsrc := cfg.Defaults.RevisionCPULimit; rsrc != nil {
+			container.Resources.Limits[corev1.ResourceCPU] = *rsrc
+		}
+	}
+	if _, ok := container.Resources.Limits[corev1.ResourceMemory]; !ok {
+		if rsrc := cfg.Defaults.RevisionMemoryLimit; rsrc != nil {
+			container.Resources.Limits[corev1.ResourceMemory] = *rsrc
+		}
 	}
 
 	vms := container.VolumeMounts

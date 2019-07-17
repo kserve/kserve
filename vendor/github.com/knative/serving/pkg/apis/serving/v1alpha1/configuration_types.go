@@ -21,6 +21,7 @@ import (
 	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
 	"github.com/knative/pkg/kmeta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // +genclient
@@ -52,6 +53,9 @@ var (
 	_ apis.Validatable = (*Configuration)(nil)
 	_ apis.Defaultable = (*Configuration)(nil)
 
+	// Check that Configuration can be converted to higher versions.
+	_ apis.Convertible = (*Configuration)(nil)
+
 	// Check that we can create OwnerReferences to a Configuration.
 	_ kmeta.OwnerRefable = (*Configuration)(nil)
 )
@@ -72,14 +76,15 @@ type ConfigurationSpec struct {
 	// Build optionally holds the specification for the build to
 	// perform to produce the Revision's container image.
 	// +optional
-	Build *RawExtension `json:"build,omitempty"`
+	DeprecatedBuild *runtime.RawExtension `json:"build,omitempty"`
 
-	// RevisionTemplate holds the latest specification for the Revision to
+	// DeprecatedRevisionTemplate holds the latest specification for the Revision to
 	// be stamped out. If a Build specification is provided, then the
-	// RevisionTemplate's BuildName field will be populated with the name of
+	// DeprecatedRevisionTemplate's BuildName field will be populated with the name of
 	// the Build object created to produce the container for the Revision.
+	// DEPRECATED Use Template instead.
 	// +optional
-	RevisionTemplate *RevisionTemplateSpec `json:"revisionTemplate,omitempty"`
+	DeprecatedRevisionTemplate *RevisionTemplateSpec `json:"revisionTemplate,omitempty"`
 
 	// Template holds the latest specification for the Revision to
 	// be stamped out.

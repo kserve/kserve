@@ -51,6 +51,18 @@ func (ss *ServiceStatus) InitializeConditions() {
 	serviceCondSet.Manage(ss).InitializeConditions()
 }
 
+// MarkResourceNotConvertible adds a Warning-severity condition to the resource noting that
+// it cannot be converted to a higher version.
+func (ss *ServiceStatus) MarkResourceNotConvertible(err *CannotConvertError) {
+	serviceCondSet.Manage(ss).SetCondition(apis.Condition{
+		Type:     ConditionTypeConvertible,
+		Status:   corev1.ConditionFalse,
+		Severity: apis.ConditionSeverityWarning,
+		Reason:   err.Field,
+		Message:  err.Message,
+	})
+}
+
 // MarkConfigurationNotOwned surfaces a failure via the ConfigurationsReady
 // status noting that the Configuration with the name we want has already
 // been created and we do not own it.
@@ -64,6 +76,13 @@ func (ss *ServiceStatus) MarkConfigurationNotOwned(name string) {
 func (ss *ServiceStatus) MarkRouteNotOwned(name string) {
 	serviceCondSet.Manage(ss).MarkFalse(ServiceConditionRoutesReady, "NotOwned",
 		fmt.Sprintf("There is an existing Route %q that we do not own.", name))
+}
+
+// MarkConfigurationNotReconciled notes that the Configuration controller has not yet
+// caught up to the desired changes we have specified.
+func (ss *ServiceStatus) MarkConfigurationNotReconciled() {
+	serviceCondSet.Manage(ss).MarkUnknown(ServiceConditionConfigurationsReady,
+		"OutOfDate", "The Configuration is still working to reflect the latest desired specification.")
 }
 
 // PropagateConfigurationStatus takes the Configuration status and applies its values
@@ -112,6 +131,13 @@ func (ss *ServiceStatus) MarkRouteNotYetReady() {
 	serviceCondSet.Manage(ss).MarkUnknown(ServiceConditionRoutesReady, trafficNotMigratedReason, trafficNotMigratedMessage)
 }
 
+// MarkRouteNotReconciled notes that the Route controller has not yet
+// caught up to the desired changes we have specified.
+func (ss *ServiceStatus) MarkRouteNotReconciled() {
+	serviceCondSet.Manage(ss).MarkUnknown(ServiceConditionRoutesReady,
+		"OutOfDate", "The Route is still working to reflect the latest desired specification.")
+}
+
 // PropagateRouteStatus propagates route's status to the service's status.
 func (ss *ServiceStatus) PropagateRouteStatus(rs *RouteStatus) {
 	ss.RouteStatusFields = rs.RouteStatusFields
@@ -128,28 +154,6 @@ func (ss *ServiceStatus) PropagateRouteStatus(rs *RouteStatus) {
 	case rc.Status == corev1.ConditionFalse:
 		serviceCondSet.Manage(ss).MarkFalse(ServiceConditionRoutesReady, rc.Reason, rc.Message)
 	}
-}
-
-// SetManualStatus updates the service conditions to unknown as the underlying Route
-// can have TrafficTargets to Configurations not owned by the service. We do not want to falsely
-// report Ready.
-func (ss *ServiceStatus) SetManualStatus() {
-	const (
-		reason  = "Manual"
-		message = "Service is set to Manual, and is not managing underlying resources."
-	)
-
-	// Clear our fields by creating a new status and copying over only the fields and conditions we want
-	newStatus := &ServiceStatus{}
-	newStatus.InitializeConditions()
-	serviceCondSet.Manage(newStatus).MarkUnknown(ServiceConditionConfigurationsReady, reason, message)
-	serviceCondSet.Manage(newStatus).MarkUnknown(ServiceConditionRoutesReady, reason, message)
-
-	newStatus.Address = ss.Address
-	newStatus.Domain = ss.Domain
-	newStatus.DeprecatedDomainInternal = ss.DeprecatedDomainInternal
-
-	*ss = *newStatus
 }
 
 func (ss *ServiceStatus) duck() *duckv1beta1.Status {
