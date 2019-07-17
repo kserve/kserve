@@ -115,7 +115,7 @@ You can build and publish your own image for development needs. Please ensure th
 To build your own image, run
 
 ```bash
-docker build -t animeshsingh/xgbserver -f xgb.Dockerfile .
+docker build -t $USER/xgbserver -f xgb.Dockerfile .
 ```
 
 You should see an output similar to this

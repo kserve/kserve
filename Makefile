@@ -81,7 +81,7 @@ docker-push:
 	docker push ${IMG}
 
 docker-build-executor: test
-	docker build -f Dockerfile.executor . -t ${EXECUTOR_IMG}
+	docker build -f executor.Dockerfile . -t ${EXECUTOR_IMG}
 
 docker-push-executor:
 	docker push ${EXECUTOR_IMG}

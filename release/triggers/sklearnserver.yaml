@@ -1,0 +1,29 @@
+---
+### Specify as necessary ###
+description: Sklearn Server Autobuilder
+substitutions:
+  _COMPONENT: "sklearnserver"
+  _DOCKERFILE: "./python/sklearn.Dockerfile"
+  _CONTEXT: "./python"
+###########################
+github:
+  owner: kubeflow
+  name: kfserving
+  push:
+    tag: v0.*.*
+### Specify as necessary ###
+includedFiles:
+- python/**
+###########################
+build:
+  steps:
+  - name: docker
+    args:
+    - "build"
+    - "-t"
+    - "gcr.io/$REPO_NAME/${_COMPONENT}:$TAG_NAME"
+    - "-f"
+    - "${_DOCKERFILE}"
+    - "${_CONTEXT}"
+  images:
+  - gcr.io/$REPO_NAME/${_COMPONENT}:$TAG_NAME
