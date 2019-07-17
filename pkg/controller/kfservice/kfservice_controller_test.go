@@ -98,7 +98,7 @@ var canary = &servingv1alpha1.KFService{
 		},
 	},
 	Status: servingv1alpha1.KFServiceStatus{
-		URL: canaryServiceKey.Name + ".svc.cluster.local",
+		URL: &apis.URL{Scheme: "http", Host: canaryServiceKey.Name + ".svc.cluster.local"},
 		Default: servingv1alpha1.StatusConfigurationSpec{
 			Name: "revision-v1",
 		},
@@ -164,7 +164,7 @@ func TestReconcile(t *testing.T) {
 			Namespace: instance.Namespace,
 		},
 		Spec: knservingv1alpha1.ConfigurationSpec{
-			RevisionTemplate: &knservingv1alpha1.RevisionTemplateSpec{
+			Template: &knservingv1alpha1.RevisionTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{"serving.kubeflow.org/kfservice": "foo"},
 					Annotations: map[string]string{
@@ -178,16 +178,20 @@ func TestReconcile(t *testing.T) {
 				Spec: knservingv1alpha1.RevisionSpec{
 					RevisionSpec: v1beta1.RevisionSpec{
 						TimeoutSeconds: &constants.DefaultTimeout,
-					},
-					Container: &v1.Container{
-						Image: servingv1alpha1.TensorflowServingImageName + ":" +
-							instance.Spec.Default.Tensorflow.RuntimeVersion,
-						Command: []string{servingv1alpha1.TensorflowEntrypointCommand},
-						Args: []string{
-							"--port=" + servingv1alpha1.TensorflowServingGRPCPort,
-							"--rest_api_port=" + servingv1alpha1.TensorflowServingRestPort,
-							"--model_name=" + instance.Name,
-							"--model_base_path=" + constants.DefaultModelLocalMountPath,
+						PodSpec: v1.PodSpec{
+							Containers: []v1.Container{
+								{
+									Image: servingv1alpha1.TensorflowServingImageName + ":" +
+										instance.Spec.Default.Tensorflow.RuntimeVersion,
+									Command: []string{servingv1alpha1.TensorflowEntrypointCommand},
+									Args: []string{
+										"--port=" + servingv1alpha1.TensorflowServingGRPCPort,
+										"--rest_api_port=" + servingv1alpha1.TensorflowServingRestPort,
+										"--model_name=" + instance.Name,
+										"--model_base_path=" + constants.DefaultModelLocalMountPath,
+									},
+								},
+							},
 						},
 					},
 				},
@@ -213,7 +217,7 @@ func TestReconcile(t *testing.T) {
 	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
 
 	updatedRoute := route.DeepCopy()
-	updatedRoute.Status.Domain = serviceKey.Name + ".svc.cluster.local"
+	updatedRoute.Status.URL = &apis.URL{Scheme: "http", Host: serviceKey.Name + ".svc.cluster.local"}
 	updatedRoute.Status.Conditions = duckv1beta1.Conditions{
 		{
 			Type:   knservingv1alpha1.RouteConditionReady,
@@ -240,7 +244,7 @@ func TestReconcile(t *testing.T) {
 				},
 			},
 		},
-		URL: updatedRoute.Status.Domain,
+		URL: updatedRoute.Status.URL,
 		Default: servingv1alpha1.StatusConfigurationSpec{
 			Name: "revision-v1",
 		},
@@ -301,7 +305,7 @@ func TestCanaryReconcile(t *testing.T) {
 			Namespace: canary.Namespace,
 		},
 		Spec: knservingv1alpha1.ConfigurationSpec{
-			RevisionTemplate: &knservingv1alpha1.RevisionTemplateSpec{
+			Template: &knservingv1alpha1.RevisionTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{"serving.kubeflow.org/kfservice": "bar"},
 					Annotations: map[string]string{
@@ -315,16 +319,20 @@ func TestCanaryReconcile(t *testing.T) {
 				Spec: knservingv1alpha1.RevisionSpec{
 					RevisionSpec: v1beta1.RevisionSpec{
 						TimeoutSeconds: &constants.DefaultTimeout,
-					},
-					Container: &v1.Container{
-						Image: servingv1alpha1.TensorflowServingImageName + ":" +
-							canary.Spec.Canary.Tensorflow.RuntimeVersion,
-						Command: []string{servingv1alpha1.TensorflowEntrypointCommand},
-						Args: []string{
-							"--port=" + servingv1alpha1.TensorflowServingGRPCPort,
-							"--rest_api_port=" + servingv1alpha1.TensorflowServingRestPort,
-							"--model_name=" + canary.Name,
-							"--model_base_path=" + constants.DefaultModelLocalMountPath,
+						PodSpec: v1.PodSpec{
+							Containers: []v1.Container{
+								{
+									Image: servingv1alpha1.TensorflowServingImageName + ":" +
+										canary.Spec.Canary.Tensorflow.RuntimeVersion,
+									Command: []string{servingv1alpha1.TensorflowEntrypointCommand},
+									Args: []string{
+										"--port=" + servingv1alpha1.TensorflowServingGRPCPort,
+										"--rest_api_port=" + servingv1alpha1.TensorflowServingRestPort,
+										"--model_name=" + canary.Name,
+										"--model_base_path=" + constants.DefaultModelLocalMountPath,
+									},
+								},
+							},
 						},
 					},
 				},
@@ -385,14 +393,12 @@ func TestCanaryReconcile(t *testing.T) {
 	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedCanaryRequest)))
 
 	updatedRoute := route.DeepCopy()
-	updatedRoute.Status.Domain = canaryServiceKey.Name + ".svc.cluster.local"
+	updatedRoute.Status.URL = &apis.URL{Scheme: "http", Host: canaryServiceKey.Name + ".svc.cluster.local"}
 	updatedRoute.Status.Traffic = []knservingv1alpha1.TrafficTarget{
 		{
-			Name:          "candidate",
 			TrafficTarget: v1beta1.TrafficTarget{RevisionName: "revision-v2", Percent: 20},
 		},
 		{
-			Name:          "current",
 			TrafficTarget: v1beta1.TrafficTarget{RevisionName: "revision-v1", Percent: 80},
 		},
 	}
@@ -428,7 +434,7 @@ func TestCanaryReconcile(t *testing.T) {
 				},
 			},
 		},
-		URL: updatedRoute.Status.Domain,
+		URL: updatedRoute.Status.URL,
 		Default: servingv1alpha1.StatusConfigurationSpec{
 			Name:    "revision-v1",
 			Traffic: 80,

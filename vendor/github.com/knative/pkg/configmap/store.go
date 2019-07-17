@@ -23,6 +23,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
+// ExampleKey signifies a given example configuration in a ConfigMap.
+const ExampleKey = "_example"
+
 // Logger is the interface that UntypedStore expects its logger to conform to.
 // UntypedStore will log when updates succeed or fail.
 type Logger interface {
@@ -44,7 +47,7 @@ type Constructors map[string]interface{}
 // An UntypedStore is a responsible for storing and
 // constructing configs from Kubernetes ConfigMaps
 //
-// WatchConfigs should be used with a configmap,Watcher
+// WatchConfigs should be used with a configmap.Watcher
 // in order for this store to remain up to date
 type UntypedStore struct {
 	name   string

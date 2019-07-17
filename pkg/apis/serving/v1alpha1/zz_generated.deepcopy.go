@@ -21,6 +21,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	apis "github.com/knative/pkg/apis"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -165,6 +166,11 @@ func (in *KFServiceSpec) DeepCopy() *KFServiceSpec {
 func (in *KFServiceStatus) DeepCopyInto(out *KFServiceStatus) {
 	*out = *in
 	in.Status.DeepCopyInto(&out.Status)
+	if in.URL != nil {
+		in, out := &in.URL, &out.URL
+		*out = new(apis.URL)
+		(*in).DeepCopyInto(*out)
+	}
 	out.Default = in.Default
 	out.Canary = in.Canary
 	return

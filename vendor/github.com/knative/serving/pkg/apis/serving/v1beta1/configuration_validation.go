@@ -24,10 +24,17 @@ import (
 )
 
 // Validate makes sure that Configuration is properly configured.
-func (c *Configuration) Validate(ctx context.Context) *apis.FieldError {
-	errs := serving.ValidateObjectMetadata(c.GetObjectMeta()).ViaField("metadata")
-	ctx = apis.WithinParent(ctx, c.ObjectMeta)
-	errs = errs.Also(c.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
+func (c *Configuration) Validate(ctx context.Context) (errs *apis.FieldError) {
+	// If we are in a status sub resource update, the metadata and spec cannot change.
+	// So, to avoid rejecting controller status updates due to validations that may
+	// have changed (i.e. due to config-defaults changes), we elide the metadata and
+	// spec validation.
+	if !apis.IsInStatusUpdate(ctx) {
+		errs = errs.Also(serving.ValidateObjectMetadata(c.GetObjectMeta()).ViaField("metadata"))
+		ctx = apis.WithinParent(ctx, c.ObjectMeta)
+		errs = errs.Also(c.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
+	}
+
 	errs = errs.Also(c.Status.Validate(apis.WithinStatus(ctx)).ViaField("status"))
 
 	if apis.IsInUpdate(ctx) {

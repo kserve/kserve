@@ -55,6 +55,9 @@ var (
 	_ apis.Validatable = (*Service)(nil)
 	_ apis.Defaultable = (*Service)(nil)
 
+	// Check that Route can be converted to higher versions.
+	_ apis.Convertible = (*Service)(nil)
+
 	// Check that we can create OwnerReferences to a Service.
 	_ kmeta.OwnerRefable = (*Service)(nil)
 )
@@ -75,32 +78,40 @@ type ServiceSpec struct {
 	// +optional
 	DeprecatedGeneration int64 `json:"generation,omitempty"`
 
-	// RunLatest defines a simple Service. It will automatically
+	// DeprecatedRunLatest defines a simple Service. It will automatically
 	// configure a route that keeps the latest ready revision
 	// from the supplied configuration running.
 	// +optional
-	RunLatest *RunLatestType `json:"runLatest,omitempty"`
+	DeprecatedRunLatest *RunLatestType `json:"runLatest,omitempty"`
 
 	// DeprecatedPinned is DEPRECATED in favor of ReleaseType
 	// +optional
 	DeprecatedPinned *PinnedType `json:"pinned,omitempty"`
 
-	// Manual mode enables users to start managing the underlying Route and Configuration
+	// DeprecatedManual mode enables users to start managing the underlying Route and Configuration
 	// resources directly.  This advanced usage is intended as a path for users to graduate
 	// from the limited capabilities of Service to the full power of Route.
 	// +optional
-	Manual *ManualType `json:"manual,omitempty"`
+	DeprecatedManual *ManualType `json:"manual,omitempty"`
 
 	// Release enables gradual promotion of new revisions by allowing traffic
 	// to be split between two revisions. This type replaces the deprecated Pinned type.
 	// +optional
-	Release *ReleaseType `json:"release,omitempty"`
+	DeprecatedRelease *ReleaseType `json:"release,omitempty"`
+
+	// We are moving to a shape where the Configuration and Route specifications
+	// are inlined into the Service, which gives them compatible shapes.  We are
+	// staging this change here as a path to this in v1beta1, which drops the
+	// "mode" based specifications above.  Ultimately all non-v1beta1 fields will
+	// be deprecated, and then dropped in v1beta1.
+	ConfigurationSpec `json:",inline"`
+	RouteSpec         `json:",inline"`
 }
 
 // ManualType contains the options for configuring a manual service. See ServiceSpec for
 // more details.
 type ManualType struct {
-	// Manual type does not contain a configuration as this type provides the
+	// DeprecatedManual type does not contain a configuration as this type provides the
 	// user complete control over the configuration and route.
 }
 
