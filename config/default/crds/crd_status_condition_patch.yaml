@@ -8,6 +8,8 @@ spec:
       properties:
         status:
           properties:
+            url:
+              type: string
             conditions:
               items:
                 properties:

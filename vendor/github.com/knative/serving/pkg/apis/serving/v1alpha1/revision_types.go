@@ -55,6 +55,9 @@ var (
 	_ apis.Validatable = (*Revision)(nil)
 	_ apis.Defaultable = (*Revision)(nil)
 
+	// Check that Revision can be converted to higher versions.
+	_ apis.Convertible = (*Revision)(nil)
+
 	// Check that we can create OwnerReferences to a Revision.
 	_ kmeta.OwnerRefable = (*Revision)(nil)
 )
@@ -135,14 +138,14 @@ type RevisionSpec struct {
 
 	// DeprecatedBuildName optionally holds the name of the Build responsible for
 	// producing the container image for its Revision.
-	// DEPRECATED: Use BuildRef instead.
+	// DEPRECATED: Use DeprecatedBuildRef instead.
 	// +optional
 	DeprecatedBuildName string `json:"buildName,omitempty"`
 
-	// BuildRef holds the reference to the build (if there is one) responsible
+	// DeprecatedBuildRef holds the reference to the build (if there is one) responsible
 	// for producing the container image for this Revision. Otherwise, nil
 	// +optional
-	BuildRef *corev1.ObjectReference `json:"buildRef,omitempty"`
+	DeprecatedBuildRef *corev1.ObjectReference `json:"buildRef,omitempty"`
 
 	// Container defines the unit of execution for this Revision.
 	// In the context of a Revision, we disallow a number of the fields of
@@ -151,16 +154,13 @@ type RevisionSpec struct {
 	// environment:
 	// https://github.com/knative/serving/blob/master/docs/runtime-contract.md
 	// +optional
-	Container *corev1.Container `json:"container,omitempty"`
+	DeprecatedContainer *corev1.Container `json:"container,omitempty"`
 }
 
 const (
 	// RevisionConditionReady is set when the revision is starting to materialize
 	// runtime resources, and becomes true when those resources are ready.
 	RevisionConditionReady = apis.ConditionReady
-	// RevisionConditionBuildSucceeded is set when the revision has an associated build
-	// and is marked True if/once the Build has completed successfully.
-	RevisionConditionBuildSucceeded apis.ConditionType = "BuildSucceeded"
 	// RevisionConditionResourcesAvailable is set when underlying
 	// Kubernetes resources have been provisioned.
 	RevisionConditionResourcesAvailable apis.ConditionType = "ResourcesAvailable"

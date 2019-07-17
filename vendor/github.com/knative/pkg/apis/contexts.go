@@ -42,10 +42,26 @@ func IsInCreate(ctx context.Context) bool {
 // the receiver being validated is being updated.
 type inUpdateKey struct{}
 
+type updatePayload struct {
+	base        interface{}
+	subresource string
+}
+
 // WithinUpdate is used to note that the webhook is calling within
 // the context of a Update operation.
 func WithinUpdate(ctx context.Context, base interface{}) context.Context {
-	return context.WithValue(ctx, inUpdateKey{}, base)
+	return context.WithValue(ctx, inUpdateKey{}, &updatePayload{
+		base: base,
+	})
+}
+
+// WithinSubResourceUpdate is used to note that the webhook is calling within
+// the context of a Update operation on a subresource.
+func WithinSubResourceUpdate(ctx context.Context, base interface{}, sr string) context.Context {
+	return context.WithValue(ctx, inUpdateKey{}, &updatePayload{
+		base:        base,
+		subresource: sr,
+	})
 }
 
 // IsInUpdate checks whether the context is an Update.
@@ -53,10 +69,24 @@ func IsInUpdate(ctx context.Context) bool {
 	return ctx.Value(inUpdateKey{}) != nil
 }
 
+// IsInStatusUpdate checks whether the context is an Update.
+func IsInStatusUpdate(ctx context.Context) bool {
+	value := ctx.Value(inUpdateKey{})
+	if value == nil {
+		return false
+	}
+	up := value.(*updatePayload)
+	return up.subresource == "status"
+}
+
 // GetBaseline returns the baseline of the update, or nil when we
 // are not within an update context.
 func GetBaseline(ctx context.Context) interface{} {
-	return ctx.Value(inUpdateKey{})
+	value := ctx.Value(inUpdateKey{})
+	if value == nil {
+		return nil
+	}
+	return value.(*updatePayload).base
 }
 
 // This is attached to contexts passed to webhook interfaces when

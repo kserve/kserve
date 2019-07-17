@@ -56,6 +56,9 @@ var (
 	_ apis.Validatable = (*Route)(nil)
 	_ apis.Defaultable = (*Route)(nil)
 
+	// Check that Route can be converted to higher versions.
+	_ apis.Convertible = (*Route)(nil)
+
 	// Check that we can create OwnerReferences to a Route.
 	_ kmeta.OwnerRefable = (*Route)(nil)
 )
@@ -65,7 +68,7 @@ type TrafficTarget struct {
 	// Name is optionally used to expose a dedicated hostname for referencing this
 	// target exclusively. It has the form: {name}.${route.status.domain}
 	// +optional
-	Name string `json:"name,omitempty"`
+	DeprecatedName string `json:"name,omitempty"`
 
 	// We inherit most of our fields by inlining the v1beta1 type.
 	// Ultimately all non-v1beta1 fields will be deprecated.
@@ -103,16 +106,25 @@ const (
 	// RouteConditionIngressReady is set to False when the
 	// ClusterIngress fails to become Ready.
 	RouteConditionIngressReady apis.ConditionType = "IngressReady"
+
+	// RouteConditionCertificateProvisioned is set to False when the
+	// Knative Certificates fail to be provisioned for the Route.
+	RouteConditionCertificateProvisioned apis.ConditionType = "CertificateProvisioned"
 )
 
 // RouteStatusFields holds all of the non-duckv1beta1.Status status fields of a Route.
 // These are defined outline so that we can also inline them into Service, and more easily
 // copy them.
 type RouteStatusFields struct {
-	// Domain holds the top-level domain that will distribute traffic over the provided targets.
+	// URL holds the url that will distribute traffic over the provided traffic targets.
+	// It generally has the form http[s]://{route-name}.{route-namespace}.{cluster-level-suffix}
+	// +optional
+	URL *apis.URL `json:"url,omitempty"`
+
+	// DeprecatedDomain holds the top-level domain that will distribute traffic over the provided targets.
 	// It generally has the form {route-name}.{route-namespace}.{cluster-level-suffix}
 	// +optional
-	Domain string `json:"domain,omitempty"`
+	DeprecatedDomain string `json:"domain,omitempty"`
 
 	// DeprecatedDomainInternal holds the top-level domain that will distribute traffic over the provided
 	// targets from inside the cluster. It generally has the form

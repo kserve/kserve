@@ -21,7 +21,7 @@ import (
 	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
 	"github.com/knative/pkg/kmeta"
 	networking "github.com/knative/serving/pkg/apis/networking"
-	autoscalingv1 "k8s.io/api/autoscaling/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -95,7 +95,7 @@ type ServerlessServiceSpec struct {
 
 	// ObjectRef defines the resource that this ServerlessService
 	// is responsible for making "serverless".
-	ObjectRef autoscalingv1.CrossVersionObjectReference `json:"objectRef"`
+	ObjectRef corev1.ObjectReference `json:"objectRef"`
 
 	// The application-layer protocol. Matches `RevisionProtocolType` set on the owning pa/revision.
 	// serving imports networking, so just use string.
