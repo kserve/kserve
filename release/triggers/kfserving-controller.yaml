@@ -1,0 +1,31 @@
+---
+### Specify as necessary ###
+description: KFServing Controller Autobuilder
+substitutions:
+  _COMPONENT: "kfserving-controller"
+  _DOCKERFILE: "./Dockerfile"
+  _CONTEXT: "."
+###########################
+github:
+  owner: kubeflow
+  name: kfserving
+  push:
+    tag: v0.*.*
+### Specify as necessary ###
+includedFiles:
+- pkg/**
+- cmd/**
+- vendor/**
+###########################
+build:
+  steps:
+  - name: docker
+    args:
+    - "build"
+    - "-t"
+    - "gcr.io/$REPO_NAME/${_COMPONENT}:$TAG_NAME"
+    - "-f"
+    - "${_DOCKERFILE}"
+    - "${_CONTEXT}"
+  images:
+  - gcr.io/$REPO_NAME/${_COMPONENT}:$TAG_NAME
