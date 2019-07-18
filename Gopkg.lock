@@ -61,11 +61,13 @@
   version = "v4.1.0"
 
 [[projects]]
-  digest = "1:1bc05108527c7941ba26861f769912a4c587d6a46a12dc1fa78ded6e87cecfbb"
+  digest = "1:812da80f354652604fa5217ac23846cb97535dfba788378b17d4231a486b7d6d"
   name = "github.com/getkin/kin-openapi"
   packages = [
     "jsoninfo",
     "openapi3",
+    "openapi3filter",
+    "pathpattern",
   ]
   pruneopts = "NUT"
   revision = "90a7df014b4e7699507bf82aa5601503a9ba85da"
@@ -1153,6 +1155,7 @@
   input-imports = [
     "github.com/emicklei/go-restful",
     "github.com/getkin/kin-openapi/openapi3",
+    "github.com/getkin/kin-openapi/openapi3filter",
     "github.com/go-logr/logr",
     "github.com/go-openapi/spec",
     "github.com/golang/protobuf/proto",
