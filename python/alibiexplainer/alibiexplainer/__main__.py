@@ -16,25 +16,45 @@ import kfserving
 import argparse
 from alibiexplainer import AlibiExplainer
 from alibiexplainer.explainer import ExplainerMethod #pylint:disable=no-name-in-module
+from typing import Dict
+import dill
+import os
+import json
 
-DEFAULT_MODEL_NAME = "model"
+DEFAULT_EXPLAINER_NAME = "explainer"
+EXPLAINER_FILENAME = "explainer.dill"
+CONFIG_ENV = "ALIBI_CONFIGURATION"
 
 parser = argparse.ArgumentParser(parents=[kfserving.server.parser]) #pylint:disable=c-extension-no-member
-parser.add_argument('--model_name', default=DEFAULT_MODEL_NAME,
-                    help='The name that the model is served under.')
+parser.add_argument('--explainer_name', default=DEFAULT_EXPLAINER_NAME,
+                    help='The name of model explainer.')
 parser.add_argument('--predict_url', help='The URL for the model predict function', required=True)
-parser.add_argument('--method',
+parser.add_argument('--type',
                     type=ExplainerMethod, choices=list(ExplainerMethod), default="anchor_tabular",
-                    help='Explainer method')
-parser.add_argument('--training_data', help='The URL for the training data')
+                    help='Explainer method', required=True)
+parser.add_argument('--savedExplainerUri', help='The URL of a pretrained explainer')
+parser.add_argument('--config', default=os.environ.get(CONFIG_ENV),help='Custom configuration parameters')
 
 args, _ = parser.parse_known_args()
 
 if __name__ == "__main__":
-    explainer = AlibiExplainer(args.model_name,
+    # Pretrained Alibi explainer
+    alibi_model = None
+    if not args.savedExplainerUri is None:
+        alibi_model = os.path.join(kfserving.Storage.download(args.savedExplainerUri), EXPLAINER_FILENAME)
+        with open(alibi_model, 'rb') as f:
+            alibi_model = dill.load(f)
+    # Custom configuration
+    if args.config is None:
+        config: Dict = {}
+    else:
+        config = json.loads(args.config)
+
+    explainer = AlibiExplainer(args.explainer_name,
                                args.predict_url,
                                args.protocol,
-                               ExplainerMethod(args.method),
-                               training_data_url=args.training_data)
+                               ExplainerMethod(args.type),
+                               config,
+                               alibi_model)
     explainer.load()
     kfserving.KFServer().start(models=[explainer]) #pylint:disable=c-extension-no-member

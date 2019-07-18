@@ -9,10 +9,7 @@ python train.py
 This will create the following files:
 
   * `model.joblib` : pickle of model
-  * `train.joblib` : pickle of training data
-  * `features.joblib` : pickle of feature names list
-  * `category_map.joblib` : pickle of map of categorical variables
-
+  * `explainer.dill` : pickle of map of categorical variables
 
 Now, run a KFServing sklearn server with this model:
 
@@ -20,10 +17,10 @@ Now, run a KFServing sklearn server with this model:
 python -m sklearnserver --model_dir ./  --model_name income --protocol seldon.http
 ```
 
-In a different terminal start the Alibi Explainer:
+In a different terminal start the Alibi Explainer using the local saved explainer:
 
 ```
-FEATURE_NAMES_URL=./features.joblib CATEGORICAL_MAP_URL=./category_map.joblib python -m alibiexplainer --model_name income --predict_url http://localhost:8080/models/income:predict --protocol seldon.http --http_port 8081 --training_data ./train.joblib
+python -m alibiexplainer --explainer_name income --predict_url http://localhost:8080/models/income:predict --protocol seldon.http --http_port 8081 --type anchor_tabular --savedExplainerUri ${PWD}
 ```
 
 You can now get an explaination for some particular features:
@@ -45,4 +42,5 @@ The core explanation is:
 ```
 
 This says the reason for low income prediction is due to their marital-status of never married and their admin occuptation. These feature values would cause this prediction 95.5% of the time from this model.
+
 
