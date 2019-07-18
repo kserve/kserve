@@ -11,10 +11,12 @@ import (
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/onsi/gomega"
+	gomegaTypes "github.com/onsi/gomega/types"
 
 	"github.com/kubeflow/kfserving/tools/tf2openapi/types"
 )
 
+// Functional E2E example
 func TestFlowers(t *testing.T) {
 	// model src: gs://kfserving-samples/models/tensorflow/flowers
 	g := gomega.NewGomegaWithT(t)
@@ -29,93 +31,82 @@ func TestFlowers(t *testing.T) {
 	g.Expect(spec).Should(gomega.Or(gomega.MatchJSON(acceptableSpec), gomega.MatchJSON(acceptableSpecPermuted)))
 }
 
-func TestCensus(t *testing.T) {
+// Functional E2E example
+func TestCensusDifferentFlags(t *testing.T) {
 	// estimator model src: https://github.com/GoogleCloudPlatform/cloudml-samples/tree/master/census
 	g := gomega.NewGomegaWithT(t)
 	wd := workingDir(t)
 	cmdName := cmd(wd)
-	cmdArgs := []string{"--model_base_path", wd + "/testdata/" + t.Name() + ".pb", "--signature_def", "predict"}
-	cmd := exec.Command(cmdName, cmdArgs...)
-	spec, err := cmd.Output()
-	g.Expect(err).Should(gomega.BeNil())
-	swagger := &openapi3.Swagger{}
-	g.Expect(json.Unmarshal([]byte(spec), &swagger)).To(gomega.Succeed())
+	scenarios := map[string]struct {
+		cmdArgs      []string
+		expectedSpec []byte
+	}{
+		"Census": {
+			cmdArgs:      []string{"--model_base_path", wd + "/testdata/TestCensus.pb", "--signature_def", "predict"},
+			expectedSpec: readFile("TestCensus.golden.json", t),
+		},
+		"CustomFlags": {
+			cmdArgs: []string{"--model_base_path", wd + "/testdata/TestCustomFlags.pb",
+				"--signature_def", "predict", "--name", "customName", "--version", "1000",
+				"--metagraph_tags", "serve"},
+			expectedSpec: readFile("TestCustomFlags.golden.json", t),
+		},
+	}
+	for name, scenario := range scenarios {
+		t.Logf("Running %s ...", name)
+		cmd := exec.Command(cmdName, scenario.cmdArgs...)
+		spec, err := cmd.Output()
+		g.Expect(err).Should(gomega.BeNil())
+		swagger := &openapi3.Swagger{}
+		g.Expect(json.Unmarshal([]byte(spec), &swagger)).To(gomega.Succeed())
 
-	expectedSpec := readFile("TestCensus.golden.json", t)
-	expectedSwagger := &openapi3.Swagger{}
-	g.Expect(json.Unmarshal(expectedSpec, &expectedSwagger)).To(gomega.Succeed())
+		expectedSwagger := &openapi3.Swagger{}
+		g.Expect(json.Unmarshal(scenario.expectedSpec, &expectedSwagger)).To(gomega.Succeed())
 
-	// test equality, ignoring order in JSON arrays
-	expectJsonEquality(swagger, expectedSwagger, g)
+		// test equality, ignoring order in JSON arrays
+		expectJsonEquality(swagger, expectedSwagger, g)
+	}
 }
 
-func TestInvalidFilePath(t *testing.T) {
+func TestInputErrors(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	wd := workingDir(t)
 	cmdName := cmd(wd)
-	cmdArgs := []string{"--model_base_path", "badPath"}
-	cmd := exec.Command(cmdName, cmdArgs...)
-	output, err := cmd.CombinedOutput()
-	g.Expect(err.(*exec.ExitError).ExitCode()).To(gomega.Equal(1))
-	expectedErr := fmt.Sprintf(ModelBasePathError, "badPath", "")
-	g.Expect(output).Should(gomega.ContainSubstring(expectedErr))
-}
-
-func TestCustomFlags(t *testing.T) {
-	// estimator model src: https://github.com/GoogleCloudPlatform/cloudml-samples/tree/master/census
-	g := gomega.NewGomegaWithT(t)
-	wd := workingDir(t)
-	cmdName := cmd(wd)
-	cmdArgs := []string{"--model_base_path", wd + "/testdata/" + t.Name() + ".pb",
-		"--signature_def", "predict", "--name", "customName", "--version", "1000",
-		"--metagraph_tags", "serve"}
-	cmd := exec.Command(cmdName, cmdArgs...)
-	spec, err := cmd.Output()
-	g.Expect(err).Should(gomega.BeNil())
-	swagger := &openapi3.Swagger{}
-	g.Expect(json.Unmarshal([]byte(spec), &swagger)).To(gomega.Succeed())
-
-	expectedSpec := readFile("TestCustomFlags.golden.json", t)
-	expectedSwagger := &openapi3.Swagger{}
-	g.Expect(json.Unmarshal(expectedSpec, &expectedSwagger)).To(gomega.Succeed())
-
-	// test equality, ignoring order in JSON arrays
-	expectJsonEquality(swagger, expectedSwagger, g)
-}
-
-func TestInvalidCommand(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-	wd := workingDir(t)
-	cmdName := cmd(wd)
-	cmdArgs := []string{"--bad_flag"}
-	cmd := exec.Command(cmdName, cmdArgs...)
-	stdErr, err := cmd.CombinedOutput()
-	g.Expect(err.(*exec.ExitError).ExitCode()).To(gomega.Equal(1))
-	g.Expect(stdErr).Should(gomega.And(gomega.ContainSubstring("Usage"), gomega.ContainSubstring("Flags:")))
-}
-
-func TestInvalidSavedModel(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-	wd := workingDir(t)
-	cmdName := cmd(wd)
-	cmdArgs := []string{"--model_base_path", wd + "/testdata/" + t.Name() + ".pb"}
-	cmd := exec.Command(cmdName, cmdArgs...)
-	stdErr, err := cmd.CombinedOutput()
-	g.Expect(err.(*exec.ExitError).ExitCode()).To(gomega.Equal(1))
-	g.Expect(stdErr).Should(gomega.ContainSubstring(SavedModelFormatError))
-}
-
-func TestPropagateOpenAPIGenerationError(t *testing.T) {
-	// model src: https://github.com/tensorflow/serving/tree/master/tensorflow_serving/example
-	g := gomega.NewGomegaWithT(t)
-	wd := workingDir(t)
-	cmdName := cmd(wd)
-	cmdArgs := []string{"--model_base_path", wd + "/testdata/" + t.Name() + ".pb",
-		"--signature_def", "serving_default"}
-	cmd := exec.Command(cmdName, cmdArgs...)
-	stdErr, err := cmd.CombinedOutput()
-	g.Expect(err.(*exec.ExitError).ExitCode()).To(gomega.Equal(1))
-	g.Expect(stdErr).Should(gomega.ContainSubstring(types.UnsupportedAPISchemaError))
+	scenarios := map[string]struct {
+		cmdArgs             []string
+		matchExpectedStdErr gomegaTypes.GomegaMatcher
+		expectedExitCode    int
+	}{
+		"InvalidCommand": {
+			cmdArgs:             []string{"--bad_flag"},
+			matchExpectedStdErr: gomega.And(gomega.ContainSubstring("Usage"), gomega.ContainSubstring("Flags:")),
+			expectedExitCode:    1,
+		},
+		"InvalidSavedModel": {
+			cmdArgs:             []string{"--model_base_path", wd + "/testdata/TestInvalidSavedModel.pb"},
+			matchExpectedStdErr: gomega.ContainSubstring(SavedModelFormatError),
+			expectedExitCode:    1,
+		},
+		"PropagateOpenAPIGenerationError": {
+			// model src: https://github.com/tensorflow/serving/tree/master/tensorflow_serving/example
+			cmdArgs: []string{"--model_base_path", wd + "/testdata/TestPropagateOpenAPIGenerationError.pb",
+				"--signature_def", "serving_default"},
+			matchExpectedStdErr: gomega.ContainSubstring(types.UnsupportedAPISchemaError),
+			expectedExitCode:    1,
+		},
+		"InvalidFilePath": {
+			cmdArgs:             []string{"--model_base_path", "badPath"},
+			matchExpectedStdErr: gomega.ContainSubstring(fmt.Sprintf(ModelBasePathError, "badPath", "")),
+			expectedExitCode:    1,
+		},
+	}
+	for name, scenario := range scenarios {
+		t.Logf("Running %s ...", name)
+		cmd := exec.Command(cmdName, scenario.cmdArgs...)
+		stdErr, err := cmd.CombinedOutput()
+		g.Expect(stdErr).Should(scenario.matchExpectedStdErr)
+		g.Expect(err.(*exec.ExitError).ExitCode()).To(gomega.Equal(scenario.expectedExitCode))
+	}
 }
 
 func TestOutputToFile(t *testing.T) {
@@ -128,7 +119,8 @@ func TestOutputToFile(t *testing.T) {
 	cmdArgs := []string{"--model_base_path", wd + "/testdata/TestFlowers.pb",
 		"--output_file", outputFilePath}
 	cmd := exec.Command(cmdName, cmdArgs...)
-	_, err := cmd.CombinedOutput()
+	stdErr, err := cmd.CombinedOutput()
+	g.Expect(stdErr).To(gomega.BeEmpty())
 	g.Expect(err).Should(gomega.BeNil())
 	spec := readFile(outputFileName, t)
 	acceptableSpec := readFile("TestFlowers.golden.json", t)
