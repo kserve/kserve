@@ -22,7 +22,7 @@ $ kfservice.serving.kubeflow.org/flowers-sample configured
 MODEL_NAME=flowers-sample
 INPUT_PATH=@./input.json
 CLUSTER_IP=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-SERVICE_HOSTNAME=$(kubectl get kfservice ${MODEL_NAME} -o jsonpath='{.status.url}')
+SERVICE_HOSTNAME=$(kubectl get kfservice ${MODEL_NAME} -o jsonpath='{.status.url}' |sed -e 's/^http:\/\///g' -e 's/^https:\/\///g')
 
 curl -v -H "Host: ${SERVICE_HOSTNAME}" http://$CLUSTER_IP/v1/models/$MODEL_NAME:predict -d $INPUT_PATH
 ```
@@ -82,7 +82,7 @@ To verify if your traffic split percenage is applied correctly, you can use the 
 ```
 kubectl get kfservices
 NAME             READY     URL                                  DEFAULT TRAFFIC   CANARY TRAFFIC   AGE
-flowers-sample   True      flowers-sample.default.example.com   90                10               48s
+flowers-sample   True      http://flowers-sample.default.example.com   90                10               48s
 ```
 
 If you are using the [Knative CLI (knctl)](#knative-cli), run the following command

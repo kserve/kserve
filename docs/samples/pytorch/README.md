@@ -82,7 +82,7 @@ MODEL_NAME=pytorch-cifar10
 INPUT_PATH=@./input.json
 CLUSTER_IP=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 
-SERVICE_HOSTNAME=$(kubectl get kfservice pytorch-cifar10 -o jsonpath='{.status.url}')
+SERVICE_HOSTNAME=$(kubectl get kfservice pytorch-cifar10 -o jsonpath='{.status.url}' |sed -e 's/^http:\/\///g' -e 's/^https:\/\///g')
 
 curl -v -H "Host: ${SERVICE_HOSTNAME}" -d $INPUT_PATH http://$CLUSTER_IP/models/$MODEL_NAME:predict
 ```

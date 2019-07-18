@@ -22,7 +22,7 @@ Uses the client at: https://docs.nvidia.com/deeplearning/sdk/tensorrt-inference-
 
 1. setup vars
 ```
-SERVICE_HOSTNAME=$(kubectl get kfservice tensorrt-simple-string -o jsonpath='{.status.url}')
+SERVICE_HOSTNAME=$(kubectl get kfservice tensorrt-simple-string -o jsonpath='{.status.url}' |sed -e 's/^http:\/\///g' -e 's/^https:\/\///g')
 
 CLUSTER_IP=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 echo $CLUSTER_IP
