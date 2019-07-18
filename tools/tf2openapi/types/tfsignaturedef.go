@@ -84,11 +84,25 @@ func (t *TFSignatureDef) Schema() (*openapi3.Schema, error) {
 	}
 	// https://www.tensorflow.org/tfx/serving/api_rest#specifying_input_tensors_in_row_format
 	if canHaveRowSchema(t.Inputs) {
-		return openapi3.NewObjectSchema().WithProperty("instances", t.rowSchema()), nil
+		return &openapi3.Schema{
+			Type: "object",
+			Properties: map[string]*openapi3.SchemaRef{
+				"instances": t.rowSchema().NewRef(),
+			},
+			Required:                    []string{"instances"},
+			AdditionalPropertiesAllowed: func(b bool) *bool { return &b }(false),
+		}, nil
 	}
 
 	// https://www.tensorflow.org/tfx/serving/api_rest#specifying_input_tensors_in_column_format
-	return openapi3.NewObjectSchema().WithProperty("inputs", t.colSchema()), nil
+	return &openapi3.Schema{
+		Type: "object",
+		Properties: map[string]*openapi3.SchemaRef{
+			"inputs": t.colSchema().NewRef(),
+		},
+		Required: []string{"inputs"},
+		AdditionalPropertiesAllowed: func(b bool) *bool { return &b }(false),
+	}, nil
 }
 
 func canHaveRowSchema(t []TFTensor) bool {
@@ -118,6 +132,7 @@ func (t *TFSignatureDef) rowSchema() *openapi3.Schema {
 		schema.Items.Value.Properties[i.Name] = i.RowSchema().NewRef()
 		schema.Items.Value.Required = append(schema.Items.Value.Required, i.Name)
 	}
+	schema.Items.Value.AdditionalPropertiesAllowed = func(b bool) *bool { return &b }(false)
 	return schema
 }
 
@@ -132,5 +147,6 @@ func (t *TFSignatureDef) colSchema() *openapi3.Schema {
 		schema.Properties[i.Name] = i.ColSchema().NewRef()
 		schema.Required = append(schema.Required, i.Name)
 	}
+	schema.AdditionalPropertiesAllowed = func(b bool) *bool { return &b }(false)
 	return schema
 }
