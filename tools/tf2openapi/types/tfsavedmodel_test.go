@@ -127,6 +127,8 @@ func TestTFSavedModelTypical(t *testing.T) {
 				},
 			},
 		},
+		Required: []string{"instances"},
+		AdditionalPropertiesAllowed: func(b bool) *bool {return &b}(false),
 	}
 	schema, err := tfSavedModel.Schema([]string{"serve"}, "sigDefKey")
 	g.Expect(schema).Should(gomega.Equal(expectedSchema))

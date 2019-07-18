@@ -8,8 +8,8 @@ import (
 )
 
 const (
-	defaultSigDefKey = "serving_default"
-	defaultTag       = "serve"
+	DefaultSigDefKey = "serving_default"
+	DefaultTag       = "serve"
 )
 
 // Known error messages
@@ -33,10 +33,10 @@ type Builder struct {
 
 func (b *Builder) Build() Generator {
 	if b.Generator.sigDefKey == "" {
-		b.SetSigDefKey(defaultSigDefKey)
+		b.SetSigDefKey(DefaultSigDefKey)
 	}
 	if len(b.Generator.metaGraphTags) == 0 {
-		b.SetMetaGraphTags([]string{defaultTag})
+		b.SetMetaGraphTags([]string{DefaultTag})
 	}
 	return b.Generator
 }
@@ -68,10 +68,10 @@ func (g *Generator) GenerateOpenAPI(model *pb.SavedModel) (string, error) {
 	}
 	json, marshallingErr := spec.MarshalJSON()
 	if marshallingErr != nil {
-		return "", fmt.Errorf(UnmarshallableSpecError, marshallingErr.Error(), json)
+		panic(fmt.Errorf(UnmarshallableSpecError, marshallingErr.Error(), json))
 	}
 	if validationErr := validateOpenAPI(json); validationErr != nil {
-		return "", validationErr
+		panic(validationErr)
 	}
 	return string(json), nil
 }

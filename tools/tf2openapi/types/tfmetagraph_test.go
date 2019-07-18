@@ -217,6 +217,8 @@ func TestTFMetaGraphTypical(t *testing.T) {
 				},
 			},
 		},
+		Required: []string{"instances"},
+		AdditionalPropertiesAllowed: func(b bool) *bool {return &b}(false),
 	}
 	schema, err := tfMetaGraph.Schema("sigDefKey")
 	g.Expect(schema).Should(gomega.Equal(expectedSchema))
