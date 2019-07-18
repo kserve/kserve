@@ -8,8 +8,8 @@ python train.py
 
 This will create the following files:
 
-  * `model.joblib` : pickle of model
-  * `explainer.dill` : pickle of map of categorical variables
+  * `model.joblib` : pickle of model.
+  * `explainer.dill` : pickle of trained back box explainer for this model.
 
 Now, run a KFServing sklearn server with this model:
 
