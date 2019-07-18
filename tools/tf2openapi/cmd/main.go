@@ -5,9 +5,17 @@ import (
 	pb "github.com/kubeflow/kfserving/tools/tf2openapi/generated/protobuf"
 	"github.com/kubeflow/kfserving/tools/tf2openapi/generator"
 	"github.com/spf13/cobra"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
+)
+
+// Known error messages
+const (
+	ModelBasePathError    = "Error reading file %s \n%s"
+	OutputFilePathError = "Failed writing to %s: %s"
+	SavedModelFormatError = "SavedModel not in expected format. May be corrupted: "
 )
 
 var (
@@ -46,9 +54,8 @@ func main() {
 func viewAPI(cmd *cobra.Command, args []string) {
 	modelPb, err := ioutil.ReadFile(modelBasePath)
 	if err != nil {
-		log.Fatalf("Error reading file %s \n%s", modelBasePath, err.Error())
+		log.Fatalf(ModelBasePathError, modelBasePath, err.Error())
 	}
-
 	generatorBuilder := &generator.Builder{}
 	if modelName != "" {
 		generatorBuilder.SetName(modelName)
@@ -63,16 +70,16 @@ func viewAPI(cmd *cobra.Command, args []string) {
 		generatorBuilder.SetMetaGraphTags(metaGraphTags)
 	}
 
-	model := UnmarshalSavedModelPb(modelPb)
+	model := unmarshalSavedModelPb(modelPb)
 	gen := generatorBuilder.Build()
-	spec, err :=  gen.GenerateOpenAPI(model)
+	spec, err := gen.GenerateOpenAPI(model)
 	if err != nil {
 		log.Fatalln(err.Error())
 	}
 	if outFile != "" {
 		f, err := os.Create(outFile)
 		if err != nil {
-			panic(err)
+			log.Fatalf(OutputFilePathError, outFile, err)
 		}
 		defer f.Close()
 		if _, err = f.WriteString(spec); err != nil {
@@ -80,17 +87,17 @@ func viewAPI(cmd *cobra.Command, args []string) {
 		}
 	} else {
 		// Default to std::out
-		log.Println(spec)
+		fmt.Println(spec)
 	}
 }
 
 /**
 Raises errors when model is missing fields that would pose an issue for Schema generation
- */
-func UnmarshalSavedModelPb(modelPb []byte) *pb.SavedModel {
+*/
+func unmarshalSavedModelPb(modelPb []byte) *pb.SavedModel {
 	model := &pb.SavedModel{}
 	if err := proto.Unmarshal(modelPb, model); err != nil {
-		log.Fatalln("SavedModel not in expected format. May be corrupted: " + err.Error())
+		log.Fatalln(SavedModelFormatError + err.Error())
 	}
 	return model
 }
