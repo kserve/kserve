@@ -2,21 +2,16 @@ package types
 
 import (
 	"fmt"
+	"testing"
+
 	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/onsi/gomega"
+
+	"github.com/kubeflow/kfserving/pkg/utils"
 	"github.com/kubeflow/kfserving/tools/tf2openapi/generated/framework"
 	pb "github.com/kubeflow/kfserving/tools/tf2openapi/generated/protobuf"
-	"github.com/onsi/gomega"
-	"testing"
 )
 
-/** Utils **/
-func newBool(b bool) *bool {
-	return &b
-}
-
-func newUInt64(u uint64) *uint64 {
-	return &u
-}
 
 /* Expected values */
 func expectedTFSignatureDef() TFSignatureDef {
@@ -150,7 +145,7 @@ func TestTFSignatureDefRowSchemaMultipleTensors(t *testing.T) {
 								"signal": {
 									Value: &openapi3.Schema{
 										Type:     "array",
-										MaxItems: newUInt64(5),
+										MaxItems: utils.UInt64(5),
 										MinItems: 5,
 										Items: &openapi3.SchemaRef{
 											Value: &openapi3.Schema{
@@ -162,12 +157,12 @@ func TestTFSignatureDefRowSchemaMultipleTensors(t *testing.T) {
 								"sensor": {
 									Value: &openapi3.Schema{
 										Type:     "array",
-										MaxItems: newUInt64(2),
+										MaxItems: utils.UInt64(2),
 										MinItems: 2,
 										Items: &openapi3.SchemaRef{
 											Value: &openapi3.Schema{
 												Type:     "array",
-												MaxItems: newUInt64(2),
+												MaxItems: utils.UInt64(2),
 												MinItems: 2,
 												Items: &openapi3.SchemaRef{
 													Value: &openapi3.Schema{
@@ -180,14 +175,14 @@ func TestTFSignatureDefRowSchemaMultipleTensors(t *testing.T) {
 								},
 							},
 							Required:                    []string{"signal", "sensor"},
-							AdditionalPropertiesAllowed: newBool(false),
+							AdditionalPropertiesAllowed: utils.Bool(false),
 						},
 					},
 				},
 			},
 		},
 		Required:                    []string{"instances"},
-		AdditionalPropertiesAllowed: newBool(false),
+		AdditionalPropertiesAllowed: utils.Bool(false),
 	}
 
 	schema, err := tfSigDef.Schema()
@@ -207,7 +202,7 @@ func TestTFSignatureDefRowSchemaSingleTensor(t *testing.T) {
 					Items: &openapi3.SchemaRef{
 						Value: &openapi3.Schema{
 							Type:     "array",
-							MaxItems: newUInt64(3),
+							MaxItems: utils.UInt64(3),
 							MinItems: 3,
 							Items: &openapi3.SchemaRef{
 								Value: &openapi3.Schema{
@@ -220,7 +215,7 @@ func TestTFSignatureDefRowSchemaSingleTensor(t *testing.T) {
 			},
 		},
 		Required:                    []string{"instances"},
-		AdditionalPropertiesAllowed: newBool(false),
+		AdditionalPropertiesAllowed: utils.Bool(false),
 	}
 	schema, err := tfSigDef.Schema()
 	g.Expect(schema).Should(gomega.Equal(expectedSchema))
@@ -272,12 +267,12 @@ func TestTFSignatureDefColSchemaMultipleTensors(t *testing.T) {
 						"signal": {
 							Value: &openapi3.Schema{
 								Type:     "array",
-								MaxItems: newUInt64(2),
+								MaxItems: utils.UInt64(2),
 								MinItems: 2,
 								Items: &openapi3.SchemaRef{
 									Value: &openapi3.Schema{
 										Type:     "array",
-										MaxItems: newUInt64(5),
+										MaxItems: utils.UInt64(5),
 										MinItems: 5,
 										Items: &openapi3.SchemaRef{
 											Value: &openapi3.Schema{
@@ -291,17 +286,17 @@ func TestTFSignatureDefColSchemaMultipleTensors(t *testing.T) {
 						"sensor": {
 							Value: &openapi3.Schema{
 								Type:     "array",
-								MaxItems: newUInt64(2),
+								MaxItems: utils.UInt64(2),
 								MinItems: 2,
 								Items: &openapi3.SchemaRef{
 									Value: &openapi3.Schema{
 										Type:     "array",
-										MaxItems: newUInt64(2),
+										MaxItems: utils.UInt64(2),
 										MinItems: 2,
 										Items: &openapi3.SchemaRef{
 											Value: &openapi3.Schema{
 												Type:     "array",
-												MaxItems: newUInt64(2),
+												MaxItems: utils.UInt64(2),
 												MinItems: 2,
 												Items: &openapi3.SchemaRef{
 													Value: &openapi3.Schema{
@@ -316,12 +311,12 @@ func TestTFSignatureDefColSchemaMultipleTensors(t *testing.T) {
 						},
 					},
 					Required:                    []string{"signal", "sensor"},
-					AdditionalPropertiesAllowed: newBool(false),
+					AdditionalPropertiesAllowed: utils.Bool(false),
 				},
 			},
 		},
 		Required:                    []string{"inputs"},
-		AdditionalPropertiesAllowed: newBool(false),
+		AdditionalPropertiesAllowed: utils.Bool(false),
 	}
 	schema, err := tfSigDef.Schema()
 	g.Expect(schema).Should(gomega.Equal(expectedSchema))
@@ -355,12 +350,12 @@ func TestTFSignatureDefColSchemaSingleTensor(t *testing.T) {
 			"inputs": {
 				Value: &openapi3.Schema{
 					Type:     "array",
-					MaxItems: newUInt64(2),
+					MaxItems: utils.UInt64(2),
 					MinItems: 2,
 					Items: &openapi3.SchemaRef{
 						Value: &openapi3.Schema{
 							Type:     "array",
-							MaxItems: newUInt64(5),
+							MaxItems: utils.UInt64(5),
 							MinItems: 5,
 							Items: &openapi3.SchemaRef{
 								Value: &openapi3.Schema{
@@ -373,7 +368,7 @@ func TestTFSignatureDefColSchemaSingleTensor(t *testing.T) {
 			},
 		},
 		Required:                    []string{"inputs"},
-		AdditionalPropertiesAllowed: newBool(false),
+		AdditionalPropertiesAllowed: utils.Bool(false),
 	}
 	schema, err := tfSigDef.Schema()
 	g.Expect(schema).Should(gomega.Equal(expectedSchema))
@@ -408,7 +403,7 @@ func TestTFSignatureDefSchemaUnknownRank(t *testing.T) {
 			},
 		},
 		Required:                    []string{"inputs"},
-		AdditionalPropertiesAllowed: newBool(false),
+		AdditionalPropertiesAllowed: utils.Bool(false),
 	}
 	schema, err := tfSigDef.Schema()
 	g.Expect(schema).Should(gomega.Equal(expectedSchema))
@@ -446,7 +441,7 @@ func TestTFSignatureDefSchemaScalar(t *testing.T) {
 			},
 		},
 		Required:                    []string{"inputs"},
-		AdditionalPropertiesAllowed: newBool(false),
+		AdditionalPropertiesAllowed: utils.Bool(false),
 	}
 	schema, err := tfSigDef.Schema()
 	g.Expect(schema).Should(gomega.Equal(expectedSchema))
@@ -499,12 +494,12 @@ func TestTFSignatureDefSchemaMultipleScalar(t *testing.T) {
 						},
 					},
 					Required:                    []string{"signal", "sensor"},
-					AdditionalPropertiesAllowed: newBool(false),
+					AdditionalPropertiesAllowed: utils.Bool(false),
 				},
 			},
 		},
 		Required:                    []string{"inputs"},
-		AdditionalPropertiesAllowed: newBool(false),
+		AdditionalPropertiesAllowed: utils.Bool(false),
 	}
 	schema, err := tfSigDef.Schema()
 	g.Expect(schema).Should(gomega.Equal(expectedSchema))
