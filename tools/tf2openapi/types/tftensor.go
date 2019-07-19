@@ -6,8 +6,6 @@ TFTensor represents a logical tensor. It contains the information from TensorInf
 tensor and not an actual tensor).
 */
 import (
-	"log"
-
 	"github.com/getkin/kin-openapi/openapi3"
 	fw "github.com/kubeflow/kfserving/tools/tf2openapi/generated/framework"
 	pb "github.com/kubeflow/kfserving/tools/tf2openapi/generated/protobuf"
@@ -78,7 +76,6 @@ func (t *TFTensor) RowSchema() *openapi3.Schema {
 func (t *TFTensor) ColSchema() *openapi3.Schema {
 
 	if t.Rank == -1 {
-		log.Print("here")
 		return openapi3.NewSchema()
 	}
 	return schema(0, t.Shape, t.Rank, t.DType)

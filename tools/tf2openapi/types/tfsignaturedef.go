@@ -83,16 +83,17 @@ func (t *TFSignatureDef) Schema(schemaType SchemaType) (*openapi3.Schema, error)
 	if t.Method != Predict {
 		return &openapi3.Schema{}, errors.New(UnsupportedAPISchemaError)
 	}
-	// https://www.tensorflow.org/tfx/serving/api_rest#specifying_input_tensors_in_row_format
+	// response format follows request format
+	// https://www.tensorflow.org/tfx/serving/api_rest#response_format_4
 	if canHaveRowSchema(t.Inputs) {
 		return t.rowFormatWrapper(schemaType), nil
 	}
 
-	// https://www.tensorflow.org/tfx/serving/api_rest#specifying_input_tensors_in_column_format
 	return t.colFormatWrapper(schemaType), nil
 }
 
 func (t *TFSignatureDef) rowFormatWrapper(schemaType SchemaType) *openapi3.Schema {
+	// https://www.tensorflow.org/tfx/serving/api_rest#specifying_input_tensors_in_row_format
 	schema, ok := map[SchemaType]*openapi3.Schema{
 		Request: {
 			Type: "object",
@@ -118,6 +119,7 @@ func (t *TFSignatureDef) rowFormatWrapper(schemaType SchemaType) *openapi3.Schem
 }
 
 func (t *TFSignatureDef) colFormatWrapper(schemaType SchemaType) *openapi3.Schema {
+	// https://www.tensorflow.org/tfx/serving/api_rest#specifying_input_tensors_in_column_format
 	schema, ok := map[SchemaType]*openapi3.Schema{
 		Request: {
 			Type: "object",
