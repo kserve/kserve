@@ -87,6 +87,11 @@ func (ss *KFServiceStatus) PropagateCanaryConfigurationStatus(canaryConfiguratio
 	}
 }
 
+func (ss *KFServiceStatus) ResetCanaryConfigurationStatus() {
+	ss.Canary = StatusConfigurationSpec{}
+	conditionSet.Manage(ss).MarkUnknown(CanaryPredictorReady, "CanarySpecUnavailable", "Canary spec is missing")
+}
+
 // PropagateRouteStatus propagates route's status to the service's status.
 func (ss *KFServiceStatus) PropagateRouteStatus(rs *knservingv1alpha1.RouteStatus) {
 	ss.URL = rs.URL

@@ -151,7 +151,6 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 		knative.NewRouteReconciler(r.Client, r.scheme),
 	}
 
-	kfsvc.Status = v1alpha1.KFServiceStatus{}
 	for _, reconciler := range reconcilers {
 		if err := reconciler.Reconcile(kfsvc); err != nil {
 			log.Error(err, "Failed to reconcile")

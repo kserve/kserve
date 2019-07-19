@@ -29,6 +29,8 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -82,12 +84,31 @@ func (r *ConfigurationReconciler) reconcileDefault(kfsvc *v1alpha1.KFService) er
 }
 
 func (r *ConfigurationReconciler) reconcileCanary(kfsvc *v1alpha1.KFService) error {
+	canaryConfigurationName := constants.CanaryConfigurationName(kfsvc.Name)
 	if kfsvc.Spec.Canary == nil {
+		if kfsvc.Status.Canary.Name != "" {
+			existing := &knservingv1alpha1.Configuration{}
+			err := r.client.Get(context.TODO(), types.NamespacedName{Name: canaryConfigurationName, Namespace: kfsvc.Namespace}, existing)
+			if err != nil {
+				if !errors.IsNotFound(err) {
+					return err
+				}
+			} else {
+				log.Info("Deleting Knative Serving configuration", "namespace", kfsvc.Namespace, "name", canaryConfigurationName)
+				err := r.client.Delete(context.TODO(), existing, client.PropagationPolicy(metav1.DeletePropagationForeground))
+				if err != nil {
+					if !errors.IsNotFound(err) {
+						return err
+					}
+				}
+			}
+			kfsvc.Status.ResetCanaryConfigurationStatus()
+		}
 		return nil
 	}
 
 	canaryConfiguration, err := r.configurationBuilder.CreateKnativeConfiguration(
-		constants.CanaryConfigurationName(kfsvc.Name),
+		canaryConfigurationName,
 		kfsvc.ObjectMeta,
 		kfsvc.Spec.Canary,
 	)
