@@ -89,7 +89,11 @@ func TestCreateTFTensorKnownRankUnknownDims(t *testing.T) {
 	tensorInfoPb := tensorInfoPb()
 	tensorInfoPb.TensorShape.Dim = nil
 	tfTensor, err := NewTFTensor("Logical name", tensorInfoPb)
-	expectedTFTensor := expectedTFTensorWithUnknowns()
+	expectedTFTensor := TFTensor{
+		Name:  "Logical name",
+		DType: DtInt8,
+		Rank:  0,
+	}
 	g.Expect(tfTensor).Should(gomega.Equal(expectedTFTensor))
 	g.Expect(err).Should(gomega.BeNil())
 }

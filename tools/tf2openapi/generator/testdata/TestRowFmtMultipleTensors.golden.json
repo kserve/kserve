@@ -5,9 +5,11 @@
 				"content": {
 					"application/json": {
 						"schema": {
+							"additionalProperties": false,
 							"properties": {
 								"instances": {
 									"items": {
+										"additionalProperties": false,
 										"properties": {
 											"image_bytes": {
 												"properties": {
@@ -22,14 +24,12 @@
 											}
 										},
 										"required": ["key", "image_bytes"],
-										"additionalProperties": false,
 										"type": "object"
 									},
 									"type": "array"
 								}
 							},
 							"required": ["instances"],
-							"additionalProperties": false,
 							"type": "object"
 						}
 					}
@@ -38,6 +38,41 @@
 		},
 		"responses": {
 			"modelOutput": {
+				"content": {
+					"application/json": {
+						"schema": {
+							"additionalProperties": false,
+							"properties": {
+								"predictions": {
+									"items": {
+										"additionalProperties": false,
+										"properties": {
+											"key": {
+												"type": "string"
+											},
+											"prediction": {
+												"type": "number"
+											},
+											"scores": {
+												"items": {
+													"type": "number"
+												},
+												"maxItems": 6,
+												"minItems": 6,
+												"type": "array"
+											}
+										},
+										"required": ["scores", "prediction", "key"],
+										"type": "object"
+									},
+									"type": "array"
+								}
+							},
+							"required": ["predictions"],
+							"type": "object"
+						}
+					}
+				},
 				"description": "Model output"
 			}
 		}

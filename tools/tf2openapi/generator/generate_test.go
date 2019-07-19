@@ -5,17 +5,19 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/getkin/kin-openapi/openapi3"
-	"github.com/getkin/kin-openapi/openapi3filter"
-	"github.com/golang/protobuf/proto"
-	"github.com/kubeflow/kfserving/tools/tf2openapi/generated/framework"
-	pb "github.com/kubeflow/kfserving/tools/tf2openapi/generated/protobuf"
-	"github.com/kubeflow/kfserving/tools/tf2openapi/types"
-	"github.com/onsi/gomega"
 	"io/ioutil"
 	"net/http"
 	"path/filepath"
 	"testing"
+
+	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/getkin/kin-openapi/openapi3filter"
+	"github.com/golang/protobuf/proto"
+	"github.com/onsi/gomega"
+
+	"github.com/kubeflow/kfserving/tools/tf2openapi/generated/framework"
+	pb "github.com/kubeflow/kfserving/tools/tf2openapi/generated/protobuf"
+	"github.com/kubeflow/kfserving/tools/tf2openapi/types"
 )
 
 func TestGeneratorBuilderSpecifiedFields(t *testing.T) {
@@ -165,14 +167,16 @@ func TestGenerateOpenAPIForRowFmtMultipleTensors(t *testing.T) {
 
 	// test equality, ignoring order in JSON arrays
 	instances := swagger.Components.RequestBodies["modelInput"].Value.Content.Get("application/json").
-		Schema.Value.Properties["instances"].Value
+		Schema.Value.Properties["instances"].Value.Items.Value
 	expectedInstances := expectedSwagger.Components.RequestBodies["modelInput"].Value.Content.
-		Get("application/json").Schema.Value.Properties["instances"].Value
-	g.Expect(instances.Items.Value.Required).Should(gomega.Not(gomega.BeNil()))
-	g.Expect(instances.Items.Value.Required).To(gomega.ConsistOf(expectedInstances.Items.Value.Required))
-	g.Expect(instances.Items.Value.AdditionalPropertiesAllowed).Should(gomega.Not(gomega.BeNil()))
-	g.Expect(instances.Items.Value.AdditionalPropertiesAllowed).Should(gomega.Equal(expectedInstances.Items.Value.AdditionalPropertiesAllowed))
-	g.Expect(instances.Items.Value.Properties).Should(gomega.Equal(expectedInstances.Items.Value.Properties))
+		Get("application/json").Schema.Value.Properties["instances"].Value.Items.Value
+	expectStructuralEquality(instances, expectedInstances, g)
+
+	predictions := swagger.Components.Responses["modelOutput"].Value.Content.Get("application/json").
+		Schema.Value.Properties["predictions"].Value.Items.Value
+	expectedPredictions := expectedSwagger.Components.Responses["modelOutput"].Value.Content.Get("application/json").
+		Schema.Value.Properties["predictions"].Value.Items.Value
+	expectStructuralEquality(predictions, expectedPredictions, g)
 }
 
 func TestGenerateOpenAPIForColFmtMultipleTensors(t *testing.T) {
@@ -199,17 +203,25 @@ func TestGenerateOpenAPIForColFmtMultipleTensors(t *testing.T) {
 		Schema.Value.Properties["inputs"].Value
 	expectedInputs := expectedSwagger.Components.RequestBodies["modelInput"].Value.Content.
 		Get("application/json").Schema.Value.Properties["inputs"].Value
-	g.Expect(inputs.Required).Should(gomega.Not(gomega.BeNil()))
-	g.Expect(inputs.Required).To(gomega.ConsistOf(expectedInputs.Required))
-	g.Expect(inputs.Properties).Should(gomega.Equal(expectedInputs.Properties))
-	g.Expect(inputs.AdditionalPropertiesAllowed).Should(gomega.Equal(expectedInputs.AdditionalPropertiesAllowed))
+	expectStructuralEquality(inputs, expectedInputs, g)
+	g.Expect(swagger.Components.Responses).Should(gomega.Equal(expectedSwagger.Components.Responses))
+}
+
+func expectStructuralEquality(actual *openapi3.Schema, expected *openapi3.Schema, g *gomega.GomegaWithT) {
+	g.Expect(actual.Required).Should(gomega.Not(gomega.BeNil()))
+	g.Expect(actual.Required).To(gomega.ConsistOf(expected.Required))
+	g.Expect(actual.Properties).Should(gomega.Not(gomega.BeNil()))
+	g.Expect(actual.Properties).Should(gomega.Equal(expected.Properties))
+	g.Expect(actual.AdditionalPropertiesAllowed).Should(gomega.Equal(expected.AdditionalPropertiesAllowed))
 }
 
 func TestGenerateOpenAPIForVariousFmtsStrictly(t *testing.T) {
 	inputFmts := []struct {
 		name string
 	}{
-		{"TestColFmtSingleTensor"}, {"TestColFmtScalar"}, {"TestRowFmtSingleTensor"},
+		{"TestColFmtSingleTensor"},
+		{"TestColFmtScalar"},
+		{"TestRowFmtSingleTensor"},
 	}
 	for _, fmt := range inputFmts {
 		g := gomega.NewGomegaWithT(t)

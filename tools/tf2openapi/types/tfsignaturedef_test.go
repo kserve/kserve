@@ -182,7 +182,7 @@ func TestTFSignatureDefRowSchemaMultipleTensors(t *testing.T) {
 		AdditionalPropertiesAllowed: utils.Bool(false),
 	}
 
-	schema, err := tfSigDef.Schema()
+	schema, err := tfSigDef.Schema(Request)
 	g.Expect(schema).Should(gomega.Equal(expectedSchema))
 	g.Expect(err).To(gomega.BeNil())
 }
@@ -214,7 +214,7 @@ func TestTFSignatureDefRowSchemaSingleTensor(t *testing.T) {
 		Required:                    []string{"instances"},
 		AdditionalPropertiesAllowed: utils.Bool(false),
 	}
-	schema, err := tfSigDef.Schema()
+	schema, err := tfSigDef.Schema(Request)
 	g.Expect(schema).Should(gomega.Equal(expectedSchema))
 	g.Expect(err).To(gomega.BeNil())
 }
@@ -223,7 +223,7 @@ func TestTFSignatureDefNonPredict(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	tfSigDef := expectedTFSignatureDef()
 	tfSigDef.Method = Classify
-	_, err := tfSigDef.Schema()
+	_, err := tfSigDef.Schema(Request)
 	g.Expect(err).To(gomega.MatchError(UnsupportedAPISchemaError))
 }
 
@@ -315,7 +315,7 @@ func TestTFSignatureDefColSchemaMultipleTensors(t *testing.T) {
 		Required:                    []string{"inputs"},
 		AdditionalPropertiesAllowed: utils.Bool(false),
 	}
-	schema, err := tfSigDef.Schema()
+	schema, err := tfSigDef.Schema(Request)
 	g.Expect(schema).Should(gomega.Equal(expectedSchema))
 	g.Expect(err).To(gomega.BeNil())
 }
@@ -367,7 +367,7 @@ func TestTFSignatureDefColSchemaSingleTensor(t *testing.T) {
 		Required:                    []string{"inputs"},
 		AdditionalPropertiesAllowed: utils.Bool(false),
 	}
-	schema, err := tfSigDef.Schema()
+	schema, err := tfSigDef.Schema(Request)
 	g.Expect(schema).Should(gomega.Equal(expectedSchema))
 	g.Expect(err).To(gomega.BeNil())
 }
@@ -402,7 +402,7 @@ func TestTFSignatureDefSchemaUnknownRank(t *testing.T) {
 		Required:                    []string{"inputs"},
 		AdditionalPropertiesAllowed: utils.Bool(false),
 	}
-	schema, err := tfSigDef.Schema()
+	schema, err := tfSigDef.Schema(Request)
 	g.Expect(schema).Should(gomega.Equal(expectedSchema))
 	g.Expect(err).To(gomega.BeNil())
 }
@@ -440,7 +440,7 @@ func TestTFSignatureDefSchemaScalar(t *testing.T) {
 		Required:                    []string{"inputs"},
 		AdditionalPropertiesAllowed: utils.Bool(false),
 	}
-	schema, err := tfSigDef.Schema()
+	schema, err := tfSigDef.Schema(Request)
 	g.Expect(schema).Should(gomega.Equal(expectedSchema))
 	g.Expect(err).To(gomega.BeNil())
 }
@@ -498,7 +498,89 @@ func TestTFSignatureDefSchemaMultipleScalar(t *testing.T) {
 		Required:                    []string{"inputs"},
 		AdditionalPropertiesAllowed: utils.Bool(false),
 	}
-	schema, err := tfSigDef.Schema()
+	schema, err := tfSigDef.Schema(Request)
+	g.Expect(schema).Should(gomega.Equal(expectedSchema))
+	g.Expect(err).To(gomega.BeNil())
+}
+
+func TestTFSignatureDefResponseSchemaRowFmt(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	tfSigDef := expectedTFSignatureDef()
+	expectedSchema := &openapi3.Schema{
+		Type: "object",
+		Properties: map[string]*openapi3.SchemaRef{
+			"predictions": {
+				Value: &openapi3.Schema{
+					Type: "array",
+					Items: &openapi3.SchemaRef{
+						Value: &openapi3.Schema{
+							Type:     "array",
+							MaxItems: utils.UInt64(3),
+							MinItems: 3,
+							Items: &openapi3.SchemaRef{
+								Value: &openapi3.Schema{
+									Type: "number",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Required:                    []string{"predictions"},
+		AdditionalPropertiesAllowed: utils.Bool(false),
+	}
+	schema, err := tfSigDef.Schema(Response)
+	g.Expect(schema).Should(gomega.Equal(expectedSchema))
+	g.Expect(err).To(gomega.BeNil())
+}
+
+func TestTFSignatureDefResponseSchemaColFmt(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	tfSigDef := TFSignatureDef{
+		Key: "Signature Def Key",
+		Inputs: []TFTensor{
+			{
+				Name:  "signal",
+				DType: DtInt8,
+				Rank:  -1,
+			},
+		},
+		Outputs: []TFTensor{
+			{
+				Name:  "output",
+				DType: DtInt8,
+				Shape: TFShape{-1, 3},
+				Rank:  2,
+			},
+		},
+	}
+	// must follow request format and use column format
+	expectedSchema := &openapi3.Schema{
+		Type: "object",
+		Properties: map[string]*openapi3.SchemaRef{
+			"outputs": {
+				Value: &openapi3.Schema{
+					Type: "array",
+					Items: &openapi3.SchemaRef{
+						Value: &openapi3.Schema{
+							Type:     "array",
+							MaxItems: utils.UInt64(3),
+							MinItems: 3,
+							Items: &openapi3.SchemaRef{
+								Value: &openapi3.Schema{
+									Type: "number",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Required:                    []string{"outputs"},
+		AdditionalPropertiesAllowed: utils.Bool(false),
+	}
+	schema, err := tfSigDef.Schema(Response)
 	g.Expect(schema).Should(gomega.Equal(expectedSchema))
 	g.Expect(err).To(gomega.BeNil())
 }

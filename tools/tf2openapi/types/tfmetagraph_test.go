@@ -220,7 +220,7 @@ func TestTFMetaGraphTypical(t *testing.T) {
 		Required: []string{"instances"},
 		AdditionalPropertiesAllowed: func(b bool) *bool {return &b}(false),
 	}
-	schema, err := tfMetaGraph.Schema("sigDefKey")
+	schema, err := tfMetaGraph.Schema("sigDefKey", Request)
 	g.Expect(schema).Should(gomega.Equal(expectedSchema))
 	g.Expect(err).To(gomega.BeNil())
 }
@@ -228,7 +228,7 @@ func TestTFMetaGraphTypical(t *testing.T) {
 func TestTFMetaGraphMissingSigDef(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	tfMetaGraph := expectedTFMetaGraph()
-	_, err := tfMetaGraph.Schema("missingSigDefKey")
+	_, err := tfMetaGraph.Schema("missingSigDefKey", Request)
 	expectedErr := fmt.Sprintf(SignatureDefNotFoundError, "missingSigDefKey")
 	g.Expect(err).To(gomega.MatchError(expectedErr))
 }
