@@ -86,24 +86,10 @@ func (r *ConfigurationReconciler) reconcileDefault(kfsvc *v1alpha1.KFService) er
 func (r *ConfigurationReconciler) reconcileCanary(kfsvc *v1alpha1.KFService) error {
 	canaryConfigurationName := constants.CanaryConfigurationName(kfsvc.Name)
 	if kfsvc.Spec.Canary == nil {
-		if kfsvc.Status.Canary.Name != "" {
-			existing := &knservingv1alpha1.Configuration{}
-			err := r.client.Get(context.TODO(), types.NamespacedName{Name: canaryConfigurationName, Namespace: kfsvc.Namespace}, existing)
-			if err != nil {
-				if !errors.IsNotFound(err) {
-					return err
-				}
-			} else {
-				log.Info("Deleting Knative Serving configuration", "namespace", kfsvc.Namespace, "name", canaryConfigurationName)
-				err := r.client.Delete(context.TODO(), existing, client.PropagationPolicy(metav1.DeletePropagationForeground))
-				if err != nil {
-					if !errors.IsNotFound(err) {
-						return err
-					}
-				}
-			}
-			kfsvc.Status.ResetCanaryConfigurationStatus()
+		if err := r.finalizeConfiguration(kfsvc); err != nil {
+			return err
 		}
+		kfsvc.Status.ResetCanaryConfigurationStatus()
 		return nil
 	}
 
@@ -122,6 +108,26 @@ func (r *ConfigurationReconciler) reconcileCanary(kfsvc *v1alpha1.KFService) err
 	}
 
 	kfsvc.Status.PropagateCanaryConfigurationStatus(status)
+	return nil
+}
+
+func (r *ConfigurationReconciler) finalizeConfiguration(kfsvc *v1alpha1.KFService) error {
+	canaryConfigurationName := constants.CanaryConfigurationName(kfsvc.Name)
+	existing := &knservingv1alpha1.Configuration{}
+	err := r.client.Get(context.TODO(), types.NamespacedName{Name: canaryConfigurationName, Namespace: kfsvc.Namespace}, existing)
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			return err
+		}
+	} else {
+		log.Info("Deleting Knative Serving configuration", "namespace", kfsvc.Namespace, "name", canaryConfigurationName)
+		err := r.client.Delete(context.TODO(), existing, client.PropagationPolicy(metav1.DeletePropagationForeground))
+		if err != nil {
+			if !errors.IsNotFound(err) {
+				return err
+			}
+		}
+	}
 	return nil
 }
 
