@@ -23,9 +23,16 @@ if [ -z "${GOPATH:-}" ]; then
 fi
 
 # Update kative files to add `+k8s:openapi-gen=true` to workaround the knative types cannot be load.
-# TBD @jinchihe: This should be updated from knative (PR: https://github.com/knative/pkg/pull/510).
-sed -i '/^type Condition struct {/i // +k8s:openapi-gen=true' vendor/github.com/knative/pkg/apis/condition_types.go
-sed -i '/^type VolatileTime struct {/i // +k8s:openapi-gen=true' vendor/github.com/knative/pkg/apis/volatile_time.go
+# TBD @jinchihe: Remove below after upgraded new knative that includes PR knative/pkg/pull/510.
+knative_condition_file=vendor/github.com/knative/pkg/apis/condition_types.go
+knative_volatile_file=vendor/github.com/knative/pkg/apis/volatile_time.go
+
+if ! grep -q "+k8s:openapi-gen=true" ${knative_condition_file}; then
+    sed -i '/^type Condition struct {/i // +k8s:openapi-gen=true' ${knative_condition_file}
+fi
+if ! grep -q "+k8s:openapi-gen=true" ${knative_volatile_file}; then
+    sed -i '/^type VolatileTime struct {/i // +k8s:openapi-gen=true' ${knative_volatile_file}
+fi
 
 # Generating OpenAPI specification
 go run vendor/k8s.io/code-generator/cmd/openapi-gen/main.go --input-dirs github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1,github.com/knative/pkg/apis --output-package github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1/ --go-header-file hack/boilerplate.go.txt
