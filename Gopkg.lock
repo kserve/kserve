@@ -304,8 +304,7 @@
   version = "v1.1.6"
 
 [[projects]]
-  branch = "release-0.7"
-  digest = "1:ec18e8243516c57aa703d40cbe376e9b440382f40ad7fda781dbaf0a67d7050f"
+  digest = "1:77427d28fee3df0a3b74edf4f77dbc50ac36dc8fd4cbb4b189847f246d9f49a9"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
@@ -318,7 +317,7 @@
     "ptr",
   ]
   pruneopts = "NUT"
-  revision = "d82505e6c5b4ce46562d6c242be0e706791f35bd"
+  revision = "76da19bbc6f409dba9017f60003560e03aeff6e7"
 
 [[projects]]
   digest = "1:dabf722e53d7ebc24e501c0520e254972734b39065088420b20ae8f22bebc158"
@@ -1072,6 +1071,19 @@
   ]
   pruneopts = "NUT"
   revision = "39cb288412c48cb533ba4be5d6c28620b9a0c1b4"
+
+[[projects]]
+  branch = "master"
+  digest = "1:b6a41996ffe9a49fa912ee11979c9630eac43b795d5bbabbed17ca6d5b72476c"
+  name = "knative.dev/pkg"
+  packages = [
+    "apis",
+    "apis/duck",
+    "apis/duck/v1beta1",
+    "kmp",
+  ]
+  pruneopts = "NUT"
+  revision = "e4bc08cc8deda3eac40a8d53984d09c9d0e1ad48"
 
 [[projects]]
   digest = "1:45fb4267f4868479b71ec2b2aff638a24ff09dc11568f6ceb087dabbc856f455"

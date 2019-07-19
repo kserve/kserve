@@ -20,8 +20,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	"github.com/knative/pkg/apis"
-	"github.com/knative/pkg/apis/duck"
+	"knative.dev/pkg/apis"
+	"knative.dev/pkg/apis/duck"
 )
 
 // LegacyTargetable left around until we migrate to Addressable in the

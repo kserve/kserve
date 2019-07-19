@@ -55,7 +55,7 @@ version="v1.4.7"
 
 [[override]]
   name = "github.com/knative/pkg"
-  branch = "release-0.7"
+  revision = "76da19bbc6f409dba9017f60003560e03aeff6e7"
 
 [[override]]
   name = "k8s.io/api"
