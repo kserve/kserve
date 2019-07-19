@@ -161,6 +161,11 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Ref: ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.FrameworkConfig"),
 							},
 						},
+						"onnx": {
+							SchemaProps: openapispec.SchemaProps{
+								Ref: ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.FrameworkConfig"),
+							},
+						},
 					},
 				},
 			},
@@ -312,8 +317,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						},
 						"url": {
 							SchemaProps: openapispec.SchemaProps{
-								Type:   []string{"string"},
-								Format: "",
+								Ref: ref("github.com/knative/pkg/apis.URL"),
 							},
 						},
 						"default": {
@@ -330,7 +334,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 				},
 			},
 			Dependencies: []string{
-				"github.com/knative/pkg/apis.Condition", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.StatusConfigurationSpec"},
+				"github.com/knative/pkg/apis.Condition", "github.com/knative/pkg/apis.URL", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.StatusConfigurationSpec"},
 		},
 		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.ModelSpec": {
 			Schema: openapispec.Schema{
@@ -389,11 +393,47 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Ref: ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.PyTorchSpec"),
 							},
 						},
+						"onnx": {
+							SchemaProps: openapispec.SchemaProps{
+								Ref: ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.ONNXSpec"),
+							},
+						},
 					},
 				},
 			},
 			Dependencies: []string{
-				"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.CustomSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.PyTorchSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.SKLearnSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.TensorRTSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.TensorflowSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.XGBoostSpec"},
+				"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.CustomSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.ONNXSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.PyTorchSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.SKLearnSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.TensorRTSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.TensorflowSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.XGBoostSpec"},
+		},
+		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.ONNXSpec": {
+			Schema: openapispec.Schema{
+				SchemaProps: openapispec.SchemaProps{
+					Description: "ONNXSpec defines arguments for configuring ONNX model serving.",
+					Properties: map[string]openapispec.Schema{
+						"modelUri": {
+							SchemaProps: openapispec.SchemaProps{
+								Type:   []string{"string"},
+								Format: "",
+							},
+						},
+						"runtimeVersion": {
+							SchemaProps: openapispec.SchemaProps{
+								Description: "Defaults to latest ONNX Version.",
+								Type:        []string{"string"},
+								Format:      "",
+							},
+						},
+						"resources": {
+							SchemaProps: openapispec.SchemaProps{
+								Description: "Defaults to requests and limits of 1CPU, 2Gb MEM.",
+								Ref:         ref("k8s.io/api/core/v1.ResourceRequirements"),
+							},
+						},
+					},
+					Required: []string{"modelUri"},
+				},
+			},
+			Dependencies: []string{
+				"k8s.io/api/core/v1.ResourceRequirements"},
 		},
 		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.PyTorchSpec": {
 			Schema: openapispec.Schema{

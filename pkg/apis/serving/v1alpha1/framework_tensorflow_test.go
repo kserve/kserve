@@ -27,7 +27,7 @@ import (
 	resource "k8s.io/apimachinery/pkg/api/resource"
 )
 
-func TestFrameworkTensorflor(t *testing.T) {
+func TestFrameworkTensorflow(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	scenarios := map[string]struct {

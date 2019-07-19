@@ -16,7 +16,7 @@ package v1alpha1
 import (
 	"github.com/knative/pkg/apis"
 	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -43,6 +43,16 @@ type ModelSpec struct {
 	XGBoost    *XGBoostSpec    `json:"xgboost,omitempty"`
 	SKLearn    *SKLearnSpec    `json:"sklearn,omitempty"`
 	PyTorch    *PyTorchSpec    `json:"pytorch,omitempty"`
+	ONNX       *ONNXSpec       `json:"onnx,omitempty"`
+}
+
+// ONNXSpec defines arguments for configuring ONNX model serving.
+type ONNXSpec struct {
+	ModelURI string `json:"modelUri"`
+	// Defaults to latest ONNX Version.
+	RuntimeVersion string `json:"runtimeVersion,omitempty"`
+	// Defaults to requests and limits of 1CPU, 2Gb MEM.
+	Resources v1.ResourceRequirements `json:"resources,omitempty"`
 }
 
 // TensorflowSpec defines arguments for configuring Tensorflow model serving.

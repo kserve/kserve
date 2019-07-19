@@ -31,9 +31,9 @@ type FrameworkHandler interface {
 
 const (
 	// ExactlyOneModelSpecViolatedError is a known error message
-	ExactlyOneModelSpecViolatedError = "Exactly one of [Custom, Tensorflow, TensorRT, SKLearn, XGBoost] must be specified in ModelSpec"
+	ExactlyOneModelSpecViolatedError = "Exactly one of [Custom, ONNX, PyTorch, SKLearn, Tensorflow, TensorRT, XGBoost] must be specified in ModelSpec"
 	// AtLeastOneModelSpecViolatedError is a known error message
-	AtLeastOneModelSpecViolatedError = "At least one of [Custom, Tensorflow, TensorRT, SKLearn, XGBoost] must be specified in ModelSpec"
+	AtLeastOneModelSpecViolatedError = "At least one of [Custom, ONNX, PyTorch, SKLearn, Tensorflow, TensorRT, XGBoost] must be specified in ModelSpec"
 )
 
 var (
@@ -73,6 +73,7 @@ type FrameworksConfig struct {
 	Xgboost    FrameworkConfig `json:"xgboost,omitempty"`
 	SKlearn    FrameworkConfig `json:"sklearn,omitempty"`
 	PyTorch    FrameworkConfig `json:"pytorch,omitempty"`
+	ONNX       FrameworkConfig `json:"onnx,omitempty"`
 }
 
 func setResourceRequirementDefaults(requirements *v1.ResourceRequirements) {
@@ -121,6 +122,9 @@ func makeHandler(modelSpec *ModelSpec) (FrameworkHandler, error) {
 	}
 	if modelSpec.TensorRT != nil {
 		handlers = append(handlers, modelSpec.TensorRT)
+	}
+	if modelSpec.ONNX != nil {
+		handlers = append(handlers, modelSpec.ONNX)
 	}
 	if len(handlers) == 0 {
 		return nil, fmt.Errorf(AtLeastOneModelSpecViolatedError)
