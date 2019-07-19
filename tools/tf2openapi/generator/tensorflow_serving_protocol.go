@@ -23,7 +23,7 @@ func (g *Generator) tfServingOpenAPI(model types.TFSavedModel) (*openapi3.Swagge
 	}
 	responseSchema, err := model.Schema(g.metaGraphTags, g.sigDefKey, types.Response)
 	if err != nil {
-		return &openapi3.Swagger{}, err
+		panic(fmt.Sprintf("outputs incompatible with request format: %v" , err))
 	}
 	return &openapi3.Swagger{
 		OpenAPI: "3.0.0",
