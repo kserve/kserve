@@ -17,23 +17,7 @@ import (
 )
 
 // Functional E2E example
-func TestFlowers(t *testing.T) {
-	// model src: gs://kfserving-samples/models/tensorflow/flowers
-	g := gomega.NewGomegaWithT(t)
-	wd := workingDir(t)
-	cmdName := cmd(wd)
-	cmdArgs := []string{"--model_base_path", wd + "/testdata/" + t.Name() + ".pb"}
-	cmd := exec.Command(cmdName, cmdArgs...)
-	spec, err := cmd.Output()
-	g.Expect(err).Should(gomega.BeNil())
-	acceptableSpec := readFile("TestFlowers.golden.json", t)
-	acceptableSpecPermuted := readFile("TestFlowers2.golden.json", t)
-	g.Expect(spec).Should(gomega.Or(gomega.MatchJSON(acceptableSpec), gomega.MatchJSON(acceptableSpecPermuted)))
-}
-
-// Functional E2E example
-func TestCensusDifferentFlags(t *testing.T) {
-	// estimator model src: https://github.com/GoogleCloudPlatform/cloudml-samples/tree/master/census
+func TestFunctionalDifferentFlags(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	wd := workingDir(t)
 	cmdName := cmd(wd)
@@ -41,12 +25,17 @@ func TestCensusDifferentFlags(t *testing.T) {
 		cmdArgs      []string
 		expectedSpec []byte
 	}{
+		"Flowers" : {
+			cmdArgs: []string{"--model_base_path", wd + "/testdata/TestFlowers.pb"},
+			expectedSpec:readFile("TestFlowers.golden.json", t),
+		},
+		// estimator model src: https://github.com/GoogleCloudPlatform/cloudml-samples/tree/master/census
 		"Census": {
 			cmdArgs:      []string{"--model_base_path", wd + "/testdata/TestCensus.pb", "--signature_def", "predict"},
 			expectedSpec: readFile("TestCensus.golden.json", t),
 		},
 		"CustomFlags": {
-			cmdArgs: []string{"--model_base_path", wd + "/testdata/TestCustomFlags.pb",
+			cmdArgs: []string{"--model_base_path", wd + "/testdata/TestCensus.pb",
 				"--signature_def", "predict", "--name", "customName", "--version", "1000",
 				"--metagraph_tags", "serve"},
 			expectedSpec: readFile("TestCustomFlags.golden.json", t),
@@ -64,7 +53,7 @@ func TestCensusDifferentFlags(t *testing.T) {
 		g.Expect(json.Unmarshal(scenario.expectedSpec, &expectedSwagger)).To(gomega.Succeed())
 
 		// test equality, ignoring order in JSON arrays
-		expectJsonEquality(swagger, expectedSwagger, g)
+		expectSwaggerEquality(swagger, expectedSwagger, g)
 	}
 }
 
@@ -123,9 +112,15 @@ func TestOutputToFile(t *testing.T) {
 	g.Expect(stdErr).To(gomega.BeEmpty())
 	g.Expect(err).Should(gomega.BeNil())
 	spec := readFile(outputFileName, t)
-	acceptableSpec := readFile("TestFlowers.golden.json", t)
-	acceptableSpecPermuted := readFile("TestFlowers2.golden.json", t)
-	g.Expect(spec).Should(gomega.Or(gomega.MatchJSON(acceptableSpec), gomega.MatchJSON(acceptableSpecPermuted)))
+	swagger := &openapi3.Swagger{}
+	g.Expect(json.Unmarshal([]byte(spec), &swagger)).To(gomega.Succeed())
+
+	expectedSpec := readFile("TestFlowers.golden.json", t)
+	expectedSwagger := &openapi3.Swagger{}
+	g.Expect(json.Unmarshal(expectedSpec, &expectedSwagger)).To(gomega.Succeed())
+
+	// test equality, ignoring order in JSON arrays
+	expectSwaggerEquality(swagger, expectedSwagger, g)
 }
 
 func TestOutputToFileTargetDirectoryError(t *testing.T) {
@@ -165,18 +160,26 @@ func cmd(wd string) string {
 	return filepath.Dir(wd) + "/bin/tf2openapi"
 }
 
-func expectJsonEquality(swagger *openapi3.Swagger, expectedSwagger *openapi3.Swagger, g *gomega.GomegaWithT) {
-	instances := swagger.Components.RequestBodies["modelInput"].Value.Content.Get("application/json").
-		Schema.Value.Properties["instances"].Value
-	expectedInstances := expectedSwagger.Components.RequestBodies["modelInput"].Value.Content.
-		Get("application/json").Schema.Value.Properties["instances"].Value
+func expectSwaggerEquality(swagger *openapi3.Swagger, expectedSwagger *openapi3.Swagger, g *gomega.GomegaWithT) {
 	g.Expect(swagger.Paths).Should(gomega.Equal(expectedSwagger.Paths))
 	g.Expect(swagger.OpenAPI).Should(gomega.Equal(expectedSwagger.OpenAPI))
 	g.Expect(swagger.Info).Should(gomega.Equal(expectedSwagger.Info))
-	g.Expect(swagger.Components.Responses).Should(gomega.Equal(expectedSwagger.Components.Responses))
-	g.Expect(instances.Items.Value.Required).Should(gomega.Not(gomega.BeNil()))
-	g.Expect(instances.Items.Value.Required).To(gomega.ConsistOf(expectedInstances.Items.Value.Required))
-	g.Expect(instances.Items.Value.AdditionalPropertiesAllowed).Should(gomega.Not(gomega.BeNil()))
-	g.Expect(instances.Items.Value.AdditionalPropertiesAllowed).Should(gomega.Equal(expectedInstances.Items.Value.AdditionalPropertiesAllowed))
-	g.Expect(instances.Items.Value.Properties).Should(gomega.Equal(expectedInstances.Items.Value.Properties))
+	instances := swagger.Components.RequestBodies["modelInput"].Value.Content.Get("application/json").
+		Schema.Value.Properties["instances"].Value.Items.Value
+	expectedInstances := expectedSwagger.Components.RequestBodies["modelInput"].Value.Content.
+		Get("application/json").Schema.Value.Properties["instances"].Value.Items.Value
+	expectJsonEquality(instances, expectedInstances, g)
+
+	predictions := swagger.Components.Responses["modelOutput"].Value.Content.Get("application/json").Schema.Value.Properties["predictions"].Value.Items.Value
+	expectedPredictions := expectedSwagger.Components.Responses["modelOutput"].Value.Content.Get("application/json").Schema.Value.Properties["predictions"].Value.Items.Value
+	expectJsonEquality(predictions, expectedPredictions, g)
+
+}
+
+func expectJsonEquality(actual *openapi3.Schema, expected *openapi3.Schema, g *gomega.GomegaWithT) {
+	g.Expect(actual.Required).Should(gomega.Not(gomega.BeNil()))
+	g.Expect(actual.Required).To(gomega.ConsistOf(expected.Required))
+	g.Expect(actual.Properties).Should(gomega.Not(gomega.BeNil()))
+	g.Expect(actual.Properties).Should(gomega.Equal(expected.Properties))
+	g.Expect(actual.AdditionalPropertiesAllowed).Should(gomega.Equal(expected.AdditionalPropertiesAllowed))
 }

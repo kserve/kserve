@@ -170,13 +170,13 @@ func TestGenerateOpenAPIForRowFmtMultipleTensors(t *testing.T) {
 		Schema.Value.Properties["instances"].Value.Items.Value
 	expectedInstances := expectedSwagger.Components.RequestBodies["modelInput"].Value.Content.
 		Get("application/json").Schema.Value.Properties["instances"].Value.Items.Value
-	expectStructuralEquality(instances, expectedInstances, g)
+	expectJsonEquality(instances, expectedInstances, g)
 
 	predictions := swagger.Components.Responses["modelOutput"].Value.Content.Get("application/json").
 		Schema.Value.Properties["predictions"].Value.Items.Value
 	expectedPredictions := expectedSwagger.Components.Responses["modelOutput"].Value.Content.Get("application/json").
 		Schema.Value.Properties["predictions"].Value.Items.Value
-	expectStructuralEquality(predictions, expectedPredictions, g)
+	expectJsonEquality(predictions, expectedPredictions, g)
 }
 
 func TestGenerateOpenAPIForColFmtMultipleTensors(t *testing.T) {
@@ -203,11 +203,11 @@ func TestGenerateOpenAPIForColFmtMultipleTensors(t *testing.T) {
 		Schema.Value.Properties["inputs"].Value
 	expectedInputs := expectedSwagger.Components.RequestBodies["modelInput"].Value.Content.
 		Get("application/json").Schema.Value.Properties["inputs"].Value
-	expectStructuralEquality(inputs, expectedInputs, g)
+	expectJsonEquality(inputs, expectedInputs, g)
 	g.Expect(swagger.Components.Responses).Should(gomega.Equal(expectedSwagger.Components.Responses))
 }
 
-func expectStructuralEquality(actual *openapi3.Schema, expected *openapi3.Schema, g *gomega.GomegaWithT) {
+func expectJsonEquality(actual *openapi3.Schema, expected *openapi3.Schema, g *gomega.GomegaWithT) {
 	g.Expect(actual.Required).Should(gomega.Not(gomega.BeNil()))
 	g.Expect(actual.Required).To(gomega.ConsistOf(expected.Required))
 	g.Expect(actual.Properties).Should(gomega.Not(gomega.BeNil()))
