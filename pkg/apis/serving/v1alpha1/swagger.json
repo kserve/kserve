@@ -181,7 +181,7 @@
           "format": "int64"
         },
         "url": {
-          "type": "string"
+          "$ref": "#/definitions/knative.URL"
         }
       }
     },

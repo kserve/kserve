@@ -312,8 +312,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						},
 						"url": {
 							SchemaProps: openapispec.SchemaProps{
-								Type:   []string{"string"},
-								Format: "",
+								Ref: ref("github.com/knative/pkg/apis.URL"),
 							},
 						},
 						"default": {
@@ -330,7 +329,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 				},
 			},
 			Dependencies: []string{
-				"github.com/knative/pkg/apis.Condition", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.StatusConfigurationSpec"},
+				"github.com/knative/pkg/apis.Condition", "github.com/knative/pkg/apis.URL", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.StatusConfigurationSpec"},
 		},
 		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.ModelSpec": {
 			Schema: openapispec.Schema{
