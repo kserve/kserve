@@ -14,13 +14,13 @@ This will create the following files:
 Now, run a KFServing sklearn server with this model:
 
 ```
-python -m sklearnserver --model_dir ./  --model_name income --protocol seldon.http
+python -m sklearnserver --model_dir .  --model_name income --protocol seldon.http
 ```
 
 In a different terminal start the Alibi Explainer using the local saved explainer:
 
 ```
-python -m alibiexplainer --explainer_name income --predict_url http://localhost:8080/models/income:predict --protocol seldon.http --http_port 8081 --type anchor_tabular --savedExplainerUri ${PWD}
+python -m alibiexplainer --explainer_name income --predict_url http://localhost:8080/models/income:predict --protocol seldon.http --http_port 8081 --type anchor_tabular --explainerUri ${PWD}
 ```
 
 You can now get an explaination for some particular features:
@@ -44,3 +44,10 @@ The core explanation is:
 This says the reason for low income prediction is due to their marital-status of never married and their admin occuptation. These feature values would cause this prediction 95.5% of the time from this model.
 
 
+## Running without a pretrained explainer
+
+Run as above but start the explainer with the locations of the individual training components it needs in a config map:
+
+```
+python -m alibiexplainer --explainer_name income --predict_url http://localhost:8080/models/income:predict --protocol seldon.http --http_port 8081 --type anchor_tabular --config '{"training_data_url":"file:///home/clive/go/src/github.com/kubeflow/kfserving/docs/samples/explanation/income/train.joblib","feature_names_url":"file:///home/clive/go/src/github.com/kubeflow/kfserving/docs/samples/explanation/income/features.joblib","categorical_map_url":"file:///home/clive/go/src/github.com/kubeflow/kfserving/docs/samples/explanation/income/category_map.joblib"}'
+```
