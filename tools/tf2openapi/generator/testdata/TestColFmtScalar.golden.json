@@ -5,12 +5,14 @@
 				"content": {
 					"application/json": {
 						"schema": {
+							"additionalProperties": false,
 							"properties": {
-								"inputs": {}
+								"inputs": {
+									"type": "number"
+								}
 							},
-							"type": "object",
 							"required": ["inputs"],
-							"additionalProperties": false
+							"type": "object"
 						}
 					}
 				}
@@ -18,6 +20,30 @@
 		},
 		"responses": {
 			"modelOutput": {
+				"content": {
+					"application/json": {
+						"schema": {
+							"additionalProperties": false,
+							"properties": {
+								"outputs": {
+									"items": {
+										"items": {
+											"type": "number"
+										},
+										"maxItems": 3,
+										"minItems": 3,
+										"type": "array"
+									},
+									"maxItems": 3,
+									"minItems": 3,
+									"type": "array"
+								}
+							},
+							"required": ["outputs"],
+							"type": "object"
+						}
+					}
+				},
 				"description": "Model output"
 			}
 		}

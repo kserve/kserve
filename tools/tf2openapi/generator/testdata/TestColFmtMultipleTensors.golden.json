@@ -5,8 +5,10 @@
 				"content": {
 					"application/json": {
 						"schema": {
+							"additionalProperties": false,
 							"properties": {
 								"inputs": {
+									"additionalProperties": false,
 									"properties": {
 										"b": {
 											"items": {
@@ -46,13 +48,11 @@
 										}
 									},
 									"required": ["x", "b"],
-									"additionalProperties": false,
 									"type": "object"
 								}
 							},
-							"type": "object",
 							"required": ["inputs"],
-              "additionalProperties": false
+							"type": "object"
 						}
 					}
 				}
@@ -60,6 +60,35 @@
 		},
 		"responses": {
 			"modelOutput": {
+				"content": {
+					"application/json": {
+						"schema": {
+							"additionalProperties": false,
+							"properties": {
+								"outputs": {
+									"items": {
+										"items": {
+											"items": {
+												"type": "number"
+											},
+											"maxItems": 2,
+											"minItems": 2,
+											"type": "array"
+										},
+										"maxItems": 2,
+										"minItems": 2,
+										"type": "array"
+									},
+									"maxItems": 2,
+									"minItems": 2,
+									"type": "array"
+								}
+							},
+							"required": ["outputs"],
+							"type": "object"
+						}
+					}
+				},
 				"description": "Model output"
 			}
 		}

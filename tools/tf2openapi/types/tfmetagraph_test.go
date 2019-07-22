@@ -196,7 +196,7 @@ func TestNewTFMetaGraphWithErrSignatureDef(t *testing.T) {
 func TestTFMetaGraphTypical(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	tfMetaGraph := expectedTFMetaGraph()
-	expectedSchema := &openapi3.Schema{
+	expectedRequestSchema := &openapi3.Schema{
 		Type: "object",
 		Properties: map[string]*openapi3.SchemaRef{
 			"instances": {
@@ -220,15 +220,40 @@ func TestTFMetaGraphTypical(t *testing.T) {
 		Required: []string{"instances"},
 		AdditionalPropertiesAllowed: func(b bool) *bool {return &b}(false),
 	}
-	schema, err := tfMetaGraph.Schema("sigDefKey")
-	g.Expect(schema).Should(gomega.Equal(expectedSchema))
+	expectedResponseSchema := &openapi3.Schema{
+		Type: "object",
+		Properties: map[string]*openapi3.SchemaRef{
+			"predictions": {
+				Value: &openapi3.Schema{
+					Type: "array",
+					Items: &openapi3.SchemaRef{
+						Value: &openapi3.Schema{
+							Type:     "array",
+							MaxItems: func(u uint64) *uint64 { return &u }(3),
+							MinItems: 3,
+							Items: &openapi3.SchemaRef{
+								Value: &openapi3.Schema{
+									Type: "number",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Required: []string{"predictions"},
+		AdditionalPropertiesAllowed: func(b bool) *bool {return &b}(false),
+	}
+	requestSchema, responseSchema, err := tfMetaGraph.Schema("sigDefKey")
+	g.Expect(requestSchema).Should(gomega.Equal(expectedRequestSchema))
+	g.Expect(responseSchema).Should(gomega.Equal(expectedResponseSchema))
 	g.Expect(err).To(gomega.BeNil())
 }
 
 func TestTFMetaGraphMissingSigDef(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	tfMetaGraph := expectedTFMetaGraph()
-	_, err := tfMetaGraph.Schema("missingSigDefKey")
+	_,_, err := tfMetaGraph.Schema("missingSigDefKey")
 	expectedErr := fmt.Sprintf(SignatureDefNotFoundError, "missingSigDefKey")
 	g.Expect(err).To(gomega.MatchError(expectedErr))
 }
