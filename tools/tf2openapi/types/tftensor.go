@@ -74,7 +74,6 @@ func (t *TFTensor) RowSchema() *openapi3.Schema {
 }
 
 func (t *TFTensor) ColSchema() *openapi3.Schema {
-
 	if t.Rank == -1 {
 		return openapi3.NewSchema()
 	}
