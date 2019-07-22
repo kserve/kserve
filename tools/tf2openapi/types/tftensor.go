@@ -35,12 +35,18 @@ func NewTFTensor(name string, tensor *pb.TensorInfo) (TFTensor, error) {
 	if err != nil {
 		return TFTensor{}, err
 	}
-
-	if tensor.TensorShape == nil || tensor.TensorShape.UnknownRank || tensor.TensorShape.Dim == nil {
+	if tensor.TensorShape == nil || tensor.TensorShape.UnknownRank {
 		return TFTensor{
 			Name:  name,
 			DType: tfDType,
 			Rank:  -1,
+		}, nil
+	}
+	if tensor.TensorShape.Dim == nil {
+		return TFTensor{
+			Name:  name,
+			DType: tfDType,
+			Rank:  0,
 		}, nil
 	}
 	tfShape := NewTFShape(tensor.TensorShape.Dim)

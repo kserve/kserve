@@ -5,6 +5,7 @@
         "content": {
           "application/json": {
             "schema": {
+              "additionalProperties": false,
               "properties": {
                 "instances": {
                   "items": {
@@ -18,9 +19,8 @@
                   "type": "array"
                 }
               },
-              "type": "object",
               "required": ["instances"],
-              "additionalProperties": false
+              "type": "object"
             }
           }
         }
@@ -28,6 +28,28 @@
     },
     "responses": {
       "modelOutput": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "additionalProperties": false,
+              "properties": {
+                "predictions": {
+                  "items": {
+                    "items": {
+                      "type": "number"
+                    },
+                    "maxItems": 2,
+                    "minItems": 2,
+                    "type": "array"
+                  },
+                  "type": "array"
+                }
+              },
+              "required": ["predictions"],
+              "type": "object"
+            }
+          }
+        },
         "description": "Model output"
       }
     }

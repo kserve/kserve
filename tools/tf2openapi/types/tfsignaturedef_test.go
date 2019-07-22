@@ -3,8 +3,10 @@ package types
 import (
 	"fmt"
 	"testing"
+
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/onsi/gomega"
+
 	"github.com/kubeflow/kfserving/pkg/utils"
 	"github.com/kubeflow/kfserving/tools/tf2openapi/generated/framework"
 	pb "github.com/kubeflow/kfserving/tools/tf2openapi/generated/protobuf"
@@ -23,14 +25,73 @@ func expectedTFSignatureDef() TFSignatureDef {
 				Rank:  2,
 			},
 		},
-		Outputs: []TFTensor{
-			{
-				Name:  "output",
-				DType: DtInt8,
-				Shape: TFShape{-1, 3},
-				Rank:  2,
+		Outputs: outputTensors(),
+	}
+}
+
+func outputTensors() []TFTensor {
+	return []TFTensor{
+		{
+			Name:  "output",
+			DType: DtInt8,
+			Shape: TFShape{-1, 3},
+			Rank:  2,
+		},
+	}
+}
+
+// corresponding response schemas in row and col fmt for SignatureDef above
+func expectedResponseSchemaRowFmt() *openapi3.Schema {
+	return &openapi3.Schema{
+		Type: "object",
+		Properties: map[string]*openapi3.SchemaRef{
+			"predictions": {
+				Value: &openapi3.Schema{
+					Type: "array",
+					Items: &openapi3.SchemaRef{
+						Value: &openapi3.Schema{
+							Type:     "array",
+							MaxItems: utils.UInt64(3),
+							MinItems: 3,
+							Items: &openapi3.SchemaRef{
+								Value: &openapi3.Schema{
+									Type: "number",
+								},
+							},
+						},
+					},
+				},
 			},
 		},
+		Required:                    []string{"predictions"},
+		AdditionalPropertiesAllowed: utils.Bool(false),
+	}
+
+}
+func expectedResponseSchemaColFmt() *openapi3.Schema {
+	return &openapi3.Schema{
+		Type: "object",
+		Properties: map[string]*openapi3.SchemaRef{
+			"outputs": {
+				Value: &openapi3.Schema{
+					Type: "array",
+					Items: &openapi3.SchemaRef{
+						Value: &openapi3.Schema{
+							Type:     "array",
+							MaxItems: utils.UInt64(3),
+							MinItems: 3,
+							Items: &openapi3.SchemaRef{
+								Value: &openapi3.Schema{
+									Type: "number",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Required:                    []string{"outputs"},
+		AdditionalPropertiesAllowed: utils.Bool(false),
 	}
 }
 
@@ -102,51 +163,155 @@ func TestCreateTFSignatureDefWithErrMethod(t *testing.T) {
 	g.Expect(err).Should(gomega.MatchError(expectedErr))
 }
 
-func TestTFSignatureDefRowSchemaMultipleTensors(t *testing.T) {
+func TestTFSignatureDefVariousFmt(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	tfSigDef := TFSignatureDef{
-		Key: "Signature Def Key",
-		Inputs: []TFTensor{
-			{
-				Name:  "signal",
-				DType: DtInt8,
-				Shape: TFShape{-1, 5},
-				Rank:  2,
+	scenarios := map[string]struct {
+		tfSigDef               TFSignatureDef
+		expectedRequestSchema  *openapi3.Schema
+		expectedResponseSchema *openapi3.Schema
+	}{
+		"RowSchemaMultipleTensors": {
+			tfSigDef: TFSignatureDef{
+				Key: "Signature Def Key",
+				Inputs: []TFTensor{
+					{
+						Name:  "signal",
+						DType: DtInt8,
+						Shape: TFShape{-1, 5},
+						Rank:  2,
+					},
+					{
+						Name:  "sensor",
+						DType: DtInt8,
+						Shape: TFShape{-1, 2, 2},
+						Rank:  3,
+					},
+				},
+				Outputs: outputTensors(),
 			},
-			{
-				Name:  "sensor",
-				DType: DtInt8,
-				Shape: TFShape{-1, 2, 2},
-				Rank:  3,
+			expectedRequestSchema: &openapi3.Schema{
+				Type: "object",
+				Properties: map[string]*openapi3.SchemaRef{
+					"instances": {
+						Value: &openapi3.Schema{
+							Type: "array",
+							Items: &openapi3.SchemaRef{
+								Value: &openapi3.Schema{
+									Type: "object",
+									Properties: map[string]*openapi3.SchemaRef{
+										"signal": {
+											Value: &openapi3.Schema{
+												Type:     "array",
+												MaxItems: utils.UInt64(5),
+												MinItems: 5,
+												Items: &openapi3.SchemaRef{
+													Value: &openapi3.Schema{
+														Type: "number",
+													},
+												},
+											},
+										},
+										"sensor": {
+											Value: &openapi3.Schema{
+												Type:     "array",
+												MaxItems: utils.UInt64(2),
+												MinItems: 2,
+												Items: &openapi3.SchemaRef{
+													Value: &openapi3.Schema{
+														Type:     "array",
+														MaxItems: utils.UInt64(2),
+														MinItems: 2,
+														Items: &openapi3.SchemaRef{
+															Value: &openapi3.Schema{
+																Type: "number",
+															},
+														},
+													},
+												},
+											},
+										},
+									},
+									Required:                    []string{"signal", "sensor"},
+									AdditionalPropertiesAllowed: utils.Bool(false),
+								},
+							},
+						},
+					},
+				},
+				Required:                    []string{"instances"},
+				AdditionalPropertiesAllowed: utils.Bool(false),
 			},
+			expectedResponseSchema: expectedResponseSchemaRowFmt(),
 		},
-		Outputs: []TFTensor{
-			{
-				Name:  "output",
-				DType: DtInt8,
-				Shape: TFShape{-1, 3},
-				Rank:  2,
+		"RowSchemaSingleTensor": {
+			tfSigDef: expectedTFSignatureDef(),
+			expectedRequestSchema: &openapi3.Schema{
+				Type: "object",
+				Properties: map[string]*openapi3.SchemaRef{
+					"instances": {
+						Value: &openapi3.Schema{
+							Type: "array",
+							Items: &openapi3.SchemaRef{
+								Value: &openapi3.Schema{
+									Type:     "array",
+									MaxItems: utils.UInt64(3),
+									MinItems: 3,
+									Items: &openapi3.SchemaRef{
+										Value: &openapi3.Schema{
+											Type: "number",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				Required:                    []string{"instances"},
+				AdditionalPropertiesAllowed: utils.Bool(false),
 			},
+			expectedResponseSchema: expectedResponseSchemaRowFmt(),
 		},
-	}
-	expectedSchema := &openapi3.Schema{
-		Type: "object",
-		Properties: map[string]*openapi3.SchemaRef{
-			"instances": {
-				Value: &openapi3.Schema{
-					Type: "array",
-					Items: &openapi3.SchemaRef{
+		"ColSchemaMultipleTensors": {
+			tfSigDef: TFSignatureDef{
+				Key: "Signature Def Key",
+				Inputs: []TFTensor{
+					{
+						Name:  "signal",
+						DType: DtInt8,
+						Shape: TFShape{2, 5},
+						Rank:  2,
+					},
+					{
+						Name:  "sensor",
+						DType: DtInt8,
+						Shape: TFShape{2, 2, 2},
+						Rank:  3,
+					},
+				},
+				Outputs: outputTensors(),
+			},
+			expectedRequestSchema: &openapi3.Schema{
+				Type: "object",
+				Properties: map[string]*openapi3.SchemaRef{
+					"inputs": {
 						Value: &openapi3.Schema{
 							Type: "object",
 							Properties: map[string]*openapi3.SchemaRef{
 								"signal": {
 									Value: &openapi3.Schema{
 										Type:     "array",
-										MaxItems: utils.UInt64(5),
-										MinItems: 5,
+										MaxItems: utils.UInt64(2),
+										MinItems: 2,
 										Items: &openapi3.SchemaRef{
 											Value: &openapi3.Schema{
-												Type: "number",
+												Type:     "array",
+												MaxItems: utils.UInt64(5),
+												MinItems: 5,
+												Items: &openapi3.SchemaRef{
+													Value: &openapi3.Schema{
+														Type: "number",
+													},
+												},
 											},
 										},
 									},
@@ -163,7 +328,14 @@ func TestTFSignatureDefRowSchemaMultipleTensors(t *testing.T) {
 												MinItems: 2,
 												Items: &openapi3.SchemaRef{
 													Value: &openapi3.Schema{
-														Type: "number",
+														Type:     "array",
+														MaxItems: utils.UInt64(2),
+														MinItems: 2,
+														Items: &openapi3.SchemaRef{
+															Value: &openapi3.Schema{
+																Type: "number",
+															},
+														},
 													},
 												},
 											},
@@ -176,329 +348,187 @@ func TestTFSignatureDefRowSchemaMultipleTensors(t *testing.T) {
 						},
 					},
 				},
+				Required:                    []string{"inputs"},
+				AdditionalPropertiesAllowed: utils.Bool(false),
 			},
+			expectedResponseSchema: expectedResponseSchemaColFmt(),
 		},
-		Required:                    []string{"instances"},
-		AdditionalPropertiesAllowed: utils.Bool(false),
-	}
-
-	schema, err := tfSigDef.Schema()
-	g.Expect(schema).Should(gomega.Equal(expectedSchema))
-	g.Expect(err).To(gomega.BeNil())
-}
-
-func TestTFSignatureDefRowSchemaSingleTensor(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-	tfSigDef := expectedTFSignatureDef()
-	expectedSchema := &openapi3.Schema{
-		Type: "object",
-		Properties: map[string]*openapi3.SchemaRef{
-			"instances": {
-				Value: &openapi3.Schema{
-					Type: "array",
-					Items: &openapi3.SchemaRef{
+		"ColSchemaSingleTensor": {
+			tfSigDef: TFSignatureDef{
+				Key: "Signature Def Key",
+				Inputs: []TFTensor{
+					{
+						Name:  "signal",
+						DType: DtInt8,
+						Shape: TFShape{2, 5},
+						Rank:  2,
+					},
+				},
+				Outputs: outputTensors(),
+			}, expectedRequestSchema: &openapi3.Schema{
+				Type: "object",
+				Properties: map[string]*openapi3.SchemaRef{
+					"inputs": {
 						Value: &openapi3.Schema{
 							Type:     "array",
-							MaxItems: utils.UInt64(3),
-							MinItems: 3,
+							MaxItems: utils.UInt64(2),
+							MinItems: 2,
 							Items: &openapi3.SchemaRef{
 								Value: &openapi3.Schema{
-									Type: "number",
+									Type:     "array",
+									MaxItems: utils.UInt64(5),
+									MinItems: 5,
+									Items: &openapi3.SchemaRef{
+										Value: &openapi3.Schema{
+											Type: "number",
+										},
+									},
 								},
 							},
 						},
 					},
 				},
-			},
+				Required:                    []string{"inputs"},
+				AdditionalPropertiesAllowed: utils.Bool(false),
+			}, expectedResponseSchema: expectedResponseSchemaColFmt(),
 		},
-		Required:                    []string{"instances"},
-		AdditionalPropertiesAllowed: utils.Bool(false),
+		"UnknownRank": {
+			tfSigDef: TFSignatureDef{
+				Key: "Signature Def Key",
+				Inputs: []TFTensor{
+					{
+						Name:  "signal",
+						DType: DtInt8,
+						Rank:  -1,
+					},
+				},
+				Outputs: outputTensors(),
+			},
+			expectedRequestSchema: &openapi3.Schema{
+				Type: "object",
+				Properties: map[string]*openapi3.SchemaRef{
+					"inputs": {
+						Value: &openapi3.Schema{},
+					},
+				},
+				Required:                    []string{"inputs"},
+				AdditionalPropertiesAllowed: utils.Bool(false),
+			},
+			expectedResponseSchema: expectedResponseSchemaColFmt(),
+		},
+		"Scalar": {
+			tfSigDef: TFSignatureDef{
+				Key: "Signature Def Key",
+				Inputs: []TFTensor{
+					{
+						Name:  "signal",
+						DType: DtInt8,
+						Shape: TFShape{},
+						Rank:  0,
+					},
+				},
+				Outputs: outputTensors(),
+			},
+			expectedRequestSchema: &openapi3.Schema{
+				Type: "object",
+				Properties: map[string]*openapi3.SchemaRef{
+					"inputs": {
+						Value: &openapi3.Schema{
+							Type: "number",
+						},
+					},
+				},
+				Required:                    []string{"inputs"},
+				AdditionalPropertiesAllowed: utils.Bool(false),
+			},
+			expectedResponseSchema: expectedResponseSchemaColFmt(),
+		},
+		"MultipleScalar": {
+			tfSigDef: TFSignatureDef{
+				Key: "Signature Def Key",
+				Inputs: []TFTensor{
+					{
+						Name:  "signal",
+						DType: DtInt8,
+						Shape: TFShape{},
+						Rank:  0,
+					},
+					{
+						Name:  "sensor",
+						DType: DtInt8,
+						Shape: TFShape{},
+						Rank:  0,
+					},
+				},
+				Outputs: outputTensors(),
+			},
+			expectedRequestSchema: &openapi3.Schema{
+				Type: "object",
+				Properties: map[string]*openapi3.SchemaRef{
+					"inputs": {
+						Value: &openapi3.Schema{
+							Type: "object",
+							Properties: map[string]*openapi3.SchemaRef{
+								"signal": {
+									Value: &openapi3.Schema{
+										Type: "number",
+									},
+								},
+								"sensor": {
+									Value: &openapi3.Schema{
+										Type: "number",
+									},
+								},
+							},
+							Required:                    []string{"signal", "sensor"},
+							AdditionalPropertiesAllowed: utils.Bool(false),
+						},
+					},
+				},
+				Required:                    []string{"inputs"},
+				AdditionalPropertiesAllowed: utils.Bool(false),
+			},
+			expectedResponseSchema: expectedResponseSchemaColFmt(),
+		},
 	}
-	schema, err := tfSigDef.Schema()
-	g.Expect(schema).Should(gomega.Equal(expectedSchema))
-	g.Expect(err).To(gomega.BeNil())
+	for name, scenario := range scenarios {
+		t.Logf("Running %s ...", name)
+		requestSchema, responseSchema, err := scenario.tfSigDef.Schema()
+		g.Expect(requestSchema).Should(gomega.Equal(scenario.expectedRequestSchema))
+		g.Expect(responseSchema).Should(gomega.Equal(scenario.expectedResponseSchema))
+		g.Expect(err).To(gomega.BeNil())
+	}
 }
-
 func TestTFSignatureDefNonPredict(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	tfSigDef := expectedTFSignatureDef()
 	tfSigDef.Method = Classify
-	_, err := tfSigDef.Schema()
+	_, _, err := tfSigDef.Schema()
 	g.Expect(err).To(gomega.MatchError(UnsupportedAPISchemaError))
 }
 
-func TestTFSignatureDefColSchemaMultipleTensors(t *testing.T) {
+func TestTFSignatureDefInconsistentInputOutputFormatError(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	tfSigDef := TFSignatureDef{
-		Key: "Signature Def Key",
+		Key:    "Signature Def Key",
+		Method: Predict,
 		Inputs: []TFTensor{
 			{
-				Name:  "signal",
-				DType: DtInt8,
-				Shape: TFShape{2, 5},
-				Rank:  2,
-			},
-			{
-				Name:  "sensor",
-				DType: DtInt8,
-				Shape: TFShape{2, 2, 2},
-				Rank:  3,
-			},
-		},
-		Outputs: []TFTensor{
-			{
-				Name:  "output",
+				Name:  "input",
 				DType: DtInt8,
 				Shape: TFShape{-1, 3},
-				Rank:  2,
-			},
-		},
-	}
-	expectedSchema := &openapi3.Schema{
-		Type: "object",
-		Properties: map[string]*openapi3.SchemaRef{
-			"inputs": {
-				Value: &openapi3.Schema{
-					Type: "object",
-					Properties: map[string]*openapi3.SchemaRef{
-						"signal": {
-							Value: &openapi3.Schema{
-								Type:     "array",
-								MaxItems: utils.UInt64(2),
-								MinItems: 2,
-								Items: &openapi3.SchemaRef{
-									Value: &openapi3.Schema{
-										Type:     "array",
-										MaxItems: utils.UInt64(5),
-										MinItems: 5,
-										Items: &openapi3.SchemaRef{
-											Value: &openapi3.Schema{
-												Type: "number",
-											},
-										},
-									},
-								},
-							},
-						},
-						"sensor": {
-							Value: &openapi3.Schema{
-								Type:     "array",
-								MaxItems: utils.UInt64(2),
-								MinItems: 2,
-								Items: &openapi3.SchemaRef{
-									Value: &openapi3.Schema{
-										Type:     "array",
-										MaxItems: utils.UInt64(2),
-										MinItems: 2,
-										Items: &openapi3.SchemaRef{
-											Value: &openapi3.Schema{
-												Type:     "array",
-												MaxItems: utils.UInt64(2),
-												MinItems: 2,
-												Items: &openapi3.SchemaRef{
-													Value: &openapi3.Schema{
-														Type: "number",
-													},
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-					Required:                    []string{"signal", "sensor"},
-					AdditionalPropertiesAllowed: utils.Bool(false),
-				},
-			},
-		},
-		Required:                    []string{"inputs"},
-		AdditionalPropertiesAllowed: utils.Bool(false),
-	}
-	schema, err := tfSigDef.Schema()
-	g.Expect(schema).Should(gomega.Equal(expectedSchema))
-	g.Expect(err).To(gomega.BeNil())
-}
-
-func TestTFSignatureDefColSchemaSingleTensor(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-	tfSigDef := TFSignatureDef{
-		Key: "Signature Def Key",
-		Inputs: []TFTensor{
-			{
-				Name:  "signal",
-				DType: DtInt8,
-				Shape: TFShape{2, 5},
 				Rank:  2,
 			},
 		},
 		Outputs: []TFTensor{
 			{
 				Name:  "output",
-				DType: DtInt8,
-				Shape: TFShape{-1, 3},
-				Rank:  2,
-			},
-		},
-	}
-	expectedSchema := &openapi3.Schema{
-		Type: "object",
-		Properties: map[string]*openapi3.SchemaRef{
-			"inputs": {
-				Value: &openapi3.Schema{
-					Type:     "array",
-					MaxItems: utils.UInt64(2),
-					MinItems: 2,
-					Items: &openapi3.SchemaRef{
-						Value: &openapi3.Schema{
-							Type:     "array",
-							MaxItems: utils.UInt64(5),
-							MinItems: 5,
-							Items: &openapi3.SchemaRef{
-								Value: &openapi3.Schema{
-									Type: "number",
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-		Required:                    []string{"inputs"},
-		AdditionalPropertiesAllowed: utils.Bool(false),
-	}
-	schema, err := tfSigDef.Schema()
-	g.Expect(schema).Should(gomega.Equal(expectedSchema))
-	g.Expect(err).To(gomega.BeNil())
-}
-
-func TestTFSignatureDefSchemaUnknownRank(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-	tfSigDef := TFSignatureDef{
-		Key: "Signature Def Key",
-		Inputs: []TFTensor{
-			{
-				Name:  "signal",
 				DType: DtInt8,
 				Rank:  -1,
 			},
 		},
-		Outputs: []TFTensor{
-			{
-				Name:  "output",
-				DType: DtInt8,
-				Shape: TFShape{-1, 3},
-				Rank:  2,
-			},
-		},
 	}
-	expectedSchema := &openapi3.Schema{
-		Type: "object",
-		Properties: map[string]*openapi3.SchemaRef{
-			"inputs": {
-				Value: &openapi3.Schema{},
-			},
-		},
-		Required:                    []string{"inputs"},
-		AdditionalPropertiesAllowed: utils.Bool(false),
-	}
-	schema, err := tfSigDef.Schema()
-	g.Expect(schema).Should(gomega.Equal(expectedSchema))
-	g.Expect(err).To(gomega.BeNil())
-}
+	_, _, err := tfSigDef.Schema()
+	g.Expect(err).Should(gomega.MatchError(InconsistentInputOutputFormatError))
 
-func TestTFSignatureDefSchemaScalar(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-	tfSigDef := TFSignatureDef{
-		Key: "Signature Def Key",
-		Inputs: []TFTensor{
-			{
-				Name:  "signal",
-				DType: DtInt8,
-				Shape: TFShape{},
-				Rank:  0,
-			},
-		},
-		Outputs: []TFTensor{
-			{
-				Name:  "output",
-				DType: DtInt8,
-				Shape: TFShape{-1, 3},
-				Rank:  2,
-			},
-		},
-	}
-	expectedSchema := &openapi3.Schema{
-		Type: "object",
-		Properties: map[string]*openapi3.SchemaRef{
-			"inputs": {
-				Value: &openapi3.Schema{
-					Type: "number",
-				},
-			},
-		},
-		Required:                    []string{"inputs"},
-		AdditionalPropertiesAllowed: utils.Bool(false),
-	}
-	schema, err := tfSigDef.Schema()
-	g.Expect(schema).Should(gomega.Equal(expectedSchema))
-	g.Expect(err).To(gomega.BeNil())
-}
-
-func TestTFSignatureDefSchemaMultipleScalar(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-	tfSigDef := TFSignatureDef{
-		Key: "Signature Def Key",
-		Inputs: []TFTensor{
-			{
-				Name:  "signal",
-				DType: DtInt8,
-				Shape: TFShape{},
-				Rank:  0,
-			},
-			{
-				Name:  "sensor",
-				DType: DtInt8,
-				Shape: TFShape{},
-				Rank:  0,
-			},
-		},
-		Outputs: []TFTensor{
-			{
-				Name:  "output",
-				DType: DtInt8,
-				Shape: TFShape{-1, 3},
-				Rank:  2,
-			},
-		},
-	}
-	expectedSchema := &openapi3.Schema{
-		Type: "object",
-		Properties: map[string]*openapi3.SchemaRef{
-			"inputs": {
-				Value: &openapi3.Schema{
-					Type: "object",
-					Properties: map[string]*openapi3.SchemaRef{
-						"signal": {
-							Value: &openapi3.Schema{
-								Type: "number",
-							},
-						},
-						"sensor": {
-							Value: &openapi3.Schema{
-								Type: "number",
-							},
-						},
-					},
-					Required:                    []string{"signal", "sensor"},
-					AdditionalPropertiesAllowed: utils.Bool(false),
-				},
-			},
-		},
-		Required:                    []string{"inputs"},
-		AdditionalPropertiesAllowed: utils.Bool(false),
-	}
-	schema, err := tfSigDef.Schema()
-	g.Expect(schema).Should(gomega.Equal(expectedSchema))
-	g.Expect(err).To(gomega.BeNil())
 }
