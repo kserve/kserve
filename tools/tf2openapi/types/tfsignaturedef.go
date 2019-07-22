@@ -28,6 +28,13 @@ const (
 	Regress
 )
 
+type schemaType int
+
+const (
+	request schemaType = iota
+	response
+)
+
 //Known error messages
 const (
 	UnsupportedSignatureMethodError = "signature (%s) contains unsupported method (%s)"
@@ -79,69 +86,19 @@ func NewTFMethod(key string, method string) (TFMethod, error) {
 	return tfMethod, nil
 }
 
-func (t *TFSignatureDef) Schema(schemaType SchemaType) (*openapi3.Schema, error) {
+func (t *TFSignatureDef) Schema() (*openapi3.Schema, *openapi3.Schema, error) {
 	if t.Method != Predict {
-		return &openapi3.Schema{}, errors.New(UnsupportedAPISchemaError)
+		return &openapi3.Schema{}, &openapi3.Schema{}, errors.New(UnsupportedAPISchemaError)
 	}
 	// response format follows request format
 	// https://www.tensorflow.org/tfx/serving/api_rest#response_format_4
 	if canHaveRowSchema(t.Inputs) {
-		return t.rowFormatWrapper(schemaType), nil
+		requestSchema, responseSchema := t.rowFormatWrapper()
+		return requestSchema, responseSchema, nil
 	}
 
-	return t.colFormatWrapper(schemaType), nil
-}
-
-func (t *TFSignatureDef) rowFormatWrapper(schemaType SchemaType) *openapi3.Schema {
-	// https://www.tensorflow.org/tfx/serving/api_rest#specifying_input_tensors_in_row_format
-	schema, ok := map[SchemaType]*openapi3.Schema{
-		Request: {
-			Type: "object",
-			Properties: map[string]*openapi3.SchemaRef{
-				"instances": rowSchema(t.Inputs).NewRef(),
-			},
-			Required:                    []string{"instances"},
-			AdditionalPropertiesAllowed: utils.Bool(false),
-		},
-		Response: {
-			Type: "object",
-			Properties: map[string]*openapi3.SchemaRef{
-				"predictions": rowSchema(t.Outputs).NewRef(),
-			},
-			Required:                    []string{"predictions"},
-			AdditionalPropertiesAllowed: utils.Bool(false),
-		},
-	}[schemaType]
-	if !ok {
-		panic(fmt.Sprintf("valid schema type (%v) not mapped to schema", schemaType))
-	}
-	return schema
-}
-
-func (t *TFSignatureDef) colFormatWrapper(schemaType SchemaType) *openapi3.Schema {
-	// https://www.tensorflow.org/tfx/serving/api_rest#specifying_input_tensors_in_column_format
-	schema, ok := map[SchemaType]*openapi3.Schema{
-		Request: {
-			Type: "object",
-			Properties: map[string]*openapi3.SchemaRef{
-				"inputs": colSchema(t.Inputs).NewRef(),
-			},
-			Required:                    []string{"inputs"},
-			AdditionalPropertiesAllowed: utils.Bool(false),
-		},
-		Response: {
-			Type: "object",
-			Properties: map[string]*openapi3.SchemaRef{
-				"outputs": colSchema(t.Outputs).NewRef(),
-			},
-			Required:                    []string{"outputs"},
-			AdditionalPropertiesAllowed: utils.Bool(false),
-		},
-	}[schemaType]
-	if !ok {
-		panic(fmt.Sprintf("valid schema type (%v) not mapped to schema", schemaType))
-	}
-	return schema
+	requestSchema, responseSchema := t.colFormatWrapper()
+	return requestSchema, responseSchema, nil
 }
 
 func canHaveRowSchema(t []TFTensor) bool {
@@ -156,6 +113,44 @@ func canHaveRowSchema(t []TFTensor) bool {
 		}
 	}
 	return true
+}
+
+func (t *TFSignatureDef) rowFormatWrapper() (*openapi3.Schema, *openapi3.Schema) {
+	// https://www.tensorflow.org/tfx/serving/api_rest#specifying_input_tensors_in_row_format
+	return &openapi3.Schema{
+		Type: "object",
+		Properties: map[string]*openapi3.SchemaRef{
+			"instances": rowSchema(t.Inputs).NewRef(),
+		},
+		Required:                    []string{"instances"},
+		AdditionalPropertiesAllowed: utils.Bool(false),
+	}, &openapi3.Schema{
+		Type: "object",
+		Properties: map[string]*openapi3.SchemaRef{
+			"predictions": rowSchema(t.Outputs).NewRef(),
+		},
+		Required:                    []string{"predictions"},
+		AdditionalPropertiesAllowed: utils.Bool(false),
+	}
+}
+
+func (t *TFSignatureDef) colFormatWrapper() (*openapi3.Schema, *openapi3.Schema) {
+	// https://www.tensorflow.org/tfx/serving/api_rest#specifying_input_tensors_in_column_format
+	return &openapi3.Schema{
+		Type: "object",
+		Properties: map[string]*openapi3.SchemaRef{
+			"inputs": colSchema(t.Inputs).NewRef(),
+		},
+		Required:                    []string{"inputs"},
+		AdditionalPropertiesAllowed: utils.Bool(false),
+	}, &openapi3.Schema{
+		Type: "object",
+		Properties: map[string]*openapi3.SchemaRef{
+			"outputs": colSchema(t.Outputs).NewRef(),
+		},
+		Required:                    []string{"outputs"},
+		AdditionalPropertiesAllowed: utils.Bool(false),
+	}
 }
 
 func rowSchema(t []TFTensor) *openapi3.Schema {

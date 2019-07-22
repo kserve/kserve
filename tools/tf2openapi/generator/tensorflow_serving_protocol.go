@@ -17,13 +17,9 @@ const (
 
 
 func (g *Generator) tfServingOpenAPI(model types.TFSavedModel) (*openapi3.Swagger, error) {
-	schema, err := model.Schema(g.metaGraphTags, g.sigDefKey, types.Request)
+	requestSchema, responseSchema, err := model.Schema(g.metaGraphTags, g.sigDefKey)
 	if err != nil {
 		return &openapi3.Swagger{}, err
-	}
-	responseSchema, err := model.Schema(g.metaGraphTags, g.sigDefKey, types.Response)
-	if err != nil {
-		panic(fmt.Sprintf("outputs incompatible with request format: %v" , err))
 	}
 	return &openapi3.Swagger{
 		OpenAPI: "3.0.0",
@@ -39,7 +35,7 @@ func (g *Generator) tfServingOpenAPI(model types.TFSavedModel) (*openapi3.Swagge
 			RequestBodies: map[string]*openapi3.RequestBodyRef{
 				requestName: {
 					Value: &openapi3.RequestBody{
-						Content: openapi3.NewContentWithJSONSchema(schema),
+						Content: openapi3.NewContentWithJSONSchema(requestSchema),
 					},
 				},
 			},
