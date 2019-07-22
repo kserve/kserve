@@ -28,17 +28,11 @@ const (
 	Regress
 )
 
-type schemaType int
-
-const (
-	request schemaType = iota
-	response
-)
-
 //Known error messages
 const (
-	UnsupportedSignatureMethodError = "signature (%s) contains unsupported method (%s)"
-	UnsupportedAPISchemaError       = "schemas for classify/regress APIs currently not supported"
+	UnsupportedSignatureMethodError        = "signature (%s) contains unsupported method (%s)"
+	UnsupportedAPISchemaError              = "schemas for classify/regress APIs currently not supported"
+	InconsistentInputOutputFormatError = "expecting all output tensors to have -1 in 0th dimension, like the input tensors"
 )
 
 func NewTFSignatureDef(key string, method string, inputs map[string]*pb.TensorInfo, outputs map[string]*pb.TensorInfo) (TFSignatureDef, error) {
@@ -93,6 +87,9 @@ func (t *TFSignatureDef) Schema() (*openapi3.Schema, *openapi3.Schema, error) {
 	// response format follows request format
 	// https://www.tensorflow.org/tfx/serving/api_rest#response_format_4
 	if canHaveRowSchema(t.Inputs) {
+		if !canHaveRowSchema(t.Outputs) {
+			return &openapi3.Schema{}, &openapi3.Schema{}, errors.New(InconsistentInputOutputFormatError)
+		}
 		requestSchema, responseSchema := t.rowFormatWrapper()
 		return requestSchema, responseSchema, nil
 	}

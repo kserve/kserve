@@ -106,7 +106,7 @@ func TestNewTFSavedModelWithErrMetaGraph(t *testing.T) {
 func TestTFSavedModelTypical(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	tfSavedModel := expectedTFSavedModel()
-	expectedSchema := &openapi3.Schema{
+	expectedRequestSchema := &openapi3.Schema{
 		Type: "object",
 		Properties: map[string]*openapi3.SchemaRef{
 			"instances": {
@@ -130,15 +130,40 @@ func TestTFSavedModelTypical(t *testing.T) {
 		Required: []string{"instances"},
 		AdditionalPropertiesAllowed: func(b bool) *bool {return &b}(false),
 	}
-	schema, err := tfSavedModel.Schema([]string{"serve"}, "sigDefKey", Request)
-	g.Expect(schema).Should(gomega.Equal(expectedSchema))
+	expectedResponseSchema := &openapi3.Schema{
+		Type: "object",
+		Properties: map[string]*openapi3.SchemaRef{
+			"predictions": {
+				Value: &openapi3.Schema{
+					Type: "array",
+					Items: &openapi3.SchemaRef{
+						Value: &openapi3.Schema{
+							Type:     "array",
+							MaxItems: func(u uint64) *uint64 { return &u }(3),
+							MinItems: 3,
+							Items: &openapi3.SchemaRef{
+								Value: &openapi3.Schema{
+									Type: "number",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Required: []string{"predictions"},
+		AdditionalPropertiesAllowed: func(b bool) *bool {return &b}(false),
+	}
+	requestSchema,responseSchema, err := tfSavedModel.Schema([]string{"serve"}, "sigDefKey")
+	g.Expect(requestSchema).Should(gomega.Equal(expectedRequestSchema))
+	g.Expect(responseSchema).Should(gomega.Equal(expectedResponseSchema))
 	g.Expect(err).To(gomega.BeNil())
 }
 
 func TestTFSavedModelMissingMetaGraph(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	tfSavedModel := expectedTFSavedModel()
-	_, err := tfSavedModel.Schema([]string{"serve", "missing"}, "sigDefKey", Request)
+	_,_, err := tfSavedModel.Schema([]string{"serve", "missing"}, "sigDefKey")
 	expectedErr := fmt.Sprintf(MetaGraphNotFoundError, "[missing serve]")
 	expectedErrPermuted := fmt.Sprintf(MetaGraphNotFoundError, "[serve missing]")
 	g.Expect(err).To(gomega.Or(gomega.MatchError(expectedErr), gomega.MatchError(expectedErrPermuted)))
@@ -147,7 +172,7 @@ func TestTFSavedModelMissingMetaGraph(t *testing.T) {
 func TestTFSavedModelErrMetaGraph(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	tfSavedModel := expectedTFSavedModel()
-	_, err := tfSavedModel.Schema([]string{"serve"}, "missingSigDefKey", Request)
+	_,_, err := tfSavedModel.Schema([]string{"serve"}, "missingSigDefKey")
 	expectedErr := fmt.Sprintf(SignatureDefNotFoundError, "missingSigDefKey")
 	g.Expect(err).To(gomega.MatchError(expectedErr))
 }
