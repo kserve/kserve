@@ -114,6 +114,65 @@ func TestKnativeRoute(t *testing.T) {
 				},
 			},
 		},
+		"TestAnnotations": {
+			kfService: v1alpha1.KFService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "mnist",
+					Namespace: "default",
+					Annotations: map[string]string{
+						"sourceName": "srcName",
+						"prop1":      "val1",
+						"kubectl.kubernetes.io/last-applied-configuration": "test1",
+					},
+				},
+				Spec: v1alpha1.KFServiceSpec{
+					Default: v1alpha1.ModelSpec{
+						Tensorflow: &v1alpha1.TensorflowSpec{
+							ModelURI:       "s3://test/mnist/export",
+							RuntimeVersion: "1.13.0",
+						},
+					},
+					CanaryTrafficPercent: 20,
+					Canary: &v1alpha1.ModelSpec{
+						Tensorflow: &v1alpha1.TensorflowSpec{
+							ModelURI:       "s3://test/mnist-2/export",
+							RuntimeVersion: "1.13.0",
+						},
+					},
+				},
+				Status: v1alpha1.KFServiceStatus{
+					Default: v1alpha1.StatusConfigurationSpec{
+						Name: "v1",
+					},
+				},
+			},
+			expectedRoute: &knservingv1alpha1.Route{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "mnist",
+					Namespace: "default",
+					Annotations: map[string]string{
+						"sourceName": "srcName",
+						"prop1":      "val1",
+					},
+				},
+				Spec: knservingv1alpha1.RouteSpec{
+					Traffic: []knservingv1alpha1.TrafficTarget{
+						{
+							TrafficTarget: v1beta1.TrafficTarget{
+								ConfigurationName: "mnist-default",
+								Percent:           80,
+							},
+						},
+						{
+							TrafficTarget: v1beta1.TrafficTarget{
+								ConfigurationName: "mnist-canary",
+								Percent:           20,
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 
 	for name, scenario := range scenarios {

@@ -24,23 +24,23 @@ import (
 
 func TestFilterUtil(t *testing.T) {
 	scenarios := map[string]struct {
-		input     map[string]string
-		predicate func(string) bool
-		expected  map[string]string
+		input    map[string]string
+		filter   map[string]struct{}
+		expected map[string]string
 	}{
 		"TruthyFilter": {
-			input:     map[string]string{"key1": "val1", "key2": "val2"},
-			predicate: func(key string) bool { return true },
-			expected:  map[string]string{"key1": "val1", "key2": "val2"},
+			input:    map[string]string{"key1": "val1", "key2": "val2"},
+			filter:   map[string]struct{}{},
+			expected: map[string]string{"key1": "val1", "key2": "val2"},
 		},
 		"FalsyFilter": {
-			input:     map[string]string{"key1": "val1", "key2": "val2"},
-			predicate: func(key string) bool { return false },
-			expected:  map[string]string{},
+			input:    map[string]string{"key1": "val1", "key2": "val2"},
+			filter:   map[string]struct{}{"key1": {}, "key2": {}},
+			expected: map[string]string{},
 		},
 	}
 	for name, scenario := range scenarios {
-		result := Filter(scenario.input, scenario.predicate)
+		result := Filter(scenario.input, scenario.filter)
 
 		if diff := cmp.Diff(scenario.expected, result); diff != "" {
 			t.Errorf("Test %q unexpected result (-want +got): %v", name, diff)
