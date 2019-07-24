@@ -122,7 +122,7 @@ func TestKnativeRoute(t *testing.T) {
 					Annotations: map[string]string{
 						"sourceName": "srcName",
 						"prop1":      "val1",
-						"kubectl.kubernetes.io/last-applied-configuration" : "test1",
+						"kubectl.kubernetes.io/last-applied-configuration": "test1",
 					},
 				},
 				Spec: v1alpha1.KFServiceSpec{

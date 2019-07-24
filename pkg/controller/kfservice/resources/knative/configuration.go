@@ -37,6 +37,13 @@ const (
 	FrameworkConfigKeyName = "frameworks"
 )
 
+var ConfigurationAnnotationDisallowedList = map[string]struct{}{
+	autoscaling.MinScaleAnnotationKey:                        {},
+	autoscaling.MaxScaleAnnotationKey:                        {},
+	constants.ModelInitializerSourceUriInternalAnnotationKey: {},
+	"kubectl.kubernetes.io/last-applied-configuration":       {},
+}
+
 type ConfigurationBuilder struct {
 	frameworksConfig  *v1alpha1.FrameworksConfig
 	credentialBuilder *credentials.CredentialBuilder
@@ -59,7 +66,7 @@ func NewConfigurationBuilder(client client.Client, config *v1.ConfigMap) *Config
 
 func (c *ConfigurationBuilder) CreateKnativeConfiguration(name string, metadata metav1.ObjectMeta, modelSpec *v1alpha1.ModelSpec) (*knservingv1alpha1.Configuration, error) {
 	kfsvcAnnotations := make(map[string]string)
-	filteredAnnotations := utils.Filter(metadata.Annotations, configurationAnnotationFilter)
+	filteredAnnotations := utils.Filter(metadata.Annotations, ConfigurationAnnotationDisallowedList)
 	if len(filteredAnnotations) > 0 {
 		kfsvcAnnotations = filteredAnnotations
 	}
@@ -127,19 +134,4 @@ func (c *ConfigurationBuilder) CreateKnativeConfiguration(name string, metadata 
 	}
 
 	return configuration, nil
-}
-
-func configurationAnnotationFilter(annotationKey string) bool {
-	switch annotationKey {
-	case autoscaling.MinScaleAnnotationKey:
-		return false
-	case autoscaling.MaxScaleAnnotationKey:
-		return false
-	case constants.ModelInitializerSourceUriInternalAnnotationKey:
-		return false
-	case "kubectl.kubernetes.io/last-applied-configuration":
-		return false
-	default:
-		return true
-	}
 }

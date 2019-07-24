@@ -358,7 +358,7 @@ func TestKnativeConfiguration(t *testing.T) {
 						"autoscaling.knative.dev/minScale": "2",
 						"autoscaling.knative.dev/target":   "2",
 						constants.ModelInitializerSourceUriInternalAnnotationKey: "test",
-						"kubectl.kubernetes.io/last-applied-configuration": "test2",
+						"kubectl.kubernetes.io/last-applied-configuration":       "test2",
 					},
 				},
 				Spec: v1alpha1.KFServiceSpec{
@@ -377,7 +377,7 @@ func TestKnativeConfiguration(t *testing.T) {
 					Namespace: "default",
 				},
 				Spec: knservingv1alpha1.ConfigurationSpec{
-					RevisionTemplate: &knservingv1alpha1.RevisionTemplateSpec{
+					Template: &knservingv1alpha1.RevisionTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{"serving.kubeflow.org/kfservice": "sklearn"},
 							Annotations: map[string]string{
@@ -392,12 +392,16 @@ func TestKnativeConfiguration(t *testing.T) {
 						Spec: knservingv1alpha1.RevisionSpec{
 							RevisionSpec: v1beta1.RevisionSpec{
 								TimeoutSeconds: &constants.DefaultTimeout,
-							},
-							Container: &v1.Container{
-								Image: v1alpha1.SKLearnServerImageName + ":" + v1alpha1.DefaultSKLearnRuntimeVersion,
-								Args: []string{
-									"--model_name=sklearn",
-									"--model_dir=" + constants.DefaultModelLocalMountPath,
+								PodSpec: v1.PodSpec{
+									Containers: []v1.Container{
+										{
+											Image: v1alpha1.SKLearnServerImageName + ":" + v1alpha1.DefaultSKLearnRuntimeVersion,
+											Args: []string{
+												"--model_name=sklearn",
+												"--model_dir=" + constants.DefaultModelLocalMountPath,
+											},
+										},
+									},
 								},
 							},
 						},

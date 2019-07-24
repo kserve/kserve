@@ -25,6 +25,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+var RouteAnnotationDisallowedList = map[string]struct{}{
+	"kubectl.kubernetes.io/last-applied-configuration": {},
+}
+
 type RouteBuilder struct {
 }
 
@@ -56,7 +60,7 @@ func (r *RouteBuilder) CreateKnativeRoute(kfsvc *v1alpha1.KFService) *knservingv
 		})
 	}
 	var kfsvcAnnotations map[string]string
-	filteredAnnotations := utils.Filter(kfsvc.Annotations, routeAnnotationFilter)
+	filteredAnnotations := utils.Filter(kfsvc.Annotations, RouteAnnotationDisallowedList)
 	if len(filteredAnnotations) > 0 {
 		kfsvcAnnotations = filteredAnnotations
 	}
@@ -70,14 +74,5 @@ func (r *RouteBuilder) CreateKnativeRoute(kfsvc *v1alpha1.KFService) *knservingv
 		Spec: knservingv1alpha1.RouteSpec{
 			Traffic: trafficTargets,
 		},
-	}
-}
-
-func routeAnnotationFilter(annotationKey string) bool {
-	switch annotationKey {
-	case "kubectl.kubernetes.io/last-applied-configuration":
-		return false
-	default:
-		return true
 	}
 }
