@@ -49,8 +49,9 @@ func TestKnativeRoute(t *testing.T) {
 			},
 			expectedRoute: &knservingv1alpha1.Route{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "mnist",
-					Namespace: "default",
+					Name:        "mnist",
+					Namespace:   "default",
+					Annotations: make(map[string]string),
 				},
 				Spec: knservingv1alpha1.RouteSpec{
 					Traffic: []knservingv1alpha1.TrafficTarget{
@@ -93,8 +94,9 @@ func TestKnativeRoute(t *testing.T) {
 			},
 			expectedRoute: &knservingv1alpha1.Route{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "mnist",
-					Namespace: "default",
+					Name:        "mnist",
+					Namespace:   "default",
+					Annotations: make(map[string]string),
 				},
 				Spec: knservingv1alpha1.RouteSpec{
 					Traffic: []knservingv1alpha1.TrafficTarget{

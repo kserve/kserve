@@ -37,11 +37,11 @@ const (
 	FrameworkConfigKeyName = "frameworks"
 )
 
-var ConfigurationAnnotationDisallowedList = map[string]struct{}{
-	autoscaling.MinScaleAnnotationKey:                        {},
-	autoscaling.MaxScaleAnnotationKey:                        {},
-	constants.ModelInitializerSourceUriInternalAnnotationKey: {},
-	"kubectl.kubernetes.io/last-applied-configuration":       {},
+var configurationAnnotationDisallowedList = []string{
+	autoscaling.MinScaleAnnotationKey,
+	autoscaling.MaxScaleAnnotationKey,
+	constants.ModelInitializerSourceUriInternalAnnotationKey,
+	"kubectl.kubernetes.io/last-applied-configuration",
 }
 
 type ConfigurationBuilder struct {
@@ -65,32 +65,30 @@ func NewConfigurationBuilder(client client.Client, config *v1.ConfigMap) *Config
 }
 
 func (c *ConfigurationBuilder) CreateKnativeConfiguration(name string, metadata metav1.ObjectMeta, modelSpec *v1alpha1.ModelSpec) (*knservingv1alpha1.Configuration, error) {
-	kfsvcAnnotations := make(map[string]string)
-	filteredAnnotations := utils.Filter(metadata.Annotations, ConfigurationAnnotationDisallowedList)
-	if len(filteredAnnotations) > 0 {
-		kfsvcAnnotations = filteredAnnotations
-	}
+	annotations := utils.Filter(metadata.Annotations, func(key string) bool {
+		return !utils.Includes(configurationAnnotationDisallowedList, key)
+	})
 
 	if modelSpec.MinReplicas != 0 {
-		kfsvcAnnotations[autoscaling.MinScaleAnnotationKey] = fmt.Sprint(modelSpec.MinReplicas)
+		annotations[autoscaling.MinScaleAnnotationKey] = fmt.Sprint(modelSpec.MinReplicas)
 	}
 	if modelSpec.MaxReplicas != 0 {
-		kfsvcAnnotations[autoscaling.MaxScaleAnnotationKey] = fmt.Sprint(modelSpec.MaxReplicas)
+		annotations[autoscaling.MaxScaleAnnotationKey] = fmt.Sprint(modelSpec.MaxReplicas)
 	}
 
 	// User can pass down scaling target annotation to overwrite the target default 1
-	if _, ok := kfsvcAnnotations[autoscaling.TargetAnnotationKey]; !ok {
-		kfsvcAnnotations[autoscaling.TargetAnnotationKey] = constants.DefaultScalingTarget
+	if _, ok := annotations[autoscaling.TargetAnnotationKey]; !ok {
+		annotations[autoscaling.TargetAnnotationKey] = constants.DefaultScalingTarget
 	}
 	// User can pass down scaling class annotation to overwrite the default scaling KPA
-	if _, ok := kfsvcAnnotations[autoscaling.ClassAnnotationKey]; !ok {
-		kfsvcAnnotations[autoscaling.ClassAnnotationKey] = autoscaling.KPA
+	if _, ok := annotations[autoscaling.ClassAnnotationKey]; !ok {
+		annotations[autoscaling.ClassAnnotationKey] = autoscaling.KPA
 	}
 
 	// KNative does not support INIT containers or mounting, so we add annotations that trigger the
 	// ModelInitializer injector to mutate the underlying deployment to provision model data
 	if sourceURI := modelSpec.GetModelSourceUri(); sourceURI != "" {
-		kfsvcAnnotations[constants.ModelInitializerSourceUriInternalAnnotationKey] = sourceURI
+		annotations[constants.ModelInitializerSourceUriInternalAnnotationKey] = sourceURI
 	}
 
 	configuration := &knservingv1alpha1.Configuration{
@@ -105,7 +103,7 @@ func (c *ConfigurationBuilder) CreateKnativeConfiguration(name string, metadata 
 					Labels: utils.Union(metadata.Labels, map[string]string{
 						constants.KFServicePodLabelKey: metadata.Name,
 					}),
-					Annotations: kfsvcAnnotations,
+					Annotations: annotations,
 				},
 				Spec: knservingv1alpha1.RevisionSpec{
 					RevisionSpec: v1beta1.RevisionSpec{

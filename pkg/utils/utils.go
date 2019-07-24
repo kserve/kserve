@@ -22,10 +22,10 @@ package utils
  * Please add functional style container operations sparingly and intentionally.
  */
 
-func Filter(origin map[string]string, filterSet map[string]struct{}) map[string]string {
+func Filter(origin map[string]string, predicate func(string) bool) map[string]string {
 	result := make(map[string]string)
 	for k, v := range origin {
-		if _, ok := filterSet[k]; !ok {
+		if predicate(k) {
 			result[k] = v
 		}
 	}
