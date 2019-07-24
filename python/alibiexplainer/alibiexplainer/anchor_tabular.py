@@ -19,7 +19,6 @@ class AnchorTabular(ExplainerWrapper):
         if self.anchors_tabular is None:
             self.prepare(**kwargs)
         else: #Overwrite predict_fn
-            self.anchors_tabular.predict_fn = predict_fn
             self._reuse_cat_map(self.anchors_tabular.categorical_names)
 
     def _reuse_cat_map(self,categorical_map: Dict):
@@ -62,6 +61,12 @@ class AnchorTabular(ExplainerWrapper):
     def explain(self, inputs: List) -> Dict:
         if not self.anchors_tabular is None:
             arr = np.array(inputs)
+            # set anchor_tabular predict function so it always returns predicted class
+            # See anchor_tablular.__init__
+            if np.argmax(self.predict_fn(arr).shape) == 0:
+                self.anchors_tabular.predict_fn = self.predict_fn
+            else:
+                self.anchors_tabular.predict_fn = lambda x: np.argmax(self.predict_fn(x), axis=1)
             anchor_exp = self.anchors_tabular.explain(arr)
             if not self.cmap is None:
                 # convert to interpretable raw features
