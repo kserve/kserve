@@ -1,8 +1,8 @@
 package utils
 
 import (
-	"testing"
 	"github.com/google/go-cmp/cmp"
+	"testing"
 )
 
 func TestBool(t *testing.T) {
