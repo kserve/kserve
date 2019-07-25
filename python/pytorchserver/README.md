@@ -113,7 +113,7 @@ An empty result will indicate success.
 
 You can build and publish your own image for development needs. Please ensure that you modify the kfservice files for PyTorch in the api directory to point to your own image.
 
-To build your own image, run
+To build your own image, navigate up one directory level and run:
 
 ```bash
 docker build -t docker_user_name/pytorchserver -f pytorch.Dockerfile .
