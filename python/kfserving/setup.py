@@ -12,32 +12,54 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from setuptools import setup, find_packages
+import setuptools
 
-tests_require = [
+TESTS_REQUIRES = [
     'pytest',
     'pytest-tornasync',
     'mypy'
 ]
 
-setup(
-    name='kfserver',
-    version='0.1.0',
-    author_email='ellisbigelow@google.com',
-    license='../../LICENSE.txt',
-    url='https://github.com/kubeflow/kfserving/python/kfserving/kfserving',
-    description='Model Server for arbitrary python ML frameworks.',
-    long_description=open('README.md').read(),
-    python_requires='>3.4',
-    packages=find_packages("kfserving"),
-    install_requires=[
-        "tornado >= 1.4.1",
-        "argparse >= 1.4.0",
-        "minio >= 4.0.9",
-        "google-cloud-storage >= 1.16.0",
-        "azure-storage-blob >= 2.0.1",
-        "numpy"
+with open('requirements.txt') as f:
+    REQUIRES = f.readlines()
+
+setuptools.setup(
+    name='kfserving',
+    version='0.1.1',
+    author="Kubeflow Authors",
+    author_email='ellisbigelow@google.com, hejinchi@cn.ibm.com',
+    license="Apache License Version 2.0",
+    url="https://github.com/kubeflow/kfserving/python/kfserving",
+    description="KFServing Python SDK",
+    long_description="Python SDK for KFServing Server and Client.",
+    python_requires='>=3.6',
+    packages=[
+        'kfserving',
+        'kfserving.api',
+        'kfserving.constants',
+        'kfserving.models',
+        'kfserving.protocols',
+        'kfserving.utils',
     ],
-    tests_require=tests_require,
-    extras_require={'test': tests_require}
+    package_data={},
+    include_package_data=False,
+    zip_safe=False,
+    classifiers=[
+        'Intended Audience :: Developers',
+        'Intended Audience :: Education',
+        'Intended Audience :: Science/Research',
+        'Programming Language :: Python :: 3',
+        'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7',
+        "License :: OSI Approved :: Apache Software License",
+        "Operating System :: OS Independent",
+        'Topic :: Scientific/Engineering',
+        'Topic :: Scientific/Engineering :: Artificial Intelligence',
+        'Topic :: Software Development',
+        'Topic :: Software Development :: Libraries',
+        'Topic :: Software Development :: Libraries :: Python Modules',
+    ],
+    install_requires=REQUIRES,
+    tests_require=TESTS_REQUIRES,
+    extras_require={'test': TESTS_REQUIRES}
 )

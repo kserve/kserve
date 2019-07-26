@@ -1,6 +1,28 @@
-# KFServing
+# KFServing Python SDK
+Python SDK for KFServing Server and Client.
 
-KFServing is a unit of model serving. KFServing's python libraries implement a standardized KFServer library that is extended by model serving frameworks such as XGBoost and PyTorch. It encapsulates data plane API definitions and storage retrieval for models.
+## Installation
+
+KFServing Python SDK can be installed by `pip` or `Setuptools`.
+
+### pip install
+
+```sh
+pip install kfserving
+```
+
+### Setuptools
+
+Install via [Setuptools](http://pypi.python.org/pypi/setuptools).
+
+```sh
+python setup.py install --user
+```
+(or `sudo python setup.py install` to install the package for all users)
+
+
+## KFServing Server
+KFServing's python server libraries implement a standardized KFServing library that is extended by model serving frameworks such as XGBoost and PyTorch. It encapsulates data plane API definitions and storage retrieval for models.
 
 KFServing provides many functionalities, including among others:
 
@@ -24,83 +46,37 @@ KFServing supports the following storage providers:
     * Relative path: `relative/path` or `file://relative/path`
     * For local filesystem, we recommended to use relative path without any prefix.
 
-To start the server locally on your machine for development needs, run the following command under this folder
+## KFServing Client
 
-```
-pip3 install -e .
-```
+### Getting Started
 
-The following output indicates a successful install.
+KFServing's python client provides many APIs for operations of KFServing, such as creating, patching and deleting. See the [Sample for KFServing Python SDK Client](../../docs/samples/client/kfserving_sdk_sample.ipynb) to get started.
 
-```
-Obtaining file:///Users/animeshsingh/DevAdv/kfserving/python/kfserving
-Requirement already satisfied: tornado>=1.4.1 in /Library/Frameworks/Python.framework/Versions/3.7/lib/python3.7/site-packages (from kfserver==0.1.0) (6.0.2)
-Requirement already satisfied: argparse>=1.4.0 in /Library/Frameworks/Python.framework/Versions/3.7/lib/python3.7/site-packages (from kfserver==0.1.0) (1.4.0)
-Installing collected packages: kfserver
-  Running setup.py develop for kfserver
-Successfully installed kfserver
-```
+### Documentation for Client API
 
-## Development
+Class | Method |  Description
+------------ | ------------- | -------------
+[KFServingClient](docs/KFServingClient.md) | [create](docs/KFServingClient.md#create) | Create the provided KFService in the specified namespace|
+[KFServingClient](docs/KFServingClient.md) | [get](docs/KFServingClient.md#get)    | Get the created KFService in the specified namespace|
+[KFServingClient](docs/KFServingClient.md) | [patch](docs/KFServingClient.md#patch)   | Patch the created KFService in the specified namespace |
+[KFServingClient](docs/KFServingClient.md) | [delete](docs/KFServingClient.md#delete) | Delete the created KFService in the specified namespace |
 
-To install development requirements
 
-```bash
-pip install -e .[test]
-```
+### Documentation For Client Models
 
-The following indicates a successful install.
-
-```
-Obtaining file:///home/clive/go/src/github.com/kubeflow/kfserving/python/kfserving
-Requirement already satisfied: tornado>=1.4.1 in /home/clive/anaconda3/envs/kfserving/lib/python3.7/site-packages (from kfserver==0.1.0) (6.0.2)
-Requirement already satisfied: argparse>=1.4.0 in /home/clive/anaconda3/envs/kfserving/lib/python3.7/site-packages (from kfserver==0.1.0) (1.4.0)
-Requirement already satisfied: numpy in /home/clive/anaconda3/envs/kfserving/lib/python3.7/site-packages (from kfserver==0.1.0) (1.16.3)
-Requirement already satisfied: pytest in /home/clive/anaconda3/envs/kfserving/lib/python3.7/site-packages (from kfserver==0.1.0) (4.4.2)
-Requirement already satisfied: pytest-tornasync in /home/clive/anaconda3/envs/kfserving/lib/python3.7/site-packages (from kfserver==0.1.0) (0.6.0.post1)
-Requirement already satisfied: mypy in /home/clive/anaconda3/envs/kfserving/lib/python3.7/site-packages (from kfserver==0.1.0) (0.701)
-Requirement already satisfied: setuptools in /home/clive/anaconda3/envs/kfserving/lib/python3.7/site-packages (from pytest->kfserver==0.1.0) (41.0.1)
-Requirement already satisfied: py>=1.5.0 in /home/clive/anaconda3/envs/kfserving/lib/python3.7/site-packages (from pytest->kfserver==0.1.0) (1.8.0)
-Requirement already satisfied: attrs>=17.4.0 in /home/clive/anaconda3/envs/kfserving/lib/python3.7/site-packages (from pytest->kfserver==0.1.0) (19.1.0)
-Requirement already satisfied: six>=1.10.0 in /home/clive/anaconda3/envs/kfserving/lib/python3.7/site-packages (from pytest->kfserver==0.1.0) (1.12.0)
-Requirement already satisfied: atomicwrites>=1.0 in /home/clive/anaconda3/envs/kfserving/lib/python3.7/site-packages (from pytest->kfserver==0.1.0) (1.3.0)
-Requirement already satisfied: pluggy>=0.11 in /home/clive/anaconda3/envs/kfserving/lib/python3.7/site-packages (from pytest->kfserver==0.1.0) (0.11.0)
-Requirement already satisfied: more-itertools>=4.0.0; python_version > "2.7" in /home/clive/anaconda3/envs/kfserving/lib/python3.7/site-packages (from pytest->kfserver==0.1.0) (7.0.0)
-Requirement already satisfied: typed-ast<1.4.0,>=1.3.1 in /home/clive/anaconda3/envs/kfserving/lib/python3.7/site-packages (from mypy->kfserver==0.1.0) (1.3.5)
-Requirement already satisfied: mypy-extensions<0.5.0,>=0.4.0 in /home/clive/anaconda3/envs/kfserving/lib/python3.7/site-packages (from mypy->kfserver==0.1.0) (0.4.1)
-Installing collected packages: kfserver
-  Found existing installation: kfserver 0.1.0
-    Uninstalling kfserver-0.1.0:
-      Successfully uninstalled kfserver-0.1.0
-  Running setup.py develop for kfserver
-Successfully installed kfserver
-
-```
-
-To run tests:
-
-```bash
-make test
-```
-
-The following shows the type of output you should see:
-
-```
-pytest -W ignore
-=================================================== test session starts ===================================================
-platform linux -- Python 3.7.3, pytest-4.4.1, py-1.8.0, pluggy-0.9.0
-rootdir: /home/clive/go/src/github.com/kubeflow/kfserving/python/kfserving
-plugins: tornasync-0.6.0.post1
-collected 7 items                                                                                                         
-
-kfserving/test_server.py .......                                                                                    [100%]
-
-================================================ 7 passed in 1.02 seconds =================================================
-```
-
-To run static type checks:
-
-```bash
-mypy --ignore-missing-imports xgbserver
-```
-An empty result will indicate success.
+ - [KnativeCondition](docs/KnativeCondition.md)
+ - [KnativeVolatileTime](docs/KnativeVolatileTime.md)
+ - [V1alpha1CustomSpec](docs/V1alpha1CustomSpec.md)
+ - [V1alpha1FrameworkConfig](docs/V1alpha1FrameworkConfig.md)
+ - [V1alpha1FrameworksConfig](docs/V1alpha1FrameworksConfig.md)
+ - [V1alpha1KFService](docs/V1alpha1KFService.md)
+ - [V1alpha1KFServiceList](docs/V1alpha1KFServiceList.md)
+ - [V1alpha1KFServiceSpec](docs/V1alpha1KFServiceSpec.md)
+ - [V1alpha1KFServiceStatus](docs/V1alpha1KFServiceStatus.md)
+ - [V1alpha1ModelSpec](docs/V1alpha1ModelSpec.md)
+ - [V1alpha1PyTorchSpec](docs/V1alpha1PyTorchSpec.md)
+ - [V1alpha1SKLearnSpec](docs/V1alpha1SKLearnSpec.md)
+ - [V1alpha1StatusConfigurationSpec](docs/V1alpha1StatusConfigurationSpec.md)
+ - [V1alpha1TensorRTSpec](docs/V1alpha1TensorRTSpec.md)
+ - [V1alpha1TensorflowSpec](docs/V1alpha1TensorflowSpec.md)
+ - [V1alpha1XGBoostSpec](docs/V1alpha1XGBoostSpec.md)

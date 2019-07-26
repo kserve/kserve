@@ -4,3 +4,9 @@ python_dateutil >= 2.5.3
 setuptools >= 21.0.0
 urllib3 >= 1.15.1
 kubernetes >= 9.0.0
+tornado >= 1.4.1
+argparse >= 1.4.0
+minio >= 4.0.9
+google-cloud-storage >= 1.16.0
+azure-storage-blob >= 2.0.1
+numpy

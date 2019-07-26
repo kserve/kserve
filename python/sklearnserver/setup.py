@@ -31,7 +31,7 @@ setup(
     python_requires='>3.4',
     packages=find_packages("sklearnserver"),
     install_requires=[
-        "kfserver==0.1.0",
+        "kfserving>=0.1.0",
         "scikit-learn == 0.20.3",
         "argparse >= 1.4.0",
         "numpy >= 1.8.2",
