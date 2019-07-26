@@ -62,3 +62,11 @@ target/
 
 #Ipython Notebook
 .ipynb_checkpoints
+
+# customization for some swagger auto generated files but useless.
+.swagger-codegen-ignore
+.swagger-codegen/
+.travis.yml
+git_push.sh
+test-requirements.txt
+tox.ini

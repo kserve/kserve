@@ -3,7 +3,7 @@ Python SDK for KFServing
 
 ## Requirements.
 
-Python 3.5+
+Python 3.4+
 
 ## Installation & Usage
 ### pip install
