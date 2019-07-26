@@ -112,10 +112,10 @@ An empty result will indicate success.
 
 You can build and publish your own image for development needs. Please ensure that you modify the kfservice files for XGBoost in the api directory to point to your own image.
 
-To build your own image, run
+To build your own image, navigate up one directory level to the `python` directory and run:
 
 ```bash
-docker build -t $USER/xgbserver -f xgb.Dockerfile .
+docker build -t docker_user_name/xgbserver -f xgb.Dockerfile .
 ```
 
 You should see an output similar to this
