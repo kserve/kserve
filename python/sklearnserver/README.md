@@ -107,12 +107,12 @@ An empty result will indicate success.
 
 ## Building your own Scikit-Learn Server Docker Image
 
-You can build and publish your own image for development needs. Please ensure that you modify the kfservice files for XGBoost in the api directory to point to your own image.
+You can build and publish your own image for development needs. Please ensure that you modify the kfservice files for Scikit-Learn in the api directory to point to your own image.
 
-To build your own image, run
+To build your own image, navigate up one directory level to the `python` directory and run:
 
 ```bash
-docker build -t animeshsingh/sklearnserver -f sklearn.Dockerfile .
+docker build -t docker_user_name/sklearnserver -f sklearn.Dockerfile .
 ```
 
 You should see an output similar to this
