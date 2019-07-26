@@ -12,12 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
-
-from kubernetes import client, config, watch
+from kubernetes import client, config
 
 from ..constants import constants
 from ..utils import utils
+
 
 class KFServingClient(object):
     """KFServing Apis."""
@@ -29,11 +28,11 @@ class KFServingClient(object):
             config.load_kube_config()
 
         self.api_instance = client.CustomObjectsApi()
-    
+
     def create(self, kfservice, namespace=None):
         """Create the provided KFService in the specified namespace"""
 
-        if namespace == None:
+        if namespace is None:
             namespace = utils.set_kfsvc_namespace(kfservice)
 
         try:
@@ -44,12 +43,14 @@ class KFServingClient(object):
                 constants.KFSERVING_PLURAL,
                 kfservice)
         except client.rest.ApiException as e:
-            raise RuntimeError("Exception when calling CustomObjectsApi->create_namespaced_custom_object: %s\n" % e)
+            raise RuntimeError(
+                "Exception when calling CustomObjectsApi->create_namespaced_custom_object:\
+                 %s\n" % e)
 
     def get(self, name, namespace=None):
         """Get the created KFService in the specified namespace"""
 
-        if namespace == None:
+        if namespace is None:
             namespace = utils.get_default_target_namespace()
 
         try:
@@ -60,12 +61,13 @@ class KFServingClient(object):
                 constants.KFSERVING_PLURAL,
                 name)
         except client.rest.ApiException as e:
-            raise RuntimeError("Exception when calling CustomObjectsApi->get_namespaced_custom_object: %s\n" % e)
+            raise RuntimeError(
+                "Exception when calling CustomObjectsApi->get_namespaced_custom_object: %s\n" % e)
 
     def patch(self, name, kfservice, namespace=None):
         """Patch the created KFService in the specified namespace"""
 
-        if namespace == None:
+        if namespace is None:
             namespace = utils.set_kfsvc_namespace(kfservice)
 
         try:
@@ -77,12 +79,14 @@ class KFServingClient(object):
                 name,
                 kfservice)
         except client.rest.ApiException as e:
-            raise RuntimeError("Exception when calling CustomObjectsApi->patch_namespaced_custom_object: %s\n" % e)
+            raise RuntimeError(
+                "Exception when calling CustomObjectsApi->patch_namespaced_custom_object:\
+                 %s\n" % e)
 
     def delete(self, name, namespace=None):
         """Delete the provided KFService in the specified namespace"""
 
-        if namespace == None:
+        if namespace is None:
             namespace = utils.get_default_target_namespace()
 
         try:
@@ -94,4 +98,6 @@ class KFServingClient(object):
                 name,
                 client.V1DeleteOptions())
         except client.rest.ApiException as e:
-            raise RuntimeError("Exception when calling CustomObjectsApi->delete_namespaced_custom_object: %s\n" % e)
+            raise RuntimeError(
+                "Exception when calling CustomObjectsApi->delete_namespaced_custom_object:\
+                 %s\n" % e)
