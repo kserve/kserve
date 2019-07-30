@@ -62,7 +62,9 @@ Class | Method | HTTP request | Description
 ## Documentation For Models
 
  - [KnativeCondition](docs/KnativeCondition.md)
+ - [KnativeURL](docs/KnativeURL.md)
  - [KnativeVolatileTime](docs/KnativeVolatileTime.md)
+ - [NetUrlUserinfo](docs/NetUrlUserinfo.md)
  - [V1alpha1CustomSpec](docs/V1alpha1CustomSpec.md)
  - [V1alpha1FrameworkConfig](docs/V1alpha1FrameworkConfig.md)
  - [V1alpha1FrameworksConfig](docs/V1alpha1FrameworksConfig.md)

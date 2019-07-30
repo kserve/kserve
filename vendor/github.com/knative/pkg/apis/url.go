@@ -25,6 +25,7 @@ import (
 // URL is an alias of url.URL.
 // It has custom json marshal methods that enable it to be used in K8s CRDs
 // such that the CRD resource will have the URL but operator code can can work with url.URL struct
+// +k8s:openapi-gen=true
 type URL url.URL
 
 // ParseURL attempts to parse the given string as a URL.

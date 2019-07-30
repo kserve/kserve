@@ -17,6 +17,7 @@ import re  # noqa: F401
 import six
 
 from kfserving.models.knative_condition import KnativeCondition  # noqa: F401,E501
+from kfserving.models.knative_url import KnativeURL  # noqa: F401,E501
 from kfserving.models.v1alpha1_status_configuration_spec import V1alpha1StatusConfigurationSpec  # noqa: F401,E501
 
 
@@ -38,7 +39,7 @@ class V1alpha1KFServiceStatus(object):
         'conditions': 'list[KnativeCondition]',
         'default': 'V1alpha1StatusConfigurationSpec',
         'observed_generation': 'int',
-        'url': 'str'
+        'url': 'KnativeURL'
     }
 
     attribute_map = {
@@ -164,7 +165,7 @@ class V1alpha1KFServiceStatus(object):
 
 
         :return: The url of this V1alpha1KFServiceStatus.  # noqa: E501
-        :rtype: str
+        :rtype: KnativeURL
         """
         return self._url
 
@@ -174,7 +175,7 @@ class V1alpha1KFServiceStatus(object):
 
 
         :param url: The url of this V1alpha1KFServiceStatus.  # noqa: E501
-        :type: str
+        :type: KnativeURL
         """
 
         self._url = url

@@ -82,6 +82,78 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 			Dependencies: []string{
 				"github.com/knative/pkg/apis.VolatileTime"},
 		},
+		"github.com/knative/pkg/apis.URL": {
+			Schema: openapispec.Schema{
+				SchemaProps: openapispec.SchemaProps{
+					Description: "URL is an alias of url.URL. It has custom json marshal methods that enable it to be used in K8s CRDs such that the CRD resource will have the URL but operator code can can work with url.URL struct",
+					Properties: map[string]openapispec.Schema{
+						"Scheme": {
+							SchemaProps: openapispec.SchemaProps{
+								Type:   []string{"string"},
+								Format: "",
+							},
+						},
+						"Opaque": {
+							SchemaProps: openapispec.SchemaProps{
+								Type:   []string{"string"},
+								Format: "",
+							},
+						},
+						"User": {
+							SchemaProps: openapispec.SchemaProps{
+								Description: "encoded opaque data",
+								Ref:         ref("net/url.Userinfo"),
+							},
+						},
+						"Host": {
+							SchemaProps: openapispec.SchemaProps{
+								Description: "username and password information",
+								Type:        []string{"string"},
+								Format:      "",
+							},
+						},
+						"Path": {
+							SchemaProps: openapispec.SchemaProps{
+								Description: "host or host:port",
+								Type:        []string{"string"},
+								Format:      "",
+							},
+						},
+						"RawPath": {
+							SchemaProps: openapispec.SchemaProps{
+								Description: "path (relative paths may omit leading slash)",
+								Type:        []string{"string"},
+								Format:      "",
+							},
+						},
+						"ForceQuery": {
+							SchemaProps: openapispec.SchemaProps{
+								Description: "encoded path hint (see EscapedPath method)",
+								Type:        []string{"boolean"},
+								Format:      "",
+							},
+						},
+						"RawQuery": {
+							SchemaProps: openapispec.SchemaProps{
+								Description: "append a query ('?') even if RawQuery is empty",
+								Type:        []string{"string"},
+								Format:      "",
+							},
+						},
+						"Fragment": {
+							SchemaProps: openapispec.SchemaProps{
+								Description: "encoded query values, without '?'",
+								Type:        []string{"string"},
+								Format:      "",
+							},
+						},
+					},
+					Required: []string{"Scheme", "Opaque", "User", "Host", "Path", "RawPath", "ForceQuery", "RawQuery", "Fragment"},
+				},
+			},
+			Dependencies: []string{
+				"net/url.Userinfo"},
+		},
 		"github.com/knative/pkg/apis.VolatileTime": {
 			Schema: openapispec.Schema{
 				SchemaProps: openapispec.SchemaProps{
@@ -312,8 +384,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						},
 						"url": {
 							SchemaProps: openapispec.SchemaProps{
-								Type:   []string{"string"},
-								Format: "",
+								Ref: ref("github.com/knative/pkg/apis.URL"),
 							},
 						},
 						"default": {
@@ -330,7 +401,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 				},
 			},
 			Dependencies: []string{
-				"github.com/knative/pkg/apis.Condition", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.StatusConfigurationSpec"},
+				"github.com/knative/pkg/apis.Condition", "github.com/knative/pkg/apis.URL", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.StatusConfigurationSpec"},
 		},
 		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.ModelSpec": {
 			Schema: openapispec.Schema{
@@ -584,6 +655,35 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 			},
 			Dependencies: []string{
 				"k8s.io/api/core/v1.ResourceRequirements"},
+		},
+		"net/url.Userinfo": {
+			Schema: openapispec.Schema{
+				SchemaProps: openapispec.SchemaProps{
+					Description: "The Userinfo type is an immutable encapsulation of username and password details for a URL. An existing Userinfo value is guaranteed to have a username set (potentially empty, as allowed by RFC 2396), and optionally a password.",
+					Properties: map[string]openapispec.Schema{
+						"username": {
+							SchemaProps: openapispec.SchemaProps{
+								Type:   []string{"string"},
+								Format: "",
+							},
+						},
+						"password": {
+							SchemaProps: openapispec.SchemaProps{
+								Type:   []string{"string"},
+								Format: "",
+							},
+						},
+						"passwordSet": {
+							SchemaProps: openapispec.SchemaProps{
+								Type:   []string{"boolean"},
+								Format: "",
+							},
+						},
+					},
+					Required: []string{"username", "password", "passwordSet"},
+				},
+			},
+			Dependencies: []string{},
 		},
 	}
 }

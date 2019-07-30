@@ -16,7 +16,9 @@ from __future__ import absolute_import
 
 # import models into model package
 from kfserving.models.knative_condition import KnativeCondition
+from kfserving.models.knative_url import KnativeURL
 from kfserving.models.knative_volatile_time import KnativeVolatileTime
+from kfserving.models.net_url_userinfo import NetUrlUserinfo
 from kfserving.models.v1alpha1_custom_spec import V1alpha1CustomSpec
 from kfserving.models.v1alpha1_framework_config import V1alpha1FrameworkConfig
 from kfserving.models.v1alpha1_frameworks_config import V1alpha1FrameworksConfig
