@@ -11,11 +11,6 @@ github:
   name: kfserving
   push:
     tag: v0.*.*
-### Specify as necessary ###
-includedFiles:
-- pkg/**
-- cmd/**
-- vendor/**
 ###########################
 build:
   steps:
