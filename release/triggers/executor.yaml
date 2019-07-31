@@ -4,7 +4,7 @@ description: Executor Autobuilder
 substitutions:
   _COMPONENT: "executor"
   _DOCKERFILE: "./executor.Dockerfile"
-  _CONTEXT: "./python"
+  _CONTEXT: "."
 ###########################
 github:
   owner: kubeflow
