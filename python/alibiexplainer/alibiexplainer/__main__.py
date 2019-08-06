@@ -15,8 +15,7 @@
 import kfserving
 import argparse
 from alibiexplainer import AlibiExplainer
-from alibiexplainer.explainer import ExplainerMethod #pylint:disable=no-name-in-module
-from typing import Dict
+from alibiexplainer.explainer import ExplainerMethod  # pylint:disable=no-name-in-module
 import dill
 import os
 import json
@@ -34,16 +33,19 @@ parser.add_argument('--predict_url', help='The URL for the model predict functio
 parser.add_argument('--type',
                     type=ExplainerMethod, choices=list(ExplainerMethod), default="anchor_tabular",
                     help='Explainer method', required=True)
-parser.add_argument('--explainerUri', help='The URL of a pretrained explainer', default=os.environ.get(ENV_STORAGE_URI))
-parser.add_argument('--config', default=os.environ.get(CONFIG_ENV),help='Custom configuration parameters')
+parser.add_argument('--explainerUri', help='The URL of a pretrained explainer',
+                    default=os.environ.get(ENV_STORAGE_URI))
+parser.add_argument('--config', default=os.environ.get(CONFIG_ENV),
+                    help='Custom configuration parameters')
 
 args, _ = parser.parse_known_args()
 
 if __name__ == "__main__":
     # Pretrained Alibi explainer
     alibi_model = None
-    if not args.explainerUri is None:
-        alibi_model = os.path.join(kfserving.Storage.download(args.explainerUri), EXPLAINER_FILENAME)
+    if args.explainerUri is not None:
+        alibi_model = os.path.join(kfserving.Storage.download(args.explainerUri),
+                                   EXPLAINER_FILENAME)
         with open(alibi_model, 'rb') as f:
             alibi_model = dill.load(f)
     # Custom configuration
