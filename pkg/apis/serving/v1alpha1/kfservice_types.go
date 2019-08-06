@@ -53,13 +53,22 @@ type ExplainSpec struct {
 	Custom *CustomSpec       `json:"custom,omitempty"`
 }
 
+type AlibiExplainerType string
+
+const (
+	AlibiAnchorsTabularExplainer AlibiExplainerType = "AnchorsTabular"
+	AlibiAnchorsImageExplainer AlibiExplainerType = "AnchorsImage"
+	AlibiAnchorsTextExplainer AlibiExplainerType = "AnchorsText"
+	AlibiCounterfactualsExplainer AlibiExplainerType = "Counterfactuals"
+	AlibiContrastiveExplainer AlibiExplainerType = "Contrastive"
+)
+
 // AlibiExplainSpec defines the arguments for configuring an Alibi Explanation Server
 type AlibiExplainSpec struct {
-	// The following fields follow a "1-of" semantic. Users must specify exactly one of Type or ExplainerURI.
-	// The kind of Alibi explanation server to create, e.g. AnchorTabular
-	Type string `json:"type"`
-	// The location of a fit explanation model
-	SavedExplainerURI string `json:"savedExplainerUri,omitempty"`
+	// The type of Alibi explainer
+	Type AlibiExplainerType `json:"type"`
+	// The location of a trained explanation model
+	StorageURI string `json:"storageUri,omitempty"`
 	// Defaults to latest Alibi Version.
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
 	// Defaults to requests and limits of 1CPU, 2Gb MEM.
