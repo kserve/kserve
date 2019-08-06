@@ -27,7 +27,7 @@ CONFIG_ENV = "ALIBI_CONFIGURATION"
 
 ENV_STORAGE_URI = "STORAGE_URI"
 
-parser = argparse.ArgumentParser(parents=[kfserving.server.parser]) #pylint:disable=c-extension-no-member
+parser = argparse.ArgumentParser(parents=[kfserving.server.parser])
 parser.add_argument('--explainer_name', default=DEFAULT_EXPLAINER_NAME,
                     help='The name of model explainer.')
 parser.add_argument('--predict_url', help='The URL for the model predict function', required=True)
@@ -48,7 +48,7 @@ if __name__ == "__main__":
             alibi_model = dill.load(f)
     # Custom configuration
     if args.config is None:
-        config: Dict = {}
+        config = {}
     else:
         config = json.loads(args.config)
 
@@ -59,4 +59,4 @@ if __name__ == "__main__":
                                config,
                                alibi_model)
     explainer.load()
-    kfserving.KFServer().start(models=[explainer]) #pylint:disable=c-extension-no-member
+    kfserving.KFServer().start(models=[explainer])
