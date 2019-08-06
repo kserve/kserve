@@ -36,6 +36,9 @@ class Protocol(Enum):
     tensorflow_http = "tensorflow.http"
     seldon_http = "seldon.http"
 
+    def __str__(self):
+        return self.value
+
 
 parser = argparse.ArgumentParser(add_help=False)
 parser.add_argument('--http_port', default=DEFAULT_HTTP_PORT, type=int,
