@@ -36,9 +36,7 @@ func (rs *RouteSpec) Validate(ctx context.Context) *apis.FieldError {
 		return apis.ErrMissingField(apis.CurrentField)
 	}
 
-	errs := CheckDeprecated(ctx, map[string]interface{}{
-		"generation": rs.DeprecatedGeneration,
-	})
+	errs := apis.CheckDeprecated(ctx, rs)
 
 	type diagnostic struct {
 		index int
@@ -54,14 +52,17 @@ func (rs *RouteSpec) Validate(ctx context.Context) *apis.FieldError {
 
 		percentSum += tt.Percent
 
-		if tt.Name != "" && tt.Tag != "" {
+		if tt.DeprecatedName != "" && tt.Tag != "" {
 			errs = errs.Also(apis.ErrMultipleOneOf("name", "tag").
 				ViaFieldIndex("traffic", i))
-		} else if tt.Name == "" && tt.Tag == "" {
+		} else if tt.DeprecatedName == "" && tt.Tag == "" {
 			// No Name field, so skip the uniqueness check.
 			continue
 		}
-		name := tt.Name
+
+		errs = errs.Also(apis.CheckDeprecated(ctx, tt).ViaFieldIndex("traffic", i))
+
+		name := tt.DeprecatedName
 		field := "name"
 		if name == "" {
 			name = tt.Tag

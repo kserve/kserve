@@ -19,15 +19,15 @@ package v1alpha1
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
+
+	"github.com/knative/serving/pkg/apis/config"
 
 	"github.com/knative/pkg/apis"
 	"github.com/knative/pkg/kmp"
-	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/serving"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/util/validation"
 )
 
 func (r *Revision) checkImmutableFields(ctx context.Context, original *Revision) *apis.FieldError {
@@ -50,10 +50,11 @@ func (r *Revision) checkImmutableFields(ctx context.Context, original *Revision)
 // Validate ensures Revision is properly configured.
 func (r *Revision) Validate(ctx context.Context) *apis.FieldError {
 	errs := serving.ValidateObjectMetadata(r.GetObjectMeta()).ViaField("metadata")
-	errs = errs.Also(r.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
 	if apis.IsInUpdate(ctx) {
 		old := apis.GetBaseline(ctx).(*Revision)
 		errs = errs.Also(r.checkImmutableFields(ctx, old))
+	} else {
+		errs = errs.Also(r.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
 	}
 	return errs
 }
@@ -62,7 +63,7 @@ func (r *Revision) Validate(ctx context.Context) *apis.FieldError {
 func (rt *RevisionTemplateSpec) Validate(ctx context.Context) *apis.FieldError {
 	errs := rt.Spec.Validate(ctx).ViaField("spec")
 
-	// If the RevisionTemplate has a name specified, then check that
+	// If the DeprecatedRevisionTemplate has a name specified, then check that
 	// it follows the requirements on the name.
 	if rt.Name != "" {
 		om := apis.ParentMeta(ctx)
@@ -83,6 +84,7 @@ func (rt *RevisionTemplateSpec) Validate(ctx context.Context) *apis.FieldError {
 		}
 	}
 
+	errs = errs.Also(validateAnnotations(rt.Annotations))
 	return errs
 }
 
@@ -90,7 +92,7 @@ func (rt *RevisionTemplateSpec) Validate(ctx context.Context) *apis.FieldError {
 // changes at the appropriate times.
 func (current *RevisionTemplateSpec) VerifyNameChange(ctx context.Context, og *RevisionTemplateSpec) *apis.FieldError {
 	if current.Name == "" {
-		// We only check that Name changes when the RevisionTemplate changes.
+		// We only check that Name changes when the DeprecatedRevisionTemplate changes.
 		return nil
 	}
 	if current.Name != og.Name {
@@ -100,7 +102,7 @@ func (current *RevisionTemplateSpec) VerifyNameChange(ctx context.Context, og *R
 
 	if diff, err := kmp.ShortDiff(og, current); err != nil {
 		return &apis.FieldError{
-			Message: "Failed to diff RevisionTemplate",
+			Message: "Failed to diff DeprecatedRevisionTemplate",
 			Paths:   []string{apis.CurrentField},
 			Details: err.Error(),
 		}
@@ -120,49 +122,71 @@ func (rs *RevisionSpec) Validate(ctx context.Context) *apis.FieldError {
 		return apis.ErrMissingField(apis.CurrentField)
 	}
 
-	errs := CheckDeprecated(ctx, map[string]interface{}{
-		"generation":       rs.DeprecatedGeneration,
-		"servingState":     rs.DeprecatedServingState,
-		"concurrencyModel": rs.DeprecatedConcurrencyModel,
-		"buildName":        rs.DeprecatedBuildName,
-		// TODO(mattmoor): "container": rs.Container,
-		// TODO(mattmoor): "buildRef": rs.BuildRef,
-	})
+	errs := apis.CheckDeprecated(ctx, rs)
 
 	switch {
-	case len(rs.PodSpec.Containers) > 0 && rs.Container != nil:
+	case len(rs.PodSpec.Containers) > 0 && rs.DeprecatedContainer != nil:
 		errs = errs.Also(apis.ErrMultipleOneOf("container", "containers"))
 	case len(rs.PodSpec.Containers) > 0:
 		errs = errs.Also(rs.RevisionSpec.Validate(ctx))
-	case rs.Container != nil:
+	case rs.DeprecatedContainer != nil:
 		volumes, err := serving.ValidateVolumes(rs.Volumes)
 		if err != nil {
 			errs = errs.Also(err.ViaField("volumes"))
 		}
 		errs = errs.Also(serving.ValidateContainer(
-			*rs.Container, volumes).ViaField("container"))
+			*rs.DeprecatedContainer, volumes).ViaField("container"))
 	default:
 		errs = errs.Also(apis.ErrMissingOneOf("container", "containers"))
 	}
-	errs = errs.Also(validateBuildRef(rs.BuildRef).ViaField("buildRef"))
+
+	if rs.DeprecatedBuildRef != nil {
+		errs = errs.Also(apis.ErrDisallowedFields("buildRef"))
+	}
 
 	if err := rs.DeprecatedConcurrencyModel.Validate(ctx).ViaField("concurrencyModel"); err != nil {
 		errs = errs.Also(err)
 	} else {
-		errs = errs.Also(rs.ContainerConcurrency.Validate(ctx))
+		errs = errs.Also(rs.ContainerConcurrency.Validate(ctx).ViaField("containerConcurrency"))
 	}
 
 	if rs.TimeoutSeconds != nil {
-		errs = errs.Also(validateTimeoutSeconds(*rs.TimeoutSeconds))
+		errs = errs.Also(validateTimeoutSeconds(ctx, *rs.TimeoutSeconds))
 	}
 	return errs
 }
 
-func validateTimeoutSeconds(timeoutSeconds int64) *apis.FieldError {
+func validateAnnotations(annotations map[string]string) *apis.FieldError {
+	return validatePercentageAnnotationKey(annotations, serving.QueueSideCarResourcePercentageAnnotation)
+}
+
+func validatePercentageAnnotationKey(annotations map[string]string, resourcePercentageAnnotationKey string) *apis.FieldError {
+	if len(annotations) == 0 {
+		return nil
+	}
+
+	v, ok := annotations[resourcePercentageAnnotationKey]
+	if !ok {
+		return nil
+	}
+	value, err := strconv.ParseFloat(v, 32)
+	if err != nil {
+		return apis.ErrInvalidValue(v, apis.CurrentField).ViaKey(resourcePercentageAnnotationKey)
+	}
+
+	if value <= float64(0.1) || value > float64(100) {
+		return apis.ErrOutOfBoundsValue(value, 0.1, 100.0, resourcePercentageAnnotationKey)
+	}
+
+	return nil
+}
+
+func validateTimeoutSeconds(ctx context.Context, timeoutSeconds int64) *apis.FieldError {
 	if timeoutSeconds != 0 {
-		if timeoutSeconds > int64(networking.DefaultTimeout.Seconds()) || timeoutSeconds < 0 {
+		cfg := config.FromContextOrDefaults(ctx)
+		if timeoutSeconds > cfg.Defaults.MaxRevisionTimeoutSeconds || timeoutSeconds < 0 {
 			return apis.ErrOutOfBoundsValue(timeoutSeconds, 0,
-				networking.DefaultTimeout.Seconds(),
+				cfg.Defaults.MaxRevisionTimeoutSeconds,
 				"timeoutSeconds")
 		}
 	}
@@ -192,36 +216,4 @@ func (cm RevisionRequestConcurrencyModelType) Validate(ctx context.Context) *api
 	default:
 		return apis.ErrInvalidValue(cm, apis.CurrentField)
 	}
-}
-
-func validateBuildRef(buildRef *corev1.ObjectReference) *apis.FieldError {
-	if buildRef == nil {
-		return nil
-	}
-	if len(validation.IsQualifiedName(buildRef.APIVersion)) != 0 {
-		return apis.ErrInvalidValue(buildRef.APIVersion, "apiVersion")
-	}
-	if len(validation.IsCIdentifier(buildRef.Kind)) != 0 {
-		return apis.ErrInvalidValue(buildRef.Kind, "kind")
-	}
-	if len(validation.IsDNS1123Label(buildRef.Name)) != 0 {
-		return apis.ErrInvalidValue(buildRef.Name, "name")
-	}
-	var disallowedFields []string
-	if buildRef.Namespace != "" {
-		disallowedFields = append(disallowedFields, "namespace")
-	}
-	if buildRef.FieldPath != "" {
-		disallowedFields = append(disallowedFields, "fieldPath")
-	}
-	if buildRef.ResourceVersion != "" {
-		disallowedFields = append(disallowedFields, "resourceVersion")
-	}
-	if buildRef.UID != "" {
-		disallowedFields = append(disallowedFields, "uid")
-	}
-	if len(disallowedFields) != 0 {
-		return apis.ErrDisallowedFields(disallowedFields...)
-	}
-	return nil
 }

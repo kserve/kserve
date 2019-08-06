@@ -61,11 +61,13 @@
   version = "v4.1.0"
 
 [[projects]]
-  digest = "1:1bc05108527c7941ba26861f769912a4c587d6a46a12dc1fa78ded6e87cecfbb"
+  digest = "1:812da80f354652604fa5217ac23846cb97535dfba788378b17d4231a486b7d6d"
   name = "github.com/getkin/kin-openapi"
   packages = [
     "jsoninfo",
     "openapi3",
+    "openapi3filter",
+    "pathpattern",
   ]
   pruneopts = "NUT"
   revision = "90a7df014b4e7699507bf82aa5601503a9ba85da"
@@ -199,11 +201,11 @@
   revision = "6f77996f0c42f7b84e5a2b252227263f93432e9b"
 
 [[projects]]
-  digest = "1:d7494e14f3dc2296fb1106fd59a3190f93017891d63c5025600f5794ced8b900"
+  digest = "1:7915c656a10819b240db94ffd6afc6a621af4687db735341d9919668750485ec"
   name = "github.com/google/go-containerregistry"
   packages = ["pkg/name"]
   pruneopts = "NUT"
-  revision = "ec69c4a8a1bff25fcbe096fcb32c9a6543fbdccf"
+  revision = "abf9ef06abd9f532944e28e8942644ea4b710a40"
 
 [[projects]]
   branch = "master"
@@ -302,18 +304,8 @@
   version = "v1.1.6"
 
 [[projects]]
-  digest = "1:0836bde83bdc49aae7710e22d04e2555d9bd25cd133fbb78508c492307081aea"
-  name = "github.com/knative/build"
-  packages = [
-    "pkg/apis/build",
-    "pkg/apis/build/v1alpha1",
-  ]
-  pruneopts = "NUT"
-  revision = "4fc8663ff9c48a66c52684b2e4cdf06ec83117c8"
-  version = "v0.5.0"
-
-[[projects]]
-  digest = "1:9c2a7fa4137540fbd9b182ab62ffe70c8f1062473a8cdd85cb8a6df9847de9f1"
+  branch = "release-0.7"
+  digest = "1:ec18e8243516c57aa703d40cbe376e9b440382f40ad7fda781dbaf0a67d7050f"
   name = "github.com/knative/pkg"
   packages = [
     "apis",
@@ -326,10 +318,10 @@
     "ptr",
   ]
   pruneopts = "NUT"
-  revision = "3c8c4a93547f62b542013c273068f51875b5c942"
+  revision = "d82505e6c5b4ce46562d6c242be0e706791f35bd"
 
 [[projects]]
-  digest = "1:ebde0ea4b207e53602a0cc152c1f19824349b8225ebc138822b0c3d7d0f58d70"
+  digest = "1:dabf722e53d7ebc24e501c0520e254972734b39065088420b20ae8f22bebc158"
   name = "github.com/knative/serving"
   packages = [
     "pkg/apis/autoscaling",
@@ -341,7 +333,8 @@
     "pkg/apis/serving/v1beta1",
   ]
   pruneopts = "NUT"
-  revision = "a44e3578ce27cc1455b3e1c7f74b09b82dda57f5"
+  revision = "ce4ce706afb5d9c323d1c073746d64562a722f8f"
+  version = "v0.7.1"
 
 [[projects]]
   branch = "master"
@@ -1162,6 +1155,7 @@
   input-imports = [
     "github.com/emicklei/go-restful",
     "github.com/getkin/kin-openapi/openapi3",
+    "github.com/getkin/kin-openapi/openapi3filter",
     "github.com/go-logr/logr",
     "github.com/go-openapi/spec",
     "github.com/golang/protobuf/proto",

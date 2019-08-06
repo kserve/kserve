@@ -53,6 +53,9 @@ var (
 	_ apis.Validatable = (*Route)(nil)
 	_ apis.Defaultable = (*Route)(nil)
 
+	// Check that Route can be converted to higher versions.
+	_ apis.Convertible = (*Route)(nil)
+
 	// Check that we can create OwnerReferences to a Route.
 	_ kmeta.OwnerRefable = (*Route)(nil)
 )
@@ -94,7 +97,8 @@ type TrafficTarget struct {
 	// URL displays the URL for accessing named traffic targets. URL is displayed in
 	// status, and is disallowed on spec. URL must contain a scheme (e.g. http://) and
 	// a hostname, but may not contain anything else (e.g. basic auth, url path, etc.)
-	URL string `json:"url,omitempty"`
+	// +optional
+	URL *apis.URL `json:"url,omitempty"`
 }
 
 // RouteSpec holds the desired state of the Route (from the client).
@@ -115,8 +119,14 @@ const (
 // are not generally shared.  This is defined separately and inlined so that
 // other types can readily consume these fields via duck typing.
 type RouteStatusFields struct {
-	// TODO(mattmoor): Domain (if not in addressable)
-	// TODO(mattmoor): duckv1beta1.Addressable
+	// URL holds the url that will distribute traffic over the provided traffic targets.
+	// It generally has the form http[s]://{route-name}.{route-namespace}.{cluster-level-suffix}
+	// +optional
+	URL *apis.URL `json:"url,omitempty"`
+
+	// Address holds the information needed for a Route to be the target of an event.
+	// +optional
+	Address *duckv1beta1.Addressable `json:"address,omitempty"`
 
 	// Traffic holds the configured traffic distribution.
 	// These entries will always contain RevisionName references.

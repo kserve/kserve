@@ -34,7 +34,7 @@ mkdir -p ${GO_DIR}
 cp -r cmd ${GO_DIR}/cmd
 cp -r pkg ${GO_DIR}/pkg
 cp -r vendor ${GO_DIR}/vendor
-cp Dockerfile.executor ${GO_DIR}/Dockerfile
+cp executor.Dockerfile ${GO_DIR}/Dockerfile
 
 cd ${GO_DIR}
 gcloud builds submit . --tag=${REGISTRY}/${REPO_NAME}/kfserving-executor:${VERSION} --project=${PROJECT}

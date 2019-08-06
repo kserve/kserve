@@ -46,6 +46,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(SchemeGroupVersion,
 		&ClusterIngress{},
 		&ClusterIngressList{},
+		&Ingress{},
+		&IngressList{},
 		&ServerlessService{},
 		&ServerlessServiceList{},
 		&Certificate{},

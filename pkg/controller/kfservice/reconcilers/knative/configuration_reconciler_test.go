@@ -84,7 +84,7 @@ func TestKnativeConfigurationReconcile(t *testing.T) {
 					Namespace: "default",
 				},
 				Spec: knservingv1alpha1.ConfigurationSpec{
-					RevisionTemplate: &knservingv1alpha1.RevisionTemplateSpec{
+					Template: &knservingv1alpha1.RevisionTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{"serving.kubeflow.org/kfservice": "mnist"},
 							Annotations: map[string]string{
@@ -96,15 +96,19 @@ func TestKnativeConfigurationReconcile(t *testing.T) {
 						Spec: knservingv1alpha1.RevisionSpec{
 							RevisionSpec: v1beta1.RevisionSpec{
 								TimeoutSeconds: &constants.DefaultTimeout,
-							},
-							Container: &v1.Container{
-								Image:   v1alpha1.TensorflowServingImageName + ":" + v1alpha1.DefaultTensorflowRuntimeVersion,
-								Command: []string{v1alpha1.TensorflowEntrypointCommand},
-								Args: []string{
-									"--port=" + v1alpha1.TensorflowServingGRPCPort,
-									"--rest_api_port=" + v1alpha1.TensorflowServingRestPort,
-									"--model_name=mnist",
-									"--model_base_path=" + constants.DefaultModelLocalMountPath,
+								PodSpec: v1.PodSpec{
+									Containers: []v1.Container{
+										{
+											Image:   v1alpha1.TensorflowServingImageName + ":" + v1alpha1.DefaultTensorflowRuntimeVersion,
+											Command: []string{v1alpha1.TensorflowEntrypointCommand},
+											Args: []string{
+												"--port=" + v1alpha1.TensorflowServingGRPCPort,
+												"--rest_api_port=" + v1alpha1.TensorflowServingRestPort,
+												"--model_name=mnist",
+												"--model_base_path=" + constants.DefaultModelLocalMountPath,
+											},
+										},
+									},
 								},
 							},
 						},
@@ -117,7 +121,7 @@ func TestKnativeConfigurationReconcile(t *testing.T) {
 					Namespace: "default",
 				},
 				Spec: knservingv1alpha1.ConfigurationSpec{
-					RevisionTemplate: &knservingv1alpha1.RevisionTemplateSpec{
+					Template: &knservingv1alpha1.RevisionTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{"serving.kubeflow.org/kfservice": "mnist"},
 							Annotations: map[string]string{
@@ -129,15 +133,19 @@ func TestKnativeConfigurationReconcile(t *testing.T) {
 						Spec: knservingv1alpha1.RevisionSpec{
 							RevisionSpec: v1beta1.RevisionSpec{
 								TimeoutSeconds: &constants.DefaultTimeout,
-							},
-							Container: &v1.Container{
-								Image:   v1alpha1.TensorflowServingImageName + ":" + v1alpha1.DefaultTensorflowRuntimeVersion,
-								Command: []string{v1alpha1.TensorflowEntrypointCommand},
-								Args: []string{
-									"--port=" + v1alpha1.TensorflowServingGRPCPort,
-									"--rest_api_port=" + v1alpha1.TensorflowServingRestPort,
-									"--model_name=mnist",
-									"--model_base_path=" + constants.DefaultModelLocalMountPath,
+								PodSpec: v1.PodSpec{
+									Containers: []v1.Container{
+										{
+											Image:   v1alpha1.TensorflowServingImageName + ":" + v1alpha1.DefaultTensorflowRuntimeVersion,
+											Command: []string{v1alpha1.TensorflowEntrypointCommand},
+											Args: []string{
+												"--port=" + v1alpha1.TensorflowServingGRPCPort,
+												"--rest_api_port=" + v1alpha1.TensorflowServingRestPort,
+												"--model_name=mnist",
+												"--model_base_path=" + constants.DefaultModelLocalMountPath,
+											},
+										},
+									},
 								},
 							},
 						},
@@ -166,7 +174,7 @@ func TestKnativeConfigurationReconcile(t *testing.T) {
 					Namespace: "default",
 				},
 				Spec: knservingv1alpha1.ConfigurationSpec{
-					RevisionTemplate: &knservingv1alpha1.RevisionTemplateSpec{
+					Template: &knservingv1alpha1.RevisionTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{"serving.kubeflow.org/kfservice": "mnist"},
 							Annotations: map[string]string{
@@ -178,15 +186,19 @@ func TestKnativeConfigurationReconcile(t *testing.T) {
 						Spec: knservingv1alpha1.RevisionSpec{
 							RevisionSpec: v1beta1.RevisionSpec{
 								TimeoutSeconds: &constants.DefaultTimeout,
-							},
-							Container: &v1.Container{
-								Image:   v1alpha1.TensorflowServingImageName + ":" + v1alpha1.DefaultTensorflowRuntimeVersion,
-								Command: []string{v1alpha1.TensorflowEntrypointCommand},
-								Args: []string{
-									"--port=" + v1alpha1.TensorflowServingGRPCPort,
-									"--rest_api_port=" + v1alpha1.TensorflowServingRestPort,
-									"--model_name=mnist",
-									"--model_base_path=" + constants.DefaultModelLocalMountPath,
+								PodSpec: v1.PodSpec{
+									Containers: []v1.Container{
+										{
+											Image:   v1alpha1.TensorflowServingImageName + ":" + v1alpha1.DefaultTensorflowRuntimeVersion,
+											Command: []string{v1alpha1.TensorflowEntrypointCommand},
+											Args: []string{
+												"--port=" + v1alpha1.TensorflowServingGRPCPort,
+												"--rest_api_port=" + v1alpha1.TensorflowServingRestPort,
+												"--model_name=mnist",
+												"--model_base_path=" + constants.DefaultModelLocalMountPath,
+											},
+										},
+									},
 								},
 							},
 						},

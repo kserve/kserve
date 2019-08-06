@@ -20,7 +20,7 @@ import (
 	"context"
 
 	"github.com/knative/pkg/apis"
-	autoscalingv1 "k8s.io/api/autoscaling/v1"
+	"github.com/knative/serving/pkg/apis/serving"
 	"k8s.io/apimachinery/pkg/api/equality"
 )
 
@@ -46,24 +46,7 @@ func (spec *ServerlessServiceSpec) Validate(ctx context.Context) *apis.FieldErro
 		all = all.Also(apis.ErrInvalidValue(spec.Mode, "mode"))
 	}
 
-	all = all.Also(validateReference(spec.ObjectRef).ViaField("objectRef"))
+	all = all.Also(serving.ValidateNamespacedObjectReference(&spec.ObjectRef).ViaField("objectRef"))
 
 	return all.Also(spec.ProtocolType.Validate(ctx).ViaField("protocolType"))
-}
-
-func validateReference(ref autoscalingv1.CrossVersionObjectReference) *apis.FieldError {
-	if equality.Semantic.DeepEqual(ref, autoscalingv1.CrossVersionObjectReference{}) {
-		return apis.ErrMissingField(apis.CurrentField)
-	}
-	var errs *apis.FieldError
-	if ref.Kind == "" {
-		errs = errs.Also(apis.ErrMissingField("kind"))
-	}
-	if ref.Name == "" {
-		errs = errs.Also(apis.ErrMissingField("name"))
-	}
-	if ref.APIVersion == "" {
-		errs = errs.Also(apis.ErrMissingField("apiVersion"))
-	}
-	return errs
 }

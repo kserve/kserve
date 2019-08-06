@@ -37,6 +37,13 @@ const (
 	FrameworkConfigKeyName = "frameworks"
 )
 
+var configurationAnnotationDisallowedList = []string{
+	autoscaling.MinScaleAnnotationKey,
+	autoscaling.MaxScaleAnnotationKey,
+	constants.ModelInitializerSourceUriInternalAnnotationKey,
+	"kubectl.kubernetes.io/last-applied-configuration",
+}
+
 type ConfigurationBuilder struct {
 	frameworksConfig  *v1alpha1.FrameworksConfig
 	credentialBuilder *credentials.CredentialBuilder
@@ -58,7 +65,10 @@ func NewConfigurationBuilder(client client.Client, config *v1.ConfigMap) *Config
 }
 
 func (c *ConfigurationBuilder) CreateKnativeConfiguration(name string, metadata metav1.ObjectMeta, modelSpec *v1alpha1.ModelSpec) (*knservingv1alpha1.Configuration, error) {
-	annotations := make(map[string]string)
+	annotations := utils.Filter(metadata.Annotations, func(key string) bool {
+		return !utils.Includes(configurationAnnotationDisallowedList, key)
+	})
+
 	if modelSpec.MinReplicas != 0 {
 		annotations[autoscaling.MinScaleAnnotationKey] = fmt.Sprint(modelSpec.MinReplicas)
 	}
@@ -67,20 +77,18 @@ func (c *ConfigurationBuilder) CreateKnativeConfiguration(name string, metadata 
 	}
 
 	// User can pass down scaling target annotation to overwrite the target default 1
-	if _, ok := metadata.Annotations[autoscaling.TargetAnnotationKey]; !ok {
+	if _, ok := annotations[autoscaling.TargetAnnotationKey]; !ok {
 		annotations[autoscaling.TargetAnnotationKey] = constants.DefaultScalingTarget
 	}
 	// User can pass down scaling class annotation to overwrite the default scaling KPA
-	if _, ok := metadata.Annotations[autoscaling.ClassAnnotationKey]; !ok {
+	if _, ok := annotations[autoscaling.ClassAnnotationKey]; !ok {
 		annotations[autoscaling.ClassAnnotationKey] = autoscaling.KPA
 	}
-
-	kfsvcAnnotations := utils.Filter(metadata.Annotations, configurationAnnotationFilter)
 
 	// KNative does not support INIT containers or mounting, so we add annotations that trigger the
 	// ModelInitializer injector to mutate the underlying deployment to provision model data
 	if sourceURI := modelSpec.GetModelSourceUri(); sourceURI != "" {
-		kfsvcAnnotations[constants.ModelInitializerSourceUriInternalAnnotationKey] = sourceURI
+		annotations[constants.ModelInitializerSourceUriInternalAnnotationKey] = sourceURI
 	}
 
 	configuration := &knservingv1alpha1.Configuration{
@@ -90,23 +98,25 @@ func (c *ConfigurationBuilder) CreateKnativeConfiguration(name string, metadata 
 			Labels:    metadata.Labels,
 		},
 		Spec: knservingv1alpha1.ConfigurationSpec{
-			RevisionTemplate: &knservingv1alpha1.RevisionTemplateSpec{
+			Template: &knservingv1alpha1.RevisionTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: utils.Union(metadata.Labels, map[string]string{
 						constants.KFServicePodLabelKey: metadata.Name,
 					}),
-					Annotations: utils.Union(kfsvcAnnotations, annotations),
+					Annotations: annotations,
 				},
 				Spec: knservingv1alpha1.RevisionSpec{
 					RevisionSpec: v1beta1.RevisionSpec{
 						// Defaulting here since this always shows a diff with nil vs 300s(knative default)
 						// we may need to expose this field in future
 						TimeoutSeconds: &constants.DefaultTimeout,
-						PodSpec: v1beta1.PodSpec{
+						PodSpec: v1.PodSpec{
 							ServiceAccountName: modelSpec.ServiceAccountName,
+							Containers: []v1.Container{
+								*modelSpec.CreateModelServingContainer(metadata.Name, c.frameworksConfig),
+							},
 						},
 					},
-					Container: modelSpec.CreateModelServingContainer(metadata.Name, c.frameworksConfig),
 				},
 			},
 		},
@@ -115,24 +125,11 @@ func (c *ConfigurationBuilder) CreateKnativeConfiguration(name string, metadata 
 	if err := c.credentialBuilder.CreateSecretVolumeAndEnv(
 		metadata.Namespace,
 		modelSpec.ServiceAccountName,
-		configuration.Spec.RevisionTemplate.Spec.Container,
-		&configuration.Spec.RevisionTemplate.Spec.Volumes,
+		&configuration.Spec.Template.Spec.Containers[0],
+		&configuration.Spec.Template.Spec.Volumes,
 	); err != nil {
 		return nil, err
 	}
 
 	return configuration, nil
-}
-
-func configurationAnnotationFilter(annotationKey string) bool {
-	switch annotationKey {
-	case autoscaling.TargetAnnotationKey:
-		return true
-	case autoscaling.ClassAnnotationKey:
-		return true
-	case constants.KFServiceGKEAcceleratorAnnotationKey:
-		return true
-	default:
-		return false
-	}
 }

@@ -89,7 +89,7 @@ func (ss *KFServiceStatus) PropagateCanaryConfigurationStatus(canaryConfiguratio
 
 // PropagateRouteStatus propagates route's status to the service's status.
 func (ss *KFServiceStatus) PropagateRouteStatus(rs *knservingv1alpha1.RouteStatus) {
-	ss.URL = rs.Domain
+	ss.URL = rs.URL
 
 	for _, traffic := range rs.Traffic {
 		switch traffic.RevisionName {

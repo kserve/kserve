@@ -21,6 +21,7 @@ import (
 	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
 	"github.com/knative/pkg/kmeta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 // +genclient
@@ -83,10 +84,34 @@ type CertificateSpec struct {
 
 // CertificateStatus defines the observed state of a `Certificate`.
 type CertificateStatus struct {
+	// When Certificate status is ready, it means:
+	// - The target secret exists
+	// - The target secret contains a certificate that has not expired
+	// - The target secret contains a private key valid for the certificate
 	duckv1beta1.Status `json:",inline"`
 
 	// The expiration time of the TLS certificate stored in the secret named
 	// by this resource in spec.secretName.
 	// +optional
 	NotAfter *metav1.Time `json:"notAfter,omitempty"`
+
+	// HTTP01Challenges is a list of HTTP01 challenges that need to be fulfilled
+	// in order to get the TLS certificate..
+	HTTP01Challenges []HTTP01Challenge `json:"http01Challenges,omitempty"`
+}
+
+// HTTP01Challenge defines the status of a HTTP01 challenge that a certificate needs
+// to fulfill.
+type HTTP01Challenge struct {
+	// URL is the URL that the HTTP01 challenge is expected to serve on.
+	URL *apis.URL `json:"url,omitempty"`
+
+	// ServiceName is the name of the service to serve HTTP01 challenge requests.
+	ServiceName string `json:"serviceName,omitempty"`
+
+	// ServiceNamespace is the namespace of the service to serve HTTP01 challenge requests.
+	ServiceNamespace string `json:"serviceNamespace,omitempty"`
+
+	// ServicePort is the port of the service to serve HTTP01 challenge requests.
+	ServicePort intstr.IntOrString `json:"servicePort,omitempty"`
 }

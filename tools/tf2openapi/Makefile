@@ -4,7 +4,9 @@ TF_PROTO_OUT := generated
 
 # Run tests
 test: generate
-	go test ./types/...
+	go test ./types/... ./generator/...
+	go build -o bin/tf2openapi ./cmd/main.go
+	go test ./cmd/...
 
 # Generate code
 generate:

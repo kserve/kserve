@@ -56,6 +56,44 @@ spec:
                   required:
                   - container
                   type: object
+                explain:
+                  description: Optional Explain specification to add a model explainer
+                    next to the chosen predictor. In future v1alpha2 the above model
+                    predictors would be moved down a level.
+                  properties:
+                    alibi:
+                      description: The following fields follow a "1-of" semantic.
+                        Users must specify exactly one spec.
+                      properties:
+                        config:
+                          description: Inline custom parameter settings for explainer
+                          type: object
+                        resources:
+                          description: Defaults to requests and limits of 1CPU, 2Gb
+                            MEM.
+                          type: object
+                        runtimeVersion:
+                          description: Defaults to latest Alibi Version.
+                          type: string
+                        savedExplainerUri:
+                          description: The location of a fit explanation model
+                          type: string
+                        type:
+                          description: The following fields follow a "1-of" semantic.
+                            Users must specify exactly one of Type or ExplainerURI.
+                            The kind of Alibi explanation server to create, e.g. AnchorTabular
+                          type: string
+                      required:
+                      - type
+                      type: object
+                    custom:
+                      properties:
+                        container:
+                          type: object
+                      required:
+                      - container
+                      type: object
+                  type: object
                 maxReplicas:
                   description: This is the up bound for autoscaler to scale to
                   format: int64
@@ -82,7 +120,6 @@ spec:
                   - modelUri
                   type: object
                 serviceAccountName:
-                  description: Service Account Name
                   type: string
                 sklearn:
                   properties:
@@ -151,6 +188,44 @@ spec:
                   required:
                   - container
                   type: object
+                explain:
+                  description: Optional Explain specification to add a model explainer
+                    next to the chosen predictor. In future v1alpha2 the above model
+                    predictors would be moved down a level.
+                  properties:
+                    alibi:
+                      description: The following fields follow a "1-of" semantic.
+                        Users must specify exactly one spec.
+                      properties:
+                        config:
+                          description: Inline custom parameter settings for explainer
+                          type: object
+                        resources:
+                          description: Defaults to requests and limits of 1CPU, 2Gb
+                            MEM.
+                          type: object
+                        runtimeVersion:
+                          description: Defaults to latest Alibi Version.
+                          type: string
+                        savedExplainerUri:
+                          description: The location of a fit explanation model
+                          type: string
+                        type:
+                          description: The following fields follow a "1-of" semantic.
+                            Users must specify exactly one of Type or ExplainerURI.
+                            The kind of Alibi explanation server to create, e.g. AnchorTabular
+                          type: string
+                      required:
+                      - type
+                      type: object
+                    custom:
+                      properties:
+                        container:
+                          type: object
+                      required:
+                      - container
+                      type: object
+                  type: object
                 maxReplicas:
                   description: This is the up bound for autoscaler to scale to
                   format: int64
@@ -177,7 +252,6 @@ spec:
                   - modelUri
                   type: object
                 serviceAccountName:
-                  description: Service Account Name
                   type: string
                 sklearn:
                   properties:

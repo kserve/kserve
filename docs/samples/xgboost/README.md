@@ -1,4 +1,4 @@
-## Creating your own model and testing the SKLearn server.
+## Creating your own model and testing the XGBoost server.
 
 To test the XGBoost Server, first we need to generate a simple XGBoost model using Python. 
 

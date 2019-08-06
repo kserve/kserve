@@ -6,14 +6,18 @@ import (
 	"github.com/kubeflow/kfserving/tools/tf2openapi/types"
 )
 
-const requestName = "modelInput"
-const responseName = "modelOutput"
-const requestRefTemplate = "#/components/requestBodies/%s"
-const responseRefTemplate = "#/components/responses/%s"
-const pathTemplate = "/v1/models/%s/versions/%s:predict"
+const (
+	requestName         = "modelInput"
+	responseName        = "modelOutput"
+	requestRefTemplate  = "#/components/requestBodies/%s"
+	responseRefTemplate = "#/components/responses/%s"
+	pathTemplate        = "/v1/models/%s/versions/%s:predict"
+)
+
+
 
 func (g *Generator) tfServingOpenAPI(model types.TFSavedModel) (*openapi3.Swagger, error) {
-	schema, err := model.Schema(g.metaGraphTags, g.sigDefKey)
+	requestSchema, responseSchema, err := model.Schema(g.metaGraphTags, g.sigDefKey)
 	if err != nil {
 		return &openapi3.Swagger{}, err
 	}
@@ -24,13 +28,14 @@ func (g *Generator) tfServingOpenAPI(model types.TFSavedModel) (*openapi3.Swagge
 				responseName: {
 					Value: &openapi3.Response{
 						Description: "Model output",
+						Content:     openapi3.NewContentWithJSONSchema(responseSchema),
 					},
 				},
 			},
 			RequestBodies: map[string]*openapi3.RequestBodyRef{
 				requestName: {
 					Value: &openapi3.RequestBody{
-						Content: openapi3.NewContentWithJSONSchema(schema),
+						Content: openapi3.NewContentWithJSONSchema(requestSchema),
 					},
 				},
 			},
