@@ -84,7 +84,6 @@ func (r *ConfigurationReconciler) reconcileDefault(kfsvc *v1alpha1.KFService) er
 }
 
 func (r *ConfigurationReconciler) reconcileCanary(kfsvc *v1alpha1.KFService) error {
-	canaryConfigurationName := constants.CanaryConfigurationName(kfsvc.Name)
 	if kfsvc.Spec.Canary == nil {
 		if err := r.finalizeConfiguration(kfsvc); err != nil {
 			return err
@@ -94,7 +93,7 @@ func (r *ConfigurationReconciler) reconcileCanary(kfsvc *v1alpha1.KFService) err
 	}
 
 	canaryConfiguration, err := r.configurationBuilder.CreateKnativeConfiguration(
-		canaryConfigurationName,
+		constants.CanaryConfigurationName(kfsvc.Name),
 		kfsvc.ObjectMeta,
 		kfsvc.Spec.Canary,
 	)
@@ -114,15 +113,13 @@ func (r *ConfigurationReconciler) reconcileCanary(kfsvc *v1alpha1.KFService) err
 func (r *ConfigurationReconciler) finalizeConfiguration(kfsvc *v1alpha1.KFService) error {
 	canaryConfigurationName := constants.CanaryConfigurationName(kfsvc.Name)
 	existing := &knservingv1alpha1.Configuration{}
-	err := r.client.Get(context.TODO(), types.NamespacedName{Name: canaryConfigurationName, Namespace: kfsvc.Namespace}, existing)
-	if err != nil {
+	if err := r.client.Get(context.TODO(), types.NamespacedName{Name: canaryConfigurationName, Namespace: kfsvc.Namespace}, existing); err != nil {
 		if !errors.IsNotFound(err) {
 			return err
 		}
 	} else {
 		log.Info("Deleting Knative Serving configuration", "namespace", kfsvc.Namespace, "name", canaryConfigurationName)
-		err := r.client.Delete(context.TODO(), existing, client.PropagationPolicy(metav1.DeletePropagationBackground))
-		if err != nil {
+		if err := r.client.Delete(context.TODO(), existing, client.PropagationPolicy(metav1.DeletePropagationBackground)); err != nil {
 			if !errors.IsNotFound(err) {
 				return err
 			}
