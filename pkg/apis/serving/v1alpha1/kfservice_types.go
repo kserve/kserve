@@ -28,9 +28,8 @@ type KFServiceSpec struct {
 	CanaryTrafficPercent int        `json:"canaryTrafficPercent,omitempty"`
 }
 
-// ModelSpec defines the default configuration to route traffic.
+// ModelSpec defines the configuration to route traffic to a predictor.
 type ModelSpec struct {
-	// Service Account Name
 	ServiceAccountName string `json:"serviceAccountName,omitempty"`
 	// Minimum number of replicas, pods won't scale down to 0 in case of no traffic
 	MinReplicas int `json:"minReplicas,omitempty"`
@@ -43,6 +42,40 @@ type ModelSpec struct {
 	XGBoost    *XGBoostSpec    `json:"xgboost,omitempty"`
 	SKLearn    *SKLearnSpec    `json:"sklearn,omitempty"`
 	PyTorch    *PyTorchSpec    `json:"pytorch,omitempty"`
+	// Optional Explain specification to add a model explainer next to the chosen predictor.
+	// In future v1alpha2 the above model predictors would be moved down a level.
+	Explain *ExplainSpec `json:"explain,omitempty"`
+}
+
+// ExplainSpec defines the arguments for a model explanation server
+type ExplainSpec struct {
+	// The following fields follow a "1-of" semantic. Users must specify exactly one spec.
+	Alibi  *AlibiExplainSpec `json:"alibi,omitempty"`
+	Custom *CustomSpec       `json:"custom,omitempty"`
+}
+
+type AlibiExplainerType string
+
+const (
+	AlibiAnchorsTabularExplainer AlibiExplainerType = "AnchorsTabular"
+	AlibiAnchorsImageExplainer AlibiExplainerType = "AnchorsImage"
+	AlibiAnchorsTextExplainer AlibiExplainerType = "AnchorsText"
+	AlibiCounterfactualsExplainer AlibiExplainerType = "Counterfactuals"
+	AlibiContrastiveExplainer AlibiExplainerType = "Contrastive"
+)
+
+// AlibiExplainSpec defines the arguments for configuring an Alibi Explanation Server
+type AlibiExplainSpec struct {
+	// The type of Alibi explainer
+	Type AlibiExplainerType `json:"type"`
+	// The location of a trained explanation model
+	StorageURI string `json:"storageUri,omitempty"`
+	// Defaults to latest Alibi Version.
+	RuntimeVersion string `json:"runtimeVersion,omitempty"`
+	// Defaults to requests and limits of 1CPU, 2Gb MEM.
+	Resources v1.ResourceRequirements `json:"resources,omitempty"`
+	// Inline custom parameter settings for explainer
+	Config map[string]string `json:"config,omitempty"`
 }
 
 // TensorflowSpec defines arguments for configuring Tensorflow model serving.
