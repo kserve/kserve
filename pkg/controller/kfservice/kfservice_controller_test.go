@@ -33,6 +33,7 @@ import (
 	servingv1alpha1 "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 	"github.com/onsi/gomega"
 	"golang.org/x/net/context"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -560,8 +561,10 @@ func TestCanaryDelete(t *testing.T) {
 		Should(gomega.Succeed())
 
 	canaryConfiguration = &knservingv1alpha1.Configuration{}
-	g.Eventually(func() error { return c.Get(context.TODO(), canaryConfigurationKey, canaryConfiguration) }, timeout).
-		Should(gomega.MatchError("Configuration.serving.knative.dev \"bar-canary\" not found"))
+	g.Eventually(func() bool {
+		err := c.Get(context.TODO(), canaryConfigurationKey, canaryConfiguration)
+		return errors.IsNotFound(err)
+	}, timeout).Should(gomega.BeTrue())
 
 	// Verify if KFService status is updated with right status
 	// Canary status should be removed with condition set to unknown
