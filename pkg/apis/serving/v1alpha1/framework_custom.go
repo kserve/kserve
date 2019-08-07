@@ -17,11 +17,18 @@ import (
 	"fmt"
 
 	knserving "github.com/knative/serving/pkg/apis/serving"
+	"github.com/kubeflow/kfserving/pkg/constants"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 func (c *CustomSpec) GetModelSourceUri() string {
+	// return the CustomSpecModelUri env variable value if set on the spec
+	for _, envVar := range c.Container.Env {
+		if envVar.Name == constants.CustomSpecModelUriEnvVarKey {
+			return envVar.Value
+		}
+	}
 	return ""
 }
 
