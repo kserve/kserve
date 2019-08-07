@@ -73,6 +73,12 @@ func (ss *KFServiceStatus) PropagateDefaultConfigurationStatus(defaultConfigurat
 // PropagateCanaryConfigurationStatus propagates the canary Configuration status and applies its values
 // to the Service status.
 func (ss *KFServiceStatus) PropagateCanaryConfigurationStatus(canaryConfigurationStatus *knservingv1alpha1.ConfigurationStatus) {
+	// reset status if canaryConfigurationStatus is nil
+	if canaryConfigurationStatus == nil {
+		ss.Canary = StatusConfigurationSpec{}
+		conditionSet.Manage(ss).MarkUnknown(CanaryPredictorReady, "CanarySpecUnavailable", "Canary spec unavailable")
+		return
+	}
 	ss.Canary.Name = canaryConfigurationStatus.LatestCreatedRevisionName
 	configurationCondition := canaryConfigurationStatus.GetCondition(knservingv1alpha1.ConfigurationConditionReady)
 
