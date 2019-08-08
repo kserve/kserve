@@ -1,5 +1,11 @@
 # KFServingClient
 
+> KFServingClient(kube_config=None)
+
+User can set the `kube_config` to loads authentication and cluster information from `kube_config` file. Defaults to `~/.kube/config`.
+
+The APIs for KFServingClient are as following:
+
 Class | Method |  Description
 ------------ | ------------- | -------------
 KFServingClient | [create](#create) | Create KFService|

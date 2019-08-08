@@ -22,11 +22,11 @@ from ..utils import utils
 class KFServingClient(object):
     """KFServing Apis."""
 
-    def __init__(self):
+    def __init__(self, kube_config=None):
         if utils.is_running_in_k8s():
             config.load_incluster_config()
         else:
-            config.load_kube_config()
+            config.load_kube_config(config_file=kube_config)
 
         self.api_instance = client.CustomObjectsApi()
     
