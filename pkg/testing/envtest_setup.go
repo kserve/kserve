@@ -20,10 +20,10 @@ import (
 	"path/filepath"
 	"sync"
 
-	knserving "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 	"github.com/onsi/gomega"
 	"k8s.io/client-go/kubernetes/scheme"
+	knserving "knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"

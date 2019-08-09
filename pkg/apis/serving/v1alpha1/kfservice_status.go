@@ -14,9 +14,9 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"github.com/knative/pkg/apis"
-	knservingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"k8s.io/api/core/v1"
+	"knative.dev/pkg/apis"
+	knservingv1alpha1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
 )
 
 // ConditionType represents a Service condition value

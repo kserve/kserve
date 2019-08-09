@@ -20,11 +20,11 @@ import (
 	"flag"
 	"os"
 
-	knservingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/kubeflow/kfserving/pkg/apis"
 	"github.com/kubeflow/kfserving/pkg/controller"
 	"github.com/kubeflow/kfserving/pkg/webhook"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+	knservingv1alpha1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"

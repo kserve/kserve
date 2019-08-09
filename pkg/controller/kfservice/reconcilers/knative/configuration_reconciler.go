@@ -20,11 +20,11 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/knative/pkg/kmp"
-	knservingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/controller/kfservice/resources/knative"
+	"knative.dev/pkg/kmp"
+	knservingv1alpha1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"

@@ -45,8 +45,8 @@ source = "https://github.com/fsnotify/fsnotify.git"
 version="v1.4.7"
 
 [[constraint]]
-  name = "github.com/knative/serving"
-  version = "=v0.7.1"
+  name = "knative.dev/serving"
+  version = "=v0.8.0"
 
 [[override]]
   name="sigs.k8s.io/controller-runtime"
@@ -54,8 +54,8 @@ version="v1.4.7"
   version = "=v0.1.9"
 
 [[override]]
-  name = "github.com/knative/pkg"
-  branch = "release-0.7"
+  name = "knative.dev/pkg"
+  branch = "release-0.8"
 
 [[override]]
   name = "k8s.io/api"

@@ -14,10 +14,10 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"github.com/knative/pkg/apis"
-	duckv1beta1 "github.com/knative/pkg/apis/duck/v1beta1"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/apis"
+	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
 )
 
 // KFServiceSpec defines the desired state of KFService
@@ -57,11 +57,11 @@ type ExplainSpec struct {
 type AlibiExplainerType string
 
 const (
-	AlibiAnchorsTabularExplainer AlibiExplainerType = "AnchorsTabular"
-	AlibiAnchorsImageExplainer AlibiExplainerType = "AnchorsImage"
-	AlibiAnchorsTextExplainer AlibiExplainerType = "AnchorsText"
+	AlibiAnchorsTabularExplainer  AlibiExplainerType = "AnchorsTabular"
+	AlibiAnchorsImageExplainer    AlibiExplainerType = "AnchorsImage"
+	AlibiAnchorsTextExplainer     AlibiExplainerType = "AnchorsText"
 	AlibiCounterfactualsExplainer AlibiExplainerType = "Counterfactuals"
-	AlibiContrastiveExplainer AlibiExplainerType = "Contrastive"
+	AlibiContrastiveExplainer     AlibiExplainerType = "Contrastive"
 )
 
 // AlibiExplainSpec defines the arguments for configuring an Alibi Explanation Server
