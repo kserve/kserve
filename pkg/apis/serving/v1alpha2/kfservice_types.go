@@ -11,7 +11,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha1
+package v1alpha2
 
 import (
 	"github.com/knative/pkg/apis"
@@ -22,19 +22,38 @@ import (
 
 // KFServiceSpec defines the desired state of KFService
 type KFServiceSpec struct {
-	Default ModelSpec `json:"default"`
-	// Canary defines an alternate configuration to route a percentage of traffic.
-	Canary               *ModelSpec `json:"canary,omitempty"`
-	CanaryTrafficPercent int        `json:"canaryTrafficPercent,omitempty"`
+	// Default defines the configuration of KFService
+	Default ServicesSpec `json:"default"`
+	// Canary defines an alternate KFService configuration to route a percentage of traffic.
+	Canary *ServicesSpec `json:"canary,omitempty"`
+	// Traffic split percentage between default and canary KFService
+	CanaryTrafficPercent int `json:"canaryTrafficPercent,omitempty"`
 }
 
-// ModelSpec defines the configuration to route traffic to a predictor.
-type ModelSpec struct {
+type ServicesSpec struct {
+	// Optional prepost processing specification
+	Prepostprocess *PrepostprocessSpec `json:"prepostprocess,omitempty"`
+	// Predictor for a given model
+	Predict ModelSpec `json:"predict"`
+	// Optional Explain specification to add a model explainer next to the chosen predictor.
+	Explain *ExplainSpec `json:"explain,omitempty"`
+	// Default deployment specification
+	Deployment *DeploymentSpec `json:"deployment,omitempty"`
+	// Service account name
 	ServiceAccountName string `json:"serviceAccountName,omitempty"`
+}
+
+type DeploymentSpec struct {
 	// Minimum number of replicas, pods won't scale down to 0 in case of no traffic
 	MinReplicas int `json:"minReplicas,omitempty"`
 	// This is the up bound for autoscaler to scale to
 	MaxReplicas int `json:"maxReplicas,omitempty"`
+	// Defaults to requests and limits of 1CPU, 2Gb MEM.
+	Resources v1.ResourceRequirements `json:"resources,omitempty"`
+}
+
+// ModelSpec defines the configuration to route traffic to a predictor.
+type ModelSpec struct {
 	// The following fields follow a "1-of" semantic. Users must specify exactly one spec.
 	Custom     *CustomSpec     `json:"custom,omitempty"`
 	Tensorflow *TensorflowSpec `json:"tensorflow,omitempty"`
@@ -42,9 +61,11 @@ type ModelSpec struct {
 	XGBoost    *XGBoostSpec    `json:"xgboost,omitempty"`
 	SKLearn    *SKLearnSpec    `json:"sklearn,omitempty"`
 	PyTorch    *PyTorchSpec    `json:"pytorch,omitempty"`
-	// Optional Explain specification to add a model explainer next to the chosen predictor.
-	// In future v1alpha2 the above model predictors would be moved down a level.
-	Explain *ExplainSpec `json:"explain,omitempty"`
+}
+
+type PrepostprocessSpec struct {
+	// Custom container
+	Custom *CustomSpec `json:"custom,omitempty"`
 }
 
 // ExplainSpec defines the arguments for a model explanation server
@@ -72,62 +93,68 @@ type AlibiExplainSpec struct {
 	StorageURI string `json:"storageUri,omitempty"`
 	// Defaults to latest Alibi Version.
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
-	// Defaults to requests and limits of 1CPU, 2Gb MEM.
-	Resources v1.ResourceRequirements `json:"resources,omitempty"`
 	// Inline custom parameter settings for explainer
 	Config map[string]string `json:"config,omitempty"`
 }
 
 // TensorflowSpec defines arguments for configuring Tensorflow model serving.
 type TensorflowSpec struct {
+	// Model storage URI
 	ModelURI string `json:"modelUri"`
 	// Defaults to latest TF Version.
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
-	// Defaults to requests and limits of 1CPU, 2Gb MEM.
-	Resources v1.ResourceRequirements `json:"resources,omitempty"`
+	// Deployment if specified it overwrites at upper level
+	DeploymentSpec `json:",inline"`
 }
 
 // TensorRTSpec defines arguments for configuring TensorRT model serving.
 type TensorRTSpec struct {
+	// Model storage URI
 	ModelURI string `json:"modelUri"`
 	// Defaults to latest TensorRT Version.
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
-	// Defaults to requests and limits of 1CPU, 2Gb MEM.
-	Resources v1.ResourceRequirements `json:"resources,omitempty"`
+	// Deployment if specified it overwrites at upper level
+	DeploymentSpec `json:",inline"`
 }
 
 // XGBoostSpec defines arguments for configuring XGBoost model serving.
 type XGBoostSpec struct {
+	// Model storage URI
 	ModelURI string `json:"modelUri"`
 	// Defaults to latest XGBoost Version.
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
-	// Defaults to requests and limits of 1CPU, 2Gb MEM.
-	Resources v1.ResourceRequirements `json:"resources,omitempty"`
+	// Deployment if specified it overwrites at upper level
+	DeploymentSpec `json:",inline"`
 }
 
 // SKLearnSpec defines arguments for configuring SKLearn model serving.
 type SKLearnSpec struct {
+	// Model storage URI
 	ModelURI string `json:"modelUri"`
 	// Defaults to latest SKLearn Version.
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
-	// Defaults to requests and limits of 1CPU, 2Gb MEM.
-	Resources v1.ResourceRequirements `json:"resources,omitempty"`
+	// Deployment if specified it overwrites at upper level
+	DeploymentSpec `json:",inline"`
 }
 
 // PyTorchSpec defines arguments for configuring PyTorch model serving.
 type PyTorchSpec struct {
+	// Model storage URI
 	ModelURI string `json:"modelUri"`
 	// Defaults PyTorch model class name to 'PyTorchModel'
 	ModelClassName string `json:"modelClassName,omitempty"`
 	// Defaults to latest PyTorch Version
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
-	// Defaults to requests and limits of 1CPU, 2Gb MEM.
-	Resources v1.ResourceRequirements `json:"resources,omitempty"`
+	// Deployment if specified it overwrites at upper level
+	DeploymentSpec `json:",inline"`
 }
 
 // CustomSpec provides a hook for arbitrary container configuration.
 type CustomSpec struct {
+	// Custom container
 	Container v1.Container `json:"container"`
+	// Deployment if specified it overwrites at upper level
+	DeploymentSpec `json:",inline"`
 }
 
 // KFServiceStatus defines the observed state of KFService
