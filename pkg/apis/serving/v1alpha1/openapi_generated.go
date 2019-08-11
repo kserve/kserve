@@ -23,53 +23,53 @@ limitations under the License.
 package v1alpha1
 
 import (
-	spec "github.com/go-openapi/spec"
+	openapispec "github.com/go-openapi/spec"
 	common "k8s.io/kube-openapi/pkg/common"
 )
 
 func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
 	return map[string]common.OpenAPIDefinition{
 		"github.com/knative/pkg/apis.Condition": {
-			Schema: spec.Schema{
-				SchemaProps: spec.SchemaProps{
+			Schema: openapispec.Schema{
+				SchemaProps: openapispec.SchemaProps{
 					Description: "Conditions defines a readiness condition for a Knative resource. See: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#typical-status-properties",
-					Properties: map[string]spec.Schema{
+					Properties: map[string]openapispec.Schema{
 						"type": {
-							SchemaProps: spec.SchemaProps{
+							SchemaProps: openapispec.SchemaProps{
 								Description: "Type of condition.",
 								Type:        []string{"string"},
 								Format:      "",
 							},
 						},
 						"status": {
-							SchemaProps: spec.SchemaProps{
+							SchemaProps: openapispec.SchemaProps{
 								Description: "Status of the condition, one of True, False, Unknown.",
 								Type:        []string{"string"},
 								Format:      "",
 							},
 						},
 						"severity": {
-							SchemaProps: spec.SchemaProps{
+							SchemaProps: openapispec.SchemaProps{
 								Description: "Severity with which to treat failures of this type of condition. When this is not specified, it defaults to Error.",
 								Type:        []string{"string"},
 								Format:      "",
 							},
 						},
 						"lastTransitionTime": {
-							SchemaProps: spec.SchemaProps{
+							SchemaProps: openapispec.SchemaProps{
 								Description: "LastTransitionTime is the last time the condition transitioned from one status to another. We use VolatileTime in place of metav1.Time to exclude this from creating equality.Semantic differences (all other things held constant).",
 								Ref:         ref("github.com/knative/pkg/apis.VolatileTime"),
 							},
 						},
 						"reason": {
-							SchemaProps: spec.SchemaProps{
+							SchemaProps: openapispec.SchemaProps{
 								Description: "The reason for the condition's last transition.",
 								Type:        []string{"string"},
 								Format:      "",
 							},
 						},
 						"message": {
-							SchemaProps: spec.SchemaProps{
+							SchemaProps: openapispec.SchemaProps{
 								Description: "A human readable message indicating details about the transition.",
 								Type:        []string{"string"},
 								Format:      "",
@@ -83,12 +83,12 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 				"github.com/knative/pkg/apis.VolatileTime"},
 		},
 		"github.com/knative/pkg/apis.VolatileTime": {
-			Schema: spec.Schema{
-				SchemaProps: spec.SchemaProps{
+			Schema: openapispec.Schema{
+				SchemaProps: openapispec.SchemaProps{
 					Description: "VolatileTime wraps metav1.Time",
-					Properties: map[string]spec.Schema{
+					Properties: map[string]openapispec.Schema{
 						"Inner": {
-							SchemaProps: spec.SchemaProps{
+							SchemaProps: openapispec.SchemaProps{
 								Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
 							},
 						},
@@ -100,44 +100,44 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 				"k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
 		},
 		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.AlibiExplainSpec": {
-			Schema: spec.Schema{
-				SchemaProps: spec.SchemaProps{
+			Schema: openapispec.Schema{
+				SchemaProps: openapispec.SchemaProps{
 					Description: "AlibiExplainSpec defines the arguments for configuring an Alibi Explanation Server",
-					Properties: map[string]spec.Schema{
+					Properties: map[string]openapispec.Schema{
 						"type": {
-							SchemaProps: spec.SchemaProps{
+							SchemaProps: openapispec.SchemaProps{
 								Description: "The type of Alibi explainer",
 								Type:        []string{"string"},
 								Format:      "",
 							},
 						},
 						"storageUri": {
-							SchemaProps: spec.SchemaProps{
+							SchemaProps: openapispec.SchemaProps{
 								Description: "The location of a trained explanation model",
 								Type:        []string{"string"},
 								Format:      "",
 							},
 						},
 						"runtimeVersion": {
-							SchemaProps: spec.SchemaProps{
+							SchemaProps: openapispec.SchemaProps{
 								Description: "Defaults to latest Alibi Version.",
 								Type:        []string{"string"},
 								Format:      "",
 							},
 						},
 						"resources": {
-							SchemaProps: spec.SchemaProps{
+							SchemaProps: openapispec.SchemaProps{
 								Description: "Defaults to requests and limits of 1CPU, 2Gb MEM.",
 								Ref:         ref("k8s.io/api/core/v1.ResourceRequirements"),
 							},
 						},
 						"config": {
-							SchemaProps: spec.SchemaProps{
+							SchemaProps: openapispec.SchemaProps{
 								Description: "Inline custom parameter settings for explainer",
 								Type:        []string{"object"},
-								AdditionalProperties: &spec.SchemaOrBool{
-									Schema: &spec.Schema{
-										SchemaProps: spec.SchemaProps{
+								AdditionalProperties: &openapispec.SchemaOrBool{
+									Schema: &openapispec.Schema{
+										SchemaProps: openapispec.SchemaProps{
 											Type:   []string{"string"},
 											Format: "",
 										},
@@ -153,12 +153,12 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 				"k8s.io/api/core/v1.ResourceRequirements"},
 		},
 		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.CustomSpec": {
-			Schema: spec.Schema{
-				SchemaProps: spec.SchemaProps{
+			Schema: openapispec.Schema{
+				SchemaProps: openapispec.SchemaProps{
 					Description: "CustomSpec provides a hook for arbitrary container configuration.",
-					Properties: map[string]spec.Schema{
+					Properties: map[string]openapispec.Schema{
 						"container": {
-							SchemaProps: spec.SchemaProps{
+							SchemaProps: openapispec.SchemaProps{
 								Ref: ref("k8s.io/api/core/v1.Container"),
 							},
 						},
@@ -170,18 +170,18 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 				"k8s.io/api/core/v1.Container"},
 		},
 		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.ExplainSpec": {
-			Schema: spec.Schema{
-				SchemaProps: spec.SchemaProps{
+			Schema: openapispec.Schema{
+				SchemaProps: openapispec.SchemaProps{
 					Description: "ExplainSpec defines the arguments for a model explanation server",
-					Properties: map[string]spec.Schema{
+					Properties: map[string]openapispec.Schema{
 						"alibi": {
-							SchemaProps: spec.SchemaProps{
-								Description: "The following fields follow a \"1-of\" semantic. Users must specify exactly one spec.",
+							SchemaProps: openapispec.SchemaProps{
+								Description: "The following fields follow a \"1-of\" semantic. Users must specify exactly one openapispec.",
 								Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.AlibiExplainSpec"),
 							},
 						},
 						"custom": {
-							SchemaProps: spec.SchemaProps{
+							SchemaProps: openapispec.SchemaProps{
 								Ref: ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.CustomSpec"),
 							},
 						},
@@ -192,11 +192,11 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 				"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.AlibiExplainSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.CustomSpec"},
 		},
 		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.FrameworkConfig": {
-			Schema: spec.Schema{
-				SchemaProps: spec.SchemaProps{
-					Properties: map[string]spec.Schema{
+			Schema: openapispec.Schema{
+				SchemaProps: openapispec.SchemaProps{
+					Properties: map[string]openapispec.Schema{
 						"image": {
-							SchemaProps: spec.SchemaProps{
+							SchemaProps: openapispec.SchemaProps{
 								Type:   []string{"string"},
 								Format: "",
 							},
@@ -208,31 +208,31 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 			Dependencies: []string{},
 		},
 		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.FrameworksConfig": {
-			Schema: spec.Schema{
-				SchemaProps: spec.SchemaProps{
-					Properties: map[string]spec.Schema{
+			Schema: openapispec.Schema{
+				SchemaProps: openapispec.SchemaProps{
+					Properties: map[string]openapispec.Schema{
 						"tensorflow": {
-							SchemaProps: spec.SchemaProps{
+							SchemaProps: openapispec.SchemaProps{
 								Ref: ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.FrameworkConfig"),
 							},
 						},
 						"tensorrt": {
-							SchemaProps: spec.SchemaProps{
+							SchemaProps: openapispec.SchemaProps{
 								Ref: ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.FrameworkConfig"),
 							},
 						},
 						"xgboost": {
-							SchemaProps: spec.SchemaProps{
+							SchemaProps: openapispec.SchemaProps{
 								Ref: ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.FrameworkConfig"),
 							},
 						},
 						"sklearn": {
-							SchemaProps: spec.SchemaProps{
+							SchemaProps: openapispec.SchemaProps{
 								Ref: ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.FrameworkConfig"),
 							},
 						},
 						"pytorch": {
-							SchemaProps: spec.SchemaProps{
+							SchemaProps: openapispec.SchemaProps{
 								Ref: ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.FrameworkConfig"),
 							},
 						},
@@ -243,36 +243,36 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 				"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.FrameworkConfig"},
 		},
 		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.KFService": {
-			Schema: spec.Schema{
-				SchemaProps: spec.SchemaProps{
+			Schema: openapispec.Schema{
+				SchemaProps: openapispec.SchemaProps{
 					Description: "KFService is the Schema for the services API",
-					Properties: map[string]spec.Schema{
+					Properties: map[string]openapispec.Schema{
 						"kind": {
-							SchemaProps: spec.SchemaProps{
+							SchemaProps: openapispec.SchemaProps{
 								Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds",
 								Type:        []string{"string"},
 								Format:      "",
 							},
 						},
 						"apiVersion": {
-							SchemaProps: spec.SchemaProps{
+							SchemaProps: openapispec.SchemaProps{
 								Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
 								Type:        []string{"string"},
 								Format:      "",
 							},
 						},
 						"metadata": {
-							SchemaProps: spec.SchemaProps{
+							SchemaProps: openapispec.SchemaProps{
 								Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
 							},
 						},
 						"spec": {
-							SchemaProps: spec.SchemaProps{
+							SchemaProps: openapispec.SchemaProps{
 								Ref: ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.KFServiceSpec"),
 							},
 						},
 						"status": {
-							SchemaProps: spec.SchemaProps{
+							SchemaProps: openapispec.SchemaProps{
 								Ref: ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.KFServiceStatus"),
 							},
 						},
@@ -283,35 +283,35 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 				"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.KFServiceSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.KFServiceStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 		},
 		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.KFServiceList": {
-			Schema: spec.Schema{
-				SchemaProps: spec.SchemaProps{
+			Schema: openapispec.Schema{
+				SchemaProps: openapispec.SchemaProps{
 					Description: "KFServiceList contains a list of Service",
-					Properties: map[string]spec.Schema{
+					Properties: map[string]openapispec.Schema{
 						"kind": {
-							SchemaProps: spec.SchemaProps{
+							SchemaProps: openapispec.SchemaProps{
 								Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds",
 								Type:        []string{"string"},
 								Format:      "",
 							},
 						},
 						"apiVersion": {
-							SchemaProps: spec.SchemaProps{
+							SchemaProps: openapispec.SchemaProps{
 								Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
 								Type:        []string{"string"},
 								Format:      "",
 							},
 						},
 						"metadata": {
-							SchemaProps: spec.SchemaProps{
+							SchemaProps: openapispec.SchemaProps{
 								Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
 							},
 						},
 						"items": {
-							SchemaProps: spec.SchemaProps{
+							SchemaProps: openapispec.SchemaProps{
 								Type: []string{"array"},
-								Items: &spec.SchemaOrArray{
-									Schema: &spec.Schema{
-										SchemaProps: spec.SchemaProps{
+								Items: &openapispec.SchemaOrArray{
+									Schema: &openapispec.Schema{
+										SchemaProps: openapispec.SchemaProps{
 											Ref: ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.KFService"),
 										},
 									},
@@ -326,23 +326,23 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 				"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.KFService", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
 		},
 		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.KFServiceSpec": {
-			Schema: spec.Schema{
-				SchemaProps: spec.SchemaProps{
+			Schema: openapispec.Schema{
+				SchemaProps: openapispec.SchemaProps{
 					Description: "KFServiceSpec defines the desired state of KFService",
-					Properties: map[string]spec.Schema{
+					Properties: map[string]openapispec.Schema{
 						"default": {
-							SchemaProps: spec.SchemaProps{
+							SchemaProps: openapispec.SchemaProps{
 								Ref: ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.ModelSpec"),
 							},
 						},
 						"canary": {
-							SchemaProps: spec.SchemaProps{
+							SchemaProps: openapispec.SchemaProps{
 								Description: "Canary defines an alternate configuration to route a percentage of traffic.",
 								Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.ModelSpec"),
 							},
 						},
 						"canaryTrafficPercent": {
-							SchemaProps: spec.SchemaProps{
+							SchemaProps: openapispec.SchemaProps{
 								Type:   []string{"integer"},
 								Format: "int32",
 							},
@@ -355,30 +355,30 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 				"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.ModelSpec"},
 		},
 		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.KFServiceStatus": {
-			Schema: spec.Schema{
-				SchemaProps: spec.SchemaProps{
+			Schema: openapispec.Schema{
+				SchemaProps: openapispec.SchemaProps{
 					Description: "KFServiceStatus defines the observed state of KFService",
-					Properties: map[string]spec.Schema{
+					Properties: map[string]openapispec.Schema{
 						"observedGeneration": {
-							SchemaProps: spec.SchemaProps{
+							SchemaProps: openapispec.SchemaProps{
 								Description: "ObservedGeneration is the 'Generation' of the Service that was last processed by the controller.",
 								Type:        []string{"integer"},
 								Format:      "int64",
 							},
 						},
 						"conditions": {
-							VendorExtensible: spec.VendorExtensible{
-								Extensions: spec.Extensions{
+							VendorExtensible: openapispec.VendorExtensible{
+								Extensions: openapispec.Extensions{
 									"x-kubernetes-patch-merge-key": "type",
 									"x-kubernetes-patch-strategy":  "merge",
 								},
 							},
-							SchemaProps: spec.SchemaProps{
+							SchemaProps: openapispec.SchemaProps{
 								Description: "Conditions the latest available observations of a resource's current state.",
 								Type:        []string{"array"},
-								Items: &spec.SchemaOrArray{
-									Schema: &spec.Schema{
-										SchemaProps: spec.SchemaProps{
+								Items: &openapispec.SchemaOrArray{
+									Schema: &openapispec.Schema{
+										SchemaProps: openapispec.SchemaProps{
 											Ref: ref("knative.dev/pkg/apis.Condition"),
 										},
 									},
@@ -386,17 +386,17 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 							},
 						},
 						"url": {
-							SchemaProps: spec.SchemaProps{
+							SchemaProps: openapispec.SchemaProps{
 								Ref: ref("knative.dev/pkg/apis.URL"),
 							},
 						},
 						"default": {
-							SchemaProps: spec.SchemaProps{
+							SchemaProps: openapispec.SchemaProps{
 								Ref: ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.StatusConfigurationSpec"),
 							},
 						},
 						"canary": {
-							SchemaProps: spec.SchemaProps{
+							SchemaProps: openapispec.SchemaProps{
 								Ref: ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.StatusConfigurationSpec"),
 							},
 						},
@@ -407,63 +407,63 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 				"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.StatusConfigurationSpec", "knative.dev/pkg/apis.Condition", "knative.dev/pkg/apis.URL"},
 		},
 		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.ModelSpec": {
-			Schema: spec.Schema{
-				SchemaProps: spec.SchemaProps{
+			Schema: openapispec.Schema{
+				SchemaProps: openapispec.SchemaProps{
 					Description: "ModelSpec defines the configuration to route traffic to a predictor.",
-					Properties: map[string]spec.Schema{
+					Properties: map[string]openapispec.Schema{
 						"serviceAccountName": {
-							SchemaProps: spec.SchemaProps{
+							SchemaProps: openapispec.SchemaProps{
 								Type:   []string{"string"},
 								Format: "",
 							},
 						},
 						"minReplicas": {
-							SchemaProps: spec.SchemaProps{
+							SchemaProps: openapispec.SchemaProps{
 								Description: "Minimum number of replicas, pods won't scale down to 0 in case of no traffic",
 								Type:        []string{"integer"},
 								Format:      "int32",
 							},
 						},
 						"maxReplicas": {
-							SchemaProps: spec.SchemaProps{
+							SchemaProps: openapispec.SchemaProps{
 								Description: "This is the up bound for autoscaler to scale to",
 								Type:        []string{"integer"},
 								Format:      "int32",
 							},
 						},
 						"custom": {
-							SchemaProps: spec.SchemaProps{
-								Description: "The following fields follow a \"1-of\" semantic. Users must specify exactly one spec.",
+							SchemaProps: openapispec.SchemaProps{
+								Description: "The following fields follow a \"1-of\" semantic. Users must specify exactly one openapispec.",
 								Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.CustomSpec"),
 							},
 						},
 						"tensorflow": {
-							SchemaProps: spec.SchemaProps{
+							SchemaProps: openapispec.SchemaProps{
 								Ref: ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.TensorflowSpec"),
 							},
 						},
 						"tensorrt": {
-							SchemaProps: spec.SchemaProps{
+							SchemaProps: openapispec.SchemaProps{
 								Ref: ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.TensorRTSpec"),
 							},
 						},
 						"xgboost": {
-							SchemaProps: spec.SchemaProps{
+							SchemaProps: openapispec.SchemaProps{
 								Ref: ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.XGBoostSpec"),
 							},
 						},
 						"sklearn": {
-							SchemaProps: spec.SchemaProps{
+							SchemaProps: openapispec.SchemaProps{
 								Ref: ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.SKLearnSpec"),
 							},
 						},
 						"pytorch": {
-							SchemaProps: spec.SchemaProps{
+							SchemaProps: openapispec.SchemaProps{
 								Ref: ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.PyTorchSpec"),
 							},
 						},
 						"explain": {
-							SchemaProps: spec.SchemaProps{
+							SchemaProps: openapispec.SchemaProps{
 								Description: "Optional Explain specification to add a model explainer next to the chosen predictor. In future v1alpha2 the above model predictors would be moved down a level.",
 								Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.ExplainSpec"),
 							},
@@ -475,32 +475,32 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 				"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.CustomSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.ExplainSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.PyTorchSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.SKLearnSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.TensorRTSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.TensorflowSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.XGBoostSpec"},
 		},
 		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.PyTorchSpec": {
-			Schema: spec.Schema{
-				SchemaProps: spec.SchemaProps{
+			Schema: openapispec.Schema{
+				SchemaProps: openapispec.SchemaProps{
 					Description: "PyTorchSpec defines arguments for configuring PyTorch model serving.",
-					Properties: map[string]spec.Schema{
+					Properties: map[string]openapispec.Schema{
 						"modelUri": {
-							SchemaProps: spec.SchemaProps{
+							SchemaProps: openapispec.SchemaProps{
 								Type:   []string{"string"},
 								Format: "",
 							},
 						},
 						"modelClassName": {
-							SchemaProps: spec.SchemaProps{
+							SchemaProps: openapispec.SchemaProps{
 								Description: "Defaults PyTorch model class name to 'PyTorchModel'",
 								Type:        []string{"string"},
 								Format:      "",
 							},
 						},
 						"runtimeVersion": {
-							SchemaProps: spec.SchemaProps{
+							SchemaProps: openapispec.SchemaProps{
 								Description: "Defaults to latest PyTorch Version",
 								Type:        []string{"string"},
 								Format:      "",
 							},
 						},
 						"resources": {
-							SchemaProps: spec.SchemaProps{
+							SchemaProps: openapispec.SchemaProps{
 								Description: "Defaults to requests and limits of 1CPU, 2Gb MEM.",
 								Ref:         ref("k8s.io/api/core/v1.ResourceRequirements"),
 							},
@@ -513,25 +513,25 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 				"k8s.io/api/core/v1.ResourceRequirements"},
 		},
 		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.SKLearnSpec": {
-			Schema: spec.Schema{
-				SchemaProps: spec.SchemaProps{
+			Schema: openapispec.Schema{
+				SchemaProps: openapispec.SchemaProps{
 					Description: "SKLearnSpec defines arguments for configuring SKLearn model serving.",
-					Properties: map[string]spec.Schema{
+					Properties: map[string]openapispec.Schema{
 						"modelUri": {
-							SchemaProps: spec.SchemaProps{
+							SchemaProps: openapispec.SchemaProps{
 								Type:   []string{"string"},
 								Format: "",
 							},
 						},
 						"runtimeVersion": {
-							SchemaProps: spec.SchemaProps{
+							SchemaProps: openapispec.SchemaProps{
 								Description: "Defaults to latest SKLearn Version.",
 								Type:        []string{"string"},
 								Format:      "",
 							},
 						},
 						"resources": {
-							SchemaProps: spec.SchemaProps{
+							SchemaProps: openapispec.SchemaProps{
 								Description: "Defaults to requests and limits of 1CPU, 2Gb MEM.",
 								Ref:         ref("k8s.io/api/core/v1.ResourceRequirements"),
 							},
@@ -544,24 +544,24 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 				"k8s.io/api/core/v1.ResourceRequirements"},
 		},
 		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.StatusConfigurationSpec": {
-			Schema: spec.Schema{
-				SchemaProps: spec.SchemaProps{
+			Schema: openapispec.Schema{
+				SchemaProps: openapispec.SchemaProps{
 					Description: "StatusConfigurationSpec describes the state of the configuration receiving traffic.",
-					Properties: map[string]spec.Schema{
+					Properties: map[string]openapispec.Schema{
 						"name": {
-							SchemaProps: spec.SchemaProps{
+							SchemaProps: openapispec.SchemaProps{
 								Type:   []string{"string"},
 								Format: "",
 							},
 						},
 						"replicas": {
-							SchemaProps: spec.SchemaProps{
+							SchemaProps: openapispec.SchemaProps{
 								Type:   []string{"integer"},
 								Format: "int32",
 							},
 						},
 						"traffic": {
-							SchemaProps: spec.SchemaProps{
+							SchemaProps: openapispec.SchemaProps{
 								Type:   []string{"integer"},
 								Format: "int32",
 							},
@@ -572,25 +572,25 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 			Dependencies: []string{},
 		},
 		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.TensorRTSpec": {
-			Schema: spec.Schema{
-				SchemaProps: spec.SchemaProps{
+			Schema: openapispec.Schema{
+				SchemaProps: openapispec.SchemaProps{
 					Description: "TensorRTSpec defines arguments for configuring TensorRT model serving.",
-					Properties: map[string]spec.Schema{
+					Properties: map[string]openapispec.Schema{
 						"modelUri": {
-							SchemaProps: spec.SchemaProps{
+							SchemaProps: openapispec.SchemaProps{
 								Type:   []string{"string"},
 								Format: "",
 							},
 						},
 						"runtimeVersion": {
-							SchemaProps: spec.SchemaProps{
+							SchemaProps: openapispec.SchemaProps{
 								Description: "Defaults to latest TensorRT Version.",
 								Type:        []string{"string"},
 								Format:      "",
 							},
 						},
 						"resources": {
-							SchemaProps: spec.SchemaProps{
+							SchemaProps: openapispec.SchemaProps{
 								Description: "Defaults to requests and limits of 1CPU, 2Gb MEM.",
 								Ref:         ref("k8s.io/api/core/v1.ResourceRequirements"),
 							},
@@ -603,25 +603,25 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 				"k8s.io/api/core/v1.ResourceRequirements"},
 		},
 		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.TensorflowSpec": {
-			Schema: spec.Schema{
-				SchemaProps: spec.SchemaProps{
+			Schema: openapispec.Schema{
+				SchemaProps: openapispec.SchemaProps{
 					Description: "TensorflowSpec defines arguments for configuring Tensorflow model serving.",
-					Properties: map[string]spec.Schema{
+					Properties: map[string]openapispec.Schema{
 						"modelUri": {
-							SchemaProps: spec.SchemaProps{
+							SchemaProps: openapispec.SchemaProps{
 								Type:   []string{"string"},
 								Format: "",
 							},
 						},
 						"runtimeVersion": {
-							SchemaProps: spec.SchemaProps{
+							SchemaProps: openapispec.SchemaProps{
 								Description: "Defaults to latest TF Version.",
 								Type:        []string{"string"},
 								Format:      "",
 							},
 						},
 						"resources": {
-							SchemaProps: spec.SchemaProps{
+							SchemaProps: openapispec.SchemaProps{
 								Description: "Defaults to requests and limits of 1CPU, 2Gb MEM.",
 								Ref:         ref("k8s.io/api/core/v1.ResourceRequirements"),
 							},
@@ -634,25 +634,25 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 				"k8s.io/api/core/v1.ResourceRequirements"},
 		},
 		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.XGBoostSpec": {
-			Schema: spec.Schema{
-				SchemaProps: spec.SchemaProps{
+			Schema: openapispec.Schema{
+				SchemaProps: openapispec.SchemaProps{
 					Description: "XGBoostSpec defines arguments for configuring XGBoost model serving.",
-					Properties: map[string]spec.Schema{
+					Properties: map[string]openapispec.Schema{
 						"modelUri": {
-							SchemaProps: spec.SchemaProps{
+							SchemaProps: openapispec.SchemaProps{
 								Type:   []string{"string"},
 								Format: "",
 							},
 						},
 						"runtimeVersion": {
-							SchemaProps: spec.SchemaProps{
+							SchemaProps: openapispec.SchemaProps{
 								Description: "Defaults to latest XGBoost Version.",
 								Type:        []string{"string"},
 								Format:      "",
 							},
 						},
 						"resources": {
-							SchemaProps: spec.SchemaProps{
+							SchemaProps: openapispec.SchemaProps{
 								Description: "Defaults to requests and limits of 1CPU, 2Gb MEM.",
 								Ref:         ref("k8s.io/api/core/v1.ResourceRequirements"),
 							},
