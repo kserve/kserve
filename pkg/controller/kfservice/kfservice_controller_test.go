@@ -233,13 +233,6 @@ func TestReconcile(t *testing.T) {
 		Status: duckv1beta1.Status{
 			Conditions: duckv1beta1.Conditions{
 				{
-					Type:     servingv1alpha1.CanaryPredictorReady,
-					Status:   "Unknown",
-					Severity: "Info",
-					Reason:   "CanarySpecUnavailable",
-					Message:  "Canary spec unavailable",
-				},
-				{
 					Type:   servingv1alpha1.DefaultPredictorReady,
 					Status: "True",
 				},
@@ -584,13 +577,6 @@ func TestCanaryDelete(t *testing.T) {
 	expectedKfsvcStatus = servingv1alpha1.KFServiceStatus{
 		Status: duckv1beta1.Status{
 			Conditions: duckv1beta1.Conditions{
-				{
-					Type:     servingv1alpha1.CanaryPredictorReady,
-					Status:   "Unknown",
-					Severity: "Info",
-					Reason:   "CanarySpecUnavailable",
-					Message:  "Canary spec unavailable",
-				},
 				{
 					Type:   servingv1alpha1.DefaultPredictorReady,
 					Status: "True",
