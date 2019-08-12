@@ -76,7 +76,7 @@ func (ss *KFServiceStatus) PropagateCanaryConfigurationStatus(canaryConfiguratio
 	// reset status if canaryConfigurationStatus is nil
 	if canaryConfigurationStatus == nil {
 		ss.Canary = StatusConfigurationSpec{}
-		conditionSet.Manage(ss).MarkUnknown(CanaryPredictorReady, "CanarySpecUnavailable", "Canary spec unavailable")
+		conditionSet.Manage(ss).ClearCondition(CanaryPredictorReady)
 		return
 	}
 	ss.Canary.Name = canaryConfigurationStatus.LatestCreatedRevisionName
