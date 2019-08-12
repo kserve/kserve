@@ -106,14 +106,14 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 					Properties: map[string]openapispec.Schema{
 						"type": {
 							SchemaProps: openapispec.SchemaProps{
-								Description: "The following fields follow a \"1-of\" semantic. Users must specify exactly one of Type or ExplainerURI. The kind of Alibi explanation server to create, e.g. AnchorTabular",
+								Description: "The type of Alibi explainer",
 								Type:        []string{"string"},
 								Format:      "",
 							},
 						},
-						"savedExplainerUri": {
+						"storageUri": {
 							SchemaProps: openapispec.SchemaProps{
-								Description: "The location of a fit explanation model",
+								Description: "The location of a trained explanation model",
 								Type:        []string{"string"},
 								Format:      "",
 							},
@@ -379,7 +379,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Items: &openapispec.SchemaOrArray{
 									Schema: &openapispec.Schema{
 										SchemaProps: openapispec.SchemaProps{
-											Ref: ref("github.com/knative/pkg/apis.Condition"),
+											Ref: ref("knative.dev/pkg/apis.Condition"),
 										},
 									},
 								},
@@ -387,8 +387,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						},
 						"url": {
 							SchemaProps: openapispec.SchemaProps{
-								Type:   []string{"string"},
-								Format: "",
+								Ref: ref("knative.dev/pkg/apis.URL"),
 							},
 						},
 						"default": {
@@ -405,7 +404,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 				},
 			},
 			Dependencies: []string{
-				"github.com/knative/pkg/apis.Condition", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.StatusConfigurationSpec"},
+				"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.StatusConfigurationSpec", "knative.dev/pkg/apis.Condition", "knative.dev/pkg/apis.URL"},
 		},
 		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1.ModelSpec": {
 			Schema: openapispec.Schema{

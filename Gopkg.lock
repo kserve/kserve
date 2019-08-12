@@ -304,39 +304,6 @@
   version = "v1.1.6"
 
 [[projects]]
-  branch = "release-0.7"
-  digest = "1:ec18e8243516c57aa703d40cbe376e9b440382f40ad7fda781dbaf0a67d7050f"
-  name = "github.com/knative/pkg"
-  packages = [
-    "apis",
-    "apis/duck",
-    "apis/duck/v1alpha1",
-    "apis/duck/v1beta1",
-    "configmap",
-    "kmeta",
-    "kmp",
-    "ptr",
-  ]
-  pruneopts = "NUT"
-  revision = "d82505e6c5b4ce46562d6c242be0e706791f35bd"
-
-[[projects]]
-  digest = "1:dabf722e53d7ebc24e501c0520e254972734b39065088420b20ae8f22bebc158"
-  name = "github.com/knative/serving"
-  packages = [
-    "pkg/apis/autoscaling",
-    "pkg/apis/config",
-    "pkg/apis/networking",
-    "pkg/apis/networking/v1alpha1",
-    "pkg/apis/serving",
-    "pkg/apis/serving/v1alpha1",
-    "pkg/apis/serving/v1beta1",
-  ]
-  pruneopts = "NUT"
-  revision = "ce4ce706afb5d9c323d1c073746d64562a722f8f"
-  version = "v0.7.1"
-
-[[projects]]
   branch = "master"
   digest = "1:927762c6729b4e72957ba3310e485ed09cf8451c5a637a52fd016a9fe09e7936"
   name = "github.com/mailru/easyjson"
@@ -1074,6 +1041,42 @@
   revision = "39cb288412c48cb533ba4be5d6c28620b9a0c1b4"
 
 [[projects]]
+  branch = "release-0.8"
+  digest = "1:3a264aa82a389ab4c637569c170f202534d000ebd1c30c645fc7383313d0ea1e"
+  name = "knative.dev/pkg"
+  packages = [
+    "apis",
+    "apis/duck",
+    "apis/duck/v1alpha1",
+    "apis/duck/v1beta1",
+    "configmap",
+    "kmeta",
+    "kmp",
+    "ptr",
+  ]
+  pruneopts = "NUT"
+  revision = "2b848f71969c997809a2dbea8351eaadb23e9bc9"
+
+[[projects]]
+  digest = "1:bd209e6c1c513e386aff27d9b99ac5b50bbd62a4e849efddabc4764a90b9e52c"
+  name = "knative.dev/serving"
+  packages = [
+    "pkg/apis/autoscaling",
+    "pkg/apis/config",
+    "pkg/apis/networking",
+    "pkg/apis/networking/v1alpha1",
+    "pkg/apis/serving",
+    "pkg/apis/serving/v1alpha1",
+    "pkg/apis/serving/v1beta1",
+    "pkg/gc",
+    "pkg/network",
+    "pkg/reconciler/route/config",
+  ]
+  pruneopts = "NUT"
+  revision = "3f73b117b61ee5d8fe5dcedd6cca2c96014329a9"
+  version = "v0.8.0"
+
+[[projects]]
   digest = "1:45fb4267f4868479b71ec2b2aff638a24ff09dc11568f6ceb087dabbc856f455"
   name = "sigs.k8s.io/controller-runtime"
   packages = [
@@ -1162,14 +1165,6 @@
     "github.com/golang/protobuf/ptypes/any",
     "github.com/google/go-cmp/cmp",
     "github.com/google/go-cmp/cmp/cmpopts",
-    "github.com/knative/pkg/apis",
-    "github.com/knative/pkg/apis/duck",
-    "github.com/knative/pkg/apis/duck/v1beta1",
-    "github.com/knative/pkg/kmp",
-    "github.com/knative/serving/pkg/apis/autoscaling",
-    "github.com/knative/serving/pkg/apis/serving",
-    "github.com/knative/serving/pkg/apis/serving/v1alpha1",
-    "github.com/knative/serving/pkg/apis/serving/v1beta1",
     "github.com/mattbaird/jsonpatch",
     "github.com/onsi/ginkgo",
     "github.com/onsi/gomega",
@@ -1212,6 +1207,14 @@
     "k8s.io/code-generator/cmd/openapi-gen",
     "k8s.io/klog",
     "k8s.io/kube-openapi/pkg/common",
+    "knative.dev/pkg/apis",
+    "knative.dev/pkg/apis/duck",
+    "knative.dev/pkg/apis/duck/v1beta1",
+    "knative.dev/pkg/kmp",
+    "knative.dev/serving/pkg/apis/autoscaling",
+    "knative.dev/serving/pkg/apis/serving",
+    "knative.dev/serving/pkg/apis/serving/v1alpha1",
+    "knative.dev/serving/pkg/apis/serving/v1beta1",
     "sigs.k8s.io/controller-runtime/pkg/client",
     "sigs.k8s.io/controller-runtime/pkg/client/config",
     "sigs.k8s.io/controller-runtime/pkg/controller",
