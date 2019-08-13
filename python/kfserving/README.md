@@ -50,7 +50,7 @@ KFServing supports the following storage providers:
 
 ### Getting Started
 
-KFServing's python client interacts with KFServing APIs for exeucting operations on a remote KFServing server instance, such as creating, patching and deleting of a KFService instance. See the [Sample for KFServing Python SDK Client](../../docs/samples/client/kfserving_sdk_sample.ipynb) to get started.
+KFServing's python client interacts with KFServing APIs for executing operations on a remote KFServing cluster, such as creating, patching and deleting of a KFService instance. See the [Sample for KFServing Python SDK Client](../../docs/samples/client/kfserving_sdk_sample.ipynb) to get started.
 
 ### Documentation for Client API
 
