@@ -22,7 +22,7 @@ python setup.py install --user
 
 
 ## KFServing Server
-KFServing's python server libraries implement a standardized KFServing library that is extended by model serving frameworks such as XGBoost and PyTorch. It encapsulates data plane API definitions and storage retrieval for models.
+KFServing's python server libraries implement a standardized KFServing library that is extended by model serving frameworks such as Scikit Learn, XGBoost and PyTorch. It encapsulates data plane API definitions and storage retrieval for models.
 
 KFServing provides many functionalities, including among others:
 
@@ -50,7 +50,7 @@ KFServing supports the following storage providers:
 
 ### Getting Started
 
-KFServing's python client provides many APIs for operations of KFServing, such as creating, patching and deleting. See the [Sample for KFServing Python SDK Client](../../docs/samples/client/kfserving_sdk_sample.ipynb) to get started.
+KFServing's python client interacts with KFServing APIs for operations, such as creating, patching and deleting of KFService. See the [Sample for KFServing Python SDK Client](../../docs/samples/client/kfserving_sdk_sample.ipynb) to get started.
 
 ### Documentation for Client API
 
