@@ -32,7 +32,7 @@ setup(
     python_requires='>=3.6',
     packages=find_packages("alibiexplainer"),
     install_requires=[
-        "kfserver==0.1.0",
+        "kfserving>=0.1.0",
         "alibi==0.2.0",
         "scikit-learn>=0.20.3",
         "argparse>=1.4.0",

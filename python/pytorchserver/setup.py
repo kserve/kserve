@@ -31,7 +31,7 @@ setup(
     python_requires='>3.4',
     packages=find_packages("pytorchserver"),
     install_requires=[
-        "kfserver==0.1.0",
+        "kfserving>=0.1.0",
         "torch >= 1.0.0",
         "argparse >= 1.4.0",
         "numpy >= 1.8.2",
