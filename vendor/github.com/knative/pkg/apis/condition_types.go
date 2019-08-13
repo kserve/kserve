@@ -72,6 +72,9 @@ const (
 // +k8s:openapi-gen=true
 // +k8s:openapi-gen=true
 // +k8s:openapi-gen=true
+// +k8s:openapi-gen=true
+// +k8s:openapi-gen=true
+// +k8s:openapi-gen=true
 type Condition struct {
 	// Type of condition.
 	// +required

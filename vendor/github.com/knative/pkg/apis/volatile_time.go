@@ -39,6 +39,9 @@ import (
 // +k8s:openapi-gen=true
 // +k8s:openapi-gen=true
 // +k8s:openapi-gen=true
+// +k8s:openapi-gen=true
+// +k8s:openapi-gen=true
+// +k8s:openapi-gen=true
 type VolatileTime struct {
 	Inner metav1.Time
 }

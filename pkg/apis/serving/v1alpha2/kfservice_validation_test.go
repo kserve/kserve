@@ -157,13 +157,13 @@ func TestRejectTrafficProvidedWithoutCanary(t *testing.T) {
 func TestBadReplicaValues(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	kfsvc := makeTestKFService()
-	kfsvc.Spec.Default.Deployment.MinReplicas = -1
+	kfsvc.Spec.Default.Predict.Tensorflow.MinReplicas = -1
 	g.Expect(kfsvc.ValidateCreate()).Should(gomega.MatchError(MinReplicasLowerBoundExceededError))
-	kfsvc.Spec.Default.Deployment.MinReplicas = 1
-	kfsvc.Spec.Default.Deployment.MaxReplicas = -1
+	kfsvc.Spec.Default.Predict.Tensorflow.MinReplicas = 1
+	kfsvc.Spec.Default.Predict.Tensorflow.MaxReplicas = -1
 	g.Expect(kfsvc.ValidateCreate()).Should(gomega.MatchError(MaxReplicasLowerBoundExceededError))
-	kfsvc.Spec.Default.Deployment.MinReplicas = 2
-	kfsvc.Spec.Default.Deployment.MaxReplicas = 1
+	kfsvc.Spec.Default.Predict.Tensorflow.MinReplicas = 2
+	kfsvc.Spec.Default.Predict.Tensorflow.MaxReplicas = 1
 	g.Expect(kfsvc.ValidateCreate()).Should(gomega.MatchError(MinReplicasShouldBeLessThanMaxError))
 }
 

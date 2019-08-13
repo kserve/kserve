@@ -32,15 +32,11 @@ type KFServiceSpec struct {
 
 type ServicesSpec struct {
 	// Optional prepost processing specification
-	Prepostprocess *PrepostprocessSpec `json:"prepostprocess,omitempty"`
+	Transform *TransformSpec `json:"transform,omitempty"`
 	// Predictor for a given model
 	Predict ModelSpec `json:"predict"`
 	// Optional Explain specification to add a model explainer next to the chosen predictor.
 	Explain *ExplainSpec `json:"explain,omitempty"`
-	// Default deployment specification
-	Deployment *DeploymentSpec `json:"deployment,omitempty"`
-	// Service account name
-	ServiceAccountName string `json:"serviceAccountName,omitempty"`
 }
 
 type DeploymentSpec struct {
@@ -50,6 +46,8 @@ type DeploymentSpec struct {
 	MaxReplicas int `json:"maxReplicas,omitempty"`
 	// Defaults to requests and limits of 1CPU, 2Gb MEM.
 	Resources v1.ResourceRequirements `json:"resources,omitempty"`
+	// Service account name
+	ServiceAccountName string `json:"serviceAccountName,omitempty"`
 }
 
 // ModelSpec defines the configuration to route traffic to a predictor.
@@ -63,7 +61,7 @@ type ModelSpec struct {
 	PyTorch    *PyTorchSpec    `json:"pytorch,omitempty"`
 }
 
-type PrepostprocessSpec struct {
+type TransformSpec struct {
 	// Custom container
 	Custom *CustomSpec `json:"custom,omitempty"`
 }
