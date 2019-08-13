@@ -14,14 +14,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Note: Need to merge /python/kfserving/README.md and some documents manually after the script execution.
+
 set -o errexit
 set -o nounset
 
 SWAGGER_JAR_URL="http://central.maven.org/maven2/io/swagger/swagger-codegen-cli/2.4.6/swagger-codegen-cli-2.4.6.jar"
-SWAGGER_CODEGEN_JAR="hack/sdk-gen/swagger-codegen-cli.jar"
-SWAGGER_CODEGEN_CONF="hack/sdk-gen/swagger_config.json"
+SWAGGER_CODEGEN_JAR="hack/python-sdk/swagger-codegen-cli.jar"
+SWAGGER_CODEGEN_CONF="hack/python-sdk/swagger_config.json"
 SWAGGER_CODEGEN_FILE="pkg/apis/serving/v1alpha1/swagger.json"
-SDK_OUTPUT_PATH="sdk"
+SDK_OUTPUT_PATH="python/kfserving"
 
 echo "Downloading the swagger-codegen JAR package ..."
 wget -O ${SWAGGER_CODEGEN_JAR} ${SWAGGER_JAR_URL}

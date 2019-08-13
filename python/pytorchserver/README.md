@@ -12,13 +12,13 @@ The following output indicates a successful install.
 
 ```
 Obtaining file:///Users/animeshsingh/go/src/github.com/kubeflow/kfserving/python/pytorchserver
-Requirement already satisfied: kfserver==0.1.0 in /Users/animeshsingh/DevAdv/kfserving/python/kfserving (from pytorchserver==0.1.0) (0.1.0)
+Requirement already satisfied: kfserving>=0.1.0 in /Users/animeshsingh/DevAdv/kfserving/python/kfserving (from pytorchserver==0.1.0) (0.1.0)
 Requirement already satisfied: torch>=1.0.0 in /Library/Frameworks/Python.framework/Versions/3.7/lib/python3.7/site-packages (from pytorchserver==0.1.0) (1.1.0)
 Requirement already satisfied: argparse>=1.4.0 in /Library/Frameworks/Python.framework/Versions/3.7/lib/python3.7/site-packages (from pytorchserver==0.1.0) (1.4.0)
 Requirement already satisfied: numpy>=1.8.2 in /Library/Frameworks/Python.framework/Versions/3.7/lib/python3.7/site-packages (from pytorchserver==0.1.0) (1.16.3)
 Collecting torchvision>=0.2.2 (from pytorchserver==0.1.0)
   Downloading https://files.pythonhosted.org/packages/af/7c/247d46a1f76dee688636d4d5394e440bb32c4e251ea8afe4442c91296830/torchvision-0.3.0-cp37-cp37m-macosx_10_7_x86_64.whl (231kB)
-Requirement already satisfied: tornado>=1.4.1 in /Library/Frameworks/Python.framework/Versions/3.7/lib/python3.7/site-packages (from kfserver==0.1.0->pytorchserver==0.1.0) (6.0.2)
+Requirement already satisfied: tornado>=1.4.1 in /Library/Frameworks/Python.framework/Versions/3.7/lib/python3.7/site-packages (from kfserving>=0.1.0->pytorchserver==0.1.0) (6.0.2)
 Requirement already satisfied: six in /Library/Frameworks/Python.framework/Versions/3.7/lib/python3.7/site-packages (from torchvision>=0.2.2->pytorchserver==0.1.0) (1.12.0)
 Requirement already satisfied: pillow>=4.1.1 in /Library/Frameworks/Python.framework/Versions/3.7/lib/python3.7/site-packages (from torchvision>=0.2.2->pytorchserver==0.1.0) (6.0.0)
 Installing collected packages: torchvision, pytorchserver
@@ -54,7 +54,7 @@ The following indicates a successful install.
 
 ```
 Obtaining file:///Users/animeshsingh/go/src/github.com/kubeflow/kfserving/python/pytorchserver
-Requirement already satisfied: kfserver==0.1.0 in /Users/animeshsingh/DevAdv/kfserving/python/kfserving (from pytorchserver==0.1.0) (0.1.0)
+Requirement already satisfied: kfserving>=0.1.0 in /Users/animeshsingh/DevAdv/kfserving/python/kfserving (from pytorchserver==0.1.0) (0.1.0)
 Requirement already satisfied: torch>=1.0.0 in /Library/Frameworks/Python.framework/Versions/3.7/lib/python3.7/site-packages (from pytorchserver==0.1.0) (1.1.0)
 Requirement already satisfied: argparse>=1.4.0 in /Library/Frameworks/Python.framework/Versions/3.7/lib/python3.7/site-packages (from pytorchserver==0.1.0) (1.4.0)
 Requirement already satisfied: numpy>=1.8.2 in /Library/Frameworks/Python.framework/Versions/3.7/lib/python3.7/site-packages (from pytorchserver==0.1.0) (1.16.3)
@@ -62,7 +62,7 @@ Requirement already satisfied: torchvision>=0.2.2 in /Library/Frameworks/Python.
 Requirement already satisfied: pytest in /Library/Frameworks/Python.framework/Versions/3.7/lib/python3.7/site-packages (from pytorchserver==0.1.0) (4.5.0)
 Requirement already satisfied: pytest-tornasync in /Library/Frameworks/Python.framework/Versions/3.7/lib/python3.7/site-packages (from pytorchserver==0.1.0) (0.6.0.post1)
 Requirement already satisfied: mypy in /Library/Frameworks/Python.framework/Versions/3.7/lib/python3.7/site-packages (from pytorchserver==0.1.0) (0.701)
-Requirement already satisfied: tornado>=1.4.1 in /Library/Frameworks/Python.framework/Versions/3.7/lib/python3.7/site-packages (from kfserver==0.1.0->pytorchserver==0.1.0) (6.0.2)
+Requirement already satisfied: tornado>=1.4.1 in /Library/Frameworks/Python.framework/Versions/3.7/lib/python3.7/site-packages (from kfserving>=0.1.0->pytorchserver==0.1.0) (6.0.2)
 Requirement already satisfied: pillow>=4.1.1 in /Library/Frameworks/Python.framework/Versions/3.7/lib/python3.7/site-packages (from torchvision>=0.2.2->pytorchserver==0.1.0) (6.0.0)
 Requirement already satisfied: six in /Library/Frameworks/Python.framework/Versions/3.7/lib/python3.7/site-packages (from torchvision>=0.2.2->pytorchserver==0.1.0) (1.12.0)
 Requirement already satisfied: py>=1.5.0 in /Library/Frameworks/Python.framework/Versions/3.7/lib/python3.7/site-packages (from pytest->pytorchserver==0.1.0) (1.8.0)
