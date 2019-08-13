@@ -17,6 +17,12 @@ KFServing encapsulates the complexity of autoscaling, networking, health checkin
 TAG=v0.1.0
 kubectl apply -f ./install/$TAG/kfserving.yaml
 ```
+### Use ###
+* Install the SDK
+```
+pip install kfserving
+```
+* Follow the [example here](docs/samples/client/kfserving_sdk_sample.ipynb) to use the KFServing SDK to create, patch, and delete a KFService instance.
 
 ### Contribute
 * [Developer Guide](/docs/DEVELOPER_GUIDE.md).
