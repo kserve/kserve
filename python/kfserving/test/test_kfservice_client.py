@@ -53,7 +53,7 @@ def test_kfservice_client_get():
         assert mocked_unit_result == KFServing.get('flower-sample', namespace='kubeflow')
 
 # Unit test for kfserving patch api
-def test_kfservice_clienti_patch():
+def test_kfservice_client_patch():
     with patch('kfserving.api.kf_serving_client.KFServingClient.patch',
                return_value=mocked_unit_result):
         kfsvc = generate_kfservice()
