@@ -16,10 +16,11 @@ from kubernetes import client, config
 
 from ..constants import constants
 from ..utils import utils
+from .create_credentials import create_gcs_credentials, create_s3_credentials
 
 
 class KFServingClient(object):
-    """KFServing Apis."""
+    '''KFServing Client Apis.'''
 
     def __init__(self, config_file=None, context=None,
                  client_configuration=None, persist_config=True):
@@ -33,6 +34,29 @@ class KFServingClient(object):
                 persist_config=persist_config)
 
         self.api_instance = client.CustomObjectsApi()
+
+    def create_credentials(self, storage_type, namespace=None, **kwargs):
+        '''
+        Create GCS and S3 Credentials for KFServing.
+        Args:
+            storage_type(str): Valid value: gcs or s3 (required).
+            namespace(str): The kubenertes namespace (Optional).
+            kwargs(dict): Others parameters for each storage_type.
+        return:
+            sa_name(str): The name of created service account.
+        '''
+        if namespace is None:
+            namespace = utils.get_default_target_namespace()
+
+        if storage_type.lower() == 'gcs':
+            sa_name = create_gcs_credentials(namespace=namespace, **kwargs)
+        elif storage_type.lower() == 's3':
+            sa_name = create_s3_credentials(namespace=namespace, **kwargs)
+        else:
+            raise RuntimeError("Invalid storage_type: %s, only support gcs and s3\
+                currently.\n" % storage_type)
+
+        return sa_name
 
     def create(self, kfservice, namespace=None):
         """Create the provided KFService in the specified namespace"""
