@@ -16,10 +16,65 @@ The APIs for KFServingClient are as following:
 
 Class | Method |  Description
 ------------ | ------------- | -------------
+KFServingClient | [create_creds](#create_creds) | Create Credentials|
 KFServingClient | [create](#create) | Create KFService|
 KFServingClient | [get](#get)    | Get the specified KFService|
 KFServingClient | [patch](#patch)  | Patch the specified KFService|
 KFServingClient | [delete](#delete) | Delete the specified KFService |
+
+## create_creds
+> create_creds(self, platform, namespace=None, **kwargs)
+
+Create `Secret` and `Service Account` for AWS and GCP accordingly to credentials information. Once the `Service Account` ceated, user can configure the `Service Account` in the [V1alpha1ModelSpec](V1alpha1ModelSpec.md) for kfserving.
+
+The API returns name of created `Service Account`.
+
+### Example
+
+Example for creating AWS credentials.
+```python
+KFServingClient
+from kfserving import KFServingClient
+
+KFServing = KFServingClient()
+KFServing.create_creds(platform='AWS',
+                          namespace='kubeflow',
+                          AWS_ACCESS_KEY_ID='MWYyZDFlMmU2N2Rm',
+                          AWS_SECRET_ACCESS_KEY='YWRtaW4=',
+                          S3_ENDPOINT='s3.us-west-2.amazonaws.com',
+                          AWS_REGION='us-west-2',
+                          S3_USE_HTTPS='1',
+                          S3_VERIFY_SSL='0')
+```
+
+Example for creating GCP credentials.
+```python
+from kfserving import KFServingClient
+
+KFServing = KFServingClient()
+KFServing.create_creds(platform='GCP',
+                          namespace='kubeflow',
+                          GCP_CREDS_FILE='/root/.config/gcloud/application_default_credentials.json')
+```
+The created Secret and Service Account will be shown as following:
+```
+INFO:kfserving.api.set_credentials:Created Secret: kfserving-secret-6tv6l in namespace kubeflow
+INFO:kfserving.api.set_credentials:Created Service account: kfserving-sa-tj444 in namespace kubeflow
+```
+
+### Parameters
+Name | Type |  Description | Notes
+------------ | ------------- | ------------- | -------------
+platform  | str | Valid values: GCP or AWS| Required |
+namespace | str | The kubenertes namespace. Defaults to current or default namespace.| Optional|
+GCP_CREDS_FILE | str | The path for the gcp credentials file | Required for GCP |
+AWS_ACCESS_KEY_ID  | str | AWS access key ID| Required for AWS |
+AWS_SECRET_ACCESS_KEY  | str | AWS secret access key| Required for AWS|
+S3_ENDPOINT  | str | The endpoint could be overridden explicitly with S3_ENDPOINT specified. | Optional for AWS |
+AWS_REGION  | str | By default, regional endpoint is used for S3, with region controlled by AWS_REGION. If AWS_REGION is not specified, then us-east-1 is used| Optional for AWS|
+S3_USE_HTTPS  | str | HTTPS is used to access S3 by default, unless `S3_USE_HTTPS=0` |Optional for AWS |
+S3_VERIFY_SSL  | str | If HTTPS is used, SSL verification could be disabled with `S3_VERIFY_SSL=0` |Optional for AWS |
+
 
 ## create
 > create(kfservice, namespace=None)

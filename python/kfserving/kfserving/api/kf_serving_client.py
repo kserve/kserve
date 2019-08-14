@@ -16,10 +16,11 @@ from kubernetes import client, config
 
 from ..constants import constants
 from ..utils import utils
+from .set_credentials import create_gcp_credentials, create_aws_credentials, set_service_account
 
 
 class KFServingClient(object):
-    """KFServing Apis."""
+    '''KFServing Client Apis.'''
 
     def __init__(self, config_file=None, context=None,
                  client_configuration=None, persist_config=True):
@@ -33,6 +34,26 @@ class KFServingClient(object):
                 persist_config=persist_config)
 
         self.api_instance = client.CustomObjectsApi()
+
+    def create_creds(self, platform, namespace=None, **kwargs):
+        '''
+        Create GCP and AWS Credentials for KFServing.
+        :param str platform: Valid value: GCP or AWS.
+        :param str namespace: The kubenertes namespace.
+        :return: str  The name of created service account.
+        '''
+        if namespace is None:
+            namespace = utils.get_default_target_namespace()
+
+        if platform.upper() == 'GCP':
+            sa_name = create_gcp_credentials(namespace=namespace, **kwargs)
+        elif platform.upper() == 'AWS':
+            sa_name = create_aws_credentials(namespace=namespace, **kwargs)
+        else:
+            raise RuntimeError("Invalid platform: %s, only support GCP and AWS\
+                currently.\n" % platform)
+        
+        return sa_name
 
     def create(self, kfservice, namespace=None):
         """Create the provided KFService in the specified namespace"""
