@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/kubeflow/kfserving/pkg/controller/kfservice/resources/credentials/azure"
 	"github.com/kubeflow/kfserving/pkg/controller/kfservice/resources/credentials/gcs"
 	"github.com/kubeflow/kfserving/pkg/controller/kfservice/resources/credentials/s3"
 	v1 "k8s.io/api/core/v1"
@@ -34,8 +35,9 @@ const (
 )
 
 type CredentialConfig struct {
-	S3  s3.S3Config   `json:"s3,omitempty"`
-	GCS gcs.GCSConfig `json:"gcs,omitempty"`
+	S3    s3.S3Config       `json:"s3,omitempty"`
+	GCS   gcs.GCSConfig     `json:"gcs,omitempty"`
+	AZURE azure.AzureConfig `json:"azure,omitempty"`
 }
 
 type CredentialBuilder struct {
@@ -65,10 +67,15 @@ func (c *CredentialBuilder) CreateSecretVolumeAndEnv(namespace string, serviceAc
 		serviceAccountName = "default"
 	}
 	s3SecretAccessKeyName := s3.AWSSecretAccessKeyName
+	azureSecretKeyName := azure.AzureSecretKeyName
 	gcsCredentialFileName := gcs.GCSCredentialFileName
 
 	if c.config.S3.S3SecretAccessKeyName != "" {
 		s3SecretAccessKeyName = c.config.S3.S3SecretAccessKeyName
+	}
+
+	if c.config.AZURE.AzureSecretKeyName != "" {
+		azureSecretKeyName = c.config.AZURE.AzureSecretKeyName
 	}
 
 	if c.config.GCS.GCSCredentialFileName != "" {
@@ -105,8 +112,12 @@ func (c *CredentialBuilder) CreateSecretVolumeAndEnv(namespace string, serviceAc
 					Name:  gcs.GCSCredentialEnvKey,
 					Value: gcs.GCSCredentialVolumeMountPath + gcsCredentialFileName,
 				})
+		} else if _, ok := secret.Data[azureSecretKeyName]; ok {
+			log.Info("Setting secret envs for azure", "AzureSecret", secret.Name)
+			envs := azure.BuildSecretEnvs(secret, &c.config.AZURE)
+			container.Env = append(container.Env, envs...)
 		} else {
-			log.V(5).Info("Skipping non gcs/s3 secret", "Secret", secret.Name)
+			log.V(5).Info("Skipping non gcs/s3/azure secret", "Secret", secret.Name)
 		}
 	}
 
