@@ -19,7 +19,7 @@ limitations under the License.
 package versioned
 
 import (
-	servingv1alpha1 "github.com/kubeflow/kfserving/pkg/client/clientset/versioned/typed/serving/v1alpha1"
+	servingv1alpha2 "github.com/kubeflow/kfserving/pkg/client/clientset/versioned/typed/serving/v1alpha2"
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"
 	flowcontrol "k8s.io/client-go/util/flowcontrol"
@@ -27,27 +27,27 @@ import (
 
 type Interface interface {
 	Discovery() discovery.DiscoveryInterface
-	ServingV1alpha1() servingv1alpha1.ServingV1alpha1Interface
+	ServingV1alpha2() servingv1alpha2.ServingV1alpha2Interface
 	// Deprecated: please explicitly pick a version if possible.
-	Serving() servingv1alpha1.ServingV1alpha1Interface
+	Serving() servingv1alpha2.ServingV1alpha2Interface
 }
 
 // Clientset contains the clients for groups. Each group has exactly one
 // version included in a Clientset.
 type Clientset struct {
 	*discovery.DiscoveryClient
-	servingV1alpha1 *servingv1alpha1.ServingV1alpha1Client
+	servingV1alpha2 *servingv1alpha2.ServingV1alpha2Client
 }
 
-// ServingV1alpha1 retrieves the ServingV1alpha1Client
-func (c *Clientset) ServingV1alpha1() servingv1alpha1.ServingV1alpha1Interface {
-	return c.servingV1alpha1
+// ServingV1alpha2 retrieves the ServingV1alpha2Client
+func (c *Clientset) ServingV1alpha2() servingv1alpha2.ServingV1alpha2Interface {
+	return c.servingV1alpha2
 }
 
 // Deprecated: Serving retrieves the default version of ServingClient.
 // Please explicitly pick a version.
-func (c *Clientset) Serving() servingv1alpha1.ServingV1alpha1Interface {
-	return c.servingV1alpha1
+func (c *Clientset) Serving() servingv1alpha2.ServingV1alpha2Interface {
+	return c.servingV1alpha2
 }
 
 // Discovery retrieves the DiscoveryClient
@@ -66,7 +66,7 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 	}
 	var cs Clientset
 	var err error
-	cs.servingV1alpha1, err = servingv1alpha1.NewForConfig(&configShallowCopy)
+	cs.servingV1alpha2, err = servingv1alpha2.NewForConfig(&configShallowCopy)
 	if err != nil {
 		return nil, err
 	}
@@ -82,7 +82,7 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 // panics if there is an error in the config.
 func NewForConfigOrDie(c *rest.Config) *Clientset {
 	var cs Clientset
-	cs.servingV1alpha1 = servingv1alpha1.NewForConfigOrDie(c)
+	cs.servingV1alpha2 = servingv1alpha2.NewForConfigOrDie(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClientForConfigOrDie(c)
 	return &cs
@@ -91,7 +91,7 @@ func NewForConfigOrDie(c *rest.Config) *Clientset {
 // New creates a new Clientset for the given RESTClient.
 func New(c rest.Interface) *Clientset {
 	var cs Clientset
-	cs.servingV1alpha1 = servingv1alpha1.New(c)
+	cs.servingV1alpha2 = servingv1alpha2.New(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClient(c)
 	return &cs

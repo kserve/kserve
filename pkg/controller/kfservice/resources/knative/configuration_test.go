@@ -21,14 +21,14 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
+	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	knservingv1alpha1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
 )
 
-var kfsvc = v1alpha1.KFService{
+var kfsvc = v1alpha2.KFService{
 	ObjectMeta: metav1.ObjectMeta{
 		Name:      "mnist",
 		Namespace: "default",
@@ -36,11 +36,11 @@ var kfsvc = v1alpha1.KFService{
 			constants.KFServiceGKEAcceleratorAnnotationKey: "nvidia-tesla-t4",
 		},
 	},
-	Spec: v1alpha1.KFServiceSpec{
-		Default: v1alpha1.ModelSpec{
+	Spec: v1alpha2.KFServiceSpec{
+		Default: v1alpha2.ModelSpec{
 			MinReplicas: 1,
 			MaxReplicas: 3,
-			Tensorflow: &v1alpha1.TensorflowSpec{
+			Tensorflow: &v1alpha2.TensorflowSpec{
 				ModelURI:       "s3://test/mnist/export",
 				RuntimeVersion: "1.13.0",
 			},
@@ -88,11 +88,11 @@ var defaultConfiguration = &knservingv1alpha1.Configuration{
 						ServiceAccountName: "testsvcacc",
 						Containers: []v1.Container{
 							{
-								Image:   v1alpha1.TensorflowServingImageName + ":" + kfsvc.Spec.Default.Tensorflow.RuntimeVersion,
-								Command: []string{v1alpha1.TensorflowEntrypointCommand},
+								Image:   v1alpha2.TensorflowServingImageName + ":" + kfsvc.Spec.Default.Tensorflow.RuntimeVersion,
+								Command: []string{v1alpha2.TensorflowEntrypointCommand},
 								Args: []string{
-									"--port=" + v1alpha1.TensorflowServingGRPCPort,
-									"--rest_api_port=" + v1alpha1.TensorflowServingRestPort,
+									"--port=" + v1alpha2.TensorflowServingGRPCPort,
+									"--rest_api_port=" + v1alpha2.TensorflowServingRestPort,
 									"--model_name=mnist",
 									"--model_base_path=" + constants.DefaultModelLocalMountPath,
 								},
@@ -129,11 +129,11 @@ var canaryConfiguration = &knservingv1alpha1.Configuration{
 					PodSpec: v1.PodSpec{
 						Containers: []v1.Container{
 							{
-								Image:   v1alpha1.TensorflowServingImageName + ":" + kfsvc.Spec.Default.Tensorflow.RuntimeVersion,
-								Command: []string{v1alpha1.TensorflowEntrypointCommand},
+								Image:   v1alpha2.TensorflowServingImageName + ":" + kfsvc.Spec.Default.Tensorflow.RuntimeVersion,
+								Command: []string{v1alpha2.TensorflowEntrypointCommand},
 								Args: []string{
-									"--port=" + v1alpha1.TensorflowServingGRPCPort,
-									"--rest_api_port=" + v1alpha1.TensorflowServingRestPort,
+									"--port=" + v1alpha2.TensorflowServingGRPCPort,
+									"--rest_api_port=" + v1alpha2.TensorflowServingRestPort,
 									"--model_name=mnist",
 									"--model_base_path=" + constants.DefaultModelLocalMountPath,
 								},
@@ -149,7 +149,7 @@ var canaryConfiguration = &knservingv1alpha1.Configuration{
 func TestKnativeConfiguration(t *testing.T) {
 	scenarios := map[string]struct {
 		configMapData   map[string]string
-		kfService       v1alpha1.KFService
+		kfService       v1alpha2.KFService
 		expectedDefault *knservingv1alpha1.Configuration
 		expectedCanary  *knservingv1alpha1.Configuration
 	}{
@@ -159,7 +159,7 @@ func TestKnativeConfiguration(t *testing.T) {
 			expectedCanary:  nil,
 		},
 		"RunCanaryModel": {
-			kfService: v1alpha1.KFService{
+			kfService: v1alpha2.KFService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "mnist",
 					Namespace: "default",
@@ -167,28 +167,28 @@ func TestKnativeConfiguration(t *testing.T) {
 						constants.KFServiceGKEAcceleratorAnnotationKey: "nvidia-tesla-t4",
 					},
 				},
-				Spec: v1alpha1.KFServiceSpec{
-					Default: v1alpha1.ModelSpec{
+				Spec: v1alpha2.KFServiceSpec{
+					Default: v1alpha2.ModelSpec{
 						MinReplicas: 1,
 						MaxReplicas: 3,
-						Tensorflow: &v1alpha1.TensorflowSpec{
+						Tensorflow: &v1alpha2.TensorflowSpec{
 							ModelURI:       kfsvc.Spec.Default.Tensorflow.ModelURI,
 							RuntimeVersion: "1.13.0",
 						},
 						ServiceAccountName: "testsvcacc",
 					},
 					CanaryTrafficPercent: 20,
-					Canary: &v1alpha1.ModelSpec{
+					Canary: &v1alpha2.ModelSpec{
 						MinReplicas: 1,
 						MaxReplicas: 3,
-						Tensorflow: &v1alpha1.TensorflowSpec{
+						Tensorflow: &v1alpha2.TensorflowSpec{
 							ModelURI:       "s3://test/mnist-2/export",
 							RuntimeVersion: "1.13.0",
 						},
 					},
 				},
-				Status: v1alpha1.KFServiceStatus{
-					Default: v1alpha1.StatusConfigurationSpec{
+				Status: v1alpha2.KFServiceStatus{
+					Default: v1alpha2.StatusConfigurationSpec{
 						Name: "v1",
 					},
 				},
@@ -197,14 +197,14 @@ func TestKnativeConfiguration(t *testing.T) {
 			expectedCanary:  canaryConfiguration,
 		},
 		"RunSklearnModel": {
-			kfService: v1alpha1.KFService{
+			kfService: v1alpha2.KFService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "sklearn",
 					Namespace: "default",
 				},
-				Spec: v1alpha1.KFServiceSpec{
-					Default: v1alpha1.ModelSpec{
-						SKLearn: &v1alpha1.SKLearnSpec{
+				Spec: v1alpha2.KFServiceSpec{
+					Default: v1alpha2.ModelSpec{
+						SKLearn: &v1alpha2.SKLearnSpec{
 							ModelURI:       "s3://test/sklearn/export",
 							RuntimeVersion: "latest",
 						},
@@ -232,7 +232,7 @@ func TestKnativeConfiguration(t *testing.T) {
 								PodSpec: v1.PodSpec{
 									Containers: []v1.Container{
 										{
-											Image: v1alpha1.SKLearnServerImageName + ":" + v1alpha1.DefaultSKLearnRuntimeVersion,
+											Image: v1alpha2.SKLearnServerImageName + ":" + v1alpha2.DefaultSKLearnRuntimeVersion,
 											Args: []string{
 												"--model_name=sklearn",
 												"--model_dir=" + constants.DefaultModelLocalMountPath,
@@ -247,14 +247,14 @@ func TestKnativeConfiguration(t *testing.T) {
 			},
 		},
 		"RunXgboostModel": {
-			kfService: v1alpha1.KFService{
+			kfService: v1alpha2.KFService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "xgboost",
 					Namespace: "default",
 				},
-				Spec: v1alpha1.KFServiceSpec{
-					Default: v1alpha1.ModelSpec{
-						XGBoost: &v1alpha1.XGBoostSpec{
+				Spec: v1alpha2.KFServiceSpec{
+					Default: v1alpha2.ModelSpec{
+						XGBoost: &v1alpha2.XGBoostSpec{
 							ModelURI:       "s3://test/xgboost/export",
 							RuntimeVersion: "latest",
 						},
@@ -282,7 +282,7 @@ func TestKnativeConfiguration(t *testing.T) {
 								PodSpec: v1.PodSpec{
 									Containers: []v1.Container{
 										{
-											Image: v1alpha1.XGBoostServerImageName + ":" + v1alpha1.DefaultXGBoostRuntimeVersion,
+											Image: v1alpha2.XGBoostServerImageName + ":" + v1alpha2.DefaultXGBoostRuntimeVersion,
 											Args: []string{
 												"--model_name=xgboost",
 												"--model_dir=" + constants.DefaultModelLocalMountPath,
@@ -298,14 +298,14 @@ func TestKnativeConfiguration(t *testing.T) {
 		},
 		"TestConfigOverride": {
 			configMapData: configMapData,
-			kfService: v1alpha1.KFService{
+			kfService: v1alpha2.KFService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "xgboost",
 					Namespace: "default",
 				},
-				Spec: v1alpha1.KFServiceSpec{
-					Default: v1alpha1.ModelSpec{
-						XGBoost: &v1alpha1.XGBoostSpec{
+				Spec: v1alpha2.KFServiceSpec{
+					Default: v1alpha2.ModelSpec{
+						XGBoost: &v1alpha2.XGBoostSpec{
 							ModelURI:       "s3://test/xgboost/export",
 							RuntimeVersion: "latest",
 						},
@@ -333,7 +333,7 @@ func TestKnativeConfiguration(t *testing.T) {
 								PodSpec: v1.PodSpec{
 									Containers: []v1.Container{
 										{
-											Image: "kfserving/xgbserver:" + v1alpha1.DefaultXGBoostRuntimeVersion,
+											Image: "kfserving/xgbserver:" + v1alpha2.DefaultXGBoostRuntimeVersion,
 											Args: []string{
 												"--model_name=xgboost",
 												"--model_dir=" + constants.DefaultModelLocalMountPath,
@@ -348,7 +348,7 @@ func TestKnativeConfiguration(t *testing.T) {
 			},
 		},
 		"TestAnnotation": {
-			kfService: v1alpha1.KFService{
+			kfService: v1alpha2.KFService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "sklearn",
 					Namespace: "default",
@@ -361,9 +361,9 @@ func TestKnativeConfiguration(t *testing.T) {
 						"kubectl.kubernetes.io/last-applied-configuration":       "test2",
 					},
 				},
-				Spec: v1alpha1.KFServiceSpec{
-					Default: v1alpha1.ModelSpec{
-						SKLearn: &v1alpha1.SKLearnSpec{
+				Spec: v1alpha2.KFServiceSpec{
+					Default: v1alpha2.ModelSpec{
+						SKLearn: &v1alpha2.SKLearnSpec{
 							ModelURI:       "s3://test/sklearn/export",
 							RuntimeVersion: "latest",
 						},
@@ -395,7 +395,7 @@ func TestKnativeConfiguration(t *testing.T) {
 								PodSpec: v1.PodSpec{
 									Containers: []v1.Container{
 										{
-											Image: v1alpha1.SKLearnServerImageName + ":" + v1alpha1.DefaultSKLearnRuntimeVersion,
+											Image: v1alpha2.SKLearnServerImageName + ":" + v1alpha2.DefaultSKLearnRuntimeVersion,
 											Args: []string{
 												"--model_name=sklearn",
 												"--model_dir=" + constants.DefaultModelLocalMountPath,

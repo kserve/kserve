@@ -27,8 +27,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/client-go/tools/record"
 
-	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
-	kfservingv1alpha1 "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
+	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
+	kfserving "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	knservingv1alpha1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -74,13 +74,13 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	// Watch for changes to KFService
-	if err = c.Watch(&source.Kind{Type: &kfservingv1alpha1.KFService{}}, &handler.EnqueueRequestForObject{}); err != nil {
+	if err = c.Watch(&source.Kind{Type: &kfserving.KFService{}}, &handler.EnqueueRequestForObject{}); err != nil {
 		return err
 	}
 
 	kfservingController := &handler.EnqueueRequestForOwner{
 		IsController: true,
-		OwnerType:    &kfservingv1alpha1.KFService{},
+		OwnerType:    &kfserving.KFService{},
 	}
 
 	// Watch for changes to Knative Configuration
@@ -112,7 +112,7 @@ type ReconcileService struct {
 
 // Reconciler is implemented by all subresources
 type Reconciler interface {
-	Reconcile(kfsvc *v1alpha1.KFService) error
+	Reconcile(kfsvc *v1alpha2.KFService) error
 }
 
 // Reconcile reads that state of the cluster for a Service object and makes changes based on the state read
@@ -128,7 +128,7 @@ type Reconciler interface {
 // +kubebuilder:rbac:groups=,resources=configmaps,verbs=get;list;watch
 func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	// Fetch the KFService instance
-	kfsvc := &kfservingv1alpha1.KFService{}
+	kfsvc := &kfserving.KFService{}
 	if err := r.Get(context.TODO(), request.NamespacedName, kfsvc); err != nil {
 		if errors.IsNotFound(err) {
 			// Object not found, return.  Created objects are automatically garbage collected.
@@ -165,8 +165,8 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 	return reconcile.Result{}, nil
 }
 
-func (r *ReconcileService) updateStatus(desiredService *kfservingv1alpha1.KFService) error {
-	existing := &kfservingv1alpha1.KFService{}
+func (r *ReconcileService) updateStatus(desiredService *kfserving.KFService) error {
+	existing := &kfserving.KFService{}
 	namespacedName := types.NamespacedName{Name: desiredService.Name, Namespace: desiredService.Namespace}
 	if err := r.Get(context.TODO(), namespacedName, existing); err != nil {
 		if errors.IsNotFound(err) {

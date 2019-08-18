@@ -28,7 +28,7 @@ import (
 	"knative.dev/pkg/apis"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
 
-	servingv1alpha1 "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
+	kfserving "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	"github.com/onsi/gomega"
 	"golang.org/x/net/context"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -57,16 +57,16 @@ var defaultConfigurationKey = types.NamespacedName{Name: constants.DefaultConfig
 var canaryConfigurationKey = types.NamespacedName{Name: constants.CanaryConfigurationName(canaryServiceKey.Name),
 	Namespace: canaryServiceKey.Namespace}
 
-var instance = &servingv1alpha1.KFService{
+var instance = &kfserving.KFService{
 	ObjectMeta: metav1.ObjectMeta{
 		Name:      serviceKey.Name,
 		Namespace: serviceKey.Namespace,
 	},
-	Spec: servingv1alpha1.KFServiceSpec{
-		Default: servingv1alpha1.ModelSpec{
+	Spec: kfserving.KFServiceSpec{
+		Default: kfserving.ModelSpec{
 			MinReplicas: 1,
 			MaxReplicas: 3,
-			Tensorflow: &servingv1alpha1.TensorflowSpec{
+			Tensorflow: &kfserving.TensorflowSpec{
 				ModelURI:       "s3://test/mnist/export",
 				RuntimeVersion: "1.13.0",
 			},
@@ -74,31 +74,31 @@ var instance = &servingv1alpha1.KFService{
 	},
 }
 
-var canary = &servingv1alpha1.KFService{
+var canary = &kfserving.KFService{
 	ObjectMeta: metav1.ObjectMeta{
 		Name:      canaryServiceKey.Name,
 		Namespace: canaryServiceKey.Namespace,
 	},
-	Spec: servingv1alpha1.KFServiceSpec{
-		Default: servingv1alpha1.ModelSpec{
+	Spec: kfserving.KFServiceSpec{
+		Default: kfserving.ModelSpec{
 			MinReplicas: 1,
 			MaxReplicas: 3,
-			Tensorflow: &servingv1alpha1.TensorflowSpec{
+			Tensorflow: &kfserving.TensorflowSpec{
 				ModelURI:       "s3://test/mnist/export",
 				RuntimeVersion: "1.13.0",
 			},
 		},
 		CanaryTrafficPercent: 20,
-		Canary: &servingv1alpha1.ModelSpec{
+		Canary: &kfserving.ModelSpec{
 			MinReplicas: 1,
 			MaxReplicas: 3,
-			Tensorflow: &servingv1alpha1.TensorflowSpec{
+			Tensorflow: &kfserving.TensorflowSpec{
 				ModelURI:       "s3://test/mnist-2/export",
 				RuntimeVersion: "1.13.0",
 			},
 		},
 	},
-	Status: servingv1alpha1.KFServiceStatus{
+	Status: kfserving.KFServiceStatus{
 		URL: canaryServiceKey.Name + ".svc.cluster.local",
 		Default: servingv1alpha1.StatusConfigurationSpec{
 			Name: "revision-v1",
@@ -183,12 +183,12 @@ func TestReconcile(t *testing.T) {
 						PodSpec: v1.PodSpec{
 							Containers: []v1.Container{
 								{
-									Image: servingv1alpha1.TensorflowServingImageName + ":" +
+									Image: kfserving.TensorflowServingImageName + ":" +
 										defaultInstance.Spec.Default.Tensorflow.RuntimeVersion,
-									Command: []string{servingv1alpha1.TensorflowEntrypointCommand},
+									Command: []string{kfserving.TensorflowEntrypointCommand},
 									Args: []string{
-										"--port=" + servingv1alpha1.TensorflowServingGRPCPort,
-										"--rest_api_port=" + servingv1alpha1.TensorflowServingRestPort,
+										"--port=" + kfserving.TensorflowServingGRPCPort,
+										"--rest_api_port=" + kfserving.TensorflowServingRestPort,
 										"--model_name=" + defaultInstance.Name,
 										"--model_base_path=" + constants.DefaultModelLocalMountPath,
 									},
@@ -229,11 +229,11 @@ func TestReconcile(t *testing.T) {
 	g.Expect(c.Status().Update(context.TODO(), updatedRoute)).NotTo(gomega.HaveOccurred())
 	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
 	// verify if KFService status is updated
-	expectedKfsvcStatus := servingv1alpha1.KFServiceStatus{
+	expectedKfsvcStatus := kfserving.KFServiceStatus{
 		Status: duckv1beta1.Status{
 			Conditions: duckv1beta1.Conditions{
 				{
-					Type:   servingv1alpha1.DefaultPredictorReady,
+					Type:   kfserving.DefaultPredictorReady,
 					Status: "True",
 				},
 				{
@@ -241,18 +241,23 @@ func TestReconcile(t *testing.T) {
 					Status: "True",
 				},
 				{
-					Type:   servingv1alpha1.RoutesReady,
+					Type:   kfserving.RoutesReady,
 					Status: "True",
 				},
 			},
 		},
+<<<<<<< bbd3da47a708403fb2a203e28955d5454bc2a1d5
 		URL: updatedRoute.Status.URL.String(),
 		Default: servingv1alpha1.StatusConfigurationSpec{
+=======
+		URL: updatedRoute.Status.URL,
+		Default: kfserving.StatusConfigurationSpec{
+>>>>>>> Update kfserving type APIs to v1alpha2
 			Name: "revision-v1",
 		},
 	}
-	g.Eventually(func() *servingv1alpha1.KFServiceStatus {
-		kfsvc := &servingv1alpha1.KFService{}
+	g.Eventually(func() *kfserving.KFServiceStatus {
+		kfsvc := &kfserving.KFService{}
 		err := c.Get(context.TODO(), serviceKey, kfsvc)
 		if err != nil {
 			return nil
@@ -325,12 +330,12 @@ func TestCanaryReconcile(t *testing.T) {
 						PodSpec: v1.PodSpec{
 							Containers: []v1.Container{
 								{
-									Image: servingv1alpha1.TensorflowServingImageName + ":" +
+									Image: kfserving.TensorflowServingImageName + ":" +
 										canary.Spec.Canary.Tensorflow.RuntimeVersion,
-									Command: []string{servingv1alpha1.TensorflowEntrypointCommand},
+									Command: []string{kfserving.TensorflowEntrypointCommand},
 									Args: []string{
-										"--port=" + servingv1alpha1.TensorflowServingGRPCPort,
-										"--rest_api_port=" + servingv1alpha1.TensorflowServingRestPort,
+										"--port=" + kfserving.TensorflowServingGRPCPort,
+										"--rest_api_port=" + kfserving.TensorflowServingRestPort,
 										"--model_name=" + canary.Name,
 										"--model_base_path=" + constants.DefaultModelLocalMountPath,
 									},
@@ -415,16 +420,16 @@ func TestCanaryReconcile(t *testing.T) {
 	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedCanaryRequest)))
 
 	// verify if KFService status is updated
-	expectedKfsvcStatus := servingv1alpha1.KFServiceStatus{
+	expectedKfsvcStatus := kfserving.KFServiceStatus{
 		Status: duckv1beta1.Status{
 			Conditions: duckv1beta1.Conditions{
 				{
-					Type:     servingv1alpha1.CanaryPredictorReady,
+					Type:     kfserving.CanaryPredictorReady,
 					Severity: "Info",
 					Status:   "True",
 				},
 				{
-					Type:   servingv1alpha1.DefaultPredictorReady,
+					Type:   kfserving.DefaultPredictorReady,
 					Status: "True",
 				},
 				{
@@ -432,23 +437,28 @@ func TestCanaryReconcile(t *testing.T) {
 					Status: "True",
 				},
 				{
-					Type:   servingv1alpha1.RoutesReady,
+					Type:   kfserving.RoutesReady,
 					Status: "True",
 				},
 			},
 		},
+<<<<<<< bbd3da47a708403fb2a203e28955d5454bc2a1d5
 		URL: updatedRoute.Status.URL.String(),
 		Default: servingv1alpha1.StatusConfigurationSpec{
+=======
+		URL: updatedRoute.Status.URL,
+		Default: kfserving.StatusConfigurationSpec{
+>>>>>>> Update kfserving type APIs to v1alpha2
 			Name:    "revision-v1",
 			Traffic: 80,
 		},
-		Canary: servingv1alpha1.StatusConfigurationSpec{
+		Canary: kfserving.StatusConfigurationSpec{
 			Name:    "revision-v2",
 			Traffic: 20,
 		},
 	}
 	g.Eventually(func() string {
-		kfsvc := &servingv1alpha1.KFService{}
+		kfsvc := &kfserving.KFService{}
 		if err := c.Get(context.TODO(), canaryServiceKey, kfsvc); err != nil {
 			return err.Error()
 		}
@@ -501,16 +511,16 @@ func TestCanaryDelete(t *testing.T) {
 
 	// Verify if KFService status is updated
 	routeUrl := &apis.URL{Scheme: "http", Host: canaryServiceKey.Name + ".svc.cluster.local"}
-	expectedKfsvcStatus := servingv1alpha1.KFServiceStatus{
+	expectedKfsvcStatus := kfserving.KFServiceStatus{
 		Status: duckv1beta1.Status{
 			Conditions: duckv1beta1.Conditions{
 				{
-					Type:     servingv1alpha1.CanaryPredictorReady,
+					Type:     kfserving.CanaryPredictorReady,
 					Severity: "Info",
 					Status:   "True",
 				},
 				{
-					Type:   servingv1alpha1.DefaultPredictorReady,
+					Type:   kfserving.DefaultPredictorReady,
 					Status: "True",
 				},
 				{
@@ -518,17 +528,22 @@ func TestCanaryDelete(t *testing.T) {
 					Status: "True",
 				},
 				{
-					Type:   servingv1alpha1.RoutesReady,
+					Type:   kfserving.RoutesReady,
 					Status: "True",
 				},
 			},
 		},
+<<<<<<< bbd3da47a708403fb2a203e28955d5454bc2a1d5
 		URL: routeUrl.String(),
 		Default: servingv1alpha1.StatusConfigurationSpec{
+=======
+		URL: routeUrl,
+		Default: kfserving.StatusConfigurationSpec{
+>>>>>>> Update kfserving type APIs to v1alpha2
 			Name:    "revision-v1",
 			Traffic: 80,
 		},
-		Canary: servingv1alpha1.StatusConfigurationSpec{
+		Canary: kfserving.StatusConfigurationSpec{
 			Name:    "revision-v2",
 			Traffic: 20,
 		},
@@ -574,11 +589,11 @@ func TestCanaryDelete(t *testing.T) {
 	g.Expect(c.Status().Update(context.TODO(), updatedRoute)).NotTo(gomega.HaveOccurred())
 	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedCanaryRequest)))
 
-	expectedKfsvcStatus = servingv1alpha1.KFServiceStatus{
+	expectedKfsvcStatus = kfserving.KFServiceStatus{
 		Status: duckv1beta1.Status{
 			Conditions: duckv1beta1.Conditions{
 				{
-					Type:   servingv1alpha1.DefaultPredictorReady,
+					Type:   kfserving.DefaultPredictorReady,
 					Status: "True",
 				},
 				{
@@ -586,18 +601,23 @@ func TestCanaryDelete(t *testing.T) {
 					Status: "True",
 				},
 				{
-					Type:   servingv1alpha1.RoutesReady,
+					Type:   kfserving.RoutesReady,
 					Status: "True",
 				},
 			},
 		},
+<<<<<<< bbd3da47a708403fb2a203e28955d5454bc2a1d5
 		URL: routeUrl.String(),
 		Default: servingv1alpha1.StatusConfigurationSpec{
+=======
+		URL: routeUrl,
+		Default: kfserving.StatusConfigurationSpec{
+>>>>>>> Update kfserving type APIs to v1alpha2
 			Name: "revision-v1",
 		},
 	}
-	g.Eventually(func() *servingv1alpha1.KFServiceStatus {
-		kfsvc := &servingv1alpha1.KFService{}
+	g.Eventually(func() *kfserving.KFServiceStatus {
+		kfsvc := &kfserving.KFService{}
 		err := c.Get(context.TODO(), canaryServiceKey, kfsvc)
 		if err != nil {
 			return nil

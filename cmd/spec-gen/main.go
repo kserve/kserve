@@ -23,7 +23,7 @@ import (
 	"strings"
 
 	"github.com/go-openapi/spec"
-	kfsvcv1alpha1 "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
+	kfsvcv1alpha1 "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	"k8s.io/klog"
 	"k8s.io/kube-openapi/pkg/common"
 )
