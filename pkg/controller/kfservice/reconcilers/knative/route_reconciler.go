@@ -20,7 +20,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
+	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	"github.com/kubeflow/kfserving/pkg/controller/kfservice/resources/knative"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -44,7 +44,7 @@ func NewRouteReconciler(client client.Client, scheme *runtime.Scheme) *RouteReco
 	}
 }
 
-func (r *RouteReconciler) Reconcile(kfsvc *v1alpha1.KFService) error {
+func (r *RouteReconciler) Reconcile(kfsvc *v1alpha2.KFService) error {
 	desired := knative.NewRouteBuilder().CreateKnativeRoute(kfsvc)
 
 	status, err := r.reconcileRoute(kfsvc, desired)
@@ -57,7 +57,7 @@ func (r *RouteReconciler) Reconcile(kfsvc *v1alpha1.KFService) error {
 	return nil
 }
 
-func (r *RouteReconciler) reconcileRoute(kfsvc *v1alpha1.KFService, desired *knservingv1alpha1.Route) (*knservingv1alpha1.RouteStatus, error) {
+func (r *RouteReconciler) reconcileRoute(kfsvc *v1alpha2.KFService, desired *knservingv1alpha1.Route) (*knservingv1alpha1.RouteStatus, error) {
 	if err := controllerutil.SetControllerReference(kfsvc, desired, r.scheme); err != nil {
 		return nil, err
 	}

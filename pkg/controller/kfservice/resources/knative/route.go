@@ -17,7 +17,7 @@ limitations under the License.
 package knative
 
 import (
-	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
+	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -36,7 +36,7 @@ func NewRouteBuilder() *RouteBuilder {
 	return &RouteBuilder{}
 }
 
-func (r *RouteBuilder) CreateKnativeRoute(kfsvc *v1alpha1.KFService) *knservingv1alpha1.Route {
+func (r *RouteBuilder) CreateKnativeRoute(kfsvc *v1alpha2.KFService) *knservingv1alpha1.Route {
 	defaultPercent := 100
 	canaryPercent := 0
 	if kfsvc.Spec.Canary != nil {
