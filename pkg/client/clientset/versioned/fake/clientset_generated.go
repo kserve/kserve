@@ -20,8 +20,8 @@ package fake
 
 import (
 	clientset "github.com/kubeflow/kfserving/pkg/client/clientset/versioned"
-	servingv1alpha1 "github.com/kubeflow/kfserving/pkg/client/clientset/versioned/typed/serving/v1alpha1"
-	fakeservingv1alpha1 "github.com/kubeflow/kfserving/pkg/client/clientset/versioned/typed/serving/v1alpha1/fake"
+	servingv1alpha2 "github.com/kubeflow/kfserving/pkg/client/clientset/versioned/typed/serving/v1alpha2"
+	fakeservingv1alpha2 "github.com/kubeflow/kfserving/pkg/client/clientset/versioned/typed/serving/v1alpha2/fake"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
@@ -71,12 +71,12 @@ func (c *Clientset) Discovery() discovery.DiscoveryInterface {
 
 var _ clientset.Interface = &Clientset{}
 
-// ServingV1alpha1 retrieves the ServingV1alpha1Client
-func (c *Clientset) ServingV1alpha1() servingv1alpha1.ServingV1alpha1Interface {
-	return &fakeservingv1alpha1.FakeServingV1alpha1{Fake: &c.Fake}
+// ServingV1alpha2 retrieves the ServingV1alpha2Client
+func (c *Clientset) ServingV1alpha2() servingv1alpha2.ServingV1alpha2Interface {
+	return &fakeservingv1alpha2.FakeServingV1alpha2{Fake: &c.Fake}
 }
 
-// Serving retrieves the ServingV1alpha1Client
-func (c *Clientset) Serving() servingv1alpha1.ServingV1alpha1Interface {
-	return &fakeservingv1alpha1.FakeServingV1alpha1{Fake: &c.Fake}
+// Serving retrieves the ServingV1alpha2Client
+func (c *Clientset) Serving() servingv1alpha2.ServingV1alpha2Interface {
+	return &fakeservingv1alpha2.FakeServingV1alpha2{Fake: &c.Fake}
 }

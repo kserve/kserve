@@ -22,7 +22,7 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
+	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/controller/kfservice/resources/credentials"
 	"github.com/kubeflow/kfserving/pkg/utils"
@@ -45,12 +45,12 @@ var configurationAnnotationDisallowedList = []string{
 }
 
 type ConfigurationBuilder struct {
-	frameworksConfig  *v1alpha1.FrameworksConfig
+	frameworksConfig  *v1alpha2.FrameworksConfig
 	credentialBuilder *credentials.CredentialBuilder
 }
 
 func NewConfigurationBuilder(client client.Client, config *v1.ConfigMap) *ConfigurationBuilder {
-	frameworkConfig := &v1alpha1.FrameworksConfig{}
+	frameworkConfig := &v1alpha2.FrameworksConfig{}
 	if fmks, ok := config.Data[FrameworkConfigKeyName]; ok {
 		err := json.Unmarshal([]byte(fmks), &frameworkConfig)
 		if err != nil {
@@ -64,7 +64,7 @@ func NewConfigurationBuilder(client client.Client, config *v1.ConfigMap) *Config
 	}
 }
 
-func (c *ConfigurationBuilder) CreateKnativeConfiguration(name string, metadata metav1.ObjectMeta, modelSpec *v1alpha1.ModelSpec) (*knservingv1alpha1.Configuration, error) {
+func (c *ConfigurationBuilder) CreateKnativeConfiguration(name string, metadata metav1.ObjectMeta, modelSpec *v1alpha2.ModelSpec) (*knservingv1alpha1.Configuration, error) {
 	annotations := utils.Filter(metadata.Annotations, func(key string) bool {
 		return !utils.Includes(configurationAnnotationDisallowedList, key)
 	})
