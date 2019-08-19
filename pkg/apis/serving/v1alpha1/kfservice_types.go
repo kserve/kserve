@@ -16,7 +16,6 @@ package v1alpha1
 import (
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"knative.dev/pkg/apis"
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
 )
 
@@ -133,7 +132,7 @@ type CustomSpec struct {
 // KFServiceStatus defines the observed state of KFService
 type KFServiceStatus struct {
 	duckv1beta1.Status `json:",inline"`
-	URL                *apis.URL               `json:"url,omitempty"`
+	URL                string                 `json:"url,omitempty"`
 	Default            StatusConfigurationSpec `json:"default,omitempty"`
 	Canary             StatusConfigurationSpec `json:"canary,omitempty"`
 }
