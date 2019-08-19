@@ -23,7 +23,6 @@ import (
 	"golang.org/x/net/context"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"knative.dev/pkg/apis"
 )
 
 func TestKFService(t *testing.T) {
@@ -76,7 +75,7 @@ func TestKFService(t *testing.T) {
 	// Test status update
 	statusUpdated := fetched.DeepCopy()
 	statusUpdated.Status = KFServiceStatus{
-		URL: &apis.URL{Scheme: "http", Host: "example.dev.com"},
+		URL: "example.dev.com",
 		Default: StatusConfigurationSpec{
 			Name:     "v1",
 			Traffic:  20,
