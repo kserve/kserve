@@ -46,6 +46,8 @@ func TestTensorflowDefaults(t *testing.T) {
 	g.Expect(kfsvc.Spec.Default.Tensorflow.RuntimeVersion).To(gomega.Equal(DefaultTensorflowRuntimeVersion))
 	g.Expect(kfsvc.Spec.Default.Tensorflow.Resources.Requests[v1.ResourceCPU]).To(gomega.Equal(DefaultCPURequests))
 	g.Expect(kfsvc.Spec.Default.Tensorflow.Resources.Requests[v1.ResourceMemory]).To(gomega.Equal(DefaultMemoryRequests))
+	g.Expect(kfsvc.Spec.Default.Tensorflow.Resources.Limits[v1.ResourceCPU]).To(gomega.Equal(DefaultCPULimits))
+	g.Expect(kfsvc.Spec.Default.Tensorflow.Resources.Limits[v1.ResourceMemory]).To(gomega.Equal(DefaultMemoryLimits))
 	g.Expect(kfsvc.Spec.Canary.Tensorflow.RuntimeVersion).To(gomega.Equal("1.11"))
 	g.Expect(kfsvc.Spec.Canary.Tensorflow.Resources.Requests[v1.ResourceCPU]).To(gomega.Equal(DefaultCPURequests))
 	g.Expect(kfsvc.Spec.Canary.Tensorflow.Resources.Requests[v1.ResourceMemory]).To(gomega.Equal(resource.MustParse("3Gi")))
