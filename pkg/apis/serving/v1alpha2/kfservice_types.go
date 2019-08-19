@@ -132,7 +132,7 @@ type CustomSpec struct {
 // KFServiceStatus defines the observed state of KFService
 type KFServiceStatus struct {
 	duckv1beta1.Status `json:",inline"`
-	URL                string                 `json:"url,omitempty"`
+	URL                string                  `json:"url,omitempty"`
 	Default            StatusConfigurationSpec `json:"default,omitempty"`
 	Canary             StatusConfigurationSpec `json:"canary,omitempty"`
 }

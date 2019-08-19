@@ -224,7 +224,7 @@
           "format": "int64"
         },
         "url": {
-          "$ref": "#/definitions/knative.dev.pkg.apis.URL"
+          "type": "string"
         }
       }
     },

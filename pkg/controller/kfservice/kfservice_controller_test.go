@@ -100,7 +100,7 @@ var canary = &kfserving.KFService{
 	},
 	Status: kfserving.KFServiceStatus{
 		URL: canaryServiceKey.Name + ".svc.cluster.local",
-		Default: servingv1alpha1.StatusConfigurationSpec{
+		Default: kfserving.StatusConfigurationSpec{
 			Name: "revision-v1",
 		},
 	},
@@ -246,13 +246,8 @@ func TestReconcile(t *testing.T) {
 				},
 			},
 		},
-<<<<<<< bbd3da47a708403fb2a203e28955d5454bc2a1d5
 		URL: updatedRoute.Status.URL.String(),
-		Default: servingv1alpha1.StatusConfigurationSpec{
-=======
-		URL: updatedRoute.Status.URL,
 		Default: kfserving.StatusConfigurationSpec{
->>>>>>> Update kfserving type APIs to v1alpha2
 			Name: "revision-v1",
 		},
 	}
@@ -442,13 +437,8 @@ func TestCanaryReconcile(t *testing.T) {
 				},
 			},
 		},
-<<<<<<< bbd3da47a708403fb2a203e28955d5454bc2a1d5
 		URL: updatedRoute.Status.URL.String(),
-		Default: servingv1alpha1.StatusConfigurationSpec{
-=======
-		URL: updatedRoute.Status.URL,
 		Default: kfserving.StatusConfigurationSpec{
->>>>>>> Update kfserving type APIs to v1alpha2
 			Name:    "revision-v1",
 			Traffic: 80,
 		},
@@ -533,13 +523,8 @@ func TestCanaryDelete(t *testing.T) {
 				},
 			},
 		},
-<<<<<<< bbd3da47a708403fb2a203e28955d5454bc2a1d5
 		URL: routeUrl.String(),
-		Default: servingv1alpha1.StatusConfigurationSpec{
-=======
-		URL: routeUrl,
 		Default: kfserving.StatusConfigurationSpec{
->>>>>>> Update kfserving type APIs to v1alpha2
 			Name:    "revision-v1",
 			Traffic: 80,
 		},
@@ -606,13 +591,8 @@ func TestCanaryDelete(t *testing.T) {
 				},
 			},
 		},
-<<<<<<< bbd3da47a708403fb2a203e28955d5454bc2a1d5
 		URL: routeUrl.String(),
-		Default: servingv1alpha1.StatusConfigurationSpec{
-=======
-		URL: routeUrl,
 		Default: kfserving.StatusConfigurationSpec{
->>>>>>> Update kfserving type APIs to v1alpha2
 			Name: "revision-v1",
 		},
 	}
