@@ -30,4 +30,4 @@ sed -i 's%spec "github.com/go-openapi/spec"%openapispec "github.com/go-openapi/s
 sed -i 's/spec\./openapispec\./g' pkg/apis/serving/v1alpha2/openapi_generated.go
 
 # Generating swagger file
-go run cmd/spec-gen/main.go 0.1 > pkg/apis/serving/v1alpha1/swagger.json
+go run cmd/spec-gen/main.go 0.1 > pkg/apis/serving/v1alpha2/swagger.json

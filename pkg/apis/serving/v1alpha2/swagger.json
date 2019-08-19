@@ -7,7 +7,7 @@
   },
   "paths": {},
   "definitions": {
-    "knative.Condition": {
+    "knative.dev.pkg.apis.Condition": {
       "description": "Conditions defines a readiness condition for a Knative resource. See: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#typical-status-properties",
       "required": [
         "type",
@@ -16,7 +16,7 @@
       "properties": {
         "lastTransitionTime": {
           "description": "LastTransitionTime is the last time the condition transitioned from one status to another. We use VolatileTime in place of metav1.Time to exclude this from creating equality.Semantic differences (all other things held constant).",
-          "$ref": "#/definitions/knative.VolatileTime"
+          "$ref": "#/definitions/knative.dev.pkg.apis.VolatileTime"
         },
         "message": {
           "description": "A human readable message indicating details about the transition.",
@@ -40,7 +40,7 @@
         }
       }
     },
-    "knative.VolatileTime": {
+    "knative.dev.pkg.apis.VolatileTime": {
       "description": "VolatileTime wraps metav1.Time",
       "required": [
         "Inner"
@@ -51,7 +51,7 @@
         }
       }
     },
-    "v1alpha1.AlibiExplainSpec": {
+    "v1alpha2.AlibiExplainSpec": {
       "description": "AlibiExplainSpec defines the arguments for configuring an Alibi Explanation Server",
       "required": [
         "type"
@@ -72,17 +72,17 @@
           "description": "Defaults to latest Alibi Version.",
           "type": "string"
         },
-        "savedExplainerUri": {
-          "description": "The location of a fit explanation model",
+        "storageUri": {
+          "description": "The location of a trained explanation model",
           "type": "string"
         },
         "type": {
-          "description": "The following fields follow a \"1-of\" semantic. Users must specify exactly one of Type or ExplainerURI. The kind of Alibi explanation server to create, e.g. AnchorTabular",
+          "description": "The type of Alibi explainer",
           "type": "string"
         }
       }
     },
-    "v1alpha1.CustomSpec": {
+    "v1alpha2.CustomSpec": {
       "description": "CustomSpec provides a hook for arbitrary container configuration.",
       "required": [
         "container"
@@ -93,19 +93,19 @@
         }
       }
     },
-    "v1alpha1.ExplainSpec": {
+    "v1alpha2.ExplainSpec": {
       "description": "ExplainSpec defines the arguments for a model explanation server",
       "properties": {
         "alibi": {
           "description": "The following fields follow a \"1-of\" semantic. Users must specify exactly one openapispec.",
-          "$ref": "#/definitions/v1alpha1.AlibiExplainSpec"
+          "$ref": "#/definitions/v1alpha2.AlibiExplainSpec"
         },
         "custom": {
-          "$ref": "#/definitions/v1alpha1.CustomSpec"
+          "$ref": "#/definitions/v1alpha2.CustomSpec"
         }
       }
     },
-    "v1alpha1.FrameworkConfig": {
+    "v1alpha2.FrameworkConfig": {
       "required": [
         "image"
       ],
@@ -115,26 +115,26 @@
         }
       }
     },
-    "v1alpha1.FrameworksConfig": {
+    "v1alpha2.FrameworksConfig": {
       "properties": {
         "pytorch": {
-          "$ref": "#/definitions/v1alpha1.FrameworkConfig"
+          "$ref": "#/definitions/v1alpha2.FrameworkConfig"
         },
         "sklearn": {
-          "$ref": "#/definitions/v1alpha1.FrameworkConfig"
+          "$ref": "#/definitions/v1alpha2.FrameworkConfig"
         },
         "tensorflow": {
-          "$ref": "#/definitions/v1alpha1.FrameworkConfig"
+          "$ref": "#/definitions/v1alpha2.FrameworkConfig"
         },
         "tensorrt": {
-          "$ref": "#/definitions/v1alpha1.FrameworkConfig"
+          "$ref": "#/definitions/v1alpha2.FrameworkConfig"
         },
         "xgboost": {
-          "$ref": "#/definitions/v1alpha1.FrameworkConfig"
+          "$ref": "#/definitions/v1alpha2.FrameworkConfig"
         }
       }
     },
-    "v1alpha1.KFService": {
+    "v1alpha2.KFService": {
       "description": "KFService is the Schema for the services API",
       "properties": {
         "apiVersion": {
@@ -149,14 +149,14 @@
           "$ref": "#/definitions/v1.ObjectMeta"
         },
         "spec": {
-          "$ref": "#/definitions/v1alpha1.KFServiceSpec"
+          "$ref": "#/definitions/v1alpha2.KFServiceSpec"
         },
         "status": {
-          "$ref": "#/definitions/v1alpha1.KFServiceStatus"
+          "$ref": "#/definitions/v1alpha2.KFServiceStatus"
         }
       }
     },
-    "v1alpha1.KFServiceList": {
+    "v1alpha2.KFServiceList": {
       "description": "KFServiceList contains a list of Service",
       "required": [
         "items"
@@ -169,7 +169,7 @@
         "items": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/v1alpha1.KFService"
+            "$ref": "#/definitions/v1alpha2.KFService"
           }
         },
         "kind": {
@@ -181,7 +181,7 @@
         }
       }
     },
-    "v1alpha1.KFServiceSpec": {
+    "v1alpha2.KFServiceSpec": {
       "description": "KFServiceSpec defines the desired state of KFService",
       "required": [
         "default"
@@ -189,34 +189,34 @@
       "properties": {
         "canary": {
           "description": "Canary defines an alternate configuration to route a percentage of traffic.",
-          "$ref": "#/definitions/v1alpha1.ModelSpec"
+          "$ref": "#/definitions/v1alpha2.ModelSpec"
         },
         "canaryTrafficPercent": {
           "type": "integer",
           "format": "int32"
         },
         "default": {
-          "$ref": "#/definitions/v1alpha1.ModelSpec"
+          "$ref": "#/definitions/v1alpha2.ModelSpec"
         }
       }
     },
-    "v1alpha1.KFServiceStatus": {
+    "v1alpha2.KFServiceStatus": {
       "description": "KFServiceStatus defines the observed state of KFService",
       "properties": {
         "canary": {
-          "$ref": "#/definitions/v1alpha1.StatusConfigurationSpec"
+          "$ref": "#/definitions/v1alpha2.StatusConfigurationSpec"
         },
         "conditions": {
           "description": "Conditions the latest available observations of a resource's current state.",
           "type": "array",
           "items": {
-            "$ref": "#/definitions/knative.Condition"
+            "$ref": "#/definitions/knative.dev.pkg.apis.Condition"
           },
           "x-kubernetes-patch-merge-key": "type",
           "x-kubernetes-patch-strategy": "merge"
         },
         "default": {
-          "$ref": "#/definitions/v1alpha1.StatusConfigurationSpec"
+          "$ref": "#/definitions/v1alpha2.StatusConfigurationSpec"
         },
         "observedGeneration": {
           "description": "ObservedGeneration is the 'Generation' of the Service that was last processed by the controller.",
@@ -224,20 +224,20 @@
           "format": "int64"
         },
         "url": {
-          "type": "string"
+          "$ref": "#/definitions/knative.dev.pkg.apis.URL"
         }
       }
     },
-    "v1alpha1.ModelSpec": {
+    "v1alpha2.ModelSpec": {
       "description": "ModelSpec defines the configuration to route traffic to a predictor.",
       "properties": {
         "custom": {
           "description": "The following fields follow a \"1-of\" semantic. Users must specify exactly one openapispec.",
-          "$ref": "#/definitions/v1alpha1.CustomSpec"
+          "$ref": "#/definitions/v1alpha2.CustomSpec"
         },
         "explain": {
           "description": "Optional Explain specification to add a model explainer next to the chosen predictor. In future v1alpha2 the above model predictors would be moved down a level.",
-          "$ref": "#/definitions/v1alpha1.ExplainSpec"
+          "$ref": "#/definitions/v1alpha2.ExplainSpec"
         },
         "maxReplicas": {
           "description": "This is the up bound for autoscaler to scale to",
@@ -250,26 +250,26 @@
           "format": "int32"
         },
         "pytorch": {
-          "$ref": "#/definitions/v1alpha1.PyTorchSpec"
+          "$ref": "#/definitions/v1alpha2.PyTorchSpec"
         },
         "serviceAccountName": {
           "type": "string"
         },
         "sklearn": {
-          "$ref": "#/definitions/v1alpha1.SKLearnSpec"
+          "$ref": "#/definitions/v1alpha2.SKLearnSpec"
         },
         "tensorflow": {
-          "$ref": "#/definitions/v1alpha1.TensorflowSpec"
+          "$ref": "#/definitions/v1alpha2.TensorflowSpec"
         },
         "tensorrt": {
-          "$ref": "#/definitions/v1alpha1.TensorRTSpec"
+          "$ref": "#/definitions/v1alpha2.TensorRTSpec"
         },
         "xgboost": {
-          "$ref": "#/definitions/v1alpha1.XGBoostSpec"
+          "$ref": "#/definitions/v1alpha2.XGBoostSpec"
         }
       }
     },
-    "v1alpha1.PyTorchSpec": {
+    "v1alpha2.PyTorchSpec": {
       "description": "PyTorchSpec defines arguments for configuring PyTorch model serving.",
       "required": [
         "modelUri"
@@ -292,7 +292,7 @@
         }
       }
     },
-    "v1alpha1.SKLearnSpec": {
+    "v1alpha2.SKLearnSpec": {
       "description": "SKLearnSpec defines arguments for configuring SKLearn model serving.",
       "required": [
         "modelUri"
@@ -311,7 +311,7 @@
         }
       }
     },
-    "v1alpha1.StatusConfigurationSpec": {
+    "v1alpha2.StatusConfigurationSpec": {
       "description": "StatusConfigurationSpec describes the state of the configuration receiving traffic.",
       "properties": {
         "name": {
@@ -327,7 +327,7 @@
         }
       }
     },
-    "v1alpha1.TensorRTSpec": {
+    "v1alpha2.TensorRTSpec": {
       "description": "TensorRTSpec defines arguments for configuring TensorRT model serving.",
       "required": [
         "modelUri"
@@ -346,7 +346,7 @@
         }
       }
     },
-    "v1alpha1.TensorflowSpec": {
+    "v1alpha2.TensorflowSpec": {
       "description": "TensorflowSpec defines arguments for configuring Tensorflow model serving.",
       "required": [
         "modelUri"
@@ -365,7 +365,7 @@
         }
       }
     },
-    "v1alpha1.XGBoostSpec": {
+    "v1alpha2.XGBoostSpec": {
       "description": "XGBoostSpec defines arguments for configuring XGBoost model serving.",
       "required": [
         "modelUri"
