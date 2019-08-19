@@ -39,6 +39,8 @@ const (
 var (
 	DefaultMemoryRequests = resource.MustParse("2Gi")
 	DefaultCPURequests    = resource.MustParse("1")
+	DefaultMemoryLimits   = resource.MustParse("2Gi")
+	DefaultCPULimits      = resource.MustParse("1")
 )
 
 // Returns a URI to the model. This URI is passed to the model-initializer via the ModelInitializerSourceUriInternalAnnotationKey
@@ -85,6 +87,17 @@ func setResourceRequirementDefaults(requirements *v1.ResourceRequirements) {
 	}
 	if _, ok := requirements.Requests[v1.ResourceMemory]; !ok {
 		requirements.Requests[v1.ResourceMemory] = DefaultMemoryRequests
+	}
+
+	if requirements.Limits == nil {
+		requirements.Limits = v1.ResourceList{}
+	}
+
+	if _, ok := requirements.Limits[v1.ResourceCPU]; !ok {
+		requirements.Limits[v1.ResourceCPU] = DefaultCPULimits
+	}
+	if _, ok := requirements.Limits[v1.ResourceMemory]; !ok {
+		requirements.Limits[v1.ResourceMemory] = DefaultMemoryLimits
 	}
 }
 
