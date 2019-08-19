@@ -7,7 +7,7 @@
   },
   "paths": {},
   "definitions": {
-    "knative.Condition": {
+    "knative.dev.pkg.apis.Condition": {
       "description": "Conditions defines a readiness condition for a Knative resource. See: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#typical-status-properties",
       "required": [
         "type",
@@ -16,7 +16,7 @@
       "properties": {
         "lastTransitionTime": {
           "description": "LastTransitionTime is the last time the condition transitioned from one status to another. We use VolatileTime in place of metav1.Time to exclude this from creating equality.Semantic differences (all other things held constant).",
-          "$ref": "#/definitions/knative.VolatileTime"
+          "$ref": "#/definitions/knative.dev.pkg.apis.VolatileTime"
         },
         "message": {
           "description": "A human readable message indicating details about the transition.",
@@ -40,7 +40,7 @@
         }
       }
     },
-    "knative.VolatileTime": {
+    "knative.dev.pkg.apis.VolatileTime": {
       "description": "VolatileTime wraps metav1.Time",
       "required": [
         "Inner"
@@ -72,12 +72,12 @@
           "description": "Defaults to latest Alibi Version.",
           "type": "string"
         },
-        "savedExplainerUri": {
-          "description": "The location of a fit explanation model",
+        "storageUri": {
+          "description": "The location of a trained explanation model",
           "type": "string"
         },
         "type": {
-          "description": "The following fields follow a \"1-of\" semantic. Users must specify exactly one of Type or ExplainerURI. The kind of Alibi explanation server to create, e.g. AnchorTabular",
+          "description": "The type of Alibi explainer",
           "type": "string"
         }
       }
@@ -210,7 +210,7 @@
           "description": "Conditions the latest available observations of a resource's current state.",
           "type": "array",
           "items": {
-            "$ref": "#/definitions/knative.Condition"
+            "$ref": "#/definitions/knative.dev.pkg.apis.Condition"
           },
           "x-kubernetes-patch-merge-key": "type",
           "x-kubernetes-patch-strategy": "merge"

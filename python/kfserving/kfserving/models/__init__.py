@@ -15,9 +15,11 @@
 from __future__ import absolute_import
 
 # import models into model package
-from kfserving.models.knative_condition import KnativeCondition
-from kfserving.models.knative_volatile_time import KnativeVolatileTime
+from kfserving.models.knative_dev_pkg_apis_condition import KnativeDevPkgApisCondition
+from kfserving.models.knative_dev_pkg_apis_volatile_time import KnativeDevPkgApisVolatileTime
+from kfserving.models.v1alpha1_alibi_explain_spec import V1alpha1AlibiExplainSpec
 from kfserving.models.v1alpha1_custom_spec import V1alpha1CustomSpec
+from kfserving.models.v1alpha1_explain_spec import V1alpha1ExplainSpec
 from kfserving.models.v1alpha1_framework_config import V1alpha1FrameworkConfig
 from kfserving.models.v1alpha1_frameworks_config import V1alpha1FrameworksConfig
 from kfserving.models.v1alpha1_kf_service import V1alpha1KFService

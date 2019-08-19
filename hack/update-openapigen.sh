@@ -22,11 +22,6 @@ if [ -z "${GOPATH:-}" ]; then
     export GOPATH=$(go env GOPATH)
 fi
 
-# Update kative files to add `+k8s:openapi-gen=true` to workaround the knative types cannot be load.
-# TBD @jinchihe: This should be updated from knative (PR: https://github.com/knative/pkg/pull/510).
-sed -i '/^type Condition struct {/i // +k8s:openapi-gen=true' vendor/knative.dev/pkg/apis/condition_types.go
-sed -i '/^type VolatileTime struct {/i // +k8s:openapi-gen=true' vendor/knative.dev/pkg/apis/volatile_time.go
-
 # Generating OpenAPI specification
 go run vendor/k8s.io/code-generator/cmd/openapi-gen/main.go --input-dirs github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1,knative.dev/pkg/apis --output-package github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1/ --go-header-file hack/boilerplate.go.txt
 

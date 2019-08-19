@@ -17,6 +17,7 @@ import re  # noqa: F401
 import six
 
 from kfserving.models.v1alpha1_custom_spec import V1alpha1CustomSpec  # noqa: F401,E501
+from kfserving.models.v1alpha1_explain_spec import V1alpha1ExplainSpec  # noqa: F401,E501
 from kfserving.models.v1alpha1_py_torch_spec import V1alpha1PyTorchSpec  # noqa: F401,E501
 from kfserving.models.v1alpha1_sk_learn_spec import V1alpha1SKLearnSpec  # noqa: F401,E501
 from kfserving.models.v1alpha1_tensor_rt_spec import V1alpha1TensorRTSpec  # noqa: F401,E501
@@ -39,6 +40,7 @@ class V1alpha1ModelSpec(object):
     """
     swagger_types = {
         'custom': 'V1alpha1CustomSpec',
+        'explain': 'V1alpha1ExplainSpec',
         'max_replicas': 'int',
         'min_replicas': 'int',
         'pytorch': 'V1alpha1PyTorchSpec',
@@ -51,6 +53,7 @@ class V1alpha1ModelSpec(object):
 
     attribute_map = {
         'custom': 'custom',
+        'explain': 'explain',
         'max_replicas': 'maxReplicas',
         'min_replicas': 'minReplicas',
         'pytorch': 'pytorch',
@@ -61,10 +64,11 @@ class V1alpha1ModelSpec(object):
         'xgboost': 'xgboost'
     }
 
-    def __init__(self, custom=None, max_replicas=None, min_replicas=None, pytorch=None, service_account_name=None, sklearn=None, tensorflow=None, tensorrt=None, xgboost=None):  # noqa: E501
+    def __init__(self, custom=None, explain=None, max_replicas=None, min_replicas=None, pytorch=None, service_account_name=None, sklearn=None, tensorflow=None, tensorrt=None, xgboost=None):  # noqa: E501
         """V1alpha1ModelSpec - a model defined in Swagger"""  # noqa: E501
 
         self._custom = None
+        self._explain = None
         self._max_replicas = None
         self._min_replicas = None
         self._pytorch = None
@@ -77,6 +81,8 @@ class V1alpha1ModelSpec(object):
 
         if custom is not None:
             self.custom = custom
+        if explain is not None:
+            self.explain = explain
         if max_replicas is not None:
             self.max_replicas = max_replicas
         if min_replicas is not None:
@@ -116,6 +122,29 @@ class V1alpha1ModelSpec(object):
         """
 
         self._custom = custom
+
+    @property
+    def explain(self):
+        """Gets the explain of this V1alpha1ModelSpec.  # noqa: E501
+
+        Optional Explain specification to add a model explainer next to the chosen predictor. In future v1alpha2 the above model predictors would be moved down a level.  # noqa: E501
+
+        :return: The explain of this V1alpha1ModelSpec.  # noqa: E501
+        :rtype: V1alpha1ExplainSpec
+        """
+        return self._explain
+
+    @explain.setter
+    def explain(self, explain):
+        """Sets the explain of this V1alpha1ModelSpec.
+
+        Optional Explain specification to add a model explainer next to the chosen predictor. In future v1alpha2 the above model predictors would be moved down a level.  # noqa: E501
+
+        :param explain: The explain of this V1alpha1ModelSpec.  # noqa: E501
+        :type: V1alpha1ExplainSpec
+        """
+
+        self._explain = explain
 
     @property
     def max_replicas(self):
@@ -188,7 +217,6 @@ class V1alpha1ModelSpec(object):
     def service_account_name(self):
         """Gets the service_account_name of this V1alpha1ModelSpec.  # noqa: E501
 
-        Service Account Name  # noqa: E501
 
         :return: The service_account_name of this V1alpha1ModelSpec.  # noqa: E501
         :rtype: str
@@ -199,7 +227,6 @@ class V1alpha1ModelSpec(object):
     def service_account_name(self, service_account_name):
         """Sets the service_account_name of this V1alpha1ModelSpec.
 
-        Service Account Name  # noqa: E501
 
         :param service_account_name: The service_account_name of this V1alpha1ModelSpec.  # noqa: E501
         :type: str

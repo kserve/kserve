@@ -27,9 +27,11 @@ from .api.kf_serving_client import KFServingClient
 # import constants into kfserving package
 from .constants import constants
 # import models into kfserving package
-from .models.knative_condition import KnativeCondition
-from .models.knative_volatile_time import KnativeVolatileTime
+from .models.knative_dev_pkg_apis_condition import KnativeDevPkgApisCondition
+from .models.knative_dev_pkg_apis_volatile_time import KnativeDevPkgApisVolatileTime
+from .models.v1alpha1_alibi_explain_spec import V1alpha1AlibiExplainSpec
 from .models.v1alpha1_custom_spec import V1alpha1CustomSpec
+from .models.v1alpha1_explain_spec import V1alpha1ExplainSpec
 from .models.v1alpha1_framework_config import V1alpha1FrameworkConfig
 from .models.v1alpha1_frameworks_config import V1alpha1FrameworksConfig
 from .models.v1alpha1_kf_service import V1alpha1KFService
