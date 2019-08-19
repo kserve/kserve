@@ -64,9 +64,11 @@ Class | Method |  Description
 
 ### Documentation For Client Models
 
- - [KnativeCondition](docs/KnativeCondition.md)
- - [KnativeVolatileTime](docs/KnativeVolatileTime.md)
+ - [KnativeDevPkgApisCondition](docs/KnativeDevPkgApisCondition.md)
+ - [KnativeDevPkgApisVolatileTime](docs/KnativeDevPkgApisVolatileTime.md)
+ - [V1alpha1AlibiExplainSpec](docs/V1alpha1AlibiExplainSpec.md)
  - [V1alpha1CustomSpec](docs/V1alpha1CustomSpec.md)
+ - [V1alpha1ExplainSpec](docs/V1alpha1ExplainSpec.md)
  - [V1alpha1FrameworkConfig](docs/V1alpha1FrameworkConfig.md)
  - [V1alpha1FrameworksConfig](docs/V1alpha1FrameworksConfig.md)
  - [V1alpha1KFService](docs/V1alpha1KFService.md)

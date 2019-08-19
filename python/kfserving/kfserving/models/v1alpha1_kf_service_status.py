@@ -16,7 +16,7 @@ import re  # noqa: F401
 
 import six
 
-from kfserving.models.knative_condition import KnativeCondition  # noqa: F401,E501
+from kfserving.models.knative_dev_pkg_apis_condition import KnativeDevPkgApisCondition  # noqa: F401,E501
 from kfserving.models.v1alpha1_status_configuration_spec import V1alpha1StatusConfigurationSpec  # noqa: F401,E501
 
 
@@ -35,7 +35,7 @@ class V1alpha1KFServiceStatus(object):
     """
     swagger_types = {
         'canary': 'V1alpha1StatusConfigurationSpec',
-        'conditions': 'list[KnativeCondition]',
+        'conditions': 'list[KnativeDevPkgApisCondition]',
         'default': 'V1alpha1StatusConfigurationSpec',
         'observed_generation': 'int',
         'url': 'str'
@@ -98,7 +98,7 @@ class V1alpha1KFServiceStatus(object):
         Conditions the latest available observations of a resource's current state.  # noqa: E501
 
         :return: The conditions of this V1alpha1KFServiceStatus.  # noqa: E501
-        :rtype: list[KnativeCondition]
+        :rtype: list[KnativeDevPkgApisCondition]
         """
         return self._conditions
 
@@ -109,7 +109,7 @@ class V1alpha1KFServiceStatus(object):
         Conditions the latest available observations of a resource's current state.  # noqa: E501
 
         :param conditions: The conditions of this V1alpha1KFServiceStatus.  # noqa: E501
-        :type: list[KnativeCondition]
+        :type: list[KnativeDevPkgApisCondition]
         """
 
         self._conditions = conditions
