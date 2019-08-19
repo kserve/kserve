@@ -38,7 +38,7 @@ var configMap = &v1.ConfigMap{
 				"s3AccessKeyIDName": "awsAccessKeyID",
 				"s3SecretAccessKeyName": "awsSecretAccessKey"
 			},
-			"azure" : {"azureSecretKeyName": "azcreds"}
+			"azure" : {"azureSecretName": "azcreds"}
 	    }`,
 	},
 }
