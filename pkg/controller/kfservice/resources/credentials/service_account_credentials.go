@@ -67,15 +67,15 @@ func (c *CredentialBuilder) CreateSecretVolumeAndEnv(namespace string, serviceAc
 		serviceAccountName = "default"
 	}
 	s3SecretAccessKeyName := s3.AWSSecretAccessKeyName
-	azureSecretKeyName := azure.AzureSecretKeyName
+	azureSecretName := azure.AzureSecretName
 	gcsCredentialFileName := gcs.GCSCredentialFileName
 
 	if c.config.S3.S3SecretAccessKeyName != "" {
 		s3SecretAccessKeyName = c.config.S3.S3SecretAccessKeyName
 	}
 
-	if c.config.AZURE.AzureSecretKeyName != "" {
-		azureSecretKeyName = c.config.AZURE.AzureSecretKeyName
+	if c.config.AZURE.AzureSecretName != "" {
+		azureSecretName = c.config.AZURE.AzureSecretName
 	}
 
 	if c.config.GCS.GCSCredentialFileName != "" {
@@ -90,6 +90,7 @@ func (c *CredentialBuilder) CreateSecretVolumeAndEnv(namespace string, serviceAc
 		return nil
 	}
 	for _, secretRef := range serviceAccount.Secrets {
+		log.Info("found secret", "SecretName", secretRef.Name)
 		secret := &v1.Secret{}
 		err := c.client.Get(context.TODO(), types.NamespacedName{Name: secretRef.Name,
 			Namespace: namespace}, secret)
@@ -112,7 +113,7 @@ func (c *CredentialBuilder) CreateSecretVolumeAndEnv(namespace string, serviceAc
 					Name:  gcs.GCSCredentialEnvKey,
 					Value: gcs.GCSCredentialVolumeMountPath + gcsCredentialFileName,
 				})
-		} else if _, ok := secret.Data[azureSecretKeyName]; ok {
+		} else if secret.Name == azureSecretName {
 			log.Info("Setting secret envs for azure", "AzureSecret", secret.Name)
 			envs := azure.BuildSecretEnvs(secret, &c.config.AZURE)
 			container.Env = append(container.Env, envs...)
