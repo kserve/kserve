@@ -125,6 +125,7 @@ class Storage(object): # pylint: disable=too-few-public-methods
 
     @staticmethod
     def _get_azure_storage_token():
+        # pylint: disable=too-many-locals
         tenant_id = os.getenv("AZ_TENANT_ID", "")
         client_id = os.getenv("AZ_CLIENT_ID", "")
         client_secret = os.getenv("AZ_CLIENT_SECRET", "")
