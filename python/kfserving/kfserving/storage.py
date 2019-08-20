@@ -28,7 +28,7 @@ _BLOB_RE = "https://(.+?).blob.core.windows.net/(.+)"
 _LOCAL_PREFIX = "file://"
 
 
-class Storage(object): # pylint: disable=too-few-public-methods
+class Storage(object): # pylint: disable=too-few-public-methods,too-many-locals
     @staticmethod
     def download(uri: str, out_dir: str = None) -> str:
         logging.info("Copying contents of %s to local", uri)
@@ -124,8 +124,7 @@ class Storage(object): # pylint: disable=too-few-public-methods
             block_blob_service.get_blob_to_path(container_name, blob.name, dest_path)
 
     @staticmethod
-    def _get_azure_storage_token():
-        # pylint: disable=too-many-locals
+    def _get_azure_storage_token():        
         tenant_id = os.getenv("AZ_TENANT_ID", "")
         client_id = os.getenv("AZ_CLIENT_ID", "")
         client_secret = os.getenv("AZ_CLIENT_SECRET", "")
