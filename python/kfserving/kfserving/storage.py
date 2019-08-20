@@ -101,7 +101,7 @@ class Storage(object): # pylint: disable=too-few-public-methods,too-many-locals
                 blob.download_to_filename(dest_path)
 
     @staticmethod
-    def _download_blob(uri, out_dir: str):
+    def _download_blob(uri, out_dir: str): # pylint: disable=too-many-locals
         match = re.search(_BLOB_RE, uri)
         account_name = match.group(1)
         storage_url = match.group(2)
@@ -124,7 +124,7 @@ class Storage(object): # pylint: disable=too-few-public-methods,too-many-locals
             block_blob_service.get_blob_to_path(container_name, blob.name, dest_path)
 
     @staticmethod
-    def _get_azure_storage_token():        
+    def _get_azure_storage_token():
         tenant_id = os.getenv("AZ_TENANT_ID", "")
         client_id = os.getenv("AZ_CLIENT_ID", "")
         client_secret = os.getenv("AZ_CLIENT_SECRET", "")
