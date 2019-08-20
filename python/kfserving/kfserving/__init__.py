@@ -26,24 +26,24 @@ from .configuration import Configuration
 from .api.kf_serving_client import KFServingClient
 # import constants into kfserving package
 from .constants import constants
-# import models into kfserving package
-from .models.knative_dev_pkg_apis_condition import KnativeDevPkgApisCondition
-from .models.knative_dev_pkg_apis_volatile_time import KnativeDevPkgApisVolatileTime
-from .models.v1alpha1_alibi_explain_spec import V1alpha1AlibiExplainSpec
-from .models.v1alpha1_custom_spec import V1alpha1CustomSpec
-from .models.v1alpha1_explain_spec import V1alpha1ExplainSpec
-from .models.v1alpha1_framework_config import V1alpha1FrameworkConfig
-from .models.v1alpha1_frameworks_config import V1alpha1FrameworksConfig
-from .models.v1alpha1_kf_service import V1alpha1KFService
-from .models.v1alpha1_kf_service_list import V1alpha1KFServiceList
-from .models.v1alpha1_kf_service_spec import V1alpha1KFServiceSpec
-from .models.v1alpha1_kf_service_status import V1alpha1KFServiceStatus
-from .models.v1alpha1_model_spec import V1alpha1ModelSpec
-from .models.v1alpha1_py_torch_spec import V1alpha1PyTorchSpec
-from .models.v1alpha1_sk_learn_spec import V1alpha1SKLearnSpec
-from .models.v1alpha1_status_configuration_spec import V1alpha1StatusConfigurationSpec
-from .models.v1alpha1_tensor_rt_spec import V1alpha1TensorRTSpec
-from .models.v1alpha1_tensorflow_spec import V1alpha1TensorflowSpec
-from .models.v1alpha1_xg_boost_spec import V1alpha1XGBoostSpec
 # import util into sdk package
 from .utils import utils
+# import models into kfserving package
+from .models.knative_condition import KnativeCondition
+from .models.knative_volatile_time import KnativeVolatileTime
+from .models.v1alpha2_alibi_explain_spec import V1alpha2AlibiExplainSpec
+from .models.v1alpha2_custom_spec import V1alpha2CustomSpec
+from .models.v1alpha2_explain_spec import V1alpha2ExplainSpec
+from .models.v1alpha2_framework_config import V1alpha2FrameworkConfig
+from .models.v1alpha2_frameworks_config import V1alpha2FrameworksConfig
+from .models.v1alpha2_kf_service import V1alpha2KFService
+from .models.v1alpha2_kf_service_list import V1alpha2KFServiceList
+from .models.v1alpha2_kf_service_spec import V1alpha2KFServiceSpec
+from .models.v1alpha2_kf_service_status import V1alpha2KFServiceStatus
+from .models.v1alpha2_model_spec import V1alpha2ModelSpec
+from .models.v1alpha2_py_torch_spec import V1alpha2PyTorchSpec
+from .models.v1alpha2_sk_learn_spec import V1alpha2SKLearnSpec
+from .models.v1alpha2_status_configuration_spec import V1alpha2StatusConfigurationSpec
+from .models.v1alpha2_tensor_rt_spec import V1alpha2TensorRTSpec
+from .models.v1alpha2_tensorflow_spec import V1alpha2TensorflowSpec
+from .models.v1alpha2_xg_boost_spec import V1alpha2XGBoostSpec
