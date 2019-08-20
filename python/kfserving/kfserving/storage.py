@@ -129,19 +129,18 @@ class Storage(object): # pylint: disable=too-few-public-methods
         client_id = os.getenv("AZ_CLIENT_ID", "")
         client_secret = os.getenv("AZ_CLIENT_SECRET", "")
         subscription_id = os.getenv("AZ_SUBSCRIPTION_ID", "")
-        
+
         if tenant_id == "" or client_id == "" or client_secret == "" or subscription_id == "":
             return None
 
-        # from https://stackoverflow.com/questions/53906986/how-do-i-authenticate-a-user-against-an-azure-storage-blob-in-python        
         # note the SP must have "Storage Blob Data Owner" perms for this to work
         import adal
         from azure.storage.common import TokenCredential
 
         authority_url = "https://login.microsoftonline.com/" + tenant_id
-        
+
         context = adal.AuthenticationContext(authority_url)
-        
+
         token = context.acquire_token_with_client_credentials(
             "https://storage.azure.com/",
             client_id,
