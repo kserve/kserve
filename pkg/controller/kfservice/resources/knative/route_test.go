@@ -20,7 +20,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
+	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	knservingv1alpha1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
@@ -28,19 +28,19 @@ import (
 
 func TestKnativeRoute(t *testing.T) {
 	scenarios := map[string]struct {
-		kfService     v1alpha1.KFService
+		kfService     v1alpha2.KFService
 		expectedRoute *knservingv1alpha1.Route
 		shouldFail    bool
 	}{
 		"RunLatestModel": {
-			kfService: v1alpha1.KFService{
+			kfService: v1alpha2.KFService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "mnist",
 					Namespace: "default",
 				},
-				Spec: v1alpha1.KFServiceSpec{
-					Default: v1alpha1.ModelSpec{
-						Tensorflow: &v1alpha1.TensorflowSpec{
+				Spec: v1alpha2.KFServiceSpec{
+					Default: v1alpha2.ModelSpec{
+						Tensorflow: &v1alpha2.TensorflowSpec{
 							ModelURI:       "s3://test/mnist/export",
 							RuntimeVersion: "1.13.0",
 						},
@@ -66,28 +66,28 @@ func TestKnativeRoute(t *testing.T) {
 			},
 		},
 		"RunCanaryModel": {
-			kfService: v1alpha1.KFService{
+			kfService: v1alpha2.KFService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "mnist",
 					Namespace: "default",
 				},
-				Spec: v1alpha1.KFServiceSpec{
-					Default: v1alpha1.ModelSpec{
-						Tensorflow: &v1alpha1.TensorflowSpec{
+				Spec: v1alpha2.KFServiceSpec{
+					Default: v1alpha2.ModelSpec{
+						Tensorflow: &v1alpha2.TensorflowSpec{
 							ModelURI:       "s3://test/mnist/export",
 							RuntimeVersion: "1.13.0",
 						},
 					},
 					CanaryTrafficPercent: 20,
-					Canary: &v1alpha1.ModelSpec{
-						Tensorflow: &v1alpha1.TensorflowSpec{
+					Canary: &v1alpha2.ModelSpec{
+						Tensorflow: &v1alpha2.TensorflowSpec{
 							ModelURI:       "s3://test/mnist-2/export",
 							RuntimeVersion: "1.13.0",
 						},
 					},
 				},
-				Status: v1alpha1.KFServiceStatus{
-					Default: v1alpha1.StatusConfigurationSpec{
+				Status: v1alpha2.KFServiceStatus{
+					Default: v1alpha2.StatusConfigurationSpec{
 						Name: "v1",
 					},
 				},
@@ -117,7 +117,7 @@ func TestKnativeRoute(t *testing.T) {
 			},
 		},
 		"TestAnnotations": {
-			kfService: v1alpha1.KFService{
+			kfService: v1alpha2.KFService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "mnist",
 					Namespace: "default",
@@ -127,23 +127,23 @@ func TestKnativeRoute(t *testing.T) {
 						"kubectl.kubernetes.io/last-applied-configuration": "test1",
 					},
 				},
-				Spec: v1alpha1.KFServiceSpec{
-					Default: v1alpha1.ModelSpec{
-						Tensorflow: &v1alpha1.TensorflowSpec{
+				Spec: v1alpha2.KFServiceSpec{
+					Default: v1alpha2.ModelSpec{
+						Tensorflow: &v1alpha2.TensorflowSpec{
 							ModelURI:       "s3://test/mnist/export",
 							RuntimeVersion: "1.13.0",
 						},
 					},
 					CanaryTrafficPercent: 20,
-					Canary: &v1alpha1.ModelSpec{
-						Tensorflow: &v1alpha1.TensorflowSpec{
+					Canary: &v1alpha2.ModelSpec{
+						Tensorflow: &v1alpha2.TensorflowSpec{
 							ModelURI:       "s3://test/mnist-2/export",
 							RuntimeVersion: "1.13.0",
 						},
 					},
 				},
-				Status: v1alpha1.KFServiceStatus{
-					Default: v1alpha1.StatusConfigurationSpec{
+				Status: v1alpha2.KFServiceStatus{
+					Default: v1alpha2.StatusConfigurationSpec{
 						Name: "v1",
 					},
 				},

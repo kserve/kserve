@@ -20,7 +20,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
+	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/controller/kfservice/resources/knative"
 	"knative.dev/pkg/kmp"
@@ -54,7 +54,7 @@ func NewConfigurationReconciler(client client.Client, scheme *runtime.Scheme, co
 	}
 }
 
-func (r *ConfigurationReconciler) Reconcile(kfsvc *v1alpha1.KFService) error {
+func (r *ConfigurationReconciler) Reconcile(kfsvc *v1alpha2.KFService) error {
 	if err := r.reconcileDefault(kfsvc); err != nil {
 		return err
 	}
@@ -64,7 +64,7 @@ func (r *ConfigurationReconciler) Reconcile(kfsvc *v1alpha1.KFService) error {
 	return nil
 }
 
-func (r *ConfigurationReconciler) reconcileDefault(kfsvc *v1alpha1.KFService) error {
+func (r *ConfigurationReconciler) reconcileDefault(kfsvc *v1alpha2.KFService) error {
 	defaultConfiguration, err := r.configurationBuilder.CreateKnativeConfiguration(
 		constants.DefaultConfigurationName(kfsvc.Name),
 		kfsvc.ObjectMeta,
@@ -83,7 +83,7 @@ func (r *ConfigurationReconciler) reconcileDefault(kfsvc *v1alpha1.KFService) er
 	return nil
 }
 
-func (r *ConfigurationReconciler) reconcileCanary(kfsvc *v1alpha1.KFService) error {
+func (r *ConfigurationReconciler) reconcileCanary(kfsvc *v1alpha2.KFService) error {
 	if kfsvc.Spec.Canary == nil {
 		if err := r.finalizeConfiguration(kfsvc); err != nil {
 			return err
@@ -110,7 +110,7 @@ func (r *ConfigurationReconciler) reconcileCanary(kfsvc *v1alpha1.KFService) err
 	return nil
 }
 
-func (r *ConfigurationReconciler) finalizeConfiguration(kfsvc *v1alpha1.KFService) error {
+func (r *ConfigurationReconciler) finalizeConfiguration(kfsvc *v1alpha2.KFService) error {
 	canaryConfigurationName := constants.CanaryConfigurationName(kfsvc.Name)
 	existing := &knservingv1alpha1.Configuration{}
 	if err := r.client.Get(context.TODO(), types.NamespacedName{Name: canaryConfigurationName, Namespace: kfsvc.Namespace}, existing); err != nil {
@@ -128,7 +128,7 @@ func (r *ConfigurationReconciler) finalizeConfiguration(kfsvc *v1alpha1.KFServic
 	return nil
 }
 
-func (r *ConfigurationReconciler) reconcileConfiguration(kfsvc *v1alpha1.KFService, desired *knservingv1alpha1.Configuration) (*knservingv1alpha1.ConfigurationStatus, error) {
+func (r *ConfigurationReconciler) reconcileConfiguration(kfsvc *v1alpha2.KFService, desired *knservingv1alpha1.Configuration) (*knservingv1alpha1.ConfigurationStatus, error) {
 	if err := controllerutil.SetControllerReference(kfsvc, desired, r.scheme); err != nil {
 		return nil, err
 	}
