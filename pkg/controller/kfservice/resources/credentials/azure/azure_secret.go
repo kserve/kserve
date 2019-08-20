@@ -21,7 +21,7 @@ import (
 )
 
 const (
-	AzureSecretName  = "azcreds"
+	AzureSecretName     = "azcreds"
 	AzureSubscriptionId = "AZ_SUBSCRIPTION_ID"
 	AzureTenantId       = "AZ_TENANT_ID"
 	AzureClientId       = "AZ_CLIENT_ID"
