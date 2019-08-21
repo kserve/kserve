@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
+	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	testutils "github.com/kubeflow/kfserving/pkg/testing"
 	"github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -33,19 +33,19 @@ func TestKnativeRouteReconcile(t *testing.T) {
 
 	routeReconciler := NewRouteReconciler(c, mgr.GetScheme())
 	scenarios := map[string]struct {
-		kfsvc        v1alpha1.KFService
+		kfsvc        v1alpha2.KFService
 		desiredRoute *knservingv1alpha1.Route
 	}{
 		"Reconcile new model serving": {
-			kfsvc: v1alpha1.KFService{
+			kfsvc: v1alpha2.KFService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "mnist",
 					Namespace: "default",
 				},
-				Spec: v1alpha1.KFServiceSpec{
-					Default: v1alpha1.ModelSpec{
-						Tensorflow: &v1alpha1.TensorflowSpec{
-							RuntimeVersion: v1alpha1.DefaultTensorflowRuntimeVersion,
+				Spec: v1alpha2.KFServiceSpec{
+					Default: v1alpha2.ModelSpec{
+						Tensorflow: &v1alpha2.TensorflowSpec{
+							RuntimeVersion: v1alpha2.DefaultTensorflowRuntimeVersion,
 							ModelURI:       "gs://testuri",
 						},
 					},

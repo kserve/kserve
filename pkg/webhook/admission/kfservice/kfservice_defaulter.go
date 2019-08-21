@@ -21,7 +21,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	kfservingv1alpha1 "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
+	kfserving "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	"github.com/kubeflow/kfserving/pkg/webhook/third_party"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -39,7 +39,7 @@ var _ admission.Handler = &Defaulter{}
 
 // Handle decodes the incoming KFService and executes Validation logic.
 func (defaulter *Defaulter) Handle(ctx context.Context, req admissiontypes.Request) admissiontypes.Response {
-	kfsvc := &kfservingv1alpha1.KFService{}
+	kfsvc := &kfserving.KFService{}
 
 	if err := defaulter.Decoder.Decode(req, kfsvc); err != nil {
 		return admission.ErrorResponse(http.StatusBadRequest, err)

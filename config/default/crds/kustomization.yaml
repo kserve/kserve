@@ -8,7 +8,7 @@
 # YAML string, with resources separated by document
 # markers ("---").
 resources:
-- serving_v1alpha1_kfservice.yaml
+- serving_v1alpha2_kfservice.yaml
 
 patches:
   # Knative uses VolatileTime in place of metav1.Time to exclude this from creating equality.Semantic difference,

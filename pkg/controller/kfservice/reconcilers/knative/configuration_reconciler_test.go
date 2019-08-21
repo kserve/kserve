@@ -23,7 +23,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
+	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	testutils "github.com/kubeflow/kfserving/pkg/testing"
 	"github.com/onsi/gomega"
@@ -53,26 +53,26 @@ func TestKnativeConfigurationReconcile(t *testing.T) {
 
 	configurationReconciler := NewConfigurationReconciler(c, mgr.GetScheme(), &v1.ConfigMap{})
 	scenarios := map[string]struct {
-		kfsvc          v1alpha1.KFService
+		kfsvc          v1alpha2.KFService
 		desiredDefault *knservingv1alpha1.Configuration
 		desiredCanary  *knservingv1alpha1.Configuration
 	}{
 		"Reconcile creates default and canary configurations": {
-			kfsvc: v1alpha1.KFService{
+			kfsvc: v1alpha2.KFService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "mnist",
 					Namespace: "default",
 				},
-				Spec: v1alpha1.KFServiceSpec{
-					Default: v1alpha1.ModelSpec{
-						Tensorflow: &v1alpha1.TensorflowSpec{
-							RuntimeVersion: v1alpha1.DefaultTensorflowRuntimeVersion,
+				Spec: v1alpha2.KFServiceSpec{
+					Default: v1alpha2.ModelSpec{
+						Tensorflow: &v1alpha2.TensorflowSpec{
+							RuntimeVersion: v1alpha2.DefaultTensorflowRuntimeVersion,
 							ModelURI:       "gs://testuri",
 						},
 					},
-					Canary: &v1alpha1.ModelSpec{
-						Tensorflow: &v1alpha1.TensorflowSpec{
-							RuntimeVersion: v1alpha1.DefaultTensorflowRuntimeVersion,
+					Canary: &v1alpha2.ModelSpec{
+						Tensorflow: &v1alpha2.TensorflowSpec{
+							RuntimeVersion: v1alpha2.DefaultTensorflowRuntimeVersion,
 							ModelURI:       "gs://testuri2",
 						},
 					},
@@ -99,11 +99,11 @@ func TestKnativeConfigurationReconcile(t *testing.T) {
 								PodSpec: v1.PodSpec{
 									Containers: []v1.Container{
 										{
-											Image:   v1alpha1.TensorflowServingImageName + ":" + v1alpha1.DefaultTensorflowRuntimeVersion,
-											Command: []string{v1alpha1.TensorflowEntrypointCommand},
+											Image:   v1alpha2.TensorflowServingImageName + ":" + v1alpha2.DefaultTensorflowRuntimeVersion,
+											Command: []string{v1alpha2.TensorflowEntrypointCommand},
 											Args: []string{
-												"--port=" + v1alpha1.TensorflowServingGRPCPort,
-												"--rest_api_port=" + v1alpha1.TensorflowServingRestPort,
+												"--port=" + v1alpha2.TensorflowServingGRPCPort,
+												"--rest_api_port=" + v1alpha2.TensorflowServingRestPort,
 												"--model_name=mnist",
 												"--model_base_path=" + constants.DefaultModelLocalMountPath,
 											},
@@ -136,11 +136,11 @@ func TestKnativeConfigurationReconcile(t *testing.T) {
 								PodSpec: v1.PodSpec{
 									Containers: []v1.Container{
 										{
-											Image:   v1alpha1.TensorflowServingImageName + ":" + v1alpha1.DefaultTensorflowRuntimeVersion,
-											Command: []string{v1alpha1.TensorflowEntrypointCommand},
+											Image:   v1alpha2.TensorflowServingImageName + ":" + v1alpha2.DefaultTensorflowRuntimeVersion,
+											Command: []string{v1alpha2.TensorflowEntrypointCommand},
 											Args: []string{
-												"--port=" + v1alpha1.TensorflowServingGRPCPort,
-												"--rest_api_port=" + v1alpha1.TensorflowServingRestPort,
+												"--port=" + v1alpha2.TensorflowServingGRPCPort,
+												"--rest_api_port=" + v1alpha2.TensorflowServingRestPort,
 												"--model_name=mnist",
 												"--model_base_path=" + constants.DefaultModelLocalMountPath,
 											},
@@ -154,15 +154,15 @@ func TestKnativeConfigurationReconcile(t *testing.T) {
 			},
 		},
 		"Reconcile ignores canary if unspecified": {
-			kfsvc: v1alpha1.KFService{
+			kfsvc: v1alpha2.KFService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "mnist",
 					Namespace: "default",
 				},
-				Spec: v1alpha1.KFServiceSpec{
-					Default: v1alpha1.ModelSpec{
-						Tensorflow: &v1alpha1.TensorflowSpec{
-							RuntimeVersion: v1alpha1.DefaultTensorflowRuntimeVersion,
+				Spec: v1alpha2.KFServiceSpec{
+					Default: v1alpha2.ModelSpec{
+						Tensorflow: &v1alpha2.TensorflowSpec{
+							RuntimeVersion: v1alpha2.DefaultTensorflowRuntimeVersion,
 							ModelURI:       "gs://testuri",
 						},
 					},
@@ -189,11 +189,11 @@ func TestKnativeConfigurationReconcile(t *testing.T) {
 								PodSpec: v1.PodSpec{
 									Containers: []v1.Container{
 										{
-											Image:   v1alpha1.TensorflowServingImageName + ":" + v1alpha1.DefaultTensorflowRuntimeVersion,
-											Command: []string{v1alpha1.TensorflowEntrypointCommand},
+											Image:   v1alpha2.TensorflowServingImageName + ":" + v1alpha2.DefaultTensorflowRuntimeVersion,
+											Command: []string{v1alpha2.TensorflowEntrypointCommand},
 											Args: []string{
-												"--port=" + v1alpha1.TensorflowServingGRPCPort,
-												"--rest_api_port=" + v1alpha1.TensorflowServingRestPort,
+												"--port=" + v1alpha2.TensorflowServingGRPCPort,
+												"--rest_api_port=" + v1alpha2.TensorflowServingRestPort,
 												"--model_name=mnist",
 												"--model_base_path=" + constants.DefaultModelLocalMountPath,
 											},
