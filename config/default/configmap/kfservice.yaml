@@ -9,6 +9,9 @@ data:
         "tensorflow": {
             "image": "tensorflow/serving"
         },
+        "onnx": {
+            "image": "mcr.microsoft.com/onnxruntime/server"
+        },
         "sklearn": {
             "image": "gcr.io/kfserving/sklearnserver"
         },

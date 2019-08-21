@@ -50,6 +50,7 @@ KFService offers a few high level specifications for common ML technologies. The
 | Field       | Value       | Description |
 | ----------- | ----------- | ----------- |
 | tensorflow  | [Tensorflow](#Tensorflow)   | A high level specification for Tensorflow models. |
+| onnx        | [ONNX](#ONNX)               | A high level specification for ONNX models. |
 | xgboost     | [XGBoost](#XGBoost)         | A high level specification for XGBoost models. |
 | scikitlearn | [ScikitLearn](#ScikitLearn) | A high level specification for ScikitLearn models. |
 | pytorch     | [Pytorch](#Pytorch)         | A high level specification for Pytorch models. |
@@ -142,6 +143,9 @@ Conditions provide realtime feedback to users on the underlying state of their d
 | modelUri       | String                                                                                             | URI pointing to Saved Model assets |
 | runtimeVersion | String                                                                                             | Defaults to latest the version of Tensorflow. |
 | resources      | [Resources](https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/) | Defaults to requests and limits of 1CPU, 2Gb MEM. |
+
+### ONNX
+Currently, this is identical to [Tensorflow](#Tensorflow)
 
 ### XGBoost
 Currently, this is identical to [Tensorflow](#Tensorflow)

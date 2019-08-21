@@ -101,6 +101,19 @@ spec:
                     0 in case of no traffic
                   format: int64
                   type: integer
+                onnx:
+                  properties:
+                    modelUri:
+                      type: string
+                    resources:
+                      description: Defaults to requests and limits of 1CPU, 2Gb MEM.
+                      type: object
+                    runtimeVersion:
+                      description: Defaults to latest ONNX Version.
+                      type: string
+                  required:
+                  - modelUri
+                  type: object
                 pytorch:
                   properties:
                     modelClassName:
@@ -231,6 +244,19 @@ spec:
                     0 in case of no traffic
                   format: int64
                   type: integer
+                onnx:
+                  properties:
+                    modelUri:
+                      type: string
+                    resources:
+                      description: Defaults to requests and limits of 1CPU, 2Gb MEM.
+                      type: object
+                    runtimeVersion:
+                      description: Defaults to latest ONNX Version.
+                      type: string
+                  required:
+                  - modelUri
+                  type: object
                 pytorch:
                   properties:
                     modelClassName:
