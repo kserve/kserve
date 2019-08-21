@@ -21,19 +21,40 @@ import (
 
 // KFServiceSpec defines the desired state of KFService
 type KFServiceSpec struct {
-	Default ModelSpec `json:"default"`
+	Default ComponentsSpec `json:"default"`
 	// Canary defines an alternate configuration to route a percentage of traffic.
-	Canary               *ModelSpec `json:"canary,omitempty"`
-	CanaryTrafficPercent int        `json:"canaryTrafficPercent,omitempty"`
+	Canary               *ComponentsSpec `json:"canary,omitempty"`
+	CanaryTrafficPercent int             `json:"canaryTrafficPercent,omitempty"`
 }
 
-// ModelSpec defines the configuration to route traffic to a predictor.
-type ModelSpec struct {
+type ComponentsSpec struct {
+	// predict defines the model serving spec
+	// +required
+	Predict ModelSpec `json:"predict"`
+
+	// explain defines the model explanation service spec
+	// explain service calls to transform or predict service
+	// +optional
+	Explain *ExplainSpec `json:"explain,omitempty"`
+
+	// transform defines the transform service spec for pre/post processing
+	// transform service calls to predict service
+	// +optional
+	Transform *TransformSpec `json:"transform,omitempty"`
+}
+
+// DeploymentSpec defines the configuration for a given KFService component
+type DeploymentSpec struct {
+	// ServiceAccountName is the name of the ServiceAccount to use to run the service
 	ServiceAccountName string `json:"serviceAccountName,omitempty"`
 	// Minimum number of replicas, pods won't scale down to 0 in case of no traffic
 	MinReplicas int `json:"minReplicas,omitempty"`
 	// This is the up bound for autoscaler to scale to
 	MaxReplicas int `json:"maxReplicas,omitempty"`
+}
+
+// ModelSpec defines the configuration to route traffic to a predictor.
+type ModelSpec struct {
 	// The following fields follow a "1-of" semantic. Users must specify exactly one spec.
 	Custom     *CustomSpec     `json:"custom,omitempty"`
 	Tensorflow *TensorflowSpec `json:"tensorflow,omitempty"`
@@ -41,9 +62,8 @@ type ModelSpec struct {
 	XGBoost    *XGBoostSpec    `json:"xgboost,omitempty"`
 	SKLearn    *SKLearnSpec    `json:"sklearn,omitempty"`
 	PyTorch    *PyTorchSpec    `json:"pytorch,omitempty"`
-	// Optional Explain specification to add a model explainer next to the chosen predictor.
-	// In future v1alpha2 the above model predictors would be moved down a level.
-	Explain *ExplainSpec `json:"explain,omitempty"`
+
+	DeploymentSpec `json:",inline"`
 }
 
 // ExplainSpec defines the arguments for a model explanation server
@@ -51,6 +71,15 @@ type ExplainSpec struct {
 	// The following fields follow a "1-of" semantic. Users must specify exactly one spec.
 	Alibi  *AlibiExplainSpec `json:"alibi,omitempty"`
 	Custom *CustomSpec       `json:"custom,omitempty"`
+
+	DeploymentSpec `json:",inline"`
+}
+
+// TransformSpec defines transformation service for pre/post processing
+type TransformSpec struct {
+	Custom *CustomSpec `json:"custom,omitempty"`
+
+	DeploymentSpec `json:",inline"`
 }
 
 type AlibiExplainerType string

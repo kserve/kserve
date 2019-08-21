@@ -64,11 +64,11 @@ func validateKFService(kfsvc *KFService) error {
 	if kfsvc == nil {
 		return fmt.Errorf("Unable to validate, KFService is nil")
 	}
-	if err := validateModelSpec(&kfsvc.Spec.Default); err != nil {
+	if err := validateModelSpec(&kfsvc.Spec.Default.Predict); err != nil {
 		return err
 	}
 
-	if err := validateModelSpec(kfsvc.Spec.Canary); err != nil {
+	if err := validateModelSpec(&kfsvc.Spec.Canary.Predict); err != nil {
 		return err
 	}
 
