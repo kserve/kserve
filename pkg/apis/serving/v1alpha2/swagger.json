@@ -117,6 +117,9 @@
     },
     "v1alpha2.FrameworksConfig": {
       "properties": {
+        "onnx": {
+          "$ref": "#/definitions/v1alpha2.FrameworkConfig"
+        },
         "pytorch": {
           "$ref": "#/definitions/v1alpha2.FrameworkConfig"
         },
@@ -249,6 +252,9 @@
           "type": "integer",
           "format": "int32"
         },
+        "onnx": {
+          "$ref": "#/definitions/v1alpha2.ONNXSpec"
+        },
         "pytorch": {
           "$ref": "#/definitions/v1alpha2.PyTorchSpec"
         },
@@ -266,6 +272,25 @@
         },
         "xgboost": {
           "$ref": "#/definitions/v1alpha2.XGBoostSpec"
+        }
+      }
+    },
+    "v1alpha2.ONNXSpec": {
+      "description": "ONNXSpec defines arguments for configuring ONNX model serving.",
+      "required": [
+        "modelUri"
+      ],
+      "properties": {
+        "modelUri": {
+          "type": "string"
+        },
+        "resources": {
+          "description": "Defaults to requests and limits of 1CPU, 2Gb MEM.",
+          "$ref": "#/definitions/v1.ResourceRequirements"
+        },
+        "runtimeVersion": {
+          "description": "Defaults to latest ONNX Version.",
+          "type": "string"
         }
       }
     },
