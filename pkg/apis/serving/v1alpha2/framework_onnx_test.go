@@ -58,9 +58,9 @@ func TestCreateOnnxModelServingContainer(t *testing.T) {
 		Image:     "someOtherImage:someAmazingVersion",
 		Resources: onnxRequestedResource,
 		Args: []string{
-			"--model_path=/mnt/models",
-			"--http_port=8080",
-			"--grpc_port=9000",
+			"--http_port 8080",
+			"--grpc_port 9000",
+			"--model_path /mnt/models",
 		},
 	}
 
