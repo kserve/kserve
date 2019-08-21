@@ -47,19 +47,9 @@ spec:
               description: Canary defines an alternate configuration to route a percentage
                 of traffic.
               properties:
-                custom:
-                  description: The following fields follow a "1-of" semantic. Users
-                    must specify exactly one spec.
-                  properties:
-                    container:
-                      type: object
-                  required:
-                  - container
-                  type: object
                 explain:
-                  description: Optional Explain specification to add a model explainer
-                    next to the chosen predictor. In future v1alpha2 the above model
-                    predictors would be moved down a level.
+                  description: explain defines the model explanation service spec
+                    explain service calls to transform or predict service
                   properties:
                     alibi:
                       description: The following fields follow a "1-of" semantic.
@@ -91,105 +81,155 @@ spec:
                       required:
                       - container
                       type: object
+                    maxReplicas:
+                      description: This is the up bound for autoscaler to scale to
+                      format: int64
+                      type: integer
+                    minReplicas:
+                      description: Minimum number of replicas, pods won't scale down
+                        to 0 in case of no traffic
+                      format: int64
+                      type: integer
+                    serviceAccountName:
+                      description: ServiceAccountName is the name of the ServiceAccount
+                        to use to run the service
+                      type: string
                   type: object
-                maxReplicas:
-                  description: This is the up bound for autoscaler to scale to
-                  format: int64
-                  type: integer
-                minReplicas:
-                  description: Minimum number of replicas, pods won't scale down to
-                    0 in case of no traffic
-                  format: int64
-                  type: integer
-                pytorch:
+                predict:
+                  description: predict defines the model serving spec +required
                   properties:
-                    modelClassName:
-                      description: Defaults PyTorch model class name to 'PyTorchModel'
-                      type: string
-                    modelUri:
-                      type: string
-                    resources:
-                      description: Defaults to requests and limits of 1CPU, 2Gb MEM.
+                    custom:
+                      description: The following fields follow a "1-of" semantic.
+                        Users must specify exactly one spec.
+                      properties:
+                        container:
+                          type: object
+                      required:
+                      - container
                       type: object
-                    runtimeVersion:
-                      description: Defaults to latest PyTorch Version
+                    maxReplicas:
+                      description: This is the up bound for autoscaler to scale to
+                      format: int64
+                      type: integer
+                    minReplicas:
+                      description: Minimum number of replicas, pods won't scale down
+                        to 0 in case of no traffic
+                      format: int64
+                      type: integer
+                    pytorch:
+                      properties:
+                        modelClassName:
+                          description: Defaults PyTorch model class name to 'PyTorchModel'
+                          type: string
+                        modelUri:
+                          type: string
+                        resources:
+                          description: Defaults to requests and limits of 1CPU, 2Gb
+                            MEM.
+                          type: object
+                        runtimeVersion:
+                          description: Defaults to latest PyTorch Version
+                          type: string
+                      required:
+                      - modelUri
+                      type: object
+                    serviceAccountName:
+                      description: ServiceAccountName is the name of the ServiceAccount
+                        to use to run the service
                       type: string
-                  required:
-                  - modelUri
+                    sklearn:
+                      properties:
+                        modelUri:
+                          type: string
+                        resources:
+                          description: Defaults to requests and limits of 1CPU, 2Gb
+                            MEM.
+                          type: object
+                        runtimeVersion:
+                          description: Defaults to latest SKLearn Version.
+                          type: string
+                      required:
+                      - modelUri
+                      type: object
+                    tensorflow:
+                      properties:
+                        modelUri:
+                          type: string
+                        resources:
+                          description: Defaults to requests and limits of 1CPU, 2Gb
+                            MEM.
+                          type: object
+                        runtimeVersion:
+                          description: Defaults to latest TF Version.
+                          type: string
+                      required:
+                      - modelUri
+                      type: object
+                    tensorrt:
+                      properties:
+                        modelUri:
+                          type: string
+                        resources:
+                          description: Defaults to requests and limits of 1CPU, 2Gb
+                            MEM.
+                          type: object
+                        runtimeVersion:
+                          description: Defaults to latest TensorRT Version.
+                          type: string
+                      required:
+                      - modelUri
+                      type: object
+                    xgboost:
+                      properties:
+                        modelUri:
+                          type: string
+                        resources:
+                          description: Defaults to requests and limits of 1CPU, 2Gb
+                            MEM.
+                          type: object
+                        runtimeVersion:
+                          description: Defaults to latest XGBoost Version.
+                          type: string
+                      required:
+                      - modelUri
+                      type: object
                   type: object
-                serviceAccountName:
-                  type: string
-                sklearn:
+                transform:
+                  description: transform defines the transform service spec for pre/post
+                    processing transform service calls to predict service
                   properties:
-                    modelUri:
-                      type: string
-                    resources:
-                      description: Defaults to requests and limits of 1CPU, 2Gb MEM.
+                    custom:
+                      properties:
+                        container:
+                          type: object
+                      required:
+                      - container
                       type: object
-                    runtimeVersion:
-                      description: Defaults to latest SKLearn Version.
+                    maxReplicas:
+                      description: This is the up bound for autoscaler to scale to
+                      format: int64
+                      type: integer
+                    minReplicas:
+                      description: Minimum number of replicas, pods won't scale down
+                        to 0 in case of no traffic
+                      format: int64
+                      type: integer
+                    serviceAccountName:
+                      description: ServiceAccountName is the name of the ServiceAccount
+                        to use to run the service
                       type: string
-                  required:
-                  - modelUri
                   type: object
-                tensorflow:
-                  properties:
-                    modelUri:
-                      type: string
-                    resources:
-                      description: Defaults to requests and limits of 1CPU, 2Gb MEM.
-                      type: object
-                    runtimeVersion:
-                      description: Defaults to latest TF Version.
-                      type: string
-                  required:
-                  - modelUri
-                  type: object
-                tensorrt:
-                  properties:
-                    modelUri:
-                      type: string
-                    resources:
-                      description: Defaults to requests and limits of 1CPU, 2Gb MEM.
-                      type: object
-                    runtimeVersion:
-                      description: Defaults to latest TensorRT Version.
-                      type: string
-                  required:
-                  - modelUri
-                  type: object
-                xgboost:
-                  properties:
-                    modelUri:
-                      type: string
-                    resources:
-                      description: Defaults to requests and limits of 1CPU, 2Gb MEM.
-                      type: object
-                    runtimeVersion:
-                      description: Defaults to latest XGBoost Version.
-                      type: string
-                  required:
-                  - modelUri
-                  type: object
+              required:
+              - predict
               type: object
             canaryTrafficPercent:
               format: int64
               type: integer
             default:
               properties:
-                custom:
-                  description: The following fields follow a "1-of" semantic. Users
-                    must specify exactly one spec.
-                  properties:
-                    container:
-                      type: object
-                  required:
-                  - container
-                  type: object
                 explain:
-                  description: Optional Explain specification to add a model explainer
-                    next to the chosen predictor. In future v1alpha2 the above model
-                    predictors would be moved down a level.
+                  description: explain defines the model explanation service spec
+                    explain service calls to transform or predict service
                   properties:
                     alibi:
                       description: The following fields follow a "1-of" semantic.
@@ -221,86 +261,146 @@ spec:
                       required:
                       - container
                       type: object
+                    maxReplicas:
+                      description: This is the up bound for autoscaler to scale to
+                      format: int64
+                      type: integer
+                    minReplicas:
+                      description: Minimum number of replicas, pods won't scale down
+                        to 0 in case of no traffic
+                      format: int64
+                      type: integer
+                    serviceAccountName:
+                      description: ServiceAccountName is the name of the ServiceAccount
+                        to use to run the service
+                      type: string
                   type: object
-                maxReplicas:
-                  description: This is the up bound for autoscaler to scale to
-                  format: int64
-                  type: integer
-                minReplicas:
-                  description: Minimum number of replicas, pods won't scale down to
-                    0 in case of no traffic
-                  format: int64
-                  type: integer
-                pytorch:
+                predict:
+                  description: predict defines the model serving spec +required
                   properties:
-                    modelClassName:
-                      description: Defaults PyTorch model class name to 'PyTorchModel'
-                      type: string
-                    modelUri:
-                      type: string
-                    resources:
-                      description: Defaults to requests and limits of 1CPU, 2Gb MEM.
+                    custom:
+                      description: The following fields follow a "1-of" semantic.
+                        Users must specify exactly one spec.
+                      properties:
+                        container:
+                          type: object
+                      required:
+                      - container
                       type: object
-                    runtimeVersion:
-                      description: Defaults to latest PyTorch Version
+                    maxReplicas:
+                      description: This is the up bound for autoscaler to scale to
+                      format: int64
+                      type: integer
+                    minReplicas:
+                      description: Minimum number of replicas, pods won't scale down
+                        to 0 in case of no traffic
+                      format: int64
+                      type: integer
+                    pytorch:
+                      properties:
+                        modelClassName:
+                          description: Defaults PyTorch model class name to 'PyTorchModel'
+                          type: string
+                        modelUri:
+                          type: string
+                        resources:
+                          description: Defaults to requests and limits of 1CPU, 2Gb
+                            MEM.
+                          type: object
+                        runtimeVersion:
+                          description: Defaults to latest PyTorch Version
+                          type: string
+                      required:
+                      - modelUri
+                      type: object
+                    serviceAccountName:
+                      description: ServiceAccountName is the name of the ServiceAccount
+                        to use to run the service
                       type: string
-                  required:
-                  - modelUri
+                    sklearn:
+                      properties:
+                        modelUri:
+                          type: string
+                        resources:
+                          description: Defaults to requests and limits of 1CPU, 2Gb
+                            MEM.
+                          type: object
+                        runtimeVersion:
+                          description: Defaults to latest SKLearn Version.
+                          type: string
+                      required:
+                      - modelUri
+                      type: object
+                    tensorflow:
+                      properties:
+                        modelUri:
+                          type: string
+                        resources:
+                          description: Defaults to requests and limits of 1CPU, 2Gb
+                            MEM.
+                          type: object
+                        runtimeVersion:
+                          description: Defaults to latest TF Version.
+                          type: string
+                      required:
+                      - modelUri
+                      type: object
+                    tensorrt:
+                      properties:
+                        modelUri:
+                          type: string
+                        resources:
+                          description: Defaults to requests and limits of 1CPU, 2Gb
+                            MEM.
+                          type: object
+                        runtimeVersion:
+                          description: Defaults to latest TensorRT Version.
+                          type: string
+                      required:
+                      - modelUri
+                      type: object
+                    xgboost:
+                      properties:
+                        modelUri:
+                          type: string
+                        resources:
+                          description: Defaults to requests and limits of 1CPU, 2Gb
+                            MEM.
+                          type: object
+                        runtimeVersion:
+                          description: Defaults to latest XGBoost Version.
+                          type: string
+                      required:
+                      - modelUri
+                      type: object
                   type: object
-                serviceAccountName:
-                  type: string
-                sklearn:
+                transform:
+                  description: transform defines the transform service spec for pre/post
+                    processing transform service calls to predict service
                   properties:
-                    modelUri:
-                      type: string
-                    resources:
-                      description: Defaults to requests and limits of 1CPU, 2Gb MEM.
+                    custom:
+                      properties:
+                        container:
+                          type: object
+                      required:
+                      - container
                       type: object
-                    runtimeVersion:
-                      description: Defaults to latest SKLearn Version.
+                    maxReplicas:
+                      description: This is the up bound for autoscaler to scale to
+                      format: int64
+                      type: integer
+                    minReplicas:
+                      description: Minimum number of replicas, pods won't scale down
+                        to 0 in case of no traffic
+                      format: int64
+                      type: integer
+                    serviceAccountName:
+                      description: ServiceAccountName is the name of the ServiceAccount
+                        to use to run the service
                       type: string
-                  required:
-                  - modelUri
                   type: object
-                tensorflow:
-                  properties:
-                    modelUri:
-                      type: string
-                    resources:
-                      description: Defaults to requests and limits of 1CPU, 2Gb MEM.
-                      type: object
-                    runtimeVersion:
-                      description: Defaults to latest TF Version.
-                      type: string
-                  required:
-                  - modelUri
-                  type: object
-                tensorrt:
-                  properties:
-                    modelUri:
-                      type: string
-                    resources:
-                      description: Defaults to requests and limits of 1CPU, 2Gb MEM.
-                      type: object
-                    runtimeVersion:
-                      description: Defaults to latest TensorRT Version.
-                      type: string
-                  required:
-                  - modelUri
-                  type: object
-                xgboost:
-                  properties:
-                    modelUri:
-                      type: string
-                    resources:
-                      description: Defaults to requests and limits of 1CPU, 2Gb MEM.
-                      type: object
-                    runtimeVersion:
-                      description: Defaults to latest XGBoost Version.
-                      type: string
-                  required:
-                  - modelUri
-                  type: object
+              required:
+              - predict
               type: object
           required:
           - default

@@ -82,6 +82,35 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 			Dependencies: []string{
 				"k8s.io/api/core/v1.ResourceRequirements"},
 		},
+		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.ComponentsSpec": {
+			Schema: openapispec.Schema{
+				SchemaProps: openapispec.SchemaProps{
+					Properties: map[string]openapispec.Schema{
+						"predict": {
+							SchemaProps: openapispec.SchemaProps{
+								Description: "predict defines the model serving spec",
+								Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.ModelSpec"),
+							},
+						},
+						"explain": {
+							SchemaProps: openapispec.SchemaProps{
+								Description: "explain defines the model explanation service spec explain service calls to transform or predict service",
+								Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.ExplainSpec"),
+							},
+						},
+						"transform": {
+							SchemaProps: openapispec.SchemaProps{
+								Description: "transform defines the transform service spec for pre/post processing transform service calls to predict service",
+								Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.TransformSpec"),
+							},
+						},
+					},
+					Required: []string{"predict"},
+				},
+			},
+			Dependencies: []string{
+				"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.ExplainSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.ModelSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.TransformSpec"},
+		},
 		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.CustomSpec": {
 			Schema: openapispec.Schema{
 				SchemaProps: openapispec.SchemaProps{
@@ -99,6 +128,37 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 			Dependencies: []string{
 				"k8s.io/api/core/v1.Container"},
 		},
+		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.DeploymentSpec": {
+			Schema: openapispec.Schema{
+				SchemaProps: openapispec.SchemaProps{
+					Description: "DeploymentSpec defines the configuration for a given KFService component",
+					Properties: map[string]openapispec.Schema{
+						"serviceAccountName": {
+							SchemaProps: openapispec.SchemaProps{
+								Description: "ServiceAccountName is the name of the ServiceAccount to use to run the service",
+								Type:        []string{"string"},
+								Format:      "",
+							},
+						},
+						"minReplicas": {
+							SchemaProps: openapispec.SchemaProps{
+								Description: "Minimum number of replicas, pods won't scale down to 0 in case of no traffic",
+								Type:        []string{"integer"},
+								Format:      "int32",
+							},
+						},
+						"maxReplicas": {
+							SchemaProps: openapispec.SchemaProps{
+								Description: "This is the up bound for autoscaler to scale to",
+								Type:        []string{"integer"},
+								Format:      "int32",
+							},
+						},
+					},
+				},
+			},
+			Dependencies: []string{},
+		},
 		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.ExplainSpec": {
 			Schema: openapispec.Schema{
 				SchemaProps: openapispec.SchemaProps{
@@ -113,6 +173,27 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						"custom": {
 							SchemaProps: openapispec.SchemaProps{
 								Ref: ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.CustomSpec"),
+							},
+						},
+						"serviceAccountName": {
+							SchemaProps: openapispec.SchemaProps{
+								Description: "ServiceAccountName is the name of the ServiceAccount to use to run the service",
+								Type:        []string{"string"},
+								Format:      "",
+							},
+						},
+						"minReplicas": {
+							SchemaProps: openapispec.SchemaProps{
+								Description: "Minimum number of replicas, pods won't scale down to 0 in case of no traffic",
+								Type:        []string{"integer"},
+								Format:      "int32",
+							},
+						},
+						"maxReplicas": {
+							SchemaProps: openapispec.SchemaProps{
+								Description: "This is the up bound for autoscaler to scale to",
+								Type:        []string{"integer"},
+								Format:      "int32",
 							},
 						},
 					},
@@ -262,13 +343,13 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 					Properties: map[string]openapispec.Schema{
 						"default": {
 							SchemaProps: openapispec.SchemaProps{
-								Ref: ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.ModelSpec"),
+								Ref: ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.ComponentsSpec"),
 							},
 						},
 						"canary": {
 							SchemaProps: openapispec.SchemaProps{
 								Description: "Canary defines an alternate configuration to route a percentage of traffic.",
-								Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.ModelSpec"),
+								Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.ComponentsSpec"),
 							},
 						},
 						"canaryTrafficPercent": {
@@ -282,7 +363,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 				},
 			},
 			Dependencies: []string{
-				"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.ModelSpec"},
+				"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.ComponentsSpec"},
 		},
 		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.KFServiceStatus": {
 			Schema: openapispec.Schema{
@@ -342,26 +423,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 				SchemaProps: openapispec.SchemaProps{
 					Description: "ModelSpec defines the configuration to route traffic to a predictor.",
 					Properties: map[string]openapispec.Schema{
-						"serviceAccountName": {
-							SchemaProps: openapispec.SchemaProps{
-								Type:   []string{"string"},
-								Format: "",
-							},
-						},
-						"minReplicas": {
-							SchemaProps: openapispec.SchemaProps{
-								Description: "Minimum number of replicas, pods won't scale down to 0 in case of no traffic",
-								Type:        []string{"integer"},
-								Format:      "int32",
-							},
-						},
-						"maxReplicas": {
-							SchemaProps: openapispec.SchemaProps{
-								Description: "This is the up bound for autoscaler to scale to",
-								Type:        []string{"integer"},
-								Format:      "int32",
-							},
-						},
 						"custom": {
 							SchemaProps: openapispec.SchemaProps{
 								Description: "The following fields follow a \"1-of\" semantic. Users must specify exactly one openapispec.",
@@ -393,17 +454,32 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Ref: ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.PyTorchSpec"),
 							},
 						},
-						"explain": {
+						"serviceAccountName": {
 							SchemaProps: openapispec.SchemaProps{
-								Description: "Optional Explain specification to add a model explainer next to the chosen predictor. In future v1alpha2 the above model predictors would be moved down a level.",
-								Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.ExplainSpec"),
+								Description: "ServiceAccountName is the name of the ServiceAccount to use to run the service",
+								Type:        []string{"string"},
+								Format:      "",
+							},
+						},
+						"minReplicas": {
+							SchemaProps: openapispec.SchemaProps{
+								Description: "Minimum number of replicas, pods won't scale down to 0 in case of no traffic",
+								Type:        []string{"integer"},
+								Format:      "int32",
+							},
+						},
+						"maxReplicas": {
+							SchemaProps: openapispec.SchemaProps{
+								Description: "This is the up bound for autoscaler to scale to",
+								Type:        []string{"integer"},
+								Format:      "int32",
 							},
 						},
 					},
 				},
 			},
 			Dependencies: []string{
-				"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.CustomSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.ExplainSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.PyTorchSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.SKLearnSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.TensorRTSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.TensorflowSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.XGBoostSpec"},
+				"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.CustomSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.PyTorchSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.SKLearnSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.TensorRTSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.TensorflowSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.XGBoostSpec"},
 		},
 		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.PyTorchSpec": {
 			Schema: openapispec.Schema{
@@ -563,6 +639,43 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 			},
 			Dependencies: []string{
 				"k8s.io/api/core/v1.ResourceRequirements"},
+		},
+		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.TransformSpec": {
+			Schema: openapispec.Schema{
+				SchemaProps: openapispec.SchemaProps{
+					Description: "TransformSpec defines transformation service for pre/post processing",
+					Properties: map[string]openapispec.Schema{
+						"custom": {
+							SchemaProps: openapispec.SchemaProps{
+								Ref: ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.CustomSpec"),
+							},
+						},
+						"serviceAccountName": {
+							SchemaProps: openapispec.SchemaProps{
+								Description: "ServiceAccountName is the name of the ServiceAccount to use to run the service",
+								Type:        []string{"string"},
+								Format:      "",
+							},
+						},
+						"minReplicas": {
+							SchemaProps: openapispec.SchemaProps{
+								Description: "Minimum number of replicas, pods won't scale down to 0 in case of no traffic",
+								Type:        []string{"integer"},
+								Format:      "int32",
+							},
+						},
+						"maxReplicas": {
+							SchemaProps: openapispec.SchemaProps{
+								Description: "This is the up bound for autoscaler to scale to",
+								Type:        []string{"integer"},
+								Format:      "int32",
+							},
+						},
+					},
+				},
+			},
+			Dependencies: []string{
+				"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.CustomSpec"},
 		},
 		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.XGBoostSpec": {
 			Schema: openapispec.Schema{
