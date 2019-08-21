@@ -43,7 +43,7 @@ import (
 
 var c client.Client
 
-const timeout = time.Second * 10
+const timeout = time.Second * 30
 
 var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: "foo", Namespace: "default"}}
 var serviceKey = expectedRequest.NamespacedName
