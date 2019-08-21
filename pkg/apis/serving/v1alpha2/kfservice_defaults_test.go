@@ -33,14 +33,16 @@ func TestTensorflowDefaults(t *testing.T) {
 			Namespace: "default",
 		},
 		Spec: KFServiceSpec{
-			Default: ModelSpec{
-				Tensorflow: &TensorflowSpec{ModelURI: "gs://testbucket/testmodel"},
+			Default: ComponentsSpec{
+				Predict: ModelSpec{
+					Tensorflow: &TensorflowSpec{ModelURI: "gs://testbucket/testmodel"},
+				},
 			},
 		},
 	}
 	kfsvc.Spec.Canary = kfsvc.Spec.Default.DeepCopy()
-	kfsvc.Spec.Canary.Tensorflow.RuntimeVersion = "1.11"
-	kfsvc.Spec.Canary.Tensorflow.Resources.Requests = v1.ResourceList{v1.ResourceMemory: resource.MustParse("3Gi")}
+	kfsvc.Spec.Canary.Predict.Tensorflow.RuntimeVersion = "1.11"
+	kfsvc.Spec.Canary.Predict.Tensorflow.Resources.Requests = v1.ResourceList{v1.ResourceMemory: resource.MustParse("3Gi")}
 	kfsvc.Default()
 
 	g.Expect(kfsvc.Spec.Default.Tensorflow.RuntimeVersion).To(gomega.Equal(DefaultTensorflowRuntimeVersion))

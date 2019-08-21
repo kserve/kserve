@@ -68,7 +68,7 @@ func (r *ConfigurationReconciler) reconcileDefault(kfsvc *v1alpha2.KFService) er
 	defaultConfiguration, err := r.configurationBuilder.CreateKnativeConfiguration(
 		constants.DefaultConfigurationName(kfsvc.Name),
 		kfsvc.ObjectMeta,
-		&kfsvc.Spec.Default,
+		&kfsvc.Spec.Default.Predict,
 	)
 	if err != nil {
 		return err
@@ -95,7 +95,7 @@ func (r *ConfigurationReconciler) reconcileCanary(kfsvc *v1alpha2.KFService) err
 	canaryConfiguration, err := r.configurationBuilder.CreateKnativeConfiguration(
 		constants.CanaryConfigurationName(kfsvc.Name),
 		kfsvc.ObjectMeta,
-		kfsvc.Spec.Canary,
+		&kfsvc.Spec.Canary.Predict,
 	)
 	if err != nil {
 		return err

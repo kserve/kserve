@@ -82,6 +82,25 @@
         }
       }
     },
+    "v1alpha2.ComponentsSpec": {
+      "required": [
+        "predict"
+      ],
+      "properties": {
+        "explain": {
+          "description": "explain defines the model explanation service spec explain service calls to transform or predict service",
+          "$ref": "#/definitions/v1alpha2.ExplainSpec"
+        },
+        "predict": {
+          "description": "predict defines the model serving spec",
+          "$ref": "#/definitions/v1alpha2.ModelSpec"
+        },
+        "transform": {
+          "description": "transform defines the transform service spec for pre/post processing transform service calls to predict service",
+          "$ref": "#/definitions/v1alpha2.TransformSpec"
+        }
+      }
+    },
     "v1alpha2.CustomSpec": {
       "description": "CustomSpec provides a hook for arbitrary container configuration.",
       "required": [
@@ -90,6 +109,25 @@
       "properties": {
         "container": {
           "$ref": "#/definitions/v1.Container"
+        }
+      }
+    },
+    "v1alpha2.DeploymentSpec": {
+      "description": "DeploymentSpec defines the configuration for a given KFService component",
+      "properties": {
+        "maxReplicas": {
+          "description": "This is the up bound for autoscaler to scale to",
+          "type": "integer",
+          "format": "int32"
+        },
+        "minReplicas": {
+          "description": "Minimum number of replicas, pods won't scale down to 0 in case of no traffic",
+          "type": "integer",
+          "format": "int32"
+        },
+        "serviceAccountName": {
+          "description": "ServiceAccountName is the name of the ServiceAccount to use to run the service",
+          "type": "string"
         }
       }
     },
@@ -102,6 +140,20 @@
         },
         "custom": {
           "$ref": "#/definitions/v1alpha2.CustomSpec"
+        },
+        "maxReplicas": {
+          "description": "This is the up bound for autoscaler to scale to",
+          "type": "integer",
+          "format": "int32"
+        },
+        "minReplicas": {
+          "description": "Minimum number of replicas, pods won't scale down to 0 in case of no traffic",
+          "type": "integer",
+          "format": "int32"
+        },
+        "serviceAccountName": {
+          "description": "ServiceAccountName is the name of the ServiceAccount to use to run the service",
+          "type": "string"
         }
       }
     },
@@ -189,14 +241,14 @@
       "properties": {
         "canary": {
           "description": "Canary defines an alternate configuration to route a percentage of traffic.",
-          "$ref": "#/definitions/v1alpha2.ModelSpec"
+          "$ref": "#/definitions/v1alpha2.ComponentsSpec"
         },
         "canaryTrafficPercent": {
           "type": "integer",
           "format": "int32"
         },
         "default": {
-          "$ref": "#/definitions/v1alpha2.ModelSpec"
+          "$ref": "#/definitions/v1alpha2.ComponentsSpec"
         }
       }
     },
@@ -235,10 +287,6 @@
           "description": "The following fields follow a \"1-of\" semantic. Users must specify exactly one openapispec.",
           "$ref": "#/definitions/v1alpha2.CustomSpec"
         },
-        "explain": {
-          "description": "Optional Explain specification to add a model explainer next to the chosen predictor. In future v1alpha2 the above model predictors would be moved down a level.",
-          "$ref": "#/definitions/v1alpha2.ExplainSpec"
-        },
         "maxReplicas": {
           "description": "This is the up bound for autoscaler to scale to",
           "type": "integer",
@@ -253,6 +301,7 @@
           "$ref": "#/definitions/v1alpha2.PyTorchSpec"
         },
         "serviceAccountName": {
+          "description": "ServiceAccountName is the name of the ServiceAccount to use to run the service",
           "type": "string"
         },
         "sklearn": {
@@ -361,6 +410,28 @@
         },
         "runtimeVersion": {
           "description": "Defaults to latest TF Version.",
+          "type": "string"
+        }
+      }
+    },
+    "v1alpha2.TransformSpec": {
+      "description": "TransformSpec defines transformation service for pre/post processing",
+      "properties": {
+        "custom": {
+          "$ref": "#/definitions/v1alpha2.CustomSpec"
+        },
+        "maxReplicas": {
+          "description": "This is the up bound for autoscaler to scale to",
+          "type": "integer",
+          "format": "int32"
+        },
+        "minReplicas": {
+          "description": "Minimum number of replicas, pods won't scale down to 0 in case of no traffic",
+          "type": "integer",
+          "format": "int32"
+        },
+        "serviceAccountName": {
+          "description": "ServiceAccountName is the name of the ServiceAccount to use to run the service",
           "type": "string"
         }
       }
