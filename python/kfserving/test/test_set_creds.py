@@ -24,19 +24,43 @@ def get_created_sa(sa_name):
     )
 
 
-def test_create_credentials_s3():
-    '''Test S3 credentials creating'''
+def delete_sa(sa_name):
+    return client.CoreV1Api().delete_namespaced_service_account( # pylint:disable=no-value-for-parameter
+        name=sa_name,
+        namespace='kubeflow'
+    )
+
+def check_sa_exists(service_account):
+    '''Check if the specified service account existing.'''
+    sa_list = client.CoreV1Api().list_namespaced_service_account(namespace='kubeflow')
+    sa_name_list = []
+    for item in range(0, len(sa_list.items)-1):
+        sa_name_list.append(sa_list.items[item].metadata.name)
+    if service_account in sa_name_list:
+        return True
+    return False
+
+def test_set_credentials_s3():
+    '''Test S3 credentials creating.'''
     KFServing = KFServingClient()
     credentials_file = './aws_credentials'
-    created_sa_name = KFServing.create_credentials(storage_type='s3',
-                                                   namespace='kubeflow',
-                                                   credentials_file=credentials_file,
-                                                   s3_endpoint='s3.us-west-2.amazonaws.com',
-                                                   s3_region='us-west-2',
-                                                   s3_use_https='1',
-                                                   s3_verify_ssl='0')
-    created_sa = get_created_sa(created_sa_name)
-    created_secret_name = created_sa.secrets[0].name
+
+    #Test creating service account case.
+    sa_name = constants.DEFAULT_SA_NAME
+    if check_sa_exists(sa_name):
+        delete_sa(sa_name)
+
+    KFServing.set_credentials(storage_type='s3',
+                              namespace='kubeflow',
+                              credentials_file=credentials_file,
+                              s3_profile='default',
+                              s3_endpoint='s3.us-west-2.amazonaws.com',
+                              s3_region='us-west-2',
+                              s3_use_https='1',
+                              s3_verify_ssl='0')
+
+    sa_body = get_created_sa(sa_name)
+    created_secret_name = sa_body.secrets[0].name
     created_secret = get_created_secret(created_secret_name)
 
     config = configparser.ConfigParser()
@@ -57,14 +81,15 @@ def test_create_credentials_s3():
                                                '/s3-verifyssl'] == '0'
 
 
-
-def test_create_credentials_gcp():
+def test_set_credentials_gcp():
     '''Test GCP credentials creating'''
     KFServing = KFServingClient()
-    created_sa_name = KFServing.create_credentials(storage_type='gcs',
-                                                   namespace='kubeflow',
-                                                   credentials_file='./gcp_credentials.json')
-    created_sa = get_created_sa(created_sa_name)
+    sa_name = constants.DEFAULT_SA_NAME
+    KFServing.set_credentials(storage_type='gcs',
+                              namespace='kubeflow',
+                              credentials_file='./gcp_credentials.json',
+                              sa_name=sa_name)
+    created_sa = get_created_sa(sa_name)
     created_secret_name = created_sa.secrets[0].name
     created_secret = get_created_secret(created_secret_name)
-    assert created_secret.data[constants.GCP_CREDS_FILE_DEFAULT_NAME] == gcp_testing_creds
+    assert created_secret.data[constants.GCS_CREDS_FILE_DEFAULT_NAME] == gcp_testing_creds

@@ -8,7 +8,7 @@ KFSERVING_VERSION = "v1alpha2"
 KFSERVICE_CONFIG_MAP_NAME = 'kfservice-config'
 KFSERVICE_SYSTEM_NAMESPACE = 'kfserving-system'
 DEFAULT_SECRET_NAME = "kfserving-secret-"
-DEFAULT_SA_NAME = "kfserving-sa-"
+DEFAULT_SA_NAME = "kfserving-service-credentials"
 
 # S3 credentials constants
 S3_ACCESS_KEY_ID_DEFAULT_NAME = "awsAccessKeyID"
