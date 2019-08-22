@@ -99,6 +99,10 @@ var canary = &kfserving.KFService{
 		CanaryTrafficPercent: 20,
 		Canary: &kfserving.ComponentsSpec{
 			Predict: kfserving.ModelSpec{
+				DeploymentSpec: kfserving.DeploymentSpec{
+					MinReplicas: 1,
+					MaxReplicas: 3,
+				},
 				Tensorflow: &kfserving.TensorflowSpec{
 					ModelURI:       "s3://test/mnist-2/export",
 					RuntimeVersion: "1.13.0",
@@ -350,7 +354,7 @@ func TestCanaryReconcile(t *testing.T) {
 			},
 		},
 	}
-	g.Expect(canaryConfiguration.Spec).To(gomega.Equal(expectedCanaryConfiguration.Spec))
+	g.Expect(cmp.Diff(canaryConfiguration.Spec, expectedCanaryConfiguration.Spec)).To(gomega.Equal(""))
 	route := &knservingv1alpha1.Route{}
 	g.Eventually(func() error { return c.Get(context.TODO(), canaryServiceKey, route) }, timeout).
 		Should(gomega.Succeed())

@@ -68,8 +68,10 @@ func validateKFService(kfsvc *KFService) error {
 		return err
 	}
 
-	if err := validateModelSpec(&kfsvc.Spec.Canary.Predict); err != nil {
-		return err
+	if kfsvc.Spec.Canary != nil {
+		if err := validateModelSpec(&kfsvc.Spec.Canary.Predict); err != nil {
+			return err
+		}
 	}
 
 	if err := validateCanaryTrafficPercent(kfsvc.Spec); err != nil {
