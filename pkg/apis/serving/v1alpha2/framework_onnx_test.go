@@ -69,7 +69,7 @@ func TestCreateOnnxModelServingContainer(t *testing.T) {
 	g.Expect(container).To(gomega.Equal(expectedContainer))
 
 	// Test Create without config
-	expectedContainer.Image = "mcr.microsoft.com/onnxruntime/server:latest"
+	expectedContainer.Image = "mcr.microsoft.com/onnxruntime/server:someAmazingVersion"
 	emptyConfig := FrameworksConfig{ONNX: FrameworkConfig{}}
 	container = onnxSpec.CreateModelServingContainer("someName", &emptyConfig)
 	g.Expect(container).To(gomega.Equal(expectedContainer))
