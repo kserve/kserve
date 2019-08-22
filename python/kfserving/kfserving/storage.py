@@ -67,10 +67,8 @@ class Storage(object): # pylint: disable=too-few-public-methods
         bucket_path = bucket_args[1] if len(bucket_args) > 1 else ""
         objects = client.list_objects(bucket_name, prefix=bucket_path, recursive=True)
         for obj in objects:
-            # Replace any prefix from the object key with temp_dir
-            subdir_object_key = obj.object_name.replace(bucket_path, "", 1).strip("/")
             client.fget_object(bucket_name, obj.object_name,
-                               os.path.join(temp_dir, subdir_object_key))
+                               os.path.join(temp_dir, obj.object_name.split("/")[-1]))
 
     @staticmethod
     def _download_gcs(uri, temp_dir: str):
