@@ -11,7 +11,7 @@ ignore=CVS
 
 # Add files or directories matching the regex patterns to the blacklist. The
 # regex matches against base names, not paths.
-ignore-patterns=server.py,anchor_tabular.py,explainer.py,model.py,api_client.py,rest.py,configuration.py,v1alpha1_*,v1_time.py,knative_*,test_knative_*,test_v1alpha1_*
+ignore-patterns=server.py,anchor_tabular.py,explainer.py,model.py,api_client.py,rest.py,configuration.py,v1alpha2_*,v1_time.py,knative_*,test_knative_*,test_v1alpha2_*
 
 # Python code to execute, usually for sys.path manipulation such as
 # pygtk.require().

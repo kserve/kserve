@@ -22,7 +22,7 @@ set -o nounset
 SWAGGER_JAR_URL="http://central.maven.org/maven2/io/swagger/swagger-codegen-cli/2.4.6/swagger-codegen-cli-2.4.6.jar"
 SWAGGER_CODEGEN_JAR="hack/python-sdk/swagger-codegen-cli.jar"
 SWAGGER_CODEGEN_CONF="hack/python-sdk/swagger_config.json"
-SWAGGER_CODEGEN_FILE="pkg/apis/serving/v1alpha1/swagger.json"
+SWAGGER_CODEGEN_FILE="pkg/apis/serving/v1alpha2/swagger.json"
 SDK_OUTPUT_PATH="python/kfserving"
 
 echo "Downloading the swagger-codegen JAR package ..."

@@ -7,7 +7,7 @@
   },
   "paths": {},
   "definitions": {
-    "knative.dev.pkg.apis.Condition": {
+    "knative.Condition": {
       "description": "Conditions defines a readiness condition for a Knative resource. See: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#typical-status-properties",
       "required": [
         "type",
@@ -16,7 +16,7 @@
       "properties": {
         "lastTransitionTime": {
           "description": "LastTransitionTime is the last time the condition transitioned from one status to another. We use VolatileTime in place of metav1.Time to exclude this from creating equality.Semantic differences (all other things held constant).",
-          "$ref": "#/definitions/knative.dev.pkg.apis.VolatileTime"
+          "$ref": "#/definitions/knative.VolatileTime"
         },
         "message": {
           "description": "A human readable message indicating details about the transition.",
@@ -40,7 +40,7 @@
         }
       }
     },
-    "knative.dev.pkg.apis.VolatileTime": {
+    "knative.VolatileTime": {
       "description": "VolatileTime wraps metav1.Time",
       "required": [
         "Inner"
@@ -210,7 +210,7 @@
           "description": "Conditions the latest available observations of a resource's current state.",
           "type": "array",
           "items": {
-            "$ref": "#/definitions/knative.dev.pkg.apis.Condition"
+            "$ref": "#/definitions/knative.Condition"
           },
           "x-kubernetes-patch-merge-key": "type",
           "x-kubernetes-patch-strategy": "merge"
