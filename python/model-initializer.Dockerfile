@@ -1,7 +1,7 @@
 FROM python:3.7-slim
 
 COPY ./kfserving ./kfserving
-RUN pip install --upgrade pip && pip install -e ./kfserving
+RUN pip install --upgrade pip && pip install ./kfserving
 
 COPY ./model-initializer /model-initializer
 
