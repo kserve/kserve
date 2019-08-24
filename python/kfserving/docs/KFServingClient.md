@@ -18,7 +18,7 @@ Class | Method |  Description
 ------------ | ------------- | -------------
 KFServingClient | [set_credentials](#set_credentials) | Set Credentials|
 KFServingClient | [create](#create) | Create KFService|
-KFServingClient | [get](#get)    | Get the specified KFService|
+KFServingClient | [get](#get)    | Get or watch the specified KFService or all KFServices in the namespace |
 KFServingClient | [patch](#patch)  | Patch the specified KFService|
 KFServingClient | [delete](#delete) | Delete the specified KFService |
 
@@ -105,13 +105,19 @@ kfsvc = V1alpha2KFService(api_version=constants.KFSERVING_GROUP + '/' + constant
 
 KFServing = KFServingClient()
 KFServing.create(kfsvc)
+
+# The API also supports watching the created KFService status till it's READY.
+# KFServing.create(kfsvc, watch=True)
 ```
+
 
 ### Parameters
 Name | Type |  Description | Notes
 ------------ | ------------- | ------------- | -------------
-kfservice  | [V1alpha2KFService](V1alpha2KFService.md) | kfservice defination| |
-namespace | str | Namespace for kfservice deploying to. If the `namespace` is not defined, will align with kfservice definition, or use current or default namespace if namespace is not specified in kfservice definition.  | |
+kfservice  | [V1alpha2KFService](V1alpha2KFService.md) | KFService defination| Required |
+namespace | str | Namespace for KFService deploying to. If the `namespace` is not defined, will align with KFService definition, or use current or default namespace if namespace is not specified in KFService definition.  | Optional |
+watch | bool | Watch the created KFService if `True`, otherwise will return the created KFService object. Stop watching if timeout or once the KFService overall status `READY` is `True`. | Optional |
+timeout_seconds | int | Timeout seconds for watching. Defaults to 600. | Optional |
 
 ### Return type
 object
@@ -129,12 +135,26 @@ from kfserving import KFServingClient
 KFServing = KFServingClient()
 KFServing.get('flower-sample', namespace='kubeflow')
 ```
+The API also support watching the specified KFService or all KFService in the namespace.
+```python
+KFServing.get('flower-sample', namespace='kubeflow', watch=True, timeout_seconds=120)
+```
+The outputs will be as following. Watching will be stopped once the speficed kfservice is `READY` or timeout.
+```sh
+NAME                 READY      DEFAULT_TRAFFIC CANARY_TRAFFIC  URL                                               
+flower-sample        Unknown                                    http://flower-sample.kubeflow.example.com         
+flower-sample        Unknown    90               10             http://flower-sample.kubeflow.example.com         
+flower-sample        True       90               10             http://flower-sample.kubeflow.example.com         
+```
+
 
 ### Parameters
 Name | Type |  Description | Notes
 ------------ | ------------- | ------------- | -------------
-name  | str | kfservice name| |
-namespace | str | The kfservice's namespace. Defaults to current or default namespace.| |
+name  | str | KFService name. if the `name` is not specifed, Will get or watch all KFService in the namespace.| Optional. |
+namespace | str | The KFService's namespace. Defaults to current or default namespace.| Optional |
+watch | bool | Watch the specified KFService or all KFService in the namespace if `True`, otherwise will return object for the specified KFService or all KFService in the namespace. Stop watching if timeout or the overall status `READY` changed to `True` (only if KFService name is speficed). | Optional |
+timeout_seconds | int | Timeout seconds for watching. Defaults to 600. | Optional |
 
 ### Return type
 object
@@ -170,13 +190,18 @@ kfsvc = V1alpha2KFService(api_version=constants.KFSERVING_GROUP + '/' + constant
 
 KFServing = KFServingClient()
 KFServing.patch('flower-sample', kfsvc)
+
+# The API also supports watching the patached KFService status till it's READY.
+# KFServing.patch('flower-sample', kfsvc, watch=True)
 ```
 
 ### Parameters
 Name | Type |  Description | Notes
 ------------ | ------------- | ------------- | -------------
-kfservice  | [V1alpha2KFService](V1alpha2KFService.md) | kfservice defination| |
-namespace | str | The kfservice's namespace for patching. If the `namespace` is not defined, will align with kfservice definition, or use current or default namespace if namespace is not specified in kfservice definition. | |
+kfservice  | [V1alpha2KFService](V1alpha2KFService.md) | KFService defination| Required |
+namespace | str | The KFService's namespace for patching. If the `namespace` is not defined, will align with KFService definition, or use current or default namespace if namespace is not specified in KFService definition. | Optional|
+watch | bool | Watch the patched KFService if `True`, otherwise will return the patched KFService object. Stop watching if timeout or once the KFService overall status `READY` is `True`. | Optional |
+timeout_seconds | int | Timeout seconds for watching. Defaults to 600. | Optional |
 
 ### Return type
 object
@@ -199,8 +224,8 @@ KFServing.get('flower-sample', namespace='kubeflow')
 ### Parameters
 Name | Type |  Description | Notes
 ------------ | ------------- | ------------- | -------------
-Name  | str | kfservice name| |
-namespace | str | The kfservice's namespace. Defaults to current or default namespace. | |
+Name  | str | KFService name| |
+namespace | str | The kfservice's namespace. Defaults to current or default namespace. | Optional|
 
 ### Return type
 object

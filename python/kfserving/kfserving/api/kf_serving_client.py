@@ -17,6 +17,7 @@ from kubernetes import client, config
 from ..constants import constants
 from ..utils import utils
 from .creds_utils import set_gcs_credentials, set_s3_credentials
+from .kf_serving_watch import watch as kfsvc_watch
 
 
 class KFServingClient(object):
@@ -67,14 +68,14 @@ class KFServingClient(object):
                 currently.\n" % storage_type)
 
 
-    def create(self, kfservice, namespace=None):
+    def create(self, kfservice, namespace=None, watch=False, timeout_seconds=600): #pylint:disable=inconsistent-return-statements
         """Create the provided KFService in the specified namespace"""
 
         if namespace is None:
             namespace = utils.set_kfsvc_namespace(kfservice)
 
         try:
-            return self.api_instance.create_namespaced_custom_object(
+            outputs = self.api_instance.create_namespaced_custom_object(
                 constants.KFSERVING_GROUP,
                 constants.KFSERVING_VERSION,
                 namespace,
@@ -85,31 +86,65 @@ class KFServingClient(object):
                 "Exception when calling CustomObjectsApi->create_namespaced_custom_object:\
                  %s\n" % e)
 
-    def get(self, name, namespace=None):
+        if watch:
+            kfsvc_watch(
+                name=outputs['metadata']['name'],
+                namespace=namespace,
+                timeout_seconds=timeout_seconds)
+        else:
+            return outputs
+
+
+    def get(self, name=None, namespace=None, watch=False, timeout_seconds=600): #pylint:disable=inconsistent-return-statements
         """Get the created KFService in the specified namespace"""
 
         if namespace is None:
             namespace = utils.get_default_target_namespace()
 
-        try:
-            return self.api_instance.get_namespaced_custom_object(
-                constants.KFSERVING_GROUP,
-                constants.KFSERVING_VERSION,
-                namespace,
-                constants.KFSERVING_PLURAL,
-                name)
-        except client.rest.ApiException as e:
-            raise RuntimeError(
-                "Exception when calling CustomObjectsApi->get_namespaced_custom_object: %s\n" % e)
+        if name:
+            if watch:
+                kfsvc_watch(
+                    name=name,
+                    namespace=namespace,
+                    timeout_seconds=timeout_seconds)
+            else:
+                try:
+                    return self.api_instance.get_namespaced_custom_object(
+                        constants.KFSERVING_GROUP,
+                        constants.KFSERVING_VERSION,
+                        namespace,
+                        constants.KFSERVING_PLURAL,
+                        name)
+                except client.rest.ApiException as e:
+                    raise RuntimeError(
+                        "Exception when calling CustomObjectsApi->get_namespaced_custom_object:\
+                        %s\n" % e)
+        else:
+            if watch:
+                kfsvc_watch(
+                    namespace=namespace,
+                    timeout_seconds=timeout_seconds)
+            else:
+                try:
+                    return self.api_instance.list_namespaced_custom_object(
+                        constants.KFSERVING_GROUP,
+                        constants.KFSERVING_VERSION,
+                        namespace,
+                        constants.KFSERVING_PLURAL)
+                except client.rest.ApiException as e:
+                    raise RuntimeError(
+                        "Exception when calling CustomObjectsApi->list_namespaced_custom_object:\
+                        %s\n" % e)
 
-    def patch(self, name, kfservice, namespace=None):
+
+    def patch(self, name, kfservice, namespace=None, watch=False, timeout_seconds=600): # pylint:disable=too-many-arguments,inconsistent-return-statements
         """Patch the created KFService in the specified namespace"""
 
         if namespace is None:
             namespace = utils.set_kfsvc_namespace(kfservice)
 
         try:
-            return self.api_instance.patch_namespaced_custom_object(
+            outputs = self.api_instance.patch_namespaced_custom_object(
                 constants.KFSERVING_GROUP,
                 constants.KFSERVING_VERSION,
                 namespace,
@@ -120,6 +155,14 @@ class KFServingClient(object):
             raise RuntimeError(
                 "Exception when calling CustomObjectsApi->patch_namespaced_custom_object:\
                  %s\n" % e)
+
+        if watch:
+            kfsvc_watch(
+                name=outputs['metadata']['name'],
+                namespace=namespace,
+                timeout_seconds=timeout_seconds)
+        else:
+            return outputs
 
     def delete(self, name, namespace=None):
         """Delete the provided KFService in the specified namespace"""
