@@ -77,8 +77,8 @@ type PredictorSpec struct {
 // ExplainerSpec defines the arguments for a model explanation server
 type ExplainerSpec struct {
 	// The following fields follow a "1-of" semantic. Users must specify exactly one spec.
-	Alibi  *AlibiExplainSpec `json:"alibi,omitempty"`
-	Custom *CustomSpec       `json:"custom,omitempty"`
+	Alibi  *AlibiExplainerSpec `json:"alibi,omitempty"`
+	Custom *CustomSpec         `json:"custom,omitempty"`
 
 	DeploymentSpec `json:",inline"`
 }
@@ -100,8 +100,8 @@ const (
 	AlibiContrastiveExplainer     AlibiExplainerType = "Contrastive"
 )
 
-// AlibiExplainSpec defines the arguments for configuring an Alibi Explanation Server
-type AlibiExplainSpec struct {
+// AlibiExplainerSpec defines the arguments for configuring an Alibi Explanation Server
+type AlibiExplainerSpec struct {
 	// The type of Alibi explainer
 	Type AlibiExplainerType `json:"type"`
 	// The location of a trained explanation model
