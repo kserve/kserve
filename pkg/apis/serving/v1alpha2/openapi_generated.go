@@ -29,10 +29,10 @@ import (
 
 func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
 	return map[string]common.OpenAPIDefinition{
-		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.AlibiExplainSpec": {
+		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.AlibiExplainerSpec": {
 			Schema: openapispec.Schema{
 				SchemaProps: openapispec.SchemaProps{
-					Description: "AlibiExplainSpec defines the arguments for configuring an Alibi Explanation Server",
+					Description: "AlibiExplainerSpec defines the arguments for configuring an Alibi Explanation Server",
 					Properties: map[string]openapispec.Schema{
 						"type": {
 							SchemaProps: openapispec.SchemaProps{
@@ -167,7 +167,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						"alibi": {
 							SchemaProps: openapispec.SchemaProps{
 								Description: "The following fields follow a \"1-of\" semantic. Users must specify exactly one openapispec.",
-								Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.AlibiExplainSpec"),
+								Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.AlibiExplainerSpec"),
 							},
 						},
 						"custom": {
@@ -200,7 +200,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 				},
 			},
 			Dependencies: []string{
-				"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.AlibiExplainSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.CustomSpec"},
+				"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.AlibiExplainerSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.CustomSpec"},
 		},
 		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.FrameworkConfig": {
 			Schema: openapispec.Schema{

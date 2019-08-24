@@ -51,8 +51,8 @@
         }
       }
     },
-    "v1alpha2.AlibiExplainSpec": {
-      "description": "AlibiExplainSpec defines the arguments for configuring an Alibi Explanation Server",
+    "v1alpha2.AlibiExplainerSpec": {
+      "description": "AlibiExplainerSpec defines the arguments for configuring an Alibi Explanation Server",
       "required": [
         "type"
       ],
@@ -136,7 +136,7 @@
       "properties": {
         "alibi": {
           "description": "The following fields follow a \"1-of\" semantic. Users must specify exactly one openapispec.",
-          "$ref": "#/definitions/v1alpha2.AlibiExplainSpec"
+          "$ref": "#/definitions/v1alpha2.AlibiExplainerSpec"
         },
         "custom": {
           "$ref": "#/definitions/v1alpha2.CustomSpec"
