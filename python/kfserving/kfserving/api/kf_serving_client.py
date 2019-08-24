@@ -16,10 +16,11 @@ from kubernetes import client, config
 
 from ..constants import constants
 from ..utils import utils
+from .creds_utils import set_gcs_credentials, set_s3_credentials
 
 
 class KFServingClient(object):
-    """KFServing Apis."""
+    '''KFServing Client Apis.'''
 
     def __init__(self, config_file=None, context=None,
                  client_configuration=None, persist_config=True):
@@ -33,6 +34,38 @@ class KFServingClient(object):
                 persist_config=persist_config)
 
         self.api_instance = client.CustomObjectsApi()
+
+    def set_credentials(self, storage_type, namespace=None, credentials_file=None,
+                        service_account=constants.DEFAULT_SA_NAME, **kwargs):
+        '''
+        Set GCS and S3 Credentials for KFServing.
+        Args:
+            storage_type(str): Valid value: GCS or S3 (required).
+            namespace(str): The kubenertes namespace (Optional).
+            credentials_file(str): The path for the credentials file.
+            service_account(str): The name of service account.
+            kwargs(dict): Others parameters for each storage_type.
+        '''
+        if namespace is None:
+            namespace = utils.get_default_target_namespace()
+
+        if storage_type.lower() == 'gcs':
+            if credentials_file is None:
+                credentials_file = constants.GCS_DEFAULT_CREDS_FILE
+            set_gcs_credentials(namespace=namespace,
+                                credentials_file=credentials_file,
+                                service_account=service_account)
+        elif storage_type.lower() == 's3':
+            if credentials_file is None:
+                credentials_file = constants.S3_DEFAULT_CREDS_FILE
+            set_s3_credentials(namespace=namespace,
+                               credentials_file=credentials_file,
+                               service_account=service_account,
+                               **kwargs)
+        else:
+            raise RuntimeError("Invalid storage_type: %s, only support GCS and S3\
+                currently.\n" % storage_type)
+
 
     def create(self, kfservice, namespace=None):
         """Create the provided KFService in the specified namespace"""

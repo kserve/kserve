@@ -34,5 +34,5 @@ secrets:
 
 Apply the secret and service account
 ```bash
-kubectl apply -f s3_secret.yaml
+kubectl apply -f azcreds.yaml
 ```

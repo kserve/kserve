@@ -101,14 +101,15 @@ class Storage(object): # pylint: disable=too-few-public-methods
                 blob.download_to_filename(dest_path)
 
     @staticmethod
-    def _download_blob(uri, out_dir: str):
+    def _download_blob(uri, out_dir: str): # pylint: disable=too-many-locals
         match = re.search(_BLOB_RE, uri)
         account_name = match.group(1)
         storage_url = match.group(2)
         container_name, prefix = storage_url.split("/", 1)
 
         logging.info("Connecting to BLOB account: %s, contianer: %s", account_name, container_name)
-        block_blob_service = BlockBlobService(account_name=account_name)
+        token = Storage._get_azure_storage_token()
+        block_blob_service = BlockBlobService(account_name=account_name, token_credential=token)
         blobs = block_blob_service.list_blobs(container_name, prefix=prefix)
 
         for blob in blobs:
@@ -121,6 +122,33 @@ class Storage(object): # pylint: disable=too-few-public-methods
             dest_path = os.path.join(out_dir, blob.name)
             logging.info("Downloading: %s", dest_path)
             block_blob_service.get_blob_to_path(container_name, blob.name, dest_path)
+
+    @staticmethod
+    def _get_azure_storage_token():
+        tenant_id = os.getenv("AZ_TENANT_ID", "")
+        client_id = os.getenv("AZ_CLIENT_ID", "")
+        client_secret = os.getenv("AZ_CLIENT_SECRET", "")
+        subscription_id = os.getenv("AZ_SUBSCRIPTION_ID", "")
+
+        if tenant_id == "" or client_id == "" or client_secret == "" or subscription_id == "":
+            return None
+
+        # note the SP must have "Storage Blob Data Owner" perms for this to work
+        import adal
+        from azure.storage.common import TokenCredential
+
+        authority_url = "https://login.microsoftonline.com/" + tenant_id
+
+        context = adal.AuthenticationContext(authority_url)
+
+        token = context.acquire_token_with_client_credentials(
+            "https://storage.azure.com/",
+            client_id,
+            client_secret)
+
+        token_credential = TokenCredential(token["accessToken"])
+
+        return token_credential
 
     @staticmethod
     def _download_local(uri, out_dir=None):
