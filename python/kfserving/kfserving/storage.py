@@ -107,7 +107,7 @@ class Storage(object): # pylint: disable=too-few-public-methods
         storage_url = match.group(2)
         container_name, prefix = storage_url.split("/", 1)
 
-        logging.info("Connecting to BLOB account: %s, contianer: %s", account_name, container_name)
+        logging.info("Connecting to BLOB account: %s, container: %s", account_name, container_name)
         token = Storage._get_azure_storage_token()
         block_blob_service = BlockBlobService(account_name=account_name, token_credential=token)
         blobs = block_blob_service.list_blobs(container_name, prefix=prefix)
