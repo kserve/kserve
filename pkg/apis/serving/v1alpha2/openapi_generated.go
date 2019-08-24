@@ -82,35 +82,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 			Dependencies: []string{
 				"k8s.io/api/core/v1.ResourceRequirements"},
 		},
-		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.ComponentsSpec": {
-			Schema: openapispec.Schema{
-				SchemaProps: openapispec.SchemaProps{
-					Properties: map[string]openapispec.Schema{
-						"predict": {
-							SchemaProps: openapispec.SchemaProps{
-								Description: "predict defines the model serving spec",
-								Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.ModelSpec"),
-							},
-						},
-						"explain": {
-							SchemaProps: openapispec.SchemaProps{
-								Description: "explain defines the model explanation service spec explain service calls to transform or predict service",
-								Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.ExplainSpec"),
-							},
-						},
-						"transform": {
-							SchemaProps: openapispec.SchemaProps{
-								Description: "transform defines the transform service spec for pre/post processing transform service calls to predict service",
-								Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.TransformSpec"),
-							},
-						},
-					},
-					Required: []string{"predict"},
-				},
-			},
-			Dependencies: []string{
-				"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.ExplainSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.ModelSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.TransformSpec"},
-		},
 		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.CustomSpec": {
 			Schema: openapispec.Schema{
 				SchemaProps: openapispec.SchemaProps{
@@ -131,7 +102,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.DeploymentSpec": {
 			Schema: openapispec.Schema{
 				SchemaProps: openapispec.SchemaProps{
-					Description: "DeploymentSpec defines the configuration for a given KFService component",
+					Description: "DeploymentSpec defines the configuration for a given KFService service component",
 					Properties: map[string]openapispec.Schema{
 						"serviceAccountName": {
 							SchemaProps: openapispec.SchemaProps{
@@ -159,10 +130,39 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 			},
 			Dependencies: []string{},
 		},
-		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.ExplainSpec": {
+		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.EndpointSpec": {
 			Schema: openapispec.Schema{
 				SchemaProps: openapispec.SchemaProps{
-					Description: "ExplainSpec defines the arguments for a model explanation server",
+					Properties: map[string]openapispec.Schema{
+						"predictor": {
+							SchemaProps: openapispec.SchemaProps{
+								Description: "Predictor defines the model serving spec",
+								Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.PredictorSpec"),
+							},
+						},
+						"explainer": {
+							SchemaProps: openapispec.SchemaProps{
+								Description: "Explainer defines the model explanation service spec explainer service calls to transformer or predictor service",
+								Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.ExplainerSpec"),
+							},
+						},
+						"transformer": {
+							SchemaProps: openapispec.SchemaProps{
+								Description: "Transformer defines the transformer service spec for pre/post processing transformer service calls to predictor service",
+								Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.TransformerSpec"),
+							},
+						},
+					},
+					Required: []string{"predictor"},
+				},
+			},
+			Dependencies: []string{
+				"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.ExplainerSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.PredictorSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.TransformerSpec"},
+		},
+		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.ExplainerSpec": {
+			Schema: openapispec.Schema{
+				SchemaProps: openapispec.SchemaProps{
+					Description: "ExplainerSpec defines the arguments for a model explanation server",
 					Properties: map[string]openapispec.Schema{
 						"alibi": {
 							SchemaProps: openapispec.SchemaProps{
@@ -343,19 +343,21 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 					Properties: map[string]openapispec.Schema{
 						"default": {
 							SchemaProps: openapispec.SchemaProps{
-								Ref: ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.ComponentsSpec"),
+								Description: "Default defines default KFService endpoints",
+								Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.EndpointSpec"),
 							},
 						},
 						"canary": {
 							SchemaProps: openapispec.SchemaProps{
-								Description: "Canary defines an alternate configuration to route a percentage of traffic.",
-								Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.ComponentsSpec"),
+								Description: "Canary defines an alternate endpoints to route a percentage of traffic.",
+								Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.EndpointSpec"),
 							},
 						},
 						"canaryTrafficPercent": {
 							SchemaProps: openapispec.SchemaProps{
-								Type:   []string{"integer"},
-								Format: "int32",
+								Description: "CanaryTrafficPercent defines the percentage of traffic going to canary KFService endpoints",
+								Type:        []string{"integer"},
+								Format:      "int32",
 							},
 						},
 					},
@@ -363,7 +365,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 				},
 			},
 			Dependencies: []string{
-				"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.ComponentsSpec"},
+				"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.EndpointSpec"},
 		},
 		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.KFServiceStatus": {
 			Schema: openapispec.Schema{
@@ -418,10 +420,10 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 			Dependencies: []string{
 				"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.StatusConfigurationSpec", "knative.dev/pkg/apis.Condition"},
 		},
-		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.ModelSpec": {
+		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.PredictorSpec": {
 			Schema: openapispec.Schema{
 				SchemaProps: openapispec.SchemaProps{
-					Description: "ModelSpec defines the configuration to route traffic to a predictor.",
+					Description: "PredictorSpec defines the configuration to route traffic to a predictor.",
 					Properties: map[string]openapispec.Schema{
 						"custom": {
 							SchemaProps: openapispec.SchemaProps{
@@ -640,10 +642,10 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 			Dependencies: []string{
 				"k8s.io/api/core/v1.ResourceRequirements"},
 		},
-		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.TransformSpec": {
+		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.TransformerSpec": {
 			Schema: openapispec.Schema{
 				SchemaProps: openapispec.SchemaProps{
-					Description: "TransformSpec defines transformation service for pre/post processing",
+					Description: "TransformerSpec defines transformer service for pre/post processing",
 					Properties: map[string]openapispec.Schema{
 						"custom": {
 							SchemaProps: openapispec.SchemaProps{

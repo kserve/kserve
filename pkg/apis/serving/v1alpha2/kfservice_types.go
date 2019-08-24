@@ -21,40 +21,48 @@ import (
 
 // KFServiceSpec defines the desired state of KFService
 type KFServiceSpec struct {
-	Default ComponentsSpec `json:"default"`
-	// Canary defines an alternate configuration to route a percentage of traffic.
-	Canary               *ComponentsSpec `json:"canary,omitempty"`
-	CanaryTrafficPercent int             `json:"canaryTrafficPercent,omitempty"`
-}
-
-type ComponentsSpec struct {
-	// predict defines the model serving spec
+	// Default defines default KFService endpoints
 	// +required
-	Predict ModelSpec `json:"predict"`
-
-	// explain defines the model explanation service spec
-	// explain service calls to transform or predict service
+	Default EndpointSpec `json:"default"`
+	// Canary defines an alternate endpoints to route a percentage of traffic.
 	// +optional
-	Explain *ExplainSpec `json:"explain,omitempty"`
-
-	// transform defines the transform service spec for pre/post processing
-	// transform service calls to predict service
+	Canary *EndpointSpec `json:"canary,omitempty"`
+	// CanaryTrafficPercent defines the percentage of traffic going to canary KFService endpoints
 	// +optional
-	Transform *TransformSpec `json:"transform,omitempty"`
+	CanaryTrafficPercent int `json:"canaryTrafficPercent,omitempty"`
 }
 
-// DeploymentSpec defines the configuration for a given KFService component
+type EndpointSpec struct {
+	// Predictor defines the model serving spec
+	// +required
+	Predictor PredictorSpec `json:"predictor"`
+
+	// Explainer defines the model explanation service spec
+	// explainer service calls to transformer or predictor service
+	// +optional
+	Explainer *ExplainerSpec `json:"explainer,omitempty"`
+
+	// Transformer defines the transformer service spec for pre/post processing
+	// transformer service calls to predictor service
+	// +optional
+	Transformer *TransformerSpec `json:"transformer,omitempty"`
+}
+
+// DeploymentSpec defines the configuration for a given KFService service component
 type DeploymentSpec struct {
 	// ServiceAccountName is the name of the ServiceAccount to use to run the service
+	// +optional
 	ServiceAccountName string `json:"serviceAccountName,omitempty"`
 	// Minimum number of replicas, pods won't scale down to 0 in case of no traffic
+	// +optional
 	MinReplicas int `json:"minReplicas,omitempty"`
 	// This is the up bound for autoscaler to scale to
+	// +optional
 	MaxReplicas int `json:"maxReplicas,omitempty"`
 }
 
-// ModelSpec defines the configuration to route traffic to a predictor.
-type ModelSpec struct {
+// PredictorSpec defines the configuration to route traffic to a predictor.
+type PredictorSpec struct {
 	// The following fields follow a "1-of" semantic. Users must specify exactly one spec.
 	Custom     *CustomSpec     `json:"custom,omitempty"`
 	Tensorflow *TensorflowSpec `json:"tensorflow,omitempty"`
@@ -66,8 +74,8 @@ type ModelSpec struct {
 	DeploymentSpec `json:",inline"`
 }
 
-// ExplainSpec defines the arguments for a model explanation server
-type ExplainSpec struct {
+// ExplainerSpec defines the arguments for a model explanation server
+type ExplainerSpec struct {
 	// The following fields follow a "1-of" semantic. Users must specify exactly one spec.
 	Alibi  *AlibiExplainSpec `json:"alibi,omitempty"`
 	Custom *CustomSpec       `json:"custom,omitempty"`
@@ -75,8 +83,8 @@ type ExplainSpec struct {
 	DeploymentSpec `json:",inline"`
 }
 
-// TransformSpec defines transformation service for pre/post processing
-type TransformSpec struct {
+// TransformerSpec defines transformer service for pre/post processing
+type TransformerSpec struct {
 	Custom *CustomSpec `json:"custom,omitempty"`
 
 	DeploymentSpec `json:",inline"`

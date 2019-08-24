@@ -39,8 +39,8 @@ func TestKnativeRoute(t *testing.T) {
 					Namespace: "default",
 				},
 				Spec: v1alpha2.KFServiceSpec{
-					Default: v1alpha2.ComponentsSpec{
-						Predict: v1alpha2.ModelSpec{
+					Default: v1alpha2.EndpointSpec{
+						Predictor: v1alpha2.PredictorSpec{
 							Tensorflow: &v1alpha2.TensorflowSpec{
 								ModelURI:       "s3://test/mnist/export",
 								RuntimeVersion: "1.13.0",
@@ -74,8 +74,8 @@ func TestKnativeRoute(t *testing.T) {
 					Namespace: "default",
 				},
 				Spec: v1alpha2.KFServiceSpec{
-					Default: v1alpha2.ComponentsSpec{
-						Predict: v1alpha2.ModelSpec{
+					Default: v1alpha2.EndpointSpec{
+						Predictor: v1alpha2.PredictorSpec{
 							Tensorflow: &v1alpha2.TensorflowSpec{
 								ModelURI:       "s3://test/mnist/export",
 								RuntimeVersion: "1.13.0",
@@ -83,8 +83,8 @@ func TestKnativeRoute(t *testing.T) {
 						},
 					},
 					CanaryTrafficPercent: 20,
-					Canary: &v1alpha2.ComponentsSpec{
-						Predict: v1alpha2.ModelSpec{
+					Canary: &v1alpha2.EndpointSpec{
+						Predictor: v1alpha2.PredictorSpec{
 							Tensorflow: &v1alpha2.TensorflowSpec{
 								ModelURI:       "s3://test/mnist-2/export",
 								RuntimeVersion: "1.13.0",
@@ -134,8 +134,8 @@ func TestKnativeRoute(t *testing.T) {
 					},
 				},
 				Spec: v1alpha2.KFServiceSpec{
-					Default: v1alpha2.ComponentsSpec{
-						Predict: v1alpha2.ModelSpec{
+					Default: v1alpha2.EndpointSpec{
+						Predictor: v1alpha2.PredictorSpec{
 							Tensorflow: &v1alpha2.TensorflowSpec{
 								ModelURI:       "s3://test/mnist/export",
 								RuntimeVersion: "1.13.0",
@@ -143,8 +143,8 @@ func TestKnativeRoute(t *testing.T) {
 						},
 					},
 					CanaryTrafficPercent: 20,
-					Canary: &v1alpha2.ComponentsSpec{
-						Predict: v1alpha2.ModelSpec{
+					Canary: &v1alpha2.EndpointSpec{
+						Predictor: v1alpha2.PredictorSpec{
 							Tensorflow: &v1alpha2.TensorflowSpec{
 								ModelURI:       "s3://test/mnist-2/export",
 								RuntimeVersion: "1.13.0",

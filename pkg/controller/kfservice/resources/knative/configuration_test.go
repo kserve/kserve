@@ -37,8 +37,8 @@ var kfsvc = v1alpha2.KFService{
 		},
 	},
 	Spec: v1alpha2.KFServiceSpec{
-		Default: v1alpha2.ComponentsSpec{
-			Predict: v1alpha2.ModelSpec{
+		Default: v1alpha2.EndpointSpec{
+			Predictor: v1alpha2.PredictorSpec{
 				DeploymentSpec: v1alpha2.DeploymentSpec{
 					MinReplicas:        1,
 					MaxReplicas:        3,
@@ -82,7 +82,7 @@ var defaultConfiguration = &knservingv1alpha1.Configuration{
 					"autoscaling.knative.dev/minScale":                       "1",
 					"autoscaling.knative.dev/maxScale":                       "3",
 					constants.KFServiceGKEAcceleratorAnnotationKey:           "nvidia-tesla-t4",
-					constants.ModelInitializerSourceUriInternalAnnotationKey: kfsvc.Spec.Default.Predict.Tensorflow.ModelURI,
+					constants.ModelInitializerSourceUriInternalAnnotationKey: kfsvc.Spec.Default.Predictor.Tensorflow.ModelURI,
 				},
 			},
 			Spec: knservingv1alpha1.RevisionSpec{
@@ -92,7 +92,7 @@ var defaultConfiguration = &knservingv1alpha1.Configuration{
 						ServiceAccountName: "testsvcacc",
 						Containers: []v1.Container{
 							{
-								Image:   v1alpha2.TensorflowServingImageName + ":" + kfsvc.Spec.Default.Predict.Tensorflow.RuntimeVersion,
+								Image:   v1alpha2.TensorflowServingImageName + ":" + kfsvc.Spec.Default.Predictor.Tensorflow.RuntimeVersion,
 								Command: []string{v1alpha2.TensorflowEntrypointCommand},
 								Args: []string{
 									"--port=" + v1alpha2.TensorflowServingGRPCPort,
@@ -133,7 +133,7 @@ var canaryConfiguration = &knservingv1alpha1.Configuration{
 					PodSpec: v1.PodSpec{
 						Containers: []v1.Container{
 							{
-								Image:   v1alpha2.TensorflowServingImageName + ":" + kfsvc.Spec.Default.Predict.Tensorflow.RuntimeVersion,
+								Image:   v1alpha2.TensorflowServingImageName + ":" + kfsvc.Spec.Default.Predictor.Tensorflow.RuntimeVersion,
 								Command: []string{v1alpha2.TensorflowEntrypointCommand},
 								Args: []string{
 									"--port=" + v1alpha2.TensorflowServingGRPCPort,
@@ -172,22 +172,22 @@ func TestKnativeConfiguration(t *testing.T) {
 					},
 				},
 				Spec: v1alpha2.KFServiceSpec{
-					Default: v1alpha2.ComponentsSpec{
-						Predict: v1alpha2.ModelSpec{
+					Default: v1alpha2.EndpointSpec{
+						Predictor: v1alpha2.PredictorSpec{
 							DeploymentSpec: v1alpha2.DeploymentSpec{
 								MinReplicas:        1,
 								MaxReplicas:        3,
 								ServiceAccountName: "testsvcacc",
 							},
 							Tensorflow: &v1alpha2.TensorflowSpec{
-								ModelURI:       kfsvc.Spec.Default.Predict.Tensorflow.ModelURI,
+								ModelURI:       kfsvc.Spec.Default.Predictor.Tensorflow.ModelURI,
 								RuntimeVersion: "1.13.0",
 							},
 						},
 					},
 					CanaryTrafficPercent: 20,
-					Canary: &v1alpha2.ComponentsSpec{
-						Predict: v1alpha2.ModelSpec{
+					Canary: &v1alpha2.EndpointSpec{
+						Predictor: v1alpha2.PredictorSpec{
 							DeploymentSpec: v1alpha2.DeploymentSpec{
 								MinReplicas: 1,
 								MaxReplicas: 3,
@@ -215,8 +215,8 @@ func TestKnativeConfiguration(t *testing.T) {
 					Namespace: "default",
 				},
 				Spec: v1alpha2.KFServiceSpec{
-					Default: v1alpha2.ComponentsSpec{
-						Predict: v1alpha2.ModelSpec{
+					Default: v1alpha2.EndpointSpec{
+						Predictor: v1alpha2.PredictorSpec{
 							SKLearn: &v1alpha2.SKLearnSpec{
 								ModelURI:       "s3://test/sklearn/export",
 								RuntimeVersion: "latest",
@@ -267,8 +267,8 @@ func TestKnativeConfiguration(t *testing.T) {
 					Namespace: "default",
 				},
 				Spec: v1alpha2.KFServiceSpec{
-					Default: v1alpha2.ComponentsSpec{
-						Predict: v1alpha2.ModelSpec{
+					Default: v1alpha2.EndpointSpec{
+						Predictor: v1alpha2.PredictorSpec{
 							XGBoost: &v1alpha2.XGBoostSpec{
 								ModelURI:       "s3://test/xgboost/export",
 								RuntimeVersion: "latest",
@@ -320,8 +320,8 @@ func TestKnativeConfiguration(t *testing.T) {
 					Namespace: "default",
 				},
 				Spec: v1alpha2.KFServiceSpec{
-					Default: v1alpha2.ComponentsSpec{
-						Predict: v1alpha2.ModelSpec{
+					Default: v1alpha2.EndpointSpec{
+						Predictor: v1alpha2.PredictorSpec{
 							XGBoost: &v1alpha2.XGBoostSpec{
 								ModelURI:       "s3://test/xgboost/export",
 								RuntimeVersion: "latest",
@@ -380,8 +380,8 @@ func TestKnativeConfiguration(t *testing.T) {
 					},
 				},
 				Spec: v1alpha2.KFServiceSpec{
-					Default: v1alpha2.ComponentsSpec{
-						Predict: v1alpha2.ModelSpec{
+					Default: v1alpha2.EndpointSpec{
+						Predictor: v1alpha2.PredictorSpec{
 							SKLearn: &v1alpha2.SKLearnSpec{
 								ModelURI:       "s3://test/sklearn/export",
 								RuntimeVersion: "latest",
@@ -440,7 +440,7 @@ func TestKnativeConfiguration(t *testing.T) {
 		actualDefaultConfiguration, err := configurationBuilder.CreateKnativeConfiguration(
 			constants.DefaultConfigurationName(scenario.kfService.Name),
 			scenario.kfService.ObjectMeta,
-			&scenario.kfService.Spec.Default.Predict,
+			&scenario.kfService.Spec.Default.Predictor,
 		)
 		if err != nil {
 			t.Errorf("Test %q unexpected error %s", name, err.Error())
@@ -454,7 +454,7 @@ func TestKnativeConfiguration(t *testing.T) {
 			actualCanaryConfiguration, err := configurationBuilder.CreateKnativeConfiguration(
 				constants.CanaryConfigurationName(kfsvc.Name),
 				scenario.kfService.ObjectMeta,
-				&scenario.kfService.Spec.Canary.Predict,
+				&scenario.kfService.Spec.Canary.Predictor,
 			)
 			if err != nil {
 				t.Errorf("Test %q unexpected error %s", name, err.Error())

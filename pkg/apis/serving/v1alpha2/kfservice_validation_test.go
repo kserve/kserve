@@ -32,8 +32,8 @@ func makeTestKFService() KFService {
 			Namespace: "default",
 		},
 		Spec: KFServiceSpec{
-			Default: ComponentsSpec{
-				Predict: ModelSpec{
+			Default: EndpointSpec{
+				Predictor: PredictorSpec{
 					Tensorflow: &TensorflowSpec{ModelURI: "gs://testbucket/testmodel"},
 				},
 			},
@@ -47,7 +47,7 @@ func TestValidModelURIPrefixOK(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	for _, prefix := range SupportedModelSourceURIPrefixList {
 		kfsvc := makeTestKFService()
-		kfsvc.Spec.Default.Predict.Tensorflow.ModelURI = prefix + "foo/bar"
+		kfsvc.Spec.Default.Predictor.Tensorflow.ModelURI = prefix + "foo/bar"
 		g.Expect(kfsvc.ValidateCreate()).Should(gomega.Succeed())
 	}
 }
@@ -55,77 +55,77 @@ func TestValidModelURIPrefixOK(t *testing.T) {
 func TestEmptyModelURIPrefixOK(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	kfsvc := makeTestKFService()
-	kfsvc.Spec.Default.Predict.Tensorflow.ModelURI = ""
+	kfsvc.Spec.Default.Predictor.Tensorflow.ModelURI = ""
 	g.Expect(kfsvc.ValidateCreate()).Should(gomega.Succeed())
 }
 
 func TestLocalPathModelURIPrefixOK(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	kfsvc := makeTestKFService()
-	kfsvc.Spec.Default.Predict.Tensorflow.ModelURI = "some/relative/path"
+	kfsvc.Spec.Default.Predictor.Tensorflow.ModelURI = "some/relative/path"
 	g.Expect(kfsvc.ValidateCreate()).Should(gomega.Succeed())
-	kfsvc.Spec.Default.Predict.Tensorflow.ModelURI = "/some/absolute/path"
+	kfsvc.Spec.Default.Predictor.Tensorflow.ModelURI = "/some/absolute/path"
 	g.Expect(kfsvc.ValidateCreate()).Should(gomega.Succeed())
-	kfsvc.Spec.Default.Predict.Tensorflow.ModelURI = "/"
+	kfsvc.Spec.Default.Predictor.Tensorflow.ModelURI = "/"
 	g.Expect(kfsvc.ValidateCreate()).Should(gomega.Succeed())
-	kfsvc.Spec.Default.Predict.Tensorflow.ModelURI = "foo"
+	kfsvc.Spec.Default.Predictor.Tensorflow.ModelURI = "foo"
 	g.Expect(kfsvc.ValidateCreate()).Should(gomega.Succeed())
 }
 
 func TestAzureBlobOK(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	kfsvc := makeTestKFService()
-	kfsvc.Spec.Default.Predict.Tensorflow.ModelURI = "https://kfserving.blob.core.windows.net/tensorrt/simple_string/"
+	kfsvc.Spec.Default.Predictor.Tensorflow.ModelURI = "https://kfserving.blob.core.windows.net/tensorrt/simple_string/"
 	g.Expect(kfsvc.ValidateCreate()).Should(gomega.Succeed())
-	kfsvc.Spec.Default.Predict.Tensorflow.ModelURI = "https://kfserving.blob.core.windows.net/tensorrt/simple_string"
+	kfsvc.Spec.Default.Predictor.Tensorflow.ModelURI = "https://kfserving.blob.core.windows.net/tensorrt/simple_string"
 	g.Expect(kfsvc.ValidateCreate()).Should(gomega.Succeed())
-	kfsvc.Spec.Default.Predict.Tensorflow.ModelURI = "https://kfserving.blob.core.windows.net/tensorrt/"
+	kfsvc.Spec.Default.Predictor.Tensorflow.ModelURI = "https://kfserving.blob.core.windows.net/tensorrt/"
 	g.Expect(kfsvc.ValidateCreate()).Should(gomega.Succeed())
-	kfsvc.Spec.Default.Predict.Tensorflow.ModelURI = "https://kfserving.blob.core.windows.net/tensorrt"
+	kfsvc.Spec.Default.Predictor.Tensorflow.ModelURI = "https://kfserving.blob.core.windows.net/tensorrt"
 	g.Expect(kfsvc.ValidateCreate()).Should(gomega.Succeed())
 }
 
 func TestAzureBlobNoAccountFails(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	kfsvc := makeTestKFService()
-	kfsvc.Spec.Default.Predict.Tensorflow.ModelURI = "https://blob.core.windows.net/tensorrt/simple_string/"
+	kfsvc.Spec.Default.Predictor.Tensorflow.ModelURI = "https://blob.core.windows.net/tensorrt/simple_string/"
 	g.Expect(kfsvc.ValidateCreate()).ShouldNot(gomega.Succeed())
 }
 
 func TestAzureBlobNoContainerFails(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	kfsvc := makeTestKFService()
-	kfsvc.Spec.Default.Predict.Tensorflow.ModelURI = "https://foo.blob.core.windows.net/"
+	kfsvc.Spec.Default.Predictor.Tensorflow.ModelURI = "https://foo.blob.core.windows.net/"
 	g.Expect(kfsvc.ValidateCreate()).ShouldNot(gomega.Succeed())
 }
 
 func TestUnkownModelURIPrefixFails(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	kfsvc := makeTestKFService()
-	kfsvc.Spec.Default.Predict.Tensorflow.ModelURI = "blob://foo/bar"
+	kfsvc.Spec.Default.Predictor.Tensorflow.ModelURI = "blob://foo/bar"
 	g.Expect(kfsvc.ValidateCreate()).ShouldNot(gomega.Succeed())
 }
 
 func TestRejectMultipleModelSpecs(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	kfsvc := makeTestKFService()
-	kfsvc.Spec.Default.Predict.Custom = &CustomSpec{Container: v1.Container{}}
+	kfsvc.Spec.Default.Predictor.Custom = &CustomSpec{Container: v1.Container{}}
 	g.Expect(kfsvc.ValidateCreate()).Should(gomega.MatchError(ExactlyOneModelSpecViolatedError))
 }
 
 func TestRejectModelSpecMissing(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	kfsvc := makeTestKFService()
-	kfsvc.Spec.Default.Predict.Tensorflow = nil
+	kfsvc.Spec.Default.Predictor.Tensorflow = nil
 	g.Expect(kfsvc.ValidateCreate()).Should(gomega.MatchError(AtLeastOneModelSpecViolatedError))
 }
 func TestRejectMultipleCanaryModelSpecs(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	kfsvc := makeTestKFService()
-	kfsvc.Spec.Canary = &ComponentsSpec{
-		Predict: ModelSpec{
+	kfsvc.Spec.Canary = &EndpointSpec{
+		Predictor: PredictorSpec{
 			Custom:     &CustomSpec{Container: v1.Container{}},
-			Tensorflow: kfsvc.Spec.Default.Predict.Tensorflow,
+			Tensorflow: kfsvc.Spec.Default.Predictor.Tensorflow,
 		},
 	}
 	g.Expect(kfsvc.ValidateCreate()).Should(gomega.MatchError(ExactlyOneModelSpecViolatedError))
@@ -134,8 +134,8 @@ func TestRejectMultipleCanaryModelSpecs(t *testing.T) {
 func TestRejectCanaryModelSpecMissing(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	kfsvc := makeTestKFService()
-	kfsvc.Spec.Canary = &ComponentsSpec{
-		Predict: ModelSpec{},
+	kfsvc.Spec.Canary = &EndpointSpec{
+		Predictor: PredictorSpec{},
 	}
 	g.Expect(kfsvc.ValidateCreate()).Should(gomega.MatchError(AtLeastOneModelSpecViolatedError))
 }
@@ -159,21 +159,21 @@ func TestRejectTrafficProvidedWithoutCanary(t *testing.T) {
 func TestBadReplicaValues(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	kfsvc := makeTestKFService()
-	kfsvc.Spec.Default.Predict.MinReplicas = -1
+	kfsvc.Spec.Default.Predictor.MinReplicas = -1
 	g.Expect(kfsvc.ValidateCreate()).Should(gomega.MatchError(MinReplicasLowerBoundExceededError))
-	kfsvc.Spec.Default.Predict.MinReplicas = 1
-	kfsvc.Spec.Default.Predict.MaxReplicas = -1
+	kfsvc.Spec.Default.Predictor.MinReplicas = 1
+	kfsvc.Spec.Default.Predictor.MaxReplicas = -1
 	g.Expect(kfsvc.ValidateCreate()).Should(gomega.MatchError(MaxReplicasLowerBoundExceededError))
-	kfsvc.Spec.Default.Predict.MinReplicas = 2
-	kfsvc.Spec.Default.Predict.MaxReplicas = 1
+	kfsvc.Spec.Default.Predictor.MinReplicas = 2
+	kfsvc.Spec.Default.Predictor.MaxReplicas = 1
 	g.Expect(kfsvc.ValidateCreate()).Should(gomega.MatchError(MinReplicasShouldBeLessThanMaxError))
 }
 
 func TestCustomBadFields(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	kfsvc := makeTestKFService()
-	kfsvc.Spec.Default.Predict.Tensorflow = nil
-	kfsvc.Spec.Default.Predict.Custom = &CustomSpec{
+	kfsvc.Spec.Default.Predictor.Tensorflow = nil
+	kfsvc.Spec.Default.Predictor.Custom = &CustomSpec{
 		v1.Container{
 			Name:      "foo",
 			Image:     "custom:0.1",
@@ -187,8 +187,8 @@ func TestCustomBadFields(t *testing.T) {
 func TestCustomOK(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	kfsvc := makeTestKFService()
-	kfsvc.Spec.Default.Predict.Tensorflow = nil
-	kfsvc.Spec.Default.Predict.Custom = &CustomSpec{
+	kfsvc.Spec.Default.Predictor.Tensorflow = nil
+	kfsvc.Spec.Default.Predictor.Custom = &CustomSpec{
 		v1.Container{
 			Image: "custom:0.1",
 		},

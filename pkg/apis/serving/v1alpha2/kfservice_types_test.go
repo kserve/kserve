@@ -36,8 +36,8 @@ func TestKFService(t *testing.T) {
 			Namespace: "default",
 		},
 		Spec: KFServiceSpec{
-			Default: ComponentsSpec{
-				Predict: ModelSpec{
+			Default: EndpointSpec{
+				Predictor: PredictorSpec{
 					DeploymentSpec: DeploymentSpec{
 						MinReplicas: 1,
 						MaxReplicas: 3,
@@ -49,8 +49,8 @@ func TestKFService(t *testing.T) {
 				},
 			},
 			CanaryTrafficPercent: 20,
-			Canary: &ComponentsSpec{
-				Predict: ModelSpec{
+			Canary: &EndpointSpec{
+				Predictor: PredictorSpec{
 					DeploymentSpec: DeploymentSpec{
 						MinReplicas: 1,
 						MaxReplicas: 3,

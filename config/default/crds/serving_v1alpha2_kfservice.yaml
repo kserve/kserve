@@ -44,12 +44,12 @@ spec:
         spec:
           properties:
             canary:
-              description: Canary defines an alternate configuration to route a percentage
+              description: Canary defines an alternate endpoints to route a percentage
                 of traffic.
               properties:
-                explain:
-                  description: explain defines the model explanation service spec
-                    explain service calls to transform or predict service
+                explainer:
+                  description: Explainer defines the model explanation service spec
+                    explainer service calls to transformer or predictor service
                   properties:
                     alibi:
                       description: The following fields follow a "1-of" semantic.
@@ -95,8 +95,8 @@ spec:
                         to use to run the service
                       type: string
                   type: object
-                predict:
-                  description: predict defines the model serving spec +required
+                predictor:
+                  description: Predictor defines the model serving spec +required
                   properties:
                     custom:
                       description: The following fields follow a "1-of" semantic.
@@ -194,9 +194,9 @@ spec:
                       - modelUri
                       type: object
                   type: object
-                transform:
-                  description: transform defines the transform service spec for pre/post
-                    processing transform service calls to predict service
+                transformer:
+                  description: Transformer defines the transformer service spec for
+                    pre/post processing transformer service calls to predictor service
                   properties:
                     custom:
                       properties:
@@ -220,16 +220,19 @@ spec:
                       type: string
                   type: object
               required:
-              - predict
+              - predictor
               type: object
             canaryTrafficPercent:
+              description: CanaryTrafficPercent defines the percentage of traffic
+                going to canary KFService endpoints
               format: int64
               type: integer
             default:
+              description: Default defines default KFService endpoints +required
               properties:
-                explain:
-                  description: explain defines the model explanation service spec
-                    explain service calls to transform or predict service
+                explainer:
+                  description: Explainer defines the model explanation service spec
+                    explainer service calls to transformer or predictor service
                   properties:
                     alibi:
                       description: The following fields follow a "1-of" semantic.
@@ -275,8 +278,8 @@ spec:
                         to use to run the service
                       type: string
                   type: object
-                predict:
-                  description: predict defines the model serving spec +required
+                predictor:
+                  description: Predictor defines the model serving spec +required
                   properties:
                     custom:
                       description: The following fields follow a "1-of" semantic.
@@ -374,9 +377,9 @@ spec:
                       - modelUri
                       type: object
                   type: object
-                transform:
-                  description: transform defines the transform service spec for pre/post
-                    processing transform service calls to predict service
+                transformer:
+                  description: Transformer defines the transformer service spec for
+                    pre/post processing transformer service calls to predictor service
                   properties:
                     custom:
                       properties:
@@ -400,7 +403,7 @@ spec:
                       type: string
                   type: object
               required:
-              - predict
+              - predictor
               type: object
           required:
           - default

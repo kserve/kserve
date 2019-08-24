@@ -82,25 +82,6 @@
         }
       }
     },
-    "v1alpha2.ComponentsSpec": {
-      "required": [
-        "predict"
-      ],
-      "properties": {
-        "explain": {
-          "description": "explain defines the model explanation service spec explain service calls to transform or predict service",
-          "$ref": "#/definitions/v1alpha2.ExplainSpec"
-        },
-        "predict": {
-          "description": "predict defines the model serving spec",
-          "$ref": "#/definitions/v1alpha2.ModelSpec"
-        },
-        "transform": {
-          "description": "transform defines the transform service spec for pre/post processing transform service calls to predict service",
-          "$ref": "#/definitions/v1alpha2.TransformSpec"
-        }
-      }
-    },
     "v1alpha2.CustomSpec": {
       "description": "CustomSpec provides a hook for arbitrary container configuration.",
       "required": [
@@ -113,7 +94,7 @@
       }
     },
     "v1alpha2.DeploymentSpec": {
-      "description": "DeploymentSpec defines the configuration for a given KFService component",
+      "description": "DeploymentSpec defines the configuration for a given KFService service component",
       "properties": {
         "maxReplicas": {
           "description": "This is the up bound for autoscaler to scale to",
@@ -131,8 +112,27 @@
         }
       }
     },
-    "v1alpha2.ExplainSpec": {
-      "description": "ExplainSpec defines the arguments for a model explanation server",
+    "v1alpha2.EndpointSpec": {
+      "required": [
+        "predictor"
+      ],
+      "properties": {
+        "explainer": {
+          "description": "Explainer defines the model explanation service spec explainer service calls to transformer or predictor service",
+          "$ref": "#/definitions/v1alpha2.ExplainerSpec"
+        },
+        "predictor": {
+          "description": "Predictor defines the model serving spec",
+          "$ref": "#/definitions/v1alpha2.PredictorSpec"
+        },
+        "transformer": {
+          "description": "Transformer defines the transformer service spec for pre/post processing transformer service calls to predictor service",
+          "$ref": "#/definitions/v1alpha2.TransformerSpec"
+        }
+      }
+    },
+    "v1alpha2.ExplainerSpec": {
+      "description": "ExplainerSpec defines the arguments for a model explanation server",
       "properties": {
         "alibi": {
           "description": "The following fields follow a \"1-of\" semantic. Users must specify exactly one openapispec.",
@@ -240,15 +240,17 @@
       ],
       "properties": {
         "canary": {
-          "description": "Canary defines an alternate configuration to route a percentage of traffic.",
-          "$ref": "#/definitions/v1alpha2.ComponentsSpec"
+          "description": "Canary defines an alternate endpoints to route a percentage of traffic.",
+          "$ref": "#/definitions/v1alpha2.EndpointSpec"
         },
         "canaryTrafficPercent": {
+          "description": "CanaryTrafficPercent defines the percentage of traffic going to canary KFService endpoints",
           "type": "integer",
           "format": "int32"
         },
         "default": {
-          "$ref": "#/definitions/v1alpha2.ComponentsSpec"
+          "description": "Default defines default KFService endpoints",
+          "$ref": "#/definitions/v1alpha2.EndpointSpec"
         }
       }
     },
@@ -280,8 +282,8 @@
         }
       }
     },
-    "v1alpha2.ModelSpec": {
-      "description": "ModelSpec defines the configuration to route traffic to a predictor.",
+    "v1alpha2.PredictorSpec": {
+      "description": "PredictorSpec defines the configuration to route traffic to a predictor.",
       "properties": {
         "custom": {
           "description": "The following fields follow a \"1-of\" semantic. Users must specify exactly one openapispec.",
@@ -414,8 +416,8 @@
         }
       }
     },
-    "v1alpha2.TransformSpec": {
-      "description": "TransformSpec defines transformation service for pre/post processing",
+    "v1alpha2.TransformerSpec": {
+      "description": "TransformerSpec defines transformer service for pre/post processing",
       "properties": {
         "custom": {
           "$ref": "#/definitions/v1alpha2.CustomSpec"

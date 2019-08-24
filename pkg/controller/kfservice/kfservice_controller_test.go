@@ -63,8 +63,8 @@ var instance = &kfserving.KFService{
 		Namespace: serviceKey.Namespace,
 	},
 	Spec: kfserving.KFServiceSpec{
-		Default: kfserving.ComponentsSpec{
-			Predict: kfserving.ModelSpec{
+		Default: kfserving.EndpointSpec{
+			Predictor: kfserving.PredictorSpec{
 				DeploymentSpec: kfserving.DeploymentSpec{
 					MinReplicas: 1,
 					MaxReplicas: 3,
@@ -84,8 +84,8 @@ var canary = &kfserving.KFService{
 		Namespace: canaryServiceKey.Namespace,
 	},
 	Spec: kfserving.KFServiceSpec{
-		Default: kfserving.ComponentsSpec{
-			Predict: kfserving.ModelSpec{
+		Default: kfserving.EndpointSpec{
+			Predictor: kfserving.PredictorSpec{
 				DeploymentSpec: kfserving.DeploymentSpec{
 					MinReplicas: 1,
 					MaxReplicas: 3,
@@ -97,8 +97,8 @@ var canary = &kfserving.KFService{
 			},
 		},
 		CanaryTrafficPercent: 20,
-		Canary: &kfserving.ComponentsSpec{
-			Predict: kfserving.ModelSpec{
+		Canary: &kfserving.EndpointSpec{
+			Predictor: kfserving.PredictorSpec{
 				DeploymentSpec: kfserving.DeploymentSpec{
 					MinReplicas: 1,
 					MaxReplicas: 3,
@@ -186,7 +186,7 @@ func TestReconcile(t *testing.T) {
 						"autoscaling.knative.dev/class":                          "kpa.autoscaling.knative.dev",
 						"autoscaling.knative.dev/maxScale":                       "3",
 						"autoscaling.knative.dev/minScale":                       "1",
-						constants.ModelInitializerSourceUriInternalAnnotationKey: defaultInstance.Spec.Default.Predict.Tensorflow.ModelURI,
+						constants.ModelInitializerSourceUriInternalAnnotationKey: defaultInstance.Spec.Default.Predictor.Tensorflow.ModelURI,
 					},
 				},
 				Spec: knservingv1alpha1.RevisionSpec{
@@ -196,7 +196,7 @@ func TestReconcile(t *testing.T) {
 							Containers: []v1.Container{
 								{
 									Image: kfserving.TensorflowServingImageName + ":" +
-										defaultInstance.Spec.Default.Predict.Tensorflow.RuntimeVersion,
+										defaultInstance.Spec.Default.Predictor.Tensorflow.RuntimeVersion,
 									Command: []string{kfserving.TensorflowEntrypointCommand},
 									Args: []string{
 										"--port=" + kfserving.TensorflowServingGRPCPort,
@@ -328,7 +328,7 @@ func TestCanaryReconcile(t *testing.T) {
 						"autoscaling.knative.dev/class":                          "kpa.autoscaling.knative.dev",
 						"autoscaling.knative.dev/maxScale":                       "3",
 						"autoscaling.knative.dev/minScale":                       "1",
-						constants.ModelInitializerSourceUriInternalAnnotationKey: canary.Spec.Canary.Predict.Tensorflow.ModelURI,
+						constants.ModelInitializerSourceUriInternalAnnotationKey: canary.Spec.Canary.Predictor.Tensorflow.ModelURI,
 					},
 				},
 				Spec: knservingv1alpha1.RevisionSpec{
@@ -338,7 +338,7 @@ func TestCanaryReconcile(t *testing.T) {
 							Containers: []v1.Container{
 								{
 									Image: kfserving.TensorflowServingImageName + ":" +
-										canary.Spec.Canary.Predict.Tensorflow.RuntimeVersion,
+										canary.Spec.Canary.Predictor.Tensorflow.RuntimeVersion,
 									Command: []string{kfserving.TensorflowEntrypointCommand},
 									Args: []string{
 										"--port=" + kfserving.TensorflowServingGRPCPort,
