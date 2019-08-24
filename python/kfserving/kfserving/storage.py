@@ -107,20 +107,28 @@ class Storage(object): # pylint: disable=too-few-public-methods
         storage_url = match.group(2)
         container_name, prefix = storage_url.split("/", 1)
 
-        logging.info("Connecting to BLOB account: %s, container: %s", account_name, container_name)
+        logging.info("Connecting to BLOB account: [%s], container: [%s], prefix: [%s]",
+                     account_name,
+                     container_name,
+                     prefix)
         token = Storage._get_azure_storage_token()
         block_blob_service = BlockBlobService(account_name=account_name, token_credential=token)
         blobs = block_blob_service.list_blobs(container_name, prefix=prefix)
 
         for blob in blobs:
+            dest_path = os.path.join(out_dir, blob.name)
             if "/" in blob.name:
-                head, _ = os.path.split(blob.name)
+                head, tail = os.path.split(blob.name)
+                if prefix is not None:
+                    head = head[len(prefix):]
+                if head.startswith('/'):
+                    head = head[1:]
                 dir_path = os.path.join(out_dir, head)
+                dest_path = os.path.join(dir_path, tail)
                 if not os.path.isdir(dir_path):
                     os.makedirs(dir_path)
 
-            dest_path = os.path.join(out_dir, blob.name)
-            logging.info("Downloading: %s", dest_path)
+            logging.info("Downloading: %s to %s", blob.name, dest_path)
             block_blob_service.get_blob_to_path(container_name, blob.name, dest_path)
 
     @staticmethod
