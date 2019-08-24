@@ -38,5 +38,5 @@ echo "Activating service-account"
 gcloud auth activate-service-account --key-file=${GOOGLE_APPLICATION_CREDENTIALS}
 
 cp $1 Dockerfile
-gcloud builds submit . --tag=${REGISTRY}/${REPO_NAME}/$2:${VERSION} --project=${PROJECT}
+gcloud builds submit . --tag=${REGISTRY}/${REPO_NAME}/$2:${VERSION} --project=${PROJECT} --timeout=20m
 gcloud container images add-tag --quiet ${REGISTRY}/${REPO_NAME}/$2:${VERSION} ${REGISTRY}/${REPO_NAME}/$2:latest --verbosity=info
