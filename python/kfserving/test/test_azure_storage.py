@@ -34,10 +34,12 @@ def get_call_args(call_args_list):
         arg_list.append(args)
     return arg_list
 
+# pylint: disable=protected-access
+
 @mock.patch('kfserving.storage.os.makedirs')
 @mock.patch('kfserving.storage.Storage._get_azure_storage_token')
 @mock.patch('kfserving.storage.BlockBlobService')
-def test_blob(mock_storage, mock_get_token, moke_makedirs): # pylint: disable=unused-argument,protected-access
+def test_blob(mock_storage, mock_get_token, mock_makedirs): # pylint: disable=unused-argument
 
     # given
     blob_path = 'https://kfserving.blob.core.windows.net/tensorrt/simple_string/'
@@ -57,7 +59,7 @@ def test_blob(mock_storage, mock_get_token, moke_makedirs): # pylint: disable=un
 @mock.patch('kfserving.storage.os.makedirs')
 @mock.patch('kfserving.storage.Storage._get_azure_storage_token')
 @mock.patch('kfserving.storage.BlockBlobService')
-def test_deep_blob(mock_storage, mock_get_token, moke_makedirs): # pylint: disable=unused-argument,protected-access
+def test_deep_blob(mock_storage, mock_get_token, mock_makedirs): # pylint: disable=unused-argument
 
     # given
     blob_path = 'https://accountname.blob.core.windows.net/container/some/deep/blob/path'
@@ -77,7 +79,7 @@ def test_deep_blob(mock_storage, mock_get_token, moke_makedirs): # pylint: disab
 @mock.patch('kfserving.storage.os.makedirs')
 @mock.patch('kfserving.storage.Storage._get_azure_storage_token')
 @mock.patch('kfserving.storage.BlockBlobService')
-def test_blob_file(mock_storage, mock_get_token, moke_makedirs): # pylint: disable=unused-argument,protected-access
+def test_blob_file(mock_storage, mock_get_token, mock_makedirs): # pylint: disable=unused-argument
 
     # given
     blob_path = 'https://accountname.blob.core.windows.net/container/somefile'
@@ -97,7 +99,7 @@ def test_blob_file(mock_storage, mock_get_token, moke_makedirs): # pylint: disab
 @mock.patch('kfserving.storage.os.makedirs')
 @mock.patch('kfserving.storage.Storage._get_azure_storage_token')
 @mock.patch('kfserving.storage.BlockBlobService')
-def test_blob_fq_file(mock_storage, mock_get_token, moke_makedirs): # pylint: disable=unused-argument,protected-access
+def test_blob_fq_file(mock_storage, mock_get_token, mock_makedirs): # pylint: disable=unused-argument
 
     # given
     blob_path = 'https://accountname.blob.core.windows.net/container/folder/somefile'
@@ -117,7 +119,7 @@ def test_blob_fq_file(mock_storage, mock_get_token, moke_makedirs): # pylint: di
 @mock.patch('kfserving.storage.os.makedirs')
 @mock.patch('kfserving.storage.Storage._get_azure_storage_token')
 @mock.patch('kfserving.storage.BlockBlobService')
-def test_blob_no_prefix(mock_storage, mock_get_token, moke_makedirs): # pylint: disable=unused-argument,protected-access
+def test_blob_no_prefix(mock_storage, mock_get_token, mock_makedirs): # pylint: disable=unused-argument
 
     # given
     blob_path = 'https://accountname.blob.core.windows.net/container/'
