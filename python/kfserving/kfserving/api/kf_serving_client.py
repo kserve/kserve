@@ -12,7 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import sys
 from kubernetes import client, config
+from kubernetes import watch as k8s_watch
+from table_logger import TableLogger
 
 from ..constants import constants
 from ..utils import utils
@@ -101,6 +104,41 @@ class KFServingClient(object):
         except client.rest.ApiException as e:
             raise RuntimeError(
                 "Exception when calling CustomObjectsApi->get_namespaced_custom_object: %s\n" % e)
+
+    def watch(self, name=None, namespace=None, timeout_seconds=900):
+        """Watch the created KFService in the specified namespace"""
+
+        if namespace is None:
+            namespace = utils.get_default_target_namespace()
+
+        tbl = TableLogger(
+            columns='NAME,READY,DEFAULT TRAFFIC,CANARY TRAFFIC,URL',
+            colwidth={'NAME': 20, 'READY':7, 'DEFAULT TRAFFIC':15, 'CANARY TRAFFIC':14, 'URL': 45},
+            file=sys.stdout)
+
+        stream = k8s_watch.Watch().stream(
+            client.CustomObjectsApi().list_namespaced_custom_object,
+            constants.KFSERVING_GROUP,
+            constants.KFSERVING_VERSION,
+            namespace,
+            constants.KFSERVING_PLURAL,
+            timeout_seconds=timeout_seconds)
+        for event in stream:
+            kfserivce = event['object']
+
+            kfsvc_name = kfserivce['metadata']['name']
+            if name and name != kfsvc_name:
+                continue
+            else:
+                url = kfserivce['status'].get('url', 'Unknown')
+                default_traffic = kfserivce['status'].get('default', {}).get('traffic', '')
+                canary_traffic = kfserivce['status'].get('canary', {}).get('traffic', '')
+                status = 'Unknown'
+                for condition in kfserivce['status'].get('conditions', {}):
+                    if condition.get('type', '') == 'Ready':
+                        status = condition.get('status', 'Unknown')
+
+                tbl(kfsvc_name, status, default_traffic, canary_traffic, url)
 
     def patch(self, name, kfservice, namespace=None):
         """Patch the created KFService in the specified namespace"""

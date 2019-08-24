@@ -19,6 +19,7 @@ Class | Method |  Description
 KFServingClient | [set_credentials](#set_credentials) | Set Credentials|
 KFServingClient | [create](#create) | Create KFService|
 KFServingClient | [get](#get)    | Get the specified KFService|
+KFServingClient | [watch](#watch)    | Watch the specified KFService or all KFServices in specified namespace|
 KFServingClient | [patch](#patch)  | Patch the specified KFService|
 KFServingClient | [delete](#delete) | Delete the specified KFService |
 
@@ -139,6 +140,36 @@ namespace | str | The kfservice's namespace. Defaults to current or default name
 ### Return type
 object
 
+## watch
+> watch(name=None, namespace=None, timeout_seconds=900)
+
+
+Watch the specified KFService or all KFServices in specified namespace.
+
+### Example
+```python
+from kfserving import KFServingClient
+
+KFServing = KFServingClient()
+KFServing.watch(name='flowers-sample', namespace='kubeflow')
+```
+
+The outputs will be as following table:
+
+NAME | STATUS  | DEFAULT TRAFFIC | CANARY TRAFFIC | URL 
+------------ | ------------- | ------------- | -------------| -------
+flowers-sample | Unknown |  | | Unknown
+flowers-sample | Unknown |  | | Unknown
+flowers-sample | Unknown | 90 |10 | http://flowers-sample.kubeflow.example.com
+flowers-sample | True | 90 | 10 | http://flowers-sample.kubeflow.example.com
+
+
+### Parameters
+Name | Type |  Description | Notes
+------------ | ------------- | ------------- | -------------
+name  | str | KFService name| Optional. If the name is not specified, the API will watch all KFServices in the namespace.|
+namespace | str | The KFService's namespace. | Optional. Defaults to current or default namespace. |
+timeout_seconds |int| Specify the timeout secends for watching.|Optional. By default, the API watches 15 minutes (900s).|
 
 ## patch
 > patch(name, kfservice, namespace=None)
