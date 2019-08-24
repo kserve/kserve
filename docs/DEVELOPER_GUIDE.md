@@ -14,6 +14,7 @@
     - [Deploy KFServing with your own version](#deploy-kfserving-with-your-own-version)
     - [Smoke test after deployment](#smoke-test-after-deployment)
   - [Iterating](#iterating)
+    - [Knative CLI (knctl):](#knative-cli-knctl)
   - [Troubleshooting](#troubleshooting)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -178,7 +179,7 @@ of:
   `make manifests`. Inputs include:
 
   - API type definitions in
-    [pkg/apis/serving/v1alpha1/](../pkg/apis/serving/v1alpha2/.),
+    [pkg/apis/serving/v1alpha2/](../pkg/apis/serving/v1alpha2/.),
   - Manifests or kustomize patches stored in [config](../config).
 
 - **If you change a package's deps** (including adding external dep), then you

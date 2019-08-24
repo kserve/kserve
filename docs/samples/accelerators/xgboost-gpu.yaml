@@ -1,4 +1,4 @@
-apiVersion: "serving.kubeflow.org/v1alpha1"
+apiVersion: "serving.kubeflow.org/v1alpha2"
 kind: "KFService"
 metadata:
   name: "xgboost-gpu"

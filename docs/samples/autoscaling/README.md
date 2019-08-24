@@ -212,7 +212,7 @@ is pretty easy and effective!
 ### Create the KFService with GPU resource
 Apply the tensorflow gpu example CR
 ```
-apiVersion: "serving.kubeflow.org/v1alpha1"
+apiVersion: "serving.kubeflow.org/v1alpha2"
 kind: "KFService"
 metadata:
   name: "flowers-sample-gpu"
@@ -289,7 +289,7 @@ Status code distribution:
 You can also customize the target concurrency by adding annotation `autoscaling.knative.dev/target: "10"` on `KFService` CR.
 
 ```yaml
-apiVersion: "serving.kubeflow.org/v1alpha1"
+apiVersion: "serving.kubeflow.org/v1alpha2"
 kind: "KFService"
 metadata:
   name: "flowers-sample"

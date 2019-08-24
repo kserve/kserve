@@ -9,7 +9,7 @@ This top level resource definition is shared by all Kubernetes Custom Resources.
 | Field       |  Value      | Description |
 | ----------- | ----------- | ----------- |
 | kind       | KFService                     | [Read the Docs](https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#types-kinds) |
-| apiVersion | serving.kubeflow.org/v1alpha1 | [Read the Docs](https://kubernetes.io/docs/reference/using-api/api-overview/#api-versioning) |
+| apiVersion | serving.kubeflow.org/v1alpha2 | [Read the Docs](https://kubernetes.io/docs/reference/using-api/api-overview/#api-versioning) |
 | metadata   | [Metadata](#Metadata)         | [Read the Docs](https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#metadata) |
 | spec       | [Spec](#Spec)                 | [Read the Docs](https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status) |
 | status     | [Status](#Status)             | [Read the Docs](https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status) |

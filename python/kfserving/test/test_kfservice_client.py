@@ -13,7 +13,7 @@ KFServing = KFServingClient()
 mocked_unit_result = \
 '''
 {
-    "api_version": "serving.kubeflow.org/v1alpha1",
+    "api_version": "serving.kubeflow.org/v1alpha2",
     "kind": "KFService",
     "metadata": {
         "name": "flower-sample",
@@ -33,7 +33,7 @@ def generate_kfservice():
     default_model_spec = V1alpha2ModelSpec(tensorflow=V1alpha2TensorflowSpec(
         model_uri='gs://kfserving-samples/models/tensorflow/flowers'))
 
-    kfsvc = V1alpha2KFService(api_version='serving.kubeflow.org/v1alpha1',
+    kfsvc = V1alpha2KFService(api_version='serving.kubeflow.org/v1alpha2',
                               kind='KFService',
                               metadata=client.V1ObjectMeta(name='flower-sample'),
                               spec=V1alpha2KFServiceSpec(default=default_model_spec))
