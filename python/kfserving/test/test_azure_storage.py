@@ -121,7 +121,7 @@ def test_blob_no_prefix(mock_storage, mock_get_token, moke_makedirs): # pylint: 
 
     # given
     blob_path = 'https://accountname.blob.core.windows.net/container/'
-    paths = ['somefile']
+    paths = ['somefile', 'somefolder/somefile']
     fq_item_paths = ['' + p for p in paths]
     expected_dest_paths = ['/mnt/out/' + p for p in paths]
     expected_calls = list(zip(itertools.repeat('container'), fq_item_paths, expected_dest_paths))
