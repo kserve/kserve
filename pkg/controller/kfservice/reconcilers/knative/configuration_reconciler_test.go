@@ -64,16 +64,20 @@ func TestKnativeConfigurationReconcile(t *testing.T) {
 					Namespace: "default",
 				},
 				Spec: v1alpha2.KFServiceSpec{
-					Default: v1alpha2.ModelSpec{
-						Tensorflow: &v1alpha2.TensorflowSpec{
-							RuntimeVersion: v1alpha2.DefaultTensorflowRuntimeVersion,
-							ModelURI:       "gs://testuri",
+					Default: v1alpha2.EndpointSpec{
+						Predictor: v1alpha2.PredictorSpec{
+							Tensorflow: &v1alpha2.TensorflowSpec{
+								RuntimeVersion: v1alpha2.DefaultTensorflowRuntimeVersion,
+								ModelURI:       "gs://testuri",
+							},
 						},
 					},
-					Canary: &v1alpha2.ModelSpec{
-						Tensorflow: &v1alpha2.TensorflowSpec{
-							RuntimeVersion: v1alpha2.DefaultTensorflowRuntimeVersion,
-							ModelURI:       "gs://testuri2",
+					Canary: &v1alpha2.EndpointSpec{
+						Predictor: v1alpha2.PredictorSpec{
+							Tensorflow: &v1alpha2.TensorflowSpec{
+								RuntimeVersion: v1alpha2.DefaultTensorflowRuntimeVersion,
+								ModelURI:       "gs://testuri2",
+							},
 						},
 					},
 				},
@@ -160,10 +164,12 @@ func TestKnativeConfigurationReconcile(t *testing.T) {
 					Namespace: "default",
 				},
 				Spec: v1alpha2.KFServiceSpec{
-					Default: v1alpha2.ModelSpec{
-						Tensorflow: &v1alpha2.TensorflowSpec{
-							RuntimeVersion: v1alpha2.DefaultTensorflowRuntimeVersion,
-							ModelURI:       "gs://testuri",
+					Default: v1alpha2.EndpointSpec{
+						Predictor: v1alpha2.PredictorSpec{
+							Tensorflow: &v1alpha2.TensorflowSpec{
+								RuntimeVersion: v1alpha2.DefaultTensorflowRuntimeVersion,
+								ModelURI:       "gs://testuri",
+							},
 						},
 					},
 				},

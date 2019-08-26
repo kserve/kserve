@@ -63,12 +63,16 @@ var instance = &kfserving.KFService{
 		Namespace: serviceKey.Namespace,
 	},
 	Spec: kfserving.KFServiceSpec{
-		Default: kfserving.ModelSpec{
-			MinReplicas: 1,
-			MaxReplicas: 3,
-			Tensorflow: &kfserving.TensorflowSpec{
-				ModelURI:       "s3://test/mnist/export",
-				RuntimeVersion: "1.13.0",
+		Default: kfserving.EndpointSpec{
+			Predictor: kfserving.PredictorSpec{
+				DeploymentSpec: kfserving.DeploymentSpec{
+					MinReplicas: 1,
+					MaxReplicas: 3,
+				},
+				Tensorflow: &kfserving.TensorflowSpec{
+					ModelURI:       "s3://test/mnist/export",
+					RuntimeVersion: "1.13.0",
+				},
 			},
 		},
 	},
@@ -80,21 +84,29 @@ var canary = &kfserving.KFService{
 		Namespace: canaryServiceKey.Namespace,
 	},
 	Spec: kfserving.KFServiceSpec{
-		Default: kfserving.ModelSpec{
-			MinReplicas: 1,
-			MaxReplicas: 3,
-			Tensorflow: &kfserving.TensorflowSpec{
-				ModelURI:       "s3://test/mnist/export",
-				RuntimeVersion: "1.13.0",
+		Default: kfserving.EndpointSpec{
+			Predictor: kfserving.PredictorSpec{
+				DeploymentSpec: kfserving.DeploymentSpec{
+					MinReplicas: 1,
+					MaxReplicas: 3,
+				},
+				Tensorflow: &kfserving.TensorflowSpec{
+					ModelURI:       "s3://test/mnist/export",
+					RuntimeVersion: "1.13.0",
+				},
 			},
 		},
 		CanaryTrafficPercent: 20,
-		Canary: &kfserving.ModelSpec{
-			MinReplicas: 1,
-			MaxReplicas: 3,
-			Tensorflow: &kfserving.TensorflowSpec{
-				ModelURI:       "s3://test/mnist-2/export",
-				RuntimeVersion: "1.13.0",
+		Canary: &kfserving.EndpointSpec{
+			Predictor: kfserving.PredictorSpec{
+				DeploymentSpec: kfserving.DeploymentSpec{
+					MinReplicas: 1,
+					MaxReplicas: 3,
+				},
+				Tensorflow: &kfserving.TensorflowSpec{
+					ModelURI:       "s3://test/mnist-2/export",
+					RuntimeVersion: "1.13.0",
+				},
 			},
 		},
 	},
@@ -174,7 +186,7 @@ func TestReconcile(t *testing.T) {
 						"autoscaling.knative.dev/class":                          "kpa.autoscaling.knative.dev",
 						"autoscaling.knative.dev/maxScale":                       "3",
 						"autoscaling.knative.dev/minScale":                       "1",
-						constants.ModelInitializerSourceUriInternalAnnotationKey: defaultInstance.Spec.Default.Tensorflow.ModelURI,
+						constants.ModelInitializerSourceUriInternalAnnotationKey: defaultInstance.Spec.Default.Predictor.Tensorflow.ModelURI,
 					},
 				},
 				Spec: knservingv1alpha1.RevisionSpec{
@@ -184,7 +196,7 @@ func TestReconcile(t *testing.T) {
 							Containers: []v1.Container{
 								{
 									Image: kfserving.TensorflowServingImageName + ":" +
-										defaultInstance.Spec.Default.Tensorflow.RuntimeVersion,
+										defaultInstance.Spec.Default.Predictor.Tensorflow.RuntimeVersion,
 									Command: []string{kfserving.TensorflowEntrypointCommand},
 									Args: []string{
 										"--port=" + kfserving.TensorflowServingGRPCPort,
@@ -316,7 +328,7 @@ func TestCanaryReconcile(t *testing.T) {
 						"autoscaling.knative.dev/class":                          "kpa.autoscaling.knative.dev",
 						"autoscaling.knative.dev/maxScale":                       "3",
 						"autoscaling.knative.dev/minScale":                       "1",
-						constants.ModelInitializerSourceUriInternalAnnotationKey: canary.Spec.Canary.Tensorflow.ModelURI,
+						constants.ModelInitializerSourceUriInternalAnnotationKey: canary.Spec.Canary.Predictor.Tensorflow.ModelURI,
 					},
 				},
 				Spec: knservingv1alpha1.RevisionSpec{
@@ -326,7 +338,7 @@ func TestCanaryReconcile(t *testing.T) {
 							Containers: []v1.Container{
 								{
 									Image: kfserving.TensorflowServingImageName + ":" +
-										canary.Spec.Canary.Tensorflow.RuntimeVersion,
+										canary.Spec.Canary.Predictor.Tensorflow.RuntimeVersion,
 									Command: []string{kfserving.TensorflowEntrypointCommand},
 									Args: []string{
 										"--port=" + kfserving.TensorflowServingGRPCPort,
@@ -342,7 +354,7 @@ func TestCanaryReconcile(t *testing.T) {
 			},
 		},
 	}
-	g.Expect(canaryConfiguration.Spec).To(gomega.Equal(expectedCanaryConfiguration.Spec))
+	g.Expect(cmp.Diff(canaryConfiguration.Spec, expectedCanaryConfiguration.Spec)).To(gomega.Equal(""))
 	route := &knservingv1alpha1.Route{}
 	g.Eventually(func() error { return c.Get(context.TODO(), canaryServiceKey, route) }, timeout).
 		Should(gomega.Succeed())
