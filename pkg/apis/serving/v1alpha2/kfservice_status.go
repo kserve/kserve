@@ -73,7 +73,7 @@ func (ss *KFServiceStatus) PropagateDefaultPredictorStatus(defaultStatus *knserv
 // PropagateCanaryPredictorStatus propagates the canary predictor status and applies its values
 // to the Service status.
 func (ss *KFServiceStatus) PropagateCanaryPredictorStatus(canaryStatus *knservingv1alpha1.ServiceStatus) {
-	// reset status if canaryConfigurationStatus is nil
+	// reset status if canarServiceStatus is nil
 	if canaryStatus == nil {
 		ss.Canary = StatusConfigurationSpec{}
 		conditionSet.Manage(ss).ClearCondition(CanaryPredictorReady)
