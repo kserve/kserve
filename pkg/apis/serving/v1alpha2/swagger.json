@@ -51,8 +51,8 @@
         }
       }
     },
-    "v1alpha2.AlibiExplainSpec": {
-      "description": "AlibiExplainSpec defines the arguments for configuring an Alibi Explanation Server",
+    "v1alpha2.AlibiExplainerSpec": {
+      "description": "AlibiExplainerSpec defines the arguments for configuring an Alibi Explanation Server",
       "required": [
         "type"
       ],
@@ -93,15 +93,67 @@
         }
       }
     },
-    "v1alpha2.ExplainSpec": {
-      "description": "ExplainSpec defines the arguments for a model explanation server",
+    "v1alpha2.DeploymentSpec": {
+      "description": "DeploymentSpec defines the configuration for a given KFService service component",
+      "properties": {
+        "maxReplicas": {
+          "description": "This is the up bound for autoscaler to scale to",
+          "type": "integer",
+          "format": "int32"
+        },
+        "minReplicas": {
+          "description": "Minimum number of replicas, pods won't scale down to 0 in case of no traffic",
+          "type": "integer",
+          "format": "int32"
+        },
+        "serviceAccountName": {
+          "description": "ServiceAccountName is the name of the ServiceAccount to use to run the service",
+          "type": "string"
+        }
+      }
+    },
+    "v1alpha2.EndpointSpec": {
+      "required": [
+        "predictor"
+      ],
+      "properties": {
+        "explainer": {
+          "description": "Explainer defines the model explanation service spec explainer service calls to transformer or predictor service",
+          "$ref": "#/definitions/v1alpha2.ExplainerSpec"
+        },
+        "predictor": {
+          "description": "Predictor defines the model serving spec",
+          "$ref": "#/definitions/v1alpha2.PredictorSpec"
+        },
+        "transformer": {
+          "description": "Transformer defines the transformer service spec for pre/post processing transformer service calls to predictor service",
+          "$ref": "#/definitions/v1alpha2.TransformerSpec"
+        }
+      }
+    },
+    "v1alpha2.ExplainerSpec": {
+      "description": "ExplainerSpec defines the arguments for a model explanation server",
       "properties": {
         "alibi": {
           "description": "The following fields follow a \"1-of\" semantic. Users must specify exactly one openapispec.",
-          "$ref": "#/definitions/v1alpha2.AlibiExplainSpec"
+          "$ref": "#/definitions/v1alpha2.AlibiExplainerSpec"
         },
         "custom": {
           "$ref": "#/definitions/v1alpha2.CustomSpec"
+        },
+        "maxReplicas": {
+          "description": "This is the up bound for autoscaler to scale to",
+          "type": "integer",
+          "format": "int32"
+        },
+        "minReplicas": {
+          "description": "Minimum number of replicas, pods won't scale down to 0 in case of no traffic",
+          "type": "integer",
+          "format": "int32"
+        },
+        "serviceAccountName": {
+          "description": "ServiceAccountName is the name of the ServiceAccount to use to run the service",
+          "type": "string"
         }
       }
     },
@@ -188,15 +240,17 @@
       ],
       "properties": {
         "canary": {
-          "description": "Canary defines an alternate configuration to route a percentage of traffic.",
-          "$ref": "#/definitions/v1alpha2.ModelSpec"
+          "description": "Canary defines an alternate endpoints to route a percentage of traffic.",
+          "$ref": "#/definitions/v1alpha2.EndpointSpec"
         },
         "canaryTrafficPercent": {
+          "description": "CanaryTrafficPercent defines the percentage of traffic going to canary KFService endpoints",
           "type": "integer",
           "format": "int32"
         },
         "default": {
-          "$ref": "#/definitions/v1alpha2.ModelSpec"
+          "description": "Default defines default KFService endpoints",
+          "$ref": "#/definitions/v1alpha2.EndpointSpec"
         }
       }
     },
@@ -228,16 +282,12 @@
         }
       }
     },
-    "v1alpha2.ModelSpec": {
-      "description": "ModelSpec defines the configuration to route traffic to a predictor.",
+    "v1alpha2.PredictorSpec": {
+      "description": "PredictorSpec defines the configuration to route traffic to a predictor.",
       "properties": {
         "custom": {
           "description": "The following fields follow a \"1-of\" semantic. Users must specify exactly one openapispec.",
           "$ref": "#/definitions/v1alpha2.CustomSpec"
-        },
-        "explain": {
-          "description": "Optional Explain specification to add a model explainer next to the chosen predictor. In future v1alpha2 the above model predictors would be moved down a level.",
-          "$ref": "#/definitions/v1alpha2.ExplainSpec"
         },
         "maxReplicas": {
           "description": "This is the up bound for autoscaler to scale to",
@@ -253,6 +303,7 @@
           "$ref": "#/definitions/v1alpha2.PyTorchSpec"
         },
         "serviceAccountName": {
+          "description": "ServiceAccountName is the name of the ServiceAccount to use to run the service",
           "type": "string"
         },
         "sklearn": {
@@ -361,6 +412,28 @@
         },
         "runtimeVersion": {
           "description": "Defaults to latest TF Version.",
+          "type": "string"
+        }
+      }
+    },
+    "v1alpha2.TransformerSpec": {
+      "description": "TransformerSpec defines transformer service for pre/post processing",
+      "properties": {
+        "custom": {
+          "$ref": "#/definitions/v1alpha2.CustomSpec"
+        },
+        "maxReplicas": {
+          "description": "This is the up bound for autoscaler to scale to",
+          "type": "integer",
+          "format": "int32"
+        },
+        "minReplicas": {
+          "description": "Minimum number of replicas, pods won't scale down to 0 in case of no traffic",
+          "type": "integer",
+          "format": "int32"
+        },
+        "serviceAccountName": {
+          "description": "ServiceAccountName is the name of the ServiceAccount to use to run the service",
           "type": "string"
         }
       }

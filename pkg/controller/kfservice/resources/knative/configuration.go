@@ -64,16 +64,16 @@ func NewConfigurationBuilder(client client.Client, config *v1.ConfigMap) *Config
 	}
 }
 
-func (c *ConfigurationBuilder) CreateKnativeConfiguration(name string, metadata metav1.ObjectMeta, modelSpec *v1alpha2.ModelSpec) (*knservingv1alpha1.Configuration, error) {
+func (c *ConfigurationBuilder) CreateKnativeConfiguration(name string, metadata metav1.ObjectMeta, predictorSpec *v1alpha2.PredictorSpec) (*knservingv1alpha1.Configuration, error) {
 	annotations := utils.Filter(metadata.Annotations, func(key string) bool {
 		return !utils.Includes(configurationAnnotationDisallowedList, key)
 	})
 
-	if modelSpec.MinReplicas != 0 {
-		annotations[autoscaling.MinScaleAnnotationKey] = fmt.Sprint(modelSpec.MinReplicas)
+	if predictorSpec.MinReplicas != 0 {
+		annotations[autoscaling.MinScaleAnnotationKey] = fmt.Sprint(predictorSpec.MinReplicas)
 	}
-	if modelSpec.MaxReplicas != 0 {
-		annotations[autoscaling.MaxScaleAnnotationKey] = fmt.Sprint(modelSpec.MaxReplicas)
+	if predictorSpec.MaxReplicas != 0 {
+		annotations[autoscaling.MaxScaleAnnotationKey] = fmt.Sprint(predictorSpec.MaxReplicas)
 	}
 
 	// User can pass down scaling target annotation to overwrite the target default 1
@@ -87,7 +87,7 @@ func (c *ConfigurationBuilder) CreateKnativeConfiguration(name string, metadata 
 
 	// KNative does not support INIT containers or mounting, so we add annotations that trigger the
 	// ModelInitializer injector to mutate the underlying deployment to provision model data
-	if sourceURI := modelSpec.GetModelSourceUri(); sourceURI != "" {
+	if sourceURI := predictorSpec.GetModelSourceUri(); sourceURI != "" {
 		annotations[constants.ModelInitializerSourceUriInternalAnnotationKey] = sourceURI
 	}
 
@@ -111,9 +111,9 @@ func (c *ConfigurationBuilder) CreateKnativeConfiguration(name string, metadata 
 						// we may need to expose this field in future
 						TimeoutSeconds: &constants.DefaultTimeout,
 						PodSpec: v1.PodSpec{
-							ServiceAccountName: modelSpec.ServiceAccountName,
+							ServiceAccountName: predictorSpec.ServiceAccountName,
 							Containers: []v1.Container{
-								*modelSpec.CreateModelServingContainer(metadata.Name, c.frameworksConfig),
+								*predictorSpec.CreateModelServingContainer(metadata.Name, c.frameworksConfig),
 							},
 						},
 					},
@@ -124,7 +124,7 @@ func (c *ConfigurationBuilder) CreateKnativeConfiguration(name string, metadata 
 
 	if err := c.credentialBuilder.CreateSecretVolumeAndEnv(
 		metadata.Namespace,
-		modelSpec.ServiceAccountName,
+		predictorSpec.ServiceAccountName,
 		&configuration.Spec.Template.Spec.Containers[0],
 		&configuration.Spec.Template.Spec.Volumes,
 	); err != nil {

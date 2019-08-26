@@ -73,4 +73,3 @@ func swaggify(name string) string {
 	name = strings.Replace(name, "/", ".", -1)
 	return name
 }
-
