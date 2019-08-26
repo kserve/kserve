@@ -23,7 +23,7 @@ import (
 	"strings"
 
 	"github.com/go-openapi/spec"
-	kfsvcv1alpha1 "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
+	kfserving "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	"k8s.io/klog"
 	"k8s.io/kube-openapi/pkg/common"
 )
@@ -37,7 +37,7 @@ func main() {
 	if !strings.HasPrefix(version, "v") {
 		version = "v" + version
 	}
-	oAPIDefs := kfsvcv1alpha1.GetOpenAPIDefinitions(func(name string) spec.Ref {
+	oAPIDefs := kfserving.GetOpenAPIDefinitions(func(name string) spec.Ref {
 		return spec.MustCreateRef("#/definitions/" + common.EscapeJsonPointer(swaggify(name)))
 	})
 	defs := spec.Definitions{}
@@ -67,7 +67,7 @@ func main() {
 
 func swaggify(name string) string {
 	name = strings.Replace(name, "github.com/kubeflow/kfserving/pkg/apis/serving/", "", -1)
-	name = strings.Replace(name, "github.com/knative/pkg/apis.", "knative/", -1)
+	name = strings.Replace(name, "knative.dev/pkg/apis.", "knative/", -1)
 	name = strings.Replace(name, "k8s.io/api/core/", "", -1)
 	name = strings.Replace(name, "k8s.io/apimachinery/pkg/apis/meta/", "", -1)
 	name = strings.Replace(name, "/", ".", -1)

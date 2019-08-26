@@ -37,24 +37,24 @@ const (
 )
 
 var (
-	DefaultMemoryRequests = resource.MustParse("2Gi")
-	DefaultCPURequests    = resource.MustParse("1")
+	DefaultMemory = resource.MustParse("2Gi")
+	DefaultCPU    = resource.MustParse("1")
 )
 
 // Returns a URI to the model. This URI is passed to the model-initializer via the ModelInitializerSourceUriInternalAnnotationKey
-func (m *ModelSpec) GetModelSourceUri() string {
+func (m *PredictorSpec) GetModelSourceUri() string {
 	return getHandler(m).GetModelSourceUri()
 }
 
-func (m *ModelSpec) CreateModelServingContainer(modelName string, config *FrameworksConfig) *v1.Container {
+func (m *PredictorSpec) CreateModelServingContainer(modelName string, config *FrameworksConfig) *v1.Container {
 	return getHandler(m).CreateModelServingContainer(modelName, config)
 }
 
-func (m *ModelSpec) ApplyDefaults() {
+func (m *PredictorSpec) ApplyDefaults() {
 	getHandler(m).ApplyDefaults()
 }
 
-func (m *ModelSpec) Validate() error {
+func (m *PredictorSpec) Validate() error {
 	handler, err := makeHandler(m)
 	if err != nil {
 		return err
@@ -82,10 +82,21 @@ func setResourceRequirementDefaults(requirements *v1.ResourceRequirements) {
 	}
 
 	if _, ok := requirements.Requests[v1.ResourceCPU]; !ok {
-		requirements.Requests[v1.ResourceCPU] = DefaultCPURequests
+		requirements.Requests[v1.ResourceCPU] = DefaultCPU
 	}
 	if _, ok := requirements.Requests[v1.ResourceMemory]; !ok {
-		requirements.Requests[v1.ResourceMemory] = DefaultMemoryRequests
+		requirements.Requests[v1.ResourceMemory] = DefaultMemory
+	}
+
+	if requirements.Limits == nil {
+		requirements.Limits = v1.ResourceList{}
+	}
+
+	if _, ok := requirements.Limits[v1.ResourceCPU]; !ok {
+		requirements.Limits[v1.ResourceCPU] = DefaultCPU
+	}
+	if _, ok := requirements.Limits[v1.ResourceMemory]; !ok {
+		requirements.Limits[v1.ResourceMemory] = DefaultMemory
 	}
 }
 
@@ -94,7 +105,7 @@ func isGPUEnabled(requirements v1.ResourceRequirements) bool {
 	return ok
 }
 
-func getHandler(modelSpec *ModelSpec) FrameworkHandler {
+func getHandler(modelSpec *PredictorSpec) FrameworkHandler {
 	handler, err := makeHandler(modelSpec)
 	if err != nil {
 		klog.Fatal(err)
@@ -103,28 +114,28 @@ func getHandler(modelSpec *ModelSpec) FrameworkHandler {
 	return handler
 }
 
-func makeHandler(modelSpec *ModelSpec) (FrameworkHandler, error) {
+func makeHandler(predictorSpec *PredictorSpec) (FrameworkHandler, error) {
 	handlers := []FrameworkHandler{}
-	if modelSpec.Custom != nil {
-		handlers = append(handlers, modelSpec.Custom)
+	if predictorSpec.Custom != nil {
+		handlers = append(handlers, predictorSpec.Custom)
 	}
-	if modelSpec.XGBoost != nil {
-		handlers = append(handlers, modelSpec.XGBoost)
+	if predictorSpec.XGBoost != nil {
+		handlers = append(handlers, predictorSpec.XGBoost)
 	}
-	if modelSpec.SKLearn != nil {
-		handlers = append(handlers, modelSpec.SKLearn)
+	if predictorSpec.SKLearn != nil {
+		handlers = append(handlers, predictorSpec.SKLearn)
 	}
-	if modelSpec.Tensorflow != nil {
-		handlers = append(handlers, modelSpec.Tensorflow)
+	if predictorSpec.Tensorflow != nil {
+		handlers = append(handlers, predictorSpec.Tensorflow)
 	}
-	if modelSpec.ONNX != nil {
-		handlers = append(handlers, modelSpec.ONNX)
+	if predictorSpec.ONNX != nil {
+		handlers = append(handlers, predictorSpec.ONNX)
 	}
-	if modelSpec.PyTorch != nil {
-		handlers = append(handlers, modelSpec.PyTorch)
+	if predictorSpec.PyTorch != nil {
+		handlers = append(handlers, predictorSpec.PyTorch)
 	}
-	if modelSpec.TensorRT != nil {
-		handlers = append(handlers, modelSpec.TensorRT)
+	if predictorSpec.TensorRT != nil {
+		handlers = append(handlers, predictorSpec.TensorRT)
 	}
 	if len(handlers) == 0 {
 		return nil, fmt.Errorf(AtLeastOneModelSpecViolatedError)

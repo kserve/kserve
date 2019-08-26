@@ -14,6 +14,7 @@
     - [Deploy KFServing with your own version](#deploy-kfserving-with-your-own-version)
     - [Smoke test after deployment](#smoke-test-after-deployment)
   - [Iterating](#iterating)
+    - [Knative CLI (knctl):](#knative-cli-knctl)
   - [Troubleshooting](#troubleshooting)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -159,8 +160,8 @@ You should see model serving deployment running under default or your specified 
 
 ```console
 $ kubectl get kfservices -n default
-NAME             URL                                  DEFAULT TRAFFIC   CANARY TRAFFIC   AGE
-flowers-sample   flowers-sample.default.example.com   100                                1h
+NAME             READY     URL                                  DEFAULT TRAFFIC   CANARY TRAFFIC   AGE
+flowers-sample   True      flowers-sample.default.example.com   100                                1h
 
 $ kubectl get pods -n default -l serving.kubeflow.org/kfservice=flowers-sample
 NAME                                                READY   STATUS    RESTARTS   AGE
