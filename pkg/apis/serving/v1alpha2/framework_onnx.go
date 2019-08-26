@@ -48,14 +48,9 @@ func (s *ONNXSpec) CreateModelServingContainer(modelName string, config *Framewo
 		Image:     imageName + ":" + s.RuntimeVersion,
 		Resources: s.Resources,
 		Args: []string{
-			"--http_port " + ONNXServingRestPort,
-			"--grpc_port " + ONNXServingGRPCPort,
-		},
-		Env: []v1.EnvVar{
-			v1.EnvVar{
-				Name:  "MODEL_ABSOLUTE_PATH",
-				Value: constants.DefaultModelLocalMountPath + "/" + ONNXModelFileName,
-			},
+			"--model_path", constants.DefaultModelLocalMountPath + "/" + ONNXModelFileName,
+			"--http_port", ONNXServingRestPort,
+			"--grpc_port", ONNXServingGRPCPort,
 		},
 	}
 }
