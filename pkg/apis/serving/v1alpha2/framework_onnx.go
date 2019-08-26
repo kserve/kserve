@@ -26,6 +26,7 @@ var (
 	ONNXServingRestPort        = "8080"
 	ONNXServingGRPCPort        = "9000"
 	ONNXServingImageName       = "mcr.microsoft.com/onnxruntime/server"
+	ONNXModelFileName          = "model.onnx"
 	DefaultONNXRuntimeVersion  = "latest" // TODO: get a real version
 	AllowedONNXRuntimeVersions = []string{
 		"latest",
@@ -49,7 +50,12 @@ func (s *ONNXSpec) CreateModelServingContainer(modelName string, config *Framewo
 		Args: []string{
 			"--http_port " + ONNXServingRestPort,
 			"--grpc_port " + ONNXServingGRPCPort,
-			"--model_path " + constants.DefaultModelLocalMountPath,
+		},
+		Env: []v1.EnvVar{
+			v1.EnvVar{
+				Name:  "MODEL_ABSOLUTE_PATH",
+				Value: constants.DefaultModelLocalMountPath + "/" + ONNXModelFileName,
+			},
 		},
 	}
 }
