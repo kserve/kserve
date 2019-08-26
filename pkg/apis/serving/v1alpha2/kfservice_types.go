@@ -149,6 +149,7 @@ type StatusConfigurationSpec struct {
 
 // KFService is the Schema for the services API
 // +k8s:openapi-gen=true
+// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
 // +kubebuilder:printcolumn:name="URL",type="string",JSONPath=".status.url"
 // +kubebuilder:printcolumn:name="Default Traffic",type="integer",JSONPath=".status.default.traffic"
 // +kubebuilder:printcolumn:name="Canary Traffic",type="integer",JSONPath=".status.canary.traffic"
