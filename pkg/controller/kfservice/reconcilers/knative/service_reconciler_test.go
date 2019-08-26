@@ -38,7 +38,7 @@ import (
 
 const timeout = time.Second * 5
 
-func TestKnativeServiceReconcile(t *testing.T) {
+func TestKnativeConfigurationReconcile(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	mgr, err := manager.New(cfg, manager.Options{})
@@ -51,13 +51,13 @@ func TestKnativeServiceReconcile(t *testing.T) {
 		mgrStopped.Wait()
 	}()
 
-	serviceReconciler := NewServiceReconciler(c, mgr.GetScheme(), &v1.ConfigMap{})
+	configurationReconciler := NewServiceReconciler(c, mgr.GetScheme(), &v1.ConfigMap{})
 	scenarios := map[string]struct {
 		kfsvc          v1alpha2.KFService
-		desiredDefault *knservingv1alpha1.Service
-		desiredCanary  *knservingv1alpha1.Service
+		desiredDefault *knservingv1alpha1.Configuration
+		desiredCanary  *knservingv1alpha1.Configuration
 	}{
-		"Reconcile creates default and canary service": {
+		"Reconcile creates default and canary configurations": {
 			kfsvc: v1alpha2.KFService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "mnist",
@@ -82,36 +82,34 @@ func TestKnativeServiceReconcile(t *testing.T) {
 					},
 				},
 			},
-			desiredDefault: &knservingv1alpha1.Service{
+			desiredDefault: &knservingv1alpha1.Configuration{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      constants.DefaultPredictorServiceName("mnist"),
+					Name:      "mnist-default",
 					Namespace: "default",
 				},
-				Spec: knservingv1alpha1.ServiceSpec{
-					ConfigurationSpec: knservingv1alpha1.ConfigurationSpec{
-						Template: &knservingv1alpha1.RevisionTemplateSpec{
-							ObjectMeta: metav1.ObjectMeta{
-								Labels: map[string]string{"serving.kubeflow.org/kfservice": "mnist"},
-								Annotations: map[string]string{
-									"autoscaling.knative.dev/class":                             "kpa.autoscaling.knative.dev",
-									"autoscaling.knative.dev/target":                            "1",
-									"internal.serving.kubeflow.org/model-initializer-sourceuri": "gs://testuri",
-								},
+				Spec: knservingv1alpha1.ConfigurationSpec{
+					Template: &knservingv1alpha1.RevisionTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: map[string]string{"serving.kubeflow.org/kfservice": "mnist"},
+							Annotations: map[string]string{
+								"autoscaling.knative.dev/class":                             "kpa.autoscaling.knative.dev",
+								"autoscaling.knative.dev/target":                            "1",
+								"internal.serving.kubeflow.org/model-initializer-sourceuri": "gs://testuri",
 							},
-							Spec: knservingv1alpha1.RevisionSpec{
-								RevisionSpec: v1beta1.RevisionSpec{
-									TimeoutSeconds: &constants.DefaultTimeout,
-									PodSpec: v1.PodSpec{
-										Containers: []v1.Container{
-											{
-												Image:   v1alpha2.TensorflowServingImageName + ":" + v1alpha2.DefaultTensorflowRuntimeVersion,
-												Command: []string{v1alpha2.TensorflowEntrypointCommand},
-												Args: []string{
-													"--port=" + v1alpha2.TensorflowServingGRPCPort,
-													"--rest_api_port=" + v1alpha2.TensorflowServingRestPort,
-													"--model_name=mnist",
-													"--model_base_path=" + constants.DefaultModelLocalMountPath,
-												},
+						},
+						Spec: knservingv1alpha1.RevisionSpec{
+							RevisionSpec: v1beta1.RevisionSpec{
+								TimeoutSeconds: &constants.DefaultTimeout,
+								PodSpec: v1.PodSpec{
+									Containers: []v1.Container{
+										{
+											Image:   v1alpha2.TensorflowServingImageName + ":" + v1alpha2.DefaultTensorflowRuntimeVersion,
+											Command: []string{v1alpha2.TensorflowEntrypointCommand},
+											Args: []string{
+												"--port=" + v1alpha2.TensorflowServingGRPCPort,
+												"--rest_api_port=" + v1alpha2.TensorflowServingRestPort,
+												"--model_name=mnist",
+												"--model_base_path=" + constants.DefaultModelLocalMountPath,
 											},
 										},
 									},
@@ -121,36 +119,34 @@ func TestKnativeServiceReconcile(t *testing.T) {
 					},
 				},
 			},
-			desiredCanary: &knservingv1alpha1.Service{
+			desiredCanary: &knservingv1alpha1.Configuration{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      constants.CanaryPredictorServiceName("mnist"),
+					Name:      "mnist-canary",
 					Namespace: "default",
 				},
-				Spec: knservingv1alpha1.ServiceSpec{
-					ConfigurationSpec: knservingv1alpha1.ConfigurationSpec{
-						Template: &knservingv1alpha1.RevisionTemplateSpec{
-							ObjectMeta: metav1.ObjectMeta{
-								Labels: map[string]string{"serving.kubeflow.org/kfservice": "mnist"},
-								Annotations: map[string]string{
-									"autoscaling.knative.dev/class":                             "kpa.autoscaling.knative.dev",
-									"autoscaling.knative.dev/target":                            "1",
-									"internal.serving.kubeflow.org/model-initializer-sourceuri": "gs://testuri2",
-								},
+				Spec: knservingv1alpha1.ConfigurationSpec{
+					Template: &knservingv1alpha1.RevisionTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: map[string]string{"serving.kubeflow.org/kfservice": "mnist"},
+							Annotations: map[string]string{
+								"autoscaling.knative.dev/class":                             "kpa.autoscaling.knative.dev",
+								"autoscaling.knative.dev/target":                            "1",
+								"internal.serving.kubeflow.org/model-initializer-sourceuri": "gs://testuri2",
 							},
-							Spec: knservingv1alpha1.RevisionSpec{
-								RevisionSpec: v1beta1.RevisionSpec{
-									TimeoutSeconds: &constants.DefaultTimeout,
-									PodSpec: v1.PodSpec{
-										Containers: []v1.Container{
-											{
-												Image:   v1alpha2.TensorflowServingImageName + ":" + v1alpha2.DefaultTensorflowRuntimeVersion,
-												Command: []string{v1alpha2.TensorflowEntrypointCommand},
-												Args: []string{
-													"--port=" + v1alpha2.TensorflowServingGRPCPort,
-													"--rest_api_port=" + v1alpha2.TensorflowServingRestPort,
-													"--model_name=mnist",
-													"--model_base_path=" + constants.DefaultModelLocalMountPath,
-												},
+						},
+						Spec: knservingv1alpha1.RevisionSpec{
+							RevisionSpec: v1beta1.RevisionSpec{
+								TimeoutSeconds: &constants.DefaultTimeout,
+								PodSpec: v1.PodSpec{
+									Containers: []v1.Container{
+										{
+											Image:   v1alpha2.TensorflowServingImageName + ":" + v1alpha2.DefaultTensorflowRuntimeVersion,
+											Command: []string{v1alpha2.TensorflowEntrypointCommand},
+											Args: []string{
+												"--port=" + v1alpha2.TensorflowServingGRPCPort,
+												"--rest_api_port=" + v1alpha2.TensorflowServingRestPort,
+												"--model_name=mnist",
+												"--model_base_path=" + constants.DefaultModelLocalMountPath,
 											},
 										},
 									},
@@ -178,36 +174,34 @@ func TestKnativeServiceReconcile(t *testing.T) {
 					},
 				},
 			},
-			desiredDefault: &knservingv1alpha1.Service{
+			desiredDefault: &knservingv1alpha1.Configuration{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      constants.DefaultPredictorServiceName("mnist"),
+					Name:      "mnist-default",
 					Namespace: "default",
 				},
-				Spec: knservingv1alpha1.ServiceSpec{
-					ConfigurationSpec: knservingv1alpha1.ConfigurationSpec{
-						Template: &knservingv1alpha1.RevisionTemplateSpec{
-							ObjectMeta: metav1.ObjectMeta{
-								Labels: map[string]string{"serving.kubeflow.org/kfservice": "mnist"},
-								Annotations: map[string]string{
-									"autoscaling.knative.dev/class":                             "kpa.autoscaling.knative.dev",
-									"autoscaling.knative.dev/target":                            "1",
-									"internal.serving.kubeflow.org/model-initializer-sourceuri": "gs://testuri",
-								},
+				Spec: knservingv1alpha1.ConfigurationSpec{
+					Template: &knservingv1alpha1.RevisionTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: map[string]string{"serving.kubeflow.org/kfservice": "mnist"},
+							Annotations: map[string]string{
+								"autoscaling.knative.dev/class":                             "kpa.autoscaling.knative.dev",
+								"autoscaling.knative.dev/target":                            "1",
+								"internal.serving.kubeflow.org/model-initializer-sourceuri": "gs://testuri",
 							},
-							Spec: knservingv1alpha1.RevisionSpec{
-								RevisionSpec: v1beta1.RevisionSpec{
-									TimeoutSeconds: &constants.DefaultTimeout,
-									PodSpec: v1.PodSpec{
-										Containers: []v1.Container{
-											{
-												Image:   v1alpha2.TensorflowServingImageName + ":" + v1alpha2.DefaultTensorflowRuntimeVersion,
-												Command: []string{v1alpha2.TensorflowEntrypointCommand},
-												Args: []string{
-													"--port=" + v1alpha2.TensorflowServingGRPCPort,
-													"--rest_api_port=" + v1alpha2.TensorflowServingRestPort,
-													"--model_name=mnist",
-													"--model_base_path=" + constants.DefaultModelLocalMountPath,
-												},
+						},
+						Spec: knservingv1alpha1.RevisionSpec{
+							RevisionSpec: v1beta1.RevisionSpec{
+								TimeoutSeconds: &constants.DefaultTimeout,
+								PodSpec: v1.PodSpec{
+									Containers: []v1.Container{
+										{
+											Image:   v1alpha2.TensorflowServingImageName + ":" + v1alpha2.DefaultTensorflowRuntimeVersion,
+											Command: []string{v1alpha2.TensorflowEntrypointCommand},
+											Args: []string{
+												"--port=" + v1alpha2.TensorflowServingGRPCPort,
+												"--rest_api_port=" + v1alpha2.TensorflowServingRestPort,
+												"--model_name=mnist",
+												"--model_base_path=" + constants.DefaultModelLocalMountPath,
 											},
 										},
 									},
@@ -224,7 +218,7 @@ func TestKnativeServiceReconcile(t *testing.T) {
 		t.Logf("Scenario: %s", name)
 		g.Expect(c.Create(context.TODO(), &scenario.kfsvc)).NotTo(gomega.HaveOccurred())
 
-		if err := serviceReconciler.Reconcile(&scenario.kfsvc); err != nil {
+		if err := configurationReconciler.Reconcile(&scenario.kfsvc); err != nil {
 			t.Errorf("Test %q failed: returned error: %v", name, err)
 		}
 
@@ -235,22 +229,22 @@ func TestKnativeServiceReconcile(t *testing.T) {
 	}
 }
 
-func awaitDesired(c client.Client, desired *knservingv1alpha1.Service) error {
+func awaitDesired(c client.Client, desired *knservingv1alpha1.Configuration) error {
 	if desired == nil {
 		return nil
 	}
-	actual := knservingv1alpha1.Service{}
+	actual := knservingv1alpha1.Configuration{}
 	if err := c.Get(context.TODO(), types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, &actual); err != nil {
 		return err
 	}
 	if diff := cmp.Diff(desired.Spec, actual.Spec); diff != "" {
-		return fmt.Errorf("Unexpected service spec (-want +got): %v", diff)
+		return fmt.Errorf("Unexpected configuration spec (-want +got): %v", diff)
 	}
 	if diff := cmp.Diff(desired.ObjectMeta.Labels, actual.ObjectMeta.Labels); diff != "" {
-		return fmt.Errorf("Unexpected service labels (-want +got): %v", diff)
+		return fmt.Errorf("Unexpected configuration labels (-want +got): %v", diff)
 	}
 	if diff := cmp.Diff(desired.ObjectMeta.Annotations, actual.ObjectMeta.Annotations); diff != "" {
-		return fmt.Errorf("Unexpected service annotations (-want +got): %v", diff)
+		return fmt.Errorf("Unexpected configuration annotations (-want +got): %v", diff)
 	}
 	return nil
 }
