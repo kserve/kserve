@@ -40,21 +40,21 @@ import (
 
 var log = logf.Log.WithName("Reconciler")
 
-type ConfigurationReconciler struct {
-	client               client.Client
-	scheme               *runtime.Scheme
-	configurationBuilder *knative.ConfigurationBuilder
+type ServiceReconciler struct {
+	client         client.Client
+	scheme         *runtime.Scheme
+	serviceBuilder *knative.ServiceBuilder
 }
 
-func NewConfigurationReconciler(client client.Client, scheme *runtime.Scheme, config *v1.ConfigMap) *ConfigurationReconciler {
-	return &ConfigurationReconciler{
-		client:               client,
-		scheme:               scheme,
-		configurationBuilder: knative.NewConfigurationBuilder(client, config),
+func NewServiceReconciler(client client.Client, scheme *runtime.Scheme, config *v1.ConfigMap) *ServiceReconciler {
+	return &ServiceReconciler{
+		client:         client,
+		scheme:         scheme,
+		serviceBuilder: knative.NewServiceBuilder(client, config),
 	}
 }
 
-func (r *ConfigurationReconciler) Reconcile(kfsvc *v1alpha2.KFService) error {
+func (r *ServiceReconciler) Reconcile(kfsvc *v1alpha2.KFService) error {
 	if err := r.reconcileDefault(kfsvc); err != nil {
 		return err
 	}
@@ -64,9 +64,9 @@ func (r *ConfigurationReconciler) Reconcile(kfsvc *v1alpha2.KFService) error {
 	return nil
 }
 
-func (r *ConfigurationReconciler) reconcileDefault(kfsvc *v1alpha2.KFService) error {
-	defaultConfiguration, err := r.configurationBuilder.CreateKnativeConfiguration(
-		constants.DefaultConfigurationName(kfsvc.Name),
+func (r *ServiceReconciler) reconcileDefault(kfsvc *v1alpha2.KFService) error {
+	defaultConfiguration, err := r.serviceBuilder.CreateKnativeService(
+		constants.DefaultServiceName(kfsvc.Name),
 		kfsvc.ObjectMeta,
 		&kfsvc.Spec.Default.Predictor,
 	)
@@ -74,7 +74,7 @@ func (r *ConfigurationReconciler) reconcileDefault(kfsvc *v1alpha2.KFService) er
 		return err
 	}
 
-	status, err := r.reconcileConfiguration(kfsvc, defaultConfiguration)
+	status, err := r.reconcileService(kfsvc, defaultConfiguration)
 	if err != nil {
 		return err
 	}
@@ -83,7 +83,7 @@ func (r *ConfigurationReconciler) reconcileDefault(kfsvc *v1alpha2.KFService) er
 	return nil
 }
 
-func (r *ConfigurationReconciler) reconcileCanary(kfsvc *v1alpha2.KFService) error {
+func (r *ServiceReconciler) reconcileCanary(kfsvc *v1alpha2.KFService) error {
 	if kfsvc.Spec.Canary == nil {
 		if err := r.finalizeConfiguration(kfsvc); err != nil {
 			return err
@@ -92,8 +92,8 @@ func (r *ConfigurationReconciler) reconcileCanary(kfsvc *v1alpha2.KFService) err
 		return nil
 	}
 
-	canaryConfiguration, err := r.configurationBuilder.CreateKnativeConfiguration(
-		constants.CanaryConfigurationName(kfsvc.Name),
+	canaryConfiguration, err := r.serviceBuilder.CreateKnativeService(
+		constants.CanaryServiceName(kfsvc.Name),
 		kfsvc.ObjectMeta,
 		&kfsvc.Spec.Canary.Predictor,
 	)
@@ -101,7 +101,7 @@ func (r *ConfigurationReconciler) reconcileCanary(kfsvc *v1alpha2.KFService) err
 		return err
 	}
 
-	status, err := r.reconcileConfiguration(kfsvc, canaryConfiguration)
+	status, err := r.reconcileService(kfsvc, canaryConfiguration)
 	if err != nil {
 		return err
 	}
@@ -110,8 +110,8 @@ func (r *ConfigurationReconciler) reconcileCanary(kfsvc *v1alpha2.KFService) err
 	return nil
 }
 
-func (r *ConfigurationReconciler) finalizeConfiguration(kfsvc *v1alpha2.KFService) error {
-	canaryConfigurationName := constants.CanaryConfigurationName(kfsvc.Name)
+func (r *ServiceReconciler) finalizeConfiguration(kfsvc *v1alpha2.KFService) error {
+	canaryConfigurationName := constants.CanaryServiceName(kfsvc.Name)
 	existing := &knservingv1alpha1.Configuration{}
 	if err := r.client.Get(context.TODO(), types.NamespacedName{Name: canaryConfigurationName, Namespace: kfsvc.Namespace}, existing); err != nil {
 		if !errors.IsNotFound(err) {
@@ -128,16 +128,16 @@ func (r *ConfigurationReconciler) finalizeConfiguration(kfsvc *v1alpha2.KFServic
 	return nil
 }
 
-func (r *ConfigurationReconciler) reconcileConfiguration(kfsvc *v1alpha2.KFService, desired *knservingv1alpha1.Configuration) (*knservingv1alpha1.ConfigurationStatus, error) {
+func (r *ServiceReconciler) reconcileService(kfsvc *v1alpha2.KFService, desired *knservingv1alpha1.Service) (*knservingv1alpha1.ServiceStatus, error) {
 	if err := controllerutil.SetControllerReference(kfsvc, desired, r.scheme); err != nil {
 		return nil, err
 	}
-	// Create configuration if does not exist
-	existing := &knservingv1alpha1.Configuration{}
+	// Create service if does not exist
+	existing := &knservingv1alpha1.Service{}
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, existing)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			log.Info("Creating Knative Serving configuration", "namespace", desired.Namespace, "name", desired.Name)
+			log.Info("Creating Knative Service", "namespace", desired.Namespace, "name", desired.Name)
 			return &desired.Status, r.client.Create(context.TODO(), desired)
 		}
 		return nil, err
@@ -153,8 +153,8 @@ func (r *ConfigurationReconciler) reconcileConfiguration(kfsvc *v1alpha2.KFServi
 	if err != nil {
 		return &existing.Status, fmt.Errorf("failed to diff configuration: %v", err)
 	}
-	log.Info("Reconciling configuration diff (-desired, +observed):", "diff", diff)
-	log.Info("Updating configuration", "namespace", desired.Namespace, "name", desired.Name)
+	log.Info("Reconciling service diff (-desired, +observed):", "diff", diff)
+	log.Info("Updating service", "namespace", desired.Namespace, "name", desired.Name)
 	existing.Spec = desired.Spec
 	existing.ObjectMeta.Labels = desired.ObjectMeta.Labels
 	existing.ObjectMeta.Annotations = desired.ObjectMeta.Annotations
@@ -165,8 +165,8 @@ func (r *ConfigurationReconciler) reconcileConfiguration(kfsvc *v1alpha2.KFServi
 	return &existing.Status, nil
 }
 
-func semanticEquals(desiredConfiguration, configuration *knservingv1alpha1.Configuration) bool {
-	return equality.Semantic.DeepEqual(desiredConfiguration.Spec, configuration.Spec) &&
-		equality.Semantic.DeepEqual(desiredConfiguration.ObjectMeta.Labels, configuration.ObjectMeta.Labels) &&
-		equality.Semantic.DeepEqual(desiredConfiguration.ObjectMeta.Annotations, configuration.ObjectMeta.Annotations)
+func semanticEquals(desiredService, service *knservingv1alpha1.Service) bool {
+	return equality.Semantic.DeepEqual(desiredService.Spec, service.Spec) &&
+		equality.Semantic.DeepEqual(desiredService.ObjectMeta.Labels, service.ObjectMeta.Labels) &&
+		equality.Semantic.DeepEqual(desiredService.ObjectMeta.Annotations, service.ObjectMeta.Annotations)
 }

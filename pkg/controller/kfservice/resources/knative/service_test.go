@@ -69,7 +69,7 @@ var configMapData = map[string]string{
 
 var defaultConfiguration = &knservingv1alpha1.Configuration{
 	ObjectMeta: metav1.ObjectMeta{
-		Name:      constants.DefaultConfigurationName("mnist"),
+		Name:      constants.DefaultServiceName("mnist"),
 		Namespace: "default",
 	},
 	Spec: knservingv1alpha1.ConfigurationSpec{
@@ -111,7 +111,7 @@ var defaultConfiguration = &knservingv1alpha1.Configuration{
 
 var canaryConfiguration = &knservingv1alpha1.Configuration{
 	ObjectMeta: metav1.ObjectMeta{
-		Name:      constants.CanaryConfigurationName("mnist"),
+		Name:      constants.CanaryServiceName("mnist"),
 		Namespace: "default",
 	},
 	Spec: knservingv1alpha1.ConfigurationSpec{
@@ -227,7 +227,7 @@ func TestKnativeConfiguration(t *testing.T) {
 			},
 			expectedDefault: &knservingv1alpha1.Configuration{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      constants.DefaultConfigurationName("sklearn"),
+					Name:      constants.DefaultServiceName("sklearn"),
 					Namespace: "default",
 				},
 				Spec: knservingv1alpha1.ConfigurationSpec{
@@ -279,7 +279,7 @@ func TestKnativeConfiguration(t *testing.T) {
 			},
 			expectedDefault: &knservingv1alpha1.Configuration{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      constants.DefaultConfigurationName("xgboost"),
+					Name:      constants.DefaultServiceName("xgboost"),
 					Namespace: "default",
 				},
 				Spec: knservingv1alpha1.ConfigurationSpec{
@@ -332,7 +332,7 @@ func TestKnativeConfiguration(t *testing.T) {
 			},
 			expectedDefault: &knservingv1alpha1.Configuration{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      constants.DefaultConfigurationName("xgboost"),
+					Name:      constants.DefaultServiceName("xgboost"),
 					Namespace: "default",
 				},
 				Spec: knservingv1alpha1.ConfigurationSpec{
@@ -395,7 +395,7 @@ func TestKnativeConfiguration(t *testing.T) {
 			},
 			expectedDefault: &knservingv1alpha1.Configuration{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      constants.DefaultConfigurationName("sklearn"),
+					Name:      constants.DefaultServiceName("sklearn"),
 					Namespace: "default",
 				},
 				Spec: knservingv1alpha1.ConfigurationSpec{
@@ -434,11 +434,11 @@ func TestKnativeConfiguration(t *testing.T) {
 	}
 
 	for name, scenario := range scenarios {
-		configurationBuilder := NewConfigurationBuilder(c, &v1.ConfigMap{
+		serviceBuilder := NewServiceBuilder(c, &v1.ConfigMap{
 			Data: scenario.configMapData,
 		})
-		actualDefaultConfiguration, err := configurationBuilder.CreateKnativeConfiguration(
-			constants.DefaultConfigurationName(scenario.kfService.Name),
+		actualDefaultService, err := serviceBuilder.CreateKnativeService(
+			constants.DefaultServiceName(scenario.kfService.Name),
 			scenario.kfService.ObjectMeta,
 			&scenario.kfService.Spec.Default.Predictor,
 		)
@@ -446,13 +446,13 @@ func TestKnativeConfiguration(t *testing.T) {
 			t.Errorf("Test %q unexpected error %s", name, err.Error())
 		}
 
-		if diff := cmp.Diff(scenario.expectedDefault, actualDefaultConfiguration); diff != "" {
+		if diff := cmp.Diff(scenario.expectedDefault, actualDefaultService); diff != "" {
 			t.Errorf("Test %q unexpected default configuration (-want +got): %v", name, diff)
 		}
 
 		if scenario.kfService.Spec.Canary != nil {
-			actualCanaryConfiguration, err := configurationBuilder.CreateKnativeConfiguration(
-				constants.CanaryConfigurationName(kfsvc.Name),
+			actualCanaryConfiguration, err := serviceBuilder.CreateKnativeService(
+				constants.CanaryServiceName(kfsvc.Name),
 				scenario.kfService.ObjectMeta,
 				&scenario.kfService.Spec.Canary.Predictor,
 			)

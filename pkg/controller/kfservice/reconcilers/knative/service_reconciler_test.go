@@ -51,7 +51,7 @@ func TestKnativeConfigurationReconcile(t *testing.T) {
 		mgrStopped.Wait()
 	}()
 
-	configurationReconciler := NewConfigurationReconciler(c, mgr.GetScheme(), &v1.ConfigMap{})
+	configurationReconciler := NewServiceReconciler(c, mgr.GetScheme(), &v1.ConfigMap{})
 	scenarios := map[string]struct {
 		kfsvc          v1alpha2.KFService
 		desiredDefault *knservingv1alpha1.Configuration

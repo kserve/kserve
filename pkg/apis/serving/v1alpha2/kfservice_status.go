@@ -55,9 +55,9 @@ func (ss *KFServiceStatus) GetCondition(t apis.ConditionType) *apis.Condition {
 
 // PropagateDefaultConfigurationStatus propagates the default Configuration status and applies its values
 // to the Service status.
-func (ss *KFServiceStatus) PropagateDefaultConfigurationStatus(defaultConfigurationStatus *knservingv1alpha1.ConfigurationStatus) {
-	ss.Default.Name = defaultConfigurationStatus.LatestCreatedRevisionName
-	configurationCondition := defaultConfigurationStatus.GetCondition(knservingv1alpha1.ConfigurationConditionReady)
+func (ss *KFServiceStatus) PropagateDefaultConfigurationStatus(defaultStatus *knservingv1alpha1.ServiceStatus) {
+	ss.Default.Name = defaultStatus.LatestCreatedRevisionName
+	configurationCondition := defaultStatus.GetCondition(knservingv1alpha1.ConfigurationConditionReady)
 
 	switch {
 	case configurationCondition == nil:
@@ -72,15 +72,15 @@ func (ss *KFServiceStatus) PropagateDefaultConfigurationStatus(defaultConfigurat
 
 // PropagateCanaryConfigurationStatus propagates the canary Configuration status and applies its values
 // to the Service status.
-func (ss *KFServiceStatus) PropagateCanaryConfigurationStatus(canaryConfigurationStatus *knservingv1alpha1.ConfigurationStatus) {
+func (ss *KFServiceStatus) PropagateCanaryConfigurationStatus(canaryStatus *knservingv1alpha1.ServiceStatus) {
 	// reset status if canaryConfigurationStatus is nil
-	if canaryConfigurationStatus == nil {
+	if canaryStatus == nil {
 		ss.Canary = StatusConfigurationSpec{}
 		conditionSet.Manage(ss).ClearCondition(CanaryPredictorReady)
 		return
 	}
-	ss.Canary.Name = canaryConfigurationStatus.LatestCreatedRevisionName
-	configurationCondition := canaryConfigurationStatus.GetCondition(knservingv1alpha1.ConfigurationConditionReady)
+	ss.Canary.Name = canaryStatus.LatestCreatedRevisionName
+	configurationCondition := canaryStatus.GetCondition(knservingv1alpha1.ConfigurationConditionReady)
 
 	switch {
 	case configurationCondition == nil:

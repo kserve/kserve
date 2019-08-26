@@ -46,7 +46,7 @@ func (r *RouteBuilder) CreateKnativeRoute(kfsvc *v1alpha2.KFService) *knservingv
 	trafficTargets := []knservingv1alpha1.TrafficTarget{
 		{
 			TrafficTarget: v1beta1.TrafficTarget{
-				ConfigurationName: constants.DefaultConfigurationName(kfsvc.Name),
+				ConfigurationName: constants.DefaultServiceName(kfsvc.Name),
 				Percent:           defaultPercent,
 			},
 		},
@@ -54,7 +54,7 @@ func (r *RouteBuilder) CreateKnativeRoute(kfsvc *v1alpha2.KFService) *knservingv
 	if kfsvc.Spec.Canary != nil {
 		trafficTargets = append(trafficTargets, knservingv1alpha1.TrafficTarget{
 			TrafficTarget: v1beta1.TrafficTarget{
-				ConfigurationName: constants.CanaryConfigurationName(kfsvc.Name),
+				ConfigurationName: constants.CanaryServiceName(kfsvc.Name),
 				Percent:           canaryPercent,
 			},
 		})

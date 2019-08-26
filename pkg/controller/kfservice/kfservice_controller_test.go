@@ -47,14 +47,14 @@ const timeout = time.Second * 10
 
 var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: "foo", Namespace: "default"}}
 var serviceKey = expectedRequest.NamespacedName
-var configurationKey = types.NamespacedName{Name: constants.DefaultConfigurationName(serviceKey.Name),
+var configurationKey = types.NamespacedName{Name: constants.DefaultServiceName(serviceKey.Name),
 	Namespace: serviceKey.Namespace}
 
 var expectedCanaryRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: "bar", Namespace: "default"}}
 var canaryServiceKey = expectedCanaryRequest.NamespacedName
-var defaultConfigurationKey = types.NamespacedName{Name: constants.DefaultConfigurationName(canaryServiceKey.Name),
+var defaultConfigurationKey = types.NamespacedName{Name: constants.DefaultServiceName(canaryServiceKey.Name),
 	Namespace: canaryServiceKey.Namespace}
-var canaryConfigurationKey = types.NamespacedName{Name: constants.CanaryConfigurationName(canaryServiceKey.Name),
+var canaryConfigurationKey = types.NamespacedName{Name: constants.CanaryServiceName(canaryServiceKey.Name),
 	Namespace: canaryServiceKey.Namespace}
 
 var instance = &kfserving.KFService{
@@ -174,7 +174,7 @@ func TestReconcile(t *testing.T) {
 		Should(gomega.Succeed())
 	expectedConfiguration := &knservingv1alpha1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      constants.DefaultConfigurationName(defaultInstance.Name),
+			Name:      constants.DefaultServiceName(defaultInstance.Name),
 			Namespace: defaultInstance.Namespace,
 		},
 		Spec: knservingv1alpha1.ConfigurationSpec{
@@ -367,13 +367,13 @@ func TestCanaryReconcile(t *testing.T) {
 			Traffic: []knservingv1alpha1.TrafficTarget{
 				{
 					TrafficTarget: v1beta1.TrafficTarget{
-						ConfigurationName: constants.DefaultConfigurationName(canary.Name),
+						ConfigurationName: constants.DefaultServiceName(canary.Name),
 						Percent:           80,
 					},
 				},
 				{
 					TrafficTarget: v1beta1.TrafficTarget{
-						ConfigurationName: constants.CanaryConfigurationName(canary.Name),
+						ConfigurationName: constants.CanaryServiceName(canary.Name),
 						Percent:           20,
 					},
 				},

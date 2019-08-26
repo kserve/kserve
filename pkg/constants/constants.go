@@ -89,10 +89,10 @@ func getEnvOrDefault(key string, fallback string) string {
 	return fallback
 }
 
-func DefaultConfigurationName(name string) string {
+func DefaultServiceName(name string) string {
 	return name + "-default"
 }
 
-func CanaryConfigurationName(name string) string {
+func CanaryServiceName(name string) string {
 	return name + "-canary"
 }

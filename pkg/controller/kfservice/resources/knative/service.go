@@ -44,12 +44,12 @@ var configurationAnnotationDisallowedList = []string{
 	"kubectl.kubernetes.io/last-applied-configuration",
 }
 
-type ConfigurationBuilder struct {
+type ServiceBuilder struct {
 	frameworksConfig  *v1alpha2.FrameworksConfig
 	credentialBuilder *credentials.CredentialBuilder
 }
 
-func NewConfigurationBuilder(client client.Client, config *v1.ConfigMap) *ConfigurationBuilder {
+func NewServiceBuilder(client client.Client, config *v1.ConfigMap) *ServiceBuilder {
 	frameworkConfig := &v1alpha2.FrameworksConfig{}
 	if fmks, ok := config.Data[FrameworkConfigKeyName]; ok {
 		err := json.Unmarshal([]byte(fmks), &frameworkConfig)
@@ -58,13 +58,13 @@ func NewConfigurationBuilder(client client.Client, config *v1.ConfigMap) *Config
 		}
 	}
 
-	return &ConfigurationBuilder{
+	return &ServiceBuilder{
 		frameworksConfig:  frameworkConfig,
 		credentialBuilder: credentials.NewCredentialBulder(client, config),
 	}
 }
 
-func (c *ConfigurationBuilder) CreateKnativeConfiguration(name string, metadata metav1.ObjectMeta, predictorSpec *v1alpha2.PredictorSpec) (*knservingv1alpha1.Configuration, error) {
+func (c *ServiceBuilder) CreateKnativeService(name string, metadata metav1.ObjectMeta, predictorSpec *v1alpha2.PredictorSpec) (*knservingv1alpha1.Service, error) {
 	annotations := utils.Filter(metadata.Annotations, func(key string) bool {
 		return !utils.Includes(configurationAnnotationDisallowedList, key)
 	})
@@ -91,29 +91,31 @@ func (c *ConfigurationBuilder) CreateKnativeConfiguration(name string, metadata 
 		annotations[constants.ModelInitializerSourceUriInternalAnnotationKey] = sourceURI
 	}
 
-	configuration := &knservingv1alpha1.Configuration{
+	service := &knservingv1alpha1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: metadata.Namespace,
 			Labels:    metadata.Labels,
 		},
-		Spec: knservingv1alpha1.ConfigurationSpec{
-			Template: &knservingv1alpha1.RevisionTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: utils.Union(metadata.Labels, map[string]string{
-						constants.KFServicePodLabelKey: metadata.Name,
-					}),
-					Annotations: annotations,
-				},
-				Spec: knservingv1alpha1.RevisionSpec{
-					RevisionSpec: v1beta1.RevisionSpec{
-						// Defaulting here since this always shows a diff with nil vs 300s(knative default)
-						// we may need to expose this field in future
-						TimeoutSeconds: &constants.DefaultTimeout,
-						PodSpec: v1.PodSpec{
-							ServiceAccountName: predictorSpec.ServiceAccountName,
-							Containers: []v1.Container{
-								*predictorSpec.CreateModelServingContainer(metadata.Name, c.frameworksConfig),
+		Spec: knservingv1alpha1.ServiceSpec{
+			ConfigurationSpec: knservingv1alpha1.ConfigurationSpec{
+				Template: &knservingv1alpha1.RevisionTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Labels: utils.Union(metadata.Labels, map[string]string{
+							constants.KFServicePodLabelKey: metadata.Name,
+						}),
+						Annotations: annotations,
+					},
+					Spec: knservingv1alpha1.RevisionSpec{
+						RevisionSpec: v1beta1.RevisionSpec{
+							// Defaulting here since this always shows a diff with nil vs 300s(knative default)
+							// we may need to expose this field in future
+							TimeoutSeconds: &constants.DefaultTimeout,
+							PodSpec: v1.PodSpec{
+								ServiceAccountName: predictorSpec.ServiceAccountName,
+								Containers: []v1.Container{
+									*predictorSpec.CreateModelServingContainer(metadata.Name, c.frameworksConfig),
+								},
 							},
 						},
 					},
@@ -125,11 +127,11 @@ func (c *ConfigurationBuilder) CreateKnativeConfiguration(name string, metadata 
 	if err := c.credentialBuilder.CreateSecretVolumeAndEnv(
 		metadata.Namespace,
 		predictorSpec.ServiceAccountName,
-		&configuration.Spec.Template.Spec.Containers[0],
-		&configuration.Spec.Template.Spec.Volumes,
+		&service.Spec.Template.Spec.Containers[0],
+		&service.Spec.Template.Spec.Volumes,
 	); err != nil {
 		return nil, err
 	}
 
-	return configuration, nil
+	return service, nil
 }
