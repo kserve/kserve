@@ -93,3 +93,20 @@ def test_set_credentials_gcp():
     created_secret_name = created_sa.secrets[0].name
     created_secret = get_created_secret(created_secret_name)
     assert created_secret.data[constants.GCS_CREDS_FILE_DEFAULT_NAME] == gcp_testing_creds
+
+
+def test_Azure_credentials_gcp():
+    '''Test Azure credentials creating'''
+    KFServing = KFServingClient()
+    sa_name = constants.DEFAULT_SA_NAME
+    KFServing.set_credentials(storage_type='Azure',
+                              namespace='kubeflow',
+                              credentials_file='./azure_credentials.json',
+                              sa_name=sa_name)
+    created_sa = get_created_sa(sa_name)
+    created_secret_name = created_sa.secrets[0].name
+    created_secret = get_created_secret(created_secret_name)
+    assert created_secret.data['AZ_CLIENT_ID'] == 'YTJhYjExYWYtMDFhYS00NzU5LTgzNDUtNzgwMzI4N2RiZD'
+    assert created_secret.data['AZ_CLIENT_SECRET'] == 'password'
+    assert created_secret.data['AZ_SUBSCRIPTION_ID'] == 'MzMzMzMzMzMtMzMzMy0zMzMzLTMzMzMtMzMzMzMz'
+    assert created_secret.data['AZ_TENANT_ID'] == 'QUJDREVGR0gtMTIzNC0xMjM0LTEyMzQtQUJDREVGR0hJSk'
