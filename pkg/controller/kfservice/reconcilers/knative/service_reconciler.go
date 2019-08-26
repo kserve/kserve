@@ -65,7 +65,7 @@ func (r *ServiceReconciler) Reconcile(kfsvc *v1alpha2.KFService) error {
 }
 
 func (r *ServiceReconciler) reconcileDefault(kfsvc *v1alpha2.KFService) error {
-	defaultConfiguration, err := r.serviceBuilder.CreateKnativeService(
+	defaultService, err := r.serviceBuilder.CreateKnativeService(
 		constants.DefaultServiceName(kfsvc.Name),
 		kfsvc.ObjectMeta,
 		&kfsvc.Spec.Default.Predictor,
@@ -74,12 +74,12 @@ func (r *ServiceReconciler) reconcileDefault(kfsvc *v1alpha2.KFService) error {
 		return err
 	}
 
-	status, err := r.reconcileService(kfsvc, defaultConfiguration)
+	status, err := r.reconcileService(kfsvc, defaultService)
 	if err != nil {
 		return err
 	}
 
-	kfsvc.Status.PropagateDefaultConfigurationStatus(status)
+	kfsvc.Status.PropagateDefaultPredictorStatus(status)
 	return nil
 }
 
@@ -88,11 +88,11 @@ func (r *ServiceReconciler) reconcileCanary(kfsvc *v1alpha2.KFService) error {
 		if err := r.finalizeConfiguration(kfsvc); err != nil {
 			return err
 		}
-		kfsvc.Status.PropagateCanaryConfigurationStatus(nil)
+		kfsvc.Status.PropagateCanaryPredictorStatus(nil)
 		return nil
 	}
 
-	canaryConfiguration, err := r.serviceBuilder.CreateKnativeService(
+	canaryService, err := r.serviceBuilder.CreateKnativeService(
 		constants.CanaryServiceName(kfsvc.Name),
 		kfsvc.ObjectMeta,
 		&kfsvc.Spec.Canary.Predictor,
@@ -101,12 +101,12 @@ func (r *ServiceReconciler) reconcileCanary(kfsvc *v1alpha2.KFService) error {
 		return err
 	}
 
-	status, err := r.reconcileService(kfsvc, canaryConfiguration)
+	status, err := r.reconcileService(kfsvc, canaryService)
 	if err != nil {
 		return err
 	}
 
-	kfsvc.Status.PropagateCanaryConfigurationStatus(status)
+	kfsvc.Status.PropagateCanaryPredictorStatus(status)
 	return nil
 }
 
@@ -151,7 +151,7 @@ func (r *ServiceReconciler) reconcileService(kfsvc *v1alpha2.KFService, desired 
 	// Reconcile differences and update
 	diff, err := kmp.SafeDiff(desired.Spec, existing.Spec)
 	if err != nil {
-		return &existing.Status, fmt.Errorf("failed to diff configuration: %v", err)
+		return &existing.Status, fmt.Errorf("failed to diff service: %v", err)
 	}
 	log.Info("Reconciling service diff (-desired, +observed):", "diff", diff)
 	log.Info("Updating service", "namespace", desired.Namespace, "name", desired.Name)
