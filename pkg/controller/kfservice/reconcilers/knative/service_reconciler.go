@@ -85,7 +85,7 @@ func (r *ServiceReconciler) reconcileDefault(kfsvc *v1alpha2.KFService) error {
 
 func (r *ServiceReconciler) reconcileCanary(kfsvc *v1alpha2.KFService) error {
 	if kfsvc.Spec.Canary == nil {
-		if err := r.finalizeConfiguration(kfsvc); err != nil {
+		if err := r.finalizeService(kfsvc); err != nil {
 			return err
 		}
 		kfsvc.Status.PropagateCanaryPredictorStatus(nil)
@@ -110,15 +110,15 @@ func (r *ServiceReconciler) reconcileCanary(kfsvc *v1alpha2.KFService) error {
 	return nil
 }
 
-func (r *ServiceReconciler) finalizeConfiguration(kfsvc *v1alpha2.KFService) error {
-	canaryConfigurationName := constants.CanaryServiceName(kfsvc.Name)
-	existing := &knservingv1alpha1.Configuration{}
-	if err := r.client.Get(context.TODO(), types.NamespacedName{Name: canaryConfigurationName, Namespace: kfsvc.Namespace}, existing); err != nil {
+func (r *ServiceReconciler) finalizeService(kfsvc *v1alpha2.KFService) error {
+	canaryServiceName := constants.CanaryServiceName(kfsvc.Name)
+	existing := &knservingv1alpha1.Service{}
+	if err := r.client.Get(context.TODO(), types.NamespacedName{Name: canaryServiceName, Namespace: kfsvc.Namespace}, existing); err != nil {
 		if !errors.IsNotFound(err) {
 			return err
 		}
 	} else {
-		log.Info("Deleting Knative Serving configuration", "namespace", kfsvc.Namespace, "name", canaryConfigurationName)
+		log.Info("Deleting Knative Service", "namespace", kfsvc.Namespace, "name", canaryServiceName)
 		if err := r.client.Delete(context.TODO(), existing, client.PropagationPolicy(metav1.DeletePropagationBackground)); err != nil {
 			if !errors.IsNotFound(err) {
 				return err

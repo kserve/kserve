@@ -244,13 +244,13 @@ func awaitDesired(c client.Client, desired *knservingv1alpha1.Service) error {
 		return err
 	}
 	if diff := cmp.Diff(desired.Spec, actual.Spec); diff != "" {
-		return fmt.Errorf("Unexpected configuration spec (-want +got): %v", diff)
+		return fmt.Errorf("Unexpected service spec (-want +got): %v", diff)
 	}
 	if diff := cmp.Diff(desired.ObjectMeta.Labels, actual.ObjectMeta.Labels); diff != "" {
-		return fmt.Errorf("Unexpected configuration labels (-want +got): %v", diff)
+		return fmt.Errorf("Unexpected service labels (-want +got): %v", diff)
 	}
 	if diff := cmp.Diff(desired.ObjectMeta.Annotations, actual.ObjectMeta.Annotations); diff != "" {
-		return fmt.Errorf("Unexpected configuration annotations (-want +got): %v", diff)
+		return fmt.Errorf("Unexpected service annotations (-want +got): %v", diff)
 	}
 	return nil
 }
