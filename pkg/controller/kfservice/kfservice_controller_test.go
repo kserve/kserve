@@ -487,6 +487,7 @@ func TestCanaryDelete(t *testing.T) {
 		Namespace: namespace}
 	var expectedCanaryRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: namespace}}
 	var canaryServiceKey = expectedCanaryRequest.NamespacedName
+
 	g := gomega.NewGomegaWithT(t)
 
 	mgr, err := manager.New(cfg, manager.Options{})
@@ -671,3 +672,4 @@ func TestCanaryDelete(t *testing.T) {
 		return &kfsvc.Status.Conditions
 	}, timeout).Should(testutils.BeSematicEqual(&expectedKfsvcStatus.Conditions))
 }
+
