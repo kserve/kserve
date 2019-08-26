@@ -53,26 +53,26 @@ func (ss *KFServiceStatus) GetCondition(t apis.ConditionType) *apis.Condition {
 	return conditionSet.Manage(ss).GetCondition(t)
 }
 
-// PropagateDefaultConfigurationStatus propagates the default Configuration status and applies its values
+// PropagateDefaultPredictorStatus propagates the default predictor status and applies its values
 // to the Service status.
-func (ss *KFServiceStatus) PropagateDefaultConfigurationStatus(defaultStatus *knservingv1alpha1.ServiceStatus) {
+func (ss *KFServiceStatus) PropagateDefaultPredictorStatus(defaultStatus *knservingv1alpha1.ServiceStatus) {
 	ss.Default.Name = defaultStatus.LatestCreatedRevisionName
-	configurationCondition := defaultStatus.GetCondition(knservingv1alpha1.ConfigurationConditionReady)
+	serviceCondition := defaultStatus.GetCondition(knservingv1alpha1.ServiceConditionReady)
 
 	switch {
-	case configurationCondition == nil:
-	case configurationCondition.Status == v1.ConditionUnknown:
-		conditionSet.Manage(ss).MarkUnknown(DefaultPredictorReady, configurationCondition.Reason, configurationCondition.Message)
-	case configurationCondition.Status == v1.ConditionTrue:
+	case serviceCondition == nil:
+	case serviceCondition.Status == v1.ConditionUnknown:
+		conditionSet.Manage(ss).MarkUnknown(DefaultPredictorReady, serviceCondition.Reason, serviceCondition.Message)
+	case serviceCondition.Status == v1.ConditionTrue:
 		conditionSet.Manage(ss).MarkTrue(DefaultPredictorReady)
-	case configurationCondition.Status == v1.ConditionFalse:
-		conditionSet.Manage(ss).MarkFalse(DefaultPredictorReady, configurationCondition.Reason, configurationCondition.Message)
+	case serviceCondition.Status == v1.ConditionFalse:
+		conditionSet.Manage(ss).MarkFalse(DefaultPredictorReady, serviceCondition.Reason, serviceCondition.Message)
 	}
 }
 
-// PropagateCanaryConfigurationStatus propagates the canary Configuration status and applies its values
+// PropagateCanaryPredictorStatus propagates the canary predictor status and applies its values
 // to the Service status.
-func (ss *KFServiceStatus) PropagateCanaryConfigurationStatus(canaryStatus *knservingv1alpha1.ServiceStatus) {
+func (ss *KFServiceStatus) PropagateCanaryPredictorStatus(canaryStatus *knservingv1alpha1.ServiceStatus) {
 	// reset status if canaryConfigurationStatus is nil
 	if canaryStatus == nil {
 		ss.Canary = StatusConfigurationSpec{}
@@ -80,16 +80,16 @@ func (ss *KFServiceStatus) PropagateCanaryConfigurationStatus(canaryStatus *knse
 		return
 	}
 	ss.Canary.Name = canaryStatus.LatestCreatedRevisionName
-	configurationCondition := canaryStatus.GetCondition(knservingv1alpha1.ConfigurationConditionReady)
+	serviceCondition := canaryStatus.GetCondition(knservingv1alpha1.ServiceConditionReady)
 
 	switch {
-	case configurationCondition == nil:
-	case configurationCondition.Status == v1.ConditionUnknown:
-		conditionSet.Manage(ss).MarkUnknown(CanaryPredictorReady, configurationCondition.Reason, configurationCondition.Message)
-	case configurationCondition.Status == v1.ConditionTrue:
+	case serviceCondition == nil:
+	case serviceCondition.Status == v1.ConditionUnknown:
+		conditionSet.Manage(ss).MarkUnknown(CanaryPredictorReady, serviceCondition.Reason, serviceCondition.Message)
+	case serviceCondition.Status == v1.ConditionTrue:
 		conditionSet.Manage(ss).MarkTrue(CanaryPredictorReady)
-	case configurationCondition.Status == v1.ConditionFalse:
-		conditionSet.Manage(ss).MarkFalse(CanaryPredictorReady, configurationCondition.Reason, configurationCondition.Message)
+	case serviceCondition.Status == v1.ConditionFalse:
+		conditionSet.Manage(ss).MarkFalse(CanaryPredictorReady, serviceCondition.Reason, serviceCondition.Message)
 	}
 }
 

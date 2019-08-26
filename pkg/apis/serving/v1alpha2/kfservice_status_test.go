@@ -196,8 +196,8 @@ func TestKFServiceIsReady(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			status := KFServiceStatus{}
-			status.PropagateDefaultConfigurationStatus(&tc.defaultServiceStatus)
-			status.PropagateCanaryConfigurationStatus(&tc.canaryServiceStatus)
+			status.PropagateDefaultPredictorStatus(&tc.defaultServiceStatus)
+			status.PropagateCanaryPredictorStatus(&tc.canaryServiceStatus)
 			status.PropagateRouteStatus(&tc.routeStatus)
 			if e, a := tc.isReady, status.IsReady(); e != a {
 				t.Errorf("%q expected: %v got: %v", tc.name, e, a)
