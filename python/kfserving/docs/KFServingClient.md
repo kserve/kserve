@@ -57,6 +57,16 @@ KFServing.set_credentials(storage_type='S3',
                           s3_verify_ssl='0')
 ```
 
+Example for creating Azure credentials.
+```python
+from kfserving import KFServingClient
+
+KFServing = KFServingClient()
+KFServing.set_credentials(storage_type='Azure',
+                          namespace='kubeflow',
+                          credentials_file='/path/azure_credentials.json')
+```
+
 The created or patched `Secret` and `Service Account` will be shown as following:
 ```
 INFO:kfserving.api.set_credentials:Created Secret: kfserving-secret-6tv6l in namespace kubeflow
@@ -66,9 +76,9 @@ INFO:kfserving.api.set_credentials:Created (or Patched) Service account: kfservi
 ### Parameters
 Name | Type | Storage Type | Description
 ------------ | ------------- | ------------- | -------------
-storage_type | str | All |Required. Valid values: GCS or S3 |
+storage_type | str | All |Required. Valid values: GCS, S3 or Azure |
 namespace | str | All |Optional. The kubernetes namespace. Defaults to current or default namespace.|
-credentials_file | str | All |Optional. The path for the GCS or S3 credentials file. The default file for GCS is `~/.config/gcloud/application_default_credentials.json`, and default file for S3 is `~/.aws/credentials`. |
+credentials_file | str | All |Optional. The path for the credentials file. The default file for GCS is `~/.config/gcloud/application_default_credentials.json`, see the [instructions](https://cloud.google.com/sdk/gcloud/reference/auth/application-default/login) on creating the GCS credentials file. For S3 is `~/.aws/credentials`, see the [instructions](https://docs.aws.amazon.com/sdk-for-java/v1/developer-guide/setup-credentials.html) on creating the S3 credentials file. For Azure is `~/.azure/azure_credentials.json`, see the [instructions](https://docs.microsoft.com/en-us/azure/python/python-sdk-azure-authenticate#mgmt-auth-file) on creating the Azure credentials file. |
 service_account  | str | All |Optional. The name of service account. Supports specifying the `service_account`, or using default Service Account `kfserving-service-credentials`. If the Service Account does not exist, the API will create it and attach the created Secret with the Service Account, if exists, only patch it to attach the created Secret.|
 s3_endpoint  | str | S3 only |Optional. The S3 endpoint. |
 s3_region  | str | S3 only|Optional. The S3 region By default, regional endpoint is used for S3.| |

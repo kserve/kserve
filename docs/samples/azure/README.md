@@ -22,6 +22,7 @@ kind: Secret
 metadata:
   name: azcreds
 type: Opaque
+data:
   AZ_CLIENT_ID: xxxxx
   AZ_CLIENT_SECRET: xxxxx
   AZ_SUBSCRIPTION_ID: xxxxx
