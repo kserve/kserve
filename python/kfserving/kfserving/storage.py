@@ -17,6 +17,7 @@ import logging
 import tempfile
 import os
 import re
+from azure.common import AzureMissingResourceHttpError
 from azure.storage.blob import BlockBlobService
 from google.auth import exceptions
 from google.cloud import storage
@@ -111,9 +112,15 @@ class Storage(object): # pylint: disable=too-few-public-methods
                      account_name,
                      container_name,
                      prefix)
-        token = Storage._get_azure_storage_token()
-        block_blob_service = BlockBlobService(account_name=account_name, token_credential=token)
-        blobs = block_blob_service.list_blobs(container_name, prefix=prefix)
+        try:
+            block_blob_service = BlockBlobService(account_name=account_name)
+            blobs = block_blob_service.list_blobs(container_name, prefix=prefix)
+        except AzureMissingResourceHttpError:
+            token = Storage._get_azure_storage_token()
+            if token is None:
+                logging.warning("Azure credentials not found, retrying anonymous access")
+            block_blob_service = BlockBlobService(account_name=account_name, token_credential=token)
+            blobs = block_blob_service.list_blobs(container_name, prefix=prefix)
 
         for blob in blobs:
             dest_path = os.path.join(out_dir, blob.name)
@@ -155,6 +162,8 @@ class Storage(object): # pylint: disable=too-few-public-methods
             client_secret)
 
         token_credential = TokenCredential(token["accessToken"])
+
+        logging.info("Retrieved SP token credential for client_id: %s", client_id)
 
         return token_credential
 
