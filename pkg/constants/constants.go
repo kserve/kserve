@@ -89,10 +89,34 @@ func getEnvOrDefault(key string, fallback string) string {
 	return fallback
 }
 
-func DefaultServiceName(name string) string {
-	return name + "-default"
+func DefaultPredictorServiceName(name string) string {
+	return name + "-predictor-default"
 }
 
-func CanaryServiceName(name string) string {
-	return name + "-canary"
+func CanaryPredictorServiceName(name string) string {
+	return name + "-predictor-canary"
+}
+
+func DefaultExplainerServiceName(name string) string {
+	return name + "-explainer-default"
+}
+
+func CanaryExplainerServiceName(name string) string {
+	return name + "-explainer-canary"
+}
+
+func DefaultTransformerServiceName(name string) string {
+	return name + "-transformer-default"
+}
+
+func CanaryTransformerServiceName(name string) string {
+	return name + "-transformer-canary"
+}
+
+func DefaultServiceName(name, service string) string {
+	return name + "-" + service + "-default"
+}
+
+func CanaryServiceName(name, service string) string {
+	return name + "-" + service + "-canary"
 }

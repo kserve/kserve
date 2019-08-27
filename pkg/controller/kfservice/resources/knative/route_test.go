@@ -17,6 +17,7 @@ limitations under the License.
 package knative
 
 import (
+	"github.com/kubeflow/kfserving/pkg/constants"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -59,7 +60,7 @@ func TestKnativeRoute(t *testing.T) {
 					Traffic: []knservingv1alpha1.TrafficTarget{
 						{
 							TrafficTarget: v1beta1.TrafficTarget{
-								ConfigurationName: "mnist-default",
+								ConfigurationName: constants.DefaultPredictorServiceName("mnist"),
 								Percent:           100,
 							},
 						},
@@ -108,13 +109,13 @@ func TestKnativeRoute(t *testing.T) {
 					Traffic: []knservingv1alpha1.TrafficTarget{
 						{
 							TrafficTarget: v1beta1.TrafficTarget{
-								ConfigurationName: "mnist-default",
+								ConfigurationName: constants.DefaultPredictorServiceName("mnist"),
 								Percent:           80,
 							},
 						},
 						{
 							TrafficTarget: v1beta1.TrafficTarget{
-								ConfigurationName: "mnist-canary",
+								ConfigurationName: constants.CanaryPredictorServiceName("mnist"),
 								Percent:           20,
 							},
 						},
@@ -171,13 +172,13 @@ func TestKnativeRoute(t *testing.T) {
 					Traffic: []knservingv1alpha1.TrafficTarget{
 						{
 							TrafficTarget: v1beta1.TrafficTarget{
-								ConfigurationName: "mnist-default",
+								ConfigurationName: constants.DefaultPredictorServiceName("mnist"),
 								Percent:           80,
 							},
 						},
 						{
 							TrafficTarget: v1beta1.TrafficTarget{
-								ConfigurationName: "mnist-canary",
+								ConfigurationName: constants.CanaryPredictorServiceName("mnist"),
 								Percent:           20,
 							},
 						},

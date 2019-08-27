@@ -84,7 +84,7 @@ func TestKnativeServiceReconcile(t *testing.T) {
 			},
 			desiredDefault: &knservingv1alpha1.Service{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "mnist-default",
+					Name:      constants.DefaultPredictorServiceName("mnist"),
 					Namespace: "default",
 				},
 				Spec: knservingv1alpha1.ServiceSpec{
@@ -123,7 +123,7 @@ func TestKnativeServiceReconcile(t *testing.T) {
 			},
 			desiredCanary: &knservingv1alpha1.Service{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "mnist-canary",
+					Name:      constants.CanaryPredictorServiceName("mnist"),
 					Namespace: "default",
 				},
 				Spec: knservingv1alpha1.ServiceSpec{
@@ -180,7 +180,7 @@ func TestKnativeServiceReconcile(t *testing.T) {
 			},
 			desiredDefault: &knservingv1alpha1.Service{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "mnist-default",
+					Name:      constants.DefaultPredictorServiceName("mnist"),
 					Namespace: "default",
 				},
 				Spec: knservingv1alpha1.ServiceSpec{

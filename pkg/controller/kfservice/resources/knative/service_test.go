@@ -69,7 +69,7 @@ var configMapData = map[string]string{
 
 var defaultService = &knservingv1alpha1.Service{
 	ObjectMeta: metav1.ObjectMeta{
-		Name:      constants.DefaultServiceName("mnist"),
+		Name:      constants.DefaultPredictorServiceName("mnist"),
 		Namespace: "default",
 	},
 	Spec: knservingv1alpha1.ServiceSpec{
@@ -113,7 +113,7 @@ var defaultService = &knservingv1alpha1.Service{
 
 var canaryService = &knservingv1alpha1.Service{
 	ObjectMeta: metav1.ObjectMeta{
-		Name:      constants.CanaryServiceName("mnist"),
+		Name:      constants.CanaryPredictorServiceName("mnist"),
 		Namespace: "default",
 	},
 	Spec: knservingv1alpha1.ServiceSpec{
@@ -231,7 +231,7 @@ func TestKFServiceToKnativeService(t *testing.T) {
 			},
 			expectedDefault: &knservingv1alpha1.Service{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      constants.DefaultServiceName("sklearn"),
+					Name:      constants.DefaultPredictorServiceName("sklearn"),
 					Namespace: "default",
 				},
 				Spec: knservingv1alpha1.ServiceSpec{
@@ -285,7 +285,7 @@ func TestKFServiceToKnativeService(t *testing.T) {
 			},
 			expectedDefault: &knservingv1alpha1.Service{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      constants.DefaultServiceName("xgboost"),
+					Name:      constants.DefaultPredictorServiceName("xgboost"),
 					Namespace: "default",
 				},
 				Spec: knservingv1alpha1.ServiceSpec{
@@ -340,7 +340,7 @@ func TestKFServiceToKnativeService(t *testing.T) {
 			},
 			expectedDefault: &knservingv1alpha1.Service{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      constants.DefaultServiceName("xgboost"),
+					Name:      constants.DefaultPredictorServiceName("xgboost"),
 					Namespace: "default",
 				},
 				Spec: knservingv1alpha1.ServiceSpec{
@@ -405,7 +405,7 @@ func TestKFServiceToKnativeService(t *testing.T) {
 			},
 			expectedDefault: &knservingv1alpha1.Service{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      constants.DefaultServiceName("sklearn"),
+					Name:      constants.DefaultPredictorServiceName("sklearn"),
 					Namespace: "default",
 				},
 				Spec: knservingv1alpha1.ServiceSpec{
@@ -449,8 +449,8 @@ func TestKFServiceToKnativeService(t *testing.T) {
 		serviceBuilder := NewServiceBuilder(c, &v1.ConfigMap{
 			Data: scenario.configMapData,
 		})
-		actualDefaultService, err := serviceBuilder.CreateKnativeService(
-			constants.DefaultServiceName(scenario.kfService.Name),
+		actualDefaultService, err := serviceBuilder.CreatePredictorService(
+			constants.DefaultPredictorServiceName(scenario.kfService.Name),
 			scenario.kfService.ObjectMeta,
 			&scenario.kfService.Spec.Default.Predictor,
 		)
@@ -463,8 +463,8 @@ func TestKFServiceToKnativeService(t *testing.T) {
 		}
 
 		if scenario.kfService.Spec.Canary != nil {
-			actualCanaryService, err := serviceBuilder.CreateKnativeService(
-				constants.CanaryServiceName(kfsvc.Name),
+			actualCanaryService, err := serviceBuilder.CreatePredictorService(
+				constants.CanaryPredictorServiceName(kfsvc.Name),
 				scenario.kfService.ObjectMeta,
 				&scenario.kfService.Spec.Canary.Predictor,
 			)

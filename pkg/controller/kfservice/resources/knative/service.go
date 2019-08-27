@@ -37,7 +37,7 @@ const (
 	FrameworkConfigKeyName = "frameworks"
 )
 
-var configurationAnnotationDisallowedList = []string{
+var serviceAnnotationDisallowedList = []string{
 	autoscaling.MinScaleAnnotationKey,
 	autoscaling.MaxScaleAnnotationKey,
 	constants.ModelInitializerSourceUriInternalAnnotationKey,
@@ -64,9 +64,9 @@ func NewServiceBuilder(client client.Client, config *v1.ConfigMap) *ServiceBuild
 	}
 }
 
-func (c *ServiceBuilder) CreateKnativeService(name string, metadata metav1.ObjectMeta, predictorSpec *v1alpha2.PredictorSpec) (*knservingv1alpha1.Service, error) {
+func (c *ServiceBuilder) CreatePredictorService(name string, metadata metav1.ObjectMeta, predictorSpec *v1alpha2.PredictorSpec) (*knservingv1alpha1.Service, error) {
 	annotations := utils.Filter(metadata.Annotations, func(key string) bool {
-		return !utils.Includes(configurationAnnotationDisallowedList, key)
+		return !utils.Includes(serviceAnnotationDisallowedList, key)
 	})
 
 	if predictorSpec.MinReplicas != 0 {

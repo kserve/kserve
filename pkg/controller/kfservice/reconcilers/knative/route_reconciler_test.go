@@ -3,6 +3,7 @@ package knative
 import (
 	"context"
 	"fmt"
+	"github.com/kubeflow/kfserving/pkg/constants"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -62,7 +63,7 @@ func TestKnativeRouteReconcile(t *testing.T) {
 					Traffic: []knservingv1alpha1.TrafficTarget{
 						{
 							TrafficTarget: v1beta1.TrafficTarget{
-								ConfigurationName: "mnist-default",
+								ConfigurationName: constants.DefaultPredictorServiceName("mnist"),
 								Percent:           100,
 							},
 						},
