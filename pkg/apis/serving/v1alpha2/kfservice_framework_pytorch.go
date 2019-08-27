@@ -26,6 +26,9 @@ import (
 var (
 	AllowedPyTorchRuntimeVersions = []string{
 		"latest",
+		"v0.1.0",
+		"v0.1.1",
+		"v0.1.2",
 	}
 	InvalidPyTorchRuntimeVersionError = "RuntimeVersion must be one of " + strings.Join(AllowedPyTorchRuntimeVersions, ", ")
 	PyTorchServerImageName            = "gcr.io/kfserving/pytorchserver"

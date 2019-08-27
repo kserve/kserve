@@ -26,6 +26,9 @@ import (
 var (
 	AllowedSKLearnRuntimeVersions = []string{
 		"latest",
+		"v0.1.0",
+		"v0.1.1",
+		"v0.1.2",
 	}
 	InvalidSKLearnRuntimeVersionError = "RuntimeVersion must be one of " + strings.Join(AllowedSKLearnRuntimeVersions, ", ")
 	SKLearnServerImageName            = "gcr.io/kfserving/sklearnserver"
