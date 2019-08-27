@@ -413,7 +413,7 @@ func TestCanaryReconcile(t *testing.T) {
 		},
 	}
 	g.Expect(c.Status().Update(context.TODO(), updateCanary)).NotTo(gomega.HaveOccurred())
-	//g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedCanaryRequest)))
+	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedCanaryRequest)))
 
 	updatedRoute := route.DeepCopy()
 	updatedRoute.Status.URL = &apis.URL{Scheme: "http", Host: canaryServiceKey.Name + ".svc.cluster.local"}
