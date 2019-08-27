@@ -83,8 +83,8 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		OwnerType:    &kfserving.KFService{},
 	}
 
-	// Watch for changes to Knative Configuration
-	if err = c.Watch(&source.Kind{Type: &knservingv1alpha1.Configuration{}}, kfservingController); err != nil {
+	// Watch for changes to Knative Service
+	if err = c.Watch(&source.Kind{Type: &knservingv1alpha1.Service{}}, kfservingController); err != nil {
 		return err
 	}
 
