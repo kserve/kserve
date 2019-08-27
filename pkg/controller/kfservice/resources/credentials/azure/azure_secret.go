@@ -27,11 +27,7 @@ const (
 	AzureClientSecret   = "AZ_CLIENT_SECRET"
 )
 
-type AzureConfig struct {
-	AzureClientSecretName string `json:"azureClientSecretName,omitempty"`
-}
-
-func BuildSecretEnvs(secret *v1.Secret, azureConfig *AzureConfig) []v1.EnvVar {
+func BuildSecretEnvs(secret *v1.Secret) []v1.EnvVar {
 	envs := []v1.EnvVar{
 		{
 			Name: AzureSubscriptionId,

@@ -35,9 +35,8 @@ const (
 )
 
 type CredentialConfig struct {
-	S3    s3.S3Config       `json:"s3,omitempty"`
-	GCS   gcs.GCSConfig     `json:"gcs,omitempty"`
-	AZURE azure.AzureConfig `json:"azure,omitempty"`
+	S3  s3.S3Config   `json:"s3,omitempty"`
+	GCS gcs.GCSConfig `json:"gcs,omitempty"`
 }
 
 type CredentialBuilder struct {
@@ -67,15 +66,10 @@ func (c *CredentialBuilder) CreateSecretVolumeAndEnv(namespace string, serviceAc
 		serviceAccountName = "default"
 	}
 	s3SecretAccessKeyName := s3.AWSSecretAccessKeyName
-	azureClientSecretName := azure.AzureClientSecret
 	gcsCredentialFileName := gcs.GCSCredentialFileName
 
 	if c.config.S3.S3SecretAccessKeyName != "" {
 		s3SecretAccessKeyName = c.config.S3.S3SecretAccessKeyName
-	}
-
-	if c.config.AZURE.AzureClientSecretName != "" {
-		azureClientSecretName = c.config.AZURE.AzureClientSecretName
 	}
 
 	if c.config.GCS.GCSCredentialFileName != "" {
@@ -114,9 +108,9 @@ func (c *CredentialBuilder) CreateSecretVolumeAndEnv(namespace string, serviceAc
 					Name:  gcs.GCSCredentialEnvKey,
 					Value: gcs.GCSCredentialVolumeMountPath + gcsCredentialFileName,
 				})
-		} else if _, ok := secret.Data[azureClientSecretName]; ok {
+		} else if _, ok := secret.Data[azure.AzureClientSecret]; ok {
 			log.Info("Setting secret envs for azure", "AzureSecret", secret.Name)
-			envs := azure.BuildSecretEnvs(secret, &c.config.AZURE)
+			envs := azure.BuildSecretEnvs(secret)
 			container.Env = append(container.Env, envs...)
 		} else {
 			log.V(5).Info("Skipping non gcs/s3/azure secret", "Secret", secret.Name)
