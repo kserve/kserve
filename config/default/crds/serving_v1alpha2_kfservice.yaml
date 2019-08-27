@@ -281,13 +281,8 @@ spec:
                         to use to run the service
                       type: string
                   type: object
-<<<<<<< a1eab8a5828b492a583e495884f823fe39ea022d
                 predictor:
                   description: Predictor defines the model serving spec +required
-=======
-                predict:
-                  description: predict defines the model serving spec +required
->>>>>>> v1alpha2 spec for predict,explain,transform
                   properties:
                     custom:
                       description: The following fields follow a "1-of" semantic.
@@ -385,15 +380,9 @@ spec:
                       - modelUri
                       type: object
                   type: object
-<<<<<<< a1eab8a5828b492a583e495884f823fe39ea022d
                 transformer:
                   description: Transformer defines the transformer service spec for
                     pre/post processing transformer service calls to predictor service
-=======
-                transform:
-                  description: transform defines the transform service spec for pre/post
-                    processing transform service calls to predict service
->>>>>>> v1alpha2 spec for predict,explain,transform
                   properties:
                     custom:
                       properties:
@@ -417,11 +406,7 @@ spec:
                       type: string
                   type: object
               required:
-<<<<<<< a1eab8a5828b492a583e495884f823fe39ea022d
               - predictor
-=======
-              - predict
->>>>>>> v1alpha2 spec for predict,explain,transform
               type: object
           required:
           - default
