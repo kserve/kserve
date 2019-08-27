@@ -14,7 +14,7 @@ KFServing supports authenticating using an Azure Service Principle.
 * Details on assigning storage roles [here](https://docs.microsoft.com/en-us/azure/storage/common/storage-auth-aad).
 
 ### Create a K8s Secret
-Store your Azure SP secrets as a k8s secret named `azcreds`. 
+Store your Azure SP secrets as a k8s secret. 
 
 ```yaml
 apiVersion: v1

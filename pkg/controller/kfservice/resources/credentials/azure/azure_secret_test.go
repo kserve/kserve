@@ -26,7 +26,6 @@ import (
 
 func TestAzureSecret(t *testing.T) {
 	scenarios := map[string]struct {
-		config   AzureConfig
 		secret   *v1.Secret
 		expected []v1.EnvVar
 	}{
@@ -86,7 +85,7 @@ func TestAzureSecret(t *testing.T) {
 	}
 
 	for name, scenario := range scenarios {
-		envs := BuildSecretEnvs(scenario.secret, &scenario.config)
+		envs := BuildSecretEnvs(scenario.secret)
 
 		if diff := cmp.Diff(scenario.expected, envs); diff != "" {
 			t.Errorf("Test %q unexpected result (-want +got): %v", name, diff)
