@@ -14,6 +14,8 @@
 
 import unittest.mock as mock
 import itertools
+import pytest
+from azure.common import AzureMissingResourceHttpError
 import kfserving
 
 def create_mock_item(path):
@@ -37,9 +39,8 @@ def get_call_args(call_args_list):
 # pylint: disable=protected-access
 
 @mock.patch('kfserving.storage.os.makedirs')
-@mock.patch('kfserving.storage.Storage._get_azure_storage_token')
 @mock.patch('kfserving.storage.BlockBlobService')
-def test_blob(mock_storage, mock_get_token, mock_makedirs): # pylint: disable=unused-argument
+def test_blob(mock_storage, mock_makedirs): # pylint: disable=unused-argument
 
     # given
     blob_path = 'https://kfserving.blob.core.windows.net/tensorrt/simple_string/'
@@ -56,10 +57,38 @@ def test_blob(mock_storage, mock_get_token, mock_makedirs): # pylint: disable=un
         ('tensorrt', 'simple_string/config.pbtxt', 'dest_path/config.pbtxt')
         ]
 
+    mock_storage.assert_called_with(account_name="kfserving")
+
 @mock.patch('kfserving.storage.os.makedirs')
 @mock.patch('kfserving.storage.Storage._get_azure_storage_token')
 @mock.patch('kfserving.storage.BlockBlobService')
-def test_deep_blob(mock_storage, mock_get_token, mock_makedirs): # pylint: disable=unused-argument
+def test_secure_blob(mock_storage, mock_get_token, mock_makedirs): # pylint: disable=unused-argument
+
+    # given
+    blob_path = 'https://kfsecured.blob.core.windows.net/tensorrt/simple_string/'
+    mock_blob = mock_storage.return_value
+    mock_blob.list_blobs.side_effect = AzureMissingResourceHttpError("fail auth", 404)
+    mock_get_token.return_value = "some_token"
+
+    # when
+    with pytest.raises(AzureMissingResourceHttpError):
+        kfserving.Storage._download_blob(blob_path, "dest_path")
+
+    # then
+    mock_get_token.assert_called()
+    arg_list = []
+    for call in mock_storage.call_args_list:
+        _, kwargs = call
+        arg_list.append(kwargs)
+
+    assert arg_list == [
+        {"account_name": "kfsecured"},
+        {"account_name": "kfsecured", "token_credential": "some_token"},
+        ]
+
+@mock.patch('kfserving.storage.os.makedirs')
+@mock.patch('kfserving.storage.BlockBlobService')
+def test_deep_blob(mock_storage, mock_makedirs): # pylint: disable=unused-argument
 
     # given
     blob_path = 'https://accountname.blob.core.windows.net/container/some/deep/blob/path'
@@ -77,9 +106,8 @@ def test_deep_blob(mock_storage, mock_get_token, mock_makedirs): # pylint: disab
     assert actual_calls == expected_calls
 
 @mock.patch('kfserving.storage.os.makedirs')
-@mock.patch('kfserving.storage.Storage._get_azure_storage_token')
 @mock.patch('kfserving.storage.BlockBlobService')
-def test_blob_file(mock_storage, mock_get_token, mock_makedirs): # pylint: disable=unused-argument
+def test_blob_file(mock_storage, mock_makedirs): # pylint: disable=unused-argument
 
     # given
     blob_path = 'https://accountname.blob.core.windows.net/container/somefile'
@@ -97,9 +125,8 @@ def test_blob_file(mock_storage, mock_get_token, mock_makedirs): # pylint: disab
     assert actual_calls == expected_calls
 
 @mock.patch('kfserving.storage.os.makedirs')
-@mock.patch('kfserving.storage.Storage._get_azure_storage_token')
 @mock.patch('kfserving.storage.BlockBlobService')
-def test_blob_fq_file(mock_storage, mock_get_token, mock_makedirs): # pylint: disable=unused-argument
+def test_blob_fq_file(mock_storage, mock_makedirs): # pylint: disable=unused-argument
 
     # given
     blob_path = 'https://accountname.blob.core.windows.net/container/folder/somefile'
@@ -117,9 +144,8 @@ def test_blob_fq_file(mock_storage, mock_get_token, mock_makedirs): # pylint: di
     assert actual_calls == expected_calls
 
 @mock.patch('kfserving.storage.os.makedirs')
-@mock.patch('kfserving.storage.Storage._get_azure_storage_token')
 @mock.patch('kfserving.storage.BlockBlobService')
-def test_blob_no_prefix(mock_storage, mock_get_token, mock_makedirs): # pylint: disable=unused-argument
+def test_blob_no_prefix(mock_storage, mock_makedirs): # pylint: disable=unused-argument
 
     # given
     blob_path = 'https://accountname.blob.core.windows.net/container/'
