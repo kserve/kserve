@@ -97,6 +97,10 @@ func CanaryPredictorServiceName(name string) string {
 	return name + "-predictor-canary"
 }
 
+func PredictorRouteName(name string) string {
+	return name + "-predictor"
+}
+
 func DefaultExplainerServiceName(name string) string {
 	return name + "-explainer-default"
 }

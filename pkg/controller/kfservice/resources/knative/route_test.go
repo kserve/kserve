@@ -52,7 +52,7 @@ func TestKnativeRoute(t *testing.T) {
 			},
 			expectedRoute: &knservingv1alpha1.Route{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:        "mnist",
+					Name:        constants.PredictorRouteName("mnist"),
 					Namespace:   "default",
 					Annotations: make(map[string]string),
 				},
@@ -101,7 +101,7 @@ func TestKnativeRoute(t *testing.T) {
 			},
 			expectedRoute: &knservingv1alpha1.Route{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:        "mnist",
+					Name:        constants.PredictorRouteName("mnist"),
 					Namespace:   "default",
 					Annotations: make(map[string]string),
 				},
@@ -161,7 +161,7 @@ func TestKnativeRoute(t *testing.T) {
 			},
 			expectedRoute: &knservingv1alpha1.Route{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "mnist",
+					Name:      constants.PredictorRouteName("mnist"),
 					Namespace: "default",
 					Annotations: map[string]string{
 						"sourceName": "srcName",
@@ -190,7 +190,7 @@ func TestKnativeRoute(t *testing.T) {
 
 	for name, scenario := range scenarios {
 		routeBuilder := NewRouteBuilder()
-		route := routeBuilder.CreateKnativeRoute(&scenario.kfService)
+		route := routeBuilder.CreateKnativeRoute(&scenario.kfService, "predictor")
 		// Validate
 		if scenario.shouldFail {
 			t.Errorf("Test %q failed: returned success but expected error", name)

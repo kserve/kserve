@@ -128,6 +128,8 @@ var configs = map[string]string{
 func TestReconcile(t *testing.T) {
 	var predictorService = types.NamespacedName{Name: constants.DefaultPredictorServiceName(serviceKey.Name),
 		Namespace: serviceKey.Namespace}
+	var routeName = types.NamespacedName{Name: constants.PredictorRouteName(serviceKey.Name),
+		Namespace: serviceKey.Namespace}
 	g := gomega.NewGomegaWithT(t)
 	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
 	// channel when it is finished.
@@ -212,7 +214,7 @@ func TestReconcile(t *testing.T) {
 	g.Expect(service.Spec).To(gomega.Equal(expectedService.Spec))
 
 	route := &knservingv1alpha1.Route{}
-	g.Eventually(func() error { return c.Get(context.TODO(), serviceKey, route) }, timeout).
+	g.Eventually(func() error { return c.Get(context.TODO(), routeName, route) }, timeout).
 		Should(gomega.Succeed())
 	// mock update knative service/route status since knative serving controller is not running in test
 	updated := service.DeepCopy()
@@ -274,6 +276,8 @@ func TestCanaryReconcile(t *testing.T) {
 	var defaultPredictor = types.NamespacedName{Name: constants.DefaultPredictorServiceName(canaryServiceKey.Name),
 		Namespace: canaryServiceKey.Namespace}
 	var canaryPredictor = types.NamespacedName{Name: constants.CanaryPredictorServiceName(canaryServiceKey.Name),
+		Namespace: canaryServiceKey.Namespace}
+	var routeName = types.NamespacedName{Name: constants.PredictorRouteName(canaryServiceKey.Name),
 		Namespace: canaryServiceKey.Namespace}
 	g := gomega.NewGomegaWithT(t)
 
@@ -359,11 +363,11 @@ func TestCanaryReconcile(t *testing.T) {
 	}
 	g.Expect(cmp.Diff(canaryService.Spec, expectedCanaryService.Spec)).To(gomega.Equal(""))
 	route := &knservingv1alpha1.Route{}
-	g.Eventually(func() error { return c.Get(context.TODO(), canaryServiceKey, route) }, timeout).
+	g.Eventually(func() error { return c.Get(context.TODO(), routeName, route) }, timeout).
 		Should(gomega.Succeed())
 	expectedRoute := knservingv1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      canaryInstance.Name,
+			Name:      constants.PredictorRouteName(canaryInstance.Name),
 			Namespace: canaryInstance.Namespace,
 		},
 		Spec: knservingv1alpha1.RouteSpec{
@@ -408,7 +412,7 @@ func TestCanaryReconcile(t *testing.T) {
 		},
 	}
 	g.Expect(c.Status().Update(context.TODO(), updateCanary)).NotTo(gomega.HaveOccurred())
-	//g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedCanaryRequest)))
+	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedCanaryRequest)))
 
 	updatedRoute := route.DeepCopy()
 	updatedRoute.Status.URL = &apis.URL{Scheme: "http", Host: canaryServiceKey.Name + ".svc.cluster.local"}

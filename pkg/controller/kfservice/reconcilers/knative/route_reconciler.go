@@ -45,7 +45,7 @@ func NewRouteReconciler(client client.Client, scheme *runtime.Scheme) *RouteReco
 }
 
 func (r *RouteReconciler) Reconcile(kfsvc *v1alpha2.KFService) error {
-	desired := knative.NewRouteBuilder().CreateKnativeRoute(kfsvc)
+	desired := knative.NewRouteBuilder().CreateKnativeRoute(kfsvc, "predictor")
 
 	status, err := r.reconcileRoute(kfsvc, desired)
 	if err != nil {

@@ -56,7 +56,7 @@ func TestKnativeRouteReconcile(t *testing.T) {
 			},
 			desiredRoute: &knservingv1alpha1.Route{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "mnist",
+					Name:      constants.PredictorRouteName("mnist"),
 					Namespace: "default",
 				},
 				Spec: knservingv1alpha1.RouteSpec{
