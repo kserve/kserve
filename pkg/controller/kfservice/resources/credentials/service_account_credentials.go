@@ -67,15 +67,15 @@ func (c *CredentialBuilder) CreateSecretVolumeAndEnv(namespace string, serviceAc
 		serviceAccountName = "default"
 	}
 	s3SecretAccessKeyName := s3.AWSSecretAccessKeyName
-	azureSecretName := azure.AzureSecretName
+	azureClientSecretName := azure.AzureClientSecret
 	gcsCredentialFileName := gcs.GCSCredentialFileName
 
 	if c.config.S3.S3SecretAccessKeyName != "" {
 		s3SecretAccessKeyName = c.config.S3.S3SecretAccessKeyName
 	}
 
-	if c.config.AZURE.AzureSecretName != "" {
-		azureSecretName = c.config.AZURE.AzureSecretName
+	if c.config.AZURE.AzureClientSecretName != "" {
+		azureClientSecretName = c.config.AZURE.AzureClientSecretName
 	}
 
 	if c.config.GCS.GCSCredentialFileName != "" {
@@ -89,7 +89,7 @@ func (c *CredentialBuilder) CreateSecretVolumeAndEnv(namespace string, serviceAc
 		log.Error(err, "Failed to find service account", "ServiceAccountName", serviceAccountName)
 		return nil
 	}
-	var azureSecret *v1.Secret
+
 	for _, secretRef := range serviceAccount.Secrets {
 		log.Info("found secret", "SecretName", secretRef.Name)
 		secret := &v1.Secret{}
@@ -114,20 +114,13 @@ func (c *CredentialBuilder) CreateSecretVolumeAndEnv(namespace string, serviceAc
 					Name:  gcs.GCSCredentialEnvKey,
 					Value: gcs.GCSCredentialVolumeMountPath + gcsCredentialFileName,
 				})
-		} else if secret.Name == azureSecretName {
-			// prefer the named secret to any other secret
-			azureSecret = secret
-		} else if _, ok := secret.Data[azure.AzureClientSecret]; ok && azureSecret == nil {
-			azureSecret = secret
+		} else if _, ok := secret.Data[azureClientSecretName]; ok {
+			log.Info("Setting secret envs for azure", "AzureSecret", secret.Name)
+			envs := azure.BuildSecretEnvs(secret, &c.config.AZURE)
+			container.Env = append(container.Env, envs...)
 		} else {
 			log.V(5).Info("Skipping non gcs/s3/azure secret", "Secret", secret.Name)
 		}
-	}
-
-	if azureSecret != nil {
-		log.Info("Setting secret envs for azure", "AzureSecret", azureSecret.Name)
-		envs := azure.BuildSecretEnvs(azureSecret, &c.config.AZURE)
-		container.Env = append(container.Env, envs...)
 	}
 
 	return nil

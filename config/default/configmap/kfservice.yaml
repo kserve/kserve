@@ -36,6 +36,6 @@ data:
            "s3SecretAccessKeyName": "awsSecretAccessKey"
        },
        "azure": {
-           "azureSecretName": "azcreds"
+           "azureClientSecretName": "AZ_CLIENT_SECRET"
        }
     }

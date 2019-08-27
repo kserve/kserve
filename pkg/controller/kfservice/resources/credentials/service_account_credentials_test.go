@@ -40,7 +40,7 @@ var configMap = &v1.ConfigMap{
 				"s3AccessKeyIDName": "awsAccessKeyID",
 				"s3SecretAccessKeyName": "awsSecretAccessKey"
 			},
-			"azure" : {"azureSecretName": "azcreds"}
+			"azure" : {"azureClientSecretName": "AZ_CLIENT_SECRET"}
 	    }`,
 	},
 }
@@ -316,34 +316,7 @@ func TestAzureCredentialBuilder(t *testing.T) {
 			"AZ_CLIENT_SECRET":   {},
 		},
 	}
-	customAndDefaultServiceAccount := &v1.ServiceAccount{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "default",
-			Namespace: "default",
-		},
-		Secrets: []v1.ObjectReference{
-			{
-				Name:      "az-custom-secret",
-				Namespace: "default",
-			},
-			{
-				Name:      "azcreds",
-				Namespace: "default",
-			},
-		},
-	}
-	defaultAzureSecret := &v1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "azcreds",
-			Namespace: "default",
-		},
-		Data: map[string][]byte{
-			"AZ_SUBSCRIPTION_ID": {},
-			"AZ_TENANT_ID":       {},
-			"AZ_CLIENT_ID":       {},
-			"AZ_CLIENT_SECRET":   {},
-		},
-	}
+
 	scenarios := map[string]struct {
 		serviceAccount        *v1.ServiceAccount
 		inputConfiguration    *v1alpha1.Configuration
@@ -431,93 +404,10 @@ func TestAzureCredentialBuilder(t *testing.T) {
 			},
 			shouldFail: false,
 		},
-		"Default Prefered over Custom Azure Secret": {
-			serviceAccount: customAndDefaultServiceAccount,
-			inputConfiguration: &v1alpha1.Configuration{
-				Spec: v1alpha1.ConfigurationSpec{
-					Template: &v1alpha1.RevisionTemplateSpec{
-						Spec: v1alpha1.RevisionSpec{
-							RevisionSpec: v1beta1.RevisionSpec{
-								PodSpec: v1.PodSpec{
-									Containers: []v1.Container{
-										{},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-			expectedConfiguration: &v1alpha1.Configuration{
-				Spec: v1alpha1.ConfigurationSpec{
-					Template: &v1alpha1.RevisionTemplateSpec{
-						Spec: v1alpha1.RevisionSpec{
-							RevisionSpec: v1beta1.RevisionSpec{
-								PodSpec: v1.PodSpec{
-									Containers: []v1.Container{
-										{
-											Env: []v1.EnvVar{
-												{
-													Name: azure.AzureSubscriptionId,
-													ValueFrom: &v1.EnvVarSource{
-														SecretKeyRef: &v1.SecretKeySelector{
-															LocalObjectReference: v1.LocalObjectReference{
-																Name: "azcreds",
-															},
-															Key: azure.AzureSubscriptionId,
-														},
-													},
-												},
-												{
-													Name: azure.AzureTenantId,
-													ValueFrom: &v1.EnvVarSource{
-														SecretKeyRef: &v1.SecretKeySelector{
-															LocalObjectReference: v1.LocalObjectReference{
-																Name: "azcreds",
-															},
-															Key: azure.AzureTenantId,
-														},
-													},
-												},
-												{
-													Name: azure.AzureClientId,
-													ValueFrom: &v1.EnvVarSource{
-														SecretKeyRef: &v1.SecretKeySelector{
-															LocalObjectReference: v1.LocalObjectReference{
-																Name: "azcreds",
-															},
-															Key: azure.AzureClientId,
-														},
-													},
-												},
-												{
-													Name: azure.AzureClientSecret,
-													ValueFrom: &v1.EnvVarSource{
-														SecretKeyRef: &v1.SecretKeySelector{
-															LocalObjectReference: v1.LocalObjectReference{
-																Name: "azcreds",
-															},
-															Key: azure.AzureClientSecret,
-														},
-													},
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-			shouldFail: false,
-		},
 	}
 
 	g.Expect(c.Create(context.TODO(), customAzureSecret)).NotTo(gomega.HaveOccurred())
 	g.Expect(c.Create(context.TODO(), customOnlyServiceAccount)).NotTo(gomega.HaveOccurred())
-	g.Expect(c.Create(context.TODO(), defaultAzureSecret)).NotTo(gomega.HaveOccurred())
-	g.Expect(c.Create(context.TODO(), customAndDefaultServiceAccount)).NotTo(gomega.HaveOccurred())
 
 	builder := NewCredentialBulder(c, configMap)
 	for name, scenario := range scenarios {
@@ -542,6 +432,4 @@ func TestAzureCredentialBuilder(t *testing.T) {
 
 	g.Expect(c.Delete(context.TODO(), customAzureSecret)).NotTo(gomega.HaveOccurred())
 	g.Expect(c.Delete(context.TODO(), customOnlyServiceAccount)).NotTo(gomega.HaveOccurred())
-	g.Expect(c.Delete(context.TODO(), defaultAzureSecret)).NotTo(gomega.HaveOccurred())
-	g.Expect(c.Delete(context.TODO(), customAndDefaultServiceAccount)).NotTo(gomega.HaveOccurred())
 }

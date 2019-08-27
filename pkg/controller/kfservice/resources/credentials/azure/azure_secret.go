@@ -21,7 +21,6 @@ import (
 )
 
 const (
-	AzureSecretName     = "azcreds"
 	AzureSubscriptionId = "AZ_SUBSCRIPTION_ID"
 	AzureTenantId       = "AZ_TENANT_ID"
 	AzureClientId       = "AZ_CLIENT_ID"
@@ -29,7 +28,7 @@ const (
 )
 
 type AzureConfig struct {
-	AzureSecretName string `json:"azureSecretName,omitempty"`
+	AzureClientSecretName string `json:"azureClientSecretName,omitempty"`
 }
 
 func BuildSecretEnvs(secret *v1.Secret, azureConfig *AzureConfig) []v1.EnvVar {
