@@ -16,7 +16,7 @@ from kubernetes import client, config
 
 from ..constants import constants
 from ..utils import utils
-from .creds_utils import set_gcs_credentials, set_s3_credentials
+from .creds_utils import set_gcs_credentials, set_s3_credentials, set_azure_credentials
 
 
 class KFServingClient(object):
@@ -62,8 +62,14 @@ class KFServingClient(object):
                                credentials_file=credentials_file,
                                service_account=service_account,
                                **kwargs)
+        elif storage_type.lower() == 'azure':
+            if credentials_file is None:
+                credentials_file = constants.AZ_DEFAULT_CREDS_FILE
+            set_azure_credentials(namespace=namespace,
+                                  credentials_file=credentials_file,
+                                  service_account=service_account)
         else:
-            raise RuntimeError("Invalid storage_type: %s, only support GCS and S3\
+            raise RuntimeError("Invalid storage_type: %s, only support GCS, S3 and Azure\
                 currently.\n" % storage_type)
 
 
