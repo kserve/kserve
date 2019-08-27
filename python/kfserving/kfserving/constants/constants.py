@@ -18,3 +18,6 @@ S3_DEFAULT_CREDS_FILE = '~/.aws/credentials'
 # GCS credentials constants
 GCS_CREDS_FILE_DEFAULT_NAME = 'gcloud-application-credentials.json'
 GCS_DEFAULT_CREDS_FILE = '~/.config/gcloud/application_default_credentials.json'
+
+# Azure credentials constants
+AZ_DEFAULT_CREDS_FILE = '~/.azure/azure_credentials.json'
