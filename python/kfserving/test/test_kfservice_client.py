@@ -39,28 +39,35 @@ def generate_kfservice():
                               spec=V1alpha2KFServiceSpec(default=default_model_spec))
     return kfsvc
 
-# Unit test for kfserving create api
 def test_kfservice_client_creat():
+    '''Unit test for kfserving create api'''
     with patch('kfserving.api.kf_serving_client.KFServingClient.create',
                return_value=mocked_unit_result):
         kfsvc = generate_kfservice()
         assert mocked_unit_result == KFServing.create(kfsvc, namespace='kubeflow')
 
-# Unit test for kfserving get api
 def test_kfservice_client_get():
+    '''Unit test for kfserving get api'''
     with patch('kfserving.api.kf_serving_client.KFServingClient.get',
                return_value=mocked_unit_result):
         assert mocked_unit_result == KFServing.get('flower-sample', namespace='kubeflow')
 
-# Unit test for kfserving patch api
+def test_kfservice_client_watch():
+    '''Unit test for kfserving get api'''
+    with patch('kfserving.api.kf_serving_client.KFServingClient.get',
+               return_value=mocked_unit_result):
+        assert mocked_unit_result == KFServing.get('flower-sample', namespace='kubeflow',
+                                                   watch=True, timeout_seconds=120)
+
 def test_kfservice_client_patch():
+    '''Unit test for kfserving patch api'''
     with patch('kfserving.api.kf_serving_client.KFServingClient.patch',
                return_value=mocked_unit_result):
         kfsvc = generate_kfservice()
         assert mocked_unit_result == KFServing.patch('flower-sample', kfsvc, namespace='kubeflow')
 
-# Unit test for kfserving delete api
 def test_kfservice_client_delete():
+    '''Unit test for kfserving delete api'''
     with patch('kfserving.api.kf_serving_client.KFServingClient.delete',
                return_value=mocked_unit_result):
         assert mocked_unit_result == KFServing.delete('flower-sample', namespace='kubeflow')
