@@ -80,6 +80,9 @@ const DefaultModelLocalMountPath = "/mnt/models"
 // KFService Environment Variables
 const (
 	CustomSpecModelUriEnvVarKey = "STORAGE_URI"
+	Predictor                   = "predictor"
+	Explainer                   = "explainer"
+	Transformer                 = "transformer"
 )
 
 func getEnvOrDefault(key string, fallback string) string {
