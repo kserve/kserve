@@ -80,9 +80,6 @@ const DefaultModelLocalMountPath = "/mnt/models"
 // KFService Environment Variables
 const (
 	CustomSpecModelUriEnvVarKey = "STORAGE_URI"
-	Predictor                   = "predictor"
-	Explainer                   = "explainer"
-	Transformer                 = "transformer"
 )
 
 type KFServiceEndpoint string
@@ -136,7 +133,7 @@ func PredictRouteName(name string) string {
 }
 
 func PredictorRouteName(name string) string {
-	return name + "-predictor"
+	return name + "-" + string(Predictor)
 }
 
 func DefaultExplainerServiceName(name string) string {
