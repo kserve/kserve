@@ -64,7 +64,7 @@ func NewServiceBuilder(client client.Client, config *v1.ConfigMap) *ServiceBuild
 	}
 }
 
-func (c *ServiceBuilder) CreateEndpointService(kfsvc *v1alpha2.KFService, endpoint string, isCanary bool) (*knservingv1alpha1.Service, error) {
+func (c *ServiceBuilder) CreateEndpointService(kfsvc *v1alpha2.KFService, endpoint constants.KFServiceEndpoint, isCanary bool) (*knservingv1alpha1.Service, error) {
 	serviceName := constants.DefaultServiceName(kfsvc.Name, endpoint)
 	if isCanary {
 		serviceName = constants.CanaryServiceName(kfsvc.Name, endpoint)

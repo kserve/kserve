@@ -54,7 +54,7 @@ func (ss *KFServiceStatus) GetCondition(t apis.ConditionType) *apis.Condition {
 	return conditionSet.Manage(ss).GetCondition(t)
 }
 
-func (ss *KFServiceStatus) PropagateDefaultStatus(endpoint string, defaultStatus *knservingv1alpha1.ServiceStatus) {
+func (ss *KFServiceStatus) PropagateDefaultStatus(endpoint constants.KFServiceEndpoint, defaultStatus *knservingv1alpha1.ServiceStatus) {
 	switch endpoint {
 	case constants.Predictor:
 		ss.PropagateDefaultPredictorStatus(defaultStatus)
@@ -63,7 +63,7 @@ func (ss *KFServiceStatus) PropagateDefaultStatus(endpoint string, defaultStatus
 	}
 }
 
-func (ss *KFServiceStatus) PropagateCanaryStatus(endpoint string, canaryStatus *knservingv1alpha1.ServiceStatus) {
+func (ss *KFServiceStatus) PropagateCanaryStatus(endpoint constants.KFServiceEndpoint, canaryStatus *knservingv1alpha1.ServiceStatus) {
 	switch endpoint {
 	case constants.Predictor:
 		ss.PropagateCanaryPredictorStatus(canaryStatus)

@@ -36,7 +36,7 @@ func NewRouteBuilder() *RouteBuilder {
 	return &RouteBuilder{}
 }
 
-func (r *RouteBuilder) CreateKnativeRoute(kfsvc *v1alpha2.KFService, service string) *knservingv1alpha1.Route {
+func (r *RouteBuilder) CreateKnativeRoute(kfsvc *v1alpha2.KFService, endpoint constants.KFServiceEndpoint) *knservingv1alpha1.Route {
 	defaultPercent := 100
 	canaryPercent := 0
 	if kfsvc.Spec.Canary != nil {
@@ -46,7 +46,7 @@ func (r *RouteBuilder) CreateKnativeRoute(kfsvc *v1alpha2.KFService, service str
 	trafficTargets := []knservingv1alpha1.TrafficTarget{
 		{
 			TrafficTarget: v1beta1.TrafficTarget{
-				ConfigurationName: constants.DefaultServiceName(kfsvc.Name, service),
+				ConfigurationName: constants.DefaultServiceName(kfsvc.Name, endpoint),
 				Percent:           defaultPercent,
 			},
 		},
@@ -54,7 +54,7 @@ func (r *RouteBuilder) CreateKnativeRoute(kfsvc *v1alpha2.KFService, service str
 	if kfsvc.Spec.Canary != nil {
 		trafficTargets = append(trafficTargets, knservingv1alpha1.TrafficTarget{
 			TrafficTarget: v1beta1.TrafficTarget{
-				ConfigurationName: constants.CanaryServiceName(kfsvc.Name, service),
+				ConfigurationName: constants.CanaryServiceName(kfsvc.Name, endpoint),
 				Percent:           canaryPercent,
 			},
 		})
@@ -64,7 +64,7 @@ func (r *RouteBuilder) CreateKnativeRoute(kfsvc *v1alpha2.KFService, service str
 	})
 	return &knservingv1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        kfsvc.Name + "-" + service,
+			Name:        kfsvc.Name + "-" + endpoint.String(),
 			Namespace:   kfsvc.Namespace,
 			Labels:      kfsvc.Labels,
 			Annotations: kfsvcAnnotations,

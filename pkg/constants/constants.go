@@ -80,10 +80,20 @@ const DefaultModelLocalMountPath = "/mnt/models"
 // KFService Environment Variables
 const (
 	CustomSpecModelUriEnvVarKey = "STORAGE_URI"
-	Predictor                   = "predictor"
-	Explainer                   = "explainer"
-	Transformer                 = "transformer"
 )
+
+type KFServiceEndpoint string
+
+// KFService Endpoint enums
+const (
+	Predictor   KFServiceEndpoint = "predictor"
+	Explainer   KFServiceEndpoint = "explainer"
+	Transformer KFServiceEndpoint = "transformer"
+)
+
+func (e KFServiceEndpoint) String() string {
+	return string(e)
+}
 
 func getEnvOrDefault(key string, fallback string) string {
 	if value, ok := os.LookupEnv(key); ok {
@@ -93,37 +103,45 @@ func getEnvOrDefault(key string, fallback string) string {
 }
 
 func DefaultPredictorServiceName(name string) string {
-	return name + "-predictor-default"
+	return name + "-" + string(Predictor) + "-default"
 }
 
 func CanaryPredictorServiceName(name string) string {
-	return name + "-predictor-canary"
+	return name + "-" + string(Predictor) + "-canary"
 }
 
 func PredictorRouteName(name string) string {
-	return name + "-predictor"
+	return name + "-" + string(Predictor)
 }
 
 func DefaultExplainerServiceName(name string) string {
-	return name + "-explainer-default"
+	return name + "-" + string(Explainer) + "-default"
 }
 
 func CanaryExplainerServiceName(name string) string {
-	return name + "-explainer-canary"
+	return name + "-" + string(Explainer) + "-canary"
+}
+
+func ExplainerRouteName(name string) string {
+	return name + "-" + string(Explainer)
 }
 
 func DefaultTransformerServiceName(name string) string {
-	return name + "-transformer-default"
+	return name + "-" + string(Transformer) + "-default"
 }
 
 func CanaryTransformerServiceName(name string) string {
-	return name + "-transformer-canary"
+	return name + "-" + string(Transformer) + "-canary"
 }
 
-func DefaultServiceName(name, service string) string {
-	return name + "-" + service + "-default"
+func TransformerRouteName(name string) string {
+	return name + "-" + string(Transformer)
 }
 
-func CanaryServiceName(name, service string) string {
-	return name + "-" + service + "-canary"
+func DefaultServiceName(name string, endpoint KFServiceEndpoint) string {
+	return name + "-" + endpoint.String() + "-default"
+}
+
+func CanaryServiceName(name string, endpoint KFServiceEndpoint) string {
+	return name + "-" + endpoint.String() + "-canary"
 }
