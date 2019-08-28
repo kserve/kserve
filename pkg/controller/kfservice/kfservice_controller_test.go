@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"k8s.io/apimachinery/pkg/api/errors"
 	"testing"
 	"time"
 
@@ -475,7 +476,17 @@ func TestCanaryReconcile(t *testing.T) {
 	}, timeout).Should(gomega.BeEmpty())
 }
 
-/*func TestCanaryDelete(t *testing.T) {
+func TestCanaryDelete(t *testing.T) {
+	serviceName := "canary-delete"
+	namespace := "default"
+	var defaultPredictor = types.NamespacedName{Name: constants.DefaultPredictorServiceName(serviceName),
+		Namespace: namespace}
+	var canaryPredictor = types.NamespacedName{Name: constants.CanaryPredictorServiceName(serviceName),
+		Namespace: namespace}
+	var routeName = types.NamespacedName{Name: constants.PredictorRouteName(serviceName),
+		Namespace: namespace}
+	var expectedCanaryRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: namespace}}
+	var canaryServiceKey = expectedCanaryRequest.NamespacedName
 	g := gomega.NewGomegaWithT(t)
 
 	mgr, err := manager.New(cfg, manager.Options{})
@@ -506,17 +517,66 @@ func TestCanaryReconcile(t *testing.T) {
 	// Create the KFService object and expect the Reconcile
 	// Default and Canary service should be present
 	canaryInstance := canary.DeepCopy()
+	canaryInstance.Name = serviceName
 	g.Expect(c.Create(context.TODO(), canaryInstance)).NotTo(gomega.HaveOccurred())
 	defer c.Delete(context.TODO(), canaryInstance)
 	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedCanaryRequest)))
 
-	defaultConfiguration := &knservingv1alpha1.Configuration{}
-	g.Eventually(func() error { return c.Get(context.TODO(), defaultConfigurationKey, defaultConfiguration) }, timeout).
+	defaultService := &knservingv1alpha1.Service{}
+	g.Eventually(func() error { return c.Get(context.TODO(), defaultPredictor, defaultService) }, timeout).
 		Should(gomega.Succeed())
 
-	canaryConfiguration := &knservingv1alpha1.Configuration{}
-	g.Eventually(func() error { return c.Get(context.TODO(), canaryConfigurationKey, canaryConfiguration) }, timeout).
+	canaryService := &knservingv1alpha1.Service{}
+	g.Eventually(func() error { return c.Get(context.TODO(), canaryPredictor, canaryService) }, timeout).
 		Should(gomega.Succeed())
+
+	route := &knservingv1alpha1.Route{}
+	g.Eventually(func() error { return c.Get(context.TODO(), routeName, route) }, timeout).
+		Should(gomega.Succeed())
+
+	// mock update knative service status since knative serving controller is not running in test
+	updateDefault := defaultService.DeepCopy()
+	updateDefault.Status.LatestCreatedRevisionName = "revision-v1"
+	updateDefault.Status.LatestReadyRevisionName = "revision-v1"
+	updateDefault.Status.Conditions = duckv1beta1.Conditions{
+		{
+			Type:   knservingv1alpha1.ServiceConditionReady,
+			Status: "True",
+		},
+	}
+	g.Expect(c.Status().Update(context.TODO(), updateDefault)).NotTo(gomega.HaveOccurred())
+	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedCanaryRequest)))
+
+	updateCanary := canaryService.DeepCopy()
+	updateCanary.Status.LatestCreatedRevisionName = "revision-v2"
+	updateCanary.Status.LatestReadyRevisionName = "revision-v2"
+	updateCanary.Status.Conditions = duckv1beta1.Conditions{
+		{
+			Type:   knservingv1alpha1.ServiceConditionReady,
+			Status: "True",
+		},
+	}
+	g.Expect(c.Status().Update(context.TODO(), updateCanary)).NotTo(gomega.HaveOccurred())
+	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedCanaryRequest)))
+
+	updatedRoute := route.DeepCopy()
+	updatedRoute.Status.URL = &apis.URL{Scheme: "http", Host: canaryServiceKey.Name + ".svc.cluster.local"}
+	updatedRoute.Status.Traffic = []knservingv1alpha1.TrafficTarget{
+		{
+			TrafficTarget: v1beta1.TrafficTarget{RevisionName: "revision-v2", Percent: 20},
+		},
+		{
+			TrafficTarget: v1beta1.TrafficTarget{RevisionName: "revision-v1", Percent: 80},
+		},
+	}
+	updatedRoute.Status.Conditions = duckv1beta1.Conditions{
+		{
+			Type:   knservingv1alpha1.RouteConditionReady,
+			Status: "True",
+		},
+	}
+	g.Expect(c.Status().Update(context.TODO(), updatedRoute)).NotTo(gomega.HaveOccurred())
+	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedCanaryRequest)))
 
 	// Verify if KFService status is updated
 	routeUrl := &apis.URL{Scheme: "http", Host: canaryServiceKey.Name + ".svc.cluster.local"}
@@ -552,46 +612,33 @@ func TestCanaryReconcile(t *testing.T) {
 			Traffic: 20,
 		},
 	}
+
+	canaryUpdate := &kfserving.KFService{}
 	g.Eventually(func() string {
-		if err := c.Get(context.TODO(), canaryServiceKey, canaryInstance); err != nil {
+		if err := c.Get(context.TODO(), canaryServiceKey, canaryUpdate); err != nil {
 			return err.Error()
 		}
-		return cmp.Diff(&expectedKfsvcStatus, &canaryInstance.Status, cmpopts.IgnoreTypes(apis.VolatileTime{}))
+		return cmp.Diff(&expectedKfsvcStatus, &canaryUpdate.Status, cmpopts.IgnoreTypes(apis.VolatileTime{}))
 	}, timeout).Should(gomega.BeEmpty())
 
 	// Update instance to remove Canary Spec
 	// Canary service should be removed during reconcile
-	canaryInstance.Spec.Canary = nil
-	canaryInstance.Spec.CanaryTrafficPercent = 0
-	g.Expect(c.Update(context.TODO(), canaryInstance)).NotTo(gomega.HaveOccurred())
+	canaryUpdate.Spec.Canary = nil
+	canaryUpdate.Spec.CanaryTrafficPercent = 0
+	g.Expect(c.Update(context.TODO(), canaryUpdate)).NotTo(gomega.HaveOccurred())
 
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedCanaryRequest)))
 
-	defaultConfiguration = &knservingv1alpha1.Configuration{}
-	g.Eventually(func() error { return c.Get(context.TODO(), defaultConfigurationKey, defaultConfiguration) }, timeout).
+	defaultService = &knservingv1alpha1.Service{}
+	g.Eventually(func() error { return c.Get(context.TODO(), defaultPredictor, defaultService) }, timeout).
 		Should(gomega.Succeed())
 
-	canaryConfiguration = &knservingv1alpha1.Configuration{}
+	canaryService = &knservingv1alpha1.Service{}
 	g.Eventually(func() bool {
-		err := c.Get(context.TODO(), canaryConfigurationKey, canaryConfiguration)
+		err := c.Get(context.TODO(), canaryPredictor, canaryService)
 		return errors.IsNotFound(err)
 	}, timeout).Should(gomega.BeTrue())
-
-	// Verify if KFService status is updated with right status
-	// Canary status should be removed with condition set to unknown
-	route := &knservingv1alpha1.Route{}
-	g.Eventually(func() error { return c.Get(context.TODO(), canaryServiceKey, route) }, timeout).
-		Should(gomega.Succeed())
-
-	updatedRoute := route.DeepCopy()
-	updatedRoute.Status.Traffic = []knservingv1alpha1.TrafficTarget{
-		{
-			TrafficTarget: v1beta1.TrafficTarget{RevisionName: "revision-v1"},
-		},
-	}
-	g.Expect(c.Status().Update(context.TODO(), updatedRoute)).NotTo(gomega.HaveOccurred())
-	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedCanaryRequest)))
 
 	expectedKfsvcStatus = kfserving.KFServiceStatus{
 		Status: duckv1beta1.Status{
@@ -615,12 +662,12 @@ func TestCanaryReconcile(t *testing.T) {
 			Name: "revision-v1",
 		},
 	}
-	g.Eventually(func() *kfserving.KFServiceStatus {
+	g.Eventually(func() *duckv1beta1.Conditions {
 		kfsvc := &kfserving.KFService{}
 		err := c.Get(context.TODO(), canaryServiceKey, kfsvc)
 		if err != nil {
 			return nil
 		}
-		return &kfsvc.Status
-	}, timeout).Should(testutils.BeSematicEqual(&expectedKfsvcStatus))
-}*/
+		return &kfsvc.Status.Conditions
+	}, timeout).Should(testutils.BeSematicEqual(&expectedKfsvcStatus.Conditions))
+}
