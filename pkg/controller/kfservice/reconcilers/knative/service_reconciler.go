@@ -68,21 +68,35 @@ func (r *ServiceReconciler) reconcileDefault(kfsvc *v1alpha2.KFService) error {
 	if err := r.reconcilePredictor(kfsvc, false); err != nil {
 		return err
 	}
+	if err := r.reconcileTransformer(kfsvc, false); err != nil {
+		return err
+	}
+	if err := r.reconcileExplainer(kfsvc, false); err != nil {
+		return err
+	}
 	return nil
 }
 
 func (r *ServiceReconciler) reconcileCanary(kfsvc *v1alpha2.KFService) error {
-	if kfsvc.Spec.Canary == nil {
-		if err := r.finalizeService(kfsvc); err != nil {
-			return err
-		}
-		kfsvc.Status.PropagateCanaryPredictorStatus(nil)
-		return nil
-	}
-
 	if err := r.reconcilePredictor(kfsvc, true); err != nil {
 		return err
 	}
+	if err := r.reconcileTransformer(kfsvc, true); err != nil {
+		return err
+	}
+	if err := r.reconcileExplainer(kfsvc, true); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *ServiceReconciler) reconcileExplainer(kfsvc *v1alpha2.KFService, isCanary bool) error {
+	//@TODO
+	return nil
+}
+
+func (r *ServiceReconciler) reconcileTransformer(kfsvc *v1alpha2.KFService, isCanary bool) error {
+	//@TODO
 	return nil
 }
 
@@ -90,6 +104,13 @@ func (r *ServiceReconciler) reconcilePredictor(kfsvc *v1alpha2.KFService, isCana
 	predictorName := constants.DefaultPredictorServiceName(kfsvc.Name)
 	predictorSpec := &kfsvc.Spec.Default.Predictor
 	if isCanary {
+		if kfsvc.Spec.Canary == nil {
+			if err := r.finalizeService(kfsvc, constants.Predictor); err != nil {
+				return err
+			}
+			kfsvc.Status.PropagateCanaryPredictorStatus(nil)
+			return nil
+		}
 		predictorName = constants.CanaryPredictorServiceName(kfsvc.Name)
 		predictorSpec = &kfsvc.Spec.Canary.Predictor
 	}
@@ -114,8 +135,8 @@ func (r *ServiceReconciler) reconcilePredictor(kfsvc *v1alpha2.KFService, isCana
 	return nil
 }
 
-func (r *ServiceReconciler) finalizeService(kfsvc *v1alpha2.KFService) error {
-	canaryServiceName := constants.CanaryPredictorServiceName(kfsvc.Name)
+func (r *ServiceReconciler) finalizeService(kfsvc *v1alpha2.KFService, service string) error {
+	canaryServiceName := constants.CanaryServiceName(kfsvc.Name, service)
 	existing := &knservingv1alpha1.Service{}
 	if err := r.client.Get(context.TODO(), types.NamespacedName{Name: canaryServiceName, Namespace: kfsvc.Namespace}, existing); err != nil {
 		if !errors.IsNotFound(err) {
