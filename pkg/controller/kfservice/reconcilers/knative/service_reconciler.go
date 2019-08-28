@@ -66,34 +66,20 @@ func (r *ServiceReconciler) Reconcile(kfsvc *v1alpha2.KFService) error {
 }
 
 func (r *ServiceReconciler) reconcileDefault(kfsvc *v1alpha2.KFService) error {
-	if err := r.reconcileEndpoint(kfsvc, constants.Predictor, false); err != nil {
-		return err
+	for _, endpoint := range []string{constants.Predictor, constants.Transformer, constants.Explainer} {
+		if err := r.reconcileEndpoint(kfsvc, endpoint, false); err != nil {
+			return err
+		}
 	}
-
-	if err := r.reconcileEndpoint(kfsvc, constants.Transformer, false); err != nil {
-		return err
-	}
-
-	if err := r.reconcileEndpoint(kfsvc, constants.Explainer, false); err != nil {
-		return err
-	}
-
 	return nil
 }
 
 func (r *ServiceReconciler) reconcileCanary(kfsvc *v1alpha2.KFService) error {
-	if err := r.reconcileEndpoint(kfsvc, constants.Predictor, true); err != nil {
-		return err
+	for _, endpoint := range []string{constants.Predictor, constants.Transformer, constants.Explainer} {
+		if err := r.reconcileEndpoint(kfsvc, endpoint, true); err != nil {
+			return err
+		}
 	}
-
-	if err := r.reconcileEndpoint(kfsvc, constants.Transformer, true); err != nil {
-		return err
-	}
-
-	if err := r.reconcileEndpoint(kfsvc, constants.Explainer, true); err != nil {
-		return err
-	}
-
 	return nil
 }
 
