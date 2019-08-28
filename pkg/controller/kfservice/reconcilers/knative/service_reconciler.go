@@ -58,6 +58,7 @@ func (r *ServiceReconciler) Reconcile(kfsvc *v1alpha2.KFService) error {
 	if err := r.reconcileDefault(kfsvc); err != nil {
 		return err
 	}
+
 	if err := r.reconcileCanary(kfsvc); err != nil {
 		return err
 	}
@@ -65,72 +66,70 @@ func (r *ServiceReconciler) Reconcile(kfsvc *v1alpha2.KFService) error {
 }
 
 func (r *ServiceReconciler) reconcileDefault(kfsvc *v1alpha2.KFService) error {
-	if err := r.reconcilePredictor(kfsvc, false); err != nil {
+	if err := r.reconcileEndpoint(kfsvc, constants.Predictor, false); err != nil {
 		return err
 	}
-	if err := r.reconcileTransformer(kfsvc, false); err != nil {
+
+	if err := r.reconcileEndpoint(kfsvc, constants.Transformer, false); err != nil {
 		return err
 	}
-	if err := r.reconcileExplainer(kfsvc, false); err != nil {
+
+	if err := r.reconcileEndpoint(kfsvc, constants.Explainer, false); err != nil {
 		return err
 	}
+
 	return nil
 }
 
 func (r *ServiceReconciler) reconcileCanary(kfsvc *v1alpha2.KFService) error {
-	if err := r.reconcilePredictor(kfsvc, true); err != nil {
+	if err := r.reconcileEndpoint(kfsvc, constants.Predictor, true); err != nil {
 		return err
 	}
-	if err := r.reconcileTransformer(kfsvc, true); err != nil {
+
+	if err := r.reconcileEndpoint(kfsvc, constants.Transformer, true); err != nil {
 		return err
 	}
-	if err := r.reconcileExplainer(kfsvc, true); err != nil {
+
+	if err := r.reconcileEndpoint(kfsvc, constants.Explainer, true); err != nil {
 		return err
 	}
+
 	return nil
 }
 
-func (r *ServiceReconciler) reconcileExplainer(kfsvc *v1alpha2.KFService, isCanary bool) error {
-	//@TODO
-	return nil
-}
-
-func (r *ServiceReconciler) reconcileTransformer(kfsvc *v1alpha2.KFService, isCanary bool) error {
-	//@TODO
-	return nil
-}
-
-func (r *ServiceReconciler) reconcilePredictor(kfsvc *v1alpha2.KFService, isCanary bool) error {
-	predictorName := constants.DefaultPredictorServiceName(kfsvc.Name)
-	predictorSpec := &kfsvc.Spec.Default.Predictor
+func (r *ServiceReconciler) reconcileEndpoint(kfsvc *v1alpha2.KFService, endpoint string, isCanary bool) error {
 	if isCanary {
 		if kfsvc.Spec.Canary == nil {
-			if err := r.finalizeService(kfsvc, constants.Predictor); err != nil {
+			if err := r.finalizeService(kfsvc, endpoint); err != nil {
 				return err
 			}
-			kfsvc.Status.PropagateCanaryPredictorStatus(nil)
+			kfsvc.Status.PropagateCanaryStatus(endpoint, nil)
 			return nil
 		}
-		predictorName = constants.CanaryPredictorServiceName(kfsvc.Name)
-		predictorSpec = &kfsvc.Spec.Canary.Predictor
 	}
-	predictor, err := r.serviceBuilder.CreatePredictorService(
-		predictorName,
-		kfsvc.ObjectMeta,
-		predictorSpec,
+
+	service, err := r.serviceBuilder.CreateEndpointService(
+		kfsvc,
+		endpoint,
+		isCanary,
 	)
+
 	if err != nil {
 		return err
 	}
 
-	status, err := r.reconcileService(kfsvc, predictor)
+	if service == nil {
+		return nil
+	}
+
+	status, err := r.reconcileService(kfsvc, service)
 	if err != nil {
 		return err
 	}
 	if isCanary {
-		kfsvc.Status.PropagateCanaryPredictorStatus(status)
+		kfsvc.Status.PropagateCanaryStatus(endpoint, status)
 	} else {
-		kfsvc.Status.PropagateDefaultPredictorStatus(status)
+		kfsvc.Status.PropagateDefaultStatus(endpoint, status)
 	}
 	return nil
 }

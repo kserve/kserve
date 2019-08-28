@@ -64,6 +64,42 @@ func NewServiceBuilder(client client.Client, config *v1.ConfigMap) *ServiceBuild
 	}
 }
 
+func (c *ServiceBuilder) CreateEndpointService(kfsvc *v1alpha2.KFService, endpoint string, isCanary bool) (*knservingv1alpha1.Service, error) {
+	serviceName := constants.DefaultServiceName(kfsvc.Name, endpoint)
+	if isCanary {
+		serviceName = constants.CanaryServiceName(kfsvc.Name, endpoint)
+	}
+	switch endpoint {
+	case constants.Predictor:
+		predictorSpec := &kfsvc.Spec.Default.Predictor
+		if isCanary {
+			predictorSpec = &kfsvc.Spec.Canary.Predictor
+		}
+		return c.CreatePredictorService(serviceName, kfsvc.ObjectMeta, predictorSpec)
+	case constants.Transformer:
+		transformerSpec := &kfsvc.Spec.Default.Transformer
+		if isCanary {
+			transformerSpec = &kfsvc.Spec.Canary.Transformer
+		}
+		if transformerSpec == nil {
+			return nil, nil
+		}
+		//TODO create transformer
+		return nil, nil
+	case constants.Explainer:
+		explainerSpec := &kfsvc.Spec.Default.Explainer
+		if isCanary {
+			explainerSpec = &kfsvc.Spec.Canary.Explainer
+		}
+		if explainerSpec == nil {
+			return nil, nil
+		}
+		//TODO create explainer
+		return nil, nil
+	}
+	return nil, fmt.Errorf("Invalid endpoint")
+}
+
 func (c *ServiceBuilder) CreatePredictorService(name string, metadata metav1.ObjectMeta, predictorSpec *v1alpha2.PredictorSpec) (*knservingv1alpha1.Service, error) {
 	annotations := utils.Filter(metadata.Annotations, func(key string) bool {
 		return !utils.Includes(serviceAnnotationDisallowedList, key)

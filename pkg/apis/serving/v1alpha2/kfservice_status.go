@@ -14,6 +14,7 @@ limitations under the License.
 package v1alpha2
 
 import (
+	"github.com/kubeflow/kfserving/pkg/constants"
 	"k8s.io/api/core/v1"
 	"knative.dev/pkg/apis"
 	knservingv1alpha1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
@@ -51,6 +52,24 @@ func (ss *KFServiceStatus) IsReady() bool {
 // GetCondition returns the condition by name.
 func (ss *KFServiceStatus) GetCondition(t apis.ConditionType) *apis.Condition {
 	return conditionSet.Manage(ss).GetCondition(t)
+}
+
+func (ss *KFServiceStatus) PropagateDefaultStatus(endpoint string, defaultStatus *knservingv1alpha1.ServiceStatus) {
+	switch endpoint {
+	case constants.Predictor:
+		ss.PropagateDefaultPredictorStatus(defaultStatus)
+	case constants.Explainer:
+	case constants.Transformer:
+	}
+}
+
+func (ss *KFServiceStatus) PropagateCanaryStatus(endpoint string, canaryStatus *knservingv1alpha1.ServiceStatus) {
+	switch endpoint {
+	case constants.Predictor:
+		ss.PropagateCanaryPredictorStatus(canaryStatus)
+	case constants.Explainer:
+	case constants.Transformer:
+	}
 }
 
 // PropagateDefaultPredictorStatus propagates the default predictor status and applies its values
