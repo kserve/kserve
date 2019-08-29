@@ -91,6 +91,12 @@ const (
 	Transformer KFServiceEndpoint = "transformer"
 )
 
+// KFService default/canary constants
+const (
+	KFServiceDefault = "default"
+	KFServiceCanary  = "canary"
+)
+
 func (e KFServiceEndpoint) String() string {
 	return string(e)
 }
@@ -103,11 +109,11 @@ func getEnvOrDefault(key string, fallback string) string {
 }
 
 func DefaultPredictorServiceName(name string) string {
-	return name + "-" + string(Predictor) + "-default"
+	return name + "-" + string(Predictor) + "-" + KFServiceDefault
 }
 
 func CanaryPredictorServiceName(name string) string {
-	return name + "-" + string(Predictor) + "-canary"
+	return name + "-" + string(Predictor) + "-" + KFServiceCanary
 }
 
 func PredictorRouteName(name string) string {
@@ -115,11 +121,11 @@ func PredictorRouteName(name string) string {
 }
 
 func DefaultExplainerServiceName(name string) string {
-	return name + "-" + string(Explainer) + "-default"
+	return name + "-" + string(Explainer) + "-" + KFServiceDefault
 }
 
 func CanaryExplainerServiceName(name string) string {
-	return name + "-" + string(Explainer) + "-canary"
+	return name + "-" + string(Explainer) + "-" + KFServiceCanary
 }
 
 func ExplainerRouteName(name string) string {
@@ -127,11 +133,11 @@ func ExplainerRouteName(name string) string {
 }
 
 func DefaultTransformerServiceName(name string) string {
-	return name + "-" + string(Transformer) + "-default"
+	return name + "-" + string(Transformer) + "-" + KFServiceDefault
 }
 
 func CanaryTransformerServiceName(name string) string {
-	return name + "-" + string(Transformer) + "-canary"
+	return name + "-" + string(Transformer) + "-" + KFServiceCanary
 }
 
 func TransformerRouteName(name string) string {
@@ -139,9 +145,9 @@ func TransformerRouteName(name string) string {
 }
 
 func DefaultServiceName(name string, endpoint KFServiceEndpoint) string {
-	return name + "-" + endpoint.String() + "-default"
+	return name + "-" + endpoint.String() + "-" + KFServiceDefault
 }
 
 func CanaryServiceName(name string, endpoint KFServiceEndpoint) string {
-	return name + "-" + endpoint.String() + "-canary"
+	return name + "-" + endpoint.String() + "-" + KFServiceCanary
 }
