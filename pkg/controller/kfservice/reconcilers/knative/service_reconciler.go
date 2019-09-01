@@ -86,7 +86,7 @@ func (r *ServiceReconciler) reconcileCanary(kfsvc *v1alpha2.KFService) error {
 func (r *ServiceReconciler) reconcileEndpoint(kfsvc *v1alpha2.KFService, endpoint constants.KFServiceEndpoint, isCanary bool) error {
 	if isCanary {
 		if kfsvc.Spec.Canary == nil {
-			if err := r.finalizeService(kfsvc, endpoint); err != nil {
+			if err := r.finalizeCanaryService(kfsvc, endpoint); err != nil {
 				return err
 			}
 			kfsvc.Status.PropagateCanaryStatus(endpoint, nil)
@@ -120,7 +120,7 @@ func (r *ServiceReconciler) reconcileEndpoint(kfsvc *v1alpha2.KFService, endpoin
 	return nil
 }
 
-func (r *ServiceReconciler) finalizeService(kfsvc *v1alpha2.KFService, endpoint constants.KFServiceEndpoint) error {
+func (r *ServiceReconciler) finalizeCanaryService(kfsvc *v1alpha2.KFService, endpoint constants.KFServiceEndpoint) error {
 	canaryServiceName := constants.CanaryServiceName(kfsvc.Name, endpoint)
 	existing := &knservingv1alpha1.Service{}
 	if err := r.client.Get(context.TODO(), types.NamespacedName{Name: canaryServiceName, Namespace: kfsvc.Namespace}, existing); err != nil {
