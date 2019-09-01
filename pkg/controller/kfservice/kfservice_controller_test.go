@@ -129,7 +129,7 @@ var configs = map[string]string{
 func TestReconcile(t *testing.T) {
 	var predictorService = types.NamespacedName{Name: constants.DefaultPredictorServiceName(serviceKey.Name),
 		Namespace: serviceKey.Namespace}
-	var routeName = types.NamespacedName{Name: constants.PredictorRouteName(serviceKey.Name),
+	var routeName = types.NamespacedName{Name: constants.PredictRouteName(serviceKey.Name),
 		Namespace: serviceKey.Namespace}
 	g := gomega.NewGomegaWithT(t)
 	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
@@ -278,7 +278,7 @@ func TestCanaryReconcile(t *testing.T) {
 		Namespace: canaryServiceKey.Namespace}
 	var canaryPredictor = types.NamespacedName{Name: constants.CanaryPredictorServiceName(canaryServiceKey.Name),
 		Namespace: canaryServiceKey.Namespace}
-	var routeName = types.NamespacedName{Name: constants.PredictorRouteName(canaryServiceKey.Name),
+	var routeName = types.NamespacedName{Name: constants.PredictRouteName(canaryServiceKey.Name),
 		Namespace: canaryServiceKey.Namespace}
 	g := gomega.NewGomegaWithT(t)
 
@@ -368,7 +368,7 @@ func TestCanaryReconcile(t *testing.T) {
 		Should(gomega.Succeed())
 	expectedRoute := knservingv1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      constants.PredictorRouteName(canaryInstance.Name),
+			Name:      constants.PredictRouteName(canaryInstance.Name),
 			Namespace: canaryInstance.Namespace,
 		},
 		Spec: knservingv1alpha1.RouteSpec{
@@ -483,7 +483,7 @@ func TestCanaryDelete(t *testing.T) {
 		Namespace: namespace}
 	var canaryPredictor = types.NamespacedName{Name: constants.CanaryPredictorServiceName(serviceName),
 		Namespace: namespace}
-	var routeName = types.NamespacedName{Name: constants.PredictorRouteName(serviceName),
+	var routeName = types.NamespacedName{Name: constants.PredictRouteName(serviceName),
 		Namespace: namespace}
 	var expectedCanaryRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: namespace}}
 	var canaryServiceKey = expectedCanaryRequest.NamespacedName

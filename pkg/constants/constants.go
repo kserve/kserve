@@ -84,11 +84,19 @@ const (
 
 type KFServiceEndpoint string
 
+type KFServiceVerb string
+
 // KFService Endpoint enums
 const (
 	Predictor   KFServiceEndpoint = "predictor"
 	Explainer   KFServiceEndpoint = "explainer"
 	Transformer KFServiceEndpoint = "transformer"
+)
+
+// KFService verb enums
+const (
+	Predict KFServiceVerb = "predict"
+	Explain KFServiceVerb = "explain"
 )
 
 // KFService default/canary constants
@@ -99,6 +107,10 @@ const (
 
 func (e KFServiceEndpoint) String() string {
 	return string(e)
+}
+
+func (v KFServiceVerb) String() string {
+	return string(v)
 }
 
 func getEnvOrDefault(key string, fallback string) string {
@@ -116,8 +128,8 @@ func CanaryPredictorServiceName(name string) string {
 	return name + "-" + string(Predictor) + "-" + KFServiceCanary
 }
 
-func PredictorRouteName(name string) string {
-	return name + "-" + string(Predictor)
+func PredictRouteName(name string) string {
+	return name + "-" + string(Predict)
 }
 
 func DefaultExplainerServiceName(name string) string {
@@ -128,8 +140,8 @@ func CanaryExplainerServiceName(name string) string {
 	return name + "-" + string(Explainer) + "-" + KFServiceCanary
 }
 
-func ExplainerRouteName(name string) string {
-	return name + "-" + string(Explainer)
+func ExplainRouteName(name string) string {
+	return name + "-" + string(Explain)
 }
 
 func DefaultTransformerServiceName(name string) string {
@@ -150,4 +162,8 @@ func DefaultServiceName(name string, endpoint KFServiceEndpoint) string {
 
 func CanaryServiceName(name string, endpoint KFServiceEndpoint) string {
 	return name + "-" + endpoint.String() + "-" + KFServiceCanary
+}
+
+func RouteName(name string, verb KFServiceVerb) string {
+	return name + "-" + verb.String()
 }
