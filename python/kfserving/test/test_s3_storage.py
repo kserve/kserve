@@ -13,8 +13,6 @@
 # limitations under the License.
 
 import unittest.mock as mock
-import pytest
-from azure.common import AzureMissingResourceHttpError
 import kfserving
 
 def create_mock_obj(path):
