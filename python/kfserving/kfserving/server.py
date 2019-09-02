@@ -63,7 +63,7 @@ class KFServer(object):
         self.protocol = protocol
         self._http_server: Optional[tornado.httpserver.HTTPServer] = None
 
-    def createApplication(self):
+    def create_application(self):
         return tornado.web.Application([
             # Server Liveness API returns 200 if server is alive.
             (r"/", LivenessHandler),
@@ -72,15 +72,15 @@ class KFServer(object):
             # Prometheus Metrics API that returns metrics for model servers
             (r"/metrics", MetricsHandler, dict(models=self.registered_models)),
             # Model Health API returns 200 if model is ready to serve.
-            (r"/models/([a-zA-Z0-9_-]+)",
+            (r"/v1/models/([a-zA-Z0-9_-]+)",
              ModelHealthHandler, dict(models=self.registered_models)),
             # Predict API executes executes predict on input tensors
-            (r"/models/([a-zA-Z0-9_-]+)",
+            (r"/v1/models/([a-zA-Z0-9_-]+)",
              ModelPredictHandler, dict(protocol=self.protocol, models=self.registered_models)),
             # Optional Custom Predict Verb for Tensorflow compatibility
-            (r"/models/([a-zA-Z0-9_-]+):predict",
+            (r"/v1/models/([a-zA-Z0-9_-]+):predict",
              ModelPredictHandler, dict(protocol=self.protocol, models=self.registered_models)),
-            (r"/models/([a-zA-Z0-9_-]+):explain",
+            (r"/v1/models/([a-zA-Z0-9_-]+):explain",
              ModelExplainHandler, dict(protocol=self.protocol, models=self.registered_models)),
         ])
 
@@ -89,7 +89,7 @@ class KFServer(object):
         for model in models:
             self.register_model(model)
 
-        self._http_server = tornado.httpserver.HTTPServer(self.createApplication())
+        self._http_server = tornado.httpserver.HTTPServer(self.create_application())
 
         logging.info("Listening on port %s" % self.http_port)
         self._http_server.bind(self.http_port)
@@ -100,9 +100,10 @@ class KFServer(object):
         if not model.name:
             raise Exception("Failed to register model, model.name must be provided.")
         self.registered_models[model.name] = model
+        logging.info("Registering model:" + model.name)
 
 
-def getRequestHandler(protocol, request: Dict) -> RequestHandler:
+def get_request_handler(protocol, request: Dict) -> RequestHandler:
     if protocol == Protocol.tensorflow_http:
         return TensorflowRequestHandler(request)
     else:
@@ -136,9 +137,9 @@ class ModelExplainHandler(tornado.web.RequestHandler):
                 reason="Unrecognized request format: %s" % e
             )
 
-        requestHandler: RequestHandler = getRequestHandler(self.protocol, body)
-        requestHandler.validate()
-        request = requestHandler.extract_request()
+        request_handler: RequestHandler = get_request_handler(self.protocol, body)
+        request_handler.validate()
+        request = request_handler.extract_request()
         explanation = model.explain(request)
 
         self.write(explanation)
@@ -169,11 +170,13 @@ class ModelPredictHandler(tornado.web.RequestHandler):
                 reason="Unrecognized request format: %s" % e
             )
 
-        requestHandler: RequestHandler = getRequestHandler(self.protocol, body)
-        requestHandler.validate()
-        request = requestHandler.extract_request()
-        results = model.predict(request)
-        response = requestHandler.wrap_response(results)
+        request_handler: RequestHandler = get_request_handler(self.protocol, body)
+        request_handler.validate()
+        request = request_handler.extract_request()
+        inputs = model.preprocess(request)
+        results = model.predict(inputs)
+        outputs = model.postprocess(results)
+        response = request_handler.wrap_response(outputs)
 
         self.write(response)
 

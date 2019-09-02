@@ -77,15 +77,14 @@ func (c *ServiceBuilder) CreateEndpointService(kfsvc *v1alpha2.KFService, endpoi
 		}
 		return c.CreatePredictorService(serviceName, kfsvc.ObjectMeta, predictorSpec)
 	case constants.Transformer:
-		transformerSpec := &kfsvc.Spec.Default.Transformer
+		transformerSpec := kfsvc.Spec.Default.Transformer
 		if isCanary {
-			transformerSpec = &kfsvc.Spec.Canary.Transformer
+			transformerSpec = kfsvc.Spec.Canary.Transformer
 		}
 		if transformerSpec == nil {
 			return nil, nil
 		}
-		//TODO create transformer
-		return nil, nil
+		return c.CreateTransformerService(serviceName, kfsvc.ObjectMeta, transformerSpec, isCanary)
 	case constants.Explainer:
 		explainerSpec := &kfsvc.Spec.Default.Explainer
 		if isCanary {
@@ -163,6 +162,84 @@ func (c *ServiceBuilder) CreatePredictorService(name string, metadata metav1.Obj
 	if err := c.credentialBuilder.CreateSecretVolumeAndEnv(
 		metadata.Namespace,
 		predictorSpec.ServiceAccountName,
+		&service.Spec.Template.Spec.Containers[0],
+		&service.Spec.Template.Spec.Volumes,
+	); err != nil {
+		return nil, err
+	}
+
+	return service, nil
+}
+
+func (c *ServiceBuilder) CreateTransformerService(name string, metadata metav1.ObjectMeta, transformerSpec *v1alpha2.TransformerSpec, isCanary bool) (*knservingv1alpha1.Service, error) {
+	annotations := utils.Filter(metadata.Annotations, func(key string) bool {
+		return !utils.Includes(serviceAnnotationDisallowedList, key)
+	})
+
+	if transformerSpec.MinReplicas != 0 {
+		annotations[autoscaling.MinScaleAnnotationKey] = fmt.Sprint(transformerSpec.MinReplicas)
+	}
+	if transformerSpec.MaxReplicas != 0 {
+		annotations[autoscaling.MaxScaleAnnotationKey] = fmt.Sprint(transformerSpec.MaxReplicas)
+	}
+
+	// User can pass down scaling target annotation to overwrite the target default 1
+	if _, ok := annotations[autoscaling.TargetAnnotationKey]; !ok {
+		annotations[autoscaling.TargetAnnotationKey] = constants.DefaultScalingTarget
+	}
+	// User can pass down scaling class annotation to overwrite the default scaling KPA
+	if _, ok := annotations[autoscaling.ClassAnnotationKey]; !ok {
+		annotations[autoscaling.ClassAnnotationKey] = autoscaling.KPA
+	}
+
+	predict_url := constants.DefaultServiceName(name, constants.Predictor) + "." + metadata.Namespace
+	if isCanary {
+		predict_url = constants.CanaryServiceName(name, constants.Predictor) + "." + metadata.Namespace
+	}
+	service := &knservingv1alpha1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: metadata.Namespace,
+			Labels:    metadata.Labels,
+		},
+		Spec: knservingv1alpha1.ServiceSpec{
+			ConfigurationSpec: knservingv1alpha1.ConfigurationSpec{
+				Template: &knservingv1alpha1.RevisionTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Labels: utils.Union(metadata.Labels, map[string]string{
+							constants.KFServicePodLabelKey: metadata.Name,
+						}),
+						Annotations: annotations,
+					},
+					Spec: knservingv1alpha1.RevisionSpec{
+						RevisionSpec: v1beta1.RevisionSpec{
+							// Defaulting here since this always shows a diff with nil vs 300s(knative default)
+							// we may need to expose this field in future
+							TimeoutSeconds: &constants.DefaultTimeout,
+							PodSpec: v1.PodSpec{
+								ServiceAccountName: transformerSpec.ServiceAccountName,
+								Containers: []v1.Container{
+									{
+										Image: transformerSpec.Custom.Container.Image,
+										Args: []string{
+											"--model_name",
+											metadata.Name,
+											"--predict_url",
+											"http://" + predict_url,
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	if err := c.credentialBuilder.CreateSecretVolumeAndEnv(
+		metadata.Namespace,
+		transformerSpec.ServiceAccountName,
 		&service.Spec.Template.Spec.Containers[0],
 		&service.Spec.Template.Spec.Volumes,
 	); err != nil {
