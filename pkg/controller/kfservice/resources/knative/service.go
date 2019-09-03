@@ -225,7 +225,7 @@ func (c *ServiceBuilder) CreateTransformerService(name string, metadata metav1.O
 											"--model_name",
 											metadata.Name,
 											"--predict_url",
-											"http://" + predict_url,
+											"http://" + predict_url + "/v1/models/" + metadata.Name + ":predict",
 										},
 									},
 								},
