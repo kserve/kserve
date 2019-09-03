@@ -16,7 +16,7 @@ Expected Output
 $ kfservice.serving.kubeflow.org/style-sample configured
 ```
 
-Run a sample inference
+## Run a sample inference
 1. Setup env vars
 ```
 export SERVICE_URL=$(kubectl get kfservice ${MODEL_NAME} -o jsonpath='{.status.url}')
@@ -37,3 +37,6 @@ pip install requests
 ```
 jupyter notebook
 ```
+
+## Uploading your own model
+Upload your model as model.onnx to S3, GCS or an Azure Blob
