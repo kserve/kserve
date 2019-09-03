@@ -33,7 +33,7 @@ pip install pillow
 pip install protobuf
 pip install requests
 ```
-4. Run mosaic-onnx in jupyter
+4. Run the [sample notebook](mosaic-onnx.ipynb) in jupyter
 ```
 jupyter notebook
 ```
