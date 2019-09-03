@@ -27,9 +27,10 @@ var (
 	ONNXServingGRPCPort        = "9000"
 	ONNXServingImageName       = "mcr.microsoft.com/onnxruntime/server"
 	ONNXModelFileName          = "model.onnx"
-	DefaultONNXRuntimeVersion  = "latest" // TODO: get a real version
+	DefaultONNXRuntimeVersion  = "latest"
 	AllowedONNXRuntimeVersions = []string{
-		"latest",
+		DefaultONNXRuntimeVersion,
+		"v0.5.0",
 	}
 	InvalidONNXRuntimeVersionError = "RuntimeVersion must be one of " + strings.Join(AllowedONNXRuntimeVersions, ", ")
 )
