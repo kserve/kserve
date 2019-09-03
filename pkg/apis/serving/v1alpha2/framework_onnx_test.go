@@ -19,6 +19,7 @@ package v1alpha2
 import (
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	"github.com/onsi/gomega"
@@ -60,7 +61,7 @@ func TestCreateOnnxModelServingContainer(t *testing.T) {
 		Args: []string{
 			"--http_port 8080",
 			"--grpc_port 9000",
-			"--model_path /mnt/models",
+			"--model_path /mnt/models/model.onnx",
 		},
 	}
 
@@ -72,5 +73,5 @@ func TestCreateOnnxModelServingContainer(t *testing.T) {
 	expectedContainer.Image = "mcr.microsoft.com/onnxruntime/server:someAmazingVersion"
 	emptyConfig := FrameworksConfig{ONNX: FrameworkConfig{}}
 	container = onnxSpec.CreateModelServingContainer("someName", &emptyConfig)
-	g.Expect(container).To(gomega.Equal(expectedContainer))
+	g.Expect(cmp.Diff(container, expectedContainer)).To(gomega.Equal(""))
 }
