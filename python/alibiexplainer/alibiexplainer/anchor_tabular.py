@@ -63,11 +63,13 @@ class AnchorTabular(ExplainerWrapper):
             arr = np.array(inputs)
             # set anchor_tabular predict function so it always returns predicted class
             # See anchor_tablular.__init__
+            logging.info("Arr shape %s ",(arr.shape,))
             if np.argmax(self.predict_fn(arr).shape) == 0:
                 self.anchors_tabular.predict_fn = self.predict_fn
             else:
                 self.anchors_tabular.predict_fn = lambda x: np.argmax(self.predict_fn(x), axis=1)
-            anchor_exp = self.anchors_tabular.explain(arr)
+            # We assume the input has batch dimension but Alibi explainers presently assume no batch
+            anchor_exp = self.anchors_tabular.explain(arr[0])
             if not self.cmap is None:
                 # convert to interpretable raw features
                 for i in range(len(anchor_exp['raw']['examples'])):
