@@ -112,6 +112,34 @@ def set_s3_credentials(namespace, credentials_file, service_account, s3_profile=
                         service_account=service_account,
                         secret_name=secret_name)
 
+def set_azure_credentials(namespace, credentials_file, service_account):
+    '''
+    Set Azure Credentails (secret and service account) with credentials file.
+    Args:
+        namespace(str): The kubernetes namespace.
+        credentials_file(str): The path for the Azure credentials file.
+        service_account(str): The name of service account. If the service_account
+                              is specified, will attach created secret with the service account,
+                              otherwise will create new one and attach with created secret.
+    '''
+
+    with open(expanduser(credentials_file)) as azure_creds_file:
+        azure_creds = json.load(azure_creds_file)
+
+    data = {
+        'AZ_CLIENT_ID': azure_creds['clientId'],
+        'AZ_CLIENT_SECRET': azure_creds['clientSecret'],
+        'AZ_SUBSCRIPTION_ID': azure_creds['subscriptionId'],
+        'AZ_TENANT_ID': azure_creds['tenantId'],
+        }
+
+    secret_name = create_secret(
+        namespace=namespace, data=data)
+
+    set_service_account(namespace=namespace,
+                        service_account=service_account,
+                        secret_name=secret_name)
+
 
 def create_secret(namespace, annotations=None, data=None, string_data=None):
     'Create namespaced secret, and return the secret name.'

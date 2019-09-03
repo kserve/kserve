@@ -83,8 +83,8 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		OwnerType:    &kfserving.KFService{},
 	}
 
-	// Watch for changes to Knative Configuration
-	if err = c.Watch(&source.Kind{Type: &knservingv1alpha1.Configuration{}}, kfservingController); err != nil {
+	// Watch for changes to Knative Service
+	if err = c.Watch(&source.Kind{Type: &knservingv1alpha1.Service{}}, kfservingController); err != nil {
 		return err
 	}
 
@@ -117,8 +117,8 @@ type Reconciler interface {
 
 // Reconcile reads that state of the cluster for a Service object and makes changes based on the state read
 // and what is in the Service.Spec
-// +kubebuilder:rbac:groups=serving.knative.dev,resources=configurations,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=serving.knative.dev,resources=configurations/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=serving.knative.dev,resources=services,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=serving.knative.dev,resources=services/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=serving.knative.dev,resources=routes,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=serving.knative.dev,resources=routes/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=serving.kubeflow.org,resources=kfservices,verbs=get;list;watch;create;update;patch;delete
@@ -147,7 +147,7 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 	}
 
 	reconcilers := []Reconciler{
-		knative.NewConfigurationReconciler(r.Client, r.scheme, configMap),
+		knative.NewServiceReconciler(r.Client, r.scheme, configMap),
 		knative.NewRouteReconciler(r.Client, r.scheme),
 	}
 
