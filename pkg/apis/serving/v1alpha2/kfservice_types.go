@@ -14,7 +14,7 @@ limitations under the License.
 package v1alpha2
 
 import (
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
 )
@@ -69,6 +69,7 @@ type PredictorSpec struct {
 	TensorRT   *TensorRTSpec   `json:"tensorrt,omitempty"`
 	XGBoost    *XGBoostSpec    `json:"xgboost,omitempty"`
 	SKLearn    *SKLearnSpec    `json:"sklearn,omitempty"`
+	ONNX       *ONNXSpec       `json:"onnx,omitempty"`
 	PyTorch    *PyTorchSpec    `json:"pytorch,omitempty"`
 
 	DeploymentSpec `json:",inline"`
@@ -145,6 +146,15 @@ type XGBoostSpec struct {
 type SKLearnSpec struct {
 	ModelURI string `json:"modelUri"`
 	// Defaults to latest SKLearn Version.
+	RuntimeVersion string `json:"runtimeVersion,omitempty"`
+	// Defaults to requests and limits of 1CPU, 2Gb MEM.
+	Resources v1.ResourceRequirements `json:"resources,omitempty"`
+}
+
+// ONNXSpec defines arguments for configuring ONNX model serving.
+type ONNXSpec struct {
+	ModelURI string `json:"modelUri"`
+	// Defaults to latest ONNX Version.
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
 	// Defaults to requests and limits of 1CPU, 2Gb MEM.
 	Resources v1.ResourceRequirements `json:"resources,omitempty"`
