@@ -48,7 +48,7 @@ func TestKnativeRouteReconcile(t *testing.T) {
 						Predictor: v1alpha2.PredictorSpec{
 							Tensorflow: &v1alpha2.TensorflowSpec{
 								RuntimeVersion: v1alpha2.DefaultTensorflowRuntimeVersion,
-								ModelURI:       "gs://testuri",
+								StorageURI:       "gs://testuri",
 							},
 						},
 					},

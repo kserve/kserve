@@ -105,7 +105,7 @@ from kfserving import V1alpha2KFService
 
 
 default_model_spec = V1alpha2ModelSpec(tensorflow=V1alpha2TensorflowSpec(
-    model_uri='gs://kfserving-samples/models/tensorflow/flowers'))
+    storage_uri='gs://kfserving-samples/models/tensorflow/flowers'))
 
 kfsvc = V1alpha2KFService(api_version=constants.KFSERVING_GROUP + '/' + constants.KFSERVING_VERSION,
                           kind=constants.KFSERVING_KIND,
@@ -187,9 +187,9 @@ from kfserving import V1alpha2KFService
 from kfserving import KFServingClient
 
 default_model_spec = V1alpha2ModelSpec(tensorflow=V1alpha2TensorflowSpec(
-    model_uri='gs://kfserving-samples/models/tensorflow/flowers'))
+    storage_uri='gs://kfserving-samples/models/tensorflow/flowers'))
 canary_model_spec = V1alpha2ModelSpec(tensorflow=V1alpha2TensorflowSpec(
-    model_uri='gs://kfserving-samples/models/tensorflow/flowers'))
+    storage_uri='gs://kfserving-samples/models/tensorflow/flowers'))
 
 kfsvc = V1alpha2KFService(api_version=constants.KFSERVING_GROUP + '/' + constants.KFSERVING_VERSION,
                           kind=constants.KFSERVING_KIND,

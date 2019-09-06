@@ -5,4 +5,4 @@ metadata:
 spec:
   default:
     sklearn:
-      modelUri: "gs://kfserving-samples/models/sklearn/iris"
+      storageUri: "gs://kfserving-samples/models/sklearn/iris"

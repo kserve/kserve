@@ -288,10 +288,10 @@
     "v1alpha2.ONNXSpec": {
       "description": "ONNXSpec defines arguments for configuring ONNX model serving.",
       "required": [
-        "modelUri"
+        "storageUri"
       ],
       "properties": {
-        "modelUri": {
+        "storageUri": {
           "type": "string"
         },
         "resources": {

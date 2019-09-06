@@ -36,7 +36,7 @@ var (
 )
 
 func (s *ONNXSpec) GetModelSourceUri() string {
-	return s.ModelURI
+	return s.StorageURI
 }
 
 func (s *ONNXSpec) CreateModelServingContainer(modelName string, config *FrameworksConfig) *v1.Container {

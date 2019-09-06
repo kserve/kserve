@@ -430,7 +430,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 				SchemaProps: openapispec.SchemaProps{
 					Description: "ONNXSpec defines arguments for configuring ONNX model serving.",
 					Properties: map[string]openapispec.Schema{
-						"modelUri": {
+						"storageUri": {
 							SchemaProps: openapispec.SchemaProps{
 								Type:   []string{"string"},
 								Format: "",
@@ -450,7 +450,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 							},
 						},
 					},
-					Required: []string{"modelUri"},
+					Required: []string{"storageUri"},
 				},
 			},
 			Dependencies: []string{
@@ -529,7 +529,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 				SchemaProps: openapispec.SchemaProps{
 					Description: "PyTorchSpec defines arguments for configuring PyTorch model serving.",
 					Properties: map[string]openapispec.Schema{
-						"modelUri": {
+						"storageUri": {
 							SchemaProps: openapispec.SchemaProps{
 								Type:   []string{"string"},
 								Format: "",
@@ -556,7 +556,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 							},
 						},
 					},
-					Required: []string{"modelUri"},
+					Required: []string{"storageUri"},
 				},
 			},
 			Dependencies: []string{
@@ -567,7 +567,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 				SchemaProps: openapispec.SchemaProps{
 					Description: "SKLearnSpec defines arguments for configuring SKLearn model serving.",
 					Properties: map[string]openapispec.Schema{
-						"modelUri": {
+						"storageUri": {
 							SchemaProps: openapispec.SchemaProps{
 								Type:   []string{"string"},
 								Format: "",
@@ -587,7 +587,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 							},
 						},
 					},
-					Required: []string{"modelUri"},
+					Required: []string{"storageUri"},
 				},
 			},
 			Dependencies: []string{
@@ -626,7 +626,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 				SchemaProps: openapispec.SchemaProps{
 					Description: "TensorRTSpec defines arguments for configuring TensorRT model serving.",
 					Properties: map[string]openapispec.Schema{
-						"modelUri": {
+						"storageUri": {
 							SchemaProps: openapispec.SchemaProps{
 								Type:   []string{"string"},
 								Format: "",
@@ -646,7 +646,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 							},
 						},
 					},
-					Required: []string{"modelUri"},
+					Required: []string{"storageUri"},
 				},
 			},
 			Dependencies: []string{
@@ -657,7 +657,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 				SchemaProps: openapispec.SchemaProps{
 					Description: "TensorflowSpec defines arguments for configuring Tensorflow model serving.",
 					Properties: map[string]openapispec.Schema{
-						"modelUri": {
+						"storageUri": {
 							SchemaProps: openapispec.SchemaProps{
 								Type:   []string{"string"},
 								Format: "",
@@ -677,7 +677,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 							},
 						},
 					},
-					Required: []string{"modelUri"},
+					Required: []string{"storageUri"},
 				},
 			},
 			Dependencies: []string{
@@ -725,7 +725,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 				SchemaProps: openapispec.SchemaProps{
 					Description: "XGBoostSpec defines arguments for configuring XGBoost model serving.",
 					Properties: map[string]openapispec.Schema{
-						"modelUri": {
+						"storageUri": {
 							SchemaProps: openapispec.SchemaProps{
 								Type:   []string{"string"},
 								Format: "",
@@ -745,7 +745,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 							},
 						},
 					},
-					Required: []string{"modelUri"},
+					Required: []string{"storageUri"},
 				},
 			},
 			Dependencies: []string{

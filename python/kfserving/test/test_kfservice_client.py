@@ -22,7 +22,7 @@ mocked_unit_result = \
     "spec": {
         "default": {
             "tensorflow": {
-                "model_uri": "gs://kfserving-samples/models/tensorflow/flowers"
+                "storage_uri": "gs://kfserving-samples/models/tensorflow/flowers"
             }
         }
     }
@@ -31,7 +31,7 @@ mocked_unit_result = \
 
 def generate_kfservice():
     default_model_spec = V1alpha2ModelSpec(tensorflow=V1alpha2TensorflowSpec(
-        model_uri='gs://kfserving-samples/models/tensorflow/flowers'))
+        storage_uri='gs://kfserving-samples/models/tensorflow/flowers'))
 
     kfsvc = V1alpha2KFService(api_version='serving.kubeflow.org/v1alpha1',
                               kind='KFService',

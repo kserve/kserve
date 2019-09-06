@@ -140,7 +140,7 @@ Conditions provide realtime feedback to users on the underlying state of their d
 ### ModelSpec
 | Field       | Value       | Description |
 | ----------- | ----------- | ----------- |
-| modelUri       | String                                                                                             | URI pointing to Saved Model assets |
+| storageUri       | String                                                                                             | URI pointing to Saved Model assets |
 | runtimeVersion | String                                                                                             | Defaults to latest the version of Tensorflow. |
 | resources      | [Resources](https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/) | Defaults to requests and limits of 1CPU, 2Gb MEM. |
 

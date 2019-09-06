@@ -6,4 +6,4 @@ spec:
   default:
     serviceAccountName: sa
     tensorflow:
-      modelUri: "s3://mnist/v1/export"
+      storageUri: "s3://mnist/v1/export"

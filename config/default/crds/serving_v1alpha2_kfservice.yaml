@@ -121,7 +121,7 @@ spec:
                       type: integer
                     onnx:
                       properties:
-                        modelUri:
+                        storageUri:
                           type: string
                         resources:
                           description: Defaults to requests and limits of 1CPU, 2Gb
@@ -131,14 +131,14 @@ spec:
                           description: Defaults to latest ONNX Version.
                           type: string
                       required:
-                      - modelUri
+                      - storageUri
                       type: object
                     pytorch:
                       properties:
                         modelClassName:
                           description: Defaults PyTorch model class name to 'PyTorchModel'
                           type: string
-                        modelUri:
+                        storageUri:
                           type: string
                         resources:
                           description: Defaults to requests and limits of 1CPU, 2Gb
@@ -148,7 +148,7 @@ spec:
                           description: Defaults to latest PyTorch Version
                           type: string
                       required:
-                      - modelUri
+                      - storageUri
                       type: object
                     serviceAccountName:
                       description: ServiceAccountName is the name of the ServiceAccount
@@ -156,7 +156,7 @@ spec:
                       type: string
                     sklearn:
                       properties:
-                        modelUri:
+                        storageUri:
                           type: string
                         resources:
                           description: Defaults to requests and limits of 1CPU, 2Gb
@@ -166,11 +166,11 @@ spec:
                           description: Defaults to latest SKLearn Version.
                           type: string
                       required:
-                      - modelUri
+                      - storageUri
                       type: object
                     tensorflow:
                       properties:
-                        modelUri:
+                        storageUri:
                           type: string
                         resources:
                           description: Defaults to requests and limits of 1CPU, 2Gb
@@ -180,11 +180,11 @@ spec:
                           description: Defaults to latest TF Version.
                           type: string
                       required:
-                      - modelUri
+                      - storageUri
                       type: object
                     tensorrt:
                       properties:
-                        modelUri:
+                        storageUri:
                           type: string
                         resources:
                           description: Defaults to requests and limits of 1CPU, 2Gb
@@ -194,11 +194,11 @@ spec:
                           description: Defaults to latest TensorRT Version.
                           type: string
                       required:
-                      - modelUri
+                      - storageUri
                       type: object
                     xgboost:
                       properties:
-                        modelUri:
+                        storageUri:
                           type: string
                         resources:
                           description: Defaults to requests and limits of 1CPU, 2Gb
@@ -208,7 +208,7 @@ spec:
                           description: Defaults to latest XGBoost Version.
                           type: string
                       required:
-                      - modelUri
+                      - storageUri
                       type: object
                   type: object
                 transformer:
@@ -318,7 +318,7 @@ spec:
                       type: integer
                     onnx:
                       properties:
-                        modelUri:
+                        storageUri:
                           type: string
                         resources:
                           description: Defaults to requests and limits of 1CPU, 2Gb
@@ -328,14 +328,14 @@ spec:
                           description: Defaults to latest ONNX Version.
                           type: string
                       required:
-                      - modelUri
+                      - storageUri
                       type: object
                     pytorch:
                       properties:
                         modelClassName:
                           description: Defaults PyTorch model class name to 'PyTorchModel'
                           type: string
-                        modelUri:
+                        storageUri:
                           type: string
                         resources:
                           description: Defaults to requests and limits of 1CPU, 2Gb
@@ -345,7 +345,7 @@ spec:
                           description: Defaults to latest PyTorch Version
                           type: string
                       required:
-                      - modelUri
+                      - storageUri
                       type: object
                     serviceAccountName:
                       description: ServiceAccountName is the name of the ServiceAccount
@@ -353,7 +353,7 @@ spec:
                       type: string
                     sklearn:
                       properties:
-                        modelUri:
+                        storageUri:
                           type: string
                         resources:
                           description: Defaults to requests and limits of 1CPU, 2Gb
@@ -363,11 +363,11 @@ spec:
                           description: Defaults to latest SKLearn Version.
                           type: string
                       required:
-                      - modelUri
+                      - storageUri
                       type: object
                     tensorflow:
                       properties:
-                        modelUri:
+                        storageUri:
                           type: string
                         resources:
                           description: Defaults to requests and limits of 1CPU, 2Gb
@@ -377,11 +377,11 @@ spec:
                           description: Defaults to latest TF Version.
                           type: string
                       required:
-                      - modelUri
+                      - storageUri
                       type: object
                     tensorrt:
                       properties:
-                        modelUri:
+                        storageUri:
                           type: string
                         resources:
                           description: Defaults to requests and limits of 1CPU, 2Gb
@@ -391,11 +391,11 @@ spec:
                           description: Defaults to latest TensorRT Version.
                           type: string
                       required:
-                      - modelUri
+                      - storageUri
                       type: object
                     xgboost:
                       properties:
-                        modelUri:
+                        storageUri:
                           type: string
                         resources:
                           description: Defaults to requests and limits of 1CPU, 2Gb
@@ -405,7 +405,7 @@ spec:
                           description: Defaults to latest XGBoost Version.
                           type: string
                       required:
-                      - modelUri
+                      - storageUri
                       type: object
                   type: object
                 transformer:
