@@ -323,14 +323,14 @@
     "v1alpha2.PyTorchSpec": {
       "description": "PyTorchSpec defines arguments for configuring PyTorch model serving.",
       "required": [
-        "modelUri"
+        "storageUri"
       ],
       "properties": {
         "modelClassName": {
           "description": "Defaults PyTorch model class name to 'PyTorchModel'",
           "type": "string"
         },
-        "modelUri": {
+        "storageUri": {
           "type": "string"
         },
         "resources": {
@@ -346,10 +346,10 @@
     "v1alpha2.SKLearnSpec": {
       "description": "SKLearnSpec defines arguments for configuring SKLearn model serving.",
       "required": [
-        "modelUri"
+        "storageUri"
       ],
       "properties": {
-        "modelUri": {
+        "storageUri": {
           "type": "string"
         },
         "resources": {
@@ -381,10 +381,10 @@
     "v1alpha2.TensorRTSpec": {
       "description": "TensorRTSpec defines arguments for configuring TensorRT model serving.",
       "required": [
-        "modelUri"
+        "storageUri"
       ],
       "properties": {
-        "modelUri": {
+        "storageUri": {
           "type": "string"
         },
         "resources": {
@@ -400,10 +400,10 @@
     "v1alpha2.TensorflowSpec": {
       "description": "TensorflowSpec defines arguments for configuring Tensorflow model serving.",
       "required": [
-        "modelUri"
+        "storageUri"
       ],
       "properties": {
-        "modelUri": {
+        "storageUri": {
           "type": "string"
         },
         "resources": {
@@ -441,10 +441,10 @@
     "v1alpha2.XGBoostSpec": {
       "description": "XGBoostSpec defines arguments for configuring XGBoost model serving.",
       "required": [
-        "modelUri"
+        "storageUri"
       ],
       "properties": {
-        "modelUri": {
+        "storageUri": {
           "type": "string"
         },
         "resources": {

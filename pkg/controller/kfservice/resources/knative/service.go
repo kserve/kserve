@@ -123,7 +123,7 @@ func (c *ServiceBuilder) CreatePredictorService(name string, metadata metav1.Obj
 
 	// KNative does not support INIT containers or mounting, so we add annotations that trigger the
 	// ModelInitializer injector to mutate the underlying deployment to provision model data
-	if sourceURI := predictorSpec.GetModelSourceUri(); sourceURI != "" {
+	if sourceURI := predictorSpec.GetStorageUri(); sourceURI != "" {
 		annotations[constants.ModelInitializerSourceUriInternalAnnotationKey] = sourceURI
 	}
 

@@ -32,8 +32,8 @@ var (
 	DefaultXGBoostRuntimeVersion      = "latest"
 )
 
-func (x *XGBoostSpec) GetModelSourceUri() string {
-	return x.ModelURI
+func (x *XGBoostSpec) GetStorageUri() string {
+	return x.storageUri
 }
 
 func (x *XGBoostSpec) CreateModelServingContainer(modelName string, config *FrameworksConfig) *v1.Container {

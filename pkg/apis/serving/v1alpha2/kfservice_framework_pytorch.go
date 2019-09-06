@@ -35,8 +35,8 @@ var (
 
 var _ FrameworkHandler = (*PyTorchSpec)(nil)
 
-func (s *PyTorchSpec) GetModelSourceUri() string {
-	return s.ModelURI
+func (s *PyTorchSpec) GetStorageUri() string {
+	return s.storageUri
 }
 
 func (s *PyTorchSpec) CreateModelServingContainer(modelName string, config *FrameworksConfig) *v1.Container {

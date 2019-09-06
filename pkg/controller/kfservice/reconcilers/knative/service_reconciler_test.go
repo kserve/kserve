@@ -68,7 +68,7 @@ func TestKnativeServiceReconcile(t *testing.T) {
 						Predictor: v1alpha2.PredictorSpec{
 							Tensorflow: &v1alpha2.TensorflowSpec{
 								RuntimeVersion: v1alpha2.DefaultTensorflowRuntimeVersion,
-								ModelURI:       "gs://testuri",
+								storageUri:     "gs://testuri",
 							},
 						},
 					},
@@ -76,7 +76,7 @@ func TestKnativeServiceReconcile(t *testing.T) {
 						Predictor: v1alpha2.PredictorSpec{
 							Tensorflow: &v1alpha2.TensorflowSpec{
 								RuntimeVersion: v1alpha2.DefaultTensorflowRuntimeVersion,
-								ModelURI:       "gs://testuri2",
+								StorageURI:   "gs://testuri2",
 							},
 						},
 					},
@@ -172,7 +172,7 @@ func TestKnativeServiceReconcile(t *testing.T) {
 						Predictor: v1alpha2.PredictorSpec{
 							Tensorflow: &v1alpha2.TensorflowSpec{
 								RuntimeVersion: v1alpha2.DefaultTensorflowRuntimeVersion,
-								ModelURI:       "gs://testuri",
+								StorageURI:   "gs://testuri",
 							},
 						},
 					},

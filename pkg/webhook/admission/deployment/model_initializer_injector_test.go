@@ -325,12 +325,12 @@ func TestModelInitializerFailureCases(t *testing.T) {
 	}
 }
 
-func TestCustomSpecModelUriInjection(t *testing.T) {
+func TestCustomSpecStorageUriInjection(t *testing.T) {
 	scenarios := map[string]struct {
 		original                    *appsv1.Deployment
-		expectedModelUriEnvVariable *v1.EnvVar
+		expectedStorageUriEnvVariable *v1.EnvVar
 	}{
-		"CustomSpecModelUriSet": {
+		"CustomSpecStorageUriSet": {
 			original: &appsv1.Deployment{
 				Spec: appsv1.DeploymentSpec{
 					Template: v1.PodTemplateSpec{
@@ -345,7 +345,7 @@ func TestCustomSpecModelUriInjection(t *testing.T) {
 									Name: "user-container",
 									Env: []v1.EnvVar{
 										v1.EnvVar{
-											Name:  constants.CustomSpecModelUriEnvVarKey,
+											Name:  constants.CustomSpecStorageUriEnvVarKey,
 											Value: "pvc://mypvcname/some/path/on/pvc",
 										},
 									},
@@ -355,12 +355,12 @@ func TestCustomSpecModelUriInjection(t *testing.T) {
 					},
 				},
 			},
-			expectedModelUriEnvVariable: &v1.EnvVar{
-				Name:  constants.CustomSpecModelUriEnvVarKey,
+			expectedStorageUriEnvVariable: &v1.EnvVar{
+				Name:  constants.CustomSpecStorageUriEnvVarKey,
 				Value: constants.DefaultModelLocalMountPath,
 			},
 		},
-		"CustomSpecModelUriEmpty": {
+		"CustomSpecStorageUriEmpty": {
 			original: &appsv1.Deployment{
 				Spec: appsv1.DeploymentSpec{
 					Template: v1.PodTemplateSpec{
@@ -375,7 +375,7 @@ func TestCustomSpecModelUriInjection(t *testing.T) {
 									Name: "user-container",
 									Env: []v1.EnvVar{
 										v1.EnvVar{
-											Name:  constants.CustomSpecModelUriEnvVarKey,
+											Name:  constants.CustomSpecStorageUriEnvVarKey,
 											Value: "",
 										},
 									},
@@ -385,12 +385,12 @@ func TestCustomSpecModelUriInjection(t *testing.T) {
 					},
 				},
 			},
-			expectedModelUriEnvVariable: &v1.EnvVar{
-				Name:  constants.CustomSpecModelUriEnvVarKey,
+			expectedStorageUriEnvVariable: &v1.EnvVar{
+				Name:  constants.CustomSpecStorageUriEnvVarKey,
 				Value: "",
 			},
 		},
-		"CustomSpecModelUriNotSet": {
+		"CustomSpecStorageUriNotSet": {
 			original: &appsv1.Deployment{
 				Spec: appsv1.DeploymentSpec{
 					Template: v1.PodTemplateSpec{
@@ -415,7 +415,7 @@ func TestCustomSpecModelUriInjection(t *testing.T) {
 					},
 				},
 			},
-			expectedModelUriEnvVariable: nil,
+			expectedStorageUriEnvVariable: nil,
 		},
 	}
 
@@ -431,11 +431,11 @@ func TestCustomSpecModelUriInjection(t *testing.T) {
 
 		var originalEnvVar *v1.EnvVar
 		for _, envVar := range scenario.original.Spec.Template.Spec.Containers[0].Env {
-			if envVar.Name == constants.CustomSpecModelUriEnvVarKey {
+			if envVar.Name == constants.CustomSpecStorageUriEnvVarKey {
 				originalEnvVar = &envVar
 			}
 		}
-		if diff := cmp.Diff(scenario.expectedModelUriEnvVariable, originalEnvVar); diff != "" {
+		if diff := cmp.Diff(scenario.expectedStorageUriEnvVariable, originalEnvVar); diff != "" {
 			t.Errorf("Test %q unexpected result (-want +got): %v", name, diff)
 		}
 	}

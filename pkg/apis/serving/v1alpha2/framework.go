@@ -23,7 +23,7 @@ import (
 )
 
 type FrameworkHandler interface {
-	GetModelSourceUri() string
+	GetStorageUri() string
 	CreateModelServingContainer(modelName string, config *FrameworksConfig) *v1.Container
 	ApplyDefaults()
 	Validate() error
@@ -42,8 +42,8 @@ var (
 )
 
 // Returns a URI to the model. This URI is passed to the model-initializer via the ModelInitializerSourceUriInternalAnnotationKey
-func (m *PredictorSpec) GetModelSourceUri() string {
-	return getHandler(m).GetModelSourceUri()
+func (m *PredictorSpec) GetStorageUri() string {
+	return getHandler(m).GetStorageUri()
 }
 
 func (m *PredictorSpec) CreateModelServingContainer(modelName string, config *FrameworksConfig) *v1.Container {

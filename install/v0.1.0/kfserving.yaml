@@ -79,7 +79,7 @@ spec:
                     modelClassName:
                       description: Defaults PyTorch model class name to 'PyTorchModel'
                       type: string
-                    modelUri:
+                    storageUri:
                       type: string
                     resources:
                       description: Defaults to requests and limits of 1CPU, 2Gb MEM.
@@ -88,14 +88,14 @@ spec:
                       description: Defaults to latest PyTorch Version
                       type: string
                   required:
-                  - modelUri
+                  - storageUri
                   type: object
                 serviceAccountName:
                   description: Service Account Name
                   type: string
                 sklearn:
                   properties:
-                    modelUri:
+                    storageUri:
                       type: string
                     resources:
                       description: Defaults to requests and limits of 1CPU, 2Gb MEM.
@@ -104,11 +104,11 @@ spec:
                       description: Defaults to latest SKLearn Version.
                       type: string
                   required:
-                  - modelUri
+                  - storageUri
                   type: object
                 tensorflow:
                   properties:
-                    modelUri:
+                    storageUri:
                       type: string
                     resources:
                       description: Defaults to requests and limits of 1CPU, 2Gb MEM.
@@ -117,11 +117,11 @@ spec:
                       description: Defaults to latest TF Version.
                       type: string
                   required:
-                  - modelUri
+                  - storageUri
                   type: object
                 tensorrt:
                   properties:
-                    modelUri:
+                    storageUri:
                       type: string
                     resources:
                       description: Defaults to requests and limits of 1CPU, 2Gb MEM.
@@ -130,11 +130,11 @@ spec:
                       description: Defaults to latest TensorRT Version.
                       type: string
                   required:
-                  - modelUri
+                  - storageUri
                   type: object
                 xgboost:
                   properties:
-                    modelUri:
+                    storageUri:
                       type: string
                     resources:
                       description: Defaults to requests and limits of 1CPU, 2Gb MEM.
@@ -143,7 +143,7 @@ spec:
                       description: Defaults to latest XGBoost Version.
                       type: string
                   required:
-                  - modelUri
+                  - storageUri
                   type: object
               type: object
             canaryTrafficPercent:
@@ -174,7 +174,7 @@ spec:
                     modelClassName:
                       description: Defaults PyTorch model class name to 'PyTorchModel'
                       type: string
-                    modelUri:
+                    storageUri:
                       type: string
                     resources:
                       description: Defaults to requests and limits of 1CPU, 2Gb MEM.
@@ -183,14 +183,14 @@ spec:
                       description: Defaults to latest PyTorch Version
                       type: string
                   required:
-                  - modelUri
+                  - storageUri
                   type: object
                 serviceAccountName:
                   description: Service Account Name
                   type: string
                 sklearn:
                   properties:
-                    modelUri:
+                    storageUri:
                       type: string
                     resources:
                       description: Defaults to requests and limits of 1CPU, 2Gb MEM.
@@ -199,11 +199,11 @@ spec:
                       description: Defaults to latest SKLearn Version.
                       type: string
                   required:
-                  - modelUri
+                  - storageUri
                   type: object
                 tensorflow:
                   properties:
-                    modelUri:
+                    storageUri:
                       type: string
                     resources:
                       description: Defaults to requests and limits of 1CPU, 2Gb MEM.
@@ -212,11 +212,11 @@ spec:
                       description: Defaults to latest TF Version.
                       type: string
                   required:
-                  - modelUri
+                  - storageUri
                   type: object
                 tensorrt:
                   properties:
-                    modelUri:
+                    storageUri:
                       type: string
                     resources:
                       description: Defaults to requests and limits of 1CPU, 2Gb MEM.
@@ -225,11 +225,11 @@ spec:
                       description: Defaults to latest TensorRT Version.
                       type: string
                   required:
-                  - modelUri
+                  - storageUri
                   type: object
                 xgboost:
                   properties:
-                    modelUri:
+                    storageUri:
                       type: string
                     resources:
                       description: Defaults to requests and limits of 1CPU, 2Gb MEM.
@@ -238,7 +238,7 @@ spec:
                       description: Defaults to latest XGBoost Version.
                       type: string
                   required:
-                  - modelUri
+                  - storageUri
                   type: object
               type: object
           required:

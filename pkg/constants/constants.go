@@ -79,7 +79,7 @@ const DefaultModelLocalMountPath = "/mnt/models"
 
 // KFService Environment Variables
 const (
-	CustomSpecModelUriEnvVarKey = "STORAGE_URI"
+	CustomSpecStorageUriEnvVarKey = "STORAGE_URI"
 )
 
 type KFServiceEndpoint string

@@ -219,7 +219,7 @@ metadata:
 spec:
   default:
     tensorflow:
-      modelUri: "gs://kfserving-samples/models/tensorflow/flowers"
+      storageUri: "gs://kfserving-samples/models/tensorflow/flowers"
       runtimeVersion: "1.13.0-gpu"
       resources:
         limits:
@@ -298,7 +298,7 @@ metadata:
 spec:
   default:
     tensorflow:
-      modelUri: "gs://kfserving-samples/models/tensorflow/flowers"
+      storageUri: "gs://kfserving-samples/models/tensorflow/flowers"
 ```
 
 ```bash

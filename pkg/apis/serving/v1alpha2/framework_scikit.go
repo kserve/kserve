@@ -34,8 +34,8 @@ var (
 
 var _ FrameworkHandler = (*SKLearnSpec)(nil)
 
-func (s *SKLearnSpec) GetModelSourceUri() string {
-	return s.ModelURI
+func (s *SKLearnSpec) GetStorageUri() string {
+	return s.storageUri
 }
 
 func (s *SKLearnSpec) CreateModelServingContainer(modelName string, config *FrameworksConfig) *v1.Container {

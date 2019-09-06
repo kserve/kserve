@@ -17,8 +17,9 @@ limitations under the License.
 package knative
 
 import (
-	"github.com/kubeflow/kfserving/pkg/constants"
 	"testing"
+
+	"github.com/kubeflow/kfserving/pkg/constants"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
@@ -43,7 +44,7 @@ func TestKnativeRoute(t *testing.T) {
 					Default: v1alpha2.EndpointSpec{
 						Predictor: v1alpha2.PredictorSpec{
 							Tensorflow: &v1alpha2.TensorflowSpec{
-								ModelURI:       "s3://test/mnist/export",
+								StorageUri:     "s3://test/mnist/export",
 								RuntimeVersion: "1.13.0",
 							},
 						},
@@ -78,7 +79,7 @@ func TestKnativeRoute(t *testing.T) {
 					Default: v1alpha2.EndpointSpec{
 						Predictor: v1alpha2.PredictorSpec{
 							Tensorflow: &v1alpha2.TensorflowSpec{
-								ModelURI:       "s3://test/mnist/export",
+								StorageURI:     "s3://test/mnist/export",
 								RuntimeVersion: "1.13.0",
 							},
 						},
@@ -87,7 +88,7 @@ func TestKnativeRoute(t *testing.T) {
 					Canary: &v1alpha2.EndpointSpec{
 						Predictor: v1alpha2.PredictorSpec{
 							Tensorflow: &v1alpha2.TensorflowSpec{
-								ModelURI:       "s3://test/mnist-2/export",
+								StorageURI:     "s3://test/mnist-2/export",
 								RuntimeVersion: "1.13.0",
 							},
 						},
@@ -138,7 +139,7 @@ func TestKnativeRoute(t *testing.T) {
 					Default: v1alpha2.EndpointSpec{
 						Predictor: v1alpha2.PredictorSpec{
 							Tensorflow: &v1alpha2.TensorflowSpec{
-								ModelURI:       "s3://test/mnist/export",
+								StorageURI:     "s3://test/mnist/export",
 								RuntimeVersion: "1.13.0",
 							},
 						},
@@ -147,7 +148,7 @@ func TestKnativeRoute(t *testing.T) {
 					Canary: &v1alpha2.EndpointSpec{
 						Predictor: v1alpha2.PredictorSpec{
 							Tensorflow: &v1alpha2.TensorflowSpec{
-								ModelURI:       "s3://test/mnist-2/export",
+								StorageURI:     "s3://test/mnist-2/export",
 								RuntimeVersion: "1.13.0",
 							},
 						},

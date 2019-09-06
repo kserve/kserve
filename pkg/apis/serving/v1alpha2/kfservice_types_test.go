@@ -43,7 +43,7 @@ func TestKFService(t *testing.T) {
 						MaxReplicas: 3,
 					},
 					Tensorflow: &TensorflowSpec{
-						ModelURI:       "s3://test/mnist/export",
+						StorageUri:     "s3://test/mnist/export",
 						RuntimeVersion: "1.13.0",
 					},
 				},
@@ -56,7 +56,7 @@ func TestKFService(t *testing.T) {
 						MaxReplicas: 3,
 					},
 					Tensorflow: &TensorflowSpec{
-						ModelURI:       "s3://test/mnist-2/export",
+						StorageURI:     "s3://test/mnist-2/export",
 						RuntimeVersion: "1.13.0",
 					},
 				},
