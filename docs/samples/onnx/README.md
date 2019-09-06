@@ -27,11 +27,7 @@ curl ${SERVICE_URL}
 ```
 3. Install dependencies
 ```
-pip install jupyter
-pip install numpy
-pip install pillow
-pip install protobuf
-pip install requests
+pip install -r requirements.txt
 ```
 4. Run the [sample notebook](mosaic-onnx.ipynb) in jupyter
 ```
@@ -39,4 +35,4 @@ jupyter notebook
 ```
 
 ## Uploading your own model
-Upload your model as model.onnx to S3, GCS or an Azure Blob
+The sample model for the example in this readme is already uploaded and available for use. However if you would like to modify the example to use your own ONNX model, all you need to do is to upload your model as `model.onnx` to S3, GCS or an Azure Blob.
