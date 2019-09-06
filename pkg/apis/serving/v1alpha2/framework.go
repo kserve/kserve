@@ -41,7 +41,7 @@ var (
 	DefaultCPU    = resource.MustParse("1")
 )
 
-// Returns a URI to the model. This URI is passed to the model-initializer via the ModelInitializerSourceUriInternalAnnotationKey
+// Returns a URI to the model. This URI is passed to the storage-initializer via the StorageInitializerSourceUriInternalAnnotationKey
 func (m *PredictorSpec) GetStorageUri() string {
 	return getHandler(m).GetStorageUri()
 }

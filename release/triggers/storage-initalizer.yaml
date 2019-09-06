@@ -1,9 +1,9 @@
 ---
 ### Specify as necessary ###
-description: Model Initializer Autobuilder
+description: Storage Initializer Autobuilder
 substitutions:
-  _COMPONENT: "model-initializer"
-  _DOCKERFILE: "./python/model-initializer.Dockerfile"
+  _COMPONENT: "storage-initializer"
+  _DOCKERFILE: "./python/storage-initializer.Dockerfile"
   _CONTEXT: "./python"
 ###########################
 github:

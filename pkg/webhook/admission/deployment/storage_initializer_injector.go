@@ -25,43 +25,43 @@ import (
 )
 
 const (
-	ModelInitializerContainerName         = "model-initializer"
-	ModelInitializerConfigMapKeyName      = "modelInitializer"
-	ModelInitializerVolumeName            = "kfserving-provision-location"
-	ModelInitializerContainerImage        = "gcr.io/kfserving/model-initializer"
-	ModelInitializerContainerImageVersion = "latest"
-	PvcURIPrefix                          = "pvc://"
-	PvcSourceMountName                    = "kfserving-pvc-source"
-	PvcSourceMountPath                    = "/mnt/pvc"
-	UserContainerName                     = "user-container"
+	StorageInitializerContainerName         = "storage-initializer"
+	StorageInitializerConfigMapKeyName      = "storageInitializer"
+	StorageInitializerVolumeName            = "kfserving-provision-location"
+	StorageInitializerContainerImage        = "gcr.io/kfserving/storage-initializer"
+	StorageInitializerContainerImageVersion = "latest"
+	PvcURIPrefix                            = "pvc://"
+	PvcSourceMountName                      = "kfserving-pvc-source"
+	PvcSourceMountPath                      = "/mnt/pvc"
+	UserContainerName                       = "user-container"
 )
 
-type ModelInitializerConfig struct {
+type StorageInitializerConfig struct {
 	Image string `json:"image"`
 }
-type ModelInitializerInjector struct {
+type StorageInitializerInjector struct {
 	credentialBuilder *credentials.CredentialBuilder
-	config            *ModelInitializerConfig
+	config            *StorageInitializerConfig
 }
 
-// InjectModelInitializer injects an init container to provision model data
+// InjectStorageInitializer injects an init container to provision model data
 // for the serving container in a unified way across storage tech by injecting
 // a provisioning INIT container. This is a work around because KNative does not
 // support INIT containers: https://github.com/knative/serving/issues/4307
-func (mi *ModelInitializerInjector) InjectModelInitializer(deployment *appsv1.Deployment) error {
+func (mi *StorageInitializerInjector) InjectStorageInitializer(deployment *appsv1.Deployment) error {
 
 	annotations := deployment.Spec.Template.ObjectMeta.Annotations
 	podSpec := &deployment.Spec.Template.Spec
 
 	// Only inject if the required annotations are set
-	srcURI, ok := annotations[constants.ModelInitializerSourceUriInternalAnnotationKey]
+	srcURI, ok := annotations[constants.StorageInitializerSourceUriInternalAnnotationKey]
 	if !ok {
 		return nil
 	}
 
 	// Dont inject if InitContianer already injected
 	for _, container := range podSpec.InitContainers {
-		if strings.Compare(container.Name, ModelInitializerContainerName) == 0 {
+		if strings.Compare(container.Name, StorageInitializerContainerName) == 0 {
 			return nil
 		}
 	}
@@ -80,7 +80,7 @@ func (mi *ModelInitializerInjector) InjectModelInitializer(deployment *appsv1.De
 	}
 
 	podVolumes := []v1.Volume{}
-	modelInitializerMounts := []v1.VolumeMount{}
+	storageInitializerMounts := []v1.VolumeMount{}
 
 	// For PVC source URIs we need to mount the source to be able to access it
 	// See design and discussion here: https://github.com/kubeflow/kfserving/issues/148
@@ -107,15 +107,15 @@ func (mi *ModelInitializerInjector) InjectModelInitializer(deployment *appsv1.De
 			MountPath: PvcSourceMountPath,
 			ReadOnly:  true,
 		}
-		modelInitializerMounts = append(modelInitializerMounts, pvcSourceVolumeMount)
+		storageInitializerMounts = append(storageInitializerMounts, pvcSourceVolumeMount)
 
 		// modify the sourceURI to point to the PVC path
 		srcURI = PvcSourceMountPath + "/" + pvcPath
 	}
 
-	// Create a volume that is shared between the model-initializer and user-container
+	// Create a volume that is shared between the storage-initializer and user-container
 	sharedVolume := v1.Volume{
-		Name: ModelInitializerVolumeName,
+		Name: StorageInitializerVolumeName,
 		VolumeSource: v1.VolumeSource{
 			EmptyDir: &v1.EmptyDirVolumeSource{},
 		},
@@ -124,30 +124,30 @@ func (mi *ModelInitializerInjector) InjectModelInitializer(deployment *appsv1.De
 
 	// Create a write mount into the shared volume
 	sharedVolumeWriteMount := v1.VolumeMount{
-		Name:      ModelInitializerVolumeName,
+		Name:      StorageInitializerVolumeName,
 		MountPath: constants.DefaultModelLocalMountPath,
 		ReadOnly:  false,
 	}
-	modelInitializerMounts = append(modelInitializerMounts, sharedVolumeWriteMount)
+	storageInitializerMounts = append(storageInitializerMounts, sharedVolumeWriteMount)
 
-	modelInitializerImage := ModelInitializerContainerImage + ":" + ModelInitializerContainerImageVersion
+	storageInitializerImage := StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion
 	if mi.config != nil && mi.config.Image != "" {
-		modelInitializerImage = mi.config.Image
+		storageInitializerImage = mi.config.Image
 	}
 	// Add an init container to run provisioning logic to the PodSpec
 	initContainer := &v1.Container{
-		Name:  ModelInitializerContainerName,
-		Image: modelInitializerImage,
+		Name:  StorageInitializerContainerName,
+		Image: storageInitializerImage,
 		Args: []string{
 			srcURI,
 			constants.DefaultModelLocalMountPath,
 		},
-		VolumeMounts: modelInitializerMounts,
+		VolumeMounts: storageInitializerMounts,
 	}
 
 	// Add a mount the shared volume on the user-container, update the PodSpec
 	sharedVolumeReadMount := v1.VolumeMount{
-		Name:      ModelInitializerVolumeName,
+		Name:      StorageInitializerVolumeName,
 		MountPath: constants.DefaultModelLocalMountPath,
 		ReadOnly:  true,
 	}

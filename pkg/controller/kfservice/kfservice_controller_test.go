@@ -186,7 +186,7 @@ func TestReconcile(t *testing.T) {
 							"autoscaling.knative.dev/class":                          "kpa.autoscaling.knative.dev",
 							"autoscaling.knative.dev/maxScale":                       "3",
 							"autoscaling.knative.dev/minScale":                       "1",
-							constants.ModelInitializerSourceUriInternalAnnotationKey: defaultInstance.Spec.Default.Predictor.Tensorflow.StorageURI,
+							constants.StorageInitializerSourceUriInternalAnnotationKey: defaultInstance.Spec.Default.Predictor.Tensorflow.StorageURI,
 						},
 					},
 					Spec: knservingv1alpha1.RevisionSpec{
@@ -336,7 +336,7 @@ func TestCanaryReconcile(t *testing.T) {
 							"autoscaling.knative.dev/class":                          "kpa.autoscaling.knative.dev",
 							"autoscaling.knative.dev/maxScale":                       "3",
 							"autoscaling.knative.dev/minScale":                       "1",
-							constants.ModelInitializerSourceUriInternalAnnotationKey: canary.Spec.Canary.Predictor.Tensorflow.StorageURI,
+							constants.StorageInitializerSourceUriInternalAnnotationKey: canary.Spec.Canary.Predictor.Tensorflow.StorageURI,
 						},
 					},
 					Spec: knservingv1alpha1.RevisionSpec{

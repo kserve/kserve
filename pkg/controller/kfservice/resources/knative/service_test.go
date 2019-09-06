@@ -84,7 +84,7 @@ var defaultService = &knservingv1alpha1.Service{
 						"autoscaling.knative.dev/minScale":                       "1",
 						"autoscaling.knative.dev/maxScale":                       "3",
 						constants.KFServiceGKEAcceleratorAnnotationKey:           "nvidia-tesla-t4",
-						constants.ModelInitializerSourceUriInternalAnnotationKey: kfsvc.Spec.Default.Predictor.Tensorflow.StorageURI,
+						constants.StorageInitializerSourceUriInternalAnnotationKey: kfsvc.Spec.Default.Predictor.Tensorflow.StorageURI,
 					},
 				},
 				Spec: knservingv1alpha1.RevisionSpec{
@@ -128,7 +128,7 @@ var canaryService = &knservingv1alpha1.Service{
 						"autoscaling.knative.dev/minScale":                       "1",
 						"autoscaling.knative.dev/maxScale":                       "3",
 						constants.KFServiceGKEAcceleratorAnnotationKey:           "nvidia-tesla-t4",
-						constants.ModelInitializerSourceUriInternalAnnotationKey: "s3://test/mnist-2/export",
+						constants.StorageInitializerSourceUriInternalAnnotationKey: "s3://test/mnist-2/export",
 					},
 				},
 				Spec: knservingv1alpha1.RevisionSpec{
@@ -241,7 +241,7 @@ func TestKFServiceToKnativeService(t *testing.T) {
 							ObjectMeta: metav1.ObjectMeta{
 								Labels: map[string]string{"serving.kubeflow.org/kfservice": "sklearn"},
 								Annotations: map[string]string{
-									constants.ModelInitializerSourceUriInternalAnnotationKey: "s3://test/sklearn/export",
+									constants.StorageInitializerSourceUriInternalAnnotationKey: "s3://test/sklearn/export",
 									"autoscaling.knative.dev/class":                          "kpa.autoscaling.knative.dev",
 									"autoscaling.knative.dev/target":                         "1",
 								},
@@ -295,7 +295,7 @@ func TestKFServiceToKnativeService(t *testing.T) {
 							ObjectMeta: metav1.ObjectMeta{
 								Labels: map[string]string{"serving.kubeflow.org/kfservice": "xgboost"},
 								Annotations: map[string]string{
-									constants.ModelInitializerSourceUriInternalAnnotationKey: "s3://test/xgboost/export",
+									constants.StorageInitializerSourceUriInternalAnnotationKey: "s3://test/xgboost/export",
 									"autoscaling.knative.dev/class":                          "kpa.autoscaling.knative.dev",
 									"autoscaling.knative.dev/target":                         "1",
 								},
@@ -350,7 +350,7 @@ func TestKFServiceToKnativeService(t *testing.T) {
 							ObjectMeta: metav1.ObjectMeta{
 								Labels: map[string]string{"serving.kubeflow.org/kfservice": "xgboost"},
 								Annotations: map[string]string{
-									constants.ModelInitializerSourceUriInternalAnnotationKey: "s3://test/xgboost/export",
+									constants.StorageInitializerSourceUriInternalAnnotationKey: "s3://test/xgboost/export",
 									"autoscaling.knative.dev/class":                          "kpa.autoscaling.knative.dev",
 									"autoscaling.knative.dev/target":                         "1",
 								},
@@ -386,7 +386,7 @@ func TestKFServiceToKnativeService(t *testing.T) {
 						"prop1":                            "val1",
 						"autoscaling.knative.dev/minScale": "2",
 						"autoscaling.knative.dev/target":   "2",
-						constants.ModelInitializerSourceUriInternalAnnotationKey: "test",
+						constants.StorageInitializerSourceUriInternalAnnotationKey: "test",
 						"kubectl.kubernetes.io/last-applied-configuration":       "test2",
 					},
 				},
@@ -415,7 +415,7 @@ func TestKFServiceToKnativeService(t *testing.T) {
 							ObjectMeta: metav1.ObjectMeta{
 								Labels: map[string]string{"serving.kubeflow.org/kfservice": "sklearn"},
 								Annotations: map[string]string{
-									constants.ModelInitializerSourceUriInternalAnnotationKey: "s3://test/sklearn/export",
+									constants.StorageInitializerSourceUriInternalAnnotationKey: "s3://test/sklearn/export",
 									"autoscaling.knative.dev/class":                          "kpa.autoscaling.knative.dev",
 									"autoscaling.knative.dev/target":                         "2",
 									"autoscaling.knative.dev/minScale":                       "1",
