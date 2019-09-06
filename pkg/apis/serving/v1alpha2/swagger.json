@@ -169,6 +169,9 @@
     },
     "v1alpha2.FrameworksConfig": {
       "properties": {
+        "onnx": {
+          "$ref": "#/definitions/v1alpha2.FrameworkConfig"
+        },
         "pytorch": {
           "$ref": "#/definitions/v1alpha2.FrameworkConfig"
         },
@@ -282,6 +285,25 @@
         }
       }
     },
+    "v1alpha2.ONNXSpec": {
+      "description": "ONNXSpec defines arguments for configuring ONNX model serving.",
+      "required": [
+        "modelUri"
+      ],
+      "properties": {
+        "modelUri": {
+          "type": "string"
+        },
+        "resources": {
+          "description": "Defaults to requests and limits of 1CPU, 2Gb MEM.",
+          "$ref": "#/definitions/v1.ResourceRequirements"
+        },
+        "runtimeVersion": {
+          "description": "Defaults to latest ONNX Version.",
+          "type": "string"
+        }
+      }
+    },
     "v1alpha2.PredictorSpec": {
       "description": "PredictorSpec defines the configuration to route traffic to a predictor.",
       "properties": {
@@ -298,6 +320,9 @@
           "description": "Minimum number of replicas, pods won't scale down to 0 in case of no traffic",
           "type": "integer",
           "format": "int32"
+        },
+        "onnx": {
+          "$ref": "#/definitions/v1alpha2.ONNXSpec"
         },
         "pytorch": {
           "$ref": "#/definitions/v1alpha2.PyTorchSpec"

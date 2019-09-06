@@ -1,0 +1,9 @@
+apiVersion: "serving.kubeflow.org/v1alpha2"
+kind: "KFService"
+metadata:
+  name: "style-sample"
+spec:
+  default:
+    predictor:
+      onnx:
+        modelUri: "https://kfserving.blob.core.windows.net/examples/onnx/style/model.onnx"
