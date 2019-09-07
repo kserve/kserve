@@ -17,9 +17,10 @@ limitations under the License.
 package service
 
 import (
-	"k8s.io/apimachinery/pkg/api/errors"
 	"testing"
 	"time"
+
+	"k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -64,7 +65,7 @@ var instance = &kfserving.KFService{
 					MaxReplicas: 3,
 				},
 				Tensorflow: &kfserving.TensorflowSpec{
-					ModelURI:       "s3://test/mnist/export",
+					StorageURI:     "s3://test/mnist/export",
 					RuntimeVersion: "1.13.0",
 				},
 			},
@@ -85,7 +86,7 @@ var canary = &kfserving.KFService{
 					MaxReplicas: 3,
 				},
 				Tensorflow: &kfserving.TensorflowSpec{
-					ModelURI:       "s3://test/mnist/export",
+					StorageURI:     "s3://test/mnist/export",
 					RuntimeVersion: "1.13.0",
 				},
 			},
@@ -98,7 +99,7 @@ var canary = &kfserving.KFService{
 					MaxReplicas: 3,
 				},
 				Tensorflow: &kfserving.TensorflowSpec{
-					ModelURI:       "s3://test/mnist-2/export",
+					StorageURI:     "s3://test/mnist-2/export",
 					RuntimeVersion: "1.13.0",
 				},
 			},
@@ -181,11 +182,11 @@ func TestReconcile(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: map[string]string{"serving.kubeflow.org/kfservice": "foo"},
 						Annotations: map[string]string{
-							"autoscaling.knative.dev/target":                         "1",
-							"autoscaling.knative.dev/class":                          "kpa.autoscaling.knative.dev",
-							"autoscaling.knative.dev/maxScale":                       "3",
-							"autoscaling.knative.dev/minScale":                       "1",
-							constants.ModelInitializerSourceUriInternalAnnotationKey: defaultInstance.Spec.Default.Predictor.Tensorflow.ModelURI,
+							"autoscaling.knative.dev/target":                           "1",
+							"autoscaling.knative.dev/class":                            "kpa.autoscaling.knative.dev",
+							"autoscaling.knative.dev/maxScale":                         "3",
+							"autoscaling.knative.dev/minScale":                         "1",
+							constants.StorageInitializerSourceUriInternalAnnotationKey: defaultInstance.Spec.Default.Predictor.Tensorflow.StorageURI,
 						},
 					},
 					Spec: knservingv1alpha1.RevisionSpec{
@@ -331,11 +332,11 @@ func TestCanaryReconcile(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: map[string]string{"serving.kubeflow.org/kfservice": "bar"},
 						Annotations: map[string]string{
-							"autoscaling.knative.dev/target":                         "1",
-							"autoscaling.knative.dev/class":                          "kpa.autoscaling.knative.dev",
-							"autoscaling.knative.dev/maxScale":                       "3",
-							"autoscaling.knative.dev/minScale":                       "1",
-							constants.ModelInitializerSourceUriInternalAnnotationKey: canary.Spec.Canary.Predictor.Tensorflow.ModelURI,
+							"autoscaling.knative.dev/target":                           "1",
+							"autoscaling.knative.dev/class":                            "kpa.autoscaling.knative.dev",
+							"autoscaling.knative.dev/maxScale":                         "3",
+							"autoscaling.knative.dev/minScale":                         "1",
+							constants.StorageInitializerSourceUriInternalAnnotationKey: canary.Spec.Canary.Predictor.Tensorflow.StorageURI,
 						},
 					},
 					Spec: knservingv1alpha1.RevisionSpec{

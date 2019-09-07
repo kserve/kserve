@@ -40,7 +40,7 @@ const (
 var serviceAnnotationDisallowedList = []string{
 	autoscaling.MinScaleAnnotationKey,
 	autoscaling.MaxScaleAnnotationKey,
-	constants.ModelInitializerSourceUriInternalAnnotationKey,
+	constants.StorageInitializerSourceUriInternalAnnotationKey,
 	"kubectl.kubernetes.io/last-applied-configuration",
 }
 
@@ -122,9 +122,9 @@ func (c *ServiceBuilder) CreatePredictorService(name string, metadata metav1.Obj
 	}
 
 	// KNative does not support INIT containers or mounting, so we add annotations that trigger the
-	// ModelInitializer injector to mutate the underlying deployment to provision model data
-	if sourceURI := predictorSpec.GetModelSourceUri(); sourceURI != "" {
-		annotations[constants.ModelInitializerSourceUriInternalAnnotationKey] = sourceURI
+	// StorageInitializer injector to mutate the underlying deployment to provision model data
+	if sourceURI := predictorSpec.GetStorageUri(); sourceURI != "" {
+		annotations[constants.StorageInitializerSourceUriInternalAnnotationKey] = sourceURI
 	}
 
 	service := &knservingv1alpha1.Service{

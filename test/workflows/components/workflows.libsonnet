@@ -219,8 +219,8 @@
                     template: "build-alibi-explainer",
                   },
                   {
-                    name: "build-model-initializer",
-                    template: "build-model-initializer",
+                    name: "build-storage-initializer",
+                    template: "build-storage-initializer",
                   },
                   {
                     name: "build-xgbserver",
@@ -285,9 +285,9 @@
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-alibi-explainer", testWorkerImage, [
               "test/scripts/build-python-image.sh", "alibiexplainer.Dockerfile", "alibi-explainer",
             ]),  // build-alibi-explainer
-            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-model-initializer", testWorkerImage, [
-              "test/scripts/build-python-image.sh", "model-initializer.Dockerfile", "model-initializer",
-            ]),  // build-model-initializer
+            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-storage-initializer", testWorkerImage, [
+              "test/scripts/build-python-image.sh", "storage-initializer.Dockerfile", "storage-initializer",
+            ]),  // build-storage-initializer
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-xgbserver", testWorkerImage, [
               "test/scripts/build-python-image.sh", "xgb.Dockerfile", "xgbserver",
             ]),  // build-xgbserver

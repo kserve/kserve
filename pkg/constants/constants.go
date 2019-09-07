@@ -45,8 +45,8 @@ var (
 
 // KFService Internal Annotations
 var (
-	KFServiceInternalAnnotationsPrefix             = "internal." + KFServingAPIGroupName
-	ModelInitializerSourceUriInternalAnnotationKey = KFServiceInternalAnnotationsPrefix + "/model-initializer-sourceuri"
+	KFServiceInternalAnnotationsPrefix               = "internal." + KFServingAPIGroupName
+	StorageInitializerSourceUriInternalAnnotationKey = KFServiceInternalAnnotationsPrefix + "/storage-initializer-sourceuri"
 )
 
 // Controller Constants
@@ -74,12 +74,12 @@ const (
 	NvidiaGPUResourceType = "nvidia.com/gpu"
 )
 
-// DefaultModelLocalMountPath is where models will be mounted by the model-initializer
+// DefaultModelLocalMountPath is where models will be mounted by the storage-initializer
 const DefaultModelLocalMountPath = "/mnt/models"
 
 // KFService Environment Variables
 const (
-	CustomSpecModelUriEnvVarKey = "STORAGE_URI"
+	CustomSpecStorageUriEnvVarKey = "STORAGE_URI"
 )
 
 type KFServiceEndpoint string

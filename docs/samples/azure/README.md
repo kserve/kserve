@@ -1,7 +1,7 @@
 
 # Predict on a KFService with saved model on Azure
 ## Using Public Azure Blobs
-By default, KFServing uses anonymous client to download artifacts. To point to an Azure Blob, specify ModelUri to point to an Azure Blob Storage with the format: 
+By default, KFServing uses anonymous client to download artifacts. To point to an Azure Blob, specify StorageUri to point to an Azure Blob Storage with the format: 
 ```https://{$STORAGE_ACCOUNT_NAME}.blob.core.windows.net/{$CONTAINER}/{$PATH}```
 
 e.g. https://kfserving.blob.core.windows.net/tensorrt/simple_string/

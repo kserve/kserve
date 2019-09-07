@@ -4,7 +4,7 @@
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **model_class_name** | **str** | Defaults PyTorch model class name to &#39;PyTorchModel&#39; | [optional] 
-**model_uri** | **str** |  | 
+**storage_uri** | **str** |  | 
 **resources** | [**V1ResourceRequirements**](https://github.com/kubernetes-client/python/blob/master/kubernetes/docs/V1ResourceRequirements.md) | Defaults to requests and limits of 1CPU, 2Gb MEM. | [optional] 
 **runtime_version** | **str** | Defaults to latest PyTorch Version | [optional] 
 
