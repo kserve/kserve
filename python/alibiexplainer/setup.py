@@ -40,7 +40,8 @@ setup(
         "joblib>=0.13.2",
         "pandas>=0.24.2",
         "numpy>=1.16.3",
-        "dill>=0.3.0"
+        "dill>=0.3.0",
+        "spacy>=2.1.4"
     ],
     tests_require=tests_require,
     extras_require={'test': tests_require}
