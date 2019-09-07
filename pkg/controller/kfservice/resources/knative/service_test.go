@@ -46,7 +46,7 @@ var kfsvc = v1alpha2.KFService{
 					ServiceAccountName: "testsvcacc",
 				},
 				Tensorflow: &v1alpha2.TensorflowSpec{
-					storageUri:     "s3://test/mnist/export",
+					StorageURI:     "s3://test/mnist/export",
 					RuntimeVersion: "1.13.0",
 				},
 			},
@@ -79,11 +79,11 @@ var defaultService = &knservingv1alpha1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{"serving.kubeflow.org/kfservice": "mnist"},
 					Annotations: map[string]string{
-						"autoscaling.knative.dev/class":                          "kpa.autoscaling.knative.dev",
-						"autoscaling.knative.dev/target":                         "1",
-						"autoscaling.knative.dev/minScale":                       "1",
-						"autoscaling.knative.dev/maxScale":                       "3",
-						constants.KFServiceGKEAcceleratorAnnotationKey:           "nvidia-tesla-t4",
+						"autoscaling.knative.dev/class":                            "kpa.autoscaling.knative.dev",
+						"autoscaling.knative.dev/target":                           "1",
+						"autoscaling.knative.dev/minScale":                         "1",
+						"autoscaling.knative.dev/maxScale":                         "3",
+						constants.KFServiceGKEAcceleratorAnnotationKey:             "nvidia-tesla-t4",
 						constants.StorageInitializerSourceUriInternalAnnotationKey: kfsvc.Spec.Default.Predictor.Tensorflow.StorageURI,
 					},
 				},
@@ -123,11 +123,11 @@ var canaryService = &knservingv1alpha1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{"serving.kubeflow.org/kfservice": "mnist"},
 					Annotations: map[string]string{
-						"autoscaling.knative.dev/class":                          "kpa.autoscaling.knative.dev",
-						"autoscaling.knative.dev/target":                         "1",
-						"autoscaling.knative.dev/minScale":                       "1",
-						"autoscaling.knative.dev/maxScale":                       "3",
-						constants.KFServiceGKEAcceleratorAnnotationKey:           "nvidia-tesla-t4",
+						"autoscaling.knative.dev/class":                            "kpa.autoscaling.knative.dev",
+						"autoscaling.knative.dev/target":                           "1",
+						"autoscaling.knative.dev/minScale":                         "1",
+						"autoscaling.knative.dev/maxScale":                         "3",
+						constants.KFServiceGKEAcceleratorAnnotationKey:             "nvidia-tesla-t4",
 						constants.StorageInitializerSourceUriInternalAnnotationKey: "s3://test/mnist-2/export",
 					},
 				},
@@ -185,7 +185,7 @@ func TestKFServiceToKnativeService(t *testing.T) {
 								ServiceAccountName: "testsvcacc",
 							},
 							Tensorflow: &v1alpha2.TensorflowSpec{
-								StorageURI:   kfsvc.Spec.Default.Predictor.TensorfloStorageURIeUri,
+								StorageURI:     kfsvc.Spec.Default.Predictor.Tensorflow.StorageURI,
 								RuntimeVersion: "1.13.0",
 							},
 						},
@@ -198,7 +198,7 @@ func TestKFServiceToKnativeService(t *testing.T) {
 								MaxReplicas: 3,
 							},
 							Tensorflow: &v1alpha2.TensorflowSpec{
-								StorageURI:   "s3://test/mnist-2/export",
+								StorageURI:     "s3://test/mnist-2/export",
 								RuntimeVersion: "1.13.0",
 							},
 						},
@@ -223,7 +223,7 @@ func TestKFServiceToKnativeService(t *testing.T) {
 					Default: v1alpha2.EndpointSpec{
 						Predictor: v1alpha2.PredictorSpec{
 							SKLearn: &v1alpha2.SKLearnSpec{
-								StorageURI:   "s3://test/sklearn/export",
+								StorageURI:     "s3://test/sklearn/export",
 								RuntimeVersion: "latest",
 							},
 						},
@@ -242,8 +242,8 @@ func TestKFServiceToKnativeService(t *testing.T) {
 								Labels: map[string]string{"serving.kubeflow.org/kfservice": "sklearn"},
 								Annotations: map[string]string{
 									constants.StorageInitializerSourceUriInternalAnnotationKey: "s3://test/sklearn/export",
-									"autoscaling.knative.dev/class":                          "kpa.autoscaling.knative.dev",
-									"autoscaling.knative.dev/target":                         "1",
+									"autoscaling.knative.dev/class":                            "kpa.autoscaling.knative.dev",
+									"autoscaling.knative.dev/target":                           "1",
 								},
 							},
 							Spec: knservingv1alpha1.RevisionSpec{
@@ -277,7 +277,7 @@ func TestKFServiceToKnativeService(t *testing.T) {
 					Default: v1alpha2.EndpointSpec{
 						Predictor: v1alpha2.PredictorSpec{
 							XGBoost: &v1alpha2.XGBoostSpec{
-								StorageURI:   "s3://test/xgboost/export",
+								StorageURI:     "s3://test/xgboost/export",
 								RuntimeVersion: "latest",
 							},
 						},
@@ -296,8 +296,8 @@ func TestKFServiceToKnativeService(t *testing.T) {
 								Labels: map[string]string{"serving.kubeflow.org/kfservice": "xgboost"},
 								Annotations: map[string]string{
 									constants.StorageInitializerSourceUriInternalAnnotationKey: "s3://test/xgboost/export",
-									"autoscaling.knative.dev/class":                          "kpa.autoscaling.knative.dev",
-									"autoscaling.knative.dev/target":                         "1",
+									"autoscaling.knative.dev/class":                            "kpa.autoscaling.knative.dev",
+									"autoscaling.knative.dev/target":                           "1",
 								},
 							},
 							Spec: knservingv1alpha1.RevisionSpec{
@@ -332,7 +332,7 @@ func TestKFServiceToKnativeService(t *testing.T) {
 					Default: v1alpha2.EndpointSpec{
 						Predictor: v1alpha2.PredictorSpec{
 							XGBoost: &v1alpha2.XGBoostSpec{
-								StorageURI:   "s3://test/xgboost/export",
+								StorageURI:     "s3://test/xgboost/export",
 								RuntimeVersion: "latest",
 							},
 						},
@@ -351,8 +351,8 @@ func TestKFServiceToKnativeService(t *testing.T) {
 								Labels: map[string]string{"serving.kubeflow.org/kfservice": "xgboost"},
 								Annotations: map[string]string{
 									constants.StorageInitializerSourceUriInternalAnnotationKey: "s3://test/xgboost/export",
-									"autoscaling.knative.dev/class":                          "kpa.autoscaling.knative.dev",
-									"autoscaling.knative.dev/target":                         "1",
+									"autoscaling.knative.dev/class":                            "kpa.autoscaling.knative.dev",
+									"autoscaling.knative.dev/target":                           "1",
 								},
 							},
 							Spec: knservingv1alpha1.RevisionSpec{
@@ -387,14 +387,14 @@ func TestKFServiceToKnativeService(t *testing.T) {
 						"autoscaling.knative.dev/minScale": "2",
 						"autoscaling.knative.dev/target":   "2",
 						constants.StorageInitializerSourceUriInternalAnnotationKey: "test",
-						"kubectl.kubernetes.io/last-applied-configuration":       "test2",
+						"kubectl.kubernetes.io/last-applied-configuration":         "test2",
 					},
 				},
 				Spec: v1alpha2.KFServiceSpec{
 					Default: v1alpha2.EndpointSpec{
 						Predictor: v1alpha2.PredictorSpec{
 							SKLearn: &v1alpha2.SKLearnSpec{
-								StorageURI:   "s3://test/sklearn/export",
+								StorageURI:     "s3://test/sklearn/export",
 								RuntimeVersion: "latest",
 							},
 							DeploymentSpec: v1alpha2.DeploymentSpec{
@@ -416,11 +416,11 @@ func TestKFServiceToKnativeService(t *testing.T) {
 								Labels: map[string]string{"serving.kubeflow.org/kfservice": "sklearn"},
 								Annotations: map[string]string{
 									constants.StorageInitializerSourceUriInternalAnnotationKey: "s3://test/sklearn/export",
-									"autoscaling.knative.dev/class":                          "kpa.autoscaling.knative.dev",
-									"autoscaling.knative.dev/target":                         "2",
-									"autoscaling.knative.dev/minScale":                       "1",
-									"sourceName":                                             "srcName",
-									"prop1":                                                  "val1",
+									"autoscaling.knative.dev/class":                            "kpa.autoscaling.knative.dev",
+									"autoscaling.knative.dev/target":                           "2",
+									"autoscaling.knative.dev/minScale":                         "1",
+									"sourceName":                                               "srcName",
+									"prop1":                                                    "val1",
 								},
 							},
 							Spec: knservingv1alpha1.RevisionSpec{

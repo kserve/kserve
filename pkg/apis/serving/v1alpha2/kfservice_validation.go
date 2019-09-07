@@ -36,7 +36,7 @@ const (
 
 var (
 	SupportedStorageURIPrefixList = []string{"gs://", "s3://", "pvc://", "file://"}
-	AzureBlobURIRegEx                 = "https://(.+?).blob.core.windows.net/(.+)"
+	AzureBlobURIRegEx             = "https://(.+?).blob.core.windows.net/(.+)"
 )
 
 // ValidateCreate implements https://godoc.org/sigs.k8s.io/controller-runtime/pkg/webhook/admission#Validator

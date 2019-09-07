@@ -46,7 +46,7 @@ var (
 )
 
 func (t *TensorflowSpec) GetStorageUri() string {
-	return t.storageUri
+	return t.StorageURI
 }
 
 func (t *TensorflowSpec) CreateModelServingContainer(modelName string, config *FrameworksConfig) *v1.Container {

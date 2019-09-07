@@ -33,7 +33,7 @@ var (
 )
 
 func (x *XGBoostSpec) GetStorageUri() string {
-	return x.storageUri
+	return x.StorageURI
 }
 
 func (x *XGBoostSpec) CreateModelServingContainer(modelName string, config *FrameworksConfig) *v1.Container {

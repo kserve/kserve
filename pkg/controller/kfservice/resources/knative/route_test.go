@@ -44,7 +44,7 @@ func TestKnativeRoute(t *testing.T) {
 					Default: v1alpha2.EndpointSpec{
 						Predictor: v1alpha2.PredictorSpec{
 							Tensorflow: &v1alpha2.TensorflowSpec{
-								StorageUri:     "s3://test/mnist/export",
+								StorageURI:     "s3://test/mnist/export",
 								RuntimeVersion: "1.13.0",
 							},
 						},

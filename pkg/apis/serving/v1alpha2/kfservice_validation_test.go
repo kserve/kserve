@@ -34,7 +34,7 @@ func makeTestKFService() KFService {
 		Spec: KFServiceSpec{
 			Default: EndpointSpec{
 				Predictor: PredictorSpec{
-					Tensorflow: &TensorflowSpec{storageUri: "gs://testbucket/testmodel"},
+					Tensorflow: &TensorflowSpec{StorageURI: "gs://testbucket/testmodel"},
 				},
 			},
 		},
@@ -45,7 +45,7 @@ func makeTestKFService() KFService {
 
 func TestValidStorageURIPrefixOK(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	for _, prefix := range SupportedModelSourceURIPrefixList {
+	for _, prefix := range SupportedStorageURIPrefixList {
 		kfsvc := makeTestKFService()
 		kfsvc.Spec.Default.Predictor.Tensorflow.StorageURI = prefix + "foo/bar"
 		g.Expect(kfsvc.ValidateCreate()).Should(gomega.Succeed())

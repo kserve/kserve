@@ -68,7 +68,7 @@ func TestKnativeServiceReconcile(t *testing.T) {
 						Predictor: v1alpha2.PredictorSpec{
 							Tensorflow: &v1alpha2.TensorflowSpec{
 								RuntimeVersion: v1alpha2.DefaultTensorflowRuntimeVersion,
-								storageUri:     "gs://testuri",
+								StorageURI:     "gs://testuri",
 							},
 						},
 					},
@@ -76,7 +76,7 @@ func TestKnativeServiceReconcile(t *testing.T) {
 						Predictor: v1alpha2.PredictorSpec{
 							Tensorflow: &v1alpha2.TensorflowSpec{
 								RuntimeVersion: v1alpha2.DefaultTensorflowRuntimeVersion,
-								StorageURI:   "gs://testuri2",
+								StorageURI:     "gs://testuri2",
 							},
 						},
 					},
@@ -93,8 +93,8 @@ func TestKnativeServiceReconcile(t *testing.T) {
 							ObjectMeta: metav1.ObjectMeta{
 								Labels: map[string]string{"serving.kubeflow.org/kfservice": "mnist"},
 								Annotations: map[string]string{
-									"autoscaling.knative.dev/class":                             "kpa.autoscaling.knative.dev",
-									"autoscaling.knative.dev/target":                            "1",
+									"autoscaling.knative.dev/class":                               "kpa.autoscaling.knative.dev",
+									"autoscaling.knative.dev/target":                              "1",
 									"internal.serving.kubeflow.org/storage-initializer-sourceuri": "gs://testuri",
 								},
 							},
@@ -132,8 +132,8 @@ func TestKnativeServiceReconcile(t *testing.T) {
 							ObjectMeta: metav1.ObjectMeta{
 								Labels: map[string]string{"serving.kubeflow.org/kfservice": "mnist"},
 								Annotations: map[string]string{
-									"autoscaling.knative.dev/class":                             "kpa.autoscaling.knative.dev",
-									"autoscaling.knative.dev/target":                            "1",
+									"autoscaling.knative.dev/class":                               "kpa.autoscaling.knative.dev",
+									"autoscaling.knative.dev/target":                              "1",
 									"internal.serving.kubeflow.org/storage-initializer-sourceuri": "gs://testuri2",
 								},
 							},
@@ -172,7 +172,7 @@ func TestKnativeServiceReconcile(t *testing.T) {
 						Predictor: v1alpha2.PredictorSpec{
 							Tensorflow: &v1alpha2.TensorflowSpec{
 								RuntimeVersion: v1alpha2.DefaultTensorflowRuntimeVersion,
-								StorageURI:   "gs://testuri",
+								StorageURI:     "gs://testuri",
 							},
 						},
 					},
@@ -189,8 +189,8 @@ func TestKnativeServiceReconcile(t *testing.T) {
 							ObjectMeta: metav1.ObjectMeta{
 								Labels: map[string]string{"serving.kubeflow.org/kfservice": "mnist"},
 								Annotations: map[string]string{
-									"autoscaling.knative.dev/class":                             "kpa.autoscaling.knative.dev",
-									"autoscaling.knative.dev/target":                            "1",
+									"autoscaling.knative.dev/class":                               "kpa.autoscaling.knative.dev",
+									"autoscaling.knative.dev/target":                              "1",
 									"internal.serving.kubeflow.org/storage-initializer-sourceuri": "gs://testuri",
 								},
 							},

@@ -35,7 +35,7 @@ var (
 	InvalidONNXRuntimeVersionError = "RuntimeVersion must be one of " + strings.Join(AllowedONNXRuntimeVersions, ", ")
 )
 
-func (s *ONNXSpec) GetModelSourceUri() string {
+func (s *ONNXSpec) GetStorageUri() string {
 	return s.StorageURI
 }
 

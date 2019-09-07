@@ -121,14 +121,14 @@ spec:
                       type: integer
                     onnx:
                       properties:
-                        storageUri:
-                          type: string
                         resources:
                           description: Defaults to requests and limits of 1CPU, 2Gb
                             MEM.
                           type: object
                         runtimeVersion:
                           description: Defaults to latest ONNX Version.
+                          type: string
+                        storageUri:
                           type: string
                       required:
                       - storageUri
@@ -138,14 +138,14 @@ spec:
                         modelClassName:
                           description: Defaults PyTorch model class name to 'PyTorchModel'
                           type: string
-                        storageUri:
-                          type: string
                         resources:
                           description: Defaults to requests and limits of 1CPU, 2Gb
                             MEM.
                           type: object
                         runtimeVersion:
                           description: Defaults to latest PyTorch Version
+                          type: string
+                        storageUri:
                           type: string
                       required:
                       - storageUri
@@ -156,8 +156,6 @@ spec:
                       type: string
                     sklearn:
                       properties:
-                        storageUri:
-                          type: string
                         resources:
                           description: Defaults to requests and limits of 1CPU, 2Gb
                             MEM.
@@ -165,13 +163,13 @@ spec:
                         runtimeVersion:
                           description: Defaults to latest SKLearn Version.
                           type: string
+                        storageUri:
+                          type: string
                       required:
                       - storageUri
                       type: object
                     tensorflow:
                       properties:
-                        storageUri:
-                          type: string
                         resources:
                           description: Defaults to requests and limits of 1CPU, 2Gb
                             MEM.
@@ -179,13 +177,13 @@ spec:
                         runtimeVersion:
                           description: Defaults to latest TF Version.
                           type: string
+                        storageUri:
+                          type: string
                       required:
                       - storageUri
                       type: object
                     tensorrt:
                       properties:
-                        storageUri:
-                          type: string
                         resources:
                           description: Defaults to requests and limits of 1CPU, 2Gb
                             MEM.
@@ -193,19 +191,21 @@ spec:
                         runtimeVersion:
                           description: Defaults to latest TensorRT Version.
                           type: string
+                        storageUri:
+                          type: string
                       required:
                       - storageUri
                       type: object
                     xgboost:
                       properties:
-                        storageUri:
-                          type: string
                         resources:
                           description: Defaults to requests and limits of 1CPU, 2Gb
                             MEM.
                           type: object
                         runtimeVersion:
                           description: Defaults to latest XGBoost Version.
+                          type: string
+                        storageUri:
                           type: string
                       required:
                       - storageUri
@@ -318,14 +318,14 @@ spec:
                       type: integer
                     onnx:
                       properties:
-                        storageUri:
-                          type: string
                         resources:
                           description: Defaults to requests and limits of 1CPU, 2Gb
                             MEM.
                           type: object
                         runtimeVersion:
                           description: Defaults to latest ONNX Version.
+                          type: string
+                        storageUri:
                           type: string
                       required:
                       - storageUri
@@ -335,14 +335,14 @@ spec:
                         modelClassName:
                           description: Defaults PyTorch model class name to 'PyTorchModel'
                           type: string
-                        storageUri:
-                          type: string
                         resources:
                           description: Defaults to requests and limits of 1CPU, 2Gb
                             MEM.
                           type: object
                         runtimeVersion:
                           description: Defaults to latest PyTorch Version
+                          type: string
+                        storageUri:
                           type: string
                       required:
                       - storageUri
@@ -353,8 +353,6 @@ spec:
                       type: string
                     sklearn:
                       properties:
-                        storageUri:
-                          type: string
                         resources:
                           description: Defaults to requests and limits of 1CPU, 2Gb
                             MEM.
@@ -362,13 +360,13 @@ spec:
                         runtimeVersion:
                           description: Defaults to latest SKLearn Version.
                           type: string
+                        storageUri:
+                          type: string
                       required:
                       - storageUri
                       type: object
                     tensorflow:
                       properties:
-                        storageUri:
-                          type: string
                         resources:
                           description: Defaults to requests and limits of 1CPU, 2Gb
                             MEM.
@@ -376,13 +374,13 @@ spec:
                         runtimeVersion:
                           description: Defaults to latest TF Version.
                           type: string
+                        storageUri:
+                          type: string
                       required:
                       - storageUri
                       type: object
                     tensorrt:
                       properties:
-                        storageUri:
-                          type: string
                         resources:
                           description: Defaults to requests and limits of 1CPU, 2Gb
                             MEM.
@@ -390,19 +388,21 @@ spec:
                         runtimeVersion:
                           description: Defaults to latest TensorRT Version.
                           type: string
+                        storageUri:
+                          type: string
                       required:
                       - storageUri
                       type: object
                     xgboost:
                       properties:
-                        storageUri:
-                          type: string
                         resources:
                           description: Defaults to requests and limits of 1CPU, 2Gb
                             MEM.
                           type: object
                         runtimeVersion:
                           description: Defaults to latest XGBoost Version.
+                          type: string
+                        storageUri:
                           type: string
                       required:
                       - storageUri

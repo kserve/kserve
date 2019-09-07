@@ -327,7 +327,7 @@ func TestStorageInitializerFailureCases(t *testing.T) {
 
 func TestCustomSpecStorageUriInjection(t *testing.T) {
 	scenarios := map[string]struct {
-		original                    *appsv1.Deployment
+		original                      *appsv1.Deployment
 		expectedStorageUriEnvVariable *v1.EnvVar
 	}{
 		"CustomSpecStorageUriSet": {
