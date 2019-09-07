@@ -1,18 +1,18 @@
-import kfserving
-from enum import Enum
-from typing import List, Any, Mapping, Union
-import numpy as np
-import kfserving.protocols.seldon_http as seldon
-from kfserving.protocols.seldon_http import SeldonRequestHandler
-import requests
 import json
 import logging
-from alibiexplainer.anchor_tabular import AnchorTabular
-from alibiexplainer.anchor_images import AnchorImages
-from alibiexplainer.anchor_text import AnchorText
-from kfserving.server import Protocol
-from kfserving.protocols.util import NumpyEncoder
+from enum import Enum
+from typing import List, Any, Mapping, Union
 
+import kfserving
+import kfserving.protocols.seldon_http as seldon
+import numpy as np
+import requests
+from alibiexplainer.anchor_images import AnchorImages
+from alibiexplainer.anchor_tabular import AnchorTabular
+from alibiexplainer.anchor_text import AnchorText
+from kfserving.protocols.seldon_http import SeldonRequestHandler
+from kfserving.protocols.util import NumpyEncoder
+from kfserving.server import Protocol
 
 logging.basicConfig(level=kfserving.server.KFSERVER_LOGLEVEL)
 
@@ -53,7 +53,7 @@ class AlibiExplainer(kfserving.KFModel):
     def load(self):
         pass
 
-    def _predict_fn(self, arr: Union[np.ndarray,List]) -> np.ndarray:
+    def _predict_fn(self, arr: Union[np.ndarray, List]) -> np.ndarray:
         if self.protocol == Protocol.seldon_http:
             payload = seldon.create_request(arr, seldon.SeldonPayload.NDARRAY)
             response_raw = requests.post(self.predict_url, json=payload)
@@ -62,7 +62,8 @@ class AlibiExplainer(kfserving.KFModel):
                 response_list = rh.extract_request()
                 return np.array(response_list)
             else:
-                raise Exception("Failed to get response from model return_code:%d" % response_raw.status_code)
+                raise Exception(
+                    "Failed to get response from model return_code:%d" % response_raw.status_code)
         elif self.protocol == Protocol.tensorflow_http:
             data = []
             for req_data in arr:
@@ -73,7 +74,7 @@ class AlibiExplainer(kfserving.KFModel):
             payload = {"instances": data}
             headers = None
             if self.host_header is not None:
-                headers = {'Host':self.host_header}
+                headers = {'Host': self.host_header}
             response_raw = requests.post(self.predict_url, json=payload, headers=headers)
             if response_raw.status_code == 200:
                 j_resp = response_raw.json()

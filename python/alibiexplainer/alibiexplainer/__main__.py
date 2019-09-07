@@ -12,14 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import kfserving
 import argparse
-from alibiexplainer import AlibiExplainer
-from alibiexplainer.explainer import ExplainerMethod  # pylint:disable=no-name-in-module
-import dill
-import os
 import json
 import logging
+import os
+
+import dill
+import kfserving
+from alibiexplainer import AlibiExplainer
+from alibiexplainer.explainer import ExplainerMethod  # pylint:disable=no-name-in-module
 
 logging.basicConfig(level=kfserving.server.KFSERVER_LOGLEVEL)
 
@@ -40,7 +41,8 @@ parser.add_argument('--storageUri', help='The URI of a pretrained explainer',
                     default=os.environ.get(ENV_STORAGE_URI))
 parser.add_argument('--config', default=os.environ.get(CONFIG_ENV),
                     help='Custom configuration parameters')
-parser.add_argument('--host_header', default=None, help='Host header to send with requests to predictor')
+parser.add_argument('--host_header', default=None,
+                    help='Host header to send with requests to predictor')
 
 args, _ = parser.parse_known_args()
 

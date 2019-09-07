@@ -1,7 +1,8 @@
-from typing import Callable, List, Dict, Optional
-import kfserving
 import logging
+from typing import Callable, List, Dict, Optional
+
 import alibi
+import kfserving
 import numpy as np
 from alibiexplainer.explainer_wrapper import ExplainerWrapper
 
@@ -10,7 +11,7 @@ logging.basicConfig(level=kfserving.server.KFSERVER_LOGLEVEL)
 
 class AnchorImages(ExplainerWrapper):
 
-    def __init__(self, predict_fn: Callable, explainer:alibi.explainers.AnchorImage, **kwargs):
+    def __init__(self, predict_fn: Callable, explainer: alibi.explainers.AnchorImage, **kwargs):
         self.predict_fn = predict_fn
         self.anchors_image: Optional[alibi.explainers.AnchorImage] = explainer
 
