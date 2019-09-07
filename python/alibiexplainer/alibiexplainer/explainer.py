@@ -1,6 +1,6 @@
 import kfserving
 from enum import Enum
-from typing import List, Any, Dict, Mapping, Optional
+from typing import List, Any, Mapping, Union
 import numpy as np
 import kfserving.protocols.seldon_http as seldon
 from kfserving.protocols.seldon_http import SeldonRequestHandler
@@ -9,6 +9,7 @@ import json
 import logging
 from alibiexplainer.anchor_tabular import AnchorTabular
 from alibiexplainer.anchor_images import AnchorImages
+from alibiexplainer.anchor_text import AnchorText
 from kfserving.server import Protocol
 from kfserving.protocols.util import NumpyEncoder
 
@@ -19,6 +20,7 @@ logging.basicConfig(level=kfserving.server.KFSERVER_LOGLEVEL)
 class ExplainerMethod(Enum):
     anchor_tabular = "anchor_tabular"
     anchor_images = "anchor_images"
+    anchor_text = "anchor_text"
 
     def __str__(self):
         return self.value
@@ -31,9 +33,11 @@ class AlibiExplainer(kfserving.KFModel):
                  protocol: Protocol,
                  method: ExplainerMethod,
                  config: Mapping,
-                 explainer: object = None):
+                 explainer: object = None,
+                 host_header: str = None):
         super().__init__(name)
         self.predict_url = predict_url
+        self.host_header = host_header
         self.protocol = protocol
         self.method = method
 
@@ -41,13 +45,15 @@ class AlibiExplainer(kfserving.KFModel):
             self.wrapper = AnchorTabular(self._predict_fn, explainer, **config)
         elif self.method is ExplainerMethod.anchor_images:
             self.wrapper = AnchorImages(self._predict_fn, explainer, **config)
+        elif self.method is ExplainerMethod.anchor_text:
+            self.wrapper = AnchorText(self._predict_fn, explainer, **config)
         else:
             raise NotImplementedError
 
     def load(self):
         pass
 
-    def _predict_fn(self, arr: np.ndarray) -> np.ndarray:
+    def _predict_fn(self, arr: Union[np.ndarray,List]) -> np.ndarray:
         if self.protocol == Protocol.seldon_http:
             payload = seldon.create_request(arr, seldon.SeldonPayload.NDARRAY)
             response_raw = requests.post(self.predict_url, json=payload)
@@ -58,15 +64,17 @@ class AlibiExplainer(kfserving.KFModel):
             else:
                 raise Exception("Failed to get response from model return_code:%d" % response_raw.status_code)
         elif self.protocol == Protocol.tensorflow_http:
-            logging.info("shape is %s" % (arr.shape,))
             data = []
             for req_data in arr:
-                logging.info("Adding data shape %s" % (req_data.shape,))
-                data.append(req_data.tolist())
-            logging.info("Data length %s" % len(data))
+                if isinstance(req_data, np.ndarray):
+                    data.append(req_data.tolist())
+                else:
+                    data.append(str(req_data))
             payload = {"instances": data}
-            logging.info("Predict url is %s" % self.predict_url)
-            response_raw = requests.post(self.predict_url, json=payload)
+            headers = None
+            if self.host_header is not None:
+                headers = {'Host':self.host_header}
+            response_raw = requests.post(self.predict_url, json=payload, headers=headers)
             if response_raw.status_code == 200:
                 j_resp = response_raw.json()
                 return np.array(j_resp['predictions'])
@@ -77,8 +85,8 @@ class AlibiExplainer(kfserving.KFModel):
             raise NotImplementedError
 
     def explain(self, inputs: List) -> Any:
-        if self.method is ExplainerMethod.anchor_tabular or self.method is ExplainerMethod.anchor_images:
-            explaination = self.wrapper.explain(inputs)
-            return json.loads(json.dumps(explaination, cls=NumpyEncoder))
+        if self.method is ExplainerMethod.anchor_tabular or self.method is ExplainerMethod.anchor_images or self.method is ExplainerMethod.anchor_text:
+            explanation = self.wrapper.explain(inputs)
+            return json.loads(json.dumps(explanation, cls=NumpyEncoder))
         else:
             raise NotImplementedError
