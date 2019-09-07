@@ -132,10 +132,6 @@ func PredictRouteName(name string) string {
 	return name + "-" + string(Predict)
 }
 
-func PredictorRouteName(name string) string {
-	return name + "-" + string(Predictor)
-}
-
 func DefaultExplainerServiceName(name string) string {
 	return name + "-" + string(Explainer) + "-" + KFServiceDefault
 }

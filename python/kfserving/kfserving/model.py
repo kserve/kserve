@@ -37,5 +37,5 @@ class KFModel(object):
         raise NotImplementedError
 
     # TODO return type TBD
-    def detect_Outlier(self, inputs: List):
+    def detect_outlier(self, inputs: List):
         raise NotImplementedError
