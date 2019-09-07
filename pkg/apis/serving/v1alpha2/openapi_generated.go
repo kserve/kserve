@@ -432,8 +432,9 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 					Properties: map[string]openapispec.Schema{
 						"storageUri": {
 							SchemaProps: openapispec.SchemaProps{
-								Type:   []string{"string"},
-								Format: "",
+								Description: "The location of the trained model",
+								Type:        []string{"string"},
+								Format:      "",
 							},
 						},
 						"runtimeVersion": {
@@ -531,8 +532,9 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 					Properties: map[string]openapispec.Schema{
 						"storageUri": {
 							SchemaProps: openapispec.SchemaProps{
-								Type:   []string{"string"},
-								Format: "",
+								Description: "The location of the trained model",
+								Type:        []string{"string"},
+								Format:      "",
 							},
 						},
 						"modelClassName": {
@@ -569,8 +571,9 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 					Properties: map[string]openapispec.Schema{
 						"storageUri": {
 							SchemaProps: openapispec.SchemaProps{
-								Type:   []string{"string"},
-								Format: "",
+								Description: "The location of the trained model",
+								Type:        []string{"string"},
+								Format:      "",
 							},
 						},
 						"runtimeVersion": {
@@ -628,8 +631,9 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 					Properties: map[string]openapispec.Schema{
 						"storageUri": {
 							SchemaProps: openapispec.SchemaProps{
-								Type:   []string{"string"},
-								Format: "",
+								Description: "The location of the trained model",
+								Type:        []string{"string"},
+								Format:      "",
 							},
 						},
 						"runtimeVersion": {
@@ -659,8 +663,9 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 					Properties: map[string]openapispec.Schema{
 						"storageUri": {
 							SchemaProps: openapispec.SchemaProps{
-								Type:   []string{"string"},
-								Format: "",
+								Description: "The location of the trained model",
+								Type:        []string{"string"},
+								Format:      "",
 							},
 						},
 						"runtimeVersion": {
@@ -727,8 +732,9 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 					Properties: map[string]openapispec.Schema{
 						"storageUri": {
 							SchemaProps: openapispec.SchemaProps{
-								Type:   []string{"string"},
-								Format: "",
+								Description: "The location of the trained model",
+								Type:        []string{"string"},
+								Format:      "",
 							},
 						},
 						"runtimeVersion": {

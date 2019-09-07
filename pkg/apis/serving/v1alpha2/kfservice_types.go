@@ -117,6 +117,7 @@ type AlibiExplainerSpec struct {
 
 // TensorflowSpec defines arguments for configuring Tensorflow model serving.
 type TensorflowSpec struct {
+	// The location of the trained model
 	StorageURI string `json:"storageUri"`
 	// Defaults to latest TF Version.
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
@@ -126,6 +127,7 @@ type TensorflowSpec struct {
 
 // TensorRTSpec defines arguments for configuring TensorRT model serving.
 type TensorRTSpec struct {
+	// The location of the trained model
 	StorageURI string `json:"storageUri"`
 	// Defaults to latest TensorRT Version.
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
@@ -135,6 +137,7 @@ type TensorRTSpec struct {
 
 // XGBoostSpec defines arguments for configuring XGBoost model serving.
 type XGBoostSpec struct {
+	// The location of the trained model
 	StorageURI string `json:"storageUri"`
 	// Defaults to latest XGBoost Version.
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
@@ -144,6 +147,7 @@ type XGBoostSpec struct {
 
 // SKLearnSpec defines arguments for configuring SKLearn model serving.
 type SKLearnSpec struct {
+	// The location of the trained model
 	StorageURI string `json:"storageUri"`
 	// Defaults to latest SKLearn Version.
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
@@ -153,6 +157,7 @@ type SKLearnSpec struct {
 
 // ONNXSpec defines arguments for configuring ONNX model serving.
 type ONNXSpec struct {
+	// The location of the trained model
 	StorageURI string `json:"storageUri"`
 	// Defaults to latest ONNX Version.
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
@@ -162,6 +167,7 @@ type ONNXSpec struct {
 
 // PyTorchSpec defines arguments for configuring PyTorch model serving.
 type PyTorchSpec struct {
+	// The location of the trained model
 	StorageURI string `json:"storageUri"`
 	// Defaults PyTorch model class name to 'PyTorchModel'
 	ModelClassName string `json:"modelClassName,omitempty"`

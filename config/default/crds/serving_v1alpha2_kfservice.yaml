@@ -129,6 +129,7 @@ spec:
                           description: Defaults to latest ONNX Version.
                           type: string
                         storageUri:
+                          description: The location of the trained model
                           type: string
                       required:
                       - storageUri
@@ -146,6 +147,7 @@ spec:
                           description: Defaults to latest PyTorch Version
                           type: string
                         storageUri:
+                          description: The location of the trained model
                           type: string
                       required:
                       - storageUri
@@ -164,6 +166,7 @@ spec:
                           description: Defaults to latest SKLearn Version.
                           type: string
                         storageUri:
+                          description: The location of the trained model
                           type: string
                       required:
                       - storageUri
@@ -178,6 +181,7 @@ spec:
                           description: Defaults to latest TF Version.
                           type: string
                         storageUri:
+                          description: The location of the trained model
                           type: string
                       required:
                       - storageUri
@@ -192,6 +196,7 @@ spec:
                           description: Defaults to latest TensorRT Version.
                           type: string
                         storageUri:
+                          description: The location of the trained model
                           type: string
                       required:
                       - storageUri
@@ -206,6 +211,7 @@ spec:
                           description: Defaults to latest XGBoost Version.
                           type: string
                         storageUri:
+                          description: The location of the trained model
                           type: string
                       required:
                       - storageUri
@@ -326,6 +332,7 @@ spec:
                           description: Defaults to latest ONNX Version.
                           type: string
                         storageUri:
+                          description: The location of the trained model
                           type: string
                       required:
                       - storageUri
@@ -343,6 +350,7 @@ spec:
                           description: Defaults to latest PyTorch Version
                           type: string
                         storageUri:
+                          description: The location of the trained model
                           type: string
                       required:
                       - storageUri
@@ -361,6 +369,7 @@ spec:
                           description: Defaults to latest SKLearn Version.
                           type: string
                         storageUri:
+                          description: The location of the trained model
                           type: string
                       required:
                       - storageUri
@@ -375,6 +384,7 @@ spec:
                           description: Defaults to latest TF Version.
                           type: string
                         storageUri:
+                          description: The location of the trained model
                           type: string
                       required:
                       - storageUri
@@ -389,6 +399,7 @@ spec:
                           description: Defaults to latest TensorRT Version.
                           type: string
                         storageUri:
+                          description: The location of the trained model
                           type: string
                       required:
                       - storageUri
@@ -403,6 +414,7 @@ spec:
                           description: Defaults to latest XGBoost Version.
                           type: string
                         storageUri:
+                          description: The location of the trained model
                           type: string
                       required:
                       - storageUri

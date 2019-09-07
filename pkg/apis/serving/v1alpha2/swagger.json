@@ -300,6 +300,7 @@
           "type": "string"
         },
         "storageUri": {
+          "description": "The location of the trained model",
           "type": "string"
         }
       }
@@ -364,6 +365,7 @@
           "type": "string"
         },
         "storageUri": {
+          "description": "The location of the trained model",
           "type": "string"
         }
       }
@@ -383,6 +385,7 @@
           "type": "string"
         },
         "storageUri": {
+          "description": "The location of the trained model",
           "type": "string"
         }
       }
@@ -418,6 +421,7 @@
           "type": "string"
         },
         "storageUri": {
+          "description": "The location of the trained model",
           "type": "string"
         }
       }
@@ -437,6 +441,7 @@
           "type": "string"
         },
         "storageUri": {
+          "description": "The location of the trained model",
           "type": "string"
         }
       }
@@ -478,6 +483,7 @@
           "type": "string"
         },
         "storageUri": {
+          "description": "The location of the trained model",
           "type": "string"
         }
       }
