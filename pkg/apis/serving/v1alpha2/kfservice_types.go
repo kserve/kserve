@@ -117,7 +117,8 @@ type AlibiExplainerSpec struct {
 
 // TensorflowSpec defines arguments for configuring Tensorflow model serving.
 type TensorflowSpec struct {
-	ModelURI string `json:"modelUri"`
+	// The location of the trained model
+	StorageURI string `json:"storageUri"`
 	// Defaults to latest TF Version.
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
 	// Defaults to requests and limits of 1CPU, 2Gb MEM.
@@ -126,7 +127,8 @@ type TensorflowSpec struct {
 
 // TensorRTSpec defines arguments for configuring TensorRT model serving.
 type TensorRTSpec struct {
-	ModelURI string `json:"modelUri"`
+	// The location of the trained model
+	StorageURI string `json:"storageUri"`
 	// Defaults to latest TensorRT Version.
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
 	// Defaults to requests and limits of 1CPU, 2Gb MEM.
@@ -135,7 +137,8 @@ type TensorRTSpec struct {
 
 // XGBoostSpec defines arguments for configuring XGBoost model serving.
 type XGBoostSpec struct {
-	ModelURI string `json:"modelUri"`
+	// The location of the trained model
+	StorageURI string `json:"storageUri"`
 	// Defaults to latest XGBoost Version.
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
 	// Defaults to requests and limits of 1CPU, 2Gb MEM.
@@ -144,7 +147,8 @@ type XGBoostSpec struct {
 
 // SKLearnSpec defines arguments for configuring SKLearn model serving.
 type SKLearnSpec struct {
-	ModelURI string `json:"modelUri"`
+	// The location of the trained model
+	StorageURI string `json:"storageUri"`
 	// Defaults to latest SKLearn Version.
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
 	// Defaults to requests and limits of 1CPU, 2Gb MEM.
@@ -153,7 +157,8 @@ type SKLearnSpec struct {
 
 // ONNXSpec defines arguments for configuring ONNX model serving.
 type ONNXSpec struct {
-	ModelURI string `json:"modelUri"`
+	// The location of the trained model
+	StorageURI string `json:"storageUri"`
 	// Defaults to latest ONNX Version.
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
 	// Defaults to requests and limits of 1CPU, 2Gb MEM.
@@ -162,7 +167,8 @@ type ONNXSpec struct {
 
 // PyTorchSpec defines arguments for configuring PyTorch model serving.
 type PyTorchSpec struct {
-	ModelURI string `json:"modelUri"`
+	// The location of the trained model
+	StorageURI string `json:"storageUri"`
 	// Defaults PyTorch model class name to 'PyTorchModel'
 	ModelClassName string `json:"modelClassName,omitempty"`
 	// Defaults to latest PyTorch Version

@@ -34,7 +34,7 @@ func makeTestKFService() KFService {
 		Spec: KFServiceSpec{
 			Default: EndpointSpec{
 				Predictor: PredictorSpec{
-					Tensorflow: &TensorflowSpec{ModelURI: "gs://testbucket/testmodel"},
+					Tensorflow: &TensorflowSpec{StorageURI: "gs://testbucket/testmodel"},
 				},
 			},
 		},
@@ -43,66 +43,66 @@ func makeTestKFService() KFService {
 	return kfservice
 }
 
-func TestValidModelURIPrefixOK(t *testing.T) {
+func TestValidStorageURIPrefixOK(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	for _, prefix := range SupportedModelSourceURIPrefixList {
+	for _, prefix := range SupportedStorageURIPrefixList {
 		kfsvc := makeTestKFService()
-		kfsvc.Spec.Default.Predictor.Tensorflow.ModelURI = prefix + "foo/bar"
+		kfsvc.Spec.Default.Predictor.Tensorflow.StorageURI = prefix + "foo/bar"
 		g.Expect(kfsvc.ValidateCreate()).Should(gomega.Succeed())
 	}
 }
 
-func TestEmptyModelURIPrefixOK(t *testing.T) {
+func TestEmptyStorageURIPrefixOK(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	kfsvc := makeTestKFService()
-	kfsvc.Spec.Default.Predictor.Tensorflow.ModelURI = ""
+	kfsvc.Spec.Default.Predictor.Tensorflow.StorageURI = ""
 	g.Expect(kfsvc.ValidateCreate()).Should(gomega.Succeed())
 }
 
-func TestLocalPathModelURIPrefixOK(t *testing.T) {
+func TestLocalPathStorageURIPrefixOK(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	kfsvc := makeTestKFService()
-	kfsvc.Spec.Default.Predictor.Tensorflow.ModelURI = "some/relative/path"
+	kfsvc.Spec.Default.Predictor.Tensorflow.StorageURI = "some/relative/path"
 	g.Expect(kfsvc.ValidateCreate()).Should(gomega.Succeed())
-	kfsvc.Spec.Default.Predictor.Tensorflow.ModelURI = "/some/absolute/path"
+	kfsvc.Spec.Default.Predictor.Tensorflow.StorageURI = "/some/absolute/path"
 	g.Expect(kfsvc.ValidateCreate()).Should(gomega.Succeed())
-	kfsvc.Spec.Default.Predictor.Tensorflow.ModelURI = "/"
+	kfsvc.Spec.Default.Predictor.Tensorflow.StorageURI = "/"
 	g.Expect(kfsvc.ValidateCreate()).Should(gomega.Succeed())
-	kfsvc.Spec.Default.Predictor.Tensorflow.ModelURI = "foo"
+	kfsvc.Spec.Default.Predictor.Tensorflow.StorageURI = "foo"
 	g.Expect(kfsvc.ValidateCreate()).Should(gomega.Succeed())
 }
 
 func TestAzureBlobOK(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	kfsvc := makeTestKFService()
-	kfsvc.Spec.Default.Predictor.Tensorflow.ModelURI = "https://kfserving.blob.core.windows.net/tensorrt/simple_string/"
+	kfsvc.Spec.Default.Predictor.Tensorflow.StorageURI = "https://kfserving.blob.core.windows.net/tensorrt/simple_string/"
 	g.Expect(kfsvc.ValidateCreate()).Should(gomega.Succeed())
-	kfsvc.Spec.Default.Predictor.Tensorflow.ModelURI = "https://kfserving.blob.core.windows.net/tensorrt/simple_string"
+	kfsvc.Spec.Default.Predictor.Tensorflow.StorageURI = "https://kfserving.blob.core.windows.net/tensorrt/simple_string"
 	g.Expect(kfsvc.ValidateCreate()).Should(gomega.Succeed())
-	kfsvc.Spec.Default.Predictor.Tensorflow.ModelURI = "https://kfserving.blob.core.windows.net/tensorrt/"
+	kfsvc.Spec.Default.Predictor.Tensorflow.StorageURI = "https://kfserving.blob.core.windows.net/tensorrt/"
 	g.Expect(kfsvc.ValidateCreate()).Should(gomega.Succeed())
-	kfsvc.Spec.Default.Predictor.Tensorflow.ModelURI = "https://kfserving.blob.core.windows.net/tensorrt"
+	kfsvc.Spec.Default.Predictor.Tensorflow.StorageURI = "https://kfserving.blob.core.windows.net/tensorrt"
 	g.Expect(kfsvc.ValidateCreate()).Should(gomega.Succeed())
 }
 
 func TestAzureBlobNoAccountFails(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	kfsvc := makeTestKFService()
-	kfsvc.Spec.Default.Predictor.Tensorflow.ModelURI = "https://blob.core.windows.net/tensorrt/simple_string/"
+	kfsvc.Spec.Default.Predictor.Tensorflow.StorageURI = "https://blob.core.windows.net/tensorrt/simple_string/"
 	g.Expect(kfsvc.ValidateCreate()).ShouldNot(gomega.Succeed())
 }
 
 func TestAzureBlobNoContainerFails(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	kfsvc := makeTestKFService()
-	kfsvc.Spec.Default.Predictor.Tensorflow.ModelURI = "https://foo.blob.core.windows.net/"
+	kfsvc.Spec.Default.Predictor.Tensorflow.StorageURI = "https://foo.blob.core.windows.net/"
 	g.Expect(kfsvc.ValidateCreate()).ShouldNot(gomega.Succeed())
 }
 
-func TestUnkownModelURIPrefixFails(t *testing.T) {
+func TestUnkownStorageURIPrefixFails(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	kfsvc := makeTestKFService()
-	kfsvc.Spec.Default.Predictor.Tensorflow.ModelURI = "blob://foo/bar"
+	kfsvc.Spec.Default.Predictor.Tensorflow.StorageURI = "blob://foo/bar"
 	g.Expect(kfsvc.ValidateCreate()).ShouldNot(gomega.Succeed())
 }
 

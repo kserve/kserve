@@ -31,12 +31,12 @@ const (
 	MaxReplicasLowerBoundExceededError  = "MaxReplicas cannot be less than 0."
 	TrafficBoundsExceededError          = "TrafficPercent must be between [0, 100]."
 	TrafficProvidedWithoutCanaryError   = "Canary must be specified when CanaryTrafficPercent > 0."
-	UnsupportedModelURIFormatError      = "ModelURI, must be one of: [%s] or match https://{}.blob.core.windows.net/{}/{} or be an absolute or relative local path. Model URI [%s] is not supported."
+	UnsupportedStorageURIFormatError    = "storageUri, must be one of: [%s] or match https://{}.blob.core.windows.net/{}/{} or be an absolute or relative local path. StorageUri [%s] is not supported."
 )
 
 var (
-	SupportedModelSourceURIPrefixList = []string{"gs://", "s3://", "pvc://", "file://"}
-	AzureBlobURIRegEx                 = "https://(.+?).blob.core.windows.net/(.+)"
+	SupportedStorageURIPrefixList = []string{"gs://", "s3://", "pvc://", "file://"}
+	AzureBlobURIRegEx             = "https://(.+?).blob.core.windows.net/(.+)"
 )
 
 // ValidateCreate implements https://godoc.org/sigs.k8s.io/controller-runtime/pkg/webhook/admission#Validator
@@ -87,7 +87,7 @@ func validateModelSpec(spec *PredictorSpec) error {
 	if err := spec.Validate(); err != nil {
 		return err
 	}
-	if err := validateModelURI(spec.GetModelSourceUri()); err != nil {
+	if err := validateStorageURI(spec.GetStorageUri()); err != nil {
 		return err
 	}
 	if err := validateReplicas(spec.MinReplicas, spec.MaxReplicas); err != nil {
@@ -96,29 +96,29 @@ func validateModelSpec(spec *PredictorSpec) error {
 	return nil
 }
 
-func validateModelURI(modelSourceURI string) error {
-	if modelSourceURI == "" {
+func validateStorageURI(storageURI string) error {
+	if storageURI == "" {
 		return nil
 	}
 
 	// local path (not some protocol?)
-	if !regexp.MustCompile("\\w+?://").MatchString(modelSourceURI) {
+	if !regexp.MustCompile("\\w+?://").MatchString(storageURI) {
 		return nil
 	}
 
 	// one of the prefixes we know?
-	for _, prefix := range SupportedModelSourceURIPrefixList {
-		if strings.HasPrefix(modelSourceURI, prefix) {
+	for _, prefix := range SupportedStorageURIPrefixList {
+		if strings.HasPrefix(storageURI, prefix) {
 			return nil
 		}
 	}
 
 	azureURIMatcher := regexp.MustCompile(AzureBlobURIRegEx)
-	if parts := azureURIMatcher.FindStringSubmatch(modelSourceURI); parts != nil {
+	if parts := azureURIMatcher.FindStringSubmatch(storageURI); parts != nil {
 		return nil
 	}
 
-	return fmt.Errorf(UnsupportedModelURIFormatError, strings.Join(SupportedModelSourceURIPrefixList, ", "), modelSourceURI)
+	return fmt.Errorf(UnsupportedStorageURIFormatError, strings.Join(SupportedStorageURIPrefixList, ", "), storageURI)
 }
 
 func validateReplicas(minReplicas int, maxReplicas int) error {

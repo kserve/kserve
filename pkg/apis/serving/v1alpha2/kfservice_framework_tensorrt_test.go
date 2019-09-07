@@ -39,7 +39,7 @@ var requestedResource = v1.ResourceRequirements{
 }
 
 var spec = TensorRTSpec{
-	ModelURI:       "gs://someUri",
+	StorageURI:     "gs://someUri",
 	Resources:      requestedResource,
 	RuntimeVersion: "19.05-py3",
 }
