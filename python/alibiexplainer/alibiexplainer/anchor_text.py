@@ -21,6 +21,7 @@ class AnchorText(ExplainerWrapper):
             self.nlp = spacy.load(spacy_language_model)
             logging.info("Language model loaded")
         self.anchors_text = explainer
+        self.extra_config = kwargs
 
     def explain(self, inputs: List) -> Dict:
         if self.anchors_text is None:

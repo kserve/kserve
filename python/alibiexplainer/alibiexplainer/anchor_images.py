@@ -13,7 +13,7 @@ class AnchorImages(ExplainerWrapper):
 
     def __init__(self, predict_fn: Callable, explainer: alibi.explainers.AnchorImage, **kwargs):
         self.predict_fn = predict_fn
-        self.anchors_image: Optional[alibi.explainers.AnchorImage] = explainer
+        self.anchors_image = explainer
 
     def explain(self, inputs: List) -> Dict:
         if not self.anchors_image is None:
