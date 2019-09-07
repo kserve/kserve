@@ -1,4 +1,4 @@
-apiVersion: serving.kubeflow.org/v1alpha1
+apiVersion: serving.kubeflow.org/v1alpha2
 kind: KFService
 metadata:
   labels:
@@ -6,9 +6,10 @@ metadata:
   name: service-custom-sample
 spec:
   default:
-    custom:
-      container:
-        image: seldonio/mock_classifier:1.0
-        env:
-          - name: PREDICTIVE_UNIT_SERVICE_PORT
-            value: "8080"
+    predictor:
+      custom:
+        container:
+          image: seldonio/mock_classifier:1.0
+          env:
+            - name: PREDICTIVE_UNIT_SERVICE_PORT
+              value: "8080"

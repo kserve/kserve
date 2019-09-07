@@ -33,53 +33,53 @@ class V1alpha2SKLearnSpec(object):
                             and the value is json key in definition.
     """
     swagger_types = {
-        'model_uri': 'str',
+        'storage_uri': 'str',
         'resources': 'V1ResourceRequirements',
         'runtime_version': 'str'
     }
 
     attribute_map = {
-        'model_uri': 'modelUri',
+        'storage_uri': 'storageUri',
         'resources': 'resources',
         'runtime_version': 'runtimeVersion'
     }
 
-    def __init__(self, model_uri=None, resources=None, runtime_version=None):  # noqa: E501
+    def __init__(self, storage_uri=None, resources=None, runtime_version=None):  # noqa: E501
         """V1alpha2SKLearnSpec - a model defined in Swagger"""  # noqa: E501
 
-        self._model_uri = None
+        self._storage_uri = None
         self._resources = None
         self._runtime_version = None
         self.discriminator = None
 
-        self.model_uri = model_uri
+        self.storage_uri = storage_uri
         if resources is not None:
             self.resources = resources
         if runtime_version is not None:
             self.runtime_version = runtime_version
 
     @property
-    def model_uri(self):
-        """Gets the model_uri of this V1alpha2SKLearnSpec.  # noqa: E501
+    def storage_uri(self):
+        """Gets the storage_uri of this V1alpha2SKLearnSpec.  # noqa: E501
 
 
-        :return: The model_uri of this V1alpha2SKLearnSpec.  # noqa: E501
+        :return: The storage_uri of this V1alpha2SKLearnSpec.  # noqa: E501
         :rtype: str
         """
-        return self._model_uri
+        return self._storage_uri
 
-    @model_uri.setter
-    def model_uri(self, model_uri):
-        """Sets the model_uri of this V1alpha2SKLearnSpec.
+    @storage_uri.setter
+    def storage_uri(self, storage_uri):
+        """Sets the storage_uri of this V1alpha2SKLearnSpec.
 
 
-        :param model_uri: The model_uri of this V1alpha2SKLearnSpec.  # noqa: E501
+        :param storage_uri: The storage_uri of this V1alpha2SKLearnSpec.  # noqa: E501
         :type: str
         """
-        if model_uri is None:
-            raise ValueError("Invalid value for `model_uri`, must not be `None`")  # noqa: E501
+        if storage_uri is None:
+            raise ValueError("Invalid value for `storage_uri`, must not be `None`")  # noqa: E501
 
-        self._model_uri = model_uri
+        self._storage_uri = storage_uri
 
     @property
     def resources(self):
