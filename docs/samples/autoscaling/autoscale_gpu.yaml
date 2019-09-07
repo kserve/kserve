@@ -1,12 +1,13 @@
-apiVersion: "serving.kubeflow.org/v1alpha1"
+apiVersion: "serving.kubeflow.org/v1alpha2"
 kind: "KFService"
 metadata:
   name: "flowers-sample-gpu"
 spec:
   default:
-    tensorflow:
-      storageUri: "gs://kfserving-samples/models/tensorflow/flowers"
-      runtimeVersion: "1.13.0-gpu"
-      resources:
-        limits:
-          nvidia.com/gpu: 1
+    predictor:
+      tensorflow:
+        storageUri: "gs://kfserving-samples/models/tensorflow/flowers"
+        runtimeVersion: "1.13.0-gpu"
+        resources:
+          limits:
+            nvidia.com/gpu: 1

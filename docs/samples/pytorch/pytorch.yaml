@@ -1,9 +1,10 @@
-apiVersion: "serving.kubeflow.org/v1alpha1"
+apiVersion: "serving.kubeflow.org/v1alpha2"
 kind: "KFService"
 metadata:
   name: "pytorch-cifar10"
 spec:
   default:
-    pytorch:
-      storageUri: "gs://kfserving-samples/models/pytorch/cifar10/"
-      modelClassName: "Net"
+    predictor:
+      pytorch:
+        storageUri: "gs://kfserving-samples/models/pytorch/cifar10/"
+        modelClassName: "Net"

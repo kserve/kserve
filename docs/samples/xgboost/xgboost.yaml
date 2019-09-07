@@ -1,8 +1,9 @@
-apiVersion: "serving.kubeflow.org/v1alpha1"
+apiVersion: "serving.kubeflow.org/v1alpha2"
 kind: "KFService"
 metadata:
   name: "xgboost-iris"
 spec:
   default:
-    xgboost:
-      storageUri: "gs://kfserving-samples/models/xgboost/iris"
+    predictor:
+      xgboost:
+        storageUri: "gs://kfserving-samples/models/xgboost/iris"
