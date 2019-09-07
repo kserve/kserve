@@ -16,7 +16,7 @@ class AnchorText(ExplainerWrapper):
                  spacy_language_model: str = 'en_core_web_md', **kwargs):
         self.predict_fn = predict_fn
         if explainer is None:
-            logging.info("Loading Spacy Language model for %s" % spacy_language_model)
+            logging.info("Loading Spacy Language model for %s", spacy_language_model)
             # spacy_model(model=spacy_language_model)
             self.nlp = spacy.load(spacy_language_model)
             logging.info("Language model loaded")

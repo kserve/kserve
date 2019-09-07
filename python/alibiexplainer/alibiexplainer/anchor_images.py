@@ -18,7 +18,7 @@ class AnchorImages(ExplainerWrapper):
     def explain(self, inputs: List) -> Dict:
         if not self.anchors_image is None:
             arr = np.array(inputs)
-            logging.info("Calling explain on image of shape %s" % (arr.shape,))
+            logging.info("Calling explain on image of shape %s", (arr.shape,))
 
             # set anchor_images predict function so it always returns predicted class
             # See anchor_images.__init__
