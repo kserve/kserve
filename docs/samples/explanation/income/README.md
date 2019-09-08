@@ -14,19 +14,19 @@ This will create the following files:
 Now, run a KFServing sklearn server with this model:
 
 ```
-python -m sklearnserver --model_dir .  --model_name income --protocol seldon.http
+python -m sklearnserver --model_dir .  --model_name income --protocol tensorflow.http
 ```
 
 In a different terminal start the Alibi Explainer using the local saved explainer:
 
 ```
-python -m alibiexplainer --explainer_name income --predict_url http://localhost:8080/models/income:predict --protocol seldon.http --http_port 8081 --type anchor_tabular --explainerUri ${PWD}
+python -m alibiexplainer --explainer_name income --predict_url http://localhost:8080/models/income:predict --protocol tensorflow.http --http_port 8081 --type anchor_tabular --storageUri ${PWD}
 ```
 
 You can now get an explaination for some particular features:
 
 ```
-curl -H "Content-Type: application/json" -d '{"data":{"ndarray":[[39, 7, 1, 1, 1, 1, 4, 1, 2174, 0, 40, 9]]}}' http://localhost:8081/models/income:explain
+curl -H "Content-Type: application/json" -d '{"instances":[[39, 7, 1, 1, 1, 1, 4, 1, 2174, 0, 40, 9]]}' http://localhost:8081/models/income:explain
 ```
 
 You should receive an output like the following which contains the core explanation and various examples and counter examples:

@@ -1,0 +1,8 @@
+apiVersion: "serving.kubeflow.org/v1alpha1"
+kind: "KFService"
+metadata:
+  name: "imagenet"
+spec:
+  default:
+    tensorflow:
+      modelUri: "gs://seldon-models/tfserving/imagenet"

@@ -12,13 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import kfserving
 import argparse
+import json
+import logging
+import os
+
+import dill
+import kfserving
 from alibiexplainer import AlibiExplainer
 from alibiexplainer.explainer import ExplainerMethod  # pylint:disable=no-name-in-module
-import dill
-import os
-import json
+
+logging.basicConfig(level=kfserving.server.KFSERVER_LOGLEVEL)
 
 DEFAULT_EXPLAINER_NAME = "explainer"
 EXPLAINER_FILENAME = "explainer.dill"
@@ -33,20 +37,23 @@ parser.add_argument('--predict_url', help='The URL for the model predict functio
 parser.add_argument('--type',
                     type=ExplainerMethod, choices=list(ExplainerMethod), default="anchor_tabular",
                     help='Explainer method', required=True)
-parser.add_argument('--explainerUri', help='The URL of a pretrained explainer',
+parser.add_argument('--storageUri', help='The URI of a pretrained explainer',
                     default=os.environ.get(ENV_STORAGE_URI))
 parser.add_argument('--config', default=os.environ.get(CONFIG_ENV),
                     help='Custom configuration parameters')
+parser.add_argument('--host_header', default=None,
+                    help='Host header to send with requests to predictor')
 
 args, _ = parser.parse_known_args()
 
 if __name__ == "__main__":
     # Pretrained Alibi explainer
     alibi_model = None
-    if args.explainerUri is not None:
-        alibi_model = os.path.join(kfserving.Storage.download(args.explainerUri),
+    if args.storageUri is not None:
+        alibi_model = os.path.join(kfserving.Storage.download(args.storageUri),
                                    EXPLAINER_FILENAME)
         with open(alibi_model, 'rb') as f:
+            logging.info("Loading Alibi model")
             alibi_model = dill.load(f)
     # Custom configuration
     if args.config is None:
@@ -59,6 +66,7 @@ if __name__ == "__main__":
                                args.protocol,
                                ExplainerMethod(args.type),
                                config,
-                               alibi_model)
+                               alibi_model,
+                               args.host_header)
     explainer.load()
     kfserving.KFServer().start(models=[explainer])
