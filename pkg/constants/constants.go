@@ -17,7 +17,6 @@ limitations under the License.
 package constants
 
 import (
-	"fmt"
 	"os"
 	"strings"
 
@@ -106,6 +105,12 @@ const (
 	KFServiceCanary  = "canary"
 )
 
+// KFService model server args
+const (
+	ModelServerArgsModelName     = "--model_name"
+	ModelServerArgsPredictorHost = "--predictor_host"
+)
+
 func (e KFServiceEndpoint) String() string {
 	return string(e)
 }
@@ -125,16 +130,8 @@ func DefaultPredictorServiceName(name string) string {
 	return name + "-" + string(Predictor) + "-" + KFServiceDefault
 }
 
-func DefaultPredictorURL(name string, namespace string) string {
-	return fmt.Sprintf("http://%s.%s/v1/models/%s:predict", DefaultPredictorServiceName(name), namespace, name)
-}
-
 func CanaryPredictorServiceName(name string) string {
 	return name + "-" + string(Predictor) + "-" + KFServiceCanary
-}
-
-func CanaryPredictorURL(name string, namespace string) string {
-	return fmt.Sprintf("http://%s.%s/v1/models/%s:predict", DefaultPredictorServiceName(name), namespace, name)
 }
 
 func PredictRouteName(name string) string {

@@ -192,9 +192,9 @@ func (c *ServiceBuilder) CreateTransformerService(name string, metadata metav1.O
 		annotations[autoscaling.ClassAnnotationKey] = autoscaling.KPA
 	}
 
-	predict_url := constants.DefaultPredictorURL(metadata.Name, metadata.Namespace)
+	predictorHostName := constants.DefaultPredictorServiceName(metadata.Name)
 	if isCanary {
-		predict_url = constants.CanaryPredictorURL(metadata.Name, metadata.Namespace)
+		predictorHostName = constants.CanaryPredictorServiceName(metadata.Name)
 	}
 	service := &knservingv1alpha1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -222,10 +222,10 @@ func (c *ServiceBuilder) CreateTransformerService(name string, metadata metav1.O
 									{
 										Image: transformerSpec.Custom.Container.Image,
 										Args: []string{
-											"--model_name",
+											constants.ModelServerArgsModelName,
 											metadata.Name,
-											"--predict_url",
-											predict_url,
+											constants.ModelServerArgsPredictorHost,
+											predictorHostName,
 										},
 									},
 								},

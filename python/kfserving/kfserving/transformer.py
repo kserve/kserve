@@ -19,6 +19,7 @@ import numpy as np
 from .server import Protocol
 from .server import KFModel
 from .server import KFSERVER_LOGLEVEL
+from .server import PREDICTOR_URL_FORMAT
 import kfserving.protocols.seldon_http as seldon
 from kfserving.protocols.seldon_http import SeldonRequestHandler
 
@@ -27,10 +28,10 @@ logging.basicConfig(level=KFSERVER_LOGLEVEL)
 
 class Transformer(KFModel):
     def __init__(self, name: str,
-                 predict_url: str,
+                 predictor_host: str,
                  protocol: Protocol):
         super().__init__(name)
-        self.predict_url = predict_url
+        self.predict_url = PREDICTOR_URL_FORMAT.format(predictor_host, name)
         self.protocol = protocol
         self.ready = False
 
@@ -42,14 +43,14 @@ class Transformer(KFModel):
     def preprocess(self, inputs: List) -> List:
         raise NotImplementedError
 
-    # subclass of Transformer should implment postprocess
+    # subclass of Transformer should implement postprocess
     def postprocess(self, inputs: List) -> List:
         raise NotImplementedError
 
     def predict(self, inputs: List) -> List:
         if self.protocol == Protocol.seldon_http:
             payload = seldon.create_request(np.array(inputs), seldon.SeldonPayload.NDARRAY)
-            response_raw = requests.post(self.predict_url, json=payload)
+            response_raw = requests.post(self.predictor_url, json=payload)
             if response_raw.status_code == 200:
                 rh = SeldonRequestHandler(response_raw.json())
                 response_list = rh.extract_request()
@@ -59,9 +60,7 @@ class Transformer(KFModel):
                                 response_raw.status_code)
         elif self.protocol == Protocol.tensorflow_http:
             payload = {"instances": inputs}
-            logging.info(payload.items())
-            logging.info(self.predict_url)
-            response_raw = requests.post(self.predict_url, json=payload)
+            response_raw = requests.post(self.predictor_url, json=payload)
             if response_raw.status_code == 200:
                 logging.info(response_raw.json())
                 return response_raw.json()["predictions"]

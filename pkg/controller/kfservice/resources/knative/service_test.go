@@ -569,10 +569,10 @@ func TestTransformerToKnativeService(t *testing.T) {
 									{
 										Image: "transformer:latest",
 										Args: []string{
-											"--model_name",
+											constants.ModelServerArgsModelName,
 											kfsvc.Name,
-											"--predict_url",
-											constants.DefaultPredictorURL(kfsvc.Name, kfsvc.Namespace),
+											constants.ModelServerArgsPredictorHost,
+											constants.DefaultPredictorServiceName(kfsvc.Name),
 										},
 									},
 								},
@@ -610,10 +610,10 @@ func TestTransformerToKnativeService(t *testing.T) {
 									{
 										Image: "transformer:v2",
 										Args: []string{
-											"--model_name",
+											constants.ModelServerArgsModelName,
 											kfsvc.Name,
-											"--predict_url",
-											constants.DefaultPredictorURL(kfsvc.Name, kfsvc.Namespace),
+											constants.ModelServerArgsPredictorHost,
+											constants.CanaryPredictorServiceName(kfsvc.Name),
 										},
 									},
 								},
