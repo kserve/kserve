@@ -35,6 +35,7 @@ import (
 
 const (
 	FrameworkConfigKeyName = "frameworks"
+	ExplainerConfigKeyName = "explainers"
 )
 
 var serviceAnnotationDisallowedList = []string{
@@ -47,20 +48,29 @@ var serviceAnnotationDisallowedList = []string{
 type ServiceBuilder struct {
 	frameworksConfig  *v1alpha2.FrameworksConfig
 	credentialBuilder *credentials.CredentialBuilder
+	explainersConfig  *v1alpha2.ExplainersConfig
 }
 
 func NewServiceBuilder(client client.Client, config *v1.ConfigMap) *ServiceBuilder {
 	frameworkConfig := &v1alpha2.FrameworksConfig{}
+	explainerConfig := &v1alpha2.ExplainersConfig{}
 	if fmks, ok := config.Data[FrameworkConfigKeyName]; ok {
 		err := json.Unmarshal([]byte(fmks), &frameworkConfig)
 		if err != nil {
-			panic(fmt.Errorf("Unable to unmarshall json string due to %v ", err))
+			panic(fmt.Errorf("Unable to unmarshall framework json string due to %v ", err))
+		}
+	}
+	if exs, ok := config.Data[ExplainerConfigKeyName]; ok {
+		err := json.Unmarshal([]byte(exs), &explainerConfig)
+		if err != nil {
+			panic(fmt.Errorf("Unable to unmarshall explainer json string due to %v ", err))
 		}
 	}
 
 	return &ServiceBuilder{
 		frameworksConfig:  frameworkConfig,
 		credentialBuilder: credentials.NewCredentialBulder(client, config),
+		explainersConfig:  explainerConfig,
 	}
 }
 
@@ -69,12 +79,13 @@ func (c *ServiceBuilder) CreateEndpointService(kfsvc *v1alpha2.KFService, endpoi
 	if isCanary {
 		serviceName = constants.CanaryServiceName(kfsvc.Name, endpoint)
 	}
+	predictorSpec := &kfsvc.Spec.Default.Predictor
+	if isCanary {
+		predictorSpec = &kfsvc.Spec.Canary.Predictor
+	}
 	switch endpoint {
 	case constants.Predictor:
-		predictorSpec := &kfsvc.Spec.Default.Predictor
-		if isCanary {
-			predictorSpec = &kfsvc.Spec.Canary.Predictor
-		}
+
 		return c.CreatePredictorService(serviceName, kfsvc.ObjectMeta, predictorSpec)
 	case constants.Transformer:
 		transformerSpec := &kfsvc.Spec.Default.Transformer
@@ -87,15 +98,22 @@ func (c *ServiceBuilder) CreateEndpointService(kfsvc *v1alpha2.KFService, endpoi
 		//TODO create transformer
 		return nil, nil
 	case constants.Explainer:
-		explainerSpec := &kfsvc.Spec.Default.Explainer
+		explainerSpec := kfsvc.Spec.Default.Explainer
+		predictUrl := constants.DefaultPredictorURL(kfsvc.Name, kfsvc.ObjectMeta.Namespace, predictorSpec.Tensorflow != nil)
 		if isCanary {
-			explainerSpec = &kfsvc.Spec.Canary.Explainer
+			predictUrl = constants.CanaryPredictorURL(kfsvc.Name, kfsvc.ObjectMeta.Namespace, predictorSpec.Tensorflow != nil)
+		}
+		explainerServiceName := constants.DefaultExplainerServiceName(kfsvc.Name)
+		if isCanary {
+			explainerServiceName = constants.CanaryExplainerServiceName(kfsvc.Name)
+		}
+		if isCanary {
+			explainerSpec = kfsvc.Spec.Canary.Explainer
 		}
 		if explainerSpec == nil {
 			return nil, nil
 		}
-		//TODO create explainer
-		return nil, nil
+		return c.CreateExplainerService(explainerServiceName, predictUrl, kfsvc.ObjectMeta, explainerSpec)
 	}
 	return nil, fmt.Errorf("Invalid endpoint")
 }
@@ -163,6 +181,78 @@ func (c *ServiceBuilder) CreatePredictorService(name string, metadata metav1.Obj
 	if err := c.credentialBuilder.CreateSecretVolumeAndEnv(
 		metadata.Namespace,
 		predictorSpec.ServiceAccountName,
+		&service.Spec.Template.Spec.Containers[0],
+		&service.Spec.Template.Spec.Volumes,
+	); err != nil {
+		return nil, err
+	}
+
+	return service, nil
+}
+
+func (c *ServiceBuilder) CreateExplainerService(name string, predictUrl string, metadata metav1.ObjectMeta, explainerSpec *v1alpha2.ExplainerSpec) (*knservingv1alpha1.Service, error) {
+	annotations := utils.Filter(metadata.Annotations, func(key string) bool {
+		return !utils.Includes(serviceAnnotationDisallowedList, key)
+	})
+
+	if explainerSpec.MinReplicas != 0 {
+		annotations[autoscaling.MinScaleAnnotationKey] = fmt.Sprint(explainerSpec.MinReplicas)
+	}
+	if explainerSpec.MaxReplicas != 0 {
+		annotations[autoscaling.MaxScaleAnnotationKey] = fmt.Sprint(explainerSpec.MaxReplicas)
+	}
+
+	// User can pass down scaling target annotation to overwrite the target default 1
+	if _, ok := annotations[autoscaling.TargetAnnotationKey]; !ok {
+		annotations[autoscaling.TargetAnnotationKey] = constants.DefaultScalingTarget
+	}
+	// User can pass down scaling class annotation to overwrite the default scaling KPA
+	if _, ok := annotations[autoscaling.ClassAnnotationKey]; !ok {
+		annotations[autoscaling.ClassAnnotationKey] = autoscaling.KPA
+	}
+
+	// KNative does not support INIT containers or mounting, so we add annotations that trigger the
+	// ModelInitializer injector to mutate the underlying deployment to provision model data
+	if sourceURI := explainerSpec.GetModelSourceUri(); sourceURI != "" {
+		annotations[constants.ModelInitializerSourceUriInternalAnnotationKey] = sourceURI
+	}
+
+	service := &knservingv1alpha1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: metadata.Namespace,
+			Labels:    metadata.Labels,
+		},
+		Spec: knservingv1alpha1.ServiceSpec{
+			ConfigurationSpec: knservingv1alpha1.ConfigurationSpec{
+				Template: &knservingv1alpha1.RevisionTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Labels: utils.Union(metadata.Labels, map[string]string{
+							constants.KFServicePodLabelKey: metadata.Name,
+						}),
+						Annotations: annotations,
+					},
+					Spec: knservingv1alpha1.RevisionSpec{
+						RevisionSpec: v1beta1.RevisionSpec{
+							// Defaulting here since this always shows a diff with nil vs 300s(knative default)
+							// we may need to expose this field in future
+							TimeoutSeconds: &constants.DefaultTimeout,
+							PodSpec: v1.PodSpec{
+								ServiceAccountName: explainerSpec.ServiceAccountName,
+								Containers: []v1.Container{
+									*explainerSpec.CreateExplainerServingContainer(metadata.Name, predictUrl, c.explainersConfig),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	if err := c.credentialBuilder.CreateSecretVolumeAndEnv(
+		metadata.Namespace,
+		explainerSpec.ServiceAccountName,
 		&service.Spec.Template.Spec.Containers[0],
 		&service.Spec.Template.Spec.Volumes,
 	); err != nil {

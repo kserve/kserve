@@ -35,6 +35,9 @@ func (c *CustomSpec) GetModelSourceUri() string {
 func (c *CustomSpec) CreateModelServingContainer(modelName string, config *FrameworksConfig) *v1.Container {
 	return &c.Container
 }
+func (c *CustomSpec) CreateExplainerServingContainer(modelName string, predictUrl string, config *ExplainersConfig) *v1.Container {
+	return &c.Container
+}
 
 func (c *CustomSpec) ApplyDefaults() {
 	setResourceRequirementDefaults(&c.Container.Resources)
