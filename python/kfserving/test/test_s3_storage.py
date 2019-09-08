@@ -32,6 +32,8 @@ def get_call_args(call_args_list):
         arg_list.append(args)
     return arg_list
 
+# pylint: disable=syntax-error
+
 def expected_call_args_list(bucket_name, parent_key, dest, paths):
     return [(bucket_name, f'{parent_key}/{p}'.strip('/'), f'{dest}/{p}'.strip('/'))
             for p in paths]
@@ -39,7 +41,7 @@ def expected_call_args_list(bucket_name, parent_key, dest, paths):
 # pylint: disable=protected-access
 
 @mock.patch('kfserving.storage.Minio')
-def test_parent_key(mock_storage): # pylint: disable=unused-argument
+def test_parent_key(mock_storage):
 
     # given
     bucket_name = 'foo'
@@ -57,7 +59,7 @@ def test_parent_key(mock_storage): # pylint: disable=unused-argument
     mock_minio_client.list_objects.assert_called_with(bucket_name, prefix='bar', recursive=True)
 
 @mock.patch('kfserving.storage.Minio')
-def test_no_key(mock_storage): # pylint: disable=unused-argument
+def test_no_key(mock_storage):
 
     # given
     bucket_name = 'foo'
@@ -74,7 +76,7 @@ def test_no_key(mock_storage): # pylint: disable=unused-argument
     mock_minio_client.list_objects.assert_called_with(bucket_name, prefix='', recursive=True)
 
 @mock.patch('kfserving.storage.Minio')
-def test_full_name_key(mock_storage): # pylint: disable=unused-argument
+def test_full_name_key(mock_storage):
 
     # given
     bucket_name = 'foo'
