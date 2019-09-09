@@ -60,7 +60,7 @@ Now lets get an explanation for the first sentence:
 
 
 ```
-curl -v -H "Host: moviesentiment-explainer-default.default.svc.cluster.local" http://$CLUSTER_IP/models/$MODEL_NAME:explain -d '{"instances":["This is a bad book ."]}'
+curl -v -H "Host: ${MODEL_NAME}-explainer-default.default.svc.cluster.local" http://$CLUSTER_IP/models/$MODEL_NAME:explain -d '{"instances":["This is a bad book ."]}'
 ```
 
 The returned explanation will be like:
@@ -176,7 +176,13 @@ This shows the key word "bad" was indetified and examples show it in context usi
 
 ## Local Testing
 
-If you wish to test locally you can train the model with:
+If you wish to test locally first install the requirements:
+
+```
+pip install -r requirements.txt
+```
+
+Now train the model:
 
 ```
 make train

@@ -1,0 +1,20 @@
+apiVersion: "serving.kubeflow.org/v1alpha2"
+kind: "KFService"
+metadata:
+  name: "income"
+spec:
+  default:
+    predictor:
+      sklearn:
+        modelUri: "gs://seldon-models/sklearn/income/model"
+        resources:
+          requests:
+            cpu: 0.1
+    explainer:
+      alibi:
+        type: anchor_tabular
+        storageUri: "gs://seldon-models/sklearn/income/explainer"
+        resources:
+          requests:
+            cpu: 0.1
+        

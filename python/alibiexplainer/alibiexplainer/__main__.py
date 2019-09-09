@@ -37,7 +37,7 @@ parser.add_argument('--predictor_host', help='The host for the predictor', requi
 parser.add_argument('--type',
                     type=ExplainerMethod, choices=list(ExplainerMethod), default="anchor_tabular",
                     help='Explainer method', required=True)
-parser.add_argument('--storageUri', help='The URI of a pretrained explainer',
+parser.add_argument('--storage_uri', help='The URI of a pretrained explainer',
                     default=os.environ.get(ENV_STORAGE_URI))
 parser.add_argument('--config', default=os.environ.get(CONFIG_ENV),
                     help='Custom configuration parameters')
@@ -47,8 +47,8 @@ args, _ = parser.parse_known_args()
 if __name__ == "__main__":
     # Pretrained Alibi explainer
     alibi_model = None
-    if args.storageUri is not None:
-        alibi_model = os.path.join(kfserving.Storage.download(args.storageUri),
+    if args.storage_uri is not None:
+        alibi_model = os.path.join(kfserving.Storage.download(args.storage_uri),
                                    EXPLAINER_FILENAME)
         with open(alibi_model, 'rb') as f:
             logging.info("Loading Alibi model")

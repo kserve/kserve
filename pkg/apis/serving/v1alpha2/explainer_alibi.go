@@ -15,7 +15,6 @@ var (
 		"0.2.3",
 	}
 	InvalidAlibiRuntimeVersionError = "RuntimeVersion must be one of " + strings.Join(AllowedAlibiRuntimeVersions, ", ")
-	ExplainerModelFileName          = "explainer.dill"
 )
 
 func (s *AlibiExplainerSpec) GetModelSourceUri() string {
@@ -35,7 +34,7 @@ func (s *AlibiExplainerSpec) CreateExplainerServingContainer(modelName string, p
 	}
 
 	if s.StorageURI != "" {
-		args = append(args, "--storage_uri", constants.DefaultModelLocalMountPath+"/"+ExplainerModelFileName)
+		args = append(args, "--storage_uri", constants.DefaultModelLocalMountPath)
 	}
 
 	return &v1.Container{
