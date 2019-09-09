@@ -31,7 +31,7 @@ class Transformer(KFModel):
                  predictor_host: str,
                  protocol: Protocol):
         super().__init__(name)
-        self.predict_url = PREDICTOR_URL_FORMAT.format(predictor_host, name)
+        self.predictor_url = PREDICTOR_URL_FORMAT.format(predictor_host, name)
         self.protocol = protocol
         self.ready = False
 
@@ -41,11 +41,11 @@ class Transformer(KFModel):
 
     # subclass of Transformer should implement preprocess
     def preprocess(self, inputs: List) -> List:
-        raise NotImplementedError
+        return inputs
 
     # subclass of Transformer should implement postprocess
     def postprocess(self, inputs: List) -> List:
-        raise NotImplementedError
+        return inputs
 
     def predict(self, inputs: List) -> List:
         if self.protocol == Protocol.seldon_http:
