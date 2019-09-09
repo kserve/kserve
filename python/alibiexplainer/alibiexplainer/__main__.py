@@ -31,9 +31,9 @@ CONFIG_ENV = "ALIBI_CONFIGURATION"
 ENV_STORAGE_URI = "STORAGE_URI"
 
 parser = argparse.ArgumentParser(parents=[kfserving.server.parser])
-parser.add_argument('--explainer_name', default=DEFAULT_EXPLAINER_NAME,
+parser.add_argument('--model_name', default=DEFAULT_EXPLAINER_NAME,
                     help='The name of model explainer.')
-parser.add_argument('--predict_url', help='The URL for the model predict function', required=True)
+parser.add_argument('--predictor_host', help='The host for the predictor', required=True)
 parser.add_argument('--type',
                     type=ExplainerMethod, choices=list(ExplainerMethod), default="anchor_tabular",
                     help='Explainer method', required=True)
@@ -41,8 +41,6 @@ parser.add_argument('--storageUri', help='The URI of a pretrained explainer',
                     default=os.environ.get(ENV_STORAGE_URI))
 parser.add_argument('--config', default=os.environ.get(CONFIG_ENV),
                     help='Custom configuration parameters')
-parser.add_argument('--host_header', default=None,
-                    help='Host header to send with requests to predictor')
 
 args, _ = parser.parse_known_args()
 
@@ -61,12 +59,11 @@ if __name__ == "__main__":
     else:
         config = json.loads(args.config)
 
-    explainer = AlibiExplainer(args.explainer_name,
-                               args.predict_url,
+    explainer = AlibiExplainer(args.model_name,
+                               args.predictor_host,
                                args.protocol,
                                ExplainerMethod(args.type),
                                config,
-                               alibi_model,
-                               args.host_header)
+                               alibi_model)
     explainer.load()
     kfserving.KFServer().start(models=[explainer])

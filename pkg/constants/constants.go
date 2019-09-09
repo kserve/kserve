@@ -17,7 +17,6 @@ limitations under the License.
 package constants
 
 import (
-	"fmt"
 	"os"
 	"strings"
 
@@ -161,25 +160,8 @@ func DefaultServiceName(name string, endpoint KFServiceEndpoint) string {
 	return name + "-" + endpoint.String() + "-" + KFServiceDefault
 }
 
-func DefaultPredictorURL(name string, namespace string, isTensorflow bool) string {
-	if isTensorflow {
-		return fmt.Sprintf("http://%s.%s/v1/models/%s:predict", DefaultPredictorServiceName(name), namespace, name)
-	} else {
-		return fmt.Sprintf("http://%s.%s/models/%s:predict", DefaultPredictorServiceName(name), namespace, name)
-	}
-
-}
-
 func CanaryServiceName(name string, endpoint KFServiceEndpoint) string {
 	return name + "-" + endpoint.String() + "-" + KFServiceCanary
-}
-
-func CanaryPredictorURL(name string, namespace string, isTensorflow bool) string {
-	if isTensorflow {
-		return fmt.Sprintf("http://%s.%s/v1/models/%s:predict", CanaryPredictorServiceName(name), namespace, name)
-	} else {
-		return fmt.Sprintf("http://%s.%s/models/%s:predict", CanaryPredictorServiceName(name), namespace, name)
-	}
 }
 
 func RouteName(name string, verb KFServiceVerb) string {

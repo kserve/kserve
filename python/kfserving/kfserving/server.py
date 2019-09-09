@@ -51,6 +51,7 @@ parser.add_argument('--protocol', type=Protocol, choices=list(Protocol),
 args, _ = parser.parse_known_args()
 
 KFSERVER_LOGLEVEL = os.environ.get('KFSERVER_LOGLEVEL', 'INFO').upper()
+PREDICTOR_URL_FORMAT = "http://{0}/models/{1}:predict"
 logging.basicConfig(level=KFSERVER_LOGLEVEL)
 
 

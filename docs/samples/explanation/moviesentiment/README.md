@@ -1,56 +1,66 @@
 # Example Anchors Text Explaination for Movie Sentiment
 
-Train a model for movie sentiment.
+This example uses a [movie sentiment dataset](http://www.cs.cornell.edu/people/pabo/movie-review-data/).
+
+We can create a KFService with a trained sklearn predictor for this dataset and an associated explainer:
 
 ```
-python train.py 
+apiVersion: "serving.kubeflow.org/v1alpha2"
+kind: "KFService"
+metadata:
+  name: "moviesentiment"
+spec:
+  default:
+    predictor:
+      sklearn:
+        modelUri: "gs://seldon-models/sklearn/moviesentiment"
+    explainer:
+      alibi:
+        type: anchor_text
 ```
 
-This will create the following file:
-
-  * `model.joblib` : pickle of model.
-
-Now, run a KFServing sklearn server with this model:
+Create this KfService:
 
 ```
-python -m sklearnserver --model_dir .  --model_name moviesentiment --protocol tensorflow.http
+kubectl create -f moviesentiment.yaml
 ```
 
-Test the running model:
+Set up some environment variables for the model name and cluster entrypoint:
 
 ```
-curl -H "Content-Type: application/json" -d '{"instances":["This is a good book ."]}' http://localhost:8080/models/moviesentiment:predict
+MODEL_NAME=moviesentiment
+CLUSTER_IP=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 ```
 
-This should produce a positive sentiment:
+Test the predictor on an example sentence:
 
 ```
-{"predictions": [1]}
+curl -H "Host: ${MODEL_NAME}-predictor-default.default.svc.cluster.local" http://$CLUSTER_IP/models/$MODEL_NAME:predict -d '{"instances":["This is a bad book ."]}'
 ```
 
-Test a different example:
-
-```
-curl -H "Content-Type: application/json" -d '{"instances":["This is a bad book ."]}' http://localhost:8080/models/moviesentiment:predict
-```
-
-This should produce negative sentiment:
+You should receive the response showing negative sentiment:
 
 ```
 {"predictions": [0]}
 ```
 
-
-In a different terminal start the Alibi Explainer:
-
-```
-python -m alibiexplainer --explainer_name moviesentiment --predict_url http://localhost:8080/models/moviesentiment:predict --protocol tensorflow.http --http_port 8081 --type anchor_text
-```
-
-You can now get an explaination for some particular features:
+Test on another sentence:
 
 ```
-curl -H "Content-Type: application/json" -d '{"instances":["This is a bad book ."]}' http://localhost:8081/models/moviesentiment:explain
+curl -H "Host: ${MODEL_NAME}-predictor-default.default.svc.cluster.ER_IP/models/$MODEL_NAME:predict -d '{"instances":["This is a great book ."]}'
+```
+
+You should receive the response showing positive sentiment:
+
+```
+{"predictions": [1]}
+```
+
+Now lets get an explanation for the first sentence:
+
+
+```
+curl -v -H "Host: moviesentiment-explainer-default.default.svc.cluster.local" http://$CLUSTER_IP/models/$MODEL_NAME:explain -d '{"instances":["This is a bad book ."]}'
 ```
 
 The returned explanation will be like:
@@ -160,3 +170,5 @@ The returned explanation will be like:
 }
 
 ```
+
+This shows the key word "bad" was indetified and examples show it in context using the default "UKN" placeholder for surrounding words.

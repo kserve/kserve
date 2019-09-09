@@ -99,9 +99,9 @@ func (c *ServiceBuilder) CreateEndpointService(kfsvc *v1alpha2.KFService, endpoi
 		return nil, nil
 	case constants.Explainer:
 		explainerSpec := kfsvc.Spec.Default.Explainer
-		predictUrl := constants.DefaultPredictorURL(kfsvc.Name, kfsvc.ObjectMeta.Namespace, predictorSpec.Tensorflow != nil)
+		predictorHost := constants.DefaultPredictorServiceName(kfsvc.Name) + "." + kfsvc.ObjectMeta.Namespace
 		if isCanary {
-			predictUrl = constants.CanaryPredictorURL(kfsvc.Name, kfsvc.ObjectMeta.Namespace, predictorSpec.Tensorflow != nil)
+			predictorHost = constants.CanaryPredictorServiceName(kfsvc.Name) + "." + kfsvc.ObjectMeta.Namespace
 		}
 		explainerServiceName := constants.DefaultExplainerServiceName(kfsvc.Name)
 		if isCanary {
@@ -113,7 +113,7 @@ func (c *ServiceBuilder) CreateEndpointService(kfsvc *v1alpha2.KFService, endpoi
 		if explainerSpec == nil {
 			return nil, nil
 		}
-		return c.CreateExplainerService(explainerServiceName, predictUrl, kfsvc.ObjectMeta, explainerSpec)
+		return c.CreateExplainerService(explainerServiceName, predictorHost, kfsvc.ObjectMeta, explainerSpec)
 	}
 	return nil, fmt.Errorf("Invalid endpoint")
 }
@@ -190,7 +190,7 @@ func (c *ServiceBuilder) CreatePredictorService(name string, metadata metav1.Obj
 	return service, nil
 }
 
-func (c *ServiceBuilder) CreateExplainerService(name string, predictUrl string, metadata metav1.ObjectMeta, explainerSpec *v1alpha2.ExplainerSpec) (*knservingv1alpha1.Service, error) {
+func (c *ServiceBuilder) CreateExplainerService(name string, predictorHost string, metadata metav1.ObjectMeta, explainerSpec *v1alpha2.ExplainerSpec) (*knservingv1alpha1.Service, error) {
 	annotations := utils.Filter(metadata.Annotations, func(key string) bool {
 		return !utils.Includes(serviceAnnotationDisallowedList, key)
 	})
@@ -240,7 +240,7 @@ func (c *ServiceBuilder) CreateExplainerService(name string, predictUrl string, 
 							PodSpec: v1.PodSpec{
 								ServiceAccountName: explainerSpec.ServiceAccountName,
 								Containers: []v1.Container{
-									*explainerSpec.CreateExplainerServingContainer(metadata.Name, predictUrl, c.explainersConfig),
+									*explainerSpec.CreateExplainerServingContainer(metadata.Name, predictorHost, c.explainersConfig),
 								},
 							},
 						},

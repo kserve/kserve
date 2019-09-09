@@ -21,7 +21,7 @@ import (
 
 type ExplainerHandler interface {
 	GetModelSourceUri() string
-	CreateExplainerServingContainer(modelName string, predictorServiceName string, config *ExplainersConfig) *v1.Container
+	CreateExplainerServingContainer(modelName string, predictorHost string, config *ExplainersConfig) *v1.Container
 	ApplyDefaults()
 	Validate() error
 }
@@ -31,8 +31,8 @@ func (m *ExplainerSpec) GetModelSourceUri() string {
 	return getExplainerHandler(m).GetModelSourceUri()
 }
 
-func (m *ExplainerSpec) CreateExplainerServingContainer(modelName string, predictUrl string, config *ExplainersConfig) *v1.Container {
-	return getExplainerHandler(m).CreateExplainerServingContainer(modelName, predictUrl, config)
+func (m *ExplainerSpec) CreateExplainerServingContainer(modelName string, predictorHost string, config *ExplainersConfig) *v1.Container {
+	return getExplainerHandler(m).CreateExplainerServingContainer(modelName, predictorHost, config)
 }
 
 func (m *ExplainerSpec) ApplyDefaults() {

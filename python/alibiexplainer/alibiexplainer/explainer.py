@@ -12,7 +12,7 @@ from alibiexplainer.anchor_tabular import AnchorTabular
 from alibiexplainer.anchor_text import AnchorText
 from kfserving.protocols.seldon_http import SeldonRequestHandler
 from kfserving.protocols.util import NumpyEncoder
-from kfserving.server import Protocol
+from kfserving.server import Protocol, PREDICTOR_URL_FORMAT
 
 logging.basicConfig(level=kfserving.server.KFSERVER_LOGLEVEL)
 
@@ -29,15 +29,14 @@ class ExplainerMethod(Enum):
 class AlibiExplainer(kfserving.KFModel):
     def __init__(self,
                  name: str,
-                 predict_url: str,
+                 predictor_host: str,
                  protocol: Protocol,
                  method: ExplainerMethod,
                  config: Mapping,
-                 explainer: object = None,
-                 host_header: str = None):
+                 explainer: object = None):
         super().__init__(name)
-        self.predict_url = predict_url
-        self.host_header = host_header
+        self.predict_url = PREDICTOR_URL_FORMAT.format(predictor_host, name)
+        logging.info("Predict URL set to %s",self.predict_url)
         self.protocol = protocol
         self.method = method
 
@@ -72,10 +71,7 @@ class AlibiExplainer(kfserving.KFModel):
                 else:
                     data.append(str(req_data))
             payload = {"instances": data}
-            headers = None
-            if self.host_header is not None:
-                headers = {'Host': self.host_header}
-            response_raw = requests.post(self.predict_url, json=payload, headers=headers)
+            response_raw = requests.post(self.predict_url, json=payload)
             if response_raw.status_code == 200:
                 j_resp = response_raw.json()
                 return np.array(j_resp['predictions'])

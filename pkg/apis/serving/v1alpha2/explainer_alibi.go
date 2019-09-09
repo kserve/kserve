@@ -22,15 +22,15 @@ func (s *AlibiExplainerSpec) GetModelSourceUri() string {
 	return s.StorageURI
 }
 
-func (s *AlibiExplainerSpec) CreateExplainerServingContainer(modelName string, predictUrl string, config *ExplainersConfig) *v1.Container {
+func (s *AlibiExplainerSpec) CreateExplainerServingContainer(modelName string, predictorHost string, config *ExplainersConfig) *v1.Container {
 	imageName := AlibiImageName
 	if config.AlibiExplainer.ContainerImage != "" {
 		imageName = config.AlibiExplainer.ContainerImage
 	}
 
 	var args = []string{
-		"--explainer_name", modelName,
-		"--predict_url", predictUrl,
+		"--model_name", modelName,
+		"--predictor_host", predictorHost,
 		"--type", string(s.Type),
 	}
 
@@ -40,6 +40,7 @@ func (s *AlibiExplainerSpec) CreateExplainerServingContainer(modelName string, p
 
 	return &v1.Container{
 		Image:     imageName + ":" + s.RuntimeVersion,
+		ImagePullPolicy: v1.PullAlways,
 		Resources: s.Resources,
 		Args:      args,
 	}
