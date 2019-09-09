@@ -172,3 +172,15 @@ The returned explanation will be like:
 ```
 
 This shows the key word "bad" was indetified and examples show it in context using the default "UKN" placeholder for surrounding words.
+
+
+## Local Testing
+
+If you wish to test locally you can train the model with:
+
+```
+make train
+```
+
+You can then store the `model.joblib` in a bucket accessible from your Kubernetes cluster.
+
