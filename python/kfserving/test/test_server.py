@@ -97,7 +97,8 @@ class TestSeldonHttpServer(object):
 
     async def test_model_tftensor(self, http_server_client):
         with pytest.raises(HTTPClientError):
-            resp = await http_server_client.fetch('/v1/models/TestModelSeldon:predict', method="POST",
+            resp = await http_server_client.fetch('/v1/models/TestModelSeldon:predict',
+                                                  method="POST",
                                                   body=b'{"data":{"tftensor":{}}}')
             assert resp.code == 400
 
@@ -106,7 +107,8 @@ class TestTransformerHttpServer(object):
 
     @pytest.fixture(scope="class")
     def app(self):  # pylint: disable=no-self-use
-        model = Transformer("TestModel", predictor_host='localhost', protocol=Protocol.tensorflow_http)
+        model = Transformer("TestModel", predictor_host='localhost',
+                            protocol=Protocol.tensorflow_http)
         model.load()
         server = kfserving.KFServer(Protocol.tensorflow_http)
         server.register_model(model)
