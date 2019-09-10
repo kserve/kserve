@@ -23,6 +23,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	knservingv1alpha1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
@@ -92,6 +93,13 @@ func TestKnativeRoute(t *testing.T) {
 								RuntimeVersion: "1.13.0",
 							},
 						},
+						Transformer: &v1alpha2.TransformerSpec{
+							Custom: &v1alpha2.CustomSpec{
+								Container: v1.Container{
+									Image: "mnist-data-transformer",
+								},
+							},
+						},
 					},
 				},
 				Status: v1alpha2.KFServiceStatus{
@@ -116,7 +124,7 @@ func TestKnativeRoute(t *testing.T) {
 						},
 						{
 							TrafficTarget: v1beta1.TrafficTarget{
-								ConfigurationName: constants.CanaryPredictorServiceName("mnist"),
+								ConfigurationName: constants.CanaryTransformerServiceName("mnist"),
 								Percent:           20,
 							},
 						},
