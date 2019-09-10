@@ -1,8 +1,26 @@
-apiVersion: "serving.kubeflow.org/v1alpha1"
+apiVersion: "serving.kubeflow.org/v1alpha2"
 kind: "KFService"
 metadata:
   name: "imagenet"
 spec:
   default:
-    tensorflow:
-      modelUri: "gs://seldon-models/tfserving/imagenet"
+    predictor:
+      tensorflow:
+        modelUri: "gs://seldon-models/tfserving/imagenet/model"
+        resources:
+          requests:
+            cpu: 0.1
+            memory: 5Gi                        
+          limits:
+            memory: 10Gi
+    explainer:
+      alibi:
+        type: anchor_images
+        storageUri: "gs://seldon-models/tfserving/imagenet/explainer"
+        resources:
+          requests:
+            cpu: 0.1
+            memory: 5Gi            
+          limits:
+            memory: 10Gi
+        

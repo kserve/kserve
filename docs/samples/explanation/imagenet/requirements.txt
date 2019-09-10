@@ -1,0 +1,5 @@
+alibi>=0.1.2
+numpy>=1.8.2
+tensorflow>=1.13.1
+joblib>=0.13.0
+dill>=0.2.7.1

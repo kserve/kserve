@@ -1,37 +1,79 @@
 # Example Anchors Image Explaination for Imagenet
 
-Train a model for income prediction.
+We can create a KFService with a trained Tensorflow Imagenet predictor for this dataset and an associated explainer:
 
-**This example will run the explainer locally which for images will mean the test is quite slow. This will be updated to a full example soon**
+```
+apiVersion: "serving.kubeflow.org/v1alpha2"
+kind: "KFService"
+metadata:
+  name: "imagenet"
+spec:
+  default:
+    predictor:
+      tensorflow:
+        modelUri: "gs://seldon-models/tfserving/imagenet/model"
+        resources:
+          requests:
+            cpu: 0.1
+            memory: 5Gi                        
+          limits:
+            memory: 10Gi
+    explainer:
+      alibi:
+        type: anchor_images
+        storageUri: "gs://seldon-models/tfserving/imagenet/explainer"
+        resources:
+          requests:
+            cpu: 0.1
+            memory: 5Gi            
+          limits:
+            memory: 10Gi
+```
 
-
-Assuming you have KfServing installed. Launch a Tensorflow pretrained Imagenet model:
+Create this KfService:
 
 ```
 kubectl create -f imagenet.yaml
 ```
 
-Train the explainer by running:
+Set up some environment variables for the model name and cluster entrypoint:
 
 ```
-python train_explainer.py
+export CLUSTER_IP=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 ```
 
-To run the explainer locally:
+Test the predictor on an example sentence:
 
 ```
-MODEL_NAME=imagenet
-CLUSTER_IP=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-python -m alibiexplainer --explainer_name ${MODEL_NAME} --predict_url http://${CLUSTER_IP}/v1/models/${MODEL_NAME}:predict --protocol tensorflow.http --http_port 8081 --type anchor_images --storageUri ${PWD} --host_header ${MODEL_NAME}.default.svc.cluster.local
+python test_imagenet.py
 ```
 
-Now we can get an explanation for an Imagenet image by running:
+You should receive a pop up view of the image and its prediction:
+
+![prediction](prediction.png)
+
+Now lets get an explanation for this input image.
 
 ```
-python get_explanation.py
+python test_imagenet.py --op explain
 ```
 
-This show eventually show the image to be explained alongside the explanation.
+You should see a popup with the original image and the segments most influential in the model making the prediction it did.
 
-![cat_explanation](cat_explanation.png)
+![explanation](explanation.png)
+
+
+## Local Training
+
+Install requirements
+
+```
+pip install -r requirements.txt
+```
+
+To train the explainer locally you can run
+
+```
+make train
+```
 
