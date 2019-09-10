@@ -73,21 +73,21 @@ func (mutator *Mutator) Handle(ctx context.Context, req types.Request) types.Res
 func (mutator *Mutator) mutate(deployment *appsv1.Deployment, configMap *v1.ConfigMap) error {
 
 	credentialBuilder := credentials.NewCredentialBulder(mutator.Client, configMap)
-	var modelInitializerConfig ModelInitializerConfig
-	if initializerConfig, ok := configMap.Data[ModelInitializerConfigMapKeyName]; ok {
-		err := json.Unmarshal([]byte(initializerConfig), &modelInitializerConfig)
+	var storageInitializerConfig StorageInitializerConfig
+	if initializerConfig, ok := configMap.Data[StorageInitializerConfigMapKeyName]; ok {
+		err := json.Unmarshal([]byte(initializerConfig), &storageInitializerConfig)
 		if err != nil {
 			panic(fmt.Errorf("Unable to unmarshall json string due to %v ", err))
 		}
 	}
-	modelInitializer := &ModelInitializerInjector{
+	storageInitializer := &StorageInitializerInjector{
 		credentialBuilder: credentialBuilder,
-		config:            &modelInitializerConfig,
+		config:            &storageInitializerConfig,
 	}
 
 	mutators := []func(deployment *appsv1.Deployment) error{
 		InjectGKEAcceleratorSelector,
-		modelInitializer.InjectModelInitializer,
+		storageInitializer.InjectStorageInitializer,
 	}
 
 	for _, mutator := range mutators {

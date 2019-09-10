@@ -26,6 +26,7 @@ import (
 var (
 	AllowedSKLearnRuntimeVersions = []string{
 		"latest",
+		"v0.1.2",
 	}
 	InvalidSKLearnRuntimeVersionError = "RuntimeVersion must be one of " + strings.Join(AllowedSKLearnRuntimeVersions, ", ")
 	SKLearnServerImageName            = "gcr.io/kfserving/sklearnserver"
@@ -34,8 +35,8 @@ var (
 
 var _ FrameworkHandler = (*SKLearnSpec)(nil)
 
-func (s *SKLearnSpec) GetModelSourceUri() string {
-	return s.ModelURI
+func (s *SKLearnSpec) GetStorageUri() string {
+	return s.StorageURI
 }
 
 func (s *SKLearnSpec) CreateModelServingContainer(modelName string, config *FrameworksConfig) *v1.Container {

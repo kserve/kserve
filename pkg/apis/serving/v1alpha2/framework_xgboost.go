@@ -26,14 +26,15 @@ import (
 var (
 	AllowedXGBoostRuntimeVersions = []string{
 		"latest",
+		"v0.1.2",
 	}
 	InvalidXGBoostRuntimeVersionError = "RuntimeVersion must be one of " + strings.Join(AllowedXGBoostRuntimeVersions, ", ")
 	XGBoostServerImageName            = "gcr.io/kfserving/xgbserver"
 	DefaultXGBoostRuntimeVersion      = "latest"
 )
 
-func (x *XGBoostSpec) GetModelSourceUri() string {
-	return x.ModelURI
+func (x *XGBoostSpec) GetStorageUri() string {
+	return x.StorageURI
 }
 
 func (x *XGBoostSpec) CreateModelServingContainer(modelName string, config *FrameworksConfig) *v1.Container {

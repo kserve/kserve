@@ -35,7 +35,7 @@ func TestTensorflowDefaults(t *testing.T) {
 		Spec: KFServiceSpec{
 			Default: EndpointSpec{
 				Predictor: PredictorSpec{
-					Tensorflow: &TensorflowSpec{ModelURI: "gs://testbucket/testmodel"},
+					Tensorflow: &TensorflowSpec{StorageURI: "gs://testbucket/testmodel"},
 				},
 			},
 		},

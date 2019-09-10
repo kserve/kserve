@@ -22,10 +22,10 @@ import (
 	knserving "knative.dev/serving/pkg/apis/serving"
 )
 
-func (c *CustomSpec) GetModelSourceUri() string {
-	// return the CustomSpecModelUri env variable value if set on the spec
+func (c *CustomSpec) GetStorageUri() string {
+	// return the CustomSpecStorageUri env variable value if set on the spec
 	for _, envVar := range c.Container.Env {
-		if envVar.Name == constants.CustomSpecModelUriEnvVarKey {
+		if envVar.Name == constants.CustomSpecStorageUriEnvVarKey {
 			return envVar.Value
 		}
 	}

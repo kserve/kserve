@@ -26,6 +26,7 @@ import (
 var (
 	AllowedPyTorchRuntimeVersions = []string{
 		"latest",
+		"v0.1.2",
 	}
 	InvalidPyTorchRuntimeVersionError = "RuntimeVersion must be one of " + strings.Join(AllowedPyTorchRuntimeVersions, ", ")
 	PyTorchServerImageName            = "gcr.io/kfserving/pytorchserver"
@@ -35,8 +36,8 @@ var (
 
 var _ FrameworkHandler = (*PyTorchSpec)(nil)
 
-func (s *PyTorchSpec) GetModelSourceUri() string {
-	return s.ModelURI
+func (s *PyTorchSpec) GetStorageUri() string {
+	return s.StorageURI
 }
 
 func (s *PyTorchSpec) CreateModelServingContainer(modelName string, config *FrameworksConfig) *v1.Container {

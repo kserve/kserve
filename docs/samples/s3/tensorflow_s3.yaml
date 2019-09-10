@@ -1,9 +1,10 @@
-apiVersion: "serving.kubeflow.org/v1alpha1"
+apiVersion: "serving.kubeflow.org/v1alpha2"
 kind: "KFService"
 metadata:
   name: "mnist-s3"
 spec:
   default:
     serviceAccountName: sa
-    tensorflow:
-      modelUri: "s3://mnist/v1/export"
+    predictor:
+      tensorflow:
+        storageUri: "s3://mnist/v1/export"

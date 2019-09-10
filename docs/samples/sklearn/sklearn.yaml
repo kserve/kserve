@@ -6,4 +6,4 @@ spec:
   default:
     predictor:
       sklearn:
-        modelUri: "gs://kfserving-samples/models/sklearn/iris"
+        storageUri: "gs://kfserving-samples/models/sklearn/iris"

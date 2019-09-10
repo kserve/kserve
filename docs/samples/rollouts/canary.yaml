@@ -1,14 +1,16 @@
-apiVersion: "serving.kubeflow.org/v1alpha1"
+apiVersion: "serving.kubeflow.org/v1alpha2"
 kind: "KFService"
 metadata:
   name: "my-model"
 spec:
   default: 
-    # 90% of traffic is sent to this model
-    tensorflow:
-      modelUri: "gs://mybucket/mymodel-2"
+    predictor:
+      # 90% of traffic is sent to this model
+      tensorflow:
+        storageUri: "gs://mybucket/mymodel-2"
   canaryTrafficPercent: 10
   canary:
-    # 10% of traffic is sent to this model
-    tensorflow:
-      modelUri: "gs://mybucket/mymodel-3"
+    predictor:
+      # 10% of traffic is sent to this model
+      tensorflow:
+        storageUri: "gs://mybucket/mymodel-3"

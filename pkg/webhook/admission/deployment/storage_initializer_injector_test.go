@@ -31,7 +31,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func TestModelInitializerInjector(t *testing.T) {
+func TestStorageInitializerInjector(t *testing.T) {
 	scenarios := map[string]struct {
 		original *appsv1.Deployment
 		expected *appsv1.Deployment
@@ -76,7 +76,7 @@ func TestModelInitializerInjector(t *testing.T) {
 					Template: v1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Annotations: map[string]string{
-								constants.ModelInitializerSourceUriInternalAnnotationKey: "gs://foo",
+								constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
 							},
 						},
 						Spec: v1.PodSpec{
@@ -87,7 +87,7 @@ func TestModelInitializerInjector(t *testing.T) {
 							},
 							InitContainers: []v1.Container{
 								{
-									Name: "model-initializer",
+									Name: "storage-initializer",
 								},
 							},
 						},
@@ -99,7 +99,7 @@ func TestModelInitializerInjector(t *testing.T) {
 					Template: v1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Annotations: map[string]string{
-								constants.ModelInitializerSourceUriInternalAnnotationKey: "gs://foo",
+								constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
 							},
 						},
 						Spec: v1.PodSpec{
@@ -110,7 +110,7 @@ func TestModelInitializerInjector(t *testing.T) {
 							},
 							InitContainers: []v1.Container{
 								{
-									Name: "model-initializer",
+									Name: "storage-initializer",
 								},
 							},
 						},
@@ -118,13 +118,13 @@ func TestModelInitializerInjector(t *testing.T) {
 				},
 			},
 		},
-		"ModelInitializerInjected": {
+		"StorageInitializerInjected": {
 			original: &appsv1.Deployment{
 				Spec: appsv1.DeploymentSpec{
 					Template: v1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Annotations: map[string]string{
-								constants.ModelInitializerSourceUriInternalAnnotationKey: "gs://foo",
+								constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
 							},
 						},
 						Spec: v1.PodSpec{
@@ -142,7 +142,7 @@ func TestModelInitializerInjector(t *testing.T) {
 					Template: v1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Annotations: map[string]string{
-								constants.ModelInitializerSourceUriInternalAnnotationKey: "gs://foo",
+								constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
 							},
 						},
 						Spec: v1.PodSpec{
@@ -160,8 +160,8 @@ func TestModelInitializerInjector(t *testing.T) {
 							},
 							InitContainers: []v1.Container{
 								{
-									Name:  "model-initializer",
-									Image: ModelInitializerContainerImage + ":" + ModelInitializerContainerImageVersion,
+									Name:  "storage-initializer",
+									Image: StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
 									Args:  []string{"gs://foo", constants.DefaultModelLocalMountPath},
 									VolumeMounts: []v1.VolumeMount{
 										{
@@ -184,13 +184,13 @@ func TestModelInitializerInjector(t *testing.T) {
 				},
 			},
 		},
-		"ModelInitializerInjectedAndMountsPvc": {
+		"StorageInitializerInjectedAndMountsPvc": {
 			original: &appsv1.Deployment{
 				Spec: appsv1.DeploymentSpec{
 					Template: v1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Annotations: map[string]string{
-								constants.ModelInitializerSourceUriInternalAnnotationKey: "pvc://mypvcname/some/path/on/pvc",
+								constants.StorageInitializerSourceUriInternalAnnotationKey: "pvc://mypvcname/some/path/on/pvc",
 							},
 						},
 						Spec: v1.PodSpec{
@@ -208,7 +208,7 @@ func TestModelInitializerInjector(t *testing.T) {
 					Template: v1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Annotations: map[string]string{
-								constants.ModelInitializerSourceUriInternalAnnotationKey: "pvc://mypvcname/some/path/on/pvc",
+								constants.StorageInitializerSourceUriInternalAnnotationKey: "pvc://mypvcname/some/path/on/pvc",
 							},
 						},
 						Spec: v1.PodSpec{
@@ -226,8 +226,8 @@ func TestModelInitializerInjector(t *testing.T) {
 							},
 							InitContainers: []v1.Container{
 								{
-									Name:  "model-initializer",
-									Image: ModelInitializerContainerImage + ":" + ModelInitializerContainerImageVersion,
+									Name:  "storage-initializer",
+									Image: StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
 									Args:  []string{"/mnt/pvc/some/path/on/pvc", constants.DefaultModelLocalMountPath},
 									VolumeMounts: []v1.VolumeMount{
 										{
@@ -267,12 +267,12 @@ func TestModelInitializerInjector(t *testing.T) {
 	}
 
 	for name, scenario := range scenarios {
-		injector := &ModelInitializerInjector{
+		injector := &StorageInitializerInjector{
 			credentialBuilder: credentials.NewCredentialBulder(c, &v1.ConfigMap{
 				Data: map[string]string{},
 			}),
 		}
-		if err := injector.InjectModelInitializer(scenario.original); err != nil {
+		if err := injector.InjectStorageInitializer(scenario.original); err != nil {
 			t.Errorf("Test %q unexpected result: %s", name, err)
 		}
 		if diff := cmp.Diff(scenario.expected.Spec, scenario.original.Spec); diff != "" {
@@ -281,7 +281,7 @@ func TestModelInitializerInjector(t *testing.T) {
 	}
 }
 
-func TestModelInitializerFailureCases(t *testing.T) {
+func TestStorageInitializerFailureCases(t *testing.T) {
 	scenarios := map[string]struct {
 		original            *appsv1.Deployment
 		expectedErrorPrefix string
@@ -292,7 +292,7 @@ func TestModelInitializerFailureCases(t *testing.T) {
 					Template: v1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Annotations: map[string]string{
-								constants.ModelInitializerSourceUriInternalAnnotationKey: "pvc://mypvcname/some/path/on/pvc",
+								constants.StorageInitializerSourceUriInternalAnnotationKey: "pvc://mypvcname/some/path/on/pvc",
 							},
 						},
 						Spec: v1.PodSpec{
@@ -310,12 +310,12 @@ func TestModelInitializerFailureCases(t *testing.T) {
 	}
 
 	for name, scenario := range scenarios {
-		injector := &ModelInitializerInjector{
+		injector := &StorageInitializerInjector{
 			credentialBuilder: credentials.NewCredentialBulder(c, &v1.ConfigMap{
 				Data: map[string]string{},
 			}),
 		}
-		if err := injector.InjectModelInitializer(scenario.original); err != nil {
+		if err := injector.InjectStorageInitializer(scenario.original); err != nil {
 			if !strings.HasPrefix(err.Error(), scenario.expectedErrorPrefix) {
 				t.Errorf("Test %q unexpected failure [%s], expected: %s", name, err.Error(), scenario.expectedErrorPrefix)
 			}
@@ -325,18 +325,18 @@ func TestModelInitializerFailureCases(t *testing.T) {
 	}
 }
 
-func TestCustomSpecModelUriInjection(t *testing.T) {
+func TestCustomSpecStorageUriInjection(t *testing.T) {
 	scenarios := map[string]struct {
-		original                    *appsv1.Deployment
-		expectedModelUriEnvVariable *v1.EnvVar
+		original                      *appsv1.Deployment
+		expectedStorageUriEnvVariable *v1.EnvVar
 	}{
-		"CustomSpecModelUriSet": {
+		"CustomSpecStorageUriSet": {
 			original: &appsv1.Deployment{
 				Spec: appsv1.DeploymentSpec{
 					Template: v1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Annotations: map[string]string{
-								constants.ModelInitializerSourceUriInternalAnnotationKey: "pvc://mypvcname/some/path/on/pvc",
+								constants.StorageInitializerSourceUriInternalAnnotationKey: "pvc://mypvcname/some/path/on/pvc",
 							},
 						},
 						Spec: v1.PodSpec{
@@ -345,7 +345,7 @@ func TestCustomSpecModelUriInjection(t *testing.T) {
 									Name: "user-container",
 									Env: []v1.EnvVar{
 										v1.EnvVar{
-											Name:  constants.CustomSpecModelUriEnvVarKey,
+											Name:  constants.CustomSpecStorageUriEnvVarKey,
 											Value: "pvc://mypvcname/some/path/on/pvc",
 										},
 									},
@@ -355,18 +355,18 @@ func TestCustomSpecModelUriInjection(t *testing.T) {
 					},
 				},
 			},
-			expectedModelUriEnvVariable: &v1.EnvVar{
-				Name:  constants.CustomSpecModelUriEnvVarKey,
+			expectedStorageUriEnvVariable: &v1.EnvVar{
+				Name:  constants.CustomSpecStorageUriEnvVarKey,
 				Value: constants.DefaultModelLocalMountPath,
 			},
 		},
-		"CustomSpecModelUriEmpty": {
+		"CustomSpecStorageUriEmpty": {
 			original: &appsv1.Deployment{
 				Spec: appsv1.DeploymentSpec{
 					Template: v1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Annotations: map[string]string{
-								constants.ModelInitializerSourceUriInternalAnnotationKey: "pvc://mypvcname/some/path/on/pvc",
+								constants.StorageInitializerSourceUriInternalAnnotationKey: "pvc://mypvcname/some/path/on/pvc",
 							},
 						},
 						Spec: v1.PodSpec{
@@ -375,7 +375,7 @@ func TestCustomSpecModelUriInjection(t *testing.T) {
 									Name: "user-container",
 									Env: []v1.EnvVar{
 										v1.EnvVar{
-											Name:  constants.CustomSpecModelUriEnvVarKey,
+											Name:  constants.CustomSpecStorageUriEnvVarKey,
 											Value: "",
 										},
 									},
@@ -385,18 +385,18 @@ func TestCustomSpecModelUriInjection(t *testing.T) {
 					},
 				},
 			},
-			expectedModelUriEnvVariable: &v1.EnvVar{
-				Name:  constants.CustomSpecModelUriEnvVarKey,
+			expectedStorageUriEnvVariable: &v1.EnvVar{
+				Name:  constants.CustomSpecStorageUriEnvVarKey,
 				Value: "",
 			},
 		},
-		"CustomSpecModelUriNotSet": {
+		"CustomSpecStorageUriNotSet": {
 			original: &appsv1.Deployment{
 				Spec: appsv1.DeploymentSpec{
 					Template: v1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Annotations: map[string]string{
-								constants.ModelInitializerSourceUriInternalAnnotationKey: "pvc://mypvcname/some/path/on/pvc",
+								constants.StorageInitializerSourceUriInternalAnnotationKey: "pvc://mypvcname/some/path/on/pvc",
 							},
 						},
 						Spec: v1.PodSpec{
@@ -415,27 +415,27 @@ func TestCustomSpecModelUriInjection(t *testing.T) {
 					},
 				},
 			},
-			expectedModelUriEnvVariable: nil,
+			expectedStorageUriEnvVariable: nil,
 		},
 	}
 
 	for name, scenario := range scenarios {
-		injector := &ModelInitializerInjector{
+		injector := &StorageInitializerInjector{
 			credentialBuilder: credentials.NewCredentialBulder(c, &v1.ConfigMap{
 				Data: map[string]string{},
 			}),
 		}
-		if err := injector.InjectModelInitializer(scenario.original); err != nil {
+		if err := injector.InjectStorageInitializer(scenario.original); err != nil {
 			t.Errorf("Test %q unexpected result: %s", name, err)
 		}
 
 		var originalEnvVar *v1.EnvVar
 		for _, envVar := range scenario.original.Spec.Template.Spec.Containers[0].Env {
-			if envVar.Name == constants.CustomSpecModelUriEnvVarKey {
+			if envVar.Name == constants.CustomSpecStorageUriEnvVarKey {
 				originalEnvVar = &envVar
 			}
 		}
-		if diff := cmp.Diff(scenario.expectedModelUriEnvVariable, originalEnvVar); diff != "" {
+		if diff := cmp.Diff(scenario.expectedStorageUriEnvVariable, originalEnvVar); diff != "" {
 			t.Errorf("Test %q unexpected result (-want +got): %v", name, diff)
 		}
 	}
@@ -451,7 +451,7 @@ func makeDeployment() *appsv1.Deployment {
 			Template: v1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						constants.ModelInitializerSourceUriInternalAnnotationKey: "gs://foo",
+						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
 					},
 				},
 				Spec: v1.PodSpec{
@@ -510,7 +510,7 @@ func TestCredentialInjection(t *testing.T) {
 					Template: v1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Annotations: map[string]string{
-								constants.ModelInitializerSourceUriInternalAnnotationKey: "gs://foo",
+								constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
 							},
 						},
 						Spec: v1.PodSpec{
@@ -528,8 +528,8 @@ func TestCredentialInjection(t *testing.T) {
 							},
 							InitContainers: []v1.Container{
 								{
-									Name:  "model-initializer",
-									Image: ModelInitializerContainerImage + ":" + ModelInitializerContainerImageVersion,
+									Name:  "storage-initializer",
+									Image: StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
 									Args:  []string{"gs://foo", constants.DefaultModelLocalMountPath},
 									VolumeMounts: []v1.VolumeMount{
 										{
@@ -616,7 +616,7 @@ func TestCredentialInjection(t *testing.T) {
 					Template: v1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Annotations: map[string]string{
-								constants.ModelInitializerSourceUriInternalAnnotationKey: "gs://foo",
+								constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
 							},
 						},
 						Spec: v1.PodSpec{
@@ -634,8 +634,8 @@ func TestCredentialInjection(t *testing.T) {
 							},
 							InitContainers: []v1.Container{
 								{
-									Name:  "model-initializer",
-									Image: ModelInitializerContainerImage + ":" + ModelInitializerContainerImageVersion,
+									Name:  "storage-initializer",
+									Image: StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
 									Args:  []string{"gs://foo", constants.DefaultModelLocalMountPath},
 									VolumeMounts: []v1.VolumeMount{
 										{
@@ -696,10 +696,10 @@ func TestCredentialInjection(t *testing.T) {
 		g.Expect(c.Create(context.TODO(), scenario.sa)).NotTo(gomega.HaveOccurred())
 		g.Expect(c.Create(context.TODO(), scenario.secret)).NotTo(gomega.HaveOccurred())
 
-		injector := &ModelInitializerInjector{
+		injector := &StorageInitializerInjector{
 			credentialBuilder: builder,
 		}
-		if err := injector.InjectModelInitializer(scenario.original); err != nil {
+		if err := injector.InjectStorageInitializer(scenario.original); err != nil {
 			t.Errorf("Test %q unexpected failure [%s]", name, err.Error())
 		}
 		if diff := cmp.Diff(scenario.expected.Spec, scenario.original.Spec); diff != "" {
@@ -711,18 +711,18 @@ func TestCredentialInjection(t *testing.T) {
 	}
 }
 
-func TestModelInitializerConfigmap(t *testing.T) {
+func TestStorageInitializerConfigmap(t *testing.T) {
 	scenarios := map[string]struct {
 		original *appsv1.Deployment
 		expected *appsv1.Deployment
 	}{
-		"ModelInitializerConfig": {
+		"StorageInitializerConfig": {
 			original: &appsv1.Deployment{
 				Spec: appsv1.DeploymentSpec{
 					Template: v1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Annotations: map[string]string{
-								constants.ModelInitializerSourceUriInternalAnnotationKey: "gs://foo",
+								constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
 							},
 						},
 						Spec: v1.PodSpec{
@@ -740,7 +740,7 @@ func TestModelInitializerConfigmap(t *testing.T) {
 					Template: v1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Annotations: map[string]string{
-								constants.ModelInitializerSourceUriInternalAnnotationKey: "gs://foo",
+								constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
 							},
 						},
 						Spec: v1.PodSpec{
@@ -758,8 +758,8 @@ func TestModelInitializerConfigmap(t *testing.T) {
 							},
 							InitContainers: []v1.Container{
 								{
-									Name:  "model-initializer",
-									Image: "kfserving/model-initializer@sha256:xxx",
+									Name:  "storage-initializer",
+									Image: "kfserving/storage-initializer@sha256:xxx",
 									Args:  []string{"gs://foo", constants.DefaultModelLocalMountPath},
 									VolumeMounts: []v1.VolumeMount{
 										{
@@ -785,15 +785,15 @@ func TestModelInitializerConfigmap(t *testing.T) {
 	}
 
 	for name, scenario := range scenarios {
-		injector := &ModelInitializerInjector{
+		injector := &StorageInitializerInjector{
 			credentialBuilder: credentials.NewCredentialBulder(c, &v1.ConfigMap{
 				Data: map[string]string{},
 			}),
-			config: &ModelInitializerConfig{
-				Image: "kfserving/model-initializer@sha256:xxx",
+			config: &StorageInitializerConfig{
+				Image: "kfserving/storage-initializer@sha256:xxx",
 			},
 		}
-		if err := injector.InjectModelInitializer(scenario.original); err != nil {
+		if err := injector.InjectStorageInitializer(scenario.original); err != nil {
 			t.Errorf("Test %q unexpected result: %s", name, err)
 		}
 		if diff := cmp.Diff(scenario.expected.Spec, scenario.original.Spec); diff != "" {
