@@ -17,7 +17,7 @@ var (
 	InvalidAlibiRuntimeVersionError = "RuntimeVersion must be one of " + strings.Join(AllowedAlibiRuntimeVersions, ", ")
 )
 
-func (s *AlibiExplainerSpec) GetModelSourceUri() string {
+func (s *AlibiExplainerSpec) GetStorageUri() string {
 	return s.StorageURI
 }
 

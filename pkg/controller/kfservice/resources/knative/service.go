@@ -213,8 +213,8 @@ func (c *ServiceBuilder) CreateExplainerService(name string, predictorHost strin
 
 	// KNative does not support INIT containers or mounting, so we add annotations that trigger the
 	// ModelInitializer injector to mutate the underlying deployment to provision model data
-	if sourceURI := explainerSpec.GetModelSourceUri(); sourceURI != "" {
-		annotations[constants.ModelInitializerSourceUriInternalAnnotationKey] = sourceURI
+	if sourceURI := explainerSpec.GetStorageUri(); sourceURI != "" {
+		annotations[constants.StorageInitializerSourceUriInternalAnnotationKey] = sourceURI
 	}
 
 	service := &knservingv1alpha1.Service{

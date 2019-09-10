@@ -20,15 +20,15 @@ import (
 )
 
 type ExplainerHandler interface {
-	GetModelSourceUri() string
+	GetStorageUri() string
 	CreateExplainerServingContainer(modelName string, predictorHost string, config *ExplainersConfig) *v1.Container
 	ApplyDefaults()
 	Validate() error
 }
 
 // Returns a URI to the explainer. This URI is passed to the model-initializer via the ModelInitializerSourceUriInternalAnnotationKey
-func (m *ExplainerSpec) GetModelSourceUri() string {
-	return getExplainerHandler(m).GetModelSourceUri()
+func (m *ExplainerSpec) GetStorageUri() string {
+	return getExplainerHandler(m).GetStorageUri()
 }
 
 func (m *ExplainerSpec) CreateExplainerServingContainer(modelName string, predictorHost string, config *ExplainersConfig) *v1.Container {
