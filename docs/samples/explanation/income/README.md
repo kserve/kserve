@@ -43,7 +43,7 @@ CLUSTER_IP=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpat
 Test the predictor:
 
 ```
-curl -H "Host: ${MODEL_NAME}-predictor-default.default.svc.cluster.local" http://$CLUSTER_IP/models/$MODEL_NAME:predict -d '{"instances":[[39, 7, 1, 1, 1, 1, 4, 1, 2174, 0, 40, 9]]}'
+curl -H "Host: ${MODEL_NAME}-predict.default.svc.cluster.local" http://$CLUSTER_IP/models/$MODEL_NAME:predict -d '{"instances":[[39, 7, 1, 1, 1, 1, 4, 1, 2174, 0, 40, 9]]}'
 ```
 
 You should receive the response showing the prediction is for low salary:
@@ -56,7 +56,7 @@ Now lets get an explanation for this:
 
 
 ```
-curl -v -H "Host: ${MODEL_NAME}-explainer-default.default.svc.cluster.local" http://$CLUSTER_IP/models/$MODEL_NAME:explain -d '{"instances":[[39, 7, 1, 1, 1, 1, 4, 1, 2174, 0, 40, 9]]}'
+curl -v -H "Host: ${MODEL_NAME}-explain.default.svc.cluster.local" http://$CLUSTER_IP/models/$MODEL_NAME:explain -d '{"instances":[[39, 7, 1, 1, 1, 1, 4, 1, 2174, 0, 40, 9]]}'
 ```
 
 The returned explanation will be like:
