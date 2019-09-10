@@ -38,10 +38,10 @@ func (s *AlibiExplainerSpec) CreateExplainerServingContainer(modelName string, p
 	}
 
 	return &v1.Container{
-		Image:     imageName + ":" + s.RuntimeVersion,
+		Image:           imageName + ":" + s.RuntimeVersion,
 		ImagePullPolicy: v1.PullAlways,
-		Resources: s.Resources,
-		Args:      args,
+		Resources:       s.Resources,
+		Args:            args,
 	}
 }
 

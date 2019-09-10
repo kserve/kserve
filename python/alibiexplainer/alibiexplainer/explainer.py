@@ -71,6 +71,7 @@ class AlibiExplainer(kfserving.KFModel):
                 else:
                     data.append(str(req_data))
             payload = {"instances": data}
+            logging.info("Calling model with %d instances",len(data))
             response_raw = requests.post(self.predict_url, json=payload)
             if response_raw.status_code == 200:
                 j_resp = response_raw.json()
@@ -84,6 +85,7 @@ class AlibiExplainer(kfserving.KFModel):
     def explain(self, inputs: List) -> Any:
         if self.method is ExplainerMethod.anchor_tabular or self.method is ExplainerMethod.anchor_images or self.method is ExplainerMethod.anchor_text:
             explanation = self.wrapper.explain(inputs)
+            logging.info("Explanation: %s",explanation)
             return json.loads(json.dumps(explanation, cls=NumpyEncoder))
         else:
             raise NotImplementedError

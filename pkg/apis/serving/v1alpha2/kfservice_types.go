@@ -95,7 +95,7 @@ type AlibiExplainerType string
 
 const (
 	AlibiAnchorsTabularExplainer  AlibiExplainerType = "anchor_tabular"
-	AlibiAnchorsImageExplainer    AlibiExplainerType = "anchor_image"
+	AlibiAnchorsImageExplainer    AlibiExplainerType = "anchor_images"
 	AlibiAnchorsTextExplainer     AlibiExplainerType = "anchor_text"
 	AlibiCounterfactualsExplainer AlibiExplainerType = "counterfactuals"
 	AlibiContrastiveExplainer     AlibiExplainerType = "contrastive"
