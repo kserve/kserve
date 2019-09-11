@@ -39,3 +39,8 @@ data:
            "s3SecretAccessKeyName": "awsSecretAccessKey"
        }
     }
+  ingress: |-
+    {
+        "ingressGateway" : "knative-ingress-gateway.knative-serving",
+        "ingressService" : "istio-ingressgateway.istio-system.svc.cluster.local"
+    }

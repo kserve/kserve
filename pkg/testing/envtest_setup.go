@@ -23,7 +23,8 @@ import (
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	"github.com/onsi/gomega"
 	"k8s.io/client-go/kubernetes/scheme"
-	knserving "knative.dev/serving/pkg/apis/serving/v1alpha1"
+	istiov1alpha3 "knative.dev/pkg/apis/istio/v1alpha3"
+	knservingv1alpha1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -50,8 +51,12 @@ func SetupEnvTest() *envtest.Environment {
 		log.Error(err, "Failed to add kfserving scheme")
 	}
 
-	if err = knserving.SchemeBuilder.AddToScheme(scheme.Scheme); err != nil {
+	if err = knservingv1alpha1.SchemeBuilder.AddToScheme(scheme.Scheme); err != nil {
 		log.Error(err, "Failed to add knative serving scheme")
+	}
+
+	if err = istiov1alpha3.SchemeBuilder.AddToScheme(scheme.Scheme); err != nil {
+		log.Error(err, "Failed to add istio scheme")
 	}
 	return t
 }

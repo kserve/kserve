@@ -251,6 +251,10 @@
             "$ref": "#/definitions/v1alpha2.StatusConfigurationSpec"
           }
         },
+        "canaryTraffic": {
+          "type": "integer",
+          "format": "int32"
+        },
         "conditions": {
           "description": "Conditions the latest available observations of a resource's current state.",
           "type": "array",
@@ -270,6 +274,10 @@
           "description": "ObservedGeneration is the 'Generation' of the Service that was last processed by the controller.",
           "type": "integer",
           "format": "int64"
+        },
+        "traffic": {
+          "type": "integer",
+          "format": "int32"
         },
         "url": {
           "type": "string"
@@ -425,10 +433,6 @@
         "replicas": {
           "type": "integer",
           "format": "int32"
-        },
-        "traffic": {
-          "type": "integer",
-          "format": "int32"
         }
       }
     },
@@ -490,6 +494,31 @@
         },
         "serviceAccountName": {
           "description": "ServiceAccountName is the name of the ServiceAccount to use to run the service",
+          "type": "string"
+        }
+      }
+    },
+    "v1alpha2.VirtualServiceStatus": {
+      "description": "\n VirtualServiceStatus captures the status of the virtual service",
+      "required": [
+        "URL",
+        "CanaryWeight",
+        "DefaultWeight",
+        "Status"
+      ],
+      "properties": {
+        "CanaryWeight": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "DefaultWeight": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "Status": {
+          "$ref": "#/definitions/knative.dev.pkg.apis.duck.v1beta1.Status"
+        },
+        "URL": {
           "type": "string"
         }
       }
