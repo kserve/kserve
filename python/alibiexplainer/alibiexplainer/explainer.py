@@ -12,7 +12,7 @@ from alibiexplainer.anchor_tabular import AnchorTabular
 from alibiexplainer.anchor_text import AnchorText
 from kfserving.protocols.seldon_http import SeldonRequestHandler
 from kfserving.protocols.util import NumpyEncoder
-from kfserving.server import Protocol, PREDICTOR_URL_FORMAT
+from kfserving.server import Protocol, TENSORFLOW_PREDICTOR_URL_FORMAT, SELDON_PREDICTOR_URL_FORMAT
 
 logging.basicConfig(level=kfserving.server.KFSERVER_LOGLEVEL)
 
@@ -35,7 +35,10 @@ class AlibiExplainer(kfserving.KFModel):
                  config: Mapping,
                  explainer: object = None):
         super().__init__(name)
-        self.predict_url = PREDICTOR_URL_FORMAT.format(predictor_host, name)
+        if self.protocol == Protocol.tensorflow_http:
+            self.predict_url = TENSORFLOW_PREDICTOR_URL_FORMAT.format(predictor_host, name)
+        else:
+            self.predict_url = SELDON_PREDICTOR_URL_FORMAT.format(predictor_host)
         logging.info("Predict URL set to %s",self.predict_url)
         self.protocol = protocol
         self.method = method
