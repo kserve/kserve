@@ -167,3 +167,7 @@ func CanaryServiceName(name string, endpoint KFServiceEndpoint) string {
 func RouteName(name string, verb KFServiceVerb) string {
 	return name + "-" + verb.String()
 }
+
+func VirtualServiceName(name string) string {
+	return name + "-vs"
+}
