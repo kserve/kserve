@@ -35,12 +35,12 @@ class AlibiExplainer(kfserving.KFModel):
                  config: Mapping,
                  explainer: object = None):
         super().__init__(name)
+        self.protocol = protocol
         if self.protocol == Protocol.tensorflow_http:
             self.predict_url = TENSORFLOW_PREDICTOR_URL_FORMAT.format(predictor_host, name)
         else:
             self.predict_url = SELDON_PREDICTOR_URL_FORMAT.format(predictor_host)
         logging.info("Predict URL set to %s",self.predict_url)
-        self.protocol = protocol
         self.method = method
 
         if self.method is ExplainerMethod.anchor_tabular:
