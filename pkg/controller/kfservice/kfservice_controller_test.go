@@ -46,73 +46,6 @@ var c client.Client
 
 const timeout = time.Second * 10
 
-var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: "foo", Namespace: "default"}}
-var serviceKey = expectedRequest.NamespacedName
-
-var expectedCanaryRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: "bar", Namespace: "default"}}
-var canaryServiceKey = expectedCanaryRequest.NamespacedName
-
-var instance = &kfserving.KFService{
-	ObjectMeta: metav1.ObjectMeta{
-		Name:      serviceKey.Name,
-		Namespace: serviceKey.Namespace,
-	},
-	Spec: kfserving.KFServiceSpec{
-		Default: kfserving.EndpointSpec{
-			Predictor: kfserving.PredictorSpec{
-				DeploymentSpec: kfserving.DeploymentSpec{
-					MinReplicas: 1,
-					MaxReplicas: 3,
-				},
-				Tensorflow: &kfserving.TensorflowSpec{
-					StorageURI:     "s3://test/mnist/export",
-					RuntimeVersion: "1.13.0",
-				},
-			},
-		},
-	},
-}
-
-var canary = &kfserving.KFService{
-	ObjectMeta: metav1.ObjectMeta{
-		Name:      canaryServiceKey.Name,
-		Namespace: canaryServiceKey.Namespace,
-	},
-	Spec: kfserving.KFServiceSpec{
-		Default: kfserving.EndpointSpec{
-			Predictor: kfserving.PredictorSpec{
-				DeploymentSpec: kfserving.DeploymentSpec{
-					MinReplicas: 1,
-					MaxReplicas: 3,
-				},
-				Tensorflow: &kfserving.TensorflowSpec{
-					StorageURI:     "s3://test/mnist/export",
-					RuntimeVersion: "1.13.0",
-				},
-			},
-		},
-		CanaryTrafficPercent: 20,
-		Canary: &kfserving.EndpointSpec{
-			Predictor: kfserving.PredictorSpec{
-				DeploymentSpec: kfserving.DeploymentSpec{
-					MinReplicas: 1,
-					MaxReplicas: 3,
-				},
-				Tensorflow: &kfserving.TensorflowSpec{
-					StorageURI:     "s3://test/mnist-2/export",
-					RuntimeVersion: "1.13.0",
-				},
-			},
-		},
-	},
-	Status: kfserving.KFServiceStatus{
-		URL: canaryServiceKey.Name + ".svc.cluster.local",
-		Default: kfserving.StatusConfigurationSpec{
-			Name: "revision-v1",
-		},
-	},
-}
-
 var configs = map[string]string{
 	"frameworks": `{
         "tensorflow" : {
@@ -127,11 +60,34 @@ var configs = map[string]string{
     }`,
 }
 
-func TestReconcile(t *testing.T) {
+func TestKFServiceWithOnlyPredictor(t *testing.T) {
+	var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: "foo", Namespace: "default"}}
+	var serviceKey = expectedRequest.NamespacedName
 	var predictorService = types.NamespacedName{Name: constants.DefaultPredictorServiceName(serviceKey.Name),
 		Namespace: serviceKey.Namespace}
 	var routeName = types.NamespacedName{Name: constants.PredictRouteName(serviceKey.Name),
 		Namespace: serviceKey.Namespace}
+
+	var instance = &kfserving.KFService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      serviceKey.Name,
+			Namespace: serviceKey.Namespace,
+		},
+		Spec: kfserving.KFServiceSpec{
+			Default: kfserving.EndpointSpec{
+				Predictor: kfserving.PredictorSpec{
+					DeploymentSpec: kfserving.DeploymentSpec{
+						MinReplicas: 1,
+						MaxReplicas: 3,
+					},
+					Tensorflow: &kfserving.TensorflowSpec{
+						StorageURI:     "s3://test/mnist/export",
+						RuntimeVersion: "1.13.0",
+					},
+				},
+			},
+		},
+	}
 	g := gomega.NewGomegaWithT(t)
 	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
 	// channel when it is finished.
@@ -274,7 +230,49 @@ func TestReconcile(t *testing.T) {
 	}, timeout).Should(testutils.BeSematicEqual(&expectedKfsvcStatus))
 }
 
-func TestCanaryReconcile(t *testing.T) {
+func TestKFServiceWithOnlyCanaryPredictor(t *testing.T) {
+	var expectedCanaryRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: "bar", Namespace: "default"}}
+	var canaryServiceKey = expectedCanaryRequest.NamespacedName
+
+	var canary = &kfserving.KFService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      canaryServiceKey.Name,
+			Namespace: canaryServiceKey.Namespace,
+		},
+		Spec: kfserving.KFServiceSpec{
+			Default: kfserving.EndpointSpec{
+				Predictor: kfserving.PredictorSpec{
+					DeploymentSpec: kfserving.DeploymentSpec{
+						MinReplicas: 1,
+						MaxReplicas: 3,
+					},
+					Tensorflow: &kfserving.TensorflowSpec{
+						StorageURI:     "s3://test/mnist/export",
+						RuntimeVersion: "1.13.0",
+					},
+				},
+			},
+			CanaryTrafficPercent: 20,
+			Canary: &kfserving.EndpointSpec{
+				Predictor: kfserving.PredictorSpec{
+					DeploymentSpec: kfserving.DeploymentSpec{
+						MinReplicas: 1,
+						MaxReplicas: 3,
+					},
+					Tensorflow: &kfserving.TensorflowSpec{
+						StorageURI:     "s3://test/mnist-2/export",
+						RuntimeVersion: "1.13.0",
+					},
+				},
+			},
+		},
+		Status: kfserving.KFServiceStatus{
+			URL: canaryServiceKey.Name + ".svc.cluster.local",
+			Default: kfserving.StatusConfigurationSpec{
+				Name: "revision-v1",
+			},
+		},
+	}
 	var defaultPredictor = types.NamespacedName{Name: constants.DefaultPredictorServiceName(canaryServiceKey.Name),
 		Namespace: canaryServiceKey.Namespace}
 	var canaryPredictor = types.NamespacedName{Name: constants.CanaryPredictorServiceName(canaryServiceKey.Name),
@@ -323,7 +321,7 @@ func TestCanaryReconcile(t *testing.T) {
 		Should(gomega.Succeed())
 	expectedCanaryService := &knservingv1alpha1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      canaryInstance.Name,
+			Name:      constants.DefaultPredictorServiceName(canaryInstance.Name),
 			Namespace: canaryInstance.Namespace,
 		},
 		Spec: knservingv1alpha1.ServiceSpec{
@@ -488,6 +486,46 @@ func TestCanaryDelete(t *testing.T) {
 		Namespace: namespace}
 	var expectedCanaryRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: namespace}}
 	var canaryServiceKey = expectedCanaryRequest.NamespacedName
+
+	var canary = &kfserving.KFService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      canaryServiceKey.Name,
+			Namespace: canaryServiceKey.Namespace,
+		},
+		Spec: kfserving.KFServiceSpec{
+			Default: kfserving.EndpointSpec{
+				Predictor: kfserving.PredictorSpec{
+					DeploymentSpec: kfserving.DeploymentSpec{
+						MinReplicas: 1,
+						MaxReplicas: 3,
+					},
+					Tensorflow: &kfserving.TensorflowSpec{
+						StorageURI:     "s3://test/mnist/export",
+						RuntimeVersion: "1.13.0",
+					},
+				},
+			},
+			CanaryTrafficPercent: 20,
+			Canary: &kfserving.EndpointSpec{
+				Predictor: kfserving.PredictorSpec{
+					DeploymentSpec: kfserving.DeploymentSpec{
+						MinReplicas: 1,
+						MaxReplicas: 3,
+					},
+					Tensorflow: &kfserving.TensorflowSpec{
+						StorageURI:     "s3://test/mnist-2/export",
+						RuntimeVersion: "1.13.0",
+					},
+				},
+			},
+		},
+		Status: kfserving.KFServiceStatus{
+			URL: canaryServiceKey.Name + ".svc.cluster.local",
+			Default: kfserving.StatusConfigurationSpec{
+				Name: "revision-v1",
+			},
+		},
+	}
 	g := gomega.NewGomegaWithT(t)
 
 	mgr, err := manager.New(cfg, manager.Options{})
@@ -671,4 +709,283 @@ func TestCanaryDelete(t *testing.T) {
 		}
 		return &kfsvc.Status.Conditions
 	}, timeout).Should(testutils.BeSematicEqual(&expectedKfsvcStatus.Conditions))
+}
+
+func TestKFServiceWithTransformer(t *testing.T) {
+	serviceName := "transformer"
+	namespace := "default"
+	var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: namespace}}
+	var serviceKey = expectedRequest.NamespacedName
+
+	var defaultPredictor = types.NamespacedName{Name: constants.DefaultPredictorServiceName(serviceName),
+		Namespace: namespace}
+	var canaryPredictor = types.NamespacedName{Name: constants.CanaryPredictorServiceName(serviceName),
+		Namespace: namespace}
+	var defaultTransformer = types.NamespacedName{Name: constants.DefaultTransformerServiceName(serviceName),
+		Namespace: namespace}
+	var canaryTransformer = types.NamespacedName{Name: constants.CanaryTransformerServiceName(serviceName),
+		Namespace: namespace}
+	var routeName = types.NamespacedName{Name: constants.PredictRouteName(serviceName),
+		Namespace: namespace}
+	var transformer = &kfserving.KFService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      serviceName,
+			Namespace: namespace,
+		},
+		Spec: kfserving.KFServiceSpec{
+			Default: kfserving.EndpointSpec{
+				Predictor: kfserving.PredictorSpec{
+					DeploymentSpec: kfserving.DeploymentSpec{
+						MinReplicas: 1,
+						MaxReplicas: 3,
+					},
+					Tensorflow: &kfserving.TensorflowSpec{
+						StorageURI:     "s3://test/mnist/export",
+						RuntimeVersion: "1.13.0",
+					},
+				},
+				Transformer: &kfserving.TransformerSpec{
+					DeploymentSpec: kfserving.DeploymentSpec{
+						MinReplicas: 1,
+						MaxReplicas: 3,
+					},
+					Custom: &kfserving.CustomSpec{
+						Container: v1.Container{
+							Image: "transformer:v1",
+						},
+					},
+				},
+			},
+			CanaryTrafficPercent: 20,
+			Canary: &kfserving.EndpointSpec{
+				Predictor: kfserving.PredictorSpec{
+					DeploymentSpec: kfserving.DeploymentSpec{
+						MinReplicas: 1,
+						MaxReplicas: 3,
+					},
+					Tensorflow: &kfserving.TensorflowSpec{
+						StorageURI:     "s3://test/mnist-2/export",
+						RuntimeVersion: "1.13.0",
+					},
+				},
+				Transformer: &kfserving.TransformerSpec{
+					DeploymentSpec: kfserving.DeploymentSpec{
+						MinReplicas: 1,
+						MaxReplicas: 3,
+					},
+					Custom: &kfserving.CustomSpec{
+						Container: v1.Container{
+							Image: "transformer:v2",
+						},
+					},
+				},
+			},
+		},
+		Status: kfserving.KFServiceStatus{
+			URL: serviceName + ".svc.cluster.local",
+			Default: kfserving.StatusConfigurationSpec{
+				Name: "revision-v1",
+			},
+		},
+	}
+
+	g := gomega.NewGomegaWithT(t)
+
+	mgr, err := manager.New(cfg, manager.Options{})
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	c = mgr.GetClient()
+
+	recFn, requests := SetupTestReconcile(newReconciler(mgr))
+	g.Expect(add(mgr, recFn)).NotTo(gomega.HaveOccurred())
+
+	stopMgr, mgrStopped := StartTestManager(mgr, g)
+
+	defer func() {
+		close(stopMgr)
+		mgrStopped.Wait()
+	}()
+
+	// Create configmap
+	var configMap = &v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      constants.KFServiceConfigMapName,
+			Namespace: constants.KFServingNamespace,
+		},
+		Data: configs,
+	}
+	g.Expect(c.Create(context.TODO(), configMap)).NotTo(gomega.HaveOccurred())
+	defer c.Delete(context.TODO(), configMap)
+
+	// Create the KFService object and expect the Reconcile and knative service to be created
+	instance := transformer.DeepCopy()
+	g.Expect(c.Create(context.TODO(), instance)).NotTo(gomega.HaveOccurred())
+	defer c.Delete(context.TODO(), instance)
+	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
+
+	defaultPredictorService := &knservingv1alpha1.Service{}
+	g.Eventually(func() error { return c.Get(context.TODO(), defaultPredictor, defaultPredictorService) }, timeout).
+		Should(gomega.Succeed())
+
+	canaryPredictorService := &knservingv1alpha1.Service{}
+	g.Eventually(func() error { return c.Get(context.TODO(), canaryPredictor, canaryPredictorService) }, timeout).
+		Should(gomega.Succeed())
+
+	defaultTransformerService := &knservingv1alpha1.Service{}
+	g.Eventually(func() error { return c.Get(context.TODO(), defaultTransformer, defaultTransformerService) }, timeout).
+		Should(gomega.Succeed())
+
+	canaryTransformerService := &knservingv1alpha1.Service{}
+	g.Eventually(func() error { return c.Get(context.TODO(), canaryTransformer, canaryTransformerService) }, timeout).
+		Should(gomega.Succeed())
+	expectedCanaryService := &knservingv1alpha1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      constants.CanaryTransformerServiceName(instance.Name),
+			Namespace: instance.Namespace,
+		},
+		Spec: knservingv1alpha1.ServiceSpec{
+			ConfigurationSpec: knservingv1alpha1.ConfigurationSpec{
+				Template: &knservingv1alpha1.RevisionTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Labels: map[string]string{"serving.kubeflow.org/kfservice": serviceName},
+						Annotations: map[string]string{
+							"autoscaling.knative.dev/target":   "1",
+							"autoscaling.knative.dev/class":    "kpa.autoscaling.knative.dev",
+							"autoscaling.knative.dev/maxScale": "3",
+							"autoscaling.knative.dev/minScale": "1",
+						},
+					},
+					Spec: knservingv1alpha1.RevisionSpec{
+						RevisionSpec: v1beta1.RevisionSpec{
+							TimeoutSeconds: &constants.DefaultTimeout,
+							PodSpec: v1.PodSpec{
+								Containers: []v1.Container{
+									{
+										Image: "transformer:v2",
+										Args: []string{
+											"--model_name",
+											serviceName,
+											"--predictor_host",
+											constants.CanaryPredictorServiceName(instance.Name),
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	g.Expect(cmp.Diff(canaryTransformerService.Spec, expectedCanaryService.Spec)).To(gomega.Equal(""))
+	route := &knservingv1alpha1.Route{}
+	g.Eventually(func() error { return c.Get(context.TODO(), routeName, route) }, timeout).
+		Should(gomega.Succeed())
+	expectedRoute := knservingv1alpha1.Route{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      constants.PredictRouteName(instance.Name),
+			Namespace: instance.Namespace,
+		},
+		Spec: knservingv1alpha1.RouteSpec{
+			Traffic: []knservingv1alpha1.TrafficTarget{
+				{
+					TrafficTarget: v1beta1.TrafficTarget{
+						ConfigurationName: constants.DefaultTransformerServiceName(instance.Name),
+						Percent:           80,
+					},
+				},
+				{
+					TrafficTarget: v1beta1.TrafficTarget{
+						ConfigurationName: constants.CanaryTransformerServiceName(instance.Name),
+						Percent:           20,
+					},
+				},
+			},
+		},
+	}
+	g.Expect(route.Spec).To(gomega.Equal(expectedRoute.Spec))
+
+	// mock update knative service status since knative serving controller is not running in test
+	updateDefault := defaultPredictorService.DeepCopy()
+	updateDefault.Status.LatestCreatedRevisionName = "revision-v1"
+	updateDefault.Status.LatestReadyRevisionName = "revision-v1"
+	updateDefault.Status.Conditions = duckv1beta1.Conditions{
+		{
+			Type:   knservingv1alpha1.ServiceConditionReady,
+			Status: "True",
+		},
+	}
+	g.Expect(c.Status().Update(context.TODO(), updateDefault)).NotTo(gomega.HaveOccurred())
+	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
+
+	updateCanary := canaryPredictorService.DeepCopy()
+	updateCanary.Status.LatestCreatedRevisionName = "revision-v2"
+	updateCanary.Status.LatestReadyRevisionName = "revision-v2"
+	updateCanary.Status.Conditions = duckv1beta1.Conditions{
+		{
+			Type:   knservingv1alpha1.ServiceConditionReady,
+			Status: "True",
+		},
+	}
+	g.Expect(c.Status().Update(context.TODO(), updateCanary)).NotTo(gomega.HaveOccurred())
+	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
+
+	updatedRoute := route.DeepCopy()
+	updatedRoute.Status.URL = &apis.URL{Scheme: "http", Host: serviceName + ".svc.cluster.local"}
+	updatedRoute.Status.Traffic = []knservingv1alpha1.TrafficTarget{
+		{
+			TrafficTarget: v1beta1.TrafficTarget{RevisionName: "revision-v2", Percent: 20},
+		},
+		{
+			TrafficTarget: v1beta1.TrafficTarget{RevisionName: "revision-v1", Percent: 80},
+		},
+	}
+	updatedRoute.Status.Conditions = duckv1beta1.Conditions{
+		{
+			Type:   knservingv1alpha1.RouteConditionReady,
+			Status: "True",
+		},
+	}
+	g.Expect(c.Status().Update(context.TODO(), updatedRoute)).NotTo(gomega.HaveOccurred())
+	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
+
+	// verify if KFService status is updated
+	expectedKfsvcStatus := kfserving.KFServiceStatus{
+		Status: duckv1beta1.Status{
+			Conditions: duckv1beta1.Conditions{
+				{
+					Type:     kfserving.CanaryPredictorReady,
+					Severity: "Info",
+					Status:   "True",
+				},
+				{
+					Type:   kfserving.DefaultPredictorReady,
+					Status: "True",
+				},
+				{
+					Type:   apis.ConditionReady,
+					Status: "True",
+				},
+				{
+					Type:   kfserving.RoutesReady,
+					Status: "True",
+				},
+			},
+		},
+		URL: updatedRoute.Status.URL.String(),
+		Default: kfserving.StatusConfigurationSpec{
+			Name:    "revision-v1",
+			Traffic: 80,
+		},
+		Canary: kfserving.StatusConfigurationSpec{
+			Name:    "revision-v2",
+			Traffic: 20,
+		},
+	}
+	g.Eventually(func() string {
+		kfsvc := &kfserving.KFService{}
+		if err := c.Get(context.TODO(), serviceKey, kfsvc); err != nil {
+			return err.Error()
+		}
+		return cmp.Diff(&expectedKfsvcStatus, &kfsvc.Status, cmpopts.IgnoreTypes(apis.VolatileTime{}))
+	}, timeout).Should(gomega.BeEmpty())
 }

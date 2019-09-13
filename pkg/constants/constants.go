@@ -158,10 +158,6 @@ func CanaryTransformerServiceName(name string) string {
 	return name + "-" + string(Transformer) + "-" + KFServiceCanary
 }
 
-func TransformerRouteName(name string) string {
-	return name + "-" + string(Transformer)
-}
-
 func DefaultServiceName(name string, endpoint KFServiceEndpoint) string {
 	return name + "-" + endpoint.String() + "-" + KFServiceDefault
 }
