@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/kubeflow/kfserving/pkg/constants"
+	"k8s.io/api/core/v1"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -65,6 +66,110 @@ func TestKnativeRouteReconcile(t *testing.T) {
 							TrafficTarget: v1beta1.TrafficTarget{
 								ConfigurationName: constants.DefaultPredictorServiceName("mnist"),
 								Percent:           100,
+							},
+						},
+					},
+				},
+			},
+		},
+		"Reconcile route with transformer": {
+			kfsvc: v1alpha2.KFService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "mnist",
+					Namespace: "default",
+				},
+				Spec: v1alpha2.KFServiceSpec{
+					Default: v1alpha2.EndpointSpec{
+						Transformer: &v1alpha2.TransformerSpec{
+							Custom: &v1alpha2.CustomSpec{
+								Container: v1.Container{
+									Image: "transformer:v1",
+								},
+							},
+						},
+						Predictor: v1alpha2.PredictorSpec{
+							Tensorflow: &v1alpha2.TensorflowSpec{
+								RuntimeVersion: v1alpha2.DefaultTensorflowRuntimeVersion,
+								StorageURI:     "gs://testuri",
+							},
+						},
+					},
+				},
+			},
+			desiredRoute: &knservingv1alpha1.Route{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.PredictRouteName("mnist"),
+					Namespace: "default",
+				},
+				Spec: knservingv1alpha1.RouteSpec{
+					Traffic: []knservingv1alpha1.TrafficTarget{
+						{
+							TrafficTarget: v1beta1.TrafficTarget{
+								ConfigurationName: constants.DefaultTransformerServiceName("mnist"),
+								Percent:           100,
+							},
+						},
+					},
+				},
+			},
+		},
+		"Reconcile transformer route with canary": {
+			kfsvc: v1alpha2.KFService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "mnist",
+					Namespace: "default",
+				},
+				Spec: v1alpha2.KFServiceSpec{
+					Default: v1alpha2.EndpointSpec{
+						Transformer: &v1alpha2.TransformerSpec{
+							Custom: &v1alpha2.CustomSpec{
+								Container: v1.Container{
+									Image: "transformer:v1",
+								},
+							},
+						},
+						Predictor: v1alpha2.PredictorSpec{
+							Tensorflow: &v1alpha2.TensorflowSpec{
+								RuntimeVersion: v1alpha2.DefaultTensorflowRuntimeVersion,
+								StorageURI:     "gs://testuri",
+							},
+						},
+					},
+					Canary: &v1alpha2.EndpointSpec{
+						Transformer: &v1alpha2.TransformerSpec{
+							Custom: &v1alpha2.CustomSpec{
+								Container: v1.Container{
+									Image: "transformer:v2",
+								},
+							},
+						},
+						Predictor: v1alpha2.PredictorSpec{
+							Tensorflow: &v1alpha2.TensorflowSpec{
+								RuntimeVersion: v1alpha2.DefaultTensorflowRuntimeVersion,
+								StorageURI:     "gs://testuri",
+							},
+						},
+					},
+					CanaryTrafficPercent: 20,
+				},
+			},
+			desiredRoute: &knservingv1alpha1.Route{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.PredictRouteName("mnist"),
+					Namespace: "default",
+				},
+				Spec: knservingv1alpha1.RouteSpec{
+					Traffic: []knservingv1alpha1.TrafficTarget{
+						{
+							TrafficTarget: v1beta1.TrafficTarget{
+								ConfigurationName: constants.DefaultTransformerServiceName("mnist"),
+								Percent:           80,
+							},
+						},
+						{
+							TrafficTarget: v1beta1.TrafficTarget{
+								ConfigurationName: constants.CanaryTransformerServiceName("mnist"),
+								Percent:           20,
 							},
 						},
 					},
