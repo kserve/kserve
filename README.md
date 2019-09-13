@@ -12,11 +12,17 @@ KFServing encapsulates the complexity of autoscaling, networking, health checkin
 * [KFServing 101 Tech Talk](https://www.youtube.com/watch?v=hGIvlFADMhU).
 * This project is an evolution of the [original proposal in the Kubeflow repo](https://github.com/kubeflow/kubeflow/issues/2306). 
 
+### Prerequisits
+KNative Serving and Istio should be available on Kubernetes Cluster
+- Istio Version: v1.1.7 + 
+- Knative Version: v0.8.0 +
+
 ### Install ###
 ```
 TAG=v0.1.0
 kubectl apply -f ./install/$TAG/kfserving.yaml
 ```
+
 ### Use ###
 * Install the SDK
 ```
