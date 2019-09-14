@@ -57,6 +57,8 @@ class AlibiExplainer(kfserving.KFModel):
 
     def _predict_fn(self, arr: Union[np.ndarray, List]) -> np.ndarray:
         if self.protocol == Protocol.seldon_http:
+            if type(arr) == list:
+                arr = np.array(arr)
             payload = seldon.create_request(arr, seldon.SeldonPayload.NDARRAY)
             response_raw = requests.post(self.predict_url, json=payload)
             if response_raw.status_code == 200:
