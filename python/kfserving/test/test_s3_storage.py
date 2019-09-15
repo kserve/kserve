@@ -32,11 +32,9 @@ def get_call_args(call_args_list):
         arg_list.append(args)
     return arg_list
 
-# pylint: disable=syntax-error
-
 def expected_call_args_list(bucket_name, parent_key, dest, paths):
     return [(bucket_name, f'{parent_key}/{p}'.strip('/'), f'{dest}/{p}'.strip('/'))
-            for p in paths]
+            for p in paths] # pylint: disable=syntax-error
 
 # pylint: disable=protected-access
 
@@ -50,7 +48,8 @@ def test_parent_key(mock_storage):
 
     # when
     mock_minio_client = create_mock_minio_client(mock_storage, object_paths)
-    kfserving.Storage._download_s3(f's3://{bucket_name}/bar', 'dest_path')
+    kfserving.Storage._download_s3(f's3://{bucket_name}/bar', 'dest_path') # pylint: disable=syntax-error
+
 
     # then
     arg_list = get_call_args(mock_minio_client.fget_object.call_args_list)
@@ -67,7 +66,7 @@ def test_no_key(mock_storage):
 
     # when
     mock_minio_client = create_mock_minio_client(mock_storage, object_paths)
-    kfserving.Storage._download_s3(f's3://{bucket_name}/', 'dest_path')
+    kfserving.Storage._download_s3(f's3://{bucket_name}/', 'dest_path') # pylint: disable=syntax-error
 
     # then
     arg_list = get_call_args(mock_minio_client.fget_object.call_args_list)
@@ -84,7 +83,7 @@ def test_full_name_key(mock_storage):
 
     # when
     mock_minio_client = create_mock_minio_client(mock_storage, [object_key])
-    kfserving.Storage._download_s3(f's3://{bucket_name}/{object_key}', 'dest_path')
+    kfserving.Storage._download_s3(f's3://{bucket_name}/{object_key}', 'dest_path') # pylint: disable=syntax-error
 
     # then
     arg_list = get_call_args(mock_minio_client.fget_object.call_args_list)
