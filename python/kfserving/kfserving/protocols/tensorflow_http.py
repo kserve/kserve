@@ -41,13 +41,8 @@ class TensorflowRequestHandler(RequestHandler):
     def predict(inputs: List, predictor_url: str) -> List:
         payload = {"instances": inputs}
         response_raw = requests.post(predictor_url, json=payload)
-        if response_raw.status_code == 200:
-            return response_raw.json()["predictions"]
-        else:
+        if response_raw.status_code != 200:
             raise tornado.web.HTTPError(
                 status_code=response_raw.status_code,
                 reason=response_raw.reason)
-
-
-
-
+        return response_raw.json()["predictions"]

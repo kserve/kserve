@@ -101,12 +101,10 @@ class SeldonRequestHandler(RequestHandler):
     def predict(inputs: List, predictor_url: str) -> List:
         payload = create_request(np.array(inputs), SeldonPayload.NDARRAY)
         response_raw = requests.post(predictor_url, json=payload)
-        if response_raw.status_code == 200:
-            rh = SeldonRequestHandler(response_raw.json())
-            response_list = rh.extract_request()
-            return response_list
-        else:
+        if response_raw.status_code != 200:
             raise tornado.web.HTTPError(
                 status_code=response_raw.status_code,
                 reason=response_raw.reason)
-
+        rh = SeldonRequestHandler(response_raw.json())
+        response_list = rh.extract_request()
+        return response_list

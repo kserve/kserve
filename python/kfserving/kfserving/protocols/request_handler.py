@@ -28,4 +28,3 @@ class RequestHandler(object):
 
     def wrap_response(self, response: List) -> Dict:
         raise NotImplementedError
-

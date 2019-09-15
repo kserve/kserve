@@ -17,7 +17,6 @@ from tornado.httpclient import HTTPClientError
 import kfserving
 from kfserving.server import Protocol  # pylint: disable=no-name-in-module
 from kfserving.transformer import Transformer
-from unittest import mock
 from typing import Dict, List
 
 
@@ -104,12 +103,26 @@ class TestSeldonHttpServer(object):
             assert resp.code == 400
 
 
+class CustomPredictTransformer(Transformer):
+    # subclass of Transformer should implement preprocess
+    def preprocess(self, inputs: Dict) -> Dict:
+        data = inputs["instances"]
+        return {"instances": [[j*2 for j in i] for i in data]}
+
+    def predict(self, inputs: List) -> List:
+        return [[0.1, 0.9]]
+
+    # subclass of Transformer should implement postprocess
+    def postprocess(self, inputs: List) -> List:
+        return inputs
+
+
 class TestTransformerHttpServer(object):
 
     @pytest.fixture(scope="class")
     def app(self):  # pylint: disable=no-self-use
-        model = Transformer("TestModel", predictor_host='localhost',
-                            protocol=Protocol.tensorflow_http)
+        model = CustomPredictTransformer("TestModel", predictor_host='localhost',
+                                         protocol=Protocol.tensorflow_http)
         model.load()
         server = kfserving.KFServer(Protocol.tensorflow_http)
         server.register_model(model)
@@ -129,21 +142,13 @@ class TestTransformerHttpServer(object):
         assert resp.code == 200
 
     async def test_predict(self, http_server_client):
-        def new_predict(cls, *args, **kwargs):
-            return [[0.1, 0.9]]
-        with mock.patch.object(Transformer, 'predict', new=new_predict):
-            resp = await http_server_client.fetch('/v1/models/TestModel:predict', method="POST",
-                                                  body=b'{"instances":[[1,2]]}')
-            assert resp.code == 200
-            assert resp.body == b'{"predictions": [[0.1, 0.9]]}'
+        resp = await http_server_client.fetch('/v1/models/TestModel:predict', method="POST",
+                                              body=b'{"instances":[[1,2]]}')
+        assert resp.code == 200
+        assert resp.body == b'{"predictions": [[0.1, 0.9]]}'
 
 
 class CustomTransformer(Transformer):
-    def __init__(self, name: str,
-                 predictor_host: str,
-                 protocol: Protocol):
-        super().__init__(name, predictor_host, protocol)
-
     # subclass of Transformer should implement preprocess
     def preprocess(self, inputs: Dict) -> Dict:
         data = inputs["instances"]
