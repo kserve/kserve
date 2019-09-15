@@ -321,7 +321,7 @@ func TestKFServiceWithOnlyCanaryPredictor(t *testing.T) {
 		Should(gomega.Succeed())
 	expectedCanaryService := &knservingv1alpha1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      constants.DefaultPredictorServiceName(canaryInstance.Name),
+			Name:      constants.CanaryPredictorServiceName(canaryInstance.Name),
 			Namespace: canaryInstance.Namespace,
 		},
 		Spec: knservingv1alpha1.ServiceSpec{
@@ -362,6 +362,7 @@ func TestKFServiceWithOnlyCanaryPredictor(t *testing.T) {
 		},
 	}
 	g.Expect(cmp.Diff(canaryService.Spec, expectedCanaryService.Spec)).To(gomega.Equal(""))
+	g.Expect(canaryService.Name).To(gomega.Equal(expectedCanaryService.Name))
 	route := &knservingv1alpha1.Route{}
 	g.Eventually(func() error { return c.Get(context.TODO(), routeName, route) }, timeout).
 		Should(gomega.Succeed())

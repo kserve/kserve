@@ -13,16 +13,13 @@
 # limitations under the License.
 
 import logging
-from typing import List
-import requests
-import numpy as np
+from typing import List, Dict
 from .server import Protocol
 from .server import KFModel
 from .server import KFSERVER_LOGLEVEL
 from .server import PREDICTOR_URL_FORMAT
-import kfserving.protocols.seldon_http as seldon
+from kfserving.protocols.tensorflow_http import TensorflowRequestHandler
 from kfserving.protocols.seldon_http import SeldonRequestHandler
-
 logging.basicConfig(level=KFSERVER_LOGLEVEL)
 
 
@@ -40,7 +37,7 @@ class Transformer(KFModel):
             self.ready = True
 
     # subclass of Transformer should implement preprocess
-    def preprocess(self, inputs: List) -> List:
+    def preprocess(self, inputs: Dict) -> Dict:
         return inputs
 
     # subclass of Transformer should implement postprocess
@@ -48,25 +45,10 @@ class Transformer(KFModel):
         return inputs
 
     def predict(self, inputs: List) -> List:
-        if self.protocol == Protocol.seldon_http:
-            payload = seldon.create_request(np.array(inputs), seldon.SeldonPayload.NDARRAY)
-            response_raw = requests.post(self.predictor_url, json=payload)
-            if response_raw.status_code == 200:
-                rh = SeldonRequestHandler(response_raw.json())
-                response_list = rh.extract_request()
-                return response_list
-            else:
-                raise Exception("Failed to get response from model return_code:%d" %
-                                response_raw.status_code)
-        elif self.protocol == Protocol.tensorflow_http:
-            payload = {"instances": inputs}
-            response_raw = requests.post(self.predictor_url, json=payload)
-            if response_raw.status_code == 200:
-                logging.info(response_raw.json())
-                return response_raw.json()["predictions"]
-            else:
-                raise Exception("Failed to get response from model return_code:%d" %
-                                response_raw.status_code)
+        if self.protocol == Protocol.tensorflow_http:
+            TensorflowRequestHandler.predict(inputs, self.predictor_url)
+        elif self.protocol == Protocol.seldon_http:
+            SeldonRequestHandler.predict(inputs, self.predict_url)
         else:
             raise NotImplementedError
 

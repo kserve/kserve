@@ -24,7 +24,7 @@ class KFModel(object):
     def load(self):
         raise NotImplementedError
 
-    def preprocess(self, inputs: List) -> List:
+    def preprocess(self, inputs: Dict) -> Dict:
         return inputs
 
     def predict(self, inputs: List) -> List:

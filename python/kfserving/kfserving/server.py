@@ -72,7 +72,7 @@ class KFServer(object):
             # Protocol Discovery API that returns the serving protocol supported by this server.
             (r"/protocol", ProtocolHandler, dict(protocol=self.protocol)),
             # Prometheus Metrics API that returns metrics for model servers
-            (r"/metrics", MetricsHandler, dict(models=self.registered_models)),
+            (r"/v1/metrics", MetricsHandler, dict(models=self.registered_models)),
             # Model Health API returns 200 if model is ready to serve.
             (r"/v1/models/([a-zA-Z0-9_-]+)",
              ModelHealthHandler, dict(models=self.registered_models)),
@@ -172,11 +172,18 @@ class ModelPredictHandler(tornado.web.RequestHandler):
                 reason="Unrecognized request format: %s" % e
             )
 
-        request_handler: RequestHandler = get_request_handler(self.protocol, body)
+        # for predictor this is noop
+        # for transformer the preprocess step transforms the body to request that is conforming to data plane protocol
+        request = model.preprocess(body)
+        # validate if the request to predictor is conforming to data plane protocol
+        request_handler: RequestHandler = get_request_handler(self.protocol, request)
         request_handler.validate()
-        request = request_handler.extract_request()
-        inputs = model.preprocess(request)
+        inputs = request_handler.extract_request()
+        # for predictor this does in-place prediction
+        # for transformer it calls out to predictor
         results = model.predict(inputs)
+        # for predictor this is noop
+        # for transformer the postprocess step transforms the result to what user expects
         outputs = model.postprocess(results)
         response = request_handler.wrap_response(outputs)
 
