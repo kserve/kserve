@@ -17,8 +17,11 @@ import tornado
 import numpy as np
 from typing import Dict, List
 from kfserving.protocols.request_handler import RequestHandler #pylint: disable=no-name-in-module
+from kfserving.server import KFSERVER_LOGLEVEL
 from enum import Enum
+import logging
 
+logging.basicConfig(level=KFSERVER_LOGLEVEL)
 
 class SeldonPayload(Enum):
     TENSOR = 1
@@ -35,7 +38,13 @@ def _extract_list(body: Dict) -> List:
     elif "ndarray" in data_def:
         return data_def.get("ndarray")
     else:
-        raise Exception("Could not extract seldon payload %s" % body)
+        arr = np.array(data_def["tftensor"]["float_val"])
+        shape = []
+        for dim in data_def["tftensor"]["tensor_shape"]["dim"]:
+            shape.append(dim["size"])
+        logging.info("Shape is %s",shape)
+        arr = arr.reshape(shape)
+        return arr
 
 
 def _create_seldon_data_def(array: np.array, ty: SeldonPayload):
