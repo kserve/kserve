@@ -16,6 +16,7 @@ import kfp.dsl as dsl
 from kfp import components
 import json
 
+# Update with raw github URL of component once its updated and checked in KFP repo.
 kfserving_op = components.load_component_from_file('component.yaml')
 
 @dsl.pipeline(
@@ -26,7 +27,7 @@ def kfservingPipeline(
     action = 'create',
     model_name='tensorflow-sample',
     default_model_uri='gs://kfserving-samples/models/tensorflow/flowers',
-    canary_model_uri='gs://kfserving-samples/models/tensorflow/flowers',
+    canary_model_uri='gs://kfserving-samples/models/tensorflow/flowers-2',
     canary_model_traffic_percentage='10',
     namespace='kubeflow',
     framework='tensorflow'
