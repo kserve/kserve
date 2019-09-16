@@ -30,11 +30,17 @@ func (s *AlibiExplainerSpec) CreateExplainerServingContainer(modelName string, p
 	var args = []string{
 		"--model_name", modelName,
 		"--predictor_host", predictorHost,
-		"--type", string(s.Type),
 	}
 
 	if s.StorageURI != "" {
 		args = append(args, "--storage_uri", constants.DefaultModelLocalMountPath)
+	}
+
+	args = append(args,string(s.Type))
+
+	for k, v := range s.Config {
+		arg := "--" + k + "=" + v
+		args = append(args, arg)
 	}
 
 	return &v1.Container{

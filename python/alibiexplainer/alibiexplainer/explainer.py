@@ -48,7 +48,7 @@ class AlibiExplainer(kfserving.KFModel):
         elif self.method is ExplainerMethod.anchor_images:
             self.wrapper = AnchorImages(self._predict_fn, explainer, **config)
         elif self.method is ExplainerMethod.anchor_text:
-            self.wrapper = AnchorText(self._predict_fn, explainer, config)
+            self.wrapper = AnchorText(self._predict_fn, explainer, **config)
         else:
             raise NotImplementedError
 

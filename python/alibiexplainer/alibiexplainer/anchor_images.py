@@ -14,6 +14,7 @@ class AnchorImages(ExplainerWrapper):
     def __init__(self, predict_fn: Callable, explainer: alibi.explainers.AnchorImage, **kwargs):
         self.predict_fn = predict_fn
         self.anchors_image = explainer
+        self.kwargs = kwargs
 
     def explain(self, inputs: List) -> Dict:
         if not self.anchors_image is None:
@@ -28,7 +29,7 @@ class AnchorImages(ExplainerWrapper):
                 self.anchors_image.predict_fn = lambda x: np.argmax(self.predict_fn(x), axis=1)
             # We assume the input has batch dimension but Alibi explainers presently assume no batch
             np.random.seed(0)
-            anchor_exp = self.anchors_image.explain(arr[0],batch_size=25)
+            anchor_exp = self.anchors_image.explain(arr[0],**self.kwargs)
             return anchor_exp
         else:
             raise Exception("Explainer not initialized")

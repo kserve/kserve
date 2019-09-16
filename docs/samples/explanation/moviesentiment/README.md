@@ -47,7 +47,7 @@ You should receive the response showing negative sentiment:
 Test on another sentence:
 
 ```
-curl -H "Host: ${MODEL_NAME}-predict.default.svc.cluster.ER_IP/models/$MODEL_NAME:predict -d '{"instances":["This is a great book ."]}'
+curl -H "Host: ${MODEL_NAME}-predict.default.svc.cluster.local" http://$CLUSTER_IP/models/$MODEL_NAME:predict -d '{"instances":["This is a great book ."]}'
 ```
 
 You should receive the response showing positive sentiment:
