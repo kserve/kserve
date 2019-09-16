@@ -19,7 +19,6 @@ from .server import KFModel
 from .server import KFSERVER_LOGLEVEL
 from .server import PREDICTOR_URL_FORMAT
 from kfserving.protocols.tensorflow_http import TensorflowRequestHandler
-from kfserving.protocols.seldon_http import SeldonRequestHandler
 logging.basicConfig(level=KFSERVER_LOGLEVEL)
 
 
@@ -47,8 +46,6 @@ class Transformer(KFModel):
     def predict(self, inputs: List) -> List:
         if self.protocol == Protocol.tensorflow_http:
             TensorflowRequestHandler.predict(inputs, self.predictor_url)
-        elif self.protocol == Protocol.seldon_http:
-            SeldonRequestHandler.predict(inputs, self.predict_url)
         else:
             raise NotImplementedError
 
