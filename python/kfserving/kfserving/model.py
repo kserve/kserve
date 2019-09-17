@@ -24,18 +24,18 @@ class KFModel(object):
     def load(self):
         raise NotImplementedError
 
-    def preprocess(self, inputs: List) -> List:
-        raise NotImplementedError
+    def preprocess(self, inputs: Dict) -> Dict:
+        return inputs
 
     def predict(self, inputs: List) -> List:
         raise NotImplementedError
 
     def postprocess(self, inputs: List) -> List:
-        raise NotImplementedError
+        return inputs
 
     def explain(self, inputs: List) -> Dict:
         raise NotImplementedError
 
     # TODO return type TBD
-    def detectOutlier(self, inputs: List):
+    def detect_outlier(self, inputs: List):
         raise NotImplementedError
