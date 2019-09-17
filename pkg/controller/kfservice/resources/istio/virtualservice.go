@@ -17,10 +17,10 @@ limitations under the License.
 package istio
 
 import (
-	istionetworkingv1alpha3 "github.com/aspenmesh/istio-client-go/pkg/apis/networking/v1alpha3"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	istionetworkingv1alpha3 "knative.dev/pkg/apis/istio/v1alpha3"
 )
 
 type VirtualServiceBuilder struct {

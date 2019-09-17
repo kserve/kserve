@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"github.com/kubeflow/kfserving/pkg/controller/kfservice/reconcilers/istio"
 	"context"
 
 	"github.com/kubeflow/kfserving/pkg/constants"
@@ -149,6 +150,7 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 	reconcilers := []Reconciler{
 		knative.NewServiceReconciler(r.Client, r.scheme, configMap),
 		knative.NewRouteReconciler(r.Client, r.scheme),
+		istio.NewVirtualServiceReconciler(r.Client, r.scheme),
 	}
 
 	for _, reconciler := range reconcilers {
