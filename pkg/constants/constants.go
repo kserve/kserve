@@ -105,6 +105,12 @@ const (
 	KFServiceCanary  = "canary"
 )
 
+// KFService model server args
+const (
+	ModelServerArgsModelName     = "--model_name"
+	ModelServerArgsPredictorHost = "--predictor_host"
+)
+
 func (e KFServiceEndpoint) String() string {
 	return string(e)
 }
@@ -150,10 +156,6 @@ func DefaultTransformerServiceName(name string) string {
 
 func CanaryTransformerServiceName(name string) string {
 	return name + "-" + string(Transformer) + "-" + KFServiceCanary
-}
-
-func TransformerRouteName(name string) string {
-	return name + "-" + string(Transformer)
 }
 
 func DefaultServiceName(name string, endpoint KFServiceEndpoint) string {
