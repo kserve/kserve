@@ -196,6 +196,14 @@ func (c *ServiceBuilder) CreateTransformerService(name string, metadata metav1.O
 	if isCanary {
 		predictorHostName = constants.CanaryPredictorServiceName(metadata.Name)
 	}
+	container := transformerSpec.Custom.Container
+	predefinedArgs := []string{
+		constants.ModelServerArgsModelName,
+		metadata.Name,
+		constants.ModelServerArgsPredictorHost,
+		predictorHostName,
+	}
+	container.Args = append(container.Args, predefinedArgs...)
 	service := &knservingv1alpha1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -219,15 +227,7 @@ func (c *ServiceBuilder) CreateTransformerService(name string, metadata metav1.O
 							PodSpec: v1.PodSpec{
 								ServiceAccountName: transformerSpec.ServiceAccountName,
 								Containers: []v1.Container{
-									{
-										Image: transformerSpec.Custom.Container.Image,
-										Args: []string{
-											constants.ModelServerArgsModelName,
-											metadata.Name,
-											constants.ModelServerArgsPredictorHost,
-											predictorHostName,
-										},
-									},
+									container,
 								},
 							},
 						},
