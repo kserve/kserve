@@ -479,3 +479,198 @@ func TestKFServiceToKnativeService(t *testing.T) {
 
 	}
 }
+
+func TestTransformerToKnativeService(t *testing.T) {
+	kfsvc := v1alpha2.KFService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "mnist",
+			Namespace: "default",
+		},
+		Spec: v1alpha2.KFServiceSpec{
+			Default: v1alpha2.EndpointSpec{
+				Transformer: &v1alpha2.TransformerSpec{
+					DeploymentSpec: v1alpha2.DeploymentSpec{
+						MinReplicas:        1,
+						MaxReplicas:        3,
+						ServiceAccountName: "testsvcacc",
+					},
+					Custom: &v1alpha2.CustomSpec{
+						Container: v1.Container{
+							Image: "transformer:latest",
+						},
+					},
+				},
+				Predictor: v1alpha2.PredictorSpec{
+					DeploymentSpec: v1alpha2.DeploymentSpec{
+						MinReplicas:        1,
+						MaxReplicas:        3,
+						ServiceAccountName: "testsvcacc",
+					},
+					Tensorflow: &v1alpha2.TensorflowSpec{
+						StorageURI:     "s3://test/mnist/export",
+						RuntimeVersion: "1.13.0",
+					},
+				},
+			},
+		},
+	}
+
+	kfsvcCanary := kfsvc.DeepCopy()
+	kfsvcCanary.Spec.CanaryTrafficPercent = 20
+	kfsvcCanary.Spec.Canary = &v1alpha2.EndpointSpec{
+		Transformer: &v1alpha2.TransformerSpec{
+			DeploymentSpec: v1alpha2.DeploymentSpec{
+				MinReplicas:        2,
+				MaxReplicas:        4,
+				ServiceAccountName: "testsvcacc",
+			},
+			Custom: &v1alpha2.CustomSpec{
+				Container: v1.Container{
+					Image: "transformer:v2",
+				},
+			},
+		},
+		Predictor: v1alpha2.PredictorSpec{
+			DeploymentSpec: v1alpha2.DeploymentSpec{
+				MinReplicas:        1,
+				MaxReplicas:        3,
+				ServiceAccountName: "testsvcacc",
+			},
+			Tensorflow: &v1alpha2.TensorflowSpec{
+				StorageURI:     "s3://test/mnist-2/export",
+				RuntimeVersion: "1.13.0",
+			},
+		},
+	}
+
+	var defaultService = &knservingv1alpha1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      constants.DefaultTransformerServiceName("mnist"),
+			Namespace: "default",
+		},
+		Spec: knservingv1alpha1.ServiceSpec{
+			ConfigurationSpec: knservingv1alpha1.ConfigurationSpec{
+				Template: &knservingv1alpha1.RevisionTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Labels: map[string]string{"serving.kubeflow.org/kfservice": "mnist"},
+						Annotations: map[string]string{
+							"autoscaling.knative.dev/class":    "kpa.autoscaling.knative.dev",
+							"autoscaling.knative.dev/target":   "1",
+							"autoscaling.knative.dev/minScale": "1",
+							"autoscaling.knative.dev/maxScale": "3",
+						},
+					},
+					Spec: knservingv1alpha1.RevisionSpec{
+						RevisionSpec: v1beta1.RevisionSpec{
+							TimeoutSeconds: &constants.DefaultTimeout,
+							PodSpec: v1.PodSpec{
+								ServiceAccountName: "testsvcacc",
+								Containers: []v1.Container{
+									{
+										Image: "transformer:latest",
+										Args: []string{
+											constants.ModelServerArgsModelName,
+											kfsvc.Name,
+											constants.ModelServerArgsPredictorHost,
+											constants.DefaultPredictorServiceName(kfsvc.Name),
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	var canaryService = &knservingv1alpha1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      constants.CanaryTransformerServiceName("mnist"),
+			Namespace: "default",
+		},
+		Spec: knservingv1alpha1.ServiceSpec{
+			ConfigurationSpec: knservingv1alpha1.ConfigurationSpec{
+				Template: &knservingv1alpha1.RevisionTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Labels: map[string]string{"serving.kubeflow.org/kfservice": "mnist"},
+						Annotations: map[string]string{
+							"autoscaling.knative.dev/class":    "kpa.autoscaling.knative.dev",
+							"autoscaling.knative.dev/target":   "1",
+							"autoscaling.knative.dev/minScale": "2",
+							"autoscaling.knative.dev/maxScale": "4",
+						},
+					},
+					Spec: knservingv1alpha1.RevisionSpec{
+						RevisionSpec: v1beta1.RevisionSpec{
+							TimeoutSeconds: &constants.DefaultTimeout,
+							PodSpec: v1.PodSpec{
+								ServiceAccountName: "testsvcacc",
+								Containers: []v1.Container{
+									{
+										Image: "transformer:v2",
+										Args: []string{
+											constants.ModelServerArgsModelName,
+											kfsvc.Name,
+											constants.ModelServerArgsPredictorHost,
+											constants.CanaryPredictorServiceName(kfsvc.Name),
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	scenarios := map[string]struct {
+		configMapData   map[string]string
+		kfService       v1alpha2.KFService
+		expectedDefault *knservingv1alpha1.Service
+		expectedCanary  *knservingv1alpha1.Service
+	}{
+		"RunLatestModel": {
+			kfService:       kfsvc,
+			expectedDefault: defaultService,
+			expectedCanary:  nil,
+		},
+		"RunCanaryModel": {
+			kfService:       *kfsvcCanary,
+			expectedDefault: defaultService,
+			expectedCanary:  canaryService,
+		},
+	}
+
+	for name, scenario := range scenarios {
+		serviceBuilder := NewServiceBuilder(c, &v1.ConfigMap{
+			Data: scenario.configMapData,
+		})
+		actualDefaultService, err := serviceBuilder.CreateTransformerService(
+			constants.DefaultTransformerServiceName(scenario.kfService.Name),
+			scenario.kfService.ObjectMeta,
+			scenario.kfService.Spec.Default.Transformer, false)
+		if err != nil {
+			t.Errorf("Test %q unexpected error %s", name, err.Error())
+		}
+
+		if diff := cmp.Diff(scenario.expectedDefault, actualDefaultService); diff != "" {
+			t.Errorf("Test %q unexpected default service (-want +got): %v", name, diff)
+		}
+
+		if scenario.kfService.Spec.Canary != nil {
+			actualCanaryService, err := serviceBuilder.CreateTransformerService(
+				constants.CanaryTransformerServiceName(kfsvc.Name),
+				scenario.kfService.ObjectMeta,
+				scenario.kfService.Spec.Canary.Transformer, true)
+			if err != nil {
+				t.Errorf("Test %q unexpected error %s", name, err.Error())
+			}
+			if diff := cmp.Diff(scenario.expectedCanary, actualCanaryService); diff != "" {
+				t.Errorf("Test %q unexpected canary service (-want +got): %v", name, diff)
+			}
+		}
+
+	}
+}
