@@ -36,7 +36,7 @@ func (s *AlibiExplainerSpec) CreateExplainerServingContainer(modelName string, p
 		args = append(args, "--storage_uri", constants.DefaultModelLocalMountPath)
 	}
 
-	args = append(args,string(s.Type))
+	args = append(args, string(s.Type))
 
 	for k, v := range s.Config {
 		arg := "--" + k + "=" + v
