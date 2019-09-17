@@ -27,17 +27,6 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:442e12371f441e0943398e786138dd28fa0e566abc4bfc2ef4acc2af83739d73"
-  name = "github.com/aspenmesh/istio-client-go"
-  packages = [
-    "pkg/apis/networking",
-    "pkg/apis/networking/v1alpha3",
-  ]
-  pruneopts = "NUT"
-  revision = "3e73c27b9ace51f94ca75c118cd0b6ea529237b4"
-
-[[projects]]
-  branch = "master"
   digest = "1:707ebe952a8b3d00b343c01536c79c73771d100f63ec6babeaed5c79e2b8a8dd"
   name = "github.com/beorn7/perks"
   packages = ["quantile"]
@@ -149,15 +138,11 @@
   version = "v1.6.15"
 
 [[projects]]
-  digest = "1:895d2773c9e78e595dd5f946a25383d579d3094a9d8d9306dba27359f190f275"
+  digest = "1:a1b2a5e38f79688ee8250942d5fa960525fceb1024c855c7bc76fa77b0f3cca2"
   name = "github.com/gogo/protobuf"
   packages = [
-    "gogoproto",
-    "jsonpb",
     "proto",
-    "protoc-gen-gogo/descriptor",
     "sortkeys",
-    "types",
   ]
   pruneopts = "NUT"
   revision = "ba06b47c162d49f2af050fb4c75bcbc86a159d5c"
@@ -739,14 +724,6 @@
   version = "v2.2.2"
 
 [[projects]]
-  branch = "release-1.1"
-  digest = "1:312036f54e45a510a0e2c8d4089c9a547ea3f64693b208b0a3673816f41f7605"
-  name = "istio.io/api"
-  packages = ["networking/v1alpha3"]
-  pruneopts = "NUT"
-  revision = "162827b552e84a48f0d9d45a8f10ea1623706663"
-
-[[projects]]
   digest = "1:1d34342a53d8f8c625260d6c4c2e5c99442b1635bbf4208f426bd12aa210b870"
   name = "k8s.io/api"
   packages = [
@@ -1065,13 +1042,16 @@
 
 [[projects]]
   branch = "release-0.8"
-  digest = "1:3a264aa82a389ab4c637569c170f202534d000ebd1c30c645fc7383313d0ea1e"
+  digest = "1:84ed12904805906e55c729c010f8fc2e0b1f1fc632ac8e2e3d1dd78a0b0df5f7"
   name = "knative.dev/pkg"
   packages = [
     "apis",
     "apis/duck",
     "apis/duck/v1alpha1",
     "apis/duck/v1beta1",
+    "apis/istio",
+    "apis/istio/common/v1alpha1",
+    "apis/istio/v1alpha3",
     "configmap",
     "kmeta",
     "kmp",
@@ -1179,7 +1159,6 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
-    "github.com/aspenmesh/istio-client-go/pkg/apis/networking/v1alpha3",
     "github.com/emicklei/go-restful",
     "github.com/getkin/kin-openapi/openapi3",
     "github.com/getkin/kin-openapi/openapi3filter",
@@ -1200,7 +1179,6 @@
     "golang.org/x/net/context",
     "golang.org/x/net/http2",
     "golang.org/x/net/http2/h2c",
-    "istio.io/api/networking/v1alpha3",
     "k8s.io/api/admission/v1beta1",
     "k8s.io/api/admissionregistration/v1beta1",
     "k8s.io/api/apps/v1",
@@ -1235,6 +1213,7 @@
     "knative.dev/pkg/apis",
     "knative.dev/pkg/apis/duck",
     "knative.dev/pkg/apis/duck/v1beta1",
+    "knative.dev/pkg/apis/istio/v1alpha3",
     "knative.dev/pkg/kmp",
     "knative.dev/serving/pkg/apis/autoscaling",
     "knative.dev/serving/pkg/apis/serving",
