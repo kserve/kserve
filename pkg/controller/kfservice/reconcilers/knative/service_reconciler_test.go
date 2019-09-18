@@ -249,8 +249,5 @@ func awaitDesired(c client.Client, desired *knservingv1alpha1.Service) error {
 	if diff := cmp.Diff(desired.ObjectMeta.Labels, actual.ObjectMeta.Labels); diff != "" {
 		return fmt.Errorf("Unexpected service labels (-want +got): %v", diff)
 	}
-	if diff := cmp.Diff(desired.ObjectMeta.Annotations, actual.ObjectMeta.Annotations); diff != "" {
-		return fmt.Errorf("Unexpected service annotations (-want +got): %v", diff)
-	}
 	return nil
 }
