@@ -1,7 +1,7 @@
 # KFServing Requirements for Kubeflow 1.0
 
-KFServing Authors: singhan@us.ibm.com
-Kubeflow Authors: chasm@google.com, jlewi@google.com, kam.d.kasravi@intel.com
+- KFServing Authors: singhan@us.ibm.com
+- Kubeflow Authors: chasm@google.com, jlewi@google.com, kam.d.kasravi@intel.com
 
 ## Objective
 
