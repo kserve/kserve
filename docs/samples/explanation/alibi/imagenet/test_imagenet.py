@@ -1,4 +1,3 @@
-import matplotlib
 import argparse
 import matplotlib.pyplot as plt
 from tensorflow.keras.applications.inception_v3 import InceptionV3, preprocess_input, decode_predictions
@@ -9,14 +8,13 @@ import json
 import os
 
 PREDICT_TEMPLATE = 'http://{0}/v1/models/imagenet:predict'
-EXPLAIN_TEMPLATE = 'http://{0}/models/imagenet:explain'
+EXPLAIN_TEMPLATE = 'http://{0}/v1/models/imagenet:explain'
 
 def get_image_data():
     category = 'Persian cat'
     image_shape = (299, 299, 3)
-    data, _ = fetch_imagenet(category, nb_images=10, target_size=image_shape[:2], seed=2,
-                                  return_X_y=True)
-    return data
+    ds = fetch_imagenet(category, nb_images=10, target_size=image_shape[:2], seed=2,return_X_y=True)
+    return ds.data
 
 def predict(cluster_ip):
     data = get_image_data()

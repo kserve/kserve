@@ -4,18 +4,20 @@ from enum import Enum
 from typing import List, Any, Mapping, Union
 
 import kfserving
-import kfserving.protocols.seldon_http as seldon
+import tornado
 import numpy as np
 import requests
 from alibiexplainer.anchor_images import AnchorImages
 from alibiexplainer.anchor_tabular import AnchorTabular
 from alibiexplainer.anchor_text import AnchorText
 from kfserving.protocols.seldon_http import SeldonRequestHandler
+from kfserving.protocols.tensorflow_http import TensorflowRequestHandler
 from kfserving.protocols.util import NumpyEncoder
-from kfserving.server import Protocol, TENSORFLOW_PREDICTOR_URL_FORMAT, SELDON_PREDICTOR_URL_FORMAT
+from kfserving.server import Protocol, PREDICTOR_URL_FORMAT
 
 logging.basicConfig(level=kfserving.server.KFSERVER_LOGLEVEL)
 
+SELDON_PREDICTOR_URL_FORMAT = "http://{0}/api/v0.1/predictions"
 
 class ExplainerMethod(Enum):
     anchor_tabular = "anchor_tabular"
@@ -37,7 +39,7 @@ class AlibiExplainer(kfserving.KFModel):
         super().__init__(name)
         self.protocol = protocol
         if self.protocol == Protocol.tensorflow_http:
-            self.predict_url = TENSORFLOW_PREDICTOR_URL_FORMAT.format(predictor_host, name)
+            self.predict_url = PREDICTOR_URL_FORMAT.format(predictor_host, name)
         else:
             self.predict_url = SELDON_PREDICTOR_URL_FORMAT.format(predictor_host)
         logging.info("Predict URL set to %s",self.predict_url)
@@ -57,33 +59,17 @@ class AlibiExplainer(kfserving.KFModel):
 
     def _predict_fn(self, arr: Union[np.ndarray, List]) -> np.ndarray:
         if self.protocol == Protocol.seldon_http:
-            if type(arr) == list:
-                arr = np.array(arr)
-            payload = seldon.create_request(arr, seldon.SeldonPayload.NDARRAY)
-            response_raw = requests.post(self.predict_url, json=payload)
-            if response_raw.status_code == 200:
-                rh = SeldonRequestHandler(response_raw.json())
-                response_list = rh.extract_request()
-                return np.array(response_list)
-            else:
-                raise Exception(
-                    "Failed to get response from model return_code:%d" % response_raw.status_code)
+            resp = SeldonRequestHandler.predict(arr, self.predict_url)
+            return np.array(resp)
         elif self.protocol == Protocol.tensorflow_http:
-            data = []
+            inputs = []
             for req_data in arr:
                 if isinstance(req_data, np.ndarray):
-                    data.append(req_data.tolist())
+                    inputs.append(req_data.tolist())
                 else:
-                    data.append(str(req_data))
-            payload = {"instances": data}
-            logging.info("Calling model with %d instances",len(data))
-            response_raw = requests.post(self.predict_url, json=payload)
-            if response_raw.status_code == 200:
-                j_resp = response_raw.json()
-                return np.array(j_resp['predictions'])
-            else:
-                raise Exception(
-                    "Failed to get response from model return_code:%d" % response_raw.status_code)
+                    inputs.append(str(req_data))
+            resp = TensorflowRequestHandler.predict(inputs, self.predict_url)
+            return np.array(resp)
         else:
             raise NotImplementedError
 

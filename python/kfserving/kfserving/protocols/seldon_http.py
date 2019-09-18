@@ -16,7 +16,7 @@ from http import HTTPStatus
 import requests
 import tornado
 import numpy as np
-from typing import Dict, List
+from typing import Dict, List, Union
 from kfserving.protocols.request_handler import RequestHandler #pylint: disable=no-name-in-module
 from enum import Enum
 
@@ -102,8 +102,10 @@ class SeldonRequestHandler(RequestHandler):
         return {"data": seldon_datadef}
 
     @staticmethod
-    def predict(inputs: List, predictor_url: str) -> List:
-        payload = create_request(np.array(inputs), SeldonPayload.NDARRAY)
+    def predict(inputs: Union[np.array,List], predictor_url: str) -> List:
+        if type(inputs) == list:
+            inputs = np.array(inputs)
+        payload = create_request(inputs, SeldonPayload.NDARRAY)
         response_raw = requests.post(predictor_url, json=payload)
         if response_raw.status_code != 200:
             raise tornado.web.HTTPError(

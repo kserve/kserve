@@ -97,21 +97,21 @@ func (c *ServiceBuilder) CreateEndpointService(kfsvc *v1alpha2.KFService, endpoi
 		return c.CreateTransformerService(serviceName, kfsvc.ObjectMeta, transformerSpec, isCanary)
 	case constants.Explainer:
 		explainerSpec := kfsvc.Spec.Default.Explainer
-		predictorHost := constants.DefaultPredictorServiceName(kfsvc.Name) + "." + kfsvc.ObjectMeta.Namespace
-		if isCanary {
-			predictorHost = constants.CanaryPredictorServiceName(kfsvc.Name) + "." + kfsvc.ObjectMeta.Namespace
-		}
-		explainerServiceName := constants.DefaultExplainerServiceName(kfsvc.Name)
-		if isCanary {
-			explainerServiceName = constants.CanaryExplainerServiceName(kfsvc.Name)
+		predictorService := constants.DefaultPredictorServiceName(kfsvc.Name) + "." + kfsvc.Namespace
+		if kfsvc.Spec.Default.Transformer != nil {
+			predictorService = constants.DefaultTransformerServiceName(kfsvc.Name) + "." + kfsvc.Namespace
 		}
 		if isCanary {
 			explainerSpec = kfsvc.Spec.Canary.Explainer
+			predictorService = constants.CanaryPredictorServiceName(kfsvc.Name) + "." + kfsvc.Namespace
+			if kfsvc.Spec.Canary.Transformer != nil {
+				predictorService = constants.CanaryTransformerServiceName(kfsvc.Name) + "." + kfsvc.Namespace
+			}
 		}
 		if explainerSpec == nil {
 			return nil, nil
 		}
-		return c.CreateExplainerService(explainerServiceName, predictorHost, kfsvc.ObjectMeta, explainerSpec)
+		return c.CreateExplainerService(serviceName, kfsvc.ObjectMeta, explainerSpec, predictorService, isCanary)
 	}
 	return nil, fmt.Errorf("Invalid endpoint")
 }
@@ -266,7 +266,7 @@ func (c *ServiceBuilder) CreateTransformerService(name string, metadata metav1.O
 	return service, nil
 }
 
-func (c *ServiceBuilder) CreateExplainerService(name string, predictorHost string, metadata metav1.ObjectMeta, explainerSpec *v1alpha2.ExplainerSpec) (*knservingv1alpha1.Service, error) {
+func (c *ServiceBuilder) CreateExplainerService(name string, metadata metav1.ObjectMeta, explainerSpec *v1alpha2.ExplainerSpec, predictorService string, isCanary bool) (*knservingv1alpha1.Service, error) {
 	annotations := utils.Filter(metadata.Annotations, func(key string) bool {
 		return !utils.Includes(serviceAnnotationDisallowedList, key)
 	})
@@ -316,7 +316,7 @@ func (c *ServiceBuilder) CreateExplainerService(name string, predictorHost strin
 							PodSpec: v1.PodSpec{
 								ServiceAccountName: explainerSpec.ServiceAccountName,
 								Containers: []v1.Container{
-									*explainerSpec.CreateExplainerServingContainer(metadata.Name, predictorHost, c.explainersConfig),
+									*explainerSpec.CreateExplainerServingContainer(metadata.Name, predictorService, c.explainersConfig),
 								},
 							},
 						},
