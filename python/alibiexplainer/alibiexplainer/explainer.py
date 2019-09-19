@@ -4,9 +4,7 @@ from enum import Enum
 from typing import List, Any, Mapping, Union
 
 import kfserving
-import tornado
 import numpy as np
-import requests
 from alibiexplainer.anchor_images import AnchorImages
 from alibiexplainer.anchor_tabular import AnchorTabular
 from alibiexplainer.anchor_text import AnchorText
@@ -18,6 +16,7 @@ from kfserving.server import Protocol, PREDICTOR_URL_FORMAT
 logging.basicConfig(level=kfserving.server.KFSERVER_LOGLEVEL)
 
 SELDON_PREDICTOR_URL_FORMAT = "http://{0}/api/v0.1/predictions"
+
 
 class ExplainerMethod(Enum):
     anchor_tabular = "anchor_tabular"
@@ -42,7 +41,7 @@ class AlibiExplainer(kfserving.KFModel):
             self.predict_url = PREDICTOR_URL_FORMAT.format(predictor_host, name)
         else:
             self.predict_url = SELDON_PREDICTOR_URL_FORMAT.format(predictor_host)
-        logging.info("Predict URL set to %s",self.predict_url)
+        logging.info("Predict URL set to %s", self.predict_url)
         self.method = method
 
         if self.method is ExplainerMethod.anchor_tabular:
@@ -76,7 +75,7 @@ class AlibiExplainer(kfserving.KFModel):
     def explain(self, inputs: List) -> Any:
         if self.method is ExplainerMethod.anchor_tabular or self.method is ExplainerMethod.anchor_images or self.method is ExplainerMethod.anchor_text:
             explanation = self.wrapper.explain(inputs)
-            logging.info("Explanation: %s",explanation)
+            logging.info("Explanation: %s", explanation)
             return json.loads(json.dumps(explanation, cls=NumpyEncoder))
         else:
             raise NotImplementedError

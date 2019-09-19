@@ -73,7 +73,7 @@ class AnchorTabular(ExplainerWrapper):
             else:
                 self.anchors_tabular.predict_fn = lambda x: np.argmax(self.predict_fn(x), axis=1)
             # We assume the input has batch dimension but Alibi explainers presently assume no batch
-            anchor_exp = self.anchors_tabular.explain(arr[0],**self.kwargs)
+            anchor_exp = self.anchors_tabular.explain(arr[0], **self.kwargs)
             if not self.cmap is None:
                 # convert to interpretable raw features
                 for i in range(len(anchor_exp['raw']['examples'])):

@@ -1,5 +1,5 @@
 import logging
-from typing import Callable, List, Dict, Optional
+from typing import Callable, List, Dict
 
 import alibi
 import kfserving
@@ -29,7 +29,7 @@ class AnchorImages(ExplainerWrapper):
                 self.anchors_image.predict_fn = lambda x: np.argmax(self.predict_fn(x), axis=1)
             # We assume the input has batch dimension but Alibi explainers presently assume no batch
             np.random.seed(0)
-            anchor_exp = self.anchors_image.explain(arr[0],**self.kwargs)
+            anchor_exp = self.anchors_image.explain(arr[0], **self.kwargs)
             return anchor_exp
         else:
             raise Exception("Explainer not initialized")

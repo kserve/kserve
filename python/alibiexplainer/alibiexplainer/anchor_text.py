@@ -1,14 +1,15 @@
 import logging
-from typing import Callable, List, Dict, Mapping, Tuple
+from typing import Callable, List, Dict
 
 import alibi
 import kfserving
 import numpy as np
 import spacy
-from alibiexplainer.explainer_wrapper import ExplainerWrapper
 from alibi.utils.download import spacy_model
+from alibiexplainer.explainer_wrapper import ExplainerWrapper
 
 logging.basicConfig(level=kfserving.server.KFSERVER_LOGLEVEL)
+
 
 class AnchorText(ExplainerWrapper):
 
@@ -16,7 +17,7 @@ class AnchorText(ExplainerWrapper):
                  spacy_language_model: str = 'en_core_web_md', **kwargs):
         self.predict_fn = predict_fn
         self.kwargs = kwargs
-        logging.info("Anchor Text args %s",self.kwargs)
+        logging.info("Anchor Text args %s", self.kwargs)
         if explainer is None:
             logging.info("Loading Spacy Language model for %s", spacy_language_model)
             spacy_model(model=spacy_language_model)
@@ -29,5 +30,5 @@ class AnchorText(ExplainerWrapper):
             self.anchors_text = alibi.explainers.AnchorText(self.nlp, self.predict_fn)
         # We assume the input has batch dimension but Alibi explainers presently assume no batch
         np.random.seed(0)
-        anchor_exp = self.anchors_text.explain(inputs[0],**self.kwargs)
+        anchor_exp = self.anchors_text.explain(inputs[0], **self.kwargs)
         return anchor_exp
