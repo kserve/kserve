@@ -31,7 +31,7 @@ ENV_STORAGE_URI = "STORAGE_URI"
 
 
 class GroupedAction(argparse.Action):
-    def __call__(self, parser, namespace, values, option_string=None):
+    def __call__(self, theparser, namespace, values, option_string=None):
         group, dest = self.dest.split('.', 2)
         groupspace = getattr(namespace, group, argparse.Namespace())
         setattr(groupspace, dest, values)
