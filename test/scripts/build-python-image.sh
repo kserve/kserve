@@ -20,11 +20,16 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-cd python
 if [ ! $# -eq 2 ]; then
   echo "build-python-image.sh dockerFile imageName"
   exit -1
 fi
+
+# Avoid conflicts due to multipe components parallel executing in same folder.
+mkdir -p build_for_$2
+cp -rf python/* build_for_$2
+cd build_for_$2
+
 if [ ! -f $1 ]; then
   echo "dockerFile $1 doesn't exist"
   exit -1
