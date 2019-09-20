@@ -42,7 +42,7 @@ CLUSTER_IP=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpat
 Test the predictor on an example sentence:
 
 ```
-curl -H "Host: ${MODEL_NAME}-predict.default.svc.cluster.local" http://$CLUSTER_IP/v1/models/$MODEL_NAME:predict -d '{"instances":["This is a bad book ."]}'
+curl -H "Host: ${MODEL_NAME}-predict.default.example.com" http://$CLUSTER_IP/v1/models/$MODEL_NAME:predict -d '{"instances":["This is a bad book ."]}'
 ```
 
 You should receive the response showing negative sentiment:
@@ -54,7 +54,7 @@ You should receive the response showing negative sentiment:
 Test on another sentence:
 
 ```
-curl -H "Host: ${MODEL_NAME}-predict.default.svc.cluster.local" http://$CLUSTER_IP/v1/models/$MODEL_NAME:predict -d '{"instances":["This is a great book ."]}'
+curl -H "Host: ${MODEL_NAME}-predict.default.example.com" http://$CLUSTER_IP/v1/models/$MODEL_NAME:predict -d '{"instances":["This is a great book ."]}'
 ```
 
 You should receive the response showing positive sentiment:
@@ -67,7 +67,7 @@ Now lets get an explanation for the first sentence:
 
 
 ```
-curl -v -H "Host: ${MODEL_NAME}-explain.default.svc.cluster.local" http://$CLUSTER_IP/v1/models/$MODEL_NAME:explain -d '{"instances":["This is a bad book ."]}'
+curl -v -H "Host: ${MODEL_NAME}-explain.default.example.com" http://$CLUSTER_IP/v1/models/$MODEL_NAME:explain -d '{"instances":["This is a bad book ."]}'
 ```
 
 The returned explanation will be like:
