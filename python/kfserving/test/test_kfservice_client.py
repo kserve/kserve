@@ -48,8 +48,10 @@ mocked_unit_result = \
 
 
 def generate_kfservice():
-    default_endpoint_spec = V1alpha2EndpointSpec(predictor=V1alpha2PredictorSpec(tensorflow=V1alpha2TensorflowSpec(
-                                                 storage_uri='gs://kfserving-samples/models/tensorflow/flowers')))
+    tf_spec = V1alpha2TensorflowSpec(
+        storage_uri='gs://kfserving-samples/models/tensorflow/flowers')
+    default_endpoint_spec = V1alpha2EndpointSpec(predictor=V1alpha2PredictorSpec(
+        tensorflow=tf_spec))
 
     kfsvc = V1alpha2KFService(api_version='serving.kubeflow.org/v1alpha2',
                               kind='KFService',
