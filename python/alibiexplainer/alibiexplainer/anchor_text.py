@@ -1,10 +1,10 @@
 import logging
 from typing import Callable, List, Dict
 
-import alibi
 import kfserving
 import numpy as np
 import spacy
+import alibi
 from alibi.utils.download import spacy_model
 from alibiexplainer.explainer_wrapper import ExplainerWrapper
 

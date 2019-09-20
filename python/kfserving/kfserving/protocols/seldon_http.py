@@ -12,13 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from enum import Enum
 from http import HTTPStatus
+from typing import Dict, List, Union
+
+import numpy as np
 import requests
 import tornado
-import numpy as np
-from typing import Dict, List, Union
-from kfserving.protocols.request_handler import RequestHandler #pylint: disable=no-name-in-module
-from enum import Enum
+from kfserving.protocols.request_handler import RequestHandler  # pylint: disable=no-name-in-module
+
 
 class SeldonPayload(Enum):
     TENSOR = 1
@@ -29,19 +31,20 @@ class SeldonPayload(Enum):
 def _extract_list(body: Dict) -> List:
     data_def = body["data"]
     if "tensor" in data_def:
-        arr = np.array(data_def.get("tensor").get("values"))\
-              .reshape(data_def.get("tensor").get("shape"))
+        arr = np.array(data_def.get("tensor").get("values")) \
+            .reshape(data_def.get("tensor").get("shape"))
         return arr.tolist()
     elif "ndarray" in data_def:
         return data_def.get("ndarray")
-    else:
+    elif "tftensor" in data_def:
         arr = np.array(data_def["tftensor"]["float_val"])
         shape = []
         for dim in data_def["tftensor"]["tensor_shape"]["dim"]:
             shape.append(dim["size"])
         arr = arr.reshape(shape)
         return arr
-
+    else:
+        raise Exception("Unknown Seldon payload %s" % body)
 
 def _create_seldon_data_def(array: np.array, ty: SeldonPayload):
     datadef = {}
@@ -59,7 +62,8 @@ def _create_seldon_data_def(array: np.array, ty: SeldonPayload):
     return datadef
 
 
-def _get_request_ty(request: Dict) -> SeldonPayload: #pylint: disable=inconsistent-return-statements
+def _get_request_ty(
+        request: Dict) -> SeldonPayload:  # pylint: disable=inconsistent-return-statements
     data_def = request["data"]
     if "tensor" in data_def:
         return SeldonPayload.TENSOR
@@ -76,7 +80,7 @@ def create_request(arr: np.ndarray, ty: SeldonPayload) -> Dict:
 
 class SeldonRequestHandler(RequestHandler):
 
-    def __init__(self, request: Dict): #pylint: disable=useless-super-delegation
+    def __init__(self, request: Dict):  # pylint: disable=useless-super-delegation
         super().__init__(request)
 
     def validate(self):
@@ -102,7 +106,7 @@ class SeldonRequestHandler(RequestHandler):
         return {"data": seldon_datadef}
 
     @staticmethod
-    def predict(inputs: Union[np.array,List], predictor_url: str) -> List:
+    def predict(inputs: Union[np.array, List], predictor_url: str) -> List:
         if type(inputs) == list:
             inputs = np.array(inputs)
         payload = create_request(inputs, SeldonPayload.NDARRAY)

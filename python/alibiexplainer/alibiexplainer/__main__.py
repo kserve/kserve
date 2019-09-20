@@ -30,7 +30,7 @@ CONFIG_ENV = "ALIBI_CONFIGURATION"
 ENV_STORAGE_URI = "STORAGE_URI"
 
 
-class GroupedAction(argparse.Action):
+class GroupedAction(argparse.Action): # pylint:disable=too-few-public-methods
     def __call__(self, theparser, namespace, values, option_string=None):
         group, dest = self.dest.split('.', 2)
         groupspace = getattr(namespace, group, argparse.Namespace())
