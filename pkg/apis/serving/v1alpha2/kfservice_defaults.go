@@ -19,14 +19,16 @@ package v1alpha2
 // Default implements https://godoc.org/sigs.k8s.io/controller-runtime/pkg/webhook/admission#Defaulter
 func (kfsvc *KFService) Default() {
 	logger.Info("Defaulting KFService", "namespace", kfsvc.Namespace, "name", kfsvc.Name)
-	kfsvc.Spec.Default.Predictor.ApplyDefaults()
-	if kfsvc.Spec.Default.Explainer != nil {
-		kfsvc.Spec.Default.Explainer.ApplyDefaults()
-	}
-	if kfsvc.Spec.Canary != nil {
-		kfsvc.Spec.Canary.Predictor.ApplyDefaults()
-		if kfsvc.Spec.Canary.Explainer != nil {
-			kfsvc.Spec.Canary.Explainer.ApplyDefaults()
+	kfsvc.applyDefaultsEndpoint(&kfsvc.Spec.Default)
+	kfsvc.applyDefaultsEndpoint(kfsvc.Spec.Canary)
+}
+
+
+func (kfsvc *KFService) applyDefaultsEndpoint(endpoint *EndpointSpec) {
+	if endpoint != nil {
+		endpoint.Predictor.ApplyDefaults()
+		if endpoint.Explainer != nil {
+			endpoint.Explainer.ApplyDefaults()
 		}
 	}
 }
