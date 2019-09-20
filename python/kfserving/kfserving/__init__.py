@@ -31,9 +31,8 @@ from .utils import utils
 # import models into kfserving package
 from .models.knative_condition import KnativeCondition
 from .models.knative_volatile_time import KnativeVolatileTime
-from .models.v1alpha2_alibi_explain_spec import V1alpha2AlibiExplainSpec
+from .models.v1alpha2_alibi_explainer_spec import V1alpha2AlibiExplainerSpec
 from .models.v1alpha2_custom_spec import V1alpha2CustomSpec
-from .models.v1alpha2_explain_spec import V1alpha2ExplainSpec
 from .models.v1alpha2_framework_config import V1alpha2FrameworkConfig
 from .models.v1alpha2_frameworks_config import V1alpha2FrameworksConfig
 from .models.v1alpha2_kf_service import V1alpha2KFService
