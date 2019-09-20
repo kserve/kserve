@@ -46,6 +46,7 @@ def _extract_list(body: Dict) -> List:
     else:
         raise Exception("Unknown Seldon payload %s" % body)
 
+
 def _create_seldon_data_def(array: np.array, ty: SeldonPayload):
     datadef = {}
     if ty == SeldonPayload.TENSOR:
@@ -109,7 +110,7 @@ class SeldonRequestHandler(RequestHandler):
 
     @staticmethod
     def predict(inputs: Union[np.array, List], predictor_url: str) -> List:
-        if isinstance(inputs,list):
+        if isinstance(inputs, list):
             inputs = np.array(inputs)
         payload = create_request(inputs, SeldonPayload.NDARRAY)
         response_raw = requests.post(predictor_url, json=payload)
