@@ -12,7 +12,7 @@ spec:
             cpu: 0.1
     explainer:
       alibi:
-        type: anchor_tabular
+        type: AnchorTabular
         storageUri: "gs://seldon-models/sklearn/income/explainer"
         resources:
           requests:

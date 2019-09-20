@@ -6,15 +6,20 @@ import numpy as np
 import requests
 import json
 import os
+from PIL import Image
 
 PREDICT_TEMPLATE = 'http://{0}/v1/models/imagenet:predict'
 EXPLAIN_TEMPLATE = 'http://{0}/v1/models/imagenet:explain'
 
 def get_image_data():
-    category = 'Persian cat'
+    data = []
     image_shape = (299, 299, 3)
-    ds = fetch_imagenet(category, nb_images=10, target_size=image_shape[:2], seed=2,return_X_y=True)
-    return ds.data
+    target_size = image_shape[:2]
+    image = Image.open("cat-raw.jpg").convert('RGB')
+    image = np.expand_dims(image.resize(target_size), axis=0)
+    data.append(image)
+    data = np.concatenate(data, axis=0)
+    return data
 
 def predict(cluster_ip):
     data = get_image_data()

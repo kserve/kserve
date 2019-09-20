@@ -15,8 +15,10 @@ spec:
             memory: 10Gi
     explainer:
       alibi:
-        type: anchor_images
+        type: AnchorImages
         storageUri: "gs://seldon-models/tfserving/imagenet/explainer"
+        config:
+          batch_size: "25"
         resources:
           requests:
             cpu: 0.1

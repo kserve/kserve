@@ -13,13 +13,13 @@ spec:
   default:
     predictor:
       sklearn:
-        modelUri: "gs://seldon-models/sklearn/income/model"
+        storageUri: "gs://seldon-models/sklearn/income/model"
         resources:
           requests:
             cpu: 0.1
     explainer:
       alibi:
-        type: anchor_tabular
+        type: AnchorTabular
         storageUri: "gs://seldon-models/sklearn/income/explainer"
         resources:
           requests:

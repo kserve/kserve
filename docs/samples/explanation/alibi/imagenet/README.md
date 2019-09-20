@@ -11,7 +11,7 @@ spec:
   default:
     predictor:
       tensorflow:
-        modelUri: "gs://seldon-models/tfserving/imagenet/model"
+        storageUri: "gs://seldon-models/tfserving/imagenet/model"
         resources:
           requests:
             cpu: 0.1
@@ -20,15 +20,19 @@ spec:
             memory: 10Gi
     explainer:
       alibi:
-        type: anchor_images
+        type: AnchorImages
         storageUri: "gs://seldon-models/tfserving/imagenet/explainer"
+        config:
+          batch_size: "25"
         resources:
           requests:
             cpu: 0.1
             memory: 5Gi            
           limits:
-            memory: 10Gi
+            memory: 10Gi        
 ```
+
+We set a custom config for batch_size as presently image requests are slow and may cause gateway timeouts if the batch size is too large.
 
 Create this KfService:
 
@@ -48,9 +52,9 @@ Test the predictor on an example image:
 python test_imagenet.py
 ```
 
-You should receive a pop up view of the image and its prediction:
+You should receive a pop up view of the image and its prediction (Warning this may take some time):
 
-![prediction](prediction.png)
+![prediction](cat-prediction.png)
 
 Now lets get an explanation for this input image.
 
@@ -60,7 +64,7 @@ python test_imagenet.py --op explain
 
 You should see a popup with the original image and the segments most influential in the model making the prediction it did.
 
-![explanation](explanation.png)
+![explanation](cat-explanation.png)
 
 
 ## Local Training

@@ -19,9 +19,9 @@ SELDON_PREDICTOR_URL_FORMAT = "http://{0}/api/v0.1/predictions"
 
 
 class ExplainerMethod(Enum):
-    anchor_tabular = "anchor_tabular"
-    anchor_images = "anchor_images"
-    anchor_text = "anchor_text"
+    anchor_tabular = "AnchorTabular"
+    anchor_images = "AnchorImages"
+    anchor_text = "AnchorText"
 
     def __str__(self):
         return self.value
@@ -57,6 +57,7 @@ class AlibiExplainer(kfserving.KFModel):
         pass
 
     def _predict_fn(self, arr: Union[np.ndarray, List]) -> np.ndarray:
+        logging.info("Call predict function")
         if self.protocol == Protocol.seldon_http:
             resp = SeldonRequestHandler.predict(arr, self.predict_url)
             return np.array(resp)
@@ -67,7 +68,9 @@ class AlibiExplainer(kfserving.KFModel):
                     inputs.append(req_data.tolist())
                 else:
                     inputs.append(str(req_data))
+            logging.info("Call predict with %s",self.predict_url)
             resp = TensorflowRequestHandler.predict(inputs, self.predict_url)
+            logging.info("Success on predict call")
             return np.array(resp)
         else:
             raise NotImplementedError

@@ -94,11 +94,11 @@ type TransformerSpec struct {
 type AlibiExplainerType string
 
 const (
-	AlibiAnchorsTabularExplainer  AlibiExplainerType = "anchor_tabular"
-	AlibiAnchorsImageExplainer    AlibiExplainerType = "anchor_images"
-	AlibiAnchorsTextExplainer     AlibiExplainerType = "anchor_text"
-	AlibiCounterfactualsExplainer AlibiExplainerType = "counterfactuals"
-	AlibiContrastiveExplainer     AlibiExplainerType = "contrastive"
+	AlibiAnchorsTabularExplainer  AlibiExplainerType = "AnchorTabular"
+	AlibiAnchorsImageExplainer    AlibiExplainerType = "AnchorImages"
+	AlibiAnchorsTextExplainer     AlibiExplainerType = "AnchorText"
+	AlibiCounterfactualsExplainer AlibiExplainerType = "Counterfactuals"
+	AlibiContrastiveExplainer     AlibiExplainerType = "Contrastive"
 )
 
 // AlibiExplainerSpec defines the arguments for configuring an Alibi Explanation Server

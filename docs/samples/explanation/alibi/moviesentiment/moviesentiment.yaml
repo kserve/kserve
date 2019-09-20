@@ -12,7 +12,7 @@ spec:
             cpu: 0.1
     explainer:
       alibi:
-        type: anchor_text
+        type: AnchorText
         resources:
           requests:
             cpu: 0.1

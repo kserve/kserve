@@ -13,10 +13,17 @@ spec:
   default:
     predictor:
       sklearn:
-        modelUri: "gs://seldon-models/sklearn/moviesentiment"
+        storageUri: "gs://seldon-models/sklearn/moviesentiment"
+        resources:
+          requests:
+            cpu: 0.1
     explainer:
       alibi:
-        type: anchor_text
+        type: AnchorText
+        resources:
+          requests:
+            cpu: 0.1
+        
 ```
 
 Create this KfService:
