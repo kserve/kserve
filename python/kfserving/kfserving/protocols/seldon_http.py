@@ -71,6 +71,8 @@ def _get_request_ty(
         return SeldonPayload.NDARRAY
     elif "tftensor" in data_def:
         return SeldonPayload.TFTENSOR
+    else:
+        raise Exception("Unknown Seldon payload %s" % data_def)
 
 
 def create_request(arr: np.ndarray, ty: SeldonPayload) -> Dict:
@@ -107,7 +109,7 @@ class SeldonRequestHandler(RequestHandler):
 
     @staticmethod
     def predict(inputs: Union[np.array, List], predictor_url: str) -> List:
-        if type(inputs) == list:
+        if isinstance(inputs,list):
             inputs = np.array(inputs)
         payload = create_request(inputs, SeldonPayload.NDARRAY)
         response_raw = requests.post(predictor_url, json=payload)
