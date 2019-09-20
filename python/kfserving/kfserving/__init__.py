@@ -40,7 +40,10 @@ from .models.v1alpha2_kf_service import V1alpha2KFService
 from .models.v1alpha2_kf_service_list import V1alpha2KFServiceList
 from .models.v1alpha2_kf_service_spec import V1alpha2KFServiceSpec
 from .models.v1alpha2_kf_service_status import V1alpha2KFServiceStatus
-from .models.v1alpha2_model_spec import V1alpha2ModelSpec
+from .models.v1alpha2_endpoint_spec import V1alpha2EndpointSpec
+from .models.v1alpha2_predictor_spec import V1alpha2PredictorSpec
+from .models.v1alpha2_transformer_spec import V1alpha2TransformerSpec
+from .models.v1alpha2_explainer_spec import V1alpha2ExplainerSpec
 from .models.v1alpha2_py_torch_spec import V1alpha2PyTorchSpec
 from .models.v1alpha2_sk_learn_spec import V1alpha2SKLearnSpec
 from .models.v1alpha2_status_configuration_spec import V1alpha2StatusConfigurationSpec
