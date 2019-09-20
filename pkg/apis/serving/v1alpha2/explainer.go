@@ -26,6 +26,13 @@ type ExplainerHandler interface {
 	Validate() error
 }
 
+const (
+	// ExactlyOneModelSpecViolatedError is a known error message
+	ExactlyOneExplainerSpecViolatedError = "Exactly one of [Custom, Alibi] must be specified in ExplainerSpec"
+	// AtLeastOneModelSpecViolatedError is a known error message
+	AtLeastOneExplainerSpecViolatedError = "At least one of [Custom, Alibi] must be specified in ExplainerSpec"
+)
+
 // Returns a URI to the explainer. This URI is passed to the model-initializer via the ModelInitializerSourceUriInternalAnnotationKey
 func (m *ExplainerSpec) GetStorageUri() string {
 	return getExplainerHandler(m).GetStorageUri()
@@ -75,10 +82,10 @@ func makeExplainerHandler(explainerSpec *ExplainerSpec) (ExplainerHandler, error
 	}
 
 	if len(handlers) == 0 {
-		return nil, fmt.Errorf(AtLeastOneModelSpecViolatedError)
+		return nil, fmt.Errorf(AtLeastOneExplainerSpecViolatedError)
 	}
 	if len(handlers) != 1 {
-		return nil, fmt.Errorf(ExactlyOneModelSpecViolatedError)
+		return nil, fmt.Errorf(ExactlyOneExplainerSpecViolatedError)
 	}
 	return handlers[0], nil
 }
