@@ -70,7 +70,6 @@ class AlibiExplainer(kfserving.KFModel):
         pass
 
     def _predict_fn(self, arr: Union[np.ndarray, List]) -> np.ndarray:
-        logging.info("Call predict function")
         if self.protocol == Protocol.seldon_http:
             resp = SeldonRequestHandler.predict(arr, self.predict_url)
             return np.array(resp)
@@ -81,9 +80,7 @@ class AlibiExplainer(kfserving.KFModel):
                     inputs.append(req_data.tolist())
                 else:
                     inputs.append(str(req_data))
-            logging.info("Call predict with %s",self.predict_url)
             resp = TensorflowRequestHandler.predict(inputs, self.predict_url)
-            logging.info("Success on predict call")
             return np.array(resp)
         else:
             raise NotImplementedError
