@@ -23,7 +23,6 @@ func (kfsvc *KFService) Default() {
 	kfsvc.applyDefaultsEndpoint(kfsvc.Spec.Canary)
 }
 
-
 func (kfsvc *KFService) applyDefaultsEndpoint(endpoint *EndpointSpec) {
 	if endpoint != nil {
 		endpoint.Predictor.ApplyDefaults()

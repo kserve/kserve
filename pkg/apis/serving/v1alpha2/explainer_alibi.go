@@ -28,8 +28,8 @@ func (s *AlibiExplainerSpec) CreateExplainerServingContainer(modelName string, p
 	}
 
 	var args = []string{
-		"--model_name", modelName,
-		"--predictor_host", predictorHost,
+		constants.ModelServerArgsModelName, modelName,
+		constants.ModelServerArgsPredictorHost, predictorHost,
 	}
 
 	if s.StorageURI != "" {
@@ -44,10 +44,9 @@ func (s *AlibiExplainerSpec) CreateExplainerServingContainer(modelName string, p
 	}
 
 	return &v1.Container{
-		Image:           imageName + ":" + s.RuntimeVersion,
-		ImagePullPolicy: v1.PullAlways,
-		Resources:       s.Resources,
-		Args:            args,
+		Image:     imageName + ":" + s.RuntimeVersion,
+		Resources: s.Resources,
+		Args:      args,
 	}
 }
 
