@@ -1,6 +1,8 @@
 # Example Anchors Image Explaination for Imagenet
 
-We can create a KFService with a trained Tensorflow Imagenet predictor for this dataset and an associated explainer:
+We can create a KFService with a trained Tensorflow Imagenet predictor for this dataset and an associated explainer. The black box explainer algorithm we will use is the Images version of Anchors from the [Alibi open source library](https://github.com/SeldonIO/alibi). More details on this algorithm and configuration settings that can be set can be found in the [Seldon Alibi documentation](https://docs.seldon.io/projects/alibi/en/stable/).
+
+The KFService is shown below:
 
 ```
 apiVersion: "serving.kubeflow.org/v1alpha2"

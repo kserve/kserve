@@ -2,7 +2,9 @@
 
 This example uses a [US income dataset](https://archive.ics.uci.edu/ml/datasets/adult)
 
-We can create a KFService with a trained sklearn predictor for this dataset and an associated explainer:
+We can create a KFService with a trained sklearn predictor for this dataset and an associated model explainer. The black box explainer algorithm we will use is the Tabular version of Anchors from the [Alibi open source library](https://github.com/SeldonIO/alibi). More details on this algorithm and configuration settings that can be set can be found in the [Seldon Alibi documentation](https://docs.seldon.io/projects/alibi/en/stable/).
+
+The KFService is shown below:
 
 ```
 apiVersion: "serving.kubeflow.org/v1alpha2"
@@ -958,4 +960,5 @@ make train
 ```
 
 You can then store the `model.joblib` for the model and `explainer.dill` for the explainer in a bucket accessible from your Kubernetes cluster.
+
 
