@@ -58,6 +58,18 @@ func (r *RouteReconciler) Reconcile(kfsvc *v1alpha2.KFService) error {
 		return err
 	}
 
+	if kfsvc.Spec.Default.Explainer != nil {
+		endpoint := constants.Explainer
+
+		desired := knative.NewRouteBuilder().CreateKnativeRoute(kfsvc, endpoint, constants.Explain)
+
+		//TODO - what about status returned?
+		_, err := r.reconcileRoute(kfsvc, desired)
+		if err != nil {
+			return err
+		}
+	}
+
 	// Update parent object's status
 	kfsvc.Status.PropagateRouteStatus(status)
 	return nil
