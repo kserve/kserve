@@ -63,15 +63,13 @@ explainer = alibi.explainers.AnchorTabular(predict_fn=predict_fn,
                                            categorical_names=category_map)
 explainer.fit(X_train)
 explainer.predict_fn = None # Clear explainer predict_fn as its a lambda and will be reset when loaded
-with open("explainer.dill", 'wb') as f:
-    dill.dump(explainer,f)
+
 
 print("Saving individual files")
-# Dump files - for testing creating an AnchorExplainer from components
+
+with open("explainer.dill", 'wb') as f:
+    dill.dump(explainer,f)
 joblib.dump(pipeline, 'model.joblib')
-joblib.dump(X_train, "train.joblib")
-joblib.dump(feature_names, "features.joblib")
-joblib.dump(category_map, "category_map.joblib")
 
 
 

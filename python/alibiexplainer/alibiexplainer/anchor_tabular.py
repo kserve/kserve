@@ -11,12 +11,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-from typing import Callable, List, Dict, Optional, Any
-import kfserving
 import logging
-import joblib
+from typing import Callable, List, Dict, Optional, Any
+
 import alibi
+import joblib
+import kfserving
 import numpy as np
 import pandas as pd
 from alibiexplainer.explainer_wrapper import ExplainerWrapper
@@ -26,23 +26,26 @@ logging.basicConfig(level=kfserving.server.KFSERVER_LOGLEVEL)
 
 class AnchorTabular(ExplainerWrapper):
 
-    def __init__(self, predict_fn: Callable, explainer = Optional[alibi.explainers.AnchorTabular], **kwargs):
+    def __init__(self, predict_fn: Callable, explainer=Optional[alibi.explainers.AnchorTabular],
+                 **kwargs):
         self.predict_fn = predict_fn
         self.cmap: Optional[Dict[Any, Any]] = None
         self.anchors_tabular: Optional[alibi.explainers.AnchorTabular] = explainer
         if self.anchors_tabular is None:
             self.prepare(**kwargs)
-        else: #Overwrite predict_fn
+        else:  # Overwrite predict_fn
             self._reuse_cat_map(self.anchors_tabular.categorical_names)
+        self.kwargs = kwargs
 
-    def _reuse_cat_map(self,categorical_map: Dict):
+    def _reuse_cat_map(self, categorical_map: Dict):
         # reuse map for formatting output
         cmap = dict.fromkeys(categorical_map.keys())
         for key, val in categorical_map.items():
             cmap[key] = {i: v for i, v in enumerate(val)}
         self.cmap = cmap
 
-    def prepare(self, training_data_url = None, feature_names_url = None, categorical_map_url = None, **kwargs):
+    def prepare(self, training_data_url=None, feature_names_url=None, categorical_map_url=None,
+                **kwargs):
         if not training_data_url is None:
             logging.info("Loading training file %s" % training_data_url)
             training_data_file = kfserving.Storage.download(training_data_url)
@@ -77,11 +80,13 @@ class AnchorTabular(ExplainerWrapper):
             arr = np.array(inputs)
             # set anchor_tabular predict function so it always returns predicted class
             # See anchor_tablular.__init__
+            logging.info("Arr shape %s ", (arr.shape,))
             if np.argmax(self.predict_fn(arr).shape) == 0:
                 self.anchors_tabular.predict_fn = self.predict_fn
             else:
                 self.anchors_tabular.predict_fn = lambda x: np.argmax(self.predict_fn(x), axis=1)
-            anchor_exp = self.anchors_tabular.explain(arr)
+            # We assume the input has batch dimension but Alibi explainers presently assume no batch
+            anchor_exp = self.anchors_tabular.explain(arr[0], **self.kwargs)
             if not self.cmap is None:
                 # convert to interpretable raw features
                 for i in range(len(anchor_exp['raw']['examples'])):

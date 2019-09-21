@@ -53,7 +53,7 @@ args, _ = parser.parse_known_args()
 KFSERVER_LOGLEVEL = os.environ.get('KFSERVER_LOGLEVEL', 'INFO').upper()
 logging.basicConfig(level=KFSERVER_LOGLEVEL)
 
-PREDICTOR_URL_FORMAT = "http://{}/v1/models/{}:predict"
+PREDICTOR_URL_FORMAT = "http://{0}/v1/models/{1}:predict"
 
 
 class KFServer(object):
