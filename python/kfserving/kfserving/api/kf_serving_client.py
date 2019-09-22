@@ -73,7 +73,6 @@ class KFServingClient(object):
             raise RuntimeError("Invalid storage_type: %s, only support GCS, S3 and Azure\
                 currently.\n" % storage_type)
 
-
     def create(self, kfservice, namespace=None, watch=False, timeout_seconds=600): #pylint:disable=inconsistent-return-statements
         """Create the provided KFService in the specified namespace"""
 
@@ -99,7 +98,6 @@ class KFServingClient(object):
                 timeout_seconds=timeout_seconds)
         else:
             return outputs
-
 
     def get(self, name=None, namespace=None, watch=False, timeout_seconds=600): #pylint:disable=inconsistent-return-statements
         """Get the created KFService in the specified namespace"""
@@ -141,7 +139,6 @@ class KFServingClient(object):
                     raise RuntimeError(
                         "Exception when calling CustomObjectsApi->list_namespaced_custom_object:\
                         %s\n" % e)
-
 
     def patch(self, name, kfservice, namespace=None, watch=False, timeout_seconds=600): # pylint:disable=too-many-arguments,inconsistent-return-statements
         """Patch the created KFService in the specified namespace"""
