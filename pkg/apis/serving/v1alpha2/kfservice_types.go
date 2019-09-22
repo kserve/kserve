@@ -183,16 +183,19 @@ type CustomSpec struct {
 }
 
 // KFServiceStatus defines the observed state of KFService
+type EndpointStatusMap map[KFServiceEndpoint]* StatusConfigurationSpec
+
 type KFServiceStatus struct {
 	duckv1beta1.Status `json:",inline"`
-	URL                string                  `json:"url,omitempty"`
-	Default            StatusConfigurationSpec `json:"default,omitempty"`
-	Canary             StatusConfigurationSpec `json:"canary,omitempty"`
+	URL                		  string                `json:"Url,omitempty"`
+	Default                   EndpointStatusMap     `json:"default,omitempty"`
+	Canary                    EndpointStatusMap     `json:"canary,omitempty"`
 }
 
 // StatusConfigurationSpec describes the state of the configuration receiving traffic.
 type StatusConfigurationSpec struct {
 	Name     string `json:"name,omitempty"`
+	Hostname string `json:"host,omitempty"`
 	Replicas int    `json:"replicas,omitempty"`
 	Traffic  int    `json:"traffic,omitempty"`
 }
