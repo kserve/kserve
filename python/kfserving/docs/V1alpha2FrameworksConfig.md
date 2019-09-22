@@ -3,6 +3,7 @@
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
+**onnx** | [**V1alpha2FrameworkConfig**](V1alpha2FrameworkConfig.md) |  | [optional] 
 **pytorch** | [**V1alpha2FrameworkConfig**](V1alpha2FrameworkConfig.md) |  | [optional] 
 **sklearn** | [**V1alpha2FrameworkConfig**](V1alpha2FrameworkConfig.md) |  | [optional] 
 **tensorflow** | [**V1alpha2FrameworkConfig**](V1alpha2FrameworkConfig.md) |  | [optional] 

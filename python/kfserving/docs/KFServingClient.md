@@ -98,14 +98,15 @@ from kubernetes import client
 
 from kfserving import KFServingClient
 from kfserving import constants
-from kfserving import V1alpha2ModelSpec
+from kfserving import V1alpha2EndpointSpec
+from kfserving import V1alpha2PredictorSpec
 from kfserving import V1alpha2TensorflowSpec
 from kfserving import V1alpha2KFServiceSpec
 from kfserving import V1alpha2KFService
 
 
-default_model_spec = V1alpha2ModelSpec(tensorflow=V1alpha2TensorflowSpec(
-    storage_uri='gs://kfserving-samples/models/tensorflow/flowers'))
+default_model_spec = V1alpha2EndpointSpec(predictor=V1alpha2PredictorSpec(tensorflow=V1alpha2TensorflowSpec(
+    storage_uri='gs://kfserving-samples/models/tensorflow/flowers')))
 
 kfsvc = V1alpha2KFService(api_version=constants.KFSERVING_GROUP + '/' + constants.KFSERVING_VERSION,
                           kind=constants.KFSERVING_KIND,
@@ -147,6 +148,9 @@ KFServing.get('flower-sample', namespace='kubeflow')
 ```
 The API also support watching the specified KFService or all KFService in the namespace.
 ```python
+from kfserving import KFServingClient
+
+KFServing = KFServingClient()
 KFServing.get('flower-sample', namespace='kubeflow', watch=True, timeout_seconds=120)
 ```
 The outputs will be as following. Stop watching if KFService reaches the optional specified `timeout_seconds` or once the KFService overall status `READY` is `True`.
@@ -179,17 +183,18 @@ Patch the created KFService in the specified namespace
 
 ```python
 from kubernetes import client
-
-from kfserving import V1alpha2ModelSpec
+from kfserving import constants
+from kfserving import V1alpha2EndpointSpec
+from kfserving import V1alpha2PredictorSpec
 from kfserving import V1alpha2TensorflowSpec
 from kfserving import V1alpha2KFServiceSpec
 from kfserving import V1alpha2KFService
 from kfserving import KFServingClient
 
-default_model_spec = V1alpha2ModelSpec(tensorflow=V1alpha2TensorflowSpec(
-    storage_uri='gs://kfserving-samples/models/tensorflow/flowers'))
-canary_model_spec = V1alpha2ModelSpec(tensorflow=V1alpha2TensorflowSpec(
-    storage_uri='gs://kfserving-samples/models/tensorflow/flowers'))
+default_model_spec = V1alpha2EndpointSpec(predictor=V1alpha2PredictorSpec(tensorflow=V1alpha2TensorflowSpec(
+    storage_uri='gs://kfserving-samples/models/tensorflow/flowers')))
+canary_model_spec = V1alpha2EndpointSpec(predictor=V1alpha2PredictorSpec(tensorflow=V1alpha2TensorflowSpec(
+    storage_uri='gs://kfserving-samples/models/tensorflow/flowers')))
 
 kfsvc = V1alpha2KFService(api_version=constants.KFSERVING_GROUP + '/' + constants.KFSERVING_VERSION,
                           kind=constants.KFSERVING_KIND,

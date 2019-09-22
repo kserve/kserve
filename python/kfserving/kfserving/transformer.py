@@ -45,7 +45,7 @@ class Transformer(KFModel):
 
     def predict(self, inputs: List) -> List:
         if self.protocol == Protocol.tensorflow_http:
-            TensorflowRequestHandler.predict(inputs, self.predictor_url)
+            return TensorflowRequestHandler.predict(inputs, self.predictor_url)
         else:
             raise NotImplementedError
 
