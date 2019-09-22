@@ -1,3 +1,17 @@
+# Copyright 2019 kubeflow.org.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 # coding: utf-8
 
 """
@@ -33,6 +47,7 @@ class V1alpha2FrameworksConfig(object):
                             and the value is json key in definition.
     """
     swagger_types = {
+        'onnx': 'V1alpha2FrameworkConfig',
         'pytorch': 'V1alpha2FrameworkConfig',
         'sklearn': 'V1alpha2FrameworkConfig',
         'tensorflow': 'V1alpha2FrameworkConfig',
@@ -41,6 +56,7 @@ class V1alpha2FrameworksConfig(object):
     }
 
     attribute_map = {
+        'onnx': 'onnx',
         'pytorch': 'pytorch',
         'sklearn': 'sklearn',
         'tensorflow': 'tensorflow',
@@ -48,9 +64,10 @@ class V1alpha2FrameworksConfig(object):
         'xgboost': 'xgboost'
     }
 
-    def __init__(self, pytorch=None, sklearn=None, tensorflow=None, tensorrt=None, xgboost=None):  # noqa: E501
+    def __init__(self, onnx=None, pytorch=None, sklearn=None, tensorflow=None, tensorrt=None, xgboost=None):  # noqa: E501
         """V1alpha2FrameworksConfig - a model defined in Swagger"""  # noqa: E501
 
+        self._onnx = None
         self._pytorch = None
         self._sklearn = None
         self._tensorflow = None
@@ -58,6 +75,8 @@ class V1alpha2FrameworksConfig(object):
         self._xgboost = None
         self.discriminator = None
 
+        if onnx is not None:
+            self.onnx = onnx
         if pytorch is not None:
             self.pytorch = pytorch
         if sklearn is not None:
@@ -68,6 +87,27 @@ class V1alpha2FrameworksConfig(object):
             self.tensorrt = tensorrt
         if xgboost is not None:
             self.xgboost = xgboost
+
+    @property
+    def onnx(self):
+        """Gets the onnx of this V1alpha2FrameworksConfig.  # noqa: E501
+
+
+        :return: The onnx of this V1alpha2FrameworksConfig.  # noqa: E501
+        :rtype: V1alpha2FrameworkConfig
+        """
+        return self._onnx
+
+    @onnx.setter
+    def onnx(self, onnx):
+        """Sets the onnx of this V1alpha2FrameworksConfig.
+
+
+        :param onnx: The onnx of this V1alpha2FrameworksConfig.  # noqa: E501
+        :type: V1alpha2FrameworkConfig
+        """
+
+        self._onnx = onnx
 
     @property
     def pytorch(self):

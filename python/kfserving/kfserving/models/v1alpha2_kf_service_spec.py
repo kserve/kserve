@@ -1,3 +1,17 @@
+# Copyright 2019 kubeflow.org.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 # coding: utf-8
 
 """
@@ -16,7 +30,7 @@ import re  # noqa: F401
 
 import six
 
-from kfserving.models.v1alpha2_model_spec import V1alpha2ModelSpec  # noqa: F401,E501
+from kfserving.models.v1alpha2_endpoint_spec import V1alpha2EndpointSpec  # noqa: F401,E501
 
 
 class V1alpha2KFServiceSpec(object):
@@ -33,9 +47,9 @@ class V1alpha2KFServiceSpec(object):
                             and the value is json key in definition.
     """
     swagger_types = {
-        'canary': 'V1alpha2ModelSpec',
+        'canary': 'V1alpha2EndpointSpec',
         'canary_traffic_percent': 'int',
-        'default': 'V1alpha2ModelSpec'
+        'default': 'V1alpha2EndpointSpec'
     }
 
     attribute_map = {
@@ -62,10 +76,10 @@ class V1alpha2KFServiceSpec(object):
     def canary(self):
         """Gets the canary of this V1alpha2KFServiceSpec.  # noqa: E501
 
-        Canary defines an alternate configuration to route a percentage of traffic.  # noqa: E501
+        Canary defines an alternate endpoints to route a percentage of traffic.  # noqa: E501
 
         :return: The canary of this V1alpha2KFServiceSpec.  # noqa: E501
-        :rtype: V1alpha2ModelSpec
+        :rtype: V1alpha2EndpointSpec
         """
         return self._canary
 
@@ -73,10 +87,10 @@ class V1alpha2KFServiceSpec(object):
     def canary(self, canary):
         """Sets the canary of this V1alpha2KFServiceSpec.
 
-        Canary defines an alternate configuration to route a percentage of traffic.  # noqa: E501
+        Canary defines an alternate endpoints to route a percentage of traffic.  # noqa: E501
 
         :param canary: The canary of this V1alpha2KFServiceSpec.  # noqa: E501
-        :type: V1alpha2ModelSpec
+        :type: V1alpha2EndpointSpec
         """
 
         self._canary = canary
@@ -85,6 +99,7 @@ class V1alpha2KFServiceSpec(object):
     def canary_traffic_percent(self):
         """Gets the canary_traffic_percent of this V1alpha2KFServiceSpec.  # noqa: E501
 
+        CanaryTrafficPercent defines the percentage of traffic going to canary KFService endpoints  # noqa: E501
 
         :return: The canary_traffic_percent of this V1alpha2KFServiceSpec.  # noqa: E501
         :rtype: int
@@ -95,6 +110,7 @@ class V1alpha2KFServiceSpec(object):
     def canary_traffic_percent(self, canary_traffic_percent):
         """Sets the canary_traffic_percent of this V1alpha2KFServiceSpec.
 
+        CanaryTrafficPercent defines the percentage of traffic going to canary KFService endpoints  # noqa: E501
 
         :param canary_traffic_percent: The canary_traffic_percent of this V1alpha2KFServiceSpec.  # noqa: E501
         :type: int
@@ -106,9 +122,10 @@ class V1alpha2KFServiceSpec(object):
     def default(self):
         """Gets the default of this V1alpha2KFServiceSpec.  # noqa: E501
 
+        Default defines default KFService endpoints  # noqa: E501
 
         :return: The default of this V1alpha2KFServiceSpec.  # noqa: E501
-        :rtype: V1alpha2ModelSpec
+        :rtype: V1alpha2EndpointSpec
         """
         return self._default
 
@@ -116,9 +133,10 @@ class V1alpha2KFServiceSpec(object):
     def default(self, default):
         """Sets the default of this V1alpha2KFServiceSpec.
 
+        Default defines default KFService endpoints  # noqa: E501
 
         :param default: The default of this V1alpha2KFServiceSpec.  # noqa: E501
-        :type: V1alpha2ModelSpec
+        :type: V1alpha2EndpointSpec
         """
         if default is None:
             raise ValueError("Invalid value for `default`, must not be `None`")  # noqa: E501

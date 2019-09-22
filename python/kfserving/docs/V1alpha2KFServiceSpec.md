@@ -3,9 +3,9 @@
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**canary** | [**V1alpha2ModelSpec**](V1alpha2ModelSpec.md) | Canary defines an alternate configuration to route a percentage of traffic. | [optional] 
-**canary_traffic_percent** | **int** |  | [optional] 
-**default** | [**V1alpha2ModelSpec**](V1alpha2ModelSpec.md) |  | 
+**canary** | [**V1alpha2EndpointSpec**](V1alpha2EndpointSpec.md) | Canary defines an alternate endpoints to route a percentage of traffic. | [optional] 
+**canary_traffic_percent** | **int** | CanaryTrafficPercent defines the percentage of traffic going to canary KFService endpoints | [optional] 
+**default** | [**V1alpha2EndpointSpec**](V1alpha2EndpointSpec.md) | Default defines default KFService endpoints | 
 
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
 

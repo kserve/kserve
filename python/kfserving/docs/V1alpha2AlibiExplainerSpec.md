@@ -1,4 +1,4 @@
-# V1alpha2AlibiExplainSpec
+# V1alpha2AlibiExplainerSpec
 
 ## Properties
 Name | Type | Description | Notes

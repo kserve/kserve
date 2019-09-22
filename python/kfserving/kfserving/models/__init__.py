@@ -1,3 +1,17 @@
+# Copyright 2019 kubeflow.org.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 # coding: utf-8
 
 # flake8: noqa
@@ -17,19 +31,23 @@ from __future__ import absolute_import
 # import models into model package
 from kfserving.models.knative_condition import KnativeCondition
 from kfserving.models.knative_volatile_time import KnativeVolatileTime
-from kfserving.models.v1alpha2_alibi_explain_spec import V1alpha2AlibiExplainSpec
+from kfserving.models.v1alpha2_alibi_explainer_spec import V1alpha2AlibiExplainerSpec
 from kfserving.models.v1alpha2_custom_spec import V1alpha2CustomSpec
-from kfserving.models.v1alpha2_explain_spec import V1alpha2ExplainSpec
+from kfserving.models.v1alpha2_deployment_spec import V1alpha2DeploymentSpec
+from kfserving.models.v1alpha2_endpoint_spec import V1alpha2EndpointSpec
+from kfserving.models.v1alpha2_explainer_spec import V1alpha2ExplainerSpec
 from kfserving.models.v1alpha2_framework_config import V1alpha2FrameworkConfig
 from kfserving.models.v1alpha2_frameworks_config import V1alpha2FrameworksConfig
 from kfserving.models.v1alpha2_kf_service import V1alpha2KFService
 from kfserving.models.v1alpha2_kf_service_list import V1alpha2KFServiceList
 from kfserving.models.v1alpha2_kf_service_spec import V1alpha2KFServiceSpec
 from kfserving.models.v1alpha2_kf_service_status import V1alpha2KFServiceStatus
-from kfserving.models.v1alpha2_model_spec import V1alpha2ModelSpec
+from kfserving.models.v1alpha2_onnx_spec import V1alpha2ONNXSpec
+from kfserving.models.v1alpha2_predictor_spec import V1alpha2PredictorSpec
 from kfserving.models.v1alpha2_py_torch_spec import V1alpha2PyTorchSpec
 from kfserving.models.v1alpha2_sk_learn_spec import V1alpha2SKLearnSpec
 from kfserving.models.v1alpha2_status_configuration_spec import V1alpha2StatusConfigurationSpec
 from kfserving.models.v1alpha2_tensor_rt_spec import V1alpha2TensorRTSpec
 from kfserving.models.v1alpha2_tensorflow_spec import V1alpha2TensorflowSpec
+from kfserving.models.v1alpha2_transformer_spec import V1alpha2TransformerSpec
 from kfserving.models.v1alpha2_xg_boost_spec import V1alpha2XGBoostSpec
