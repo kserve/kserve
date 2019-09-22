@@ -1,3 +1,17 @@
+# Copyright 2019 kubeflow.org.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import numpy as np
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.compose import ColumnTransformer
@@ -49,15 +63,13 @@ explainer = alibi.explainers.AnchorTabular(predict_fn=predict_fn,
                                            categorical_names=category_map)
 explainer.fit(X_train)
 explainer.predict_fn = None # Clear explainer predict_fn as its a lambda and will be reset when loaded
-with open("explainer.dill", 'wb') as f:
-    dill.dump(explainer,f)
+
 
 print("Saving individual files")
-# Dump files - for testing creating an AnchorExplainer from components
+
+with open("explainer.dill", 'wb') as f:
+    dill.dump(explainer,f)
 joblib.dump(pipeline, 'model.joblib')
-joblib.dump(X_train, "train.joblib")
-joblib.dump(feature_names, "features.joblib")
-joblib.dump(category_map, "category_map.joblib")
 
 
 

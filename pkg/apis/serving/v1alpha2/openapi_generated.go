@@ -159,6 +159,22 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 			Dependencies: []string{
 				"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.ExplainerSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.PredictorSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.TransformerSpec"},
 		},
+		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.ExplainerConfig": {
+			Schema: openapispec.Schema{
+				SchemaProps: openapispec.SchemaProps{
+					Properties: map[string]openapispec.Schema{
+						"image": {
+							SchemaProps: openapispec.SchemaProps{
+								Type:   []string{"string"},
+								Format: "",
+							},
+						},
+					},
+					Required: []string{"image"},
+				},
+			},
+			Dependencies: []string{},
+		},
 		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.ExplainerSpec": {
 			Schema: openapispec.Schema{
 				SchemaProps: openapispec.SchemaProps{
@@ -201,6 +217,21 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 			},
 			Dependencies: []string{
 				"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.AlibiExplainerSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.CustomSpec"},
+		},
+		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.ExplainersConfig": {
+			Schema: openapispec.Schema{
+				SchemaProps: openapispec.SchemaProps{
+					Properties: map[string]openapispec.Schema{
+						"alibi": {
+							SchemaProps: openapispec.SchemaProps{
+								Ref: ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.ExplainerConfig"),
+							},
+						},
+					},
+				},
+			},
+			Dependencies: []string{
+				"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.ExplainerConfig"},
 		},
 		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.FrameworkConfig": {
 			Schema: openapispec.Schema{

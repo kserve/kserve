@@ -62,23 +62,27 @@ Class | Method |  Description
 [KFServingClient](docs/KFServingClient.md) | [delete](docs/KFServingClient.md#delete) | Delete the created KFService in the specified namespace |
 
 
-### Documentation For Client Models
+## Documentation For Models
 
  - [KnativeCondition](docs/KnativeCondition.md)
  - [KnativeVolatileTime](docs/KnativeVolatileTime.md)
- - [V1alpha2AlibiExplainSpec](docs/V1alpha2AlibiExplainSpec.md)
+ - [V1alpha2AlibiExplainerSpec](docs/V1alpha2AlibiExplainerSpec.md)
  - [V1alpha2CustomSpec](docs/V1alpha2CustomSpec.md)
- - [V1alpha2ExplainSpec](docs/V1alpha2ExplainSpec.md)
+ - [V1alpha2DeploymentSpec](docs/V1alpha2DeploymentSpec.md)
+ - [V1alpha2EndpointSpec](docs/V1alpha2EndpointSpec.md)
+ - [V1alpha2ExplainerSpec](docs/V1alpha2ExplainerSpec.md)
  - [V1alpha2FrameworkConfig](docs/V1alpha2FrameworkConfig.md)
  - [V1alpha2FrameworksConfig](docs/V1alpha2FrameworksConfig.md)
  - [V1alpha2KFService](docs/V1alpha2KFService.md)
  - [V1alpha2KFServiceList](docs/V1alpha2KFServiceList.md)
  - [V1alpha2KFServiceSpec](docs/V1alpha2KFServiceSpec.md)
  - [V1alpha2KFServiceStatus](docs/V1alpha2KFServiceStatus.md)
- - [V1alpha2ModelSpec](docs/V1alpha2ModelSpec.md)
+ - [V1alpha2ONNXSpec](docs/V1alpha2ONNXSpec.md)
+ - [V1alpha2PredictorSpec](docs/V1alpha2PredictorSpec.md)
  - [V1alpha2PyTorchSpec](docs/V1alpha2PyTorchSpec.md)
  - [V1alpha2SKLearnSpec](docs/V1alpha2SKLearnSpec.md)
  - [V1alpha2StatusConfigurationSpec](docs/V1alpha2StatusConfigurationSpec.md)
  - [V1alpha2TensorRTSpec](docs/V1alpha2TensorRTSpec.md)
  - [V1alpha2TensorflowSpec](docs/V1alpha2TensorflowSpec.md)
+ - [V1alpha2TransformerSpec](docs/V1alpha2TransformerSpec.md)
  - [V1alpha2XGBoostSpec](docs/V1alpha2XGBoostSpec.md)

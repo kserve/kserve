@@ -1,3 +1,17 @@
+# Copyright 2019 kubeflow.org.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 # coding: utf-8
 
 """
@@ -34,34 +48,34 @@ class V1alpha2PyTorchSpec(object):
     """
     swagger_types = {
         'model_class_name': 'str',
-        'storage_uri': 'str',
         'resources': 'V1ResourceRequirements',
-        'runtime_version': 'str'
+        'runtime_version': 'str',
+        'storage_uri': 'str'
     }
 
     attribute_map = {
         'model_class_name': 'modelClassName',
-        'storage_uri': 'storageUri',
         'resources': 'resources',
-        'runtime_version': 'runtimeVersion'
+        'runtime_version': 'runtimeVersion',
+        'storage_uri': 'storageUri'
     }
 
-    def __init__(self, model_class_name=None, storage_uri=None, resources=None, runtime_version=None):  # noqa: E501
+    def __init__(self, model_class_name=None, resources=None, runtime_version=None, storage_uri=None):  # noqa: E501
         """V1alpha2PyTorchSpec - a model defined in Swagger"""  # noqa: E501
 
         self._model_class_name = None
-        self._storage_uri = None
         self._resources = None
         self._runtime_version = None
+        self._storage_uri = None
         self.discriminator = None
 
         if model_class_name is not None:
             self.model_class_name = model_class_name
-        self.storage_uri = storage_uri
         if resources is not None:
             self.resources = resources
         if runtime_version is not None:
             self.runtime_version = runtime_version
+        self.storage_uri = storage_uri
 
     @property
     def model_class_name(self):
@@ -85,29 +99,6 @@ class V1alpha2PyTorchSpec(object):
         """
 
         self._model_class_name = model_class_name
-
-    @property
-    def storage_uri(self):
-        """Gets the storage_uri of this V1alpha2PyTorchSpec.  # noqa: E501
-
-
-        :return: The storage_uri of this V1alpha2PyTorchSpec.  # noqa: E501
-        :rtype: str
-        """
-        return self._storage_uri
-
-    @storage_uri.setter
-    def storage_uri(self, storage_uri):
-        """Sets the storage_uri of this V1alpha2PyTorchSpec.
-
-
-        :param storage_uri: The storage_uri of this V1alpha2PyTorchSpec.  # noqa: E501
-        :type: str
-        """
-        if storage_uri is None:
-            raise ValueError("Invalid value for `storage_uri`, must not be `None`")  # noqa: E501
-
-        self._storage_uri = storage_uri
 
     @property
     def resources(self):
@@ -154,6 +145,31 @@ class V1alpha2PyTorchSpec(object):
         """
 
         self._runtime_version = runtime_version
+
+    @property
+    def storage_uri(self):
+        """Gets the storage_uri of this V1alpha2PyTorchSpec.  # noqa: E501
+
+        The location of the trained model  # noqa: E501
+
+        :return: The storage_uri of this V1alpha2PyTorchSpec.  # noqa: E501
+        :rtype: str
+        """
+        return self._storage_uri
+
+    @storage_uri.setter
+    def storage_uri(self, storage_uri):
+        """Sets the storage_uri of this V1alpha2PyTorchSpec.
+
+        The location of the trained model  # noqa: E501
+
+        :param storage_uri: The storage_uri of this V1alpha2PyTorchSpec.  # noqa: E501
+        :type: str
+        """
+        if storage_uri is None:
+            raise ValueError("Invalid value for `storage_uri`, must not be `None`")  # noqa: E501
+
+        self._storage_uri = storage_uri
 
     def to_dict(self):
         """Returns the model properties as a dict"""

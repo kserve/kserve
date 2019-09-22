@@ -94,9 +94,9 @@ type TransformerSpec struct {
 type AlibiExplainerType string
 
 const (
-	AlibiAnchorsTabularExplainer  AlibiExplainerType = "AnchorsTabular"
-	AlibiAnchorsImageExplainer    AlibiExplainerType = "AnchorsImage"
-	AlibiAnchorsTextExplainer     AlibiExplainerType = "AnchorsText"
+	AlibiAnchorsTabularExplainer  AlibiExplainerType = "AnchorTabular"
+	AlibiAnchorsImageExplainer    AlibiExplainerType = "AnchorImages"
+	AlibiAnchorsTextExplainer     AlibiExplainerType = "AnchorText"
 	AlibiCounterfactualsExplainer AlibiExplainerType = "Counterfactuals"
 	AlibiContrastiveExplainer     AlibiExplainerType = "Contrastive"
 )

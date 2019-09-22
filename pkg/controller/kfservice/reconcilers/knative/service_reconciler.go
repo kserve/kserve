@@ -167,7 +167,6 @@ func (r *ServiceReconciler) reconcileService(kfsvc *v1alpha2.KFService, desired 
 	log.Info("Updating service", "namespace", desired.Namespace, "name", desired.Name)
 	existing.Spec = desired.Spec
 	existing.ObjectMeta.Labels = desired.ObjectMeta.Labels
-	existing.ObjectMeta.Annotations = desired.ObjectMeta.Annotations
 	if err := r.client.Update(context.TODO(), existing); err != nil {
 		return &existing.Status, err
 	}
@@ -177,6 +176,5 @@ func (r *ServiceReconciler) reconcileService(kfsvc *v1alpha2.KFService, desired 
 
 func semanticEquals(desiredService, service *knservingv1alpha1.Service) bool {
 	return equality.Semantic.DeepEqual(desiredService.Spec, service.Spec) &&
-		equality.Semantic.DeepEqual(desiredService.ObjectMeta.Labels, service.ObjectMeta.Labels) &&
-		equality.Semantic.DeepEqual(desiredService.ObjectMeta.Annotations, service.ObjectMeta.Annotations)
+		equality.Semantic.DeepEqual(desiredService.ObjectMeta.Labels, service.ObjectMeta.Labels)
 }
