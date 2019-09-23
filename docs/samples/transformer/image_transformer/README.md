@@ -1,9 +1,8 @@
 # Predict on a KFService using PyTorch Server and Transformer
 
 Most of model servers expect tensors as input data, so a pre-process step is needed before making the prediction call if user is sending in raw input format. Transformer is
-a service we orchestrated from KFService spec for user implemented pre/post process code. The example demonstrates the capability of KFService to automatically wire up the call
-between transformer and predictor with provided code for preprocess/postprocess.
-
+a service we orchestrated from KFService spec for user implemented pre/post process code. In the [pytorch](../../pytorch/README.md) example we send the prediction endpoint with
+tensor input in this example we add additional pre-process step to allow user sending in raw image data.
 
 ## Setup
 1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/blob/master/docs/DEVELOPER_GUIDE.md#deploy-kfserving).
