@@ -1,0 +1,26 @@
+---
+### Specify as necessary ###
+description: Storage Initializer Autobuilder
+substitutions:
+  _COMPONENT: "storage-initializer"
+  _DOCKERFILE: "./python/storage-initializer.Dockerfile"
+  _CONTEXT: "./python"
+###########################
+github:
+  owner: kubeflow
+  name: kfserving
+  push:
+    branch: master
+###########################
+build:
+  steps:
+  - name: docker
+    args:
+    - "build"
+    - "-t"
+    - "gcr.io/$REPO_NAME/${_COMPONENT}:$BRANCH_NAME"
+    - "-f"
+    - "${_DOCKERFILE}"
+    - "${_CONTEXT}"
+  images:
+  - gcr.io/$REPO_NAME/${_COMPONENT}:$BRANCH_NAME

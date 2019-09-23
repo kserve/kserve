@@ -1,0 +1,26 @@
+---
+### Specify as necessary ###
+description: Alibi Explainer Autobuilder
+substitutions:
+  _COMPONENT: "alibi-explainer"
+  _DOCKERFILE: "./python/alibiexplainer.Dockerfile"
+  _CONTEXT: "./python"
+###########################
+github:
+  owner: kubeflow
+  name: kfserving
+  push:
+    branch: master
+###########################
+build:
+  steps:
+  - name: docker
+    args:
+    - "build"
+    - "-t"
+    - "gcr.io/$REPO_NAME/${_COMPONENT}:$BRANCH_NAME"
+    - "-f"
+    - "${_DOCKERFILE}"
+    - "${_CONTEXT}"
+  images:
+  - gcr.io/$REPO_NAME/${_COMPONENT}:$BRANCH_NAME

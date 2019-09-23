@@ -1,0 +1,26 @@
+---
+### Specify as necessary ###
+description: XGB Server Autobuilder
+substitutions:
+  _COMPONENT: "xgbserver"
+  _DOCKERFILE: "./python/xgb.Dockerfile"
+  _CONTEXT: "./python"
+###########################
+github:
+  owner: kubeflow
+  name: kfserving
+  push:
+    branch: master
+###########################
+build:
+  steps:
+  - name: docker
+    args:
+    - "build"
+    - "-t"
+    - "gcr.io/$REPO_NAME/${_COMPONENT}:$BRANCH_NAME"
+    - "-f"
+    - "${_DOCKERFILE}"
+    - "${_CONTEXT}"
+  images:
+  - gcr.io/$REPO_NAME/${_COMPONENT}:$BRANCH_NAME
