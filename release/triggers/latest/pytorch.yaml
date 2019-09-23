@@ -18,10 +18,10 @@ build:
     args:
     - "build"
     - "-t"
-    - "gcr.io/$REPO_NAME/${_COMPONENT}:$BRANCH_NAME"
+    - "gcr.io/$REPO_NAME/${_COMPONENT}:latest"
     - "-f"
     - "${_DOCKERFILE}"
     - "${_CONTEXT}"
   images:
-  - gcr.io/$REPO_NAME/${_COMPONENT}:$BRANCH_NAME
+  - gcr.io/$REPO_NAME/${_COMPONENT}:latest
   timeout: 1200s
