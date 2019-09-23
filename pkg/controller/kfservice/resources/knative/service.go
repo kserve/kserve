@@ -211,7 +211,6 @@ func (c *ServiceBuilder) CreateTransformerService(name string, metadata metav1.O
 
 	predictorHostName := fmt.Sprintf("%s.%s", constants.DefaultPredictorServiceName(metadata.Name), metadata.Namespace)
 
-
 	if isCanary {
 		predictorHostName = fmt.Sprintf("%s.%s", constants.CanaryPredictorServiceName(metadata.Name), metadata.Namespace)
 	}
