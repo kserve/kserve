@@ -1,8 +1,7 @@
 apiVersion: serving.kubeflow.org/v1alpha2
 kind: KFService
 metadata:
-  name: cifar10
-  namespace: kubeflow
+  name: transformer-cifar10
 spec:
   default:
     predictor:
@@ -15,7 +14,6 @@ spec:
           requests:
             cpu: 100m
             memory: 1Gi
-        runtimeVersion: v0.1.2
         storageUri: gs://kfserving-samples/models/pytorch/cifar10
     transformer:
       custom:
