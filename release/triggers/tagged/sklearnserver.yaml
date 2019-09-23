@@ -1,16 +1,16 @@
 ---
 ### Specify as necessary ###
-description: Storage Initializer Autobuilder
+name: sklearn-server-tagged
 substitutions:
-  _COMPONENT: "storage-initializer"
-  _DOCKERFILE: "./python/storage-initializer.Dockerfile"
+  _COMPONENT: "sklearnserver"
+  _DOCKERFILE: "./python/sklearn.Dockerfile"
   _CONTEXT: "./python"
 ###########################
 github:
   owner: kubeflow
   name: kfserving
   push:
-    tag: v0.*.*
+    tag: v*.*.*
 ###########################
 build:
   steps:
