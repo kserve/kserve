@@ -1,8 +1,8 @@
 # Predict on a KFService using PyTorch Server and Transformer
 
-PyTorch server expects tensor in and tensor out and often the time it requires transforming from the raw inputs to tensors as
-a preprocess step before making the predition call. The example demonstrates the capability of KFService to automatically wire up the call graph
-for the user between transformer and predictor with provided user code for preprocess/postprocess.
+Most of model servers expect tensors as input data, so a pre-process step is needed before making the prediction call if user is sending in raw input format. Transformer is
+a service we orchestrated from KFService spec for user implemented pre/post process code. The example demonstrates the capability of KFService to automatically wire up the call
+between transformer and predictor with provided code for preprocess/postprocess.
 
 
 ## Setup
@@ -81,7 +81,7 @@ You should see an output similar to the one below:
 
 ```
 > POST /models/transformer-cifar10:predict HTTP/1.1
-> Host: pytorch-cifar10.default.svc.cluster.local
+> Host: pytorch-cifar10.default.example.com
 > User-Agent: curl/7.54.0
 > Accept: */*
 > Content-Length: 110681
@@ -98,7 +98,7 @@ You should see an output similar to the one below:
 < x-envoy-upstream-service-time: 35292
 < 
 
-{"predictions": [[-0.8955065011978149, -1.4453213214874268, 0.1515328735113144, 2.638284683227539, -1.00240159034729, 2.270702600479126, 0.22645258903503418, -0.880557119846344, 0.08783778548240662, -1.5551214218139648]]
+{"predictions": [[-1.6099601984024048, -2.6461076736450195, 0.32844462990760803, 2.4825074672698975, 0.43524616956710815, 2.3108043670654297, 1.00056791305542, -0.4232763648033142, -0.5100948214530945, -1.7978394031524658]]}
 ```
 
 ## Notebook
