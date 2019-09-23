@@ -209,9 +209,11 @@ func (c *ServiceBuilder) CreateTransformerService(name string, metadata metav1.O
 		annotations[autoscaling.ClassAnnotationKey] = autoscaling.KPA
 	}
 
-	predictorHostName := constants.DefaultPredictorServiceName(metadata.Name)
+	predictorHostName := fmt.Sprintf("%s.%s", constants.DefaultPredictorServiceName(metadata.Name), metadata.Namespace)
+
+
 	if isCanary {
-		predictorHostName = constants.CanaryPredictorServiceName(metadata.Name)
+		predictorHostName = fmt.Sprintf("%s.%s", constants.CanaryPredictorServiceName(metadata.Name), metadata.Namespace)
 	}
 	container := transformerSpec.Custom.Container
 	predefinedArgs := []string{
