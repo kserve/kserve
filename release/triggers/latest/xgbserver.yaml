@@ -1,6 +1,6 @@
 ---
 ### Specify as necessary ###
-description: XGB Server Autobuilder
+name: xgb-server-latest
 substitutions:
   _COMPONENT: "xgbserver"
   _DOCKERFILE: "./python/xgb.Dockerfile"

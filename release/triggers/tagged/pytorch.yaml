@@ -1,6 +1,6 @@
 ---
 ### Specify as necessary ###
-description: Pytorch Server Autobuilder
+name: pytorch-server-tagged
 substitutions:
   _COMPONENT: "pytorchserver"
   _DOCKERFILE: "./python/pytorch.Dockerfile"
@@ -10,7 +10,7 @@ github:
   owner: kubeflow
   name: kfserving
   push:
-    tag: v0.*.*
+    tag: v*.*.*
 ###########################
 build:
   steps:
@@ -24,3 +24,4 @@ build:
     - "${_CONTEXT}"
   images:
   - gcr.io/$REPO_NAME/${_COMPONENT}:$TAG_NAME
+  timeout: 1200s

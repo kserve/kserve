@@ -1,6 +1,6 @@
 ---
 ### Specify as necessary ###
-description: Pytorch Server Autobuilder
+name: pytorch-server-latest
 substitutions:
   _COMPONENT: "pytorchserver"
   _DOCKERFILE: "./python/pytorch.Dockerfile"
@@ -24,3 +24,4 @@ build:
     - "${_CONTEXT}"
   images:
   - gcr.io/$REPO_NAME/${_COMPONENT}:$BRANCH_NAME
+  timeout: 1200s

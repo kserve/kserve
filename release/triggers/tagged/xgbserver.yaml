@@ -1,6 +1,6 @@
 ---
 ### Specify as necessary ###
-description: XGB Server Autobuilder
+name: xgb-server-tagged
 substitutions:
   _COMPONENT: "xgbserver"
   _DOCKERFILE: "./python/xgb.Dockerfile"
@@ -10,7 +10,7 @@ github:
   owner: kubeflow
   name: kfserving
   push:
-    tag: v0.*.*
+    tag: v*.*.*
 ###########################
 build:
   steps:

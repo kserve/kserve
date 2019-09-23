@@ -1,6 +1,6 @@
 ---
 ### Specify as necessary ###
-description: TF2OpenAPI Autobuilder
+name: tf2openapi-latest
 substitutions:
   _COMPONENT: "tf2openapi"
   _DOCKERFILE: "./tools/tf2openapi/Dockerfile"
