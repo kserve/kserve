@@ -9,7 +9,7 @@ Most of the model servers expect tensors as input data, so a pre-processing step
 2. Your cluster's Istio Ingress gateway must be network accessible.
 3. Your cluster's Istio Egresss gateway must [allow Google Cloud Storage](https://knative.dev/docs/serving/outbound-network-access/)
 
-##  Build transformer image
+##  Build Transformer image
 
 ### Extend Transformer and implement pre/postprocess functions
 ```python
