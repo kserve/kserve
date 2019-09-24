@@ -199,3 +199,6 @@ make train
 
 You can then store the `model.joblib` in a bucket accessible from your Kubernetes cluster.
 
+## Run on Notebook
+
+You can also run this example on [notebook](./kfserving_text_explainer.ipynb)
