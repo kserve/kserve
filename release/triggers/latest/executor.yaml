@@ -1,6 +1,7 @@
 ---
 ### Specify as necessary ###
 name: executor-latest
+description: executor-latest
 substitutions:
   _COMPONENT: "executor"
   _DOCKERFILE: "./executor.Dockerfile"

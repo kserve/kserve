@@ -1,6 +1,7 @@
 ---
 ### Specify as necessary ###
 name: executor-tagged
+description: executor-tagged
 substitutions:
   _COMPONENT: "executor"
   _DOCKERFILE: "./executor.Dockerfile"

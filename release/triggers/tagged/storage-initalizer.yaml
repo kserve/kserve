@@ -1,6 +1,7 @@
 ---
 ### Specify as necessary ###
 name: storage-initializer-tagged
+description: storage-initializer-tagged
 substitutions:
   _COMPONENT: "storage-initializer"
   _DOCKERFILE: "./python/storage-initializer.Dockerfile"

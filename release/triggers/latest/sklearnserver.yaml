@@ -1,6 +1,7 @@
 ---
 ### Specify as necessary ###
 name: sklearn-server-latest
+description: sklearn-server-latest
 substitutions:
   _COMPONENT: "sklearnserver"
   _DOCKERFILE: "./python/sklearn.Dockerfile"

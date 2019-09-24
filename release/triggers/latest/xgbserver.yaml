@@ -1,6 +1,7 @@
 ---
 ### Specify as necessary ###
 name: xgb-server-latest
+description: xgb-server-latest
 substitutions:
   _COMPONENT: "xgbserver"
   _DOCKERFILE: "./python/xgb.Dockerfile"

@@ -1,6 +1,7 @@
 ---
 ### Specify as necessary ###
 name: pytorch-server-tagged
+description: pytorch-server-tagged
 substitutions:
   _COMPONENT: "pytorchserver"
   _DOCKERFILE: "./python/pytorch.Dockerfile"

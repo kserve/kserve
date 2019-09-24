@@ -1,6 +1,7 @@
 ---
 ### Specify as necessary ###
 name: kfserving-controller-latest
+description: kfserving-controller-latest
 substitutions:
   _COMPONENT: "kfserving-controller"
   _DOCKERFILE: "./Dockerfile"
