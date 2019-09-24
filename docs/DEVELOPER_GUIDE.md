@@ -52,12 +52,17 @@ You must install these tools:
 
 ### Install Knative on a Kubernetes cluster
 
-1. [Set up a kubernetes cluster and install Knative Serving](https://knative.dev/docs/install/)
+KFServing currently requires `Knative Serving` for auto-scaling, canary rollout, `Istio` for traffic routing and ingress.
 
-- **Note**: KFServing currently only requires `Knative Serving` for auto-scaling, canary rollout,
- `Istio` for traffic routing and ingress. You can follow instructions on
- [Custom Install](https://knative.dev/docs/install/knative-custom-install) to install `Istio` and `Knative Serving`,
- observability plug-ins are good to have for monitoring. If you already have `Istio` (e.g. from a kubeflow install) then simply skip the `Istio` steps.
+* You can follow the instructions on [Set up a kubernetes cluster and install Knative Serving](https://knative.dev/docs/install/) or
+[Custom Install](https://knative.dev/docs/install/knative-custom-install) to install `Istio` and `Knative Serving`. Observability plug-ins are good to have for monitoring.
+
+* If you already have `Istio` (e.g. from a Kubeflow install) then simply skip the `Istio` steps. For Kubeflow install, you can install Knative serving via
+the following commands after downloading repository [kubeflow/manifest](https://github.com/kubeflow/manifests).
+
+  ``` kubeflow/manifests/knative/knative-serving-crd/base$ kustomize build . | kubectl apply -f -```
+
+  ``` kubeflow/manifests/knative/knative-serving-install/base$ kustomize build . | kubectl apply -f -```
 
 ### Setup your environment
 
