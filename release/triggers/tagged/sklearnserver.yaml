@@ -1,6 +1,7 @@
 ---
 ### Specify as necessary ###
 name: sklearn-server-tagged
+description: sklearn-server-tagged
 substitutions:
   _COMPONENT: "sklearnserver"
   _DOCKERFILE: "./python/sklearn.Dockerfile"

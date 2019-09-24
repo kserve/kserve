@@ -1,6 +1,7 @@
 ---
 ### Specify as necessary ###
 name: xgb-server-tagged
+description: xgb-server-tagged
 substitutions:
   _COMPONENT: "xgbserver"
   _DOCKERFILE: "./python/xgb.Dockerfile"

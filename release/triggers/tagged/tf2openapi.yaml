@@ -1,6 +1,7 @@
 ---
 ### Specify as necessary ###
 name: tf2openapi-tagged
+description: tf2openapi-tagged
 substitutions:
   _COMPONENT: "tf2openapi"
   _DOCKERFILE: "./tools/tf2openapi/Dockerfile"
