@@ -1,6 +1,7 @@
 ---
 ### Specify as necessary ###
 name: storage-initializer-latest
+description: storage-initializer-latest
 substitutions:
   _COMPONENT: "storage-initializer"
   _DOCKERFILE: "./python/storage-initializer.Dockerfile"

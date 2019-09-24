@@ -1,6 +1,7 @@
 ---
 ### Specify as necessary ###
 name: alibi-explainer-latest
+description: alibi-explainer-latest
 substitutions:
   _COMPONENT: "alibi-explainer"
   _DOCKERFILE: "./python/alibiexplainer.Dockerfile"

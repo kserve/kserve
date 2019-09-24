@@ -1,6 +1,7 @@
 ---
 ### Specify as necessary ###
 name: kfserving-controller-tagged
+description: kfserving-controller-tagged
 substitutions:
   _COMPONENT: "kfserving-controller"
   _DOCKERFILE: "./Dockerfile"

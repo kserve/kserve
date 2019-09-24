@@ -1,6 +1,7 @@
 ---
 ### Specify as necessary ###
 name: alibi-explainer-tagged
+description: alibi-explainer-tagged
 substitutions:
   _COMPONENT: "alibi-explainer"
   _DOCKERFILE: "./python/alibiexplainer.Dockerfile"
