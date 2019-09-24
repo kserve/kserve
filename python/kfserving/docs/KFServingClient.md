@@ -20,6 +20,7 @@ KFServingClient | [set_credentials](#set_credentials) | Set Credentials|
 KFServingClient | [create](#create) | Create KFService|
 KFServingClient | [get](#get)    | Get or watch the specified KFService or all KFServices in the namespace |
 KFServingClient | [patch](#patch)  | Patch the specified KFService|
+KFServingClient | [promote](#promote) | Promote the specified KFService|
 KFServingClient | [delete](#delete) | Delete the specified KFService |
 
 ## set_credentials
@@ -216,6 +217,34 @@ Name | Type |  Description | Notes
 kfservice  | [V1alpha2KFService](V1alpha2KFService.md) | KFService defination| Required |
 namespace | str | The KFService's namespace for patching. If the `namespace` is not defined, will align with KFService definition, or use current or default namespace if namespace is not specified in KFService definition. | Optional|
 watch | bool | Watch the patched KFService if `True`, otherwise will return the patched KFService object. Stop watching if KFService reaches the optional specified `timeout_seconds` or once the KFService overall status `READY` is `True`. | Optional |
+timeout_seconds | int | Timeout seconds for watching. Defaults to 600. | Optional |
+
+### Return type
+object
+
+
+## promote
+> promote(name, namespace=None, watch=False, timeout_seconds=600)
+
+Promote the `Canary KFServiceSpec` to `Default KFServiceSpec` for the created KFService in the specified namespace.
+
+### Example
+
+```python
+
+KFServing = KFServingClient()
+KFServing.promote('flower-sample', namespace='kubeflow')
+
+# The API also supports watching the promoted KFService status till it's READY.
+# KFServing.promote('flower-sample', namespace='kubeflow', watch=True)
+```
+
+### Parameters
+Name | Type |  Description | Notes
+------------ | ------------- | ------------- | -------------
+Name  | str | The KFService name for promoting.| |
+namespace | str | The KFService's namespace. If the `namespace` is not defined, will align with KFService definition, or use current or default namespace if namespace is not specified in KFService definition. | Optional|
+watch | bool | Watch the promoted KFService if `True`, otherwise will return the promoted KFService object. Stop watching if KFService reaches the optional specified `timeout_seconds` or once the KFService overall status `READY` is `True`. | Optional |
 timeout_seconds | int | Timeout seconds for watching. Defaults to 600. | Optional |
 
 ### Return type
