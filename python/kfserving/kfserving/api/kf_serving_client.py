@@ -18,6 +18,8 @@ from ..constants import constants
 from ..utils import utils
 from .creds_utils import set_gcs_credentials, set_s3_credentials, set_azure_credentials
 from .kf_serving_watch import watch as kfsvc_watch
+from ..models.v1alpha2_kf_service import V1alpha2KFService
+from ..models.v1alpha2_kf_service_spec import V1alpha2KFServiceSpec
 
 
 class KFServingClient(object):
@@ -157,6 +159,54 @@ class KFServingClient(object):
         except client.rest.ApiException as e:
             raise RuntimeError(
                 "Exception when calling CustomObjectsApi->patch_namespaced_custom_object:\
+                 %s\n" % e)
+
+        if watch:
+            kfsvc_watch(
+                name=outputs['metadata']['name'],
+                namespace=namespace,
+                timeout_seconds=timeout_seconds)
+        else:
+            return outputs
+
+    def promote(self, name, namespace=None, watch=False, timeout_seconds=600): # pylint:disable=too-many-arguments,inconsistent-return-statements
+        """Promote the created KFService in the specified namespace"""
+
+        if namespace is None:
+            namespace = utils.get_default_target_namespace()
+
+        current_kfsvc = self.get(name, namespace=namespace)
+        api_version = current_kfsvc['apiVersion']
+        resource_version = current_kfsvc['metadata']['resourceVersion']
+
+        try:
+            current_canary_spec = current_kfsvc['spec']['canary']
+        except KeyError as e:
+            raise RuntimeError("Cannot promote a KFService that has no Canary Spec.")
+
+        kfservice = V1alpha2KFService(
+            api_version=api_version,
+            kind=constants.KFSERVING_KIND,
+            metadata=client.V1ObjectMeta(
+                name=name,
+                namespace=namespace,
+                resource_version=resource_version),
+            spec=V1alpha2KFServiceSpec(
+                default=current_canary_spec,
+                canary=None,
+                canary_traffic_percent=0))
+
+        try:
+            outputs = self.api_instance.replace_namespaced_custom_object(
+                constants.KFSERVING_GROUP,
+                constants.KFSERVING_VERSION,
+                namespace,
+                constants.KFSERVING_PLURAL,
+                name,
+                kfservice)
+        except client.rest.ApiException as e:
+            raise RuntimeError(
+                "Exception when calling CustomObjectsApi->replace_namespaced_custom_object:\
                  %s\n" % e)
 
         if watch:

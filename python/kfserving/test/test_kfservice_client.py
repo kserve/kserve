@@ -90,6 +90,12 @@ def test_kfservice_client_patch():
         kfsvc = generate_kfservice()
         assert mocked_unit_result == KFServing.patch('flower-sample', kfsvc, namespace='kubeflow')
 
+def test_kfservice_client_premote():
+    '''Unit test for kfserving premote api'''
+    with patch('kfserving.api.kf_serving_client.KFServingClient.premote',
+               return_value=mocked_unit_result):
+        kfsvc = generate_kfservice()
+        assert mocked_unit_result == KFServing.patch('flower-sample', kfsvc, namespace='kubeflow')
 
 def test_kfservice_client_delete():
     '''Unit test for kfserving delete api'''
