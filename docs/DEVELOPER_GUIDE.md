@@ -57,8 +57,8 @@ KFServing currently requires `Knative Serving` for auto-scaling, canary rollout,
 * You can follow the instructions on [Set up a kubernetes cluster and install Knative Serving](https://knative.dev/docs/install/) or
 [Custom Install](https://knative.dev/docs/install/knative-custom-install) to install `Istio` and `Knative Serving`. Observability plug-ins are good to have for monitoring.
 
-* If you already have `Istio` (e.g. from a Kubeflow install) then simply skip the `Istio` steps. For Kubeflow install, you can install Knative serving via
-the following commands after downloading repository [kubeflow/manifest](https://github.com/kubeflow/manifests).
+* If you already have `Istio` (e.g. from a Kubeflow install) then simply skip the `Istio` steps. For Kubeflow install, you can install `Knative Serving` via
+the following commands after downloading repository [kubeflow/manifests](https://github.com/kubeflow/manifests).
 
   ``` kubeflow/manifests/knative/knative-serving-crd/base$ kustomize build . | kubectl apply -f -```
 
