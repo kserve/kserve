@@ -26,7 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	istionetworkingv1alpha3 "knative.dev/pkg/apis/istio/v1alpha3"
+	istiov1alpha3 "knative.dev/pkg/apis/istio/v1alpha3"
 	"knative.dev/pkg/kmp"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -48,27 +48,28 @@ func NewVirtualServiceReconciler(client client.Client, scheme *runtime.Scheme) *
 }
 
 func (r *VirtualServiceReconciler) Reconcile(kfsvc *v1alpha2.KFService) error {
-	desired := istio.NewVirtualServiceBuilder().CreateVirtualService(kfsvc)
+	desired, status := istio.NewVirtualServiceBuilder().CreateVirtualService(kfsvc)
+	if desired == nil {
+		kfsvc.Status.PropagateRouteStatus(status)
+		return fmt.Errorf("failed to reconcile virtual service")
+	}
 
-	err := r.reconcileVirtualService(kfsvc, desired)
-	if err != nil {
+	if err := r.reconcileVirtualService(kfsvc, desired); err != nil {
 		return err
 	}
 
-	// TODO: Update parent object's status
-	// Possibly the URLs used should be different or else it should appear in describe?
+	kfsvc.Status.PropagateRouteStatus(status)
+
 	return nil
 }
 
-func (r *VirtualServiceReconciler) reconcileVirtualService(kfsvc *v1alpha2.KFService, desired *istionetworkingv1alpha3.VirtualService) error {
+func (r *VirtualServiceReconciler) reconcileVirtualService(kfsvc *v1alpha2.KFService, desired *istiov1alpha3.VirtualService) error {
 	if err := controllerutil.SetControllerReference(kfsvc, desired, r.scheme); err != nil {
 		return err
 	}
 
 	// Create vanity virtual service if does not exist
-	// TODO: does this need to get created in knative-serving
-	// TODO: or should we be creating a separate ingress for this?
-	existing := &istionetworkingv1alpha3.VirtualService{}
+	existing := &istiov1alpha3.VirtualService{}
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, existing)
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -101,7 +102,7 @@ func (r *VirtualServiceReconciler) reconcileVirtualService(kfsvc *v1alpha2.KFSer
 	return nil
 }
 
-func routeSemanticEquals(desired, existing *istionetworkingv1alpha3.VirtualService) bool {
+func routeSemanticEquals(desired, existing *istiov1alpha3.VirtualService) bool {
 	return equality.Semantic.DeepEqual(desired.Spec, existing.Spec) &&
 		equality.Semantic.DeepEqual(desired.ObjectMeta.Labels, existing.ObjectMeta.Labels) &&
 		equality.Semantic.DeepEqual(desired.ObjectMeta.Annotations, existing.ObjectMeta.Annotations)

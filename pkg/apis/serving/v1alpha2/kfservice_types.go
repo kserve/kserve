@@ -14,6 +14,7 @@ limitations under the License.
 package v1alpha2
 
 import (
+	"github.com/kubeflow/kfserving/pkg/constants"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
@@ -182,22 +183,23 @@ type CustomSpec struct {
 	Container v1.Container `json:"container"`
 }
 
-// KFServiceStatus defines the observed state of KFService
-type EndpointStatusMap map[KFServiceEndpoint]* StatusConfigurationSpec
-
-type KFServiceStatus struct {
-	duckv1beta1.Status `json:",inline"`
-	URL                		  string                `json:"Url,omitempty"`
-	Default                   EndpointStatusMap     `json:"default,omitempty"`
-	Canary                    EndpointStatusMap     `json:"canary,omitempty"`
-}
-
 // StatusConfigurationSpec describes the state of the configuration receiving traffic.
 type StatusConfigurationSpec struct {
 	Name     string `json:"name,omitempty"`
 	Hostname string `json:"host,omitempty"`
 	Replicas int    `json:"replicas,omitempty"`
 	Traffic  int    `json:"traffic,omitempty"`
+}
+
+// KFServiceStatus defines the observed state of KFService
+// TODO (rakelkar) okay to depend on constants from types?
+type EndpointStatusMap map[constants.KFServiceEndpoint]*StatusConfigurationSpec
+
+type KFServiceStatus struct {
+	duckv1beta1.Status `json:",inline"`
+	URL                string            `json:"Url,omitempty"`
+	Default            EndpointStatusMap `json:"default,omitempty"`
+	Canary             EndpointStatusMap `json:"canary,omitempty"`
 }
 
 // +genclient
@@ -226,6 +228,15 @@ type KFServiceList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []KFService `json:"items"`
+}
+
+//  VirtualServiceStatus captures the status of the virtual service
+type VirtualServiceStatus struct {
+	URL           string
+	CanaryWeight  int
+	DefaultWeight int
+
+	duckv1beta1.Status
 }
 
 func init() {

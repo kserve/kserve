@@ -24,15 +24,39 @@ import (
 const (
 	// RoutesReady is set when network configuration has completed.
 	RoutesReady apis.ConditionType = "RoutesReady"
+
 	// DefaultPredictorReady is set when default predictor has reported readiness.
 	DefaultPredictorReady apis.ConditionType = "DefaultPredictorReady"
 	// CanaryPredictorReady is set when canary predictor has reported readiness.
 	CanaryPredictorReady apis.ConditionType = "CanaryPredictorReady"
+
+	// DefaultTransformerReady is set when default transformer has reported readiness.
+	DefaultTransformerReady apis.ConditionType = "DefaultTransformerReady"
+	// CanaryTransformerReady is set when canary transformer has reported readiness.
+	CanaryTransformerReady apis.ConditionType = "CanaryTransformerReady"
+
+	// DefaultExplainerReady is set when default explainer has reported readiness.
+	DefaultExplainerReady apis.ConditionType = "DefaultExplainerReady"
+	// CanaryExplainerReady is set when canary explainer has reported readiness.
+	CanaryExplainerReady apis.ConditionType = "CanaryExplainerReady"
 )
+
+var defaultConditionsMap = map[constants.KFServiceEndpoint]apis.ConditionType{
+	constants.Predictor:   DefaultPredictorReady,
+	constants.Explainer:   DefaultExplainerReady,
+	constants.Transformer: DefaultTransformerReady,
+}
+
+var canaryConditionsMap = map[constants.KFServiceEndpoint]apis.ConditionType{
+	constants.Predictor:   CanaryPredictorReady,
+	constants.Explainer:   CanaryExplainerReady,
+	constants.Transformer: CanaryTransformerReady,
+}
 
 // KFService Ready condition is depending on default predictor and route readiness condition
 // canary readiness condition only present when canary is used and currently does
 // not affect KFService readiness condition.
+// TODO (rakelkar) is it possible to make this dynamic somehow so that it has Transformer and Predictor when they are present?
 var conditionSet = apis.NewLivingConditionSet(
 	DefaultPredictorReady,
 	RoutesReady,
@@ -55,78 +79,54 @@ func (ss *KFServiceStatus) GetCondition(t apis.ConditionType) *apis.Condition {
 }
 
 func (ss *KFServiceStatus) PropagateDefaultStatus(endpoint constants.KFServiceEndpoint, defaultStatus *knservingv1alpha1.ServiceStatus) {
-	switch endpoint {
-	case constants.Predictor:
-		ss.PropagateDefaultPredictorStatus(defaultStatus)
-	case constants.Explainer:
-	case constants.Transformer:
-	}
+	statusSpec := ss.Default[endpoint]
+	conditionType := defaultConditionsMap[endpoint]
+
+	ss.propagateStatus(statusSpec, conditionType, defaultStatus)
 }
 
 func (ss *KFServiceStatus) PropagateCanaryStatus(endpoint constants.KFServiceEndpoint, canaryStatus *knservingv1alpha1.ServiceStatus) {
-	switch endpoint {
-	case constants.Predictor:
-		ss.PropagateCanaryPredictorStatus(canaryStatus)
-	case constants.Explainer:
-	case constants.Transformer:
-	}
-}
+	statusSpec := ss.Canary[endpoint]
+	conditionType := canaryConditionsMap[endpoint]
 
-// PropagateDefaultPredictorStatus propagates the default predictor status and applies its values
-// to the Service status.
-func (ss *KFServiceStatus) PropagateDefaultPredictorStatus(defaultStatus *knservingv1alpha1.ServiceStatus) {
-	ss.Default.Name = defaultStatus.LatestCreatedRevisionName
-	serviceCondition := defaultStatus.GetCondition(knservingv1alpha1.ServiceConditionReady)
-
-	switch {
-	case serviceCondition == nil:
-	case serviceCondition.Status == v1.ConditionUnknown:
-		conditionSet.Manage(ss).MarkUnknown(DefaultPredictorReady, serviceCondition.Reason, serviceCondition.Message)
-	case serviceCondition.Status == v1.ConditionTrue:
-		conditionSet.Manage(ss).MarkTrue(DefaultPredictorReady)
-	case serviceCondition.Status == v1.ConditionFalse:
-		conditionSet.Manage(ss).MarkFalse(DefaultPredictorReady, serviceCondition.Reason, serviceCondition.Message)
-	}
-}
-
-// PropagateCanaryPredictorStatus propagates the canary predictor status and applies its values
-// to the Service status.
-func (ss *KFServiceStatus) PropagateCanaryPredictorStatus(canaryStatus *knservingv1alpha1.ServiceStatus) {
 	// reset status if canaryServiceStatus is nil
 	if canaryStatus == nil {
-		ss.Canary = StatusConfigurationSpec{}
-		conditionSet.Manage(ss).ClearCondition(CanaryPredictorReady)
+		ss.Canary = EndpointStatusMap{}
+		conditionSet.Manage(ss).ClearCondition(conditionType)
 		return
 	}
-	ss.Canary.Name = canaryStatus.LatestCreatedRevisionName
-	serviceCondition := canaryStatus.GetCondition(knservingv1alpha1.ServiceConditionReady)
 
+	ss.propagateStatus(statusSpec, conditionType, canaryStatus)
+}
+
+func (ss *KFServiceStatus) propagateStatus(statusSpec *StatusConfigurationSpec, conditionType apis.ConditionType, serviceStatus *knservingv1alpha1.ServiceStatus) {
+	statusSpec.Name = serviceStatus.LatestCreatedRevisionName
+	statusSpec.Hostname = serviceStatus.Address.Hostname
+	serviceCondition := serviceStatus.GetCondition(knservingv1alpha1.ServiceConditionReady)
 	switch {
 	case serviceCondition == nil:
 	case serviceCondition.Status == v1.ConditionUnknown:
-		conditionSet.Manage(ss).MarkUnknown(CanaryPredictorReady, serviceCondition.Reason, serviceCondition.Message)
+		conditionSet.Manage(ss).MarkUnknown(conditionType, serviceCondition.Reason, serviceCondition.Message)
 	case serviceCondition.Status == v1.ConditionTrue:
-		conditionSet.Manage(ss).MarkTrue(CanaryPredictorReady)
+		conditionSet.Manage(ss).MarkTrue(conditionType)
 	case serviceCondition.Status == v1.ConditionFalse:
-		conditionSet.Manage(ss).MarkFalse(CanaryPredictorReady, serviceCondition.Reason, serviceCondition.Message)
+		conditionSet.Manage(ss).MarkFalse(conditionType, serviceCondition.Reason, serviceCondition.Message)
 	}
 }
 
 // PropagateRouteStatus propagates route's status to the service's status.
-func (ss *KFServiceStatus) PropagateRouteStatus(rs *knservingv1alpha1.RouteStatus) {
-	ss.URL = rs.URL.String()
+func (ss *KFServiceStatus) PropagateRouteStatus(vs *VirtualServiceStatus) {
+	ss.URL = vs.URL
 
-	for _, traffic := range rs.Traffic {
-		switch traffic.RevisionName {
-		case ss.Default.Name:
-			ss.Default.Traffic = traffic.Percent
-		case ss.Canary.Name:
-			ss.Canary.Traffic = traffic.Percent
-		default:
-		}
+	for _, ep := range ss.Default {
+		ep.Traffic = vs.DefaultWeight
 	}
 
-	rc := rs.GetCondition(knservingv1alpha1.RouteConditionReady)
+	for _, ep := range ss.Canary {
+		ep.Traffic = vs.CanaryWeight
+	}
+
+	rc := vs.GetCondition(knservingv1alpha1.RouteConditionReady)
 
 	switch {
 	case rc == nil:

@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"k8s.io/api/admissionregistration/v1beta1"
+	"knative.dev/pkg/apis"
 )
 
 // KFServing Constants
