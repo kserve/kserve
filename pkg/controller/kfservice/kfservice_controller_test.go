@@ -866,7 +866,7 @@ func TestKFServiceWithTransformer(t *testing.T) {
 											"--model_name",
 											serviceName,
 											"--predictor_host",
-											constants.CanaryPredictorServiceName(instance.Name),
+											constants.CanaryPredictorServiceName(instance.Name) + "." + instance.Namespace,
 										},
 									},
 								},
