@@ -11,7 +11,7 @@ Most of the model servers expect tensors as input data, so a pre-processing step
 
 ##  Build Transformer image
 
-### Extend Transformer and implement pre/postprocess functions
+### Extend Transformer and implement pre/post processing functions
 ```python
 from typing import List, Dict
 from kfserving.transformer import Transformer
@@ -46,14 +46,14 @@ class ImageTransformer(Transformer):
         return inputs
 ```
 
-### Build transformer docker image
+### Build Transformer docker image
 This step can be part of your CI/CD pipeline to continuously build the transformer image version. 
 ```shell
 docker build -t yuzisun/image-transformer:latest -f transformer.Dockerfile .
 ```
 
 ## Create the KFService
-
+Please use the [YAML file](docs/samples/transformer/image_transformer/image_transformer.yaml) to create the KFService, which includes a Transformer and a Predictor
 Apply the CRD
 ```
 kubectl apply -f image_transformer.yaml
