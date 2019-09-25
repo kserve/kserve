@@ -20,6 +20,7 @@ KFServingClient | [set_credentials](#set_credentials) | Set Credentials|
 KFServingClient | [create](#create) | Create KFService|
 KFServingClient | [get](#get)    | Get or watch the specified KFService or all KFServices in the namespace |
 KFServingClient | [patch](#patch)  | Patch the specified KFService|
+KFServingClient | [replace](#replace) | Replace the specified KFService|
 KFServingClient | [promote](#promote) | Promote the specified KFService|
 KFServingClient | [delete](#delete) | Delete the specified KFService |
 
@@ -178,7 +179,9 @@ object
 ## patch
 > patch(name, kfservice, namespace=None, watch=False, timeout_seconds=600)
 
-Patch the created KFService in the specified namespace
+Patch the created KFService in the specified namespace.
+
+Note that if you want to set the field from existing value to `None`, `patch` API may not work, you need to use [replace](#replace) API to remove the field value.
 
 ### Example
 
@@ -217,6 +220,58 @@ Name | Type |  Description | Notes
 kfservice  | [V1alpha2KFService](V1alpha2KFService.md) | KFService defination| Required |
 namespace | str | The KFService's namespace for patching. If the `namespace` is not defined, will align with KFService definition, or use current or default namespace if namespace is not specified in KFService definition. | Optional|
 watch | bool | Watch the patched KFService if `True`, otherwise will return the patched KFService object. Stop watching if KFService reaches the optional specified `timeout_seconds` or once the KFService overall status `READY` is `True`. | Optional |
+timeout_seconds | int | Timeout seconds for watching. Defaults to 600. | Optional |
+
+### Return type
+object
+
+## replace
+> replace(name, kfservice, namespace=None, watch=False, timeout_seconds=600)
+
+Repalce the created KFService in the specified namespace
+
+### Example
+
+```python
+from kubernetes import client
+from kfserving import constants
+from kfserving import V1alpha2EndpointSpec
+from kfserving import V1alpha2PredictorSpec
+from kfserving import V1alpha2TensorflowSpec
+from kfserving import V1alpha2KFServiceSpec
+from kfserving import V1alpha2KFService
+from kfserving import KFServingClient
+
+default_endpoint_spec = V1alpha2EndpointSpec(
+                          predictor=V1alpha2PredictorSpec(
+                            tensorflow=V1alpha2TensorflowSpec(
+                              storage_uri='gs://kfserving-samples/models/tensorflow/flowers',
+                              resources=None)))
+
+kfsvc = V1alpha2KFService(api_version=api_version,
+                          kind=constants.KFSERVING_KIND,
+                          metadata=client.V1ObjectMeta(
+                            name='flower-sample',
+                            namespace='kubeflow',
+                            resource_version=resource_version),
+                          spec=V1alpha2KFServiceSpec(default=default_endpoint_spec,
+                                                     canary=None,
+                                                     canary_traffic_percent=0))
+
+
+KFServing = KFServingClient()
+KFServing.replace('flower-sample', kfsvc)
+
+# The API also supports watching the replaced KFService status till it's READY.
+# KFServing.replace('flower-sample', kfsvc, watch=True)
+```
+
+### Parameters
+Name | Type |  Description | Notes
+------------ | ------------- | ------------- | -------------
+kfservice  | [V1alpha2KFService](V1alpha2KFService.md) | KFService defination| Required |
+namespace | str | The KFService's namespace. If the `namespace` is not defined, will align with KFService definition, or use current or default namespace if namespace is not specified in KFService definition. | Optional|
+watch | bool | Watch the patched KFService if `True`, otherwise will return the replaced KFService object. Stop watching if KFService reaches the optional specified `timeout_seconds` or once the KFService overall status `READY` is `True`. | Optional |
 timeout_seconds | int | Timeout seconds for watching. Defaults to 600. | Optional |
 
 ### Return type
