@@ -25,9 +25,5 @@ fi
 # Generating OpenAPI specification
 go run vendor/k8s.io/code-generator/cmd/openapi-gen/main.go --input-dirs github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2,knative.dev/pkg/apis --output-package github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2/ --go-header-file hack/boilerplate.go.txt
 
-# Workaroud error "spec redeclared in this block" in unit test.
-sed -i 's%spec "github.com/go-openapi/spec"%openapispec "github.com/go-openapi/spec"%g' pkg/apis/serving/v1alpha2/openapi_generated.go
-sed -i 's/spec\./openapispec\./g' pkg/apis/serving/v1alpha2/openapi_generated.go
-
 # Generating swagger file
 go run cmd/spec-gen/main.go 0.1 > pkg/apis/serving/v1alpha2/swagger.json
