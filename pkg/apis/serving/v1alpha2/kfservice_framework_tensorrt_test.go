@@ -38,12 +38,6 @@ var requestedResource = v1.ResourceRequirements{
 	},
 }
 
-var spec = TensorRTSpec{
-	StorageURI:     "gs://someUri",
-	Resources:      requestedResource,
-	RuntimeVersion: "19.05-py3",
-}
-
 var config = FrameworksConfig{
 	TensorRT: FrameworkConfig{
 		ContainerImage: "someOtherImage",
@@ -52,6 +46,11 @@ var config = FrameworksConfig{
 
 func TestCreateModelServingContainer(t *testing.T) {
 
+	var spec = TensorRTSpec{
+		StorageURI:     "gs://someUri",
+		Resources:      requestedResource,
+		RuntimeVersion: "19.05-py3",
+	}
 	g := gomega.NewGomegaWithT(t)
 
 	expectedContainer := &v1.Container{
