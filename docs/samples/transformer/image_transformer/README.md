@@ -1,7 +1,5 @@
 # Predict on a KFService using PyTorch Server and Transformer
 
-Most of model servers expect tensors as input data, so a pre-process step is needed before making the prediction call if user is sending in raw input format. Transformer is
-a service we orchestrated from KFService spec for user implemented pre/post process code. In the [pytorch](../../pytorch/README.md) example we send the prediction endpoint with
 Most of the model servers expect tensors as input data, so a pre-processing step is needed before making the prediction call if the user is sending in raw input format. Transformer is a service we orchestrated from KFService spec for user implemented pre/post processing code. In the [pytorch](../../pytorch/README.md) example we call the prediction endpoint with tensor inputs, and in this example we add additional pre-processing step to allow the user send raw image data.
 
 ## Setup
@@ -53,7 +51,8 @@ docker build -t yuzisun/image-transformer:latest -f transformer.Dockerfile .
 ```
 
 ## Create the KFService
-Please use the [YAML file](docs/samples/transformer/image_transformer/image_transformer.yaml) to create the KFService, which includes a Transformer and a Predictor
+Please use the [YAML file](./image_transformer.yaml) to create the KFService, which includes a Transformer and a Predictor.
+
 Apply the CRD
 ```
 kubectl apply -f image_transformer.yaml
@@ -102,4 +101,4 @@ You should see an output similar to the one below:
 
 ## Notebook
 
-you can also try this example on [notebook](./kfserving_sdk_transformer.ipynb)
+You can also try this example on the [notebook](./kfserving_sdk_transformer.ipynb)
