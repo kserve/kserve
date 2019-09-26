@@ -193,8 +193,8 @@ class Storage(object): # pylint: disable=too-few-public-methods
     @staticmethod
     def _create_minio_client():
         # Remove possible http scheme for Minio
-        url = urlparse(os.getenv("S3_ENDPOINT", ""))
-        use_ssl = url.scheme=='https' if url.scheme else bool(os.getenv("USE_SSL", True))
+        url = urlparse(os.getenv("AWS_ENDPOINT_URL", ""))
+        use_ssl = url.scheme=='https' if url.scheme else bool(os.getenv("S3_USE_HTTPS", True))
         minioClient = Minio(url.netloc,
                             access_key=os.getenv("AWS_ACCESS_KEY_ID", ""),
                             secret_key=os.getenv("AWS_SECRET_ACCESS_KEY", ""),
