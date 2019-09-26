@@ -13,9 +13,10 @@ KFServing encapsulates the complexity of autoscaling, networking, health checkin
 * This project is an evolution of the [original proposal in the Kubeflow repo](https://github.com/kubeflow/kubeflow/issues/2306). 
 
 ### Prerequisits
-KNative Serving and Istio should be available on Kubernetes Cluster
+KNative Serving and Istio should be available on Kubernetes Cluster.
 - Istio Version: v1.1.7 + 
 - Knative Version: v0.8.0 +
+You may find this [installation instruction](https://github.com/kubeflow/kfserving/blob/master/docs/DEVELOPER_GUIDE.md#install-knative-on-a-kubernetes-cluster) useful.
 
 ### Install ###
 ```
