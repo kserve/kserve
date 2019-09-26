@@ -212,7 +212,7 @@ class KFServingClient(object):
         api_version = current_kfsvc['apiVersion']
 
         try:
-            current_canary_spec = current_kfsvc['spec']['canary']
+            current_canary_spec = current_kfsvc['spec']['canary']
         except KeyError:
             raise RuntimeError("Cannot promote a KFService that has no Canary Spec.")
 
