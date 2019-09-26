@@ -9,7 +9,7 @@ This directory contains tests and testing docs for `KFServing`:
 
 ## Prerequisite
 `kfserving-controller-manager` has a few integration tests which requires mock apiserver
-and etcd, they get installed along with [`kubebuilder`](https://book.kubebuilder.io/getting_started/installation_and_setup.html).
+and etcd, they get installed along with [`kubebuilder`](https://book.kubebuilder.io/quick-start.html#installation).
 
 ## Running unit/integration tests
 
