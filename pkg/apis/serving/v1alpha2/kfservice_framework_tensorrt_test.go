@@ -25,27 +25,25 @@ import (
 	v1 "k8s.io/api/core/v1"
 )
 
-var requestedResource = v1.ResourceRequirements{
-	Limits: v1.ResourceList{
-		"cpu": resource.Quantity{
-			Format: "100",
-		},
-	},
-	Requests: v1.ResourceList{
-		"cpu": resource.Quantity{
-			Format: "90",
-		},
-	},
-}
-
-var config = FrameworksConfig{
-	TensorRT: FrameworkConfig{
-		ContainerImage: "someOtherImage",
-	},
-}
-
 func TestCreateModelServingContainer(t *testing.T) {
 
+	var requestedResource = v1.ResourceRequirements{
+		Limits: v1.ResourceList{
+			"cpu": resource.Quantity{
+				Format: "100",
+			},
+		},
+		Requests: v1.ResourceList{
+			"cpu": resource.Quantity{
+				Format: "90",
+			},
+		},
+	}
+	var config = FrameworksConfig{
+		TensorRT: FrameworkConfig{
+			ContainerImage: "someOtherImage",
+		},
+	}
 	var spec = TensorRTSpec{
 		StorageURI:     "gs://someUri",
 		Resources:      requestedResource,
