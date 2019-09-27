@@ -17,6 +17,7 @@ import logging
 import tempfile
 import os
 import re
+from urllib.parse import urlparse
 from azure.common import AzureMissingResourceHttpError
 from azure.storage.blob import BlockBlobService
 from google.auth import exceptions
@@ -193,9 +194,9 @@ class Storage(object): # pylint: disable=too-few-public-methods
     @staticmethod
     def _create_minio_client():
         # Remove possible http scheme for Minio
-        url = re.compile(r"https?://")
-        minioClient = Minio(url.sub("", os.getenv("S3_ENDPOINT", "")),
-                            access_key=os.getenv("AWS_ACCESS_KEY_ID", ""),
-                            secret_key=os.getenv("AWS_SECRET_ACCESS_KEY", ""),
-                            secure=True)
-        return minioClient
+        url = urlparse(os.getenv("AWS_ENDPOINT_URL", ""))
+        use_ssl = url.scheme == 'https' if url.scheme else bool(os.getenv("S3_USE_HTTPS", "true"))
+        return Minio(url.netloc,
+                     access_key=os.getenv("AWS_ACCESS_KEY_ID", ""),
+                     secret_key=os.getenv("AWS_SECRET_ACCESS_KEY", ""),
+                     secure=use_ssl)
