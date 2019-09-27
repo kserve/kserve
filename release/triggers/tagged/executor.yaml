@@ -1,0 +1,27 @@
+---
+### Specify as necessary ###
+name: executor-tagged
+description: executor-tagged
+substitutions:
+  _COMPONENT: "executor"
+  _DOCKERFILE: "./executor.Dockerfile"
+  _CONTEXT: "."
+###########################
+github:
+  owner: kubeflow
+  name: kfserving
+  push:
+    tag: v*.*.*
+###########################
+build:
+  steps:
+  - name: docker
+    args:
+    - "build"
+    - "-t"
+    - "gcr.io/$REPO_NAME/${_COMPONENT}:$TAG_NAME"
+    - "-f"
+    - "${_DOCKERFILE}"
+    - "${_CONTEXT}"
+  images:
+  - gcr.io/$REPO_NAME/${_COMPONENT}:$TAG_NAME

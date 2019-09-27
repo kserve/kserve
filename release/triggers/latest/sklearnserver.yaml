@@ -1,16 +1,17 @@
 ---
 ### Specify as necessary ###
-description: TF2OpenAPI Autobuilder
+name: sklearn-server-latest
+description: sklearn-server-latest
 substitutions:
-  _COMPONENT: "tf2openapi"
-  _DOCKERFILE: "./tools/tf2openapi/Dockerfile"
-  _CONTEXT: "."
+  _COMPONENT: "sklearnserver"
+  _DOCKERFILE: "./python/sklearn.Dockerfile"
+  _CONTEXT: "./python"
 ###########################
 github:
   owner: kubeflow
   name: kfserving
   push:
-    tag: v0.*.*
+    branch: master
 ###########################
 build:
   steps:
@@ -18,9 +19,9 @@ build:
     args:
     - "build"
     - "-t"
-    - "gcr.io/$REPO_NAME/${_COMPONENT}:$TAG_NAME"
+    - "gcr.io/$REPO_NAME/${_COMPONENT}:latest"
     - "-f"
     - "${_DOCKERFILE}"
     - "${_CONTEXT}"
   images:
-  - gcr.io/$REPO_NAME/${_COMPONENT}:$TAG_NAME
+  - gcr.io/$REPO_NAME/${_COMPONENT}:latest

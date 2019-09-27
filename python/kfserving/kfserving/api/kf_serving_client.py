@@ -18,6 +18,8 @@ from ..constants import constants
 from ..utils import utils
 from .creds_utils import set_gcs_credentials, set_s3_credentials, set_azure_credentials
 from .kf_serving_watch import watch as kfsvc_watch
+from ..models.v1alpha2_kf_service import V1alpha2KFService
+from ..models.v1alpha2_kf_service_spec import V1alpha2KFServiceSpec
 
 
 class KFServingClient(object):
@@ -166,6 +168,68 @@ class KFServingClient(object):
                 timeout_seconds=timeout_seconds)
         else:
             return outputs
+
+    def replace(self, name, kfservice, namespace=None, watch=False, timeout_seconds=600): # pylint:disable=too-many-arguments,inconsistent-return-statements
+        """Replace the created KFService in the specified namespace"""
+
+        if namespace is None:
+            namespace = utils.set_kfsvc_namespace(kfservice)
+
+        if kfservice.metadata.resource_version is None:
+            current_kfsvc = self.get(name, namespace=namespace)
+            current_resource_version = current_kfsvc['metadata']['resourceVersion']
+            kfservice.metadata.resource_version = current_resource_version
+
+        try:
+            outputs = self.api_instance.replace_namespaced_custom_object(
+                constants.KFSERVING_GROUP,
+                constants.KFSERVING_VERSION,
+                namespace,
+                constants.KFSERVING_PLURAL,
+                name,
+                kfservice)
+        except client.rest.ApiException as e:
+            raise RuntimeError(
+                "Exception when calling CustomObjectsApi->replace_namespaced_custom_object:\
+                 %s\n" % e)
+
+        if watch:
+            kfsvc_watch(
+                name=outputs['metadata']['name'],
+                namespace=namespace,
+                timeout_seconds=timeout_seconds)
+        else:
+            return outputs
+
+
+    def promote(self, name, namespace=None, watch=False, timeout_seconds=600): # pylint:disable=too-many-arguments,inconsistent-return-statements
+        """Promote the created KFService in the specified namespace"""
+
+        if namespace is None:
+            namespace = utils.get_default_target_namespace()
+
+        current_kfsvc = self.get(name, namespace=namespace)
+        api_version = current_kfsvc['apiVersion']
+
+        try:
+            current_canary_spec = current_kfsvc['spec']['canary']
+        except KeyError:
+            raise RuntimeError("Cannot promote a KFService that has no Canary Spec.")
+
+        kfservice = V1alpha2KFService(
+            api_version=api_version,
+            kind=constants.KFSERVING_KIND,
+            metadata=client.V1ObjectMeta(
+                name=name,
+                namespace=namespace),
+            spec=V1alpha2KFServiceSpec(
+                default=current_canary_spec,
+                canary=None,
+                canary_traffic_percent=0))
+
+        return self.replace(name=name, kfservice=kfservice, namespace=namespace,
+                            watch=watch, timeout_seconds=timeout_seconds)
+
 
     def delete(self, name, namespace=None):
         """Delete the provided KFService in the specified namespace"""

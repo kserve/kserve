@@ -27,7 +27,7 @@ data:
     }
   storageInitializer: |-
     {
-        "image" : "kcorer/storage-initializer:latest"
+        "image" : "gcr.io/kfserving/storage-initializer:latest"
     }
   credentials: |-
     {
