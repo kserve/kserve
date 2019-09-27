@@ -1042,13 +1042,16 @@
 
 [[projects]]
   branch = "release-0.8"
-  digest = "1:3a264aa82a389ab4c637569c170f202534d000ebd1c30c645fc7383313d0ea1e"
+  digest = "1:84ed12904805906e55c729c010f8fc2e0b1f1fc632ac8e2e3d1dd78a0b0df5f7"
   name = "knative.dev/pkg"
   packages = [
     "apis",
     "apis/duck",
     "apis/duck/v1alpha1",
     "apis/duck/v1beta1",
+    "apis/istio",
+    "apis/istio/common/v1alpha1",
+    "apis/istio/v1alpha3",
     "configmap",
     "kmeta",
     "kmp",
@@ -1210,6 +1213,7 @@
     "knative.dev/pkg/apis",
     "knative.dev/pkg/apis/duck",
     "knative.dev/pkg/apis/duck/v1beta1",
+    "knative.dev/pkg/apis/istio/v1alpha3",
     "knative.dev/pkg/kmp",
     "knative.dev/serving/pkg/apis/autoscaling",
     "knative.dev/serving/pkg/apis/serving",
