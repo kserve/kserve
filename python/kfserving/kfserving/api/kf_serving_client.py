@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import time
 from kubernetes import client, config
 
 from ..constants import constants
@@ -162,6 +163,8 @@ class KFServingClient(object):
                  %s\n" % e)
 
         if watch:
+            # Sleep 3 to avoid status still be True within a very short time.
+            time.sleep(3)
             kfsvc_watch(
                 name=outputs['metadata']['name'],
                 namespace=namespace,
@@ -200,6 +203,26 @@ class KFServingClient(object):
                 timeout_seconds=timeout_seconds)
         else:
             return outputs
+
+
+    def rollout_canary(self, name, percent, namespace=None, # pylint:disable=too-many-arguments,inconsistent-return-statements
+                       canary=None, watch=False, timeout_seconds=600):
+        """Rollout canary for the created KFService in the specified namespace"""
+
+        if namespace is None:
+            namespace = utils.get_default_target_namespace()
+
+        current_kfsvc = self.get(name, namespace=namespace)
+
+        if canary is None and 'canary' not in current_kfsvc['spec']:
+            raise RuntimeError("Canary spec missing? Specify canary for the KFService.")
+
+        current_kfsvc['spec']['canaryTrafficPercent'] = percent
+        if canary:
+            current_kfsvc['spec']['canary'] = canary
+
+        return self.patch(name=name, kfservice=current_kfsvc, namespace=namespace,
+                          watch=watch, timeout_seconds=timeout_seconds)
 
 
     def promote(self, name, namespace=None, watch=False, timeout_seconds=600): # pylint:disable=too-many-arguments,inconsistent-return-statements
