@@ -15,15 +15,19 @@
 import unittest.mock as mock
 import kfserving
 
+
 def create_mock_obj(path):
     mock_obj = mock.MagicMock()
     mock_obj.object_name = path
+    mock_obj.is_dir = False
     return mock_obj
+
 
 def create_mock_minio_client(mock_storage, paths):
     mock_minio_client = mock_storage.return_value
     mock_minio_client.list_objects.return_value = [create_mock_obj(p) for p in paths]
     return mock_minio_client
+
 
 def get_call_args(call_args_list):
     arg_list = []
@@ -32,11 +36,13 @@ def get_call_args(call_args_list):
         arg_list.append(args)
     return arg_list
 
+
 def expected_call_args_list(bucket_name, parent_key, dest, paths):
     return [(bucket_name, f'{parent_key}/{p}'.strip('/'), f'{dest}/{p}'.strip('/'))
             for p in paths]
 
 # pylint: disable=protected-access
+
 
 @mock.patch('kfserving.storage.Minio')
 def test_parent_key(mock_storage):
@@ -56,6 +62,7 @@ def test_parent_key(mock_storage):
 
     mock_minio_client.list_objects.assert_called_with(bucket_name, prefix='bar', recursive=True)
 
+
 @mock.patch('kfserving.storage.Minio')
 def test_no_key(mock_storage):
 
@@ -73,6 +80,7 @@ def test_no_key(mock_storage):
 
     mock_minio_client.list_objects.assert_called_with(bucket_name, prefix='', recursive=True)
 
+
 @mock.patch('kfserving.storage.Minio')
 def test_full_name_key(mock_storage):
 
@@ -86,8 +94,8 @@ def test_full_name_key(mock_storage):
 
     # then
     arg_list = get_call_args(mock_minio_client.fget_object.call_args_list)
-    assert arg_list == expected_call_args_list(bucket_name, 'path/to/model', 'dest_path',
-                                               ['name.pt'])
+    assert arg_list == expected_call_args_list(bucket_name, '', 'dest_path',
+                                               [object_key])
 
     mock_minio_client.list_objects.assert_called_with(bucket_name, prefix=object_key,
                                                       recursive=True)
