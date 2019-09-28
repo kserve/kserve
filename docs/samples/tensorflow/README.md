@@ -22,7 +22,7 @@ $ kfservice.serving.kubeflow.org/flowers-sample configured
 MODEL_NAME=flowers-sample
 INPUT_PATH=@./input.json
 CLUSTER_IP=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-SERVICE_HOSTNAME=$(kubectl get kfservice ${MODEL_NAME} -o jsonpath='{.status.url}' |sed -e 's/^http:\/\///g' -e 's/^https:\/\///g')
+SERVICE_HOSTNAME=$(kubectl get kfservice ${MODEL_NAME} -o jsonpath='{.status.url}' |sed 's/.*:\/\///g')
 
 curl -v -H "Host: ${SERVICE_HOSTNAME}" http://$CLUSTER_IP/v1/models/$MODEL_NAME:predict -d $INPUT_PATH
 ```
