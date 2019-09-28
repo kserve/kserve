@@ -276,3 +276,11 @@ Error: reading strategic merge patches [manager_image_patch.yaml]: evalsymlink f
 ```
 
 It`s a red herring. To resolve it, please ensure you have logged into dockerhub from you client machine.
+
+3. When you deploy the tensorflow sample, you may encounter an error like the one blow:
+
+```
+2019-09-28 01:52:23.345692: E tensorflow_serving/sources/storage_path/file_system_storage_path_source.cc:362] FileSystemStoragePathSource encountered a filesystem access error: Could not find base path /mnt/models for servable flowers-sample
+```
+
+Please make sure not to deploy the kfservice in the `kfserving-system` or other namespaces where a pod has  `control-plane` as a label. The webhook to inject an init-container to download model failed in such namespaces.
