@@ -283,4 +283,4 @@ It`s a red herring. To resolve it, please ensure you have logged into dockerhub 
 2019-09-28 01:52:23.345692: E tensorflow_serving/sources/storage_path/file_system_storage_path_source.cc:362] FileSystemStoragePathSource encountered a filesystem access error: Could not find base path /mnt/models for servable flowers-sample
 ```
 
-Please make sure not to deploy the kfservice in the `kfserving-system` or other namespaces where a pod has  `control-plane` as a label. The webhook to inject an init-container to download model failed in such namespaces.
+Please make sure not to deploy the kfservice in the `kfserving-system` or other namespaces where namespace has  `control-plane` as a label. The `storage-initializer` init container does not get injected for deployments in those namespaces since they do not go through the mutating webhook.
