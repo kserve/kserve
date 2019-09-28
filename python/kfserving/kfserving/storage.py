@@ -71,10 +71,12 @@ class Storage(object): # pylint: disable=too-few-public-methods
         for obj in objects:
             # Replace any prefix from the object key with temp_dir
             subdir_object_key = obj.object_name.replace(bucket_path, "", 1).strip("/")
-            if subdir_object_key == "":
-                subdir_object_key = obj.object_name.split("/")[-1]
-            client.fget_object(bucket_name, obj.object_name,
-                               os.path.join(temp_dir, subdir_object_key))
+            # fget_object handles directory creation if does not exist
+            if not obj.is_dir:
+                if subdir_object_key == "":
+                    subdir_object_key = obj.object_name
+                client.fget_object(bucket_name, obj.object_name,
+                                   os.path.join(temp_dir, subdir_object_key))
 
     @staticmethod
     def _download_gcs(uri, temp_dir: str):
