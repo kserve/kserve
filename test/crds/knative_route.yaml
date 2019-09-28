@@ -22,9 +22,9 @@ spec:
   subresources:
     status: {}
   additionalPrinterColumns:
-    - name: Domain
+    - name: URL
       type: string
-      JSONPath: .status.domain
+      JSONPath: .status.url
     - name: Ready
       type: string
       JSONPath: ".status.conditions[?(@.type=='Ready')].status"
