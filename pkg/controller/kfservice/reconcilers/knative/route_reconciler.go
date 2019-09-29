@@ -28,7 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/pkg/kmp"
-	knservingv1alpha1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
+	knativeserving "knative.dev/serving/pkg/apis/serving/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
@@ -75,13 +75,13 @@ func (r *RouteReconciler) Reconcile(kfsvc *v1alpha2.KFService) error {
 	return nil
 }
 
-func (r *RouteReconciler) reconcileRoute(kfsvc *v1alpha2.KFService, desired *knservingv1alpha1.Route) (*knservingv1alpha1.RouteStatus, error) {
+func (r *RouteReconciler) reconcileRoute(kfsvc *v1alpha2.KFService, desired *knativeserving.Route) (*knativeserving.RouteStatus, error) {
 	if err := controllerutil.SetControllerReference(kfsvc, desired, r.scheme); err != nil {
 		return nil, err
 	}
 
 	// Create route if does not exist
-	existing := &knservingv1alpha1.Route{}
+	existing := &knativeserving.Route{}
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, existing)
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -114,7 +114,7 @@ func (r *RouteReconciler) reconcileRoute(kfsvc *v1alpha2.KFService, desired *kns
 	return &existing.Status, nil
 }
 
-func routeSemanticEquals(desired, existing *knservingv1alpha1.Route) bool {
+func routeSemanticEquals(desired, existing *knativeserving.Route) bool {
 	return equality.Semantic.DeepEqual(desired.Spec, existing.Spec) &&
 		equality.Semantic.DeepEqual(desired.ObjectMeta.Labels, existing.ObjectMeta.Labels) &&
 		equality.Semantic.DeepEqual(desired.ObjectMeta.Annotations, existing.ObjectMeta.Annotations)

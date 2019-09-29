@@ -26,11 +26,10 @@ import (
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/controller/kfservice/resources/credentials"
 	"github.com/kubeflow/kfserving/pkg/utils"
-	v1 "k8s.io/api/core/v1"
+	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/serving/pkg/apis/autoscaling"
-	knservingv1alpha1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	knativeserving "knative.dev/serving/pkg/apis/serving/v1beta1"
 )
 
 const (
@@ -74,7 +73,7 @@ func NewServiceBuilder(client client.Client, config *v1.ConfigMap) *ServiceBuild
 	}
 }
 
-func (c *ServiceBuilder) CreateEndpointService(kfsvc *v1alpha2.KFService, endpoint constants.KFServiceEndpoint, isCanary bool) (*knservingv1alpha1.Service, error) {
+func (c *ServiceBuilder) CreateEndpointService(kfsvc *v1alpha2.KFService, endpoint constants.KFServiceEndpoint, isCanary bool) (*knativeserving.Service, error) {
 	serviceName := constants.DefaultServiceName(kfsvc.Name, endpoint)
 	if isCanary {
 		serviceName = constants.CanaryServiceName(kfsvc.Name, endpoint)
@@ -116,7 +115,7 @@ func (c *ServiceBuilder) CreateEndpointService(kfsvc *v1alpha2.KFService, endpoi
 	return nil, fmt.Errorf("Invalid endpoint")
 }
 
-func (c *ServiceBuilder) CreatePredictorService(name string, metadata metav1.ObjectMeta, predictorSpec *v1alpha2.PredictorSpec) (*knservingv1alpha1.Service, error) {
+func (c *ServiceBuilder) CreatePredictorService(name string, metadata metav1.ObjectMeta, predictorSpec *v1alpha2.PredictorSpec) (*knativeserving.Service, error) {
 	annotations := utils.Filter(metadata.Annotations, func(key string) bool {
 		return !utils.Includes(serviceAnnotationDisallowedList, key)
 	})
@@ -143,31 +142,29 @@ func (c *ServiceBuilder) CreatePredictorService(name string, metadata metav1.Obj
 		annotations[constants.StorageInitializerSourceUriInternalAnnotationKey] = sourceURI
 	}
 
-	service := &knservingv1alpha1.Service{
+	service := &knativeserving.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: metadata.Namespace,
 			Labels:    metadata.Labels,
 		},
-		Spec: knservingv1alpha1.ServiceSpec{
-			ConfigurationSpec: knservingv1alpha1.ConfigurationSpec{
-				Template: &knservingv1alpha1.RevisionTemplateSpec{
+		Spec: knativeserving.ServiceSpec{
+			ConfigurationSpec: knativeserving.ConfigurationSpec{
+				Template: knativeserving.RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: utils.Union(metadata.Labels, map[string]string{
 							constants.KFServicePodLabelKey: metadata.Name,
 						}),
 						Annotations: annotations,
 					},
-					Spec: knservingv1alpha1.RevisionSpec{
-						RevisionSpec: v1beta1.RevisionSpec{
-							// Defaulting here since this always shows a diff with nil vs 300s(knative default)
-							// we may need to expose this field in future
-							TimeoutSeconds: &constants.DefaultTimeout,
-							PodSpec: v1.PodSpec{
-								ServiceAccountName: predictorSpec.ServiceAccountName,
-								Containers: []v1.Container{
-									*predictorSpec.GetContainer(metadata.Name, c.frameworksConfig),
-								},
+					Spec: knativeserving.RevisionSpec{
+						// Defaulting here since this always shows a diff with nil vs 300s(knative default)
+						// we may need to expose this field in future
+						TimeoutSeconds: &constants.DefaultTimeout,
+						PodSpec: v1.PodSpec{
+							ServiceAccountName: predictorSpec.ServiceAccountName,
+							Containers: []v1.Container{
+								*predictorSpec.GetContainer(metadata.Name, c.frameworksConfig),
 							},
 						},
 					},
@@ -188,7 +185,7 @@ func (c *ServiceBuilder) CreatePredictorService(name string, metadata metav1.Obj
 	return service, nil
 }
 
-func (c *ServiceBuilder) CreateTransformerService(name string, metadata metav1.ObjectMeta, transformerSpec *v1alpha2.TransformerSpec, isCanary bool) (*knservingv1alpha1.Service, error) {
+func (c *ServiceBuilder) CreateTransformerService(name string, metadata metav1.ObjectMeta, transformerSpec *v1alpha2.TransformerSpec, isCanary bool) (*knativeserving.Service, error) {
 	annotations := utils.Filter(metadata.Annotations, func(key string) bool {
 		return !utils.Includes(serviceAnnotationDisallowedList, key)
 	})
@@ -222,31 +219,29 @@ func (c *ServiceBuilder) CreateTransformerService(name string, metadata metav1.O
 		predictorHostName,
 	}
 	container.Args = append(container.Args, predefinedArgs...)
-	service := &knservingv1alpha1.Service{
+	service := &knativeserving.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: metadata.Namespace,
 			Labels:    metadata.Labels,
 		},
-		Spec: knservingv1alpha1.ServiceSpec{
-			ConfigurationSpec: knservingv1alpha1.ConfigurationSpec{
-				Template: &knservingv1alpha1.RevisionTemplateSpec{
+		Spec: knativeserving.ServiceSpec{
+			ConfigurationSpec: knativeserving.ConfigurationSpec{
+				Template: knativeserving.RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: utils.Union(metadata.Labels, map[string]string{
 							constants.KFServicePodLabelKey: metadata.Name,
 						}),
 						Annotations: annotations,
 					},
-					Spec: knservingv1alpha1.RevisionSpec{
-						RevisionSpec: v1beta1.RevisionSpec{
-							// Defaulting here since this always shows a diff with nil vs 300s(knative default)
-							// we may need to expose this field in future
-							TimeoutSeconds: &constants.DefaultTimeout,
-							PodSpec: v1.PodSpec{
-								ServiceAccountName: transformerSpec.ServiceAccountName,
-								Containers: []v1.Container{
-									container,
-								},
+					Spec: knativeserving.RevisionSpec{
+						// Defaulting here since this always shows a diff with nil vs 300s(knative default)
+						// we may need to expose this field in future
+						TimeoutSeconds: &constants.DefaultTimeout,
+						PodSpec: v1.PodSpec{
+							ServiceAccountName: transformerSpec.ServiceAccountName,
+							Containers: []v1.Container{
+								container,
 							},
 						},
 					},
@@ -267,7 +262,8 @@ func (c *ServiceBuilder) CreateTransformerService(name string, metadata metav1.O
 	return service, nil
 }
 
-func (c *ServiceBuilder) CreateExplainerService(name string, metadata metav1.ObjectMeta, explainerSpec *v1alpha2.ExplainerSpec, predictorService string, isCanary bool) (*knservingv1alpha1.Service, error) {
+func (c *ServiceBuilder) CreateExplainerService(name string, metadata metav1.ObjectMeta, explainerSpec *v1alpha2.ExplainerSpec,
+	predictorService string, isCanary bool) (*knativeserving.Service, error) {
 	annotations := utils.Filter(metadata.Annotations, func(key string) bool {
 		return !utils.Includes(serviceAnnotationDisallowedList, key)
 	})
@@ -294,31 +290,29 @@ func (c *ServiceBuilder) CreateExplainerService(name string, metadata metav1.Obj
 		annotations[constants.StorageInitializerSourceUriInternalAnnotationKey] = sourceURI
 	}
 
-	service := &knservingv1alpha1.Service{
+	service := &knativeserving.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: metadata.Namespace,
 			Labels:    metadata.Labels,
 		},
-		Spec: knservingv1alpha1.ServiceSpec{
-			ConfigurationSpec: knservingv1alpha1.ConfigurationSpec{
-				Template: &knservingv1alpha1.RevisionTemplateSpec{
+		Spec: knativeserving.ServiceSpec{
+			ConfigurationSpec: knativeserving.ConfigurationSpec{
+				Template: knativeserving.RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: utils.Union(metadata.Labels, map[string]string{
 							constants.KFServicePodLabelKey: metadata.Name,
 						}),
 						Annotations: annotations,
 					},
-					Spec: knservingv1alpha1.RevisionSpec{
-						RevisionSpec: v1beta1.RevisionSpec{
-							// Defaulting here since this always shows a diff with nil vs 300s(knative default)
-							// we may need to expose this field in future
-							TimeoutSeconds: &constants.DefaultTimeout,
-							PodSpec: v1.PodSpec{
-								ServiceAccountName: explainerSpec.ServiceAccountName,
-								Containers: []v1.Container{
-									*explainerSpec.CreateExplainerContainer(metadata.Name, predictorService, c.explainersConfig),
-								},
+					Spec: knativeserving.RevisionSpec{
+						// Defaulting here since this always shows a diff with nil vs 300s(knative default)
+						// we may need to expose this field in future
+						TimeoutSeconds: &constants.DefaultTimeout,
+						PodSpec: v1.PodSpec{
+							ServiceAccountName: explainerSpec.ServiceAccountName,
+							Containers: []v1.Container{
+								*explainerSpec.CreateExplainerContainer(metadata.Name, predictorService, c.explainersConfig),
 							},
 						},
 					},

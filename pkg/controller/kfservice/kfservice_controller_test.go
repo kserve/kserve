@@ -24,19 +24,17 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	kfserving "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	testutils "github.com/kubeflow/kfserving/pkg/testing"
-	v1 "k8s.io/api/core/v1"
-	"knative.dev/pkg/apis"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
-
-	kfserving "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	"github.com/onsi/gomega"
 	"golang.org/x/net/context"
+	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"knative.dev/pkg/apis"
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
-	knservingv1alpha1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
+	knativeserving "knative.dev/serving/pkg/apis/serving/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -124,17 +122,17 @@ func TestKFServiceWithOnlyPredictor(t *testing.T) {
 	defer c.Delete(context.TODO(), defaultInstance)
 	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
 
-	service := &knservingv1alpha1.Service{}
+	service := &knativeserving.Service{}
 	g.Eventually(func() error { return c.Get(context.TODO(), predictorService, service) }, timeout).
 		Should(gomega.Succeed())
-	expectedService := &knservingv1alpha1.Service{
+	expectedService := &knativeserving.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      constants.DefaultPredictorServiceName(defaultInstance.Name),
 			Namespace: defaultInstance.Namespace,
 		},
-		Spec: knservingv1alpha1.ServiceSpec{
-			ConfigurationSpec: knservingv1alpha1.ConfigurationSpec{
-				Template: &knservingv1alpha1.RevisionTemplateSpec{
+		Spec: knativeserving.ServiceSpec{
+			ConfigurationSpec: knativeserving.ConfigurationSpec{
+				Template: knativeserving.RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: map[string]string{"serving.kubeflow.org/kfservice": "foo"},
 						Annotations: map[string]string{
@@ -145,21 +143,19 @@ func TestKFServiceWithOnlyPredictor(t *testing.T) {
 							constants.StorageInitializerSourceUriInternalAnnotationKey: defaultInstance.Spec.Default.Predictor.Tensorflow.StorageURI,
 						},
 					},
-					Spec: knservingv1alpha1.RevisionSpec{
-						RevisionSpec: v1beta1.RevisionSpec{
-							TimeoutSeconds: &constants.DefaultTimeout,
-							PodSpec: v1.PodSpec{
-								Containers: []v1.Container{
-									{
-										Image: kfserving.TensorflowServingImageName + ":" +
-											defaultInstance.Spec.Default.Predictor.Tensorflow.RuntimeVersion,
-										Command: []string{kfserving.TensorflowEntrypointCommand},
-										Args: []string{
-											"--port=" + kfserving.TensorflowServingGRPCPort,
-											"--rest_api_port=" + kfserving.TensorflowServingRestPort,
-											"--model_name=" + defaultInstance.Name,
-											"--model_base_path=" + constants.DefaultModelLocalMountPath,
-										},
+					Spec: knativeserving.RevisionSpec{
+						TimeoutSeconds: &constants.DefaultTimeout,
+						PodSpec: v1.PodSpec{
+							Containers: []v1.Container{
+								{
+									Image: kfserving.TensorflowServingImageName + ":" +
+										defaultInstance.Spec.Default.Predictor.Tensorflow.RuntimeVersion,
+									Command: []string{kfserving.TensorflowEntrypointCommand},
+									Args: []string{
+										"--port=" + kfserving.TensorflowServingGRPCPort,
+										"--rest_api_port=" + kfserving.TensorflowServingRestPort,
+										"--model_name=" + defaultInstance.Name,
+										"--model_base_path=" + constants.DefaultModelLocalMountPath,
 									},
 								},
 							},
@@ -171,7 +167,7 @@ func TestKFServiceWithOnlyPredictor(t *testing.T) {
 	}
 	g.Expect(service.Spec).To(gomega.Equal(expectedService.Spec))
 
-	route := &knservingv1alpha1.Route{}
+	route := &knativeserving.Route{}
 	g.Eventually(func() error { return c.Get(context.TODO(), routeName, route) }, timeout).
 		Should(gomega.Succeed())
 	// mock update knative service/route status since knative serving controller is not running in test
@@ -180,7 +176,7 @@ func TestKFServiceWithOnlyPredictor(t *testing.T) {
 	updated.Status.LatestReadyRevisionName = "revision-v1"
 	updated.Status.Conditions = duckv1beta1.Conditions{
 		{
-			Type:   knservingv1alpha1.ServiceConditionReady,
+			Type:   knativeserving.ServiceConditionReady,
 			Status: "True",
 		},
 	}
@@ -189,17 +185,15 @@ func TestKFServiceWithOnlyPredictor(t *testing.T) {
 
 	updatedRoute := route.DeepCopy()
 	updatedRoute.Status.URL = &apis.URL{Scheme: "http", Host: serviceKey.Name + ".svc.cluster.local"}
-	updatedRoute.Status.Traffic = []knservingv1alpha1.TrafficTarget{
-		knservingv1alpha1.TrafficTarget{
-			TrafficTarget: v1beta1.TrafficTarget{
-				RevisionName: "revision-v1",
-				Percent:      0,
-			},
+	updatedRoute.Status.Traffic = []knativeserving.TrafficTarget{
+		{
+			RevisionName: "revision-v1",
+			Percent:      0,
 		},
 	}
 	updatedRoute.Status.Conditions = duckv1beta1.Conditions{
 		{
-			Type:   knservingv1alpha1.RouteConditionReady,
+			Type:   knativeserving.RouteConditionReady,
 			Status: "True",
 		},
 	}
@@ -325,21 +319,21 @@ func TestKFServiceWithOnlyCanaryPredictor(t *testing.T) {
 	defer c.Delete(context.TODO(), canaryInstance)
 	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedCanaryRequest)))
 
-	defaultService := &knservingv1alpha1.Service{}
+	defaultService := &knativeserving.Service{}
 	g.Eventually(func() error { return c.Get(context.TODO(), defaultPredictor, defaultService) }, timeout).
 		Should(gomega.Succeed())
 
-	canaryService := &knservingv1alpha1.Service{}
+	canaryService := &knativeserving.Service{}
 	g.Eventually(func() error { return c.Get(context.TODO(), canaryPredictor, canaryService) }, timeout).
 		Should(gomega.Succeed())
-	expectedCanaryService := &knservingv1alpha1.Service{
+	expectedCanaryService := &knativeserving.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      constants.CanaryPredictorServiceName(canaryInstance.Name),
 			Namespace: canaryInstance.Namespace,
 		},
-		Spec: knservingv1alpha1.ServiceSpec{
-			ConfigurationSpec: knservingv1alpha1.ConfigurationSpec{
-				Template: &knservingv1alpha1.RevisionTemplateSpec{
+		Spec: knativeserving.ServiceSpec{
+			ConfigurationSpec: knativeserving.ConfigurationSpec{
+				Template: knativeserving.RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: map[string]string{"serving.kubeflow.org/kfservice": "bar"},
 						Annotations: map[string]string{
@@ -350,21 +344,19 @@ func TestKFServiceWithOnlyCanaryPredictor(t *testing.T) {
 							constants.StorageInitializerSourceUriInternalAnnotationKey: canary.Spec.Canary.Predictor.Tensorflow.StorageURI,
 						},
 					},
-					Spec: knservingv1alpha1.RevisionSpec{
-						RevisionSpec: v1beta1.RevisionSpec{
-							TimeoutSeconds: &constants.DefaultTimeout,
-							PodSpec: v1.PodSpec{
-								Containers: []v1.Container{
-									{
-										Image: kfserving.TensorflowServingImageName + ":" +
-											canary.Spec.Canary.Predictor.Tensorflow.RuntimeVersion,
-										Command: []string{kfserving.TensorflowEntrypointCommand},
-										Args: []string{
-											"--port=" + kfserving.TensorflowServingGRPCPort,
-											"--rest_api_port=" + kfserving.TensorflowServingRestPort,
-											"--model_name=" + canary.Name,
-											"--model_base_path=" + constants.DefaultModelLocalMountPath,
-										},
+					Spec: knativeserving.RevisionSpec{
+						TimeoutSeconds: &constants.DefaultTimeout,
+						PodSpec: v1.PodSpec{
+							Containers: []v1.Container{
+								{
+									Image: kfserving.TensorflowServingImageName + ":" +
+										canary.Spec.Canary.Predictor.Tensorflow.RuntimeVersion,
+									Command: []string{kfserving.TensorflowEntrypointCommand},
+									Args: []string{
+										"--port=" + kfserving.TensorflowServingGRPCPort,
+										"--rest_api_port=" + kfserving.TensorflowServingRestPort,
+										"--model_name=" + canary.Name,
+										"--model_base_path=" + constants.DefaultModelLocalMountPath,
 									},
 								},
 							},
@@ -376,27 +368,23 @@ func TestKFServiceWithOnlyCanaryPredictor(t *testing.T) {
 	}
 	g.Expect(cmp.Diff(canaryService.Spec, expectedCanaryService.Spec)).To(gomega.Equal(""))
 	g.Expect(canaryService.Name).To(gomega.Equal(expectedCanaryService.Name))
-	route := &knservingv1alpha1.Route{}
+	route := &knativeserving.Route{}
 	g.Eventually(func() error { return c.Get(context.TODO(), routeName, route) }, timeout).
 		Should(gomega.Succeed())
-	expectedRoute := knservingv1alpha1.Route{
+	expectedRoute := knativeserving.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      constants.PredictRouteName(canaryInstance.Name),
 			Namespace: canaryInstance.Namespace,
 		},
-		Spec: knservingv1alpha1.RouteSpec{
-			Traffic: []knservingv1alpha1.TrafficTarget{
+		Spec: knativeserving.RouteSpec{
+			Traffic: []knativeserving.TrafficTarget{
 				{
-					TrafficTarget: v1beta1.TrafficTarget{
-						ConfigurationName: constants.DefaultPredictorServiceName(canary.Name),
-						Percent:           80,
-					},
+					ConfigurationName: constants.DefaultPredictorServiceName(canary.Name),
+					Percent:           80,
 				},
 				{
-					TrafficTarget: v1beta1.TrafficTarget{
-						ConfigurationName: constants.CanaryPredictorServiceName(canary.Name),
-						Percent:           20,
-					},
+					ConfigurationName: constants.CanaryPredictorServiceName(canary.Name),
+					Percent:           20,
 				},
 			},
 		},
@@ -409,7 +397,7 @@ func TestKFServiceWithOnlyCanaryPredictor(t *testing.T) {
 	updateDefault.Status.LatestReadyRevisionName = "revision-v1"
 	updateDefault.Status.Conditions = duckv1beta1.Conditions{
 		{
-			Type:   knservingv1alpha1.ServiceConditionReady,
+			Type:   knativeserving.ServiceConditionReady,
 			Status: "True",
 		},
 	}
@@ -421,7 +409,7 @@ func TestKFServiceWithOnlyCanaryPredictor(t *testing.T) {
 	updateCanary.Status.LatestReadyRevisionName = "revision-v2"
 	updateCanary.Status.Conditions = duckv1beta1.Conditions{
 		{
-			Type:   knservingv1alpha1.ServiceConditionReady,
+			Type:   knativeserving.ServiceConditionReady,
 			Status: "True",
 		},
 	}
@@ -430,23 +418,19 @@ func TestKFServiceWithOnlyCanaryPredictor(t *testing.T) {
 
 	updatedRoute := route.DeepCopy()
 	updatedRoute.Status.URL = &apis.URL{Scheme: "http", Host: canaryServiceKey.Name + ".svc.cluster.local"}
-	updatedRoute.Status.Traffic = []knservingv1alpha1.TrafficTarget{
+	updatedRoute.Status.Traffic = []knativeserving.TrafficTarget{
 		{
-			TrafficTarget: v1beta1.TrafficTarget{
-				RevisionName: "revision-v2",
-				Percent:      20,
-			},
+			RevisionName: "revision-v2",
+			Percent:      20,
 		},
 		{
-			TrafficTarget: v1beta1.TrafficTarget{
-				RevisionName: "revision-v1",
-				Percent:      80,
-			},
+			RevisionName: "revision-v1",
+			Percent:      80,
 		},
 	}
 	updatedRoute.Status.Conditions = duckv1beta1.Conditions{
 		{
-			Type:   knservingv1alpha1.RouteConditionReady,
+			Type:   knativeserving.RouteConditionReady,
 			Status: "True",
 		},
 	}
@@ -588,15 +572,15 @@ func TestCanaryDelete(t *testing.T) {
 	defer c.Delete(context.TODO(), canaryInstance)
 	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedCanaryRequest)))
 
-	defaultService := &knservingv1alpha1.Service{}
+	defaultService := &knativeserving.Service{}
 	g.Eventually(func() error { return c.Get(context.TODO(), defaultPredictor, defaultService) }, timeout).
 		Should(gomega.Succeed())
 
-	canaryService := &knservingv1alpha1.Service{}
+	canaryService := &knativeserving.Service{}
 	g.Eventually(func() error { return c.Get(context.TODO(), canaryPredictor, canaryService) }, timeout).
 		Should(gomega.Succeed())
 
-	route := &knservingv1alpha1.Route{}
+	route := &knativeserving.Route{}
 	g.Eventually(func() error { return c.Get(context.TODO(), routeName, route) }, timeout).
 		Should(gomega.Succeed())
 
@@ -606,7 +590,7 @@ func TestCanaryDelete(t *testing.T) {
 	updateDefault.Status.LatestReadyRevisionName = "revision-v1"
 	updateDefault.Status.Conditions = duckv1beta1.Conditions{
 		{
-			Type:   knservingv1alpha1.ServiceConditionReady,
+			Type:   knativeserving.ServiceConditionReady,
 			Status: "True",
 		},
 	}
@@ -618,7 +602,7 @@ func TestCanaryDelete(t *testing.T) {
 	updateCanary.Status.LatestReadyRevisionName = "revision-v2"
 	updateCanary.Status.Conditions = duckv1beta1.Conditions{
 		{
-			Type:   knservingv1alpha1.ServiceConditionReady,
+			Type:   knativeserving.ServiceConditionReady,
 			Status: "True",
 		},
 	}
@@ -627,17 +611,17 @@ func TestCanaryDelete(t *testing.T) {
 
 	updatedRoute := route.DeepCopy()
 	updatedRoute.Status.URL = &apis.URL{Scheme: "http", Host: canaryServiceKey.Name + ".svc.cluster.local"}
-	updatedRoute.Status.Traffic = []knservingv1alpha1.TrafficTarget{
+	updatedRoute.Status.Traffic = []knativeserving.TrafficTarget{
 		{
-			TrafficTarget: v1beta1.TrafficTarget{RevisionName: "revision-v2", Percent: 20},
+			RevisionName: "revision-v2", Percent: 20,
 		},
 		{
-			TrafficTarget: v1beta1.TrafficTarget{RevisionName: "revision-v1", Percent: 80},
+			RevisionName: "revision-v1", Percent: 80,
 		},
 	}
 	updatedRoute.Status.Conditions = duckv1beta1.Conditions{
 		{
-			Type:   knservingv1alpha1.RouteConditionReady,
+			Type:   knativeserving.RouteConditionReady,
 			Status: "True",
 		},
 	}
@@ -701,11 +685,11 @@ func TestCanaryDelete(t *testing.T) {
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedCanaryRequest)))
 
-	defaultService = &knservingv1alpha1.Service{}
+	defaultService = &knativeserving.Service{}
 	g.Eventually(func() error { return c.Get(context.TODO(), defaultPredictor, defaultService) }, timeout).
 		Should(gomega.Succeed())
 
-	canaryService = &knservingv1alpha1.Service{}
+	canaryService = &knativeserving.Service{}
 	g.Eventually(func() bool {
 		err := c.Get(context.TODO(), canaryPredictor, canaryService)
 		return errors.IsNotFound(err)
@@ -858,29 +842,29 @@ func TestKFServiceWithTransformer(t *testing.T) {
 	defer c.Delete(context.TODO(), instance)
 	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
 
-	defaultPredictorService := &knservingv1alpha1.Service{}
+	defaultPredictorService := &knativeserving.Service{}
 	g.Eventually(func() error { return c.Get(context.TODO(), defaultPredictor, defaultPredictorService) }, timeout).
 		Should(gomega.Succeed())
 
-	canaryPredictorService := &knservingv1alpha1.Service{}
+	canaryPredictorService := &knativeserving.Service{}
 	g.Eventually(func() error { return c.Get(context.TODO(), canaryPredictor, canaryPredictorService) }, timeout).
 		Should(gomega.Succeed())
 
-	defaultTransformerService := &knservingv1alpha1.Service{}
+	defaultTransformerService := &knativeserving.Service{}
 	g.Eventually(func() error { return c.Get(context.TODO(), defaultTransformer, defaultTransformerService) }, timeout).
 		Should(gomega.Succeed())
 
-	canaryTransformerService := &knservingv1alpha1.Service{}
+	canaryTransformerService := &knativeserving.Service{}
 	g.Eventually(func() error { return c.Get(context.TODO(), canaryTransformer, canaryTransformerService) }, timeout).
 		Should(gomega.Succeed())
-	expectedCanaryService := &knservingv1alpha1.Service{
+	expectedCanaryService := &knativeserving.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      constants.CanaryTransformerServiceName(instance.Name),
 			Namespace: instance.Namespace,
 		},
-		Spec: knservingv1alpha1.ServiceSpec{
-			ConfigurationSpec: knservingv1alpha1.ConfigurationSpec{
-				Template: &knservingv1alpha1.RevisionTemplateSpec{
+		Spec: knativeserving.ServiceSpec{
+			ConfigurationSpec: knativeserving.ConfigurationSpec{
+				Template: knativeserving.RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: map[string]string{"serving.kubeflow.org/kfservice": serviceName},
 						Annotations: map[string]string{
@@ -890,19 +874,17 @@ func TestKFServiceWithTransformer(t *testing.T) {
 							"autoscaling.knative.dev/minScale": "1",
 						},
 					},
-					Spec: knservingv1alpha1.RevisionSpec{
-						RevisionSpec: v1beta1.RevisionSpec{
-							TimeoutSeconds: &constants.DefaultTimeout,
-							PodSpec: v1.PodSpec{
-								Containers: []v1.Container{
-									{
-										Image: "transformer:v2",
-										Args: []string{
-											"--model_name",
-											serviceName,
-											"--predictor_host",
-											constants.CanaryPredictorServiceName(instance.Name) + "." + instance.Namespace,
-										},
+					Spec: knativeserving.RevisionSpec{
+						TimeoutSeconds: &constants.DefaultTimeout,
+						PodSpec: v1.PodSpec{
+							Containers: []v1.Container{
+								{
+									Image: "transformer:v2",
+									Args: []string{
+										"--model_name",
+										serviceName,
+										"--predictor_host",
+										constants.CanaryPredictorServiceName(instance.Name) + "." + instance.Namespace,
 									},
 								},
 							},
@@ -913,27 +895,23 @@ func TestKFServiceWithTransformer(t *testing.T) {
 		},
 	}
 	g.Expect(cmp.Diff(canaryTransformerService.Spec, expectedCanaryService.Spec)).To(gomega.Equal(""))
-	route := &knservingv1alpha1.Route{}
+	route := &knativeserving.Route{}
 	g.Eventually(func() error { return c.Get(context.TODO(), routeName, route) }, timeout).
 		Should(gomega.Succeed())
-	expectedRoute := knservingv1alpha1.Route{
+	expectedRoute := knativeserving.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      constants.PredictRouteName(instance.Name),
 			Namespace: instance.Namespace,
 		},
-		Spec: knservingv1alpha1.RouteSpec{
-			Traffic: []knservingv1alpha1.TrafficTarget{
+		Spec: knativeserving.RouteSpec{
+			Traffic: []knativeserving.TrafficTarget{
 				{
-					TrafficTarget: v1beta1.TrafficTarget{
-						ConfigurationName: constants.DefaultTransformerServiceName(instance.Name),
-						Percent:           80,
-					},
+					ConfigurationName: constants.DefaultTransformerServiceName(instance.Name),
+					Percent:           80,
 				},
 				{
-					TrafficTarget: v1beta1.TrafficTarget{
-						ConfigurationName: constants.CanaryTransformerServiceName(instance.Name),
-						Percent:           20,
-					},
+					ConfigurationName: constants.CanaryTransformerServiceName(instance.Name),
+					Percent:           20,
 				},
 			},
 		},
@@ -941,7 +919,6 @@ func TestKFServiceWithTransformer(t *testing.T) {
 	g.Expect(route.Spec).To(gomega.Equal(expectedRoute.Spec))
 
 	// mock update knative service status since knative serving controller is not running in test
-
 	// update predictor
 	{
 		updateDefault := defaultPredictorService.DeepCopy()
@@ -949,7 +926,7 @@ func TestKFServiceWithTransformer(t *testing.T) {
 		updateDefault.Status.LatestReadyRevisionName = "revision-v1"
 		updateDefault.Status.Conditions = duckv1beta1.Conditions{
 			{
-				Type:   knservingv1alpha1.ServiceConditionReady,
+				Type:   knativeserving.ServiceConditionReady,
 				Status: "True",
 			},
 		}
@@ -961,7 +938,7 @@ func TestKFServiceWithTransformer(t *testing.T) {
 		updateCanary.Status.LatestReadyRevisionName = "revision-v2"
 		updateCanary.Status.Conditions = duckv1beta1.Conditions{
 			{
-				Type:   knservingv1alpha1.ServiceConditionReady,
+				Type:   knativeserving.ServiceConditionReady,
 				Status: "True",
 			},
 		}
@@ -976,7 +953,7 @@ func TestKFServiceWithTransformer(t *testing.T) {
 		updateDefault.Status.LatestReadyRevisionName = "t-revision-v1"
 		updateDefault.Status.Conditions = duckv1beta1.Conditions{
 			{
-				Type:   knservingv1alpha1.ServiceConditionReady,
+				Type:   knativeserving.ServiceConditionReady,
 				Status: "True",
 			},
 		}
@@ -988,7 +965,7 @@ func TestKFServiceWithTransformer(t *testing.T) {
 		updateCanary.Status.LatestReadyRevisionName = "t-revision-v2"
 		updateCanary.Status.Conditions = duckv1beta1.Conditions{
 			{
-				Type:   knservingv1alpha1.ServiceConditionReady,
+				Type:   knativeserving.ServiceConditionReady,
 				Status: "True",
 			},
 		}
@@ -999,23 +976,19 @@ func TestKFServiceWithTransformer(t *testing.T) {
 	// update route
 	updatedRoute := route.DeepCopy()
 	updatedRoute.Status.URL = &apis.URL{Scheme: "http", Host: serviceName + ".svc.cluster.local"}
-	updatedRoute.Status.Traffic = []knservingv1alpha1.TrafficTarget{
+	updatedRoute.Status.Traffic = []knativeserving.TrafficTarget{
 		{
-			TrafficTarget: v1beta1.TrafficTarget{
-				RevisionName: "t-revision-v2",
-				Percent:      20,
-			},
+			RevisionName: "t-revision-v2",
+			Percent:      20,
 		},
 		{
-			TrafficTarget: v1beta1.TrafficTarget{
-				RevisionName: "t-revision-v1",
-				Percent:      80,
-			},
+			RevisionName: "t-revision-v1",
+			Percent:      80,
 		},
 	}
 	updatedRoute.Status.Conditions = duckv1beta1.Conditions{
 		{
-			Type:   knservingv1alpha1.RouteConditionReady,
+			Type:   knativeserving.RouteConditionReady,
 			Status: "True",
 		},
 	}

@@ -29,8 +29,7 @@ import (
 	"github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	knservingv1alpha1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	knativeserving "knative.dev/serving/pkg/apis/serving/v1beta1"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -52,7 +51,7 @@ func TestKnativeRouteReconcile(t *testing.T) {
 	routeReconciler := NewRouteReconciler(c, mgr.GetScheme())
 	scenarios := map[string]struct {
 		kfsvc        v1alpha2.KFService
-		desiredRoute *knservingv1alpha1.Route
+		desiredRoute *knativeserving.Route
 	}{
 		"Reconcile new model serving": {
 			kfsvc: v1alpha2.KFService{
@@ -71,18 +70,16 @@ func TestKnativeRouteReconcile(t *testing.T) {
 					},
 				},
 			},
-			desiredRoute: &knservingv1alpha1.Route{
+			desiredRoute: &knativeserving.Route{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.PredictRouteName("mnist"),
 					Namespace: "default",
 				},
-				Spec: knservingv1alpha1.RouteSpec{
-					Traffic: []knservingv1alpha1.TrafficTarget{
+				Spec: knativeserving.RouteSpec{
+					Traffic: []knativeserving.TrafficTarget{
 						{
-							TrafficTarget: v1beta1.TrafficTarget{
-								ConfigurationName: constants.DefaultPredictorServiceName("mnist"),
-								Percent:           100,
-							},
+							ConfigurationName: constants.DefaultPredictorServiceName("mnist"),
+							Percent:           100,
 						},
 					},
 				},
@@ -112,18 +109,16 @@ func TestKnativeRouteReconcile(t *testing.T) {
 					},
 				},
 			},
-			desiredRoute: &knservingv1alpha1.Route{
+			desiredRoute: &knativeserving.Route{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.PredictRouteName("mnist"),
 					Namespace: "default",
 				},
-				Spec: knservingv1alpha1.RouteSpec{
-					Traffic: []knservingv1alpha1.TrafficTarget{
+				Spec: knativeserving.RouteSpec{
+					Traffic: []knativeserving.TrafficTarget{
 						{
-							TrafficTarget: v1beta1.TrafficTarget{
-								ConfigurationName: constants.DefaultTransformerServiceName("mnist"),
-								Percent:           100,
-							},
+							ConfigurationName: constants.DefaultTransformerServiceName("mnist"),
+							Percent:           100,
 						},
 					},
 				},
@@ -169,24 +164,20 @@ func TestKnativeRouteReconcile(t *testing.T) {
 					CanaryTrafficPercent: 20,
 				},
 			},
-			desiredRoute: &knservingv1alpha1.Route{
+			desiredRoute: &knativeserving.Route{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.PredictRouteName("mnist"),
 					Namespace: "default",
 				},
-				Spec: knservingv1alpha1.RouteSpec{
-					Traffic: []knservingv1alpha1.TrafficTarget{
+				Spec: knativeserving.RouteSpec{
+					Traffic: []knativeserving.TrafficTarget{
 						{
-							TrafficTarget: v1beta1.TrafficTarget{
-								ConfigurationName: constants.DefaultTransformerServiceName("mnist"),
-								Percent:           80,
-							},
+							ConfigurationName: constants.DefaultTransformerServiceName("mnist"),
+							Percent:           80,
 						},
 						{
-							TrafficTarget: v1beta1.TrafficTarget{
-								ConfigurationName: constants.CanaryTransformerServiceName("mnist"),
-								Percent:           20,
-							},
+							ConfigurationName: constants.CanaryTransformerServiceName("mnist"),
+							Percent:           20,
 						},
 					},
 				},
@@ -210,8 +201,8 @@ func TestKnativeRouteReconcile(t *testing.T) {
 	}
 }
 
-func awaitDesiredRoute(c client.Client, desired *knservingv1alpha1.Route) error {
-	actual := knservingv1alpha1.Route{}
+func awaitDesiredRoute(c client.Client, desired *knativeserving.Route) error {
+	actual := knativeserving.Route{}
 	if err := c.Get(context.TODO(), types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, &actual); err != nil {
 		return err
 	}

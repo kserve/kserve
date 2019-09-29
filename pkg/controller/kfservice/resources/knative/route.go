@@ -21,8 +21,7 @@ import (
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	knservingv1alpha1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	knativeserving "knative.dev/serving/pkg/apis/serving/v1beta1"
 )
 
 var routeAnnotationDisallowedList = []string{
@@ -37,40 +36,36 @@ func NewRouteBuilder() *RouteBuilder {
 }
 
 func (r *RouteBuilder) CreateKnativeRoute(kfsvc *v1alpha2.KFService, endpoint constants.KFServiceEndpoint,
-	verb constants.KFServiceVerb) *knservingv1alpha1.Route {
+	verb constants.KFServiceVerb) *knativeserving.Route {
 	defaultPercent := 100
 	canaryPercent := 0
 	if kfsvc.Spec.Canary != nil {
 		defaultPercent = 100 - kfsvc.Spec.CanaryTrafficPercent
 		canaryPercent = kfsvc.Spec.CanaryTrafficPercent
 	}
-	trafficTargets := []knservingv1alpha1.TrafficTarget{
+	trafficTargets := []knativeserving.TrafficTarget{
 		{
-			TrafficTarget: v1beta1.TrafficTarget{
-				ConfigurationName: constants.DefaultServiceName(kfsvc.Name, endpoint),
-				Percent:           defaultPercent,
-			},
+			ConfigurationName: constants.DefaultServiceName(kfsvc.Name, endpoint),
+			Percent:           defaultPercent,
 		},
 	}
 	if kfsvc.Spec.Canary != nil {
-		trafficTargets = append(trafficTargets, knservingv1alpha1.TrafficTarget{
-			TrafficTarget: v1beta1.TrafficTarget{
-				ConfigurationName: constants.CanaryServiceName(kfsvc.Name, endpoint),
-				Percent:           canaryPercent,
-			},
+		trafficTargets = append(trafficTargets, knativeserving.TrafficTarget{
+			ConfigurationName: constants.CanaryServiceName(kfsvc.Name, endpoint),
+			Percent:           canaryPercent,
 		})
 	}
 	kfsvcAnnotations := utils.Filter(kfsvc.Annotations, func(key string) bool {
 		return !utils.Includes(routeAnnotationDisallowedList, key)
 	})
-	return &knservingv1alpha1.Route{
+	return &knativeserving.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        constants.RouteName(kfsvc.Name, verb),
 			Namespace:   kfsvc.Namespace,
 			Labels:      kfsvc.Labels,
 			Annotations: kfsvcAnnotations,
 		},
-		Spec: knservingv1alpha1.RouteSpec{
+		Spec: knativeserving.RouteSpec{
 			Traffic: trafficTargets,
 		},
 	}
