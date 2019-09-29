@@ -47,7 +47,7 @@ func TestKnativeRouteReconcile(t *testing.T) {
 		close(stopMgr)
 		mgrStopped.Wait()
 	}()
-
+	latestRevision := true
 	routeReconciler := NewRouteReconciler(c, mgr.GetScheme())
 	scenarios := map[string]struct {
 		kfsvc        v1alpha2.KFService
@@ -79,6 +79,7 @@ func TestKnativeRouteReconcile(t *testing.T) {
 					Traffic: []knativeserving.TrafficTarget{
 						{
 							ConfigurationName: constants.DefaultPredictorServiceName("mnist"),
+							LatestRevision:    &latestRevision,
 							Percent:           100,
 						},
 					},
@@ -118,6 +119,7 @@ func TestKnativeRouteReconcile(t *testing.T) {
 					Traffic: []knativeserving.TrafficTarget{
 						{
 							ConfigurationName: constants.DefaultTransformerServiceName("mnist"),
+							LatestRevision:    &latestRevision,
 							Percent:           100,
 						},
 					},
@@ -173,10 +175,12 @@ func TestKnativeRouteReconcile(t *testing.T) {
 					Traffic: []knativeserving.TrafficTarget{
 						{
 							ConfigurationName: constants.DefaultTransformerServiceName("mnist"),
+							LatestRevision:    &latestRevision,
 							Percent:           80,
 						},
 						{
 							ConfigurationName: constants.CanaryTransformerServiceName("mnist"),
+							LatestRevision:    &latestRevision,
 							Percent:           20,
 						},
 					},

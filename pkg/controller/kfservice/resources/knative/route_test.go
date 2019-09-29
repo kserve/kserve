@@ -28,6 +28,7 @@ import (
 )
 
 func TestKnativeRoute(t *testing.T) {
+	latestRevision := true
 	scenarios := map[string]struct {
 		kfService     v1alpha2.KFService
 		expectedRoute *knativeserving.Route
@@ -60,6 +61,7 @@ func TestKnativeRoute(t *testing.T) {
 					Traffic: []knativeserving.TrafficTarget{
 						{
 							ConfigurationName: constants.DefaultPredictorServiceName("mnist"),
+							LatestRevision:    &latestRevision,
 							Percent:           100,
 						},
 					},
@@ -109,10 +111,12 @@ func TestKnativeRoute(t *testing.T) {
 					Traffic: []knativeserving.TrafficTarget{
 						{
 							ConfigurationName: constants.DefaultPredictorServiceName("mnist"),
+							LatestRevision:    &latestRevision,
 							Percent:           80,
 						},
 						{
 							ConfigurationName: constants.CanaryPredictorServiceName("mnist"),
+							LatestRevision:    &latestRevision,
 							Percent:           20,
 						},
 					},
@@ -170,10 +174,12 @@ func TestKnativeRoute(t *testing.T) {
 					Traffic: []knativeserving.TrafficTarget{
 						{
 							ConfigurationName: constants.DefaultPredictorServiceName("mnist"),
+							LatestRevision:    &latestRevision,
 							Percent:           80,
 						},
 						{
 							ConfigurationName: constants.CanaryPredictorServiceName("mnist"),
+							LatestRevision:    &latestRevision,
 							Percent:           20,
 						},
 					},

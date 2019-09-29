@@ -18,11 +18,12 @@ package constants
 
 import (
 	"fmt"
+	corev1 "k8s.io/api/core/v1"
 	"os"
 	"strings"
 
 	"k8s.io/api/admissionregistration/v1beta1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // KFServing Constants
@@ -53,9 +54,18 @@ var (
 
 // Controller Constants
 var (
-	ControllerLabelName        = KFServingName + "-controller-manager"
+	ControllerLabelName  = KFServingName + "-controller-manager"
+	DefaultScalingTarget = "1"
+
+	//Knative defaults
 	DefaultTimeout       int64 = 10
-	DefaultScalingTarget       = "1"
+	DefaultContainerName       = "user-container"
+	DefaultProbe               = &corev1.Probe{
+		SuccessThreshold: 1,
+		Handler: corev1.Handler{
+			TCPSocket: &corev1.TCPSocketAction{},
+		},
+	}
 )
 
 // Webhook Constants
@@ -172,7 +182,7 @@ func RouteName(name string, verb KFServiceVerb) string {
 	return name + "-" + verb.String()
 }
 
-func PredictorURL(metadata v1.ObjectMeta, isCanary bool) string {
+func PredictorURL(metadata metav1.ObjectMeta, isCanary bool) string {
 	if isCanary {
 		return fmt.Sprintf("http://%s.%s.svc.cluster.local", CanaryPredictorServiceName(metadata.Name), metadata.Namespace)
 	}

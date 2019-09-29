@@ -58,10 +58,12 @@ func (t *TensorRTSpec) GetContainer(modelName string, config *PredictorsConfig) 
 			"--http-port=" + fmt.Sprint(TensorRTISRestPort),
 		},
 		Ports: []v1.ContainerPort{
-			v1.ContainerPort{
+			{
 				ContainerPort: TensorRTISRestPort,
 			},
 		},
+		Name:           constants.DefaultContainerName,
+		ReadinessProbe: constants.DefaultProbe,
 	}
 }
 

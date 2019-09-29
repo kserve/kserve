@@ -49,7 +49,7 @@ func TestKnativeServiceReconcile(t *testing.T) {
 		close(stopMgr)
 		mgrStopped.Wait()
 	}()
-
+	latestRevision := true
 	serviceReconciler := NewServiceReconciler(c, mgr.GetScheme(), &v1.ConfigMap{})
 	scenarios := map[string]struct {
 		kfsvc          v1alpha2.KFService
@@ -110,12 +110,15 @@ func TestKnativeServiceReconcile(t *testing.T) {
 												"--model_name=mnist",
 												"--model_base_path=" + constants.DefaultModelLocalMountPath,
 											},
+											Name:           constants.DefaultContainerName,
+											ReadinessProbe: constants.DefaultProbe,
 										},
 									},
 								},
 							},
 						},
 					},
+					RouteSpec: knativeserving.RouteSpec{Traffic: []knativeserving.TrafficTarget{{LatestRevision: &latestRevision, Percent: 100}}},
 				},
 			},
 			desiredCanary: &knativeserving.Service{
@@ -147,12 +150,15 @@ func TestKnativeServiceReconcile(t *testing.T) {
 												"--model_name=mnist",
 												"--model_base_path=" + constants.DefaultModelLocalMountPath,
 											},
+											Name:           constants.DefaultContainerName,
+											ReadinessProbe: constants.DefaultProbe,
 										},
 									},
 								},
 							},
 						},
 					},
+					RouteSpec: knativeserving.RouteSpec{Traffic: []knativeserving.TrafficTarget{{LatestRevision: &latestRevision, Percent: 100}}},
 				},
 			},
 		},
@@ -202,12 +208,15 @@ func TestKnativeServiceReconcile(t *testing.T) {
 												"--model_name=mnist",
 												"--model_base_path=" + constants.DefaultModelLocalMountPath,
 											},
+											Name:           constants.DefaultContainerName,
+											ReadinessProbe: constants.DefaultProbe,
 										},
 									},
 								},
 							},
 						},
 					},
+					RouteSpec: knativeserving.RouteSpec{Traffic: []knativeserving.TrafficTarget{{LatestRevision: &latestRevision, Percent: 100}}},
 				},
 			},
 			desiredCanary: nil,

@@ -65,6 +65,8 @@ func (t *TensorflowSpec) GetContainer(modelName string, config *PredictorsConfig
 			"--model_name=" + modelName,
 			"--model_base_path=" + constants.DefaultModelLocalMountPath,
 		},
+		Name:           constants.DefaultContainerName,
+		ReadinessProbe: constants.DefaultProbe,
 	}
 }
 

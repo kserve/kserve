@@ -51,6 +51,8 @@ func (s *SKLearnSpec) GetContainer(modelName string, config *PredictorsConfig) *
 			"--model_name=" + modelName,
 			"--model_dir=" + constants.DefaultModelLocalMountPath,
 		},
+		Name:           constants.DefaultContainerName,
+		ReadinessProbe: constants.DefaultProbe,
 	}
 }
 

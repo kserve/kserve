@@ -53,6 +53,8 @@ func (s *ONNXSpec) GetContainer(modelName string, config *PredictorsConfig) *v1.
 			"--http_port", ONNXServingRestPort,
 			"--grpc_port", ONNXServingGRPCPort,
 		},
+		Name:           constants.DefaultContainerName,
+		ReadinessProbe: constants.DefaultProbe,
 	}
 }
 

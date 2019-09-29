@@ -53,6 +53,8 @@ func (s *PyTorchSpec) GetContainer(modelName string, config *PredictorsConfig) *
 			"--model_class_name=" + s.ModelClassName,
 			"--model_dir=" + constants.DefaultModelLocalMountPath,
 		},
+		Name:           constants.DefaultContainerName,
+		ReadinessProbe: constants.DefaultProbe,
 	}
 }
 
