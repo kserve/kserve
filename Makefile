@@ -31,6 +31,9 @@ deploy-dev: manifests
 	./hack/image_patch_dev.sh
 	kustomize build config/overlays/development | kubectl apply -f -
 
+deploy-test: manifests
+	kustomize build config/overlays/test | kubectl apply -f -
+
 undeploy:
 	kustomize build config/default | kubectl delete -f -
 
