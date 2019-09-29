@@ -24,14 +24,13 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	knservingv1alpha1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	knativeserving "knative.dev/serving/pkg/apis/serving/v1beta1"
 )
 
 func TestKnativeRoute(t *testing.T) {
 	scenarios := map[string]struct {
 		kfService     v1alpha2.KFService
-		expectedRoute *knservingv1alpha1.Route
+		expectedRoute *knativeserving.Route
 		shouldFail    bool
 	}{
 		"RunLatestModel": {
@@ -51,19 +50,17 @@ func TestKnativeRoute(t *testing.T) {
 					},
 				},
 			},
-			expectedRoute: &knservingv1alpha1.Route{
+			expectedRoute: &knativeserving.Route{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        constants.PredictRouteName("mnist"),
 					Namespace:   "default",
 					Annotations: make(map[string]string),
 				},
-				Spec: knservingv1alpha1.RouteSpec{
-					Traffic: []knservingv1alpha1.TrafficTarget{
+				Spec: knativeserving.RouteSpec{
+					Traffic: []knativeserving.TrafficTarget{
 						{
-							TrafficTarget: v1beta1.TrafficTarget{
-								ConfigurationName: constants.DefaultPredictorServiceName("mnist"),
-								Percent:           100,
-							},
+							ConfigurationName: constants.DefaultPredictorServiceName("mnist"),
+							Percent:           100,
 						},
 					},
 				},
@@ -100,25 +97,21 @@ func TestKnativeRoute(t *testing.T) {
 					},
 				},
 			},
-			expectedRoute: &knservingv1alpha1.Route{
+			expectedRoute: &knativeserving.Route{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        constants.RouteName("mnist", constants.Predict),
 					Namespace:   "default",
 					Annotations: make(map[string]string),
 				},
-				Spec: knservingv1alpha1.RouteSpec{
-					Traffic: []knservingv1alpha1.TrafficTarget{
+				Spec: knativeserving.RouteSpec{
+					Traffic: []knativeserving.TrafficTarget{
 						{
-							TrafficTarget: v1beta1.TrafficTarget{
-								ConfigurationName: constants.DefaultPredictorServiceName("mnist"),
-								Percent:           80,
-							},
+							ConfigurationName: constants.DefaultPredictorServiceName("mnist"),
+							Percent:           80,
 						},
 						{
-							TrafficTarget: v1beta1.TrafficTarget{
-								ConfigurationName: constants.CanaryPredictorServiceName("mnist"),
-								Percent:           20,
-							},
+							ConfigurationName: constants.CanaryPredictorServiceName("mnist"),
+							Percent:           20,
 						},
 					},
 				},
@@ -160,7 +153,7 @@ func TestKnativeRoute(t *testing.T) {
 					},
 				},
 			},
-			expectedRoute: &knservingv1alpha1.Route{
+			expectedRoute: &knativeserving.Route{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.RouteName("mnist", constants.Predict),
 					Namespace: "default",
@@ -169,19 +162,15 @@ func TestKnativeRoute(t *testing.T) {
 						"prop1":      "val1",
 					},
 				},
-				Spec: knservingv1alpha1.RouteSpec{
-					Traffic: []knservingv1alpha1.TrafficTarget{
+				Spec: knativeserving.RouteSpec{
+					Traffic: []knativeserving.TrafficTarget{
 						{
-							TrafficTarget: v1beta1.TrafficTarget{
-								ConfigurationName: constants.DefaultPredictorServiceName("mnist"),
-								Percent:           80,
-							},
+							ConfigurationName: constants.DefaultPredictorServiceName("mnist"),
+							Percent:           80,
 						},
 						{
-							TrafficTarget: v1beta1.TrafficTarget{
-								ConfigurationName: constants.CanaryPredictorServiceName("mnist"),
-								Percent:           20,
-							},
+							ConfigurationName: constants.CanaryPredictorServiceName("mnist"),
+							Percent:           20,
 						},
 					},
 				},

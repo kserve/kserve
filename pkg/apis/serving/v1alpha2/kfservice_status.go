@@ -17,7 +17,7 @@ import (
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"k8s.io/api/core/v1"
 	"knative.dev/pkg/apis"
-	knservingv1alpha1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
+	knativeserving "knative.dev/serving/pkg/apis/serving/v1beta1"
 )
 
 // ConditionType represents a Service condition value
@@ -54,7 +54,7 @@ func (ss *KFServiceStatus) GetCondition(t apis.ConditionType) *apis.Condition {
 	return conditionSet.Manage(ss).GetCondition(t)
 }
 
-func (ss *KFServiceStatus) PropagateDefaultStatus(endpoint constants.KFServiceEndpoint, defaultStatus *knservingv1alpha1.ServiceStatus) {
+func (ss *KFServiceStatus) PropagateDefaultStatus(endpoint constants.KFServiceEndpoint, defaultStatus *knativeserving.ServiceStatus) {
 	switch endpoint {
 	case constants.Predictor:
 		ss.PropagateDefaultPredictorStatus(defaultStatus)
@@ -63,7 +63,7 @@ func (ss *KFServiceStatus) PropagateDefaultStatus(endpoint constants.KFServiceEn
 	}
 }
 
-func (ss *KFServiceStatus) PropagateCanaryStatus(endpoint constants.KFServiceEndpoint, canaryStatus *knservingv1alpha1.ServiceStatus) {
+func (ss *KFServiceStatus) PropagateCanaryStatus(endpoint constants.KFServiceEndpoint, canaryStatus *knativeserving.ServiceStatus) {
 	switch endpoint {
 	case constants.Predictor:
 		ss.PropagateCanaryPredictorStatus(canaryStatus)
@@ -74,9 +74,9 @@ func (ss *KFServiceStatus) PropagateCanaryStatus(endpoint constants.KFServiceEnd
 
 // PropagateDefaultPredictorStatus propagates the default predictor status and applies its values
 // to the Service status.
-func (ss *KFServiceStatus) PropagateDefaultPredictorStatus(defaultStatus *knservingv1alpha1.ServiceStatus) {
+func (ss *KFServiceStatus) PropagateDefaultPredictorStatus(defaultStatus *knativeserving.ServiceStatus) {
 	ss.Default.Name = defaultStatus.LatestCreatedRevisionName
-	serviceCondition := defaultStatus.GetCondition(knservingv1alpha1.ServiceConditionReady)
+	serviceCondition := defaultStatus.GetCondition(knativeserving.ServiceConditionReady)
 
 	switch {
 	case serviceCondition == nil:
@@ -91,7 +91,7 @@ func (ss *KFServiceStatus) PropagateDefaultPredictorStatus(defaultStatus *knserv
 
 // PropagateCanaryPredictorStatus propagates the canary predictor status and applies its values
 // to the Service status.
-func (ss *KFServiceStatus) PropagateCanaryPredictorStatus(canaryStatus *knservingv1alpha1.ServiceStatus) {
+func (ss *KFServiceStatus) PropagateCanaryPredictorStatus(canaryStatus *knativeserving.ServiceStatus) {
 	// reset status if canaryServiceStatus is nil
 	if canaryStatus == nil {
 		ss.Canary = StatusConfigurationSpec{}
@@ -99,7 +99,7 @@ func (ss *KFServiceStatus) PropagateCanaryPredictorStatus(canaryStatus *knservin
 		return
 	}
 	ss.Canary.Name = canaryStatus.LatestCreatedRevisionName
-	serviceCondition := canaryStatus.GetCondition(knservingv1alpha1.ServiceConditionReady)
+	serviceCondition := canaryStatus.GetCondition(knativeserving.ServiceConditionReady)
 
 	switch {
 	case serviceCondition == nil:
@@ -113,7 +113,7 @@ func (ss *KFServiceStatus) PropagateCanaryPredictorStatus(canaryStatus *knservin
 }
 
 // PropagateRouteStatus propagates route's status to the service's status.
-func (ss *KFServiceStatus) PropagateRouteStatus(rs *knservingv1alpha1.RouteStatus) {
+func (ss *KFServiceStatus) PropagateRouteStatus(rs *knativeserving.RouteStatus) {
 	ss.URL = rs.URL.String()
 
 	for _, traffic := range rs.Traffic {
@@ -126,7 +126,7 @@ func (ss *KFServiceStatus) PropagateRouteStatus(rs *knservingv1alpha1.RouteStatu
 		}
 	}
 
-	rc := rs.GetCondition(knservingv1alpha1.RouteConditionReady)
+	rc := rs.GetCondition(knativeserving.RouteConditionReady)
 
 	switch {
 	case rc == nil:

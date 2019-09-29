@@ -24,7 +24,7 @@ import (
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/controller/kfservice/resources/knative"
 	"knative.dev/pkg/kmp"
-	knservingv1alpha1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
+	knativeserving "knative.dev/serving/pkg/apis/serving/v1beta1"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -122,7 +122,7 @@ func (r *ServiceReconciler) reconcileEndpoint(kfsvc *v1alpha2.KFService, endpoin
 
 func (r *ServiceReconciler) finalizeCanaryService(kfsvc *v1alpha2.KFService, endpoint constants.KFServiceEndpoint) error {
 	canaryServiceName := constants.CanaryServiceName(kfsvc.Name, endpoint)
-	existing := &knservingv1alpha1.Service{}
+	existing := &knativeserving.Service{}
 	if err := r.client.Get(context.TODO(), types.NamespacedName{Name: canaryServiceName, Namespace: kfsvc.Namespace}, existing); err != nil {
 		if !errors.IsNotFound(err) {
 			return err
@@ -138,12 +138,12 @@ func (r *ServiceReconciler) finalizeCanaryService(kfsvc *v1alpha2.KFService, end
 	return nil
 }
 
-func (r *ServiceReconciler) reconcileService(kfsvc *v1alpha2.KFService, desired *knservingv1alpha1.Service) (*knservingv1alpha1.ServiceStatus, error) {
+func (r *ServiceReconciler) reconcileService(kfsvc *v1alpha2.KFService, desired *knativeserving.Service) (*knativeserving.ServiceStatus, error) {
 	if err := controllerutil.SetControllerReference(kfsvc, desired, r.scheme); err != nil {
 		return nil, err
 	}
 	// Create service if does not exist
-	existing := &knservingv1alpha1.Service{}
+	existing := &knativeserving.Service{}
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, existing)
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -174,7 +174,7 @@ func (r *ServiceReconciler) reconcileService(kfsvc *v1alpha2.KFService, desired 
 	return &existing.Status, nil
 }
 
-func semanticEquals(desiredService, service *knservingv1alpha1.Service) bool {
+func semanticEquals(desiredService, service *knativeserving.Service) bool {
 	return equality.Semantic.DeepEqual(desiredService.Spec, service.Spec) &&
 		equality.Semantic.DeepEqual(desiredService.ObjectMeta.Labels, service.ObjectMeta.Labels)
 }

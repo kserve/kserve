@@ -20,7 +20,7 @@ import (
 	"k8s.io/api/core/v1"
 	"knative.dev/pkg/apis/duck"
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	knativeserving "knative.dev/serving/pkg/apis/serving/v1beta1"
 	"testing"
 )
 
@@ -46,18 +46,18 @@ func TestKFServiceDuckType(t *testing.T) {
 func TestKFServiceIsReady(t *testing.T) {
 	cases := []struct {
 		name                 string
-		defaultServiceStatus v1alpha1.ServiceStatus
-		canaryServiceStatus  v1alpha1.ServiceStatus
-		routeStatus          v1alpha1.RouteStatus
+		defaultServiceStatus knativeserving.ServiceStatus
+		canaryServiceStatus  knativeserving.ServiceStatus
+		routeStatus          knativeserving.RouteStatus
 		isReady              bool
 	}{{
 		name:                 "empty status should not be ready",
-		defaultServiceStatus: v1alpha1.ServiceStatus{},
-		routeStatus:          v1alpha1.RouteStatus{},
+		defaultServiceStatus: knativeserving.ServiceStatus{},
+		routeStatus:          knativeserving.RouteStatus{},
 		isReady:              false,
 	}, {
 		name: "Different condition type should not be ready",
-		defaultServiceStatus: v1alpha1.ServiceStatus{
+		defaultServiceStatus: knativeserving.ServiceStatus{
 			Status: duckv1beta1.Status{
 				Conditions: duckv1beta1.Conditions{{
 					Type:   "Foo",
@@ -68,10 +68,10 @@ func TestKFServiceIsReady(t *testing.T) {
 		isReady: false,
 	}, {
 		name: "False condition status should not be ready",
-		defaultServiceStatus: v1alpha1.ServiceStatus{
+		defaultServiceStatus: knativeserving.ServiceStatus{
 			Status: duckv1beta1.Status{
 				Conditions: duckv1beta1.Conditions{{
-					Type:   v1alpha1.ServiceConditionReady,
+					Type:   knativeserving.ServiceConditionReady,
 					Status: v1.ConditionFalse,
 				}},
 			},
@@ -79,10 +79,10 @@ func TestKFServiceIsReady(t *testing.T) {
 		isReady: false,
 	}, {
 		name: "Unknown condition status should not be ready",
-		defaultServiceStatus: v1alpha1.ServiceStatus{
+		defaultServiceStatus: knativeserving.ServiceStatus{
 			Status: duckv1beta1.Status{
 				Conditions: duckv1beta1.Conditions{{
-					Type:   v1alpha1.ServiceConditionReady,
+					Type:   knativeserving.ServiceConditionReady,
 					Status: v1.ConditionUnknown,
 				}},
 			},
@@ -90,28 +90,28 @@ func TestKFServiceIsReady(t *testing.T) {
 		isReady: false,
 	}, {
 		name: "Missing condition status should not be ready",
-		defaultServiceStatus: v1alpha1.ServiceStatus{
+		defaultServiceStatus: knativeserving.ServiceStatus{
 			Status: duckv1beta1.Status{
 				Conditions: duckv1beta1.Conditions{{
-					Type: v1alpha1.ConfigurationConditionReady,
+					Type: knativeserving.ConfigurationConditionReady,
 				}},
 			},
 		},
 		isReady: false,
 	}, {
 		name: "True condition status should be ready",
-		defaultServiceStatus: v1alpha1.ServiceStatus{
+		defaultServiceStatus: knativeserving.ServiceStatus{
 			Status: duckv1beta1.Status{
 				Conditions: duckv1beta1.Conditions{{
-					Type:   v1alpha1.ConfigurationConditionReady,
+					Type:   knativeserving.ConfigurationConditionReady,
 					Status: v1.ConditionTrue,
 				}},
 			},
 		},
-		routeStatus: v1alpha1.RouteStatus{
+		routeStatus: knativeserving.RouteStatus{
 			Status: duckv1beta1.Status{
 				Conditions: duckv1beta1.Conditions{{
-					Type:   v1alpha1.RouteConditionReady,
+					Type:   knativeserving.RouteConditionReady,
 					Status: v1.ConditionTrue,
 				}},
 			},
@@ -119,22 +119,22 @@ func TestKFServiceIsReady(t *testing.T) {
 		isReady: true,
 	}, {
 		name: "Default service, route conditions with ready status should be ready",
-		defaultServiceStatus: v1alpha1.ServiceStatus{
+		defaultServiceStatus: knativeserving.ServiceStatus{
 			Status: duckv1beta1.Status{
 				Conditions: duckv1beta1.Conditions{{
 					Type:   "Foo",
 					Status: v1.ConditionTrue,
 				}, {
-					Type:   v1alpha1.ConfigurationConditionReady,
+					Type:   knativeserving.ConfigurationConditionReady,
 					Status: v1.ConditionTrue,
 				},
 				},
 			},
 		},
-		routeStatus: v1alpha1.RouteStatus{
+		routeStatus: knativeserving.RouteStatus{
 			Status: duckv1beta1.Status{
 				Conditions: duckv1beta1.Conditions{{
-					Type:   v1alpha1.RouteConditionReady,
+					Type:   knativeserving.RouteConditionReady,
 					Status: v1.ConditionTrue,
 				}},
 			},
@@ -142,28 +142,28 @@ func TestKFServiceIsReady(t *testing.T) {
 		isReady: true,
 	}, {
 		name: "Default/canary service, route conditions with ready status should be ready",
-		defaultServiceStatus: v1alpha1.ServiceStatus{
+		defaultServiceStatus: knativeserving.ServiceStatus{
 			Status: duckv1beta1.Status{
 				Conditions: duckv1beta1.Conditions{{
-					Type:   v1alpha1.ConfigurationConditionReady,
+					Type:   knativeserving.ConfigurationConditionReady,
 					Status: v1.ConditionTrue,
 				},
 				},
 			},
 		},
-		canaryServiceStatus: v1alpha1.ServiceStatus{
+		canaryServiceStatus: knativeserving.ServiceStatus{
 			Status: duckv1beta1.Status{
 				Conditions: duckv1beta1.Conditions{{
-					Type:   v1alpha1.ConfigurationConditionReady,
+					Type:   knativeserving.ConfigurationConditionReady,
 					Status: v1.ConditionTrue,
 				},
 				},
 			},
 		},
-		routeStatus: v1alpha1.RouteStatus{
+		routeStatus: knativeserving.RouteStatus{
 			Status: duckv1beta1.Status{
 				Conditions: duckv1beta1.Conditions{{
-					Type:   v1alpha1.RouteConditionReady,
+					Type:   knativeserving.RouteConditionReady,
 					Status: v1.ConditionTrue,
 				}},
 			},
@@ -171,21 +171,21 @@ func TestKFServiceIsReady(t *testing.T) {
 		isReady: true,
 	}, {
 		name: "Multiple conditions with ready status false should not be ready",
-		defaultServiceStatus: v1alpha1.ServiceStatus{
+		defaultServiceStatus: knativeserving.ServiceStatus{
 			Status: duckv1beta1.Status{
 				Conditions: duckv1beta1.Conditions{{
 					Type:   "Foo",
 					Status: v1.ConditionTrue,
 				}, {
-					Type:   v1alpha1.ConfigurationConditionReady,
+					Type:   knativeserving.ConfigurationConditionReady,
 					Status: v1.ConditionFalse,
 				}},
 			},
 		},
-		routeStatus: v1alpha1.RouteStatus{
+		routeStatus: knativeserving.RouteStatus{
 			Status: duckv1beta1.Status{
 				Conditions: duckv1beta1.Conditions{{
-					Type:   v1alpha1.RouteConditionReady,
+					Type:   knativeserving.RouteConditionReady,
 					Status: v1.ConditionTrue,
 				}},
 			},

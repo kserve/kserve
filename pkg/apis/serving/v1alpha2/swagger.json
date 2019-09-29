@@ -145,7 +145,7 @@
       "description": "ExplainerSpec defines the arguments for a model explanation server",
       "properties": {
         "alibi": {
-          "description": "The following fields follow a \"1-of\" semantic. Users must specify exactly one openapispec.",
+          "description": "The following fields follow a \"1-of\" semantic. Users must specify exactly one spec.",
           "$ref": "#/definitions/v1alpha2.AlibiExplainerSpec"
         },
         "custom": {
@@ -326,7 +326,7 @@
       "description": "PredictorSpec defines the configuration to route traffic to a predictor.",
       "properties": {
         "custom": {
-          "description": "The following fields follow a \"1-of\" semantic. Users must specify exactly one openapispec.",
+          "description": "The following fields follow a \"1-of\" semantic. Users must specify exactly one spec.",
           "$ref": "#/definitions/v1alpha2.CustomSpec"
         },
         "maxReplicas": {
