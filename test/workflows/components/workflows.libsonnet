@@ -196,53 +196,57 @@
                   template: "checkout",
                 }],
                 [
+                  //{
+                  //  name: "unit-test",
+                  //  template: "unit-test",
+                  //},
+                  //{
+                  //  name: "sdk-test",
+                  //  template: "sdk-test",
+                  //},
+                  //{
+                  //  name: "pylint-checking",
+                  //  template: "pylint-checking",
+                  //},
                   {
-                    name: "unit-test",
-                    template: "unit-test",
-                  },
-                  {
-                    name: "sdk-test",
-                    template: "sdk-test",
-                  },
-                  {
-                    name: "pylint-checking",
-                    template: "pylint-checking",
-                  },
-                ],
-                [
-                  {
-                    name: "build-kfserving-manager",
-                    template: "build-kfserving",
-                  },
-                  {
-                    name: "build-alibi-explainer",
-                    template: "build-alibi-explainer",
-                  },
-                  {
-                    name: "build-storage-initializer",
-                    template: "build-storage-initializer",
-                  },
-                  {
-                    name: "build-xgbserver",
-                    template: "build-xgbserver",
-                  },
-                  {
-                    name: "build-kfserving-executor",
-                    template: "build-kfserving-executor",
-                  },
-                  {
-                    name: "build-pytorchserver",
-                    template: "build-pytorchserver",
-                  },
-                  {
-                    name: "build-sklearnserver",
-                    template: "build-sklearnserver",
+                    name: "setup-cluster",
+                    template: "setup-cluster",
                   },
                 ],
+                //[
+                //  {
+                //    name: "build-kfserving-manager",
+                //    template: "build-kfserving",
+                //  },
+                //  {
+                //    name: "build-alibi-explainer",
+                //    template: "build-alibi-explainer",
+                //  },
+                //  {
+                //    name: "build-storage-initializer",
+                //    template: "build-storage-initializer",
+                //  },
+                //  {
+                //    name: "build-xgbserver",
+                //    template: "build-xgbserver",
+                //  },
+                //  {
+                //    name: "build-kfserving-executor",
+                //    template: "build-kfserving-executor",
+                //  },
+                //  {
+                //    name: "build-pytorchserver",
+                //    template: "build-pytorchserver",
+                //  },
+                //  {
+                //    name: "build-sklearnserver",
+                //    template: "build-sklearnserver",
+                //  },
+                //],
                 [
                   {
-                    name: "run-tests",
-                    template: "run-tests",
+                    name: "run-e2e-tests",
+                    template: "run-e2e-tests",
                   },
                 ],
               ],
@@ -250,6 +254,11 @@
             {
               name: "exit-handler",
               steps: [
+                [{
+                  name: "teardown-cluster",
+                  template: "teardown-cluster",
+
+                }],
                 [{
                   name: "copy-artifacts",
                   template: "copy-artifacts",
@@ -276,9 +285,15 @@
                 ],
               },
             },  // checkout
-            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("run-tests", helmImage, [
-              "test/scripts/run-tests.sh",
-            ]),  // run tests
+            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("setup-cluster",testWorkerImage, [
+              "test/scripts/create-cluster.sh",
+            ]),  // setup cluster
+            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("run-e2e-tests",testWorkerImage, [
+              "test/scripts/run-e2e-tests.sh",
+            ]),  // deploy kfserving
+            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("teardown-cluster",testWorkerImage, [
+              "test/scripts/delete-cluster.sh",
+             ]),  // teardown cluster
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-kfserving", testWorkerImage, [
               "test/scripts/build-kfserving.sh",
             ]),  // build-kfserving

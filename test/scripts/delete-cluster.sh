@@ -14,10 +14,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This shell script is used to build an image from our argo workflow
+# This shell script is used to delete a cluster.
 
 set -o errexit
 set -o nounset
 set -o pipefail
 
-# TODO: deploy kfserving and run e2e use test cases
+CLUSTER_NAME="${CLUSTER_NAME}"
+ZONE="${GCP_ZONE}"
+PROJECT="${GCP_PROJECT}"
+
+echo "Activating service-account"
+gcloud auth activate-service-account --key-file=${GOOGLE_APPLICATION_CREDENTIALS}
+
+echo "Tearing down the cluster"
+gcloud container clusters delete ${CLUSTER_NAME} --zone=${ZONE} --project=${PROJECT} --async
