@@ -227,6 +227,12 @@ func (c *ServiceBuilder) CreateTransformerService(name string, metadata metav1.O
 		predictorHostName,
 	}
 	container.Args = append(container.Args, predefinedArgs...)
+	if container.ReadinessProbe == nil {
+		container.ReadinessProbe = constants.DefaultProbe
+	}
+	if container.Name == "" {
+		container.Name = constants.DefaultContainerName
+	}
 	latestRevision := true
 	service := &knativeserving.Service{
 		ObjectMeta: metav1.ObjectMeta{

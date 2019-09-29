@@ -44,9 +44,11 @@ func (s *AlibiExplainerSpec) CreateExplainerServingContainer(modelName string, p
 	}
 
 	return &v1.Container{
-		Image:     imageName + ":" + s.RuntimeVersion,
-		Resources: s.Resources,
-		Args:      args,
+		Image:          imageName + ":" + s.RuntimeVersion,
+		Resources:      s.Resources,
+		Args:           args,
+		Name:           constants.DefaultContainerName,
+		ReadinessProbe: constants.DefaultProbe,
 	}
 }
 

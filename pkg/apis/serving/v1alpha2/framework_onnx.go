@@ -53,6 +53,8 @@ func (s *ONNXSpec) CreateModelServingContainer(modelName string, config *Framewo
 			"--http_port", ONNXServingRestPort,
 			"--grpc_port", ONNXServingGRPCPort,
 		},
+		Name:           constants.DefaultContainerName,
+		ReadinessProbe: constants.DefaultProbe,
 	}
 }
 

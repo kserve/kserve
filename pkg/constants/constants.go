@@ -17,6 +17,7 @@ limitations under the License.
 package constants
 
 import (
+	"k8s.io/api/core/v1"
 	"os"
 	"strings"
 
@@ -51,9 +52,18 @@ var (
 
 // Controller Constants
 var (
-	ControllerLabelName        = KFServingName + "-controller-manager"
+	ControllerLabelName  = KFServingName + "-controller-manager"
+	DefaultScalingTarget = "1"
+
+	//Knative defaults
 	DefaultTimeout       int64 = 300
-	DefaultScalingTarget       = "1"
+	DefaultContainerName       = "user-container"
+	DefaultProbe               = &v1.Probe{
+		SuccessThreshold: 1,
+		Handler: v1.Handler{
+			TCPSocket: &v1.TCPSocketAction{},
+		},
+	}
 )
 
 // Webhook Constants

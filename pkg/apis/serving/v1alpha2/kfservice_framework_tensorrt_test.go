@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha2
 
 import (
+	"github.com/kubeflow/kfserving/pkg/constants"
 	"testing"
 
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -64,10 +65,12 @@ func TestCreateModelServingContainer(t *testing.T) {
 			"--http-port=8080",
 		},
 		Ports: []v1.ContainerPort{
-			v1.ContainerPort{
+			{
 				ContainerPort: 8080,
 			},
 		},
+		Name:           constants.DefaultContainerName,
+		ReadinessProbe: constants.DefaultProbe,
 	}
 
 	// Test Create without config

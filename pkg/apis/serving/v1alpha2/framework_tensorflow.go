@@ -65,6 +65,8 @@ func (t *TensorflowSpec) CreateModelServingContainer(modelName string, config *F
 			"--model_name=" + modelName,
 			"--model_base_path=" + constants.DefaultModelLocalMountPath,
 		},
+		Name:           constants.DefaultContainerName,
+		ReadinessProbe: constants.DefaultProbe,
 	}
 }
 

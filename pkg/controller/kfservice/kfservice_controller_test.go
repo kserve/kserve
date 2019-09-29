@@ -42,7 +42,7 @@ import (
 
 var c client.Client
 
-const timeout = time.Second * 10
+const timeout = time.Second * 20
 
 var configs = map[string]string{
 	"frameworks": `{
@@ -125,6 +125,7 @@ func TestKFServiceWithOnlyPredictor(t *testing.T) {
 	service := &knativeserving.Service{}
 	g.Eventually(func() error { return c.Get(context.TODO(), predictorService, service) }, timeout).
 		Should(gomega.Succeed())
+	latestRevision := true
 	expectedService := &knativeserving.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      constants.DefaultPredictorServiceName(defaultInstance.Name),
@@ -157,12 +158,15 @@ func TestKFServiceWithOnlyPredictor(t *testing.T) {
 										"--model_name=" + defaultInstance.Name,
 										"--model_base_path=" + constants.DefaultModelLocalMountPath,
 									},
+									Name:           constants.DefaultContainerName,
+									ReadinessProbe: constants.DefaultProbe,
 								},
 							},
 						},
 					},
 				},
 			},
+			RouteSpec: knativeserving.RouteSpec{Traffic: []knativeserving.TrafficTarget{{LatestRevision: &latestRevision, Percent: 100}}},
 		},
 	}
 	g.Expect(service.Spec).To(gomega.Equal(expectedService.Spec))
@@ -315,6 +319,7 @@ func TestKFServiceWithOnlyCanaryPredictor(t *testing.T) {
 	canaryService := &knativeserving.Service{}
 	g.Eventually(func() error { return c.Get(context.TODO(), canaryPredictor, canaryService) }, timeout).
 		Should(gomega.Succeed())
+	latestRevision := true
 	expectedCanaryService := &knativeserving.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      constants.CanaryPredictorServiceName(canaryInstance.Name),
@@ -347,12 +352,15 @@ func TestKFServiceWithOnlyCanaryPredictor(t *testing.T) {
 										"--model_name=" + canary.Name,
 										"--model_base_path=" + constants.DefaultModelLocalMountPath,
 									},
+									Name:           constants.DefaultContainerName,
+									ReadinessProbe: constants.DefaultProbe,
 								},
 							},
 						},
 					},
 				},
 			},
+			RouteSpec: knativeserving.RouteSpec{Traffic: []knativeserving.TrafficTarget{{LatestRevision: &latestRevision, Percent: 100}}},
 		},
 	}
 	g.Expect(cmp.Diff(canaryService.Spec, expectedCanaryService.Spec)).To(gomega.Equal(""))
@@ -369,10 +377,12 @@ func TestKFServiceWithOnlyCanaryPredictor(t *testing.T) {
 			Traffic: []knativeserving.TrafficTarget{
 				{
 					ConfigurationName: constants.DefaultPredictorServiceName(canary.Name),
+					LatestRevision:    &latestRevision,
 					Percent:           80,
 				},
 				{
 					ConfigurationName: constants.CanaryPredictorServiceName(canary.Name),
+					LatestRevision:    &latestRevision,
 					Percent:           20,
 				},
 			},
@@ -404,15 +414,16 @@ func TestKFServiceWithOnlyCanaryPredictor(t *testing.T) {
 	}
 	g.Expect(c.Status().Update(context.TODO(), updateCanary)).NotTo(gomega.HaveOccurred())
 	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedCanaryRequest)))
-
 	updatedRoute := route.DeepCopy()
 	updatedRoute.Status.URL = &apis.URL{Scheme: "http", Host: canaryServiceKey.Name + ".svc.cluster.local"}
 	updatedRoute.Status.Traffic = []knativeserving.TrafficTarget{
 		{
-			RevisionName: "revision-v2", Percent: 20,
+			LatestRevision: &latestRevision,
+			RevisionName:   "revision-v2", Percent: 20,
 		},
 		{
-			RevisionName: "revision-v1", Percent: 80,
+			LatestRevision: &latestRevision,
+			RevisionName:   "revision-v1", Percent: 80,
 		},
 	}
 	updatedRoute.Status.Conditions = duckv1beta1.Conditions{
@@ -589,14 +600,17 @@ func TestCanaryDelete(t *testing.T) {
 	g.Expect(c.Status().Update(context.TODO(), updateCanary)).NotTo(gomega.HaveOccurred())
 	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedCanaryRequest)))
 
+	latestRevision := true
 	updatedRoute := route.DeepCopy()
 	updatedRoute.Status.URL = &apis.URL{Scheme: "http", Host: canaryServiceKey.Name + ".svc.cluster.local"}
 	updatedRoute.Status.Traffic = []knativeserving.TrafficTarget{
 		{
-			RevisionName: "revision-v2", Percent: 20,
+			LatestRevision: &latestRevision,
+			RevisionName:   "revision-v2", Percent: 20,
 		},
 		{
-			RevisionName: "revision-v1", Percent: 80,
+			LatestRevision: &latestRevision,
+			RevisionName:   "revision-v1", Percent: 80,
 		},
 	}
 	updatedRoute.Status.Conditions = duckv1beta1.Conditions{
@@ -828,6 +842,7 @@ func TestKFServiceWithTransformer(t *testing.T) {
 	canaryTransformerService := &knativeserving.Service{}
 	g.Eventually(func() error { return c.Get(context.TODO(), canaryTransformer, canaryTransformerService) }, timeout).
 		Should(gomega.Succeed())
+	latestRevision := true
 	expectedCanaryService := &knativeserving.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      constants.CanaryTransformerServiceName(instance.Name),
@@ -857,12 +872,15 @@ func TestKFServiceWithTransformer(t *testing.T) {
 										"--predictor_host",
 										constants.CanaryPredictorServiceName(instance.Name) + "." + instance.Namespace,
 									},
+									Name:           constants.DefaultContainerName,
+									ReadinessProbe: constants.DefaultProbe,
 								},
 							},
 						},
 					},
 				},
 			},
+			RouteSpec: knativeserving.RouteSpec{Traffic: []knativeserving.TrafficTarget{{LatestRevision: &latestRevision, Percent: 100}}},
 		},
 	}
 	g.Expect(cmp.Diff(canaryTransformerService.Spec, expectedCanaryService.Spec)).To(gomega.Equal(""))
@@ -878,10 +896,12 @@ func TestKFServiceWithTransformer(t *testing.T) {
 			Traffic: []knativeserving.TrafficTarget{
 				{
 					ConfigurationName: constants.DefaultTransformerServiceName(instance.Name),
+					LatestRevision:    &latestRevision,
 					Percent:           80,
 				},
 				{
 					ConfigurationName: constants.CanaryTransformerServiceName(instance.Name),
+					LatestRevision:    &latestRevision,
 					Percent:           20,
 				},
 			},
@@ -918,10 +938,12 @@ func TestKFServiceWithTransformer(t *testing.T) {
 	updatedRoute.Status.URL = &apis.URL{Scheme: "http", Host: serviceName + ".svc.cluster.local"}
 	updatedRoute.Status.Traffic = []knativeserving.TrafficTarget{
 		{
-			RevisionName: "revision-v2", Percent: 20,
+			LatestRevision: &latestRevision,
+			RevisionName:   "revision-v2", Percent: 20,
 		},
 		{
-			RevisionName: "revision-v1", Percent: 80,
+			LatestRevision: &latestRevision,
+			RevisionName:   "revision-v1", Percent: 80,
 		},
 	}
 	updatedRoute.Status.Conditions = duckv1beta1.Conditions{

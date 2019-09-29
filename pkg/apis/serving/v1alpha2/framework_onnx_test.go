@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha2
 
 import (
+	"github.com/kubeflow/kfserving/pkg/constants"
 	"testing"
 
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -62,6 +63,8 @@ func TestCreateOnnxModelServingContainer(t *testing.T) {
 			"--http_port", "8080",
 			"--grpc_port", "9000",
 		},
+		Name:           constants.DefaultContainerName,
+		ReadinessProbe: constants.DefaultProbe,
 	}
 
 	// Test Create with config

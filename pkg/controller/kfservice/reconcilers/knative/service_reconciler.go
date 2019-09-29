@@ -19,15 +19,13 @@ package knative
 import (
 	"context"
 	"fmt"
-	"github.com/google/go-cmp/cmp/cmpopts"
-
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/controller/kfservice/resources/knative"
 	"knative.dev/pkg/kmp"
 	knativeserving "knative.dev/serving/pkg/apis/serving/v1beta1"
 
-	v1 "k8s.io/api/core/v1"
+	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -160,21 +158,16 @@ func (r *ServiceReconciler) reconcileService(kfsvc *v1alpha2.KFService, desired 
 	}
 
 	// Reconcile differences and update
-	diff, err := kmp.SafeDiff(desired.Spec, existing.Spec,
-		cmpopts.IgnoreTypes(&v1.Probe{}),
-		cmpopts.IgnoreFields(v1.Container{}, "Name"))
+	diff, err := kmp.SafeDiff(desired.Spec, existing.Spec)
 	if err != nil {
 		return &existing.Status, fmt.Errorf("failed to diff service: %v", err)
 	}
 	log.Info("Reconciling service diff (-desired, +observed):", "diff", diff)
-
-	if diff != "" {
-		log.Info("Updating service", "namespace", desired.Namespace, "name", desired.Name)
-		existing.Spec = desired.Spec
-		existing.ObjectMeta.Labels = desired.ObjectMeta.Labels
-		if err := r.client.Update(context.TODO(), existing); err != nil {
-			return &existing.Status, err
-		}
+	log.Info("Updating service", "namespace", desired.Namespace, "name", desired.Name)
+	existing.Spec = desired.Spec
+	existing.ObjectMeta.Labels = desired.ObjectMeta.Labels
+	if err := r.client.Update(context.TODO(), existing); err != nil {
+		return &existing.Status, err
 	}
 
 	return &existing.Status, nil

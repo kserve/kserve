@@ -49,6 +49,8 @@ func (x *XGBoostSpec) CreateModelServingContainer(modelName string, config *Fram
 			"--model_name=" + modelName,
 			"--model_dir=" + constants.DefaultModelLocalMountPath,
 		},
+		Name:           constants.DefaultContainerName,
+		ReadinessProbe: constants.DefaultProbe,
 	}
 }
 
