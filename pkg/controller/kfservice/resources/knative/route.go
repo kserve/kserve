@@ -43,15 +43,18 @@ func (r *RouteBuilder) CreateKnativeRoute(kfsvc *v1alpha2.KFService, endpoint co
 		defaultPercent = 100 - kfsvc.Spec.CanaryTrafficPercent
 		canaryPercent = kfsvc.Spec.CanaryTrafficPercent
 	}
+	latestRevision := true
 	trafficTargets := []knativeserving.TrafficTarget{
 		{
 			ConfigurationName: constants.DefaultServiceName(kfsvc.Name, endpoint),
+			LatestRevision:    &latestRevision,
 			Percent:           defaultPercent,
 		},
 	}
 	if kfsvc.Spec.Canary != nil {
 		trafficTargets = append(trafficTargets, knativeserving.TrafficTarget{
 			ConfigurationName: constants.CanaryServiceName(kfsvc.Name, endpoint),
+			LatestRevision:    &latestRevision,
 			Percent:           canaryPercent,
 		})
 	}
