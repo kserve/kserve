@@ -141,7 +141,7 @@ func (c *ServiceBuilder) CreatePredictorService(name string, metadata metav1.Obj
 	if sourceURI := predictorSpec.GetStorageUri(); sourceURI != "" {
 		annotations[constants.StorageInitializerSourceUriInternalAnnotationKey] = sourceURI
 	}
-
+	latestRevision := true
 	service := &knativeserving.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -167,6 +167,14 @@ func (c *ServiceBuilder) CreatePredictorService(name string, metadata metav1.Obj
 								*predictorSpec.GetContainer(metadata.Name, c.frameworksConfig),
 							},
 						},
+					},
+				},
+			},
+			RouteSpec: knativeserving.RouteSpec{
+				Traffic: []knativeserving.TrafficTarget{
+					{
+						LatestRevision: &latestRevision,
+						Percent:        100,
 					},
 				},
 			},
@@ -219,6 +227,7 @@ func (c *ServiceBuilder) CreateTransformerService(name string, metadata metav1.O
 		predictorHostName,
 	}
 	container.Args = append(container.Args, predefinedArgs...)
+	latestRevision := true
 	service := &knativeserving.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -244,6 +253,14 @@ func (c *ServiceBuilder) CreateTransformerService(name string, metadata metav1.O
 								container,
 							},
 						},
+					},
+				},
+			},
+			RouteSpec: knativeserving.RouteSpec{
+				Traffic: []knativeserving.TrafficTarget{
+					{
+						LatestRevision: &latestRevision,
+						Percent:        100,
 					},
 				},
 			},
@@ -290,6 +307,7 @@ func (c *ServiceBuilder) CreateExplainerService(name string, metadata metav1.Obj
 		annotations[constants.StorageInitializerSourceUriInternalAnnotationKey] = sourceURI
 	}
 
+	latestRevision := true
 	service := &knativeserving.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -315,6 +333,14 @@ func (c *ServiceBuilder) CreateExplainerService(name string, metadata metav1.Obj
 								*explainerSpec.CreateExplainerContainer(metadata.Name, predictorService, c.explainersConfig),
 							},
 						},
+					},
+				},
+			},
+			RouteSpec: knativeserving.RouteSpec{
+				Traffic: []knativeserving.TrafficTarget{
+					{
+						LatestRevision: &latestRevision,
+						Percent:        100,
 					},
 				},
 			},
