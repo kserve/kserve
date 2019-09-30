@@ -85,3 +85,7 @@ docker-build-executor: test
 
 docker-push-executor:
 	docker push ${EXECUTOR_IMG}
+
+apidocs:
+	docker build -f docs/apis/Dockerfile --rm -t apidocs-gen . && \
+	docker run -it --rm -v ${PWD}/docs/apis:/go/gen-crd-api-reference-docs/apidocs apidocs-gen
