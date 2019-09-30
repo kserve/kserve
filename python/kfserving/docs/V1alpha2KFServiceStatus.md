@@ -1,4 +1,4 @@
-# V1alpha2KFServiceStatus
+# V1alpha2InferenceServiceStatus
 
 ## Properties
 Name | Type | Description | Notes

@@ -18,8 +18,8 @@ from ..constants import constants
 from ..utils import utils
 from .creds_utils import set_gcs_credentials, set_s3_credentials, set_azure_credentials
 from .kf_serving_watch import watch as kfsvc_watch
-from ..models.v1alpha2_kf_service import V1alpha2KFService
-from ..models.v1alpha2_kf_service_spec import V1alpha2KFServiceSpec
+from ..models.v1alpha2_kf_service import V1alpha2InferenceService
+from ..models.v1alpha2_kf_service_spec import V1alpha2InferenceServiceSpec
 
 
 class KFServingClient(object):
@@ -75,11 +75,11 @@ class KFServingClient(object):
             raise RuntimeError("Invalid storage_type: %s, only support GCS, S3 and Azure\
                 currently.\n" % storage_type)
 
-    def create(self, kfservice, namespace=None, watch=False, timeout_seconds=600): #pylint:disable=inconsistent-return-statements
-        """Create the provided KFService in the specified namespace"""
+    def create(self, inferenceservice, namespace=None, watch=False, timeout_seconds=600): #pylint:disable=inconsistent-return-statements
+        """Create the provided InferenceService in the specified namespace"""
 
         if namespace is None:
-            namespace = utils.set_kfsvc_namespace(kfservice)
+            namespace = utils.set_kfsvc_namespace(inferenceservice)
 
         try:
             outputs = self.api_instance.create_namespaced_custom_object(
@@ -87,7 +87,7 @@ class KFServingClient(object):
                 constants.KFSERVING_VERSION,
                 namespace,
                 constants.KFSERVING_PLURAL,
-                kfservice)
+                inferenceservice)
         except client.rest.ApiException as e:
             raise RuntimeError(
                 "Exception when calling CustomObjectsApi->create_namespaced_custom_object:\
@@ -102,7 +102,7 @@ class KFServingClient(object):
             return outputs
 
     def get(self, name=None, namespace=None, watch=False, timeout_seconds=600): #pylint:disable=inconsistent-return-statements
-        """Get the created KFService in the specified namespace"""
+        """Get the created InferenceService in the specified namespace"""
 
         if namespace is None:
             namespace = utils.get_default_target_namespace()
@@ -142,11 +142,11 @@ class KFServingClient(object):
                         "Exception when calling CustomObjectsApi->list_namespaced_custom_object:\
                         %s\n" % e)
 
-    def patch(self, name, kfservice, namespace=None, watch=False, timeout_seconds=600): # pylint:disable=too-many-arguments,inconsistent-return-statements
-        """Patch the created KFService in the specified namespace"""
+    def patch(self, name, inferenceservice, namespace=None, watch=False, timeout_seconds=600): # pylint:disable=too-many-arguments,inconsistent-return-statements
+        """Patch the created InferenceService in the specified namespace"""
 
         if namespace is None:
-            namespace = utils.set_kfsvc_namespace(kfservice)
+            namespace = utils.set_kfsvc_namespace(inferenceservice)
 
         try:
             outputs = self.api_instance.patch_namespaced_custom_object(
@@ -155,7 +155,7 @@ class KFServingClient(object):
                 namespace,
                 constants.KFSERVING_PLURAL,
                 name,
-                kfservice)
+                inferenceservice)
         except client.rest.ApiException as e:
             raise RuntimeError(
                 "Exception when calling CustomObjectsApi->patch_namespaced_custom_object:\
@@ -169,16 +169,16 @@ class KFServingClient(object):
         else:
             return outputs
 
-    def replace(self, name, kfservice, namespace=None, watch=False, timeout_seconds=600): # pylint:disable=too-many-arguments,inconsistent-return-statements
-        """Replace the created KFService in the specified namespace"""
+    def replace(self, name, inferenceservice, namespace=None, watch=False, timeout_seconds=600): # pylint:disable=too-many-arguments,inconsistent-return-statements
+        """Replace the created InferenceService in the specified namespace"""
 
         if namespace is None:
-            namespace = utils.set_kfsvc_namespace(kfservice)
+            namespace = utils.set_kfsvc_namespace(inferenceservice)
 
-        if kfservice.metadata.resource_version is None:
+        if inferenceservice.metadata.resource_version is None:
             current_kfsvc = self.get(name, namespace=namespace)
             current_resource_version = current_kfsvc['metadata']['resourceVersion']
-            kfservice.metadata.resource_version = current_resource_version
+            inferenceservice.metadata.resource_version = current_resource_version
 
         try:
             outputs = self.api_instance.replace_namespaced_custom_object(
@@ -187,7 +187,7 @@ class KFServingClient(object):
                 namespace,
                 constants.KFSERVING_PLURAL,
                 name,
-                kfservice)
+                inferenceservice)
         except client.rest.ApiException as e:
             raise RuntimeError(
                 "Exception when calling CustomObjectsApi->replace_namespaced_custom_object:\
@@ -203,7 +203,7 @@ class KFServingClient(object):
 
 
     def promote(self, name, namespace=None, watch=False, timeout_seconds=600): # pylint:disable=too-many-arguments,inconsistent-return-statements
-        """Promote the created KFService in the specified namespace"""
+        """Promote the created InferenceService in the specified namespace"""
 
         if namespace is None:
             namespace = utils.get_default_target_namespace()
@@ -214,25 +214,25 @@ class KFServingClient(object):
         try:
             current_canary_spec = current_kfsvc['spec']['canary']
         except KeyError:
-            raise RuntimeError("Cannot promote a KFService that has no Canary Spec.")
+            raise RuntimeError("Cannot promote a InferenceService that has no Canary Spec.")
 
-        kfservice = V1alpha2KFService(
+        inferenceservice = V1alpha2InferenceService(
             api_version=api_version,
             kind=constants.KFSERVING_KIND,
             metadata=client.V1ObjectMeta(
                 name=name,
                 namespace=namespace),
-            spec=V1alpha2KFServiceSpec(
+            spec=V1alpha2InferenceServiceSpec(
                 default=current_canary_spec,
                 canary=None,
                 canary_traffic_percent=0))
 
-        return self.replace(name=name, kfservice=kfservice, namespace=namespace,
+        return self.replace(name=name, inferenceservice=inferenceservice, namespace=namespace,
                             watch=watch, timeout_seconds=timeout_seconds)
 
 
     def delete(self, name, namespace=None):
-        """Delete the provided KFService in the specified namespace"""
+        """Delete the provided InferenceService in the specified namespace"""
 
         if namespace is None:
             namespace = utils.get_default_target_namespace()

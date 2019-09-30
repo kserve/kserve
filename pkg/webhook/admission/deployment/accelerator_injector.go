@@ -29,7 +29,7 @@ const (
 )
 
 func InjectGKEAcceleratorSelector(deployment *appsv1.Deployment) error {
-	if gpuSelector, ok := deployment.Annotations[constants.KFServiceGKEAcceleratorAnnotationKey]; ok {
+	if gpuSelector, ok := deployment.Annotations[constants.KFServingGKEAcceleratorAnnotationKey]; ok {
 		deployment.Spec.Template.Spec.NodeSelector = utils.Union(
 			deployment.Spec.Template.Spec.NodeSelector,
 			map[string]string{GkeAcceleratorNodeSelector: gpuSelector},

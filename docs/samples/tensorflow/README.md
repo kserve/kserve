@@ -1,11 +1,11 @@
 
-# Predict on a KFService using Tensorflow
+# Predict on a InferenceService using Tensorflow
 ## Setup
 1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/blob/master/docs/DEVELOPER_GUIDE.md#deploy-kfserving).
 2. Your cluster's Istio Ingress gateway must be network accessible.
 3. Your cluster's Istio Egresss gateway must [allow Google Cloud Storage](https://knative.dev/docs/serving/outbound-network-access/)
 
-## Create the KFService
+## Create the InferenceService
 Apply the CRD
 ```
 kubectl apply -f tensorflow.yaml 
@@ -13,7 +13,7 @@ kubectl apply -f tensorflow.yaml
 
 Expected Output
 ```
-$ kfservice.serving.kubeflow.org/flowers-sample configured
+$ inferenceservice.serving.kubeflow.org/flowers-sample configured
 ```
 
 ## Run a prediction
@@ -22,7 +22,7 @@ $ kfservice.serving.kubeflow.org/flowers-sample configured
 MODEL_NAME=flowers-sample
 INPUT_PATH=@./input.json
 CLUSTER_IP=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-SERVICE_HOSTNAME=$(kubectl get kfservice ${MODEL_NAME} -o jsonpath='{.status.url}' |sed 's/.*:\/\///g')
+SERVICE_HOSTNAME=$(kubectl get inferenceservice ${MODEL_NAME} -o jsonpath='{.status.url}' |sed 's/.*:\/\///g')
 
 curl -v -H "Host: ${SERVICE_HOSTNAME}" http://$CLUSTER_IP/v1/models/$MODEL_NAME:predict -d $INPUT_PATH
 ```
@@ -80,7 +80,7 @@ kubectl apply -f tensorflow-canary.yaml
 To verify if your traffic split percenage is applied correctly, you can use the following command:
 
 ```
-kubectl get kfservices
+kubectl get inferenceservices
 NAME             READY     URL                                  DEFAULT TRAFFIC   CANARY TRAFFIC   AGE
 flowers-sample   True      http://flowers-sample.default.example.com   90                10               48s
 ```

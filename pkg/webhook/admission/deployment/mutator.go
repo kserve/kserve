@@ -28,7 +28,7 @@ import (
 	k8types "k8s.io/apimachinery/pkg/types"
 
 	"github.com/kubeflow/kfserving/pkg/constants"
-	"github.com/kubeflow/kfserving/pkg/controller/kfservice/resources/credentials"
+	"github.com/kubeflow/kfserving/pkg/controller/inferenceservice/resources/credentials"
 	"github.com/kubeflow/kfserving/pkg/webhook/third_party"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
@@ -52,9 +52,9 @@ func (mutator *Mutator) Handle(ctx context.Context, req types.Request) types.Res
 	}
 
 	configMap := &v1.ConfigMap{}
-	err := mutator.Client.Get(context.TODO(), k8types.NamespacedName{Name: constants.KFServiceConfigMapName, Namespace: constants.KFServingNamespace}, configMap)
+	err := mutator.Client.Get(context.TODO(), k8types.NamespacedName{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KFServingNamespace}, configMap)
 	if err != nil {
-		log.Error(err, "Failed to find config map", "name", constants.KFServiceConfigMapName)
+		log.Error(err, "Failed to find config map", "name", constants.InferenceServiceConfigMapName)
 		return admission.ErrorResponse(http.StatusInternalServerError, err)
 	}
 

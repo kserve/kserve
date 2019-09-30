@@ -21,7 +21,7 @@ from ..utils import utils
 
 
 def watch(name=None, namespace=None, timeout_seconds=600):
-    """Watch the created or patched KFService in the specified namespace"""
+    """Watch the created or patched InferenceService in the specified namespace"""
 
     if namespace is None:
         namespace = utils.get_default_target_namespace()

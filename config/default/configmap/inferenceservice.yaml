@@ -1,0 +1,41 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: inferenceservice-config
+  namespace: kfserving-system
+data:
+  frameworks: |-
+    {
+        "tensorflow": {
+            "image": "tensorflow/serving"
+        },
+        "onnx": {
+            "image": "mcr.microsoft.com/onnxruntime/server"
+        },
+        "sklearn": {
+            "image": "gcr.io/kfserving/sklearnserver"
+        },
+        "xgboost": {
+            "image": "gcr.io/kfserving/xgbserver"
+        },
+        "pytorch": {
+            "image": "gcr.io/kfserving/pytorchserver"
+        },
+        "tensorrt": {
+            "image": "nvcr.io/nvidia/tensorrtserver"
+        }
+    }
+  storageInitializer: |-
+    {
+        "image" : "gcr.io/kfserving/storage-initializer:latest"
+    }
+  credentials: |-
+    {
+       "gcs": {
+           "gcsCredentialFileName": "gcloud-application-credentials.json"
+       },
+       "s3": {
+           "s3AccessKeyIDName": "awsAccessKeyID",
+           "s3SecretAccessKeyName": "awsSecretAccessKey"
+       }
+    }

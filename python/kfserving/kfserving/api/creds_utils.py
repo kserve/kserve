@@ -226,7 +226,7 @@ def patch_service_account(secret_name, namespace, sa_name):
 
 
 def get_creds_name_from_config_map(creds):
-    '''Get the credentials name from kfservice config map.'''
+    '''Get the credentials name from inferenceservice config map.'''
     try:
         kfsvc_config_map = client.CoreV1Api().read_namespaced_config_map(
             constants.KFSERVICE_CONFIG_MAP_NAME,

@@ -18,10 +18,10 @@ limitations under the License.
 
 package v1alpha2
 
-// KFServiceListerExpansion allows custom methods to be added to
-// KFServiceLister.
-type KFServiceListerExpansion interface{}
+// InferenceServiceListerExpansion allows custom methods to be added to
+// InferenceServiceLister.
+type InferenceServiceListerExpansion interface{}
 
-// KFServiceNamespaceListerExpansion allows custom methods to be added to
-// KFServiceNamespaceLister.
-type KFServiceNamespaceListerExpansion interface{}
+// InferenceServiceNamespaceListerExpansion allows custom methods to be added to
+// InferenceServiceNamespaceLister.
+type InferenceServiceNamespaceListerExpansion interface{}

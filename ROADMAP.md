@@ -49,7 +49,7 @@ Objective: "Simplify user experience with handling credentials for storage backe
 # Future 
 ## Unscheduled Work
 * Multi-Model Serving.
-    * Multiple KFServices share resources in the backend.
+    * Multiple InferenceServices share resources in the backend.
     * GPU Sharing.
 * Flexible Inference Graphs [MLGraph CRD](https://github.com/SeldonIO/mlgraph).
     * Model Experimentation.
@@ -67,7 +67,7 @@ Objective: "Simplify user experience with handling credentials for storage backe
 
 # Historical
 ## Q2 2019
-### v0.1: KFService Minimum Viable Product (ETA: June 30, 2019)
+### v0.1: InferenceService Minimum Viable Product (ETA: June 30, 2019)
 Objective: "Simplify the user experience and provide a low barrier to entry by minimizing the amount of YAML necessary to deploy a trained model."
 * High Level Interfaces
     * Deploy a Tensorflow model without specifying a Tensorflow Serving Technology.

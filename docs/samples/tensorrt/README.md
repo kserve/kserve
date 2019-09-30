@@ -1,11 +1,11 @@
 
-# Predict on a KFService using TensorRT Inference Server
+# Predict on a InferenceService using TensorRT Inference Server
 ## Setup
 1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/blob/master/docs/DEVELOPER_GUIDE.md#deploy-kfserving).
 2. Your cluster's Istio Ingress gateway must be network accessible.
 3. Your cluster's Istio Egresss gateway must [allow Google Cloud Storage](https://knative.dev/docs/serving/outbound-network-access/)
 
-## Create the KFService
+## Create the InferenceService
 Apply the CRD
 ```
 kubectl apply -f tensorrt.yaml 
@@ -13,7 +13,7 @@ kubectl apply -f tensorrt.yaml
 
 Expected Output
 ```
-kfservice.serving.kubeflow.org/tensorrt-simple-string created
+inferenceservice.serving.kubeflow.org/tensorrt-simple-string created
 ```
 
 ## Run a prediction
@@ -22,7 +22,7 @@ Uses the client at: https://docs.nvidia.com/deeplearning/sdk/tensorrt-inference-
 
 1. setup vars
 ```
-SERVICE_HOSTNAME=$(kubectl get kfservice tensorrt-simple-string -o jsonpath='{.status.url}' |sed 's/.*:\/\///g')
+SERVICE_HOSTNAME=$(kubectl get inferenceservice tensorrt-simple-string -o jsonpath='{.status.url}' |sed 's/.*:\/\///g')
 
 CLUSTER_IP=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 echo $CLUSTER_IP

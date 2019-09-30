@@ -20,7 +20,7 @@ import (
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/webhook/admission/deployment"
-	"github.com/kubeflow/kfserving/pkg/webhook/admission/kfservice"
+	"github.com/kubeflow/kfserving/pkg/webhook/admission/inferenceservice"
 	"k8s.io/api/admissionregistration/v1beta1"
 	v1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -54,8 +54,8 @@ func AddToManager(manager manager.Manager) error {
 					"control-plane": constants.ControllerLabelName,
 				},
 			},
-			ValidatingWebhookConfigName: constants.KFServiceValidatingWebhookConfigName,
-			MutatingWebhookConfigName:   constants.KFServiceMutatingWebhookConfigName,
+			ValidatingWebhookConfigName: constants.InferenceServiceValidatingWebhookConfigName,
+			MutatingWebhookConfigName:   constants.InferenceServiceMutatingWebhookConfigName,
 		},
 	})
 	if err != nil {
@@ -74,7 +74,7 @@ func AddToManager(manager manager.Manager) error {
 // https://github.com/kubernetes-sigs/controller-runtime/blob/master/pkg/webhook/admission/defaulter.go#L34
 func register(manager manager.Manager, server *webhook.Server) error {
 	return server.Register(&admission.Webhook{
-		Name:          constants.KFServiceValidatingWebhookName,
+		Name:          constants.InferenceServiceValidatingWebhookName,
 		FailurePolicy: &constants.WebhookFailurePolicy,
 		Type:          webhooktypes.WebhookTypeValidating,
 		Rules: []v1beta1.RuleWithOperations{{
@@ -85,17 +85,17 @@ func register(manager manager.Manager, server *webhook.Server) error {
 			Rule: v1beta1.Rule{
 				APIGroups:   []string{constants.KFServingAPIGroupName},
 				APIVersions: []string{v1alpha2.APIVersion},
-				Resources:   []string{constants.KFServiceAPIName},
+				Resources:   []string{constants.InferenceServiceAPIName},
 			},
 		}},
 		Handlers: []admission.Handler{
-			&kfservice.Validator{
+			&inferenceservice.Validator{
 				Client:  manager.GetClient(),
 				Decoder: manager.GetAdmissionDecoder(),
 			},
 		},
 	}, &admission.Webhook{
-		Name:          constants.KFServiceDefaultingWebhookName,
+		Name:          constants.InferenceServiceDefaultingWebhookName,
 		FailurePolicy: &constants.WebhookFailurePolicy,
 		Type:          webhooktypes.WebhookTypeMutating,
 		Rules: []v1beta1.RuleWithOperations{{
@@ -106,11 +106,11 @@ func register(manager manager.Manager, server *webhook.Server) error {
 			Rule: v1beta1.Rule{
 				APIGroups:   []string{constants.KFServingAPIGroupName},
 				APIVersions: []string{v1alpha2.APIVersion},
-				Resources:   []string{constants.KFServiceAPIName},
+				Resources:   []string{constants.InferenceServiceAPIName},
 			},
 		}},
 		Handlers: []admission.Handler{
-			&kfservice.Defaulter{
+			&inferenceservice.Defaulter{
 				Client:  manager.GetClient(),
 				Decoder: manager.GetAdmissionDecoder(),
 			},

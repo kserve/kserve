@@ -29,7 +29,7 @@ def get_default_target_namespace():
     return get_current_k8s_namespace()
 
 
-def set_kfsvc_namespace(kfservice):
-    kfsvc_namespace = kfservice.metadata.namespace
+def set_kfsvc_namespace(inferenceservice):
+    kfsvc_namespace = inferenceservice.metadata.namespace
     namespace = kfsvc_namespace or get_default_target_namespace()
     return namespace

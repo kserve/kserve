@@ -1,6 +1,6 @@
-# Predict on a KFService using PyTorch Server and Transformer
+# Predict on a InferenceService using PyTorch Server and Transformer
 
-Most of the model servers expect tensors as input data, so a pre-processing step is needed before making the prediction call if the user is sending in raw input format. Transformer is a service we orchestrated from KFService spec for user implemented pre/post processing code. In the [pytorch](../../pytorch/README.md) example we call the prediction endpoint with tensor inputs, and in this example we add additional pre-processing step to allow the user send raw image data.
+Most of the model servers expect tensors as input data, so a pre-processing step is needed before making the prediction call if the user is sending in raw input format. Transformer is a service we orchestrated from InferenceService spec for user implemented pre/post processing code. In the [pytorch](../../pytorch/README.md) example we call the prediction endpoint with tensor inputs, and in this example we add additional pre-processing step to allow the user send raw image data.
 
 ## Setup
 1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/blob/master/docs/DEVELOPER_GUIDE.md#deploy-kfserving).
@@ -50,8 +50,8 @@ This step can be part of your CI/CD pipeline to continuously build the transform
 docker build -t yuzisun/image-transformer:latest -f transformer.Dockerfile .
 ```
 
-## Create the KFService
-Please use the [YAML file](./image_transformer.yaml) to create the KFService, which includes a Transformer and a Predictor.
+## Create the InferenceService
+Please use the [YAML file](./image_transformer.yaml) to create the InferenceService, which includes a Transformer and a Predictor.
 
 Apply the CRD
 ```
@@ -60,7 +60,7 @@ kubectl apply -f image_transformer.yaml
 
 Expected Output
 ```
-$ kfservice.serving.kubeflow.org/transformer-cifar10 created
+$ inferenceservice.serving.kubeflow.org/transformer-cifar10 created
 ```
 
 ## Run a prediction
@@ -70,7 +70,7 @@ MODEL_NAME=transformer-cifar10
 INPUT_PATH=@./input.json
 CLUSTER_IP=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 
-SERVICE_HOSTNAME=$(kubectl get kfservice transformer-cifar10 -o jsonpath='{.status.url}' | sed 's/.*:\/\///g')
+SERVICE_HOSTNAME=$(kubectl get inferenceservice transformer-cifar10 -o jsonpath='{.status.url}' | sed 's/.*:\/\///g')
 
 curl -v -H "Host: ${SERVICE_HOSTNAME}" -d $INPUT_PATH http://$CLUSTER_IP/models/$MODEL_NAME:predict
 ```

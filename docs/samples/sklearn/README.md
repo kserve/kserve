@@ -34,14 +34,14 @@ print(res)
 print(res.text)
 ```
 
-# Predict on a KFService using SKLearn
+# Predict on a InferenceService using SKLearn
 
 ## Setup
 1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/blob/master/docs/DEVELOPER_GUIDE.md#deploy-kfserving).
 2. Your cluster's Istio Ingress gateway must be network accessible.
 3. Your cluster's Istio Egresss gateway must [allow Google Cloud Storage](https://knative.dev/docs/serving/outbound-network-access/)
 
-## Create the KFService
+## Create the InferenceService
 
 Apply the CRD
 ```
@@ -50,7 +50,7 @@ kubectl apply -f sklearn.yaml
 
 Expected Output
 ```
-$ kfservice.serving.kubeflow.org/sklearn-iris created
+$ inferenceservice.serving.kubeflow.org/sklearn-iris created
 ```
 ## Run a prediction
 
