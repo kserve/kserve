@@ -7,6 +7,7 @@ KFServing encapsulates the complexity of autoscaling, networking, health checkin
 * Join our [Working Group](https://groups.google.com/forum/#!forum/kfserving) for meeting invites and discussion.
 * [Read the Docs](/docs).
 * [Examples](./docs/samples).
+* [API Docs](./docs/apis/README.md)
 * [Roadmap](/ROADMAP.md).
 * [KFServing 101 Slides](https://drive.google.com/file/d/16oqz6dhY5BR0u74pi9mDThU97Np__AFb/view).
 * [KFServing 101 Tech Talk](https://www.youtube.com/watch?v=hGIvlFADMhU).
