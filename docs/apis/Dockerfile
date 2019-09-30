@@ -11,4 +11,4 @@ RUN go build
 VOLUME /go/gen-crd-api-reference-docs/apidocs
 
 ENTRYPOINT ["./gen-crd-api-reference-docs"]
-CMD ["-config", "./example-config.json", "-api-dir", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2", "-out-file", "./apidocs/docs.html"] 
+CMD ["-config", "./example-config.json", "-api-dir", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2", "-out-file", "./apidocs/README.md"]
