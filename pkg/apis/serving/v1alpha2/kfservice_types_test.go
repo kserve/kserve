@@ -85,14 +85,14 @@ func TestKFService(t *testing.T) {
 	statusUpdated := fetched.DeepCopy()
 	statusUpdated.Status = KFServiceStatus{
 		URL: "example.dev.com",
-		Default: EndpointStatusMap{
+		Default: &EndpointStatusMap{
 			constants.Predictor: &StatusConfigurationSpec{
 				Name:     "v1",
 				Traffic:  20,
 				Replicas: 2,
 			},
 		},
-		Canary: EndpointStatusMap{
+		Canary: &EndpointStatusMap{
 			constants.Predictor: &StatusConfigurationSpec{
 				Name:     "v2",
 				Traffic:  80,

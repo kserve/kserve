@@ -189,9 +189,9 @@ type EndpointStatusMap map[constants.KFServiceEndpoint]*StatusConfigurationSpec
 // KFServiceStatus defines the observed state of KFService
 type KFServiceStatus struct {
 	duckv1beta1.Status `json:",inline"`
-	URL                string            `json:"Url,omitempty"`
-	Default            EndpointStatusMap `json:"default,omitempty"`
-	Canary             EndpointStatusMap `json:"canary,omitempty"`
+	URL                string             `json:"Url,omitempty"`
+	Default            *EndpointStatusMap `json:"default,omitempty"`
+	Canary             *EndpointStatusMap `json:"canary,omitempty"`
 }
 
 // StatusConfigurationSpec describes the state of the configuration receiving traffic.

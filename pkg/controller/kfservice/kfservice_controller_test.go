@@ -216,7 +216,7 @@ func TestKFServiceWithOnlyPredictor(t *testing.T) {
 			},
 		},
 		URL: updatedRoute.Status.URL.String(),
-		Default: kfserving.EndpointStatusMap{
+		Default: &kfserving.EndpointStatusMap{
 			constants.Predictor: &kfserving.StatusConfigurationSpec{
 				Name: "revision-v1",
 			},
@@ -270,7 +270,7 @@ func TestKFServiceWithOnlyCanaryPredictor(t *testing.T) {
 		},
 		Status: kfserving.KFServiceStatus{
 			URL: canaryServiceKey.Name + ".svc.cluster.local",
-			Default: kfserving.EndpointStatusMap{
+			Default: &kfserving.EndpointStatusMap{
 				constants.Predictor: &kfserving.StatusConfigurationSpec{
 					Name: "revision-v1",
 				},
@@ -462,13 +462,13 @@ func TestKFServiceWithOnlyCanaryPredictor(t *testing.T) {
 			},
 		},
 		URL: updatedRoute.Status.URL.String(),
-		Default: kfserving.EndpointStatusMap{
+		Default: &kfserving.EndpointStatusMap{
 			constants.Predictor: &kfserving.StatusConfigurationSpec{
 				Name:    "revision-v1",
 				Traffic: 80,
 			},
 		},
-		Canary: kfserving.EndpointStatusMap{
+		Canary: &kfserving.EndpointStatusMap{
 			constants.Predictor: &kfserving.StatusConfigurationSpec{
 				Name:    "revision-v2",
 				Traffic: 20,
@@ -530,7 +530,7 @@ func TestCanaryDelete(t *testing.T) {
 		},
 		Status: kfserving.KFServiceStatus{
 			URL: canaryServiceKey.Name + ".svc.cluster.local",
-			Default: kfserving.EndpointStatusMap{
+			Default: &kfserving.EndpointStatusMap{
 				constants.Predictor: &kfserving.StatusConfigurationSpec{
 					Name: "revision-v1",
 				},
@@ -653,13 +653,13 @@ func TestCanaryDelete(t *testing.T) {
 			},
 		},
 		URL: routeUrl.String(),
-		Default: kfserving.EndpointStatusMap{
+		Default: &kfserving.EndpointStatusMap{
 			constants.Predictor: &kfserving.StatusConfigurationSpec{
 				Name:    "revision-v1",
 				Traffic: 80,
 			},
 		},
-		Canary: kfserving.EndpointStatusMap{
+		Canary: &kfserving.EndpointStatusMap{
 			constants.Predictor: &kfserving.StatusConfigurationSpec{
 				Name:    "revision-v2",
 				Traffic: 20,
@@ -712,7 +712,7 @@ func TestCanaryDelete(t *testing.T) {
 			},
 		},
 		URL: routeUrl.String(),
-		Default: kfserving.EndpointStatusMap{
+		Default: &kfserving.EndpointStatusMap{
 			constants.Predictor: &kfserving.StatusConfigurationSpec{
 				Name: "revision-v1",
 			},
@@ -800,7 +800,7 @@ func TestKFServiceWithTransformer(t *testing.T) {
 		},
 		Status: kfserving.KFServiceStatus{
 			URL: serviceName + ".svc.cluster.local",
-			Default: kfserving.EndpointStatusMap{
+			Default: &kfserving.EndpointStatusMap{
 				constants.Predictor: &kfserving.StatusConfigurationSpec{
 					Name: "revision-v1",
 				},
@@ -991,13 +991,13 @@ func TestKFServiceWithTransformer(t *testing.T) {
 			},
 		},
 		URL: updatedRoute.Status.URL.String(),
-		Default: kfserving.EndpointStatusMap{
+		Default: &kfserving.EndpointStatusMap{
 			constants.Predictor: &kfserving.StatusConfigurationSpec{
 				Name:    "revision-v1",
 				Traffic: 80,
 			},
 		},
-		Canary: kfserving.EndpointStatusMap{
+		Canary: &kfserving.EndpointStatusMap{
 			constants.Predictor: &kfserving.StatusConfigurationSpec{
 				Name:    "revision-v2",
 				Traffic: 20,

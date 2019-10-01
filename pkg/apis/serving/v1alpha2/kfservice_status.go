@@ -80,11 +80,15 @@ func (ss *KFServiceStatus) GetCondition(t apis.ConditionType) *apis.Condition {
 
 // PropagateDefaultStatus propagates the status for the default spec
 func (ss *KFServiceStatus) PropagateDefaultStatus(endpoint constants.KFServiceEndpoint, defaultStatus *knservingv1alpha1.ServiceStatus) {
+	if ss.Default == nil {
+		emptyStatusMap := make(EndpointStatusMap)
+		ss.Default = &emptyStatusMap
+	}
 	conditionType := defaultConditionsMap[endpoint]
-	statusSpec, ok := ss.Default[endpoint]
+	statusSpec, ok := (*ss.Default)[endpoint]
 	if !ok {
 		statusSpec = &StatusConfigurationSpec{}
-		ss.Default[endpoint] = statusSpec
+		(*ss.Default)[endpoint] = statusSpec
 	}
 	ss.propagateStatus(statusSpec, conditionType, defaultStatus)
 }
@@ -96,15 +100,21 @@ func (ss *KFServiceStatus) PropagateCanaryStatus(endpoint constants.KFServiceEnd
 
 	// reset status if canaryServiceStatus is nil
 	if canaryStatus == nil {
-		ss.Canary = EndpointStatusMap{}
+		emptyStatusMap := make(EndpointStatusMap)
+		ss.Canary = &emptyStatusMap
 		conditionSet.Manage(ss).ClearCondition(conditionType)
 		return
 	}
 
-	statusSpec, ok := ss.Canary[endpoint]
+	if ss.Canary == nil {
+		emptyStatusMap := make(EndpointStatusMap)
+		ss.Canary = &emptyStatusMap
+	}
+
+	statusSpec, ok := (*ss.Canary)[endpoint]
 	if !ok {
 		statusSpec = &StatusConfigurationSpec{}
-		ss.Canary[endpoint] = statusSpec
+		(*ss.Canary)[endpoint] = statusSpec
 	}
 
 	ss.propagateStatus(statusSpec, conditionType, canaryStatus)
@@ -112,7 +122,10 @@ func (ss *KFServiceStatus) PropagateCanaryStatus(endpoint constants.KFServiceEnd
 
 func (ss *KFServiceStatus) propagateStatus(statusSpec *StatusConfigurationSpec, conditionType apis.ConditionType, serviceStatus *knservingv1alpha1.ServiceStatus) {
 	statusSpec.Name = serviceStatus.LatestCreatedRevisionName
-	statusSpec.Hostname = serviceStatus.Address.Hostname
+	if serviceStatus.URL != nil {
+		statusSpec.Hostname = serviceStatus.URL.Host
+	}
+
 	serviceCondition := serviceStatus.GetCondition(knservingv1alpha1.ServiceConditionReady)
 	switch {
 	case serviceCondition == nil:
@@ -129,8 +142,8 @@ func (ss *KFServiceStatus) propagateStatus(statusSpec *StatusConfigurationSpec, 
 func (ss *KFServiceStatus) PropagateRouteStatus(rs *knservingv1alpha1.RouteStatus) {
 	ss.URL = rs.URL.String()
 
-	if !propagateRouteStatus(rs, &ss.Default) {
-		propagateRouteStatus(rs, &ss.Canary)
+	if !propagateRouteStatus(rs, ss.Default) {
+		propagateRouteStatus(rs, ss.Canary)
 	}
 
 	rc := rs.GetCondition(knservingv1alpha1.RouteConditionReady)
@@ -151,7 +164,9 @@ func propagateRouteStatus(rs *knservingv1alpha1.RouteStatus, endpointStatusMap *
 		for _, endpoint := range *endpointStatusMap {
 			if endpoint.Name == traffic.RevisionName {
 				endpoint.Traffic = traffic.Percent
-				endpoint.Hostname = traffic.URL.Host
+				if traffic.URL != nil {
+					endpoint.Hostname = traffic.URL.Host
+				}
 				return true
 			}
 		}
