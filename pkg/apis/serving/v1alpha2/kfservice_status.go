@@ -142,9 +142,8 @@ func (ss *KFServiceStatus) propagateStatus(statusSpec *StatusConfigurationSpec, 
 func (ss *KFServiceStatus) PropagateRouteStatus(rs *knservingv1alpha1.RouteStatus) {
 	ss.URL = rs.URL.String()
 
-	if !propagateRouteStatus(rs, ss.Default) {
-		propagateRouteStatus(rs, ss.Canary)
-	}
+	propagateRouteStatus(rs, ss.Default)
+	propagateRouteStatus(rs, ss.Canary)
 
 	rc := rs.GetCondition(knservingv1alpha1.RouteConditionReady)
 
@@ -159,7 +158,7 @@ func (ss *KFServiceStatus) PropagateRouteStatus(rs *knservingv1alpha1.RouteStatu
 	}
 }
 
-func propagateRouteStatus(rs *knservingv1alpha1.RouteStatus, endpointStatusMap *EndpointStatusMap) bool {
+func propagateRouteStatus(rs *knservingv1alpha1.RouteStatus, endpointStatusMap *EndpointStatusMap) {
 	for _, traffic := range rs.Traffic {
 		for _, endpoint := range *endpointStatusMap {
 			if endpoint.Name == traffic.RevisionName {
@@ -167,10 +166,7 @@ func propagateRouteStatus(rs *knservingv1alpha1.RouteStatus, endpointStatusMap *
 				if traffic.URL != nil {
 					endpoint.Hostname = traffic.URL.Host
 				}
-				return true
 			}
 		}
 	}
-
-	return false
 }
