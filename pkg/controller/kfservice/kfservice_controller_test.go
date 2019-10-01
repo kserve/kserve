@@ -189,6 +189,14 @@ func TestKFServiceWithOnlyPredictor(t *testing.T) {
 
 	updatedRoute := route.DeepCopy()
 	updatedRoute.Status.URL = &apis.URL{Scheme: "http", Host: serviceKey.Name + ".svc.cluster.local"}
+	updatedRoute.Status.Traffic = []knservingv1alpha1.TrafficTarget{
+		knservingv1alpha1.TrafficTarget{
+			TrafficTarget: v1beta1.TrafficTarget{
+				RevisionName: "revision-v1",
+				Percent:      0,
+			},
+		},
+	}
 	updatedRoute.Status.Conditions = duckv1beta1.Conditions{
 		{
 			Type:   knservingv1alpha1.RouteConditionReady,
@@ -221,6 +229,7 @@ func TestKFServiceWithOnlyPredictor(t *testing.T) {
 				Name: "revision-v1",
 			},
 		},
+		Canary: &kfserving.EndpointStatusMap{},
 	}
 	g.Eventually(func() *kfserving.KFServiceStatus {
 		kfsvc := &kfserving.KFService{}
