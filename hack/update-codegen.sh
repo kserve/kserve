@@ -24,4 +24,9 @@ if [ -z "${GOPATH:-}" ]; then
     export GOPATH=$(go env GOPATH)
 fi
 # Generating KFservice client files
-${CODEGEN_PKG}/generate-groups.sh all "github.com/kubeflow/kfserving/pkg/client" "github.com/kubeflow/kfserving/pkg/apis" serving:v1alpha2
+${CODEGEN_PKG}/generate-groups.sh \
+    all \
+    "github.com/kubeflow/kfserving/pkg/client" \
+    "github.com/kubeflow/kfserving/pkg/apis" \
+    "serving:v1alpha2" \
+    --go-header-file hack/boilerplate.go.txt

@@ -74,12 +74,12 @@ func NewServiceBuilder(client client.Client, config *v1.ConfigMap) *ServiceBuild
 	}
 }
 
-func (c *ServiceBuilder) CreateEndpointService(kfsvc *v1alpha2.KFService, endpoint constants.KFServiceEndpoint, isCanary bool) (*knservingv1alpha1.Service, error) {
-	serviceName := constants.DefaultServiceName(kfsvc.Name, endpoint)
+func (c *ServiceBuilder) CreateComponent(kfsvc *v1alpha2.KFService, component constants.KFComponent, isCanary bool) (*knservingv1alpha1.Service, error) {
+	serviceName := constants.DefaultServiceName(kfsvc.Name, component)
 	if isCanary {
-		serviceName = constants.CanaryServiceName(kfsvc.Name, endpoint)
+		serviceName = constants.CanaryServiceName(kfsvc.Name, component)
 	}
-	switch endpoint {
+	switch component {
 	case constants.Predictor:
 		predictorSpec := &kfsvc.Spec.Default.Predictor
 		if isCanary {
@@ -113,7 +113,7 @@ func (c *ServiceBuilder) CreateEndpointService(kfsvc *v1alpha2.KFService, endpoi
 		}
 		return c.CreateExplainerService(serviceName, kfsvc.ObjectMeta, explainerSpec, predictorService, isCanary)
 	}
-	return nil, fmt.Errorf("Invalid endpoint")
+	return nil, fmt.Errorf("Invalid component")
 }
 
 func (c *ServiceBuilder) CreatePredictorService(name string, metadata metav1.ObjectMeta, predictorSpec *v1alpha2.PredictorSpec) (*knservingv1alpha1.Service, error) {
@@ -209,19 +209,6 @@ func (c *ServiceBuilder) CreateTransformerService(name string, metadata metav1.O
 		annotations[autoscaling.ClassAnnotationKey] = autoscaling.KPA
 	}
 
-	predictorHostName := fmt.Sprintf("%s.%s", constants.DefaultPredictorServiceName(metadata.Name), metadata.Namespace)
-
-	if isCanary {
-		predictorHostName = fmt.Sprintf("%s.%s", constants.CanaryPredictorServiceName(metadata.Name), metadata.Namespace)
-	}
-	container := transformerSpec.Custom.Container
-	predefinedArgs := []string{
-		constants.ArgumentModelName,
-		metadata.Name,
-		constants.ArgumentPredictorHost,
-		predictorHostName,
-	}
-	container.Args = append(container.Args, predefinedArgs...)
 	service := &knservingv1alpha1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -245,7 +232,7 @@ func (c *ServiceBuilder) CreateTransformerService(name string, metadata metav1.O
 							PodSpec: v1.PodSpec{
 								ServiceAccountName: transformerSpec.ServiceAccountName,
 								Containers: []v1.Container{
-									container,
+									*transformerSpec.GetTransformerContainer(metadata, isCanary),
 								},
 							},
 						},

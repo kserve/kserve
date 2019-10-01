@@ -23,6 +23,7 @@ import (
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	"github.com/onsi/gomega"
 	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/klog"
 	knserving "knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -47,11 +48,11 @@ func SetupEnvTest() *envtest.Environment {
 	err := v1alpha2.SchemeBuilder.AddToScheme(scheme.Scheme)
 
 	if err != nil {
-		log.Error(err, "Failed to add kfserving scheme")
+		klog.Error(err, "Failed to add kfserving scheme")
 	}
 
 	if err = knserving.SchemeBuilder.AddToScheme(scheme.Scheme); err != nil {
-		log.Error(err, "Failed to add knative serving scheme")
+		klog.Error(err, "Failed to add knative serving scheme")
 	}
 	return t
 }

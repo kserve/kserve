@@ -26,6 +26,7 @@ import (
 	"github.com/kubeflow/kfserving/pkg/controller/kfservice/resources/credentials/s3"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
@@ -80,25 +81,25 @@ func (c *CredentialBuilder) CreateSecretVolumeAndEnv(namespace string, serviceAc
 	err := c.client.Get(context.TODO(), types.NamespacedName{Name: serviceAccountName,
 		Namespace: namespace}, serviceAccount)
 	if err != nil {
-		log.Error(err, "Failed to find service account", "ServiceAccountName", serviceAccountName)
+		klog.Error(err, "Failed to find service account", "ServiceAccountName", serviceAccountName)
 		return nil
 	}
 
 	for _, secretRef := range serviceAccount.Secrets {
-		log.Info("found secret", "SecretName", secretRef.Name)
+		klog.Info("found secret", "SecretName", secretRef.Name)
 		secret := &v1.Secret{}
 		err := c.client.Get(context.TODO(), types.NamespacedName{Name: secretRef.Name,
 			Namespace: namespace}, secret)
 		if err != nil {
-			log.Error(err, "Failed to find secret", "SecretName", secretRef.Name)
+			klog.Error(err, "Failed to find secret", "SecretName", secretRef.Name)
 			continue
 		}
 		if _, ok := secret.Data[s3SecretAccessKeyName]; ok {
-			log.Info("Setting secret envs for s3", "S3Secret", secret.Name)
+			klog.Info("Setting secret envs for s3", "S3Secret", secret.Name)
 			envs := s3.BuildSecretEnvs(secret, &c.config.S3)
 			container.Env = append(container.Env, envs...)
 		} else if _, ok := secret.Data[gcsCredentialFileName]; ok {
-			log.Info("Setting secret volume for gcs", "GCSSecret", secret.Name)
+			klog.Info("Setting secret volume for gcs", "GCSSecret", secret.Name)
 			volume, volumeMount := gcs.BuildSecretVolume(secret)
 			*volumes = append(*volumes, volume)
 			container.VolumeMounts =
@@ -109,11 +110,11 @@ func (c *CredentialBuilder) CreateSecretVolumeAndEnv(namespace string, serviceAc
 					Value: gcs.GCSCredentialVolumeMountPath + gcsCredentialFileName,
 				})
 		} else if _, ok := secret.Data[azure.AzureClientSecret]; ok {
-			log.Info("Setting secret envs for azure", "AzureSecret", secret.Name)
+			klog.Info("Setting secret envs for azure", "AzureSecret", secret.Name)
 			envs := azure.BuildSecretEnvs(secret)
 			container.Env = append(container.Env, envs...)
 		} else {
-			log.V(5).Info("Skipping non gcs/s3/azure secret", "Secret", secret.Name)
+			klog.V(5).Info("Skipping non gcs/s3/azure secret", "Secret", secret.Name)
 		}
 	}
 

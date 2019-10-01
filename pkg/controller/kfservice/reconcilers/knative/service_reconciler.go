@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/klog"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -66,7 +67,7 @@ func (r *ServiceReconciler) Reconcile(kfsvc *v1alpha2.KFService) error {
 }
 
 func (r *ServiceReconciler) reconcileDefault(kfsvc *v1alpha2.KFService) error {
-	for _, endpoint := range []constants.KFServiceEndpoint{constants.Predictor, constants.Transformer, constants.Explainer} {
+	for _, endpoint := range []constants.KFComponent{constants.Predictor, constants.Transformer, constants.Explainer} {
 		if err := r.reconcileEndpoint(kfsvc, endpoint, false); err != nil {
 			return err
 		}
@@ -75,7 +76,7 @@ func (r *ServiceReconciler) reconcileDefault(kfsvc *v1alpha2.KFService) error {
 }
 
 func (r *ServiceReconciler) reconcileCanary(kfsvc *v1alpha2.KFService) error {
-	for _, endpoint := range []constants.KFServiceEndpoint{constants.Predictor, constants.Transformer, constants.Explainer} {
+	for _, endpoint := range []constants.KFComponent{constants.Predictor, constants.Transformer, constants.Explainer} {
 		if err := r.reconcileEndpoint(kfsvc, endpoint, true); err != nil {
 			return err
 		}
@@ -83,7 +84,7 @@ func (r *ServiceReconciler) reconcileCanary(kfsvc *v1alpha2.KFService) error {
 	return nil
 }
 
-func (r *ServiceReconciler) reconcileEndpoint(kfsvc *v1alpha2.KFService, endpoint constants.KFServiceEndpoint, isCanary bool) error {
+func (r *ServiceReconciler) reconcileEndpoint(kfsvc *v1alpha2.KFService, endpoint constants.KFComponent, isCanary bool) error {
 	if isCanary {
 		if kfsvc.Spec.Canary == nil {
 			if err := r.finalizeCanaryService(kfsvc, endpoint); err != nil {
@@ -94,7 +95,7 @@ func (r *ServiceReconciler) reconcileEndpoint(kfsvc *v1alpha2.KFService, endpoin
 		}
 	}
 
-	service, err := r.serviceBuilder.CreateEndpointService(
+	service, err := r.serviceBuilder.CreateComponent(
 		kfsvc,
 		endpoint,
 		isCanary,
@@ -120,7 +121,7 @@ func (r *ServiceReconciler) reconcileEndpoint(kfsvc *v1alpha2.KFService, endpoin
 	return nil
 }
 
-func (r *ServiceReconciler) finalizeCanaryService(kfsvc *v1alpha2.KFService, endpoint constants.KFServiceEndpoint) error {
+func (r *ServiceReconciler) finalizeCanaryService(kfsvc *v1alpha2.KFService, endpoint constants.KFComponent) error {
 	canaryServiceName := constants.CanaryServiceName(kfsvc.Name, endpoint)
 	existing := &knservingv1alpha1.Service{}
 	if err := r.client.Get(context.TODO(), types.NamespacedName{Name: canaryServiceName, Namespace: kfsvc.Namespace}, existing); err != nil {
@@ -128,7 +129,7 @@ func (r *ServiceReconciler) finalizeCanaryService(kfsvc *v1alpha2.KFService, end
 			return err
 		}
 	} else {
-		log.Info("Deleting service", "namespace", kfsvc.Namespace, "name", canaryServiceName)
+		klog.Info("Deleting service", "namespace", kfsvc.Namespace, "name", canaryServiceName)
 		if err := r.client.Delete(context.TODO(), existing, client.PropagationPolicy(metav1.DeletePropagationBackground)); err != nil {
 			if !errors.IsNotFound(err) {
 				return err
@@ -147,7 +148,7 @@ func (r *ServiceReconciler) reconcileService(kfsvc *v1alpha2.KFService, desired 
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, existing)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			log.Info("Creating Knative Service", "namespace", desired.Namespace, "name", desired.Name)
+			klog.Info("Creating Knative Service", "namespace", desired.Namespace, "name", desired.Name)
 			return &desired.Status, r.client.Create(context.TODO(), desired)
 		}
 		return nil, err
@@ -163,8 +164,8 @@ func (r *ServiceReconciler) reconcileService(kfsvc *v1alpha2.KFService, desired 
 	if err != nil {
 		return &existing.Status, fmt.Errorf("failed to diff service: %v", err)
 	}
-	log.Info("Reconciling service diff (-desired, +observed):", "diff", diff)
-	log.Info("Updating service", "namespace", desired.Namespace, "name", desired.Name)
+	klog.Info("Reconciling service diff (-desired, +observed):", "diff", diff)
+	klog.Info("Updating service", "namespace", desired.Namespace, "name", desired.Name)
 	existing.Spec = desired.Spec
 	existing.ObjectMeta.Labels = desired.ObjectMeta.Labels
 	if err := r.client.Update(context.TODO(), existing); err != nil {

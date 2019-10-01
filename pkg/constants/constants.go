@@ -84,15 +84,15 @@ const (
 	CustomSpecStorageUriEnvVarKey = "STORAGE_URI"
 )
 
-type KFServiceEndpoint string
+type KFComponent string
 
 type KFServiceVerb string
 
 // KFService Endpoint enums
 const (
-	Predictor   KFServiceEndpoint = "predictor"
-	Explainer   KFServiceEndpoint = "explainer"
-	Transformer KFServiceEndpoint = "transformer"
+	Predictor   KFComponent = "predictor"
+	Explainer   KFComponent = "explainer"
+	Transformer KFComponent = "transformer"
 )
 
 // KFService verb enums
@@ -107,13 +107,13 @@ const (
 	KFServiceCanary  = "canary"
 )
 
-// KFService model server args
+// Standardized KFServer CLI Arguments
 const (
-	ArgumentModelName     = "--model_name"
-	ArgumentPredictorHost = "--predictor_host"
+	ArgumentModelName     = "--name"
+	ArgumentPredictorHost = "--predictor-host"
 )
 
-func (e KFServiceEndpoint) String() string {
+func (e KFComponent) String() string {
 	return string(e)
 }
 
@@ -160,11 +160,11 @@ func CanaryTransformerServiceName(name string) string {
 	return name + "-" + string(Transformer) + "-" + KFServiceCanary
 }
 
-func DefaultServiceName(name string, endpoint KFServiceEndpoint) string {
+func DefaultServiceName(name string, endpoint KFComponent) string {
 	return name + "-" + endpoint.String() + "-" + KFServiceDefault
 }
 
-func CanaryServiceName(name string, endpoint KFServiceEndpoint) string {
+func CanaryServiceName(name string, endpoint KFComponent) string {
 	return name + "-" + endpoint.String() + "-" + KFServiceCanary
 }
 

@@ -898,10 +898,10 @@ func TestKFServiceWithTransformer(t *testing.T) {
 									{
 										Image: "transformer:v2",
 										Args: []string{
-											"--model_name",
+											"--name",
 											serviceName,
-											"--predictor_host",
-											constants.CanaryPredictorServiceName(instance.Name) + "." + instance.Namespace,
+											"--predictor-host",
+											constants.PredictorURL(instance.ObjectMeta, true),
 										},
 									},
 								},

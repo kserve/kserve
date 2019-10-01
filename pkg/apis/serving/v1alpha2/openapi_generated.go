@@ -233,6 +233,54 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 			Dependencies: []string{
 				"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.ExplainerConfig"},
 		},
+		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.FeastTransformerSpec": {
+			Schema: spec.Schema{
+				SchemaProps: spec.SchemaProps{
+					Description: "FeastTransformerSpec defines arguments for configuring a Transformer to call Feast",
+					Properties: map[string]spec.Schema{
+						"feastUrl": {
+							SchemaProps: spec.SchemaProps{
+								Type:   []string{"string"},
+								Format: "",
+							},
+						},
+						"dataType": {
+							SchemaProps: spec.SchemaProps{
+								Type:   []string{"string"},
+								Format: "",
+							},
+						},
+						"entityIds": {
+							SchemaProps: spec.SchemaProps{
+								Type: []string{"array"},
+								Items: &spec.SchemaOrArray{
+									Schema: &spec.Schema{
+										SchemaProps: spec.SchemaProps{
+											Type:   []string{"string"},
+											Format: "",
+										},
+									},
+								},
+							},
+						},
+						"featureIds": {
+							SchemaProps: spec.SchemaProps{
+								Type: []string{"array"},
+								Items: &spec.SchemaOrArray{
+									Schema: &spec.Schema{
+										SchemaProps: spec.SchemaProps{
+											Type:   []string{"string"},
+											Format: "",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			Dependencies: []string{},
+		},
 		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.KFService": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
@@ -749,6 +797,11 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Ref: ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.CustomSpec"),
 							},
 						},
+						"feast": {
+							SchemaProps: spec.SchemaProps{
+								Ref: ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.FeastTransformerSpec"),
+							},
+						},
 						"serviceAccountName": {
 							SchemaProps: spec.SchemaProps{
 								Description: "ServiceAccountName is the name of the ServiceAccount to use to run the service",
@@ -774,7 +827,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 				},
 			},
 			Dependencies: []string{
-				"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.CustomSpec"},
+				"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.CustomSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.FeastTransformerSpec"},
 		},
 		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.XGBoostSpec": {
 			Schema: spec.Schema{

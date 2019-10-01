@@ -22,6 +22,7 @@ import (
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/controller/kfservice/reconcilers/knative"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/klog"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -141,7 +142,7 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 	configMap := &v1.ConfigMap{}
 	err := r.Get(context.TODO(), types.NamespacedName{Name: constants.KFServiceConfigMapName, Namespace: constants.KFServingNamespace}, configMap)
 	if err != nil {
-		log.Error(err, "Failed to find config map", "name", constants.KFServiceConfigMapName)
+		klog.Error(err, "Failed to find config map", "name", constants.KFServiceConfigMapName)
 		// Error reading the object - requeue the request.
 		return reconcile.Result{}, err
 	}
@@ -153,7 +154,7 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 
 	for _, reconciler := range reconcilers {
 		if err := reconciler.Reconcile(kfsvc); err != nil {
-			log.Error(err, "Failed to reconcile")
+			klog.Error(err, "Failed to reconcile")
 			r.Recorder.Eventf(kfsvc, v1.EventTypeWarning, "InternalError", err.Error())
 			return reconcile.Result{}, err
 		}
@@ -180,7 +181,7 @@ func (r *ReconcileService) updateStatus(desiredService *kfserving.KFService) err
 		// cache may be stale and we don't want to overwrite a prior update
 		// to status with this stale state.
 	} else if err := r.Update(context.TODO(), desiredService); err != nil {
-		log.Error(err, "Failed to update KFService status")
+		klog.Error(err, "Failed to update KFService status")
 		r.Recorder.Eventf(desiredService, v1.EventTypeWarning, "UpdateFailed",
 			"Failed to update status for KFService %q: %v", desiredService.Name, err)
 		return err

@@ -15,7 +15,7 @@ package v1alpha2
 
 import (
 	"github.com/kubeflow/kfserving/pkg/constants"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"knative.dev/pkg/apis"
 	knservingv1alpha1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
 )
@@ -42,13 +42,13 @@ const (
 	CanaryTransformerReady apis.ConditionType = "CanaryTransformerReady"
 )
 
-var defaultConditionsMap = map[constants.KFServiceEndpoint]apis.ConditionType{
+var defaultConditionsMap = map[constants.KFComponent]apis.ConditionType{
 	constants.Predictor:   DefaultPredictorReady,
 	constants.Explainer:   DefaultExplainerReady,
 	constants.Transformer: DefaultTransformerReady,
 }
 
-var canaryConditionsMap = map[constants.KFServiceEndpoint]apis.ConditionType{
+var canaryConditionsMap = map[constants.KFComponent]apis.ConditionType{
 	constants.Predictor:   CanaryPredictorReady,
 	constants.Explainer:   CanaryExplainerReady,
 	constants.Transformer: CanaryTransformerReady,
@@ -79,7 +79,7 @@ func (ss *KFServiceStatus) GetCondition(t apis.ConditionType) *apis.Condition {
 }
 
 // PropagateDefaultStatus propagates the status for the default spec
-func (ss *KFServiceStatus) PropagateDefaultStatus(endpoint constants.KFServiceEndpoint, defaultStatus *knservingv1alpha1.ServiceStatus) {
+func (ss *KFServiceStatus) PropagateDefaultStatus(endpoint constants.KFComponent, defaultStatus *knservingv1alpha1.ServiceStatus) {
 	if ss.Default == nil {
 		emptyStatusMap := make(EndpointStatusMap)
 		ss.Default = &emptyStatusMap
@@ -94,7 +94,7 @@ func (ss *KFServiceStatus) PropagateDefaultStatus(endpoint constants.KFServiceEn
 }
 
 // PropagateCanaryStatus propagates the status for the canary spec
-func (ss *KFServiceStatus) PropagateCanaryStatus(endpoint constants.KFServiceEndpoint, canaryStatus *knservingv1alpha1.ServiceStatus) {
+func (ss *KFServiceStatus) PropagateCanaryStatus(endpoint constants.KFComponent, canaryStatus *knservingv1alpha1.ServiceStatus) {
 
 	conditionType := canaryConditionsMap[endpoint]
 

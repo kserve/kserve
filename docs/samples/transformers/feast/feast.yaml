@@ -1,0 +1,21 @@
+apiVersion: serving.kubeflow.org/v1alpha2
+kind: KFService
+metadata:
+  name: feast-sample
+spec:
+  default:
+    predictor:
+      sklearn:
+        storageUri: gs://kfserving-samples/models/sklearn/uber-lyft-surge
+    transformer: 
+      feast:
+        feastUrl: "http://feast-serving.default.svc"
+        entityIds:
+          - source
+        featureIds:
+          - weather:1:temp
+          - weather:1:clouds
+          - weather:1:pressure
+          - weather:1:humidity
+        omitEntities: true
+        flattenFeatures: true

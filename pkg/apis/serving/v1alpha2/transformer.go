@@ -16,18 +16,18 @@ const (
 
 // Transformer interface is implemented by all Transformers
 type Transformer interface {
-	GetContainerSpec() *v1.Container
+	GetTransformerContainer() *v1.Container
 	ApplyDefaults()
 	Validate() error
 }
 
-// GetContainerSpec for the transformer
-func (t *TransformerSpec) GetContainerSpec(metadata metav1.ObjectMeta, isCanary bool) *v1.Container {
+// GetTransformerContainer for the transformer
+func (t *TransformerSpec) GetTransformerContainer(metadata metav1.ObjectMeta, isCanary bool) *v1.Container {
 	transformer, err := getTransformer(t)
 	if err != nil {
 		return &v1.Container{}
 	}
-	container := transformer.GetContainerSpec().DeepCopy()
+	container := transformer.GetTransformerContainer().DeepCopy()
 	container.Args = append(container.Args, []string{
 		constants.ArgumentModelName,
 		metadata.Name,
@@ -58,6 +58,9 @@ func getTransformer(t *TransformerSpec) (Transformer, error) {
 	transformers := []Transformer{}
 	if t.Custom != nil {
 		transformers = append(transformers, t.Custom)
+	}
+	if t.Feast != nil {
+		transformers = append(transformers, t.Feast)
 	}
 	// Fail if not exactly one
 	if len(transformers) != 1 {

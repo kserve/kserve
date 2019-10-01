@@ -87,8 +87,8 @@ type ExplainerSpec struct {
 
 // TransformerSpec defines transformer service for pre/post processing
 type TransformerSpec struct {
-	Custom *CustomSpec `json:"custom,omitempty"`
-
+	Custom         *CustomSpec           `json:"custom,omitempty"`
+	Feast          *FeastTransformerSpec `json:"feast,omitempty"`
 	DeploymentSpec `json:",inline"`
 }
 
@@ -184,7 +184,7 @@ type CustomSpec struct {
 }
 
 // EndpointStatusMap defines the observed state of KFService endpoints
-type EndpointStatusMap map[constants.KFServiceEndpoint]*StatusConfigurationSpec
+type EndpointStatusMap map[constants.KFComponent]*StatusConfigurationSpec
 
 // KFServiceStatus defines the observed state of KFService
 type KFServiceStatus struct {

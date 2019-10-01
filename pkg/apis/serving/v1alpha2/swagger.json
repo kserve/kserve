@@ -174,6 +174,29 @@
         }
       }
     },
+    "v1alpha2.FeastTransformerSpec": {
+      "description": "FeastTransformerSpec defines arguments for configuring a Transformer to call Feast",
+      "properties": {
+        "dataType": {
+          "type": "string"
+        },
+        "entityIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "feastUrl": {
+          "type": "string"
+        },
+        "featureIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
     "v1alpha2.KFService": {
       "description": "KFService is the Schema for the services API",
       "properties": {
@@ -477,6 +500,9 @@
       "properties": {
         "custom": {
           "$ref": "#/definitions/v1alpha2.CustomSpec"
+        },
+        "feast": {
+          "$ref": "#/definitions/v1alpha2.FeastTransformerSpec"
         },
         "maxReplicas": {
           "description": "This is the up bound for autoscaler to scale to",

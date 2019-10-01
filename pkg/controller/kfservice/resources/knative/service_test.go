@@ -574,7 +574,7 @@ func TestTransformerToKnativeService(t *testing.T) {
 											constants.ArgumentModelName,
 											kfsvc.Name,
 											constants.ArgumentPredictorHost,
-											constants.DefaultPredictorServiceName(kfsvc.Name) + "." + kfsvc.Namespace,
+											constants.PredictorURL(kfsvc.ObjectMeta, false),
 										},
 									},
 								},
@@ -615,7 +615,79 @@ func TestTransformerToKnativeService(t *testing.T) {
 											constants.ArgumentModelName,
 											kfsvc.Name,
 											constants.ArgumentPredictorHost,
-											constants.CanaryPredictorServiceName(kfsvc.Name) + "." + kfsvc.Namespace,
+											constants.PredictorURL(kfsvc.ObjectMeta, true),
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	feastKfsvc := v1alpha2.KFService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "mnist",
+			Namespace: "default",
+		},
+		Spec: v1alpha2.KFServiceSpec{
+			Default: v1alpha2.EndpointSpec{
+				Transformer: &v1alpha2.TransformerSpec{
+					Feast: &v1alpha2.FeastTransformerSpec{
+						FeastURL:   "http://feasturl",
+						DataType:   "tensorproto",
+						EntityIds:  []string{"a", "b"},
+						FeatureIds: []string{"c", "d"},
+					},
+				},
+				Predictor: v1alpha2.PredictorSpec{
+					Tensorflow: &v1alpha2.TensorflowSpec{
+						StorageURI:     "s3://test/mnist/export",
+						RuntimeVersion: "1.13.0",
+					},
+				},
+			},
+		},
+	}
+
+	var feastKservice = &knservingv1alpha1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      constants.DefaultTransformerServiceName("mnist"),
+			Namespace: "default",
+		},
+		Spec: knservingv1alpha1.ServiceSpec{
+			ConfigurationSpec: knservingv1alpha1.ConfigurationSpec{
+				Template: &knservingv1alpha1.RevisionTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Labels: map[string]string{"serving.kubeflow.org/kfservice": "mnist"},
+						Annotations: map[string]string{
+							"autoscaling.knative.dev/class":  "kpa.autoscaling.knative.dev",
+							"autoscaling.knative.dev/target": "1",
+						},
+					},
+					Spec: knservingv1alpha1.RevisionSpec{
+						RevisionSpec: v1beta1.RevisionSpec{
+							TimeoutSeconds: &constants.DefaultTimeout,
+							PodSpec: v1.PodSpec{
+								Containers: []v1.Container{
+									{
+										Name:  constants.Transformer.String(),
+										Image: v1alpha2.DefaultFeastImage,
+										Args: []string{
+											v1alpha2.ArgumentFeastURL,
+											"http://feasturl",
+											v1alpha2.ArgumentDataType,
+											v1alpha2.TensorProto.ToCLIArgument(),
+											v1alpha2.ArgumentEntityIds,
+											"a", "b",
+											v1alpha2.ArgumentFeatureIds,
+											"c", "d",
+											constants.ArgumentModelName,
+											kfsvc.Name,
+											constants.ArgumentPredictorHost,
+											constants.PredictorURL(kfsvc.ObjectMeta, false),
 										},
 									},
 								},
@@ -633,15 +705,20 @@ func TestTransformerToKnativeService(t *testing.T) {
 		expectedDefault *knservingv1alpha1.Service
 		expectedCanary  *knservingv1alpha1.Service
 	}{
-		"RunLatestModel": {
+		"CustomTransformer": {
 			kfService:       kfsvc,
 			expectedDefault: defaultService,
 			expectedCanary:  nil,
 		},
-		"RunCanaryModel": {
+		"CustomCanaryTransformer": {
 			kfService:       *kfsvcCanary,
 			expectedDefault: defaultService,
 			expectedCanary:  canaryService,
+		},
+		"FeastTransformer": {
+			kfService:       feastKfsvc,
+			expectedDefault: feastKservice,
+			expectedCanary:  nil,
 		},
 	}
 
@@ -685,7 +762,6 @@ func TestExplainerToKnativeService(t *testing.T) {
 		},
 		Spec: v1alpha2.KFServiceSpec{
 			Default: v1alpha2.EndpointSpec{
-
 				Predictor: v1alpha2.PredictorSpec{
 					DeploymentSpec: v1alpha2.DeploymentSpec{
 						MinReplicas:        1,

@@ -18,10 +18,11 @@ package executor
 
 import (
 	"bytes"
-	"github.com/go-logr/logr"
 	"io/ioutil"
 	"net/http"
 	"net/url"
+
+	"github.com/go-logr/logr"
 )
 
 type executorHandler struct {

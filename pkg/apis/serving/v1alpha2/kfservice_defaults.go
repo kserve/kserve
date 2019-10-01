@@ -29,5 +29,8 @@ func (kfsvc *KFService) applyDefaultsEndpoint(endpoint *EndpointSpec) {
 		if endpoint.Explainer != nil {
 			endpoint.Explainer.ApplyDefaults()
 		}
+		if endpoint.Transformer != nil {
+			endpoint.Transformer.ApplyDefaults()
+		}
 	}
 }
