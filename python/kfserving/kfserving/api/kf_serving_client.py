@@ -23,10 +23,10 @@ from ..models.v1alpha2_kf_service import V1alpha2KFService
 from ..models.v1alpha2_kf_service_spec import V1alpha2KFServiceSpec
 
 
-class KFServingClient(object): # pylint: disable=too-many-arguments
+class KFServingClient(object):
     '''KFServing Client Apis.'''
 
-    def __init__(self, config_file=None, context=None,
+    def __init__(self, config_file=None, context=None, # pylint: disable=too-many-arguments
                  client_configuration=None, persist_config=True,
                  load_kube_config=False):
         if load_kube_config or not utils.is_running_in_k8s():
