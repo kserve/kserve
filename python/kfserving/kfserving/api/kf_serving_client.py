@@ -29,7 +29,7 @@ class KFServingClient(object):
     def __init__(self, config_file=None, context=None,
                  client_configuration=None, persist_config=True,
                  force_kubeconfig=False):
-        if force_kubeconfig or utils.is_running_in_k8s() == False:
+        if force_kubeconfig or not utils.is_running_in_k8s():
             config.load_kube_config(
                 config_file=config_file,
                 context=context,
