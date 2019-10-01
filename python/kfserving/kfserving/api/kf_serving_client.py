@@ -23,7 +23,7 @@ from ..models.v1alpha2_kf_service import V1alpha2KFService
 from ..models.v1alpha2_kf_service_spec import V1alpha2KFServiceSpec
 
 
-class KFServingClient(object):
+class KFServingClient(object): # pylint: disable=too-many-arguments
     '''KFServing Client Apis.'''
 
     def __init__(self, config_file=None, context=None,
