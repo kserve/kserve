@@ -1,0 +1,22 @@
+apiVersion: "serving.kubeflow.org/v1alpha2"
+kind: "KFService"
+metadata:
+  name: "moviesentiment"
+spec:
+  default:
+    predictor:
+      sklearn:
+        storageUri: "gs://seldon-models/sklearn/moviesentiment"
+        resources:
+          requests:
+            cpu: 0.1
+    explainer:
+      alibi:
+        type: AnchorText
+        config:
+          use_unk: "false"
+          sample_proba: "0.5"
+        resources:
+          requests:
+            cpu: 0.1
+        
