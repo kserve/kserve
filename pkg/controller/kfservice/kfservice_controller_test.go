@@ -432,10 +432,16 @@ func TestKFServiceWithOnlyCanaryPredictor(t *testing.T) {
 	updatedRoute.Status.URL = &apis.URL{Scheme: "http", Host: canaryServiceKey.Name + ".svc.cluster.local"}
 	updatedRoute.Status.Traffic = []knservingv1alpha1.TrafficTarget{
 		{
-			TrafficTarget: v1beta1.TrafficTarget{RevisionName: "revision-v2", Percent: 20},
+			TrafficTarget: v1beta1.TrafficTarget{
+				RevisionName: "revision-v2",
+				Percent:      20,
+			},
 		},
 		{
-			TrafficTarget: v1beta1.TrafficTarget{RevisionName: "revision-v1", Percent: 80},
+			TrafficTarget: v1beta1.TrafficTarget{
+				RevisionName: "revision-v1",
+				Percent:      80,
+			},
 		},
 	}
 	updatedRoute.Status.Conditions = duckv1beta1.Conditions{
@@ -484,6 +490,7 @@ func TestKFServiceWithOnlyCanaryPredictor(t *testing.T) {
 			},
 		},
 	}
+	time.Sleep(100 * time.Millisecond)
 	g.Eventually(func() string {
 		kfsvc := &kfserving.KFService{}
 		if err := c.Get(context.TODO(), canaryServiceKey, kfsvc); err != nil {
@@ -634,6 +641,7 @@ func TestCanaryDelete(t *testing.T) {
 			Status: "True",
 		},
 	}
+
 	g.Expect(c.Status().Update(context.TODO(), updatedRoute)).NotTo(gomega.HaveOccurred())
 	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedCanaryRequest)))
 
@@ -933,38 +941,76 @@ func TestKFServiceWithTransformer(t *testing.T) {
 	g.Expect(route.Spec).To(gomega.Equal(expectedRoute.Spec))
 
 	// mock update knative service status since knative serving controller is not running in test
-	updateDefault := defaultPredictorService.DeepCopy()
-	updateDefault.Status.LatestCreatedRevisionName = "revision-v1"
-	updateDefault.Status.LatestReadyRevisionName = "revision-v1"
-	updateDefault.Status.Conditions = duckv1beta1.Conditions{
-		{
-			Type:   knservingv1alpha1.ServiceConditionReady,
-			Status: "True",
-		},
-	}
-	g.Expect(c.Status().Update(context.TODO(), updateDefault)).NotTo(gomega.HaveOccurred())
-	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
 
-	updateCanary := canaryPredictorService.DeepCopy()
-	updateCanary.Status.LatestCreatedRevisionName = "revision-v2"
-	updateCanary.Status.LatestReadyRevisionName = "revision-v2"
-	updateCanary.Status.Conditions = duckv1beta1.Conditions{
-		{
-			Type:   knservingv1alpha1.ServiceConditionReady,
-			Status: "True",
-		},
-	}
-	g.Expect(c.Status().Update(context.TODO(), updateCanary)).NotTo(gomega.HaveOccurred())
-	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
+	// update predictor
+	{
+		updateDefault := defaultPredictorService.DeepCopy()
+		updateDefault.Status.LatestCreatedRevisionName = "revision-v1"
+		updateDefault.Status.LatestReadyRevisionName = "revision-v1"
+		updateDefault.Status.Conditions = duckv1beta1.Conditions{
+			{
+				Type:   knservingv1alpha1.ServiceConditionReady,
+				Status: "True",
+			},
+		}
+		g.Expect(c.Status().Update(context.TODO(), updateDefault)).NotTo(gomega.HaveOccurred())
+		g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
 
+		updateCanary := canaryPredictorService.DeepCopy()
+		updateCanary.Status.LatestCreatedRevisionName = "revision-v2"
+		updateCanary.Status.LatestReadyRevisionName = "revision-v2"
+		updateCanary.Status.Conditions = duckv1beta1.Conditions{
+			{
+				Type:   knservingv1alpha1.ServiceConditionReady,
+				Status: "True",
+			},
+		}
+		g.Expect(c.Status().Update(context.TODO(), updateCanary)).NotTo(gomega.HaveOccurred())
+		g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
+	}
+
+	// update transformer
+	{
+		updateDefault := defaultTransformerService.DeepCopy()
+		updateDefault.Status.LatestCreatedRevisionName = "t-revision-v1"
+		updateDefault.Status.LatestReadyRevisionName = "t-revision-v1"
+		updateDefault.Status.Conditions = duckv1beta1.Conditions{
+			{
+				Type:   knservingv1alpha1.ServiceConditionReady,
+				Status: "True",
+			},
+		}
+		g.Expect(c.Status().Update(context.TODO(), updateDefault)).NotTo(gomega.HaveOccurred())
+		g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
+
+		updateCanary := canaryTransformerService.DeepCopy()
+		updateCanary.Status.LatestCreatedRevisionName = "t-revision-v2"
+		updateCanary.Status.LatestReadyRevisionName = "t-revision-v2"
+		updateCanary.Status.Conditions = duckv1beta1.Conditions{
+			{
+				Type:   knservingv1alpha1.ServiceConditionReady,
+				Status: "True",
+			},
+		}
+		g.Expect(c.Status().Update(context.TODO(), updateCanary)).NotTo(gomega.HaveOccurred())
+		g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
+	}
+
+	// update route
 	updatedRoute := route.DeepCopy()
 	updatedRoute.Status.URL = &apis.URL{Scheme: "http", Host: serviceName + ".svc.cluster.local"}
 	updatedRoute.Status.Traffic = []knservingv1alpha1.TrafficTarget{
 		{
-			TrafficTarget: v1beta1.TrafficTarget{RevisionName: "revision-v2", Percent: 20},
+			TrafficTarget: v1beta1.TrafficTarget{
+				RevisionName: "t-revision-v2",
+				Percent:      20,
+			},
 		},
 		{
-			TrafficTarget: v1beta1.TrafficTarget{RevisionName: "revision-v1", Percent: 80},
+			TrafficTarget: v1beta1.TrafficTarget{
+				RevisionName: "t-revision-v1",
+				Percent:      80,
+			},
 		},
 	}
 	updatedRoute.Status.Conditions = duckv1beta1.Conditions{
@@ -986,8 +1032,18 @@ func TestKFServiceWithTransformer(t *testing.T) {
 					Status:   "True",
 				},
 				{
+					Type:     kfserving.CanaryTransformerReady,
+					Severity: "Info",
+					Status:   "True",
+				},
+				{
 					Type:   kfserving.DefaultPredictorReady,
 					Status: "True",
+				},
+				{
+					Type:     kfserving.DefaultTransformerReady,
+					Severity: "Info",
+					Status:   "True",
 				},
 				{
 					Type:   apis.ConditionReady,
@@ -1002,13 +1058,19 @@ func TestKFServiceWithTransformer(t *testing.T) {
 		URL: updatedRoute.Status.URL.String(),
 		Default: &kfserving.EndpointStatusMap{
 			constants.Predictor: &kfserving.StatusConfigurationSpec{
-				Name:    "revision-v1",
+				Name: "revision-v1",
+			},
+			constants.Transformer: &kfserving.StatusConfigurationSpec{
+				Name:    "t-revision-v1",
 				Traffic: 80,
 			},
 		},
 		Canary: &kfserving.EndpointStatusMap{
 			constants.Predictor: &kfserving.StatusConfigurationSpec{
-				Name:    "revision-v2",
+				Name: "revision-v2",
+			},
+			constants.Transformer: &kfserving.StatusConfigurationSpec{
+				Name:    "t-revision-v2",
 				Traffic: 20,
 			},
 		},
