@@ -205,8 +205,10 @@ func TestKFServiceToKnativeService(t *testing.T) {
 					},
 				},
 				Status: v1alpha2.KFServiceStatus{
-					Default: v1alpha2.StatusConfigurationSpec{
-						Name: "v1",
+					Default: v1alpha2.EndpointStatusMap{
+						constants.Predictor: &v1alpha2.StatusConfigurationSpec{
+							Name: "v1",
+						},
 					},
 				},
 			},
