@@ -26,16 +26,17 @@ from ..models.v1alpha2_kf_service_spec import V1alpha2KFServiceSpec
 class KFServingClient(object):
     '''KFServing Client Apis.'''
 
-    def __init__(self, config_file=None, context=None,
-                 client_configuration=None, persist_config=True):
-        if utils.is_running_in_k8s():
-            config.load_incluster_config()
-        else:
+    def __init__(self, config_file=None, context=None, # pylint: disable=too-many-arguments
+                 client_configuration=None, persist_config=True,
+                 load_kube_config=False):
+        if load_kube_config or not utils.is_running_in_k8s():
             config.load_kube_config(
                 config_file=config_file,
                 context=context,
                 client_configuration=client_configuration,
                 persist_config=persist_config)
+        else:
+            config.load_incluster_config()
 
         self.api_instance = client.CustomObjectsApi()
 
