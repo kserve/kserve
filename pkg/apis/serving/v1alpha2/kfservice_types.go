@@ -87,8 +87,8 @@ type ExplainerSpec struct {
 
 // TransformerSpec defines transformer service for pre/post processing
 type TransformerSpec struct {
-	Custom *CustomSpec `json:"custom,omitempty"`
-
+	Custom         *CustomSpec           `json:"custom,omitempty"`
+	Feast          *FeastTransformerSpec `json:"feast,omitempty"`
 	DeploymentSpec `json:",inline"`
 }
 

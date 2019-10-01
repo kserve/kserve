@@ -228,6 +228,23 @@ spec:
                       required:
                       - container
                       type: object
+                    feast:
+                      properties:
+                        entityIds:
+                          items:
+                            type: string
+                          type: array
+                        feastUrl:
+                          type: string
+                        featureIds:
+                          items:
+                            type: string
+                          type: array
+                      required:
+                      - feastUrl
+                      - entityIds
+                      - featureIds
+                      type: object
                     maxReplicas:
                       description: This is the up bound for autoscaler to scale to
                       format: int64
@@ -430,6 +447,23 @@ spec:
                           type: object
                       required:
                       - container
+                      type: object
+                    feast:
+                      properties:
+                        entityIds:
+                          items:
+                            type: string
+                          type: array
+                        feastUrl:
+                          type: string
+                        featureIds:
+                          items:
+                            type: string
+                          type: array
+                      required:
+                      - feastUrl
+                      - entityIds
+                      - featureIds
                       type: object
                     maxReplicas:
                       description: This is the up bound for autoscaler to scale to

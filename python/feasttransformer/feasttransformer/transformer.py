@@ -65,10 +65,18 @@ class FeastTransformer(Transformer):
         return inputs
 
     def enrich(self, instance):
-        return requests.post(self.feast_url, {
-            "featureSets": self.feature_sets.values(),
-            "entityDatasets": {
-                "entityNames": self.entity_ids,
-                "entityDatasetRows": instance
-            }
-        })
+        response = requests.post(
+            url=self.feast_url,
+            data={
+                "featureSets": self.feature_sets.values(),
+                "entityDatasets": {
+                    "entityNames": self.entity_ids,
+                    "entityDatasetRows": instance
+                }
+            })
+        
+        # if response.status_code != 200:
+        #     raise 
+        print("yoo")
+        print(response.json())
+        return response.json()

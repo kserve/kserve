@@ -32,7 +32,7 @@ setup(
     packages=find_packages("feasttransformer"),
     install_requires=[
         "kfserving>=0.1.0",
-        "requests>=2.22.0",
+        "requests3>=0.0.0",
         "pandas>=0.24.2"
     ],
     tests_require=TESTS_REQUIRE,
