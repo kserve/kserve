@@ -145,7 +145,7 @@
       "description": "ExplainerSpec defines the arguments for a model explanation server",
       "properties": {
         "alibi": {
-          "description": "The following fields follow a \"1-of\" semantic. Users must specify exactly one openapispec.",
+          "description": "The following fields follow a \"1-of\" semantic. Users must specify exactly one spec.",
           "$ref": "#/definitions/v1alpha2.AlibiExplainerSpec"
         },
         "custom": {
@@ -278,7 +278,10 @@
       "description": "KFServiceStatus defines the observed state of KFService",
       "properties": {
         "canary": {
-          "$ref": "#/definitions/v1alpha2.StatusConfigurationSpec"
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/v1alpha2.StatusConfigurationSpec"
+          }
         },
         "conditions": {
           "description": "Conditions the latest available observations of a resource's current state.",
@@ -290,7 +293,10 @@
           "x-kubernetes-patch-strategy": "merge"
         },
         "default": {
-          "$ref": "#/definitions/v1alpha2.StatusConfigurationSpec"
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/v1alpha2.StatusConfigurationSpec"
+          }
         },
         "observedGeneration": {
           "description": "ObservedGeneration is the 'Generation' of the Service that was last processed by the controller.",
@@ -326,7 +332,7 @@
       "description": "PredictorSpec defines the configuration to route traffic to a predictor.",
       "properties": {
         "custom": {
-          "description": "The following fields follow a \"1-of\" semantic. Users must specify exactly one openapispec.",
+          "description": "The following fields follow a \"1-of\" semantic. Users must specify exactly one spec.",
           "$ref": "#/definitions/v1alpha2.CustomSpec"
         },
         "maxReplicas": {
@@ -410,6 +416,9 @@
     "v1alpha2.StatusConfigurationSpec": {
       "description": "StatusConfigurationSpec describes the state of the configuration receiving traffic.",
       "properties": {
+        "host": {
+          "type": "string"
+        },
         "name": {
           "type": "string"
         },

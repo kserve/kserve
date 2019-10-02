@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha2
 
 import (
+	"github.com/kubeflow/kfserving/pkg/constants"
 	"k8s.io/api/core/v1"
 	"knative.dev/pkg/apis/duck"
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
@@ -196,8 +197,8 @@ func TestKFServiceIsReady(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			status := KFServiceStatus{}
-			status.PropagateDefaultPredictorStatus(&tc.defaultServiceStatus)
-			status.PropagateCanaryPredictorStatus(&tc.canaryServiceStatus)
+			status.PropagateDefaultStatus(constants.Predictor, &tc.defaultServiceStatus)
+			status.PropagateCanaryStatus(constants.Predictor, &tc.canaryServiceStatus)
 			status.PropagateRouteStatus(&tc.routeStatus)
 			if e, a := tc.isReady, status.IsReady(); e != a {
 				t.Errorf("%q expected: %v got: %v", tc.name, e, a)
