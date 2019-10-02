@@ -52,7 +52,7 @@ var (
 // Controller Constants
 var (
 	ControllerLabelName        = KFServingName + "-controller-manager"
-	DefaultTimeout       int64 = 300
+	DefaultTimeout       int64 = 30
 	DefaultScalingTarget       = "1"
 )
 
