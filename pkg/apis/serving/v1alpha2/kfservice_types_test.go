@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha2
 
 import (
+	"github.com/kubeflow/kfserving/pkg/constants"
 	"testing"
 
 	"github.com/onsi/gomega"
@@ -84,15 +85,19 @@ func TestKFService(t *testing.T) {
 	statusUpdated := fetched.DeepCopy()
 	statusUpdated.Status = KFServiceStatus{
 		URL: "example.dev.com",
-		Default: StatusConfigurationSpec{
-			Name:     "v1",
-			Traffic:  20,
-			Replicas: 2,
+		Default: &EndpointStatusMap{
+			constants.Predictor: &StatusConfigurationSpec{
+				Name:     "v1",
+				Traffic:  20,
+				Replicas: 2,
+			},
 		},
-		Canary: StatusConfigurationSpec{
-			Name:     "v2",
-			Traffic:  80,
-			Replicas: 3,
+		Canary: &EndpointStatusMap{
+			constants.Predictor: &StatusConfigurationSpec{
+				Name:     "v2",
+				Traffic:  80,
+				Replicas: 3,
+			},
 		},
 	}
 	g.Expect(c.Update(context.TODO(), statusUpdated)).NotTo(gomega.HaveOccurred())

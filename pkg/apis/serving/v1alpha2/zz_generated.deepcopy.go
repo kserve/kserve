@@ -21,6 +21,7 @@ limitations under the License.
 package v1alpha2
 
 import (
+	constants "github.com/kubeflow/kfserving/pkg/constants"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -325,32 +326,40 @@ func (in *KFServiceStatus) DeepCopyInto(out *KFServiceStatus) {
 	in.Status.DeepCopyInto(&out.Status)
 	if in.Default != nil {
 		in, out := &in.Default, &out.Default
-		*out = make(EndpointStatusMap, len(*in))
-		for key, val := range *in {
-			var outVal *StatusConfigurationSpec
-			if val == nil {
-				(*out)[key] = nil
-			} else {
-				in, out := &val, &outVal
-				*out = new(StatusConfigurationSpec)
-				**out = **in
+		*out = new(EndpointStatusMap)
+		if **in != nil {
+			in, out := *in, *out
+			*out = make(map[constants.KFServiceEndpoint]*StatusConfigurationSpec, len(*in))
+			for key, val := range *in {
+				var outVal *StatusConfigurationSpec
+				if val == nil {
+					(*out)[key] = nil
+				} else {
+					in, out := &val, &outVal
+					*out = new(StatusConfigurationSpec)
+					**out = **in
+				}
+				(*out)[key] = outVal
 			}
-			(*out)[key] = outVal
 		}
 	}
 	if in.Canary != nil {
 		in, out := &in.Canary, &out.Canary
-		*out = make(EndpointStatusMap, len(*in))
-		for key, val := range *in {
-			var outVal *StatusConfigurationSpec
-			if val == nil {
-				(*out)[key] = nil
-			} else {
-				in, out := &val, &outVal
-				*out = new(StatusConfigurationSpec)
-				**out = **in
+		*out = new(EndpointStatusMap)
+		if **in != nil {
+			in, out := *in, *out
+			*out = make(map[constants.KFServiceEndpoint]*StatusConfigurationSpec, len(*in))
+			for key, val := range *in {
+				var outVal *StatusConfigurationSpec
+				if val == nil {
+					(*out)[key] = nil
+				} else {
+					in, out := &val, &outVal
+					*out = new(StatusConfigurationSpec)
+					**out = **in
+				}
+				(*out)[key] = outVal
 			}
-			(*out)[key] = outVal
 		}
 	}
 	return

@@ -7,16 +7,16 @@ metadata:
   name: kfservices.serving.kubeflow.org
 spec:
   additionalPrinterColumns:
-  - JSONPath: .status.conditions[?(@.type=='Ready')].status
-    name: Ready
-    type: string
   - JSONPath: .status.url
     name: URL
     type: string
-  - JSONPath: .status.default.traffic
+  - JSONPath: .status.conditions[?(@.type=='Ready')].status
+    name: Ready
+    type: string
+  - JSONPath: .status.default.predictor.traffic
     name: Default Traffic
     type: integer
-  - JSONPath: .status.canary.traffic
+  - JSONPath: .status.canary.predictor.traffic
     name: Canary Traffic
     type: integer
   - JSONPath: .metadata.creationTimestamp
@@ -454,15 +454,6 @@ spec:
         status:
           properties:
             canary:
-              properties:
-                name:
-                  type: string
-                replicas:
-                  format: int64
-                  type: integer
-                traffic:
-                  format: int64
-                  type: integer
               type: object
             conditions:
               description: Conditions the latest available observations of a resource's
@@ -499,15 +490,6 @@ spec:
                 type: object
               type: array
             default:
-              properties:
-                name:
-                  type: string
-                replicas:
-                  format: int64
-                  type: integer
-                traffic:
-                  format: int64
-                  type: integer
               type: object
             host:
               type: string

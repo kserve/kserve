@@ -183,6 +183,17 @@ type CustomSpec struct {
 	Container v1.Container `json:"container"`
 }
 
+// EndpointStatusMap defines the observed state of KFService endpoints
+type EndpointStatusMap map[constants.KFServiceEndpoint]*StatusConfigurationSpec
+
+// KFServiceStatus defines the observed state of KFService
+type KFServiceStatus struct {
+	duckv1beta1.Status `json:",inline"`
+	URL                string             `json:"url,omitempty"`
+	Default            *EndpointStatusMap `json:"default,omitempty"`
+	Canary             *EndpointStatusMap `json:"canary,omitempty"`
+}
+
 // StatusConfigurationSpec describes the state of the configuration receiving traffic.
 type StatusConfigurationSpec struct {
 	Name     string `json:"name,omitempty"`
@@ -191,26 +202,15 @@ type StatusConfigurationSpec struct {
 	Traffic  int    `json:"traffic,omitempty"`
 }
 
-// KFServiceStatus defines the observed state of KFService
-// TODO (rakelkar) okay to depend on constants from types?
-type EndpointStatusMap map[constants.KFServiceEndpoint]*StatusConfigurationSpec
-
-type KFServiceStatus struct {
-	duckv1beta1.Status `json:",inline"`
-	URL                string            `json:"Url,omitempty"`
-	Default            EndpointStatusMap `json:"default,omitempty"`
-	Canary             EndpointStatusMap `json:"canary,omitempty"`
-}
-
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // KFService is the Schema for the services API
 // +k8s:openapi-gen=true
-// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
 // +kubebuilder:printcolumn:name="URL",type="string",JSONPath=".status.url"
-// +kubebuilder:printcolumn:name="Default Traffic",type="integer",JSONPath=".status.default.traffic"
-// +kubebuilder:printcolumn:name="Canary Traffic",type="integer",JSONPath=".status.canary.traffic"
+// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
+// +kubebuilder:printcolumn:name="Default Traffic",type="integer",JSONPath=".status.default.predictor.traffic"
+// +kubebuilder:printcolumn:name="Canary Traffic",type="integer",JSONPath=".status.canary.predictor.traffic"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:resource:path=kfservices,shortName=kfservice
 type KFService struct {

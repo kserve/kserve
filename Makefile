@@ -33,9 +33,13 @@ deploy-dev: manifests
 
 undeploy:
 	kustomize build config/default | kubectl delete -f -
+	kubectl delete validatingwebhookconfigurations.admissionregistration.k8s.io kfservice.serving.kubeflow.org
+	kubectl delete mutatingwebhookconfigurations.admissionregistration.k8s.io kfservice.serving.kubeflow.org
 
 undeploy-dev:
 	kustomize build config/overlays/development | kubectl delete -f -
+	kubectl delete validatingwebhookconfigurations.admissionregistration.k8s.io kfservice.serving.kubeflow.org
+	kubectl delete mutatingwebhookconfigurations.admissionregistration.k8s.io kfservice.serving.kubeflow.org
 
 # Generate manifests e.g. CRD, RBAC etc.
 manifests:
@@ -85,3 +89,7 @@ docker-build-executor: test
 
 docker-push-executor:
 	docker push ${EXECUTOR_IMG}
+
+apidocs:
+	docker build -f docs/apis/Dockerfile --rm -t apidocs-gen . && \
+	docker run -it --rm -v ${PWD}/docs/apis:/go/gen-crd-api-reference-docs/apidocs apidocs-gen

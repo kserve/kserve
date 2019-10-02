@@ -21,6 +21,7 @@ KFServingClient | [create](#create) | Create KFService|
 KFServingClient | [get](#get)    | Get or watch the specified KFService or all KFServices in the namespace |
 KFServingClient | [patch](#patch)  | Patch the specified KFService|
 KFServingClient | [replace](#replace) | Replace the specified KFService|
+KFServingClient | [rollout_canary](#rollout_canary) | Rollout the traffic on `canary` version for specified KFService|
 KFServingClient | [promote](#promote) | Promote the `canary` version of the KFService to `default`|
 KFServingClient | [delete](#delete) | Delete the specified KFService |
 
@@ -277,11 +278,52 @@ timeout_seconds | int | Timeout seconds for watching. Defaults to 600. | Optiona
 ### Return type
 object
 
+## rollout_canary
+> rollout_canary(name, percent=100, canary=None, namespace=None, watch=False, timeout_seconds=600)
+
+Rollout canary for the created KFService in the specified namespace. The `rollout_canary` API updates the KFService `canaryTrafficPercent` to speficed `percent` to adjust the traffic percent that will be distributed on the canary version. The `rollout_canary` also supports setting or updating `canary` endpoint spec for the KFServing. If the KFService has no `canary` endpoint spec, need to specify with the API it while setting `canaryTrafficPercent`.
+
+The difference between [rollout_canary](#rollout_canary) and [promote](#promote) is that the `rollout_canary` only updates `canaryTrafficPercent` (or  `canary` endpoint spec) while the `promote` moves the `canary` version of the KFService to `default`.
+
+
+### Example
+
+```python
+
+KFServing = KFServingClient()
+KFServing.rollout_canary('flower-sample', percent=50, namespace='kubeflow')
+
+# The API also supports setting or updating the canary endpoint spec.
+canary_spec = V1alpha2EndpointSpec(
+  predictor=V1alpha2PredictorSpec(
+    tensorflow=V1alpha2TensorflowSpec(
+    storage_uri='gs://kfserving-samples/models/tensorflow/flowers')))
+
+KFServing.rollout_canary('flower-sample', percent=50, canary=canary_spec, namespace='kubeflow')
+
+# The API also supports watching the KFService status till it's READY.
+# KFServing.rollout_canary('flower-sample', percent=50, namespace='kubeflow', watch=True)
+```
+
+### Parameters
+Name | Type |  Description | Notes
+------------ | ------------- | ------------- | -------------
+name  | str | The KFService name for promoting.| Required|
+percent  | int | The traffic percent that will be distributed on the canary version.| Required|
+canary  | [V1alpha2EndpointSpec](V1alpha2EndpointSpec.md) | The canary endpoint spec for KFServing.|Optional |
+namespace | str | The KFService's namespace. If the `namespace` is not defined, will align with KFService definition, or use current or default namespace if namespace is not specified in KFService definition. | Optional|
+watch | bool | Watch the KFService if `True`, otherwise will return the KFService object. Stop watching if KFService reaches the optional specified `timeout_seconds` or once the KFService overall status `READY` is `True`. | Optional |
+timeout_seconds | int | Timeout seconds for watching. Defaults to 600. | Optional |
+
+### Return type
+object
 
 ## promote
 > promote(name, namespace=None, watch=False, timeout_seconds=600)
 
 Promote the `Canary KFServiceSpec` to `Default KFServiceSpec` for the created KFService in the specified namespace.
+
+If you just want to update canary version and canary traffic percent, please use API [rollout_canary](#rollout_canary).
 
 ### Example
 
@@ -297,7 +339,7 @@ KFServing.promote('flower-sample', namespace='kubeflow')
 ### Parameters
 Name | Type |  Description | Notes
 ------------ | ------------- | ------------- | -------------
-Name  | str | The KFService name for promoting.| |
+name  | str | The KFService name for promoting.| Required|
 namespace | str | The KFService's namespace. If the `namespace` is not defined, will align with KFService definition, or use current or default namespace if namespace is not specified in KFService definition. | Optional|
 watch | bool | Watch the promoted KFService if `True`, otherwise will return the promoted KFService object. Stop watching if KFService reaches the optional specified `timeout_seconds` or once the KFService overall status `READY` is `True`. | Optional |
 timeout_seconds | int | Timeout seconds for watching. Defaults to 600. | Optional |
@@ -317,13 +359,13 @@ Delete the created KFService in the specified namespace
 from kfserving import KFServingClient
 
 KFServing = KFServingClient()
-KFServing.get('flower-sample', namespace='kubeflow')
+KFServing.delete('flower-sample', namespace='kubeflow')
 ```
 
 ### Parameters
 Name | Type |  Description | Notes
 ------------ | ------------- | ------------- | -------------
-Name  | str | KFService name| |
+name  | str | KFService name| |
 namespace | str | The kfservice's namespace. Defaults to current or default namespace. | Optional|
 
 ### Return type
