@@ -15,7 +15,7 @@ package v1alpha2
 
 import (
 	"github.com/kubeflow/kfserving/pkg/constants"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"knative.dev/pkg/apis"
 	knservingv1alpha1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
 )

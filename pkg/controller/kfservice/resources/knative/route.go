@@ -36,7 +36,7 @@ func NewRouteBuilder() *RouteBuilder {
 	return &RouteBuilder{}
 }
 
-func (r *RouteBuilder) CreateKnativeRoute(kfsvc *v1alpha2.KFService, endpoint constants.KFServiceEndpoint,
+func (r *RouteBuilder) CreateKnativeRoute(kfsvc *v1alpha2.KFService, endpoint constants.KFComponent,
 	verb constants.KFServiceVerb) *knservingv1alpha1.Route {
 	defaultPercent := 100
 	canaryPercent := 0

@@ -26,6 +26,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	k8types "k8s.io/apimachinery/pkg/types"
+	"k8s.io/klog"
 
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/controller/kfservice/resources/credentials"
@@ -54,7 +55,7 @@ func (mutator *Mutator) Handle(ctx context.Context, req types.Request) types.Res
 	configMap := &v1.ConfigMap{}
 	err := mutator.Client.Get(context.TODO(), k8types.NamespacedName{Name: constants.KFServiceConfigMapName, Namespace: constants.KFServingNamespace}, configMap)
 	if err != nil {
-		log.Error(err, "Failed to find config map", "name", constants.KFServiceConfigMapName)
+		klog.Error(err, "Failed to find config map", "name", constants.KFServiceConfigMapName)
 		return admission.ErrorResponse(http.StatusInternalServerError, err)
 	}
 

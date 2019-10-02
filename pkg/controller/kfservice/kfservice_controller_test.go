@@ -898,7 +898,7 @@ func TestKFServiceWithTransformer(t *testing.T) {
 									{
 										Image: "transformer:v2",
 										Args: []string{
-											"--model-name",
+											"--name",
 											serviceName,
 											"--predictor-host",
 											constants.PredictorURL(instance.ObjectMeta, true),

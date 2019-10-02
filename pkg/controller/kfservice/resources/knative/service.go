@@ -74,12 +74,12 @@ func NewServiceBuilder(client client.Client, config *v1.ConfigMap) *ServiceBuild
 	}
 }
 
-func (c *ServiceBuilder) CreateEndpointService(kfsvc *v1alpha2.KFService, endpoint constants.KFServiceEndpoint, isCanary bool) (*knservingv1alpha1.Service, error) {
-	serviceName := constants.DefaultServiceName(kfsvc.Name, endpoint)
+func (c *ServiceBuilder) CreateComponent(kfsvc *v1alpha2.KFService, component constants.KFComponent, isCanary bool) (*knservingv1alpha1.Service, error) {
+	serviceName := constants.DefaultServiceName(kfsvc.Name, component)
 	if isCanary {
-		serviceName = constants.CanaryServiceName(kfsvc.Name, endpoint)
+		serviceName = constants.CanaryServiceName(kfsvc.Name, component)
 	}
-	switch endpoint {
+	switch component {
 	case constants.Predictor:
 		predictorSpec := &kfsvc.Spec.Default.Predictor
 		if isCanary {
@@ -113,7 +113,7 @@ func (c *ServiceBuilder) CreateEndpointService(kfsvc *v1alpha2.KFService, endpoi
 		}
 		return c.CreateExplainerService(serviceName, kfsvc.ObjectMeta, explainerSpec, predictorService, isCanary)
 	}
-	return nil, fmt.Errorf("Invalid endpoint")
+	return nil, fmt.Errorf("Invalid component")
 }
 
 func (c *ServiceBuilder) CreatePredictorService(name string, metadata metav1.ObjectMeta, predictorSpec *v1alpha2.PredictorSpec) (*knservingv1alpha1.Service, error) {

@@ -19,6 +19,7 @@ package knative
 import (
 	"context"
 	"fmt"
+
 	"github.com/kubeflow/kfserving/pkg/constants"
 
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
@@ -27,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/klog"
 	"knative.dev/pkg/kmp"
 	knservingv1alpha1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -85,7 +87,7 @@ func (r *RouteReconciler) reconcileRoute(kfsvc *v1alpha2.KFService, desired *kns
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, existing)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			log.Info("Creating Knative Serving route", "namespace", desired.Namespace, "name", desired.Name)
+			klog.Info("Creating Knative Serving route", "namespace", desired.Namespace, "name", desired.Name)
 			return &desired.Status, r.client.Create(context.TODO(), desired)
 		}
 		return nil, err
@@ -101,8 +103,8 @@ func (r *RouteReconciler) reconcileRoute(kfsvc *v1alpha2.KFService, desired *kns
 	if err != nil {
 		return nil, fmt.Errorf("failed to diff route: %v", err)
 	}
-	log.Info("Reconciling route diff (-desired, +observed):", "diff", diff)
-	log.Info("Updating route", "namespace", existing.Namespace, "name", existing.Name)
+	klog.Info("Reconciling route diff (-desired, +observed):", "diff", diff)
+	klog.Info("Updating route", "namespace", existing.Namespace, "name", existing.Name)
 	existing.Spec = desired.Spec
 	existing.ObjectMeta.Labels = desired.ObjectMeta.Labels
 	existing.ObjectMeta.Annotations = desired.ObjectMeta.Annotations
