@@ -14,7 +14,7 @@
 
 from typing import List, Dict
 import logging
-
+import json
 import requests
 from kfserving.transformer import Transformer
 from kfserving.server import Protocol
@@ -25,11 +25,12 @@ logging.basicConfig(level=kfserving.server.KFSERVER_LOGLEVEL)
 class FeastTransformer(Transformer):
     def __init__(self,
                  name: str,
-                 predictor_url: str,
+                 predictor_host: str,
                  feast_url: str,
                  entity_ids: List[str],
                  feature_ids: List[str]):
-        super().__init__(name, predictor_host=predictor_url, protocol=Protocol.tensorflow_http)
+        super().__init__(name, predictor_host=predictor_host,
+                         protocol=Protocol.tensorflow_http)
         self.feast_url = feast_url
         self.entity_ids = entity_ids
         self.feature_sets = self.build_feature_sets(feature_ids)
@@ -51,8 +52,8 @@ class FeastTransformer(Transformer):
                     "version": version,
                     "feature_names": feature_names
                 }
-            except Exception as e:
-                logging.error(e)
+            except Exception as exception:
+                logging.error(exception)
                 raise ValueError(
                     "Invalid feature_id, want:`name:version.feature`, got %s." % feature_id)
 
@@ -65,18 +66,19 @@ class FeastTransformer(Transformer):
         return inputs
 
     def enrich(self, instance):
-        response = requests.post(
-            url=self.feast_url,
-            data={
-                "featureSets": self.feature_sets.values(),
-                "entityDatasets": {
-                    "entityNames": self.entity_ids,
-                    "entityDatasetRows": instance
-                }
-            })
-        
-        # if response.status_code != 200:
-        #     raise 
-        print("yoo")
-        print(response.json())
-        return response.json()
+        url = "%s/api/v1/features/online" % self.feast_url
+        headers = {'Content-type': 'application/json'}
+        data = json.dumps({
+            "featureSets": list(self.feature_sets.values()),
+            "entityDataset": {
+                "entityNames": self.entity_ids,
+                "entityDatasetRows":  [{
+                    "entityIds": instance
+                }]
+            }
+        })
+        logging.info("Requesting Feast: POST %s %s", url, data)
+        response = requests.post(url=url, headers=headers, data=data)
+        response_json = response.json()
+        logging.info("Retrieved %s", response_json)
+        return response_json

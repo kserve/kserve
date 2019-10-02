@@ -107,10 +107,10 @@ const (
 	KFServiceCanary  = "canary"
 )
 
-// KFService model server args
+// Standardized KFServer CLI Arguments
 const (
-	ArgumentModelName     = "--model_name"
-	ArgumentPredictorHost = "--predictor_host"
+	ArgumentModelName     = "--model-name"
+	ArgumentPredictorHost = "--predictor-host"
 )
 
 func (e KFServiceEndpoint) String() string {

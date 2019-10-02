@@ -1,0 +1,20 @@
+apiVersion: serving.kubeflow.org/v1alpha2
+kind: KFService
+metadata:
+  name: feast-sample
+spec:
+  default:
+    predictor:
+      tensorflow:
+        storageUri: gs://kfserving-samples/models/tensorflow/flowers
+    transformer: 
+      feast:
+        entityIds:
+          - s2id 
+          - service_type
+        featureIds:
+          - sauron-s2id:1.minute_surge_sg_go_car 
+          - sauron-s2id:1.agg_minute_demand_sg_go_car 
+          - sauron-s2id:1.agg_minute_supply_sg_car 
+          - sauron-s2id:1.agg_minute_bid_accepted_sg_go_car 
+          - sauron-s2id:1.agg_minute_bid_created_sg_go_car

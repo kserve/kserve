@@ -21,6 +21,7 @@ import (
 	"github.com/kubeflow/kfserving/pkg/constants"
 	v1 "k8s.io/api/core/v1"
 	resource "k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/klog"
 )
 
 type Predictor interface {
@@ -186,7 +187,9 @@ func getPredictor(predictorSpec *PredictorSpec) (Predictor, error) {
 		predictors = append(predictors, predictorSpec.TensorRT)
 	}
 	if len(predictors) != 1 {
-		return nil, fmt.Errorf(ExactlyOnePredictorViolatedError)
+		err := fmt.Errorf(ExactlyOnePredictorViolatedError)
+		klog.Error(err)
+		return nil, err
 	}
 	return predictors[0], nil
 }

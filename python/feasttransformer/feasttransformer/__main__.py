@@ -19,10 +19,10 @@ from feasttransformer import FeastTransformer
 PARSER = argparse.ArgumentParser(parents=[kfserving.server.parser])
 PARSER.add_argument('--name', type=str,
                     required=True, help='The name of model.')
-PARSER.add_argument('--predicter-url', type=str, required=True,
-                    help='The URL for the model predicter')
+PARSER.add_argument('--predictor-host', type=str, required=True,
+                    help='The host for the model predictor')
 PARSER.add_argument('--feast-url', type=str, required=True,
-                    help='The URI of the FeastServing Service.')
+                    help='The url of the FeastServing Service.')
 PARSER.add_argument('--entity-ids', type=str, nargs='+',
                     help='A list of entity_ids to use as keys in the feature store.', required=True)
 PARSER.add_argument('--feature-ids', type=str, nargs='+',
@@ -33,7 +33,7 @@ ARGS, _ = PARSER.parse_known_args()
 if __name__ == "__main__":
     TRANSFORMER = FeastTransformer(
         name=ARGS.name,
-        predictor_url=ARGS.predicter_url,
+        predictor_host=ARGS.predictor_host,
         feast_url=ARGS.feast_url,
         entity_ids=ARGS.entity_ids,
         feature_ids=ARGS.feature_ids)
