@@ -434,7 +434,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								},
 							},
 						},
-						"Url": {
+						"url": {
 							SchemaProps: spec.SchemaProps{
 								Type:   []string{"string"},
 								Format: "",

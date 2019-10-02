@@ -277,9 +277,6 @@
     "v1alpha2.KFServiceStatus": {
       "description": "KFServiceStatus defines the observed state of KFService",
       "properties": {
-        "Url": {
-          "type": "string"
-        },
         "canary": {
           "type": "object",
           "additionalProperties": {
@@ -305,6 +302,9 @@
           "description": "ObservedGeneration is the 'Generation' of the Service that was last processed by the controller.",
           "type": "integer",
           "format": "int64"
+        },
+        "url": {
+          "type": "string"
         }
       }
     },
