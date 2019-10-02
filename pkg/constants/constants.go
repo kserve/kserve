@@ -21,7 +21,6 @@ import (
 	"strings"
 
 	"k8s.io/api/admissionregistration/v1beta1"
-	"knative.dev/pkg/apis"
 )
 
 // KFServing Constants
@@ -98,26 +97,6 @@ const (
 const (
 	Predict KFServiceVerb = "predict"
 	Explain KFServiceVerb = "explain"
-)
-
-// ConditionType represents a Service condition value
-const (
-	// PredictRoutesReady is set when network configuration has completed for predict endpoint verb.
-	PredictRoutesReady apis.ConditionType = "PredictRoutesReady"
-	// ExplainRoutesReady is set when network configuration has completed for explain endpoint verb.
-	ExplainRoutesReady apis.ConditionType = "ExplainRoutesReady"
-	// DefaultPredictorReady is set when default predictor has reported readiness.
-	DefaultPredictorReady apis.ConditionType = "DefaultPredictorReady"
-	// CanaryPredictorReady is set when canary predictor has reported readiness.
-	CanaryPredictorReady apis.ConditionType = "CanaryPredictorReady"
-	// DefaultExplainerReady is set when default explainer has reported readiness.
-	DefaultExplainerReady apis.ConditionType = "DefaultExplainerReady"
-	// CanaryExplainerReady is set when canary explainer has reported readiness.
-	CanaryExplainerReady apis.ConditionType = "CanaryExplainerReady"
-	// DefaultTransformerReady is set when default transformer has reported readiness.
-	DefaultTransformerReady apis.ConditionType = "DefaultTransformerReady"
-	// CanaryTransformerReady is set when canary transformer has reported readiness.
-	CanaryTransformerReady apis.ConditionType = "CanaryTransformerReady"
 )
 
 // KFService default/canary constants
