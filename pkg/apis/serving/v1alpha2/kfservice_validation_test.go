@@ -197,3 +197,17 @@ func TestCustomOK(t *testing.T) {
 	fmt.Println(err)
 	g.Expect(kfsvc.ValidateCreate()).Should(gomega.Succeed())
 }
+
+func TestRejectBadTransformer(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	kfsvc := makeTestKFService()
+	kfsvc.Spec.Default.Transformer = &TransformerSpec{}
+	g.Expect(kfsvc.ValidateCreate()).Should(gomega.MatchError(ExactlyOneTransformerViolatedError))
+}
+
+func TestRejectBadExplainer(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	kfsvc := makeTestKFService()
+	kfsvc.Spec.Default.Explainer = &ExplainerSpec{}
+	g.Expect(kfsvc.ValidateCreate()).Should(gomega.MatchError(ExactlyOneExplainerSpecViolatedError))
+}

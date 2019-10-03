@@ -64,12 +64,13 @@ func validateKFService(kfsvc *KFService) error {
 	if kfsvc == nil {
 		return fmt.Errorf("Unable to validate, KFService is nil")
 	}
-	if err := validateModelSpec(&kfsvc.Spec.Default.Predictor); err != nil {
-		return err
+	endpoints := []*EndpointSpec{
+		&kfsvc.Spec.Default,
+		kfsvc.Spec.Canary,
 	}
 
-	if kfsvc.Spec.Canary != nil {
-		if err := validateModelSpec(&kfsvc.Spec.Canary.Predictor); err != nil {
+	for _, endpoint := range endpoints {
+		if err := validateEndpoint(endpoint); err != nil {
 			return err
 		}
 	}
@@ -80,10 +81,27 @@ func validateKFService(kfsvc *KFService) error {
 	return nil
 }
 
-func validateModelSpec(spec *PredictorSpec) error {
-	if spec == nil {
+func validateEndpoint(endpoint *EndpointSpec) error {
+	if endpoint == nil {
 		return nil
 	}
+	if err := validatePredictor(endpoint.Predictor); err != nil {
+		return err
+	}
+	if endpoint.Transformer != nil {
+		if err := endpoint.Transformer.Validate(); err != nil {
+			return err
+		}
+	}
+	if endpoint.Explainer != nil {
+		if err := endpoint.Explainer.Validate(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validatePredictor(spec PredictorSpec) error {
 	if err := spec.Validate(); err != nil {
 		return err
 	}
