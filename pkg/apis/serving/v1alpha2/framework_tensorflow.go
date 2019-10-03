@@ -49,7 +49,7 @@ func (t *TensorflowSpec) GetStorageUri() string {
 	return t.StorageURI
 }
 
-func (t *TensorflowSpec) CreateModelServingContainer(modelName string, config *PredictorsConfig) *v1.Container {
+func (t *TensorflowSpec) GetContainer(modelName string, config *PredictorsConfig) *v1.Container {
 	imageName := TensorflowServingImageName
 	if config.Tensorflow.ContainerImage != "" {
 		imageName = config.Tensorflow.ContainerImage

@@ -166,7 +166,7 @@ func (c *ServiceBuilder) CreatePredictorService(name string, metadata metav1.Obj
 							PodSpec: v1.PodSpec{
 								ServiceAccountName: predictorSpec.ServiceAccountName,
 								Containers: []v1.Container{
-									*predictorSpec.CreateModelServingContainer(metadata.Name, c.frameworksConfig),
+									*predictorSpec.GetContainer(metadata.Name, c.frameworksConfig),
 								},
 							},
 						},

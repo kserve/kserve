@@ -65,12 +65,12 @@ func TestCreateOnnxModelServingContainer(t *testing.T) {
 	}
 
 	// Test Create with config
-	container := onnxSpec.CreateModelServingContainer("someName", &onnxConfig)
+	container := onnxSpec.GetContainer("someName", &onnxConfig)
 	g.Expect(container).To(gomega.Equal(expectedContainer))
 
 	// Test Create without config
 	expectedContainer.Image = "mcr.microsoft.com/onnxruntime/server:someAmazingVersion"
 	emptyConfig := PredictorsConfig{ONNX: PredictorConfig{}}
-	container = onnxSpec.CreateModelServingContainer("someName", &emptyConfig)
+	container = onnxSpec.GetContainer("someName", &emptyConfig)
 	g.Expect(container).To(gomega.Equal(expectedContainer))
 }

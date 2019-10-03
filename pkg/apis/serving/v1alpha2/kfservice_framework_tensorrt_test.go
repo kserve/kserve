@@ -71,12 +71,12 @@ func TestCreateModelServingContainer(t *testing.T) {
 	}
 
 	// Test Create without config
-	container := spec.CreateModelServingContainer("someName", &config)
+	container := spec.GetContainer("someName", &config)
 	g.Expect(container).To(gomega.Equal(expectedContainer))
 
 	// Test Create with config
 	expectedContainer.Image = "nvcr.io/nvidia/tensorrtserver:19.05-py3"
 	emptyConfig := PredictorsConfig{TensorRT: PredictorConfig{}}
-	container = spec.CreateModelServingContainer("someName", &emptyConfig)
+	container = spec.GetContainer("someName", &emptyConfig)
 	g.Expect(container).To(gomega.Equal(expectedContainer))
 }

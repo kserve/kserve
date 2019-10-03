@@ -40,7 +40,7 @@ func (s *PyTorchSpec) GetStorageUri() string {
 	return s.StorageURI
 }
 
-func (s *PyTorchSpec) CreateModelServingContainer(modelName string, config *PredictorsConfig) *v1.Container {
+func (s *PyTorchSpec) GetContainer(modelName string, config *PredictorsConfig) *v1.Container {
 	imageName := PyTorchServerImageName
 	if config.PyTorch.ContainerImage != "" {
 		imageName = config.PyTorch.ContainerImage
