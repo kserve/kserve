@@ -59,6 +59,9 @@ func getTransformer(t *TransformerSpec) (Transformer, error) {
 	if t.Custom != nil {
 		transformers = append(transformers, t.Custom)
 	}
+	if t.Feast != nil {
+		transformers = append(transformers, t.Feast)
+	}
 	// Fail if not exactly one
 	if len(transformers) != 1 {
 		err := fmt.Errorf(ExactlyOneTransformerViolatedError)
