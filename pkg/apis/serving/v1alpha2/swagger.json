@@ -174,38 +174,6 @@
         }
       }
     },
-    "v1alpha2.FrameworkConfig": {
-      "required": [
-        "image"
-      ],
-      "properties": {
-        "image": {
-          "type": "string"
-        }
-      }
-    },
-    "v1alpha2.FrameworksConfig": {
-      "properties": {
-        "onnx": {
-          "$ref": "#/definitions/v1alpha2.FrameworkConfig"
-        },
-        "pytorch": {
-          "$ref": "#/definitions/v1alpha2.FrameworkConfig"
-        },
-        "sklearn": {
-          "$ref": "#/definitions/v1alpha2.FrameworkConfig"
-        },
-        "tensorflow": {
-          "$ref": "#/definitions/v1alpha2.FrameworkConfig"
-        },
-        "tensorrt": {
-          "$ref": "#/definitions/v1alpha2.FrameworkConfig"
-        },
-        "xgboost": {
-          "$ref": "#/definitions/v1alpha2.FrameworkConfig"
-        }
-      }
-    },
     "v1alpha2.KFService": {
       "description": "KFService is the Schema for the services API",
       "properties": {
@@ -328,6 +296,16 @@
         }
       }
     },
+    "v1alpha2.PredictorConfig": {
+      "required": [
+        "image"
+      ],
+      "properties": {
+        "image": {
+          "type": "string"
+        }
+      }
+    },
     "v1alpha2.PredictorSpec": {
       "description": "PredictorSpec defines the configuration to route traffic to a predictor.",
       "properties": {
@@ -366,6 +344,28 @@
         },
         "xgboost": {
           "$ref": "#/definitions/v1alpha2.XGBoostSpec"
+        }
+      }
+    },
+    "v1alpha2.PredictorsConfig": {
+      "properties": {
+        "onnx": {
+          "$ref": "#/definitions/v1alpha2.PredictorConfig"
+        },
+        "pytorch": {
+          "$ref": "#/definitions/v1alpha2.PredictorConfig"
+        },
+        "sklearn": {
+          "$ref": "#/definitions/v1alpha2.PredictorConfig"
+        },
+        "tensorflow": {
+          "$ref": "#/definitions/v1alpha2.PredictorConfig"
+        },
+        "tensorrt": {
+          "$ref": "#/definitions/v1alpha2.PredictorConfig"
+        },
+        "xgboost": {
+          "$ref": "#/definitions/v1alpha2.PredictorConfig"
         }
       }
     },

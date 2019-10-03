@@ -37,7 +37,7 @@ func (x *XGBoostSpec) GetStorageUri() string {
 	return x.StorageURI
 }
 
-func (x *XGBoostSpec) CreateModelServingContainer(modelName string, config *FrameworksConfig) *v1.Container {
+func (x *XGBoostSpec) GetContainer(modelName string, config *PredictorsConfig) *v1.Container {
 	imageName := XGBoostServerImageName
 	if config.Xgboost.ContainerImage != "" {
 		imageName = config.Xgboost.ContainerImage

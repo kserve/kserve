@@ -55,7 +55,7 @@ var kfsvc = v1alpha2.KFService{
 }
 
 var configMapData = map[string]string{
-	"frameworks": `{
+	"predictors": `{
         "tensorflow" : {
             "image" : "tensorflow/tfserving"
         },
@@ -571,9 +571,9 @@ func TestTransformerToKnativeService(t *testing.T) {
 									{
 										Image: "transformer:latest",
 										Args: []string{
-											constants.ModelServerArgsModelName,
+											constants.ArgumentModelName,
 											kfsvc.Name,
-											constants.ModelServerArgsPredictorHost,
+											constants.ArgumentPredictorHost,
 											constants.DefaultPredictorServiceName(kfsvc.Name) + "." + kfsvc.Namespace,
 										},
 									},
@@ -612,9 +612,9 @@ func TestTransformerToKnativeService(t *testing.T) {
 									{
 										Image: "transformer:v2",
 										Args: []string{
-											constants.ModelServerArgsModelName,
+											constants.ArgumentModelName,
 											kfsvc.Name,
-											constants.ModelServerArgsPredictorHost,
+											constants.ArgumentPredictorHost,
 											constants.CanaryPredictorServiceName(kfsvc.Name) + "." + kfsvc.Namespace,
 										},
 									},
@@ -752,9 +752,9 @@ func TestExplainerToKnativeService(t *testing.T) {
 									{
 										Image: "alibi:latest",
 										Args: []string{
-											constants.ModelServerArgsModelName,
+											constants.ArgumentModelName,
 											kfsvc.Name,
-											constants.ModelServerArgsPredictorHost,
+											constants.ArgumentPredictorHost,
 											constants.DefaultPredictorServiceName(kfsvc.Name) + "." + kfsvc.Namespace,
 											string(v1alpha2.AlibiAnchorsTabularExplainer),
 										},
@@ -791,9 +791,9 @@ func TestExplainerToKnativeService(t *testing.T) {
 									{
 										Image: "alibi:latest",
 										Args: []string{
-											constants.ModelServerArgsModelName,
+											constants.ArgumentModelName,
 											kfsvc.Name,
-											constants.ModelServerArgsPredictorHost,
+											constants.ArgumentPredictorHost,
 											constants.CanaryPredictorServiceName(kfsvc.Name) + "." + kfsvc.Namespace,
 											string(v1alpha2.AlibiAnchorsTabularExplainer),
 										},
