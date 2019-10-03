@@ -38,7 +38,7 @@ func feastKFService() KFService {
 				},
 				Transformer: &TransformerSpec{
 					Feast: &FeastTransformerSpec{
-						FeastURL:   "https://feast.svc",
+						FeastURL:   "https://feast.svc:8080",
 						DataType:   TensorProto,
 						EntityIds:  []string{"e1"},
 						FeatureIds: []string{"f1"},

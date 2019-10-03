@@ -23,10 +23,10 @@ const (
 // Errors
 var (
 	AllowedFeastDataTypes     = strings.Join([]string{string(NDArray), string(TensorProto)}, ", ")
-	InvalidFeastURLError      = "FeastURL must be of the form http(s)://hostname"
-	InvalidFeastDataTypeError = "FeastDataType must be one of " + AllowedFeastDataTypes
-	InvalidEntityIdsError     = "EntityIds cannot be empty"
-	InvalidFeatureIdsError    = "FeatureIds cannot be empty"
+	InvalidFeastURLError      = "FeastURL must be of the form http(s)://hostname:port."
+	InvalidFeastDataTypeError = fmt.Sprintf("FeastDataType must be one of %v.", AllowedFeastDataTypes)
+	InvalidEntityIdsError     = "EntityIds cannot be empty."
+	InvalidFeatureIdsError    = "FeatureIds cannot be empty."
 )
 
 // FeastDataType to expect from the response.
@@ -38,7 +38,7 @@ const (
 	TensorProto FeastDataType = "TensorProto"
 )
 
-// FeastTransformerSpec defines arguments for configuring a Transformer to call Feast
+// FeastTransformerSpec is EXPERIMENTAL! Use at your own risk.
 type FeastTransformerSpec struct {
 	FeastURL   string        `json:"feastUrl,omitempty"`
 	DataType   FeastDataType `json:"dataType,omitempty"`
@@ -83,6 +83,7 @@ func (f *FeastTransformerSpec) Validate() error {
 	}
 	return nil
 }
+
 func (f *FeastTransformerSpec) hasValidFeastURL() bool {
 	_, err := url.ParseRequestURI(f.FeastURL)
 	return err == nil
