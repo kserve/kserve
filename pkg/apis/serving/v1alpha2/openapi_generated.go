@@ -244,6 +244,12 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Format: "",
 							},
 						},
+						"dataType": {
+							SchemaProps: spec.SchemaProps{
+								Type:   []string{"string"},
+								Format: "",
+							},
+						},
 						"entityIds": {
 							SchemaProps: spec.SchemaProps{
 								Type: []string{"array"},
@@ -271,7 +277,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 							},
 						},
 					},
-					Required: []string{"feastUrl", "entityIds", "featureIds"},
 				},
 			},
 			Dependencies: []string{},

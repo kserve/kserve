@@ -176,12 +176,10 @@
     },
     "v1alpha2.FeastTransformerSpec": {
       "description": "FeastTransformerSpec defines arguments for configuring a Transformer to call Feast",
-      "required": [
-        "feastUrl",
-        "entityIds",
-        "featureIds"
-      ],
       "properties": {
+        "dataType": {
+          "type": "string"
+        },
         "entityIds": {
           "type": "array",
           "items": {
