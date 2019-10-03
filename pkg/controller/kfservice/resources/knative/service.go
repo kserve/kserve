@@ -34,7 +34,7 @@ import (
 )
 
 const (
-	FrameworkConfigKeyName = "frameworks"
+	PredictorConfigKeyName = "predictors"
 	ExplainerConfigKeyName = "explainers"
 )
 
@@ -54,7 +54,7 @@ type ServiceBuilder struct {
 func NewServiceBuilder(client client.Client, config *v1.ConfigMap) *ServiceBuilder {
 	frameworkConfig := &v1alpha2.PredictorsConfig{}
 	explainerConfig := &v1alpha2.ExplainersConfig{}
-	if fmks, ok := config.Data[FrameworkConfigKeyName]; ok {
+	if fmks, ok := config.Data[PredictorConfigKeyName]; ok {
 		err := json.Unmarshal([]byte(fmks), &frameworkConfig)
 		if err != nil {
 			panic(fmt.Errorf("Unable to unmarshall framework json string due to %v ", err))

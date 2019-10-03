@@ -55,7 +55,7 @@ var kfsvc = v1alpha2.KFService{
 }
 
 var configMapData = map[string]string{
-	"frameworks": `{
+	"predictors": `{
         "tensorflow" : {
             "image" : "tensorflow/tfserving"
         },
