@@ -32,7 +32,7 @@ func (t *TransformerSpec) GetContainerSpec(metadata metav1.ObjectMeta, isCanary 
 		constants.ArgumentModelName,
 		metadata.Name,
 		constants.ArgumentPredictorHost,
-		constants.PredictorHost(metadata, isCanary),
+		constants.PredictorURL(metadata, isCanary),
 	}...)
 	return container
 }
@@ -59,10 +59,6 @@ func getTransformer(t *TransformerSpec) (Transformer, error) {
 	if t.Custom != nil {
 		transformers = append(transformers, t.Custom)
 	}
-	if t.Feast != nil {
-		transformers = append(transformers, t.Feast)
-	}
-
 	// Fail if not exactly one
 	if len(transformers) != 1 {
 		err := fmt.Errorf(ExactlyOneTransformerViolatedError)

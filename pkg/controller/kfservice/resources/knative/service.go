@@ -216,9 +216,9 @@ func (c *ServiceBuilder) CreateTransformerService(name string, metadata metav1.O
 	}
 	container := transformerSpec.Custom.Container
 	predefinedArgs := []string{
-		constants.ModelServerArgsModelName,
+		constants.ArgumentModelName,
 		metadata.Name,
-		constants.ModelServerArgsPredictorHost,
+		constants.ArgumentPredictorHost,
 		predictorHostName,
 	}
 	container.Args = append(container.Args, predefinedArgs...)

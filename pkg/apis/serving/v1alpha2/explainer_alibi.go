@@ -2,10 +2,11 @@ package v1alpha2
 
 import (
 	"fmt"
+	"strings"
+
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/utils"
 	v1 "k8s.io/api/core/v1"
-	"strings"
 )
 
 var (
@@ -28,8 +29,8 @@ func (s *AlibiExplainerSpec) CreateExplainerServingContainer(modelName string, p
 	}
 
 	var args = []string{
-		constants.ModelServerArgsModelName, modelName,
-		constants.ModelServerArgsPredictorHost, predictorHost,
+		constants.ArgumentModelName, modelName,
+		constants.ArgumentPredictorHost, predictorHost,
 	}
 
 	if s.StorageURI != "" {

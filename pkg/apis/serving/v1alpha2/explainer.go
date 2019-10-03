@@ -15,6 +15,7 @@ package v1alpha2
 
 import (
 	"fmt"
+
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/klog"
 )
@@ -29,8 +30,6 @@ type ExplainerHandler interface {
 const (
 	// ExactlyOneModelSpecViolatedError is a known error message
 	ExactlyOneExplainerSpecViolatedError = "Exactly one of [Custom, Alibi] must be specified in ExplainerSpec"
-	// AtLeastOneModelSpecViolatedError is a known error message
-	AtLeastOneExplainerSpecViolatedError = "At least one of [Custom, Alibi] must be specified in ExplainerSpec"
 )
 
 // Returns a URI to the explainer. This URI is passed to the model-initializer via the ModelInitializerSourceUriInternalAnnotationKey
@@ -79,10 +78,6 @@ func makeExplainerHandler(explainerSpec *ExplainerSpec) (ExplainerHandler, error
 	}
 	if explainerSpec.Alibi != nil {
 		handlers = append(handlers, explainerSpec.Alibi)
-	}
-
-	if len(handlers) == 0 {
-		return nil, fmt.Errorf(AtLeastOneExplainerSpecViolatedError)
 	}
 	if len(handlers) != 1 {
 		return nil, fmt.Errorf(ExactlyOneExplainerSpecViolatedError)

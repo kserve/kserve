@@ -17,10 +17,12 @@ limitations under the License.
 package constants
 
 import (
+	"fmt"
 	"os"
 	"strings"
 
 	"k8s.io/api/admissionregistration/v1beta1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // KFServing Constants
@@ -107,8 +109,8 @@ const (
 
 // KFService model server args
 const (
-	ModelServerArgsModelName     = "--model_name"
-	ModelServerArgsPredictorHost = "--predictor_host"
+	ArgumentModelName     = "--model_name"
+	ArgumentPredictorHost = "--predictor_host"
 )
 
 func (e KFServiceEndpoint) String() string {
@@ -168,4 +170,11 @@ func CanaryServiceName(name string, endpoint KFServiceEndpoint) string {
 
 func RouteName(name string, verb KFServiceVerb) string {
 	return name + "-" + verb.String()
+}
+
+func PredictorURL(metadata v1.ObjectMeta, isCanary bool) string {
+	if isCanary {
+		return fmt.Sprintf("http://%s.%s.svc.cluster.local", CanaryPredictorServiceName(metadata.Name), metadata.Namespace)
+	}
+	return fmt.Sprintf("http://%s.%s.svc.cluster.local", DefaultPredictorServiceName(metadata.Name), metadata.Namespace)
 }
