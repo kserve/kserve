@@ -18,8 +18,6 @@ package v1alpha2
 
 import (
 	"fmt"
-	"regexp"
-	"strings"
 
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
@@ -64,12 +62,13 @@ func validateKFService(kfsvc *KFService) error {
 	if kfsvc == nil {
 		return fmt.Errorf("Unable to validate, KFService is nil")
 	}
-	if err := validateModelSpec(&kfsvc.Spec.Default.Predictor); err != nil {
-		return err
+	endpoints := []*EndpointSpec{
+		&kfsvc.Spec.Default,
+		kfsvc.Spec.Canary,
 	}
 
-	if kfsvc.Spec.Canary != nil {
-		if err := validateModelSpec(&kfsvc.Spec.Canary.Predictor); err != nil {
+	for _, endpoint := range endpoints {
+		if err := validateEndpoint(endpoint); err != nil {
 			return err
 		}
 	}
@@ -80,56 +79,22 @@ func validateKFService(kfsvc *KFService) error {
 	return nil
 }
 
-func validateModelSpec(spec *PredictorSpec) error {
-	if spec == nil {
+func validateEndpoint(endpoint *EndpointSpec) error {
+	if endpoint == nil {
 		return nil
 	}
-	if err := spec.Validate(); err != nil {
+	if err := endpoint.Predictor.Validate(); err != nil {
 		return err
 	}
-	if err := validateStorageURI(spec.GetStorageUri()); err != nil {
-		return err
-	}
-	if err := validateReplicas(spec.MinReplicas, spec.MaxReplicas); err != nil {
-		return err
-	}
-	return nil
-}
-
-func validateStorageURI(storageURI string) error {
-	if storageURI == "" {
-		return nil
-	}
-
-	// local path (not some protocol?)
-	if !regexp.MustCompile("\\w+?://").MatchString(storageURI) {
-		return nil
-	}
-
-	// one of the prefixes we know?
-	for _, prefix := range SupportedStorageURIPrefixList {
-		if strings.HasPrefix(storageURI, prefix) {
-			return nil
+	if endpoint.Transformer != nil {
+		if err := endpoint.Transformer.Validate(); err != nil {
+			return err
 		}
 	}
-
-	azureURIMatcher := regexp.MustCompile(AzureBlobURIRegEx)
-	if parts := azureURIMatcher.FindStringSubmatch(storageURI); parts != nil {
-		return nil
-	}
-
-	return fmt.Errorf(UnsupportedStorageURIFormatError, strings.Join(SupportedStorageURIPrefixList, ", "), storageURI)
-}
-
-func validateReplicas(minReplicas int, maxReplicas int) error {
-	if minReplicas < 0 {
-		return fmt.Errorf(MinReplicasLowerBoundExceededError)
-	}
-	if maxReplicas < 0 {
-		return fmt.Errorf(MaxReplicasLowerBoundExceededError)
-	}
-	if minReplicas > maxReplicas && maxReplicas != 0 {
-		return fmt.Errorf(MinReplicasShouldBeLessThanMaxError)
+	if endpoint.Explainer != nil {
+		if err := endpoint.Explainer.Validate(); err != nil {
+			return err
+		}
 	}
 	return nil
 }

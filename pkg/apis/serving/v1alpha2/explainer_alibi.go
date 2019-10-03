@@ -2,10 +2,11 @@ package v1alpha2
 
 import (
 	"fmt"
+	"strings"
+
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/utils"
 	v1 "k8s.io/api/core/v1"
-	"strings"
 )
 
 var (
@@ -21,15 +22,15 @@ func (s *AlibiExplainerSpec) GetStorageUri() string {
 	return s.StorageURI
 }
 
-func (s *AlibiExplainerSpec) CreateExplainerServingContainer(modelName string, predictorHost string, config *ExplainersConfig) *v1.Container {
+func (s *AlibiExplainerSpec) CreateExplainerContainer(modelName string, predictorHost string, config *ExplainersConfig) *v1.Container {
 	imageName := AlibiImageName
 	if config.AlibiExplainer.ContainerImage != "" {
 		imageName = config.AlibiExplainer.ContainerImage
 	}
 
 	var args = []string{
-		constants.ModelServerArgsModelName, modelName,
-		constants.ModelServerArgsPredictorHost, predictorHost,
+		constants.ArgumentModelName, modelName,
+		constants.ArgumentPredictorHost, predictorHost,
 	}
 
 	if s.StorageURI != "" {
