@@ -21,7 +21,6 @@ import (
 	"github.com/kubeflow/kfserving/pkg/constants"
 	v1 "k8s.io/api/core/v1"
 	resource "k8s.io/apimachinery/pkg/api/resource"
-	"k8s.io/klog"
 )
 
 type Predictor interface {
@@ -43,19 +42,30 @@ var (
 
 // Returns a URI to the model. This URI is passed to the storage-initializer via the StorageInitializerSourceUriInternalAnnotationKey
 func (p *PredictorSpec) GetStorageUri() string {
-	return getPredictor(p).GetStorageUri()
+	predictor, err := getPredictor(p)
+	if err != nil {
+		return ""
+	}
+	return predictor.GetStorageUri()
 }
 
 func (p *PredictorSpec) GetContainer(modelName string, config *PredictorsConfig) *v1.Container {
-	return getPredictor(p).GetContainer(modelName, config)
+	predictor, err := getPredictor(p)
+	if err != nil {
+		return nil
+	}
+	return predictor.GetContainer(modelName, config)
 }
 
 func (p *PredictorSpec) ApplyDefaults() {
-	getPredictor(p).ApplyDefaults()
+	predictor, err := getPredictor(p)
+	if err == nil {
+		predictor.ApplyDefaults()
+	}
 }
 
 func (p *PredictorSpec) Validate() error {
-	predictor, err := makePredictor(p)
+	predictor, err := getPredictor(p)
 	if err != nil {
 		return err
 	}
@@ -152,40 +162,31 @@ func isGPUEnabled(requirements v1.ResourceRequirements) bool {
 	return ok
 }
 
-func getPredictor(modelSpec *PredictorSpec) Predictor {
-	predictor, err := makePredictor(modelSpec)
-	if err != nil {
-		klog.Fatal(err)
-	}
-
-	return predictor
-}
-
-func makePredictor(predictorSpec *PredictorSpec) (Predictor, error) {
-	handlers := []Predictor{}
+func getPredictor(predictorSpec *PredictorSpec) (Predictor, error) {
+	predictors := []Predictor{}
 	if predictorSpec.Custom != nil {
-		handlers = append(handlers, predictorSpec.Custom)
+		predictors = append(predictors, predictorSpec.Custom)
 	}
 	if predictorSpec.XGBoost != nil {
-		handlers = append(handlers, predictorSpec.XGBoost)
+		predictors = append(predictors, predictorSpec.XGBoost)
 	}
 	if predictorSpec.SKLearn != nil {
-		handlers = append(handlers, predictorSpec.SKLearn)
+		predictors = append(predictors, predictorSpec.SKLearn)
 	}
 	if predictorSpec.Tensorflow != nil {
-		handlers = append(handlers, predictorSpec.Tensorflow)
+		predictors = append(predictors, predictorSpec.Tensorflow)
 	}
 	if predictorSpec.ONNX != nil {
-		handlers = append(handlers, predictorSpec.ONNX)
+		predictors = append(predictors, predictorSpec.ONNX)
 	}
 	if predictorSpec.PyTorch != nil {
-		handlers = append(handlers, predictorSpec.PyTorch)
+		predictors = append(predictors, predictorSpec.PyTorch)
 	}
 	if predictorSpec.TensorRT != nil {
-		handlers = append(handlers, predictorSpec.TensorRT)
+		predictors = append(predictors, predictorSpec.TensorRT)
 	}
-	if len(handlers) != 1 {
+	if len(predictors) != 1 {
 		return nil, fmt.Errorf(ExactlyOnePredictorViolatedError)
 	}
-	return handlers[0], nil
+	return predictors[0], nil
 }
