@@ -317,7 +317,7 @@ func (c *ServiceBuilder) CreateExplainerService(name string, metadata metav1.Obj
 							PodSpec: v1.PodSpec{
 								ServiceAccountName: explainerSpec.ServiceAccountName,
 								Containers: []v1.Container{
-									*explainerSpec.CreateExplainerServingContainer(metadata.Name, predictorService, c.explainersConfig),
+									*explainerSpec.CreateExplainerContainer(metadata.Name, predictorService, c.explainersConfig),
 								},
 							},
 						},

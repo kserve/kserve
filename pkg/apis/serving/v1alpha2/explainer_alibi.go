@@ -22,7 +22,7 @@ func (s *AlibiExplainerSpec) GetStorageUri() string {
 	return s.StorageURI
 }
 
-func (s *AlibiExplainerSpec) CreateExplainerServingContainer(modelName string, predictorHost string, config *ExplainersConfig) *v1.Container {
+func (s *AlibiExplainerSpec) CreateExplainerContainer(modelName string, predictorHost string, config *ExplainersConfig) *v1.Container {
 	imageName := AlibiImageName
 	if config.AlibiExplainer.ContainerImage != "" {
 		imageName = config.AlibiExplainer.ContainerImage

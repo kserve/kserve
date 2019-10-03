@@ -22,14 +22,14 @@ import (
 
 type ExplainerHandler interface {
 	GetStorageUri() string
-	CreateExplainerServingContainer(modelName string, predictorHost string, config *ExplainersConfig) *v1.Container
+	CreateExplainerContainer(modelName string, predictorHost string, config *ExplainersConfig) *v1.Container
 	ApplyDefaults()
 	Validate() error
 }
 
 const (
-	// ExactlyOnePredictorViolatedError is a known error message
-	ExactlyOneExplainerSpecViolatedError = "Exactly one of [Custom, Alibi] must be specified in ExplainerSpec"
+	// ExactlyOneExplainerViolatedError is a known error message
+	ExactlyOneExplainerViolatedError = "Exactly one of [Custom, Alibi] must be specified in ExplainerSpec"
 )
 
 // Returns a URI to the explainer. This URI is passed to the model-initializer via the ModelInitializerSourceUriInternalAnnotationKey
@@ -37,8 +37,8 @@ func (m *ExplainerSpec) GetStorageUri() string {
 	return getExplainerHandler(m).GetStorageUri()
 }
 
-func (m *ExplainerSpec) CreateExplainerServingContainer(modelName string, predictorHost string, config *ExplainersConfig) *v1.Container {
-	return getExplainerHandler(m).CreateExplainerServingContainer(modelName, predictorHost, config)
+func (m *ExplainerSpec) CreateExplainerContainer(modelName string, predictorHost string, config *ExplainersConfig) *v1.Container {
+	return getExplainerHandler(m).CreateExplainerContainer(modelName, predictorHost, config)
 }
 
 func (m *ExplainerSpec) ApplyDefaults() {
@@ -80,7 +80,7 @@ func makeExplainerHandler(explainerSpec *ExplainerSpec) (ExplainerHandler, error
 		handlers = append(handlers, explainerSpec.Alibi)
 	}
 	if len(handlers) != 1 {
-		return nil, fmt.Errorf(ExactlyOneExplainerSpecViolatedError)
+		return nil, fmt.Errorf(ExactlyOneExplainerViolatedError)
 	}
 	return handlers[0], nil
 }

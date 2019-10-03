@@ -31,7 +31,7 @@ type Predictor interface {
 
 const (
 	// ExactlyOnePredictorViolatedError is a known error message
-	ExactlyOnePredictorViolatedError = "Exactly one of [Custom, ONNX, Tensorflow, TensorRT, SKLearn, XGBoost] must be specified in ModelSpec"
+	ExactlyOnePredictorViolatedError = "Exactly one of [Custom, ONNX, Tensorflow, TensorRT, SKLearn, XGBoost] must be specified in PredictorSpec"
 )
 
 var (

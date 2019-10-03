@@ -209,5 +209,5 @@ func TestRejectBadExplainer(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	kfsvc := makeTestKFService()
 	kfsvc.Spec.Default.Explainer = &ExplainerSpec{}
-	g.Expect(kfsvc.ValidateCreate()).Should(gomega.MatchError(ExactlyOneExplainerSpecViolatedError))
+	g.Expect(kfsvc.ValidateCreate()).Should(gomega.MatchError(ExactlyOneExplainerViolatedError))
 }
