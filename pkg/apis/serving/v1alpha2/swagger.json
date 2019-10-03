@@ -1,0 +1,518 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "description": "Python SDK for KFServing",
+    "title": "KFServing",
+    "version": "v0.1"
+  },
+  "paths": {},
+  "definitions": {
+    "knative.Condition": {
+      "description": "Conditions defines a readiness condition for a Knative resource. See: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#typical-status-properties",
+      "required": [
+        "type",
+        "status"
+      ],
+      "properties": {
+        "lastTransitionTime": {
+          "description": "LastTransitionTime is the last time the condition transitioned from one status to another. We use VolatileTime in place of metav1.Time to exclude this from creating equality.Semantic differences (all other things held constant).",
+          "$ref": "#/definitions/knative.VolatileTime"
+        },
+        "message": {
+          "description": "A human readable message indicating details about the transition.",
+          "type": "string"
+        },
+        "reason": {
+          "description": "The reason for the condition's last transition.",
+          "type": "string"
+        },
+        "severity": {
+          "description": "Severity with which to treat failures of this type of condition. When this is not specified, it defaults to Error.",
+          "type": "string"
+        },
+        "status": {
+          "description": "Status of the condition, one of True, False, Unknown.",
+          "type": "string"
+        },
+        "type": {
+          "description": "Type of condition.",
+          "type": "string"
+        }
+      }
+    },
+    "knative.VolatileTime": {
+      "description": "VolatileTime wraps metav1.Time",
+      "required": [
+        "Inner"
+      ],
+      "properties": {
+        "Inner": {
+          "$ref": "#/definitions/v1.Time"
+        }
+      }
+    },
+    "v1alpha2.AlibiExplainerSpec": {
+      "description": "AlibiExplainerSpec defines the arguments for configuring an Alibi Explanation Server",
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "config": {
+          "description": "Inline custom parameter settings for explainer",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "resources": {
+          "description": "Defaults to requests and limits of 1CPU, 2Gb MEM.",
+          "$ref": "#/definitions/v1.ResourceRequirements"
+        },
+        "runtimeVersion": {
+          "description": "Defaults to latest Alibi Version.",
+          "type": "string"
+        },
+        "storageUri": {
+          "description": "The location of a trained explanation model",
+          "type": "string"
+        },
+        "type": {
+          "description": "The type of Alibi explainer",
+          "type": "string"
+        }
+      }
+    },
+    "v1alpha2.CustomSpec": {
+      "description": "CustomSpec provides a hook for arbitrary container configuration.",
+      "required": [
+        "container"
+      ],
+      "properties": {
+        "container": {
+          "$ref": "#/definitions/v1.Container"
+        }
+      }
+    },
+    "v1alpha2.DeploymentSpec": {
+      "description": "DeploymentSpec defines the configuration for a given KFService service component",
+      "properties": {
+        "maxReplicas": {
+          "description": "This is the up bound for autoscaler to scale to",
+          "type": "integer",
+          "format": "int32"
+        },
+        "minReplicas": {
+          "description": "Minimum number of replicas, pods won't scale down to 0 in case of no traffic",
+          "type": "integer",
+          "format": "int32"
+        },
+        "serviceAccountName": {
+          "description": "ServiceAccountName is the name of the ServiceAccount to use to run the service",
+          "type": "string"
+        }
+      }
+    },
+    "v1alpha2.EndpointSpec": {
+      "required": [
+        "predictor"
+      ],
+      "properties": {
+        "explainer": {
+          "description": "Explainer defines the model explanation service spec explainer service calls to transformer or predictor service",
+          "$ref": "#/definitions/v1alpha2.ExplainerSpec"
+        },
+        "predictor": {
+          "description": "Predictor defines the model serving spec",
+          "$ref": "#/definitions/v1alpha2.PredictorSpec"
+        },
+        "transformer": {
+          "description": "Transformer defines the transformer service spec for pre/post processing transformer service calls to predictor service",
+          "$ref": "#/definitions/v1alpha2.TransformerSpec"
+        }
+      }
+    },
+    "v1alpha2.ExplainerConfig": {
+      "required": [
+        "image"
+      ],
+      "properties": {
+        "image": {
+          "type": "string"
+        }
+      }
+    },
+    "v1alpha2.ExplainerSpec": {
+      "description": "ExplainerSpec defines the arguments for a model explanation server",
+      "properties": {
+        "alibi": {
+          "description": "The following fields follow a \"1-of\" semantic. Users must specify exactly one spec.",
+          "$ref": "#/definitions/v1alpha2.AlibiExplainerSpec"
+        },
+        "custom": {
+          "$ref": "#/definitions/v1alpha2.CustomSpec"
+        },
+        "maxReplicas": {
+          "description": "This is the up bound for autoscaler to scale to",
+          "type": "integer",
+          "format": "int32"
+        },
+        "minReplicas": {
+          "description": "Minimum number of replicas, pods won't scale down to 0 in case of no traffic",
+          "type": "integer",
+          "format": "int32"
+        },
+        "serviceAccountName": {
+          "description": "ServiceAccountName is the name of the ServiceAccount to use to run the service",
+          "type": "string"
+        }
+      }
+    },
+    "v1alpha2.ExplainersConfig": {
+      "properties": {
+        "alibi": {
+          "$ref": "#/definitions/v1alpha2.ExplainerConfig"
+        }
+      }
+    },
+    "v1alpha2.KFService": {
+      "description": "KFService is the Schema for the services API",
+      "properties": {
+        "apiVersion": {
+          "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
+          "type": "string"
+        },
+        "kind": {
+          "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds",
+          "type": "string"
+        },
+        "metadata": {
+          "$ref": "#/definitions/v1.ObjectMeta"
+        },
+        "spec": {
+          "$ref": "#/definitions/v1alpha2.KFServiceSpec"
+        },
+        "status": {
+          "$ref": "#/definitions/v1alpha2.KFServiceStatus"
+        }
+      }
+    },
+    "v1alpha2.KFServiceList": {
+      "description": "KFServiceList contains a list of Service",
+      "required": [
+        "items"
+      ],
+      "properties": {
+        "apiVersion": {
+          "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
+          "type": "string"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/v1alpha2.KFService"
+          }
+        },
+        "kind": {
+          "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds",
+          "type": "string"
+        },
+        "metadata": {
+          "$ref": "#/definitions/v1.ListMeta"
+        }
+      }
+    },
+    "v1alpha2.KFServiceSpec": {
+      "description": "KFServiceSpec defines the desired state of KFService",
+      "required": [
+        "default"
+      ],
+      "properties": {
+        "canary": {
+          "description": "Canary defines an alternate endpoints to route a percentage of traffic.",
+          "$ref": "#/definitions/v1alpha2.EndpointSpec"
+        },
+        "canaryTrafficPercent": {
+          "description": "CanaryTrafficPercent defines the percentage of traffic going to canary KFService endpoints",
+          "type": "integer",
+          "format": "int32"
+        },
+        "default": {
+          "description": "Default defines default KFService endpoints",
+          "$ref": "#/definitions/v1alpha2.EndpointSpec"
+        }
+      }
+    },
+    "v1alpha2.KFServiceStatus": {
+      "description": "KFServiceStatus defines the observed state of KFService",
+      "properties": {
+        "canary": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/v1alpha2.StatusConfigurationSpec"
+          }
+        },
+        "conditions": {
+          "description": "Conditions the latest available observations of a resource's current state.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/knative.Condition"
+          },
+          "x-kubernetes-patch-merge-key": "type",
+          "x-kubernetes-patch-strategy": "merge"
+        },
+        "default": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/v1alpha2.StatusConfigurationSpec"
+          }
+        },
+        "observedGeneration": {
+          "description": "ObservedGeneration is the 'Generation' of the Service that was last processed by the controller.",
+          "type": "integer",
+          "format": "int64"
+        },
+        "url": {
+          "type": "string"
+        }
+      }
+    },
+    "v1alpha2.ONNXSpec": {
+      "description": "ONNXSpec defines arguments for configuring ONNX model serving.",
+      "required": [
+        "storageUri"
+      ],
+      "properties": {
+        "resources": {
+          "description": "Defaults to requests and limits of 1CPU, 2Gb MEM.",
+          "$ref": "#/definitions/v1.ResourceRequirements"
+        },
+        "runtimeVersion": {
+          "description": "Defaults to latest ONNX Version.",
+          "type": "string"
+        },
+        "storageUri": {
+          "description": "The location of the trained model",
+          "type": "string"
+        }
+      }
+    },
+    "v1alpha2.PredictorConfig": {
+      "required": [
+        "image"
+      ],
+      "properties": {
+        "image": {
+          "type": "string"
+        }
+      }
+    },
+    "v1alpha2.PredictorSpec": {
+      "description": "PredictorSpec defines the configuration to route traffic to a predictor.",
+      "properties": {
+        "custom": {
+          "description": "The following fields follow a \"1-of\" semantic. Users must specify exactly one spec.",
+          "$ref": "#/definitions/v1alpha2.CustomSpec"
+        },
+        "maxReplicas": {
+          "description": "This is the up bound for autoscaler to scale to",
+          "type": "integer",
+          "format": "int32"
+        },
+        "minReplicas": {
+          "description": "Minimum number of replicas, pods won't scale down to 0 in case of no traffic",
+          "type": "integer",
+          "format": "int32"
+        },
+        "onnx": {
+          "$ref": "#/definitions/v1alpha2.ONNXSpec"
+        },
+        "pytorch": {
+          "$ref": "#/definitions/v1alpha2.PyTorchSpec"
+        },
+        "serviceAccountName": {
+          "description": "ServiceAccountName is the name of the ServiceAccount to use to run the service",
+          "type": "string"
+        },
+        "sklearn": {
+          "$ref": "#/definitions/v1alpha2.SKLearnSpec"
+        },
+        "tensorflow": {
+          "$ref": "#/definitions/v1alpha2.TensorflowSpec"
+        },
+        "tensorrt": {
+          "$ref": "#/definitions/v1alpha2.TensorRTSpec"
+        },
+        "xgboost": {
+          "$ref": "#/definitions/v1alpha2.XGBoostSpec"
+        }
+      }
+    },
+    "v1alpha2.PredictorsConfig": {
+      "properties": {
+        "onnx": {
+          "$ref": "#/definitions/v1alpha2.PredictorConfig"
+        },
+        "pytorch": {
+          "$ref": "#/definitions/v1alpha2.PredictorConfig"
+        },
+        "sklearn": {
+          "$ref": "#/definitions/v1alpha2.PredictorConfig"
+        },
+        "tensorflow": {
+          "$ref": "#/definitions/v1alpha2.PredictorConfig"
+        },
+        "tensorrt": {
+          "$ref": "#/definitions/v1alpha2.PredictorConfig"
+        },
+        "xgboost": {
+          "$ref": "#/definitions/v1alpha2.PredictorConfig"
+        }
+      }
+    },
+    "v1alpha2.PyTorchSpec": {
+      "description": "PyTorchSpec defines arguments for configuring PyTorch model serving.",
+      "required": [
+        "storageUri"
+      ],
+      "properties": {
+        "modelClassName": {
+          "description": "Defaults PyTorch model class name to 'PyTorchModel'",
+          "type": "string"
+        },
+        "resources": {
+          "description": "Defaults to requests and limits of 1CPU, 2Gb MEM.",
+          "$ref": "#/definitions/v1.ResourceRequirements"
+        },
+        "runtimeVersion": {
+          "description": "Defaults to latest PyTorch Version",
+          "type": "string"
+        },
+        "storageUri": {
+          "description": "The location of the trained model",
+          "type": "string"
+        }
+      }
+    },
+    "v1alpha2.SKLearnSpec": {
+      "description": "SKLearnSpec defines arguments for configuring SKLearn model serving.",
+      "required": [
+        "storageUri"
+      ],
+      "properties": {
+        "resources": {
+          "description": "Defaults to requests and limits of 1CPU, 2Gb MEM.",
+          "$ref": "#/definitions/v1.ResourceRequirements"
+        },
+        "runtimeVersion": {
+          "description": "Defaults to latest SKLearn Version.",
+          "type": "string"
+        },
+        "storageUri": {
+          "description": "The location of the trained model",
+          "type": "string"
+        }
+      }
+    },
+    "v1alpha2.StatusConfigurationSpec": {
+      "description": "StatusConfigurationSpec describes the state of the configuration receiving traffic.",
+      "properties": {
+        "host": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "replicas": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "traffic": {
+          "type": "integer",
+          "format": "int32"
+        }
+      }
+    },
+    "v1alpha2.TensorRTSpec": {
+      "description": "TensorRTSpec defines arguments for configuring TensorRT model serving.",
+      "required": [
+        "storageUri"
+      ],
+      "properties": {
+        "resources": {
+          "description": "Defaults to requests and limits of 1CPU, 2Gb MEM.",
+          "$ref": "#/definitions/v1.ResourceRequirements"
+        },
+        "runtimeVersion": {
+          "description": "Defaults to latest TensorRT Version.",
+          "type": "string"
+        },
+        "storageUri": {
+          "description": "The location of the trained model",
+          "type": "string"
+        }
+      }
+    },
+    "v1alpha2.TensorflowSpec": {
+      "description": "TensorflowSpec defines arguments for configuring Tensorflow model serving.",
+      "required": [
+        "storageUri"
+      ],
+      "properties": {
+        "resources": {
+          "description": "Defaults to requests and limits of 1CPU, 2Gb MEM.",
+          "$ref": "#/definitions/v1.ResourceRequirements"
+        },
+        "runtimeVersion": {
+          "description": "Defaults to latest TF Version.",
+          "type": "string"
+        },
+        "storageUri": {
+          "description": "The location of the trained model",
+          "type": "string"
+        }
+      }
+    },
+    "v1alpha2.TransformerSpec": {
+      "description": "TransformerSpec defines transformer service for pre/post processing",
+      "properties": {
+        "custom": {
+          "$ref": "#/definitions/v1alpha2.CustomSpec"
+        },
+        "maxReplicas": {
+          "description": "This is the up bound for autoscaler to scale to",
+          "type": "integer",
+          "format": "int32"
+        },
+        "minReplicas": {
+          "description": "Minimum number of replicas, pods won't scale down to 0 in case of no traffic",
+          "type": "integer",
+          "format": "int32"
+        },
+        "serviceAccountName": {
+          "description": "ServiceAccountName is the name of the ServiceAccount to use to run the service",
+          "type": "string"
+        }
+      }
+    },
+    "v1alpha2.XGBoostSpec": {
+      "description": "XGBoostSpec defines arguments for configuring XGBoost model serving.",
+      "required": [
+        "storageUri"
+      ],
+      "properties": {
+        "resources": {
+          "description": "Defaults to requests and limits of 1CPU, 2Gb MEM.",
+          "$ref": "#/definitions/v1.ResourceRequirements"
+        },
+        "runtimeVersion": {
+          "description": "Defaults to latest XGBoost Version.",
+          "type": "string"
+        },
+        "storageUri": {
+          "description": "The location of the trained model",
+          "type": "string"
+        }
+      }
+    }
+  }
+}
