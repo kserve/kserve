@@ -20,7 +20,7 @@ import (
 	"k8s.io/klog"
 )
 
-type ExplainerHandler interface {
+type Explainer interface {
 	GetStorageUri() string
 	CreateExplainerContainer(modelName string, predictorHost string, config *ExplainersConfig) *v1.Container
 	ApplyDefaults()
@@ -46,11 +46,11 @@ func (m *ExplainerSpec) ApplyDefaults() {
 }
 
 func (m *ExplainerSpec) Validate() error {
-	handler, err := makeExplainerHandler(m)
+	explainer, err := makeExplainer(m)
 	if err != nil {
 		return err
 	}
-	return handler.Validate()
+	return explainer.Validate()
 }
 
 type ExplainerConfig struct {
@@ -62,17 +62,17 @@ type ExplainersConfig struct {
 	AlibiExplainer ExplainerConfig `json:"alibi,omitempty"`
 }
 
-func getExplainerHandler(modelSpec *ExplainerSpec) ExplainerHandler {
-	handler, err := makeExplainerHandler(modelSpec)
+func getExplainerHandler(modelSpec *ExplainerSpec) Explainer {
+	explainer, err := makeExplainer(modelSpec)
 	if err != nil {
 		klog.Fatal(err)
 	}
 
-	return handler
+	return explainer
 }
 
-func makeExplainerHandler(explainerSpec *ExplainerSpec) (ExplainerHandler, error) {
-	handlers := []ExplainerHandler{}
+func makeExplainer(explainerSpec *ExplainerSpec) (Explainer, error) {
+	handlers := []Explainer{}
 	if explainerSpec.Custom != nil {
 		handlers = append(handlers, explainerSpec.Custom)
 	}
