@@ -18,8 +18,6 @@ package v1alpha2
 
 import (
 	"fmt"
-	"regexp"
-	"strings"
 
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
@@ -85,7 +83,7 @@ func validateEndpoint(endpoint *EndpointSpec) error {
 	if endpoint == nil {
 		return nil
 	}
-	if err := validatePredictor(endpoint.Predictor); err != nil {
+	if err := endpoint.Predictor.Validate(); err != nil {
 		return err
 	}
 	if endpoint.Transformer != nil {
@@ -97,57 +95,6 @@ func validateEndpoint(endpoint *EndpointSpec) error {
 		if err := endpoint.Explainer.Validate(); err != nil {
 			return err
 		}
-	}
-	return nil
-}
-
-func validatePredictor(spec PredictorSpec) error {
-	if err := spec.Validate(); err != nil {
-		return err
-	}
-	if err := validateStorageURI(spec.GetStorageUri()); err != nil {
-		return err
-	}
-	if err := validateReplicas(spec.MinReplicas, spec.MaxReplicas); err != nil {
-		return err
-	}
-	return nil
-}
-
-func validateStorageURI(storageURI string) error {
-	if storageURI == "" {
-		return nil
-	}
-
-	// local path (not some protocol?)
-	if !regexp.MustCompile("\\w+?://").MatchString(storageURI) {
-		return nil
-	}
-
-	// one of the prefixes we know?
-	for _, prefix := range SupportedStorageURIPrefixList {
-		if strings.HasPrefix(storageURI, prefix) {
-			return nil
-		}
-	}
-
-	azureURIMatcher := regexp.MustCompile(AzureBlobURIRegEx)
-	if parts := azureURIMatcher.FindStringSubmatch(storageURI); parts != nil {
-		return nil
-	}
-
-	return fmt.Errorf(UnsupportedStorageURIFormatError, strings.Join(SupportedStorageURIPrefixList, ", "), storageURI)
-}
-
-func validateReplicas(minReplicas int, maxReplicas int) error {
-	if minReplicas < 0 {
-		return fmt.Errorf(MinReplicasLowerBoundExceededError)
-	}
-	if maxReplicas < 0 {
-		return fmt.Errorf(MaxReplicasLowerBoundExceededError)
-	}
-	if minReplicas > maxReplicas && maxReplicas != 0 {
-		return fmt.Errorf(MinReplicasShouldBeLessThanMaxError)
 	}
 	return nil
 }

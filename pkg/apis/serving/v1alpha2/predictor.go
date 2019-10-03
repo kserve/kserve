@@ -15,6 +15,8 @@ package v1alpha2
 
 import (
 	"fmt"
+	"regexp"
+	"strings"
 
 	"github.com/kubeflow/kfserving/pkg/constants"
 	v1 "k8s.io/api/core/v1"
@@ -40,24 +42,33 @@ var (
 )
 
 // Returns a URI to the model. This URI is passed to the storage-initializer via the StorageInitializerSourceUriInternalAnnotationKey
-func (m *PredictorSpec) GetStorageUri() string {
-	return getPredictor(m).GetStorageUri()
+func (p *PredictorSpec) GetStorageUri() string {
+	return getPredictor(p).GetStorageUri()
 }
 
-func (m *PredictorSpec) GetContainer(modelName string, config *PredictorsConfig) *v1.Container {
-	return getPredictor(m).GetContainer(modelName, config)
+func (p *PredictorSpec) GetContainer(modelName string, config *PredictorsConfig) *v1.Container {
+	return getPredictor(p).GetContainer(modelName, config)
 }
 
-func (m *PredictorSpec) ApplyDefaults() {
-	getPredictor(m).ApplyDefaults()
+func (p *PredictorSpec) ApplyDefaults() {
+	getPredictor(p).ApplyDefaults()
 }
 
-func (m *PredictorSpec) Validate() error {
-	handler, err := makeHandler(m)
+func (p *PredictorSpec) Validate() error {
+	predictor, err := makePredictor(p)
 	if err != nil {
 		return err
 	}
-	return handler.Validate()
+	if err := predictor.Validate(); err != nil {
+		return err
+	}
+	if err := validateStorageURI(p.GetStorageUri()); err != nil {
+		return err
+	}
+	if err := validateReplicas(p.MinReplicas, p.MaxReplicas); err != nil {
+		return err
+	}
+	return nil
 }
 
 type PredictorConfig struct {
@@ -72,6 +83,44 @@ type PredictorsConfig struct {
 	SKlearn    PredictorConfig `json:"sklearn,omitempty"`
 	PyTorch    PredictorConfig `json:"pytorch,omitempty"`
 	ONNX       PredictorConfig `json:"onnx,omitempty"`
+}
+
+func validateStorageURI(storageURI string) error {
+	if storageURI == "" {
+		return nil
+	}
+
+	// local path (not some protocol?)
+	if !regexp.MustCompile("\\w+?://").MatchString(storageURI) {
+		return nil
+	}
+
+	// one of the prefixes we know?
+	for _, prefix := range SupportedStorageURIPrefixList {
+		if strings.HasPrefix(storageURI, prefix) {
+			return nil
+		}
+	}
+
+	azureURIMatcher := regexp.MustCompile(AzureBlobURIRegEx)
+	if parts := azureURIMatcher.FindStringSubmatch(storageURI); parts != nil {
+		return nil
+	}
+
+	return fmt.Errorf(UnsupportedStorageURIFormatError, strings.Join(SupportedStorageURIPrefixList, ", "), storageURI)
+}
+
+func validateReplicas(minReplicas int, maxReplicas int) error {
+	if minReplicas < 0 {
+		return fmt.Errorf(MinReplicasLowerBoundExceededError)
+	}
+	if maxReplicas < 0 {
+		return fmt.Errorf(MaxReplicasLowerBoundExceededError)
+	}
+	if minReplicas > maxReplicas && maxReplicas != 0 {
+		return fmt.Errorf(MinReplicasShouldBeLessThanMaxError)
+	}
+	return nil
 }
 
 func setResourceRequirementDefaults(requirements *v1.ResourceRequirements) {
@@ -104,15 +153,15 @@ func isGPUEnabled(requirements v1.ResourceRequirements) bool {
 }
 
 func getPredictor(modelSpec *PredictorSpec) Predictor {
-	handler, err := makeHandler(modelSpec)
+	predictor, err := makePredictor(modelSpec)
 	if err != nil {
 		klog.Fatal(err)
 	}
 
-	return handler
+	return predictor
 }
 
-func makeHandler(predictorSpec *PredictorSpec) (Predictor, error) {
+func makePredictor(predictorSpec *PredictorSpec) (Predictor, error) {
 	handlers := []Predictor{}
 	if predictorSpec.Custom != nil {
 		handlers = append(handlers, predictorSpec.Custom)
