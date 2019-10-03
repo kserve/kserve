@@ -28,20 +28,24 @@ class FeastTransformer(Transformer):
                  predictor_host: str,
                  feast_url: str,
                  entity_ids: List[str],
-                 feature_ids: List[str]):
+                 feature_ids: List[str],
+                 flatten_features: bool,
+                 omit_entities: bool):
         super().__init__(name, predictor_host=predictor_host,
                          protocol=Protocol.tensorflow_http)
         self.feast_url = feast_url
         self.entity_ids = entity_ids
+        self.ids = omit_entities * entity_ids + feature_ids
         self.feature_sets = self.build_feature_sets(feature_ids)
+        self.flatten_features = flatten_features
 
     def build_feature_sets(self, feature_ids: List):
         feature_sets = {}
         for feature_id in feature_ids:
             try:
                 # Extract name, version, feature
-                name_version, feature = feature_id.split('.')
-                name, version = name_version.split(':')
+                name, version, feature = feature_id.split(':')
+                name_version = ':'.join([name, version])
 
                 # Add to featuresets
                 feature_set = feature_sets.get(name_version, {})
@@ -49,13 +53,13 @@ class FeastTransformer(Transformer):
                 feature_names.append(feature)
                 feature_sets[name_version] = {
                     "name": name,
-                    "version": version,
+                    "version": int(version),
                     "feature_names": feature_names
                 }
             except Exception as exception:
                 logging.error(exception)
                 raise ValueError(
-                    "Invalid feature_id, want:`name:version.feature`, got %s." % feature_id)
+                    "Invalid feature_id, want:`name:version:feature`, got %s." % feature_id)
 
         return feature_sets
 
@@ -70,15 +74,18 @@ class FeastTransformer(Transformer):
         headers = {'Content-type': 'application/json'}
         data = json.dumps({
             "featureSets": list(self.feature_sets.values()),
-            "entityDataset": {
-                "entityNames": self.entity_ids,
-                "entityDatasetRows":  [{
-                    "entityIds": instance
-                }]
-            }
+            "entityRows":  [{"fields": instance}]
         })
         logging.info("Requesting Feast: POST %s %s", url, data)
         response = requests.post(url=url, headers=headers, data=data)
         response_json = response.json()
         logging.info("Retrieved %s", response_json)
-        return response_json
+        return self._flatten(response_json)
+
+    def _flatten(self, response: List) -> List:
+        if not self.flatten_features: return response
+        flattened_outputs = []
+        for output in response:
+            flattened_output = [output[id] for id in self.ids]
+            flattened_outputs.append(flattened_output)
+        return flattened_outputs
