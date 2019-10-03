@@ -184,7 +184,7 @@ type CustomSpec struct {
 }
 
 // EndpointStatusMap defines the observed state of KFService endpoints
-type EndpointStatusMap map[constants.KFServiceEndpoint]*StatusConfigurationSpec
+type EndpointStatusMap map[constants.KFComponent]*StatusConfigurationSpec
 
 // KFServiceStatus defines the observed state of KFService
 type KFServiceStatus struct {

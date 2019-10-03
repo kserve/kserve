@@ -317,7 +317,7 @@ func (in *KFServiceStatus) DeepCopyInto(out *KFServiceStatus) {
 		*out = new(EndpointStatusMap)
 		if **in != nil {
 			in, out := *in, *out
-			*out = make(map[constants.KFServiceEndpoint]*StatusConfigurationSpec, len(*in))
+			*out = make(map[constants.KFComponent]*StatusConfigurationSpec, len(*in))
 			for key, val := range *in {
 				var outVal *StatusConfigurationSpec
 				if val == nil {
@@ -336,7 +336,7 @@ func (in *KFServiceStatus) DeepCopyInto(out *KFServiceStatus) {
 		*out = new(EndpointStatusMap)
 		if **in != nil {
 			in, out := *in, *out
-			*out = make(map[constants.KFServiceEndpoint]*StatusConfigurationSpec, len(*in))
+			*out = make(map[constants.KFComponent]*StatusConfigurationSpec, len(*in))
 			for key, val := range *in {
 				var outVal *StatusConfigurationSpec
 				if val == nil {
