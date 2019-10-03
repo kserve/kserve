@@ -28,7 +28,7 @@ type ExplainerHandler interface {
 }
 
 const (
-	// ExactlyOneModelSpecViolatedError is a known error message
+	// ExactlyOnePredictorViolatedError is a known error message
 	ExactlyOneExplainerSpecViolatedError = "Exactly one of [Custom, Alibi] must be specified in ExplainerSpec"
 )
 

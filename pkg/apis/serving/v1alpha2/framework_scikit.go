@@ -33,13 +33,13 @@ var (
 	DefaultSKLearnRuntimeVersion      = "latest"
 )
 
-var _ FrameworkHandler = (*SKLearnSpec)(nil)
+var _ Predictor = (*SKLearnSpec)(nil)
 
 func (s *SKLearnSpec) GetStorageUri() string {
 	return s.StorageURI
 }
 
-func (s *SKLearnSpec) CreateModelServingContainer(modelName string, config *FrameworksConfig) *v1.Container {
+func (s *SKLearnSpec) CreateModelServingContainer(modelName string, config *PredictorsConfig) *v1.Container {
 	imageName := SKLearnServerImageName
 	if config.SKlearn.ContainerImage != "" {
 		imageName = config.SKlearn.ContainerImage

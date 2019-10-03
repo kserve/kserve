@@ -110,14 +110,14 @@ func TestRejectMultipleModelSpecs(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	kfsvc := makeTestKFService()
 	kfsvc.Spec.Default.Predictor.Custom = &CustomSpec{Container: v1.Container{}}
-	g.Expect(kfsvc.ValidateCreate()).Should(gomega.MatchError(ExactlyOneModelSpecViolatedError))
+	g.Expect(kfsvc.ValidateCreate()).Should(gomega.MatchError(ExactlyOnePredictorViolatedError))
 }
 
 func TestRejectModelSpecMissing(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	kfsvc := makeTestKFService()
 	kfsvc.Spec.Default.Predictor.Tensorflow = nil
-	g.Expect(kfsvc.ValidateCreate()).Should(gomega.MatchError(AtLeastOneModelSpecViolatedError))
+	g.Expect(kfsvc.ValidateCreate()).Should(gomega.MatchError(ExactlyOnePredictorViolatedError))
 }
 func TestRejectMultipleCanaryModelSpecs(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
@@ -128,7 +128,7 @@ func TestRejectMultipleCanaryModelSpecs(t *testing.T) {
 			Tensorflow: kfsvc.Spec.Default.Predictor.Tensorflow,
 		},
 	}
-	g.Expect(kfsvc.ValidateCreate()).Should(gomega.MatchError(ExactlyOneModelSpecViolatedError))
+	g.Expect(kfsvc.ValidateCreate()).Should(gomega.MatchError(ExactlyOnePredictorViolatedError))
 }
 
 func TestRejectCanaryModelSpecMissing(t *testing.T) {
@@ -137,7 +137,7 @@ func TestRejectCanaryModelSpecMissing(t *testing.T) {
 	kfsvc.Spec.Canary = &EndpointSpec{
 		Predictor: PredictorSpec{},
 	}
-	g.Expect(kfsvc.ValidateCreate()).Should(gomega.MatchError(AtLeastOneModelSpecViolatedError))
+	g.Expect(kfsvc.ValidateCreate()).Should(gomega.MatchError(ExactlyOnePredictorViolatedError))
 }
 func TestRejectBadCanaryTrafficValues(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)

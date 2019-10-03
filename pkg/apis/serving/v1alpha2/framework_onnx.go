@@ -39,7 +39,7 @@ func (s *ONNXSpec) GetStorageUri() string {
 	return s.StorageURI
 }
 
-func (s *ONNXSpec) CreateModelServingContainer(modelName string, config *FrameworksConfig) *v1.Container {
+func (s *ONNXSpec) CreateModelServingContainer(modelName string, config *PredictorsConfig) *v1.Container {
 	imageName := ONNXServingImageName
 	if config.ONNX.ContainerImage != "" {
 		imageName = config.ONNX.ContainerImage

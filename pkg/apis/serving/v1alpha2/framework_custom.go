@@ -32,7 +32,7 @@ func (c *CustomSpec) GetStorageUri() string {
 	return ""
 }
 
-func (c *CustomSpec) CreateModelServingContainer(modelName string, config *FrameworksConfig) *v1.Container {
+func (c *CustomSpec) CreateModelServingContainer(modelName string, config *PredictorsConfig) *v1.Container {
 	return &c.Container
 }
 func (c *CustomSpec) CreateExplainerServingContainer(modelName string, predictUrl string, config *ExplainersConfig) *v1.Container {

@@ -39,8 +39,8 @@ func TestCreateModelServingContainer(t *testing.T) {
 			},
 		},
 	}
-	var config = FrameworksConfig{
-		TensorRT: FrameworkConfig{
+	var config = PredictorsConfig{
+		TensorRT: PredictorConfig{
 			ContainerImage: "someOtherImage",
 		},
 	}
@@ -76,7 +76,7 @@ func TestCreateModelServingContainer(t *testing.T) {
 
 	// Test Create with config
 	expectedContainer.Image = "nvcr.io/nvidia/tensorrtserver:19.05-py3"
-	emptyConfig := FrameworksConfig{TensorRT: FrameworkConfig{}}
+	emptyConfig := PredictorsConfig{TensorRT: PredictorConfig{}}
 	container = spec.CreateModelServingContainer("someName", &emptyConfig)
 	g.Expect(container).To(gomega.Equal(expectedContainer))
 }

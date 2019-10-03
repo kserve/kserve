@@ -44,8 +44,8 @@ var onnxSpec = ONNXSpec{
 	RuntimeVersion: "someAmazingVersion",
 }
 
-var onnxConfig = FrameworksConfig{
-	ONNX: FrameworkConfig{
+var onnxConfig = PredictorsConfig{
+	ONNX: PredictorConfig{
 		ContainerImage: "someOtherImage",
 	},
 }
@@ -70,7 +70,7 @@ func TestCreateOnnxModelServingContainer(t *testing.T) {
 
 	// Test Create without config
 	expectedContainer.Image = "mcr.microsoft.com/onnxruntime/server:someAmazingVersion"
-	emptyConfig := FrameworksConfig{ONNX: FrameworkConfig{}}
+	emptyConfig := PredictorsConfig{ONNX: PredictorConfig{}}
 	container = onnxSpec.CreateModelServingContainer("someName", &emptyConfig)
 	g.Expect(container).To(gomega.Equal(expectedContainer))
 }

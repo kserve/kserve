@@ -46,13 +46,13 @@ var serviceAnnotationDisallowedList = []string{
 }
 
 type ServiceBuilder struct {
-	frameworksConfig  *v1alpha2.FrameworksConfig
+	frameworksConfig  *v1alpha2.PredictorsConfig
 	credentialBuilder *credentials.CredentialBuilder
 	explainersConfig  *v1alpha2.ExplainersConfig
 }
 
 func NewServiceBuilder(client client.Client, config *v1.ConfigMap) *ServiceBuilder {
-	frameworkConfig := &v1alpha2.FrameworksConfig{}
+	frameworkConfig := &v1alpha2.PredictorsConfig{}
 	explainerConfig := &v1alpha2.ExplainersConfig{}
 	if fmks, ok := config.Data[FrameworkConfigKeyName]; ok {
 		err := json.Unmarshal([]byte(fmks), &frameworkConfig)
