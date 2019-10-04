@@ -27,6 +27,7 @@ class FeastTransformer(Transformer):
                  name: str,
                  predictor_host: str,
                  feast_url: str,
+                #  data_type: str,
                  entity_ids: List[str],
                  feature_ids: List[str],
                  flatten_features: bool,
@@ -34,6 +35,7 @@ class FeastTransformer(Transformer):
         super().__init__(name, predictor_host=predictor_host,
                          protocol=Protocol.tensorflow_http)
         self.feast_url = feast_url
+        # self.data_type = data_type
         self.entity_ids = entity_ids
         self.ids = omit_entities * entity_ids + feature_ids
         self.feature_sets = self.build_feature_sets(feature_ids)
@@ -73,6 +75,7 @@ class FeastTransformer(Transformer):
         url = "%s/api/v1/features/online" % self.feast_url
         headers = {'Content-type': 'application/json'}
         data = json.dumps({
+            # "type": self.data_type,
             "featureSets": list(self.feature_sets.values()),
             "entityRows":  [{"fields": instance}]
         })

@@ -21,7 +21,7 @@ type Transformer interface {
 	Validate() error
 }
 
-// GetContainerSpec for the transformer
+// GetTransformerContainer for the transformer
 func (t *TransformerSpec) GetTransformerContainer(metadata metav1.ObjectMeta, isCanary bool) *v1.Container {
 	transformer, err := getTransformer(t)
 	if err != nil {
@@ -58,6 +58,9 @@ func getTransformer(t *TransformerSpec) (Transformer, error) {
 	transformers := []Transformer{}
 	if t.Custom != nil {
 		transformers = append(transformers, t.Custom)
+	}
+	if t.Feast != nil {
+		transformers = append(transformers, t.Feast)
 	}
 	// Fail if not exactly one
 	if len(transformers) != 1 {

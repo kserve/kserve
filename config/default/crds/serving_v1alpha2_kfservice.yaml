@@ -230,6 +230,8 @@ spec:
                       type: object
                     feast:
                       properties:
+                        dataType:
+                          type: string
                         entityIds:
                           items:
                             type: string
@@ -240,10 +242,6 @@ spec:
                           items:
                             type: string
                           type: array
-                      required:
-                      - feastUrl
-                      - entityIds
-                      - featureIds
                       type: object
                     maxReplicas:
                       description: This is the up bound for autoscaler to scale to
@@ -450,6 +448,8 @@ spec:
                       type: object
                     feast:
                       properties:
+                        dataType:
+                          type: string
                         entityIds:
                           items:
                             type: string
@@ -460,10 +460,6 @@ spec:
                           items:
                             type: string
                           type: array
-                      required:
-                      - feastUrl
-                      - entityIds
-                      - featureIds
                       type: object
                     maxReplicas:
                       description: This is the up bound for autoscaler to scale to

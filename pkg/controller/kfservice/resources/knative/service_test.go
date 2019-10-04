@@ -637,6 +637,7 @@ func TestTransformerToKnativeService(t *testing.T) {
 				Transformer: &v1alpha2.TransformerSpec{
 					Feast: &v1alpha2.FeastTransformerSpec{
 						FeastURL:   "http://feasturl",
+						DataType:   "tensorproto",
 						EntityIds:  []string{"a", "b"},
 						FeatureIds: []string{"c", "d"},
 					},
@@ -677,6 +678,8 @@ func TestTransformerToKnativeService(t *testing.T) {
 										Args: []string{
 											v1alpha2.ArgumentFeastURL,
 											"http://feasturl",
+											v1alpha2.ArgumentDataType,
+											v1alpha2.TensorProto.ToCLIArgument(),
 											v1alpha2.ArgumentEntityIds,
 											"a", "b",
 											v1alpha2.ArgumentFeatureIds,
