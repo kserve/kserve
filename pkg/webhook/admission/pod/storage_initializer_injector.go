@@ -11,7 +11,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package deployment
+package pod
 
 import (
 	"fmt"
@@ -20,7 +20,6 @@ import (
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/controller/kfservice/resources/credentials"
 
-	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 )
 
@@ -48,19 +47,15 @@ type StorageInitializerInjector struct {
 // for the serving container in a unified way across storage tech by injecting
 // a provisioning INIT container. This is a work around because KNative does not
 // support INIT containers: https://github.com/knative/serving/issues/4307
-func (mi *StorageInitializerInjector) InjectStorageInitializer(deployment *appsv1.Deployment) error {
-
-	annotations := deployment.Spec.Template.ObjectMeta.Annotations
-	podSpec := &deployment.Spec.Template.Spec
-
+func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) error {
 	// Only inject if the required annotations are set
-	srcURI, ok := annotations[constants.StorageInitializerSourceUriInternalAnnotationKey]
+	srcURI, ok := pod.ObjectMeta.Annotations[constants.StorageInitializerSourceUriInternalAnnotationKey]
 	if !ok {
 		return nil
 	}
 
 	// Dont inject if InitContianer already injected
-	for _, container := range podSpec.InitContainers {
+	for _, container := range pod.Spec.InitContainers {
 		if strings.Compare(container.Name, StorageInitializerContainerName) == 0 {
 			return nil
 		}
@@ -68,9 +63,9 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(deployment *appsv
 
 	// Find the knative user-container (this is the model inference server)
 	var userContainer *v1.Container
-	for idx, container := range podSpec.Containers {
+	for idx, container := range pod.Spec.Containers {
 		if strings.Compare(container.Name, UserContainerName) == 0 {
-			userContainer = &podSpec.Containers[idx]
+			userContainer = &pod.Spec.Containers[idx]
 			break
 		}
 	}
@@ -161,20 +156,20 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(deployment *appsv
 	}
 
 	// Add volumes to the PodSpec
-	podSpec.Volumes = append(podSpec.Volumes, podVolumes...)
+	pod.Spec.Volumes = append(pod.Spec.Volumes, podVolumes...)
 
 	// Inject credentials
 	if err := mi.credentialBuilder.CreateSecretVolumeAndEnv(
-		deployment.Namespace,
-		podSpec.ServiceAccountName,
+		pod.Namespace,
+		pod.Spec.ServiceAccountName,
 		initContainer,
-		&podSpec.Volumes,
+		&pod.Spec.Volumes,
 	); err != nil {
 		return err
 	}
 
 	// Add init container to the spec
-	podSpec.InitContainers = append(podSpec.InitContainers, *initContainer)
+	pod.Spec.InitContainers = append(pod.Spec.InitContainers, *initContainer)
 
 	return nil
 }

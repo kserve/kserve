@@ -67,7 +67,7 @@ var (
 	KFServiceMutatingWebhookConfigName   = strings.Join([]string{KFServiceName, KFServingAPIGroupName}, ".")
 	KFServiceValidatingWebhookName       = strings.Join([]string{KFServiceName, WebhookServerName, "validator"}, ".")
 	KFServiceDefaultingWebhookName       = strings.Join([]string{KFServiceName, WebhookServerName, "defaulter"}, ".")
-	DeploymentMutatorWebhookName         = strings.Join([]string{KFServiceName, WebhookServerName, "deployment-mutator"}, ".")
+	PodMutatorWebhookName                = strings.Join([]string{KFServiceName, WebhookServerName, "pod-mutator"}, ".")
 	WebhookFailurePolicy                 = v1beta1.Fail
 )
 
