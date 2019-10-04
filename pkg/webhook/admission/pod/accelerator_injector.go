@@ -13,13 +13,12 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-package deployment
+package pod
 
 import (
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/utils"
-
-	appsv1 "k8s.io/api/apps/v1"
+	v1 "k8s.io/api/core/v1"
 )
 
 // These constants are used for detecting and applying GPU selectors
@@ -28,10 +27,10 @@ const (
 	NvidiaGPUTaintValue        = "present"
 )
 
-func InjectGKEAcceleratorSelector(deployment *appsv1.Deployment) error {
-	if gpuSelector, ok := deployment.Annotations[constants.KFServiceGKEAcceleratorAnnotationKey]; ok {
-		deployment.Spec.Template.Spec.NodeSelector = utils.Union(
-			deployment.Spec.Template.Spec.NodeSelector,
+func InjectGKEAcceleratorSelector(pod *v1.Pod) error {
+	if gpuSelector, ok := pod.Annotations[constants.KFServiceGKEAcceleratorAnnotationKey]; ok {
+		pod.Spec.NodeSelector = utils.Union(
+			pod.Spec.NodeSelector,
 			map[string]string{GkeAcceleratorNodeSelector: gpuSelector},
 		)
 	}
