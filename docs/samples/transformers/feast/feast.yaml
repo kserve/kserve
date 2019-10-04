@@ -5,18 +5,17 @@ metadata:
 spec:
   default:
     predictor:
-      tensorflow:
-        storageUri: gs://kfserving-samples/models/tensorflow/flowers
+      sklearn:
+        storageUri: gs://kfserving-samples/models/sklearn/uber-lyft-surge
     transformer: 
       feast:
-        dataType: "ndary"
         feastUrl: "http://feast-serving.default.svc"
         entityIds:
-          - s2id 
-          - service_type
+          - source
         featureIds:
-          - sauron-s2id:1.minute_surge_sg_go_car 
-          - sauron-s2id:1.agg_minute_demand_sg_go_car 
-          - sauron-s2id:1.agg_minute_supply_sg_car 
-          - sauron-s2id:1.agg_minute_bid_accepted_sg_go_car 
-          - sauron-s2id:1.agg_minute_bid_created_sg_go_car
+          - weather:1:temp
+          - weather:1:clouds
+          - weather:1:pressure
+          - weather:1:humidity
+        omitEntities: true
+        flattenFeatures: true
