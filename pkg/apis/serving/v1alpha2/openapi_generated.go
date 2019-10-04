@@ -233,62 +233,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 			Dependencies: []string{
 				"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.ExplainerConfig"},
 		},
-		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.FrameworkConfig": {
-			Schema: spec.Schema{
-				SchemaProps: spec.SchemaProps{
-					Properties: map[string]spec.Schema{
-						"image": {
-							SchemaProps: spec.SchemaProps{
-								Type:   []string{"string"},
-								Format: "",
-							},
-						},
-					},
-					Required: []string{"image"},
-				},
-			},
-			Dependencies: []string{},
-		},
-		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.FrameworksConfig": {
-			Schema: spec.Schema{
-				SchemaProps: spec.SchemaProps{
-					Properties: map[string]spec.Schema{
-						"tensorflow": {
-							SchemaProps: spec.SchemaProps{
-								Ref: ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.FrameworkConfig"),
-							},
-						},
-						"tensorrt": {
-							SchemaProps: spec.SchemaProps{
-								Ref: ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.FrameworkConfig"),
-							},
-						},
-						"xgboost": {
-							SchemaProps: spec.SchemaProps{
-								Ref: ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.FrameworkConfig"),
-							},
-						},
-						"sklearn": {
-							SchemaProps: spec.SchemaProps{
-								Ref: ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.FrameworkConfig"),
-							},
-						},
-						"pytorch": {
-							SchemaProps: spec.SchemaProps{
-								Ref: ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.FrameworkConfig"),
-							},
-						},
-						"onnx": {
-							SchemaProps: spec.SchemaProps{
-								Ref: ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.FrameworkConfig"),
-							},
-						},
-					},
-				},
-			},
-			Dependencies: []string{
-				"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.FrameworkConfig"},
-		},
 		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.KFService": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
@@ -502,6 +446,22 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 			Dependencies: []string{
 				"k8s.io/api/core/v1.ResourceRequirements"},
 		},
+		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.PredictorConfig": {
+			Schema: spec.Schema{
+				SchemaProps: spec.SchemaProps{
+					Properties: map[string]spec.Schema{
+						"image": {
+							SchemaProps: spec.SchemaProps{
+								Type:   []string{"string"},
+								Format: "",
+							},
+						},
+					},
+					Required: []string{"image"},
+				},
+			},
+			Dependencies: []string{},
+		},
 		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.PredictorSpec": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
@@ -569,6 +529,46 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 			},
 			Dependencies: []string{
 				"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.CustomSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.ONNXSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.PyTorchSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.SKLearnSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.TensorRTSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.TensorflowSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.XGBoostSpec"},
+		},
+		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.PredictorsConfig": {
+			Schema: spec.Schema{
+				SchemaProps: spec.SchemaProps{
+					Properties: map[string]spec.Schema{
+						"tensorflow": {
+							SchemaProps: spec.SchemaProps{
+								Ref: ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.PredictorConfig"),
+							},
+						},
+						"tensorrt": {
+							SchemaProps: spec.SchemaProps{
+								Ref: ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.PredictorConfig"),
+							},
+						},
+						"xgboost": {
+							SchemaProps: spec.SchemaProps{
+								Ref: ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.PredictorConfig"),
+							},
+						},
+						"sklearn": {
+							SchemaProps: spec.SchemaProps{
+								Ref: ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.PredictorConfig"),
+							},
+						},
+						"pytorch": {
+							SchemaProps: spec.SchemaProps{
+								Ref: ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.PredictorConfig"),
+							},
+						},
+						"onnx": {
+							SchemaProps: spec.SchemaProps{
+								Ref: ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.PredictorConfig"),
+							},
+						},
+					},
+				},
+			},
+			Dependencies: []string{
+				"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.PredictorConfig"},
 		},
 		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.PyTorchSpec": {
 			Schema: spec.Schema{

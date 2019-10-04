@@ -479,11 +479,11 @@ ExplainerConfig
 </tr>
 </tbody>
 </table>
-<h3 id="serving.kubeflow.org/v1alpha2.FrameworkConfig">FrameworkConfig
+<h3 id="serving.kubeflow.org/v1alpha2.PredictorConfig">PredictorConfig
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#serving.kubeflow.org/v1alpha2.FrameworksConfig">FrameworksConfig</a>)
+<a href="#serving.kubeflow.org/v1alpha2.PredictorsConfig">PredictorsConfig</a>)
 </p>
 <p>
 </p>
@@ -507,11 +507,11 @@ string
 </tr>
 </tbody>
 </table>
-<h3 id="serving.kubeflow.org/v1alpha2.FrameworkHandler">FrameworkHandler
+<h3 id="serving.kubeflow.org/v1alpha2.Predictor">Predictor
 </h3>
 <p>
 </p>
-<h3 id="serving.kubeflow.org/v1alpha2.FrameworksConfig">FrameworksConfig
+<h3 id="serving.kubeflow.org/v1alpha2.PredictorsConfig">PredictorsConfig
 </h3>
 <p>
 </p>
@@ -527,8 +527,8 @@ string
 <td>
 <code>tensorflow</code></br>
 <em>
-<a href="#serving.kubeflow.org/v1alpha2.FrameworkConfig">
-FrameworkConfig
+<a href="#serving.kubeflow.org/v1alpha2.PredictorConfig">
+PredictorConfig
 </a>
 </em>
 </td>
@@ -539,8 +539,8 @@ FrameworkConfig
 <td>
 <code>tensorrt</code></br>
 <em>
-<a href="#serving.kubeflow.org/v1alpha2.FrameworkConfig">
-FrameworkConfig
+<a href="#serving.kubeflow.org/v1alpha2.PredictorConfig">
+PredictorConfig
 </a>
 </em>
 </td>
@@ -551,8 +551,8 @@ FrameworkConfig
 <td>
 <code>xgboost</code></br>
 <em>
-<a href="#serving.kubeflow.org/v1alpha2.FrameworkConfig">
-FrameworkConfig
+<a href="#serving.kubeflow.org/v1alpha2.PredictorConfig">
+PredictorConfig
 </a>
 </em>
 </td>
@@ -563,8 +563,8 @@ FrameworkConfig
 <td>
 <code>sklearn</code></br>
 <em>
-<a href="#serving.kubeflow.org/v1alpha2.FrameworkConfig">
-FrameworkConfig
+<a href="#serving.kubeflow.org/v1alpha2.PredictorConfig">
+PredictorConfig
 </a>
 </em>
 </td>
@@ -575,8 +575,8 @@ FrameworkConfig
 <td>
 <code>pytorch</code></br>
 <em>
-<a href="#serving.kubeflow.org/v1alpha2.FrameworkConfig">
-FrameworkConfig
+<a href="#serving.kubeflow.org/v1alpha2.PredictorConfig">
+PredictorConfig
 </a>
 </em>
 </td>
@@ -587,8 +587,8 @@ FrameworkConfig
 <td>
 <code>onnx</code></br>
 <em>
-<a href="#serving.kubeflow.org/v1alpha2.FrameworkConfig">
-FrameworkConfig
+<a href="#serving.kubeflow.org/v1alpha2.PredictorConfig">
+PredictorConfig
 </a>
 </em>
 </td>

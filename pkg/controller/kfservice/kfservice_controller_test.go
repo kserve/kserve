@@ -47,7 +47,7 @@ var c client.Client
 const timeout = time.Second * 10
 
 var configs = map[string]string{
-	"frameworks": `{
+	"predictors": `{
         "tensorflow" : {
             "image" : "tensorflow/serving"
         },

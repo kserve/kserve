@@ -38,7 +38,7 @@ func (t *TensorRTSpec) GetStorageUri() string {
 	return t.StorageURI
 }
 
-func (t *TensorRTSpec) CreateModelServingContainer(modelName string, config *FrameworksConfig) *v1.Container {
+func (t *TensorRTSpec) GetContainer(modelName string, config *PredictorsConfig) *v1.Container {
 	imageName := DefaultTensorRTISImageName
 	if config.TensorRT.ContainerImage != "" {
 		imageName = config.TensorRT.ContainerImage

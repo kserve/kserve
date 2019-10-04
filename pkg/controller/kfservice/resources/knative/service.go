@@ -34,7 +34,7 @@ import (
 )
 
 const (
-	FrameworkConfigKeyName = "frameworks"
+	PredictorConfigKeyName = "predictors"
 	ExplainerConfigKeyName = "explainers"
 )
 
@@ -46,15 +46,15 @@ var serviceAnnotationDisallowedList = []string{
 }
 
 type ServiceBuilder struct {
-	frameworksConfig  *v1alpha2.FrameworksConfig
+	frameworksConfig  *v1alpha2.PredictorsConfig
 	credentialBuilder *credentials.CredentialBuilder
 	explainersConfig  *v1alpha2.ExplainersConfig
 }
 
 func NewServiceBuilder(client client.Client, config *v1.ConfigMap) *ServiceBuilder {
-	frameworkConfig := &v1alpha2.FrameworksConfig{}
+	frameworkConfig := &v1alpha2.PredictorsConfig{}
 	explainerConfig := &v1alpha2.ExplainersConfig{}
-	if fmks, ok := config.Data[FrameworkConfigKeyName]; ok {
+	if fmks, ok := config.Data[PredictorConfigKeyName]; ok {
 		err := json.Unmarshal([]byte(fmks), &frameworkConfig)
 		if err != nil {
 			panic(fmt.Errorf("Unable to unmarshall framework json string due to %v ", err))
@@ -166,7 +166,7 @@ func (c *ServiceBuilder) CreatePredictorService(name string, metadata metav1.Obj
 							PodSpec: v1.PodSpec{
 								ServiceAccountName: predictorSpec.ServiceAccountName,
 								Containers: []v1.Container{
-									*predictorSpec.CreateModelServingContainer(metadata.Name, c.frameworksConfig),
+									*predictorSpec.GetContainer(metadata.Name, c.frameworksConfig),
 								},
 							},
 						},
@@ -216,9 +216,9 @@ func (c *ServiceBuilder) CreateTransformerService(name string, metadata metav1.O
 	}
 	container := transformerSpec.Custom.Container
 	predefinedArgs := []string{
-		constants.ModelServerArgsModelName,
+		constants.ArgumentModelName,
 		metadata.Name,
-		constants.ModelServerArgsPredictorHost,
+		constants.ArgumentPredictorHost,
 		predictorHostName,
 	}
 	container.Args = append(container.Args, predefinedArgs...)
@@ -317,7 +317,7 @@ func (c *ServiceBuilder) CreateExplainerService(name string, metadata metav1.Obj
 							PodSpec: v1.PodSpec{
 								ServiceAccountName: explainerSpec.ServiceAccountName,
 								Containers: []v1.Container{
-									*explainerSpec.CreateExplainerServingContainer(metadata.Name, predictorService, c.explainersConfig),
+									*explainerSpec.CreateExplainerContainer(metadata.Name, predictorService, c.explainersConfig),
 								},
 							},
 						},
