@@ -145,7 +145,7 @@ func (ss *KFServiceStatus) PropagateRouteStatus(vs *VirtualServiceStatus) {
 	ss.Traffic = vs.DefaultWeight
 	ss.CanaryTraffic = vs.CanaryWeight
 
-	rc := vs.GetCondition(knservingv1alpha1.RouteConditionReady)
+	rc := vs.GetCondition(RoutesReady)
 
 	switch {
 	case rc == nil:
