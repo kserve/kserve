@@ -36,6 +36,8 @@ class FeastTransformer(Transformer):
                          protocol=Protocol.tensorflow_http)
         self.feast_url = feast_url
         # self.data_type = data_type
+        flatten_features = True # temporary
+        omit_entities = True # temporary
         self.entity_ids = entity_ids
         self.ids = omit_entities * entity_ids + feature_ids
         self.feature_sets = self.build_feature_sets(feature_ids)
