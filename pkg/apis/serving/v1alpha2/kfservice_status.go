@@ -140,11 +140,10 @@ func (ss *KFServiceStatus) propagateStatus(statusSpec *StatusConfigurationSpec, 
 }
 
 // PropagateRouteStatus propagates route's status to the service's status.
-func (ss *KFServiceStatus) PropagateRouteStatus(rs *knservingv1alpha1.RouteStatus) {
-	ss.URL = rs.URL.String()
-
-	propagateRouteStatus(rs, ss.Default)
-	propagateRouteStatus(rs, ss.Canary)
+func (ss *KFServiceStatus) PropagateRouteStatus(vs *VirtualServiceStatus) {
+	ss.URL = vs.URL
+	ss.Traffic = vs.DefaultWeight
+	ss.CanaryTraffic = vs.CanaryWeight
 
 	rc := vs.GetCondition(knservingv1alpha1.RouteConditionReady)
 
@@ -156,18 +155,5 @@ func (ss *KFServiceStatus) PropagateRouteStatus(rs *knservingv1alpha1.RouteStatu
 		conditionSet.Manage(ss).MarkTrue(RoutesReady)
 	case rc.Status == v1.ConditionFalse:
 		conditionSet.Manage(ss).MarkFalse(RoutesReady, rc.Reason, rc.Message)
-	}
-}
-
-func propagateRouteStatus(rs *knservingv1alpha1.RouteStatus, endpointStatusMap *EndpointStatusMap) {
-	for _, traffic := range rs.Traffic {
-		for _, endpoint := range *endpointStatusMap {
-			if endpoint.Name == traffic.RevisionName {
-				endpoint.Traffic = traffic.Percent
-				if traffic.URL != nil {
-					endpoint.Hostname = traffic.URL.Host
-				}
-			}
-		}
 	}
 }

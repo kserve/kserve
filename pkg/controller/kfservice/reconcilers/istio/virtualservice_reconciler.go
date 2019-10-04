@@ -50,8 +50,11 @@ func NewVirtualServiceReconciler(client client.Client, scheme *runtime.Scheme) *
 func (r *VirtualServiceReconciler) Reconcile(kfsvc *v1alpha2.KFService) error {
 	desired, status := istio.NewVirtualServiceBuilder().CreateVirtualService(kfsvc)
 	if desired == nil {
-		kfsvc.Status.PropagateRouteStatus(status)
-		return fmt.Errorf("failed to reconcile virtual service")
+		if status != nil {
+			kfsvc.Status.PropagateRouteStatus(status)
+			return nil
+		}
+		return fmt.Errorf("failed to reconcile virtual service: desired and status are nil")
 	}
 
 	if err := r.reconcileVirtualService(kfsvc, desired); err != nil {

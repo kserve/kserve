@@ -190,6 +190,8 @@ type EndpointStatusMap map[constants.KFServiceEndpoint]*StatusConfigurationSpec
 type KFServiceStatus struct {
 	duckv1beta1.Status `json:",inline"`
 	URL                string             `json:"url,omitempty"`
+	Traffic            int                `json:"traffic,omitempty"`
+	CanaryTraffic      int                `json:"canaryTraffic,omitempty"`
 	Default            *EndpointStatusMap `json:"default,omitempty"`
 	Canary             *EndpointStatusMap `json:"canary,omitempty"`
 }
@@ -199,7 +201,6 @@ type StatusConfigurationSpec struct {
 	Name     string `json:"name,omitempty"`
 	Hostname string `json:"host,omitempty"`
 	Replicas int    `json:"replicas,omitempty"`
-	Traffic  int    `json:"traffic,omitempty"`
 }
 
 // +genclient
@@ -209,8 +210,8 @@ type StatusConfigurationSpec struct {
 // +k8s:openapi-gen=true
 // +kubebuilder:printcolumn:name="URL",type="string",JSONPath=".status.url"
 // +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
-// +kubebuilder:printcolumn:name="Default Traffic",type="integer",JSONPath=".status.default.predictor.traffic"
-// +kubebuilder:printcolumn:name="Canary Traffic",type="integer",JSONPath=".status.canary.predictor.traffic"
+// +kubebuilder:printcolumn:name="Default Traffic",type="integer",JSONPath=".status.traffic"
+// +kubebuilder:printcolumn:name="Canary Traffic",type="integer",JSONPath=".status.canaryTraffic"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:resource:path=kfservices,shortName=kfservice
 type KFService struct {

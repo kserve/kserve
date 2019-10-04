@@ -65,19 +65,20 @@ func (r *VirtualServiceBuilder) CreateVirtualService(kfsvc *v1alpha2.KFService) 
 
 	// extract the virtual service hostname from the predictor hostname
 	serviceHostname := extractVirtualServiceHostname(kfsvc.Name, predictDefaultSpec.Hostname)
+	serviceURL := fmt.Sprintf("http://%s/v1/models/%s", serviceHostname, kfsvc.Name)
 
 	// add the default route
 	defaultWeight := 100 - kfsvc.Spec.CanaryTrafficPercent
 	canaryWeight := kfsvc.Spec.CanaryTrafficPercent
 	predictRouteDestinations := []istiov1alpha3.HTTPRouteDestination{
-		createHttpRouteDestination(predictDefaultSpec.Hostname, defaultWeight, destinationServiceName),
+		createHTTPRouteDestination(predictDefaultSpec.Hostname, defaultWeight, destinationServiceName),
 	}
 
 	// optionally get a destination for canary predict
 	if kfsvc.Spec.Canary != nil {
 		predictCanarySpec, canaryPredictReason := getPredictStatusConfigurationSpec(kfsvc.Spec.Canary, kfsvc.Status.Canary)
 		if predictCanarySpec != nil {
-			canaryRouteDestination := createHttpRouteDestination(predictCanarySpec.Hostname, canaryWeight, destinationServiceName)
+			canaryRouteDestination := createHTTPRouteDestination(predictCanarySpec.Hostname, canaryWeight, destinationServiceName)
 			predictRouteDestinations = append(predictRouteDestinations, canaryRouteDestination)
 		} else {
 			return nil, createFailedStatus(canaryPredictReason, "Failed to reconcile canary predictor")
@@ -102,12 +103,12 @@ func (r *VirtualServiceBuilder) CreateVirtualService(kfsvc *v1alpha2.KFService) 
 	if kfsvc.Spec.Default.Explainer != nil {
 		explainDefaultSpec, defaultExplainerReason := getExplainStatusConfigurationSpec(&kfsvc.Spec.Default, kfsvc.Status.Default)
 		if explainDefaultSpec != nil {
-			routeDefaultDestination := createHttpRouteDestination(explainDefaultSpec.Hostname, defaultWeight, destinationServiceName)
+			routeDefaultDestination := createHTTPRouteDestination(explainDefaultSpec.Hostname, defaultWeight, destinationServiceName)
 			explainRouteDestinations = append(explainRouteDestinations, routeDefaultDestination)
 
 			explainCanarySpec, canaryExplainerReason := getExplainStatusConfigurationSpec(kfsvc.Spec.Canary, kfsvc.Status.Canary)
 			if explainDefaultSpec != nil {
-				routeCanaryDestination := createHttpRouteDestination(explainCanarySpec.Hostname, canaryWeight, destinationServiceName)
+				routeCanaryDestination := createHTTPRouteDestination(explainCanarySpec.Hostname, canaryWeight, destinationServiceName)
 				explainRouteDestinations = append(explainRouteDestinations, routeCanaryDestination)
 			} else {
 				return nil, createFailedStatus(canaryExplainerReason, "Failed to reconcile canary explainer")
@@ -148,8 +149,7 @@ func (r *VirtualServiceBuilder) CreateVirtualService(kfsvc *v1alpha2.KFService) 
 	}
 
 	status := v1alpha2.VirtualServiceStatus{
-		// TODO (rakelkar) get the URL
-		URL:           "haha",
+		URL:           serviceURL,
 		CanaryWeight:  canaryWeight,
 		DefaultWeight: defaultWeight,
 		Status: duckv1beta1.Status{
@@ -168,13 +168,13 @@ func extractVirtualServiceHostname(name string, predictorHostName string) string
 	return name + predictorHostName[index:]
 }
 
-func getPredictStatusConfigurationSpec(endpointSpec *v1alpha2.EndpointSpec, endpointStatusMap v1alpha2.EndpointStatusMap) (*v1alpha2.StatusConfigurationSpec, string) {
+func getPredictStatusConfigurationSpec(endpointSpec *v1alpha2.EndpointSpec, endpointStatusMap *v1alpha2.EndpointStatusMap) (*v1alpha2.StatusConfigurationSpec, string) {
 	var statusConfigurationSpec *v1alpha2.StatusConfigurationSpec
 	if endpointSpec == nil {
 		// TODO (rakelkar) make these consts
 		return nil, "predictorSpecMissing"
 	}
-	if predictorStatus, ok := endpointStatusMap[constants.Predictor]; !ok {
+	if predictorStatus, ok := (*endpointStatusMap)[constants.Predictor]; !ok {
 		return nil, "predictorStatusUnknown"
 	} else if len(predictorStatus.Hostname) == 0 {
 		return nil, "predictorHostnameUnknown"
@@ -184,7 +184,7 @@ func getPredictStatusConfigurationSpec(endpointSpec *v1alpha2.EndpointSpec, endp
 
 	// point to transfromer if we have one
 	if endpointSpec.Transformer != nil {
-		if transformerStatus, ok := endpointStatusMap[constants.Transformer]; !ok {
+		if transformerStatus, ok := (*endpointStatusMap)[constants.Transformer]; !ok {
 			return nil, "transformerStatusUnknown"
 		} else if len(transformerStatus.Hostname) == 0 {
 			return nil, "transformerHostnameUnknown"
@@ -196,12 +196,12 @@ func getPredictStatusConfigurationSpec(endpointSpec *v1alpha2.EndpointSpec, endp
 	return statusConfigurationSpec, ""
 }
 
-func getExplainStatusConfigurationSpec(endpointSpec *v1alpha2.EndpointSpec, endpointStatusMap v1alpha2.EndpointStatusMap) (*v1alpha2.StatusConfigurationSpec, string) {
+func getExplainStatusConfigurationSpec(endpointSpec *v1alpha2.EndpointSpec, endpointStatusMap *v1alpha2.EndpointStatusMap) (*v1alpha2.StatusConfigurationSpec, string) {
 	if endpointSpec.Explainer == nil {
 		return nil, "explainerSpecMissing"
 	}
 
-	explainerStatus, ok := endpointStatusMap[constants.Explainer]
+	explainerStatus, ok := (*endpointStatusMap)[constants.Explainer]
 	if !ok {
 		return nil, "explainerStatusUnknown"
 	} else if len(explainerStatus.Hostname) == 0 {
@@ -211,7 +211,7 @@ func getExplainStatusConfigurationSpec(endpointSpec *v1alpha2.EndpointSpec, endp
 	return explainerStatus, ""
 }
 
-func createHttpRouteDestination(targetHost string, weight int, gatewayService string) istiov1alpha3.HTTPRouteDestination {
+func createHTTPRouteDestination(targetHost string, weight int, gatewayService string) istiov1alpha3.HTTPRouteDestination {
 	httpRouteDestination := istiov1alpha3.HTTPRouteDestination{
 		Weight: weight,
 		Headers: &istiov1alpha3.Headers{
