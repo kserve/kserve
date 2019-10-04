@@ -3,6 +3,7 @@ package v1alpha2
 import (
 	"fmt"
 	"net/url"
+	"strconv"
 	"strings"
 
 	"github.com/kubeflow/kfserving/pkg/constants"
@@ -13,11 +14,13 @@ var _ Transformer = (*FeastTransformerSpec)(nil)
 
 // Constants
 const (
-	DefaultFeastImage  = "gcr.io/kfserving/feasttransformer"
-	ArgumentFeastURL   = "--feast-url"
-	ArgumentDataType   = "--data-type"
-	ArgumentEntityIds  = "--entity-ids"
-	ArgumentFeatureIds = "--feature-ids"
+	DefaultFeastImage       = "gcr.io/kfserving/feasttransformer"
+	ArgumentFeastURL        = "--feast-url"
+	ArgumentDataType        = "--data-type"
+	ArgumentEntityIds       = "--entity-ids"
+	ArgumentFeatureIds      = "--feature-ids"
+	ArgumentFlattenFeatures = "--flatten-features"
+	ArgumentOmitEntities    = "--omit-entities"
 )
 
 // Errors
@@ -40,10 +43,12 @@ const (
 
 // FeastTransformerSpec is EXPERIMENTAL! Use at your own risk.
 type FeastTransformerSpec struct {
-	FeastURL   string        `json:"feastUrl,omitempty"`
-	DataType   FeastDataType `json:"dataType,omitempty"`
-	EntityIds  []string      `json:"entityIds,omitempty"`
-	FeatureIds []string      `json:"featureIds,omitempty"`
+	FeastURL        string        `json:"feastUrl,omitempty"`
+	DataType        FeastDataType `json:"dataType,omitempty"`
+	EntityIds       []string      `json:"entityIds,omitempty"`
+	FeatureIds      []string      `json:"featureIds,omitempty"`
+	FlattenFeatures bool          `json:"flattenFeatures,omitempty"`
+	OmitEntities    bool          `json:"omitEntities,omitempty"`
 }
 
 // GetTransformerContainer for the FeastTransformerSpec
@@ -51,12 +56,16 @@ func (f FeastTransformerSpec) GetTransformerContainer() *v1.Container {
 	args := []string{}
 	args = append(args, ArgumentFeastURL)
 	args = append(args, f.FeastURL)
-	args = append(args, ArgumentDataType)
-	args = append(args, f.DataType.ToCLIArgument())
+	// args = append(args, ArgumentDataType)
+	// args = append(args, f.DataType.ToCLIArgument())
 	args = append(args, ArgumentEntityIds)
 	args = append(args, f.EntityIds...)
 	args = append(args, ArgumentFeatureIds)
 	args = append(args, f.FeatureIds...)
+	args = append(args, ArgumentFlattenFeatures)
+	args = append(args, strings.Title(strconv.FormatBool(f.FlattenFeatures)))
+	args = append(args, ArgumentOmitEntities)
+	args = append(args, strings.Title(strconv.FormatBool(f.OmitEntities)))
 
 	return &v1.Container{
 		Name:  constants.Transformer.String(),
@@ -67,6 +76,8 @@ func (f FeastTransformerSpec) GetTransformerContainer() *v1.Container {
 
 // ApplyDefaults to the FeastTransformerSpec
 func (f *FeastTransformerSpec) ApplyDefaults() {
+	f.FlattenFeatures = false
+	f.OmitEntities = false
 }
 
 // Validate the FeastTransformerSpec.
