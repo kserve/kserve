@@ -384,6 +384,18 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Format: "",
 							},
 						},
+						"traffic": {
+							SchemaProps: spec.SchemaProps{
+								Type:   []string{"integer"},
+								Format: "int32",
+							},
+						},
+						"canaryTraffic": {
+							SchemaProps: spec.SchemaProps{
+								Type:   []string{"integer"},
+								Format: "int32",
+							},
+						},
 						"default": {
 							SchemaProps: spec.SchemaProps{
 								Type: []string{"object"},
@@ -658,19 +670,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Format: "",
 							},
 						},
-						"host": {
-							SchemaProps: openapispec.SchemaProps{
-								Type:   []string{"string"},
-								Format: "",
-							},
-						},
 						"replicas": {
-							SchemaProps: spec.SchemaProps{
-								Type:   []string{"integer"},
-								Format: "int32",
-							},
-						},
-						"traffic": {
 							SchemaProps: spec.SchemaProps{
 								Type:   []string{"integer"},
 								Format: "int32",
@@ -783,30 +783,30 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 				"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.CustomSpec"},
 		},
 		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.VirtualServiceStatus": {
-			Schema: openapispec.Schema{
-				SchemaProps: openapispec.SchemaProps{
+			Schema: spec.Schema{
+				SchemaProps: spec.SchemaProps{
 					Description: "\n VirtualServiceStatus captures the status of the virtual service",
-					Properties: map[string]openapispec.Schema{
+					Properties: map[string]spec.Schema{
 						"URL": {
-							SchemaProps: openapispec.SchemaProps{
+							SchemaProps: spec.SchemaProps{
 								Type:   []string{"string"},
 								Format: "",
 							},
 						},
 						"CanaryWeight": {
-							SchemaProps: openapispec.SchemaProps{
+							SchemaProps: spec.SchemaProps{
 								Type:   []string{"integer"},
 								Format: "int32",
 							},
 						},
 						"DefaultWeight": {
-							SchemaProps: openapispec.SchemaProps{
+							SchemaProps: spec.SchemaProps{
 								Type:   []string{"integer"},
 								Format: "int32",
 							},
 						},
 						"Status": {
-							SchemaProps: openapispec.SchemaProps{
+							SchemaProps: spec.SchemaProps{
 								Ref: ref("knative.dev/pkg/apis/duck/v1beta1.Status"),
 							},
 						},

@@ -243,15 +243,17 @@
       }
     },
     "v1alpha2.KFServiceStatus": {
+      "description": "KFServiceStatus defines the observed state of KFService",
       "properties": {
-        "Url": {
-          "type": "string"
-        },
         "canary": {
           "type": "object",
           "additionalProperties": {
             "$ref": "#/definitions/v1alpha2.StatusConfigurationSpec"
           }
+        },
+        "canaryTraffic": {
+          "type": "integer",
+          "format": "int32"
         },
         "conditions": {
           "description": "Conditions the latest available observations of a resource's current state.",
@@ -272,6 +274,13 @@
           "description": "ObservedGeneration is the 'Generation' of the Service that was last processed by the controller.",
           "type": "integer",
           "format": "int64"
+        },
+        "traffic": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "url": {
+          "type": "string"
         }
       }
     },
@@ -422,10 +431,6 @@
           "type": "string"
         },
         "replicas": {
-          "type": "integer",
-          "format": "int32"
-        },
-        "traffic": {
           "type": "integer",
           "format": "int32"
         }
