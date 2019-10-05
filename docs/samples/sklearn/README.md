@@ -29,7 +29,7 @@ X, y = iris.data, iris.target
 formData = {
     'instances': X[0:1].tolist()
 }
-res = requests.post('http://localhost:8080/models/svm:predict', json=formData)
+res = requests.post('http://localhost:8080/v1/models/svm:predict', json=formData)
 print(res)
 print(res.text)
 ```
@@ -58,8 +58,8 @@ $ kfservice.serving.kubeflow.org/sklearn-iris created
 MODEL_NAME=sklearn-iris
 INPUT_PATH=@./iris-input.json
 CLUSTER_IP=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-
-curl -v -H "Host: sklearn-iris.default.svc.cluster.local" http://$CLUSTER_IP/models/$MODEL_NAME:predict -d $INPUT_PATH
+SERVICE_HOSTNAME=$(kubectl get kfservice sklearn-iris -o jsonpath='{.status.url}' | sed 's/.*:\/\///g')
+curl -v -H "Host: ${SERVICE_HOSTNAME}" http://$CLUSTER_IP/v1/models/$MODEL_NAME:predict -d $INPUT_PATH
 ```
 
 Expected Output
