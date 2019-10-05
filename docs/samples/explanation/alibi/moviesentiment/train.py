@@ -6,6 +6,10 @@ from sklearn.model_selection import train_test_split
 from alibi.datasets import fetch_movie_sentiment
 from sklearn.pipeline import Pipeline
 import joblib
+from alibi.explainers import AnchorText
+import dill
+import spacy
+from alibi.utils.download import spacy_model
 
 # load data
 movies = fetch_movie_sentiment()
@@ -39,5 +43,17 @@ print('Validation accuracy', accuracy_score(val_labels, preds_val))
 print('Test accuracy', accuracy_score(test_labels, preds_test))
 
 print("Saving Model to model.joblib")
-# Dump files - for testing creating an AnchorExplainer from components
 joblib.dump(pipeline, "model.joblib")
+
+print("Creating Anchor Text explainer")
+spacy_language_model = 'en_core_web_md'
+spacy_model(model=spacy_language_model)
+nlp = spacy.load(spacy_language_model)
+predict_fn = lambda x: pipeline.predict(x)
+anchors_text = AnchorText(nlp, predict_fn)
+
+# Test explanations locally
+expl = anchors_text.explain("the actors are very bad")
+print(expl)
+
+
