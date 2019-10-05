@@ -3,6 +3,8 @@ KFServing provides a Kubernetes [Custom Resource Definition](https://kubernetes.
 
 KFServing encapsulates the complexity of autoscaling, networking, health checking, and server configuration to bring cutting edge serving features like GPU Autoscaling, Scale to Zero, and Canary Rollouts to your ML deployments. It enables a simple, pluggable, and complete story for Mission Critical ML including inference, explainability, outlier detection, and prediction logging.
 
+![KFServing](./docs/diagrams/kfserving.png)
+
 ### Learn More
 * Join our [Working Group](https://groups.google.com/forum/#!forum/kfserving) for meeting invites and discussion.
 * [Read the Docs](/docs).
@@ -13,10 +15,10 @@ KFServing encapsulates the complexity of autoscaling, networking, health checkin
 * [KFServing 101 Tech Talk](https://www.youtube.com/watch?v=hGIvlFADMhU).
 * This project is an evolution of the [original proposal in the Kubeflow repo](https://github.com/kubeflow/kubeflow/issues/2306). 
 
-### Prerequisits
+### Prerequisites
 KNative Serving and Istio should be available on Kubernetes Cluster.
-- Istio Version: v1.1.7 + 
-- Knative Version: v0.8.0 +
+- Istio Version: v1.1.7+ 
+- Knative Version: v0.8.x
 
 You may find this [installation instruction](https://github.com/kubeflow/kfserving/blob/master/docs/DEVELOPER_GUIDE.md#install-knative-on-a-kubernetes-cluster) useful.
 
@@ -35,5 +37,3 @@ pip install kfserving
 
 ### Contribute
 * [Developer Guide](/docs/DEVELOPER_GUIDE.md).
-
-![KFServing](./docs/diagrams/kfserving.png)
