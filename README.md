@@ -6,7 +6,7 @@ KFServing encapsulates the complexity of autoscaling, networking, health checkin
 ![KFServing](https://www.kubeflow.org/docs/components/serving/kfserving.png)
 
 ### Learn More
-To learn more about KFServing, how to deploy it as part of Kubeflow, how to use various supported features, and how to participate in the KFServing community, please follow the [KFServing docs on the KubefloW Website](https://www.kubeflow.org/docs/components/serving/kfserving/).
+To learn more about KFServing, how to deploy it as part of Kubeflow, how to use various supported features, and how to participate in the KFServing community, please follow the [KFServing docs on the Kubeflow Website](https://www.kubeflow.org/docs/components/serving/kfserving/).
 
 ### Prerequisites
 KNative Serving and Istio should be available on Kubernetes Cluster.
