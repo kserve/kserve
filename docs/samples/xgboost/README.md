@@ -81,8 +81,8 @@ $ kfservice.serving.kubeflow.org/xgboost-iris created
 MODEL_NAME=xgboost-iris
 INPUT_PATH=@./iris-input.json
 CLUSTER_IP=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-
-curl -v -H "Host: xgboost-iris.default.svc.cluster.local" http://$CLUSTER_IP/v1/models/$MODEL_NAME:predict -d $INPUT_PATH
+SERVICE_HOSTNAME=$(kubectl get kfservice xgboost-iris -o jsonpath='{.status.url}' | sed 's/.*:\/\///g')
+curl -v -H "Host: ${SERVICE_HOSTNAME}" http://$CLUSTER_IP/v1/models/$MODEL_NAME:predict -d $INPUT_PATH
 ```
 
 Expected Output
