@@ -82,7 +82,7 @@ MODEL_NAME=xgboost-iris
 INPUT_PATH=@./iris-input.json
 CLUSTER_IP=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 
-curl -v -H "Host: xgboost-iris.default.svc.cluster.local" http://$CLUSTER_IP/models/$MODEL_NAME:predict -d $INPUT_PATH
+curl -v -H "Host: xgboost-iris.default.svc.cluster.local" http://$CLUSTER_IP/v1/models/$MODEL_NAME:predict -d $INPUT_PATH
 ```
 
 Expected Output
