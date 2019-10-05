@@ -17,6 +17,7 @@ import (
 	"fmt"
 
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/klog"
 )
 
 type Explainer interface {
@@ -87,7 +88,9 @@ func getExplainer(explainerSpec *ExplainerSpec) (Explainer, error) {
 		handlers = append(handlers, explainerSpec.Alibi)
 	}
 	if len(handlers) != 1 {
-		return nil, fmt.Errorf(ExactlyOneExplainerViolatedError)
+		err := fmt.Errorf(ExactlyOneExplainerViolatedError)
+		klog.Error(err)
+		return nil, err
 	}
 	return handlers[0], nil
 }
