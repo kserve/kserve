@@ -49,12 +49,12 @@ func TestKFServiceIsReady(t *testing.T) {
 		name                 string
 		defaultServiceStatus v1alpha1.ServiceStatus
 		canaryServiceStatus  v1alpha1.ServiceStatus
-		routeStatus          v1alpha1.RouteStatus
+		routeStatus          VirtualServiceStatus
 		isReady              bool
 	}{{
 		name:                 "empty status should not be ready",
 		defaultServiceStatus: v1alpha1.ServiceStatus{},
-		routeStatus:          v1alpha1.RouteStatus{},
+		routeStatus:          VirtualServiceStatus{},
 		isReady:              false,
 	}, {
 		name: "Different condition type should not be ready",
@@ -109,7 +109,7 @@ func TestKFServiceIsReady(t *testing.T) {
 				}},
 			},
 		},
-		routeStatus: v1alpha1.RouteStatus{
+		routeStatus: VirtualServiceStatus{
 			Status: duckv1beta1.Status{
 				Conditions: duckv1beta1.Conditions{{
 					Type:   v1alpha1.RouteConditionReady,
@@ -132,7 +132,7 @@ func TestKFServiceIsReady(t *testing.T) {
 				},
 			},
 		},
-		routeStatus: v1alpha1.RouteStatus{
+		routeStatus: VirtualServiceStatus{
 			Status: duckv1beta1.Status{
 				Conditions: duckv1beta1.Conditions{{
 					Type:   v1alpha1.RouteConditionReady,
@@ -161,7 +161,7 @@ func TestKFServiceIsReady(t *testing.T) {
 				},
 			},
 		},
-		routeStatus: v1alpha1.RouteStatus{
+		routeStatus: VirtualServiceStatus{
 			Status: duckv1beta1.Status{
 				Conditions: duckv1beta1.Conditions{{
 					Type:   v1alpha1.RouteConditionReady,
@@ -183,7 +183,7 @@ func TestKFServiceIsReady(t *testing.T) {
 				}},
 			},
 		},
-		routeStatus: v1alpha1.RouteStatus{
+		routeStatus: VirtualServiceStatus{
 			Status: duckv1beta1.Status{
 				Conditions: duckv1beta1.Conditions{{
 					Type:   v1alpha1.RouteConditionReady,
