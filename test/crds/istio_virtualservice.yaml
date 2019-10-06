@@ -1,0 +1,66 @@
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  labels:
+    app: istio-pilot
+    chart: istio
+    release: istio
+  name: virtualservices.networking.istio.io
+spec:
+  additionalPrinterColumns:
+  - JSONPath: .spec.gateways
+    description: The names of gateways and sidecars that should apply these routes
+    name: Gateways
+    type: string
+  - JSONPath: .spec.hosts
+    description: The destination hosts to which traffic is being sent
+    name: Hosts
+    type: string
+  - JSONPath: .metadata.creationTimestamp
+    description: |-
+      CreationTimestamp is a timestamp representing the server time when this object was created. It is not guaranteed to be set in happens-before order across separate operations. Clients may not set this value. It is represented in RFC3339 form and is in UTC.
+
+      Populated by the system. Read-only. Null for lists. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata
+    name: Age
+    type: date
+  group: networking.istio.io
+  names:
+    categories:
+    - istio-io
+    - networking-istio-io
+    kind: VirtualService
+    listKind: VirtualServiceList
+    plural: virtualservices
+    shortNames:
+    - vs
+    singular: virtualservice
+  scope: Namespaced
+  version: v1alpha3
+  versions:
+  - name: v1alpha3
+    served: true
+    storage: true
+status:
+  acceptedNames:
+    categories:
+    - istio-io
+    - networking-istio-io
+    kind: VirtualService
+    listKind: VirtualServiceList
+    plural: virtualservices
+    shortNames:
+    - vs
+    singular: virtualservice
+  conditions:
+  - lastTransitionTime: "2019-09-17T06:22:14Z"
+    message: no conflicts found
+    reason: NoConflicts
+    status: "True"
+    type: NamesAccepted
+  - lastTransitionTime: null
+    message: the initial names have been accepted
+    reason: InitialNamesAccepted
+    status: "True"
+    type: Established
+  storedVersions:
+  - v1alpha3
