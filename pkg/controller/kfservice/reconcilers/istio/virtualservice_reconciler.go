@@ -22,6 +22,7 @@ import (
 
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	"github.com/kubeflow/kfserving/pkg/controller/kfservice/resources/istio"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -36,19 +37,21 @@ import (
 var log = logf.Log.WithName("VirtualServiceReconciler")
 
 type VirtualServiceReconciler struct {
-	client client.Client
-	scheme *runtime.Scheme
+	client         client.Client
+	scheme         *runtime.Scheme
+	serviceBuilder *istio.VirtualServiceBuilder
 }
 
-func NewVirtualServiceReconciler(client client.Client, scheme *runtime.Scheme) *VirtualServiceReconciler {
+func NewVirtualServiceReconciler(client client.Client, scheme *runtime.Scheme, config *corev1.ConfigMap) *VirtualServiceReconciler {
 	return &VirtualServiceReconciler{
-		client: client,
-		scheme: scheme,
+		client:         client,
+		scheme:         scheme,
+		serviceBuilder: istio.NewVirtualServiceBuilder(config),
 	}
 }
 
 func (r *VirtualServiceReconciler) Reconcile(kfsvc *v1alpha2.KFService) error {
-	desired, status := istio.NewVirtualServiceBuilder().CreateVirtualService(kfsvc)
+	desired, status := r.serviceBuilder.CreateVirtualService(kfsvc)
 	if desired == nil {
 		if status != nil {
 			kfsvc.Status.PropagateRouteStatus(status)

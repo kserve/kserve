@@ -149,7 +149,7 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 
 	reconcilers := []Reconciler{
 		knative.NewServiceReconciler(r.Client, r.scheme, configMap),
-		istio.NewVirtualServiceReconciler(r.Client, r.scheme),
+		istio.NewVirtualServiceReconciler(r.Client, r.scheme, configMap),
 	}
 
 	for _, reconciler := range reconcilers {
