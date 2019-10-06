@@ -138,7 +138,7 @@ func (r *VirtualServiceBuilder) CreateVirtualService(kfsvc *v1alpha2.KFService) 
 			explainRouteDestinations = append(explainRouteDestinations, routeDefaultDestination)
 
 			explainCanarySpec, canaryExplainerReason := getExplainStatusConfigurationSpec(kfsvc.Spec.Canary, kfsvc.Status.Canary)
-			if explainDefaultSpec != nil {
+			if explainCanarySpec != nil {
 				routeCanaryDestination := createHTTPRouteDestination(explainCanarySpec.Hostname, canaryWeight, r.ingressConfig.IngressServiceName)
 				explainRouteDestinations = append(explainRouteDestinations, routeCanaryDestination)
 			} else {
