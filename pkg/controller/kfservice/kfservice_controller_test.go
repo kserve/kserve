@@ -207,7 +207,7 @@ func TestKFServiceWithOnlyPredictor(t *testing.T) {
 				"test-gateway",
 			},
 			Hosts: []string{
-				serviceName+".myns.myingress.com",
+				serviceName + ".myns.myingress.com",
 			},
 			HTTP: []istiov1alpha3.HTTPRoute{
 				istiov1alpha3.HTTPRoute{
@@ -1049,26 +1049,26 @@ func TestKFServiceWithTransformer(t *testing.T) {
 				},
 			},
 		},
-		Traffic: 80,
+		Traffic:       80,
 		CanaryTraffic: 20,
-		URL: testUrl(serviceName),
+		URL:           testUrl(serviceName),
 		Default: &kfserving.EndpointStatusMap{
 			constants.Predictor: &kfserving.StatusConfigurationSpec{
-				Name: "revision-v1",
+				Name:     "revision-v1",
 				Hostname: "revision-v1.myns.myingress.com",
 			},
 			constants.Transformer: &kfserving.StatusConfigurationSpec{
-				Name: "t-revision-v1",
+				Name:     "t-revision-v1",
 				Hostname: "t-revision-v1.myns.myingress.com",
 			},
 		},
 		Canary: &kfserving.EndpointStatusMap{
 			constants.Predictor: &kfserving.StatusConfigurationSpec{
-				Name: "revision-v2",
+				Name:     "revision-v2",
 				Hostname: "revision-v2.myns.myingress.com",
 			},
 			constants.Transformer: &kfserving.StatusConfigurationSpec{
-				Name: "t-revision-v2",
+				Name:     "t-revision-v2",
 				Hostname: "t-revision-v2.myns.myingress.com",
 			},
 		},
