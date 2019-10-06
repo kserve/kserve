@@ -48,7 +48,7 @@ var (
 
 type IngressConfig struct {
 	IngressGateway     string `json:"ingressGateway,omitempty"`
-	IngressServiceName string `json:"IngressServiceName,omitempty"`
+	IngressServiceName string `json:"ingressService,omitempty"`
 }
 
 type VirtualServiceBuilder struct {
@@ -61,6 +61,10 @@ func NewVirtualServiceBuilder(config *corev1.ConfigMap) *VirtualServiceBuilder {
 		err := json.Unmarshal([]byte(ingress), &ingressConfig)
 		if err != nil {
 			panic(fmt.Errorf("Unable to unmarshall ingress json string due to %v ", err))
+		}
+
+		if ingressConfig.IngressGateway == "" || ingressConfig.IngressServiceName == "" {
+			panic(fmt.Errorf("Invalid ingress config, ingressGateway and ingressService are required."))
 		}
 	}
 
@@ -166,7 +170,7 @@ func (r *VirtualServiceBuilder) CreateVirtualService(kfsvc *v1alpha2.KFService) 
 		},
 		Spec: istiov1alpha3.VirtualServiceSpec{
 			Hosts: []string{
-				serviceHostname,
+				"*",
 			},
 			Gateways: []string{
 				r.ingressConfig.IngressGateway,
