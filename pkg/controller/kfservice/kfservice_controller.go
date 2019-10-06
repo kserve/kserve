@@ -90,9 +90,9 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	// Watch for changes to Knative Route
-	if err = c.Watch(&source.Kind{Type: &knservingv1alpha1.Route{}}, kfservingController); err != nil {
-		return err
-	}
+	// if err = c.Watch(&source.Kind{Type: &knservingv1alpha1.Route{}}, kfservingController); err != nil {
+	// 	return err
+	// }
 
 	// TODO enqueue all kfservices to reconcile
 	// if err = c.Watch(&source.Kind{Type: &v1.ConfigMap{}}, &handler.EnqueueRequestsFromMapFunc{}); err != nil {
