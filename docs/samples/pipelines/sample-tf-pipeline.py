@@ -16,12 +16,11 @@ import kfp.dsl as dsl
 from kfp import components
 import json
 
-# Update with raw github URL of component once its updated and checked in KFP repo.
-kfserving_op = components.load_component_from_file('component.yaml')
+kfserving_op = components.load_component_from_file('https://raw.githubusercontent.com/kubeflow/pipelines/master/components/kubeflow/kfserving/component.yaml')
 
 @dsl.pipeline(
-  name='kfserving pipeline',
-  description='A pipeline for kfserving.'
+  name='KFServing pipeline',
+  description='A pipeline for KFServing.'
 )
 def kfservingPipeline(
     action = 'create',
@@ -30,7 +29,11 @@ def kfservingPipeline(
     canary_model_uri='gs://kfserving-samples/models/tensorflow/flowers-2',
     canary_model_traffic_percentage='10',
     namespace='kubeflow',
-    framework='tensorflow'
+    framework='tensorflow',
+    default_custom_model_spec='{}',
+    canary_custom_model_spec='{}',
+    autoscaling_target=0,
+    kfserving_endpoint=''
 ):
 
     # define workflow
@@ -40,7 +43,11 @@ def kfservingPipeline(
                              canary_model_uri=canary_model_uri,
                              canary_model_traffic_percentage=canary_model_traffic_percentage,
                              namespace=namespace,
-                             framework=framework)
+                             framework=framework,
+                             default_custom_model_spec=default_custom_model_spec,
+                             canary_custom_model_spec=canary_custom_model_spec,
+                             autoscaling_target=autoscaling_target,
+                             kfserving_endpoint=kfserving_endpoint)
 
 if __name__ == '__main__':
     import kfp.compiler as compiler
