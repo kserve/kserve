@@ -176,6 +176,10 @@ func VirtualServiceName(name string) string {
 	return name + "-vs"
 }
 
+func PredictPrefix(name string) string {
+	return fmt.Sprintf("/v1/models/%s:predict", name)
+}
+
 func PredictorURL(metadata v1.ObjectMeta, isCanary bool) string {
 	if isCanary {
 		return fmt.Sprintf("http://%s.%s.svc.cluster.local", CanaryPredictorServiceName(metadata.Name), metadata.Namespace)

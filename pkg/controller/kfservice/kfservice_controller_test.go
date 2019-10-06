@@ -17,9 +17,9 @@ limitations under the License.
 package service
 
 import (
+	"fmt"
 	"testing"
 	"time"
-	"fmt"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 
@@ -67,8 +67,13 @@ var configs = map[string]string{
     }`,
 }
 
+func testUrl(name string) string {
+	return fmt.Sprintf("http://%s.myns.myingress.com/v1/models/%s", name, name)
+}
+
 func TestKFServiceWithOnlyPredictor(t *testing.T) {
-	var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: "foo", Namespace: "default"}}
+	var serviceName = "foo"
+	var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
 	var serviceKey = expectedRequest.NamespacedName
 	var predictorService = types.NamespacedName{Name: constants.DefaultPredictorServiceName(serviceKey.Name),
 		Namespace: serviceKey.Namespace}
@@ -143,7 +148,7 @@ func TestKFServiceWithOnlyPredictor(t *testing.T) {
 			ConfigurationSpec: knservingv1alpha1.ConfigurationSpec{
 				Template: &knservingv1alpha1.RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
-						Labels: map[string]string{"serving.kubeflow.org/kfservice": "foo"},
+						Labels: map[string]string{"serving.kubeflow.org/kfservice": serviceName},
 						Annotations: map[string]string{
 							"autoscaling.knative.dev/target":                           "1",
 							"autoscaling.knative.dev/class":                            "kpa.autoscaling.knative.dev",
@@ -202,14 +207,14 @@ func TestKFServiceWithOnlyPredictor(t *testing.T) {
 				"test-gateway",
 			},
 			Hosts: []string{
-				"foo.myns.myingress.com",
+				serviceName+".myns.myingress.com",
 			},
 			HTTP: []istiov1alpha3.HTTPRoute{
 				istiov1alpha3.HTTPRoute{
 					Match: []istiov1alpha3.HTTPMatchRequest{
 						istiov1alpha3.HTTPMatchRequest{
 							URI: &istiov1alpha1.StringMatch{
-								Prefix: "/v1/models/foo:predict",
+								Prefix: constants.PredictPrefix(serviceName),
 							},
 						},
 					},
@@ -252,7 +257,7 @@ func TestKFServiceWithOnlyPredictor(t *testing.T) {
 				},
 			},
 		},
-		URL:           "http://foo.myns.myingress.com/v1/models/foo",
+		URL:           testUrl(serviceName),
 		Traffic:       100,
 		CanaryTraffic: 0,
 		Default: &kfserving.EndpointStatusMap{
@@ -453,7 +458,7 @@ func TestKFServiceWithDefaultAndCanaryPredictor(t *testing.T) {
 					Match: []istiov1alpha3.HTTPMatchRequest{
 						istiov1alpha3.HTTPMatchRequest{
 							URI: &istiov1alpha1.StringMatch{
-								Prefix: "/v1/models/bar:predict",
+								Prefix: constants.PredictPrefix("bar"),
 							},
 						},
 					},
@@ -514,7 +519,7 @@ func TestKFServiceWithDefaultAndCanaryPredictor(t *testing.T) {
 				},
 			},
 		},
-		URL:           "http://bar.myns.myingress.com/v1/models/bar",
+		URL:           testUrl("bar"),
 		Traffic:       80,
 		CanaryTraffic: 20,
 		Default: &kfserving.EndpointStatusMap{
@@ -541,7 +546,7 @@ func TestKFServiceWithDefaultAndCanaryPredictor(t *testing.T) {
 
 func TestCanaryDelete(t *testing.T) {
 	serviceName := fmt.Sprintf("canary-delete-%v", time.Now().UnixNano())
-	serviceURL := "http://"+serviceName+".myns.myingress.com/v1/models/"+serviceName
+	serviceURL := testUrl(serviceName)
 	namespace := "default"
 	var defaultPredictor = types.NamespacedName{Name: constants.DefaultPredictorServiceName(serviceName),
 		Namespace: namespace}
@@ -754,11 +759,11 @@ func TestCanaryDelete(t *testing.T) {
 				},
 			},
 		},
-		URL: serviceURL,
+		URL:     serviceURL,
 		Traffic: 100,
 		Default: &kfserving.EndpointStatusMap{
 			constants.Predictor: &kfserving.StatusConfigurationSpec{
-				Name: "revision-v1",
+				Name:     "revision-v1",
 				Hostname: "revision-v1.myns.myingress.com",
 			},
 		},
@@ -783,7 +788,7 @@ func TestCanaryDelete(t *testing.T) {
 }
 
 func TestKFServiceWithTransformer(t *testing.T) {
-	serviceName := "transformer"
+	serviceName := "svc-with-transformer"
 	namespace := "default"
 	var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: namespace}}
 	var serviceKey = expectedRequest.NamespacedName
@@ -796,7 +801,7 @@ func TestKFServiceWithTransformer(t *testing.T) {
 		Namespace: namespace}
 	var canaryTransformer = types.NamespacedName{Name: constants.CanaryTransformerServiceName(serviceName),
 		Namespace: namespace}
-	var routeName = types.NamespacedName{Name: constants.PredictRouteName(serviceName),
+	var virtualServiceName = types.NamespacedName{Name: constants.VirtualServiceName(serviceName),
 		Namespace: namespace}
 	var transformer = &kfserving.KFService{
 		ObjectMeta: metav1.ObjectMeta{
@@ -950,32 +955,6 @@ func TestKFServiceWithTransformer(t *testing.T) {
 		},
 	}
 	g.Expect(cmp.Diff(canaryTransformerService.Spec, expectedCanaryService.Spec)).To(gomega.Equal(""))
-	route := &knservingv1alpha1.Route{}
-	g.Eventually(func() error { return c.Get(context.TODO(), routeName, route) }, timeout).
-		Should(gomega.Succeed())
-	expectedRoute := knservingv1alpha1.Route{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      constants.PredictRouteName(instance.Name),
-			Namespace: instance.Namespace,
-		},
-		Spec: knservingv1alpha1.RouteSpec{
-			Traffic: []knservingv1alpha1.TrafficTarget{
-				{
-					TrafficTarget: v1beta1.TrafficTarget{
-						ConfigurationName: constants.DefaultTransformerServiceName(instance.Name),
-						Percent:           80,
-					},
-				},
-				{
-					TrafficTarget: v1beta1.TrafficTarget{
-						ConfigurationName: constants.CanaryTransformerServiceName(instance.Name),
-						Percent:           20,
-					},
-				},
-			},
-		},
-	}
-	g.Expect(route.Spec).To(gomega.Equal(expectedRoute.Spec))
 
 	// mock update knative service status since knative serving controller is not running in test
 
@@ -984,6 +963,7 @@ func TestKFServiceWithTransformer(t *testing.T) {
 		updateDefault := defaultPredictorService.DeepCopy()
 		updateDefault.Status.LatestCreatedRevisionName = "revision-v1"
 		updateDefault.Status.LatestReadyRevisionName = "revision-v1"
+		updateDefault.Status.URL, _ = apis.ParseURL("http://revision-v1.myns.myingress.com")
 		updateDefault.Status.Conditions = duckv1beta1.Conditions{
 			{
 				Type:   knservingv1alpha1.ServiceConditionReady,
@@ -996,6 +976,7 @@ func TestKFServiceWithTransformer(t *testing.T) {
 		updateCanary := canaryPredictorService.DeepCopy()
 		updateCanary.Status.LatestCreatedRevisionName = "revision-v2"
 		updateCanary.Status.LatestReadyRevisionName = "revision-v2"
+		updateCanary.Status.URL, _ = apis.ParseURL("http://revision-v2.myns.myingress.com")
 		updateCanary.Status.Conditions = duckv1beta1.Conditions{
 			{
 				Type:   knservingv1alpha1.ServiceConditionReady,
@@ -1011,6 +992,7 @@ func TestKFServiceWithTransformer(t *testing.T) {
 		updateDefault := defaultTransformerService.DeepCopy()
 		updateDefault.Status.LatestCreatedRevisionName = "t-revision-v1"
 		updateDefault.Status.LatestReadyRevisionName = "t-revision-v1"
+		updateDefault.Status.URL, _ = apis.ParseURL("http://t-revision-v1.myns.myingress.com")
 		updateDefault.Status.Conditions = duckv1beta1.Conditions{
 			{
 				Type:   knservingv1alpha1.ServiceConditionReady,
@@ -1023,6 +1005,7 @@ func TestKFServiceWithTransformer(t *testing.T) {
 		updateCanary := canaryTransformerService.DeepCopy()
 		updateCanary.Status.LatestCreatedRevisionName = "t-revision-v2"
 		updateCanary.Status.LatestReadyRevisionName = "t-revision-v2"
+		updateCanary.Status.URL, _ = apis.ParseURL("http://t-revision-v2.myns.myingress.com")
 		updateCanary.Status.Conditions = duckv1beta1.Conditions{
 			{
 				Type:   knservingv1alpha1.ServiceConditionReady,
@@ -1032,32 +1015,6 @@ func TestKFServiceWithTransformer(t *testing.T) {
 		g.Expect(c.Status().Update(context.TODO(), updateCanary)).NotTo(gomega.HaveOccurred())
 		g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
 	}
-
-	// update route
-	updatedRoute := route.DeepCopy()
-	updatedRoute.Status.URL = &apis.URL{Scheme: "http", Host: serviceName + ".svc.cluster.local"}
-	updatedRoute.Status.Traffic = []knservingv1alpha1.TrafficTarget{
-		{
-			TrafficTarget: v1beta1.TrafficTarget{
-				RevisionName: "t-revision-v2",
-				Percent:      20,
-			},
-		},
-		{
-			TrafficTarget: v1beta1.TrafficTarget{
-				RevisionName: "t-revision-v1",
-				Percent:      80,
-			},
-		},
-	}
-	updatedRoute.Status.Conditions = duckv1beta1.Conditions{
-		{
-			Type:   knservingv1alpha1.RouteConditionReady,
-			Status: "True",
-		},
-	}
-	g.Expect(c.Status().Update(context.TODO(), updatedRoute)).NotTo(gomega.HaveOccurred())
-	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
 
 	// verify if KFService status is updated
 	expectedKfsvcStatus := kfserving.KFServiceStatus{
@@ -1092,23 +1049,27 @@ func TestKFServiceWithTransformer(t *testing.T) {
 				},
 			},
 		},
-		URL: updatedRoute.Status.URL.String(),
+		Traffic: 80,
+		CanaryTraffic: 20,
+		URL: testUrl(serviceName),
 		Default: &kfserving.EndpointStatusMap{
 			constants.Predictor: &kfserving.StatusConfigurationSpec{
 				Name: "revision-v1",
+				Hostname: "revision-v1.myns.myingress.com",
 			},
 			constants.Transformer: &kfserving.StatusConfigurationSpec{
 				Name: "t-revision-v1",
-				// TODO rakelkar Hostname?
+				Hostname: "t-revision-v1.myns.myingress.com",
 			},
 		},
 		Canary: &kfserving.EndpointStatusMap{
 			constants.Predictor: &kfserving.StatusConfigurationSpec{
 				Name: "revision-v2",
+				Hostname: "revision-v2.myns.myingress.com",
 			},
 			constants.Transformer: &kfserving.StatusConfigurationSpec{
 				Name: "t-revision-v2",
-				// TODO rakelkar Hostname?
+				Hostname: "t-revision-v2.myns.myingress.com",
 			},
 		},
 	}
@@ -1119,4 +1080,60 @@ func TestKFServiceWithTransformer(t *testing.T) {
 		}
 		return cmp.Diff(&expectedKfsvcStatus, &kfsvc.Status, cmpopts.IgnoreTypes(apis.VolatileTime{}))
 	}, timeout).Should(gomega.BeEmpty())
+
+	// verify virtual service points to transformer
+	virtualService := &istiov1alpha3.VirtualService{}
+	g.Eventually(func() error { return c.Get(context.TODO(), virtualServiceName, virtualService) }, timeout).
+		Should(gomega.Succeed())
+
+	expectedVirtualService := &istiov1alpha3.VirtualService{
+		Spec: istiov1alpha3.VirtualServiceSpec{
+			Gateways: []string{
+				"test-gateway",
+			},
+			Hosts: []string{
+				serviceName + ".myns.myingress.com",
+			},
+			HTTP: []istiov1alpha3.HTTPRoute{
+				istiov1alpha3.HTTPRoute{
+					Match: []istiov1alpha3.HTTPMatchRequest{
+						istiov1alpha3.HTTPMatchRequest{
+							URI: &istiov1alpha1.StringMatch{
+								Prefix: constants.PredictPrefix(serviceName),
+							},
+						},
+					},
+					Route: []istiov1alpha3.HTTPRouteDestination{
+						istiov1alpha3.HTTPRouteDestination{
+							Headers: &istiov1alpha3.Headers{
+								Request: &istiov1alpha3.HeaderOperations{
+									Set: map[string]string{
+										"Host": "t-revision-v1.myns.myingress.com",
+									},
+								},
+							},
+							Destination: istiov1alpha3.Destination{
+								Host: "test-destination",
+							},
+							Weight: 80,
+						},
+						istiov1alpha3.HTTPRouteDestination{
+							Headers: &istiov1alpha3.Headers{
+								Request: &istiov1alpha3.HeaderOperations{
+									Set: map[string]string{
+										"Host": "t-revision-v2.myns.myingress.com",
+									},
+								},
+							},
+							Destination: istiov1alpha3.Destination{
+								Host: "test-destination",
+							},
+							Weight: 20,
+						},
+					},
+				},
+			},
+		},
+	}
+	g.Expect(cmp.Diff(virtualService.Spec, expectedVirtualService.Spec)).To(gomega.Equal(""))
 }
