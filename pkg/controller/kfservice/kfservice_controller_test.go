@@ -663,9 +663,12 @@ func TestCanaryDelete(t *testing.T) {
 	g.Expect(c.Status().Update(context.TODO(), updateCanary)).NotTo(gomega.HaveOccurred())
 	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedCanaryRequest)))
 
+	// should see a virtual service with 2 routes
 	virtualService := &istiov1alpha3.VirtualService{}
 	g.Eventually(func() error { return c.Get(context.TODO(), virtualServiceName, virtualService) }, timeout).
 		Should(gomega.Succeed())
+	g.Expect(len(virtualService.Spec.HTTP)).To(gomega.Equal(1))
+	g.Expect(len(virtualService.Spec.HTTP[0].Route)).To(gomega.Equal(2))
 
 	// Verify if KFService status is updated
 	expectedKfsvcStatus := kfserving.KFServiceStatus{
@@ -759,6 +762,7 @@ func TestCanaryDelete(t *testing.T) {
 				Hostname: "revision-v1.myns.myingress.com",
 			},
 		},
+		Canary: &kfserving.EndpointStatusMap{},
 	}
 	g.Eventually(func() *kfserving.KFServiceStatus {
 		kfsvc := &kfserving.KFService{}
@@ -768,6 +772,14 @@ func TestCanaryDelete(t *testing.T) {
 		}
 		return &kfsvc.Status
 	}, timeout).Should(testutils.BeSematicEqual(&expectedKfsvcStatus))
+
+	// should see a virtual service with only 1 route
+	virtualService = &istiov1alpha3.VirtualService{}
+	g.Eventually(func() error { return c.Get(context.TODO(), virtualServiceName, virtualService) }, timeout).
+		Should(gomega.Succeed())
+	g.Expect(len(virtualService.Spec.HTTP)).To(gomega.Equal(1))
+	g.Expect(len(virtualService.Spec.HTTP[0].Route)).To(gomega.Equal(1))
+
 }
 
 func TestKFServiceWithTransformer(t *testing.T) {
