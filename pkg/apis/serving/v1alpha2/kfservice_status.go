@@ -122,19 +122,22 @@ func (ss *KFServiceStatus) PropagateCanaryStatus(endpoint constants.KFServiceEnd
 
 func (ss *KFServiceStatus) propagateStatus(statusSpec *StatusConfigurationSpec, conditionType apis.ConditionType, serviceStatus *knservingv1alpha1.ServiceStatus) {
 	statusSpec.Name = serviceStatus.LatestCreatedRevisionName
-	if serviceStatus.URL != nil {
-		statusSpec.Hostname = serviceStatus.URL.Host
-	}
 
 	serviceCondition := serviceStatus.GetCondition(knservingv1alpha1.ServiceConditionReady)
+
 	switch {
 	case serviceCondition == nil:
 	case serviceCondition.Status == v1.ConditionUnknown:
 		conditionSet.Manage(ss).MarkUnknown(conditionType, serviceCondition.Reason, serviceCondition.Message)
+		statusSpec.Hostname = ""
 	case serviceCondition.Status == v1.ConditionTrue:
 		conditionSet.Manage(ss).MarkTrue(conditionType)
+		if serviceStatus.URL != nil {
+			statusSpec.Hostname = serviceStatus.URL.Host
+		}
 	case serviceCondition.Status == v1.ConditionFalse:
 		conditionSet.Manage(ss).MarkFalse(conditionType, serviceCondition.Reason, serviceCondition.Message)
+		statusSpec.Hostname = ""
 	}
 }
 
