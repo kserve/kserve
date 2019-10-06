@@ -170,7 +170,7 @@ func (r *VirtualServiceBuilder) CreateVirtualService(kfsvc *v1alpha2.KFService) 
 		},
 		Spec: istiov1alpha3.VirtualServiceSpec{
 			Hosts: []string{
-				"*",
+				serviceHostname,
 			},
 			Gateways: []string{
 				r.ingressConfig.IngressGateway,
