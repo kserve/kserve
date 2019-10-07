@@ -102,7 +102,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.DeploymentSpec": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
-					Description: "DeploymentSpec defines the configuration for a given KFService service component",
+					Description: "DeploymentSpec defines the configuration for a given InferenceService service component",
 					Properties: map[string]spec.Schema{
 						"serviceAccountName": {
 							SchemaProps: spec.SchemaProps{
@@ -233,10 +233,10 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 			Dependencies: []string{
 				"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.ExplainerConfig"},
 		},
-		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.KFService": {
+		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.InferenceService": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
-					Description: "KFService is the Schema for the services API",
+					Description: "InferenceService is the Schema for the services API",
 					Properties: map[string]spec.Schema{
 						"kind": {
 							SchemaProps: spec.SchemaProps{
@@ -259,24 +259,24 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						},
 						"spec": {
 							SchemaProps: spec.SchemaProps{
-								Ref: ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.KFServiceSpec"),
+								Ref: ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.InferenceServiceSpec"),
 							},
 						},
 						"status": {
 							SchemaProps: spec.SchemaProps{
-								Ref: ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.KFServiceStatus"),
+								Ref: ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.InferenceServiceStatus"),
 							},
 						},
 					},
 				},
 			},
 			Dependencies: []string{
-				"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.KFServiceSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.KFServiceStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+				"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.InferenceServiceSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.InferenceServiceStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 		},
-		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.KFServiceList": {
+		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.InferenceServiceList": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
-					Description: "KFServiceList contains a list of Service",
+					Description: "InferenceServiceList contains a list of Service",
 					Properties: map[string]spec.Schema{
 						"kind": {
 							SchemaProps: spec.SchemaProps{
@@ -303,7 +303,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Items: &spec.SchemaOrArray{
 									Schema: &spec.Schema{
 										SchemaProps: spec.SchemaProps{
-											Ref: ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.KFService"),
+											Ref: ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.InferenceService"),
 										},
 									},
 								},
@@ -314,16 +314,16 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 				},
 			},
 			Dependencies: []string{
-				"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.KFService", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+				"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.InferenceService", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
 		},
-		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.KFServiceSpec": {
+		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.InferenceServiceSpec": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
-					Description: "KFServiceSpec defines the desired state of KFService",
+					Description: "InferenceServiceSpec defines the desired state of InferenceService",
 					Properties: map[string]spec.Schema{
 						"default": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Default defines default KFService endpoints",
+								Description: "Default defines default InferenceService endpoints",
 								Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.EndpointSpec"),
 							},
 						},
@@ -335,7 +335,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						},
 						"canaryTrafficPercent": {
 							SchemaProps: spec.SchemaProps{
-								Description: "CanaryTrafficPercent defines the percentage of traffic going to canary KFService endpoints",
+								Description: "CanaryTrafficPercent defines the percentage of traffic going to canary InferenceService endpoints",
 								Type:        []string{"integer"},
 								Format:      "int32",
 							},
@@ -347,10 +347,10 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 			Dependencies: []string{
 				"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.EndpointSpec"},
 		},
-		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.KFServiceStatus": {
+		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.InferenceServiceStatus": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
-					Description: "KFServiceStatus defines the observed state of KFService",
+					Description: "InferenceServiceStatus defines the observed state of InferenceService",
 					Properties: map[string]spec.Schema{
 						"observedGeneration": {
 							SchemaProps: spec.SchemaProps{

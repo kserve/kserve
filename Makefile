@@ -33,18 +33,18 @@ deploy-dev: manifests
 
 undeploy:
 	kustomize build config/default | kubectl delete -f -
-	kubectl delete validatingwebhookconfigurations.admissionregistration.k8s.io kfservice.serving.kubeflow.org
-	kubectl delete mutatingwebhookconfigurations.admissionregistration.k8s.io kfservice.serving.kubeflow.org
+	kubectl delete validatingwebhookconfigurations.admissionregistration.k8s.io inferenceservice.serving.kubeflow.org
+	kubectl delete mutatingwebhookconfigurations.admissionregistration.k8s.io inferenceservice.serving.kubeflow.org
 
 undeploy-dev:
 	kustomize build config/overlays/development | kubectl delete -f -
-	kubectl delete validatingwebhookconfigurations.admissionregistration.k8s.io kfservice.serving.kubeflow.org
-	kubectl delete mutatingwebhookconfigurations.admissionregistration.k8s.io kfservice.serving.kubeflow.org
+	kubectl delete validatingwebhookconfigurations.admissionregistration.k8s.io inferenceservice.serving.kubeflow.org
+	kubectl delete mutatingwebhookconfigurations.admissionregistration.k8s.io inferenceservice.serving.kubeflow.org
 
 # Generate manifests e.g. CRD, RBAC etc.
 manifests:
 	go run vendor/sigs.k8s.io/controller-tools/cmd/controller-gen/main.go crd --output-dir=config/default/crds
-	kustomize build config/default/crds -o config/default/crds/serving_v1alpha2_kfservice.yaml
+	kustomize build config/default/crds -o config/default/crds/serving_v1alpha2_inferenceservice.yaml
 	go run vendor/sigs.k8s.io/controller-tools/cmd/controller-gen/main.go rbac --output-dir=config/default/rbac
 
 # Run go fmt against code

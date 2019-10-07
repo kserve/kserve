@@ -32,23 +32,23 @@ var (
 	KFServingNamespace    = getEnvOrDefault("POD_NAMESPACE", "kfserving-system")
 )
 
-// KFService Constants
+// InferenceService Constants
 var (
-	KFServiceName          = "kfservice"
-	KFServiceAPIName       = "kfservices"
-	KFServicePodLabelKey   = KFServingAPIGroupName + "/" + KFServiceName
-	KFServiceConfigMapName = "kfservice-config"
+	InferenceServiceName          = "inferenceservice"
+	InferenceServiceAPIName       = "inferenceservices"
+	InferenceServicePodLabelKey   = KFServingAPIGroupName + "/" + InferenceServiceName
+	InferenceServiceConfigMapName = "inferenceservice-config"
 )
 
-// KFService Annotations
+// InferenceService Annotations
 var (
-	KFServiceGKEAcceleratorAnnotationKey = KFServingAPIGroupName + "/gke-accelerator"
+	InferenceServiceGKEAcceleratorAnnotationKey = KFServingAPIGroupName + "/gke-accelerator"
 )
 
-// KFService Internal Annotations
+// InferenceService Internal Annotations
 var (
-	KFServiceInternalAnnotationsPrefix               = "internal." + KFServingAPIGroupName
-	StorageInitializerSourceUriInternalAnnotationKey = KFServiceInternalAnnotationsPrefix + "/storage-initializer-sourceuri"
+	InferenceServiceInternalAnnotationsPrefix        = "internal." + KFServingAPIGroupName
+	StorageInitializerSourceUriInternalAnnotationKey = InferenceServiceInternalAnnotationsPrefix + "/storage-initializer-sourceuri"
 )
 
 // Controller Constants
@@ -60,15 +60,15 @@ var (
 
 // Webhook Constants
 var (
-	WebhookServerName                    = KFServingName + "-webhook-server"
-	WebhookServerServiceName             = WebhookServerName + "-service"
-	WebhookServerSecretName              = WebhookServerName + "-secret"
-	KFServiceValidatingWebhookConfigName = strings.Join([]string{KFServiceName, KFServingAPIGroupName}, ".")
-	KFServiceMutatingWebhookConfigName   = strings.Join([]string{KFServiceName, KFServingAPIGroupName}, ".")
-	KFServiceValidatingWebhookName       = strings.Join([]string{KFServiceName, WebhookServerName, "validator"}, ".")
-	KFServiceDefaultingWebhookName       = strings.Join([]string{KFServiceName, WebhookServerName, "defaulter"}, ".")
-	PodMutatorWebhookName                = strings.Join([]string{KFServiceName, WebhookServerName, "pod-mutator"}, ".")
-	WebhookFailurePolicy                 = v1beta1.Fail
+	WebhookServerName                           = KFServingName + "-webhook-server"
+	WebhookServerServiceName                    = WebhookServerName + "-service"
+	WebhookServerSecretName                     = WebhookServerName + "-secret"
+	InferenceServiceValidatingWebhookConfigName = strings.Join([]string{InferenceServiceName, KFServingAPIGroupName}, ".")
+	InferenceServiceMutatingWebhookConfigName   = strings.Join([]string{InferenceServiceName, KFServingAPIGroupName}, ".")
+	InferenceServiceValidatingWebhookName       = strings.Join([]string{InferenceServiceName, WebhookServerName, "validator"}, ".")
+	InferenceServiceDefaultingWebhookName       = strings.Join([]string{InferenceServiceName, WebhookServerName, "defaulter"}, ".")
+	PodMutatorWebhookName                       = strings.Join([]string{InferenceServiceName, WebhookServerName, "pod-mutator"}, ".")
+	WebhookFailurePolicy                        = v1beta1.Fail
 )
 
 // GPU Constants
@@ -79,45 +79,45 @@ const (
 // DefaultModelLocalMountPath is where models will be mounted by the storage-initializer
 const DefaultModelLocalMountPath = "/mnt/models"
 
-// KFService Environment Variables
+// InferenceService Environment Variables
 const (
 	CustomSpecStorageUriEnvVarKey = "STORAGE_URI"
 )
 
-type KFServiceEndpoint string
+type InferenceServiceEndpoint string
 
-type KFServiceVerb string
+type InferenceServiceVerb string
 
-// KFService Endpoint enums
+// InferenceService Endpoint enums
 const (
-	Predictor   KFServiceEndpoint = "predictor"
-	Explainer   KFServiceEndpoint = "explainer"
-	Transformer KFServiceEndpoint = "transformer"
+	Predictor   InferenceServiceEndpoint = "predictor"
+	Explainer   InferenceServiceEndpoint = "explainer"
+	Transformer InferenceServiceEndpoint = "transformer"
 )
 
-// KFService verb enums
+// InferenceService verb enums
 const (
-	Predict KFServiceVerb = "predict"
-	Explain KFServiceVerb = "explain"
+	Predict InferenceServiceVerb = "predict"
+	Explain InferenceServiceVerb = "explain"
 )
 
-// KFService default/canary constants
+// InferenceService default/canary constants
 const (
-	KFServiceDefault = "default"
-	KFServiceCanary  = "canary"
+	InferenceServiceDefault = "default"
+	InferenceServiceCanary  = "canary"
 )
 
-// KFService model server args
+// InferenceService model server args
 const (
 	ArgumentModelName     = "--model_name"
 	ArgumentPredictorHost = "--predictor_host"
 )
 
-func (e KFServiceEndpoint) String() string {
+func (e InferenceServiceEndpoint) String() string {
 	return string(e)
 }
 
-func (v KFServiceVerb) String() string {
+func (v InferenceServiceVerb) String() string {
 	return string(v)
 }
 
@@ -129,11 +129,11 @@ func getEnvOrDefault(key string, fallback string) string {
 }
 
 func DefaultPredictorServiceName(name string) string {
-	return name + "-" + string(Predictor) + "-" + KFServiceDefault
+	return name + "-" + string(Predictor) + "-" + InferenceServiceDefault
 }
 
 func CanaryPredictorServiceName(name string) string {
-	return name + "-" + string(Predictor) + "-" + KFServiceCanary
+	return name + "-" + string(Predictor) + "-" + InferenceServiceCanary
 }
 
 func PredictRouteName(name string) string {
@@ -141,11 +141,11 @@ func PredictRouteName(name string) string {
 }
 
 func DefaultExplainerServiceName(name string) string {
-	return name + "-" + string(Explainer) + "-" + KFServiceDefault
+	return name + "-" + string(Explainer) + "-" + InferenceServiceDefault
 }
 
 func CanaryExplainerServiceName(name string) string {
-	return name + "-" + string(Explainer) + "-" + KFServiceCanary
+	return name + "-" + string(Explainer) + "-" + InferenceServiceCanary
 }
 
 func ExplainRouteName(name string) string {
@@ -153,22 +153,22 @@ func ExplainRouteName(name string) string {
 }
 
 func DefaultTransformerServiceName(name string) string {
-	return name + "-" + string(Transformer) + "-" + KFServiceDefault
+	return name + "-" + string(Transformer) + "-" + InferenceServiceDefault
 }
 
 func CanaryTransformerServiceName(name string) string {
-	return name + "-" + string(Transformer) + "-" + KFServiceCanary
+	return name + "-" + string(Transformer) + "-" + InferenceServiceCanary
 }
 
-func DefaultServiceName(name string, endpoint KFServiceEndpoint) string {
-	return name + "-" + endpoint.String() + "-" + KFServiceDefault
+func DefaultServiceName(name string, endpoint InferenceServiceEndpoint) string {
+	return name + "-" + endpoint.String() + "-" + InferenceServiceDefault
 }
 
-func CanaryServiceName(name string, endpoint KFServiceEndpoint) string {
-	return name + "-" + endpoint.String() + "-" + KFServiceCanary
+func CanaryServiceName(name string, endpoint InferenceServiceEndpoint) string {
+	return name + "-" + endpoint.String() + "-" + InferenceServiceCanary
 }
 
-func RouteName(name string, verb KFServiceVerb) string {
+func RouteName(name string, verb InferenceServiceVerb) string {
 	return name + "-" + verb.String()
 }
 

@@ -94,7 +94,7 @@
       }
     },
     "v1alpha2.DeploymentSpec": {
-      "description": "DeploymentSpec defines the configuration for a given KFService service component",
+      "description": "DeploymentSpec defines the configuration for a given InferenceService service component",
       "properties": {
         "maxReplicas": {
           "description": "This is the up bound for autoscaler to scale to",
@@ -174,8 +174,8 @@
         }
       }
     },
-    "v1alpha2.KFService": {
-      "description": "KFService is the Schema for the services API",
+    "v1alpha2.InferenceService": {
+      "description": "InferenceService is the Schema for the services API",
       "properties": {
         "apiVersion": {
           "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
@@ -189,15 +189,15 @@
           "$ref": "#/definitions/v1.ObjectMeta"
         },
         "spec": {
-          "$ref": "#/definitions/v1alpha2.KFServiceSpec"
+          "$ref": "#/definitions/v1alpha2.InferenceServiceSpec"
         },
         "status": {
-          "$ref": "#/definitions/v1alpha2.KFServiceStatus"
+          "$ref": "#/definitions/v1alpha2.InferenceServiceStatus"
         }
       }
     },
-    "v1alpha2.KFServiceList": {
-      "description": "KFServiceList contains a list of Service",
+    "v1alpha2.InferenceServiceList": {
+      "description": "InferenceServiceList contains a list of Service",
       "required": [
         "items"
       ],
@@ -209,7 +209,7 @@
         "items": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/v1alpha2.KFService"
+            "$ref": "#/definitions/v1alpha2.InferenceService"
           }
         },
         "kind": {
@@ -221,8 +221,8 @@
         }
       }
     },
-    "v1alpha2.KFServiceSpec": {
-      "description": "KFServiceSpec defines the desired state of KFService",
+    "v1alpha2.InferenceServiceSpec": {
+      "description": "InferenceServiceSpec defines the desired state of InferenceService",
       "required": [
         "default"
       ],
@@ -232,18 +232,18 @@
           "$ref": "#/definitions/v1alpha2.EndpointSpec"
         },
         "canaryTrafficPercent": {
-          "description": "CanaryTrafficPercent defines the percentage of traffic going to canary KFService endpoints",
+          "description": "CanaryTrafficPercent defines the percentage of traffic going to canary InferenceService endpoints",
           "type": "integer",
           "format": "int32"
         },
         "default": {
-          "description": "Default defines default KFService endpoints",
+          "description": "Default defines default InferenceService endpoints",
           "$ref": "#/definitions/v1alpha2.EndpointSpec"
         }
       }
     },
-    "v1alpha2.KFServiceStatus": {
-      "description": "KFServiceStatus defines the observed state of KFService",
+    "v1alpha2.InferenceServiceStatus": {
+      "description": "InferenceServiceStatus defines the observed state of InferenceService",
       "properties": {
         "canary": {
           "type": "object",

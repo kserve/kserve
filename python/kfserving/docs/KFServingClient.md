@@ -17,18 +17,18 @@ The APIs for KFServingClient are as following:
 Class | Method |  Description
 ------------ | ------------- | -------------
 KFServingClient | [set_credentials](#set_credentials) | Set Credentials|
-KFServingClient | [create](#create) | Create KFService|
-KFServingClient | [get](#get)    | Get or watch the specified KFService or all KFServices in the namespace |
-KFServingClient | [patch](#patch)  | Patch the specified KFService|
-KFServingClient | [replace](#replace) | Replace the specified KFService|
-KFServingClient | [rollout_canary](#rollout_canary) | Rollout the traffic on `canary` version for specified KFService|
-KFServingClient | [promote](#promote) | Promote the `canary` version of the KFService to `default`|
-KFServingClient | [delete](#delete) | Delete the specified KFService |
+KFServingClient | [create](#create) | Create InferenceService|
+KFServingClient | [get](#get)    | Get or watch the specified InferenceService or all InferenceServices in the namespace |
+KFServingClient | [patch](#patch)  | Patch the specified InferenceService|
+KFServingClient | [replace](#replace) | Replace the specified InferenceService|
+KFServingClient | [rollout_canary](#rollout_canary) | Rollout the traffic on `canary` version for specified InferenceService|
+KFServingClient | [promote](#promote) | Promote the `canary` version of the InferenceService to `default`|
+KFServingClient | [delete](#delete) | Delete the specified InferenceService |
 
 ## set_credentials
 > set_credentials(storage_type, namespace=None, credentials_file=None, service_account='kfserving-service-credentials', **kwargs):
 
-Create or update a `Secret` and `Service Account` for GCS and S3 for the provided credentials. Once the `Service Account` is applied, it may be used in the `Service Account` field of a KFService's [V1alpha2ModelSpec](V1alpha2ModelSpec.md).
+Create or update a `Secret` and `Service Account` for GCS and S3 for the provided credentials. Once the `Service Account` is applied, it may be used in the `Service Account` field of a InferenceService's [V1alpha2ModelSpec](V1alpha2ModelSpec.md).
 
 ### Example
 
@@ -90,9 +90,9 @@ s3_verify_ssl  | str | S3 only|Optional. If HTTPS is used, SSL verification coul
 
 
 ## create
-> create(kfservice, namespace=None, watch=False, timeout_seconds=600)
+> create(inferenceservice, namespace=None, watch=False, timeout_seconds=600)
 
-Create the provided KFService in the specified namespace
+Create the provided InferenceService in the specified namespace
 
 ### Example
 
@@ -104,33 +104,33 @@ from kfserving import constants
 from kfserving import V1alpha2EndpointSpec
 from kfserving import V1alpha2PredictorSpec
 from kfserving import V1alpha2TensorflowSpec
-from kfserving import V1alpha2KFServiceSpec
-from kfserving import V1alpha2KFService
+from kfserving import V1alpha2InferenceServiceSpec
+from kfserving import V1alpha2InferenceService
 
 
 default_model_spec = V1alpha2EndpointSpec(predictor=V1alpha2PredictorSpec(tensorflow=V1alpha2TensorflowSpec(
     storage_uri='gs://kfserving-samples/models/tensorflow/flowers')))
 
-kfsvc = V1alpha2KFService(api_version=constants.KFSERVING_GROUP + '/' + constants.KFSERVING_VERSION,
+isvc = V1alpha2InferenceService(api_version=constants.KFSERVING_GROUP + '/' + constants.KFSERVING_VERSION,
                           kind=constants.KFSERVING_KIND,
                           metadata=client.V1ObjectMeta(name='flower-sample', namespace='kubeflow'),
-                          spec=V1alpha2KFServiceSpec(default=default_model_spec))
+                          spec=V1alpha2InferenceServiceSpec(default=default_model_spec))
 
 
 KFServing = KFServingClient()
-KFServing.create(kfsvc)
+KFServing.create(isvc)
 
-# The API also supports watching the created KFService status till it's READY.
-# KFServing.create(kfsvc, watch=True)
+# The API also supports watching the created InferenceService status till it's READY.
+# KFServing.create(isvc, watch=True)
 ```
 
 
 ### Parameters
 Name | Type |  Description | Notes
 ------------ | ------------- | ------------- | -------------
-kfservice  | [V1alpha2KFService](V1alpha2KFService.md) | KFService defination| Required |
-namespace | str | Namespace for KFService deploying to. If the `namespace` is not defined, will align with KFService definition, or use current or default namespace if namespace is not specified in KFService definition.  | Optional |
-watch | bool | Watch the created KFService if `True`, otherwise will return the created KFService object. Stop watching if KFService reaches the optional specified `timeout_seconds` or once the KFService overall status `READY` is `True`. | Optional |
+inferenceservice  | [V1alpha2InferenceService](V1alpha2InferenceService.md) | InferenceService defination| Required |
+namespace | str | Namespace for InferenceService deploying to. If the `namespace` is not defined, will align with InferenceService definition, or use current or default namespace if namespace is not specified in InferenceService definition.  | Optional |
+watch | bool | Watch the created InferenceService if `True`, otherwise will return the created InferenceService object. Stop watching if InferenceService reaches the optional specified `timeout_seconds` or once the InferenceService overall status `READY` is `True`. | Optional |
 timeout_seconds | int | Timeout seconds for watching. Defaults to 600. | Optional |
 
 ### Return type
@@ -139,7 +139,7 @@ object
 ## get
 > get(name=None, namespace=None, watch=False, timeout_seconds=600)
 
-Get the created KFService in the specified namespace
+Get the created InferenceService in the specified namespace
 
 ### Example
 
@@ -149,14 +149,14 @@ from kfserving import KFServingClient
 KFServing = KFServingClient()
 KFServing.get('flower-sample', namespace='kubeflow')
 ```
-The API also support watching the specified KFService or all KFService in the namespace.
+The API also support watching the specified InferenceService or all InferenceService in the namespace.
 ```python
 from kfserving import KFServingClient
 
 KFServing = KFServingClient()
 KFServing.get('flower-sample', namespace='kubeflow', watch=True, timeout_seconds=120)
 ```
-The outputs will be as following. Stop watching if KFService reaches the optional specified `timeout_seconds` or once the KFService overall status `READY` is `True`.
+The outputs will be as following. Stop watching if InferenceService reaches the optional specified `timeout_seconds` or once the InferenceService overall status `READY` is `True`.
 ```sh
 NAME                 READY      DEFAULT_TRAFFIC CANARY_TRAFFIC  URL                                               
 flower-sample        Unknown                                    http://flower-sample.kubeflow.example.com         
@@ -168,9 +168,9 @@ flower-sample        True       90               10             http://flower-sa
 ### Parameters
 Name | Type |  Description | Notes
 ------------ | ------------- | ------------- | -------------
-name  | str | KFService name. If the `name` is not specified, it will get or watch all KFServices in the namespace.| Optional. |
-namespace | str | The KFService's namespace. Defaults to current or default namespace.| Optional |
-watch | bool | Watch the specified KFService or all KFService in the namespace if `True`, otherwise will return object for the specified KFService or all KFService in the namespace. Stop watching if KFService reaches the optional specified `timeout_seconds` or once the speficed KFService overall status `READY` is `True` (Only if the `name` is speficed). | Optional |
+name  | str | InferenceService name. If the `name` is not specified, it will get or watch all InferenceServices in the namespace.| Optional. |
+namespace | str | The InferenceService's namespace. Defaults to current or default namespace.| Optional |
+watch | bool | Watch the specified InferenceService or all InferenceService in the namespace if `True`, otherwise will return object for the specified InferenceService or all InferenceService in the namespace. Stop watching if InferenceService reaches the optional specified `timeout_seconds` or once the speficed InferenceService overall status `READY` is `True` (Only if the `name` is speficed). | Optional |
 timeout_seconds | int | Timeout seconds for watching. Defaults to 600. | Optional |
 
 ### Return type
@@ -178,9 +178,9 @@ object
 
 
 ## patch
-> patch(name, kfservice, namespace=None, watch=False, timeout_seconds=600)
+> patch(name, inferenceservice, namespace=None, watch=False, timeout_seconds=600)
 
-Patch the created KFService in the specified namespace.
+Patch the created InferenceService in the specified namespace.
 
 Note that if you want to set the field from existing value to `None`, `patch` API may not work, you need to use [replace](#replace) API to remove the field value.
 
@@ -192,8 +192,8 @@ from kfserving import constants
 from kfserving import V1alpha2EndpointSpec
 from kfserving import V1alpha2PredictorSpec
 from kfserving import V1alpha2TensorflowSpec
-from kfserving import V1alpha2KFServiceSpec
-from kfserving import V1alpha2KFService
+from kfserving import V1alpha2InferenceServiceSpec
+from kfserving import V1alpha2InferenceService
 from kfserving import KFServingClient
 
 default_model_spec = V1alpha2EndpointSpec(predictor=V1alpha2PredictorSpec(tensorflow=V1alpha2TensorflowSpec(
@@ -201,35 +201,35 @@ default_model_spec = V1alpha2EndpointSpec(predictor=V1alpha2PredictorSpec(tensor
 canary_model_spec = V1alpha2EndpointSpec(predictor=V1alpha2PredictorSpec(tensorflow=V1alpha2TensorflowSpec(
     storage_uri='gs://kfserving-samples/models/tensorflow/flowers')))
 
-kfsvc = V1alpha2KFService(api_version=constants.KFSERVING_GROUP + '/' + constants.KFSERVING_VERSION,
+isvc = V1alpha2InferenceService(api_version=constants.KFSERVING_GROUP + '/' + constants.KFSERVING_VERSION,
                           kind=constants.KFSERVING_KIND,
                           metadata=client.V1ObjectMeta(name='flower-sample', namespace='kubeflow'),
-                          spec=V1alpha2KFServiceSpec(default=default_model_spec,
+                          spec=V1alpha2InferenceServiceSpec(default=default_model_spec,
                                                      canary=canary_model_spec,
                                                      canary_traffic_percent=10))
 
 KFServing = KFServingClient()
-KFServing.patch('flower-sample', kfsvc)
+KFServing.patch('flower-sample', isvc)
 
-# The API also supports watching the patached KFService status till it's READY.
-# KFServing.patch('flower-sample', kfsvc, watch=True)
+# The API also supports watching the patached InferenceService status till it's READY.
+# KFServing.patch('flower-sample', isvc, watch=True)
 ```
 
 ### Parameters
 Name | Type |  Description | Notes
 ------------ | ------------- | ------------- | -------------
-kfservice  | [V1alpha2KFService](V1alpha2KFService.md) | KFService defination| Required |
-namespace | str | The KFService's namespace for patching. If the `namespace` is not defined, will align with KFService definition, or use current or default namespace if namespace is not specified in KFService definition. | Optional|
-watch | bool | Watch the patched KFService if `True`, otherwise will return the patched KFService object. Stop watching if KFService reaches the optional specified `timeout_seconds` or once the KFService overall status `READY` is `True`. | Optional |
+inferenceservice  | [V1alpha2InferenceService](V1alpha2InferenceService.md) | InferenceService defination| Required |
+namespace | str | The InferenceService's namespace for patching. If the `namespace` is not defined, will align with InferenceService definition, or use current or default namespace if namespace is not specified in InferenceService definition. | Optional|
+watch | bool | Watch the patched InferenceService if `True`, otherwise will return the patched InferenceService object. Stop watching if InferenceService reaches the optional specified `timeout_seconds` or once the InferenceService overall status `READY` is `True`. | Optional |
 timeout_seconds | int | Timeout seconds for watching. Defaults to 600. | Optional |
 
 ### Return type
 object
 
 ## replace
-> replace(name, kfservice, namespace=None, watch=False, timeout_seconds=600)
+> replace(name, inferenceservice, namespace=None, watch=False, timeout_seconds=600)
 
-Replace the created KFService in the specified namespace. Generally use the `replace` API to update whole KFService or remove a field such as canary or other components of the KFService.
+Replace the created InferenceService in the specified namespace. Generally use the `replace` API to update whole InferenceService or remove a field such as canary or other components of the InferenceService.
 
 ### Example
 
@@ -239,8 +239,8 @@ from kfserving import constants
 from kfserving import V1alpha2EndpointSpec
 from kfserving import V1alpha2PredictorSpec
 from kfserving import V1alpha2TensorflowSpec
-from kfserving import V1alpha2KFServiceSpec
-from kfserving import V1alpha2KFService
+from kfserving import V1alpha2InferenceServiceSpec
+from kfserving import V1alpha2InferenceService
 from kfserving import KFServingClient
 
 default_endpoint_spec = V1alpha2EndpointSpec(
@@ -249,30 +249,30 @@ default_endpoint_spec = V1alpha2EndpointSpec(
                               storage_uri='gs://kfserving-samples/models/tensorflow/flowers',
                               resources=None)))
 
-kfsvc = V1alpha2KFService(api_version=api_version,
+isvc = V1alpha2InferenceService(api_version=api_version,
                           kind=constants.KFSERVING_KIND,
                           metadata=client.V1ObjectMeta(
                             name='flower-sample',
                             namespace='kubeflow',
                             resource_version=resource_version),
-                          spec=V1alpha2KFServiceSpec(default=default_endpoint_spec,
+                          spec=V1alpha2InferenceServiceSpec(default=default_endpoint_spec,
                                                      canary=None,
                                                      canary_traffic_percent=0))
 
 
 KFServing = KFServingClient()
-KFServing.replace('flower-sample', kfsvc)
+KFServing.replace('flower-sample', isvc)
 
-# The API also supports watching the replaced KFService status till it's READY.
-# KFServing.replace('flower-sample', kfsvc, watch=True)
+# The API also supports watching the replaced InferenceService status till it's READY.
+# KFServing.replace('flower-sample', isvc, watch=True)
 ```
 
 ### Parameters
 Name | Type |  Description | Notes
 ------------ | ------------- | ------------- | -------------
-kfservice  | [V1alpha2KFService](V1alpha2KFService.md) | KFService defination| Required |
-namespace | str | The KFService's namespace. If the `namespace` is not defined, will align with KFService definition, or use current or default namespace if namespace is not specified in KFService definition. | Optional|
-watch | bool | Watch the patched KFService if `True`, otherwise will return the replaced KFService object. Stop watching if KFService reaches the optional specified `timeout_seconds` or once the KFService overall status `READY` is `True`. | Optional |
+inferenceservice  | [V1alpha2InferenceService](V1alpha2InferenceService.md) | InferenceService defination| Required |
+namespace | str | The InferenceService's namespace. If the `namespace` is not defined, will align with InferenceService definition, or use current or default namespace if namespace is not specified in InferenceService definition. | Optional|
+watch | bool | Watch the patched InferenceService if `True`, otherwise will return the replaced InferenceService object. Stop watching if InferenceService reaches the optional specified `timeout_seconds` or once the InferenceService overall status `READY` is `True`. | Optional |
 timeout_seconds | int | Timeout seconds for watching. Defaults to 600. | Optional |
 
 ### Return type
@@ -281,9 +281,9 @@ object
 ## rollout_canary
 > rollout_canary(name, percent=100, canary=None, namespace=None, watch=False, timeout_seconds=600)
 
-Rollout canary for the created KFService in the specified namespace. The `rollout_canary` API updates the KFService `canaryTrafficPercent` to speficed `percent` to adjust the traffic percent that will be distributed on the canary version. The `rollout_canary` also supports setting or updating `canary` endpoint spec for the KFServing. If the KFService has no `canary` endpoint spec, need to specify with the API it while setting `canaryTrafficPercent`.
+Rollout canary for the created InferenceService in the specified namespace. The `rollout_canary` API updates the InferenceService `canaryTrafficPercent` to speficed `percent` to adjust the traffic percent that will be distributed on the canary version. The `rollout_canary` also supports setting or updating `canary` endpoint spec for the KFServing. If the InferenceService has no `canary` endpoint spec, need to specify with the API it while setting `canaryTrafficPercent`.
 
-The difference between [rollout_canary](#rollout_canary) and [promote](#promote) is that the `rollout_canary` only updates `canaryTrafficPercent` (or  `canary` endpoint spec) while the `promote` moves the `canary` version of the KFService to `default`.
+The difference between [rollout_canary](#rollout_canary) and [promote](#promote) is that the `rollout_canary` only updates `canaryTrafficPercent` (or  `canary` endpoint spec) while the `promote` moves the `canary` version of the InferenceService to `default`.
 
 
 ### Example
@@ -301,18 +301,18 @@ canary_spec = V1alpha2EndpointSpec(
 
 KFServing.rollout_canary('flower-sample', percent=50, canary=canary_spec, namespace='kubeflow')
 
-# The API also supports watching the KFService status till it's READY.
+# The API also supports watching the InferenceService status till it's READY.
 # KFServing.rollout_canary('flower-sample', percent=50, namespace='kubeflow', watch=True)
 ```
 
 ### Parameters
 Name | Type |  Description | Notes
 ------------ | ------------- | ------------- | -------------
-name  | str | The KFService name for promoting.| Required|
+name  | str | The InferenceService name for promoting.| Required|
 percent  | int | The traffic percent that will be distributed on the canary version.| Required|
 canary  | [V1alpha2EndpointSpec](V1alpha2EndpointSpec.md) | The canary endpoint spec for KFServing.|Optional |
-namespace | str | The KFService's namespace. If the `namespace` is not defined, will align with KFService definition, or use current or default namespace if namespace is not specified in KFService definition. | Optional|
-watch | bool | Watch the KFService if `True`, otherwise will return the KFService object. Stop watching if KFService reaches the optional specified `timeout_seconds` or once the KFService overall status `READY` is `True`. | Optional |
+namespace | str | The InferenceService's namespace. If the `namespace` is not defined, will align with InferenceService definition, or use current or default namespace if namespace is not specified in InferenceService definition. | Optional|
+watch | bool | Watch the InferenceService if `True`, otherwise will return the InferenceService object. Stop watching if InferenceService reaches the optional specified `timeout_seconds` or once the InferenceService overall status `READY` is `True`. | Optional |
 timeout_seconds | int | Timeout seconds for watching. Defaults to 600. | Optional |
 
 ### Return type
@@ -321,7 +321,7 @@ object
 ## promote
 > promote(name, namespace=None, watch=False, timeout_seconds=600)
 
-Promote the `Canary KFServiceSpec` to `Default KFServiceSpec` for the created KFService in the specified namespace.
+Promote the `Canary InferenceServiceSpec` to `Default InferenceServiceSpec` for the created InferenceService in the specified namespace.
 
 If you just want to update canary version and canary traffic percent, please use API [rollout_canary](#rollout_canary).
 
@@ -332,16 +332,16 @@ If you just want to update canary version and canary traffic percent, please use
 KFServing = KFServingClient()
 KFServing.promote('flower-sample', namespace='kubeflow')
 
-# The API also supports watching the promoted KFService status till it's READY.
+# The API also supports watching the promoted InferenceService status till it's READY.
 # KFServing.promote('flower-sample', namespace='kubeflow', watch=True)
 ```
 
 ### Parameters
 Name | Type |  Description | Notes
 ------------ | ------------- | ------------- | -------------
-name  | str | The KFService name for promoting.| Required|
-namespace | str | The KFService's namespace. If the `namespace` is not defined, will align with KFService definition, or use current or default namespace if namespace is not specified in KFService definition. | Optional|
-watch | bool | Watch the promoted KFService if `True`, otherwise will return the promoted KFService object. Stop watching if KFService reaches the optional specified `timeout_seconds` or once the KFService overall status `READY` is `True`. | Optional |
+name  | str | The InferenceService name for promoting.| Required|
+namespace | str | The InferenceService's namespace. If the `namespace` is not defined, will align with InferenceService definition, or use current or default namespace if namespace is not specified in InferenceService definition. | Optional|
+watch | bool | Watch the promoted InferenceService if `True`, otherwise will return the promoted InferenceService object. Stop watching if InferenceService reaches the optional specified `timeout_seconds` or once the InferenceService overall status `READY` is `True`. | Optional |
 timeout_seconds | int | Timeout seconds for watching. Defaults to 600. | Optional |
 
 ### Return type
@@ -351,7 +351,7 @@ object
 ## delete
 > delete(name, namespace=None)
 
-Delete the created KFService in the specified namespace
+Delete the created InferenceService in the specified namespace
 
 ### Example
 
@@ -365,8 +365,8 @@ KFServing.delete('flower-sample', namespace='kubeflow')
 ### Parameters
 Name | Type |  Description | Notes
 ------------ | ------------- | ------------- | -------------
-name  | str | KFService name| |
-namespace | str | The kfservice's namespace. Defaults to current or default namespace. | Optional|
+name  | str | InferenceService name| |
+namespace | str | The inferenceservice's namespace. Defaults to current or default namespace. | Optional|
 
 ### Return type
 object

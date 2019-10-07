@@ -35,7 +35,7 @@ func TestAcceleratorInjector(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "deployment",
 					Annotations: map[string]string{
-						constants.KFServiceGKEAcceleratorAnnotationKey: "nvidia-tesla-v100",
+						constants.InferenceServiceGKEAcceleratorAnnotationKey: "nvidia-tesla-v100",
 					},
 				},
 				Spec: v1.PodSpec{
@@ -50,7 +50,7 @@ func TestAcceleratorInjector(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "deployment",
 					Annotations: map[string]string{
-						constants.KFServiceGKEAcceleratorAnnotationKey: "nvidia-tesla-v100",
+						constants.InferenceServiceGKEAcceleratorAnnotationKey: "nvidia-tesla-v100",
 					},
 				},
 				Spec: v1.PodSpec{

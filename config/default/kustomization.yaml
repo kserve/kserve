@@ -11,8 +11,8 @@ namespace: kfserving-system
 # YAML string, with resources separated by document
 # markers ("---").
 resources:
-- crds/serving_v1alpha2_kfservice.yaml
-- configmap/kfservice.yaml
+- crds/serving_v1alpha2_inferenceservice.yaml
+- configmap/inferenceservice.yaml
 - rbac/rbac_role.yaml
 - rbac/rbac_role_binding.yaml
 - manager/manager.yaml
