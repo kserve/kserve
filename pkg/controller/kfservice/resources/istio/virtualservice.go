@@ -19,7 +19,6 @@ package istio
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
 
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	"github.com/kubeflow/kfserving/pkg/constants"
@@ -39,6 +38,7 @@ var (
 	PredictorSpecMissing       = "predictorSpecMissing"
 	PredictorStatusUnknown     = "predictorStatusUnknown"
 	PredictorHostnameUnknown   = "predictorHostnameUnknown"
+	TransformerSpecMissing     = "transformerSpecMissing"
 	TransformerStatusUnknown   = "transformerStatusUnknown"
 	TransformerHostnameUnknown = "transformerHostnameUnknown"
 	ExplainerSpecMissing       = "explainerSpecMissing"
@@ -60,7 +60,7 @@ func NewVirtualServiceBuilder(config *corev1.ConfigMap) *VirtualServiceBuilder {
 	if ingress, ok := config.Data[IngressConfigKeyName]; ok {
 		err := json.Unmarshal([]byte(ingress), &ingressConfig)
 		if err != nil {
-			panic(fmt.Errorf("Unable to unmarshall ingress json string due to %v ", err))
+			panic(fmt.Errorf("Unable to parse ingress config json: %v", err))
 		}
 
 		if ingressConfig.IngressGateway == "" || ingressConfig.IngressServiceName == "" {
@@ -89,14 +89,22 @@ func (r *VirtualServiceBuilder) CreateVirtualService(kfsvc *v1alpha2.KFService) 
 	httpRoutes := []istiov1alpha3.HTTPRoute{}
 
 	// destination for the default predict is required
-	predictDefaultSpec, defaultPredictReason := getPredictStatusConfigurationSpec(&kfsvc.Spec.Default, kfsvc.Status.Default)
+	predictDefaultSpec, reason := getPredictStatusConfigurationSpec(&kfsvc.Spec.Default, kfsvc.Status.Default)
 	if predictDefaultSpec == nil {
-		return nil, createFailedStatus(defaultPredictReason, "Failed to reconcile default predictor")
+		return nil, createFailedStatus(reason, "Failed to reconcile default predictor")
+	}
+
+	// use transformer instead (if one is configured)
+	if kfsvc.Spec.Default.Transformer != nil {
+		predictDefaultSpec, reason = getTransformerStatusConfigurationSpec(&kfsvc.Spec.Default, kfsvc.Status.Default)
+		if predictDefaultSpec == nil {
+			return nil, createFailedStatus(reason, "Failed to reconcile default transformer")
+		}
 	}
 
 	// extract the virtual service hostname from the predictor hostname
-	serviceHostname := extractVirtualServiceHostname(kfsvc.Name, predictDefaultSpec.Hostname)
-	serviceURL := fmt.Sprintf("http://%s/v1/models/%s", serviceHostname, kfsvc.Name)
+	serviceHostname := constants.VirtualServiceHostname(kfsvc.Name, predictDefaultSpec.Hostname)
+	serviceURL := constants.ServiceURL(kfsvc.Name, serviceHostname)
 
 	// add the default route
 	defaultWeight := 100 - kfsvc.Spec.CanaryTrafficPercent
@@ -107,13 +115,21 @@ func (r *VirtualServiceBuilder) CreateVirtualService(kfsvc *v1alpha2.KFService) 
 
 	// optionally get a destination for canary predict
 	if kfsvc.Spec.Canary != nil {
-		predictCanarySpec, canaryPredictReason := getPredictStatusConfigurationSpec(kfsvc.Spec.Canary, kfsvc.Status.Canary)
-		if predictCanarySpec != nil {
-			canaryRouteDestination := createHTTPRouteDestination(predictCanarySpec.Hostname, canaryWeight, r.ingressConfig.IngressServiceName)
-			predictRouteDestinations = append(predictRouteDestinations, canaryRouteDestination)
-		} else {
-			return nil, createFailedStatus(canaryPredictReason, "Failed to reconcile canary predictor")
+		predictCanarySpec, reason := getPredictStatusConfigurationSpec(kfsvc.Spec.Canary, kfsvc.Status.Canary)
+		if predictCanarySpec == nil {
+			return nil, createFailedStatus(reason, "Failed to reconcile canary predictor")
 		}
+
+		// attempt use transformer instead if *Default* had one, see discussion: https://github.com/kubeflow/kfserving/issues/324
+		if kfsvc.Spec.Default.Transformer != nil {
+			predictCanarySpec, reason = getTransformerStatusConfigurationSpec(kfsvc.Spec.Canary, kfsvc.Status.Canary)
+			if predictCanarySpec == nil {
+				return nil, createFailedStatus(reason, "Failed to reconcile canary transformer")
+			}
+		}
+
+		canaryRouteDestination := createHTTPRouteDestination(predictCanarySpec.Hostname, canaryWeight, r.ingressConfig.IngressServiceName)
+		predictRouteDestinations = append(predictRouteDestinations, canaryRouteDestination)
 	}
 
 	// prepare the predict route
@@ -121,7 +137,7 @@ func (r *VirtualServiceBuilder) CreateVirtualService(kfsvc *v1alpha2.KFService) 
 		Match: []istiov1alpha3.HTTPMatchRequest{
 			istiov1alpha3.HTTPMatchRequest{
 				URI: &istiov1alpha1.StringMatch{
-					Prefix: fmt.Sprintf("/v1/models/%s:predict", kfsvc.Name),
+					Prefix: constants.PredictPrefix(kfsvc.Name),
 				},
 			},
 		},
@@ -152,7 +168,7 @@ func (r *VirtualServiceBuilder) CreateVirtualService(kfsvc *v1alpha2.KFService) 
 			Match: []istiov1alpha3.HTTPMatchRequest{
 				istiov1alpha3.HTTPMatchRequest{
 					URI: &istiov1alpha1.StringMatch{
-						Prefix: fmt.Sprintf("/v1/models/%s:explain", kfsvc.Name),
+						Prefix: constants.ExplainPrefix(kfsvc.Name),
 					},
 				},
 			},
@@ -163,7 +179,7 @@ func (r *VirtualServiceBuilder) CreateVirtualService(kfsvc *v1alpha2.KFService) 
 
 	vs := istiov1alpha3.VirtualService{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        constants.VirtualServiceName(kfsvc.Name),
+			Name:        kfsvc.Name,
 			Namespace:   kfsvc.Namespace,
 			Labels:      kfsvc.Labels,
 			Annotations: kfsvc.Annotations,
@@ -194,38 +210,33 @@ func (r *VirtualServiceBuilder) CreateVirtualService(kfsvc *v1alpha2.KFService) 
 	return &vs, &status
 }
 
-func extractVirtualServiceHostname(name string, predictorHostName string) string {
-	index := strings.Index(predictorHostName, ".")
-	return name + predictorHostName[index:]
-}
-
 func getPredictStatusConfigurationSpec(endpointSpec *v1alpha2.EndpointSpec, endpointStatusMap *v1alpha2.EndpointStatusMap) (*v1alpha2.StatusConfigurationSpec, string) {
-	var statusConfigurationSpec *v1alpha2.StatusConfigurationSpec
 	if endpointSpec == nil {
 		return nil, PredictorSpecMissing
 	}
+
 	if predictorStatus, ok := (*endpointStatusMap)[constants.Predictor]; !ok {
 		return nil, PredictorStatusUnknown
 	} else if len(predictorStatus.Hostname) == 0 {
 		return nil, PredictorHostnameUnknown
 	} else {
-		statusConfigurationSpec = predictorStatus
+		return predictorStatus, ""
 	}
-
-	// point to transfromer if we have one
-	if endpointSpec.Transformer != nil {
-		if transformerStatus, ok := (*endpointStatusMap)[constants.Transformer]; !ok {
-			return nil, TransformerStatusUnknown
-		} else if len(transformerStatus.Hostname) == 0 {
-			return nil, TransformerHostnameUnknown
-		} else {
-			statusConfigurationSpec = transformerStatus
-		}
-	}
-
-	return statusConfigurationSpec, ExplainerStatusUnknown
 }
 
+func getTransformerStatusConfigurationSpec(endpointSpec *v1alpha2.EndpointSpec, endpointStatusMap *v1alpha2.EndpointStatusMap) (*v1alpha2.StatusConfigurationSpec, string) {
+	if endpointSpec.Transformer == nil {
+		return nil, TransformerSpecMissing
+	}
+
+	if transformerStatus, ok := (*endpointStatusMap)[constants.Transformer]; !ok {
+		return nil, TransformerStatusUnknown
+	} else if len(transformerStatus.Hostname) == 0 {
+		return nil, TransformerHostnameUnknown
+	} else {
+		return transformerStatus, ""
+	}
+}
 func getExplainStatusConfigurationSpec(endpointSpec *v1alpha2.EndpointSpec, endpointStatusMap *v1alpha2.EndpointStatusMap) (*v1alpha2.StatusConfigurationSpec, string) {
 	if endpointSpec.Explainer == nil {
 		return nil, ExplainerSpecMissing

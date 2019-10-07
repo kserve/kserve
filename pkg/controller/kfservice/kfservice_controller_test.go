@@ -77,8 +77,7 @@ func TestKFServiceWithOnlyPredictor(t *testing.T) {
 	var serviceKey = expectedRequest.NamespacedName
 	var predictorService = types.NamespacedName{Name: constants.DefaultPredictorServiceName(serviceKey.Name),
 		Namespace: serviceKey.Namespace}
-	var virtualServiceName = types.NamespacedName{Name: constants.VirtualServiceName(serviceKey.Name),
-		Namespace: serviceKey.Namespace}
+	var virtualServiceName = types.NamespacedName{Name: serviceKey.Name, Namespace: serviceKey.Namespace}
 
 	var instance = &kfserving.KFService{
 		ObjectMeta: metav1.ObjectMeta{
@@ -327,8 +326,7 @@ func TestKFServiceWithDefaultAndCanaryPredictor(t *testing.T) {
 		Namespace: canaryServiceKey.Namespace}
 	var canaryPredictor = types.NamespacedName{Name: constants.CanaryPredictorServiceName(canaryServiceKey.Name),
 		Namespace: canaryServiceKey.Namespace}
-	var virtualServiceName = types.NamespacedName{Name: constants.VirtualServiceName(canaryServiceKey.Name),
-		Namespace: canaryServiceKey.Namespace}
+	var virtualServiceName = types.NamespacedName{Name: canaryServiceKey.Name, Namespace: canaryServiceKey.Namespace}
 	g := gomega.NewGomegaWithT(t)
 
 	mgr, err := manager.New(cfg, manager.Options{})
@@ -552,8 +550,7 @@ func TestCanaryDelete(t *testing.T) {
 		Namespace: namespace}
 	var canaryPredictor = types.NamespacedName{Name: constants.CanaryPredictorServiceName(serviceName),
 		Namespace: namespace}
-	var virtualServiceName = types.NamespacedName{Name: constants.VirtualServiceName(serviceName),
-		Namespace: namespace}
+	var virtualServiceName = types.NamespacedName{Name: serviceName, Namespace: namespace}
 	var expectedCanaryRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: namespace}}
 	var canaryServiceKey = expectedCanaryRequest.NamespacedName
 
@@ -801,8 +798,7 @@ func TestKFServiceWithTransformer(t *testing.T) {
 		Namespace: namespace}
 	var canaryTransformer = types.NamespacedName{Name: constants.CanaryTransformerServiceName(serviceName),
 		Namespace: namespace}
-	var virtualServiceName = types.NamespacedName{Name: constants.VirtualServiceName(serviceName),
-		Namespace: namespace}
+	var virtualServiceName = types.NamespacedName{Name: serviceName, Namespace: namespace}
 	var transformer = &kfserving.KFService{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      serviceName,

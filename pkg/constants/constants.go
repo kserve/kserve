@@ -172,12 +172,21 @@ func RouteName(name string, verb KFServiceVerb) string {
 	return name + "-" + verb.String()
 }
 
-func VirtualServiceName(name string) string {
-	return name + "-vs"
+func ServiceURL(name string, hostName string) string {
+	return fmt.Sprintf("http://%s/v1/models/%s", hostName, name)
 }
 
 func PredictPrefix(name string) string {
 	return fmt.Sprintf("/v1/models/%s:predict", name)
+}
+
+func ExplainPrefix(name string) string {
+	return fmt.Sprintf("/v1/models/%s:explain", name)
+}
+
+func VirtualServiceHostname(name string, predictorHostName string) string {
+	index := strings.Index(predictorHostName, ".")
+	return name + predictorHostName[index:]
 }
 
 func PredictorURL(metadata v1.ObjectMeta, isCanary bool) string {
