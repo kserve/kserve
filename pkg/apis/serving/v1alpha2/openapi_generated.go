@@ -384,6 +384,18 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Format: "",
 							},
 						},
+						"traffic": {
+							SchemaProps: spec.SchemaProps{
+								Type:   []string{"integer"},
+								Format: "int32",
+							},
+						},
+						"canaryTraffic": {
+							SchemaProps: spec.SchemaProps{
+								Type:   []string{"integer"},
+								Format: "int32",
+							},
+						},
 						"default": {
 							SchemaProps: spec.SchemaProps{
 								Type: []string{"object"},
@@ -664,12 +676,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Format: "int32",
 							},
 						},
-						"traffic": {
-							SchemaProps: spec.SchemaProps{
-								Type:   []string{"integer"},
-								Format: "int32",
-							},
-						},
 					},
 				},
 			},
@@ -775,6 +781,41 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 			},
 			Dependencies: []string{
 				"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.CustomSpec"},
+		},
+		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.VirtualServiceStatus": {
+			Schema: spec.Schema{
+				SchemaProps: spec.SchemaProps{
+					Description: "\n VirtualServiceStatus captures the status of the virtual service",
+					Properties: map[string]spec.Schema{
+						"URL": {
+							SchemaProps: spec.SchemaProps{
+								Type:   []string{"string"},
+								Format: "",
+							},
+						},
+						"CanaryWeight": {
+							SchemaProps: spec.SchemaProps{
+								Type:   []string{"integer"},
+								Format: "int32",
+							},
+						},
+						"DefaultWeight": {
+							SchemaProps: spec.SchemaProps{
+								Type:   []string{"integer"},
+								Format: "int32",
+							},
+						},
+						"Status": {
+							SchemaProps: spec.SchemaProps{
+								Ref: ref("knative.dev/pkg/apis/duck/v1beta1.Status"),
+							},
+						},
+					},
+					Required: []string{"URL", "CanaryWeight", "DefaultWeight", "Status"},
+				},
+			},
+			Dependencies: []string{
+				"knative.dev/pkg/apis/duck/v1beta1.Status"},
 		},
 		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.XGBoostSpec": {
 			Schema: spec.Schema{

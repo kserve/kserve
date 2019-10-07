@@ -18,6 +18,7 @@ package service
 
 import (
 	"context"
+	"github.com/kubeflow/kfserving/pkg/controller/kfservice/reconcilers/istio"
 
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/controller/kfservice/reconcilers/knative"
@@ -88,16 +89,6 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	// Watch for changes to Knative Route
-	if err = c.Watch(&source.Kind{Type: &knservingv1alpha1.Route{}}, kfservingController); err != nil {
-		return err
-	}
-
-	// TODO enqueue all kfservices to reconcile
-	// if err = c.Watch(&source.Kind{Type: &v1.ConfigMap{}}, &handler.EnqueueRequestsFromMapFunc{}); err != nil {
-	//	return err
-	// }
-
 	return nil
 }
 
@@ -119,8 +110,8 @@ type Reconciler interface {
 // and what is in the Service.Spec
 // +kubebuilder:rbac:groups=serving.knative.dev,resources=services,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=serving.knative.dev,resources=services/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=serving.knative.dev,resources=routes,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=serving.knative.dev,resources=routes/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=networking.istio.io,resources=virtualservices,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=networking.istio.io,resources=virtualservices/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=serving.kubeflow.org,resources=kfservices,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=serving.kubeflow.org,resources=kfservices/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=,resources=serviceaccounts,verbs=get;list;watch
@@ -148,7 +139,7 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 
 	reconcilers := []Reconciler{
 		knative.NewServiceReconciler(r.Client, r.scheme, configMap),
-		knative.NewRouteReconciler(r.Client, r.scheme),
+		istio.NewVirtualServiceReconciler(r.Client, r.scheme, configMap),
 	}
 
 	for _, reconciler := range reconcilers {

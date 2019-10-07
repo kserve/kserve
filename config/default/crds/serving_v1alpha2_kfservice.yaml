@@ -13,10 +13,10 @@ spec:
   - JSONPath: .status.conditions[?(@.type=='Ready')].status
     name: Ready
     type: string
-  - JSONPath: .status.default.predictor.traffic
+  - JSONPath: .status.traffic
     name: Default Traffic
     type: integer
-  - JSONPath: .status.canary.predictor.traffic
+  - JSONPath: .status.canaryTraffic
     name: Canary Traffic
     type: integer
   - JSONPath: .metadata.creationTimestamp
@@ -455,6 +455,9 @@ spec:
           properties:
             canary:
               type: object
+            canaryTraffic:
+              format: int64
+              type: integer
             conditions:
               description: Conditions the latest available observations of a resource's
                 current state. +patchMergeKey=type +patchStrategy=merge
@@ -494,6 +497,9 @@ spec:
             observedGeneration:
               description: ObservedGeneration is the 'Generation' of the Service that
                 was last processed by the controller.
+              format: int64
+              type: integer
+            traffic:
               format: int64
               type: integer
             url:

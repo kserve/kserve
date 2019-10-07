@@ -159,13 +159,13 @@ func (r *ServiceReconciler) reconcileService(kfsvc *v1alpha2.KFService, desired 
 	}
 
 	// Reconcile differences and update
-	diff, err := kmp.SafeDiff(desired.Spec, existing.Spec)
+	diff, err := kmp.SafeDiff(desired.Spec.ConfigurationSpec, existing.Spec.ConfigurationSpec)
 	if err != nil {
 		return &existing.Status, fmt.Errorf("failed to diff service: %v", err)
 	}
 	log.Info("Reconciling service diff (-desired, +observed):", "diff", diff)
 	log.Info("Updating service", "namespace", desired.Namespace, "name", desired.Name)
-	existing.Spec = desired.Spec
+	existing.Spec.ConfigurationSpec = desired.Spec.ConfigurationSpec
 	existing.ObjectMeta.Labels = desired.ObjectMeta.Labels
 	if err := r.client.Update(context.TODO(), existing); err != nil {
 		return &existing.Status, err
@@ -175,6 +175,6 @@ func (r *ServiceReconciler) reconcileService(kfsvc *v1alpha2.KFService, desired 
 }
 
 func semanticEquals(desiredService, service *knservingv1alpha1.Service) bool {
-	return equality.Semantic.DeepEqual(desiredService.Spec, service.Spec) &&
+	return equality.Semantic.DeepEqual(desiredService.Spec.ConfigurationSpec, service.Spec.ConfigurationSpec) &&
 		equality.Semantic.DeepEqual(desiredService.ObjectMeta.Labels, service.ObjectMeta.Labels)
 }
