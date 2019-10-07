@@ -33,24 +33,41 @@ const (
 )
 
 // Returns a URI to the explainer. This URI is passed to the model-initializer via the ModelInitializerSourceUriInternalAnnotationKey
-func (m *ExplainerSpec) GetStorageUri() string {
-	return getExplainerHandler(m).GetStorageUri()
+func (e *ExplainerSpec) GetStorageUri() string {
+	explainer, err := getExplainer(e)
+	if err != nil {
+		return ""
+	}
+	return explainer.GetStorageUri()
 }
 
-func (m *ExplainerSpec) CreateExplainerContainer(modelName string, predictorHost string, config *ExplainersConfig) *v1.Container {
-	return getExplainerHandler(m).CreateExplainerContainer(modelName, predictorHost, config)
+func (e *ExplainerSpec) CreateExplainerContainer(modelName string, predictorHost string, config *ExplainersConfig) *v1.Container {
+	explainer, err := getExplainer(e)
+	if err != nil {
+		return nil
+	}
+	return explainer.CreateExplainerContainer(modelName, predictorHost, config)
 }
 
-func (m *ExplainerSpec) ApplyDefaults() {
-	getExplainerHandler(m).ApplyDefaults()
+func (e *ExplainerSpec) ApplyDefaults() {
+	explainer, err := getExplainer(e)
+	if err == nil {
+		explainer.ApplyDefaults()
+	}
 }
 
-func (m *ExplainerSpec) Validate() error {
-	explainer, err := makeExplainer(m)
+func (e *ExplainerSpec) Validate() error {
+	explainer, err := getExplainer(e)
 	if err != nil {
 		return err
 	}
-	return explainer.Validate()
+	if err := explainer.Validate(); err != nil {
+		return err
+	}
+	if err := validateStorageURI(e.GetStorageUri()); err != nil {
+		return err
+	}
+	return nil
 }
 
 type ExplainerConfig struct {
@@ -62,16 +79,7 @@ type ExplainersConfig struct {
 	AlibiExplainer ExplainerConfig `json:"alibi,omitempty"`
 }
 
-func getExplainerHandler(modelSpec *ExplainerSpec) Explainer {
-	explainer, err := makeExplainer(modelSpec)
-	if err != nil {
-		klog.Fatal(err)
-	}
-
-	return explainer
-}
-
-func makeExplainer(explainerSpec *ExplainerSpec) (Explainer, error) {
+func getExplainer(explainerSpec *ExplainerSpec) (Explainer, error) {
 	handlers := []Explainer{}
 	if explainerSpec.Custom != nil {
 		handlers = append(handlers, explainerSpec.Custom)
@@ -80,7 +88,9 @@ func makeExplainer(explainerSpec *ExplainerSpec) (Explainer, error) {
 		handlers = append(handlers, explainerSpec.Alibi)
 	}
 	if len(handlers) != 1 {
-		return nil, fmt.Errorf(ExactlyOneExplainerViolatedError)
+		err := fmt.Errorf(ExactlyOneExplainerViolatedError)
+		klog.Error(err)
+		return nil, err
 	}
 	return handlers[0], nil
 }

@@ -13,7 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-package deployment
+package pod
 
 import (
 	"context"
@@ -21,11 +21,9 @@ import (
 	"fmt"
 	"net/http"
 
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
-
-	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	k8types "k8s.io/apimachinery/pkg/types"
+	"k8s.io/klog"
 
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/controller/kfservice/resources/credentials"
@@ -35,8 +33,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission/types"
 )
 
-var log = logf.Log.WithName("kfserving-admission-mutator")
-
 // Mutator is a webhook that injects incoming pods
 type Mutator struct {
 	Client  client.Client
@@ -45,24 +41,24 @@ type Mutator struct {
 
 // Handle decodes the incoming Pod and executes mutation logic.
 func (mutator *Mutator) Handle(ctx context.Context, req types.Request) types.Response {
-	deployment := &appsv1.Deployment{}
+	pod := &v1.Pod{}
 
-	if err := mutator.Decoder.Decode(req, deployment); err != nil {
+	if err := mutator.Decoder.Decode(req, pod); err != nil {
 		return admission.ErrorResponse(http.StatusBadRequest, err)
 	}
 
 	configMap := &v1.ConfigMap{}
 	err := mutator.Client.Get(context.TODO(), k8types.NamespacedName{Name: constants.KFServiceConfigMapName, Namespace: constants.KFServingNamespace}, configMap)
 	if err != nil {
-		log.Error(err, "Failed to find config map", "name", constants.KFServiceConfigMapName)
+		klog.Error(err, "Failed to find config map", "name", constants.KFServiceConfigMapName)
 		return admission.ErrorResponse(http.StatusInternalServerError, err)
 	}
 
-	if err := mutator.mutate(deployment, configMap); err != nil {
+	if err := mutator.mutate(pod, configMap); err != nil {
 		return admission.ErrorResponse(http.StatusInternalServerError, err)
 	}
 
-	patch, err := json.Marshal(deployment)
+	patch, err := json.Marshal(pod)
 	if err != nil {
 		return admission.ErrorResponse(http.StatusInternalServerError, err)
 	}
@@ -70,7 +66,7 @@ func (mutator *Mutator) Handle(ctx context.Context, req types.Request) types.Res
 	return third_party.PatchResponseFromRaw(req.AdmissionRequest.Object.Raw, patch)
 }
 
-func (mutator *Mutator) mutate(deployment *appsv1.Deployment, configMap *v1.ConfigMap) error {
+func (mutator *Mutator) mutate(pod *v1.Pod, configMap *v1.ConfigMap) error {
 
 	credentialBuilder := credentials.NewCredentialBulder(mutator.Client, configMap)
 	var storageInitializerConfig StorageInitializerConfig
@@ -85,13 +81,13 @@ func (mutator *Mutator) mutate(deployment *appsv1.Deployment, configMap *v1.Conf
 		config:            &storageInitializerConfig,
 	}
 
-	mutators := []func(deployment *appsv1.Deployment) error{
+	mutators := []func(pod *v1.Pod) error{
 		InjectGKEAcceleratorSelector,
 		storageInitializer.InjectStorageInitializer,
 	}
 
 	for _, mutator := range mutators {
-		if err := mutator(deployment); err != nil {
+		if err := mutator(pod); err != nil {
 			return err
 		}
 	}

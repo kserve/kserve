@@ -44,7 +44,7 @@ CLUSTER_IP=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpat
 Test the predictor on an example sentence:
 
 ```
-curl -H "Host: ${MODEL_NAME}-predict.default.example.com" http://$CLUSTER_IP/v1/models/$MODEL_NAME:predict -d '{"instances":["This is a bad book ."]}'
+curl -H "Host: ${MODEL_NAME}-predict.default.example.com" http://$CLUSTER_IP/v1/models/$MODEL_NAME:predict -d '{"instances":["a visually flashy but narratively opaque and emotionally vapid exercise ."]}'
 ```
 
 You should receive the response showing negative sentiment:
@@ -56,7 +56,7 @@ You should receive the response showing negative sentiment:
 Test on another sentence:
 
 ```
-curl -H "Host: ${MODEL_NAME}-predict.default.example.com" http://$CLUSTER_IP/v1/models/$MODEL_NAME:predict -d '{"instances":["This is a great book ."]}'
+curl -H "Host: ${MODEL_NAME}-predict.default.example.com" http://$CLUSTER_IP/v1/models/$MODEL_NAME:predict -d '{"instances":["a touching , sophisticated film that almost seems like a documentary in the way it captures an italian immigrant family on the brink of major changes ."]}'
 ```
 
 You should receive the response showing positive sentiment:
@@ -69,7 +69,7 @@ Now lets get an explanation for the first sentence:
 
 
 ```
-curl -v -H "Host: ${MODEL_NAME}-explain.default.example.com" http://$CLUSTER_IP/v1/models/$MODEL_NAME:explain -d '{"instances":["This is a bad book ."]}'
+curl -v -H "Host: ${MODEL_NAME}-explain.default.example.com" http://$CLUSTER_IP/v1/models/$MODEL_NAME:explain -d '{"instances":["a visually flashy but narratively opaque and emotionally vapid exercise ."]}'
 ```
 
 The returned explanation will be like:
@@ -77,13 +77,13 @@ The returned explanation will be like:
 ```
 {
   "names": [
-    "bad"
+    "exercise"
   ],
   "precision": 1,
-  "coverage": 0.5007,
+  "coverage": 0.5005,
   "raw": {
     "feature": [
-      3
+      9
     ],
     "mean": [
       1
@@ -92,72 +92,72 @@ The returned explanation will be like:
       1
     ],
     "coverage": [
-      0.5007
+      0.5005
     ],
     "examples": [
       {
         "covered": [
           [
-            "This is a bad book UNK"
+            "a visually UNK UNK UNK opaque and emotionally vapid exercise UNK"
           ],
           [
-            "UNK is UNK bad book UNK"
+            "a visually flashy but UNK UNK and emotionally UNK exercise ."
           ],
           [
-            "UNK is UNK bad book ."
+            "a visually flashy but narratively UNK UNK UNK UNK exercise ."
           ],
           [
-            "This UNK UNK bad book UNK"
+            "UNK UNK flashy UNK narratively opaque UNK UNK vapid exercise ."
           ],
           [
-            "This is UNK bad UNK ."
+            "UNK visually UNK UNK UNK UNK and UNK vapid exercise UNK"
           ],
           [
-            "UNK UNK UNK bad book ."
+            "UNK UNK UNK but UNK opaque UNK emotionally UNK exercise UNK"
           ],
           [
-            "UNK is a bad UNK UNK"
+            "a UNK flashy UNK UNK UNK and emotionally vapid exercise ."
           ],
           [
-            "UNK UNK a bad UNK ."
+            "UNK UNK flashy UNK narratively opaque UNK emotionally UNK exercise ."
           ],
           [
-            "UNK UNK a bad book UNK"
+            "UNK UNK flashy UNK narratively opaque UNK UNK vapid exercise UNK"
           ],
           [
-            "UNK is UNK bad book ."
+            "a visually UNK but narratively opaque UNK UNK vapid exercise UNK"
           ]
         ],
         "covered_true": [
           [
-            "UNK is UNK bad UNK UNK"
+            "UNK visually flashy but UNK UNK and emotionally vapid exercise ."
           ],
           [
-            "UNK is UNK bad UNK UNK"
+            "UNK visually UNK UNK UNK UNK and UNK UNK exercise ."
           ],
           [
-            "UNK is UNK bad book UNK"
+            "a UNK UNK UNK narratively opaque UNK UNK UNK exercise UNK"
           ],
           [
-            "This UNK UNK bad book UNK"
+            "a visually UNK UNK narratively opaque UNK UNK UNK exercise UNK"
           ],
           [
-            "UNK UNK a bad book ."
+            "a UNK UNK UNK UNK UNK and emotionally vapid exercise UNK"
           ],
           [
-            "This is UNK bad UNK UNK"
+            "a UNK flashy UNK narratively UNK and UNK vapid exercise UNK"
           ],
           [
-            "UNK UNK UNK bad UNK UNK"
+            "UNK visually UNK UNK narratively UNK and emotionally UNK exercise ."
           ],
           [
-            "This is UNK bad UNK ."
+            "UNK visually flashy UNK narratively opaque UNK emotionally UNK exercise UNK"
           ],
           [
-            "This is UNK bad UNK ."
+            "UNK UNK flashy UNK UNK UNK and UNK vapid exercise UNK"
           ],
           [
-            "This UNK a bad UNK ."
+            "a UNK flashy UNK UNK UNK and emotionally vapid exercise ."
           ]
         ],
         "covered_false": [],
@@ -168,12 +168,12 @@ The returned explanation will be like:
     "all_precision": 0,
     "num_preds": 1000101,
     "names": [
-      "bad"
+      "exercise"
     ],
     "positions": [
-      10
+      63
     ],
-    "instance": "This is a bad book .",
+    "instance": "a visually flashy but narratively opaque and emotionally vapid exercise .",
     "prediction": 0
   }
 }
@@ -182,6 +182,161 @@ The returned explanation will be like:
 
 This shows the key word "bad" was indetified and examples show it in context using the default "UKN" placeholder for surrounding words.
 
+
+## Custom Configuration
+
+You can add custom configuration for the Anchor Text explainer in the 'config' section. For example we can change the text explainer to sample from the corpus rather than use UKN placeholders:
+
+```
+apiVersion: "serving.kubeflow.org/v1alpha2"
+kind: "KFService"
+metadata:
+  name: "moviesentiment"
+spec:
+  default:
+    predictor:
+      sklearn:
+        storageUri: "gs://seldon-models/sklearn/moviesentiment"
+        resources:
+          requests:
+            cpu: 0.1
+    explainer:
+      alibi:
+        type: AnchorText
+        config:
+          use_unk: "false"
+          sample_proba: "0.5"	  
+        resources:
+          requests:
+            cpu: 0.1
+```
+
+If we apply this:
+
+```
+kubectl create -f moviesentiment2.yaml
+```
+
+and then ask for an explanation:
+
+```
+curl -H "Host: ${MODEL_NAME}-explain.default.example.com" http://$CLUSTER_IP/v1/models/$MODEL_NAME:explain -d '{"instances":["a visually flashy but narratively opaque and emotionally vapid exercise ."]}'
+```
+
+The explanation would be like:
+
+```
+{
+  "names": [
+    "exercise"
+  ],
+  "precision": 0.9918032786885246,
+  "coverage": 0.5072,
+  "raw": {
+    "feature": [
+      9
+    ],
+    "mean": [
+      0.9918032786885246
+    ],
+    "precision": [
+      0.9918032786885246
+    ],
+    "coverage": [
+      0.5072
+    ],
+    "examples": [
+      {
+        "covered": [
+          [
+            "each visually playful but enormously opaque and academically vapid exercise ."
+          ],
+          [
+            "each academically trashy but narratively pigmented and profoundly vapid exercise ."
+          ],
+          [
+            "a masterfully flashy but narratively straightforward and verbally disingenuous exercise ."
+          ],
+          [
+            "a visually gaudy but interestingly opaque and emotionally vapid exercise ."
+          ],
+          [
+            "some concurrently flashy but philosophically voxel and emotionally vapid exercise ."
+          ],
+          [
+            "a visually flashy but delightfully sensible and emotionally snobby exercise ."
+          ],
+          [
+            "a surprisingly bland but fantastically seamless and hideously vapid exercise ."
+          ],
+          [
+            "both visually classy but nonetheless robust and musically vapid exercise ."
+          ],
+          [
+            "a visually fancy but narratively robust and emotionally uninformed exercise ."
+          ],
+          [
+            "a visually flashy but tastefully opaque and weirdly vapid exercise ."
+          ]
+        ],
+        "covered_true": [
+          [
+            "another visually flashy but narratively opaque and emotionally vapid exercise ."
+          ],
+          [
+            "the visually classy but narratively opaque and emotionally vapid exercise ."
+          ],
+          [
+            "the visually arty but overshadow yellowish and emotionally vapid exercise ."
+          ],
+          [
+            "a objectively flashy but genuinely straightforward and emotionally vapid exercise ."
+          ],
+          [
+            "a visually flashy but tastefully opaque and weirdly vapid exercise ."
+          ],
+          [
+            "a emotionally crafty but narratively opaque and emotionally vapid exercise ."
+          ],
+          [
+            "some similarly eclectic but narratively dainty and emotionally illogical exercise ."
+          ],
+          [
+            "a nicely flashy but psychologically opaque and emotionally vapid exercise ."
+          ],
+          [
+            "a visually flashy but narratively colorless and emotionally vapid exercise ."
+          ],
+          [
+            "every properly lavish but logistically opaque and someway incomprehensible exercise ."
+          ]
+        ],
+        "covered_false": [
+          [
+            "another enormously inventive but socially opaque and somewhat idiotic exercise ."
+          ],
+          [
+            "each visually playful but enormously opaque and academically vapid exercise ."
+          ]
+        ],
+        "uncovered_true": [],
+        "uncovered_false": []
+      }
+    ],
+    "all_precision": 0,
+    "num_preds": 1000101,
+    "names": [
+      "exercise"
+    ],
+    "positions": [
+      63
+    ],
+    "instance": "a visually flashy but narratively opaque and emotionally vapid exercise .",
+    "prediction": 0
+  }
+}
+
+```
 
 ## Local Testing
 

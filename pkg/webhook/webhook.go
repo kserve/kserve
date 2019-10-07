@@ -19,10 +19,10 @@ package webhook
 import (
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	"github.com/kubeflow/kfserving/pkg/constants"
-	"github.com/kubeflow/kfserving/pkg/webhook/admission/deployment"
 	"github.com/kubeflow/kfserving/pkg/webhook/admission/kfservice"
+	"github.com/kubeflow/kfserving/pkg/webhook/admission/pod"
 	"k8s.io/api/admissionregistration/v1beta1"
-	v1 "k8s.io/api/apps/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -116,7 +116,7 @@ func register(manager manager.Manager, server *webhook.Server) error {
 			},
 		},
 	}, &admission.Webhook{
-		Name:          constants.DeploymentMutatorWebhookName,
+		Name:          constants.PodMutatorWebhookName,
 		FailurePolicy: &constants.WebhookFailurePolicy,
 		Type:          webhooktypes.WebhookTypeMutating,
 		Rules: []v1beta1.RuleWithOperations{{
@@ -127,11 +127,11 @@ func register(manager manager.Manager, server *webhook.Server) error {
 			Rule: v1beta1.Rule{
 				APIGroups:   []string{v1.GroupName},
 				APIVersions: []string{v1.SchemeGroupVersion.Version},
-				Resources:   []string{"deployments"},
+				Resources:   []string{"pods"},
 			},
 		}},
 		Handlers: []admission.Handler{
-			&deployment.Mutator{
+			&pod.Mutator{
 				Client:  manager.GetClient(),
 				Decoder: manager.GetAdmissionDecoder(),
 			},
