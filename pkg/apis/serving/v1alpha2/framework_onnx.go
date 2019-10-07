@@ -15,24 +15,18 @@ package v1alpha2
 
 import (
 	"fmt"
-	"strings"
-
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/utils"
-	v1 "k8s.io/api/core/v1"
+	"k8s.io/api/core/v1"
+	"strings"
 )
 
 var (
-	ONNXServingRestPort        = "8080"
-	ONNXServingGRPCPort        = "9000"
-	ONNXServingImageName       = "mcr.microsoft.com/onnxruntime/server"
-	ONNXModelFileName          = "model.onnx"
-	DefaultONNXRuntimeVersion  = "latest"
-	AllowedONNXRuntimeVersions = []string{
-		DefaultONNXRuntimeVersion,
-		"v0.5.0",
-	}
-	InvalidONNXRuntimeVersionError = "RuntimeVersion must be one of " + strings.Join(AllowedONNXRuntimeVersions, ", ")
+	ONNXServingRestPort            = "8080"
+	ONNXServingGRPCPort            = "9000"
+	ONNXServingImageName           = "mcr.microsoft.com/onnxruntime/server"
+	ONNXModelFileName              = "model.onnx"
+	InvalidONNXRuntimeVersionError = "ONNX RuntimeVersion must be one of %s"
 )
 
 func (s *ONNXSpec) GetStorageUri() string {
@@ -56,16 +50,16 @@ func (s *ONNXSpec) GetContainer(modelName string, config *PredictorsConfig) *v1.
 	}
 }
 
-func (s *ONNXSpec) ApplyDefaults() {
+func (s *ONNXSpec) ApplyDefaults(config *PredictorsConfig) {
 	if s.RuntimeVersion == "" {
-		s.RuntimeVersion = DefaultONNXRuntimeVersion
+		s.RuntimeVersion = config.ONNX.DefaultImageVersion
 	}
 	setResourceRequirementDefaults(&s.Resources)
 }
 
-func (s *ONNXSpec) Validate() error {
-	if !utils.Includes(AllowedONNXRuntimeVersions, s.RuntimeVersion) {
-		return fmt.Errorf(InvalidONNXRuntimeVersionError)
+func (s *ONNXSpec) Validate(config *PredictorsConfig) error {
+	if !utils.Includes(config.ONNX.AllowedImageVersions, s.RuntimeVersion) {
+		return fmt.Errorf(InvalidONNXRuntimeVersionError, strings.Join(config.ONNX.AllowedImageVersions, ", "))
 	}
 
 	return nil

@@ -29,6 +29,12 @@ import (
 	knservingv1alpha1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
 )
 
+const (
+	DefaultSKLearnRuntimeVersion       = "latest"
+	DefaultTensorflowRuntimeVersionGPU = "latest-gpu"
+	DefaultXGBoostRuntimeVersion       = "latest"
+)
+
 var kfsvc = v1alpha2.KFService{
 	ObjectMeta: metav1.ObjectMeta{
 		Name:      "mnist",
@@ -254,7 +260,7 @@ func TestKFServiceToKnativeService(t *testing.T) {
 									PodSpec: v1.PodSpec{
 										Containers: []v1.Container{
 											{
-												Image: v1alpha2.SKLearnServerImageName + ":" + v1alpha2.DefaultSKLearnRuntimeVersion,
+												Image: v1alpha2.SKLearnServerImageName + ":" + DefaultSKLearnRuntimeVersion,
 												Args: []string{
 													"--model_name=sklearn",
 													"--model_dir=" + constants.DefaultModelLocalMountPath,
@@ -308,7 +314,7 @@ func TestKFServiceToKnativeService(t *testing.T) {
 									PodSpec: v1.PodSpec{
 										Containers: []v1.Container{
 											{
-												Image: v1alpha2.XGBoostServerImageName + ":" + v1alpha2.DefaultXGBoostRuntimeVersion,
+												Image: v1alpha2.XGBoostServerImageName + ":" + DefaultXGBoostRuntimeVersion,
 												Args: []string{
 													"--model_name=xgboost",
 													"--model_dir=" + constants.DefaultModelLocalMountPath,
@@ -363,7 +369,7 @@ func TestKFServiceToKnativeService(t *testing.T) {
 									PodSpec: v1.PodSpec{
 										Containers: []v1.Container{
 											{
-												Image: "kfserving/xgbserver:" + v1alpha2.DefaultXGBoostRuntimeVersion,
+												Image: "kfserving/xgbserver:" + DefaultXGBoostRuntimeVersion,
 												Args: []string{
 													"--model_name=xgboost",
 													"--model_dir=" + constants.DefaultModelLocalMountPath,
@@ -431,7 +437,7 @@ func TestKFServiceToKnativeService(t *testing.T) {
 									PodSpec: v1.PodSpec{
 										Containers: []v1.Container{
 											{
-												Image: v1alpha2.SKLearnServerImageName + ":" + v1alpha2.DefaultSKLearnRuntimeVersion,
+												Image: v1alpha2.SKLearnServerImageName + ":" + DefaultSKLearnRuntimeVersion,
 												Args: []string{
 													"--model_name=sklearn",
 													"--model_dir=" + constants.DefaultModelLocalMountPath,

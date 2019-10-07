@@ -28,9 +28,8 @@ var (
 		"latest",
 		"v0.1.2",
 	}
-	InvalidSKLearnRuntimeVersionError = "RuntimeVersion must be one of " + strings.Join(AllowedSKLearnRuntimeVersions, ", ")
+	InvalidSKLearnRuntimeVersionError = "RuntimeVersion must be one of %s"
 	SKLearnServerImageName            = "gcr.io/kfserving/sklearnserver"
-	DefaultSKLearnRuntimeVersion      = "latest"
 )
 
 var _ Predictor = (*SKLearnSpec)(nil)
@@ -54,17 +53,17 @@ func (s *SKLearnSpec) GetContainer(modelName string, config *PredictorsConfig) *
 	}
 }
 
-func (s *SKLearnSpec) ApplyDefaults() {
+func (s *SKLearnSpec) ApplyDefaults(config *PredictorsConfig) {
 	if s.RuntimeVersion == "" {
-		s.RuntimeVersion = DefaultSKLearnRuntimeVersion
+		s.RuntimeVersion = config.SKlearn.DefaultImageVersion
 	}
 
 	setResourceRequirementDefaults(&s.Resources)
 }
 
-func (s *SKLearnSpec) Validate() error {
-	if utils.Includes(AllowedSKLearnRuntimeVersions, s.RuntimeVersion) {
+func (s *SKLearnSpec) Validate(config *PredictorsConfig) error {
+	if utils.Includes(config.SKlearn.AllowedImageVersions, s.RuntimeVersion) {
 		return nil
 	}
-	return fmt.Errorf(InvalidSKLearnRuntimeVersionError)
+	return fmt.Errorf(InvalidSKLearnRuntimeVersionError, strings.Join(AllowedSKLearnRuntimeVersions, ", "))
 }

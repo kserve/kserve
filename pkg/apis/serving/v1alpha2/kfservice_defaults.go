@@ -16,18 +16,46 @@ limitations under the License.
 
 package v1alpha2
 
+import "sigs.k8s.io/controller-runtime/pkg/client"
+
 // Default implements https://godoc.org/sigs.k8s.io/controller-runtime/pkg/webhook/admission#Defaulter
-func (kfsvc *KFService) Default() {
+func (kfsvc *KFService) Default(client client.Client) {
 	logger.Info("Defaulting KFService", "namespace", kfsvc.Namespace, "name", kfsvc.Name)
-	kfsvc.applyDefaultsEndpoint(&kfsvc.Spec.Default)
-	kfsvc.applyDefaultsEndpoint(kfsvc.Spec.Canary)
+	if err := kfsvc.applyDefaultsEndpoint(&kfsvc.Spec.Default, client); err != nil {
+		logger.Error(err, "Failed to apply defaults for default endpoints")
+	}
+	if err := kfsvc.applyDefaultsEndpoint(kfsvc.Spec.Canary, client); err != nil {
+		logger.Error(err, "Failed to apply defaults for canary endpoints")
+	}
 }
 
-func (kfsvc *KFService) applyDefaultsEndpoint(endpoint *EndpointSpec) {
+func (kfsvc *KFService) applyDefaultsEndpoint(endpoint *EndpointSpec, client client.Client) error {
 	if endpoint != nil {
-		endpoint.Predictor.ApplyDefaults()
+		configMap, err := GetKFServiceConfigMap(client)
+		if err != nil {
+			return err
+		}
+		predictorConfig, err := GetPredictorConfigs(configMap)
+		if err != nil {
+			return err
+		}
+		endpoint.Predictor.ApplyDefaults(predictorConfig)
+
+		if endpoint.Transformer != nil {
+			transformerConfig, err := GetTransformerConfigs(configMap)
+			if err != nil {
+				return err
+			}
+			endpoint.Transformer.ApplyDefaults(transformerConfig)
+		}
+
 		if endpoint.Explainer != nil {
-			endpoint.Explainer.ApplyDefaults()
+			explainersConfig, err := GetExplainerConfigs(configMap)
+			if err != nil {
+				return err
+			}
+			endpoint.Explainer.ApplyDefaults(explainersConfig)
 		}
 	}
+	return nil
 }

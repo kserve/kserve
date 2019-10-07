@@ -7,22 +7,61 @@ data:
   predictors: |-
     {
         "tensorflow": {
-            "image": "tensorflow/serving"
+            "image": "tensorflow/serving",
+            "defaultImageVersion": "latest",
+            "defaultGpuImageVersion": "latest",
+            "allowedImageVersions": [
+               "latest",
+               "latest-gpu",
+               "1.11.0",
+               "1.11.0-gpu",
+               "1.12.0",
+               "1.12.0-gpu",
+               "1.13.0",
+               "1.13.0-gpu"
+               "1.14.0",
+               "1.14.0-gpu"
+            ]
         },
         "onnx": {
-            "image": "mcr.microsoft.com/onnxruntime/server"
+            "image": "mcr.microsoft.com/onnxruntime/server",
+            "defaultImageVersion": "latest",
+            "allowedImageVersions": [
+               "latest",
+               "v0.5.0"
+            ]
         },
         "sklearn": {
-            "image": "gcr.io/kfserving/sklearnserver"
+            "image": "gcr.io/kfserving/sklearnserver",
+            "defaultImageVersion": "latest",
+            "allowedImageVersions": [
+               "latest",
+               "0.2.0"
+            ]
         },
         "xgboost": {
-            "image": "gcr.io/kfserving/xgbserver"
+            "image": "gcr.io/kfserving/xgbserver",
+            "defaultImageVersion": "latest",
+            "allowedImageVersions": [
+               "latest",
+               "0.2.0"
+            ]
         },
         "pytorch": {
-            "image": "gcr.io/kfserving/pytorchserver"
+            "image": "gcr.io/kfserving/pytorchserver",
+            "defaultImageVersion": "latest",
+            "allowedImageVersions": [
+               "latest",
+               "0.2.0"
+            ]
         },
         "tensorrt": {
-            "image": "nvcr.io/nvidia/tensorrtserver"
+            "image": "nvcr.io/nvidia/tensorrtserver",
+            "defaultImageVersion": "19.05-py3",
+            "allowedImageVersions": [
+               "latest",
+               "19.05-py3"
+            ]
         }
     }
   storageInitializer: |-

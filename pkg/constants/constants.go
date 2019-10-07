@@ -84,6 +84,13 @@ const (
 	CustomSpecStorageUriEnvVarKey = "STORAGE_URI"
 )
 
+// ConfigMap Keys
+const (
+	PredictorConfigKeyName   = "predictors"
+	TransformerConfigKeyName = "transformers"
+	ExplainerConfigKeyName   = "explainers"
+)
+
 type KFServiceEndpoint string
 
 type KFServiceVerb string

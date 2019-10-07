@@ -131,16 +131,6 @@
         }
       }
     },
-    "v1alpha2.ExplainerConfig": {
-      "required": [
-        "image"
-      ],
-      "properties": {
-        "image": {
-          "type": "string"
-        }
-      }
-    },
     "v1alpha2.ExplainerSpec": {
       "description": "ExplainerSpec defines the arguments for a model explanation server",
       "properties": {
@@ -164,13 +154,6 @@
         "serviceAccountName": {
           "description": "ServiceAccountName is the name of the ServiceAccount to use to run the service",
           "type": "string"
-        }
-      }
-    },
-    "v1alpha2.ExplainersConfig": {
-      "properties": {
-        "alibi": {
-          "$ref": "#/definitions/v1alpha2.ExplainerConfig"
         }
       }
     },
@@ -304,16 +287,6 @@
         }
       }
     },
-    "v1alpha2.PredictorConfig": {
-      "required": [
-        "image"
-      ],
-      "properties": {
-        "image": {
-          "type": "string"
-        }
-      }
-    },
     "v1alpha2.PredictorSpec": {
       "description": "PredictorSpec defines the configuration to route traffic to a predictor.",
       "properties": {
@@ -352,28 +325,6 @@
         },
         "xgboost": {
           "$ref": "#/definitions/v1alpha2.XGBoostSpec"
-        }
-      }
-    },
-    "v1alpha2.PredictorsConfig": {
-      "properties": {
-        "onnx": {
-          "$ref": "#/definitions/v1alpha2.PredictorConfig"
-        },
-        "pytorch": {
-          "$ref": "#/definitions/v1alpha2.PredictorConfig"
-        },
-        "sklearn": {
-          "$ref": "#/definitions/v1alpha2.PredictorConfig"
-        },
-        "tensorflow": {
-          "$ref": "#/definitions/v1alpha2.PredictorConfig"
-        },
-        "tensorrt": {
-          "$ref": "#/definitions/v1alpha2.PredictorConfig"
-        },
-        "xgboost": {
-          "$ref": "#/definitions/v1alpha2.PredictorConfig"
         }
       }
     },

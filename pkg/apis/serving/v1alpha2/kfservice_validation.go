@@ -18,8 +18,8 @@ package v1alpha2
 
 import (
 	"fmt"
-
-	runtime "k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // Known error messages
@@ -38,18 +38,18 @@ var (
 )
 
 // ValidateCreate implements https://godoc.org/sigs.k8s.io/controller-runtime/pkg/webhook/admission#Validator
-func (kfsvc *KFService) ValidateCreate() error {
-	return kfsvc.validate()
+func (kfsvc *KFService) ValidateCreate(client client.Client) error {
+	return kfsvc.validate(client)
 }
 
 // ValidateUpdate implements https://godoc.org/sigs.k8s.io/controller-runtime/pkg/webhook/admission#Validator
-func (kfsvc *KFService) ValidateUpdate(old runtime.Object) error {
-	return kfsvc.validate()
+func (kfsvc *KFService) ValidateUpdate(old runtime.Object, client client.Client) error {
+	return kfsvc.validate(client)
 }
 
-func (kfsvc *KFService) validate() error {
+func (kfsvc *KFService) validate(client client.Client) error {
 	logger.Info("Validating KFService", "namespace", kfsvc.Namespace, "name", kfsvc.Name)
-	if err := validateKFService(kfsvc); err != nil {
+	if err := validateKFService(kfsvc, client); err != nil {
 		logger.Info("Failed to validate KFService", "namespace", kfsvc.Namespace, "name", kfsvc.Name,
 			"error", err.Error())
 		return err
@@ -58,7 +58,7 @@ func (kfsvc *KFService) validate() error {
 	return nil
 }
 
-func validateKFService(kfsvc *KFService) error {
+func validateKFService(kfsvc *KFService, client client.Client) error {
 	if kfsvc == nil {
 		return fmt.Errorf("Unable to validate, KFService is nil")
 	}
@@ -68,7 +68,7 @@ func validateKFService(kfsvc *KFService) error {
 	}
 
 	for _, endpoint := range endpoints {
-		if err := validateEndpoint(endpoint); err != nil {
+		if err := validateEndpoint(endpoint, client); err != nil {
 			return err
 		}
 	}
@@ -79,20 +79,41 @@ func validateKFService(kfsvc *KFService) error {
 	return nil
 }
 
-func validateEndpoint(endpoint *EndpointSpec) error {
+func validateEndpoint(endpoint *EndpointSpec, client client.Client) error {
 	if endpoint == nil {
 		return nil
 	}
-	if err := endpoint.Predictor.Validate(); err != nil {
+	configMap, err := GetKFServiceConfigMap(client)
+	if err != nil {
 		return err
 	}
+	// validate predictor
+	predictorConfig, err := GetPredictorConfigs(configMap)
+	if err != nil {
+		return err
+	}
+	if err := endpoint.Predictor.Validate(predictorConfig); err != nil {
+		return err
+	}
+
+	// validate transformer
 	if endpoint.Transformer != nil {
-		if err := endpoint.Transformer.Validate(); err != nil {
+		transformerConfig, err := GetTransformerConfigs(configMap)
+		if err != nil {
+			return err
+		}
+		if err := endpoint.Transformer.Validate(transformerConfig); err != nil {
 			return err
 		}
 	}
+
+	// validate explainer
 	if endpoint.Explainer != nil {
-		if err := endpoint.Explainer.Validate(); err != nil {
+		explainersConfig, err := GetExplainerConfigs(configMap)
+		if err != nil {
+			return err
+		}
+		if err := endpoint.Explainer.Validate(explainersConfig); err != nil {
 			return err
 		}
 	}

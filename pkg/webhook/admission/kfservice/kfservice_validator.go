@@ -43,7 +43,7 @@ func (validator *Validator) Handle(ctx context.Context, req admissiontypes.Reque
 		return admission.ErrorResponse(http.StatusInternalServerError, err)
 	}
 
-	if err := kfsvc.ValidateCreate(); err != nil {
+	if err := kfsvc.ValidateCreate(validator.Client); err != nil {
 		return admission.ErrorResponse(http.StatusBadRequest, err)
 	}
 

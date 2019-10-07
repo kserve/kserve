@@ -15,22 +15,15 @@ package v1alpha2
 
 import (
 	"fmt"
-	"strings"
-
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/utils"
-	v1 "k8s.io/api/core/v1"
+	"k8s.io/api/core/v1"
+	"strings"
 )
 
-// TODO add image name to to configmap
 var (
-	AllowedPyTorchRuntimeVersions = []string{
-		"latest",
-		"v0.1.2",
-	}
-	InvalidPyTorchRuntimeVersionError = "RuntimeVersion must be one of " + strings.Join(AllowedPyTorchRuntimeVersions, ", ")
+	InvalidPyTorchRuntimeVersionError = "RuntimeVersion must be one of %s"
 	PyTorchServerImageName            = "gcr.io/kfserving/pytorchserver"
-	DefaultPyTorchRuntimeVersion      = "latest"
 	DefaultPyTorchModelClassName      = "PyTorchModel"
 )
 
@@ -56,9 +49,9 @@ func (s *PyTorchSpec) GetContainer(modelName string, config *PredictorsConfig) *
 	}
 }
 
-func (s *PyTorchSpec) ApplyDefaults() {
+func (s *PyTorchSpec) ApplyDefaults(config *PredictorsConfig) {
 	if s.RuntimeVersion == "" {
-		s.RuntimeVersion = DefaultPyTorchRuntimeVersion
+		s.RuntimeVersion = config.PyTorch.DefaultImageVersion
 	}
 	if s.ModelClassName == "" {
 		s.ModelClassName = DefaultPyTorchModelClassName
@@ -66,9 +59,9 @@ func (s *PyTorchSpec) ApplyDefaults() {
 	setResourceRequirementDefaults(&s.Resources)
 }
 
-func (s *PyTorchSpec) Validate() error {
-	if utils.Includes(AllowedPyTorchRuntimeVersions, s.RuntimeVersion) {
+func (s *PyTorchSpec) Validate(config *PredictorsConfig) error {
+	if utils.Includes(config.PyTorch.AllowedImageVersions, s.RuntimeVersion) {
 		return nil
 	}
-	return fmt.Errorf(InvalidPyTorchRuntimeVersionError)
+	return fmt.Errorf(InvalidPyTorchRuntimeVersionError, strings.Join(config.PyTorch.AllowedImageVersions, ", "))
 }

@@ -27,8 +27,8 @@ import (
 type Predictor interface {
 	GetStorageUri() string
 	GetContainer(modelName string, config *PredictorsConfig) *v1.Container
-	ApplyDefaults()
-	Validate() error
+	ApplyDefaults(config *PredictorsConfig)
+	Validate(config *PredictorsConfig) error
 }
 
 const (
@@ -58,19 +58,19 @@ func (p *PredictorSpec) GetContainer(modelName string, config *PredictorsConfig)
 	return predictor.GetContainer(modelName, config)
 }
 
-func (p *PredictorSpec) ApplyDefaults() {
+func (p *PredictorSpec) ApplyDefaults(config *PredictorsConfig) {
 	predictor, err := getPredictor(p)
 	if err == nil {
-		predictor.ApplyDefaults()
+		predictor.ApplyDefaults(config)
 	}
 }
 
-func (p *PredictorSpec) Validate() error {
+func (p *PredictorSpec) Validate(config *PredictorsConfig) error {
 	predictor, err := getPredictor(p)
 	if err != nil {
 		return err
 	}
-	if err := predictor.Validate(); err != nil {
+	if err := predictor.Validate(config); err != nil {
 		return err
 	}
 	if err := validateStorageURI(p.GetStorageUri()); err != nil {
@@ -82,11 +82,16 @@ func (p *PredictorSpec) Validate() error {
 	return nil
 }
 
+// +k8s:openapi-gen=false
 type PredictorConfig struct {
 	ContainerImage string `json:"image"`
 
-	//TODO add readiness/liveness probe config
+	DefaultImageVersion    string   `json:"defaultImageVersion"`
+	DefaultGpuImageVersion string   `json:"defaultGpuImageVersion"`
+	AllowedImageVersions   []string `json:"allowedImageVersions"`
 }
+
+// +k8s:openapi-gen=false
 type PredictorsConfig struct {
 	Tensorflow PredictorConfig `json:"tensorflow,omitempty"`
 	TensorRT   PredictorConfig `json:"tensorrt,omitempty"`
