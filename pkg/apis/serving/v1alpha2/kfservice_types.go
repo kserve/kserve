@@ -88,6 +88,7 @@ type ExplainerSpec struct {
 // TransformerSpec defines transformer service for pre/post processing
 type TransformerSpec struct {
 	Custom *CustomSpec `json:"custom,omitempty"`
+	RequestLogging *v1.ObjectReference `json:"requestLogging,omitempty"`
 
 	DeploymentSpec `json:",inline"`
 }
