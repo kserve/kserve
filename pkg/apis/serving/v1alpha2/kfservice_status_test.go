@@ -18,7 +18,7 @@ package v1alpha2
 
 import (
 	"github.com/kubeflow/kfserving/pkg/constants"
-    "k8s.io/api/core/v1"
+	"k8s.io/api/core/v1"
 	"knative.dev/pkg/apis/duck"
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
@@ -56,7 +56,7 @@ func TestKFServiceIsReady(t *testing.T) {
 		defaultServiceStatus: v1alpha1.ServiceStatus{},
 		routeStatus:          VirtualServiceStatus{},
 		isReady:              false,
-    }, {
+	}, {
 		name: "Different condition type should not be ready",
 		defaultServiceStatus: v1alpha1.ServiceStatus{
 			Status: duckv1beta1.Status{
@@ -67,7 +67,7 @@ func TestKFServiceIsReady(t *testing.T) {
 			},
 		},
 		isReady: false,
-    }, {
+	}, {
 		name: "False condition status should not be ready",
 		defaultServiceStatus: v1alpha1.ServiceStatus{
 			Status: duckv1beta1.Status{
@@ -99,7 +99,7 @@ func TestKFServiceIsReady(t *testing.T) {
 			},
 		},
 		isReady: false,
-    }, {
+	}, {
 		name: "True condition status should be ready",
 		defaultServiceStatus: v1alpha1.ServiceStatus{
 			Status: duckv1beta1.Status{
@@ -107,7 +107,7 @@ func TestKFServiceIsReady(t *testing.T) {
 					Type:   v1alpha1.ConfigurationConditionReady,
 					Status: v1.ConditionTrue,
 				}},
-            },
+			},
 		},
 		routeStatus: VirtualServiceStatus{
 			Status: duckv1beta1.Status{
@@ -170,7 +170,7 @@ func TestKFServiceIsReady(t *testing.T) {
 			},
 		},
 		isReady: true,
-    }, {
+	}, {
 		name: "Multiple conditions with ready status false should not be ready",
 		defaultServiceStatus: v1alpha1.ServiceStatus{
 			Status: duckv1beta1.Status{
@@ -200,7 +200,7 @@ func TestKFServiceIsReady(t *testing.T) {
 			status.PropagateDefaultStatus(constants.Predictor, &tc.defaultServiceStatus)
 			status.PropagateCanaryStatus(constants.Predictor, &tc.canaryServiceStatus)
 			status.PropagateRouteStatus(&tc.routeStatus)
-			if e, a := tc.isReady, status.IsReady(); e != a {                
+			if e, a := tc.isReady, status.IsReady(); e != a {
 				t.Errorf("%q expected: %v got: %v conditions: %v", tc.name, e, a, status.Conditions)
 			}
 		})
