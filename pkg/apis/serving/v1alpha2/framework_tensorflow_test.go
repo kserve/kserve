@@ -33,7 +33,7 @@ const (
 	DefaultTensorflowRuntimeVersionGPU = "latest-gpu"
 )
 
-func TestFrameworkTensorflor(t *testing.T) {
+func TestFrameworkTensorflow(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	allowedTFServingImageVersionsArray := []string{
 		"latest",

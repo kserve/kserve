@@ -48,11 +48,13 @@ type ServiceBuilder struct {
 func NewServiceBuilder(client client.Client, config *v1.ConfigMap) *ServiceBuilder {
 	predictorConfig, err := v1alpha2.GetPredictorConfigs(config)
 	if err != nil {
+		fmt.Printf("Failed to get predictor config %s", err)
 		panic("Failed to get predictor config")
 
 	}
 	explainerConfig, err := v1alpha2.GetExplainerConfigs(config)
 	if err != nil {
+		fmt.Printf("Failed to get explainer config %s", err)
 		panic("Failed to get explainer config")
 	}
 
