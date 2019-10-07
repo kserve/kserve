@@ -14,107 +14,101 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package knative
+package istio
 
 import (
 	"context"
 	"fmt"
-	"github.com/kubeflow/kfserving/pkg/constants"
 
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
-	"github.com/kubeflow/kfserving/pkg/controller/kfservice/resources/knative"
+	"github.com/kubeflow/kfserving/pkg/controller/kfservice/resources/istio"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	istiov1alpha3 "knative.dev/pkg/apis/istio/v1alpha3"
 	"knative.dev/pkg/kmp"
-	knservingv1alpha1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
 
-type RouteReconciler struct {
-	client client.Client
-	scheme *runtime.Scheme
+var log = logf.Log.WithName("VirtualServiceReconciler")
+
+type VirtualServiceReconciler struct {
+	client         client.Client
+	scheme         *runtime.Scheme
+	serviceBuilder *istio.VirtualServiceBuilder
 }
 
-func NewRouteReconciler(client client.Client, scheme *runtime.Scheme) *RouteReconciler {
-	return &RouteReconciler{
-		client: client,
-		scheme: scheme,
+func NewVirtualServiceReconciler(client client.Client, scheme *runtime.Scheme, config *corev1.ConfigMap) *VirtualServiceReconciler {
+	return &VirtualServiceReconciler{
+		client:         client,
+		scheme:         scheme,
+		serviceBuilder: istio.NewVirtualServiceBuilder(config),
 	}
 }
 
-func (r *RouteReconciler) Reconcile(kfsvc *v1alpha2.KFService) error {
-	endpoint := constants.Predictor
-	if kfsvc.Spec.Default.Transformer != nil {
-		endpoint = constants.Transformer
+func (r *VirtualServiceReconciler) Reconcile(kfsvc *v1alpha2.KFService) error {
+	desired, status := r.serviceBuilder.CreateVirtualService(kfsvc)
+	if desired == nil {
+		if status != nil {
+			kfsvc.Status.PropagateRouteStatus(status)
+			return nil
+		}
+		return fmt.Errorf("failed to reconcile virtual service: desired and status are nil")
 	}
 
-	desired := knative.NewRouteBuilder().CreateKnativeRoute(kfsvc, endpoint, constants.Predict)
-
-	status, err := r.reconcileRoute(kfsvc, desired)
-	if err != nil {
+	if err := r.reconcileVirtualService(kfsvc, desired); err != nil {
 		return err
 	}
 
-	if kfsvc.Spec.Default.Explainer != nil {
-		endpoint := constants.Explainer
-
-		desired := knative.NewRouteBuilder().CreateKnativeRoute(kfsvc, endpoint, constants.Explain)
-
-		//TODO - what about status returned?
-		_, err := r.reconcileRoute(kfsvc, desired)
-		if err != nil {
-			return err
-		}
-	}
-
-	// Update parent object's status
 	kfsvc.Status.PropagateRouteStatus(status)
+
 	return nil
 }
 
-func (r *RouteReconciler) reconcileRoute(kfsvc *v1alpha2.KFService, desired *knservingv1alpha1.Route) (*knservingv1alpha1.RouteStatus, error) {
+func (r *VirtualServiceReconciler) reconcileVirtualService(kfsvc *v1alpha2.KFService, desired *istiov1alpha3.VirtualService) error {
 	if err := controllerutil.SetControllerReference(kfsvc, desired, r.scheme); err != nil {
-		return nil, err
+		return err
 	}
 
-	// Create route if does not exist
-	existing := &knservingv1alpha1.Route{}
+	// Create vanity virtual service if does not exist
+	existing := &istiov1alpha3.VirtualService{}
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, existing)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			log.Info("Creating Knative Serving route", "namespace", desired.Namespace, "name", desired.Name)
-			return &desired.Status, r.client.Create(context.TODO(), desired)
+			log.Info("Creating Virtual Service", "namespace", desired.Namespace, "name", desired.Name)
+			err = r.client.Create(context.TODO(), desired)
 		}
-		return nil, err
+		return err
 	}
 
 	// Return if no differences to reconcile.
 	if routeSemanticEquals(desired, existing) {
-		return &existing.Status, nil
+		return nil
 	}
 
 	// Reconcile differences and update
 	diff, err := kmp.SafeDiff(desired.Spec, existing.Spec)
 	if err != nil {
-		return nil, fmt.Errorf("failed to diff route: %v", err)
+		return fmt.Errorf("failed to diff virtual service: %v", err)
 	}
-	log.Info("Reconciling route diff (-desired, +observed):", "diff", diff)
-	log.Info("Updating route", "namespace", existing.Namespace, "name", existing.Name)
+	log.Info("Reconciling virtual service diff (-desired, +observed):", "diff", diff)
+	log.Info("Updating virtual service", "namespace", existing.Namespace, "name", existing.Name)
 	existing.Spec = desired.Spec
 	existing.ObjectMeta.Labels = desired.ObjectMeta.Labels
 	existing.ObjectMeta.Annotations = desired.ObjectMeta.Annotations
 	err = r.client.Update(context.TODO(), existing)
 	if err != nil {
-		return &existing.Status, err
+		return err
 	}
 
-	return &existing.Status, nil
+	return nil
 }
 
-func routeSemanticEquals(desired, existing *knservingv1alpha1.Route) bool {
+func routeSemanticEquals(desired, existing *istiov1alpha3.VirtualService) bool {
 	return equality.Semantic.DeepEqual(desired.Spec, existing.Spec) &&
 		equality.Semantic.DeepEqual(desired.ObjectMeta.Labels, existing.ObjectMeta.Labels) &&
 		equality.Semantic.DeepEqual(desired.ObjectMeta.Annotations, existing.ObjectMeta.Annotations)
