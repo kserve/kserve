@@ -2,20 +2,15 @@ package v1alpha2
 
 import (
 	"fmt"
-	"strings"
-
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/utils"
-	v1 "k8s.io/api/core/v1"
+	"k8s.io/api/core/v1"
+	"strings"
 )
 
 var (
-	AlibiImageName              = "docker.io/seldonio/alibiexplainer"
-	DefaultAlibiRuntimeVersion  = "0.2.3"
-	AllowedAlibiRuntimeVersions = []string{
-		"0.2.3",
-	}
-	InvalidAlibiRuntimeVersionError = "RuntimeVersion must be one of " + strings.Join(AllowedAlibiRuntimeVersions, ", ")
+	AlibiImageName                  = "docker.io/seldonio/alibiexplainer"
+	InvalidAlibiRuntimeVersionError = "RuntimeVersion must be one of %s"
 )
 
 func (s *AlibiExplainerSpec) GetStorageUri() string {
@@ -51,16 +46,16 @@ func (s *AlibiExplainerSpec) CreateExplainerContainer(modelName string, predicto
 	}
 }
 
-func (s *AlibiExplainerSpec) ApplyDefaults() {
+func (s *AlibiExplainerSpec) ApplyExplainerDefaults(config *ExplainersConfig) {
 	if s.RuntimeVersion == "" {
-		s.RuntimeVersion = DefaultAlibiRuntimeVersion
+		s.RuntimeVersion = config.AlibiExplainer.DefaultImageVersion
 	}
 	setResourceRequirementDefaults(&s.Resources)
 }
 
-func (s *AlibiExplainerSpec) Validate() error {
-	if !utils.Includes(AllowedAlibiRuntimeVersions, s.RuntimeVersion) {
-		return fmt.Errorf(InvalidAlibiRuntimeVersionError)
+func (s *AlibiExplainerSpec) ValidateExplainer(config *ExplainersConfig) error {
+	if !utils.Includes(config.AlibiExplainer.AllowedImageVersions, s.RuntimeVersion) {
+		return fmt.Errorf(InvalidAlibiRuntimeVersionError, strings.Join(config.AlibiExplainer.AllowedImageVersions, ", "))
 	}
 
 	return nil

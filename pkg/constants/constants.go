@@ -86,6 +86,13 @@ const (
 
 type InferenceServiceEndpoint string
 
+// ConfigMap Keys
+const (
+	PredictorConfigKeyName   = "predictors"
+	TransformerConfigKeyName = "transformers"
+	ExplainerConfigKeyName   = "explainers"
+)
+
 type InferenceServiceVerb string
 
 // InferenceService Endpoint enums

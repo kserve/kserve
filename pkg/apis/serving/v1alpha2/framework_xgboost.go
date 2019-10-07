@@ -15,22 +15,15 @@ package v1alpha2
 
 import (
 	"fmt"
-	"strings"
-
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/utils"
-	v1 "k8s.io/api/core/v1"
+	"k8s.io/api/core/v1"
+	"strings"
 )
 
-// TODO add image name to to configmap
 var (
-	AllowedXGBoostRuntimeVersions = []string{
-		"latest",
-		"v0.1.2",
-	}
-	InvalidXGBoostRuntimeVersionError = "RuntimeVersion must be one of " + strings.Join(AllowedXGBoostRuntimeVersions, ", ")
+	InvalidXGBoostRuntimeVersionError = "RuntimeVersion must be one of %s"
 	XGBoostServerImageName            = "gcr.io/kfserving/xgbserver"
-	DefaultXGBoostRuntimeVersion      = "latest"
 )
 
 func (x *XGBoostSpec) GetStorageUri() string {
@@ -52,17 +45,17 @@ func (x *XGBoostSpec) GetContainer(modelName string, config *PredictorsConfig) *
 	}
 }
 
-func (x *XGBoostSpec) ApplyDefaults() {
+func (x *XGBoostSpec) ApplyDefaults(config *PredictorsConfig) {
 	if x.RuntimeVersion == "" {
-		x.RuntimeVersion = DefaultXGBoostRuntimeVersion
+		x.RuntimeVersion = config.Xgboost.DefaultImageVersion
 	}
 
 	setResourceRequirementDefaults(&x.Resources)
 }
 
-func (x *XGBoostSpec) Validate() error {
-	if utils.Includes(AllowedXGBoostRuntimeVersions, x.RuntimeVersion) {
+func (x *XGBoostSpec) Validate(config *PredictorsConfig) error {
+	if utils.Includes(config.Xgboost.AllowedImageVersions, x.RuntimeVersion) {
 		return nil
 	}
-	return fmt.Errorf(InvalidXGBoostRuntimeVersionError)
+	return fmt.Errorf(InvalidXGBoostRuntimeVersionError, strings.Join(config.Xgboost.AllowedImageVersions, ", "))
 }

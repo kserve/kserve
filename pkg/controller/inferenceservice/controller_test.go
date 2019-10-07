@@ -47,7 +47,7 @@ import (
 
 var c client.Client
 
-const timeout = time.Second * 10
+const timeout = time.Second * 20
 
 var configs = map[string]string{
 	"predictors": `{

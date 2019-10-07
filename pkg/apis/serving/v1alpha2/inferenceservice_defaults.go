@@ -16,18 +16,47 @@ limitations under the License.
 
 package v1alpha2
 
+import "sigs.k8s.io/controller-runtime/pkg/client"
+
 // Default implements https://godoc.org/sigs.k8s.io/controller-runtime/pkg/webhook/admission#Defaulter
-func (isvc *InferenceService) Default() {
+
+func (isvc *InferenceService) Default(client client.Client) {
 	logger.Info("Defaulting InferenceService", "namespace", isvc.Namespace, "name", isvc.Name)
-	isvc.applyDefaultsEndpoint(&isvc.Spec.Default)
-	isvc.applyDefaultsEndpoint(isvc.Spec.Canary)
+	if err := isvc.applyDefaultsEndpoint(&isvc.Spec.Default, client); err != nil {
+		logger.Error(err, "Failed to apply defaults for default endpoints")
+	}
+	if err := isvc.applyDefaultsEndpoint(isvc.Spec.Canary, client); err != nil {
+		logger.Error(err, "Failed to apply defaults for canary endpoints")
+	}
 }
 
-func (isvc *InferenceService) applyDefaultsEndpoint(endpoint *EndpointSpec) {
+func (isvc *InferenceService) applyDefaultsEndpoint(endpoint *EndpointSpec, client client.Client) error {
 	if endpoint != nil {
-		endpoint.Predictor.ApplyDefaults()
+		configMap, err := GetInferenceServiceConfigMap(client)
+		if err != nil {
+			return err
+		}
+		predictorConfig, err := GetPredictorConfigs(configMap)
+		if err != nil {
+			return err
+		}
+		endpoint.Predictor.ApplyDefaults(predictorConfig)
+
+		if endpoint.Transformer != nil {
+			transformerConfig, err := GetTransformerConfigs(configMap)
+			if err != nil {
+				return err
+			}
+			endpoint.Transformer.ApplyDefaults(transformerConfig)
+		}
+
 		if endpoint.Explainer != nil {
-			endpoint.Explainer.ApplyDefaults()
+			explainersConfig, err := GetExplainerConfigs(configMap)
+			if err != nil {
+				return err
+			}
+			endpoint.Explainer.ApplyDefaults(explainersConfig)
 		}
 	}
+	return nil
 }

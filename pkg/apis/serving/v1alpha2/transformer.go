@@ -14,11 +14,25 @@ const (
 	ExactlyOneTransformerViolatedError = "Exactly one of [Custom, Feast] must be specified in TransformerSpec"
 )
 
+// +k8s:openapi-gen=false
+type TransformerConfig struct {
+	ContainerImage string `json:"image"`
+
+	DefaultImageVersion string `json:"defaultImageVersion"`
+
+	AllowedImageVersions []string `json:"allowedImageVersions"`
+}
+
+// +k8s:openapi-gen=false
+type TransformersConfig struct {
+	Feast TransformerConfig `json:"feast,omitempty"`
+}
+
 // Transformer interface is implemented by all Transformers
 type Transformer interface {
 	GetContainerSpec() *v1.Container
-	ApplyDefaults()
-	Validate() error
+	ApplyTransformerDefaults(config *TransformersConfig)
+	ValidateTransformer(config *TransformersConfig) error
 }
 
 // GetContainerSpec for the transformer
@@ -38,20 +52,20 @@ func (t *TransformerSpec) GetContainerSpec(metadata metav1.ObjectMeta, isCanary 
 }
 
 // ApplyDefaults to the TransformerSpec
-func (t *TransformerSpec) ApplyDefaults() {
+func (t *TransformerSpec) ApplyDefaults(config *TransformersConfig) {
 	transformer, err := getTransformer(t)
 	if err == nil {
-		transformer.ApplyDefaults()
+		transformer.ApplyTransformerDefaults(config)
 	}
 }
 
 // Validate the TransformerSpec
-func (t *TransformerSpec) Validate() error {
+func (t *TransformerSpec) Validate(config *TransformersConfig) error {
 	transformer, err := getTransformer(t)
 	if err != nil {
 		return err
 	}
-	return transformer.Validate()
+	return transformer.ValidateTransformer(config)
 }
 
 func getTransformer(t *TransformerSpec) (Transformer, error) {

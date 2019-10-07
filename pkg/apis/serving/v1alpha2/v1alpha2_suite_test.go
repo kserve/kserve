@@ -17,10 +17,14 @@ limitations under the License.
 package v1alpha2
 
 import (
+	"context"
+	"github.com/kubeflow/kfserving/pkg/constants"
+	"k8s.io/api/core/v1"
 	"os"
 	"path/filepath"
 	"testing"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog"
@@ -49,6 +53,46 @@ func TestMain(m *testing.M) {
 	if c, err = client.New(cfg, client.Options{Scheme: scheme.Scheme}); err != nil {
 		klog.Fatal(err)
 	}
+
+	// Create configmap
+	configs := map[string]string{
+		"predictors": `{
+        "tensorflow" : {
+            "image" : "tensorflow/serving",
+            "defaultImageVersion": "latest",
+            "allowedImageVersions": [
+               "latest",
+               "latest-gpu"
+            ]
+        },
+        "sklearn" : {
+            "image" : "kfserving/sklearnserver",
+            "defaultImageVersion": "latest",
+            "allowedImageVersions": [
+               "latest"
+            ]
+        },
+        "xgboost" : {
+            "image" : "kfserving/xgbserver",
+            "defaultImageVersion": "latest",
+            "allowedImageVersions": [
+               "latest",
+               "latest-gpu"
+            ]
+        }
+    }`,
+	}
+	var configMap = &v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      constants.KFServiceConfigMapName,
+			Namespace: constants.KFServingNamespace,
+		},
+		Data: configs,
+	}
+	if err := c.Create(context.TODO(), configMap); err != nil {
+		klog.Fatal(err)
+	}
+	defer c.Delete(context.TODO(), configMap)
 
 	code := m.Run()
 	t.Stop()

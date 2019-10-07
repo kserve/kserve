@@ -25,11 +25,8 @@ import (
 var (
 	DefaultTensorRTISImageName = "nvcr.io/nvidia/tensorrtserver"
 	// For versioning see https://github.com/NVIDIA/tensorrt-inference-server/releases
-	DefaultTensorRTISRuntimeVersion  = "19.05-py3"
-	AllowedTensorRTISRuntimeVersions = []string{
-		"19.05-py3",
-	}
-	InvalidTensorRTISRuntimeVersionError = "RuntimeVersion must be one of " + strings.Join(AllowedTensorRTISRuntimeVersions, ", ")
+
+	InvalidTensorRTISRuntimeVersionError = "RuntimeVersion must be one of %s"
 	TensorRTISGRPCPort                   = int32(9000)
 	TensorRTISRestPort                   = int32(8080)
 )
@@ -65,16 +62,16 @@ func (t *TensorRTSpec) GetContainer(modelName string, config *PredictorsConfig) 
 	}
 }
 
-func (t *TensorRTSpec) ApplyDefaults() {
+func (t *TensorRTSpec) ApplyDefaults(config *PredictorsConfig) {
 	if t.RuntimeVersion == "" {
-		t.RuntimeVersion = DefaultTensorRTISRuntimeVersion
+		t.RuntimeVersion = config.TensorRT.DefaultImageVersion
 	}
 	setResourceRequirementDefaults(&t.Resources)
 }
 
-func (t *TensorRTSpec) Validate() error {
-	if !utils.Includes(AllowedTensorRTISRuntimeVersions, t.RuntimeVersion) {
-		return fmt.Errorf(InvalidTensorRTISRuntimeVersionError)
+func (t *TensorRTSpec) Validate(config *PredictorsConfig) error {
+	if !utils.Includes(config.TensorRT.AllowedImageVersions, t.RuntimeVersion) {
+		return fmt.Errorf(InvalidTensorRTISRuntimeVersionError, strings.Join(config.TensorRT.AllowedImageVersions, ", "))
 	}
 
 	return nil

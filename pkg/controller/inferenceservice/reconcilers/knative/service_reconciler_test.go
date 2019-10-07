@@ -36,7 +36,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
-const timeout = time.Second * 5
+const (
+	timeout = time.Second * 5
+)
 
 func TestKnativeServiceReconcile(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
@@ -67,7 +69,7 @@ func TestKnativeServiceReconcile(t *testing.T) {
 					Default: v1alpha2.EndpointSpec{
 						Predictor: v1alpha2.PredictorSpec{
 							Tensorflow: &v1alpha2.TensorflowSpec{
-								RuntimeVersion: v1alpha2.DefaultTensorflowRuntimeVersion,
+								RuntimeVersion: DefaultTensorflowRuntimeVersion,
 								StorageURI:     "gs://testuri",
 							},
 						},
@@ -75,7 +77,7 @@ func TestKnativeServiceReconcile(t *testing.T) {
 					Canary: &v1alpha2.EndpointSpec{
 						Predictor: v1alpha2.PredictorSpec{
 							Tensorflow: &v1alpha2.TensorflowSpec{
-								RuntimeVersion: v1alpha2.DefaultTensorflowRuntimeVersion,
+								RuntimeVersion: DefaultTensorflowRuntimeVersion,
 								StorageURI:     "gs://testuri2",
 							},
 						},
@@ -104,7 +106,7 @@ func TestKnativeServiceReconcile(t *testing.T) {
 									PodSpec: v1.PodSpec{
 										Containers: []v1.Container{
 											{
-												Image:   v1alpha2.TensorflowServingImageName + ":" + v1alpha2.DefaultTensorflowRuntimeVersion,
+												Image:   v1alpha2.TensorflowServingImageName + ":" + DefaultTensorflowRuntimeVersion,
 												Command: []string{v1alpha2.TensorflowEntrypointCommand},
 												Args: []string{
 													"--port=" + v1alpha2.TensorflowServingGRPCPort,
@@ -143,7 +145,7 @@ func TestKnativeServiceReconcile(t *testing.T) {
 									PodSpec: v1.PodSpec{
 										Containers: []v1.Container{
 											{
-												Image:   v1alpha2.TensorflowServingImageName + ":" + v1alpha2.DefaultTensorflowRuntimeVersion,
+												Image:   v1alpha2.TensorflowServingImageName + ":" + DefaultTensorflowRuntimeVersion,
 												Command: []string{v1alpha2.TensorflowEntrypointCommand},
 												Args: []string{
 													"--port=" + v1alpha2.TensorflowServingGRPCPort,
@@ -171,7 +173,7 @@ func TestKnativeServiceReconcile(t *testing.T) {
 					Default: v1alpha2.EndpointSpec{
 						Predictor: v1alpha2.PredictorSpec{
 							Tensorflow: &v1alpha2.TensorflowSpec{
-								RuntimeVersion: v1alpha2.DefaultTensorflowRuntimeVersion,
+								RuntimeVersion: DefaultTensorflowRuntimeVersion,
 								StorageURI:     "gs://testuri",
 							},
 						},
@@ -200,7 +202,7 @@ func TestKnativeServiceReconcile(t *testing.T) {
 									PodSpec: v1.PodSpec{
 										Containers: []v1.Container{
 											{
-												Image:   v1alpha2.TensorflowServingImageName + ":" + v1alpha2.DefaultTensorflowRuntimeVersion,
+												Image:   v1alpha2.TensorflowServingImageName + ":" + DefaultTensorflowRuntimeVersion,
 												Command: []string{v1alpha2.TensorflowEntrypointCommand},
 												Args: []string{
 													"--port=" + v1alpha2.TensorflowServingGRPCPort,

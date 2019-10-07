@@ -23,8 +23,8 @@ import (
 type Explainer interface {
 	GetStorageUri() string
 	CreateExplainerContainer(modelName string, predictorHost string, config *ExplainersConfig) *v1.Container
-	ApplyDefaults()
-	Validate() error
+	ApplyExplainerDefaults(config *ExplainersConfig)
+	ValidateExplainer(config *ExplainersConfig) error
 }
 
 const (
@@ -49,19 +49,19 @@ func (e *ExplainerSpec) CreateExplainerContainer(modelName string, predictorHost
 	return explainer.CreateExplainerContainer(modelName, predictorHost, config)
 }
 
-func (e *ExplainerSpec) ApplyDefaults() {
+func (e *ExplainerSpec) ApplyDefaults(config *ExplainersConfig) {
 	explainer, err := getExplainer(e)
 	if err == nil {
-		explainer.ApplyDefaults()
+		explainer.ApplyExplainerDefaults(config)
 	}
 }
 
-func (e *ExplainerSpec) Validate() error {
+func (e *ExplainerSpec) Validate(config *ExplainersConfig) error {
 	explainer, err := getExplainer(e)
 	if err != nil {
 		return err
 	}
-	if err := explainer.Validate(); err != nil {
+	if err := explainer.ValidateExplainer(config); err != nil {
 		return err
 	}
 	if err := validateStorageURI(e.GetStorageUri()); err != nil {
@@ -70,11 +70,16 @@ func (e *ExplainerSpec) Validate() error {
 	return nil
 }
 
+// +k8s:openapi-gen=false
 type ExplainerConfig struct {
 	ContainerImage string `json:"image"`
 
-	//TODO add readiness/liveness probe config
+	DefaultImageVersion string `json:"defaultImageVersion"`
+
+	AllowedImageVersions []string `json:"allowedImageVersions"`
 }
+
+// +k8s:openapi-gen=false
 type ExplainersConfig struct {
 	AlibiExplainer ExplainerConfig `json:"alibi,omitempty"`
 }

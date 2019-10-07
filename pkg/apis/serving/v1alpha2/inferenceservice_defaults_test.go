@@ -20,8 +20,8 @@ import (
 	"testing"
 
 	"github.com/onsi/gomega"
-	v1 "k8s.io/api/core/v1"
-	resource "k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -43,7 +43,7 @@ func TestTensorflowDefaults(t *testing.T) {
 	isvc.Spec.Canary = isvc.Spec.Default.DeepCopy()
 	isvc.Spec.Canary.Predictor.Tensorflow.RuntimeVersion = "1.11"
 	isvc.Spec.Canary.Predictor.Tensorflow.Resources.Requests = v1.ResourceList{v1.ResourceMemory: resource.MustParse("3Gi")}
-	isvc.Default()
+	isvc.Default(c)
 
 	g.Expect(isvc.Spec.Default.Predictor.Tensorflow.RuntimeVersion).To(gomega.Equal(DefaultTensorflowRuntimeVersion))
 	g.Expect(isvc.Spec.Default.Predictor.Tensorflow.Resources.Requests[v1.ResourceCPU]).To(gomega.Equal(DefaultCPU))
