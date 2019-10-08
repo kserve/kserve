@@ -23,7 +23,7 @@ GKE will automatically apply corresponding tolerations to Pods requesting GPUs b
 These details will be determined by your individual kubernetes installation.
 
 ## Specifying GPU type
-Some kubernetes providers allow users to run multiple GPU types on the same cluster. These GPUs may be selected by providing an annotation on your KFService resource.
+Some kubernetes providers allow users to run multiple GPU types on the same cluster. These GPUs may be selected by providing an annotation on your InferenceService resource.
 
 ### GKE
 Apply the GKE Accelerator annotation as follows:

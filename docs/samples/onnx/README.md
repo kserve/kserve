@@ -1,11 +1,11 @@
 
-# Predict on a KFService using ONNX
+# Predict on a InferenceService using ONNX
 ## Setup
 1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/blob/master/docs/DEVELOPER_GUIDE.md#deploy-kfserving).
 2. Your cluster's Istio Ingress gateway must be network accessible.
 3. Your cluster's Istio Egresss gateway must [allow Google Cloud Storage](https://knative.dev/docs/serving/outbound-network-access/)
 
-## Create the KFService
+## Create the InferenceService
 Apply the CRD
 ```
 kubectl apply -f onnx.yaml 
@@ -13,13 +13,13 @@ kubectl apply -f onnx.yaml
 
 Expected Output
 ```
-$ kfservice.serving.kubeflow.org/style-sample configured
+$ inferenceservice.serving.kubeflow.org/style-sample configured
 ```
 
 ## Run a sample inference
 1. Setup env vars
 ```
-export SERVICE_URL=$(kubectl get kfservice ${MODEL_NAME} -o jsonpath='{.status.url}')
+export SERVICE_URL=$(kubectl get inferenceservice ${MODEL_NAME} -o jsonpath='{.status.url}')
 ```
 2. Verify the service is healthy
 ```

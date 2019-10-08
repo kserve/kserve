@@ -226,23 +226,23 @@ def patch_service_account(secret_name, namespace, sa_name):
 
 
 def get_creds_name_from_config_map(creds):
-    '''Get the credentials name from kfservice config map.'''
+    '''Get the credentials name from inferenceservice config map.'''
     try:
-        kfsvc_config_map = client.CoreV1Api().read_namespaced_config_map(
-            constants.KFSERVICE_CONFIG_MAP_NAME,
-            constants.KFSERVICE_SYSTEM_NAMESPACE)
+        isvc_config_map = client.CoreV1Api().read_namespaced_config_map(
+            constants.INFERENCESERVICE_CONFIG_MAP_NAME,
+            constants.INFERENCESERVICE_SYSTEM_NAMESPACE)
     except client.rest.ApiException as e:
         raise RuntimeError(
             "Exception when calling CoreV1Api->read_namespaced_config_map: %s\n" % e)
 
-    kfsvc_creds_str = kfsvc_config_map.data['credentials']
-    kfsvc_creds_json = json.loads(kfsvc_creds_str)
+    isvc_creds_str = isvc_config_map.data['credentials']
+    isvc_creds_json = json.loads(isvc_creds_str)
 
     if creds == 'gcsCredentialFileName':
-        return kfsvc_creds_json['gcs']['gcsCredentialFileName']
+        return isvc_creds_json['gcs']['gcsCredentialFileName']
     elif creds == 's3AccessKeyIDName':
-        return kfsvc_creds_json['s3']['s3AccessKeyIDName']
+        return isvc_creds_json['s3']['s3AccessKeyIDName']
     elif creds == 's3SecretAccessKeyName':
-        return kfsvc_creds_json['s3']['s3SecretAccessKeyName']
+        return isvc_creds_json['s3']['s3SecretAccessKeyName']
     else:
         raise RuntimeError("Unknown credentials.")

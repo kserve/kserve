@@ -1,5 +1,5 @@
 
-# Predict on a KFService with saved model on S3
+# Predict on a InferenceService with saved model on S3
 ## Setup
 1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/blob/master/docs/DEVELOPER_GUIDE.md#deploy-kfserving).
 2. Your cluster's Istio Ingress gateway must be network accessible.
@@ -42,7 +42,7 @@ data:
 ```
 
 `KFServing` gets the secrets from your service account, you need to add the above created or existing secret to your service account's secret list. 
-By default `KFServing` uses `default` service account, user can use own service account and overwrite on `KFService` CRD.
+By default `KFServing` uses `default` service account, user can use own service account and overwrite on `InferenceService` CRD.
 
 ```yaml
 apiVersion: v1
@@ -58,7 +58,7 @@ Apply the secret and service account
 kubectl apply -f s3_secret.yaml
 ```
 
-## Create the KFService
+## Create the InferenceService
 Apply the CRD
 ```bash
 kubectl apply -f tensorflow_s3.yaml 
@@ -66,7 +66,7 @@ kubectl apply -f tensorflow_s3.yaml
 
 Expected Output
 ```
-$ kfservice.serving.kubeflow.org/mnist-s3 created
+$ inferenceservice.serving.kubeflow.org/mnist-s3 created
 ```
 
 ## Run a prediction

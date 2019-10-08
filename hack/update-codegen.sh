@@ -23,5 +23,5 @@ CODEGEN_PKG=${KUBE_ROOT}/vendor/k8s.io/code-generator
 if [ -z "${GOPATH:-}" ]; then
     export GOPATH=$(go env GOPATH)
 fi
-# Generating KFservice client files
+# Generating INFERENCESERVICE client files
 ${CODEGEN_PKG}/generate-groups.sh all "github.com/kubeflow/kfserving/pkg/client" "github.com/kubeflow/kfserving/pkg/apis" serving:v1alpha2
