@@ -363,13 +363,13 @@ transformer service calls to predictor service.</p>
 </tbody>
 </table>
 <h3 id="serving.kubeflow.org/v1alpha2.EndpointStatusMap">EndpointStatusMap
-(<code>map[github.com/kubeflow/kfserving/pkg/constants.KFServiceEndpoint]*github.com/yuzisun/kfserving/pkg/apis/serving/v1alpha2.StatusConfigurationSpec</code> alias)</p></h3>
+(<code>map[invalid type]*github.com/yuzisun/kfserving/pkg/apis/serving/v1alpha2.StatusConfigurationSpec</code> alias)</p></h3>
 <p>
 (<em>Appears on:</em>
-<a href="#serving.kubeflow.org/v1alpha2.KFServiceStatus">KFServiceStatus</a>)
+<a href="#serving.kubeflow.org/v1alpha2.InferenceServiceStatus">InferenceServiceStatus</a>)
 </p>
 <p>
-<p>EndpointStatusMap defines the observed state of KFService endpoints</p>
+<p>EndpointStatusMap defines the observed state of InferenceService endpoints</p>
 </p>
 <h3 id="serving.kubeflow.org/v1alpha2.Explainer">Explainer
 </h3>
@@ -502,124 +502,6 @@ DeploymentSpec
 <em>
 <a href="#serving.kubeflow.org/v1alpha2.ExplainerConfig">
 ExplainerConfig
-</a>
-</em>
-</td>
-<td>
-</td>
-</tr>
-</tbody>
-</table>
-<h3 id="serving.kubeflow.org/v1alpha2.PredictorConfig">PredictorConfig
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#serving.kubeflow.org/v1alpha2.PredictorsConfig">PredictorsConfig</a>)
-</p>
-<p>
-</p>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>image</code></br>
-<em>
-string
-</em>
-</td>
-<td>
-</td>
-</tr>
-</tbody>
-</table>
-<h3 id="serving.kubeflow.org/v1alpha2.Predictor">Predictor
-</h3>
-<p>
-</p>
-<h3 id="serving.kubeflow.org/v1alpha2.PredictorsConfig">PredictorsConfig
-</h3>
-<p>
-</p>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>tensorflow</code></br>
-<em>
-<a href="#serving.kubeflow.org/v1alpha2.PredictorConfig">
-PredictorConfig
-</a>
-</em>
-</td>
-<td>
-</td>
-</tr>
-<tr>
-<td>
-<code>tensorrt</code></br>
-<em>
-<a href="#serving.kubeflow.org/v1alpha2.PredictorConfig">
-PredictorConfig
-</a>
-</em>
-</td>
-<td>
-</td>
-</tr>
-<tr>
-<td>
-<code>xgboost</code></br>
-<em>
-<a href="#serving.kubeflow.org/v1alpha2.PredictorConfig">
-PredictorConfig
-</a>
-</em>
-</td>
-<td>
-</td>
-</tr>
-<tr>
-<td>
-<code>sklearn</code></br>
-<em>
-<a href="#serving.kubeflow.org/v1alpha2.PredictorConfig">
-PredictorConfig
-</a>
-</em>
-</td>
-<td>
-</td>
-</tr>
-<tr>
-<td>
-<code>pytorch</code></br>
-<em>
-<a href="#serving.kubeflow.org/v1alpha2.PredictorConfig">
-PredictorConfig
-</a>
-</em>
-</td>
-<td>
-</td>
-</tr>
-<tr>
-<td>
-<code>onnx</code></br>
-<em>
-<a href="#serving.kubeflow.org/v1alpha2.PredictorConfig">
-PredictorConfig
 </a>
 </em>
 </td>
@@ -1226,10 +1108,6 @@ Kubernetes core/v1.ResourceRequirements
 </table>
 <h3 id="serving.kubeflow.org/v1alpha2.StatusConfigurationSpec">StatusConfigurationSpec
 </h3>
-<p>
-(<em>Appears on:</em>
-<a href="#serving.kubeflow.org/v1alpha2.InferenceServiceStatus">InferenceServiceStatus</a>)
-</p>
 <p>
 <p>StatusConfigurationSpec describes the state of the configuration receiving traffic.</p>
 </p>

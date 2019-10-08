@@ -84,7 +84,7 @@ func TestMain(m *testing.M) {
 	}
 	var configMap = &v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      constants.KFServiceConfigMapName,
+			Name:      constants.InferenceServiceConfigMapName,
 			Namespace: constants.KFServingNamespace,
 		},
 		Data: configs,
