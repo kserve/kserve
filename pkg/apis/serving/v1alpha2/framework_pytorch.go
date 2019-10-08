@@ -25,6 +25,7 @@ var (
 	InvalidPyTorchRuntimeVersionError = "RuntimeVersion must be one of %s"
 	PyTorchServerImageName            = "gcr.io/kfserving/pytorchserver"
 	DefaultPyTorchModelClassName      = "PyTorchModel"
+	DefaultPytorchRuntimeVersion      = "latest"
 )
 
 var _ Predictor = (*PyTorchSpec)(nil)

@@ -28,11 +28,6 @@ import (
 	resource "k8s.io/apimachinery/pkg/api/resource"
 )
 
-const (
-	DefaultTensorflowRuntimeVersion    = "latest"
-	DefaultTensorflowRuntimeVersionGPU = "latest-gpu"
-)
-
 func TestFrameworkTensorflow(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	allowedTFServingImageVersionsArray := []string{

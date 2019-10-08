@@ -24,6 +24,7 @@ import (
 var (
 	InvalidXGBoostRuntimeVersionError = "RuntimeVersion must be one of %s"
 	XGBoostServerImageName            = "gcr.io/kfserving/xgbserver"
+	DefaultXGBoostRuntimeVersion      = "latest"
 )
 
 func (x *XGBoostSpec) GetStorageUri() string {

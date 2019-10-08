@@ -10,38 +10,38 @@ import (
 	"testing"
 )
 
-func TestFrameworkSKLearn(t *testing.T) {
+func TestFrameworkPytorch(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	allowedSKLearnImageVersionsArray := []string{
-		DefaultSKLearnRuntimeVersion,
+	allowedPyTorchImageVersionsArray := []string{
+		DefaultPytorchRuntimeVersion,
 	}
-	allowedSKLearnImageVersions := strings.Join(allowedSKLearnImageVersionsArray, ", ")
+	allowedPyTorchImageVersions := strings.Join(allowedPyTorchImageVersionsArray, ", ")
 
 	scenarios := map[string]struct {
-		spec    SKLearnSpec
+		spec    PyTorchSpec
 		matcher types.GomegaMatcher
 	}{
 		"AcceptGoodRuntimeVersion": {
-			spec: SKLearnSpec{
+			spec: PyTorchSpec{
 				RuntimeVersion: DefaultSKLearnRuntimeVersion,
 			},
 			matcher: gomega.Succeed(),
 		},
 		"RejectBadRuntimeVersion": {
-			spec: SKLearnSpec{
+			spec: PyTorchSpec{
 				RuntimeVersion: "",
 			},
-			matcher: gomega.MatchError(fmt.Sprintf(InvalidSKLearnRuntimeVersionError, allowedSKLearnImageVersions)),
+			matcher: gomega.MatchError(fmt.Sprintf(InvalidPyTorchRuntimeVersionError, allowedPyTorchImageVersions)),
 		},
 	}
 
 	for name, scenario := range scenarios {
 		config := &InferenceEndpointsConfigMap{
 			Predictors: &PredictorsConfig{
-				SKlearn: PredictorConfig{
-					ContainerImage:       "kfserving/sklearnserver",
+				PyTorch: PredictorConfig{
+					ContainerImage:       "kfserving/pytorchserver",
 					DefaultImageVersion:  "latest",
-					AllowedImageVersions: allowedSKLearnImageVersionsArray,
+					AllowedImageVersions: allowedPyTorchImageVersionsArray,
 				},
 			},
 		}
@@ -49,7 +49,7 @@ func TestFrameworkSKLearn(t *testing.T) {
 	}
 }
 
-func TestCreateSKLearnModelServingContainer(t *testing.T) {
+func TestCreatePytorchModelServingContainer(t *testing.T) {
 
 	var requestedResource = v1.ResourceRequirements{
 		Limits: v1.ResourceList{
@@ -65,14 +65,15 @@ func TestCreateSKLearnModelServingContainer(t *testing.T) {
 	}
 	var config = InferenceEndpointsConfigMap{
 		Predictors: &PredictorsConfig{
-			SKlearn: PredictorConfig{
+			PyTorch: PredictorConfig{
 				ContainerImage:      "someOtherImage",
 				DefaultImageVersion: "0.1.0",
 			},
 		},
 	}
-	var spec = SKLearnSpec{
+	var spec = PyTorchSpec{
 		StorageURI:     "gs://someUri",
+		ModelClassName: "Net",
 		Resources:      requestedResource,
 		RuntimeVersion: "0.1.0",
 	}
@@ -83,6 +84,7 @@ func TestCreateSKLearnModelServingContainer(t *testing.T) {
 		Resources: requestedResource,
 		Args: []string{
 			"--model_name=someName",
+			"--model_class_name=Net",
 			"--model_dir=/mnt/models",
 		},
 	}
@@ -92,10 +94,10 @@ func TestCreateSKLearnModelServingContainer(t *testing.T) {
 	g.Expect(container).To(gomega.Equal(expectedContainer))
 
 	// Test Create without config
-	expectedContainer.Image = "gcr.io/kfserving/sklearnserver:0.1.0"
+	expectedContainer.Image = "gcr.io/kfserving/pytorchserver:0.1.0"
 	emptyConfig := InferenceEndpointsConfigMap{
 		Predictors: &PredictorsConfig{
-			SKlearn: PredictorConfig{},
+			PyTorch: PredictorConfig{},
 		},
 	}
 	container = spec.GetContainer("someName", &emptyConfig)

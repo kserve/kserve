@@ -10,38 +10,38 @@ import (
 	"testing"
 )
 
-func TestFrameworkSKLearn(t *testing.T) {
+func TestFrameworkXgBoost(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	allowedSKLearnImageVersionsArray := []string{
-		DefaultSKLearnRuntimeVersion,
+	allowedXgBoostImageVersionsArray := []string{
+		DefaultXGBoostRuntimeVersion,
 	}
-	allowedSKLearnImageVersions := strings.Join(allowedSKLearnImageVersionsArray, ", ")
+	allowedXGBoostImageVersions := strings.Join(allowedXgBoostImageVersionsArray, ", ")
 
 	scenarios := map[string]struct {
-		spec    SKLearnSpec
+		spec    XGBoostSpec
 		matcher types.GomegaMatcher
 	}{
 		"AcceptGoodRuntimeVersion": {
-			spec: SKLearnSpec{
-				RuntimeVersion: DefaultSKLearnRuntimeVersion,
+			spec: XGBoostSpec{
+				RuntimeVersion: DefaultXGBoostRuntimeVersion,
 			},
 			matcher: gomega.Succeed(),
 		},
 		"RejectBadRuntimeVersion": {
-			spec: SKLearnSpec{
+			spec: XGBoostSpec{
 				RuntimeVersion: "",
 			},
-			matcher: gomega.MatchError(fmt.Sprintf(InvalidSKLearnRuntimeVersionError, allowedSKLearnImageVersions)),
+			matcher: gomega.MatchError(fmt.Sprintf(InvalidXGBoostRuntimeVersionError, allowedXGBoostImageVersions)),
 		},
 	}
 
 	for name, scenario := range scenarios {
 		config := &InferenceEndpointsConfigMap{
 			Predictors: &PredictorsConfig{
-				SKlearn: PredictorConfig{
-					ContainerImage:       "kfserving/sklearnserver",
+				Xgboost: PredictorConfig{
+					ContainerImage:       "kfserving/xgboostserver",
 					DefaultImageVersion:  "latest",
-					AllowedImageVersions: allowedSKLearnImageVersionsArray,
+					AllowedImageVersions: allowedXgBoostImageVersionsArray,
 				},
 			},
 		}
@@ -49,7 +49,7 @@ func TestFrameworkSKLearn(t *testing.T) {
 	}
 }
 
-func TestCreateSKLearnModelServingContainer(t *testing.T) {
+func TestCreateXGBoostContainer(t *testing.T) {
 
 	var requestedResource = v1.ResourceRequirements{
 		Limits: v1.ResourceList{
@@ -65,13 +65,13 @@ func TestCreateSKLearnModelServingContainer(t *testing.T) {
 	}
 	var config = InferenceEndpointsConfigMap{
 		Predictors: &PredictorsConfig{
-			SKlearn: PredictorConfig{
+			Xgboost: PredictorConfig{
 				ContainerImage:      "someOtherImage",
 				DefaultImageVersion: "0.1.0",
 			},
 		},
 	}
-	var spec = SKLearnSpec{
+	var spec = XGBoostSpec{
 		StorageURI:     "gs://someUri",
 		Resources:      requestedResource,
 		RuntimeVersion: "0.1.0",
@@ -92,10 +92,10 @@ func TestCreateSKLearnModelServingContainer(t *testing.T) {
 	g.Expect(container).To(gomega.Equal(expectedContainer))
 
 	// Test Create without config
-	expectedContainer.Image = "gcr.io/kfserving/sklearnserver:0.1.0"
+	expectedContainer.Image = "gcr.io/kfserving/xgbserver:0.1.0"
 	emptyConfig := InferenceEndpointsConfigMap{
 		Predictors: &PredictorsConfig{
-			SKlearn: PredictorConfig{},
+			Xgboost: PredictorConfig{},
 		},
 	}
 	container = spec.GetContainer("someName", &emptyConfig)

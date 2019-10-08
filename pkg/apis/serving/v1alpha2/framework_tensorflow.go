@@ -28,6 +28,8 @@ var (
 	TensorflowServingRestPort            = "8080"
 	TensorflowServingImageName           = "tensorflow/serving"
 	TensorflowServingGPUSuffix           = "-gpu"
+	DefaultTensorflowRuntimeVersion      = "latest"
+	DefaultTensorflowRuntimeVersionGPU   = "latest-gpu"
 	InvalidTensorflowRuntimeVersionError = "RuntimeVersion must be one of %s"
 	InvalidTensorflowRuntimeIncludesGPU  = "RuntimeVersion is not GPU enabled but GPU resources are requested. " + InvalidTensorflowRuntimeVersionError
 	InvalidTensorflowRuntimeExcludesGPU  = "RuntimeVersion is GPU enabled but GPU resources are not requested. " + InvalidTensorflowRuntimeVersionError

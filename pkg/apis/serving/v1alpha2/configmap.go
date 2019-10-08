@@ -46,8 +46,7 @@ type PredictorsConfig struct {
 type TransformerConfig struct {
 	ContainerImage string `json:"image"`
 
-	DefaultImageVersion string `json:"defaultImageVersion"`
-
+	DefaultImageVersion  string   `json:"defaultImageVersion"`
 	AllowedImageVersions []string `json:"allowedImageVersions"`
 }
 
@@ -59,7 +58,7 @@ type TransformersConfig struct {
 // +k8s:openapi-gen=false
 type InferenceEndpointsConfigMap struct {
 	Transformers *TransformersConfig `json:"transformers,omitempty"`
-	Predictors   *PredictorsConfig   `json:"predictors,omitempty"`
+	Predictors   *PredictorsConfig   `json:"predictors"`
 	Explainers   *ExplainersConfig   `json:"explainers,omitempty"`
 }
 
