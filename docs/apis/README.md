@@ -362,6 +362,19 @@ transformer service calls to predictor service</p>
 </tr>
 </tbody>
 </table>
+<h3 id="serving.kubeflow.org/v1alpha2.EndpointStatusMap">EndpointStatusMap
+(<code>map[github.com/kubeflow/kfserving/pkg/constants.KFServiceEndpoint]*github.com/yuzisun/kfserving/pkg/apis/serving/v1alpha2.StatusConfigurationSpec</code> alias)</p></h3>
+<p>
+(<em>Appears on:</em>
+<a href="#serving.kubeflow.org/v1alpha2.KFServiceStatus">KFServiceStatus</a>)
+</p>
+<p>
+<p>EndpointStatusMap defines the observed state of KFService endpoints</p>
+</p>
+<h3 id="serving.kubeflow.org/v1alpha2.Explainer">Explainer
+</h3>
+<p>
+</p>
 <h3 id="serving.kubeflow.org/v1alpha2.ExplainerConfig">ExplainerConfig
 </h3>
 <p>
@@ -390,10 +403,6 @@ string
 </tr>
 </tbody>
 </table>
-<h3 id="serving.kubeflow.org/v1alpha2.ExplainerHandler">ExplainerHandler
-</h3>
-<p>
-</p>
 <h3 id="serving.kubeflow.org/v1alpha2.ExplainerSpec">ExplainerSpec
 </h3>
 <p>
@@ -699,8 +708,8 @@ string
 <td>
 <code>default</code></br>
 <em>
-<a href="#serving.kubeflow.org/v1alpha2.StatusConfigurationSpec">
-StatusConfigurationSpec
+<a href="#serving.kubeflow.org/v1alpha2.EndpointStatusMap">
+EndpointStatusMap
 </a>
 </em>
 </td>
@@ -711,8 +720,8 @@ StatusConfigurationSpec
 <td>
 <code>canary</code></br>
 <em>
-<a href="#serving.kubeflow.org/v1alpha2.StatusConfigurationSpec">
-StatusConfigurationSpec
+<a href="#serving.kubeflow.org/v1alpha2.EndpointStatusMap">
+EndpointStatusMap
 </a>
 </em>
 </td>
@@ -771,6 +780,38 @@ Kubernetes core/v1.ResourceRequirements
 </td>
 <td>
 <p>Defaults to requests and limits of 1CPU, 2Gb MEM.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="serving.kubeflow.org/v1alpha2.Predictor">Predictor
+</h3>
+<p>
+</p>
+<h3 id="serving.kubeflow.org/v1alpha2.PredictorConfig">PredictorConfig
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#serving.kubeflow.org/v1alpha2.PredictorsConfig">PredictorsConfig</a>)
+</p>
+<p>
+</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>image</code></br>
+<em>
+string
+</em>
+</td>
+<td>
 </td>
 </tr>
 </tbody>
@@ -890,6 +931,92 @@ DeploymentSpec
 <p>
 (Members of <code>DeploymentSpec</code> are embedded into this type.)
 </p>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="serving.kubeflow.org/v1alpha2.PredictorsConfig">PredictorsConfig
+</h3>
+<p>
+</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>tensorflow</code></br>
+<em>
+<a href="#serving.kubeflow.org/v1alpha2.PredictorConfig">
+PredictorConfig
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>tensorrt</code></br>
+<em>
+<a href="#serving.kubeflow.org/v1alpha2.PredictorConfig">
+PredictorConfig
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>xgboost</code></br>
+<em>
+<a href="#serving.kubeflow.org/v1alpha2.PredictorConfig">
+PredictorConfig
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>sklearn</code></br>
+<em>
+<a href="#serving.kubeflow.org/v1alpha2.PredictorConfig">
+PredictorConfig
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>pytorch</code></br>
+<em>
+<a href="#serving.kubeflow.org/v1alpha2.PredictorConfig">
+PredictorConfig
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>onnx</code></br>
+<em>
+<a href="#serving.kubeflow.org/v1alpha2.PredictorConfig">
+PredictorConfig
+</a>
+</em>
+</td>
+<td>
 </td>
 </tr>
 </tbody>
@@ -1042,6 +1169,16 @@ string
 </tr>
 <tr>
 <td>
+<code>host</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
 <code>replicas</code></br>
 <em>
 int
@@ -1170,6 +1307,11 @@ Kubernetes core/v1.ResourceRequirements
 </tr>
 </tbody>
 </table>
+<h3 id="serving.kubeflow.org/v1alpha2.Transformer">Transformer
+</h3>
+<p>
+<p>Transformer interface is implemented by all Transformers</p>
+</p>
 <h3 id="serving.kubeflow.org/v1alpha2.TransformerSpec">TransformerSpec
 </h3>
 <p>
