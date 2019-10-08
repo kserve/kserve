@@ -10,6 +10,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// ConfigMap Keys
+const (
+	PredictorConfigKeyName   = "predictors"
+	TransformerConfigKeyName = "transformers"
+	ExplainerConfigKeyName   = "explainers"
+)
+
 // +k8s:openapi-gen=false
 type ExplainerConfig struct {
 	ContainerImage string `json:"image"`
@@ -57,9 +64,9 @@ type TransformersConfig struct {
 
 // +k8s:openapi-gen=false
 type InferenceEndpointsConfigMap struct {
-	Transformers *TransformersConfig `json:"transformers,omitempty"`
+	Transformers *TransformersConfig `json:"transformers"`
 	Predictors   *PredictorsConfig   `json:"predictors"`
-	Explainers   *ExplainersConfig   `json:"explainers,omitempty"`
+	Explainers   *ExplainersConfig   `json:"explainers"`
 }
 
 func GetInferenceEndpointsConfigMap(client client.Client) (*InferenceEndpointsConfigMap, error) {
@@ -99,7 +106,7 @@ func NewInferenceEndpointsConfigMap(configMap *v1.ConfigMap) (*InferenceEndpoint
 
 func getPredictorsConfigs(configMap *v1.ConfigMap) (*PredictorsConfig, error) {
 	predictorConfig := &PredictorsConfig{}
-	if data, ok := configMap.Data[constants.PredictorConfigKeyName]; ok {
+	if data, ok := configMap.Data[PredictorConfigKeyName]; ok {
 		err := json.Unmarshal([]byte(data), &predictorConfig)
 		if err != nil {
 			return nil, fmt.Errorf("Unable to unmarshall json string due to %v ", err)
@@ -110,7 +117,7 @@ func getPredictorsConfigs(configMap *v1.ConfigMap) (*PredictorsConfig, error) {
 
 func getTransformersConfigs(configMap *v1.ConfigMap) (*TransformersConfig, error) {
 	transformerConfig := &TransformersConfig{}
-	if data, ok := configMap.Data[constants.TransformerConfigKeyName]; ok {
+	if data, ok := configMap.Data[TransformerConfigKeyName]; ok {
 		err := json.Unmarshal([]byte(data), &transformerConfig)
 		if err != nil {
 			return nil, fmt.Errorf("Unable to unmarshall json string due to %v ", err)
@@ -121,7 +128,7 @@ func getTransformersConfigs(configMap *v1.ConfigMap) (*TransformersConfig, error
 
 func getExplainersConfigs(configMap *v1.ConfigMap) (*ExplainersConfig, error) {
 	explainerConfig := &ExplainersConfig{}
-	if data, ok := configMap.Data[constants.ExplainerConfigKeyName]; ok {
+	if data, ok := configMap.Data[ExplainerConfigKeyName]; ok {
 		err := json.Unmarshal([]byte(data), &explainerConfig)
 		if err != nil {
 			return nil, fmt.Errorf("Unable to unmarshall json string due to %v ", err)

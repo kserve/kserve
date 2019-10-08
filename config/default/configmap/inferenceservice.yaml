@@ -9,7 +9,7 @@ data:
         "tensorflow": {
             "image": "tensorflow/serving",
             "defaultImageVersion": "latest",
-            "defaultGpuImageVersion": "latest",
+            "defaultGpuImageVersion": "latest-gpu",
             "allowedImageVersions": [
                "latest",
                "latest-gpu",
