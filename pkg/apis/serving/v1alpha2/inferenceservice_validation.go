@@ -83,37 +83,25 @@ func validateEndpoint(endpoint *EndpointSpec, client client.Client) error {
 	if endpoint == nil {
 		return nil
 	}
-	configMap, err := GetInferenceServiceConfigMap(client)
+	configMap, err := GetInferenceEndpointsConfigMap(client)
 	if err != nil {
 		return err
 	}
 	// validate predictor
-	predictorConfig, err := GetPredictorConfigs(configMap)
-	if err != nil {
-		return err
-	}
-	if err := endpoint.Predictor.Validate(predictorConfig); err != nil {
+	if err := endpoint.Predictor.Validate(configMap); err != nil {
 		return err
 	}
 
 	// validate transformer
 	if endpoint.Transformer != nil {
-		transformerConfig, err := GetTransformerConfigs(configMap)
-		if err != nil {
-			return err
-		}
-		if err := endpoint.Transformer.Validate(transformerConfig); err != nil {
+		if err := endpoint.Transformer.Validate(configMap); err != nil {
 			return err
 		}
 	}
 
 	// validate explainer
 	if endpoint.Explainer != nil {
-		explainersConfig, err := GetExplainerConfigs(configMap)
-		if err != nil {
-			return err
-		}
-		if err := endpoint.Explainer.Validate(explainersConfig); err != nil {
+		if err := endpoint.Explainer.Validate(configMap); err != nil {
 			return err
 		}
 	}

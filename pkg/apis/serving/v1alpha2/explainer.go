@@ -22,9 +22,9 @@ import (
 
 type Explainer interface {
 	GetStorageUri() string
-	CreateExplainerContainer(modelName string, predictorHost string, config *ExplainersConfig) *v1.Container
-	ApplyExplainerDefaults(config *ExplainersConfig)
-	ValidateExplainer(config *ExplainersConfig) error
+	CreateExplainerContainer(modelName string, predictorHost string, config *InferenceEndpointsConfigMap) *v1.Container
+	ApplyDefaults(config *InferenceEndpointsConfigMap)
+	Validate(config *InferenceEndpointsConfigMap) error
 }
 
 const (
@@ -41,7 +41,7 @@ func (e *ExplainerSpec) GetStorageUri() string {
 	return explainer.GetStorageUri()
 }
 
-func (e *ExplainerSpec) CreateExplainerContainer(modelName string, predictorHost string, config *ExplainersConfig) *v1.Container {
+func (e *ExplainerSpec) CreateExplainerContainer(modelName string, predictorHost string, config *InferenceEndpointsConfigMap) *v1.Container {
 	explainer, err := getExplainer(e)
 	if err != nil {
 		return nil
@@ -49,39 +49,25 @@ func (e *ExplainerSpec) CreateExplainerContainer(modelName string, predictorHost
 	return explainer.CreateExplainerContainer(modelName, predictorHost, config)
 }
 
-func (e *ExplainerSpec) ApplyDefaults(config *ExplainersConfig) {
+func (e *ExplainerSpec) ApplyDefaults(config *InferenceEndpointsConfigMap) {
 	explainer, err := getExplainer(e)
 	if err == nil {
-		explainer.ApplyExplainerDefaults(config)
+		explainer.ApplyDefaults(config)
 	}
 }
 
-func (e *ExplainerSpec) Validate(config *ExplainersConfig) error {
+func (e *ExplainerSpec) Validate(config *InferenceEndpointsConfigMap) error {
 	explainer, err := getExplainer(e)
 	if err != nil {
 		return err
 	}
-	if err := explainer.ValidateExplainer(config); err != nil {
+	if err := explainer.Validate(config); err != nil {
 		return err
 	}
 	if err := validateStorageURI(e.GetStorageUri()); err != nil {
 		return err
 	}
 	return nil
-}
-
-// +k8s:openapi-gen=false
-type ExplainerConfig struct {
-	ContainerImage string `json:"image"`
-
-	DefaultImageVersion string `json:"defaultImageVersion"`
-
-	AllowedImageVersions []string `json:"allowedImageVersions"`
-}
-
-// +k8s:openapi-gen=false
-type ExplainersConfig struct {
-	AlibiExplainer ExplainerConfig `json:"alibi,omitempty"`
 }
 
 func getExplainer(explainerSpec *ExplainerSpec) (Explainer, error) {

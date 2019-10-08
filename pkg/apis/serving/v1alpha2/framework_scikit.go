@@ -22,14 +22,10 @@ import (
 	v1 "k8s.io/api/core/v1"
 )
 
-// TODO add image name to to configmap
 var (
-	AllowedSKLearnRuntimeVersions = []string{
-		"latest",
-		"v0.1.2",
-	}
 	InvalidSKLearnRuntimeVersionError = "RuntimeVersion must be one of %s"
 	SKLearnServerImageName            = "gcr.io/kfserving/sklearnserver"
+	DefaultSKLearnRuntimeVersion      = "latest"
 )
 
 var _ Predictor = (*SKLearnSpec)(nil)
@@ -38,10 +34,10 @@ func (s *SKLearnSpec) GetStorageUri() string {
 	return s.StorageURI
 }
 
-func (s *SKLearnSpec) GetContainer(modelName string, config *PredictorsConfig) *v1.Container {
+func (s *SKLearnSpec) GetContainer(modelName string, config *InferenceEndpointsConfigMap) *v1.Container {
 	imageName := SKLearnServerImageName
-	if config.SKlearn.ContainerImage != "" {
-		imageName = config.SKlearn.ContainerImage
+	if config.Predictors.SKlearn.ContainerImage != "" {
+		imageName = config.Predictors.SKlearn.ContainerImage
 	}
 	return &v1.Container{
 		Image:     imageName + ":" + s.RuntimeVersion,
@@ -53,17 +49,17 @@ func (s *SKLearnSpec) GetContainer(modelName string, config *PredictorsConfig) *
 	}
 }
 
-func (s *SKLearnSpec) ApplyDefaults(config *PredictorsConfig) {
+func (s *SKLearnSpec) ApplyDefaults(config *InferenceEndpointsConfigMap) {
 	if s.RuntimeVersion == "" {
-		s.RuntimeVersion = config.SKlearn.DefaultImageVersion
+		s.RuntimeVersion = config.Predictors.SKlearn.DefaultImageVersion
 	}
 
 	setResourceRequirementDefaults(&s.Resources)
 }
 
-func (s *SKLearnSpec) Validate(config *PredictorsConfig) error {
-	if utils.Includes(config.SKlearn.AllowedImageVersions, s.RuntimeVersion) {
+func (s *SKLearnSpec) Validate(config *InferenceEndpointsConfigMap) error {
+	if utils.Includes(config.Predictors.SKlearn.AllowedImageVersions, s.RuntimeVersion) {
 		return nil
 	}
-	return fmt.Errorf(InvalidSKLearnRuntimeVersionError, strings.Join(AllowedSKLearnRuntimeVersions, ", "))
+	return fmt.Errorf(InvalidSKLearnRuntimeVersionError, strings.Join(config.Predictors.SKlearn.AllowedImageVersions, ", "))
 }

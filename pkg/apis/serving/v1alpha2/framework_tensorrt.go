@@ -35,10 +35,10 @@ func (t *TensorRTSpec) GetStorageUri() string {
 	return t.StorageURI
 }
 
-func (t *TensorRTSpec) GetContainer(modelName string, config *PredictorsConfig) *v1.Container {
+func (t *TensorRTSpec) GetContainer(modelName string, config *InferenceEndpointsConfigMap) *v1.Container {
 	imageName := DefaultTensorRTISImageName
-	if config.TensorRT.ContainerImage != "" {
-		imageName = config.TensorRT.ContainerImage
+	if config.Predictors.TensorRT.ContainerImage != "" {
+		imageName = config.Predictors.TensorRT.ContainerImage
 	}
 
 	// based on example at: https://github.com/NVIDIA/tensorrt-laboratory/blob/master/examples/Deployment/Kubernetes/basic-trtis-deployment/deploy.yml
@@ -55,23 +55,23 @@ func (t *TensorRTSpec) GetContainer(modelName string, config *PredictorsConfig) 
 			"--http-port=" + fmt.Sprint(TensorRTISRestPort),
 		},
 		Ports: []v1.ContainerPort{
-			v1.ContainerPort{
+			{
 				ContainerPort: TensorRTISRestPort,
 			},
 		},
 	}
 }
 
-func (t *TensorRTSpec) ApplyDefaults(config *PredictorsConfig) {
+func (t *TensorRTSpec) ApplyDefaults(config *InferenceEndpointsConfigMap) {
 	if t.RuntimeVersion == "" {
-		t.RuntimeVersion = config.TensorRT.DefaultImageVersion
+		t.RuntimeVersion = config.Predictors.TensorRT.DefaultImageVersion
 	}
 	setResourceRequirementDefaults(&t.Resources)
 }
 
-func (t *TensorRTSpec) Validate(config *PredictorsConfig) error {
-	if !utils.Includes(config.TensorRT.AllowedImageVersions, t.RuntimeVersion) {
-		return fmt.Errorf(InvalidTensorRTISRuntimeVersionError, strings.Join(config.TensorRT.AllowedImageVersions, ", "))
+func (t *TensorRTSpec) Validate(config *InferenceEndpointsConfigMap) error {
+	if !utils.Includes(config.Predictors.TensorRT.AllowedImageVersions, t.RuntimeVersion) {
+		return fmt.Errorf(InvalidTensorRTISRuntimeVersionError, strings.Join(config.Predictors.TensorRT.AllowedImageVersions, ", "))
 	}
 
 	return nil

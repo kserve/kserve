@@ -30,10 +30,10 @@ func (x *XGBoostSpec) GetStorageUri() string {
 	return x.StorageURI
 }
 
-func (x *XGBoostSpec) GetContainer(modelName string, config *PredictorsConfig) *v1.Container {
+func (x *XGBoostSpec) GetContainer(modelName string, config *InferenceEndpointsConfigMap) *v1.Container {
 	imageName := XGBoostServerImageName
-	if config.Xgboost.ContainerImage != "" {
-		imageName = config.Xgboost.ContainerImage
+	if config.Predictors.Xgboost.ContainerImage != "" {
+		imageName = config.Predictors.Xgboost.ContainerImage
 	}
 	return &v1.Container{
 		Image:     imageName + ":" + x.RuntimeVersion,
@@ -45,17 +45,17 @@ func (x *XGBoostSpec) GetContainer(modelName string, config *PredictorsConfig) *
 	}
 }
 
-func (x *XGBoostSpec) ApplyDefaults(config *PredictorsConfig) {
+func (x *XGBoostSpec) ApplyDefaults(config *InferenceEndpointsConfigMap) {
 	if x.RuntimeVersion == "" {
-		x.RuntimeVersion = config.Xgboost.DefaultImageVersion
+		x.RuntimeVersion = config.Predictors.Xgboost.DefaultImageVersion
 	}
 
 	setResourceRequirementDefaults(&x.Resources)
 }
 
-func (x *XGBoostSpec) Validate(config *PredictorsConfig) error {
-	if utils.Includes(config.Xgboost.AllowedImageVersions, x.RuntimeVersion) {
+func (x *XGBoostSpec) Validate(config *InferenceEndpointsConfigMap) error {
+	if utils.Includes(config.Predictors.Xgboost.AllowedImageVersions, x.RuntimeVersion) {
 		return nil
 	}
-	return fmt.Errorf(InvalidXGBoostRuntimeVersionError, strings.Join(config.Xgboost.AllowedImageVersions, ", "))
+	return fmt.Errorf(InvalidXGBoostRuntimeVersionError, strings.Join(config.Predictors.Xgboost.AllowedImageVersions, ", "))
 }

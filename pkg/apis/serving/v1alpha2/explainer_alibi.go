@@ -17,10 +17,10 @@ func (s *AlibiExplainerSpec) GetStorageUri() string {
 	return s.StorageURI
 }
 
-func (s *AlibiExplainerSpec) CreateExplainerContainer(modelName string, predictorHost string, config *ExplainersConfig) *v1.Container {
+func (s *AlibiExplainerSpec) CreateExplainerContainer(modelName string, predictorHost string, config *InferenceEndpointsConfigMap) *v1.Container {
 	imageName := AlibiImageName
-	if config.AlibiExplainer.ContainerImage != "" {
-		imageName = config.AlibiExplainer.ContainerImage
+	if config.Explainers.AlibiExplainer.ContainerImage != "" {
+		imageName = config.Explainers.AlibiExplainer.ContainerImage
 	}
 
 	var args = []string{
@@ -46,16 +46,16 @@ func (s *AlibiExplainerSpec) CreateExplainerContainer(modelName string, predicto
 	}
 }
 
-func (s *AlibiExplainerSpec) ApplyExplainerDefaults(config *ExplainersConfig) {
+func (s *AlibiExplainerSpec) ApplyDefaults(config *InferenceEndpointsConfigMap) {
 	if s.RuntimeVersion == "" {
-		s.RuntimeVersion = config.AlibiExplainer.DefaultImageVersion
+		s.RuntimeVersion = config.Explainers.AlibiExplainer.DefaultImageVersion
 	}
 	setResourceRequirementDefaults(&s.Resources)
 }
 
-func (s *AlibiExplainerSpec) ValidateExplainer(config *ExplainersConfig) error {
-	if !utils.Includes(config.AlibiExplainer.AllowedImageVersions, s.RuntimeVersion) {
-		return fmt.Errorf(InvalidAlibiRuntimeVersionError, strings.Join(config.AlibiExplainer.AllowedImageVersions, ", "))
+func (s *AlibiExplainerSpec) Validate(config *InferenceEndpointsConfigMap) error {
+	if !utils.Includes(config.Explainers.AlibiExplainer.AllowedImageVersions, s.RuntimeVersion) {
+		return fmt.Errorf(InvalidAlibiRuntimeVersionError, strings.Join(config.Explainers.AlibiExplainer.AllowedImageVersions, ", "))
 	}
 
 	return nil

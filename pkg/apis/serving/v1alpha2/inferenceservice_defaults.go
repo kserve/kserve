@@ -32,30 +32,18 @@ func (isvc *InferenceService) Default(client client.Client) {
 
 func (isvc *InferenceService) applyDefaultsEndpoint(endpoint *EndpointSpec, client client.Client) error {
 	if endpoint != nil {
-		configMap, err := GetInferenceServiceConfigMap(client)
+		configMap, err := GetInferenceEndpointsConfigMap(client)
 		if err != nil {
 			return err
 		}
-		predictorConfig, err := GetPredictorConfigs(configMap)
-		if err != nil {
-			return err
-		}
-		endpoint.Predictor.ApplyDefaults(predictorConfig)
+		endpoint.Predictor.ApplyDefaults(configMap)
 
 		if endpoint.Transformer != nil {
-			transformerConfig, err := GetTransformerConfigs(configMap)
-			if err != nil {
-				return err
-			}
-			endpoint.Transformer.ApplyDefaults(transformerConfig)
+			endpoint.Transformer.ApplyDefaults(configMap)
 		}
 
 		if endpoint.Explainer != nil {
-			explainersConfig, err := GetExplainerConfigs(configMap)
-			if err != nil {
-				return err
-			}
-			endpoint.Explainer.ApplyDefaults(explainersConfig)
+			endpoint.Explainer.ApplyDefaults(configMap)
 		}
 	}
 	return nil

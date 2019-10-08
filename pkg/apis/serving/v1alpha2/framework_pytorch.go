@@ -33,10 +33,10 @@ func (s *PyTorchSpec) GetStorageUri() string {
 	return s.StorageURI
 }
 
-func (s *PyTorchSpec) GetContainer(modelName string, config *PredictorsConfig) *v1.Container {
+func (s *PyTorchSpec) GetContainer(modelName string, config *InferenceEndpointsConfigMap) *v1.Container {
 	imageName := PyTorchServerImageName
-	if config.PyTorch.ContainerImage != "" {
-		imageName = config.PyTorch.ContainerImage
+	if config.Predictors.PyTorch.ContainerImage != "" {
+		imageName = config.Predictors.PyTorch.ContainerImage
 	}
 	return &v1.Container{
 		Image:     imageName + ":" + s.RuntimeVersion,
@@ -49,9 +49,9 @@ func (s *PyTorchSpec) GetContainer(modelName string, config *PredictorsConfig) *
 	}
 }
 
-func (s *PyTorchSpec) ApplyDefaults(config *PredictorsConfig) {
+func (s *PyTorchSpec) ApplyDefaults(config *InferenceEndpointsConfigMap) {
 	if s.RuntimeVersion == "" {
-		s.RuntimeVersion = config.PyTorch.DefaultImageVersion
+		s.RuntimeVersion = config.Predictors.PyTorch.DefaultImageVersion
 	}
 	if s.ModelClassName == "" {
 		s.ModelClassName = DefaultPyTorchModelClassName
@@ -59,9 +59,9 @@ func (s *PyTorchSpec) ApplyDefaults(config *PredictorsConfig) {
 	setResourceRequirementDefaults(&s.Resources)
 }
 
-func (s *PyTorchSpec) Validate(config *PredictorsConfig) error {
-	if utils.Includes(config.PyTorch.AllowedImageVersions, s.RuntimeVersion) {
+func (s *PyTorchSpec) Validate(config *InferenceEndpointsConfigMap) error {
+	if utils.Includes(config.Predictors.PyTorch.AllowedImageVersions, s.RuntimeVersion) {
 		return nil
 	}
-	return fmt.Errorf(InvalidPyTorchRuntimeVersionError, strings.Join(config.PyTorch.AllowedImageVersions, ", "))
+	return fmt.Errorf(InvalidPyTorchRuntimeVersionError, strings.Join(config.Predictors.PyTorch.AllowedImageVersions, ", "))
 }

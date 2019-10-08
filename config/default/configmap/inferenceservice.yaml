@@ -63,6 +63,17 @@ data:
             ]
         }
     }
+  transformers: |-
+    {
+    }
+  explainers: |-
+    {
+        "image" : "docker.io/seldonio/alibiexplainer",
+        "defaultImageVersion": "0.2.3",
+        "allowedImageVersions": [
+           "0.2.3"
+        ]
+    }
   storageInitializer: |-
     {
         "image" : "gcr.io/kfserving/storage-initializer:latest"

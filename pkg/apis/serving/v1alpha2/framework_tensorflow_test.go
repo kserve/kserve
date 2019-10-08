@@ -75,12 +75,14 @@ func TestFrameworkTensorflow(t *testing.T) {
 	}
 
 	for name, scenario := range scenarios {
-		config := &PredictorsConfig{
-			Tensorflow: PredictorConfig{
-				ContainerImage:         "tensorflow/serving",
-				DefaultImageVersion:    "latest",
-				DefaultGpuImageVersion: "latest-gpu",
-				AllowedImageVersions:   allowedTFServingImageVersionsArray,
+		config := &InferenceEndpointsConfigMap{
+			Predictors: &PredictorsConfig{
+				Tensorflow: PredictorConfig{
+					ContainerImage:         "tensorflow/serving",
+					DefaultImageVersion:    "latest",
+					DefaultGpuImageVersion: "latest-gpu",
+					AllowedImageVersions:   allowedTFServingImageVersionsArray,
+				},
 			},
 		}
 		g.Expect(scenario.spec.Validate(config)).Should(scenario.matcher, fmt.Sprintf("Testing %s", name))

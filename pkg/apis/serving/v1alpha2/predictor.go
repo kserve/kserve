@@ -26,9 +26,9 @@ import (
 
 type Predictor interface {
 	GetStorageUri() string
-	GetContainer(modelName string, config *PredictorsConfig) *v1.Container
-	ApplyDefaults(config *PredictorsConfig)
-	Validate(config *PredictorsConfig) error
+	GetContainer(modelName string, config *InferenceEndpointsConfigMap) *v1.Container
+	ApplyDefaults(config *InferenceEndpointsConfigMap)
+	Validate(config *InferenceEndpointsConfigMap) error
 }
 
 const (
@@ -50,7 +50,7 @@ func (p *PredictorSpec) GetStorageUri() string {
 	return predictor.GetStorageUri()
 }
 
-func (p *PredictorSpec) GetContainer(modelName string, config *PredictorsConfig) *v1.Container {
+func (p *PredictorSpec) GetContainer(modelName string, config *InferenceEndpointsConfigMap) *v1.Container {
 	predictor, err := getPredictor(p)
 	if err != nil {
 		return nil
@@ -58,14 +58,14 @@ func (p *PredictorSpec) GetContainer(modelName string, config *PredictorsConfig)
 	return predictor.GetContainer(modelName, config)
 }
 
-func (p *PredictorSpec) ApplyDefaults(config *PredictorsConfig) {
+func (p *PredictorSpec) ApplyDefaults(config *InferenceEndpointsConfigMap) {
 	predictor, err := getPredictor(p)
 	if err == nil {
 		predictor.ApplyDefaults(config)
 	}
 }
 
-func (p *PredictorSpec) Validate(config *PredictorsConfig) error {
+func (p *PredictorSpec) Validate(config *InferenceEndpointsConfigMap) error {
 	predictor, err := getPredictor(p)
 	if err != nil {
 		return err
@@ -80,25 +80,6 @@ func (p *PredictorSpec) Validate(config *PredictorsConfig) error {
 		return err
 	}
 	return nil
-}
-
-// +k8s:openapi-gen=false
-type PredictorConfig struct {
-	ContainerImage string `json:"image"`
-
-	DefaultImageVersion    string   `json:"defaultImageVersion"`
-	DefaultGpuImageVersion string   `json:"defaultGpuImageVersion"`
-	AllowedImageVersions   []string `json:"allowedImageVersions"`
-}
-
-// +k8s:openapi-gen=false
-type PredictorsConfig struct {
-	Tensorflow PredictorConfig `json:"tensorflow,omitempty"`
-	TensorRT   PredictorConfig `json:"tensorrt,omitempty"`
-	Xgboost    PredictorConfig `json:"xgboost,omitempty"`
-	SKlearn    PredictorConfig `json:"sklearn,omitempty"`
-	PyTorch    PredictorConfig `json:"pytorch,omitempty"`
-	ONNX       PredictorConfig `json:"onnx,omitempty"`
 }
 
 func validateStorageURI(storageURI string) error {

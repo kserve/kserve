@@ -37,10 +37,10 @@ func (t *TensorflowSpec) GetStorageUri() string {
 	return t.StorageURI
 }
 
-func (t *TensorflowSpec) GetContainer(modelName string, config *PredictorsConfig) *v1.Container {
+func (t *TensorflowSpec) GetContainer(modelName string, config *InferenceEndpointsConfigMap) *v1.Container {
 	imageName := TensorflowServingImageName
-	if config.Tensorflow.ContainerImage != "" {
-		imageName = config.Tensorflow.ContainerImage
+	if config.Predictors.Tensorflow.ContainerImage != "" {
+		imageName = config.Predictors.Tensorflow.ContainerImage
 	}
 
 	return &v1.Container{
@@ -56,29 +56,29 @@ func (t *TensorflowSpec) GetContainer(modelName string, config *PredictorsConfig
 	}
 }
 
-func (t *TensorflowSpec) ApplyDefaults(config *PredictorsConfig) {
+func (t *TensorflowSpec) ApplyDefaults(config *InferenceEndpointsConfigMap) {
 	if t.RuntimeVersion == "" {
 		if isGPUEnabled(t.Resources) {
-			t.RuntimeVersion = config.Tensorflow.DefaultGpuImageVersion
+			t.RuntimeVersion = config.Predictors.Tensorflow.DefaultGpuImageVersion
 		} else {
-			t.RuntimeVersion = config.Tensorflow.DefaultImageVersion
+			t.RuntimeVersion = config.Predictors.Tensorflow.DefaultImageVersion
 		}
 
 	}
 	setResourceRequirementDefaults(&t.Resources)
 }
 
-func (t *TensorflowSpec) Validate(config *PredictorsConfig) error {
-	if !utils.Includes(config.Tensorflow.AllowedImageVersions, t.RuntimeVersion) {
-		return fmt.Errorf(InvalidTensorflowRuntimeVersionError, strings.Join(config.Tensorflow.AllowedImageVersions, ", "))
+func (t *TensorflowSpec) Validate(config *InferenceEndpointsConfigMap) error {
+	if !utils.Includes(config.Predictors.Tensorflow.AllowedImageVersions, t.RuntimeVersion) {
+		return fmt.Errorf(InvalidTensorflowRuntimeVersionError, strings.Join(config.Predictors.Tensorflow.AllowedImageVersions, ", "))
 	}
 
 	if isGPUEnabled(t.Resources) && !strings.Contains(t.RuntimeVersion, TensorflowServingGPUSuffix) {
-		return fmt.Errorf(InvalidTensorflowRuntimeIncludesGPU, strings.Join(config.Tensorflow.AllowedImageVersions, ", "))
+		return fmt.Errorf(InvalidTensorflowRuntimeIncludesGPU, strings.Join(config.Predictors.Tensorflow.AllowedImageVersions, ", "))
 	}
 
 	if !isGPUEnabled(t.Resources) && strings.Contains(t.RuntimeVersion, TensorflowServingGPUSuffix) {
-		return fmt.Errorf(InvalidTensorflowRuntimeExcludesGPU, strings.Join(config.Tensorflow.AllowedImageVersions, ", "))
+		return fmt.Errorf(InvalidTensorflowRuntimeExcludesGPU, strings.Join(config.Predictors.Tensorflow.AllowedImageVersions, ", "))
 	}
 
 	return nil

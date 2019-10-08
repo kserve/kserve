@@ -33,10 +33,10 @@ func (s *ONNXSpec) GetStorageUri() string {
 	return s.StorageURI
 }
 
-func (s *ONNXSpec) GetContainer(modelName string, config *PredictorsConfig) *v1.Container {
+func (s *ONNXSpec) GetContainer(modelName string, config *InferenceEndpointsConfigMap) *v1.Container {
 	imageName := ONNXServingImageName
-	if config.ONNX.ContainerImage != "" {
-		imageName = config.ONNX.ContainerImage
+	if config.Predictors.ONNX.ContainerImage != "" {
+		imageName = config.Predictors.ONNX.ContainerImage
 	}
 
 	return &v1.Container{
@@ -50,16 +50,16 @@ func (s *ONNXSpec) GetContainer(modelName string, config *PredictorsConfig) *v1.
 	}
 }
 
-func (s *ONNXSpec) ApplyDefaults(config *PredictorsConfig) {
+func (s *ONNXSpec) ApplyDefaults(config *InferenceEndpointsConfigMap) {
 	if s.RuntimeVersion == "" {
-		s.RuntimeVersion = config.ONNX.DefaultImageVersion
+		s.RuntimeVersion = config.Predictors.ONNX.DefaultImageVersion
 	}
 	setResourceRequirementDefaults(&s.Resources)
 }
 
-func (s *ONNXSpec) Validate(config *PredictorsConfig) error {
-	if !utils.Includes(config.ONNX.AllowedImageVersions, s.RuntimeVersion) {
-		return fmt.Errorf(InvalidONNXRuntimeVersionError, strings.Join(config.ONNX.AllowedImageVersions, ", "))
+func (s *ONNXSpec) Validate(config *InferenceEndpointsConfigMap) error {
+	if !utils.Includes(config.Predictors.ONNX.AllowedImageVersions, s.RuntimeVersion) {
+		return fmt.Errorf(InvalidONNXRuntimeVersionError, strings.Join(config.Predictors.ONNX.AllowedImageVersions, ", "))
 	}
 
 	return nil

@@ -32,42 +32,19 @@ func (c *CustomSpec) GetStorageUri() string {
 	return ""
 }
 
-func (c *CustomSpec) GetContainer(modelName string, config *PredictorsConfig) *v1.Container {
-	return &c.Container
-}
-func (c *CustomSpec) CreateExplainerContainer(modelName string, predictUrl string, config *ExplainersConfig) *v1.Container {
+func (c *CustomSpec) GetContainer(modelName string, config *InferenceEndpointsConfigMap) *v1.Container {
 	return &c.Container
 }
 
-func (c *CustomSpec) ApplyDefaults(config *PredictorsConfig) {
+func (c *CustomSpec) CreateExplainerContainer(modelName string, predictUrl string, config *InferenceEndpointsConfigMap) *v1.Container {
+	return &c.Container
+}
+
+func (c *CustomSpec) ApplyDefaults(config *InferenceEndpointsConfigMap) {
 	setResourceRequirementDefaults(&c.Container.Resources)
 }
 
-func (c *CustomSpec) Validate(config *PredictorsConfig) error {
-	err := knserving.ValidateContainer(c.Container, sets.String{})
-	if err != nil {
-		return fmt.Errorf("Custom container validation error: %s", err.Error())
-	}
-	return nil
-}
-
-func (c *CustomSpec) ApplyExplainerDefaults(config *ExplainersConfig) {
-	setResourceRequirementDefaults(&c.Container.Resources)
-}
-
-func (c *CustomSpec) ValidateExplainer(config *ExplainersConfig) error {
-	err := knserving.ValidateContainer(c.Container, sets.String{})
-	if err != nil {
-		return fmt.Errorf("Custom container validation error: %s", err.Error())
-	}
-	return nil
-}
-
-func (c *CustomSpec) ApplyTransformerDefaults(config *TransformersConfig) {
-	setResourceRequirementDefaults(&c.Container.Resources)
-}
-
-func (c *CustomSpec) ValidateTransformer(config *TransformersConfig) error {
+func (c *CustomSpec) Validate(config *InferenceEndpointsConfigMap) error {
 	err := knserving.ValidateContainer(c.Container, sets.String{})
 	if err != nil {
 		return fmt.Errorf("Custom container validation error: %s", err.Error())

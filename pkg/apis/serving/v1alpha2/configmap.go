@@ -10,16 +10,95 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func GetInferenceServiceConfigMap(client client.Client) (*v1.ConfigMap, error) {
+// +k8s:openapi-gen=false
+type ExplainerConfig struct {
+	ContainerImage string `json:"image"`
+
+	DefaultImageVersion  string   `json:"defaultImageVersion"`
+	AllowedImageVersions []string `json:"allowedImageVersions"`
+}
+
+// +k8s:openapi-gen=false
+type ExplainersConfig struct {
+	AlibiExplainer ExplainerConfig `json:"alibi,omitempty"`
+}
+
+// +k8s:openapi-gen=false
+type PredictorConfig struct {
+	ContainerImage string `json:"image"`
+
+	DefaultImageVersion    string   `json:"defaultImageVersion"`
+	DefaultGpuImageVersion string   `json:"defaultGpuImageVersion"`
+	AllowedImageVersions   []string `json:"allowedImageVersions"`
+}
+
+// +k8s:openapi-gen=false
+type PredictorsConfig struct {
+	Tensorflow PredictorConfig `json:"tensorflow,omitempty"`
+	TensorRT   PredictorConfig `json:"tensorrt,omitempty"`
+	Xgboost    PredictorConfig `json:"xgboost,omitempty"`
+	SKlearn    PredictorConfig `json:"sklearn,omitempty"`
+	PyTorch    PredictorConfig `json:"pytorch,omitempty"`
+	ONNX       PredictorConfig `json:"onnx,omitempty"`
+}
+
+// +k8s:openapi-gen=false
+type TransformerConfig struct {
+	ContainerImage string `json:"image"`
+
+	DefaultImageVersion string `json:"defaultImageVersion"`
+
+	AllowedImageVersions []string `json:"allowedImageVersions"`
+}
+
+// +k8s:openapi-gen=false
+type TransformersConfig struct {
+	Feast TransformerConfig `json:"feast,omitempty"`
+}
+
+// +k8s:openapi-gen=false
+type InferenceEndpointsConfigMap struct {
+	Transformers *TransformersConfig `json:"transformers,omitempty"`
+	Predictors   *PredictorsConfig   `json:"predictors,omitempty"`
+	Explainers   *ExplainersConfig   `json:"explainers,omitempty"`
+}
+
+func GetInferenceEndpointsConfigMap(client client.Client) (*InferenceEndpointsConfigMap, error) {
 	configMap := &v1.ConfigMap{}
 	err := client.Get(context.TODO(), types.NamespacedName{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KFServingNamespace}, configMap)
 	if err != nil {
 		return nil, err
 	}
-	return configMap, nil
+
+	endpointsConfigMap, err := NewInferenceEndpointsConfigMap(configMap)
+	if err != nil {
+		return nil, err
+	}
+
+	return endpointsConfigMap, nil
 }
 
-func GetPredictorConfigs(configMap *v1.ConfigMap) (*PredictorsConfig, error) {
+func NewInferenceEndpointsConfigMap(configMap *v1.ConfigMap) (*InferenceEndpointsConfigMap, error) {
+	predictorsConfig, err := getPredictorsConfigs(configMap)
+	if err != nil {
+		return nil, err
+	}
+	transformersConfig, err := getTransformersConfigs(configMap)
+	if err != nil {
+		return nil, err
+	}
+	explainersConfig, err := getExplainersConfigs(configMap)
+	if err != nil {
+		return nil, err
+	}
+	return &InferenceEndpointsConfigMap{
+		Predictors:   predictorsConfig,
+		Transformers: transformersConfig,
+		Explainers:   explainersConfig,
+	}, nil
+}
+
+func getPredictorsConfigs(configMap *v1.ConfigMap) (*PredictorsConfig, error) {
 	predictorConfig := &PredictorsConfig{}
 	if data, ok := configMap.Data[constants.PredictorConfigKeyName]; ok {
 		err := json.Unmarshal([]byte(data), &predictorConfig)
@@ -30,7 +109,7 @@ func GetPredictorConfigs(configMap *v1.ConfigMap) (*PredictorsConfig, error) {
 	return predictorConfig, nil
 }
 
-func GetTransformerConfigs(configMap *v1.ConfigMap) (*TransformersConfig, error) {
+func getTransformersConfigs(configMap *v1.ConfigMap) (*TransformersConfig, error) {
 	transformerConfig := &TransformersConfig{}
 	if data, ok := configMap.Data[constants.TransformerConfigKeyName]; ok {
 		err := json.Unmarshal([]byte(data), &transformerConfig)
@@ -41,7 +120,7 @@ func GetTransformerConfigs(configMap *v1.ConfigMap) (*TransformersConfig, error)
 	return transformerConfig, nil
 }
 
-func GetExplainerConfigs(configMap *v1.ConfigMap) (*ExplainersConfig, error) {
+func getExplainersConfigs(configMap *v1.ConfigMap) (*ExplainersConfig, error) {
 	explainerConfig := &ExplainersConfig{}
 	if data, ok := configMap.Data[constants.ExplainerConfigKeyName]; ok {
 		err := json.Unmarshal([]byte(data), &explainerConfig)

@@ -40,28 +40,21 @@ var serviceAnnotationDisallowedList = []string{
 }
 
 type ServiceBuilder struct {
-	predictorConfig   *v1alpha2.PredictorsConfig
-	explainersConfig  *v1alpha2.ExplainersConfig
+	endpointsConfig   *v1alpha2.InferenceEndpointsConfigMap
 	credentialBuilder *credentials.CredentialBuilder
 }
 
 func NewServiceBuilder(client client.Client, config *v1.ConfigMap) *ServiceBuilder {
-	predictorConfig, err := v1alpha2.GetPredictorConfigs(config)
+	endpointsConfig, err := v1alpha2.NewInferenceEndpointsConfigMap(config)
 	if err != nil {
-		fmt.Printf("Failed to get predictor config %s", err)
-		panic("Failed to get predictor config")
+		fmt.Printf("Failed to get endpoints config %s", err)
+		panic("Failed to get endpoints config")
 
-	}
-	explainerConfig, err := v1alpha2.GetExplainerConfigs(config)
-	if err != nil {
-		fmt.Printf("Failed to get explainer config %s", err)
-		panic("Failed to get explainer config")
 	}
 
 	return &ServiceBuilder{
-		predictorConfig:   predictorConfig,
+		endpointsConfig:   endpointsConfig,
 		credentialBuilder: credentials.NewCredentialBulder(client, config),
-		explainersConfig:  explainerConfig,
 	}
 }
 
@@ -157,7 +150,7 @@ func (c *ServiceBuilder) CreatePredictorService(name string, metadata metav1.Obj
 							PodSpec: v1.PodSpec{
 								ServiceAccountName: predictorSpec.ServiceAccountName,
 								Containers: []v1.Container{
-									*predictorSpec.GetContainer(metadata.Name, c.predictorConfig),
+									*predictorSpec.GetContainer(metadata.Name, c.endpointsConfig),
 								},
 							},
 						},
@@ -308,7 +301,7 @@ func (c *ServiceBuilder) CreateExplainerService(name string, metadata metav1.Obj
 							PodSpec: v1.PodSpec{
 								ServiceAccountName: explainerSpec.ServiceAccountName,
 								Containers: []v1.Container{
-									*explainerSpec.CreateExplainerContainer(metadata.Name, predictorService, c.explainersConfig),
+									*explainerSpec.CreateExplainerContainer(metadata.Name, predictorService, c.endpointsConfig),
 								},
 							},
 						},
