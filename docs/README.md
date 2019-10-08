@@ -6,13 +6,13 @@ KFServing architecture consists of two main specifications, around control plane
    * Defines the specification of the `kfserving` resource.
 
 # Architecture Overview
-The KFService Data Plane architecture consists of a static graph of components which implement a limited set of features. Advanced features such as Ensembling, A/B testing, and Multi-Arm-Bandits should be built at a layer above KFServices. The diagram reflects the overall architecture for a viable offering, but at this point in time may not accurately reflect the current set of features available in the graph, but the overall mechanism holds:
+The InferenceService Data Plane architecture consists of a static graph of components which implement a limited set of features. Advanced features such as Ensembling, A/B testing, and Multi-Arm-Bandits should be built at a layer above InferenceServices. The diagram reflects the overall architecture for a viable offering, but at this point in time may not accurately reflect the current set of features available in the graph, but the overall mechanism holds:
 
-- The User defines the components they wish to use in a KFService.
+- The User defines the components they wish to use in a InferenceService.
   - The only required component is a Predictor.
   - Additional components may be specified to attach addtional behavior. 
   - Each component is specified at the ModelSpec layer, allowing for canarying.
-- The KFService will support one of several Data Plane interfaces.
+- The InferenceService will support one of several Data Plane interfaces.
   - For example: tensorflow/HTTP, tensorflow/GRPC, seldon/HTTP, seldon/GRPC
   - Data Plane interfaces may be specified with annotations and defaults to tensorflow/HTTP
   - Not all components will be compatible with every data plane interface.

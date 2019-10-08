@@ -28,7 +28,7 @@ const (
 )
 
 func InjectGKEAcceleratorSelector(pod *v1.Pod) error {
-	if gpuSelector, ok := pod.Annotations[constants.KFServiceGKEAcceleratorAnnotationKey]; ok {
+	if gpuSelector, ok := pod.Annotations[constants.InferenceServiceGKEAcceleratorAnnotationKey]; ok {
 		pod.Spec.NodeSelector = utils.Union(
 			pod.Spec.NodeSelector,
 			map[string]string{GkeAcceleratorNodeSelector: gpuSelector},

@@ -27,7 +27,7 @@ import (
 
 type ServingV1alpha2Interface interface {
 	RESTClient() rest.Interface
-	KFServicesGetter
+	InferenceServicesGetter
 }
 
 // ServingV1alpha2Client is used to interact with features provided by the serving.kubeflow.org group.
@@ -35,8 +35,8 @@ type ServingV1alpha2Client struct {
 	restClient rest.Interface
 }
 
-func (c *ServingV1alpha2Client) KFServices(namespace string) KFServiceInterface {
-	return newKFServices(c, namespace)
+func (c *ServingV1alpha2Client) InferenceServices(namespace string) InferenceServiceInterface {
+	return newInferenceServices(c, namespace)
 }
 
 // NewForConfig creates a new ServingV1alpha2Client for the given config.

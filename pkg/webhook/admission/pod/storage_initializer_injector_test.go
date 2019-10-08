@@ -22,9 +22,9 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/kubeflow/kfserving/pkg/constants"
-	"github.com/kubeflow/kfserving/pkg/controller/kfservice/resources/credentials"
-	"github.com/kubeflow/kfserving/pkg/controller/kfservice/resources/credentials/gcs"
-	"github.com/kubeflow/kfserving/pkg/controller/kfservice/resources/credentials/s3"
+	"github.com/kubeflow/kfserving/pkg/controller/inferenceservice/resources/credentials"
+	"github.com/kubeflow/kfserving/pkg/controller/inferenceservice/resources/credentials/gcs"
+	"github.com/kubeflow/kfserving/pkg/controller/inferenceservice/resources/credentials/s3"
 	"github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -437,7 +437,7 @@ func TestCredentialInjection(t *testing.T) {
 					Name:      "s3-secret",
 					Namespace: "default",
 					Annotations: map[string]string{
-						s3.KFServiceS3SecretEndpointAnnotation: "s3.aws.com",
+						s3.InferenceServiceS3SecretEndpointAnnotation: "s3.aws.com",
 					},
 				},
 				Data: map[string][]byte{

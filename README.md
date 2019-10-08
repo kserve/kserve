@@ -26,7 +26,7 @@ kubectl apply -f ./install/$TAG/kfserving.yaml
 ```
 pip install kfserving
 ```
-* Follow the [example here](docs/samples/client/kfserving_sdk_sample.ipynb) to use the KFServing SDK to create, patch, and delete a KFService instance.
+* Follow the [example here](docs/samples/client/kfserving_sdk_sample.ipynb) to use the KFServing SDK to create, patch, and delete a InferenceService instance.
 
 ### Contribute
 * [Developer Guide](/docs/DEVELOPER_GUIDE.md).

@@ -10,12 +10,12 @@
 </p>
 Resource Types:
 <ul><li>
-<a href="#serving.kubeflow.org/v1alpha2.KFService">KFService</a>
+<a href="#serving.kubeflow.org/v1alpha2.InferenceService">InferenceService</a>
 </li></ul>
-<h3 id="serving.kubeflow.org/v1alpha2.KFService">KFService
+<h3 id="serving.kubeflow.org/v1alpha2.InferenceService">InferenceService
 </h3>
 <p>
-<p>KFService is the Schema for the services API</p>
+<p>InferenceService is the Schema for the services API</p>
 </p>
 <table>
 <thead>
@@ -40,7 +40,7 @@ serving.kubeflow.org/v1alpha2
 <code>kind</code></br>
 string
 </td>
-<td><code>KFService</code></td>
+<td><code>InferenceService</code></td>
 </tr>
 <tr>
 <td>
@@ -60,8 +60,8 @@ Refer to the Kubernetes API documentation for the fields of the
 <td>
 <code>spec</code></br>
 <em>
-<a href="#serving.kubeflow.org/v1alpha2.KFServiceSpec">
-KFServiceSpec
+<a href="#serving.kubeflow.org/v1alpha2.InferenceServiceSpec">
+InferenceServiceSpec
 </a>
 </em>
 </td>
@@ -79,7 +79,7 @@ EndpointSpec
 </em>
 </td>
 <td>
-<p>Default defines default KFService endpoints</p>
+<p>Default defines default InferenceService endpoints</p>
 </td>
 </tr>
 <tr>
@@ -105,7 +105,7 @@ int
 </td>
 <td>
 <em>(Optional)</em>
-<p>CanaryTrafficPercent defines the percentage of traffic going to canary KFService endpoints</p>
+<p>CanaryTrafficPercent defines the percentage of traffic going to canary InferenceService endpoints</p>
 </td>
 </tr>
 </table>
@@ -115,8 +115,8 @@ int
 <td>
 <code>status</code></br>
 <em>
-<a href="#serving.kubeflow.org/v1alpha2.KFServiceStatus">
-KFServiceStatus
+<a href="#serving.kubeflow.org/v1alpha2.InferenceServiceStatus">
+InferenceServiceStatus
 </a>
 </em>
 </td>
@@ -253,7 +253,7 @@ Kubernetes core/v1.Container
 <a href="#serving.kubeflow.org/v1alpha2.TransformerSpec">TransformerSpec</a>)
 </p>
 <p>
-<p>DeploymentSpec defines the configuration for a given KFService service component</p>
+<p>DeploymentSpec defines the configuration for a given InferenceService service component</p>
 </p>
 <table>
 <thead>
@@ -305,7 +305,7 @@ int
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#serving.kubeflow.org/v1alpha2.KFServiceSpec">KFServiceSpec</a>)
+<a href="#serving.kubeflow.org/v1alpha2.InferenceServiceSpec">InferenceServiceSpec</a>)
 </p>
 <p>
 </p>
@@ -597,14 +597,14 @@ PredictorConfig
 </tr>
 </tbody>
 </table>
-<h3 id="serving.kubeflow.org/v1alpha2.KFServiceSpec">KFServiceSpec
+<h3 id="serving.kubeflow.org/v1alpha2.InferenceServiceSpec">InferenceServiceSpec
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#serving.kubeflow.org/v1alpha2.KFService">KFService</a>)
+<a href="#serving.kubeflow.org/v1alpha2.InferenceService">InferenceService</a>)
 </p>
 <p>
-<p>KFServiceSpec defines the desired state of KFService</p>
+<p>InferenceServiceSpec defines the desired state of InferenceService</p>
 </p>
 <table>
 <thead>
@@ -624,7 +624,7 @@ EndpointSpec
 </em>
 </td>
 <td>
-<p>Default defines default KFService endpoints</p>
+<p>Default defines default InferenceService endpoints</p>
 </td>
 </tr>
 <tr>
@@ -650,19 +650,19 @@ int
 </td>
 <td>
 <em>(Optional)</em>
-<p>CanaryTrafficPercent defines the percentage of traffic going to canary KFService endpoints</p>
+<p>CanaryTrafficPercent defines the percentage of traffic going to canary InferenceService endpoints</p>
 </td>
 </tr>
 </tbody>
 </table>
-<h3 id="serving.kubeflow.org/v1alpha2.KFServiceStatus">KFServiceStatus
+<h3 id="serving.kubeflow.org/v1alpha2.InferenceServiceStatus">InferenceServiceStatus
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#serving.kubeflow.org/v1alpha2.KFService">KFService</a>)
+<a href="#serving.kubeflow.org/v1alpha2.InferenceService">InferenceService</a>)
 </p>
 <p>
-<p>KFServiceStatus defines the observed state of KFService</p>
+<p>InferenceServiceStatus defines the observed state of InferenceService</p>
 </p>
 <table>
 <thead>
@@ -1017,7 +1017,7 @@ Kubernetes core/v1.ResourceRequirements
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#serving.kubeflow.org/v1alpha2.KFServiceStatus">KFServiceStatus</a>)
+<a href="#serving.kubeflow.org/v1alpha2.InferenceServiceStatus">InferenceServiceStatus</a>)
 </p>
 <p>
 <p>StatusConfigurationSpec describes the state of the configuration receiving traffic.</p>

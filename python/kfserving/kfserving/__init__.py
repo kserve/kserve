@@ -34,10 +34,10 @@ from .models.v1alpha2_alibi_explainer_spec import V1alpha2AlibiExplainerSpec
 from .models.v1alpha2_custom_spec import V1alpha2CustomSpec
 from .models.v1alpha2_framework_config import V1alpha2FrameworkConfig
 from .models.v1alpha2_frameworks_config import V1alpha2FrameworksConfig
-from .models.v1alpha2_kf_service import V1alpha2KFService
-from .models.v1alpha2_kf_service_list import V1alpha2KFServiceList
-from .models.v1alpha2_kf_service_spec import V1alpha2KFServiceSpec
-from .models.v1alpha2_kf_service_status import V1alpha2KFServiceStatus
+from .models.v1alpha2_inference_service import V1alpha2InferenceService
+from .models.v1alpha2_inference_service_list import V1alpha2InferenceServiceList
+from .models.v1alpha2_inference_service_spec import V1alpha2InferenceServiceSpec
+from .models.v1alpha2_inference_service_status import V1alpha2InferenceServiceStatus
 from .models.v1alpha2_endpoint_spec import V1alpha2EndpointSpec
 from .models.v1alpha2_predictor_spec import V1alpha2PredictorSpec
 from .models.v1alpha2_transformer_spec import V1alpha2TransformerSpec

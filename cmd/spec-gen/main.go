@@ -28,7 +28,7 @@ import (
 	"k8s.io/kube-openapi/pkg/common"
 )
 
-// Generate OpenAPI spec definitions for KFService Resource
+// Generate OpenAPI spec definitions for InferenceService Resource
 func main() {
 	if len(os.Args) <= 1 {
 		klog.Fatal("Supply a version")
