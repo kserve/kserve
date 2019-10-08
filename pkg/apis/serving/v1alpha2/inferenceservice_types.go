@@ -131,7 +131,7 @@ type TensorflowSpec struct {
 	// The location of the trained model
 	StorageURI string `json:"storageUri"`
 	// Allowed runtime versions are [1.11.0, 1.12.0, 1.13.0, 1.14.0, latest] or [1.11.0-gpu, 1.12.0-gpu, 1.13.0-gpu, 1.14.0-gpu, latest-gpu]
-	// if gpu resource is specified and defaults to the version specified in kfservice config map.
+	// if gpu resource is specified and defaults to the version specified in inferenceservice config map.
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
 	// Defaults to requests and limits of 1CPU, 2Gb MEM.
 	Resources v1.ResourceRequirements `json:"resources,omitempty"`
@@ -141,7 +141,7 @@ type TensorflowSpec struct {
 type TensorRTSpec struct {
 	// The location of the trained model
 	StorageURI string `json:"storageUri"`
-	// Allowed runtime versions are [19.05-py3] and defaults to the version specified in kfservice config map
+	// Allowed runtime versions are [19.05-py3] and defaults to the version specified in inferenceservice config map
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
 	// Defaults to requests and limits of 1CPU, 2Gb MEM.
 	Resources v1.ResourceRequirements `json:"resources,omitempty"`
@@ -151,7 +151,7 @@ type TensorRTSpec struct {
 type XGBoostSpec struct {
 	// The location of the trained model
 	StorageURI string `json:"storageUri"`
-	// Allowed runtime versions are [0.2.0, latest] and defaults to the version specified in kfservice config map
+	// Allowed runtime versions are [0.2.0, latest] and defaults to the version specified in inferenceservice config map
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
 	// Defaults to requests and limits of 1CPU, 2Gb MEM.
 	Resources v1.ResourceRequirements `json:"resources,omitempty"`
@@ -161,7 +161,7 @@ type XGBoostSpec struct {
 type SKLearnSpec struct {
 	// The location of the trained model
 	StorageURI string `json:"storageUri"`
-	// Allowed runtime versions are [0.2.0, latest] and defaults to the version specified in kfservice config map
+	// Allowed runtime versions are [0.2.0, latest] and defaults to the version specified in inferenceservice config map
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
 	// Defaults to requests and limits of 1CPU, 2Gb MEM.
 	Resources v1.ResourceRequirements `json:"resources,omitempty"`
@@ -171,7 +171,7 @@ type SKLearnSpec struct {
 type ONNXSpec struct {
 	// The location of the trained model
 	StorageURI string `json:"storageUri"`
-	// Allowed runtime versions are [v0.5.0, latest] and defaults to the version specified in kfservice config map
+	// Allowed runtime versions are [v0.5.0, latest] and defaults to the version specified in inferenceservice config map
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
 	// Defaults to requests and limits of 1CPU, 2Gb MEM.
 	Resources v1.ResourceRequirements `json:"resources,omitempty"`
@@ -183,7 +183,7 @@ type PyTorchSpec struct {
 	StorageURI string `json:"storageUri"`
 	// Defaults PyTorch model class name to 'PyTorchModel'
 	ModelClassName string `json:"modelClassName,omitempty"`
-	// Allowed runtime versions are [0.2.0, latest] and defaults to the version specified in kfservice config map
+	// Allowed runtime versions are [0.2.0, latest] and defaults to the version specified in inferenceservice config map
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
 	// Defaults to requests and limits of 1CPU, 2Gb MEM.
 	Resources v1.ResourceRequirements `json:"resources,omitempty"`
@@ -200,15 +200,15 @@ type EndpointStatusMap map[constants.InferenceServiceEndpoint]*StatusConfigurati
 // InferenceServiceStatus defines the observed state of InferenceService
 type InferenceServiceStatus struct {
 	duckv1beta1.Status `json:",inline"`
-	// URL of the KFService
+	// URL of the InferenceService
 	URL string `json:"url,omitempty"`
 	// Traffic percentage that goes to default services
 	Traffic int `json:"traffic,omitempty"`
 	// Traffic percentage that goes to canary services
 	CanaryTraffic int `json:"canaryTraffic,omitempty"`
-	// Statuses for the default endpoints of the KFService
+	// Statuses for the default endpoints of the InferenceService
 	Default *EndpointStatusMap `json:"default,omitempty"`
-	// Statuses for the canary endpoints of the KFService
+	// Statuses for the canary endpoints of the InferenceService
 	Canary *EndpointStatusMap `json:"canary,omitempty"`
 }
 

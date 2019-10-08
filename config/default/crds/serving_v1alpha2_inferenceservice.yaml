@@ -127,8 +127,8 @@ spec:
                           type: object
                         runtimeVersion:
                           description: Allowed runtime versions are [v0.5.0, latest]
-                            and defaults to the version specified in kfservice config
-                            map
+                            and defaults to the version specified in inferenceservice
+                            config map
                           type: string
                         storageUri:
                           description: The location of the trained model
@@ -148,8 +148,8 @@ spec:
                           type: object
                         runtimeVersion:
                           description: Allowed runtime versions are [0.2.0, latest]
-                            and defaults to the version specified in kfservice config
-                            map
+                            and defaults to the version specified in inferenceservice
+                            config map
                           type: string
                         storageUri:
                           description: The location of the trained model
@@ -170,8 +170,8 @@ spec:
                           type: object
                         runtimeVersion:
                           description: Allowed runtime versions are [0.2.0, latest]
-                            and defaults to the version specified in kfservice config
-                            map
+                            and defaults to the version specified in inferenceservice
+                            config map
                           type: string
                         storageUri:
                           description: The location of the trained model
@@ -190,8 +190,8 @@ spec:
                           description: Allowed runtime versions are [1.11.0, 1.12.0,
                             1.13.0, 1.14.0, latest] or [1.11.0-gpu, 1.12.0-gpu, 1.13.0-gpu,
                             1.14.0-gpu, latest-gpu] if gpu resource is specified and
-                            defaults to the version specified in kfservice config
-                            map.
+                            defaults to the version specified in inferenceservice
+                            config map.
                           type: string
                         storageUri:
                           description: The location of the trained model
@@ -208,8 +208,8 @@ spec:
                           type: object
                         runtimeVersion:
                           description: Allowed runtime versions are [19.05-py3] and
-                            defaults to the version specified in kfservice config
-                            map
+                            defaults to the version specified in inferenceservice
+                            config map
                           type: string
                         storageUri:
                           description: The location of the trained model
@@ -226,8 +226,8 @@ spec:
                           type: object
                         runtimeVersion:
                           description: Allowed runtime versions are [0.2.0, latest]
-                            and defaults to the version specified in kfservice config
-                            map
+                            and defaults to the version specified in inferenceservice
+                            config map
                           type: string
                         storageUri:
                           description: The location of the trained model
@@ -351,8 +351,8 @@ spec:
                           type: object
                         runtimeVersion:
                           description: Allowed runtime versions are [v0.5.0, latest]
-                            and defaults to the version specified in kfservice config
-                            map
+                            and defaults to the version specified in inferenceservice
+                            config map
                           type: string
                         storageUri:
                           description: The location of the trained model
@@ -372,8 +372,8 @@ spec:
                           type: object
                         runtimeVersion:
                           description: Allowed runtime versions are [0.2.0, latest]
-                            and defaults to the version specified in kfservice config
-                            map
+                            and defaults to the version specified in inferenceservice
+                            config map
                           type: string
                         storageUri:
                           description: The location of the trained model
@@ -394,8 +394,8 @@ spec:
                           type: object
                         runtimeVersion:
                           description: Allowed runtime versions are [0.2.0, latest]
-                            and defaults to the version specified in kfservice config
-                            map
+                            and defaults to the version specified in inferenceservice
+                            config map
                           type: string
                         storageUri:
                           description: The location of the trained model
@@ -414,8 +414,8 @@ spec:
                           description: Allowed runtime versions are [1.11.0, 1.12.0,
                             1.13.0, 1.14.0, latest] or [1.11.0-gpu, 1.12.0-gpu, 1.13.0-gpu,
                             1.14.0-gpu, latest-gpu] if gpu resource is specified and
-                            defaults to the version specified in kfservice config
-                            map.
+                            defaults to the version specified in inferenceservice
+                            config map.
                           type: string
                         storageUri:
                           description: The location of the trained model
@@ -432,8 +432,8 @@ spec:
                           type: object
                         runtimeVersion:
                           description: Allowed runtime versions are [19.05-py3] and
-                            defaults to the version specified in kfservice config
-                            map
+                            defaults to the version specified in inferenceservice
+                            config map
                           type: string
                         storageUri:
                           description: The location of the trained model
@@ -450,8 +450,8 @@ spec:
                           type: object
                         runtimeVersion:
                           description: Allowed runtime versions are [0.2.0, latest]
-                            and defaults to the version specified in kfservice config
-                            map
+                            and defaults to the version specified in inferenceservice
+                            config map
                           type: string
                         storageUri:
                           description: The location of the trained model
@@ -496,7 +496,7 @@ spec:
         status:
           properties:
             canary:
-              description: Statuses for the canary endpoints of the KFService
+              description: Statuses for the canary endpoints of the InferenceService
               type: object
             canaryTraffic:
               description: Traffic percentage that goes to canary services
@@ -537,7 +537,7 @@ spec:
                 type: object
               type: array
             default:
-              description: Statuses for the default endpoints of the KFService
+              description: Statuses for the default endpoints of the InferenceService
               type: object
             observedGeneration:
               description: ObservedGeneration is the 'Generation' of the Service that
@@ -549,7 +549,7 @@ spec:
               format: int64
               type: integer
             url:
-              description: URL of the KFService
+              description: URL of the InferenceService
               type: string
           type: object
   version: v1alpha2

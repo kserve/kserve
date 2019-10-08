@@ -350,7 +350,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						},
 						"url": {
 							SchemaProps: spec.SchemaProps{
-								Description: "URL of the KFService",
+								Description: "URL of the InferenceService",
 								Type:        []string{"string"},
 								Format:      "",
 							},
@@ -371,7 +371,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						},
 						"default": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Statuses for the default endpoints of the KFService",
+								Description: "Statuses for the default endpoints of the InferenceService",
 								Type:        []string{"object"},
 								AdditionalProperties: &spec.SchemaOrBool{
 									Schema: &spec.Schema{
@@ -384,7 +384,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						},
 						"canary": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Statuses for the canary endpoints of the KFService",
+								Description: "Statuses for the canary endpoints of the InferenceService",
 								Type:        []string{"object"},
 								AdditionalProperties: &spec.SchemaOrBool{
 									Schema: &spec.Schema{
@@ -415,7 +415,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						},
 						"runtimeVersion": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Allowed runtime versions are [v0.5.0, latest] and defaults to the version specified in kfservice config map",
+								Description: "Allowed runtime versions are [v0.5.0, latest] and defaults to the version specified in inferenceservice config map",
 								Type:        []string{"string"},
 								Format:      "",
 							},
@@ -528,7 +528,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						},
 						"runtimeVersion": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Allowed runtime versions are [0.2.0, latest] and defaults to the version specified in kfservice config map",
+								Description: "Allowed runtime versions are [0.2.0, latest] and defaults to the version specified in inferenceservice config map",
 								Type:        []string{"string"},
 								Format:      "",
 							},
@@ -560,7 +560,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						},
 						"runtimeVersion": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Allowed runtime versions are [0.2.0, latest] and defaults to the version specified in kfservice config map",
+								Description: "Allowed runtime versions are [0.2.0, latest] and defaults to the version specified in inferenceservice config map",
 								Type:        []string{"string"},
 								Format:      "",
 							},
@@ -622,7 +622,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						},
 						"runtimeVersion": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Allowed runtime versions are [19.05-py3] and defaults to the version specified in kfservice config map",
+								Description: "Allowed runtime versions are [19.05-py3] and defaults to the version specified in inferenceservice config map",
 								Type:        []string{"string"},
 								Format:      "",
 							},
@@ -654,7 +654,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						},
 						"runtimeVersion": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Allowed runtime versions are [1.11.0, 1.12.0, 1.13.0, 1.14.0, latest] or [1.11.0-gpu, 1.12.0-gpu, 1.13.0-gpu, 1.14.0-gpu, latest-gpu] if gpu resource is specified and defaults to the version specified in kfservice config map.",
+								Description: "Allowed runtime versions are [1.11.0, 1.12.0, 1.13.0, 1.14.0, latest] or [1.11.0-gpu, 1.12.0-gpu, 1.13.0-gpu, 1.14.0-gpu, latest-gpu] if gpu resource is specified and defaults to the version specified in inferenceservice config map.",
 								Type:        []string{"string"},
 								Format:      "",
 							},
@@ -724,7 +724,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						},
 						"runtimeVersion": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Allowed runtime versions are [0.2.0, latest] and defaults to the version specified in kfservice config map",
+								Description: "Allowed runtime versions are [0.2.0, latest] and defaults to the version specified in inferenceservice config map",
 								Type:        []string{"string"},
 								Format:      "",
 							},

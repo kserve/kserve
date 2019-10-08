@@ -606,7 +606,7 @@ string
 </em>
 </td>
 <td>
-<p>URL of the KFService</p>
+<p>URL of the InferenceService</p>
 </td>
 </tr>
 <tr>
@@ -641,7 +641,7 @@ EndpointStatusMap
 </em>
 </td>
 <td>
-<p>Statuses for the default endpoints of the KFService</p>
+<p>Statuses for the default endpoints of the InferenceService</p>
 </td>
 </tr>
 <tr>
@@ -654,7 +654,7 @@ EndpointStatusMap
 </em>
 </td>
 <td>
-<p>Statuses for the canary endpoints of the KFService</p>
+<p>Statuses for the canary endpoints of the InferenceService</p>
 </td>
 </tr>
 </tbody>
