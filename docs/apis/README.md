@@ -174,7 +174,7 @@ string
 </em>
 </td>
 <td>
-<p>Defaults to latest Alibi Version.</p>
+<p>Defaults to latest Alibi Version</p>
 </td>
 </tr>
 <tr>
@@ -341,8 +341,8 @@ ExplainerSpec
 </td>
 <td>
 <em>(Optional)</em>
-<p>Explainer defines the model explanation service spec
-explainer service calls to transformer or predictor service</p>
+<p>Explainer defines the model explanation service spec,
+explainer service calls to predictor or transformer if it is specified.</p>
 </td>
 </tr>
 <tr>
@@ -356,8 +356,8 @@ TransformerSpec
 </td>
 <td>
 <em>(Optional)</em>
-<p>Transformer defines the transformer service spec for pre/post processing
-transformer service calls to predictor service</p>
+<p>Transformer defines the pre/post processing before and after the predictor call,
+transformer service calls to predictor service.</p>
 </td>
 </tr>
 </tbody>
@@ -401,6 +401,26 @@ string
 <td>
 </td>
 </tr>
+<tr>
+<td>
+<code>defaultImageVersion</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>allowedImageVersions</code></br>
+<em>
+[]string
+</em>
+</td>
+<td>
+</td>
+</tr>
 </tbody>
 </table>
 <h3 id="serving.kubeflow.org/v1alpha2.ExplainerSpec">ExplainerSpec
@@ -410,7 +430,8 @@ string
 <a href="#serving.kubeflow.org/v1alpha2.EndpointSpec">EndpointSpec</a>)
 </p>
 <p>
-<p>ExplainerSpec defines the arguments for a model explanation server</p>
+<p>ExplainerSpec defines the arguments for a model explanation server,
+The following fields follow a &ldquo;1-of&rdquo; semantic. Users must specify exactly one spec.</p>
 </p>
 <table>
 <thead>
@@ -430,7 +451,7 @@ AlibiExplainerSpec
 </em>
 </td>
 <td>
-<p>The following fields follow a &ldquo;1-of&rdquo; semantic. Users must specify exactly one spec.</p>
+<p>Spec for alibi explainer</p>
 </td>
 </tr>
 <tr>
@@ -443,6 +464,7 @@ CustomSpec
 </em>
 </td>
 <td>
+<p>Spec for a custom explainer</p>
 </td>
 </tr>
 <tr>
@@ -702,6 +724,29 @@ string
 </em>
 </td>
 <td>
+<p>URL of the KFService</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>traffic</code></br>
+<em>
+int
+</em>
+</td>
+<td>
+<p>Traffic percentage that goes to default services</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>canaryTraffic</code></br>
+<em>
+int
+</em>
+</td>
+<td>
+<p>Traffic percentage that goes to canary services</p>
 </td>
 </tr>
 <tr>
@@ -714,6 +759,7 @@ EndpointStatusMap
 </em>
 </td>
 <td>
+<p>Statuses for the default endpoints of the KFService</p>
 </td>
 </tr>
 <tr>
@@ -726,6 +772,7 @@ EndpointStatusMap
 </em>
 </td>
 <td>
+<p>Statuses for the canary endpoints of the KFService</p>
 </td>
 </tr>
 </tbody>
@@ -766,7 +813,7 @@ string
 </em>
 </td>
 <td>
-<p>Defaults to latest ONNX Version.</p>
+<p>Allowed runtime versions are [v0.5.0, latest] and defaults to the version specified in kfservice config map</p>
 </td>
 </tr>
 <tr>
@@ -814,6 +861,36 @@ string
 <td>
 </td>
 </tr>
+<tr>
+<td>
+<code>defaultImageVersion</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>defaultGpuImageVersion</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>allowedImageVersions</code></br>
+<em>
+[]string
+</em>
+</td>
+<td>
+</td>
+</tr>
 </tbody>
 </table>
 <h3 id="serving.kubeflow.org/v1alpha2.PredictorSpec">PredictorSpec
@@ -823,7 +900,8 @@ string
 <a href="#serving.kubeflow.org/v1alpha2.EndpointSpec">EndpointSpec</a>)
 </p>
 <p>
-<p>PredictorSpec defines the configuration to route traffic to a predictor.</p>
+<p>PredictorSpec defines the configuration for a predictor,
+The following fields follow a &ldquo;1-of&rdquo; semantic. Users must specify exactly one spec.</p>
 </p>
 <table>
 <thead>
@@ -843,7 +921,7 @@ CustomSpec
 </em>
 </td>
 <td>
-<p>The following fields follow a &ldquo;1-of&rdquo; semantic. Users must specify exactly one spec.</p>
+<p>Spec for a custom predictor</p>
 </td>
 </tr>
 <tr>
@@ -856,6 +934,7 @@ TensorflowSpec
 </em>
 </td>
 <td>
+<p>Spec for Tensorflow Serving (<a href="https://github.com/tensorflow/serving">https://github.com/tensorflow/serving</a>)</p>
 </td>
 </tr>
 <tr>
@@ -868,6 +947,7 @@ TensorRTSpec
 </em>
 </td>
 <td>
+<p>Spec for TensorRT Inference Server (<a href="https://github.com/NVIDIA/tensorrt-inference-server">https://github.com/NVIDIA/tensorrt-inference-server</a>)</p>
 </td>
 </tr>
 <tr>
@@ -880,6 +960,7 @@ XGBoostSpec
 </em>
 </td>
 <td>
+<p>Spec for XGBoost predictor</p>
 </td>
 </tr>
 <tr>
@@ -892,6 +973,7 @@ SKLearnSpec
 </em>
 </td>
 <td>
+<p>Spec for SKLearn predictor</p>
 </td>
 </tr>
 <tr>
@@ -904,6 +986,7 @@ ONNXSpec
 </em>
 </td>
 <td>
+<p>Spec for ONNX runtime (<a href="https://github.com/microsoft/onnxruntime">https://github.com/microsoft/onnxruntime</a>)</p>
 </td>
 </tr>
 <tr>
@@ -916,6 +999,7 @@ PyTorchSpec
 </em>
 </td>
 <td>
+<p>Spec for PyTorch predictor</p>
 </td>
 </tr>
 <tr>
@@ -1068,7 +1152,7 @@ string
 </em>
 </td>
 <td>
-<p>Defaults to latest PyTorch Version</p>
+<p>Allowed runtime versions are [0.2.0, latest] and defaults to the version specified in kfservice config map</p>
 </td>
 </tr>
 <tr>
@@ -1122,7 +1206,7 @@ string
 </em>
 </td>
 <td>
-<p>Defaults to latest SKLearn Version.</p>
+<p>Allowed runtime versions are [0.2.0, latest] and defaults to the version specified in kfservice config map</p>
 </td>
 </tr>
 <tr>
@@ -1165,6 +1249,7 @@ string
 </em>
 </td>
 <td>
+<p>Latest revision name that is in ready state</p>
 </td>
 </tr>
 <tr>
@@ -1175,21 +1260,12 @@ string
 </em>
 </td>
 <td>
+<p>Host name of the service</p>
 </td>
 </tr>
 <tr>
 <td>
 <code>replicas</code></br>
-<em>
-int
-</em>
-</td>
-<td>
-</td>
-</tr>
-<tr>
-<td>
-<code>traffic</code></br>
 <em>
 int
 </em>
@@ -1235,7 +1311,7 @@ string
 </em>
 </td>
 <td>
-<p>Defaults to latest TensorRT Version.</p>
+<p>Allowed runtime versions are [19.05-py3] and defaults to the version specified in kfservice config map</p>
 </td>
 </tr>
 <tr>
@@ -1289,7 +1365,8 @@ string
 </em>
 </td>
 <td>
-<p>Defaults to latest TF Version.</p>
+<p>Allowed runtime versions are [1.11.0, 1.12.0, 1.13.0, 1.14.0, latest] or [1.11.0-gpu, 1.12.0-gpu, 1.13.0-gpu, 1.14.0-gpu, latest-gpu]
+if gpu resource is specified and defaults to the version specified in kfservice config map.</p>
 </td>
 </tr>
 <tr>
@@ -1312,6 +1389,54 @@ Kubernetes core/v1.ResourceRequirements
 <p>
 <p>Transformer interface is implemented by all Transformers</p>
 </p>
+<h3 id="serving.kubeflow.org/v1alpha2.TransformerConfig">TransformerConfig
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#serving.kubeflow.org/v1alpha2.TransformersConfig">TransformersConfig</a>)
+</p>
+<p>
+</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>image</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>defaultImageVersion</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>allowedImageVersions</code></br>
+<em>
+[]string
+</em>
+</td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
 <h3 id="serving.kubeflow.org/v1alpha2.TransformerSpec">TransformerSpec
 </h3>
 <p>
@@ -1339,6 +1464,7 @@ CustomSpec
 </em>
 </td>
 <td>
+<p>Spec for a custom transformer</p>
 </td>
 </tr>
 <tr>
@@ -1354,6 +1480,87 @@ DeploymentSpec
 <p>
 (Members of <code>DeploymentSpec</code> are embedded into this type.)
 </p>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="serving.kubeflow.org/v1alpha2.TransformersConfig">TransformersConfig
+</h3>
+<p>
+</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>feast</code></br>
+<em>
+<a href="#serving.kubeflow.org/v1alpha2.TransformerConfig">
+TransformerConfig
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="serving.kubeflow.org/v1alpha2.VirtualServiceStatus">VirtualServiceStatus
+</h3>
+<p>
+<p>VirtualServiceStatus captures the status of the virtual service</p>
+</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>URL</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>CanaryWeight</code></br>
+<em>
+int
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>DefaultWeight</code></br>
+<em>
+int
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>Status</code></br>
+<em>
+knative.dev/pkg/apis/duck/v1beta1.Status
+</em>
+</td>
+<td>
 </td>
 </tr>
 </tbody>
@@ -1394,7 +1601,7 @@ string
 </em>
 </td>
 <td>
-<p>Defaults to latest XGBoost Version.</p>
+<p>Allowed runtime versions are [0.2.0, latest] and defaults to the version specified in kfservice config map</p>
 </td>
 </tr>
 <tr>

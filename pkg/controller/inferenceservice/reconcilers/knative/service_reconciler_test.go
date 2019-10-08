@@ -37,7 +37,8 @@ import (
 )
 
 const (
-	timeout = time.Second * 5
+	timeout                         = time.Second * 5
+	DefaultTensorflowRuntimeVersion = "latest"
 )
 
 func TestKnativeServiceReconcile(t *testing.T) {

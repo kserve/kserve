@@ -66,19 +66,19 @@ type DeploymentSpec struct {
 // The following fields follow a "1-of" semantic. Users must specify exactly one spec.
 type PredictorSpec struct {
 	// Spec for a custom predictor
-	Custom     *CustomSpec     `json:"custom,omitempty"`
+	Custom *CustomSpec `json:"custom,omitempty"`
 	// Spec for Tensorflow Serving (https://github.com/tensorflow/serving)
 	Tensorflow *TensorflowSpec `json:"tensorflow,omitempty"`
 	// Spec for TensorRT Inference Server (https://github.com/NVIDIA/tensorrt-inference-server)
-	TensorRT   *TensorRTSpec   `json:"tensorrt,omitempty"`
+	TensorRT *TensorRTSpec `json:"tensorrt,omitempty"`
 	// Spec for XGBoost predictor
-	XGBoost    *XGBoostSpec    `json:"xgboost,omitempty"`
+	XGBoost *XGBoostSpec `json:"xgboost,omitempty"`
 	// Spec for SKLearn predictor
-	SKLearn    *SKLearnSpec    `json:"sklearn,omitempty"`
+	SKLearn *SKLearnSpec `json:"sklearn,omitempty"`
 	// Spec for ONNX runtime (https://github.com/microsoft/onnxruntime)
-	ONNX       *ONNXSpec       `json:"onnx,omitempty"`
+	ONNX *ONNXSpec `json:"onnx,omitempty"`
 	// Spec for PyTorch predictor
-	PyTorch    *PyTorchSpec    `json:"pytorch,omitempty"`
+	PyTorch *PyTorchSpec `json:"pytorch,omitempty"`
 
 	DeploymentSpec `json:",inline"`
 }
@@ -87,9 +87,9 @@ type PredictorSpec struct {
 // The following fields follow a "1-of" semantic. Users must specify exactly one spec.
 type ExplainerSpec struct {
 	// Spec for alibi explainer
-	Alibi  *AlibiExplainerSpec `json:"alibi,omitempty"`
+	Alibi *AlibiExplainerSpec `json:"alibi,omitempty"`
 	// Spec for a custom explainer
-	Custom *CustomSpec         `json:"custom,omitempty"`
+	Custom *CustomSpec `json:"custom,omitempty"`
 
 	DeploymentSpec `json:",inline"`
 }
@@ -201,21 +201,21 @@ type EndpointStatusMap map[constants.InferenceServiceEndpoint]*StatusConfigurati
 type InferenceServiceStatus struct {
 	duckv1beta1.Status `json:",inline"`
 	// URL of the KFService
-	URL                string             `json:"url,omitempty"`
+	URL string `json:"url,omitempty"`
 	// Traffic percentage that goes to default services
-	Traffic            int                `json:"traffic,omitempty"`
+	Traffic int `json:"traffic,omitempty"`
 	// Traffic percentage that goes to canary services
-	CanaryTraffic      int                `json:"canaryTraffic,omitempty"`
+	CanaryTraffic int `json:"canaryTraffic,omitempty"`
 	// Statuses for the default endpoints of the KFService
-	Default            *EndpointStatusMap `json:"default,omitempty"`
+	Default *EndpointStatusMap `json:"default,omitempty"`
 	// Statuses for the canary endpoints of the KFService
-	Canary             *EndpointStatusMap `json:"canary,omitempty"`
+	Canary *EndpointStatusMap `json:"canary,omitempty"`
 }
 
 // StatusConfigurationSpec describes the state of the configuration receiving traffic.
 type StatusConfigurationSpec struct {
 	// Latest revision name that is in ready state
-	Name     string `json:"name,omitempty"`
+	Name string `json:"name,omitempty"`
 	// Host name of the service
 	Hostname string `json:"host,omitempty"`
 	Replicas int    `json:"replicas,omitempty"`
@@ -249,6 +249,7 @@ type InferenceServiceList struct {
 	Items           []InferenceService `json:"items"`
 }
 
+// +k8s:openapi-gen=false
 //  VirtualServiceStatus captures the status of the virtual service
 type VirtualServiceStatus struct {
 	URL           string
