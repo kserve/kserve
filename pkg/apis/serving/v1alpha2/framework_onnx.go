@@ -24,7 +24,6 @@ import (
 var (
 	ONNXServingRestPort            = "8080"
 	ONNXServingGRPCPort            = "9000"
-	ONNXServingImageName           = "mcr.microsoft.com/onnxruntime/server"
 	ONNXModelFileName              = "model.onnx"
 	InvalidONNXRuntimeVersionError = "ONNX RuntimeVersion must be one of %s"
 )
@@ -33,14 +32,9 @@ func (s *ONNXSpec) GetStorageUri() string {
 	return s.StorageURI
 }
 
-func (s *ONNXSpec) GetContainer(modelName string, config *InferenceEndpointsConfigMap) *v1.Container {
-	imageName := ONNXServingImageName
-	if config.Predictors.ONNX.ContainerImage != "" {
-		imageName = config.Predictors.ONNX.ContainerImage
-	}
-
+func (s *ONNXSpec) GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container {
 	return &v1.Container{
-		Image:     imageName + ":" + s.RuntimeVersion,
+		Image:     config.Predictors.ONNX.ContainerImage + ":" + s.RuntimeVersion,
 		Resources: s.Resources,
 		Args: []string{
 			"--model_path", constants.DefaultModelLocalMountPath + "/" + ONNXModelFileName,
@@ -50,14 +44,14 @@ func (s *ONNXSpec) GetContainer(modelName string, config *InferenceEndpointsConf
 	}
 }
 
-func (s *ONNXSpec) ApplyDefaults(config *InferenceEndpointsConfigMap) {
+func (s *ONNXSpec) ApplyDefaults(config *InferenceServicesConfig) {
 	if s.RuntimeVersion == "" {
 		s.RuntimeVersion = config.Predictors.ONNX.DefaultImageVersion
 	}
 	setResourceRequirementDefaults(&s.Resources)
 }
 
-func (s *ONNXSpec) Validate(config *InferenceEndpointsConfigMap) error {
+func (s *ONNXSpec) Validate(config *InferenceServicesConfig) error {
 	if !utils.Includes(config.Predictors.ONNX.AllowedImageVersions, s.RuntimeVersion) {
 		return fmt.Errorf(InvalidONNXRuntimeVersionError, strings.Join(config.Predictors.ONNX.AllowedImageVersions, ", "))
 	}

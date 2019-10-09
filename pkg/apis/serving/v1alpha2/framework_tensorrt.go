@@ -23,9 +23,7 @@ import (
 )
 
 var (
-	DefaultTensorRTISImageName = "nvcr.io/nvidia/tensorrtserver"
 	// For versioning see https://github.com/NVIDIA/tensorrt-inference-server/releases
-
 	InvalidTensorRTISRuntimeVersionError = "RuntimeVersion must be one of %s"
 	TensorRTISGRPCPort                   = int32(9000)
 	TensorRTISRestPort                   = int32(8080)
@@ -35,15 +33,10 @@ func (t *TensorRTSpec) GetStorageUri() string {
 	return t.StorageURI
 }
 
-func (t *TensorRTSpec) GetContainer(modelName string, config *InferenceEndpointsConfigMap) *v1.Container {
-	imageName := DefaultTensorRTISImageName
-	if config.Predictors.TensorRT.ContainerImage != "" {
-		imageName = config.Predictors.TensorRT.ContainerImage
-	}
-
+func (t *TensorRTSpec) GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container {
 	// based on example at: https://github.com/NVIDIA/tensorrt-laboratory/blob/master/examples/Deployment/Kubernetes/basic-trtis-deployment/deploy.yml
 	return &v1.Container{
-		Image:     imageName + ":" + t.RuntimeVersion,
+		Image:     config.Predictors.TensorRT.ContainerImage + ":" + t.RuntimeVersion,
 		Resources: t.Resources,
 		Args: []string{
 			"trtserver",
@@ -62,14 +55,14 @@ func (t *TensorRTSpec) GetContainer(modelName string, config *InferenceEndpoints
 	}
 }
 
-func (t *TensorRTSpec) ApplyDefaults(config *InferenceEndpointsConfigMap) {
+func (t *TensorRTSpec) ApplyDefaults(config *InferenceServicesConfig) {
 	if t.RuntimeVersion == "" {
 		t.RuntimeVersion = config.Predictors.TensorRT.DefaultImageVersion
 	}
 	setResourceRequirementDefaults(&t.Resources)
 }
 
-func (t *TensorRTSpec) Validate(config *InferenceEndpointsConfigMap) error {
+func (t *TensorRTSpec) Validate(config *InferenceServicesConfig) error {
 	if !utils.Includes(config.Predictors.TensorRT.AllowedImageVersions, t.RuntimeVersion) {
 		return fmt.Errorf(InvalidTensorRTISRuntimeVersionError, strings.Join(config.Predictors.TensorRT.AllowedImageVersions, ", "))
 	}

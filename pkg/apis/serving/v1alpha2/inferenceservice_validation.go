@@ -83,7 +83,7 @@ func validateEndpoint(endpoint *EndpointSpec, client client.Client) error {
 	if endpoint == nil {
 		return nil
 	}
-	configMap, err := GetInferenceEndpointsConfigMap(client)
+	configMap, err := GetInferenceServicesConfig(client)
 	if err != nil {
 		return err
 	}

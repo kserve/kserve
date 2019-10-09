@@ -63,20 +63,20 @@ type TransformersConfig struct {
 }
 
 // +k8s:openapi-gen=false
-type InferenceEndpointsConfigMap struct {
+type InferenceServicesConfig struct {
 	Transformers *TransformersConfig `json:"transformers"`
 	Predictors   *PredictorsConfig   `json:"predictors"`
 	Explainers   *ExplainersConfig   `json:"explainers"`
 }
 
-func GetInferenceEndpointsConfigMap(client client.Client) (*InferenceEndpointsConfigMap, error) {
+func GetInferenceServicesConfig(client client.Client) (*InferenceServicesConfig, error) {
 	configMap := &v1.ConfigMap{}
 	err := client.Get(context.TODO(), types.NamespacedName{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KFServingNamespace}, configMap)
 	if err != nil {
 		return nil, err
 	}
 
-	endpointsConfigMap, err := NewInferenceEndpointsConfigMap(configMap)
+	endpointsConfigMap, err := NewInferenceServicesConfig(configMap)
 	if err != nil {
 		return nil, err
 	}
@@ -84,7 +84,7 @@ func GetInferenceEndpointsConfigMap(client client.Client) (*InferenceEndpointsCo
 	return endpointsConfigMap, nil
 }
 
-func NewInferenceEndpointsConfigMap(configMap *v1.ConfigMap) (*InferenceEndpointsConfigMap, error) {
+func NewInferenceServicesConfig(configMap *v1.ConfigMap) (*InferenceServicesConfig, error) {
 	predictorsConfig, err := getPredictorsConfigs(configMap)
 	if err != nil {
 		return nil, err
@@ -97,7 +97,7 @@ func NewInferenceEndpointsConfigMap(configMap *v1.ConfigMap) (*InferenceEndpoint
 	if err != nil {
 		return nil, err
 	}
-	return &InferenceEndpointsConfigMap{
+	return &InferenceServicesConfig{
 		Predictors:   predictorsConfig,
 		Transformers: transformersConfig,
 		Explainers:   explainersConfig,

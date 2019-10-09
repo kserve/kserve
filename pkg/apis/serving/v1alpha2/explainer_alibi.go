@@ -17,7 +17,7 @@ func (s *AlibiExplainerSpec) GetStorageUri() string {
 	return s.StorageURI
 }
 
-func (s *AlibiExplainerSpec) CreateExplainerContainer(modelName string, predictorHost string, config *InferenceEndpointsConfigMap) *v1.Container {
+func (s *AlibiExplainerSpec) CreateExplainerContainer(modelName string, predictorHost string, config *InferenceServicesConfig) *v1.Container {
 	imageName := AlibiImageName
 	if config.Explainers.AlibiExplainer.ContainerImage != "" {
 		imageName = config.Explainers.AlibiExplainer.ContainerImage
@@ -46,14 +46,14 @@ func (s *AlibiExplainerSpec) CreateExplainerContainer(modelName string, predicto
 	}
 }
 
-func (s *AlibiExplainerSpec) ApplyDefaults(config *InferenceEndpointsConfigMap) {
+func (s *AlibiExplainerSpec) ApplyDefaults(config *InferenceServicesConfig) {
 	if s.RuntimeVersion == "" {
 		s.RuntimeVersion = config.Explainers.AlibiExplainer.DefaultImageVersion
 	}
 	setResourceRequirementDefaults(&s.Resources)
 }
 
-func (s *AlibiExplainerSpec) Validate(config *InferenceEndpointsConfigMap) error {
+func (s *AlibiExplainerSpec) Validate(config *InferenceServicesConfig) error {
 	if !utils.Includes(config.Explainers.AlibiExplainer.AllowedImageVersions, s.RuntimeVersion) {
 		return fmt.Errorf(InvalidAlibiRuntimeVersionError, strings.Join(config.Explainers.AlibiExplainer.AllowedImageVersions, ", "))
 	}

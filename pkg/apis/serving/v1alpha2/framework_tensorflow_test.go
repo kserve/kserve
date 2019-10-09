@@ -35,7 +35,6 @@ func TestFrameworkTensorflow(t *testing.T) {
 		"latest-gpu",
 	}
 	allowedTFServingImageVersions := strings.Join(allowedTFServingImageVersionsArray, ", ")
-
 	scenarios := map[string]struct {
 		spec    TensorflowSpec
 		matcher types.GomegaMatcher
@@ -70,7 +69,7 @@ func TestFrameworkTensorflow(t *testing.T) {
 	}
 
 	for name, scenario := range scenarios {
-		config := &InferenceEndpointsConfigMap{
+		config := &InferenceServicesConfig{
 			Predictors: &PredictorsConfig{
 				Tensorflow: PredictorConfig{
 					ContainerImage:         "tensorflow/serving",

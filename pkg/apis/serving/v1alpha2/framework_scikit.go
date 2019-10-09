@@ -24,8 +24,6 @@ import (
 
 var (
 	InvalidSKLearnRuntimeVersionError = "RuntimeVersion must be one of %s"
-	SKLearnServerImageName            = "gcr.io/kfserving/sklearnserver"
-	DefaultSKLearnRuntimeVersion      = "latest"
 )
 
 var _ Predictor = (*SKLearnSpec)(nil)
@@ -34,13 +32,9 @@ func (s *SKLearnSpec) GetStorageUri() string {
 	return s.StorageURI
 }
 
-func (s *SKLearnSpec) GetContainer(modelName string, config *InferenceEndpointsConfigMap) *v1.Container {
-	imageName := SKLearnServerImageName
-	if config.Predictors.SKlearn.ContainerImage != "" {
-		imageName = config.Predictors.SKlearn.ContainerImage
-	}
+func (s *SKLearnSpec) GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container {
 	return &v1.Container{
-		Image:     imageName + ":" + s.RuntimeVersion,
+		Image:     config.Predictors.SKlearn.ContainerImage + ":" + s.RuntimeVersion,
 		Resources: s.Resources,
 		Args: []string{
 			"--model_name=" + modelName,
@@ -49,7 +43,7 @@ func (s *SKLearnSpec) GetContainer(modelName string, config *InferenceEndpointsC
 	}
 }
 
-func (s *SKLearnSpec) ApplyDefaults(config *InferenceEndpointsConfigMap) {
+func (s *SKLearnSpec) ApplyDefaults(config *InferenceServicesConfig) {
 	if s.RuntimeVersion == "" {
 		s.RuntimeVersion = config.Predictors.SKlearn.DefaultImageVersion
 	}
@@ -57,7 +51,7 @@ func (s *SKLearnSpec) ApplyDefaults(config *InferenceEndpointsConfigMap) {
 	setResourceRequirementDefaults(&s.Resources)
 }
 
-func (s *SKLearnSpec) Validate(config *InferenceEndpointsConfigMap) error {
+func (s *SKLearnSpec) Validate(config *InferenceServicesConfig) error {
 	if utils.Includes(config.Predictors.SKlearn.AllowedImageVersions, s.RuntimeVersion) {
 		return nil
 	}

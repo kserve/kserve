@@ -39,7 +39,7 @@ func TestCreateModelServingContainer(t *testing.T) {
 			},
 		},
 	}
-	var config = InferenceEndpointsConfigMap{
+	var config = InferenceServicesConfig{
 		Predictors: &PredictorsConfig{
 			TensorRT: PredictorConfig{
 				ContainerImage: "someOtherImage",
@@ -72,17 +72,7 @@ func TestCreateModelServingContainer(t *testing.T) {
 		},
 	}
 
-	// Test Create without config
-	container := spec.GetContainer("someName", &config)
-	g.Expect(container).To(gomega.Equal(expectedContainer))
-
 	// Test Create with config
-	expectedContainer.Image = "nvcr.io/nvidia/tensorrtserver:19.05-py3"
-	emptyConfig := InferenceEndpointsConfigMap{
-		Predictors: &PredictorsConfig{
-			TensorRT: PredictorConfig{},
-		},
-	}
-	container = spec.GetContainer("someName", &emptyConfig)
+	container := spec.GetContainer("someName", &config)
 	g.Expect(container).To(gomega.Equal(expectedContainer))
 }

@@ -13,7 +13,7 @@ import (
 func TestFrameworkPytorch(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	allowedPyTorchImageVersionsArray := []string{
-		DefaultPytorchRuntimeVersion,
+		DefaultPyTorchRuntimeVersion,
 	}
 	allowedPyTorchImageVersions := strings.Join(allowedPyTorchImageVersionsArray, ", ")
 
@@ -23,7 +23,7 @@ func TestFrameworkPytorch(t *testing.T) {
 	}{
 		"AcceptGoodRuntimeVersion": {
 			spec: PyTorchSpec{
-				RuntimeVersion: DefaultSKLearnRuntimeVersion,
+				RuntimeVersion: DefaultPyTorchRuntimeVersion,
 			},
 			matcher: gomega.Succeed(),
 		},
@@ -36,7 +36,7 @@ func TestFrameworkPytorch(t *testing.T) {
 	}
 
 	for name, scenario := range scenarios {
-		config := &InferenceEndpointsConfigMap{
+		config := &InferenceServicesConfig{
 			Predictors: &PredictorsConfig{
 				PyTorch: PredictorConfig{
 					ContainerImage:       "kfserving/pytorchserver",
@@ -63,7 +63,7 @@ func TestCreatePytorchModelServingContainer(t *testing.T) {
 			},
 		},
 	}
-	var config = InferenceEndpointsConfigMap{
+	var config = InferenceServicesConfig{
 		Predictors: &PredictorsConfig{
 			PyTorch: PredictorConfig{
 				ContainerImage:      "someOtherImage",
@@ -91,15 +91,5 @@ func TestCreatePytorchModelServingContainer(t *testing.T) {
 
 	// Test Create with config
 	container := spec.GetContainer("someName", &config)
-	g.Expect(container).To(gomega.Equal(expectedContainer))
-
-	// Test Create without config
-	expectedContainer.Image = "gcr.io/kfserving/pytorchserver:0.1.0"
-	emptyConfig := InferenceEndpointsConfigMap{
-		Predictors: &PredictorsConfig{
-			PyTorch: PredictorConfig{},
-		},
-	}
-	container = spec.GetContainer("someName", &emptyConfig)
 	g.Expect(container).To(gomega.Equal(expectedContainer))
 }

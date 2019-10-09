@@ -17,8 +17,8 @@ const (
 // Transformer interface is implemented by all Transformers
 type Transformer interface {
 	GetContainerSpec() *v1.Container
-	ApplyDefaults(config *InferenceEndpointsConfigMap)
-	Validate(config *InferenceEndpointsConfigMap) error
+	ApplyDefaults(config *InferenceServicesConfig)
+	Validate(config *InferenceServicesConfig) error
 }
 
 // GetContainerSpec for the transformer
@@ -38,7 +38,7 @@ func (t *TransformerSpec) GetContainerSpec(metadata metav1.ObjectMeta, isCanary 
 }
 
 // ApplyDefaults to the TransformerSpec
-func (t *TransformerSpec) ApplyDefaults(config *InferenceEndpointsConfigMap) {
+func (t *TransformerSpec) ApplyDefaults(config *InferenceServicesConfig) {
 	transformer, err := getTransformer(t)
 	if err == nil {
 		transformer.ApplyDefaults(config)
@@ -46,7 +46,7 @@ func (t *TransformerSpec) ApplyDefaults(config *InferenceEndpointsConfigMap) {
 }
 
 // Validate the TransformerSpec
-func (t *TransformerSpec) Validate(config *InferenceEndpointsConfigMap) error {
+func (t *TransformerSpec) Validate(config *InferenceServicesConfig) error {
 	transformer, err := getTransformer(t)
 	if err != nil {
 		return err

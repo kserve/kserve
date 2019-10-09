@@ -35,6 +35,16 @@ import (
 var cfg *rest.Config
 var c client.Client
 
+const (
+	DefaultTensorflowRuntimeVersion    = "latest"
+	DefaultTensorflowRuntimeVersionGPU = "latest-gpu"
+	DefaultSKLearnRuntimeVersion       = "0.1.0"
+	DefaultPyTorchRuntimeVersion       = "0.1.0"
+	DefaultXGBoostRuntimeVersion       = "0.1.0"
+	DefaultTensorRTRuntimeVersion      = "19.05-py3"
+	DefaultONNXRuntimeVersion          = "v0.5.0"
+)
+
 func TestMain(m *testing.M) {
 	t := &envtest.Environment{
 		CRDDirectoryPaths: []string{filepath.Join("..", "..", "..", "..", "config", "default", "crds")},
@@ -60,6 +70,7 @@ func TestMain(m *testing.M) {
         "tensorflow" : {
             "image" : "tensorflow/serving",
             "defaultImageVersion": "latest",
+            "defaultGPUImageVersion": "latest-gpu",
             "allowedImageVersions": [
                "latest",
                "latest-gpu"
@@ -67,17 +78,41 @@ func TestMain(m *testing.M) {
         },
         "sklearn" : {
             "image" : "kfserving/sklearnserver",
-            "defaultImageVersion": "latest",
+            "defaultImageVersion": "0.1.0",
             "allowedImageVersions": [
-               "latest"
+               "latest",
+               "0.1.0"
             ]
         },
         "xgboost" : {
             "image" : "kfserving/xgbserver",
-            "defaultImageVersion": "latest",
+            "defaultImageVersion": "0.1.0",
             "allowedImageVersions": [
                "latest",
-               "latest-gpu"
+               "0.1.0"
+            ]
+        },
+        "pytorch" : {
+            "image" : "kfserving/pytorchserver",
+            "defaultImageVersion": "0.1.0",
+            "allowedImageVersions": [
+               "latest",
+               "0.1.0"
+            ]
+        },
+        "onnx" : {
+            "image" : "onnxruntime/server",
+            "defaultImageVersion": "v0.5.0",
+            "allowedImageVersions": [
+               "latest",
+               "v0.5.0"
+            ]
+        },
+        "tensorrt" : {
+            "image" : "nvcr.io/nvidia/tensorrtserver",
+            "defaultImageVersion": "19.05-py3",
+            "allowedImageVersions": [
+               "19.05-py3"
             ]
         }
     }`,

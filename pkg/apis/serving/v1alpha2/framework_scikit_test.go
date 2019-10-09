@@ -36,7 +36,7 @@ func TestFrameworkSKLearn(t *testing.T) {
 	}
 
 	for name, scenario := range scenarios {
-		config := &InferenceEndpointsConfigMap{
+		config := &InferenceServicesConfig{
 			Predictors: &PredictorsConfig{
 				SKlearn: PredictorConfig{
 					ContainerImage:       "kfserving/sklearnserver",
@@ -63,7 +63,7 @@ func TestCreateSKLearnModelServingContainer(t *testing.T) {
 			},
 		},
 	}
-	var config = InferenceEndpointsConfigMap{
+	var config = InferenceServicesConfig{
 		Predictors: &PredictorsConfig{
 			SKlearn: PredictorConfig{
 				ContainerImage:      "someOtherImage",
@@ -89,15 +89,5 @@ func TestCreateSKLearnModelServingContainer(t *testing.T) {
 
 	// Test Create with config
 	container := spec.GetContainer("someName", &config)
-	g.Expect(container).To(gomega.Equal(expectedContainer))
-
-	// Test Create without config
-	expectedContainer.Image = "gcr.io/kfserving/sklearnserver:0.1.0"
-	emptyConfig := InferenceEndpointsConfigMap{
-		Predictors: &PredictorsConfig{
-			SKlearn: PredictorConfig{},
-		},
-	}
-	container = spec.GetContainer("someName", &emptyConfig)
 	g.Expect(container).To(gomega.Equal(expectedContainer))
 }

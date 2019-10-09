@@ -22,9 +22,9 @@ import (
 
 type Explainer interface {
 	GetStorageUri() string
-	CreateExplainerContainer(modelName string, predictorHost string, config *InferenceEndpointsConfigMap) *v1.Container
-	ApplyDefaults(config *InferenceEndpointsConfigMap)
-	Validate(config *InferenceEndpointsConfigMap) error
+	CreateExplainerContainer(modelName string, predictorHost string, config *InferenceServicesConfig) *v1.Container
+	ApplyDefaults(config *InferenceServicesConfig)
+	Validate(config *InferenceServicesConfig) error
 }
 
 const (
@@ -41,7 +41,7 @@ func (e *ExplainerSpec) GetStorageUri() string {
 	return explainer.GetStorageUri()
 }
 
-func (e *ExplainerSpec) CreateExplainerContainer(modelName string, predictorHost string, config *InferenceEndpointsConfigMap) *v1.Container {
+func (e *ExplainerSpec) CreateExplainerContainer(modelName string, predictorHost string, config *InferenceServicesConfig) *v1.Container {
 	explainer, err := getExplainer(e)
 	if err != nil {
 		return nil
@@ -49,14 +49,14 @@ func (e *ExplainerSpec) CreateExplainerContainer(modelName string, predictorHost
 	return explainer.CreateExplainerContainer(modelName, predictorHost, config)
 }
 
-func (e *ExplainerSpec) ApplyDefaults(config *InferenceEndpointsConfigMap) {
+func (e *ExplainerSpec) ApplyDefaults(config *InferenceServicesConfig) {
 	explainer, err := getExplainer(e)
 	if err == nil {
 		explainer.ApplyDefaults(config)
 	}
 }
 
-func (e *ExplainerSpec) Validate(config *InferenceEndpointsConfigMap) error {
+func (e *ExplainerSpec) Validate(config *InferenceServicesConfig) error {
 	explainer, err := getExplainer(e)
 	if err != nil {
 		return err

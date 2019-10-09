@@ -40,18 +40,17 @@ var serviceAnnotationDisallowedList = []string{
 }
 
 type ServiceBuilder struct {
-	endpointsConfig   *v1alpha2.InferenceEndpointsConfigMap
+	endpointsConfig   *v1alpha2.InferenceServicesConfig
 	credentialBuilder *credentials.CredentialBuilder
 }
 
 func NewServiceBuilder(client client.Client, config *v1.ConfigMap) *ServiceBuilder {
-	endpointsConfig, err := v1alpha2.NewInferenceEndpointsConfigMap(config)
+	endpointsConfig, err := v1alpha2.NewInferenceServicesConfig(config)
 	if err != nil {
 		fmt.Printf("Failed to get endpoints config %s", err)
 		panic("Failed to get endpoints config")
 
 	}
-
 	return &ServiceBuilder{
 		endpointsConfig:   endpointsConfig,
 		credentialBuilder: credentials.NewCredentialBulder(client, config),

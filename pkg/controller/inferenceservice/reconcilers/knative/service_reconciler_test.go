@@ -54,7 +54,28 @@ func TestKnativeServiceReconcile(t *testing.T) {
 		mgrStopped.Wait()
 	}()
 
-	serviceReconciler := NewServiceReconciler(c, mgr.GetScheme(), &v1.ConfigMap{})
+	TensorflowServingImageName := "tensorflow/serving"
+	configs := map[string]string{
+		"predictors": `{
+           "tensorflow" : {
+             "image" : "tensorflow/serving"
+           },
+           "sklearn" : {
+             "image" : "kfserving/sklearnserver"
+           },
+           "xgboost" : {
+             "image" : "kfserving/xgbserver"
+           }
+        }`,
+		"ingress": `{
+          "ingressGateway" : "test-gateway",
+          "ingressService" : "test-destination"
+        }`,
+	}
+
+	serviceReconciler := NewServiceReconciler(c, mgr.GetScheme(), &v1.ConfigMap{
+		Data: configs,
+	})
 	scenarios := map[string]struct {
 		isvc           v1alpha2.InferenceService
 		desiredDefault *knservingv1alpha1.Service
@@ -107,7 +128,7 @@ func TestKnativeServiceReconcile(t *testing.T) {
 									PodSpec: v1.PodSpec{
 										Containers: []v1.Container{
 											{
-												Image:   v1alpha2.TensorflowServingImageName + ":" + DefaultTensorflowRuntimeVersion,
+												Image:   TensorflowServingImageName + ":" + DefaultTensorflowRuntimeVersion,
 												Command: []string{v1alpha2.TensorflowEntrypointCommand},
 												Args: []string{
 													"--port=" + v1alpha2.TensorflowServingGRPCPort,
@@ -146,7 +167,7 @@ func TestKnativeServiceReconcile(t *testing.T) {
 									PodSpec: v1.PodSpec{
 										Containers: []v1.Container{
 											{
-												Image:   v1alpha2.TensorflowServingImageName + ":" + DefaultTensorflowRuntimeVersion,
+												Image:   TensorflowServingImageName + ":" + DefaultTensorflowRuntimeVersion,
 												Command: []string{v1alpha2.TensorflowEntrypointCommand},
 												Args: []string{
 													"--port=" + v1alpha2.TensorflowServingGRPCPort,
@@ -203,7 +224,7 @@ func TestKnativeServiceReconcile(t *testing.T) {
 									PodSpec: v1.PodSpec{
 										Containers: []v1.Container{
 											{
-												Image:   v1alpha2.TensorflowServingImageName + ":" + DefaultTensorflowRuntimeVersion,
+												Image:   TensorflowServingImageName + ":" + DefaultTensorflowRuntimeVersion,
 												Command: []string{v1alpha2.TensorflowEntrypointCommand},
 												Args: []string{
 													"--port=" + v1alpha2.TensorflowServingGRPCPort,

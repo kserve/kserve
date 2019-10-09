@@ -33,6 +33,9 @@ const (
 	DefaultSKLearnRuntimeVersion       = "latest"
 	DefaultTensorflowRuntimeVersionGPU = "latest-gpu"
 	DefaultXGBoostRuntimeVersion       = "latest"
+	TensorflowServingImageName         = "tensorflow/tfserving"
+	SKLearnServerImageName             = "kfserving/sklearnserver"
+	XGBoostServerImageName             = "kfserving/xgbserver"
 )
 
 var isvc = v1alpha2.InferenceService{
@@ -100,7 +103,7 @@ var defaultService = &knservingv1alpha1.Service{
 							ServiceAccountName: "testsvcacc",
 							Containers: []v1.Container{
 								{
-									Image:   v1alpha2.TensorflowServingImageName + ":" + isvc.Spec.Default.Predictor.Tensorflow.RuntimeVersion,
+									Image:   TensorflowServingImageName + ":" + isvc.Spec.Default.Predictor.Tensorflow.RuntimeVersion,
 									Command: []string{v1alpha2.TensorflowEntrypointCommand},
 									Args: []string{
 										"--port=" + v1alpha2.TensorflowServingGRPCPort,
@@ -143,7 +146,7 @@ var canaryService = &knservingv1alpha1.Service{
 						PodSpec: v1.PodSpec{
 							Containers: []v1.Container{
 								{
-									Image:   v1alpha2.TensorflowServingImageName + ":" + isvc.Spec.Default.Predictor.Tensorflow.RuntimeVersion,
+									Image:   TensorflowServingImageName + ":" + isvc.Spec.Default.Predictor.Tensorflow.RuntimeVersion,
 									Command: []string{v1alpha2.TensorflowEntrypointCommand},
 									Args: []string{
 										"--port=" + v1alpha2.TensorflowServingGRPCPort,
@@ -163,18 +166,17 @@ var canaryService = &knservingv1alpha1.Service{
 
 func TestInferenceServiceToKnativeService(t *testing.T) {
 	scenarios := map[string]struct {
-		configMapData    map[string]string
-		INFERENCESERVICE v1alpha2.InferenceService
+		inferenceService v1alpha2.InferenceService
 		expectedDefault  *knservingv1alpha1.Service
 		expectedCanary   *knservingv1alpha1.Service
 	}{
 		"RunLatestModel": {
-			INFERENCESERVICE: isvc,
+			inferenceService: isvc,
 			expectedDefault:  defaultService,
 			expectedCanary:   nil,
 		},
 		"RunCanaryModel": {
-			INFERENCESERVICE: v1alpha2.InferenceService{
+			inferenceService: v1alpha2.InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "mnist",
 					Namespace: "default",
@@ -222,7 +224,7 @@ func TestInferenceServiceToKnativeService(t *testing.T) {
 			expectedCanary:  canaryService,
 		},
 		"RunSklearnModel": {
-			INFERENCESERVICE: v1alpha2.InferenceService{
+			inferenceService: v1alpha2.InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "sklearn",
 					Namespace: "default",
@@ -260,7 +262,7 @@ func TestInferenceServiceToKnativeService(t *testing.T) {
 									PodSpec: v1.PodSpec{
 										Containers: []v1.Container{
 											{
-												Image: v1alpha2.SKLearnServerImageName + ":" + DefaultSKLearnRuntimeVersion,
+												Image: SKLearnServerImageName + ":" + DefaultSKLearnRuntimeVersion,
 												Args: []string{
 													"--model_name=sklearn",
 													"--model_dir=" + constants.DefaultModelLocalMountPath,
@@ -276,7 +278,7 @@ func TestInferenceServiceToKnativeService(t *testing.T) {
 			},
 		},
 		"RunXgboostModel": {
-			INFERENCESERVICE: v1alpha2.InferenceService{
+			inferenceService: v1alpha2.InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "xgboost",
 					Namespace: "default",
@@ -314,7 +316,7 @@ func TestInferenceServiceToKnativeService(t *testing.T) {
 									PodSpec: v1.PodSpec{
 										Containers: []v1.Container{
 											{
-												Image: v1alpha2.XGBoostServerImageName + ":" + DefaultXGBoostRuntimeVersion,
+												Image: XGBoostServerImageName + ":" + DefaultXGBoostRuntimeVersion,
 												Args: []string{
 													"--model_name=xgboost",
 													"--model_dir=" + constants.DefaultModelLocalMountPath,
@@ -330,8 +332,7 @@ func TestInferenceServiceToKnativeService(t *testing.T) {
 			},
 		},
 		"TestConfigOverride": {
-			configMapData: configMapData,
-			INFERENCESERVICE: v1alpha2.InferenceService{
+			inferenceService: v1alpha2.InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "xgboost",
 					Namespace: "default",
@@ -385,7 +386,7 @@ func TestInferenceServiceToKnativeService(t *testing.T) {
 			},
 		},
 		"TestAnnotation": {
-			INFERENCESERVICE: v1alpha2.InferenceService{
+			inferenceService: v1alpha2.InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "sklearn",
 					Namespace: "default",
@@ -437,7 +438,7 @@ func TestInferenceServiceToKnativeService(t *testing.T) {
 									PodSpec: v1.PodSpec{
 										Containers: []v1.Container{
 											{
-												Image: v1alpha2.SKLearnServerImageName + ":" + DefaultSKLearnRuntimeVersion,
+												Image: SKLearnServerImageName + ":" + DefaultSKLearnRuntimeVersion,
 												Args: []string{
 													"--model_name=sklearn",
 													"--model_dir=" + constants.DefaultModelLocalMountPath,
@@ -456,12 +457,12 @@ func TestInferenceServiceToKnativeService(t *testing.T) {
 
 	for name, scenario := range scenarios {
 		serviceBuilder := NewServiceBuilder(c, &v1.ConfigMap{
-			Data: scenario.configMapData,
+			Data: configMapData,
 		})
 		actualDefaultService, err := serviceBuilder.CreatePredictorService(
-			constants.DefaultPredictorServiceName(scenario.INFERENCESERVICE.Name),
-			scenario.INFERENCESERVICE.ObjectMeta,
-			&scenario.INFERENCESERVICE.Spec.Default.Predictor,
+			constants.DefaultPredictorServiceName(scenario.inferenceService.Name),
+			scenario.inferenceService.ObjectMeta,
+			&scenario.inferenceService.Spec.Default.Predictor,
 		)
 		if err != nil {
 			t.Errorf("Test %q unexpected error %s", name, err.Error())
@@ -471,11 +472,11 @@ func TestInferenceServiceToKnativeService(t *testing.T) {
 			t.Errorf("Test %q unexpected default service (-want +got): %v", name, diff)
 		}
 
-		if scenario.INFERENCESERVICE.Spec.Canary != nil {
+		if scenario.inferenceService.Spec.Canary != nil {
 			actualCanaryService, err := serviceBuilder.CreatePredictorService(
 				constants.CanaryPredictorServiceName(isvc.Name),
-				scenario.INFERENCESERVICE.ObjectMeta,
-				&scenario.INFERENCESERVICE.Spec.Canary.Predictor,
+				scenario.inferenceService.ObjectMeta,
+				&scenario.inferenceService.Spec.Canary.Predictor,
 			)
 			if err != nil {
 				t.Errorf("Test %q unexpected error %s", name, err.Error())
@@ -634,18 +635,17 @@ func TestTransformerToKnativeService(t *testing.T) {
 	}
 
 	scenarios := map[string]struct {
-		configMapData    map[string]string
-		INFERENCESERVICE v1alpha2.InferenceService
+		inferenceService v1alpha2.InferenceService
 		expectedDefault  *knservingv1alpha1.Service
 		expectedCanary   *knservingv1alpha1.Service
 	}{
 		"RunLatestModel": {
-			INFERENCESERVICE: isvc,
+			inferenceService: isvc,
 			expectedDefault:  defaultService,
 			expectedCanary:   nil,
 		},
 		"RunCanaryModel": {
-			INFERENCESERVICE: *isvcCanary,
+			inferenceService: *isvcCanary,
 			expectedDefault:  defaultService,
 			expectedCanary:   canaryService,
 		},
@@ -653,12 +653,12 @@ func TestTransformerToKnativeService(t *testing.T) {
 
 	for name, scenario := range scenarios {
 		serviceBuilder := NewServiceBuilder(c, &v1.ConfigMap{
-			Data: scenario.configMapData,
+			Data: configMapData,
 		})
 		actualDefaultService, err := serviceBuilder.CreateTransformerService(
-			constants.DefaultTransformerServiceName(scenario.INFERENCESERVICE.Name),
-			scenario.INFERENCESERVICE.ObjectMeta,
-			scenario.INFERENCESERVICE.Spec.Default.Transformer, false)
+			constants.DefaultTransformerServiceName(scenario.inferenceService.Name),
+			scenario.inferenceService.ObjectMeta,
+			scenario.inferenceService.Spec.Default.Transformer, false)
 		if err != nil {
 			t.Errorf("Test %q unexpected error %s", name, err.Error())
 		}
@@ -667,11 +667,11 @@ func TestTransformerToKnativeService(t *testing.T) {
 			t.Errorf("Test %q unexpected default service (-want +got): %v", name, diff)
 		}
 
-		if scenario.INFERENCESERVICE.Spec.Canary != nil {
+		if scenario.inferenceService.Spec.Canary != nil {
 			actualCanaryService, err := serviceBuilder.CreateTransformerService(
 				constants.CanaryTransformerServiceName(isvc.Name),
-				scenario.INFERENCESERVICE.ObjectMeta,
-				scenario.INFERENCESERVICE.Spec.Canary.Transformer, true)
+				scenario.inferenceService.ObjectMeta,
+				scenario.inferenceService.Spec.Canary.Transformer, true)
 			if err != nil {
 				t.Errorf("Test %q unexpected error %s", name, err.Error())
 			}
@@ -821,34 +821,31 @@ func TestExplainerToKnativeService(t *testing.T) {
     }`,
 	}
 	scenarios := map[string]struct {
-		configMapData    map[string]string
-		INFERENCESERVICE v1alpha2.InferenceService
+		inferenceService v1alpha2.InferenceService
 		expectedDefault  *knservingv1alpha1.Service
 		expectedCanary   *knservingv1alpha1.Service
 	}{
 		"RunLatestExplainer": {
-			INFERENCESERVICE: isvc,
+			inferenceService: isvc,
 			expectedDefault:  defaultService,
 			expectedCanary:   nil,
-			configMapData:    configMapData,
 		},
 		"RunCanaryExplainer": {
-			INFERENCESERVICE: *isvcCanary,
+			inferenceService: *isvcCanary,
 			expectedDefault:  defaultService,
 			expectedCanary:   canaryService,
-			configMapData:    configMapData,
 		},
 	}
 
 	for name, scenario := range scenarios {
 		serviceBuilder := NewServiceBuilder(c, &v1.ConfigMap{
-			Data: scenario.configMapData,
+			Data: configMapData,
 		})
 		actualDefaultService, err := serviceBuilder.CreateExplainerService(
-			constants.DefaultExplainerServiceName(scenario.INFERENCESERVICE.Name),
-			scenario.INFERENCESERVICE.ObjectMeta,
-			scenario.INFERENCESERVICE.Spec.Default.Explainer,
-			constants.DefaultPredictorServiceName(scenario.INFERENCESERVICE.Name)+"."+scenario.INFERENCESERVICE.Namespace,
+			constants.DefaultExplainerServiceName(scenario.inferenceService.Name),
+			scenario.inferenceService.ObjectMeta,
+			scenario.inferenceService.Spec.Default.Explainer,
+			constants.DefaultPredictorServiceName(scenario.inferenceService.Name)+"."+scenario.inferenceService.Namespace,
 			false)
 		if err != nil {
 			t.Errorf("Test %q unexpected error %s", name, err.Error())
@@ -858,12 +855,12 @@ func TestExplainerToKnativeService(t *testing.T) {
 			t.Errorf("Test %q unexpected default service (-want +got): %v", name, diff)
 		}
 
-		if scenario.INFERENCESERVICE.Spec.Canary != nil {
+		if scenario.inferenceService.Spec.Canary != nil {
 			actualCanaryService, err := serviceBuilder.CreateExplainerService(
 				constants.CanaryTransformerServiceName(isvc.Name),
-				scenario.INFERENCESERVICE.ObjectMeta,
-				scenario.INFERENCESERVICE.Spec.Canary.Explainer,
-				constants.CanaryPredictorServiceName(scenario.INFERENCESERVICE.Name)+"."+scenario.INFERENCESERVICE.Namespace,
+				scenario.inferenceService.ObjectMeta,
+				scenario.inferenceService.Spec.Canary.Explainer,
+				constants.CanaryPredictorServiceName(scenario.inferenceService.Name)+"."+scenario.inferenceService.Namespace,
 				true)
 			if err != nil {
 				t.Errorf("Test %q unexpected error %s", name, err.Error())

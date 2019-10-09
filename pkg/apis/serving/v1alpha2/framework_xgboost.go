@@ -23,21 +23,15 @@ import (
 
 var (
 	InvalidXGBoostRuntimeVersionError = "RuntimeVersion must be one of %s"
-	XGBoostServerImageName            = "gcr.io/kfserving/xgbserver"
-	DefaultXGBoostRuntimeVersion      = "latest"
 )
 
 func (x *XGBoostSpec) GetStorageUri() string {
 	return x.StorageURI
 }
 
-func (x *XGBoostSpec) GetContainer(modelName string, config *InferenceEndpointsConfigMap) *v1.Container {
-	imageName := XGBoostServerImageName
-	if config.Predictors.Xgboost.ContainerImage != "" {
-		imageName = config.Predictors.Xgboost.ContainerImage
-	}
+func (x *XGBoostSpec) GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container {
 	return &v1.Container{
-		Image:     imageName + ":" + x.RuntimeVersion,
+		Image:     config.Predictors.Xgboost.ContainerImage + ":" + x.RuntimeVersion,
 		Resources: x.Resources,
 		Args: []string{
 			"--model_name=" + modelName,
@@ -46,7 +40,7 @@ func (x *XGBoostSpec) GetContainer(modelName string, config *InferenceEndpointsC
 	}
 }
 
-func (x *XGBoostSpec) ApplyDefaults(config *InferenceEndpointsConfigMap) {
+func (x *XGBoostSpec) ApplyDefaults(config *InferenceServicesConfig) {
 	if x.RuntimeVersion == "" {
 		x.RuntimeVersion = config.Predictors.Xgboost.DefaultImageVersion
 	}
@@ -54,7 +48,7 @@ func (x *XGBoostSpec) ApplyDefaults(config *InferenceEndpointsConfigMap) {
 	setResourceRequirementDefaults(&x.Resources)
 }
 
-func (x *XGBoostSpec) Validate(config *InferenceEndpointsConfigMap) error {
+func (x *XGBoostSpec) Validate(config *InferenceServicesConfig) error {
 	if utils.Includes(config.Predictors.Xgboost.AllowedImageVersions, x.RuntimeVersion) {
 		return nil
 	}

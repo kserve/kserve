@@ -26,9 +26,9 @@ import (
 
 type Predictor interface {
 	GetStorageUri() string
-	GetContainer(modelName string, config *InferenceEndpointsConfigMap) *v1.Container
-	ApplyDefaults(config *InferenceEndpointsConfigMap)
-	Validate(config *InferenceEndpointsConfigMap) error
+	GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container
+	ApplyDefaults(config *InferenceServicesConfig)
+	Validate(config *InferenceServicesConfig) error
 }
 
 const (
@@ -50,7 +50,7 @@ func (p *PredictorSpec) GetStorageUri() string {
 	return predictor.GetStorageUri()
 }
 
-func (p *PredictorSpec) GetContainer(modelName string, config *InferenceEndpointsConfigMap) *v1.Container {
+func (p *PredictorSpec) GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container {
 	predictor, err := getPredictor(p)
 	if err != nil {
 		return nil
@@ -58,14 +58,14 @@ func (p *PredictorSpec) GetContainer(modelName string, config *InferenceEndpoint
 	return predictor.GetContainer(modelName, config)
 }
 
-func (p *PredictorSpec) ApplyDefaults(config *InferenceEndpointsConfigMap) {
+func (p *PredictorSpec) ApplyDefaults(config *InferenceServicesConfig) {
 	predictor, err := getPredictor(p)
 	if err == nil {
 		predictor.ApplyDefaults(config)
 	}
 }
 
-func (p *PredictorSpec) Validate(config *InferenceEndpointsConfigMap) error {
+func (p *PredictorSpec) Validate(config *InferenceServicesConfig) error {
 	predictor, err := getPredictor(p)
 	if err != nil {
 		return err

@@ -26,10 +26,7 @@ var (
 	TensorflowEntrypointCommand          = "/usr/bin/tensorflow_model_server"
 	TensorflowServingGRPCPort            = "9000"
 	TensorflowServingRestPort            = "8080"
-	TensorflowServingImageName           = "tensorflow/serving"
 	TensorflowServingGPUSuffix           = "-gpu"
-	DefaultTensorflowRuntimeVersion      = "latest"
-	DefaultTensorflowRuntimeVersionGPU   = "latest-gpu"
 	InvalidTensorflowRuntimeVersionError = "RuntimeVersion must be one of %s"
 	InvalidTensorflowRuntimeIncludesGPU  = "RuntimeVersion is not GPU enabled but GPU resources are requested. " + InvalidTensorflowRuntimeVersionError
 	InvalidTensorflowRuntimeExcludesGPU  = "RuntimeVersion is GPU enabled but GPU resources are not requested. " + InvalidTensorflowRuntimeVersionError
@@ -39,14 +36,9 @@ func (t *TensorflowSpec) GetStorageUri() string {
 	return t.StorageURI
 }
 
-func (t *TensorflowSpec) GetContainer(modelName string, config *InferenceEndpointsConfigMap) *v1.Container {
-	imageName := TensorflowServingImageName
-	if config.Predictors.Tensorflow.ContainerImage != "" {
-		imageName = config.Predictors.Tensorflow.ContainerImage
-	}
-
+func (t *TensorflowSpec) GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container {
 	return &v1.Container{
-		Image:     imageName + ":" + t.RuntimeVersion,
+		Image:     config.Predictors.Tensorflow.ContainerImage + ":" + t.RuntimeVersion,
 		Command:   []string{TensorflowEntrypointCommand},
 		Resources: t.Resources,
 		Args: []string{
@@ -58,7 +50,7 @@ func (t *TensorflowSpec) GetContainer(modelName string, config *InferenceEndpoin
 	}
 }
 
-func (t *TensorflowSpec) ApplyDefaults(config *InferenceEndpointsConfigMap) {
+func (t *TensorflowSpec) ApplyDefaults(config *InferenceServicesConfig) {
 	if t.RuntimeVersion == "" {
 		if isGPUEnabled(t.Resources) {
 			t.RuntimeVersion = config.Predictors.Tensorflow.DefaultGpuImageVersion
@@ -70,7 +62,7 @@ func (t *TensorflowSpec) ApplyDefaults(config *InferenceEndpointsConfigMap) {
 	setResourceRequirementDefaults(&t.Resources)
 }
 
-func (t *TensorflowSpec) Validate(config *InferenceEndpointsConfigMap) error {
+func (t *TensorflowSpec) Validate(config *InferenceServicesConfig) error {
 	if !utils.Includes(config.Predictors.Tensorflow.AllowedImageVersions, t.RuntimeVersion) {
 		return fmt.Errorf(InvalidTensorflowRuntimeVersionError, strings.Join(config.Predictors.Tensorflow.AllowedImageVersions, ", "))
 	}

@@ -23,9 +23,7 @@ import (
 
 var (
 	InvalidPyTorchRuntimeVersionError = "RuntimeVersion must be one of %s"
-	PyTorchServerImageName            = "gcr.io/kfserving/pytorchserver"
 	DefaultPyTorchModelClassName      = "PyTorchModel"
-	DefaultPytorchRuntimeVersion      = "latest"
 )
 
 var _ Predictor = (*PyTorchSpec)(nil)
@@ -34,13 +32,9 @@ func (s *PyTorchSpec) GetStorageUri() string {
 	return s.StorageURI
 }
 
-func (s *PyTorchSpec) GetContainer(modelName string, config *InferenceEndpointsConfigMap) *v1.Container {
-	imageName := PyTorchServerImageName
-	if config.Predictors.PyTorch.ContainerImage != "" {
-		imageName = config.Predictors.PyTorch.ContainerImage
-	}
+func (s *PyTorchSpec) GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container {
 	return &v1.Container{
-		Image:     imageName + ":" + s.RuntimeVersion,
+		Image:     config.Predictors.PyTorch.ContainerImage + ":" + s.RuntimeVersion,
 		Resources: s.Resources,
 		Args: []string{
 			"--model_name=" + modelName,
@@ -50,7 +44,7 @@ func (s *PyTorchSpec) GetContainer(modelName string, config *InferenceEndpointsC
 	}
 }
 
-func (s *PyTorchSpec) ApplyDefaults(config *InferenceEndpointsConfigMap) {
+func (s *PyTorchSpec) ApplyDefaults(config *InferenceServicesConfig) {
 	if s.RuntimeVersion == "" {
 		s.RuntimeVersion = config.Predictors.PyTorch.DefaultImageVersion
 	}
@@ -60,7 +54,7 @@ func (s *PyTorchSpec) ApplyDefaults(config *InferenceEndpointsConfigMap) {
 	setResourceRequirementDefaults(&s.Resources)
 }
 
-func (s *PyTorchSpec) Validate(config *InferenceEndpointsConfigMap) error {
+func (s *PyTorchSpec) Validate(config *InferenceServicesConfig) error {
 	if utils.Includes(config.Predictors.PyTorch.AllowedImageVersions, s.RuntimeVersion) {
 		return nil
 	}

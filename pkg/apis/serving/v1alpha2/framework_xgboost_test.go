@@ -36,7 +36,7 @@ func TestFrameworkXgBoost(t *testing.T) {
 	}
 
 	for name, scenario := range scenarios {
-		config := &InferenceEndpointsConfigMap{
+		config := &InferenceServicesConfig{
 			Predictors: &PredictorsConfig{
 				Xgboost: PredictorConfig{
 					ContainerImage:       "kfserving/xgboostserver",
@@ -63,7 +63,7 @@ func TestCreateXGBoostContainer(t *testing.T) {
 			},
 		},
 	}
-	var config = InferenceEndpointsConfigMap{
+	var config = InferenceServicesConfig{
 		Predictors: &PredictorsConfig{
 			Xgboost: PredictorConfig{
 				ContainerImage:      "someOtherImage",
@@ -89,15 +89,5 @@ func TestCreateXGBoostContainer(t *testing.T) {
 
 	// Test Create with config
 	container := spec.GetContainer("someName", &config)
-	g.Expect(container).To(gomega.Equal(expectedContainer))
-
-	// Test Create without config
-	expectedContainer.Image = "gcr.io/kfserving/xgbserver:0.1.0"
-	emptyConfig := InferenceEndpointsConfigMap{
-		Predictors: &PredictorsConfig{
-			Xgboost: PredictorConfig{},
-		},
-	}
-	container = spec.GetContainer("someName", &emptyConfig)
 	g.Expect(container).To(gomega.Equal(expectedContainer))
 }
