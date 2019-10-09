@@ -23,24 +23,11 @@ import (
 )
 
 var (
-	TensorflowEntrypointCommand        = "/usr/bin/tensorflow_model_server"
-	TensorflowServingGRPCPort          = "9000"
-	TensorflowServingRestPort          = "8080"
-	TensorflowServingImageName         = "tensorflow/serving"
-	DefaultTensorflowRuntimeVersion    = "latest"
-	TensorflowServingGPUSuffix         = "-gpu"
-	DefaultTensorflowRuntimeVersionGPU = DefaultTensorflowRuntimeVersion + TensorflowServingGPUSuffix
-	AllowedTensorflowRuntimeVersions   = []string{
-		DefaultTensorflowRuntimeVersion,
-		DefaultTensorflowRuntimeVersionGPU,
-		"1.13.0",
-		"1.13.0" + TensorflowServingGPUSuffix,
-		"1.12.0",
-		"1.12.0" + TensorflowServingGPUSuffix,
-		"1.11.0",
-		"1.11.0" + TensorflowServingGPUSuffix,
-	}
-	InvalidTensorflowRuntimeVersionError = "RuntimeVersion must be one of " + strings.Join(AllowedTensorflowRuntimeVersions, ", ")
+	TensorflowEntrypointCommand          = "/usr/bin/tensorflow_model_server"
+	TensorflowServingGRPCPort            = "9000"
+	TensorflowServingRestPort            = "8080"
+	TensorflowServingGPUSuffix           = "-gpu"
+	InvalidTensorflowRuntimeVersionError = "RuntimeVersion must be one of %s"
 	InvalidTensorflowRuntimeIncludesGPU  = "RuntimeVersion is not GPU enabled but GPU resources are requested. " + InvalidTensorflowRuntimeVersionError
 	InvalidTensorflowRuntimeExcludesGPU  = "RuntimeVersion is GPU enabled but GPU resources are not requested. " + InvalidTensorflowRuntimeVersionError
 )
@@ -49,14 +36,9 @@ func (t *TensorflowSpec) GetStorageUri() string {
 	return t.StorageURI
 }
 
-func (t *TensorflowSpec) GetContainer(modelName string, config *PredictorsConfig) *v1.Container {
-	imageName := TensorflowServingImageName
-	if config.Tensorflow.ContainerImage != "" {
-		imageName = config.Tensorflow.ContainerImage
-	}
-
+func (t *TensorflowSpec) GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container {
 	return &v1.Container{
-		Image:     imageName + ":" + t.RuntimeVersion,
+		Image:     config.Predictors.Tensorflow.ContainerImage + ":" + t.RuntimeVersion,
 		Command:   []string{TensorflowEntrypointCommand},
 		Resources: t.Resources,
 		Args: []string{
@@ -68,29 +50,29 @@ func (t *TensorflowSpec) GetContainer(modelName string, config *PredictorsConfig
 	}
 }
 
-func (t *TensorflowSpec) ApplyDefaults() {
+func (t *TensorflowSpec) ApplyDefaults(config *InferenceServicesConfig) {
 	if t.RuntimeVersion == "" {
 		if isGPUEnabled(t.Resources) {
-			t.RuntimeVersion = DefaultTensorflowRuntimeVersionGPU
+			t.RuntimeVersion = config.Predictors.Tensorflow.DefaultGpuImageVersion
 		} else {
-			t.RuntimeVersion = DefaultTensorflowRuntimeVersion
+			t.RuntimeVersion = config.Predictors.Tensorflow.DefaultImageVersion
 		}
 
 	}
 	setResourceRequirementDefaults(&t.Resources)
 }
 
-func (t *TensorflowSpec) Validate() error {
-	if !utils.Includes(AllowedTensorflowRuntimeVersions, t.RuntimeVersion) {
-		return fmt.Errorf(InvalidTensorflowRuntimeVersionError)
+func (t *TensorflowSpec) Validate(config *InferenceServicesConfig) error {
+	if !utils.Includes(config.Predictors.Tensorflow.AllowedImageVersions, t.RuntimeVersion) {
+		return fmt.Errorf(InvalidTensorflowRuntimeVersionError, strings.Join(config.Predictors.Tensorflow.AllowedImageVersions, ", "))
 	}
 
 	if isGPUEnabled(t.Resources) && !strings.Contains(t.RuntimeVersion, TensorflowServingGPUSuffix) {
-		return fmt.Errorf(InvalidTensorflowRuntimeIncludesGPU)
+		return fmt.Errorf(InvalidTensorflowRuntimeIncludesGPU, strings.Join(config.Predictors.Tensorflow.AllowedImageVersions, ", "))
 	}
 
 	if !isGPUEnabled(t.Resources) && strings.Contains(t.RuntimeVersion, TensorflowServingGPUSuffix) {
-		return fmt.Errorf(InvalidTensorflowRuntimeExcludesGPU)
+		return fmt.Errorf(InvalidTensorflowRuntimeExcludesGPU, strings.Join(config.Predictors.Tensorflow.AllowedImageVersions, ", "))
 	}
 
 	return nil

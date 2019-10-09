@@ -15,22 +15,14 @@ package v1alpha2
 
 import (
 	"fmt"
-	"strings"
-
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/utils"
-	v1 "k8s.io/api/core/v1"
+	"k8s.io/api/core/v1"
+	"strings"
 )
 
-// TODO add image name to to configmap
 var (
-	AllowedPyTorchRuntimeVersions = []string{
-		"latest",
-		"v0.1.2",
-	}
-	InvalidPyTorchRuntimeVersionError = "RuntimeVersion must be one of " + strings.Join(AllowedPyTorchRuntimeVersions, ", ")
-	PyTorchServerImageName            = "gcr.io/kfserving/pytorchserver"
-	DefaultPyTorchRuntimeVersion      = "latest"
+	InvalidPyTorchRuntimeVersionError = "RuntimeVersion must be one of %s"
 	DefaultPyTorchModelClassName      = "PyTorchModel"
 )
 
@@ -40,13 +32,9 @@ func (s *PyTorchSpec) GetStorageUri() string {
 	return s.StorageURI
 }
 
-func (s *PyTorchSpec) GetContainer(modelName string, config *PredictorsConfig) *v1.Container {
-	imageName := PyTorchServerImageName
-	if config.PyTorch.ContainerImage != "" {
-		imageName = config.PyTorch.ContainerImage
-	}
+func (s *PyTorchSpec) GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container {
 	return &v1.Container{
-		Image:     imageName + ":" + s.RuntimeVersion,
+		Image:     config.Predictors.PyTorch.ContainerImage + ":" + s.RuntimeVersion,
 		Resources: s.Resources,
 		Args: []string{
 			"--model_name=" + modelName,
@@ -56,9 +44,9 @@ func (s *PyTorchSpec) GetContainer(modelName string, config *PredictorsConfig) *
 	}
 }
 
-func (s *PyTorchSpec) ApplyDefaults() {
+func (s *PyTorchSpec) ApplyDefaults(config *InferenceServicesConfig) {
 	if s.RuntimeVersion == "" {
-		s.RuntimeVersion = DefaultPyTorchRuntimeVersion
+		s.RuntimeVersion = config.Predictors.PyTorch.DefaultImageVersion
 	}
 	if s.ModelClassName == "" {
 		s.ModelClassName = DefaultPyTorchModelClassName
@@ -66,9 +54,9 @@ func (s *PyTorchSpec) ApplyDefaults() {
 	setResourceRequirementDefaults(&s.Resources)
 }
 
-func (s *PyTorchSpec) Validate() error {
-	if utils.Includes(AllowedPyTorchRuntimeVersions, s.RuntimeVersion) {
+func (s *PyTorchSpec) Validate(config *InferenceServicesConfig) error {
+	if utils.Includes(config.Predictors.PyTorch.AllowedImageVersions, s.RuntimeVersion) {
 		return nil
 	}
-	return fmt.Errorf(InvalidPyTorchRuntimeVersionError)
+	return fmt.Errorf(InvalidPyTorchRuntimeVersionError, strings.Join(config.Predictors.PyTorch.AllowedImageVersions, ", "))
 }

@@ -17,7 +17,6 @@ limitations under the License.
 package knative
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -26,16 +25,11 @@ import (
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/controller/inferenceservice/resources/credentials"
 	"github.com/kubeflow/kfserving/pkg/utils"
-	v1 "k8s.io/api/core/v1"
+	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	knservingv1alpha1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
-)
-
-const (
-	PredictorConfigKeyName = "predictors"
-	ExplainerConfigKeyName = "explainers"
 )
 
 var serviceAnnotationDisallowedList = []string{
@@ -46,31 +40,20 @@ var serviceAnnotationDisallowedList = []string{
 }
 
 type ServiceBuilder struct {
-	frameworksConfig  *v1alpha2.PredictorsConfig
+	endpointsConfig   *v1alpha2.InferenceServicesConfig
 	credentialBuilder *credentials.CredentialBuilder
-	explainersConfig  *v1alpha2.ExplainersConfig
 }
 
 func NewServiceBuilder(client client.Client, config *v1.ConfigMap) *ServiceBuilder {
-	frameworkConfig := &v1alpha2.PredictorsConfig{}
-	explainerConfig := &v1alpha2.ExplainersConfig{}
-	if fmks, ok := config.Data[PredictorConfigKeyName]; ok {
-		err := json.Unmarshal([]byte(fmks), &frameworkConfig)
-		if err != nil {
-			panic(fmt.Errorf("Unable to unmarshall framework json string due to %v ", err))
-		}
-	}
-	if exs, ok := config.Data[ExplainerConfigKeyName]; ok {
-		err := json.Unmarshal([]byte(exs), &explainerConfig)
-		if err != nil {
-			panic(fmt.Errorf("Unable to unmarshall explainer json string due to %v ", err))
-		}
-	}
+	endpointsConfig, err := v1alpha2.NewInferenceServicesConfig(config)
+	if err != nil {
+		fmt.Printf("Failed to get endpoints config %s", err)
+		panic("Failed to get endpoints config")
 
+	}
 	return &ServiceBuilder{
-		frameworksConfig:  frameworkConfig,
+		endpointsConfig:   endpointsConfig,
 		credentialBuilder: credentials.NewCredentialBulder(client, config),
-		explainersConfig:  explainerConfig,
 	}
 }
 
@@ -166,7 +149,7 @@ func (c *ServiceBuilder) CreatePredictorService(name string, metadata metav1.Obj
 							PodSpec: v1.PodSpec{
 								ServiceAccountName: predictorSpec.ServiceAccountName,
 								Containers: []v1.Container{
-									*predictorSpec.GetContainer(metadata.Name, c.frameworksConfig),
+									*predictorSpec.GetContainer(metadata.Name, c.endpointsConfig),
 								},
 							},
 						},
@@ -317,7 +300,7 @@ func (c *ServiceBuilder) CreateExplainerService(name string, metadata metav1.Obj
 							PodSpec: v1.PodSpec{
 								ServiceAccountName: explainerSpec.ServiceAccountName,
 								Containers: []v1.Container{
-									*explainerSpec.CreateExplainerContainer(metadata.Name, predictorService, c.explainersConfig),
+									*explainerSpec.CreateExplainerContainer(metadata.Name, predictorService, c.endpointsConfig),
 								},
 							},
 						},

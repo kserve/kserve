@@ -47,7 +47,10 @@ import (
 
 var c client.Client
 
-const timeout = time.Second * 10
+const (
+	timeout                    = time.Second * 20
+	TensorflowServingImageName = "tensorflow/serving"
+)
 
 var configs = map[string]string{
 	"predictors": `{
@@ -162,7 +165,7 @@ func TestInferenceServiceWithOnlyPredictor(t *testing.T) {
 							PodSpec: v1.PodSpec{
 								Containers: []v1.Container{
 									{
-										Image: kfserving.TensorflowServingImageName + ":" +
+										Image: TensorflowServingImageName + ":" +
 											defaultInstance.Spec.Default.Predictor.Tensorflow.RuntimeVersion,
 										Command: []string{kfserving.TensorflowEntrypointCommand},
 										Args: []string{
@@ -391,7 +394,7 @@ func TestInferenceServiceWithDefaultAndCanaryPredictor(t *testing.T) {
 							PodSpec: v1.PodSpec{
 								Containers: []v1.Container{
 									{
-										Image: kfserving.TensorflowServingImageName + ":" +
+										Image: TensorflowServingImageName + ":" +
 											canary.Spec.Canary.Predictor.Tensorflow.RuntimeVersion,
 										Command: []string{kfserving.TensorflowEntrypointCommand},
 										Args: []string{

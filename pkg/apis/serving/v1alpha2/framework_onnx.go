@@ -15,38 +15,26 @@ package v1alpha2
 
 import (
 	"fmt"
-	"strings"
-
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/utils"
-	v1 "k8s.io/api/core/v1"
+	"k8s.io/api/core/v1"
+	"strings"
 )
 
 var (
-	ONNXServingRestPort        = "8080"
-	ONNXServingGRPCPort        = "9000"
-	ONNXServingImageName       = "mcr.microsoft.com/onnxruntime/server"
-	ONNXModelFileName          = "model.onnx"
-	DefaultONNXRuntimeVersion  = "latest"
-	AllowedONNXRuntimeVersions = []string{
-		DefaultONNXRuntimeVersion,
-		"v0.5.0",
-	}
-	InvalidONNXRuntimeVersionError = "RuntimeVersion must be one of " + strings.Join(AllowedONNXRuntimeVersions, ", ")
+	ONNXServingRestPort            = "8080"
+	ONNXServingGRPCPort            = "9000"
+	ONNXModelFileName              = "model.onnx"
+	InvalidONNXRuntimeVersionError = "ONNX RuntimeVersion must be one of %s"
 )
 
 func (s *ONNXSpec) GetStorageUri() string {
 	return s.StorageURI
 }
 
-func (s *ONNXSpec) GetContainer(modelName string, config *PredictorsConfig) *v1.Container {
-	imageName := ONNXServingImageName
-	if config.ONNX.ContainerImage != "" {
-		imageName = config.ONNX.ContainerImage
-	}
-
+func (s *ONNXSpec) GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container {
 	return &v1.Container{
-		Image:     imageName + ":" + s.RuntimeVersion,
+		Image:     config.Predictors.ONNX.ContainerImage + ":" + s.RuntimeVersion,
 		Resources: s.Resources,
 		Args: []string{
 			"--model_path", constants.DefaultModelLocalMountPath + "/" + ONNXModelFileName,
@@ -56,16 +44,16 @@ func (s *ONNXSpec) GetContainer(modelName string, config *PredictorsConfig) *v1.
 	}
 }
 
-func (s *ONNXSpec) ApplyDefaults() {
+func (s *ONNXSpec) ApplyDefaults(config *InferenceServicesConfig) {
 	if s.RuntimeVersion == "" {
-		s.RuntimeVersion = DefaultONNXRuntimeVersion
+		s.RuntimeVersion = config.Predictors.ONNX.DefaultImageVersion
 	}
 	setResourceRequirementDefaults(&s.Resources)
 }
 
-func (s *ONNXSpec) Validate() error {
-	if !utils.Includes(AllowedONNXRuntimeVersions, s.RuntimeVersion) {
-		return fmt.Errorf(InvalidONNXRuntimeVersionError)
+func (s *ONNXSpec) Validate(config *InferenceServicesConfig) error {
+	if !utils.Includes(config.Predictors.ONNX.AllowedImageVersions, s.RuntimeVersion) {
+		return fmt.Errorf(InvalidONNXRuntimeVersionError, strings.Join(config.Predictors.ONNX.AllowedImageVersions, ", "))
 	}
 
 	return nil
