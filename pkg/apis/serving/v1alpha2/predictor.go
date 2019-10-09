@@ -26,9 +26,9 @@ import (
 
 type Predictor interface {
 	GetStorageUri() string
-	GetContainer(modelName string, config *PredictorsConfig) *v1.Container
-	ApplyDefaults()
-	Validate() error
+	GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container
+	ApplyDefaults(config *InferenceServicesConfig)
+	Validate(config *InferenceServicesConfig) error
 }
 
 const (
@@ -50,7 +50,7 @@ func (p *PredictorSpec) GetStorageUri() string {
 	return predictor.GetStorageUri()
 }
 
-func (p *PredictorSpec) GetContainer(modelName string, config *PredictorsConfig) *v1.Container {
+func (p *PredictorSpec) GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container {
 	predictor, err := getPredictor(p)
 	if err != nil {
 		return nil
@@ -58,19 +58,19 @@ func (p *PredictorSpec) GetContainer(modelName string, config *PredictorsConfig)
 	return predictor.GetContainer(modelName, config)
 }
 
-func (p *PredictorSpec) ApplyDefaults() {
+func (p *PredictorSpec) ApplyDefaults(config *InferenceServicesConfig) {
 	predictor, err := getPredictor(p)
 	if err == nil {
-		predictor.ApplyDefaults()
+		predictor.ApplyDefaults(config)
 	}
 }
 
-func (p *PredictorSpec) Validate() error {
+func (p *PredictorSpec) Validate(config *InferenceServicesConfig) error {
 	predictor, err := getPredictor(p)
 	if err != nil {
 		return err
 	}
-	if err := predictor.Validate(); err != nil {
+	if err := predictor.Validate(config); err != nil {
 		return err
 	}
 	if err := validateStorageURI(p.GetStorageUri()); err != nil {
@@ -80,20 +80,6 @@ func (p *PredictorSpec) Validate() error {
 		return err
 	}
 	return nil
-}
-
-type PredictorConfig struct {
-	ContainerImage string `json:"image"`
-
-	//TODO add readiness/liveness probe config
-}
-type PredictorsConfig struct {
-	Tensorflow PredictorConfig `json:"tensorflow,omitempty"`
-	TensorRT   PredictorConfig `json:"tensorrt,omitempty"`
-	Xgboost    PredictorConfig `json:"xgboost,omitempty"`
-	SKlearn    PredictorConfig `json:"sklearn,omitempty"`
-	PyTorch    PredictorConfig `json:"pytorch,omitempty"`
-	ONNX       PredictorConfig `json:"onnx,omitempty"`
 }
 
 func validateStorageURI(storageURI string) error {

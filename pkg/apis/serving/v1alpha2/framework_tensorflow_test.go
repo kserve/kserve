@@ -18,6 +18,7 @@ package v1alpha2
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/kubeflow/kfserving/pkg/constants"
@@ -27,9 +28,13 @@ import (
 	resource "k8s.io/apimachinery/pkg/api/resource"
 )
 
-func TestFrameworkTensorflor(t *testing.T) {
+func TestFrameworkTensorflow(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-
+	allowedTFServingImageVersionsArray := []string{
+		"latest",
+		"latest-gpu",
+	}
+	allowedTFServingImageVersions := strings.Join(allowedTFServingImageVersionsArray, ", ")
 	scenarios := map[string]struct {
 		spec    TensorflowSpec
 		matcher types.GomegaMatcher
@@ -44,13 +49,13 @@ func TestFrameworkTensorflor(t *testing.T) {
 			spec: TensorflowSpec{
 				RuntimeVersion: "",
 			},
-			matcher: gomega.MatchError(InvalidTensorflowRuntimeVersionError),
+			matcher: gomega.MatchError(fmt.Sprintf(InvalidTensorflowRuntimeVersionError, allowedTFServingImageVersions)),
 		},
 		"RejectGPUResourcesExcluded": {
 			spec: TensorflowSpec{
 				RuntimeVersion: DefaultTensorflowRuntimeVersionGPU,
 			},
-			matcher: gomega.MatchError(InvalidTensorflowRuntimeExcludesGPU),
+			matcher: gomega.MatchError(fmt.Sprintf(InvalidTensorflowRuntimeExcludesGPU, allowedTFServingImageVersions)),
 		},
 		"RejectGPUResourcesIncluded": {
 			spec: TensorflowSpec{
@@ -59,11 +64,21 @@ func TestFrameworkTensorflor(t *testing.T) {
 					Limits: v1.ResourceList{constants.NvidiaGPUResourceType: resource.MustParse("1")},
 				},
 			},
-			matcher: gomega.MatchError(InvalidTensorflowRuntimeIncludesGPU),
+			matcher: gomega.MatchError(fmt.Sprintf(InvalidTensorflowRuntimeIncludesGPU, allowedTFServingImageVersions)),
 		},
 	}
 
 	for name, scenario := range scenarios {
-		g.Expect(scenario.spec.Validate()).Should(scenario.matcher, fmt.Sprintf("Testing %s", name))
+		config := &InferenceServicesConfig{
+			Predictors: &PredictorsConfig{
+				Tensorflow: PredictorConfig{
+					ContainerImage:         "tensorflow/serving",
+					DefaultImageVersion:    "latest",
+					DefaultGpuImageVersion: "latest-gpu",
+					AllowedImageVersions:   allowedTFServingImageVersionsArray,
+				},
+			},
+		}
+		g.Expect(scenario.spec.Validate(config)).Should(scenario.matcher, fmt.Sprintf("Testing %s", name))
 	}
 }

@@ -51,12 +51,11 @@ spec:
                 of traffic.
               properties:
                 explainer:
-                  description: Explainer defines the model explanation service spec
-                    explainer service calls to transformer or predictor service
+                  description: Explainer defines the model explanation service spec,
+                    explainer service calls to predictor or transformer if it is specified.
                   properties:
                     alibi:
-                      description: The following fields follow a "1-of" semantic.
-                        Users must specify exactly one spec.
+                      description: Spec for alibi explainer
                       properties:
                         config:
                           description: Inline custom parameter settings for explainer
@@ -66,7 +65,7 @@ spec:
                             MEM.
                           type: object
                         runtimeVersion:
-                          description: Defaults to latest Alibi Version.
+                          description: Defaults to latest Alibi Version
                           type: string
                         storageUri:
                           description: The location of a trained explanation model
@@ -78,6 +77,7 @@ spec:
                       - type
                       type: object
                     custom:
+                      description: Spec for a custom explainer
                       properties:
                         container:
                           type: object
@@ -102,8 +102,7 @@ spec:
                   description: Predictor defines the model serving spec +required
                   properties:
                     custom:
-                      description: The following fields follow a "1-of" semantic.
-                        Users must specify exactly one spec.
+                      description: Spec for a custom predictor
                       properties:
                         container:
                           type: object
@@ -120,13 +119,16 @@ spec:
                       format: int64
                       type: integer
                     onnx:
+                      description: Spec for ONNX runtime (https://github.com/microsoft/onnxruntime)
                       properties:
                         resources:
                           description: Defaults to requests and limits of 1CPU, 2Gb
                             MEM.
                           type: object
                         runtimeVersion:
-                          description: Defaults to latest ONNX Version.
+                          description: Allowed runtime versions are [v0.5.0, latest]
+                            and defaults to the version specified in inferenceservice
+                            config map
                           type: string
                         storageUri:
                           description: The location of the trained model
@@ -135,6 +137,7 @@ spec:
                       - storageUri
                       type: object
                     pytorch:
+                      description: Spec for PyTorch predictor
                       properties:
                         modelClassName:
                           description: Defaults PyTorch model class name to 'PyTorchModel'
@@ -144,7 +147,9 @@ spec:
                             MEM.
                           type: object
                         runtimeVersion:
-                          description: Defaults to latest PyTorch Version
+                          description: Allowed runtime versions are [0.2.0, latest]
+                            and defaults to the version specified in inferenceservice
+                            config map
                           type: string
                         storageUri:
                           description: The location of the trained model
@@ -157,13 +162,16 @@ spec:
                         to use to run the service
                       type: string
                     sklearn:
+                      description: Spec for SKLearn predictor
                       properties:
                         resources:
                           description: Defaults to requests and limits of 1CPU, 2Gb
                             MEM.
                           type: object
                         runtimeVersion:
-                          description: Defaults to latest SKLearn Version.
+                          description: Allowed runtime versions are [0.2.0, latest]
+                            and defaults to the version specified in inferenceservice
+                            config map
                           type: string
                         storageUri:
                           description: The location of the trained model
@@ -172,13 +180,18 @@ spec:
                       - storageUri
                       type: object
                     tensorflow:
+                      description: Spec for Tensorflow Serving (https://github.com/tensorflow/serving)
                       properties:
                         resources:
                           description: Defaults to requests and limits of 1CPU, 2Gb
                             MEM.
                           type: object
                         runtimeVersion:
-                          description: Defaults to latest TF Version.
+                          description: Allowed runtime versions are [1.11.0, 1.12.0,
+                            1.13.0, 1.14.0, latest] or [1.11.0-gpu, 1.12.0-gpu, 1.13.0-gpu,
+                            1.14.0-gpu, latest-gpu] if gpu resource is specified and
+                            defaults to the version specified in inferenceservice
+                            config map.
                           type: string
                         storageUri:
                           description: The location of the trained model
@@ -187,13 +200,16 @@ spec:
                       - storageUri
                       type: object
                     tensorrt:
+                      description: Spec for TensorRT Inference Server (https://github.com/NVIDIA/tensorrt-inference-server)
                       properties:
                         resources:
                           description: Defaults to requests and limits of 1CPU, 2Gb
                             MEM.
                           type: object
                         runtimeVersion:
-                          description: Defaults to latest TensorRT Version.
+                          description: Allowed runtime versions are [19.05-py3] and
+                            defaults to the version specified in inferenceservice
+                            config map
                           type: string
                         storageUri:
                           description: The location of the trained model
@@ -202,13 +218,16 @@ spec:
                       - storageUri
                       type: object
                     xgboost:
+                      description: Spec for XGBoost predictor
                       properties:
                         resources:
                           description: Defaults to requests and limits of 1CPU, 2Gb
                             MEM.
                           type: object
                         runtimeVersion:
-                          description: Defaults to latest XGBoost Version.
+                          description: Allowed runtime versions are [0.2.0, latest]
+                            and defaults to the version specified in inferenceservice
+                            config map
                           type: string
                         storageUri:
                           description: The location of the trained model
@@ -218,10 +237,12 @@ spec:
                       type: object
                   type: object
                 transformer:
-                  description: Transformer defines the transformer service spec for
-                    pre/post processing transformer service calls to predictor service
+                  description: Transformer defines the pre/post processing before
+                    and after the predictor call, transformer service calls to predictor
+                    service.
                   properties:
                     custom:
+                      description: Spec for a custom transformer
                       properties:
                         container:
                           type: object
@@ -254,12 +275,11 @@ spec:
               description: Default defines default InferenceService endpoints +required
               properties:
                 explainer:
-                  description: Explainer defines the model explanation service spec
-                    explainer service calls to transformer or predictor service
+                  description: Explainer defines the model explanation service spec,
+                    explainer service calls to predictor or transformer if it is specified.
                   properties:
                     alibi:
-                      description: The following fields follow a "1-of" semantic.
-                        Users must specify exactly one spec.
+                      description: Spec for alibi explainer
                       properties:
                         config:
                           description: Inline custom parameter settings for explainer
@@ -269,7 +289,7 @@ spec:
                             MEM.
                           type: object
                         runtimeVersion:
-                          description: Defaults to latest Alibi Version.
+                          description: Defaults to latest Alibi Version
                           type: string
                         storageUri:
                           description: The location of a trained explanation model
@@ -281,6 +301,7 @@ spec:
                       - type
                       type: object
                     custom:
+                      description: Spec for a custom explainer
                       properties:
                         container:
                           type: object
@@ -305,8 +326,7 @@ spec:
                   description: Predictor defines the model serving spec +required
                   properties:
                     custom:
-                      description: The following fields follow a "1-of" semantic.
-                        Users must specify exactly one spec.
+                      description: Spec for a custom predictor
                       properties:
                         container:
                           type: object
@@ -323,13 +343,16 @@ spec:
                       format: int64
                       type: integer
                     onnx:
+                      description: Spec for ONNX runtime (https://github.com/microsoft/onnxruntime)
                       properties:
                         resources:
                           description: Defaults to requests and limits of 1CPU, 2Gb
                             MEM.
                           type: object
                         runtimeVersion:
-                          description: Defaults to latest ONNX Version.
+                          description: Allowed runtime versions are [v0.5.0, latest]
+                            and defaults to the version specified in inferenceservice
+                            config map
                           type: string
                         storageUri:
                           description: The location of the trained model
@@ -338,6 +361,7 @@ spec:
                       - storageUri
                       type: object
                     pytorch:
+                      description: Spec for PyTorch predictor
                       properties:
                         modelClassName:
                           description: Defaults PyTorch model class name to 'PyTorchModel'
@@ -347,7 +371,9 @@ spec:
                             MEM.
                           type: object
                         runtimeVersion:
-                          description: Defaults to latest PyTorch Version
+                          description: Allowed runtime versions are [0.2.0, latest]
+                            and defaults to the version specified in inferenceservice
+                            config map
                           type: string
                         storageUri:
                           description: The location of the trained model
@@ -360,13 +386,16 @@ spec:
                         to use to run the service
                       type: string
                     sklearn:
+                      description: Spec for SKLearn predictor
                       properties:
                         resources:
                           description: Defaults to requests and limits of 1CPU, 2Gb
                             MEM.
                           type: object
                         runtimeVersion:
-                          description: Defaults to latest SKLearn Version.
+                          description: Allowed runtime versions are [0.2.0, latest]
+                            and defaults to the version specified in inferenceservice
+                            config map
                           type: string
                         storageUri:
                           description: The location of the trained model
@@ -375,13 +404,18 @@ spec:
                       - storageUri
                       type: object
                     tensorflow:
+                      description: Spec for Tensorflow Serving (https://github.com/tensorflow/serving)
                       properties:
                         resources:
                           description: Defaults to requests and limits of 1CPU, 2Gb
                             MEM.
                           type: object
                         runtimeVersion:
-                          description: Defaults to latest TF Version.
+                          description: Allowed runtime versions are [1.11.0, 1.12.0,
+                            1.13.0, 1.14.0, latest] or [1.11.0-gpu, 1.12.0-gpu, 1.13.0-gpu,
+                            1.14.0-gpu, latest-gpu] if gpu resource is specified and
+                            defaults to the version specified in inferenceservice
+                            config map.
                           type: string
                         storageUri:
                           description: The location of the trained model
@@ -390,13 +424,16 @@ spec:
                       - storageUri
                       type: object
                     tensorrt:
+                      description: Spec for TensorRT Inference Server (https://github.com/NVIDIA/tensorrt-inference-server)
                       properties:
                         resources:
                           description: Defaults to requests and limits of 1CPU, 2Gb
                             MEM.
                           type: object
                         runtimeVersion:
-                          description: Defaults to latest TensorRT Version.
+                          description: Allowed runtime versions are [19.05-py3] and
+                            defaults to the version specified in inferenceservice
+                            config map
                           type: string
                         storageUri:
                           description: The location of the trained model
@@ -405,13 +442,16 @@ spec:
                       - storageUri
                       type: object
                     xgboost:
+                      description: Spec for XGBoost predictor
                       properties:
                         resources:
                           description: Defaults to requests and limits of 1CPU, 2Gb
                             MEM.
                           type: object
                         runtimeVersion:
-                          description: Defaults to latest XGBoost Version.
+                          description: Allowed runtime versions are [0.2.0, latest]
+                            and defaults to the version specified in inferenceservice
+                            config map
                           type: string
                         storageUri:
                           description: The location of the trained model
@@ -421,10 +461,12 @@ spec:
                       type: object
                   type: object
                 transformer:
-                  description: Transformer defines the transformer service spec for
-                    pre/post processing transformer service calls to predictor service
+                  description: Transformer defines the pre/post processing before
+                    and after the predictor call, transformer service calls to predictor
+                    service.
                   properties:
                     custom:
+                      description: Spec for a custom transformer
                       properties:
                         container:
                           type: object
@@ -454,8 +496,10 @@ spec:
         status:
           properties:
             canary:
+              description: Statuses for the canary endpoints of the InferenceService
               type: object
             canaryTraffic:
+              description: Traffic percentage that goes to canary services
               format: int64
               type: integer
             conditions:
@@ -493,6 +537,7 @@ spec:
                 type: object
               type: array
             default:
+              description: Statuses for the default endpoints of the InferenceService
               type: object
             observedGeneration:
               description: ObservedGeneration is the 'Generation' of the Service that
@@ -500,9 +545,11 @@ spec:
               format: int64
               type: integer
             traffic:
+              description: Traffic percentage that goes to default services
               format: int64
               type: integer
             url:
+              description: URL of the InferenceService
               type: string
           type: object
   version: v1alpha2

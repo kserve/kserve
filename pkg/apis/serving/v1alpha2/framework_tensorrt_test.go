@@ -39,9 +39,11 @@ func TestCreateModelServingContainer(t *testing.T) {
 			},
 		},
 	}
-	var config = PredictorsConfig{
-		TensorRT: PredictorConfig{
-			ContainerImage: "someOtherImage",
+	var config = InferenceServicesConfig{
+		Predictors: &PredictorsConfig{
+			TensorRT: PredictorConfig{
+				ContainerImage: "someOtherImage",
+			},
 		},
 	}
 	var spec = TensorRTSpec{
@@ -64,19 +66,13 @@ func TestCreateModelServingContainer(t *testing.T) {
 			"--http-port=8080",
 		},
 		Ports: []v1.ContainerPort{
-			v1.ContainerPort{
+			{
 				ContainerPort: 8080,
 			},
 		},
 	}
 
-	// Test Create without config
-	container := spec.GetContainer("someName", &config)
-	g.Expect(container).To(gomega.Equal(expectedContainer))
-
 	// Test Create with config
-	expectedContainer.Image = "nvcr.io/nvidia/tensorrtserver:19.05-py3"
-	emptyConfig := PredictorsConfig{TensorRT: PredictorConfig{}}
-	container = spec.GetContainer("someName", &emptyConfig)
+	container := spec.GetContainer("someName", &config)
 	g.Expect(container).To(gomega.Equal(expectedContainer))
 }

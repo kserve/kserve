@@ -38,13 +38,13 @@ type EndpointSpec struct {
 	// +required
 	Predictor PredictorSpec `json:"predictor"`
 
-	// Explainer defines the model explanation service spec
-	// explainer service calls to transformer or predictor service
+	// Explainer defines the model explanation service spec,
+	// explainer service calls to predictor or transformer if it is specified.
 	// +optional
 	Explainer *ExplainerSpec `json:"explainer,omitempty"`
 
-	// Transformer defines the transformer service spec for pre/post processing
-	// transformer service calls to predictor service
+	// Transformer defines the pre/post processing before and after the predictor call,
+	// transformer service calls to predictor service.
 	// +optional
 	Transformer *TransformerSpec `json:"transformer,omitempty"`
 }
@@ -62,31 +62,41 @@ type DeploymentSpec struct {
 	MaxReplicas int `json:"maxReplicas,omitempty"`
 }
 
-// PredictorSpec defines the configuration to route traffic to a predictor.
+// PredictorSpec defines the configuration for a predictor,
+// The following fields follow a "1-of" semantic. Users must specify exactly one spec.
 type PredictorSpec struct {
-	// The following fields follow a "1-of" semantic. Users must specify exactly one spec.
-	Custom     *CustomSpec     `json:"custom,omitempty"`
+	// Spec for a custom predictor
+	Custom *CustomSpec `json:"custom,omitempty"`
+	// Spec for Tensorflow Serving (https://github.com/tensorflow/serving)
 	Tensorflow *TensorflowSpec `json:"tensorflow,omitempty"`
-	TensorRT   *TensorRTSpec   `json:"tensorrt,omitempty"`
-	XGBoost    *XGBoostSpec    `json:"xgboost,omitempty"`
-	SKLearn    *SKLearnSpec    `json:"sklearn,omitempty"`
-	ONNX       *ONNXSpec       `json:"onnx,omitempty"`
-	PyTorch    *PyTorchSpec    `json:"pytorch,omitempty"`
+	// Spec for TensorRT Inference Server (https://github.com/NVIDIA/tensorrt-inference-server)
+	TensorRT *TensorRTSpec `json:"tensorrt,omitempty"`
+	// Spec for XGBoost predictor
+	XGBoost *XGBoostSpec `json:"xgboost,omitempty"`
+	// Spec for SKLearn predictor
+	SKLearn *SKLearnSpec `json:"sklearn,omitempty"`
+	// Spec for ONNX runtime (https://github.com/microsoft/onnxruntime)
+	ONNX *ONNXSpec `json:"onnx,omitempty"`
+	// Spec for PyTorch predictor
+	PyTorch *PyTorchSpec `json:"pytorch,omitempty"`
 
 	DeploymentSpec `json:",inline"`
 }
 
-// ExplainerSpec defines the arguments for a model explanation server
+// ExplainerSpec defines the arguments for a model explanation server,
+// The following fields follow a "1-of" semantic. Users must specify exactly one spec.
 type ExplainerSpec struct {
-	// The following fields follow a "1-of" semantic. Users must specify exactly one spec.
-	Alibi  *AlibiExplainerSpec `json:"alibi,omitempty"`
-	Custom *CustomSpec         `json:"custom,omitempty"`
+	// Spec for alibi explainer
+	Alibi *AlibiExplainerSpec `json:"alibi,omitempty"`
+	// Spec for a custom explainer
+	Custom *CustomSpec `json:"custom,omitempty"`
 
 	DeploymentSpec `json:",inline"`
 }
 
 // TransformerSpec defines transformer service for pre/post processing
 type TransformerSpec struct {
+	// Spec for a custom transformer
 	Custom *CustomSpec `json:"custom,omitempty"`
 
 	DeploymentSpec `json:",inline"`
@@ -108,7 +118,7 @@ type AlibiExplainerSpec struct {
 	Type AlibiExplainerType `json:"type"`
 	// The location of a trained explanation model
 	StorageURI string `json:"storageUri,omitempty"`
-	// Defaults to latest Alibi Version.
+	// Defaults to latest Alibi Version
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
 	// Defaults to requests and limits of 1CPU, 2Gb MEM.
 	Resources v1.ResourceRequirements `json:"resources,omitempty"`
@@ -120,7 +130,8 @@ type AlibiExplainerSpec struct {
 type TensorflowSpec struct {
 	// The location of the trained model
 	StorageURI string `json:"storageUri"`
-	// Defaults to latest TF Version.
+	// Allowed runtime versions are [1.11.0, 1.12.0, 1.13.0, 1.14.0, latest] or [1.11.0-gpu, 1.12.0-gpu, 1.13.0-gpu, 1.14.0-gpu, latest-gpu]
+	// if gpu resource is specified and defaults to the version specified in inferenceservice config map.
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
 	// Defaults to requests and limits of 1CPU, 2Gb MEM.
 	Resources v1.ResourceRequirements `json:"resources,omitempty"`
@@ -130,7 +141,7 @@ type TensorflowSpec struct {
 type TensorRTSpec struct {
 	// The location of the trained model
 	StorageURI string `json:"storageUri"`
-	// Defaults to latest TensorRT Version.
+	// Allowed runtime versions are [19.05-py3] and defaults to the version specified in inferenceservice config map
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
 	// Defaults to requests and limits of 1CPU, 2Gb MEM.
 	Resources v1.ResourceRequirements `json:"resources,omitempty"`
@@ -140,7 +151,7 @@ type TensorRTSpec struct {
 type XGBoostSpec struct {
 	// The location of the trained model
 	StorageURI string `json:"storageUri"`
-	// Defaults to latest XGBoost Version.
+	// Allowed runtime versions are [0.2.0, latest] and defaults to the version specified in inferenceservice config map
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
 	// Defaults to requests and limits of 1CPU, 2Gb MEM.
 	Resources v1.ResourceRequirements `json:"resources,omitempty"`
@@ -150,7 +161,7 @@ type XGBoostSpec struct {
 type SKLearnSpec struct {
 	// The location of the trained model
 	StorageURI string `json:"storageUri"`
-	// Defaults to latest SKLearn Version.
+	// Allowed runtime versions are [0.2.0, latest] and defaults to the version specified in inferenceservice config map
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
 	// Defaults to requests and limits of 1CPU, 2Gb MEM.
 	Resources v1.ResourceRequirements `json:"resources,omitempty"`
@@ -160,7 +171,7 @@ type SKLearnSpec struct {
 type ONNXSpec struct {
 	// The location of the trained model
 	StorageURI string `json:"storageUri"`
-	// Defaults to latest ONNX Version.
+	// Allowed runtime versions are [v0.5.0, latest] and defaults to the version specified in inferenceservice config map
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
 	// Defaults to requests and limits of 1CPU, 2Gb MEM.
 	Resources v1.ResourceRequirements `json:"resources,omitempty"`
@@ -172,7 +183,7 @@ type PyTorchSpec struct {
 	StorageURI string `json:"storageUri"`
 	// Defaults PyTorch model class name to 'PyTorchModel'
 	ModelClassName string `json:"modelClassName,omitempty"`
-	// Defaults to latest PyTorch Version
+	// Allowed runtime versions are [0.2.0, latest] and defaults to the version specified in inferenceservice config map
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
 	// Defaults to requests and limits of 1CPU, 2Gb MEM.
 	Resources v1.ResourceRequirements `json:"resources,omitempty"`
@@ -189,16 +200,23 @@ type EndpointStatusMap map[constants.InferenceServiceEndpoint]*StatusConfigurati
 // InferenceServiceStatus defines the observed state of InferenceService
 type InferenceServiceStatus struct {
 	duckv1beta1.Status `json:",inline"`
-	URL                string             `json:"url,omitempty"`
-	Traffic            int                `json:"traffic,omitempty"`
-	CanaryTraffic      int                `json:"canaryTraffic,omitempty"`
-	Default            *EndpointStatusMap `json:"default,omitempty"`
-	Canary             *EndpointStatusMap `json:"canary,omitempty"`
+	// URL of the InferenceService
+	URL string `json:"url,omitempty"`
+	// Traffic percentage that goes to default services
+	Traffic int `json:"traffic,omitempty"`
+	// Traffic percentage that goes to canary services
+	CanaryTraffic int `json:"canaryTraffic,omitempty"`
+	// Statuses for the default endpoints of the InferenceService
+	Default *EndpointStatusMap `json:"default,omitempty"`
+	// Statuses for the canary endpoints of the InferenceService
+	Canary *EndpointStatusMap `json:"canary,omitempty"`
 }
 
 // StatusConfigurationSpec describes the state of the configuration receiving traffic.
 type StatusConfigurationSpec struct {
-	Name     string `json:"name,omitempty"`
+	// Latest revision name that is in ready state
+	Name string `json:"name,omitempty"`
+	// Host name of the service
 	Hostname string `json:"host,omitempty"`
 	Replicas int    `json:"replicas,omitempty"`
 }
@@ -231,6 +249,7 @@ type InferenceServiceList struct {
 	Items           []InferenceService `json:"items"`
 }
 
+// +k8s:openapi-gen=false
 //  VirtualServiceStatus captures the status of the virtual service
 type VirtualServiceStatus struct {
 	URL           string

@@ -18,8 +18,8 @@ package v1alpha2
 
 import (
 	"fmt"
-
-	runtime "k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // Known error messages
@@ -38,18 +38,18 @@ var (
 )
 
 // ValidateCreate implements https://godoc.org/sigs.k8s.io/controller-runtime/pkg/webhook/admission#Validator
-func (isvc *InferenceService) ValidateCreate() error {
-	return isvc.validate()
+func (isvc *InferenceService) ValidateCreate(client client.Client) error {
+	return isvc.validate(client)
 }
 
 // ValidateUpdate implements https://godoc.org/sigs.k8s.io/controller-runtime/pkg/webhook/admission#Validator
-func (isvc *InferenceService) ValidateUpdate(old runtime.Object) error {
-	return isvc.validate()
+func (isvc *InferenceService) ValidateUpdate(old runtime.Object, client client.Client) error {
+	return isvc.validate(client)
 }
 
-func (isvc *InferenceService) validate() error {
+func (isvc *InferenceService) validate(client client.Client) error {
 	logger.Info("Validating InferenceService", "namespace", isvc.Namespace, "name", isvc.Name)
-	if err := validateInferenceService(isvc); err != nil {
+	if err := validateInferenceService(isvc, client); err != nil {
 		logger.Info("Failed to validate InferenceService", "namespace", isvc.Namespace, "name", isvc.Name,
 			"error", err.Error())
 		return err
@@ -58,7 +58,7 @@ func (isvc *InferenceService) validate() error {
 	return nil
 }
 
-func validateInferenceService(isvc *InferenceService) error {
+func validateInferenceService(isvc *InferenceService, client client.Client) error {
 	if isvc == nil {
 		return fmt.Errorf("Unable to validate, InferenceService is nil")
 	}
@@ -68,7 +68,7 @@ func validateInferenceService(isvc *InferenceService) error {
 	}
 
 	for _, endpoint := range endpoints {
-		if err := validateEndpoint(endpoint); err != nil {
+		if err := validateEndpoint(endpoint, client); err != nil {
 			return err
 		}
 	}
@@ -79,20 +79,29 @@ func validateInferenceService(isvc *InferenceService) error {
 	return nil
 }
 
-func validateEndpoint(endpoint *EndpointSpec) error {
+func validateEndpoint(endpoint *EndpointSpec, client client.Client) error {
 	if endpoint == nil {
 		return nil
 	}
-	if err := endpoint.Predictor.Validate(); err != nil {
+	configMap, err := GetInferenceServicesConfig(client)
+	if err != nil {
 		return err
 	}
+	// validate predictor
+	if err := endpoint.Predictor.Validate(configMap); err != nil {
+		return err
+	}
+
+	// validate transformer
 	if endpoint.Transformer != nil {
-		if err := endpoint.Transformer.Validate(); err != nil {
+		if err := endpoint.Transformer.Validate(configMap); err != nil {
 			return err
 		}
 	}
+
+	// validate explainer
 	if endpoint.Explainer != nil {
-		if err := endpoint.Explainer.Validate(); err != nil {
+		if err := endpoint.Explainer.Validate(configMap); err != nil {
 			return err
 		}
 	}

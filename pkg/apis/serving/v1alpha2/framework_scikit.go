@@ -22,15 +22,8 @@ import (
 	v1 "k8s.io/api/core/v1"
 )
 
-// TODO add image name to to configmap
 var (
-	AllowedSKLearnRuntimeVersions = []string{
-		"latest",
-		"v0.1.2",
-	}
-	InvalidSKLearnRuntimeVersionError = "RuntimeVersion must be one of " + strings.Join(AllowedSKLearnRuntimeVersions, ", ")
-	SKLearnServerImageName            = "gcr.io/kfserving/sklearnserver"
-	DefaultSKLearnRuntimeVersion      = "latest"
+	InvalidSKLearnRuntimeVersionError = "RuntimeVersion must be one of %s"
 )
 
 var _ Predictor = (*SKLearnSpec)(nil)
@@ -39,13 +32,9 @@ func (s *SKLearnSpec) GetStorageUri() string {
 	return s.StorageURI
 }
 
-func (s *SKLearnSpec) GetContainer(modelName string, config *PredictorsConfig) *v1.Container {
-	imageName := SKLearnServerImageName
-	if config.SKlearn.ContainerImage != "" {
-		imageName = config.SKlearn.ContainerImage
-	}
+func (s *SKLearnSpec) GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container {
 	return &v1.Container{
-		Image:     imageName + ":" + s.RuntimeVersion,
+		Image:     config.Predictors.SKlearn.ContainerImage + ":" + s.RuntimeVersion,
 		Resources: s.Resources,
 		Args: []string{
 			"--model_name=" + modelName,
@@ -54,17 +43,17 @@ func (s *SKLearnSpec) GetContainer(modelName string, config *PredictorsConfig) *
 	}
 }
 
-func (s *SKLearnSpec) ApplyDefaults() {
+func (s *SKLearnSpec) ApplyDefaults(config *InferenceServicesConfig) {
 	if s.RuntimeVersion == "" {
-		s.RuntimeVersion = DefaultSKLearnRuntimeVersion
+		s.RuntimeVersion = config.Predictors.SKlearn.DefaultImageVersion
 	}
 
 	setResourceRequirementDefaults(&s.Resources)
 }
 
-func (s *SKLearnSpec) Validate() error {
-	if utils.Includes(AllowedSKLearnRuntimeVersions, s.RuntimeVersion) {
+func (s *SKLearnSpec) Validate(config *InferenceServicesConfig) error {
+	if utils.Includes(config.Predictors.SKlearn.AllowedImageVersions, s.RuntimeVersion) {
 		return nil
 	}
-	return fmt.Errorf(InvalidSKLearnRuntimeVersionError)
+	return fmt.Errorf(InvalidSKLearnRuntimeVersionError, strings.Join(config.Predictors.SKlearn.AllowedImageVersions, ", "))
 }
