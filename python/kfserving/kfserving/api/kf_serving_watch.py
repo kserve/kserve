@@ -46,8 +46,8 @@ def watch(name=None, namespace=None, timeout_seconds=600):
             continue
         else:
             url = kfserivce['status'].get('url', '')
-            default_traffic = kfserivce['status'].get('default', {}).get('traffic', '')
-            canary_traffic = kfserivce['status'].get('canary', {}).get('traffic', '')
+            default_traffic = kfserivce['status'].get('traffic', '')
+            canary_traffic = kfserivce['status'].get('canaryTraffic', '')
             status = 'Unknown'
             for condition in kfserivce['status'].get('conditions', {}):
                 if condition.get('type', '') == 'Ready':
