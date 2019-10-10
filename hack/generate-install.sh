@@ -19,8 +19,8 @@ set -o nounset
 set -o pipefail
 
 RELEASES=(
-    "v0.1.0"
-    "v0.2.0"
+    "0.1.0"
+    "0.2.0"
 )
 
 TAG=$1

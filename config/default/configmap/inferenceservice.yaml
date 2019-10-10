@@ -8,11 +8,9 @@ data:
     {
         "tensorflow": {
             "image": "tensorflow/serving",
-            "defaultImageVersion": "latest",
-            "defaultGpuImageVersion": "latest-gpu",
+            "defaultImageVersion": "1.14.0",
+            "defaultGpuImageVersion": "1.14.0-gpu",
             "allowedImageVersions": [
-               "latest",
-               "latest-gpu",
                "1.11.0",
                "1.11.0-gpu",
                "1.12.0",
@@ -25,33 +23,29 @@ data:
         },
         "onnx": {
             "image": "mcr.microsoft.com/onnxruntime/server",
-            "defaultImageVersion": "latest",
+            "defaultImageVersion": "v0.5.0",
             "allowedImageVersions": [
-               "latest",
                "v0.5.0"
             ]
         },
         "sklearn": {
             "image": "gcr.io/kfserving/sklearnserver",
-            "defaultImageVersion": "latest",
+            "defaultImageVersion": "0.2.0",
             "allowedImageVersions": [
-               "latest",
                "0.2.0"
             ]
         },
         "xgboost": {
             "image": "gcr.io/kfserving/xgbserver",
-            "defaultImageVersion": "latest",
+            "defaultImageVersion": "0.2.0",
             "allowedImageVersions": [
-               "latest",
                "0.2.0"
             ]
         },
         "pytorch": {
             "image": "gcr.io/kfserving/pytorchserver",
-            "defaultImageVersion": "latest",
+            "defaultImageVersion": "0.2.0",
             "allowedImageVersions": [
-               "latest",
                "0.2.0"
             ]
         },
