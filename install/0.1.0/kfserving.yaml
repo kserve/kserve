@@ -13,7 +13,7 @@ metadata:
   creationTimestamp: null
   labels:
     controller-tools.k8s.io: "1.0"
-  name: inferenceservices.serving.kubeflow.org
+  name: kfservices.serving.kubeflow.org
 spec:
   additionalPrinterColumns:
   - JSONPath: .status.url
@@ -30,10 +30,10 @@ spec:
     type: date
   group: serving.kubeflow.org
   names:
-    kind: InferenceService
-    plural: inferenceservices
+    kind: KFService
+    plural: kfservices
     shortNames:
-    - inferenceservice
+    - kfservice
   scope: Namespaced
   validation:
     openAPIV3Schema:
@@ -385,7 +385,7 @@ rules:
 - apiGroups:
   - serving.kubeflow.org
   resources:
-  - inferenceservices
+  - kfservices
   verbs:
   - get
   - list
@@ -397,7 +397,7 @@ rules:
 - apiGroups:
   - serving.kubeflow.org
   resources:
-  - inferenceservices/status
+  - kfservices/status
   verbs:
   - get
   - update
@@ -523,7 +523,7 @@ data:
     }
 kind: ConfigMap
 metadata:
-  name: inferenceservice-config
+  name: kfservice-config
   namespace: kfserving-system
 ---
 apiVersion: v1
