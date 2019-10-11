@@ -148,14 +148,13 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 		ReadOnly:  true,
 	}
 	userContainer.VolumeMounts = append(userContainer.VolumeMounts, sharedVolumeReadMount)
-	podNamespace := pod.Namespace
 	// Change the CustomSpecStorageUri env variable value to the default model path if present
 	for index, envVar := range userContainer.Env {
 		if envVar.Name == constants.CustomSpecStorageUriEnvVarKey && envVar.Value != "" {
 			userContainer.Env[index].Value = constants.DefaultModelLocalMountPath
 		}
 	}
-
+	podNamespace := pod.Namespace
 	for _, container := range pod.Spec.Containers {
 		for _, envVar := range container.Env {
 			// Somehow pod namespace is empty when coming into pod mutator, here we need to use
