@@ -157,14 +157,17 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 	podNamespace := pod.Namespace
 	for _, container := range pod.Spec.Containers {
 		for _, envVar := range container.Env {
-			// Somehow pod namespace is empty when coming into pod mutator, here we need to use
-			// the serving namespace populated on queue-proxy to set the pod namespace if it is empty
+			// Somehow pod namespace is empty when coming into pod mutator, here we need to get
+			// the namespace from env SERVING_NAMESPACE populated on queue-proxy if pod namespace is empty
 			if envVar.Name == constants.ServingNamespace && podNamespace == "" {
 				klog.Infof("Setting pod namespace from SERVING_NAMESPACE env: %s", envVar.Name)
 				podNamespace = envVar.Value
 				break
 			}
 		}
+	}
+	if podNamespace == "" {
+		return fmt.Errorf("empty pod namespace")
 	}
 
 	// Add volumes to the PodSpec
