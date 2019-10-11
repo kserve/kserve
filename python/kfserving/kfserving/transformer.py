@@ -25,9 +25,13 @@ logging.basicConfig(level=KFSERVER_LOGLEVEL)
 class Transformer(KFModel):
     def __init__(self, name: str,
                  predictor_host: str,
-                 protocol: Protocol):
+                 protocol: Protocol,
+                 explainer_host=None: str):
         super().__init__(name)
         self.predictor_url = PREDICTOR_URL_FORMAT.format(predictor_host, name)
+        self.explainer_url = None
+        if explainer_host:
+            self.explainer_url = EXPLAINER_URL_FORMAT.format(explainer_host, name)
         self.protocol = protocol
         self.ready = False
 

@@ -111,6 +111,7 @@ const (
 const (
 	ArgumentModelName     = "--model_name"
 	ArgumentPredictorHost = "--predictor_host"
+	ArgumentExplainerHost = "--explainer_host"
 )
 
 func (e InferenceServiceEndpoint) String() string {
@@ -187,6 +188,13 @@ func ExplainPrefix(name string) string {
 func VirtualServiceHostname(name string, predictorHostName string) string {
 	index := strings.Index(predictorHostName, ".")
 	return name + predictorHostName[index:]
+}
+
+func ExplainerURL(metadata v1.ObjectMeta, isCanary bool) string {
+	if isCanary {
+		return fmt.Sprintf("http://%s.%s.svc.cluster.local", CanaryExplainerServiceName(metadata.Name), metadata.Namespace)
+	}
+	return fmt.Sprintf("http://%s.%s.svc.cluster.local", DefaultExplainerServiceName(metadata.Name), metadata.Namespace)
 }
 
 func PredictorURL(metadata v1.ObjectMeta, isCanary bool) string {

@@ -89,17 +89,21 @@ func (r *VirtualServiceBuilder) CreateVirtualService(isvc *v1alpha2.InferenceSer
 	httpRoutes := []istiov1alpha3.HTTPRoute{}
 
 	// destination for the default predict is required
+	var predictDefaultHost, predictCanaryHost string
 	predictDefaultSpec, reason := getPredictStatusConfigurationSpec(&isvc.Spec.Default, isvc.Status.Default)
 	if predictDefaultSpec == nil {
 		return nil, createFailedStatus(reason, "Failed to reconcile default predictor")
 	}
+	predictDefaultHost = predictDefaultHost.Hostname
 
 	// use transformer instead (if one is configured)
+	var transformDefaultSpec, transformCanarySpec *v1alpha2.StatusConfigurationSpec
 	if isvc.Spec.Default.Transformer != nil {
-		predictDefaultSpec, reason = getTransformerStatusConfigurationSpec(&isvc.Spec.Default, isvc.Status.Default)
-		if predictDefaultSpec == nil {
+		transformDefaultSpec, reason = getTransformerStatusConfigurationSpec(&isvc.Spec.Default, isvc.Status.Default)
+		if transformDefaultSpec == nil {
 			return nil, createFailedStatus(reason, "Failed to reconcile default transformer")
 		}
+		predictDefaultHost = transformDefaultSpec.Hostname
 	}
 
 	// extract the virtual service hostname from the predictor hostname
@@ -110,7 +114,7 @@ func (r *VirtualServiceBuilder) CreateVirtualService(isvc *v1alpha2.InferenceSer
 	defaultWeight := 100 - isvc.Spec.CanaryTrafficPercent
 	canaryWeight := isvc.Spec.CanaryTrafficPercent
 	predictRouteDestinations := []istiov1alpha3.HTTPRouteDestination{
-		createHTTPRouteDestination(predictDefaultSpec.Hostname, defaultWeight, r.ingressConfig.IngressServiceName),
+		createHTTPRouteDestination(predictDefaultHost, defaultWeight, r.ingressConfig.IngressServiceName),
 	}
 
 	// optionally get a destination for canary predict
@@ -119,16 +123,18 @@ func (r *VirtualServiceBuilder) CreateVirtualService(isvc *v1alpha2.InferenceSer
 		if predictCanarySpec == nil {
 			return nil, createFailedStatus(reason, "Failed to reconcile canary predictor")
 		}
+		predictCanaryHost = predictCanarySpec.Hostname
 
 		// attempt use transformer instead if *Default* had one, see discussion: https://github.com/kubeflow/kfserving/issues/324
 		if isvc.Spec.Default.Transformer != nil {
-			predictCanarySpec, reason = getTransformerStatusConfigurationSpec(isvc.Spec.Canary, isvc.Status.Canary)
-			if predictCanarySpec == nil {
+			transformCanarySpec, reason = getTransformerStatusConfigurationSpec(isvc.Spec.Canary, isvc.Status.Canary)
+			if transformCanarySpec == nil {
 				return nil, createFailedStatus(reason, "Failed to reconcile canary transformer")
 			}
+			predictCanaryHost = transformCanarySpec.Hostname
 		}
 
-		canaryRouteDestination := createHTTPRouteDestination(predictCanarySpec.Hostname, canaryWeight, r.ingressConfig.IngressServiceName)
+		canaryRouteDestination := createHTTPRouteDestination(predictCanaryHost, canaryWeight, r.ingressConfig.IngressServiceName)
 		predictRouteDestinations = append(predictRouteDestinations, canaryRouteDestination)
 	}
 
@@ -150,12 +156,20 @@ func (r *VirtualServiceBuilder) CreateVirtualService(isvc *v1alpha2.InferenceSer
 	if isvc.Spec.Default.Explainer != nil {
 		explainDefaultSpec, defaultExplainerReason := getExplainStatusConfigurationSpec(&isvc.Spec.Default, isvc.Status.Default)
 		if explainDefaultSpec != nil {
-			routeDefaultDestination := createHTTPRouteDestination(explainDefaultSpec.Hostname, defaultWeight, r.ingressConfig.IngressServiceName)
+			explainHost := explainDefaultSpec.Hostname
+			if transformDefaultSpec != nil {
+				explainHost = transformDefaultSpec.Hostname
+			}
+			routeDefaultDestination := createHTTPRouteDestination(explainHost, defaultWeight, r.ingressConfig.IngressServiceName)
 			explainRouteDestinations = append(explainRouteDestinations, routeDefaultDestination)
 
 			explainCanarySpec, canaryExplainerReason := getExplainStatusConfigurationSpec(isvc.Spec.Canary, isvc.Status.Canary)
 			if explainCanarySpec != nil {
-				routeCanaryDestination := createHTTPRouteDestination(explainCanarySpec.Hostname, canaryWeight, r.ingressConfig.IngressServiceName)
+				explainCanaryHost := explainCanarySpec.Hostname
+				if transformCanarySpec != nil {
+					explainCanaryHost = transformCanarySpec.Hostname
+				}
+				routeCanaryDestination := createHTTPRouteDestination(explainCanaryHost, canaryWeight, r.ingressConfig.IngressServiceName)
 				explainRouteDestinations = append(explainRouteDestinations, routeCanaryDestination)
 			} else {
 				return nil, createFailedStatus(canaryExplainerReason, "Failed to reconcile canary explainer")
@@ -172,7 +186,7 @@ func (r *VirtualServiceBuilder) CreateVirtualService(isvc *v1alpha2.InferenceSer
 					},
 				},
 			},
-			Route: predictRouteDestinations,
+			Route: explainRouteDestinations,
 		}
 		httpRoutes = append(httpRoutes, explainRoute)
 	}

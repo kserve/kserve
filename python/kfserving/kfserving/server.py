@@ -54,6 +54,7 @@ KFSERVER_LOGLEVEL = os.environ.get('KFSERVER_LOGLEVEL', 'INFO').upper()
 logging.basicConfig(level=KFSERVER_LOGLEVEL)
 
 PREDICTOR_URL_FORMAT = "http://{0}/v1/models/{1}:predict"
+EXPLAINER_URL_FORMAT = "http://{0}/v1/models/{1}:predict"
 
 
 class KFServer(object):
@@ -139,12 +140,22 @@ class ModelExplainHandler(tornado.web.RequestHandler):
                 reason="Unrecognized request format: %s" % e
             )
 
-        request_handler: RequestHandler = get_request_handler(self.protocol, body)
+        # for predictor this is noop
+        # for transformer the preprocess step transforms the body to request that is conforming to data plane protocol
+        request = model.preprocess(body)
+        # validate if the request to predictor is conforming to data plane protocol
+        request_handler: RequestHandler = get_request_handler(self.protocol, request)
         request_handler.validate()
-        request = request_handler.extract_request()
-        explanation = model.explain(request)
+        inputs = request_handler.extract_request()
+        # for explainer this does in-place explanation
+        # for transformer it calls out to explainer
+        results = model.explain(inputs)
+        # for explainer this is noop
+        # for transformer the postprocess step transforms the result to what user expects
+        outputs = model.postprocess(results)
+        response = request_handler.wrap_response(outputs)
 
-        self.write(explanation)
+        self.write(response)
 
 
 class ModelPredictHandler(tornado.web.RequestHandler):

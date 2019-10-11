@@ -34,6 +34,16 @@ func (t *TransformerSpec) GetContainerSpec(metadata metav1.ObjectMeta, isCanary 
 		constants.ArgumentPredictorHost,
 		constants.PredictorURL(metadata, isCanary),
 	}...)
+
+	// TODO: hmm cant find any usages of GetContainerSpec??
+	somehowFigureoutIfWeHaveAnExplainer := false
+	if somehowFigureoutIfWeHaveAnExplainer {
+		container.Args = append(container.Args, []string{
+			constants.ArgumentExplainerHost,
+			constants.ExplainerURL(metadata, isCanary),
+		}...)		
+	}
+
 	return container
 }
 
