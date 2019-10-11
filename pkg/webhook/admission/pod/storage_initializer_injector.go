@@ -15,6 +15,7 @@ package pod
 
 import (
 	"fmt"
+	"k8s.io/klog"
 	"strings"
 
 	"github.com/kubeflow/kfserving/pkg/constants"
@@ -147,11 +148,17 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 		ReadOnly:  true,
 	}
 	userContainer.VolumeMounts = append(userContainer.VolumeMounts, sharedVolumeReadMount)
-
+    podNamespace := pod.Namespace
 	// Change the CustomSpecStorageUri env variable value to the default model path if present
 	for index, envVar := range userContainer.Env {
 		if envVar.Name == constants.CustomSpecStorageUriEnvVarKey && envVar.Value != "" {
 			userContainer.Env[index].Value = constants.DefaultModelLocalMountPath
+		}
+		// Somehow pod namespace is empty when coming into pod mutator, here we need to use
+		// the serving namespace populated by knative to set the pod namespace if it is empty
+		if envVar.Name == constants.ServingNamespace && podNamespace == "" {
+			klog.Infof("Setting pod namespace from SERVING_NAMESPACE env: %s", envVar.Name)
+			podNamespace = envVar.Value
 		}
 	}
 
@@ -160,7 +167,7 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 
 	// Inject credentials
 	if err := mi.credentialBuilder.CreateSecretVolumeAndEnv(
-		pod.Namespace,
+		podNamespace,
 		pod.Spec.ServiceAccountName,
 		initContainer,
 		&pod.Spec.Volumes,
