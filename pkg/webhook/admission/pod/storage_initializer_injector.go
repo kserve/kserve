@@ -148,17 +148,23 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 		ReadOnly:  true,
 	}
 	userContainer.VolumeMounts = append(userContainer.VolumeMounts, sharedVolumeReadMount)
-    podNamespace := pod.Namespace
+	podNamespace := pod.Namespace
 	// Change the CustomSpecStorageUri env variable value to the default model path if present
 	for index, envVar := range userContainer.Env {
 		if envVar.Name == constants.CustomSpecStorageUriEnvVarKey && envVar.Value != "" {
 			userContainer.Env[index].Value = constants.DefaultModelLocalMountPath
 		}
-		// Somehow pod namespace is empty when coming into pod mutator, here we need to use
-		// the serving namespace populated by knative to set the pod namespace if it is empty
-		if envVar.Name == constants.ServingNamespace && podNamespace == "" {
-			klog.Infof("Setting pod namespace from SERVING_NAMESPACE env: %s", envVar.Name)
-			podNamespace = envVar.Value
+	}
+
+	for _, container := range pod.Spec.Containers {
+		for _, envVar := range container.Env {
+			// Somehow pod namespace is empty when coming into pod mutator, here we need to use
+			// the serving namespace populated on queue-proxy to set the pod namespace if it is empty
+			if envVar.Name == constants.ServingNamespace && podNamespace == "" {
+				klog.Infof("Setting pod namespace from SERVING_NAMESPACE env: %s", envVar.Name)
+				podNamespace = envVar.Value
+				break
+			}
 		}
 	}
 

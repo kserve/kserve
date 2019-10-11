@@ -82,7 +82,7 @@ const DefaultModelLocalMountPath = "/mnt/models"
 // InferenceService Environment Variables
 const (
 	CustomSpecStorageUriEnvVarKey = "STORAGE_URI"
-	ServingNamespace = "SERVING_NAMESPACE"
+	ServingNamespace              = "SERVING_NAMESPACE"
 )
 
 type InferenceServiceEndpoint string
