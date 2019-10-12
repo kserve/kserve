@@ -23,12 +23,12 @@ kubectl apply -f ./install/$TAG/kfserving.yaml
 
 ### Use ###
 * Install the SDK
-```
-pip install kfserving
-```
-* Follow the [example here](docs/samples/client/kfserving_sdk_sample.ipynb) to use the KFServing SDK to create, patch, and delete a InferenceService instance.
+  ```
+  pip install kfserving
+  ```
+* Get the KFServing SDK documents from [here](python/kfserving/README.md).
 
-Note: If you are running kfserving sdk on a machine and want to point to a remote kfserving cluster, please initialize it with a pointer to kube config file location, e.g. `KFServingClient(config_file=/path/to/kubeconfig)`. If not provided, it defaults to `~/.kube/config`.
+* Follow the [example here](docs/samples/client/kfserving_sdk_sample.ipynb) to use the KFServing SDK to create, rollout, promote, and delete a InferenceService instance.
 
 ### Contribute
 * [Developer Guide](/docs/DEVELOPER_GUIDE.md).

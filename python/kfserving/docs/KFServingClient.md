@@ -6,7 +6,7 @@ User can loads authentication and cluster information from kube-config file and 
 
 parameter |  Description
 ------------ | -------------
-config_file | Name of the kube-config file. Defaults to `~/.kube/config`. |
+config_file | Name of the kube-config file. Defaults to `~/.kube/config`. Note that for the case that the SDK is running in cluster and you want to operate KFService in another remote cluster, user must set `config_file` to load kube-config file forcibly, e.g. `KFServingClient(config_file="~/.kube/config")`. |
 context |Set the active context. If is set to None, current_context from config file will be used.|
 client_configuration | The kubernetes.client.Configuration to set configs to.|
 persist_config | If True, config file will be updated when changed (e.g GCP token refresh).|
