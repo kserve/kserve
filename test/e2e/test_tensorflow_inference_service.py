@@ -27,7 +27,7 @@ from kubernetes.client import V1ResourceRequirements
 from utils import wait_for_kfservice_ready
 
 api_version = constants.KFSERVING_GROUP + '/' + constants.KFSERVING_VERSION
-KFServing = KFServingClient(load_kube_config=True)
+KFServing = KFServingClient(config_file="~/.kube/config")
 
 
 def test_tensorflow_kfserving():
