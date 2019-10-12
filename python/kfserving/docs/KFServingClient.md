@@ -1,6 +1,6 @@
 # KFServingClient
 
-> KFServingClient(config_file=None, context=None, client_configuration=None, persist_config=True)
+> KFServingClient(config_file=None, context=None, client_configuration=None, persist_config=True, load_kube_config=False)
 
 User can loads authentication and cluster information from kube-config file and stores them in kubernetes.client.configuration. Parameters are as following:
 
@@ -10,6 +10,7 @@ config_file | Name of the kube-config file. Defaults to `~/.kube/config`. |
 context |Set the active context. If is set to None, current_context from config file will be used.|
 client_configuration | The kubernetes.client.Configuration to set configs to.|
 persist_config | If True, config file will be updated when changed (e.g GCP token refresh).|
+load_kube_config | Set to `True` if the SDK is running in the cluster, and want to operate KFService in another cluster. Defaults to `False`. |
 
 
 The APIs for KFServingClient are as following:
