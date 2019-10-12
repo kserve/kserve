@@ -3,7 +3,7 @@ KFServing provides a Kubernetes [Custom Resource Definition](https://kubernetes.
 
 KFServing encapsulates the complexity of autoscaling, networking, health checking, and server configuration to bring cutting edge serving features like GPU Autoscaling, Scale to Zero, and Canary Rollouts to your ML deployments. It enables a simple, pluggable, and complete story for production ML Inference Server by providing prediction, pre-processing, post-processing and explainability out of the box.
 
-![KFServing](/docs/diagrams/kfserving.jpg)
+![KFServing](/docs/diagrams/kfserving.png)
 
 ### Learn More
 To learn more about KFServing, how to deploy it as part of Kubeflow, how to use various supported features, and how to participate in the KFServing community, please follow the [KFServing docs on the Kubeflow Website](https://www.kubeflow.org/docs/components/serving/kfserving/).
