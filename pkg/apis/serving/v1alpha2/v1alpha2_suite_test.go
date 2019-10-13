@@ -67,7 +67,7 @@ func TestMain(m *testing.M) {
 
 	// Create configmap
 	configs := map[string]string{
-		"predictors": `{
+	"predictors": `{
         "tensorflow" : {
             "image" : "tensorflow/serving",
             "defaultImageVersion": "latest",
@@ -117,7 +117,7 @@ func TestMain(m *testing.M) {
             ]
         }
     }`,
-		"explainers": `{
+    "explainers": `{
         "alibi" : {
             "image" : "docker.io/seldonio/alibiexplainer",
             "defaultImageVersion": "0.2.3",
