@@ -36,13 +36,13 @@ var cfg *rest.Config
 var c client.Client
 
 const (
-	DefaultTensorflowRuntimeVersion    = "latest"
-	DefaultTensorflowRuntimeVersionGPU = "latest-gpu"
-	DefaultSKLearnRuntimeVersion       = "0.1.0"
-	DefaultPyTorchRuntimeVersion       = "0.1.0"
-	DefaultXGBoostRuntimeVersion       = "0.1.0"
-	DefaultTensorRTRuntimeVersion      = "19.05-py3"
-	DefaultONNXRuntimeVersion          = "v0.5.0"
+	DefaultTensorflowRuntimeVersion     = "latest"
+	DefaultTensorflowRuntimeVersionGPU  = "latest-gpu"
+	DefaultSKLearnRuntimeVersion        = "0.1.0"
+	DefaultPyTorchRuntimeVersion        = "0.1.0"
+	DefaultXGBoostRuntimeVersion        = "0.1.0"
+	DefaultTensorRTRuntimeVersion       = "19.05-py3"
+	DefaultONNXRuntimeVersion           = "v0.5.0"
 	DefaultAlibiExplainerRuntimeVersion = "0.2.3"
 )
 
@@ -67,7 +67,7 @@ func TestMain(m *testing.M) {
 
 	// Create configmap
 	configs := map[string]string{
-	"predictors": `{
+		"predictors": `{
         "tensorflow" : {
             "image" : "tensorflow/serving",
             "defaultImageVersion": "latest",
@@ -117,7 +117,7 @@ func TestMain(m *testing.M) {
             ]
         }
     }`,
-    "explainers" : `{
+		"explainers": `{
         "alibi" : {
             "image" : "docker.io/seldonio/alibiexplainer",
             "defaultImageVersion": "0.2.3",
