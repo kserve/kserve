@@ -70,7 +70,7 @@ MODEL_NAME=transformer-cifar10
 INPUT_PATH=@./input.json
 CLUSTER_IP=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 
-SERVICE_HOSTNAME=$(kubectl get inferenceservice transformer-cifar10 -o jsonpath='{.status.url}' | sed 's/.*:\/\///g')
+SERVICE_HOSTNAME=$(kubectl get inferenceservice transformer-cifar10 -o jsonpath='{.status.url}' | cut -d "/" -f 3)
 
 curl -v -H "Host: ${SERVICE_HOSTNAME}" -d $INPUT_PATH http://$CLUSTER_IP/v1/models/$MODEL_NAME:predict
 ```
