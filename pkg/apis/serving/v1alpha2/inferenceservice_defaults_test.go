@@ -231,3 +231,40 @@ func TestTensorRTDefaults(t *testing.T) {
 	g.Expect(isvc.Spec.Canary.Predictor.TensorRT.Resources.Requests[v1.ResourceCPU]).To(gomega.Equal(DefaultCPU))
 	g.Expect(isvc.Spec.Canary.Predictor.TensorRT.Resources.Requests[v1.ResourceMemory]).To(gomega.Equal(resource.MustParse("3Gi")))
 }
+
+func TestAlibiExplainerDefaults(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	isvc := InferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "foo",
+			Namespace: "default",
+		},
+		Spec: InferenceServiceSpec{
+			Default: EndpointSpec{
+				Predictor: PredictorSpec{
+					Tensorflow: &TensorflowSpec{
+						StorageURI:     "gs://testbucket/testmodel",
+					},
+				},
+				Explainer: &ExplainerSpec{
+					Alibi: &AlibiExplainerSpec{
+						StorageURI: "gs://testbucket/testmodel",
+					},
+				},
+			},
+		},
+	}
+	isvc.Spec.Canary = isvc.Spec.Default.DeepCopy()
+	isvc.Spec.Canary.Explainer.Alibi.RuntimeVersion = "0.2.4"
+	isvc.Spec.Canary.Explainer.Alibi.Resources.Requests = v1.ResourceList{v1.ResourceMemory: resource.MustParse("3Gi")}
+	isvc.Default(c)
+
+	g.Expect(isvc.Spec.Default.Explainer.Alibi.RuntimeVersion).To(gomega.Equal(DefaultAlibiExplainerRuntimeVersion))
+	g.Expect(isvc.Spec.Default.Explainer.Alibi.Resources.Requests[v1.ResourceCPU]).To(gomega.Equal(DefaultCPU))
+	g.Expect(isvc.Spec.Default.Explainer.Alibi.Resources.Requests[v1.ResourceMemory]).To(gomega.Equal(DefaultMemory))
+	g.Expect(isvc.Spec.Default.Explainer.Alibi.Resources.Limits[v1.ResourceCPU]).To(gomega.Equal(DefaultCPU))
+	g.Expect(isvc.Spec.Default.Explainer.Alibi.Resources.Limits[v1.ResourceMemory]).To(gomega.Equal(DefaultMemory))
+	g.Expect(isvc.Spec.Canary.Explainer.Alibi.RuntimeVersion).To(gomega.Equal("0.2.4"))
+	g.Expect(isvc.Spec.Canary.Explainer.Alibi.Resources.Requests[v1.ResourceCPU]).To(gomega.Equal(DefaultCPU))
+	g.Expect(isvc.Spec.Canary.Explainer.Alibi.Resources.Requests[v1.ResourceMemory]).To(gomega.Equal(resource.MustParse("3Gi")))
+}
