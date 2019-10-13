@@ -9,7 +9,6 @@ import (
 )
 
 var (
-	AlibiImageName                  = "docker.io/seldonio/alibiexplainer"
 	InvalidAlibiRuntimeVersionError = "RuntimeVersion must be one of %s"
 )
 
@@ -18,11 +17,6 @@ func (s *AlibiExplainerSpec) GetStorageUri() string {
 }
 
 func (s *AlibiExplainerSpec) CreateExplainerContainer(modelName string, predictorHost string, config *InferenceServicesConfig) *v1.Container {
-	imageName := AlibiImageName
-	if config.Explainers.AlibiExplainer.ContainerImage != "" {
-		imageName = config.Explainers.AlibiExplainer.ContainerImage
-	}
-
 	var args = []string{
 		constants.ArgumentModelName, modelName,
 		constants.ArgumentPredictorHost, predictorHost,
@@ -40,7 +34,7 @@ func (s *AlibiExplainerSpec) CreateExplainerContainer(modelName string, predicto
 	}
 
 	return &v1.Container{
-		Image:     imageName + ":" + s.RuntimeVersion,
+		Image:     config.Explainers.AlibiExplainer.ContainerImage + ":" + s.RuntimeVersion,
 		Resources: s.Resources,
 		Args:      args,
 	}
