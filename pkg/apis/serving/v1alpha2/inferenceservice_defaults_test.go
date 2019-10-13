@@ -243,7 +243,7 @@ func TestAlibiExplainerDefaults(t *testing.T) {
 			Default: EndpointSpec{
 				Predictor: PredictorSpec{
 					Tensorflow: &TensorflowSpec{
-						StorageURI:     "gs://testbucket/testmodel",
+						StorageURI: "gs://testbucket/testmodel",
 					},
 				},
 				Explainer: &ExplainerSpec{
