@@ -211,3 +211,15 @@ func TestRejectBadExplainer(t *testing.T) {
 	isvc.Spec.Default.Explainer = &ExplainerSpec{}
 	g.Expect(isvc.ValidateCreate(c)).Should(gomega.MatchError(ExactlyOneExplainerViolatedError))
 }
+
+func TestGoodExplainer(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	isvc := makeTestInferenceService()
+	isvc.Spec.Default.Explainer = &ExplainerSpec{
+		Alibi: &AlibiExplainerSpec{
+			StorageURI: "gs://testbucket/testmodel",
+		},
+	}
+	isvc.Default(c)
+	g.Expect(isvc.ValidateCreate(c)).Should(gomega.Succeed())
+}

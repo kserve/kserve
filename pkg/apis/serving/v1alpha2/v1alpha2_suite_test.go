@@ -36,13 +36,14 @@ var cfg *rest.Config
 var c client.Client
 
 const (
-	DefaultTensorflowRuntimeVersion    = "latest"
-	DefaultTensorflowRuntimeVersionGPU = "latest-gpu"
-	DefaultSKLearnRuntimeVersion       = "0.1.0"
-	DefaultPyTorchRuntimeVersion       = "0.1.0"
-	DefaultXGBoostRuntimeVersion       = "0.1.0"
-	DefaultTensorRTRuntimeVersion      = "19.05-py3"
-	DefaultONNXRuntimeVersion          = "v0.5.0"
+	DefaultTensorflowRuntimeVersion     = "latest"
+	DefaultTensorflowRuntimeVersionGPU  = "latest-gpu"
+	DefaultSKLearnRuntimeVersion        = "0.1.0"
+	DefaultPyTorchRuntimeVersion        = "0.1.0"
+	DefaultXGBoostRuntimeVersion        = "0.1.0"
+	DefaultTensorRTRuntimeVersion       = "19.05-py3"
+	DefaultONNXRuntimeVersion           = "v0.5.0"
+	DefaultAlibiExplainerRuntimeVersion = "0.2.3"
 )
 
 func TestMain(m *testing.M) {
@@ -67,55 +68,64 @@ func TestMain(m *testing.M) {
 	// Create configmap
 	configs := map[string]string{
 		"predictors": `{
-        "tensorflow" : {
-            "image" : "tensorflow/serving",
-            "defaultImageVersion": "latest",
-            "defaultGPUImageVersion": "latest-gpu",
-            "allowedImageVersions": [
-               "latest",
-               "latest-gpu"
-            ]
-        },
-        "sklearn" : {
-            "image" : "kfserving/sklearnserver",
-            "defaultImageVersion": "0.1.0",
-            "allowedImageVersions": [
-               "latest",
-               "0.1.0"
-            ]
-        },
-        "xgboost" : {
-            "image" : "kfserving/xgbserver",
-            "defaultImageVersion": "0.1.0",
-            "allowedImageVersions": [
-               "latest",
-               "0.1.0"
-            ]
-        },
-        "pytorch" : {
-            "image" : "kfserving/pytorchserver",
-            "defaultImageVersion": "0.1.0",
-            "allowedImageVersions": [
-               "latest",
-               "0.1.0"
-            ]
-        },
-        "onnx" : {
-            "image" : "onnxruntime/server",
-            "defaultImageVersion": "v0.5.0",
-            "allowedImageVersions": [
-               "latest",
-               "v0.5.0"
-            ]
-        },
-        "tensorrt" : {
-            "image" : "nvcr.io/nvidia/tensorrtserver",
-            "defaultImageVersion": "19.05-py3",
-            "allowedImageVersions": [
-               "19.05-py3"
-            ]
-        }
-    }`,
+			"tensorflow" : {
+				"image" : "tensorflow/serving",
+				"defaultImageVersion": "latest",
+				"defaultGPUImageVersion": "latest-gpu",
+				"allowedImageVersions": [
+				   "latest",
+				   "latest-gpu"
+				]
+			},
+			"sklearn" : {
+				"image" : "kfserving/sklearnserver",
+				"defaultImageVersion": "0.1.0",
+				"allowedImageVersions": [
+				   "latest",
+				   "0.1.0"
+				]
+			},
+			"xgboost" : {
+				"image" : "kfserving/xgbserver",
+				"defaultImageVersion": "0.1.0",
+				"allowedImageVersions": [
+				   "latest",
+				   "0.1.0"
+				]
+			},
+			"pytorch" : {
+				"image" : "kfserving/pytorchserver",
+				"defaultImageVersion": "0.1.0",
+				"allowedImageVersions": [
+				   "latest",
+				   "0.1.0"
+				]
+			},
+			"onnx" : {
+				"image" : "onnxruntime/server",
+				"defaultImageVersion": "v0.5.0",
+				"allowedImageVersions": [
+				   "latest",
+				   "v0.5.0"
+				]
+			},
+			"tensorrt" : {
+				"image" : "nvcr.io/nvidia/tensorrtserver",
+				"defaultImageVersion": "19.05-py3",
+				"allowedImageVersions": [
+				   "19.05-py3"
+				]
+			}
+		}`,
+		"explainers": `{
+			"alibi" : {
+				"image" : "docker.io/seldonio/alibiexplainer",
+				"defaultImageVersion": "0.2.3",
+				"allowedImageVersions": [
+				   "0.2.3"
+				]
+			}
+        }`,
 	}
 	var configMap = &v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
