@@ -24,7 +24,7 @@ import (
 
 var (
 	// For versioning see https://github.com/NVIDIA/tensorrt-inference-server/releases
-	InvalidTensorRTISRuntimeVersionError = "RuntimeVersion must be one of %s"
+	InvalidTensorRTISRuntimeVersionError = "TensorRTIS RuntimeVersion must be one of %s"
 	TensorRTISGRPCPort                   = int32(9000)
 	TensorRTISRestPort                   = int32(8080)
 )

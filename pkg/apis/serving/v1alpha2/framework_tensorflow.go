@@ -27,9 +27,9 @@ var (
 	TensorflowServingGRPCPort            = "9000"
 	TensorflowServingRestPort            = "8080"
 	TensorflowServingGPUSuffix           = "-gpu"
-	InvalidTensorflowRuntimeVersionError = "RuntimeVersion must be one of %s"
-	InvalidTensorflowRuntimeIncludesGPU  = "RuntimeVersion is not GPU enabled but GPU resources are requested. " + InvalidTensorflowRuntimeVersionError
-	InvalidTensorflowRuntimeExcludesGPU  = "RuntimeVersion is GPU enabled but GPU resources are not requested. " + InvalidTensorflowRuntimeVersionError
+	InvalidTensorflowRuntimeVersionError = "Tensorflow RuntimeVersion must be one of %s"
+	InvalidTensorflowRuntimeIncludesGPU  = "Tensorflow RuntimeVersion is not GPU enabled but GPU resources are requested. " + InvalidTensorflowRuntimeVersionError
+	InvalidTensorflowRuntimeExcludesGPU  = "Tensorflow RuntimeVersion is GPU enabled but GPU resources are not requested. " + InvalidTensorflowRuntimeVersionError
 )
 
 func (t *TensorflowSpec) GetStorageUri() string {

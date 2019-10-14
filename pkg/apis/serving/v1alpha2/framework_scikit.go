@@ -23,7 +23,7 @@ import (
 )
 
 var (
-	InvalidSKLearnRuntimeVersionError = "RuntimeVersion must be one of %s"
+	InvalidSKLearnRuntimeVersionError = "SKLearn RuntimeVersion must be one of %s"
 )
 
 var _ Predictor = (*SKLearnSpec)(nil)
