@@ -22,7 +22,7 @@ import (
 )
 
 var (
-	InvalidXGBoostRuntimeVersionError = "RuntimeVersion must be one of %s"
+	InvalidXGBoostRuntimeVersionError = "XGBoost RuntimeVersion must be one of %s"
 )
 
 func (x *XGBoostSpec) GetStorageUri() string {

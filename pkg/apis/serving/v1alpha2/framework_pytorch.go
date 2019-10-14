@@ -22,7 +22,7 @@ import (
 )
 
 var (
-	InvalidPyTorchRuntimeVersionError = "RuntimeVersion must be one of %s"
+	InvalidPyTorchRuntimeVersionError = "PyTorch RuntimeVersion must be one of %s"
 	DefaultPyTorchModelClassName      = "PyTorchModel"
 )
 
