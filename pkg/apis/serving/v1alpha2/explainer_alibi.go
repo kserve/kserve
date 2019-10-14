@@ -9,7 +9,7 @@ import (
 )
 
 var (
-	InvalidAlibiRuntimeVersionError = "RuntimeVersion must be one of %s"
+	InvalidAlibiRuntimeVersionError = "Alibi RuntimeVersion must be one of %s"
 )
 
 func (s *AlibiExplainerSpec) GetStorageUri() string {
