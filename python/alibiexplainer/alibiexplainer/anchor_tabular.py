@@ -96,7 +96,7 @@ class AnchorTabular(ExplainerWrapper):
                         anchor_exp['raw']['examples'][i][key] = parr.values
 
                 instance = anchor_exp['raw']['instance']
-                anchor_exp['raw']['instance'] = pd.DataFrame([instance]).replace(self.cmap).values
+                anchor_exp['raw']['instance'] = pd.DataFrame([instance]).replace(self.cmap).values.squeeze()
             return anchor_exp
         else:
             raise Exception("Explainer not initialized")
