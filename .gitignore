@@ -29,6 +29,8 @@ bin
 
 # development overlay for image patch not to be checked in
 config/overlays/development/manager_image_patch.yaml
+config/overlays/local/
+.ko.yaml
 
 # swagger-codegen tools and auto generated files but useless
 hack/python-sdk/swagger-codegen-cli.jar
@@ -38,3 +40,6 @@ python/kfserving/.travis.yml
 python/kfserving/git_push.sh
 python/kfserving/test-requirements.txt
 python/kfserving/tox.ini
+
+# macOS specific ignore
+.DS_Store
