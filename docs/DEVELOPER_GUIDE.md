@@ -164,11 +164,11 @@ kubectl apply -f docs/samples/tensorflow/tensorflow.yaml
 You should see model serving deployment running under default or your specified namespace.
 
 ```console
-$ kubectl get kfservices -n default
+$ kubectl get inferenceservices -n default
 NAME             READY     URL                                  DEFAULT TRAFFIC   CANARY TRAFFIC   AGE
 flowers-sample   True      flowers-sample.default.example.com   100                                1h
 
-$ kubectl get pods -n default -l serving.kubeflow.org/kfservice=flowers-sample
+$ kubectl get pods -n default -l serving.kubeflow.org/inferenceservice=flowers-sample
 NAME                                                READY   STATUS    RESTARTS   AGE
 flowers-sample-default-htz8r-deployment-8fd979f9b-w2qbv   3/3     Running   0          10s
 ```
@@ -283,4 +283,4 @@ It`s a red herring. To resolve it, please ensure you have logged into dockerhub 
 2019-09-28 01:52:23.345692: E tensorflow_serving/sources/storage_path/file_system_storage_path_source.cc:362] FileSystemStoragePathSource encountered a filesystem access error: Could not find base path /mnt/models for servable flowers-sample
 ```
 
-Please make sure not to deploy the kfservice in the `kfserving-system` or other namespaces where namespace has  `control-plane` as a label. The `storage-initializer` init container does not get injected for deployments in those namespaces since they do not go through the mutating webhook.
+Please make sure not to deploy the inferenceservice in the `kfserving-system` or other namespaces where namespace has  `control-plane` as a label. The `storage-initializer` init container does not get injected for deployments in those namespaces since they do not go through the mutating webhook.

@@ -50,16 +50,16 @@ KFServing supports the following storage providers:
 
 ### Getting Started
 
-KFServing's python client interacts with KFServing APIs for executing operations on a remote KFServing cluster, such as creating, patching and deleting of a KFService instance. See the [Sample for KFServing Python SDK Client](../../docs/samples/client/kfserving_sdk_sample.ipynb) to get started.
+KFServing's python client interacts with KFServing APIs for executing operations on a remote KFServing cluster, such as creating, patching and deleting of a InferenceService instance. See the [Sample for KFServing Python SDK Client](../../docs/samples/client/kfserving_sdk_sample.ipynb) to get started.
 
 ### Documentation for Client API
 
 Class | Method |  Description
 ------------ | ------------- | -------------
-[KFServingClient](docs/KFServingClient.md) | [create](docs/KFServingClient.md#create) | Create the provided KFService in the specified namespace|
-[KFServingClient](docs/KFServingClient.md) | [get](docs/KFServingClient.md#get)    | Get the created KFService in the specified namespace|
-[KFServingClient](docs/KFServingClient.md) | [patch](docs/KFServingClient.md#patch)   | Patch the created KFService in the specified namespace |
-[KFServingClient](docs/KFServingClient.md) | [delete](docs/KFServingClient.md#delete) | Delete the created KFService in the specified namespace |
+[KFServingClient](docs/KFServingClient.md) | [create](docs/KFServingClient.md#create) | Create the provided InferenceService in the specified namespace|
+[KFServingClient](docs/KFServingClient.md) | [get](docs/KFServingClient.md#get)    | Get the created InferenceService in the specified namespace|
+[KFServingClient](docs/KFServingClient.md) | [patch](docs/KFServingClient.md#patch)   | Patch the created InferenceService in the specified namespace |
+[KFServingClient](docs/KFServingClient.md) | [delete](docs/KFServingClient.md#delete) | Delete the created InferenceService in the specified namespace |
 
 
 ## Documentation For Models
@@ -73,10 +73,10 @@ Class | Method |  Description
  - [V1alpha2ExplainerSpec](docs/V1alpha2ExplainerSpec.md)
  - [V1alpha2FrameworkConfig](docs/V1alpha2FrameworkConfig.md)
  - [V1alpha2FrameworksConfig](docs/V1alpha2FrameworksConfig.md)
- - [V1alpha2KFService](docs/V1alpha2KFService.md)
- - [V1alpha2KFServiceList](docs/V1alpha2KFServiceList.md)
- - [V1alpha2KFServiceSpec](docs/V1alpha2KFServiceSpec.md)
- - [V1alpha2KFServiceStatus](docs/V1alpha2KFServiceStatus.md)
+ - [V1alpha2InferenceService](docs/V1alpha2InferenceService.md)
+ - [V1alpha2InferenceServiceList](docs/V1alpha2InferenceServiceList.md)
+ - [V1alpha2InferenceServiceSpec](docs/V1alpha2InferenceServiceSpec.md)
+ - [V1alpha2InferenceServiceStatus](docs/V1alpha2InferenceServiceStatus.md)
  - [V1alpha2ONNXSpec](docs/V1alpha2ONNXSpec.md)
  - [V1alpha2PredictorSpec](docs/V1alpha2PredictorSpec.md)
  - [V1alpha2PyTorchSpec](docs/V1alpha2PyTorchSpec.md)

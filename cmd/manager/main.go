@@ -24,6 +24,7 @@ import (
 	"github.com/kubeflow/kfserving/pkg/controller"
 	"github.com/kubeflow/kfserving/pkg/webhook"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+	istiov1alpha3 "knative.dev/pkg/apis/istio/v1alpha3"
 	knservingv1alpha1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -67,6 +68,12 @@ func main() {
 	log.Info("Setting up Knative scheme")
 	if err := knservingv1alpha1.AddToScheme(mgr.GetScheme()); err != nil {
 		log.Error(err, "unable to add Knative APIs to scheme")
+		os.Exit(1)
+	}
+
+	log.Info("Setting up Istio schemes")
+	if err := istiov1alpha3.AddToScheme(mgr.GetScheme()); err != nil {
+		log.Error(err, "unable to add Istio v1alpha3 APIs to scheme")
 		os.Exit(1)
 	}
 

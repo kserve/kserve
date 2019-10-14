@@ -2,25 +2,25 @@
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
-- [Autoscale KFService with your inference workload](#autoscale-kfservice-with-your-inference-workload)
+- [Autoscale InferenceService with your inference workload](#autoscale-inferenceservice-with-your-inference-workload)
   - [Setup](#setup)
-  - [Load your KFService with target concurrency](#load-your-kfservice-with-target-concurrency)
-    - [Create the KFService](#create-the-kfservice)
-    - [Load KFService with concurrent requests](#load-kfservice-with-concurrent-requests)
+  - [Load your InferenceService with target concurrency](#load-your-inferenceservice-with-target-concurrency)
+    - [Create the InferenceService](#create-the-inferenceservice)
+    - [Load InferenceService with concurrent requests](#load-inferenceservice-with-concurrent-requests)
     - [Check Dashboard](#check-dashboard)
-  - [Load your KFService with target QPS](#load-your-kfservice-with-target-qps)
-    - [Create the KFService](#create-the-kfservice-1)
-    - [Load KFService with target QPS](#load-kfservice-with-target-qps)
+  - [Load your InferenceService with target QPS](#load-your-inferenceservice-with-target-qps)
+    - [Create the InferenceService](#create-the-inferenceservice-1)
+    - [Load InferenceService with target QPS](#load-inferenceservice-with-target-qps)
     - [Check Dashboard](#check-dashboard-1)
   - [Autoscaling on GPU!](#autoscaling-on-gpu)
-    - [Create the KFService with GPU resource](#create-the-kfservice-with-gpu-resource)
-    - [Load KFService with concurrent requests](#load-kfservice-with-concurrent-requests-1)
+    - [Create the InferenceService with GPU resource](#create-the-inferenceservice-with-gpu-resource)
+    - [Load InferenceService with concurrent requests](#load-inferenceservice-with-concurrent-requests-1)
   - [Autoscaling Customization](#autoscaling-customization)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
 
-# Autoscale KFService with your inference workload
+# Autoscale InferenceService with your inference workload
 ## Setup
 1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/blob/master/docs/DEVELOPER_GUIDE.md#deploy-kfserving).
 2. Your cluster's Istio Ingress gateway must be network accessible.
@@ -28,9 +28,9 @@
 4. [Metrics installation](https://knative.dev/docs/serving/installing-logging-metrics-traces) for viewing scaling graphs (optional).
 5. The [hey](https://github.com/rakyll/hey) load generator installed (go get -u github.com/rakyll/hey).
 
-## Load your KFService with target concurrency
+## Load your InferenceService with target concurrency
 
-### Create the KFService
+### Create the InferenceService
 Apply the tensorflow example CR
 ```
 kubectl apply -f autoscale.yaml
@@ -38,16 +38,16 @@ kubectl apply -f autoscale.yaml
 
 Expected Output
 ```
-$ kfservice.serving.kubeflow.org/flowers-sample configured
+$ inferenceservice.serving.kubeflow.org/flowers-sample configured
 ```
 
-### Load KFService with concurrent requests
+### Load InferenceService with concurrent requests
 Send traffic in 30 seconds spurts maintaining 5 in-flight requests.
 ```
 MODEL_NAME=flowers-sample
 INPUT_PATH=../tensorflow/input.json
 CLUSTER_IP=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-HOST=$(kubectl get kfservice $MODEL_NAME -o jsonpath='{.status.url}')
+HOST=$(kubectl get inferenceservice $MODEL_NAME -o jsonpath='{.status.url}')
 hey -z 30s -c 5 -m POST -host ${HOST} -D $INPUT_PATH http://$CLUSTER_IP/v1/models/$MODEL_NAME:predict
 ```
 Expected Output
@@ -120,9 +120,9 @@ kubectl port-forward --namespace knative-monitoring $(kubectl get pods --namespa
 ![scaling dashboard](scaling_debug.png)
 
 
-## Load your KFService with target QPS
+## Load your InferenceService with target QPS
 
-### Create the KFService
+### Create the InferenceService
 Apply the tensorflow example CR
 ```
 kubectl apply -f autoscale.yaml
@@ -130,16 +130,16 @@ kubectl apply -f autoscale.yaml
 
 Expected Output
 ```
-$ kfservice.serving.kubeflow.org/flowers-sample configured
+$ inferenceservice.serving.kubeflow.org/flowers-sample configured
 ```
 
-### Load KFService with target QPS
+### Load InferenceService with target QPS
 Send 30 seconds of traffic maintaining 50 qps.
 ```bash
 MODEL_NAME=flowers-sample
 INPUT_PATH=../tensorflow/input.json
 CLUSTER_IP=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-HOST=$(kubectl get kfservice $MODEL_NAME -o jsonpath='{.status.url}')
+HOST=$(kubectl get inferenceservice $MODEL_NAME -o jsonpath='{.status.url}')
 hey -z 30s -q 50 -m POST -host ${HOST} -D $INPUT_PATH http://$CLUSTER_IP/v1/models/$MODEL_NAME:predict
 ```
 
@@ -209,11 +209,11 @@ conditions are no longer met for 60 seconds, autoscaler will return back to 60 s
 Autoscaling on GPU is hard with GPU metrics, however thanks to Knative's concurrency based autoscaler scaling on GPU
 is pretty easy and effective!
 
-### Create the KFService with GPU resource
+### Create the InferenceService with GPU resource
 Apply the tensorflow gpu example CR
 ```
 apiVersion: "serving.kubeflow.org/v1alpha2"
-kind: "KFService"
+kind: "InferenceService"
 metadata:
   name: "flowers-sample-gpu"
 spec:
@@ -231,13 +231,13 @@ spec:
 kubectl apply -f autoscale_gpu.yaml
 ```
 
-### Load KFService with concurrent requests
+### Load InferenceService with concurrent requests
 Send 30 seconds of traffic maintaining 5 in-flight requests.
 ```
 MODEL_NAME=flowers-sample-gpu
 INPUT_PATH=../tensorflow/input.json
 CLUSTER_IP=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-HOST=$(kubectl get kfservice $MODEL_NAME -o jsonpath='{.status.url}')
+HOST=$(kubectl get inferenceservice $MODEL_NAME -o jsonpath='{.status.url}')
 hey -z 30s -c 5 -m POST -host ${HOST} -D $INPUT_PATH http://$CLUSTER_IP/v1/models/$MODEL_NAME:predict
 ```
 Expected output
@@ -287,11 +287,11 @@ Status code distribution:
 ```
 
 ## Autoscaling Customization
-You can also customize the target concurrency by adding annotation `autoscaling.knative.dev/target: "10"` on `KFService` CR.
+You can also customize the target concurrency by adding annotation `autoscaling.knative.dev/target: "10"` on `InferenceService` CR.
 
 ```yaml
 apiVersion: "serving.kubeflow.org/v1alpha2"
-kind: "KFService"
+kind: "InferenceService"
 metadata:
   name: "flowers-sample"
   annotations:

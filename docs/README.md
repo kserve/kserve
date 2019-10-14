@@ -1,25 +1,28 @@
-
-# Design Docs
-KFServing architecture consists of two main specifications, around control plane and data plane. Control plane is responsible for deploying and managing the lifecycle of models, while data plane is responsible for defining the contracts to interact with models once deployed.
-
- * [KFserving control plane specification](control-plane.md)
-   * Defines the specification of the `kfserving` resource.
-
 # Architecture Overview
-The KFService Data Plane architecture consists of a static graph of components which implement a limited set of features. Advanced features such as Ensembling, A/B testing, and Multi-Arm-Bandits should be built at a layer above KFServices. The diagram reflects the overall architecture for a viable offering, but at this point in time may not accurately reflect the current set of features available in the graph, but the overall mechanism holds:
-
-- The User defines the components they wish to use in a KFService.
-  - The only required component is a Predictor.
-  - Additional components may be specified to attach addtional behavior. 
-  - Each component is specified at the ModelSpec layer, allowing for canarying.
-- The KFService will support one of several Data Plane interfaces.
-  - For example: tensorflow/HTTP, tensorflow/GRPC, seldon/HTTP, seldon/GRPC
-  - Data Plane interfaces may be specified with annotations and defaults to tensorflow/HTTP
-  - Not all components will be compatible with every data plane interface.
-- The Orchestrator wires up the components.
-  - If the Predictor is the only component, the orchestrator will not be deployed.
-  - The Orchestrator will orchestrate requests against the existing components.
-- The Orchestrator will return a final response once the results have been aggregated.
-  - Some components (e.g. payload logging) will execute asyncronously.
+The InferenceService Data Plane architecture consists of a static graph of components which coordinate requests for a single model. Advanced features such as Ensembling, A/B testing, and Multi-Arm-Bandits should compose InferenceServices together.
 
 ![Data Plane](./diagrams/dataplane.jpg)
+
+# Concepts
+**Endpoint**: InferenceServers are divided into two endpoints: "default" and "canary". The endpoints allow users to safely make changes using the Pinned and Canary rollout strategies. Canarying is completely optional enabling users to simply deploy with a BlueGreen deployment stategy on the "default" endpoint.
+
+**Component**: Each endpoint is composed of multiple components: "predictor", "explainer", and "transformer". The only required component is the predictor, which is the core of the system. As KFServing evolves, we plan to increase the number of supported components to enable use cases like Outlier Detection.
+
+**Predictor**: The predictor is the workhorse of the InferenceService. It is simply a model amd a model server that makes it available at a network endpoint.
+
+**Explainer**: The explainer enables an optional alternate data plane that provides model explanations in addition to predictions. Users may define their own explanation container, which KFServing configures with relevant environment variables like prediction endpoint. For common use cases, KFServing provides out-of-the-box explainers like Alibi.
+
+**Transformer**: The transformer enables users to define a pre and post processing step before the prediction and explanation workflows. Like the explainer, it is configured with relevant environment variables to. For common use cases, KFServing provides out-of-the-box transformers like Feast.
+
+# Data Plane (V1)
+KFServing has a standardized prediction workflow across all model frameworks. 
+
+Note: We are actively developing a V2 data plane protocol to improve performace (i.e. GRPC).
+
+## Predict
+All InferenceServices speak the Tensorflow V1 HTTP API: https://www.tensorflow.org/tfx/serving/api_rest#predict_api. 
+
+Note: Only Tensorflow models support the fields "signature_name" and "inputs".
+
+## Explain
+All InferenceServices that are deployed with an Explainer support a standardized explanation API. This interface is identical to the Tensorflow V1 HTTP API with the addition of an ":explain" verb.

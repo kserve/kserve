@@ -24,8 +24,8 @@ import (
 
 // Interface provides access to all the informers in this group version.
 type Interface interface {
-	// KFServices returns a KFServiceInformer.
-	KFServices() KFServiceInformer
+	// InferenceServices returns a InferenceServiceInformer.
+	InferenceServices() InferenceServiceInformer
 }
 
 type version struct {
@@ -39,7 +39,7 @@ func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakList
 	return &version{factory: f, namespace: namespace, tweakListOptions: tweakListOptions}
 }
 
-// KFServices returns a KFServiceInformer.
-func (v *version) KFServices() KFServiceInformer {
-	return &kFServiceInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+// InferenceServices returns a InferenceServiceInformer.
+func (v *version) InferenceServices() InferenceServiceInformer {
+	return &inferenceServiceInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }

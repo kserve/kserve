@@ -32,18 +32,19 @@ func (c *CustomSpec) GetStorageUri() string {
 	return ""
 }
 
-func (c *CustomSpec) GetContainer(modelName string, config *PredictorsConfig) *v1.Container {
-	return &c.Container
-}
-func (c *CustomSpec) CreateExplainerContainer(modelName string, predictUrl string, config *ExplainersConfig) *v1.Container {
+func (c *CustomSpec) GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container {
 	return &c.Container
 }
 
-func (c *CustomSpec) ApplyDefaults() {
+func (c *CustomSpec) CreateExplainerContainer(modelName string, predictUrl string, config *InferenceServicesConfig) *v1.Container {
+	return &c.Container
+}
+
+func (c *CustomSpec) ApplyDefaults(config *InferenceServicesConfig) {
 	setResourceRequirementDefaults(&c.Container.Resources)
 }
 
-func (c *CustomSpec) Validate() error {
+func (c *CustomSpec) Validate(config *InferenceServicesConfig) error {
 	err := knserving.ValidateContainer(c.Container, sets.String{})
 	if err != nil {
 		return fmt.Errorf("Custom container validation error: %s", err.Error())

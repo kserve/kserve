@@ -22,9 +22,9 @@ import (
 
 type Explainer interface {
 	GetStorageUri() string
-	CreateExplainerContainer(modelName string, predictorHost string, config *ExplainersConfig) *v1.Container
-	ApplyDefaults()
-	Validate() error
+	CreateExplainerContainer(modelName string, predictorHost string, config *InferenceServicesConfig) *v1.Container
+	ApplyDefaults(config *InferenceServicesConfig)
+	Validate(config *InferenceServicesConfig) error
 }
 
 const (
@@ -41,7 +41,7 @@ func (e *ExplainerSpec) GetStorageUri() string {
 	return explainer.GetStorageUri()
 }
 
-func (e *ExplainerSpec) CreateExplainerContainer(modelName string, predictorHost string, config *ExplainersConfig) *v1.Container {
+func (e *ExplainerSpec) CreateExplainerContainer(modelName string, predictorHost string, config *InferenceServicesConfig) *v1.Container {
 	explainer, err := getExplainer(e)
 	if err != nil {
 		return nil
@@ -49,34 +49,25 @@ func (e *ExplainerSpec) CreateExplainerContainer(modelName string, predictorHost
 	return explainer.CreateExplainerContainer(modelName, predictorHost, config)
 }
 
-func (e *ExplainerSpec) ApplyDefaults() {
+func (e *ExplainerSpec) ApplyDefaults(config *InferenceServicesConfig) {
 	explainer, err := getExplainer(e)
 	if err == nil {
-		explainer.ApplyDefaults()
+		explainer.ApplyDefaults(config)
 	}
 }
 
-func (e *ExplainerSpec) Validate() error {
+func (e *ExplainerSpec) Validate(config *InferenceServicesConfig) error {
 	explainer, err := getExplainer(e)
 	if err != nil {
 		return err
 	}
-	if err := explainer.Validate(); err != nil {
+	if err := explainer.Validate(config); err != nil {
 		return err
 	}
 	if err := validateStorageURI(e.GetStorageUri()); err != nil {
 		return err
 	}
 	return nil
-}
-
-type ExplainerConfig struct {
-	ContainerImage string `json:"image"`
-
-	//TODO add readiness/liveness probe config
-}
-type ExplainersConfig struct {
-	AlibiExplainer ExplainerConfig `json:"alibi,omitempty"`
 }
 
 func getExplainer(explainerSpec *ExplainerSpec) (Explainer, error) {

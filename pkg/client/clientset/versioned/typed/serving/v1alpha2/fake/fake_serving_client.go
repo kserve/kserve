@@ -28,8 +28,8 @@ type FakeServingV1alpha2 struct {
 	*testing.Fake
 }
 
-func (c *FakeServingV1alpha2) KFServices(namespace string) v1alpha2.KFServiceInterface {
-	return &FakeKFServices{c, namespace}
+func (c *FakeServingV1alpha2) InferenceServices(namespace string) v1alpha2.InferenceServiceInterface {
+	return &FakeInferenceServices{c, namespace}
 }
 
 // RESTClient returns a RESTClient that is used to communicate

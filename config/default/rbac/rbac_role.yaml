@@ -25,9 +25,9 @@ rules:
   - update
   - patch
 - apiGroups:
-  - serving.knative.dev
+  - networking.istio.io
   resources:
-  - routes
+  - virtualservices
   verbs:
   - get
   - list
@@ -37,9 +37,9 @@ rules:
   - patch
   - delete
 - apiGroups:
-  - serving.knative.dev
+  - networking.istio.io
   resources:
-  - routes/status
+  - virtualservices/status
   verbs:
   - get
   - update
@@ -47,7 +47,7 @@ rules:
 - apiGroups:
   - serving.kubeflow.org
   resources:
-  - kfservices
+  - inferenceservices
   verbs:
   - get
   - list
@@ -59,7 +59,7 @@ rules:
 - apiGroups:
   - serving.kubeflow.org
   resources:
-  - kfservices/status
+  - inferenceservices/status
   verbs:
   - get
   - update

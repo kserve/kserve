@@ -1,5 +1,5 @@
 
-# Predict on a KFService with saved model on Azure
+# Predict on a InferenceService with saved model on Azure
 ## Using Public Azure Blobs
 By default, KFServing uses anonymous client to download artifacts. To point to an Azure Blob, specify StorageUri to point to an Azure Blob Storage with the format: 
 ```https://{$STORAGE_ACCOUNT_NAME}.blob.core.windows.net/{$CONTAINER}/{$PATH}```
@@ -28,11 +28,11 @@ data:
   AZ_SUBSCRIPTION_ID: xxxxx
   AZ_TENANT_ID: xxxxx
 ```
-Note: The azure secret KFServing looks for can be configured by running `kubectl edit -n kfserving-system kfservice-config`
+Note: The azure secret KFServing looks for can be configured by running `kubectl edit -n kfserving-system inferenceservice-config`
 
 ### Attach to Service Account
 `KFServing` gets the secrets from your service account, you need to add the above created or existing secret to your service account's secret list. 
-By default `KFServing` uses `default` service account, user can use own service account and overwrite on `KFService` CRD.
+By default `KFServing` uses `default` service account, user can use own service account and overwrite on `InferenceService` CRD.
 
 ```yaml
 apiVersion: v1
