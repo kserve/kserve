@@ -54,6 +54,10 @@ func (mutator *Mutator) Handle(ctx context.Context, req types.Request) types.Res
 		return admission.ErrorResponse(http.StatusInternalServerError, err)
 	}
 
+	// For some reason pod namespace is always empty when coming to this pod mutator, need to get from admission request
+	if pod.Namespace == "" {
+		pod.Namespace = req.AdmissionRequest.Namespace
+	}
 	if err := mutator.mutate(pod, configMap); err != nil {
 		return admission.ErrorResponse(http.StatusInternalServerError, err)
 	}
