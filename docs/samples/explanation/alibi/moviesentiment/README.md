@@ -44,7 +44,7 @@ CLUSTER_IP=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpat
 Test the predictor on an example sentence:
 
 ```
-curl -H "Host: ${MODEL_NAME}-predict.default.example.com" http://$CLUSTER_IP/v1/models/$MODEL_NAME:predict -d '{"instances":["a visually flashy but narratively opaque and emotionally vapid exercise ."]}'
+curl -H "Host: ${MODEL_NAME}.default.example.com" http://$CLUSTER_IP/v1/models/$MODEL_NAME:predict -d '{"instances":["a visually flashy but narratively opaque and emotionally vapid exercise ."]}'
 ```
 
 You should receive the response showing negative sentiment:
@@ -56,7 +56,7 @@ You should receive the response showing negative sentiment:
 Test on another sentence:
 
 ```
-curl -H "Host: ${MODEL_NAME}-predict.default.example.com" http://$CLUSTER_IP/v1/models/$MODEL_NAME:predict -d '{"instances":["a touching , sophisticated film that almost seems like a documentary in the way it captures an italian immigrant family on the brink of major changes ."]}'
+curl -H "Host: ${MODEL_NAME}.default.example.com" http://$CLUSTER_IP/v1/models/$MODEL_NAME:predict -d '{"instances":["a touching , sophisticated film that almost seems like a documentary in the way it captures an italian immigrant family on the brink of major changes ."]}'
 ```
 
 You should receive the response showing positive sentiment:
@@ -69,7 +69,7 @@ Now lets get an explanation for the first sentence:
 
 
 ```
-curl -v -H "Host: ${MODEL_NAME}-explain.default.example.com" http://$CLUSTER_IP/v1/models/$MODEL_NAME:explain -d '{"instances":["a visually flashy but narratively opaque and emotionally vapid exercise ."]}'
+curl -v -H "Host: ${MODEL_NAME}.default.example.com" http://$CLUSTER_IP/v1/models/$MODEL_NAME:explain -d '{"instances":["a visually flashy but narratively opaque and emotionally vapid exercise ."]}'
 ```
 
 The returned explanation will be like:
@@ -220,7 +220,7 @@ kubectl create -f moviesentiment2.yaml
 and then ask for an explanation:
 
 ```
-curl -H "Host: ${MODEL_NAME}-explain.default.example.com" http://$CLUSTER_IP/v1/models/$MODEL_NAME:explain -d '{"instances":["a visually flashy but narratively opaque and emotionally vapid exercise ."]}'
+curl -H "Host: ${MODEL_NAME}.default.example.com" http://$CLUSTER_IP/v1/models/$MODEL_NAME:explain -d '{"instances":["a visually flashy but narratively opaque and emotionally vapid exercise ."]}'
 ```
 
 The explanation would be like:
