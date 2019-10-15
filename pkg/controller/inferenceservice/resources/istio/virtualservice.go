@@ -113,9 +113,9 @@ func (r *VirtualServiceBuilder) getExplainerRouteDestination(
 		return nil, nil
 	}
 	if endpointSpec.Explainer != nil {
-		explainDefaultSpec, explainerReason := getExplainStatusConfigurationSpec(endpointSpec, endpointStatusMap)
-		if explainDefaultSpec != nil {
-			httpRouteDestination := createHTTPRouteDestination(explainDefaultSpec.Hostname, weight, r.ingressConfig.IngressServiceName)
+		explainSpec, explainerReason := getExplainStatusConfigurationSpec(endpointSpec, endpointStatusMap)
+		if explainSpec != nil {
+			httpRouteDestination := createHTTPRouteDestination(explainSpec.Hostname, weight, r.ingressConfig.IngressServiceName)
 			return &httpRouteDestination, nil
 		} else {
 			return nil, createFailedStatus(explainerReason, "Failed to reconcile default explainer")
@@ -188,7 +188,7 @@ func (r *VirtualServiceBuilder) CreateVirtualService(isvc *v1alpha2.InferenceSer
 		httpRoutes = append(httpRoutes, explainRoute)
 	}
 	// extract the virtual service hostname from the predictor hostname
-	serviceHostname, _ := getServiceHostname(&isvc.Spec.Default, isvc.Status.Default)
+	serviceHostname, _ := getServiceHostname(isvc)
 	serviceURL := constants.ServiceURL(isvc.Name, serviceHostname)
 
 	vs := istiov1alpha3.VirtualService{
@@ -224,12 +224,12 @@ func (r *VirtualServiceBuilder) CreateVirtualService(isvc *v1alpha2.InferenceSer
 	return &vs, &status
 }
 
-func getServiceHostname(endpointSpec *v1alpha2.EndpointSpec, endpointStatusMap *v1alpha2.EndpointStatusMap) (string, error) {
-	predictSpec, reason := getPredictStatusConfigurationSpec(endpointSpec, endpointStatusMap)
+func getServiceHostname(isvc *v1alpha2.InferenceService) (string, error) {
+	predictSpec, reason := getPredictStatusConfigurationSpec(&isvc.Spec.Default, isvc.Status.Default)
 	if predictSpec == nil {
-		return "", fmt.Errorf("Fail to get servie hostname: %s.", reason)
+		return "", fmt.Errorf("Fail to get service hostname: %s.", reason)
 	}
-	return predictSpec.Hostname, nil
+	return constants.VirtualServiceHostname(isvc.Name, predictSpec.Hostname), nil
 }
 
 func getPredictStatusConfigurationSpec(endpointSpec *v1alpha2.EndpointSpec, endpointStatusMap *v1alpha2.EndpointStatusMap) (*v1alpha2.StatusConfigurationSpec, string) {
