@@ -2,6 +2,7 @@ apiVersion: "serving.kubeflow.org/v1alpha2"
 kind: "InferenceService"
 metadata:
   name: "imagenet"
+  namespace: default
 spec:
   default:
     predictor:
