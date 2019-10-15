@@ -28,5 +28,7 @@ pip install kfserving
 ```
 * Follow the [example here](docs/samples/client/kfserving_sdk_sample.ipynb) to use the KFServing SDK to create, patch, and delete a InferenceService instance.
 
+Note: If you are running kfserving sdk on a machine and want to point to a remote kfserving cluster, please initialize it with a pointer to kube config file location, e.g. `KFServingClient(config_file=/path/to/kubeconfig)`. If not provided, it defaults to `~/.kube/config`.
+
 ### Contribute
 * [Developer Guide](/docs/DEVELOPER_GUIDE.md).
