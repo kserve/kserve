@@ -15,7 +15,6 @@ package pod
 
 import (
 	"fmt"
-	"k8s.io/klog"
 	"strings"
 
 	"github.com/kubeflow/kfserving/pkg/constants"
@@ -154,28 +153,13 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 			userContainer.Env[index].Value = constants.DefaultModelLocalMountPath
 		}
 	}
-	podNamespace := pod.Namespace
-	for _, container := range pod.Spec.Containers {
-		for _, envVar := range container.Env {
-			// Somehow pod namespace is empty when coming into pod mutator, here we need to get
-			// the namespace from env SERVING_NAMESPACE populated on queue-proxy if pod namespace is empty
-			if envVar.Name == constants.ServingNamespace && podNamespace == "" {
-				klog.Infof("Setting pod namespace from SERVING_NAMESPACE env: %s", envVar.Name)
-				podNamespace = envVar.Value
-				break
-			}
-		}
-	}
-	if podNamespace == "" {
-		return fmt.Errorf("empty pod namespace")
-	}
 
 	// Add volumes to the PodSpec
 	pod.Spec.Volumes = append(pod.Spec.Volumes, podVolumes...)
 
 	// Inject credentials
 	if err := mi.credentialBuilder.CreateSecretVolumeAndEnv(
-		podNamespace,
+		pod.Namespace,
 		pod.Spec.ServiceAccountName,
 		initContainer,
 		&pod.Spec.Volumes,

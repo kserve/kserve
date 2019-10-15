@@ -152,14 +152,13 @@ func (r *VirtualServiceBuilder) CreateVirtualService(isvc *v1alpha2.InferenceSer
 		if explainDefaultSpec != nil {
 			routeDefaultDestination := createHTTPRouteDestination(explainDefaultSpec.Hostname, defaultWeight, r.ingressConfig.IngressServiceName)
 			explainRouteDestinations = append(explainRouteDestinations, routeDefaultDestination)
-			if isvc.Spec.Canary != nil {
-				explainCanarySpec, canaryExplainerReason := getExplainStatusConfigurationSpec(isvc.Spec.Canary, isvc.Status.Canary)
-				if explainCanarySpec != nil {
-					routeCanaryDestination := createHTTPRouteDestination(explainCanarySpec.Hostname, canaryWeight, r.ingressConfig.IngressServiceName)
-					explainRouteDestinations = append(explainRouteDestinations, routeCanaryDestination)
-				} else {
-					return nil, createFailedStatus(canaryExplainerReason, "Failed to reconcile canary explainer")
-				}
+
+			explainCanarySpec, canaryExplainerReason := getExplainStatusConfigurationSpec(isvc.Spec.Canary, isvc.Status.Canary)
+			if explainCanarySpec != nil {
+				routeCanaryDestination := createHTTPRouteDestination(explainCanarySpec.Hostname, canaryWeight, r.ingressConfig.IngressServiceName)
+				explainRouteDestinations = append(explainRouteDestinations, routeCanaryDestination)
+			} else {
+				return nil, createFailedStatus(canaryExplainerReason, "Failed to reconcile canary explainer")
 			}
 		} else {
 			return nil, createFailedStatus(defaultExplainerReason, "Failed to reconcile default explainer")
