@@ -76,12 +76,12 @@ func GetInferenceServicesConfig(client client.Client) (*InferenceServicesConfig,
 		return nil, err
 	}
 
-	endpointsConfigMap, err := NewInferenceServicesConfig(configMap)
+	inferenceServiceConfigMap, err := NewInferenceServicesConfig(configMap)
 	if err != nil {
 		return nil, err
 	}
 
-	return endpointsConfigMap, nil
+	return inferenceServiceConfigMap, nil
 }
 
 func NewInferenceServicesConfig(configMap *v1.ConfigMap) (*InferenceServicesConfig, error) {

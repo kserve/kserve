@@ -39,13 +39,13 @@ const (
 	CanaryExplainerReady apis.ConditionType = "CanaryExplainerReady"
 )
 
-var defaultConditionsMap = map[constants.InferenceServiceEndpoint]apis.ConditionType{
+var defaultConditionsMap = map[constants.InferenceServiceComponent]apis.ConditionType{
 	constants.Predictor:   DefaultPredictorReady,
 	constants.Explainer:   DefaultExplainerReady,
 	constants.Transformer: DefaultTransformerReady,
 }
 
-var canaryConditionsMap = map[constants.InferenceServiceEndpoint]apis.ConditionType{
+var canaryConditionsMap = map[constants.InferenceServiceComponent]apis.ConditionType{
 	constants.Predictor:   CanaryPredictorReady,
 	constants.Explainer:   CanaryExplainerReady,
 	constants.Transformer: CanaryTransformerReady,
@@ -76,9 +76,9 @@ func (ss *InferenceServiceStatus) GetCondition(t apis.ConditionType) *apis.Condi
 }
 
 // PropagateDefaultStatus propagates the status for the default spec
-func (ss *InferenceServiceStatus) PropagateDefaultStatus(endpoint constants.InferenceServiceEndpoint, defaultStatus *knservingv1alpha1.ServiceStatus) {
+func (ss *InferenceServiceStatus) PropagateDefaultStatus(endpoint constants.InferenceServiceComponent, defaultStatus *knservingv1alpha1.ServiceStatus) {
 	if ss.Default == nil {
-		emptyStatusMap := make(EndpointStatusMap)
+		emptyStatusMap := make(ComponentStatusMap)
 		ss.Default = &emptyStatusMap
 	}
 	conditionType := defaultConditionsMap[endpoint]
@@ -91,19 +91,19 @@ func (ss *InferenceServiceStatus) PropagateDefaultStatus(endpoint constants.Infe
 }
 
 // PropagateCanaryStatus propagates the status for the canary spec
-func (ss *InferenceServiceStatus) PropagateCanaryStatus(endpoint constants.InferenceServiceEndpoint, canaryStatus *knservingv1alpha1.ServiceStatus) {
+func (ss *InferenceServiceStatus) PropagateCanaryStatus(endpoint constants.InferenceServiceComponent, canaryStatus *knservingv1alpha1.ServiceStatus) {
 	conditionType := canaryConditionsMap[endpoint]
 
 	// reset status if canaryServiceStatus is nil
 	if canaryStatus == nil {
-		emptyStatusMap := make(EndpointStatusMap)
+		emptyStatusMap := make(ComponentStatusMap)
 		ss.Canary = &emptyStatusMap
 		conditionSet.Manage(ss).ClearCondition(conditionType)
 		return
 	}
 
 	if ss.Canary == nil {
-		emptyStatusMap := make(EndpointStatusMap)
+		emptyStatusMap := make(ComponentStatusMap)
 		ss.Canary = &emptyStatusMap
 	}
 

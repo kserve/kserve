@@ -66,8 +66,8 @@ func (r *ServiceReconciler) Reconcile(isvc *v1alpha2.InferenceService) error {
 }
 
 func (r *ServiceReconciler) reconcileDefault(isvc *v1alpha2.InferenceService) error {
-	for _, endpoint := range []constants.InferenceServiceEndpoint{constants.Predictor, constants.Transformer, constants.Explainer} {
-		if err := r.reconcileEndpoint(isvc, endpoint, false); err != nil {
+	for _, component := range []constants.InferenceServiceComponent{constants.Predictor, constants.Transformer, constants.Explainer} {
+		if err := r.reconcileComponent(isvc, component, false); err != nil {
 			return err
 		}
 	}
@@ -75,28 +75,28 @@ func (r *ServiceReconciler) reconcileDefault(isvc *v1alpha2.InferenceService) er
 }
 
 func (r *ServiceReconciler) reconcileCanary(isvc *v1alpha2.InferenceService) error {
-	for _, endpoint := range []constants.InferenceServiceEndpoint{constants.Predictor, constants.Transformer, constants.Explainer} {
-		if err := r.reconcileEndpoint(isvc, endpoint, true); err != nil {
+	for _, component := range []constants.InferenceServiceComponent{constants.Predictor, constants.Transformer, constants.Explainer} {
+		if err := r.reconcileComponent(isvc, component, true); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (r *ServiceReconciler) reconcileEndpoint(isvc *v1alpha2.InferenceService, endpoint constants.InferenceServiceEndpoint, isCanary bool) error {
+func (r *ServiceReconciler) reconcileComponent(isvc *v1alpha2.InferenceService, component constants.InferenceServiceComponent, isCanary bool) error {
 	if isCanary {
 		if isvc.Spec.Canary == nil {
-			if err := r.finalizeCanaryService(isvc, endpoint); err != nil {
+			if err := r.finalizeCanaryService(isvc, component); err != nil {
 				return err
 			}
-			isvc.Status.PropagateCanaryStatus(endpoint, nil)
+			isvc.Status.PropagateCanaryStatus(component, nil)
 			return nil
 		}
 	}
 
-	service, err := r.serviceBuilder.CreateEndpointService(
+	service, err := r.serviceBuilder.CreateInferenceServiceComponent(
 		isvc,
-		endpoint,
+		component,
 		isCanary,
 	)
 
@@ -113,15 +113,15 @@ func (r *ServiceReconciler) reconcileEndpoint(isvc *v1alpha2.InferenceService, e
 		return err
 	}
 	if isCanary {
-		isvc.Status.PropagateCanaryStatus(endpoint, status)
+		isvc.Status.PropagateCanaryStatus(component, status)
 	} else {
-		isvc.Status.PropagateDefaultStatus(endpoint, status)
+		isvc.Status.PropagateDefaultStatus(component, status)
 	}
 	return nil
 }
 
-func (r *ServiceReconciler) finalizeCanaryService(isvc *v1alpha2.InferenceService, endpoint constants.InferenceServiceEndpoint) error {
-	canaryServiceName := constants.CanaryServiceName(isvc.Name, endpoint)
+func (r *ServiceReconciler) finalizeCanaryService(isvc *v1alpha2.InferenceService, component constants.InferenceServiceComponent) error {
+	canaryServiceName := constants.CanaryServiceName(isvc.Name, component)
 	existing := &knservingv1alpha1.Service{}
 	if err := r.client.Get(context.TODO(), types.NamespacedName{Name: canaryServiceName, Namespace: isvc.Namespace}, existing); err != nil {
 		if !errors.IsNotFound(err) {
