@@ -34,11 +34,6 @@ deploy-dev: manifests
 deploy-ci: manifests
 	kustomize build config/overlays/test | kubectl apply -f -
 
-# Deploy controller using local kustomization overlay files under config/overlays/local
-deploy-local: manifests
-	./hack/image_patch_dev.sh local
-	kustomize build config/overlays/local | kubectl apply -f -
-
 undeploy:
 	kustomize build config/default | kubectl delete -f -
 	kubectl delete validatingwebhookconfigurations.admissionregistration.k8s.io inferenceservice.serving.kubeflow.org
