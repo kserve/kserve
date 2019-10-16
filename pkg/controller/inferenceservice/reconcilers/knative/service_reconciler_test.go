@@ -120,6 +120,7 @@ func TestKnativeServiceReconcile(t *testing.T) {
 									"autoscaling.knative.dev/class":                               "kpa.autoscaling.knative.dev",
 									"autoscaling.knative.dev/target":                              "1",
 									"internal.serving.kubeflow.org/storage-initializer-sourceuri": "gs://testuri",
+									"queue.sidecar.serving.knative.dev/resourcePercentage":        "0.1",
 								},
 							},
 							Spec: knservingv1alpha1.RevisionSpec{
@@ -159,6 +160,7 @@ func TestKnativeServiceReconcile(t *testing.T) {
 									"autoscaling.knative.dev/class":                               "kpa.autoscaling.knative.dev",
 									"autoscaling.knative.dev/target":                              "1",
 									"internal.serving.kubeflow.org/storage-initializer-sourceuri": "gs://testuri2",
+									"queue.sidecar.serving.knative.dev/resourcePercentage":        "0.1",
 								},
 							},
 							Spec: knservingv1alpha1.RevisionSpec{
@@ -216,6 +218,7 @@ func TestKnativeServiceReconcile(t *testing.T) {
 									"autoscaling.knative.dev/class":                               "kpa.autoscaling.knative.dev",
 									"autoscaling.knative.dev/target":                              "1",
 									"internal.serving.kubeflow.org/storage-initializer-sourceuri": "gs://testuri",
+									"queue.sidecar.serving.knative.dev/resourcePercentage":        "0.1",
 								},
 							},
 							Spec: knservingv1alpha1.RevisionSpec{

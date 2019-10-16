@@ -28,6 +28,7 @@ import (
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/serving/pkg/apis/autoscaling"
+	"knative.dev/serving/pkg/apis/serving"
 	knservingv1alpha1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
 )
@@ -38,6 +39,12 @@ var serviceAnnotationDisallowedList = []string{
 	constants.StorageInitializerSourceUriInternalAnnotationKey,
 	"kubectl.kubernetes.io/last-applied-configuration",
 }
+
+const (
+	// Use a very small percentage here so the minimum bound defined at
+	// https://github.com/knative/serving/blob/1d263950f9f2fea85a4dd394948a029c328af9d9/pkg/reconciler/revision/resources/resourceboundary.go#L30
+	DefaultQueueSideCarResourcePercentage = "0.1"
+)
 
 type ServiceBuilder struct {
 	inferenceServiceConfig *v1alpha2.InferenceServicesConfig
@@ -111,6 +118,9 @@ func (c *ServiceBuilder) CreatePredictorService(name string, metadata metav1.Obj
 		annotations[autoscaling.MaxScaleAnnotationKey] = fmt.Sprint(predictorSpec.MaxReplicas)
 	}
 
+	if _, ok := annotations[serving.QueueSideCarResourcePercentageAnnotation]; !ok {
+		annotations[serving.QueueSideCarResourcePercentageAnnotation] = DefaultQueueSideCarResourcePercentage
+	}
 	// User can pass down scaling target annotation to overwrite the target default 1
 	if _, ok := annotations[autoscaling.TargetAnnotationKey]; !ok {
 		annotations[autoscaling.TargetAnnotationKey] = constants.DefaultScalingTarget
@@ -183,6 +193,9 @@ func (c *ServiceBuilder) CreateTransformerService(name string, metadata metav1.O
 		annotations[autoscaling.MaxScaleAnnotationKey] = fmt.Sprint(transformerSpec.MaxReplicas)
 	}
 
+	if _, ok := annotations[serving.QueueSideCarResourcePercentageAnnotation]; !ok {
+		annotations[serving.QueueSideCarResourcePercentageAnnotation] = DefaultQueueSideCarResourcePercentage
+	}
 	// User can pass down scaling target annotation to overwrite the target default 1
 	if _, ok := annotations[autoscaling.TargetAnnotationKey]; !ok {
 		annotations[autoscaling.TargetAnnotationKey] = constants.DefaultScalingTarget
@@ -262,6 +275,9 @@ func (c *ServiceBuilder) CreateExplainerService(name string, metadata metav1.Obj
 		annotations[autoscaling.MaxScaleAnnotationKey] = fmt.Sprint(explainerSpec.MaxReplicas)
 	}
 
+	if _, ok := annotations[serving.QueueSideCarResourcePercentageAnnotation]; !ok {
+		annotations[serving.QueueSideCarResourcePercentageAnnotation] = DefaultQueueSideCarResourcePercentage
+	}
 	// User can pass down scaling target annotation to overwrite the target default 1
 	if _, ok := annotations[autoscaling.TargetAnnotationKey]; !ok {
 		annotations[autoscaling.TargetAnnotationKey] = constants.DefaultScalingTarget
