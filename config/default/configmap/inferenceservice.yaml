@@ -70,7 +70,7 @@ data:
             ]
         }
     }
-  inferenceCommon: |-
+  deployment: |-
     {
         "queueSideCarResourcePercentage": "0.1"
     }

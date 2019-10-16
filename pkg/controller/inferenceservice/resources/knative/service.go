@@ -112,7 +112,7 @@ func (c *ServiceBuilder) CreatePredictorService(name string, metadata metav1.Obj
 		annotations[autoscaling.MaxScaleAnnotationKey] = fmt.Sprint(predictorSpec.MaxReplicas)
 	}
 
-	annotations[serving.QueueSideCarResourcePercentageAnnotation] = c.endpointsConfig.Common.QueueSideCarResourcePercentage
+	annotations[serving.QueueSideCarResourcePercentageAnnotation] = c.endpointsConfig.Deployment.QueueSideCarResourcePercentage
 	// User can pass down scaling target annotation to overwrite the target default 1
 	if _, ok := annotations[autoscaling.TargetAnnotationKey]; !ok {
 		annotations[autoscaling.TargetAnnotationKey] = constants.DefaultScalingTarget
@@ -185,7 +185,7 @@ func (c *ServiceBuilder) CreateTransformerService(name string, metadata metav1.O
 		annotations[autoscaling.MaxScaleAnnotationKey] = fmt.Sprint(transformerSpec.MaxReplicas)
 	}
 
-	annotations[serving.QueueSideCarResourcePercentageAnnotation] = c.endpointsConfig.Common.QueueSideCarResourcePercentage
+	annotations[serving.QueueSideCarResourcePercentageAnnotation] = c.endpointsConfig.Deployment.QueueSideCarResourcePercentage
 	// User can pass down scaling target annotation to overwrite the target default 1
 	if _, ok := annotations[autoscaling.TargetAnnotationKey]; !ok {
 		annotations[autoscaling.TargetAnnotationKey] = constants.DefaultScalingTarget
@@ -265,7 +265,7 @@ func (c *ServiceBuilder) CreateExplainerService(name string, metadata metav1.Obj
 		annotations[autoscaling.MaxScaleAnnotationKey] = fmt.Sprint(explainerSpec.MaxReplicas)
 	}
 
-	annotations[serving.QueueSideCarResourcePercentageAnnotation] = c.endpointsConfig.Common.QueueSideCarResourcePercentage
+	annotations[serving.QueueSideCarResourcePercentageAnnotation] = c.endpointsConfig.Deployment.QueueSideCarResourcePercentage
 	// User can pass down scaling target annotation to overwrite the target default 1
 	if _, ok := annotations[autoscaling.TargetAnnotationKey]; !ok {
 		annotations[autoscaling.TargetAnnotationKey] = constants.DefaultScalingTarget
