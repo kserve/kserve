@@ -18,7 +18,6 @@ package pod
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 
 	v1 "k8s.io/api/core/v1"
@@ -31,6 +30,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission/types"
+)
+
+const (
+	StorageInitializerDefaultMemoryRequest string = "200Mi"
+	StorageInitializerDefaultMemoryLimit   string = "1Gi"
+	StorageInitializerDefaultCPURequest    string = "100m"
+	StorageInitializerDefaultCPULimit      string = "1"
 )
 
 // Mutator is a webhook that injects incoming pods
@@ -72,16 +78,15 @@ func (mutator *Mutator) Handle(ctx context.Context, req types.Request) types.Res
 func (mutator *Mutator) mutate(pod *v1.Pod, configMap *v1.ConfigMap) error {
 
 	credentialBuilder := credentials.NewCredentialBulder(mutator.Client, configMap)
-	var storageInitializerConfig StorageInitializerConfig
-	if initializerConfig, ok := configMap.Data[StorageInitializerConfigMapKeyName]; ok {
-		err := json.Unmarshal([]byte(initializerConfig), &storageInitializerConfig)
-		if err != nil {
-			panic(fmt.Errorf("Unable to unmarshall json string due to %v ", err))
-		}
+
+	storageInitializerConfig, err := getStorageInitializerConfigs(configMap)
+	if err != nil {
+		return err
 	}
+
 	storageInitializer := &StorageInitializerInjector{
 		credentialBuilder: credentialBuilder,
-		config:            &storageInitializerConfig,
+		config:            storageInitializerConfig,
 	}
 
 	mutators := []func(pod *v1.Pod) error{

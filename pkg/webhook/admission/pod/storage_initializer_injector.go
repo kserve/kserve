@@ -14,7 +14,9 @@ limitations under the License.
 package pod
 
 import (
+	"encoding/json"
 	"fmt"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"strings"
 
 	"github.com/kubeflow/kfserving/pkg/constants"
@@ -25,7 +27,7 @@ import (
 
 const (
 	StorageInitializerContainerName         = "storage-initializer"
-	StorageInitializerConfigMapKeyName      = "storageInitializer"
+	StorageInitializerConfigMapKeyName      = "storageInitializerConfig"
 	StorageInitializerVolumeName            = "kfserving-provision-location"
 	StorageInitializerContainerImage        = "gcr.io/kfserving/storage-initializer"
 	StorageInitializerContainerImageVersion = "latest"
@@ -36,11 +38,41 @@ const (
 )
 
 type StorageInitializerConfig struct {
-	Image string `json:"image"`
+	Image         string `json:"image"`
+	CpuRequest    string `json:"cpuRequest"`
+	CpuLimit      string `json:"cpuLimit"`
+	MemoryRequest string `json:"memoryRequest"`
+	MemoryLimit   string `json:"memoryLimit"`
 }
+
 type StorageInitializerInjector struct {
 	credentialBuilder *credentials.CredentialBuilder
 	config            *StorageInitializerConfig
+}
+
+func getStorageInitializerConfigs(configMap *v1.ConfigMap) (*StorageInitializerConfig, error) {
+	storageInitializerConfig := &StorageInitializerConfig{}
+	if initializerConfig, ok := configMap.Data[StorageInitializerConfigMapKeyName]; ok {
+		err := json.Unmarshal([]byte(initializerConfig), &storageInitializerConfig)
+		if err != nil {
+			panic(fmt.Errorf("Unable to unmarshall %v json string due to %v ", StorageInitializerConfigMapKeyName, err))
+		}
+	}
+
+	if storageInitializerConfig.MemoryRequest == "" {
+		storageInitializerConfig.MemoryRequest = StorageInitializerDefaultMemoryRequest
+	}
+	if storageInitializerConfig.MemoryLimit == "" {
+		storageInitializerConfig.MemoryLimit = StorageInitializerDefaultMemoryLimit
+	}
+	if storageInitializerConfig.CpuRequest == "" {
+		storageInitializerConfig.CpuRequest = StorageInitializerDefaultCPURequest
+	}
+	if storageInitializerConfig.CpuLimit == "" {
+		storageInitializerConfig.CpuLimit = StorageInitializerDefaultCPULimit
+	}
+
+	return storageInitializerConfig, nil
 }
 
 // InjectStorageInitializer injects an init container to provision model data
@@ -138,6 +170,16 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 			constants.DefaultModelLocalMountPath,
 		},
 		VolumeMounts: storageInitializerMounts,
+		Resources: v1.ResourceRequirements{
+			Limits: map[v1.ResourceName]resource.Quantity{
+				v1.ResourceCPU:    resource.MustParse(mi.config.CpuLimit),
+				v1.ResourceMemory: resource.MustParse(mi.config.MemoryLimit),
+			},
+			Requests: map[v1.ResourceName]resource.Quantity{
+				v1.ResourceCPU:    resource.MustParse(mi.config.CpuRequest),
+				v1.ResourceMemory: resource.MustParse(mi.config.MemoryRequest),
+			},
+		},
 	}
 
 	// Add a mount the shared volume on the user-container, update the PodSpec
