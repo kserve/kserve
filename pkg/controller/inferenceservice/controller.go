@@ -138,7 +138,7 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 	configMap := &v1.ConfigMap{}
 	err := r.Get(context.TODO(), types.NamespacedName{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KFServingNamespace}, configMap)
 	if err != nil {
-		log.Error(err, "Failed to find config map", "name", constants.InferenceServiceConfigMapName)
+		log.Error(err, "Failed to find ConfigMap", "name", constants.InferenceServiceConfigMapName, "namespace", constants.KFServingNamespace)
 		// Error reading the object - requeue the request.
 		return reconcile.Result{}, err
 	}
@@ -158,6 +158,7 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 
 	if err = r.updateStatus(isvc); err != nil {
 		r.Recorder.Eventf(isvc, v1.EventTypeWarning, "InternalError", err.Error())
+		return reconcile.Result{}, err
 	}
 	return reconcile.Result{}, nil
 }
@@ -166,9 +167,6 @@ func (r *ReconcileService) updateStatus(desiredService *kfserving.InferenceServi
 	existing := &kfserving.InferenceService{}
 	namespacedName := types.NamespacedName{Name: desiredService.Name, Namespace: desiredService.Namespace}
 	if err := r.Get(context.TODO(), namespacedName, existing); err != nil {
-		if errors.IsNotFound(err) {
-			return err
-		}
 		return err
 	}
 	if equality.Semantic.DeepEqual(existing.Status, desiredService.Status) {
@@ -181,9 +179,9 @@ func (r *ReconcileService) updateStatus(desiredService *kfserving.InferenceServi
 		r.Recorder.Eventf(desiredService, v1.EventTypeWarning, "UpdateFailed",
 			"Failed to update status for InferenceService %q: %v", desiredService.Name, err)
 		return err
-	} else if err == nil {
+	} else {
 		// If there was a difference and there was no error.
-		r.Recorder.Eventf(desiredService, v1.EventTypeNormal, "Updated", "Updated Service %q", desiredService.GetName())
+		r.Recorder.Eventf(desiredService, v1.EventTypeNormal, "Updated", "Updated InferenceService %q", desiredService.GetName())
 	}
 
 	return nil
