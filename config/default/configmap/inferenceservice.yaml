@@ -76,11 +76,7 @@ data:
     }
   storageInitializer: |-
     {
-        "image": "artprod.dev.bloomberg.com/ds/kfserving/storage-initializer:0.2.0",
-        "memoryRequest": "100Mi",
-        "memoryLimit": "1Gi",
-        "cpuRequest": "100m",
-        "cpuLimit": "1"
+        "image" : "gcr.io/kfserving/storage-initializer:0.2.0"
     }
   credentials: |-
     {
