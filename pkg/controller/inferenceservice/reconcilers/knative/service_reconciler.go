@@ -128,7 +128,7 @@ func (r *ServiceReconciler) finalizeCanaryService(isvc *v1alpha2.InferenceServic
 			return err
 		}
 	} else {
-		log.Info("Deleting service", "namespace", isvc.Namespace, "name", canaryServiceName)
+		log.Info("Deleting Knative Service", "namespace", isvc.Namespace, "name", canaryServiceName)
 		if err := r.client.Delete(context.TODO(), existing, client.PropagationPolicy(metav1.DeletePropagationBackground)); err != nil {
 			if !errors.IsNotFound(err) {
 				return err
@@ -161,10 +161,10 @@ func (r *ServiceReconciler) reconcileService(isvc *v1alpha2.InferenceService, de
 	// Reconcile differences and update
 	diff, err := kmp.SafeDiff(desired.Spec.ConfigurationSpec, existing.Spec.ConfigurationSpec)
 	if err != nil {
-		return &existing.Status, fmt.Errorf("failed to diff service: %v", err)
+		return &existing.Status, fmt.Errorf("failed to diff Knative Service: %v", err)
 	}
-	log.Info("Reconciling service diff (-desired, +observed):", "diff", diff)
-	log.Info("Updating service", "namespace", desired.Namespace, "name", desired.Name)
+	log.Info("Reconciling Knative Service diff (-desired, +observed):", "diff", diff)
+	log.Info("Updating Knative Service", "namespace", desired.Namespace, "name", desired.Name)
 	existing.Spec.ConfigurationSpec = desired.Spec.ConfigurationSpec
 	existing.ObjectMeta.Labels = desired.ObjectMeta.Labels
 	if err := r.client.Update(context.TODO(), existing); err != nil {
