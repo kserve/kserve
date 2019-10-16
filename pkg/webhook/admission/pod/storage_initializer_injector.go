@@ -27,7 +27,7 @@ import (
 
 const (
 	StorageInitializerContainerName         = "storage-initializer"
-	StorageInitializerConfigMapKeyName      = "storageInitializerConfig"
+	StorageInitializerConfigMapKeyName      = "storageInitializer"
 	StorageInitializerVolumeName            = "kfserving-provision-location"
 	StorageInitializerContainerImage        = "gcr.io/kfserving/storage-initializer"
 	StorageInitializerContainerImageVersion = "latest"
