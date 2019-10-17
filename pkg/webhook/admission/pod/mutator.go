@@ -28,16 +28,12 @@ import (
 	"github.com/kubeflow/kfserving/pkg/controller/inferenceservice/resources/credentials"
 	"github.com/kubeflow/kfserving/pkg/webhook/third_party"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission/types"
 )
 
-const (
-	StorageInitializerDefaultMemoryRequest string = "200Mi"
-	StorageInitializerDefaultMemoryLimit   string = "1Gi"
-	StorageInitializerDefaultCPURequest    string = "100m"
-	StorageInitializerDefaultCPULimit      string = "1"
-)
+var log = logf.Log.WithName("kfserving-mutator")
 
 // Mutator is a webhook that injects incoming pods
 type Mutator struct {
@@ -76,7 +72,7 @@ func (mutator *Mutator) Handle(ctx context.Context, req types.Request) types.Res
 }
 
 func (mutator *Mutator) mutate(pod *v1.Pod, configMap *v1.ConfigMap) error {
-
+	log.V(10).Info("Mutate ", "Pod", pod.Name)
 	credentialBuilder := credentials.NewCredentialBulder(mutator.Client, configMap)
 
 	storageInitializerConfig, err := getStorageInitializerConfigs(configMap)

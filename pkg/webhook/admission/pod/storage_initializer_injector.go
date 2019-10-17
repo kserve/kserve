@@ -58,18 +58,22 @@ func getStorageInitializerConfigs(configMap *v1.ConfigMap) (*StorageInitializerC
 			panic(fmt.Errorf("Unable to unmarshall %v json string due to %v ", StorageInitializerConfigMapKeyName, err))
 		}
 	}
-
-	if storageInitializerConfig.MemoryRequest == "" {
-		storageInitializerConfig.MemoryRequest = StorageInitializerDefaultMemoryRequest
+	//Ensure that we set proper values for CPU/Memory Limit/Request
+	_, err := resource.ParseQuantity(storageInitializerConfig.MemoryRequest)
+	if err != nil {
+		return storageInitializerConfig, err
 	}
-	if storageInitializerConfig.MemoryLimit == "" {
-		storageInitializerConfig.MemoryLimit = StorageInitializerDefaultMemoryLimit
+	_, err = resource.ParseQuantity(storageInitializerConfig.MemoryLimit)
+	if err != nil {
+		return storageInitializerConfig, err
 	}
-	if storageInitializerConfig.CpuRequest == "" {
-		storageInitializerConfig.CpuRequest = StorageInitializerDefaultCPURequest
+	_, err = resource.ParseQuantity(storageInitializerConfig.CpuRequest)
+	if err != nil {
+		return storageInitializerConfig, err
 	}
-	if storageInitializerConfig.CpuLimit == "" {
-		storageInitializerConfig.CpuLimit = StorageInitializerDefaultCPULimit
+	_, err = resource.ParseQuantity(storageInitializerConfig.CpuLimit)
+	if err != nil {
+		return storageInitializerConfig, err
 	}
 
 	return storageInitializerConfig, nil
