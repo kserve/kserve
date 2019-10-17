@@ -63,16 +63,10 @@ type TransformersConfig struct {
 }
 
 // +k8s:openapi-gen=false
-type DeploymentConfig struct {
-	QueueSideCarResourcePercentage string `json:"queueSideCarResourcePercentage"`
-}
-
-// +k8s:openapi-gen=false
 type InferenceServicesConfig struct {
 	Transformers *TransformersConfig `json:"transformers"`
 	Predictors   *PredictorsConfig   `json:"predictors"`
 	Explainers   *ExplainersConfig   `json:"explainers"`
-	Deployment   *DeploymentConfig   `json:"deployment"`
 }
 
 func GetInferenceServicesConfig(client client.Client) (*InferenceServicesConfig, error) {
