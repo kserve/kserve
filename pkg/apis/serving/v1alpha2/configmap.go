@@ -107,7 +107,7 @@ func NewInferenceServicesConfig(configMap *v1.ConfigMap) (*InferenceServicesConf
 	if err != nil {
 		return nil, err
 	}
-	commonConfig, err := getDeploymentConfigs(configMap)
+	deploymentConfig, err := getDeploymentConfigs(configMap)
 	if err != nil {
 		return nil, err
 	}
@@ -115,7 +115,7 @@ func NewInferenceServicesConfig(configMap *v1.ConfigMap) (*InferenceServicesConf
 		Predictors:   predictorsConfig,
 		Transformers: transformersConfig,
 		Explainers:   explainersConfig,
-		Deployment:   commonConfig,
+		Deployment:   deploymentConfig,
 	}, nil
 }
 
