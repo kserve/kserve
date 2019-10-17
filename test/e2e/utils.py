@@ -20,6 +20,7 @@ def wait_for_kfservice_ready(name, namespace='kfserving-ci-e2e-test', Timeout_se
     for _ in range(round(Timeout_seconds/10)):
         time.sleep(10)
         kfsvc_status = KFServing.get(name, namespace=namespace)
+        status = 'Unknown'
         for condition in kfsvc_status['status'].get('conditions', {}):
             if condition.get('type', '') == 'Ready':
                 status = condition.get('status', 'Unknown')
