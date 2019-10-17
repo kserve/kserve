@@ -55,27 +55,10 @@ func NewServiceReconciler(client client.Client, scheme *runtime.Scheme, config *
 }
 
 func (r *ServiceReconciler) Reconcile(isvc *v1alpha2.InferenceService) error {
-	if err := r.reconcileDefault(isvc); err != nil {
-		return err
-	}
-
-	if err := r.reconcileCanary(isvc); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (r *ServiceReconciler) reconcileDefault(isvc *v1alpha2.InferenceService) error {
 	for _, endpoint := range []constants.InferenceServiceEndpoint{constants.Predictor, constants.Transformer, constants.Explainer} {
 		if err := r.reconcileEndpoint(isvc, endpoint, false); err != nil {
 			return err
 		}
-	}
-	return nil
-}
-
-func (r *ServiceReconciler) reconcileCanary(isvc *v1alpha2.InferenceService) error {
-	for _, endpoint := range []constants.InferenceServiceEndpoint{constants.Predictor, constants.Transformer, constants.Explainer} {
 		if err := r.reconcileEndpoint(isvc, endpoint, true); err != nil {
 			return err
 		}
@@ -84,51 +67,47 @@ func (r *ServiceReconciler) reconcileCanary(isvc *v1alpha2.InferenceService) err
 }
 
 func (r *ServiceReconciler) reconcileEndpoint(isvc *v1alpha2.InferenceService, endpoint constants.InferenceServiceEndpoint, isCanary bool) error {
+	endpointSpec := &isvc.Spec.Default
+	serviceName := constants.DefaultServiceName(isvc.Name, endpoint)
+	propagateStatus := isvc.Status.PropagateDefaultStatus
 	if isCanary {
-		if isvc.Spec.Canary == nil {
-			if err := r.finalizeCanaryService(isvc, endpoint); err != nil {
-				return err
-			}
-			isvc.Status.PropagateCanaryStatus(endpoint, nil)
-			return nil
+		endpointSpec = isvc.Spec.Canary
+		serviceName = constants.CanaryServiceName(isvc.Name, endpoint)
+		propagateStatus = isvc.Status.PropagateCanaryStatus
+	}
+	var service *knservingv1alpha1.Service = nil
+	var err error = nil
+	if endpointSpec != nil {
+		service, err = r.serviceBuilder.CreateEndpointService(isvc, endpoint, isCanary)
+		if err != nil {
+			return err
 		}
 	}
 
-	service, err := r.serviceBuilder.CreateEndpointService(
-		isvc,
-		endpoint,
-		isCanary,
-	)
-
-	if err != nil {
-		return err
-	}
-
 	if service == nil {
+		if err = r.finalizeService(serviceName, isvc.Namespace); err != nil {
+			return err
+		}
+		propagateStatus(endpoint, nil)
 		return nil
-	}
-
-	status, err := r.reconcileService(isvc, service)
-	if err != nil {
-		return err
-	}
-	if isCanary {
-		isvc.Status.PropagateCanaryStatus(endpoint, status)
 	} else {
-		isvc.Status.PropagateDefaultStatus(endpoint, status)
+		if status, err := r.reconcileService(isvc, service); err != nil {
+			return err
+		} else {
+			propagateStatus(endpoint, status)
+			return nil
+		}
 	}
-	return nil
 }
 
-func (r *ServiceReconciler) finalizeCanaryService(isvc *v1alpha2.InferenceService, endpoint constants.InferenceServiceEndpoint) error {
-	canaryServiceName := constants.CanaryServiceName(isvc.Name, endpoint)
+func (r *ServiceReconciler) finalizeService(serviceName, namespace string) error {
 	existing := &knservingv1alpha1.Service{}
-	if err := r.client.Get(context.TODO(), types.NamespacedName{Name: canaryServiceName, Namespace: isvc.Namespace}, existing); err != nil {
+	if err := r.client.Get(context.TODO(), types.NamespacedName{Name: serviceName, Namespace: namespace}, existing); err != nil {
 		if !errors.IsNotFound(err) {
 			return err
 		}
 	} else {
-		log.Info("Deleting Knative Service", "namespace", isvc.Namespace, "name", canaryServiceName)
+		log.Info("Deleting Knative Service", "namespace", namespace, "name", serviceName)
 		if err := r.client.Delete(context.TODO(), existing, client.PropagationPolicy(metav1.DeletePropagationBackground)); err != nil {
 			if !errors.IsNotFound(err) {
 				return err

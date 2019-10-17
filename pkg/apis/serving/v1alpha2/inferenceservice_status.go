@@ -81,7 +81,14 @@ func (ss *InferenceServiceStatus) PropagateDefaultStatus(endpoint constants.Infe
 		emptyStatusMap := make(EndpointStatusMap)
 		ss.Default = &emptyStatusMap
 	}
+
 	conditionType := defaultConditionsMap[endpoint]
+	if defaultStatus == nil {
+		conditionSet.Manage(ss).ClearCondition(conditionType)
+		delete(*ss.Default, endpoint)
+		return
+	}
+
 	statusSpec, ok := (*ss.Default)[endpoint]
 	if !ok {
 		statusSpec = &StatusConfigurationSpec{}
@@ -92,19 +99,17 @@ func (ss *InferenceServiceStatus) PropagateDefaultStatus(endpoint constants.Infe
 
 // PropagateCanaryStatus propagates the status for the canary spec
 func (ss *InferenceServiceStatus) PropagateCanaryStatus(endpoint constants.InferenceServiceEndpoint, canaryStatus *knservingv1alpha1.ServiceStatus) {
-	conditionType := canaryConditionsMap[endpoint]
-
-	// reset status if canaryServiceStatus is nil
-	if canaryStatus == nil {
-		emptyStatusMap := make(EndpointStatusMap)
-		ss.Canary = &emptyStatusMap
-		conditionSet.Manage(ss).ClearCondition(conditionType)
-		return
-	}
-
 	if ss.Canary == nil {
 		emptyStatusMap := make(EndpointStatusMap)
 		ss.Canary = &emptyStatusMap
+	}
+
+	conditionType := canaryConditionsMap[endpoint]
+	// reset status if canaryServiceStatus is nil
+	if canaryStatus == nil {
+		conditionSet.Manage(ss).ClearCondition(conditionType)
+		delete(*ss.Canary, endpoint)
+		return
 	}
 
 	statusSpec, ok := (*ss.Canary)[endpoint]
