@@ -40,6 +40,12 @@ var serviceAnnotationDisallowedList = []string{
 	"kubectl.kubernetes.io/last-applied-configuration",
 }
 
+const (
+	// Use a very small percentage here so the minimum bound defined at
+	// https://github.com/knative/serving/blob/1d263950f9f2fea85a4dd394948a029c328af9d9/pkg/reconciler/revision/resources/resourceboundary.go#L30
+	DefaultQueueSideCarResourcePercentage = "0.1"
+)
+
 type ServiceBuilder struct {
 	inferenceServiceConfig *v1alpha2.InferenceServicesConfig
 	credentialBuilder      *credentials.CredentialBuilder
