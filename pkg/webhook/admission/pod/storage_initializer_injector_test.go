@@ -31,6 +31,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	StorageInitializerDefaultCPURequest    = "100m"
+	StorageInitializerDefaultCPULimit      = "1"
+	StorageInitializerDefaultMemoryRequest = "1000Mi"
+	StorageInitializerDefaultMemoryLimit   = "1Gi"
+)
+
 var (
 	storageInitializerConfig = &StorageInitializerConfig{
 		CpuRequest:    StorageInitializerDefaultCPURequest,

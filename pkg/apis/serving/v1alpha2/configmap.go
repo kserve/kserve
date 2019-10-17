@@ -15,10 +15,6 @@ const (
 	PredictorConfigKeyName   = "predictors"
 	TransformerConfigKeyName = "transformers"
 	ExplainerConfigKeyName   = "explainers"
-	DeploymentConfigKeyName  = "deployment"
-	// Use a very small percentage here so the minimum bound defined at
-	// https://github.com/knative/serving/blob/1d263950f9f2fea85a4dd394948a029c328af9d9/pkg/reconciler/revision/resources/resourceboundary.go#L30
-	DefaultQueueSideCarResourcePercentage = "0.1"
 )
 
 // +k8s:openapi-gen=false
@@ -107,7 +103,6 @@ func NewInferenceServicesConfig(configMap *v1.ConfigMap) (*InferenceServicesConf
 	if err != nil {
 		return nil, err
 	}
-	deploymentConfig, err := getDeploymentConfigs(configMap)
 	if err != nil {
 		return nil, err
 	}
@@ -115,7 +110,6 @@ func NewInferenceServicesConfig(configMap *v1.ConfigMap) (*InferenceServicesConf
 		Predictors:   predictorsConfig,
 		Transformers: transformersConfig,
 		Explainers:   explainersConfig,
-		Deployment:   deploymentConfig,
 	}, nil
 }
 
@@ -150,20 +144,4 @@ func getExplainersConfigs(configMap *v1.ConfigMap) (*ExplainersConfig, error) {
 		}
 	}
 	return explainerConfig, nil
-}
-
-func getDeploymentConfigs(configMap *v1.ConfigMap) (*DeploymentConfig, error) {
-	commonConfig := &DeploymentConfig{}
-	if data, ok := configMap.Data[DeploymentConfigKeyName]; ok {
-		err := json.Unmarshal([]byte(data), &commonConfig)
-		if err != nil {
-			return nil, fmt.Errorf("Unable to unmarshall %v json string due to %v ", DeploymentConfigKeyName, err)
-		}
-	}
-
-	if commonConfig.QueueSideCarResourcePercentage == "" {
-		commonConfig.QueueSideCarResourcePercentage = DefaultQueueSideCarResourcePercentage
-	}
-
-	return commonConfig, nil
 }
