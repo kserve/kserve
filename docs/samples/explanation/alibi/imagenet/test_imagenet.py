@@ -30,7 +30,7 @@ def predict(cluster_ip):
     }
 
     # sending post request to TensorFlow Serving server
-    headers = {'Host':'imagenet-predict.default.example.com'}
+    headers = {'Host':'imagenet.default.example.com'}
     url = PREDICT_TEMPLATE.format(cluster_ip)
     print("Calling ",url)
     r = requests.post(url, json=payload, headers=headers)
@@ -52,7 +52,7 @@ def explain(cluster_ip):
     }
 
     # sending post request to TensorFlow Serving server
-    headers = {'Host': 'imagenet-explain.default.example.com'}
+    headers = {'Host': 'imagenet.default.example.com'}
     url = EXPLAIN_TEMPLATE.format(cluster_ip)
     print("Calling ", url)
     r = requests.post(url, json=payload, headers=headers)

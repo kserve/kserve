@@ -14,12 +14,13 @@
 import time
 from kfserving import KFServingClient
 
-KFServing = KFServingClient(load_kube_config=True)
+KFServing = KFServingClient(config_file="~/.kube/config")
 
 def wait_for_kfservice_ready(name, namespace='kfserving-ci-e2e-test', Timeout_seconds=600):
     for _ in range(round(Timeout_seconds/10)):
         time.sleep(10)
         kfsvc_status = KFServing.get(name, namespace=namespace)
+        status = 'Unknown'
         for condition in kfsvc_status['status'].get('conditions', {}):
             if condition.get('type', '') == 'Ready':
                 status = condition.get('status', 'Unknown')

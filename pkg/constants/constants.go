@@ -23,6 +23,7 @@ import (
 
 	"k8s.io/api/admissionregistration/v1beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/serving/pkg/network"
 )
 
 // KFServing Constants
@@ -190,8 +191,10 @@ func VirtualServiceHostname(name string, predictorHostName string) string {
 }
 
 func PredictorURL(metadata v1.ObjectMeta, isCanary bool) string {
+	serviceName := DefaultPredictorServiceName(metadata.Name)
 	if isCanary {
-		return fmt.Sprintf("http://%s.%s.svc.cluster.local", CanaryPredictorServiceName(metadata.Name), metadata.Namespace)
+		serviceName = CanaryPredictorServiceName(metadata.Name)
 	}
-	return fmt.Sprintf("http://%s.%s.svc.cluster.local", DefaultPredictorServiceName(metadata.Name), metadata.Namespace)
+	serviceHostname := network.GetServiceHostname(serviceName, metadata.Namespace)
+	return fmt.Sprintf("http://%s", serviceHostname)
 }

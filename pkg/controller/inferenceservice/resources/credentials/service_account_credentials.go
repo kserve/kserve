@@ -80,7 +80,8 @@ func (c *CredentialBuilder) CreateSecretVolumeAndEnv(namespace string, serviceAc
 	err := c.client.Get(context.TODO(), types.NamespacedName{Name: serviceAccountName,
 		Namespace: namespace}, serviceAccount)
 	if err != nil {
-		log.Error(err, "Failed to find service account", "ServiceAccountName", serviceAccountName)
+		log.Error(err, "Failed to find service account", "ServiceAccountName", serviceAccountName,
+			"Namespace", namespace)
 		return nil
 	}
 

@@ -84,54 +84,66 @@ func createFailedStatus(reason string, message string) *v1alpha2.VirtualServiceS
 	}
 }
 
-func (r *VirtualServiceBuilder) CreateVirtualService(isvc *v1alpha2.InferenceService) (*istiov1alpha3.VirtualService, *v1alpha2.VirtualServiceStatus) {
-
-	httpRoutes := []istiov1alpha3.HTTPRoute{}
-
-	// destination for the default predict is required
-	predictDefaultSpec, reason := getPredictStatusConfigurationSpec(&isvc.Spec.Default, isvc.Status.Default)
-	if predictDefaultSpec == nil {
-		return nil, createFailedStatus(reason, "Failed to reconcile default predictor")
+func (r *VirtualServiceBuilder) getPredictRouteDestination(
+	endpointSpec *v1alpha2.EndpointSpec, endpointStatusMap *v1alpha2.EndpointStatusMap, weight int) (*istiov1alpha3.HTTPRouteDestination, *v1alpha2.VirtualServiceStatus) {
+	if endpointSpec == nil {
+		return nil, nil
+	}
+	// destination for the predict is required
+	predictSpec, reason := getPredictStatusConfigurationSpec(endpointSpec, endpointStatusMap)
+	if predictSpec == nil {
+		return nil, createFailedStatus(reason, "Failed to reconcile predictor")
 	}
 
 	// use transformer instead (if one is configured)
-	if isvc.Spec.Default.Transformer != nil {
-		predictDefaultSpec, reason = getTransformerStatusConfigurationSpec(&isvc.Spec.Default, isvc.Status.Default)
-		if predictDefaultSpec == nil {
-			return nil, createFailedStatus(reason, "Failed to reconcile default transformer")
+	if endpointSpec.Transformer != nil {
+		predictSpec, reason = getTransformerStatusConfigurationSpec(endpointSpec, endpointStatusMap)
+		if predictSpec == nil {
+			return nil, createFailedStatus(reason, "Failed to reconcile transformer")
 		}
 	}
 
-	// extract the virtual service hostname from the predictor hostname
-	serviceHostname := constants.VirtualServiceHostname(isvc.Name, predictDefaultSpec.Hostname)
-	serviceURL := constants.ServiceURL(isvc.Name, serviceHostname)
+	httpRouteDestination := createHTTPRouteDestination(predictSpec.Hostname, weight, r.ingressConfig.IngressServiceName)
+	return &httpRouteDestination, nil
+}
 
-	// add the default route
+func (r *VirtualServiceBuilder) getExplainerRouteDestination(
+	endpointSpec *v1alpha2.EndpointSpec, endpointStatusMap *v1alpha2.EndpointStatusMap, weight int) (*istiov1alpha3.HTTPRouteDestination, *v1alpha2.VirtualServiceStatus) {
+	if endpointSpec == nil {
+		return nil, nil
+	}
+	if endpointSpec.Explainer != nil {
+		explainSpec, explainerReason := getExplainStatusConfigurationSpec(endpointSpec, endpointStatusMap)
+		if explainSpec != nil {
+			httpRouteDestination := createHTTPRouteDestination(explainSpec.Hostname, weight, r.ingressConfig.IngressServiceName)
+			return &httpRouteDestination, nil
+		} else {
+			return nil, createFailedStatus(explainerReason, "Failed to reconcile default explainer")
+		}
+	}
+	return nil, nil
+}
+
+func (r *VirtualServiceBuilder) CreateVirtualService(isvc *v1alpha2.InferenceService) (*istiov1alpha3.VirtualService, *v1alpha2.VirtualServiceStatus) {
+
+	httpRoutes := []istiov1alpha3.HTTPRoute{}
+	predictRouteDestinations := []istiov1alpha3.HTTPRouteDestination{}
+
 	defaultWeight := 100 - isvc.Spec.CanaryTrafficPercent
 	canaryWeight := isvc.Spec.CanaryTrafficPercent
-	predictRouteDestinations := []istiov1alpha3.HTTPRouteDestination{
-		createHTTPRouteDestination(predictDefaultSpec.Hostname, defaultWeight, r.ingressConfig.IngressServiceName),
+
+	if defaultPredictRouteDestination, err := r.getPredictRouteDestination(&isvc.Spec.Default, isvc.Status.Default, defaultWeight); err != nil {
+		return nil, err
+	} else {
+		predictRouteDestinations = append(predictRouteDestinations, *defaultPredictRouteDestination)
 	}
-
-	// optionally get a destination for canary predict
-	if isvc.Spec.Canary != nil {
-		predictCanarySpec, reason := getPredictStatusConfigurationSpec(isvc.Spec.Canary, isvc.Status.Canary)
-		if predictCanarySpec == nil {
-			return nil, createFailedStatus(reason, "Failed to reconcile canary predictor")
+	if canaryPredictRouteDestination, err := r.getPredictRouteDestination(isvc.Spec.Canary, isvc.Status.Canary, canaryWeight); err != nil {
+		return nil, err
+	} else {
+		if canaryPredictRouteDestination != nil {
+			predictRouteDestinations = append(predictRouteDestinations, *canaryPredictRouteDestination)
 		}
-
-		// attempt use transformer instead if *Default* had one, see discussion: https://github.com/kubeflow/kfserving/issues/324
-		if isvc.Spec.Default.Transformer != nil {
-			predictCanarySpec, reason = getTransformerStatusConfigurationSpec(isvc.Spec.Canary, isvc.Status.Canary)
-			if predictCanarySpec == nil {
-				return nil, createFailedStatus(reason, "Failed to reconcile canary transformer")
-			}
-		}
-
-		canaryRouteDestination := createHTTPRouteDestination(predictCanarySpec.Hostname, canaryWeight, r.ingressConfig.IngressServiceName)
-		predictRouteDestinations = append(predictRouteDestinations, canaryRouteDestination)
 	}
-
 	// prepare the predict route
 	predictRoute := istiov1alpha3.HTTPRoute{
 		Match: []istiov1alpha3.HTTPMatchRequest{
@@ -147,23 +159,22 @@ func (r *VirtualServiceBuilder) CreateVirtualService(isvc *v1alpha2.InferenceSer
 
 	// optionally add the explain route
 	explainRouteDestinations := []istiov1alpha3.HTTPRouteDestination{}
-	if isvc.Spec.Default.Explainer != nil {
-		explainDefaultSpec, defaultExplainerReason := getExplainStatusConfigurationSpec(&isvc.Spec.Default, isvc.Status.Default)
-		if explainDefaultSpec != nil {
-			routeDefaultDestination := createHTTPRouteDestination(explainDefaultSpec.Hostname, defaultWeight, r.ingressConfig.IngressServiceName)
-			explainRouteDestinations = append(explainRouteDestinations, routeDefaultDestination)
-
-			explainCanarySpec, canaryExplainerReason := getExplainStatusConfigurationSpec(isvc.Spec.Canary, isvc.Status.Canary)
-			if explainCanarySpec != nil {
-				routeCanaryDestination := createHTTPRouteDestination(explainCanarySpec.Hostname, canaryWeight, r.ingressConfig.IngressServiceName)
-				explainRouteDestinations = append(explainRouteDestinations, routeCanaryDestination)
-			} else {
-				return nil, createFailedStatus(canaryExplainerReason, "Failed to reconcile canary explainer")
-			}
-		} else {
-			return nil, createFailedStatus(defaultExplainerReason, "Failed to reconcile default explainer")
+	if defaultExplainRouteDestination, err := r.getExplainerRouteDestination(&isvc.Spec.Default, isvc.Status.Default, defaultWeight); err != nil {
+		return nil, err
+	} else {
+		if defaultExplainRouteDestination != nil {
+			explainRouteDestinations = append(explainRouteDestinations, *defaultExplainRouteDestination)
 		}
+	}
+	if canaryExplainRouteDestination, err := r.getExplainerRouteDestination(isvc.Spec.Canary, isvc.Status.Canary, canaryWeight); err != nil {
+		return nil, err
+	} else {
+		if canaryExplainRouteDestination != nil {
+			explainRouteDestinations = append(explainRouteDestinations, *canaryExplainRouteDestination)
+		}
+	}
 
+	if len(explainRouteDestinations) > 0 {
 		explainRoute := istiov1alpha3.HTTPRoute{
 			Match: []istiov1alpha3.HTTPMatchRequest{
 				istiov1alpha3.HTTPMatchRequest{
@@ -172,10 +183,13 @@ func (r *VirtualServiceBuilder) CreateVirtualService(isvc *v1alpha2.InferenceSer
 					},
 				},
 			},
-			Route: predictRouteDestinations,
+			Route: explainRouteDestinations,
 		}
 		httpRoutes = append(httpRoutes, explainRoute)
 	}
+	// extract the virtual service hostname from the predictor hostname
+	serviceHostname, _ := getServiceHostname(isvc)
+	serviceURL := constants.ServiceURL(isvc.Name, serviceHostname)
 
 	vs := istiov1alpha3.VirtualService{
 		ObjectMeta: metav1.ObjectMeta{
@@ -208,6 +222,14 @@ func (r *VirtualServiceBuilder) CreateVirtualService(isvc *v1alpha2.InferenceSer
 	}
 
 	return &vs, &status
+}
+
+func getServiceHostname(isvc *v1alpha2.InferenceService) (string, error) {
+	predictSpec, reason := getPredictStatusConfigurationSpec(&isvc.Spec.Default, isvc.Status.Default)
+	if predictSpec == nil {
+		return "", fmt.Errorf("Fail to get service hostname: %s.", reason)
+	}
+	return constants.VirtualServiceHostname(isvc.Name, predictSpec.Hostname), nil
 }
 
 func getPredictStatusConfigurationSpec(endpointSpec *v1alpha2.EndpointSpec, endpointStatusMap *v1alpha2.EndpointStatusMap) (*v1alpha2.StatusConfigurationSpec, string) {

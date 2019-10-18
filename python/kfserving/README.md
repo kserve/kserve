@@ -56,10 +56,14 @@ KFServing's python client interacts with KFServing APIs for executing operations
 
 Class | Method |  Description
 ------------ | ------------- | -------------
-[KFServingClient](docs/KFServingClient.md) | [create](docs/KFServingClient.md#create) | Create the provided InferenceService in the specified namespace|
-[KFServingClient](docs/KFServingClient.md) | [get](docs/KFServingClient.md#get)    | Get the created InferenceService in the specified namespace|
-[KFServingClient](docs/KFServingClient.md) | [patch](docs/KFServingClient.md#patch)   | Patch the created InferenceService in the specified namespace |
-[KFServingClient](docs/KFServingClient.md) | [delete](docs/KFServingClient.md#delete) | Delete the created InferenceService in the specified namespace |
+[KFServingClient](docs/KFServingClient.md) | [set_credentials](docs/KFServingClient.md#set_credentials) | Set Credentials|
+[KFServingClient](docs/KFServingClient.md) | [create](docs/KFServingClient.md#create) | Create InferenceService|
+[KFServingClient](docs/KFServingClient.md) | [get](docs/KFServingClient.md#get)    | Get or watch the specified InferenceService or all InferenceServices in the namespace |
+[KFServingClient](docs/KFServingClient.md) | [patch](docs/KFServingClient.md#patch)  | Patch the specified InferenceService|
+[KFServingClient](docs/KFServingClient.md) | [replace](docs/KFServingClient.md#replace) | Replace the specified InferenceService|
+[KFServingClient](docs/KFServingClient.md) | [rollout_canary](docs/KFServingClient.md#rollout_canary) | Rollout the traffic on `canary` version for specified InferenceService|
+[KFServingClient](docs/KFServingClient.md) | [promote](docs/KFServingClient.md#promote) | Promote the `canary` version of the InferenceService to `default`|
+[KFServingClient](docs/KFServingClient.md) | [delete](docs/KFServingClient.md#delete) | Delete the specified InferenceService |
 
 
 ## Documentation For Models

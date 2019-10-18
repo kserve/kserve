@@ -16,7 +16,7 @@ import kfp.dsl as dsl
 from kfp import components
 import json
 
-kfserving_op = components.load_component_from_file('https://raw.githubusercontent.com/kubeflow/pipelines/master/components/kubeflow/kfserving/component.yaml')
+kfserving_op = components.load_component_from_url('https://raw.githubusercontent.com/kubeflow/pipelines/master/components/kubeflow/kfserving/component.yaml')
 
 @dsl.pipeline(
   name='KFServing pipeline',
