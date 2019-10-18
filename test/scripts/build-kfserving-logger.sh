@@ -23,7 +23,7 @@ set -o pipefail
 export PATH=${GOPATH}/bin:/usr/local/go/bin:${PATH}
 REGISTRY="${GCP_REGISTRY}"
 PROJECT="${GCP_PROJECT}"
-GO_DIR=${GOPATH}/src/github.com/${REPO_OWNER}/${REPO_NAME}-executor
+GO_DIR=${GOPATH}/src/github.com/${REPO_OWNER}/${REPO_NAME}-logger
 VERSION=$(git describe --tags --always --dirty)
 
 echo "Activating service-account"
@@ -34,8 +34,8 @@ mkdir -p ${GO_DIR}
 cp -r cmd ${GO_DIR}/cmd
 cp -r pkg ${GO_DIR}/pkg
 cp -r vendor ${GO_DIR}/vendor
-cp executor.Dockerfile ${GO_DIR}/Dockerfile
+cp logger.Dockerfile ${GO_DIR}/Dockerfile
 
 cd ${GO_DIR}
-gcloud builds submit . --tag=${REGISTRY}/${REPO_NAME}/kfserving-executor:${VERSION} --project=${PROJECT}
-gcloud container images add-tag --quiet ${REGISTRY}/${REPO_NAME}/kfserving-executor:${VERSION} ${REGISTRY}/${REPO_NAME}/kfserving-executor:latest --verbosity=info
+gcloud builds submit . --tag=${REGISTRY}/${REPO_NAME}/kfserving-logger:${VERSION} --project=${PROJECT}
+gcloud container images add-tag --quiet ${REGISTRY}/${REPO_NAME}/kfserving-logger:${VERSION} ${REGISTRY}/${REPO_NAME}/kfserving-logger:latest --verbosity=info
