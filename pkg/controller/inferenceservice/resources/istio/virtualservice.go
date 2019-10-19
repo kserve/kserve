@@ -46,6 +46,13 @@ var (
 	ExplainerHostnameUnknown   = "ExplainerHostnameUnknown"
 )
 
+// Message constants
+var (
+	PredictorMissingMessage   = "Failed to reconcile predictor"
+	TransformerMissingMessage = "Failed to reconcile transformer"
+	ExplainerMissingMessage   = "Failed to reconcile explainer"
+)
+
 type IngressConfig struct {
 	IngressGateway     string `json:"ingressGateway,omitempty"`
 	IngressServiceName string `json:"ingressService,omitempty"`
@@ -92,14 +99,14 @@ func (r *VirtualServiceBuilder) getPredictRouteDestination(
 	// destination for the predict is required
 	predictSpec, reason := getPredictStatusConfigurationSpec(endpointSpec, componentStatusMap)
 	if predictSpec == nil {
-		return nil, createFailedStatus(reason, "Failed to reconcile predictor")
+		return nil, createFailedStatus(reason, PredictorMissingMessage)
 	}
 
 	// use transformer instead (if one is configured)
 	if endpointSpec.Transformer != nil {
 		predictSpec, reason = getTransformerStatusConfigurationSpec(endpointSpec, componentStatusMap)
 		if predictSpec == nil {
-			return nil, createFailedStatus(reason, "Failed to reconcile transformer")
+			return nil, createFailedStatus(reason, TransformerMissingMessage)
 		}
 	}
 
@@ -118,7 +125,7 @@ func (r *VirtualServiceBuilder) getExplainerRouteDestination(
 			httpRouteDestination := createHTTPRouteDestination(explainSpec.Hostname, weight, r.ingressConfig.IngressServiceName)
 			return &httpRouteDestination, nil
 		} else {
-			return nil, createFailedStatus(explainerReason, "Failed to reconcile default explainer")
+			return nil, createFailedStatus(explainerReason, ExplainerMissingMessage)
 		}
 	}
 	return nil, nil
