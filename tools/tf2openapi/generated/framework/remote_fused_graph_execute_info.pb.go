@@ -32,7 +32,7 @@ type RemoteFusedGraphExecuteInfo struct {
 	GraphOutputNodeName []string `protobuf:"bytes,3,rep,name=graph_output_node_name,json=graphOutputNodeName,proto3" json:"graph_output_node_name,omitempty"`
 	// Executor's name
 	ExecutorName string `protobuf:"bytes,4,opt,name=executor_name,json=executorName,proto3" json:"executor_name,omitempty"`
-	// Optional: Parameters given to the inference-logger
+	// Optional: Parameters given to the inference-inferencelogger
 	SerializedExecutorParameters []byte `protobuf:"bytes,5,opt,name=serialized_executor_parameters,json=serializedExecutorParameters,proto3" json:"serialized_executor_parameters,omitempty"`
 	// Optional: Default graph input tensor shape used to allocate memory
 	// before executing op

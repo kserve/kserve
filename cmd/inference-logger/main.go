@@ -9,7 +9,7 @@ import (
 	"os"
 	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
 
-	"github.com/kubeflow/kfserving/pkg/logger"
+	"github.com/kubeflow/kfserving/pkg/inferencelogger"
 	"github.com/pkg/errors"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
@@ -20,6 +20,7 @@ var (
 	logUrl  = flag.String("log_url", "", "The URL to send request/response logs to")
 	port    = flag.Int("port", 8080, "Executor port")
 	svcPort = flag.String("svc_port", "8081", "The local port of the service")
+	workers = flag.Int("workers", 5, "Number of workers")
 )
 
 func main() {
@@ -41,12 +42,15 @@ func main() {
 
 	stopCh := signals.SetupSignalHandler()
 
-	var eh http.Handler = logger.New(log, *svcPort, logUrlParsed)
+	var eh http.Handler = inferencelogger.New(log, *svcPort, logUrlParsed)
 
 	h1s := &http.Server{
 		Addr:    fmt.Sprintf(":%d", *port),
 		Handler: h2c.NewHandler(eh, &http2.Server{}),
 	}
+
+	fmt.Println("Starting the dispatcher")
+	inferencelogger.StartDispatcher(*workers, log)
 
 	log.Info("Starting", "port", port)
 

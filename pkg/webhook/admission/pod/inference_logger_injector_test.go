@@ -45,7 +45,7 @@ func TestInferenceLoggerInjector(t *testing.T) {
 							Args: []string{
 								"--log_url",
 								"http://httpbin.org/",
-							},},
+							}},
 					},
 				},
 			},

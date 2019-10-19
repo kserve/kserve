@@ -7,9 +7,9 @@ import (
 )
 
 const (
-	InferenceLoggerContainerName         = "inference-inference-logger"
+	InferenceLoggerContainerName         = "inference-inference-inferencelogger"
 	InferenceLoggerConfigMapKeyName      = "inferenceLogger"
-	InferenceLoggerContainerImage        = "gcr.io/kfserving/inference-inference-logger"
+	InferenceLoggerContainerImage        = "gcr.io/kfserving/inference-inference-inferencelogger"
 	InferenceLoggerContainerImageVersion = "latest"
 )
 

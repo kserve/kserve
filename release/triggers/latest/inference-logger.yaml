@@ -1,10 +1,10 @@
 ---
 ### Specify as necessary ###
-name: inference-inference-logger-latest
-description: inference-inference-logger-latest
+name: inference-inference-inferencelogger-latest
+description: inference-inference-inferencelogger-latest
 substitutions:
-  _COMPONENT: "inference-inference-logger"
-  _DOCKERFILE: "./inference-inference-logger.Dockerfile"
+  _COMPONENT: "inference-inference-inferencelogger"
+  _DOCKERFILE: "./inference-inference-inferencelogger.Dockerfile"
   _CONTEXT: "."
 ###########################
 github:

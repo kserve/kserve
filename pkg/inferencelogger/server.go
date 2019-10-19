@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package logger
+package inferencelogger
 
 import (
 	"bytes"
@@ -67,14 +67,6 @@ func (eh *loggerHandler) callService(b []byte, r *http.Request) ([]byte, error) 
 	return b, nil
 }
 
-func (eh *loggerHandler) logPayload(b []byte, contentType string) error {
-	b, err := eh.post(eh.logUrl, b, contentType)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 // call svc and add send request/responses to logUrl
 func (eh *loggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Read Payload
@@ -84,12 +76,16 @@ func (eh *loggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// log Request
-	err = eh.logPayload(b, r.Header.Get("Content-Type"))
+	err = QueueLogRequest(LogRequest{
+		url:         eh.logUrl,
+		b:           &b,
+		contentType: r.Header.Get("Content-Type"),
+	})
 	if err != nil {
 		eh.log.Error(err, "Failed to log request")
 	}
 
-	// Predict
+	// Call service
 	b, err = eh.callService(b, r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -97,7 +93,11 @@ func (eh *loggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// log response
-	err = eh.logPayload(b, r.Header.Get("Content-Type"))
+	err = QueueLogRequest(LogRequest{
+		url:         eh.logUrl,
+		b:           &b,
+		contentType: r.Header.Get("Content-Type"),
+	})
 	if err != nil {
 		eh.log.Error(err, "Failed to log response")
 	}
