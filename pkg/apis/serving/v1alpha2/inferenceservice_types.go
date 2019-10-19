@@ -60,6 +60,18 @@ type DeploymentSpec struct {
 	// This is the up bound for autoscaler to scale to
 	// +optional
 	MaxReplicas int `json:"maxReplicas,omitempty"`
+	// Activate request logging
+	// +optional
+	RequestLogging *RequestLogging `json:"requestLogging,omitempty"`
+}
+
+type RequestLogging struct {
+	// URL to send request logging CloudEvents
+	// +optional
+	Url string `json:"url,omitempty"`
+	// What percentage of requests to log, value between 0->1
+	// +optional
+	Sample *float32 `json:"sample,omitempty"`
 }
 
 // PredictorSpec defines the configuration for a predictor,
@@ -98,7 +110,6 @@ type ExplainerSpec struct {
 type TransformerSpec struct {
 	// Spec for a custom transformer
 	Custom *CustomSpec `json:"custom,omitempty"`
-	RequestLogging *v1.ObjectReference `json:"requestLogging,omitempty"`
 
 	DeploymentSpec `json:",inline"`
 }

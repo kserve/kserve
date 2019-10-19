@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package executor
+package logger
 
 import (
 	"bytes"
@@ -32,13 +32,18 @@ func TestExecutor(t *testing.T) {
 
 	g := gomega.NewGomegaWithT(t)
 
+	predictorRequest := []byte(`{"instances":[[0,0,0]]}`)
 	predictorResponse := []byte(`{"instances":[[4,5,6]]}`)
+
 	// Start a local HTTP server
-	preprocessor := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-		rw.Write([]byte(`{"instances":[[1,2,3]]}`))
+	logSvc := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		b, err := ioutil.ReadAll(req.Body)
+		g.Expect(err).To(gomega.BeNil())
+		g.Expect(b).To(gomega.Or(gomega.Equal(predictorRequest), gomega.Equal(predictorResponse)))
+		rw.Write([]byte(`ok`))
 	}))
 	// Close the server when test finishes
-	defer preprocessor.Close()
+	defer logSvc.Close()
 
 	// Start a local HTTP server
 	predictor := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
@@ -47,18 +52,17 @@ func TestExecutor(t *testing.T) {
 	// Close the server when test finishes
 	defer predictor.Close()
 
-	b := []byte(`{"instances":[[0,0,0]]}`)
-	reader := bytes.NewReader(b)
+	reader := bytes.NewReader(predictorRequest)
 	r := httptest.NewRequest("POST", "http://a", reader)
 	w := httptest.NewRecorder()
 
 	logf.SetLogger(logf.ZapLogger(false))
 	log := logf.Log.WithName("entrypoint")
 
-	preprocessUrl, _ := url.Parse(preprocessor.URL)
-	predictorUrl, _ := url.Parse(predictor.URL)
+	predictorSvcUrl, _ := url.Parse(predictor.URL)
+	logSvcUrl, _ := url.Parse(logSvc.URL)
 
-	oh := New(log, preprocessUrl.Host, predictorUrl.Host, "")
+	oh := New(log, predictorSvcUrl.Port(), logSvcUrl)
 
 	oh.ServeHTTP(w, r)
 

@@ -16,8 +16,8 @@ manager: generate fmt vet lint
 	go build -o bin/manager ./cmd/manager
 
 # Build manager binary
-executor: fmt vet
-	go build -o bin/executor ./cmd/executor
+logger: fmt vet
+	go build -o bin/logger ./cmd/logger
 
 # Run against the configured Kubernetes cluster in ~/.kube/config
 run: generate fmt vet lint

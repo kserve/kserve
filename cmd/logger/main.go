@@ -5,10 +5,11 @@ import (
 	"flag"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
 
-	"github.com/kubeflow/kfserving/pkg/executor"
+	"github.com/kubeflow/kfserving/pkg/logger"
 	"github.com/pkg/errors"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
@@ -16,10 +17,9 @@ import (
 )
 
 var (
-	predictor   = flag.String("predictor", "", "The FQDN of the predictor service")
-	preprocess  = flag.String("preprocess", "", "The FQDN of the preprocess service")
-	postprocess = flag.String("postprocess", "", "The FQDN of the postprocess service")
-	port        = flag.Int("port", 8080, "Executor port")
+	logUrl  = flag.String("logUrl", "", "The URL to send request/response logs to")
+	port    = flag.Int("port", 8080, "Executor port")
+	svcPort = flag.String("svc_port", "8081", "The local port of the service")
 )
 
 func main() {
@@ -28,14 +28,20 @@ func main() {
 	logf.SetLogger(logf.ZapLogger(false))
 	log := logf.Log.WithName("entrypoint")
 
-	if *predictor == "" {
-		log.Info("predictor argument must not be empty.")
+	if *logUrl == "" {
+		log.Info("logUrl argument must not be empty.")
+		os.Exit(-1)
+	}
+
+	logUrlParsed, err := url.Parse(*logUrl)
+	if err != nil {
+		log.Info("Malformed logUrl", "URL", *logUrl)
 		os.Exit(-1)
 	}
 
 	stopCh := signals.SetupSignalHandler()
 
-	var eh http.Handler = executor.New(log, *preprocess, *predictor, *postprocess)
+	var eh http.Handler = logger.New(log, *svcPort, logUrlParsed)
 
 	h1s := &http.Server{
 		Addr:    fmt.Sprintf(":%d", *port),
@@ -59,7 +65,7 @@ func main() {
 		log.Error(err, "Failed to run HTTP server")
 	}
 
-	err := h1s.Shutdown(context.Background())
+	err = h1s.Shutdown(context.Background())
 	if err != nil {
 		log.Error(err, "Failed to shutdown HTTP server")
 	}
