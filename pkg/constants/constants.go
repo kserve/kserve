@@ -85,15 +85,15 @@ const (
 	CustomSpecStorageUriEnvVarKey = "STORAGE_URI"
 )
 
-type InferenceServiceEndpoint string
+type InferenceServiceComponent string
 
 type InferenceServiceVerb string
 
-// InferenceService Endpoint enums
+// InferenceService Component enums
 const (
-	Predictor   InferenceServiceEndpoint = "predictor"
-	Explainer   InferenceServiceEndpoint = "explainer"
-	Transformer InferenceServiceEndpoint = "transformer"
+	Predictor   InferenceServiceComponent = "predictor"
+	Explainer   InferenceServiceComponent = "explainer"
+	Transformer InferenceServiceComponent = "transformer"
 )
 
 // InferenceService verb enums
@@ -114,7 +114,7 @@ const (
 	ArgumentPredictorHost = "--predictor_host"
 )
 
-func (e InferenceServiceEndpoint) String() string {
+func (e InferenceServiceComponent) String() string {
 	return string(e)
 }
 
@@ -161,12 +161,12 @@ func CanaryTransformerServiceName(name string) string {
 	return name + "-" + string(Transformer) + "-" + InferenceServiceCanary
 }
 
-func DefaultServiceName(name string, endpoint InferenceServiceEndpoint) string {
-	return name + "-" + endpoint.String() + "-" + InferenceServiceDefault
+func DefaultServiceName(name string, component InferenceServiceComponent) string {
+	return name + "-" + component.String() + "-" + InferenceServiceDefault
 }
 
-func CanaryServiceName(name string, endpoint InferenceServiceEndpoint) string {
-	return name + "-" + endpoint.String() + "-" + InferenceServiceCanary
+func CanaryServiceName(name string, component InferenceServiceComponent) string {
+	return name + "-" + component.String() + "-" + InferenceServiceCanary
 }
 
 func RouteName(name string, verb InferenceServiceVerb) string {

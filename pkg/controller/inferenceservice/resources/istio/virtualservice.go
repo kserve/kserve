@@ -35,15 +35,15 @@ const (
 
 // Status Constants
 var (
-	PredictorSpecMissing       = "predictorSpecMissing"
-	PredictorStatusUnknown     = "predictorStatusUnknown"
-	PredictorHostnameUnknown   = "predictorHostnameUnknown"
-	TransformerSpecMissing     = "transformerSpecMissing"
-	TransformerStatusUnknown   = "transformerStatusUnknown"
-	TransformerHostnameUnknown = "transformerHostnameUnknown"
-	ExplainerSpecMissing       = "explainerSpecMissing"
-	ExplainerStatusUnknown     = "explainerStatusUnknown"
-	ExplainerHostnameUnknown   = "explainerHostnameUnknown"
+	PredictorSpecMissing       = "PredictorSpecMissing"
+	PredictorStatusUnknown     = "PredictorStatusUnknown"
+	PredictorHostnameUnknown   = "PredictorHostnameUnknown"
+	TransformerSpecMissing     = "TransformerSpecMissing"
+	TransformerStatusUnknown   = "TransformerStatusUnknown"
+	TransformerHostnameUnknown = "TransformerHostnameUnknown"
+	ExplainerSpecMissing       = "ExplainerSpecMissing"
+	ExplainerStatusUnknown     = "ExplainerStatusUnknown"
+	ExplainerHostnameUnknown   = "ExplainerHostnameUnknown"
 )
 
 type IngressConfig struct {
@@ -85,19 +85,19 @@ func createFailedStatus(reason string, message string) *v1alpha2.VirtualServiceS
 }
 
 func (r *VirtualServiceBuilder) getPredictRouteDestination(
-	endpointSpec *v1alpha2.EndpointSpec, endpointStatusMap *v1alpha2.EndpointStatusMap, weight int) (*istiov1alpha3.HTTPRouteDestination, *v1alpha2.VirtualServiceStatus) {
+	endpointSpec *v1alpha2.EndpointSpec, componentStatusMap *v1alpha2.ComponentStatusMap, weight int) (*istiov1alpha3.HTTPRouteDestination, *v1alpha2.VirtualServiceStatus) {
 	if endpointSpec == nil {
 		return nil, nil
 	}
 	// destination for the predict is required
-	predictSpec, reason := getPredictStatusConfigurationSpec(endpointSpec, endpointStatusMap)
+	predictSpec, reason := getPredictStatusConfigurationSpec(endpointSpec, componentStatusMap)
 	if predictSpec == nil {
 		return nil, createFailedStatus(reason, "Failed to reconcile predictor")
 	}
 
 	// use transformer instead (if one is configured)
 	if endpointSpec.Transformer != nil {
-		predictSpec, reason = getTransformerStatusConfigurationSpec(endpointSpec, endpointStatusMap)
+		predictSpec, reason = getTransformerStatusConfigurationSpec(endpointSpec, componentStatusMap)
 		if predictSpec == nil {
 			return nil, createFailedStatus(reason, "Failed to reconcile transformer")
 		}
@@ -108,12 +108,12 @@ func (r *VirtualServiceBuilder) getPredictRouteDestination(
 }
 
 func (r *VirtualServiceBuilder) getExplainerRouteDestination(
-	endpointSpec *v1alpha2.EndpointSpec, endpointStatusMap *v1alpha2.EndpointStatusMap, weight int) (*istiov1alpha3.HTTPRouteDestination, *v1alpha2.VirtualServiceStatus) {
+	endpointSpec *v1alpha2.EndpointSpec, componentStatusMap *v1alpha2.ComponentStatusMap, weight int) (*istiov1alpha3.HTTPRouteDestination, *v1alpha2.VirtualServiceStatus) {
 	if endpointSpec == nil {
 		return nil, nil
 	}
 	if endpointSpec.Explainer != nil {
-		explainSpec, explainerReason := getExplainStatusConfigurationSpec(endpointSpec, endpointStatusMap)
+		explainSpec, explainerReason := getExplainStatusConfigurationSpec(endpointSpec, componentStatusMap)
 		if explainSpec != nil {
 			httpRouteDestination := createHTTPRouteDestination(explainSpec.Hostname, weight, r.ingressConfig.IngressServiceName)
 			return &httpRouteDestination, nil
@@ -232,12 +232,12 @@ func getServiceHostname(isvc *v1alpha2.InferenceService) (string, error) {
 	return constants.VirtualServiceHostname(isvc.Name, predictSpec.Hostname), nil
 }
 
-func getPredictStatusConfigurationSpec(endpointSpec *v1alpha2.EndpointSpec, endpointStatusMap *v1alpha2.EndpointStatusMap) (*v1alpha2.StatusConfigurationSpec, string) {
+func getPredictStatusConfigurationSpec(endpointSpec *v1alpha2.EndpointSpec, componentStatusMap *v1alpha2.ComponentStatusMap) (*v1alpha2.StatusConfigurationSpec, string) {
 	if endpointSpec == nil {
 		return nil, PredictorSpecMissing
 	}
 
-	if predictorStatus, ok := (*endpointStatusMap)[constants.Predictor]; !ok {
+	if predictorStatus, ok := (*componentStatusMap)[constants.Predictor]; !ok {
 		return nil, PredictorStatusUnknown
 	} else if len(predictorStatus.Hostname) == 0 {
 		return nil, PredictorHostnameUnknown
@@ -246,12 +246,12 @@ func getPredictStatusConfigurationSpec(endpointSpec *v1alpha2.EndpointSpec, endp
 	}
 }
 
-func getTransformerStatusConfigurationSpec(endpointSpec *v1alpha2.EndpointSpec, endpointStatusMap *v1alpha2.EndpointStatusMap) (*v1alpha2.StatusConfigurationSpec, string) {
+func getTransformerStatusConfigurationSpec(endpointSpec *v1alpha2.EndpointSpec, componentStatusMap *v1alpha2.ComponentStatusMap) (*v1alpha2.StatusConfigurationSpec, string) {
 	if endpointSpec.Transformer == nil {
 		return nil, TransformerSpecMissing
 	}
 
-	if transformerStatus, ok := (*endpointStatusMap)[constants.Transformer]; !ok {
+	if transformerStatus, ok := (*componentStatusMap)[constants.Transformer]; !ok {
 		return nil, TransformerStatusUnknown
 	} else if len(transformerStatus.Hostname) == 0 {
 		return nil, TransformerHostnameUnknown
@@ -259,12 +259,12 @@ func getTransformerStatusConfigurationSpec(endpointSpec *v1alpha2.EndpointSpec, 
 		return transformerStatus, ""
 	}
 }
-func getExplainStatusConfigurationSpec(endpointSpec *v1alpha2.EndpointSpec, endpointStatusMap *v1alpha2.EndpointStatusMap) (*v1alpha2.StatusConfigurationSpec, string) {
+func getExplainStatusConfigurationSpec(endpointSpec *v1alpha2.EndpointSpec, componentStatusMap *v1alpha2.ComponentStatusMap) (*v1alpha2.StatusConfigurationSpec, string) {
 	if endpointSpec.Explainer == nil {
 		return nil, ExplainerSpecMissing
 	}
 
-	explainerStatus, ok := (*endpointStatusMap)[constants.Explainer]
+	explainerStatus, ok := (*componentStatusMap)[constants.Explainer]
 	if !ok {
 		return nil, ExplainerStatusUnknown
 	} else if len(explainerStatus.Hostname) == 0 {
