@@ -1,8 +1,10 @@
 package inferencelogger
 
 import (
-	"bytes"
+	"context"
 	"fmt"
+	"github.com/cloudevents/sdk-go"
+	"github.com/cloudevents/sdk-go/pkg/cloudevents/transport"
 	"github.com/go-logr/logr"
 	"net/http"
 	"net/url"
@@ -23,6 +25,7 @@ func NewWorker(id int, workerQueue chan chan LogRequest, log logr.Logger) Worker
 		Client: http.Client{
 			Timeout: 10 * time.Second,
 		},
+		CeCtx: cloudevents.ContextWithEncoding(context.Background(), cloudevents.Binary),
 	}
 
 	return worker
@@ -35,12 +38,40 @@ type Worker struct {
 	WorkerQueue chan chan LogRequest
 	QuitChan    chan bool
 	Client      http.Client
+	CeCtx       context.Context
+	CeTransport transport.Transport
 }
 
-func (w *Worker) sendLog(url *url.URL, body *[]byte, contentType string) error {
-	w.Log.Info("Calling server", "url", url.String(), "contentType", contentType)
-	_, err := w.Client.Post(url.String(), contentType, bytes.NewReader(*body))
-	return err
+func (W *Worker) sendCloudEvent(url *url.URL, body *[]byte, contentType string) error {
+
+	t, err := cloudevents.NewHTTPTransport(
+		cloudevents.WithTarget(url.String()),
+		//cloudevents.WithEncoding(cloudevents.HTTPBinaryV02),
+		cloudevents.WithContextBasedEncoding(), // toggle this or WithEncoding to see context based encoding work.
+	)
+	if err != nil {
+		return err
+	}
+	c, err := cloudevents.NewClient(t,
+		cloudevents.WithTimeNow(),
+	)
+	if err != nil {
+		return err
+	}
+	event := cloudevents.NewEvent()
+	event.SetID("ABC-123")
+	event.SetType("org.kubeflow.serving.inference")
+	event.SetSource("http://localhost:8081/")
+	event.SetDataContentType(contentType)
+	err = event.SetData(body)
+	if err != nil {
+		return err
+	}
+
+	if _, _, err := c.Send(W.CeCtx, event); err != nil {
+		return nil
+	}
+	return nil
 }
 
 // This function "starts" the worker by starting a goroutine, that is
@@ -56,7 +87,8 @@ func (w *Worker) Start() {
 				// Receive a work request.
 				fmt.Printf("worker%d: Received work request for %s\n", w.ID, work.url.String())
 
-				err := w.sendLog(work.url, work.b, work.contentType)
+				//err := w.sendLog(work.url, work.b, work.contentType)
+				err := w.sendCloudEvent(work.url, work.b, work.contentType)
 				if err != nil {
 					w.Log.Error(err, "Failed to send log", "URL", work.url.String())
 				}
