@@ -60,15 +60,26 @@ type DeploymentSpec struct {
 	// This is the up bound for autoscaler to scale to
 	// +optional
 	MaxReplicas int `json:"maxReplicas,omitempty"`
-	// Activate request logging
+	// Activate request/response logging
 	// +optional
-	RequestLogging *RequestLogging `json:"requestLogging,omitempty"`
+	InferenceLogger *InferenceLogger `json:"inferenceLogger,omitempty"`
 }
 
-type RequestLogging struct {
+type InferenceLoggerType string
+
+const (
+	InferenceLogBoth     InferenceLoggerType = "both"
+	InferenceLogRequest  InferenceLoggerType = "request"
+	InferenceLogresponse InferenceLoggerType = "response"
+)
+
+type InferenceLogger struct {
 	// URL to send request logging CloudEvents
 	// +optional
 	Url string `json:"url,omitempty"`
+	// What payloads to log
+	// +optional
+	LogType InferenceLoggerType `json:"logType,omitempty"`
 	// What percentage of requests to log, value between 0->1
 	// +optional
 	Sample *float32 `json:"sample,omitempty"`

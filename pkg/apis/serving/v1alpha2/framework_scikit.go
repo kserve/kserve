@@ -32,13 +32,14 @@ func (s *SKLearnSpec) GetStorageUri() string {
 	return s.StorageURI
 }
 
-func (s *SKLearnSpec) GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container {
+func (s *SKLearnSpec) GetContainer(modelName string, config *InferenceServicesConfig, hasInferenceLogging bool) *v1.Container {
 	return &v1.Container{
 		Image:     config.Predictors.SKlearn.ContainerImage + ":" + s.RuntimeVersion,
 		Resources: s.Resources,
 		Args: []string{
 			"--model_name=" + modelName,
 			"--model_dir=" + constants.DefaultModelLocalMountPath,
+			"--http_port=" + constants.GetInferenceServiceHttpPort(hasInferenceLogging),
 		},
 	}
 }

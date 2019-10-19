@@ -50,6 +50,7 @@ var (
 var (
 	InferenceServiceInternalAnnotationsPrefix        = "internal." + KFServingAPIGroupName
 	StorageInitializerSourceUriInternalAnnotationKey = InferenceServiceInternalAnnotationsPrefix + "/storage-initializer-sourceuri"
+	InferenceLoggerSinkUrlInternalAnnotationKey      = InferenceServiceInternalAnnotationsPrefix + "/inference-inference-logger-sink-url"
 )
 
 // Controller Constants
@@ -100,6 +101,12 @@ const (
 const (
 	Predict InferenceServiceVerb = "predict"
 	Explain InferenceServiceVerb = "explain"
+)
+
+// InferenceService Endpoint Ports
+const (
+	InferenceServiceDefaultHttpPort     = "8080"
+	InferenceServiceHttpPortWithLogging = "8081"
 )
 
 // InferenceService default/canary constants
@@ -197,4 +204,12 @@ func PredictorURL(metadata v1.ObjectMeta, isCanary bool) string {
 	}
 	serviceHostname := network.GetServiceHostname(serviceName, metadata.Namespace)
 	return fmt.Sprintf("http://%s", serviceHostname)
+}
+
+func GetInferenceServiceHttpPort(hasLogging bool) string {
+	if hasLogging {
+		return InferenceServiceHttpPortWithLogging
+	} else {
+		return InferenceServiceDefaultHttpPort
+	}
 }

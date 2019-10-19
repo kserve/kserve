@@ -126,6 +126,15 @@ func (c *ServiceBuilder) CreatePredictorService(name string, metadata metav1.Obj
 		annotations[constants.StorageInitializerSourceUriInternalAnnotationKey] = sourceURI
 	}
 
+	// Knative does not support multiple containers so we add an annotation that triggers pod
+	// mutator to add it
+	hasInferenceLogging := false
+	if predictorSpec.InferenceLogger != nil {
+		hasInferenceLogging = true
+		//FIXME get default if not specified
+		annotations[constants.InferenceLoggerSinkUrlInternalAnnotationKey] = predictorSpec.InferenceLogger.Url
+	}
+
 	service := &knservingv1alpha1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -149,7 +158,7 @@ func (c *ServiceBuilder) CreatePredictorService(name string, metadata metav1.Obj
 							PodSpec: v1.PodSpec{
 								ServiceAccountName: predictorSpec.ServiceAccountName,
 								Containers: []v1.Container{
-									*predictorSpec.GetContainer(metadata.Name, c.endpointsConfig),
+									*predictorSpec.GetContainer(metadata.Name, c.endpointsConfig, hasInferenceLogging),
 								},
 							},
 						},
@@ -190,6 +199,13 @@ func (c *ServiceBuilder) CreateTransformerService(name string, metadata metav1.O
 	// User can pass down scaling class annotation to overwrite the default scaling KPA
 	if _, ok := annotations[autoscaling.ClassAnnotationKey]; !ok {
 		annotations[autoscaling.ClassAnnotationKey] = autoscaling.KPA
+	}
+
+	// Knative does not support multiple containers so we add an annotation that triggers pod
+	// mutator to add it
+	if transformerSpec.InferenceLogger != nil {
+		//FIXME get default if not specified
+		annotations[constants.InferenceLoggerSinkUrlInternalAnnotationKey] = transformerSpec.InferenceLogger.Url
 	}
 
 	predictorHostName := fmt.Sprintf("%s.%s", constants.DefaultPredictorServiceName(metadata.Name), metadata.Namespace)
@@ -275,6 +291,13 @@ func (c *ServiceBuilder) CreateExplainerService(name string, metadata metav1.Obj
 	// ModelInitializer injector to mutate the underlying deployment to provision model data
 	if sourceURI := explainerSpec.GetStorageUri(); sourceURI != "" {
 		annotations[constants.StorageInitializerSourceUriInternalAnnotationKey] = sourceURI
+	}
+
+	// Knative does not support multiple containers so we add an annotation that triggers pod
+	// mutator to add it
+	if explainerSpec.InferenceLogger != nil {
+		//FIXME get default if not specified
+		annotations[constants.InferenceLoggerSinkUrlInternalAnnotationKey] = explainerSpec.InferenceLogger.Url
 	}
 
 	service := &knservingv1alpha1.Service{

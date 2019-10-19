@@ -55,12 +55,8 @@ func (eh *loggerHandler) post(url *url.URL, body []byte, contentType string) ([]
 	return b, nil
 }
 
-func (eh *loggerHandler) callService(r *http.Request) ([]byte, error) {
-	b, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		return nil, err
-	}
-	b, err = eh.post(&url.URL{
+func (eh *loggerHandler) callService(b []byte, r *http.Request) ([]byte, error) {
+	b, err := eh.post(&url.URL{
 		Scheme: "http",
 		Host:   "0.0.0.0:" + eh.svcPort,
 		Path:   r.URL.Path,
@@ -79,24 +75,22 @@ func (eh *loggerHandler) logPayload(b []byte, contentType string) error {
 	return nil
 }
 
-func (eh *loggerHandler) logRequest(r *http.Request) error {
-	b, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		return err
-	}
-	return eh.logPayload(b, r.Header.Get("Content-Type"))
-}
-
 // call svc and add send request/responses to logUrl
 func (eh *loggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// Read Payload
+	b, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		eh.log.Error(err, "Failed to read request payload")
+	}
+
 	// log Request
-	err := eh.logRequest(r)
+	err = eh.logPayload(b, r.Header.Get("Content-Type"))
 	if err != nil {
 		eh.log.Error(err, "Failed to log request")
 	}
 
 	// Predict
-	b, err := eh.callService(r)
+	b, err = eh.callService(b, r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

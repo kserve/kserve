@@ -33,7 +33,7 @@ func (t *TensorRTSpec) GetStorageUri() string {
 	return t.StorageURI
 }
 
-func (t *TensorRTSpec) GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container {
+func (t *TensorRTSpec) GetContainer(modelName string, config *InferenceServicesConfig, hasInferenceLogging bool) *v1.Container {
 	// based on example at: https://github.com/NVIDIA/tensorrt-laboratory/blob/master/examples/Deployment/Kubernetes/basic-trtis-deployment/deploy.yml
 	return &v1.Container{
 		Image:     config.Predictors.TensorRT.ContainerImage + ":" + t.RuntimeVersion,
@@ -45,7 +45,7 @@ func (t *TensorRTSpec) GetContainer(modelName string, config *InferenceServicesC
 			"--allow-grpc=true",
 			"--allow-http=true",
 			"--grpc-port=" + fmt.Sprint(TensorRTISGRPCPort),
-			"--http-port=" + fmt.Sprint(TensorRTISRestPort),
+			"--http-port=" + constants.GetInferenceServiceHttpPort(hasInferenceLogging),
 		},
 		Ports: []v1.ContainerPort{
 			{

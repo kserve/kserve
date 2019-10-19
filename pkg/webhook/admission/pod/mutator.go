@@ -76,7 +76,7 @@ func (mutator *Mutator) mutate(pod *v1.Pod, configMap *v1.ConfigMap) error {
 	if initializerConfig, ok := configMap.Data[StorageInitializerConfigMapKeyName]; ok {
 		err := json.Unmarshal([]byte(initializerConfig), &storageInitializerConfig)
 		if err != nil {
-			panic(fmt.Errorf("Unable to unmarshall json string due to %v ", err))
+			panic(fmt.Errorf("Unable to unmarshall storage initializer json string due to %v ", err))
 		}
 	}
 	storageInitializer := &StorageInitializerInjector{
@@ -84,9 +84,22 @@ func (mutator *Mutator) mutate(pod *v1.Pod, configMap *v1.ConfigMap) error {
 		config:            &storageInitializerConfig,
 	}
 
+	var inferenceLoggerConfig InferenceLoggerConfig
+	if loggerConfig, ok := configMap.Data[InferenceLoggerConfigMapKeyName]; ok {
+		err := json.Unmarshal([]byte(loggerConfig), &inferenceLoggerConfig)
+		if err != nil {
+			panic(fmt.Errorf("Unable to unmarshall inference inference-logger json string due to %v ", err))
+		}
+	}
+
+	inferenceLoggerInjector := &InferenceLoggerInjector{
+		config: &inferenceLoggerConfig,
+	}
+
 	mutators := []func(pod *v1.Pod) error{
 		InjectGKEAcceleratorSelector,
 		storageInitializer.InjectStorageInitializer,
+		inferenceLoggerInjector.InjectInferenceLogger,
 	}
 
 	for _, mutator := range mutators {

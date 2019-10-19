@@ -125,10 +125,17 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Format:      "int32",
 							},
 						},
+						"inferenceLogger": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Activate request/response logging",
+								Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.InferenceLogger"),
+							},
+						},
 					},
 				},
 			},
-			Dependencies: []string{},
+			Dependencies: []string{
+				"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.InferenceLogger"},
 		},
 		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.EndpointSpec": {
 			Schema: spec.Schema{
@@ -197,11 +204,47 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Format:      "int32",
 							},
 						},
+						"inferenceLogger": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Activate request/response logging",
+								Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.InferenceLogger"),
+							},
+						},
 					},
 				},
 			},
 			Dependencies: []string{
-				"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.AlibiExplainerSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.CustomSpec"},
+				"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.AlibiExplainerSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.CustomSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.InferenceLogger"},
+		},
+		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.InferenceLogger": {
+			Schema: spec.Schema{
+				SchemaProps: spec.SchemaProps{
+					Properties: map[string]spec.Schema{
+						"url": {
+							SchemaProps: spec.SchemaProps{
+								Description: "URL to send request logging CloudEvents",
+								Type:        []string{"string"},
+								Format:      "",
+							},
+						},
+						"logType": {
+							SchemaProps: spec.SchemaProps{
+								Description: "What payloads to log",
+								Type:        []string{"string"},
+								Format:      "",
+							},
+						},
+						"sample": {
+							SchemaProps: spec.SchemaProps{
+								Description: "What percentage of requests to log, value between 0->1",
+								Type:        []string{"number"},
+								Format:      "float",
+							},
+						},
+					},
+				},
+			},
+			Dependencies: []string{},
 		},
 		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.InferenceService": {
 			Schema: spec.Schema{
@@ -501,11 +544,17 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Format:      "int32",
 							},
 						},
+						"inferenceLogger": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Activate request/response logging",
+								Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.InferenceLogger"),
+							},
+						},
 					},
 				},
 			},
 			Dependencies: []string{
-				"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.CustomSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.ONNXSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.PyTorchSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.SKLearnSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.TensorRTSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.TensorflowSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.XGBoostSpec"},
+				"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.CustomSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.InferenceLogger", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.ONNXSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.PyTorchSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.SKLearnSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.TensorRTSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.TensorflowSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.XGBoostSpec"},
 		},
 		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.PyTorchSpec": {
 			Schema: spec.Schema{
@@ -704,11 +753,17 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Format:      "int32",
 							},
 						},
+						"inferenceLogger": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Activate request/response logging",
+								Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.InferenceLogger"),
+							},
+						},
 					},
 				},
 			},
 			Dependencies: []string{
-				"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.CustomSpec"},
+				"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.CustomSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.InferenceLogger"},
 		},
 		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.XGBoostSpec": {
 			Schema: spec.Schema{

@@ -32,7 +32,7 @@ func (c *CustomSpec) GetStorageUri() string {
 	return ""
 }
 
-func (c *CustomSpec) GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container {
+func (c *CustomSpec) GetContainer(modelName string, config *InferenceServicesConfig, hasInferenceLogging bool) *v1.Container {
 	return &c.Container
 }
 

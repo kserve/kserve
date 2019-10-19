@@ -1,17 +1,17 @@
 ---
 ### Specify as necessary ###
-name: logger-latest
-description: logger-latest
+name: inference-inference-logger-tagged
+description: inference-inference-logger-tagged
 substitutions:
-  _COMPONENT: "logger"
-  _DOCKERFILE: "./logger.Dockerfile"
+  _COMPONENT: "inference-inference-logger"
+  _DOCKERFILE: "./inference-inference-logger.Dockerfile"
   _CONTEXT: "."
 ###########################
 github:
   owner: kubeflow
   name: kfserving
   push:
-    branch: master
+    tag: v*.*.*
 ###########################
 build:
   steps:
@@ -19,9 +19,9 @@ build:
     args:
     - "build"
     - "-t"
-    - "gcr.io/$REPO_NAME/${_COMPONENT}:latest"
+    - "gcr.io/$REPO_NAME/${_COMPONENT}:$TAG_NAME"
     - "-f"
     - "${_DOCKERFILE}"
     - "${_CONTEXT}"
   images:
-  - gcr.io/$REPO_NAME/${_COMPONENT}:latest
+  - gcr.io/$REPO_NAME/${_COMPONENT}:$TAG_NAME

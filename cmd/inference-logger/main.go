@@ -17,7 +17,7 @@ import (
 )
 
 var (
-	logUrl  = flag.String("logUrl", "", "The URL to send request/response logs to")
+	logUrl  = flag.String("log_url", "", "The URL to send request/response logs to")
 	port    = flag.Int("port", 8080, "Executor port")
 	svcPort = flag.String("svc_port", "8081", "The local port of the service")
 )

@@ -36,14 +36,14 @@ func (t *TensorflowSpec) GetStorageUri() string {
 	return t.StorageURI
 }
 
-func (t *TensorflowSpec) GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container {
+func (t *TensorflowSpec) GetContainer(modelName string, config *InferenceServicesConfig, hasInferenceLogging bool) *v1.Container {
 	return &v1.Container{
 		Image:     config.Predictors.Tensorflow.ContainerImage + ":" + t.RuntimeVersion,
 		Command:   []string{TensorflowEntrypointCommand},
 		Resources: t.Resources,
 		Args: []string{
 			"--port=" + TensorflowServingGRPCPort,
-			"--rest_api_port=" + TensorflowServingRestPort,
+			"--rest_api_port=" + constants.GetInferenceServiceHttpPort(hasInferenceLogging),
 			"--model_name=" + modelName,
 			"--model_base_path=" + constants.DefaultModelLocalMountPath,
 		},

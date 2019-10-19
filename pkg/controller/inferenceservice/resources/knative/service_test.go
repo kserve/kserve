@@ -266,6 +266,7 @@ func TestInferenceServiceToKnativeService(t *testing.T) {
 												Args: []string{
 													"--model_name=sklearn",
 													"--model_dir=" + constants.DefaultModelLocalMountPath,
+													"--http_port=8080",
 												},
 											},
 										},
@@ -320,6 +321,7 @@ func TestInferenceServiceToKnativeService(t *testing.T) {
 												Args: []string{
 													"--model_name=xgboost",
 													"--model_dir=" + constants.DefaultModelLocalMountPath,
+													"--http_port=8080",
 												},
 											},
 										},
@@ -374,6 +376,7 @@ func TestInferenceServiceToKnativeService(t *testing.T) {
 												Args: []string{
 													"--model_name=xgboost",
 													"--model_dir=" + constants.DefaultModelLocalMountPath,
+													"--http_port=8080",
 												},
 											},
 										},
@@ -442,6 +445,7 @@ func TestInferenceServiceToKnativeService(t *testing.T) {
 												Args: []string{
 													"--model_name=sklearn",
 													"--model_dir=" + constants.DefaultModelLocalMountPath,
+													"--http_port=8080",
 												},
 											},
 										},

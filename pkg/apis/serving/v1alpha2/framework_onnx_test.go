@@ -67,6 +67,6 @@ func TestCreateOnnxModelServingContainer(t *testing.T) {
 	}
 
 	// Test Create with config
-	container := onnxSpec.GetContainer("someName", &onnxConfig)
+	container := onnxSpec.GetContainer("someName", &onnxConfig, false)
 	g.Expect(container).To(gomega.Equal(expectedContainer))
 }

@@ -22,7 +22,6 @@ import (
 )
 
 var (
-	ONNXServingRestPort            = "8080"
 	ONNXServingGRPCPort            = "9000"
 	ONNXModelFileName              = "model.onnx"
 	InvalidONNXRuntimeVersionError = "ONNX RuntimeVersion must be one of %s"
@@ -32,13 +31,13 @@ func (s *ONNXSpec) GetStorageUri() string {
 	return s.StorageURI
 }
 
-func (s *ONNXSpec) GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container {
+func (s *ONNXSpec) GetContainer(modelName string, config *InferenceServicesConfig, hasInferenceLogging bool) *v1.Container {
 	return &v1.Container{
 		Image:     config.Predictors.ONNX.ContainerImage + ":" + s.RuntimeVersion,
 		Resources: s.Resources,
 		Args: []string{
 			"--model_path", constants.DefaultModelLocalMountPath + "/" + ONNXModelFileName,
-			"--http_port", ONNXServingRestPort,
+			"--http_port", constants.GetInferenceServiceHttpPort(hasInferenceLogging),
 			"--grpc_port", ONNXServingGRPCPort,
 		},
 	}

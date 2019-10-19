@@ -29,7 +29,7 @@ from kfserving.protocols.tensorflow_http import TensorflowRequestHandler
 from kfserving.protocols.seldon_http import SeldonRequestHandler
 
 DEFAULT_HTTP_PORT = 8080
-DEFAULT_GRPC_PORT = 8081
+DEFAULT_GRPC_PORT = 9000
 
 
 class Protocol(Enum):

@@ -29,13 +29,14 @@ func (x *XGBoostSpec) GetStorageUri() string {
 	return x.StorageURI
 }
 
-func (x *XGBoostSpec) GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container {
+func (x *XGBoostSpec) GetContainer(modelName string, config *InferenceServicesConfig, hasInferenceLogging bool) *v1.Container {
 	return &v1.Container{
 		Image:     config.Predictors.Xgboost.ContainerImage + ":" + x.RuntimeVersion,
 		Resources: x.Resources,
 		Args: []string{
 			"--model_name=" + modelName,
 			"--model_dir=" + constants.DefaultModelLocalMountPath,
+			"--http_port=" + constants.GetInferenceServiceHttpPort(hasInferenceLogging),
 		},
 	}
 }

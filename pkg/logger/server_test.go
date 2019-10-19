@@ -47,6 +47,9 @@ func TestExecutor(t *testing.T) {
 
 	// Start a local HTTP server
 	predictor := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		b, err := ioutil.ReadAll(req.Body)
+		g.Expect(err).To(gomega.BeNil())
+		g.Expect(b).To(gomega.Or(gomega.Equal(predictorRequest), gomega.Equal(predictorResponse)))
 		rw.Write(predictorResponse)
 	}))
 	// Close the server when test finishes

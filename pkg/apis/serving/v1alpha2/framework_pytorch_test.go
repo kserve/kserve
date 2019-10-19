@@ -86,10 +86,11 @@ func TestCreatePytorchModelServingContainer(t *testing.T) {
 			"--model_name=someName",
 			"--model_class_name=Net",
 			"--model_dir=/mnt/models",
+			"--http_port=8080",
 		},
 	}
 
 	// Test Create with config
-	container := spec.GetContainer("someName", &config)
+	container := spec.GetContainer("someName", &config, false)
 	g.Expect(container).To(gomega.Equal(expectedContainer))
 }
