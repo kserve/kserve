@@ -34,7 +34,7 @@ import (
 const (
 	StorageInitializerDefaultCPURequest    = "100m"
 	StorageInitializerDefaultCPULimit      = "1"
-	StorageInitializerDefaultMemoryRequest = "1000Mi"
+	StorageInitializerDefaultMemoryRequest = "200Mi"
 	StorageInitializerDefaultMemoryLimit   = "1Gi"
 )
 
