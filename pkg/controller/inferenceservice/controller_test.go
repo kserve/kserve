@@ -262,13 +262,13 @@ func TestInferenceServiceWithOnlyPredictor(t *testing.T) {
 		URL:           testUrl(serviceName),
 		Traffic:       100,
 		CanaryTraffic: 0,
-		Default: &kfserving.EndpointStatusMap{
+		Default: &kfserving.ComponentStatusMap{
 			constants.Predictor: &kfserving.StatusConfigurationSpec{
 				Name:     "revision-v1",
 				Hostname: "revision-v1.myns.myingress.com",
 			},
 		},
-		Canary: &kfserving.EndpointStatusMap{},
+		Canary: &kfserving.ComponentStatusMap{},
 	}
 	g.Eventually(func() *kfserving.InferenceServiceStatus {
 		isvc := &kfserving.InferenceService{}
@@ -318,7 +318,7 @@ func TestInferenceServiceWithDefaultAndCanaryPredictor(t *testing.T) {
 		},
 		Status: kfserving.InferenceServiceStatus{
 			URL: canaryServiceKey.Name + ".svc.cluster.local",
-			Default: &kfserving.EndpointStatusMap{
+			Default: &kfserving.ComponentStatusMap{
 				constants.Predictor: &kfserving.StatusConfigurationSpec{
 					Name: "revision-v1",
 				},
@@ -523,13 +523,13 @@ func TestInferenceServiceWithDefaultAndCanaryPredictor(t *testing.T) {
 		URL:           testUrl("bar"),
 		Traffic:       80,
 		CanaryTraffic: 20,
-		Default: &kfserving.EndpointStatusMap{
+		Default: &kfserving.ComponentStatusMap{
 			constants.Predictor: &kfserving.StatusConfigurationSpec{
 				Name:     "revision-v1",
 				Hostname: "revision-v1.myns.myingress.com",
 			},
 		},
-		Canary: &kfserving.EndpointStatusMap{
+		Canary: &kfserving.ComponentStatusMap{
 			constants.Predictor: &kfserving.StatusConfigurationSpec{
 				Name:     "revision-v2",
 				Hostname: "revision-v2.myns.myingress.com",
@@ -591,7 +591,7 @@ func TestCanaryDelete(t *testing.T) {
 		},
 		Status: kfserving.InferenceServiceStatus{
 			URL: canaryServiceKey.Name + ".svc.cluster.local",
-			Default: &kfserving.EndpointStatusMap{
+			Default: &kfserving.ComponentStatusMap{
 				constants.Predictor: &kfserving.StatusConfigurationSpec{
 					Name: "revision-v1",
 				},
@@ -701,13 +701,13 @@ func TestCanaryDelete(t *testing.T) {
 		URL:           serviceURL,
 		Traffic:       80,
 		CanaryTraffic: 20,
-		Default: &kfserving.EndpointStatusMap{
+		Default: &kfserving.ComponentStatusMap{
 			constants.Predictor: &kfserving.StatusConfigurationSpec{
 				Name:     "revision-v1",
 				Hostname: "revision-v1.myns.myingress.com",
 			},
 		},
-		Canary: &kfserving.EndpointStatusMap{
+		Canary: &kfserving.ComponentStatusMap{
 			constants.Predictor: &kfserving.StatusConfigurationSpec{
 				Name:     "revision-v2",
 				Hostname: "revision-v2.myns.myingress.com",
@@ -761,13 +761,13 @@ func TestCanaryDelete(t *testing.T) {
 		},
 		URL:     serviceURL,
 		Traffic: 100,
-		Default: &kfserving.EndpointStatusMap{
+		Default: &kfserving.ComponentStatusMap{
 			constants.Predictor: &kfserving.StatusConfigurationSpec{
 				Name:     "revision-v1",
 				Hostname: "revision-v1.myns.myingress.com",
 			},
 		},
-		Canary: &kfserving.EndpointStatusMap{},
+		Canary: &kfserving.ComponentStatusMap{},
 	}
 	g.Eventually(func() *kfserving.InferenceServiceStatus {
 		isvc := &kfserving.InferenceService{}
@@ -858,7 +858,7 @@ func TestInferenceServiceWithTransformer(t *testing.T) {
 		},
 		Status: kfserving.InferenceServiceStatus{
 			URL: serviceName + ".svc.cluster.local",
-			Default: &kfserving.EndpointStatusMap{
+			Default: &kfserving.ComponentStatusMap{
 				constants.Predictor: &kfserving.StatusConfigurationSpec{
 					Name: "revision-v1",
 				},
@@ -1051,7 +1051,7 @@ func TestInferenceServiceWithTransformer(t *testing.T) {
 		Traffic:       80,
 		CanaryTraffic: 20,
 		URL:           testUrl(serviceName),
-		Default: &kfserving.EndpointStatusMap{
+		Default: &kfserving.ComponentStatusMap{
 			constants.Predictor: &kfserving.StatusConfigurationSpec{
 				Name:     "revision-v1",
 				Hostname: "revision-v1.myns.myingress.com",
@@ -1061,7 +1061,7 @@ func TestInferenceServiceWithTransformer(t *testing.T) {
 				Hostname: "t-revision-v1.myns.myingress.com",
 			},
 		},
-		Canary: &kfserving.EndpointStatusMap{
+		Canary: &kfserving.ComponentStatusMap{
 			constants.Predictor: &kfserving.StatusConfigurationSpec{
 				Name:     "revision-v2",
 				Hostname: "revision-v2.myns.myingress.com",

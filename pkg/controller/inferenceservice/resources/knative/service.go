@@ -40,29 +40,29 @@ var serviceAnnotationDisallowedList = []string{
 }
 
 type ServiceBuilder struct {
-	endpointsConfig   *v1alpha2.InferenceServicesConfig
-	credentialBuilder *credentials.CredentialBuilder
+	inferenceServiceConfig *v1alpha2.InferenceServicesConfig
+	credentialBuilder      *credentials.CredentialBuilder
 }
 
 func NewServiceBuilder(client client.Client, config *v1.ConfigMap) *ServiceBuilder {
-	endpointsConfig, err := v1alpha2.NewInferenceServicesConfig(config)
+	inferenceServiceConfig, err := v1alpha2.NewInferenceServicesConfig(config)
 	if err != nil {
-		fmt.Printf("Failed to get endpoints config %s", err)
-		panic("Failed to get endpoints config")
+		fmt.Printf("Failed to get inference service config %s", err)
+		panic("Failed to get inference service config")
 
 	}
 	return &ServiceBuilder{
-		endpointsConfig:   endpointsConfig,
-		credentialBuilder: credentials.NewCredentialBulder(client, config),
+		inferenceServiceConfig: inferenceServiceConfig,
+		credentialBuilder:      credentials.NewCredentialBulder(client, config),
 	}
 }
 
-func (c *ServiceBuilder) CreateEndpointService(isvc *v1alpha2.InferenceService, endpoint constants.InferenceServiceEndpoint, isCanary bool) (*knservingv1alpha1.Service, error) {
-	serviceName := constants.DefaultServiceName(isvc.Name, endpoint)
+func (c *ServiceBuilder) CreateInferenceServiceComponent(isvc *v1alpha2.InferenceService, component constants.InferenceServiceComponent, isCanary bool) (*knservingv1alpha1.Service, error) {
+	serviceName := constants.DefaultServiceName(isvc.Name, component)
 	if isCanary {
-		serviceName = constants.CanaryServiceName(isvc.Name, endpoint)
+		serviceName = constants.CanaryServiceName(isvc.Name, component)
 	}
-	switch endpoint {
+	switch component {
 	case constants.Predictor:
 		predictorSpec := &isvc.Spec.Default.Predictor
 		if isCanary {
@@ -96,7 +96,7 @@ func (c *ServiceBuilder) CreateEndpointService(isvc *v1alpha2.InferenceService, 
 		}
 		return c.CreateExplainerService(serviceName, isvc.ObjectMeta, explainerSpec, predictorService, isCanary)
 	}
-	return nil, fmt.Errorf("Invalid endpoint")
+	return nil, fmt.Errorf("Invalid Component")
 }
 
 func (c *ServiceBuilder) CreatePredictorService(name string, metadata metav1.ObjectMeta, predictorSpec *v1alpha2.PredictorSpec) (*knservingv1alpha1.Service, error) {
@@ -149,7 +149,7 @@ func (c *ServiceBuilder) CreatePredictorService(name string, metadata metav1.Obj
 							PodSpec: v1.PodSpec{
 								ServiceAccountName: predictorSpec.ServiceAccountName,
 								Containers: []v1.Container{
-									*predictorSpec.GetContainer(metadata.Name, c.endpointsConfig),
+									*predictorSpec.GetContainer(metadata.Name, c.inferenceServiceConfig),
 								},
 							},
 						},
@@ -300,7 +300,7 @@ func (c *ServiceBuilder) CreateExplainerService(name string, metadata metav1.Obj
 							PodSpec: v1.PodSpec{
 								ServiceAccountName: explainerSpec.ServiceAccountName,
 								Containers: []v1.Container{
-									*explainerSpec.CreateExplainerContainer(metadata.Name, predictorService, c.endpointsConfig),
+									*explainerSpec.CreateExplainerContainer(metadata.Name, predictorService, c.inferenceServiceConfig),
 								},
 							},
 						},
