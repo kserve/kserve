@@ -132,7 +132,9 @@ func (c *ServiceBuilder) CreatePredictorService(name string, metadata metav1.Obj
 	if predictorSpec.InferenceLogger != nil {
 		hasInferenceLogging = true
 		annotations[constants.InferenceLoggerSinkUrlInternalAnnotationKey] = predictorSpec.InferenceLogger.Url
-		annotations[constants.InferenceLoggerLoggingTypeInternalAnnotationKey] = string(predictorSpec.InferenceLogger.LogType)
+		if predictorSpec.InferenceLogger.LogType != nil {
+			annotations[constants.InferenceLoggerLoggingTypeInternalAnnotationKey] = string(*predictorSpec.InferenceLogger.LogType)
+		}
 		if predictorSpec.InferenceLogger.Sample != nil {
 			annotations[constants.InferenceLoggerSampleInternalAnnotationKey] = fmt.Sprintf("%f", *predictorSpec.InferenceLogger.Sample)
 		}
@@ -210,7 +212,9 @@ func (c *ServiceBuilder) CreateTransformerService(name string, metadata metav1.O
 	if transformerSpec.InferenceLogger != nil {
 		hasInferenceLogging = true
 		annotations[constants.InferenceLoggerSinkUrlInternalAnnotationKey] = transformerSpec.InferenceLogger.Url
-		annotations[constants.InferenceLoggerLoggingTypeInternalAnnotationKey] = string(transformerSpec.InferenceLogger.LogType)
+		if transformerSpec.InferenceLogger.LogType != nil {
+			annotations[constants.InferenceLoggerLoggingTypeInternalAnnotationKey] = string(*transformerSpec.InferenceLogger.LogType)
+		}
 		if transformerSpec.InferenceLogger.Sample != nil {
 			annotations[constants.InferenceLoggerSampleInternalAnnotationKey] = fmt.Sprintf("%f", *transformerSpec.InferenceLogger.Sample)
 		}
@@ -309,7 +313,9 @@ func (c *ServiceBuilder) CreateExplainerService(name string, metadata metav1.Obj
 	if explainerSpec.InferenceLogger != nil {
 		hasInferenceLogging = true
 		annotations[constants.InferenceLoggerSinkUrlInternalAnnotationKey] = explainerSpec.InferenceLogger.Url
-		annotations[constants.InferenceLoggerLoggingTypeInternalAnnotationKey] = string(explainerSpec.InferenceLogger.LogType)
+		if explainerSpec.InferenceLogger.LogType != nil {
+			annotations[constants.InferenceLoggerLoggingTypeInternalAnnotationKey] = string(*explainerSpec.InferenceLogger.LogType)
+		}
 		if explainerSpec.InferenceLogger.Sample != nil {
 			annotations[constants.InferenceLoggerSampleInternalAnnotationKey] = fmt.Sprintf("%f", *explainerSpec.InferenceLogger.Sample)
 		}

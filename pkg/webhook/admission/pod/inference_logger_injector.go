@@ -1,6 +1,7 @@
 package pod
 
 import (
+	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	v1 "k8s.io/api/core/v1"
 	"strings"
@@ -30,7 +31,7 @@ func (il *InferenceLoggerInjector) InjectInferenceLogger(pod *v1.Pod) error {
 
 	logType, ok := pod.ObjectMeta.Annotations[constants.InferenceLoggerLoggingTypeInternalAnnotationKey]
 	if !ok {
-		return nil
+		logType = string(v1alpha2.InferenceLogBoth)
 	}
 
 	sample, ok := pod.ObjectMeta.Annotations[constants.InferenceLoggerSampleInternalAnnotationKey]

@@ -79,7 +79,7 @@ type InferenceLogger struct {
 	Url string `json:"url,omitempty"`
 	// What payloads to log
 	// +optional
-	LogType InferenceLoggerType `json:"logType,omitempty"`
+	LogType *InferenceLoggerType `json:"logType,omitempty"`
 	// What percentage of requests to log, value between 0->1
 	// +optional
 	Sample *float32 `json:"sample,omitempty"`
