@@ -118,7 +118,9 @@ func (c *ServiceBuilder) CreatePredictorService(name string, metadata metav1.Obj
 		annotations[autoscaling.MaxScaleAnnotationKey] = fmt.Sprint(predictorSpec.MaxReplicas)
 	}
 
-	annotations[serving.QueueSideCarResourcePercentageAnnotation] = c.endpointsConfig.Common.QueueSideCarResourcePercentage
+	if _, ok := annotations[serving.QueueSideCarResourcePercentageAnnotation]; !ok {
+		annotations[serving.QueueSideCarResourcePercentageAnnotation] = DefaultQueueSideCarResourcePercentage
+	}
 	// User can pass down scaling target annotation to overwrite the target default 1
 	if _, ok := annotations[autoscaling.TargetAnnotationKey]; !ok {
 		annotations[autoscaling.TargetAnnotationKey] = constants.DefaultScalingTarget
