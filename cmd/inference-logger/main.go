@@ -17,10 +17,11 @@ import (
 )
 
 var (
-	logUrl  = flag.String("log_url", "", "The URL to send request/response logs to")
-	port    = flag.Int("port", 8080, "Executor port")
-	svcPort = flag.String("svc_port", "8081", "The local port of the service")
-	workers = flag.Int("workers", 5, "Number of workers")
+	logUrl    = flag.String("log_url", "", "The URL to send request/response logs to")
+	port      = flag.String("port", "8080", "Executor port")
+	svcPort   = flag.String("svc_port", "8081", "The local port of the service")
+	workers   = flag.Int("workers", 5, "Number of workers")
+	sourceUri = flag.String("source_uri", "", "The source URI to use when publishing cloudevents")
 )
 
 func main() {
@@ -36,23 +37,32 @@ func main() {
 
 	logUrlParsed, err := url.Parse(*logUrl)
 	if err != nil {
-		log.Info("Malformed logUrl", "URL", *logUrl)
+		log.Info("Malformed log_url", "URL", *logUrl)
+		os.Exit(-1)
+	}
+
+	if *sourceUri == "" {
+		*sourceUri = "http://localhost:" + *port + "/"
+	}
+	sourceUriParsed, err := url.Parse(*sourceUri)
+	if err != nil {
+		log.Info("Malformed source_uri", "URL", *sourceUri)
 		os.Exit(-1)
 	}
 
 	stopCh := signals.SetupSignalHandler()
 
-	var eh http.Handler = inferencelogger.New(log, *svcPort, logUrlParsed)
+	var eh http.Handler = inferencelogger.New(log, *svcPort, logUrlParsed, sourceUriParsed)
 
 	h1s := &http.Server{
-		Addr:    fmt.Sprintf(":%d", *port),
+		Addr:    ":" + *port,
 		Handler: h2c.NewHandler(eh, &http2.Server{}),
 	}
 
 	fmt.Println("Starting the dispatcher")
 	inferencelogger.StartDispatcher(*workers, log)
 
-	log.Info("Starting", "port", port)
+	log.Info("Starting", "port", *port)
 
 	errCh := make(chan error, 1)
 	go func(name string, s *http.Server) {

@@ -46,6 +46,8 @@ func (il *InferenceLoggerInjector) InjectInferenceLogger(pod *v1.Pod) error {
 		Args: []string{
 			"--log_url",
 			logUrl,
+			"--source_uri",
+			pod.Name,
 		},
 	}
 

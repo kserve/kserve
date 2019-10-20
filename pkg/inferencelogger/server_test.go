@@ -62,10 +62,13 @@ func TestExecutor(t *testing.T) {
 	logf.SetLogger(logf.ZapLogger(false))
 	log := logf.Log.WithName("entrypoint")
 
-	predictorSvcUrl, _ := url.Parse(predictor.URL)
-	logSvcUrl, _ := url.Parse(logSvc.URL)
-
-	oh := New(log, predictorSvcUrl.Port(), logSvcUrl)
+	predictorSvcUrl, err := url.Parse(predictor.URL)
+	g.Expect(err).To(gomega.BeNil())
+	logSvcUrl, err := url.Parse(logSvc.URL)
+	g.Expect(err).To(gomega.BeNil())
+	sourceUri, err := url.Parse("http://localhost:8080/")
+	g.Expect(err).To(gomega.BeNil())
+	oh := New(log, predictorSvcUrl.Port(), logSvcUrl, sourceUri)
 
 	oh.ServeHTTP(w, r)
 

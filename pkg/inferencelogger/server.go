@@ -19,6 +19,7 @@ package inferencelogger
 import (
 	"bytes"
 	"github.com/go-logr/logr"
+	guuid "github.com/google/uuid"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -28,14 +29,15 @@ type loggerHandler struct {
 	log       logr.Logger
 	svcPort   string
 	logUrl    *url.URL
-	transport http.RoundTripper
+	sourceUri *url.URL
 }
 
-func New(log logr.Logger, svcPort string, logUrl *url.URL) http.Handler {
+func New(log logr.Logger, svcPort string, logUrl *url.URL, sourceUri *url.URL) http.Handler {
 	return &loggerHandler{
-		log:     log,
-		svcPort: svcPort,
-		logUrl:  logUrl,
+		log:       log,
+		svcPort:   svcPort,
+		logUrl:    logUrl,
+		sourceUri: sourceUri,
 	}
 }
 
@@ -67,6 +69,14 @@ func (eh *loggerHandler) callService(b []byte, r *http.Request) ([]byte, error) 
 	return b, nil
 }
 
+func getOrCreateID(r *http.Request) string {
+	id := r.Header.Get("Ce-Id")
+	if id == "" {
+		id = guuid.New().String()
+	}
+	return id
+}
+
 // call svc and add send request/responses to logUrl
 func (eh *loggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Read Payload
@@ -75,11 +85,17 @@ func (eh *loggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		eh.log.Error(err, "Failed to read request payload")
 	}
 
+	// Get or Create an ID
+	id := getOrCreateID(r)
+
 	// log Request
 	err = QueueLogRequest(LogRequest{
 		url:         eh.logUrl,
 		b:           &b,
 		contentType: r.Header.Get("Content-Type"),
+		reqType:     InferenceRequest,
+		id:          id,
+		sourceUri:   eh.sourceUri,
 	})
 	if err != nil {
 		eh.log.Error(err, "Failed to log request")
@@ -97,6 +113,9 @@ func (eh *loggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		url:         eh.logUrl,
 		b:           &b,
 		contentType: r.Header.Get("Content-Type"),
+		reqType:     InferenceResponse,
+		id:          id,
+		sourceUri:   eh.sourceUri,
 	})
 	if err != nil {
 		eh.log.Error(err, "Failed to log response")

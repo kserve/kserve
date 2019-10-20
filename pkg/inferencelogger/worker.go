@@ -7,8 +7,12 @@ import (
 	"github.com/cloudevents/sdk-go/pkg/cloudevents/transport"
 	"github.com/go-logr/logr"
 	"net/http"
-	"net/url"
 	"time"
+)
+
+const (
+	CEInferenceRequest  = "org.kubeflow.serving.inference.request"
+	CEInferenceResponse = "org.kubeflow.serving.inference.response"
 )
 
 // NewWorker creates, and returns a new Worker object. Its only argument
@@ -23,7 +27,7 @@ func NewWorker(id int, workerQueue chan chan LogRequest, log logr.Logger) Worker
 		WorkerQueue: workerQueue,
 		QuitChan:    make(chan bool),
 		Client: http.Client{
-			Timeout: 10 * time.Second,
+			Timeout: 60 * time.Second,
 		},
 		CeCtx: cloudevents.ContextWithEncoding(context.Background(), cloudevents.Binary),
 	}
@@ -42,10 +46,10 @@ type Worker struct {
 	CeTransport transport.Transport
 }
 
-func (W *Worker) sendCloudEvent(url *url.URL, body *[]byte, contentType string) error {
+func (W *Worker) sendCloudEvent(logReq LogRequest) error {
 
 	t, err := cloudevents.NewHTTPTransport(
-		cloudevents.WithTarget(url.String()),
+		cloudevents.WithTarget(logReq.url.String()),
 		//cloudevents.WithEncoding(cloudevents.HTTPBinaryV02),
 		cloudevents.WithContextBasedEncoding(), // toggle this or WithEncoding to see context based encoding work.
 	)
@@ -59,11 +63,16 @@ func (W *Worker) sendCloudEvent(url *url.URL, body *[]byte, contentType string) 
 		return err
 	}
 	event := cloudevents.NewEvent()
-	event.SetID("ABC-123")
-	event.SetType("org.kubeflow.serving.inference")
-	event.SetSource("http://localhost:8081/")
-	event.SetDataContentType(contentType)
-	err = event.SetData(body)
+	event.SetID(logReq.id)
+	if logReq.reqType == InferenceRequest {
+		event.SetType(CEInferenceRequest)
+	} else {
+		event.SetType(CEInferenceResponse)
+	}
+
+	event.SetSource(logReq.sourceUri.String())
+	event.SetDataContentType(logReq.contentType)
+	err = event.SetData(*logReq.b)
 	if err != nil {
 		return err
 	}
@@ -87,14 +96,11 @@ func (w *Worker) Start() {
 				// Receive a work request.
 				fmt.Printf("worker%d: Received work request for %s\n", w.ID, work.url.String())
 
-				//err := w.sendLog(work.url, work.b, work.contentType)
-				err := w.sendCloudEvent(work.url, work.b, work.contentType)
+				err := w.sendCloudEvent(work)
 				if err != nil {
 					w.Log.Error(err, "Failed to send log", "URL", work.url.String())
 				}
 
-				//FIXME remove!
-				time.Sleep(time.Hour)
 			case <-w.QuitChan:
 				// We have been asked to stop.
 				fmt.Printf("worker%d stopping\n", w.ID)
