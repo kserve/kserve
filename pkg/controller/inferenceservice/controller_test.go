@@ -1295,4 +1295,25 @@ func TestInferenceServiceDeleteComponent(t *testing.T) {
 	canaryPredictorServiceShouldExist := &knservingv1alpha1.Service{}
 	g.Eventually(func() error { return c.Get(context.TODO(), canaryPredictor, canaryPredictorServiceShouldExist) }, timeout).
 		Should(gomega.Succeed())
+
+	g.Eventually(func() bool {
+		isvc := &kfserving.InferenceService{}
+		err := c.Get(context.TODO(), serviceKey, isvc)
+		if err != nil {
+			return false
+		}
+		if _, ok := (*isvc.Status.Default)[constants.Transformer]; ok {
+			return false
+		}
+		if _, ok := (*isvc.Status.Canary)[constants.Transformer]; ok {
+			return false
+		}
+		if defaultTransformerReady := isvc.Status.GetCondition(kfserving.DefaultTransformerReady); defaultTransformerReady != nil {
+			return false
+		}
+		if canaryTransformerReady := isvc.Status.GetCondition(kfserving.CanaryTransformerReady); canaryTransformerReady != nil {
+			return false
+		}
+		return true
+	}, timeout).Should(gomega.BeTrue())
 }
