@@ -131,8 +131,12 @@ func (c *ServiceBuilder) CreatePredictorService(name string, metadata metav1.Obj
 	hasInferenceLogging := false
 	if predictorSpec.InferenceLogger != nil {
 		hasInferenceLogging = true
-		//FIXME get default if not specified
 		annotations[constants.InferenceLoggerSinkUrlInternalAnnotationKey] = predictorSpec.InferenceLogger.Url
+		annotations[constants.InferenceLoggerLoggingTypeInternalAnnotationKey] = string(predictorSpec.InferenceLogger.LogType)
+		if predictorSpec.InferenceLogger.Sample != nil {
+			annotations[constants.InferenceLoggerSampleInternalAnnotationKey] = fmt.Sprintf("%f", *predictorSpec.InferenceLogger.Sample)
+		}
+
 	}
 
 	service := &knservingv1alpha1.Service{

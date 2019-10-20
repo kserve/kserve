@@ -19,6 +19,7 @@ package inferencelogger
 import (
 	"bytes"
 	"fmt"
+	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	"github.com/onsi/gomega"
 	"io/ioutil"
 	"net/http"
@@ -68,7 +69,7 @@ func TestExecutor(t *testing.T) {
 	g.Expect(err).To(gomega.BeNil())
 	sourceUri, err := url.Parse("http://localhost:8080/")
 	g.Expect(err).To(gomega.BeNil())
-	oh := New(log, predictorSvcUrl.Port(), logSvcUrl, sourceUri)
+	oh := New(log, predictorSvcUrl.Port(), logSvcUrl, sourceUri, v1alpha2.InferenceLogBoth, 1.0)
 
 	oh.ServeHTTP(w, r)
 

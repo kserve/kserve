@@ -79,6 +79,9 @@ func (p *PredictorSpec) Validate(config *InferenceServicesConfig) error {
 	if err := validateReplicas(p.MinReplicas, p.MaxReplicas); err != nil {
 		return err
 	}
+	if err := validate_inference_logger(p.InferenceLogger); err != nil {
+		return err
+	}
 	return nil
 }
 

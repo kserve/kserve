@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	"net/http"
 	"net/url"
 	"os"
@@ -22,6 +23,8 @@ var (
 	svcPort   = flag.String("svc_port", "8081", "The local port of the service")
 	workers   = flag.Int("workers", 5, "Number of workers")
 	sourceUri = flag.String("source_uri", "", "The source URI to use when publishing cloudevents")
+	logType   = flag.String("log_type", "both", "Whether to log request, response or both")
+	sample    = flag.Float64("sample", 1.0, "Probability to emit a log event")
 )
 
 func main() {
@@ -40,6 +43,22 @@ func main() {
 		log.Info("Malformed log_url", "URL", *logUrl)
 		os.Exit(-1)
 	}
+	var loggingType v1alpha2.InferenceLoggerType
+	if *logType == "both" {
+		loggingType = v1alpha2.InferenceLogBoth
+	} else if *logType == "request" {
+		loggingType = v1alpha2.InferenceLogRequest
+	} else if *logType == "response" {
+		loggingType = v1alpha2.InferenceLogresponse
+	} else {
+		log.Info("Malformed log_type", "type", *logType)
+		os.Exit(-1)
+	}
+
+	if *sample < 0 || *sample > 1.0 {
+		log.Info("Malformed sample", "value", *sample)
+		os.Exit(-1)
+	}
 
 	if *sourceUri == "" {
 		*sourceUri = "http://localhost:" + *port + "/"
@@ -52,7 +71,7 @@ func main() {
 
 	stopCh := signals.SetupSignalHandler()
 
-	var eh http.Handler = inferencelogger.New(log, *svcPort, logUrlParsed, sourceUriParsed)
+	var eh http.Handler = inferencelogger.New(log, *svcPort, logUrlParsed, sourceUriParsed, loggingType, *sample)
 
 	h1s := &http.Server{
 		Addr:    ":" + *port,

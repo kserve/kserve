@@ -28,6 +28,16 @@ func (il *InferenceLoggerInjector) InjectInferenceLogger(pod *v1.Pod) error {
 		return nil
 	}
 
+	logType, ok := pod.ObjectMeta.Annotations[constants.InferenceLoggerLoggingTypeInternalAnnotationKey]
+	if !ok {
+		return nil
+	}
+
+	sample, ok := pod.ObjectMeta.Annotations[constants.InferenceLoggerSampleInternalAnnotationKey]
+	if !ok {
+		sample = "1.0"
+	}
+
 	// Dont inject if Contianer already injected
 	for _, container := range pod.Spec.Containers {
 		if strings.Compare(container.Name, InferenceLoggerContainerName) == 0 {
@@ -48,6 +58,10 @@ func (il *InferenceLoggerInjector) InjectInferenceLogger(pod *v1.Pod) error {
 			logUrl,
 			"--source_uri",
 			pod.Name,
+			"--log_type",
+			logType,
+			"--sample",
+			sample,
 		},
 	}
 

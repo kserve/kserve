@@ -1,6 +1,7 @@
 package pod
 
 import (
+	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -19,7 +20,8 @@ func TestInferenceLoggerInjector(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "deployment",
 					Annotations: map[string]string{
-						constants.InferenceLoggerSinkUrlInternalAnnotationKey: "http://httpbin.org/",
+						constants.InferenceLoggerSinkUrlInternalAnnotationKey:     "http://httpbin.org/",
+						constants.InferenceLoggerLoggingTypeInternalAnnotationKey: string(v1alpha2.InferenceLogBoth),
 					},
 				},
 				Spec: v1.PodSpec{
@@ -32,7 +34,8 @@ func TestInferenceLoggerInjector(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "deployment",
 					Annotations: map[string]string{
-						constants.InferenceLoggerSinkUrlInternalAnnotationKey: "http://httpbin.org/",
+						constants.InferenceLoggerSinkUrlInternalAnnotationKey:     "http://httpbin.org/",
+						constants.InferenceLoggerLoggingTypeInternalAnnotationKey: string(v1alpha2.InferenceLogBoth),
 					},
 				},
 				Spec: v1.PodSpec{
@@ -47,6 +50,10 @@ func TestInferenceLoggerInjector(t *testing.T) {
 								"http://httpbin.org/",
 								"--source_uri",
 								"deployment",
+								"--log_type",
+								"both",
+								"--sample",
+								"1.0",
 							}},
 					},
 				},
