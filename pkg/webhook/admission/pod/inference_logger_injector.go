@@ -24,9 +24,14 @@ type InferenceLoggerInjector struct {
 
 func (il *InferenceLoggerInjector) InjectInferenceLogger(pod *v1.Pod) error {
 	// Only inject if the required annotations are set
-	logUrl, ok := pod.ObjectMeta.Annotations[constants.InferenceLoggerSinkUrlInternalAnnotationKey]
+	_, ok := pod.ObjectMeta.Annotations[constants.InferenceLoggerInternalAnnotationKey]
 	if !ok {
 		return nil
+	}
+
+	logUrl, ok := pod.ObjectMeta.Annotations[constants.InferenceLoggerSinkUrlInternalAnnotationKey]
+	if !ok {
+		logUrl = constants.GetInferenceLoggerDefaultUrl(pod.Namespace)
 	}
 
 	logType, ok := pod.ObjectMeta.Annotations[constants.InferenceLoggerLoggingTypeInternalAnnotationKey]

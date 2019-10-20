@@ -131,7 +131,10 @@ func (c *ServiceBuilder) CreatePredictorService(name string, metadata metav1.Obj
 	hasInferenceLogging := false
 	if predictorSpec.InferenceLogger != nil {
 		hasInferenceLogging = true
-		annotations[constants.InferenceLoggerSinkUrlInternalAnnotationKey] = predictorSpec.InferenceLogger.Url
+		annotations[constants.InferenceLoggerInternalAnnotationKey] = "true"
+		if predictorSpec.InferenceLogger.Url != nil {
+			annotations[constants.InferenceLoggerSinkUrlInternalAnnotationKey] = *predictorSpec.InferenceLogger.Url
+		}
 		if predictorSpec.InferenceLogger.LogType != nil {
 			annotations[constants.InferenceLoggerLoggingTypeInternalAnnotationKey] = string(*predictorSpec.InferenceLogger.LogType)
 		}
@@ -211,7 +214,10 @@ func (c *ServiceBuilder) CreateTransformerService(name string, metadata metav1.O
 	hasInferenceLogging := false
 	if transformerSpec.InferenceLogger != nil {
 		hasInferenceLogging = true
-		annotations[constants.InferenceLoggerSinkUrlInternalAnnotationKey] = transformerSpec.InferenceLogger.Url
+		annotations[constants.InferenceLoggerInternalAnnotationKey] = "true"
+		if transformerSpec.InferenceLogger.Url != nil {
+			annotations[constants.InferenceLoggerSinkUrlInternalAnnotationKey] = *transformerSpec.InferenceLogger.Url
+		}
 		if transformerSpec.InferenceLogger.LogType != nil {
 			annotations[constants.InferenceLoggerLoggingTypeInternalAnnotationKey] = string(*transformerSpec.InferenceLogger.LogType)
 		}
@@ -312,7 +318,10 @@ func (c *ServiceBuilder) CreateExplainerService(name string, metadata metav1.Obj
 	hasInferenceLogging := false
 	if explainerSpec.InferenceLogger != nil {
 		hasInferenceLogging = true
-		annotations[constants.InferenceLoggerSinkUrlInternalAnnotationKey] = explainerSpec.InferenceLogger.Url
+		annotations[constants.InferenceLoggerInternalAnnotationKey] = "true"
+		if explainerSpec.InferenceLogger.Url != nil {
+			annotations[constants.InferenceLoggerSinkUrlInternalAnnotationKey] = *explainerSpec.InferenceLogger.Url
+		}
 		if explainerSpec.InferenceLogger.LogType != nil {
 			annotations[constants.InferenceLoggerLoggingTypeInternalAnnotationKey] = string(*explainerSpec.InferenceLogger.LogType)
 		}

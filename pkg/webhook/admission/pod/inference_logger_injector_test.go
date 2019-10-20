@@ -20,6 +20,7 @@ func TestInferenceLoggerInjector(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "deployment",
 					Annotations: map[string]string{
+						constants.InferenceLoggerInternalAnnotationKey:            "true",
 						constants.InferenceLoggerSinkUrlInternalAnnotationKey:     "http://httpbin.org/",
 						constants.InferenceLoggerLoggingTypeInternalAnnotationKey: string(v1alpha2.InferenceLogBoth),
 					},
@@ -34,6 +35,7 @@ func TestInferenceLoggerInjector(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "deployment",
 					Annotations: map[string]string{
+						constants.InferenceLoggerInternalAnnotationKey:            "true",
 						constants.InferenceLoggerSinkUrlInternalAnnotationKey:     "http://httpbin.org/",
 						constants.InferenceLoggerLoggingTypeInternalAnnotationKey: string(v1alpha2.InferenceLogBoth),
 					},

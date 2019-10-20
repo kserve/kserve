@@ -4,14 +4,10 @@ import "fmt"
 
 const (
 	InvalidInferenceLoggerSample = "Inference logger sample must be between 0 and 1"
-	EmptyInferenceLoggerUrl      = "You must provide an inference logging URL"
 )
 
 func validate_inference_logger(logger *InferenceLogger) error {
 	if logger != nil {
-		if logger.Url == "" {
-			return fmt.Errorf(EmptyInferenceLoggerUrl)
-		}
 		if logger.Sample != nil {
 			if *logger.Sample < 0.0 || *logger.Sample > 1.0 {
 				return fmt.Errorf(InvalidInferenceLoggerSample)

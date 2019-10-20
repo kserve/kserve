@@ -50,9 +50,10 @@ var (
 var (
 	InferenceServiceInternalAnnotationsPrefix        = "internal." + KFServingAPIGroupName
 	StorageInitializerSourceUriInternalAnnotationKey = InferenceServiceInternalAnnotationsPrefix + "/storage-initializer-sourceuri"
-	InferenceLoggerSinkUrlInternalAnnotationKey      = InferenceServiceInternalAnnotationsPrefix + "/inference-inference-inferencelogger-sink-url"
-	InferenceLoggerLoggingTypeInternalAnnotationKey  = InferenceServiceInternalAnnotationsPrefix + "/inference-inference-logging-type"
-	InferenceLoggerSampleInternalAnnotationKey       = InferenceServiceInternalAnnotationsPrefix + "/inference-inference-sample"
+	InferenceLoggerInternalAnnotationKey             = InferenceServiceInternalAnnotationsPrefix + "/inference-logger"
+	InferenceLoggerSinkUrlInternalAnnotationKey      = InferenceServiceInternalAnnotationsPrefix + "/inference-logger-sink-url"
+	InferenceLoggerLoggingTypeInternalAnnotationKey  = InferenceServiceInternalAnnotationsPrefix + "/inference-logger-type"
+	InferenceLoggerSampleInternalAnnotationKey       = InferenceServiceInternalAnnotationsPrefix + "/inference-logger-sample"
 )
 
 // Controller Constants
@@ -215,4 +216,8 @@ func GetInferenceServiceHttpPort(hasLogging bool) string {
 	} else {
 		return InferenceServiceDefaultHttpPort
 	}
+}
+
+func GetInferenceLoggerDefaultUrl(namespace string) string {
+	return "http://default-broker." + namespace
 }
