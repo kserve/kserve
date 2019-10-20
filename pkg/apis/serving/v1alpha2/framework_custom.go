@@ -36,7 +36,7 @@ func (c *CustomSpec) GetContainer(modelName string, config *InferenceServicesCon
 	return &c.Container
 }
 
-func (c *CustomSpec) CreateExplainerContainer(modelName string, predictUrl string, config *InferenceServicesConfig) *v1.Container {
+func (c *CustomSpec) CreateExplainerContainer(modelName string, predictUrl string, config *InferenceServicesConfig, hasInferenceLogging bool) *v1.Container {
 	return &c.Container
 }
 

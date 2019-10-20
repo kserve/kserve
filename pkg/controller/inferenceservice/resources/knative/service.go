@@ -136,7 +136,6 @@ func (c *ServiceBuilder) CreatePredictorService(name string, metadata metav1.Obj
 		if predictorSpec.InferenceLogger.Sample != nil {
 			annotations[constants.InferenceLoggerSampleInternalAnnotationKey] = fmt.Sprintf("%f", *predictorSpec.InferenceLogger.Sample)
 		}
-
 	}
 
 	service := &knservingv1alpha1.Service{
@@ -207,9 +206,14 @@ func (c *ServiceBuilder) CreateTransformerService(name string, metadata metav1.O
 
 	// Knative does not support multiple containers so we add an annotation that triggers pod
 	// mutator to add it
+	hasInferenceLogging := false
 	if transformerSpec.InferenceLogger != nil {
-		//FIXME get default if not specified
+		hasInferenceLogging = true
 		annotations[constants.InferenceLoggerSinkUrlInternalAnnotationKey] = transformerSpec.InferenceLogger.Url
+		annotations[constants.InferenceLoggerLoggingTypeInternalAnnotationKey] = string(transformerSpec.InferenceLogger.LogType)
+		if transformerSpec.InferenceLogger.Sample != nil {
+			annotations[constants.InferenceLoggerSampleInternalAnnotationKey] = fmt.Sprintf("%f", *transformerSpec.InferenceLogger.Sample)
+		}
 	}
 
 	predictorHostName := fmt.Sprintf("%s.%s", constants.DefaultPredictorServiceName(metadata.Name), metadata.Namespace)
@@ -223,6 +227,8 @@ func (c *ServiceBuilder) CreateTransformerService(name string, metadata metav1.O
 		metadata.Name,
 		constants.ArgumentPredictorHost,
 		predictorHostName,
+		constants.ArgumentHttpPort,
+		constants.GetInferenceServiceHttpPort(hasInferenceLogging),
 	}
 	container.Args = append(container.Args, predefinedArgs...)
 	service := &knservingv1alpha1.Service{
@@ -299,9 +305,14 @@ func (c *ServiceBuilder) CreateExplainerService(name string, metadata metav1.Obj
 
 	// Knative does not support multiple containers so we add an annotation that triggers pod
 	// mutator to add it
+	hasInferenceLogging := false
 	if explainerSpec.InferenceLogger != nil {
-		//FIXME get default if not specified
+		hasInferenceLogging = true
 		annotations[constants.InferenceLoggerSinkUrlInternalAnnotationKey] = explainerSpec.InferenceLogger.Url
+		annotations[constants.InferenceLoggerLoggingTypeInternalAnnotationKey] = string(explainerSpec.InferenceLogger.LogType)
+		if explainerSpec.InferenceLogger.Sample != nil {
+			annotations[constants.InferenceLoggerSampleInternalAnnotationKey] = fmt.Sprintf("%f", *explainerSpec.InferenceLogger.Sample)
+		}
 	}
 
 	service := &knservingv1alpha1.Service{
@@ -327,7 +338,7 @@ func (c *ServiceBuilder) CreateExplainerService(name string, metadata metav1.Obj
 							PodSpec: v1.PodSpec{
 								ServiceAccountName: explainerSpec.ServiceAccountName,
 								Containers: []v1.Container{
-									*explainerSpec.CreateExplainerContainer(metadata.Name, predictorService, c.endpointsConfig),
+									*explainerSpec.CreateExplainerContainer(metadata.Name, predictorService, c.endpointsConfig, hasInferenceLogging),
 								},
 							},
 						},

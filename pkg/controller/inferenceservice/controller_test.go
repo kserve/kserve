@@ -943,6 +943,8 @@ func TestInferenceServiceWithTransformer(t *testing.T) {
 											serviceName,
 											"--predictor_host",
 											constants.CanaryPredictorServiceName(instance.Name) + "." + instance.Namespace,
+											constants.ArgumentHttpPort,
+											constants.GetInferenceServiceHttpPort(false),
 										},
 									},
 								},

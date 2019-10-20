@@ -16,10 +16,11 @@ func (s *AlibiExplainerSpec) GetStorageUri() string {
 	return s.StorageURI
 }
 
-func (s *AlibiExplainerSpec) CreateExplainerContainer(modelName string, predictorHost string, config *InferenceServicesConfig) *v1.Container {
+func (s *AlibiExplainerSpec) CreateExplainerContainer(modelName string, predictorHost string, config *InferenceServicesConfig, hasInferenceLogging bool) *v1.Container {
 	var args = []string{
 		constants.ArgumentModelName, modelName,
 		constants.ArgumentPredictorHost, predictorHost,
+		constants.ArgumentHttpPort, constants.GetInferenceServiceHttpPort(hasInferenceLogging),
 	}
 
 	if s.StorageURI != "" {

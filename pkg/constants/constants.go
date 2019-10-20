@@ -121,6 +121,7 @@ const (
 const (
 	ArgumentModelName     = "--model_name"
 	ArgumentPredictorHost = "--predictor_host"
+	ArgumentHttpPort      = "--http_port"
 )
 
 func (e InferenceServiceEndpoint) String() string {

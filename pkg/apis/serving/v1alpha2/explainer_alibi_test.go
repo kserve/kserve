@@ -2,6 +2,7 @@ package v1alpha2
 
 import (
 	"fmt"
+	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	v1 "k8s.io/api/core/v1"
@@ -83,10 +84,12 @@ func TestCreateAlibiExplainerContainer(t *testing.T) {
 		Image:     "seldon.io/alibi:0.1.0",
 		Resources: requestedResource,
 		Args: []string{
-			"--model_name",
+			constants.ArgumentModelName,
 			"someName",
-			"--predictor_host",
+			constants.ArgumentPredictorHost,
 			"predictor.svc.cluster.local",
+			constants.ArgumentHttpPort,
+			constants.GetInferenceServiceHttpPort(false),
 			"--storage_uri",
 			"/mnt/models",
 			"Anchor",
@@ -94,6 +97,6 @@ func TestCreateAlibiExplainerContainer(t *testing.T) {
 	}
 
 	// Test Create with config
-	container := spec.CreateExplainerContainer("someName", "predictor.svc.cluster.local", config)
+	container := spec.CreateExplainerContainer("someName", "predictor.svc.cluster.local", config, false)
 	g.Expect(container).To(gomega.Equal(expectedContainer))
 }

@@ -22,7 +22,7 @@ import (
 
 type Explainer interface {
 	GetStorageUri() string
-	CreateExplainerContainer(modelName string, predictorHost string, config *InferenceServicesConfig) *v1.Container
+	CreateExplainerContainer(modelName string, predictorHost string, config *InferenceServicesConfig, hasInferenceLogging bool) *v1.Container
 	ApplyDefaults(config *InferenceServicesConfig)
 	Validate(config *InferenceServicesConfig) error
 }
@@ -41,12 +41,12 @@ func (e *ExplainerSpec) GetStorageUri() string {
 	return explainer.GetStorageUri()
 }
 
-func (e *ExplainerSpec) CreateExplainerContainer(modelName string, predictorHost string, config *InferenceServicesConfig) *v1.Container {
+func (e *ExplainerSpec) CreateExplainerContainer(modelName string, predictorHost string, config *InferenceServicesConfig, hasInferenceLogging bool) *v1.Container {
 	explainer, err := getExplainer(e)
 	if err != nil {
 		return nil
 	}
-	return explainer.CreateExplainerContainer(modelName, predictorHost, config)
+	return explainer.CreateExplainerContainer(modelName, predictorHost, config, hasInferenceLogging)
 }
 
 func (e *ExplainerSpec) ApplyDefaults(config *InferenceServicesConfig) {
