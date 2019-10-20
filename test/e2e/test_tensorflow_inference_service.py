@@ -36,8 +36,8 @@ def test_tensorflow_kfserving():
             tensorflow=V1alpha2TensorflowSpec(
                 storage_uri='gs://kfserving-samples/models/tensorflow/flowers',
                 resources=V1ResourceRequirements(
-                    requests={'cpu': '100m', 'memory': '256Mi'},
-                    limits={'cpu': '100m', 'memory': '256Mi'}))))
+                    requests={'cpu': '100m', 'memory': '200Mi'},
+                    limits={'cpu': '1', 'memory': '1Gi'}))))
 
     isvc = V1alpha2InferenceService(api_version=api_version,
                                     kind=constants.KFSERVING_KIND,
