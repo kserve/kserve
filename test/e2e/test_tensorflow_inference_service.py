@@ -46,4 +46,4 @@ def test_tensorflow_kfserving():
                                     spec=V1alpha2InferenceServiceSpec(default=default_endpoint_spec))
 
     KFServing.create(isvc)
-    wait_for_kfservice_ready('isvc-tensorflow-test')
+    wait_for_kfservice_ready('isvc-tensorflow-test', Timeout_seconds=1800)
