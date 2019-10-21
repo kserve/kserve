@@ -19,7 +19,9 @@ $ inferenceservice.serving.kubeflow.org/style-sample configured
 ## Run a sample inference
 1. Setup env vars
 ```
-export SERVICE_URL=$(kubectl get inferenceservice ${MODEL_NAME} -o jsonpath='{.status.url}')
+export MODEL_NAME=style-sample
+export SERVICE_HOSTNAME=$(kubectl get inferenceservice ${MODEL_NAME} -o jsonpath='{.status.url}' | cut -d "/" -f 3)
+export CLUSTER_IP=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 ```
 2. Verify the service is healthy
 ```

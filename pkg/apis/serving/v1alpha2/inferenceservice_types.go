@@ -218,7 +218,7 @@ type CustomSpec struct {
 }
 
 // EndpointStatusMap defines the observed state of InferenceService endpoints
-type EndpointStatusMap map[constants.InferenceServiceEndpoint]*StatusConfigurationSpec
+type ComponentStatusMap map[constants.InferenceServiceComponent]*StatusConfigurationSpec
 
 // InferenceServiceStatus defines the observed state of InferenceService
 type InferenceServiceStatus struct {
@@ -230,9 +230,9 @@ type InferenceServiceStatus struct {
 	// Traffic percentage that goes to canary services
 	CanaryTraffic int `json:"canaryTraffic,omitempty"`
 	// Statuses for the default endpoints of the InferenceService
-	Default *EndpointStatusMap `json:"default,omitempty"`
+	Default *ComponentStatusMap `json:"default,omitempty"`
 	// Statuses for the canary endpoints of the InferenceService
-	Canary *EndpointStatusMap `json:"canary,omitempty"`
+	Canary *ComponentStatusMap `json:"canary,omitempty"`
 }
 
 // StatusConfigurationSpec describes the state of the configuration receiving traffic.
