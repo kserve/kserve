@@ -97,9 +97,6 @@ func NewInferenceServicesConfig(configMap *v1.ConfigMap) (*InferenceServicesConf
 	if err != nil {
 		return nil, err
 	}
-	if err != nil {
-		return nil, err
-	}
 	return &InferenceServicesConfig{
 		Predictors:   predictorsConfig,
 		Transformers: transformersConfig,
