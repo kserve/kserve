@@ -44,6 +44,8 @@ func (il *InferenceLoggerInjector) InjectInferenceLogger(pod *v1.Pod) error {
 		sample = "1.0"
 	}
 
+	modelURI, _ := pod.ObjectMeta.Annotations[constants.StorageInitializerSourceUriInternalAnnotationKey]
+
 	// Dont inject if Contianer already injected
 	for _, container := range pod.Spec.Containers {
 		if strings.Compare(container.Name, InferenceLoggerContainerName) == 0 {
@@ -68,6 +70,8 @@ func (il *InferenceLoggerInjector) InjectInferenceLogger(pod *v1.Pod) error {
 			logType,
 			"--sample",
 			sample,
+			"--model_uri",
+			modelURI,
 		},
 	}
 

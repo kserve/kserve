@@ -25,6 +25,7 @@ var (
 	sourceUri = flag.String("source_uri", "", "The source URI to use when publishing cloudevents")
 	logType   = flag.String("log_type", "both", "Whether to log request, response or both")
 	sample    = flag.Float64("sample", 1.0, "Probability to emit a log event")
+	modelUri  = flag.String("model_uri", "", "The model uri to add as header to log events")
 )
 
 func main() {
@@ -69,9 +70,17 @@ func main() {
 		os.Exit(-1)
 	}
 
+	modelUriParsed, err := url.Parse(*modelUri)
+	if err != nil {
+		if *modelUri != "" {
+			log.Info("Malformed model_uri", "URL", *modelUri)
+			os.Exit(-1)
+		}
+	}
+
 	stopCh := signals.SetupSignalHandler()
 
-	var eh http.Handler = inferencelogger.New(log, *svcPort, logUrlParsed, sourceUriParsed, loggingType, *sample)
+	var eh http.Handler = inferencelogger.New(log, *svcPort, logUrlParsed, sourceUriParsed, loggingType, *sample, modelUriParsed)
 
 	h1s := &http.Server{
 		Addr:    ":" + *port,

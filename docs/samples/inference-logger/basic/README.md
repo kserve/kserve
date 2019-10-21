@@ -54,8 +54,9 @@ MODEL_NAME=sklearn-iris
 INPUT_PATH=@./iris-input.json
 CLUSTER_IP=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 SERVICE_HOSTNAME=$(kubectl get inferenceservice sklearn-iris -o jsonpath='{.status.url}' | cut -d "/" -f 3)
-curl -v -H "Host: ${SERVICE_HOSTNAME}" http://$CLUSTER_IP/v1/models/$MODEL_NAME:predict -d $INPUT_PATH
+curl -v -H "Host: ${SERVICE_HOSTNAME}" http://$CLUSTER_IP/v1/models/$MODEL_NAME:predict -d $INPUT_PATH -H "Content-Type: application/json"
 ```
+
 Expected Output
 
 ```
@@ -93,12 +94,12 @@ Expected output:
 ☁️  cloudevents.Event
 Validation: valid
 Context Attributes,
-  specversion: 0.2
-  type: org.kubeflow.serving.inference.request
+  cloudEventsVersion: 0.1
+  eventType: org.kubeflow.serving.inference.request
   source: http://localhost:8080/
-  id: 0f99bba8-dfa1-415f-b053-970890db8a60
-  time: 2019-10-20T14:36:01.54878345Z
-  contenttype: application/json
+  eventID: 462af46b-d582-4f3a-9f2a-6851d4143e3d
+  eventTime: 2019-10-21T12:12:49.82518115Z
+  contentType: application/json
 Data,
   {
     "instances": [
@@ -119,12 +120,12 @@ Data,
 ☁️  cloudevents.Event
 Validation: valid
 Context Attributes,
-  specversion: 0.2
-  type: org.kubeflow.serving.inference.response
+  cloudEventsVersion: 0.1
+  eventType: org.kubeflow.serving.inference.response
   source: http://localhost:8080/
-  id: 0f99bba8-dfa1-415f-b053-970890db8a60
-  time: 2019-10-20T14:36:01.564571486Z
-  contenttype: application/json
+  eventID: 462af46b-d582-4f3a-9f2a-6851d4143e3d
+  eventTime: 2019-10-21T12:12:49.83269988Z
+  contentType: application/json; charset=UTF-8
 Data,
   {
     "predictions": [

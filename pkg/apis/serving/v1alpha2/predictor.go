@@ -33,7 +33,8 @@ type Predictor interface {
 
 const (
 	// ExactlyOnePredictorViolatedError is a known error message
-	ExactlyOnePredictorViolatedError = "Exactly one of [Custom, ONNX, Tensorflow, TensorRT, SKLearn, XGBoost] must be specified in PredictorSpec"
+	ExactlyOnePredictorViolatedError       = "Exactly one of [Custom, ONNX, Tensorflow, TensorRT, SKLearn, XGBoost] must be specified in PredictorSpec"
+	InferenceLoggerCustomNotSupportedError = "Inference logger for custom specs is not supported"
 )
 
 var (
@@ -78,6 +79,9 @@ func (p *PredictorSpec) Validate(config *InferenceServicesConfig) error {
 	}
 	if err := validateReplicas(p.MinReplicas, p.MaxReplicas); err != nil {
 		return err
+	}
+	if p.Custom != nil && p.InferenceLogger != nil {
+		return fmt.Errorf(InferenceLoggerCustomNotSupportedError)
 	}
 	if err := validate_inference_logger(p.InferenceLogger); err != nil {
 		return err

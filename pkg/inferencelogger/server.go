@@ -34,9 +34,10 @@ type loggerHandler struct {
 	sourceUri *url.URL
 	logType   v1alpha2.InferenceLoggerType
 	sample    float64
+	modelUri  *url.URL
 }
 
-func New(log logr.Logger, svcPort string, logUrl *url.URL, sourceUri *url.URL, logType v1alpha2.InferenceLoggerType, sample float64) http.Handler {
+func New(log logr.Logger, svcPort string, logUrl *url.URL, sourceUri *url.URL, logType v1alpha2.InferenceLoggerType, sample float64, modelUri *url.URL) http.Handler {
 	return &loggerHandler{
 		log:       log,
 		svcPort:   svcPort,
@@ -44,6 +45,7 @@ func New(log logr.Logger, svcPort string, logUrl *url.URL, sourceUri *url.URL, l
 		sourceUri: sourceUri,
 		logType:   logType,
 		sample:    sample,
+		modelUri:  modelUri,
 	}
 }
 
@@ -118,6 +120,7 @@ func (eh *loggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			reqType:     InferenceRequest,
 			id:          id,
 			sourceUri:   eh.sourceUri,
+			modelUri:    eh.modelUri,
 		})
 		if err != nil {
 			eh.log.Error(err, "Failed to log request")
@@ -140,6 +143,7 @@ func (eh *loggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			reqType:     InferenceResponse,
 			id:          id,
 			sourceUri:   eh.sourceUri,
+			modelUri:    eh.modelUri,
 		})
 		if err != nil {
 			eh.log.Error(err, "Failed to log response")

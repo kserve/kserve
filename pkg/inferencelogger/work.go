@@ -18,4 +18,5 @@ type LogRequest struct {
 	reqType     InferenceLogRequestType
 	id          string
 	sourceUri   *url.URL
+	modelUri    *url.URL
 }

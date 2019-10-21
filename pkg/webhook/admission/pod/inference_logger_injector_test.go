@@ -56,6 +56,8 @@ func TestInferenceLoggerInjector(t *testing.T) {
 								"both",
 								"--sample",
 								"1.0",
+								"--model_uri",
+								"",
 							}},
 					},
 				},

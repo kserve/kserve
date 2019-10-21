@@ -69,7 +69,9 @@ func TestExecutor(t *testing.T) {
 	g.Expect(err).To(gomega.BeNil())
 	sourceUri, err := url.Parse("http://localhost:8080/")
 	g.Expect(err).To(gomega.BeNil())
-	oh := New(log, predictorSvcUrl.Port(), logSvcUrl, sourceUri, v1alpha2.InferenceLogBoth, 1.0)
+	modelUri, err := url.Parse("s3://mybucket/mymodel")
+	g.Expect(err).To(gomega.BeNil())
+	oh := New(log, predictorSvcUrl.Port(), logSvcUrl, sourceUri, v1alpha2.InferenceLogBoth, 1.0, modelUri)
 
 	oh.ServeHTTP(w, r)
 
