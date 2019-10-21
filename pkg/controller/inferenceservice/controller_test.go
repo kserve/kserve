@@ -18,6 +18,7 @@ package service
 
 import (
 	"fmt"
+	"github.com/kubeflow/kfserving/pkg/controller/inferenceservice/resources/knative"
 	"testing"
 	"time"
 
@@ -156,7 +157,7 @@ func TestInferenceServiceWithOnlyPredictor(t *testing.T) {
 							"autoscaling.knative.dev/class":                            "kpa.autoscaling.knative.dev",
 							"autoscaling.knative.dev/maxScale":                         "3",
 							"autoscaling.knative.dev/minScale":                         "1",
-							"queue.sidecar.serving.knative.dev/resourcePercentage":     "0.1",
+							"queue.sidecar.serving.knative.dev/resourcePercentage":     knative.DefaultQueueSideCarResourcePercentage,
 							constants.StorageInitializerSourceUriInternalAnnotationKey: defaultInstance.Spec.Default.Predictor.Tensorflow.StorageURI,
 						},
 					},
@@ -386,7 +387,7 @@ func TestInferenceServiceWithDefaultAndCanaryPredictor(t *testing.T) {
 							"autoscaling.knative.dev/class":                            "kpa.autoscaling.knative.dev",
 							"autoscaling.knative.dev/maxScale":                         "3",
 							"autoscaling.knative.dev/minScale":                         "1",
-							"queue.sidecar.serving.knative.dev/resourcePercentage":     "0.1",
+							"queue.sidecar.serving.knative.dev/resourcePercentage":     knative.DefaultQueueSideCarResourcePercentage,
 							constants.StorageInitializerSourceUriInternalAnnotationKey: canary.Spec.Canary.Predictor.Tensorflow.StorageURI,
 						},
 					},
@@ -931,7 +932,7 @@ func TestInferenceServiceWithTransformer(t *testing.T) {
 							"autoscaling.knative.dev/class":                        "kpa.autoscaling.knative.dev",
 							"autoscaling.knative.dev/maxScale":                     "3",
 							"autoscaling.knative.dev/minScale":                     "1",
-							"queue.sidecar.serving.knative.dev/resourcePercentage": "0.1",
+							"queue.sidecar.serving.knative.dev/resourcePercentage": knative.DefaultQueueSideCarResourcePercentage,
 						},
 					},
 					Spec: knservingv1alpha1.RevisionSpec{
