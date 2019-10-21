@@ -17,10 +17,11 @@ package pod
 
 import (
 	"context"
+	"k8s.io/apimachinery/pkg/api/resource"
+	"knative.dev/pkg/kmp"
 	"strings"
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/controller/inferenceservice/resources/credentials"
 	"github.com/kubeflow/kfserving/pkg/controller/inferenceservice/resources/credentials/gcs"
@@ -28,6 +29,33 @@ import (
 	"github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
+const (
+	StorageInitializerDefaultCPURequest    = "100m"
+	StorageInitializerDefaultCPULimit      = "1"
+	StorageInitializerDefaultMemoryRequest = "200Mi"
+	StorageInitializerDefaultMemoryLimit   = "1Gi"
+)
+
+var (
+	storageInitializerConfig = &StorageInitializerConfig{
+		CpuRequest:    StorageInitializerDefaultCPURequest,
+		CpuLimit:      StorageInitializerDefaultCPULimit,
+		MemoryRequest: StorageInitializerDefaultMemoryRequest,
+		MemoryLimit:   StorageInitializerDefaultMemoryLimit,
+	}
+
+	resourceRequirement = v1.ResourceRequirements{
+		Limits: map[v1.ResourceName]resource.Quantity{
+			v1.ResourceCPU:    resource.MustParse(StorageInitializerDefaultCPULimit),
+			v1.ResourceMemory: resource.MustParse(StorageInitializerDefaultMemoryLimit),
+		},
+		Requests: map[v1.ResourceName]resource.Quantity{
+			v1.ResourceCPU:    resource.MustParse(StorageInitializerDefaultCPURequest),
+			v1.ResourceMemory: resource.MustParse(StorageInitializerDefaultMemoryRequest),
+		},
+	}
 )
 
 func TestStorageInitializerInjector(t *testing.T) {
@@ -137,9 +165,10 @@ func TestStorageInitializerInjector(t *testing.T) {
 					},
 					InitContainers: []v1.Container{
 						{
-							Name:  "storage-initializer",
-							Image: StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
-							Args:  []string{"gs://foo", constants.DefaultModelLocalMountPath},
+							Name:      "storage-initializer",
+							Image:     StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
+							Args:      []string{"gs://foo", constants.DefaultModelLocalMountPath},
+							Resources: resourceRequirement,
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kfserving-provision-location",
@@ -195,9 +224,10 @@ func TestStorageInitializerInjector(t *testing.T) {
 					},
 					InitContainers: []v1.Container{
 						{
-							Name:  "storage-initializer",
-							Image: StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
-							Args:  []string{"/mnt/pvc/some/path/on/pvc", constants.DefaultModelLocalMountPath},
+							Name:      "storage-initializer",
+							Image:     StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
+							Args:      []string{"/mnt/pvc/some/path/on/pvc", constants.DefaultModelLocalMountPath},
+							Resources: resourceRequirement,
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kfserving-pvc-source",
@@ -238,11 +268,12 @@ func TestStorageInitializerInjector(t *testing.T) {
 			credentialBuilder: credentials.NewCredentialBulder(c, &v1.ConfigMap{
 				Data: map[string]string{},
 			}),
+			config: storageInitializerConfig,
 		}
 		if err := injector.InjectStorageInitializer(scenario.original); err != nil {
 			t.Errorf("Test %q unexpected result: %s", name, err)
 		}
-		if diff := cmp.Diff(scenario.expected.Spec, scenario.original.Spec); diff != "" {
+		if diff, _ := kmp.SafeDiff(scenario.expected.Spec, scenario.original.Spec); diff != "" {
 			t.Errorf("Test %q unexpected result (-want +got): %v", name, diff)
 		}
 	}
@@ -277,6 +308,7 @@ func TestStorageInitializerFailureCases(t *testing.T) {
 			credentialBuilder: credentials.NewCredentialBulder(c, &v1.ConfigMap{
 				Data: map[string]string{},
 			}),
+			config: storageInitializerConfig,
 		}
 		if err := injector.InjectStorageInitializer(scenario.original); err != nil {
 			if !strings.HasPrefix(err.Error(), scenario.expectedErrorPrefix) {
@@ -375,6 +407,7 @@ func TestCustomSpecStorageUriInjection(t *testing.T) {
 			credentialBuilder: credentials.NewCredentialBulder(c, &v1.ConfigMap{
 				Data: map[string]string{},
 			}),
+			config: storageInitializerConfig,
 		}
 		if err := injector.InjectStorageInitializer(scenario.original); err != nil {
 			t.Errorf("Test %q unexpected result: %s", name, err)
@@ -386,7 +419,7 @@ func TestCustomSpecStorageUriInjection(t *testing.T) {
 				originalEnvVar = &envVar
 			}
 		}
-		if diff := cmp.Diff(scenario.expectedStorageUriEnvVariable, originalEnvVar); diff != "" {
+		if diff, _ := kmp.SafeDiff(scenario.expectedStorageUriEnvVariable, originalEnvVar); diff != "" {
 			t.Errorf("Test %q unexpected result (-want +got): %v", name, diff)
 		}
 	}
@@ -469,9 +502,10 @@ func TestCredentialInjection(t *testing.T) {
 					},
 					InitContainers: []v1.Container{
 						{
-							Name:  "storage-initializer",
-							Image: StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
-							Args:  []string{"gs://foo", constants.DefaultModelLocalMountPath},
+							Name:      "storage-initializer",
+							Image:     StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
+							Args:      []string{"gs://foo", constants.DefaultModelLocalMountPath},
+							Resources: resourceRequirement,
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kfserving-provision-location",
@@ -567,9 +601,10 @@ func TestCredentialInjection(t *testing.T) {
 					},
 					InitContainers: []v1.Container{
 						{
-							Name:  "storage-initializer",
-							Image: StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
-							Args:  []string{"gs://foo", constants.DefaultModelLocalMountPath},
+							Name:      "storage-initializer",
+							Image:     StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
+							Args:      []string{"gs://foo", constants.DefaultModelLocalMountPath},
+							Resources: resourceRequirement,
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kfserving-provision-location",
@@ -629,11 +664,12 @@ func TestCredentialInjection(t *testing.T) {
 
 		injector := &StorageInitializerInjector{
 			credentialBuilder: builder,
+			config:            storageInitializerConfig,
 		}
 		if err := injector.InjectStorageInitializer(scenario.original); err != nil {
 			t.Errorf("Test %q unexpected failure [%s]", name, err.Error())
 		}
-		if diff := cmp.Diff(scenario.expected.Spec, scenario.original.Spec); diff != "" {
+		if diff, _ := kmp.SafeDiff(scenario.expected.Spec, scenario.original.Spec); diff != "" {
 			t.Errorf("Test %q unexpected result (-want +got): %v", name, diff)
 		}
 
@@ -683,9 +719,10 @@ func TestStorageInitializerConfigmap(t *testing.T) {
 					},
 					InitContainers: []v1.Container{
 						{
-							Name:  "storage-initializer",
-							Image: "kfserving/storage-initializer@sha256:xxx",
-							Args:  []string{"gs://foo", constants.DefaultModelLocalMountPath},
+							Name:      "storage-initializer",
+							Image:     "kfserving/storage-initializer@sha256:xxx",
+							Args:      []string{"gs://foo", constants.DefaultModelLocalMountPath},
+							Resources: resourceRequirement,
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kfserving-provision-location",
@@ -713,13 +750,17 @@ func TestStorageInitializerConfigmap(t *testing.T) {
 				Data: map[string]string{},
 			}),
 			config: &StorageInitializerConfig{
-				Image: "kfserving/storage-initializer@sha256:xxx",
+				Image:         "kfserving/storage-initializer@sha256:xxx",
+				CpuRequest:    StorageInitializerDefaultCPURequest,
+				CpuLimit:      StorageInitializerDefaultCPULimit,
+				MemoryRequest: StorageInitializerDefaultMemoryRequest,
+				MemoryLimit:   StorageInitializerDefaultMemoryLimit,
 			},
 		}
 		if err := injector.InjectStorageInitializer(scenario.original); err != nil {
 			t.Errorf("Test %q unexpected result: %s", name, err)
 		}
-		if diff := cmp.Diff(scenario.expected.Spec, scenario.original.Spec); diff != "" {
+		if diff, _ := kmp.SafeDiff(scenario.expected.Spec, scenario.original.Spec); diff != "" {
 			t.Errorf("Test %q unexpected result (-want +got): %v", name, diff)
 		}
 	}

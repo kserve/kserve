@@ -14,7 +14,9 @@ limitations under the License.
 package pod
 
 import (
+	"encoding/json"
 	"fmt"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"strings"
 
 	"github.com/kubeflow/kfserving/pkg/constants"
@@ -36,11 +38,39 @@ const (
 )
 
 type StorageInitializerConfig struct {
-	Image string `json:"image"`
+	Image         string `json:"image"`
+	CpuRequest    string `json:"cpuRequest"`
+	CpuLimit      string `json:"cpuLimit"`
+	MemoryRequest string `json:"memoryRequest"`
+	MemoryLimit   string `json:"memoryLimit"`
 }
+
 type StorageInitializerInjector struct {
 	credentialBuilder *credentials.CredentialBuilder
 	config            *StorageInitializerConfig
+}
+
+func getStorageInitializerConfigs(configMap *v1.ConfigMap) (*StorageInitializerConfig, error) {
+	storageInitializerConfig := &StorageInitializerConfig{}
+	if initializerConfig, ok := configMap.Data[StorageInitializerConfigMapKeyName]; ok {
+		err := json.Unmarshal([]byte(initializerConfig), &storageInitializerConfig)
+		if err != nil {
+			panic(fmt.Errorf("Unable to unmarshall %v json string due to %v ", StorageInitializerConfigMapKeyName, err))
+		}
+	}
+	//Ensure that we set proper values for CPU/Memory Limit/Request
+	resourceDefaults := []string{storageInitializerConfig.MemoryRequest,
+		storageInitializerConfig.MemoryLimit,
+		storageInitializerConfig.CpuRequest,
+		storageInitializerConfig.CpuLimit}
+	for _, key := range resourceDefaults {
+		_, err := resource.ParseQuantity(key)
+		if err != nil {
+			return storageInitializerConfig, err
+		}
+	}
+
+	return storageInitializerConfig, nil
 }
 
 // InjectStorageInitializer injects an init container to provision model data
@@ -138,6 +168,16 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 			constants.DefaultModelLocalMountPath,
 		},
 		VolumeMounts: storageInitializerMounts,
+		Resources: v1.ResourceRequirements{
+			Limits: map[v1.ResourceName]resource.Quantity{
+				v1.ResourceCPU:    resource.MustParse(mi.config.CpuLimit),
+				v1.ResourceMemory: resource.MustParse(mi.config.MemoryLimit),
+			},
+			Requests: map[v1.ResourceName]resource.Quantity{
+				v1.ResourceCPU:    resource.MustParse(mi.config.CpuRequest),
+				v1.ResourceMemory: resource.MustParse(mi.config.MemoryRequest),
+			},
+		},
 	}
 
 	// Add a mount the shared volume on the user-container, update the PodSpec
