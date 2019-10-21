@@ -43,7 +43,8 @@ var isvc = v1alpha2.InferenceService{
 		Name:      "mnist",
 		Namespace: "default",
 		Annotations: map[string]string{
-			constants.InferenceServiceGKEAcceleratorAnnotationKey: "nvidia-tesla-t4",
+			constants.InferenceServiceGKEAcceleratorAnnotationKey:  "nvidia-tesla-t4",
+			"queue.sidecar.serving.knative.dev/resourcePercentage": DefaultQueueSideCarResourcePercentage,
 		},
 	},
 	Spec: v1alpha2.InferenceServiceSpec{
@@ -92,6 +93,7 @@ var defaultService = &knservingv1alpha1.Service{
 						"autoscaling.knative.dev/target":                           "1",
 						"autoscaling.knative.dev/minScale":                         "1",
 						"autoscaling.knative.dev/maxScale":                         "3",
+						"queue.sidecar.serving.knative.dev/resourcePercentage":     DefaultQueueSideCarResourcePercentage,
 						constants.InferenceServiceGKEAcceleratorAnnotationKey:      "nvidia-tesla-t4",
 						constants.StorageInitializerSourceUriInternalAnnotationKey: isvc.Spec.Default.Predictor.Tensorflow.StorageURI,
 					},
@@ -136,6 +138,7 @@ var canaryService = &knservingv1alpha1.Service{
 						"autoscaling.knative.dev/target":                           "1",
 						"autoscaling.knative.dev/minScale":                         "1",
 						"autoscaling.knative.dev/maxScale":                         "3",
+						"queue.sidecar.serving.knative.dev/resourcePercentage":     DefaultQueueSideCarResourcePercentage,
 						constants.InferenceServiceGKEAcceleratorAnnotationKey:      "nvidia-tesla-t4",
 						constants.StorageInitializerSourceUriInternalAnnotationKey: "s3://test/mnist-2/export",
 					},
@@ -181,7 +184,8 @@ func TestInferenceServiceToKnativeService(t *testing.T) {
 					Name:      "mnist",
 					Namespace: "default",
 					Annotations: map[string]string{
-						constants.InferenceServiceGKEAcceleratorAnnotationKey: "nvidia-tesla-t4",
+						constants.InferenceServiceGKEAcceleratorAnnotationKey:  "nvidia-tesla-t4",
+						"queue.sidecar.serving.knative.dev/resourcePercentage": DefaultQueueSideCarResourcePercentage,
 					},
 				},
 				Spec: v1alpha2.InferenceServiceSpec{
@@ -254,6 +258,7 @@ func TestInferenceServiceToKnativeService(t *testing.T) {
 									constants.StorageInitializerSourceUriInternalAnnotationKey: "s3://test/sklearn/export",
 									"autoscaling.knative.dev/class":                            "kpa.autoscaling.knative.dev",
 									"autoscaling.knative.dev/target":                           "1",
+									"queue.sidecar.serving.knative.dev/resourcePercentage":     DefaultQueueSideCarResourcePercentage,
 								},
 							},
 							Spec: knservingv1alpha1.RevisionSpec{
@@ -308,6 +313,7 @@ func TestInferenceServiceToKnativeService(t *testing.T) {
 									constants.StorageInitializerSourceUriInternalAnnotationKey: "s3://test/xgboost/export",
 									"autoscaling.knative.dev/class":                            "kpa.autoscaling.knative.dev",
 									"autoscaling.knative.dev/target":                           "1",
+									"queue.sidecar.serving.knative.dev/resourcePercentage":     DefaultQueueSideCarResourcePercentage,
 								},
 							},
 							Spec: knservingv1alpha1.RevisionSpec{
@@ -362,6 +368,7 @@ func TestInferenceServiceToKnativeService(t *testing.T) {
 									constants.StorageInitializerSourceUriInternalAnnotationKey: "s3://test/xgboost/export",
 									"autoscaling.knative.dev/class":                            "kpa.autoscaling.knative.dev",
 									"autoscaling.knative.dev/target":                           "1",
+									"queue.sidecar.serving.knative.dev/resourcePercentage":     DefaultQueueSideCarResourcePercentage,
 								},
 							},
 							Spec: knservingv1alpha1.RevisionSpec{
@@ -397,6 +404,7 @@ func TestInferenceServiceToKnativeService(t *testing.T) {
 						"autoscaling.knative.dev/target":   "2",
 						constants.StorageInitializerSourceUriInternalAnnotationKey: "test",
 						"kubectl.kubernetes.io/last-applied-configuration":         "test2",
+						"queue.sidecar.serving.knative.dev/resourcePercentage":     DefaultQueueSideCarResourcePercentage,
 					},
 				},
 				Spec: v1alpha2.InferenceServiceSpec{
@@ -430,6 +438,7 @@ func TestInferenceServiceToKnativeService(t *testing.T) {
 									"autoscaling.knative.dev/minScale":                         "1",
 									"sourceName":                                               "srcName",
 									"prop1":                                                    "val1",
+									"queue.sidecar.serving.knative.dev/resourcePercentage":     DefaultQueueSideCarResourcePercentage,
 								},
 							},
 							Spec: knservingv1alpha1.RevisionSpec{
@@ -563,10 +572,11 @@ func TestTransformerToKnativeService(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: map[string]string{"serving.kubeflow.org/inferenceservice": "mnist"},
 						Annotations: map[string]string{
-							"autoscaling.knative.dev/class":    "kpa.autoscaling.knative.dev",
-							"autoscaling.knative.dev/target":   "1",
-							"autoscaling.knative.dev/minScale": "1",
-							"autoscaling.knative.dev/maxScale": "3",
+							"autoscaling.knative.dev/class":                        "kpa.autoscaling.knative.dev",
+							"autoscaling.knative.dev/target":                       "1",
+							"autoscaling.knative.dev/minScale":                     "1",
+							"autoscaling.knative.dev/maxScale":                     "3",
+							"queue.sidecar.serving.knative.dev/resourcePercentage": DefaultQueueSideCarResourcePercentage,
 						},
 					},
 					Spec: knservingv1alpha1.RevisionSpec{
@@ -604,10 +614,11 @@ func TestTransformerToKnativeService(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: map[string]string{"serving.kubeflow.org/inferenceservice": "mnist"},
 						Annotations: map[string]string{
-							"autoscaling.knative.dev/class":    "kpa.autoscaling.knative.dev",
-							"autoscaling.knative.dev/target":   "1",
-							"autoscaling.knative.dev/minScale": "2",
-							"autoscaling.knative.dev/maxScale": "4",
+							"autoscaling.knative.dev/class":                        "kpa.autoscaling.knative.dev",
+							"autoscaling.knative.dev/target":                       "1",
+							"autoscaling.knative.dev/minScale":                     "2",
+							"autoscaling.knative.dev/maxScale":                     "4",
+							"queue.sidecar.serving.knative.dev/resourcePercentage": DefaultQueueSideCarResourcePercentage,
 						},
 					},
 					Spec: knservingv1alpha1.RevisionSpec{
@@ -746,8 +757,9 @@ func TestExplainerToKnativeService(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: map[string]string{"serving.kubeflow.org/inferenceservice": "mnist"},
 						Annotations: map[string]string{
-							"autoscaling.knative.dev/class":  "kpa.autoscaling.knative.dev",
-							"autoscaling.knative.dev/target": "1",
+							"autoscaling.knative.dev/class":                        "kpa.autoscaling.knative.dev",
+							"autoscaling.knative.dev/target":                       "1",
+							"queue.sidecar.serving.knative.dev/resourcePercentage": DefaultQueueSideCarResourcePercentage,
 						},
 					},
 					Spec: knservingv1alpha1.RevisionSpec{
@@ -785,8 +797,9 @@ func TestExplainerToKnativeService(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: map[string]string{"serving.kubeflow.org/inferenceservice": "mnist"},
 						Annotations: map[string]string{
-							"autoscaling.knative.dev/class":  "kpa.autoscaling.knative.dev",
-							"autoscaling.knative.dev/target": "1",
+							"autoscaling.knative.dev/class":                        "kpa.autoscaling.knative.dev",
+							"autoscaling.knative.dev/target":                       "1",
+							"queue.sidecar.serving.knative.dev/resourcePercentage": DefaultQueueSideCarResourcePercentage,
 						},
 					},
 					Spec: knservingv1alpha1.RevisionSpec{

@@ -18,6 +18,7 @@ package service
 
 import (
 	"fmt"
+	"github.com/kubeflow/kfserving/pkg/controller/inferenceservice/resources/knative"
 	"testing"
 	"time"
 
@@ -156,6 +157,7 @@ func TestInferenceServiceWithOnlyPredictor(t *testing.T) {
 							"autoscaling.knative.dev/class":                            "kpa.autoscaling.knative.dev",
 							"autoscaling.knative.dev/maxScale":                         "3",
 							"autoscaling.knative.dev/minScale":                         "1",
+							"queue.sidecar.serving.knative.dev/resourcePercentage":     knative.DefaultQueueSideCarResourcePercentage,
 							constants.StorageInitializerSourceUriInternalAnnotationKey: defaultInstance.Spec.Default.Predictor.Tensorflow.StorageURI,
 						},
 					},
@@ -385,6 +387,7 @@ func TestInferenceServiceWithDefaultAndCanaryPredictor(t *testing.T) {
 							"autoscaling.knative.dev/class":                            "kpa.autoscaling.knative.dev",
 							"autoscaling.knative.dev/maxScale":                         "3",
 							"autoscaling.knative.dev/minScale":                         "1",
+							"queue.sidecar.serving.knative.dev/resourcePercentage":     knative.DefaultQueueSideCarResourcePercentage,
 							constants.StorageInitializerSourceUriInternalAnnotationKey: canary.Spec.Canary.Predictor.Tensorflow.StorageURI,
 						},
 					},
@@ -925,10 +928,11 @@ func TestInferenceServiceWithTransformer(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: map[string]string{"serving.kubeflow.org/inferenceservice": serviceName},
 						Annotations: map[string]string{
-							"autoscaling.knative.dev/target":   "1",
-							"autoscaling.knative.dev/class":    "kpa.autoscaling.knative.dev",
-							"autoscaling.knative.dev/maxScale": "3",
-							"autoscaling.knative.dev/minScale": "1",
+							"autoscaling.knative.dev/target":                       "1",
+							"autoscaling.knative.dev/class":                        "kpa.autoscaling.knative.dev",
+							"autoscaling.knative.dev/maxScale":                     "3",
+							"autoscaling.knative.dev/minScale":                     "1",
+							"queue.sidecar.serving.knative.dev/resourcePercentage": knative.DefaultQueueSideCarResourcePercentage,
 						},
 					},
 					Spec: knservingv1alpha1.RevisionSpec{
