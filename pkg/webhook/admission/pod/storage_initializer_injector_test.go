@@ -45,6 +45,17 @@ var (
 		MemoryRequest: StorageInitializerDefaultMemoryRequest,
 		MemoryLimit:   StorageInitializerDefaultMemoryLimit,
 	}
+
+	resourceRequirement = v1.ResourceRequirements{
+		Limits: map[v1.ResourceName]resource.Quantity{
+			v1.ResourceCPU:    resource.MustParse(StorageInitializerDefaultCPULimit),
+			v1.ResourceMemory: resource.MustParse(StorageInitializerDefaultMemoryLimit),
+		},
+		Requests: map[v1.ResourceName]resource.Quantity{
+			v1.ResourceCPU:    resource.MustParse(StorageInitializerDefaultCPURequest),
+			v1.ResourceMemory: resource.MustParse(StorageInitializerDefaultMemoryRequest),
+		},
+	}
 )
 
 func TestStorageInitializerInjector(t *testing.T) {
@@ -154,19 +165,10 @@ func TestStorageInitializerInjector(t *testing.T) {
 					},
 					InitContainers: []v1.Container{
 						{
-							Name:  "storage-initializer",
-							Image: StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
-							Args:  []string{"gs://foo", constants.DefaultModelLocalMountPath},
-							Resources: v1.ResourceRequirements{
-								Limits: map[v1.ResourceName]resource.Quantity{
-									v1.ResourceCPU:    resource.MustParse(StorageInitializerDefaultCPULimit),
-									v1.ResourceMemory: resource.MustParse(StorageInitializerDefaultMemoryLimit),
-								},
-								Requests: map[v1.ResourceName]resource.Quantity{
-									v1.ResourceCPU:    resource.MustParse(StorageInitializerDefaultCPURequest),
-									v1.ResourceMemory: resource.MustParse(StorageInitializerDefaultMemoryRequest),
-								},
-							},
+							Name:      "storage-initializer",
+							Image:     StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
+							Args:      []string{"gs://foo", constants.DefaultModelLocalMountPath},
+							Resources: resourceRequirement,
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kfserving-provision-location",
@@ -222,19 +224,10 @@ func TestStorageInitializerInjector(t *testing.T) {
 					},
 					InitContainers: []v1.Container{
 						{
-							Name:  "storage-initializer",
-							Image: StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
-							Args:  []string{"/mnt/pvc/some/path/on/pvc", constants.DefaultModelLocalMountPath},
-							Resources: v1.ResourceRequirements{
-								Limits: map[v1.ResourceName]resource.Quantity{
-									v1.ResourceCPU:    resource.MustParse(StorageInitializerDefaultCPULimit),
-									v1.ResourceMemory: resource.MustParse(StorageInitializerDefaultMemoryLimit),
-								},
-								Requests: map[v1.ResourceName]resource.Quantity{
-									v1.ResourceCPU:    resource.MustParse(StorageInitializerDefaultCPURequest),
-									v1.ResourceMemory: resource.MustParse(StorageInitializerDefaultMemoryRequest),
-								},
-							},
+							Name:      "storage-initializer",
+							Image:     StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
+							Args:      []string{"/mnt/pvc/some/path/on/pvc", constants.DefaultModelLocalMountPath},
+							Resources: resourceRequirement,
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kfserving-pvc-source",
@@ -509,19 +502,10 @@ func TestCredentialInjection(t *testing.T) {
 					},
 					InitContainers: []v1.Container{
 						{
-							Name:  "storage-initializer",
-							Image: StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
-							Args:  []string{"gs://foo", constants.DefaultModelLocalMountPath},
-							Resources: v1.ResourceRequirements{
-								Limits: map[v1.ResourceName]resource.Quantity{
-									v1.ResourceCPU:    resource.MustParse(StorageInitializerDefaultCPULimit),
-									v1.ResourceMemory: resource.MustParse(StorageInitializerDefaultMemoryLimit),
-								},
-								Requests: map[v1.ResourceName]resource.Quantity{
-									v1.ResourceCPU:    resource.MustParse(StorageInitializerDefaultCPURequest),
-									v1.ResourceMemory: resource.MustParse(StorageInitializerDefaultMemoryRequest),
-								},
-							},
+							Name:      "storage-initializer",
+							Image:     StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
+							Args:      []string{"gs://foo", constants.DefaultModelLocalMountPath},
+							Resources: resourceRequirement,
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kfserving-provision-location",
@@ -617,19 +601,10 @@ func TestCredentialInjection(t *testing.T) {
 					},
 					InitContainers: []v1.Container{
 						{
-							Name:  "storage-initializer",
-							Image: StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
-							Args:  []string{"gs://foo", constants.DefaultModelLocalMountPath},
-							Resources: v1.ResourceRequirements{
-								Limits: map[v1.ResourceName]resource.Quantity{
-									v1.ResourceCPU:    resource.MustParse(StorageInitializerDefaultCPULimit),
-									v1.ResourceMemory: resource.MustParse(StorageInitializerDefaultMemoryLimit),
-								},
-								Requests: map[v1.ResourceName]resource.Quantity{
-									v1.ResourceCPU:    resource.MustParse(StorageInitializerDefaultCPURequest),
-									v1.ResourceMemory: resource.MustParse(StorageInitializerDefaultMemoryRequest),
-								},
-							},
+							Name:      "storage-initializer",
+							Image:     StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
+							Args:      []string{"gs://foo", constants.DefaultModelLocalMountPath},
+							Resources: resourceRequirement,
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kfserving-provision-location",
@@ -744,19 +719,10 @@ func TestStorageInitializerConfigmap(t *testing.T) {
 					},
 					InitContainers: []v1.Container{
 						{
-							Name:  "storage-initializer",
-							Image: "kfserving/storage-initializer@sha256:xxx",
-							Args:  []string{"gs://foo", constants.DefaultModelLocalMountPath},
-							Resources: v1.ResourceRequirements{
-								Limits: map[v1.ResourceName]resource.Quantity{
-									v1.ResourceCPU:    resource.MustParse(StorageInitializerDefaultCPULimit),
-									v1.ResourceMemory: resource.MustParse(StorageInitializerDefaultMemoryLimit),
-								},
-								Requests: map[v1.ResourceName]resource.Quantity{
-									v1.ResourceCPU:    resource.MustParse(StorageInitializerDefaultCPURequest),
-									v1.ResourceMemory: resource.MustParse(StorageInitializerDefaultMemoryRequest),
-								},
-							},
+							Name:      "storage-initializer",
+							Image:     "kfserving/storage-initializer@sha256:xxx",
+							Args:      []string{"gs://foo", constants.DefaultModelLocalMountPath},
+							Resources: resourceRequirement,
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kfserving-provision-location",
