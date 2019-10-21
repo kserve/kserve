@@ -42,5 +42,4 @@ python/kfserving/test-requirements.txt
 python/kfserving/tox.ini
 
 # Ignore files for MacOS
-.DS_Store
-config/.DS_Store
+**/.DS_Store
