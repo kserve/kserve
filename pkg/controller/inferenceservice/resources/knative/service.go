@@ -43,7 +43,7 @@ var serviceAnnotationDisallowedList = []string{
 const (
 	// Use a very small percentage here so the minimum bound defined at
 	// https://github.com/knative/serving/blob/1d263950f9f2fea85a4dd394948a029c328af9d9/pkg/reconciler/revision/resources/resourceboundary.go#L30
-	DefaultQueueSideCarResourcePercentage = "0.1"
+	DefaultQueueSideCarResourcePercentage = "0.2"
 )
 
 type ServiceBuilder struct {
