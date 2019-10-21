@@ -69,14 +69,14 @@ func (r *ServiceReconciler) Reconcile(isvc *v1alpha2.InferenceService) error {
 func (r *ServiceReconciler) reconcileComponent(isvc *v1alpha2.InferenceService, component constants.InferenceServiceComponent, isCanary bool) error {
 	endpointSpec := &isvc.Spec.Default
 	serviceName := constants.DefaultServiceName(isvc.Name, component)
-	propagateStatus := isvc.Status.PropagateDefaultStatus
+	propagateStatusFn := isvc.Status.PropagateDefaultStatus
 	if isCanary {
 		endpointSpec = isvc.Spec.Canary
 		serviceName = constants.CanaryServiceName(isvc.Name, component)
-		propagateStatus = isvc.Status.PropagateCanaryStatus
+		propagateStatusFn = isvc.Status.PropagateCanaryStatus
 	}
-	var service *knservingv1alpha1.Service = nil
-	var err error = nil
+	var service *knservingv1alpha1.Service
+	var err error
 	if endpointSpec != nil {
 		service, err = r.serviceBuilder.CreateInferenceServiceComponent(isvc, component, isCanary)
 		if err != nil {
@@ -88,13 +88,13 @@ func (r *ServiceReconciler) reconcileComponent(isvc *v1alpha2.InferenceService, 
 		if err = r.finalizeService(serviceName, isvc.Namespace); err != nil {
 			return err
 		}
-		propagateStatus(component, nil)
+		propagateStatusFn(component, nil)
 		return nil
 	} else {
 		if status, err := r.reconcileService(isvc, service); err != nil {
 			return err
 		} else {
-			propagateStatus(component, status)
+			propagateStatusFn(component, status)
 			return nil
 		}
 	}
