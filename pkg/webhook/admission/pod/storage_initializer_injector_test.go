@@ -186,6 +186,11 @@ func TestStorageInitializerInjector(t *testing.T) {
 							Name: "user-container",
 							VolumeMounts: []v1.VolumeMount{
 								{
+									Name:      "kfserving-pvc-source",
+									MountPath: "/mnt/pvc",
+									ReadOnly:  true,
+								},
+								{
 									Name:      "kfserving-provision-location",
 									MountPath: constants.DefaultModelLocalMountPath,
 									ReadOnly:  true,

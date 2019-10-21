@@ -104,6 +104,9 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 		}
 		storageInitializerMounts = append(storageInitializerMounts, pvcSourceVolumeMount)
 
+		// Since the model path is linked from source pvc, userContainer also need to mount the pvc.
+		userContainer.VolumeMounts = append(userContainer.VolumeMounts, pvcSourceVolumeMount)
+
 		// modify the sourceURI to point to the PVC path
 		srcURI = PvcSourceMountPath + "/" + pvcPath
 	}
