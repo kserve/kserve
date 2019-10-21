@@ -107,7 +107,7 @@ func (c *ServiceBuilder) CreateInferenceServiceComponent(isvc *v1alpha2.Inferenc
 }
 
 func (c *ServiceBuilder) CreatePredictorService(name string, metadata metav1.ObjectMeta, predictorSpec *v1alpha2.PredictorSpec) (*knservingv1alpha1.Service, error) {
-	annotations, err := c.getCommonAnnotations(metadata, predictorSpec.MinReplicas, predictorSpec.MaxReplicas)
+	annotations, err := c.buildAnnotations(metadata, predictorSpec.MinReplicas, predictorSpec.MaxReplicas)
 	if err != nil {
 		return nil, err
 	}
@@ -164,7 +164,7 @@ func (c *ServiceBuilder) CreatePredictorService(name string, metadata metav1.Obj
 }
 
 func (c *ServiceBuilder) CreateTransformerService(name string, metadata metav1.ObjectMeta, transformerSpec *v1alpha2.TransformerSpec, isCanary bool) (*knservingv1alpha1.Service, error) {
-	annotations, err := c.getCommonAnnotations(metadata, transformerSpec.MinReplicas, transformerSpec.MaxReplicas)
+	annotations, err := c.buildAnnotations(metadata, transformerSpec.MinReplicas, transformerSpec.MaxReplicas)
 	if err != nil {
 		return nil, err
 	}
@@ -228,7 +228,7 @@ func (c *ServiceBuilder) CreateTransformerService(name string, metadata metav1.O
 }
 
 func (c *ServiceBuilder) CreateExplainerService(name string, metadata metav1.ObjectMeta, explainerSpec *v1alpha2.ExplainerSpec, predictorService string, isCanary bool) (*knservingv1alpha1.Service, error) {
-	annotations, err := c.getCommonAnnotations(metadata, explainerSpec.MinReplicas, explainerSpec.MaxReplicas)
+	annotations, err := c.buildAnnotations(metadata, explainerSpec.MinReplicas, explainerSpec.MaxReplicas)
 	if err != nil {
 		return nil, err
 	}
@@ -284,7 +284,7 @@ func (c *ServiceBuilder) CreateExplainerService(name string, metadata metav1.Obj
 	return service, nil
 }
 
-func (c *ServiceBuilder) getCommonAnnotations(metadata metav1.ObjectMeta, minReplicas int, maxReplicas int) (map[string]string, error) {
+func (c *ServiceBuilder) buildAnnotations(metadata metav1.ObjectMeta, minReplicas int, maxReplicas int) (map[string]string, error) {
 	annotations := utils.Filter(metadata.Annotations, func(key string) bool {
 		return !utils.Includes(serviceAnnotationDisallowedList, key)
 	})
