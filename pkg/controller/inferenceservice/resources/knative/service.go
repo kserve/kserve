@@ -99,6 +99,23 @@ func (c *ServiceBuilder) CreateEndpointService(isvc *v1alpha2.InferenceService, 
 	return nil, fmt.Errorf("Invalid endpoint")
 }
 
+func addInferenceLoggerAnnotations(inferenceLogger *v1alpha2.InferenceLogger, annotations map[string]string) bool {
+	if inferenceLogger != nil {
+		annotations[constants.InferenceLoggerInternalAnnotationKey] = "true"
+		if inferenceLogger.Url != nil {
+			annotations[constants.InferenceLoggerSinkUrlInternalAnnotationKey] = *inferenceLogger.Url
+		}
+		if inferenceLogger.LogType != nil {
+			annotations[constants.InferenceLoggerLoggingTypeInternalAnnotationKey] = string(*inferenceLogger.LogType)
+		}
+		if inferenceLogger.Sample != nil {
+			annotations[constants.InferenceLoggerSampleInternalAnnotationKey] = fmt.Sprintf("%f", *inferenceLogger.Sample)
+		}
+		return true
+	}
+	return false
+}
+
 func (c *ServiceBuilder) CreatePredictorService(name string, metadata metav1.ObjectMeta, predictorSpec *v1alpha2.PredictorSpec) (*knservingv1alpha1.Service, error) {
 	annotations := utils.Filter(metadata.Annotations, func(key string) bool {
 		return !utils.Includes(serviceAnnotationDisallowedList, key)
@@ -128,20 +145,7 @@ func (c *ServiceBuilder) CreatePredictorService(name string, metadata metav1.Obj
 
 	// Knative does not support multiple containers so we add an annotation that triggers pod
 	// mutator to add it
-	hasInferenceLogging := false
-	if predictorSpec.InferenceLogger != nil {
-		hasInferenceLogging = true
-		annotations[constants.InferenceLoggerInternalAnnotationKey] = "true"
-		if predictorSpec.InferenceLogger.Url != nil {
-			annotations[constants.InferenceLoggerSinkUrlInternalAnnotationKey] = *predictorSpec.InferenceLogger.Url
-		}
-		if predictorSpec.InferenceLogger.LogType != nil {
-			annotations[constants.InferenceLoggerLoggingTypeInternalAnnotationKey] = string(*predictorSpec.InferenceLogger.LogType)
-		}
-		if predictorSpec.InferenceLogger.Sample != nil {
-			annotations[constants.InferenceLoggerSampleInternalAnnotationKey] = fmt.Sprintf("%f", *predictorSpec.InferenceLogger.Sample)
-		}
-	}
+	hasInferenceLogging := addInferenceLoggerAnnotations(predictorSpec.InferenceLogger, annotations)
 
 	service := &knservingv1alpha1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -211,20 +215,7 @@ func (c *ServiceBuilder) CreateTransformerService(name string, metadata metav1.O
 
 	// Knative does not support multiple containers so we add an annotation that triggers pod
 	// mutator to add it
-	hasInferenceLogging := false
-	if transformerSpec.InferenceLogger != nil {
-		hasInferenceLogging = true
-		annotations[constants.InferenceLoggerInternalAnnotationKey] = "true"
-		if transformerSpec.InferenceLogger.Url != nil {
-			annotations[constants.InferenceLoggerSinkUrlInternalAnnotationKey] = *transformerSpec.InferenceLogger.Url
-		}
-		if transformerSpec.InferenceLogger.LogType != nil {
-			annotations[constants.InferenceLoggerLoggingTypeInternalAnnotationKey] = string(*transformerSpec.InferenceLogger.LogType)
-		}
-		if transformerSpec.InferenceLogger.Sample != nil {
-			annotations[constants.InferenceLoggerSampleInternalAnnotationKey] = fmt.Sprintf("%f", *transformerSpec.InferenceLogger.Sample)
-		}
-	}
+	hasInferenceLogging := addInferenceLoggerAnnotations(transformerSpec.InferenceLogger, annotations)
 
 	predictorHostName := fmt.Sprintf("%s.%s", constants.DefaultPredictorServiceName(metadata.Name), metadata.Namespace)
 
@@ -315,20 +306,7 @@ func (c *ServiceBuilder) CreateExplainerService(name string, metadata metav1.Obj
 
 	// Knative does not support multiple containers so we add an annotation that triggers pod
 	// mutator to add it
-	hasInferenceLogging := false
-	if explainerSpec.InferenceLogger != nil {
-		hasInferenceLogging = true
-		annotations[constants.InferenceLoggerInternalAnnotationKey] = "true"
-		if explainerSpec.InferenceLogger.Url != nil {
-			annotations[constants.InferenceLoggerSinkUrlInternalAnnotationKey] = *explainerSpec.InferenceLogger.Url
-		}
-		if explainerSpec.InferenceLogger.LogType != nil {
-			annotations[constants.InferenceLoggerLoggingTypeInternalAnnotationKey] = string(*explainerSpec.InferenceLogger.LogType)
-		}
-		if explainerSpec.InferenceLogger.Sample != nil {
-			annotations[constants.InferenceLoggerSampleInternalAnnotationKey] = fmt.Sprintf("%f", *explainerSpec.InferenceLogger.Sample)
-		}
-	}
+	hasInferenceLogging := addInferenceLoggerAnnotations(explainerSpec.InferenceLogger, annotations)
 
 	service := &knservingv1alpha1.Service{
 		ObjectMeta: metav1.ObjectMeta{
