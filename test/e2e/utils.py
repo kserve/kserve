@@ -12,11 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import time
+import logging
+from kubernetes import client, config
 from kfserving import KFServingClient
+
+logging.basicConfig(level=logging.INFO)
 
 KFServing = KFServingClient(config_file="~/.kube/config")
 
-def wait_for_kfservice_ready(name, namespace='kfserving-ci-e2e-test', Timeout_seconds=600):
+def wait_for_isvc_ready(name, namespace='kfserving-ci-e2e-test',
+                             Timeout_seconds=600, debug=True):
     for _ in range(round(Timeout_seconds/10)):
         time.sleep(10)
         kfsvc_status = KFServing.get(name, namespace=namespace)
@@ -26,4 +31,26 @@ def wait_for_kfservice_ready(name, namespace='kfserving-ci-e2e-test', Timeout_se
                 status = condition.get('status', 'Unknown')
         if status == 'True':
             return
-    raise RuntimeError("Timeout to start the KFService.")
+    if debug is True:
+        logging.warning("Timeout to start the InferenceService %s.", name)
+        logging.info("Getting the detailed InferenceService ...")
+        logging.info(KFServing.get(name, namespace=namespace))
+        get_pod_log(pod='kfserving-controller-manager-0',
+                    namespace='kfserving-system',
+                    container='manager')
+    raise RuntimeError("Timeout to start the InferenceService %s. See above log for details.", name)
+
+
+def get_pod_log(pod, namespace='kfserving-system', container=''):
+    '''
+    Note the arg container must be '' here, instead of None.
+    Otherwise API read_namespaced_pod_log will fail if no specified container.
+    '''
+    logging.info("Getting logs of Pod %s ... ", pod)
+    try:
+        config.load_kube_config()
+        core_api = client.CoreV1Api()
+        pod_logs = core_api.read_namespaced_pod_log(pod, namespace, container=container)
+        logging.info("The logs of Pod %s log:\n %s", pod, pod_logs)
+    except client.rest.ApiException as e:
+        logging.info("Exception when calling CoreV1Api->read_namespaced_pod_log: %s\n", e)
