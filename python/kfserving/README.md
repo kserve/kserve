@@ -45,6 +45,11 @@ KFServing supports the following storage providers:
     * Absolute path: `/absolute/path` or `file:///absolute/path`
     * Relative path: `relative/path` or `file://relative/path`
     * For local filesystem, we recommended to use relative path without any prefix.
+* Persistent Volume Claims with the format "pvc://{$pvcname}/[path]".
+    * The `pvcname` is the name of Persistent Volume Claims that storages models.
+    * The `[path]` is the relative path on the Persistent Volume Claims.
+    * For e.g. `pvc://mypvcname/model/path/on/pvc`
+
 
 ## KFServing Client
 
