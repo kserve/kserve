@@ -51,6 +51,9 @@ func (t *TransformerSpec) Validate(config *InferenceServicesConfig) error {
 	if err != nil {
 		return err
 	}
+	if err := validateResourceRequirements(&transformer.GetContainerSpec().Resources); err != nil {
+		return err
+	}
 	return transformer.Validate(config)
 }
 
