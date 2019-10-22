@@ -21,10 +21,14 @@ import (
 	"github.com/kubeflow/kfserving/pkg/constants"
 	v1 "k8s.io/api/core/v1"
 	resource "k8s.io/apimachinery/pkg/api/resource"
+	field "k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/klog"
+	core "k8s.io/kubernetes/pkg/apis/core"
+	validation "k8s.io/kubernetes/pkg/apis/core/validation"
 )
 
 type Predictor interface {
+	GetResourceRequirements() *v1.ResourceRequirements
 	GetStorageUri() string
 	GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container
 	ApplyDefaults(config *InferenceServicesConfig)
@@ -78,6 +82,36 @@ func (p *PredictorSpec) Validate(config *InferenceServicesConfig) error {
 	}
 	if err := validateReplicas(p.MinReplicas, p.MaxReplicas); err != nil {
 		return err
+	}
+	if err := validateResourceRequirements(predictor.GetResourceRequirements()); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func transferToCoreResourceRequirements(rr *v1.ResourceRequirements) *core.ResourceRequirements {
+	resourceRequirements := &core.ResourceRequirements{
+		Limits:   make(core.ResourceList),
+		Requests: make(core.ResourceList),
+	}
+
+	for k, v := range rr.Requests {
+		resourceName := core.ResourceName(string(k))
+		resourceRequirements.Requests[resourceName] = v
+	}
+	for k, v := range rr.Limits {
+		resourceName := core.ResourceName(string(k))
+		resourceRequirements.Limits[resourceName] = v
+	}
+
+	return resourceRequirements
+}
+
+// validate the ResourceRequirements of the model.
+func validateResourceRequirements(rr *v1.ResourceRequirements) error {
+	if errs := validation.ValidateResourceRequirements(transferToCoreResourceRequirements(rr), field.NewPath("resources")); len(errs) != 0 {
+		return fmt.Errorf("Unexpected error: %v", errs)
 	}
 	return nil
 }

@@ -15,10 +15,11 @@ package v1alpha2
 
 import (
 	"fmt"
+	"strings"
+
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/utils"
-	"k8s.io/api/core/v1"
-	"strings"
+	v1 "k8s.io/api/core/v1"
 )
 
 var (
@@ -30,6 +31,11 @@ var (
 
 func (s *ONNXSpec) GetStorageUri() string {
 	return s.StorageURI
+}
+
+func (s *ONNXSpec) GetResourceRequirements() *v1.ResourceRequirements {
+	// return the ResourceRequirements value if set on the spec
+	return &s.Resources
 }
 
 func (s *ONNXSpec) GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container {
