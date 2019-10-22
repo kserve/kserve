@@ -76,41 +76,45 @@ func (ss *InferenceServiceStatus) GetCondition(t apis.ConditionType) *apis.Condi
 }
 
 // PropagateDefaultStatus propagates the status for the default spec
-func (ss *InferenceServiceStatus) PropagateDefaultStatus(endpoint constants.InferenceServiceComponent, defaultStatus *knservingv1alpha1.ServiceStatus) {
+func (ss *InferenceServiceStatus) PropagateDefaultStatus(component constants.InferenceServiceComponent, defaultStatus *knservingv1alpha1.ServiceStatus) {
 	if ss.Default == nil {
 		emptyStatusMap := make(ComponentStatusMap)
 		ss.Default = &emptyStatusMap
 	}
-	conditionType := defaultConditionsMap[endpoint]
-	statusSpec, ok := (*ss.Default)[endpoint]
+
+	conditionType := defaultConditionsMap[component]
+	if defaultStatus == nil {
+		conditionSet.Manage(ss).ClearCondition(conditionType)
+		delete(*ss.Default, component)
+		return
+	}
+
+	statusSpec, ok := (*ss.Default)[component]
 	if !ok {
 		statusSpec = &StatusConfigurationSpec{}
-		(*ss.Default)[endpoint] = statusSpec
+		(*ss.Default)[component] = statusSpec
 	}
 	ss.propagateStatus(statusSpec, conditionType, defaultStatus)
 }
 
 // PropagateCanaryStatus propagates the status for the canary spec
-func (ss *InferenceServiceStatus) PropagateCanaryStatus(endpoint constants.InferenceServiceComponent, canaryStatus *knservingv1alpha1.ServiceStatus) {
-	conditionType := canaryConditionsMap[endpoint]
-
-	// reset status if canaryServiceStatus is nil
-	if canaryStatus == nil {
-		emptyStatusMap := make(ComponentStatusMap)
-		ss.Canary = &emptyStatusMap
-		conditionSet.Manage(ss).ClearCondition(conditionType)
-		return
-	}
-
+func (ss *InferenceServiceStatus) PropagateCanaryStatus(component constants.InferenceServiceComponent, canaryStatus *knservingv1alpha1.ServiceStatus) {
 	if ss.Canary == nil {
 		emptyStatusMap := make(ComponentStatusMap)
 		ss.Canary = &emptyStatusMap
 	}
 
-	statusSpec, ok := (*ss.Canary)[endpoint]
+	conditionType := canaryConditionsMap[component]
+	if canaryStatus == nil {
+		conditionSet.Manage(ss).ClearCondition(conditionType)
+		delete(*ss.Canary, component)
+		return
+	}
+
+	statusSpec, ok := (*ss.Canary)[component]
 	if !ok {
 		statusSpec = &StatusConfigurationSpec{}
-		(*ss.Canary)[endpoint] = statusSpec
+		(*ss.Canary)[component] = statusSpec
 	}
 
 	ss.propagateStatus(statusSpec, conditionType, canaryStatus)

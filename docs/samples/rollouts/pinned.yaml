@@ -4,7 +4,7 @@ metadata:
   name: "my-model"
 spec:
   default: 
-  predictor:
+    predictor:
       tensorflow:
         storageUri: "gs://mybucket/mymodel-2"
   # Defaults to zero, so can also be omitted or explicitly set to zero.
