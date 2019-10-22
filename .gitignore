@@ -18,8 +18,13 @@ bin
 
 !vendor/**/zz_generated.*
 
+# Mac file system
+**/.DS_Store
+ 
 # editor and IDE paraphernalia
 .idea
+.vscode
+.project
 *.swp
 *.swo
 *~
