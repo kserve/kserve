@@ -32,6 +32,11 @@ func (c *CustomSpec) GetStorageUri() string {
 	return ""
 }
 
+func (c *CustomSpec) GetResourceRequirement() *v1.ResourceRequirements {
+	// return the ResourceRequirements value if set on the spec
+	return &c.Container.Resources
+}
+
 func (c *CustomSpec) GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container {
 	return &c.Container
 }

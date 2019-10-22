@@ -26,6 +26,7 @@ import (
 
 type Predictor interface {
 	GetStorageUri() string
+	GetResourceRequirement() *v1.ResourceRequirements
 	GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container
 	ApplyDefaults(config *InferenceServicesConfig)
 	Validate(config *InferenceServicesConfig) error
@@ -48,6 +49,15 @@ func (p *PredictorSpec) GetStorageUri() string {
 		return ""
 	}
 	return predictor.GetStorageUri()
+}
+
+// Returns the ResourceRequirements of the model.
+func (p *PredictorSpec) GetResourceRequirement() *v1.ResourceRequirements {
+	predictor, err := getPredictor(p)
+	if err != nil {
+		return nil
+	}
+	return predictor.GetResourceRequirement()
 }
 
 func (p *PredictorSpec) GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container {
@@ -79,6 +89,10 @@ func (p *PredictorSpec) Validate(config *InferenceServicesConfig) error {
 	if err := validateReplicas(p.MinReplicas, p.MaxReplicas); err != nil {
 		return err
 	}
+	if err := validateResourceRequirement(p.GetResourceRequirement()); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -142,6 +156,42 @@ func setResourceRequirementDefaults(requirements *v1.ResourceRequirements) {
 	if _, ok := requirements.Limits[v1.ResourceMemory]; !ok {
 		requirements.Limits[v1.ResourceMemory] = DefaultMemory
 	}
+}
+
+func validateResourceRequirement(requirements *v1.ResourceRequirements) error {
+	if requirements == nil {
+		return nil
+	}
+
+	if cpuRequest, ok := requirements.Requests[v1.ResourceCPU]; ok {
+		if cpuRequest.Sign() < 0 {
+			return fmt.Errorf(CPURequestLowerBoundExceededError)
+		}
+		if cpuLimit, ok := requirements.Limits[v1.ResourceCPU]; ok {
+			if cpuLimit.Sign() < 0 {
+				return fmt.Errorf(CPULimitLowerBoundExceededError)
+			}
+			if cpuRequest.Cmp(cpuLimit) > 0 && !cpuLimit.IsZero() {
+				return fmt.Errorf(CPURequestShouldBeLessThanLimitError)
+			}
+		}
+	}
+
+	if memoryRequest, ok := requirements.Requests[v1.ResourceMemory]; ok {
+		if memoryRequest.Sign() < 0 {
+			return fmt.Errorf(MemoryRequestLowerBoundExceededError)
+		}
+		if memoryLimit, ok := requirements.Limits[v1.ResourceMemory]; ok {
+			if memoryLimit.Sign() < 0 {
+				return fmt.Errorf(MemoryLimitLowerBoundExceededError)
+			}
+			if memoryRequest.Cmp(memoryLimit) > 0 && !memoryLimit.IsZero() {
+				return fmt.Errorf(MemoryRequestShouldBeLessThanLimitError)
+			}
+		}
+	}
+
+	return nil
 }
 
 func isGPUEnabled(requirements v1.ResourceRequirements) bool {

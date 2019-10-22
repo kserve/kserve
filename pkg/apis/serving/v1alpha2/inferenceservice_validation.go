@@ -18,18 +18,25 @@ package v1alpha2
 
 import (
 	"fmt"
+
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // Known error messages
 const (
-	MinReplicasShouldBeLessThanMaxError = "MinReplicas cannot be greater than MaxReplicas."
-	MinReplicasLowerBoundExceededError  = "MinReplicas cannot be less than 0."
-	MaxReplicasLowerBoundExceededError  = "MaxReplicas cannot be less than 0."
-	TrafficBoundsExceededError          = "TrafficPercent must be between [0, 100]."
-	TrafficProvidedWithoutCanaryError   = "Canary must be specified when CanaryTrafficPercent > 0."
-	UnsupportedStorageURIFormatError    = "storageUri, must be one of: [%s] or match https://{}.blob.core.windows.net/{}/{} or be an absolute or relative local path. StorageUri [%s] is not supported."
+	MinReplicasShouldBeLessThanMaxError     = "MinReplicas cannot be greater than MaxReplicas."
+	MinReplicasLowerBoundExceededError      = "MinReplicas cannot be less than 0."
+	MaxReplicasLowerBoundExceededError      = "MaxReplicas cannot be less than 0."
+	TrafficBoundsExceededError              = "TrafficPercent must be between [0, 100]."
+	TrafficProvidedWithoutCanaryError       = "Canary must be specified when CanaryTrafficPercent > 0."
+	UnsupportedStorageURIFormatError        = "storageUri, must be one of: [%s] or match https://{}.blob.core.windows.net/{}/{} or be an absolute or relative local path. StorageUri [%s] is not supported."
+	CPURequestShouldBeLessThanLimitError    = "CPU request cannot be greater than CPU limit."
+	CPURequestLowerBoundExceededError       = "CPU Request cannot be less than 0."
+	CPULimitLowerBoundExceededError         = "CPU limit cannot be less than 0."
+	MemoryRequestShouldBeLessThanLimitError = "Memory request cannot be greater than memory limit."
+	MemoryRequestLowerBoundExceededError    = "Memory request cannot be less than 0."
+	MemoryLimitLowerBoundExceededError      = "Memory limit cannot be less than 0."
 )
 
 var (
