@@ -21,6 +21,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/resource"
 
+	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
 )
@@ -58,6 +59,7 @@ func TestCreateOnnxModelServingContainer(t *testing.T) {
 
 	expectedContainer := &v1.Container{
 		Image:     "someOtherImage:someAmazingVersion",
+		Name:      constants.InferenceServiceContainerName,
 		Resources: onnxRequestedResource,
 		Args: []string{
 			"--model_path", "/mnt/models/model.onnx",

@@ -34,7 +34,6 @@ const (
 	PvcURIPrefix                            = "pvc://"
 	PvcSourceMountName                      = "kfserving-pvc-source"
 	PvcSourceMountPath                      = "/mnt/pvc"
-	UserContainerName                       = "user-container"
 )
 
 type StorageInitializerConfig struct {
@@ -91,17 +90,17 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 		}
 	}
 
-	// Find the knative user-container (this is the model inference server)
+	// Find the kfserving-container (this is the model inference server)
 	var userContainer *v1.Container
 	for idx, container := range pod.Spec.Containers {
-		if strings.Compare(container.Name, UserContainerName) == 0 {
+		if strings.Compare(container.Name, constants.InferenceServiceContainerName) == 0 {
 			userContainer = &pod.Spec.Containers[idx]
 			break
 		}
 	}
 
 	if userContainer == nil {
-		return fmt.Errorf("Invalid configuration: cannot find container: %s", UserContainerName)
+		return fmt.Errorf("Invalid configuration: cannot find container: %s", constants.InferenceServiceContainerName)
 	}
 
 	podVolumes := []v1.Volume{}
@@ -138,7 +137,7 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 		srcURI = PvcSourceMountPath + "/" + pvcPath
 	}
 
-	// Create a volume that is shared between the storage-initializer and user-container
+	// Create a volume that is shared between the storage-initializer and kfserving-container
 	sharedVolume := v1.Volume{
 		Name: StorageInitializerVolumeName,
 		VolumeSource: v1.VolumeSource{
@@ -180,7 +179,7 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 		},
 	}
 
-	// Add a mount the shared volume on the user-container, update the PodSpec
+	// Add a mount the shared volume on the kfserving-container, update the PodSpec
 	sharedVolumeReadMount := v1.VolumeMount{
 		Name:      StorageInitializerVolumeName,
 		MountPath: constants.DefaultModelLocalMountPath,

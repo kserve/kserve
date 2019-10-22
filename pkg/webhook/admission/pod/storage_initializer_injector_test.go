@@ -71,7 +71,7 @@ func TestStorageInitializerInjector(t *testing.T) {
 				Spec: v1.PodSpec{
 					Containers: []v1.Container{
 						{
-							Name: "user-container",
+							Name: constants.InferenceServiceContainerName,
 						},
 					},
 				},
@@ -83,7 +83,7 @@ func TestStorageInitializerInjector(t *testing.T) {
 				Spec: v1.PodSpec{
 					Containers: []v1.Container{
 						{
-							Name: "user-container",
+							Name: constants.InferenceServiceContainerName,
 						},
 					},
 				},
@@ -99,7 +99,7 @@ func TestStorageInitializerInjector(t *testing.T) {
 				Spec: v1.PodSpec{
 					Containers: []v1.Container{
 						{
-							Name: "user-container",
+							Name: constants.InferenceServiceContainerName,
 						},
 					},
 					InitContainers: []v1.Container{
@@ -118,7 +118,7 @@ func TestStorageInitializerInjector(t *testing.T) {
 				Spec: v1.PodSpec{
 					Containers: []v1.Container{
 						{
-							Name: "user-container",
+							Name: constants.InferenceServiceContainerName,
 						},
 					},
 					InitContainers: []v1.Container{
@@ -139,7 +139,7 @@ func TestStorageInitializerInjector(t *testing.T) {
 				Spec: v1.PodSpec{
 					Containers: []v1.Container{
 						{
-							Name: "user-container",
+							Name: constants.InferenceServiceContainerName,
 						},
 					},
 				},
@@ -153,7 +153,7 @@ func TestStorageInitializerInjector(t *testing.T) {
 				Spec: v1.PodSpec{
 					Containers: []v1.Container{
 						{
-							Name: "user-container",
+							Name: constants.InferenceServiceContainerName,
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kfserving-provision-location",
@@ -198,7 +198,7 @@ func TestStorageInitializerInjector(t *testing.T) {
 				Spec: v1.PodSpec{
 					Containers: []v1.Container{
 						{
-							Name: "user-container",
+							Name: constants.InferenceServiceContainerName,
 						},
 					},
 				},
@@ -212,7 +212,7 @@ func TestStorageInitializerInjector(t *testing.T) {
 				Spec: v1.PodSpec{
 					Containers: []v1.Container{
 						{
-							Name: "user-container",
+							Name: constants.InferenceServiceContainerName,
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kfserving-provision-location",
@@ -335,7 +335,7 @@ func TestCustomSpecStorageUriInjection(t *testing.T) {
 				Spec: v1.PodSpec{
 					Containers: []v1.Container{
 						v1.Container{
-							Name: "user-container",
+							Name: constants.InferenceServiceContainerName,
 							Env: []v1.EnvVar{
 								v1.EnvVar{
 									Name:  constants.CustomSpecStorageUriEnvVarKey,
@@ -361,7 +361,7 @@ func TestCustomSpecStorageUriInjection(t *testing.T) {
 				Spec: v1.PodSpec{
 					Containers: []v1.Container{
 						v1.Container{
-							Name: "user-container",
+							Name: constants.InferenceServiceContainerName,
 							Env: []v1.EnvVar{
 								v1.EnvVar{
 									Name:  constants.CustomSpecStorageUriEnvVarKey,
@@ -387,7 +387,7 @@ func TestCustomSpecStorageUriInjection(t *testing.T) {
 				Spec: v1.PodSpec{
 					Containers: []v1.Container{
 						v1.Container{
-							Name: "user-container",
+							Name: constants.InferenceServiceContainerName,
 							Env: []v1.EnvVar{
 								v1.EnvVar{
 									Name:  "TestRandom",
@@ -437,7 +437,7 @@ func makePod() *v1.Pod {
 		Spec: v1.PodSpec{
 			Containers: []v1.Container{
 				{
-					Name: "user-container",
+					Name: constants.InferenceServiceContainerName,
 				},
 			},
 		},
@@ -490,7 +490,7 @@ func TestCredentialInjection(t *testing.T) {
 				Spec: v1.PodSpec{
 					Containers: []v1.Container{
 						{
-							Name: "user-container",
+							Name: constants.InferenceServiceContainerName,
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kfserving-provision-location",
@@ -589,7 +589,7 @@ func TestCredentialInjection(t *testing.T) {
 				Spec: v1.PodSpec{
 					Containers: []v1.Container{
 						v1.Container{
-							Name: "user-container",
+							Name: constants.InferenceServiceContainerName,
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kfserving-provision-location",
@@ -693,7 +693,7 @@ func TestStorageInitializerConfigmap(t *testing.T) {
 				Spec: v1.PodSpec{
 					Containers: []v1.Container{
 						{
-							Name: "user-container",
+							Name: constants.InferenceServiceContainerName,
 						},
 					},
 				},
@@ -707,7 +707,7 @@ func TestStorageInitializerConfigmap(t *testing.T) {
 				Spec: v1.PodSpec{
 					Containers: []v1.Container{
 						{
-							Name: "user-container",
+							Name: constants.InferenceServiceContainerName,
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kfserving-provision-location",

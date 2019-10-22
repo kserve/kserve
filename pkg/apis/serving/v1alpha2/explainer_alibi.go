@@ -35,6 +35,7 @@ func (s *AlibiExplainerSpec) CreateExplainerContainer(modelName string, predicto
 
 	return &v1.Container{
 		Image:     config.Explainers.AlibiExplainer.ContainerImage + ":" + s.RuntimeVersion,
+		Name:      constants.InferenceServiceContainerName,
 		Resources: s.Resources,
 		Args:      args,
 	}

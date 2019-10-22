@@ -169,6 +169,7 @@ func TestInferenceServiceWithOnlyPredictor(t *testing.T) {
 									{
 										Image: TensorflowServingImageName + ":" +
 											defaultInstance.Spec.Default.Predictor.Tensorflow.RuntimeVersion,
+										Name:    constants.InferenceServiceContainerName,
 										Command: []string{kfserving.TensorflowEntrypointCommand},
 										Args: []string{
 											"--port=" + kfserving.TensorflowServingGRPCPort,
@@ -399,6 +400,7 @@ func TestInferenceServiceWithDefaultAndCanaryPredictor(t *testing.T) {
 									{
 										Image: TensorflowServingImageName + ":" +
 											canary.Spec.Canary.Predictor.Tensorflow.RuntimeVersion,
+										Name:    constants.InferenceServiceContainerName,
 										Command: []string{kfserving.TensorflowEntrypointCommand},
 										Args: []string{
 											"--port=" + kfserving.TensorflowServingGRPCPort,
