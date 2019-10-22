@@ -21,11 +21,15 @@ import (
 	"github.com/kubeflow/kfserving/pkg/constants"
 	v1 "k8s.io/api/core/v1"
 	resource "k8s.io/apimachinery/pkg/api/resource"
+	field "k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/klog"
+	core "k8s.io/kubernetes/pkg/apis/core"
+	validation "k8s.io/kubernetes/pkg/apis/core/validation"
 )
 
 type Predictor interface {
 	GetStorageUri() string
+	GetResourceRequirement() *v1.ResourceRequirements
 	GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container
 	ApplyDefaults(config *InferenceServicesConfig)
 	Validate(config *InferenceServicesConfig) error
@@ -41,6 +45,24 @@ var (
 	DefaultCPU    = resource.MustParse("1")
 )
 
+func transferToCoreResourceRequirements(rr *v1.ResourceRequirements) *core.ResourceRequirements {
+	resourceRequirements := &core.ResourceRequirements{
+		Limits:   make(core.ResourceList),
+		Requests: make(core.ResourceList),
+	}
+
+	for k, v := range rr.Requests {
+		resourceName := core.ResourceName(string(k))
+		resourceRequirements.Requests[resourceName] = v
+	}
+	for k, v := range rr.Limits {
+		resourceName := core.ResourceName(string(k))
+		resourceRequirements.Limits[resourceName] = v
+	}
+
+	return resourceRequirements
+}
+
 // Returns a URI to the model. This URI is passed to the storage-initializer via the StorageInitializerSourceUriInternalAnnotationKey
 func (p *PredictorSpec) GetStorageUri() string {
 	predictor, err := getPredictor(p)
@@ -48,6 +70,15 @@ func (p *PredictorSpec) GetStorageUri() string {
 		return ""
 	}
 	return predictor.GetStorageUri()
+}
+
+// Returns the ResourceRequirements of the model.
+func (p *PredictorSpec) GetResourceRequirement() *v1.ResourceRequirements {
+	predictor, err := getPredictor(p)
+	if err != nil {
+		return nil
+	}
+	return predictor.GetResourceRequirement()
 }
 
 func (p *PredictorSpec) GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container {
@@ -79,6 +110,10 @@ func (p *PredictorSpec) Validate(config *InferenceServicesConfig) error {
 	if err := validateReplicas(p.MinReplicas, p.MaxReplicas); err != nil {
 		return err
 	}
+	if errs := validation.ValidateResourceRequirements(transferToCoreResourceRequirements(p.GetResourceRequirement()), field.NewPath("resources")); len(errs) != 0 {
+		return fmt.Errorf("Unexpected error: %v", errs)
+	}
+
 	return nil
 }
 
