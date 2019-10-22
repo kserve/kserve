@@ -84,6 +84,21 @@ spec:
                       required:
                       - container
                       type: object
+                    inferenceLogger:
+                      description: Activate request/response logging
+                      properties:
+                        logType:
+                          description: What payloads to log
+                          type: string
+                        sample:
+                          description: What percentage of requests to log, value between
+                            0->1
+                          format: float
+                          type: number
+                        url:
+                          description: URL to send request logging CloudEvents
+                          type: string
+                      type: object
                     maxReplicas:
                       description: This is the up bound for autoscaler to scale to
                       format: int64
@@ -108,6 +123,21 @@ spec:
                           type: object
                       required:
                       - container
+                      type: object
+                    inferenceLogger:
+                      description: Activate request/response logging
+                      properties:
+                        logType:
+                          description: What payloads to log
+                          type: string
+                        sample:
+                          description: What percentage of requests to log, value between
+                            0->1
+                          format: float
+                          type: number
+                        url:
+                          description: URL to send request logging CloudEvents
+                          type: string
                       type: object
                     maxReplicas:
                       description: This is the up bound for autoscaler to scale to
@@ -248,6 +278,21 @@ spec:
                           type: object
                       required:
                       - container
+                      type: object
+                    inferenceLogger:
+                      description: Activate request/response logging
+                      properties:
+                        logType:
+                          description: What payloads to log
+                          type: string
+                        sample:
+                          description: What percentage of requests to log, value between
+                            0->1
+                          format: float
+                          type: number
+                        url:
+                          description: URL to send request logging CloudEvents
+                          type: string
                       type: object
                     maxReplicas:
                       description: This is the up bound for autoscaler to scale to
@@ -308,6 +353,21 @@ spec:
                       required:
                       - container
                       type: object
+                    inferenceLogger:
+                      description: Activate request/response logging
+                      properties:
+                        logType:
+                          description: What payloads to log
+                          type: string
+                        sample:
+                          description: What percentage of requests to log, value between
+                            0->1
+                          format: float
+                          type: number
+                        url:
+                          description: URL to send request logging CloudEvents
+                          type: string
+                      type: object
                     maxReplicas:
                       description: This is the up bound for autoscaler to scale to
                       format: int64
@@ -332,6 +392,21 @@ spec:
                           type: object
                       required:
                       - container
+                      type: object
+                    inferenceLogger:
+                      description: Activate request/response logging
+                      properties:
+                        logType:
+                          description: What payloads to log
+                          type: string
+                        sample:
+                          description: What percentage of requests to log, value between
+                            0->1
+                          format: float
+                          type: number
+                        url:
+                          description: URL to send request logging CloudEvents
+                          type: string
                       type: object
                     maxReplicas:
                       description: This is the up bound for autoscaler to scale to
@@ -472,6 +547,21 @@ spec:
                           type: object
                       required:
                       - container
+                      type: object
+                    inferenceLogger:
+                      description: Activate request/response logging
+                      properties:
+                        logType:
+                          description: What payloads to log
+                          type: string
+                        sample:
+                          description: What percentage of requests to log, value between
+                            0->1
+                          format: float
+                          type: number
+                        url:
+                          description: URL to send request logging CloudEvents
+                          type: string
                       type: object
                     maxReplicas:
                       description: This is the up bound for autoscaler to scale to
