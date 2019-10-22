@@ -167,8 +167,9 @@
       }
     },
     "v1alpha2.InferenceLogger": {
+      "description": "InferenceLogger provides optional payload logging for all endpoints",
       "properties": {
-        "logType": {
+        "mode": {
           "description": "What payloads to log",
           "type": "string"
         },

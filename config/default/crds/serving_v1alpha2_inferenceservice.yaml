@@ -87,7 +87,7 @@ spec:
                     inferenceLogger:
                       description: Activate request/response logging
                       properties:
-                        logType:
+                        mode:
                           description: What payloads to log
                           type: string
                         sample:
@@ -127,7 +127,7 @@ spec:
                     inferenceLogger:
                       description: Activate request/response logging
                       properties:
-                        logType:
+                        mode:
                           description: What payloads to log
                           type: string
                         sample:
@@ -282,7 +282,7 @@ spec:
                     inferenceLogger:
                       description: Activate request/response logging
                       properties:
-                        logType:
+                        mode:
                           description: What payloads to log
                           type: string
                         sample:
@@ -356,7 +356,7 @@ spec:
                     inferenceLogger:
                       description: Activate request/response logging
                       properties:
-                        logType:
+                        mode:
                           description: What payloads to log
                           type: string
                         sample:
@@ -396,7 +396,7 @@ spec:
                     inferenceLogger:
                       description: Activate request/response logging
                       properties:
-                        logType:
+                        mode:
                           description: What payloads to log
                           type: string
                         sample:
@@ -551,7 +551,7 @@ spec:
                     inferenceLogger:
                       description: Activate request/response logging
                       properties:
-                        logType:
+                        mode:
                           description: What payloads to log
                           type: string
                         sample:

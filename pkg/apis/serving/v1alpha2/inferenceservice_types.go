@@ -65,21 +65,23 @@ type DeploymentSpec struct {
 	InferenceLogger *InferenceLogger `json:"inferenceLogger,omitempty"`
 }
 
-type InferenceLoggerType string
+type InferenceLoggerMode string
 
 const (
-	InferenceLogBoth     InferenceLoggerType = "both"
-	InferenceLogRequest  InferenceLoggerType = "request"
-	InferenceLogresponse InferenceLoggerType = "response"
+	InferenceLogBoth     InferenceLoggerMode = "both"
+	InferenceLogRequest  InferenceLoggerMode = "request"
+	InferenceLogresponse InferenceLoggerMode = "response"
 )
 
+// InferenceLogger provides optional payload logging for all endpoints
+// +experimental
 type InferenceLogger struct {
 	// URL to send request logging CloudEvents
 	// +optional
-	Url *string `json:"url,omitempty"`
+	Url string `json:"url,omitempty"`
 	// What payloads to log
 	// +optional
-	LogType *InferenceLoggerType `json:"logType,omitempty"`
+	Mode *InferenceLoggerMode `json:"mode,omitempty"`
 	// What percentage of requests to log, value between 0->1
 	// +optional
 	Sample *float32 `json:"sample,omitempty"`
