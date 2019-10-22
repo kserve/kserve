@@ -18,6 +18,7 @@ package service
 
 import (
 	"fmt"
+	"github.com/kubeflow/kfserving/pkg/controller/inferenceservice/resources/knative"
 	"testing"
 	"time"
 
@@ -156,6 +157,7 @@ func TestInferenceServiceWithOnlyPredictor(t *testing.T) {
 							"autoscaling.knative.dev/class":                            "kpa.autoscaling.knative.dev",
 							"autoscaling.knative.dev/maxScale":                         "3",
 							"autoscaling.knative.dev/minScale":                         "1",
+							"queue.sidecar.serving.knative.dev/resourcePercentage":     knative.DefaultQueueSideCarResourcePercentage,
 							constants.StorageInitializerSourceUriInternalAnnotationKey: defaultInstance.Spec.Default.Predictor.Tensorflow.StorageURI,
 						},
 					},
@@ -385,6 +387,7 @@ func TestInferenceServiceWithDefaultAndCanaryPredictor(t *testing.T) {
 							"autoscaling.knative.dev/class":                            "kpa.autoscaling.knative.dev",
 							"autoscaling.knative.dev/maxScale":                         "3",
 							"autoscaling.knative.dev/minScale":                         "1",
+							"queue.sidecar.serving.knative.dev/resourcePercentage":     knative.DefaultQueueSideCarResourcePercentage,
 							constants.StorageInitializerSourceUriInternalAnnotationKey: canary.Spec.Canary.Predictor.Tensorflow.StorageURI,
 						},
 					},
@@ -925,10 +928,11 @@ func TestInferenceServiceWithTransformer(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: map[string]string{"serving.kubeflow.org/inferenceservice": serviceName},
 						Annotations: map[string]string{
-							"autoscaling.knative.dev/target":   "1",
-							"autoscaling.knative.dev/class":    "kpa.autoscaling.knative.dev",
-							"autoscaling.knative.dev/maxScale": "3",
-							"autoscaling.knative.dev/minScale": "1",
+							"autoscaling.knative.dev/target":                       "1",
+							"autoscaling.knative.dev/class":                        "kpa.autoscaling.knative.dev",
+							"autoscaling.knative.dev/maxScale":                     "3",
+							"autoscaling.knative.dev/minScale":                     "1",
+							"queue.sidecar.serving.knative.dev/resourcePercentage": knative.DefaultQueueSideCarResourcePercentage,
 						},
 					},
 					Spec: knservingv1alpha1.RevisionSpec{
@@ -1137,4 +1141,185 @@ func TestInferenceServiceWithTransformer(t *testing.T) {
 		},
 	}
 	g.Expect(cmp.Diff(virtualService.Spec, expectedVirtualService.Spec)).To(gomega.Equal(""))
+}
+
+func TestInferenceServiceDeleteComponent(t *testing.T) {
+	serviceName := "svc-with-two-components"
+	namespace := "default"
+	var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: namespace}}
+	var serviceKey = expectedRequest.NamespacedName
+
+	var defaultPredictor = types.NamespacedName{Name: constants.DefaultPredictorServiceName(serviceName),
+		Namespace: namespace}
+	var canaryPredictor = types.NamespacedName{Name: constants.CanaryPredictorServiceName(serviceName),
+		Namespace: namespace}
+	var defaultTransformer = types.NamespacedName{Name: constants.DefaultTransformerServiceName(serviceName),
+		Namespace: namespace}
+	var canaryTransformer = types.NamespacedName{Name: constants.CanaryTransformerServiceName(serviceName),
+		Namespace: namespace}
+	var transformer = &kfserving.InferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      serviceName,
+			Namespace: namespace,
+		},
+		Spec: kfserving.InferenceServiceSpec{
+			Default: kfserving.EndpointSpec{
+				Predictor: kfserving.PredictorSpec{
+					DeploymentSpec: kfserving.DeploymentSpec{
+						MinReplicas: 1,
+						MaxReplicas: 3,
+					},
+					Tensorflow: &kfserving.TensorflowSpec{
+						StorageURI:     "s3://test/mnist/export",
+						RuntimeVersion: "1.13.0",
+					},
+				},
+				Transformer: &kfserving.TransformerSpec{
+					DeploymentSpec: kfserving.DeploymentSpec{
+						MinReplicas: 1,
+						MaxReplicas: 3,
+					},
+					Custom: &kfserving.CustomSpec{
+						Container: v1.Container{
+							Image: "transformer:v1",
+						},
+					},
+				},
+			},
+			CanaryTrafficPercent: 20,
+			Canary: &kfserving.EndpointSpec{
+				Predictor: kfserving.PredictorSpec{
+					DeploymentSpec: kfserving.DeploymentSpec{
+						MinReplicas: 1,
+						MaxReplicas: 3,
+					},
+					Tensorflow: &kfserving.TensorflowSpec{
+						StorageURI:     "s3://test/mnist-2/export",
+						RuntimeVersion: "1.13.0",
+					},
+				},
+				Transformer: &kfserving.TransformerSpec{
+					DeploymentSpec: kfserving.DeploymentSpec{
+						MinReplicas: 1,
+						MaxReplicas: 3,
+					},
+					Custom: &kfserving.CustomSpec{
+						Container: v1.Container{
+							Image: "transformer:v2",
+						},
+					},
+				},
+			},
+		},
+		Status: kfserving.InferenceServiceStatus{
+			URL: serviceName + ".svc.cluster.local",
+			Default: &kfserving.ComponentStatusMap{
+				constants.Predictor: &kfserving.StatusConfigurationSpec{
+					Name: "revision-v1",
+				},
+			},
+		},
+	}
+
+	g := gomega.NewGomegaWithT(t)
+
+	mgr, err := manager.New(cfg, manager.Options{})
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	c = mgr.GetClient()
+
+	recFn, requests := SetupTestReconcile(newReconciler(mgr))
+	g.Expect(add(mgr, recFn)).NotTo(gomega.HaveOccurred())
+
+	stopMgr, mgrStopped := StartTestManager(mgr, g)
+
+	defer func() {
+		close(stopMgr)
+		mgrStopped.Wait()
+	}()
+
+	// Create configmap
+	var configMap = &v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      constants.InferenceServiceConfigMapName,
+			Namespace: constants.KFServingNamespace,
+		},
+		Data: configs,
+	}
+	g.Expect(c.Create(context.TODO(), configMap)).NotTo(gomega.HaveOccurred())
+	defer c.Delete(context.TODO(), configMap)
+
+	// Create the InferenceService object and expect the Reconcile and knative service to be created
+	instance := transformer.DeepCopy()
+	g.Expect(c.Create(context.TODO(), instance)).NotTo(gomega.HaveOccurred())
+	defer c.Delete(context.TODO(), instance)
+	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
+
+	defaultPredictorService := &knservingv1alpha1.Service{}
+	g.Eventually(func() error { return c.Get(context.TODO(), defaultPredictor, defaultPredictorService) }, timeout).
+		Should(gomega.Succeed())
+
+	canaryPredictorService := &knservingv1alpha1.Service{}
+	g.Eventually(func() error { return c.Get(context.TODO(), canaryPredictor, canaryPredictorService) }, timeout).
+		Should(gomega.Succeed())
+
+	defaultTransformerService := &knservingv1alpha1.Service{}
+	g.Eventually(func() error { return c.Get(context.TODO(), defaultTransformer, defaultTransformerService) }, timeout).
+		Should(gomega.Succeed())
+
+	canaryTransformerService := &knservingv1alpha1.Service{}
+	g.Eventually(func() error { return c.Get(context.TODO(), canaryTransformer, canaryTransformerService) }, timeout).
+		Should(gomega.Succeed())
+
+	// Update instance to remove transformer endpoint
+	// transformer services should be removed during reconcile
+	updateInstance := &kfserving.InferenceService{}
+	g.Eventually(func() error { return c.Get(context.TODO(), serviceKey, updateInstance) }, timeout).
+		Should(gomega.Succeed())
+
+	updateInstance.Spec.Canary.Transformer = nil
+	updateInstance.Spec.Default.Transformer = nil
+	g.Expect(c.Update(context.TODO(), updateInstance)).NotTo(gomega.HaveOccurred())
+
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
+
+	defaultTransformerServiceShouldBeDeleted := &knservingv1alpha1.Service{}
+	g.Eventually(func() bool {
+		err := c.Get(context.TODO(), defaultTransformer, defaultTransformerServiceShouldBeDeleted)
+		return errors.IsNotFound(err)
+	}, timeout).Should(gomega.BeTrue())
+
+	canaryTransformerServiceShouldBeDeleted := &knservingv1alpha1.Service{}
+	g.Eventually(func() bool {
+		err := c.Get(context.TODO(), canaryTransformer, canaryTransformerServiceShouldBeDeleted)
+		return errors.IsNotFound(err)
+	}, timeout).Should(gomega.BeTrue())
+	defaultPredictorServiceShouldExist := &knservingv1alpha1.Service{}
+	g.Eventually(func() error { return c.Get(context.TODO(), defaultPredictor, defaultPredictorServiceShouldExist) }, timeout).
+		Should(gomega.Succeed())
+
+	canaryPredictorServiceShouldExist := &knservingv1alpha1.Service{}
+	g.Eventually(func() error { return c.Get(context.TODO(), canaryPredictor, canaryPredictorServiceShouldExist) }, timeout).
+		Should(gomega.Succeed())
+
+	g.Eventually(func() bool {
+		isvc := &kfserving.InferenceService{}
+		err := c.Get(context.TODO(), serviceKey, isvc)
+		if err != nil {
+			return false
+		}
+		if _, ok := (*isvc.Status.Default)[constants.Transformer]; ok {
+			return false
+		}
+		if _, ok := (*isvc.Status.Canary)[constants.Transformer]; ok {
+			return false
+		}
+		if defaultTransformerReady := isvc.Status.GetCondition(kfserving.DefaultTransformerReady); defaultTransformerReady != nil {
+			return false
+		}
+		if canaryTransformerReady := isvc.Status.GetCondition(kfserving.CanaryTransformerReady); canaryTransformerReady != nil {
+			return false
+		}
+		return true
+	}, timeout).Should(gomega.BeTrue())
 }

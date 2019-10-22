@@ -109,7 +109,7 @@ func getPredictorsConfigs(configMap *v1.ConfigMap) (*PredictorsConfig, error) {
 	if data, ok := configMap.Data[PredictorConfigKeyName]; ok {
 		err := json.Unmarshal([]byte(data), &predictorConfig)
 		if err != nil {
-			return nil, fmt.Errorf("Unable to unmarshall json string due to %v ", err)
+			return nil, fmt.Errorf("Unable to unmarshall %v json string due to %v ", PredictorConfigKeyName, err)
 		}
 	}
 	return predictorConfig, nil
@@ -120,7 +120,7 @@ func getTransformersConfigs(configMap *v1.ConfigMap) (*TransformersConfig, error
 	if data, ok := configMap.Data[TransformerConfigKeyName]; ok {
 		err := json.Unmarshal([]byte(data), &transformerConfig)
 		if err != nil {
-			return nil, fmt.Errorf("Unable to unmarshall json string due to %v ", err)
+			return nil, fmt.Errorf("Unable to unmarshall %v json string due to %v ", TransformerConfigKeyName, err)
 		}
 	}
 	return transformerConfig, nil
@@ -131,7 +131,7 @@ func getExplainersConfigs(configMap *v1.ConfigMap) (*ExplainersConfig, error) {
 	if data, ok := configMap.Data[ExplainerConfigKeyName]; ok {
 		err := json.Unmarshal([]byte(data), &explainerConfig)
 		if err != nil {
-			return nil, fmt.Errorf("Unable to unmarshall json string due to %v ", err)
+			return nil, fmt.Errorf("Unable to unmarshall %v json string due to %v ", ExplainerConfigKeyName, err)
 		}
 	}
 	return explainerConfig, nil

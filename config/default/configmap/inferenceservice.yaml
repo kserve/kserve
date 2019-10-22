@@ -72,7 +72,11 @@ data:
     }
   storageInitializer: |-
     {
-        "image" : "gcr.io/kfserving/storage-initializer:0.2.0"
+        "image" : "gcr.io/kfserving/storage-initializer:0.2.0",
+        "memoryRequest": "100Mi",
+        "memoryLimit": "1Gi",
+        "cpuRequest": "100m",
+        "cpuLimit": "1"
     }
   credentials: |-
     {

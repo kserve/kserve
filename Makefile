@@ -28,8 +28,12 @@ deploy: manifests
 	kustomize build config/default | kubectl apply -f -
 
 deploy-dev: manifests
-	./hack/image_patch_dev.sh
+	./hack/image_patch_dev.sh development
 	kustomize build config/overlays/development | kubectl apply -f -
+
+deploy-local: manifests
+	./hack/image_patch_dev.sh local
+	kustomize build config/overlays/local | kubectl apply -f -
 
 deploy-ci: manifests
 	kustomize build config/overlays/test | kubectl apply -f -

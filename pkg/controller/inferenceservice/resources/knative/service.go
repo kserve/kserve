@@ -28,6 +28,7 @@ import (
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/serving/pkg/apis/autoscaling"
+	"knative.dev/serving/pkg/apis/serving"
 	knservingv1alpha1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
 )
@@ -38,6 +39,12 @@ var serviceAnnotationDisallowedList = []string{
 	constants.StorageInitializerSourceUriInternalAnnotationKey,
 	"kubectl.kubernetes.io/last-applied-configuration",
 }
+
+const (
+	// Use a very small percentage here so the minimum bound defined at
+	// https://github.com/knative/serving/blob/1d263950f9f2fea85a4dd394948a029c328af9d9/pkg/reconciler/revision/resources/resourceboundary.go#L30
+	DefaultQueueSideCarResourcePercentage = "0.2"
+)
 
 type ServiceBuilder struct {
 	inferenceServiceConfig *v1alpha2.InferenceServicesConfig
@@ -117,24 +124,9 @@ func addInferenceLoggerAnnotations(inferenceLogger *v1alpha2.InferenceLogger, an
 }
 
 func (c *ServiceBuilder) CreatePredictorService(name string, metadata metav1.ObjectMeta, predictorSpec *v1alpha2.PredictorSpec) (*knservingv1alpha1.Service, error) {
-	annotations := utils.Filter(metadata.Annotations, func(key string) bool {
-		return !utils.Includes(serviceAnnotationDisallowedList, key)
-	})
-
-	if predictorSpec.MinReplicas != 0 {
-		annotations[autoscaling.MinScaleAnnotationKey] = fmt.Sprint(predictorSpec.MinReplicas)
-	}
-	if predictorSpec.MaxReplicas != 0 {
-		annotations[autoscaling.MaxScaleAnnotationKey] = fmt.Sprint(predictorSpec.MaxReplicas)
-	}
-
-	// User can pass down scaling target annotation to overwrite the target default 1
-	if _, ok := annotations[autoscaling.TargetAnnotationKey]; !ok {
-		annotations[autoscaling.TargetAnnotationKey] = constants.DefaultScalingTarget
-	}
-	// User can pass down scaling class annotation to overwrite the default scaling KPA
-	if _, ok := annotations[autoscaling.ClassAnnotationKey]; !ok {
-		annotations[autoscaling.ClassAnnotationKey] = autoscaling.KPA
+	annotations, err := c.buildAnnotations(metadata, predictorSpec.MinReplicas, predictorSpec.MaxReplicas)
+	if err != nil {
+		return nil, err
 	}
 
 	// KNative does not support INIT containers or mounting, so we add annotations that trigger the
@@ -193,24 +185,9 @@ func (c *ServiceBuilder) CreatePredictorService(name string, metadata metav1.Obj
 }
 
 func (c *ServiceBuilder) CreateTransformerService(name string, metadata metav1.ObjectMeta, transformerSpec *v1alpha2.TransformerSpec, isCanary bool) (*knservingv1alpha1.Service, error) {
-	annotations := utils.Filter(metadata.Annotations, func(key string) bool {
-		return !utils.Includes(serviceAnnotationDisallowedList, key)
-	})
-
-	if transformerSpec.MinReplicas != 0 {
-		annotations[autoscaling.MinScaleAnnotationKey] = fmt.Sprint(transformerSpec.MinReplicas)
-	}
-	if transformerSpec.MaxReplicas != 0 {
-		annotations[autoscaling.MaxScaleAnnotationKey] = fmt.Sprint(transformerSpec.MaxReplicas)
-	}
-
-	// User can pass down scaling target annotation to overwrite the target default 1
-	if _, ok := annotations[autoscaling.TargetAnnotationKey]; !ok {
-		annotations[autoscaling.TargetAnnotationKey] = constants.DefaultScalingTarget
-	}
-	// User can pass down scaling class annotation to overwrite the default scaling KPA
-	if _, ok := annotations[autoscaling.ClassAnnotationKey]; !ok {
-		annotations[autoscaling.ClassAnnotationKey] = autoscaling.KPA
+	annotations, err := c.buildAnnotations(metadata, transformerSpec.MinReplicas, transformerSpec.MaxReplicas)
+	if err != nil {
+		return nil, err
 	}
 
 	// Knative does not support multiple containers so we add an annotation that triggers pod
@@ -278,24 +255,9 @@ func (c *ServiceBuilder) CreateTransformerService(name string, metadata metav1.O
 }
 
 func (c *ServiceBuilder) CreateExplainerService(name string, metadata metav1.ObjectMeta, explainerSpec *v1alpha2.ExplainerSpec, predictorService string, isCanary bool) (*knservingv1alpha1.Service, error) {
-	annotations := utils.Filter(metadata.Annotations, func(key string) bool {
-		return !utils.Includes(serviceAnnotationDisallowedList, key)
-	})
-
-	if explainerSpec.MinReplicas != 0 {
-		annotations[autoscaling.MinScaleAnnotationKey] = fmt.Sprint(explainerSpec.MinReplicas)
-	}
-	if explainerSpec.MaxReplicas != 0 {
-		annotations[autoscaling.MaxScaleAnnotationKey] = fmt.Sprint(explainerSpec.MaxReplicas)
-	}
-
-	// User can pass down scaling target annotation to overwrite the target default 1
-	if _, ok := annotations[autoscaling.TargetAnnotationKey]; !ok {
-		annotations[autoscaling.TargetAnnotationKey] = constants.DefaultScalingTarget
-	}
-	// User can pass down scaling class annotation to overwrite the default scaling KPA
-	if _, ok := annotations[autoscaling.ClassAnnotationKey]; !ok {
-		annotations[autoscaling.ClassAnnotationKey] = autoscaling.KPA
+	annotations, err := c.buildAnnotations(metadata, explainerSpec.MinReplicas, explainerSpec.MaxReplicas)
+	if err != nil {
+		return nil, err
 	}
 
 	// KNative does not support INIT containers or mounting, so we add annotations that trigger the
@@ -351,4 +313,30 @@ func (c *ServiceBuilder) CreateExplainerService(name string, metadata metav1.Obj
 	}
 
 	return service, nil
+}
+
+func (c *ServiceBuilder) buildAnnotations(metadata metav1.ObjectMeta, minReplicas int, maxReplicas int) (map[string]string, error) {
+	annotations := utils.Filter(metadata.Annotations, func(key string) bool {
+		return !utils.Includes(serviceAnnotationDisallowedList, key)
+	})
+
+	if minReplicas != 0 {
+		annotations[autoscaling.MinScaleAnnotationKey] = fmt.Sprint(minReplicas)
+	}
+	if maxReplicas != 0 {
+		annotations[autoscaling.MaxScaleAnnotationKey] = fmt.Sprint(maxReplicas)
+	}
+
+	if _, ok := annotations[serving.QueueSideCarResourcePercentageAnnotation]; !ok {
+		annotations[serving.QueueSideCarResourcePercentageAnnotation] = DefaultQueueSideCarResourcePercentage
+	}
+	// User can pass down scaling target annotation to overwrite the target default 1
+	if _, ok := annotations[autoscaling.TargetAnnotationKey]; !ok {
+		annotations[autoscaling.TargetAnnotationKey] = constants.DefaultScalingTarget
+	}
+	// User can pass down scaling class annotation to overwrite the default scaling KPA
+	if _, ok := annotations[autoscaling.ClassAnnotationKey]; !ok {
+		annotations[autoscaling.ClassAnnotationKey] = autoscaling.KPA
+	}
+	return annotations, nil
 }

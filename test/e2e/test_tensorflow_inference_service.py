@@ -24,7 +24,7 @@ from kfserving import V1alpha2InferenceServiceSpec
 from kfserving import V1alpha2InferenceService
 from kubernetes.client import V1ResourceRequirements
 
-from utils import wait_for_kfservice_ready
+from utils import wait_for_isvc_ready
 
 api_version = constants.KFSERVING_GROUP + '/' + constants.KFSERVING_VERSION
 KFServing = KFServingClient(config_file="~/.kube/config")
@@ -46,4 +46,4 @@ def test_tensorflow_kfserving():
                                     spec=V1alpha2InferenceServiceSpec(default=default_endpoint_spec))
 
     KFServing.create(isvc)
-    wait_for_kfservice_ready('isvc-tensorflow-test')
+    wait_for_isvc_ready('isvc-tensorflow-test')

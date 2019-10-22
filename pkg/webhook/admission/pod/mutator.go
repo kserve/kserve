@@ -19,11 +19,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
-
 	v1 "k8s.io/api/core/v1"
 	k8types "k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
+	"net/http"
 
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/controller/inferenceservice/resources/credentials"
@@ -70,18 +69,16 @@ func (mutator *Mutator) Handle(ctx context.Context, req types.Request) types.Res
 }
 
 func (mutator *Mutator) mutate(pod *v1.Pod, configMap *v1.ConfigMap) error {
-
 	credentialBuilder := credentials.NewCredentialBulder(mutator.Client, configMap)
-	var storageInitializerConfig StorageInitializerConfig
-	if initializerConfig, ok := configMap.Data[StorageInitializerConfigMapKeyName]; ok {
-		err := json.Unmarshal([]byte(initializerConfig), &storageInitializerConfig)
-		if err != nil {
-			panic(fmt.Errorf("Unable to unmarshall storage initializer json string due to %v ", err))
-		}
+
+	storageInitializerConfig, err := getStorageInitializerConfigs(configMap)
+	if err != nil {
+		return err
 	}
+
 	storageInitializer := &StorageInitializerInjector{
 		credentialBuilder: credentialBuilder,
-		config:            &storageInitializerConfig,
+		config:            storageInitializerConfig,
 	}
 
 	var inferenceLoggerConfig InferenceLoggerConfig
