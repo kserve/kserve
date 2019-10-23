@@ -70,7 +70,7 @@ type InferenceLoggerMode string
 const (
 	InferenceLogBoth     InferenceLoggerMode = "both"
 	InferenceLogRequest  InferenceLoggerMode = "request"
-	InferenceLogresponse InferenceLoggerMode = "response"
+	InferenceLogResponse InferenceLoggerMode = "response"
 )
 
 // InferenceLogger provides optional payload logging for all endpoints
