@@ -173,11 +173,6 @@
           "description": "What payloads to log",
           "type": "string"
         },
-        "sample": {
-          "description": "What percentage of requests to log, value between 0-\u003e1",
-          "type": "number",
-          "format": "float"
-        },
         "url": {
           "description": "URL to send request logging CloudEvents",
           "type": "string"

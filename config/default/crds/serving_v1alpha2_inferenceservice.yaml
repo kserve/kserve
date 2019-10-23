@@ -90,11 +90,6 @@ spec:
                         mode:
                           description: What payloads to log
                           type: string
-                        sample:
-                          description: What percentage of requests to log, value between
-                            0->1
-                          format: float
-                          type: number
                         url:
                           description: URL to send request logging CloudEvents
                           type: string
@@ -130,11 +125,6 @@ spec:
                         mode:
                           description: What payloads to log
                           type: string
-                        sample:
-                          description: What percentage of requests to log, value between
-                            0->1
-                          format: float
-                          type: number
                         url:
                           description: URL to send request logging CloudEvents
                           type: string
@@ -285,11 +275,6 @@ spec:
                         mode:
                           description: What payloads to log
                           type: string
-                        sample:
-                          description: What percentage of requests to log, value between
-                            0->1
-                          format: float
-                          type: number
                         url:
                           description: URL to send request logging CloudEvents
                           type: string
@@ -359,11 +344,6 @@ spec:
                         mode:
                           description: What payloads to log
                           type: string
-                        sample:
-                          description: What percentage of requests to log, value between
-                            0->1
-                          format: float
-                          type: number
                         url:
                           description: URL to send request logging CloudEvents
                           type: string
@@ -399,11 +379,6 @@ spec:
                         mode:
                           description: What payloads to log
                           type: string
-                        sample:
-                          description: What percentage of requests to log, value between
-                            0->1
-                          format: float
-                          type: number
                         url:
                           description: URL to send request logging CloudEvents
                           type: string
@@ -554,11 +529,6 @@ spec:
                         mode:
                           description: What payloads to log
                           type: string
-                        sample:
-                          description: What percentage of requests to log, value between
-                            0->1
-                          format: float
-                          type: number
                         url:
                           description: URL to send request logging CloudEvents
                           type: string

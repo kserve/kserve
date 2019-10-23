@@ -78,13 +78,10 @@ const (
 type InferenceLogger struct {
 	// URL to send request logging CloudEvents
 	// +optional
-	Url string `json:"url,omitempty"`
+	Url *string `json:"url,omitempty"`
 	// What payloads to log
 	// +optional
-	Mode *InferenceLoggerMode `json:"mode,omitempty"`
-	// What percentage of requests to log, value between 0->1
-	// +optional
-	Sample *float32 `json:"sample,omitempty"`
+	Mode InferenceLoggerMode `json:"mode,omitempty"`
 }
 
 // PredictorSpec defines the configuration for a predictor,

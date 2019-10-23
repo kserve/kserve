@@ -235,13 +235,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Format:      "",
 							},
 						},
-						"sample": {
-							SchemaProps: spec.SchemaProps{
-								Description: "What percentage of requests to log, value between 0->1",
-								Type:        []string{"number"},
-								Format:      "float",
-							},
-						},
 					},
 				},
 			},
