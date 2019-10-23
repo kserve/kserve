@@ -68,7 +68,7 @@ type DeploymentSpec struct {
 type InferenceLoggerMode string
 
 const (
-	InferenceLogBoth     InferenceLoggerMode = "both"
+	InferenceLogAll      InferenceLoggerMode = "all"
 	InferenceLogRequest  InferenceLoggerMode = "request"
 	InferenceLogResponse InferenceLoggerMode = "response"
 )
