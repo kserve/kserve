@@ -4,7 +4,7 @@ metadata:
   name: "mnist-s3"
 spec:
   default:
-    serviceAccountName: sa
     predictor:
+      serviceAccountName: sa
       tensorflow:
         storageUri: "s3://mnist/v1/export"
