@@ -25,7 +25,8 @@ ZONE="${GCP_ZONE}"
 PROJECT="${GCP_PROJECT}"
 NAMESPACE="${DEPLOY_NAMESPACE}"
 REGISTRY="${GCP_REGISTRY}"
-KNATIVE_VERSION="v0.9.0"
+ISTIO_VERSION="1.1.6"
+KNATIVE_VERSION="v0.8.0"
 
 # Check and wait for istio/knative/kfserving pod started normally.
 waiting_pod_running(){
@@ -60,8 +61,8 @@ kubectl create clusterrolebinding cluster-admin-binding \
 echo "Install istio ..."
 mkdir istio_tmp
 pushd istio_tmp >/dev/null
-  curl -L https://git.io/getLatestIstio | sh -
-  cd istio-*
+  curl -L https://git.io/getLatestIstio | ISTIO_VERSION=${ISTIO_VERSION} sh -
+  cd istio-${ISTIO_VERSION}
   export PATH=$PWD/bin:$PATH
   kubectl create namespace istio-system
   helm template install/kubernetes/helm/istio-init \
