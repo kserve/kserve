@@ -35,4 +35,4 @@ def test_model():
 
     request = images[0:1].tolist()
     response = server.predict(request)
-    assert isinstance(response[0], list)
+    assert isinstance(response["instances"][0], list)

@@ -29,7 +29,7 @@ KFServing provides many functionalities, including among others:
 * Registering a model and starting the server
 * Prediction Handler
 * Liveness Handler
-* Metrics Handler
+* Readiness Handlers
 
 KFServing supports the following storage providers:
 

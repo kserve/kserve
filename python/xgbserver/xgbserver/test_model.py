@@ -39,4 +39,4 @@ def test_model():
     server.load()
     request = [X[0].tolist()]
     response = server.predict(request)
-    assert response == [0]
+    assert response["predictions"] == [0]

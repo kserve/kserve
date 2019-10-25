@@ -60,14 +60,13 @@ class PyTorchModel(kfserving.KFModel):
         self._pytorch.eval()
         self.ready = True
 
-    def predict(self, body: List) -> List:
+    def predict(self, request: Dict) -> Dict:
         try:
-            inputs = torch.tensor(body)
+            inputs = torch.tensor(request["instances"])
         except Exception as e:
             raise Exception(
                 "Failed to initialize Torch Tensor from inputs: %s, %s" % (e, inputs))
         try:
-            result = self._pytorch(inputs).tolist()
-            return result
+            return { "predictions":  self._pytorch(inputs).tolist() }
         except Exception as e:
             raise Exception("Failed to predict %s" % e)

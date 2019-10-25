@@ -36,11 +36,11 @@ class XGBoostModel(kfserving.KFModel):
         self._booster = xgb.Booster(model_file=model_file)
         self.ready = True
 
-    def predict(self, body: List) -> List:
+    def predict(self, request: Dict) -> Dict:
         try:
             # Use of list as input is deprecated see https://github.com/dmlc/xgboost/pull/3970
-            dmatrix = xgb.DMatrix(body)
+            dmatrix = xgb.DMatrix(request["instances"])
             result: xgb.DMatrix = self._booster.predict(dmatrix)
-            return result.tolist()
+            return { "predictions": result.tolist() }
         except Exception as e:
             raise Exception("Failed to predict %s" % e)

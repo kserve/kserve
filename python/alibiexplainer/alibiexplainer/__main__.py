@@ -127,7 +127,6 @@ if __name__ == "__main__":
 
     explainer = AlibiExplainer(args.model_name,
                                args.predictor_host,
-                               args.protocol,
                                ExplainerMethod(args.command),
                                extra,
                                alibi_model)

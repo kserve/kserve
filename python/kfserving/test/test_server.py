@@ -15,7 +15,6 @@
 import pytest
 from tornado.httpclient import HTTPClientError
 import kfserving
-from kfserving.server import Protocol  # pylint: disable=no-name-in-module
 from kfserving.transformer import Transformer
 from typing import Dict, List
 
@@ -39,18 +38,13 @@ class TestTFHttpServer(object):
     def app(self):  # pylint: disable=no-self-use
         model = DummyModel("TestModel")
         model.load()
-        server = kfserving.KFServer(Protocol.tensorflow_http)
+        server = kfserving.KFServer()
         server.register_model(model)
         return server.create_application()
 
     async def test_liveness(self, http_server_client):
         resp = await http_server_client.fetch('/')
         assert resp.code == 200
-
-    async def test_protocol(self, http_server_client):
-        resp = await http_server_client.fetch('/protocol')
-        assert resp.code == 200
-        assert resp.body == b"tensorflow.http"
 
     async def test_model(self, http_server_client):
         resp = await http_server_client.fetch('/v1/models/TestModel')
@@ -61,47 +55,6 @@ class TestTFHttpServer(object):
                                               body=b'{"instances":[[1,2]]}')
         assert resp.code == 200
         assert resp.body == b'{"predictions": [[1, 2]]}'
-
-
-class TestSeldonHttpServer(object):
-
-    @pytest.fixture(scope="class")
-    def app(self):  # pylint: disable=no-self-use
-        model = DummyModel("TestModelSeldon")
-        model.load()
-        server = kfserving.KFServer(Protocol.seldon_http)
-        server.register_model(model)
-        return server.create_application()
-
-    async def test_liveness(self, http_server_client):
-        resp = await http_server_client.fetch('/')
-        assert resp.code == 200
-
-    async def test_protocol(self, http_server_client):
-        resp = await http_server_client.fetch('/protocol')
-        assert resp.code == 200
-        assert resp.body == b"seldon.http"
-
-    async def test_model_ndarray(self, http_server_client):
-        resp = await http_server_client.fetch('/v1/models/TestModelSeldon:predict', method="POST",
-                                              body=b'{"data":{"ndarray":[[1,2]]}}')
-        assert resp.code == 200
-        assert resp.body == b'{"data": {"ndarray": [[1, 2]]}}'
-
-    async def test_model_tensor(self, http_server_client):
-        resp = await http_server_client.fetch('/v1/models/TestModelSeldon:predict', method="POST",
-                                              body=b'{"data":{"tensor":{"shape":[1,2],\
-                                                      "values":[1,2]}}}')
-        assert resp.code == 200
-        assert resp.body == b'{"data": {"tensor": {"shape": [1, 2], "values": [1, 2]}}}'
-
-    async def test_model_tftensor(self, http_server_client):
-        with pytest.raises(HTTPClientError):
-            resp = await http_server_client.fetch('/v1/models/TestModelSeldon:predict',
-                                                  method="POST",
-                                                  body=b'{"data":{"tftensor":{}}}')
-            assert resp.code == 400
-
 
 class CustomPredictTransformer(Transformer):
     # subclass of Transformer should implement preprocess
@@ -121,8 +74,7 @@ class TestTransformerHttpServer(object):
 
     @pytest.fixture(scope="class")
     def app(self):  # pylint: disable=no-self-use
-        model = CustomPredictTransformer("TestModel", predictor_host='localhost',
-                                         protocol=Protocol.tensorflow_http)
+        model = CustomPredictTransformer("TestModel", predictor_host='localhost')
         model.load()
         server = kfserving.KFServer(Protocol.tensorflow_http)
         server.register_model(model)
@@ -131,11 +83,6 @@ class TestTransformerHttpServer(object):
     async def test_liveness(self, http_server_client):
         resp = await http_server_client.fetch('/')
         assert resp.code == 200
-
-    async def test_protocol(self, http_server_client):
-        resp = await http_server_client.fetch('/protocol')
-        assert resp.code == 200
-        assert resp.body == b"tensorflow.http"
 
     async def test_model(self, http_server_client):
         resp = await http_server_client.fetch('/v1/models/TestModel')
@@ -166,8 +113,7 @@ class TestTransformerWithPrePostProcessHttpServer(object):
 
     @pytest.fixture(scope="class")
     def app(self):  # pylint: disable=no-self-use
-        model = CustomTransformer("TestModel", predictor_host='localhost',
-                                  protocol=Protocol.tensorflow_http)
+        model = CustomTransformer("TestModel", predictor_host='localhost')
         model.load()
         server = kfserving.KFServer(Protocol.tensorflow_http)
         server.register_model(model)
@@ -176,11 +122,6 @@ class TestTransformerWithPrePostProcessHttpServer(object):
     async def test_liveness(self, http_server_client):
         resp = await http_server_client.fetch('/')
         assert resp.code == 200
-
-    async def test_protocol(self, http_server_client):
-        resp = await http_server_client.fetch('/protocol')
-        assert resp.code == 200
-        assert resp.body == b"tensorflow.http"
 
     async def test_model(self, http_server_client):
         resp = await http_server_client.fetch('/v1/models/TestModel')
