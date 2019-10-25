@@ -68,6 +68,7 @@ class Storage(object): # pylint: disable=too-few-public-methods
         bucket_name = bucket_args[0]
         bucket_path = bucket_args[1] if len(bucket_args) > 1 else ""
         objects = client.list_objects(bucket_name, prefix=bucket_path, recursive=True)
+        count =0
         for obj in objects:
             # Replace any prefix from the object key with temp_dir
             subdir_object_key = obj.object_name.replace(bucket_path, "", 1).strip("/")
@@ -77,6 +78,9 @@ class Storage(object): # pylint: disable=too-few-public-methods
                     subdir_object_key = obj.object_name
                 client.fget_object(bucket_name, obj.object_name,
                                    os.path.join(temp_dir, subdir_object_key))
+            count = count + 1
+        if count == 0:
+            raise Exception("Failed to copy model. The path or model %s does not exist." % (uri))
 
     @staticmethod
     def _download_gcs(uri, temp_dir: str):
@@ -92,6 +96,7 @@ class Storage(object): # pylint: disable=too-few-public-methods
         if not prefix.endswith("/"):
             prefix = prefix + "/"
         blobs = bucket.list_blobs(prefix=prefix)
+        count =0
         for blob in blobs:
             # Replace any prefix from the object key with temp_dir
             subdir_object_key = blob.name.replace(bucket_path, "", 1).strip("/")
@@ -105,6 +110,9 @@ class Storage(object): # pylint: disable=too-few-public-methods
                 dest_path = os.path.join(temp_dir, subdir_object_key)
                 logging.info("Downloading: %s", dest_path)
                 blob.download_to_filename(dest_path)
+            count = count + 1
+        if count == 0:
+            raise Exception("Failed to copy model. The path or model %s does not exist." % (uri))
 
     @staticmethod
     def _download_blob(uri, out_dir: str): # pylint: disable=too-many-locals
@@ -126,7 +134,7 @@ class Storage(object): # pylint: disable=too-few-public-methods
                 logging.warning("Azure credentials not found, retrying anonymous access")
             block_blob_service = BlockBlobService(account_name=account_name, token_credential=token)
             blobs = block_blob_service.list_blobs(container_name, prefix=prefix)
-
+        count =0
         for blob in blobs:
             dest_path = os.path.join(out_dir, blob.name)
             if "/" in blob.name:
@@ -142,6 +150,9 @@ class Storage(object): # pylint: disable=too-few-public-methods
 
             logging.info("Downloading: %s to %s", blob.name, dest_path)
             block_blob_service.get_blob_to_path(container_name, blob.name, dest_path)
+            count = count + 1
+        if count == 0:
+            raise Exception("Failed to copy model. The path or model %s does not exist." % (uri))
 
     @staticmethod
     def _get_azure_storage_token():
