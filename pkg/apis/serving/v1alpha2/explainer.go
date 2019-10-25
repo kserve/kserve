@@ -21,6 +21,7 @@ import (
 )
 
 type Explainer interface {
+	GetResourceRequirements() *v1.ResourceRequirements
 	GetStorageUri() string
 	CreateExplainerContainer(modelName string, predictorHost string, config *InferenceServicesConfig) *v1.Container
 	ApplyDefaults(config *InferenceServicesConfig)
@@ -67,11 +68,8 @@ func (e *ExplainerSpec) Validate(config *InferenceServicesConfig) error {
 	if err := validateStorageURI(e.GetStorageUri()); err != nil {
 		return err
 	}
-	resourceRequirements, err := getResourceRequirements(e)
-	if err != nil {
-		return err
-	}
-	if err := validateResourceRequirements(resourceRequirements); err != nil {
+
+	if err := validateResourceRequirements(explainer.GetResourceRequirements()); err != nil {
 		return err
 	}
 	return nil
@@ -91,23 +89,4 @@ func getExplainer(explainerSpec *ExplainerSpec) (Explainer, error) {
 		return nil, err
 	}
 	return handlers[0], nil
-}
-
-func getResourceRequirements(explainerSpec *ExplainerSpec) (*v1.ResourceRequirements, error) {
-	found := 0
-	var ret *v1.ResourceRequirements
-	if explainerSpec.Custom != nil {
-		found++
-		ret = &explainerSpec.Custom.Container.Resources
-	}
-	if explainerSpec.Alibi != nil {
-		found++
-		ret = &explainerSpec.Alibi.Resources
-	}
-	if found != 1 {
-		err := fmt.Errorf(ExactlyOneExplainerViolatedError)
-		klog.Error(err)
-		return nil, err
-	}
-	return ret, nil
 }
