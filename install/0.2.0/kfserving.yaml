@@ -757,11 +757,11 @@ data:
   explainers: |-
     {
         "alibi": {
-           "image" : "gcr.io/kfserving/alibi-explainer",
-           "defaultImageVersion": "0.2.0",
-           "allowedImageVersions": [
-              "0.2.0"
-           ]
+            "image" : "gcr.io/kfserving/alibi-explainer",
+            "defaultImageVersion": "0.2.0",
+            "allowedImageVersions": [
+               "0.2.0"
+            ]
         }
     }
   ingress: |-
@@ -788,9 +788,9 @@ data:
         },
         "onnx": {
             "image": "mcr.microsoft.com/onnxruntime/server",
-            "defaultImageVersion": "v0.5.0",
+            "defaultImageVersion": "v0.5.1",
             "allowedImageVersions": [
-               "v0.5.0"
+               "v0.5.1"
             ]
         },
         "sklearn": {
@@ -824,7 +824,11 @@ data:
     }
   storageInitializer: |-
     {
-        "image" : "gcr.io/kfserving/storage-initializer:0.2.0"
+        "image" : "gcr.io/kfserving/storage-initializer:0.2.0",
+        "memoryRequest": "100Mi",
+        "memoryLimit": "1Gi",
+        "cpuRequest": "100m",
+        "cpuLimit": "1"
     }
   transformers: |-
     {
