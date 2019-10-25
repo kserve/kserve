@@ -114,6 +114,11 @@ const (
 	ArgumentPredictorHost = "--predictor_host"
 )
 
+// InferenceService container name
+const (
+	InferenceServiceContainerName = "kfserving-container"
+)
+
 func (e InferenceServiceComponent) String() string {
 	return string(e)
 }
