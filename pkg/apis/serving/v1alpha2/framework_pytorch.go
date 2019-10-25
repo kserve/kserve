@@ -35,6 +35,7 @@ func (s *PyTorchSpec) GetStorageUri() string {
 func (s *PyTorchSpec) GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container {
 	return &v1.Container{
 		Image:     config.Predictors.PyTorch.ContainerImage + ":" + s.RuntimeVersion,
+		Name:      constants.InferenceServiceContainerName,
 		Resources: s.Resources,
 		Args: []string{
 			"--model_name=" + modelName,

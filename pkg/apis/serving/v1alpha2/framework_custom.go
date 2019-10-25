@@ -49,5 +49,8 @@ func (c *CustomSpec) Validate(config *InferenceServicesConfig) error {
 	if err != nil {
 		return fmt.Errorf("Custom container validation error: %s", err.Error())
 	}
+	if c.GetStorageUri() != "" && c.Container.Name != constants.InferenceServiceContainerName {
+		return fmt.Errorf("Custom container validation error: container name must be %q", constants.InferenceServiceContainerName)
+	}
 	return nil
 }
