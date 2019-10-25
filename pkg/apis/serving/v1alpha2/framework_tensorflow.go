@@ -39,6 +39,7 @@ func (t *TensorflowSpec) GetStorageUri() string {
 func (t *TensorflowSpec) GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container {
 	return &v1.Container{
 		Image:     config.Predictors.Tensorflow.ContainerImage + ":" + t.RuntimeVersion,
+		Name:      constants.InferenceServiceContainerName,
 		Command:   []string{TensorflowEntrypointCommand},
 		Resources: t.Resources,
 		Args: []string{
