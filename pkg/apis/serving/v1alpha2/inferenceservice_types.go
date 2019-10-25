@@ -78,7 +78,7 @@ const (
 type InferenceLogger struct {
 	// URL to send request logging CloudEvents
 	// +optional
-	Url string `json:"url,omitempty"`
+	Url *string `json:"url,omitempty"`
 	// What payloads to log
 	// +optional
 	Mode InferenceLoggerMode `json:"mode,omitempty"`
