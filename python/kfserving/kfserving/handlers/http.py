@@ -1,6 +1,6 @@
 import tornado.web
 import json
-from typing import List, Dict
+from typing import Dict
 from http import HTTPStatus
 from kfserving.kfmodel import KFModel
 
@@ -48,7 +48,7 @@ class PredictHandler(HTTPHandler):
 
     def post(self, name: str):
         model = self.get_model(name)
-        self.validate(model)
+        self.validate()
         self.write(model.predict(self.request.body))
 
 
@@ -58,5 +58,5 @@ class ExplainHandler(HTTPHandler):
 
     def post(self, name: str):
         model = self.get_model(name)
-        self.validate(model)
+        self.validate()
         self.write(model.explain(self.request.body))
