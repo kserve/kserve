@@ -22,9 +22,9 @@ import os
 import logging
 import json
 from enum import Enum
-from kfserving.model import KFModel
 from typing import List, Dict, Optional, Any
 from kfserving.handlers.http import PredictHandler, ExplainHandler
+from kfserving import KFModel
 
 DEFAULT_HTTP_PORT = 8080
 DEFAULT_GRPC_PORT = 8081
@@ -52,6 +52,8 @@ class KFServer(object):
         return tornado.web.Application([
             # Server Liveness API returns 200 if server is alive.
             (r"/", LivenessHandler),
+            (r"/v1/models",
+             ListHandler, dict(models=self.registered_models)),
             # Model Health API returns 200 if model is ready to serve.
             (r"/v1/models/([a-zA-Z0-9_-]+)",
              HealthHandler, dict(models=self.registered_models)),
@@ -102,6 +104,14 @@ class HealthHandler(tornado.web.RequestHandler):
             "name": model.name,
             "ready": model.ready
         }))
+
+
+class ListHandler(tornado.web.RequestHandler):
+    def initialize(self, models: Dict[str, KFModel]):
+        self.models = models
+
+    def get(self):
+        self.write(json.dumps(list(self.models.values())))
 
 
 if __name__ == "__main__":

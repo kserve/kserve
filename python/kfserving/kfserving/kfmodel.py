@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import List, Dict, Str
+from typing import List, Dict
 import requests
 import tornado.web
 

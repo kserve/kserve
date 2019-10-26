@@ -22,7 +22,7 @@ from alibiexplainer.anchor_images import AnchorImages
 from alibiexplainer.anchor_tabular import AnchorTabular
 from alibiexplainer.anchor_text import AnchorText
 from kfserving.utils import NumpyEncoder
-from kfserving.server import Protocol, PREDICTOR_URL_FORMAT
+from kfserving.server import PREDICTOR_URL_FORMAT
 
 logging.basicConfig(level=kfserving.server.KFSERVER_LOGLEVEL)
 

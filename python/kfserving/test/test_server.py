@@ -15,7 +15,6 @@
 import pytest
 from tornado.httpclient import HTTPClientError
 import kfserving
-from kfserving.transformer import Transformer
 from typing import Dict, List
 
 
@@ -28,8 +27,8 @@ class DummyModel(kfserving.KFModel):
     def load(self):
         self.ready = True
 
-    def predict(self, inputs):
-        return inputs
+    def predict(self, input):
+        return input
 
 
 class TestTFHttpServer(object):
@@ -56,19 +55,9 @@ class TestTFHttpServer(object):
         assert resp.code == 200
         assert resp.body == b'{"predictions": [[1, 2]]}'
 
-class CustomPredictTransformer(Transformer):
-    # subclass of Transformer should implement preprocess
-    def preprocess(self, inputs: Dict) -> Dict:
-        data = inputs["instances"]
-        return {"instances": [[j*2 for j in i] for i in data]}
-
-    def predict(self, inputs: List) -> List:
-        return [[0.1, 0.9]]
-
-    # subclass of Transformer should implement postprocess
-    def postprocess(self, inputs: List) -> List:
-        return inputs
-
+class CustomPredictTransformer(kfserving.KFModel):
+    def predict(self, input: Dict) -> Dict:
+        return {"instances": [[j*2 for j in i] for i in input["instances"]]}
 
 class TestTransformerHttpServer(object):
 
@@ -76,7 +65,7 @@ class TestTransformerHttpServer(object):
     def app(self):  # pylint: disable=no-self-use
         model = CustomPredictTransformer("TestModel", predictor_host='localhost')
         model.load()
-        server = kfserving.KFServer(Protocol.tensorflow_http)
+        server = kfserving.KFServer()
         server.register_model(model)
         return server.create_application()
 
@@ -95,19 +84,10 @@ class TestTransformerHttpServer(object):
         assert resp.body == b'{"predictions": [[0.1, 0.9]]}'
 
 
-class CustomTransformer(Transformer):
-    # subclass of Transformer should implement preprocess
-    def preprocess(self, inputs: Dict) -> Dict:
-        data = inputs["instances"]
+class CustomTransformer(kfserving.KFModel):
+    def predict(self, input: Dict) -> Dict:
+        data = input["instances"]
         return {"instances": [[j*2 for j in i] for i in data]}
-
-    def predict(self, inputs: List) -> List:
-        return inputs
-
-    # subclass of Transformer should implement postprocess
-    def postprocess(self, inputs: List) -> List:
-        return inputs
-
 
 class TestTransformerWithPrePostProcessHttpServer(object):
 
@@ -115,7 +95,7 @@ class TestTransformerWithPrePostProcessHttpServer(object):
     def app(self):  # pylint: disable=no-self-use
         model = CustomTransformer("TestModel", predictor_host='localhost')
         model.load()
-        server = kfserving.KFServer(Protocol.tensorflow_http)
+        server = kfserving.KFServer()
         server.register_model(model)
         return server.create_application()
 
