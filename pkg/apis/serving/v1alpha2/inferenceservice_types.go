@@ -62,26 +62,26 @@ type DeploymentSpec struct {
 	MaxReplicas int `json:"maxReplicas,omitempty"`
 	// Activate request/response logging
 	// +optional
-	InferenceLogger *InferenceLogger `json:"inferenceLogger,omitempty"`
+	Logger *Logger `json:"logger,omitempty"`
 }
 
-type InferenceLoggerMode string
+type LoggerMode string
 
 const (
-	InferenceLogAll      InferenceLoggerMode = "all"
-	InferenceLogRequest  InferenceLoggerMode = "request"
-	InferenceLogResponse InferenceLoggerMode = "response"
+	LogAll      LoggerMode = "all"
+	LogRequest  LoggerMode = "request"
+	LogResponse LoggerMode = "response"
 )
 
-// InferenceLogger provides optional payload logging for all endpoints
+// Logger provides optional payload logging for all endpoints
 // +experimental
-type InferenceLogger struct {
+type Logger struct {
 	// URL to send request logging CloudEvents
 	// +optional
 	Url *string `json:"url,omitempty"`
 	// What payloads to log
 	// +optional
-	Mode InferenceLoggerMode `json:"mode,omitempty"`
+	Mode LoggerMode `json:"mode,omitempty"`
 }
 
 // PredictorSpec defines the configuration for a predictor,
