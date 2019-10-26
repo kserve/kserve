@@ -16,7 +16,7 @@ import kfserving
 import joblib
 import numpy as np
 import os
-from typing import List
+from typing import List, Dict
 
 JOBLIB_FILE = "model.joblib"
 
@@ -33,11 +33,12 @@ class SKLearnModel(kfserving.KFModel): #pylint:disable=c-extension-no-member
         self.ready = True
 
     def predict(self, request: Dict) -> Dict:
+        instances = request["instances"]
         try:
-            inputs = np.array(request["instances"])
+            inputs = np.array(instances)
         except Exception as e:
             raise Exception(
-                "Failed to initialize NumPy array from inputs: %s, %s" % (e, inputs))
+                "Failed to initialize NumPy array from inputs: %s, %s" % (e, instances))
         try:
             result = self._joblib.predict(inputs).tolist()
             return { "predictions" : result }

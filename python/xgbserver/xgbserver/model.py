@@ -17,7 +17,7 @@ import xgboost as xgb
 from xgboost import XGBModel
 import os
 import numpy as np
-from typing import List, Any
+from typing import List, Dict
 
 BOOSTER_FILE = "model.bst"
 

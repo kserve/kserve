@@ -15,7 +15,7 @@
 import kfserving
 import numpy as np
 import os
-from typing import List, Any
+from typing import List, Dict
 import torch
 from torch.autograd import Variable
 import importlib

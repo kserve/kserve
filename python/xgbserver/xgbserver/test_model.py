@@ -35,8 +35,8 @@ def test_model():
     xgb_model = xgb.train(params=param, dtrain=dtrain)
     model_file = os.path.join((model_dir), BST_FILE)
     xgb_model.save_model(model_file)
-    server = XGBoostModel("xgbmodel", model_dir)
-    server.load()
+    model = XGBoostModel("xgbmodel", model_dir)
+    model.load()
     request = [X[0].tolist()]
-    response = server.predict(request)
+    response = model.predict({"instances": request})
     assert response["predictions"] == [0]
