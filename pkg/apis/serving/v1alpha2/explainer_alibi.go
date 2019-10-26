@@ -36,8 +36,8 @@ func (s *AlibiExplainerSpec) CreateExplainerContainer(modelName string, predicto
 	}
 	sort.Strings(keys)
 	for _, k := range keys {
-		arg := "--" + k + "=" + s.Config[k]
-		args = append(args, arg)
+		args = append(args, "--"+k)
+		args = append(args, s.Config[k])
 	}
 
 	return &v1.Container{

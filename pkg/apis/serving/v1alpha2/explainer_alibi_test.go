@@ -147,9 +147,12 @@ func TestCreateAlibiExplainerContainerWithConfig(t *testing.T) {
 			"--storage_uri",
 			"/mnt/models",
 			"AnchorText",
-			"--sample_proba=0.5",
-			"--threshold=0.95",
-			"--use_unk=False",
+			"--sample_proba",
+			"0.5",
+			"--threshold",
+			"0.95",
+			"--use_unk",
+			"False",
 		},
 	}
 
