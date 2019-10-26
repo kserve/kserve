@@ -5,6 +5,7 @@ import (
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/utils"
 	"k8s.io/api/core/v1"
+	"sort"
 	"strings"
 )
 
@@ -28,9 +29,15 @@ func (s *AlibiExplainerSpec) CreateExplainerContainer(modelName string, predicto
 
 	args = append(args, string(s.Type))
 
-	for k, v := range s.Config {
-		arg := "--" + k + "=" + v
-		args = append(args, arg)
+	// Order explainer config map keys
+	var keys []string
+	for k, _ := range s.Config {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		args = append(args, "--"+k)
+		args = append(args, s.Config[k])
 	}
 
 	return &v1.Container{
