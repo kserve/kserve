@@ -100,7 +100,7 @@ var defaultService = &knservingv1alpha1.Service{
 				},
 				Spec: knservingv1alpha1.RevisionSpec{
 					RevisionSpec: v1beta1.RevisionSpec{
-						TimeoutSeconds: &constants.DefaultTimeout,
+						TimeoutSeconds: &constants.DefaultPredictorTimeout,
 						PodSpec: v1.PodSpec{
 							ServiceAccountName: "testsvcacc",
 							Containers: []v1.Container{
@@ -146,7 +146,7 @@ var canaryService = &knservingv1alpha1.Service{
 				},
 				Spec: knservingv1alpha1.RevisionSpec{
 					RevisionSpec: v1beta1.RevisionSpec{
-						TimeoutSeconds: &constants.DefaultTimeout,
+						TimeoutSeconds: &constants.DefaultPredictorTimeout,
 						PodSpec: v1.PodSpec{
 							Containers: []v1.Container{
 								{
@@ -265,7 +265,7 @@ func TestInferenceServiceToKnativeService(t *testing.T) {
 							},
 							Spec: knservingv1alpha1.RevisionSpec{
 								RevisionSpec: v1beta1.RevisionSpec{
-									TimeoutSeconds: &constants.DefaultTimeout,
+									TimeoutSeconds: &constants.DefaultPredictorTimeout,
 									PodSpec: v1.PodSpec{
 										Containers: []v1.Container{
 											{
@@ -321,7 +321,7 @@ func TestInferenceServiceToKnativeService(t *testing.T) {
 							},
 							Spec: knservingv1alpha1.RevisionSpec{
 								RevisionSpec: v1beta1.RevisionSpec{
-									TimeoutSeconds: &constants.DefaultTimeout,
+									TimeoutSeconds: &constants.DefaultPredictorTimeout,
 									PodSpec: v1.PodSpec{
 										Containers: []v1.Container{
 											{
@@ -377,7 +377,7 @@ func TestInferenceServiceToKnativeService(t *testing.T) {
 							},
 							Spec: knservingv1alpha1.RevisionSpec{
 								RevisionSpec: v1beta1.RevisionSpec{
-									TimeoutSeconds: &constants.DefaultTimeout,
+									TimeoutSeconds: &constants.DefaultPredictorTimeout,
 									PodSpec: v1.PodSpec{
 										Containers: []v1.Container{
 											{
@@ -448,7 +448,7 @@ func TestInferenceServiceToKnativeService(t *testing.T) {
 							},
 							Spec: knservingv1alpha1.RevisionSpec{
 								RevisionSpec: v1beta1.RevisionSpec{
-									TimeoutSeconds: &constants.DefaultTimeout,
+									TimeoutSeconds: &constants.DefaultPredictorTimeout,
 									PodSpec: v1.PodSpec{
 										Containers: []v1.Container{
 											{
@@ -587,7 +587,7 @@ func TestTransformerToKnativeService(t *testing.T) {
 					},
 					Spec: knservingv1alpha1.RevisionSpec{
 						RevisionSpec: v1beta1.RevisionSpec{
-							TimeoutSeconds: &constants.DefaultTimeout,
+							TimeoutSeconds: &constants.DefaultTransformerTimeout,
 							PodSpec: v1.PodSpec{
 								ServiceAccountName: "testsvcacc",
 								Containers: []v1.Container{
@@ -629,7 +629,7 @@ func TestTransformerToKnativeService(t *testing.T) {
 					},
 					Spec: knservingv1alpha1.RevisionSpec{
 						RevisionSpec: v1beta1.RevisionSpec{
-							TimeoutSeconds: &constants.DefaultTimeout,
+							TimeoutSeconds: &constants.DefaultTransformerTimeout,
 							PodSpec: v1.PodSpec{
 								ServiceAccountName: "testsvcacc",
 								Containers: []v1.Container{
@@ -770,7 +770,7 @@ func TestExplainerToKnativeService(t *testing.T) {
 					},
 					Spec: knservingv1alpha1.RevisionSpec{
 						RevisionSpec: v1beta1.RevisionSpec{
-							TimeoutSeconds: &constants.DefaultTimeout,
+							TimeoutSeconds: &constants.DefaultExplainerTimeout,
 							PodSpec: v1.PodSpec{
 								Containers: []v1.Container{
 									{
@@ -811,7 +811,7 @@ func TestExplainerToKnativeService(t *testing.T) {
 					},
 					Spec: knservingv1alpha1.RevisionSpec{
 						RevisionSpec: v1beta1.RevisionSpec{
-							TimeoutSeconds: &constants.DefaultTimeout,
+							TimeoutSeconds: &constants.DefaultExplainerTimeout,
 							PodSpec: v1.PodSpec{
 								Containers: []v1.Container{
 									{

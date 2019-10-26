@@ -137,7 +137,7 @@ func (c *ServiceBuilder) CreatePredictorService(name string, metadata metav1.Obj
 						RevisionSpec: v1beta1.RevisionSpec{
 							// Defaulting here since this always shows a diff with nil vs 300s(knative default)
 							// we may need to expose this field in future
-							TimeoutSeconds: &constants.DefaultTimeout,
+							TimeoutSeconds: &constants.DefaultPredictorTimeout,
 							PodSpec: v1.PodSpec{
 								ServiceAccountName: predictorSpec.ServiceAccountName,
 								Containers: []v1.Container{
@@ -201,7 +201,7 @@ func (c *ServiceBuilder) CreateTransformerService(name string, metadata metav1.O
 						RevisionSpec: v1beta1.RevisionSpec{
 							// Defaulting here since this always shows a diff with nil vs 300s(knative default)
 							// we may need to expose this field in future
-							TimeoutSeconds: &constants.DefaultTimeout,
+							TimeoutSeconds: &constants.DefaultTransformerTimeout,
 							PodSpec: v1.PodSpec{
 								ServiceAccountName: transformerSpec.ServiceAccountName,
 								Containers: []v1.Container{
@@ -258,7 +258,7 @@ func (c *ServiceBuilder) CreateExplainerService(name string, metadata metav1.Obj
 						RevisionSpec: v1beta1.RevisionSpec{
 							// Defaulting here since this always shows a diff with nil vs 300s(knative default)
 							// we may need to expose this field in future
-							TimeoutSeconds: &constants.DefaultTimeout,
+							TimeoutSeconds: &constants.DefaultExplainerTimeout,
 							PodSpec: v1.PodSpec{
 								ServiceAccountName: explainerSpec.ServiceAccountName,
 								Containers: []v1.Container{
