@@ -17,7 +17,7 @@ import os
 from sklearn.datasets import load_iris
 from xgbserver import XGBoostModel
 
-model_dir = "."
+model_dir = os.path.dirname(__file__)
 BST_FILE = "model.bst"
 
 def test_model():
