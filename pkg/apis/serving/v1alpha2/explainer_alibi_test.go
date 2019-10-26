@@ -99,3 +99,64 @@ func TestCreateAlibiExplainerContainer(t *testing.T) {
 	container := spec.CreateExplainerContainer("someName", "predictor.svc.cluster.local", config)
 	g.Expect(container).To(gomega.Equal(expectedContainer))
 }
+
+func TestCreateAlibiExplainerContainerWithConfig(t *testing.T) {
+
+	var requestedResource = v1.ResourceRequirements{
+		Limits: v1.ResourceList{
+			"cpu": resource.Quantity{
+				Format: "100",
+			},
+		},
+		Requests: v1.ResourceList{
+			"cpu": resource.Quantity{
+				Format: "90",
+			},
+		},
+	}
+	config := &InferenceServicesConfig{
+		Explainers: &ExplainersConfig{
+			AlibiExplainer: ExplainerConfig{
+				ContainerImage:      "seldon.io/alibi",
+				DefaultImageVersion: "latest",
+			},
+		},
+	}
+	var spec = AlibiExplainerSpec{
+		Type:           "AnchorText",
+		StorageURI:     "gs://someUri",
+		Resources:      requestedResource,
+		RuntimeVersion: "0.1.0",
+		Config: map[string]string{
+			"threshold":    "0.95",
+			"use_unk":      "False",
+			"sample_proba": "0.5",
+		},
+	}
+	g := gomega.NewGomegaWithT(t)
+
+	expectedContainer := &v1.Container{
+		Image:     "seldon.io/alibi:0.1.0",
+		Name:      constants.InferenceServiceContainerName,
+		Resources: requestedResource,
+		Args: []string{
+			"--model_name",
+			"someName",
+			"--predictor_host",
+			"predictor.svc.cluster.local",
+			"--storage_uri",
+			"/mnt/models",
+			"AnchorText",
+			"--sample_proba",
+			"0.5",
+			"--threshold",
+			"0.95",
+			"--use_unk",
+			"False",
+		},
+	}
+
+	// Test Create with config
+	container := spec.CreateExplainerContainer("someName", "predictor.svc.cluster.local", config)
+	g.Expect(container).To(gomega.Equal(expectedContainer))
+}
