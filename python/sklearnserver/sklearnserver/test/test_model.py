@@ -18,7 +18,7 @@ from sklearnserver import SKLearnModel
 import joblib
 import os
 
-model_dir = "."
+model_dir = model_dir = os.path.dirname(__file__)
 JOBLIB_FILE = "model.joblib"
 
 def test_model():

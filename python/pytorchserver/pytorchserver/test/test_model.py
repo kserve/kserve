@@ -16,8 +16,9 @@ from pytorchserver import PyTorchModel
 import torch
 import torchvision
 import torchvision.transforms as transforms
+import os
 
-model_dir = "."
+model_dir = model_dir = os.path.dirname(__file__)
 MODEL_FILE = "model.pt"
 
 def test_model():
