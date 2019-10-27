@@ -13,6 +13,9 @@
 # limitations under the License.
 
 from typing import List, Dict
+
+import json
+import logging
 import requests
 import tornado.web
 
@@ -29,24 +32,30 @@ class KFModel(object):
     def load(self):
         self.ready = True
 
-    def predict(self, request: Dict, predictor_host: str = None) -> Dict:
-        if predictor_host is None:
+    def predict(self, request: Dict) -> Dict:
+        if self.predictor_host is None:
             raise NotImplementedError
 
-        response = requests.post(PREDICTOR_URL_FORMAT.format(predictor_host, self.name), request)
+        response = requests.post(
+            PREDICTOR_URL_FORMAT.format(self.predictor_host, self.name),
+             json.dumps(request)
+        )
         if response.status_code != 200:
             raise tornado.web.HTTPError(
                 status_code=response.status_code,
-                reason=response.reason)
+                reason=response.content)
         return response.json()
 
-    def explain(self, request: Dict, explainer_host: str = None) -> Dict:
-        if explainer_host is None:
+    def explain(self, request: Dict) -> Dict:
+        if self.explainer_host is None:
             raise NotImplementedError
 
-        response = requests.post(EXPLAINER_URL_FORMAT.format(explainer_host, self.name), request)
+        response = requests.post(
+            EXPLAINER_URL_FORMAT.format(self.explainer_host, self.name), 
+            json.dumps(request)
+        )
         if response.status_code != 200:
             raise tornado.web.HTTPError(
                 status_code=response.status_code,
-                reason=response.reason)
+                reason=response.content)
         return response.json()

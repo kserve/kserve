@@ -19,7 +19,7 @@ import kfserving
 import numpy as np
 from alibiexplainer.explainer_wrapper import ExplainerWrapper
 
-logging.basicConfig(level=kfserving.server.KFSERVER_LOGLEVEL)
+logging.basicConfig(level=kfserving.kfserver.KFSERVER_LOGLEVEL)
 
 
 class AnchorImages(ExplainerWrapper):

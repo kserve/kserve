@@ -14,7 +14,7 @@
 import json
 import logging
 from enum import Enum
-from typing import List, Any, Mapping, Union
+from typing import List, Any, Mapping, Union, Dict
 
 import kfserving
 import numpy as np
@@ -22,11 +22,10 @@ from alibiexplainer.anchor_images import AnchorImages
 from alibiexplainer.anchor_tabular import AnchorTabular
 from alibiexplainer.anchor_text import AnchorText
 from kfserving.utils import NumpyEncoder
-from kfserving.server import PREDICTOR_URL_FORMAT
+from kfserving.kfserver import KFSERVER_LOGLEVEL
 
-logging.basicConfig(level=kfserving.server.KFSERVER_LOGLEVEL)
 
-SELDON_PREDICTOR_URL_FORMAT = "http://{0}/api/v0.1/predictions"
+logging.basicConfig(level=KFSERVER_LOGLEVEL)
 
 
 class ExplainerMethod(Enum):
@@ -46,8 +45,8 @@ class AlibiExplainer(kfserving.KFModel):
                  config: Mapping,
                  explainer: object = None):
         super().__init__(name)
-        self.predict_url = PREDICTOR_URL_FORMAT.format(predictor_host, name)
-        logging.info("Predict URL set to %s", self.predict_url)
+        self.predictor_host = predictor_host
+        logging.info("Predict URL set to %s", self.predictor_host)
         self.method = method
 
         if self.method is ExplainerMethod.anchor_tabular:
@@ -63,13 +62,13 @@ class AlibiExplainer(kfserving.KFModel):
         pass
 
     def _predict_fn(self, arr: Union[np.ndarray, List]) -> np.ndarray:
-        inputs = []
+        instances = []
         for req_data in arr:
             if isinstance(req_data, np.ndarray):
-                inputs.append(req_data.tolist())
+                instances.append(req_data.tolist())
             else:
-                inputs.append(str(req_data))
-        resp = self.predict(inputs, self.predict_url)
+                instances.append(str(req_data))
+        resp = self.predict({"instances": instances})
         return np.array(resp)
 
     def explain(self, request: Dict) -> Any:

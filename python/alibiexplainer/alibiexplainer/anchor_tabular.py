@@ -21,7 +21,7 @@ import numpy as np
 import pandas as pd
 from alibiexplainer.explainer_wrapper import ExplainerWrapper
 
-logging.basicConfig(level=kfserving.server.KFSERVER_LOGLEVEL)
+logging.basicConfig(level=kfserving.kfserver.KFSERVER_LOGLEVEL)
 
 
 class AnchorTabular(ExplainerWrapper):

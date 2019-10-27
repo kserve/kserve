@@ -20,9 +20,9 @@ class HTTPHandler(tornado.web.RequestHandler):
             model.load()
         return model
 
-    def validate(self):
+    def validate(self, request):
         try:
-            body = json.loads(self.request.body)
+            body = json.loads(request.body)
         except json.decoder.JSONDecodeError as e:
             raise tornado.web.HTTPError(
                 status_code=HTTPStatus.BAD_REQUEST,
@@ -40,6 +40,7 @@ class HTTPHandler(tornado.web.RequestHandler):
                 status_code=HTTPStatus.BAD_REQUEST,
                 reason="Expected \"instances\" to be a list"
             )
+        return body
 
 
 class PredictHandler(HTTPHandler):
@@ -48,8 +49,7 @@ class PredictHandler(HTTPHandler):
 
     def post(self, name: str):
         model = self.get_model(name)
-        self.validate()
-        request = json.loads(self.request.body)
+        request = self.validate(self.request)
         response = json.dumps(model.predict(request))
         self.write(response)
 
@@ -60,8 +60,7 @@ class ExplainHandler(HTTPHandler):
 
     def post(self, name: str):
         model = self.get_model(name)
-        self.validate()
-        request = json.loads(self.request.body)
+        request = self.validate(self.request)
         response = json.dumps(model.explain(request))
         self.write(response)
 
