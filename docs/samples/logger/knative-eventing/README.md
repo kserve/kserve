@@ -53,7 +53,7 @@ Let's apply this resource to the cluster.
 kubectl create -f trigger.yaml
 ```
 
-We can now create a sklearn predictor with a logger which points at the message dumper. The yaml is shown below.
+We can now create a sklearn predictor with a logger:
 
 ```
 apiVersion: "serving.kubeflow.org/v1alpha2"
@@ -63,13 +63,15 @@ metadata:
 spec:
   default:
     predictor:
-      inferenceLogger:
-        url: http://message-dumper.default/
+      logger:
+        logType: all
       sklearn:
         storageUri: "gs://kfserving-samples/models/sklearn/iris"
         resources:
           requests:
             cpu: 0.1
+                                  
+
 ```
 
 Let's apply this yaml:

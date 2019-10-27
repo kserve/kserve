@@ -5,7 +5,8 @@ metadata:
 spec:
   default:
     predictor:
-      inferenceLogger: {}
+      logger:
+        logType: all
       sklearn:
         storageUri: "gs://kfserving-samples/models/sklearn/iris"
         resources:

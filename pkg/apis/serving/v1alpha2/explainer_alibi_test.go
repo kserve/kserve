@@ -146,6 +146,8 @@ func TestCreateAlibiExplainerContainerWithConfig(t *testing.T) {
 			"someName",
 			"--predictor_host",
 			"predictor.svc.cluster.local",
+			"--http_port",
+			"8081",
 			"--storage_uri",
 			"/mnt/models",
 			"AnchorText",
@@ -159,6 +161,6 @@ func TestCreateAlibiExplainerContainerWithConfig(t *testing.T) {
 	}
 
 	// Test Create with config
-	container := spec.CreateExplainerContainer("someName", "predictor.svc.cluster.local", config)
+	container := spec.CreateExplainerContainer("someName", "predictor.svc.cluster.local", config, true)
 	g.Expect(container).To(gomega.Equal(expectedContainer))
 }

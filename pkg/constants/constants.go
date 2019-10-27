@@ -50,10 +50,9 @@ var (
 var (
 	InferenceServiceInternalAnnotationsPrefix        = "internal." + KFServingAPIGroupName
 	StorageInitializerSourceUriInternalAnnotationKey = InferenceServiceInternalAnnotationsPrefix + "/storage-initializer-sourceuri"
-	InferenceLoggerInternalAnnotationKey             = InferenceServiceInternalAnnotationsPrefix + "/inference-logger"
-	InferenceLoggerSinkUrlInternalAnnotationKey      = InferenceServiceInternalAnnotationsPrefix + "/inference-logger-sink-url"
-	InferenceLoggerLoggingTypeInternalAnnotationKey  = InferenceServiceInternalAnnotationsPrefix + "/inference-logger-type"
-	InferenceLoggerSampleInternalAnnotationKey       = InferenceServiceInternalAnnotationsPrefix + "/inference-logger-sample"
+	LoggerInternalAnnotationKey                      = InferenceServiceInternalAnnotationsPrefix + "/logger"
+	LoggerSinkUrlInternalAnnotationKey               = InferenceServiceInternalAnnotationsPrefix + "/logger-sink-url"
+	LoggerTypeInternalAnnotationKey                  = InferenceServiceInternalAnnotationsPrefix + "/logger-type"
 )
 
 // Controller Constants

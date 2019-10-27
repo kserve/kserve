@@ -1,4 +1,4 @@
-package inferencelogger
+package logger
 
 import (
 	"fmt"

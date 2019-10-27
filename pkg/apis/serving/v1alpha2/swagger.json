@@ -96,9 +96,9 @@
     "v1alpha2.DeploymentSpec": {
       "description": "DeploymentSpec defines the configuration for a given InferenceService service component",
       "properties": {
-        "inferenceLogger": {
+        "logger": {
           "description": "Activate request/response logging",
-          "$ref": "#/definitions/v1alpha2.InferenceLogger"
+          "$ref": "#/definitions/v1alpha2.Logger"
         },
         "maxReplicas": {
           "description": "This is the up bound for autoscaler to scale to",
@@ -146,9 +146,9 @@
           "description": "Spec for a custom explainer",
           "$ref": "#/definitions/v1alpha2.CustomSpec"
         },
-        "inferenceLogger": {
+        "logger": {
           "description": "Activate request/response logging",
-          "$ref": "#/definitions/v1alpha2.InferenceLogger"
+          "$ref": "#/definitions/v1alpha2.Logger"
         },
         "maxReplicas": {
           "description": "This is the up bound for autoscaler to scale to",
@@ -162,23 +162,6 @@
         },
         "serviceAccountName": {
           "description": "ServiceAccountName is the name of the ServiceAccount to use to run the service",
-          "type": "string"
-        }
-      }
-    },
-    "v1alpha2.InferenceLogger": {
-      "properties": {
-        "logType": {
-          "description": "What payloads to log",
-          "type": "string"
-        },
-        "sample": {
-          "description": "What percentage of requests to log, value between 0-\u003e1",
-          "type": "number",
-          "format": "float"
-        },
-        "url": {
-          "description": "URL to send request logging CloudEvents",
           "type": "string"
         }
       }
@@ -298,6 +281,18 @@
         }
       }
     },
+    "v1alpha2.Logger": {
+      "properties": {
+        "logType": {
+          "description": "What payloads to log",
+          "type": "string"
+        },
+        "url": {
+          "description": "URL to send request logging CloudEvents",
+          "type": "string"
+        }
+      }
+    },
     "v1alpha2.ONNXSpec": {
       "description": "ONNXSpec defines arguments for configuring ONNX model serving.",
       "required": [
@@ -325,9 +320,9 @@
           "description": "Spec for a custom predictor",
           "$ref": "#/definitions/v1alpha2.CustomSpec"
         },
-        "inferenceLogger": {
+        "logger": {
           "description": "Activate request/response logging",
-          "$ref": "#/definitions/v1alpha2.InferenceLogger"
+          "$ref": "#/definitions/v1alpha2.Logger"
         },
         "maxReplicas": {
           "description": "This is the up bound for autoscaler to scale to",
@@ -477,9 +472,9 @@
           "description": "Spec for a custom transformer",
           "$ref": "#/definitions/v1alpha2.CustomSpec"
         },
-        "inferenceLogger": {
+        "logger": {
           "description": "Activate request/response logging",
-          "$ref": "#/definitions/v1alpha2.InferenceLogger"
+          "$ref": "#/definitions/v1alpha2.Logger"
         },
         "maxReplicas": {
           "description": "This is the up bound for autoscaler to scale to",

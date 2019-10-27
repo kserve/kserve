@@ -5,7 +5,7 @@ HAS_LINT := $(shell command -v golint;)
 IMG ?= kfserving-controller:latest
 EXECUTOR_IMG ?= kfserving-executor:latest
 
-all: test manager executor
+all: test manager logger
 
 # Run tests
 test: generate fmt vet lint manifests
@@ -16,8 +16,8 @@ manager: generate fmt vet lint
 	go build -o bin/manager ./cmd/manager
 
 # Build manager binary
-inference-logger: fmt vet
-	go build -o bin/inference-logger ./cmd/inference-logger
+logger: fmt vet
+	go build -o bin/logger ./cmd/logger
 
 # Run against the configured Kubernetes cluster in ~/.kube/config
 run: generate fmt vet lint

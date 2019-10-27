@@ -19,10 +19,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
 	v1 "k8s.io/api/core/v1"
 	k8types "k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
+	"net/http"
 
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/controller/inferenceservice/resources/credentials"
@@ -85,7 +85,7 @@ func (mutator *Mutator) mutate(pod *v1.Pod, configMap *v1.ConfigMap) error {
 	if loggerConfig, ok := configMap.Data[InferenceLoggerConfigMapKeyName]; ok {
 		err := json.Unmarshal([]byte(loggerConfig), &inferenceLoggerConfig)
 		if err != nil {
-			panic(fmt.Errorf("Unable to unmarshall inference inference-inferencelogger json string due to %v ", err))
+			panic(fmt.Errorf("Unable to unmarshall logger json string due to %v ", err))
 		}
 	}
 

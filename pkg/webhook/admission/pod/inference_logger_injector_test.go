@@ -20,9 +20,9 @@ func TestInferenceLoggerInjector(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "deployment",
 					Annotations: map[string]string{
-						constants.InferenceLoggerInternalAnnotationKey:            "true",
-						constants.InferenceLoggerSinkUrlInternalAnnotationKey:     "http://httpbin.org/",
-						constants.InferenceLoggerLoggingTypeInternalAnnotationKey: string(v1alpha2.InferenceLogBoth),
+						constants.LoggerInternalAnnotationKey:        "true",
+						constants.LoggerSinkUrlInternalAnnotationKey: "http://httpbin.org/",
+						constants.LoggerTypeInternalAnnotationKey:    string(v1alpha2.LogAll),
 					},
 				},
 				Spec: v1.PodSpec{
@@ -35,9 +35,9 @@ func TestInferenceLoggerInjector(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "deployment",
 					Annotations: map[string]string{
-						constants.InferenceLoggerInternalAnnotationKey:            "true",
-						constants.InferenceLoggerSinkUrlInternalAnnotationKey:     "http://httpbin.org/",
-						constants.InferenceLoggerLoggingTypeInternalAnnotationKey: string(v1alpha2.InferenceLogBoth),
+						constants.LoggerInternalAnnotationKey:        "true",
+						constants.LoggerSinkUrlInternalAnnotationKey: "http://httpbin.org/",
+						constants.LoggerTypeInternalAnnotationKey:    string(v1alpha2.LogAll),
 					},
 				},
 				Spec: v1.PodSpec{
@@ -53,9 +53,7 @@ func TestInferenceLoggerInjector(t *testing.T) {
 								"--source_uri",
 								"deployment",
 								"--log_type",
-								"both",
-								"--sample",
-								"1.0",
+								"all",
 								"--model_uri",
 								"",
 							}},

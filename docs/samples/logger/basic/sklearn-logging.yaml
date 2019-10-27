@@ -5,8 +5,9 @@ metadata:
 spec:
   default:
     predictor:
-      inferenceLogger:
+      logger:
         url: http://message-dumper.default/
+        logType: all
       sklearn:
         storageUri: "gs://kfserving-samples/models/sklearn/iris"
         resources:

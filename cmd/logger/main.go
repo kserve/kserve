@@ -10,7 +10,7 @@ import (
 	"os"
 	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
 
-	"github.com/kubeflow/kfserving/pkg/inferencelogger"
+	"github.com/kubeflow/kfserving/pkg/logger"
 	"github.com/pkg/errors"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
@@ -44,13 +44,13 @@ func main() {
 		log.Info("Malformed log_url", "URL", *logUrl)
 		os.Exit(-1)
 	}
-	var loggingType v1alpha2.InferenceLoggerType
-	if *logType == "both" {
-		loggingType = v1alpha2.InferenceLogBoth
-	} else if *logType == "request" {
-		loggingType = v1alpha2.InferenceLogRequest
-	} else if *logType == "response" {
-		loggingType = v1alpha2.InferenceLogresponse
+	var loggingType v1alpha2.LoggerType
+	if *logType == string(v1alpha2.LogAll) {
+		loggingType = v1alpha2.LogAll
+	} else if *logType == string(v1alpha2.LogRequest) {
+		loggingType = v1alpha2.LogRequest
+	} else if *logType == string(v1alpha2.Logresponse) {
+		loggingType = v1alpha2.Logresponse
 	} else {
 		log.Info("Malformed log_type", "type", *logType)
 		os.Exit(-1)
@@ -80,7 +80,7 @@ func main() {
 
 	stopCh := signals.SetupSignalHandler()
 
-	var eh http.Handler = inferencelogger.New(log, *svcPort, logUrlParsed, sourceUriParsed, loggingType, *sample, modelUriParsed)
+	var eh http.Handler = logger.New(log, *svcPort, logUrlParsed, sourceUriParsed, loggingType, *sample, modelUriParsed)
 
 	h1s := &http.Server{
 		Addr:    ":" + *port,
@@ -88,7 +88,7 @@ func main() {
 	}
 
 	fmt.Println("Starting the dispatcher")
-	inferencelogger.StartDispatcher(*workers, log)
+	logger.StartDispatcher(*workers, log)
 
 	log.Info("Starting", "port", *port)
 

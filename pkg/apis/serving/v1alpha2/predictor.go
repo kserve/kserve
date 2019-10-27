@@ -80,10 +80,10 @@ func (p *PredictorSpec) Validate(config *InferenceServicesConfig) error {
 	if err := validateReplicas(p.MinReplicas, p.MaxReplicas); err != nil {
 		return err
 	}
-	if p.Custom != nil && p.InferenceLogger != nil {
+	if p.Custom != nil && p.Logger != nil {
 		return fmt.Errorf(InferenceLoggerCustomNotSupportedError)
 	}
-	if err := validate_inference_logger(p.InferenceLogger); err != nil {
+	if err := validate_inference_logger(p.Logger); err != nil {
 		return err
 	}
 	return nil

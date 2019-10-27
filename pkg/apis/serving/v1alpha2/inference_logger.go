@@ -3,15 +3,13 @@ package v1alpha2
 import "fmt"
 
 const (
-	InvalidInferenceLoggerSample = "Inference logger sample must be between 0 and 1"
+	InvalidLoggerType = "Invalid logger type"
 )
 
-func validate_inference_logger(logger *InferenceLogger) error {
+func validate_inference_logger(logger *Logger) error {
 	if logger != nil {
-		if logger.Sample != nil {
-			if *logger.Sample < 0.0 || *logger.Sample > 1.0 {
-				return fmt.Errorf(InvalidInferenceLoggerSample)
-			}
+		if !(logger.LogType == LogAll || logger.LogType == LogRequest || logger.LogType == Logresponse) {
+			return fmt.Errorf(InvalidLoggerType)
 		}
 	}
 	return nil

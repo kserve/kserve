@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package inferencelogger
+package logger
 
 import (
 	"bytes"
@@ -71,7 +71,7 @@ func TestExecutor(t *testing.T) {
 	g.Expect(err).To(gomega.BeNil())
 	modelUri, err := url.Parse("s3://mybucket/mymodel")
 	g.Expect(err).To(gomega.BeNil())
-	oh := New(log, predictorSvcUrl.Port(), logSvcUrl, sourceUri, v1alpha2.InferenceLogBoth, 1.0, modelUri)
+	oh := New(log, predictorSvcUrl.Port(), logSvcUrl, sourceUri, v1alpha2.LogAll, 1.0, modelUri)
 
 	oh.ServeHTTP(w, r)
 

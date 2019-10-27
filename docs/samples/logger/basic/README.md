@@ -32,7 +32,7 @@ metadata:
 spec:
   default:
     predictor:
-      inferenceLogger:
+      logger:
         url: http://message-dumper.default/
       sklearn:
         storageUri: "gs://kfserving-samples/models/sklearn/iris"

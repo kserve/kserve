@@ -9,21 +9,20 @@ func TestInferenceLoggerValidate(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	// OK
-	il0 := InferenceLogger{}
+	il0 := Logger{LogType: LogAll}
 	err := validate_inference_logger(&il0)
 	g.Expect(err).To(gomega.BeNil())
 
 	url := "http://localhost"
 	// OK
-	il1 := InferenceLogger{Url: &url}
+	il1 := Logger{Url: &url, LogType: LogAll}
 	err = validate_inference_logger(&il1)
 	g.Expect(err).To(gomega.BeNil())
 
-	// Invalid sample
-	sampleHigh := float32(1.2)
-	il2 := InferenceLogger{Url: &url, Sample: &sampleHigh}
+	// Invalid logger type
+	il2 := Logger{Url: &url, LogType: "a"}
 	err = validate_inference_logger(&il2)
 	g.Expect(err).NotTo(gomega.BeNil())
-	g.Expect(err.Error()).To(gomega.Equal(InvalidInferenceLoggerSample))
+	g.Expect(err.Error()).To(gomega.Equal(InvalidLoggerType))
 
 }

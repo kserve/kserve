@@ -93,7 +93,7 @@ data:
         "ingressGateway" : "knative-ingress-gateway.knative-serving",
         "ingressService" : "istio-ingressgateway.istio-system.svc.cluster.local"
     }
-  inferenceLogger: |-
+  logger: |-
     {
-        "image" : "gcr.io/kfserving/inference-logger:0.2.0"
+        "image" : "gcr.io/kfserving/logger:0.2.0"
     }

@@ -84,17 +84,12 @@ spec:
                       required:
                       - container
                       type: object
-                    inferenceLogger:
+                    logger:
                       description: Activate request/response logging
                       properties:
                         logType:
                           description: What payloads to log
                           type: string
-                        sample:
-                          description: What percentage of requests to log, value between
-                            0->1
-                          format: float
-                          type: number
                         url:
                           description: URL to send request logging CloudEvents
                           type: string
@@ -124,17 +119,12 @@ spec:
                       required:
                       - container
                       type: object
-                    inferenceLogger:
+                    logger:
                       description: Activate request/response logging
                       properties:
                         logType:
                           description: What payloads to log
                           type: string
-                        sample:
-                          description: What percentage of requests to log, value between
-                            0->1
-                          format: float
-                          type: number
                         url:
                           description: URL to send request logging CloudEvents
                           type: string
@@ -279,17 +269,12 @@ spec:
                       required:
                       - container
                       type: object
-                    inferenceLogger:
+                    logger:
                       description: Activate request/response logging
                       properties:
                         logType:
                           description: What payloads to log
                           type: string
-                        sample:
-                          description: What percentage of requests to log, value between
-                            0->1
-                          format: float
-                          type: number
                         url:
                           description: URL to send request logging CloudEvents
                           type: string
@@ -353,17 +338,12 @@ spec:
                       required:
                       - container
                       type: object
-                    inferenceLogger:
+                    logger:
                       description: Activate request/response logging
                       properties:
                         logType:
                           description: What payloads to log
                           type: string
-                        sample:
-                          description: What percentage of requests to log, value between
-                            0->1
-                          format: float
-                          type: number
                         url:
                           description: URL to send request logging CloudEvents
                           type: string
@@ -393,17 +373,12 @@ spec:
                       required:
                       - container
                       type: object
-                    inferenceLogger:
+                    logger:
                       description: Activate request/response logging
                       properties:
                         logType:
                           description: What payloads to log
                           type: string
-                        sample:
-                          description: What percentage of requests to log, value between
-                            0->1
-                          format: float
-                          type: number
                         url:
                           description: URL to send request logging CloudEvents
                           type: string
@@ -548,17 +523,12 @@ spec:
                       required:
                       - container
                       type: object
-                    inferenceLogger:
+                    logger:
                       description: Activate request/response logging
                       properties:
                         logType:
                           description: What payloads to log
                           type: string
-                        sample:
-                          description: What percentage of requests to log, value between
-                            0->1
-                          format: float
-                          type: number
                         url:
                           description: URL to send request logging CloudEvents
                           type: string
