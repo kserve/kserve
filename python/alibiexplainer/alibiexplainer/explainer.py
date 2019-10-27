@@ -67,9 +67,9 @@ class AlibiExplainer(kfserving.KFModel):
             if isinstance(req_data, np.ndarray):
                 instances.append(req_data.tolist())
             else:
-                instances.append(str(req_data))
+                instances.append(req_data)
         resp = self.predict({"instances": instances})
-        return np.array(resp)
+        return np.array(resp["predictions"])
 
     def explain(self, request: Dict) -> Any:
         if self.method is ExplainerMethod.anchor_tabular or self.method is ExplainerMethod.anchor_images or self.method is ExplainerMethod.anchor_text:

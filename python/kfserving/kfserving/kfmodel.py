@@ -15,7 +15,6 @@
 from typing import List, Dict
 
 import json
-import logging
 import requests
 import tornado.web
 
