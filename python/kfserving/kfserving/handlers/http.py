@@ -49,7 +49,9 @@ class PredictHandler(HTTPHandler):
     def post(self, name: str):
         model = self.get_model(name)
         self.validate()
-        self.write(model.predict(self.request.body))
+        request = json.loads(self.request.body)
+        response = json.dumps(model.predict(request))
+        self.write(response)
 
 
 class ExplainHandler(HTTPHandler):
@@ -59,4 +61,7 @@ class ExplainHandler(HTTPHandler):
     def post(self, name: str):
         model = self.get_model(name)
         self.validate()
-        self.write(model.explain(self.request.body))
+        request = json.loads(self.request.body)
+        response = json.dumps(model.explain(request))
+        self.write(response)
+
