@@ -37,6 +37,7 @@ func (t *TensorRTSpec) GetContainer(modelName string, config *InferenceServicesC
 	// based on example at: https://github.com/NVIDIA/tensorrt-laboratory/blob/master/examples/Deployment/Kubernetes/basic-trtis-deployment/deploy.yml
 	return &v1.Container{
 		Image:     config.Predictors.TensorRT.ContainerImage + ":" + t.RuntimeVersion,
+		Name:      constants.InferenceServiceContainerName,
 		Resources: t.Resources,
 		Args: []string{
 			"trtserver",

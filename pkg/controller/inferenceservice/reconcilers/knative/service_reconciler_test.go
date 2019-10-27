@@ -126,12 +126,13 @@ func TestKnativeServiceReconcile(t *testing.T) {
 							},
 							Spec: knservingv1alpha1.RevisionSpec{
 								RevisionSpec: v1beta1.RevisionSpec{
-									TimeoutSeconds: &constants.DefaultTimeout,
+									TimeoutSeconds: &constants.DefaultPredictorTimeout,
 									PodSpec: v1.PodSpec{
 										Containers: []v1.Container{
 											{
 												Image:   TensorflowServingImageName + ":" + DefaultTensorflowRuntimeVersion,
 												Command: []string{v1alpha2.TensorflowEntrypointCommand},
+												Name:    constants.InferenceServiceContainerName,
 												Args: []string{
 													"--port=" + v1alpha2.TensorflowServingGRPCPort,
 													"--rest_api_port=" + v1alpha2.TensorflowServingRestPort,
@@ -166,11 +167,12 @@ func TestKnativeServiceReconcile(t *testing.T) {
 							},
 							Spec: knservingv1alpha1.RevisionSpec{
 								RevisionSpec: v1beta1.RevisionSpec{
-									TimeoutSeconds: &constants.DefaultTimeout,
+									TimeoutSeconds: &constants.DefaultPredictorTimeout,
 									PodSpec: v1.PodSpec{
 										Containers: []v1.Container{
 											{
 												Image:   TensorflowServingImageName + ":" + DefaultTensorflowRuntimeVersion,
+												Name:    constants.InferenceServiceContainerName,
 												Command: []string{v1alpha2.TensorflowEntrypointCommand},
 												Args: []string{
 													"--port=" + v1alpha2.TensorflowServingGRPCPort,
@@ -224,11 +226,12 @@ func TestKnativeServiceReconcile(t *testing.T) {
 							},
 							Spec: knservingv1alpha1.RevisionSpec{
 								RevisionSpec: v1beta1.RevisionSpec{
-									TimeoutSeconds: &constants.DefaultTimeout,
+									TimeoutSeconds: &constants.DefaultPredictorTimeout,
 									PodSpec: v1.PodSpec{
 										Containers: []v1.Container{
 											{
 												Image:   TensorflowServingImageName + ":" + DefaultTensorflowRuntimeVersion,
+												Name:    constants.InferenceServiceContainerName,
 												Command: []string{v1alpha2.TensorflowEntrypointCommand},
 												Args: []string{
 													"--port=" + v1alpha2.TensorflowServingGRPCPort,

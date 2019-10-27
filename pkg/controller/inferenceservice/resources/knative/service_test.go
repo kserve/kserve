@@ -100,12 +100,13 @@ var defaultService = &knservingv1alpha1.Service{
 				},
 				Spec: knservingv1alpha1.RevisionSpec{
 					RevisionSpec: v1beta1.RevisionSpec{
-						TimeoutSeconds: &constants.DefaultTimeout,
+						TimeoutSeconds: &constants.DefaultPredictorTimeout,
 						PodSpec: v1.PodSpec{
 							ServiceAccountName: "testsvcacc",
 							Containers: []v1.Container{
 								{
 									Image:   TensorflowServingImageName + ":" + isvc.Spec.Default.Predictor.Tensorflow.RuntimeVersion,
+									Name:    constants.InferenceServiceContainerName,
 									Command: []string{v1alpha2.TensorflowEntrypointCommand},
 									Args: []string{
 										"--port=" + v1alpha2.TensorflowServingGRPCPort,
@@ -145,11 +146,12 @@ var canaryService = &knservingv1alpha1.Service{
 				},
 				Spec: knservingv1alpha1.RevisionSpec{
 					RevisionSpec: v1beta1.RevisionSpec{
-						TimeoutSeconds: &constants.DefaultTimeout,
+						TimeoutSeconds: &constants.DefaultPredictorTimeout,
 						PodSpec: v1.PodSpec{
 							Containers: []v1.Container{
 								{
 									Image:   TensorflowServingImageName + ":" + isvc.Spec.Default.Predictor.Tensorflow.RuntimeVersion,
+									Name:    constants.InferenceServiceContainerName,
 									Command: []string{v1alpha2.TensorflowEntrypointCommand},
 									Args: []string{
 										"--port=" + v1alpha2.TensorflowServingGRPCPort,
@@ -263,11 +265,12 @@ func TestInferenceServiceToKnativeService(t *testing.T) {
 							},
 							Spec: knservingv1alpha1.RevisionSpec{
 								RevisionSpec: v1beta1.RevisionSpec{
-									TimeoutSeconds: &constants.DefaultTimeout,
+									TimeoutSeconds: &constants.DefaultPredictorTimeout,
 									PodSpec: v1.PodSpec{
 										Containers: []v1.Container{
 											{
 												Image: SKLearnServerImageName + ":" + DefaultSKLearnRuntimeVersion,
+												Name:  constants.InferenceServiceContainerName,
 												Args: []string{
 													"--model_name=sklearn",
 													"--model_dir=" + constants.DefaultModelLocalMountPath,
@@ -319,11 +322,12 @@ func TestInferenceServiceToKnativeService(t *testing.T) {
 							},
 							Spec: knservingv1alpha1.RevisionSpec{
 								RevisionSpec: v1beta1.RevisionSpec{
-									TimeoutSeconds: &constants.DefaultTimeout,
+									TimeoutSeconds: &constants.DefaultPredictorTimeout,
 									PodSpec: v1.PodSpec{
 										Containers: []v1.Container{
 											{
 												Image: XGBoostServerImageName + ":" + DefaultXGBoostRuntimeVersion,
+												Name:  constants.InferenceServiceContainerName,
 												Args: []string{
 													"--model_name=xgboost",
 													"--model_dir=" + constants.DefaultModelLocalMountPath,
@@ -375,11 +379,12 @@ func TestInferenceServiceToKnativeService(t *testing.T) {
 							},
 							Spec: knservingv1alpha1.RevisionSpec{
 								RevisionSpec: v1beta1.RevisionSpec{
-									TimeoutSeconds: &constants.DefaultTimeout,
+									TimeoutSeconds: &constants.DefaultPredictorTimeout,
 									PodSpec: v1.PodSpec{
 										Containers: []v1.Container{
 											{
 												Image: "kfserving/xgbserver:" + DefaultXGBoostRuntimeVersion,
+												Name:  constants.InferenceServiceContainerName,
 												Args: []string{
 													"--model_name=xgboost",
 													"--model_dir=" + constants.DefaultModelLocalMountPath,
@@ -446,11 +451,12 @@ func TestInferenceServiceToKnativeService(t *testing.T) {
 							},
 							Spec: knservingv1alpha1.RevisionSpec{
 								RevisionSpec: v1beta1.RevisionSpec{
-									TimeoutSeconds: &constants.DefaultTimeout,
+									TimeoutSeconds: &constants.DefaultPredictorTimeout,
 									PodSpec: v1.PodSpec{
 										Containers: []v1.Container{
 											{
 												Image: SKLearnServerImageName + ":" + DefaultSKLearnRuntimeVersion,
+												Name:  constants.InferenceServiceContainerName,
 												Args: []string{
 													"--model_name=sklearn",
 													"--model_dir=" + constants.DefaultModelLocalMountPath,
@@ -585,7 +591,7 @@ func TestTransformerToKnativeService(t *testing.T) {
 					},
 					Spec: knservingv1alpha1.RevisionSpec{
 						RevisionSpec: v1beta1.RevisionSpec{
-							TimeoutSeconds: &constants.DefaultTimeout,
+							TimeoutSeconds: &constants.DefaultTransformerTimeout,
 							PodSpec: v1.PodSpec{
 								ServiceAccountName: "testsvcacc",
 								Containers: []v1.Container{
@@ -629,7 +635,7 @@ func TestTransformerToKnativeService(t *testing.T) {
 					},
 					Spec: knservingv1alpha1.RevisionSpec{
 						RevisionSpec: v1beta1.RevisionSpec{
-							TimeoutSeconds: &constants.DefaultTimeout,
+							TimeoutSeconds: &constants.DefaultTransformerTimeout,
 							PodSpec: v1.PodSpec{
 								ServiceAccountName: "testsvcacc",
 								Containers: []v1.Container{
@@ -772,11 +778,12 @@ func TestExplainerToKnativeService(t *testing.T) {
 					},
 					Spec: knservingv1alpha1.RevisionSpec{
 						RevisionSpec: v1beta1.RevisionSpec{
-							TimeoutSeconds: &constants.DefaultTimeout,
+							TimeoutSeconds: &constants.DefaultExplainerTimeout,
 							PodSpec: v1.PodSpec{
 								Containers: []v1.Container{
 									{
 										Image: "alibi:latest",
+										Name:  constants.InferenceServiceContainerName,
 										Args: []string{
 											constants.ArgumentModelName,
 											isvc.Name,
@@ -814,11 +821,12 @@ func TestExplainerToKnativeService(t *testing.T) {
 					},
 					Spec: knservingv1alpha1.RevisionSpec{
 						RevisionSpec: v1beta1.RevisionSpec{
-							TimeoutSeconds: &constants.DefaultTimeout,
+							TimeoutSeconds: &constants.DefaultExplainerTimeout,
 							PodSpec: v1.PodSpec{
 								Containers: []v1.Container{
 									{
 										Image: "alibi:latest",
+										Name:  constants.InferenceServiceContainerName,
 										Args: []string{
 											constants.ArgumentModelName,
 											isvc.Name,

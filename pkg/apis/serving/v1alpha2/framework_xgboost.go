@@ -32,6 +32,7 @@ func (x *XGBoostSpec) GetStorageUri() string {
 func (x *XGBoostSpec) GetContainer(modelName string, config *InferenceServicesConfig, hasInferenceLogging bool) *v1.Container {
 	return &v1.Container{
 		Image:     config.Predictors.Xgboost.ContainerImage + ":" + x.RuntimeVersion,
+		Name:      constants.InferenceServiceContainerName,
 		Resources: x.Resources,
 		Args: []string{
 			"--model_name=" + modelName,

@@ -34,6 +34,7 @@ func (s *ONNXSpec) GetStorageUri() string {
 func (s *ONNXSpec) GetContainer(modelName string, config *InferenceServicesConfig, hasInferenceLogging bool) *v1.Container {
 	return &v1.Container{
 		Image:     config.Predictors.ONNX.ContainerImage + ":" + s.RuntimeVersion,
+		Name:      constants.InferenceServiceContainerName,
 		Resources: s.Resources,
 		Args: []string{
 			"--model_path", constants.DefaultModelLocalMountPath + "/" + ONNXModelFileName,

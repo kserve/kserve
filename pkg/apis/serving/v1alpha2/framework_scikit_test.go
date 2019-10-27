@@ -2,6 +2,7 @@ package v1alpha2
 
 import (
 	"fmt"
+	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	"k8s.io/api/core/v1"
@@ -80,6 +81,7 @@ func TestCreateSKLearnModelServingContainer(t *testing.T) {
 
 	expectedContainer := &v1.Container{
 		Image:     "someOtherImage:0.1.0",
+		Name:      constants.InferenceServiceContainerName,
 		Resources: requestedResource,
 		Args: []string{
 			"--model_name=someName",
