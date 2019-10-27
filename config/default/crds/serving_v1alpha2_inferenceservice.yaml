@@ -84,7 +84,7 @@ spec:
                       required:
                       - container
                       type: object
-                    inferenceLogger:
+                    logger:
                       description: Activate request/response logging
                       properties:
                         mode:
@@ -119,7 +119,7 @@ spec:
                       required:
                       - container
                       type: object
-                    inferenceLogger:
+                    logger:
                       description: Activate request/response logging
                       properties:
                         mode:
@@ -269,7 +269,7 @@ spec:
                       required:
                       - container
                       type: object
-                    inferenceLogger:
+                    logger:
                       description: Activate request/response logging
                       properties:
                         mode:
@@ -338,7 +338,7 @@ spec:
                       required:
                       - container
                       type: object
-                    inferenceLogger:
+                    logger:
                       description: Activate request/response logging
                       properties:
                         mode:
@@ -373,7 +373,7 @@ spec:
                       required:
                       - container
                       type: object
-                    inferenceLogger:
+                    logger:
                       description: Activate request/response logging
                       properties:
                         mode:
@@ -523,7 +523,7 @@ spec:
                       required:
                       - container
                       type: object
-                    inferenceLogger:
+                    logger:
                       description: Activate request/response logging
                       properties:
                         mode:
