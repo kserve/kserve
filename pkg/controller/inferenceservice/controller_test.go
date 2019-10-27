@@ -163,7 +163,7 @@ func TestInferenceServiceWithOnlyPredictor(t *testing.T) {
 					},
 					Spec: knservingv1alpha1.RevisionSpec{
 						RevisionSpec: v1beta1.RevisionSpec{
-							TimeoutSeconds: &constants.DefaultTimeout,
+							TimeoutSeconds: &constants.DefaultPredictorTimeout,
 							PodSpec: v1.PodSpec{
 								Containers: []v1.Container{
 									{
@@ -394,7 +394,7 @@ func TestInferenceServiceWithDefaultAndCanaryPredictor(t *testing.T) {
 					},
 					Spec: knservingv1alpha1.RevisionSpec{
 						RevisionSpec: v1beta1.RevisionSpec{
-							TimeoutSeconds: &constants.DefaultTimeout,
+							TimeoutSeconds: &constants.DefaultPredictorTimeout,
 							PodSpec: v1.PodSpec{
 								Containers: []v1.Container{
 									{
@@ -939,7 +939,7 @@ func TestInferenceServiceWithTransformer(t *testing.T) {
 					},
 					Spec: knservingv1alpha1.RevisionSpec{
 						RevisionSpec: v1beta1.RevisionSpec{
-							TimeoutSeconds: &constants.DefaultTimeout,
+							TimeoutSeconds: &constants.DefaultTransformerTimeout,
 							PodSpec: v1.PodSpec{
 								Containers: []v1.Container{
 									{
