@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import List, Dict
+from typing import Dict
 
 import json
 import requests
@@ -22,7 +22,7 @@ PREDICTOR_URL_FORMAT = "http://{0}/v1/models/{1}:predict"
 EXPLAINER_URL_FORMAT = "http://{0}/v1/models/{1}:explain"
 
 # KFModel is intended to be subclassed by various components within KFServing.
-class KFModel(object):
+class KFModel():
 
     def __init__(self, name: str):
         self.name = name
@@ -37,7 +37,7 @@ class KFModel(object):
 
         response = requests.post(
             PREDICTOR_URL_FORMAT.format(self.predictor_host, self.name),
-             json.dumps(request)
+            json.dumps(request)
         )
         if response.status_code != 200:
             raise tornado.web.HTTPError(
@@ -50,7 +50,7 @@ class KFModel(object):
             raise NotImplementedError
 
         response = requests.post(
-            EXPLAINER_URL_FORMAT.format(self.explainer_host, self.name), 
+            EXPLAINER_URL_FORMAT.format(self.explainer_host, self.name),
             json.dumps(request)
         )
         if response.status_code != 200:

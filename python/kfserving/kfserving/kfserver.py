@@ -12,8 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from http import HTTPStatus
-
 import tornado.ioloop
 import tornado.web
 import tornado.httpserver
@@ -21,8 +19,7 @@ import argparse
 import os
 import logging
 import json
-from enum import Enum
-from typing import List, Dict, Optional, Any
+from typing import List, Dict, Optional
 from kfserving.handlers.http import PredictHandler, ExplainHandler
 from kfserving import KFModel
 
@@ -40,7 +37,7 @@ KFSERVER_LOGLEVEL = os.environ.get('KFSERVER_LOGLEVEL', 'INFO').upper()
 logging.basicConfig(level=KFSERVER_LOGLEVEL)
 
 
-class KFServer(object):
+class KFServer():
     def __init__(self, http_port: int = args.http_port,
                  grpc_port: int = args.grpc_port):
         self.registered_models: Dict[str, KFModel] = {}
@@ -70,7 +67,7 @@ class KFServer(object):
         self._http_server = tornado.httpserver.HTTPServer(
             self.create_application())
 
-        logging.info("Listening on port %s" % self.http_port)
+        logging.info("Listening on port %s", self.http_port)
         self._http_server.bind(self.http_port)
         self._http_server.start(0)  # Forks workers equal to host's cores
         tornado.ioloop.IOLoop.current().start()
@@ -80,7 +77,7 @@ class KFServer(object):
             raise Exception(
                 "Failed to register model, model.name must be provided.")
         self.registered_models[model.name] = model
-        logging.info("Registering model:" + model.name)
+        logging.info("Registering model: %s", model.name)
 
 
 class LivenessHandler(tornado.web.RequestHandler):

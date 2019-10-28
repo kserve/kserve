@@ -13,9 +13,7 @@
 # limitations under the License.
 
 import pytest
-from tornado.httpclient import HTTPClientError
 import kfserving
-from typing import Dict, List
 
 
 class DummyModel(kfserving.KFModel):
@@ -27,11 +25,11 @@ class DummyModel(kfserving.KFModel):
     def load(self):
         self.ready = True
 
-    def predict(self, input):
-        return input
+    def predict(self, request):
+        return request
 
 
-class TestTFHttpServer(object):
+class TestTFHttpServer():
 
     @pytest.fixture(scope="class")
     def app(self):  # pylint: disable=no-self-use
