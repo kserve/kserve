@@ -43,7 +43,7 @@ class KFServer():
         self.registered_models = {}
         self.http_port = http_port
         self.grpc_port = grpc_port
-        self._http_server: Optional[tornado.httpserver.HTTPServer] = None
+        self._http_server = None
 
     def create_application(self):
         return tornado.web.Application([
