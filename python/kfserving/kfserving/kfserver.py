@@ -19,7 +19,7 @@ import argparse
 import os
 import logging
 import json
-from typing import List, Dict, Optional
+from typing import List, Dict
 from kfserving.handlers.http import PredictHandler, ExplainHandler
 from kfserving import KFModel
 
@@ -80,7 +80,7 @@ class KFServer():
         logging.info("Registering model: %s", model.name)
 
 
-class LivenessHandler(tornado.web.RequestHandler):
+class LivenessHandler(tornado.web.RequestHandler): # pylint:disable=too-few-public-methods
     def get(self):
         self.write("Alive")
 
