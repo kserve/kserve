@@ -36,6 +36,6 @@ pip install --upgrade pytest-tornasync
 pip3 install -r python/kfserving/requirements.txt
 
 # Run KFServing SDK unit tests
-pushd python/kfserving/test >/dev/null	# TODO Enable all of these tests https://github.com/kubeflow/kfserving/issues/493
-  pytest --ignore=test_set_creds.py	# for library in kfserving xgbserver sklearnserver pytorchserver alibiexplainer; do
+pushd python/kfserving/test >/dev/null
+  pytest --ignore=test_set_creds.py	
 popd
