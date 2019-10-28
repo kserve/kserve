@@ -34,6 +34,6 @@ def test_model():
     dataiter = iter(testloader)
     images, _ = dataiter.next()
 
-    request = { "predictions" : images[0:1].tolist() }
+    request = { "instances" : images[0:1].tolist() }
     response = server.predict(request)
     assert isinstance(response["instances"][0], list)
