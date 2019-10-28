@@ -7,6 +7,8 @@ import requests
 import json
 import os
 from PIL import Image
+import ssl
+ssl._create_default_https_context = ssl._create_unverified_context
 
 PREDICT_TEMPLATE = 'http://{0}/v1/models/imagenet:predict'
 EXPLAIN_TEMPLATE = 'http://{0}/v1/models/imagenet:explain'
@@ -15,7 +17,7 @@ def get_image_data():
     data = []
     image_shape = (299, 299, 3)
     target_size = image_shape[:2]
-    image = Image.open("cat-raw.jpg").convert('RGB')
+    image = Image.open("./cat-prediction.png").convert('RGB')
     image = np.expand_dims(image.resize(target_size), axis=0)
     data.append(image)
     data = np.concatenate(data, axis=0)
