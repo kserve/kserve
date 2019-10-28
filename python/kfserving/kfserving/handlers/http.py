@@ -7,7 +7,7 @@ from kfserving.kfmodel import KFModel
 
 class HTTPHandler(tornado.web.RequestHandler):
     def initialize(self, models: Dict[str, KFModel]):
-        self.models = models
+        self.models = models # pylint:disable=attribute-defined-outside-init
 
     def get_model(self, name: str):
         if name not in self.models:
@@ -44,9 +44,6 @@ class HTTPHandler(tornado.web.RequestHandler):
 
 
 class PredictHandler(HTTPHandler):
-    def initialize(self, models: Dict[str, KFModel]):
-        self.models = models
-
     def post(self, name: str):
         model = self.get_model(name)
         request = self.validate(self.request)
@@ -55,9 +52,6 @@ class PredictHandler(HTTPHandler):
 
 
 class ExplainHandler(HTTPHandler):
-    def initialize(self, models: Dict[str, KFModel]):
-        self.models = models
-
     def post(self, name: str):
         model = self.get_model(name)
         request = self.validate(self.request)

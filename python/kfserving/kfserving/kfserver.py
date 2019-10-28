@@ -60,7 +60,7 @@ class KFServer():
              ExplainHandler, dict(models=self.registered_models)),
         ])
 
-    def start(self, models: List[KFModel] = []):
+    def start(self, models: List[KFModel]):
         for model in models:
             self.register_model(model)
 
@@ -87,7 +87,7 @@ class LivenessHandler(tornado.web.RequestHandler):
 
 class HealthHandler(tornado.web.RequestHandler):
     def initialize(self, models: Dict[str, KFModel]):
-        self.models = models
+        self.models = models # pylint:disable=attribute-defined-outside-init
 
     def get(self, name: str):
         if name not in self.models:
@@ -105,12 +105,7 @@ class HealthHandler(tornado.web.RequestHandler):
 
 class ListHandler(tornado.web.RequestHandler):
     def initialize(self, models: Dict[str, KFModel]):
-        self.models = models
+        self.models = models # pylint:disable=attribute-defined-outside-init
 
     def get(self):
         self.write(json.dumps(list(self.models.values())))
-
-
-if __name__ == "__main__":
-    s = KFServer()
-    s.start()
