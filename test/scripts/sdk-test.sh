@@ -37,5 +37,5 @@ pip3 install -r python/kfserving/requirements.txt
 
 # Run KFServing SDK unit tests
 pushd python/kfserving/test >/dev/null
-  pytest --ignore=test_set_creds.py	
+  pytest --ignore=test_set_creds.py
 popd
