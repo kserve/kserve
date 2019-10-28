@@ -63,4 +63,3 @@ class ExplainHandler(HTTPHandler):
         request = self.validate(self.request)
         response = json.dumps(model.explain(request))
         self.write(response)
-
