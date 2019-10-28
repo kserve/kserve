@@ -61,6 +61,7 @@ class PyTorchModel(kfserving.KFModel):
         self.ready = True
 
     def predict(self, request: Dict) -> Dict:
+        inputs = []
         try:
             inputs = torch.tensor(request["instances"])
         except Exception as e:
