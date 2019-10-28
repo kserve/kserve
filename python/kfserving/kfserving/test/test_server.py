@@ -26,7 +26,7 @@ class DummyModel(kfserving.KFModel):
         self.ready = True
 
     def predict(self, request):
-        return request
+        return {"predictions": request["instances"]}
 
 
 class TestTFHttpServer():
