@@ -31,6 +31,12 @@ class KFModel():
     def load(self):
         self.ready = True
 
+    def preprocess(self, request: Dict):
+        return request
+
+    def postprocess(self, request: Dict):
+        return request
+
     def predict(self, request: Dict) -> Dict:
         if self.predictor_host is None:
             raise NotImplementedError

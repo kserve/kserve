@@ -40,9 +40,9 @@ def image_transform(instance):
 
 
 class ImageTransformer(Transformer):
-    def predict(self, request: Dict) -> Dict:
-        request = {'instances': [image_transform(instance) for instance in request['instances']]}
-
 
     def preprocess(self, inputs: Dict) -> Dict:
-        return 
+        return {'instances': [image_transform(instance) for instance in inputs['instances']]}
+
+    def postprocess(self, inputs: List) -> List:
+        return inputs

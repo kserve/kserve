@@ -47,13 +47,17 @@ class PredictHandler(HTTPHandler):
     def post(self, name: str):
         model = self.get_model(name)
         request = self.validate(self.request)
-        response = json.dumps(model.predict(request))
-        self.write(response)
+        request = model.preprocess(request)
+        response = model.predict(request)
+        response = model.postprocess(request)
+        self.write(json.dumps(response))
 
 
 class ExplainHandler(HTTPHandler):
     def post(self, name: str):
         model = self.get_model(name)
         request = self.validate(self.request)
-        response = json.dumps(model.explain(request))
-        self.write(response)
+        request = model.preprocess(request)
+        response = model.explain(request)
+        response = model.postprocess(request)
+        self.write(json.dumps(response))
