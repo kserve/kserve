@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# pylint:disable=ungrouped-imports
+# pylint:disable=arguments-differ
+
 import torch
 import torchvision
 import torchvision.transforms as transforms

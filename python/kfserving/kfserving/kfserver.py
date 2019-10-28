@@ -40,7 +40,7 @@ logging.basicConfig(level=KFSERVER_LOGLEVEL)
 class KFServer():
     def __init__(self, http_port: int = args.http_port,
                  grpc_port: int = args.grpc_port):
-        self.registered_models: Dict[str, KFModel] = {}
+        self.registered_models = {}
         self.http_port = http_port
         self.grpc_port = grpc_port
         self._http_server: Optional[tornado.httpserver.HTTPServer] = None
