@@ -49,28 +49,22 @@ def test_mock_gcs(mock_storage):
     mock_storage.Client().bucket().list_blobs().__iter__.return_value = [mock_obj]
     assert kfserving.Storage.download(gcs_path)
 
-@mock.patch(STORAGE_MODULE + '.BlockBlobService')
-def test_mock_blob(mock_storage):
+def test_storage_blob_exception():
     blob_path = 'https://accountname.blob.core.windows.net/container/some/blob/'
-    mock_obj = mock.MagicMock()
-    mock_obj.name = 'mock.object'
-    mock_storage.list_blobs.__iter__.return_value = [mock_obj]
-    assert kfserving.Storage.download(blob_path)
+    with pytest.raises(Exception):
+        kfserving.Storage.download(blob_path)
 
 @mock.patch('urllib3.PoolManager')
 @mock.patch(STORAGE_MODULE + '.Minio')
-def test_mock_minio(mock_connection, mock_minio):
+def test_storage_s3_exception(mock_connection, mock_minio):
     minio_path = 's3://foo/bar'
     # Create mock connection
     mock_server = mock.MagicMock()
     mock_connection.return_value = mock_server
     # Create mock client
     mock_minio.return_value = Minio("s3.us.cloud-object-storage.appdomain.cloud", secure=True)
-    mock_obj = mock.MagicMock()
-    mock_obj.object_name = 'mock.object'
-    mock_minio.list_objects().__iter__.return_value = [mock_obj]
-    assert kfserving.Storage.download(minio_path)
-
+    with pytest.raises(Exception):
+        kfserving.Storage.download(minio_path)
 
 @mock.patch('urllib3.PoolManager')
 @mock.patch(STORAGE_MODULE + '.Minio')
