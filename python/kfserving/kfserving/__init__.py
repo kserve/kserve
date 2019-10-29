@@ -39,6 +39,7 @@ from .models.v1alpha2_inference_service_list import V1alpha2InferenceServiceList
 from .models.v1alpha2_inference_service_spec import V1alpha2InferenceServiceSpec
 from .models.v1alpha2_inference_service_status import V1alpha2InferenceServiceStatus
 from .models.v1alpha2_endpoint_spec import V1alpha2EndpointSpec
+from .models.v1alpha2_onnx_spec import V1alpha2ONNXSpec
 from .models.v1alpha2_predictor_spec import V1alpha2PredictorSpec
 from .models.v1alpha2_transformer_spec import V1alpha2TransformerSpec
 from .models.v1alpha2_explainer_spec import V1alpha2ExplainerSpec
