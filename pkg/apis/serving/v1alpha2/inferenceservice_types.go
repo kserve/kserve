@@ -60,6 +60,28 @@ type DeploymentSpec struct {
 	// This is the up bound for autoscaler to scale to
 	// +optional
 	MaxReplicas int `json:"maxReplicas,omitempty"`
+	// Activate request/response logging
+	// +optional
+	Logger *Logger `json:"logger,omitempty"`
+}
+
+type LoggerMode string
+
+const (
+	LogAll      LoggerMode = "all"
+	LogRequest  LoggerMode = "request"
+	LogResponse LoggerMode = "response"
+)
+
+// Logger provides optional payload logging for all endpoints
+// +experimental
+type Logger struct {
+	// URL to send request logging CloudEvents
+	// +optional
+	Url *string `json:"url,omitempty"`
+	// What payloads to log
+	// +optional
+	Mode LoggerMode `json:"mode,omitempty"`
 }
 
 // PredictorSpec defines the configuration for a predictor,
