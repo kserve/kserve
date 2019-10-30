@@ -32,9 +32,15 @@ func (s *SKLearnSpec) GetStorageUri() string {
 	return s.StorageURI
 }
 
+func (s *SKLearnSpec) GetResourceRequirements() *v1.ResourceRequirements {
+	// return the ResourceRequirements value if set on the spec
+	return &s.Resources
+}
+
 func (s *SKLearnSpec) GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container {
 	return &v1.Container{
 		Image:     config.Predictors.SKlearn.ContainerImage + ":" + s.RuntimeVersion,
+		Name:      constants.InferenceServiceContainerName,
 		Resources: s.Resources,
 		Args: []string{
 			"--model_name=" + modelName,

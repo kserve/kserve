@@ -33,10 +33,16 @@ func (t *TensorRTSpec) GetStorageUri() string {
 	return t.StorageURI
 }
 
+func (t *TensorRTSpec) GetResourceRequirements() *v1.ResourceRequirements {
+	// return the ResourceRequirements value if set on the spec
+	return &t.Resources
+}
+
 func (t *TensorRTSpec) GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container {
 	// based on example at: https://github.com/NVIDIA/tensorrt-laboratory/blob/master/examples/Deployment/Kubernetes/basic-trtis-deployment/deploy.yml
 	return &v1.Container{
 		Image:     config.Predictors.TensorRT.ContainerImage + ":" + t.RuntimeVersion,
+		Name:      constants.InferenceServiceContainerName,
 		Resources: t.Resources,
 		Args: []string{
 			"trtserver",

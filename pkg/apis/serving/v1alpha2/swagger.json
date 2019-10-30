@@ -96,6 +96,10 @@
     "v1alpha2.DeploymentSpec": {
       "description": "DeploymentSpec defines the configuration for a given InferenceService service component",
       "properties": {
+        "logger": {
+          "description": "Activate request/response logging",
+          "$ref": "#/definitions/v1alpha2.Logger"
+        },
         "maxReplicas": {
           "description": "This is the up bound for autoscaler to scale to",
           "type": "integer",
@@ -141,6 +145,10 @@
         "custom": {
           "description": "Spec for a custom explainer",
           "$ref": "#/definitions/v1alpha2.CustomSpec"
+        },
+        "logger": {
+          "description": "Activate request/response logging",
+          "$ref": "#/definitions/v1alpha2.Logger"
         },
         "maxReplicas": {
           "description": "This is the up bound for autoscaler to scale to",
@@ -273,6 +281,19 @@
         }
       }
     },
+    "v1alpha2.Logger": {
+      "description": "Logger provides optional payload logging for all endpoints",
+      "properties": {
+        "mode": {
+          "description": "What payloads to log",
+          "type": "string"
+        },
+        "url": {
+          "description": "URL to send request logging CloudEvents",
+          "type": "string"
+        }
+      }
+    },
     "v1alpha2.ONNXSpec": {
       "description": "ONNXSpec defines arguments for configuring ONNX model serving.",
       "required": [
@@ -299,6 +320,10 @@
         "custom": {
           "description": "Spec for a custom predictor",
           "$ref": "#/definitions/v1alpha2.CustomSpec"
+        },
+        "logger": {
+          "description": "Activate request/response logging",
+          "$ref": "#/definitions/v1alpha2.Logger"
         },
         "maxReplicas": {
           "description": "This is the up bound for autoscaler to scale to",
@@ -447,6 +472,10 @@
         "custom": {
           "description": "Spec for a custom transformer",
           "$ref": "#/definitions/v1alpha2.CustomSpec"
+        },
+        "logger": {
+          "description": "Activate request/response logging",
+          "$ref": "#/definitions/v1alpha2.Logger"
         },
         "maxReplicas": {
           "description": "This is the up bound for autoscaler to scale to",

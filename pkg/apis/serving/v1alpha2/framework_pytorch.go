@@ -15,10 +15,11 @@ package v1alpha2
 
 import (
 	"fmt"
+	"strings"
+
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/utils"
-	"k8s.io/api/core/v1"
-	"strings"
+	v1 "k8s.io/api/core/v1"
 )
 
 var (
@@ -32,9 +33,15 @@ func (s *PyTorchSpec) GetStorageUri() string {
 	return s.StorageURI
 }
 
+func (s *PyTorchSpec) GetResourceRequirements() *v1.ResourceRequirements {
+	// return the ResourceRequirements value if set on the spec
+	return &s.Resources
+}
+
 func (s *PyTorchSpec) GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container {
 	return &v1.Container{
 		Image:     config.Predictors.PyTorch.ContainerImage + ":" + s.RuntimeVersion,
+		Name:      constants.InferenceServiceContainerName,
 		Resources: s.Resources,
 		Args: []string{
 			"--model_name=" + modelName,

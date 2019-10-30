@@ -163,12 +163,13 @@ func TestInferenceServiceWithOnlyPredictor(t *testing.T) {
 					},
 					Spec: knservingv1alpha1.RevisionSpec{
 						RevisionSpec: v1beta1.RevisionSpec{
-							TimeoutSeconds: &constants.DefaultTimeout,
+							TimeoutSeconds: &constants.DefaultPredictorTimeout,
 							PodSpec: v1.PodSpec{
 								Containers: []v1.Container{
 									{
 										Image: TensorflowServingImageName + ":" +
 											defaultInstance.Spec.Default.Predictor.Tensorflow.RuntimeVersion,
+										Name:    constants.InferenceServiceContainerName,
 										Command: []string{kfserving.TensorflowEntrypointCommand},
 										Args: []string{
 											"--port=" + kfserving.TensorflowServingGRPCPort,
@@ -393,12 +394,13 @@ func TestInferenceServiceWithDefaultAndCanaryPredictor(t *testing.T) {
 					},
 					Spec: knservingv1alpha1.RevisionSpec{
 						RevisionSpec: v1beta1.RevisionSpec{
-							TimeoutSeconds: &constants.DefaultTimeout,
+							TimeoutSeconds: &constants.DefaultPredictorTimeout,
 							PodSpec: v1.PodSpec{
 								Containers: []v1.Container{
 									{
 										Image: TensorflowServingImageName + ":" +
 											canary.Spec.Canary.Predictor.Tensorflow.RuntimeVersion,
+										Name:    constants.InferenceServiceContainerName,
 										Command: []string{kfserving.TensorflowEntrypointCommand},
 										Args: []string{
 											"--port=" + kfserving.TensorflowServingGRPCPort,
@@ -937,7 +939,7 @@ func TestInferenceServiceWithTransformer(t *testing.T) {
 					},
 					Spec: knservingv1alpha1.RevisionSpec{
 						RevisionSpec: v1beta1.RevisionSpec{
-							TimeoutSeconds: &constants.DefaultTimeout,
+							TimeoutSeconds: &constants.DefaultTransformerTimeout,
 							PodSpec: v1.PodSpec{
 								Containers: []v1.Container{
 									{

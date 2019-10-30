@@ -18,10 +18,11 @@ package pod
 import (
 	"context"
 	"encoding/json"
+	"net/http"
+
 	v1 "k8s.io/api/core/v1"
 	k8types "k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
-	"net/http"
 
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/controller/inferenceservice/resources/credentials"
@@ -83,6 +84,11 @@ func (mutator *Mutator) mutate(pod *v1.Pod, configMap *v1.ConfigMap) error {
 	mutators := []func(pod *v1.Pod) error{
 		InjectGKEAcceleratorSelector,
 		storageInitializer.InjectStorageInitializer,
+	}
+
+	// Skip webhook if pod not managed by kfserving
+	if _, ok := pod.Labels[constants.InferenceServicePodLabelKey]; !ok {
+		return nil
 	}
 
 	for _, mutator := range mutators {

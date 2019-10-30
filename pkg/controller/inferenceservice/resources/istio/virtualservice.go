@@ -46,6 +46,13 @@ var (
 	ExplainerHostnameUnknown   = "ExplainerHostnameUnknown"
 )
 
+// Message constants
+var (
+	PredictorMissingMessage   = "Failed to reconcile predictor"
+	TransformerMissingMessage = "Failed to reconcile transformer"
+	ExplainerMissingMessage   = "Failed to reconcile explainer"
+)
+
 type IngressConfig struct {
 	IngressGateway     string `json:"ingressGateway,omitempty"`
 	IngressServiceName string `json:"ingressService,omitempty"`
@@ -92,14 +99,14 @@ func (r *VirtualServiceBuilder) getPredictRouteDestination(
 	// destination for the predict is required
 	predictSpec, reason := getPredictStatusConfigurationSpec(endpointSpec, componentStatusMap)
 	if predictSpec == nil {
-		return nil, createFailedStatus(reason, "Failed to reconcile predictor")
+		return nil, createFailedStatus(reason, PredictorMissingMessage)
 	}
 
 	// use transformer instead (if one is configured)
 	if endpointSpec.Transformer != nil {
 		predictSpec, reason = getTransformerStatusConfigurationSpec(endpointSpec, componentStatusMap)
 		if predictSpec == nil {
-			return nil, createFailedStatus(reason, "Failed to reconcile transformer")
+			return nil, createFailedStatus(reason, TransformerMissingMessage)
 		}
 	}
 
@@ -118,7 +125,7 @@ func (r *VirtualServiceBuilder) getExplainerRouteDestination(
 			httpRouteDestination := createHTTPRouteDestination(explainSpec.Hostname, weight, r.ingressConfig.IngressServiceName)
 			return &httpRouteDestination, nil
 		} else {
-			return nil, createFailedStatus(explainerReason, "Failed to reconcile default explainer")
+			return nil, createFailedStatus(explainerReason, ExplainerMissingMessage)
 		}
 	}
 	return nil, nil
@@ -227,7 +234,7 @@ func (r *VirtualServiceBuilder) CreateVirtualService(isvc *v1alpha2.InferenceSer
 func getServiceHostname(isvc *v1alpha2.InferenceService) (string, error) {
 	predictSpec, reason := getPredictStatusConfigurationSpec(&isvc.Spec.Default, isvc.Status.Default)
 	if predictSpec == nil {
-		return "", fmt.Errorf("Fail to get service hostname: %s.", reason)
+		return "", fmt.Errorf("failed to get service hostname: %s", reason)
 	}
 	return constants.VirtualServiceHostname(isvc.Name, predictSpec.Hostname), nil
 }
@@ -237,7 +244,13 @@ func getPredictStatusConfigurationSpec(endpointSpec *v1alpha2.EndpointSpec, comp
 		return nil, PredictorSpecMissing
 	}
 
+	if componentStatusMap == nil {
+		return nil, PredictorStatusUnknown
+	}
+
 	if predictorStatus, ok := (*componentStatusMap)[constants.Predictor]; !ok {
+		return nil, PredictorStatusUnknown
+	} else if predictorStatus == nil {
 		return nil, PredictorStatusUnknown
 	} else if len(predictorStatus.Hostname) == 0 {
 		return nil, PredictorHostnameUnknown
@@ -251,7 +264,13 @@ func getTransformerStatusConfigurationSpec(endpointSpec *v1alpha2.EndpointSpec, 
 		return nil, TransformerSpecMissing
 	}
 
+	if componentStatusMap == nil {
+		return nil, TransformerStatusUnknown
+	}
+
 	if transformerStatus, ok := (*componentStatusMap)[constants.Transformer]; !ok {
+		return nil, TransformerStatusUnknown
+	} else if transformerStatus == nil {
 		return nil, TransformerStatusUnknown
 	} else if len(transformerStatus.Hostname) == 0 {
 		return nil, TransformerHostnameUnknown
@@ -264,14 +283,19 @@ func getExplainStatusConfigurationSpec(endpointSpec *v1alpha2.EndpointSpec, comp
 		return nil, ExplainerSpecMissing
 	}
 
-	explainerStatus, ok := (*componentStatusMap)[constants.Explainer]
-	if !ok {
+	if componentStatusMap == nil {
+		return nil, ExplainerStatusUnknown
+	}
+
+	if explainerStatus, ok := (*componentStatusMap)[constants.Explainer]; !ok {
+		return nil, ExplainerStatusUnknown
+	} else if explainerStatus == nil {
 		return nil, ExplainerStatusUnknown
 	} else if len(explainerStatus.Hostname) == 0 {
 		return nil, ExplainerHostnameUnknown
+	} else {
+		return explainerStatus, ""
 	}
-
-	return explainerStatus, ""
 }
 
 func createHTTPRouteDestination(targetHost string, weight int, gatewayService string) istiov1alpha3.HTTPRouteDestination {

@@ -32,6 +32,11 @@ func (c *CustomSpec) GetStorageUri() string {
 	return ""
 }
 
+func (c *CustomSpec) GetResourceRequirements() *v1.ResourceRequirements {
+	// return the ResourceRequirements value if set on the spec
+	return &c.Container.Resources
+}
+
 func (c *CustomSpec) GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container {
 	return &c.Container
 }
@@ -48,6 +53,9 @@ func (c *CustomSpec) Validate(config *InferenceServicesConfig) error {
 	err := knserving.ValidateContainer(c.Container, sets.String{})
 	if err != nil {
 		return fmt.Errorf("Custom container validation error: %s", err.Error())
+	}
+	if c.GetStorageUri() != "" && c.Container.Name != constants.InferenceServiceContainerName {
+		return fmt.Errorf("Custom container validation error: container name must be %q", constants.InferenceServiceContainerName)
 	}
 	return nil
 }
