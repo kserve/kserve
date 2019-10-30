@@ -17,6 +17,7 @@ const (
 // Transformer interface is implemented by all Transformers
 type Transformer interface {
 	GetContainerSpec() *v1.Container
+	GetStorageUri() string
 	ApplyDefaults(config *InferenceServicesConfig)
 	Validate(config *InferenceServicesConfig) error
 }
@@ -51,10 +52,19 @@ func (t *TransformerSpec) Validate(config *InferenceServicesConfig) error {
 	if err != nil {
 		return err
 	}
-	if err := validateResourceRequirements(&transformer.GetContainerSpec().Resources); err != nil {
-		return err
+	errs := []error{
+		validateStorageURI(transformer.GetStorageUri()),
+		validateReplicas(t.MinReplicas, t.MaxReplicas),
+		validateResourceRequirements(&transformer.GetContainerSpec().Resources),
+		transformer.Validate(config),
 	}
-	return transformer.Validate(config)
+	for _, err := range errs {
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func getTransformer(t *TransformerSpec) (Transformer, error) {

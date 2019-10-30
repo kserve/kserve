@@ -65,6 +65,7 @@ func (e *ExplainerSpec) Validate(config *InferenceServicesConfig) error {
 	errs := []error{
 		explainer.Validate(config),
 		validateStorageURI(e.GetStorageUri()),
+		validateReplicas(e.MinReplicas, e.MaxReplicas),
 		validateResourceRequirements(explainer.GetResourceRequirements()),
 	}
 	for _, err := range errs {

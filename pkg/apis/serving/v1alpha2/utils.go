@@ -85,3 +85,16 @@ func validateStorageURI(storageURI string) error {
 
 	return fmt.Errorf(UnsupportedStorageURIFormatError, strings.Join(SupportedStorageURIPrefixList, ", "), storageURI)
 }
+
+func validateReplicas(minReplicas int, maxReplicas int) error {
+	if minReplicas < 0 {
+		return fmt.Errorf(MinReplicasLowerBoundExceededError)
+	}
+	if maxReplicas < 0 {
+		return fmt.Errorf(MaxReplicasLowerBoundExceededError)
+	}
+	if minReplicas > maxReplicas && maxReplicas != 0 {
+		return fmt.Errorf(MinReplicasShouldBeLessThanMaxError)
+	}
+	return nil
+}
