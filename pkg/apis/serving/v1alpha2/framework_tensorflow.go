@@ -36,6 +36,11 @@ func (t *TensorflowSpec) GetStorageUri() string {
 	return t.StorageURI
 }
 
+func (t *TensorflowSpec) GetResourceRequirements() *v1.ResourceRequirements {
+	// return the ResourceRequirements value if set on the spec
+	return &t.Resources
+}
+
 func (t *TensorflowSpec) GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container {
 	return &v1.Container{
 		Image:     config.Predictors.Tensorflow.ContainerImage + ":" + t.RuntimeVersion,
