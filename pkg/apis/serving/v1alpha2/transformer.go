@@ -51,10 +51,18 @@ func (t *TransformerSpec) Validate(config *InferenceServicesConfig) error {
 	if err != nil {
 		return err
 	}
-	if err := validateResourceRequirements(&transformer.GetContainerSpec().Resources); err != nil {
-		return err
+	errs := []error{
+		validateReplicas(t.MinReplicas, t.MaxReplicas),
+		validateResourceRequirements(&transformer.GetContainerSpec().Resources),
+		transformer.Validate(config),
 	}
-	return transformer.Validate(config)
+	for _, err := range errs {
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func getTransformer(t *TransformerSpec) (Transformer, error) {

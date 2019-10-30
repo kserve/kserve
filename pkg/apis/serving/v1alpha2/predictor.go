@@ -78,19 +78,6 @@ func (p *PredictorSpec) Validate(config *InferenceServicesConfig) error {
 	return nil
 }
 
-func validateReplicas(minReplicas int, maxReplicas int) error {
-	if minReplicas < 0 {
-		return fmt.Errorf(MinReplicasLowerBoundExceededError)
-	}
-	if maxReplicas < 0 {
-		return fmt.Errorf(MaxReplicasLowerBoundExceededError)
-	}
-	if minReplicas > maxReplicas && maxReplicas != 0 {
-		return fmt.Errorf(MinReplicasShouldBeLessThanMaxError)
-	}
-	return nil
-}
-
 func isGPUEnabled(requirements v1.ResourceRequirements) bool {
 	_, ok := requirements.Limits[constants.NvidiaGPUResourceType]
 	return ok
