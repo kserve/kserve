@@ -65,21 +65,23 @@ type DeploymentSpec struct {
 	Logger *Logger `json:"logger,omitempty"`
 }
 
-type LoggerType string
+type LoggerMode string
 
 const (
-	LogAll      LoggerType = "all"
-	LogRequest  LoggerType = "request"
-	Logresponse LoggerType = "response"
+	LogAll      LoggerMode = "all"
+	LogRequest  LoggerMode = "request"
+	LogResponse LoggerMode = "response"
 )
 
+// Logger provides optional payload logging for all endpoints
+// +experimental
 type Logger struct {
 	// URL to send request logging CloudEvents
 	// +optional
 	Url *string `json:"url,omitempty"`
 	// What payloads to log
 	// +optional
-	LogType LoggerType `json:"logType,omitempty"`
+	Mode LoggerMode `json:"mode,omitempty"`
 }
 
 // PredictorSpec defines the configuration for a predictor,

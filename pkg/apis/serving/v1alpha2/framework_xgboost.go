@@ -15,10 +15,11 @@ package v1alpha2
 
 import (
 	"fmt"
+	"strings"
+
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/utils"
-	"k8s.io/api/core/v1"
-	"strings"
+	v1 "k8s.io/api/core/v1"
 )
 
 var (
@@ -27,6 +28,11 @@ var (
 
 func (x *XGBoostSpec) GetStorageUri() string {
 	return x.StorageURI
+}
+
+func (x *XGBoostSpec) GetResourceRequirements() *v1.ResourceRequirements {
+	// return the ResourceRequirements value if set on the spec
+	return &x.Resources
 }
 
 func (x *XGBoostSpec) GetContainer(modelName string, config *InferenceServicesConfig, hasInferenceLogging bool) *v1.Container {

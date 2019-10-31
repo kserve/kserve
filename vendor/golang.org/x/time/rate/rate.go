@@ -281,6 +281,23 @@ func (lim *Limiter) SetLimitAt(now time.Time, newLimit Limit) {
 	lim.limit = newLimit
 }
 
+// SetBurst is shorthand for SetBurstAt(time.Now(), newBurst).
+func (lim *Limiter) SetBurst(newBurst int) {
+	lim.SetBurstAt(time.Now(), newBurst)
+}
+
+// SetBurstAt sets a new burst size for the limiter.
+func (lim *Limiter) SetBurstAt(now time.Time, newBurst int) {
+	lim.mu.Lock()
+	defer lim.mu.Unlock()
+
+	now, _, tokens := lim.advance(now)
+
+	lim.last = now
+	lim.tokens = tokens
+	lim.burst = newBurst
+}
+
 // reserveN is a helper method for AllowN, ReserveN, and WaitN.
 // maxFutureReserve specifies the maximum reservation wait duration allowed.
 // reserveN returns Reservation, not *Reservation, to avoid allocation in AllowN and WaitN.
@@ -370,5 +387,9 @@ func (limit Limit) durationFromTokens(tokens float64) time.Duration {
 // tokensFromDuration is a unit conversion function from a time duration to the number of tokens
 // which could be accumulated during that duration at a rate of limit tokens per second.
 func (limit Limit) tokensFromDuration(d time.Duration) float64 {
-	return d.Seconds() * float64(limit)
+	// Split the integer and fractional parts ourself to minimize rounding errors.
+	// See golang.org/issues/34861.
+	sec := float64(d/time.Second) * float64(limit)
+	nsec := float64(d%time.Second) * float64(limit)
+	return sec + nsec/1e9
 }

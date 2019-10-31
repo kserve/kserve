@@ -17,11 +17,12 @@ limitations under the License.
 package v1alpha2
 
 import (
-	"github.com/kubeflow/kfserving/pkg/constants"
 	"testing"
 
+	"github.com/kubeflow/kfserving/pkg/constants"
+
 	"github.com/onsi/gomega"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -47,12 +48,12 @@ func TestTensorflowDefaults(t *testing.T) {
 	isvc.Default(c)
 
 	g.Expect(isvc.Spec.Default.Predictor.Tensorflow.RuntimeVersion).To(gomega.Equal(DefaultTensorflowRuntimeVersion))
-	g.Expect(isvc.Spec.Default.Predictor.Tensorflow.Resources.Requests[v1.ResourceCPU]).To(gomega.Equal(DefaultCPU))
-	g.Expect(isvc.Spec.Default.Predictor.Tensorflow.Resources.Requests[v1.ResourceMemory]).To(gomega.Equal(DefaultMemory))
-	g.Expect(isvc.Spec.Default.Predictor.Tensorflow.Resources.Limits[v1.ResourceCPU]).To(gomega.Equal(DefaultCPU))
-	g.Expect(isvc.Spec.Default.Predictor.Tensorflow.Resources.Limits[v1.ResourceMemory]).To(gomega.Equal(DefaultMemory))
+	g.Expect(isvc.Spec.Default.Predictor.Tensorflow.Resources.Requests[v1.ResourceCPU]).To(gomega.Equal(defaultResource[v1.ResourceCPU]))
+	g.Expect(isvc.Spec.Default.Predictor.Tensorflow.Resources.Requests[v1.ResourceMemory]).To(gomega.Equal(defaultResource[v1.ResourceMemory]))
+	g.Expect(isvc.Spec.Default.Predictor.Tensorflow.Resources.Limits[v1.ResourceCPU]).To(gomega.Equal(defaultResource[v1.ResourceCPU]))
+	g.Expect(isvc.Spec.Default.Predictor.Tensorflow.Resources.Limits[v1.ResourceMemory]).To(gomega.Equal(defaultResource[v1.ResourceMemory]))
 	g.Expect(isvc.Spec.Canary.Predictor.Tensorflow.RuntimeVersion).To(gomega.Equal("1.11"))
-	g.Expect(isvc.Spec.Canary.Predictor.Tensorflow.Resources.Requests[v1.ResourceCPU]).To(gomega.Equal(DefaultCPU))
+	g.Expect(isvc.Spec.Canary.Predictor.Tensorflow.Resources.Requests[v1.ResourceCPU]).To(gomega.Equal(defaultResource[v1.ResourceCPU]))
 	g.Expect(isvc.Spec.Canary.Predictor.Tensorflow.Resources.Requests[v1.ResourceMemory]).To(gomega.Equal(resource.MustParse("3Gi")))
 }
 
@@ -103,12 +104,12 @@ func TestPyTorchDefaults(t *testing.T) {
 	isvc.Default(c)
 
 	g.Expect(isvc.Spec.Default.Predictor.PyTorch.RuntimeVersion).To(gomega.Equal(DefaultPyTorchRuntimeVersion))
-	g.Expect(isvc.Spec.Default.Predictor.PyTorch.Resources.Requests[v1.ResourceCPU]).To(gomega.Equal(DefaultCPU))
-	g.Expect(isvc.Spec.Default.Predictor.PyTorch.Resources.Requests[v1.ResourceMemory]).To(gomega.Equal(DefaultMemory))
-	g.Expect(isvc.Spec.Default.Predictor.PyTorch.Resources.Limits[v1.ResourceCPU]).To(gomega.Equal(DefaultCPU))
-	g.Expect(isvc.Spec.Default.Predictor.PyTorch.Resources.Limits[v1.ResourceMemory]).To(gomega.Equal(DefaultMemory))
+	g.Expect(isvc.Spec.Default.Predictor.PyTorch.Resources.Requests[v1.ResourceCPU]).To(gomega.Equal(defaultResource[v1.ResourceCPU]))
+	g.Expect(isvc.Spec.Default.Predictor.PyTorch.Resources.Requests[v1.ResourceMemory]).To(gomega.Equal(defaultResource[v1.ResourceMemory]))
+	g.Expect(isvc.Spec.Default.Predictor.PyTorch.Resources.Limits[v1.ResourceCPU]).To(gomega.Equal(defaultResource[v1.ResourceCPU]))
+	g.Expect(isvc.Spec.Default.Predictor.PyTorch.Resources.Limits[v1.ResourceMemory]).To(gomega.Equal(defaultResource[v1.ResourceMemory]))
 	g.Expect(isvc.Spec.Canary.Predictor.PyTorch.RuntimeVersion).To(gomega.Equal("0.2.0"))
-	g.Expect(isvc.Spec.Canary.Predictor.PyTorch.Resources.Requests[v1.ResourceCPU]).To(gomega.Equal(DefaultCPU))
+	g.Expect(isvc.Spec.Canary.Predictor.PyTorch.Resources.Requests[v1.ResourceCPU]).To(gomega.Equal(defaultResource[v1.ResourceCPU]))
 	g.Expect(isvc.Spec.Canary.Predictor.PyTorch.Resources.Requests[v1.ResourceMemory]).To(gomega.Equal(resource.MustParse("3Gi")))
 }
 
@@ -133,12 +134,12 @@ func TestSKLearnDefaults(t *testing.T) {
 	isvc.Default(c)
 
 	g.Expect(isvc.Spec.Default.Predictor.SKLearn.RuntimeVersion).To(gomega.Equal(DefaultSKLearnRuntimeVersion))
-	g.Expect(isvc.Spec.Default.Predictor.SKLearn.Resources.Requests[v1.ResourceCPU]).To(gomega.Equal(DefaultCPU))
-	g.Expect(isvc.Spec.Default.Predictor.SKLearn.Resources.Requests[v1.ResourceMemory]).To(gomega.Equal(DefaultMemory))
-	g.Expect(isvc.Spec.Default.Predictor.SKLearn.Resources.Limits[v1.ResourceCPU]).To(gomega.Equal(DefaultCPU))
-	g.Expect(isvc.Spec.Default.Predictor.SKLearn.Resources.Limits[v1.ResourceMemory]).To(gomega.Equal(DefaultMemory))
+	g.Expect(isvc.Spec.Default.Predictor.SKLearn.Resources.Requests[v1.ResourceCPU]).To(gomega.Equal(defaultResource[v1.ResourceCPU]))
+	g.Expect(isvc.Spec.Default.Predictor.SKLearn.Resources.Requests[v1.ResourceMemory]).To(gomega.Equal(defaultResource[v1.ResourceMemory]))
+	g.Expect(isvc.Spec.Default.Predictor.SKLearn.Resources.Limits[v1.ResourceCPU]).To(gomega.Equal(defaultResource[v1.ResourceCPU]))
+	g.Expect(isvc.Spec.Default.Predictor.SKLearn.Resources.Limits[v1.ResourceMemory]).To(gomega.Equal(defaultResource[v1.ResourceMemory]))
 	g.Expect(isvc.Spec.Canary.Predictor.SKLearn.RuntimeVersion).To(gomega.Equal("0.2.0"))
-	g.Expect(isvc.Spec.Canary.Predictor.SKLearn.Resources.Requests[v1.ResourceCPU]).To(gomega.Equal(DefaultCPU))
+	g.Expect(isvc.Spec.Canary.Predictor.SKLearn.Resources.Requests[v1.ResourceCPU]).To(gomega.Equal(defaultResource[v1.ResourceCPU]))
 	g.Expect(isvc.Spec.Canary.Predictor.SKLearn.Resources.Requests[v1.ResourceMemory]).To(gomega.Equal(resource.MustParse("3Gi")))
 }
 
@@ -163,12 +164,12 @@ func TestXGBoostDefaults(t *testing.T) {
 	isvc.Default(c)
 
 	g.Expect(isvc.Spec.Default.Predictor.XGBoost.RuntimeVersion).To(gomega.Equal(DefaultXGBoostRuntimeVersion))
-	g.Expect(isvc.Spec.Default.Predictor.XGBoost.Resources.Requests[v1.ResourceCPU]).To(gomega.Equal(DefaultCPU))
-	g.Expect(isvc.Spec.Default.Predictor.XGBoost.Resources.Requests[v1.ResourceMemory]).To(gomega.Equal(DefaultMemory))
-	g.Expect(isvc.Spec.Default.Predictor.XGBoost.Resources.Limits[v1.ResourceCPU]).To(gomega.Equal(DefaultCPU))
-	g.Expect(isvc.Spec.Default.Predictor.XGBoost.Resources.Limits[v1.ResourceMemory]).To(gomega.Equal(DefaultMemory))
+	g.Expect(isvc.Spec.Default.Predictor.XGBoost.Resources.Requests[v1.ResourceCPU]).To(gomega.Equal(defaultResource[v1.ResourceCPU]))
+	g.Expect(isvc.Spec.Default.Predictor.XGBoost.Resources.Requests[v1.ResourceMemory]).To(gomega.Equal(defaultResource[v1.ResourceMemory]))
+	g.Expect(isvc.Spec.Default.Predictor.XGBoost.Resources.Limits[v1.ResourceCPU]).To(gomega.Equal(defaultResource[v1.ResourceCPU]))
+	g.Expect(isvc.Spec.Default.Predictor.XGBoost.Resources.Limits[v1.ResourceMemory]).To(gomega.Equal(defaultResource[v1.ResourceMemory]))
 	g.Expect(isvc.Spec.Canary.Predictor.XGBoost.RuntimeVersion).To(gomega.Equal("0.2.0"))
-	g.Expect(isvc.Spec.Canary.Predictor.XGBoost.Resources.Requests[v1.ResourceCPU]).To(gomega.Equal(DefaultCPU))
+	g.Expect(isvc.Spec.Canary.Predictor.XGBoost.Resources.Requests[v1.ResourceCPU]).To(gomega.Equal(defaultResource[v1.ResourceCPU]))
 	g.Expect(isvc.Spec.Canary.Predictor.XGBoost.Resources.Requests[v1.ResourceMemory]).To(gomega.Equal(resource.MustParse("3Gi")))
 }
 
@@ -193,12 +194,12 @@ func TestONNXDefaults(t *testing.T) {
 	isvc.Default(c)
 
 	g.Expect(isvc.Spec.Default.Predictor.ONNX.RuntimeVersion).To(gomega.Equal(DefaultONNXRuntimeVersion))
-	g.Expect(isvc.Spec.Default.Predictor.ONNX.Resources.Requests[v1.ResourceCPU]).To(gomega.Equal(DefaultCPU))
-	g.Expect(isvc.Spec.Default.Predictor.ONNX.Resources.Requests[v1.ResourceMemory]).To(gomega.Equal(DefaultMemory))
-	g.Expect(isvc.Spec.Default.Predictor.ONNX.Resources.Limits[v1.ResourceCPU]).To(gomega.Equal(DefaultCPU))
-	g.Expect(isvc.Spec.Default.Predictor.ONNX.Resources.Limits[v1.ResourceMemory]).To(gomega.Equal(DefaultMemory))
+	g.Expect(isvc.Spec.Default.Predictor.ONNX.Resources.Requests[v1.ResourceCPU]).To(gomega.Equal(defaultResource[v1.ResourceCPU]))
+	g.Expect(isvc.Spec.Default.Predictor.ONNX.Resources.Requests[v1.ResourceMemory]).To(gomega.Equal(defaultResource[v1.ResourceMemory]))
+	g.Expect(isvc.Spec.Default.Predictor.ONNX.Resources.Limits[v1.ResourceCPU]).To(gomega.Equal(defaultResource[v1.ResourceCPU]))
+	g.Expect(isvc.Spec.Default.Predictor.ONNX.Resources.Limits[v1.ResourceMemory]).To(gomega.Equal(defaultResource[v1.ResourceMemory]))
 	g.Expect(isvc.Spec.Canary.Predictor.ONNX.RuntimeVersion).To(gomega.Equal("0.6.0"))
-	g.Expect(isvc.Spec.Canary.Predictor.ONNX.Resources.Requests[v1.ResourceCPU]).To(gomega.Equal(DefaultCPU))
+	g.Expect(isvc.Spec.Canary.Predictor.ONNX.Resources.Requests[v1.ResourceCPU]).To(gomega.Equal(defaultResource[v1.ResourceCPU]))
 	g.Expect(isvc.Spec.Canary.Predictor.ONNX.Resources.Requests[v1.ResourceMemory]).To(gomega.Equal(resource.MustParse("3Gi")))
 }
 
@@ -223,12 +224,12 @@ func TestTensorRTDefaults(t *testing.T) {
 	isvc.Default(c)
 
 	g.Expect(isvc.Spec.Default.Predictor.TensorRT.RuntimeVersion).To(gomega.Equal(DefaultTensorRTRuntimeVersion))
-	g.Expect(isvc.Spec.Default.Predictor.TensorRT.Resources.Requests[v1.ResourceCPU]).To(gomega.Equal(DefaultCPU))
-	g.Expect(isvc.Spec.Default.Predictor.TensorRT.Resources.Requests[v1.ResourceMemory]).To(gomega.Equal(DefaultMemory))
-	g.Expect(isvc.Spec.Default.Predictor.TensorRT.Resources.Limits[v1.ResourceCPU]).To(gomega.Equal(DefaultCPU))
-	g.Expect(isvc.Spec.Default.Predictor.TensorRT.Resources.Limits[v1.ResourceMemory]).To(gomega.Equal(DefaultMemory))
+	g.Expect(isvc.Spec.Default.Predictor.TensorRT.Resources.Requests[v1.ResourceCPU]).To(gomega.Equal(defaultResource[v1.ResourceCPU]))
+	g.Expect(isvc.Spec.Default.Predictor.TensorRT.Resources.Requests[v1.ResourceMemory]).To(gomega.Equal(defaultResource[v1.ResourceMemory]))
+	g.Expect(isvc.Spec.Default.Predictor.TensorRT.Resources.Limits[v1.ResourceCPU]).To(gomega.Equal(defaultResource[v1.ResourceCPU]))
+	g.Expect(isvc.Spec.Default.Predictor.TensorRT.Resources.Limits[v1.ResourceMemory]).To(gomega.Equal(defaultResource[v1.ResourceMemory]))
 	g.Expect(isvc.Spec.Canary.Predictor.TensorRT.RuntimeVersion).To(gomega.Equal("19.09"))
-	g.Expect(isvc.Spec.Canary.Predictor.TensorRT.Resources.Requests[v1.ResourceCPU]).To(gomega.Equal(DefaultCPU))
+	g.Expect(isvc.Spec.Canary.Predictor.TensorRT.Resources.Requests[v1.ResourceCPU]).To(gomega.Equal(defaultResource[v1.ResourceCPU]))
 	g.Expect(isvc.Spec.Canary.Predictor.TensorRT.Resources.Requests[v1.ResourceMemory]).To(gomega.Equal(resource.MustParse("3Gi")))
 }
 
@@ -260,11 +261,11 @@ func TestAlibiExplainerDefaults(t *testing.T) {
 	isvc.Default(c)
 
 	g.Expect(isvc.Spec.Default.Explainer.Alibi.RuntimeVersion).To(gomega.Equal(DefaultAlibiExplainerRuntimeVersion))
-	g.Expect(isvc.Spec.Default.Explainer.Alibi.Resources.Requests[v1.ResourceCPU]).To(gomega.Equal(DefaultCPU))
-	g.Expect(isvc.Spec.Default.Explainer.Alibi.Resources.Requests[v1.ResourceMemory]).To(gomega.Equal(DefaultMemory))
-	g.Expect(isvc.Spec.Default.Explainer.Alibi.Resources.Limits[v1.ResourceCPU]).To(gomega.Equal(DefaultCPU))
-	g.Expect(isvc.Spec.Default.Explainer.Alibi.Resources.Limits[v1.ResourceMemory]).To(gomega.Equal(DefaultMemory))
+	g.Expect(isvc.Spec.Default.Explainer.Alibi.Resources.Requests[v1.ResourceCPU]).To(gomega.Equal(defaultResource[v1.ResourceCPU]))
+	g.Expect(isvc.Spec.Default.Explainer.Alibi.Resources.Requests[v1.ResourceMemory]).To(gomega.Equal(defaultResource[v1.ResourceMemory]))
+	g.Expect(isvc.Spec.Default.Explainer.Alibi.Resources.Limits[v1.ResourceCPU]).To(gomega.Equal(defaultResource[v1.ResourceCPU]))
+	g.Expect(isvc.Spec.Default.Explainer.Alibi.Resources.Limits[v1.ResourceMemory]).To(gomega.Equal(defaultResource[v1.ResourceMemory]))
 	g.Expect(isvc.Spec.Canary.Explainer.Alibi.RuntimeVersion).To(gomega.Equal("0.2.4"))
-	g.Expect(isvc.Spec.Canary.Explainer.Alibi.Resources.Requests[v1.ResourceCPU]).To(gomega.Equal(DefaultCPU))
+	g.Expect(isvc.Spec.Canary.Explainer.Alibi.Resources.Requests[v1.ResourceCPU]).To(gomega.Equal(defaultResource[v1.ResourceCPU]))
 	g.Expect(isvc.Spec.Canary.Explainer.Alibi.Resources.Requests[v1.ResourceMemory]).To(gomega.Equal(resource.MustParse("3Gi")))
 }

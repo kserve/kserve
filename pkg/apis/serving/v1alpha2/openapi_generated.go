@@ -417,6 +417,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.Logger": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
+					Description: "Logger provides optional payload logging for all endpoints",
 					Properties: map[string]spec.Schema{
 						"url": {
 							SchemaProps: spec.SchemaProps{
@@ -425,7 +426,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Format:      "",
 							},
 						},
-						"logType": {
+						"mode": {
 							SchemaProps: spec.SchemaProps{
 								Description: "What payloads to log",
 								Type:        []string{"string"},

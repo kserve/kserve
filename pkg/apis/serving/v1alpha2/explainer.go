@@ -21,6 +21,7 @@ import (
 )
 
 type Explainer interface {
+	GetResourceRequirements() *v1.ResourceRequirements
 	GetStorageUri() string
 	CreateExplainerContainer(modelName string, predictorHost string, config *InferenceServicesConfig, hasInferenceLogging bool) *v1.Container
 	ApplyDefaults(config *InferenceServicesConfig)
@@ -61,11 +62,15 @@ func (e *ExplainerSpec) Validate(config *InferenceServicesConfig) error {
 	if err != nil {
 		return err
 	}
-	if err := explainer.Validate(config); err != nil {
-		return err
+	errs := []error{
+		explainer.Validate(config),
+		validateStorageURI(e.GetStorageUri()),
+		validateResourceRequirements(explainer.GetResourceRequirements()),
 	}
-	if err := validateStorageURI(e.GetStorageUri()); err != nil {
-		return err
+	for _, err := range errs {
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }

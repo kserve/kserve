@@ -87,7 +87,7 @@ spec:
                     logger:
                       description: Activate request/response logging
                       properties:
-                        logType:
+                        mode:
                           description: What payloads to log
                           type: string
                         url:
@@ -122,7 +122,7 @@ spec:
                     logger:
                       description: Activate request/response logging
                       properties:
-                        logType:
+                        mode:
                           description: What payloads to log
                           type: string
                         url:
@@ -272,7 +272,7 @@ spec:
                     logger:
                       description: Activate request/response logging
                       properties:
-                        logType:
+                        mode:
                           description: What payloads to log
                           type: string
                         url:
@@ -341,7 +341,7 @@ spec:
                     logger:
                       description: Activate request/response logging
                       properties:
-                        logType:
+                        mode:
                           description: What payloads to log
                           type: string
                         url:
@@ -376,7 +376,7 @@ spec:
                     logger:
                       description: Activate request/response logging
                       properties:
-                        logType:
+                        mode:
                           description: What payloads to log
                           type: string
                         url:
@@ -526,7 +526,7 @@ spec:
                     logger:
                       description: Activate request/response logging
                       properties:
-                        logType:
+                        mode:
                           description: What payloads to log
                           type: string
                         url:

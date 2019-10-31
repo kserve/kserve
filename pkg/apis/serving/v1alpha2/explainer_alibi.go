@@ -2,11 +2,12 @@ package v1alpha2
 
 import (
 	"fmt"
-	"github.com/kubeflow/kfserving/pkg/constants"
-	"github.com/kubeflow/kfserving/pkg/utils"
-	"k8s.io/api/core/v1"
 	"sort"
 	"strings"
+
+	"github.com/kubeflow/kfserving/pkg/constants"
+	"github.com/kubeflow/kfserving/pkg/utils"
+	v1 "k8s.io/api/core/v1"
 )
 
 var (
@@ -15,6 +16,11 @@ var (
 
 func (s *AlibiExplainerSpec) GetStorageUri() string {
 	return s.StorageURI
+}
+
+func (s *AlibiExplainerSpec) GetResourceRequirements() *v1.ResourceRequirements {
+	// return the ResourceRequirements value if set on the spec
+	return &s.Resources
 }
 
 func (s *AlibiExplainerSpec) CreateExplainerContainer(modelName string, predictorHost string, config *InferenceServicesConfig, hasInferenceLogging bool) *v1.Container {

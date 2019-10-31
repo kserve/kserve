@@ -15,16 +15,14 @@ package v1alpha2
 
 import (
 	"fmt"
-	"regexp"
-	"strings"
 
 	"github.com/kubeflow/kfserving/pkg/constants"
 	v1 "k8s.io/api/core/v1"
-	resource "k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/klog"
 )
 
 type Predictor interface {
+	GetResourceRequirements() *v1.ResourceRequirements
 	GetStorageUri() string
 	GetContainer(modelName string, config *InferenceServicesConfig, hasInferenceLogging bool) *v1.Container
 	ApplyDefaults(config *InferenceServicesConfig)
@@ -35,11 +33,6 @@ const (
 	// ExactlyOnePredictorViolatedError is a known error message
 	ExactlyOnePredictorViolatedError       = "Exactly one of [Custom, ONNX, Tensorflow, TensorRT, SKLearn, XGBoost] must be specified in PredictorSpec"
 	InferenceLoggerCustomNotSupportedError = "Inference logger for custom specs is not supported"
-)
-
-var (
-	DefaultMemory = resource.MustParse("2Gi")
-	DefaultCPU    = resource.MustParse("1")
 )
 
 // Returns a URI to the model. This URI is passed to the storage-initializer via the StorageInitializerSourceUriInternalAnnotationKey
@@ -71,47 +64,21 @@ func (p *PredictorSpec) Validate(config *InferenceServicesConfig) error {
 	if err != nil {
 		return err
 	}
-	if err := predictor.Validate(config); err != nil {
-		return err
-	}
-	if err := validateStorageURI(p.GetStorageUri()); err != nil {
-		return err
-	}
-	if err := validateReplicas(p.MinReplicas, p.MaxReplicas); err != nil {
-		return err
-	}
-	if p.Custom != nil && p.Logger != nil {
-		return fmt.Errorf(InferenceLoggerCustomNotSupportedError)
-	}
-	if err := validate_inference_logger(p.Logger); err != nil {
-		return err
-	}
-	return nil
-}
 
-func validateStorageURI(storageURI string) error {
-	if storageURI == "" {
-		return nil
-	}
+	errs := []error{
+		predictor.Validate(config),
+		validateStorageURI(p.GetStorageUri()),
+		validateReplicas(p.MinReplicas, p.MaxReplicas),
+		validateResourceRequirements(predictor.GetResourceRequirements()),
 
-	// local path (not some protocol?)
-	if !regexp.MustCompile("\\w+?://").MatchString(storageURI) {
-		return nil
 	}
-
-	// one of the prefixes we know?
-	for _, prefix := range SupportedStorageURIPrefixList {
-		if strings.HasPrefix(storageURI, prefix) {
-			return nil
+	for _, err := range errs {
+		if err != nil {
+			return err
 		}
 	}
 
-	azureURIMatcher := regexp.MustCompile(AzureBlobURIRegEx)
-	if parts := azureURIMatcher.FindStringSubmatch(storageURI); parts != nil {
-		return nil
-	}
-
-	return fmt.Errorf(UnsupportedStorageURIFormatError, strings.Join(SupportedStorageURIPrefixList, ", "), storageURI)
+	return nil
 }
 
 func validateReplicas(minReplicas int, maxReplicas int) error {
@@ -125,30 +92,6 @@ func validateReplicas(minReplicas int, maxReplicas int) error {
 		return fmt.Errorf(MinReplicasShouldBeLessThanMaxError)
 	}
 	return nil
-}
-
-func setResourceRequirementDefaults(requirements *v1.ResourceRequirements) {
-	if requirements.Requests == nil {
-		requirements.Requests = v1.ResourceList{}
-	}
-
-	if _, ok := requirements.Requests[v1.ResourceCPU]; !ok {
-		requirements.Requests[v1.ResourceCPU] = DefaultCPU
-	}
-	if _, ok := requirements.Requests[v1.ResourceMemory]; !ok {
-		requirements.Requests[v1.ResourceMemory] = DefaultMemory
-	}
-
-	if requirements.Limits == nil {
-		requirements.Limits = v1.ResourceList{}
-	}
-
-	if _, ok := requirements.Limits[v1.ResourceCPU]; !ok {
-		requirements.Limits[v1.ResourceCPU] = DefaultCPU
-	}
-	if _, ok := requirements.Limits[v1.ResourceMemory]; !ok {
-		requirements.Limits[v1.ResourceMemory] = DefaultMemory
-	}
 }
 
 func isGPUEnabled(requirements v1.ResourceRequirements) bool {
