@@ -44,13 +44,13 @@ func main() {
 		log.Info("Malformed log_url", "URL", *logUrl)
 		os.Exit(-1)
 	}
-	var loggingType v1alpha2.LoggerType
+	var loggingType v1alpha2.LoggerMode
 	if *logType == string(v1alpha2.LogAll) {
 		loggingType = v1alpha2.LogAll
 	} else if *logType == string(v1alpha2.LogRequest) {
 		loggingType = v1alpha2.LogRequest
-	} else if *logType == string(v1alpha2.Logresponse) {
-		loggingType = v1alpha2.Logresponse
+	} else if *logType == string(v1alpha2.LogResponse) {
+		loggingType = v1alpha2.LogResponse
 	} else {
 		log.Info("Malformed log_type", "type", *logType)
 		os.Exit(-1)

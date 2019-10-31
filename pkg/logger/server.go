@@ -32,12 +32,12 @@ type loggerHandler struct {
 	svcPort   string
 	logUrl    *url.URL
 	sourceUri *url.URL
-	logType   v1alpha2.LoggerType
+	logType   v1alpha2.LoggerMode
 	sample    float64
 	modelUri  *url.URL
 }
 
-func New(log logr.Logger, svcPort string, logUrl *url.URL, sourceUri *url.URL, logType v1alpha2.LoggerType, sample float64, modelUri *url.URL) http.Handler {
+func New(log logr.Logger, svcPort string, logUrl *url.URL, sourceUri *url.URL, logType v1alpha2.LoggerMode, sample float64, modelUri *url.URL) http.Handler {
 	return &loggerHandler{
 		log:       log,
 		svcPort:   svcPort,
@@ -135,7 +135,7 @@ func (eh *loggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// log response
-	if emitEvent && (eh.logType == v1alpha2.LogAll || eh.logType == v1alpha2.Logresponse) {
+	if emitEvent && (eh.logType == v1alpha2.LogAll || eh.logType == v1alpha2.LogResponse) {
 		err = QueueLogRequest(LogRequest{
 			url:         eh.logUrl,
 			b:           &b,

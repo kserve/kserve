@@ -112,7 +112,7 @@ func addInferenceLoggerAnnotations(inferenceLogger *v1alpha2.Logger, annotations
 		if inferenceLogger.Url != nil {
 			annotations[constants.LoggerSinkUrlInternalAnnotationKey] = *inferenceLogger.Url
 		}
-		annotations[constants.LoggerTypeInternalAnnotationKey] = string(inferenceLogger.LogType)
+		annotations[constants.LoggerTypeInternalAnnotationKey] = string(inferenceLogger.Mode)
 		return true
 	}
 	return false

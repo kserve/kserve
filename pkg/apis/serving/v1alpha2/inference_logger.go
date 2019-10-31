@@ -8,7 +8,7 @@ const (
 
 func validate_inference_logger(logger *Logger) error {
 	if logger != nil {
-		if !(logger.LogType == LogAll || logger.LogType == LogRequest || logger.LogType == Logresponse) {
+		if !(logger.Mode == LogAll || logger.Mode == LogRequest || logger.Mode == LogResponse) {
 			return fmt.Errorf(InvalidLoggerType)
 		}
 	}
