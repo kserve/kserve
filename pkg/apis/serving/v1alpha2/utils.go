@@ -6,33 +6,38 @@ import (
 	"strings"
 
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/kubernetes/pkg/apis/core"
 	"k8s.io/kubernetes/pkg/apis/core/validation"
+)
+
+var (
+	defaultResource = v1.ResourceList{
+		v1.ResourceCPU:    resource.MustParse("2Gi"),
+		v1.ResourceMemory: resource.MustParse("1"),
+	}
 )
 
 func setResourceRequirementDefaults(requirements *v1.ResourceRequirements) {
 	if requirements.Requests == nil {
 		requirements.Requests = v1.ResourceList{}
 	}
-
-	if _, ok := requirements.Requests[v1.ResourceCPU]; !ok {
-		requirements.Requests[v1.ResourceCPU] = DefaultCPU
-	}
-	if _, ok := requirements.Requests[v1.ResourceMemory]; !ok {
-		requirements.Requests[v1.ResourceMemory] = DefaultMemory
+	for k, v := range defaultResource {
+		if _, ok := requirements.Requests[k]; !ok {
+			requirements.Requests[k] = v
+		}
 	}
 
 	if requirements.Limits == nil {
 		requirements.Limits = v1.ResourceList{}
 	}
+	for k, v := range defaultResource {
+		if _, ok := requirements.Limits[k]; !ok {
+			requirements.Limits[k] = v
+		}
+	}
 
-	if _, ok := requirements.Limits[v1.ResourceCPU]; !ok {
-		requirements.Limits[v1.ResourceCPU] = DefaultCPU
-	}
-	if _, ok := requirements.Limits[v1.ResourceMemory]; !ok {
-		requirements.Limits[v1.ResourceMemory] = DefaultMemory
-	}
 }
 
 func toCoreResourceRequirements(rr *v1.ResourceRequirements) *core.ResourceRequirements {
