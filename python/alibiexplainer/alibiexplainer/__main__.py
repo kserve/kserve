@@ -21,7 +21,7 @@ import kfserving
 from alibiexplainer import AlibiExplainer
 from alibiexplainer.explainer import ExplainerMethod  # pylint:disable=no-name-in-module
 
-logging.basicConfig(level=kfserving.kfserver.KFSERVER_LOGLEVEL)
+logging.basicConfig(level=kfserving.constants.KFSERVING_LOGLEVEL)
 
 DEFAULT_EXPLAINER_NAME = "explainer"
 EXPLAINER_FILENAME = "explainer.dill"

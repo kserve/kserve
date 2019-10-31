@@ -22,10 +22,8 @@ from alibiexplainer.anchor_images import AnchorImages
 from alibiexplainer.anchor_tabular import AnchorTabular
 from alibiexplainer.anchor_text import AnchorText
 from kfserving.utils import NumpyEncoder
-from kfserving.kfserver import KFSERVER_LOGLEVEL
 
-
-logging.basicConfig(level=KFSERVER_LOGLEVEL)
+logging.basicConfig(level=kfserving.constants.KFSERVING_LOGLEVEL)
 
 
 class ExplainerMethod(Enum):

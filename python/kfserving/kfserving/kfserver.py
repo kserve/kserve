@@ -22,6 +22,7 @@ import json
 from typing import List, Dict
 from kfserving.handlers.http import PredictHandler, ExplainHandler
 from kfserving import KFModel
+from kfserving.constants import constants
 
 DEFAULT_HTTP_PORT = 8080
 DEFAULT_GRPC_PORT = 8081
@@ -33,8 +34,7 @@ parser.add_argument('--grpc_port', default=DEFAULT_GRPC_PORT, type=int,
                     help='The GRPC Port listened to by the model server.')
 args, _ = parser.parse_known_args()
 
-KFSERVER_LOGLEVEL = os.environ.get('KFSERVER_LOGLEVEL', 'INFO').upper()
-logging.basicConfig(level=KFSERVER_LOGLEVEL)
+logging.basicConfig(level=constants.KFSERVING_LOGLEVEL)
 
 
 class KFServer():
@@ -80,14 +80,14 @@ class KFServer():
         logging.info("Registering model: %s", model.name)
 
 
-class LivenessHandler(tornado.web.RequestHandler): # pylint:disable=too-few-public-methods
+class LivenessHandler(tornado.web.RequestHandler):  # pylint:disable=too-few-public-methods
     def get(self):
         self.write("Alive")
 
 
 class HealthHandler(tornado.web.RequestHandler):
     def initialize(self, models: Dict[str, KFModel]):
-        self.models = models # pylint:disable=attribute-defined-outside-init
+        self.models = models  # pylint:disable=attribute-defined-outside-init
 
     def get(self, name: str):
         if name not in self.models:
@@ -105,7 +105,7 @@ class HealthHandler(tornado.web.RequestHandler):
 
 class ListHandler(tornado.web.RequestHandler):
     def initialize(self, models: Dict[str, KFModel]):
-        self.models = models # pylint:disable=attribute-defined-outside-init
+        self.models = models  # pylint:disable=attribute-defined-outside-init
 
     def get(self):
         self.write(json.dumps(list(self.models.values())))

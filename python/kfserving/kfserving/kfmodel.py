@@ -27,14 +27,16 @@ class KFModel():
     def __init__(self, name: str):
         self.name = name
         self.ready = False
+        self.predictor_host = None
+        self.explainer_host = None
 
     def load(self):
         self.ready = True
 
-    def preprocess(self, request: Dict):
+    def preprocess(self, request: Dict) -> Dict:
         return request
 
-    def postprocess(self, request: Dict):
+    def postprocess(self, request: Dict) -> Dict:
         return request
 
     def predict(self, request: Dict) -> Dict:
