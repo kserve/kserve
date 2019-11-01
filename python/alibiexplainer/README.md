@@ -18,8 +18,7 @@ You can check for successful installation by running the following command
 
 ```
 usage: __main__.py [-h] [--http_port HTTP_PORT] [--grpc_port GRPC_PORT]
-                   [--protocol {tensorflow.http,seldon.http}] --predict_url
-                   PREDICT_URL [--method {ExplainerMethod.anchor_tabular}]
+                   [--predict_url PREDICT_URL] [--method {ExplainerMethod.anchor_tabular}]
 __main__.py: error: the following arguments are required: --predict_url
 ```
 

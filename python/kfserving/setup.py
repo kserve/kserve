@@ -38,7 +38,7 @@ setuptools.setup(
         'kfserving.api',
         'kfserving.constants',
         'kfserving.models',
-        'kfserving.protocols',
+        'kfserving.handlers',
         'kfserving.utils',
     ],
     package_data={},
