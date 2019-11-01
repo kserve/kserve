@@ -22,7 +22,7 @@ import io
 import numpy as np
 import base64
 
-logging.basicConfig(level=kfserving.server.KFSERVER_LOGLEVEL)
+logging.basicConfig(level=kfserving.constants.KFSERVING_LOGLEVEL)
 
 transform = transforms.Compose(
         [transforms.ToTensor(),
