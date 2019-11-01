@@ -14,8 +14,8 @@ import (
 
 var (
 	defaultResource = v1.ResourceList{
-		v1.ResourceCPU:    resource.MustParse("2Gi"),
-		v1.ResourceMemory: resource.MustParse("1"),
+		v1.ResourceCPU:    resource.MustParse("1"),
+		v1.ResourceMemory: resource.MustParse("2Gi"),
 	}
 )
 
