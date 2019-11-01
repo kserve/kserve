@@ -768,7 +768,12 @@ func TestCanaryDelete(t *testing.T) {
 	canaryService = &knservingv1alpha1.Service{}
 	g.Eventually(func() bool {
 		err := c.Get(context.TODO(), canaryPredictor, canaryService)
-		return errors.IsNotFound(err)
+		notFound := errors.IsNotFound(err)
+		if notFound {
+			return true
+		} else {
+			return canaryService.DeletionTimestamp != nil
+		}
 	}, timeout).Should(gomega.BeTrue())
 
 	expectedKfsvcStatus = kfserving.InferenceServiceStatus{
