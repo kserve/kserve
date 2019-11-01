@@ -12,6 +12,10 @@ spec:
         resources:
           requests:
             cpu: 0.1
+            memory: 1Gi
+          limits:
+            cpu: 1
+            memory: 1Gi            
     explainer:
       minReplicas: 1
       alibi:
@@ -20,4 +24,7 @@ spec:
         resources:
           requests:
             cpu: 0.1
-        
+            memory: 1Gi
+          limits:
+            cpu: 1
+            memory: 4Gi
