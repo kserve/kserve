@@ -73,7 +73,7 @@ class KFServer():
         logging.info("Listening on port %s", self.http_port)
         self._http_server.bind(self.http_port)
         logging.info("Will fork %d workers", self.workers)
-        self._http_server.start(self.workers)  # Forks workers equal to host's cores
+        self._http_server.start(self.workers)
         tornado.ioloop.IOLoop.current().start()
 
     def register_model(self, model: KFModel):
