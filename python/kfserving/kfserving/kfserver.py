@@ -31,6 +31,8 @@ parser.add_argument('--http_port', default=DEFAULT_HTTP_PORT, type=int,
                     help='The HTTP Port listened to by the model server.')
 parser.add_argument('--grpc_port', default=DEFAULT_GRPC_PORT, type=int,
                     help='The GRPC Port listened to by the model server.')
+parser.add_argument('--workers', default=0, type=int,
+                    help='The number of works to fork')
 args, _ = parser.parse_known_args()
 
 logging.basicConfig(level=constants.KFSERVING_LOGLEVEL)
@@ -38,10 +40,12 @@ logging.basicConfig(level=constants.KFSERVING_LOGLEVEL)
 
 class KFServer():
     def __init__(self, http_port: int = args.http_port,
-                 grpc_port: int = args.grpc_port):
+                 grpc_port: int = args.grpc_port,
+                 workers: int = args.workers):
         self.registered_models = {}
         self.http_port = http_port
         self.grpc_port = grpc_port
+        self.workers = workers
         self._http_server = None
 
     def create_application(self):
@@ -68,7 +72,8 @@ class KFServer():
 
         logging.info("Listening on port %s", self.http_port)
         self._http_server.bind(self.http_port)
-        self._http_server.start(0)  # Forks workers equal to host's cores
+        logging.info("Will fork %d workers", self.workers)
+        self._http_server.start(self.workers)
         tornado.ioloop.IOLoop.current().start()
 
     def register_model(self, model: KFModel):
