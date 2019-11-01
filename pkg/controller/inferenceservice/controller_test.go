@@ -733,7 +733,18 @@ func TestCanaryDelete(t *testing.T) {
 	canaryUpdate.Spec.Canary = nil
 	canaryUpdate.Spec.CanaryTrafficPercent = 0
 	g.Expect(c.Update(context.TODO(), canaryUpdate)).NotTo(gomega.HaveOccurred())
-
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedCanaryRequest)))
+	// Need to wait for update propagate back to controller before checking
+	canaryDelete := &kfserving.InferenceService{}
+	g.Eventually(func() bool {
+		if err := c.Get(context.TODO(), canaryServiceKey, canaryDelete); err != nil {
+			return false
+		}
+		return canaryDelete.Spec.Canary == nil
+	}, timeout).Should(gomega.BeTrue())
+	// Trigger another reconcile
+	g.Expect(c.Update(context.TODO(), canaryDelete)).NotTo(gomega.HaveOccurred())
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedCanaryRequest)))
 
