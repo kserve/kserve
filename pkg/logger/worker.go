@@ -13,7 +13,7 @@ import (
 const (
 	CEInferenceRequest  = "org.kubeflow.serving.inference.request"
 	CEInferenceResponse = "org.kubeflow.serving.inference.response"
-	ModelUriHeader      = "KF-Model-Uri"
+	ModelIdHeader       = "KF-Model-ID"
 )
 
 // NewWorker creates, and returns a new Worker object. Its only argument
@@ -52,7 +52,7 @@ func (W *Worker) sendCloudEvent(logReq LogRequest) error {
 	t, err := cloudevents.NewHTTPTransport(
 		cloudevents.WithTarget(logReq.url.String()),
 		cloudevents.WithEncoding(cloudevents.HTTPBinaryV01),
-		cloudevents.WitHHeader(ModelUriHeader, logReq.modelUri.String()),
+		cloudevents.WitHHeader(ModelIdHeader, logReq.modelId),
 		//cloudevents.WithContextBasedEncoding(), // toggle this or WithEncoding to see context based encoding work.
 	)
 

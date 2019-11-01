@@ -12,10 +12,11 @@ Start an SKLearn Iris model on port 8081
 python -m sklearnserver --model_dir gs://kfserving-samples/models/sklearn/iris --model_name sklearn-iris --http_port 8081
 ```
 
-Start the Kfserving logger
+Start the Kfserving logger from Kfserving root folder:
 
 ```
-../../../../bin/logger --log_url http://0.0.0.0:8000 --svc_port 8081 --sample 1.0 --log_mode all
+
+bin/logger --log_url http://0.0.0.0:8000 --svc_port 8081 --log_mode all
 ```
 
 Send a request:

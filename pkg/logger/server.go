@@ -22,7 +22,6 @@ import (
 	guuid "github.com/google/uuid"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	"io/ioutil"
-	"math/rand"
 	"net/http"
 	"net/url"
 )
@@ -33,19 +32,17 @@ type loggerHandler struct {
 	logUrl    *url.URL
 	sourceUri *url.URL
 	logType   v1alpha2.LoggerMode
-	sample    float64
-	modelUri  *url.URL
+	modelId   string
 }
 
-func New(log logr.Logger, svcPort string, logUrl *url.URL, sourceUri *url.URL, logType v1alpha2.LoggerMode, sample float64, modelUri *url.URL) http.Handler {
+func New(log logr.Logger, svcPort string, logUrl *url.URL, sourceUri *url.URL, logType v1alpha2.LoggerMode, modelId string) http.Handler {
 	return &loggerHandler{
 		log:       log,
 		svcPort:   svcPort,
 		logUrl:    logUrl,
 		sourceUri: sourceUri,
 		logType:   logType,
-		sample:    sample,
-		modelUri:  modelUri,
+		modelId:   modelId,
 	}
 }
 
@@ -102,17 +99,11 @@ func (eh *loggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		eh.log.Error(err, "Failed to read request payload")
 	}
 
-	emitEvent := true
-	if eh.sample < 1.0 && rand.Float64() > eh.sample {
-		eh.log.Info("Skipping emitting a log event")
-		emitEvent = false
-	}
-
 	// Get or Create an ID
 	id := getOrCreateID(r)
 
 	// log Request
-	if emitEvent && (eh.logType == v1alpha2.LogAll || eh.logType == v1alpha2.LogRequest) {
+	if eh.logType == v1alpha2.LogAll || eh.logType == v1alpha2.LogRequest {
 		err = QueueLogRequest(LogRequest{
 			url:         eh.logUrl,
 			b:           &b,
@@ -120,7 +111,7 @@ func (eh *loggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			reqType:     InferenceRequest,
 			id:          id,
 			sourceUri:   eh.sourceUri,
-			modelUri:    eh.modelUri,
+			modelId:     eh.modelId,
 		})
 		if err != nil {
 			eh.log.Error(err, "Failed to log request")
@@ -135,7 +126,7 @@ func (eh *loggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// log response
-	if emitEvent && (eh.logType == v1alpha2.LogAll || eh.logType == v1alpha2.LogResponse) {
+	if eh.logType == v1alpha2.LogAll || eh.logType == v1alpha2.LogResponse {
 		err = QueueLogRequest(LogRequest{
 			url:         eh.logUrl,
 			b:           &b,
@@ -143,7 +134,7 @@ func (eh *loggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			reqType:     InferenceResponse,
 			id:          id,
 			sourceUri:   eh.sourceUri,
-			modelUri:    eh.modelUri,
+			modelId:     eh.modelId,
 		})
 		if err != nil {
 			eh.log.Error(err, "Failed to log response")

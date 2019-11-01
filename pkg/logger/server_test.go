@@ -70,9 +70,7 @@ func TestLogger(t *testing.T) {
 	g.Expect(err).To(gomega.BeNil())
 	sourceUri, err := url.Parse("http://localhost:8080/")
 	g.Expect(err).To(gomega.BeNil())
-	modelUri, err := url.Parse("s3://mybucket/mymodel")
-	g.Expect(err).To(gomega.BeNil())
-	oh := New(log, predictorSvcUrl.Port(), logSvcUrl, sourceUri, v1alpha2.LogAll, 1.0, modelUri)
+	oh := New(log, predictorSvcUrl.Port(), logSvcUrl, sourceUri, v1alpha2.LogAll, "mymodel")
 
 	oh.ServeHTTP(w, r)
 
