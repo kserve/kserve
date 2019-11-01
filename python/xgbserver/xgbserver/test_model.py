@@ -17,7 +17,7 @@ import os
 from sklearn.datasets import load_iris
 from xgbserver import XGBoostModel
 
-model_dir = "."
+model_dir = model_dir = os.path.join(os.path.dirname(__file__), "example_model")
 BST_FILE = "model.bst"
 
 def test_model():
@@ -35,8 +35,8 @@ def test_model():
     xgb_model = xgb.train(params=param, dtrain=dtrain)
     model_file = os.path.join((model_dir), BST_FILE)
     xgb_model.save_model(model_file)
-    server = XGBoostModel("xgbmodel", model_dir)
-    server.load()
+    model = XGBoostModel("xgbmodel", model_dir)
+    model.load()
     request = [X[0].tolist()]
-    response = server.predict(request)
-    assert response == [0]
+    response = model.predict({"instances": request})
+    assert response["predictions"] == [0]

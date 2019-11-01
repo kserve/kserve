@@ -18,7 +18,6 @@ import (
 
 	"github.com/kubeflow/kfserving/pkg/constants"
 	v1 "k8s.io/api/core/v1"
-	resource "k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/klog"
 )
 
@@ -33,11 +32,6 @@ type Predictor interface {
 const (
 	// ExactlyOnePredictorViolatedError is a known error message
 	ExactlyOnePredictorViolatedError = "Exactly one of [Custom, ONNX, Tensorflow, TensorRT, SKLearn, XGBoost] must be specified in PredictorSpec"
-)
-
-var (
-	DefaultMemory = resource.MustParse("2Gi")
-	DefaultCPU    = resource.MustParse("1")
 )
 
 // Returns a URI to the model. This URI is passed to the storage-initializer via the StorageInitializerSourceUriInternalAnnotationKey

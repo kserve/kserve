@@ -39,4 +39,3 @@ pip3 install -r python/kfserving/requirements.txt
 pushd python/kfserving/test >/dev/null
   pytest --ignore=test_set_creds.py
 popd
-

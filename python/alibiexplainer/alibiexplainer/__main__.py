@@ -21,7 +21,7 @@ import kfserving
 from alibiexplainer import AlibiExplainer
 from alibiexplainer.explainer import ExplainerMethod  # pylint:disable=no-name-in-module
 
-logging.basicConfig(level=kfserving.server.KFSERVER_LOGLEVEL)
+logging.basicConfig(level=kfserving.constants.KFSERVING_LOGLEVEL)
 
 DEFAULT_EXPLAINER_NAME = "explainer"
 EXPLAINER_FILENAME = "explainer.dill"
@@ -49,7 +49,7 @@ def str2bool(v):
         raise argparse.ArgumentTypeError('Boolean value expected.')
 
 
-parser = argparse.ArgumentParser(parents=[kfserving.server.parser])
+parser = argparse.ArgumentParser(parents=[kfserving.kfserver.parser])
 parser.add_argument('--model_name', default=DEFAULT_EXPLAINER_NAME,
                     help='The name of model explainer.')
 parser.add_argument('--predictor_host', help='The host for the predictor', required=True)
@@ -127,7 +127,6 @@ if __name__ == "__main__":
 
     explainer = AlibiExplainer(args.model_name,
                                args.predictor_host,
-                               args.protocol,
                                ExplainerMethod(args.command),
                                extra,
                                alibi_model)
