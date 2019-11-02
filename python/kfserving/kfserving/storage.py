@@ -129,7 +129,7 @@ The path or model %s does not exist." % (uri))
         try:
             block_blob_service = BlockBlobService(account_name=account_name)
             blobs = block_blob_service.list_blobs(container_name, prefix=prefix)
-        except:
+        except Exception: # pylint: disable=broad-except
             token = Storage._get_azure_storage_token()
             if token is None:
                 logging.warning("Azure credentials not found, retrying anonymous access")
