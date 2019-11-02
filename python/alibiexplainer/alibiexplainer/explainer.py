@@ -15,6 +15,7 @@ import json
 import logging
 from enum import Enum
 from typing import List, Any, Mapping, Union, Dict
+import argparse
 
 import kfserving
 import numpy as np
@@ -37,15 +38,18 @@ class ExplainerMethod(Enum):
 
 class AlibiExplainer(kfserving.KFModel):
     def __init__(self,
+                 parser: argparse.ArgumentParser,
                  name: str,
                  predictor_host: str,
                  method: ExplainerMethod,
-                 config: Mapping,
+                 config: Dict,
                  explainer: object = None):
         super().__init__(name)
+        self.parser = parser
         self.predictor_host = predictor_host
         logging.info("Predict URL set to %s", self.predictor_host)
         self.method = method
+        self.config = config
 
         if self.method is ExplainerMethod.anchor_tabular:
             self.wrapper = AnchorTabular(self._predict_fn, explainer, **config)
@@ -69,9 +73,27 @@ class AlibiExplainer(kfserving.KFModel):
         resp = self.predict({"instances": instances})
         return np.array(resp["predictions"])
 
-    def explain(self, request: Dict) -> Any:
+    def parse_headers(self, headers: List) -> Dict:
+        argsStr = '--predictor_host x AnchorText '
+        for key,value in headers:
+            print(key,value)
+            if key.startswith("Alibi-"):
+                argName = '_'.join(key.lower().split("-")[1:])
+                argsStr += "--"+argName + " " + value
+        args, _ = self.parser.parse_known_args(argsStr.split())
+        argdDict = vars(args).copy()
+        if 'explainer' in argdDict:
+            extra = vars(args.explainer)
+        else:
+            extra = {}
+        logging.info("Extra Request args: %s", extra)
+        return extra
+
+    def explain(self, request: Dict, headers: List = []) -> Any:
+        requestArgs = self.parse_headers(headers)
+        logging.info("Request Args: %s",requestArgs)
         if self.method is ExplainerMethod.anchor_tabular or self.method is ExplainerMethod.anchor_images or self.method is ExplainerMethod.anchor_text:
-            explanation = self.wrapper.explain(request["instances"])
+            explanation = self.wrapper.explain(request["instances"], requestArgs)
             logging.info("Explanation: %s", explanation)
             return json.loads(json.dumps(explanation, cls=NumpyEncoder))
         else:

@@ -125,7 +125,8 @@ if __name__ == "__main__":
             logging.info("Loading Alibi model")
             alibi_model = dill.load(f)
 
-    explainer = AlibiExplainer(args.model_name,
+    explainer = AlibiExplainer(parser,
+                               args.model_name,
                                args.predictor_host,
                                ExplainerMethod(args.command),
                                extra,

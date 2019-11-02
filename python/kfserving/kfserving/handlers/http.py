@@ -42,7 +42,6 @@ class HTTPHandler(tornado.web.RequestHandler):
             )
         return body
 
-
 class PredictHandler(HTTPHandler):
     def post(self, name: str):
         model = self.get_model(name)
@@ -58,6 +57,6 @@ class ExplainHandler(HTTPHandler):
         model = self.get_model(name)
         request = self.validate(self.request)
         request = model.preprocess(request)
-        response = model.explain(request)
+        response = model.explain(request, self.request.headers.get_all())
         response = model.postprocess(response)
         self.write(json.dumps(response))

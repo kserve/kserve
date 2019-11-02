@@ -31,6 +31,7 @@ class AnchorText(ExplainerWrapper):
         self.predict_fn = predict_fn
         self.kwargs = kwargs
         logging.info("Anchor Text args %s", self.kwargs)
+        logging.info("Hey")
         if explainer is None:
             logging.info("Loading Spacy Language model for %s", spacy_language_model)
             spacy_model(model=spacy_language_model)
@@ -38,10 +39,12 @@ class AnchorText(ExplainerWrapper):
             logging.info("Language model loaded")
         self.anchors_text = explainer
 
-    def explain(self, inputs: List) -> Dict:
+    def explain(self, inputs: List, requestArgs: Dict) -> Dict:
+        args = ExplainerWrapper.mergeArgs(self.kwargs, requestArgs)
+        logging.info("Merged Request Args: %s ", args)
         if self.anchors_text is None:
             self.anchors_text = alibi.explainers.AnchorText(self.nlp, self.predict_fn)
         # We assume the input has batch dimension but Alibi explainers presently assume no batch
         np.random.seed(0)
-        anchor_exp = self.anchors_text.explain(inputs[0], **self.kwargs)
+        anchor_exp = self.anchors_text.explain(inputs[0], **args)
         return anchor_exp
