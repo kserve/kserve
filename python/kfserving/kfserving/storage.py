@@ -19,7 +19,7 @@ import os
 import re
 from urllib.parse import urlparse
 from azure.common import AzureMissingResourceHttpError
-from azure.storage.blob import BlockBlobService
+from azure.storage.blob import BlobServiceClient
 from google.auth import exceptions
 from google.cloud import storage
 from minio import Minio
@@ -128,14 +128,14 @@ The path or model %s does not exist." % (uri))
                      container_name,
                      prefix)
         try:
-            block_blob_service = BlockBlobService(account_name=account_name)
-            blobs = block_blob_service.list_blobs(container_name, prefix=prefix)
+            blob_service = BlobServiceClient(account_name=account_name)
+            blobs = blob_service.list_blobs(container_name, prefix=prefix)
         except AzureMissingResourceHttpError:
             token = Storage._get_azure_storage_token()
             if token is None:
                 logging.warning("Azure credentials not found, retrying anonymous access")
-            block_blob_service = BlockBlobService(account_name=account_name, token_credential=token)
-            blobs = block_blob_service.list_blobs(container_name, prefix=prefix)
+            blob_service = BlobServiceClient(account_name=account_name, token_credential=token)
+            blobs = blob_service.list_blobs(container_name, prefix=prefix)
         count = 0
         for blob in blobs:
             dest_path = os.path.join(out_dir, blob.name)
@@ -151,7 +151,7 @@ The path or model %s does not exist." % (uri))
                     os.makedirs(dir_path)
 
             logging.info("Downloading: %s to %s", blob.name, dest_path)
-            block_blob_service.get_blob_to_path(container_name, blob.name, dest_path)
+            blob_service.get_blob_to_path(container_name, blob.name, dest_path)
             count = count + 1
         if count == 0:
             raise RuntimeError("Failed to fetch model. \
