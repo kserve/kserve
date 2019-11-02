@@ -18,7 +18,6 @@ import tempfile
 import os
 import re
 from urllib.parse import urlparse
-from azure.common import AzureMissingResourceHttpError
 from azure.storage.blob import BlockBlobService
 from google.auth import exceptions
 from google.cloud import storage
@@ -130,7 +129,7 @@ The path or model %s does not exist." % (uri))
         try:
             block_blob_service = BlockBlobService(account_name=account_name)
             blobs = block_blob_service.list_blobs(container_name, prefix=prefix)
-        except AzureMissingResourceHttpError:
+        except:
             token = Storage._get_azure_storage_token()
             if token is None:
                 logging.warning("Azure credentials not found, retrying anonymous access")
