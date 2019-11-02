@@ -2,6 +2,8 @@
 
 This example uses a [US income dataset](https://archive.ics.uci.edu/ml/datasets/adult)
 
+You can also try out the [Jupyter notebook](income_explanations.ipynb).
+
 We can create a InferenceService with a trained sklearn predictor for this dataset and an associated model explainer. The black box explainer algorithm we will use is the Tabular version of Anchors from the [Alibi open source library](https://github.com/SeldonIO/alibi). More details on this algorithm and configuration settings that can be set can be found in the [Seldon Alibi documentation](https://docs.seldon.io/projects/alibi/en/stable/).
 
 The InferenceService is shown below:
@@ -14,19 +16,24 @@ metadata:
 spec:
   default:
     predictor:
+      minReplicas: 1
       sklearn:
         storageUri: "gs://seldon-models/sklearn/income/model"
         resources:
           requests:
             cpu: 0.1
+          limits:
+            cpu: 1
     explainer:
+      minReplicas: 1
       alibi:
         type: AnchorTabular
         storageUri: "gs://seldon-models/sklearn/income/explainer"
         resources:
           requests:
             cpu: 0.1
-        
+          limits:
+            cpu: 1
 ```
 
 Create this InferenceService:
