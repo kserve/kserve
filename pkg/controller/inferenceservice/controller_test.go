@@ -744,8 +744,7 @@ func TestCanaryDelete(t *testing.T) {
 	canaryService = &knservingv1alpha1.Service{}
 	g.Eventually(func() bool {
 		err := c.Get(context.TODO(), canaryPredictor, canaryService)
-		notFound := errors.IsNotFound(err)
-		if notFound {
+		if notFound := errors.IsNotFound(err); notFound {
 			return true
 		} else {
 			return canaryService.DeletionTimestamp != nil
