@@ -303,7 +303,7 @@ unexpected EOF
 ```
 
 ```shell
-context deadline exceeded
+dial tcp x.x.x.x:443: connect: connection refused
 ```
 
 If above errors appear, first thing to check is if the KFServing controller is running
