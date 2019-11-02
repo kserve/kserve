@@ -74,23 +74,21 @@ class AlibiExplainer(kfserving.KFModel):
         return np.array(resp["predictions"])
 
     def parse_headers(self, headers: List) -> Dict:
-        argsStr = '--predictor_host x AnchorText'
+        argsStr = '--predictor_host x ' + str(self.method)
         for key,value in headers:
-            print(key,value)
             if key.startswith("Alibi-"):
                 argName = '_'.join(key.lower().split("-")[1:])
                 argsStr += " --"+argName + " " + value
         try:
             args, _ = self.parser.parse_known_args(argsStr.split())
-            argdDict = vars(args).copy()
-            if 'explainer' in argdDict:
+            argsDict = vars(args).copy()
+            if 'explainer' in argsDict:
                 extra = vars(args.explainer)
             else:
                 extra = {}
-            logging.info("Extra Request args: %s", extra)
             return extra
         except Exception as inst:
-            logging.error("Failed to parser extra args: %s",inst)
+            logging.error("Failed to parse extra args: %s",inst)
             return {}
 
     def explain(self, request: Dict, headers: List = []) -> Any:

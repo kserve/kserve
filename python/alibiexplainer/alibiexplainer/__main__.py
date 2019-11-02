@@ -84,6 +84,8 @@ parser_anchor_text.add_argument('--delta', type=float, action=GroupedAction, des
                                 default=argparse.SUPPRESS)
 parser_anchor_text.add_argument('--tau', type=float, action=GroupedAction, dest='explainer.tau',
                                 default=argparse.SUPPRESS)
+parser_anchor_text.add_argument('--top_n', type=int, action=GroupedAction, dest='explainer.top_n',
+                                default=argparse.SUPPRESS)
 parser_anchor_text.add_argument('--batch_size', type=int, action=GroupedAction,
                                 dest='explainer.batch_size', default=argparse.SUPPRESS)
 parser_anchor_text.add_argument('--desired_label', type=int, action=GroupedAction,
