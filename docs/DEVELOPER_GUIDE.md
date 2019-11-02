@@ -284,3 +284,41 @@ It`s a red herring. To resolve it, please ensure you have logged into dockerhub 
 ```
 
 Please make sure not to deploy the inferenceservice in the `kfserving-system` or other namespaces where namespace has  `control-plane` as a label. The `storage-initializer` init container does not get injected for deployments in those namespaces since they do not go through the mutating webhook.
+
+4. You may get one of the following errors after 'make deploy-dev', and while deploying the sample model
+
+```shell
+kubectl apply -f docs/samples/tensorflow/tensorflow.yaml
+Error from server (InternalError): error when creating "docs/samples/tensorflow/tensorflow.yaml": 
+Internal error occurred: failed calling webhook "inferenceservice.kfserving-webhook-server.defaulter": 
+Post https://kfserving-webhook-server-service.kfserving-system.svc:443/mutate-inferenceservices?timeout=30s:
+```
+
+```shell
+ context deadline exceeded
+```
+
+```shell
+unexpected EOF
+```
+
+```shell
+context deadline exceeded
+```
+
+If above errors appear, first thing to check is if the KFServing controller is running
+
+```shell
+kubectl get po -n kfserving-system
+NAME                             READY   STATUS    RESTARTS   AGE
+kfserving-controller-manager-0   2/2     Running   2          13m
+```
+
+If it is, more often than not, it is caused by a stale webhook, since webhooks are immutable. Please delete them, and test again
+
+```shell
+kubectl delete mutatingwebhookconfigurations inferenceservice.serving.kubeflow.org &&  kubectl delete validatingwebhookconfigurations inferenceservice.serving.kubeflow.org && kubectl delete po kfserving-controller-manager-0  -n kfserving-system
+
+mutatingwebhookconfiguration.admissionregistration.k8s.io "inferenceservice.serving.kubeflow.org" deleted
+validatingwebhookconfiguration.admissionregistration.k8s.io "inferenceservice.serving.kubeflow.org" deleted
+```
