@@ -13,7 +13,6 @@ apiVersion: "serving.kubeflow.org/v1alpha2"
 kind: "InferenceService"
 metadata:
   name: "income"
-  namespace: default
 spec:
   default:
     predictor:
