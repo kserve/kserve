@@ -81,22 +81,22 @@ func (mutator *Mutator) mutate(pod *v1.Pod, configMap *v1.ConfigMap) error {
 		config:            storageInitializerConfig,
 	}
 
-	var inferenceLoggerConfig InferenceLoggerConfig
-	if loggerConfig, ok := configMap.Data[InferenceLoggerConfigMapKeyName]; ok {
-		err := json.Unmarshal([]byte(loggerConfig), &inferenceLoggerConfig)
+	var loggerConfig LoggerConfig
+	if loggerConfig, ok := configMap.Data[LoggerConfigMapKeyName]; ok {
+		err := json.Unmarshal([]byte(loggerConfig), &loggerConfig)
 		if err != nil {
 			panic(fmt.Errorf("Unable to unmarshall logger json string due to %v ", err))
 		}
 	}
 
-	inferenceLoggerInjector := &InferenceLoggerInjector{
-		config: &inferenceLoggerConfig,
+	loggerInjector := &LoggerInjector{
+		config: &loggerConfig,
 	}
 
 	mutators := []func(pod *v1.Pod) error{
 		InjectGKEAcceleratorSelector,
 		storageInitializer.InjectStorageInitializer,
-		inferenceLoggerInjector.InjectInferenceLogger,
+		loggerInjector.InjectLogger,
 	}
 
 	// Skip webhook if pod not managed by kfserving

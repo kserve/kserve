@@ -31,8 +31,8 @@ type Predictor interface {
 
 const (
 	// ExactlyOnePredictorViolatedError is a known error message
-	ExactlyOnePredictorViolatedError       = "Exactly one of [Custom, ONNX, Tensorflow, TensorRT, SKLearn, XGBoost] must be specified in PredictorSpec"
-	InferenceLoggerCustomNotSupportedError = "Inference logger for custom specs is not supported"
+	ExactlyOnePredictorViolatedError = "Exactly one of [Custom, ONNX, Tensorflow, TensorRT, SKLearn, XGBoost] must be specified in PredictorSpec"
+	LoggerCustomNotSupportedError    = "Inference logger for custom specs is not supported"
 )
 
 // Returns a URI to the model. This URI is passed to the storage-initializer via the StorageInitializerSourceUriInternalAnnotationKey

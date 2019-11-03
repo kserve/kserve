@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestInferenceLoggerValidate(t *testing.T) {
+func TestLoggerValidate(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	// OK

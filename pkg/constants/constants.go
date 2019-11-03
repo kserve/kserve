@@ -52,7 +52,7 @@ var (
 	StorageInitializerSourceUriInternalAnnotationKey = InferenceServiceInternalAnnotationsPrefix + "/storage-initializer-sourceuri"
 	LoggerInternalAnnotationKey                      = InferenceServiceInternalAnnotationsPrefix + "/logger"
 	LoggerSinkUrlInternalAnnotationKey               = InferenceServiceInternalAnnotationsPrefix + "/logger-sink-url"
-	LoggerTypeInternalAnnotationKey                  = InferenceServiceInternalAnnotationsPrefix + "/logger-type"
+	LoggerModeInternalAnnotationKey                  = InferenceServiceInternalAnnotationsPrefix + "/logger-mode"
 )
 
 // Controller Constants
@@ -224,6 +224,6 @@ func GetInferenceServiceHttpPort(hasLogging bool) string {
 	}
 }
 
-func GetInferenceLoggerDefaultUrl(namespace string) string {
+func GetLoggerDefaultUrl(namespace string) string {
 	return "http://default-broker." + namespace
 }

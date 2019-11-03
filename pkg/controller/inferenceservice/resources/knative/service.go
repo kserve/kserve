@@ -106,13 +106,13 @@ func (c *ServiceBuilder) CreateInferenceServiceComponent(isvc *v1alpha2.Inferenc
 	return nil, fmt.Errorf("Invalid Component")
 }
 
-func addInferenceLoggerAnnotations(inferenceLogger *v1alpha2.Logger, annotations map[string]string) bool {
-	if inferenceLogger != nil {
+func addLoggerAnnotations(logger *v1alpha2.Logger, annotations map[string]string) bool {
+	if logger != nil {
 		annotations[constants.LoggerInternalAnnotationKey] = "true"
-		if inferenceLogger.Url != nil {
-			annotations[constants.LoggerSinkUrlInternalAnnotationKey] = *inferenceLogger.Url
+		if logger.Url != nil {
+			annotations[constants.LoggerSinkUrlInternalAnnotationKey] = *logger.Url
 		}
-		annotations[constants.LoggerTypeInternalAnnotationKey] = string(inferenceLogger.Mode)
+		annotations[constants.LoggerModeInternalAnnotationKey] = string(logger.Mode)
 		return true
 	}
 	return false
@@ -132,7 +132,7 @@ func (c *ServiceBuilder) CreatePredictorService(name string, metadata metav1.Obj
 
 	// Knative does not support multiple containers so we add an annotation that triggers pod
 	// mutator to add it
-	hasInferenceLogging := addInferenceLoggerAnnotations(predictorSpec.Logger, annotations)
+	hasInferenceLogging := addLoggerAnnotations(predictorSpec.Logger, annotations)
 
 	service := &knservingv1alpha1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -187,7 +187,7 @@ func (c *ServiceBuilder) CreateTransformerService(name string, metadata metav1.O
 
 	// Knative does not support multiple containers so we add an annotation that triggers pod
 	// mutator to add it
-	hasInferenceLogging := addInferenceLoggerAnnotations(transformerSpec.Logger, annotations)
+	hasInferenceLogging := addLoggerAnnotations(transformerSpec.Logger, annotations)
 
 	predictorHostName := fmt.Sprintf("%s.%s", constants.DefaultPredictorServiceName(metadata.Name), metadata.Namespace)
 
@@ -263,7 +263,7 @@ func (c *ServiceBuilder) CreateExplainerService(name string, metadata metav1.Obj
 
 	// Knative does not support multiple containers so we add an annotation that triggers pod
 	// mutator to add it
-	hasInferenceLogging := addInferenceLoggerAnnotations(explainerSpec.Logger, annotations)
+	hasInferenceLogging := addLoggerAnnotations(explainerSpec.Logger, annotations)
 
 	service := &knservingv1alpha1.Service{
 		ObjectMeta: metav1.ObjectMeta{

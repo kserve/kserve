@@ -10,19 +10,19 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func TestInferenceLoggerInjector(t *testing.T) {
+func TestLoggerInjector(t *testing.T) {
 	scenarios := map[string]struct {
 		original *v1.Pod
 		expected *v1.Pod
 	}{
-		"AddInferenceLogger": {
+		"AddLogger": {
 			original: &v1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "deployment",
 					Annotations: map[string]string{
 						constants.LoggerInternalAnnotationKey:        "true",
 						constants.LoggerSinkUrlInternalAnnotationKey: "http://httpbin.org/",
-						constants.LoggerTypeInternalAnnotationKey:    string(v1alpha2.LogAll),
+						constants.LoggerModeInternalAnnotationKey:    string(v1alpha2.LogAll),
 					},
 				},
 				Spec: v1.PodSpec{
@@ -37,7 +37,7 @@ func TestInferenceLoggerInjector(t *testing.T) {
 					Annotations: map[string]string{
 						constants.LoggerInternalAnnotationKey:        "true",
 						constants.LoggerSinkUrlInternalAnnotationKey: "http://httpbin.org/",
-						constants.LoggerTypeInternalAnnotationKey:    string(v1alpha2.LogAll),
+						constants.LoggerModeInternalAnnotationKey:    string(v1alpha2.LogAll),
 					},
 				},
 				Spec: v1.PodSpec{
@@ -45,23 +45,23 @@ func TestInferenceLoggerInjector(t *testing.T) {
 						Name: "sklearn",
 					},
 						{
-							Name:  InferenceLoggerContainerName,
-							Image: InferenceLoggerContainerImage + ":" + InferenceLoggerContainerImageVersion,
+							Name:  LoggerContainerName,
+							Image: LoggerContainerImage + ":" + LoggerContainerImageVersion,
 							Args: []string{
-								"--log_url",
+								"--log-url",
 								"http://httpbin.org/",
-								"--source_uri",
+								"--source-uri",
 								"deployment",
-								"--log_type",
+								"--log-mode",
 								"all",
-								"--model_uri",
+								"--model-id",
 								"",
 							}},
 					},
 				},
 			},
 		},
-		"DoNotAddInferenceLogger": {
+		"DoNotAddLogger": {
 			original: &v1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "deployment",
@@ -86,8 +86,8 @@ func TestInferenceLoggerInjector(t *testing.T) {
 	}
 
 	for name, scenario := range scenarios {
-		injector := &InferenceLoggerInjector{}
-		injector.InjectInferenceLogger(scenario.original)
+		injector := &LoggerInjector{}
+		injector.InjectLogger(scenario.original)
 		// cmd.Diff complains on ResourceList when Nvidia is key. Objects are explicitly compared
 		if diff := cmp.Diff(
 			scenario.expected.Spec,
