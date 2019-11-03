@@ -21,7 +21,7 @@ from sklearnserver import SKLearnModel
 DEFAULT_MODEL_NAME = "model"
 DEFAULT_LOCAL_MODEL_DIR = "/tmp/model"
 
-parser = argparse.ArgumentParser(parents=[kfserving.server.parser])
+parser = argparse.ArgumentParser(parents=[kfserving.kfserver.parser])
 parser.add_argument('--model_dir', required=True,
                     help='A URI pointer to the model binary')
 parser.add_argument('--model_name', default=DEFAULT_MODEL_NAME,

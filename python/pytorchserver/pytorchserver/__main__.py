@@ -21,7 +21,7 @@ DEFAULT_MODEL_NAME = "model"
 DEFAULT_LOCAL_MODEL_DIR = "/tmp/model"
 DEFAULT_MODEL_CLASS_NAME = "PyTorchModel"
 
-parser = argparse.ArgumentParser(parents=[kfserving.server.parser])
+parser = argparse.ArgumentParser(parents=[kfserving.kfserver.parser])
 parser.add_argument('--model_dir', required=True,
                     help='A URI pointer to the model directory')
 parser.add_argument('--model_name', default=DEFAULT_MODEL_NAME,

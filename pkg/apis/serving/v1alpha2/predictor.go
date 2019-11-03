@@ -64,32 +64,17 @@ func (p *PredictorSpec) Validate(config *InferenceServicesConfig) error {
 	if err != nil {
 		return err
 	}
-
-	errs := []error{
+	for _, err := range []error{
 		predictor.Validate(config),
 		validateStorageURI(p.GetStorageUri()),
 		validateReplicas(p.MinReplicas, p.MaxReplicas),
 		validateResourceRequirements(predictor.GetResourceRequirements()),
-	}
-	for _, err := range errs {
+	} {
 		if err != nil {
 			return err
 		}
 	}
 
-	return nil
-}
-
-func validateReplicas(minReplicas int, maxReplicas int) error {
-	if minReplicas < 0 {
-		return fmt.Errorf(MinReplicasLowerBoundExceededError)
-	}
-	if maxReplicas < 0 {
-		return fmt.Errorf(MaxReplicasLowerBoundExceededError)
-	}
-	if minReplicas > maxReplicas && maxReplicas != 0 {
-		return fmt.Errorf(MinReplicasShouldBeLessThanMaxError)
-	}
 	return nil
 }
 

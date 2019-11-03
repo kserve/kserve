@@ -18,7 +18,7 @@ from sklearnserver import SKLearnModel
 import joblib
 import os
 
-model_dir = "../../docs/samples/sklearn"
+model_dir = model_dir = os.path.join(os.path.dirname(__file__), "example_model")
 JOBLIB_FILE = "model.joblib"
 
 def test_model():
@@ -28,8 +28,8 @@ def test_model():
     sklearn_model.fit(X, y)
     model_file = os.path.join((model_dir), JOBLIB_FILE)
     joblib.dump(value=sklearn_model, filename=model_file)
-    server = SKLearnModel("sklearnmodel", model_dir)
-    server.load()
+    model = SKLearnModel("sklearnmodel", model_dir)
+    model.load()
     request = X[0:1].tolist()
-    response = server.predict(request)
-    assert response == [0]
+    response = model.predict({"instances": request})
+    assert response["predictions"] == [0]

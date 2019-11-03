@@ -40,7 +40,7 @@ func (il *LoggerInjector) InjectLogger(pod *v1.Pod) error {
 		logType = string(v1alpha2.LogAll)
 	}
 
-	modelId, _ := pod.ObjectMeta.Labels[PodKnativeServiceLabel];
+	modelId, _ := pod.ObjectMeta.Labels[PodKnativeServiceLabel]
 
 	// Dont inject if Contianer already injected
 	for _, container := range pod.Spec.Containers {
