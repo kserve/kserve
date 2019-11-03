@@ -6,7 +6,7 @@ In one terminal start an echo http server on port 8000
 docker run -it -p 8000:80 --rm -t mendhak/http-https-echo
 ```
 
-Start an SKLearn Iris model on port 8081
+Start an SKLearn Iris model on port 8081. You will need to have pip installed the sklearnserver. See `/python/sklearnserver`.
 
 ```
 python -m sklearnserver --model_dir gs://kfserving-samples/models/sklearn/iris --model_name sklearn-iris --http_port 8081
@@ -16,13 +16,13 @@ Start the Kfserving logger from Kfserving root folder:
 
 ```
 
-bin/logger --log_url http://0.0.0.0:8000 --svc_port 8081 --log_mode all
+bin/logger --log-url http://0.0.0.0:8000 --svc-port 8081 --log-mode all
 ```
 
 Send a request:
 
 ```
-curl -v -d @./input.json http://0.0.0.0:8080/v1/models/sklearn-iris:predict -H "Content-Type: application/json"
+curl -v -d @./input.json http://0.0.0.0:8080/v1/models/sklearn-iris:predict
 ```
 
 You should see output like:

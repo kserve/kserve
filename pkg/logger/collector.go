@@ -3,7 +3,7 @@ package logger
 import "fmt"
 
 // A buffered channel that we can send work requests on.
-var WorkQueue = make(chan LogRequest, 100)
+var WorkQueue = make(chan LogRequest, LoggerWorkerQueueSize)
 
 func QueueLogRequest(req LogRequest) error {
 	WorkQueue <- req

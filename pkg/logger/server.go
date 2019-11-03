@@ -18,6 +18,7 @@ package logger
 
 import (
 	"bytes"
+	"fmt"
 	"github.com/go-logr/logr"
 	guuid "github.com/google/uuid"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
@@ -26,61 +27,48 @@ import (
 	"net/url"
 )
 
-type loggerHandler struct {
+type LoggerHandler struct {
 	log       logr.Logger
+	svcHost   string
 	svcPort   string
 	logUrl    *url.URL
 	sourceUri *url.URL
-	logType   v1alpha2.LoggerMode
+	logMode   v1alpha2.LoggerMode
 	modelId   string
 }
 
-func New(log logr.Logger, svcPort string, logUrl *url.URL, sourceUri *url.URL, logType v1alpha2.LoggerMode, modelId string) http.Handler {
-	return &loggerHandler{
+func New(log logr.Logger, svcHost string, svcPort string, logUrl *url.URL, sourceUri *url.URL, logMode v1alpha2.LoggerMode, modelId string) http.Handler {
+	return &LoggerHandler{
 		log:       log,
+		svcHost:   svcHost,
 		svcPort:   svcPort,
 		logUrl:    logUrl,
 		sourceUri: sourceUri,
-		logType:   logType,
+		logMode:   logMode,
 		modelId:   modelId,
 	}
 }
 
-func (eh *loggerHandler) post(url *url.URL, body []byte, contentType string) ([]byte, error) {
-	eh.log.Info("Calling server", "url", url.String(), "contentType", contentType)
-	response, err := http.Post(url.String(), contentType, bytes.NewReader(body))
-	if err != nil {
-		return nil, err
-	}
-	b, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		return nil, err
-	}
-	if err = response.Body.Close(); err != nil {
-		return nil, err
-	}
-	return b, nil
-}
-
-func (eh *loggerHandler) callService(b []byte, r *http.Request) ([]byte, string, error) {
+func (eh *LoggerHandler) callService(b []byte, r *http.Request) ([]byte, *string, error) {
 	url := &url.URL{
 		Scheme: "http",
-		Host:   "0.0.0.0:" + eh.svcPort,
+		Host:   fmt.Sprintf("%s:%s", eh.svcHost, eh.svcPort),
 		Path:   r.URL.Path,
 	}
 	eh.log.Info("Calling server", "url", url.String())
 	response, err := http.Post(url.String(), r.Header.Get("Content-Type"), bytes.NewReader(b))
 	if err != nil {
-		return nil, "", err
+		return nil, nil, fmt.Errorf("while calling post: %s", err)
 	}
 	rb, err := ioutil.ReadAll(response.Body)
 	if err != nil {
-		return nil, "", err
+		return nil, nil, fmt.Errorf("while reading response body: %s", err)
 	}
-	if err = response.Body.Close(); err != nil {
-		return nil, "", err
+	if err := response.Body.Close(); err != nil {
+		return nil, nil, fmt.Errorf("while closing response body: %s", err)
 	}
-	return rb, response.Header.Get("Content-Type"), nil
+	contentType := response.Header.Get("Content-Type")
+	return rb, &contentType, nil
 }
 
 func getOrCreateID(r *http.Request) string {
@@ -92,7 +80,7 @@ func getOrCreateID(r *http.Request) string {
 }
 
 // call svc and add send request/responses to logUrl
-func (eh *loggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (eh *LoggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Read Payload
 	b, err := ioutil.ReadAll(r.Body)
 	if err != nil {
@@ -103,11 +91,11 @@ func (eh *loggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	id := getOrCreateID(r)
 
 	// log Request
-	if eh.logType == v1alpha2.LogAll || eh.logType == v1alpha2.LogRequest {
+	if eh.logMode == v1alpha2.LogAll || eh.logMode == v1alpha2.LogRequest {
 		err = QueueLogRequest(LogRequest{
 			url:         eh.logUrl,
 			b:           &b,
-			contentType: r.Header.Get("Content-Type"),
+			contentType: "application/json", // Always JSON at present
 			reqType:     InferenceRequest,
 			id:          id,
 			sourceUri:   eh.sourceUri,
@@ -126,11 +114,11 @@ func (eh *loggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// log response
-	if eh.logType == v1alpha2.LogAll || eh.logType == v1alpha2.LogResponse {
+	if eh.logMode == v1alpha2.LogAll || eh.logMode == v1alpha2.LogResponse {
 		err = QueueLogRequest(LogRequest{
 			url:         eh.logUrl,
 			b:           &b,
-			contentType: respContentType,
+			contentType: *respContentType,
 			reqType:     InferenceResponse,
 			id:          id,
 			sourceUri:   eh.sourceUri,
@@ -142,8 +130,8 @@ func (eh *loggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Write final response
-	if respContentType != "" {
-		w.Header().Set("Content-Type", respContentType)
+	if *respContentType != "" {
+		w.Header().Set("Content-Type", *respContentType)
 	}
 	_, err = w.Write(b)
 	if err != nil {
