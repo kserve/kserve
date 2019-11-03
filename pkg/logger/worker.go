@@ -13,7 +13,7 @@ import (
 const (
 	CEInferenceRequest  = "org.kubeflow.serving.inference.request"
 	CEInferenceResponse = "org.kubeflow.serving.inference.response"
-	ModelUriHeader      = "KF-Model-Uri"
+	ModelIdHeader       = "Model-ID"
 )
 
 // NewWorker creates, and returns a new Worker object. Its only argument
@@ -51,19 +51,18 @@ func (W *Worker) sendCloudEvent(logReq LogRequest) error {
 
 	t, err := cloudevents.NewHTTPTransport(
 		cloudevents.WithTarget(logReq.url.String()),
-		cloudevents.WithEncoding(cloudevents.HTTPBinaryV01),
-		cloudevents.WitHHeader(ModelUriHeader, logReq.modelUri.String()),
-		//cloudevents.WithContextBasedEncoding(), // toggle this or WithEncoding to see context based encoding work.
+		cloudevents.WithEncoding(cloudevents.HTTPBinaryV02),
+		cloudevents.WitHHeader(ModelIdHeader, logReq.modelId),
 	)
 
 	if err != nil {
-		return err
+		return fmt.Errorf("while creating http transport: %s", err)
 	}
 	c, err := cloudevents.NewClient(t,
 		cloudevents.WithTimeNow(),
 	)
 	if err != nil {
-		return err
+		return fmt.Errorf("while creating new cloudevents client: %s", err)
 	}
 	event := cloudevents.NewEvent()
 	event.SetID(logReq.id)
@@ -74,13 +73,12 @@ func (W *Worker) sendCloudEvent(logReq LogRequest) error {
 	}
 	event.SetSource(logReq.sourceUri.String())
 	event.SetDataContentType(logReq.contentType)
-	err = event.SetData(*logReq.b)
-	if err != nil {
-		return err
+	if err := event.SetData(*logReq.b); err != nil {
+		return fmt.Errorf("while setting cloudevents data: %s", err)
 	}
 
 	if _, _, err := c.Send(W.CeCtx, event); err != nil {
-		return nil
+		return fmt.Errorf("while sending event: %s", err)
 	}
 	return nil
 }
@@ -98,14 +96,13 @@ func (w *Worker) Start() {
 				// Receive a work request.
 				fmt.Printf("worker%d: Received work request for %s\n", w.ID, work.url.String())
 
-				err := w.sendCloudEvent(work)
-				if err != nil {
+				if err := w.sendCloudEvent(work); err != nil {
 					w.Log.Error(err, "Failed to send log", "URL", work.url.String())
 				}
 
 			case <-w.QuitChan:
 				// We have been asked to stop.
-				fmt.Printf("worker%d stopping\n", w.ID)
+				fmt.Printf("worker %d stopping\n", w.ID)
 				return
 			}
 		}

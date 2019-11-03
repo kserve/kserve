@@ -18,7 +18,6 @@ package logger
 
 import (
 	"bytes"
-	"fmt"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	"github.com/onsi/gomega"
 	"io/ioutil"
@@ -29,7 +28,7 @@ import (
 	"testing"
 )
 
-func TestExecutor(t *testing.T) {
+func TestLogger(t *testing.T) {
 
 	g := gomega.NewGomegaWithT(t)
 
@@ -41,7 +40,8 @@ func TestExecutor(t *testing.T) {
 		b, err := ioutil.ReadAll(req.Body)
 		g.Expect(err).To(gomega.BeNil())
 		g.Expect(b).To(gomega.Or(gomega.Equal(predictorRequest), gomega.Equal(predictorResponse)))
-		rw.Write([]byte(`ok`))
+		_, err = rw.Write([]byte(`ok`))
+		g.Expect(err).To(gomega.BeNil())
 	}))
 	// Close the server when test finishes
 	defer logSvc.Close()
@@ -51,7 +51,8 @@ func TestExecutor(t *testing.T) {
 		b, err := ioutil.ReadAll(req.Body)
 		g.Expect(err).To(gomega.BeNil())
 		g.Expect(b).To(gomega.Or(gomega.Equal(predictorRequest), gomega.Equal(predictorResponse)))
-		rw.Write(predictorResponse)
+		_, err = rw.Write(predictorResponse)
+		g.Expect(err).To(gomega.BeNil())
 	}))
 	// Close the server when test finishes
 	defer predictor.Close()
@@ -69,15 +70,11 @@ func TestExecutor(t *testing.T) {
 	g.Expect(err).To(gomega.BeNil())
 	sourceUri, err := url.Parse("http://localhost:8080/")
 	g.Expect(err).To(gomega.BeNil())
-	modelUri, err := url.Parse("s3://mybucket/mymodel")
-	g.Expect(err).To(gomega.BeNil())
-	oh := New(log, predictorSvcUrl.Port(), logSvcUrl, sourceUri, v1alpha2.LogAll, 1.0, modelUri)
+	oh := New(log, "0.0.0.0", predictorSvcUrl.Port(), logSvcUrl, sourceUri, v1alpha2.LogAll, "mymodel")
 
 	oh.ServeHTTP(w, r)
 
 	b2, _ := ioutil.ReadAll(w.Result().Body)
-	fmt.Printf("%s", string(b2))
-
 	g.Expect(b2).To(gomega.Equal(predictorResponse))
 
 }
