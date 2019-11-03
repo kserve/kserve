@@ -5,9 +5,10 @@ metadata:
 spec:
   default:
     predictor:
+      minReplicas: 1      
       logger:
         url: http://message-dumper.default/
-        logType: all
+        mode: all
       sklearn:
         storageUri: "gs://kfserving-samples/models/sklearn/iris"
         resources:

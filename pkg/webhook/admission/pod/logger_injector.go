@@ -35,9 +35,9 @@ func (il *LoggerInjector) InjectLogger(pod *v1.Pod) error {
 		logUrl = constants.GetLoggerDefaultUrl(pod.Namespace)
 	}
 
-	logType, ok := pod.ObjectMeta.Annotations[constants.LoggerModeInternalAnnotationKey]
+	logMode, ok := pod.ObjectMeta.Annotations[constants.LoggerModeInternalAnnotationKey]
 	if !ok {
-		logType = string(v1alpha2.LogAll)
+		logMode = string(v1alpha2.LogAll)
 	}
 
 	modelId, _ := pod.ObjectMeta.Labels[PodKnativeServiceLabel]
@@ -63,7 +63,7 @@ func (il *LoggerInjector) InjectLogger(pod *v1.Pod) error {
 			"--source-uri",
 			pod.Name,
 			"--log-mode",
-			logType,
+			logMode,
 			"--model-id",
 			modelId,
 		},

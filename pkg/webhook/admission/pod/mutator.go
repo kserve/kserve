@@ -69,6 +69,11 @@ func (mutator *Mutator) Handle(ctx context.Context, req types.Request) types.Res
 }
 
 func (mutator *Mutator) mutate(pod *v1.Pod, configMap *v1.ConfigMap) error {
+	// Skip webhook if pod not managed by kfserving
+	if _, ok := pod.Labels[constants.InferenceServicePodLabelKey]; !ok {
+		return nil
+	}
+
 	credentialBuilder := credentials.NewCredentialBulder(mutator.Client, configMap)
 
 	storageInitializerConfig, err := getStorageInitializerConfigs(configMap)
@@ -82,8 +87,8 @@ func (mutator *Mutator) mutate(pod *v1.Pod, configMap *v1.ConfigMap) error {
 	}
 
 	var loggerConfig LoggerConfig
-	if loggerConfig, ok := configMap.Data[LoggerConfigMapKeyName]; ok {
-		err := json.Unmarshal([]byte(loggerConfig), &loggerConfig)
+	if loggerConfigValue, ok := configMap.Data[LoggerConfigMapKeyName]; ok {
+		err := json.Unmarshal([]byte(loggerConfigValue), &loggerConfig)
 		if err != nil {
 			panic(fmt.Errorf("Unable to unmarshall logger json string due to %v ", err))
 		}
@@ -99,10 +104,7 @@ func (mutator *Mutator) mutate(pod *v1.Pod, configMap *v1.ConfigMap) error {
 		loggerInjector.InjectLogger,
 	}
 
-	// Skip webhook if pod not managed by kfserving
-	if _, ok := pod.Labels[constants.InferenceServicePodLabelKey]; !ok {
-		return nil
-	}
+
 
 	for _, mutator := range mutators {
 		if err := mutator(pod); err != nil {

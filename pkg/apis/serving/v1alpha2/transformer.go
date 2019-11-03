@@ -55,6 +55,7 @@ func (t *TransformerSpec) Validate(config *InferenceServicesConfig) error {
 		validateReplicas(t.MinReplicas, t.MaxReplicas),
 		validateResourceRequirements(&transformer.GetContainerSpec().Resources),
 		transformer.Validate(config),
+		validate_logger(t.Logger),
 	} {
 		if err != nil {
 			return err
