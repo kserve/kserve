@@ -20,7 +20,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"knative.dev/pkg/apis"
-	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/kmeta"
 )
 
@@ -88,7 +88,7 @@ type CertificateStatus struct {
 	// - The target secret exists
 	// - The target secret contains a certificate that has not expired
 	// - The target secret contains a private key valid for the certificate
-	duckv1beta1.Status `json:",inline"`
+	duckv1.Status `json:",inline"`
 
 	// The expiration time of the TLS certificate stored in the secret named
 	// by this resource in spec.secretName.

@@ -22,6 +22,7 @@ import (
 
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/ptr"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
 )
 
@@ -34,18 +35,24 @@ func (source *Service) ConvertUp(ctx context.Context, obj apis.Convertible) erro
 			return err
 		}
 		return source.Status.ConvertUp(ctx, &sink.Status)
+	case *v1.Service:
+		sink.ObjectMeta = source.ObjectMeta
+		if err := source.Spec.ConvertUp(ctx, &sink.Spec); err != nil {
+			return err
+		}
+		return source.Status.ConvertUp(ctx, &sink.Status)
 	default:
 		return fmt.Errorf("unknown version, got: %T", sink)
 	}
 }
 
 // ConvertUp helps implement apis.Convertible
-func (source *ServiceSpec) ConvertUp(ctx context.Context, sink *v1beta1.ServiceSpec) error {
+func (source *ServiceSpec) ConvertUp(ctx context.Context, sink *v1.ServiceSpec) error {
 	switch {
 	case source.DeprecatedRunLatest != nil:
-		sink.RouteSpec = v1beta1.RouteSpec{
-			Traffic: []v1beta1.TrafficTarget{{
-				Percent:        100,
+		sink.RouteSpec = v1.RouteSpec{
+			Traffic: []v1.TrafficTarget{{
+				Percent:        ptr.Int64(100),
 				LatestRevision: ptr.Bool(true),
 			}},
 		}
@@ -53,29 +60,29 @@ func (source *ServiceSpec) ConvertUp(ctx context.Context, sink *v1beta1.ServiceS
 
 	case source.DeprecatedRelease != nil:
 		if len(source.DeprecatedRelease.Revisions) == 2 {
-			sink.RouteSpec = v1beta1.RouteSpec{
-				Traffic: []v1beta1.TrafficTarget{{
+			sink.RouteSpec = v1.RouteSpec{
+				Traffic: []v1.TrafficTarget{{
 					RevisionName: source.DeprecatedRelease.Revisions[0],
-					Percent:      100 - source.DeprecatedRelease.RolloutPercent,
+					Percent:      ptr.Int64(int64(100 - source.DeprecatedRelease.RolloutPercent)),
 					Tag:          "current",
 				}, {
 					RevisionName: source.DeprecatedRelease.Revisions[1],
-					Percent:      source.DeprecatedRelease.RolloutPercent,
+					Percent:      ptr.Int64(int64(source.DeprecatedRelease.RolloutPercent)),
 					Tag:          "candidate",
 				}, {
-					Percent:        0,
+					Percent:        nil,
 					Tag:            "latest",
 					LatestRevision: ptr.Bool(true),
 				}},
 			}
 		} else {
-			sink.RouteSpec = v1beta1.RouteSpec{
-				Traffic: []v1beta1.TrafficTarget{{
+			sink.RouteSpec = v1.RouteSpec{
+				Traffic: []v1.TrafficTarget{{
 					RevisionName: source.DeprecatedRelease.Revisions[0],
-					Percent:      100,
+					Percent:      ptr.Int64(100),
 					Tag:          "current",
 				}, {
-					Percent:        0,
+					Percent:        nil,
 					Tag:            "latest",
 					LatestRevision: ptr.Bool(true),
 				}},
@@ -90,10 +97,10 @@ func (source *ServiceSpec) ConvertUp(ctx context.Context, sink *v1beta1.ServiceS
 		return source.DeprecatedRelease.Configuration.ConvertUp(ctx, &sink.ConfigurationSpec)
 
 	case source.DeprecatedPinned != nil:
-		sink.RouteSpec = v1beta1.RouteSpec{
-			Traffic: []v1beta1.TrafficTarget{{
+		sink.RouteSpec = v1.RouteSpec{
+			Traffic: []v1.TrafficTarget{{
 				RevisionName: source.DeprecatedPinned.RevisionName,
-				Percent:      100,
+				Percent:      ptr.Int64(100),
 			}},
 		}
 		return source.DeprecatedPinned.Configuration.ConvertUp(ctx, &sink.ConfigurationSpec)
@@ -108,7 +115,7 @@ func (source *ServiceSpec) ConvertUp(ctx context.Context, sink *v1beta1.ServiceS
 }
 
 // ConvertUp helps implement apis.Convertible
-func (source *ServiceStatus) ConvertUp(ctx context.Context, sink *v1beta1.ServiceStatus) error {
+func (source *ServiceStatus) ConvertUp(ctx context.Context, sink *v1.ServiceStatus) error {
 	source.Status.ConvertTo(ctx, &sink.Status)
 
 	source.RouteStatusFields.ConvertUp(ctx, &sink.RouteStatusFields)
@@ -124,19 +131,25 @@ func (sink *Service) ConvertDown(ctx context.Context, obj apis.Convertible) erro
 			return err
 		}
 		return sink.Status.ConvertDown(ctx, source.Status)
+	case *v1.Service:
+		sink.ObjectMeta = source.ObjectMeta
+		if err := sink.Spec.ConvertDown(ctx, source.Spec); err != nil {
+			return err
+		}
+		return sink.Status.ConvertDown(ctx, source.Status)
 	default:
 		return fmt.Errorf("unknown version, got: %T", source)
 	}
 }
 
 // ConvertDown helps implement apis.Convertible
-func (sink *ServiceSpec) ConvertDown(ctx context.Context, source v1beta1.ServiceSpec) error {
+func (sink *ServiceSpec) ConvertDown(ctx context.Context, source v1.ServiceSpec) error {
 	sink.RouteSpec.ConvertDown(ctx, source.RouteSpec)
 	return sink.ConfigurationSpec.ConvertDown(ctx, source.ConfigurationSpec)
 }
 
 // ConvertDown helps implement apis.Convertible
-func (sink *ServiceStatus) ConvertDown(ctx context.Context, source v1beta1.ServiceStatus) error {
+func (sink *ServiceStatus) ConvertDown(ctx context.Context, source v1.ServiceStatus) error {
 	source.Status.ConvertTo(ctx, &sink.Status)
 
 	sink.RouteStatusFields.ConvertDown(ctx, source.RouteStatusFields)

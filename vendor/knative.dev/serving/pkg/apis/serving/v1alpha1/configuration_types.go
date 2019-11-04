@@ -20,7 +20,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"knative.dev/pkg/apis"
-	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/kmeta"
 )
 
@@ -98,7 +98,7 @@ const (
 	ConfigurationConditionReady = apis.ConditionReady
 )
 
-// ConfigurationStatusFields holds all of the non-duckv1beta1.Status status fields of a Route.
+// ConfigurationStatusFields holds all of the non-duckv1.Status status fields of a Route.
 // These are defined outline so that we can also inline them into Service, and more easily
 // copy them.
 type ConfigurationStatusFields struct {
@@ -115,7 +115,7 @@ type ConfigurationStatusFields struct {
 
 // ConfigurationStatus communicates the observed state of the Configuration (from the controller).
 type ConfigurationStatus struct {
-	duckv1beta1.Status `json:",inline"`
+	duckv1.Status `json:",inline"`
 
 	ConfigurationStatusFields `json:",inline"`
 }

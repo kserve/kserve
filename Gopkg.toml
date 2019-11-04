@@ -46,7 +46,7 @@ version="v1.4.7"
 
 [[constraint]]
   name = "knative.dev/serving"
-  version = "=v0.8.0"
+  version = "=v0.9"
 
 [[override]]
   name="sigs.k8s.io/controller-runtime"
@@ -59,7 +59,7 @@ version="v1.4.7"
 
 [[override]]
   name = "knative.dev/pkg"
-  branch = "release-0.8"
+  branch = "release-0.9"
 
 [[override]]
   name = "k8s.io/api"

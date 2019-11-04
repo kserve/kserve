@@ -104,13 +104,17 @@ func newHTTPTransport(connTimeout time.Duration, disableKeepAlives bool) http.Ro
 // NewProberTransport creates a RoundTripper that is useful for probing,
 // since it will not cache connections.
 func NewProberTransport() http.RoundTripper {
-	return newAutoTransport(newHTTPTransport(DefaultConnTimeout, true /*disable keep-alives*/), NewH2CTransport())
+	return newAutoTransport(
+		newHTTPTransport(DefaultConnTimeout, true /*disable keep-alives*/),
+		NewH2CTransport())
 }
 
 // NewAutoTransport creates a RoundTripper that can use appropriate transport
 // based on the request's HTTP version.
 func NewAutoTransport() http.RoundTripper {
-	return newAutoTransport(newHTTPTransport(DefaultConnTimeout, false /*disable keep-alives*/), NewH2CTransport())
+	return newAutoTransport(
+		newHTTPTransport(DefaultConnTimeout, false /*disable keep-alives*/),
+		NewH2CTransport())
 }
 
 // AutoTransport uses h2c for HTTP2 requests and falls back to `http.DefaultTransport` for all others
