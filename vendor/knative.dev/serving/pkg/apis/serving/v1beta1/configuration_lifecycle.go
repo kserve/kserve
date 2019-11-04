@@ -16,20 +16,9 @@ limitations under the License.
 
 package v1beta1
 
-import (
-	"k8s.io/apimachinery/pkg/runtime/schema"
-
-	"knative.dev/pkg/apis"
-)
-
-var configurationCondSet = apis.NewLivingConditionSet()
+import "k8s.io/apimachinery/pkg/runtime/schema"
 
 // GetGroupVersionKind returns the GroupVersionKind.
 func (r *Configuration) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("Configuration")
-}
-
-// IsReady returns if the configuration is ready to serve the requested configuration.
-func (cs *ConfigurationStatus) IsReady() bool {
-	return configurationCondSet.Manage(cs).IsHappy()
 }

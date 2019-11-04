@@ -45,12 +45,14 @@ func (rs *RouteSpec) Validate(ctx context.Context) *apis.FieldError {
 	// Track the targets of named TrafficTarget entries (to detect duplicates).
 	trafficMap := make(map[string]diagnostic)
 
-	percentSum := 0
+	percentSum := int64(0)
 	for i, tt := range rs.Traffic {
-		// Delegate to the v1beta1 validation.
+		// Delegate to the v1 validation.
 		errs = errs.Also(tt.TrafficTarget.Validate(ctx).ViaFieldIndex("traffic", i))
 
-		percentSum += tt.Percent
+		if tt.Percent != nil {
+			percentSum += *tt.Percent
+		}
 
 		if tt.DeprecatedName != "" && tt.Tag != "" {
 			errs = errs.Also(apis.ErrMultipleOneOf("name", "tag").

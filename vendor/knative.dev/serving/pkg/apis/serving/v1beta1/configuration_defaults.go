@@ -27,8 +27,3 @@ func (c *Configuration) SetDefaults(ctx context.Context) {
 	ctx = apis.WithinParent(ctx, c.ObjectMeta)
 	c.Spec.SetDefaults(apis.WithinSpec(ctx))
 }
-
-// SetDefaults implements apis.Defaultable
-func (cs *ConfigurationSpec) SetDefaults(ctx context.Context) {
-	cs.Template.SetDefaults(ctx)
-}

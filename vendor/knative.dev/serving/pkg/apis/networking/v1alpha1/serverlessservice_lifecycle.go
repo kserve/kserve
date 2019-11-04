@@ -23,7 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"knative.dev/pkg/apis"
-	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 )
 
 var serverlessServiceCondSet = apis.NewLivingConditionSet(
@@ -91,7 +91,7 @@ func (sss *ServerlessServiceStatus) IsReady() bool {
 	return serverlessServiceCondSet.Manage(sss).IsHappy()
 }
 
-func (sss *ServerlessServiceStatus) duck() *duckv1beta1.Status {
+func (sss *ServerlessServiceStatus) duck() *duckv1.Status {
 	return &sss.Status
 }
 

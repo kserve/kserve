@@ -42,6 +42,10 @@ const (
 	// uses to mark requests going through it.
 	ProxyHeaderName = "K-Proxy-Request"
 
+	// HashHeaderName is the name of an internal header that Ingress controller
+	// uses to find out which version of the networking config is deployed.
+	HashHeaderName = "K-Network-Hash"
+
 	// OriginalHostHeader is used to avoid Istio host based routing rules
 	// in Activator.
 	// The header contains the original Host value that can be rewritten

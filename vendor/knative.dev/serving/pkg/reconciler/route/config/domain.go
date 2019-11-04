@@ -22,7 +22,7 @@ import (
 	"github.com/ghodss/yaml"
 	corev1 "k8s.io/api/core/v1"
 	"knative.dev/pkg/configmap"
-	"knative.dev/serving/pkg/network"
+	"knative.dev/pkg/network"
 )
 
 const (
