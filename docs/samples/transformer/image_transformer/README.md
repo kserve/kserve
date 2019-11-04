@@ -9,16 +9,18 @@ Most of the model servers expect tensors as input data, so a pre-processing step
 
 ##  Build Transformer image
 
-### Extend Transformer and implement pre/post processing functions
+### Extend KFModel and implement pre/post processing functions
 ```python
+import kfserving
 from typing import List, Dict
-from kfserving.transformer import Transformer
 from PIL import Image
 import torchvision.transforms as transforms
 import logging
 import io
 import numpy as np
 import base64
+
+logging.basicConfig(level=kfserving.constants.KFSERVING_LOGLEVEL)
 
 transform = transforms.Compose(
         [transforms.ToTensor(),
@@ -35,7 +37,10 @@ def image_transform(instance):
     return res.tolist()
 
 
-class ImageTransformer(Transformer):
+class ImageTransformer(kfserving.KFModel):
+    def __init__(self, name: str, predictor_host: str):
+        super().__init__(name)
+        self.predictor_host = predictor_host
 
     def preprocess(self, inputs: Dict) -> Dict:
         return {'instances': [image_transform(instance) for instance in inputs['instances']]}
@@ -47,7 +52,7 @@ class ImageTransformer(Transformer):
 ### Build Transformer docker image
 This step can be part of your CI/CD pipeline to continuously build the transformer image version. 
 ```shell
-docker build -t yuzisun/image-transformer:latest -f transformer.Dockerfile .
+docker build -t pugang/image-transformer:latest -f transformer.Dockerfile .
 ```
 
 ## Create the InferenceService

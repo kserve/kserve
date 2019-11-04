@@ -18,7 +18,7 @@ spec:
     transformer:
       custom:
         container:
-          image: yuzisun/image-transformer:latest
+          image: pugang/image-transformer:latest
           name: user-container
           resources:
             limits:
