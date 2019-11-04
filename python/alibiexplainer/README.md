@@ -24,7 +24,7 @@ __main__.py: error: the following arguments are required: --predict_url
 
 ## Samples
 
-To run a local example follow the [income classifier explanation sample](../../docs/samples/explanation/income/README.md).
+To run a local example follow the [income classifier explanation sample](../../docs/samples/explanation/alibi/income/README.md).
 
 ## Development
 
