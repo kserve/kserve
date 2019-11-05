@@ -18,7 +18,7 @@ spec:
     transformer:
       custom:
         container:
-          image: yuzisun/image-transformer:latest
+          image: gcr.io/kubeflow-ci/kfserving/image-transformer:latest
           name: user-container
           resources:
             limits:
