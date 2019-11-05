@@ -16,7 +16,7 @@ Start the Kfserving logger from Kfserving root folder:
 
 ```
 
-bin/logger --log-url http://0.0.0.0:8000 --svc-port 8081 --log-mode all
+bin/logger --log-url http://0.0.0.0:8000 --component-port 8081 --log-mode all
 ```
 
 Send a request:

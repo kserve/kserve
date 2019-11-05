@@ -18,14 +18,14 @@ import (
 )
 
 var (
-	logUrl    = flag.String("log-url", "", "The URL to send request/response logs to")
-	port      = flag.String("port", "8080", "Logger port")
-	svcHost   = flag.String("svc-host", "0.0.0.0", "Service host")
-	svcPort   = flag.String("svc-port", "8081", "Service port")
-	workers   = flag.Int("workers", 5, "Number of workers")
-	sourceUri = flag.String("source-uri", "", "The source URI to use when publishing cloudevents")
-	logMode   = flag.String("log-mode", string(v1alpha2.LogAll), "Whether to log 'request', 'response' or 'all'")
-	modelId   = flag.String("model-id", "", "The model ID to add as header to log events")
+	logUrl        = flag.String("log-url", "", "The URL to send request/response logs to")
+	port          = flag.String("port", "8080", "Logger port")
+	componentHost = flag.String("component-host", "0.0.0.0", "Component host")
+	componentPort = flag.String("component-port", "8081", "Component port")
+	workers       = flag.Int("workers", 5, "Number of workers")
+	sourceUri     = flag.String("source-uri", "", "The source URI to use when publishing cloudevents")
+	logMode       = flag.String("log-mode", string(v1alpha2.LogAll), "Whether to log 'request', 'response' or 'all'")
+	modelId       = flag.String("model-id", "", "The model ID to add as header to log events")
 )
 
 func main() {
@@ -47,9 +47,8 @@ func main() {
 	loggingMode := v1alpha2.LoggerMode(*logMode)
 	switch loggingMode {
 	case v1alpha2.LogAll, v1alpha2.LogRequest, v1alpha2.LogResponse:
-		break
 	default:
-		log.Info("Malformed log-mode", "type", *logMode)
+		log.Info("Malformed log-mode", "mode", *logMode)
 		os.Exit(-1)
 	}
 
@@ -64,14 +63,14 @@ func main() {
 
 	stopCh := signals.SetupSignalHandler()
 
-	var eh http.Handler = logger.New(log, *svcHost, *svcPort, logUrlParsed, sourceUriParsed, loggingMode, *modelId)
+	var eh http.Handler = logger.New(log, *componentHost, *componentPort, logUrlParsed, sourceUriParsed, loggingMode, *modelId)
 
 	h1s := &http.Server{
 		Addr:    ":" + *port,
 		Handler: h2c.NewHandler(eh, &http2.Server{}),
 	}
 
-	fmt.Println("Starting the dispatcher")
+	fmt.Println("Starting the log dispatcher")
 	logger.StartDispatcher(*workers, log)
 
 	log.Info("Starting", "port", *port)
