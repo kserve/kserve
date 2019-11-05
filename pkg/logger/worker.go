@@ -21,7 +21,7 @@ const (
 // work.
 func NewWorker(id int, workerQueue chan chan LogRequest, log logr.Logger) Worker {
 	// Create, and return the worker.
-	worker := Worker{
+	return Worker{
 		Log:         log,
 		ID:          id,
 		Work:        make(chan LogRequest),
@@ -32,8 +32,6 @@ func NewWorker(id int, workerQueue chan chan LogRequest, log logr.Logger) Worker
 		},
 		CeCtx: cloudevents.ContextWithEncoding(context.Background(), cloudevents.Binary),
 	}
-
-	return worker
 }
 
 type Worker struct {

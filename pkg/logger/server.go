@@ -49,7 +49,7 @@ func New(log logr.Logger, svcHost string, svcPort string, logUrl *url.URL, sourc
 	}
 }
 
-func (eh *LoggerHandler) callService(b []byte, r *http.Request) ([]byte, *string, error) {
+func (eh *LoggerHandler) callService(b []byte, r *http.Request) ([]byte, *string, *int, error) {
 	url := &url.URL{
 		Scheme: "http",
 		Host:   fmt.Sprintf("%s:%s", eh.svcHost, eh.svcPort),
@@ -58,21 +58,22 @@ func (eh *LoggerHandler) callService(b []byte, r *http.Request) ([]byte, *string
 	eh.log.Info("Calling server", "url", url.String())
 	response, err := http.Post(url.String(), r.Header.Get("Content-Type"), bytes.NewReader(b))
 	if err != nil {
-		return nil, nil, fmt.Errorf("while calling post: %s", err)
+		return nil, nil, nil, fmt.Errorf("while calling post: %s", err)
 	}
 	rb, err := ioutil.ReadAll(response.Body)
 	if err != nil {
-		return nil, nil, fmt.Errorf("while reading response body: %s", err)
+		return nil, nil, nil, fmt.Errorf("while reading response body: %s", err)
 	}
 	if err := response.Body.Close(); err != nil {
-		return nil, nil, fmt.Errorf("while closing response body: %s", err)
+		return nil, nil, nil, fmt.Errorf("while closing response body: %s", err)
 	}
 	contentType := response.Header.Get("Content-Type")
-	return rb, &contentType, nil
+	statusCode := response.StatusCode
+	return rb, &contentType, &statusCode, nil
 }
 
 func getOrCreateID(r *http.Request) string {
-	id := r.Header.Get("Ce-Id")
+	id := r.Header.Get(CloudEventsIdHeader)
 	if id == "" {
 		id = guuid.New().String()
 	}
@@ -92,7 +93,7 @@ func (eh *LoggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// log Request
 	if eh.logMode == v1alpha2.LogAll || eh.logMode == v1alpha2.LogRequest {
-		err = QueueLogRequest(LogRequest{
+		if err := QueueLogRequest(LogRequest{
 			url:         eh.logUrl,
 			b:           &b,
 			contentType: "application/json", // Always JSON at present
@@ -100,39 +101,43 @@ func (eh *LoggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			id:          id,
 			sourceUri:   eh.sourceUri,
 			modelId:     eh.modelId,
-		})
-		if err != nil {
+		}); err != nil {
 			eh.log.Error(err, "Failed to log request")
 		}
 	}
 
 	// Call service
-	b, respContentType, err := eh.callService(b, r)
+	b, respContentType, statusCode, err := eh.callService(b, r)
+	// Error in internal calling of service. Non 200 returns code from service will not cause an error.
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// log response
-	if eh.logMode == v1alpha2.LogAll || eh.logMode == v1alpha2.LogResponse {
-		err = QueueLogRequest(LogRequest{
-			url:         eh.logUrl,
-			b:           &b,
-			contentType: *respContentType,
-			reqType:     InferenceResponse,
-			id:          id,
-			sourceUri:   eh.sourceUri,
-			modelId:     eh.modelId,
-		})
-		if err != nil {
-			eh.log.Error(err, "Failed to log response")
+	// log response if OK
+	if *statusCode == http.StatusOK {
+		if eh.logMode == v1alpha2.LogAll || eh.logMode == v1alpha2.LogResponse {
+			if err := QueueLogRequest(LogRequest{
+				url:         eh.logUrl,
+				b:           &b,
+				contentType: *respContentType,
+				reqType:     InferenceResponse,
+				id:          id,
+				sourceUri:   eh.sourceUri,
+				modelId:     eh.modelId,
+			}); err != nil {
+				eh.log.Error(err, "Failed to log response")
+			}
 		}
+	} else {
+		eh.log.Info("Bad call to service.", "status code", *statusCode)
 	}
 
 	// Write final response
 	if *respContentType != "" {
 		w.Header().Set("Content-Type", *respContentType)
 	}
+	w.WriteHeader(*statusCode)
 	_, err = w.Write(b)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

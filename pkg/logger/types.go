@@ -4,18 +4,18 @@ import (
 	"net/url"
 )
 
-type InferenceLogRequestType string
+type LogRequestType string
 
 const (
-	InferenceRequest  InferenceLogRequestType = "Request"
-	InferenceResponse InferenceLogRequestType = "Response"
+	InferenceRequest  LogRequestType = "Request"
+	InferenceResponse LogRequestType = "Response"
 )
 
 type LogRequest struct {
 	url         *url.URL
 	b           *[]byte
 	contentType string
-	reqType     InferenceLogRequestType
+	reqType     LogRequestType
 	id          string
 	sourceUri   *url.URL
 	modelId     string
