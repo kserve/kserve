@@ -235,6 +235,10 @@
                     template: "build-kfserving-executor",
                   },
                   {
+                    name: "build-image-transformer",
+                    template: "build-image-transformer",
+                  },
+                  {
                     name: "build-pytorchserver",
                     template: "build-pytorchserver",
                   },
@@ -309,6 +313,9 @@
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-kfserving-executor", testWorkerImage, [
               "test/scripts/build-kfserving-executor.sh",
             ]),  // build-kfserving-executor
+            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-image-transformer", testWorkerImage, [
+              "test/scripts/build-image-transformer.sh",
+            ]),  // build-image-transformer
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-pytorchserver", testWorkerImage, [
               "test/scripts/build-python-image.sh", "pytorch.Dockerfile", "pytorchserver",
             ]),  // build-pytorchserver
