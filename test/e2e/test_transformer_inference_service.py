@@ -33,6 +33,8 @@ KFServing = KFServingClient(config_file="~/.kube/config")
 
 
 def test_transformer():
+    namespace = 'kfserving-ci-e2e-test'
+    service_name = 'isvc-transformer'
     default_endpoint_spec = V1alpha2EndpointSpec(
         predictor=V1alpha2PredictorSpec(
             min_replicas=1,
@@ -55,8 +57,9 @@ def test_transformer():
     isvc = V1alpha2InferenceService(api_version=api_version,
                                     kind=constants.KFSERVING_KIND,
                                     metadata=client.V1ObjectMeta(
-                                        name='isvc-transformer-test', namespace='kfserving-ci-e2e-test'),
+                                        name=service_name, namespace=namespace),
                                     spec=V1alpha2InferenceServiceSpec(default=default_endpoint_spec))
 
     KFServing.create(isvc)
-    wait_for_isvc_ready('isvc-transformer-test')
+    wait_for_isvc_ready(service_name)
+    KFServing.delete(service_name, namespace)
