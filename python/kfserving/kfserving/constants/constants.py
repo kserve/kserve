@@ -12,11 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
+
 # KFServing K8S constants
 KFSERVING_GROUP = "serving.kubeflow.org"
 KFSERVING_KIND = "InferenceService"
 KFSERVING_PLURAL = "inferenceservices"
 KFSERVING_VERSION = "v1alpha2"
+
+KFSERVING_LOGLEVEL = os.environ.get('KFSERVING_LOGLEVEL', 'INFO').upper()
 
 # INFERENCESERVICE credentials common constants
 INFERENCESERVICE_CONFIG_MAP_NAME = 'inferenceservice-config'

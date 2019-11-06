@@ -168,6 +168,42 @@ func TestBadReplicaValues(t *testing.T) {
 	isvc.Spec.Default.Predictor.MinReplicas = 2
 	isvc.Spec.Default.Predictor.MaxReplicas = 1
 	g.Expect(isvc.ValidateCreate(c)).Should(gomega.MatchError(MinReplicasShouldBeLessThanMaxError))
+	// Now test transformer and explainer, so set correct value for predictor
+	isvc.Spec.Default.Predictor.MinReplicas = 0
+	isvc.Spec.Default.Predictor.MaxReplicas = 0
+
+	isvc.Spec.Default.Transformer = &TransformerSpec{}
+	isvc.Spec.Default.Transformer.Custom = &CustomSpec{
+		v1.Container{
+			Image: "custom:0.1",
+		},
+	}
+	isvc.Default(c)
+	isvc.Spec.Default.Transformer.MinReplicas = -1
+	g.Expect(isvc.ValidateCreate(c)).Should(gomega.MatchError(MinReplicasLowerBoundExceededError))
+	isvc.Spec.Default.Transformer.MinReplicas = 1
+	isvc.Spec.Default.Transformer.MaxReplicas = -1
+	g.Expect(isvc.ValidateCreate(c)).Should(gomega.MatchError(MaxReplicasLowerBoundExceededError))
+	isvc.Spec.Default.Transformer.MinReplicas = 2
+	isvc.Spec.Default.Transformer.MaxReplicas = 1
+	g.Expect(isvc.ValidateCreate(c)).Should(gomega.MatchError(MinReplicasShouldBeLessThanMaxError))
+	// Now test explainer, so ignore transformer
+	isvc.Spec.Default.Transformer = nil
+
+	isvc.Spec.Default.Explainer = &ExplainerSpec{
+		Alibi: &AlibiExplainerSpec{
+			StorageURI: "gs://testbucket/testmodel",
+		},
+	}
+	isvc.Default(c)
+	isvc.Spec.Default.Explainer.MinReplicas = -1
+	g.Expect(isvc.ValidateCreate(c)).Should(gomega.MatchError(MinReplicasLowerBoundExceededError))
+	isvc.Spec.Default.Explainer.MinReplicas = 1
+	isvc.Spec.Default.Explainer.MaxReplicas = -1
+	g.Expect(isvc.ValidateCreate(c)).Should(gomega.MatchError(MaxReplicasLowerBoundExceededError))
+	isvc.Spec.Default.Explainer.MinReplicas = 2
+	isvc.Spec.Default.Explainer.MaxReplicas = 1
+	g.Expect(isvc.ValidateCreate(c)).Should(gomega.MatchError(MinReplicasShouldBeLessThanMaxError))
 }
 
 func TestCustomBadFields(t *testing.T) {

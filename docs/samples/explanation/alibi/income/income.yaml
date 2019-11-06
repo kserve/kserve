@@ -2,20 +2,28 @@ apiVersion: "serving.kubeflow.org/v1alpha2"
 kind: "InferenceService"
 metadata:
   name: "income"
-  namespace: default
 spec:
   default:
     predictor:
+      minReplicas: 1
       sklearn:
         storageUri: "gs://seldon-models/sklearn/income/model"
         resources:
           requests:
             cpu: 0.1
+            memory: 1Gi
+          limits:
+            cpu: 1
+            memory: 1Gi            
     explainer:
+      minReplicas: 1
       alibi:
         type: AnchorTabular
         storageUri: "gs://seldon-models/sklearn/income/explainer"
         resources:
           requests:
             cpu: 0.1
-        
+            memory: 1Gi
+          limits:
+            cpu: 1
+            memory: 4Gi

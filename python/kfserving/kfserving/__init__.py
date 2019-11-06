@@ -13,9 +13,12 @@
 # limitations under the License.
 from __future__ import absolute_import
 
-from .server import KFServer
-from .model import KFModel
+from .kfmodel import KFModel
+from .kfserver import KFServer
 from .storage import Storage
+from .constants import constants
+from .utils import utils
+from .handlers import http
 
 # Below is merged from kfserving client.
 # import ApiClient
@@ -23,10 +26,7 @@ from .api_client import ApiClient
 from .configuration import Configuration
 # import client apis into kfserving package
 from .api.kf_serving_client import KFServingClient
-# import constants into kfserving package
-from .constants import constants
-# import util into sdk package
-from .utils import utils
+
 # import models into kfserving package
 from .models.knative_condition import KnativeCondition
 from .models.knative_volatile_time import KnativeVolatileTime
@@ -44,6 +44,7 @@ from .models.v1alpha2_transformer_spec import V1alpha2TransformerSpec
 from .models.v1alpha2_explainer_spec import V1alpha2ExplainerSpec
 from .models.v1alpha2_py_torch_spec import V1alpha2PyTorchSpec
 from .models.v1alpha2_sk_learn_spec import V1alpha2SKLearnSpec
+from .models.v1alpha2_onnx_spec import V1alpha2ONNXSpec
 from .models.v1alpha2_status_configuration_spec import V1alpha2StatusConfigurationSpec
 from .models.v1alpha2_tensor_rt_spec import V1alpha2TensorRTSpec
 from .models.v1alpha2_tensorflow_spec import V1alpha2TensorflowSpec

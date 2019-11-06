@@ -14,8 +14,8 @@ import (
 
 var (
 	defaultResource = v1.ResourceList{
-		v1.ResourceCPU:    resource.MustParse("2Gi"),
-		v1.ResourceMemory: resource.MustParse("1"),
+		v1.ResourceCPU:    resource.MustParse("1"),
+		v1.ResourceMemory: resource.MustParse("2Gi"),
 	}
 )
 
@@ -89,4 +89,17 @@ func validateStorageURI(storageURI string) error {
 	}
 
 	return fmt.Errorf(UnsupportedStorageURIFormatError, strings.Join(SupportedStorageURIPrefixList, ", "), storageURI)
+}
+
+func validateReplicas(minReplicas int, maxReplicas int) error {
+	if minReplicas < 0 {
+		return fmt.Errorf(MinReplicasLowerBoundExceededError)
+	}
+	if maxReplicas < 0 {
+		return fmt.Errorf(MaxReplicasLowerBoundExceededError)
+	}
+	if minReplicas > maxReplicas && maxReplicas != 0 {
+		return fmt.Errorf(MinReplicasShouldBeLessThanMaxError)
+	}
+	return nil
 }

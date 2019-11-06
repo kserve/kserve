@@ -16,8 +16,9 @@ from pytorchserver import PyTorchModel
 import torch
 import torchvision
 import torchvision.transforms as transforms
+import os
 
-model_dir = "../../docs/samples/pytorch"
+model_dir = model_dir = os.path.join(os.path.dirname(__file__), "example_model")
 MODEL_FILE = "model.pt"
 
 def test_model():
@@ -33,6 +34,6 @@ def test_model():
     dataiter = iter(testloader)
     images, _ = dataiter.next()
 
-    request = images[0:1].tolist()
+    request = {"instances" : images[0:1].tolist()}
     response = server.predict(request)
-    assert isinstance(response[0], list)
+    assert isinstance(response["instances"][0], list)

@@ -25,7 +25,7 @@ with open('requirements.txt') as f:
 
 setuptools.setup(
     name='kfserving',
-    version='0.2.1',
+    version='0.2.4',
     author="Kubeflow Authors",
     author_email='ellisbigelow@google.com, hejinchi@cn.ibm.com',
     license="Apache License Version 2.0",
@@ -38,7 +38,7 @@ setuptools.setup(
         'kfserving.api',
         'kfserving.constants',
         'kfserving.models',
-        'kfserving.protocols',
+        'kfserving.handlers',
         'kfserving.utils',
     ],
     package_data={},
