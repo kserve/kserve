@@ -31,6 +31,8 @@ KFServing = KFServingClient(config_file="~/.kube/config")
 
 
 def test_tensorflow_kfserving():
+    service_name = 'isvc-tensorflow'
+    namespace = 'kfserving-ci-e2e-test'
     default_endpoint_spec = V1alpha2EndpointSpec(
         predictor=V1alpha2PredictorSpec(
             tensorflow=V1alpha2TensorflowSpec(
@@ -42,8 +44,9 @@ def test_tensorflow_kfserving():
     isvc = V1alpha2InferenceService(api_version=api_version,
                                     kind=constants.KFSERVING_KIND,
                                     metadata=client.V1ObjectMeta(
-                                        name='isvc-tensorflow-test', namespace='kfserving-ci-e2e-test'),
+                                        name=service_name, namespace=namespace),
                                     spec=V1alpha2InferenceServiceSpec(default=default_endpoint_spec))
 
     KFServing.create(isvc)
-    wait_for_isvc_ready('isvc-tensorflow-test')
+    wait_for_isvc_ready(service_name)
+    KFServing.delete(service_name, namespace)
