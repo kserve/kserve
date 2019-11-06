@@ -41,7 +41,7 @@ class KFModel:
         return request
 
     def predict(self, request: Dict) -> Dict:
-        if self.predictor_host is None:
+        if not self.predictor_host:
             raise NotImplementedError
 
         response = requests.post(

@@ -46,7 +46,7 @@ def test_transformer():
             min_replicas=1,
             custom=V1alpha2CustomSpec(
                 container=V1Container(
-                image='yuzisun/image-transformer:latest',
+                image='gcr.io/kubeflow-ci/kfserving/image-transformer:latest',
                 name='user-container',
                 resources=V1ResourceRequirements(
                     requests={'cpu': '100m', 'memory': '256Mi'},
