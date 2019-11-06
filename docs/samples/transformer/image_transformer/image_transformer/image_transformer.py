@@ -14,7 +14,6 @@
 
 import kfserving
 from typing import List, Dict
-from kfserving.transformer import Transformer
 from PIL import Image
 import torchvision.transforms as transforms
 import logging
@@ -39,7 +38,10 @@ def image_transform(instance):
     return res.tolist()
 
 
-class ImageTransformer(Transformer):
+class ImageTransformer(kfserving.KFModel):
+    def __init__(self, name: str, predictor_host: str):
+        super().__init__(name)
+        self.predictor_host = predictor_host
 
     def preprocess(self, inputs: Dict) -> Dict:
         return {'instances': [image_transform(instance) for instance in inputs['instances']]}
