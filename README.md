@@ -21,7 +21,7 @@ TAG=0.2.0
 kubectl apply -f ./install/$TAG/kfserving.yaml
 ```
 
-Please refer to our [troubleshooting section](docs/DEVELOPER_GUIDE.md) for recommendations and tips.
+Please refer to our [troubleshooting section](docs/DEVELOPER_GUIDE.md#troubleshooting) for recommendations and tips.
 
 ### Use ###
 * Install the SDK
