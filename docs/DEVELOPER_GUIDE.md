@@ -252,7 +252,13 @@ Succeeded
 
 ## Troubleshooting
 
-1. When you run make deploy, you may encounter an error like this:
+1. If you are on kubernetes 1.15+, we highly recommend adding object selector on kfserving pod mutating webhook configuration so that only pods managed by kfserving go through the kfserving pod mutator
+
+```
+kubectl patch mutatingwebhookconfiguration inferenceservice.serving.kubeflow.org --patch '{"webhooks":[{"name": "inferenceservice.kfserving-webhook-server.pod-mutator","objectSelector":{"matchExpressions":[{"key":"serving.kubeflow.org/inferenceservice", "operator": "Exists"}]}}]}'
+```
+
+2. When you run make deploy, you may encounter an error like this:
 
 ```shell
 error: error validating "STDIN": error validating data: ValidationError(CustomResourceDefinition.spec.validation.openAPIV3Schema.properties.status.properties.conditions.properties.conditions.items): invalid type for io.k8s.apiextensions-apiserver.pkg.apis.apiextensions.v1beta1.JSONSchemaPropsOrArray: got "map", expected ""; if you choose to ignore these errors, turn validation off with --validate=false
@@ -267,7 +273,7 @@ Client Version: version.Info{Major:"1", Minor:"13", GitVersion:"v1.13.6", GitCom
 Server Version: version.Info{Major:"1", Minor:"13", GitVersion:"v1.13.6+IKS", GitCommit:"ac5f7341d5d0ce8ea8f206ba5b030dc9e9d4cc97", GitTreeState:"clean", BuildDate:"2019-05-09T13:26:51Z", GoVersion:"go1.11.5", Compiler:"gc", Platform:"linux/amd64"}
 ```
 
-2. When you run make deploy-dev, you may see an error like the one below:
+3. When you run make deploy-dev, you may see an error like the one below:
 
 ```shell
 2019/05/17 15:13:54 error processing import paths in "config/default/manager/manager.yaml": unsupported status code 401; body: 
@@ -277,10 +283,48 @@ Error: reading strategic merge patches [manager_image_patch.yaml]: evalsymlink f
 
 It`s a red herring. To resolve it, please ensure you have logged into dockerhub from you client machine.
 
-3. When you deploy the tensorflow sample, you may encounter an error like the one blow:
+4. When you deploy the tensorflow sample, you may encounter an error like the one blow:
 
 ```
 2019-09-28 01:52:23.345692: E tensorflow_serving/sources/storage_path/file_system_storage_path_source.cc:362] FileSystemStoragePathSource encountered a filesystem access error: Could not find base path /mnt/models for servable flowers-sample
 ```
 
 Please make sure not to deploy the inferenceservice in the `kfserving-system` or other namespaces where namespace has  `control-plane` as a label. The `storage-initializer` init container does not get injected for deployments in those namespaces since they do not go through the mutating webhook.
+
+5. You may get one of the following errors after 'make deploy-dev', and while deploying the sample model
+
+```shell
+kubectl apply -f docs/samples/tensorflow/tensorflow.yaml
+Error from server (InternalError): error when creating "docs/samples/tensorflow/tensorflow.yaml": 
+Internal error occurred: failed calling webhook "inferenceservice.kfserving-webhook-server.defaulter": 
+Post https://kfserving-webhook-server-service.kfserving-system.svc:443/mutate-inferenceservices?timeout=30s:
+```
+
+```shell
+ context deadline exceeded
+```
+
+```shell
+unexpected EOF
+```
+
+```shell
+dial tcp x.x.x.x:443: connect: connection refused
+```
+
+If above errors appear, first thing to check is if the KFServing controller is running
+
+```shell
+kubectl get po -n kfserving-system
+NAME                             READY   STATUS    RESTARTS   AGE
+kfserving-controller-manager-0   2/2     Running   2          13m
+```
+
+If it is, more often than not, it is caused by a stale webhook, since webhooks are immutable. Please delete them, and test again
+
+```shell
+kubectl delete mutatingwebhookconfigurations inferenceservice.serving.kubeflow.org &&  kubectl delete validatingwebhookconfigurations inferenceservice.serving.kubeflow.org && kubectl delete po kfserving-controller-manager-0  -n kfserving-system
+
+mutatingwebhookconfiguration.admissionregistration.k8s.io "inferenceservice.serving.kubeflow.org" deleted
+validatingwebhookconfiguration.admissionregistration.k8s.io "inferenceservice.serving.kubeflow.org" deleted
+```
