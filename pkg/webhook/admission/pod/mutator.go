@@ -69,6 +69,11 @@ func (mutator *Mutator) Handle(ctx context.Context, req types.Request) types.Res
 }
 
 func (mutator *Mutator) mutate(pod *v1.Pod, configMap *v1.ConfigMap) error {
+	// Skip webhook if pod not managed by kfserving
+	if _, ok := pod.Labels[constants.InferenceServicePodLabelKey]; !ok {
+		return nil
+	}
+
 	credentialBuilder := credentials.NewCredentialBulder(mutator.Client, configMap)
 
 	storageInitializerConfig, err := getStorageInitializerConfigs(configMap)
@@ -84,11 +89,6 @@ func (mutator *Mutator) mutate(pod *v1.Pod, configMap *v1.ConfigMap) error {
 	mutators := []func(pod *v1.Pod) error{
 		InjectGKEAcceleratorSelector,
 		storageInitializer.InjectStorageInitializer,
-	}
-
-	// Skip webhook if pod not managed by kfserving
-	if _, ok := pod.Labels[constants.InferenceServicePodLabelKey]; !ok {
-		return nil
 	}
 
 	for _, mutator := range mutators {

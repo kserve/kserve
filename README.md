@@ -21,6 +21,11 @@ TAG=0.2.0
 kubectl apply -f ./install/$TAG/kfserving.yaml
 ```
 
+If you are on kubernetes 1.15+, we highly recommend adding object selector on kfserving pod mutating webhook configuration so that only pods managed by kfserving go through the kfserving pod mutator
+```
+kubectl patch mutatingwebhookconfiguration inferenceservice.serving.kubeflow.org --patch '{"webhooks":[{"name": "inferenceservice.kfserving-webhook-server.pod-mutator","objectSelector":{"matchExpressions":[{"key":"serving.kubeflow.org/inferenceservice", "operator": "Exists"}]}}]}'
+```
+
 ### Use ###
 * Install the SDK
   ```
