@@ -70,7 +70,7 @@ func main() {
 		Handler: h2c.NewHandler(eh, &http2.Server{}),
 	}
 
-	fmt.Println("Starting the log dispatcher")
+	log.Info("Starting the log dispatcher")
 	logger.StartDispatcher(*workers, log)
 
 	log.Info("Starting", "port", *port)

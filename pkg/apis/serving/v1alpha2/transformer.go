@@ -22,7 +22,7 @@ type Transformer interface {
 }
 
 // GetContainerSpec for the transformer
-func (t *TransformerSpec) GetContainerSpec(metadata metav1.ObjectMeta, isCanary bool) *v1.Container {
+func (t *TransformerSpec) GetContainerSpec(metadata metav1.ObjectMeta, isCanary bool, hasInferenceLogging bool) *v1.Container {
 	transformer, err := getTransformer(t)
 	if err != nil {
 		return &v1.Container{}
@@ -33,6 +33,8 @@ func (t *TransformerSpec) GetContainerSpec(metadata metav1.ObjectMeta, isCanary 
 		metadata.Name,
 		constants.ArgumentPredictorHost,
 		constants.PredictorURL(metadata, isCanary),
+		constants.ArgumentHttpPort,
+		constants.GetInferenceServiceHttpPort(hasInferenceLogging),
 	}...)
 	return container
 }

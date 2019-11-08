@@ -25,7 +25,7 @@ import (
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/controller/inferenceservice/resources/credentials"
 	"github.com/kubeflow/kfserving/pkg/utils"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/serving"
@@ -87,21 +87,14 @@ func (c *ServiceBuilder) CreateInferenceServiceComponent(isvc *v1alpha2.Inferenc
 		return c.CreateTransformerService(serviceName, isvc.ObjectMeta, transformerSpec, isCanary)
 	case constants.Explainer:
 		explainerSpec := isvc.Spec.Default.Explainer
-		predictorService := constants.DefaultPredictorServiceName(isvc.Name) + "." + isvc.Namespace
+		predictorService := constants.PredictorURL(isvc.ObjectMeta, isCanary)
 		if isvc.Spec.Default.Transformer != nil {
-			predictorService = constants.DefaultTransformerServiceName(isvc.Name) + "." + isvc.Namespace
-		}
-		if isCanary {
-			explainerSpec = isvc.Spec.Canary.Explainer
-			predictorService = constants.CanaryPredictorServiceName(isvc.Name) + "." + isvc.Namespace
-			if isvc.Spec.Canary.Transformer != nil {
-				predictorService = constants.CanaryTransformerServiceName(isvc.Name) + "." + isvc.Namespace
-			}
+			predictorService = constants.TransformerURL(isvc.ObjectMeta, isCanary)
 		}
 		if explainerSpec == nil {
 			return nil, nil
 		}
-		return c.CreateExplainerService(serviceName, isvc.ObjectMeta, explainerSpec, predictorService, isCanary)
+		return c.CreateExplainerService(serviceName, isvc.ObjectMeta, explainerSpec, predictorService)
 	}
 	return nil, fmt.Errorf("Invalid Component")
 }
@@ -189,21 +182,8 @@ func (c *ServiceBuilder) CreateTransformerService(name string, metadata metav1.O
 	// mutator to add it
 	hasInferenceLogging := addLoggerAnnotations(transformerSpec.Logger, annotations)
 
-	predictorHostName := fmt.Sprintf("%s.%s", constants.DefaultPredictorServiceName(metadata.Name), metadata.Namespace)
+	container := transformerSpec.GetContainerSpec(metadata, isCanary, hasInferenceLogging)
 
-	if isCanary {
-		predictorHostName = fmt.Sprintf("%s.%s", constants.CanaryPredictorServiceName(metadata.Name), metadata.Namespace)
-	}
-	container := transformerSpec.Custom.Container
-	predefinedArgs := []string{
-		constants.ArgumentModelName,
-		metadata.Name,
-		constants.ArgumentPredictorHost,
-		predictorHostName,
-		constants.ArgumentHttpPort,
-		constants.GetInferenceServiceHttpPort(hasInferenceLogging),
-	}
-	container.Args = append(container.Args, predefinedArgs...)
 	service := &knservingv1alpha1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -227,7 +207,7 @@ func (c *ServiceBuilder) CreateTransformerService(name string, metadata metav1.O
 							PodSpec: v1.PodSpec{
 								ServiceAccountName: transformerSpec.ServiceAccountName,
 								Containers: []v1.Container{
-									container,
+									*container,
 								},
 							},
 						},
@@ -249,7 +229,7 @@ func (c *ServiceBuilder) CreateTransformerService(name string, metadata metav1.O
 	return service, nil
 }
 
-func (c *ServiceBuilder) CreateExplainerService(name string, metadata metav1.ObjectMeta, explainerSpec *v1alpha2.ExplainerSpec, predictorService string, isCanary bool) (*knservingv1alpha1.Service, error) {
+func (c *ServiceBuilder) CreateExplainerService(name string, metadata metav1.ObjectMeta, explainerSpec *v1alpha2.ExplainerSpec, predictorService string) (*knservingv1alpha1.Service, error) {
 	annotations, err := c.buildAnnotations(metadata, explainerSpec.MinReplicas, explainerSpec.MaxReplicas)
 	if err != nil {
 		return nil, err

@@ -104,8 +104,6 @@ func (mutator *Mutator) mutate(pod *v1.Pod, configMap *v1.ConfigMap) error {
 		loggerInjector.InjectLogger,
 	}
 
-
-
 	for _, mutator := range mutators {
 		if err := mutator(pod); err != nil {
 			return err
