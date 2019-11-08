@@ -14,11 +14,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package executor
+package logger
 
 import (
 	"bytes"
-	"fmt"
+	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	"github.com/onsi/gomega"
 	"io/ioutil"
 	"net/http"
@@ -28,43 +28,53 @@ import (
 	"testing"
 )
 
-func TestExecutor(t *testing.T) {
+func TestLogger(t *testing.T) {
 
 	g := gomega.NewGomegaWithT(t)
 
+	predictorRequest := []byte(`{"instances":[[0,0,0]]}`)
 	predictorResponse := []byte(`{"instances":[[4,5,6]]}`)
+
 	// Start a local HTTP server
-	preprocessor := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-		rw.Write([]byte(`{"instances":[[1,2,3]]}`))
+	logSvc := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		b, err := ioutil.ReadAll(req.Body)
+		g.Expect(err).To(gomega.BeNil())
+		g.Expect(b).To(gomega.Or(gomega.Equal(predictorRequest), gomega.Equal(predictorResponse)))
+		_, err = rw.Write([]byte(`ok`))
+		g.Expect(err).To(gomega.BeNil())
 	}))
 	// Close the server when test finishes
-	defer preprocessor.Close()
+	defer logSvc.Close()
 
 	// Start a local HTTP server
 	predictor := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-		rw.Write(predictorResponse)
+		b, err := ioutil.ReadAll(req.Body)
+		g.Expect(err).To(gomega.BeNil())
+		g.Expect(b).To(gomega.Or(gomega.Equal(predictorRequest), gomega.Equal(predictorResponse)))
+		_, err = rw.Write(predictorResponse)
+		g.Expect(err).To(gomega.BeNil())
 	}))
 	// Close the server when test finishes
 	defer predictor.Close()
 
-	b := []byte(`{"instances":[[0,0,0]]}`)
-	reader := bytes.NewReader(b)
+	reader := bytes.NewReader(predictorRequest)
 	r := httptest.NewRequest("POST", "http://a", reader)
 	w := httptest.NewRecorder()
 
 	logf.SetLogger(logf.ZapLogger(false))
 	log := logf.Log.WithName("entrypoint")
 
-	preprocessUrl, _ := url.Parse(preprocessor.URL)
-	predictorUrl, _ := url.Parse(predictor.URL)
-
-	oh := New(log, preprocessUrl.Host, predictorUrl.Host, "")
+	predictorSvcUrl, err := url.Parse(predictor.URL)
+	g.Expect(err).To(gomega.BeNil())
+	logSvcUrl, err := url.Parse(logSvc.URL)
+	g.Expect(err).To(gomega.BeNil())
+	sourceUri, err := url.Parse("http://localhost:8080/")
+	g.Expect(err).To(gomega.BeNil())
+	oh := New(log, "0.0.0.0", predictorSvcUrl.Port(), logSvcUrl, sourceUri, v1alpha2.LogAll, "mymodel")
 
 	oh.ServeHTTP(w, r)
 
 	b2, _ := ioutil.ReadAll(w.Result().Body)
-	fmt.Printf("%s", string(b2))
-
 	g.Expect(b2).To(gomega.Equal(predictorResponse))
 
 }
