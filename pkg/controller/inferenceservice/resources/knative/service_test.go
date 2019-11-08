@@ -866,8 +866,7 @@ func TestExplainerToKnativeService(t *testing.T) {
 			constants.DefaultExplainerServiceName(scenario.inferenceService.Name),
 			scenario.inferenceService.ObjectMeta,
 			scenario.inferenceService.Spec.Default.Explainer,
-			constants.DefaultPredictorServiceName(scenario.inferenceService.Name)+"."+scenario.inferenceService.Namespace,
-			false)
+			constants.DefaultPredictorServiceName(scenario.inferenceService.Name)+"."+scenario.inferenceService.Namespace)
 		if err != nil {
 			t.Errorf("Test %q unexpected error %s", name, err.Error())
 		}
@@ -881,8 +880,7 @@ func TestExplainerToKnativeService(t *testing.T) {
 				constants.CanaryTransformerServiceName(isvc.Name),
 				scenario.inferenceService.ObjectMeta,
 				scenario.inferenceService.Spec.Canary.Explainer,
-				constants.CanaryPredictorServiceName(scenario.inferenceService.Name)+"."+scenario.inferenceService.Namespace,
-				true)
+				constants.CanaryPredictorServiceName(scenario.inferenceService.Name)+"."+scenario.inferenceService.Namespace)
 			if err != nil {
 				t.Errorf("Test %q unexpected error %s", name, err.Error())
 			}
