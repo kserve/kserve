@@ -231,8 +231,8 @@
                     template: "build-xgbserver",
                   },
                   {
-                    name: "build-kfserving-executor",
-                    template: "build-kfserving-executor",
+                    name: "build-logger",
+                    template: "build-logger",
                   },
                   {
                     name: "build-custom-image-transformer",
@@ -310,9 +310,9 @@
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-xgbserver", testWorkerImage, [
               "test/scripts/build-python-image.sh", "xgb.Dockerfile", "xgbserver",
             ]),  // build-xgbserver
-            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-kfserving-executor", testWorkerImage, [
-              "test/scripts/build-kfserving-executor.sh",
-            ]),  // build-kfserving-executor
+            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-logger", testWorkerImage, [
+              "test/scripts/build-logger.sh",
+            ]),  // build-logger
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-custom-image-transformer", testWorkerImage, [
               "test/scripts/build-custom-image-transformer.sh",
             ]),  // build-custom-image-transformer
