@@ -88,8 +88,8 @@ class KFServingClient(object):
         """
         Create the inference service
         :param inferenceservice: inference service object
-        :param namespace: inference service deployment namespace, defaults to current or default namespace
-        :param watch: True to watch the created inference service until timeout elapsed or status is ready
+        :param namespace: defaults to current or default namespace
+        :param watch: True to watch the created service until timeout elapsed or status is ready
         :param timeout_seconds: timeout seconds for watch, default to 600s
         :return: created inference service
         """
@@ -121,8 +121,8 @@ class KFServingClient(object):
         """
         Get the inference service
         :param name: existing inference service name
-        :param namespace: inference service deployment namespace, defaults to current or default namespace
-        :param watch: True to watch the inference service until timeout elapsed or status is ready
+        :param namespace: defaults to current or default namespace
+        :param watch: True to watch the service until timeout elapsed or status is ready
         :param timeout_seconds: timeout seconds for watch, default to 600s
         :return: inference service
         """
@@ -169,8 +169,8 @@ class KFServingClient(object):
         Patch existing inference service
         :param name: existing inference service name
         :param inferenceservice: patched inference service
-        :param namespace: inference service deployment namespace, defaults to current or default namespace
-        :param watch: True to watch the patched inference service until timeout elapsed or status is ready
+        :param namespace: defaults to current or default namespace
+        :param watch: True to watch the patched service until timeout elapsed or status is ready
         :param timeout_seconds: timeout seconds for watch, default to 600s
         :return: patched inference service
         """
@@ -205,8 +205,8 @@ class KFServingClient(object):
         Replace the existing inference service
         :param name: existing inference service name
         :param inferenceservice: replacing inference service
-        :param namespace: inference service deployment namespace, defaults to current or default namespace
-        :param watch: True to watch the replaced inference service until timeout elapsed or status is ready
+        :param namespace: defaults to current or default namespace
+        :param watch: True to watch the replaced service until timeout elapsed or status is ready
         :param timeout_seconds: timeout seconds for watch, default to 600s
         :return: replaced inference service
         """
@@ -246,9 +246,9 @@ class KFServingClient(object):
         Rollout the canary endpoint
         :param name: inference service name
         :param percent: traffic percentage to the canary endpoint
-        :param namespace: inference service deployment namespace, defaults to current or default namespace
+        :param namespace: defaults to current or default namespace
         :param canary: canary endpoint spec
-        :param watch: True to watch the inference service with canary endpoint until timeout elapsed or status is ready
+        :param watch: True to watch the service until timeout elapsed or status is ready
         :param timeout_seconds: timeout seconds for watch, default to 600s
         :return: inference service with canary endpoint
         """
@@ -272,8 +272,8 @@ class KFServingClient(object):
         """
         Promote canary endpoint to default
         :param name: inference service name
-        :param namespace: inference service deployment namespace, defaults to current or default namespace
-        :param watch: True to watch the promoted inference service until timeout elapsed or status is ready
+        :param namespace: defaults to current or default namespace
+        :param watch: True to watch the service until timeout elapsed or status is ready
         :param timeout_seconds: timeout seconds for watch, default to 600s
         :return: promoted inference service
         """
@@ -307,7 +307,7 @@ class KFServingClient(object):
         """
         Delete the inference service
         :param name: inference service name
-        :param namespace: inference service deployment namespace, defaults to current or default namespace
+        :param namespace: defaults to current or default namespace
         :return:
         """
         if namespace is None:
