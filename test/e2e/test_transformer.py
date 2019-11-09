@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import time
+import numpy as np
 from kubernetes import client
 
 from kfserving import KFServingClient
@@ -26,21 +26,21 @@ from kfserving import V1alpha2InferenceServiceSpec
 from kfserving import V1alpha2InferenceService
 from kubernetes.client import V1ResourceRequirements
 from kubernetes.client import V1Container
-from utils import wait_for_isvc_ready
+from utils import wait_for_isvc_ready, predict
+from utils import KFSERVING_TEST_NAMESPACE
 
 api_version = constants.KFSERVING_GROUP + '/' + constants.KFSERVING_VERSION
 KFServing = KFServingClient(config_file="~/.kube/config")
 
 
 def test_transformer():
-    namespace = 'kfserving-ci-e2e-test'
     service_name = 'isvc-transformer'
     default_endpoint_spec = V1alpha2EndpointSpec(
         predictor=V1alpha2PredictorSpec(
             min_replicas=1,
             pytorch=V1alpha2PyTorchSpec(
                 storage_uri='gs://kfserving-samples/models/pytorch/cifar10',
-                model_class_name= "Net",
+                model_class_name="Net",
                 resources=V1ResourceRequirements(
                     requests={'cpu': '100m', 'memory': '256Mi'},
                     limits={'cpu': '100m', 'memory': '256Mi'}))),
@@ -48,18 +48,20 @@ def test_transformer():
             min_replicas=1,
             custom=V1alpha2CustomSpec(
                 container=V1Container(
-                image='gcr.io/kubeflow-ci/kfserving/image-transformer:latest',
-                name='user-container',
-                resources=V1ResourceRequirements(
+                  image='gcr.io/kubeflow-ci/kfserving/image-transformer:latest',
+                  name='user-container',
+                  resources=V1ResourceRequirements(
                     requests={'cpu': '100m', 'memory': '256Mi'},
                     limits={'cpu': '100m', 'memory': '256Mi'})))))
 
     isvc = V1alpha2InferenceService(api_version=api_version,
                                     kind=constants.KFSERVING_KIND,
                                     metadata=client.V1ObjectMeta(
-                                        name=service_name, namespace=namespace),
+                                        name=service_name, namespace=KFSERVING_TEST_NAMESPACE),
                                     spec=V1alpha2InferenceServiceSpec(default=default_endpoint_spec))
 
     KFServing.create(isvc)
     wait_for_isvc_ready(service_name)
-    KFServing.delete(service_name, namespace)
+    KFServing.delete(service_name, KFSERVING_TEST_NAMESPACE)
+    probs = predict(service_name, './transformer.json')
+    assert(np.argmax(probs) == 3)

@@ -25,6 +25,7 @@ from kfserving import V1alpha2InferenceService
 from kubernetes.client import V1ResourceRequirements
 
 from utils import wait_for_isvc_ready
+from utils import KFSERVING_TEST_NAMESPACE
 
 api_version = constants.KFSERVING_GROUP + '/' + constants.KFSERVING_VERSION
 KFServing = KFServingClient(config_file="~/.kube/config")
@@ -32,7 +33,6 @@ KFServing = KFServingClient(config_file="~/.kube/config")
 
 def test_tensorflow_kfserving():
     service_name = 'isvc-tensorflow'
-    namespace = 'kfserving-ci-e2e-test'
     default_endpoint_spec = V1alpha2EndpointSpec(
         predictor=V1alpha2PredictorSpec(
             tensorflow=V1alpha2TensorflowSpec(
@@ -44,9 +44,9 @@ def test_tensorflow_kfserving():
     isvc = V1alpha2InferenceService(api_version=api_version,
                                     kind=constants.KFSERVING_KIND,
                                     metadata=client.V1ObjectMeta(
-                                        name=service_name, namespace=namespace),
+                                        name=service_name, namespace=KFSERVING_TEST_NAMESPACE),
                                     spec=V1alpha2InferenceServiceSpec(default=default_endpoint_spec))
 
     KFServing.create(isvc)
     wait_for_isvc_ready(service_name)
-    KFServing.delete(service_name, namespace)
+    KFServing.delete(service_name, KFSERVING_TEST_NAMESPACE)
