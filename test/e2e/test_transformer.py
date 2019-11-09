@@ -49,7 +49,7 @@ def test_transformer():
             custom=V1alpha2CustomSpec(
                 container=V1Container(
                   image='gcr.io/kubeflow-ci/kfserving/image-transformer:latest',
-                  name='user-container',
+                  name='kfserving-container',
                   resources=V1ResourceRequirements(
                     requests={'cpu': '100m', 'memory': '256Mi'},
                     limits={'cpu': '100m', 'memory': '256Mi'})))))
@@ -62,6 +62,7 @@ def test_transformer():
 
     KFServing.create(isvc)
     wait_for_isvc_ready(service_name)
-    KFServing.delete(service_name, KFSERVING_TEST_NAMESPACE)
     probs = predict(service_name, './transformer.json')
     assert(np.argmax(probs) == 3)
+    KFServing.delete(service_name, KFSERVING_TEST_NAMESPACE)
+
