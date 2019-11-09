@@ -24,6 +24,7 @@ import sys
 
 PYTORCH_FILE = "model.pt"
 
+
 class PyTorchModel(kfserving.KFModel):
     def __init__(self, name: str, model_class_name: str, model_dir: str):
         super().__init__(name)
@@ -68,6 +69,6 @@ class PyTorchModel(kfserving.KFModel):
             raise Exception(
                 "Failed to initialize Torch Tensor from inputs: %s, %s" % (e, inputs))
         try:
-            return { "predictions":  self._pytorch(inputs).tolist() }
+            return {"predictions":  self._pytorch(inputs).tolist()}
         except Exception as e:
             raise Exception("Failed to predict %s" % e)

@@ -69,7 +69,7 @@ def predict(service_name, input_json):
     cluster_ip = service.status.load_balancer.ingress[0].ip
     host = urlparse(isvc['status']['url']).netloc
     url = "http://{}/v1/models/{}:predict".format(cluster_ip, service_name)
-    headers = [host]
+    headers = {'Host': host}
     with open(input_json) as json_file:
         data = json.load(json_file)
         response = requests.post(url, json.dumps(data), headers=headers)
