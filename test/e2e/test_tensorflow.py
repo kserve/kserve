@@ -35,6 +35,7 @@ def test_tensorflow_kfserving():
     service_name = 'isvc-tensorflow'
     default_endpoint_spec = V1alpha2EndpointSpec(
         predictor=V1alpha2PredictorSpec(
+            min_replicas=1,
             tensorflow=V1alpha2TensorflowSpec(
                 storage_uri='gs://kfserving-samples/models/tensorflow/flowers',
                 resources=V1ResourceRequirements(
