@@ -452,7 +452,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						},
 						"runtimeVersion": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Allowed runtime versions are [v0.5.0, latest] and defaults to the version specified in the inferenceservice config map",
+								Description: "Allowed runtime versions are specified in the inferenceservice config map",
 								Type:        []string{"string"},
 								Format:      "",
 							},
@@ -665,7 +665,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						},
 						"runtimeVersion": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Allowed runtime versions are [19.05-py3] and defaults to the version specified in the inferenceservice config map",
+								Description: "Allowed runtime versions are specified in the inferenceservice config map",
 								Type:        []string{"string"},
 								Format:      "",
 							},
