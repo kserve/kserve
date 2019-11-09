@@ -37,7 +37,7 @@ def test_sklearn_kfserving():
         predictor=V1alpha2PredictorSpec(
             min_replicas=1,
             xgboost=V1alpha2XGBoostSpec(
-                storage_uri='gs://kfserving-samples/models/sklearn/iris',
+                storage_uri='gs://kfserving-samples/models/xgboost/iris',
                 resources=V1ResourceRequirements(
                     requests={'cpu': '100m', 'memory': '256Mi'},
                     limits={'cpu': '100m', 'memory': '256Mi'}))))
