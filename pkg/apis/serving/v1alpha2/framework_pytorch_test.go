@@ -16,6 +16,7 @@ func TestFrameworkPytorch(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	allowedPyTorchImageVersionsArray := []string{
 		DefaultPyTorchRuntimeVersion,
+		DefaultPyTorchRuntimeVersionGPU,
 	}
 	allowedPyTorchImageVersions := strings.Join(allowedPyTorchImageVersionsArray, ", ")
 
@@ -34,6 +35,21 @@ func TestFrameworkPytorch(t *testing.T) {
 				RuntimeVersion: "",
 			},
 			matcher: gomega.MatchError(fmt.Sprintf(InvalidPyTorchRuntimeVersionError, allowedPyTorchImageVersions)),
+		},
+		"RejectGPUResourcesExcluded": {
+			spec: PyTorchSpec{
+				RuntimeVersion: DefaultPyTorchRuntimeVersionGPU,
+			},
+			matcher: gomega.MatchError(fmt.Sprintf(InvalidPyTorchRuntimeExcludesGPU, allowedPyTorchImageVersions)),
+		},
+		"RejectGPUResourcesIncluded": {
+			spec: PyTorchSpec{
+				RuntimeVersion: DefaultPyTorchRuntimeVersion,
+				Resources: v1.ResourceRequirements{
+					Limits: v1.ResourceList{constants.NvidiaGPUResourceType: resource.MustParse("1")},
+				},
+			},
+			matcher: gomega.MatchError(fmt.Sprintf(InvalidPyTorchRuntimeIncludesGPU, allowedPyTorchImageVersions)),
 		},
 	}
 
