@@ -53,16 +53,16 @@ func TestFrameworkPytorch(t *testing.T) {
 		},
 	}
 
-	for name, scenario := range scenarios {
-		config := &InferenceServicesConfig{
-			Predictors: &PredictorsConfig{
-				PyTorch: PredictorConfig{
-					ContainerImage:       "kfserving/pytorchserver",
-					DefaultImageVersion:  "latest",
-					AllowedImageVersions: allowedPyTorchImageVersionsArray,
-				},
+	config := &InferenceServicesConfig{
+		Predictors: &PredictorsConfig{
+			PyTorch: PredictorConfig{
+				ContainerImage:       "kfserving/pytorchserver",
+				DefaultImageVersion:  "0.1.0",
+				AllowedImageVersions: allowedPyTorchImageVersionsArray,
 			},
-		}
+		},
+	}
+	for name, scenario := range scenarios {
 		g.Expect(scenario.spec.Validate(config)).Should(scenario.matcher, fmt.Sprintf("Testing %s", name))
 	}
 }

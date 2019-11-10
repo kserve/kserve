@@ -81,5 +81,5 @@ func (p *PyTorchSpec) Validate(config *InferenceServicesConfig) error {
 	if !isGPUEnabled(p.Resources) && strings.Contains(p.RuntimeVersion, PyTorchServingGPUSuffix) {
 		return fmt.Errorf(InvalidPyTorchRuntimeExcludesGPU, strings.Join(config.Predictors.PyTorch.AllowedImageVersions, ", "))
 	}
-	return fmt.Errorf(InvalidPyTorchRuntimeVersionError, strings.Join(config.Predictors.PyTorch.AllowedImageVersions, ", "))
+	return nil
 }
