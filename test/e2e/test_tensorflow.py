@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import time
+import numpy as np
 from kubernetes import client
 
 from kfserving import KFServingClient
@@ -24,7 +24,7 @@ from kfserving import V1alpha2InferenceServiceSpec
 from kfserving import V1alpha2InferenceService
 from kubernetes.client import V1ResourceRequirements
 
-from utils import wait_for_isvc_ready
+from utils import wait_for_isvc_ready, predict
 from utils import KFSERVING_TEST_NAMESPACE
 
 api_version = constants.KFSERVING_GROUP + '/' + constants.KFSERVING_VERSION
@@ -50,4 +50,6 @@ def test_tensorflow_kfserving():
 
     KFServing.create(isvc)
     wait_for_isvc_ready(service_name)
+    probs = predict(service_name, './flower_input.json')
+    assert(np.argmax(probs) == 0)
     KFServing.delete(service_name, KFSERVING_TEST_NAMESPACE)

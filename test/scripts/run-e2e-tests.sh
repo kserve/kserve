@@ -123,5 +123,5 @@ popd
 
 echo "Starting E2E functional tests ..."
 pushd test/e2e >/dev/null
-  pytest
+  pytest -n 4
 popd
