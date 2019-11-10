@@ -72,7 +72,8 @@ def predict(service_name, input_json):
     headers = {'Host': host}
     with open(input_json) as json_file:
         data = json.load(json_file)
+        logging.info("Sending request data: %s", json.dumps(data))
         response = requests.post(url, json.dumps(data), headers=headers)
-        print(response.content)
+        logging.info("Got response %s", response.content)
         probs = json.loads(response.content.decode('utf-8'))["predictions"]
         return probs
