@@ -30,23 +30,23 @@ data:
         },
         "sklearn": {
             "image": "gcr.io/kfserving/sklearnserver",
-            "defaultImageVersion": "0.2.0",
+            "defaultImageVersion": "0.2.1",
             "allowedImageVersions": [
-               "0.2.0"
+               "0.2.1"
             ]
         },
         "xgboost": {
             "image": "gcr.io/kfserving/xgbserver",
-            "defaultImageVersion": "0.2.0",
+            "defaultImageVersion": "0.2.1",
             "allowedImageVersions": [
-               "0.2.0"
+               "0.2.1"
             ]
         },
         "pytorch": {
             "image": "gcr.io/kfserving/pytorchserver",
-            "defaultImageVersion": "0.2.0",
+            "defaultImageVersion": "0.2.1",
             "allowedImageVersions": [
-               "0.2.0"
+               "0.2.1"
             ]
         },
         "tensorrt": {
@@ -64,15 +64,15 @@ data:
     {
         "alibi": {
             "image" : "gcr.io/kfserving/alibi-explainer",
-            "defaultImageVersion": "0.2.0",
+            "defaultImageVersion": "0.2.1",
             "allowedImageVersions": [
-               "0.2.0"
+               "0.2.1"
             ]
         }
     }
   storageInitializer: |-
     {
-        "image" : "gcr.io/kfserving/storage-initializer:0.2.0",
+        "image" : "gcr.io/kfserving/storage-initializer:0.2.1",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",

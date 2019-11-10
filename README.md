@@ -17,7 +17,7 @@ You may find this [installation instruction](https://github.com/kubeflow/kfservi
 
 ### Installation using kubectl ###
 ```
-TAG=0.2.0
+TAG=0.2.1
 kubectl apply -f ./install/$TAG/kfserving.yaml
 ```
 
