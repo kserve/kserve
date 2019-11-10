@@ -23,11 +23,11 @@ func (s *AlibiExplainerSpec) GetResourceRequirements() *v1.ResourceRequirements 
 	return &s.Resources
 }
 
-func (s *AlibiExplainerSpec) CreateExplainerContainer(modelName string, predictorHost string, config *InferenceServicesConfig, hasInferenceLogging bool) *v1.Container {
+func (s *AlibiExplainerSpec) CreateExplainerContainer(modelName string, predictorHost string, config *InferenceServicesConfig, hasLogging bool) *v1.Container {
 	var args = []string{
 		constants.ArgumentModelName, modelName,
 		constants.ArgumentPredictorHost, predictorHost,
-		constants.ArgumentHttpPort, constants.GetInferenceServiceHttpPort(hasInferenceLogging),
+		constants.ArgumentHttpPort, constants.GetInferenceServiceHttpPort(hasLogging),
 	}
 
 	if s.StorageURI != "" {

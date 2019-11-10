@@ -38,7 +38,7 @@ func (s *PyTorchSpec) GetResourceRequirements() *v1.ResourceRequirements {
 	return &s.Resources
 }
 
-func (s *PyTorchSpec) GetContainer(modelName string, config *InferenceServicesConfig, hasInferenceLogging bool) *v1.Container {
+func (s *PyTorchSpec) GetContainer(modelName string, config *InferenceServicesConfig, hasLogging bool) *v1.Container {
 	return &v1.Container{
 		Image:     config.Predictors.PyTorch.ContainerImage + ":" + s.RuntimeVersion,
 		Name:      constants.InferenceServiceContainerName,
@@ -47,7 +47,7 @@ func (s *PyTorchSpec) GetContainer(modelName string, config *InferenceServicesCo
 			"--model_name=" + modelName,
 			"--model_class_name=" + s.ModelClassName,
 			"--model_dir=" + constants.DefaultModelLocalMountPath,
-			"--http_port=" + constants.GetInferenceServiceHttpPort(hasInferenceLogging),
+			"--http_port=" + constants.GetInferenceServiceHttpPort(hasLogging),
 		},
 	}
 }

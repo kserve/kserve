@@ -18,7 +18,6 @@ package pod
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	v1 "k8s.io/api/core/v1"
 	k8types "k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
@@ -86,16 +85,13 @@ func (mutator *Mutator) mutate(pod *v1.Pod, configMap *v1.ConfigMap) error {
 		config:            storageInitializerConfig,
 	}
 
-	var loggerConfig LoggerConfig
-	if loggerConfigValue, ok := configMap.Data[LoggerConfigMapKeyName]; ok {
-		err := json.Unmarshal([]byte(loggerConfigValue), &loggerConfig)
-		if err != nil {
-			panic(fmt.Errorf("Unable to unmarshall logger json string due to %v ", err))
-		}
+	loggerConfig, err := getLoggerConfigs(configMap)
+	if err != nil {
+		return err
 	}
 
 	loggerInjector := &LoggerInjector{
-		config: &loggerConfig,
+		config: loggerConfig,
 	}
 
 	mutators := []func(pod *v1.Pod) error{

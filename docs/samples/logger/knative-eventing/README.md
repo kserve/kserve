@@ -1,6 +1,6 @@
 # Knative Eventing Inference Logger Demo
 
-This demo assumes you have a cluster running with KNative eventing installed, along with kfserving.
+This demo assumes you have a cluster running with [KNative eventing installed](https://knative.dev/docs/eventing/getting-started/), along with kfserving.
 
 First let us create a message dumper KNative service which will print out the Cloud Events it receives.
 We will use the following resource yaml:

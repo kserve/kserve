@@ -1,26 +1,56 @@
 package pod
 
 import (
+	"encoding/json"
+	"fmt"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"strings"
 )
 
 const (
-	LoggerContainerName         = "inferenceservice-logger"
-	LoggerConfigMapKeyName      = "logger"
-	LoggerContainerImage        = "gcr.io/kfserving/logger"
-	LoggerContainerImageVersion = "latest"
-	PodKnativeServiceLabel      = "serving.knative.dev/service"
+	LoggerContainerName    = "inferenceservice-logger"
+	LoggerConfigMapKeyName = "logger"
+	PodKnativeServiceLabel = "serving.knative.dev/service"
 )
 
 type LoggerConfig struct {
-	Image string `json:"image"`
+	Image         string `json:"image"`
+	CpuRequest    string `json:"cpuRequest"`
+	CpuLimit      string `json:"cpuLimit"`
+	MemoryRequest string `json:"memoryRequest"`
+	MemoryLimit   string `json:"memoryLimit"`
 }
 
 type LoggerInjector struct {
 	config *LoggerConfig
+}
+
+func getLoggerConfigs(configMap *v1.ConfigMap) (*LoggerConfig, error) {
+
+	loggerConfig := &LoggerConfig{}
+	if loggerConfigValue, ok := configMap.Data[LoggerConfigMapKeyName]; ok {
+		err := json.Unmarshal([]byte(loggerConfigValue), &loggerConfig)
+		if err != nil {
+			panic(fmt.Errorf("Unable to unmarshall logger json string due to %v ", err))
+		}
+	}
+
+	//Ensure that we set proper values for CPU/Memory Limit/Request
+	resourceDefaults := []string{loggerConfig.MemoryRequest,
+		loggerConfig.MemoryLimit,
+		loggerConfig.CpuRequest,
+		loggerConfig.CpuLimit}
+	for _, key := range resourceDefaults {
+		_, err := resource.ParseQuantity(key)
+		if err != nil {
+			return loggerConfig, err
+		}
+	}
+
+	return loggerConfig, nil
 }
 
 func (il *LoggerInjector) InjectLogger(pod *v1.Pod) error {
@@ -49,14 +79,9 @@ func (il *LoggerInjector) InjectLogger(pod *v1.Pod) error {
 		}
 	}
 
-	loggerImage := LoggerContainerImage + ":" + LoggerContainerImageVersion
-	if il.config != nil && il.config.Image != "" {
-		loggerImage = il.config.Image
-	}
-
 	loggerContainer := &v1.Container{
 		Name:  LoggerContainerName,
-		Image: loggerImage,
+		Image: il.config.Image,
 		Args: []string{
 			"--log-url",
 			logUrl,
@@ -66,6 +91,16 @@ func (il *LoggerInjector) InjectLogger(pod *v1.Pod) error {
 			logMode,
 			"--model-id",
 			modelId,
+		},
+		Resources: v1.ResourceRequirements{
+			Limits: map[v1.ResourceName]resource.Quantity{
+				v1.ResourceCPU:    resource.MustParse(il.config.CpuLimit),
+				v1.ResourceMemory: resource.MustParse(il.config.MemoryLimit),
+			},
+			Requests: map[v1.ResourceName]resource.Quantity{
+				v1.ResourceCPU:    resource.MustParse(il.config.CpuRequest),
+				v1.ResourceMemory: resource.MustParse(il.config.MemoryRequest),
+			},
 		},
 	}
 

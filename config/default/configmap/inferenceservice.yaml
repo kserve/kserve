@@ -95,5 +95,9 @@ data:
     }
   logger: |-
     {
-        "image" : "gcr.io/kfserving/logger:0.2.0"
+        "image" : "gcr.io/kfserving/logger:0.2.1",
+        "memoryRequest": "100Mi",
+        "memoryLimit": "1Gi",
+        "cpuRequest": "100m",
+        "cpuLimit": "1"
     }

@@ -37,14 +37,14 @@ func (s *ONNXSpec) GetResourceRequirements() *v1.ResourceRequirements {
 	return &s.Resources
 }
 
-func (s *ONNXSpec) GetContainer(modelName string, config *InferenceServicesConfig, hasInferenceLogging bool) *v1.Container {
+func (s *ONNXSpec) GetContainer(modelName string, config *InferenceServicesConfig, hasLogging bool) *v1.Container {
 	return &v1.Container{
 		Image:     config.Predictors.ONNX.ContainerImage + ":" + s.RuntimeVersion,
 		Name:      constants.InferenceServiceContainerName,
 		Resources: s.Resources,
 		Args: []string{
 			"--model_path", constants.DefaultModelLocalMountPath + "/" + ONNXModelFileName,
-			"--http_port", constants.GetInferenceServiceHttpPort(hasInferenceLogging),
+			"--http_port", constants.GetInferenceServiceHttpPort(hasLogging),
 			"--grpc_port", ONNXServingGRPCPort,
 		},
 	}
