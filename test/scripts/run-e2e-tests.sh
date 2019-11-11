@@ -49,6 +49,8 @@ waiting_pod_running(){
 waiting_for_kfserving_controller(){
     TIMEOUT=120
     until [[ $(kubectl get statefulsets kfserving-controller-manager -n kfserving-system -o=jsonpath='{.status.readyReplicas}') -eq 1 ]]; do
+        kubectl get pods -n kfserving-system
+        kubectl get cm -n kfserving-system
         sleep 10
         TIMEOUT=$(( TIMEOUT - 10 ))
         if [[ $TIMEOUT -eq 0 ]];then
@@ -106,7 +108,7 @@ make deploy-ci
 
 echo "Waiting for KFServing started ..."
 waiting_for_kfserving_controller
-sleep 60  # Wait for webhook install finished totally.
+sleep 120  # Wait for webhook install finished totally.
 
 echo "Creating a namespace kfserving-ci-test ..."
 kubectl create namespace kfserving-ci-e2e-test
