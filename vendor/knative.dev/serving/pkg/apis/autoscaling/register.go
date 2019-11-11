@@ -19,8 +19,10 @@ package autoscaling
 import "time"
 
 const (
+	// The internal autoscaling group name. This is used for CRDs.
 	InternalGroupName = "autoscaling.internal.knative.dev"
 
+	// The publuc autoscaling group name. This is used for annotations, labels, etc.
 	GroupName = "autoscaling.knative.dev"
 
 	// ClassAnnotationKey is the annotation for the explicit class of autoscaler
@@ -50,6 +52,8 @@ const (
 	Concurrency = "concurrency"
 	// CPU is the amount of the requested cpu actually being consumed by the Pod.
 	CPU = "cpu"
+	// RPS is the requests per second reaching the Pod.
+	RPS = "rps"
 
 	// TargetAnnotationKey is the annotation to specify what metric value the
 	// PodAutoscaler should attempt to maintain. For example,

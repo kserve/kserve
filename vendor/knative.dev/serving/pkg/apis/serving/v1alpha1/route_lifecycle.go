@@ -23,7 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"knative.dev/pkg/apis"
-	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
 )
 
@@ -170,6 +170,6 @@ func (rs *RouteStatus) PropagateIngressStatus(cs v1alpha1.IngressStatus) {
 	}
 }
 
-func (rs *RouteStatus) duck() *duckv1beta1.Status {
+func (rs *RouteStatus) duck() *duckv1.Status {
 	return &rs.Status
 }

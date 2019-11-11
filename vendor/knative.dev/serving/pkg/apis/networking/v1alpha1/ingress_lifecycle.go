@@ -21,7 +21,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"knative.dev/pkg/apis"
-	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 )
 
 var ingressCondSet = apis.NewLivingConditionSet(
@@ -78,12 +78,17 @@ func (is *IngressStatus) MarkLoadBalancerPending() {
 		"Waiting for VirtualService to be ready")
 }
 
+// MarkIngressNotReady marks the "IngressConditionReady" condition to unknown.
+func (is *IngressStatus) MarkIngressNotReady(reason, message string) {
+	ingressCondSet.Manage(is).MarkUnknown(IngressConditionReady, reason, message)
+}
+
 // IsReady looks at the conditions and if the Status has a condition
 // IngressConditionReady returns true if ConditionStatus is True
 func (is *IngressStatus) IsReady() bool {
 	return ingressCondSet.Manage(is).IsHappy()
 }
 
-func (is *IngressStatus) duck() *duckv1beta1.Status {
+func (is *IngressStatus) duck() *duckv1.Status {
 	return &is.Status
 }

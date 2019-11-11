@@ -232,11 +232,11 @@
   revision = "6f77996f0c42f7b84e5a2b252227263f93432e9b"
 
 [[projects]]
-  digest = "1:7915c656a10819b240db94ffd6afc6a621af4687db735341d9919668750485ec"
+  digest = "1:10aa62acd56f635de190110a836aa261b3774e697b2b6a7af27d8263cf856d47"
   name = "github.com/google/go-containerregistry"
   packages = ["pkg/name"]
   pruneopts = "NUT"
-  revision = "abf9ef06abd9f532944e28e8942644ea4b710a40"
+  revision = "b02d448a3705facf11018efff34f1d2830be5724"
 
 [[projects]]
   digest = "1:52c5834e2bebac9030c97cc0798ac11c3aa8a39f098aeb419f142533da6cd3cc"
@@ -1160,34 +1160,39 @@
   revision = "8d271d903fe4c290aa361acfb242cff7bcee96f1"
 
 [[projects]]
-  branch = "release-0.8"
-  digest = "1:84ed12904805906e55c729c010f8fc2e0b1f1fc632ac8e2e3d1dd78a0b0df5f7"
+  branch = "release-0.9"
+  digest = "1:956b23f6a705b334220488771de42ef4656ee92171ab438a4726da9716737478"
   name = "knative.dev/pkg"
   packages = [
     "apis",
     "apis/duck",
+    "apis/duck/v1",
     "apis/duck/v1alpha1",
     "apis/duck/v1beta1",
     "apis/istio",
     "apis/istio/common/v1alpha1",
     "apis/istio/v1alpha3",
+    "apis/v1alpha1",
     "configmap",
     "kmeta",
     "kmp",
+    "network",
     "ptr",
   ]
   pruneopts = "NUT"
-  revision = "2b848f71969c997809a2dbea8351eaadb23e9bc9"
+  revision = "74659889c421b26b9a416fd203f5a8d3e602bfb2"
 
 [[projects]]
-  digest = "1:bd209e6c1c513e386aff27d9b99ac5b50bbd62a4e849efddabc4764a90b9e52c"
+  digest = "1:0fe70e481a28d645302f993afc02f97a8eac5a4faa07e16a25d6e28f546b20d2"
   name = "knative.dev/serving"
   packages = [
     "pkg/apis/autoscaling",
+    "pkg/apis/autoscaling/v1alpha1",
     "pkg/apis/config",
     "pkg/apis/networking",
     "pkg/apis/networking/v1alpha1",
     "pkg/apis/serving",
+    "pkg/apis/serving/v1",
     "pkg/apis/serving/v1alpha1",
     "pkg/apis/serving/v1beta1",
     "pkg/gc",
@@ -1195,8 +1200,8 @@
     "pkg/reconciler/route/config",
   ]
   pruneopts = "NUT"
-  revision = "3f73b117b61ee5d8fe5dcedd6cca2c96014329a9"
-  version = "v0.8.0"
+  revision = "b066e90ccd6f091e0faf65a759f3ce789d373457"
+  version = "v0.9.0"
 
 [[projects]]
   digest = "1:45fb4267f4868479b71ec2b2aff638a24ff09dc11568f6ceb087dabbc856f455"
@@ -1279,6 +1284,7 @@
   analyzer-version = 1
   input-imports = [
     "github.com/cloudevents/sdk-go",
+    "github.com/cloudevents/sdk-go/pkg/cloudevents/transport",
     "github.com/emicklei/go-restful",
     "github.com/getkin/kin-openapi/openapi3",
     "github.com/getkin/kin-openapi/openapi3filter",
@@ -1288,6 +1294,7 @@
     "github.com/golang/protobuf/ptypes/any",
     "github.com/google/go-cmp/cmp",
     "github.com/google/go-cmp/cmp/cmpopts",
+    "github.com/google/uuid",
     "github.com/mattbaird/jsonpatch",
     "github.com/onsi/ginkgo",
     "github.com/onsi/gomega",
@@ -1342,7 +1349,6 @@
     "knative.dev/serving/pkg/apis/serving",
     "knative.dev/serving/pkg/apis/serving/v1alpha1",
     "knative.dev/serving/pkg/apis/serving/v1beta1",
-    "knative.dev/serving/pkg/network",
     "sigs.k8s.io/controller-runtime/pkg/client",
     "sigs.k8s.io/controller-runtime/pkg/client/config",
     "sigs.k8s.io/controller-runtime/pkg/controller",

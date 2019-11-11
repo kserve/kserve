@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1beta1
+package v1
 
 import "context"
 
@@ -40,13 +40,13 @@ func HasDefaultConfigurationName(ctx context.Context) bool {
 type lemonadeKey struct{}
 
 // WithUpgradeViaDefaulting notes on the context that we want defaulting to rewrite
-// from v1alpha1 to v1beta1.
+// from v1alpha1 to v1.
 func WithUpgradeViaDefaulting(ctx context.Context) context.Context {
 	return context.WithValue(ctx, lemonadeKey{}, struct{}{})
 }
 
 // IsUpgradeViaDefaulting checks whether we should be "defaulting" from v1alpha1 to
-// the v1beta1 subset.
+// the v1 subset.
 func IsUpgradeViaDefaulting(ctx context.Context) bool {
 	return ctx.Value(lemonadeKey{}) != nil
 }
