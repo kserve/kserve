@@ -35,7 +35,7 @@ parser.add_argument('--workers', default=0, type=int,
                     help='The number of works to fork')
 args, _ = parser.parse_known_args()
 
-logging.basicConfig(level=constants.KFSERVING_LOGLEVEL)
+logging.basicConfig(level=constants.KFSERVING_LOGLEVEL, datefmt='%a, %d %b %Y %H:%M:%S', format='%(asctime)s [module:%(module)s][file:%(filename)s][line:%(lineno)d] %(levelname)s %(message)s')
 
 
 class KFServer():
