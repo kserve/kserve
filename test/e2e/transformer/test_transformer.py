@@ -62,7 +62,7 @@ def test_transformer():
 
     KFServing.create(isvc)
     wait_for_isvc_ready(service_name)
-    probs = predict(service_name, '../data/transformer.json')
+    probs = predict(service_name, './data/transformer.json')
     assert(np.argmax(probs) == 3)
     KFServing.delete(service_name, KFSERVING_TEST_NAMESPACE)
 
