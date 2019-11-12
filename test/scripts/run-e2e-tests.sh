@@ -108,7 +108,7 @@ make deploy-ci
 
 echo "Waiting for KFServing started ..."
 waiting_for_kfserving_controller
-sleep 120  # Wait for webhook install finished totally.
+sleep 300  # Wait for webhook install finished totally.
 
 echo "Creating a namespace kfserving-ci-test ..."
 kubectl create namespace kfserving-ci-e2e-test

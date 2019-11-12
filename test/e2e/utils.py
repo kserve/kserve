@@ -36,6 +36,7 @@ def wait_for_isvc_ready(name, namespace=KFSERVING_TEST_NAMESPACE,
             if condition.get('type', '') == 'Ready':
                 status = condition.get('status', 'Unknown')
         if status == 'True':
+            time.sleep(10)
             return
     if debug is True:
         logging.warning("Timeout to start the InferenceService %s.", name)

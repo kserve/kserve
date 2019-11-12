@@ -2,4 +2,5 @@ bases:
   - ../../default
 
 patches:
+  - configmap/inferenceservice.yaml
   - manager_image_patch.yaml
