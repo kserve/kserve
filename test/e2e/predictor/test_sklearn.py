@@ -12,47 +12,34 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import numpy as np
 from kubernetes import client
 
 from kfserving import KFServingClient
 from kfserving import constants
 from kfserving import V1alpha2EndpointSpec
 from kfserving import V1alpha2PredictorSpec
-from kfserving import V1alpha2TransformerSpec
-from kfserving import V1alpha2PyTorchSpec
-from kfserving import V1alpha2CustomSpec
+from kfserving import V1alpha2SKLearnSpec
 from kfserving import V1alpha2InferenceServiceSpec
 from kfserving import V1alpha2InferenceService
 from kubernetes.client import V1ResourceRequirements
-from kubernetes.client import V1Container
-from utils import wait_for_isvc_ready, predict
-from utils import KFSERVING_TEST_NAMESPACE
+
+from ..common.utils import wait_for_isvc_ready, predict
+from ..common.utils import KFSERVING_TEST_NAMESPACE
 
 api_version = constants.KFSERVING_GROUP + '/' + constants.KFSERVING_VERSION
 KFServing = KFServingClient(config_file="~/.kube/config")
 
 
-def test_transformer():
-    service_name = 'isvc-transformer'
+def test_sklearn_kfserving():
+    service_name = 'isvc-sklearn'
     default_endpoint_spec = V1alpha2EndpointSpec(
         predictor=V1alpha2PredictorSpec(
             min_replicas=1,
-            pytorch=V1alpha2PyTorchSpec(
-                storage_uri='gs://kfserving-samples/models/pytorch/cifar10',
-                model_class_name="Net",
+            sklearn=V1alpha2SKLearnSpec(
+                storage_uri='gs://kfserving-samples/models/sklearn/iris',
                 resources=V1ResourceRequirements(
                     requests={'cpu': '100m', 'memory': '256Mi'},
-                    limits={'cpu': '100m', 'memory': '256Mi'}))),
-        transformer=V1alpha2TransformerSpec(
-            min_replicas=1,
-            custom=V1alpha2CustomSpec(
-                container=V1Container(
-                  image='gcr.io/kubeflow-ci/kfserving/image-transformer:latest',
-                  name='kfserving-container',
-                  resources=V1ResourceRequirements(
-                    requests={'cpu': '100m', 'memory': '256Mi'},
-                    limits={'cpu': '100m', 'memory': '256Mi'})))))
+                    limits={'cpu': '100m', 'memory': '256Mi'}))))
 
     isvc = V1alpha2InferenceService(api_version=api_version,
                                     kind=constants.KFSERVING_KIND,
@@ -62,7 +49,6 @@ def test_transformer():
 
     KFServing.create(isvc)
     wait_for_isvc_ready(service_name)
-    probs = predict(service_name, './transformer.json')
-    assert(np.argmax(probs) == 3)
+    probs = predict(service_name, '../data/iris_input.json')
+    assert(probs == [1, 1])
     KFServing.delete(service_name, KFSERVING_TEST_NAMESPACE)
-

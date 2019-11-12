@@ -12,32 +12,32 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import time
+import numpy as np
 from kubernetes import client
 
 from kfserving import KFServingClient
 from kfserving import constants
 from kfserving import V1alpha2EndpointSpec
 from kfserving import V1alpha2PredictorSpec
-from kfserving import V1alpha2SKLearnSpec
+from kfserving import V1alpha2TensorflowSpec
 from kfserving import V1alpha2InferenceServiceSpec
 from kfserving import V1alpha2InferenceService
 from kubernetes.client import V1ResourceRequirements
 
-from utils import wait_for_isvc_ready, predict
-from utils import KFSERVING_TEST_NAMESPACE
+from ..common.utils import wait_for_isvc_ready, predict
+from ..common.utils import KFSERVING_TEST_NAMESPACE
 
 api_version = constants.KFSERVING_GROUP + '/' + constants.KFSERVING_VERSION
 KFServing = KFServingClient(config_file="~/.kube/config")
 
 
-def test_sklearn_kfserving():
-    service_name = 'isvc-sklearn'
+def test_tensorflow_kfserving():
+    service_name = 'isvc-tensorflow'
     default_endpoint_spec = V1alpha2EndpointSpec(
         predictor=V1alpha2PredictorSpec(
             min_replicas=1,
-            sklearn=V1alpha2SKLearnSpec(
-                storage_uri='gs://kfserving-samples/models/sklearn/iris',
+            tensorflow=V1alpha2TensorflowSpec(
+                storage_uri='gs://kfserving-samples/models/tensorflow/flowers',
                 resources=V1ResourceRequirements(
                     requests={'cpu': '100m', 'memory': '256Mi'},
                     limits={'cpu': '100m', 'memory': '256Mi'}))))
@@ -50,6 +50,6 @@ def test_sklearn_kfserving():
 
     KFServing.create(isvc)
     wait_for_isvc_ready(service_name)
-    probs = predict(service_name, './iris_input.json')
-    assert(probs == [1, 1])
+    probs = predict(service_name, '../data/flower_input.json')
+    assert(np.argmax(probs) == 0)
     KFServing.delete(service_name, KFSERVING_TEST_NAMESPACE)

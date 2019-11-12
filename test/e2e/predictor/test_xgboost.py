@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import time
 from kubernetes import client
 
 from kfserving import KFServingClient
@@ -24,8 +23,8 @@ from kfserving import V1alpha2InferenceServiceSpec
 from kfserving import V1alpha2InferenceService
 from kubernetes.client import V1ResourceRequirements
 
-from utils import wait_for_isvc_ready, predict
-from utils import KFSERVING_TEST_NAMESPACE
+from ..common.utils import wait_for_isvc_ready, predict
+from ..common.utils import KFSERVING_TEST_NAMESPACE
 
 api_version = constants.KFSERVING_GROUP + '/' + constants.KFSERVING_VERSION
 KFServing = KFServingClient(config_file="~/.kube/config")
@@ -50,6 +49,6 @@ def test_sklearn_kfserving():
 
     KFServing.create(isvc)
     wait_for_isvc_ready(service_name)
-    probs = predict(service_name, './iris_input.json')
+    probs = predict(service_name, '../data/iris_input.json')
     assert(probs == [1, 1])
     KFServing.delete(service_name, KFSERVING_TEST_NAMESPACE)
