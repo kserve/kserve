@@ -50,6 +50,4 @@ def test_tensorflow_kfserving():
 
     KFServing.create(isvc)
     wait_for_isvc_ready(service_name)
-    probs = predict(service_name, '../data/flower_input.json')
-    assert(np.argmax(probs) == 0)
-    KFServing.delete(service_name, KFSERVING_TEST_NAMESPACE)
+
