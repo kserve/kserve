@@ -67,7 +67,7 @@ func (e *ExplainerSpec) Validate(config *InferenceServicesConfig) error {
 		validateStorageURI(e.GetStorageUri()),
 		validateReplicas(e.MinReplicas, e.MaxReplicas),
 		validateResourceRequirements(explainer.GetResourceRequirements()),
-		validate_logger(e.Logger),
+		validateLogger(e.Logger),
 	} {
 		if err != nil {
 			return err

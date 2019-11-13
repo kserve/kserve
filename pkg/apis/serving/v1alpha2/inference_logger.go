@@ -6,7 +6,7 @@ const (
 	InvalidLoggerType = "Invalid logger type"
 )
 
-func validate_logger(logger *Logger) error {
+func validateLogger(logger *Logger) error {
 	if logger != nil {
 		if !(logger.Mode == LogAll || logger.Mode == LogRequest || logger.Mode == LogResponse) {
 			return fmt.Errorf(InvalidLoggerType)

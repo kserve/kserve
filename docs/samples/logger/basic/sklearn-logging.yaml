@@ -11,7 +11,3 @@ spec:
         mode: all
       sklearn:
         storageUri: "gs://kfserving-samples/models/sklearn/iris"
-        resources:
-          requests:
-            cpu: 0.1
-                                  

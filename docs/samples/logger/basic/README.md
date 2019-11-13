@@ -32,13 +32,12 @@ metadata:
 spec:
   default:
     predictor:
+      minReplicas: 1      
       logger:
         url: http://message-dumper.default/
+        mode: all
       sklearn:
         storageUri: "gs://kfserving-samples/models/sklearn/iris"
-        resources:
-          requests:
-            cpu: 0.1
 ```
 
 Let's apply this yaml:
