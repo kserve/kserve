@@ -1,6 +1,55 @@
 # KF Serving 2019 Roadmap
 ## Q3 2019
-### v0.2 Integrate with the ML Ecosystem (ETA: August 15, 2019)
+
+### v0.4 Performance (ETA: Jan 31, 2019)
+Objective: "Prevent performance regressions across a known set of representative models."
+* Automated Performance Tests 
+    * Define a set of Models to test covering a wide array of usecases and frameworks.
+    * Publish performance results over time to enable regression tracking.
+
+Objective: "Enable users to deploy latency sentsitive models with KFServing."
+* High Performance Dataplane
+    * Enable support for GRPC or similar.
+    * Continue to support existing HTTP Dataplane.
+
+Objective: "Reduce Total Cost of Ownership when deploying multiple underutilized models."
+* GPU Sharing 
+    * Reduce TCO by enabling models of the same framework and version to be co-hosted in a single model server.
+
+### v0.3 Stability (ETA: Dec 15, 2019)
+Objective: "Prevent feature regressions with 80% end-to-end test coverage against a live cluster."
+* Automated End-to-End Tests
+    * Execute against a Kubeflow maintained GKE Cluster.
+    * Execute against a Kubeflow maintained AKS Cluster.
+    * Achieve >80% Test Coverage of Supported Features.
+
+Objective: "Improve build and release processes to improve the developer experience and avoid regressions."
+* Improve build reliability
+    * Implement build retries.
+    * Reduce PyTorch build time.
+* Automated Image Injection for Model Servers.
+    * Implement new developer commands to deploy kfserving with local images.
+* Improve versioning of XGBoost, SKLearn, and PyTorch
+    * Replace KFServing version with the corresponding framework version.
+
+# Future 
+## Unscheduled Work
+* Flexible Inference Graphs [MLGraph CRD](https://github.com/SeldonIO/mlgraph).
+    * Model Experimentation.
+    * Ensembling.
+    * Multi Arm Bandit.
+* Payload Logging
+    * Finalize the design and implementation for [Payload Logging](https://docs.google.com/document/d/1MBl5frM9l_wyQkYEaDeHOP6Mrsuz9YOob7276AAN9_c/edit?usp=sharing)
+* Bias, Skew, and Outlier Detection.
+    * Online support in graph.
+    * Offline support with Payload Logging.
+* Meta-Protocol Definition.
+    * Unify disparate protocols across frameworks.
+* Adaptive batching support
+    * Queue and batch requests to increase throughput.
+
+# Historical
+### v0.2 Integrate with the ML Ecosystem (Oct 31, 2019)
 Objective: "Continue to simplify the user experience by deeply integrating with the Kubeflow Ecosystem."
 * Kubeflow Integration
     * Prepare KFServing to release v0.2 and v0.3 alongside Kubeflow v0.7.
@@ -22,52 +71,10 @@ Objective: "Increase coverage of ML frameworks to support previously unsupported
     * Deploy a ONNX model
     * Explore supporting other model serialization mechanisms for certain frameworks (e.g. saving PyTorch models with dill)
 
-### v0.3 Performance and Stability (ETA: September 1, 2019)
-Objective: "Prevent feature regressions with 80% end-to-end test coverage against a live Cluster."
-* Automated End-to-End Tests
-    * Execute against a Kubeflow maintained GKE Cluster.
-    * Execute against a Kubeflow maintained AKS Cluster.
-    * Achieve >80% Test Coverage of Supported Features.
 
-Objective: "Prevent performance regressions across a known set of representative models."
-* Automated Performance Tests 
-    * Define a set of Models to test covering a wide array of usecases and frameworks.
-    * Publish performance results in a temporally comparable way.
 
-Objective: "Improve the Serverless Experience by reducing cold starts/stops to 10 seconds on warmed models."
-* Model Caching
-    * Reduce model download time by caching models from cloud storage on Persistent Volumes.
-* Image Caching
-    * Reduce container download time by ensuring images are cached in all cloud environments.
-* Server Shutdown
-    * Ensure that all model servers shutdown within 10 seconds of not receiving traffic.
-
-Objective: "Simplify user experience with handling credentials for storage backends."
-* Secure storage mechanisms
-    * Implement a simplified user experience with storage backends protected by credentials (e.g. S3/GCS accounts with credentials)
-
-# Future 
-## Unscheduled Work
-* Multi-Model Serving.
-    * Multiple InferenceServices share resources in the backend.
-    * GPU Sharing.
-* Flexible Inference Graphs [MLGraph CRD](https://github.com/SeldonIO/mlgraph).
-    * Model Experimentation.
-    * Ensembling.
-    * Multi Arm Bandit.
-* Payload Logging
-    * Finalize the design and implementation for [Payload Logging](https://docs.google.com/document/d/1MBl5frM9l_wyQkYEaDeHOP6Mrsuz9YOob7276AAN9_c/edit?usp=sharing)
-* Bias, Skew, and Outlier Detection.
-    * Online support in graph.
-    * Offline support with Payload Logging.
-* Meta-Protocol Definition.
-    * Unify disparate protocols across frameworks.
-* Adaptive batching support
-    * Queue and batch requests to increase throughput.
-
-# Historical
 ## Q2 2019
-### v0.1: InferenceService Minimum Viable Product (ETA: June 30, 2019)
+### v0.1: InferenceService Minimum Viable Product (June 30, 2019)
 Objective: "Simplify the user experience and provide a low barrier to entry by minimizing the amount of YAML necessary to deploy a trained model."
 * High Level Interfaces
     * Deploy a Tensorflow model without specifying a Tensorflow Serving Technology.
