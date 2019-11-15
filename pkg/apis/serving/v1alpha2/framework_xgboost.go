@@ -35,7 +35,7 @@ func (x *XGBoostSpec) GetResourceRequirements() *v1.ResourceRequirements {
 	return &x.Resources
 }
 
-func (x *XGBoostSpec) GetContainer(modelName string, config *InferenceServicesConfig, hasLogging bool) *v1.Container {
+func (x *XGBoostSpec) GetContainer(modelName string, hasLogging bool, config *InferenceServicesConfig) *v1.Container {
 	return &v1.Container{
 		Image:     config.Predictors.Xgboost.ContainerImage + ":" + x.RuntimeVersion,
 		Name:      constants.InferenceServiceContainerName,

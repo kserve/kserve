@@ -11,9 +11,13 @@ import (
 )
 
 const (
-	LoggerContainerName    = "inferenceservice-logger"
-	LoggerConfigMapKeyName = "logger"
-	PodKnativeServiceLabel = "serving.knative.dev/service"
+	LoggerContainerName     = "inferenceservice-logger"
+	LoggerConfigMapKeyName  = "logger"
+	PodKnativeServiceLabel  = "serving.knative.dev/service"
+	LoggerArgumentLogUrl    = "--log-url"
+	LoggerArgumentSourceUri = "--source-uri"
+	LoggerArgumentMode      = "--log-mode"
+	LoggerArgumentModelId   = "--model-id"
 )
 
 type LoggerConfig struct {
@@ -72,7 +76,7 @@ func (il *LoggerInjector) InjectLogger(pod *v1.Pod) error {
 
 	modelId, _ := pod.ObjectMeta.Labels[PodKnativeServiceLabel]
 
-	// Dont inject if Contianer already injected
+	// Don't inject if Contianer already injected
 	for _, container := range pod.Spec.Containers {
 		if strings.Compare(container.Name, LoggerContainerName) == 0 {
 			return nil
@@ -83,13 +87,13 @@ func (il *LoggerInjector) InjectLogger(pod *v1.Pod) error {
 		Name:  LoggerContainerName,
 		Image: il.config.Image,
 		Args: []string{
-			"--log-url",
+			LoggerArgumentLogUrl,
 			logUrl,
-			"--source-uri",
+			LoggerArgumentSourceUri,
 			pod.Name,
-			"--log-mode",
+			LoggerArgumentMode,
 			logMode,
-			"--model-id",
+			LoggerArgumentModelId,
 			modelId,
 		},
 		Resources: v1.ResourceRequirements{

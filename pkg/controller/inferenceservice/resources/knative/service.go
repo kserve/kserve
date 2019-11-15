@@ -150,7 +150,7 @@ func (c *ServiceBuilder) CreatePredictorService(name string, metadata metav1.Obj
 							PodSpec: v1.PodSpec{
 								ServiceAccountName: predictorSpec.ServiceAccountName,
 								Containers: []v1.Container{
-									*predictorSpec.GetContainer(metadata.Name, c.inferenceServiceConfig, hasInferenceLogging),
+									*predictorSpec.GetContainer(metadata.Name, hasInferenceLogging, c.inferenceServiceConfig),
 								},
 							},
 						},
@@ -268,7 +268,7 @@ func (c *ServiceBuilder) CreateExplainerService(name string, metadata metav1.Obj
 							PodSpec: v1.PodSpec{
 								ServiceAccountName: explainerSpec.ServiceAccountName,
 								Containers: []v1.Container{
-									*explainerSpec.CreateExplainerContainer(metadata.Name, predictorService, c.inferenceServiceConfig, hasInferenceLogging),
+									*explainerSpec.CreateExplainerContainer(metadata.Name, predictorService, hasInferenceLogging, c.inferenceServiceConfig),
 								},
 							},
 						},

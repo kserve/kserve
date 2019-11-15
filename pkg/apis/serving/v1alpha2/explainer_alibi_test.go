@@ -98,7 +98,7 @@ func TestCreateAlibiExplainerContainer(t *testing.T) {
 	}
 
 	// Test Create with config
-	container := spec.CreateExplainerContainer("someName", "predictor.svc.cluster.local", config, false)
+	container := spec.CreateExplainerContainer("someName", "predictor.svc.cluster.local", false, config)
 	g.Expect(container).To(gomega.Equal(expectedContainer))
 }
 
@@ -161,6 +161,6 @@ func TestCreateAlibiExplainerContainerWithConfig(t *testing.T) {
 	}
 
 	// Test Create with config
-	container := spec.CreateExplainerContainer("someName", "predictor.svc.cluster.local", config, true)
+	container := spec.CreateExplainerContainer("someName", "predictor.svc.cluster.local", true, config)
 	g.Expect(container).To(gomega.Equal(expectedContainer))
 }

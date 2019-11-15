@@ -37,7 +37,7 @@ func (s *ONNXSpec) GetResourceRequirements() *v1.ResourceRequirements {
 	return &s.Resources
 }
 
-func (s *ONNXSpec) GetContainer(modelName string, config *InferenceServicesConfig, hasLogging bool) *v1.Container {
+func (s *ONNXSpec) GetContainer(modelName string, hasLogging bool, config *InferenceServicesConfig) *v1.Container {
 	return &v1.Container{
 		Image:     config.Predictors.ONNX.ContainerImage + ":" + s.RuntimeVersion,
 		Name:      constants.InferenceServiceContainerName,
