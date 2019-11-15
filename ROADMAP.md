@@ -17,9 +17,6 @@ Objective: "Reduce Total Cost of Ownership when deploying multiple underutilized
     * Reduce TCO by enabling models of the same framework and version to be co-hosted in a single model server.
 
 ### v0.3 Stability (ETA: Dec 15, 2019)
-<<<<<<< Updated upstream
-Objective: "Prevent feature regressions with greater end-to-end test coverage against a live cluster."
-=======
 Objective: "Improve practices around dependency management." 
 * Migrate to Kubebuilder 2.0.
     * Use Go Modules.
@@ -28,8 +25,7 @@ Objective: "Improve practices around dependency management."
 * Migrate to Kubernetes 1.15.
     * Enable LabelSelectors for the Pod Mutation Webhook.
 
-Objective: "Prevent feature regressions with 80% end-to-end test coverage against a live cluster."
->>>>>>> Stashed changes
+Objective: "Prevent feature regressions with greater end-to-end test coverage against a live cluster."
 * Automated End-to-End Tests
     * Execute against a Kubeflow maintained GKE Cluster.
     * Execute against a Kubeflow maintained AKS Cluster.
