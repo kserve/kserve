@@ -7,7 +7,7 @@ Objective: "Prevent performance regressions across a known set of representative
     * Define a set of Models to test covering a wide array of usecases and frameworks.
     * Publish performance results over time to enable regression tracking.
 
-Objective: "Enable users to deploy latency sentsitive models with KFServing."
+Objective: "Enable users to deploy latency sensitive models with KFServing."
 * High Performance Dataplane
     * Enable support for GRPC or similar.
     * Continue to support existing HTTP Dataplane.
