@@ -1,5 +1,5 @@
-# KF Serving 2019 Roadmap
-## Q3 2019
+# KF Serving Roadmap
+## 2019 - 2020
 
 ### v0.4 Performance (ETA: Jan 31, 2019)
 Objective: "Prevent performance regressions across a known set of representative models."
@@ -17,7 +17,7 @@ Objective: "Reduce Total Cost of Ownership when deploying multiple underutilized
     * Reduce TCO by enabling models of the same framework and version to be co-hosted in a single model server.
 
 ### v0.3 Stability (ETA: Dec 15, 2019)
-Objective: "Prevent feature regressions with 80% end-to-end test coverage against a live cluster."
+Objective: "Prevent feature regressions with greater end-to-end test coverage against a live cluster."
 * Automated End-to-End Tests
     * Execute against a Kubeflow maintained GKE Cluster.
     * Execute against a Kubeflow maintained AKS Cluster.
