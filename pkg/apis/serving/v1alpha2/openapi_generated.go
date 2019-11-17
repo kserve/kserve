@@ -408,11 +408,16 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								},
 							},
 						},
+						"address": {
+							SchemaProps: spec.SchemaProps{
+								Ref: ref("knative.dev/pkg/apis/duck/v1beta1.Addressable"),
+							},
+						},
 					},
 				},
 			},
 			Dependencies: []string{
-				"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.StatusConfigurationSpec", "knative.dev/pkg/apis.Condition"},
+				"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.StatusConfigurationSpec", "knative.dev/pkg/apis.Condition", "knative.dev/pkg/apis/duck/v1beta1.Addressable"},
 		},
 		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.Logger": {
 			Schema: spec.Schema{
@@ -558,6 +563,13 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						"storageUri": {
 							SchemaProps: spec.SchemaProps{
 								Description: "The location of the trained model",
+								Type:        []string{"string"},
+								Format:      "",
+							},
+						},
+						"modelClassModule": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Python module for which the model class belongs to",
 								Type:        []string{"string"},
 								Format:      "",
 							},
