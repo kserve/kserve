@@ -232,6 +232,8 @@ type InferenceServiceStatus struct {
 	Default *ComponentStatusMap `json:"default,omitempty"`
 	// Statuses for the canary endpoints of the InferenceService
 	Canary *ComponentStatusMap `json:"canary,omitempty"`
+
+	Address *duckv1beta1.Addressable `json:"address,omitempty"`
 }
 
 // StatusConfigurationSpec describes the state of the configuration receiving traffic.
@@ -277,6 +279,9 @@ type VirtualServiceStatus struct {
 	URL           string
 	CanaryWeight  int
 	DefaultWeight int
+	// Address holds the information needed for a Route to be the target of an event.
+	// +optional
+	Address *duckv1beta1.Addressable `json:"address,omitempty"`
 
 	duckv1beta1.Status
 }

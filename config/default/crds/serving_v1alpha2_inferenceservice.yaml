@@ -547,6 +547,11 @@ spec:
           type: object
         status:
           properties:
+            address:
+              properties:
+                url:
+                  type: string
+              type: object
             canary:
               description: Statuses for the canary endpoints of the InferenceService
               type: object

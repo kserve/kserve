@@ -237,6 +237,9 @@
     "v1alpha2.InferenceServiceStatus": {
       "description": "InferenceServiceStatus defines the observed state of InferenceService",
       "properties": {
+        "address": {
+          "$ref": "#/definitions/knative.dev.pkg.apis.duck.v1beta1.Addressable"
+        },
         "canary": {
           "description": "Statuses for the canary endpoints of the InferenceService",
           "type": "object",
