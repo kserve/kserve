@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"knative.dev/pkg/apis"
+	"strings"
 
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	"github.com/kubeflow/kfserving/pkg/constants"
@@ -155,10 +156,23 @@ func (r *VirtualServiceBuilder) CreateVirtualService(isvc *v1alpha2.InferenceSer
 	// prepare the predict route
 	predictRoute := istiov1alpha3.HTTPRoute{
 		Match: []istiov1alpha3.HTTPMatchRequest{
-			istiov1alpha3.HTTPMatchRequest{
+			{
 				URI: &istiov1alpha1.StringMatch{
 					Prefix: constants.PredictPrefix(isvc.Name),
 				},
+				Authority: &istiov1alpha1.StringMatch{
+					Exact: predictRouteDestinations[0].Destination.Host,
+				},
+				Gateways: []string{r.ingressConfig.IngressGateway},
+			},
+			{
+				URI: &istiov1alpha1.StringMatch{
+					Prefix: constants.PredictPrefix(isvc.Name),
+				},
+				Authority: &istiov1alpha1.StringMatch{
+					Exact: isvc.Name + "." + isvc.Namespace + ".svc.cluster.local",
+				},
+				Gateways: []string{"cluster-local-gateway.knative-serving"},
 			},
 		},
 		Route: predictRouteDestinations,
@@ -212,6 +226,7 @@ func (r *VirtualServiceBuilder) CreateVirtualService(isvc *v1alpha2.InferenceSer
 			},
 			Gateways: []string{
 				r.ingressConfig.IngressGateway,
+				"cluster-local-gateway.knative-serving",
 			},
 			HTTP: httpRoutes,
 		},
@@ -305,17 +320,11 @@ func getExplainStatusConfigurationSpec(endpointSpec *v1alpha2.EndpointSpec, comp
 }
 
 func createHTTPRouteDestination(targetHost string, weight int, gatewayService string) istiov1alpha3.HTTPRouteDestination {
+	tokens := strings.Split(targetHost, ".")
 	httpRouteDestination := istiov1alpha3.HTTPRouteDestination{
 		Weight: weight,
-		Headers: &istiov1alpha3.Headers{
-			Request: &istiov1alpha3.HeaderOperations{
-				Set: map[string]string{
-					"Host": targetHost,
-				},
-			},
-		},
 		Destination: istiov1alpha3.Destination{
-			Host: gatewayService,
+			Host: tokens[0] + "." + tokens[1] + ".svc.cluster.local",
 		},
 	}
 
