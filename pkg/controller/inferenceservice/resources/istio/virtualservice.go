@@ -19,6 +19,7 @@ package istio
 import (
 	"encoding/json"
 	"fmt"
+	"knative.dev/pkg/apis"
 
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	"github.com/kubeflow/kfserving/pkg/constants"
@@ -217,7 +218,12 @@ func (r *VirtualServiceBuilder) CreateVirtualService(isvc *v1alpha2.InferenceSer
 	}
 
 	status := v1alpha2.VirtualServiceStatus{
-		URL:           serviceURL,
+		URL: serviceURL,
+		Address: &duckv1beta1.Addressable{URL: &apis.URL{
+			Scheme: "http",
+			Host: isvc.Name + "." + isvc.Namespace + ".svc.cluster.local",
+			Path: fmt.Sprintf("v1/models/%s:predict", isvc.Name),
+		}},
 		CanaryWeight:  canaryWeight,
 		DefaultWeight: defaultWeight,
 		Status: duckv1beta1.Status{
