@@ -37,7 +37,7 @@ args, _ = parser.parse_known_args()
 
 tornado.log.enable_pretty_logging()
 
-class KFServer():
+class KFServer:
     def __init__(self, http_port: int = args.http_port,
                  grpc_port: int = args.grpc_port,
                  workers: int = args.workers):
