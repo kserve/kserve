@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import time
+import numpy as np
 from kubernetes import client
 
 from kfserving import KFServingClient
@@ -24,15 +24,18 @@ from kfserving import V1alpha2InferenceServiceSpec
 from kfserving import V1alpha2InferenceService
 from kubernetes.client import V1ResourceRequirements
 
-from utils import wait_for_isvc_ready
+from ..common.utils import wait_for_isvc_ready, predict
+from ..common.utils import KFSERVING_TEST_NAMESPACE
 
 api_version = constants.KFSERVING_GROUP + '/' + constants.KFSERVING_VERSION
 KFServing = KFServingClient(config_file="~/.kube/config")
 
 
 def test_tensorflow_kfserving():
+    service_name = 'isvc-tensorflow'
     default_endpoint_spec = V1alpha2EndpointSpec(
         predictor=V1alpha2PredictorSpec(
+            min_replicas=1,
             tensorflow=V1alpha2TensorflowSpec(
                 storage_uri='gs://kfserving-samples/models/tensorflow/flowers',
                 resources=V1ResourceRequirements(
@@ -42,8 +45,9 @@ def test_tensorflow_kfserving():
     isvc = V1alpha2InferenceService(api_version=api_version,
                                     kind=constants.KFSERVING_KIND,
                                     metadata=client.V1ObjectMeta(
-                                        name='isvc-tensorflow-test', namespace='kfserving-ci-e2e-test'),
+                                        name=service_name, namespace=KFSERVING_TEST_NAMESPACE),
                                     spec=V1alpha2InferenceServiceSpec(default=default_endpoint_spec))
 
     KFServing.create(isvc)
-    wait_for_isvc_ready('isvc-tensorflow-test')
+    wait_for_isvc_ready(service_name)
+

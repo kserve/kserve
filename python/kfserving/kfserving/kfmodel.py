@@ -21,8 +21,9 @@ import tornado.web
 PREDICTOR_URL_FORMAT = "http://{0}/v1/models/{1}:predict"
 EXPLAINER_URL_FORMAT = "http://{0}/v1/models/{1}:explain"
 
+
 # KFModel is intended to be subclassed by various components within KFServing.
-class KFModel():
+class KFModel:
 
     def __init__(self, name: str):
         self.name = name
@@ -40,7 +41,7 @@ class KFModel():
         return request
 
     def predict(self, request: Dict) -> Dict:
-        if self.predictor_host is None:
+        if not self.predictor_host:
             raise NotImplementedError
 
         response = requests.post(
