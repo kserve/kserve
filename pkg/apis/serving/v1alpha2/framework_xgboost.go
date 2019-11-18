@@ -15,6 +15,7 @@ package v1alpha2
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/kubeflow/kfserving/pkg/constants"
@@ -36,6 +37,11 @@ func (x *XGBoostSpec) GetResourceRequirements() *v1.ResourceRequirements {
 }
 
 func (x *XGBoostSpec) GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container {
+	nthread := x.NThread
+	if nthread == 0 {
+		nthread = int(x.Resources.Requests.Cpu().Value())
+	}
+
 	return &v1.Container{
 		Image:     config.Predictors.Xgboost.ContainerImage + ":" + x.RuntimeVersion,
 		Name:      constants.InferenceServiceContainerName,
@@ -43,6 +49,7 @@ func (x *XGBoostSpec) GetContainer(modelName string, config *InferenceServicesCo
 		Args: []string{
 			"--model_name=" + modelName,
 			"--model_dir=" + constants.DefaultModelLocalMountPath,
+			"--nthread=" + strconv.Itoa(nthread),
 		},
 	}
 }

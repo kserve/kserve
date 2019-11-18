@@ -51,17 +51,12 @@ func TestFrameworkXgBoost(t *testing.T) {
 }
 
 func TestCreateXGBoostContainer(t *testing.T) {
-
 	var requestedResource = v1.ResourceRequirements{
 		Limits: v1.ResourceList{
-			"cpu": resource.Quantity{
-				Format: "100",
-			},
+			"cpu": resource.MustParse("100m"),
 		},
 		Requests: v1.ResourceList{
-			"cpu": resource.Quantity{
-				Format: "90",
-			},
+			"cpu": resource.MustParse("90m"),
 		},
 	}
 	var config = InferenceServicesConfig{
@@ -86,10 +81,80 @@ func TestCreateXGBoostContainer(t *testing.T) {
 		Args: []string{
 			"--model_name=someName",
 			"--model_dir=/mnt/models",
+			"--nthread=1",
 		},
 	}
 
 	// Test Create with config
 	container := spec.GetContainer("someName", &config)
 	g.Expect(container).To(gomega.Equal(expectedContainer))
+}
+
+func TestCreateXGBoostContainerWithNThread(t *testing.T) {
+	var config = InferenceServicesConfig{
+		Predictors: &PredictorsConfig{
+			Xgboost: PredictorConfig{
+				ContainerImage:      "someOtherImage",
+				DefaultImageVersion: "0.1.0",
+			},
+		},
+	}
+	g := gomega.NewGomegaWithT(t)
+
+	scenarios := map[string]struct {
+		nthread     int
+		resourceReq v1.ResourceRequirements
+		expArgs     []string
+	}{
+		"TestNThreadUseCpuRequest": {
+			resourceReq: v1.ResourceRequirements{
+				Limits: v1.ResourceList{
+					"cpu": resource.MustParse("1100m"),
+				},
+				Requests: v1.ResourceList{
+					"cpu": resource.MustParse("1100m"),
+				},
+			},
+			expArgs: []string{
+				"--model_name=someName",
+				"--model_dir=/mnt/models",
+				"--nthread=2",
+			},
+		},
+		"TestNThread": {
+			nthread: 4,
+			resourceReq: v1.ResourceRequirements{
+				Limits: v1.ResourceList{
+					"cpu": resource.MustParse("1100m"),
+				},
+				Requests: v1.ResourceList{
+					"cpu": resource.MustParse("1100m"),
+				},
+			},
+			expArgs: []string{
+				"--model_name=someName",
+				"--model_dir=/mnt/models",
+				"--nthread=4",
+			},
+		},
+	}
+
+	// Test Create with config
+	for name, scenario := range scenarios {
+		spec := XGBoostSpec{
+			StorageURI:     "gs://someUri",
+			Resources:      scenario.resourceReq,
+			RuntimeVersion: "0.1.0",
+			NThread:        scenario.nthread,
+		}
+		container := spec.GetContainer("someName", &config)
+
+		expContainer := &v1.Container{
+			Image:     "someOtherImage:0.1.0",
+			Name:      constants.InferenceServiceContainerName,
+			Resources: scenario.resourceReq,
+			Args:      scenario.expArgs,
+		}
+		g.Expect(container).To(gomega.Equal(expContainer), fmt.Sprintf("Testing %s", name))
+	}
 }

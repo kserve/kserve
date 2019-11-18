@@ -172,6 +172,8 @@ type TensorRTSpec struct {
 type XGBoostSpec struct {
 	// The location of the trained model
 	StorageURI string `json:"storageUri"`
+	// Number of thread to be used by XGBoost
+	NThread int `json:"nthread,omitempty"`
 	// Allowed runtime versions are specified in the inferenceservice config map
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
 	// Defaults to requests and limits of 1CPU, 2Gb MEM.
