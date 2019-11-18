@@ -18,11 +18,10 @@ package pod
 import (
 	"context"
 	"encoding/json"
-	"net/http"
-
 	v1 "k8s.io/api/core/v1"
 	k8types "k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
+	"net/http"
 
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/controller/inferenceservice/resources/credentials"
@@ -86,9 +85,19 @@ func (mutator *Mutator) mutate(pod *v1.Pod, configMap *v1.ConfigMap) error {
 		config:            storageInitializerConfig,
 	}
 
+	loggerConfig, err := getLoggerConfigs(configMap)
+	if err != nil {
+		return err
+	}
+
+	loggerInjector := &LoggerInjector{
+		config: loggerConfig,
+	}
+
 	mutators := []func(pod *v1.Pod) error{
 		InjectGKEAcceleratorSelector,
 		storageInitializer.InjectStorageInitializer,
+		loggerInjector.InjectLogger,
 	}
 
 	for _, mutator := range mutators {
