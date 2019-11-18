@@ -29,8 +29,8 @@ def wait_for_isvc_ready(name, namespace='kfserving-ci-e2e-test',
         for condition in kfsvc_status['status'].get('conditions', {}):
             if condition.get('type', '') == 'Ready':
                 status = condition.get('status', 'Unknown')
-        if status == 'True':
-            return
+                if status == 'True':
+                    return
     if debug is True:
         logging.warning("Timeout to start the InferenceService %s.", name)
         logging.info("Getting the detailed InferenceService ...")
