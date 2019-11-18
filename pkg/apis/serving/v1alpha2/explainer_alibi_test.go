@@ -85,10 +85,12 @@ func TestCreateAlibiExplainerContainer(t *testing.T) {
 		Name:      constants.InferenceServiceContainerName,
 		Resources: requestedResource,
 		Args: []string{
-			"--model_name",
+			constants.ArgumentModelName,
 			"someName",
-			"--predictor_host",
+			constants.ArgumentPredictorHost,
 			"predictor.svc.cluster.local",
+			constants.ArgumentHttpPort,
+			constants.GetInferenceServiceHttpPort(false),
 			"--storage_uri",
 			"/mnt/models",
 			"Anchor",
@@ -96,7 +98,7 @@ func TestCreateAlibiExplainerContainer(t *testing.T) {
 	}
 
 	// Test Create with config
-	container := spec.CreateExplainerContainer("someName", "predictor.svc.cluster.local", config)
+	container := spec.CreateExplainerContainer("someName", "predictor.svc.cluster.local", false, config)
 	g.Expect(container).To(gomega.Equal(expectedContainer))
 }
 
@@ -144,6 +146,8 @@ func TestCreateAlibiExplainerContainerWithConfig(t *testing.T) {
 			"someName",
 			"--predictor_host",
 			"predictor.svc.cluster.local",
+			"--http_port",
+			"8081",
 			"--storage_uri",
 			"/mnt/models",
 			"AnchorText",
@@ -157,6 +161,6 @@ func TestCreateAlibiExplainerContainerWithConfig(t *testing.T) {
 	}
 
 	// Test Create with config
-	container := spec.CreateExplainerContainer("someName", "predictor.svc.cluster.local", config)
+	container := spec.CreateExplainerContainer("someName", "predictor.svc.cluster.local", true, config)
 	g.Expect(container).To(gomega.Equal(expectedContainer))
 }

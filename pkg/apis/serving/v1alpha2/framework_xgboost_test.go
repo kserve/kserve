@@ -81,12 +81,13 @@ func TestCreateXGBoostContainer(t *testing.T) {
 		Args: []string{
 			"--model_name=someName",
 			"--model_dir=/mnt/models",
+			"--http_port=8080",
 			"--nthread=1",
 		},
 	}
 
 	// Test Create with config
-	container := spec.GetContainer("someName", &config)
+	container := spec.GetContainer("someName", false, &config)
 	g.Expect(container).To(gomega.Equal(expectedContainer))
 }
 
@@ -118,6 +119,7 @@ func TestCreateXGBoostContainerWithNThread(t *testing.T) {
 			expArgs: []string{
 				"--model_name=someName",
 				"--model_dir=/mnt/models",
+				"--http_port=8080",
 				"--nthread=2",
 			},
 		},
@@ -134,6 +136,7 @@ func TestCreateXGBoostContainerWithNThread(t *testing.T) {
 			expArgs: []string{
 				"--model_name=someName",
 				"--model_dir=/mnt/models",
+				"--http_port=8080",
 				"--nthread=4",
 			},
 		},
@@ -147,7 +150,7 @@ func TestCreateXGBoostContainerWithNThread(t *testing.T) {
 			RuntimeVersion: "0.1.0",
 			NThread:        scenario.nthread,
 		}
-		container := spec.GetContainer("someName", &config)
+		container := spec.GetContainer("someName", false, &config)
 
 		expContainer := &v1.Container{
 			Image:     "someOtherImage:0.1.0",

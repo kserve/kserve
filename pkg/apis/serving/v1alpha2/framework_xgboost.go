@@ -36,7 +36,7 @@ func (x *XGBoostSpec) GetResourceRequirements() *v1.ResourceRequirements {
 	return &x.Resources
 }
 
-func (x *XGBoostSpec) GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container {
+func (x *XGBoostSpec) GetContainer(modelName string, hasLogging bool, config *InferenceServicesConfig) *v1.Container {
 	nthread := x.NThread
 	if nthread == 0 {
 		nthread = int(x.Resources.Requests.Cpu().Value())
@@ -49,6 +49,7 @@ func (x *XGBoostSpec) GetContainer(modelName string, config *InferenceServicesCo
 		Args: []string{
 			"--model_name=" + modelName,
 			"--model_dir=" + constants.DefaultModelLocalMountPath,
+			"--http_port=" + constants.GetInferenceServiceHttpPort(hasLogging),
 			"--nthread=" + strconv.Itoa(nthread),
 		},
 	}

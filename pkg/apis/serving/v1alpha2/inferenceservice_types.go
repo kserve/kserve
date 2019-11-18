@@ -80,7 +80,6 @@ type Logger struct {
 	// +optional
 	Url *string `json:"url,omitempty"`
 	// What payloads to log
-	// +optional
 	Mode LoggerMode `json:"mode,omitempty"`
 }
 
