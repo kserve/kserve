@@ -31,7 +31,7 @@ gcloud auth activate-service-account --key-file=${GOOGLE_APPLICATION_CREDENTIALS
 echo "Creating cluster ${CLUSTER_NAME} ... "
 gcloud --project ${PROJECT} beta container clusters create ${CLUSTER_NAME} \
     --addons=HorizontalPodAutoscaling,HttpLoadBalancing \
-    --machine-type=n1-standard-4 \
+    --machine-type=n1-highcpu-32 \
     --cluster-version 1.13 --zone ${ZONE} \
     --enable-stackdriver-kubernetes --enable-ip-alias \
     --enable-autoscaling --min-nodes=3 --max-nodes=10 \

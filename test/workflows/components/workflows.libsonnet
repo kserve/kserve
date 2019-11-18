@@ -196,57 +196,57 @@
                   template: "checkout",
                 }],
                 [
-                  {
-                    name: "unit-test",
-                    template: "unit-test",
-                  },
-                  {
-                    name: "sdk-test",
-                    template: "sdk-test",
-                  },
-                  {
-                    name: "pylint-checking",
-                    template: "pylint-checking",
-                  },
+                  //{
+                  //  name: "unit-test",
+                  //  template: "unit-test",
+                  //},
+                  //{
+                  //  name: "sdk-test",
+                  //  template: "sdk-test",
+                  //},
+                  //{
+                  //  name: "pylint-checking",
+                  //  template: "pylint-checking",
+                  //},
                   {
                     name: "setup-cluster",
                     template: "setup-cluster",
                   },
                 ],
-                [
-                  {
-                    name: "build-kfserving-manager",
-                    template: "build-kfserving",
-                  },
-                  {
-                    name: "build-alibi-explainer",
-                    template: "build-alibi-explainer",
-                  },
-                  {
-                    name: "build-storage-initializer",
-                    template: "build-storage-initializer",
-                  },
-                  {
-                    name: "build-xgbserver",
-                    template: "build-xgbserver",
-                  },
-                  {
-                    name: "build-logger",
-                    template: "build-logger",
-                  },
-                  {
-                    name: "build-custom-image-transformer",
-                    template: "build-custom-image-transformer",
-                  },
-                  {
-                    name: "build-pytorchserver",
-                    template: "build-pytorchserver",
-                  },
-                  {
-                    name: "build-sklearnserver",
-                    template: "build-sklearnserver",
-                  },
-                ],
+                //[
+                //  {
+                //    name: "build-kfserving-manager",
+                //    template: "build-kfserving",
+                //  },
+                //  {
+                //    name: "build-alibi-explainer",
+                //    template: "build-alibi-explainer",
+                //  },
+                //  {
+                //    name: "build-storage-initializer",
+                //    template: "build-storage-initializer",
+                //  },
+                //  {
+                //    name: "build-xgbserver",
+                //    template: "build-xgbserver",
+                //  },
+                //  {
+                //    name: "build-logger",
+                //    template: "build-logger",
+                //  },
+                //  {
+                //    name: "build-custom-image-transformer",
+                //    template: "build-custom-image-transformer",
+                //  },
+                //  {
+                //    name: "build-pytorchserver",
+                //    template: "build-pytorchserver",
+                //  },
+                //  {
+                //    name: "build-sklearnserver",
+                //    template: "build-sklearnserver",
+                //  },
+                //],
                 [
                   {
                     name: "run-e2e-tests",

@@ -16,9 +16,9 @@
 
 # The script is used to deploy knative and kfserving, and run e2e tests.
 
-set -o errexit
-set -o nounset
-set -o pipefail
+#set -o errexit
+#set -o nounset
+#set -o pipefail
 
 CLUSTER_NAME="${CLUSTER_NAME}"
 ZONE="${GCP_ZONE}"
@@ -32,15 +32,30 @@ KNATIVE_VERSION="v0.8.0"
 waiting_pod_running(){
     namespace=$1
     TIMEOUT=120
-    PODNUM=$(kubectl get pods -n ${namespace} | grep -v NAME | wc -l)
-    until kubectl get pods -n ${namespace} | grep -E "Running|Completed" | [[ $(wc -l) -eq $PODNUM ]]; do
-        echo Pod Status $(kubectl get pods -n ${namespace} | grep -E "Running|Completed" | wc -l)/$PODNUM
+    PODNUM=$(kubectl get deployments -n ${namespace} | grep -v NAME | wc -l)
+    until kubectl get pods -n ${namespace} | grep -E "Running" | [[ $(wc -l) -eq $PODNUM ]]; do
+        echo Pod Status $(kubectl get pods -n ${namespace} | grep -E "Running" | wc -l)/$PODNUM
 
         sleep 10
-        TIMEOUT=$(( TIMEOUT - 1 ))
+        TIMEOUT=$(( TIMEOUT - 10 ))
         if [[ $TIMEOUT -eq 0 ]];then
             echo "Timeout to waiting for pod start."
             kubectl get pods -n ${namespace}
+            exit 1
+        fi
+    done
+}
+
+waiting_for_kfserving_controller(){
+    TIMEOUT=120
+    until [[ $(kubectl get statefulsets kfserving-controller-manager -n kfserving-system -o=jsonpath='{.status.readyReplicas}') -eq 1 ]]; do
+        kubectl get pods -n kfserving-system
+        kubectl get cm -n kfserving-system
+        sleep 10
+        TIMEOUT=$(( TIMEOUT - 10 ))
+        if [[ $TIMEOUT -eq 0 ]];then
+            echo "Timeout to waiting for kfserving controller to start."
+            kubectl get pods -n kfserving-system
             exit 1
         fi
     done
@@ -73,7 +88,6 @@ pushd istio_tmp >/dev/null
 popd
 
 echo "Waiting for istio started ..."
-sleep 15
 waiting_pod_running "istio-system"
 
 echo "Installing knative serving ..."
@@ -93,9 +107,8 @@ cd ${GOPATH}/src/github.com/kubeflow/kfserving
 make deploy-ci
 
 echo "Waiting for KFServing started ..."
-sleep 20
-waiting_pod_running "kfserving-system"
-sleep 60  # Wait for webhook install finished totally.
+waiting_for_kfserving_controller
+sleep 120  # Wait for webhook install finished totally.
 
 echo "Creating a namespace kfserving-ci-test ..."
 kubectl create namespace kfserving-ci-e2e-test
@@ -113,7 +126,7 @@ update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.6 2
 
 echo "Installing KFServing Python SDK ..."
 python3 -m pip install --upgrade pip
-pip3 install --upgrade pytest
+pip3 install --upgrade pytest pytest-xdist
 pip3 install --upgrade pytest-tornasync
 pip3 install urllib3==1.24.2
 pushd python/kfserving >/dev/null
@@ -123,5 +136,13 @@ popd
 
 echo "Starting E2E functional tests ..."
 pushd test/e2e >/dev/null
-  pytest
+  pytest -n 1 -vv -s
+  #pytest predictor/test_sklearn.py &
+  #pytest predictor/test_tensorflow.py &
+  #pytest predictor/test_xgboost.py &
+  #pytest transformer/test_transformer.py &
 popd
+
+sleep 300
+kubectl logs kfserving-controller-manager-0 -n kfserving-system -c manager
+#sleep 300
