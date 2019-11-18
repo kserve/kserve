@@ -120,7 +120,7 @@ func (eh *LoggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			if err := QueueLogRequest(LogRequest{
 				url:         eh.logUrl,
 				b:           &b,
-				contentType: *respContentType,
+				contentType: "application/json", // Always JSON at present
 				reqType:     InferenceResponse,
 				id:          id,
 				sourceUri:   eh.sourceUri,
