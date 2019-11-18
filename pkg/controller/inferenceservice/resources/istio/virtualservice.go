@@ -137,6 +137,7 @@ func (r *VirtualServiceBuilder) CreateVirtualService(isvc *v1alpha2.InferenceSer
 
 	httpRoutes := []istiov1alpha3.HTTPRoute{}
 	predictRouteDestinations := []istiov1alpha3.HTTPRouteDestination{}
+	serviceHostname, _ := getServiceHostname(isvc)
 
 	defaultWeight := 100 - isvc.Spec.CanaryTrafficPercent
 	canaryWeight := isvc.Spec.CanaryTrafficPercent
@@ -161,7 +162,7 @@ func (r *VirtualServiceBuilder) CreateVirtualService(isvc *v1alpha2.InferenceSer
 					Prefix: constants.PredictPrefix(isvc.Name),
 				},
 				Authority: &istiov1alpha1.StringMatch{
-					Exact: predictRouteDestinations[0].Destination.Host,
+					Exact: serviceHostname,
 				},
 				Gateways: []string{r.ingressConfig.IngressGateway},
 			},
@@ -199,7 +200,7 @@ func (r *VirtualServiceBuilder) CreateVirtualService(isvc *v1alpha2.InferenceSer
 	if len(explainRouteDestinations) > 0 {
 		explainRoute := istiov1alpha3.HTTPRoute{
 			Match: []istiov1alpha3.HTTPMatchRequest{
-				istiov1alpha3.HTTPMatchRequest{
+				{
 					URI: &istiov1alpha1.StringMatch{
 						Prefix: constants.ExplainPrefix(isvc.Name),
 					},
@@ -210,7 +211,6 @@ func (r *VirtualServiceBuilder) CreateVirtualService(isvc *v1alpha2.InferenceSer
 		httpRoutes = append(httpRoutes, explainRoute)
 	}
 	// extract the virtual service hostname from the predictor hostname
-	serviceHostname, _ := getServiceHostname(isvc)
 	serviceURL := constants.ServiceURL(isvc.Name, serviceHostname)
 
 	vs := istiov1alpha3.VirtualService{
@@ -223,6 +223,7 @@ func (r *VirtualServiceBuilder) CreateVirtualService(isvc *v1alpha2.InferenceSer
 		Spec: istiov1alpha3.VirtualServiceSpec{
 			Hosts: []string{
 				serviceHostname,
+				isvc.Name + "." + isvc.Namespace + ".svc.cluster.local",
 			},
 			Gateways: []string{
 				r.ingressConfig.IngressGateway,
@@ -323,8 +324,15 @@ func createHTTPRouteDestination(targetHost string, weight int, gatewayService st
 	tokens := strings.Split(targetHost, ".")
 	httpRouteDestination := istiov1alpha3.HTTPRouteDestination{
 		Weight: weight,
+		Headers: &istiov1alpha3.Headers{
+			Request: &istiov1alpha3.HeaderOperations{
+				Set: map[string]string{
+					"Host": tokens[0] + "." + tokens[1] + ".svc.cluster.local",
+				},
+			},
+		},
 		Destination: istiov1alpha3.Destination{
-			Host: tokens[0] + "." + tokens[1] + ".svc.cluster.local",
+			Host: "cluster-local-gateway.istio-system.svc.cluster.local",
 		},
 	}
 
