@@ -16,7 +16,6 @@ import kfserving
 import joblib
 import numpy as np
 import os
-import pickle
 from typing import List, Dict
 
 JOBLIB_FILE = "model.joblib"
@@ -36,7 +35,7 @@ class SKLearnModel(kfserving.KFModel): #pylint:disable=c-extension-no-member
         if os.path.exists(joblib_path):
             self._model = joblib.load(joblib_path) #pylint:disable=attribute-defined-outside-init
         elif os.path.exists(pickle_path):
-            self._model = pickle.load(open(pickle_path, 'rb'))
+            self._model = joblib.load(pickle_path) #pylint:disable=attribute-defined-outside-init
         else:
             raise Exception("Model file " + JOBLIB_FILE + " or " + PICKEL_FILE + " is not found")
         self.ready = True
