@@ -25,8 +25,8 @@ ZONE="${GCP_ZONE}"
 PROJECT="${GCP_PROJECT}"
 NAMESPACE="${DEPLOY_NAMESPACE}"
 REGISTRY="${GCP_REGISTRY}"
-ISTIO_VERSION="1.1.6"
-KNATIVE_VERSION="v0.8.0"
+ISTIO_VERSION="1.3.1"
+KNATIVE_VERSION="v0.9.0"
 
 # Check and wait for istio/knative/kfserving pod started normally.
 waiting_pod_running(){
@@ -85,6 +85,24 @@ pushd istio_tmp >/dev/null
   sleep 30
   helm template install/kubernetes/helm/istio \
   --name istio --namespace istio-system | kubectl apply -f -
+
+  #use cluster local gateway
+  helm template --namespace=istio-system \
+  --set gateways.custom-gateway.autoscaleMin=1 \
+  --set gateways.custom-gateway.autoscaleMax=1 \
+  --set gateways.custom-gateway.cpu.targetAverageUtilization=60 \
+  --set gateways.custom-gateway.labels.app='cluster-local-gateway' \
+  --set gateways.custom-gateway.labels.istio='cluster-local-gateway' \
+  --set gateways.custom-gateway.type='ClusterIP' \
+  --set gateways.istio-ingressgateway.enabled=false \
+  --set gateways.istio-egressgateway.enabled=false \
+  --set gateways.istio-ilbgateway.enabled=false \
+  install/kubernetes/helm/istio \
+  -f install/kubernetes/helm/istio/example-values/values-istio-gateways.yaml \
+  | sed -e "s/custom-gateway/cluster-local-gateway/g" -e "s/customgateway/clusterlocalgateway/g" \
+  > ./istio-local-gateway.yaml
+
+  kubectl apply -f istio-local-gateway.yaml
 popd
 
 echo "Waiting for istio started ..."
