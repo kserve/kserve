@@ -328,3 +328,12 @@ kubectl delete mutatingwebhookconfigurations inferenceservice.serving.kubeflow.o
 mutatingwebhookconfiguration.admissionregistration.k8s.io "inferenceservice.serving.kubeflow.org" deleted
 validatingwebhookconfiguration.admissionregistration.k8s.io "inferenceservice.serving.kubeflow.org" deleted
 ```
+
+6. When you are on knative serving 0.9.0+, you may encounter an error like the one blow if you have transformer or explainer in your spec:
+
+```
+requests.exceptions.ConnectionError: HTTPConnectionPool(host='transformer-cifar10-predictor-default.default', port=80): Max retries exceeded with url: /v1/models/transformer-cifar10:predict (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7f4f5e03df10>: Failed to establish a new connection: [Errno -5] No address associated with hostname'))
+ERROR:tornado.acc
+```
+
+That's because after knatvie 0.9.0+, access service from inside cluster will go through cluster local gateway. Please refer to https://knative.dev/v0.9-docs/install/installing-istio/#updating-your-install-to-use-cluster-local-gateway to add the cluster local gateway to an your Istio installation and test again.
