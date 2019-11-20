@@ -64,6 +64,8 @@ the following commands after downloading repository [kubeflow/manifests](https:/
 
   ``` kubeflow/manifests/knative/knative-serving-install/base$ kustomize build . | kubectl apply -f -```
 
+* You need follow the instructions on [Updating your install to use cluster local gateway](https://knative.dev/v0.9-docs/install/installing-istio/#updating-your-install-to-use-cluster-local-gateway) to add cluster local gateway to your cluster if you are on knative serving 0.9.0+.
+
 ### Setup your environment
 
 To start your environment you'll need to set these environment variables (we
