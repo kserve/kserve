@@ -1,8 +1,8 @@
 # Scikit-Learn Server
 
-[Scikit-Learn](https://scikit-learn.org/stable/) server is an implementation of KFServing for serving Scikit-learn models, and provides a Scikit-learn model implementation for prediction, pre and post processing. 
+[Scikit-Learn](https://scikit-learn.org/stable/) server is an implementation of KFServing for serving Scikit-learn models, and provides a Scikit-learn model implementation for prediction, pre and post processing.
 
-To start the server locally for development needs, run the following command under this folder in your github repository. 
+To start the server locally for development needs, run the following command under this folder in your github repository.
 
 ```
 pip install -e .
@@ -35,7 +35,7 @@ usage: __main__.py [-h] [--http_port HTTP_PORT] [--grpc_port GRPC_PORT]
 __main__.py: error: the following arguments are required: --model_dir
 ```
 
-You can now point to your `joblib` model file and use the server to load the model and test for prediction. Models can be on local filesystem, S3 compatible object storage, Azure Blob Storage, or Google Cloud Storage. Please follow [this sample](https://github.com/kubeflow/kfserving/tree/master/docs/samples/sklearn) to test your server by generating your own model. 
+You can now point to your `joblib` or `pkl` model file and use the server to load the model and test for prediction. Models can be on local filesystem, S3 compatible object storage, Azure Blob Storage, or Google Cloud Storage. If both joblib and pickle formats are presented, joblib model will get loaded. Please follow [this sample](https://github.com/kubeflow/kfserving/tree/master/docs/samples/sklearn) to test your server by generating your own model.
 
 ## Development
 
@@ -165,7 +165,7 @@ Step 5/6 : COPY sklearnserver/model.joblib /tmp/models/model.joblib
  ---> 8c25d6b7b2b0
 ```
 
-To push your image to your dockerhub repo, 
+To push your image to your dockerhub repo,
 
 ```bash
 docker push docker_user_name/sklearnserver:latest

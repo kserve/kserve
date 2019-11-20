@@ -16,20 +16,41 @@ from sklearn import svm
 from sklearn import datasets
 from sklearnserver import SKLearnModel
 import joblib
+import pickle
 import os
 
-model_dir = model_dir = os.path.join(os.path.dirname(__file__), "example_model")
+model_dir = os.path.join(os.path.dirname(__file__), "example_models")
+joblib_dir = os.path.join(model_dir, "joblib")
+pickle_dir = os.path.join(model_dir, "pickle")
 JOBLIB_FILE = "model.joblib"
+PICKLE_FILE = "model.pkl"
 
-def test_model():
+
+def _train_sample_model():
     iris = datasets.load_iris()
     X, y = iris.data, iris.target
     sklearn_model = svm.SVC(gamma='scale')
     sklearn_model.fit(X, y)
-    model_file = os.path.join((model_dir), JOBLIB_FILE)
+    return sklearn_model, X
+
+
+def test_model_joblib():
+    sklearn_model, data = _train_sample_model()
+    model_file = os.path.join(joblib_dir, JOBLIB_FILE)
     joblib.dump(value=sklearn_model, filename=model_file)
-    model = SKLearnModel("sklearnmodel", model_dir)
+    model = SKLearnModel("sklearnmodel", joblib_dir)
     model.load()
-    request = X[0:1].tolist()
+    request = data[0:1].tolist()
+    response = model.predict({"instances": request})
+    assert response["predictions"] == [0]
+
+
+def test_model_pickle():
+    sklearn_model, data = _train_sample_model()
+    model_file = os.path.join(pickle_dir, PICKLE_FILE)
+    pickle.dump(sklearn_model, open(model_file, 'wb'))
+    model = SKLearnModel("sklearnmodel", pickle_dir)
+    model.load()
+    request = data[0:1].tolist()
     response = model.predict({"instances": request})
     assert response["predictions"] == [0]

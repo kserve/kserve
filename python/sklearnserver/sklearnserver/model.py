@@ -16,9 +16,11 @@ import kfserving
 import joblib
 import numpy as np
 import os
+import pickle
 from typing import List, Dict
 
 JOBLIB_FILE = "model.joblib"
+PICKEL_FILE = "model.pkl"
 
 class SKLearnModel(kfserving.KFModel): #pylint:disable=c-extension-no-member
     def __init__(self, name: str, model_dir: str):
@@ -28,8 +30,15 @@ class SKLearnModel(kfserving.KFModel): #pylint:disable=c-extension-no-member
         self.ready = False
 
     def load(self):
-        model_file = os.path.join(kfserving.Storage.download(self.model_dir), JOBLIB_FILE) #pylint:disable=c-extension-no-member
-        self._joblib = joblib.load(model_file) #pylint:disable=attribute-defined-outside-init
+        model_path = kfserving.Storage.download(self.model_dir)
+        joblib_path = os.path.join(model_path, JOBLIB_FILE)
+        pickle_path = os.path.join(model_path, PICKEL_FILE)
+        if os.path.exists(joblib_path):
+            self._model = joblib.load(joblib_path) #pylint:disable=attribute-defined-outside-init
+        elif os.path.exists(pickle_path):
+            self._model = pickle.load(open(pickle_path, 'rb'))
+        else:
+            raise Exception("Model file " + JOBLIB_FILE + " or " + PICKEL_FILE + " is not found")
         self.ready = True
 
     def predict(self, request: Dict) -> Dict:
@@ -40,7 +49,7 @@ class SKLearnModel(kfserving.KFModel): #pylint:disable=c-extension-no-member
             raise Exception(
                 "Failed to initialize NumPy array from inputs: %s, %s" % (e, instances))
         try:
-            result = self._joblib.predict(inputs).tolist()
+            result = self._model.predict(inputs).tolist()
             return { "predictions" : result }
         except Exception as e:
             raise Exception("Failed to predict %s" % e)
