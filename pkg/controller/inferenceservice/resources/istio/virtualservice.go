@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"knative.dev/pkg/apis"
+	"knative.dev/serving/pkg/network"
 	"strings"
 
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
@@ -162,7 +163,7 @@ func (r *VirtualServiceBuilder) CreateVirtualService(isvc *v1alpha2.InferenceSer
 					Prefix: constants.PredictPrefix(isvc.Name),
 				},
 				Authority: &istiov1alpha1.StringMatch{
-					Exact: serviceHostname,
+					Regex: constants.HostRegExp(serviceHostname),
 				},
 				Gateways: []string{r.ingressConfig.IngressGateway},
 			},
@@ -171,7 +172,7 @@ func (r *VirtualServiceBuilder) CreateVirtualService(isvc *v1alpha2.InferenceSer
 					Prefix: constants.PredictPrefix(isvc.Name),
 				},
 				Authority: &istiov1alpha1.StringMatch{
-					Exact: isvc.Name + "." + isvc.Namespace + ".svc.cluster.local",
+					Regex: constants.HostRegExp(network.GetServiceHostname(isvc.Name, isvc.Namespace)),
 				},
 				Gateways: []string{"cluster-local-gateway.knative-serving"},
 			},
@@ -223,7 +224,7 @@ func (r *VirtualServiceBuilder) CreateVirtualService(isvc *v1alpha2.InferenceSer
 		Spec: istiov1alpha3.VirtualServiceSpec{
 			Hosts: []string{
 				serviceHostname,
-				isvc.Name + "." + isvc.Namespace + ".svc.cluster.local",
+				network.GetServiceHostname(isvc.Name, isvc.Namespace),
 			},
 			Gateways: []string{
 				r.ingressConfig.IngressGateway,
@@ -237,8 +238,8 @@ func (r *VirtualServiceBuilder) CreateVirtualService(isvc *v1alpha2.InferenceSer
 		URL: serviceURL,
 		Address: &duckv1beta1.Addressable{URL: &apis.URL{
 			Scheme: "http",
-			Host: isvc.Name + "." + isvc.Namespace + ".svc.cluster.local",
-			Path: fmt.Sprintf("v1/models/%s:predict", isvc.Name),
+			Host:   network.GetServiceHostname(isvc.Name, isvc.Namespace),
+			Path:   fmt.Sprintf("v1/models/%s:predict", isvc.Name),
 		}},
 		CanaryWeight:  canaryWeight,
 		DefaultWeight: defaultWeight,
@@ -327,12 +328,13 @@ func createHTTPRouteDestination(targetHost string, weight int, gatewayService st
 		Headers: &istiov1alpha3.Headers{
 			Request: &istiov1alpha3.HeaderOperations{
 				Set: map[string]string{
-					"Host": tokens[0] + "." + tokens[1] + ".svc.cluster.local",
+					"Host": network.GetServiceHostname(tokens[0],tokens[1]),
 				},
 			},
 		},
 		Destination: istiov1alpha3.Destination{
-			Host: "cluster-local-gateway.istio-system.svc.cluster.local",
+			Host: fmt.Sprintf("cluster-local-gateway.istio-system.svc.%s",
+				network.GetClusterDomainName()),
 		},
 	}
 
