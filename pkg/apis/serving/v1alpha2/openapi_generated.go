@@ -567,13 +567,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Format:      "",
 							},
 						},
-						"modelClassModule": {
-							SchemaProps: spec.SchemaProps{
-								Description: "Python module for which the model class belongs to",
-								Type:        []string{"string"},
-								Format:      "",
-							},
-						},
 						"modelClassName": {
 							SchemaProps: spec.SchemaProps{
 								Description: "Defaults PyTorch model class name to 'PyTorchModel'",

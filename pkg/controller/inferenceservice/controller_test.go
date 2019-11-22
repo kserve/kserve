@@ -18,6 +18,7 @@ package service
 
 import (
 	"fmt"
+	"knative.dev/serving/pkg/network"
 	"testing"
 	"time"
 
@@ -80,17 +81,17 @@ var configs = map[string]string{
         }
 	}`,
 	"ingress": `{
-        "ingressGateway" : "test-gateway",
+        "ingressGateway" : "knative-serving/knative-ingress-gateway",
         "ingressService" : "test-destination"
     }`,
 }
 
-func testUrl(name string) string {
-	return fmt.Sprintf("http://%s.myns.myingress.com/v1/models/%s", name, name)
-}
+var domain = "example.com"
+var knativeIngressGateway = "knative-serving/knative-ingress-gateway"
+var clusterLocalGateway = "cluster-local-gateway.istio-system.svc.cluster.local"
 
 func TestInferenceServiceWithOnlyPredictor(t *testing.T) {
-	var serviceName = "foo"
+	serviceName := "foo"
 	var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
 	var serviceKey = expectedRequest.NamespacedName
 	var predictorService = types.NamespacedName{Name: constants.DefaultPredictorServiceName(serviceKey.Name),
@@ -206,8 +207,8 @@ func TestInferenceServiceWithOnlyPredictor(t *testing.T) {
 	updateDefault := service.DeepCopy()
 	updateDefault.Status.LatestCreatedRevisionName = "revision-v1"
 	updateDefault.Status.LatestReadyRevisionName = "revision-v1"
-	updateDefault.Status.URL, _ = apis.ParseURL("http://revision-v1.myns.myingress.com")
-	updateDefault.Status.Conditions = duckv1.Conditions{
+	updateDefault.Status.URL, _ = apis.ParseURL(constants.InferenceServiceURL("http", serviceKey.Name, serviceKey.Namespace, domain))
+	updateDefault.Status.Conditions = duckv1beta1.Conditions{
 		{
 			Type:   knservingv1alpha1.ServiceConditionReady,
 			Status: "True",
@@ -223,31 +224,46 @@ func TestInferenceServiceWithOnlyPredictor(t *testing.T) {
 	expectedVirtualService := &istiov1alpha3.VirtualService{
 		Spec: istiov1alpha3.VirtualServiceSpec{
 			Gateways: []string{
-				"test-gateway",
+				knativeIngressGateway,
+				clusterLocalGateway,
 			},
 			Hosts: []string{
-				serviceName + ".myns.myingress.com",
+				constants.InferenceServiceHostName(serviceKey.Name, serviceKey.Namespace, domain),
+				network.GetServiceHostname(serviceKey.Name, serviceKey.Namespace),
 			},
 			HTTP: []istiov1alpha3.HTTPRoute{
-				istiov1alpha3.HTTPRoute{
+				{
 					Match: []istiov1alpha3.HTTPMatchRequest{
-						istiov1alpha3.HTTPMatchRequest{
+						{
 							URI: &istiov1alpha1.StringMatch{
 								Prefix: constants.PredictPrefix(serviceName),
+							},
+							Gateways: []string{knativeIngressGateway},
+							Authority: &v1alpha1.StringMatch{
+								Regex: constants.HostRegExp(constants.InferenceServiceHostName(serviceKey.Name, serviceKey.Namespace, domain)),
+							},
+						},
+						{
+							URI: &istiov1alpha1.StringMatch{
+								Prefix: constants.PredictPrefix(serviceName),
+							},
+							Gateways: []string{clusterLocalGateway},
+							Authority: &v1alpha1.StringMatch{
+								Regex: constants.HostRegExp(network.GetServiceHostname(serviceKey.Name, serviceKey.Namespace)),
 							},
 						},
 					},
 					Route: []istiov1alpha3.HTTPRouteDestination{
-						istiov1alpha3.HTTPRouteDestination{
+						{
 							Headers: &istiov1alpha3.Headers{
 								Request: &istiov1alpha3.HeaderOperations{
 									Set: map[string]string{
-										"Host": "revision-v1.myns.myingress.com",
+										"Host": network.GetServiceHostname(constants.DefaultPredictorServiceName(serviceKey.Name), serviceKey.Namespace),
 									},
 								},
 							},
 							Destination: istiov1alpha3.Destination{
-								Host: "test-destination",
+								Host: clusterLocalGateway,
 							},
 							Weight: 100,
 						},
@@ -276,13 +292,13 @@ func TestInferenceServiceWithOnlyPredictor(t *testing.T) {
 				},
 			},
 		},
-		URL:           testUrl(serviceName),
+		URL:           constants.InferenceServiceURL("http", serviceKey.Name, serviceKey.Namespace, domain),
 		Traffic:       100,
 		CanaryTraffic: 0,
 		Default: &kfserving.ComponentStatusMap{
 			constants.Predictor: &kfserving.StatusConfigurationSpec{
 				Name:     "revision-v1",
-				Hostname: "revision-v1.myns.myingress.com",
+				Hostname: constants.InferenceServiceHostName(constants.DefaultPredictorServiceName(serviceKey.Name), serviceKey.Namespace, domain),
 			},
 		},
 		Canary: &kfserving.ComponentStatusMap{},
@@ -300,7 +316,7 @@ func TestInferenceServiceWithOnlyPredictor(t *testing.T) {
 func TestInferenceServiceWithDefaultAndCanaryPredictor(t *testing.T) {
 	var expectedCanaryRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: "bar", Namespace: "default"}}
 	var canaryServiceKey = expectedCanaryRequest.NamespacedName
-
+	domain := "example.com"
 	var canary = &kfserving.InferenceService{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      canaryServiceKey.Name,
@@ -334,7 +350,14 @@ func TestInferenceServiceWithDefaultAndCanaryPredictor(t *testing.T) {
 			},
 		},
 		Status: kfserving.InferenceServiceStatus{
-			URL: canaryServiceKey.Name + ".svc.cluster.local",
+			URL: canaryServiceKey.Name + "." + domain,
+			Address: &duckv1beta1.Addressable{
+				URL: &apis.URL{
+					Scheme: "http",
+					Host:   network.GetServiceHostname(canaryServiceKey.Name, canaryServiceKey.Namespace),
+					Path:   constants.PredictPrefix(canaryServiceKey.Name),
+				},
+			},
 			Default: &kfserving.ComponentStatusMap{
 				constants.Predictor: &kfserving.StatusConfigurationSpec{
 					Name: "revision-v1",
@@ -438,8 +461,9 @@ func TestInferenceServiceWithDefaultAndCanaryPredictor(t *testing.T) {
 	updateDefault := defaultService.DeepCopy()
 	updateDefault.Status.LatestCreatedRevisionName = "revision-v1"
 	updateDefault.Status.LatestReadyRevisionName = "revision-v1"
-	updateDefault.Status.URL, _ = apis.ParseURL("http://revision-v1.myns.myingress.com")
-	updateDefault.Status.Conditions = duckv1.Conditions{
+	updateDefault.Status.URL, _ = apis.ParseURL(constants.InferenceServiceURL("http", canaryService.Name,
+		canaryService.Namespace, domain))
+	updateDefault.Status.Conditions = duckv1beta1.Conditions{
 		{
 			Type:   knservingv1alpha1.ServiceConditionReady,
 			Status: "True",
@@ -484,19 +508,29 @@ func TestInferenceServiceWithDefaultAndCanaryPredictor(t *testing.T) {
 				},
 			},
 		},
-		URL:           testUrl("bar"),
+		URL: constants.InferenceServiceURL("http", canaryService.Name,
+			canaryService.Namespace, domain),
+		Address: &duckv1beta1.Addressable{
+			URL: &apis.URL{
+				Scheme: "http",
+				Path:   constants.PredictPrefix(canaryServiceKey.Name),
+				Host:   network.GetServiceHostname(canaryServiceKey.Name, canaryServiceKey.Namespace),
+			},
+		},
 		Traffic:       80,
 		CanaryTraffic: 20,
 		Default: &kfserving.ComponentStatusMap{
 			constants.Predictor: &kfserving.StatusConfigurationSpec{
-				Name:     "revision-v1",
-				Hostname: "revision-v1.myns.myingress.com",
+				Name: "revision-v1",
+				Hostname: constants.DefaultPredictorServiceURL(canaryServiceKey.Name, canaryServiceKey.Namespace,
+					domain),
 			},
 		},
 		Canary: &kfserving.ComponentStatusMap{
 			constants.Predictor: &kfserving.StatusConfigurationSpec{
-				Name:     "revision-v2",
-				Hostname: "revision-v2.myns.myingress.com",
+				Name: "revision-v2",
+				Hostname: constants.CanaryPredictorServiceURL(canaryServiceKey.Name, canaryServiceKey.Namespace,
+					domain),
 			},
 		},
 	}
@@ -515,17 +549,32 @@ func TestInferenceServiceWithDefaultAndCanaryPredictor(t *testing.T) {
 	expectedVirtualService := &istiov1alpha3.VirtualService{
 		Spec: istiov1alpha3.VirtualServiceSpec{
 			Gateways: []string{
-				"test-gateway",
+				knativeIngressGateway,
+				clusterLocalGateway,
 			},
 			Hosts: []string{
-				"bar.myns.myingress.com",
+				constants.InferenceServiceHostName(canaryServiceKey.Name, canaryServiceKey.Namespace, domain),
+				network.GetServiceHostname(canaryServiceKey.Name, canaryServiceKey.Namespace),
 			},
 			HTTP: []istiov1alpha3.HTTPRoute{
 				{
 					Match: []istiov1alpha3.HTTPMatchRequest{
 						{
 							URI: &istiov1alpha1.StringMatch{
-								Prefix: constants.PredictPrefix("bar"),
+								Prefix: constants.PredictPrefix(canaryServiceKey.Name),
+							},
+							Gateways: []string{knativeIngressGateway},
+							Authority: &v1alpha1.StringMatch{
+								Regex: constants.HostRegExp(constants.InferenceServiceHostName(canaryServiceKey.Name, canaryServiceKey.Namespace, domain)),
+							},
+						},
+						{
+							URI: &istiov1alpha1.StringMatch{
+								Prefix: constants.PredictPrefix(canaryServiceKey.Name),
+							},
+							Gateways: []string{clusterLocalGateway},
+							Authority: &v1alpha1.StringMatch{
+								Regex: constants.HostRegExp(network.GetServiceHostname(canaryServiceKey.Name, canaryServiceKey.Namespace)),
 							},
 						},
 					},
@@ -534,12 +583,12 @@ func TestInferenceServiceWithDefaultAndCanaryPredictor(t *testing.T) {
 							Headers: &istiov1alpha3.Headers{
 								Request: &istiov1alpha3.HeaderOperations{
 									Set: map[string]string{
-										"Host": "revision-v1.myns.myingress.com",
+										"Host": network.GetServiceHostname(constants.DefaultPredictorServiceName(canaryServiceKey.Name), canaryServiceKey.Namespace),
 									},
 								},
 							},
 							Destination: istiov1alpha3.Destination{
-								Host: "test-destination",
+								Host: clusterLocalGateway,
 							},
 							Weight: 80,
 						},
@@ -547,12 +596,12 @@ func TestInferenceServiceWithDefaultAndCanaryPredictor(t *testing.T) {
 							Headers: &istiov1alpha3.Headers{
 								Request: &istiov1alpha3.HeaderOperations{
 									Set: map[string]string{
-										"Host": "revision-v2.myns.myingress.com",
+										"Host": network.GetServiceHostname(constants.CanaryPredictorServiceName(canaryServiceKey.Name), canaryServiceKey.Namespace),
 									},
 								},
 							},
 							Destination: istiov1alpha3.Destination{
-								Host: "test-destination",
+								Host: clusterLocalGateway,
 							},
 							Weight: 20,
 						},
@@ -566,7 +615,6 @@ func TestInferenceServiceWithDefaultAndCanaryPredictor(t *testing.T) {
 
 func TestCanaryDelete(t *testing.T) {
 	serviceName := fmt.Sprintf("canary-delete-%v", time.Now().UnixNano())
-	serviceURL := testUrl(serviceName)
 	namespace := "default"
 	var defaultPredictor = types.NamespacedName{Name: constants.DefaultPredictorServiceName(serviceName),
 		Namespace: namespace}
@@ -710,7 +758,7 @@ func TestCanaryDelete(t *testing.T) {
 				},
 			},
 		},
-		URL:           serviceURL,
+		URL:           constants.InferenceServiceURL("http", serviceName, namespace, domain),
 		Traffic:       80,
 		CanaryTraffic: 20,
 		Default: &kfserving.ComponentStatusMap{
@@ -769,12 +817,7 @@ func TestCanaryDelete(t *testing.T) {
 	canaryService = &knservingv1alpha1.Service{}
 	g.Eventually(func() bool {
 		err := c.Get(context.TODO(), canaryPredictor, canaryService)
-		notFound := errors.IsNotFound(err)
-		if notFound {
-			return true
-		} else {
-			return canaryService.DeletionTimestamp != nil
-		}
+		return errors.IsNotFound(err)
 	}, timeout).Should(gomega.BeTrue())
 
 	expectedKfsvcStatus = kfserving.InferenceServiceStatus{
@@ -794,7 +837,7 @@ func TestCanaryDelete(t *testing.T) {
 				},
 			},
 		},
-		URL:     serviceURL,
+		URL:     constants.InferenceServiceURL("http", serviceName, namespace, domain),
 		Traffic: 100,
 		Default: &kfserving.ComponentStatusMap{
 			constants.Predictor: &kfserving.StatusConfigurationSpec{
@@ -1088,7 +1131,7 @@ func TestInferenceServiceWithTransformer(t *testing.T) {
 		},
 		Traffic:       80,
 		CanaryTraffic: 20,
-		URL:           testUrl(serviceName),
+		URL:           constants.InferenceServiceURL("http", serviceKey.Name, serviceKey.Namespace, domain),
 		Default: &kfserving.ComponentStatusMap{
 			constants.Predictor: &kfserving.StatusConfigurationSpec{
 				Name:     "revision-v1",
@@ -1624,7 +1667,7 @@ func TestInferenceServiceWithExplainer(t *testing.T) {
 		},
 		Traffic:       80,
 		CanaryTraffic: 20,
-		URL:           testUrl(serviceName),
+		URL:           constants.InferenceServiceURL("http", serviceKey.Name, serviceKey.Namespace, domain),
 		Default: &kfserving.ComponentStatusMap{
 			constants.Predictor: &kfserving.StatusConfigurationSpec{
 				Name:     "revision-v1",
