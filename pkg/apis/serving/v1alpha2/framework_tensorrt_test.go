@@ -75,6 +75,6 @@ func TestCreateModelServingContainer(t *testing.T) {
 	}
 
 	// Test Create with config
-	container := spec.GetContainer("someName", &config)
+	container := spec.GetContainer("someName", false, &config)
 	g.Expect(container).To(gomega.Equal(expectedContainer))
 }

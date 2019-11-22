@@ -24,7 +24,7 @@ import (
 type Predictor interface {
 	GetResourceRequirements() *v1.ResourceRequirements
 	GetStorageUri() string
-	GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container
+	GetContainer(modelName string, hasLogging bool, config *InferenceServicesConfig) *v1.Container
 	ApplyDefaults(config *InferenceServicesConfig)
 	Validate(config *InferenceServicesConfig) error
 }
@@ -32,6 +32,7 @@ type Predictor interface {
 const (
 	// ExactlyOnePredictorViolatedError is a known error message
 	ExactlyOnePredictorViolatedError = "Exactly one of [Custom, ONNX, Tensorflow, TensorRT, SKLearn, XGBoost] must be specified in PredictorSpec"
+	LoggerCustomNotSupportedError    = "Inference logger for custom specs is not supported"
 )
 
 // Returns a URI to the model. This URI is passed to the storage-initializer via the StorageInitializerSourceUriInternalAnnotationKey
@@ -43,12 +44,12 @@ func (p *PredictorSpec) GetStorageUri() string {
 	return predictor.GetStorageUri()
 }
 
-func (p *PredictorSpec) GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container {
+func (p *PredictorSpec) GetContainer(modelName string, hasLogging bool, config *InferenceServicesConfig) *v1.Container {
 	predictor, err := getPredictor(p)
 	if err != nil {
 		return nil
 	}
-	return predictor.GetContainer(modelName, config)
+	return predictor.GetContainer(modelName, hasLogging, config)
 }
 
 func (p *PredictorSpec) ApplyDefaults(config *InferenceServicesConfig) {
@@ -68,6 +69,7 @@ func (p *PredictorSpec) Validate(config *InferenceServicesConfig) error {
 		validateStorageURI(p.GetStorageUri()),
 		validateReplicas(p.MinReplicas, p.MaxReplicas),
 		validateResourceRequirements(predictor.GetResourceRequirements()),
+		validateLogger(p.Logger),
 	} {
 		if err != nil {
 			return err

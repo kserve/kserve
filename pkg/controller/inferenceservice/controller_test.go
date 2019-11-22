@@ -53,7 +53,7 @@ import (
 var c client.Client
 
 const (
-	timeout                    = time.Second * 20
+	timeout                    = time.Second * 30
 	TensorflowServingImageName = "tensorflow/serving"
 )
 
@@ -460,62 +460,7 @@ func TestInferenceServiceWithDefaultAndCanaryPredictor(t *testing.T) {
 	g.Expect(c.Status().Update(context.TODO(), updateCanary)).NotTo(gomega.HaveOccurred())
 	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedCanaryRequest)))
 
-	virtualService := &istiov1alpha3.VirtualService{}
-	g.Eventually(func() error { return c.Get(context.TODO(), virtualServiceName, virtualService) }, timeout).
-		Should(gomega.Succeed())
-
-	expectedVirtualService := &istiov1alpha3.VirtualService{
-		Spec: istiov1alpha3.VirtualServiceSpec{
-			Gateways: []string{
-				"test-gateway",
-			},
-			Hosts: []string{
-				"bar.myns.myingress.com",
-			},
-			HTTP: []istiov1alpha3.HTTPRoute{
-				istiov1alpha3.HTTPRoute{
-					Match: []istiov1alpha3.HTTPMatchRequest{
-						istiov1alpha3.HTTPMatchRequest{
-							URI: &istiov1alpha1.StringMatch{
-								Prefix: constants.PredictPrefix("bar"),
-							},
-						},
-					},
-					Route: []istiov1alpha3.HTTPRouteDestination{
-						istiov1alpha3.HTTPRouteDestination{
-							Headers: &istiov1alpha3.Headers{
-								Request: &istiov1alpha3.HeaderOperations{
-									Set: map[string]string{
-										"Host": "revision-v1.myns.myingress.com",
-									},
-								},
-							},
-							Destination: istiov1alpha3.Destination{
-								Host: "test-destination",
-							},
-							Weight: 80,
-						},
-						istiov1alpha3.HTTPRouteDestination{
-							Headers: &istiov1alpha3.Headers{
-								Request: &istiov1alpha3.HeaderOperations{
-									Set: map[string]string{
-										"Host": "revision-v2.myns.myingress.com",
-									},
-								},
-							},
-							Destination: istiov1alpha3.Destination{
-								Host: "test-destination",
-							},
-							Weight: 20,
-						},
-					},
-				},
-			},
-		},
-	}
-	g.Expect(virtualService.Spec).To(gomega.Equal(expectedVirtualService.Spec))
-
-	// verify if InferenceService status is updated
+	// verify if InferenceService status is updated first then virtual service
 	expectedKfsvcStatus := kfserving.InferenceServiceStatus{
 		Status: duckv1beta1.Status{
 			Conditions: duckv1beta1.Conditions{
@@ -561,6 +506,61 @@ func TestInferenceServiceWithDefaultAndCanaryPredictor(t *testing.T) {
 		}
 		return cmp.Diff(&expectedKfsvcStatus, &isvc.Status, cmpopts.IgnoreTypes(apis.VolatileTime{}))
 	}, timeout).Should(gomega.BeEmpty())
+
+	virtualService := &istiov1alpha3.VirtualService{}
+	g.Eventually(func() error { return c.Get(context.TODO(), virtualServiceName, virtualService) }, timeout).
+		Should(gomega.Succeed())
+
+	expectedVirtualService := &istiov1alpha3.VirtualService{
+		Spec: istiov1alpha3.VirtualServiceSpec{
+			Gateways: []string{
+				"test-gateway",
+			},
+			Hosts: []string{
+				"bar.myns.myingress.com",
+			},
+			HTTP: []istiov1alpha3.HTTPRoute{
+				{
+					Match: []istiov1alpha3.HTTPMatchRequest{
+						{
+							URI: &istiov1alpha1.StringMatch{
+								Prefix: constants.PredictPrefix("bar"),
+							},
+						},
+					},
+					Route: []istiov1alpha3.HTTPRouteDestination{
+						{
+							Headers: &istiov1alpha3.Headers{
+								Request: &istiov1alpha3.HeaderOperations{
+									Set: map[string]string{
+										"Host": "revision-v1.myns.myingress.com",
+									},
+								},
+							},
+							Destination: istiov1alpha3.Destination{
+								Host: "test-destination",
+							},
+							Weight: 80,
+						},
+						{
+							Headers: &istiov1alpha3.Headers{
+								Request: &istiov1alpha3.HeaderOperations{
+									Set: map[string]string{
+										"Host": "revision-v2.myns.myingress.com",
+									},
+								},
+							},
+							Destination: istiov1alpha3.Destination{
+								Host: "test-destination",
+							},
+							Weight: 20,
+						},
+					},
+				},
+			},
+		},
+	}
+	g.Expect(virtualService.Spec).To(gomega.Equal(expectedVirtualService.Spec))
 }
 
 func TestCanaryDelete(t *testing.T) {
@@ -686,13 +686,6 @@ func TestCanaryDelete(t *testing.T) {
 	g.Expect(c.Status().Update(context.TODO(), updateCanary)).NotTo(gomega.HaveOccurred())
 	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedCanaryRequest)))
 
-	// should see a virtual service with 2 routes
-	virtualService := &istiov1alpha3.VirtualService{}
-	g.Eventually(func() error { return c.Get(context.TODO(), virtualServiceName, virtualService) }, timeout).
-		Should(gomega.Succeed())
-	g.Expect(len(virtualService.Spec.HTTP)).To(gomega.Equal(1))
-	g.Expect(len(virtualService.Spec.HTTP[0].Route)).To(gomega.Equal(2))
-
 	// Verify if InferenceService status is updated
 	expectedKfsvcStatus := kfserving.InferenceServiceStatus{
 		Status: duckv1beta1.Status{
@@ -740,6 +733,13 @@ func TestCanaryDelete(t *testing.T) {
 		}
 		return cmp.Diff(&expectedKfsvcStatus, &canaryUpdate.Status, cmpopts.IgnoreTypes(apis.VolatileTime{}))
 	}, timeout).Should(gomega.BeEmpty())
+
+	// should see a virtual service with 2 routes
+	virtualService := &istiov1alpha3.VirtualService{}
+	g.Eventually(func() error { return c.Get(context.TODO(), virtualServiceName, virtualService) }, timeout).
+		Should(gomega.Succeed())
+	g.Expect(len(virtualService.Spec.HTTP)).To(gomega.Equal(1))
+	g.Expect(len(virtualService.Spec.HTTP[0].Route)).To(gomega.Equal(2))
 
 	// Update instance to remove Canary Spec
 	// Canary service should be removed during reconcile
@@ -973,6 +973,8 @@ func TestInferenceServiceWithTransformer(t *testing.T) {
 											serviceName,
 											"--predictor_host",
 											constants.CanaryPredictorServiceName(instance.Name) + "." + instance.Namespace,
+											constants.ArgumentHttpPort,
+											constants.GetInferenceServiceHttpPort(false),
 										},
 									},
 								},
@@ -1504,6 +1506,8 @@ func TestInferenceServiceWithExplainer(t *testing.T) {
 											serviceName,
 											"--predictor_host",
 											constants.CanaryPredictorServiceName(instance.Name) + "." + instance.Namespace,
+											"--http_port",
+											"8080",
 											"AnchorTabular",
 										},
 									},

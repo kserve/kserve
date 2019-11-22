@@ -80,7 +80,6 @@ type Logger struct {
 	// +optional
 	Url *string `json:"url,omitempty"`
 	// What payloads to log
-	// +optional
 	Mode LoggerMode `json:"mode,omitempty"`
 }
 
@@ -162,7 +161,7 @@ type TensorflowSpec struct {
 type TensorRTSpec struct {
 	// The location of the trained model
 	StorageURI string `json:"storageUri"`
-	// Allowed runtime versions are [19.05-py3] and defaults to the version specified in the inferenceservice config map
+	// Allowed runtime versions are specified in the inferenceservice config map
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
 	// Defaults to requests and limits of 1CPU, 2Gb MEM.
 	Resources v1.ResourceRequirements `json:"resources,omitempty"`
@@ -192,7 +191,7 @@ type SKLearnSpec struct {
 type ONNXSpec struct {
 	// The location of the trained model
 	StorageURI string `json:"storageUri"`
-	// Allowed runtime versions are [v0.5.0, latest] and defaults to the version specified in the inferenceservice config map
+	// Allowed runtime versions are specified in the inferenceservice config map
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
 	// Defaults to requests and limits of 1CPU, 2Gb MEM.
 	Resources v1.ResourceRequirements `json:"resources,omitempty"`

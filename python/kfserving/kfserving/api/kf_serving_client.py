@@ -24,10 +24,16 @@ from ..models.v1alpha2_inference_service_spec import V1alpha2InferenceServiceSpe
 
 
 class KFServingClient(object):
-    '''KFServing Client Apis.'''
 
     def __init__(self, config_file=None, context=None, # pylint: disable=too-many-arguments
                  client_configuration=None, persist_config=True):
+        """
+        KFServing client constructor
+        :param config_file: kubeconfig file, defaults to ~/.kube/config
+        :param context: kubernetes context
+        :param client_configuration: kubernetes configuration object
+        :param persist_config:
+        """
         if config_file or not utils.is_running_in_k8s():
             config.load_kube_config(
                 config_file=config_file,
@@ -41,15 +47,17 @@ class KFServingClient(object):
 
     def set_credentials(self, storage_type, namespace=None, credentials_file=None,
                         service_account=constants.DEFAULT_SA_NAME, **kwargs):
-        '''
-        Set GCS and S3 Credentials for KFServing.
-        Args:
-            storage_type(str): Valid value: GCS or S3 (required).
-            namespace(str): The kubenertes namespace (Optional).
-            credentials_file(str): The path for the credentials file.
-            service_account(str): The name of service account.
-            kwargs(dict): Others parameters for each storage_type.
-        '''
+        """
+        Setup credentials for KFServing.
+
+        :param storage_type: Valid value: GCS or S3 (required)
+        :param namespace: inference service deployment namespace
+        :param credentials_file: the path for the credentials file.
+        :param service_account: the name of service account.
+        :param kwargs: Others parameters for each storage_type
+        :return:
+        """
+
         if namespace is None:
             namespace = utils.get_default_target_namespace()
 
@@ -77,7 +85,14 @@ class KFServingClient(object):
                 currently.\n" % storage_type)
 
     def create(self, inferenceservice, namespace=None, watch=False, timeout_seconds=600): #pylint:disable=inconsistent-return-statements
-        """Create the provided InferenceService in the specified namespace"""
+        """
+        Create the inference service
+        :param inferenceservice: inference service object
+        :param namespace: defaults to current or default namespace
+        :param watch: True to watch the created service until timeout elapsed or status is ready
+        :param timeout_seconds: timeout seconds for watch, default to 600s
+        :return: created inference service
+        """
 
         if namespace is None:
             namespace = utils.set_isvc_namespace(inferenceservice)
@@ -103,8 +118,14 @@ class KFServingClient(object):
             return outputs
 
     def get(self, name=None, namespace=None, watch=False, timeout_seconds=600): #pylint:disable=inconsistent-return-statements
-        """Get the created InferenceService in the specified namespace"""
-
+        """
+        Get the inference service
+        :param name: existing inference service name
+        :param namespace: defaults to current or default namespace
+        :param watch: True to watch the service until timeout elapsed or status is ready
+        :param timeout_seconds: timeout seconds for watch, default to 600s
+        :return: inference service
+        """
         if namespace is None:
             namespace = utils.get_default_target_namespace()
 
@@ -144,8 +165,15 @@ class KFServingClient(object):
                         %s\n" % e)
 
     def patch(self, name, inferenceservice, namespace=None, watch=False, timeout_seconds=600): # pylint:disable=too-many-arguments,inconsistent-return-statements
-        """Patch the created InferenceService in the specified namespace"""
-
+        """
+        Patch existing inference service
+        :param name: existing inference service name
+        :param inferenceservice: patched inference service
+        :param namespace: defaults to current or default namespace
+        :param watch: True to watch the patched service until timeout elapsed or status is ready
+        :param timeout_seconds: timeout seconds for watch, default to 600s
+        :return: patched inference service
+        """
         if namespace is None:
             namespace = utils.set_isvc_namespace(inferenceservice)
 
@@ -173,7 +201,15 @@ class KFServingClient(object):
             return outputs
 
     def replace(self, name, inferenceservice, namespace=None, watch=False, timeout_seconds=600): # pylint:disable=too-many-arguments,inconsistent-return-statements
-        """Replace the created InferenceService in the specified namespace"""
+        """
+        Replace the existing inference service
+        :param name: existing inference service name
+        :param inferenceservice: replacing inference service
+        :param namespace: defaults to current or default namespace
+        :param watch: True to watch the replaced service until timeout elapsed or status is ready
+        :param timeout_seconds: timeout seconds for watch, default to 600s
+        :return: replaced inference service
+        """
 
         if namespace is None:
             namespace = utils.set_isvc_namespace(inferenceservice)
@@ -204,10 +240,18 @@ class KFServingClient(object):
         else:
             return outputs
 
-
     def rollout_canary(self, name, percent, namespace=None, # pylint:disable=too-many-arguments,inconsistent-return-statements
                        canary=None, watch=False, timeout_seconds=600):
-        """Rollout canary for the created InferenceService in the specified namespace"""
+        """
+        Rollout the canary endpoint
+        :param name: inference service name
+        :param percent: traffic percentage to the canary endpoint
+        :param namespace: defaults to current or default namespace
+        :param canary: canary endpoint spec
+        :param watch: True to watch the service until timeout elapsed or status is ready
+        :param timeout_seconds: timeout seconds for watch, default to 600s
+        :return: inference service with canary endpoint
+        """
 
         if namespace is None:
             namespace = utils.get_default_target_namespace()
@@ -224,9 +268,15 @@ class KFServingClient(object):
         return self.patch(name=name, inferenceservice=current_isvc, namespace=namespace,
                           watch=watch, timeout_seconds=timeout_seconds)
 
-
     def promote(self, name, namespace=None, watch=False, timeout_seconds=600): # pylint:disable=too-many-arguments,inconsistent-return-statements
-        """Promote the created InferenceService in the specified namespace"""
+        """
+        Promote canary endpoint to default
+        :param name: inference service name
+        :param namespace: defaults to current or default namespace
+        :param watch: True to watch the service until timeout elapsed or status is ready
+        :param timeout_seconds: timeout seconds for watch, default to 600s
+        :return: promoted inference service
+        """
 
         if namespace is None:
             namespace = utils.get_default_target_namespace()
@@ -253,10 +303,13 @@ class KFServingClient(object):
         return self.replace(name=name, inferenceservice=inferenceservice, namespace=namespace,
                             watch=watch, timeout_seconds=timeout_seconds)
 
-
     def delete(self, name, namespace=None):
-        """Delete the provided InferenceService in the specified namespace"""
-
+        """
+        Delete the inference service
+        :param name: inference service name
+        :param namespace: defaults to current or default namespace
+        :return:
+        """
         if namespace is None:
             namespace = utils.get_default_target_namespace()
 

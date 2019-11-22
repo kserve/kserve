@@ -12,16 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import tornado.ioloop
-import tornado.web
-import tornado.httpserver
 import argparse
 import logging
 import json
 from typing import List, Dict
+import tornado.ioloop
+import tornado.web
+import tornado.httpserver
+import tornado.log
 from kfserving.handlers.http import PredictHandler, ExplainHandler
 from kfserving import KFModel
-from kfserving.constants import constants
 
 DEFAULT_HTTP_PORT = 8080
 DEFAULT_GRPC_PORT = 8081
@@ -35,10 +35,9 @@ parser.add_argument('--workers', default=0, type=int,
                     help='The number of works to fork')
 args, _ = parser.parse_known_args()
 
-logging.basicConfig(level=constants.KFSERVING_LOGLEVEL)
+tornado.log.enable_pretty_logging()
 
-
-class KFServer():
+class KFServer:
     def __init__(self, http_port: int = args.http_port,
                  grpc_port: int = args.grpc_port,
                  workers: int = args.workers):

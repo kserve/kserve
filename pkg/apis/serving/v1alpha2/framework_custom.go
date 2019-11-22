@@ -37,11 +37,11 @@ func (c *CustomSpec) GetResourceRequirements() *v1.ResourceRequirements {
 	return &c.Container.Resources
 }
 
-func (c *CustomSpec) GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container {
+func (c *CustomSpec) GetContainer(modelName string, hasLogging bool, config *InferenceServicesConfig) *v1.Container {
 	return &c.Container
 }
 
-func (c *CustomSpec) CreateExplainerContainer(modelName string, predictUrl string, config *InferenceServicesConfig) *v1.Container {
+func (c *CustomSpec) CreateExplainerContainer(modelName string, predictUrl string, hasLogging bool, config *InferenceServicesConfig) *v1.Container {
 	return &c.Container
 }
 

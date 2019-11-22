@@ -21,6 +21,7 @@ import os
 model_dir = model_dir = os.path.join(os.path.dirname(__file__), "example_model")
 MODEL_FILE = "model.pt"
 
+
 def test_model():
     server = PyTorchModel("pytorchmodel", "Net", model_dir)
     server.load()
