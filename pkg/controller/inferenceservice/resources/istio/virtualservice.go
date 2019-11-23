@@ -151,12 +151,12 @@ func (r *VirtualServiceBuilder) CreateVirtualService(isvc *v1alpha2.InferenceSer
 	defaultWeight := 100 - isvc.Spec.CanaryTrafficPercent
 	canaryWeight := isvc.Spec.CanaryTrafficPercent
 
-	if defaultPredictRouteDestination, err := r.getPredictRouteDestination(isvc.GetObjectMeta(), &isvc.Spec.Default, isvc.Status.Default, defaultWeight); err != nil {
+	if defaultPredictRouteDestination, err := r.getPredictRouteDestination(isvc.GetObjectMeta(), false, &isvc.Spec.Default, isvc.Status.Default, defaultWeight); err != nil {
 		return nil, err
 	} else {
 		predictRouteDestinations = append(predictRouteDestinations, *defaultPredictRouteDestination)
 	}
-	if canaryPredictRouteDestination, err := r.getPredictRouteDestination(isvc.GetObjectMeta(), isvc.Spec.Canary, isvc.Status.Canary, canaryWeight); err != nil {
+	if canaryPredictRouteDestination, err := r.getPredictRouteDestination(isvc.GetObjectMeta(), true, isvc.Spec.Canary, isvc.Status.Canary, canaryWeight); err != nil {
 		return nil, err
 	} else {
 		if canaryPredictRouteDestination != nil {
