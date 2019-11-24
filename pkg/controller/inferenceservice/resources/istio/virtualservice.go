@@ -221,6 +221,19 @@ func (r *VirtualServiceBuilder) CreateVirtualService(isvc *v1alpha2.InferenceSer
 					URI: &istiov1alpha1.StringMatch{
 						Prefix: constants.ExplainPrefix(isvc.Name),
 					},
+					Authority: &istiov1alpha1.StringMatch{
+						Regex: constants.HostRegExp(serviceHostname),
+					},
+					Gateways: []string{r.ingressConfig.IngressGateway},
+				},
+				{
+					URI: &istiov1alpha1.StringMatch{
+						Prefix: constants.ExplainPrefix(isvc.Name),
+					},
+					Authority: &istiov1alpha1.StringMatch{
+						Regex: constants.HostRegExp(network.GetServiceHostname(isvc.Name, isvc.Namespace)),
+					},
+					Gateways: []string{"knative-serving/cluster-local-gateway"},
 				},
 			},
 			Route: explainRouteDestinations,

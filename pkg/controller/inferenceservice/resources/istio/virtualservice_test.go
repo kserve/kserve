@@ -50,14 +50,14 @@ func TestCreateVirtualService(t *testing.T) {
 		{
 			URI: &istiov1alpha1.StringMatch{Prefix: "/v1/models/my-model:predict"},
 			Authority: &istiov1alpha1.StringMatch{
-				Regex:  constants.HostRegExp(constants.InferenceServiceHostName(serviceName, namespace, domain)),
+				Regex: constants.HostRegExp(constants.InferenceServiceHostName(serviceName, namespace, domain)),
 			},
 			Gateways: []string{knativeIngressGateway},
 		},
 		{
 			URI: &istiov1alpha1.StringMatch{Prefix: "/v1/models/my-model:predict"},
 			Authority: &istiov1alpha1.StringMatch{
-				Regex:  constants.HostRegExp(network.GetServiceHostname(serviceName, namespace)),
+				Regex: constants.HostRegExp(network.GetServiceHostname(serviceName, namespace)),
 			},
 			Gateways: []string{clusterLocalGateway},
 		},
@@ -103,7 +103,7 @@ func TestCreateVirtualService(t *testing.T) {
 					Status: corev1.ConditionTrue,
 				}},
 			},
-			URL:           expectedURL,
+			URL: expectedURL,
 			Address: &duckv1beta1.Addressable{
 				URL: &apis.URL{
 					Scheme: "http",
@@ -178,7 +178,7 @@ func TestCreateVirtualService(t *testing.T) {
 					Status: corev1.ConditionTrue,
 				}},
 			},
-			URL:           expectedURL,
+			URL: expectedURL,
 			Address: &duckv1beta1.Addressable{
 				URL: &apis.URL{
 					Scheme: "http",
@@ -261,7 +261,7 @@ func TestCreateVirtualService(t *testing.T) {
 					Status: corev1.ConditionTrue,
 				}},
 			},
-			URL:           expectedURL,
+			URL: expectedURL,
 			Address: &duckv1beta1.Addressable{
 				URL: &apis.URL{
 					Scheme: "http",
@@ -337,7 +337,7 @@ func TestCreateVirtualService(t *testing.T) {
 					Status: corev1.ConditionTrue,
 				}},
 			},
-			URL:           expectedURL,
+			URL: expectedURL,
 			Address: &duckv1beta1.Addressable{
 				URL: &apis.URL{
 					Scheme: "http",
@@ -349,7 +349,7 @@ func TestCreateVirtualService(t *testing.T) {
 			CanaryWeight:  20,
 		},
 		expectedService: &istiov1alpha3.VirtualService{
-			ObjectMeta: metav1.ObjectMeta{Name: serviceName, Namespace:namespace},
+			ObjectMeta: metav1.ObjectMeta{Name: serviceName, Namespace: namespace},
 			Spec: istiov1alpha3.VirtualServiceSpec{
 				Hosts:    []string{serviceHostName, serviceInternalHostName},
 				Gateways: []string{knativeIngressGateway, clusterLocalGateway},
@@ -418,7 +418,7 @@ func TestCreateVirtualService(t *testing.T) {
 					Status: corev1.ConditionTrue,
 				}},
 			},
-			URL:           expectedURL,
+			URL: expectedURL,
 			Address: &duckv1beta1.Addressable{
 				URL: &apis.URL{
 					Scheme: "http",
@@ -449,7 +449,22 @@ func TestCreateVirtualService(t *testing.T) {
 						},
 					},
 					{
-						Match: []istiov1alpha3.HTTPMatchRequest{{URI: &istiov1alpha1.StringMatch{Prefix: "/v1/models/my-model:explain"}}},
+						Match: []istiov1alpha3.HTTPMatchRequest{
+							{
+								URI: &istiov1alpha1.StringMatch{Prefix: "/v1/models/my-model:explain"},
+								Authority: &istiov1alpha1.StringMatch{
+									Regex: constants.HostRegExp(constants.InferenceServiceHostName(serviceName, namespace, domain)),
+								},
+								Gateways: []string{knativeIngressGateway},
+							},
+							{
+								URI: &istiov1alpha1.StringMatch{Prefix: "/v1/models/my-model:explain"},
+								Authority: &istiov1alpha1.StringMatch{
+									Regex: constants.HostRegExp(network.GetServiceHostname(serviceName, namespace)),
+								},
+								Gateways: []string{clusterLocalGateway},
+							},
+						},
 						Route: []istiov1alpha3.HTTPRouteDestination{
 							{
 								Destination: istiov1alpha3.Destination{Host: localGatewayHost},
@@ -472,7 +487,7 @@ func TestCreateVirtualService(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			testIsvc := &v1alpha2.InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: serviceName,
+					Name:      serviceName,
 					Namespace: namespace,
 				},
 				Spec: v1alpha2.InferenceServiceSpec{
