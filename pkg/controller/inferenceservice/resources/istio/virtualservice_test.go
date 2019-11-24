@@ -22,19 +22,46 @@ import (
 	"github.com/kubeflow/kfserving/pkg/constants"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/apis"
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
 	istiov1alpha1 "knative.dev/pkg/apis/istio/common/v1alpha1"
 	istiov1alpha3 "knative.dev/pkg/apis/istio/v1alpha3"
+	"knative.dev/serving/pkg/network"
 	"testing"
 )
 
+var knativeIngressGateway = "knative-serving/knative-ingress-gateway"
+var clusterLocalGateway = "knative-serving/cluster-local-gateway"
+var localGatewayHost = "cluster-local-gateway.istio-system.svc.cluster.local"
+
 func TestCreateVirtualService(t *testing.T) {
-	expectedURL := "http://my-model.myDomain/v1/models/my-model"
-	predictorHostname := "myPredictor.myDomain"
-	transformerHostname := "myTransfomer.myDomain"
-	explainerHostname := "myExplainer.myDomain"
-	canaryPredictorHostname := "myCanaryPredictor.myDomain"
-	canaryTransformerHostname := "myCanaryTransformer.myDomain"
+	serviceName := "my-model"
+	namespace := "test"
+	domain := "example.com"
+	expectedURL := constants.InferenceServiceURL("http", serviceName, namespace, domain)
+	serviceHostName := constants.InferenceServiceHostName(serviceName, namespace, domain)
+	serviceInternalHostName := network.GetServiceHostname(serviceName, namespace)
+	predictorHostname := constants.InferenceServiceHostName(constants.DefaultPredictorServiceName(serviceName), namespace, domain)
+	transformerHostname := constants.InferenceServiceHostName(constants.DefaultTransformerServiceName(serviceName), namespace, domain)
+	explainerHostname := constants.InferenceServiceHostName(constants.DefaultExplainerServiceName(serviceName), namespace, domain)
+	canaryPredictorHostname := constants.InferenceServiceHostName(constants.CanaryPredictorServiceName(serviceName), namespace, domain)
+	canaryTransformerHostname := constants.InferenceServiceHostName(constants.CanaryTransformerServiceName(serviceName), namespace, domain)
+	predictorRouteMatch := []istiov1alpha3.HTTPMatchRequest{
+		{
+			URI: &istiov1alpha1.StringMatch{Prefix: "/v1/models/my-model:predict"},
+			Authority: &istiov1alpha1.StringMatch{
+				Regex:  constants.HostRegExp(constants.InferenceServiceHostName(serviceName, namespace, domain)),
+			},
+			Gateways: []string{knativeIngressGateway},
+		},
+		{
+			URI: &istiov1alpha1.StringMatch{Prefix: "/v1/models/my-model:predict"},
+			Authority: &istiov1alpha1.StringMatch{
+				Regex:  constants.HostRegExp(network.GetServiceHostname(serviceName, namespace)),
+			},
+			Gateways: []string{clusterLocalGateway},
+		},
+	}
 	cases := []struct {
 		name            string
 		defaultStatus   *v1alpha2.ComponentStatusMap
@@ -77,22 +104,30 @@ func TestCreateVirtualService(t *testing.T) {
 				}},
 			},
 			URL:           expectedURL,
+			Address: &duckv1beta1.Addressable{
+				URL: &apis.URL{
+					Scheme: "http",
+					Path:   constants.PredictPrefix(serviceName),
+					Host:   network.GetServiceHostname(serviceName, namespace),
+				},
+			},
 			DefaultWeight: 100,
 		},
 		expectedService: &istiov1alpha3.VirtualService{
-			ObjectMeta: metav1.ObjectMeta{Name: "my-model"},
+			ObjectMeta: metav1.ObjectMeta{Name: serviceName, Namespace: namespace},
 			Spec: istiov1alpha3.VirtualServiceSpec{
-				Hosts:    []string{"my-model.myDomain"},
-				Gateways: []string{"someIngressGateway"},
+				Hosts:    []string{serviceHostName, serviceInternalHostName},
+				Gateways: []string{knativeIngressGateway, clusterLocalGateway},
 				HTTP: []istiov1alpha3.HTTPRoute{
 					{
-						Match: []istiov1alpha3.HTTPMatchRequest{{URI: &istiov1alpha1.StringMatch{Prefix: "/v1/models/my-model:predict"}}},
+						Match: predictorRouteMatch,
 						Route: []istiov1alpha3.HTTPRouteDestination{
 							{
-								Destination: istiov1alpha3.Destination{Host: "someIngressServiceName"},
+								Destination: istiov1alpha3.Destination{Host: localGatewayHost},
 								Weight:      100,
 								Headers: &istiov1alpha3.Headers{
-									Request: &istiov1alpha3.HeaderOperations{Set: map[string]string{"Host": predictorHostname}},
+									Request: &istiov1alpha3.HeaderOperations{Set: map[string]string{
+										"Host": network.GetServiceHostname(constants.DefaultPredictorServiceName(serviceName), namespace)}},
 								},
 							},
 						},
@@ -144,30 +179,41 @@ func TestCreateVirtualService(t *testing.T) {
 				}},
 			},
 			URL:           expectedURL,
+			Address: &duckv1beta1.Addressable{
+				URL: &apis.URL{
+					Scheme: "http",
+					Path:   constants.PredictPrefix(serviceName),
+					Host:   network.GetServiceHostname(serviceName, namespace),
+				},
+			},
 			DefaultWeight: 80,
 			CanaryWeight:  20,
 		},
 		expectedService: &istiov1alpha3.VirtualService{
-			ObjectMeta: metav1.ObjectMeta{Name: "my-model"},
+			ObjectMeta: metav1.ObjectMeta{Name: serviceName, Namespace: namespace},
 			Spec: istiov1alpha3.VirtualServiceSpec{
-				Hosts:    []string{"my-model.myDomain"},
-				Gateways: []string{"someIngressGateway"},
+				Hosts:    []string{serviceHostName, serviceInternalHostName},
+				Gateways: []string{knativeIngressGateway, clusterLocalGateway},
 				HTTP: []istiov1alpha3.HTTPRoute{
 					{
-						Match: []istiov1alpha3.HTTPMatchRequest{{URI: &istiov1alpha1.StringMatch{Prefix: "/v1/models/my-model:predict"}}},
+						Match: predictorRouteMatch,
 						Route: []istiov1alpha3.HTTPRouteDestination{
 							{
-								Destination: istiov1alpha3.Destination{Host: "someIngressServiceName"},
+								Destination: istiov1alpha3.Destination{Host: localGatewayHost},
 								Weight:      80,
 								Headers: &istiov1alpha3.Headers{
-									Request: &istiov1alpha3.HeaderOperations{Set: map[string]string{"Host": predictorHostname}},
+									Request: &istiov1alpha3.HeaderOperations{Set: map[string]string{
+										"Host": network.GetServiceHostname(constants.DefaultPredictorServiceName(serviceName), namespace)},
+									},
 								},
 							},
 							{
-								Destination: istiov1alpha3.Destination{Host: "someIngressServiceName"},
+								Destination: istiov1alpha3.Destination{Host: localGatewayHost},
 								Weight:      20,
 								Headers: &istiov1alpha3.Headers{
-									Request: &istiov1alpha3.HeaderOperations{Set: map[string]string{"Host": canaryPredictorHostname}},
+									Request: &istiov1alpha3.HeaderOperations{Set: map[string]string{
+										"Host": network.GetServiceHostname(constants.CanaryPredictorServiceName(serviceName), namespace)},
+									},
 								},
 							},
 						},
@@ -216,22 +262,31 @@ func TestCreateVirtualService(t *testing.T) {
 				}},
 			},
 			URL:           expectedURL,
+			Address: &duckv1beta1.Addressable{
+				URL: &apis.URL{
+					Scheme: "http",
+					Path:   constants.PredictPrefix(serviceName),
+					Host:   network.GetServiceHostname(serviceName, namespace),
+				},
+			},
 			DefaultWeight: 100,
 		},
 		expectedService: &istiov1alpha3.VirtualService{
-			ObjectMeta: metav1.ObjectMeta{Name: "my-model"},
+			ObjectMeta: metav1.ObjectMeta{Name: serviceName, Namespace: namespace},
 			Spec: istiov1alpha3.VirtualServiceSpec{
-				Hosts:    []string{"my-model.myDomain"},
-				Gateways: []string{"someIngressGateway"},
+				Hosts:    []string{serviceHostName, serviceInternalHostName},
+				Gateways: []string{knativeIngressGateway, clusterLocalGateway},
 				HTTP: []istiov1alpha3.HTTPRoute{
 					{
-						Match: []istiov1alpha3.HTTPMatchRequest{{URI: &istiov1alpha1.StringMatch{Prefix: "/v1/models/my-model:predict"}}},
+						Match: predictorRouteMatch,
 						Route: []istiov1alpha3.HTTPRouteDestination{
 							{
-								Destination: istiov1alpha3.Destination{Host: "someIngressServiceName"},
+								Destination: istiov1alpha3.Destination{Host: localGatewayHost},
 								Weight:      100,
 								Headers: &istiov1alpha3.Headers{
-									Request: &istiov1alpha3.HeaderOperations{Set: map[string]string{"Host": transformerHostname}},
+									Request: &istiov1alpha3.HeaderOperations{Set: map[string]string{
+										"Host": network.GetServiceHostname(constants.DefaultTransformerServiceName(serviceName), namespace),
+									}},
 								},
 							},
 						},
@@ -283,30 +338,39 @@ func TestCreateVirtualService(t *testing.T) {
 				}},
 			},
 			URL:           expectedURL,
+			Address: &duckv1beta1.Addressable{
+				URL: &apis.URL{
+					Scheme: "http",
+					Path:   constants.PredictPrefix(serviceName),
+					Host:   network.GetServiceHostname(serviceName, namespace),
+				},
+			},
 			DefaultWeight: 80,
 			CanaryWeight:  20,
 		},
 		expectedService: &istiov1alpha3.VirtualService{
-			ObjectMeta: metav1.ObjectMeta{Name: "my-model"},
+			ObjectMeta: metav1.ObjectMeta{Name: serviceName, Namespace:namespace},
 			Spec: istiov1alpha3.VirtualServiceSpec{
-				Hosts:    []string{"my-model.myDomain"},
-				Gateways: []string{"someIngressGateway"},
+				Hosts:    []string{serviceHostName, serviceInternalHostName},
+				Gateways: []string{knativeIngressGateway, clusterLocalGateway},
 				HTTP: []istiov1alpha3.HTTPRoute{
 					{
-						Match: []istiov1alpha3.HTTPMatchRequest{{URI: &istiov1alpha1.StringMatch{Prefix: "/v1/models/my-model:predict"}}},
+						Match: predictorRouteMatch,
 						Route: []istiov1alpha3.HTTPRouteDestination{
 							{
-								Destination: istiov1alpha3.Destination{Host: "someIngressServiceName"},
+								Destination: istiov1alpha3.Destination{Host: localGatewayHost},
 								Weight:      80,
 								Headers: &istiov1alpha3.Headers{
-									Request: &istiov1alpha3.HeaderOperations{Set: map[string]string{"Host": transformerHostname}},
+									Request: &istiov1alpha3.HeaderOperations{Set: map[string]string{
+										"Host": network.GetServiceHostname(constants.DefaultTransformerServiceName(serviceName), namespace)}},
 								},
 							},
 							{
-								Destination: istiov1alpha3.Destination{Host: "someIngressServiceName"},
+								Destination: istiov1alpha3.Destination{Host: localGatewayHost},
 								Weight:      20,
 								Headers: &istiov1alpha3.Headers{
-									Request: &istiov1alpha3.HeaderOperations{Set: map[string]string{"Host": canaryTransformerHostname}},
+									Request: &istiov1alpha3.HeaderOperations{Set: map[string]string{
+										"Host": network.GetServiceHostname(constants.CanaryTransformerServiceName(serviceName), namespace)}},
 								},
 							},
 						},
@@ -355,22 +419,31 @@ func TestCreateVirtualService(t *testing.T) {
 				}},
 			},
 			URL:           expectedURL,
+			Address: &duckv1beta1.Addressable{
+				URL: &apis.URL{
+					Scheme: "http",
+					Path:   constants.PredictPrefix(serviceName),
+					Host:   network.GetServiceHostname(serviceName, namespace),
+				},
+			},
 			DefaultWeight: 100,
 		},
 		expectedService: &istiov1alpha3.VirtualService{
-			ObjectMeta: metav1.ObjectMeta{Name: "my-model"},
+			ObjectMeta: metav1.ObjectMeta{Name: serviceName, Namespace: namespace},
 			Spec: istiov1alpha3.VirtualServiceSpec{
-				Hosts:    []string{"my-model.myDomain"},
-				Gateways: []string{"someIngressGateway"},
+				Hosts:    []string{serviceHostName, serviceInternalHostName},
+				Gateways: []string{knativeIngressGateway, clusterLocalGateway},
 				HTTP: []istiov1alpha3.HTTPRoute{
 					{
-						Match: []istiov1alpha3.HTTPMatchRequest{{URI: &istiov1alpha1.StringMatch{Prefix: "/v1/models/my-model:predict"}}},
+						Match: predictorRouteMatch,
 						Route: []istiov1alpha3.HTTPRouteDestination{
 							{
-								Destination: istiov1alpha3.Destination{Host: "someIngressServiceName"},
+								Destination: istiov1alpha3.Destination{Host: localGatewayHost},
 								Weight:      100,
 								Headers: &istiov1alpha3.Headers{
-									Request: &istiov1alpha3.HeaderOperations{Set: map[string]string{"Host": predictorHostname}},
+									Request: &istiov1alpha3.HeaderOperations{Set: map[string]string{
+										"Host": network.GetServiceHostname(constants.DefaultPredictorServiceName(serviceName), namespace)},
+									},
 								},
 							},
 						},
@@ -379,10 +452,12 @@ func TestCreateVirtualService(t *testing.T) {
 						Match: []istiov1alpha3.HTTPMatchRequest{{URI: &istiov1alpha1.StringMatch{Prefix: "/v1/models/my-model:explain"}}},
 						Route: []istiov1alpha3.HTTPRouteDestination{
 							{
-								Destination: istiov1alpha3.Destination{Host: "someIngressServiceName"},
+								Destination: istiov1alpha3.Destination{Host: localGatewayHost},
 								Weight:      100,
 								Headers: &istiov1alpha3.Headers{
-									Request: &istiov1alpha3.HeaderOperations{Set: map[string]string{"Host": explainerHostname}},
+									Request: &istiov1alpha3.HeaderOperations{Set: map[string]string{
+										"Host": network.GetServiceHostname(constants.DefaultExplainerServiceName(serviceName), namespace)},
+									},
 								},
 							},
 						},
@@ -397,7 +472,8 @@ func TestCreateVirtualService(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			testIsvc := &v1alpha2.InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "my-model",
+					Name: serviceName,
+					Namespace: namespace,
 				},
 				Spec: v1alpha2.InferenceServiceSpec{
 					Default: v1alpha2.EndpointSpec{
@@ -424,7 +500,7 @@ func TestCreateVirtualService(t *testing.T) {
 
 			serviceBuilder := VirtualServiceBuilder{
 				ingressConfig: &IngressConfig{
-					IngressGateway:     "someIngressGateway",
+					IngressGateway:     knativeIngressGateway,
 					IngressServiceName: "someIngressServiceName",
 				},
 			}
