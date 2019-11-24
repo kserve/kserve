@@ -157,7 +157,7 @@ func isEnvVarMatched(envVar, matchtedValue string) bool {
 }
 
 func InferenceServiceURL(scheme, name, namespace, domain string) string {
-	return fmt.Sprintf("%s://%s.%s.%s/%s", scheme, name, namespace, domain, PredictPrefix(name))
+	return fmt.Sprintf("%s://%s.%s.%s%s", scheme, name, namespace, domain, InferenceServicePrefix(name))
 }
 
 func InferenceServiceHostName(name string, namespace string, domain string) string {
@@ -204,8 +204,8 @@ func CanaryServiceName(name string, component InferenceServiceComponent) string 
 	return name + "-" + component.String() + "-" + InferenceServiceCanary
 }
 
-func ServiceURL(name string, hostName string) string {
-	return fmt.Sprintf("http://%s/v1/models/%s", hostName, name)
+func InferenceServicePrefix(name string) string {
+	return fmt.Sprintf("/v1/models/%s", name)
 }
 
 func PredictPrefix(name string) string {
