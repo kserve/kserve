@@ -125,15 +125,23 @@ func (r *VirtualServiceBuilder) getPredictRouteDestination(meta metav1.Object, i
 	return &httpRouteDestination, nil
 }
 
-func (r *VirtualServiceBuilder) getExplainerRouteDestination(meta metav1.Object,
+func (r *VirtualServiceBuilder) getExplainerRouteDestination(meta metav1.Object, isCanary bool,
 	endpointSpec *v1alpha2.EndpointSpec, componentStatusMap *v1alpha2.ComponentStatusMap, weight int) (*istiov1alpha3.HTTPRouteDestination, *v1alpha2.VirtualServiceStatus) {
 	if endpointSpec == nil {
 		return nil, nil
 	}
+	predictorHost := constants.DefaultPredictorServiceName(meta.GetName())
+	if isCanary {
+		predictorHost = constants.CanaryPredictorServiceName(meta.GetName())
+	}
 	if endpointSpec.Explainer != nil {
 		explainSpec, explainerReason := getExplainStatusConfigurationSpec(endpointSpec, componentStatusMap)
 		if explainSpec != nil {
-			httpRouteDestination := createHTTPRouteDestination(meta.GetName(), meta.GetNamespace(), weight, r.ingressConfig.IngressServiceName)
+			predictorHost = constants.DefaultExplainerServiceName(meta.GetName())
+			if isCanary {
+				predictorHost = constants.CanaryExplainerServiceName(meta.GetName())
+			}
+			httpRouteDestination := createHTTPRouteDestination(predictorHost, meta.GetNamespace(), weight, r.ingressConfig.IngressServiceName)
 			return &httpRouteDestination, nil
 		} else {
 			return nil, createFailedStatus(explainerReason, ExplainerMissingMessage)
@@ -182,7 +190,7 @@ func (r *VirtualServiceBuilder) CreateVirtualService(isvc *v1alpha2.InferenceSer
 				Authority: &istiov1alpha1.StringMatch{
 					Regex: constants.HostRegExp(network.GetServiceHostname(isvc.Name, isvc.Namespace)),
 				},
-				Gateways: []string{"cluster-local-gateway.knative-serving"},
+				Gateways: []string{"knative-serving/cluster-local-gateway"},
 			},
 		},
 		Route: predictRouteDestinations,
@@ -191,14 +199,14 @@ func (r *VirtualServiceBuilder) CreateVirtualService(isvc *v1alpha2.InferenceSer
 
 	// optionally add the explain route
 	explainRouteDestinations := []istiov1alpha3.HTTPRouteDestination{}
-	if defaultExplainRouteDestination, err := r.getExplainerRouteDestination(isvc.GetObjectMeta(), &isvc.Spec.Default, isvc.Status.Default, defaultWeight); err != nil {
+	if defaultExplainRouteDestination, err := r.getExplainerRouteDestination(isvc.GetObjectMeta(), false, &isvc.Spec.Default, isvc.Status.Default, defaultWeight); err != nil {
 		return nil, err
 	} else {
 		if defaultExplainRouteDestination != nil {
 			explainRouteDestinations = append(explainRouteDestinations, *defaultExplainRouteDestination)
 		}
 	}
-	if canaryExplainRouteDestination, err := r.getExplainerRouteDestination(isvc.GetObjectMeta(), isvc.Spec.Canary, isvc.Status.Canary, canaryWeight); err != nil {
+	if canaryExplainRouteDestination, err := r.getExplainerRouteDestination(isvc.GetObjectMeta(), true, isvc.Spec.Canary, isvc.Status.Canary, canaryWeight); err != nil {
 		return nil, err
 	} else {
 		if canaryExplainRouteDestination != nil {
@@ -220,7 +228,7 @@ func (r *VirtualServiceBuilder) CreateVirtualService(isvc *v1alpha2.InferenceSer
 		httpRoutes = append(httpRoutes, explainRoute)
 	}
 	// extract the virtual service hostname from the predictor hostname
-	serviceURL := constants.ServiceURL(isvc.Name, serviceHostname)
+	serviceURL := fmt.Sprintf("%s://%s%s", "http", serviceHostname, constants.InferenceServicePrefix(isvc.Name))
 
 	vs := istiov1alpha3.VirtualService{
 		ObjectMeta: metav1.ObjectMeta{
@@ -236,7 +244,7 @@ func (r *VirtualServiceBuilder) CreateVirtualService(isvc *v1alpha2.InferenceSer
 			},
 			Gateways: []string{
 				r.ingressConfig.IngressGateway,
-				"cluster-local-gateway.knative-serving",
+				"knative-serving/cluster-local-gateway",
 			},
 			HTTP: httpRoutes,
 		},
@@ -247,7 +255,7 @@ func (r *VirtualServiceBuilder) CreateVirtualService(isvc *v1alpha2.InferenceSer
 		Address: &duckv1beta1.Addressable{URL: &apis.URL{
 			Scheme: "http",
 			Host:   network.GetServiceHostname(isvc.Name, isvc.Namespace),
-			Path:   fmt.Sprintf("v1/models/%s:predict", isvc.Name),
+			Path:   fmt.Sprintf("/v1/models/%s:predict", isvc.Name),
 		}},
 		CanaryWeight:  canaryWeight,
 		DefaultWeight: defaultWeight,
@@ -263,11 +271,11 @@ func (r *VirtualServiceBuilder) CreateVirtualService(isvc *v1alpha2.InferenceSer
 }
 
 func getServiceHostname(isvc *v1alpha2.InferenceService) (string, error) {
-	predictSpec, reason := getPredictStatusConfigurationSpec(isvc.Status.Default)
-	if predictSpec == nil {
+	predictorStatus, reason := getPredictStatusConfigurationSpec(isvc.Status.Default)
+	if predictorStatus == nil {
 		return "", fmt.Errorf("failed to get service hostname: %s", reason)
 	}
-	return constants.VirtualServiceHostname(isvc.Name, predictSpec.Hostname), nil
+	return constants.VirtualServiceHostname(isvc.Name, predictorStatus.Hostname), nil
 }
 
 func getPredictStatusConfigurationSpec(componentStatusMap *v1alpha2.ComponentStatusMap) (*v1alpha2.StatusConfigurationSpec, string) {
