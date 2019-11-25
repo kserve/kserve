@@ -25,6 +25,7 @@ export CLUSTER_IP=$(kubectl -n istio-system get service istio-ingressgateway -o 
 ```
 2. Verify the service is healthy
 ```
+SERVICE_URL=http://$CLUSTER_IP/v1/models/$MODEL_NAME
 curl ${SERVICE_URL}
 ```
 3. Install dependencies
