@@ -23,6 +23,7 @@ import (
 	"github.com/kubeflow/kfserving/pkg/webhook/admission/pod"
 	"k8s.io/api/admissionregistration/v1beta1"
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -38,6 +39,7 @@ var log = logf.Log.WithName(constants.WebhookServerName)
 // +kubebuilder:rbac:groups=admissionregistration.k8s.io,resources=mutatingwebhookconfigurations;validatingwebhookconfigurations,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch
 func AddToManager(manager manager.Manager) error {
 	server, err := webhook.NewServer(constants.WebhookServerName, manager, webhook.ServerOptions{
 		Port:    9876,
@@ -73,6 +75,11 @@ func AddToManager(manager manager.Manager) error {
 // https://github.com/kubernetes-sigs/controller-runtime/blob/master/pkg/webhook/admission/validator.go#L35
 // https://github.com/kubernetes-sigs/controller-runtime/blob/master/pkg/webhook/admission/defaulter.go#L34
 func register(manager manager.Manager, server *webhook.Server) error {
+	nsSelector := &metav1.LabelSelector{
+		MatchLabels: map[string]string{
+			constants.InferenceServicePodLabelKey: constants.EnableKFServingMutatingWebhook,
+		},
+	}
 	return server.Register(&admission.Webhook{
 		Name:          constants.InferenceServiceValidatingWebhookName,
 		FailurePolicy: &constants.WebhookFailurePolicy,
@@ -116,9 +123,10 @@ func register(manager manager.Manager, server *webhook.Server) error {
 			},
 		},
 	}, &admission.Webhook{
-		Name:          constants.PodMutatorWebhookName,
-		FailurePolicy: &constants.WebhookFailurePolicy,
-		Type:          webhooktypes.WebhookTypeMutating,
+		Name:              constants.PodMutatorWebhookName,
+		FailurePolicy:     &constants.WebhookFailurePolicy,
+		Type:              webhooktypes.WebhookTypeMutating,
+		NamespaceSelector: nsSelector,
 		Rules: []v1beta1.RuleWithOperations{{
 			Operations: []v1beta1.OperationType{
 				v1beta1.Create,
