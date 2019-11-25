@@ -18,3 +18,22 @@ spec:
           command:
           image: ${IMG}
 EOF
+
+LOGGER_IMG=$(ko resolve -f config/overlays/development/configmap/ko_resolve_logger| grep 'image:' | awk '{print $2}')
+if [ -z ${LOGGER_IMG} ]; then exit; fi
+cat > config/overlays/${OVERLAY}/configmap/inferenceservice.yaml << EOF
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: inferenceservice-config
+  namespace: kfserving-system
+data:
+  logger: |-
+    {
+        "image" : "${LOGGER_IMG}",
+        "memoryRequest": "100Mi",
+        "memoryLimit": "1Gi",
+        "cpuRequest": "100m",
+        "cpuLimit": "1"
+    }
+EOF
