@@ -168,6 +168,9 @@ func TestXGBoostDefaults(t *testing.T) {
 	g.Expect(isvc.Spec.Default.Predictor.XGBoost.Resources.Requests[v1.ResourceMemory]).To(gomega.Equal(defaultResource[v1.ResourceMemory]))
 	g.Expect(isvc.Spec.Default.Predictor.XGBoost.Resources.Limits[v1.ResourceCPU]).To(gomega.Equal(defaultResource[v1.ResourceCPU]))
 	g.Expect(isvc.Spec.Default.Predictor.XGBoost.Resources.Limits[v1.ResourceMemory]).To(gomega.Equal(defaultResource[v1.ResourceMemory]))
+
+	defaultCpu := defaultResource[v1.ResourceCPU]
+	g.Expect(isvc.Spec.Default.Predictor.XGBoost.NThread).To(gomega.Equal(int(defaultCpu.Value())))
 	g.Expect(isvc.Spec.Canary.Predictor.XGBoost.RuntimeVersion).To(gomega.Equal(constants.KFServingDefaultVersion))
 	g.Expect(isvc.Spec.Canary.Predictor.XGBoost.Resources.Requests[v1.ResourceCPU]).To(gomega.Equal(defaultResource[v1.ResourceCPU]))
 	g.Expect(isvc.Spec.Canary.Predictor.XGBoost.Resources.Requests[v1.ResourceMemory]).To(gomega.Equal(resource.MustParse("3Gi")))

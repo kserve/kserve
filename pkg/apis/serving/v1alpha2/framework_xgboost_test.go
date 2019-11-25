@@ -82,7 +82,7 @@ func TestCreateXGBoostContainer(t *testing.T) {
 			"--model_name=someName",
 			"--model_dir=/mnt/models",
 			"--http_port=8080",
-			"--nthread=1",
+			"--nthread=0",
 		},
 	}
 
@@ -107,22 +107,6 @@ func TestCreateXGBoostContainerWithNThread(t *testing.T) {
 		resourceReq v1.ResourceRequirements
 		expArgs     []string
 	}{
-		"TestNThreadUseCpuRequest": {
-			resourceReq: v1.ResourceRequirements{
-				Limits: v1.ResourceList{
-					"cpu": resource.MustParse("1100m"),
-				},
-				Requests: v1.ResourceList{
-					"cpu": resource.MustParse("1100m"),
-				},
-			},
-			expArgs: []string{
-				"--model_name=someName",
-				"--model_dir=/mnt/models",
-				"--http_port=8080",
-				"--nthread=2",
-			},
-		},
 		"TestNThread": {
 			nthread: 4,
 			resourceReq: v1.ResourceRequirements{

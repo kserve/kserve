@@ -37,11 +37,6 @@ func (x *XGBoostSpec) GetResourceRequirements() *v1.ResourceRequirements {
 }
 
 func (x *XGBoostSpec) GetContainer(modelName string, hasLogging bool, config *InferenceServicesConfig) *v1.Container {
-	nthread := x.NThread
-	if nthread == 0 {
-		nthread = int(x.Resources.Requests.Cpu().Value())
-	}
-
 	return &v1.Container{
 		Image:     config.Predictors.Xgboost.ContainerImage + ":" + x.RuntimeVersion,
 		Name:      constants.InferenceServiceContainerName,
@@ -50,7 +45,7 @@ func (x *XGBoostSpec) GetContainer(modelName string, hasLogging bool, config *In
 			"--model_name=" + modelName,
 			"--model_dir=" + constants.DefaultModelLocalMountPath,
 			"--http_port=" + constants.GetInferenceServiceHttpPort(hasLogging),
-			"--nthread=" + strconv.Itoa(nthread),
+			"--nthread=" + strconv.Itoa(x.NThread),
 		},
 	}
 }
@@ -61,6 +56,9 @@ func (x *XGBoostSpec) ApplyDefaults(config *InferenceServicesConfig) {
 	}
 
 	setResourceRequirementDefaults(&x.Resources)
+	if x.NThread == 0 {
+		x.NThread = int(x.Resources.Requests.Cpu().Value())
+	}
 }
 
 func (x *XGBoostSpec) Validate(config *InferenceServicesConfig) error {
