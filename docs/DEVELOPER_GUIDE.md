@@ -156,7 +156,7 @@ kfserving-controller-manager-0   2/2     Running   0          13m
 make deploy-dev
 ```
 - **Note**: `deploy-dev` builds the image from your local code, publishes to `KO_DOCKER_REPO`
-and deploys the `kfserving-controller-manager` with the image digest to your cluster for testing. Please also ensure you are logged in to `KO_DOCKER_REPO` from your client machine.
+and deploys the `kfserving-controller-manager` and `logger` with the image digest to your cluster for testing. Please also ensure you are logged in to `KO_DOCKER_REPO` from your client machine.
 
 
 ### Smoke test after deployment
