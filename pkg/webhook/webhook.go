@@ -75,58 +75,56 @@ func AddToManager(manager manager.Manager) error {
 // https://github.com/kubernetes-sigs/controller-runtime/blob/master/pkg/webhook/admission/validator.go#L35
 // https://github.com/kubernetes-sigs/controller-runtime/blob/master/pkg/webhook/admission/defaulter.go#L34
 func register(manager manager.Manager, server *webhook.Server) error {
-	nsSelector := &metav1.LabelSelector{
-		MatchLabels: map[string]string{
-			constants.InferenceServicePodLabelKey: constants.EnableKFServingMutatingWebhook,
+	webhooks := []webhook.Webhook{
+		&admission.Webhook{
+			Name:          constants.InferenceServiceValidatingWebhookName,
+			FailurePolicy: &constants.WebhookFailurePolicy,
+			Type:          webhooktypes.WebhookTypeValidating,
+			Rules: []v1beta1.RuleWithOperations{{
+				Operations: []v1beta1.OperationType{
+					v1beta1.Create,
+					v1beta1.Update,
+				},
+				Rule: v1beta1.Rule{
+					APIGroups:   []string{constants.KFServingAPIGroupName},
+					APIVersions: []string{v1alpha2.APIVersion},
+					Resources:   []string{constants.InferenceServiceAPIName},
+				},
+			}},
+			Handlers: []admission.Handler{
+				&inferenceservice.Validator{
+					Client:  manager.GetClient(),
+					Decoder: manager.GetAdmissionDecoder(),
+				},
+			},
+		},
+		&admission.Webhook{
+			Name:          constants.InferenceServiceDefaultingWebhookName,
+			FailurePolicy: &constants.WebhookFailurePolicy,
+			Type:          webhooktypes.WebhookTypeMutating,
+			Rules: []v1beta1.RuleWithOperations{{
+				Operations: []v1beta1.OperationType{
+					v1beta1.Create,
+					v1beta1.Update,
+				},
+				Rule: v1beta1.Rule{
+					APIGroups:   []string{constants.KFServingAPIGroupName},
+					APIVersions: []string{v1alpha2.APIVersion},
+					Resources:   []string{constants.InferenceServiceAPIName},
+				},
+			}},
+			Handlers: []admission.Handler{
+				&inferenceservice.Defaulter{
+					Client:  manager.GetClient(),
+					Decoder: manager.GetAdmissionDecoder(),
+				},
+			},
 		},
 	}
-	return server.Register(&admission.Webhook{
-		Name:          constants.InferenceServiceValidatingWebhookName,
-		FailurePolicy: &constants.WebhookFailurePolicy,
-		Type:          webhooktypes.WebhookTypeValidating,
-		Rules: []v1beta1.RuleWithOperations{{
-			Operations: []v1beta1.OperationType{
-				v1beta1.Create,
-				v1beta1.Update,
-			},
-			Rule: v1beta1.Rule{
-				APIGroups:   []string{constants.KFServingAPIGroupName},
-				APIVersions: []string{v1alpha2.APIVersion},
-				Resources:   []string{constants.InferenceServiceAPIName},
-			},
-		}},
-		Handlers: []admission.Handler{
-			&inferenceservice.Validator{
-				Client:  manager.GetClient(),
-				Decoder: manager.GetAdmissionDecoder(),
-			},
-		},
-	}, &admission.Webhook{
-		Name:          constants.InferenceServiceDefaultingWebhookName,
+	podWebhook := &admission.Webhook{
+		Name:          constants.PodMutatorWebhookName,
 		FailurePolicy: &constants.WebhookFailurePolicy,
 		Type:          webhooktypes.WebhookTypeMutating,
-		Rules: []v1beta1.RuleWithOperations{{
-			Operations: []v1beta1.OperationType{
-				v1beta1.Create,
-				v1beta1.Update,
-			},
-			Rule: v1beta1.Rule{
-				APIGroups:   []string{constants.KFServingAPIGroupName},
-				APIVersions: []string{v1alpha2.APIVersion},
-				Resources:   []string{constants.InferenceServiceAPIName},
-			},
-		}},
-		Handlers: []admission.Handler{
-			&inferenceservice.Defaulter{
-				Client:  manager.GetClient(),
-				Decoder: manager.GetAdmissionDecoder(),
-			},
-		},
-	}, &admission.Webhook{
-		Name:              constants.PodMutatorWebhookName,
-		FailurePolicy:     &constants.WebhookFailurePolicy,
-		Type:              webhooktypes.WebhookTypeMutating,
-		NamespaceSelector: nsSelector,
 		Rules: []v1beta1.RuleWithOperations{{
 			Operations: []v1beta1.OperationType{
 				v1beta1.Create,
@@ -144,5 +142,15 @@ func register(manager manager.Manager, server *webhook.Server) error {
 				Decoder: manager.GetAdmissionDecoder(),
 			},
 		},
-	})
+	}
+	if constants.IsEnabledMatchWorkingNamespaces {
+		nsSelector := &metav1.LabelSelector{
+			MatchLabels: map[string]string{
+				constants.InferenceServicePodLabelKey: constants.EnableKFServingMutatingWebhook,
+			},
+		}
+		podWebhook.NamespaceSelector = nsSelector
+	}
+	webhooks = append(webhooks, podWebhook)
+	return server.Register(webhooks...)
 }

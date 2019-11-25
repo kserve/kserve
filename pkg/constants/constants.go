@@ -76,6 +76,9 @@ var (
 	PodMutatorWebhookName                       = strings.Join([]string{InferenceServiceName, WebhookServerName, "pod-mutator"}, ".")
 	WebhookFailurePolicy                        = v1beta1.Fail
 	EnableKFServingMutatingWebhook              = "enabled"
+	MatchWorkingNamespaces                      = "MatchWorkingNamespaces"
+	EnableMatchWorkingNamespaces                = "enabled"
+	IsEnabledMatchWorkingNamespaces             = isEnvVarMatched(MatchWorkingNamespaces, EnableMatchWorkingNamespaces)
 )
 
 // GPU Constants
@@ -145,6 +148,10 @@ func getEnvOrDefault(key string, fallback string) string {
 		return value
 	}
 	return fallback
+}
+
+func isEnvVarMatched(envVar, matchtedValue string) bool {
+	return getEnvOrDefault(envVar, "") == matchtedValue
 }
 
 func DefaultPredictorServiceName(name string) string {

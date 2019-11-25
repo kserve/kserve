@@ -130,7 +130,6 @@ sleep 60  # Wait for webhook install finished totally.
 
 echo "Creating a namespace kfserving-ci-test ..."
 kubectl create namespace kfserving-ci-e2e-test
-kubectl label namespace kfserving-ci-e2e-test serving.kubeflow.org/inferenceservice=enabled
 
 echo "Istio, Knative and KFServing have been installed and started."
 

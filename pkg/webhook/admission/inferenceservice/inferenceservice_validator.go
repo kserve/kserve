@@ -48,9 +48,23 @@ func (validator *Validator) Handle(ctx context.Context, req admissiontypes.Reque
 		return admission.ErrorResponse(http.StatusInternalServerError, err)
 	}
 
+	if constants.IsEnabledMatchWorkingNamespaces {
+		if err := validator.validateNamespace(isvc, req.AdmissionRequest.Namespace); err != nil {
+			return admission.ErrorResponse(http.StatusBadRequest, err)
+		}
+	}
+
+	if err := isvc.ValidateCreate(validator.Client); err != nil {
+		return admission.ErrorResponse(http.StatusBadRequest, err)
+	}
+
+	return admission.ValidationResponse(true, "allowed")
+}
+
+func (validator *Validator) validateNamespace(isvc *kfserving.InferenceService, namespace string) error {
 	ns := &v1.Namespace{}
-	if err := validator.Client.Get(context.TODO(), ktypes.NamespacedName{Name: req.AdmissionRequest.Namespace}, ns); err != nil {
-		return admission.ErrorResponse(http.StatusInternalServerError, err)
+	if err := validator.Client.Get(context.TODO(), ktypes.NamespacedName{Name: namespace}, ns); err != nil {
+		return err
 	}
 	validNS := true
 	if ns.Labels == nil {
@@ -61,14 +75,9 @@ func (validator *Validator) Handle(ctx context.Context, req admissiontypes.Reque
 		}
 	}
 	if !validNS {
-		err := fmt.Errorf("Cannot create the Inferenceservice %q in namespace %q: the namespace lacks label \"%s: %s\"",
-			isvc.Name, req.AdmissionRequest.Namespace, constants.InferenceServicePodLabelKey, constants.EnableKFServingMutatingWebhook)
-		return admission.ErrorResponse(http.StatusBadRequest, err)
+		return fmt.Errorf("Cannot create the Inferenceservice %q in namespace %q: the namespace lacks label \"%s: %s\"",
+			isvc.Name, namespace, constants.InferenceServicePodLabelKey, constants.EnableKFServingMutatingWebhook)
+	} else {
+		return nil
 	}
-
-	if err := isvc.ValidateCreate(validator.Client); err != nil {
-		return admission.ErrorResponse(http.StatusBadRequest, err)
-	}
-
-	return admission.ValidationResponse(true, "allowed")
 }

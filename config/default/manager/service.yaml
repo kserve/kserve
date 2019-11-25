@@ -5,7 +5,6 @@ metadata:
     control-plane: kfserving-controller-manager
     controller-tools.k8s.io: "1.0"
     istio-injection: disabled
-    serving.kubeflow.org/inferenceservice: enabled
   name: kfserving-system
 ---
 apiVersion: v1
