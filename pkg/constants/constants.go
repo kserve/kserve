@@ -75,6 +75,7 @@ var (
 	InferenceServiceDefaultingWebhookName       = strings.Join([]string{InferenceServiceName, WebhookServerName, "defaulter"}, ".")
 	PodMutatorWebhookName                       = strings.Join([]string{InferenceServiceName, WebhookServerName, "pod-mutator"}, ".")
 	WebhookFailurePolicy                        = v1beta1.Fail
+	EnableKFServingMutatingWebhook              = "enabled"
 )
 
 // GPU Constants
