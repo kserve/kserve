@@ -45,6 +45,10 @@ func (mutator *Mutator) Handle(ctx context.Context, req types.Request) types.Res
 		return admission.ErrorResponse(http.StatusBadRequest, err)
 	}
 
+	if !needMutate(pod) {
+		return admission.ValidationResponse(true, "")
+	}
+
 	configMap := &v1.ConfigMap{}
 	err := mutator.Client.Get(context.TODO(), k8types.NamespacedName{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KFServingNamespace}, configMap)
 	if err != nil {
@@ -68,11 +72,6 @@ func (mutator *Mutator) Handle(ctx context.Context, req types.Request) types.Res
 }
 
 func (mutator *Mutator) mutate(pod *v1.Pod, configMap *v1.ConfigMap) error {
-	// Skip webhook if pod not managed by kfserving
-	if _, ok := pod.Labels[constants.InferenceServicePodLabelKey]; !ok {
-		return nil
-	}
-
 	credentialBuilder := credentials.NewCredentialBulder(mutator.Client, configMap)
 
 	storageInitializerConfig, err := getStorageInitializerConfigs(configMap)
@@ -107,4 +106,13 @@ func (mutator *Mutator) mutate(pod *v1.Pod, configMap *v1.ConfigMap) error {
 	}
 
 	return nil
+}
+
+func needMutate(pod *v1.Pod) bool {
+	// Skip webhook if pod not managed by kfserving
+	if _, ok := pod.Labels[constants.InferenceServicePodLabelKey]; ok {
+		return true
+	} else {
+		return false
+	}
 }
