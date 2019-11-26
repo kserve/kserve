@@ -76,9 +76,9 @@ var (
 	PodMutatorWebhookName                       = strings.Join([]string{InferenceServiceName, WebhookServerName, "pod-mutator"}, ".")
 	WebhookFailurePolicy                        = v1beta1.Fail
 	EnableKFServingMutatingWebhook              = "enabled"
-	MatchWorkingNamespaces                      = "MatchWorkingNamespaces"
-	EnableMatchWorkingNamespaces                = "enabled"
-	IsEnabledMatchWorkingNamespaces             = isEnvVarMatched(MatchWorkingNamespaces, EnableMatchWorkingNamespaces)
+	EnableWebhookNamespaceSelectorEnvName       = "ENABLE_WEBOOK_NAMESPACE_SELECTOR"
+	EnableWebhookNamespaceSelectorEnvValue      = "enabled"
+	IsEnableWebhookNamespaceSelector            = isEnvVarMatched(EnableWebhookNamespaceSelectorEnvName, EnableWebhookNamespaceSelectorEnvValue)
 )
 
 // GPU Constants

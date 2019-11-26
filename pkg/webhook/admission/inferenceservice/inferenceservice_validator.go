@@ -48,7 +48,7 @@ func (validator *Validator) Handle(ctx context.Context, req admissiontypes.Reque
 		return admission.ErrorResponse(http.StatusInternalServerError, err)
 	}
 
-	if constants.IsEnabledMatchWorkingNamespaces {
+	if constants.IsEnableWebhookNamespaceSelector {
 		if err := validator.validateNamespace(isvc, req.AdmissionRequest.Namespace); err != nil {
 			return admission.ErrorResponse(http.StatusBadRequest, err)
 		}

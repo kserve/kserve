@@ -143,7 +143,7 @@ func register(manager manager.Manager, server *webhook.Server) error {
 			},
 		},
 	}
-	if constants.IsEnabledMatchWorkingNamespaces {
+	if constants.IsEnableWebhookNamespaceSelector {
 		nsSelector := &metav1.LabelSelector{
 			MatchLabels: map[string]string{
 				constants.InferenceServicePodLabelKey: constants.EnableKFServingMutatingWebhook,
