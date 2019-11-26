@@ -76,7 +76,7 @@ var (
 	PodMutatorWebhookName                       = strings.Join([]string{InferenceServiceName, WebhookServerName, "pod-mutator"}, ".")
 	WebhookFailurePolicy                        = v1beta1.Fail
 	EnableKFServingMutatingWebhook              = "enabled"
-	EnableWebhookNamespaceSelectorEnvName       = "ENABLE_WEBOOK_NAMESPACE_SELECTOR"
+	EnableWebhookNamespaceSelectorEnvName       = "ENABLE_WEBHOOK_NAMESPACE_SELECTOR"
 	EnableWebhookNamespaceSelectorEnvValue      = "enabled"
 	IsEnableWebhookNamespaceSelector            = isEnvVarMatched(EnableWebhookNamespaceSelectorEnvName, EnableWebhookNamespaceSelectorEnvValue)
 )

@@ -24,7 +24,7 @@ By default, you can create InferenceService instances in any namespace which has
 You can aslo configure KFServing to make InferenceService instances only work in the namespace which has label pair `serving.kubeflow.org/inferenceservice: enabled`. To enable this mode, you need add `env` field as below to `manager` container of statefulset `kfserving-controller-manager`.
 ```
 env:
-- name: ENABLE_WEBOOK_NAMESPACE_SELECTOR
+- name: ENABLE_WEBHOOK_NAMESPACE_SELECTOR
   value: enabled
 ```
 Please refer to our [troubleshooting section](docs/DEVELOPER_GUIDE.md#troubleshooting) for recommendations and tips.
