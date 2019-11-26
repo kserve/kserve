@@ -3,7 +3,7 @@ HAS_LINT := $(shell command -v golint;)
 
 # Image URL to use all building/pushing image targets
 IMG ?= kfserving-controller:latest
-EXECUTOR_IMG ?= kfserving-executor:latest
+LOGGER_IMG ?= logger:latest
 
 all: test manager logger
 
@@ -91,11 +91,11 @@ docker-build: test
 docker-push:
 	docker push ${IMG}
 
-docker-build-executor: test
-	docker build -f executor.Dockerfile . -t ${EXECUTOR_IMG}
+docker-build-logger: test
+	docker build -f logger.Dockerfile . -t ${LOGGER_IMG}
 
-docker-push-executor:
-	docker push ${EXECUTOR_IMG}
+docker-push-logger:
+	docker push ${LOGGER_IMG}
 
 apidocs:
 	docker build -f docs/apis/Dockerfile --rm -t apidocs-gen . && \
