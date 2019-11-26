@@ -21,7 +21,8 @@ TAG=0.2.1
 kubectl apply -f ./install/$TAG/kfserving.yaml
 ```
 By default, you can create InferenceService instances in any namespace which has no label with `control-plane` as key.
-You can aslo configure KFServing to make InferenceService instances only work in the namespace which has label pair `serving.kubeflow.org/inferenceservice: enabled`. To enable this mode, you need add `env` field as below to `manager` container of statefulset `kfserving-controller-manager`.
+You can also configure KFServing to make InferenceService instances only work in the namespace which has label pair `serving.kubeflow.org/inferenceservice: enabled`. To enable this mode, you need to add `env` field as stated below to `manager` container of statefulset `kfserving-controller-manager`.
+
 ```
 env:
 - name: ENABLE_WEBHOOK_NAMESPACE_SELECTOR
