@@ -18,13 +18,18 @@ package inferenceservice
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
 	kfserving "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
+	"github.com/kubeflow/kfserving/pkg/constants"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 	admissiontypes "sigs.k8s.io/controller-runtime/pkg/webhook/admission/types"
+
+	v1 "k8s.io/api/core/v1"
+	ktypes "k8s.io/apimachinery/pkg/types"
 )
 
 // Validator that validates InferenceServices
@@ -43,9 +48,36 @@ func (validator *Validator) Handle(ctx context.Context, req admissiontypes.Reque
 		return admission.ErrorResponse(http.StatusInternalServerError, err)
 	}
 
+	if constants.IsEnableWebhookNamespaceSelector {
+		if err := validator.validateNamespace(isvc, req.AdmissionRequest.Namespace); err != nil {
+			return admission.ErrorResponse(http.StatusBadRequest, err)
+		}
+	}
+
 	if err := isvc.ValidateCreate(validator.Client); err != nil {
 		return admission.ErrorResponse(http.StatusBadRequest, err)
 	}
 
 	return admission.ValidationResponse(true, "allowed")
+}
+
+func (validator *Validator) validateNamespace(isvc *kfserving.InferenceService, namespace string) error {
+	ns := &v1.Namespace{}
+	if err := validator.Client.Get(context.TODO(), ktypes.NamespacedName{Name: namespace}, ns); err != nil {
+		return err
+	}
+	validNS := true
+	if ns.Labels == nil {
+		validNS = false
+	} else {
+		if v, ok := ns.Labels[constants.InferenceServicePodLabelKey]; !ok || v != constants.EnableKFServingMutatingWebhook {
+			validNS = false
+		}
+	}
+	if !validNS {
+		return fmt.Errorf("Cannot create the Inferenceservice %q in namespace %q: the namespace lacks label \"%s: %s\"",
+			isvc.Name, namespace, constants.InferenceServicePodLabelKey, constants.EnableKFServingMutatingWebhook)
+	} else {
+		return nil
+	}
 }

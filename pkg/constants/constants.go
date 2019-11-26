@@ -75,6 +75,10 @@ var (
 	InferenceServiceDefaultingWebhookName       = strings.Join([]string{InferenceServiceName, WebhookServerName, "defaulter"}, ".")
 	PodMutatorWebhookName                       = strings.Join([]string{InferenceServiceName, WebhookServerName, "pod-mutator"}, ".")
 	WebhookFailurePolicy                        = v1beta1.Fail
+	EnableKFServingMutatingWebhook              = "enabled"
+	EnableWebhookNamespaceSelectorEnvName       = "ENABLE_WEBHOOK_NAMESPACE_SELECTOR"
+	EnableWebhookNamespaceSelectorEnvValue      = "enabled"
+	IsEnableWebhookNamespaceSelector            = isEnvVarMatched(EnableWebhookNamespaceSelectorEnvName, EnableWebhookNamespaceSelectorEnvValue)
 )
 
 // GPU Constants
@@ -144,6 +148,10 @@ func getEnvOrDefault(key string, fallback string) string {
 		return value
 	}
 	return fallback
+}
+
+func isEnvVarMatched(envVar, matchtedValue string) bool {
+	return getEnvOrDefault(envVar, "") == matchtedValue
 }
 
 func DefaultPredictorServiceName(name string) string {
