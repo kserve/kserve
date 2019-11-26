@@ -93,3 +93,11 @@ data:
         "ingressGateway" : "knative-ingress-gateway.knative-serving",
         "ingressService" : "istio-ingressgateway.istio-system.svc.cluster.local"
     }
+  logger: |-
+    {
+        "image" : "gcr.io/kubeflow-ci/kfserving/logger",
+        "memoryRequest": "100Mi",
+        "memoryLimit": "1Gi",
+        "cpuRequest": "100m",
+        "cpuLimit": "1"
+    }
