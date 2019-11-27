@@ -89,7 +89,6 @@ var configs = map[string]string{
 var domain = "example.com"
 var knativeIngressGateway = "knative-serving/knative-ingress-gateway"
 var clusterLocalGateway = "knative-serving/cluster-local-gateway"
-var localGatewayHost = "cluster-local-gateway.istio-system.svc.cluster.local"
 
 func TestInferenceServiceWithOnlyPredictor(t *testing.T) {
 	serviceName := "foo"
@@ -598,7 +597,7 @@ func TestInferenceServiceWithDefaultAndCanaryPredictor(t *testing.T) {
 								},
 							},
 							Destination: istiov1alpha3.Destination{
-								Host: localGatewayHost,
+								Host: constants.LocalGatewayHost,
 							},
 							Weight: 80,
 						},
@@ -611,7 +610,7 @@ func TestInferenceServiceWithDefaultAndCanaryPredictor(t *testing.T) {
 								},
 							},
 							Destination: istiov1alpha3.Destination{
-								Host: localGatewayHost,
+								Host: constants.LocalGatewayHost,
 							},
 							Weight: 20,
 						},
@@ -1245,7 +1244,7 @@ func TestInferenceServiceWithTransformer(t *testing.T) {
 								},
 							},
 							Destination: istiov1alpha3.Destination{
-								Host: localGatewayHost,
+								Host: constants.LocalGatewayHost,
 							},
 							Weight: 80,
 						},
@@ -1258,7 +1257,7 @@ func TestInferenceServiceWithTransformer(t *testing.T) {
 								},
 							},
 							Destination: istiov1alpha3.Destination{
-								Host: localGatewayHost,
+								Host: constants.LocalGatewayHost,
 							},
 							Weight: 20,
 						},
@@ -1807,7 +1806,7 @@ func TestInferenceServiceWithExplainer(t *testing.T) {
 								},
 							},
 							Destination: istiov1alpha3.Destination{
-								Host: localGatewayHost,
+								Host: constants.LocalGatewayHost,
 							},
 							Weight: 80,
 						},
@@ -1820,7 +1819,7 @@ func TestInferenceServiceWithExplainer(t *testing.T) {
 								},
 							},
 							Destination: istiov1alpha3.Destination{
-								Host: localGatewayHost,
+								Host: constants.LocalGatewayHost,
 							},
 							Weight: 20,
 						},
@@ -1849,7 +1848,7 @@ func TestInferenceServiceWithExplainer(t *testing.T) {
 					},
 					Route: []v1alpha3.HTTPRouteDestination{
 						{
-							Destination: v1alpha3.Destination{Host: localGatewayHost},
+							Destination: v1alpha3.Destination{Host: constants.LocalGatewayHost},
 							Weight:      80,
 							Headers: &v1alpha3.Headers{
 								Request: &v1alpha3.HeaderOperations{Set: map[string]string{
@@ -1857,7 +1856,7 @@ func TestInferenceServiceWithExplainer(t *testing.T) {
 							},
 						},
 						{
-							Destination: v1alpha3.Destination{Host: localGatewayHost},
+							Destination: v1alpha3.Destination{Host: constants.LocalGatewayHost},
 							Weight:      20,
 							Headers: &v1alpha3.Headers{
 								Request: &v1alpha3.HeaderOperations{Set: map[string]string{
