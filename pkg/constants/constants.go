@@ -100,6 +100,10 @@ type InferenceServiceComponent string
 
 type InferenceServiceVerb string
 
+const (
+	LocalGatewayHost = "cluster-local-gateway.istio-system.svc.cluster.local"
+)
+
 // InferenceService Component enums
 const (
 	Predictor   InferenceServiceComponent = "predictor"
