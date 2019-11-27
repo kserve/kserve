@@ -110,9 +110,6 @@ func (mutator *Mutator) mutate(pod *v1.Pod, configMap *v1.ConfigMap) error {
 
 func needMutate(pod *v1.Pod) bool {
 	// Skip webhook if pod not managed by kfserving
-	if _, ok := pod.Labels[constants.InferenceServicePodLabelKey]; ok {
-		return true
-	} else {
-		return false
-	}
+	_, ok := pod.Labels[constants.InferenceServicePodLabelKey]
+	return ok
 }
