@@ -3,25 +3,93 @@
 ## Setup
 1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/blob/master/docs/DEVELOPER_GUIDE.md#deploy-kfserving).
 2. Your cluster's Istio Ingress gateway must be network accessible.
-3. Your cluster's Istio Egresss gateway must [allow accessing S3 Storage](https://knative.dev/docs/serving/outbound-network-access/)
-4. The example uses the Kubeflow's Minio setup if you have [Kubeflow](https://www.kubeflow.org/docs/started/getting-started/) installed,
+3. The example uses the Kubeflow's Minio setup if you have [Kubeflow](https://www.kubeflow.org/docs/started/getting-started/) installed,
 you can also setup your own [Minio server](https://docs.min.io/docs/deploy-minio-on-kubernetes.html) or use other S3 compatible cloud storage.
+4. Install Kafka from [Confluent helm chart](https://www.confluent.io/blog/getting-started-apache-kafka-kubernetes/) if you do not have existing one
+5. Install Knative [kafka event source](https://github.com/knative/eventing-contrib/tree/master/kafka/source)
 
+## Deploy Kafka
+If you do not have an existing kafka cluster, you can run the following command to install in-cluster kafka for testing purpose, here
+we turn off the persistence.
+
+```
+helm repo add confluentinc https://confluentinc.github.io/cp-helm-charts/
+helm repo update
+helm install my-kafka -f values.yaml --set cp-schema-registry.enabled=false,cp-kafka-rest.enabled=false,cp-kafka-connect.enabled=false confluentinc/cp-helm-charts
+```
+
+after successful install you are expected to see running kafka cluster
+```bash
+kubectl get pods
+NAME                      READY   STATUS    RESTARTS   AGE
+my-kafka-cp-kafka-0       2/2     Running   0          126m
+my-kafka-cp-kafka-1       2/2     Running   1          126m
+my-kafka-cp-kafka-2       2/2     Running   0          126m
+my-kafka-cp-zookeeper-0   2/2     Running   0          127m
+```
+
+## Deploy Minio
+If you do not have Minio setup in your cluster, you can run following command to install Minio instance for testing purpose.
+```bash
+kubectl apply -f minio.yaml
+```
+
+Install [mc](https://docs.min.io/docs/minio-client-complete-guide) and create a bucket named `mnist`
+```bash
+kubectl port-forward --namespace default $(kubectl get pod --namespace default --selector="app=minio" --output jsonpath='{.items[0].metadata.name}') 9000:9000
+mc config host add myminio http://127.0.0.1:9000 minio minio123
+mc mb myminio/mnist
+```
+
+Setup event notification
+```bash
+ mc event add myminio/mnist arn:minio:sqs:us-east-1:1:kafka --suffix .png
+```
+
+you should expect a notification event sent to kafka topic `mnist` after uploading an image in `mnist` bucket
+```json
+{
+   "EventType":"s3:ObjectCreated:Put",
+   "Key":"mnist/0.png",
+   "Records":[
+      {"eventVersion":"2.0",
+       "eventSource":"minio:s3",
+       "awsRegion":"",
+       "eventTime":"2019-11-17T19:08:08Z",
+       "eventName":"s3:ObjectCreated:Put",
+       "userIdentity":{"principalId":"minio"},
+       "requestParameters":{"sourceIPAddress":"127.0.0.1:37830"},
+       "responseElements":{"x-amz-request-id":"15D808BF706E0994",
+       "x-minio-origin-endpoint":"http://10.244.0.71:9000"},
+       "s3":{
+          "s3SchemaVersion":"1.0",
+          "configurationId":"Config",
+          "bucket":{
+               "name":"mnist",
+               "ownerIdentity":{"principalId":"minio"},
+               "arn":"arn:aws:s3:::mnist"},
+          "object":{"key":"0.png","size":324,"eTag":"ebed21f6f77b0a64673a3c96b0c623ba","contentType":"image/png","userMetadata":{"content-type":"image/png"},"versionId":"1","sequencer":"15D808BF706E0994"}},
+          "source":{"host":"","port":"","userAgent":""}}
+   ],
+   "level":"info",
+   "msg":"",
+   "time":"2019-11-17T19:08:08Z"}
+```
 
 ## Train TF mnist model and save on S3
 Follow Kubeflow's [TF mnist example](https://github.com/kubeflow/examples/tree/master/mnist#using-s3) to train a TF mnist model and save on S3,
 change following S3 access settings, `modelDir` and `exportDir` as needed. If you already have a mnist model saved on S3 you can skip this step.
 ```bash
 export S3_USE_HTTPS=0 #set to 0 for default minio installs
-export S3_ENDPOINT=minio-service.kubeflow:9000
+export S3_ENDPOINT=minio-service:9000
 export AWS_ENDPOINT_URL=http://${S3_ENDPOINT}
 
 kustomize edit add configmap mnist-map-training --from-literal=S3_ENDPOINT=${S3_ENDPOINT}
 kustomize edit add configmap mnist-map-training --from-literal=AWS_ENDPOINT_URL=${AWS_ENDPOINT_URL}
 kustomize edit add configmap mnist-map-training --from-literal=S3_USE_HTTPS=${S3_USE_HTTPS}
 
-kustomize edit add configmap mnist-map-training --from-literal=modelDir=s3://mnist/v1
-kustomize edit add configmap mnist-map-training --from-literal=exportDir=s3://mnist/v1/export
+kustomize edit add configmap mnist-map-training --from-literal=modelDir=s3://mnist/model-v1
+kustomize edit add configmap mnist-map-training --from-literal=exportDir=s3://mnist/model-v1/export
 ```
 
 ## Create S3 Secret and attach to Service Account
@@ -33,12 +101,12 @@ kind: Secret
 metadata:
   name: mysecret
   annotations:
-     serving.kubeflow.org/s3-endpoint: minio-service.kubeflow:9000 # replace with your s3 endpoint
+     serving.kubeflow.org/s3-endpoint: minio-service:9000 # replace with your s3 endpoint
      serving.kubeflow.org/s3-usehttps: "0" # by default 1, for testing with minio you need to set to 0
 type: Opaque
 data:
-  awsAccessKeyID: XXXX
-  awsSecretAccessKey: XXXXXXXX
+  awsAccessKeyID: bWluaW8=
+  awsSecretAccessKey: bWluaW8xMjM=
 ```
 
 `KFServing` gets the secrets from your service account, you need to add the above created or existing secret to your service account's secret list. 
@@ -58,55 +126,30 @@ Apply the secret and service account
 kubectl apply -f s3_secret.yaml
 ```
 
+## Build mnist transformer image
+```bash
+docker build -t mnist-transformer:latest -f ./transformer.Dockerfile . --rm
+```
+
 ## Create the InferenceService
 Apply the CRD
 ```bash
-kubectl apply -f tensorflow_s3.yaml 
+kubectl apply -f mnist_kafka.yaml 
 ```
 
 Expected Output
 ```
-$ inferenceservice.serving.kubeflow.org/mnist-s3 created
+$ inferenceservice.serving.kubeflow.org/mnist_kafka created
 ```
 
-## Run a prediction
-
+## Create kafka event source
+Set kafka event source sink with the inferenceservice deployed above 
 ```bash
-MODEL_NAME=mnist-s3
-INPUT_PATH=@./input.json
-CLUSTER_IP=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+kubectl apply -f kafka-source.yaml
+```
 
-curl -v -H "Host: mnist-s3.default.svc.cluster.local" http://$CLUSTER_IP/v1/models/$MODEL_NAME:predict -d $INPUT_PATH
-```
-Expected Output
-```
-*   Trying 34.73.93.217...
-* TCP_NODELAY set
-* Connected to 34.73.93.217 (34.73.93.217) port 80 (#0)
-> POST /v1/models/mnist-s3:predict HTTP/1.1
-> Host: mnist-s3.default.svc.cluster.local
-> User-Agent: curl/7.54.0
-> Accept: */*
-> Content-Length: 2052
-> Content-Type: application/x-www-form-urlencoded
-> Expect: 100-continue
-> 
-< HTTP/1.1 100 Continue
-* We are completely uploaded and fine
+## Upload a digit image to Minio mnist bucket
+The uploaded image should then go to the classified bucket.
 
-< HTTP/1.1 200 OK
-< content-length: 218
-< content-type: application/json
-< date: Thu, 23 May 2019 01:33:08 GMT
-< server: istio-envoy
-< x-envoy-upstream-service-time: 20536
-< 
-{
-    "predictions": [
-        {
-            "classes": 2,
-            "predictions": [0.28852, 3.02198e-06, 0.484786, 0.123249, 0.000372552, 0.0635331, 0.00168883, 0.00327147, 0.0344911, 8.54185e-05]
-        }
-    ]
-* Connection #0 to host 34.73.93.217 left intact
-```
+
+
