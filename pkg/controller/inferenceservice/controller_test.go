@@ -87,8 +87,6 @@ var configs = map[string]string{
 }
 
 var domain = "example.com"
-var knativeIngressGateway = "knative-serving/knative-ingress-gateway"
-var clusterLocalGateway = "knative-serving/cluster-local-gateway"
 
 func TestInferenceServiceWithOnlyPredictor(t *testing.T) {
 	serviceName := "foo"
@@ -225,8 +223,8 @@ func TestInferenceServiceWithOnlyPredictor(t *testing.T) {
 	expectedVirtualService := &istiov1alpha3.VirtualService{
 		Spec: istiov1alpha3.VirtualServiceSpec{
 			Gateways: []string{
-				knativeIngressGateway,
-				clusterLocalGateway,
+				constants.KnativeIngressGateway,
+				constants.KnativeLocalGateway,
 			},
 			Hosts: []string{
 				constants.InferenceServiceHostName(serviceKey.Name, serviceKey.Namespace, domain),
@@ -239,7 +237,7 @@ func TestInferenceServiceWithOnlyPredictor(t *testing.T) {
 							URI: &istiov1alpha1.StringMatch{
 								Prefix: constants.PredictPrefix(serviceName),
 							},
-							Gateways: []string{knativeIngressGateway},
+							Gateways: []string{constants.KnativeIngressGateway},
 							Authority: &v1alpha1.StringMatch{
 								Regex: constants.HostRegExp(constants.InferenceServiceHostName(serviceKey.Name, serviceKey.Namespace, domain)),
 							},
@@ -248,7 +246,7 @@ func TestInferenceServiceWithOnlyPredictor(t *testing.T) {
 							URI: &istiov1alpha1.StringMatch{
 								Prefix: constants.PredictPrefix(serviceName),
 							},
-							Gateways: []string{clusterLocalGateway},
+							Gateways: []string{constants.KnativeLocalGateway},
 							Authority: &v1alpha1.StringMatch{
 								Regex: constants.HostRegExp(network.GetServiceHostname(serviceKey.Name, serviceKey.Namespace)),
 							},
@@ -268,6 +266,10 @@ func TestInferenceServiceWithOnlyPredictor(t *testing.T) {
 							},
 							Weight: 100,
 						},
+					},
+					Retries: &istiov1alpha3.HTTPRetry{
+						Attempts:      3,
+						PerTryTimeout: "10m",
 					},
 				},
 			},
@@ -558,8 +560,8 @@ func TestInferenceServiceWithDefaultAndCanaryPredictor(t *testing.T) {
 	expectedVirtualService := &istiov1alpha3.VirtualService{
 		Spec: istiov1alpha3.VirtualServiceSpec{
 			Gateways: []string{
-				knativeIngressGateway,
-				clusterLocalGateway,
+				constants.KnativeIngressGateway,
+				constants.KnativeLocalGateway,
 			},
 			Hosts: []string{
 				constants.InferenceServiceHostName(canaryServiceKey.Name, canaryServiceKey.Namespace, domain),
@@ -572,7 +574,7 @@ func TestInferenceServiceWithDefaultAndCanaryPredictor(t *testing.T) {
 							URI: &istiov1alpha1.StringMatch{
 								Prefix: constants.PredictPrefix(canaryServiceKey.Name),
 							},
-							Gateways: []string{knativeIngressGateway},
+							Gateways: []string{constants.KnativeIngressGateway},
 							Authority: &v1alpha1.StringMatch{
 								Regex: constants.HostRegExp(constants.InferenceServiceHostName(canaryServiceKey.Name, canaryServiceKey.Namespace, domain)),
 							},
@@ -581,7 +583,7 @@ func TestInferenceServiceWithDefaultAndCanaryPredictor(t *testing.T) {
 							URI: &istiov1alpha1.StringMatch{
 								Prefix: constants.PredictPrefix(canaryServiceKey.Name),
 							},
-							Gateways: []string{clusterLocalGateway},
+							Gateways: []string{constants.KnativeLocalGateway},
 							Authority: &v1alpha1.StringMatch{
 								Regex: constants.HostRegExp(network.GetServiceHostname(canaryServiceKey.Name, canaryServiceKey.Namespace)),
 							},
@@ -614,6 +616,10 @@ func TestInferenceServiceWithDefaultAndCanaryPredictor(t *testing.T) {
 							},
 							Weight: 20,
 						},
+					},
+					Retries: &istiov1alpha3.HTTPRetry{
+						Attempts:      3,
+						PerTryTimeout: "10m",
 					},
 				},
 			},
@@ -1205,8 +1211,8 @@ func TestInferenceServiceWithTransformer(t *testing.T) {
 	expectedVirtualService := &istiov1alpha3.VirtualService{
 		Spec: istiov1alpha3.VirtualServiceSpec{
 			Gateways: []string{
-				knativeIngressGateway,
-				clusterLocalGateway,
+				constants.KnativeIngressGateway,
+				constants.KnativeLocalGateway,
 			},
 			Hosts: []string{
 				constants.InferenceServiceHostName(serviceName, serviceKey.Namespace, domain),
@@ -1219,7 +1225,7 @@ func TestInferenceServiceWithTransformer(t *testing.T) {
 							URI: &istiov1alpha1.StringMatch{
 								Prefix: constants.PredictPrefix(serviceName),
 							},
-							Gateways: []string{knativeIngressGateway},
+							Gateways: []string{constants.KnativeIngressGateway},
 							Authority: &v1alpha1.StringMatch{
 								Regex: constants.HostRegExp(constants.InferenceServiceHostName(serviceKey.Name, serviceKey.Namespace, domain)),
 							},
@@ -1228,7 +1234,7 @@ func TestInferenceServiceWithTransformer(t *testing.T) {
 							URI: &istiov1alpha1.StringMatch{
 								Prefix: constants.PredictPrefix(serviceName),
 							},
-							Gateways: []string{clusterLocalGateway},
+							Gateways: []string{constants.KnativeLocalGateway},
 							Authority: &v1alpha1.StringMatch{
 								Regex: constants.HostRegExp(network.GetServiceHostname(serviceKey.Name, serviceKey.Namespace)),
 							},
@@ -1261,6 +1267,10 @@ func TestInferenceServiceWithTransformer(t *testing.T) {
 							},
 							Weight: 20,
 						},
+					},
+					Retries: &istiov1alpha3.HTTPRetry{
+						Attempts:      3,
+						PerTryTimeout: "10m",
 					},
 				},
 			},
@@ -1767,8 +1777,8 @@ func TestInferenceServiceWithExplainer(t *testing.T) {
 	expectedVirtualService := &istiov1alpha3.VirtualService{
 		Spec: istiov1alpha3.VirtualServiceSpec{
 			Gateways: []string{
-				knativeIngressGateway,
-				clusterLocalGateway,
+				constants.KnativeIngressGateway,
+				constants.KnativeLocalGateway,
 			},
 			Hosts: []string{
 				constants.InferenceServiceHostName(serviceName, serviceKey.Namespace, domain),
@@ -1781,7 +1791,7 @@ func TestInferenceServiceWithExplainer(t *testing.T) {
 							URI: &istiov1alpha1.StringMatch{
 								Prefix: constants.PredictPrefix(serviceName),
 							},
-							Gateways: []string{knativeIngressGateway},
+							Gateways: []string{constants.KnativeIngressGateway},
 							Authority: &v1alpha1.StringMatch{
 								Regex: constants.HostRegExp(constants.InferenceServiceHostName(serviceKey.Name, serviceKey.Namespace, domain)),
 							},
@@ -1790,7 +1800,7 @@ func TestInferenceServiceWithExplainer(t *testing.T) {
 							URI: &istiov1alpha1.StringMatch{
 								Prefix: constants.PredictPrefix(serviceName),
 							},
-							Gateways: []string{clusterLocalGateway},
+							Gateways: []string{constants.KnativeLocalGateway},
 							Authority: &v1alpha1.StringMatch{
 								Regex: constants.HostRegExp(network.GetServiceHostname(serviceKey.Name, serviceKey.Namespace)),
 							},
@@ -1824,6 +1834,10 @@ func TestInferenceServiceWithExplainer(t *testing.T) {
 							Weight: 20,
 						},
 					},
+					Retries: &istiov1alpha3.HTTPRetry{
+						Attempts:      3,
+						PerTryTimeout: "10m",
+					},
 				},
 				{
 					Match: []v1alpha3.HTTPMatchRequest{
@@ -1831,7 +1845,7 @@ func TestInferenceServiceWithExplainer(t *testing.T) {
 							URI: &istiov1alpha1.StringMatch{
 								Prefix: constants.ExplainPrefix(serviceName),
 							},
-							Gateways: []string{knativeIngressGateway},
+							Gateways: []string{constants.KnativeIngressGateway},
 							Authority: &v1alpha1.StringMatch{
 								Regex: constants.HostRegExp(constants.InferenceServiceHostName(serviceKey.Name, serviceKey.Namespace, domain)),
 							},
@@ -1840,7 +1854,7 @@ func TestInferenceServiceWithExplainer(t *testing.T) {
 							URI: &istiov1alpha1.StringMatch{
 								Prefix: constants.ExplainPrefix(serviceName),
 							},
-							Gateways: []string{clusterLocalGateway},
+							Gateways: []string{constants.KnativeLocalGateway},
 							Authority: &v1alpha1.StringMatch{
 								Regex: constants.HostRegExp(network.GetServiceHostname(serviceKey.Name, serviceKey.Namespace)),
 							},
@@ -1863,6 +1877,10 @@ func TestInferenceServiceWithExplainer(t *testing.T) {
 									"Host": network.GetServiceHostname(constants.CanaryExplainerServiceName(serviceName), serviceKey.Namespace)}},
 							},
 						},
+					},
+					Retries: &istiov1alpha3.HTTPRetry{
+						Attempts:      3,
+						PerTryTimeout: "10m",
 					},
 				},
 			},
