@@ -15,6 +15,7 @@ package v1alpha2
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/kubeflow/kfserving/pkg/constants"
@@ -44,6 +45,7 @@ func (x *XGBoostSpec) GetContainer(modelName string, hasLogging bool, config *In
 			"--model_name=" + modelName,
 			"--model_dir=" + constants.DefaultModelLocalMountPath,
 			"--http_port=" + constants.GetInferenceServiceHttpPort(hasLogging),
+			"--nthread=" + strconv.Itoa(x.NThread),
 		},
 	}
 }
@@ -54,6 +56,9 @@ func (x *XGBoostSpec) ApplyDefaults(config *InferenceServicesConfig) {
 	}
 
 	setResourceRequirementDefaults(&x.Resources)
+	if x.NThread == 0 {
+		x.NThread = int(x.Resources.Requests.Cpu().Value())
+	}
 }
 
 func (x *XGBoostSpec) Validate(config *InferenceServicesConfig) error {

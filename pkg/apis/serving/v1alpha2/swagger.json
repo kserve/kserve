@@ -499,6 +499,11 @@
         "storageUri"
       ],
       "properties": {
+        "nthread": {
+          "description": "Number of thread to be used by XGBoost",
+          "type": "integer",
+          "format": "int32"
+        },
         "resources": {
           "description": "Defaults to requests and limits of 1CPU, 2Gb MEM.",
           "$ref": "#/definitions/v1.ResourceRequirements"

@@ -19,6 +19,7 @@ from xgbserver import XGBoostModel
 
 model_dir = model_dir = os.path.join(os.path.dirname(__file__), "example_model")
 BST_FILE = "model.bst"
+NTHREAD = 1
 
 def test_model():
     iris = load_iris()
@@ -35,7 +36,7 @@ def test_model():
     xgb_model = xgb.train(params=param, dtrain=dtrain)
     model_file = os.path.join((model_dir), BST_FILE)
     xgb_model.save_model(model_file)
-    model = XGBoostModel("xgbmodel", model_dir)
+    model = XGBoostModel("xgbmodel", model_dir, NTHREAD)
     model.load()
     request = [X[0].tolist()]
     response = model.predict({"instances": request})
