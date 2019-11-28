@@ -771,6 +771,13 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Format:      "",
 							},
 						},
+						"nthread": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Number of thread to be used by XGBoost",
+								Type:        []string{"integer"},
+								Format:      "int32",
+							},
+						},
 						"runtimeVersion": {
 							SchemaProps: spec.SchemaProps{
 								Description: "Allowed runtime versions are specified in the inferenceservice config map",

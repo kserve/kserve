@@ -233,6 +233,10 @@ spec:
                     xgboost:
                       description: Spec for XGBoost predictor
                       properties:
+                        nthread:
+                          description: Number of thread to be used by XGBoost
+                          format: int64
+                          type: integer
                         resources:
                           description: Defaults to requests and limits of 1CPU, 2Gb
                             MEM.
@@ -479,6 +483,10 @@ spec:
                     xgboost:
                       description: Spec for XGBoost predictor
                       properties:
+                        nthread:
+                          description: Number of thread to be used by XGBoost
+                          format: int64
+                          type: integer
                         resources:
                           description: Defaults to requests and limits of 1CPU, 2Gb
                             MEM.
