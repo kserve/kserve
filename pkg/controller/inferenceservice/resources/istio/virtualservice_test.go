@@ -32,7 +32,6 @@ import (
 
 var knativeIngressGateway = "knative-serving/knative-ingress-gateway"
 var clusterLocalGateway = "knative-serving/cluster-local-gateway"
-var localGatewayHost = "cluster-local-gateway.istio-system.svc.cluster.local"
 
 func TestCreateVirtualService(t *testing.T) {
 	serviceName := "my-model"
@@ -123,7 +122,7 @@ func TestCreateVirtualService(t *testing.T) {
 						Match: predictorRouteMatch,
 						Route: []istiov1alpha3.HTTPRouteDestination{
 							{
-								Destination: istiov1alpha3.Destination{Host: localGatewayHost},
+								Destination: istiov1alpha3.Destination{Host: constants.LocalGatewayHost},
 								Weight:      100,
 								Headers: &istiov1alpha3.Headers{
 									Request: &istiov1alpha3.HeaderOperations{Set: map[string]string{
@@ -199,7 +198,7 @@ func TestCreateVirtualService(t *testing.T) {
 						Match: predictorRouteMatch,
 						Route: []istiov1alpha3.HTTPRouteDestination{
 							{
-								Destination: istiov1alpha3.Destination{Host: localGatewayHost},
+								Destination: istiov1alpha3.Destination{Host: constants.LocalGatewayHost},
 								Weight:      80,
 								Headers: &istiov1alpha3.Headers{
 									Request: &istiov1alpha3.HeaderOperations{Set: map[string]string{
@@ -208,7 +207,7 @@ func TestCreateVirtualService(t *testing.T) {
 								},
 							},
 							{
-								Destination: istiov1alpha3.Destination{Host: localGatewayHost},
+								Destination: istiov1alpha3.Destination{Host: constants.LocalGatewayHost},
 								Weight:      20,
 								Headers: &istiov1alpha3.Headers{
 									Request: &istiov1alpha3.HeaderOperations{Set: map[string]string{
@@ -281,7 +280,7 @@ func TestCreateVirtualService(t *testing.T) {
 						Match: predictorRouteMatch,
 						Route: []istiov1alpha3.HTTPRouteDestination{
 							{
-								Destination: istiov1alpha3.Destination{Host: localGatewayHost},
+								Destination: istiov1alpha3.Destination{Host: constants.LocalGatewayHost},
 								Weight:      100,
 								Headers: &istiov1alpha3.Headers{
 									Request: &istiov1alpha3.HeaderOperations{Set: map[string]string{
@@ -358,7 +357,7 @@ func TestCreateVirtualService(t *testing.T) {
 						Match: predictorRouteMatch,
 						Route: []istiov1alpha3.HTTPRouteDestination{
 							{
-								Destination: istiov1alpha3.Destination{Host: localGatewayHost},
+								Destination: istiov1alpha3.Destination{Host: constants.LocalGatewayHost},
 								Weight:      80,
 								Headers: &istiov1alpha3.Headers{
 									Request: &istiov1alpha3.HeaderOperations{Set: map[string]string{
@@ -366,7 +365,7 @@ func TestCreateVirtualService(t *testing.T) {
 								},
 							},
 							{
-								Destination: istiov1alpha3.Destination{Host: localGatewayHost},
+								Destination: istiov1alpha3.Destination{Host: constants.LocalGatewayHost},
 								Weight:      20,
 								Headers: &istiov1alpha3.Headers{
 									Request: &istiov1alpha3.HeaderOperations{Set: map[string]string{
@@ -438,7 +437,7 @@ func TestCreateVirtualService(t *testing.T) {
 						Match: predictorRouteMatch,
 						Route: []istiov1alpha3.HTTPRouteDestination{
 							{
-								Destination: istiov1alpha3.Destination{Host: localGatewayHost},
+								Destination: istiov1alpha3.Destination{Host: constants.LocalGatewayHost},
 								Weight:      100,
 								Headers: &istiov1alpha3.Headers{
 									Request: &istiov1alpha3.HeaderOperations{Set: map[string]string{
@@ -467,7 +466,7 @@ func TestCreateVirtualService(t *testing.T) {
 						},
 						Route: []istiov1alpha3.HTTPRouteDestination{
 							{
-								Destination: istiov1alpha3.Destination{Host: localGatewayHost},
+								Destination: istiov1alpha3.Destination{Host: constants.LocalGatewayHost},
 								Weight:      100,
 								Headers: &istiov1alpha3.Headers{
 									Request: &istiov1alpha3.HeaderOperations{Set: map[string]string{
@@ -535,6 +534,7 @@ func TestCreateVirtualService(t *testing.T) {
 func createMockPredictorSpec(componentStatusMap *v1alpha2.ComponentStatusMap) v1alpha2.PredictorSpec {
 	return v1alpha2.PredictorSpec{}
 }
+
 func createMockExplainerSpec(componentStatusMap *v1alpha2.ComponentStatusMap) *v1alpha2.ExplainerSpec {
 	if componentStatusMap == nil {
 		return nil
