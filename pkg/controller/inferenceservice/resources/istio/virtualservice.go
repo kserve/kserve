@@ -190,10 +190,14 @@ func (r *VirtualServiceBuilder) CreateVirtualService(isvc *v1alpha2.InferenceSer
 				Authority: &istiov1alpha1.StringMatch{
 					Regex: constants.HostRegExp(network.GetServiceHostname(isvc.Name, isvc.Namespace)),
 				},
-				Gateways: []string{"knative-serving/cluster-local-gateway"},
+				Gateways: []string{constants.KnativeLocalGateway},
 			},
 		},
 		Route: predictRouteDestinations,
+		Retries: &istiov1alpha3.HTTPRetry{
+			Attempts:      3,
+			PerTryTimeout: "10m",
+		},
 	}
 	httpRoutes = append(httpRoutes, predictRoute)
 
@@ -233,10 +237,14 @@ func (r *VirtualServiceBuilder) CreateVirtualService(isvc *v1alpha2.InferenceSer
 					Authority: &istiov1alpha1.StringMatch{
 						Regex: constants.HostRegExp(network.GetServiceHostname(isvc.Name, isvc.Namespace)),
 					},
-					Gateways: []string{"knative-serving/cluster-local-gateway"},
+					Gateways: []string{constants.KnativeLocalGateway},
 				},
 			},
 			Route: explainRouteDestinations,
+			Retries: &istiov1alpha3.HTTPRetry{
+				Attempts:      3,
+				PerTryTimeout: "10m",
+			},
 		}
 		httpRoutes = append(httpRoutes, explainRoute)
 	}
@@ -257,7 +265,7 @@ func (r *VirtualServiceBuilder) CreateVirtualService(isvc *v1alpha2.InferenceSer
 			},
 			Gateways: []string{
 				r.ingressConfig.IngressGateway,
-				"knative-serving/cluster-local-gateway",
+				constants.KnativeLocalGateway,
 			},
 			HTTP: httpRoutes,
 		},
@@ -354,8 +362,7 @@ func createHTTPRouteDestination(targetHost, namespace string, weight int, gatewa
 			},
 		},
 		Destination: istiov1alpha3.Destination{
-			Host: fmt.Sprintf("cluster-local-gateway.istio-system.svc.%s",
-				network.GetClusterDomainName()),
+			Host: constants.LocalGatewayHost,
 		},
 	}
 
