@@ -30,9 +30,6 @@ import (
 	"testing"
 )
 
-var knativeIngressGateway = "knative-serving/knative-ingress-gateway"
-var clusterLocalGateway = "knative-serving/cluster-local-gateway"
-
 func TestCreateVirtualService(t *testing.T) {
 	serviceName := "my-model"
 	namespace := "test"
@@ -51,14 +48,14 @@ func TestCreateVirtualService(t *testing.T) {
 			Authority: &istiov1alpha1.StringMatch{
 				Regex: constants.HostRegExp(constants.InferenceServiceHostName(serviceName, namespace, domain)),
 			},
-			Gateways: []string{knativeIngressGateway},
+			Gateways: []string{constants.KnativeIngressGateway},
 		},
 		{
 			URI: &istiov1alpha1.StringMatch{Prefix: "/v1/models/my-model:predict"},
 			Authority: &istiov1alpha1.StringMatch{
 				Regex: constants.HostRegExp(network.GetServiceHostname(serviceName, namespace)),
 			},
-			Gateways: []string{clusterLocalGateway},
+			Gateways: []string{constants.KnativeLocalGateway},
 		},
 	}
 	cases := []struct {
@@ -116,7 +113,7 @@ func TestCreateVirtualService(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{Name: serviceName, Namespace: namespace},
 			Spec: istiov1alpha3.VirtualServiceSpec{
 				Hosts:    []string{serviceHostName, serviceInternalHostName},
-				Gateways: []string{knativeIngressGateway, clusterLocalGateway},
+				Gateways: []string{constants.KnativeIngressGateway, constants.KnativeLocalGateway},
 				HTTP: []istiov1alpha3.HTTPRoute{
 					{
 						Match: predictorRouteMatch,
@@ -129,6 +126,10 @@ func TestCreateVirtualService(t *testing.T) {
 										"Host": network.GetServiceHostname(constants.DefaultPredictorServiceName(serviceName), namespace)}},
 								},
 							},
+						},
+						Retries: &istiov1alpha3.HTTPRetry{
+							Attempts:      3,
+							PerTryTimeout: "10m",
 						},
 					},
 				},
@@ -192,7 +193,7 @@ func TestCreateVirtualService(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{Name: serviceName, Namespace: namespace},
 			Spec: istiov1alpha3.VirtualServiceSpec{
 				Hosts:    []string{serviceHostName, serviceInternalHostName},
-				Gateways: []string{knativeIngressGateway, clusterLocalGateway},
+				Gateways: []string{constants.KnativeIngressGateway, constants.KnativeLocalGateway},
 				HTTP: []istiov1alpha3.HTTPRoute{
 					{
 						Match: predictorRouteMatch,
@@ -215,6 +216,10 @@ func TestCreateVirtualService(t *testing.T) {
 									},
 								},
 							},
+						},
+						Retries: &istiov1alpha3.HTTPRetry{
+							Attempts:      3,
+							PerTryTimeout: "10m",
 						},
 					},
 				},
@@ -274,7 +279,7 @@ func TestCreateVirtualService(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{Name: serviceName, Namespace: namespace},
 			Spec: istiov1alpha3.VirtualServiceSpec{
 				Hosts:    []string{serviceHostName, serviceInternalHostName},
-				Gateways: []string{knativeIngressGateway, clusterLocalGateway},
+				Gateways: []string{constants.KnativeIngressGateway, constants.KnativeLocalGateway},
 				HTTP: []istiov1alpha3.HTTPRoute{
 					{
 						Match: predictorRouteMatch,
@@ -288,6 +293,10 @@ func TestCreateVirtualService(t *testing.T) {
 									}},
 								},
 							},
+						},
+						Retries: &istiov1alpha3.HTTPRetry{
+							Attempts:      3,
+							PerTryTimeout: "10m",
 						},
 					},
 				},
@@ -351,7 +360,7 @@ func TestCreateVirtualService(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{Name: serviceName, Namespace: namespace},
 			Spec: istiov1alpha3.VirtualServiceSpec{
 				Hosts:    []string{serviceHostName, serviceInternalHostName},
-				Gateways: []string{knativeIngressGateway, clusterLocalGateway},
+				Gateways: []string{constants.KnativeIngressGateway, constants.KnativeLocalGateway},
 				HTTP: []istiov1alpha3.HTTPRoute{
 					{
 						Match: predictorRouteMatch,
@@ -372,6 +381,10 @@ func TestCreateVirtualService(t *testing.T) {
 										"Host": network.GetServiceHostname(constants.CanaryTransformerServiceName(serviceName), namespace)}},
 								},
 							},
+						},
+						Retries: &istiov1alpha3.HTTPRetry{
+							Attempts:      3,
+							PerTryTimeout: "10m",
 						},
 					},
 				},
@@ -431,7 +444,7 @@ func TestCreateVirtualService(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{Name: serviceName, Namespace: namespace},
 			Spec: istiov1alpha3.VirtualServiceSpec{
 				Hosts:    []string{serviceHostName, serviceInternalHostName},
-				Gateways: []string{knativeIngressGateway, clusterLocalGateway},
+				Gateways: []string{constants.KnativeIngressGateway, constants.KnativeLocalGateway},
 				HTTP: []istiov1alpha3.HTTPRoute{
 					{
 						Match: predictorRouteMatch,
@@ -446,6 +459,10 @@ func TestCreateVirtualService(t *testing.T) {
 								},
 							},
 						},
+						Retries: &istiov1alpha3.HTTPRetry{
+							Attempts:      3,
+							PerTryTimeout: "10m",
+						},
 					},
 					{
 						Match: []istiov1alpha3.HTTPMatchRequest{
@@ -454,14 +471,14 @@ func TestCreateVirtualService(t *testing.T) {
 								Authority: &istiov1alpha1.StringMatch{
 									Regex: constants.HostRegExp(constants.InferenceServiceHostName(serviceName, namespace, domain)),
 								},
-								Gateways: []string{knativeIngressGateway},
+								Gateways: []string{constants.KnativeIngressGateway},
 							},
 							{
 								URI: &istiov1alpha1.StringMatch{Prefix: "/v1/models/my-model:explain"},
 								Authority: &istiov1alpha1.StringMatch{
 									Regex: constants.HostRegExp(network.GetServiceHostname(serviceName, namespace)),
 								},
-								Gateways: []string{clusterLocalGateway},
+								Gateways: []string{constants.KnativeLocalGateway},
 							},
 						},
 						Route: []istiov1alpha3.HTTPRouteDestination{
@@ -474,6 +491,10 @@ func TestCreateVirtualService(t *testing.T) {
 									},
 								},
 							},
+						},
+						Retries: &istiov1alpha3.HTTPRetry{
+							Attempts:      3,
+							PerTryTimeout: "10m",
 						},
 					},
 				},
@@ -514,7 +535,7 @@ func TestCreateVirtualService(t *testing.T) {
 
 			serviceBuilder := VirtualServiceBuilder{
 				ingressConfig: &IngressConfig{
-					IngressGateway:     knativeIngressGateway,
+					IngressGateway:     constants.KnativeIngressGateway,
 					IngressServiceName: "someIngressServiceName",
 				},
 			}

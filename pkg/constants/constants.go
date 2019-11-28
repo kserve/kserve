@@ -101,7 +101,9 @@ type InferenceServiceComponent string
 type InferenceServiceVerb string
 
 const (
-	LocalGatewayHost = "cluster-local-gateway.istio-system.svc.cluster.local"
+	LocalGatewayHost      = "cluster-local-gateway.istio-system.svc.cluster.local"
+	KnativeLocalGateway   = "knative-serving/cluster-local-gateway"
+	KnativeIngressGateway = "knative-serving/knative-ingress-gateway"
 )
 
 // InferenceService Component enums
