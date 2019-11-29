@@ -4,8 +4,8 @@
 1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/blob/master/docs/DEVELOPER_GUIDE.md#deploy-kfserving).
 2. Your cluster's Istio Ingress gateway must be network accessible.
 3. Install Minio with following Minio deploy step.
-4. Use existing Kafka cluster or install Kafka on your cluster with Kafka deploy step.
-5. Install [Kafka Event Source](https://github.com/knative/eventing-contrib/tree/master/kafka/source)
+4. Use existing Kafka cluster or install Kafka on your cluster with [Confluent helm chart](https://www.confluent.io/blog/getting-started-apache-kafka-kubernetes/).
+5. Install [Kafka Event Source](https://github.com/knative/eventing-contrib/tree/master/kafka/source).
 
 This example shows an end to end inference pipeline which processes an kafka event and invoke the inference service to get the prediction with provided
 pre/post processing code.
@@ -13,7 +13,7 @@ pre/post processing code.
 ![diagram](images/diagram.png)
 
 ## Deploy Kafka
-If you do not have an existing kafka cluster, you can run the following commands to install in-cluster kafka with [Confluent Chart]([Confluent helm chart](https://www.confluent.io/blog/getting-started-apache-kafka-kubernetes/))
+If you do not have an existing kafka cluster, you can run the following commands to install in-cluster kafka using [helm3](https://helm.sh)
 with persistence turned off.
 
 ```
