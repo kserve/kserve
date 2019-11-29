@@ -3,14 +3,18 @@
 ## Setup
 1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/blob/master/docs/DEVELOPER_GUIDE.md#deploy-kfserving).
 2. Your cluster's Istio Ingress gateway must be network accessible.
-3. The example uses the Kubeflow's Minio setup if you have [Kubeflow](https://www.kubeflow.org/docs/started/getting-started/) installed,
-you can also install with following minio deploy step.
-4. Use existing Kafka cluster or install Kafka with [Confluent helm chart](https://www.confluent.io/blog/getting-started-apache-kafka-kubernetes/)
+3. Install Minio with following Minio deploy step.
+4. Use existing Kafka cluster or install Kafka on your cluster with Kafka deploy step.
 5. Install [Kafka Event Source](https://github.com/knative/eventing-contrib/tree/master/kafka/source)
 
+This example shows an end to end inference pipeline which processes an kafka event and invoke the inference service to get the prediction with provided
+pre/post processing code.
+
+![diagram](images/diagram.png)
+
 ## Deploy Kafka
-If you do not have an existing kafka cluster, you can run the following command to install in-cluster kafka for testing purpose, here
-we turn off the persistence.
+If you do not have an existing kafka cluster, you can run the following commands to install in-cluster kafka with [Confluent Chart]([Confluent helm chart](https://www.confluent.io/blog/getting-started-apache-kafka-kubernetes/))
+with persistence turned off.
 
 ```
 helm repo add confluentinc https://confluentinc.github.io/cp-helm-charts/
@@ -55,7 +59,7 @@ mc config host add myminio http://127.0.0.1:9000 minio minio123
 mc mb myminio/mnist
 ```
 
-- Setup event notification to publish add event to kafka.
+- Setup event notification to publish events to kafka.
 ```bash
 mc event add myminio/mnist arn:minio:sqs:us-east-1:1:kafka --suffix .png
 ```
@@ -87,7 +91,8 @@ you should expect a notification event like following sent to kafka topic `mnist
    ],
    "level":"info",
    "msg":"",
-   "time":"2019-11-17T19:08:08Z"}
+   "time":"2019-11-17T19:08:08Z"
+}
 ```
 
 ## Train TF mnist model and save on S3
@@ -121,18 +126,18 @@ and transform image bytes to tensors. The postprocess handler processes the pred
 bucket `digit-[0-9]`.
 ```bash
 docker build -t yuzisun/mnist-transformer:latest -f ./transformer.Dockerfile . --rm
+docker push yuzisun/mnist-transformer:latest
 ```
 
 ## Create the InferenceService
-Specify the built image on Transformer spec and apply the inference service CRD.
+Specify the built image on `Transformer` spec and apply the inference service CRD.
 ```bash
 kubectl apply -f mnist_kafka.yaml 
 ```
 
-Expected Output
+This creates transformer and predictor pods, when the request goes to transformer first which invokes the preprocess handler, transformer
+then calls out to predictor to get the prediction response which in turn invokes the postprocess handler. 
 ```
-$ inferenceservice.serving.kubeflow.org/mnist_kafka created
-
 kubectl get pods -l serving.kubeflow.org/inferenceservice=mnist
 mnist-predictor-default-9t5ms-deployment-74f5cd7767-khthf     2/2     Running       0          10s
 mnist-transformer-default-jmf98-deployment-8585cbc748-ftfhd   2/2     Running       0          14m
@@ -144,8 +149,13 @@ Apply kafka event source which creates the kafka consumer pod to pull the events
 kubectl apply -f kafka-source.yaml
 ```
 
+This creates the kafka source pod which consumers the events from `mnist` topic
+```bash
+kafkasource-kafka-source-3d809fe2-1267-11ea-99d0-42010af00zbn5h   1/1     Running   0          8h
+```
+
 ## Upload a digit image to Minio mnist bucket
-The last step is to upload a digit image, image then should be moved to the classified bucket based on the prediction response!
+The last step is to upload the image `images/0.png`, image then should be moved to the classified bucket based on the prediction response!
 
 
 
