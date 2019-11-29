@@ -16,7 +16,6 @@ import kfserving
 from typing import List, Dict
 import logging
 import boto3
-import numpy as np
 import cv2
 
 logging.basicConfig(level=kfserving.constants.KFSERVING_LOGLEVEL)
