@@ -17,7 +17,7 @@ You may find this [installation instruction](https://github.com/kubeflow/kfservi
 
 ### Installation using kubectl ###
 ```
-TAG=0.2.1
+TAG=0.2.2
 kubectl apply -f ./install/$TAG/kfserving.yaml
 ```
 By default, you can create InferenceService instances in any namespace which has no label with `control-plane` as key.
