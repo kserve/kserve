@@ -31,7 +31,7 @@ import (
 	testutils "github.com/kubeflow/kfserving/pkg/testing"
 	v1 "k8s.io/api/core/v1"
 	"knative.dev/pkg/apis"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	kfserving "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
@@ -39,6 +39,7 @@ import (
 	"golang.org/x/net/context"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
 	"knative.dev/pkg/apis/istio/common/v1alpha1"
 	istiov1alpha1 "knative.dev/pkg/apis/istio/common/v1alpha1"
@@ -175,7 +176,7 @@ func TestInferenceServiceWithOnlyPredictor(t *testing.T) {
 						},
 					},
 					Spec: knservingv1alpha1.RevisionSpec{
-						RevisionSpec: v1beta1.RevisionSpec{
+						RevisionSpec: knservingv1.RevisionSpec{
 							TimeoutSeconds: &constants.DefaultPredictorTimeout,
 							PodSpec: v1.PodSpec{
 								Containers: []v1.Container{
@@ -206,7 +207,7 @@ func TestInferenceServiceWithOnlyPredictor(t *testing.T) {
 	updateDefault.Status.LatestCreatedRevisionName = "revision-v1"
 	updateDefault.Status.LatestReadyRevisionName = "revision-v1"
 	updateDefault.Status.URL, _ = apis.ParseURL("http://revision-v1.myns.myingress.com")
-	updateDefault.Status.Conditions = duckv1beta1.Conditions{
+	updateDefault.Status.Conditions = duckv1.Conditions{
 		{
 			Type:   knservingv1alpha1.ServiceConditionReady,
 			Status: "True",
@@ -406,7 +407,7 @@ func TestInferenceServiceWithDefaultAndCanaryPredictor(t *testing.T) {
 						},
 					},
 					Spec: knservingv1alpha1.RevisionSpec{
-						RevisionSpec: v1beta1.RevisionSpec{
+						RevisionSpec: knservingv1.RevisionSpec{
 							TimeoutSeconds: &constants.DefaultPredictorTimeout,
 							PodSpec: v1.PodSpec{
 								Containers: []v1.Container{
@@ -438,7 +439,7 @@ func TestInferenceServiceWithDefaultAndCanaryPredictor(t *testing.T) {
 	updateDefault.Status.LatestCreatedRevisionName = "revision-v1"
 	updateDefault.Status.LatestReadyRevisionName = "revision-v1"
 	updateDefault.Status.URL, _ = apis.ParseURL("http://revision-v1.myns.myingress.com")
-	updateDefault.Status.Conditions = duckv1beta1.Conditions{
+	updateDefault.Status.Conditions = duckv1.Conditions{
 		{
 			Type:   knservingv1alpha1.ServiceConditionReady,
 			Status: "True",
@@ -451,7 +452,7 @@ func TestInferenceServiceWithDefaultAndCanaryPredictor(t *testing.T) {
 	updateCanary.Status.LatestCreatedRevisionName = "revision-v2"
 	updateCanary.Status.LatestReadyRevisionName = "revision-v2"
 	updateCanary.Status.URL, _ = apis.ParseURL("http://revision-v2.myns.myingress.com")
-	updateCanary.Status.Conditions = duckv1beta1.Conditions{
+	updateCanary.Status.Conditions = duckv1.Conditions{
 		{
 			Type:   knservingv1alpha1.ServiceConditionReady,
 			Status: "True",
@@ -664,7 +665,7 @@ func TestCanaryDelete(t *testing.T) {
 	updateDefault.Status.LatestCreatedRevisionName = "revision-v1"
 	updateDefault.Status.LatestReadyRevisionName = "revision-v1"
 	updateDefault.Status.URL, _ = apis.ParseURL("http://revision-v1.myns.myingress.com")
-	updateDefault.Status.Conditions = duckv1beta1.Conditions{
+	updateDefault.Status.Conditions = duckv1.Conditions{
 		{
 			Type:   knservingv1alpha1.ServiceConditionReady,
 			Status: "True",
@@ -677,7 +678,7 @@ func TestCanaryDelete(t *testing.T) {
 	updateCanary.Status.LatestCreatedRevisionName = "revision-v2"
 	updateCanary.Status.LatestReadyRevisionName = "revision-v2"
 	updateCanary.Status.URL, _ = apis.ParseURL("http://revision-v2.myns.myingress.com")
-	updateCanary.Status.Conditions = duckv1beta1.Conditions{
+	updateCanary.Status.Conditions = duckv1.Conditions{
 		{
 			Type:   knservingv1alpha1.ServiceConditionReady,
 			Status: "True",
@@ -962,7 +963,7 @@ func TestInferenceServiceWithTransformer(t *testing.T) {
 						},
 					},
 					Spec: knservingv1alpha1.RevisionSpec{
-						RevisionSpec: v1beta1.RevisionSpec{
+						RevisionSpec: knservingv1.RevisionSpec{
 							TimeoutSeconds: &constants.DefaultTransformerTimeout,
 							PodSpec: v1.PodSpec{
 								Containers: []v1.Container{
@@ -995,7 +996,7 @@ func TestInferenceServiceWithTransformer(t *testing.T) {
 		updateDefault.Status.LatestCreatedRevisionName = "revision-v1"
 		updateDefault.Status.LatestReadyRevisionName = "revision-v1"
 		updateDefault.Status.URL, _ = apis.ParseURL("http://revision-v1.myns.myingress.com")
-		updateDefault.Status.Conditions = duckv1beta1.Conditions{
+		updateDefault.Status.Conditions = duckv1.Conditions{
 			{
 				Type:   knservingv1alpha1.ServiceConditionReady,
 				Status: "True",
@@ -1008,7 +1009,7 @@ func TestInferenceServiceWithTransformer(t *testing.T) {
 		updateCanary.Status.LatestCreatedRevisionName = "revision-v2"
 		updateCanary.Status.LatestReadyRevisionName = "revision-v2"
 		updateCanary.Status.URL, _ = apis.ParseURL("http://revision-v2.myns.myingress.com")
-		updateCanary.Status.Conditions = duckv1beta1.Conditions{
+		updateCanary.Status.Conditions = duckv1.Conditions{
 			{
 				Type:   knservingv1alpha1.ServiceConditionReady,
 				Status: "True",
@@ -1024,7 +1025,7 @@ func TestInferenceServiceWithTransformer(t *testing.T) {
 		updateDefault.Status.LatestCreatedRevisionName = "t-revision-v1"
 		updateDefault.Status.LatestReadyRevisionName = "t-revision-v1"
 		updateDefault.Status.URL, _ = apis.ParseURL("http://t-revision-v1.myns.myingress.com")
-		updateDefault.Status.Conditions = duckv1beta1.Conditions{
+		updateDefault.Status.Conditions = duckv1.Conditions{
 			{
 				Type:   knservingv1alpha1.ServiceConditionReady,
 				Status: "True",
@@ -1037,7 +1038,7 @@ func TestInferenceServiceWithTransformer(t *testing.T) {
 		updateCanary.Status.LatestCreatedRevisionName = "t-revision-v2"
 		updateCanary.Status.LatestReadyRevisionName = "t-revision-v2"
 		updateCanary.Status.URL, _ = apis.ParseURL("http://t-revision-v2.myns.myingress.com")
-		updateCanary.Status.Conditions = duckv1beta1.Conditions{
+		updateCanary.Status.Conditions = duckv1.Conditions{
 			{
 				Type:   knservingv1alpha1.ServiceConditionReady,
 				Status: "True",
@@ -1494,7 +1495,7 @@ func TestInferenceServiceWithExplainer(t *testing.T) {
 						},
 					},
 					Spec: knservingv1alpha1.RevisionSpec{
-						RevisionSpec: v1beta1.RevisionSpec{
+						RevisionSpec: knservingv1.RevisionSpec{
 							TimeoutSeconds: &constants.DefaultExplainerTimeout,
 							PodSpec: v1.PodSpec{
 								Containers: []v1.Container{
@@ -1529,7 +1530,7 @@ func TestInferenceServiceWithExplainer(t *testing.T) {
 		updateDefault.Status.LatestCreatedRevisionName = "revision-v1"
 		updateDefault.Status.LatestReadyRevisionName = "revision-v1"
 		updateDefault.Status.URL, _ = apis.ParseURL("http://revision-v1.myns.myingress.com")
-		updateDefault.Status.Conditions = duckv1beta1.Conditions{
+		updateDefault.Status.Conditions = duckv1.Conditions{
 			{
 				Type:   knservingv1alpha1.ServiceConditionReady,
 				Status: "True",
@@ -1542,7 +1543,7 @@ func TestInferenceServiceWithExplainer(t *testing.T) {
 		updateCanary.Status.LatestCreatedRevisionName = "revision-v2"
 		updateCanary.Status.LatestReadyRevisionName = "revision-v2"
 		updateCanary.Status.URL, _ = apis.ParseURL("http://revision-v2.myns.myingress.com")
-		updateCanary.Status.Conditions = duckv1beta1.Conditions{
+		updateCanary.Status.Conditions = duckv1.Conditions{
 			{
 				Type:   knservingv1alpha1.ServiceConditionReady,
 				Status: "True",
@@ -1558,7 +1559,7 @@ func TestInferenceServiceWithExplainer(t *testing.T) {
 		updateDefault.Status.LatestCreatedRevisionName = "e-revision-v1"
 		updateDefault.Status.LatestReadyRevisionName = "e-revision-v1"
 		updateDefault.Status.URL, _ = apis.ParseURL("http://e-revision-v1.myns.myingress.com")
-		updateDefault.Status.Conditions = duckv1beta1.Conditions{
+		updateDefault.Status.Conditions = duckv1.Conditions{
 			{
 				Type:   knservingv1alpha1.ServiceConditionReady,
 				Status: "True",
@@ -1571,7 +1572,7 @@ func TestInferenceServiceWithExplainer(t *testing.T) {
 		updateCanary.Status.LatestCreatedRevisionName = "e-revision-v2"
 		updateCanary.Status.LatestReadyRevisionName = "e-revision-v2"
 		updateCanary.Status.URL, _ = apis.ParseURL("http://e-revision-v2.myns.myingress.com")
-		updateCanary.Status.Conditions = duckv1beta1.Conditions{
+		updateCanary.Status.Conditions = duckv1.Conditions{
 			{
 				Type:   knservingv1alpha1.ServiceConditionReady,
 				Status: "True",

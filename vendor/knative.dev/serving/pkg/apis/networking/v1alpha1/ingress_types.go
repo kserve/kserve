@@ -20,7 +20,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"knative.dev/pkg/apis"
-	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/kmeta"
 )
 
@@ -276,7 +276,7 @@ type HTTPRetry struct {
 
 // IngressStatus describe the current state of the Ingress.
 type IngressStatus struct {
-	duckv1beta1.Status `json:",inline"`
+	duckv1.Status `json:",inline"`
 
 	// LoadBalancer contains the current status of the load-balancer.
 	// This is to be superseded by the combination of `PublicLoadBalancer` and `PrivateLoadBalancer`

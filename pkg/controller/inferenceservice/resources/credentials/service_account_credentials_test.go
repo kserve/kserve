@@ -28,8 +28,8 @@ import (
 	"github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
 )
 
 var configMap = &v1.ConfigMap{
@@ -83,7 +83,7 @@ func TestS3CredentialBuilder(t *testing.T) {
 				Spec: v1alpha1.ConfigurationSpec{
 					Template: &v1alpha1.RevisionTemplateSpec{
 						Spec: v1alpha1.RevisionSpec{
-							RevisionSpec: v1beta1.RevisionSpec{
+							RevisionSpec: knservingv1.RevisionSpec{
 								PodSpec: v1.PodSpec{
 									Containers: []v1.Container{
 										{},
@@ -98,7 +98,7 @@ func TestS3CredentialBuilder(t *testing.T) {
 				Spec: v1alpha1.ConfigurationSpec{
 					Template: &v1alpha1.RevisionTemplateSpec{
 						Spec: v1alpha1.RevisionSpec{
-							RevisionSpec: v1beta1.RevisionSpec{
+							RevisionSpec: knservingv1.RevisionSpec{
 								PodSpec: v1.PodSpec{
 									Containers: []v1.Container{
 										{
@@ -208,7 +208,7 @@ func TestGCSCredentialBuilder(t *testing.T) {
 				Spec: v1alpha1.ConfigurationSpec{
 					Template: &v1alpha1.RevisionTemplateSpec{
 						Spec: v1alpha1.RevisionSpec{
-							RevisionSpec: v1beta1.RevisionSpec{
+							RevisionSpec: knservingv1.RevisionSpec{
 								PodSpec: v1.PodSpec{
 									Containers: []v1.Container{
 										{},
@@ -223,7 +223,7 @@ func TestGCSCredentialBuilder(t *testing.T) {
 				Spec: v1alpha1.ConfigurationSpec{
 					Template: &v1alpha1.RevisionTemplateSpec{
 						Spec: v1alpha1.RevisionSpec{
-							RevisionSpec: v1beta1.RevisionSpec{
+							RevisionSpec: knservingv1.RevisionSpec{
 								PodSpec: v1.PodSpec{
 									Containers: []v1.Container{
 										{
@@ -328,7 +328,7 @@ func TestAzureCredentialBuilder(t *testing.T) {
 				Spec: v1alpha1.ConfigurationSpec{
 					Template: &v1alpha1.RevisionTemplateSpec{
 						Spec: v1alpha1.RevisionSpec{
-							RevisionSpec: v1beta1.RevisionSpec{
+							RevisionSpec: knservingv1.RevisionSpec{
 								PodSpec: v1.PodSpec{
 									Containers: []v1.Container{
 										{},
@@ -343,7 +343,7 @@ func TestAzureCredentialBuilder(t *testing.T) {
 				Spec: v1alpha1.ConfigurationSpec{
 					Template: &v1alpha1.RevisionTemplateSpec{
 						Spec: v1alpha1.RevisionSpec{
-							RevisionSpec: v1beta1.RevisionSpec{
+							RevisionSpec: knservingv1.RevisionSpec{
 								PodSpec: v1.PodSpec{
 									Containers: []v1.Container{
 										{

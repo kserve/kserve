@@ -73,6 +73,17 @@ const (
 	// value a different reconciliation logic may be used (for examples,
 	// Cert-Manager-based Certificate will reconcile into a Cert-Manager Certificate).
 	CertificateClassAnnotationKey = GroupName + "/certificate.class"
+
+	// ActivatorServiceName is the name of the activator Kubernetes service.
+	ActivatorServiceName = "activator-service"
+
+	// DisableWildcardCertLabelKey is the label key attached to a namespace to indicate that
+	// a wildcard certificate should be not created for it.
+	DisableWildcardCertLabelKey = GroupName + "/disableWildcardCert"
+
+	// WildcardCertDomainLabelKey is the label key attached to a certificate to indicate the
+	// domain for which it was issued.
+	WildcardCertDomainLabelKey = "networking.knative.dev/wildcardDomain"
 )
 
 // ServiceType is the enumeration type for the Kubernetes services
