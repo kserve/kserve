@@ -21,6 +21,7 @@ from typing import List, Dict
 JOBLIB_FILE = "model.joblib"
 PICKLE_FILE = "model.pkl"
 
+
 class SKLearnModel(kfserving.KFModel): #pylint:disable=c-extension-no-member
     def __init__(self, name: str, model_dir: str):
         super().__init__(name)
@@ -30,14 +31,10 @@ class SKLearnModel(kfserving.KFModel): #pylint:disable=c-extension-no-member
 
     def load(self):
         model_path = kfserving.Storage.download(self.model_dir)
-        joblib_path = os.path.join(model_path, JOBLIB_FILE)
-        pickle_path = os.path.join(model_path, PICKLE_FILE)
-        if os.path.exists(joblib_path):
-            self._model = joblib.load(joblib_path) #pylint:disable=attribute-defined-outside-init
-        elif os.path.exists(pickle_path):
-            self._model = joblib.load(pickle_path) #pylint:disable=attribute-defined-outside-init
-        else:
-            raise Exception("Model file " + JOBLIB_FILE + " or " + PICKLE_FILE + " is not found")
+        paths = [os.path.join(model_path, JOBLIB_FILE),
+                 os.path.join(model_path, PICKLE_FILE)]
+        model_file = next(path for path in paths if os.path.exists(path))
+        self._model = joblib.load(model_file) #pylint:disable=attribute-defined-outside-init
         self.ready = True
 
     def predict(self, request: Dict) -> Dict:
