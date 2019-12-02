@@ -21,7 +21,7 @@ import (
 
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/ptr"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
 func (r *Route) SetDefaults(ctx context.Context) {
@@ -29,19 +29,19 @@ func (r *Route) SetDefaults(ctx context.Context) {
 }
 
 func (rs *RouteSpec) SetDefaults(ctx context.Context) {
-	if v1beta1.IsUpgradeViaDefaulting(ctx) {
-		beta := v1beta1.RouteSpec{}
-		if rs.ConvertUp(ctx, &beta) == nil {
+	if v1.IsUpgradeViaDefaulting(ctx) {
+		v1 := v1.RouteSpec{}
+		if rs.ConvertUp(ctx, &v1) == nil {
 			alpha := RouteSpec{}
-			alpha.ConvertDown(ctx, beta)
+			alpha.ConvertDown(ctx, v1)
 			*rs = alpha
 		}
 	}
 
-	if len(rs.Traffic) == 0 && v1beta1.HasDefaultConfigurationName(ctx) {
+	if len(rs.Traffic) == 0 && v1.HasDefaultConfigurationName(ctx) {
 		rs.Traffic = []TrafficTarget{{
-			TrafficTarget: v1beta1.TrafficTarget{
-				Percent:        100,
+			TrafficTarget: v1.TrafficTarget{
+				Percent:        ptr.Int64(100),
 				LatestRevision: ptr.Bool(true),
 			},
 		}}

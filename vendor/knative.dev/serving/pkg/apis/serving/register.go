@@ -20,6 +20,9 @@ const (
 	// GroupName is the group name for knative labels and annotations
 	GroupName = "serving.knative.dev"
 
+	// GroupNamePrefix is the prefix for label key and annotation key
+	GroupNamePrefix = GroupName + "/"
+
 	// ConfigurationLabelKey is the label key attached to a Revision indicating by
 	// which Configuration it is created.
 	ConfigurationLabelKey = GroupName + "/configuration"

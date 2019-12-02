@@ -29,8 +29,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/serving"
+	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	knservingv1alpha1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
 )
 
 var serviceAnnotationDisallowedList = []string{
@@ -143,7 +143,7 @@ func (c *ServiceBuilder) CreatePredictorService(name string, metadata metav1.Obj
 						Annotations: annotations,
 					},
 					Spec: knservingv1alpha1.RevisionSpec{
-						RevisionSpec: v1beta1.RevisionSpec{
+						RevisionSpec: knservingv1.RevisionSpec{
 							// Defaulting here since this always shows a diff with nil vs 300s(knative default)
 							// we may need to expose this field in future
 							TimeoutSeconds: &constants.DefaultPredictorTimeout,
@@ -200,7 +200,7 @@ func (c *ServiceBuilder) CreateTransformerService(name string, metadata metav1.O
 						Annotations: annotations,
 					},
 					Spec: knservingv1alpha1.RevisionSpec{
-						RevisionSpec: v1beta1.RevisionSpec{
+						RevisionSpec: knservingv1.RevisionSpec{
 							// Defaulting here since this always shows a diff with nil vs 300s(knative default)
 							// we may need to expose this field in future
 							TimeoutSeconds: &constants.DefaultTransformerTimeout,
@@ -261,7 +261,7 @@ func (c *ServiceBuilder) CreateExplainerService(name string, metadata metav1.Obj
 						Annotations: annotations,
 					},
 					Spec: knservingv1alpha1.RevisionSpec{
-						RevisionSpec: v1beta1.RevisionSpec{
+						RevisionSpec: knservingv1.RevisionSpec{
 							// Defaulting here since this always shows a diff with nil vs 300s(knative default)
 							// we may need to expose this field in future
 							TimeoutSeconds: &constants.DefaultExplainerTimeout,

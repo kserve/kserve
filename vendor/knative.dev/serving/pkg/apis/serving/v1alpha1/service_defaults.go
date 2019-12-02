@@ -23,7 +23,7 @@ import (
 	"knative.dev/pkg/apis"
 
 	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
 func (s *Service) SetDefaults(ctx context.Context) {
@@ -51,11 +51,11 @@ func (s *Service) SetDefaults(ctx context.Context) {
 }
 
 func (ss *ServiceSpec) SetDefaults(ctx context.Context) {
-	if v1beta1.IsUpgradeViaDefaulting(ctx) {
-		beta := v1beta1.ServiceSpec{}
-		if ss.ConvertUp(ctx, &beta) == nil {
+	if v1.IsUpgradeViaDefaulting(ctx) {
+		v1 := v1.ServiceSpec{}
+		if ss.ConvertUp(ctx, &v1) == nil {
 			alpha := ServiceSpec{}
-			if alpha.ConvertDown(ctx, beta) == nil {
+			if alpha.ConvertDown(ctx, v1) == nil {
 				*ss = alpha
 			}
 		}
@@ -70,6 +70,6 @@ func (ss *ServiceSpec) SetDefaults(ctx context.Context) {
 	} else if ss.DeprecatedManual != nil {
 	} else {
 		ss.ConfigurationSpec.SetDefaults(ctx)
-		ss.RouteSpec.SetDefaults(v1beta1.WithDefaultConfigurationName(ctx))
+		ss.RouteSpec.SetDefaults(v1.WithDefaultConfigurationName(ctx))
 	}
 }

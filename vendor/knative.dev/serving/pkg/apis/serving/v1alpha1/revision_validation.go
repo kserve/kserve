@@ -146,7 +146,9 @@ func (rs *RevisionSpec) Validate(ctx context.Context) *apis.FieldError {
 	if err := rs.DeprecatedConcurrencyModel.Validate(ctx).ViaField("concurrencyModel"); err != nil {
 		errs = errs.Also(err)
 	} else {
-		errs = errs.Also(rs.ContainerConcurrency.Validate(ctx).ViaField("containerConcurrency"))
+		if rs.ContainerConcurrency != nil {
+			errs = errs.Also(serving.ValidateContainerConcurrency(rs.ContainerConcurrency).ViaField("containerConcurrency"))
+		}
 	}
 
 	if rs.TimeoutSeconds != nil {

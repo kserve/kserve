@@ -31,8 +31,8 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	knservingv1alpha1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
@@ -125,7 +125,7 @@ func TestKnativeServiceReconcile(t *testing.T) {
 								},
 							},
 							Spec: knservingv1alpha1.RevisionSpec{
-								RevisionSpec: v1beta1.RevisionSpec{
+								RevisionSpec: knservingv1.RevisionSpec{
 									TimeoutSeconds: &constants.DefaultPredictorTimeout,
 									PodSpec: v1.PodSpec{
 										Containers: []v1.Container{
@@ -166,7 +166,7 @@ func TestKnativeServiceReconcile(t *testing.T) {
 								},
 							},
 							Spec: knservingv1alpha1.RevisionSpec{
-								RevisionSpec: v1beta1.RevisionSpec{
+								RevisionSpec: knservingv1.RevisionSpec{
 									TimeoutSeconds: &constants.DefaultPredictorTimeout,
 									PodSpec: v1.PodSpec{
 										Containers: []v1.Container{
@@ -225,7 +225,7 @@ func TestKnativeServiceReconcile(t *testing.T) {
 								},
 							},
 							Spec: knservingv1alpha1.RevisionSpec{
-								RevisionSpec: v1beta1.RevisionSpec{
+								RevisionSpec: knservingv1.RevisionSpec{
 									TimeoutSeconds: &constants.DefaultPredictorTimeout,
 									PodSpec: v1.PodSpec{
 										Containers: []v1.Container{
