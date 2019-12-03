@@ -100,10 +100,6 @@ type PodAutoscalerSpec struct {
 	// +optional
 	Reachability ReachabilityType `json:"reachability,omitempty"`
 
-	// DeprecatedServiceName holds the name of a core Kubernetes Service resource that
-	// load balances over the pods referenced by the ScaleTargetRef.
-	DeprecatedServiceName string `json:"serviceName"`
-
 	// The application-layer protocol. Matches `ProtocolType` inferred from the revision spec.
 	ProtocolType net.ProtocolType `json:"protocolType"`
 }

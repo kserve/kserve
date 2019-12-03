@@ -33,6 +33,12 @@ func (r *Route) Validate(ctx context.Context) *apis.FieldError {
 		r.validateLabels().ViaField("labels")).ViaField("metadata")
 	errs = errs.Also(r.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
 	errs = errs.Also(r.Status.Validate(apis.WithinStatus(ctx)).ViaField("status"))
+
+	if apis.IsInUpdate(ctx) {
+		original := apis.GetBaseline(ctx).(*Route)
+		errs = errs.Also(apis.ValidateCreatorAndModifier(original.Spec, r.Spec, original.GetAnnotations(),
+			r.GetAnnotations(), serving.GroupName).ViaField("metadata.annotations"))
+	}
 	return errs
 }
 
@@ -46,6 +52,14 @@ func validateTrafficList(ctx context.Context, traffic []TrafficTarget) *apis.Fie
 	for i, tt := range traffic {
 		errs = errs.Also(tt.Validate(ctx).ViaIndex(i))
 
+		if tt.Percent != nil {
+			sum += *tt.Percent
+		}
+
+		if tt.Tag == "" {
+			continue
+		}
+
 		if idx, ok := trafficMap[tt.Tag]; ok {
 			// We want only single definition of the route, even if it points
 			// to the same config or revision.
@@ -58,9 +72,6 @@ func validateTrafficList(ctx context.Context, traffic []TrafficTarget) *apis.Fie
 			})
 		} else {
 			trafficMap[tt.Tag] = i
-		}
-		if tt.Percent != nil {
-			sum += *tt.Percent
 		}
 	}
 
@@ -146,7 +157,7 @@ func (tt *TrafficTarget) validateLatestRevision(ctx context.Context) *apis.Field
 		if pinned == lr {
 			// The senses for whether to pin to a particular revision or
 			// float forward to the latest revision must match.
-			return apis.ErrInvalidValue(lr, "latestRevision")
+			return apis.ErrGeneric(fmt.Sprintf("may not set revisionName %q when latestRevision is %t", tt.RevisionName, lr), "latestRevision")
 		}
 	}
 	return nil

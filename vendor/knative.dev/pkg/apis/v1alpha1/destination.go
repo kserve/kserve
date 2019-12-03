@@ -18,129 +18,127 @@ package v1alpha1
 
 import (
 	"context"
-	"net/url"
-	"path"
-	"strings"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
-
 	"knative.dev/pkg/apis"
 )
 
 // Destination represents a target of an invocation over HTTP.
 type Destination struct {
-	// ObjectReference points to an Addressable.
-	*corev1.ObjectReference `json:",inline"`
+	// Ref points to an Addressable.
+	// +optional
+	Ref *corev1.ObjectReference `json:"ref,omitempty"`
 
-	// URI is for direct URI Designations.
+	// +optional
+	DeprecatedAPIVersion string `json:"apiVersion,omitempty"`
+
+	// +optional
+	DeprecatedKind string `json:"kind,omitempty"`
+
+	// +optional
+	DeprecatedName string `json:"name,omitempty"`
+
+	// +optional
+	DeprecatedNamespace string `json:"namespace,omitempty"`
+
+	// URI can be an absolute URL(non-empty scheme and non-empty host) pointing to the target or a relative URI. Relative URIs will be resolved using the base URI retrieved from Ref.
+	// +optional
 	URI *apis.URL `json:"uri,omitempty"`
-
-	// Path is used with the resulting URL from Addressable ObjectReference or URI. Must start
-	// with `/`. An empty path should be represented as the nil value, not `` or `/`.  Will be
-	// appended to the path of the resulting URL from the Addressable, or URI.
-	Path *string `json:"path,omitempty"`
 }
 
-// NewDestination constructs a Destination from an object reference as a convenience.
-func NewDestination(obj *corev1.ObjectReference, paths ...string) (*Destination, error) {
-	dest := &Destination{
-		ObjectReference: obj,
-	}
-	err := dest.AppendPath(paths...)
-	if err != nil {
-		return nil, err
-	}
-	return dest, nil
-}
-
-// NewDestinationURI constructs a Destination from a URI.
-func NewDestinationURI(uri *apis.URL, paths ...string) (*Destination, error) {
-	dest := &Destination{
-		URI: uri,
-	}
-	err := dest.AppendPath(paths...)
-	if err != nil {
-		return nil, err
-	}
-	return dest, nil
-}
-
-// AppendPath iteratively appends paths to the Destination.
-// The path will always begin with "/" unless it is empty.
-// An empty path ("" or "/") will always resolve to nil.
-func (current *Destination) AppendPath(paths ...string) error {
-	// Start with empty string or existing path
-	var fullpath string
-	if current.Path != nil {
-		fullpath = *current.Path
-	}
-
-	// Intelligently join all the paths provided
-	fullpath = path.Join("/", fullpath, path.Join(paths...))
-
-	// Parse the URL to trim garbage
-	urlpath, err := apis.ParseURL(fullpath)
-	if err != nil {
-		return err
-	}
-
-	// apis.ParseURL returns nil if our path was empty, then our path
-	// should reflect that it is not set.
-	if urlpath == nil {
-		current.Path = nil
+func (dest *Destination) Validate(ctx context.Context) *apis.FieldError {
+	if dest == nil {
 		return nil
 	}
-
-	// A path of "/" adds no information, just toss it
-	// Note that urlpath.Path == "" is always false here (joined with "/" above).
-	if urlpath.Path == "/" {
-		current.Path = nil
-		return nil
-	}
-
-	// Only use the plain path from the URL
-	current.Path = &urlpath.Path
-	return nil
+	return ValidateDestination(*dest, true).ViaField(apis.CurrentField)
 }
 
-func (current *Destination) Validate(ctx context.Context) *apis.FieldError {
-	if current != nil {
-		errs := validateDestination(*current).ViaField(apis.CurrentField)
-		if current.Path != nil {
-			errs = errs.Also(validateDestinationPath(*current.Path).ViaField("path"))
+func (dest *Destination) ValidateDisallowDeprecated(ctx context.Context) *apis.FieldError {
+	if dest == nil {
+		return nil
+	}
+	return ValidateDestination(*dest, false).ViaField(apis.CurrentField)
+}
+
+// ValidateDestination validates Destination and either allows or disallows
+// Deprecated* fields depending on the flag.
+func ValidateDestination(dest Destination, allowDeprecatedFields bool) *apis.FieldError {
+	if !allowDeprecatedFields {
+		var errs *apis.FieldError
+		if dest.DeprecatedAPIVersion != "" {
+			errs = errs.Also(apis.ErrInvalidValue("apiVersion is not allowed here, it's a deprecated value", "apiVersion"))
 		}
-		return errs
+		if dest.DeprecatedKind != "" {
+			errs = errs.Also(apis.ErrInvalidValue("kind is not allowed here, it's a deprecated value", "kind"))
+		}
+		if dest.DeprecatedName != "" {
+			errs = errs.Also(apis.ErrInvalidValue("name is not allowed here, it's a deprecated value", "name"))
+		}
+		if dest.DeprecatedNamespace != "" {
+			errs = errs.Also(apis.ErrInvalidValue("namespace is not allowed here, it's a deprecated value", "namespace"))
+		}
+		if errs != nil {
+			return errs
+		}
+	}
+
+	deprecatedObjectReference := dest.deprecatedObjectReference()
+	if dest.Ref != nil && deprecatedObjectReference != nil {
+		return apis.ErrGeneric("Ref and [apiVersion, kind, name] can't be both present", "[apiVersion, kind, name]", "ref")
+	}
+
+	var ref *corev1.ObjectReference
+	if dest.Ref != nil {
+		ref = dest.Ref
 	} else {
-		return nil
+		ref = deprecatedObjectReference
 	}
-}
+	if ref == nil && dest.URI == nil {
+		return apis.ErrGeneric("expected at least one, got none", "[apiVersion, kind, name]", "ref", "uri")
+	}
 
-func validateDestination(dest Destination) *apis.FieldError {
-	if dest.URI != nil {
-		if dest.ObjectReference != nil {
-			return apis.ErrMultipleOneOf("uri", "[apiVersion, kind, name]")
+	if ref != nil && dest.URI != nil && dest.URI.URL().IsAbs() {
+		return apis.ErrGeneric("Absolute URI is not allowed when Ref or [apiVersion, kind, name] is present", "[apiVersion, kind, name]", "ref", "uri")
+	}
+	// IsAbs() check whether the URL has a non-empty scheme. Besides the non-empty scheme, we also require dest.URI has a non-empty host
+	if ref == nil && dest.URI != nil && (!dest.URI.URL().IsAbs() || dest.URI.Host == "") {
+		return apis.ErrInvalidValue("Relative URI is not allowed when Ref and [apiVersion, kind, name] is absent", "uri")
+	}
+	if ref != nil && dest.URI == nil {
+		if dest.Ref != nil {
+			return validateDestinationRef(*ref).ViaField("ref")
+		} else {
+			return validateDestinationRef(*ref)
 		}
-		if dest.URI.Host == "" || dest.URI.Scheme == "" {
-			return apis.ErrInvalidValue(dest.URI.String(), "uri")
-		}
-	} else if dest.ObjectReference == nil {
-		return apis.ErrMissingOneOf("uri", "[apiVersion, kind, name]")
-	} else {
-		return validateDestinationRef(*dest.ObjectReference)
 	}
 	return nil
 }
 
-func validateDestinationPath(path string) *apis.FieldError {
-	if strings.HasPrefix(path, "/") {
-		if pu, err := url.Parse(path); err != nil {
-			return apis.ErrInvalidValue(path, apis.CurrentField)
-		} else if !equality.Semantic.DeepEqual(pu, &url.URL{Path: pu.Path}) {
-			return apis.ErrInvalidValue(path, apis.CurrentField)
-		}
-	} else {
-		return apis.ErrInvalidValue(path, apis.CurrentField)
+func (dest Destination) deprecatedObjectReference() *corev1.ObjectReference {
+	if dest.DeprecatedAPIVersion == "" && dest.DeprecatedKind == "" && dest.DeprecatedName == "" && dest.DeprecatedNamespace == "" {
+		return nil
+	}
+	return &corev1.ObjectReference{
+		Kind:       dest.DeprecatedKind,
+		APIVersion: dest.DeprecatedAPIVersion,
+		Name:       dest.DeprecatedName,
+		Namespace:  dest.DeprecatedNamespace,
+	}
+}
+
+// GetRef gets the ObjectReference from this Destination, if one is present. If no ref is present,
+// then nil is returned.
+// Note: this mostly exists to abstract away the deprecated ObjectReference fields. Once they are
+// removed, then this method should probably be removed too.
+func (dest *Destination) GetRef() *corev1.ObjectReference {
+	if dest == nil {
+		return nil
+	}
+	if dest.Ref != nil {
+		return dest.Ref
+	}
+	if ref := dest.deprecatedObjectReference(); ref != nil {
+		return ref
 	}
 	return nil
 }

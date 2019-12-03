@@ -170,7 +170,7 @@ func (rt *ReleaseType) Validate(ctx context.Context) *apis.FieldError {
 	}
 
 	if numRevisions < 2 && rt.RolloutPercent != 0 {
-		errs = errs.Also(apis.ErrInvalidValue(rt.RolloutPercent, "rolloutPercent"))
+		errs = errs.Also(apis.ErrGeneric("may not set rolloutPercent for a single revision", "rolloutPercent"))
 	}
 
 	if rt.RolloutPercent < 0 || rt.RolloutPercent > 99 {

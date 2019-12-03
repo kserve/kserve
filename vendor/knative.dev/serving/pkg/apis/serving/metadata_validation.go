@@ -21,6 +21,7 @@ import (
 	"strconv"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
 	"knative.dev/serving/pkg/apis/autoscaling"
@@ -105,4 +106,29 @@ func ValidateClusterVisibilityLabel(label string) (errs *apis.FieldError) {
 		errs = apis.ErrInvalidValue(label, routeconfig.VisibilityLabelKey)
 	}
 	return
+}
+
+// SetUserInfo sets creator and updater annotations
+func SetUserInfo(ctx context.Context, oldSpec, newSpec, resource interface{}) {
+	if ui := apis.GetUserInfo(ctx); ui != nil {
+		objectMetaAccessor, ok := resource.(metav1.ObjectMetaAccessor)
+		if !ok {
+			return
+		}
+		ans := objectMetaAccessor.GetObjectMeta().GetAnnotations()
+		if ans == nil {
+			ans = map[string]string{}
+			objectMetaAccessor.GetObjectMeta().SetAnnotations(ans)
+		}
+
+		if apis.IsInUpdate(ctx) {
+			if equality.Semantic.DeepEqual(oldSpec, newSpec) {
+				return
+			}
+			ans[UpdaterAnnotation] = ui.Username
+		} else {
+			ans[CreatorAnnotation] = ui.Username
+			ans[UpdaterAnnotation] = ui.Username
+		}
+	}
 }

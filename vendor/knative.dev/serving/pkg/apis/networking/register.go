@@ -21,7 +21,7 @@ const (
 	GroupName = "networking.internal.knative.dev"
 
 	// IngressClassAnnotationKey is the annotation for the
-	// explicit class of ClusterIngress that a particular resource has
+	// explicit class of Ingress that a particular resource has
 	// opted into. For example,
 	//
 	//    networking.knative.dev/ingress.class: some-network-impl
@@ -30,14 +30,10 @@ const (
 	// user-facing.
 	//
 	// The parent resource may use its own annotations to choose the
-	// annotation value for the ClusterIngress it uses.  Based on such
+	// annotation value for the Ingress it uses.  Based on such
 	// value a different reconciliation logic may be used (for examples,
-	// Istio-based ClusterIngress will reconcile into a VirtualService).
+	// Istio-based Ingress will reconcile into a VirtualService).
 	IngressClassAnnotationKey = "networking.knative.dev/ingress.class"
-
-	// ClusterIngressLabelKey is the label key attached to underlying network programming
-	// resources to indicate which ClusterIngress triggered their creation.
-	ClusterIngressLabelKey = GroupName + "/clusteringress"
 
 	// IngressLabelKey is the label key attached to underlying network programming
 	// resources to indicate which Ingress triggered their creation.

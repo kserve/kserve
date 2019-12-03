@@ -31,6 +31,12 @@ func (r *Route) Validate(ctx context.Context) *apis.FieldError {
 		r.validateLabels().ViaField("labels")).ViaField("metadata")
 	errs = errs.Also(r.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
 	errs = errs.Also(r.Status.Validate(apis.WithinStatus(ctx)).ViaField("status"))
+
+	if apis.IsInUpdate(ctx) {
+		original := apis.GetBaseline(ctx).(*Route)
+		errs = errs.Also(apis.ValidateCreatorAndModifier(original.Spec, r.Spec, original.GetAnnotations(),
+			r.GetAnnotations(), serving.GroupName).ViaField("metadata.annotations"))
+	}
 	return errs
 }
 

@@ -43,7 +43,8 @@ func (c *Configuration) Validate(ctx context.Context) (errs *apis.FieldError) {
 
 	if apis.IsInUpdate(ctx) {
 		original := apis.GetBaseline(ctx).(*Configuration)
-
+		errs = errs.Also(apis.ValidateCreatorAndModifier(original.Spec, c.Spec, original.GetAnnotations(),
+			c.GetAnnotations(), serving.GroupName).ViaField("metadata.annotations"))
 		err := c.Spec.Template.VerifyNameChange(ctx, original.Spec.Template)
 		errs = errs.Also(err.ViaField("spec.template"))
 	}
