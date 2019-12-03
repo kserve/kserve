@@ -45,7 +45,6 @@ import (
 	istiov1alpha1 "knative.dev/pkg/apis/istio/common/v1alpha1"
 	"knative.dev/pkg/apis/istio/v1alpha3"
 	istiov1alpha3 "knative.dev/pkg/apis/istio/v1alpha3"
-	knservingv1alpha1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -153,17 +152,17 @@ func TestInferenceServiceWithOnlyPredictor(t *testing.T) {
 	defer c.Delete(context.TODO(), defaultInstance)
 	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
 
-	service := &knservingv1alpha1.Service{}
+	service := &knservingv1.Service{}
 	g.Eventually(func() error { return c.Get(context.TODO(), predictorService, service) }, timeout).
 		Should(gomega.Succeed())
-	expectedService := &knservingv1alpha1.Service{
+	expectedService := &knservingv1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      constants.DefaultPredictorServiceName(defaultInstance.Name),
 			Namespace: defaultInstance.Namespace,
 		},
-		Spec: knservingv1alpha1.ServiceSpec{
-			ConfigurationSpec: knservingv1alpha1.ConfigurationSpec{
-				Template: &knservingv1alpha1.RevisionTemplateSpec{
+		Spec: knservingv1.ServiceSpec{
+			ConfigurationSpec: knservingv1.ConfigurationSpec{
+				Template: &knservingv1.RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: map[string]string{"serving.kubeflow.org/inferenceservice": serviceName},
 						Annotations: map[string]string{
@@ -175,7 +174,7 @@ func TestInferenceServiceWithOnlyPredictor(t *testing.T) {
 							constants.StorageInitializerSourceUriInternalAnnotationKey: defaultInstance.Spec.Default.Predictor.Tensorflow.StorageURI,
 						},
 					},
-					Spec: knservingv1alpha1.RevisionSpec{
+					Spec: knservingv1.RevisionSpec{
 						RevisionSpec: knservingv1.RevisionSpec{
 							TimeoutSeconds: &constants.DefaultPredictorTimeout,
 							PodSpec: v1.PodSpec{
@@ -209,7 +208,7 @@ func TestInferenceServiceWithOnlyPredictor(t *testing.T) {
 	updateDefault.Status.URL, _ = apis.ParseURL("http://revision-v1.myns.myingress.com")
 	updateDefault.Status.Conditions = duckv1.Conditions{
 		{
-			Type:   knservingv1alpha1.ServiceConditionReady,
+			Type:   knservingv1.ServiceConditionReady,
 			Status: "True",
 		},
 	}
@@ -380,21 +379,21 @@ func TestInferenceServiceWithDefaultAndCanaryPredictor(t *testing.T) {
 	defer c.Delete(context.TODO(), canaryInstance)
 	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedCanaryRequest)))
 
-	defaultService := &knservingv1alpha1.Service{}
+	defaultService := &knservingv1.Service{}
 	g.Eventually(func() error { return c.Get(context.TODO(), defaultPredictor, defaultService) }, timeout).
 		Should(gomega.Succeed())
 
-	canaryService := &knservingv1alpha1.Service{}
+	canaryService := &knservingv1.Service{}
 	g.Eventually(func() error { return c.Get(context.TODO(), canaryPredictor, canaryService) }, timeout).
 		Should(gomega.Succeed())
-	expectedCanaryService := &knservingv1alpha1.Service{
+	expectedCanaryService := &knservingv1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      constants.CanaryPredictorServiceName(canaryInstance.Name),
 			Namespace: canaryInstance.Namespace,
 		},
-		Spec: knservingv1alpha1.ServiceSpec{
-			ConfigurationSpec: knservingv1alpha1.ConfigurationSpec{
-				Template: &knservingv1alpha1.RevisionTemplateSpec{
+		Spec: knservingv1.ServiceSpec{
+			ConfigurationSpec: knservingv1.ConfigurationSpec{
+				Template: &knservingv1.RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: map[string]string{"serving.kubeflow.org/inferenceservice": "bar"},
 						Annotations: map[string]string{
@@ -406,7 +405,7 @@ func TestInferenceServiceWithDefaultAndCanaryPredictor(t *testing.T) {
 							constants.StorageInitializerSourceUriInternalAnnotationKey: canary.Spec.Canary.Predictor.Tensorflow.StorageURI,
 						},
 					},
-					Spec: knservingv1alpha1.RevisionSpec{
+					Spec: knservingv1.RevisionSpec{
 						RevisionSpec: knservingv1.RevisionSpec{
 							TimeoutSeconds: &constants.DefaultPredictorTimeout,
 							PodSpec: v1.PodSpec{
@@ -441,7 +440,7 @@ func TestInferenceServiceWithDefaultAndCanaryPredictor(t *testing.T) {
 	updateDefault.Status.URL, _ = apis.ParseURL("http://revision-v1.myns.myingress.com")
 	updateDefault.Status.Conditions = duckv1.Conditions{
 		{
-			Type:   knservingv1alpha1.ServiceConditionReady,
+			Type:   knservingv1.ServiceConditionReady,
 			Status: "True",
 		},
 	}
@@ -454,7 +453,7 @@ func TestInferenceServiceWithDefaultAndCanaryPredictor(t *testing.T) {
 	updateCanary.Status.URL, _ = apis.ParseURL("http://revision-v2.myns.myingress.com")
 	updateCanary.Status.Conditions = duckv1.Conditions{
 		{
-			Type:   knservingv1alpha1.ServiceConditionReady,
+			Type:   knservingv1.ServiceConditionReady,
 			Status: "True",
 		},
 	}
@@ -652,11 +651,11 @@ func TestCanaryDelete(t *testing.T) {
 	defer c.Delete(context.TODO(), canaryInstance)
 	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedCanaryRequest)))
 
-	defaultService := &knservingv1alpha1.Service{}
+	defaultService := &knservingv1.Service{}
 	g.Eventually(func() error { return c.Get(context.TODO(), defaultPredictor, defaultService) }, timeout).
 		Should(gomega.Succeed())
 
-	canaryService := &knservingv1alpha1.Service{}
+	canaryService := &knservingv1.Service{}
 	g.Eventually(func() error { return c.Get(context.TODO(), canaryPredictor, canaryService) }, timeout).
 		Should(gomega.Succeed())
 
@@ -667,7 +666,7 @@ func TestCanaryDelete(t *testing.T) {
 	updateDefault.Status.URL, _ = apis.ParseURL("http://revision-v1.myns.myingress.com")
 	updateDefault.Status.Conditions = duckv1.Conditions{
 		{
-			Type:   knservingv1alpha1.ServiceConditionReady,
+			Type:   knservingv1.ServiceConditionReady,
 			Status: "True",
 		},
 	}
@@ -680,7 +679,7 @@ func TestCanaryDelete(t *testing.T) {
 	updateCanary.Status.URL, _ = apis.ParseURL("http://revision-v2.myns.myingress.com")
 	updateCanary.Status.Conditions = duckv1.Conditions{
 		{
-			Type:   knservingv1alpha1.ServiceConditionReady,
+			Type:   knservingv1.ServiceConditionReady,
 			Status: "True",
 		},
 	}
@@ -762,11 +761,11 @@ func TestCanaryDelete(t *testing.T) {
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedCanaryRequest)))
 
-	defaultService = &knservingv1alpha1.Service{}
+	defaultService = &knservingv1.Service{}
 	g.Eventually(func() error { return c.Get(context.TODO(), defaultPredictor, defaultService) }, timeout).
 		Should(gomega.Succeed())
 
-	canaryService = &knservingv1alpha1.Service{}
+	canaryService = &knservingv1.Service{}
 	g.Eventually(func() bool {
 		err := c.Get(context.TODO(), canaryPredictor, canaryService)
 		return errors.IsNotFound(err)
@@ -929,29 +928,29 @@ func TestInferenceServiceWithTransformer(t *testing.T) {
 	defer c.Delete(context.TODO(), instance)
 	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
 
-	defaultPredictorService := &knservingv1alpha1.Service{}
+	defaultPredictorService := &knservingv1.Service{}
 	g.Eventually(func() error { return c.Get(context.TODO(), defaultPredictor, defaultPredictorService) }, timeout).
 		Should(gomega.Succeed())
 
-	canaryPredictorService := &knservingv1alpha1.Service{}
+	canaryPredictorService := &knservingv1.Service{}
 	g.Eventually(func() error { return c.Get(context.TODO(), canaryPredictor, canaryPredictorService) }, timeout).
 		Should(gomega.Succeed())
 
-	defaultTransformerService := &knservingv1alpha1.Service{}
+	defaultTransformerService := &knservingv1.Service{}
 	g.Eventually(func() error { return c.Get(context.TODO(), defaultTransformer, defaultTransformerService) }, timeout).
 		Should(gomega.Succeed())
 
-	canaryTransformerService := &knservingv1alpha1.Service{}
+	canaryTransformerService := &knservingv1.Service{}
 	g.Eventually(func() error { return c.Get(context.TODO(), canaryTransformer, canaryTransformerService) }, timeout).
 		Should(gomega.Succeed())
-	expectedCanaryService := &knservingv1alpha1.Service{
+	expectedCanaryService := &knservingv1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      constants.CanaryTransformerServiceName(instance.Name),
 			Namespace: instance.Namespace,
 		},
-		Spec: knservingv1alpha1.ServiceSpec{
-			ConfigurationSpec: knservingv1alpha1.ConfigurationSpec{
-				Template: &knservingv1alpha1.RevisionTemplateSpec{
+		Spec: knservingv1.ServiceSpec{
+			ConfigurationSpec: knservingv1.ConfigurationSpec{
+				Template: &knservingv1.RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: map[string]string{"serving.kubeflow.org/inferenceservice": serviceName},
 						Annotations: map[string]string{
@@ -962,7 +961,7 @@ func TestInferenceServiceWithTransformer(t *testing.T) {
 							"queue.sidecar.serving.knative.dev/resourcePercentage": knative.DefaultQueueSideCarResourcePercentage,
 						},
 					},
-					Spec: knservingv1alpha1.RevisionSpec{
+					Spec: knservingv1.RevisionSpec{
 						RevisionSpec: knservingv1.RevisionSpec{
 							TimeoutSeconds: &constants.DefaultTransformerTimeout,
 							PodSpec: v1.PodSpec{
@@ -998,7 +997,7 @@ func TestInferenceServiceWithTransformer(t *testing.T) {
 		updateDefault.Status.URL, _ = apis.ParseURL("http://revision-v1.myns.myingress.com")
 		updateDefault.Status.Conditions = duckv1.Conditions{
 			{
-				Type:   knservingv1alpha1.ServiceConditionReady,
+				Type:   knservingv1.ServiceConditionReady,
 				Status: "True",
 			},
 		}
@@ -1011,7 +1010,7 @@ func TestInferenceServiceWithTransformer(t *testing.T) {
 		updateCanary.Status.URL, _ = apis.ParseURL("http://revision-v2.myns.myingress.com")
 		updateCanary.Status.Conditions = duckv1.Conditions{
 			{
-				Type:   knservingv1alpha1.ServiceConditionReady,
+				Type:   knservingv1.ServiceConditionReady,
 				Status: "True",
 			},
 		}
@@ -1027,7 +1026,7 @@ func TestInferenceServiceWithTransformer(t *testing.T) {
 		updateDefault.Status.URL, _ = apis.ParseURL("http://t-revision-v1.myns.myingress.com")
 		updateDefault.Status.Conditions = duckv1.Conditions{
 			{
-				Type:   knservingv1alpha1.ServiceConditionReady,
+				Type:   knservingv1.ServiceConditionReady,
 				Status: "True",
 			},
 		}
@@ -1040,7 +1039,7 @@ func TestInferenceServiceWithTransformer(t *testing.T) {
 		updateCanary.Status.URL, _ = apis.ParseURL("http://t-revision-v2.myns.myingress.com")
 		updateCanary.Status.Conditions = duckv1.Conditions{
 			{
-				Type:   knservingv1alpha1.ServiceConditionReady,
+				Type:   knservingv1.ServiceConditionReady,
 				Status: "True",
 			},
 		}
@@ -1281,19 +1280,19 @@ func TestInferenceServiceDeleteComponent(t *testing.T) {
 	defer c.Delete(context.TODO(), instance)
 	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
 
-	defaultPredictorService := &knservingv1alpha1.Service{}
+	defaultPredictorService := &knservingv1.Service{}
 	g.Eventually(func() error { return c.Get(context.TODO(), defaultPredictor, defaultPredictorService) }, timeout).
 		Should(gomega.Succeed())
 
-	canaryPredictorService := &knservingv1alpha1.Service{}
+	canaryPredictorService := &knservingv1.Service{}
 	g.Eventually(func() error { return c.Get(context.TODO(), canaryPredictor, canaryPredictorService) }, timeout).
 		Should(gomega.Succeed())
 
-	defaultTransformerService := &knservingv1alpha1.Service{}
+	defaultTransformerService := &knservingv1.Service{}
 	g.Eventually(func() error { return c.Get(context.TODO(), defaultTransformer, defaultTransformerService) }, timeout).
 		Should(gomega.Succeed())
 
-	canaryTransformerService := &knservingv1alpha1.Service{}
+	canaryTransformerService := &knservingv1.Service{}
 	g.Eventually(func() error { return c.Get(context.TODO(), canaryTransformer, canaryTransformerService) }, timeout).
 		Should(gomega.Succeed())
 
@@ -1310,22 +1309,22 @@ func TestInferenceServiceDeleteComponent(t *testing.T) {
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
 
-	defaultTransformerServiceShouldBeDeleted := &knservingv1alpha1.Service{}
+	defaultTransformerServiceShouldBeDeleted := &knservingv1.Service{}
 	g.Eventually(func() bool {
 		err := c.Get(context.TODO(), defaultTransformer, defaultTransformerServiceShouldBeDeleted)
 		return errors.IsNotFound(err)
 	}, timeout).Should(gomega.BeTrue())
 
-	canaryTransformerServiceShouldBeDeleted := &knservingv1alpha1.Service{}
+	canaryTransformerServiceShouldBeDeleted := &knservingv1.Service{}
 	g.Eventually(func() bool {
 		err := c.Get(context.TODO(), canaryTransformer, canaryTransformerServiceShouldBeDeleted)
 		return errors.IsNotFound(err)
 	}, timeout).Should(gomega.BeTrue())
-	defaultPredictorServiceShouldExist := &knservingv1alpha1.Service{}
+	defaultPredictorServiceShouldExist := &knservingv1.Service{}
 	g.Eventually(func() error { return c.Get(context.TODO(), defaultPredictor, defaultPredictorServiceShouldExist) }, timeout).
 		Should(gomega.Succeed())
 
-	canaryPredictorServiceShouldExist := &knservingv1alpha1.Service{}
+	canaryPredictorServiceShouldExist := &knservingv1.Service{}
 	g.Eventually(func() error { return c.Get(context.TODO(), canaryPredictor, canaryPredictorServiceShouldExist) }, timeout).
 		Should(gomega.Succeed())
 
@@ -1461,29 +1460,29 @@ func TestInferenceServiceWithExplainer(t *testing.T) {
 	defer c.Delete(context.TODO(), instance)
 	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
 
-	defaultPredictorService := &knservingv1alpha1.Service{}
+	defaultPredictorService := &knservingv1.Service{}
 	g.Eventually(func() error { return c.Get(context.TODO(), defaultPredictor, defaultPredictorService) }, timeout).
 		Should(gomega.Succeed())
 
-	canaryPredictorService := &knservingv1alpha1.Service{}
+	canaryPredictorService := &knservingv1.Service{}
 	g.Eventually(func() error { return c.Get(context.TODO(), canaryPredictor, canaryPredictorService) }, timeout).
 		Should(gomega.Succeed())
 
-	defaultExplainerService := &knservingv1alpha1.Service{}
+	defaultExplainerService := &knservingv1.Service{}
 	g.Eventually(func() error { return c.Get(context.TODO(), defaultExplainer, defaultExplainerService) }, timeout).
 		Should(gomega.Succeed())
 
-	canaryExplainerService := &knservingv1alpha1.Service{}
+	canaryExplainerService := &knservingv1.Service{}
 	g.Eventually(func() error { return c.Get(context.TODO(), canaryExplainer, canaryExplainerService) }, timeout).
 		Should(gomega.Succeed())
-	expectedCanaryService := &knservingv1alpha1.Service{
+	expectedCanaryService := &knservingv1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      constants.CanaryExplainerServiceName(instance.Name),
 			Namespace: instance.Namespace,
 		},
-		Spec: knservingv1alpha1.ServiceSpec{
-			ConfigurationSpec: knservingv1alpha1.ConfigurationSpec{
-				Template: &knservingv1alpha1.RevisionTemplateSpec{
+		Spec: knservingv1.ServiceSpec{
+			ConfigurationSpec: knservingv1.ConfigurationSpec{
+				Template: &knservingv1.RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: map[string]string{"serving.kubeflow.org/inferenceservice": serviceName},
 						Annotations: map[string]string{
@@ -1494,7 +1493,7 @@ func TestInferenceServiceWithExplainer(t *testing.T) {
 							"queue.sidecar.serving.knative.dev/resourcePercentage": knative.DefaultQueueSideCarResourcePercentage,
 						},
 					},
-					Spec: knservingv1alpha1.RevisionSpec{
+					Spec: knservingv1.RevisionSpec{
 						RevisionSpec: knservingv1.RevisionSpec{
 							TimeoutSeconds: &constants.DefaultExplainerTimeout,
 							PodSpec: v1.PodSpec{
@@ -1532,7 +1531,7 @@ func TestInferenceServiceWithExplainer(t *testing.T) {
 		updateDefault.Status.URL, _ = apis.ParseURL("http://revision-v1.myns.myingress.com")
 		updateDefault.Status.Conditions = duckv1.Conditions{
 			{
-				Type:   knservingv1alpha1.ServiceConditionReady,
+				Type:   knservingv1.ServiceConditionReady,
 				Status: "True",
 			},
 		}
@@ -1545,7 +1544,7 @@ func TestInferenceServiceWithExplainer(t *testing.T) {
 		updateCanary.Status.URL, _ = apis.ParseURL("http://revision-v2.myns.myingress.com")
 		updateCanary.Status.Conditions = duckv1.Conditions{
 			{
-				Type:   knservingv1alpha1.ServiceConditionReady,
+				Type:   knservingv1.ServiceConditionReady,
 				Status: "True",
 			},
 		}
@@ -1561,7 +1560,7 @@ func TestInferenceServiceWithExplainer(t *testing.T) {
 		updateDefault.Status.URL, _ = apis.ParseURL("http://e-revision-v1.myns.myingress.com")
 		updateDefault.Status.Conditions = duckv1.Conditions{
 			{
-				Type:   knservingv1alpha1.ServiceConditionReady,
+				Type:   knservingv1.ServiceConditionReady,
 				Status: "True",
 			},
 		}
@@ -1574,7 +1573,7 @@ func TestInferenceServiceWithExplainer(t *testing.T) {
 		updateCanary.Status.URL, _ = apis.ParseURL("http://e-revision-v2.myns.myingress.com")
 		updateCanary.Status.Conditions = duckv1.Conditions{
 			{
-				Type:   knservingv1alpha1.ServiceConditionReady,
+				Type:   knservingv1.ServiceConditionReady,
 				Status: "True",
 			},
 		}

@@ -17,7 +17,7 @@ import (
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"k8s.io/api/core/v1"
 	"knative.dev/pkg/apis"
-	knservingv1alpha1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
+	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
 // ConditionType represents a Service condition value
@@ -76,7 +76,7 @@ func (ss *InferenceServiceStatus) GetCondition(t apis.ConditionType) *apis.Condi
 }
 
 // PropagateDefaultStatus propagates the status for the default spec
-func (ss *InferenceServiceStatus) PropagateDefaultStatus(component constants.InferenceServiceComponent, defaultStatus *knservingv1alpha1.ServiceStatus) {
+func (ss *InferenceServiceStatus) PropagateDefaultStatus(component constants.InferenceServiceComponent, defaultStatus *knservingv1.ServiceStatus) {
 	if ss.Default == nil {
 		emptyStatusMap := make(ComponentStatusMap)
 		ss.Default = &emptyStatusMap
@@ -98,7 +98,7 @@ func (ss *InferenceServiceStatus) PropagateDefaultStatus(component constants.Inf
 }
 
 // PropagateCanaryStatus propagates the status for the canary spec
-func (ss *InferenceServiceStatus) PropagateCanaryStatus(component constants.InferenceServiceComponent, canaryStatus *knservingv1alpha1.ServiceStatus) {
+func (ss *InferenceServiceStatus) PropagateCanaryStatus(component constants.InferenceServiceComponent, canaryStatus *knservingv1.ServiceStatus) {
 	if ss.Canary == nil {
 		emptyStatusMap := make(ComponentStatusMap)
 		ss.Canary = &emptyStatusMap
@@ -120,9 +120,9 @@ func (ss *InferenceServiceStatus) PropagateCanaryStatus(component constants.Infe
 	ss.propagateStatus(statusSpec, conditionType, canaryStatus)
 }
 
-func (ss *InferenceServiceStatus) propagateStatus(statusSpec *StatusConfigurationSpec, conditionType apis.ConditionType, serviceStatus *knservingv1alpha1.ServiceStatus) {
+func (ss *InferenceServiceStatus) propagateStatus(statusSpec *StatusConfigurationSpec, conditionType apis.ConditionType, serviceStatus *knservingv1.ServiceStatus) {
 	statusSpec.Name = serviceStatus.LatestCreatedRevisionName
-	serviceCondition := serviceStatus.GetCondition(knservingv1alpha1.ServiceConditionReady)
+	serviceCondition := serviceStatus.GetCondition(knservingv1.ServiceConditionReady)
 
 	switch {
 	case serviceCondition == nil:
