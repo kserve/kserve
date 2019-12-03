@@ -113,7 +113,7 @@ func TestKnativeServiceReconcile(t *testing.T) {
 				},
 				Spec: knservingv1.ServiceSpec{
 					ConfigurationSpec: knservingv1.ConfigurationSpec{
-						Template: &knservingv1.RevisionTemplateSpec{
+						Template: knservingv1.RevisionTemplateSpec{
 							ObjectMeta: metav1.ObjectMeta{
 								Labels: map[string]string{"serving.kubeflow.org/inferenceservice": "mnist"},
 								Annotations: map[string]string{
@@ -124,20 +124,18 @@ func TestKnativeServiceReconcile(t *testing.T) {
 								},
 							},
 							Spec: knservingv1.RevisionSpec{
-								RevisionSpec: knservingv1.RevisionSpec{
-									TimeoutSeconds: &constants.DefaultPredictorTimeout,
-									PodSpec: v1.PodSpec{
-										Containers: []v1.Container{
-											{
-												Image:   TensorflowServingImageName + ":" + DefaultTensorflowRuntimeVersion,
-												Command: []string{v1alpha2.TensorflowEntrypointCommand},
-												Name:    constants.InferenceServiceContainerName,
-												Args: []string{
-													"--port=" + v1alpha2.TensorflowServingGRPCPort,
-													"--rest_api_port=" + v1alpha2.TensorflowServingRestPort,
-													"--model_name=mnist",
-													"--model_base_path=" + constants.DefaultModelLocalMountPath,
-												},
+								TimeoutSeconds: &constants.DefaultPredictorTimeout,
+								PodSpec: v1.PodSpec{
+									Containers: []v1.Container{
+										{
+											Image:   TensorflowServingImageName + ":" + DefaultTensorflowRuntimeVersion,
+											Command: []string{v1alpha2.TensorflowEntrypointCommand},
+											Name:    constants.InferenceServiceContainerName,
+											Args: []string{
+												"--port=" + v1alpha2.TensorflowServingGRPCPort,
+												"--rest_api_port=" + v1alpha2.TensorflowServingRestPort,
+												"--model_name=mnist",
+												"--model_base_path=" + constants.DefaultModelLocalMountPath,
 											},
 										},
 									},
@@ -154,7 +152,7 @@ func TestKnativeServiceReconcile(t *testing.T) {
 				},
 				Spec: knservingv1.ServiceSpec{
 					ConfigurationSpec: knservingv1.ConfigurationSpec{
-						Template: &knservingv1.RevisionTemplateSpec{
+						Template: knservingv1.RevisionTemplateSpec{
 							ObjectMeta: metav1.ObjectMeta{
 								Labels: map[string]string{"serving.kubeflow.org/inferenceservice": "mnist"},
 								Annotations: map[string]string{
@@ -165,20 +163,18 @@ func TestKnativeServiceReconcile(t *testing.T) {
 								},
 							},
 							Spec: knservingv1.RevisionSpec{
-								RevisionSpec: knservingv1.RevisionSpec{
-									TimeoutSeconds: &constants.DefaultPredictorTimeout,
-									PodSpec: v1.PodSpec{
-										Containers: []v1.Container{
-											{
-												Image:   TensorflowServingImageName + ":" + DefaultTensorflowRuntimeVersion,
-												Name:    constants.InferenceServiceContainerName,
-												Command: []string{v1alpha2.TensorflowEntrypointCommand},
-												Args: []string{
-													"--port=" + v1alpha2.TensorflowServingGRPCPort,
-													"--rest_api_port=" + v1alpha2.TensorflowServingRestPort,
-													"--model_name=mnist",
-													"--model_base_path=" + constants.DefaultModelLocalMountPath,
-												},
+								TimeoutSeconds: &constants.DefaultPredictorTimeout,
+								PodSpec: v1.PodSpec{
+									Containers: []v1.Container{
+										{
+											Image:   TensorflowServingImageName + ":" + DefaultTensorflowRuntimeVersion,
+											Name:    constants.InferenceServiceContainerName,
+											Command: []string{v1alpha2.TensorflowEntrypointCommand},
+											Args: []string{
+												"--port=" + v1alpha2.TensorflowServingGRPCPort,
+												"--rest_api_port=" + v1alpha2.TensorflowServingRestPort,
+												"--model_name=mnist",
+												"--model_base_path=" + constants.DefaultModelLocalMountPath,
 											},
 										},
 									},
@@ -213,7 +209,7 @@ func TestKnativeServiceReconcile(t *testing.T) {
 				},
 				Spec: knservingv1.ServiceSpec{
 					ConfigurationSpec: knservingv1.ConfigurationSpec{
-						Template: &knservingv1.RevisionTemplateSpec{
+						Template: knservingv1.RevisionTemplateSpec{
 							ObjectMeta: metav1.ObjectMeta{
 								Labels: map[string]string{"serving.kubeflow.org/inferenceservice": "mnist"},
 								Annotations: map[string]string{
@@ -224,20 +220,18 @@ func TestKnativeServiceReconcile(t *testing.T) {
 								},
 							},
 							Spec: knservingv1.RevisionSpec{
-								RevisionSpec: knservingv1.RevisionSpec{
-									TimeoutSeconds: &constants.DefaultPredictorTimeout,
-									PodSpec: v1.PodSpec{
-										Containers: []v1.Container{
-											{
-												Image:   TensorflowServingImageName + ":" + DefaultTensorflowRuntimeVersion,
-												Name:    constants.InferenceServiceContainerName,
-												Command: []string{v1alpha2.TensorflowEntrypointCommand},
-												Args: []string{
-													"--port=" + v1alpha2.TensorflowServingGRPCPort,
-													"--rest_api_port=" + v1alpha2.TensorflowServingRestPort,
-													"--model_name=mnist",
-													"--model_base_path=" + constants.DefaultModelLocalMountPath,
-												},
+								TimeoutSeconds: &constants.DefaultPredictorTimeout,
+								PodSpec: v1.PodSpec{
+									Containers: []v1.Container{
+										{
+											Image:   TensorflowServingImageName + ":" + DefaultTensorflowRuntimeVersion,
+											Name:    constants.InferenceServiceContainerName,
+											Command: []string{v1alpha2.TensorflowEntrypointCommand},
+											Args: []string{
+												"--port=" + v1alpha2.TensorflowServingGRPCPort,
+												"--rest_api_port=" + v1alpha2.TensorflowServingRestPort,
+												"--model_name=mnist",
+												"--model_base_path=" + constants.DefaultModelLocalMountPath,
 											},
 										},
 									},

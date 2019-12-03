@@ -134,7 +134,7 @@ func (c *ServiceBuilder) CreatePredictorService(name string, metadata metav1.Obj
 		},
 		Spec: knservingv1.ServiceSpec{
 			ConfigurationSpec: knservingv1.ConfigurationSpec{
-				Template: &knservingv1.RevisionTemplateSpec{
+				Template: knservingv1.RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: utils.Union(metadata.Labels, map[string]string{
 							constants.InferenceServicePodLabelKey: metadata.Name,
@@ -142,15 +142,13 @@ func (c *ServiceBuilder) CreatePredictorService(name string, metadata metav1.Obj
 						Annotations: annotations,
 					},
 					Spec: knservingv1.RevisionSpec{
-						RevisionSpec: knservingv1.RevisionSpec{
-							// Defaulting here since this always shows a diff with nil vs 300s(knative default)
-							// we may need to expose this field in future
-							TimeoutSeconds: &constants.DefaultPredictorTimeout,
-							PodSpec: v1.PodSpec{
-								ServiceAccountName: predictorSpec.ServiceAccountName,
-								Containers: []v1.Container{
-									*predictorSpec.GetContainer(metadata.Name, hasInferenceLogging, c.inferenceServiceConfig),
-								},
+						// Defaulting here since this always shows a diff with nil vs 300s(knative default)
+						// we may need to expose this field in future
+						TimeoutSeconds: &constants.DefaultPredictorTimeout,
+						PodSpec: v1.PodSpec{
+							ServiceAccountName: predictorSpec.ServiceAccountName,
+							Containers: []v1.Container{
+								*predictorSpec.GetContainer(metadata.Name, hasInferenceLogging, c.inferenceServiceConfig),
 							},
 						},
 					},
@@ -191,7 +189,7 @@ func (c *ServiceBuilder) CreateTransformerService(name string, metadata metav1.O
 		},
 		Spec: knservingv1.ServiceSpec{
 			ConfigurationSpec: knservingv1.ConfigurationSpec{
-				Template: &knservingv1.RevisionTemplateSpec{
+				Template: knservingv1.RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: utils.Union(metadata.Labels, map[string]string{
 							constants.InferenceServicePodLabelKey: metadata.Name,
@@ -199,15 +197,13 @@ func (c *ServiceBuilder) CreateTransformerService(name string, metadata metav1.O
 						Annotations: annotations,
 					},
 					Spec: knservingv1.RevisionSpec{
-						RevisionSpec: knservingv1.RevisionSpec{
-							// Defaulting here since this always shows a diff with nil vs 300s(knative default)
-							// we may need to expose this field in future
-							TimeoutSeconds: &constants.DefaultTransformerTimeout,
-							PodSpec: v1.PodSpec{
-								ServiceAccountName: transformerSpec.ServiceAccountName,
-								Containers: []v1.Container{
-									*container,
-								},
+						// Defaulting here since this always shows a diff with nil vs 300s(knative default)
+						// we may need to expose this field in future
+						TimeoutSeconds: &constants.DefaultTransformerTimeout,
+						PodSpec: v1.PodSpec{
+							ServiceAccountName: transformerSpec.ServiceAccountName,
+							Containers: []v1.Container{
+								*container,
 							},
 						},
 					},
@@ -252,7 +248,7 @@ func (c *ServiceBuilder) CreateExplainerService(name string, metadata metav1.Obj
 		},
 		Spec: knservingv1.ServiceSpec{
 			ConfigurationSpec: knservingv1.ConfigurationSpec{
-				Template: &knservingv1.RevisionTemplateSpec{
+				Template: knservingv1.RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: utils.Union(metadata.Labels, map[string]string{
 							constants.InferenceServicePodLabelKey: metadata.Name,
@@ -260,15 +256,13 @@ func (c *ServiceBuilder) CreateExplainerService(name string, metadata metav1.Obj
 						Annotations: annotations,
 					},
 					Spec: knservingv1.RevisionSpec{
-						RevisionSpec: knservingv1.RevisionSpec{
-							// Defaulting here since this always shows a diff with nil vs 300s(knative default)
-							// we may need to expose this field in future
-							TimeoutSeconds: &constants.DefaultExplainerTimeout,
-							PodSpec: v1.PodSpec{
-								ServiceAccountName: explainerSpec.ServiceAccountName,
-								Containers: []v1.Container{
-									*explainerSpec.CreateExplainerContainer(metadata.Name, predictorService, hasInferenceLogging, c.inferenceServiceConfig),
-								},
+						// Defaulting here since this always shows a diff with nil vs 300s(knative default)
+						// we may need to expose this field in future
+						TimeoutSeconds: &constants.DefaultExplainerTimeout,
+						PodSpec: v1.PodSpec{
+							ServiceAccountName: explainerSpec.ServiceAccountName,
+							Containers: []v1.Container{
+								*explainerSpec.CreateExplainerContainer(metadata.Name, predictorService, hasInferenceLogging, c.inferenceServiceConfig),
 							},
 						},
 					},

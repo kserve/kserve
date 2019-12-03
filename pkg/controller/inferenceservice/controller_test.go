@@ -162,7 +162,7 @@ func TestInferenceServiceWithOnlyPredictor(t *testing.T) {
 		},
 		Spec: knservingv1.ServiceSpec{
 			ConfigurationSpec: knservingv1.ConfigurationSpec{
-				Template: &knservingv1.RevisionTemplateSpec{
+				Template: knservingv1.RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: map[string]string{"serving.kubeflow.org/inferenceservice": serviceName},
 						Annotations: map[string]string{
@@ -175,21 +175,19 @@ func TestInferenceServiceWithOnlyPredictor(t *testing.T) {
 						},
 					},
 					Spec: knservingv1.RevisionSpec{
-						RevisionSpec: knservingv1.RevisionSpec{
-							TimeoutSeconds: &constants.DefaultPredictorTimeout,
-							PodSpec: v1.PodSpec{
-								Containers: []v1.Container{
-									{
-										Image: TensorflowServingImageName + ":" +
-											defaultInstance.Spec.Default.Predictor.Tensorflow.RuntimeVersion,
-										Name:    constants.InferenceServiceContainerName,
-										Command: []string{kfserving.TensorflowEntrypointCommand},
-										Args: []string{
-											"--port=" + kfserving.TensorflowServingGRPCPort,
-											"--rest_api_port=" + kfserving.TensorflowServingRestPort,
-											"--model_name=" + defaultInstance.Name,
-											"--model_base_path=" + constants.DefaultModelLocalMountPath,
-										},
+						TimeoutSeconds: &constants.DefaultPredictorTimeout,
+						PodSpec: v1.PodSpec{
+							Containers: []v1.Container{
+								{
+									Image: TensorflowServingImageName + ":" +
+										defaultInstance.Spec.Default.Predictor.Tensorflow.RuntimeVersion,
+									Name:    constants.InferenceServiceContainerName,
+									Command: []string{kfserving.TensorflowEntrypointCommand},
+									Args: []string{
+										"--port=" + kfserving.TensorflowServingGRPCPort,
+										"--rest_api_port=" + kfserving.TensorflowServingRestPort,
+										"--model_name=" + defaultInstance.Name,
+										"--model_base_path=" + constants.DefaultModelLocalMountPath,
 									},
 								},
 							},
@@ -393,7 +391,7 @@ func TestInferenceServiceWithDefaultAndCanaryPredictor(t *testing.T) {
 		},
 		Spec: knservingv1.ServiceSpec{
 			ConfigurationSpec: knservingv1.ConfigurationSpec{
-				Template: &knservingv1.RevisionTemplateSpec{
+				Template: knservingv1.RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: map[string]string{"serving.kubeflow.org/inferenceservice": "bar"},
 						Annotations: map[string]string{
@@ -406,21 +404,19 @@ func TestInferenceServiceWithDefaultAndCanaryPredictor(t *testing.T) {
 						},
 					},
 					Spec: knservingv1.RevisionSpec{
-						RevisionSpec: knservingv1.RevisionSpec{
-							TimeoutSeconds: &constants.DefaultPredictorTimeout,
-							PodSpec: v1.PodSpec{
-								Containers: []v1.Container{
-									{
-										Image: TensorflowServingImageName + ":" +
-											canary.Spec.Canary.Predictor.Tensorflow.RuntimeVersion,
-										Name:    constants.InferenceServiceContainerName,
-										Command: []string{kfserving.TensorflowEntrypointCommand},
-										Args: []string{
-											"--port=" + kfserving.TensorflowServingGRPCPort,
-											"--rest_api_port=" + kfserving.TensorflowServingRestPort,
-											"--model_name=" + canary.Name,
-											"--model_base_path=" + constants.DefaultModelLocalMountPath,
-										},
+						TimeoutSeconds: &constants.DefaultPredictorTimeout,
+						PodSpec: v1.PodSpec{
+							Containers: []v1.Container{
+								{
+									Image: TensorflowServingImageName + ":" +
+										canary.Spec.Canary.Predictor.Tensorflow.RuntimeVersion,
+									Name:    constants.InferenceServiceContainerName,
+									Command: []string{kfserving.TensorflowEntrypointCommand},
+									Args: []string{
+										"--port=" + kfserving.TensorflowServingGRPCPort,
+										"--rest_api_port=" + kfserving.TensorflowServingRestPort,
+										"--model_name=" + canary.Name,
+										"--model_base_path=" + constants.DefaultModelLocalMountPath,
 									},
 								},
 							},
@@ -950,7 +946,7 @@ func TestInferenceServiceWithTransformer(t *testing.T) {
 		},
 		Spec: knservingv1.ServiceSpec{
 			ConfigurationSpec: knservingv1.ConfigurationSpec{
-				Template: &knservingv1.RevisionTemplateSpec{
+				Template: knservingv1.RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: map[string]string{"serving.kubeflow.org/inferenceservice": serviceName},
 						Annotations: map[string]string{
@@ -962,20 +958,18 @@ func TestInferenceServiceWithTransformer(t *testing.T) {
 						},
 					},
 					Spec: knservingv1.RevisionSpec{
-						RevisionSpec: knservingv1.RevisionSpec{
-							TimeoutSeconds: &constants.DefaultTransformerTimeout,
-							PodSpec: v1.PodSpec{
-								Containers: []v1.Container{
-									{
-										Image: "transformer:v2",
-										Args: []string{
-											"--model_name",
-											serviceName,
-											"--predictor_host",
-											constants.CanaryPredictorServiceName(instance.Name) + "." + instance.Namespace,
-											constants.ArgumentHttpPort,
-											constants.GetInferenceServiceHttpPort(false),
-										},
+						TimeoutSeconds: &constants.DefaultTransformerTimeout,
+						PodSpec: v1.PodSpec{
+							Containers: []v1.Container{
+								{
+									Image: "transformer:v2",
+									Args: []string{
+										"--model_name",
+										serviceName,
+										"--predictor_host",
+										constants.CanaryPredictorServiceName(instance.Name) + "." + instance.Namespace,
+										constants.ArgumentHttpPort,
+										constants.GetInferenceServiceHttpPort(false),
 									},
 								},
 							},
@@ -1482,7 +1476,7 @@ func TestInferenceServiceWithExplainer(t *testing.T) {
 		},
 		Spec: knservingv1.ServiceSpec{
 			ConfigurationSpec: knservingv1.ConfigurationSpec{
-				Template: &knservingv1.RevisionTemplateSpec{
+				Template: knservingv1.RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: map[string]string{"serving.kubeflow.org/inferenceservice": serviceName},
 						Annotations: map[string]string{
@@ -1494,22 +1488,20 @@ func TestInferenceServiceWithExplainer(t *testing.T) {
 						},
 					},
 					Spec: knservingv1.RevisionSpec{
-						RevisionSpec: knservingv1.RevisionSpec{
-							TimeoutSeconds: &constants.DefaultExplainerTimeout,
-							PodSpec: v1.PodSpec{
-								Containers: []v1.Container{
-									{
-										Image: "kfserving/alibi-explainer:latest",
-										Name:  constants.InferenceServiceContainerName,
-										Args: []string{
-											"--model_name",
-											serviceName,
-											"--predictor_host",
-											constants.CanaryPredictorServiceName(instance.Name) + "." + instance.Namespace,
-											"--http_port",
-											"8080",
-											"AnchorTabular",
-										},
+						TimeoutSeconds: &constants.DefaultExplainerTimeout,
+						PodSpec: v1.PodSpec{
+							Containers: []v1.Container{
+								{
+									Image: "kfserving/alibi-explainer:latest",
+									Name:  constants.InferenceServiceContainerName,
+									Args: []string{
+										"--model_name",
+										serviceName,
+										"--predictor_host",
+										constants.CanaryPredictorServiceName(instance.Name) + "." + instance.Namespace,
+										"--http_port",
+										"8080",
+										"AnchorTabular",
 									},
 								},
 							},
