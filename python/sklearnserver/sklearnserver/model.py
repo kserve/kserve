@@ -18,8 +18,8 @@ import numpy as np
 import os
 from typing import List, Dict
 
-JOBLIB_FILE = "model.joblib"
-PICKLE_FILE = "model.pkl"
+MODEL_BASENAME = "model"
+MODEL_EXTENSIONS = [".joblib", ".pkl", ".pickle"]
 
 
 class SKLearnModel(kfserving.KFModel): #pylint:disable=c-extension-no-member
@@ -31,8 +31,8 @@ class SKLearnModel(kfserving.KFModel): #pylint:disable=c-extension-no-member
 
     def load(self):
         model_path = kfserving.Storage.download(self.model_dir)
-        paths = [os.path.join(model_path, JOBLIB_FILE),
-                 os.path.join(model_path, PICKLE_FILE)]
+        paths = [os.path.join(model_path, MODEL_BASENAME + model_extension)
+                 for model_extension in MODEL_EXTENSIONS]
         model_file = next(path for path in paths if os.path.exists(path))
         self._model = joblib.load(model_file) #pylint:disable=attribute-defined-outside-init
         self.ready = True
