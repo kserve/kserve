@@ -2,13 +2,14 @@ package v1alpha2
 
 import (
 	"fmt"
+	"strings"
+	"testing"
+
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	"strings"
-	"testing"
 )
 
 func TestFrameworkSKLearn(t *testing.T) {
@@ -91,6 +92,6 @@ func TestCreateSKLearnModelServingContainer(t *testing.T) {
 	}
 
 	// Test Create with config
-	container := spec.GetContainer("someName", false, &config)
+	container := spec.GetContainer("someName", &config)
 	g.Expect(container).To(gomega.Equal(expectedContainer))
 }

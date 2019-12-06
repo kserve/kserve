@@ -37,7 +37,7 @@ func (s *SKLearnSpec) GetResourceRequirements() *v1.ResourceRequirements {
 	return &s.Resources
 }
 
-func (s *SKLearnSpec) GetContainer(modelName string, hasLogging bool, config *InferenceServicesConfig) *v1.Container {
+func (s *SKLearnSpec) GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container {
 	return &v1.Container{
 		Image:     config.Predictors.SKlearn.ContainerImage + ":" + s.RuntimeVersion,
 		Name:      constants.InferenceServiceContainerName,
@@ -45,7 +45,7 @@ func (s *SKLearnSpec) GetContainer(modelName string, hasLogging bool, config *In
 		Args: []string{
 			"--model_name=" + modelName,
 			"--model_dir=" + constants.DefaultModelLocalMountPath,
-			"--http_port=" + constants.GetInferenceServiceHttpPort(hasLogging),
+			"--http_port=" + constants.InferenceServiceDefaultHttpPort,
 		},
 	}
 }

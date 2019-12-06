@@ -2,13 +2,14 @@ package v1alpha2
 
 import (
 	"fmt"
+	"strings"
+	"testing"
+
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	"strings"
-	"testing"
 )
 
 func TestFrameworkXgBoost(t *testing.T) {
@@ -87,7 +88,7 @@ func TestCreateXGBoostContainer(t *testing.T) {
 	}
 
 	// Test Create with config
-	container := spec.GetContainer("someName", false, &config)
+	container := spec.GetContainer("someName", &config)
 	g.Expect(container).To(gomega.Equal(expectedContainer))
 }
 
@@ -134,7 +135,7 @@ func TestCreateXGBoostContainerWithNThread(t *testing.T) {
 			RuntimeVersion: "0.1.0",
 			NThread:        scenario.nthread,
 		}
-		container := spec.GetContainer("someName", false, &config)
+		container := spec.GetContainer("someName", &config)
 
 		expContainer := &v1.Container{
 			Image:     "someOtherImage:0.1.0",
