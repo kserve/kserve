@@ -34,6 +34,7 @@ bin
 
 # Ignore files for local deployment
 config/overlays/development/manager_image_patch.yaml
+config/overlays/dev-image-config/inferenceservice_patch.yaml
 config/overlays/local/
 .ko.yaml
 

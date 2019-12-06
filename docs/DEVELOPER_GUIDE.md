@@ -158,6 +158,19 @@ make deploy-dev
 - **Note**: `deploy-dev` builds the image from your local code, publishes to `KO_DOCKER_REPO`
 and deploys the `kfserving-controller-manager` with the image digest to your cluster for testing. Please also ensure you are logged in to `KO_DOCKER_REPO` from your client machine.
 
+There's also commands to build and deploy the image from your local code for the models, explainer and storage-initializer, you can choose to use one of below commands for your development purpose.
+```bash
+make deploy-dev-sklearn
+
+make deploy-dev-xgb
+
+make deploy-dev-pytorch
+
+make deploy-dev-alibi
+
+make deploy-dev-storageInitializer
+```
+- **Note**: These commands also publishes to `KO_DOCKER_REPO` with the image of version 'latest', and change the configmap of your cluster to point to the new built images. It's just for development and testing purpose, so in configmap, for predictors it will just keep the one in development, for others will just change the item impacted and set all others to be default. 
 
 ### Smoke test after deployment
 ```bash
