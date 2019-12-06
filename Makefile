@@ -29,6 +29,7 @@ deploy: manifests
 
 deploy-dev: manifests
 	./hack/image_patch_dev.sh development
+	./hack/update-clusterrolebinding.sh config/overlays/development
 	kustomize build config/overlays/development | kubectl apply -f -
 
 deploy-local: manifests
