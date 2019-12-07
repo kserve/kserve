@@ -20,7 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"knative.dev/pkg/apis"
-	"knative.dev/serving/pkg/network"
+	"knative.dev/pkg/network"
 
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	"github.com/kubeflow/kfserving/pkg/constants"
