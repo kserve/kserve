@@ -26,7 +26,7 @@ import (
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
 	istiov1alpha1 "knative.dev/pkg/apis/istio/common/v1alpha1"
 	istiov1alpha3 "knative.dev/pkg/apis/istio/v1alpha3"
-	"knative.dev/serving/pkg/network"
+	"knative.dev/pkg/network"
 	"testing"
 )
 

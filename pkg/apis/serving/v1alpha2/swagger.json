@@ -8,7 +8,7 @@
   "paths": {},
   "definitions": {
     "knative.Condition": {
-      "description": "Conditions defines a readiness condition for a Knative resource. See: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#typical-status-properties",
+      "description": "Conditions defines a readiness condition for a Knative resource. See: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#typical-status-properties",
       "required": [
         "type",
         "status"

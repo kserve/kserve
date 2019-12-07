@@ -806,7 +806,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"knative.dev/pkg/apis.Condition": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
-					Description: "Conditions defines a readiness condition for a Knative resource. See: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#typical-status-properties",
+					Description: "Conditions defines a readiness condition for a Knative resource. See: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#typical-status-properties",
 					Properties: map[string]spec.Schema{
 						"type": {
 							SchemaProps: spec.SchemaProps{

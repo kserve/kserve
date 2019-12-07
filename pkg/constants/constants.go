@@ -18,7 +18,7 @@ package constants
 
 import (
 	"fmt"
-	"knative.dev/serving/pkg/network"
+	"knative.dev/pkg/network"
 	"os"
 	"regexp"
 	"strings"
@@ -101,9 +101,12 @@ type InferenceServiceComponent string
 type InferenceServiceVerb string
 
 const (
-	LocalGatewayHost      = "cluster-local-gateway.istio-system.svc.cluster.local"
 	KnativeLocalGateway   = "knative-serving/cluster-local-gateway"
 	KnativeIngressGateway = "knative-serving/knative-ingress-gateway"
+)
+
+var (
+	LocalGatewayHost = "cluster-local-gateway.istio-system.svc." + network.GetClusterDomainName()
 )
 
 // InferenceService Component enums

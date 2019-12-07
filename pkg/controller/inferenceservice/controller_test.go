@@ -18,7 +18,7 @@ package service
 
 import (
 	"fmt"
-	"knative.dev/serving/pkg/network"
+	"knative.dev/pkg/network"
 	"testing"
 	"time"
 
@@ -207,7 +207,7 @@ func TestInferenceServiceWithOnlyPredictor(t *testing.T) {
 	updateDefault.Status.LatestReadyRevisionName = "revision-v1"
 	updateDefault.Status.URL, _ = apis.ParseURL(
 		constants.InferenceServiceURL("http", constants.DefaultPredictorServiceName(serviceKey.Name), serviceKey.Namespace, domain))
-	updateDefault.Status.Conditions = duckv1beta1.Conditions{
+	updateDefault.Status.Conditions = duckv1.Conditions{
 		{
 			Type:   knservingv1alpha1.ServiceConditionReady,
 			Status: "True",
@@ -473,7 +473,7 @@ func TestInferenceServiceWithDefaultAndCanaryPredictor(t *testing.T) {
 	updateDefault.Status.LatestReadyRevisionName = "revision-v1"
 	updateDefault.Status.URL, _ = apis.ParseURL(constants.InferenceServiceURL("http", constants.DefaultPredictorServiceName(canaryServiceKey.Name),
 		canaryServiceKey.Namespace, domain))
-	updateDefault.Status.Conditions = duckv1beta1.Conditions{
+	updateDefault.Status.Conditions = duckv1.Conditions{
 		{
 			Type:   knservingv1alpha1.ServiceConditionReady,
 			Status: "True",
@@ -487,7 +487,7 @@ func TestInferenceServiceWithDefaultAndCanaryPredictor(t *testing.T) {
 	updateCanary.Status.LatestReadyRevisionName = "revision-v2"
 	updateCanary.Status.URL, _ = apis.ParseURL(
 		constants.InferenceServiceURL("http", constants.CanaryPredictorServiceName(canaryServiceKey.Name), canaryServiceKey.Namespace, domain))
-	updateCanary.Status.Conditions = duckv1beta1.Conditions{
+	updateCanary.Status.Conditions = duckv1.Conditions{
 		{
 			Type:   knservingv1alpha1.ServiceConditionReady,
 			Status: "True",
@@ -729,7 +729,7 @@ func TestCanaryDelete(t *testing.T) {
 	updateDefault.Status.LatestReadyRevisionName = "revision-v1"
 	updateDefault.Status.URL, _ = apis.ParseURL(
 		constants.InferenceServiceURL("http", constants.DefaultPredictorServiceName(serviceName), namespace, domain))
-	updateDefault.Status.Conditions = duckv1beta1.Conditions{
+	updateDefault.Status.Conditions = duckv1.Conditions{
 		{
 			Type:   knservingv1alpha1.ServiceConditionReady,
 			Status: "True",
@@ -743,7 +743,7 @@ func TestCanaryDelete(t *testing.T) {
 	updateCanary.Status.LatestReadyRevisionName = "revision-v2"
 	updateCanary.Status.URL, _ = apis.ParseURL(
 		constants.InferenceServiceURL("http", constants.CanaryPredictorServiceName(serviceName), namespace, domain))
-	updateCanary.Status.Conditions = duckv1beta1.Conditions{
+	updateCanary.Status.Conditions = duckv1.Conditions{
 		{
 			Type:   knservingv1alpha1.ServiceConditionReady,
 			Status: "True",
@@ -1076,7 +1076,7 @@ func TestInferenceServiceWithTransformer(t *testing.T) {
 		updateDefault.Status.LatestReadyRevisionName = "revision-v1"
 		updateDefault.Status.URL, _ = apis.ParseURL(
 			constants.InferenceServiceURL("http", constants.DefaultPredictorServiceName(serviceKey.Name), namespace, domain))
-		updateDefault.Status.Conditions = duckv1beta1.Conditions{
+		updateDefault.Status.Conditions = duckv1.Conditions{
 			{
 				Type:   knservingv1alpha1.ServiceConditionReady,
 				Status: "True",
@@ -1090,7 +1090,7 @@ func TestInferenceServiceWithTransformer(t *testing.T) {
 		updateCanary.Status.LatestReadyRevisionName = "revision-v2"
 		updateCanary.Status.URL, _ = apis.ParseURL(
 			constants.InferenceServiceURL("http", constants.CanaryPredictorServiceName(serviceKey.Name), namespace, domain))
-		updateCanary.Status.Conditions = duckv1beta1.Conditions{
+		updateCanary.Status.Conditions = duckv1.Conditions{
 			{
 				Type:   knservingv1alpha1.ServiceConditionReady,
 				Status: "True",
@@ -1107,7 +1107,7 @@ func TestInferenceServiceWithTransformer(t *testing.T) {
 		updateDefault.Status.LatestReadyRevisionName = "t-revision-v1"
 		updateDefault.Status.URL, _ = apis.ParseURL(
 			constants.InferenceServiceURL("http", constants.DefaultTransformerServiceName(serviceKey.Name), namespace, domain))
-		updateDefault.Status.Conditions = duckv1beta1.Conditions{
+		updateDefault.Status.Conditions = duckv1.Conditions{
 			{
 				Type:   knservingv1alpha1.ServiceConditionReady,
 				Status: "True",
@@ -1121,7 +1121,7 @@ func TestInferenceServiceWithTransformer(t *testing.T) {
 		updateCanary.Status.LatestReadyRevisionName = "t-revision-v2"
 		updateCanary.Status.URL, _ = apis.ParseURL(
 			constants.InferenceServiceURL("http", constants.CanaryTransformerServiceName(serviceKey.Name), namespace, domain))
-		updateCanary.Status.Conditions = duckv1beta1.Conditions{
+		updateCanary.Status.Conditions = duckv1.Conditions{
 			{
 				Type:   knservingv1alpha1.ServiceConditionReady,
 				Status: "True",
@@ -1640,7 +1640,7 @@ func TestInferenceServiceWithExplainer(t *testing.T) {
 		updateDefault.Status.LatestReadyRevisionName = "revision-v1"
 		updateDefault.Status.URL, _ = apis.ParseURL(
 			constants.InferenceServiceURL("http", constants.DefaultPredictorServiceName(serviceName), namespace, domain))
-		updateDefault.Status.Conditions = duckv1beta1.Conditions{
+		updateDefault.Status.Conditions = duckv1.Conditions{
 			{
 				Type:   knservingv1alpha1.ServiceConditionReady,
 				Status: "True",
@@ -1654,7 +1654,7 @@ func TestInferenceServiceWithExplainer(t *testing.T) {
 		updateCanary.Status.LatestReadyRevisionName = "revision-v2"
 		updateCanary.Status.URL, _ = apis.ParseURL(
 			constants.InferenceServiceURL("http", constants.CanaryPredictorServiceName(serviceName), namespace, domain))
-		updateCanary.Status.Conditions = duckv1beta1.Conditions{
+		updateCanary.Status.Conditions = duckv1.Conditions{
 			{
 				Type:   knservingv1alpha1.ServiceConditionReady,
 				Status: "True",
@@ -1671,7 +1671,7 @@ func TestInferenceServiceWithExplainer(t *testing.T) {
 		updateDefault.Status.LatestReadyRevisionName = "e-revision-v1"
 		updateDefault.Status.URL, _ = apis.ParseURL(
 			constants.InferenceServiceURL("http", constants.DefaultExplainerServiceName(serviceName), namespace, domain))
-		updateDefault.Status.Conditions = duckv1beta1.Conditions{
+		updateDefault.Status.Conditions = duckv1.Conditions{
 			{
 				Type:   knservingv1alpha1.ServiceConditionReady,
 				Status: "True",
@@ -1685,7 +1685,7 @@ func TestInferenceServiceWithExplainer(t *testing.T) {
 		updateCanary.Status.LatestReadyRevisionName = "e-revision-v2"
 		updateCanary.Status.URL, _ = apis.ParseURL(
 			constants.InferenceServiceURL("http", constants.CanaryExplainerServiceName(serviceName), namespace, domain))
-		updateCanary.Status.Conditions = duckv1beta1.Conditions{
+		updateCanary.Status.Conditions = duckv1.Conditions{
 			{
 				Type:   knservingv1alpha1.ServiceConditionReady,
 				Status: "True",
