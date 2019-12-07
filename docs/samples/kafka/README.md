@@ -95,9 +95,10 @@ you should expect a notification event like following sent to kafka topic `mnist
 }
 ```
 
-## Train TF mnist model and save on S3
-Follow Kubeflow's [TF mnist example](https://github.com/kubeflow/examples/tree/master/mnist#using-s3) to train a TF mnist model and save on S3,
-change following S3 access settings, `modelDir` and `exportDir` as needed. If you already have a mnist model saved on S3 you can skip this step.
+## Train TF mnist model and save on Minio
+If you already have a mnist model saved on Minio or S3 you can skip this step, otherwise you can install [Kubeflow](https://www.kubeflow.org/docs/started/getting-started/)
+and follow [TF mnist example](https://github.com/kubeflow/examples/tree/master/mnist#using-s3) to train a TF mnist model and save it on Minio.
+Change following S3 credential settings to enable getting model from Minio.
 ```bash
 export S3_USE_HTTPS=0 #set to 0 for default minio installs
 export S3_ENDPOINT=minio-service:9000
@@ -125,8 +126,8 @@ The transformation image implements the preprocess handler to process the minio 
 and transform image bytes to tensors. The postprocess handler processes the prediction and upload the image to the classified minio
 bucket `digit-[0-9]`.
 ```bash
-docker build -t yuzisun/mnist-transformer:latest -f ./transformer.Dockerfile . --rm
-docker push yuzisun/mnist-transformer:latest
+docker build -t $USER/mnist-transformer:latest -f ./transformer.Dockerfile . --rm
+docker push $USER/mnist-transformer:latest
 ```
 
 ## Create the InferenceService
@@ -135,7 +136,7 @@ Specify the built image on `Transformer` spec and apply the inference service CR
 kubectl apply -f mnist_kafka.yaml 
 ```
 
-This creates transformer and predictor pods, when the request goes to transformer first which invokes the preprocess handler, transformer
+This creates transformer and predictor pods, the request goes to transformer first where it invokes the preprocess handler, transformer
 then calls out to predictor to get the prediction response which in turn invokes the postprocess handler. 
 ```
 kubectl get pods -l serving.kubeflow.org/inferenceservice=mnist
