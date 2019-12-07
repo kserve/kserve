@@ -26,7 +26,8 @@ PROJECT="${GCP_PROJECT}"
 NAMESPACE="${DEPLOY_NAMESPACE}"
 REGISTRY="${GCP_REGISTRY}"
 ISTIO_VERSION="1.3.1"
-KNATIVE_VERSION="v0.9.0"
+KNATIVE_VERSION="v0.10.0"
+KUBECTL_VERSION="v1.14.0"
 
 # Check and wait for istio/knative/kfserving pod started normally.
 waiting_pod_running(){
@@ -63,6 +64,11 @@ waiting_for_kfserving_controller(){
 
 echo "Activating service-account ..."
 gcloud auth activate-service-account --key-file=${GOOGLE_APPLICATION_CREDENTIALS}
+
+echo "Upgrading kubectl ..."
+# The kubectl need to be upgraded to 1.14.0 to avoid dismatch issue.
+wget -q -O /usr/local/bin/kubectl https://storage.googleapis.com/kubernetes-release/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl
+chmod a+x /usr/local/bin/kubectl
 
 echo "Configuring kubectl ..."
 gcloud --project ${PROJECT} container clusters get-credentials ${CLUSTER_NAME} --zone ${ZONE}

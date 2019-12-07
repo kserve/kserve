@@ -18,7 +18,9 @@ import numpy as np
 import os
 from typing import List, Dict
 
-JOBLIB_FILE = "model.joblib"
+MODEL_BASENAME = "model"
+MODEL_EXTENSIONS = [".joblib", ".pkl", ".pickle"]
+
 
 class SKLearnModel(kfserving.KFModel): #pylint:disable=c-extension-no-member
     def __init__(self, name: str, model_dir: str):
@@ -28,8 +30,11 @@ class SKLearnModel(kfserving.KFModel): #pylint:disable=c-extension-no-member
         self.ready = False
 
     def load(self):
-        model_file = os.path.join(kfserving.Storage.download(self.model_dir), JOBLIB_FILE) #pylint:disable=c-extension-no-member
-        self._joblib = joblib.load(model_file) #pylint:disable=attribute-defined-outside-init
+        model_path = kfserving.Storage.download(self.model_dir)
+        paths = [os.path.join(model_path, MODEL_BASENAME + model_extension)
+                 for model_extension in MODEL_EXTENSIONS]
+        model_file = next(path for path in paths if os.path.exists(path))
+        self._model = joblib.load(model_file) #pylint:disable=attribute-defined-outside-init
         self.ready = True
 
     def predict(self, request: Dict) -> Dict:
@@ -40,7 +45,7 @@ class SKLearnModel(kfserving.KFModel): #pylint:disable=c-extension-no-member
             raise Exception(
                 "Failed to initialize NumPy array from inputs: %s, %s" % (e, instances))
         try:
-            result = self._joblib.predict(inputs).tolist()
+            result = self._model.predict(inputs).tolist()
             return { "predictions" : result }
         except Exception as e:
             raise Exception("Failed to predict %s" % e)
