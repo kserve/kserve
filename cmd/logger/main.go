@@ -4,10 +4,11 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	"net/http"
 	"net/url"
 	"os"
+
+	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
 
 	"github.com/kubeflow/kfserving/pkg/logger"
@@ -19,9 +20,9 @@ import (
 
 var (
 	logUrl        = flag.String("log-url", "", "The URL to send request/response logs to")
-	port          = flag.String("port", "8080", "Logger port")
+	port          = flag.String("port", "8081", "Logger port")
 	componentHost = flag.String("component-host", "0.0.0.0", "Component host")
-	componentPort = flag.String("component-port", "8081", "Component port")
+	componentPort = flag.String("component-port", "8080", "Component port")
 	workers       = flag.Int("workers", 5, "Number of workers")
 	sourceUri     = flag.String("source-uri", "", "The source URI to use when publishing cloudevents")
 	logMode       = flag.String("log-mode", string(v1alpha2.LogAll), "Whether to log 'request', 'response' or 'all'")
