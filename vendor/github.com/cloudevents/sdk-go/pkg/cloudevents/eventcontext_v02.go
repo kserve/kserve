@@ -146,7 +146,7 @@ func (ec EventContextV02) AsV03() *EventContextV03 {
 			}
 			continue
 		}
-		// DataContentEncoding was introduced in 0.3
+		// DeprecatedDataContentEncoding was introduced in 0.3
 		if strings.EqualFold(k, DataContentEncodingKey) {
 			etv, ok := v.(string)
 			if ok && etv != "" {
@@ -161,6 +161,11 @@ func (ec EventContextV02) AsV03() *EventContextV03 {
 	}
 
 	return &ret
+}
+
+// AsV1 implements EventContextConverter.AsV1
+func (ec EventContextV02) AsV1() *EventContextV1 {
+	return ec.AsV03().AsV1()
 }
 
 // Validate returns errors based on requirements from the CloudEvents spec.

@@ -6,15 +6,17 @@ import "fmt"
 // message can not be converted.
 type ErrTransportMessageConversion struct {
 	fatal     bool
+	handled   bool
 	transport string
 	message   string
 }
 
 // NewErrMessageEncodingUnknown makes a new ErrMessageEncodingUnknown.
-func NewErrTransportMessageConversion(transport, message string, fatal bool) *ErrTransportMessageConversion {
+func NewErrTransportMessageConversion(transport, message string, handled, fatal bool) *ErrTransportMessageConversion {
 	return &ErrTransportMessageConversion{
 		transport: transport,
 		message:   message,
+		handled:   handled,
 		fatal:     fatal,
 	}
 }
@@ -22,6 +24,11 @@ func NewErrTransportMessageConversion(transport, message string, fatal bool) *Er
 // IsFatal reports if this error should be considered fatal.
 func (e *ErrTransportMessageConversion) IsFatal() bool {
 	return e.fatal
+}
+
+// Handled reports if this error should be considered accepted and no further action.
+func (e *ErrTransportMessageConversion) Handled() bool {
+	return e.handled
 }
 
 // Error implements error.Error

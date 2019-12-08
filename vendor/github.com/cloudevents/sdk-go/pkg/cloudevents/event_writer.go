@@ -17,9 +17,11 @@ func (e *Event) SetSpecVersion(v string) {
 			e.Context = EventContextV02{}.AsV02()
 		case CloudEventsVersionV03:
 			e.Context = EventContextV03{}.AsV03()
+		case CloudEventsVersionV1:
+			e.Context = EventContextV1{}.AsV1()
 		default:
-			panic(fmt.Errorf("a valid spec version is required: [%s, %s, %s]",
-				CloudEventsVersionV01, CloudEventsVersionV02, CloudEventsVersionV03))
+			panic(fmt.Errorf("a valid spec version is required: [%s, %s, %s, %s]",
+				CloudEventsVersionV01, CloudEventsVersionV02, CloudEventsVersionV03, CloudEventsVersionV1))
 		}
 		return
 	}
@@ -63,9 +65,9 @@ func (e *Event) SetTime(t time.Time) {
 	}
 }
 
-// SetSchemaURL implements EventWriter.SetSchemaURL
-func (e *Event) SetSchemaURL(s string) {
-	if err := e.Context.SetSchemaURL(s); err != nil {
+// SetDataSchema implements EventWriter.SetDataSchema
+func (e *Event) SetDataSchema(s string) {
+	if err := e.Context.SetDataSchema(s); err != nil {
 		panic(err)
 	}
 }
@@ -77,14 +79,14 @@ func (e *Event) SetDataContentType(ct string) {
 	}
 }
 
-// SetDataContentEncoding implements EventWriter.SetDataContentEncoding
+// DeprecatedSetDataContentEncoding implements EventWriter.DeprecatedSetDataContentEncoding
 func (e *Event) SetDataContentEncoding(enc string) {
-	if err := e.Context.SetDataContentEncoding(enc); err != nil {
+	if err := e.Context.DeprecatedSetDataContentEncoding(enc); err != nil {
 		panic(err)
 	}
 }
 
-// SetDataContentEncoding implements EventWriter.SetDataContentEncoding
+// SetExtension implements EventWriter.SetExtension
 func (e *Event) SetExtension(name string, obj interface{}) {
 	if err := e.Context.SetExtension(name, obj); err != nil {
 		panic(err)

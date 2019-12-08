@@ -181,6 +181,7 @@ func (t *Transport) obsSend(ctx context.Context, event cloudevents.Event) (conte
 		req.Method = t.Req.Method
 		req.URL = t.Req.URL
 		req.Close = t.Req.Close
+		req.Host = t.Req.Host
 		copyHeadersEnsure(t.Req.Header, &req.Header)
 	}
 
@@ -214,13 +215,20 @@ func (t *Transport) obsSend(ctx context.Context, event cloudevents.Event) (conte
 			})
 			if err != nil {
 				isErr := true
+				handled := false
 				if txerr, ok := err.(*transport.ErrTransportMessageConversion); ok {
 					if !txerr.IsFatal() {
 						isErr = false
 					}
+					if txerr.Handled() {
+						handled = true
+					}
 				}
 				if isErr {
 					return rctx, nil, err
+				}
+				if handled {
+					return rctx, nil, nil
 				}
 			}
 			if accepted(resp) {
@@ -240,13 +248,13 @@ func (t *Transport) MessageToEvent(ctx context.Context, msg *Message) (*cloudeve
 	if msg.CloudEventsVersion() != "" {
 		// This is likely a cloudevents encoded message, try to decode it.
 		if ok := t.loadCodec(ctx); !ok {
-			err = transport.NewErrTransportMessageConversion("http", fmt.Sprintf("unknown encoding set on transport: %d", t.Encoding), true)
+			err = transport.NewErrTransportMessageConversion("http", fmt.Sprintf("unknown encoding set on transport: %d", t.Encoding), false, true)
 			logger.Error("failed to load codec", zap.Error(err))
 		} else {
 			event, err = t.codec.Decode(ctx, msg)
 		}
 	} else {
-		err = transport.NewErrTransportMessageConversion("http", "cloudevents version unknown", false)
+		err = transport.NewErrTransportMessageConversion("http", "cloudevents version unknown", false, false)
 	}
 
 	// If codec returns and error, or could not load the correct codec, try
@@ -254,10 +262,17 @@ func (t *Transport) MessageToEvent(ctx context.Context, msg *Message) (*cloudeve
 	if err != nil && t.HasConverter() {
 		event, err = t.Converter.Convert(ctx, msg, err)
 	}
+
 	// If err is still set, it means that there was no converter, or the
 	// converter failed to convert.
 	if err != nil {
 		logger.Debug("failed to decode message", zap.Error(err))
+	}
+
+	// If event and error are both nil, then there is nothing to do with this event, it was handled.
+	if err == nil && event == nil {
+		logger.Debug("convert function returned (nil, nil)")
+		err = transport.NewErrTransportMessageConversion("http", "convert function handled request", true, false)
 	}
 
 	return event, err
@@ -548,16 +563,30 @@ func (t *Transport) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	})
 	if err != nil {
 		isFatal := true
+		handled := false
 		if txerr, ok := err.(*transport.ErrTransportMessageConversion); ok {
 			isFatal = txerr.IsFatal()
+			handled = txerr.Handled()
 		}
-		if isFatal || event == nil {
+		if isFatal {
 			logger.Errorw("failed to convert http message to event", zap.Error(err))
 			w.WriteHeader(http.StatusBadRequest)
 			_, _ = w.Write([]byte(fmt.Sprintf(`{"error":%q}`, err.Error())))
 			r.Error()
 			return
 		}
+		// if handled, do not pass to receiver.
+		if handled {
+			w.WriteHeader(http.StatusNoContent)
+			r.OK()
+			return
+		}
+	}
+	if event == nil {
+		logger.Error("failed to get non-nil event from MessageToEvent")
+		w.WriteHeader(http.StatusBadRequest)
+		r.Error()
+		return
 	}
 
 	resp, err := t.invokeReceiver(ctx, *event)
@@ -623,6 +652,9 @@ func (t *Transport) listen() (net.Addr, error) {
 		port := 8080
 		if t.Port != nil {
 			port = *t.Port
+			if port < 0 || port > 65535 {
+				return nil, fmt.Errorf("invalid port %d", port)
+			}
 		}
 		var err error
 		if t.listener, err = net.Listen("tcp", fmt.Sprintf(":%d", port)); err != nil {

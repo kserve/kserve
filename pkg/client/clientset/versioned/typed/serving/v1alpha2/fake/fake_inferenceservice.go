@@ -1,5 +1,5 @@
 /*
-Copyright The Kubernetes Authors.
+Copyright 2019 kubeflow.org.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -131,7 +131,7 @@ func (c *FakeInferenceServices) DeleteCollection(options *v1.DeleteOptions, list
 // Patch applies the patch and returns the patched inferenceService.
 func (c *FakeInferenceServices) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1alpha2.InferenceService, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceAction(inferenceservicesResource, c.ns, name, data, subresources...), &v1alpha2.InferenceService{})
+		Invokes(testing.NewPatchSubresourceAction(inferenceservicesResource, c.ns, name, pt, data, subresources...), &v1alpha2.InferenceService{})
 
 	if obj == nil {
 		return nil, err

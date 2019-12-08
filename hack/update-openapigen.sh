@@ -23,7 +23,7 @@ if [ -z "${GOPATH:-}" ]; then
 fi
 
 # Generating OpenAPI specification
-go run vendor/k8s.io/code-generator/cmd/openapi-gen/main.go --input-dirs github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2,knative.dev/pkg/apis --output-package github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2/ --go-header-file hack/boilerplate.go.txt
+go run vendor/k8s.io/kube-openapi/cmd/openapi-gen/openapi-gen.go --input-dirs github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2,knative.dev/pkg/apis --output-package github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2/ --go-header-file hack/boilerplate.go.txt
 
 # Generating swagger file
 go run cmd/spec-gen/main.go 0.1 > pkg/apis/serving/v1alpha2/swagger.json

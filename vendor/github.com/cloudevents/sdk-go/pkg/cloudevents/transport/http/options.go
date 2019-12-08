@@ -178,7 +178,7 @@ func WithPort(port int) Option {
 		if t == nil {
 			return fmt.Errorf("http port option can not set nil transport")
 		}
-		if port < 0 {
+		if port < 0 || port > 65535 {
 			return fmt.Errorf("http port option was given an invalid port: %d", port)
 		}
 		if err := checkListen(t, "http port option"); err != nil {

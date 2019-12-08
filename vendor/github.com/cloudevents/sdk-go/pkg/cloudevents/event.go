@@ -12,6 +12,7 @@ type Event struct {
 	Context     EventContext
 	Data        interface{}
 	DataEncoded bool
+	DataBinary  bool
 }
 
 const (
@@ -30,7 +31,17 @@ func New(version ...string) Event {
 	return *e
 }
 
-// ExtensionAs returns Context.ExtensionAs(name, obj)
+// DEPRECATED: Access extensions directly via the e.Extensions() map.
+// Use functions in the types package to convert extension values.
+// For example replace this:
+//
+//     var i int
+//     err := e.ExtensionAs("foo", &i)
+//
+// With this:
+//
+//     i, err := types.ToInteger(e.Extensions["foo"])
+//
 func (e Event) ExtensionAs(name string, obj interface{}) error {
 	return e.Context.ExtensionAs(name, obj)
 }

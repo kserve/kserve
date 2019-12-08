@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/cloudevents/sdk-go/pkg/cloudevents/datacodec/json"
+	"github.com/cloudevents/sdk-go/pkg/cloudevents/datacodec/text"
 	"github.com/cloudevents/sdk-go/pkg/cloudevents/datacodec/xml"
 	"github.com/cloudevents/sdk-go/pkg/cloudevents/observability"
 )
@@ -30,12 +31,14 @@ func init() {
 	AddDecoder("text/json", json.Decode)
 	AddDecoder("application/xml", xml.Decode)
 	AddDecoder("text/xml", xml.Decode)
+	AddDecoder("text/plain", text.Decode)
 
 	AddEncoder("", json.Encode)
 	AddEncoder("application/json", json.Encode)
 	AddEncoder("text/json", json.Encode)
 	AddEncoder("application/xml", xml.Encode)
 	AddEncoder("text/xml", xml.Encode)
+	AddEncoder("text/plain", text.Encode)
 }
 
 // AddDecoder registers a decoder for a given content type. The codecs will use

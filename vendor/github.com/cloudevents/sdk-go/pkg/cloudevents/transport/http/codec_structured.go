@@ -13,7 +13,7 @@ import (
 // CodecStructured represents an structured http transport codec for all versions.
 // Intended to be used as a base class.
 type CodecStructured struct {
-	Encoding Encoding
+	DefaultEncoding Encoding
 }
 
 func (v CodecStructured) encodeStructured(ctx context.Context, e cloudevents.Event) (transport.Message, error) {

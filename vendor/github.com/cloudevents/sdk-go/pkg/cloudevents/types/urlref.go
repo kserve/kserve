@@ -11,6 +11,8 @@ import (
 // the CloudEvents spec for their definition of URI-Reference. Custom
 // marshal methods are implemented to ensure the outbound URLRef object is
 // is a flat string.
+//
+// deprecated: use URIRef.
 type URLRef struct {
 	url.URL
 }

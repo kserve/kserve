@@ -54,10 +54,10 @@ func (e Event) Time() time.Time {
 	return time.Time{}
 }
 
-// SchemaURL implements EventReader.SchemaURL
-func (e Event) SchemaURL() string {
+// DataSchema implements EventReader.DataSchema
+func (e Event) DataSchema() string {
 	if e.Context != nil {
-		return e.Context.GetSchemaURL()
+		return e.Context.GetDataSchema()
 	}
 	return ""
 }
@@ -81,15 +81,15 @@ func (e Event) DataMediaType() string {
 	return ""
 }
 
-// DataContentEncoding implements EventReader.DataContentEncoding
-func (e Event) DataContentEncoding() string {
+// DeprecatedDataContentEncoding implements EventReader.DeprecatedDataContentEncoding
+func (e Event) DeprecatedDataContentEncoding() string {
 	if e.Context != nil {
-		return e.Context.GetDataContentEncoding()
+		return e.Context.DeprecatedGetDataContentEncoding()
 	}
 	return ""
 }
 
-// DataContentEncoding implements EventReader.DataContentEncoding
+// Extensions implements EventReader.Extensions
 func (e Event) Extensions() map[string]interface{} {
 	if e.Context != nil {
 		return e.Context.GetExtensions()

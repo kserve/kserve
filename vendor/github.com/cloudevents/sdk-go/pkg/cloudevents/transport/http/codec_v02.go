@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/cloudevents/sdk-go/pkg/cloudevents"
+	cecontext "github.com/cloudevents/sdk-go/pkg/cloudevents/context"
 	"github.com/cloudevents/sdk-go/pkg/cloudevents/observability"
 	"github.com/cloudevents/sdk-go/pkg/cloudevents/transport"
 	"github.com/cloudevents/sdk-go/pkg/cloudevents/types"
@@ -18,7 +19,7 @@ import (
 type CodecV02 struct {
 	CodecStructured
 
-	Encoding Encoding
+	DefaultEncoding Encoding
 }
 
 // Adheres to Codec
@@ -26,9 +27,19 @@ var _ transport.Codec = (*CodecV02)(nil)
 
 // Encode implements Codec.Encode
 func (v CodecV02) Encode(ctx context.Context, e cloudevents.Event) (transport.Message, error) {
-	// TODO: wire context
-	_, r := observability.NewReporter(ctx, CodecObserved{o: reportEncode, c: v.Encoding.Codec()})
-	m, err := v.obsEncode(ctx, e)
+	encoding := v.DefaultEncoding
+	strEnc := cecontext.EncodingFrom(ctx)
+	if strEnc != "" {
+		switch strEnc {
+		case Binary:
+			encoding = BinaryV02
+		case Structured:
+			encoding = StructuredV02
+		}
+	}
+
+	_, r := observability.NewReporter(ctx, CodecObserved{o: reportEncode, c: encoding.Codec()})
+	m, err := v.obsEncode(ctx, e, encoding)
 	if err != nil {
 		r.Error()
 	} else {
@@ -37,8 +48,8 @@ func (v CodecV02) Encode(ctx context.Context, e cloudevents.Event) (transport.Me
 	return m, err
 }
 
-func (v CodecV02) obsEncode(ctx context.Context, e cloudevents.Event) (transport.Message, error) {
-	switch v.Encoding {
+func (v CodecV02) obsEncode(ctx context.Context, e cloudevents.Event, encoding Encoding) (transport.Message, error) {
+	switch encoding {
 	case Default:
 		fallthrough
 	case BinaryV02:
@@ -46,13 +57,12 @@ func (v CodecV02) obsEncode(ctx context.Context, e cloudevents.Event) (transport
 	case StructuredV02:
 		return v.encodeStructured(ctx, e)
 	default:
-		return nil, fmt.Errorf("unknown encoding: %d", v.Encoding)
+		return nil, fmt.Errorf("unknown encoding: %d", encoding)
 	}
 }
 
 // Decode implements Codec.Decode
 func (v CodecV02) Decode(ctx context.Context, msg transport.Message) (*cloudevents.Event, error) {
-	// TODO: wire context
 	_, r := observability.NewReporter(ctx, CodecObserved{o: reportDecode, c: v.inspectEncoding(ctx, msg).Codec()}) // TODO: inspectEncoding is not free.
 	e, err := v.obsDecode(ctx, msg)
 	if err != nil {
@@ -104,13 +114,8 @@ func (v CodecV02) toHeaders(ec *cloudevents.EventContextV02) (http.Header, error
 	if ec.SchemaURL != nil {
 		h.Set("ce-schemaurl", ec.SchemaURL.String())
 	}
-	if ec.ContentType != nil {
+	if ec.ContentType != nil && *ec.ContentType != "" {
 		h.Set("Content-Type", *ec.ContentType)
-	} else if v.Encoding == Default || v.Encoding == BinaryV02 {
-		// in binary v0.2, the Content-Type header is tied to ec.ContentType
-		// This was later found to be an issue with the spec, but yolo.
-		// TODO: not sure what the default should be?
-		h.Set("Content-Type", cloudevents.ApplicationJSON)
 	}
 	for k, v := range ec.Extensions {
 		// Per spec, map-valued extensions are converted to a list of headers as:
@@ -182,7 +187,11 @@ func (v CodecV02) fromHeaders(h http.Header) (cloudevents.EventContextV02, error
 	}
 	h.Del("ce-source")
 
-	ec.Time = types.ParseTimestamp(h.Get("ce-time"))
+	var err error
+	ec.Time, err = types.ParseTimestamp(h.Get("ce-time"))
+	if err != nil {
+		return ec, err
+	}
 	h.Del("ce-time")
 
 	ec.SchemaURL = types.ParseURLRef(h.Get("ce-schemaurl"))
