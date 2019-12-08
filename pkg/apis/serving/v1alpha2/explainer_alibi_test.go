@@ -2,13 +2,14 @@ package v1alpha2
 
 import (
 	"fmt"
+	"strings"
+	"testing"
+
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	"strings"
-	"testing"
 )
 
 func TestAlibiExplainer(t *testing.T) {
@@ -90,7 +91,7 @@ func TestCreateAlibiExplainerContainer(t *testing.T) {
 			constants.ArgumentPredictorHost,
 			"predictor.svc.cluster.local",
 			constants.ArgumentHttpPort,
-			constants.GetInferenceServiceHttpPort(false),
+			constants.InferenceServiceDefaultHttpPort,
 			"--storage_uri",
 			"/mnt/models",
 			"Anchor",
@@ -98,7 +99,7 @@ func TestCreateAlibiExplainerContainer(t *testing.T) {
 	}
 
 	// Test Create with config
-	container := spec.CreateExplainerContainer("someName", "predictor.svc.cluster.local", false, config)
+	container := spec.CreateExplainerContainer("someName", "predictor.svc.cluster.local", config)
 	g.Expect(container).To(gomega.Equal(expectedContainer))
 }
 
@@ -147,7 +148,7 @@ func TestCreateAlibiExplainerContainerWithConfig(t *testing.T) {
 			"--predictor_host",
 			"predictor.svc.cluster.local",
 			"--http_port",
-			"8081",
+			"8080",
 			"--storage_uri",
 			"/mnt/models",
 			"AnchorText",
@@ -161,6 +162,6 @@ func TestCreateAlibiExplainerContainerWithConfig(t *testing.T) {
 	}
 
 	// Test Create with config
-	container := spec.CreateExplainerContainer("someName", "predictor.svc.cluster.local", true, config)
+	container := spec.CreateExplainerContainer("someName", "predictor.svc.cluster.local", config)
 	g.Expect(container).To(gomega.Equal(expectedContainer))
 }

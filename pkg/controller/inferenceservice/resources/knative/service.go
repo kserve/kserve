@@ -18,6 +18,7 @@ package knative
 
 import (
 	"fmt"
+	"strconv"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -111,6 +112,19 @@ func addLoggerAnnotations(logger *v1alpha2.Logger, annotations map[string]string
 	return false
 }
 
+func addLoggerContainerPort(container *v1.Container) {
+	if container != nil {
+		if container.Ports == nil {
+			port, _ := strconv.Atoi(constants.InferenceServiceDefaultLoggerPort)
+			container.Ports = []v1.ContainerPort{
+				v1.ContainerPort{
+					ContainerPort: int32(port),
+				},
+			}
+		}
+	}
+}
+
 func (c *ServiceBuilder) CreatePredictorService(name string, metadata metav1.ObjectMeta, predictorSpec *v1alpha2.PredictorSpec) (*knservingv1alpha1.Service, error) {
 	annotations, err := c.buildAnnotations(metadata, predictorSpec.MinReplicas, predictorSpec.MaxReplicas)
 	if err != nil {
@@ -126,6 +140,10 @@ func (c *ServiceBuilder) CreatePredictorService(name string, metadata metav1.Obj
 	// Knative does not support multiple containers so we add an annotation that triggers pod
 	// mutator to add it
 	hasInferenceLogging := addLoggerAnnotations(predictorSpec.Logger, annotations)
+	container := predictorSpec.GetContainer(metadata.Name, c.inferenceServiceConfig)
+	if hasInferenceLogging {
+		addLoggerContainerPort(container)
+	}
 
 	service := &knservingv1alpha1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -150,7 +168,7 @@ func (c *ServiceBuilder) CreatePredictorService(name string, metadata metav1.Obj
 							PodSpec: v1.PodSpec{
 								ServiceAccountName: predictorSpec.ServiceAccountName,
 								Containers: []v1.Container{
-									*predictorSpec.GetContainer(metadata.Name, hasInferenceLogging, c.inferenceServiceConfig),
+									*container,
 								},
 							},
 						},
@@ -182,8 +200,10 @@ func (c *ServiceBuilder) CreateTransformerService(name string, metadata metav1.O
 	// mutator to add it
 	hasInferenceLogging := addLoggerAnnotations(transformerSpec.Logger, annotations)
 
-	container := transformerSpec.GetContainerSpec(metadata, isCanary, hasInferenceLogging)
-
+	container := transformerSpec.GetContainerSpec(metadata, isCanary)
+	if hasInferenceLogging {
+		addLoggerContainerPort(container)
+	}
 	service := &knservingv1alpha1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -244,7 +264,10 @@ func (c *ServiceBuilder) CreateExplainerService(name string, metadata metav1.Obj
 	// Knative does not support multiple containers so we add an annotation that triggers pod
 	// mutator to add it
 	hasInferenceLogging := addLoggerAnnotations(explainerSpec.Logger, annotations)
-
+	container := explainerSpec.CreateExplainerContainer(metadata.Name, predictorService, c.inferenceServiceConfig)
+	if hasInferenceLogging {
+		addLoggerContainerPort(container)
+	}
 	service := &knservingv1alpha1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -268,7 +291,7 @@ func (c *ServiceBuilder) CreateExplainerService(name string, metadata metav1.Obj
 							PodSpec: v1.PodSpec{
 								ServiceAccountName: explainerSpec.ServiceAccountName,
 								Containers: []v1.Container{
-									*explainerSpec.CreateExplainerContainer(metadata.Name, predictorService, hasInferenceLogging, c.inferenceServiceConfig),
+									*container,
 								},
 							},
 						},

@@ -41,7 +41,7 @@ func (t *TensorflowSpec) GetResourceRequirements() *v1.ResourceRequirements {
 	return &t.Resources
 }
 
-func (t *TensorflowSpec) GetContainer(modelName string, hasLogging bool, config *InferenceServicesConfig) *v1.Container {
+func (t *TensorflowSpec) GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container {
 	return &v1.Container{
 		Image:     config.Predictors.Tensorflow.ContainerImage + ":" + t.RuntimeVersion,
 		Name:      constants.InferenceServiceContainerName,
@@ -49,7 +49,7 @@ func (t *TensorflowSpec) GetContainer(modelName string, hasLogging bool, config 
 		Resources: t.Resources,
 		Args: []string{
 			"--port=" + TensorflowServingGRPCPort,
-			"--rest_api_port=" + constants.GetInferenceServiceHttpPort(hasLogging),
+			"--rest_api_port=" + TensorflowServingRestPort,
 			"--model_name=" + modelName,
 			"--model_base_path=" + constants.DefaultModelLocalMountPath,
 		},
