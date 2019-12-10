@@ -113,8 +113,8 @@ const (
 
 // InferenceService Endpoint Ports
 const (
-	InferenceServiceDefaultHttpPort     = "8080"
-	InferenceServiceHttpPortWithLogging = "8081"
+	InferenceServiceDefaultHttpPort   = "8080"
+	InferenceServiceDefaultLoggerPort = "8081"
 )
 
 // InferenceService default/canary constants
@@ -229,14 +229,6 @@ func TransformerURL(metadata v1.ObjectMeta, isCanary bool) string {
 		serviceName = CanaryTransformerServiceName(metadata.Name)
 	}
 	return fmt.Sprintf("%s.%s", serviceName, metadata.Namespace)
-}
-
-func GetInferenceServiceHttpPort(hasLogging bool) string {
-	if hasLogging {
-		return InferenceServiceHttpPortWithLogging
-	} else {
-		return InferenceServiceDefaultHttpPort
-	}
 }
 
 func GetLoggerDefaultUrl(namespace string) string {
