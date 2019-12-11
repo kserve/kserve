@@ -53,11 +53,6 @@ func (t *TensorRTSpec) GetContainer(modelName string, config *InferenceServicesC
 			"--grpc-port=" + fmt.Sprint(TensorRTISGRPCPort),
 			"--http-port=" + fmt.Sprint(TensorRTISRestPort),
 		},
-		Ports: []v1.ContainerPort{
-			{
-				ContainerPort: TensorRTISRestPort,
-			},
-		},
 	}
 }
 
