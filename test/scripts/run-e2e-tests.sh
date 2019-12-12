@@ -141,12 +141,19 @@ echo "Istio, Knative and KFServing have been installed and started."
 
 echo "Upgrading Python to 3.6 to install KFServing SDK ..."
 apt-get update -yqq
-apt-get install -yqq --no-install-recommends software-properties-common
-add-apt-repository -y ppa:jonathonf/python-3.6
-apt-get update -yqq
-apt-get install -yqq --no-install-recommends  python3.6 python3-pip
+apt-get install -y build-essential checkinstall >/dev/null
+apt-get install -y libreadline-gplv2-dev libncursesw5-dev libssl-dev libsqlite3-dev tk-dev libgdbm-dev libc6-dev libbz2-dev >/dev/null
+wget https://www.python.org/ftp/python/3.6.9/Python-3.6.9.tar.xz >/dev/null
+tar xvf Python-3.6.9.tar.xz >/dev/null
+pushd Python-3.6.9  >/dev/null
+  ./configure >/dev/null
+  make altinstall >/dev/null
+popd
+
 update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.5 1
-update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.6 2
+update-alternatives --install /usr/bin/python3 python3 /usr/local/bin/python3.6 2
+# Work around the issue https://github.com/pypa/pip/issues/4924
+mv /usr/bin/lsb_release /usr/bin/lsb_release.bak
 
 echo "Installing KFServing Python SDK ..."
 python3 -m pip install --upgrade pip
