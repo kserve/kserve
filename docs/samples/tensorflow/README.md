@@ -3,7 +3,7 @@
 ## Setup
 1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/blob/master/docs/DEVELOPER_GUIDE.md#deploy-kfserving).
 2. Your cluster's Istio Ingress gateway must be network accessible.
-3. Your cluster's Istio Egresss gateway must [allow Google Cloud Storage](https://knative.dev/docs/serving/outbound-network-access/)
+3. Your cluster's Istio Egresss gateway must [allow Google Cloud Storage](https://knative.dev/v0.8-docs/serving/outbound-network-access/)
 
 ## Create the InferenceService
 Apply the CRD
@@ -85,7 +85,7 @@ NAME             READY     URL                                  DEFAULT TRAFFIC 
 flowers-sample   True      http://flowers-sample.default.example.com   90                10               48s
 ```
 
-If you are using the [Knative CLI (knctl)](#knative-cli), run the following command
+If you are using the [Knative CLI (knctl)](https://github.com/cppforlife/knctl), run the following command
 
 ```
 knctl route show --route flowers-sample 
