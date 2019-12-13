@@ -21,33 +21,32 @@ class HTTPHandler(tornado.web.RequestHandler):
         return model
 
     def validate(self, request):
-        try:
-            body = json.loads(request.body)
-        except json.decoder.JSONDecodeError as e:
-            raise tornado.web.HTTPError(
-                status_code=HTTPStatus.BAD_REQUEST,
-                reason="Unrecognized request format: %s" % e
-            )
-
-        if "instances" not in body:
+        if "instances" not in request:
             raise tornado.web.HTTPError(
                 status_code=HTTPStatus.BAD_REQUEST,
                 reason="Expected key \"instances\" in request body"
             )
 
-        if not isinstance(body["instances"], list):
+        if not isinstance(request["instances"], list):
             raise tornado.web.HTTPError(
                 status_code=HTTPStatus.BAD_REQUEST,
                 reason="Expected \"instances\" to be a list"
             )
-        return body
+        return request
 
 
 class PredictHandler(HTTPHandler):
     def post(self, name: str):
         model = self.get_model(name)
-        request = self.validate(self.request)
-        request = model.preprocess(request)
+        try:
+            body = json.loads(self.request.body)
+        except json.decoder.JSONDecodeError as e:
+            raise tornado.web.HTTPError(
+                status_code=HTTPStatus.BAD_REQUEST,
+                reason="Unrecognized request format: %s" % e
+            )
+        request = model.preprocess(body)
+        request = self.validate(request)
         response = model.predict(request)
         response = model.postprocess(response)
         self.write(json.dumps(response))

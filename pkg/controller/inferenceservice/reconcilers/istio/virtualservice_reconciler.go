@@ -19,12 +19,14 @@ package istio
 import (
 	"context"
 	"fmt"
+	"github.com/kubeflow/kfserving/pkg/constants"
 
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	"github.com/kubeflow/kfserving/pkg/controller/inferenceservice/resources/istio"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	istiov1alpha3 "knative.dev/pkg/apis/istio/v1alpha3"
@@ -60,11 +62,64 @@ func (r *VirtualServiceReconciler) Reconcile(isvc *v1alpha2.InferenceService) er
 		return fmt.Errorf("failed to reconcile virtual service: desired and status are nil")
 	}
 
+	if err := r.reconcileExternalService(isvc); err != nil {
+		return err
+	}
+
 	if err := r.reconcileVirtualService(isvc, desired); err != nil {
 		return err
 	}
 
 	isvc.Status.PropagateRouteStatus(status)
+
+	return nil
+}
+
+func (r *VirtualServiceReconciler) reconcileExternalService(isvc *v1alpha2.InferenceService) error {
+	desired := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      isvc.Name,
+			Namespace: isvc.Namespace,
+		},
+		Spec: corev1.ServiceSpec{
+			ExternalName: constants.LocalGatewayHost,
+			Type:         corev1.ServiceTypeExternalName,
+		},
+	}
+	if err := controllerutil.SetControllerReference(isvc, desired, r.scheme); err != nil {
+		return err
+	}
+
+	// Create vanity virtual service if does not exist
+	existing := &corev1.Service{}
+	err := r.client.Get(context.TODO(), types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, existing)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			log.Info("Creating External Service", "namespace", desired.Namespace, "name", desired.Name)
+			err = r.client.Create(context.TODO(), desired)
+		}
+		return err
+	}
+
+	// Return if no differences to reconcile.
+	if equality.Semantic.DeepEqual(desired, existing) {
+		return nil
+	}
+
+	// Reconcile differences and update
+	diff, err := kmp.SafeDiff(desired.Spec, existing.Spec)
+	if err != nil {
+		return fmt.Errorf("failed to diff virtual service: %v", err)
+	}
+	log.Info("Reconciling external service diff (-desired, +observed):", "diff", diff)
+	log.Info("Updating external service", "namespace", existing.Namespace, "name", existing.Name)
+	existing.Spec = desired.Spec
+	existing.ObjectMeta.Labels = desired.ObjectMeta.Labels
+	existing.ObjectMeta.Annotations = desired.ObjectMeta.Annotations
+	err = r.client.Update(context.TODO(), existing)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }

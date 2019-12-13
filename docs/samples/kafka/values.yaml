@@ -1,0 +1,145 @@
+# Default values for cp-kafka.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+## ------------------------------------------------------
+## Kafka
+## ------------------------------------------------------
+
+## Number of Kafka brokers
+brokers: 3
+
+## Image Info
+## ref: https://hub.docker.com/r/confluentinc/cp-kafka/
+image: confluentinc/cp-enterprise-kafka
+imageTag: 5.3.1
+
+## Specify a imagePullPolicy
+## ref: http://kubernetes.io/docs/user-guide/images/#pre-pulling-images
+imagePullPolicy: IfNotPresent
+
+## Specify an array of imagePullSecrets.
+## Secrets must be manually created in the namespace.
+## ref: https://kubernetes.io/docs/concepts/containers/images/#specifying-imagepullsecrets-on-a-pod
+imagePullSecrets:
+
+## StatefulSet Config
+## Start and stop pods in Parallel or OrderedReady (one-by-one.)
+## ref: https://kubernetes.io/docs/tutorials/stateful-application/basic-stateful-set/#pod-management-policy
+podManagementPolicy: OrderedReady
+
+## The StatefulSet Update Strategy which Kafka will use when changes are applied: OnDelete or RollingUpdate
+## ref: https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#update-strategies
+updateStrategy: RollingUpdate
+
+## Kafka Server properties
+## ref: https://kafka.apache.org/documentation/#configuration
+configurationOverrides:
+  "offsets.topic.replication.factor": "3"
+  # "default.replication.factor": 3
+  # "min.insync.replicas": 2
+  # "auto.create.topics.enable": false
+
+  ## Options required for external access via NodePort
+  ## ref:
+  ## - http://kafka.apache.org/documentation/#security_configbroker
+  ## - https://cwiki.apache.org/confluence/display/KAFKA/KIP-103%3A+Separation+of+Internal+and+External+traffic
+  ##
+  ## Advertised listeners will use the firstListenerPort value as it's default unless overridden here.
+  ## Setting "advertised.listeners" here appends to "PLAINTEXT://${POD_IP}:9092,"
+  # "advertised.listeners": |-
+  # EXTERNAL://${HOST_IP}:$((31090 + ${KAFKA_BROKER_ID}))
+  "listener.security.protocol.map": |-
+   PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
+
+## Additional env variables
+customEnv: {}
+  # KAFKA_METRIC_REPORTERS: "io.confluent.metrics.reporter.ConfluentMetricsReporter"
+  # CONFLUENT_METRICS_REPORTER_BOOTSTRAP_SERVERS: "localhost:9092"
+
+persistence:
+  enabled: false 
+
+  ## The size of the PersistentVolume to allocate to each Kafka Pod in the StatefulSet. For
+  ## production servers this number should likely be much larger.
+  size: 1Gi
+
+  ## Kafka data Persistent Volume Storage Class
+  ## If defined, storageClassName: <storageClass>
+  ## If set to "-", storageClassName: "", which disables dynamic provisioning
+  ## If undefined (the default) or set to null, no storageClassName spec is
+  ##   set, choosing the default provisioner.  (gp2 on AWS, standard on
+  ##   GKE, AWS & OpenStack)
+  ##
+  # storageClass: ""
+
+  disksPerBroker: 1
+
+## Kafka JVM Heap Option
+heapOptions: "-Xms512M -Xmx512M"
+
+resources: {}
+  # We usually recommend not to specify default resources and to leave this as a conscious
+  # choice for the user. This also increases chances charts run on environments with little
+  # resources, such as Minikube. If you do want to specify resources, uncomment the following
+  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+  # limits:
+  #  cpu: 100m
+  #  memory: 128Mi
+  # requests:
+  #  cpu: 100m
+  #  memory: 128Mi
+
+## Custom pod annotations
+podAnnotations: {}
+
+## Node labels for pod assignment
+## Ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
+nodeSelector: {}
+
+## Taints to tolerate on node assignment:
+## Ref: https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
+tolerations: {}
+
+## Monitoring
+## Kafka JMX Settings
+## ref: https://docs.confluent.io/current/kafka/monitoring.html
+jmx:
+  port: 5555
+
+## Prometheus Exporter Configuration
+## ref: https://prometheus.io/docs/instrumenting/exporters/
+prometheus:
+  ## JMX Exporter Configuration
+  ## ref: https://github.com/prometheus/jmx_exporter
+  jmx:
+    enabled: true
+    image: solsson/kafka-prometheus-jmx-exporter@sha256
+    imageTag: 6f82e2b0464f50da8104acd7363fb9b995001ddff77d248379f8788e78946143
+    imagePullPolicy: IfNotPresent
+    port: 5556
+
+    ## Resources configuration for the JMX exporter container.
+    ## See the `resources` documentation above for details.
+    resources: {}
+
+nodeport:
+  enabled: false
+  servicePort: 19092
+  firstListenerPort: 31090
+
+## ------------------------------------------------------
+## Zookeeper
+## ------------------------------------------------------
+cp-zookeeper:
+  ## If true, install the cp-zookeeper chart alongside cp-kafka
+  ## ref: ../cp-zookeeper
+  enabled: true 
+  servers: 1 
+  persistence:
+    enabled: false 
+    dataDirSize: 5Gi
+    dataLogDirSize: 5Gi
+
+  ## If the Zookeeper Chart is disabled a URL and port are required to connect
+  url: ""
