@@ -209,7 +209,7 @@ The path or model %s does not exist." % (uri))
     @staticmethod
     def _create_minio_client():
         # Remove possible http scheme for Minio
-        url = urlparse(os.getenv("AWS_ENDPOINT_URL", ""))
+        url = urlparse(os.getenv("AWS_ENDPOINT_URL", "s3.amazonaws.com"))
         use_ssl = url.scheme == 'https' if url.scheme else bool(os.getenv("S3_USE_HTTPS", "true"))
         return Minio(url.netloc,
                      access_key=os.getenv("AWS_ACCESS_KEY_ID", ""),
