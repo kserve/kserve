@@ -8,7 +8,8 @@
   "paths": {},
   "definitions": {
     "knative.Condition": {
-      "description": "Conditions defines a readiness condition for a Knative resource. See: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#typical-status-properties",
+      "description": "Conditions defines a readiness condition for a Knative resource. See: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#typical-status-properties",
+      "type": "object",
       "required": [
         "type",
         "status"
@@ -42,6 +43,7 @@
     },
     "knative.VolatileTime": {
       "description": "VolatileTime wraps metav1.Time",
+      "type": "object",
       "required": [
         "Inner"
       ],
@@ -53,6 +55,7 @@
     },
     "v1alpha2.AlibiExplainerSpec": {
       "description": "AlibiExplainerSpec defines the arguments for configuring an Alibi Explanation Server",
+      "type": "object",
       "required": [
         "type"
       ],
@@ -84,6 +87,7 @@
     },
     "v1alpha2.CustomSpec": {
       "description": "CustomSpec provides a hook for arbitrary container configuration.",
+      "type": "object",
       "required": [
         "container"
       ],
@@ -95,6 +99,7 @@
     },
     "v1alpha2.DeploymentSpec": {
       "description": "DeploymentSpec defines the configuration for a given InferenceService service component",
+      "type": "object",
       "properties": {
         "logger": {
           "description": "Activate request/response logging",
@@ -117,6 +122,7 @@
       }
     },
     "v1alpha2.EndpointSpec": {
+      "type": "object",
       "required": [
         "predictor"
       ],
@@ -137,6 +143,7 @@
     },
     "v1alpha2.ExplainerSpec": {
       "description": "ExplainerSpec defines the arguments for a model explanation server, The following fields follow a \"1-of\" semantic. Users must specify exactly one spec.",
+      "type": "object",
       "properties": {
         "alibi": {
           "description": "Spec for alibi explainer",
@@ -168,6 +175,7 @@
     },
     "v1alpha2.InferenceService": {
       "description": "InferenceService is the Schema for the services API",
+      "type": "object",
       "properties": {
         "apiVersion": {
           "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
@@ -190,6 +198,7 @@
     },
     "v1alpha2.InferenceServiceList": {
       "description": "InferenceServiceList contains a list of Service",
+      "type": "object",
       "required": [
         "items"
       ],
@@ -202,7 +211,8 @@
           "type": "array",
           "items": {
             "$ref": "#/definitions/v1alpha2.InferenceService"
-          }
+          },
+          "x-kubernetes-list-type": "set"
         },
         "kind": {
           "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds",
@@ -215,6 +225,7 @@
     },
     "v1alpha2.InferenceServiceSpec": {
       "description": "InferenceServiceSpec defines the desired state of InferenceService",
+      "type": "object",
       "required": [
         "default"
       ],
@@ -236,6 +247,7 @@
     },
     "v1alpha2.InferenceServiceStatus": {
       "description": "InferenceServiceStatus defines the observed state of InferenceService",
+      "type": "object",
       "properties": {
         "canary": {
           "description": "Statuses for the canary endpoints of the InferenceService",
@@ -283,6 +295,7 @@
     },
     "v1alpha2.Logger": {
       "description": "Logger provides optional payload logging for all endpoints",
+      "type": "object",
       "properties": {
         "mode": {
           "description": "What payloads to log",
@@ -296,6 +309,7 @@
     },
     "v1alpha2.ONNXSpec": {
       "description": "ONNXSpec defines arguments for configuring ONNX model serving.",
+      "type": "object",
       "required": [
         "storageUri"
       ],
@@ -316,6 +330,7 @@
     },
     "v1alpha2.PredictorSpec": {
       "description": "PredictorSpec defines the configuration for a predictor, The following fields follow a \"1-of\" semantic. Users must specify exactly one spec.",
+      "type": "object",
       "properties": {
         "custom": {
           "description": "Spec for a custom predictor",
@@ -367,6 +382,7 @@
     },
     "v1alpha2.PyTorchSpec": {
       "description": "PyTorchSpec defines arguments for configuring PyTorch model serving.",
+      "type": "object",
       "required": [
         "storageUri"
       ],
@@ -391,6 +407,7 @@
     },
     "v1alpha2.SKLearnSpec": {
       "description": "SKLearnSpec defines arguments for configuring SKLearn model serving.",
+      "type": "object",
       "required": [
         "storageUri"
       ],
@@ -411,6 +428,7 @@
     },
     "v1alpha2.StatusConfigurationSpec": {
       "description": "StatusConfigurationSpec describes the state of the configuration receiving traffic.",
+      "type": "object",
       "properties": {
         "host": {
           "description": "Host name of the service",
@@ -428,6 +446,7 @@
     },
     "v1alpha2.TensorRTSpec": {
       "description": "TensorRTSpec defines arguments for configuring TensorRT model serving.",
+      "type": "object",
       "required": [
         "storageUri"
       ],
@@ -448,6 +467,7 @@
     },
     "v1alpha2.TensorflowSpec": {
       "description": "TensorflowSpec defines arguments for configuring Tensorflow model serving.",
+      "type": "object",
       "required": [
         "storageUri"
       ],
@@ -468,6 +488,7 @@
     },
     "v1alpha2.TransformerSpec": {
       "description": "TransformerSpec defines transformer service for pre/post processing",
+      "type": "object",
       "properties": {
         "custom": {
           "description": "Spec for a custom transformer",
@@ -495,6 +516,7 @@
     },
     "v1alpha2.XGBoostSpec": {
       "description": "XGBoostSpec defines arguments for configuring XGBoost model serving.",
+      "type": "object",
       "required": [
         "storageUri"
       ],

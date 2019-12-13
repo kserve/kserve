@@ -38,6 +38,7 @@ config/overlays/local/
 .ko.yaml
 
 # swagger-codegen tools and auto generated files but useless
+hack/current_violation_exceptions.list
 hack/python-sdk/swagger-codegen-cli.jar
 python/kfserving/.swagger-codegen-ignore
 python/kfserving/.swagger-codegen/
