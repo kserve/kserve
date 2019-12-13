@@ -1064,7 +1064,7 @@
   version = "kubernetes-1.12.6"
 
 [[projects]]
-  digest = "1:26b81b5e76e3f84ea5140da4f74649576e470f79091d2ef8e0d1b5000bc636ca"
+  digest = "1:f41480fd8c5f54b13326ee0f2ee398d5734789b790dbc4db57f9b08a0d63139a"
   name = "k8s.io/code-generator"
   packages = [
     "cmd/client-gen",
@@ -1077,13 +1077,12 @@
     "cmd/client-gen/types",
     "cmd/deepcopy-gen",
     "cmd/deepcopy-gen/args",
-    "cmd/openapi-gen",
-    "cmd/openapi-gen/args",
+    "pkg/namer",
     "pkg/util",
   ]
   pruneopts = "T"
-  revision = "b1289fc74931d4b6b04bd1a259acfc88a2cb0a66"
-  version = "kubernetes-1.12.6"
+  revision = "18da4a14b22b17d2fa761e50037fabfbacec225b"
+  version = "kubernetes-1.15.3"
 
 [[projects]]
   branch = "master"
@@ -1111,11 +1110,10 @@
 
 [[projects]]
   branch = "release-1.10"
-  digest = "1:5e6cf5c86780f55cab6254217bc22e327606b6d09aed280ac12494d837327512"
+  digest = "1:e2e5161f8bd8965992891a1b600546080caea658af1a246c9e355b20b303a844"
   name = "k8s.io/kube-openapi"
   packages = [
     "pkg/common",
-    "pkg/generators",
     "pkg/util/proto",
   ]
   pruneopts = "NUT"
@@ -1334,7 +1332,6 @@
     "k8s.io/client-go/util/flowcontrol",
     "k8s.io/code-generator/cmd/client-gen",
     "k8s.io/code-generator/cmd/deepcopy-gen",
-    "k8s.io/code-generator/cmd/openapi-gen",
     "k8s.io/klog",
     "k8s.io/kube-openapi/pkg/common",
     "k8s.io/kubernetes/pkg/apis/core",
@@ -1346,11 +1343,11 @@
     "knative.dev/pkg/apis/istio/common/v1alpha1",
     "knative.dev/pkg/apis/istio/v1alpha3",
     "knative.dev/pkg/kmp",
+    "knative.dev/pkg/network",
     "knative.dev/serving/pkg/apis/autoscaling",
     "knative.dev/serving/pkg/apis/serving",
     "knative.dev/serving/pkg/apis/serving/v1",
     "knative.dev/serving/pkg/apis/serving/v1alpha1",
-    "knative.dev/serving/pkg/network",
     "sigs.k8s.io/controller-runtime/pkg/client",
     "sigs.k8s.io/controller-runtime/pkg/client/config",
     "sigs.k8s.io/controller-runtime/pkg/controller",

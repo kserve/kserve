@@ -5,7 +5,6 @@ required = [
     "k8s.io/client-go/plugin/pkg/client/auth/gcp", # for development against gcp
     "k8s.io/code-generator/cmd/client-gen", # for go generate
     "k8s.io/code-generator/cmd/deepcopy-gen", # for go generate
-    "k8s.io/code-generator/cmd/openapi-gen", # for go generate
     "sigs.k8s.io/controller-tools/cmd/controller-gen", # for crd/rbac generation
     "sigs.k8s.io/controller-runtime/pkg/client/config",
     "sigs.k8s.io/controller-runtime/pkg/controller",
@@ -71,7 +70,7 @@ version="v1.4.7"
 
 [[override]]
   name = "k8s.io/code-generator"
-  version = "kubernetes-1.12.6"
+  version = "kubernetes-1.15.3"
 
 [[override]]
   name = "k8s.io/client-go"
