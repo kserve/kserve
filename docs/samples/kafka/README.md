@@ -6,6 +6,7 @@
 3. Install Minio with following Minio deploy step.
 4. Use existing Kafka cluster or install Kafka on your cluster with [Confluent helm chart](https://www.confluent.io/blog/getting-started-apache-kafka-kubernetes/).
 5. Install [Kafka Event Source](https://github.com/knative/eventing-contrib/tree/master/kafka/source).
+6. Install [Kustomize 3.0+](https://github.com/kubernetes-sigs/kustomize/blob/master/docs/INSTALL.md)
 
 This example shows an end to end inference pipeline which processes an kafka event and invoke the inference service to get the prediction with provided
 pre/post processing code.
