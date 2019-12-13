@@ -143,6 +143,7 @@ func (ss *InferenceServiceStatus) propagateStatus(statusSpec *StatusConfiguratio
 // PropagateRouteStatus propagates route's status to the service's status.
 func (ss *InferenceServiceStatus) PropagateRouteStatus(vs *VirtualServiceStatus) {
 	ss.URL = vs.URL
+	ss.Address = vs.Address
 	ss.Traffic = vs.DefaultWeight
 	ss.CanaryTraffic = vs.CanaryWeight
 
