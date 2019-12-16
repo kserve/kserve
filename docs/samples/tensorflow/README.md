@@ -3,7 +3,7 @@
 ## Setup
 1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/blob/master/docs/DEVELOPER_GUIDE.md#deploy-kfserving).
 2. Your cluster's Istio Ingress gateway must be network accessible.
-3. Your cluster's Istio Egresss gateway must [allow Google Cloud Storage](https://knative.dev/docs/serving/outbound-network-access/)
+
 
 ## Create the InferenceService
 Apply the CRD
@@ -85,29 +85,13 @@ NAME             READY     URL                                  DEFAULT TRAFFIC 
 flowers-sample   True      http://flowers-sample.default.example.com   90                10               48s
 ```
 
-If you are using the [Knative CLI (knctl)](#knative-cli), run the following command
+If you are using the [Knative CLI (kn)](https://github.com/knative/client), run the following command
 
 ```
-knctl route show --route flowers-sample 
-Route 'flowers-sample'
+kn route list
 
-Name             flowers-sample  
-Domain           flowers-sample.default.example.com  
-Internal Domain  flowers-sample.default.svc.cluster.local  
-Age              1m  
+NAME                               URL                                                           AGE     CONDITIONS   TRAFFIC
+flowers-sample-predictor-canary    http://flowers-sample-predictor-canary.default.example.com    2d23h   3 OK / 3     100% -> flowers-sample-predictor-canary-mswmr
+flowers-sample-predictor-default   http://flowers-sample-predictor-default.default.example.com   5d20h   3 OK / 3     100% -> flowers-sample-predictor-default-x7zcl
 
-Targets
-
-Percent  Revision                      Service  Domain  
-90%      flowers-sample-default-4s74r  -        flowers-sample.default.example.com  
-10%      flowers-sample-canary-bjdkm   -        flowers-sample.default.example.com  
-
-Conditions
-
-Type                Status  Age  Reason  Message  
-AllTrafficAssigned  True    46s  -       -  
-IngressReady        True    45s  -       -  
-Ready               True    45s  -       -  
-
-Succeeded
 ```
