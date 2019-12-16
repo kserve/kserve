@@ -67,11 +67,6 @@ func TestCreateModelServingContainer(t *testing.T) {
 			"--grpc-port=9000",
 			"--http-port=8080",
 		},
-		Ports: []v1.ContainerPort{
-			{
-				ContainerPort: 8080,
-			},
-		},
 	}
 
 	// Test Create with config

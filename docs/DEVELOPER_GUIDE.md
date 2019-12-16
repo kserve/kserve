@@ -213,7 +213,7 @@ You can also use [Knative CLI (`knctl`)](https://github.com/cppforlife/knctl) to
 
 ```
 # compare checksum output to what's included in the release notes
-$ shasum -a 265 ~/Downloads/knctl-*
+$ shasum -a 256 ~/Downloads/knctl-*
 
 # move binary to your system’s /usr/local/bin -- might require root password
 $ mv ~/Downloads/knctl-* /usr/local/bin/knctl
