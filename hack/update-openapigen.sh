@@ -22,8 +22,22 @@ if [ -z "${GOPATH:-}" ]; then
     export GOPATH=$(go env GOPATH)
 fi
 
+KNOWN_VIOLATION_EXCEPTIONS=hack/violation_exceptions.list
+CURRENT_VIOLATION_EXCEPTIONS=hack/current_violation_exceptions.list
+
 # Generating OpenAPI specification
-go run vendor/k8s.io/code-generator/cmd/openapi-gen/main.go --input-dirs github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2,knative.dev/pkg/apis --output-package github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2/ --go-header-file hack/boilerplate.go.txt
+go run vendor/k8s.io/kube-openapi/cmd/openapi-gen/openapi-gen.go \
+    --input-dirs github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2,knative.dev/pkg/apis \
+    --output-package github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2/ --go-header-file hack/boilerplate.go.txt \
+    -r $CURRENT_VIOLATION_EXCEPTIONS
+
+test -f $CURRENT_VIOLATION_EXCEPTIONS || touch $CURRENT_VIOLATION_EXCEPTIONS
+
+# The API rule fails if generated API rule violation report differs from the
+# checked-in violation file, prints error message to request developer to
+# fix either the API source code, or the known API rule violation file.
+diff $CURRENT_VIOLATION_EXCEPTIONS $KNOWN_VIOLATION_EXCEPTIONS || \
+    (echo -e "ERROR: \n\t API rule check failed. Reported violations in file $CURRENT_VIOLATION_EXCEPTIONS differ from known violations in file $KNOWN_VIOLATION_EXCEPTIONS. \n"; exit 1)
 
 # Generating swagger file
 go run cmd/spec-gen/main.go 0.1 > pkg/apis/serving/v1alpha2/swagger.json
