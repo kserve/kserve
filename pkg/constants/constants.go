@@ -71,6 +71,7 @@ var (
 	EnableWebhookNamespaceSelectorEnvName       = "ENABLE_WEBHOOK_NAMESPACE_SELECTOR"
 	EnableWebhookNamespaceSelectorEnvValue      = "enabled"
 	IsEnableWebhookNamespaceSelector            = isEnvVarMatched(EnableWebhookNamespaceSelectorEnvName, EnableWebhookNamespaceSelectorEnvValue)
+	PodMutatorWebhookName                       = KFServingName + "-pod-mutator-webhook"
 )
 
 // GPU Constants
