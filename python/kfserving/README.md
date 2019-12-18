@@ -69,7 +69,8 @@ Class | Method |  Description
 [KFServingClient](docs/KFServingClient.md) | [rollout_canary](docs/KFServingClient.md#rollout_canary) | Rollout the traffic on `canary` version for specified InferenceService|
 [KFServingClient](docs/KFServingClient.md) | [promote](docs/KFServingClient.md#promote) | Promote the `canary` version of the InferenceService to `default`|
 [KFServingClient](docs/KFServingClient.md) | [delete](docs/KFServingClient.md#delete) | Delete the specified InferenceService |
-
+[KFServingClient](docs/KFServingClient.md) | [wait_for_ready](docs/KFServingClient.md#wait_for_ready) | Wait for the InferenceService ready |
+[KFServingClient](docs/KFServingClient.md) | [is_isvc_ready](docs/KFServingClient.md#is_isvc_read) | Check if the InferenceService is ready |
 
 ## Documentation For Models
 

@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import time
+import logging
 from kubernetes import client, config
 
 from ..constants import constants
@@ -325,3 +326,55 @@ class KFServingClient(object):
             raise RuntimeError(
                 "Exception when calling CustomObjectsApi->delete_namespaced_custom_object:\
                  %s\n" % e)
+
+
+    def is_isvc_ready(self, name, namespace=None): #pylint:disable=inconsistent-return-statements
+        """
+        Check if the inference service is ready.
+        :param name: inference service name
+        :param namespace: defaults to current or default namespace
+        :return:
+        """
+        kfsvc_status = self.get(name, namespace=namespace)
+        status = 'Unknown'
+        for condition in kfsvc_status['status'].get('conditions', {}):
+            if condition.get('type', '') == 'Ready':
+                status = condition.get('status', 'Unknown')
+                return status.lower() == "true"
+        return False
+
+
+    def wait_for_ready(self, name, namespace=None, #pylint:disable=too-many-arguments
+                       timeout_seconds=600,
+                       polling_interval=10,
+                       debug=False):
+        """
+        Wait for inference service ready, print out the controller logs if timeout and debug=True.
+        :param name: inference service name
+        :param namespace: defaults to current or default namespace
+        :param timeout_seconds: timeout seconds for wait, default to 600s
+        :param polling_interval: The time interval to poll status
+        :param debug: If debug is True, print out the kfserving controller logs if timeout.
+        :return:
+        """
+        for _ in range(round(timeout_seconds/polling_interval)):
+            time.sleep(polling_interval)
+            if self.is_isvc_ready(name, namespace=namespace):
+                return
+
+        if debug:
+            try:
+                core_api = client.CoreV1Api()
+                pod_logs = core_api.read_namespaced_pod_log(
+                    constants.KFSERVING_CONTROLLER_POD,
+                    namespace=constants.INFERENCESERVICE_SYSTEM_NAMESPACE,
+                    container=constants.KFSERVING_CONTROLLER_CONTAINER)
+                logging.info("The logs of Pod %s log:\n %s",
+                             constants.KFSERVING_CONTROLLER_NAME, pod_logs)
+            except client.rest.ApiException as e:
+                logging.info(
+                    "Exception when calling CoreV1Api->read_namespaced_pod_log: \
+                    %s\n", e)
+
+        raise RuntimeError("Timeout to start the InferenceService {}. \
+                           See above log for details.".format(name))

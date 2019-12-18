@@ -24,7 +24,7 @@ from kfserving import V1alpha2InferenceServiceSpec
 from kfserving import V1alpha2InferenceService
 from kubernetes.client import V1ResourceRequirements
 
-from ..common.utils import wait_for_isvc_ready, predict
+from ..common.utils import predict
 from ..common.utils import KFSERVING_TEST_NAMESPACE
 
 api_version = constants.KFSERVING_GROUP + '/' + constants.KFSERVING_VERSION
@@ -49,5 +49,4 @@ def test_tensorflow_kfserving():
                                     spec=V1alpha2InferenceServiceSpec(default=default_endpoint_spec))
 
     KFServing.create(isvc)
-    wait_for_isvc_ready(service_name)
-
+    KFServing.wait_for_ready(service_name, namespace=KFSERVING_TEST_NAMESPACE, debug=True)

@@ -24,6 +24,8 @@ KFServingClient | [replace](#replace) | Replace the specified InferenceService|
 KFServingClient | [rollout_canary](#rollout_canary) | Rollout the traffic on `canary` version for specified InferenceService|
 KFServingClient | [promote](#promote) | Promote the `canary` version of the InferenceService to `default`|
 KFServingClient | [delete](#delete) | Delete the specified InferenceService |
+KFServingClient | [wait_for_ready](#wait_for_ready) | Wait for the InferenceService ready |
+KFServingClient | [is_isvc_ready](#is_isvc_read) | Check if the InferenceService is ready |
 
 ## set_credentials
 > set_credentials(storage_type, namespace=None, credentials_file=None, service_account='kfserving-service-credentials', **kwargs):
@@ -370,3 +372,54 @@ namespace | str | The inferenceservice's namespace. Defaults to current or defau
 
 ### Return type
 object
+
+
+## wait_for_ready
+> wait_for_ready(name, namespace=None, timeout_seconds=600, polling_interval=10, debug=False):
+
+Wait for the InferenceService ready.
+
+### Example
+
+```python
+from kfserving import KFServingClient
+
+KFServing = KFServingClient()
+KFServing.wait_for_ready('flower-sample', namespace='kubeflow')
+```
+
+### Parameters
+Name | Type |  Description | Notes
+------------ | ------------- | ------------- | -------------
+name  | str | The InferenceService name.| |
+namespace | str | The InferenceService namespace. Defaults to current or default namespace. | Optional|
+timeout_seconds | int | How long to wait for the InferenceService, default wait for 600 seconds. | Optional|
+polling_interval | int | How often to poll for the status of the InferenceService.| Optional|
+debug | Bool | defaults to False. The APIs will print out the InferenceService controller logs if set as True.| Optional|
+
+### Return type
+object
+
+
+## is_isvc_ready
+> is_isvc_ready(name, namespace=None)
+
+Returns True if the InferenceService is ready; false otherwise.
+
+### Example
+
+```python
+from kfserving import KFServingClient
+
+KFServing = KFServingClient()
+KFServing.is_isvc_ready('flower-sample', namespace='kubeflow')
+```
+
+### Parameters
+Name | Type |  Description | Notes
+------------ | ------------- | ------------- | -------------
+name  | str | The InferenceService name.| |
+namespace | str | The InferenceService namespace. Defaults to current or default namespace.| Optional |
+
+### Return type
+Bool

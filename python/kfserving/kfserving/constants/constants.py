@@ -15,10 +15,10 @@
 import os
 
 # KFServing K8S constants
-KFSERVING_GROUP = "serving.kubeflow.org"
-KFSERVING_KIND = "InferenceService"
-KFSERVING_PLURAL = "inferenceservices"
-KFSERVING_VERSION = "v1alpha2"
+KFSERVING_GROUP = 'serving.kubeflow.org'
+KFSERVING_KIND = 'InferenceService'
+KFSERVING_PLURAL = 'inferenceservices'
+KFSERVING_VERSION = os.environ.get('KFSERVING_VERSION', 'v1alpha2')
 
 KFSERVING_LOGLEVEL = os.environ.get('KFSERVING_LOGLEVEL', 'INFO').upper()
 
@@ -27,6 +27,8 @@ INFERENCESERVICE_CONFIG_MAP_NAME = 'inferenceservice-config'
 INFERENCESERVICE_SYSTEM_NAMESPACE = 'kfserving-system'
 DEFAULT_SECRET_NAME = "kfserving-secret-"
 DEFAULT_SA_NAME = "kfserving-service-credentials"
+KFSERVING_CONTROLLER_POD = 'kfserving-controller-manager-0'
+KFSERVING_CONTROLLER_CONTAINER = 'manager'
 
 # S3 credentials constants
 S3_ACCESS_KEY_ID_DEFAULT_NAME = "awsAccessKeyID"
