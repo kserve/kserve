@@ -71,7 +71,11 @@ class AlibiExplainer(kfserving.KFModel):
 
     def explain(self, request: Dict) -> Any:
         if self.method is ExplainerMethod.anchor_tabular or self.method is ExplainerMethod.anchor_images or self.method is ExplainerMethod.anchor_text:
-            explanation = self.wrapper.explain(request["instances"])
+            extraArgs = {}
+            if "metadata" in request and "explainer" in request["metadata"]:
+                extraArgs = request["metadata"]["explainer"]
+                logging.info("Explainer request parameters: %s",extraArgs)
+            explanation = self.wrapper.explain(request["instances"], **extraArgs)
             logging.info("Explanation: %s", explanation)
             return json.loads(json.dumps(explanation, cls=NumpyEncoder))
         else:

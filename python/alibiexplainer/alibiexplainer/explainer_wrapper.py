@@ -20,5 +20,5 @@ class ExplainerWrapper(object):
     def validate(self, training_data_url: Optional[str]):
         pass
 
-    def explain(self, inputs: List) -> Dict:
+    def explain(self, inputs: List, **kwargs) -> Dict:
         pass

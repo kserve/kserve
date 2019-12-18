@@ -55,7 +55,14 @@ class PredictHandler(HTTPHandler):
 class ExplainHandler(HTTPHandler):
     def post(self, name: str):
         model = self.get_model(name)
-        request = self.validate(self.request)
+        try:
+            body = json.loads(self.request.body)
+        except json.decoder.JSONDecodeError as e:
+            raise tornado.web.HTTPError(
+                status_code=HTTPStatus.BAD_REQUEST,
+                reason="Unrecognized request format: %s" % e
+            )
+        request = self.validate(body)
         request = model.preprocess(request)
         response = model.explain(request)
         response = model.postprocess(response)

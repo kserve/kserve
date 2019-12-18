@@ -75,7 +75,7 @@ class AnchorTabular(ExplainerWrapper):
         logging.info("Fitting AnchorTabular")
         self.anchors_tabular.fit(training_data)
 
-    def explain(self, inputs: List) -> Dict:
+    def explain(self, inputs: List, **kwargs) -> Dict:
         if not self.anchors_tabular is None:
             arr = np.array(inputs)
             # set anchor_tabular predict function so it always returns predicted class
@@ -85,8 +85,10 @@ class AnchorTabular(ExplainerWrapper):
                 self.anchors_tabular.predict_fn = self.predict_fn
             else:
                 self.anchors_tabular.predict_fn = lambda x: np.argmax(self.predict_fn(x), axis=1)
+            args = {**self.kwargs, **kwargs}
+            logging.info("Calling AnchorTabular with parameters %s", args)
             # We assume the input has batch dimension but Alibi explainers presently assume no batch
-            anchor_exp = self.anchors_tabular.explain(arr[0], **self.kwargs)
+            anchor_exp = self.anchors_tabular.explain(arr[0], **args)
             if not self.cmap is None:
                 # convert to interpretable raw features
                 for i in range(len(anchor_exp['raw']['examples'])):

@@ -38,10 +38,12 @@ class AnchorText(ExplainerWrapper):
             logging.info("Language model loaded")
         self.anchors_text = explainer
 
-    def explain(self, inputs: List) -> Dict:
+    def explain(self, inputs: List, **kwargs) -> Dict:
         if self.anchors_text is None:
             self.anchors_text = alibi.explainers.AnchorText(self.nlp, self.predict_fn)
         # We assume the input has batch dimension but Alibi explainers presently assume no batch
         np.random.seed(0)
-        anchor_exp = self.anchors_text.explain(inputs[0], **self.kwargs)
+        args = {**self.kwargs, **kwargs}
+        logging.info("Calling AnchorText with parameters %s", args)
+        anchor_exp = self.anchors_text.explain(inputs[0], **args)
         return anchor_exp
