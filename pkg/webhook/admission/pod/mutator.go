@@ -20,16 +20,18 @@ import (
 	"encoding/json"
 	v1 "k8s.io/api/core/v1"
 	k8types "k8s.io/apimachinery/pkg/types"
-	"k8s.io/klog"
 	"net/http"
 
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/controller/inferenceservice/resources/credentials"
 	"github.com/kubeflow/kfserving/pkg/webhook/third_party"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission/types"
 )
+
+var log = logf.Log.WithName(constants.PodMutatorWebhookName)
 
 // Mutator is a webhook that injects incoming pods
 type Mutator struct {
@@ -42,6 +44,7 @@ func (mutator *Mutator) Handle(ctx context.Context, req types.Request) types.Res
 	pod := &v1.Pod{}
 
 	if err := mutator.Decoder.Decode(req, pod); err != nil {
+		log.Error(err, "Failed to decode pod", "name", pod.Labels[constants.InferenceServicePodLabelKey])
 		return admission.ErrorResponse(http.StatusBadRequest, err)
 	}
 
@@ -52,7 +55,7 @@ func (mutator *Mutator) Handle(ctx context.Context, req types.Request) types.Res
 	configMap := &v1.ConfigMap{}
 	err := mutator.Client.Get(context.TODO(), k8types.NamespacedName{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KFServingNamespace}, configMap)
 	if err != nil {
-		klog.Error(err, "Failed to find config map", "name", constants.InferenceServiceConfigMapName)
+		log.Error(err, "Failed to find config map", "name", constants.InferenceServiceConfigMapName)
 		return admission.ErrorResponse(http.StatusInternalServerError, err)
 	}
 
@@ -60,11 +63,13 @@ func (mutator *Mutator) Handle(ctx context.Context, req types.Request) types.Res
 	pod.Namespace = req.AdmissionRequest.Namespace
 
 	if err := mutator.mutate(pod, configMap); err != nil {
+		log.Error(err, "Failed to mutate pod", "name", pod.Labels[constants.InferenceServicePodLabelKey])
 		return admission.ErrorResponse(http.StatusInternalServerError, err)
 	}
 
 	patch, err := json.Marshal(pod)
 	if err != nil {
+		log.Error(err, "Failed to marshal pod", "name", pod.Labels[constants.InferenceServicePodLabelKey])
 		return admission.ErrorResponse(http.StatusInternalServerError, err)
 	}
 
