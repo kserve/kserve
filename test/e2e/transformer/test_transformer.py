@@ -26,7 +26,7 @@ from kfserving import V1alpha2InferenceServiceSpec
 from kfserving import V1alpha2InferenceService
 from kubernetes.client import V1ResourceRequirements
 from kubernetes.client import V1Container
-from ..common.utils import wait_for_isvc_ready, predict
+from ..common.utils import predict
 from ..common.utils import KFSERVING_TEST_NAMESPACE
 
 api_version = constants.KFSERVING_GROUP + '/' + constants.KFSERVING_VERSION
@@ -61,7 +61,7 @@ def test_transformer():
                                     spec=V1alpha2InferenceServiceSpec(default=default_endpoint_spec))
 
     KFServing.create(isvc)
-    wait_for_isvc_ready(service_name)
+    KFServing.wait_isvc_ready(service_name, namespace=KFSERVING_TEST_NAMESPACE)
     probs = predict(service_name, './data/transformer.json')
     assert(np.argmax(probs) == 3)
     KFServing.delete(service_name, KFSERVING_TEST_NAMESPACE)
