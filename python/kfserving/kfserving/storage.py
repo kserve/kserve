@@ -17,11 +17,11 @@ import logging
 import tempfile
 import os
 import re
+import boto3
 from urllib.parse import urlparse
 from azure.storage.blob import BlockBlobService
 from google.auth import exceptions
 from google.cloud import storage
-from minio import Minio
 
 _GCS_PREFIX = "gs://"
 _S3_PREFIX = "s3://"
@@ -29,7 +29,7 @@ _BLOB_RE = "https://(.+?).blob.core.windows.net/(.+)"
 _LOCAL_PREFIX = "file://"
 
 
-class Storage(object): # pylint: disable=too-few-public-methods
+class Storage(object):  # pylint: disable=too-few-public-methods
     @staticmethod
     def download(uri: str, out_dir: str = None) -> str:
         logging.info("Copying contents of %s to local", uri)
@@ -62,22 +62,38 @@ class Storage(object): # pylint: disable=too-few-public-methods
 
     @staticmethod
     def _download_s3(uri, temp_dir: str):
-        client = Storage._create_minio_client()
-        bucket_args = uri.replace(_S3_PREFIX, "", 1).split("/", 1)
-        bucket_name = bucket_args[0]
-        bucket_path = bucket_args[1] if len(bucket_args) > 1 else ""
-        objects = client.list_objects(bucket_name, prefix=bucket_path, recursive=True)
+        url = urlparse(uri)
+        args = {
+            'Bucket': url.netloc
+        }
+        prefix = ''
+        if url.path:
+            prefix = url.path[1:]
+        if prefix:
+            args['Prefix'] = prefix
+        client = boto3.client('s3')
+        response = client.list_objects_v2(**args)
+        keys = []
+        if 'Contents' in response:
+            keys += [content['Key'] for content in response['Contents']]
+        while response['IsTruncated']:
+            args['ContinuationToken'] = response['NextContinuationToken']
+            response = client.list_objects_v2(**args)
+            if 'Contents' in response:
+                keys += [content['Key'] for content in response['Contents']]
+
         count = 0
-        for obj in objects:
-            # Replace any prefix from the object key with temp_dir
-            subdir_object_key = obj.object_name.replace(bucket_path, "", 1).strip("/")
-            # fget_object handles directory creation if does not exist
-            if not obj.is_dir:
-                if subdir_object_key == "":
-                    subdir_object_key = obj.object_name
-                client.fget_object(bucket_name, obj.object_name,
-                                   os.path.join(temp_dir, subdir_object_key))
-            count = count + 1
+        for key in keys:
+            parts = key[len(prefix):].split('/')
+            path = os.path.sep.join([temp_dir] + parts)
+            if not os.path.isdir(os.path.dirname(path)):
+                os.makedirs(os.path.dirname(path))
+            # Prefix can appear as a key if created as a folder via the S3 console
+            if key.endswith('/'):
+                continue
+            with open(path, 'wb') as f:
+                client.download_fileobj(url.netloc, key, f)
+            count += 1
         if count == 0:
             raise RuntimeError("Failed to fetch model. \
 The path or model %s does not exist." % (uri))
@@ -116,7 +132,7 @@ The path or model %s does not exist." % (uri))
 The path or model %s does not exist." % (uri))
 
     @staticmethod
-    def _download_blob(uri, out_dir: str): # pylint: disable=too-many-locals
+    def _download_blob(uri, out_dir: str):  # pylint: disable=too-many-locals
         match = re.search(_BLOB_RE, uri)
         account_name = match.group(1)
         storage_url = match.group(2)
@@ -129,7 +145,7 @@ The path or model %s does not exist." % (uri))
         try:
             block_blob_service = BlockBlobService(account_name=account_name)
             blobs = block_blob_service.list_blobs(container_name, prefix=prefix)
-        except Exception: # pylint: disable=broad-except
+        except Exception:  # pylint: disable=broad-except
             token = Storage._get_azure_storage_token()
             if token is None:
                 logging.warning("Azure credentials not found, retrying anonymous access")
@@ -205,13 +221,3 @@ The path or model %s does not exist." % (uri))
             logging.info("Linking: %s to %s", src, dest_path)
             os.symlink(src, dest_path)
         return out_dir
-
-    @staticmethod
-    def _create_minio_client():
-        # Remove possible http scheme for Minio
-        url = urlparse(os.getenv("AWS_ENDPOINT_URL", "s3.amazonaws.com"))
-        use_ssl = url.scheme == 'https' if url.scheme else bool(os.getenv("S3_USE_HTTPS", "true"))
-        return Minio(url.netloc,
-                     access_key=os.getenv("AWS_ACCESS_KEY_ID", ""),
-                     secret_key=os.getenv("AWS_SECRET_ACCESS_KEY", ""),
-                     secure=use_ssl)

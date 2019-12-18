@@ -12,90 +12,212 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import unittest.mock as mock
+import os
+import tempfile
+import unittest
+from unittest.mock import MagicMock
+from unittest.mock import Mock
+from unittest.mock import call
+from unittest.mock import patch
+
 import kfserving
 
 
-def create_mock_obj(path):
-    mock_obj = mock.MagicMock()
-    mock_obj.object_name = path
-    mock_obj.is_dir = False
-    return mock_obj
+class TestS3Storage(unittest.TestCase):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.whole_bucket_download_calls = [
+            call('kfserving-storage-test', 'file1', unittest.mock.ANY),
+            call('kfserving-storage-test', 'file2', unittest.mock.ANY),
+            call('kfserving-storage-test', 'subdir1/file1', unittest.mock.ANY),
+            call('kfserving-storage-test', 'subdir1/file2', unittest.mock.ANY),
+            call('kfserving-storage-test', 'subdir2/file1', unittest.mock.ANY),
+            call('kfserving-storage-test', 'subdir2/file2', unittest.mock.ANY)
+        ]
+
+        self.under_prefix_download_calls = [
+            call('kfserving-storage-test', 'model-prefix/file1', unittest.mock.ANY),
+            call('kfserving-storage-test', 'model-prefix/file2', unittest.mock.ANY),
+            call('kfserving-storage-test', 'model-prefix/subdir1/file1', unittest.mock.ANY),
+            call('kfserving-storage-test', 'model-prefix/subdir1/file2', unittest.mock.ANY),
+            call('kfserving-storage-test', 'model-prefix/subdir2/file1', unittest.mock.ANY),
+            call('kfserving-storage-test', 'model-prefix/subdir2/file2', unittest.mock.ANY)
+        ]
+
+    @patch('boto3.client')
+    def testDownloadWholeS3Bucket(self, client):
+        storage = kfserving.Storage()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            s3client = MagicMock()
+            s3client.download_fileobj = MagicMock()
+            client.return_value = s3client
+            s3client.list_objects_v2 = Mock(return_value=TestS3Storage._generate_s3_list_objects_response())
+            storage.download('s3://kfserving-storage-test', tmpdir)
+            s3client.list_objects_v2.assert_called_with(Bucket='kfserving-storage-test')
+            s3client.download_fileobj.assert_has_calls(self.whole_bucket_download_calls, any_order=True)
+            self._verify_download(tmpdir)
+
+    @patch('boto3.client')
+    def testDownloadWholeBucketTrailingSlash(self, client):
+        storage = kfserving.Storage()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            s3client = MagicMock()
+            s3client.download_fileobj = MagicMock()
+            client.return_value = s3client
+            s3client.list_objects_v2 = Mock(return_value=TestS3Storage._generate_s3_list_objects_response())
+            storage.download('s3://kfserving-storage-test/', tmpdir)
+            s3client.list_objects_v2.assert_called_with(Bucket='kfserving-storage-test')
+            s3client.download_fileobj.assert_has_calls(self.whole_bucket_download_calls, any_order=True)
+            self._verify_download(tmpdir)
+
+    @patch('boto3.client')
+    def testDownloadUnderPrefix(self, client):
+        storage = kfserving.Storage()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            s3client = MagicMock()
+            s3client.download_fileobj = MagicMock()
+            client.return_value = s3client
+            s3client.list_objects_v2 = Mock(
+                return_value=TestS3Storage._generate_s3_list_objects_response(prefix='model-prefix'))
+            storage.download('s3://kfserving-storage-test/model-prefix', tmpdir)
+            s3client.list_objects_v2.assert_called_with(Bucket='kfserving-storage-test', Prefix='model-prefix')
+            s3client.download_fileobj.assert_has_calls(self.under_prefix_download_calls, any_order=True)
+            self._verify_download(tmpdir)
+
+    @patch('boto3.client')
+    def testDownloadUnderPrefixTrailingSlash(self, client):
+        storage = kfserving.Storage()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            s3client = MagicMock()
+            s3client.download_fileobj = MagicMock()
+            client.return_value = s3client
+            s3client.list_objects_v2 = Mock(
+                return_value=TestS3Storage._generate_s3_list_objects_response(prefix='model-prefix'))
+            storage.download('s3://kfserving-storage-test/model-prefix/', tmpdir)
+            s3client.list_objects_v2.assert_called_with(Bucket='kfserving-storage-test', Prefix='model-prefix/')
+            s3client.download_fileobj.assert_has_calls(self.under_prefix_download_calls, any_order=True)
+            self._verify_download(tmpdir)
+
+    @patch('boto3.client')
+    def testDownloadNonExistentPrefix(self, client):
+        storage = kfserving.Storage()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            s3client = MagicMock()
+            with self.assertRaises(RuntimeError):
+                s3client.download_fileobj = MagicMock()
+                client.return_value = s3client
+                s3client.list_objects_v2 = Mock(
+                    return_value=TestS3Storage._generate_s3_list_objects_response(nfiles=0, ndirs=0, depth=0))
+                storage.download('s3://kfserving-storage-test/nonexistent', tmpdir)
+            s3client.list_objects_v2.assert_called_with(Bucket='kfserving-storage-test',
+                                                        Prefix='nonexistent')
+            s3client.download_fileobj.assert_not_called()
+            self.assertListEqual([(tmpdir, [], [])], list(os.walk(tmpdir)))
+
+    @patch('boto3.client')
+    def testContinuation(self, client):
+        storage = kfserving.Storage()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            s3client = MagicMock()
+            s3client.download_fileobj = MagicMock()
+            client.return_value = s3client
+            s3client.list_objects_v2 = TestS3Storage._generate_truncated_response
+            storage.download('s3://kfserving-storage-test', tmpdir)
+            s3client.download_fileobj.assert_has_calls(self.whole_bucket_download_calls, any_order=True)
+            self._verify_download(tmpdir)
+
+    @patch('boto3.client')
+    def testEmptyDir(self, client):
+        storage = kfserving.Storage()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            s3client = MagicMock()
+            s3client.download_fileobj = MagicMock()
+            client.return_value = s3client
+            s3client.list_objects_v2 = Mock(
+                return_value=TestS3Storage._generate_s3_list_objects_response(nfiles=1, ndirs=1, depth=0,
+                                                                              empty_dirs=True))
+            storage.download('s3://kfserving-storage-test', tmpdir)
+            s3client.list_objects_v2.assert_called_with(Bucket='kfserving-storage-test')
+            s3client.download_fileobj.assert_called_with('kfserving-storage-test', 'file1', unittest.mock.ANY)
+            self.assertListEqual([(tmpdir, ['subdir1'], ['file1']), (os.path.join(tmpdir, 'subdir1'), [], [])],
+                                 list(os.walk(tmpdir)))
+
+    def _verify_download(self, tmpdir, prefix=None):
+        if prefix:
+            tmpdir = os.path.join(tmpdir, prefix)
+        for root, dirs, files in os.walk(tmpdir):
+            if root == tmpdir:
+                self.assertListEqual(sorted(['subdir1', 'subdir2']), sorted(dirs))
+                self.assertListEqual(sorted(['file1', 'file2']), sorted(files))
+            elif root == os.path.join(tmpdir, 'subdir1') or root == os.path.join(tmpdir, 'subdir2'):
+                self.assertListEqual([], dirs)
+                self.assertListEqual(sorted(['file1', 'file2']), sorted(files))
+            else:
+                self.fail('Unexpected download directory: {}'.format(root))
+
+    @staticmethod
+    def _generate_keys(prefix, nfiles, ndirs, depth, empty_dirs):
+        keys = []
+
+        for file_index in range(1, nfiles + 1):
+            key = 'file{}'.format(file_index)
+            if prefix:
+                key = '{}/{}'.format(prefix, key)
+            keys.append(key)
+
+        if depth > 1:
+            for dir_index in range(1, ndirs + 1):
+                r_prefix = 'subdir{}'.format(dir_index)
+                if prefix:
+                    r_prefix = '{}/{}'.format(prefix, r_prefix)
+                keys += TestS3Storage._generate_keys(r_prefix, nfiles, ndirs, depth - 1, empty_dirs)
+        elif ndirs > 0 and empty_dirs:
+            for dir_index in range(1, ndirs + 1):
+                key = 'subdir{}/'.format(dir_index)
+                if prefix:
+                    key = '{}/{}'.format(prefix, key)
+                keys.append(key)
+
+        return keys
+
+    @staticmethod
+    def _generate_s3_list_objects_response(prefix='', nfiles=2, ndirs=2, depth=2, empty_dirs=False):
+        keys = TestS3Storage._generate_keys(prefix, nfiles, ndirs, depth, empty_dirs)
+        return {'Contents': [{'ETag': None,
+                              'Key': key,
+                              'LastModified': None,
+                              'Size': None,
+                              'StorageClass': 'STANDARD'} for key in keys],
+                'EncodingType': 'url',
+                'IsTruncated': False,
+                'KeyCount': len(keys),
+                'MaxKeys': 1000,
+                'Name': 'kfserving-storage-test',
+                'Prefix': prefix,
+                'ResponseMetadata': {'HTTPHeaders': {'content-type': 'application/xml',
+                                                     'date': None,
+                                                     'server': None,
+                                                     'transfer-encoding': None,
+                                                     'x-amz-bucket-region': None,
+                                                     'x-amz-id-2': None,
+                                                     'x-amz-request-id': None},
+                                     'HTTPStatusCode': 200,
+                                     'HostId': None,
+                                     'RequestId': None,
+                                     'RetryAttempts': 0}}
+
+    @staticmethod
+    def _generate_truncated_response(Bucket, Prefix='', ContinuationToken=0):
+        response = TestS3Storage._generate_s3_list_objects_response(prefix=Prefix)
+        response['MaxKeys'] = 1
+        if ContinuationToken < len(response['Contents']) - 1:
+            response['IsTruncated'] = True
+            response['NextContinuationToken'] = ContinuationToken + 1
+        response['Contents'] = [response['Contents'][ContinuationToken]]
+        return response
 
 
-def create_mock_minio_client(mock_storage, paths):
-    mock_minio_client = mock_storage.return_value
-    mock_minio_client.list_objects.return_value = [create_mock_obj(p) for p in paths]
-    return mock_minio_client
-
-
-def get_call_args(call_args_list):
-    arg_list = []
-    for call in call_args_list:
-        args, _ = call
-        arg_list.append(args)
-    return arg_list
-
-
-def expected_call_args_list(bucket_name, parent_key, dest, paths):
-    return [(bucket_name, f'{parent_key}/{p}'.strip('/'), f'{dest}/{p}'.strip('/'))
-            for p in paths]
-
-# pylint: disable=protected-access
-
-
-@mock.patch('kfserving.storage.Minio')
-def test_parent_key(mock_storage):
-
-    # given
-    bucket_name = 'foo'
-    paths = ['models/weights.pt', '0002.h5', 'a/very/long/path/config.json']
-    object_paths = ['bar/' + p for p in paths]
-
-    # when
-    mock_minio_client = create_mock_minio_client(mock_storage, object_paths)
-    kfserving.Storage._download_s3(f's3://{bucket_name}/bar', 'dest_path')
-
-    # then
-    arg_list = get_call_args(mock_minio_client.fget_object.call_args_list)
-    assert arg_list == expected_call_args_list(bucket_name, 'bar', 'dest_path', paths)
-
-    mock_minio_client.list_objects.assert_called_with(bucket_name, prefix='bar', recursive=True)
-
-
-@mock.patch('kfserving.storage.Minio')
-def test_no_key(mock_storage):
-
-    # given
-    bucket_name = 'foo'
-    object_paths = ['models/weights.pt', '0002.h5', 'a/very/long/path/config.json']
-
-    # when
-    mock_minio_client = create_mock_minio_client(mock_storage, object_paths)
-    kfserving.Storage._download_s3(f's3://{bucket_name}/', 'dest_path')
-
-    # then
-    arg_list = get_call_args(mock_minio_client.fget_object.call_args_list)
-    assert arg_list == expected_call_args_list(bucket_name, '', 'dest_path', object_paths)
-
-    mock_minio_client.list_objects.assert_called_with(bucket_name, prefix='', recursive=True)
-
-
-@mock.patch('kfserving.storage.Minio')
-def test_full_name_key(mock_storage):
-
-    # given
-    bucket_name = 'foo'
-    object_key = 'path/to/model/name.pt'
-
-    # when
-    mock_minio_client = create_mock_minio_client(mock_storage, [object_key])
-    kfserving.Storage._download_s3(f's3://{bucket_name}/{object_key}', 'dest_path')
-
-    # then
-    arg_list = get_call_args(mock_minio_client.fget_object.call_args_list)
-    assert arg_list == expected_call_args_list(bucket_name, '', 'dest_path',
-                                               [object_key])
-
-    mock_minio_client.list_objects.assert_called_with(bucket_name, prefix=object_key,
-                                                      recursive=True)
+if __name__ == '__main__':
+    unittest.main()
