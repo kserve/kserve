@@ -12,11 +12,11 @@ const (
 )
 
 type LogRequest struct {
-	url         *url.URL
-	b           *[]byte
-	contentType string
-	reqType     LogRequestType
-	id          string
-	sourceUri   *url.URL
-	modelId     string
+	Url         *url.URL
+	B           *[]byte
+	ContentType string
+	ReqType     LogRequestType
+	Id          string
+	SourceUri   *url.URL
+	ModelId     string
 }
