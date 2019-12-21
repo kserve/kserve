@@ -13,7 +13,7 @@ const (
 
 type LogRequest struct {
 	Url         *url.URL
-	B           *[]byte
+	Bytes       *[]byte
 	ContentType string
 	ReqType     LogRequestType
 	Id          string

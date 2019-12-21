@@ -95,7 +95,7 @@ func (eh *LoggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if eh.logMode == v1alpha2.LogAll || eh.logMode == v1alpha2.LogRequest {
 		if err := QueueLogRequest(LogRequest{
 			Url:         eh.logUrl,
-			B:           &b,
+			Bytes:       &b,
 			ContentType: "application/json", // Always JSON at present
 			ReqType:     InferenceRequest,
 			Id:          id,
@@ -119,7 +119,7 @@ func (eh *LoggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if eh.logMode == v1alpha2.LogAll || eh.logMode == v1alpha2.LogResponse {
 			if err := QueueLogRequest(LogRequest{
 				Url:         eh.logUrl,
-				B:           &b,
+				Bytes:       &b,
 				ContentType: "application/json", // Always JSON at present
 				ReqType:     InferenceResponse,
 				Id:          id,

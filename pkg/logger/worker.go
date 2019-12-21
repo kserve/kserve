@@ -71,7 +71,7 @@ func (W *Worker) sendCloudEvent(logReq LogRequest) error {
 	}
 	event.SetSource(logReq.SourceUri.String())
 	event.SetDataContentType(logReq.ContentType)
-	if err := event.SetData(*logReq.B); err != nil {
+	if err := event.SetData(*logReq.Bytes); err != nil {
 		return fmt.Errorf("while setting cloudevents data: %s", err)
 	}
 
