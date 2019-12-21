@@ -62,8 +62,8 @@ class ExplainHandler(HTTPHandler):
                 status_code=HTTPStatus.BAD_REQUEST,
                 reason="Unrecognized request format: %s" % e
             )
-        request = self.validate(body)
-        request = model.preprocess(request)
+        request = model.preprocess(body)
+        request = self.validate(request)
         response = model.explain(request)
         response = model.postprocess(response)
         self.write(response)
