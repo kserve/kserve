@@ -1,3 +1,4 @@
+.PHONY: test
 
 dev_install:
 	pip install -e .
