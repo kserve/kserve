@@ -24,9 +24,8 @@
 ## Setup
 1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/blob/master/docs/DEVELOPER_GUIDE.md#deploy-kfserving).
 2. Your cluster's Istio Ingress gateway must be network accessible.
-3. Make sure your istio network policy [allow Google Cloud Storage](https://knative.dev/docs/serving/outbound-network-access/)
-4. [Metrics installation](https://knative.dev/docs/serving/installing-logging-metrics-traces) for viewing scaling graphs (optional).
-5. The [hey](https://github.com/rakyll/hey) load generator installed (go get -u github.com/rakyll/hey).
+3. [Metrics installation](https://knative.dev/docs/serving/installing-logging-metrics-traces) for viewing scaling graphs (optional).
+4. The [hey](https://github.com/rakyll/hey) load generator installed (go get -u github.com/rakyll/hey).
 
 ## Load your InferenceService with target concurrency
 
