@@ -80,7 +80,15 @@ $ inferenceservice.serving.kubeflow.org/pytorch-cifar10 created
 MODEL_NAME=pytorch-cifar10
 INPUT_PATH=@./input.json
 CLUSTER_IP=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+```
 
+For Clusters which do not have Load Balancers the above command wont work due to the null value for .status.loadBalancer from json output.
+Hence The Below Command Needs to be Run in case of Clusters who do not use load balancer and use Node Port to expose:
+
+```
+CLUSTER_IP=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.spec.clusterIP}')
+```
+```
 SERVICE_HOSTNAME=$(kubectl get inferenceservice pytorch-cifar10 -o jsonpath='{.status.url}' | cut -d "/" -f 3)
 
 curl -v -H "Host: ${SERVICE_HOSTNAME}" -d $INPUT_PATH http://$CLUSTER_IP/v1/models/$MODEL_NAME:predict
