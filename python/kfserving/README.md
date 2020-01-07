@@ -41,10 +41,6 @@ KFServing supports the following storage providers:
 * Azure Blob Storage with the format: "https://{$STORAGE_ACCOUNT_NAME}.blob.core.windows.net/{$CONTAINER}/{$PATH}"
     * By default, it uses anonymous client to download the artifacts.
     * For e.g. https://kfserving.blob.core.windows.net/tensorrt/simple_string/
-* Local filesystem either without any prefix or with a prefix "file://". For example:
-    * Absolute path: `/absolute/path` or `file:///absolute/path`
-    * Relative path: `relative/path` or `file://relative/path`
-    * For local filesystem, we recommended to use relative path without any prefix.
 * Persistent Volume Claim (PVC) with the format "pvc://{$pvcname}/[path]".
     * The `pvcname` is the name of the PVC that contains the model.
     * The `[path]` is the relative path to the model on the PVC.
