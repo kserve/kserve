@@ -55,14 +55,9 @@ You must install these tools:
 KFServing currently requires `Knative Serving` for auto-scaling, canary rollout, `Istio` for traffic routing and ingress.
 
 * You can follow the instructions on [Set up a kubernetes cluster and install Knative Serving](https://knative.dev/docs/install/) or
-[Custom Install](https://knative.dev/docs/install/knative-custom-install) to install `Istio` and `Knative Serving`. Observability plug-ins are good to have for monitoring.
+[Custom Install](https://knative.dev/docs/install/knative-custom-install) to install `Istio` and `Knative Serving`. Observability plug-ins are good to have for monitoring. For working with KFServing master, we would recomment KNative 0.9.0+
 
-* If you already have `Istio` or `Knative` (e.g. from a Kubeflow install) then you don't need to install them explictily. From Kubeflow v0.7 onwards, KNative 0.8 and Istio 1.1.17 are installed by default as part of the Kubeflow installation. For prior versions of Kubeflow, you can install `Knative Serving` v0.8 via
-the following commands after downloading repository [kubeflow/manifests](https://github.com/kubeflow/manifests).
-
-  ``` kubeflow/manifests/knative/knative-serving-crds/base$ kustomize build . | kubectl apply -f -```
-
-  ``` kubeflow/manifests/knative/knative-serving-install/base$ kustomize build . | kubectl apply -f -```
+* If you already have `Istio` or `Knative` (e.g. from a Kubeflow install) then you don't need to install them explictily. From Kubeflow v0.7 onwards, KNative 0.8 and Istio 1.1.17 are installed by default as part of the Kubeflow installation, and that's the combination which has been tested with last release of KFServing 0.2.2
 
 * You need follow the instructions on [Updating your install to use cluster local gateway](https://knative.dev/v0.9-docs/install/installing-istio/#updating-your-install-to-use-cluster-local-gateway) to add cluster local gateway to your cluster if you are on knative serving 0.9.0+.
 
