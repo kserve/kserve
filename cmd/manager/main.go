@@ -19,11 +19,11 @@ package main
 import (
 	"flag"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
+	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"os"
 
 	"github.com/kubeflow/kfserving/pkg/apis"
 	"github.com/kubeflow/kfserving/pkg/controller"
-	//istiov1alpha3 "istio.io/api/networking/v1alpha3"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	istiov1alpha3 "knative.dev/pkg/apis/istio/v1alpha3"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -72,11 +72,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	/*log.Info("Setting up Istio schemes")
-	if err := builder.; err != nil {
+	log.Info("Setting up Istio schemes")
+	if err := v1alpha3.AddToScheme(mgr.GetScheme()); err != nil {
 		log.Error(err, "unable to add Istio v1alpha3 APIs to scheme")
 		os.Exit(1)
-	}*/
+	}
 
 	// Setup all Controllers
 	log.Info("Setting up controller")

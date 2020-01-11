@@ -18,6 +18,7 @@ package service
 
 import (
 	"context"
+	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 
 	"github.com/kubeflow/kfserving/pkg/controller/inferenceservice/reconcilers/istio"
 
@@ -92,7 +93,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	// Watch for changes to Virtual Service
-	if err = c.Watch(&source.Kind{Type: &istiov1alpha3.VirtualService{}}, kfservingController); err != nil {
+	if err = c.Watch(&source.Kind{Type: &v1alpha3.VirtualService{}}, kfservingController); err != nil {
 		return err
 	}
 
