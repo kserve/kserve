@@ -44,17 +44,17 @@ func (validator *Validator) Handle(ctx context.Context, req admission.Request) a
 	isvc := &kfserving.InferenceService{}
 
 	if err := validator.Decoder.Decode(req, isvc); err != nil {
-		return admission.ErrorResponse(http.StatusInternalServerError, err)
+		return admission.Errored(http.StatusInternalServerError, err)
 	}
 
 	if constants.IsEnableWebhookNamespaceSelector {
 		if err := validator.validateNamespace(isvc, req.AdmissionRequest.Namespace); err != nil {
-			return admission.ErrorResponse(http.StatusBadRequest, err)
+			return admission.Errored(http.StatusBadRequest, err)
 		}
 	}
 
 	if err := isvc.ValidateCreate(validator.Client); err != nil {
-		return admission.ErrorResponse(http.StatusBadRequest, err)
+		return admission.Errored(http.StatusBadRequest, err)
 	}
 
 	return admission.ValidationResponse(true, "allowed")

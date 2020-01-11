@@ -49,6 +49,10 @@ version="v1.4.7"
   version = "=v0.11"
 
 [[override]]
+  name="sigs.k8s.io/controller-runtime"
+  version = "=v0.3.0"
+
+[[override]]
   name = "knative.dev/pkg"
   branch = "release-0.11"
 

@@ -40,14 +40,14 @@ func (defaulter *Defaulter) Handle(ctx context.Context, req admission.Request) a
 	isvc := &kfserving.InferenceService{}
 
 	if err := defaulter.Decoder.Decode(req, isvc); err != nil {
-		return admission.ErrorResponse(http.StatusBadRequest, err)
+		return admission.Errored(http.StatusBadRequest, err)
 	}
 
 	isvc.Default(defaulter.Client)
 
 	patch, err := json.Marshal(isvc)
 	if err != nil {
-		return admission.ErrorResponse(http.StatusInternalServerError, err)
+		return admission.Errored(http.StatusInternalServerError, err)
 	}
 
 	return admission.PatchResponseFromRaw(req.AdmissionRequest.Object.Raw, patch)
