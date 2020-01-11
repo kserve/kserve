@@ -22,7 +22,6 @@ import (
 	"net/http"
 
 	kfserving "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
-	"github.com/kubeflow/kfserving/pkg/webhook/third_party"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
@@ -37,7 +36,7 @@ type Defaulter struct {
 var _ admission.Handler = &Defaulter{}
 
 // Handle decodes the incoming InferenceService and executes Validation logic.
-func (defaulter *Defaulter) Handle(ctx context.Context, req admission.Request) admissiontypes.Response {
+func (defaulter *Defaulter) Handle(ctx context.Context, req admission.Request) admission.Response {
 	isvc := &kfserving.InferenceService{}
 
 	if err := defaulter.Decoder.Decode(req, isvc); err != nil {
@@ -51,5 +50,5 @@ func (defaulter *Defaulter) Handle(ctx context.Context, req admission.Request) a
 		return admission.ErrorResponse(http.StatusInternalServerError, err)
 	}
 
-	return third_party.PatchResponseFromRaw(req.AdmissionRequest.Object.Raw, patch)
+	return admission.PatchResponseFromRaw(req.AdmissionRequest.Object.Raw, patch)
 }

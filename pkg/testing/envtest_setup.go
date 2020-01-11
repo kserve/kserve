@@ -22,8 +22,8 @@ import (
 
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	"github.com/onsi/gomega"
+	istiov1alpha3 "istio.io/api/networking/v1alpha3"
 	"k8s.io/client-go/kubernetes/scheme"
-	istiov1alpha3 "knative.dev/pkg/apis/istio/v1alpha3"
 	knservingv1alpha1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/manager"

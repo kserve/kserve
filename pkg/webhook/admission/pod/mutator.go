@@ -25,10 +25,8 @@ import (
 
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/controller/inferenceservice/resources/credentials"
-	"github.com/kubeflow/kfserving/pkg/webhook/third_party"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
-	"sigs.k8s.io/controller-runtime/pkg/webhook/admission/types"
 )
 
 // Mutator is a webhook that injects incoming pods
@@ -68,7 +66,7 @@ func (mutator *Mutator) Handle(ctx context.Context, req types.Request) types.Res
 		return admission.ErrorResponse(http.StatusInternalServerError, err)
 	}
 
-	return third_party.PatchResponseFromRaw(req.AdmissionRequest.Object.Raw, patch)
+	return admission.PatchResponseFromRaw(req.AdmissionRequest.Object.Raw, patch)
 }
 
 func (mutator *Mutator) mutate(pod *v1.Pod, configMap *v1.ConfigMap) error {
