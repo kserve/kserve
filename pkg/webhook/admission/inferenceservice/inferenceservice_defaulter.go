@@ -26,19 +26,18 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
-	admissiontypes "sigs.k8s.io/controller-runtime/pkg/webhook/admission/types"
 )
 
 // Defaulter that sets default fields in InferenceServices
 type Defaulter struct {
 	Client  client.Client
-	Decoder admissiontypes.Decoder
+	Decoder admission.Decoder
 }
 
 var _ admission.Handler = &Defaulter{}
 
 // Handle decodes the incoming InferenceService and executes Validation logic.
-func (defaulter *Defaulter) Handle(ctx context.Context, req admissiontypes.Request) admissiontypes.Response {
+func (defaulter *Defaulter) Handle(ctx context.Context, req admission.Request) admissiontypes.Response {
 	isvc := &kfserving.InferenceService{}
 
 	if err := defaulter.Decoder.Decode(req, isvc); err != nil {
