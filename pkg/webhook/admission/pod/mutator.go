@@ -32,15 +32,15 @@ import (
 // Mutator is a webhook that injects incoming pods
 type Mutator struct {
 	Client  client.Client
-	Decoder types.Decoder
+	Decoder admission.Decoder
 }
 
 // Handle decodes the incoming Pod and executes mutation logic.
-func (mutator *Mutator) Handle(ctx context.Context, req types.Request) types.Response {
+func (mutator *Mutator) Handle(ctx context.Context, req admission.Request) admission.Response {
 	pod := &v1.Pod{}
 
 	if err := mutator.Decoder.Decode(req, pod); err != nil {
-		return admission.ErrorResponse(http.StatusBadRequest, err)
+		return admission.Errored(http.StatusBadRequest, err)
 	}
 
 	if !needMutate(pod) {
@@ -51,19 +51,19 @@ func (mutator *Mutator) Handle(ctx context.Context, req types.Request) types.Res
 	err := mutator.Client.Get(context.TODO(), k8types.NamespacedName{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KFServingNamespace}, configMap)
 	if err != nil {
 		klog.Error(err, "Failed to find config map", "name", constants.InferenceServiceConfigMapName)
-		return admission.ErrorResponse(http.StatusInternalServerError, err)
+		return admission.Errored(http.StatusInternalServerError, err)
 	}
 
 	// For some reason pod namespace is always empty when coming to pod mutator, need to set from admission request
 	pod.Namespace = req.AdmissionRequest.Namespace
 
 	if err := mutator.mutate(pod, configMap); err != nil {
-		return admission.ErrorResponse(http.StatusInternalServerError, err)
+		return admission.Errored(http.StatusInternalServerError, err)
 	}
 
 	patch, err := json.Marshal(pod)
 	if err != nil {
-		return admission.ErrorResponse(http.StatusInternalServerError, err)
+		return admission.Errored(http.StatusInternalServerError, err)
 	}
 
 	return admission.PatchResponseFromRaw(req.AdmissionRequest.Object.Raw, patch)
