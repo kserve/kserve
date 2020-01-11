@@ -24,6 +24,8 @@ import (
 	"knative.dev/pkg/apis/duck"
 )
 
+// +genduck
+
 // Targetable is an earlier version of the Callable interface.
 // Callable is a higher-level interface which implements Addressable
 // but further promises that the destination may synchronously return
@@ -31,7 +33,7 @@ import (
 //
 // Targetable implementations should instead implement Addressable and
 // include an `eventing.knative.dev/returns=any` annotation.
-
+//
 // Targetable is retired; implement Addressable for now.
 type Targetable struct {
 	DomainInternal string `json:"domainInternal,omitempty"`
@@ -40,7 +42,6 @@ type Targetable struct {
 // Targetable is an Implementable "duck type".
 var _ duck.Implementable = (*Targetable)(nil)
 
-// +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // Target is a skeleton type wrapping Targetable in the manner we expect

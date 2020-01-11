@@ -101,7 +101,7 @@ ifndef GOPATH
 	$(error GOPATH not defined, please define GOPATH. Run "go help gopath" to learn more about GOPATH)
 endif
 	go generate ./pkg/... ./cmd/...
-	hack/update-codegen.sh
+	#hack/update-codegen.sh
 	hack/update-openapigen.sh
 
 # Build the docker image

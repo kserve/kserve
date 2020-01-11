@@ -24,6 +24,7 @@ import (
 	"knative.dev/pkg/apis/duck"
 )
 
+// +genduck
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // PodScalable is a duck type that the resources referenced by the

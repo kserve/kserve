@@ -44,7 +44,7 @@ const (
 
 	// QueueAdminPortName specifies the port name for
 	// health check and lifecycle hooks for queue-proxy.
-	QueueAdminPortName string = "queueadm-port"
+	QueueAdminPortName string = "http-queueadm"
 
 	// AutoscalingQueueMetricsPortName specifies the port name to use for metrics
 	// emitted by queue-proxy for autoscaler.
@@ -52,11 +52,11 @@ const (
 
 	// UserQueueMetricsPortName specifies the port name to use for metrics
 	// emitted by queue-proxy for end user.
-	UserQueueMetricsPortName = "user-metrics"
+	UserQueueMetricsPortName = "http-usermetric"
 
 	// ServiceQueueMetricsPortName is the name of the port that serves metrics
 	// on the Kubernetes service.
-	ServiceQueueMetricsPortName = "metrics"
+	ServiceQueueMetricsPortName = "http-metrics"
 )
 
 var revCondSet = apis.NewLivingConditionSet(
@@ -161,55 +161,67 @@ func (rs *RevisionStatus) MarkResourceNotConvertible(err *CannotConvertError) {
 	})
 }
 
-// MarkResourceNotOwned changes the "ResourcesAvailable" condition to false to reflect that the
-// resource of the given kind and name has already been created, and we do not own it.
-func (rs *RevisionStatus) MarkResourceNotOwned(kind, name string) {
-	revCondSet.Manage(rs).MarkFalse(RevisionConditionResourcesAvailable, "NotOwned",
-		fmt.Sprintf("There is an existing %s %q that we do not own.", kind, name))
-}
+const (
+	// NotOwned defines the reason for marking revision availability status as
+	// false due to resource ownership issues.
+	NotOwned = "NotOwned"
 
-func (rs *RevisionStatus) MarkDeploying(reason string) {
-	revCondSet.Manage(rs).MarkUnknown(RevisionConditionResourcesAvailable, reason, "")
-	revCondSet.Manage(rs).MarkUnknown(RevisionConditionContainerHealthy, reason, "")
-}
+	// Deploying defines the reason for marking revision availability status as
+	// unknown if the revision is still deploying.
+	Deploying = "Deploying"
 
-func (rs *RevisionStatus) MarkProgressDeadlineExceeded(message string) {
-	revCondSet.Manage(rs).MarkFalse(RevisionConditionResourcesAvailable, "ProgressDeadlineExceeded", message)
-}
+	// ProgressDeadlineExceeded defines the reason for marking revision availability
+	// status as false if progress has exceeded the deadline.
+	ProgressDeadlineExceeded = "ProgressDeadlineExceeded"
 
-func (rs *RevisionStatus) MarkContainerHealthy() {
-	revCondSet.Manage(rs).MarkTrue(RevisionConditionContainerHealthy)
-}
+	// ContainerMissing defines the reason for marking container healthiness status
+	// as false if the a container image for the revision is missing.
+	ContainerMissing = "ContainerMissing"
+)
 
-func (rs *RevisionStatus) MarkContainerExiting(exitCode int32, message string) {
-	exitCodeString := fmt.Sprintf("ExitCode%d", exitCode)
-	revCondSet.Manage(rs).MarkFalse(RevisionConditionContainerHealthy, exitCodeString, RevisionContainerExitingMessage(message))
-}
-
-func (rs *RevisionStatus) MarkResourcesAvailable() {
+// MarkResourcesAvailableTrue marks ResourcesAvailable status on revision as True
+func (rs *RevisionStatus) MarkResourcesAvailableTrue() {
 	revCondSet.Manage(rs).MarkTrue(RevisionConditionResourcesAvailable)
 }
 
-// MarkResourcesUnavailable changes "ResourcesAvailable" condition to false to reflect that the
-// resources of the given kind and name cannot be created.
-func (rs *RevisionStatus) MarkResourcesUnavailable(reason, message string) {
+// MarkResourcesAvailableFalse marks ResourcesAvailable status on revision as False
+func (rs *RevisionStatus) MarkResourcesAvailableFalse(reason, message string) {
 	revCondSet.Manage(rs).MarkFalse(RevisionConditionResourcesAvailable, reason, message)
 }
 
-func (rs *RevisionStatus) MarkActive() {
+// MarkResourcesAvailableUnknown marks ResourcesAvailable status on revision as Unknown
+func (rs *RevisionStatus) MarkResourcesAvailableUnknown(reason, message string) {
+	revCondSet.Manage(rs).MarkUnknown(RevisionConditionResourcesAvailable, reason, message)
+}
+
+// MarkContainerHealthyTrue marks ContainerHealthy status on revision as True
+func (rs *RevisionStatus) MarkContainerHealthyTrue() {
+	revCondSet.Manage(rs).MarkTrue(RevisionConditionContainerHealthy)
+}
+
+// MarkContainerHealthyFalse marks ContainerHealthy status on revision as False
+func (rs *RevisionStatus) MarkContainerHealthyFalse(reason, message string) {
+	revCondSet.Manage(rs).MarkFalse(RevisionConditionContainerHealthy, reason, message)
+}
+
+// MarkContainerHealthyUnknown marks ContainerHealthy status on revision as Unknown
+func (rs *RevisionStatus) MarkContainerHealthyUnknown(reason, message string) {
+	revCondSet.Manage(rs).MarkUnknown(RevisionConditionContainerHealthy, reason, message)
+}
+
+// MarkActiveTrue marks Active status on revision as True
+func (rs *RevisionStatus) MarkActiveTrue() {
 	revCondSet.Manage(rs).MarkTrue(RevisionConditionActive)
 }
 
-func (rs *RevisionStatus) MarkActivating(reason, message string) {
-	revCondSet.Manage(rs).MarkUnknown(RevisionConditionActive, reason, message)
-}
-
-func (rs *RevisionStatus) MarkInactive(reason, message string) {
+// MarkActiveFalse marks Active status on revision as False
+func (rs *RevisionStatus) MarkActiveFalse(reason, message string) {
 	revCondSet.Manage(rs).MarkFalse(RevisionConditionActive, reason, message)
 }
 
-func (rs *RevisionStatus) MarkContainerMissing(message string) {
-	revCondSet.Manage(rs).MarkFalse(RevisionConditionContainerHealthy, "ContainerMissing", message)
+// MarkActiveUnknown marks Active status on revision as Unknown
+func (rs *RevisionStatus) MarkActiveUnknown(reason, message string) {
+	revCondSet.Manage(rs).MarkUnknown(RevisionConditionActive, reason, message)
 }
 
 // PropagateAutoscalerStatus propagates autoscaler's status to the revision's status.
@@ -220,22 +232,22 @@ func (rs *RevisionStatus) PropagateAutoscalerStatus(ps *av1alpha1.PodAutoscalerS
 	// Reflect the PA status in our own.
 	cond := ps.GetCondition(av1alpha1.PodAutoscalerConditionReady)
 	if cond == nil {
-		rs.MarkActivating("Deploying", "")
+		rs.MarkActiveUnknown("Deploying", "")
 		return
 	}
 
 	switch cond.Status {
 	case corev1.ConditionUnknown:
-		rs.MarkActivating(cond.Reason, cond.Message)
+		rs.MarkActiveUnknown(cond.Reason, cond.Message)
 	case corev1.ConditionFalse:
-		rs.MarkInactive(cond.Reason, cond.Message)
+		rs.MarkActiveFalse(cond.Reason, cond.Message)
 	case corev1.ConditionTrue:
-		rs.MarkActive()
+		rs.MarkActiveTrue()
 
 		// Precondition for PA being active is SKS being active and
 		// that entices that |service.endpoints| > 0.
-		rs.MarkResourcesAvailable()
-		rs.MarkContainerHealthy()
+		rs.MarkResourcesAvailableTrue()
+		rs.MarkContainerHealthyTrue()
 	}
 }
 
@@ -249,6 +261,17 @@ func RevisionContainerMissingMessage(image string, message string) string {
 // fails to come up.
 func RevisionContainerExitingMessage(message string) string {
 	return fmt.Sprintf("Container failed with: %s", message)
+}
+
+// ResourceNotOwnedMessage constructs the status message if ownership on the
+// resource is not right.
+func ResourceNotOwnedMessage(kind, name string) string {
+	return fmt.Sprintf("There is an existing %s %q that we do not own.", kind, name)
+}
+
+// ExitCodeReason constructs the status message from an exit code
+func ExitCodeReason(exitCode int32) string {
+	return fmt.Sprintf("ExitCode%d", exitCode)
 }
 
 const (

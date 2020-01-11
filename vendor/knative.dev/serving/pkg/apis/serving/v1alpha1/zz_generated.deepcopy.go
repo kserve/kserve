@@ -75,7 +75,7 @@ func (in *Configuration) DeepCopyObject() runtime.Object {
 func (in *ConfigurationList) DeepCopyInto(out *ConfigurationList) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
-	out.ListMeta = in.ListMeta
+	in.ListMeta.DeepCopyInto(&out.ListMeta)
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
 		*out = make([]Configuration, len(*in))
@@ -256,7 +256,7 @@ func (in *Revision) DeepCopyObject() runtime.Object {
 func (in *RevisionList) DeepCopyInto(out *RevisionList) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
-	out.ListMeta = in.ListMeta
+	in.ListMeta.DeepCopyInto(&out.ListMeta)
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
 		*out = make([]Revision, len(*in))
@@ -379,7 +379,7 @@ func (in *Route) DeepCopyObject() runtime.Object {
 func (in *RouteList) DeepCopyInto(out *RouteList) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
-	out.ListMeta = in.ListMeta
+	in.ListMeta.DeepCopyInto(&out.ListMeta)
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
 		*out = make([]Route, len(*in))
@@ -531,7 +531,7 @@ func (in *Service) DeepCopyObject() runtime.Object {
 func (in *ServiceList) DeepCopyInto(out *ServiceList) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
-	out.ListMeta = in.ListMeta
+	in.ListMeta.DeepCopyInto(&out.ListMeta)
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
 		*out = make([]Service, len(*in))

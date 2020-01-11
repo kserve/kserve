@@ -34,13 +34,13 @@ import (
 // Validator that validates InferenceServices
 type Validator struct {
 	Client  client.Client
-	Decoder admissiontypes.Decoder
+	Decoder admission.Decoder
 }
 
 var _ admission.Handler = &Validator{}
 
 // Handle decodes the incoming InferenceService and executes Validation logic.
-func (validator *Validator) Handle(ctx context.Context, req admissiontypes.Request) admissiontypes.Response {
+func (validator *Validator) Handle(ctx context.Context, req admission.Request) admission.Response {
 	isvc := &kfserving.InferenceService{}
 
 	if err := validator.Decoder.Decode(req, isvc); err != nil {

@@ -23,6 +23,7 @@ import (
 	"github.com/kubeflow/kfserving/pkg/apis"
 	"github.com/kubeflow/kfserving/pkg/controller"
 	"github.com/kubeflow/kfserving/pkg/webhook"
+	istiov1alpha3 "istio.io/api/networking/v1alpha3"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	istiov1alpha3 "knative.dev/pkg/apis/istio/v1alpha3"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"

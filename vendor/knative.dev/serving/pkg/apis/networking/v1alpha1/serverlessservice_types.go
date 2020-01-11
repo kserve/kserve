@@ -119,7 +119,7 @@ type ServerlessServiceStatus struct {
 
 // ConditionType represents a ServerlessService condition value
 const (
-	// ServerlessServiceConditionReady is set when the clusterIngress networking setting is
+	// ServerlessServiceConditionReady is set when the ingress networking setting is
 	// configured and it has a load balancer address.
 	ServerlessServiceConditionReady = apis.ConditionReady
 

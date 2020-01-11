@@ -46,16 +46,7 @@ version="v1.4.7"
 
 [[constraint]]
   name = "knative.dev/serving"
-  version = "=v0.11.1"
-
-[[override]]
-  name="sigs.k8s.io/controller-runtime"
-  # 0.1.9 is most recent version that still uses K8s 1.12. 0.1.10 uses K8s 1.13.
-  version = "=v0.2.2"
-
-[[override]]
-  name="sigs.k8s.io/controller-tools"
-  version = "=v0.2.2"
+  version = "=v0.11"
 
 [[override]]
   name = "knative.dev/pkg"

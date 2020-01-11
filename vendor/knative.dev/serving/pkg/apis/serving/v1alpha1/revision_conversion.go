@@ -61,6 +61,7 @@ func (source *RevisionSpec) ConvertUp(ctx context.Context, sink *v1.RevisionSpec
 			ServiceAccountName: source.ServiceAccountName,
 			Containers:         []corev1.Container{*source.DeprecatedContainer},
 			Volumes:            source.Volumes,
+			ImagePullSecrets:   source.ImagePullSecrets,
 		}
 	case len(source.Containers) == 1:
 		sink.PodSpec = source.PodSpec
