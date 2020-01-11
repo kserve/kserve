@@ -17,12 +17,12 @@ limitations under the License.
 package testing
 
 import (
+	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"path/filepath"
 	"sync"
 
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	"github.com/onsi/gomega"
-	istiov1alpha3 "istio.io/api/networking/v1alpha3"
 	"k8s.io/client-go/kubernetes/scheme"
 	knservingv1alpha1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
@@ -55,7 +55,7 @@ func SetupEnvTest() *envtest.Environment {
 		log.Error(err, "Failed to add knative serving scheme")
 	}
 
-	if err = istiov1alpha3.SchemeBuilder.AddToScheme(scheme.Scheme); err != nil {
+	if err = v1alpha3.SchemeBuilder.AddToScheme(scheme.Scheme); err != nil {
 		log.Error(err, "Failed to add istio scheme")
 	}
 	return t
