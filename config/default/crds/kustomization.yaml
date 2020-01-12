@@ -8,11 +8,16 @@
 # YAML string, with resources separated by document
 # markers ("---").
 resources:
-- serving_v1alpha2_inferenceservice.yaml
+- serving.kubeflow.org_inferenceservices.yaml
 
-patches:
+patchesJson6902:
   # Knative uses VolatileTime in place of metav1.Time to exclude this from creating equality.Semantic difference,
   # however when generating crd last transition time is tagged as object thus getting validation error while updating
   # status object(status.conditions.lastTransitionTime in body must be of type object: "string").
   # Controller-runtime 2.0 supports +kubebuilder:validation:Type=string but we are still on 1.9.0 due to knative dep.
-- crd_status_condition_patch.yaml
+- target:
+    group: apiextensions.k8s.io
+    version: v1beta1
+    kind: CustomResourceDefinition
+    name: inferenceservices.serving.kubeflow.org
+  path: crd_status_condition_patch.yaml

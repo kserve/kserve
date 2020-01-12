@@ -91,10 +91,10 @@ func (ss *InferenceServiceStatus) PropagateDefaultStatus(component constants.Inf
 
 	statusSpec, ok := (*ss.Default)[component]
 	if !ok {
-		statusSpec = &StatusConfigurationSpec{}
+		statusSpec = StatusConfigurationSpec{}
 		(*ss.Default)[component] = statusSpec
 	}
-	ss.propagateStatus(statusSpec, conditionType, defaultStatus)
+	ss.propagateStatus(component, false, conditionType, defaultStatus)
 }
 
 // PropagateCanaryStatus propagates the status for the canary spec
@@ -113,14 +113,16 @@ func (ss *InferenceServiceStatus) PropagateCanaryStatus(component constants.Infe
 
 	statusSpec, ok := (*ss.Canary)[component]
 	if !ok {
-		statusSpec = &StatusConfigurationSpec{}
+		statusSpec = StatusConfigurationSpec{}
 		(*ss.Canary)[component] = statusSpec
 	}
-
-	ss.propagateStatus(statusSpec, conditionType, canaryStatus)
+	ss.propagateStatus(component, true, conditionType, canaryStatus)
 }
 
-func (ss *InferenceServiceStatus) propagateStatus(statusSpec *StatusConfigurationSpec, conditionType apis.ConditionType, serviceStatus *knservingv1.ServiceStatus) {
+func (ss *InferenceServiceStatus) propagateStatus(component constants.InferenceServiceComponent, isCanary bool,
+	conditionType apis.ConditionType,
+	serviceStatus *knservingv1.ServiceStatus) {
+	statusSpec := StatusConfigurationSpec{}
 	statusSpec.Name = serviceStatus.LatestCreatedRevisionName
 	serviceCondition := serviceStatus.GetCondition(knservingv1.ServiceConditionReady)
 
@@ -138,12 +140,17 @@ func (ss *InferenceServiceStatus) propagateStatus(statusSpec *StatusConfiguratio
 		conditionSet.Manage(ss).MarkFalse(conditionType, serviceCondition.Reason, serviceCondition.Message)
 		statusSpec.Hostname = ""
 	}
+	if isCanary {
+		(*ss.Canary)[component] = statusSpec
+	} else {
+		(*ss.Default)[component] = statusSpec
+	}
 }
 
 // PropagateRouteStatus propagates route's status to the service's status.
 func (ss *InferenceServiceStatus) PropagateRouteStatus(vs *VirtualServiceStatus) {
 	ss.URL = vs.URL
-	ss.Address = vs.Address
+	//ss.Address = vs.Address
 	ss.Traffic = vs.DefaultWeight
 	ss.CanaryTraffic = vs.CanaryWeight
 

@@ -13,7 +13,6 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-
 package apis
 
 import (
@@ -23,7 +22,7 @@ import (
 
 // VolatileTime wraps metav1.Time
 type VolatileTime struct {
-	Inner metav1.Time
+	Inner metav1.Time `json:",inline"`
 }
 
 // MarshalJSON implements the json.Marshaler interface.

@@ -323,12 +323,10 @@ func getPredictStatusConfigurationSpec(componentStatusMap *v1alpha2.ComponentSta
 
 	if predictorStatus, ok := (*componentStatusMap)[constants.Predictor]; !ok {
 		return nil, PredictorStatusUnknown
-	} else if predictorStatus == nil {
-		return nil, PredictorStatusUnknown
 	} else if len(predictorStatus.Hostname) == 0 {
 		return nil, PredictorHostnameUnknown
 	} else {
-		return predictorStatus, ""
+		return &predictorStatus, ""
 	}
 }
 
@@ -339,12 +337,10 @@ func getTransformerStatusConfigurationSpec(componentStatusMap *v1alpha2.Componen
 
 	if transformerStatus, ok := (*componentStatusMap)[constants.Transformer]; !ok {
 		return nil, TransformerStatusUnknown
-	} else if transformerStatus == nil {
-		return nil, TransformerStatusUnknown
 	} else if len(transformerStatus.Hostname) == 0 {
 		return nil, TransformerHostnameUnknown
 	} else {
-		return transformerStatus, ""
+		return &transformerStatus, ""
 	}
 }
 
@@ -359,12 +355,10 @@ func getExplainStatusConfigurationSpec(endpointSpec *v1alpha2.EndpointSpec, comp
 
 	if explainerStatus, ok := (*componentStatusMap)[constants.Explainer]; !ok {
 		return nil, ExplainerStatusUnknown
-	} else if explainerStatus == nil {
-		return nil, ExplainerStatusUnknown
 	} else if len(explainerStatus.Hostname) == 0 {
 		return nil, ExplainerHostnameUnknown
 	} else {
-		return explainerStatus, ""
+		return &explainerStatus, ""
 	}
 }
 
