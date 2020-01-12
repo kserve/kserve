@@ -54,6 +54,7 @@ func NewVirtualServiceReconciler(client client.Client, scheme *runtime.Scheme, c
 
 func (r *VirtualServiceReconciler) Reconcile(isvc *v1alpha2.InferenceService) error {
 	desired, status := r.serviceBuilder.CreateVirtualService(isvc)
+
 	if desired == nil {
 		if status != nil {
 			isvc.Status.PropagateRouteStatus(status)

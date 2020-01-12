@@ -303,17 +303,17 @@ func TestInferenceServiceWithOnlyPredictor(t *testing.T) {
 			},
 		},
 		URL: constants.InferenceServiceURL("http", serviceKey.Name, serviceKey.Namespace, domain),
-		Address: &duckv1beta1.Addressable{
+		/*Address: &duckv1beta1.Addressable{
 			URL: &apis.URL{
 				Scheme: "http",
 				Path:   constants.PredictPrefix(serviceKey.Name),
 				Host:   network.GetServiceHostname(serviceKey.Name, serviceKey.Namespace),
 			},
-		},
+		},*/
 		Traffic:       100,
 		CanaryTraffic: 0,
 		Default: &kfserving.ComponentStatusMap{
-			constants.Predictor: &kfserving.StatusConfigurationSpec{
+			constants.Predictor: kfserving.StatusConfigurationSpec{
 				Name:     "revision-v1",
 				Hostname: constants.InferenceServiceHostName(constants.DefaultPredictorServiceName(serviceKey.Name), serviceKey.Namespace, domain),
 			},
@@ -368,15 +368,15 @@ func TestInferenceServiceWithDefaultAndCanaryPredictor(t *testing.T) {
 		},
 		Status: kfserving.InferenceServiceStatus{
 			URL: canaryServiceKey.Name + "." + domain,
-			Address: &duckv1beta1.Addressable{
+			/*Address: &duckv1beta1.Addressable{
 				URL: &apis.URL{
 					Scheme: "http",
 					Host:   network.GetServiceHostname(canaryServiceKey.Name, canaryServiceKey.Namespace),
 					Path:   constants.PredictPrefix(canaryServiceKey.Name),
 				},
-			},
+			},*/
 			Default: &kfserving.ComponentStatusMap{
-				constants.Predictor: &kfserving.StatusConfigurationSpec{
+				constants.Predictor: kfserving.StatusConfigurationSpec{
 					Name: "revision-v1",
 				},
 			},
@@ -528,24 +528,24 @@ func TestInferenceServiceWithDefaultAndCanaryPredictor(t *testing.T) {
 		},
 		URL: constants.InferenceServiceURL("http", canaryServiceKey.Name,
 			canaryService.Namespace, domain),
-		Address: &duckv1beta1.Addressable{
+		/*Address: &duckv1beta1.Addressable{
 			URL: &apis.URL{
 				Scheme: "http",
 				Path:   constants.PredictPrefix(canaryServiceKey.Name),
 				Host:   network.GetServiceHostname(canaryServiceKey.Name, canaryServiceKey.Namespace),
 			},
-		},
+		},*/
 		Traffic:       80,
 		CanaryTraffic: 20,
 		Default: &kfserving.ComponentStatusMap{
-			constants.Predictor: &kfserving.StatusConfigurationSpec{
+			constants.Predictor: kfserving.StatusConfigurationSpec{
 				Name: "revision-v1",
 				Hostname: constants.InferenceServiceHostName(constants.DefaultPredictorServiceName(canaryServiceKey.Name), canaryServiceKey.Namespace,
 					domain),
 			},
 		},
 		Canary: &kfserving.ComponentStatusMap{
-			constants.Predictor: &kfserving.StatusConfigurationSpec{
+			constants.Predictor: kfserving.StatusConfigurationSpec{
 				Name: "revision-v2",
 				Hostname: constants.InferenceServiceHostName(constants.CanaryPredictorServiceName(canaryServiceKey.Name), canaryServiceKey.Namespace,
 					domain),
@@ -689,7 +689,7 @@ func TestCanaryDelete(t *testing.T) {
 		Status: kfserving.InferenceServiceStatus{
 			URL: canaryServiceKey.Name + ".svc.cluster.local",
 			Default: &kfserving.ComponentStatusMap{
-				constants.Predictor: &kfserving.StatusConfigurationSpec{
+				constants.Predictor: kfserving.StatusConfigurationSpec{
 					Name: "revision-v1",
 				},
 			},
@@ -791,23 +791,23 @@ func TestCanaryDelete(t *testing.T) {
 			},
 		},
 		URL: constants.InferenceServiceURL("http", serviceName, namespace, domain),
-		Address: &duckv1beta1.Addressable{
+		/*Address: &duckv1beta1.Addressable{
 			URL: &apis.URL{
 				Scheme: "http",
 				Path:   constants.PredictPrefix(serviceName),
 				Host:   network.GetServiceHostname(serviceName, canaryServiceKey.Namespace),
 			},
-		},
+		},*/
 		Traffic:       80,
 		CanaryTraffic: 20,
 		Default: &kfserving.ComponentStatusMap{
-			constants.Predictor: &kfserving.StatusConfigurationSpec{
+			constants.Predictor: kfserving.StatusConfigurationSpec{
 				Name:     "revision-v1",
 				Hostname: constants.InferenceServiceHostName(constants.DefaultPredictorServiceName(serviceName), namespace, domain),
 			},
 		},
 		Canary: &kfserving.ComponentStatusMap{
-			constants.Predictor: &kfserving.StatusConfigurationSpec{
+			constants.Predictor: kfserving.StatusConfigurationSpec{
 				Name:     "revision-v2",
 				Hostname: constants.InferenceServiceHostName(constants.CanaryPredictorServiceName(serviceName), namespace, domain),
 			},
@@ -877,16 +877,16 @@ func TestCanaryDelete(t *testing.T) {
 			},
 		},
 		URL: constants.InferenceServiceURL("http", serviceName, namespace, domain),
-		Address: &duckv1beta1.Addressable{
+		/*Address: &duckv1beta1.Addressable{
 			URL: &apis.URL{
 				Scheme: "http",
 				Path:   constants.PredictPrefix(canaryServiceKey.Name),
 				Host:   network.GetServiceHostname(canaryServiceKey.Name, canaryServiceKey.Namespace),
 			},
-		},
+		},*/
 		Traffic: 100,
 		Default: &kfserving.ComponentStatusMap{
-			constants.Predictor: &kfserving.StatusConfigurationSpec{
+			constants.Predictor: kfserving.StatusConfigurationSpec{
 				Name:     "revision-v1",
 				Hostname: constants.InferenceServiceHostName(constants.DefaultPredictorServiceName(serviceName), namespace, domain),
 			},
@@ -983,7 +983,7 @@ func TestInferenceServiceWithTransformer(t *testing.T) {
 		Status: kfserving.InferenceServiceStatus{
 			URL: serviceName + ".svc.cluster.local",
 			Default: &kfserving.ComponentStatusMap{
-				constants.Predictor: &kfserving.StatusConfigurationSpec{
+				constants.Predictor: kfserving.StatusConfigurationSpec{
 					Name: "revision-v1",
 				},
 			},
@@ -1182,29 +1182,29 @@ func TestInferenceServiceWithTransformer(t *testing.T) {
 		Traffic:       80,
 		CanaryTraffic: 20,
 		URL:           constants.InferenceServiceURL("http", serviceKey.Name, serviceKey.Namespace, domain),
-		Address: &duckv1beta1.Addressable{
+		/*Address: &duckv1beta1.Addressable{
 			URL: &apis.URL{
 				Scheme: "http",
 				Path:   constants.PredictPrefix(serviceKey.Name),
 				Host:   network.GetServiceHostname(serviceKey.Name, serviceKey.Namespace),
 			},
-		},
+		},*/
 		Default: &kfserving.ComponentStatusMap{
-			constants.Predictor: &kfserving.StatusConfigurationSpec{
+			constants.Predictor: kfserving.StatusConfigurationSpec{
 				Name:     "revision-v1",
 				Hostname: constants.InferenceServiceHostName(constants.DefaultPredictorServiceName(serviceKey.Name), serviceKey.Namespace, domain),
 			},
-			constants.Transformer: &kfserving.StatusConfigurationSpec{
+			constants.Transformer: kfserving.StatusConfigurationSpec{
 				Name:     "t-revision-v1",
 				Hostname: constants.InferenceServiceHostName(constants.DefaultTransformerServiceName(serviceKey.Name), serviceKey.Namespace, domain),
 			},
 		},
 		Canary: &kfserving.ComponentStatusMap{
-			constants.Predictor: &kfserving.StatusConfigurationSpec{
+			constants.Predictor: kfserving.StatusConfigurationSpec{
 				Name:     "revision-v2",
 				Hostname: constants.InferenceServiceHostName(constants.CanaryPredictorServiceName(serviceKey.Name), serviceKey.Namespace, domain),
 			},
-			constants.Transformer: &kfserving.StatusConfigurationSpec{
+			constants.Transformer: kfserving.StatusConfigurationSpec{
 				Name:     "t-revision-v2",
 				Hostname: constants.InferenceServiceHostName(constants.CanaryTransformerServiceName(serviceKey.Name), serviceKey.Namespace, domain),
 			},
@@ -1373,7 +1373,7 @@ func TestInferenceServiceDeleteComponent(t *testing.T) {
 		Status: kfserving.InferenceServiceStatus{
 			URL: serviceName + ".svc.cluster.local",
 			Default: &kfserving.ComponentStatusMap{
-				constants.Predictor: &kfserving.StatusConfigurationSpec{
+				constants.Predictor: kfserving.StatusConfigurationSpec{
 					Name: "revision-v1",
 				},
 			},
@@ -1553,7 +1553,7 @@ func TestInferenceServiceWithExplainer(t *testing.T) {
 		Status: kfserving.InferenceServiceStatus{
 			URL: serviceName + ".svc.cluster.local",
 			Default: &kfserving.ComponentStatusMap{
-				constants.Predictor: &kfserving.StatusConfigurationSpec{
+				constants.Predictor: kfserving.StatusConfigurationSpec{
 					Name: "revision-v1",
 				},
 			},
@@ -1756,29 +1756,29 @@ func TestInferenceServiceWithExplainer(t *testing.T) {
 		Traffic:       80,
 		CanaryTraffic: 20,
 		URL:           constants.InferenceServiceURL("http", serviceKey.Name, serviceKey.Namespace, domain),
-		Address: &duckv1beta1.Addressable{
+		/*Address: &duckv1beta1.Addressable{
 			URL: &apis.URL{
 				Scheme: "http",
 				Path:   constants.PredictPrefix(serviceKey.Name),
 				Host:   network.GetServiceHostname(serviceKey.Name, serviceKey.Namespace),
 			},
-		},
+		},*/
 		Default: &kfserving.ComponentStatusMap{
-			constants.Predictor: &kfserving.StatusConfigurationSpec{
+			constants.Predictor: kfserving.StatusConfigurationSpec{
 				Name:     "revision-v1",
 				Hostname: constants.InferenceServiceHostName(constants.DefaultPredictorServiceName(serviceKey.Name), serviceKey.Namespace, domain),
 			},
-			constants.Explainer: &kfserving.StatusConfigurationSpec{
+			constants.Explainer: kfserving.StatusConfigurationSpec{
 				Name:     "e-revision-v1",
 				Hostname: constants.InferenceServiceHostName(constants.DefaultExplainerServiceName(serviceKey.Name), serviceKey.Namespace, domain),
 			},
 		},
 		Canary: &kfserving.ComponentStatusMap{
-			constants.Predictor: &kfserving.StatusConfigurationSpec{
+			constants.Predictor: kfserving.StatusConfigurationSpec{
 				Name:     "revision-v2",
 				Hostname: constants.InferenceServiceHostName(constants.CanaryPredictorServiceName(serviceKey.Name), serviceKey.Namespace, domain),
 			},
-			constants.Explainer: &kfserving.StatusConfigurationSpec{
+			constants.Explainer: kfserving.StatusConfigurationSpec{
 				Name:     "e-revision-v2",
 				Hostname: constants.InferenceServiceHostName(constants.CanaryExplainerServiceName(serviceKey.Name), serviceKey.Namespace, domain),
 			},

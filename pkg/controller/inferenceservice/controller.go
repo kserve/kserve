@@ -175,7 +175,7 @@ func (r *ReconcileService) updateStatus(desiredService *kfserving.InferenceServi
 		// This is important because the copy we loaded from the informer's
 		// cache may be stale and we don't want to overwrite a prior update
 		// to status with this stale state.
-	} else if err := r.Update(context.TODO(), desiredService); err != nil {
+	} else if err := r.Status().Update(context.TODO(), desiredService); err != nil {
 		log.Error(err, "Failed to update InferenceService status")
 		r.Recorder.Eventf(desiredService, v1.EventTypeWarning, "UpdateFailed",
 			"Failed to update status for InferenceService %q: %v", desiredService.Name, err)

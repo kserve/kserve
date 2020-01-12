@@ -9,6 +9,7 @@ XGB_IMG ?= xgbserver:latest
 PYTORCH_IMG ?= pytorchserver:latest
 ALIBI_IMG ?= alibi-explainer:latest
 STORAGE_INIT_IMG ?= storage-initializer:latest
+CRD_OPTIONS ?= "crd:trivialVersions=true"
 
 all: test manager logger
 
@@ -76,9 +77,10 @@ undeploy-dev:
 
 # Generate manifests e.g. CRD, RBAC etc.
 manifests:
-	go run vendor/sigs.k8s.io/controller-tools/cmd/controller-gen/main.go crd --output-dir=config/default/crds
-	kustomize build config/default/crds -o config/default/crds/serving_v1alpha2_inferenceservice.yaml
-	go run vendor/sigs.k8s.io/controller-tools/cmd/controller-gen/main.go rbac --output-dir=config/default/rbac
+	go run vendor/sigs.k8s.io/controller-tools/cmd/controller-gen/main.go $(CRD_OPTIONS) rbac:roleName=kfserving-manager-role paths=./pkg/apis/... output:crd:dir=config/default/crds
+	kustomize build config/default/crds -o config/default/crds/serving.kubeflow.org_inferenceservices.yaml
+	cp config/default/crds/serving.kubeflow.org_inferenceservices.yaml test/crds/serving.kubeflow.org_inferenceservices.yaml
+	#go run vendor/sigs.k8s.io/controller-tools/cmd/controller-gen/main.go rbac output:rbac:dir=config/default/rbac
 
 # Run go fmt against code
 fmt:

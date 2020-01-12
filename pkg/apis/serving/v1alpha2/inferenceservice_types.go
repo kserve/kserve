@@ -217,7 +217,7 @@ type CustomSpec struct {
 }
 
 // EndpointStatusMap defines the observed state of InferenceService endpoints
-type ComponentStatusMap map[constants.InferenceServiceComponent]*StatusConfigurationSpec
+type ComponentStatusMap map[constants.InferenceServiceComponent]StatusConfigurationSpec
 
 // InferenceServiceStatus defines the observed state of InferenceService
 type InferenceServiceStatus struct {
@@ -232,8 +232,8 @@ type InferenceServiceStatus struct {
 	Default *ComponentStatusMap `json:"default,omitempty"`
 	// Statuses for the canary endpoints of the InferenceService
 	Canary *ComponentStatusMap `json:"canary,omitempty"`
-
-	Address *duckv1beta1.Addressable `json:"address,omitempty"`
+	// +kubebuilder:validation:Type=string
+	//Address *duckv1beta1.Addressable `json:"address,omitempty"`
 }
 
 // StatusConfigurationSpec describes the state of the configuration receiving traffic.
@@ -250,6 +250,8 @@ type StatusConfigurationSpec struct {
 
 // InferenceService is the Schema for the services API
 // +k8s:openapi-gen=true
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="URL",type="string",JSONPath=".status.url"
 // +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
 // +kubebuilder:printcolumn:name="Default Traffic",type="integer",JSONPath=".status.traffic"
@@ -265,7 +267,7 @@ type InferenceService struct {
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
+// +kubebuilder:object:root=true
 // InferenceServiceList contains a list of Service
 type InferenceServiceList struct {
 	metav1.TypeMeta `json:",inline"`

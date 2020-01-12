@@ -472,16 +472,11 @@ func schema_pkg_apis_serving_v1alpha2_InferenceServiceStatus(ref common.Referenc
 							},
 						},
 					},
-					"address": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("knative.dev/pkg/apis/duck/v1beta1.Addressable"),
-						},
-					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.StatusConfigurationSpec", "knative.dev/pkg/apis.Condition", "knative.dev/pkg/apis/duck/v1beta1.Addressable"},
+			"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.StatusConfigurationSpec", "knative.dev/pkg/apis.Condition"},
 	}
 }
 
