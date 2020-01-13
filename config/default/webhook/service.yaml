@@ -6,6 +6,6 @@ metadata:
 spec:
   ports:
     - port: 443
-      targetPort: 9876
+      targetPort: 443
   selector:
     control-plane: kfserving-controller-manager

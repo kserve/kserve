@@ -34,7 +34,7 @@ import (
 // Mutator is a webhook that injects incoming pods
 type Mutator struct {
 	Client  client.Client
-	Decoder admission.Decoder
+	Decoder *admission.Decoder
 }
 
 // Handle decodes the incoming Pod and executes mutation logic.
@@ -112,4 +112,19 @@ func needMutate(pod *v1.Pod) bool {
 	// Skip webhook if pod not managed by kfserving
 	_, ok := pod.Labels[constants.InferenceServicePodLabelKey]
 	return ok
+}
+
+// InjectClient injects the client.
+func (mutator *Mutator) InjectClient(c client.Client) error {
+	mutator.Client = c
+	return nil
+}
+
+// podAnnotator implements admission.DecoderInjector.
+// A decoder will be automatically injected.
+
+// InjectDecoder injects the decoder.
+func (mutator *Mutator) InjectDecoder(d *admission.Decoder) error {
+	mutator.Decoder = d
+	return nil
 }

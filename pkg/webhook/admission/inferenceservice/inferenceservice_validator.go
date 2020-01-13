@@ -36,7 +36,7 @@ import (
 // Validator that validates InferenceServices
 type Validator struct {
 	Client  client.Client
-	Decoder admission.Decoder
+	Decoder *admission.Decoder
 }
 
 var _ admission.Handler = &Validator{}
@@ -81,4 +81,19 @@ func (validator *Validator) validateNamespace(isvc *kfserving.InferenceService, 
 	} else {
 		return nil
 	}
+}
+
+// InjectClient injects the client.
+func (validator *Validator) InjectClient(c client.Client) error {
+	validator.Client = c
+	return nil
+}
+
+// podAnnotator implements admission.DecoderInjector.
+// A decoder will be automatically injected.
+
+// InjectDecoder injects the decoder.
+func (validator *Validator) InjectDecoder(d *admission.Decoder) error {
+	validator.Decoder = d
+	return nil
 }

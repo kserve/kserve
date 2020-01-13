@@ -28,7 +28,7 @@ REGISTRY="${GCP_REGISTRY}"
 ISTIO_VERSION="1.3.1"
 KNATIVE_VERSION="v0.10.0"
 KUBECTL_VERSION="v1.14.0"
-
+CERT_MANAGER_VERSION="v0.12.0"
 # Check and wait for istio/knative/kfserving pod started normally.
 waiting_pod_running(){
     namespace=$1
@@ -121,6 +121,14 @@ kubectl apply --filename https://github.com/knative/serving/releases/download/${
 
 echo "Waiting for knative started ..."
 waiting_pod_running "knative-serving"
+
+echo "Installing cert manager ..."
+kubectl create namespace cert-manager
+sleep 2
+kubectl apply --validate=false -f https://github.com/jetstack/cert-manager/releases/download/${CERT_MANAGER_VERSION}/cert-manager.yaml
+
+echo "Waiting for cert manager started ..."
+waiting_pod_running "cert-manager"
 
 echo "Install KFServing ..."
 export GOPATH="$HOME/go"

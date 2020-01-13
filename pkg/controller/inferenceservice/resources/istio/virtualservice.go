@@ -22,6 +22,7 @@ import (
 	"github.com/gogo/protobuf/types"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/network"
+	"time"
 
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	"github.com/kubeflow/kfserving/pkg/constants"
@@ -34,6 +35,10 @@ import (
 
 const (
 	IngressConfigKeyName = "ingress"
+)
+
+var (
+	RetryTimeout = types.DurationProto(time.Duration(10) * time.Minute)
 )
 
 // Status Constants
@@ -205,7 +210,7 @@ func (r *VirtualServiceBuilder) CreateVirtualService(isvc *v1alpha2.InferenceSer
 		Route: predictRouteDestinations,
 		Retries: &istiov1alpha3.HTTPRetry{
 			Attempts:      3,
-			PerTryTimeout: types.DurationProto(600),
+			PerTryTimeout: RetryTimeout,
 		},
 	}
 	httpRoutes = append(httpRoutes, predictRoute)
@@ -260,7 +265,7 @@ func (r *VirtualServiceBuilder) CreateVirtualService(isvc *v1alpha2.InferenceSer
 			Route: explainRouteDestinations,
 			Retries: &istiov1alpha3.HTTPRetry{
 				Attempts:      3,
-				PerTryTimeout: types.DurationProto(600),
+				PerTryTimeout: RetryTimeout,
 			},
 		}
 		httpRoutes = append(httpRoutes, explainRoute)

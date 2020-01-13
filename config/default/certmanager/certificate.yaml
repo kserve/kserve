@@ -17,7 +17,7 @@ spec:
   # $(SERVICE_NAME) and $(SERVICE_NAMESPACE) will be substituted by kustomize
   commonName: kfserving-webhook-server-service.kfserving-system.svc
   dnsNames:
-    - kfserving-webhook-server-service.kfserving-system.svc.cluster.local
+    - kfserving-webhook-server-service.kfserving-system.svc
   issuerRef:
     kind: Issuer
     name: selfsigned-issuer
