@@ -27,6 +27,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
+// +kubebuilder:webhook:path=/mutate-inferenceservices,mutating=true,failurePolicy=fail,groups="serving.kubeflow.org",resources=inferenceservices,verbs=create;update,versions=v1alpha2,name=inferenceservice.kfserving-webhook-server.mutator
+
 // Defaulter that sets default fields in InferenceServices
 type Defaulter struct {
 	Client  client.Client

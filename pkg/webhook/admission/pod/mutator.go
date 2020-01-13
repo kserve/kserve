@@ -29,6 +29,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
+// +kubebuilder:webhook:path=/mutate-pods,mutating=true,failurePolicy=fail,groups="",resources=pods,verbs=create;update,versions=v1,name=inferenceservice.kfserving-webhook-server.pod-mutator
+
 // Mutator is a webhook that injects incoming pods
 type Mutator struct {
 	Client  client.Client
