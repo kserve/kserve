@@ -1,0 +1,24 @@
+# The following manifests contain a self-signed issuer CR and a certificate CR.
+# More document can be found at https://docs.cert-manager.io
+apiVersion: cert-manager.io/v1alpha2
+kind: Issuer
+metadata:
+  name: selfsigned-issuer
+  namespace: kfserving-system
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1alpha2
+kind: Certificate
+metadata:
+  name: serving-cert  # this name should match the one appeared in kustomizeconfig.yaml
+  namespace: kfserving-system
+spec:
+  # $(SERVICE_NAME) and $(SERVICE_NAMESPACE) will be substituted by kustomize
+  commonName: kfserving-webhook-server-service.kfserving-system.svc
+  dnsNames:
+    - kfserving-webhook-server-service.kfserving-system.svc.cluster.local
+  issuerRef:
+    kind: Issuer
+    name: selfsigned-issuer
+  secretName: webhook-server-cert # this secret will not be prefixed, since it's not managed by kustomize
