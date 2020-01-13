@@ -77,7 +77,7 @@ undeploy-dev:
 
 # Generate manifests e.g. CRD, RBAC etc.
 manifests:
-	go run vendor/sigs.k8s.io/controller-tools/cmd/controller-gen/main.go $(CRD_OPTIONS) rbac:roleName=kfserving-manager-role paths=./pkg/apis/... output:crd:dir=config/default/crds
+	go run vendor/sigs.k8s.io/controller-tools/cmd/controller-gen/main.go $(CRD_OPTIONS) rbac:roleName=kfserving-manager-role webhook paths=./pkg/apis/... output:crd:dir=config/default/crds
 	kustomize build config/default/crds -o config/default/crds/serving.kubeflow.org_inferenceservices.yaml
 	cp config/default/crds/serving.kubeflow.org_inferenceservices.yaml test/crds/serving.kubeflow.org_inferenceservices.yaml
 	#go run vendor/sigs.k8s.io/controller-tools/cmd/controller-gen/main.go rbac output:rbac:dir=config/default/rbac

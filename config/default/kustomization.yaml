@@ -11,7 +11,7 @@ namespace: kfserving-system
 # YAML string, with resources separated by document
 # markers ("---").
 resources:
-- crds/serving_v1alpha2_inferenceservice.yaml
+- crds/serving.kubeflow.org_inferenceservices.yaml
 - configmap/inferenceservice.yaml
 - rbac/rbac_role.yaml
 - rbac/rbac_role_binding.yaml
@@ -23,8 +23,11 @@ resources:
 - rbac/auth_proxy_service.yaml
 - rbac/auth_proxy_role.yaml
 - rbac/auth_proxy_role_binding.yaml
+- webhook/manifests.yaml
+- webhook/service.yaml
+- certmanager/certificate.yaml
 
-patches:
+patchesStrategicMerge:
 - manager_image_patch.yaml
   # Protect the /metrics endpoint by putting it behind auth.
   # Only one of manager_auth_proxy_patch.yaml and
@@ -36,3 +39,33 @@ patches:
   # Only one of manager_auth_proxy_patch.yaml and
   # manager_prometheus_metrics_patch.yaml should be enabled.
 #- manager_prometheus_metrics_patch.yaml
+- webhookcainjection_patch.yaml
+
+vars:
+  # [CERTMANAGER] To enable cert-manager, uncomment all sections with 'CERTMANAGER' prefix.
+  - name: CERTIFICATE_NAMESPACE # namespace of the certificate CR
+    objref:
+      kind: Certificate
+      group: cert-manager.io
+      version: v1alpha2
+      name: serving-cert # this name should match the one in certificate.yaml
+    fieldref:
+      fieldpath: metadata.namespace
+  - name: CERTIFICATE_NAME
+    objref:
+      kind: Certificate
+      group: cert-manager.io
+      version: v1alpha2
+      name: serving-cert # this name should match the one in certificate.yaml
+  - name: SERVICE_NAMESPACE # namespace of the service
+    objref:
+      kind: Service
+      version: v1
+      name: kfserving-webhook-server-service
+    fieldref:
+      fieldpath: metadata.namespace
+  - name: SERVICE_NAME
+    objref:
+      kind: Service
+      version: v1
+      name: kfserving-webhook-server-service
