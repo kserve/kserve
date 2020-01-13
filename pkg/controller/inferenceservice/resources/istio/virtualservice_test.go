@@ -17,7 +17,6 @@ limitations under the License.
 package istio
 
 import (
-	"github.com/gogo/protobuf/types"
 	"github.com/google/go-cmp/cmp"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	"github.com/kubeflow/kfserving/pkg/constants"
@@ -142,7 +141,7 @@ func TestCreateVirtualService(t *testing.T) {
 						},
 						Retries: &istiov1alpha3.HTTPRetry{
 							Attempts:      3,
-							PerTryTimeout: types.DurationProto(600),
+							PerTryTimeout: RetryTimeout,
 						},
 					},
 				},
@@ -232,7 +231,7 @@ func TestCreateVirtualService(t *testing.T) {
 						},
 						Retries: &istiov1alpha3.HTTPRetry{
 							Attempts:      3,
-							PerTryTimeout: types.DurationProto(600),
+							PerTryTimeout: RetryTimeout,
 						},
 					},
 				},
@@ -309,7 +308,7 @@ func TestCreateVirtualService(t *testing.T) {
 						},
 						Retries: &istiov1alpha3.HTTPRetry{
 							Attempts:      3,
-							PerTryTimeout: types.DurationProto(600),
+							PerTryTimeout: RetryTimeout,
 						},
 					},
 				},
@@ -397,7 +396,7 @@ func TestCreateVirtualService(t *testing.T) {
 						},
 						Retries: &istiov1alpha3.HTTPRetry{
 							Attempts:      3,
-							PerTryTimeout: types.DurationProto(600),
+							PerTryTimeout: RetryTimeout,
 						},
 					},
 				},
@@ -474,7 +473,7 @@ func TestCreateVirtualService(t *testing.T) {
 						},
 						Retries: &istiov1alpha3.HTTPRetry{
 							Attempts:      3,
-							PerTryTimeout: types.DurationProto(600),
+							PerTryTimeout: RetryTimeout,
 						},
 					},
 					{
@@ -519,7 +518,7 @@ func TestCreateVirtualService(t *testing.T) {
 						},
 						Retries: &istiov1alpha3.HTTPRetry{
 							Attempts:      3,
-							PerTryTimeout: types.DurationProto(600),
+							PerTryTimeout: RetryTimeout,
 						},
 					},
 				},

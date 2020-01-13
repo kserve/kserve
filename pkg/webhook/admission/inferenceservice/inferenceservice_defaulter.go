@@ -32,7 +32,7 @@ import (
 // Defaulter that sets default fields in InferenceServices
 type Defaulter struct {
 	Client  client.Client
-	Decoder admission.Decoder
+	Decoder *admission.Decoder
 }
 
 var _ admission.Handler = &Defaulter{}
@@ -53,4 +53,19 @@ func (defaulter *Defaulter) Handle(ctx context.Context, req admission.Request) a
 	}
 
 	return admission.PatchResponseFromRaw(req.AdmissionRequest.Object.Raw, patch)
+}
+
+// InjectClient injects the client.
+func (defaulter *Defaulter) InjectClient(c client.Client) error {
+	defaulter.Client = c
+	return nil
+}
+
+// podAnnotator implements admission.DecoderInjector.
+// A decoder will be automatically injected.
+
+// InjectDecoder injects the decoder.
+func (defaulter *Defaulter) InjectDecoder(d *admission.Decoder) error {
+	defaulter.Decoder = d
+	return nil
 }

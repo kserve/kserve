@@ -18,6 +18,7 @@ package service
 
 import (
 	"fmt"
+	"github.com/kubeflow/kfserving/pkg/controller/inferenceservice/resources/istio"
 	"knative.dev/pkg/network"
 	"testing"
 	"time"
@@ -34,7 +35,6 @@ import (
 	"knative.dev/pkg/apis"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 
-	prototypes "github.com/gogo/protobuf/types"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	kfserving "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	"github.com/onsi/gomega"
@@ -277,7 +277,7 @@ func TestInferenceServiceWithOnlyPredictor(t *testing.T) {
 					},
 					Retries: &istiov1alpha3.HTTPRetry{
 						Attempts:      3,
-						PerTryTimeout: prototypes.DurationProto(600),
+						PerTryTimeout: istio.RetryTimeout,
 					},
 				},
 			},
@@ -633,7 +633,7 @@ func TestInferenceServiceWithDefaultAndCanaryPredictor(t *testing.T) {
 					},
 					Retries: &istiov1alpha3.HTTPRetry{
 						Attempts:      3,
-						PerTryTimeout: prototypes.DurationProto(600),
+						PerTryTimeout: istio.RetryTimeout,
 					},
 				},
 			},
@@ -1290,7 +1290,7 @@ func TestInferenceServiceWithTransformer(t *testing.T) {
 					},
 					Retries: &istiov1alpha3.HTTPRetry{
 						Attempts:      3,
-						PerTryTimeout: prototypes.DurationProto(600),
+						PerTryTimeout: istio.RetryTimeout,
 					},
 				},
 			},
@@ -1862,7 +1862,7 @@ func TestInferenceServiceWithExplainer(t *testing.T) {
 					},
 					Retries: &istiov1alpha3.HTTPRetry{
 						Attempts:      3,
-						PerTryTimeout: prototypes.DurationProto(600),
+						PerTryTimeout: istio.RetryTimeout,
 					},
 				},
 				{
@@ -1914,7 +1914,7 @@ func TestInferenceServiceWithExplainer(t *testing.T) {
 					},
 					Retries: &istiov1alpha3.HTTPRetry{
 						Attempts:      3,
-						PerTryTimeout: prototypes.DurationProto(600),
+						PerTryTimeout: istio.RetryTimeout,
 					},
 				},
 			},
