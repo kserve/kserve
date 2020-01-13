@@ -18,15 +18,16 @@ package main
 
 import (
 	"flag"
-	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
+	"github.com/kubeflow/kfserving/pkg/webhook/admission/inferenceservice"
+	"github.com/kubeflow/kfserving/pkg/webhook/admission/pod"
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"os"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	"github.com/kubeflow/kfserving/pkg/apis"
 	"github.com/kubeflow/kfserving/pkg/controller"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	knservingv1alpha1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
@@ -85,11 +86,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	log.Info("Setting up webhooks")
-	if err := ctrl.NewWebhookManagedBy(mgr).For(&v1alpha2.InferenceService{}).Complete(); err != nil {
-		log.Error(err, "unable to register webhooks to the manager")
-		os.Exit(1)
-	}
+	log.Info("setting up webhook server")
+	hookServer := mgr.GetWebhookServer()
+
+	log.Info("registering webhooks to the webhook server")
+	hookServer.Register("/mutate-pods", &webhook.Admission{Handler: &pod.Mutator{}})
+	hookServer.Register("/validate-inferenceservices", &webhook.Admission{Handler: &inferenceservice.Validator{}})
+	hookServer.Register("/mutate-inferenceservices", &webhook.Admission{Handler: &inferenceservice.Defaulter{}})
 
 	// Start the Cmd
 	log.Info("Starting the Cmd.")

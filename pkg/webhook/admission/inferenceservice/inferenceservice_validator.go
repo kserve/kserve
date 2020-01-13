@@ -31,6 +31,8 @@ import (
 	ktypes "k8s.io/apimachinery/pkg/types"
 )
 
+// +kubebuilder:webhook:path=/validate-inferenceservices,mutating=false,failurePolicy=fail,groups="serving.kubeflow.org",resources=inferenceservices,verbs=create;update,versions=v1alpha2,name=inferenceservice.kfserving-webhook-server.validator
+
 // Validator that validates InferenceServices
 type Validator struct {
 	Client  client.Client
