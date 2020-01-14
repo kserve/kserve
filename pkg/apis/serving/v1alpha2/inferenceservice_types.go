@@ -232,8 +232,8 @@ type InferenceServiceStatus struct {
 	Default *ComponentStatusMap `json:"default,omitempty"`
 	// Statuses for the canary endpoints of the InferenceService
 	Canary *ComponentStatusMap `json:"canary,omitempty"`
-	// +kubebuilder:validation:Type=string
-	//Address *duckv1beta1.Addressable `json:"address,omitempty"`
+	// Ducktype for addressable
+	Address *duckv1beta1.Addressable `json:"address,omitempty"`
 }
 
 // StatusConfigurationSpec describes the state of the configuration receiving traffic.

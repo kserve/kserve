@@ -129,7 +129,7 @@ kubectl apply --validate=false -f https://github.com/jetstack/cert-manager/relea
 
 echo "Waiting for cert manager started ..."
 waiting_pod_running "cert-manager"
-sleep 30  # Wait for webhook install finished totally.
+sleep 60  # Wait for webhook install finished totally.
 
 echo "Install KFServing ..."
 export GOPATH="$HOME/go"
@@ -141,7 +141,7 @@ make deploy-ci
 
 echo "Waiting for KFServing started ..."
 waiting_for_kfserving_controller
-sleep 30  # Wait for webhook install finished totally.
+sleep 60  # Wait for webhook install finished totally.
 
 echo "Creating a namespace kfserving-ci-test ..."
 kubectl create namespace kfserving-ci-e2e-test
