@@ -11,7 +11,7 @@ namespace: kfserving-system
 # YAML string, with resources separated by document
 # markers ("---").
 resources:
-- crds/serving.kubeflow.org_inferenceservices.yaml
+- crds/base/serving.kubeflow.org_inferenceservices.yaml
 - configmap/inferenceservice.yaml
 - rbac/rbac_role.yaml
 - rbac/rbac_role_binding.yaml
