@@ -8,7 +8,7 @@
 # YAML string, with resources separated by document
 # markers ("---").
 resources:
-- serving.kubeflow.org_inferenceservices.yaml
+- base/serving.kubeflow.org_inferenceservices.yaml
 
 patchesJson6902:
   # Knative uses VolatileTime in place of metav1.Time to exclude this from creating equality.Semantic difference,
