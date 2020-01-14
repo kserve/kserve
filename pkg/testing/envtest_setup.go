@@ -39,7 +39,9 @@ func SetupEnvTest() *envtest.Environment {
 		// The relative paths must be provided for each level of test nesting
 		// This code should be illegal
 		CRDDirectoryPaths: []string{
+			filepath.Join("..", "..", "..", "..", "..", "config", "default", "crds", "base"),
 			filepath.Join("..", "..", "..", "..", "..", "test", "crds"),
+			filepath.Join("..", "..", "..", "config", "default", "crds", "base"),
 			filepath.Join("..", "..", "..", "test", "crds"),
 		},
 	}
