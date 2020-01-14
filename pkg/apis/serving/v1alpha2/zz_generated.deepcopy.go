@@ -311,6 +311,11 @@ func (in *InferenceServiceStatus) DeepCopyInto(out *InferenceServiceStatus) {
 			}
 		}
 	}
+	if in.Address != nil {
+		in, out := &in.Address, &out.Address
+		*out = new(v1beta1.Addressable)
+		(*in).DeepCopyInto(*out)
+	}
 	return
 }
 

@@ -304,13 +304,13 @@ func TestInferenceServiceWithOnlyPredictor(t *testing.T) {
 			},
 		},
 		URL: constants.InferenceServiceURL("http", serviceKey.Name, serviceKey.Namespace, domain),
-		/*Address: &duckv1beta1.Addressable{
+		Address: &duckv1beta1.Addressable{
 			URL: &apis.URL{
 				Scheme: "http",
 				Path:   constants.PredictPrefix(serviceKey.Name),
 				Host:   network.GetServiceHostname(serviceKey.Name, serviceKey.Namespace),
 			},
-		},*/
+		},
 		Traffic:       100,
 		CanaryTraffic: 0,
 		Default: &kfserving.ComponentStatusMap{
@@ -369,13 +369,13 @@ func TestInferenceServiceWithDefaultAndCanaryPredictor(t *testing.T) {
 		},
 		Status: kfserving.InferenceServiceStatus{
 			URL: canaryServiceKey.Name + "." + domain,
-			/*Address: &duckv1beta1.Addressable{
+			Address: &duckv1beta1.Addressable{
 				URL: &apis.URL{
 					Scheme: "http",
 					Host:   network.GetServiceHostname(canaryServiceKey.Name, canaryServiceKey.Namespace),
 					Path:   constants.PredictPrefix(canaryServiceKey.Name),
 				},
-			},*/
+			},
 			Default: &kfserving.ComponentStatusMap{
 				constants.Predictor: kfserving.StatusConfigurationSpec{
 					Name: "revision-v1",
@@ -527,13 +527,13 @@ func TestInferenceServiceWithDefaultAndCanaryPredictor(t *testing.T) {
 		},
 		URL: constants.InferenceServiceURL("http", canaryServiceKey.Name,
 			canaryService.Namespace, domain),
-		/*Address: &duckv1beta1.Addressable{
+		Address: &duckv1beta1.Addressable{
 			URL: &apis.URL{
 				Scheme: "http",
 				Path:   constants.PredictPrefix(canaryServiceKey.Name),
 				Host:   network.GetServiceHostname(canaryServiceKey.Name, canaryServiceKey.Namespace),
 			},
-		},*/
+		},
 		Traffic:       80,
 		CanaryTraffic: 20,
 		Default: &kfserving.ComponentStatusMap{
@@ -790,13 +790,13 @@ func TestCanaryDelete(t *testing.T) {
 			},
 		},
 		URL: constants.InferenceServiceURL("http", serviceName, namespace, domain),
-		/*Address: &duckv1beta1.Addressable{
+		Address: &duckv1beta1.Addressable{
 			URL: &apis.URL{
 				Scheme: "http",
 				Path:   constants.PredictPrefix(serviceName),
 				Host:   network.GetServiceHostname(serviceName, canaryServiceKey.Namespace),
 			},
-		},*/
+		},
 		Traffic:       80,
 		CanaryTraffic: 20,
 		Default: &kfserving.ComponentStatusMap{
@@ -876,13 +876,13 @@ func TestCanaryDelete(t *testing.T) {
 			},
 		},
 		URL: constants.InferenceServiceURL("http", serviceName, namespace, domain),
-		/*Address: &duckv1beta1.Addressable{
+		Address: &duckv1beta1.Addressable{
 			URL: &apis.URL{
 				Scheme: "http",
 				Path:   constants.PredictPrefix(canaryServiceKey.Name),
 				Host:   network.GetServiceHostname(canaryServiceKey.Name, canaryServiceKey.Namespace),
 			},
-		},*/
+		},
 		Traffic: 100,
 		Default: &kfserving.ComponentStatusMap{
 			constants.Predictor: kfserving.StatusConfigurationSpec{
@@ -1179,13 +1179,13 @@ func TestInferenceServiceWithTransformer(t *testing.T) {
 		Traffic:       80,
 		CanaryTraffic: 20,
 		URL:           constants.InferenceServiceURL("http", serviceKey.Name, serviceKey.Namespace, domain),
-		/*Address: &duckv1beta1.Addressable{
+		Address: &duckv1beta1.Addressable{
 			URL: &apis.URL{
 				Scheme: "http",
 				Path:   constants.PredictPrefix(serviceKey.Name),
 				Host:   network.GetServiceHostname(serviceKey.Name, serviceKey.Namespace),
 			},
-		},*/
+		},
 		Default: &kfserving.ComponentStatusMap{
 			constants.Predictor: kfserving.StatusConfigurationSpec{
 				Name:     "revision-v1",
@@ -1751,13 +1751,13 @@ func TestInferenceServiceWithExplainer(t *testing.T) {
 		Traffic:       80,
 		CanaryTraffic: 20,
 		URL:           constants.InferenceServiceURL("http", serviceKey.Name, serviceKey.Namespace, domain),
-		/*Address: &duckv1beta1.Addressable{
+		Address: &duckv1beta1.Addressable{
 			URL: &apis.URL{
 				Scheme: "http",
 				Path:   constants.PredictPrefix(serviceKey.Name),
 				Host:   network.GetServiceHostname(serviceKey.Name, serviceKey.Namespace),
 			},
-		},*/
+		},
 		Default: &kfserving.ComponentStatusMap{
 			constants.Predictor: kfserving.StatusConfigurationSpec{
 				Name:     "revision-v1",

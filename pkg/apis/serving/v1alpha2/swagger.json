@@ -7,6 +7,53 @@
   },
   "paths": {},
   "definitions": {
+    "knative.Condition": {
+      "description": "Conditions defines a readiness condition for a Knative resource. See: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#typical-status-properties",
+      "type": "object",
+      "required": [
+        "type",
+        "status"
+      ],
+      "properties": {
+        "lastTransitionTime": {
+          "description": "LastTransitionTime is the last time the condition transitioned from one status to another. We use VolatileTime in place of metav1.Time to exclude this from creating equality.Semantic differences (all other things held constant).",
+          "$ref": "#/definitions/knative.VolatileTime"
+        },
+        "message": {
+          "description": "A human readable message indicating details about the transition.",
+          "type": "string"
+        },
+        "reason": {
+          "description": "The reason for the condition's last transition.",
+          "type": "string"
+        },
+        "severity": {
+          "description": "Severity with which to treat failures of this type of condition. When this is not specified, it defaults to Error.",
+          "type": "string"
+        },
+        "status": {
+          "description": "Status of the condition, one of True, False, Unknown.",
+          "type": "string"
+        },
+        "type": {
+          "description": "Type of condition.",
+          "type": "string"
+        }
+      }
+    },
+    "knative.VolatileTime": {
+      "description": "VolatileTime wraps metav1.Time",
+      "type": "object",
+      "required": [
+        "Time"
+      ],
+      "properties": {
+        "Time": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
     "v1alpha2.AlibiExplainerSpec": {
       "description": "AlibiExplainerSpec defines the arguments for configuring an Alibi Explanation Server",
       "type": "object",
@@ -203,6 +250,10 @@
       "description": "InferenceServiceStatus defines the observed state of InferenceService",
       "type": "object",
       "properties": {
+        "address": {
+          "description": "Ducktype for addressable",
+          "$ref": "#/definitions/knative.dev.pkg.apis.duck.v1beta1.Addressable"
+        },
         "canary": {
           "description": "Statuses for the canary endpoints of the InferenceService",
           "type": "object",

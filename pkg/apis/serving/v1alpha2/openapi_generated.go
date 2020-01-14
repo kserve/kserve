@@ -48,6 +48,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.TensorflowSpec":          schema_pkg_apis_serving_v1alpha2_TensorflowSpec(ref),
 		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.TransformerSpec":         schema_pkg_apis_serving_v1alpha2_TransformerSpec(ref),
 		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.XGBoostSpec":             schema_pkg_apis_serving_v1alpha2_XGBoostSpec(ref),
+		"knative.dev/pkg/apis.Condition":                                                  schema_knativedev_pkg_apis_Condition(ref),
+		"knative.dev/pkg/apis.VolatileTime":                                               schema_knativedev_pkg_apis_VolatileTime(ref),
 	}
 }
 
@@ -472,11 +474,17 @@ func schema_pkg_apis_serving_v1alpha2_InferenceServiceStatus(ref common.Referenc
 							},
 						},
 					},
+					"address": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Ducktype for addressable",
+							Ref:         ref("knative.dev/pkg/apis/duck/v1beta1.Addressable"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.StatusConfigurationSpec", "knative.dev/pkg/apis.Condition"},
+			"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.StatusConfigurationSpec", "knative.dev/pkg/apis.Condition", "knative.dev/pkg/apis/duck/v1beta1.Addressable"},
 	}
 }
 
@@ -899,5 +907,82 @@ func schema_pkg_apis_serving_v1alpha2_XGBoostSpec(ref common.ReferenceCallback) 
 		},
 		Dependencies: []string{
 			"k8s.io/api/core/v1.ResourceRequirements"},
+	}
+}
+
+func schema_knativedev_pkg_apis_Condition(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "Conditions defines a readiness condition for a Knative resource. See: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#typical-status-properties",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Type of condition.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Status of the condition, one of True, False, Unknown.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"severity": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Severity with which to treat failures of this type of condition. When this is not specified, it defaults to Error.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"lastTransitionTime": {
+						SchemaProps: spec.SchemaProps{
+							Description: "LastTransitionTime is the last time the condition transitioned from one status to another. We use VolatileTime in place of metav1.Time to exclude this from creating equality.Semantic differences (all other things held constant).",
+							Ref:         ref("knative.dev/pkg/apis.VolatileTime"),
+						},
+					},
+					"reason": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The reason for the condition's last transition.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"message": {
+						SchemaProps: spec.SchemaProps{
+							Description: "A human readable message indicating details about the transition.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"type", "status"},
+			},
+		},
+		Dependencies: []string{
+			"knative.dev/pkg/apis.VolatileTime"},
+	}
+}
+
+func schema_knativedev_pkg_apis_VolatileTime(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VolatileTime wraps metav1.Time",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"Time": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "date-time",
+						},
+					},
+				},
+				Required: []string{"Time"},
+			},
+		},
 	}
 }
