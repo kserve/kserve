@@ -243,6 +243,10 @@
                     template: "build-pytorchserver",
                   },
                   {
+                    name: "build-pytorchserver-gpu",
+                    template: "build-pytorchserver-gpu",
+                  },
+                  {
                     name: "build-sklearnserver",
                     template: "build-sklearnserver",
                   },
@@ -302,13 +306,13 @@
               "test/scripts/build-kfserving.sh",
             ]),  // build-kfserving
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-alibi-explainer", testWorkerImage, [
-              "test/scripts/build-python-image.sh", "alibiexplainer.Dockerfile", "alibi-explainer",
+              "test/scripts/build-python-image.sh", "alibiexplainer.Dockerfile", "alibi-explainer", "latest"
             ]),  // build-alibi-explainer
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-storage-initializer", testWorkerImage, [
-              "test/scripts/build-python-image.sh", "storage-initializer.Dockerfile", "storage-initializer",
+              "test/scripts/build-python-image.sh", "storage-initializer.Dockerfile", "storage-initializer", "latest"
             ]),  // build-storage-initializer
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-xgbserver", testWorkerImage, [
-              "test/scripts/build-python-image.sh", "xgb.Dockerfile", "xgbserver",
+              "test/scripts/build-python-image.sh", "xgb.Dockerfile", "xgbserver", "latest"
             ]),  // build-xgbserver
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-logger", testWorkerImage, [
               "test/scripts/build-logger.sh",
@@ -317,10 +321,13 @@
               "test/scripts/build-custom-image-transformer.sh",
             ]),  // build-custom-image-transformer
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-pytorchserver", testWorkerImage, [
-              "test/scripts/build-python-image.sh", "pytorch.Dockerfile", "pytorchserver",
+              "test/scripts/build-python-image.sh", "pytorch.Dockerfile", "pytorchserver", "latest"
             ]),  // build-pytorchserver
+            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-pytorchserver-gpu", testWorkerImage, [
+              "test/scripts/build-python-image.sh", "pytorch-gpu.Dockerfile", "pytorchserver", "latest-gpu"
+            ]),  // build-pytorchserver-gpu
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-sklearnserver", testWorkerImage, [
-              "test/scripts/build-python-image.sh", "sklearn.Dockerfile", "sklearnserver",
+              "test/scripts/build-python-image.sh", "sklearn.Dockerfile", "sklearnserver", "latest"
             ]),  // build-sklearnserver
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("unit-test", testWorkerImage, [
               "test/scripts/unit-test.sh",

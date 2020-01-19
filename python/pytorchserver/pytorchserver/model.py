@@ -29,7 +29,8 @@ class PyTorchModel(kfserving.KFModel):
         self.model_class_name = model_class_name
         self.model_dir = model_dir
         self.ready = False
-        self._pytorch = None
+        self.model = None
+        self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
     def load(self):
         model_file_dir = kfserving.Storage.download(self.model_dir)
@@ -53,20 +54,20 @@ class PyTorchModel(kfserving.KFModel):
         model_class = getattr(importlib.import_module(modulename), model_class_name)
 
         # Make sure the model weight is transform with the right device in this machine
-        device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-        self._pytorch = model_class().to(device)
-        self._pytorch.load_state_dict(torch.load(model_file, map_location=device))
-        self._pytorch.eval()
+        self.model = model_class().to(self.device)
+        self.model.load_state_dict(torch.load(model_file, map_location=self.device))
+        self.model.eval()
         self.ready = True
 
     def predict(self, request: Dict) -> Dict:
         inputs = []
-        try:
-            inputs = torch.tensor(request["instances"])
-        except Exception as e:
-            raise Exception(
-                "Failed to initialize Torch Tensor from inputs: %s, %s" % (e, inputs))
-        try:
-            return {"predictions":  self._pytorch(inputs).tolist()}
-        except Exception as e:
-            raise Exception("Failed to predict %s" % e)
+        with torch.no_grad():
+            try:
+                inputs = torch.tensor(request["instances"]).to(self.device)
+            except Exception as e:
+                raise TypeError(
+                    "Failed to initialize Torch Tensor from inputs: %s, %s" % (e, inputs))
+            try:
+                return {"predictions":  self.model(inputs).tolist()}
+            except Exception as e:
+                raise Exception("Failed to predict %s" % e)
