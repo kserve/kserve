@@ -46,7 +46,8 @@ data:
             "image": "gcr.io/kubeflow-ci/kfserving/pytorchserver",
             "defaultImageVersion": "latest",
             "allowedImageVersions": [
-               "latest"
+               "latest",
+               "latest-gpu"
             ]
         },
         "tensorrt": {

@@ -5,6 +5,7 @@ FROM nvidia/cuda:10.0-cudnn7-devel-ubuntu18.04 AS BUILD
 ARG PYTHON_VERSION=3.7
 ARG CONDA_PYTHON_VERSION=3
 ARG CONDA_DIR=/opt/conda
+ARG PYTORCH_VERSION=1.3.1
 
 # Instal basic utilities
 RUN apt-get update && \
@@ -22,27 +23,15 @@ RUN wget --quiet https://repo.continuum.io/miniconda/Miniconda$CONDA_PYTHON_VERS
     rm -rf /var/lib/apt/lists/*
 
 RUN conda install -y python=$PYTHON_VERSION && \
-    conda install -y pytorch torchvision cudatoolkit=10.0 -c pytorch && \
+    conda install -y pytorch==$PYTORCH_VERSION torchvision cudatoolkit=10.0 -c pytorch && \
     conda install -y h5py scikit-learn matplotlib seaborn \
     pandas mkl-service cython && \
     conda clean -tipsy
 
-# Install apex
-WORKDIR /tmp/
-RUN git clone https://github.com/NVIDIA/apex.git && \
-    cd apex && pip install -v --no-cache-dir --global-option="--cpp_ext" --global-option="--cuda_ext" .
-
-RUN  pip install --upgrade pip && \
-    pip install pillow-simd transformers simpletransformers && \
-    rm -rf ~/.cache/pip
-
 # Runtime image
-# FROM nvidia/cuda:10.0-cudnn7-runtime-ubuntu18.04
 FROM nvidia/cuda:10.0-base
 
 ARG CONDA_DIR=/opt/conda
-ARG USERNAME=docker
-ARG USERID=1000
 
 # Instal basic utilities
 RUN apt-get update && \
@@ -58,13 +47,14 @@ ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CUDA_ROOT/lib64
 
 RUN mkdir -p /opt/conda/
 
-# Create the user
-RUN useradd --create-home -s /bin/bash --no-user-group -u $USERID $USERNAME && \
-    chown $USERNAME $CONDA_DIR -R && \
-    adduser $USERNAME sudo && \
-    echo "$USERNAME ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
-USER $USERNAME
-WORKDIR /home/$USERNAME
+WORKDIR /workspace
+RUN chmod -R a+w /workspace
 
 COPY --chown=1000 --from=build /opt/conda/. $CONDA_DIR
+COPY pytorchserver pytorchserver
+COPY kfserving kfserving
+
+RUN pip install --upgrade pip && pip install -e ./kfserving
+RUN pip install -e ./pytorchserver
+ENTRYPOINT ["python", "-m", "pytorchserver"]
 
