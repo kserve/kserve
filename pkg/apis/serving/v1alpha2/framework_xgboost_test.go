@@ -84,6 +84,7 @@ func TestCreateXGBoostContainer(t *testing.T) {
 			"--model_dir=/mnt/models",
 			"--http_port=8080",
 			"--nthread=0",
+			"--workers=0",
 		},
 	}
 
@@ -123,6 +124,7 @@ func TestCreateXGBoostContainerWithNThread(t *testing.T) {
 				"--model_dir=/mnt/models",
 				"--http_port=8080",
 				"--nthread=4",
+				"--workers=0",
 			},
 		},
 	}

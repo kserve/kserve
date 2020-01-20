@@ -88,6 +88,7 @@ func TestCreateSKLearnModelServingContainer(t *testing.T) {
 			"--model_name=someName",
 			"--model_dir=/mnt/models",
 			"--http_port=8080",
+			"--workers=0",
 		},
 	}
 

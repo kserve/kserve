@@ -15,6 +15,7 @@ package v1alpha2
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/kubeflow/kfserving/pkg/constants"
@@ -47,10 +48,7 @@ func (p *PyTorchSpec) GetContainer(modelName string, config *InferenceServicesCo
 		"--model_class_name=" + p.ModelClassName,
 		"--model_dir=" + constants.DefaultModelLocalMountPath,
 		"--http_port=" + constants.InferenceServiceDefaultHttpPort,
-	}
-	// pytorch multiprocessing is conflicting with tornado multiprocessing on GPU so default workers to 1 here
-	if isGPUEnabled(p.Resources) {
-		arguments = append(arguments, "--workers=1")
+		"--workers=" + strconv.Itoa(config.Predictors.PyTorch.NumWorkers),
 	}
 	return &v1.Container{
 		Image:     config.Predictors.PyTorch.ContainerImage + ":" + p.RuntimeVersion,
