@@ -23,6 +23,7 @@ type ExplainerConfig struct {
 
 	DefaultImageVersion  string   `json:"defaultImageVersion"`
 	AllowedImageVersions []string `json:"allowedImageVersions"`
+	NumWorkers           int      `json:"numWorkers"`
 }
 
 // +k8s:openapi-gen=false
@@ -37,6 +38,7 @@ type PredictorConfig struct {
 	DefaultImageVersion    string   `json:"defaultImageVersion"`
 	DefaultGpuImageVersion string   `json:"defaultGpuImageVersion"`
 	AllowedImageVersions   []string `json:"allowedImageVersions"`
+	NumWorkers             int      `json:"numWorkers"`
 }
 
 // +k8s:openapi-gen=false
@@ -55,6 +57,7 @@ type TransformerConfig struct {
 
 	DefaultImageVersion  string   `json:"defaultImageVersion"`
 	AllowedImageVersions []string `json:"allowedImageVersions"`
+	NumWorkers           int      `json:"numWorkers"`
 }
 
 // +k8s:openapi-gen=false

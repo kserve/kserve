@@ -90,6 +90,7 @@ func TestCreatePytorchModelServingContainer(t *testing.T) {
 			"--model_class_name=Net",
 			"--model_dir=/mnt/models",
 			"--http_port=8080",
+			"--workers=0",
 		},
 	}
 

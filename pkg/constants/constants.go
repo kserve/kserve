@@ -132,6 +132,7 @@ const (
 	ArgumentModelName     = "--model_name"
 	ArgumentPredictorHost = "--predictor_host"
 	ArgumentHttpPort      = "--http_port"
+	ArgumentWorkers       = "--workers"
 )
 
 // InferenceService container name

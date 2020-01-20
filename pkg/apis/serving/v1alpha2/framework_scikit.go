@@ -15,6 +15,7 @@ package v1alpha2
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/kubeflow/kfserving/pkg/constants"
@@ -46,6 +47,7 @@ func (s *SKLearnSpec) GetContainer(modelName string, config *InferenceServicesCo
 			"--model_name=" + modelName,
 			"--model_dir=" + constants.DefaultModelLocalMountPath,
 			"--http_port=" + constants.InferenceServiceDefaultHttpPort,
+			"--workers=" + strconv.Itoa(config.Predictors.SKlearn.NumWorkers),
 		},
 	}
 }

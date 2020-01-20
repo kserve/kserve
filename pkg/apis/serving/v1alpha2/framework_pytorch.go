@@ -15,6 +15,7 @@ package v1alpha2
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/kubeflow/kfserving/pkg/constants"
@@ -48,6 +49,7 @@ func (s *PyTorchSpec) GetContainer(modelName string, config *InferenceServicesCo
 			"--model_class_name=" + s.ModelClassName,
 			"--model_dir=" + constants.DefaultModelLocalMountPath,
 			"--http_port=" + constants.InferenceServiceDefaultHttpPort,
+			"--workers=" + strconv.Itoa(config.Predictors.PyTorch.NumWorkers),
 		},
 	}
 }
