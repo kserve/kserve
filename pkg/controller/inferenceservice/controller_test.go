@@ -1618,6 +1618,8 @@ func TestInferenceServiceWithExplainer(t *testing.T) {
 											constants.CanaryPredictorServiceName(instance.Name) + "." + instance.Namespace,
 											"--http_port",
 											"8080",
+											"--workers",
+											"0",
 											"AnchorTabular",
 										},
 									},
