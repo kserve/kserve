@@ -3,6 +3,7 @@ package v1alpha2
 import (
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/kubeflow/kfserving/pkg/constants"
@@ -28,6 +29,7 @@ func (s *AlibiExplainerSpec) CreateExplainerContainer(modelName string, predicto
 		constants.ArgumentModelName, modelName,
 		constants.ArgumentPredictorHost, predictorHost,
 		constants.ArgumentHttpPort, constants.InferenceServiceDefaultHttpPort,
+		constants.ArgumentWorkers, strconv.Itoa(config.Explainers.AlibiExplainer.NumWorkers),
 	}
 
 	if s.StorageURI != "" {

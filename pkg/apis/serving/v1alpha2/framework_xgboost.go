@@ -46,6 +46,7 @@ func (x *XGBoostSpec) GetContainer(modelName string, config *InferenceServicesCo
 			"--model_dir=" + constants.DefaultModelLocalMountPath,
 			"--http_port=" + constants.InferenceServiceDefaultHttpPort,
 			"--nthread=" + strconv.Itoa(x.NThread),
+			"--workers=" + strconv.Itoa(config.Predictors.Xgboost.NumWorkers),
 		},
 	}
 }
