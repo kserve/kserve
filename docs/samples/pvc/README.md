@@ -12,7 +12,7 @@ Following the mnist example [guide](https://github.com/kubeflow/examples/tree/ma
 
 ## Create the InferenceService
 
-Update the ${PVC_NAME} to the created PVC name in the `mnis-pvc.yaml` and apply:
+Update the ${PVC_NAME} to the created PVC name in the `mnist-pvc.yaml` and apply:
 ```bash
 kubectl apply -f mnist-pvc.yaml
 ```

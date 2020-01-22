@@ -325,3 +325,49 @@ class KFServingClient(object):
             raise RuntimeError(
                 "Exception when calling CustomObjectsApi->delete_namespaced_custom_object:\
                  %s\n" % e)
+
+
+    def is_isvc_ready(self, name, namespace=None): #pylint:disable=inconsistent-return-statements
+        """
+        Check if the inference service is ready.
+        :param name: inference service name
+        :param namespace: defaults to current or default namespace
+        :return:
+        """
+        kfsvc_status = self.get(name, namespace=namespace)
+        status = 'Unknown'
+        for condition in kfsvc_status['status'].get('conditions', {}):
+            if condition.get('type', '') == 'Ready':
+                status = condition.get('status', 'Unknown')
+                return status.lower() == "true"
+        return False
+
+
+    def wait_isvc_ready(self, name, namespace=None, #pylint:disable=too-many-arguments
+                        watch=False,
+                        timeout_seconds=600,
+                        polling_interval=10):
+        """
+        Waiting for inference service ready, print out the inference service if timeout.
+        :param name: inference service name
+        :param namespace: defaults to current or default namespace
+        :param watch: True to watch the service until timeout elapsed or status is ready
+        :param timeout_seconds: timeout seconds for waiting, default to 600s.
+               Print out the InferenceService if timeout.
+        :param polling_interval: The time interval to poll status
+        :return:
+        """
+        if watch:
+            isvc_watch(
+                name=name,
+                namespace=namespace,
+                timeout_seconds=timeout_seconds)
+        else:
+            for _ in range(round(timeout_seconds/polling_interval)):
+                time.sleep(polling_interval)
+                if self.is_isvc_ready(name, namespace=namespace):
+                    return
+
+            current_isvc = self.get(name, namespace=namespace)
+            raise RuntimeError("Timeout to start the InferenceService {}. \
+                               The InferenceService is as following: {}".format(name, current_isvc))

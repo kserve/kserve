@@ -6,44 +6,43 @@ In one terminal start an echo http server on port 8000
 docker run -it -p 8000:80 --rm -t mendhak/http-https-echo
 ```
 
-Start an SKLearn Iris model on port 8081. You will need to have pip installed the sklearnserver. See `/python/sklearnserver`.
+Start an SKLearn Iris model on port 8080. You will need to have pip installed the sklearnserver. See `/python/sklearnserver`.
 
 ```
-python -m sklearnserver --model_dir gs://kfserving-samples/models/sklearn/iris --model_name sklearn-iris --http_port 8081
+python -m sklearnserver --model_dir gs://kfserving-samples/models/sklearn/iris --model_name sklearn-iris --http_port 8080
 ```
 
 Start the Kfserving logger from Kfserving root folder:
 
 ```
 
-bin/logger --log-url http://0.0.0.0:8000 --component-port 8081 --log-mode all
+bin/logger --log-url http://0.0.0.0:8000 --component-port 8080 --log-mode all
 ```
 
 Send a request:
 
 ```
-curl -v -d @./input.json http://0.0.0.0:8080/v1/models/sklearn-iris:predict
+curl -v -d @./input.json http://0.0.0.0:8081/v1/models/sklearn-iris:predict
 ```
 
 You should see output like:
 
 ```
-"
 *   Trying 0.0.0.0...
-* Connected to 0.0.0.0 (127.0.0.1) port 8080 (#0)
+* Connected to 0.0.0.0 (127.0.0.1) port 8081 (#0)
 > POST /v1/models/sklearn-iris:predict HTTP/1.1
-> Host: 0.0.0.0:8080
+> Host: 0.0.0.0:8081
 > User-Agent: curl/7.47.0
 > Accept: */*
-> Content-Type: application/json
 > Content-Length: 76
-> 
+> Content-Type: application/x-www-form-urlencoded
+>
 * upload completely sent off: 76 out of 76 bytes
 < HTTP/1.1 200 OK
-< Content-Type: application/json; charset=UTF-8
-< Date: Thu, 31 Oct 2019 15:20:50 GMT
+< Content-Type: text/html; charset=UTF-8
+< Date: Fri, 20 Dec 2019 18:23:49 GMT
 < Content-Length: 23
-< 
+<
 * Connection #0 to host 0.0.0.0 left intact
 {"predictions": [1, 1]}
 ```

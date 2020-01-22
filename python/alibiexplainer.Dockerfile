@@ -1,7 +1,8 @@
 FROM python:3.7
 
-COPY . .
-RUN apt-get update
+COPY alibiexplainer alibiexplainer
+COPY kfserving kfserving
+ 
 RUN pip install --upgrade pip && pip install -e ./kfserving
 # Latest scipy has dependency issue when used with pytorch: https://github.com/scipy/scipy/issues/11237
 RUN pip install scipy==1.3.3 
