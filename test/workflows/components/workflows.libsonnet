@@ -307,9 +307,6 @@
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-storage-initializer", testWorkerImage, [
               "test/scripts/build-python-image.sh", "storage-initializer.Dockerfile", "storage-initializer",
             ]),  // build-storage-initializer
-            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-xgbserver", testWorkerImage, [
-              "test/scripts/build-python-image.sh", "xgb.Dockerfile", "xgbserver",
-            ]),  // build-xgbserver
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-logger", testWorkerImage, [
               "test/scripts/build-logger.sh",
             ]),  // build-logger
