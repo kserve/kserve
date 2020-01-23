@@ -1,5 +1,7 @@
 FROM ubuntu:16.04
 
+ARG PYTORCH_VERSION=1.3.1
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
          build-essential \
          git \
@@ -14,15 +16,16 @@ RUN curl -o ~/miniconda.sh -O  https://repo.continuum.io/miniconda/Miniconda3-4.
      ~/miniconda.sh -b -p /opt/conda && \
      rm ~/miniconda.sh && \
      /opt/conda/bin/conda install conda-build && \
-     /opt/conda/bin/conda create -y --name pytorch-py37 python=3.7.3 numpy pyyaml scipy ipython mkl&& \
+     /opt/conda/bin/conda create -y --name pytorch-py37 python=3.7.3 numpy pyyaml scipy ipython mkl && \
      /opt/conda/bin/conda clean -ya
 ENV PATH /opt/conda/envs/pytorch-py37/bin:$PATH
-RUN conda install --name pytorch-py37 pytorch-cpu torchvision -c soumith && /opt/conda/bin/conda clean -ya
+RUN conda install --name pytorch-py37 pytorch==$PYTORCH_VERSION torchvision pillow==6.2.0 cpuonly -c pytorch && /opt/conda/bin/conda clean -ya
 
 WORKDIR /workspace
 RUN chmod -R a+w /workspace
 
-COPY . .
+COPY pytorchserver pytorchserver
+COPY kfserving kfserving
 RUN pip install --upgrade pip && pip install -e ./kfserving
 RUN pip install -e ./pytorchserver
 ENTRYPOINT ["python", "-m", "pytorchserver"]

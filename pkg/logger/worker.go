@@ -48,9 +48,9 @@ type Worker struct {
 func (W *Worker) sendCloudEvent(logReq LogRequest) error {
 
 	t, err := cloudevents.NewHTTPTransport(
-		cloudevents.WithTarget(logReq.url.String()),
+		cloudevents.WithTarget(logReq.Url.String()),
 		cloudevents.WithEncoding(cloudevents.HTTPBinaryV02),
-		cloudevents.WitHHeader(ModelIdHeader, logReq.modelId),
+		cloudevents.WitHHeader(ModelIdHeader, logReq.ModelId),
 	)
 
 	if err != nil {
@@ -63,15 +63,15 @@ func (W *Worker) sendCloudEvent(logReq LogRequest) error {
 		return fmt.Errorf("while creating new cloudevents client: %s", err)
 	}
 	event := cloudevents.NewEvent()
-	event.SetID(logReq.id)
-	if logReq.reqType == InferenceRequest {
+	event.SetID(logReq.Id)
+	if logReq.ReqType == InferenceRequest {
 		event.SetType(CEInferenceRequest)
 	} else {
 		event.SetType(CEInferenceResponse)
 	}
-	event.SetSource(logReq.sourceUri.String())
-	event.SetDataContentType(logReq.contentType)
-	if err := event.SetData(*logReq.b); err != nil {
+	event.SetSource(logReq.SourceUri.String())
+	event.SetDataContentType(logReq.ContentType)
+	if err := event.SetData(*logReq.Bytes); err != nil {
 		return fmt.Errorf("while setting cloudevents data: %s", err)
 	}
 
@@ -92,10 +92,10 @@ func (w *Worker) Start() {
 			select {
 			case work := <-w.Work:
 				// Receive a work request.
-				fmt.Printf("worker%d: Received work request for %s\n", w.ID, work.url.String())
+				fmt.Printf("worker%d: Received work request for %s\n", w.ID, work.Url.String())
 
 				if err := w.sendCloudEvent(work); err != nil {
-					w.Log.Error(err, "Failed to send log", "URL", work.url.String())
+					w.Log.Error(err, "Failed to send log", "URL", work.Url.String())
 				}
 
 			case <-w.QuitChan:

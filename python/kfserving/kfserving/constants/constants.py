@@ -15,10 +15,10 @@
 import os
 
 # KFServing K8S constants
-KFSERVING_GROUP = "serving.kubeflow.org"
-KFSERVING_KIND = "InferenceService"
-KFSERVING_PLURAL = "inferenceservices"
-KFSERVING_VERSION = "v1alpha2"
+KFSERVING_GROUP = 'serving.kubeflow.org'
+KFSERVING_KIND = 'InferenceService'
+KFSERVING_PLURAL = 'inferenceservices'
+KFSERVING_VERSION = os.environ.get('KFSERVING_VERSION', 'v1alpha2')
 
 KFSERVING_LOGLEVEL = os.environ.get('KFSERVING_LOGLEVEL', 'INFO').upper()
 
