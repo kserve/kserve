@@ -32,7 +32,6 @@ import (
 
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	kfserving "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
-	istiov1alpha3 "knative.dev/pkg/apis/istio/v1alpha3"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 
 	"k8s.io/apimachinery/pkg/api/errors"

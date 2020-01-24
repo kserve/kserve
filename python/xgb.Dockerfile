@@ -5,7 +5,6 @@ RUN apt-get update && apt-get install libgomp1
 COPY . . 
 
 # pip 20.x breaks xgboost wheels https://github.com/dmlc/xgboost/issues/5221
-# RUN pip install --upgrade pip && pip install -e ./kfserving
-RUN pip install -e ./kfserving
+RUN pip install pip==19.3.1 && pip install -e ./kfserving
 RUN pip install -e ./xgbserver
 ENTRYPOINT ["python", "-m", "xgbserver"]
