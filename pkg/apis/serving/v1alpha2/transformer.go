@@ -17,8 +17,18 @@ const (
 // Transformer interface is implemented by all Transformers
 type Transformer interface {
 	GetContainerSpec() *v1.Container
+	GetStorageUri() string
 	ApplyDefaults(config *InferenceServicesConfig)
 	Validate(config *InferenceServicesConfig) error
+}
+
+// Returns a URI to the model. This URI is passed to the storage-initializer via the StorageInitializerSourceUriInternalAnnotationKey
+func (t *TransformerSpec) GetStorageUri() string {
+	transformer, err := getTransformer(t)
+	if err != nil {
+		return ""
+	}
+	return transformer.GetStorageUri()
 }
 
 // GetContainerSpec for the transformer

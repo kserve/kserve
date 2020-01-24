@@ -196,6 +196,11 @@ func (c *ServiceBuilder) CreateTransformerService(name string, metadata metav1.O
 		return nil, err
 	}
 
+	// KNative does not support INIT containers or mounting, so we add annotations that trigger the
+	// StorageInitializer injector to mutate the underlying deployment to provision model data
+	if sourceURI := transformerSpec.GetStorageUri(); sourceURI != "" {
+		annotations[constants.StorageInitializerSourceUriInternalAnnotationKey] = sourceURI
+	}
 	// Knative does not support multiple containers so we add an annotation that triggers pod
 	// mutator to add it
 	hasInferenceLogging := addLoggerAnnotations(transformerSpec.Logger, annotations)
