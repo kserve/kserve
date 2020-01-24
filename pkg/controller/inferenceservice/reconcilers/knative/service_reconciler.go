@@ -24,7 +24,7 @@ import (
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/controller/inferenceservice/resources/knative"
 	"knative.dev/pkg/kmp"
-	knservingv1alpha1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
+	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -75,7 +75,7 @@ func (r *ServiceReconciler) reconcileComponent(isvc *v1alpha2.InferenceService, 
 		serviceName = constants.CanaryServiceName(isvc.Name, component)
 		propagateStatusFn = isvc.Status.PropagateCanaryStatus
 	}
-	var service *knservingv1alpha1.Service
+	var service *knservingv1.Service
 	var err error
 	if endpointSpec != nil {
 		service, err = r.serviceBuilder.CreateInferenceServiceComponent(isvc, component, isCanary)
@@ -101,7 +101,7 @@ func (r *ServiceReconciler) reconcileComponent(isvc *v1alpha2.InferenceService, 
 }
 
 func (r *ServiceReconciler) finalizeService(serviceName, namespace string) error {
-	existing := &knservingv1alpha1.Service{}
+	existing := &knservingv1.Service{}
 	if err := r.client.Get(context.TODO(), types.NamespacedName{Name: serviceName, Namespace: namespace}, existing); err != nil {
 		if !errors.IsNotFound(err) {
 			return err
@@ -117,12 +117,12 @@ func (r *ServiceReconciler) finalizeService(serviceName, namespace string) error
 	return nil
 }
 
-func (r *ServiceReconciler) reconcileService(isvc *v1alpha2.InferenceService, desired *knservingv1alpha1.Service) (*knservingv1alpha1.ServiceStatus, error) {
+func (r *ServiceReconciler) reconcileService(isvc *v1alpha2.InferenceService, desired *knservingv1.Service) (*knservingv1.ServiceStatus, error) {
 	if err := controllerutil.SetControllerReference(isvc, desired, r.scheme); err != nil {
 		return nil, err
 	}
 	// Create service if does not exist
-	existing := &knservingv1alpha1.Service{}
+	existing := &knservingv1.Service{}
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, existing)
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -153,7 +153,7 @@ func (r *ServiceReconciler) reconcileService(isvc *v1alpha2.InferenceService, de
 	return &existing.Status, nil
 }
 
-func semanticEquals(desiredService, service *knservingv1alpha1.Service) bool {
+func semanticEquals(desiredService, service *knservingv1.Service) bool {
 	return equality.Semantic.DeepEqual(desiredService.Spec.ConfigurationSpec, service.Spec.ConfigurationSpec) &&
 		equality.Semantic.DeepEqual(desiredService.ObjectMeta.Labels, service.ObjectMeta.Labels)
 }

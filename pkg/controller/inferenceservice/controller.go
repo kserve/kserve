@@ -32,7 +32,7 @@ import (
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	kfserving "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	istiov1alpha3 "knative.dev/pkg/apis/istio/v1alpha3"
-	knservingv1alpha1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
+	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -87,7 +87,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	// Watch for changes to Knative Service
-	if err = c.Watch(&source.Kind{Type: &knservingv1alpha1.Service{}}, kfservingController); err != nil {
+	if err = c.Watch(&source.Kind{Type: &knservingv1.Service{}}, kfservingController); err != nil {
 		return err
 	}
 
