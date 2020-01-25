@@ -30,7 +30,7 @@ spec:
               fieldRef:
                 fieldPath: metadata.namespace
           - name: SECRET_NAME
-            value: webhook-server-cert
+            value: kfserving-webhook-server-cert
         resources:
           limits:
             cpu: 100m
@@ -51,7 +51,7 @@ spec:
       - name: cert
         secret:
           defaultMode: 420
-          secretName: webhook-server-cert
+          secretName: kfserving-webhook-server-cert
 ---
 apiVersion: v1
 kind: Secret
