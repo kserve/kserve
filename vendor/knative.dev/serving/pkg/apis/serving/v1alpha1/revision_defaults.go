@@ -29,6 +29,11 @@ func (r *Revision) SetDefaults(ctx context.Context) {
 	r.Spec.SetDefaults(apis.WithinSpec(ctx))
 }
 
+// SetDefaults implements apis.Defaultable
+func (rts *RevisionTemplateSpec) SetDefaults(ctx context.Context) {
+	rts.Spec.SetDefaults(apis.WithinSpec(ctx))
+}
+
 func (rs *RevisionSpec) SetDefaults(ctx context.Context) {
 	if v1.IsUpgradeViaDefaulting(ctx) {
 		v1 := v1.RevisionSpec{}

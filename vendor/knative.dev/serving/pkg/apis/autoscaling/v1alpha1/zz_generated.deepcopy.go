@@ -57,7 +57,7 @@ func (in *Metric) DeepCopyObject() runtime.Object {
 func (in *MetricList) DeepCopyInto(out *MetricList) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
-	out.ListMeta = in.ListMeta
+	in.ListMeta.DeepCopyInto(&out.ListMeta)
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
 		*out = make([]Metric, len(*in))
@@ -151,7 +151,7 @@ func (in *PodAutoscaler) DeepCopyObject() runtime.Object {
 func (in *PodAutoscalerList) DeepCopyInto(out *PodAutoscalerList) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
-	out.ListMeta = in.ListMeta
+	in.ListMeta.DeepCopyInto(&out.ListMeta)
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
 		*out = make([]PodAutoscaler, len(*in))
@@ -256,7 +256,7 @@ func (in *PodScalable) DeepCopyObject() runtime.Object {
 func (in *PodScalableList) DeepCopyInto(out *PodScalableList) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
-	out.ListMeta = in.ListMeta
+	in.ListMeta.DeepCopyInto(&out.ListMeta)
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
 		*out = make([]PodScalable, len(*in))

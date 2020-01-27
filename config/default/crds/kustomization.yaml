@@ -8,11 +8,23 @@
 # YAML string, with resources separated by document
 # markers ("---").
 resources:
-- serving_v1alpha2_inferenceservice.yaml
+- base/serving.kubeflow.org_inferenceservices.yaml
 
-patches:
-  # Knative uses VolatileTime in place of metav1.Time to exclude this from creating equality.Semantic difference,
-  # however when generating crd last transition time is tagged as object thus getting validation error while updating
-  # status object(status.conditions.lastTransitionTime in body must be of type object: "string").
-  # Controller-runtime 2.0 supports +kubebuilder:validation:Type=string but we are still on 1.9.0 due to knative dep.
-- crd_status_condition_patch.yaml
+patchesJson6902:
+  # crd codegen in controller tool generates the ref type when there is a type def https://github.com/kubernetes-sigs/controller-tools/issues/324
+  # we need a walkaround here to patch the condition type on status
+- target:
+    group: apiextensions.k8s.io
+    version: v1beta1
+    kind: CustomResourceDefinition
+    name: inferenceservices.serving.kubeflow.org
+  path: patches/crd_status_condition_patch.yaml
+  # crd codegen in controller tool gives error on URL struct of the Addressable type for which it does not have the json tags
+  # https://github.com/kubernetes-sigs/controller-tools/issues/391
+  # we need a walkaround here to patch the addressable type on status
+- target:
+    group: apiextensions.k8s.io
+    version: v1beta1
+    kind: CustomResourceDefinition
+    name: inferenceservices.serving.kubeflow.org
+  path: patches/crd_status_address_patch.yaml

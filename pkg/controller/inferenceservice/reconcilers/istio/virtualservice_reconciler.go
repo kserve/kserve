@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/kubeflow/kfserving/pkg/constants"
+	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	"github.com/kubeflow/kfserving/pkg/controller/inferenceservice/resources/istio"
@@ -29,7 +30,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	istiov1alpha3 "knative.dev/pkg/apis/istio/v1alpha3"
 	"knative.dev/pkg/kmp"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -54,6 +54,7 @@ func NewVirtualServiceReconciler(client client.Client, scheme *runtime.Scheme, c
 
 func (r *VirtualServiceReconciler) Reconcile(isvc *v1alpha2.InferenceService) error {
 	desired, status := r.serviceBuilder.CreateVirtualService(isvc)
+
 	if desired == nil {
 		if status != nil {
 			isvc.Status.PropagateRouteStatus(status)
@@ -124,13 +125,13 @@ func (r *VirtualServiceReconciler) reconcileExternalService(isvc *v1alpha2.Infer
 	return nil
 }
 
-func (r *VirtualServiceReconciler) reconcileVirtualService(isvc *v1alpha2.InferenceService, desired *istiov1alpha3.VirtualService) error {
+func (r *VirtualServiceReconciler) reconcileVirtualService(isvc *v1alpha2.InferenceService, desired *v1alpha3.VirtualService) error {
 	if err := controllerutil.SetControllerReference(isvc, desired, r.scheme); err != nil {
 		return err
 	}
 
 	// Create vanity virtual service if does not exist
-	existing := &istiov1alpha3.VirtualService{}
+	existing := &v1alpha3.VirtualService{}
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, existing)
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -163,7 +164,7 @@ func (r *VirtualServiceReconciler) reconcileVirtualService(isvc *v1alpha2.Infere
 	return nil
 }
 
-func routeSemanticEquals(desired, existing *istiov1alpha3.VirtualService) bool {
+func routeSemanticEquals(desired, existing *v1alpha3.VirtualService) bool {
 	return equality.Semantic.DeepEqual(desired.Spec, existing.Spec) &&
 		equality.Semantic.DeepEqual(desired.ObjectMeta.Labels, existing.ObjectMeta.Labels) &&
 		equality.Semantic.DeepEqual(desired.ObjectMeta.Annotations, existing.ObjectMeta.Annotations)

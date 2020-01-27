@@ -1,5 +1,5 @@
 /*
-Copyright The Kubernetes Authors.
+Copyright 2019 kubeflow.org.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -28,8 +28,6 @@ import (
 type Interface interface {
 	Discovery() discovery.DiscoveryInterface
 	ServingV1alpha2() servingv1alpha2.ServingV1alpha2Interface
-	// Deprecated: please explicitly pick a version if possible.
-	Serving() servingv1alpha2.ServingV1alpha2Interface
 }
 
 // Clientset contains the clients for groups. Each group has exactly one
@@ -41,12 +39,6 @@ type Clientset struct {
 
 // ServingV1alpha2 retrieves the ServingV1alpha2Client
 func (c *Clientset) ServingV1alpha2() servingv1alpha2.ServingV1alpha2Interface {
-	return c.servingV1alpha2
-}
-
-// Deprecated: Serving retrieves the default version of ServingClient.
-// Please explicitly pick a version.
-func (c *Clientset) Serving() servingv1alpha2.ServingV1alpha2Interface {
 	return c.servingV1alpha2
 }
 

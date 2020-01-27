@@ -18,6 +18,7 @@ package service
 
 import (
 	"fmt"
+	"github.com/kubeflow/kfserving/pkg/controller/inferenceservice/resources/istio"
 	"knative.dev/pkg/network"
 	"testing"
 	"time"
@@ -38,14 +39,12 @@ import (
 	kfserving "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	"github.com/onsi/gomega"
 	"golang.org/x/net/context"
+	istiov1alpha3 "istio.io/api/networking/v1alpha3"
+	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
-	"knative.dev/pkg/apis/istio/common/v1alpha1"
-	istiov1alpha1 "knative.dev/pkg/apis/istio/common/v1alpha1"
-	"knative.dev/pkg/apis/istio/v1alpha3"
-	istiov1alpha3 "knative.dev/pkg/apis/istio/v1alpha3"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -118,7 +117,7 @@ func TestInferenceServiceWithOnlyPredictor(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
 	// channel when it is finished.
-	mgr, err := manager.New(cfg, manager.Options{})
+	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	c = mgr.GetClient()
 
@@ -213,12 +212,12 @@ func TestInferenceServiceWithOnlyPredictor(t *testing.T) {
 	g.Expect(c.Status().Update(context.TODO(), updateDefault)).NotTo(gomega.HaveOccurred())
 	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
 
-	virtualService := &istiov1alpha3.VirtualService{}
+	virtualService := &v1alpha3.VirtualService{}
 	g.Eventually(func() error { return c.Get(context.TODO(), virtualServiceName, virtualService) }, timeout).
 		Should(gomega.Succeed())
 
-	expectedVirtualService := &istiov1alpha3.VirtualService{
-		Spec: istiov1alpha3.VirtualServiceSpec{
+	expectedVirtualService := &v1alpha3.VirtualService{
+		Spec: istiov1alpha3.VirtualService{
 			Gateways: []string{
 				constants.KnativeIngressGateway,
 				constants.KnativeLocalGateway,
@@ -227,38 +226,46 @@ func TestInferenceServiceWithOnlyPredictor(t *testing.T) {
 				constants.InferenceServiceHostName(serviceKey.Name, serviceKey.Namespace, domain),
 				network.GetServiceHostname(serviceKey.Name, serviceKey.Namespace),
 			},
-			HTTP: []istiov1alpha3.HTTPRoute{
+			Http: []*istiov1alpha3.HTTPRoute{
 				{
-					Match: []istiov1alpha3.HTTPMatchRequest{
+					Match: []*istiov1alpha3.HTTPMatchRequest{
 						{
-							URI: &istiov1alpha1.StringMatch{
-								Prefix: constants.PredictPrefix(serviceName),
+							Uri: &istiov1alpha3.StringMatch{
+								MatchType: &istiov1alpha3.StringMatch_Prefix{
+									Prefix: constants.PredictPrefix(serviceName),
+								},
 							},
 							Gateways: []string{constants.KnativeIngressGateway},
-							Authority: &v1alpha1.StringMatch{
-								Regex: constants.HostRegExp(constants.InferenceServiceHostName(serviceKey.Name, serviceKey.Namespace, domain)),
+							Authority: &istiov1alpha3.StringMatch{
+								MatchType: &istiov1alpha3.StringMatch_Regex{
+									Regex: constants.HostRegExp(constants.InferenceServiceHostName(serviceKey.Name, serviceKey.Namespace, domain)),
+								},
 							},
 						},
 						{
-							URI: &istiov1alpha1.StringMatch{
-								Prefix: constants.PredictPrefix(serviceName),
+							Uri: &istiov1alpha3.StringMatch{
+								MatchType: &istiov1alpha3.StringMatch_Prefix{
+									Prefix: constants.PredictPrefix(serviceName),
+								},
 							},
 							Gateways: []string{constants.KnativeLocalGateway},
-							Authority: &v1alpha1.StringMatch{
-								Regex: constants.HostRegExp(network.GetServiceHostname(serviceKey.Name, serviceKey.Namespace)),
+							Authority: &istiov1alpha3.StringMatch{
+								MatchType: &istiov1alpha3.StringMatch_Regex{
+									Regex: constants.HostRegExp(network.GetServiceHostname(serviceKey.Name, serviceKey.Namespace)),
+								},
 							},
 						},
 					},
-					Route: []istiov1alpha3.HTTPRouteDestination{
+					Route: []*istiov1alpha3.HTTPRouteDestination{
 						{
 							Headers: &istiov1alpha3.Headers{
-								Request: &istiov1alpha3.HeaderOperations{
+								Request: &istiov1alpha3.Headers_HeaderOperations{
 									Set: map[string]string{
 										"Host": network.GetServiceHostname(constants.DefaultPredictorServiceName(serviceKey.Name), serviceKey.Namespace),
 									},
 								},
 							},
-							Destination: istiov1alpha3.Destination{
+							Destination: &istiov1alpha3.Destination{
 								Host: network.GetServiceHostname("cluster-local-gateway", "istio-system"),
 							},
 							Weight: 100,
@@ -266,7 +273,7 @@ func TestInferenceServiceWithOnlyPredictor(t *testing.T) {
 					},
 					Retries: &istiov1alpha3.HTTPRetry{
 						Attempts:      3,
-						PerTryTimeout: "10m",
+						PerTryTimeout: istio.RetryTimeout,
 					},
 				},
 			},
@@ -303,7 +310,7 @@ func TestInferenceServiceWithOnlyPredictor(t *testing.T) {
 		Traffic:       100,
 		CanaryTraffic: 0,
 		Default: &kfserving.ComponentStatusMap{
-			constants.Predictor: &kfserving.StatusConfigurationSpec{
+			constants.Predictor: kfserving.StatusConfigurationSpec{
 				Name:     "revision-v1",
 				Hostname: constants.InferenceServiceHostName(constants.DefaultPredictorServiceName(serviceKey.Name), serviceKey.Namespace, domain),
 			},
@@ -366,7 +373,7 @@ func TestInferenceServiceWithDefaultAndCanaryPredictor(t *testing.T) {
 				},
 			},
 			Default: &kfserving.ComponentStatusMap{
-				constants.Predictor: &kfserving.StatusConfigurationSpec{
+				constants.Predictor: kfserving.StatusConfigurationSpec{
 					Name: "revision-v1",
 				},
 			},
@@ -526,14 +533,14 @@ func TestInferenceServiceWithDefaultAndCanaryPredictor(t *testing.T) {
 		Traffic:       80,
 		CanaryTraffic: 20,
 		Default: &kfserving.ComponentStatusMap{
-			constants.Predictor: &kfserving.StatusConfigurationSpec{
+			constants.Predictor: kfserving.StatusConfigurationSpec{
 				Name: "revision-v1",
 				Hostname: constants.InferenceServiceHostName(constants.DefaultPredictorServiceName(canaryServiceKey.Name), canaryServiceKey.Namespace,
 					domain),
 			},
 		},
 		Canary: &kfserving.ComponentStatusMap{
-			constants.Predictor: &kfserving.StatusConfigurationSpec{
+			constants.Predictor: kfserving.StatusConfigurationSpec{
 				Name: "revision-v2",
 				Hostname: constants.InferenceServiceHostName(constants.CanaryPredictorServiceName(canaryServiceKey.Name), canaryServiceKey.Namespace,
 					domain),
@@ -548,12 +555,12 @@ func TestInferenceServiceWithDefaultAndCanaryPredictor(t *testing.T) {
 		return cmp.Diff(&expectedKfsvcStatus, &isvc.Status, cmpopts.IgnoreTypes(apis.VolatileTime{}))
 	}, timeout).Should(gomega.BeEmpty())
 
-	virtualService := &istiov1alpha3.VirtualService{}
+	virtualService := &v1alpha3.VirtualService{}
 	g.Eventually(func() error { return c.Get(context.TODO(), virtualServiceName, virtualService) }, timeout).
 		Should(gomega.Succeed())
 
-	expectedVirtualService := &istiov1alpha3.VirtualService{
-		Spec: istiov1alpha3.VirtualServiceSpec{
+	expectedVirtualService := &v1alpha3.VirtualService{
+		Spec: istiov1alpha3.VirtualService{
 			Gateways: []string{
 				constants.KnativeIngressGateway,
 				constants.KnativeLocalGateway,
@@ -562,51 +569,59 @@ func TestInferenceServiceWithDefaultAndCanaryPredictor(t *testing.T) {
 				constants.InferenceServiceHostName(canaryServiceKey.Name, canaryServiceKey.Namespace, domain),
 				network.GetServiceHostname(canaryServiceKey.Name, canaryServiceKey.Namespace),
 			},
-			HTTP: []istiov1alpha3.HTTPRoute{
+			Http: []*istiov1alpha3.HTTPRoute{
 				{
-					Match: []istiov1alpha3.HTTPMatchRequest{
+					Match: []*istiov1alpha3.HTTPMatchRequest{
 						{
-							URI: &istiov1alpha1.StringMatch{
-								Prefix: constants.PredictPrefix(canaryServiceKey.Name),
+							Uri: &istiov1alpha3.StringMatch{
+								MatchType: &istiov1alpha3.StringMatch_Prefix{
+									Prefix: constants.PredictPrefix(canaryServiceKey.Name),
+								},
 							},
 							Gateways: []string{constants.KnativeIngressGateway},
-							Authority: &v1alpha1.StringMatch{
-								Regex: constants.HostRegExp(constants.InferenceServiceHostName(canaryServiceKey.Name, canaryServiceKey.Namespace, domain)),
+							Authority: &istiov1alpha3.StringMatch{
+								MatchType: &istiov1alpha3.StringMatch_Regex{
+									Regex: constants.HostRegExp(constants.InferenceServiceHostName(canaryServiceKey.Name, canaryServiceKey.Namespace, domain)),
+								},
 							},
 						},
 						{
-							URI: &istiov1alpha1.StringMatch{
-								Prefix: constants.PredictPrefix(canaryServiceKey.Name),
+							Uri: &istiov1alpha3.StringMatch{
+								MatchType: &istiov1alpha3.StringMatch_Prefix{
+									Prefix: constants.PredictPrefix(canaryServiceKey.Name),
+								},
 							},
 							Gateways: []string{constants.KnativeLocalGateway},
-							Authority: &v1alpha1.StringMatch{
-								Regex: constants.HostRegExp(network.GetServiceHostname(canaryServiceKey.Name, canaryServiceKey.Namespace)),
+							Authority: &istiov1alpha3.StringMatch{
+								MatchType: &istiov1alpha3.StringMatch_Regex{
+									Regex: constants.HostRegExp(network.GetServiceHostname(canaryServiceKey.Name, canaryServiceKey.Namespace)),
+								},
 							},
 						},
 					},
-					Route: []istiov1alpha3.HTTPRouteDestination{
+					Route: []*istiov1alpha3.HTTPRouteDestination{
 						{
 							Headers: &istiov1alpha3.Headers{
-								Request: &istiov1alpha3.HeaderOperations{
+								Request: &istiov1alpha3.Headers_HeaderOperations{
 									Set: map[string]string{
 										"Host": network.GetServiceHostname(constants.DefaultPredictorServiceName(canaryServiceKey.Name), canaryServiceKey.Namespace),
 									},
 								},
 							},
-							Destination: istiov1alpha3.Destination{
+							Destination: &istiov1alpha3.Destination{
 								Host: constants.LocalGatewayHost,
 							},
 							Weight: 80,
 						},
 						{
 							Headers: &istiov1alpha3.Headers{
-								Request: &istiov1alpha3.HeaderOperations{
+								Request: &istiov1alpha3.Headers_HeaderOperations{
 									Set: map[string]string{
 										"Host": network.GetServiceHostname(constants.CanaryPredictorServiceName(canaryServiceKey.Name), canaryServiceKey.Namespace),
 									},
 								},
 							},
-							Destination: istiov1alpha3.Destination{
+							Destination: &istiov1alpha3.Destination{
 								Host: constants.LocalGatewayHost,
 							},
 							Weight: 20,
@@ -614,7 +629,7 @@ func TestInferenceServiceWithDefaultAndCanaryPredictor(t *testing.T) {
 					},
 					Retries: &istiov1alpha3.HTTPRetry{
 						Attempts:      3,
-						PerTryTimeout: "10m",
+						PerTryTimeout: istio.RetryTimeout,
 					},
 				},
 			},
@@ -669,7 +684,7 @@ func TestCanaryDelete(t *testing.T) {
 		Status: kfserving.InferenceServiceStatus{
 			URL: canaryServiceKey.Name + ".svc.cluster.local",
 			Default: &kfserving.ComponentStatusMap{
-				constants.Predictor: &kfserving.StatusConfigurationSpec{
+				constants.Predictor: kfserving.StatusConfigurationSpec{
 					Name: "revision-v1",
 				},
 			},
@@ -781,13 +796,13 @@ func TestCanaryDelete(t *testing.T) {
 		Traffic:       80,
 		CanaryTraffic: 20,
 		Default: &kfserving.ComponentStatusMap{
-			constants.Predictor: &kfserving.StatusConfigurationSpec{
+			constants.Predictor: kfserving.StatusConfigurationSpec{
 				Name:     "revision-v1",
 				Hostname: constants.InferenceServiceHostName(constants.DefaultPredictorServiceName(serviceName), namespace, domain),
 			},
 		},
 		Canary: &kfserving.ComponentStatusMap{
-			constants.Predictor: &kfserving.StatusConfigurationSpec{
+			constants.Predictor: kfserving.StatusConfigurationSpec{
 				Name:     "revision-v2",
 				Hostname: constants.InferenceServiceHostName(constants.CanaryPredictorServiceName(serviceName), namespace, domain),
 			},
@@ -803,11 +818,11 @@ func TestCanaryDelete(t *testing.T) {
 	}, timeout).Should(gomega.BeEmpty())
 
 	// should see a virtual service with 2 routes
-	virtualService := &istiov1alpha3.VirtualService{}
+	virtualService := &v1alpha3.VirtualService{}
 	g.Eventually(func() error { return c.Get(context.TODO(), virtualServiceName, virtualService) }, timeout).
 		Should(gomega.Succeed())
-	g.Expect(len(virtualService.Spec.HTTP)).To(gomega.Equal(1))
-	g.Expect(len(virtualService.Spec.HTTP[0].Route)).To(gomega.Equal(2))
+	g.Expect(len(virtualService.Spec.Http)).To(gomega.Equal(1))
+	g.Expect(len(virtualService.Spec.Http[0].Route)).To(gomega.Equal(2))
 
 	// Update instance to remove Canary Spec
 	// Canary service should be removed during reconcile
@@ -866,7 +881,7 @@ func TestCanaryDelete(t *testing.T) {
 		},
 		Traffic: 100,
 		Default: &kfserving.ComponentStatusMap{
-			constants.Predictor: &kfserving.StatusConfigurationSpec{
+			constants.Predictor: kfserving.StatusConfigurationSpec{
 				Name:     "revision-v1",
 				Hostname: constants.InferenceServiceHostName(constants.DefaultPredictorServiceName(serviceName), namespace, domain),
 			},
@@ -883,11 +898,11 @@ func TestCanaryDelete(t *testing.T) {
 	}, timeout).Should(testutils.BeSematicEqual(&expectedKfsvcStatus))
 
 	// should see a virtual service with only 1 route
-	virtualService = &istiov1alpha3.VirtualService{}
+	virtualService = &v1alpha3.VirtualService{}
 	g.Eventually(func() error { return c.Get(context.TODO(), virtualServiceName, virtualService) }, timeout).
 		Should(gomega.Succeed())
-	g.Expect(len(virtualService.Spec.HTTP)).To(gomega.Equal(1))
-	g.Expect(len(virtualService.Spec.HTTP[0].Route)).To(gomega.Equal(1))
+	g.Expect(len(virtualService.Spec.Http)).To(gomega.Equal(1))
+	g.Expect(len(virtualService.Spec.Http[0].Route)).To(gomega.Equal(1))
 
 }
 
@@ -963,7 +978,7 @@ func TestInferenceServiceWithTransformer(t *testing.T) {
 		Status: kfserving.InferenceServiceStatus{
 			URL: serviceName + ".svc.cluster.local",
 			Default: &kfserving.ComponentStatusMap{
-				constants.Predictor: &kfserving.StatusConfigurationSpec{
+				constants.Predictor: kfserving.StatusConfigurationSpec{
 					Name: "revision-v1",
 				},
 			},
@@ -1168,21 +1183,21 @@ func TestInferenceServiceWithTransformer(t *testing.T) {
 			},
 		},
 		Default: &kfserving.ComponentStatusMap{
-			constants.Predictor: &kfserving.StatusConfigurationSpec{
+			constants.Predictor: kfserving.StatusConfigurationSpec{
 				Name:     "revision-v1",
 				Hostname: constants.InferenceServiceHostName(constants.DefaultPredictorServiceName(serviceKey.Name), serviceKey.Namespace, domain),
 			},
-			constants.Transformer: &kfserving.StatusConfigurationSpec{
+			constants.Transformer: kfserving.StatusConfigurationSpec{
 				Name:     "t-revision-v1",
 				Hostname: constants.InferenceServiceHostName(constants.DefaultTransformerServiceName(serviceKey.Name), serviceKey.Namespace, domain),
 			},
 		},
 		Canary: &kfserving.ComponentStatusMap{
-			constants.Predictor: &kfserving.StatusConfigurationSpec{
+			constants.Predictor: kfserving.StatusConfigurationSpec{
 				Name:     "revision-v2",
 				Hostname: constants.InferenceServiceHostName(constants.CanaryPredictorServiceName(serviceKey.Name), serviceKey.Namespace, domain),
 			},
-			constants.Transformer: &kfserving.StatusConfigurationSpec{
+			constants.Transformer: kfserving.StatusConfigurationSpec{
 				Name:     "t-revision-v2",
 				Hostname: constants.InferenceServiceHostName(constants.CanaryTransformerServiceName(serviceKey.Name), serviceKey.Namespace, domain),
 			},
@@ -1197,12 +1212,12 @@ func TestInferenceServiceWithTransformer(t *testing.T) {
 	}, timeout).Should(gomega.BeEmpty())
 
 	// verify virtual service points to transformer
-	virtualService := &istiov1alpha3.VirtualService{}
+	virtualService := &v1alpha3.VirtualService{}
 	g.Eventually(func() error { return c.Get(context.TODO(), virtualServiceName, virtualService) }, timeout).
 		Should(gomega.Succeed())
 
-	expectedVirtualService := &istiov1alpha3.VirtualService{
-		Spec: istiov1alpha3.VirtualServiceSpec{
+	expectedVirtualService := &v1alpha3.VirtualService{
+		Spec: istiov1alpha3.VirtualService{
 			Gateways: []string{
 				constants.KnativeIngressGateway,
 				constants.KnativeLocalGateway,
@@ -1211,51 +1226,59 @@ func TestInferenceServiceWithTransformer(t *testing.T) {
 				constants.InferenceServiceHostName(serviceName, serviceKey.Namespace, domain),
 				network.GetServiceHostname(serviceName, serviceKey.Namespace),
 			},
-			HTTP: []istiov1alpha3.HTTPRoute{
+			Http: []*istiov1alpha3.HTTPRoute{
 				{
-					Match: []istiov1alpha3.HTTPMatchRequest{
+					Match: []*istiov1alpha3.HTTPMatchRequest{
 						{
-							URI: &istiov1alpha1.StringMatch{
-								Prefix: constants.PredictPrefix(serviceName),
+							Uri: &istiov1alpha3.StringMatch{
+								MatchType: &istiov1alpha3.StringMatch_Prefix{
+									Prefix: constants.PredictPrefix(serviceName),
+								},
 							},
 							Gateways: []string{constants.KnativeIngressGateway},
-							Authority: &v1alpha1.StringMatch{
-								Regex: constants.HostRegExp(constants.InferenceServiceHostName(serviceKey.Name, serviceKey.Namespace, domain)),
+							Authority: &istiov1alpha3.StringMatch{
+								MatchType: &istiov1alpha3.StringMatch_Regex{
+									Regex: constants.HostRegExp(constants.InferenceServiceHostName(serviceKey.Name, serviceKey.Namespace, domain)),
+								},
 							},
 						},
 						{
-							URI: &istiov1alpha1.StringMatch{
-								Prefix: constants.PredictPrefix(serviceName),
+							Uri: &istiov1alpha3.StringMatch{
+								MatchType: &istiov1alpha3.StringMatch_Prefix{
+									Prefix: constants.PredictPrefix(serviceName),
+								},
 							},
 							Gateways: []string{constants.KnativeLocalGateway},
-							Authority: &v1alpha1.StringMatch{
-								Regex: constants.HostRegExp(network.GetServiceHostname(serviceKey.Name, serviceKey.Namespace)),
+							Authority: &istiov1alpha3.StringMatch{
+								MatchType: &istiov1alpha3.StringMatch_Regex{
+									Regex: constants.HostRegExp(network.GetServiceHostname(serviceKey.Name, serviceKey.Namespace)),
+								},
 							},
 						},
 					},
-					Route: []istiov1alpha3.HTTPRouteDestination{
+					Route: []*istiov1alpha3.HTTPRouteDestination{
 						{
 							Headers: &istiov1alpha3.Headers{
-								Request: &istiov1alpha3.HeaderOperations{
+								Request: &istiov1alpha3.Headers_HeaderOperations{
 									Set: map[string]string{
 										"Host": network.GetServiceHostname(constants.DefaultTransformerServiceName(serviceName), serviceKey.Namespace),
 									},
 								},
 							},
-							Destination: istiov1alpha3.Destination{
+							Destination: &istiov1alpha3.Destination{
 								Host: constants.LocalGatewayHost,
 							},
 							Weight: 80,
 						},
 						{
 							Headers: &istiov1alpha3.Headers{
-								Request: &istiov1alpha3.HeaderOperations{
+								Request: &istiov1alpha3.Headers_HeaderOperations{
 									Set: map[string]string{
 										"Host": network.GetServiceHostname(constants.CanaryTransformerServiceName(serviceName), serviceKey.Namespace),
 									},
 								},
 							},
-							Destination: istiov1alpha3.Destination{
+							Destination: &istiov1alpha3.Destination{
 								Host: constants.LocalGatewayHost,
 							},
 							Weight: 20,
@@ -1263,7 +1286,7 @@ func TestInferenceServiceWithTransformer(t *testing.T) {
 					},
 					Retries: &istiov1alpha3.HTTPRetry{
 						Attempts:      3,
-						PerTryTimeout: "10m",
+						PerTryTimeout: istio.RetryTimeout,
 					},
 				},
 			},
@@ -1343,7 +1366,7 @@ func TestInferenceServiceDeleteComponent(t *testing.T) {
 		Status: kfserving.InferenceServiceStatus{
 			URL: serviceName + ".svc.cluster.local",
 			Default: &kfserving.ComponentStatusMap{
-				constants.Predictor: &kfserving.StatusConfigurationSpec{
+				constants.Predictor: kfserving.StatusConfigurationSpec{
 					Name: "revision-v1",
 				},
 			},
@@ -1523,7 +1546,7 @@ func TestInferenceServiceWithExplainer(t *testing.T) {
 		Status: kfserving.InferenceServiceStatus{
 			URL: serviceName + ".svc.cluster.local",
 			Default: &kfserving.ComponentStatusMap{
-				constants.Predictor: &kfserving.StatusConfigurationSpec{
+				constants.Predictor: kfserving.StatusConfigurationSpec{
 					Name: "revision-v1",
 				},
 			},
@@ -1732,21 +1755,21 @@ func TestInferenceServiceWithExplainer(t *testing.T) {
 			},
 		},
 		Default: &kfserving.ComponentStatusMap{
-			constants.Predictor: &kfserving.StatusConfigurationSpec{
+			constants.Predictor: kfserving.StatusConfigurationSpec{
 				Name:     "revision-v1",
 				Hostname: constants.InferenceServiceHostName(constants.DefaultPredictorServiceName(serviceKey.Name), serviceKey.Namespace, domain),
 			},
-			constants.Explainer: &kfserving.StatusConfigurationSpec{
+			constants.Explainer: kfserving.StatusConfigurationSpec{
 				Name:     "e-revision-v1",
 				Hostname: constants.InferenceServiceHostName(constants.DefaultExplainerServiceName(serviceKey.Name), serviceKey.Namespace, domain),
 			},
 		},
 		Canary: &kfserving.ComponentStatusMap{
-			constants.Predictor: &kfserving.StatusConfigurationSpec{
+			constants.Predictor: kfserving.StatusConfigurationSpec{
 				Name:     "revision-v2",
 				Hostname: constants.InferenceServiceHostName(constants.CanaryPredictorServiceName(serviceKey.Name), serviceKey.Namespace, domain),
 			},
-			constants.Explainer: &kfserving.StatusConfigurationSpec{
+			constants.Explainer: kfserving.StatusConfigurationSpec{
 				Name:     "e-revision-v2",
 				Hostname: constants.InferenceServiceHostName(constants.CanaryExplainerServiceName(serviceKey.Name), serviceKey.Namespace, domain),
 			},
@@ -1761,12 +1784,12 @@ func TestInferenceServiceWithExplainer(t *testing.T) {
 	}, timeout).Should(gomega.BeEmpty())
 
 	// verify virtual service creation
-	virtualService := &istiov1alpha3.VirtualService{}
+	virtualService := &v1alpha3.VirtualService{}
 	g.Eventually(func() error { return c.Get(context.TODO(), virtualServiceName, virtualService) }, timeout).
 		Should(gomega.Succeed())
 
-	expectedVirtualService := &istiov1alpha3.VirtualService{
-		Spec: istiov1alpha3.VirtualServiceSpec{
+	expectedVirtualService := &v1alpha3.VirtualService{
+		Spec: istiov1alpha3.VirtualService{
 			Gateways: []string{
 				constants.KnativeIngressGateway,
 				constants.KnativeLocalGateway,
@@ -1775,51 +1798,59 @@ func TestInferenceServiceWithExplainer(t *testing.T) {
 				constants.InferenceServiceHostName(serviceName, serviceKey.Namespace, domain),
 				network.GetServiceHostname(serviceName, serviceKey.Namespace),
 			},
-			HTTP: []istiov1alpha3.HTTPRoute{
+			Http: []*istiov1alpha3.HTTPRoute{
 				{
-					Match: []istiov1alpha3.HTTPMatchRequest{
+					Match: []*istiov1alpha3.HTTPMatchRequest{
 						{
-							URI: &istiov1alpha1.StringMatch{
-								Prefix: constants.PredictPrefix(serviceName),
+							Uri: &istiov1alpha3.StringMatch{
+								MatchType: &istiov1alpha3.StringMatch_Prefix{
+									Prefix: constants.PredictPrefix(serviceName),
+								},
 							},
 							Gateways: []string{constants.KnativeIngressGateway},
-							Authority: &v1alpha1.StringMatch{
-								Regex: constants.HostRegExp(constants.InferenceServiceHostName(serviceKey.Name, serviceKey.Namespace, domain)),
+							Authority: &istiov1alpha3.StringMatch{
+								MatchType: &istiov1alpha3.StringMatch_Regex{
+									Regex: constants.HostRegExp(constants.InferenceServiceHostName(serviceKey.Name, serviceKey.Namespace, domain)),
+								},
 							},
 						},
 						{
-							URI: &istiov1alpha1.StringMatch{
-								Prefix: constants.PredictPrefix(serviceName),
+							Uri: &istiov1alpha3.StringMatch{
+								MatchType: &istiov1alpha3.StringMatch_Prefix{
+									Prefix: constants.PredictPrefix(serviceName),
+								},
 							},
 							Gateways: []string{constants.KnativeLocalGateway},
-							Authority: &v1alpha1.StringMatch{
-								Regex: constants.HostRegExp(network.GetServiceHostname(serviceKey.Name, serviceKey.Namespace)),
+							Authority: &istiov1alpha3.StringMatch{
+								MatchType: &istiov1alpha3.StringMatch_Regex{
+									Regex: constants.HostRegExp(network.GetServiceHostname(serviceKey.Name, serviceKey.Namespace)),
+								},
 							},
 						},
 					},
-					Route: []istiov1alpha3.HTTPRouteDestination{
+					Route: []*istiov1alpha3.HTTPRouteDestination{
 						{
 							Headers: &istiov1alpha3.Headers{
-								Request: &istiov1alpha3.HeaderOperations{
+								Request: &istiov1alpha3.Headers_HeaderOperations{
 									Set: map[string]string{
 										"Host": network.GetServiceHostname(constants.DefaultPredictorServiceName(serviceName), serviceKey.Namespace),
 									},
 								},
 							},
-							Destination: istiov1alpha3.Destination{
+							Destination: &istiov1alpha3.Destination{
 								Host: constants.LocalGatewayHost,
 							},
 							Weight: 80,
 						},
 						{
 							Headers: &istiov1alpha3.Headers{
-								Request: &istiov1alpha3.HeaderOperations{
+								Request: &istiov1alpha3.Headers_HeaderOperations{
 									Set: map[string]string{
 										"Host": network.GetServiceHostname(constants.CanaryPredictorServiceName(serviceName), serviceKey.Namespace),
 									},
 								},
 							},
-							Destination: istiov1alpha3.Destination{
+							Destination: &istiov1alpha3.Destination{
 								Host: constants.LocalGatewayHost,
 							},
 							Weight: 20,
@@ -1827,51 +1858,59 @@ func TestInferenceServiceWithExplainer(t *testing.T) {
 					},
 					Retries: &istiov1alpha3.HTTPRetry{
 						Attempts:      3,
-						PerTryTimeout: "10m",
+						PerTryTimeout: istio.RetryTimeout,
 					},
 				},
 				{
-					Match: []v1alpha3.HTTPMatchRequest{
+					Match: []*istiov1alpha3.HTTPMatchRequest{
 						{
-							URI: &istiov1alpha1.StringMatch{
-								Prefix: constants.ExplainPrefix(serviceName),
+							Uri: &istiov1alpha3.StringMatch{
+								MatchType: &istiov1alpha3.StringMatch_Prefix{
+									Prefix: constants.ExplainPrefix(serviceName),
+								},
 							},
 							Gateways: []string{constants.KnativeIngressGateway},
-							Authority: &v1alpha1.StringMatch{
-								Regex: constants.HostRegExp(constants.InferenceServiceHostName(serviceKey.Name, serviceKey.Namespace, domain)),
+							Authority: &istiov1alpha3.StringMatch{
+								MatchType: &istiov1alpha3.StringMatch_Regex{
+									Regex: constants.HostRegExp(constants.InferenceServiceHostName(serviceKey.Name, serviceKey.Namespace, domain)),
+								},
 							},
 						},
 						{
-							URI: &istiov1alpha1.StringMatch{
-								Prefix: constants.ExplainPrefix(serviceName),
+							Uri: &istiov1alpha3.StringMatch{
+								MatchType: &istiov1alpha3.StringMatch_Prefix{
+									Prefix: constants.ExplainPrefix(serviceName),
+								},
 							},
 							Gateways: []string{constants.KnativeLocalGateway},
-							Authority: &v1alpha1.StringMatch{
-								Regex: constants.HostRegExp(network.GetServiceHostname(serviceKey.Name, serviceKey.Namespace)),
+							Authority: &istiov1alpha3.StringMatch{
+								MatchType: &istiov1alpha3.StringMatch_Regex{
+									Regex: constants.HostRegExp(network.GetServiceHostname(serviceKey.Name, serviceKey.Namespace)),
+								},
 							},
 						},
 					},
-					Route: []v1alpha3.HTTPRouteDestination{
+					Route: []*istiov1alpha3.HTTPRouteDestination{
 						{
-							Destination: v1alpha3.Destination{Host: constants.LocalGatewayHost},
+							Destination: &istiov1alpha3.Destination{Host: constants.LocalGatewayHost},
 							Weight:      80,
-							Headers: &v1alpha3.Headers{
-								Request: &v1alpha3.HeaderOperations{Set: map[string]string{
+							Headers: &istiov1alpha3.Headers{
+								Request: &istiov1alpha3.Headers_HeaderOperations{Set: map[string]string{
 									"Host": network.GetServiceHostname(constants.DefaultExplainerServiceName(serviceName), serviceKey.Namespace)}},
 							},
 						},
 						{
-							Destination: v1alpha3.Destination{Host: constants.LocalGatewayHost},
+							Destination: &istiov1alpha3.Destination{Host: constants.LocalGatewayHost},
 							Weight:      20,
-							Headers: &v1alpha3.Headers{
-								Request: &v1alpha3.HeaderOperations{Set: map[string]string{
+							Headers: &istiov1alpha3.Headers{
+								Request: &istiov1alpha3.Headers_HeaderOperations{Set: map[string]string{
 									"Host": network.GetServiceHostname(constants.CanaryExplainerServiceName(serviceName), serviceKey.Namespace)}},
 							},
 						},
 					},
 					Retries: &istiov1alpha3.HTTPRetry{
 						Attempts:      3,
-						PerTryTimeout: "10m",
+						PerTryTimeout: istio.RetryTimeout,
 					},
 				},
 			},

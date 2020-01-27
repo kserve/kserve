@@ -43,44 +43,43 @@ func newAutoTransport(v1 http.RoundTripper, v2 http.RoundTripper) http.RoundTrip
 	})
 }
 
-const (
-	initialTO = float64(50 * time.Millisecond)
-	sleepTO   = 30 * time.Millisecond
-	factor    = 1.4
-	numSteps  = 15
-)
+const sleepTO = 30 * time.Millisecond
+
+var backOffTemplate = wait.Backoff{
+	Duration: 50 * time.Millisecond,
+	Factor:   1.4,
+	Jitter:   0.1, // At most 10% jitter.
+	Steps:    15,
+}
 
 var errDialTimeout = errors.New("timed out dialing")
 
 // dialWithBackOff executes `net.Dialer.DialContext()` with exponentially increasing
 // dial timeouts. In addition it sleeps with random jitter between tries.
 func dialWithBackOff(ctx context.Context, network, address string) (net.Conn, error) {
-	return dialBackOffHelper(ctx, network, address, numSteps, initialTO, sleepTO)
+	return dialBackOffHelper(ctx, network, address, backOffTemplate, sleepTO)
 }
 
-func dialBackOffHelper(ctx context.Context, network, address string, steps int, initial float64, sleep time.Duration) (net.Conn, error) {
-	to := initial
+func dialBackOffHelper(ctx context.Context, network, address string, bo wait.Backoff, sleep time.Duration) (net.Conn, error) {
 	dialer := &net.Dialer{
-		Timeout:   time.Duration(to),
+		Timeout:   bo.Duration, // Initial duration.
 		KeepAlive: 5 * time.Second,
 		DualStack: true,
 	}
-	// TODO(vagababov): use backoff.Step when we use modern k8s client.
-	for i := 0; i < steps; i++ {
+	for {
 		c, err := dialer.DialContext(ctx, network, address)
 		if err != nil {
 			if err, ok := err.(net.Error); ok && err.Timeout() {
-				if i == steps-1 {
+				if bo.Steps < 1 {
 					break
 				}
-				to *= factor
-				dialer.Timeout = time.Duration(to)
+				dialer.Timeout = bo.Step()
 				time.Sleep(wait.Jitter(sleep, 1.0)) // Sleep with jitter.
 				continue
 			}
 			return nil, err
 		}
-		return c, err
+		return c, nil
 	}
 	return nil, errDialTimeout
 }

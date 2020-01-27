@@ -18,16 +18,12 @@ package v1beta1
 
 import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
-
-	"knative.dev/pkg/apis"
 )
 
 const (
 	// DefaultUserPort is the system default port value exposed on the user-container.
 	DefaultUserPort = 8080
 )
-
-var revisionCondSet = apis.NewLivingConditionSet()
 
 // GetGroupVersionKind returns the GroupVersionKind.
 func (r *Revision) GetGroupVersionKind() schema.GroupVersionKind {

@@ -1,0 +1,19 @@
+# This patch add annotation to admission webhook config and
+# the variables $(CERTIFICATE_NAMESPACE) and $(CERTIFICATE_NAME) will be substituted by kustomize.
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: inferenceservice.serving.kubeflow.org
+  annotations:
+    cert-manager.io/inject-ca-from: kfserving-system/serving-cert
+webhooks:
+  - name: inferenceservice.kfserving-webhook-server.defaulter
+---
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: inferenceservice.serving.kubeflow.org
+  annotations:
+    cert-manager.io/inject-ca-from: kfserving-system/serving-cert
+webhooks:
+  - name: inferenceservice.kfserving-webhook-server.validator
