@@ -40,16 +40,16 @@ def watch(name=None, namespace=None, timeout_seconds=600):
         timeout_seconds=timeout_seconds)
 
     for event in stream:
-        kfserivce = event['object']
-        isvc_name = kfserivce['metadata']['name']
+        isvc = event['object']
+        isvc_name = isvc['metadata']['name']
         if name and name != isvc_name:
             continue
         else:
-            url = kfserivce['status'].get('url', '')
-            default_traffic = kfserivce['status'].get('traffic', '')
-            canary_traffic = kfserivce['status'].get('canaryTraffic', '')
+            url = isvc['status'].get('url', '')
+            default_traffic = isvc['status'].get('traffic', '')
+            canary_traffic = isvc['status'].get('canaryTraffic', '')
             status = 'Unknown'
-            for condition in kfserivce['status'].get('conditions', {}):
+            for condition in isvc['status'].get('conditions', {}):
                 if condition.get('type', '') == 'Ready':
                     status = condition.get('status', 'Unknown')
             tbl(isvc_name, status, default_traffic, canary_traffic, url)

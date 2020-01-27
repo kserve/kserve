@@ -9,6 +9,7 @@ XGB_IMG ?= xgbserver:latest
 PYTORCH_IMG ?= pytorchserver:latest
 ALIBI_IMG ?= alibi-explainer:latest
 STORAGE_INIT_IMG ?= storage-initializer:latest
+CRD_OPTIONS ?= "crd:trivialVersions=true"
 
 all: test manager logger
 
@@ -34,7 +35,6 @@ deploy: manifests
 
 deploy-dev: manifests
 	./hack/image_patch_dev.sh development
-	./hack/update-clusterrolebinding.sh config/overlays/development
 	kustomize build config/overlays/development | kubectl apply -f -
 
 deploy-local: manifests
@@ -76,9 +76,8 @@ undeploy-dev:
 
 # Generate manifests e.g. CRD, RBAC etc.
 manifests:
-	go run vendor/sigs.k8s.io/controller-tools/cmd/controller-gen/main.go crd --output-dir=config/default/crds
-	kustomize build config/default/crds -o config/default/crds/serving_v1alpha2_inferenceservice.yaml
-	go run vendor/sigs.k8s.io/controller-tools/cmd/controller-gen/main.go rbac --output-dir=config/default/rbac
+	go run vendor/sigs.k8s.io/controller-tools/cmd/controller-gen/main.go $(CRD_OPTIONS) rbac:roleName=kfserving-manager-role webhook paths=./pkg/apis/... output:crd:dir=config/default/crds/base
+	kustomize build config/default/crds -o config/default/crds/base/serving.kubeflow.org_inferenceservices.yaml
 
 # Run go fmt against code
 fmt:

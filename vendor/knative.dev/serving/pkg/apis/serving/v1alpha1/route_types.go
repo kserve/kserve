@@ -104,7 +104,7 @@ const (
 	RouteConditionAllTrafficAssigned apis.ConditionType = "AllTrafficAssigned"
 
 	// RouteConditionIngressReady is set to False when the
-	// ClusterIngress fails to become Ready.
+	// Ingress fails to become Ready.
 	RouteConditionIngressReady apis.ConditionType = "IngressReady"
 
 	// RouteConditionCertificateProvisioned is set to False when the

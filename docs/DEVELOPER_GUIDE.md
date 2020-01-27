@@ -132,7 +132,15 @@ controller-699fb46bb5-xhlkg   1/1       Running   0          6d
 webhook-76b87b8459-tzj6r      1/1       Running   0          6d
 ```
 ### Deploy KFServing from default
+We suggest using [cert manager](https://github.com/jetstack/cert-manager) for
+provisioning the certificates for the KFServing webhook server. Other solutions should
+also work as long as they put the certificates in the desired location.
 
+You can follow
+[the cert manager documentation](https://docs.cert-manager.io/en/latest/getting-started/install/kubernetes.html)
+to install it.
+
+After that you can run following command to deploy `KFServing`, you can skip above step once cert manager is installed.
 ```bash
 make deploy
 ```

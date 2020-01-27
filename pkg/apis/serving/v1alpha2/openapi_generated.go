@@ -476,7 +476,8 @@ func schema_pkg_apis_serving_v1alpha2_InferenceServiceStatus(ref common.Referenc
 					},
 					"address": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("knative.dev/pkg/apis/duck/v1beta1.Addressable"),
+							Description: "Ducktype for addressable",
+							Ref:         ref("knative.dev/pkg/apis/duck/v1beta1.Addressable"),
 						},
 					},
 				},
@@ -973,16 +974,15 @@ func schema_knativedev_pkg_apis_VolatileTime(ref common.ReferenceCallback) commo
 				Description: "VolatileTime wraps metav1.Time",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"Inner": {
+					"Time": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+							Type:   []string{"string"},
+							Format: "date-time",
 						},
 					},
 				},
-				Required: []string{"Inner"},
+				Required: []string{"Time"},
 			},
 		},
-		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
 	}
 }

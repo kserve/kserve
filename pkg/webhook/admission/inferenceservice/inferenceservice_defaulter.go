@@ -22,35 +22,50 @@ import (
 	"net/http"
 
 	kfserving "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
-	"github.com/kubeflow/kfserving/pkg/webhook/third_party"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
-	admissiontypes "sigs.k8s.io/controller-runtime/pkg/webhook/admission/types"
 )
+
+// +kubebuilder:webhook:path=/mutate-inferenceservices,mutating=true,failurePolicy=fail,groups="serving.kubeflow.org",resources=inferenceservices,verbs=create;update,versions=v1alpha2,name=inferenceservice.kfserving-webhook-server.mutator
 
 // Defaulter that sets default fields in InferenceServices
 type Defaulter struct {
 	Client  client.Client
-	Decoder admissiontypes.Decoder
+	Decoder *admission.Decoder
 }
 
 var _ admission.Handler = &Defaulter{}
 
 // Handle decodes the incoming InferenceService and executes Validation logic.
-func (defaulter *Defaulter) Handle(ctx context.Context, req admissiontypes.Request) admissiontypes.Response {
+func (defaulter *Defaulter) Handle(ctx context.Context, req admission.Request) admission.Response {
 	isvc := &kfserving.InferenceService{}
 
 	if err := defaulter.Decoder.Decode(req, isvc); err != nil {
-		return admission.ErrorResponse(http.StatusBadRequest, err)
+		return admission.Errored(http.StatusBadRequest, err)
 	}
 
 	isvc.Default(defaulter.Client)
 
 	patch, err := json.Marshal(isvc)
 	if err != nil {
-		return admission.ErrorResponse(http.StatusInternalServerError, err)
+		return admission.Errored(http.StatusInternalServerError, err)
 	}
 
-	return third_party.PatchResponseFromRaw(req.AdmissionRequest.Object.Raw, patch)
+	return admission.PatchResponseFromRaw(req.AdmissionRequest.Object.Raw, patch)
+}
+
+// InjectClient injects the client.
+func (defaulter *Defaulter) InjectClient(c client.Client) error {
+	defaulter.Client = c
+	return nil
+}
+
+// podAnnotator implements admission.DecoderInjector.
+// A decoder will be automatically injected.
+
+// InjectDecoder injects the decoder.
+func (defaulter *Defaulter) InjectDecoder(d *admission.Decoder) error {
+	defaulter.Decoder = d
+	return nil
 }

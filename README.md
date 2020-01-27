@@ -9,9 +9,10 @@ It encapsulates the complexity of autoscaling, networking, health checking, and 
 To learn more about KFServing, how to deploy it as part of Kubeflow, how to use various supported features, and how to participate in the KFServing community, please follow the [KFServing docs on the Kubeflow Website](https://www.kubeflow.org/docs/components/serving/kfserving/).
 
 ### Prerequisites
-KNative Serving and Istio should be available on Kubernetes Cluster.
+Knative Serving and Istio should be available on Kubernetes Cluster.
 - Istio Version: v1.1.7+ 
 - Knative Version: v0.8.x
+- Cert Manager: v1.12.0+ to provision KFServing webhook certs for production grade installation
 
 You may find this [installation instruction](https://github.com/kubeflow/kfserving/blob/master/docs/DEVELOPER_GUIDE.md#install-knative-on-a-kubernetes-cluster) useful.
 

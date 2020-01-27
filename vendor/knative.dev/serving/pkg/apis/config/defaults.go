@@ -128,7 +128,7 @@ func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
 		}
 		// Check that the template properly applies to ObjectMeta.
 		if err := tmpl.Execute(ioutil.Discard, metav1.ObjectMeta{}); err != nil {
-			return nil, fmt.Errorf("error executing template: %v", err)
+			return nil, fmt.Errorf("error executing template: %w", err)
 		}
 		// We store the raw template because we run deepcopy-gen on the
 		// config and that doesn't copy nicely.

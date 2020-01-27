@@ -88,7 +88,9 @@ func (cs *ConfigurationStatus) SetLatestCreatedRevisionName(name string) {
 
 func (cs *ConfigurationStatus) SetLatestReadyRevisionName(name string) {
 	cs.LatestReadyRevisionName = name
-	confCondSet.Manage(cs).MarkTrue(ConfigurationConditionReady)
+	if cs.LatestReadyRevisionName == cs.LatestCreatedRevisionName {
+		confCondSet.Manage(cs).MarkTrue(ConfigurationConditionReady)
+	}
 }
 
 func (cs *ConfigurationStatus) MarkLatestCreatedFailed(name, message string) {
