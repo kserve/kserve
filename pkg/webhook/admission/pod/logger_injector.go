@@ -50,7 +50,7 @@ func getLoggerConfigs(configMap *v1.ConfigMap) (*LoggerConfig, error) {
 	for _, key := range resourceDefaults {
 		_, err := resource.ParseQuantity(key)
 		if err != nil {
-			return loggerConfig, err
+			return loggerConfig, fmt.Errorf("Failed to parse resource configuration for %q: %q", LoggerConfigMapKeyName, err.Error())
 		}
 	}
 
@@ -83,6 +83,9 @@ func (il *LoggerInjector) InjectLogger(pod *v1.Pod) error {
 		}
 	}
 
+	// Make sure securityContext is initialized and valid
+	securityContext := pod.Spec.Containers[0].SecurityContext.DeepCopy()
+
 	loggerContainer := &v1.Container{
 		Name:  LoggerContainerName,
 		Image: il.config.Image,
@@ -106,6 +109,7 @@ func (il *LoggerInjector) InjectLogger(pod *v1.Pod) error {
 				v1.ResourceMemory: resource.MustParse(il.config.MemoryRequest),
 			},
 		},
+		SecurityContext: securityContext,
 	}
 
 	// Add container to the spec
