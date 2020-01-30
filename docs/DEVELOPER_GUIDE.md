@@ -140,6 +140,12 @@ You can follow
 [the cert manager documentation](https://docs.cert-manager.io/en/latest/getting-started/install/kubernetes.html)
 to install it.
 
+If you don't want to install cert manager, you can set the `SELF_SIGNED_CA` environment variable to true.
+`SELF_SIGNED_CA` will execute a script to create a self-signed CA and patch it to the webhook config.
+```bash
+export SELF_SIGNED_CA=true
+```
+
 After that you can run following command to deploy `KFServing`, you can skip above step once cert manager is installed.
 ```bash
 make deploy
