@@ -11,4 +11,3 @@ API rule violation: names_match,github.com/kubeflow/kfserving/pkg/apis/serving/v
 API rule violation: names_match,github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2,TensorflowSpec,StorageURI
 API rule violation: names_match,github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2,XGBoostSpec,NThread
 API rule violation: names_match,github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2,XGBoostSpec,StorageURI
-API rule violation: names_match,knative.dev/pkg/apis,VolatileTime,Inner

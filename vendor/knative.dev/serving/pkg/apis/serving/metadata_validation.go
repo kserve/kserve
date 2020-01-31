@@ -18,9 +18,12 @@ package serving
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/api/validation"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
 	"knative.dev/serving/pkg/apis/autoscaling"
@@ -105,4 +108,64 @@ func ValidateClusterVisibilityLabel(label string) (errs *apis.FieldError) {
 		errs = apis.ErrInvalidValue(label, routeconfig.VisibilityLabelKey)
 	}
 	return
+}
+
+// SetUserInfo sets creator and updater annotations
+func SetUserInfo(ctx context.Context, oldSpec, newSpec, resource interface{}) {
+	if ui := apis.GetUserInfo(ctx); ui != nil {
+		objectMetaAccessor, ok := resource.(metav1.ObjectMetaAccessor)
+		if !ok {
+			return
+		}
+		ans := objectMetaAccessor.GetObjectMeta().GetAnnotations()
+		if ans == nil {
+			ans = map[string]string{}
+			objectMetaAccessor.GetObjectMeta().SetAnnotations(ans)
+		}
+
+		if apis.IsInUpdate(ctx) {
+			if equality.Semantic.DeepEqual(oldSpec, newSpec) {
+				return
+			}
+			ans[UpdaterAnnotation] = ui.Username
+		} else {
+			ans[CreatorAnnotation] = ui.Username
+			ans[UpdaterAnnotation] = ui.Username
+		}
+	}
+}
+
+// ValidateRevisionName validates name and generateName for the revisionTemplate
+func ValidateRevisionName(ctx context.Context, name, generateName string) *apis.FieldError {
+	if generateName != "" {
+		if msgs := validation.NameIsDNS1035Label(generateName, true); len(msgs) > 0 {
+			return apis.ErrInvalidValue(
+				fmt.Sprintf("not a DNS 1035 label prefix: %v", msgs),
+				"metadata.generateName")
+		}
+	}
+	if name != "" {
+		if msgs := validation.NameIsDNS1035Label(name, false); len(msgs) > 0 {
+			return apis.ErrInvalidValue(
+				fmt.Sprintf("not a DNS 1035 label: %v", msgs),
+				"metadata.name")
+		}
+		om := apis.ParentMeta(ctx)
+		prefix := om.Name + "-"
+		if om.Name != "" {
+			// Even if there is GenerateName, allow the use
+			// of Name post-creation.
+		} else if om.GenerateName != "" {
+			// We disallow bringing your own name when the parent
+			// resource uses generateName (at creation).
+			return apis.ErrDisallowedFields("metadata.name")
+		}
+
+		if !strings.HasPrefix(name, prefix) {
+			return apis.ErrInvalidValue(
+				fmt.Sprintf("%q must have prefix %q", name, prefix),
+				"metadata.name")
+		}
+	}
+	return nil
 }

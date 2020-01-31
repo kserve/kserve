@@ -18,6 +18,7 @@ package service
 
 import (
 	"context"
+	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 
 	"github.com/kubeflow/kfserving/pkg/controller/inferenceservice/reconcilers/istio"
 
@@ -31,8 +32,7 @@ import (
 
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	kfserving "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
-	istiov1alpha3 "knative.dev/pkg/apis/istio/v1alpha3"
-	knservingv1alpha1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
+	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -87,12 +87,12 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	// Watch for changes to Knative Service
-	if err = c.Watch(&source.Kind{Type: &knservingv1alpha1.Service{}}, kfservingController); err != nil {
+	if err = c.Watch(&source.Kind{Type: &knservingv1.Service{}}, kfservingController); err != nil {
 		return err
 	}
 
 	// Watch for changes to Virtual Service
-	if err = c.Watch(&source.Kind{Type: &istiov1alpha3.VirtualService{}}, kfservingController); err != nil {
+	if err = c.Watch(&source.Kind{Type: &v1alpha3.VirtualService{}}, kfservingController); err != nil {
 		return err
 	}
 
@@ -175,7 +175,7 @@ func (r *ReconcileService) updateStatus(desiredService *kfserving.InferenceServi
 		// This is important because the copy we loaded from the informer's
 		// cache may be stale and we don't want to overwrite a prior update
 		// to status with this stale state.
-	} else if err := r.Update(context.TODO(), desiredService); err != nil {
+	} else if err := r.Status().Update(context.TODO(), desiredService); err != nil {
 		log.Error(err, "Failed to update InferenceService status")
 		r.Recorder.Eventf(desiredService, v1.EventTypeWarning, "UpdateFailed",
 			"Failed to update status for InferenceService %q: %v", desiredService.Name, err)

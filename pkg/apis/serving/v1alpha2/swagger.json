@@ -45,11 +45,12 @@
       "description": "VolatileTime wraps metav1.Time",
       "type": "object",
       "required": [
-        "Inner"
+        "Time"
       ],
       "properties": {
-        "Inner": {
-          "$ref": "#/definitions/v1.Time"
+        "Time": {
+          "type": "string",
+          "format": "date-time"
         }
       }
     },
@@ -250,6 +251,7 @@
       "type": "object",
       "properties": {
         "address": {
+          "description": "Ducktype for addressable",
           "$ref": "#/definitions/knative.dev.pkg.apis.duck.v1beta1.Addressable"
         },
         "canary": {

@@ -23,7 +23,6 @@ import (
 	"regexp"
 	"strings"
 
-	"k8s.io/api/admissionregistration/v1beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -68,19 +67,11 @@ var (
 
 // Webhook Constants
 var (
-	WebhookServerName                           = KFServingName + "-webhook-server"
-	WebhookServerServiceName                    = WebhookServerName + "-service"
-	WebhookServerSecretName                     = WebhookServerName + "-secret"
-	InferenceServiceValidatingWebhookConfigName = strings.Join([]string{InferenceServiceName, KFServingAPIGroupName}, ".")
-	InferenceServiceMutatingWebhookConfigName   = strings.Join([]string{InferenceServiceName, KFServingAPIGroupName}, ".")
-	InferenceServiceValidatingWebhookName       = strings.Join([]string{InferenceServiceName, WebhookServerName, "validator"}, ".")
-	InferenceServiceDefaultingWebhookName       = strings.Join([]string{InferenceServiceName, WebhookServerName, "defaulter"}, ".")
-	PodMutatorWebhookName                       = strings.Join([]string{InferenceServiceName, WebhookServerName, "pod-mutator"}, ".")
-	WebhookFailurePolicy                        = v1beta1.Fail
 	EnableKFServingMutatingWebhook              = "enabled"
 	EnableWebhookNamespaceSelectorEnvName       = "ENABLE_WEBHOOK_NAMESPACE_SELECTOR"
 	EnableWebhookNamespaceSelectorEnvValue      = "enabled"
 	IsEnableWebhookNamespaceSelector            = isEnvVarMatched(EnableWebhookNamespaceSelectorEnvName, EnableWebhookNamespaceSelectorEnvValue)
+	PodMutatorWebhookName                       = KFServingName + "-pod-mutator-webhook"
 )
 
 // GPU Constants

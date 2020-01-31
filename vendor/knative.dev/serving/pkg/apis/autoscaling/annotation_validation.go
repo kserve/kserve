@@ -87,12 +87,15 @@ func validateFloats(annotations map[string]string) *apis.FieldError {
 
 func validateWindows(annotations map[string]string) *apis.FieldError {
 	var errs *apis.FieldError
-	if v, ok := annotations[WindowAnnotationKey]; ok {
-		d, err := time.ParseDuration(v)
+	if w, ok := annotations[WindowAnnotationKey]; ok {
+		if annotations[ClassAnnotationKey] == HPA && annotations[MetricAnnotationKey] == CPU {
+			return apis.ErrInvalidKeyName(WindowAnnotationKey, fmt.Sprintf("%s for %s %s", HPA, MetricAnnotationKey, CPU))
+		}
+		d, err := time.ParseDuration(w)
 		if err != nil {
-			errs = apis.ErrInvalidValue(v, WindowAnnotationKey)
+			errs = apis.ErrInvalidValue(w, WindowAnnotationKey)
 		} else if d < WindowMin || d > WindowMax {
-			errs = apis.ErrOutOfBoundsValue(v, WindowMin, WindowMax, WindowAnnotationKey)
+			errs = apis.ErrOutOfBoundsValue(w, WindowMin, WindowMax, WindowAnnotationKey)
 		}
 	}
 	return errs

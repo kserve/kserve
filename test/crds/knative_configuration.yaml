@@ -21,7 +21,7 @@ metadata:
     knative.dev/crd-install: "true"
 spec:
   group: serving.knative.dev
-  version: v1alpha1
+  version: v1
   names:
     kind: Configuration
     plural: configurations

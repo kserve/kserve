@@ -28,6 +28,16 @@ import (
 func (r *Route) Validate(ctx context.Context) *apis.FieldError {
 	errs := serving.ValidateObjectMetadata(r.GetObjectMeta()).ViaField("metadata")
 	errs = errs.Also(r.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
+
+	if apis.IsInUpdate(ctx) {
+		original := apis.GetBaseline(ctx).(*Route)
+		// Don't validate annotations(creator and lastModifier) when route owned by service
+		// validate only when route created independently.
+		if r.OwnerReferences == nil {
+			errs = errs.Also(apis.ValidateCreatorAndModifier(original.Spec, r.Spec, original.GetAnnotations(),
+				r.GetAnnotations(), serving.GroupName).ViaField("metadata.annotations"))
+		}
+	}
 	return errs
 }
 

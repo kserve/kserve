@@ -28,6 +28,8 @@ KFSERVING_TEST_NAMESPACE = "kfserving-ci-e2e-test"
 
 def predict(service_name, input_json):
     isvc = KFServing.get(service_name, namespace=KFSERVING_TEST_NAMESPACE)
+    # temporary sleep until this is fixed https://github.com/kubeflow/kfserving/issues/604
+    time.sleep(10)
     api_instance = client.CoreV1Api(client.ApiClient())
     service = api_instance.read_namespaced_service("istio-ingressgateway", "istio-system", exact='true')
     cluster_ip = service.status.load_balancer.ingress[0].ip

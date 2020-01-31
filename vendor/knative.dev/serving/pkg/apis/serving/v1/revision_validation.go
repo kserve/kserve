@@ -18,7 +18,6 @@ package v1
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	"knative.dev/pkg/apis"
@@ -62,21 +61,7 @@ func (rts *RevisionTemplateSpec) Validate(ctx context.Context) *apis.FieldError 
 
 	// If the RevisionTemplateSpec has a name specified, then check that
 	// it follows the requirements on the name.
-	if rts.Name != "" {
-		var prefix string
-		if om := apis.ParentMeta(ctx); om.Name == "" {
-			prefix = om.GenerateName
-		} else {
-			prefix = om.Name + "-"
-		}
-
-		if !strings.HasPrefix(rts.Name, prefix) {
-			errs = errs.Also(apis.ErrInvalidValue(
-				fmt.Sprintf("%q must have prefix %q", rts.Name, prefix),
-				"metadata.name"))
-		}
-	}
-
+	errs = errs.Also(serving.ValidateRevisionName(ctx, rts.Name, rts.GenerateName))
 	errs = errs.Also(serving.ValidateQueueSidecarAnnotation(rts.Annotations).ViaField("metadata.annotations"))
 	return errs
 }
@@ -102,7 +87,7 @@ func (current *RevisionTemplateSpec) VerifyNameChange(ctx context.Context, og Re
 	} else if diff != "" {
 		return &apis.FieldError{
 			Message: "Saw the following changes without a name change (-old +new)",
-			Paths:   []string{apis.CurrentField},
+			Paths:   []string{"metadata.name"},
 			Details: diff,
 		}
 	}

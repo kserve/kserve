@@ -31,7 +31,6 @@ import (
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/serving"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
-	knservingv1alpha1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
 )
 
 var serviceAnnotationDisallowedList = []string{
@@ -65,7 +64,7 @@ func NewServiceBuilder(client client.Client, config *v1.ConfigMap) *ServiceBuild
 	}
 }
 
-func (c *ServiceBuilder) CreateInferenceServiceComponent(isvc *v1alpha2.InferenceService, component constants.InferenceServiceComponent, isCanary bool) (*knservingv1alpha1.Service, error) {
+func (c *ServiceBuilder) CreateInferenceServiceComponent(isvc *v1alpha2.InferenceService, component constants.InferenceServiceComponent, isCanary bool) (*knservingv1.Service, error) {
 	serviceName := constants.DefaultServiceName(isvc.Name, component)
 	if isCanary {
 		serviceName = constants.CanaryServiceName(isvc.Name, component)
@@ -125,7 +124,7 @@ func addLoggerContainerPort(container *v1.Container) {
 	}
 }
 
-func (c *ServiceBuilder) CreatePredictorService(name string, metadata metav1.ObjectMeta, predictorSpec *v1alpha2.PredictorSpec) (*knservingv1alpha1.Service, error) {
+func (c *ServiceBuilder) CreatePredictorService(name string, metadata metav1.ObjectMeta, predictorSpec *v1alpha2.PredictorSpec) (*knservingv1.Service, error) {
 	annotations, err := c.buildAnnotations(metadata, predictorSpec.MinReplicas, predictorSpec.MaxReplicas)
 	if err != nil {
 		return nil, err
@@ -145,31 +144,29 @@ func (c *ServiceBuilder) CreatePredictorService(name string, metadata metav1.Obj
 		addLoggerContainerPort(container)
 	}
 
-	service := &knservingv1alpha1.Service{
+	service := &knservingv1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: metadata.Namespace,
 			Labels:    metadata.Labels,
 		},
-		Spec: knservingv1alpha1.ServiceSpec{
-			ConfigurationSpec: knservingv1alpha1.ConfigurationSpec{
-				Template: &knservingv1alpha1.RevisionTemplateSpec{
+		Spec: knservingv1.ServiceSpec{
+			ConfigurationSpec: knservingv1.ConfigurationSpec{
+				Template: knservingv1.RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: utils.Union(metadata.Labels, map[string]string{
 							constants.InferenceServicePodLabelKey: metadata.Name,
 						}),
 						Annotations: annotations,
 					},
-					Spec: knservingv1alpha1.RevisionSpec{
-						RevisionSpec: knservingv1.RevisionSpec{
-							// Defaulting here since this always shows a diff with nil vs 300s(knative default)
-							// we may need to expose this field in future
-							TimeoutSeconds: &constants.DefaultPredictorTimeout,
-							PodSpec: v1.PodSpec{
-								ServiceAccountName: predictorSpec.ServiceAccountName,
-								Containers: []v1.Container{
-									*container,
-								},
+					Spec: knservingv1.RevisionSpec{
+						// Defaulting here since this always shows a diff with nil vs 300s(knative default)
+						// we may need to expose this field in future
+						TimeoutSeconds: &constants.DefaultPredictorTimeout,
+						PodSpec: v1.PodSpec{
+							ServiceAccountName: predictorSpec.ServiceAccountName,
+							Containers: []v1.Container{
+								*container,
 							},
 						},
 					},
@@ -190,45 +187,47 @@ func (c *ServiceBuilder) CreatePredictorService(name string, metadata metav1.Obj
 	return service, nil
 }
 
-func (c *ServiceBuilder) CreateTransformerService(name string, metadata metav1.ObjectMeta, transformerSpec *v1alpha2.TransformerSpec, isCanary bool) (*knservingv1alpha1.Service, error) {
+func (c *ServiceBuilder) CreateTransformerService(name string, metadata metav1.ObjectMeta, transformerSpec *v1alpha2.TransformerSpec, isCanary bool) (*knservingv1.Service, error) {
 	annotations, err := c.buildAnnotations(metadata, transformerSpec.MinReplicas, transformerSpec.MaxReplicas)
 	if err != nil {
 		return nil, err
 	}
 
+	// KNative does not support INIT containers or mounting, so we add annotations that trigger the
+	// StorageInitializer injector to mutate the underlying deployment to provision model data
+	if sourceURI := transformerSpec.GetStorageUri(); sourceURI != "" {
+		annotations[constants.StorageInitializerSourceUriInternalAnnotationKey] = sourceURI
+	}
 	// Knative does not support multiple containers so we add an annotation that triggers pod
 	// mutator to add it
 	hasInferenceLogging := addLoggerAnnotations(transformerSpec.Logger, annotations)
-
 	container := transformerSpec.GetContainerSpec(metadata, isCanary)
 	if hasInferenceLogging {
 		addLoggerContainerPort(container)
 	}
-	service := &knservingv1alpha1.Service{
+	service := &knservingv1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: metadata.Namespace,
 			Labels:    metadata.Labels,
 		},
-		Spec: knservingv1alpha1.ServiceSpec{
-			ConfigurationSpec: knservingv1alpha1.ConfigurationSpec{
-				Template: &knservingv1alpha1.RevisionTemplateSpec{
+		Spec: knservingv1.ServiceSpec{
+			ConfigurationSpec: knservingv1.ConfigurationSpec{
+				Template: knservingv1.RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: utils.Union(metadata.Labels, map[string]string{
 							constants.InferenceServicePodLabelKey: metadata.Name,
 						}),
 						Annotations: annotations,
 					},
-					Spec: knservingv1alpha1.RevisionSpec{
-						RevisionSpec: knservingv1.RevisionSpec{
-							// Defaulting here since this always shows a diff with nil vs 300s(knative default)
-							// we may need to expose this field in future
-							TimeoutSeconds: &constants.DefaultTransformerTimeout,
-							PodSpec: v1.PodSpec{
-								ServiceAccountName: transformerSpec.ServiceAccountName,
-								Containers: []v1.Container{
-									*container,
-								},
+					Spec: knservingv1.RevisionSpec{
+						// Defaulting here since this always shows a diff with nil vs 300s(knative default)
+						// we may need to expose this field in future
+						TimeoutSeconds: &constants.DefaultTransformerTimeout,
+						PodSpec: v1.PodSpec{
+							ServiceAccountName: transformerSpec.ServiceAccountName,
+							Containers: []v1.Container{
+								*container,
 							},
 						},
 					},
@@ -249,7 +248,7 @@ func (c *ServiceBuilder) CreateTransformerService(name string, metadata metav1.O
 	return service, nil
 }
 
-func (c *ServiceBuilder) CreateExplainerService(name string, metadata metav1.ObjectMeta, explainerSpec *v1alpha2.ExplainerSpec, predictorService string) (*knservingv1alpha1.Service, error) {
+func (c *ServiceBuilder) CreateExplainerService(name string, metadata metav1.ObjectMeta, explainerSpec *v1alpha2.ExplainerSpec, predictorService string) (*knservingv1.Service, error) {
 	annotations, err := c.buildAnnotations(metadata, explainerSpec.MinReplicas, explainerSpec.MaxReplicas)
 	if err != nil {
 		return nil, err
@@ -268,31 +267,29 @@ func (c *ServiceBuilder) CreateExplainerService(name string, metadata metav1.Obj
 	if hasInferenceLogging {
 		addLoggerContainerPort(container)
 	}
-	service := &knservingv1alpha1.Service{
+	service := &knservingv1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: metadata.Namespace,
 			Labels:    metadata.Labels,
 		},
-		Spec: knservingv1alpha1.ServiceSpec{
-			ConfigurationSpec: knservingv1alpha1.ConfigurationSpec{
-				Template: &knservingv1alpha1.RevisionTemplateSpec{
+		Spec: knservingv1.ServiceSpec{
+			ConfigurationSpec: knservingv1.ConfigurationSpec{
+				Template: knservingv1.RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: utils.Union(metadata.Labels, map[string]string{
 							constants.InferenceServicePodLabelKey: metadata.Name,
 						}),
 						Annotations: annotations,
 					},
-					Spec: knservingv1alpha1.RevisionSpec{
-						RevisionSpec: knservingv1.RevisionSpec{
-							// Defaulting here since this always shows a diff with nil vs 300s(knative default)
-							// we may need to expose this field in future
-							TimeoutSeconds: &constants.DefaultExplainerTimeout,
-							PodSpec: v1.PodSpec{
-								ServiceAccountName: explainerSpec.ServiceAccountName,
-								Containers: []v1.Container{
-									*container,
-								},
+					Spec: knservingv1.RevisionSpec{
+						// Defaulting here since this always shows a diff with nil vs 300s(knative default)
+						// we may need to expose this field in future
+						TimeoutSeconds: &constants.DefaultExplainerTimeout,
+						PodSpec: v1.PodSpec{
+							ServiceAccountName: explainerSpec.ServiceAccountName,
+							Containers: []v1.Container{
+								*container,
 							},
 						},
 					},
