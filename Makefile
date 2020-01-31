@@ -10,7 +10,7 @@ PYTORCH_IMG ?= pytorchserver:latest
 ALIBI_IMG ?= alibi-explainer:latest
 STORAGE_INIT_IMG ?= storage-initializer:latest
 CRD_OPTIONS ?= "crd:trivialVersions=true"
-SELF_SIGNED_CA ?= false
+KFSERVING_ENABLE_SELF_SIGNED_CA ?= false
 
 all: test manager logger
 
@@ -32,23 +32,23 @@ run: generate fmt vet lint
 
 # Deploy controller in the configured Kubernetes cluster in ~/.kube/config
 deploy: manifests
-	# Remove the certmanager certificate if SELF_SIGNED_CA not false
-	cd config/default && if [ ${SELF_SIGNED_CA} != false ]; then \
+	# Remove the certmanager certificate if KFSERVING_ENABLE_SELF_SIGNED_CA is not false
+	cd config/default && if [ ${KFSERVING_ENABLE_SELF_SIGNED_CA} != false ]; then \
 	kustomize edit remove resource certmanager/certificate.yaml; \
 	else kustomize edit add resource certmanager/certificate.yaml; fi;
 
 	kustomize build config/default | kubectl apply -f -
-	if [ ${SELF_SIGNED_CA} != false ]; then ./hack/self-signed-ca.sh; fi;
+	if [ ${KFSERVING_ENABLE_SELF_SIGNED_CA} != false ]; then ./hack/self-signed-ca.sh; fi;
 
 deploy-dev: manifests
 	./hack/image_patch_dev.sh development
-	# Remove the certmanager certificate if SELF_SIGNED_CA not false
-	cd config/default && if [ ${SELF_SIGNED_CA} != false ]; then \
+	# Remove the certmanager certificate if KFSERVING_ENABLE_SELF_SIGNED_CA is not false
+	cd config/default && if [ ${KFSERVING_ENABLE_SELF_SIGNED_CA} != false ]; then \
 	kustomize edit remove resource certmanager/certificate.yaml; \
 	else kustomize edit add resource certmanager/certificate.yaml; fi;
 
 	kustomize build config/overlays/development | kubectl apply -f -
-	if [ ${SELF_SIGNED_CA} != false ]; then ./hack/self-signed-ca.sh; fi;
+	if [ ${KFSERVING_ENABLE_SELF_SIGNED_CA} != false ]; then ./hack/self-signed-ca.sh; fi;
 
 
 deploy-local: manifests
