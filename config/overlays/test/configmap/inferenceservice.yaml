@@ -51,9 +51,9 @@ data:
         },
         "tensorrt": {
             "image": "nvcr.io/nvidia/tensorrtserver",
-            "defaultImageVersion": "19.05-py3",
+            "defaultImageVersion": "20.01-py3",
             "allowedImageVersions": [
-               "19.05-py3"
+               "20.01-py3"
             ]
         }
     }

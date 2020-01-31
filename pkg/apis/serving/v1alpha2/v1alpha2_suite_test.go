@@ -41,7 +41,7 @@ const (
 	DefaultSKLearnRuntimeVersion        = "0.1.0"
 	DefaultPyTorchRuntimeVersion        = "0.1.0"
 	DefaultXGBoostRuntimeVersion        = "0.1.0"
-	DefaultTensorRTRuntimeVersion       = "19.05-py3"
+	DefaultTensorRTRuntimeVersion       = "20.01-py3"
 	DefaultONNXRuntimeVersion           = "v0.5.0"
 	DefaultAlibiExplainerRuntimeVersion = "0.2.3"
 )
@@ -111,9 +111,9 @@ func TestMain(m *testing.M) {
 			},
 			"tensorrt" : {
 				"image" : "nvcr.io/nvidia/tensorrtserver",
-				"defaultImageVersion": "19.05-py3",
+				"defaultImageVersion": "20.01-py3",
 				"allowedImageVersions": [
-				   "19.05-py3"
+				   "20.01-py3"
 				]
 			}
 		}`,

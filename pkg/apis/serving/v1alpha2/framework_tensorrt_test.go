@@ -50,12 +50,12 @@ func TestCreateModelServingContainer(t *testing.T) {
 	var spec = TensorRTSpec{
 		StorageURI:     "gs://someUri",
 		Resources:      requestedResource,
-		RuntimeVersion: "19.05-py3",
+		RuntimeVersion: "20.01-py3",
 	}
 	g := gomega.NewGomegaWithT(t)
 
 	expectedContainer := &v1.Container{
-		Image:     "someOtherImage:19.05-py3",
+		Image:     "someOtherImage:20.01-py3",
 		Name:      constants.InferenceServiceContainerName,
 		Resources: requestedResource,
 		Args: []string{
