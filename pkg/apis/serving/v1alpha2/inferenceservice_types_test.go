@@ -17,8 +17,9 @@ limitations under the License.
 package v1alpha2
 
 import (
-	"github.com/kubeflow/kfserving/pkg/constants"
 	"testing"
+
+	"github.com/kubeflow/kfserving/pkg/constants"
 
 	"github.com/onsi/gomega"
 	"golang.org/x/net/context"
@@ -40,7 +41,7 @@ func TestInferenceService(t *testing.T) {
 			Default: EndpointSpec{
 				Predictor: PredictorSpec{
 					DeploymentSpec: DeploymentSpec{
-						MinReplicas: 1,
+						MinReplicas: GetIntReference(1),
 						MaxReplicas: 3,
 					},
 					Tensorflow: &TensorflowSpec{
@@ -53,7 +54,7 @@ func TestInferenceService(t *testing.T) {
 			Canary: &EndpointSpec{
 				Predictor: PredictorSpec{
 					DeploymentSpec: DeploymentSpec{
-						MinReplicas: 1,
+						MinReplicas: GetIntReference(1),
 						MaxReplicas: 3,
 					},
 					Tensorflow: &TensorflowSpec{

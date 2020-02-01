@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/kubeflow/kfserving/pkg/constants"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -91,15 +92,24 @@ func validateStorageURI(storageURI string) error {
 	return fmt.Errorf(UnsupportedStorageURIFormatError, strings.Join(SupportedStorageURIPrefixList, ", "), storageURI)
 }
 
-func validateReplicas(minReplicas int, maxReplicas int) error {
-	if minReplicas < 0 {
+func validateReplicas(minReplicas *int, maxReplicas int) error {
+	if minReplicas == nil {
+		minReplicas = &constants.DefaultMinReplicas
+	}
+	if *minReplicas < 0 {
 		return fmt.Errorf(MinReplicasLowerBoundExceededError)
 	}
 	if maxReplicas < 0 {
 		return fmt.Errorf(MaxReplicasLowerBoundExceededError)
 	}
-	if minReplicas > maxReplicas && maxReplicas != 0 {
+	if *minReplicas > maxReplicas && maxReplicas != 0 {
 		return fmt.Errorf(MinReplicasShouldBeLessThanMaxError)
 	}
 	return nil
+}
+
+// GetIntReference returns the pointer for the integer input
+func GetIntReference(number int) *int {
+	num := number
+	return &num
 }
