@@ -18,10 +18,11 @@ package service
 
 import (
 	"fmt"
-	"github.com/kubeflow/kfserving/pkg/controller/inferenceservice/resources/istio"
-	"knative.dev/pkg/network"
 	"testing"
 	"time"
+
+	"github.com/kubeflow/kfserving/pkg/controller/inferenceservice/resources/istio"
+	"knative.dev/pkg/network"
 
 	"github.com/kubeflow/kfserving/pkg/controller/inferenceservice/resources/knative"
 
@@ -103,7 +104,7 @@ func TestInferenceServiceWithOnlyPredictor(t *testing.T) {
 			Default: kfserving.EndpointSpec{
 				Predictor: kfserving.PredictorSpec{
 					DeploymentSpec: kfserving.DeploymentSpec{
-						MinReplicas: 1,
+						MinReplicas: v1alpha2.GetIntReference(1),
 						MaxReplicas: 3,
 					},
 					Tensorflow: &kfserving.TensorflowSpec{
@@ -340,7 +341,7 @@ func TestInferenceServiceWithDefaultAndCanaryPredictor(t *testing.T) {
 			Default: kfserving.EndpointSpec{
 				Predictor: kfserving.PredictorSpec{
 					DeploymentSpec: kfserving.DeploymentSpec{
-						MinReplicas: 1,
+						MinReplicas: v1alpha2.GetIntReference(1),
 						MaxReplicas: 3,
 					},
 					Tensorflow: &kfserving.TensorflowSpec{
@@ -353,7 +354,7 @@ func TestInferenceServiceWithDefaultAndCanaryPredictor(t *testing.T) {
 			Canary: &kfserving.EndpointSpec{
 				Predictor: kfserving.PredictorSpec{
 					DeploymentSpec: kfserving.DeploymentSpec{
-						MinReplicas: 1,
+						MinReplicas: v1alpha2.GetIntReference(1),
 						MaxReplicas: 3,
 					},
 					Tensorflow: &kfserving.TensorflowSpec{
@@ -658,7 +659,7 @@ func TestCanaryDelete(t *testing.T) {
 			Default: kfserving.EndpointSpec{
 				Predictor: kfserving.PredictorSpec{
 					DeploymentSpec: kfserving.DeploymentSpec{
-						MinReplicas: 1,
+						MinReplicas: v1alpha2.GetIntReference(1),
 						MaxReplicas: 3,
 					},
 					Tensorflow: &kfserving.TensorflowSpec{
@@ -671,7 +672,7 @@ func TestCanaryDelete(t *testing.T) {
 			Canary: &kfserving.EndpointSpec{
 				Predictor: kfserving.PredictorSpec{
 					DeploymentSpec: kfserving.DeploymentSpec{
-						MinReplicas: 1,
+						MinReplicas: v1alpha2.GetIntReference(1),
 						MaxReplicas: 3,
 					},
 					Tensorflow: &kfserving.TensorflowSpec{
@@ -930,7 +931,7 @@ func TestInferenceServiceWithTransformer(t *testing.T) {
 			Default: kfserving.EndpointSpec{
 				Predictor: kfserving.PredictorSpec{
 					DeploymentSpec: kfserving.DeploymentSpec{
-						MinReplicas: 1,
+						MinReplicas: v1alpha2.GetIntReference(1),
 						MaxReplicas: 3,
 					},
 					Tensorflow: &kfserving.TensorflowSpec{
@@ -940,7 +941,7 @@ func TestInferenceServiceWithTransformer(t *testing.T) {
 				},
 				Transformer: &kfserving.TransformerSpec{
 					DeploymentSpec: kfserving.DeploymentSpec{
-						MinReplicas: 1,
+						MinReplicas: v1alpha2.GetIntReference(1),
 						MaxReplicas: 3,
 					},
 					Custom: &kfserving.CustomSpec{
@@ -954,7 +955,7 @@ func TestInferenceServiceWithTransformer(t *testing.T) {
 			Canary: &kfserving.EndpointSpec{
 				Predictor: kfserving.PredictorSpec{
 					DeploymentSpec: kfserving.DeploymentSpec{
-						MinReplicas: 1,
+						MinReplicas: v1alpha2.GetIntReference(1),
 						MaxReplicas: 3,
 					},
 					Tensorflow: &kfserving.TensorflowSpec{
@@ -964,7 +965,7 @@ func TestInferenceServiceWithTransformer(t *testing.T) {
 				},
 				Transformer: &kfserving.TransformerSpec{
 					DeploymentSpec: kfserving.DeploymentSpec{
-						MinReplicas: 1,
+						MinReplicas: v1alpha2.GetIntReference(1),
 						MaxReplicas: 3,
 					},
 					Custom: &kfserving.CustomSpec{
@@ -1318,7 +1319,7 @@ func TestInferenceServiceDeleteComponent(t *testing.T) {
 			Default: kfserving.EndpointSpec{
 				Predictor: kfserving.PredictorSpec{
 					DeploymentSpec: kfserving.DeploymentSpec{
-						MinReplicas: 1,
+						MinReplicas: v1alpha2.GetIntReference(1),
 						MaxReplicas: 3,
 					},
 					Tensorflow: &kfserving.TensorflowSpec{
@@ -1328,7 +1329,7 @@ func TestInferenceServiceDeleteComponent(t *testing.T) {
 				},
 				Transformer: &kfserving.TransformerSpec{
 					DeploymentSpec: kfserving.DeploymentSpec{
-						MinReplicas: 1,
+						MinReplicas: v1alpha2.GetIntReference(1),
 						MaxReplicas: 3,
 					},
 					Custom: &kfserving.CustomSpec{
@@ -1342,7 +1343,7 @@ func TestInferenceServiceDeleteComponent(t *testing.T) {
 			Canary: &kfserving.EndpointSpec{
 				Predictor: kfserving.PredictorSpec{
 					DeploymentSpec: kfserving.DeploymentSpec{
-						MinReplicas: 1,
+						MinReplicas: v1alpha2.GetIntReference(1),
 						MaxReplicas: 3,
 					},
 					Tensorflow: &kfserving.TensorflowSpec{
@@ -1352,7 +1353,7 @@ func TestInferenceServiceDeleteComponent(t *testing.T) {
 				},
 				Transformer: &kfserving.TransformerSpec{
 					DeploymentSpec: kfserving.DeploymentSpec{
-						MinReplicas: 1,
+						MinReplicas: v1alpha2.GetIntReference(1),
 						MaxReplicas: 3,
 					},
 					Custom: &kfserving.CustomSpec{
@@ -1500,7 +1501,7 @@ func TestInferenceServiceWithExplainer(t *testing.T) {
 			Default: kfserving.EndpointSpec{
 				Predictor: kfserving.PredictorSpec{
 					DeploymentSpec: kfserving.DeploymentSpec{
-						MinReplicas: 1,
+						MinReplicas: v1alpha2.GetIntReference(1),
 						MaxReplicas: 3,
 					},
 					Tensorflow: &kfserving.TensorflowSpec{
@@ -1510,7 +1511,7 @@ func TestInferenceServiceWithExplainer(t *testing.T) {
 				},
 				Explainer: &kfserving.ExplainerSpec{
 					DeploymentSpec: kfserving.DeploymentSpec{
-						MinReplicas: 1,
+						MinReplicas: v1alpha2.GetIntReference(1),
 						MaxReplicas: 3,
 					},
 					Alibi: &v1alpha2.AlibiExplainerSpec{
@@ -1523,7 +1524,7 @@ func TestInferenceServiceWithExplainer(t *testing.T) {
 			Canary: &kfserving.EndpointSpec{
 				Predictor: kfserving.PredictorSpec{
 					DeploymentSpec: kfserving.DeploymentSpec{
-						MinReplicas: 1,
+						MinReplicas: v1alpha2.GetIntReference(1),
 						MaxReplicas: 3,
 					},
 					Tensorflow: &kfserving.TensorflowSpec{
@@ -1533,7 +1534,7 @@ func TestInferenceServiceWithExplainer(t *testing.T) {
 				},
 				Explainer: &kfserving.ExplainerSpec{
 					DeploymentSpec: kfserving.DeploymentSpec{
-						MinReplicas: 1,
+						MinReplicas: v1alpha2.GetIntReference(1),
 						MaxReplicas: 3,
 					},
 					Alibi: &v1alpha2.AlibiExplainerSpec{
