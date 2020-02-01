@@ -25,6 +25,8 @@ resources:
 - rbac/auth_proxy_role_binding.yaml
 - webhook/manifests.yaml
 - webhook/service.yaml
+  # Comment the below certmanager if you are using a self-signed CA
+  # (https://kubernetes.io/docs/concepts/cluster-administration/certificates)
 - certmanager/certificate.yaml
 
 patchesStrategicMerge:
