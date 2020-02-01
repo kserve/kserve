@@ -139,7 +139,7 @@ func (c *ServiceBuilder) CreatePredictorService(name string, metadata metav1.Obj
 	// Knative does not support multiple containers so we add an annotation that triggers pod
 	// mutator to add it
 	hasInferenceLogging := addLoggerAnnotations(predictorSpec.Logger, annotations)
-	container := predictorSpec.GetContainer(metadata.Name, c.inferenceServiceConfig)
+	container := predictorSpec.GetContainer(metadata.Name, predictorSpec.Parallelism, c.inferenceServiceConfig)
 	if hasInferenceLogging {
 		addLoggerContainerPort(container)
 	}

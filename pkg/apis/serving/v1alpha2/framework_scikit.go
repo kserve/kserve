@@ -38,17 +38,20 @@ func (s *SKLearnSpec) GetResourceRequirements() *v1.ResourceRequirements {
 	return &s.Resources
 }
 
-func (s *SKLearnSpec) GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container {
+func (s *SKLearnSpec) GetContainer(modelName string, parallelism int, config *InferenceServicesConfig) *v1.Container {
+	arguments := []string{
+		"--model_name=" + modelName,
+		"--model_dir=" + constants.DefaultModelLocalMountPath,
+		"--http_port=" + constants.InferenceServiceDefaultHttpPort,
+	}
+	if parallelism != 0 {
+		arguments = append(arguments, "--workers="+strconv.Itoa(parallelism))
+	}
 	return &v1.Container{
 		Image:     config.Predictors.SKlearn.ContainerImage + ":" + s.RuntimeVersion,
 		Name:      constants.InferenceServiceContainerName,
 		Resources: s.Resources,
-		Args: []string{
-			"--model_name=" + modelName,
-			"--model_dir=" + constants.DefaultModelLocalMountPath,
-			"--http_port=" + constants.InferenceServiceDefaultHttpPort,
-			"--workers=" + strconv.Itoa(config.Predictors.SKlearn.NumWorkers),
-		},
+		Args:      arguments,
 	}
 }
 
