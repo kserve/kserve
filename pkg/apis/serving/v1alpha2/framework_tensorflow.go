@@ -15,6 +15,7 @@ package v1alpha2
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/kubeflow/kfserving/pkg/constants"
@@ -41,18 +42,23 @@ func (t *TensorflowSpec) GetResourceRequirements() *v1.ResourceRequirements {
 	return &t.Resources
 }
 
-func (t *TensorflowSpec) GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container {
+func (t *TensorflowSpec) GetContainer(modelName string, parallelism int, config *InferenceServicesConfig) *v1.Container {
+
+	arguments := []string{
+		"--port=" + TensorflowServingGRPCPort,
+		"--rest_api_port=" + TensorflowServingRestPort,
+		"--model_name=" + modelName,
+		"--model_base_path=" + constants.DefaultModelLocalMountPath,
+	}
+	if parallelism != 0 {
+		arguments = append(arguments, "--tensorflow_inter_op_parallelism="+strconv.Itoa(parallelism))
+	}
 	return &v1.Container{
 		Image:     config.Predictors.Tensorflow.ContainerImage + ":" + t.RuntimeVersion,
 		Name:      constants.InferenceServiceContainerName,
 		Command:   []string{TensorflowEntrypointCommand},
 		Resources: t.Resources,
-		Args: []string{
-			"--port=" + TensorflowServingGRPCPort,
-			"--rest_api_port=" + TensorflowServingRestPort,
-			"--model_name=" + modelName,
-			"--model_base_path=" + constants.DefaultModelLocalMountPath,
-		},
+		Args:      arguments,
 	}
 }
 

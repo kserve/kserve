@@ -36,18 +36,21 @@ func (x *XGBoostSpec) GetResourceRequirements() *v1.ResourceRequirements {
 	return &x.Resources
 }
 
-func (x *XGBoostSpec) GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container {
+func (x *XGBoostSpec) GetContainer(modelName string, parallelism int, config *InferenceServicesConfig) *v1.Container {
+	arguments := []string{
+		"--model_name=" + modelName,
+		"--model_dir=" + constants.DefaultModelLocalMountPath,
+		"--http_port=" + constants.InferenceServiceDefaultHttpPort,
+		"--nthread=" + strconv.Itoa(x.NThread),
+	}
+	if parallelism != 0 {
+		arguments = append(arguments, "--workers="+strconv.Itoa(parallelism))
+	}
 	return &v1.Container{
 		Image:     config.Predictors.Xgboost.ContainerImage + ":" + x.RuntimeVersion,
 		Name:      constants.InferenceServiceContainerName,
 		Resources: x.Resources,
-		Args: []string{
-			"--model_name=" + modelName,
-			"--model_dir=" + constants.DefaultModelLocalMountPath,
-			"--http_port=" + constants.InferenceServiceDefaultHttpPort,
-			"--nthread=" + strconv.Itoa(x.NThread),
-			"--workers=" + strconv.Itoa(config.Predictors.Xgboost.NumWorkers),
-		},
+		Args:      arguments,
 	}
 }
 

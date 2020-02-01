@@ -38,7 +38,7 @@ func (t *TensorRTSpec) GetResourceRequirements() *v1.ResourceRequirements {
 	return &t.Resources
 }
 
-func (t *TensorRTSpec) GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container {
+func (t *TensorRTSpec) GetContainer(modelName string, parallelism int, config *InferenceServicesConfig) *v1.Container {
 	// based on example at: https://github.com/NVIDIA/tensorrt-laboratory/blob/master/examples/Deployment/Kubernetes/basic-trtis-deployment/deploy.yml
 	return &v1.Container{
 		Image:     config.Predictors.TensorRT.ContainerImage + ":" + t.RuntimeVersion,
