@@ -19,9 +19,10 @@ package knative
 import (
 	"context"
 	"fmt"
-	"github.com/kubeflow/kfserving/pkg/controller/inferenceservice/resources/knative"
 	"testing"
 	"time"
+
+	"github.com/kubeflow/kfserving/pkg/controller/inferenceservice/resources/knative"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
@@ -118,6 +119,7 @@ func TestKnativeServiceReconcile(t *testing.T) {
 								Labels: map[string]string{"serving.kubeflow.org/inferenceservice": "mnist"},
 								Annotations: map[string]string{
 									"autoscaling.knative.dev/class":                               "kpa.autoscaling.knative.dev",
+									"autoscaling.knative.dev/minScale":                            "1",
 									"autoscaling.knative.dev/target":                              "1",
 									"internal.serving.kubeflow.org/storage-initializer-sourceuri": "gs://testuri",
 									"queue.sidecar.serving.knative.dev/resourcePercentage":        knative.DefaultQueueSideCarResourcePercentage,
@@ -157,6 +159,7 @@ func TestKnativeServiceReconcile(t *testing.T) {
 								Labels: map[string]string{"serving.kubeflow.org/inferenceservice": "mnist"},
 								Annotations: map[string]string{
 									"autoscaling.knative.dev/class":                               "kpa.autoscaling.knative.dev",
+									"autoscaling.knative.dev/minScale":                            "1",
 									"autoscaling.knative.dev/target":                              "1",
 									"internal.serving.kubeflow.org/storage-initializer-sourceuri": "gs://testuri2",
 									"queue.sidecar.serving.knative.dev/resourcePercentage":        knative.DefaultQueueSideCarResourcePercentage,
@@ -214,6 +217,7 @@ func TestKnativeServiceReconcile(t *testing.T) {
 								Labels: map[string]string{"serving.kubeflow.org/inferenceservice": "mnist"},
 								Annotations: map[string]string{
 									"autoscaling.knative.dev/class":                               "kpa.autoscaling.knative.dev",
+									"autoscaling.knative.dev/minScale":                            "1",
 									"autoscaling.knative.dev/target":                              "1",
 									"internal.serving.kubeflow.org/storage-initializer-sourceuri": "gs://testuri",
 									"queue.sidecar.serving.knative.dev/resourcePercentage":        knative.DefaultQueueSideCarResourcePercentage,

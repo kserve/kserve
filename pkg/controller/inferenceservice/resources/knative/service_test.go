@@ -50,7 +50,7 @@ var isvc = v1alpha2.InferenceService{
 		Default: v1alpha2.EndpointSpec{
 			Predictor: v1alpha2.PredictorSpec{
 				DeploymentSpec: v1alpha2.DeploymentSpec{
-					MinReplicas:        1,
+					MinReplicas:        v1alpha2.GetIntReference(1),
 					MaxReplicas:        3,
 					ServiceAccountName: "testsvcacc",
 				},
@@ -189,7 +189,7 @@ func TestInferenceServiceToKnativeService(t *testing.T) {
 					Default: v1alpha2.EndpointSpec{
 						Predictor: v1alpha2.PredictorSpec{
 							DeploymentSpec: v1alpha2.DeploymentSpec{
-								MinReplicas:        1,
+								MinReplicas:        v1alpha2.GetIntReference(1),
 								MaxReplicas:        3,
 								ServiceAccountName: "testsvcacc",
 							},
@@ -203,7 +203,7 @@ func TestInferenceServiceToKnativeService(t *testing.T) {
 					Canary: &v1alpha2.EndpointSpec{
 						Predictor: v1alpha2.PredictorSpec{
 							DeploymentSpec: v1alpha2.DeploymentSpec{
-								MinReplicas: 1,
+								MinReplicas: v1alpha2.GetIntReference(1),
 								MaxReplicas: 3,
 							},
 							Tensorflow: &v1alpha2.TensorflowSpec{
@@ -254,6 +254,7 @@ func TestInferenceServiceToKnativeService(t *testing.T) {
 								Annotations: map[string]string{
 									constants.StorageInitializerSourceUriInternalAnnotationKey: "s3://test/sklearn/export",
 									"autoscaling.knative.dev/class":                            "kpa.autoscaling.knative.dev",
+									"autoscaling.knative.dev/minScale":                         "1",
 									"autoscaling.knative.dev/target":                           "1",
 									"queue.sidecar.serving.knative.dev/resourcePercentage":     DefaultQueueSideCarResourcePercentage,
 								},
@@ -309,6 +310,7 @@ func TestInferenceServiceToKnativeService(t *testing.T) {
 								Annotations: map[string]string{
 									constants.StorageInitializerSourceUriInternalAnnotationKey: "s3://test/xgboost/export",
 									"autoscaling.knative.dev/class":                            "kpa.autoscaling.knative.dev",
+									"autoscaling.knative.dev/minScale":                         "1",
 									"autoscaling.knative.dev/target":                           "1",
 									"queue.sidecar.serving.knative.dev/resourcePercentage":     DefaultQueueSideCarResourcePercentage,
 								},
@@ -365,6 +367,7 @@ func TestInferenceServiceToKnativeService(t *testing.T) {
 								Annotations: map[string]string{
 									constants.StorageInitializerSourceUriInternalAnnotationKey: "s3://test/xgboost/export",
 									"autoscaling.knative.dev/class":                            "kpa.autoscaling.knative.dev",
+									"autoscaling.knative.dev/minScale":                         "1",
 									"autoscaling.knative.dev/target":                           "1",
 									"queue.sidecar.serving.knative.dev/resourcePercentage":     DefaultQueueSideCarResourcePercentage,
 								},
@@ -414,7 +417,7 @@ func TestInferenceServiceToKnativeService(t *testing.T) {
 								RuntimeVersion: "latest",
 							},
 							DeploymentSpec: v1alpha2.DeploymentSpec{
-								MinReplicas: 1,
+								MinReplicas: v1alpha2.GetIntReference(1),
 							},
 						},
 					},
@@ -507,7 +510,7 @@ func TestTransformerToKnativeService(t *testing.T) {
 			Default: v1alpha2.EndpointSpec{
 				Transformer: &v1alpha2.TransformerSpec{
 					DeploymentSpec: v1alpha2.DeploymentSpec{
-						MinReplicas:        1,
+						MinReplicas:        v1alpha2.GetIntReference(1),
 						MaxReplicas:        3,
 						ServiceAccountName: "testsvcacc",
 					},
@@ -519,7 +522,7 @@ func TestTransformerToKnativeService(t *testing.T) {
 				},
 				Predictor: v1alpha2.PredictorSpec{
 					DeploymentSpec: v1alpha2.DeploymentSpec{
-						MinReplicas:        1,
+						MinReplicas:        v1alpha2.GetIntReference(1),
 						MaxReplicas:        3,
 						ServiceAccountName: "testsvcacc",
 					},
@@ -537,7 +540,7 @@ func TestTransformerToKnativeService(t *testing.T) {
 	isvcCanary.Spec.Canary = &v1alpha2.EndpointSpec{
 		Transformer: &v1alpha2.TransformerSpec{
 			DeploymentSpec: v1alpha2.DeploymentSpec{
-				MinReplicas:        2,
+				MinReplicas:        v1alpha2.GetIntReference(2),
 				MaxReplicas:        4,
 				ServiceAccountName: "testsvcacc",
 			},
@@ -549,7 +552,7 @@ func TestTransformerToKnativeService(t *testing.T) {
 		},
 		Predictor: v1alpha2.PredictorSpec{
 			DeploymentSpec: v1alpha2.DeploymentSpec{
-				MinReplicas:        1,
+				MinReplicas:        v1alpha2.GetIntReference(1),
 				MaxReplicas:        3,
 				ServiceAccountName: "testsvcacc",
 			},
@@ -704,7 +707,7 @@ func TestExplainerToKnativeService(t *testing.T) {
 
 				Predictor: v1alpha2.PredictorSpec{
 					DeploymentSpec: v1alpha2.DeploymentSpec{
-						MinReplicas:        1,
+						MinReplicas:        v1alpha2.GetIntReference(1),
 						MaxReplicas:        3,
 						ServiceAccountName: "testsvcacc",
 					},
@@ -728,7 +731,7 @@ func TestExplainerToKnativeService(t *testing.T) {
 	isvcCanary.Spec.Canary = &v1alpha2.EndpointSpec{
 		Predictor: v1alpha2.PredictorSpec{
 			DeploymentSpec: v1alpha2.DeploymentSpec{
-				MinReplicas:        1,
+				MinReplicas:        v1alpha2.GetIntReference(1),
 				MaxReplicas:        3,
 				ServiceAccountName: "testsvcacc",
 			},
@@ -757,6 +760,7 @@ func TestExplainerToKnativeService(t *testing.T) {
 						Labels: map[string]string{"serving.kubeflow.org/inferenceservice": "mnist"},
 						Annotations: map[string]string{
 							"autoscaling.knative.dev/class":                        "kpa.autoscaling.knative.dev",
+							"autoscaling.knative.dev/minScale":                     "1",
 							"autoscaling.knative.dev/target":                       "1",
 							"queue.sidecar.serving.knative.dev/resourcePercentage": DefaultQueueSideCarResourcePercentage,
 						},
@@ -798,6 +802,7 @@ func TestExplainerToKnativeService(t *testing.T) {
 						Labels: map[string]string{"serving.kubeflow.org/inferenceservice": "mnist"},
 						Annotations: map[string]string{
 							"autoscaling.knative.dev/class":                        "kpa.autoscaling.knative.dev",
+							"autoscaling.knative.dev/minScale":                     "1",
 							"autoscaling.knative.dev/target":                       "1",
 							"queue.sidecar.serving.knative.dev/resourcePercentage": DefaultQueueSideCarResourcePercentage,
 						},

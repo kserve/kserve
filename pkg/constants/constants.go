@@ -18,10 +18,11 @@ package constants
 
 import (
 	"fmt"
-	"knative.dev/pkg/network"
 	"os"
 	"regexp"
 	"strings"
+
+	"knative.dev/pkg/network"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -63,15 +64,16 @@ var (
 	DefaultTransformerTimeout int64 = 120
 	DefaultExplainerTimeout   int64 = 300
 	DefaultScalingTarget            = "1"
+	DefaultMinReplicas              = 1
 )
 
 // Webhook Constants
 var (
-	EnableKFServingMutatingWebhook              = "enabled"
-	EnableWebhookNamespaceSelectorEnvName       = "ENABLE_WEBHOOK_NAMESPACE_SELECTOR"
-	EnableWebhookNamespaceSelectorEnvValue      = "enabled"
-	IsEnableWebhookNamespaceSelector            = isEnvVarMatched(EnableWebhookNamespaceSelectorEnvName, EnableWebhookNamespaceSelectorEnvValue)
-	PodMutatorWebhookName                       = KFServingName + "-pod-mutator-webhook"
+	EnableKFServingMutatingWebhook         = "enabled"
+	EnableWebhookNamespaceSelectorEnvName  = "ENABLE_WEBHOOK_NAMESPACE_SELECTOR"
+	EnableWebhookNamespaceSelectorEnvValue = "enabled"
+	IsEnableWebhookNamespaceSelector       = isEnvVarMatched(EnableWebhookNamespaceSelectorEnvName, EnableWebhookNamespaceSelectorEnvValue)
+	PodMutatorWebhookName                  = KFServingName + "-pod-mutator-webhook"
 )
 
 // GPU Constants
