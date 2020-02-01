@@ -160,6 +160,13 @@ func schema_pkg_apis_serving_v1alpha2_DeploymentSpec(ref common.ReferenceCallbac
 							Format:      "int32",
 						},
 					},
+					"parallelism": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Parallelism, how many requests can be processed concurrently",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
 					"logger": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Activate request/response logging",
@@ -243,6 +250,13 @@ func schema_pkg_apis_serving_v1alpha2_ExplainerSpec(ref common.ReferenceCallback
 					"maxReplicas": {
 						SchemaProps: spec.SchemaProps{
 							Description: "This is the up bound for autoscaler to scale to",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"parallelism": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Parallelism, how many requests can be processed concurrently",
 							Type:        []string{"integer"},
 							Format:      "int32",
 						},
@@ -621,6 +635,13 @@ func schema_pkg_apis_serving_v1alpha2_PredictorSpec(ref common.ReferenceCallback
 							Format:      "int32",
 						},
 					},
+					"parallelism": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Parallelism, how many requests can be processed concurrently",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
 					"logger": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Activate request/response logging",
@@ -849,6 +870,13 @@ func schema_pkg_apis_serving_v1alpha2_TransformerSpec(ref common.ReferenceCallba
 					"maxReplicas": {
 						SchemaProps: spec.SchemaProps{
 							Description: "This is the up bound for autoscaler to scale to",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"parallelism": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Parallelism, how many requests can be processed concurrently",
 							Type:        []string{"integer"},
 							Format:      "int32",
 						},

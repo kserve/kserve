@@ -60,6 +60,9 @@ type DeploymentSpec struct {
 	// This is the up bound for autoscaler to scale to
 	// +optional
 	MaxReplicas int `json:"maxReplicas,omitempty"`
+	// Parallelism, how many requests can be processed concurrently
+	// +optional
+	Parallelism int `json:"parallelism,omitempty"`
 	// Activate request/response logging
 	// +optional
 	Logger *Logger `json:"logger,omitempty"`
