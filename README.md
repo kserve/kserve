@@ -39,6 +39,25 @@ env:
 ```
 Please refer to our [troubleshooting section](docs/DEVELOPER_GUIDE.md#troubleshooting) for recommendations and tips.
 
+### KFServing in 5 Minutes
+1) Create a quick `kind` kubernetes cluster.
+```bash
+kind create cluster
+```
+2) Install Istio lean version, Knative Serving, KFServing all in one.
+```bash
+./hack/quick_install.sh
+```
+3) Wait all pods to be ready, launch KFServing InferenceService.
+```bash
+kubectl apply -f docs/samples/sklearn/sklearn.yaml
+```
+4) Check KFServing InferenceService status.
+```bash
+kubectl get inferenceservices
+NAME           URL                                                              READY   DEFAULT TRAFFIC   CANARY TRAFFIC   AGE
+sklearn-iris   http://sklearn-iris.default.example.com/v1/models/sklearn-iris   True    100                                109s
+```
 ### KFServing Concepts and Data Plane
 [KFServing Concepts and Data Plane](./docs/README.md)
 
