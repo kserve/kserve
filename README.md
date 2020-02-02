@@ -19,7 +19,8 @@ Currently only `Knative Serving` is required, `cluster-local-gateway` is require
 
 - [Cert Manager](https://cert-manager.io/docs/installation/kubernetes): v1.12.0+
 
-Cert manager is needed to provision KFServing webhook certs for production grade installation, alternatively you can run our self signed certs generation script.
+Cert manager is needed to provision KFServing webhook certs for production grade installation, alternatively you can run our self signed certs
+generation [script](./hack/self-signed-ca.sh).
 
 You may find this [installation instruction](https://github.com/kubeflow/kfserving/blob/master/docs/DEVELOPER_GUIDE.md#install-knative-on-a-kubernetes-cluster) useful.
 
@@ -39,11 +40,11 @@ env:
 Please refer to our [troubleshooting section](docs/DEVELOPER_GUIDE.md#troubleshooting) for recommendations and tips.
 
 ### KFServing Concepts and Data Plane
-[KFServing Concepts and Data Plane](./docs)
+[KFServing Concepts and Data Plane](./docs/README.md)
 
 
-### KFServing APIs
-[KFServing API Docs](./docs/apis)
+### KFServing API Reference
+[KFServing API Docs](./docs/apis/README.md)
 
 ### Examples
 [Deploy SKLearn Model with out-of-the-box InferenceService](./docs/samples/sklearn)
