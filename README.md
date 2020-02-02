@@ -40,7 +40,11 @@ env:
 Please refer to our [troubleshooting section](docs/DEVELOPER_GUIDE.md#troubleshooting) for recommendations and tips.
 
 ### KFServing in 5 Minutes
-1) Create a quick `kind` kubernetes cluster.
+Make sure you have [kind](https://github.com/kubernetes-sigs/kind#installation-and-usage),
+[kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/#install-kubectl-on-linux),
+[kustomize](https://github.com/kubernetes-sigs/kustomize/blob/master/docs/INSTALL.md) v3.5.4+,
+[helm 3](https://helm.sh/docs/intro/install/) installed before you start.
+1) Create a quick `kind` kubernetes local cluster.(this takes 20s)
 ```bash
 kind create cluster
 ```
@@ -48,61 +52,30 @@ kind create cluster
 ```bash
 ./hack/quick_install.sh
 ```
-3) Wait all pods to be ready, launch KFServing InferenceService.
+3) Wait all pods to be ready then launch KFServing `InferenceService`.
 ```bash
 kubectl apply -f docs/samples/sklearn/sklearn.yaml
 ```
-4) Check KFServing InferenceService status.
+4) Check KFServing `InferenceService` status.
 ```bash
 kubectl get inferenceservices
 NAME           URL                                                              READY   DEFAULT TRAFFIC   CANARY TRAFFIC   AGE
 sklearn-iris   http://sklearn-iris.default.example.com/v1/models/sklearn-iris   True    100                                109s
 ```
+5) Curl the `InferenceService`
+```bash
+kubectl port-forward --namespace istio-system $(kubectl get pod --namespace istio-system --selector="app=istio-ingressgateway" --output jsonpath='{.items[0].metadata.name}') 8080:80
+curl -v -H "Host: sklearn-iris.default.example.com" http://localhost:8080/v1/models/sklearn-iris:predict -d @./docs/samples/sklearn/iris-input.json
+```
+
 ### KFServing Concepts and Data Plane
 [KFServing Concepts and Data Plane](./docs/README.md)
-
 
 ### KFServing API Reference
 [KFServing API Docs](./docs/apis/README.md)
 
 ### Examples
-[Deploy SKLearn Model with out-of-the-box InferenceService](./docs/samples/sklearn)
-
-[Deploy PyTorch Model with out-of-the-box InferenceService](./docs/samples/pytorch)
-
-[Deploy Tensorflow Model with out-of-the-box InferenceService](./docs/samples/tensorflow)
-
-[Deploy XGBoost Model with out-of-the-box InferenceService](./docs/samples/xgboost)
-
-[Deploy ONNX Model with ONNX Runtime InferenceService](./docs/samples/onnx)
-
-[Deploy Deep Learning Models with NVIDIA's TensorRT InferenceService](./docs/samples/tensorrt)
-
-[Deploy KFServing InferenceService with Transformer and Predictor](./docs/samples/transformer/image_transformer)
-
-[Deploy KFServing InferenceService with Models on S3](./docs/samples/s3)
-
-[Deploy KFServing InferenceService with Models on PVC](./docs/samples/pvc)
-
-[Deploy KFServing InferenceService with Models on Azure](./docs/samples/azure)
-
-[Deploy KFServing InferenceService on GPU nodes](./docs/samples/accelerators)
-
-[Deploy KFServing InferenceService with Canary Rollout](./docs/samples/rollouts)
-
-[Deploy KFServing InferenceService with Kubeflow Pipeline](./docs/samples/pipelines)
-
-[Deploy KFServing InferenceService  with Request/Response Logger](./docs/samples/logger/basic)
-
-[Deploy KFServing InferenceService with Kafka Event Source](./docs/samples/kafka)
-
-[Deploy KFServing InferenceService with Alibi Image Explainer](./docs/samples/explanation/alibi/imagenet)
-
-[Deploy KFServing InferenceService with Alibi Text Explainer](./docs/samples/explanation/alibi/moviesentiment)
-
-[Deploy KFServing InferenceService with Alibi Tabular Explainer](./docs/samples/explanation/alibi/income)
-
-[Autoscale KFServing InferenceService with your inference workload on CPU/GPU](./docs/samples/autoscaling)
+[KFServing Examples](./docs/samples/README.md)
 
 ### Use SDK
 * Install the SDK
