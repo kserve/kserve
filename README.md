@@ -24,7 +24,7 @@ generation [script](./hack/self-signed-ca.sh).
 
 You may find this [installation instruction](https://github.com/kubeflow/kfserving/blob/master/docs/DEVELOPER_GUIDE.md#install-knative-on-a-kubernetes-cluster) useful.
 
-### Installation KFServing
+### Install KFServing
 ```
 TAG=0.2.2
 kubectl apply -f ./install/$TAG/kfserving.yaml
@@ -43,22 +43,23 @@ Please refer to our [troubleshooting section](docs/DEVELOPER_GUIDE.md#troublesho
 Make sure you have [kind](https://github.com/kubernetes-sigs/kind#installation-and-usage),
 [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/#install-kubectl-on-linux),
 [kustomize](https://github.com/kubernetes-sigs/kustomize/blob/master/docs/INSTALL.md) v3.5.4+,
-[helm 3](https://helm.sh/docs/intro/install/) installed before you start.
-1) Create a quick `kind` kubernetes local cluster.(this takes 20s)
+[helm 3](https://helm.sh/docs/intro/install) installed before you start.(2 mins for setup)
+1) Create a quick `kind` kubernetes local cluster.(this takes 30s)
 ```bash
 kind create cluster
 ```
-2) Install Istio lean version, Knative Serving, KFServing all in one.
+2) Install Istio lean version, Knative Serving, KFServing all in one.(this takes 30s)
 ```bash
 ./hack/quick_install.sh
 ```
-3) Wait all pods to be ready then launch KFServing `InferenceService`.
+3) Wait all pods to be ready then launch KFServing `InferenceService`.(wait 1 min for everything to be ready and 40s to
+launch the `InferenceService`)
 ```bash
 kubectl apply -f docs/samples/sklearn/sklearn.yaml
 ```
 4) Check KFServing `InferenceService` status.
 ```bash
-kubectl get inferenceservices
+kubectl get inferenceservices sklearn-iris
 NAME           URL                                                              READY   DEFAULT TRAFFIC   CANARY TRAFFIC   AGE
 sklearn-iris   http://sklearn-iris.default.example.com/v1/models/sklearn-iris   True    100                                109s
 ```
