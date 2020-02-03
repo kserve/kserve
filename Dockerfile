@@ -6,6 +6,7 @@ WORKDIR /go/src/github.com/kubeflow/kfserving
 COPY cmd/    cmd/
 COPY vendor/ vendor/
 COPY pkg/    pkg/
+COPY third_party/ third_party/
 # Build
 RUN if [ "$(uname -m)" = "ppc64le" ]; then \
         CGO_ENABLED=0 GOOS=linux GOARCH=ppc64le go build -a -o manager ./cmd/manager; \
