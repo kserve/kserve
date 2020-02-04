@@ -6,7 +6,6 @@ WORKDIR /go/src/github.com/kubeflow/kfserving
 COPY pkg/    pkg/
 COPY cmd/    cmd/
 COPY vendor/ vendor/
-COPY third_party/ third_party/
 
 # Build
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o logger ./cmd/logger
@@ -15,4 +14,5 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o logger ./cmd/logger
 FROM alpine:latest
 WORKDIR /
 COPY --from=builder /go/src/github.com/kubeflow/kfserving/logger .
+COPY third_party/ third_party/
 ENTRYPOINT ["/logger"]
