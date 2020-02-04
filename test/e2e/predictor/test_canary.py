@@ -28,7 +28,7 @@ from ..common.utils import predict
 from ..common.utils import KFSERVING_TEST_NAMESPACE
 
 api_version = constants.KFSERVING_GROUP + '/' + constants.KFSERVING_VERSION
-KFServing = KFServingClient(config_file="~/.kube/config")
+KFServing = KFServingClient()
 
 
 def test_canary_rollout():
@@ -60,11 +60,12 @@ def test_canary_rollout():
                     requests={'cpu':'100m','memory':'256Mi'},
                     limits={'cpu':'100m', 'memory':'256Mi'}))))
 
-
+    KFServing.wait_isvc_ready(service_name, namespace=KFSERVING_TEST_NAMESPACE)
     KFServing.rollout_canary(service_name, canary=canary_endpoint_spec, percent=10,
        namespace=KFSERVING_TEST_NAMESPACE, watch=True, timeout_seconds=120)
 
     # Promote Canary to Default
+    KFServing.wait_isvc_ready(service_name, namespace=KFSERVING_TEST_NAMESPACE)
     KFServing.promote(service_name, namespace=KFSERVING_TEST_NAMESPACE, watch=True, timeout_seconds=120)
 
     # Delete the InferenceService
