@@ -18,6 +18,7 @@ var (
 		v1.ResourceCPU:    resource.MustParse("1"),
 		v1.ResourceMemory: resource.MustParse("2Gi"),
 	}
+	localURIPrefix = "file://"
 )
 
 func setResourceRequirementDefaults(requirements *v1.ResourceRequirements) {
@@ -65,6 +66,18 @@ func validateResourceRequirements(rr *v1.ResourceRequirements) error {
 		return fmt.Errorf("Unexpected error: %v", errs)
 	}
 	return nil
+}
+
+// get the path of the model.
+func getModelPath(storageURI string) string {
+	if !regexp.MustCompile("\\w+?://").MatchString(storageURI) {
+		return storageURI
+	}
+	if strings.HasPrefix(storageURI, localURIPrefix) {
+		return strings.TrimPrefix(storageURI, localURIPrefix)
+	}
+	// return default path to go through stroage initializer
+	return constants.DefaultModelLocalMountPath
 }
 
 func validateStorageURI(storageURI string) error {

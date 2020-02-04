@@ -31,7 +31,7 @@ func (s *AlibiExplainerSpec) CreateExplainerContainer(modelName string, predicto
 	}
 
 	if s.StorageURI != "" {
-		args = append(args, "--storage_uri", constants.DefaultModelLocalMountPath)
+		args = append(args, "--storage_uri", getModelPath(s.StorageURI))
 	}
 
 	args = append(args, string(s.Type))

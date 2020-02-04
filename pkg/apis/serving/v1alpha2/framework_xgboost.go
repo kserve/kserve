@@ -43,7 +43,7 @@ func (x *XGBoostSpec) GetContainer(modelName string, config *InferenceServicesCo
 		Resources: x.Resources,
 		Args: []string{
 			"--model_name=" + modelName,
-			"--model_dir=" + constants.DefaultModelLocalMountPath,
+			"--model_dir=" + getModelPath(x.StorageURI),
 			"--http_port=" + constants.InferenceServiceDefaultHttpPort,
 			"--nthread=" + strconv.Itoa(x.NThread),
 		},

@@ -46,7 +46,7 @@ func (t *TensorRTSpec) GetContainer(modelName string, config *InferenceServicesC
 		Resources: t.Resources,
 		Args: []string{
 			"trtserver",
-			"--model-store=" + constants.DefaultModelLocalMountPath,
+			"--model-store=" + getModelPath(t.StorageURI),
 			"--allow-poll-model-repository=false",
 			"--allow-grpc=true",
 			"--allow-http=true",

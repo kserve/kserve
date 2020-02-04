@@ -26,7 +26,6 @@ from minio import Minio
 _GCS_PREFIX = "gs://"
 _S3_PREFIX = "s3://"
 _BLOB_RE = "https://(.+?).blob.core.windows.net/(.+)"
-_LOCAL_PREFIX = "file://"
 
 
 class Storage(object): # pylint: disable=too-few-public-methods
@@ -34,14 +33,10 @@ class Storage(object): # pylint: disable=too-few-public-methods
     def download(uri: str, out_dir: str = None) -> str:
         logging.info("Copying contents of %s to local", uri)
 
-        is_local = False
-        if uri.startswith(_LOCAL_PREFIX) or os.path.exists(uri):
-            is_local = True
+        if not "://" in uri:
+            return Storage._download_local(uri)
 
         if out_dir is None:
-            if is_local:
-                # noop if out_dir is not set and the path is local
-                return Storage._download_local(uri)
             out_dir = tempfile.mkdtemp()
 
         if uri.startswith(_GCS_PREFIX):
@@ -50,12 +45,10 @@ class Storage(object): # pylint: disable=too-few-public-methods
             Storage._download_s3(uri, out_dir)
         elif re.search(_BLOB_RE, uri):
             Storage._download_blob(uri, out_dir)
-        elif is_local:
-            return Storage._download_local(uri, out_dir)
         else:
             raise Exception("Cannot recognize storage type for " + uri +
-                            "\n'%s', '%s', and '%s' are the current available storage type." %
-                            (_GCS_PREFIX, _S3_PREFIX, _LOCAL_PREFIX))
+                            "\n'%s', '%s' are the current available storage type." %
+                            (_GCS_PREFIX, _S3_PREFIX))
 
         logging.info("Successfully copied %s to %s", uri, out_dir)
         return out_dir
@@ -186,10 +179,9 @@ The path or model %s does not exist." % (uri))
         return token_credential
 
     @staticmethod
-    def _download_local(uri, out_dir=None):
-        local_path = uri.replace(_LOCAL_PREFIX, "", 1)
+    def _download_local(local_path, out_dir=None):
         if not os.path.exists(local_path):
-            raise RuntimeError("Local path %s does not exist." % (uri))
+            raise RuntimeError("Local path %s does not exist." % (local_path))
 
         if out_dir is None:
             return local_path

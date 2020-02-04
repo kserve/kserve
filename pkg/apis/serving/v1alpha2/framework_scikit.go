@@ -44,7 +44,7 @@ func (s *SKLearnSpec) GetContainer(modelName string, config *InferenceServicesCo
 		Resources: s.Resources,
 		Args: []string{
 			"--model_name=" + modelName,
-			"--model_dir=" + constants.DefaultModelLocalMountPath,
+			"--model_dir=" + getModelPath(s.StorageURI),
 			"--http_port=" + constants.InferenceServiceDefaultHttpPort,
 		},
 	}

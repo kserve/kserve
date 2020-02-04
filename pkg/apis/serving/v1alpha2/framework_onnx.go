@@ -44,7 +44,7 @@ func (s *ONNXSpec) GetContainer(modelName string, config *InferenceServicesConfi
 		Name:      constants.InferenceServiceContainerName,
 		Resources: s.Resources,
 		Args: []string{
-			"--model_path", constants.DefaultModelLocalMountPath + "/" + ONNXModelFileName,
+			"--model_path", getModelPath(s.StorageURI) + "/" + ONNXModelFileName,
 			"--http_port", ONNXServingRestPort,
 			"--grpc_port", ONNXServingGRPCPort,
 		},

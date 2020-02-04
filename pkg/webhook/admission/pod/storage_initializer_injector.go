@@ -16,8 +16,10 @@ package pod
 import (
 	"encoding/json"
 	"fmt"
-	"k8s.io/apimachinery/pkg/api/resource"
+	"regexp"
 	"strings"
+
+	"k8s.io/apimachinery/pkg/api/resource"
 
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/controller/inferenceservice/resources/credentials"
@@ -31,6 +33,7 @@ const (
 	StorageInitializerVolumeName            = "kfserving-provision-location"
 	StorageInitializerContainerImage        = "gcr.io/kfserving/storage-initializer"
 	StorageInitializerContainerImageVersion = "latest"
+	LocalURIPrefix                          = "file://"
 	PvcURIPrefix                            = "pvc://"
 	PvcSourceMountName                      = "kfserving-pvc-source"
 	PvcSourceMountPath                      = "/mnt/pvc"
@@ -88,6 +91,11 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 		if strings.Compare(container.Name, StorageInitializerContainerName) == 0 {
 			return nil
 		}
+	}
+
+	// Dont inject if it's local file system
+	if !regexp.MustCompile("\\w+?://").MatchString(srcURI) || strings.HasPrefix(srcURI, LocalURIPrefix) {
+		return nil
 	}
 
 	// Find the kfserving-container (this is the model inference server)

@@ -46,7 +46,7 @@ func (s *PyTorchSpec) GetContainer(modelName string, config *InferenceServicesCo
 		Args: []string{
 			"--model_name=" + modelName,
 			"--model_class_name=" + s.ModelClassName,
-			"--model_dir=" + constants.DefaultModelLocalMountPath,
+			"--model_dir=" + getModelPath(s.StorageURI),
 			"--http_port=" + constants.InferenceServiceDefaultHttpPort,
 		},
 	}
