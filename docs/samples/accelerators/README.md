@@ -4,7 +4,7 @@ Nvidia drivers must be installed for accelerators to be scheduled to any given n
 
 Google provides a DaemonSet that automatically installs the drivers for you.
 ```
-kubectl apply -f https://raw.githubusercontent.com/GoogleCloudPlatform/container-engine-accelerators/stable/nvidia-driver-installer/cos/daemonset-preloaded.yaml
+kubectl apply -f https://raw.githubusercontent.com/GoogleCloudPlatform/container-engine-accelerators/521205d4de2a4a4eaf7259b27bc2290c823d857c/nvidia-driver-installer/cos/daemonset-preloaded.yaml
 ```
 
 ## GPU Node Taints
