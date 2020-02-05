@@ -19,7 +19,5 @@ RUN if [ "$(uname -m)" = "ppc64le" ]; then \
 # Copy the controller-manager into a thin image
 FROM ubuntu:latest
 WORKDIR /
-RUN mkdir -p third_party/library
-COPY third_party/library/ third_party/library/
 COPY --from=builder /go/src/github.com/kubeflow/kfserving/manager .
 ENTRYPOINT ["/manager"]
