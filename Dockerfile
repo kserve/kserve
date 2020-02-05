@@ -6,6 +6,7 @@ WORKDIR /go/src/github.com/kubeflow/kfserving
 COPY cmd/    cmd/
 COPY vendor/ vendor/
 COPY pkg/    pkg/
+
 # Build
 RUN if [ "$(uname -m)" = "ppc64le" ]; then \
         CGO_ENABLED=0 GOOS=linux GOARCH=ppc64le go build -a -o manager ./cmd/manager; \
@@ -18,5 +19,6 @@ RUN if [ "$(uname -m)" = "ppc64le" ]; then \
 # Copy the controller-manager into a thin image
 FROM ubuntu:latest
 WORKDIR /
+COPY third_party/ third_party/
 COPY --from=builder /go/src/github.com/kubeflow/kfserving/manager .
 ENTRYPOINT ["/manager"]
