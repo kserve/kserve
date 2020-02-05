@@ -34,6 +34,7 @@ mkdir -p ${GO_DIR}
 cp -r cmd ${GO_DIR}/cmd
 cp -r pkg ${GO_DIR}/pkg
 cp -r vendor ${GO_DIR}/vendor
+cp -r third_party ${GO_DIR}/third_party
 cp Dockerfile ${GO_DIR}
 
 cd ${GO_DIR}
