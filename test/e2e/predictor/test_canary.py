@@ -28,7 +28,8 @@ from ..common.utils import predict
 from ..common.utils import KFSERVING_TEST_NAMESPACE
 
 api_version = constants.KFSERVING_GROUP + '/' + constants.KFSERVING_VERSION
-KFServing = KFServingClient()
+# Setting config_file is required since SDK is running in a different cluster than KFServing
+KFServing = KFServingClient(config_file="~/.kube/config")
 
 
 def test_canary_rollout():
