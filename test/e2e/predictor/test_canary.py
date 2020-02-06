@@ -27,7 +27,7 @@ from kubernetes.client import V1ResourceRequirements
 from ..common.utils import predict
 from ..common.utils import KFSERVING_TEST_NAMESPACE
 
-api_version = constants.KFSERVING_GROUP + '/' + constants.KFSERVING_VERSION
+
 # Setting config_file is required since SDK is running in a different cluster than KFServing
 KFServing = KFServingClient(config_file="~/.kube/config")
 
@@ -43,7 +43,7 @@ def test_canary_rollout():
                     requests={'cpu': '100m', 'memory': '256Mi'},
                     limits={'cpu': '100m', 'memory': '256Mi'}))))
 
-    isvc = V1alpha2InferenceService(api_version=api_version,
+    isvc = V1alpha2InferenceService(api_version=constants.KFSERVING_API_VERSION,
                                     kind=constants.KFSERVING_KIND,
                                     metadata=client.V1ObjectMeta(
                                         name=service_name, namespace=KFSERVING_TEST_NAMESPACE),
@@ -61,13 +61,13 @@ def test_canary_rollout():
                     requests={'cpu':'100m','memory':'256Mi'},
                     limits={'cpu':'100m', 'memory':'256Mi'}))))
 
-    KFServing.wait_isvc_ready(service_name, namespace=KFSERVING_TEST_NAMESPACE)
     KFServing.rollout_canary(service_name, canary=canary_endpoint_spec, percent=10,
        namespace=KFSERVING_TEST_NAMESPACE, watch=True, timeout_seconds=120)
+    KFServing.wait_isvc_ready(service_name, namespace=KFSERVING_TEST_NAMESPACE)
 
     # Promote Canary to Default
-    KFServing.wait_isvc_ready(service_name, namespace=KFSERVING_TEST_NAMESPACE)
     KFServing.promote(service_name, namespace=KFSERVING_TEST_NAMESPACE, watch=True, timeout_seconds=120)
+    KFServing.wait_isvc_ready(service_name, namespace=KFSERVING_TEST_NAMESPACE)
 
     # Delete the InferenceService
     KFServing.delete(service_name, namespace=KFSERVING_TEST_NAMESPACE)
