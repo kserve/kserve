@@ -50,3 +50,6 @@ def test_tensorflow_kfserving():
 
     KFServing.create(isvc)
     KFServing.wait_isvc_ready(service_name, namespace=KFSERVING_TEST_NAMESPACE)
+
+    # Delete the InferenceService
+    KFServing.delete(service_name, namespace=KFSERVING_TEST_NAMESPACE)
