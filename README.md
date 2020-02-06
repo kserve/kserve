@@ -40,11 +40,11 @@ env:
 Please refer to our [troubleshooting section](docs/DEVELOPER_GUIDE.md#troubleshooting) for recommendations and tips.
 
 ### KFServing in 5 Minutes
-Make sure you have [kind](https://github.com/kubernetes-sigs/kind#installation-and-usage),
+Make sure you have
 [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/#install-kubectl-on-linux),
 [kustomize](https://github.com/kubernetes-sigs/kustomize/blob/master/docs/INSTALL.md) v3.5.4+,
 [helm 3](https://helm.sh/docs/intro/install) installed before you start.(2 mins for setup)
-1) Create a quick `kind` kubernetes local cluster.(this takes 30s)
+1) If you do not have an existing kubernetes cluster you can create a quick kubernetes local cluster with [kind](https://github.com/kubernetes-sigs/kind#installation-and-usage).(this takes 30s)
 ```bash
 kind create cluster
 ```

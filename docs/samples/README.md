@@ -1,45 +1,45 @@
 ## KFServing Examples
 
-### KFServing InferenceService with out of the box Predictor
-[Deploy SKLearn Model with out-of-the-box InferenceService](./docs/samples/sklearn)
+### Deploy KFServing InferenceService with out of the box Predictor
+[SKLearn Model](./docs/samples/sklearn)
 
-[Deploy PyTorch Model with out-of-the-box InferenceService](./docs/samples/pytorch)
+[PyTorch Model](./docs/samples/pytorch)
 
-[Deploy Tensorflow Model with out-of-the-box InferenceService](./docs/samples/tensorflow)
+[Tensorflow Model](./docs/samples/tensorflow)
 
-[Deploy XGBoost Model with out-of-the-box InferenceService](./docs/samples/xgboost)
+[XGBoost Model](./docs/samples/xgboost)
 
-[Deploy ONNX Model with ONNX Runtime InferenceService](./docs/samples/onnx)
+[ONNX Model with ONNX Runtime](./docs/samples/onnx)
 
-[Deploy Deep Learning Models with NVIDIA's TensorRT InferenceService](./docs/samples/tensorrt)
+[TensorRT Model with NVIDIA's TensorRT Inference Server](./docs/samples/tensorrt)
 
-### KFServing InferenceService with Transformer
-[Deploy KFServing InferenceService with Transformer and Predictor](./docs/samples/transformer/image_transformer)
+### Deploy KFServing InferenceService with Transformer
+[Image Transformer with PyTorch Predictor](./docs/samples/transformer/image_transformer)
 
-### KFServing InferenceService with Explainer
-[Deploy KFServing InferenceService with Alibi Image Explainer](./docs/samples/explanation/alibi/imagenet)
+### Deploy KFServing InferenceService with Explainer
+[Alibi Image Explainer](./docs/samples/explanation/alibi/imagenet)
 
-[Deploy KFServing InferenceService with Alibi Text Explainer](./docs/samples/explanation/alibi/moviesentiment)
+[Alibi Text Explainer](./docs/samples/explanation/alibi/moviesentiment)
 
-[Deploy KFServing InferenceService with Alibi Tabular Explainer](./docs/samples/explanation/alibi/income)
+[Alibi Tabular Explainer](./docs/samples/explanation/alibi/income)
 
-### KFServing InferenceService with Cloud or PVC storage
+### Deploy KFServing InferenceService with Cloud or PVC storage
 
-[Deploy KFServing InferenceService with Models on S3](./docs/samples/s3)
+[Models on S3](./docs/samples/s3)
 
-[Deploy KFServing InferenceService with Models on PVC](./docs/samples/pvc)
+[Models on PVC](./docs/samples/pvc)
 
-[Deploy KFServing InferenceService with Models on Azure](./docs/samples/azure)
+[Models on Azure](./docs/samples/azure)
 
-### KFServing Autoscaling on CPU/GPU, Canary Rollout and other integrations 
-[Autoscale KFServing InferenceService with your inference workload on CPU/GPU](./docs/samples/autoscaling)
+### Deploy KFServing InferenceService with Autoscaling, Canary Rollout and Other Integrations
+[Autoscale inference workload on CPU/GPU](./docs/samples/autoscaling)
 
-[Deploy KFServing InferenceService on GPU nodes](./docs/samples/accelerators)
+[InferenceService on GPU nodes](./docs/samples/accelerators)
 
-[Deploy KFServing InferenceService with Canary Rollout](./docs/samples/rollouts)
+[Canary Rollout](./docs/samples/rollouts)
 
-[Deploy KFServing InferenceService with Kubeflow Pipeline](./docs/samples/pipelines)
+[InferenceService with Kubeflow Pipeline](./docs/samples/pipelines)
 
-[Deploy KFServing InferenceService with Request/Response Logger](./docs/samples/logger/basic)
+[InferenceService with Request/Response Logger](./docs/samples/logger/basic)
 
-[Deploy KFServing InferenceService with Kafka Event Source](./docs/samples/kafka)
+[InferenceService with Kafka Event Source](./docs/samples/kafka)
