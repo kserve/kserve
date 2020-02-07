@@ -48,7 +48,7 @@ You must install these tools:
    For development.
 1. [`kubectl`](https://kubernetes.io/docs/tasks/tools/install-kubectl/): For
    managing development environments.
-1. [`kustomize`](https://github.com/kubernetes-sigs/kustomize/) To customize YAMLs for different environments
+1. [`kustomize`](https://github.com/kubernetes-sigs/kustomize/) To customize YAMLs for different environments, requires v3.5.4+.
 
 ### Install Knative on a Kubernetes cluster
 
