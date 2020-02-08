@@ -45,8 +45,8 @@ func TestCreateVirtualService(t *testing.T) {
 	predictorRouteMatch := []*istiov1alpha3.HTTPMatchRequest{
 		{
 			Uri: &istiov1alpha3.StringMatch{
-				MatchType: &istiov1alpha3.StringMatch_Prefix{
-					Prefix: "/v1/models/my-model:predict",
+				MatchType: &istiov1alpha3.StringMatch_Regex{
+					Regex: constants.PredictPrefix(),
 				},
 			},
 			Authority: &istiov1alpha3.StringMatch{
@@ -58,8 +58,8 @@ func TestCreateVirtualService(t *testing.T) {
 		},
 		{
 			Uri: &istiov1alpha3.StringMatch{
-				MatchType: &istiov1alpha3.StringMatch_Prefix{
-					Prefix: "/v1/models/my-model:predict",
+				MatchType: &istiov1alpha3.StringMatch_Regex{
+					Regex: constants.PredictPrefix(),
 				},
 			},
 			Authority: &istiov1alpha3.StringMatch{
@@ -115,7 +115,7 @@ func TestCreateVirtualService(t *testing.T) {
 			Address: &duckv1beta1.Addressable{
 				URL: &apis.URL{
 					Scheme: "http",
-					Path:   constants.PredictPrefix(serviceName),
+					Path:   constants.PredictPath(serviceName),
 					Host:   network.GetServiceHostname(serviceName, namespace),
 				},
 			},
@@ -194,7 +194,7 @@ func TestCreateVirtualService(t *testing.T) {
 			Address: &duckv1beta1.Addressable{
 				URL: &apis.URL{
 					Scheme: "http",
-					Path:   constants.PredictPrefix(serviceName),
+					Path:   constants.PredictPath(serviceName),
 					Host:   network.GetServiceHostname(serviceName, namespace),
 				},
 			},
@@ -281,7 +281,7 @@ func TestCreateVirtualService(t *testing.T) {
 			Address: &duckv1beta1.Addressable{
 				URL: &apis.URL{
 					Scheme: "http",
-					Path:   constants.PredictPrefix(serviceName),
+					Path:   constants.PredictPath(serviceName),
 					Host:   network.GetServiceHostname(serviceName, namespace),
 				},
 			},
@@ -361,7 +361,7 @@ func TestCreateVirtualService(t *testing.T) {
 			Address: &duckv1beta1.Addressable{
 				URL: &apis.URL{
 					Scheme: "http",
-					Path:   constants.PredictPrefix(serviceName),
+					Path:   constants.PredictPath(serviceName),
 					Host:   network.GetServiceHostname(serviceName, namespace),
 				},
 			},
@@ -446,7 +446,7 @@ func TestCreateVirtualService(t *testing.T) {
 			Address: &duckv1beta1.Addressable{
 				URL: &apis.URL{
 					Scheme: "http",
-					Path:   constants.PredictPrefix(serviceName),
+					Path:   constants.PredictPath(serviceName),
 					Host:   network.GetServiceHostname(serviceName, namespace),
 				},
 			},
@@ -480,8 +480,8 @@ func TestCreateVirtualService(t *testing.T) {
 						Match: []*istiov1alpha3.HTTPMatchRequest{
 							{
 								Uri: &istiov1alpha3.StringMatch{
-									MatchType: &istiov1alpha3.StringMatch_Prefix{
-										Prefix: "/v1/models/my-model:explain",
+									MatchType: &istiov1alpha3.StringMatch_Regex{
+										Regex: constants.ExplainPrefix(),
 									},
 								},
 								Authority: &istiov1alpha3.StringMatch{
@@ -493,8 +493,8 @@ func TestCreateVirtualService(t *testing.T) {
 							},
 							{
 								Uri: &istiov1alpha3.StringMatch{
-									MatchType: &istiov1alpha3.StringMatch_Prefix{
-										Prefix: "/v1/models/my-model:explain",
+									MatchType: &istiov1alpha3.StringMatch_Regex{
+										Regex: constants.ExplainPrefix(),
 									},
 								},
 								Authority: &istiov1alpha3.StringMatch{

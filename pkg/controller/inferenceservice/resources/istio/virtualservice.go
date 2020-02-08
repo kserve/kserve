@@ -183,8 +183,8 @@ func (r *VirtualServiceBuilder) CreateVirtualService(isvc *v1alpha2.InferenceSer
 		Match: []*istiov1alpha3.HTTPMatchRequest{
 			{
 				Uri: &istiov1alpha3.StringMatch{
-					MatchType: &istiov1alpha3.StringMatch_Prefix{
-						Prefix: constants.PredictPrefix(isvc.Name),
+					MatchType: &istiov1alpha3.StringMatch_Regex{
+						Regex: constants.PredictPrefix(),
 					},
 				},
 				Authority: &istiov1alpha3.StringMatch{
@@ -196,8 +196,8 @@ func (r *VirtualServiceBuilder) CreateVirtualService(isvc *v1alpha2.InferenceSer
 			},
 			{
 				Uri: &istiov1alpha3.StringMatch{
-					MatchType: &istiov1alpha3.StringMatch_Prefix{
-						Prefix: constants.PredictPrefix(isvc.Name),
+					MatchType: &istiov1alpha3.StringMatch_Regex{
+						Regex: constants.PredictPrefix(),
 					},
 				},
 				Authority: &istiov1alpha3.StringMatch{
@@ -238,8 +238,8 @@ func (r *VirtualServiceBuilder) CreateVirtualService(isvc *v1alpha2.InferenceSer
 			Match: []*istiov1alpha3.HTTPMatchRequest{
 				{
 					Uri: &istiov1alpha3.StringMatch{
-						MatchType: &istiov1alpha3.StringMatch_Prefix{
-							Prefix: constants.ExplainPrefix(isvc.Name),
+						MatchType: &istiov1alpha3.StringMatch_Regex{
+							Regex: constants.ExplainPrefix(),
 						},
 					},
 					Authority: &istiov1alpha3.StringMatch{
@@ -251,8 +251,8 @@ func (r *VirtualServiceBuilder) CreateVirtualService(isvc *v1alpha2.InferenceSer
 				},
 				{
 					Uri: &istiov1alpha3.StringMatch{
-						MatchType: &istiov1alpha3.StringMatch_Prefix{
-							Prefix: constants.ExplainPrefix(isvc.Name),
+						MatchType: &istiov1alpha3.StringMatch_Regex{
+							Regex: constants.ExplainPrefix(),
 						},
 					},
 					Authority: &istiov1alpha3.StringMatch{
