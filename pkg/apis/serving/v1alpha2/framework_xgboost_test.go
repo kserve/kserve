@@ -90,6 +90,23 @@ func TestCreateXGBoostContainer(t *testing.T) {
 	// Test Create with config
 	container := spec.GetContainer("someName", 0, &config)
 	g.Expect(container).To(gomega.Equal(expectedContainer))
+
+	// Test Parallelism
+	expectedParallelism := &v1.Container{
+		Image:     "someOtherImage:0.1.0",
+		Name:      constants.InferenceServiceContainerName,
+		Resources: requestedResource,
+		Args: []string{
+			"--model_name=someName",
+			"--model_dir=/mnt/models",
+			"--http_port=8080",
+			"--nthread=0",
+			"--workers=1",
+		},
+	}
+
+	containerWithPar := spec.GetContainer("someName", 1, &config)
+	g.Expect(containerWithPar).To(gomega.Equal(expectedParallelism))
 }
 
 func TestCreateXGBoostContainerWithNThread(t *testing.T) {

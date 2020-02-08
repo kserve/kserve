@@ -94,4 +94,19 @@ func TestCreateSKLearnModelServingContainer(t *testing.T) {
 	// Test Create with config
 	container := spec.GetContainer("someName", 0, &config)
 	g.Expect(container).To(gomega.Equal(expectedContainer))
+
+	// Test parallelism
+	expectedParallelism := &v1.Container{
+		Image:     "someOtherImage:0.1.0",
+		Name:      constants.InferenceServiceContainerName,
+		Resources: requestedResource,
+		Args: []string{
+			"--model_name=someName",
+			"--model_dir=/mnt/models",
+			"--http_port=8080",
+			"--workers=2",
+		},
+	}
+	containerWithPar := spec.GetContainer("someName", 2, &config)
+	g.Expect(containerWithPar).To(gomega.Equal(expectedParallelism))
 }
