@@ -210,12 +210,24 @@ func InferenceServicePrefix(name string) string {
 	return fmt.Sprintf("/v1/models/%s", name)
 }
 
-func PredictPrefix(name string) string {
+func PredictPath(name string) string {
 	return fmt.Sprintf("/v1/models/%s:predict", name)
 }
 
-func ExplainPrefix(name string) string {
+func ExplainPath(name string) string {
 	return fmt.Sprintf("/v1/models/%s:explain", name)
+}
+
+func PredictPrefix() string {
+	return fmt.Sprintf("^/v1/models/[\\w-]+:predict$")
+}
+
+func ExplainPrefix() string {
+	return fmt.Sprintf("^/v1/models/[\\w-]+:explain$")
+}
+
+func HealthCheck() string {
+	return fmt.Sprintf("^/v1/models/[\\w-]+")
 }
 
 func VirtualServiceHostname(name string, predictorHostName string) string {
