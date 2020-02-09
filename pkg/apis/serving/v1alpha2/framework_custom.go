@@ -41,7 +41,7 @@ func (c *CustomSpec) GetContainer(modelName string, parallelism int, config *Inf
 	return &c.Container
 }
 
-func (c *CustomSpec) CreateExplainerContainer(modelName string, predictUrl string, config *InferenceServicesConfig) *v1.Container {
+func (c *CustomSpec) CreateExplainerContainer(modelName string, parallelism int, predictUrl string, config *InferenceServicesConfig) *v1.Container {
 	return &c.Container
 }
 

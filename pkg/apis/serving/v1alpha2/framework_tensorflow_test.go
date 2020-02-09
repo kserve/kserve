@@ -128,21 +128,4 @@ func TestTensorflowContainer(t *testing.T) {
 	// Test Create with config
 	container := spec.GetContainer("someName", 0, &config)
 	g.Expect(container).To(gomega.Equal(expectedContainer))
-
-	// Test parallelism
-	expectedParallelism := &v1.Container{
-		Image:     "someOtherImage:1.14",
-		Name:      constants.InferenceServiceContainerName,
-		Resources: requestedResource,
-		Command:   []string{"/usr/bin/tensorflow_model_server"},
-		Args: []string{
-			"--port=" + TensorflowServingGRPCPort,
-			"--rest_api_port=" + TensorflowServingRestPort,
-			"--model_name=someName",
-			"--model_base_path=/mnt/models",
-			"--tensorflow_inter_op_parallelism=2",
-		},
-	}
-	containerWithPar := spec.GetContainer("someName", 2, &config)
-	g.Expect(containerWithPar).To(gomega.Equal(expectedParallelism))
 }
