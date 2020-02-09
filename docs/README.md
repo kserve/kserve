@@ -28,5 +28,12 @@ All InferenceServices that are deployed with an Explainer support a standardized
 # Data Plane (V2)
 The second version of the data-plane protocol addresses several issues found with the V1 data-plane protocol, including performance and generality across a large number of model frameworks and servers.
 
+## Endpoints
+| API  | Verb | Path | Payload |
+| ------------- | ------------- | ------------- | ------------- |
+| Readiness| GET   | /v1/models/<model_name>          | Response:{"name": <model_name>, "ready": true/false}  |
+| Predict  | POST  | /v1/models/<model_name>:predict  | Request:{"instances": []}  Response:{"predictions": []} |
+| Explain  | POST  | /v1/models/<model_name>:explain  | Request:{"instances": []}  Response:{"predictions": [], "explainations": []}   |
+
 ## Predict
 The V2 protocol proposes both HTTP/REST and GRPC APIs. See the [complete proposal](/docs/predict-api/v2) for more information.
