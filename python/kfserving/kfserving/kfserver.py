@@ -25,12 +25,15 @@ from kfserving import KFModel
 
 DEFAULT_HTTP_PORT = 8080
 DEFAULT_GRPC_PORT = 8081
+DEFAULT_MAX_BUFFER_SIZE = 104857600
 
 parser = argparse.ArgumentParser(add_help=False)
 parser.add_argument('--http_port', default=DEFAULT_HTTP_PORT, type=int,
                     help='The HTTP Port listened to by the model server.')
 parser.add_argument('--grpc_port', default=DEFAULT_GRPC_PORT, type=int,
                     help='The GRPC Port listened to by the model server.')
+parser.add_argument('--max-buffer-size', default=DEFAULT_MAX_BUFFER_SIZE, type=int,
+                    help='The max buffer size for tornado.')
 parser.add_argument('--workers', default=0, type=int,
                     help='The number of works to fork')
 args, _ = parser.parse_known_args()
@@ -40,10 +43,12 @@ tornado.log.enable_pretty_logging()
 class KFServer:
     def __init__(self, http_port: int = args.http_port,
                  grpc_port: int = args.grpc_port,
+                 max_buffer_size: int = args.max_buffer_size,
                  workers: int = args.workers):
         self.registered_models = {}
         self.http_port = http_port
         self.grpc_port = grpc_port
+        self.max_buffer_size = max_buffer_size
         self.workers = workers
         self._http_server = None
 
@@ -67,7 +72,7 @@ class KFServer:
             self.register_model(model)
 
         self._http_server = tornado.httpserver.HTTPServer(
-            self.create_application())
+            self.create_application(), max_buffer_size=self.max_buffer_size)
 
         logging.info("Listening on port %s", self.http_port)
         self._http_server.bind(self.http_port)
