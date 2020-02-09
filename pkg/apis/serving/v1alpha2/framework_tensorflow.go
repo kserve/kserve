@@ -15,7 +15,6 @@ package v1alpha2
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/kubeflow/kfserving/pkg/constants"
@@ -50,9 +49,7 @@ func (t *TensorflowSpec) GetContainer(modelName string, parallelism int, config 
 		"--model_name=" + modelName,
 		"--model_base_path=" + constants.DefaultModelLocalMountPath,
 	}
-	if parallelism != 0 {
-		arguments = append(arguments, "--tensorflow_inter_op_parallelism="+strconv.Itoa(parallelism))
-	}
+
 	return &v1.Container{
 		Image:     config.Predictors.Tensorflow.ContainerImage + ":" + t.RuntimeVersion,
 		Name:      constants.InferenceServiceContainerName,
