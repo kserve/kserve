@@ -396,6 +396,10 @@
           "description": "Defaults PyTorch model class name to 'PyTorchModel'",
           "type": "string"
         },
+        "modelName": {
+          "description": "The name of the model",
+          "type": "string"
+        },
         "resources": {
           "description": "Defaults to requests and limits of 1CPU, 2Gb MEM.",
           "$ref": "#/definitions/v1.ResourceRequirements"
@@ -417,6 +421,10 @@
         "storageUri"
       ],
       "properties": {
+        "modelName": {
+          "description": "The name of the model",
+          "type": "string"
+        },
         "resources": {
           "description": "Defaults to requests and limits of 1CPU, 2Gb MEM.",
           "$ref": "#/definitions/v1.ResourceRequirements"
@@ -477,6 +485,10 @@
         "storageUri"
       ],
       "properties": {
+        "modelName": {
+          "description": "The name of the model",
+          "type": "string"
+        },
         "resources": {
           "description": "Defaults to requests and limits of 1CPU, 2Gb MEM.",
           "$ref": "#/definitions/v1.ResourceRequirements"
@@ -526,6 +538,10 @@
         "storageUri"
       ],
       "properties": {
+        "modelName": {
+          "description": "The name of the model",
+          "type": "string"
+        },
         "nthread": {
           "description": "Number of thread to be used by XGBoost",
           "type": "integer",

@@ -41,7 +41,11 @@ func (t *TensorflowSpec) GetResourceRequirements() *v1.ResourceRequirements {
 	return &t.Resources
 }
 
-func (t *TensorflowSpec) GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container {
+func (t *TensorflowSpec) GetContainer(serviceName string, config *InferenceServicesConfig) *v1.Container {
+	modelName := serviceName
+	if t.ModelName != "" {
+		modelName = t.ModelName
+	}
 	return &v1.Container{
 		Image:     config.Predictors.Tensorflow.ContainerImage + ":" + t.RuntimeVersion,
 		Name:      constants.InferenceServiceContainerName,

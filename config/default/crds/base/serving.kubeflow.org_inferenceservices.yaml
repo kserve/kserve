@@ -2115,6 +2115,9 @@ spec:
                         modelClassName:
                           description: Defaults PyTorch model class name to 'PyTorchModel'
                           type: string
+                        modelName:
+                          description: The name of the model
+                          type: string
                         resources:
                           description: Defaults to requests and limits of 1CPU, 2Gb
                             MEM.
@@ -2152,6 +2155,9 @@ spec:
                     sklearn:
                       description: Spec for SKLearn predictor
                       properties:
+                        modelName:
+                          description: The name of the model
+                          type: string
                         resources:
                           description: Defaults to requests and limits of 1CPU, 2Gb
                             MEM.
@@ -2185,6 +2191,9 @@ spec:
                     tensorflow:
                       description: Spec for Tensorflow Serving (https://github.com/tensorflow/serving)
                       properties:
+                        modelName:
+                          description: The name of the model
+                          type: string
                         resources:
                           description: Defaults to requests and limits of 1CPU, 2Gb
                             MEM.
@@ -2251,6 +2260,9 @@ spec:
                     xgboost:
                       description: Spec for XGBoost predictor
                       properties:
+                        modelName:
+                          description: The name of the model
+                          type: string
                         nthread:
                           description: Number of thread to be used by XGBoost
                           type: integer
@@ -5348,6 +5360,9 @@ spec:
                         modelClassName:
                           description: Defaults PyTorch model class name to 'PyTorchModel'
                           type: string
+                        modelName:
+                          description: The name of the model
+                          type: string
                         resources:
                           description: Defaults to requests and limits of 1CPU, 2Gb
                             MEM.
@@ -5385,6 +5400,9 @@ spec:
                     sklearn:
                       description: Spec for SKLearn predictor
                       properties:
+                        modelName:
+                          description: The name of the model
+                          type: string
                         resources:
                           description: Defaults to requests and limits of 1CPU, 2Gb
                             MEM.
@@ -5418,6 +5436,9 @@ spec:
                     tensorflow:
                       description: Spec for Tensorflow Serving (https://github.com/tensorflow/serving)
                       properties:
+                        modelName:
+                          description: The name of the model
+                          type: string
                         resources:
                           description: Defaults to requests and limits of 1CPU, 2Gb
                             MEM.
@@ -5484,6 +5505,9 @@ spec:
                     xgboost:
                       description: Spec for XGBoost predictor
                       properties:
+                        modelName:
+                          description: The name of the model
+                          type: string
                         nthread:
                           description: Number of thread to be used by XGBoost
                           type: integer

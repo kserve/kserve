@@ -49,6 +49,6 @@ def test_sklearn_kfserving():
 
     KFServing.create(isvc)
     KFServing.wait_isvc_ready(service_name, namespace=KFSERVING_TEST_NAMESPACE)
-    probs = predict(service_name, './data/iris_input.json')
+    probs = predict(service_name, service_name, './data/iris_input.json')
     assert(probs == [1, 1])
     KFServing.delete(service_name, KFSERVING_TEST_NAMESPACE)

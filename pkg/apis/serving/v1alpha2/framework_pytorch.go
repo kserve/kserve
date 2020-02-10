@@ -29,41 +29,45 @@ var (
 
 var _ Predictor = (*PyTorchSpec)(nil)
 
-func (s *PyTorchSpec) GetStorageUri() string {
-	return s.StorageURI
+func (p *PyTorchSpec) GetStorageUri() string {
+	return p.StorageURI
 }
 
-func (s *PyTorchSpec) GetResourceRequirements() *v1.ResourceRequirements {
+func (p *PyTorchSpec) GetResourceRequirements() *v1.ResourceRequirements {
 	// return the ResourceRequirements value if set on the spec
-	return &s.Resources
+	return &p.Resources
 }
 
-func (s *PyTorchSpec) GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container {
+func (p *PyTorchSpec) GetContainer(serviceName string, config *InferenceServicesConfig) *v1.Container {
+	modelName := serviceName
+	if p.ModelName != "" {
+		modelName = p.ModelName
+	}
 	return &v1.Container{
-		Image:     config.Predictors.PyTorch.ContainerImage + ":" + s.RuntimeVersion,
+		Image:     config.Predictors.PyTorch.ContainerImage + ":" + p.RuntimeVersion,
 		Name:      constants.InferenceServiceContainerName,
-		Resources: s.Resources,
+		Resources: p.Resources,
 		Args: []string{
 			"--model_name=" + modelName,
-			"--model_class_name=" + s.ModelClassName,
+			"--model_class_name=" + p.ModelClassName,
 			"--model_dir=" + constants.DefaultModelLocalMountPath,
 			"--http_port=" + constants.InferenceServiceDefaultHttpPort,
 		},
 	}
 }
 
-func (s *PyTorchSpec) ApplyDefaults(config *InferenceServicesConfig) {
-	if s.RuntimeVersion == "" {
-		s.RuntimeVersion = config.Predictors.PyTorch.DefaultImageVersion
+func (p *PyTorchSpec) ApplyDefaults(config *InferenceServicesConfig) {
+	if p.RuntimeVersion == "" {
+		p.RuntimeVersion = config.Predictors.PyTorch.DefaultImageVersion
 	}
-	if s.ModelClassName == "" {
-		s.ModelClassName = DefaultPyTorchModelClassName
+	if p.ModelClassName == "" {
+		p.ModelClassName = DefaultPyTorchModelClassName
 	}
-	setResourceRequirementDefaults(&s.Resources)
+	setResourceRequirementDefaults(&p.Resources)
 }
 
-func (s *PyTorchSpec) Validate(config *InferenceServicesConfig) error {
-	if utils.Includes(config.Predictors.PyTorch.AllowedImageVersions, s.RuntimeVersion) {
+func (p *PyTorchSpec) Validate(config *InferenceServicesConfig) error {
+	if utils.Includes(config.Predictors.PyTorch.AllowedImageVersions, p.RuntimeVersion) {
 		return nil
 	}
 	return fmt.Errorf(InvalidPyTorchRuntimeVersionError, strings.Join(config.Predictors.PyTorch.AllowedImageVersions, ", "))

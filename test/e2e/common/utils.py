@@ -26,7 +26,7 @@ KFSERVING_NAMESPACE = "kfserving-system"
 KFSERVING_TEST_NAMESPACE = "kfserving-ci-e2e-test"
 
 
-def predict(service_name, input_json):
+def predict(service_name, model_name, input_json):
     isvc = KFServing.get(service_name, namespace=KFSERVING_TEST_NAMESPACE)
     # temporary sleep until this is fixed https://github.com/kubeflow/kfserving/issues/604
     time.sleep(10)
@@ -37,7 +37,7 @@ def predict(service_name, input_json):
     else:    
         cluster_ip = service.status.load_balancer.ingress[0].ip
     host = urlparse(isvc['status']['url']).netloc
-    url = "http://{}/v1/models/{}:predict".format(cluster_ip, service_name)
+    url = "http://{}/v1/models/{}:predict".format(cluster_ip, model_name)
     headers = {'Host': host}
     with open(input_json) as json_file:
         data = json.load(json_file)

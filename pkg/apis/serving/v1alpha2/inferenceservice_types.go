@@ -151,6 +151,8 @@ type AlibiExplainerSpec struct {
 type TensorflowSpec struct {
 	// The location of the trained model
 	StorageURI string `json:"storageUri"`
+	// The name of the model
+	ModelName string `json:"modelName,omitempty"`
 	// Allowed runtime versions are specified in the inferenceservice config map.
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
 	// Defaults to requests and limits of 1CPU, 2Gb MEM.
@@ -171,6 +173,8 @@ type TensorRTSpec struct {
 type XGBoostSpec struct {
 	// The location of the trained model
 	StorageURI string `json:"storageUri"`
+	// The name of the model
+	ModelName string `json:"modelName,omitempty"`
 	// Number of thread to be used by XGBoost
 	NThread int `json:"nthread,omitempty"`
 	// Allowed runtime versions are specified in the inferenceservice config map
@@ -183,6 +187,8 @@ type XGBoostSpec struct {
 type SKLearnSpec struct {
 	// The location of the trained model
 	StorageURI string `json:"storageUri"`
+	// The name of the model
+	ModelName string `json:"modelName,omitempty"`
 	// Allowed runtime versions are specified in the inferenceservice config map
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
 	// Defaults to requests and limits of 1CPU, 2Gb MEM.
@@ -203,6 +209,8 @@ type ONNXSpec struct {
 type PyTorchSpec struct {
 	// The location of the trained model
 	StorageURI string `json:"storageUri"`
+	// The name of the model
+	ModelName string `json:"modelName,omitempty"`
 	// Defaults PyTorch model class name to 'PyTorchModel'
 	ModelClassName string `json:"modelClassName,omitempty"`
 	// Allowed runtime versions are specified in the inferenceservice config map

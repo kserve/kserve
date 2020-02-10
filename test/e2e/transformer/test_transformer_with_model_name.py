@@ -33,14 +33,16 @@ api_version = constants.KFSERVING_GROUP + '/' + constants.KFSERVING_VERSION
 KFServing = KFServingClient(config_file="~/.kube/config")
 
 
-def test_transformer():
+def test_transformer_with_model_name():
     service_name = 'isvc-transformer'
+    model_name = 'cifar10'
     default_endpoint_spec = V1alpha2EndpointSpec(
         predictor=V1alpha2PredictorSpec(
             min_replicas=1,
             pytorch=V1alpha2PyTorchSpec(
                 storage_uri='gs://kfserving-samples/models/pytorch/cifar10',
                 model_class_name="Net",
+                model_name=model_name,
                 resources=V1ResourceRequirements(
                     requests={'cpu': '100m', 'memory': '256Mi'},
                     limits={'cpu': '100m', 'memory': '256Mi'}))),
@@ -50,6 +52,7 @@ def test_transformer():
                 container=V1Container(
                   image='gcr.io/kubeflow-ci/kfserving/image-transformer:latest',
                   name='kfserving-container',
+                  args=['--model_name', model_name],
                   resources=V1ResourceRequirements(
                     requests={'cpu': '100m', 'memory': '256Mi'},
                     limits={'cpu': '100m', 'memory': '256Mi'})))))
@@ -67,7 +70,7 @@ def test_transformer():
         print(KFServing.api_instance.get_namespaced_custom_object("serving.knative.dev", "v1", KFSERVING_TEST_NAMESPACE,
                                                                   "services", service_name + "-predictor-default"))
         raise e
-    probs = predict(service_name, service_name, './data/transformer.json')
+    probs = predict(service_name, model_name, './data/transformer.json')
     assert(np.argmax(probs) == 3)
     KFServing.delete(service_name, KFSERVING_TEST_NAMESPACE)
 

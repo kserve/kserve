@@ -37,7 +37,11 @@ func (s *SKLearnSpec) GetResourceRequirements() *v1.ResourceRequirements {
 	return &s.Resources
 }
 
-func (s *SKLearnSpec) GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container {
+func (s *SKLearnSpec) GetContainer(serviceName string, config *InferenceServicesConfig) *v1.Container {
+	modelName := serviceName
+	if s.ModelName != "" {
+		modelName = s.ModelName
+	}
 	return &v1.Container{
 		Image:     config.Predictors.SKlearn.ContainerImage + ":" + s.RuntimeVersion,
 		Name:      constants.InferenceServiceContainerName,

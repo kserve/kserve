@@ -649,6 +649,13 @@ func schema_pkg_apis_serving_v1alpha2_PyTorchSpec(ref common.ReferenceCallback) 
 							Format:      "",
 						},
 					},
+					"modelName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The name of the model",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"modelClassName": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Defaults PyTorch model class name to 'PyTorchModel'",
@@ -688,6 +695,13 @@ func schema_pkg_apis_serving_v1alpha2_SKLearnSpec(ref common.ReferenceCallback) 
 					"storageUri": {
 						SchemaProps: spec.SchemaProps{
 							Description: "The location of the trained model",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"modelName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The name of the model",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -797,6 +811,13 @@ func schema_pkg_apis_serving_v1alpha2_TensorflowSpec(ref common.ReferenceCallbac
 							Format:      "",
 						},
 					},
+					"modelName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The name of the model",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"runtimeVersion": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Allowed runtime versions are specified in the inferenceservice config map.",
@@ -877,6 +898,13 @@ func schema_pkg_apis_serving_v1alpha2_XGBoostSpec(ref common.ReferenceCallback) 
 					"storageUri": {
 						SchemaProps: spec.SchemaProps{
 							Description: "The location of the trained model",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"modelName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The name of the model",
 							Type:        []string{"string"},
 							Format:      "",
 						},
