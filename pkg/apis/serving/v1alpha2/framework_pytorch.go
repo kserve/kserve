@@ -42,16 +42,21 @@ func (p *PyTorchSpec) GetResourceRequirements() *v1.ResourceRequirements {
 }
 
 func (p *PyTorchSpec) GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container {
+	arguments := []string{
+		"--model_name=" + modelName,
+		"--model_class_name=" + p.ModelClassName,
+		"--model_dir=" + constants.DefaultModelLocalMountPath,
+		"--http_port=" + constants.InferenceServiceDefaultHttpPort,
+	}
+	// pytorch multiprocessing is conflicting with tornado multiprocessing on GPU so default workers to 1 here
+	if isGPUEnabled(p.Resources) {
+		arguments = append(arguments, "--workers=1")
+	}
 	return &v1.Container{
 		Image:     config.Predictors.PyTorch.ContainerImage + ":" + p.RuntimeVersion,
 		Name:      constants.InferenceServiceContainerName,
 		Resources: p.Resources,
-		Args: []string{
-			"--model_name=" + modelName,
-			"--model_class_name=" + p.ModelClassName,
-			"--model_dir=" + constants.DefaultModelLocalMountPath,
-			"--http_port=" + constants.InferenceServiceDefaultHttpPort,
-		},
+		Args:      arguments,
 	}
 }
 

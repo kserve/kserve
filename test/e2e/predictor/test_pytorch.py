@@ -49,7 +49,7 @@ def test_pytorch():
                                     kind=constants.KFSERVING_KIND,
                                     metadata=client.V1ObjectMeta(
                                         name=service_name, namespace=KFSERVING_TEST_NAMESPACE,
-                                        annotations={'serving.kubeflow.org/gke-accelerator':'nvidia-tesla-k80'}),
+                                        annotations={'serving.kubeflow.org/gke-accelerator': 'nvidia-tesla-k80'}),
                                     spec=V1alpha2InferenceServiceSpec(default=default_endpoint_spec))
 
     KFServing.create(isvc)
