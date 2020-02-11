@@ -8,13 +8,12 @@ spec:
       pytorch:
         storageUri: "gs://kfserving-samples/models/pytorch/cifar10/"
         modelClassName: "Net"
-        runtimeVersion: "0.2.2-gpu"
         resources:
-            limits:
-              cpu: 100m
-              memory: 1Gi
-              nvidia.com/gpu: "1"
-            requests:
-              cpu: 100m
-              memory: 1Gi
-              nvidia.com/gpu: "1"
+          limits:
+            cpu: 100m
+            memory: 1Gi
+            nvidia.com/gpu: "1"
+          requests:
+            cpu: 100m
+            memory: 1Gi
+            nvidia.com/gpu: "1"

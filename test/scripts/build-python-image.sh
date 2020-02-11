@@ -26,9 +26,9 @@ if [ ! $# -eq 3 ]; then
 fi
 
 # Avoid conflicts due to multipe components parallel executing in same folder.
-mkdir -p build_for_$2
-cp -rf python/* build_for_$2
-cd build_for_$2
+mkdir -p build_for_$2_$3
+cp -rf python/* build_for_$2_$3
+cd build_for_$2_$3
 
 if [ ! -f $1 ]; then
   echo "dockerFile $1 doesn't exist"
