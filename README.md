@@ -95,4 +95,4 @@ To ensure everything is working, run other [KFServing examples](./docs/samples/R
 [KFServing API Docs](./docs/apis/README.md)
 
 ### Developer and Contributor Guide
-If you are a developer and want to run your own development builds, or contribute to KFServing, pleade follow the [Developer Guide](/docs/DEVELOPER_GUIDE.md).
+If you are a developer and want to run your own development builds, or contribute to KFServing, follow the [Developer Guide](/docs/DEVELOPER_GUIDE.md).
