@@ -44,13 +44,13 @@ func (p *PyTorchSpec) GetResourceRequirements() *v1.ResourceRequirements {
 
 func (p *PyTorchSpec) GetContainer(modelName string, parallelism int, config *InferenceServicesConfig) *v1.Container {
 	arguments := []string{
-		"--model_name=" + modelName,
-		"--model_class_name=" + p.ModelClassName,
-		"--model_dir=" + constants.DefaultModelLocalMountPath,
-		"--http_port=" + constants.InferenceServiceDefaultHttpPort,
+		fmt.Sprintf("%s=%s", constants.ArgumentModelName, modelName),
+		fmt.Sprintf("%s=%s", constants.ArgumentModelClassName, p.ModelClassName),
+		fmt.Sprintf("%s=%s", constants.ArgumentModelDir, constants.DefaultModelLocalMountPath),
+		fmt.Sprintf("%s=%s", constants.ArgumentHttpPort, constants.InferenceServiceDefaultHttpPort),
 	}
 	if parallelism != 0 {
-		arguments = append(arguments, "--workers="+strconv.Itoa(parallelism))
+		arguments = append(arguments, fmt.Sprintf("%s=%s", constants.ArgumentWorkers, strconv.Itoa(parallelism)))
 	}
 	return &v1.Container{
 		Image:     config.Predictors.PyTorch.ContainerImage + ":" + p.RuntimeVersion,

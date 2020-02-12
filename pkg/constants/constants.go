@@ -129,10 +129,12 @@ const (
 
 // InferenceService model server args
 const (
-	ArgumentModelName     = "--model_name"
-	ArgumentPredictorHost = "--predictor_host"
-	ArgumentHttpPort      = "--http_port"
-	ArgumentWorkers       = "--workers"
+	ArgumentModelName      = "--model_name"
+	ArgumentModelDir       = "--model_dir"
+	ArgumentModelClassName = "--model_class_name"
+	ArgumentPredictorHost  = "--predictor_host"
+	ArgumentHttpPort       = "--http_port"
+	ArgumentWorkers        = "--workers"
 )
 
 // InferenceService container name
