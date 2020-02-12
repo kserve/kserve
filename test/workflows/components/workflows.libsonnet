@@ -49,7 +49,7 @@
       // The directory containing the kubeflow/kfserving repo
       local srcDir = srcRootDir + "/kubeflow/kfserving";
       local pylintSrcDir = srcDir + "/python";
-      local testWorkerImage = "gcr.io/kubeflow-ci/test-worker";
+      local testWorkerImage = "gcr.io/kubeflow-ci/test-worker:v20191212-b0ec604-e3b0c4";
       local golangImage = "golang:1.9.4-stretch";
       // TODO(jose5918) Build our own helm image
       local pythonImage = "python:3.6-jessie";
