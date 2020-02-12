@@ -76,7 +76,7 @@ sklearn-iris   http://sklearn-iris.default.example.com/v1/models/sklearn-iris   
 kubectl port-forward --namespace istio-system $(kubectl get pod --namespace istio-system --selector="app=istio-ingressgateway" --output jsonpath='{.items[0].metadata.name}') 8080:80
 curl -v -H "Host: sklearn-iris.default.example.com" http://localhost:8080/v1/models/sklearn-iris:predict -d @./docs/samples/sklearn/iris-input.json
 ```
-### KFserving Examples 
+### KFServing Examples 
 To ensure everything is working, run other [KFServing examples](./docs/samples/README.md)
 
 ### Use KFServing SDK
@@ -94,5 +94,5 @@ To ensure everything is working, run other [KFServing examples](./docs/samples/R
 ### KFServing API Reference
 [KFServing API Docs](./docs/apis/README.md)
 
-### Contribute
-* [Developer Guide](/docs/DEVELOPER_GUIDE.md).
+### Developer and Contributor Guide
+If you are a developer and want to run your own development builds, or contribute to KFServing, pleade follow the [Developer Guide](/docs/DEVELOPER_GUIDE.md).
