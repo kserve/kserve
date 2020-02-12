@@ -42,8 +42,8 @@ def test_pytorch():
                 storage_uri='gs://kfserving-samples/models/pytorch/cifar10',
                 model_class_name="Net",
                 resources=V1ResourceRequirements(
-                    requests={'cpu': '100m', 'memory': '256Mi', 'nvidia.com/gpu': '1'},
-                    limits={'cpu': '100m', 'memory': '256Mi', 'nvidia.com/gpu': '1'}))))
+                    requests={'cpu': '100m', 'memory': '2Gi', 'nvidia.com/gpu': '1'},
+                    limits={'cpu': '100m', 'memory': '2Gi', 'nvidia.com/gpu': '1'}))))
 
     isvc = V1alpha2InferenceService(api_version=api_version,
                                     kind=constants.KFSERVING_KIND,
@@ -63,7 +63,6 @@ def test_pytorch():
                                                       format(service_name))
         for pod in pods.items:
             print(pod)
-            print(KFServing.core_api.read_namespaced_pod_log(pod, KFSERVING_TEST_NAMESPACE))
         raise e
     probs = predict(service_name, './data/cifar_input.json')
     assert(np.argmax(probs) == 3)
