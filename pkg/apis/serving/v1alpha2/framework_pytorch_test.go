@@ -16,6 +16,7 @@ func TestFrameworkPytorch(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	allowedPyTorchImageVersionsArray := []string{
 		DefaultPyTorchRuntimeVersion,
+		DefaultPyTorchRuntimeVersionGPU,
 	}
 	allowedPyTorchImageVersions := strings.Join(allowedPyTorchImageVersionsArray, ", ")
 
@@ -35,18 +36,33 @@ func TestFrameworkPytorch(t *testing.T) {
 			},
 			matcher: gomega.MatchError(fmt.Sprintf(InvalidPyTorchRuntimeVersionError, allowedPyTorchImageVersions)),
 		},
-	}
-
-	for name, scenario := range scenarios {
-		config := &InferenceServicesConfig{
-			Predictors: &PredictorsConfig{
-				PyTorch: PredictorConfig{
-					ContainerImage:       "kfserving/pytorchserver",
-					DefaultImageVersion:  "latest",
-					AllowedImageVersions: allowedPyTorchImageVersionsArray,
+		"RejectGPUResourcesExcluded": {
+			spec: PyTorchSpec{
+				RuntimeVersion: DefaultPyTorchRuntimeVersionGPU,
+			},
+			matcher: gomega.MatchError(fmt.Sprintf(InvalidPyTorchRuntimeExcludesGPU, allowedPyTorchImageVersions)),
+		},
+		"RejectGPUResourcesIncluded": {
+			spec: PyTorchSpec{
+				RuntimeVersion: DefaultPyTorchRuntimeVersion,
+				Resources: v1.ResourceRequirements{
+					Limits: v1.ResourceList{constants.NvidiaGPUResourceType: resource.MustParse("1")},
 				},
 			},
-		}
+			matcher: gomega.MatchError(fmt.Sprintf(InvalidPyTorchRuntimeIncludesGPU, allowedPyTorchImageVersions)),
+		},
+	}
+
+	config := &InferenceServicesConfig{
+		Predictors: &PredictorsConfig{
+			PyTorch: PredictorConfig{
+				ContainerImage:       "kfserving/pytorchserver",
+				DefaultImageVersion:  "0.1.0",
+				AllowedImageVersions: allowedPyTorchImageVersionsArray,
+			},
+		},
+	}
+	for name, scenario := range scenarios {
 		g.Expect(scenario.spec.Validate(config)).Should(scenario.matcher, fmt.Sprintf("Testing %s", name))
 	}
 }
