@@ -1,3 +1,5 @@
+set -e 
+
 export ISTIO_VERSION=1.3.6
 export KNATIVE_VERSION=v0.12.0
 curl -L https://git.io/getLatestIstio | sh -
