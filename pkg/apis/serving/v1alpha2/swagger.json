@@ -117,7 +117,7 @@
           "format": "int32"
         },
         "parallelism": {
-          "description": "Parallelism, how many requests can be processed concurrently",
+          "description": "Parallelism specifies how many requests can be processed concurrently, this sets the target concurrency for autoscaling and for python model server it also sets the number of workers",
           "type": "integer",
           "format": "int32"
         },
@@ -174,7 +174,7 @@
           "format": "int32"
         },
         "parallelism": {
-          "description": "Parallelism, how many requests can be processed concurrently",
+          "description": "Parallelism specifies how many requests can be processed concurrently, this sets the target concurrency for autoscaling and for python model server it also sets the number of workers",
           "type": "integer",
           "format": "int32"
         },
@@ -370,7 +370,7 @@
           "$ref": "#/definitions/v1alpha2.ONNXSpec"
         },
         "parallelism": {
-          "description": "Parallelism, how many requests can be processed concurrently",
+          "description": "Parallelism specifies how many requests can be processed concurrently, this sets the target concurrency for autoscaling and for python model server it also sets the number of workers",
           "type": "integer",
           "format": "int32"
         },
@@ -529,7 +529,7 @@
           "format": "int32"
         },
         "parallelism": {
-          "description": "Parallelism, how many requests can be processed concurrently",
+          "description": "Parallelism specifies how many requests can be processed concurrently, this sets the target concurrency for autoscaling and for python model server it also sets the number of workers",
           "type": "integer",
           "format": "int32"
         },

@@ -1085,8 +1085,10 @@ spec:
                         to 0 in case of no traffic
                       type: integer
                     parallelism:
-                      description: Parallelism, how many requests can be processed
-                        concurrently
+                      description: Parallelism specifies how many requests can be
+                        processed concurrently, this sets the target concurrency for
+                        autoscaling and for python model server it also sets the number
+                        of workers
                       type: integer
                     serviceAccountName:
                       description: ServiceAccountName is the name of the ServiceAccount
@@ -2114,8 +2116,10 @@ spec:
                       - storageUri
                       type: object
                     parallelism:
-                      description: Parallelism, how many requests can be processed
-                        concurrently
+                      description: Parallelism specifies how many requests can be
+                        processed concurrently, this sets the target concurrency for
+                        autoscaling and for python model server it also sets the number
+                        of workers
                       type: integer
                     pytorch:
                       description: Spec for PyTorch predictor
@@ -3283,8 +3287,10 @@ spec:
                         to 0 in case of no traffic
                       type: integer
                     parallelism:
-                      description: Parallelism, how many requests can be processed
-                        concurrently
+                      description: Parallelism specifies how many requests can be
+                        processed concurrently, this sets the target concurrency for
+                        autoscaling and for python model server it also sets the number
+                        of workers
                       type: integer
                     serviceAccountName:
                       description: ServiceAccountName is the name of the ServiceAccount
@@ -4330,8 +4336,10 @@ spec:
                         to 0 in case of no traffic
                       type: integer
                     parallelism:
-                      description: Parallelism, how many requests can be processed
-                        concurrently
+                      description: Parallelism specifies how many requests can be
+                        processed concurrently, this sets the target concurrency for
+                        autoscaling and for python model server it also sets the number
+                        of workers
                       type: integer
                     serviceAccountName:
                       description: ServiceAccountName is the name of the ServiceAccount
@@ -5359,8 +5367,10 @@ spec:
                       - storageUri
                       type: object
                     parallelism:
-                      description: Parallelism, how many requests can be processed
-                        concurrently
+                      description: Parallelism specifies how many requests can be
+                        processed concurrently, this sets the target concurrency for
+                        autoscaling and for python model server it also sets the number
+                        of workers
                       type: integer
                     pytorch:
                       description: Spec for PyTorch predictor
@@ -6528,8 +6538,10 @@ spec:
                         to 0 in case of no traffic
                       type: integer
                     parallelism:
-                      description: Parallelism, how many requests can be processed
-                        concurrently
+                      description: Parallelism specifies how many requests can be
+                        processed concurrently, this sets the target concurrency for
+                        autoscaling and for python model server it also sets the number
+                        of workers
                       type: integer
                     serviceAccountName:
                       description: ServiceAccountName is the name of the ServiceAccount

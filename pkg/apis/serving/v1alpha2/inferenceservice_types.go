@@ -60,8 +60,8 @@ type DeploymentSpec struct {
 	// This is the up bound for autoscaler to scale to
 	// +optional
 	MaxReplicas int `json:"maxReplicas,omitempty"`
-	// Parallelism, how many requests can be processed concurrently, this sets the target
-	// concurrency for autoscaling and for tornado model server it sets the number of workers
+	// Parallelism specifies how many requests can be processed concurrently, this sets the target
+	// concurrency for autoscaling and for python model server it also sets the number of workers
 	// +optional
 	Parallelism int `json:"parallelism,omitempty"`
 	// Activate request/response logging

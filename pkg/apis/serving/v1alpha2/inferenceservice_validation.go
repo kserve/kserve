@@ -28,6 +28,7 @@ const (
 	MinReplicasShouldBeLessThanMaxError = "MinReplicas cannot be greater than MaxReplicas."
 	MinReplicasLowerBoundExceededError  = "MinReplicas cannot be less than 0."
 	MaxReplicasLowerBoundExceededError  = "MaxReplicas cannot be less than 0."
+	ParallelismLowerBoundExceededError  = "Parallelism cannot be less than 0."
 	TrafficBoundsExceededError          = "TrafficPercent must be between [0, 100]."
 	TrafficProvidedWithoutCanaryError   = "Canary must be specified when CanaryTrafficPercent > 0."
 	UnsupportedStorageURIFormatError    = "storageUri, must be one of: [%s] or match https://{}.blob.core.windows.net/{}/{} or be an absolute or relative local path. StorageUri [%s] is not supported."

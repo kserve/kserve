@@ -49,7 +49,9 @@ func (p *PyTorchSpec) GetContainer(modelName string, parallelism int, config *In
 		fmt.Sprintf("%s=%s", constants.ArgumentModelDir, constants.DefaultModelLocalMountPath),
 		fmt.Sprintf("%s=%s", constants.ArgumentHttpPort, constants.InferenceServiceDefaultHttpPort),
 	}
-	if parallelism != 0 {
+	if isGPUEnabled(p.Resources) {
+		arguments = append(arguments, fmt.Sprintf("%s=%s", constants.ArgumentWorkers, "1"))
+	} else if parallelism != 0 {
 		arguments = append(arguments, fmt.Sprintf("%s=%s", constants.ArgumentWorkers, strconv.Itoa(parallelism)))
 	}
 	return &v1.Container{
