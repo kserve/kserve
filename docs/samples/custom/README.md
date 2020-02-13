@@ -55,13 +55,13 @@ Expected Output
 > Accept: */*
 >
 < HTTP/1.1 200 OK
-< content-length: 13
+< content-length: 31
 < content-type: text/html; charset=utf-8
-< date: Thu, 13 Feb 2020 20:07:20 GMT
+< date: Thu, 13 Feb 2020 21:34:54 GMT
 < server: istio-envoy
-< x-envoy-upstream-service-time: 58
+< x-envoy-upstream-service-time: 15
 <
-Hello World!
+Hello Python KFServing Sample!
 * Connection #0 to host 184.172.247.174 left intact
 * Closing connection 0
 ```

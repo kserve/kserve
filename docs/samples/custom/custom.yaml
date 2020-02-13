@@ -9,4 +9,7 @@ spec:
     predictor:
       custom:
         container:
-          image: docker.io/{username}/custom-sample
+          image: {username}/custom-sample
+          env:
+            - name: TARGET
+              value: "Python KFServing Sample"
