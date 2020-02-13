@@ -76,9 +76,6 @@ sklearn-iris   http://sklearn-iris.default.example.com/v1/models/sklearn-iris   
 kubectl port-forward --namespace istio-system $(kubectl get pod --namespace istio-system --selector="app=istio-ingressgateway" --output jsonpath='{.items[0].metadata.name}') 8080:80
 curl -v -H "Host: sklearn-iris.default.example.com" http://localhost:8080/v1/models/sklearn-iris:predict -d @./docs/samples/sklearn/iris-input.json
 ```
-### KFServing Examples 
-To ensure everything is working, run other [KFServing examples](./docs/samples/README.md)
-
 ### Use KFServing SDK
 * Install the SDK
   ```
@@ -88,6 +85,9 @@ To ensure everything is working, run other [KFServing examples](./docs/samples/R
 
 * Follow the [example here](docs/samples/client/kfserving_sdk_sample.ipynb) to use the KFServing SDK to create, rollout, promote, and delete an InferenceService instance.
 
+### KFServing Examples 
+[KFServing examples](./docs/samples/README.md)
+
 ### KFServing Concepts and Data Plane
 [KFServing Concepts and Data Plane](./docs/README.md)
 
@@ -95,4 +95,6 @@ To ensure everything is working, run other [KFServing examples](./docs/samples/R
 [KFServing API Docs](./docs/apis/README.md)
 
 ### Developer and Contributor Guide
-If you are a developer and want to run your own development builds, or contribute to KFServing, follow the [Developer Guide](/docs/DEVELOPER_GUIDE.md).
+* [Developer Guide](/docs/DEVELOPER_GUIDE.md).
+
+* [Contributor Guide](./CONTRIBUTING.md)
