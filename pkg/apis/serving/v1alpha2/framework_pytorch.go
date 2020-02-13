@@ -25,46 +25,66 @@ import (
 var (
 	InvalidPyTorchRuntimeVersionError = "PyTorch RuntimeVersion must be one of %s"
 	DefaultPyTorchModelClassName      = "PyTorchModel"
+	PyTorchServingGPUSuffix           = "-gpu"
+	InvalidPyTorchRuntimeIncludesGPU  = "PyTorch RuntimeVersion is not GPU enabled but GPU resources are requested. " + InvalidPyTorchRuntimeVersionError
+	InvalidPyTorchRuntimeExcludesGPU  = "PyTorch RuntimeVersion is GPU enabled but GPU resources are not requested. " + InvalidPyTorchRuntimeVersionError
 )
 
 var _ Predictor = (*PyTorchSpec)(nil)
 
-func (s *PyTorchSpec) GetStorageUri() string {
-	return s.StorageURI
+func (p *PyTorchSpec) GetStorageUri() string {
+	return p.StorageURI
 }
 
-func (s *PyTorchSpec) GetResourceRequirements() *v1.ResourceRequirements {
+func (p *PyTorchSpec) GetResourceRequirements() *v1.ResourceRequirements {
 	// return the ResourceRequirements value if set on the spec
-	return &s.Resources
+	return &p.Resources
 }
 
-func (s *PyTorchSpec) GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container {
+func (p *PyTorchSpec) GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container {
+	arguments := []string{
+		"--model_name=" + modelName,
+		"--model_class_name=" + p.ModelClassName,
+		"--model_dir=" + constants.DefaultModelLocalMountPath,
+		"--http_port=" + constants.InferenceServiceDefaultHttpPort,
+	}
+	// pytorch multiprocessing is conflicting with tornado multiprocessing on GPU so default workers to 1 here
+	if isGPUEnabled(p.Resources) {
+		arguments = append(arguments, "--workers=1")
+	}
 	return &v1.Container{
-		Image:     config.Predictors.PyTorch.ContainerImage + ":" + s.RuntimeVersion,
+		Image:     config.Predictors.PyTorch.ContainerImage + ":" + p.RuntimeVersion,
 		Name:      constants.InferenceServiceContainerName,
-		Resources: s.Resources,
-		Args: []string{
-			"--model_name=" + modelName,
-			"--model_class_name=" + s.ModelClassName,
-			"--model_dir=" + constants.DefaultModelLocalMountPath,
-			"--http_port=" + constants.InferenceServiceDefaultHttpPort,
-		},
+		Resources: p.Resources,
+		Args:      arguments,
 	}
 }
 
-func (s *PyTorchSpec) ApplyDefaults(config *InferenceServicesConfig) {
-	if s.RuntimeVersion == "" {
-		s.RuntimeVersion = config.Predictors.PyTorch.DefaultImageVersion
+func (p *PyTorchSpec) ApplyDefaults(config *InferenceServicesConfig) {
+	if p.RuntimeVersion == "" {
+		if isGPUEnabled(p.Resources) {
+			p.RuntimeVersion = config.Predictors.PyTorch.DefaultGpuImageVersion
+		} else {
+			p.RuntimeVersion = config.Predictors.PyTorch.DefaultImageVersion
+		}
 	}
-	if s.ModelClassName == "" {
-		s.ModelClassName = DefaultPyTorchModelClassName
+	if p.ModelClassName == "" {
+		p.ModelClassName = DefaultPyTorchModelClassName
 	}
-	setResourceRequirementDefaults(&s.Resources)
+	setResourceRequirementDefaults(&p.Resources)
 }
 
-func (s *PyTorchSpec) Validate(config *InferenceServicesConfig) error {
-	if utils.Includes(config.Predictors.PyTorch.AllowedImageVersions, s.RuntimeVersion) {
-		return nil
+func (p *PyTorchSpec) Validate(config *InferenceServicesConfig) error {
+	if !utils.Includes(config.Predictors.PyTorch.AllowedImageVersions, p.RuntimeVersion) {
+		return fmt.Errorf(InvalidPyTorchRuntimeVersionError, strings.Join(config.Predictors.PyTorch.AllowedImageVersions, ", "))
 	}
-	return fmt.Errorf(InvalidPyTorchRuntimeVersionError, strings.Join(config.Predictors.PyTorch.AllowedImageVersions, ", "))
+
+	if isGPUEnabled(p.Resources) && !strings.Contains(p.RuntimeVersion, PyTorchServingGPUSuffix) {
+		return fmt.Errorf(InvalidPyTorchRuntimeIncludesGPU, strings.Join(config.Predictors.PyTorch.AllowedImageVersions, ", "))
+	}
+
+	if !isGPUEnabled(p.Resources) && strings.Contains(p.RuntimeVersion, PyTorchServingGPUSuffix) {
+		return fmt.Errorf(InvalidPyTorchRuntimeExcludesGPU, strings.Join(config.Predictors.PyTorch.AllowedImageVersions, ", "))
+	}
+	return nil
 }

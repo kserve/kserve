@@ -20,19 +20,19 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-if [ ! $# -eq 2 ]; then
-  echo "build-python-image.sh dockerFile imageName"
-  exit -1
+if [ ! $# -eq 3 ]; then
+  echo "build-python-image.sh dockerFile imageName imageTag"
+  exit 1
 fi
 
 # Avoid conflicts due to multipe components parallel executing in same folder.
-mkdir -p build_for_$2
-cp -rf python/* build_for_$2
-cd build_for_$2
+mkdir -p build_for_$2_$3
+cp -rf python/* build_for_$2_$3
+cd build_for_$2_$3
 
 if [ ! -f $1 ]; then
   echo "dockerFile $1 doesn't exist"
-  exit -1
+  exit 1
 fi
 
 REGISTRY="${GCP_REGISTRY}"
@@ -44,4 +44,4 @@ gcloud auth activate-service-account --key-file=${GOOGLE_APPLICATION_CREDENTIALS
 
 cp $1 Dockerfile
 gcloud builds submit . --tag=${REGISTRY}/${REPO_NAME}/$2:${VERSION} --project=${PROJECT} --timeout=20m
-gcloud container images add-tag --quiet ${REGISTRY}/${REPO_NAME}/$2:${VERSION} ${REGISTRY}/${REPO_NAME}/$2:latest --verbosity=info
+gcloud container images add-tag --quiet ${REGISTRY}/${REPO_NAME}/$2:${VERSION} ${REGISTRY}/${REPO_NAME}/$2:$3 --verbosity=info
