@@ -94,7 +94,8 @@ curl -v -H "Host: sklearn-iris.default.example.com" http://localhost:8080/v1/mod
 ### KFServing API Reference
 [KFServing API Docs](./docs/apis/README.md)
 
-### Developer and Contributor Guide
-* [Developer Guide](/docs/DEVELOPER_GUIDE.md).
+### Developer Guide
+[Developer Guide](/docs/DEVELOPER_GUIDE.md).
 
-* [Contributor Guide](./CONTRIBUTING.md)
+### Contributor Guide
+[Contributor Guide](./CONTRIBUTING.md)
