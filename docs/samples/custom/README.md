@@ -1,0 +1,67 @@
+# Predict on a InferenceService using a Custom Image
+
+## Setup
+
+1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/blob/master/docs/DEVELOPER_GUIDE.md#deploy-kfserving).
+2. Your cluster's Istio Ingress gateway must be network accessible.
+
+## Build and push the sample Docker Image
+
+Use Docker to build the sample python server into a container. To build and push with Docker Hub, run these commands replacing {username} with your Docker Hub username:
+
+```
+# Build the container on your local machine
+docker build -t {username}/custom-sample .
+
+# Push the container to docker registry
+docker push {username}/custom-sample
+```
+
+## Create the InferenceService
+
+Edit the `custom.yaml` container image and replace {username} with your Docker Hub username.
+
+Apply the CRD
+
+```
+kubectl apply -f custom.yaml
+```
+
+Expected Output
+
+```
+$ inferenceservice.serving.kubeflow.org/custom-sample created
+```
+
+## Run a prediction
+
+```
+MODEL_NAME=custom-sample
+CLUSTER_IP=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+SERVICE_HOSTNAME=$(kubectl get inferenceservice ${MODEL_NAME} -o jsonpath='{.status.url}' | cut -d "/" -f 3)
+
+curl -v -H "Host: ${SERVICE_HOSTNAME}" http://$CLUSTER_IP/v1/models/${MODEL_NAME}:predict
+```
+
+Expected Output
+
+```
+*   Trying 184.172.247.174...
+* TCP_NODELAY set
+* Connected to 184.172.247.174 (184.172.247.174) port 31380 (#0)
+> GET /v1/models/custom-sample:predict HTTP/1.1
+> Host: custom-sample.default.example.com
+> User-Agent: curl/7.64.1
+> Accept: */*
+>
+< HTTP/1.1 200 OK
+< content-length: 13
+< content-type: text/html; charset=utf-8
+< date: Thu, 13 Feb 2020 20:07:20 GMT
+< server: istio-envoy
+< x-envoy-upstream-service-time: 58
+<
+Hello World!
+* Connection #0 to host 184.172.247.174 left intact
+* Closing connection 0
+```
