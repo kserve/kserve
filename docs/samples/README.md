@@ -1,45 +1,45 @@
 ## KFServing Examples
 
 ### Deploy KFServing InferenceService with out of the box Predictor
-[SKLearn Model](./docs/samples/sklearn)
+[SKLearn Model](./sklearn)
 
-[PyTorch Model](./docs/samples/pytorch)
+[PyTorch Model](./pytorch)
 
-[Tensorflow Model](./docs/samples/tensorflow)
+[Tensorflow Model](./tensorflow)
 
-[XGBoost Model](./docs/samples/xgboost)
+[XGBoost Model](./xgboost)
 
-[ONNX Model with ONNX Runtime](./docs/samples/onnx)
+[ONNX Model with ONNX Runtime](./onnx)
 
-[TensorRT Model with NVIDIA's TensorRT Inference Server](./docs/samples/tensorrt)
+[TensorRT Model with NVIDIA's TensorRT Inference Server](./tensorrt)
 
 ### Deploy KFServing InferenceService with Transformer
-[Image Transformer with PyTorch Predictor](./docs/samples/transformer/image_transformer)
+[Image Transformer with PyTorch Predictor](./transformer/image_transformer)
 
 ### Deploy KFServing InferenceService with Explainer
-[Alibi Image Explainer](./docs/samples/explanation/alibi/imagenet)
+[Alibi Image Explainer](./explanation/alibi/imagenet)
 
-[Alibi Text Explainer](./docs/samples/explanation/alibi/moviesentiment)
+[Alibi Text Explainer](./explanation/alibi/moviesentiment)
 
-[Alibi Tabular Explainer](./docs/samples/explanation/alibi/income)
+[Alibi Tabular Explainer](./explanation/alibi/income)
 
 ### Deploy KFServing InferenceService with Cloud or PVC storage
 
-[Models on S3](./docs/samples/s3)
+[Models on S3](./s3)
 
-[Models on PVC](./docs/samples/pvc)
+[Models on PVC](./pvc)
 
-[Models on Azure](./docs/samples/azure)
+[Models on Azure](./azure)
 
 ### Deploy KFServing InferenceService with Autoscaling, Canary Rollout and Other Integrations
-[Autoscale inference workload on CPU/GPU](./docs/samples/autoscaling)
+[Autoscale inference workload on CPU/GPU](./autoscaling)
 
-[InferenceService on GPU nodes](./docs/samples/accelerators)
+[InferenceService on GPU nodes](./accelerators)
 
-[Canary Rollout](./docs/samples/rollouts)
+[Canary Rollout](./rollouts)
 
-[InferenceService with Kubeflow Pipeline](./docs/samples/pipelines)
+[InferenceService with Kubeflow Pipeline](./pipelines)
 
-[InferenceService with Request/Response Logger](./docs/samples/logger/basic)
+[InferenceService with Request/Response Logger](./logger/basic)
 
-[InferenceService with Kafka Event Source](./docs/samples/kafka)
+[InferenceService with Kafka Event Source](./kafka)
