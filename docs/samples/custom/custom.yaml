@@ -11,5 +11,5 @@ spec:
         container:
           image: {username}/custom-sample
           env:
-            - name: TARGET
+            - name: GREETING_TARGET
               value: "Python KFServing Sample"
