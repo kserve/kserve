@@ -39,8 +39,8 @@ def test_tensorflow_kfserving():
             tensorflow=V1alpha2TensorflowSpec(
                 storage_uri='gs://kfserving-samples/models/tensorflow/flowers',
                 resources=V1ResourceRequirements(
-                    requests={'cpu': '100m', 'memory': '256Mi'},
-                    limits={'cpu': '100m', 'memory': '256Mi'}))))
+                    requests={'cpu': '1', 'memory': '2Gi'},
+                    limits={'cpu': '1', 'memory': '2Gi'}))))
 
     isvc = V1alpha2InferenceService(api_version=api_version,
                                     kind=constants.KFSERVING_KIND,
@@ -50,6 +50,8 @@ def test_tensorflow_kfserving():
 
     KFServing.create(isvc)
     KFServing.wait_isvc_ready(service_name, namespace=KFSERVING_TEST_NAMESPACE)
+    probs = predict(service_name, './data/flower_input.json')
+    assert(np.argmax(probs[0].get('scores')) == 0 )
 
     # Delete the InferenceService
     KFServing.delete(service_name, namespace=KFSERVING_TEST_NAMESPACE)
