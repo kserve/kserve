@@ -32,7 +32,10 @@ def predict(service_name, input_json):
     time.sleep(10)
     api_instance = client.CoreV1Api(client.ApiClient())
     service = api_instance.read_namespaced_service("istio-ingressgateway", "istio-system", exact='true')
-    cluster_ip = service.status.load_balancer.ingress[0].ip
+    if service.status.load_balancer.ingress is None:
+        cluster_ip = service.spec.cluster_ip
+    else:    
+        cluster_ip = service.status.load_balancer.ingress[0].ip
     host = urlparse(isvc['status']['url']).netloc
     url = "http://{}/v1/models/{}:predict".format(cluster_ip, service_name)
     headers = {'Host': host}

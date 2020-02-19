@@ -56,7 +56,7 @@ type DeploymentSpec struct {
 	ServiceAccountName string `json:"serviceAccountName,omitempty"`
 	// Minimum number of replicas, pods won't scale down to 0 in case of no traffic
 	// +optional
-	MinReplicas int `json:"minReplicas,omitempty"`
+	MinReplicas *int `json:"minReplicas,omitempty"`
 	// This is the up bound for autoscaler to scale to
 	// +optional
 	MaxReplicas int `json:"maxReplicas,omitempty"`

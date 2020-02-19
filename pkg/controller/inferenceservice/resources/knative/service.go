@@ -310,14 +310,17 @@ func (c *ServiceBuilder) CreateExplainerService(name string, metadata metav1.Obj
 	return service, nil
 }
 
-func (c *ServiceBuilder) buildAnnotations(metadata metav1.ObjectMeta, minReplicas int, maxReplicas int) (map[string]string, error) {
+func (c *ServiceBuilder) buildAnnotations(metadata metav1.ObjectMeta, minReplicas *int, maxReplicas int) (map[string]string, error) {
 	annotations := utils.Filter(metadata.Annotations, func(key string) bool {
 		return !utils.Includes(serviceAnnotationDisallowedList, key)
 	})
 
-	if minReplicas != 0 {
-		annotations[autoscaling.MinScaleAnnotationKey] = fmt.Sprint(minReplicas)
+	if minReplicas == nil {
+		annotations[autoscaling.MinScaleAnnotationKey] = fmt.Sprint(constants.DefaultMinReplicas)
+	} else if *minReplicas != 0 {
+		annotations[autoscaling.MinScaleAnnotationKey] = fmt.Sprint(*minReplicas)
 	}
+
 	if maxReplicas != 0 {
 		annotations[autoscaling.MaxScaleAnnotationKey] = fmt.Sprint(maxReplicas)
 	}

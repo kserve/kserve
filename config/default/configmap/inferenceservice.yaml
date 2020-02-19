@@ -45,8 +45,10 @@ data:
         "pytorch": {
             "image": "gcr.io/kfserving/pytorchserver",
             "defaultImageVersion": "0.2.2",
+            "defaultGpuImageVersion": "0.2.2-gpu",
             "allowedImageVersions": [
-               "0.2.2"
+               "0.2.2",
+               "0.2.2-gpu"
             ]
         },
         "tensorrt": {
