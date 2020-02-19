@@ -9,11 +9,12 @@ It encapsulates the complexity of autoscaling, networking, health checking, and 
 To learn more about KFServing, how to deploy it as part of Kubeflow, how to use various supported features, and how to participate in the KFServing community, please follow the [KFServing docs on the Kubeflow Website](https://www.kubeflow.org/docs/components/serving/kfserving/).
 
 ### Prerequisites
-Knative Serving and Istio should be available on Kubernetes Cluster, Knative depends on Istio Ingress Gateway to route requests to Knative services.
-- [Istio](https://knative.dev/docs/install/installing-istio): v1.1.7+
+Knative Serving and Istio should be available on Kubernetes Cluster, Knative depends on Istio Ingress Gateway to route requests to Knative services. To use the exact versions tested by the Kubeflow and KFServing teams, please refer to the [prerequisites on developer guide](docs/DEVELOPER_GUIDE.md#install-knative-on-a-kubernetes-cluster)
+
+- [Istio](https://knative.dev/docs/install/installing-istio): v1.1.6+
 
 If you want to get up running Knative quickly or you do not need service mesh, we recommend installing Istio without service mesh(sidecar injection).
-- [Knative Serving](https://knative.dev/docs/install/knative-with-any-k8s): v0.9.x+
+- [Knative Serving](https://knative.dev/docs/install/knative-with-any-k8s): v0.11.1+
 
 Currently only `Knative Serving` is required, `cluster-local-gateway` is required to serve cluster-internal traffic for transformer and explainer use cases. Please follow instructions here to install [cluster local gateway](https://knative.dev/docs/install/installing-istio/#updating-your-install-to-use-cluster-local-gateway)
 
