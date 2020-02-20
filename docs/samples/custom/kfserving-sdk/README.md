@@ -1,4 +1,4 @@
-# Predict on a InferenceService using a Custom Image
+# Predict on a InferenceService using the KFServing sdk
 
 ## Setup
 
@@ -13,15 +13,15 @@ In this example we use Docker to build the sample python server into a container
 
 ```
 # Build the container on your local machine
-docker build -t {username}/custom-sample .
+docker build -t {username}/kfservingsdksample .
 
 # Push the container to docker registry
-docker push {username}/custom-sample
+docker push {username}/kfservingsdksample
 ```
 
 ## Create the InferenceService
 
-Edit the `custom.yaml` container image and replace {username} with your Docker Hub username.
+In the `custom.yaml` file edit the container image and replace {username} with your Docker Hub username.
 
 Apply the CRD
 
@@ -32,38 +32,22 @@ kubectl apply -f custom.yaml
 Expected Output
 
 ```
-$ inferenceservice.serving.kubeflow.org/custom-sample created
+$ inferenceservice.serving.kubeflow.org/kfservingsdksample created
 ```
 
 ## Run a prediction
 
-```
-MODEL_NAME=custom-sample
+```sh
+MODEL_NAME=kfservingsdksample
 CLUSTER_IP=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 SERVICE_HOSTNAME=$(kubectl get inferenceservice ${MODEL_NAME} -o jsonpath='{.status.url}' | cut -d "/" -f 3)
 
-curl -v -H "Host: ${SERVICE_HOSTNAME}" http://$CLUSTER_IP/v1/models/${MODEL_NAME}:predict
-```
-
-Expected Output
-
-```
-*   Trying 184.172.247.174...
-* TCP_NODELAY set
-* Connected to 184.172.247.174 (184.172.247.174) port 31380 (#0)
-> GET /v1/models/custom-sample:predict HTTP/1.1
-> Host: custom-sample.default.example.com
-> User-Agent: curl/7.64.1
-> Accept: */*
->
-< HTTP/1.1 200 OK
-< content-length: 31
-< content-type: text/html; charset=utf-8
-< date: Thu, 13 Feb 2020 21:34:54 GMT
-< server: istio-envoy
-< x-envoy-upstream-service-time: 15
-<
-Hello Python KFServing Sample!
-* Connection #0 to host 184.172.247.174 left intact
-* Closing connection 0
+curl --request POST \
+  --url http://${CLUSTER_IP}/v1/models/${MODEL_NAME}:predict \
+  --header "host: ${SERVICE_HOSTNAME}" \
+  --data '{
+    "instances": [
+      "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/2 . . . # base64 encoded data URI"
+    ]
+}'
 ```
