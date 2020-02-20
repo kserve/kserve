@@ -219,15 +219,11 @@ func ExplainPath(name string) string {
 }
 
 func PredictPrefix() string {
-	return fmt.Sprintf("^/v1/models/[\\w-]+:predict$")
+	return fmt.Sprintf("^/v1/models/[\\w-]+(:predict)?")
 }
 
 func ExplainPrefix() string {
 	return fmt.Sprintf("^/v1/models/[\\w-]+:explain$")
-}
-
-func HealthCheck() string {
-	return fmt.Sprintf("^/v1/models/[\\w-]+")
 }
 
 func VirtualServiceHostname(name string, predictorHostName string) string {

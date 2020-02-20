@@ -17,6 +17,12 @@ The InferenceService Data Plane architecture consists of a static graph of compo
 # Data Plane (V1)
 KFServing has a standardized prediction workflow across all model frameworks. 
 
+| API  | Verb | Path | Payload |
+| ------------- | ------------- | ------------- | ------------- |
+| Readiness| GET   | /v1/models/<model_name>          | Response:{"name": <model_name>, "ready": true/false}  |
+| Predict  | POST  | /v1/models/<model_name>:predict  | Request:{"instances": []}  Response:{"predictions": []} |
+| Explain  | POST  | /v1/models/<model_name>:explain  | Request:{"instances": []}  Response:{"predictions": [], "explainations": []}   ||
+
 Note: We are actively developing a V2 data plane protocol to improve performance (i.e. GRPC).
 
 ## Predict
@@ -27,9 +33,4 @@ Note: Only Tensorflow models support the fields "signature_name" and "inputs".
 ## Explain
 All InferenceServices that are deployed with an Explainer support a standardized explanation API. This interface is identical to the Tensorflow V1 HTTP API with the addition of an ":explain" verb.
 
-## Endpoints
-| API  | Verb | Path | Payload |
-| ------------- | ------------- | ------------- | ------------- |
-| Readiness| GET   | /v1/models/<model_name>          | Response:{"name": <model_name>, "ready": true/false}  |
-| Predict  | POST  | /v1/models/<model_name>:predict  | Request:{"instances": []}  Response:{"predictions": []} |
-| Explain  | POST  | /v1/models/<model_name>:explain  | Request:{"instances": []}  Response:{"predictions": [], "explainations": []}   |
+
