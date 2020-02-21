@@ -7,7 +7,7 @@ import base64
 import io
 
 
-class KFServingSDKSampleModel(kfserving.KFModel):
+class KFServingSampleModel(kfserving.KFModel):
     def __init__(self, name: str):
         super().__init__(name)
         self.name = name
@@ -46,18 +46,18 @@ class KFServingSDKSampleModel(kfserving.KFModel):
 
         output = self.model(input_batch)
 
-        percentage = torch.nn.functional.softmax(output, dim=1)[0] * 100
+        scores = torch.nn.functional.softmax(output, dim=1)[0]
 
         _, top_5 = torch.topk(output, 5)
 
         results = {}
         for idx in top_5[0]:
-            results[self.classes[idx]] = percentage[idx].item()
+            results[self.classes[idx]] = scores[idx].item()
 
         return {"predictions": results}
 
 
 if __name__ == "__main__":
-    model = KFServingSDKSampleModel("kfservingsdksample")
+    model = KFServingSampleModel("kfserving-custom-model")
     model.load()
     kfserving.KFServer(workers=1).start([model])

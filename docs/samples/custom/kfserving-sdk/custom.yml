@@ -3,10 +3,10 @@ kind: InferenceService
 metadata:
   labels:
     controller-tools.k8s.io: "1.0"
-  name: kfservingsdksample
+  name: kfserving-custom-model
 spec:
   default:
     predictor:
       custom:
         container:
-          image: {username}/kfservingsdksample
+          image: {username}/kfserving-custom-model
