@@ -37,17 +37,37 @@ $ inferenceservice.serving.kubeflow.org/kfservingsdksample created
 
 ## Run a prediction
 
-```sh
+```
 MODEL_NAME=kfservingsdksample
+INPUT_PATH=@./input.json
 CLUSTER_IP=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 SERVICE_HOSTNAME=$(kubectl get inferenceservice ${MODEL_NAME} -o jsonpath='{.status.url}' | cut -d "/" -f 3)
 
-curl --request POST \
-  --url http://${CLUSTER_IP}/v1/models/${MODEL_NAME}:predict \
-  --header "host: ${SERVICE_HOSTNAME}" \
-  --data '{
-    "instances": [
-      "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/2 . . . # base64 encoded data URI"
-    ]
-}'
+curl -v -H "Host: ${SERVICE_HOSTNAME}" http://${CLUSTER_IP}/v1/models/${MODEL_NAME}:predict -d $INPUT_PATH
+```
+
+Expected Output:
+```
+*   Trying 184.172.247.174...
+* TCP_NODELAY set
+* Connected to 184.172.247.174 (184.172.247.174) port 31380 (#0)
+> POST /v1/models/kfservingsdksample:predict HTTP/1.1
+> Host: kfservingsdksample.default.example.com
+> User-Agent: curl/7.64.1
+> Accept: */*
+> Content-Length: 105318
+> Content-Type: application/x-www-form-urlencoded
+> Expect: 100-continue
+>
+< HTTP/1.1 100 Continue
+* We are completely uploaded and fine
+< HTTP/1.1 200 OK
+< content-length: 224
+< content-type: text/html; charset=UTF-8
+< date: Fri, 21 Feb 2020 14:36:57 GMT
+< server: istio-envoy
+< x-envoy-upstream-service-time: 251
+<
+* Connection #0 to host 184.172.247.174 left intact
+{"predictions": {"Labrador retriever": 41.58518600463867, "golden retriever": 16.59165382385254, "Saluki, gazelle hound": 16.286855697631836, "whippet": 2.853914976119995, "Ibizan hound, Ibizan Podenco": 2.3924756050109863}}* Closing connection 0
 ```
