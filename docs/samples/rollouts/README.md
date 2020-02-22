@@ -80,7 +80,7 @@ kubectl port-forward svc kiali -n istio-system 20001:20001
 
 Now you can access the console at `localhost:20001/kiali` with credentials admin/admin. Navigate to the **Graph** perspective, select **Versioned app graph** in the first drop down, and check **Traffic Animation** in the **Display** drop down. While looking at the **Versioned app graph**, keep running predictions. Eventually you will see that traffic is being sent to both models.
 
-Expected Kialia graph:
+Expected Kiali graph:
 ![canary screenshot](screenshots/canary.png)
 
 If you stop making requests to the application, you should eventually see that your application scales itself back down to zero. Watch the pods until you see that they are `Terminating`. This should take approximately 90 seconds.
