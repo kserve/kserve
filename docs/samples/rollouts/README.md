@@ -32,7 +32,7 @@ my-model-predictor-default-wfgrl-deployment-75c7845fcb-v5g7r   2/2     Running  
 
 To run a prediction:
 ```
-MODEL_NAME=flowers-sample
+MODEL_NAME=my-model
 INPUT_PATH=@./input.json
 CLUSTER_IP=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 SERVICE_HOSTNAME=$(kubectl get inferenceservice ${MODEL_NAME} -o jsonpath='{.status.url}' | cut -d "/" -f 3)
@@ -80,6 +80,9 @@ kubectl port-forward svc kiali -n istio-system 20001:20001
 
 Now you can access the console at `localhost:20001/kiali` with credentials admin/admin. Navigate to the **Graph** perspective, select **Versioned app graph** in the first drop down, and check **Traffic Animation** in the **Display** drop down. While looking at the **Versioned app graph**, keep running predictions. Eventually you will see that traffic is being sent to both models.
 
+Expected Kialia graph:
+![canary screenshot](screenshots/canary.png)
+
 If you stop making requests to the application, you should eventually see that your application scales itself back down to zero. Watch the pods until you see that they are `Terminating`. This should take approximately 90 seconds.
 
 ```
@@ -104,3 +107,6 @@ my-model   http://my-model.default.example.com/v1/models/my-model   True    100 
 ```
 
 The output will show that all the traffic is going to the default model. You may run predictions again while watching the Kiali console to visually verify that all traffic is routed to the default model.
+
+Expected Kiali graph:
+![pinned screenshot](screenshots/pinned.png)
