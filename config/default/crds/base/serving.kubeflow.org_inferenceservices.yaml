@@ -1087,8 +1087,9 @@ spec:
                     parallelism:
                       description: Parallelism specifies how many requests can be
                         processed concurrently, this sets the target concurrency for
-                        autoscaling and for python model server it also sets the number
-                        of workers
+                        Autoscaling(KPA). For model servers that support tuning parallelism
+                        will use this value, by default the parallelism is the number
+                        of the CPU cores for most of the model servers.
                       type: integer
                     serviceAccountName:
                       description: ServiceAccountName is the name of the ServiceAccount
@@ -2118,8 +2119,9 @@ spec:
                     parallelism:
                       description: Parallelism specifies how many requests can be
                         processed concurrently, this sets the target concurrency for
-                        autoscaling and for python model server it also sets the number
-                        of workers
+                        Autoscaling(KPA). For model servers that support tuning parallelism
+                        will use this value, by default the parallelism is the number
+                        of the CPU cores for most of the model servers.
                       type: integer
                     pytorch:
                       description: Spec for PyTorch predictor
@@ -3289,8 +3291,9 @@ spec:
                     parallelism:
                       description: Parallelism specifies how many requests can be
                         processed concurrently, this sets the target concurrency for
-                        autoscaling and for python model server it also sets the number
-                        of workers
+                        Autoscaling(KPA). For model servers that support tuning parallelism
+                        will use this value, by default the parallelism is the number
+                        of the CPU cores for most of the model servers.
                       type: integer
                     serviceAccountName:
                       description: ServiceAccountName is the name of the ServiceAccount
@@ -4338,8 +4341,9 @@ spec:
                     parallelism:
                       description: Parallelism specifies how many requests can be
                         processed concurrently, this sets the target concurrency for
-                        autoscaling and for python model server it also sets the number
-                        of workers
+                        Autoscaling(KPA). For model servers that support tuning parallelism
+                        will use this value, by default the parallelism is the number
+                        of the CPU cores for most of the model servers.
                       type: integer
                     serviceAccountName:
                       description: ServiceAccountName is the name of the ServiceAccount
@@ -5369,8 +5373,9 @@ spec:
                     parallelism:
                       description: Parallelism specifies how many requests can be
                         processed concurrently, this sets the target concurrency for
-                        autoscaling and for python model server it also sets the number
-                        of workers
+                        Autoscaling(KPA). For model servers that support tuning parallelism
+                        will use this value, by default the parallelism is the number
+                        of the CPU cores for most of the model servers.
                       type: integer
                     pytorch:
                       description: Spec for PyTorch predictor
@@ -6540,8 +6545,9 @@ spec:
                     parallelism:
                       description: Parallelism specifies how many requests can be
                         processed concurrently, this sets the target concurrency for
-                        autoscaling and for python model server it also sets the number
-                        of workers
+                        Autoscaling(KPA). For model servers that support tuning parallelism
+                        will use this value, by default the parallelism is the number
+                        of the CPU cores for most of the model servers.
                       type: integer
                     serviceAccountName:
                       description: ServiceAccountName is the name of the ServiceAccount

@@ -162,7 +162,7 @@ func schema_pkg_apis_serving_v1alpha2_DeploymentSpec(ref common.ReferenceCallbac
 					},
 					"parallelism": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Parallelism specifies how many requests can be processed concurrently, this sets the target concurrency for autoscaling and for python model server it also sets the number of workers",
+							Description: "Parallelism specifies how many requests can be processed concurrently, this sets the target concurrency for Autoscaling(KPA). For model servers that support tuning parallelism will use this value, by default the parallelism is the number of the CPU cores for most of the model servers.",
 							Type:        []string{"integer"},
 							Format:      "int32",
 						},
@@ -256,7 +256,7 @@ func schema_pkg_apis_serving_v1alpha2_ExplainerSpec(ref common.ReferenceCallback
 					},
 					"parallelism": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Parallelism specifies how many requests can be processed concurrently, this sets the target concurrency for autoscaling and for python model server it also sets the number of workers",
+							Description: "Parallelism specifies how many requests can be processed concurrently, this sets the target concurrency for Autoscaling(KPA). For model servers that support tuning parallelism will use this value, by default the parallelism is the number of the CPU cores for most of the model servers.",
 							Type:        []string{"integer"},
 							Format:      "int32",
 						},
@@ -637,7 +637,7 @@ func schema_pkg_apis_serving_v1alpha2_PredictorSpec(ref common.ReferenceCallback
 					},
 					"parallelism": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Parallelism specifies how many requests can be processed concurrently, this sets the target concurrency for autoscaling and for python model server it also sets the number of workers",
+							Description: "Parallelism specifies how many requests can be processed concurrently, this sets the target concurrency for Autoscaling(KPA). For model servers that support tuning parallelism will use this value, by default the parallelism is the number of the CPU cores for most of the model servers.",
 							Type:        []string{"integer"},
 							Format:      "int32",
 						},
@@ -876,7 +876,7 @@ func schema_pkg_apis_serving_v1alpha2_TransformerSpec(ref common.ReferenceCallba
 					},
 					"parallelism": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Parallelism specifies how many requests can be processed concurrently, this sets the target concurrency for autoscaling and for python model server it also sets the number of workers",
+							Description: "Parallelism specifies how many requests can be processed concurrently, this sets the target concurrency for Autoscaling(KPA). For model servers that support tuning parallelism will use this value, by default the parallelism is the number of the CPU cores for most of the model servers.",
 							Type:        []string{"integer"},
 							Format:      "int32",
 						},

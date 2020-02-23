@@ -61,7 +61,8 @@ type DeploymentSpec struct {
 	// +optional
 	MaxReplicas int `json:"maxReplicas,omitempty"`
 	// Parallelism specifies how many requests can be processed concurrently, this sets the target
-	// concurrency for autoscaling and for python model server it also sets the number of workers
+	// concurrency for Autoscaling(KPA). For model servers that support tuning parallelism will use this value,
+	// by default the parallelism is the number of the CPU cores for most of the model servers.
 	// +optional
 	Parallelism int `json:"parallelism,omitempty"`
 	// Activate request/response logging

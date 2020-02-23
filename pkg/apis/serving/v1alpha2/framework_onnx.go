@@ -15,6 +15,7 @@ package v1alpha2
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/kubeflow/kfserving/pkg/constants"
@@ -39,15 +40,19 @@ func (s *ONNXSpec) GetResourceRequirements() *v1.ResourceRequirements {
 }
 
 func (s *ONNXSpec) GetContainer(modelName string, parallelism int, config *InferenceServicesConfig) *v1.Container {
+	arguments := []string{
+		"--model_path", constants.DefaultModelLocalMountPath + "/" + ONNXModelFileName,
+		"--http_port", ONNXServingRestPort,
+		"--grpc_port", ONNXServingGRPCPort,
+	}
+	if parallelism != 0 {
+		arguments = append(arguments, []string{"--num_http_threads", strconv.Itoa(parallelism)}...)
+	}
 	return &v1.Container{
 		Image:     config.Predictors.ONNX.ContainerImage + ":" + s.RuntimeVersion,
 		Name:      constants.InferenceServiceContainerName,
 		Resources: s.Resources,
-		Args: []string{
-			"--model_path", constants.DefaultModelLocalMountPath + "/" + ONNXModelFileName,
-			"--http_port", ONNXServingRestPort,
-			"--grpc_port", ONNXServingGRPCPort,
-		},
+		Args:      arguments,
 	}
 }
 
