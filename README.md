@@ -24,23 +24,38 @@ Cert manager is needed to provision KFServing webhook certs for production grade
 generation [script](./hack/self-signed-ca.sh).
 
 ### Install KFServing
+#### Standalone KFServing Installation
+KFServing can be installed standalone if your kubernetes cluster meets the above prerequisites and KFServing controller is deployed in `kfserving-system` namespace.
 ```
 TAG=0.2.2
 kubectl apply -f ./install/$TAG/kfserving.yaml
 ```
-By default, you can create InferenceService instances in any namespace which has no label with `control-plane` as key.
-You can also configure KFServing to make InferenceService instances only work in the namespace which has label pair `serving.kubeflow.org/inferenceservice: enabled`. To enable this mode, you need to add `env` field as stated below to `manager` container of statefulset `kfserving-controller-manager`.
+KFServing uses pod mutator to inject the storage initializer, by default pods in namespaces which are not labelled with `control-plane` all go through the pod mutator.
+This can cause problems and interfere with kubernetes control panel when KFServing pod mutator webhook is not in ready state yet.
 
+For kubernetes 1.14 users we suggest enable following environment variable `ENABLE_WEBHOOK_NAMESPACE_SELECTOR` so that only pods
+ in the namespaces which are labelled `serving.kubeflow.org/inferenceservice: enabled` go through the KFServing pod mutator.
 ```
 env:
 - name: ENABLE_WEBHOOK_NAMESPACE_SELECTOR
   value: enabled
 ```
-### Install KFServing in 5 Minutes (On your local machine)
+
+For Kubernetes 1.15+ users we strongly suggest turn on object selector so that only KFServing `InferenceService` pods go through the pod mutator.
+```bash
+kubectl patch mutatingwebhookconfiguration inferenceservice.serving.kubeflow.org --patch '{"webhooks":[{"name": "inferenceservice.kfserving-webhook-server.pod-mutator","objectSelector":{"matchExpressions":[{"key":"serving.kubeflow.org/inferenceservice", "operator": "Exists"}]}}]}'
+```
+#### KFServing in Kubeflow Installation
+KFServing is installed by default in [Kubeflow manifests](https://github.com/kubeflow/manifests/tree/master/kfserving) and KFServing controller is deployed in `kubeflow` namespace.
+Since Kubeflow kubernetes minimal requirement is 1.14 which does not support object selector, `ENABLE_WEBHOOK_NAMESPACE_SELECTOR` is enabled in Kubeflow installation by default
+and you need to add label `serving.kubeflow.org/inferenceservice: enabled` to allow deploying KFServing `InferenceService` in the given namespaces, also make sure you do not deploy
+`InferenceService` in `kubeflow` namespace which is labelled as `control-panel`.
+
+#### Install KFServing in 5 Minutes (On your local machine)
 
 Make sure you have
 [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/#install-kubectl-on-linux),
-[kustomize](https://github.com/kubernetes-sigs/kustomize/blob/master/docs/INSTALL.md) v3.5.4+,
+[kustomize v3.5.4+](https://github.com/kubernetes-sigs/kustomize/blob/master/docs/INSTALL.md),
 [helm 3](https://helm.sh/docs/intro/install) installed before you start.(2 mins for setup)
 1) If you do not have an existing kubernetes cluster you can create a quick kubernetes local cluster with [kind](https://github.com/kubernetes-sigs/kind#installation-and-usage).(this takes 30s)
 ```bash
