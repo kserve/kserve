@@ -31,7 +31,7 @@ TAG=0.2.2
 kubectl apply -f ./install/$TAG/kfserving.yaml
 ```
 KFServing uses pod mutator or [mutating admission webhooks](https://kubernetes.io/blog/2019/03/21/a-guide-to-kubernetes-admission-controllers/) to inject the storage initializer component of KFServing. By default all the pods in namespaces which are not labelled with `control-plane` label go through the pod mutator.
-This can cause problems and interfere with kubernetes control panel when KFServing pod mutator webhook is not in ready state yet.
+This can cause problems and interfere with Kubernetes control panel when KFServing pod mutator webhook is not in ready state yet.
 
 For kubernetes 1.14 users we suggest enable following environment variable `ENABLE_WEBHOOK_NAMESPACE_SELECTOR` so that only pods
  in the namespaces which are labelled `serving.kubeflow.org/inferenceservice: enabled` go through the KFServing pod mutator.
