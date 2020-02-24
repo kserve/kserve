@@ -116,6 +116,11 @@
           "type": "integer",
           "format": "int32"
         },
+        "parallelism": {
+          "description": "Parallelism specifies how many requests can be processed concurrently, this sets the target concurrency for Autoscaling(KPA). For model servers that support tuning parallelism will use this value, by default the parallelism is the number of the CPU cores for most of the model servers.",
+          "type": "integer",
+          "format": "int32"
+        },
         "serviceAccountName": {
           "description": "ServiceAccountName is the name of the ServiceAccount to use to run the service",
           "type": "string"
@@ -165,6 +170,11 @@
         },
         "minReplicas": {
           "description": "Minimum number of replicas, pods won't scale down to 0 in case of no traffic",
+          "type": "integer",
+          "format": "int32"
+        },
+        "parallelism": {
+          "description": "Parallelism specifies how many requests can be processed concurrently, this sets the target concurrency for Autoscaling(KPA). For model servers that support tuning parallelism will use this value, by default the parallelism is the number of the CPU cores for most of the model servers.",
           "type": "integer",
           "format": "int32"
         },
@@ -359,6 +369,11 @@
           "description": "Spec for ONNX runtime (https://github.com/microsoft/onnxruntime)",
           "$ref": "#/definitions/v1alpha2.ONNXSpec"
         },
+        "parallelism": {
+          "description": "Parallelism specifies how many requests can be processed concurrently, this sets the target concurrency for Autoscaling(KPA). For model servers that support tuning parallelism will use this value, by default the parallelism is the number of the CPU cores for most of the model servers.",
+          "type": "integer",
+          "format": "int32"
+        },
         "pytorch": {
           "description": "Spec for PyTorch predictor",
           "$ref": "#/definitions/v1alpha2.PyTorchSpec"
@@ -510,6 +525,11 @@
         },
         "minReplicas": {
           "description": "Minimum number of replicas, pods won't scale down to 0 in case of no traffic",
+          "type": "integer",
+          "format": "int32"
+        },
+        "parallelism": {
+          "description": "Parallelism specifies how many requests can be processed concurrently, this sets the target concurrency for Autoscaling(KPA). For model servers that support tuning parallelism will use this value, by default the parallelism is the number of the CPU cores for most of the model servers.",
           "type": "integer",
           "format": "int32"
         },

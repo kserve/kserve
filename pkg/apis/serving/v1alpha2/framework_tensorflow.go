@@ -41,18 +41,21 @@ func (t *TensorflowSpec) GetResourceRequirements() *v1.ResourceRequirements {
 	return &t.Resources
 }
 
-func (t *TensorflowSpec) GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container {
+func (t *TensorflowSpec) GetContainer(modelName string, parallelism int, config *InferenceServicesConfig) *v1.Container {
+
+	arguments := []string{
+		"--port=" + TensorflowServingGRPCPort,
+		"--rest_api_port=" + TensorflowServingRestPort,
+		"--model_name=" + modelName,
+		"--model_base_path=" + constants.DefaultModelLocalMountPath,
+	}
+
 	return &v1.Container{
 		Image:     config.Predictors.Tensorflow.ContainerImage + ":" + t.RuntimeVersion,
 		Name:      constants.InferenceServiceContainerName,
 		Command:   []string{TensorflowEntrypointCommand},
 		Resources: t.Resources,
-		Args: []string{
-			"--port=" + TensorflowServingGRPCPort,
-			"--rest_api_port=" + TensorflowServingRestPort,
-			"--model_name=" + modelName,
-			"--model_base_path=" + constants.DefaultModelLocalMountPath,
-		},
+		Args:      arguments,
 	}
 }
 

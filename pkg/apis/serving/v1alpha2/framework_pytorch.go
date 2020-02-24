@@ -15,6 +15,7 @@ package v1alpha2
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/kubeflow/kfserving/pkg/constants"
@@ -41,16 +42,17 @@ func (p *PyTorchSpec) GetResourceRequirements() *v1.ResourceRequirements {
 	return &p.Resources
 }
 
-func (p *PyTorchSpec) GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container {
+func (p *PyTorchSpec) GetContainer(modelName string, parallelism int, config *InferenceServicesConfig) *v1.Container {
 	arguments := []string{
-		"--model_name=" + modelName,
-		"--model_class_name=" + p.ModelClassName,
-		"--model_dir=" + constants.DefaultModelLocalMountPath,
-		"--http_port=" + constants.InferenceServiceDefaultHttpPort,
+		fmt.Sprintf("%s=%s", constants.ArgumentModelName, modelName),
+		fmt.Sprintf("%s=%s", constants.ArgumentModelClassName, p.ModelClassName),
+		fmt.Sprintf("%s=%s", constants.ArgumentModelDir, constants.DefaultModelLocalMountPath),
+		fmt.Sprintf("%s=%s", constants.ArgumentHttpPort, constants.InferenceServiceDefaultHttpPort),
 	}
-	// pytorch multiprocessing is conflicting with tornado multiprocessing on GPU so default workers to 1 here
 	if isGPUEnabled(p.Resources) {
-		arguments = append(arguments, "--workers=1")
+		arguments = append(arguments, fmt.Sprintf("%s=%s", constants.ArgumentWorkers, "1"))
+	} else if parallelism != 0 {
+		arguments = append(arguments, fmt.Sprintf("%s=%s", constants.ArgumentWorkers, strconv.Itoa(parallelism)))
 	}
 	return &v1.Container{
 		Image:     config.Predictors.PyTorch.ContainerImage + ":" + p.RuntimeVersion,

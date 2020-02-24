@@ -108,6 +108,13 @@ func validateReplicas(minReplicas *int, maxReplicas int) error {
 	return nil
 }
 
+func validateParallelism(parallelism int) error {
+	if parallelism < 0 {
+		return fmt.Errorf(ParallelismLowerBoundExceededError)
+	}
+	return nil
+}
+
 // GetIntReference returns the pointer for the integer input
 func GetIntReference(number int) *int {
 	num := number
