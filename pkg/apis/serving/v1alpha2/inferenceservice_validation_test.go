@@ -120,6 +120,7 @@ func TestRejectModelSpecMissing(t *testing.T) {
 	isvc.Spec.Default.Predictor.Tensorflow = nil
 	g.Expect(isvc.ValidateCreate(c)).Should(gomega.MatchError(ExactlyOnePredictorViolatedError))
 }
+
 func TestRejectMultipleCanaryModelSpecs(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	isvc := makeTestInferenceService()
@@ -140,6 +141,7 @@ func TestRejectCanaryModelSpecMissing(t *testing.T) {
 	}
 	g.Expect(isvc.ValidateCreate(c)).Should(gomega.MatchError(ExactlyOnePredictorViolatedError))
 }
+
 func TestRejectBadCanaryTrafficValues(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	isvc := makeTestInferenceService()
@@ -155,6 +157,13 @@ func TestRejectTrafficProvidedWithoutCanary(t *testing.T) {
 	isvc := makeTestInferenceService()
 	isvc.Spec.CanaryTrafficPercent = 1
 	g.Expect(isvc.ValidateCreate(c)).Should(gomega.MatchError(TrafficProvidedWithoutCanaryError))
+}
+
+func TestBadParallelismValues(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	isvc := makeTestInferenceService()
+	isvc.Spec.Default.Predictor.Parallelism = -1
+	g.Expect(isvc.ValidateCreate(c)).Should(gomega.MatchError(ParallelismLowerBoundExceededError))
 }
 
 func TestBadReplicaValues(t *testing.T) {

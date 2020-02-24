@@ -1084,6 +1084,13 @@ spec:
                       description: Minimum number of replicas, pods won't scale down
                         to 0 in case of no traffic
                       type: integer
+                    parallelism:
+                      description: Parallelism specifies how many requests can be
+                        processed concurrently, this sets the target concurrency for
+                        Autoscaling(KPA). For model servers that support tuning parallelism
+                        will use this value, by default the parallelism is the number
+                        of the CPU cores for most of the model servers.
+                      type: integer
                     serviceAccountName:
                       description: ServiceAccountName is the name of the ServiceAccount
                         to use to run the service
@@ -2109,6 +2116,13 @@ spec:
                       required:
                       - storageUri
                       type: object
+                    parallelism:
+                      description: Parallelism specifies how many requests can be
+                        processed concurrently, this sets the target concurrency for
+                        Autoscaling(KPA). For model servers that support tuning parallelism
+                        will use this value, by default the parallelism is the number
+                        of the CPU cores for most of the model servers.
+                      type: integer
                     pytorch:
                       description: Spec for PyTorch predictor
                       properties:
@@ -3273,6 +3287,13 @@ spec:
                     minReplicas:
                       description: Minimum number of replicas, pods won't scale down
                         to 0 in case of no traffic
+                      type: integer
+                    parallelism:
+                      description: Parallelism specifies how many requests can be
+                        processed concurrently, this sets the target concurrency for
+                        Autoscaling(KPA). For model servers that support tuning parallelism
+                        will use this value, by default the parallelism is the number
+                        of the CPU cores for most of the model servers.
                       type: integer
                     serviceAccountName:
                       description: ServiceAccountName is the name of the ServiceAccount
@@ -4317,6 +4338,13 @@ spec:
                       description: Minimum number of replicas, pods won't scale down
                         to 0 in case of no traffic
                       type: integer
+                    parallelism:
+                      description: Parallelism specifies how many requests can be
+                        processed concurrently, this sets the target concurrency for
+                        Autoscaling(KPA). For model servers that support tuning parallelism
+                        will use this value, by default the parallelism is the number
+                        of the CPU cores for most of the model servers.
+                      type: integer
                     serviceAccountName:
                       description: ServiceAccountName is the name of the ServiceAccount
                         to use to run the service
@@ -5342,6 +5370,13 @@ spec:
                       required:
                       - storageUri
                       type: object
+                    parallelism:
+                      description: Parallelism specifies how many requests can be
+                        processed concurrently, this sets the target concurrency for
+                        Autoscaling(KPA). For model servers that support tuning parallelism
+                        will use this value, by default the parallelism is the number
+                        of the CPU cores for most of the model servers.
+                      type: integer
                     pytorch:
                       description: Spec for PyTorch predictor
                       properties:
@@ -6506,6 +6541,13 @@ spec:
                     minReplicas:
                       description: Minimum number of replicas, pods won't scale down
                         to 0 in case of no traffic
+                      type: integer
+                    parallelism:
+                      description: Parallelism specifies how many requests can be
+                        processed concurrently, this sets the target concurrency for
+                        Autoscaling(KPA). For model servers that support tuning parallelism
+                        will use this value, by default the parallelism is the number
+                        of the CPU cores for most of the model servers.
                       type: integer
                     serviceAccountName:
                       description: ServiceAccountName is the name of the ServiceAccount

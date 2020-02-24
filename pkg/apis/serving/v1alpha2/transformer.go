@@ -64,6 +64,7 @@ func (t *TransformerSpec) Validate(config *InferenceServicesConfig) error {
 		return err
 	}
 	for _, err := range []error{
+		validateParallelism(t.Parallelism),
 		validateReplicas(t.MinReplicas, t.MaxReplicas),
 		validateResourceRequirements(&transformer.GetContainerSpec().Resources),
 		transformer.Validate(config),

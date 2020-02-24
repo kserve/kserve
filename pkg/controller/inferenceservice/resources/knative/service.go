@@ -125,7 +125,7 @@ func addLoggerContainerPort(container *v1.Container) {
 }
 
 func (c *ServiceBuilder) CreatePredictorService(name string, metadata metav1.ObjectMeta, predictorSpec *v1alpha2.PredictorSpec) (*knservingv1.Service, error) {
-	annotations, err := c.buildAnnotations(metadata, predictorSpec.MinReplicas, predictorSpec.MaxReplicas)
+	annotations, err := c.buildAnnotations(metadata, predictorSpec.MinReplicas, predictorSpec.MaxReplicas, predictorSpec.Parallelism)
 	if err != nil {
 		return nil, err
 	}
@@ -139,7 +139,7 @@ func (c *ServiceBuilder) CreatePredictorService(name string, metadata metav1.Obj
 	// Knative does not support multiple containers so we add an annotation that triggers pod
 	// mutator to add it
 	hasInferenceLogging := addLoggerAnnotations(predictorSpec.Logger, annotations)
-	container := predictorSpec.GetContainer(metadata.Name, c.inferenceServiceConfig)
+	container := predictorSpec.GetContainer(metadata.Name, predictorSpec.Parallelism, c.inferenceServiceConfig)
 	if hasInferenceLogging {
 		addLoggerContainerPort(container)
 	}
@@ -188,7 +188,7 @@ func (c *ServiceBuilder) CreatePredictorService(name string, metadata metav1.Obj
 }
 
 func (c *ServiceBuilder) CreateTransformerService(name string, metadata metav1.ObjectMeta, transformerSpec *v1alpha2.TransformerSpec, isCanary bool) (*knservingv1.Service, error) {
-	annotations, err := c.buildAnnotations(metadata, transformerSpec.MinReplicas, transformerSpec.MaxReplicas)
+	annotations, err := c.buildAnnotations(metadata, transformerSpec.MinReplicas, transformerSpec.MaxReplicas, transformerSpec.Parallelism)
 	if err != nil {
 		return nil, err
 	}
@@ -249,7 +249,7 @@ func (c *ServiceBuilder) CreateTransformerService(name string, metadata metav1.O
 }
 
 func (c *ServiceBuilder) CreateExplainerService(name string, metadata metav1.ObjectMeta, explainerSpec *v1alpha2.ExplainerSpec, predictorService string) (*knservingv1.Service, error) {
-	annotations, err := c.buildAnnotations(metadata, explainerSpec.MinReplicas, explainerSpec.MaxReplicas)
+	annotations, err := c.buildAnnotations(metadata, explainerSpec.MinReplicas, explainerSpec.MaxReplicas, explainerSpec.Parallelism)
 	if err != nil {
 		return nil, err
 	}
@@ -263,7 +263,7 @@ func (c *ServiceBuilder) CreateExplainerService(name string, metadata metav1.Obj
 	// Knative does not support multiple containers so we add an annotation that triggers pod
 	// mutator to add it
 	hasInferenceLogging := addLoggerAnnotations(explainerSpec.Logger, annotations)
-	container := explainerSpec.CreateExplainerContainer(metadata.Name, predictorService, c.inferenceServiceConfig)
+	container := explainerSpec.CreateExplainerContainer(metadata.Name, explainerSpec.Parallelism, predictorService, c.inferenceServiceConfig)
 	if hasInferenceLogging {
 		addLoggerContainerPort(container)
 	}
@@ -310,7 +310,7 @@ func (c *ServiceBuilder) CreateExplainerService(name string, metadata metav1.Obj
 	return service, nil
 }
 
-func (c *ServiceBuilder) buildAnnotations(metadata metav1.ObjectMeta, minReplicas *int, maxReplicas int) (map[string]string, error) {
+func (c *ServiceBuilder) buildAnnotations(metadata metav1.ObjectMeta, minReplicas *int, maxReplicas int, parallelism int) (map[string]string, error) {
 	annotations := utils.Filter(metadata.Annotations, func(key string) bool {
 		return !utils.Includes(serviceAnnotationDisallowedList, key)
 	})
@@ -330,7 +330,11 @@ func (c *ServiceBuilder) buildAnnotations(metadata metav1.ObjectMeta, minReplica
 	}
 	// User can pass down scaling target annotation to overwrite the target default 1
 	if _, ok := annotations[autoscaling.TargetAnnotationKey]; !ok {
-		annotations[autoscaling.TargetAnnotationKey] = constants.DefaultScalingTarget
+		if parallelism == 0 {
+			annotations[autoscaling.TargetAnnotationKey] = constants.DefaultScalingTarget
+		} else {
+			annotations[autoscaling.TargetAnnotationKey] = strconv.Itoa(parallelism)
+		}
 	}
 	// User can pass down scaling class annotation to overwrite the default scaling KPA
 	if _, ok := annotations[autoscaling.ClassAnnotationKey]; !ok {
