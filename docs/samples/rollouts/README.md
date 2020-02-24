@@ -83,13 +83,7 @@ Now you can access the console at `localhost:20001/kiali` with credentials admin
 Expected Kiali graph:
 ![canary screenshot](screenshots/canary.png)
 
-If you stop making requests to the application, you should eventually see that your application scales itself back down to zero. Watch the pods until you see that they are `Terminating`. This should take approximately 90 seconds.
-
-```
-kubectl get pods --watch
-```
-
-Note: To exit the watch, use `ctrl + c`.
+If you stop making requests to the application, you should eventually see the traffic animation in the Kiali graph disappear.
 
 ## Pinned canary
 The canary model can also be pinned and receive no traffic as shown in the pinned.yaml.
