@@ -1,0 +1,18 @@
+apiVersion: "serving.kubeflow.org/v1alpha2"
+kind: "InferenceService"
+metadata:
+  name: "my-model"
+spec:
+  # This is now the promoted canary model
+  default: 
+    predictor:
+      tensorflow:
+        storageUri: "gs://kfserving-samples/models/tensorflow/flowers-2"
+  # Defaults to zero, so can also be omitted or explicitly set to zero.
+  canaryTrafficPercent: 0
+  # This use to be the default model
+  canary:
+    predictor:
+      # Canary is created but no traffic is directly forwarded.
+      tensorflow:
+        storageUri: "gs://kfserving-samples/models/tensorflow/flowers"

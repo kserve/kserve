@@ -86,7 +86,7 @@ Expected Kiali graph:
 If you stop making requests to the application, you should eventually see that your application scales itself back down to the number of `minReplicas` (default is 1 for KFServing v0.3+, and 0 for lower versions). You should also eventually see the traffic animation in the Kiali graph disappear.
 
 ## Pinned canary
-The canary model can also be pinned and receive no traffic as shown in the pinned.yaml.
+The canary model can also be pinned and receive no traffic as shown in the pinned.yaml. Applying this after you have applied the canary.yaml would essentially be rolling back the canary model.
 
 Apply the CR:
 ```
@@ -104,3 +104,23 @@ The output will show that all the traffic is going to the default model. You may
 
 Expected Kiali graph:
 ![pinned screenshot](screenshots/pinned.png)
+
+## Promoting canary
+The canary model can also be promoted by applying the promotion.yaml after either the pinned.yaml and/or the canary.yaml.
+
+Apply the CR:
+```
+kubectl apply -f promotion.yaml
+```
+
+Similar to the pinned.yaml example, there will be two pods and all traffic is going to the default model (promoted canary model):
+```
+kubectl get inferenceservices
+NAME       URL                                                      READY   DEFAULT TRAFFIC   CANARY TRAFFIC   AGE
+my-model   http://my-model.default.example.com/v1/models/my-model   True    100                                53s
+```
+
+You may run predictions again while watching the Kiali console to visually verify that all traffic is routed to the promoted canary model.
+
+Expected Kiali graph:
+![pinned screenshot](screenshots/promotion.png)
