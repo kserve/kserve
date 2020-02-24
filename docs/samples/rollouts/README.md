@@ -83,7 +83,7 @@ Now you can access the console at `localhost:20001/kiali` with credentials admin
 Expected Kiali graph:
 ![canary screenshot](screenshots/canary.png)
 
-If you stop making requests to the application, you should eventually see the traffic animation in the Kiali graph disappear.
+If you stop making requests to the application, you should eventually see that your application scales itself back down to the number of `minReplicas` (default is 1 for KFServing v0.3+, and 0 for lower versions). You should also eventually see the traffic animation in the Kiali graph disappear.
 
 ## Pinned canary
 The canary model can also be pinned and receive no traffic as shown in the pinned.yaml.
