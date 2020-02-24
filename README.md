@@ -41,7 +41,7 @@ env:
   value: enabled
 ```
 
-For Kubernetes 1.15+ users we strongly suggest turn on object selector so that only KFServing `InferenceService` pods go through the pod mutator.
+For Kubernetes 1.15+ users we strongly suggest turning on the [object selector](https://kubernetes.io/docs/reference/access-authn-authz/extensible-admission-controllers/#matching-requests-objectselector) so that only KFServing `InferenceService` pods go through the pod mutator.
 ```bash
 kubectl patch mutatingwebhookconfiguration inferenceservice.serving.kubeflow.org --patch '{"webhooks":[{"name": "inferenceservice.kfserving-webhook-server.pod-mutator","objectSelector":{"matchExpressions":[{"key":"serving.kubeflow.org/inferenceservice", "operator": "Exists"}]}}]}'
 ```
