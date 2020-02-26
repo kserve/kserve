@@ -21,14 +21,18 @@ inferenceservice.serving.kubeflow.org/custom-prebuilt-image
 
 ## Run a prediction
 
-This example uses the [codait/max-object-detector](https://github.com/IBM/MAX-Object-Detector) image. Since its REST interface is different than the [Tensorflow V1 HTTP API](https://www.tensorflow.org/tfx/serving/api_rest#predict_api) that KFServing expects we will need to bypass the inferenceservice and send our request directly to the predictor.
+This example uses the [codait/max-object-detector](https://github.com/IBM/MAX-Object-Detector) image. Since its REST interface is different than the [Tensorflow V1 HTTP API](https://www.tensorflow.org/tfx/serving/api_rest#predict_api) that KFServing expects we will need to bypass the inferenceservice and send our request directly to the predictor. The Max Object Detector api server expects a POST request to the `/model/predict` endpoint that includes an `image` multipart/form-data and an optional `threshold` query string.
 
 ```
 MODEL_NAME=custom-prebuilt-image
 CLUSTER_IP=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 SERVICE_HOSTNAME=$(kubectl get route ${MODEL_NAME}-predictor-default -o jsonpath='{.status.url}' | cut -d "/" -f 3)
 curl -v -F "image=@dog-human.jpg" http://${CLUSTER_IP}/model/predict -H "Host: ${SERVICE_HOSTNAME}"
+```
 
+Expected output
+
+```
 *   Trying 169.47.250.204...
 * TCP_NODELAY set
 * Connected to 169.47.250.204 (169.47.250.204) port 80 (#0)
