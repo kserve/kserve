@@ -47,7 +47,7 @@ kubectl patch mutatingwebhookconfiguration inferenceservice.serving.kubeflow.org
 ```
 #### KFServing in Kubeflow Installation
 KFServing is installed by default as part of Kubeflow installation using [Kubeflow manifests](https://github.com/kubeflow/manifests/tree/master/kfserving) and KFServing controller is deployed in `kubeflow` namespace.
-Since Kubeflow kubernetes minimal requirement is 1.14 which does not support object selector, `ENABLE_WEBHOOK_NAMESPACE_SELECTOR` is enabled in Kubeflow installation by default
+Since Kubeflow Kubernetes minimal requirement is 1.14 which does not support object selector, `ENABLE_WEBHOOK_NAMESPACE_SELECTOR` is enabled in Kubeflow installation by default.
 and you need to add label `serving.kubeflow.org/inferenceservice: enabled` to allow deploying KFServing `InferenceService` in the given namespaces, also make sure you do not deploy
 `InferenceService` in `kubeflow` namespace which is labelled as `control-panel`.
 
