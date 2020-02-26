@@ -38,6 +38,7 @@ config/overlays/development/configmap/inferenceservice_patch.yaml
 config/overlays/dev-image-config/inferenceservice_patch.yaml
 config/overlays/local/
 .ko.yaml
+docs/samples/logger/local/iris**
 
 # swagger-codegen tools and auto generated files but useless
 hack/current_violation_exceptions.list

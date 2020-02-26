@@ -18,6 +18,8 @@ const (
 	LoggerArgumentSourceUri = "--source-uri"
 	LoggerArgumentMode      = "--log-mode"
 	LoggerArgumentModelId   = "--model-id"
+	LoggerArgumentNamespace = "--namespace"
+	LoggerArgumentPredictor = "--predictor"
 )
 
 type LoggerConfig struct {
@@ -74,7 +76,9 @@ func (il *LoggerInjector) InjectLogger(pod *v1.Pod) error {
 		logMode = string(v1alpha2.LogAll)
 	}
 
-	modelId, _ := pod.ObjectMeta.Labels[PodKnativeServiceLabel]
+	modelId, _ := pod.ObjectMeta.Labels[constants.KServiceModelLabel]
+	namespace := pod.ObjectMeta.Namespace
+	predictor := pod.ObjectMeta.Labels[constants.KServicePredictorLabel]
 
 	// Don't inject if Contianer already injected
 	for _, container := range pod.Spec.Containers {
@@ -98,6 +102,10 @@ func (il *LoggerInjector) InjectLogger(pod *v1.Pod) error {
 			logMode,
 			LoggerArgumentModelId,
 			modelId,
+			LoggerArgumentNamespace,
+			namespace,
+			LoggerArgumentPredictor,
+			predictor,
 		},
 		Resources: v1.ResourceRequirements{
 			Limits: map[v1.ResourceName]resource.Quantity{

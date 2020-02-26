@@ -13,7 +13,18 @@ import (
 const (
 	CEInferenceRequest  = "org.kubeflow.serving.inference.request"
 	CEInferenceResponse = "org.kubeflow.serving.inference.response"
-	ModelIdHeader       = "Model-ID"
+
+	//TODO: how to get access to these?
+	//even modelid not coming through right now and appears to be empty
+	//anything set as parameter on predictor container could also be set on logger
+
+	// cloud events extension attributes have to be lowercase alphanumeric
+	//TODO: ideally request id would have its own header but make do with ce-id for now
+	// modelid should be inferenceservice name, which is also model_name
+	ModelIdAttr   = "modelid"
+	NamespaceAttr = "namespace"
+	//predictor would be either default or canary
+	PredictorAttr = "predictor"
 )
 
 // NewWorker creates, and returns a new Worker object. Its only argument
@@ -50,7 +61,6 @@ func (W *Worker) sendCloudEvent(logReq LogRequest) error {
 	t, err := cloudevents.NewHTTPTransport(
 		cloudevents.WithTarget(logReq.Url.String()),
 		cloudevents.WithEncoding(cloudevents.HTTPBinaryV02),
-		cloudevents.WitHHeader(ModelIdHeader, logReq.ModelId),
 	)
 
 	if err != nil {
@@ -69,6 +79,11 @@ func (W *Worker) sendCloudEvent(logReq LogRequest) error {
 	} else {
 		event.SetType(CEInferenceResponse)
 	}
+
+	event.SetExtension(ModelIdAttr, logReq.ModelId)
+	event.SetExtension(NamespaceAttr, logReq.Namespace)
+	event.SetExtension(PredictorAttr, logReq.Predictor)
+
 	event.SetSource(logReq.SourceUri.String())
 	event.SetDataContentType(logReq.ContentType)
 	if err := event.SetData(*logReq.Bytes); err != nil {

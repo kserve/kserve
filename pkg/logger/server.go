@@ -35,9 +35,11 @@ type LoggerHandler struct {
 	sourceUri *url.URL
 	logMode   v1alpha2.LoggerMode
 	modelId   string
+	namespace string
+	predictor string
 }
 
-func New(log logr.Logger, svcHost string, svcPort string, logUrl *url.URL, sourceUri *url.URL, logMode v1alpha2.LoggerMode, modelId string) http.Handler {
+func New(log logr.Logger, svcHost string, svcPort string, logUrl *url.URL, sourceUri *url.URL, logMode v1alpha2.LoggerMode, modelId string, namespace string, predictor string) http.Handler {
 	return &LoggerHandler{
 		log:       log,
 		svcHost:   svcHost,
@@ -46,6 +48,8 @@ func New(log logr.Logger, svcHost string, svcPort string, logUrl *url.URL, sourc
 		sourceUri: sourceUri,
 		logMode:   logMode,
 		modelId:   modelId,
+		namespace: namespace,
+		predictor: predictor,
 	}
 }
 
@@ -101,6 +105,8 @@ func (eh *LoggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			Id:          id,
 			SourceUri:   eh.sourceUri,
 			ModelId:     eh.modelId,
+			Namespace:   eh.namespace,
+			Predictor:   eh.predictor,
 		}); err != nil {
 			eh.log.Error(err, "Failed to log request")
 		}
@@ -125,6 +131,8 @@ func (eh *LoggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				Id:          id,
 				SourceUri:   eh.sourceUri,
 				ModelId:     eh.modelId,
+				Namespace:   eh.namespace,
+				Predictor:   eh.predictor,
 			}); err != nil {
 				eh.log.Error(err, "Failed to log response")
 			}

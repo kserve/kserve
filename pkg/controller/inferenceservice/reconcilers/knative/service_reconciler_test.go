@@ -116,7 +116,11 @@ func TestKnativeServiceReconcile(t *testing.T) {
 					ConfigurationSpec: knservingv1.ConfigurationSpec{
 						Template: knservingv1.RevisionTemplateSpec{
 							ObjectMeta: metav1.ObjectMeta{
-								Labels: map[string]string{"serving.kubeflow.org/inferenceservice": "mnist"},
+								Labels: map[string]string{"serving.kubeflow.org/inferenceservice": "mnist",
+									constants.KServicePredictorLabel: constants.InferenceServiceDefault,
+									constants.KServiceModelLabel:     "mnist",
+									constants.KServiceComponentLabel: constants.Predictor.String(),
+								},
 								Annotations: map[string]string{
 									"autoscaling.knative.dev/class":                               "kpa.autoscaling.knative.dev",
 									"autoscaling.knative.dev/minScale":                            "1",
@@ -156,7 +160,11 @@ func TestKnativeServiceReconcile(t *testing.T) {
 					ConfigurationSpec: knservingv1.ConfigurationSpec{
 						Template: knservingv1.RevisionTemplateSpec{
 							ObjectMeta: metav1.ObjectMeta{
-								Labels: map[string]string{"serving.kubeflow.org/inferenceservice": "mnist"},
+								Labels: map[string]string{"serving.kubeflow.org/inferenceservice": "mnist",
+									constants.KServicePredictorLabel: constants.InferenceServiceCanary,
+									constants.KServiceModelLabel:     "mnist",
+									constants.KServiceComponentLabel: constants.Predictor.String(),
+								},
 								Annotations: map[string]string{
 									"autoscaling.knative.dev/class":                               "kpa.autoscaling.knative.dev",
 									"autoscaling.knative.dev/minScale":                            "1",
@@ -214,7 +222,11 @@ func TestKnativeServiceReconcile(t *testing.T) {
 					ConfigurationSpec: knservingv1.ConfigurationSpec{
 						Template: knservingv1.RevisionTemplateSpec{
 							ObjectMeta: metav1.ObjectMeta{
-								Labels: map[string]string{"serving.kubeflow.org/inferenceservice": "mnist"},
+								Labels: map[string]string{"serving.kubeflow.org/inferenceservice": "mnist",
+									constants.KServicePredictorLabel: constants.InferenceServiceDefault,
+									constants.KServiceModelLabel:     "mnist",
+									constants.KServiceComponentLabel: constants.Predictor.String(),
+								},
 								Annotations: map[string]string{
 									"autoscaling.knative.dev/class":                               "kpa.autoscaling.knative.dev",
 									"autoscaling.knative.dev/minScale":                            "1",

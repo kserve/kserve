@@ -86,7 +86,11 @@ var defaultService = &knservingv1.Service{
 		ConfigurationSpec: knservingv1.ConfigurationSpec{
 			Template: knservingv1.RevisionTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{"serving.kubeflow.org/inferenceservice": "mnist"},
+					Labels: map[string]string{"serving.kubeflow.org/inferenceservice": "mnist",
+						constants.KServicePredictorLabel: constants.InferenceServiceDefault,
+						constants.KServiceModelLabel:     "mnist",
+						constants.KServiceComponentLabel: constants.Predictor.String(),
+					},
 					Annotations: map[string]string{
 						"autoscaling.knative.dev/class":                            "kpa.autoscaling.knative.dev",
 						"autoscaling.knative.dev/target":                           "1",
@@ -130,7 +134,11 @@ var canaryService = &knservingv1.Service{
 		ConfigurationSpec: knservingv1.ConfigurationSpec{
 			Template: knservingv1.RevisionTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{"serving.kubeflow.org/inferenceservice": "mnist"},
+					Labels: map[string]string{"serving.kubeflow.org/inferenceservice": "mnist",
+						constants.KServicePredictorLabel: constants.InferenceServiceCanary,
+						constants.KServiceModelLabel:     "mnist",
+						constants.KServiceComponentLabel: constants.Predictor.String(),
+					},
 					Annotations: map[string]string{
 						"autoscaling.knative.dev/class":                            "kpa.autoscaling.knative.dev",
 						"autoscaling.knative.dev/target":                           "1",
@@ -250,7 +258,10 @@ func TestInferenceServiceToKnativeService(t *testing.T) {
 					ConfigurationSpec: knservingv1.ConfigurationSpec{
 						Template: knservingv1.RevisionTemplateSpec{
 							ObjectMeta: metav1.ObjectMeta{
-								Labels: map[string]string{"serving.kubeflow.org/inferenceservice": "sklearn"},
+								Labels: map[string]string{"serving.kubeflow.org/inferenceservice": "sklearn",
+									constants.KServicePredictorLabel: constants.InferenceServiceDefault,
+									constants.KServiceModelLabel:     "sklearn",
+									constants.KServiceComponentLabel: constants.Predictor.String()},
 								Annotations: map[string]string{
 									constants.StorageInitializerSourceUriInternalAnnotationKey: "s3://test/sklearn/export",
 									"autoscaling.knative.dev/class":                            "kpa.autoscaling.knative.dev",
@@ -306,7 +317,11 @@ func TestInferenceServiceToKnativeService(t *testing.T) {
 					ConfigurationSpec: knservingv1.ConfigurationSpec{
 						Template: knservingv1.RevisionTemplateSpec{
 							ObjectMeta: metav1.ObjectMeta{
-								Labels: map[string]string{"serving.kubeflow.org/inferenceservice": "xgboost"},
+								Labels: map[string]string{"serving.kubeflow.org/inferenceservice": "xgboost",
+									constants.KServicePredictorLabel: constants.InferenceServiceDefault,
+									constants.KServiceModelLabel:     "xgboost",
+									constants.KServiceComponentLabel: constants.Predictor.String(),
+								},
 								Annotations: map[string]string{
 									constants.StorageInitializerSourceUriInternalAnnotationKey: "s3://test/xgboost/export",
 									"autoscaling.knative.dev/class":                            "kpa.autoscaling.knative.dev",
@@ -363,7 +378,11 @@ func TestInferenceServiceToKnativeService(t *testing.T) {
 					ConfigurationSpec: knservingv1.ConfigurationSpec{
 						Template: knservingv1.RevisionTemplateSpec{
 							ObjectMeta: metav1.ObjectMeta{
-								Labels: map[string]string{"serving.kubeflow.org/inferenceservice": "xgboost"},
+								Labels: map[string]string{"serving.kubeflow.org/inferenceservice": "xgboost",
+									constants.KServicePredictorLabel: constants.InferenceServiceDefault,
+									constants.KServiceModelLabel:     "xgboost",
+									constants.KServiceComponentLabel: constants.Predictor.String(),
+								},
 								Annotations: map[string]string{
 									constants.StorageInitializerSourceUriInternalAnnotationKey: "s3://test/xgboost/export",
 									"autoscaling.knative.dev/class":                            "kpa.autoscaling.knative.dev",
@@ -432,7 +451,11 @@ func TestInferenceServiceToKnativeService(t *testing.T) {
 					ConfigurationSpec: knservingv1.ConfigurationSpec{
 						Template: knservingv1.RevisionTemplateSpec{
 							ObjectMeta: metav1.ObjectMeta{
-								Labels: map[string]string{"serving.kubeflow.org/inferenceservice": "sklearn"},
+								Labels: map[string]string{"serving.kubeflow.org/inferenceservice": "sklearn",
+									constants.KServicePredictorLabel: constants.InferenceServiceDefault,
+									constants.KServiceModelLabel:     "sklearn",
+									constants.KServiceComponentLabel: constants.Predictor.String(),
+								},
 								Annotations: map[string]string{
 									constants.StorageInitializerSourceUriInternalAnnotationKey: "s3://test/sklearn/export",
 									"autoscaling.knative.dev/class":                            "kpa.autoscaling.knative.dev",
@@ -474,6 +497,7 @@ func TestInferenceServiceToKnativeService(t *testing.T) {
 			constants.DefaultPredictorServiceName(scenario.inferenceService.Name),
 			scenario.inferenceService.ObjectMeta,
 			&scenario.inferenceService.Spec.Default.Predictor,
+			false,
 		)
 		if err != nil {
 			t.Errorf("Test %q unexpected error %s", name, err.Error())
@@ -488,6 +512,7 @@ func TestInferenceServiceToKnativeService(t *testing.T) {
 				constants.CanaryPredictorServiceName(isvc.Name),
 				scenario.inferenceService.ObjectMeta,
 				&scenario.inferenceService.Spec.Canary.Predictor,
+				true,
 			)
 			if err != nil {
 				t.Errorf("Test %q unexpected error %s", name, err.Error())
@@ -572,7 +597,11 @@ func TestTransformerToKnativeService(t *testing.T) {
 			ConfigurationSpec: knservingv1.ConfigurationSpec{
 				Template: knservingv1.RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
-						Labels: map[string]string{"serving.kubeflow.org/inferenceservice": "mnist"},
+						Labels: map[string]string{"serving.kubeflow.org/inferenceservice": "mnist",
+							constants.KServicePredictorLabel: constants.InferenceServiceDefault,
+							constants.KServiceModelLabel:     "mnist",
+							constants.KServiceComponentLabel: constants.Transformer.String(),
+						},
 						Annotations: map[string]string{
 							"autoscaling.knative.dev/class":                        "kpa.autoscaling.knative.dev",
 							"autoscaling.knative.dev/target":                       "1",
@@ -614,7 +643,11 @@ func TestTransformerToKnativeService(t *testing.T) {
 			ConfigurationSpec: knservingv1.ConfigurationSpec{
 				Template: knservingv1.RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
-						Labels: map[string]string{"serving.kubeflow.org/inferenceservice": "mnist"},
+						Labels: map[string]string{"serving.kubeflow.org/inferenceservice": "mnist",
+							constants.KServicePredictorLabel: constants.InferenceServiceCanary,
+							constants.KServiceModelLabel:     "mnist",
+							constants.KServiceComponentLabel: constants.Transformer.String(),
+						},
 						Annotations: map[string]string{
 							"autoscaling.knative.dev/class":                        "kpa.autoscaling.knative.dev",
 							"autoscaling.knative.dev/target":                       "1",
@@ -757,7 +790,10 @@ func TestExplainerToKnativeService(t *testing.T) {
 			ConfigurationSpec: knservingv1.ConfigurationSpec{
 				Template: knservingv1.RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
-						Labels: map[string]string{"serving.kubeflow.org/inferenceservice": "mnist"},
+						Labels: map[string]string{"serving.kubeflow.org/inferenceservice": "mnist",
+							constants.KServiceModelLabel:     "mnist",
+							constants.KServiceComponentLabel: constants.Explainer.String(),
+						},
 						Annotations: map[string]string{
 							"autoscaling.knative.dev/class":                        "kpa.autoscaling.knative.dev",
 							"autoscaling.knative.dev/minScale":                     "1",
@@ -799,7 +835,10 @@ func TestExplainerToKnativeService(t *testing.T) {
 			ConfigurationSpec: knservingv1.ConfigurationSpec{
 				Template: knservingv1.RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
-						Labels: map[string]string{"serving.kubeflow.org/inferenceservice": "mnist"},
+						Labels: map[string]string{"serving.kubeflow.org/inferenceservice": "mnist",
+							constants.KServiceModelLabel:     "mnist",
+							constants.KServiceComponentLabel: constants.Explainer.String(),
+						},
 						Annotations: map[string]string{
 							"autoscaling.knative.dev/class":                        "kpa.autoscaling.knative.dev",
 							"autoscaling.knative.dev/minScale":                     "1",

@@ -9,14 +9,16 @@ docker run -it -p 8000:80 --rm -t mendhak/http-https-echo
 Start an SKLearn Iris model on port 8080. You will need to have pip installed the sklearnserver. See `/python/sklearnserver`.
 
 ```
-python -m sklearnserver --model_dir gs://kfserving-samples/models/sklearn/iris --model_name sklearn-iris --http_port 8080
+gsutil cp -r gs://kfserving-samples/models/sklearn/iris .
+LOCAL_DIR=$(pwd)/iris
+python -m sklearnserver --model_dir $LOCAL_DIR --model_name sklearn-iris --http_port 8080
 ```
 
 Start the Kfserving logger from Kfserving root folder:
 
 ```
 
-bin/logger --log-url http://0.0.0.0:8000 --component-port 8080 --log-mode all
+bin/logger --log-url http://0.0.0.0:8000 --component-port 8080 --log-mode all --model-id=iris --namespace=default --predictor=default
 ```
 
 Send a request:

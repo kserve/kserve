@@ -19,4 +19,6 @@ type LogRequest struct {
 	Id          string
 	SourceUri   *url.URL
 	ModelId     string
+	Namespace   string
+	Predictor   string
 }
