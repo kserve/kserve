@@ -27,7 +27,7 @@ generation [script](./hack/self-signed-ca.sh).
 #### Standalone KFServing Installation
 KFServing can be installed standalone if your kubernetes cluster meets the above prerequisites and KFServing controller is deployed in `kfserving-system` namespace.
 ```
-TAG=0.2.2
+TAG=v0.3.0
 kubectl apply -f ./install/$TAG/kfserving.yaml
 ```
 KFServing uses pod mutator or [mutating admission webhooks](https://kubernetes.io/blog/2019/03/21/a-guide-to-kubernetes-admission-controllers/) to inject the storage initializer component of KFServing. By default all the pods in namespaces which are not labelled with `control-plane` label go through the pod mutator.
