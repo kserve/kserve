@@ -249,16 +249,8 @@ Error from server (InternalError): error when creating "docs/samples/tensorflow/
 Internal error occurred: failed calling webhook "inferenceservice.kfserving-webhook-server.defaulter": 
 Post https://kfserving-webhook-server-service.kfserving-system.svc:443/mutate-inferenceservices?timeout=30s:
 
-
-```shell
- context deadline exceeded
-```
-
-```shell
+context deadline exceeded
 unexpected EOF
-```
-
-```shell
 dial tcp x.x.x.x:443: connect: connection refused
 ```
 
