@@ -231,9 +231,11 @@ def get_creds_name_from_config_map(creds):
         isvc_config_map = client.CoreV1Api().read_namespaced_config_map(
             constants.INFERENCESERVICE_CONFIG_MAP_NAME,
             constants.INFERENCESERVICE_SYSTEM_NAMESPACE)
-    except client.rest.ApiException as e:
-        raise RuntimeError(
-            "Exception when calling CoreV1Api->read_namespaced_config_map: %s\n" % e)
+    except client.rest.ApiException:
+        logging.warning('Cannot get configmap %s in namespace %s.',
+                        constants.INFERENCESERVICE_CONFIG_MAP_NAME,
+                        constants.INFERENCESERVICE_SYSTEM_NAMESPACE)
+        return None
 
     isvc_creds_str = isvc_config_map.data['credentials']
     isvc_creds_json = json.loads(isvc_creds_str)
