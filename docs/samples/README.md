@@ -13,6 +13,12 @@
 
 [TensorRT Model with NVIDIA's TensorRT Inference Server](./tensorrt)
 
+### Deploy KFServing InferenceService with a custom Predictor
+
+[Hello World Flask Server](./custom/hello-world)
+
+[KFServing Custom Model](./custom/kfserving-custom-model)
+
 ### Deploy KFServing InferenceService with Transformer
 [Image Transformer with PyTorch Predictor](./transformer/image_transformer)
 
