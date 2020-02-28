@@ -21,13 +21,7 @@ class HTTPHandler(tornado.web.RequestHandler):
         return model
 
     def validate(self, request):
-        if "instances" not in request:
-            raise tornado.web.HTTPError(
-                status_code=HTTPStatus.BAD_REQUEST,
-                reason="Expected key \"instances\" in request body"
-            )
-
-        if not isinstance(request["instances"], list):
+        if "instances" in request and not isinstance(request["instances"], list):
             raise tornado.web.HTTPError(
                 status_code=HTTPStatus.BAD_REQUEST,
                 reason="Expected \"instances\" to be a list"
