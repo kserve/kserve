@@ -7,7 +7,7 @@
 
 ## Build and push the sample Docker Image
 
-The goal of custom image support is to allow users to bring their own wrapped model inside a container and serve it with KFServing. Please note that you will need to ensure that your container is also running a web server e.g. Flask to expose your model endpoints.
+The goal of custom image support is to allow users to bring their own wrapped model inside a container and serve it with KFServing. Please note that you will need to ensure that your container is also running a web server e.g. Flask to expose your model endpoints. This example extends `kfserving.KFModel` which uses the tornado web server.
 
 In this example we use Docker to build the sample python server into a container. To build and push with Docker Hub, run these commands replacing {username} with your Docker Hub username:
 
@@ -55,7 +55,7 @@ Expected Output:
 > Host: kfserving-custom-model.default.example.com
 > User-Agent: curl/7.64.1
 > Accept: */*
-> Content-Length: 105318
+> Content-Length: 105339
 > Content-Type: application/x-www-form-urlencoded
 > Expect: 100-continue
 >
@@ -64,9 +64,9 @@ Expected Output:
 < HTTP/1.1 200 OK
 < content-length: 232
 < content-type: text/html; charset=UTF-8
-< date: Fri, 21 Feb 2020 20:19:37 GMT
+< date: Wed, 26 Feb 2020 15:19:15 GMT
 < server: istio-envoy
-< x-envoy-upstream-service-time: 258
+< x-envoy-upstream-service-time: 213
 <
 * Connection #0 to host 169.47.250.204 left intact
 {"predictions": {"Labrador retriever": 0.4158518612384796, "golden retriever": 0.1659165322780609, "Saluki, gazelle hound": 0.16286855936050415, "whippet": 0.028539149090647697, "Ibizan hound, Ibizan Podenco": 0.023924754932522774}}* Closing connection 0
