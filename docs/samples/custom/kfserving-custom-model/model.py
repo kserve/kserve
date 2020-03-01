@@ -26,8 +26,9 @@ class KFServingSampleModel(kfserving.KFModel):
     def predict(self, request: Dict) -> Dict:
         inputs = request["instances"]
 
-        # Input is a data URI, split the header and the base64 encoded image
-        header, data = inputs[0].split(",", 1)
+        # Input follows the Tensorflow V1 HTTP API for binary values
+        # https://www.tensorflow.org/tfx/serving/api_rest#encoding_binary_values
+        data = inputs[0]["image"]["b64"]
 
         raw_img_data = base64.b64decode(data)
         input_image = Image.open(io.BytesIO(raw_img_data))
@@ -41,7 +42,6 @@ class KFServingSampleModel(kfserving.KFModel):
         ])
 
         input_tensor = preprocess(input_image)
-        
         input_batch = input_tensor.unsqueeze(0)
 
         output = self.model(input_batch)
