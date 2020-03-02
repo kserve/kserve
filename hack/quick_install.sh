@@ -74,6 +74,7 @@ kubectl apply --filename https://github.com/knative/serving/releases/download/${
 
 cd ..
 # Install KFServing
-export KFSERVING_ENABLE_SELF_SIGNED_CA=true 
-make deploy
+kubectl apply -f install/0.2.2/kfserving.yaml
+
+# Clean up
 rm -rf istio-${ISTIO_VERSION} 
