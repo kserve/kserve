@@ -60,6 +60,7 @@ func (t *TensorflowSpec) GetContainer(modelName string, parallelism int, config 
 	}
 	port := []v1.ContainerPort{{Name: "h2c", ContainerPort: int32(TensorflowServingGRPCPortInt)}}
 	if strings.ToLower(t.Protocol) != "grpc" {
+		// If grpc is not defined, fall back to default.
 		port = nil
 	}
 
