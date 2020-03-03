@@ -833,6 +833,13 @@ func schema_pkg_apis_serving_v1alpha2_TensorflowSpec(ref common.ReferenceCallbac
 							Ref:         ref("k8s.io/api/core/v1.ResourceRequirements"),
 						},
 					},
+					"protocol": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Allow user to change between REST or gRPC protocol.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 				Required: []string{"storageUri"},
 			},

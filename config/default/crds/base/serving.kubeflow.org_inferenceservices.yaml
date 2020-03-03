@@ -2199,6 +2199,12 @@ spec:
                     tensorflow:
                       description: Spec for Tensorflow Serving (https://github.com/tensorflow/serving)
                       properties:
+                        protocol:
+                          description: Allow user to change between REST or gRPC protocol.
+                          enum:
+                          - rest
+                          - grpc
+                          type: string
                         resources:
                           description: Defaults to requests and limits of 1CPU, 2Gb
                             MEM.
@@ -5453,6 +5459,12 @@ spec:
                     tensorflow:
                       description: Spec for Tensorflow Serving (https://github.com/tensorflow/serving)
                       properties:
+                        protocol:
+                          description: Allow user to change between REST or gRPC protocol.
+                          enum:
+                          - rest
+                          - grpc
+                          type: string
                         resources:
                           description: Defaults to requests and limits of 1CPU, 2Gb
                             MEM.
