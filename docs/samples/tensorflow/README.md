@@ -121,7 +121,7 @@ Run prediction script
 MODEL_NAME=flowers-sample
 INPUT_PATH=./input.json
 CLUSTER_IP=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-SERVICE_HOSTNAME=$(kubectl get inferenceservice ${MODEL_NAME} -o jsonpath='{.status.url}' | cut -d "/" -f 3)
+SERVICE_HOSTNAME=$(kubectl get route ${MODEL_NAME}-predictor-default -o jsonpath='{.status.url}' | cut -d "/" -f 3)
 python iris_client.py --host $CLUSTER_IP --model $MODEL_NAME --hostname $SERVICE_HOSTNAME --input_path $INPUT_PATH
 ```
 
