@@ -16,15 +16,15 @@ const (
 
 	//TODO: how to get access to these?
 	//even modelid not coming through right now and appears to be empty
-	//anything set as parameter on predictor container could also be set on logger
+	//anything set as parameter on endpoint container could also be set on logger
 
 	// cloud events extension attributes have to be lowercase alphanumeric
 	//TODO: ideally request id would have its own header but make do with ce-id for now
 	// modelid should be inferenceservice name, which is also model_name
 	ModelIdAttr   = "modelid"
 	NamespaceAttr = "namespace"
-	//predictor would be either default or canary
-	PredictorAttr = "predictor"
+	//endpoint would be either default or canary
+	EndpointAttr = "endpoint"
 )
 
 // NewWorker creates, and returns a new Worker object. Its only argument
@@ -82,7 +82,7 @@ func (W *Worker) sendCloudEvent(logReq LogRequest) error {
 
 	event.SetExtension(ModelIdAttr, logReq.ModelId)
 	event.SetExtension(NamespaceAttr, logReq.Namespace)
-	event.SetExtension(PredictorAttr, logReq.Predictor)
+	event.SetExtension(EndpointAttr, logReq.Endpoint)
 
 	event.SetSource(logReq.SourceUri.String())
 	event.SetDataContentType(logReq.ContentType)

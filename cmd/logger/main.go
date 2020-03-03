@@ -28,7 +28,7 @@ var (
 	logMode       = flag.String("log-mode", string(v1alpha2.LogAll), "Whether to log 'request', 'response' or 'all'")
 	modelId       = flag.String("model-id", "", "The model ID to add as header to log events")
 	namespace     = flag.String("namespace", "", "The namespace to add as header to log events")
-	predictor     = flag.String("predictor", "", "The predictor name to add as header to log events")
+	endpoint      = flag.String("endpoint", "", "The endpoint name to add as header to log events")
 )
 
 func main() {
@@ -66,7 +66,7 @@ func main() {
 
 	stopCh := signals.SetupSignalHandler()
 
-	var eh http.Handler = logger.New(log, *componentHost, *componentPort, logUrlParsed, sourceUriParsed, loggingMode, *modelId, *namespace, *predictor)
+	var eh http.Handler = logger.New(log, *componentHost, *componentPort, logUrlParsed, sourceUriParsed, loggingMode, *modelId, *namespace, *endpoint)
 
 	h1s := &http.Server{
 		Addr:    ":" + *port,

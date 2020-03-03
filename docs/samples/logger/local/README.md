@@ -18,7 +18,7 @@ Start the Kfserving logger from Kfserving root folder:
 
 ```
 
-bin/logger --log-url http://0.0.0.0:8000 --component-port 8080 --log-mode all --model-id=iris --namespace=default --predictor=default
+bin/logger --log-url http://0.0.0.0:8000 --component-port 8080 --log-mode all --model-id=iris --namespace=default --endpoint=default
 ```
 
 Send a request:
@@ -61,7 +61,7 @@ This shows the prediction has worked. In the output of the http-https-echo serve
      'ce-id': '3ba84918-209f-4d8d-ae38-b041e5e4a328',
      'ce-modelid': '"iris"',
      'ce-namespace': '"default"',
-     'ce-predictor': '"default"',
+     'ce-endpoint': '"default"',
      'ce-source': 'http://localhost:8081/',
      'ce-specversion': '0.2',
      'ce-time': '2020-02-27T09:52:15.820509751Z',
@@ -90,7 +90,7 @@ This shows the prediction has worked. In the output of the http-https-echo serve
      'ce-id': '3ba84918-209f-4d8d-ae38-b041e5e4a328',
      'ce-modelid': '"iris"',
      'ce-namespace': '"default"',
-     'ce-predictor': '"default"',
+     'ce-endpoint': '"default"',
      'ce-source': 'http://localhost:8081/',
      'ce-specversion': '0.2',
      'ce-time': '2020-02-27T09:52:15.816441245Z',

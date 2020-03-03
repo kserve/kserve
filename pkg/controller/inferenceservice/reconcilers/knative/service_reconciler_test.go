@@ -117,7 +117,7 @@ func TestKnativeServiceReconcile(t *testing.T) {
 						Template: knservingv1.RevisionTemplateSpec{
 							ObjectMeta: metav1.ObjectMeta{
 								Labels: map[string]string{"serving.kubeflow.org/inferenceservice": "mnist",
-									constants.KServicePredictorLabel: constants.InferenceServiceDefault,
+									constants.KServiceEndpointLabel:  constants.InferenceServiceDefault,
 									constants.KServiceModelLabel:     "mnist",
 									constants.KServiceComponentLabel: constants.Predictor.String(),
 								},
@@ -161,7 +161,7 @@ func TestKnativeServiceReconcile(t *testing.T) {
 						Template: knservingv1.RevisionTemplateSpec{
 							ObjectMeta: metav1.ObjectMeta{
 								Labels: map[string]string{"serving.kubeflow.org/inferenceservice": "mnist",
-									constants.KServicePredictorLabel: constants.InferenceServiceCanary,
+									constants.KServiceEndpointLabel:  constants.InferenceServiceCanary,
 									constants.KServiceModelLabel:     "mnist",
 									constants.KServiceComponentLabel: constants.Predictor.String(),
 								},
@@ -223,7 +223,7 @@ func TestKnativeServiceReconcile(t *testing.T) {
 						Template: knservingv1.RevisionTemplateSpec{
 							ObjectMeta: metav1.ObjectMeta{
 								Labels: map[string]string{"serving.kubeflow.org/inferenceservice": "mnist",
-									constants.KServicePredictorLabel: constants.InferenceServiceDefault,
+									constants.KServiceEndpointLabel:  constants.InferenceServiceDefault,
 									constants.KServiceModelLabel:     "mnist",
 									constants.KServiceComponentLabel: constants.Predictor.String(),
 								},

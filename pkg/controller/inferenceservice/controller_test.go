@@ -164,7 +164,7 @@ func TestInferenceServiceWithOnlyPredictor(t *testing.T) {
 				Template: knservingv1.RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: map[string]string{"serving.kubeflow.org/inferenceservice": serviceName,
-							constants.KServicePredictorLabel: constants.InferenceServiceDefault,
+							constants.KServiceEndpointLabel:  constants.InferenceServiceDefault,
 							constants.KServiceModelLabel:     defaultInstance.Name,
 							constants.KServiceComponentLabel: constants.Predictor.String(),
 						},
@@ -439,7 +439,7 @@ func TestInferenceServiceWithDefaultAndCanaryPredictor(t *testing.T) {
 				Template: knservingv1.RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: map[string]string{"serving.kubeflow.org/inferenceservice": "bar",
-							constants.KServicePredictorLabel: constants.InferenceServiceCanary,
+							constants.KServiceEndpointLabel:  constants.InferenceServiceCanary,
 							constants.KServiceModelLabel:     "bar",
 							constants.KServiceComponentLabel: constants.Predictor.String(),
 						},
@@ -1052,7 +1052,7 @@ func TestInferenceServiceWithTransformer(t *testing.T) {
 				Template: knservingv1.RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: map[string]string{"serving.kubeflow.org/inferenceservice": serviceName,
-							constants.KServicePredictorLabel: constants.InferenceServiceCanary,
+							constants.KServiceEndpointLabel:  constants.InferenceServiceCanary,
 							constants.KServiceModelLabel:     instance.Name,
 							constants.KServiceComponentLabel: constants.Transformer.String(),
 						},

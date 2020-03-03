@@ -57,7 +57,7 @@ func TestLoggerInjector(t *testing.T) {
 					Labels: map[string]string{
 						"serving.kubeflow.org/inferenceservice": "sklearn",
 						constants.KServiceModelLabel:            "sklearn",
-						constants.KServicePredictorLabel:        "default",
+						constants.KServiceEndpointLabel:         "default",
 						constants.KServiceComponentLabel:        "predictor",
 					},
 				},
@@ -94,7 +94,7 @@ func TestLoggerInjector(t *testing.T) {
 								"sklearn",
 								LoggerArgumentNamespace,
 								"default",
-								LoggerArgumentPredictor,
+								LoggerArgumentEndpoint,
 								"default",
 							},
 							Resources: loggerResourceRequirement,

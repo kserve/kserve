@@ -87,7 +87,7 @@ var defaultService = &knservingv1.Service{
 			Template: knservingv1.RevisionTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{"serving.kubeflow.org/inferenceservice": "mnist",
-						constants.KServicePredictorLabel: constants.InferenceServiceDefault,
+						constants.KServiceEndpointLabel:  constants.InferenceServiceDefault,
 						constants.KServiceModelLabel:     "mnist",
 						constants.KServiceComponentLabel: constants.Predictor.String(),
 					},
@@ -135,7 +135,7 @@ var canaryService = &knservingv1.Service{
 			Template: knservingv1.RevisionTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{"serving.kubeflow.org/inferenceservice": "mnist",
-						constants.KServicePredictorLabel: constants.InferenceServiceCanary,
+						constants.KServiceEndpointLabel:  constants.InferenceServiceCanary,
 						constants.KServiceModelLabel:     "mnist",
 						constants.KServiceComponentLabel: constants.Predictor.String(),
 					},
@@ -259,7 +259,7 @@ func TestInferenceServiceToKnativeService(t *testing.T) {
 						Template: knservingv1.RevisionTemplateSpec{
 							ObjectMeta: metav1.ObjectMeta{
 								Labels: map[string]string{"serving.kubeflow.org/inferenceservice": "sklearn",
-									constants.KServicePredictorLabel: constants.InferenceServiceDefault,
+									constants.KServiceEndpointLabel:  constants.InferenceServiceDefault,
 									constants.KServiceModelLabel:     "sklearn",
 									constants.KServiceComponentLabel: constants.Predictor.String()},
 								Annotations: map[string]string{
@@ -318,7 +318,7 @@ func TestInferenceServiceToKnativeService(t *testing.T) {
 						Template: knservingv1.RevisionTemplateSpec{
 							ObjectMeta: metav1.ObjectMeta{
 								Labels: map[string]string{"serving.kubeflow.org/inferenceservice": "xgboost",
-									constants.KServicePredictorLabel: constants.InferenceServiceDefault,
+									constants.KServiceEndpointLabel:  constants.InferenceServiceDefault,
 									constants.KServiceModelLabel:     "xgboost",
 									constants.KServiceComponentLabel: constants.Predictor.String(),
 								},
@@ -379,7 +379,7 @@ func TestInferenceServiceToKnativeService(t *testing.T) {
 						Template: knservingv1.RevisionTemplateSpec{
 							ObjectMeta: metav1.ObjectMeta{
 								Labels: map[string]string{"serving.kubeflow.org/inferenceservice": "xgboost",
-									constants.KServicePredictorLabel: constants.InferenceServiceDefault,
+									constants.KServiceEndpointLabel:  constants.InferenceServiceDefault,
 									constants.KServiceModelLabel:     "xgboost",
 									constants.KServiceComponentLabel: constants.Predictor.String(),
 								},
@@ -452,7 +452,7 @@ func TestInferenceServiceToKnativeService(t *testing.T) {
 						Template: knservingv1.RevisionTemplateSpec{
 							ObjectMeta: metav1.ObjectMeta{
 								Labels: map[string]string{"serving.kubeflow.org/inferenceservice": "sklearn",
-									constants.KServicePredictorLabel: constants.InferenceServiceDefault,
+									constants.KServiceEndpointLabel:  constants.InferenceServiceDefault,
 									constants.KServiceModelLabel:     "sklearn",
 									constants.KServiceComponentLabel: constants.Predictor.String(),
 								},
@@ -598,7 +598,7 @@ func TestTransformerToKnativeService(t *testing.T) {
 				Template: knservingv1.RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: map[string]string{"serving.kubeflow.org/inferenceservice": "mnist",
-							constants.KServicePredictorLabel: constants.InferenceServiceDefault,
+							constants.KServiceEndpointLabel:  constants.InferenceServiceDefault,
 							constants.KServiceModelLabel:     "mnist",
 							constants.KServiceComponentLabel: constants.Transformer.String(),
 						},
@@ -644,7 +644,7 @@ func TestTransformerToKnativeService(t *testing.T) {
 				Template: knservingv1.RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: map[string]string{"serving.kubeflow.org/inferenceservice": "mnist",
-							constants.KServicePredictorLabel: constants.InferenceServiceCanary,
+							constants.KServiceEndpointLabel:  constants.InferenceServiceCanary,
 							constants.KServiceModelLabel:     "mnist",
 							constants.KServiceComponentLabel: constants.Transformer.String(),
 						},

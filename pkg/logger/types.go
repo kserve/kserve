@@ -20,5 +20,5 @@ type LogRequest struct {
 	SourceUri   *url.URL
 	ModelId     string
 	Namespace   string
-	Predictor   string
+	Endpoint    string
 }

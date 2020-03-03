@@ -125,7 +125,7 @@ const (
 const (
 	KServiceComponentLabel = "component"
 	KServiceModelLabel     = "model"
-	KServicePredictorLabel = "predictor"
+	KServiceEndpointLabel  = "endpoint"
 )
 
 // InferenceService default/canary constants
