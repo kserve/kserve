@@ -95,3 +95,87 @@ flowers-sample-predictor-canary    http://flowers-sample-predictor-canary.defaul
 flowers-sample-predictor-default   http://flowers-sample-predictor-default.default.example.com   5d20h   3 OK / 3     100% -> flowers-sample-predictor-default-x7zcl
 
 ```
+
+
+## Create the InferenceService with gRPC
+Apply the CRD
+```
+kubectl apply -f tensorflow-grpc.yaml 
+```
+
+Expected Output
+```
+$ inferenceservice.serving.kubeflow.org/flowers-sample configured
+```
+
+### Run a prediction
+We will be using a python gRPC client for our prediction, so we need to create a python virtual environment and
+install the tensorflow-serving-api. 
+```shell
+# The prediction script is written in TensorFlow 1.x
+pip install tensorflow-serving-api>=1.14.0,<2.0.0
+```
+
+Run prediction script
+```shell
+MODEL_NAME=flowers-sample
+INPUT_PATH=./input.json
+CLUSTER_IP=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+SERVICE_HOSTNAME=$(kubectl get inferenceservice ${MODEL_NAME} -o jsonpath='{.status.url}' | cut -d "/" -f 3)
+python iris_client.py --host $CLUSTER_IP --model $MODEL_NAME --hostname $SERVICE_HOSTNAME --input_path $INPUT_PATH
+```
+
+Expected Output
+```
+outputs {
+  key: "key"
+  value {
+    dtype: DT_STRING
+    tensor_shape {
+      dim {
+        size: 1
+      }
+    }
+    string_val: "   1"
+  }
+}
+outputs {
+  key: "prediction"
+  value {
+    dtype: DT_INT64
+    tensor_shape {
+      dim {
+        size: 1
+      }
+    }
+    int64_val: 0
+  }
+}
+outputs {
+  key: "scores"
+  value {
+    dtype: DT_FLOAT
+    tensor_shape {
+      dim {
+        size: 1
+      }
+      dim {
+        size: 6
+      }
+    }
+    float_val: 0.9991149306297302
+    float_val: 9.209887502947822e-05
+    float_val: 0.00013678647519554943
+    float_val: 0.0003372581850271672
+    float_val: 0.0003005331673193723
+    float_val: 1.848137799242977e-05
+  }
+}
+model_spec {
+  name: "flowers-sample"
+  version {
+    value: 1
+  }
+  signature_name: "serving_default"
+}
+```
