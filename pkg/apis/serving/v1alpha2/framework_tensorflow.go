@@ -25,8 +25,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 )
 
-var log = logf.Log.WithName("FrameworkTensorFlow")
-
 var (
 	TensorflowEntrypointCommand          = "/usr/bin/tensorflow_model_server"
 	TensorflowServingGRPCPort            = "9000"
@@ -35,6 +33,7 @@ var (
 	InvalidTensorflowRuntimeVersionError = "Tensorflow RuntimeVersion must be one of %s"
 	InvalidTensorflowRuntimeIncludesGPU  = "Tensorflow RuntimeVersion is not GPU enabled but GPU resources are requested. " + InvalidTensorflowRuntimeVersionError
 	InvalidTensorflowRuntimeExcludesGPU  = "Tensorflow RuntimeVersion is GPU enabled but GPU resources are not requested. " + InvalidTensorflowRuntimeVersionError
+	log                                  = logf.Log.WithName("FrameworkTensorFlow")
 	port                                 []v1.ContainerPort
 )
 
