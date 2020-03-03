@@ -18,12 +18,14 @@ import (
 	"strconv"
 	"strings"
 
-	"k8s.io/klog"
+	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/utils"
 	v1 "k8s.io/api/core/v1"
 )
+
+var log = logf.Log.WithName("FrameworkTensorFlow")
 
 var (
 	TensorflowEntrypointCommand          = "/usr/bin/tensorflow_model_server"
@@ -33,6 +35,7 @@ var (
 	InvalidTensorflowRuntimeVersionError = "Tensorflow RuntimeVersion must be one of %s"
 	InvalidTensorflowRuntimeIncludesGPU  = "Tensorflow RuntimeVersion is not GPU enabled but GPU resources are requested. " + InvalidTensorflowRuntimeVersionError
 	InvalidTensorflowRuntimeExcludesGPU  = "Tensorflow RuntimeVersion is GPU enabled but GPU resources are not requested. " + InvalidTensorflowRuntimeVersionError
+	port                                 []v1.ContainerPort
 )
 
 func (t *TensorflowSpec) GetStorageUri() string {
@@ -53,14 +56,15 @@ func (t *TensorflowSpec) GetContainer(modelName string, parallelism int, config 
 		"--model_base_path=" + constants.DefaultModelLocalMountPath,
 	}
 
-	// Define TensorFlow Serving gRPC port.
-	TensorflowServingGRPCPortInt, err := strconv.Atoi(TensorflowServingGRPCPort)
-	if err == nil {
-		klog.Error(err)
-	}
-	port := []v1.ContainerPort{{Name: "h2c", ContainerPort: int32(TensorflowServingGRPCPortInt)}}
-	if strings.ToLower(t.Protocol) != "grpc" {
-		// If grpc is not defined, fall back to default.
+	if strings.ToLower(t.Protocol) == "grpc" {
+		// Define TensorFlow Serving gRPC port.
+		TensorflowServingGRPCPortInt, err := strconv.Atoi(TensorflowServingGRPCPort)
+		if err != nil {
+			log.Error(err, "Unable to convert grpc port number to Int")
+		}
+		port = []v1.ContainerPort{{Name: "h2c", ContainerPort: int32(TensorflowServingGRPCPortInt)}}
+	} else {
+		// If it's not grpc, fall back to default.
 		port = nil
 	}
 
