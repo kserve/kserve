@@ -160,6 +160,8 @@ type TensorflowSpec struct {
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
 	// Defaults to requests and limits of 1CPU, 2Gb MEM.
 	Resources v1.ResourceRequirements `json:"resources,omitempty"`
+	// Allow user to change between REST or gRPC protocol.
+	Protocol string `json:"protocol,omitempty"`
 }
 
 // TensorRTSpec defines arguments for configuring TensorRT model serving.

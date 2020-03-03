@@ -15,7 +15,10 @@ package v1alpha2
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
+
+	"k8s.io/klog"
 
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/utils"
@@ -50,12 +53,23 @@ func (t *TensorflowSpec) GetContainer(modelName string, parallelism int, config 
 		"--model_base_path=" + constants.DefaultModelLocalMountPath,
 	}
 
+	// Define TensorFlow Serving gRPC port.
+	TensorflowServingGRPCPortInt, err := strconv.Atoi(TensorflowServingGRPCPort)
+	if err == nil {
+		klog.Error(err)
+	}
+	port := []v1.ContainerPort{{Name: "h2c", ContainerPort: int32(TensorflowServingGRPCPortInt)}}
+	if strings.ToLower(t.Protocol) != "grpc" {
+		port = nil
+	}
+
 	return &v1.Container{
 		Image:     config.Predictors.Tensorflow.ContainerImage + ":" + t.RuntimeVersion,
 		Name:      constants.InferenceServiceContainerName,
 		Command:   []string{TensorflowEntrypointCommand},
 		Resources: t.Resources,
 		Args:      arguments,
+		Ports:     port,
 	}
 }
 

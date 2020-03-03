@@ -492,6 +492,10 @@
         "storageUri"
       ],
       "properties": {
+        "protocol": {
+          "description": "Allow user to change between REST or gRPC protocol.",
+          "type": "string"
+        },
         "resources": {
           "description": "Defaults to requests and limits of 1CPU, 2Gb MEM.",
           "$ref": "#/definitions/v1.ResourceRequirements"
