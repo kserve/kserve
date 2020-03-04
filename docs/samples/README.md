@@ -19,6 +19,8 @@
 
 [KFServing Custom Model](./custom/kfserving-custom-model)
 
+[Prebuilt Image](./custom/prebuilt-image)
+
 ### Deploy KFServing InferenceService with Transformer
 [Image Transformer with PyTorch Predictor](./transformer/image_transformer)
 
