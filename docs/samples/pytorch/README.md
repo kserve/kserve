@@ -53,7 +53,7 @@ images, labels = dataiter.next()
 formData = {
     'instances': images[0:1].tolist()
 }
-res = requests.post('http://localhost:8080/models/pytorchmodel:predict', json=formData)
+res = requests.post('http://localhost:8080/v1/models/pytorchmodel:predict', json=formData)
 print(res)
 print(res.text)
 ```
