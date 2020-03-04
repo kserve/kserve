@@ -790,8 +790,12 @@ between elements.
 ## Platforms
 
 A platform is a string indicating a DL/ML framework or
-backend. Platform names use the format “<project>_<format>”. The
-following platform names are allowed:
+backend. Platform is returned as part of the response to a
+[Model Metadata](#model_metadata) request but is information only. The
+proposed inference APIs are generic relative to the DL/ML framework
+used by a model and so a client does not need to know the platform of
+a given model to use the API. Platform names use the format
+“<project>_<format>”. The following platform names are allowed:
 
 * tensorrt_plan : A TensorRT model encoded as a serialized engine or “plan”.
 * tensorflow_graphdef : A TensorFlow model encoded as a GraphDef.
