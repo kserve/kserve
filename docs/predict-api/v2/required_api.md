@@ -143,7 +143,7 @@ successful model metadata request.
     $metadata_model_response =
     {
       "name" : $string,
-      "versions" : [ $number, ... ] #optional,
+      "versions" : [ $string, ... ] #optional,
       "platform" : $string,
       "inputs" : [ $metadata_tensor, ... ],
       "outputs" : [ $metadata_tensor, ... ]
@@ -152,7 +152,7 @@ successful model metadata request.
 * “name” : The name of the model.
 * "versions" : The model versions that may be explicitly requested via
   the appropriate endpoint. Optional for servers that don’t support
-  versions and for models that don’t have versions that can be
+  versions. Optional for models that don’t all a version to be
   explicitly requested.
 * “platform” : The framework/backend for the model. See
   [Platforms](#platforms).
@@ -279,7 +279,7 @@ code. The inference response object, identified as
     $inference_response =
     {
       "model_name" : $string,
-      "model_version" : $number #optional,
+      "model_version" : $string #optional,
       "id" : $string,
       "parameters" : $parameters #optional,
       "outputs" : [ $response_output, ... ]
@@ -287,9 +287,8 @@ code. The inference response object, identified as
 
 * "model_name" : The name of the model used for inference.
 * "model_version" : The specific model version used for
-  inference. Must be an integer representable as an unsigned 64-bit
-  integer value. Inference servers that do not implement versioning
-  should not provide this field in the response.
+  inference. Inference servers that do not implement versioning should
+  not provide this field in the response.
 * "id" : The "id" identifier given in the request, if any.
 * "parameters" : An object containing zero or more parameters for this
   response expressed as key/value pairs. See [Parameters](#parameters)
@@ -515,9 +514,9 @@ inferencing. The request and response messages for ModelReady are:
       // The name of the model to check for readiness.
       string name = 1;
 
-      // The version of the model to check for readiness. If -1 is given the
+      // The version of the model to check for readiness. If not given the
       // server will choose a version based on the model and internal policy.
-      int64 version = 2;
+      string version = 2;
     }
 
     message ModelReadyResponse
@@ -559,9 +558,9 @@ request and response messages for ModelMetadata are:
       // The name of the model.
       string name = 1;
 
-      // The version of the model to check for readiness. If -1 is given the
+      // The version of the model to check for readiness. If not given the
       // server will choose a version based on the model and internal policy.
-      int64 version = 2;
+      string version = 2;
     }
 
     message ModelMetadataResponse
@@ -584,7 +583,7 @@ request and response messages for ModelMetadata are:
       string name = 1;
 
       // The versions of the model available on the server.
-      repeated int64 versions = 2;
+      repeated string versions = 2;
 
       // The model's platform. See Platforms.
       string platform = 3;
@@ -637,9 +636,9 @@ failure. The request and response messages for ModelInfer are:
       // The name of the model to use for inferencing.
       string model_name = 1;
 
-      // The version of the model to use for inference. If -1 is given the
+      // The version of the model to use for inference. If not given the
       // server will choose a version based on the model and internal policy.
-      int64 model_version = 2;
+      string model_version = 2;
 
       // Optional identifier for the request. If specified will be
       // returned in the response.
@@ -677,7 +676,7 @@ failure. The request and response messages for ModelInfer are:
       }
 
       // The version of the model used for inference.
-      int64 model_version = 1;
+      string model_version = 1;
 
       // The id of the inference request if one was specified.
       string id = 2;
