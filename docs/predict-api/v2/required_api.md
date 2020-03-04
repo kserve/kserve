@@ -5,7 +5,9 @@ specific ML/DL framework and capable of supporting both easy-to-use
 and high-performance use cases. By implementing this protocol both
 inference clients and servers will increase their utility and
 portability by being able to operate seamlessly on platforms that have
-standardized around this API.
+standardized around this API. This protocol is endorsed by NVIDIA
+TensorRT Inference Server, TensorFlow Serving, and ONNX Runtime
+Server.
 
 For an inference server to be compliant with this protocol the server
 must implement all APIs described below, except where an optional
