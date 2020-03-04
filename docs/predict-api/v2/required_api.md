@@ -154,7 +154,7 @@ successful model metadata request.
 * “name” : The name of the model.
 * "versions" : The model versions that may be explicitly requested via
   the appropriate endpoint. Optional for servers that don’t support
-  versions. Optional for models that don’t all a version to be
+  versions. Optional for models that don’t allow a version to be
   explicitly requested.
 * “platform” : The framework/backend for the model. See
   [Platforms](#platforms).
