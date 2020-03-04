@@ -14,15 +14,10 @@ const (
 	CEInferenceRequest  = "org.kubeflow.serving.inference.request"
 	CEInferenceResponse = "org.kubeflow.serving.inference.response"
 
-	//TODO: how to get access to these?
-	//even modelid not coming through right now and appears to be empty
-	//anything set as parameter on endpoint container could also be set on logger
-
 	// cloud events extension attributes have to be lowercase alphanumeric
 	//TODO: ideally request id would have its own header but make do with ce-id for now
-	// modelid should be inferenceservice name, which is also model_name
-	ModelIdAttr   = "modelid"
-	NamespaceAttr = "namespace"
+	InferenceServiceAttr = "inferenceservicename"
+	NamespaceAttr        = "namespace"
 	//endpoint would be either default or canary
 	EndpointAttr = "endpoint"
 )
@@ -80,7 +75,7 @@ func (W *Worker) sendCloudEvent(logReq LogRequest) error {
 		event.SetType(CEInferenceResponse)
 	}
 
-	event.SetExtension(ModelIdAttr, logReq.ModelId)
+	event.SetExtension(InferenceServiceAttr, logReq.InferenceService)
 	event.SetExtension(NamespaceAttr, logReq.Namespace)
 	event.SetExtension(EndpointAttr, logReq.Endpoint)
 

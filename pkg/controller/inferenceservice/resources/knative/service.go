@@ -144,11 +144,9 @@ func (c *ServiceBuilder) CreatePredictorService(name string, metadata metav1.Obj
 		addLoggerContainerPort(container)
 	}
 
-	predictor := ""
+	endpoint := constants.InferenceServiceDefault
 	if isCanary {
-		predictor = constants.InferenceServiceCanary
-	} else {
-		predictor = constants.InferenceServiceDefault
+		endpoint = constants.InferenceServiceCanary
 	}
 
 	service := &knservingv1.Service{
@@ -165,7 +163,7 @@ func (c *ServiceBuilder) CreatePredictorService(name string, metadata metav1.Obj
 							constants.InferenceServicePodLabelKey: metadata.Name,
 							constants.KServiceComponentLabel:      constants.Predictor.String(),
 							constants.KServiceModelLabel:          metadata.Name,
-							constants.KServiceEndpointLabel:       predictor,
+							constants.KServiceEndpointLabel:       endpoint,
 						}),
 						Annotations: annotations,
 					},
@@ -216,11 +214,9 @@ func (c *ServiceBuilder) CreateTransformerService(name string, metadata metav1.O
 		addLoggerContainerPort(container)
 	}
 
-	predictor := ""
+	endpoint := constants.InferenceServiceDefault
 	if isCanary {
-		predictor = constants.InferenceServiceCanary
-	} else {
-		predictor = constants.InferenceServiceDefault
+		endpoint = constants.InferenceServiceCanary
 	}
 
 	service := &knservingv1.Service{
@@ -237,7 +233,7 @@ func (c *ServiceBuilder) CreateTransformerService(name string, metadata metav1.O
 							constants.InferenceServicePodLabelKey: metadata.Name,
 							constants.KServiceComponentLabel:      constants.Transformer.String(),
 							constants.KServiceModelLabel:          metadata.Name,
-							constants.KServiceEndpointLabel:       predictor,
+							constants.KServiceEndpointLabel:       endpoint,
 						}),
 						Annotations: annotations,
 					},

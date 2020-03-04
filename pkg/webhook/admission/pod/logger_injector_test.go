@@ -90,7 +90,7 @@ func TestLoggerInjector(t *testing.T) {
 								"deployment",
 								LoggerArgumentMode,
 								"all",
-								LoggerArgumentModelId,
+								LoggerArgumentInferenceService,
 								"sklearn",
 								LoggerArgumentNamespace,
 								"default",
