@@ -51,7 +51,7 @@ request = [X[0].tolist()]
 formData = {
     'instances': request
 }
-res = requests.post('http://localhost:8080/models/xgb:predict', json=formData)
+res = requests.post('http://localhost:8080/v1/models/xgb:predict', json=formData)
 print(res)
 print(res.text)
 ```
