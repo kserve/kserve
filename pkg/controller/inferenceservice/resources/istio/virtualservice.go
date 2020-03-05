@@ -318,7 +318,7 @@ func getServiceHostname(isvc *v1alpha2.InferenceService) (string, error) {
 	if predictorStatus == nil {
 		return "", fmt.Errorf("failed to get service hostname: %s", reason)
 	}
-	return constants.VirtualServiceHostname(isvc.Name, predictorStatus.Hostname), nil
+	return constants.VirtualServiceHostname(predictorStatus.Hostname), nil
 }
 
 func getPredictStatusConfigurationSpec(componentStatusMap *v1alpha2.ComponentStatusMap) (*v1alpha2.StatusConfigurationSpec, string) {

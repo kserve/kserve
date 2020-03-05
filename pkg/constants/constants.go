@@ -221,9 +221,8 @@ func ExplainPrefix(name string) string {
 	return fmt.Sprintf("/v1/models/%s:explain", name)
 }
 
-func VirtualServiceHostname(name string, predictorHostName string) string {
-	index := strings.Index(predictorHostName, ".")
-	return name + predictorHostName[index:]
+func VirtualServiceHostname(predictorHostName string) string {
+	return strings.ReplaceAll(predictorHostName, fmt.Sprintf("-%s-%s", string(Predictor), InferenceServiceDefault), "")
 }
 
 func PredictorURL(metadata v1.ObjectMeta, isCanary bool) string {
