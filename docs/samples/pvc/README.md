@@ -8,7 +8,7 @@ Refer to the [document](https://kubernetes.io/docs/concepts/storage/persistent-v
 
 ## Training model
 
-Following the mnist example [guide](https://github.com/kubeflow/examples/tree/master/mnist#local-storage) to train mnist model and store to PVC. In the example, the relative path of model will be `./export/` on the PVC.
+Follow the mnist example [guide](https://github.com/kubeflow/fairing/blob/master/examples/mnist/mnist_e2e_on_prem.ipynb) to train a mnist model and store it to PVC. The InferenceService is deployed in the notebook example by `Kubeflow Fairing` that uses `kfserving` SDK. If you want to apply the InferenceService via kubectl by using the YAML format as below, no need to run the deployment step in the notebook. In this example, the relative path of model will be `./export/` on the PVC.
 
 ## Create the InferenceService
 
