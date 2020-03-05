@@ -1,0 +1,55 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  labels:
+    app: load-test
+    job-name: load-test
+  name: load-test
+spec:
+  backoffLimit: 6
+  parallelism: 1
+  template:
+    metadata:
+      labels:
+        app: load-test
+        job-name: load-test
+    spec:
+      containers:
+      - args:
+        - /ko-app/vegeta -cpus=1 attack -duration=4m -rate=100/1s -targets=/var/vegeta/cfg
+          | /ko-app/vegeta report -type=text
+        command:
+        - /bin/bash
+        - -c
+        image: yuzisun/vegeta-31e77f8dd4f501e53916e376997a166c:latest 
+        imagePullPolicy: Always
+        name: vegeta
+        resources:
+          requests:
+            cpu: "1"
+            memory: 3Gi
+        volumeMounts:
+        - mountPath: /var/vegeta
+          name: vegeta-cfg
+      restartPolicy: Never
+      volumes:
+      - configMap:
+          defaultMode: 420
+          name: vegeta-cfg
+        name: vegeta-cfg
+---
+apiVersion: v1
+data:
+  cfg: |
+    POST http://sklearn-iris.default.svc.cluster.local/v1/models/sklearn-iris:predict
+    @/var/vegeta/payload
+  payload: |
+    {
+      "instances": [
+        [6.8,  2.8,  4.8,  1.4],
+        [6.0,  3.4,  4.5,  1.6]
+      ]
+    }
+kind: ConfigMap
+metadata:
+  name: vegeta-cfg
