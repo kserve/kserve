@@ -163,7 +163,11 @@ func TestInferenceServiceWithOnlyPredictor(t *testing.T) {
 			ConfigurationSpec: knservingv1.ConfigurationSpec{
 				Template: knservingv1.RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
-						Labels: map[string]string{"serving.kubeflow.org/inferenceservice": serviceName},
+						Labels: map[string]string{"serving.kubeflow.org/inferenceservice": serviceName,
+							constants.KServiceEndpointLabel:  constants.InferenceServiceDefault,
+							constants.KServiceModelLabel:     defaultInstance.Name,
+							constants.KServiceComponentLabel: constants.Predictor.String(),
+						},
 						Annotations: map[string]string{
 							"autoscaling.knative.dev/target":                           "1",
 							"autoscaling.knative.dev/class":                            "kpa.autoscaling.knative.dev",
@@ -434,7 +438,11 @@ func TestInferenceServiceWithDefaultAndCanaryPredictor(t *testing.T) {
 			ConfigurationSpec: knservingv1.ConfigurationSpec{
 				Template: knservingv1.RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
-						Labels: map[string]string{"serving.kubeflow.org/inferenceservice": "bar"},
+						Labels: map[string]string{"serving.kubeflow.org/inferenceservice": "bar",
+							constants.KServiceEndpointLabel:  constants.InferenceServiceCanary,
+							constants.KServiceModelLabel:     "bar",
+							constants.KServiceComponentLabel: constants.Predictor.String(),
+						},
 						Annotations: map[string]string{
 							"autoscaling.knative.dev/target":                           "1",
 							"autoscaling.knative.dev/class":                            "kpa.autoscaling.knative.dev",
@@ -1043,7 +1051,11 @@ func TestInferenceServiceWithTransformer(t *testing.T) {
 			ConfigurationSpec: knservingv1.ConfigurationSpec{
 				Template: knservingv1.RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
-						Labels: map[string]string{"serving.kubeflow.org/inferenceservice": serviceName},
+						Labels: map[string]string{"serving.kubeflow.org/inferenceservice": serviceName,
+							constants.KServiceEndpointLabel:  constants.InferenceServiceCanary,
+							constants.KServiceModelLabel:     instance.Name,
+							constants.KServiceComponentLabel: constants.Transformer.String(),
+						},
 						Annotations: map[string]string{
 							"autoscaling.knative.dev/target":                       "1",
 							"autoscaling.knative.dev/class":                        "kpa.autoscaling.knative.dev",
@@ -1611,7 +1623,10 @@ func TestInferenceServiceWithExplainer(t *testing.T) {
 			ConfigurationSpec: knservingv1.ConfigurationSpec{
 				Template: knservingv1.RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
-						Labels: map[string]string{"serving.kubeflow.org/inferenceservice": serviceName},
+						Labels: map[string]string{"serving.kubeflow.org/inferenceservice": serviceName,
+							constants.KServiceModelLabel:     instance.Name,
+							constants.KServiceComponentLabel: constants.Explainer.String(),
+						},
 						Annotations: map[string]string{
 							"autoscaling.knative.dev/target":                       "1",
 							"autoscaling.knative.dev/class":                        "kpa.autoscaling.knative.dev",

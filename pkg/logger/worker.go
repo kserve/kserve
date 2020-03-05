@@ -13,7 +13,13 @@ import (
 const (
 	CEInferenceRequest  = "org.kubeflow.serving.inference.request"
 	CEInferenceResponse = "org.kubeflow.serving.inference.response"
-	ModelIdHeader       = "Model-ID"
+
+	// cloud events extension attributes have to be lowercase alphanumeric
+	//TODO: ideally request id would have its own header but make do with ce-id for now
+	InferenceServiceAttr = "inferenceservicename"
+	NamespaceAttr        = "namespace"
+	//endpoint would be either default or canary
+	EndpointAttr = "endpoint"
 )
 
 // NewWorker creates, and returns a new Worker object. Its only argument
@@ -50,7 +56,6 @@ func (W *Worker) sendCloudEvent(logReq LogRequest) error {
 	t, err := cloudevents.NewHTTPTransport(
 		cloudevents.WithTarget(logReq.Url.String()),
 		cloudevents.WithEncoding(cloudevents.HTTPBinaryV02),
-		cloudevents.WitHHeader(ModelIdHeader, logReq.ModelId),
 	)
 
 	if err != nil {
@@ -69,6 +74,11 @@ func (W *Worker) sendCloudEvent(logReq LogRequest) error {
 	} else {
 		event.SetType(CEInferenceResponse)
 	}
+
+	event.SetExtension(InferenceServiceAttr, logReq.InferenceService)
+	event.SetExtension(NamespaceAttr, logReq.Namespace)
+	event.SetExtension(EndpointAttr, logReq.Endpoint)
+
 	event.SetSource(logReq.SourceUri.String())
 	event.SetDataContentType(logReq.ContentType)
 	if err := event.SetData(*logReq.Bytes); err != nil {

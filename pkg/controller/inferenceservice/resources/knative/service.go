@@ -75,7 +75,7 @@ func (c *ServiceBuilder) CreateInferenceServiceComponent(isvc *v1alpha2.Inferenc
 		if isCanary {
 			predictorSpec = &isvc.Spec.Canary.Predictor
 		}
-		return c.CreatePredictorService(serviceName, isvc.ObjectMeta, predictorSpec)
+		return c.CreatePredictorService(serviceName, isvc.ObjectMeta, predictorSpec, isCanary)
 	case constants.Transformer:
 		transformerSpec := isvc.Spec.Default.Transformer
 		if isCanary {
@@ -124,7 +124,7 @@ func addLoggerContainerPort(container *v1.Container) {
 	}
 }
 
-func (c *ServiceBuilder) CreatePredictorService(name string, metadata metav1.ObjectMeta, predictorSpec *v1alpha2.PredictorSpec) (*knservingv1.Service, error) {
+func (c *ServiceBuilder) CreatePredictorService(name string, metadata metav1.ObjectMeta, predictorSpec *v1alpha2.PredictorSpec, isCanary bool) (*knservingv1.Service, error) {
 	annotations, err := c.buildAnnotations(metadata, predictorSpec.MinReplicas, predictorSpec.MaxReplicas, predictorSpec.Parallelism)
 	if err != nil {
 		return nil, err
@@ -144,6 +144,11 @@ func (c *ServiceBuilder) CreatePredictorService(name string, metadata metav1.Obj
 		addLoggerContainerPort(container)
 	}
 
+	endpoint := constants.InferenceServiceDefault
+	if isCanary {
+		endpoint = constants.InferenceServiceCanary
+	}
+
 	service := &knservingv1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -156,6 +161,9 @@ func (c *ServiceBuilder) CreatePredictorService(name string, metadata metav1.Obj
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: utils.Union(metadata.Labels, map[string]string{
 							constants.InferenceServicePodLabelKey: metadata.Name,
+							constants.KServiceComponentLabel:      constants.Predictor.String(),
+							constants.KServiceModelLabel:          metadata.Name,
+							constants.KServiceEndpointLabel:       endpoint,
 						}),
 						Annotations: annotations,
 					},
@@ -205,6 +213,12 @@ func (c *ServiceBuilder) CreateTransformerService(name string, metadata metav1.O
 	if hasInferenceLogging {
 		addLoggerContainerPort(container)
 	}
+
+	endpoint := constants.InferenceServiceDefault
+	if isCanary {
+		endpoint = constants.InferenceServiceCanary
+	}
+
 	service := &knservingv1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -217,6 +231,9 @@ func (c *ServiceBuilder) CreateTransformerService(name string, metadata metav1.O
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: utils.Union(metadata.Labels, map[string]string{
 							constants.InferenceServicePodLabelKey: metadata.Name,
+							constants.KServiceComponentLabel:      constants.Transformer.String(),
+							constants.KServiceModelLabel:          metadata.Name,
+							constants.KServiceEndpointLabel:       endpoint,
 						}),
 						Annotations: annotations,
 					},
@@ -267,6 +284,7 @@ func (c *ServiceBuilder) CreateExplainerService(name string, metadata metav1.Obj
 	if hasInferenceLogging {
 		addLoggerContainerPort(container)
 	}
+
 	service := &knservingv1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -279,6 +297,8 @@ func (c *ServiceBuilder) CreateExplainerService(name string, metadata metav1.Obj
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: utils.Union(metadata.Labels, map[string]string{
 							constants.InferenceServicePodLabelKey: metadata.Name,
+							constants.KServiceComponentLabel:      constants.Explainer.String(),
+							constants.KServiceModelLabel:          metadata.Name,
 						}),
 						Annotations: annotations,
 					},

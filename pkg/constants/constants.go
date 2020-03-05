@@ -121,6 +121,13 @@ const (
 	InferenceServiceDefaultLoggerPort = "8081"
 )
 
+// Labels to put on kservice
+const (
+	KServiceComponentLabel = "component"
+	KServiceModelLabel     = "model"
+	KServiceEndpointLabel  = "endpoint"
+)
+
 // InferenceService default/canary constants
 const (
 	InferenceServiceDefault = "default"
