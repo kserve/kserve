@@ -11,13 +11,15 @@ import (
 )
 
 const (
-	LoggerContainerName     = "inferenceservice-logger"
-	LoggerConfigMapKeyName  = "logger"
-	PodKnativeServiceLabel  = "serving.knative.dev/service"
-	LoggerArgumentLogUrl    = "--log-url"
-	LoggerArgumentSourceUri = "--source-uri"
-	LoggerArgumentMode      = "--log-mode"
-	LoggerArgumentModelId   = "--model-id"
+	LoggerContainerName            = "inferenceservice-logger"
+	LoggerConfigMapKeyName         = "logger"
+	PodKnativeServiceLabel         = "serving.knative.dev/service"
+	LoggerArgumentLogUrl           = "--log-url"
+	LoggerArgumentSourceUri        = "--source-uri"
+	LoggerArgumentMode             = "--log-mode"
+	LoggerArgumentInferenceService = "--inference-service"
+	LoggerArgumentNamespace        = "--namespace"
+	LoggerArgumentEndpoint         = "--endpoint"
 )
 
 type LoggerConfig struct {
@@ -74,7 +76,9 @@ func (il *LoggerInjector) InjectLogger(pod *v1.Pod) error {
 		logMode = string(v1alpha2.LogAll)
 	}
 
-	modelId, _ := pod.ObjectMeta.Labels[PodKnativeServiceLabel]
+	inferenceServiceName, _ := pod.ObjectMeta.Labels[constants.KServiceModelLabel]
+	namespace := pod.ObjectMeta.Namespace
+	endpoint := pod.ObjectMeta.Labels[constants.KServiceEndpointLabel]
 
 	// Don't inject if Contianer already injected
 	for _, container := range pod.Spec.Containers {
@@ -96,8 +100,12 @@ func (il *LoggerInjector) InjectLogger(pod *v1.Pod) error {
 			pod.Name,
 			LoggerArgumentMode,
 			logMode,
-			LoggerArgumentModelId,
-			modelId,
+			LoggerArgumentInferenceService,
+			inferenceServiceName,
+			LoggerArgumentNamespace,
+			namespace,
+			LoggerArgumentEndpoint,
+			endpoint,
 		},
 		Resources: v1.ResourceRequirements{
 			Limits: map[v1.ResourceName]resource.Quantity{
