@@ -53,7 +53,13 @@ deploy-dev: manifests
 
 deploy-local: manifests
 	./hack/image_patch_dev.sh local
+	# Remove the certmanager certificate if KFSERVING_ENABLE_SELF_SIGNED_CA is not false
+	cd config/default && if [ ${KFSERVING_ENABLE_SELF_SIGNED_CA} != false ]; then \
+	kustomize edit remove resource certmanager/certificate.yaml; \
+	else kustomize edit add resource certmanager/certificate.yaml; fi;
+
 	kustomize build config/overlays/local | kubectl apply -f -
+	if [ ${KFSERVING_ENABLE_SELF_SIGNED_CA} != false ]; then ./hack/self-signed-ca.sh; fi;
 
 deploy-dev-sklearn: docker-push-sklearn
 	./hack/model_server_patch_dev.sh sklearn ${KO_DOCKER_REPO}/${SKLEARN_IMG}

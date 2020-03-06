@@ -577,18 +577,32 @@ func TestCreateVirtualService(t *testing.T) {
 }
 
 func TestGetServiceHostname(t *testing.T) {
-	expected := "kftest.user1.example.com"
-	testIsvc := createInferenceServiceWithHostname("kftest-predictor-default.user1.example.com")
-	result, _ := getServiceHostname(testIsvc)
-	if diff := cmp.Diff(expected, result); diff != "" {
-		t.Errorf("Test %q unexpected result (-want +got): %v", t.Name(), diff)
+
+	testCases := []struct {
+		name              string
+		expectedHostName  string
+		predictorHostName string
+	}{
+		{
+			name:              "using knative domainTemplate: {{.Name}}.{{.Namespace}}.{{.Domain}}",
+			expectedHostName:  "kftest.user1.example.com",
+			predictorHostName: "kftest-predictor-default.user1.example.com",
+		},
+		{
+			name:              "using knative domainTemplate: {{.Name}}-{{.Namespace}}.{{.Domain}}",
+			expectedHostName:  "kftest-user1.example.com",
+			predictorHostName: "kftest-predictor-default-user1.example.com",
+		},
 	}
 
-	expected = "kftest-user1.example.com"
-	testIsvc = createInferenceServiceWithHostname("kftest-predictor-default-user1.example.com")
-	result, _ = getServiceHostname(testIsvc)
-	if diff := cmp.Diff(expected, result); diff != "" {
-		t.Errorf("Test %q unexpected result (-want +got): %v", t.Name(), diff)
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+			testIsvc := createInferenceServiceWithHostname(tt.predictorHostName)
+			result, _ := getServiceHostname(testIsvc)
+			if diff := cmp.Diff(tt.expectedHostName, result); diff != "" {
+				t.Errorf("Test %q unexpected result (-want +got): %v", t.Name(), diff)
+			}
+		})
 	}
 }
 
