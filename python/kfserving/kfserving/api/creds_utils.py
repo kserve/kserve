@@ -179,9 +179,7 @@ def check_sa_exists(namespace, service_account):
     '''Check if the specified service account existing.'''
     sa_list = client.CoreV1Api().list_namespaced_service_account(namespace=namespace)
 
-    sa_name_list = []
-    for item in range(0, len(sa_list.items)-1):
-        sa_name_list.append(sa_list.items[item].metadata.name)
+    sa_name_list = [sa.metadata.name for sa in sa_list.items]
 
     if service_account in sa_name_list:
         return True
