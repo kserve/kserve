@@ -6,14 +6,14 @@ from kfserving.api.creds_utils import check_sa_exists
 
 
 @mock.patch('kubernetes.client.CoreV1Api.list_namespaced_service_account')
-def test_check_sa_exists(mock):
+def test_check_sa_exists(mock_client):
     # Mock kubernetes client to return 2 accounts
     accounts = V1ServiceAccountList(
         items=[V1ServiceAccount(metadata=V1ObjectMeta(name=n)) for n in ['a', 'b']]
     )
-    mock.return_value = accounts
+    mock_client.return_value = accounts
 
-    # then a, b should exists, c should not exists
+    # then a, b should exist, c should not
     assert check_sa_exists('kubeflow', 'a') is True
     assert check_sa_exists('kubeflow', 'b') is True
     assert check_sa_exists('kubeflow', 'c') is False
