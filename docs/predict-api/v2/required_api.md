@@ -1,6 +1,6 @@
 # Predict Protocol - Version 2
 
-This document proposes an predict/inference API independent of any
+This document proposes a predict/inference API independent of any
 specific ML/DL framework and capable of supporting both easy-to-use
 and high-performance use cases. By implementing this protocol both
 inference clients and servers will increase their utility and
