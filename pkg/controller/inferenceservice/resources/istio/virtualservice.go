@@ -22,6 +22,7 @@ import (
 	"github.com/gogo/protobuf/types"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/network"
+	"strings"
 	"time"
 
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
@@ -318,7 +319,7 @@ func getServiceHostname(isvc *v1alpha2.InferenceService) (string, error) {
 	if predictorStatus == nil {
 		return "", fmt.Errorf("failed to get service hostname: %s", reason)
 	}
-	return constants.VirtualServiceHostname(isvc.Name, predictorStatus.Hostname), nil
+	return strings.ReplaceAll(predictorStatus.Hostname, fmt.Sprintf("-%s-%s", string(constants.Predictor), constants.InferenceServiceDefault), ""), nil
 }
 
 func getPredictStatusConfigurationSpec(componentStatusMap *v1alpha2.ComponentStatusMap) (*v1alpha2.StatusConfigurationSpec, string) {

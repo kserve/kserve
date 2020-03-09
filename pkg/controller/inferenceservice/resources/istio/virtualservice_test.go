@@ -576,6 +576,46 @@ func TestCreateVirtualService(t *testing.T) {
 	}
 }
 
+func TestGetServiceHostname(t *testing.T) {
+
+	testCases := []struct {
+		name              string
+		expectedHostName  string
+		predictorHostName string
+	}{
+		{
+			name:              "using knative domainTemplate: {{.Name}}.{{.Namespace}}.{{.Domain}}",
+			expectedHostName:  "kftest.user1.example.com",
+			predictorHostName: "kftest-predictor-default.user1.example.com",
+		},
+		{
+			name:              "using knative domainTemplate: {{.Name}}-{{.Namespace}}.{{.Domain}}",
+			expectedHostName:  "kftest-user1.example.com",
+			predictorHostName: "kftest-predictor-default-user1.example.com",
+		},
+	}
+
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+			testIsvc := createInferenceServiceWithHostname(tt.predictorHostName)
+			result, _ := getServiceHostname(testIsvc)
+			if diff := cmp.Diff(tt.expectedHostName, result); diff != "" {
+				t.Errorf("Test %q unexpected result (-want +got): %v", t.Name(), diff)
+			}
+		})
+	}
+}
+
+func createInferenceServiceWithHostname(hostName string) *v1alpha2.InferenceService {
+	return &v1alpha2.InferenceService{
+		Status: v1alpha2.InferenceServiceStatus{
+			Default: &v1alpha2.ComponentStatusMap{constants.Predictor: v1alpha2.StatusConfigurationSpec{
+				Hostname: hostName,
+			}},
+		},
+	}
+}
+
 func createMockPredictorSpec(componentStatusMap *v1alpha2.ComponentStatusMap) v1alpha2.PredictorSpec {
 	return v1alpha2.PredictorSpec{}
 }
@@ -590,6 +630,7 @@ func createMockExplainerSpec(componentStatusMap *v1alpha2.ComponentStatusMap) *v
 	}
 	return nil
 }
+
 func createMockTransformerSpec(componentStatusMap *v1alpha2.ComponentStatusMap) *v1alpha2.TransformerSpec {
 	if componentStatusMap == nil {
 		return nil
