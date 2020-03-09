@@ -1,8 +1,9 @@
 # Predict Protocol - Version 2
 
 This document proposes a predict/inference API independent of any
-specific ML/DL framework and capable of supporting both easy-to-use
-and high-performance use cases. By implementing this protocol both
+specific ML/DL framework and model server. The proposed APIs are 
+able to support both easy-to-use and high-performance use cases. 
+By implementing this protocol both
 inference clients and servers will increase their utility and
 portability by being able to operate seamlessly on platforms that have
 standardized around this API. This protocol is endorsed by NVIDIA
