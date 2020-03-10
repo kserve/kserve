@@ -131,7 +131,7 @@ func TestCreateVirtualService(t *testing.T) {
 						Match: predictorRouteMatch,
 						Route: []*istiov1alpha3.HTTPRouteDestination{
 							{
-								Destination: &istiov1alpha3.Destination{Host: constants.LocalGatewayHost},
+								Destination: &istiov1alpha3.Destination{Host: constants.LocalGatewayHost, Port: &istiov1alpha3.PortSelector{Number: constants.CommonDefaultHttpPort}},
 								Weight:      100,
 								Headers: &istiov1alpha3.Headers{
 									Request: &istiov1alpha3.Headers_HeaderOperations{Set: map[string]string{
@@ -211,7 +211,7 @@ func TestCreateVirtualService(t *testing.T) {
 						Match: predictorRouteMatch,
 						Route: []*istiov1alpha3.HTTPRouteDestination{
 							{
-								Destination: &istiov1alpha3.Destination{Host: constants.LocalGatewayHost},
+								Destination: &istiov1alpha3.Destination{Host: constants.LocalGatewayHost, Port: &istiov1alpha3.PortSelector{Number: constants.CommonDefaultHttpPort}},
 								Weight:      80,
 								Headers: &istiov1alpha3.Headers{
 									Request: &istiov1alpha3.Headers_HeaderOperations{Set: map[string]string{
@@ -220,7 +220,7 @@ func TestCreateVirtualService(t *testing.T) {
 								},
 							},
 							{
-								Destination: &istiov1alpha3.Destination{Host: constants.LocalGatewayHost},
+								Destination: &istiov1alpha3.Destination{Host: constants.LocalGatewayHost, Port: &istiov1alpha3.PortSelector{Number: constants.CommonDefaultHttpPort}},
 								Weight:      20,
 								Headers: &istiov1alpha3.Headers{
 									Request: &istiov1alpha3.Headers_HeaderOperations{Set: map[string]string{
@@ -297,7 +297,7 @@ func TestCreateVirtualService(t *testing.T) {
 						Match: predictorRouteMatch,
 						Route: []*istiov1alpha3.HTTPRouteDestination{
 							{
-								Destination: &istiov1alpha3.Destination{Host: constants.LocalGatewayHost},
+								Destination: &istiov1alpha3.Destination{Host: constants.LocalGatewayHost, Port: &istiov1alpha3.PortSelector{Number: constants.CommonDefaultHttpPort}},
 								Weight:      100,
 								Headers: &istiov1alpha3.Headers{
 									Request: &istiov1alpha3.Headers_HeaderOperations{Set: map[string]string{
@@ -378,7 +378,7 @@ func TestCreateVirtualService(t *testing.T) {
 						Match: predictorRouteMatch,
 						Route: []*istiov1alpha3.HTTPRouteDestination{
 							{
-								Destination: &istiov1alpha3.Destination{Host: constants.LocalGatewayHost},
+								Destination: &istiov1alpha3.Destination{Host: constants.LocalGatewayHost, Port: &istiov1alpha3.PortSelector{Number: constants.CommonDefaultHttpPort}},
 								Weight:      80,
 								Headers: &istiov1alpha3.Headers{
 									Request: &istiov1alpha3.Headers_HeaderOperations{Set: map[string]string{
@@ -386,7 +386,7 @@ func TestCreateVirtualService(t *testing.T) {
 								},
 							},
 							{
-								Destination: &istiov1alpha3.Destination{Host: constants.LocalGatewayHost},
+								Destination: &istiov1alpha3.Destination{Host: constants.LocalGatewayHost, Port: &istiov1alpha3.PortSelector{Number: constants.CommonDefaultHttpPort}},
 								Weight:      20,
 								Headers: &istiov1alpha3.Headers{
 									Request: &istiov1alpha3.Headers_HeaderOperations{Set: map[string]string{
@@ -462,7 +462,7 @@ func TestCreateVirtualService(t *testing.T) {
 						Match: predictorRouteMatch,
 						Route: []*istiov1alpha3.HTTPRouteDestination{
 							{
-								Destination: &istiov1alpha3.Destination{Host: constants.LocalGatewayHost},
+								Destination: &istiov1alpha3.Destination{Host: constants.LocalGatewayHost, Port: &istiov1alpha3.PortSelector{Number: constants.CommonDefaultHttpPort}},
 								Weight:      100,
 								Headers: &istiov1alpha3.Headers{
 									Request: &istiov1alpha3.Headers_HeaderOperations{Set: map[string]string{
@@ -507,7 +507,7 @@ func TestCreateVirtualService(t *testing.T) {
 						},
 						Route: []*istiov1alpha3.HTTPRouteDestination{
 							{
-								Destination: &istiov1alpha3.Destination{Host: constants.LocalGatewayHost},
+								Destination: &istiov1alpha3.Destination{Host: constants.LocalGatewayHost, Port: &istiov1alpha3.PortSelector{Number: constants.CommonDefaultHttpPort}},
 								Weight:      100,
 								Headers: &istiov1alpha3.Headers{
 									Request: &istiov1alpha3.Headers_HeaderOperations{Set: map[string]string{
