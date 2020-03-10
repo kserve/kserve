@@ -9,4 +9,4 @@ spec:
     predictor:
       custom:
         container:
-          image: rzgry/kfserving-custom-model
+          image: {username}/kfserving-custom-model
