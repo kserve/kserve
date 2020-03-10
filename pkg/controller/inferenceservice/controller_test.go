@@ -1940,8 +1940,5 @@ func TestInferenceServiceWithExplainer(t *testing.T) {
 		},
 	}
 
-	fmt.Println(virtualService.Spec)
-	fmt.Println("------------------")
-	fmt.Println(expectedVirtualService.Spec)
 	g.Expect(cmp.Diff(virtualService.Spec, expectedVirtualService.Spec)).To(gomega.Equal(""))
 }
