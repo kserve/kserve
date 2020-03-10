@@ -6,9 +6,9 @@ You can choose to deploy the model server using the kubectl command line, or usi
 
 ## Table of contents
 
-[Deploy using the KFServing client SDK](#-deploy-a-custom-image-inferenceservice-using-the-kfserving-client-sdk)
+[Deploy using the KFServing client SDK](#deploy-a-custom-image-inferenceservice-using-the-kfserving-client-sdk)
 
-[Deploy using the command line](#-deploy-a-custom-image-inferenceservice-using-the-command-line)
+[Deploy using the command line](#deploy-a-custom-image-inferenceservice-using-the-command-line)
 
 ## Deploy a custom image InferenceService using the KFServing client SDK
 
