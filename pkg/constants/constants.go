@@ -119,6 +119,7 @@ const (
 const (
 	InferenceServiceDefaultHttpPort   = "8080"
 	InferenceServiceDefaultLoggerPort = "8081"
+	CommonDefaultHttpPort             = 80
 )
 
 // Labels to put on kservice
