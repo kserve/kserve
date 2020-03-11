@@ -113,5 +113,8 @@ curl -v -H "Host: sklearn-iris.default.example.com" http://localhost:8080/v1/mod
 ### Developer Guide
 [Developer Guide](/docs/DEVELOPER_GUIDE.md).
 
+### Performance Tests
+[Performance Tests](https://docs.google.com/document/d/1ss7M3cx1qD1PVpTaKTu_Y3C80JJz4nvMZlIyuZutZoE/edit#)
+
 ### Contributor Guide
 [Contributor Guide](./CONTRIBUTING.md)
