@@ -15,7 +15,7 @@ google-cloud-storage==1.26.0
 google-resumable-media==0.5.0
 googleapis-common-protos==1.51.0
 idna==2.8
-kfserving==0.2.2.1
+kfserving==0.3.0
 kubernetes==10.0.1
 minio==5.0.7
 numpy==1.18.1
