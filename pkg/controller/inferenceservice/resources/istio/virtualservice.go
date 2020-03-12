@@ -380,6 +380,9 @@ func createHTTPRouteDestination(targetHost, namespace string, weight int32, gate
 		},
 		Destination: &istiov1alpha3.Destination{
 			Host: constants.LocalGatewayHost,
+			Port: &istiov1alpha3.PortSelector{
+				Number: constants.CommonDefaultHttpPort,
+			},
 		},
 	}
 

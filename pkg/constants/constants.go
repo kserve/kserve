@@ -32,7 +32,7 @@ var (
 	KFServingName           = "kfserving"
 	KFServingAPIGroupName   = "serving.kubeflow.org"
 	KFServingNamespace      = getEnvOrDefault("POD_NAMESPACE", "kfserving-system")
-	KFServingDefaultVersion = "0.2.2"
+	KFServingDefaultVersion = "v0.3.0"
 )
 
 // InferenceService Constants
@@ -119,6 +119,7 @@ const (
 const (
 	InferenceServiceDefaultHttpPort   = "8080"
 	InferenceServiceDefaultLoggerPort = "8081"
+	CommonDefaultHttpPort             = 80
 )
 
 // Labels to put on kservice
