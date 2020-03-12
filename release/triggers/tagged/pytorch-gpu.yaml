@@ -19,7 +19,7 @@ build:
     args:
     - "build"
     - "-t"
-    - "gcr.io/$REPO_NAME/${_COMPONENT}:$TAG_NAME"
+    - "gcr.io/$REPO_NAME/${_COMPONENT}:$TAG_NAME-gpu"
     - "-f"
     - "${_DOCKERFILE}"
     - "${_CONTEXT}"
