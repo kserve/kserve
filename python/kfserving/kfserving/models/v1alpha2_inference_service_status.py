@@ -1,4 +1,4 @@
-# Copyright 2019 kubeflow.org.
+# Copyright 2020 kubeflow.org.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,6 +30,7 @@ import re  # noqa: F401
 
 import six
 
+from kfserving.models.knative_addressable import KnativeAddressable  # noqa: F401,E501
 from kfserving.models.knative_condition import KnativeCondition  # noqa: F401,E501
 from kfserving.models.v1alpha2_status_configuration_spec import V1alpha2StatusConfigurationSpec  # noqa: F401,E501
 
@@ -48,49 +49,88 @@ class V1alpha2InferenceServiceStatus(object):
                             and the value is json key in definition.
     """
     swagger_types = {
-        'canary': 'V1alpha2StatusConfigurationSpec',
+        'address': 'KnativeAddressable',
+        'canary': 'dict(str, V1alpha2StatusConfigurationSpec)',
+        'canary_traffic': 'int',
         'conditions': 'list[KnativeCondition]',
-        'default': 'V1alpha2StatusConfigurationSpec',
+        'default': 'dict(str, V1alpha2StatusConfigurationSpec)',
         'observed_generation': 'int',
+        'traffic': 'int',
         'url': 'str'
     }
 
     attribute_map = {
+        'address': 'address',
         'canary': 'canary',
+        'canary_traffic': 'canaryTraffic',
         'conditions': 'conditions',
         'default': 'default',
         'observed_generation': 'observedGeneration',
+        'traffic': 'traffic',
         'url': 'url'
     }
 
-    def __init__(self, canary=None, conditions=None, default=None, observed_generation=None, url=None):  # noqa: E501
+    def __init__(self, address=None, canary=None, canary_traffic=None, conditions=None, default=None, observed_generation=None, traffic=None, url=None):  # noqa: E501
         """V1alpha2InferenceServiceStatus - a model defined in Swagger"""  # noqa: E501
 
+        self._address = None
         self._canary = None
+        self._canary_traffic = None
         self._conditions = None
         self._default = None
         self._observed_generation = None
+        self._traffic = None
         self._url = None
         self.discriminator = None
 
+        if address is not None:
+            self.address = address
         if canary is not None:
             self.canary = canary
+        if canary_traffic is not None:
+            self.canary_traffic = canary_traffic
         if conditions is not None:
             self.conditions = conditions
         if default is not None:
             self.default = default
         if observed_generation is not None:
             self.observed_generation = observed_generation
+        if traffic is not None:
+            self.traffic = traffic
         if url is not None:
             self.url = url
+
+    @property
+    def address(self):
+        """Gets the address of this V1alpha2InferenceServiceStatus.  # noqa: E501
+
+        Ducktype for addressable  # noqa: E501
+
+        :return: The address of this V1alpha2InferenceServiceStatus.  # noqa: E501
+        :rtype: KnativeAddressable
+        """
+        return self._address
+
+    @address.setter
+    def address(self, address):
+        """Sets the address of this V1alpha2InferenceServiceStatus.
+
+        Ducktype for addressable  # noqa: E501
+
+        :param address: The address of this V1alpha2InferenceServiceStatus.  # noqa: E501
+        :type: KnativeAddressable
+        """
+
+        self._address = address
 
     @property
     def canary(self):
         """Gets the canary of this V1alpha2InferenceServiceStatus.  # noqa: E501
 
+        Statuses for the canary endpoints of the InferenceService  # noqa: E501
 
         :return: The canary of this V1alpha2InferenceServiceStatus.  # noqa: E501
-        :rtype: V1alpha2StatusConfigurationSpec
+        :rtype: dict(str, V1alpha2StatusConfigurationSpec)
         """
         return self._canary
 
@@ -98,12 +138,36 @@ class V1alpha2InferenceServiceStatus(object):
     def canary(self, canary):
         """Sets the canary of this V1alpha2InferenceServiceStatus.
 
+        Statuses for the canary endpoints of the InferenceService  # noqa: E501
 
         :param canary: The canary of this V1alpha2InferenceServiceStatus.  # noqa: E501
-        :type: V1alpha2StatusConfigurationSpec
+        :type: dict(str, V1alpha2StatusConfigurationSpec)
         """
 
         self._canary = canary
+
+    @property
+    def canary_traffic(self):
+        """Gets the canary_traffic of this V1alpha2InferenceServiceStatus.  # noqa: E501
+
+        Traffic percentage that goes to canary services  # noqa: E501
+
+        :return: The canary_traffic of this V1alpha2InferenceServiceStatus.  # noqa: E501
+        :rtype: int
+        """
+        return self._canary_traffic
+
+    @canary_traffic.setter
+    def canary_traffic(self, canary_traffic):
+        """Sets the canary_traffic of this V1alpha2InferenceServiceStatus.
+
+        Traffic percentage that goes to canary services  # noqa: E501
+
+        :param canary_traffic: The canary_traffic of this V1alpha2InferenceServiceStatus.  # noqa: E501
+        :type: int
+        """
+
+        self._canary_traffic = canary_traffic
 
     @property
     def conditions(self):
@@ -132,9 +196,10 @@ class V1alpha2InferenceServiceStatus(object):
     def default(self):
         """Gets the default of this V1alpha2InferenceServiceStatus.  # noqa: E501
 
+        Statuses for the default endpoints of the InferenceService  # noqa: E501
 
         :return: The default of this V1alpha2InferenceServiceStatus.  # noqa: E501
-        :rtype: V1alpha2StatusConfigurationSpec
+        :rtype: dict(str, V1alpha2StatusConfigurationSpec)
         """
         return self._default
 
@@ -142,9 +207,10 @@ class V1alpha2InferenceServiceStatus(object):
     def default(self, default):
         """Sets the default of this V1alpha2InferenceServiceStatus.
 
+        Statuses for the default endpoints of the InferenceService  # noqa: E501
 
         :param default: The default of this V1alpha2InferenceServiceStatus.  # noqa: E501
-        :type: V1alpha2StatusConfigurationSpec
+        :type: dict(str, V1alpha2StatusConfigurationSpec)
         """
 
         self._default = default
@@ -173,9 +239,33 @@ class V1alpha2InferenceServiceStatus(object):
         self._observed_generation = observed_generation
 
     @property
+    def traffic(self):
+        """Gets the traffic of this V1alpha2InferenceServiceStatus.  # noqa: E501
+
+        Traffic percentage that goes to default services  # noqa: E501
+
+        :return: The traffic of this V1alpha2InferenceServiceStatus.  # noqa: E501
+        :rtype: int
+        """
+        return self._traffic
+
+    @traffic.setter
+    def traffic(self, traffic):
+        """Sets the traffic of this V1alpha2InferenceServiceStatus.
+
+        Traffic percentage that goes to default services  # noqa: E501
+
+        :param traffic: The traffic of this V1alpha2InferenceServiceStatus.  # noqa: E501
+        :type: int
+        """
+
+        self._traffic = traffic
+
+    @property
     def url(self):
         """Gets the url of this V1alpha2InferenceServiceStatus.  # noqa: E501
 
+        URL of the InferenceService  # noqa: E501
 
         :return: The url of this V1alpha2InferenceServiceStatus.  # noqa: E501
         :rtype: str
@@ -186,6 +276,7 @@ class V1alpha2InferenceServiceStatus(object):
     def url(self, url):
         """Sets the url of this V1alpha2InferenceServiceStatus.
 
+        URL of the InferenceService  # noqa: E501
 
         :param url: The url of this V1alpha2InferenceServiceStatus.  # noqa: E501
         :type: str
