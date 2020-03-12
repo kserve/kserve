@@ -6675,55 +6675,6 @@ status:
   conditions: []
   storedVersions: []
 ---
-apiVersion: admissionregistration.k8s.io/v1beta1
-kind: MutatingWebhookConfiguration
-metadata:
-  annotations:
-    cert-manager.io/inject-ca-from: kfserving-system/serving-cert
-  creationTimestamp: null
-  name: inferenceservice.serving.kubeflow.org
-webhooks:
-- clientConfig:
-    caBundle: Cg==
-    service:
-      name: kfserving-webhook-server-service
-      namespace: kfserving-system
-      path: /mutate-inferenceservices
-  failurePolicy: Fail
-  name: inferenceservice.kfserving-webhook-server.defaulter
-  rules:
-  - apiGroups:
-    - serving.kubeflow.org
-    apiVersions:
-    - v1alpha2
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - inferenceservices
-- clientConfig:
-    caBundle: Cg==
-    service:
-      name: kfserving-webhook-server-service
-      namespace: kfserving-system
-      path: /mutate-pods
-  failurePolicy: Fail
-  name: inferenceservice.kfserving-webhook-server.pod-muator
-  namespaceSelector:
-    matchExpressions:
-    - key: control-plane
-      operator: DoesNotExist
-  rules:
-  - apiGroups:
-    - ""
-    apiVersions:
-    - v1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - pods
----
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -6921,9 +6872,9 @@ data:
     {
         "alibi": {
             "image" : "gcr.io/kfserving/alibi-explainer",
-            "defaultImageVersion": "0.3.0",
+            "defaultImageVersion": "v0.3.0",
             "allowedImageVersions": [
-               "0.3.0"
+               "v0.3.0"
             ]
         }
     }
@@ -6934,7 +6885,7 @@ data:
     }
   logger: |-
     {
-        "image" : "gcr.io/kfserving/logger:0.3.0",
+        "image" : "gcr.io/kfserving/logger:v0.3.0",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
@@ -6966,25 +6917,25 @@ data:
         },
         "sklearn": {
             "image": "gcr.io/kfserving/sklearnserver",
-            "defaultImageVersion": "0.3.0",
+            "defaultImageVersion": "v0.3.0",
             "allowedImageVersions": [
-               "0.3.0"
+               "v0.3.0"
             ]
         },
         "xgboost": {
             "image": "gcr.io/kfserving/xgbserver",
-            "defaultImageVersion": "0.3.0",
+            "defaultImageVersion": "v0.3.0",
             "allowedImageVersions": [
-               "0.3.0"
+               "v0.3.0"
             ]
         },
         "pytorch": {
             "image": "gcr.io/kfserving/pytorchserver",
-            "defaultImageVersion": "0.3.0",
-            "defaultGpuImageVersion": "0.3.0-gpu",
+            "defaultImageVersion": "v0.3.0",
+            "defaultGpuImageVersion": "v0.3.0-gpu",
             "allowedImageVersions": [
-               "0.3.0",
-               "0.3.0-gpu"
+               "v0.3.0",
+               "v0.3.0-gpu"
             ]
         },
         "tensorrt": {
@@ -6997,7 +6948,7 @@ data:
     }
   storageInitializer: |-
     {
-        "image" : "gcr.io/kfserving/storage-initializer:0.3.0",
+        "image" : "gcr.io/kfserving/storage-initializer:v0.3.0",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
@@ -7132,6 +7083,84 @@ spec:
           defaultMode: 420
           secretName: kfserving-webhook-server-cert
 ---
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: MutatingWebhookConfiguration
+metadata:
+  annotations:
+    cert-manager.io/inject-ca-from: kfserving-system/serving-cert
+  creationTimestamp: null
+  name: inferenceservice.serving.kubeflow.org
+  namespace: kfserving-system
+webhooks:
+- clientConfig:
+    caBundle: Cg==
+    service:
+      name: kfserving-webhook-server-service
+      namespace: kfserving-system
+      path: /mutate-inferenceservices
+  failurePolicy: Fail
+  name: inferenceservice.kfserving-webhook-server.defaulter
+  rules:
+  - apiGroups:
+    - serving.kubeflow.org
+    apiVersions:
+    - v1alpha2
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - inferenceservices
+- clientConfig:
+    caBundle: Cg==
+    service:
+      name: kfserving-webhook-server-service
+      namespace: kfserving-system
+      path: /mutate-pods
+  failurePolicy: Fail
+  name: inferenceservice.kfserving-webhook-server.pod-muator
+  namespaceSelector:
+    matchExpressions:
+    - key: control-plane
+      operator: DoesNotExist
+  rules:
+  - apiGroups:
+    - ""
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - pods
+---
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: ValidatingWebhookConfiguration
+metadata:
+  annotations:
+    cert-manager.io/inject-ca-from: kfserving-system/serving-cert
+  creationTimestamp: null
+  name: inferenceservice.serving.kubeflow.org
+  namespace: kfserving-system
+webhooks:
+- clientConfig:
+    caBundle: Cg==
+    service:
+      name: kfserving-webhook-server-service
+      namespace: kfserving-system
+      path: /validate-inferenceservices
+  failurePolicy: Fail
+  name: inferenceservice.kfserving-webhook-server.validator
+  rules:
+  - apiGroups:
+    - serving.kubeflow.org
+    apiVersions:
+    - v1alpha2
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - inferenceservices
+---
 apiVersion: cert-manager.io/v1alpha2
 kind: Certificate
 metadata:
@@ -7153,30 +7182,3 @@ metadata:
   namespace: kfserving-system
 spec:
   selfSigned: {}
----
-apiVersion: admissionregistration.k8s.io/v1beta1
-kind: ValidatingWebhookConfiguration
-metadata:
-  annotations:
-    cert-manager.io/inject-ca-from: kfserving-system/serving-cert
-  creationTimestamp: null
-  name: inferenceservice.serving.kubeflow.org
-webhooks:
-- clientConfig:
-    caBundle: Cg==
-    service:
-      name: kfserving-webhook-server-service
-      namespace: kfserving-system
-      path: /validate-inferenceservices
-  failurePolicy: Fail
-  name: inferenceservice.kfserving-webhook-server.validator
-  rules:
-  - apiGroups:
-    - serving.kubeflow.org
-    apiVersions:
-    - v1alpha2
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - inferenceservices
