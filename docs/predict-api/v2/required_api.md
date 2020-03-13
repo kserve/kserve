@@ -1,8 +1,8 @@
 # Predict Protocol - Version 2
 
 This document proposes a predict/inference API independent of any
-specific ML/DL framework and model server. The proposed APIs are 
-able to support both easy-to-use and high-performance use cases. 
+specific ML/DL framework and model server. The proposed APIs are
+able to support both easy-to-use and high-performance use cases.
 By implementing this protocol both
 inference clients and servers will increase their utility and
 portability by being able to operate seamlessly on platforms that have
@@ -718,7 +718,7 @@ server-specific parameters to provide non-standard capabilities.
         int64 int64_param = 2;
 
         // A string parameter value.
-        bytes string_param = 3;
+        string string_param = 3;
       }
     }
 
