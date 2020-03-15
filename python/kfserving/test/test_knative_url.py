@@ -30,12 +30,12 @@ from __future__ import absolute_import
 import unittest
 
 import kfserving
-from kfserving.models.v1alpha2_inference_service_spec import V1alpha2InferenceServiceSpec  # noqa: E501
+from kfserving.models.knative_url import KnativeURL  # noqa: E501
 from kfserving.rest import ApiException
 
 
-class TestV1alpha2InferenceServiceSpec(unittest.TestCase):
-    """V1alpha2InferenceServiceSpec unit test stubs"""
+class TestKnativeURL(unittest.TestCase):
+    """KnativeURL unit test stubs"""
 
     def setUp(self):
         pass
@@ -43,10 +43,10 @@ class TestV1alpha2InferenceServiceSpec(unittest.TestCase):
     def tearDown(self):
         pass
 
-    def testV1alpha2InferenceServiceSpec(self):
-        """Test V1alpha2InferenceServiceSpec"""
+    def testKnativeURL(self):
+        """Test KnativeURL"""
         # FIXME: construct object with mandatory attributes with example values
-        # model = kfserving.models.v1alpha2_inference_service_spec.V1alpha2InferenceServiceSpec()  # noqa: E501
+        # model = kfserving.models.knative_url.KnativeURL()  # noqa: E501
         pass
 
 

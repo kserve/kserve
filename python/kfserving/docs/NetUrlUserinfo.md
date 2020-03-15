@@ -1,11 +1,11 @@
-# V1alpha2StatusConfigurationSpec
+# NetUrlUserinfo
 
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**host** | **str** | Host name of the service | [optional] 
-**name** | **str** | Latest revision name that is in ready state | [optional] 
-**replicas** | **int** |  | [optional] 
+**password** | **str** |  | 
+**password_set** | **bool** |  | 
+**username** | **str** |  | 
 
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
 
