@@ -1,4 +1,4 @@
-# Copyright 2019 kubeflow.org.
+# Copyright 2020 kubeflow.org.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -29,19 +29,21 @@
 from __future__ import absolute_import
 
 # import models into model package
+from kfserving.models.knative_addressable import KnativeAddressable
 from kfserving.models.knative_condition import KnativeCondition
+from kfserving.models.knative_url import KnativeURL
 from kfserving.models.knative_volatile_time import KnativeVolatileTime
+from kfserving.models.net_url_userinfo import NetUrlUserinfo
 from kfserving.models.v1alpha2_alibi_explainer_spec import V1alpha2AlibiExplainerSpec
 from kfserving.models.v1alpha2_custom_spec import V1alpha2CustomSpec
 from kfserving.models.v1alpha2_deployment_spec import V1alpha2DeploymentSpec
 from kfserving.models.v1alpha2_endpoint_spec import V1alpha2EndpointSpec
 from kfserving.models.v1alpha2_explainer_spec import V1alpha2ExplainerSpec
-from kfserving.models.v1alpha2_framework_config import V1alpha2FrameworkConfig
-from kfserving.models.v1alpha2_frameworks_config import V1alpha2FrameworksConfig
 from kfserving.models.v1alpha2_inference_service import V1alpha2InferenceService
 from kfserving.models.v1alpha2_inference_service_list import V1alpha2InferenceServiceList
 from kfserving.models.v1alpha2_inference_service_spec import V1alpha2InferenceServiceSpec
 from kfserving.models.v1alpha2_inference_service_status import V1alpha2InferenceServiceStatus
+from kfserving.models.v1alpha2_logger import V1alpha2Logger
 from kfserving.models.v1alpha2_onnx_spec import V1alpha2ONNXSpec
 from kfserving.models.v1alpha2_predictor_spec import V1alpha2PredictorSpec
 from kfserving.models.v1alpha2_py_torch_spec import V1alpha2PyTorchSpec

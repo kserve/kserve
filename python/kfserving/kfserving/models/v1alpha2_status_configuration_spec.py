@@ -1,4 +1,4 @@
-# Copyright 2019 kubeflow.org.
+# Copyright 2020 kubeflow.org.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -45,36 +45,60 @@ class V1alpha2StatusConfigurationSpec(object):
                             and the value is json key in definition.
     """
     swagger_types = {
+        'host': 'str',
         'name': 'str',
-        'replicas': 'int',
-        'traffic': 'int'
+        'replicas': 'int'
     }
 
     attribute_map = {
+        'host': 'host',
         'name': 'name',
-        'replicas': 'replicas',
-        'traffic': 'traffic'
+        'replicas': 'replicas'
     }
 
-    def __init__(self, name=None, replicas=None, traffic=None):  # noqa: E501
+    def __init__(self, host=None, name=None, replicas=None):  # noqa: E501
         """V1alpha2StatusConfigurationSpec - a model defined in Swagger"""  # noqa: E501
 
+        self._host = None
         self._name = None
         self._replicas = None
-        self._traffic = None
         self.discriminator = None
 
+        if host is not None:
+            self.host = host
         if name is not None:
             self.name = name
         if replicas is not None:
             self.replicas = replicas
-        if traffic is not None:
-            self.traffic = traffic
+
+    @property
+    def host(self):
+        """Gets the host of this V1alpha2StatusConfigurationSpec.  # noqa: E501
+
+        Host name of the service  # noqa: E501
+
+        :return: The host of this V1alpha2StatusConfigurationSpec.  # noqa: E501
+        :rtype: str
+        """
+        return self._host
+
+    @host.setter
+    def host(self, host):
+        """Sets the host of this V1alpha2StatusConfigurationSpec.
+
+        Host name of the service  # noqa: E501
+
+        :param host: The host of this V1alpha2StatusConfigurationSpec.  # noqa: E501
+        :type: str
+        """
+
+        self._host = host
 
     @property
     def name(self):
         """Gets the name of this V1alpha2StatusConfigurationSpec.  # noqa: E501
 
+        Latest revision name that is in ready state  # noqa: E501
 
         :return: The name of this V1alpha2StatusConfigurationSpec.  # noqa: E501
         :rtype: str
@@ -85,6 +109,7 @@ class V1alpha2StatusConfigurationSpec(object):
     def name(self, name):
         """Sets the name of this V1alpha2StatusConfigurationSpec.
 
+        Latest revision name that is in ready state  # noqa: E501
 
         :param name: The name of this V1alpha2StatusConfigurationSpec.  # noqa: E501
         :type: str
@@ -112,27 +137,6 @@ class V1alpha2StatusConfigurationSpec(object):
         """
 
         self._replicas = replicas
-
-    @property
-    def traffic(self):
-        """Gets the traffic of this V1alpha2StatusConfigurationSpec.  # noqa: E501
-
-
-        :return: The traffic of this V1alpha2StatusConfigurationSpec.  # noqa: E501
-        :rtype: int
-        """
-        return self._traffic
-
-    @traffic.setter
-    def traffic(self, traffic):
-        """Sets the traffic of this V1alpha2StatusConfigurationSpec.
-
-
-        :param traffic: The traffic of this V1alpha2StatusConfigurationSpec.  # noqa: E501
-        :type: int
-        """
-
-        self._traffic = traffic
 
     def to_dict(self):
         """Returns the model properties as a dict"""

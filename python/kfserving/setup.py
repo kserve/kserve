@@ -1,4 +1,4 @@
-# Copyright 2019 kubeflow.org.
+# Copyright 2020 kubeflow.org.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@ with open('requirements.txt') as f:
 
 setuptools.setup(
     name='kfserving',
-    version='0.3.0',
+    version='0.3.0.1',
     author="Kubeflow Authors",
     author_email='ellisbigelow@google.com, hejinchi@cn.ibm.com',
     license="Apache License Version 2.0",
