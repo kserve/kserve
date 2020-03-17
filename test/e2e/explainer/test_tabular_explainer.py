@@ -60,6 +60,13 @@ def test_tabular_explainer():
     KFServing.wait_isvc_ready(service_name, namespace=KFSERVING_TEST_NAMESPACE)
     probs = predict(service_name, './data/income_input.json')
     assert(probs == [0])
-    precision = explain(service_name, './data/income_input.json')
-    assert(precision > 0.9)
+    try:
+       precision = explain(service_name, './data/income_input.json')
+       assert(precision > 0.9)
+    except RuntimeError as e:
+       print(KFServing.api_instance.get_namespaced_custom_object("serving.knative.dev", "v1", KFSERVING_TEST_NAMESPACE, "services", service_name + "-predictor-default"))
+       pods = KFServing.core_api.list_namespaced_pod(KFSERVING_TEST_NAMESPACE, label_selector='serving.kubeflow.org/inferenceservice={}'.format(service_name))
+       for pod in pods.items:
+           print(pod)
+       raise e
     KFServing.delete(service_name, KFSERVING_TEST_NAMESPACE)
