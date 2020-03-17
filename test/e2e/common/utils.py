@@ -30,7 +30,7 @@ def predict(service_name, input_json):
     isvc = KFServing.get(service_name, namespace=KFSERVING_TEST_NAMESPACE)
     # temporary sleep until this is fixed https://github.com/kubeflow/kfserving/issues/604
     time.sleep(10)
-    cluster_ip = getCluster_ip()
+    cluster_ip = get_cluster_ip()
     host = urlparse(isvc['status']['url']).netloc
     url = "http://{}/v1/models/{}:predict".format(cluster_ip, service_name)
     headers = {'Host': host}
@@ -46,7 +46,7 @@ def explain(service_name, input_json):
     isvc = KFServing.get(service_name, namespace=KFSERVING_TEST_NAMESPACE)
     # temporary sleep until this is fixed https://github.com/kubeflow/kfserving/issues/604
     time.sleep(15)
-    cluster_ip = getCluster_ip()
+    cluster_ip = get_cluster_ip()
     host = urlparse(isvc['status']['url']).netloc
     url = "http://{}/v1/models/{}:explain".format(cluster_ip, service_name)
     headers = {'Host': host}
@@ -58,7 +58,7 @@ def explain(service_name, input_json):
         precision = json.loads(response.content.decode('utf-8'))["precision"]
         return precision
 
-def getCluster_ip():
+def get_cluster_ip():
     api_instance = client.CoreV1Api(client.ApiClient())
     service = api_instance.read_namespaced_service("istio-ingressgateway", "istio-system", exact='true')
     if service.status.load_balancer.ingress is None:
