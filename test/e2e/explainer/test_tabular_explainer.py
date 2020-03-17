@@ -37,15 +37,13 @@ def test_tabular_explainer():
     service_name = 'isvc-explainer-tabular'
     default_endpoint_spec = V1alpha2EndpointSpec(
         predictor=V1alpha2PredictorSpec(
-            min_replicas=1,
             sklearn=V1alpha2SKLearnSpec(
                 storage_uri='gs://seldon-models/sklearn/income/model',
                 resources=V1ResourceRequirements(
                     requests={'cpu': '100m', 'memory': '1Gi'},
                     limits={'cpu': '100m', 'memory': '1Gi'}))),
         explainer=V1alpha2ExplainerSpec(
-            min_replicas=1,
-            alibi=V1alpha2AlibiExplainerSpec(
+             alibi=V1alpha2AlibiExplainerSpec(
                 type='AnchorTabular',
                 storage_uri='gs://seldon-models/sklearn/income/explainer',
                 resources=V1ResourceRequirements(
@@ -55,7 +53,7 @@ def test_tabular_explainer():
     isvc = V1alpha2InferenceService(api_version=api_version,
                                     kind=constants.KFSERVING_KIND,
                                     metadata=client.V1ObjectMeta(
-                                        name=service_name, namespace=KFSERVING_TEST_NAMESPACE),
+                                    name=service_name, namespace=KFSERVING_TEST_NAMESPACE),
                                     spec=V1alpha2InferenceServiceSpec(default=default_endpoint_spec))
 
     KFServing.create(isvc)
