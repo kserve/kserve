@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
+
 from kubernetes import client
 
 from kfserving import KFServingClient
@@ -29,6 +31,7 @@ from ..common.utils import predict
 from ..common.utils import explain
 from ..common.utils import KFSERVING_TEST_NAMESPACE
 
+logging.basicConfig(level=logging.INFO)
 api_version = constants.KFSERVING_GROUP + '/' + constants.KFSERVING_VERSION
 KFServing = KFServingClient(config_file="~/.kube/config")
 
@@ -64,9 +67,9 @@ def test_tabular_explainer():
        precision = explain(service_name, './data/income_input.json')
        assert(precision > 0.9)
     except RuntimeError as e:
-       print(KFServing.api_instance.get_namespaced_custom_object("serving.knative.dev", "v1", KFSERVING_TEST_NAMESPACE, "services", service_name + "-predictor-default"))
+       logging.info(KFServing.api_instance.get_namespaced_custom_object("serving.knative.dev", "v1", KFSERVING_TEST_NAMESPACE, "services", service_name + "-predictor-default"))
        pods = KFServing.core_api.list_namespaced_pod(KFSERVING_TEST_NAMESPACE, label_selector='serving.kubeflow.org/inferenceservice={}'.format(service_name))
        for pod in pods.items:
-           print(pod)
+           logging.info(pod)
        raise e
     KFServing.delete(service_name, KFSERVING_TEST_NAMESPACE)
