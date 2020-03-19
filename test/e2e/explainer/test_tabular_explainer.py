@@ -60,10 +60,10 @@ def test_tabular_explainer():
                                     spec=V1alpha2InferenceServiceSpec(default=default_endpoint_spec))
 
     KFServing.create(isvc)
-    KFServing.wait_isvc_ready(service_name, namespace=KFSERVING_TEST_NAMESPACE, timeout_seconds=720)
-    # probs = predict(service_name, './data/income_input.json')
-    # assert(probs == [0])
     try:
+       KFServing.wait_isvc_ready(service_name, namespace=KFSERVING_TEST_NAMESPACE, timeout_seconds=720)
+       # probs = predict(service_name, './data/income_input.json')
+       # assert(probs == [0])
        precision = explain(service_name, './data/income_input.json')
        assert(precision > 0.9)
     except RuntimeError as e:
