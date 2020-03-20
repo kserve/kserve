@@ -1,0 +1,14 @@
+apiVersion: networking.k8s.io/v1beta1
+kind: Ingress
+metadata:
+  name: knative-ingress
+  namespace: istio-system
+spec:
+  rules:
+    - host: "*.js-os-442dbba0442be6c8c50f31ed96b00601-0000.us-south.containers.appdomain.cloud"
+      http:
+        paths:
+          - backend:
+              serviceName: kfserving-ingressgateway
+              servicePort: 80
+            path: /
