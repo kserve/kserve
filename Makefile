@@ -15,8 +15,8 @@ KFSERVING_ENABLE_SELF_SIGNED_CA ?= false
 # CPU/Memory limits for controller-manager
 CPU_LIMIT ?= 100m
 MEMORY_LIMIT ?= 300Mi
-$(shell sed -i 's/cpu:.*/cpu: $(CPU_LIMIT)/' config/default/patch.yaml)
-$(shell sed -i 's/memory:.*/memory: $(MEMORY_LIMIT)/' config/default/patch.yaml)
+$(shell sed -i 's/cpu:.*/cpu: $(CPU_LIMIT)/' config/default/manager_resources_patch.yaml)
+$(shell sed -i 's/memory:.*/memory: $(MEMORY_LIMIT)/' config/default/manager_resources_patch.yaml)
 
 all: test manager logger
 
