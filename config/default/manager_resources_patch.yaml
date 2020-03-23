@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: kfserving-controller-manager
+  namespace: kfserving-system
+spec:
+  template:
+    spec:
+      containers:
+      - command:
+        - /manager
+        image: github.com/kubeflow/kfserving/cmd/manager
+        imagePullPolicy: Always
+        name: manager
+        resources:
+          limits:
+            cpu: 100m
+            memory: 300Mi
+          requests:
+            cpu: 100m
+            memory: 200Mi
