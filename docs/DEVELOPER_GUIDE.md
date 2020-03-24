@@ -150,6 +150,17 @@ After that you can run following command to deploy `KFServing`, you can skip abo
 make deploy
 ```
 
+Optionally, you can set CPU and memory limits when deploying `KFServing`.
+```bash
+make deploy CPU_LIMIT=<cpu_limit> MEMORY_LIMIT=<memory_limit>
+```
+or
+```bash
+export CPU_LIMIT=<cpu_limit>
+export MEMORY_LIMIT=<memory_limit>
+make deploy
+```
+
 After above step you can see things running with:
 ```console
 $ kubectl get pods -n kfserving-system -l control-plane=kfserving-controller-manager
