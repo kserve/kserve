@@ -7,11 +7,7 @@ spec:
   template:
     spec:
       containers:
-      - command:
-        - /manager
-        image: github.com/kubeflow/kfserving/cmd/manager
-        imagePullPolicy: Always
-        name: manager
+      - name: manager
         resources:
           limits:
             cpu: 100m
