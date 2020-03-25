@@ -81,7 +81,8 @@ $ inferenceservice.serving.kubeflow.org/pytorch-cifar10 created
 ```
 MODEL_NAME=pytorch-cifar10
 INPUT_PATH=@./input.json
-CLUSTER_IP=$(kubectl -n istio-system get service kfserving-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+INGRESS_GATEWAY=istio-ingressgateway
+CLUSTER_IP=$(kubectl -n istio-system get service $INGRESS_GATEWAY -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 
 SERVICE_HOSTNAME=$(kubectl get inferenceservice pytorch-cifar10 -o jsonpath='{.status.url}' | cut -d "/" -f 3)
 

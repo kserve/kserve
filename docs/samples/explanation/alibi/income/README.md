@@ -46,7 +46,8 @@ Set up some environment variables for the model name and cluster entrypoint:
 
 ```
 MODEL_NAME=income
-CLUSTER_IP=$(kubectl -n istio-system get service kfserving-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+INGRESS_GATEWAY=istio-ingressgateway
+CLUSTER_IP=$(kubectl -n istio-system get service $INGRESS_GATEWAY -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 ```
 
 Test the predictor:

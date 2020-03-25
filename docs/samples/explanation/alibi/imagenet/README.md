@@ -45,7 +45,8 @@ kubectl create -f imagenet.yaml
 Set up some environment variables for the model name and cluster entrypoint:
 
 ```
-export CLUSTER_IP=$(kubectl -n istio-system get service kfserving-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+INGRESS_GATEWAY=istio-ingressgateway
+export CLUSTER_IP=$(kubectl -n istio-system get service INGRESS_GATEWAY -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 ```
 
 Test the predictor on an example image:

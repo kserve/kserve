@@ -20,7 +20,8 @@ $ inferenceservice.serving.kubeflow.org/style-sample configured
 ```
 export MODEL_NAME=style-sample
 export SERVICE_HOSTNAME=$(kubectl get inferenceservice ${MODEL_NAME} -o jsonpath='{.status.url}' | cut -d "/" -f 3)
-export CLUSTER_IP=$(kubectl -n istio-system get service kfserving-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+export INGRESS_GATEWAY=istio-ingressgateway
+export CLUSTER_IP=$(kubectl -n istio-system get service $INGRESS_GATEWAY -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 ```
 2. Verify the service is healthy
 ```

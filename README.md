@@ -89,7 +89,7 @@ sklearn-iris   http://sklearn-iris.default.example.com/v1/models/sklearn-iris   
 ```
 4) Curl the `InferenceService`
 ```bash
-kubectl port-forward --namespace istio-system $(kubectl get pod --namespace istio-system --selector="app=kfserving-ingressgateway" --output jsonpath='{.items[0].metadata.name}') 8080:80
+kubectl port-forward --namespace istio-system $(kubectl get pod --namespace istio-system --selector="app=istio-ingressgateway" --output jsonpath='{.items[0].metadata.name}') 8080:80
 curl -v -H "Host: sklearn-iris.default.example.com" http://localhost:8080/v1/models/sklearn-iris:predict -d @./docs/samples/sklearn/iris-input.json
 ```
 ### Use KFServing SDK
