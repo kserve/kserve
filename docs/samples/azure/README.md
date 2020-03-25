@@ -4,7 +4,7 @@
 By default, KFServing uses anonymous client to download artifacts. To point to an Azure Blob, specify StorageUri to point to an Azure Blob Storage with the format: 
 ```https://{$STORAGE_ACCOUNT_NAME}.blob.core.windows.net/{$CONTAINER}/{$PATH}```
 
-e.g. https://kfserving.blob.core.windows.net/tensorrt/simple_string/
+e.g. https://kfserving.blob.core.windows.net/triton/simple_string/
 
 ## Using Private Blobs
 KFServing supports authenticating using an Azure Service Principle.

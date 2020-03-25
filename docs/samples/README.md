@@ -11,7 +11,7 @@
 
 [ONNX Model with ONNX Runtime](./onnx)
 
-[TensorRT Model with NVIDIA's TensorRT Inference Server](./tensorrt)
+[NVIDIA's Triton Inference Server](./triton)
 
 ### Deploy KFServing InferenceService with a custom Predictor
 
