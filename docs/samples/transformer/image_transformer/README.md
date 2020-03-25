@@ -72,7 +72,7 @@ $ inferenceservice.serving.kubeflow.org/transformer-cifar10 created
 ```
 MODEL_NAME=transformer-cifar10
 INPUT_PATH=@./input.json
-CLUSTER_IP=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+CLUSTER_IP=$(kubectl -n istio-system get service kfserving-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 
 SERVICE_HOSTNAME=$(kubectl get inferenceservice transformer-cifar10 -o jsonpath='{.status.url}' | cut -d "/" -f 3)
 
