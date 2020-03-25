@@ -37,6 +37,8 @@ $ inferenceservice.serving.kubeflow.org/kfserving-custom-model created
 
 ## Run a prediction
 
+Use `kfserving-ingressgatway` as your `INGRESS_GATEWAY` if you are deploying KFServing as part of Kubeflow install, and not independently.
+
 ```
 MODEL_NAME=kfserving-custom-model
 INPUT_PATH=@./input.json

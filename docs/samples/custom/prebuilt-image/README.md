@@ -25,6 +25,8 @@ This example uses the [codait/max-object-detector](https://github.com/IBM/MAX-Ob
 
 **WARNING:** by bypassing the top level inferenceservice you will be losing the capability to do a canary rollout.
 
+Use `kfserving-ingressgatway` as your `INGRESS_GATEWAY` if you are deploying KFServing as part of Kubeflow install, and not independently.
+
 ```
 MODEL_NAME=custom-prebuilt-image
 INGRESS_GATEWAY=istio-ingressgateway

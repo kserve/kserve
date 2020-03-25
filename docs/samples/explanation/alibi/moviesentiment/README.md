@@ -45,7 +45,7 @@ Create this InferenceService:
 kubectl create -f moviesentiment.yaml
 ```
 
-Set up some environment variables for the model name and cluster entrypoint:
+Set up some environment variables for the model name and cluster entrypoint. Use `kfserving-ingressgatway` as your `INGRESS_GATEWAY` if you are deploying KFServing as part of Kubeflow install, and not independently.
 
 ```
 MODEL_NAME=moviesentiment

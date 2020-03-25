@@ -76,6 +76,8 @@ $ inferenceservice.serving.kubeflow.org/xgboost-iris created
 
 ## Run a prediction
 
+Use `kfserving-ingressgatway` as your `INGRESS_GATEWAY` if you are deploying KFServing as part of Kubeflow install, and not independently.
+
 ```
 MODEL_NAME=xgboost-iris
 INPUT_PATH=@./iris-input.json
