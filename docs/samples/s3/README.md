@@ -74,8 +74,8 @@ $ inferenceservice.serving.kubeflow.org/mnist-s3 created
 ```bash
 MODEL_NAME=mnist-s3
 INPUT_PATH=@./input.json
-CLUSTER_IP=$(kubectl -n istio-system get service kfserving-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-
+INGRESS_GATEWAY=istio-ingressgateway
+CLUSTER_IP=$(kubectl -n istio-system get service $INGRESS_GATEWAY -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 curl -v -H "Host: mnist-s3.default.svc.cluster.local" http://$CLUSTER_IP/v1/models/$MODEL_NAME:predict -d $INPUT_PATH
 ```
 Expected Output
