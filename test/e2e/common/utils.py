@@ -31,7 +31,7 @@ def predict(service_name, input_json):
     # temporary sleep until this is fixed https://github.com/kubeflow/kfserving/issues/604
     time.sleep(10)
     api_instance = client.CoreV1Api(client.ApiClient())
-    service = api_instance.read_namespaced_service("kfserving-ingressgateway", "istio-system", exact='true')
+    service = api_instance.read_namespaced_service("istio-ingressgateway", "istio-system", exact='true')
     if service.status.load_balancer.ingress is None:
         cluster_ip = service.spec.cluster_ip
     else:    

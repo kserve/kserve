@@ -100,7 +100,7 @@ pushd istio_tmp >/dev/null
   --set gateways.custom-gateway.labels.app='cluster-local-gateway' \
   --set gateways.custom-gateway.labels.istio='cluster-local-gateway' \
   --set gateways.custom-gateway.type='ClusterIP' \
-  --set gateways.kfserving-ingressgateway.enabled=false \
+  --set gateways.istio-ingressgateway.enabled=false \
   --set gateways.istio-egressgateway.enabled=false \
   --set gateways.istio-ilbgateway.enabled=false \
   install/kubernetes/helm/istio \
