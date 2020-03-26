@@ -30,7 +30,7 @@ my-model-predictor-canary-t5njm-deployment-74dcd94f57-l7lbn    2/2     Running  
 my-model-predictor-default-wfgrl-deployment-75c7845fcb-v5g7r   2/2     Running   0          49s
 ```
 
-Run a prediction. Use `kfserving-ingressgatway` as your `INGRESS_GATEWAY` if you are deploying KFServing as part of Kubeflow install, and not independently.
+Run a prediction. Use `kfserving-ingressgateway` as your `INGRESS_GATEWAY` if you are deploying KFServing as part of Kubeflow install, and not independently.
 
 ```
 MODEL_NAME=my-model

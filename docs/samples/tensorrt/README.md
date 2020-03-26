@@ -21,7 +21,7 @@ Uses the client at: https://docs.nvidia.com/deeplearning/sdk/tensorrt-inference-
 
 1. setup vars
 
-Use `kfserving-ingressgatway` as your `INGRESS_GATEWAY` if you are deploying KFServing as part of Kubeflow install, and not independently.
+Use `kfserving-ingressgateway` as your `INGRESS_GATEWAY` if you are deploying KFServing as part of Kubeflow install, and not independently.
 
 ```
 SERVICE_HOSTNAME=$(kubectl get inferenceservice tensorrt-simple-string -o jsonpath='{.status.url}' | cut -d "/" -f 3)

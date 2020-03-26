@@ -41,7 +41,7 @@ $ inferenceservice.serving.kubeflow.org/flowers-sample configured
 ```
 
 ### Load InferenceService with concurrent requests
-Send traffic in 30 seconds spurts maintaining 5 in-flight requests. Also use `kfserving-ingressgatway` as your `INGRESS_GATEWAY` if you are deploying KFServing as part of Kubeflow install, and not independently.
+Send traffic in 30 seconds spurts maintaining 5 in-flight requests. Also use `kfserving-ingressgateway` as your `INGRESS_GATEWAY` if you are deploying KFServing as part of Kubeflow install, and not independently.
 ```
 MODEL_NAME=flowers-sample
 INPUT_PATH=../tensorflow/input.json
@@ -134,7 +134,7 @@ $ inferenceservice.serving.kubeflow.org/flowers-sample configured
 ```
 
 ### Load InferenceService with target QPS
-Send 30 seconds of traffic maintaining 50 qps. Also use `kfserving-ingressgatway` as your `INGRESS_GATEWAY` if you are deploying KFServing as part of Kubeflow install, and not independently.
+Send 30 seconds of traffic maintaining 50 qps. Also use `kfserving-ingressgateway` as your `INGRESS_GATEWAY` if you are deploying KFServing as part of Kubeflow install, and not independently.
 ```bash
 MODEL_NAME=flowers-sample
 INPUT_PATH=../tensorflow/input.json
