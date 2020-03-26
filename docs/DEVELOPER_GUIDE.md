@@ -320,6 +320,6 @@ kubectl logs -l app=networking-istio -n knative-serving
 
 If you are seeing 403 like following logs then you may have Istio RBAC turned on which blocks the probes to your service, you need to create Istio rbac rule to allow the probes from `knative-serving` namespace.
 
-```shell
+```json
 {"level":"error","ts":"2020-03-26T19:12:00.749Z","logger":"istiocontroller.ingress-controller.status-manager","caller":"ingress/status.go:366","msg":"Probing of http://flowers-sample-predictor-default.kubeflow-jeanarmel-luce.example.com:80/ failed, IP: 10.0.0.29:80, ready: false, error: unexpected status code: want [200], got 403 (depth: 0)","commit":"6b0e5c6","knative.dev/controller":"ingress-controller","stacktrace":"knative.dev/serving/pkg/reconciler/ingress.(*StatusProber).processWorkItem\n\t/home/prow/go/src/knative.dev/serving/pkg/reconciler/ingress/status.go:366\nknative.dev/serving/pkg/reconciler/ingress.(*StatusProber).Start.func1\n\t/home/prow/go/src/knative.dev/serving/pkg/reconciler/ingress/status.go:268"}
 ``` 
