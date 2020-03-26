@@ -10,7 +10,7 @@
 
 #### Note: This step is only necessary if using a domain that is configured to route incoming traffic to the cluster's Kubernetes Ingress. For example, many cloud platforms provide default domains which route to a Kuberenetes Ingress. If using a domain that is routed to the `istio-ingressgateway`, you can skip this step.
 
-#### Note: Use `kfserving-ingressgatway` instead of `istio-ingressgateway` as your `INGRESS_GATEWAY` if you are deploying KFServing as part of Kubeflow install, and not independently.
+#### Note: Use `kfserving-ingressgateway` instead of `istio-ingressgateway` as your `INGRESS_GATEWAY` if you are deploying KFServing as part of Kubeflow install, and not independently.
 
 Edit the `kfserving-ingress.yaml` file to add your custom wildcard domain to the `spec.rules.host` section, replacing `<*.custom_domain>` with your custom wildcard domain. This is so that all incoming network traffic from your custom domain and any subdomain is routed to the `istio-ingressgateway`.
 
@@ -74,7 +74,7 @@ With your Ingress routing rules and Knative configmaps set up, you can create Kn
 
 ## Create a sample InferenceService
 
-To create an InferenceService using Tensorflow, refer to the [guide](https://github.com/kubeflow/kfserving/tree/master/docs/samples/tensorflow).
+To create an InferenceService using Tensorflow, refer to the [guide](/docs/samples/tensorflow).
 
 ## Run a prediction
 
