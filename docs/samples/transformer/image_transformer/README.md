@@ -69,7 +69,7 @@ $ inferenceservice.serving.kubeflow.org/transformer-cifar10 created
 
 ## Run a prediction
 
-Use `kfserving-ingressgatway` as your `INGRESS_GATEWAY` if you are deploying KFServing as part of Kubeflow install, and not independently.
+Use `kfserving-ingressgateway` as your `INGRESS_GATEWAY` if you are deploying KFServing as part of Kubeflow install, and not independently.
 
 ```
 MODEL_NAME=transformer-cifar10
