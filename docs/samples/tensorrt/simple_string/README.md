@@ -24,7 +24,7 @@ Uses the client at: https://docs.nvidia.com/deeplearning/sdk/tensorrt-inference-
 Use `kfserving-ingressgateway` as your `INGRESS_GATEWAY` if you are deploying KFServing as part of Kubeflow install, and not independently.
 
 ```
-SERVICE_HOSTNAME=$(kubectl get inferenceservice tensorrt-simple-string -o jsonpath='{.status.url}' | cut -d "/" -f 3)
+SERVICE_HOSTNAME=$(kubectl get ksvc tensorrt-simple-string-predictor-default -o jsonpath='{.status.url}' | cut -d "/" -f 3)
 INGRESS_GATEWAY=istio-ingressgateway
 CLUSTER_IP=$(kubectl -n istio-system get service $INGRESS_GATEWAY -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 echo $CLUSTER_IP
@@ -33,7 +33,7 @@ echo $CLUSTER_IP
 ```
 curl -H "Host: ${SERVICE_HOSTNAME}" http://${CLUSTER_IP}/api/status
 ```
-3. edit /etc/hosts to map the CLUSTER IP to tensorrt-simple-string.default.example.com
+3. edit /etc/hosts to map the CLUSTER IP to tensorrt-simple-string-predictor-default.default.example.com
 4. run the client
 ```
 docker run -e SERVICE_HOSTNAME:$SERVICE_HOSTNAME -it --rm --net=host kcorer/tensorrtserver_client:19.05

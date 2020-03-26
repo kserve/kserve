@@ -1,0 +1,37 @@
+apiVersion: "serving.kubeflow.org/v1alpha2"
+kind: "InferenceService"
+metadata:
+  name: "bert-large"
+spec:
+  default:
+    transformer:
+      custom:
+        container:
+          name: kfserving-container      
+          image: yuzisun/bert_transformer:latest
+          resources:
+            limits:
+              cpu: "1" 
+              memory: 1Gi
+            requests:
+              cpu: "1" 
+              memory: 1Gi
+          command:
+            - "python"
+            - "-m"
+            - "bert_transformer"
+          env:
+            - name: STORAGE_URI
+              value: "s3://triton/bert_transformer"
+    predictor:
+      tensorrt:
+        resources:
+          limits:
+            cpu: "1"
+            memory: 16Gi
+            nvidia.com/gpu: "1"
+          requests:
+            cpu: "1"
+            memory: 16Gi
+            nvidia.com/gpu: "1"
+        storageUri: "s3://triton/bert-large"
