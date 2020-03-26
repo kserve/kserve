@@ -305,9 +305,9 @@ It`s a red herring. To resolve it, please ensure you have logged into dockerhub 
 
 Please make sure not to deploy the inferenceservice in the `kfserving-system` or other namespaces where namespace has  `control-plane` as a label. The `storage-initializer` init container does not get injected for deployments in those namespaces since they do not go through the mutating webhook.
 
-6. When you deploy the tensorfklow sample, you may get `IngressNotConfigured` error
+6. When you deploy the tensorflow sample, you may get `IngressNotConfigured` error
 
-This often happens when knative fails to probe the istio ingress gateway and you may find the errors in following logs, the reason can be that you have auth turned on istio ingress gateway.
+This often happens when knative fails to probe the istio ingress gateway and you may find the errors in following logs, the reason can be that you have auth turned on for istio ingress gateway.
 The issue has been worked in https://github.com/knative/serving/issues/6829.
 
 ```shell
