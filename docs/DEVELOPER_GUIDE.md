@@ -304,3 +304,16 @@ It`s a red herring. To resolve it, please ensure you have logged into dockerhub 
 ```
 
 Please make sure not to deploy the inferenceservice in the `kfserving-system` or other namespaces where namespace has  `control-plane` as a label. The `storage-initializer` init container does not get injected for deployments in those namespaces since they do not go through the mutating webhook.
+
+6. When you deploy the tensorfklow sample, you may get `IngressNotConfigured` error
+
+This often happens when knative fails to probe the istio ingress gateway and you may find the errors in following logs, the reason can be that you have auth turned on istio ingress gateway.
+The issue has been worked in https://github.com/knative/serving/issues/6829.
+
+```shell
+kubectl logs -l app=networking-istio -n knative-serving
+
+[2020-02-11T18:16:21.419Z] "GET / HTTP/1.1" 404 NR "-" "-" 0 0 0 - "10.88.0.31" "Go-http-client/1.1" "4a8bd584-2323-4f40-9230-9797d890b9fb" "helloworld-go.default:80" "-" - - 10.88.1.13:80 10.88.0.31:36237 - -
+[2020-02-11T18:16:21.419Z] "GET / HTTP/1.1" 404 NR "-" "-" 0 0 0 - "10.88.0.31" "Go-http-client/1.1" "7298dbfc-58bb-430f-92c5-cf39e97f63d7" "helloworld-go.default.svc:80" "-" - - 10.88.1.13:80 10.88.0.31:36239 - -
+[2020-02-11T18:16:21.420Z] "GET / HTTP/1.1" 302 UAEX "-" "-" 0 269 21 21 "10.88.0.31" "Go-http-client/1.1" "27aa43fa-ac17-4a71-8ca2-b4d9fb772219" "helloworld-go.default.example.com:80" "-" - - 10.88.1.13:80 10.88.0.31:36249 - -
+``` 
