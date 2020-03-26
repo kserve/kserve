@@ -46,7 +46,7 @@ Let's apply this yaml:
 kubectl create -f sklearn-logging.yaml
 ```
 
-We can now send a request to the sklearn model. Use `kfserving-ingressgatway` as your `INGRESS_GATEWAY` if you are deploying KFServing as part of Kubeflow install, and not independently.
+We can now send a request to the sklearn model. Use `kfserving-ingressgateway` as your `INGRESS_GATEWAY` if you are deploying KFServing as part of Kubeflow install, and not independently.
 
 ```
 MODEL_NAME=sklearn-iris
