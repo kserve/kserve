@@ -34,7 +34,7 @@ spec:
             memory: 10Gi        
 ```
 
-We set a custom config for `batch_size` as presently image requests are slow and may cause gateway timeouts if the batch size is too large.
+We set a custom config for batch_size as presently image requests are slow and may cause gateway timeouts if the batch size is too large.
 
 Create this InferenceService:
 
