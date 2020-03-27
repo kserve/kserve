@@ -305,9 +305,11 @@ It`s a red herring. To resolve it, please ensure you have logged into dockerhub 
 
 Please make sure not to deploy the inferenceservice in the `kfserving-system` or other namespaces where namespace has  `control-plane` as a label. The `storage-initializer` init container does not get injected for deployments in those namespaces since they do not go through the mutating webhook.
 
-6. When you deploy the tensorflow sample, you may get `IngressNotConfigured` error
+6. When you deploy the tensorflow sample, you may get `IngressNotConfigured` error:
 
-This often happens when knative fails to probe the istio ingress gateway and you may find the errors in following logs, the reason can be that you have auth turned on for istio ingress gateway.
+This often happens when Knative fails to probe the Istio ingress gateway and you may find the HTTP error code in Knative `network-istio` pod logs.
+
+If you are seeing HTTP 401 or 302, then you may have Auth turned on for `Istio Ingress Gateway` which blocks the Knative probes.
 The issue has been worked in https://github.com/knative/serving/issues/6829.
 
 ```shell
@@ -318,8 +320,10 @@ kubectl logs -l app=networking-istio -n knative-serving
 [2020-02-11T18:16:21.420Z] "GET / HTTP/1.1" 302 UAEX "-" "-" 0 269 21 21 "10.88.0.31" "Go-http-client/1.1" "27aa43fa-ac17-4a71-8ca2-b4d9fb772219" "helloworld-go.default.example.com:80" "-" - - 10.88.1.13:80 10.88.0.31:36249 - -
 ```
 
-If you are seeing 403 like following logs then you may have Istio RBAC turned on which blocks the probes to your service, you need to create Istio rbac rule to allow the probes from `knative-serving` namespace.
+If you are seeing HTTP 403, then you may have Istio RBAC turned on which blocks the probes to your service, you can create Istio RBAC rule to allow the probes from `knative-serving` namespace.
 
-```shell
-{"level":"error","ts":"2020-03-26T19:12:00.749Z","logger":"istiocontroller.ingress-controller.status-manager","caller":"ingress/status.go:366","msg":"Probing of http://flowers-sample-predictor-default.kubeflow-jeanarmel-luce.example.com:80/ failed, IP: 10.0.0.29:80, ready: false, error: unexpected status code: want [200], got 403 (depth: 0)","commit":"6b0e5c6","knative.dev/controller":"ingress-controller","stacktrace":"knative.dev/serving/pkg/reconciler/ingress.(*StatusProber).processWorkItem\n\t/home/prow/go/src/knative.dev/serving/pkg/reconciler/ingress/status.go:366\nknative.dev/serving/pkg/reconciler/ingress.(*StatusProber).Start.func1\n\t/home/prow/go/src/knative.dev/serving/pkg/reconciler/ingress/status.go:268"}
+```json
+{"level":"error","ts":"2020-03-26T19:12:00.749Z","logger":"istiocontroller.ingress-controller.status-manager","caller":"ingress/status.go:366",
+"msg":"Probing of http://flowers-sample-predictor-default.kubeflow-jeanarmel-luce.example.com:80/ failed, IP: 10.0.0.29:80, ready: false, error: unexpected status code: want [200], got 403 (depth: 0)",
+"commit":"6b0e5c6","knative.dev/controller":"ingress-controller","stacktrace":"knative.dev/serving/pkg/reconciler/ingress.(*StatusProber).processWorkItem\n\t/home/prow/go/src/knative.dev/serving/pkg/reconciler/ingress/status.go:366\nknative.dev/serving/pkg/reconciler/ingress.(*StatusProber).Start.func1\n\t/home/prow/go/src/knative.dev/serving/pkg/reconciler/ingress/status.go:268"}
 ``` 
