@@ -46,6 +46,7 @@ def test_tabular_explainer():
                     requests={'cpu': '100m', 'memory': '1Gi'},
                     limits={'cpu': '100m', 'memory': '1Gi'}))),
         explainer=V1alpha2ExplainerSpec(
+            min_replicas=1,
              alibi=V1alpha2AlibiExplainerSpec(
                 type='AnchorTabular',
                 storage_uri='gs://seldon-models/sklearn/income/explainer',
