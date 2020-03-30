@@ -53,9 +53,19 @@ def explain(service_name, input_json):
     with open(input_json) as json_file:
         data = json.load(json_file)
         logging.info("Sending request data: %s", json.dumps(data))
-        response = requests.post(url, json.dumps(data), headers=headers)
-        logging.info("Got response code %s, content %s", response.status_code, response.content)
-        precision = json.loads(response.content.decode('utf-8'))["precision"]
+        try: 
+            response = requests.post(url, json.dumps(data), headers=headers)
+            logging.info("Got response code %s, content %s", response.status_code, response.content)
+            precision = json.loads(response.content.decode('utf-8'))["precision"]
+        except RuntimeError as e:
+            logging.info(KFServing.api_instance.get_namespaced_custom_object("serving.knative.dev", "v1", KFSERVING_TEST_NAMESPACE,
+                                                                      "services", service_name + "-explainer-default"))
+            pods = KFServing.core_api.list_namespaced_pod(KFSERVING_TEST_NAMESPACE,
+                                                        label_selector='serving.kubeflow.org/inferenceservice={}'.
+                                                        format(service_name))
+            for pod in pods.items:
+                logging.info(pod)
+            raise e
         return precision
 
 def get_cluster_ip():
