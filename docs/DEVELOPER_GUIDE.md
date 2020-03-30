@@ -152,13 +152,13 @@ make deploy
 
 **Optional**: you can set CPU and memory limits when deploying `KFServing`.
 ```bash
-make deploy CPU_LIMIT=<cpu_limit> MEMORY_LIMIT=<memory_limit>
+make deploy KFSERVING_CONTROLLER_CPU_LIMIT=<cpu_limit> KFSERVING_CONTROLLER_MEMORY_LIMIT=<memory_limit>
 ```
 
 or
 ```bash
-export CPU_LIMIT=<cpu_limit>
-export MEMORY_LIMIT=<memory_limit>
+export KFSERVING_CONTROLLER_CPU_LIMIT=<cpu_limit>
+export KFSERVING_CONTROLLER_MEMORY_LIMIT=<memory_limit>
 make deploy
 ```
 
