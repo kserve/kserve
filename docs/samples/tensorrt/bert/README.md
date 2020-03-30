@@ -98,6 +98,7 @@ bert-large-predictor-default-2gh6p     bert-large-predictor-default     bert-lar
 bert-large-transformer-default-pcztn   bert-large-transformer-default   bert-large-transformer-default-pcztn   1            True 
 ```
 ## Run a Prediction
+Use `kfserving-ingressgateway` as your `INGRESS_GATEWAY` if you are deploying KFServing as part of Kubeflow install, and not independently.
 
 ```
 MODEL_NAME=bert-large
@@ -108,6 +109,8 @@ CLUSTER_IP=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpat
 curl -v -H "Host: ${SERVICE_HOSTNAME}" -d $INPUT_PATH http://$CLUSTER_IP/v1/models/$MODEL_NAME:predict
 ```
 
+Expected output
 ```
-
+{"predictions": "John F. Kennedy", "prob": 77.91848979818604}
 ```
+## Performance Test
