@@ -1,25 +1,51 @@
 # Predict on a InferenceService using a KFServing Model Server
 
-## Setup
+The goal of custom image support is to allow users to bring their own wrapped model inside a container and serve it with KFServing. Please note that you will need to ensure that your container is also running a web server e.g. Flask to expose your model endpoints. This example located in the `model-server` directory extends `kfserving.KFModel` which uses the tornado web server.
+
+You can choose to deploy the model server using the kubectl command line, or using the KFServing client SDK.
+
+## Table of contents
+
+[Deploy using the KFServing client SDK](#deploy-a-custom-image-inferenceservice-using-the-kfserving-client-sdk)
+
+[Deploy using the command line](#deploy-a-custom-image-inferenceservice-using-the-command-line)
+
+## Deploy a custom image InferenceService using the KFServing client SDK
+
+Install Jupyter and the other depedencies needed to run the python notebook
+
+```
+pip install -r requirements.txt
+```
+
+Start Jupyter and open the notebook
+
+```
+jupyter notebook kfserving_sdk_custom_image.ipynb
+```
+
+Follow the instructions in the notebook to deploy the InferenseService with the KFServing client SDK
+
+## Deploy a custom image InferenceService using the command line
+
+### Setup
 
 1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/blob/master/docs/DEVELOPER_GUIDE.md#deploy-kfserving).
 2. Your cluster's Istio Ingress gateway must be network accessible.
 
-## Build and push the sample Docker Image
-
-The goal of custom image support is to allow users to bring their own wrapped model inside a container and serve it with KFServing. Please note that you will need to ensure that your container is also running a web server e.g. Flask to expose your model endpoints. This example extends `kfserving.KFModel` which uses the tornado web server.
+### Build and push the sample Docker Image
 
 In this example we use Docker to build the sample python server into a container. To build and push with Docker Hub, run these commands replacing {username} with your Docker Hub username:
 
 ```
 # Build the container on your local machine
-docker build -t {username}/kfserving-custom-model .
+docker build -t {username}/kfserving-custom-model ./model-server
 
 # Push the container to docker registry
 docker push {username}/kfserving-custom-model
 ```
 
-## Create the InferenceService
+### Create the InferenceService
 
 In the `custom.yaml` file edit the container image and replace {username} with your Docker Hub username.
 
@@ -35,7 +61,7 @@ Expected Output
 $ inferenceservice.serving.kubeflow.org/kfserving-custom-model created
 ```
 
-## Run a prediction
+### Run a prediction
 
 Use `kfserving-ingressgateway` as your `INGRESS_GATEWAY` if you are deploying KFServing as part of Kubeflow install, and not independently.
 
@@ -50,6 +76,7 @@ curl -v -H "Host: ${SERVICE_HOSTNAME}" http://${CLUSTER_IP}/v1/models/${MODEL_NA
 ```
 
 Expected Output:
+
 ```
 *   Trying 169.47.250.204...
 * TCP_NODELAY set
@@ -73,4 +100,16 @@ Expected Output:
 <
 * Connection #0 to host 169.47.250.204 left intact
 {"predictions": {"Labrador retriever": 0.4158518612384796, "golden retriever": 0.1659165322780609, "Saluki, gazelle hound": 0.16286855936050415, "whippet": 0.028539149090647697, "Ibizan hound, Ibizan Podenco": 0.023924754932522774}}* Closing connection 0
+```
+
+### Delete the InferenceService
+
+```
+kubectl delete -f custom.yaml
+```
+
+Expected Output
+
+```
+$ inferenceservice.serving.kubeflow.org "kfserving-custom-model" deleted
 ```
