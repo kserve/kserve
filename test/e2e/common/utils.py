@@ -53,6 +53,11 @@ def explain(service_name, input_json):
     with open(input_json) as json_file:
         data = json.load(json_file)
         logging.info("Sending request data: %s", json.dumps(data))
+        logging.info("Print pod info before explain")
+        pods = KFServing.core_api.list_namespaced_pod(KFSERVING_TEST_NAMESPACE,
+               label_selector='serving.kubeflow.org/inferenceservice={}'.format(service_name))
+        for pod in pods.items:
+            logging.info(pod)
         try: 
             response = requests.post(url, json.dumps(data), headers=headers)
             logging.info("Got response code %s, content %s", response.status_code, response.content)
