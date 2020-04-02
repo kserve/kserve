@@ -23,14 +23,13 @@ set -o pipefail
 export PATH=${GOPATH}/bin:/usr/local/go/bin:${PATH}
 REGISTRY="${GCP_REGISTRY}"
 PROJECT="${GCP_PROJECT}"
-IMAGE_TRANSFOMER_DIR="docs/samples/triton/bert/"
+BERT_TRANSFOMER_DIR="docs/samples/triton/bert/bert_tokenizer/bert_transformer"
 VERSION=$(git describe --tags --always --dirty)
 
 echo "Activating service-account ..."
 gcloud auth activate-service-account --key-file=${GOOGLE_APPLICATION_CREDENTIALS}
 
 echo "Building and pushing bert-transfomer ..."
-cd ${IMAGE_TRANSFOMER_DIR}
-cp transformer.Dockerfile Dockerfile
+cd ${BERT_TRANSFOMER_DIR}
 gcloud builds submit . --tag=${REGISTRY}/${REPO_NAME}/bert-transformer:${VERSION} --project=${PROJECT}
-gcloud container images add-tag --quiet ${REGISTRY}/${REPO_NAME}/image-transformer:${VERSION} ${REGISTRY}/${REPO_NAME}/bert-transformer:latest --verbosity=info
+gcloud container images add-tag --quiet ${REGISTRY}/${REPO_NAME}/bert-transformer:${VERSION} ${REGISTRY}/${REPO_NAME}/bert-transformer:latest --verbosity=info

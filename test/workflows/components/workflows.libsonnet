@@ -320,6 +320,9 @@
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-custom-image-transformer", testWorkerImage, [
               "test/scripts/build-custom-image-transformer.sh",
             ]),  // build-custom-image-transformer
+            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-custom-bert-transformer", testWorkerImage, [
+              "test/scripts/build-custom-bert-transformer.sh",
+            ]),  // build-custom-bert-transformer
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-pytorchserver", testWorkerImage, [
               "test/scripts/build-python-image.sh", "pytorch.Dockerfile", "pytorchserver", "latest"
             ]),  // build-pytorchserver
