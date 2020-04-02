@@ -24,7 +24,7 @@ spec:
             - name: STORAGE_URI
               value: "s3://triton/bert_transformer"
     predictor:
-      tensorrt:
+      triton:
         resources:
           limits:
             cpu: "1"

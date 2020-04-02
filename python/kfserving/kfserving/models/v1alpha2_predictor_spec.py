@@ -64,7 +64,7 @@ class V1alpha2PredictorSpec(object):
         'service_account_name': 'str',
         'sklearn': 'V1alpha2SKLearnSpec',
         'tensorflow': 'V1alpha2TensorflowSpec',
-        'tensorrt': 'V1alpha2TensorRTSpec',
+        'triton': 'V1alpha2TensorRTSpec',
         'xgboost': 'V1alpha2XGBoostSpec'
     }
 
@@ -79,7 +79,7 @@ class V1alpha2PredictorSpec(object):
         'service_account_name': 'serviceAccountName',
         'sklearn': 'sklearn',
         'tensorflow': 'tensorflow',
-        'tensorrt': 'tensorrt',
+        'triton': 'triton',
         'xgboost': 'xgboost'
     }
 
@@ -357,22 +357,22 @@ class V1alpha2PredictorSpec(object):
 
     @property
     def tensorrt(self):
-        """Gets the tensorrt of this V1alpha2PredictorSpec.  # noqa: E501
+        """Gets the triton of this V1alpha2PredictorSpec.  # noqa: E501
 
         Spec for TensorRT Inference Server (https://github.com/NVIDIA/tensorrt-inference-server)  # noqa: E501
 
-        :return: The tensorrt of this V1alpha2PredictorSpec.  # noqa: E501
+        :return: The triton of this V1alpha2PredictorSpec.  # noqa: E501
         :rtype: V1alpha2TensorRTSpec
         """
         return self._tensorrt
 
     @tensorrt.setter
     def tensorrt(self, tensorrt):
-        """Sets the tensorrt of this V1alpha2PredictorSpec.
+        """Sets the triton of this V1alpha2PredictorSpec.
 
         Spec for TensorRT Inference Server (https://github.com/NVIDIA/tensorrt-inference-server)  # noqa: E501
 
-        :param tensorrt: The tensorrt of this V1alpha2PredictorSpec.  # noqa: E501
+        :param tensorrt: The triton of this V1alpha2PredictorSpec.  # noqa: E501
         :type: V1alpha2TensorRTSpec
         """
 

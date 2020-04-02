@@ -28,11 +28,9 @@ class BertTransformer(kfserving.KFModel):
 
         self.predictor_host = predictor_host
         self.tokenizer = tokenization.FullTokenizer(vocab_file="/mnt/models/vocab.txt", do_lower_case=True)
-        url = self.predictor_host
-        model_name = "bert_tf_v2_large_fp16_128_v2" 
-        model_version = -1
-        protocol = ProtocolType.from_str('http')
-        self.infer_ctx = InferContext(url, protocol, model_name, model_version, http_headers='', verbose=True)
+        self.model_name = "bert_tf_v2_large_fp16_128_v2"
+        self.model_version = -1
+        self.protocol = ProtocolType.from_str('http')
 
     def preprocess(self, inputs: Dict) -> Dict:
         self.doc_tokens = data_processing.convert_doc_tokens(self.short_paragraph_text)
@@ -40,6 +38,9 @@ class BertTransformer(kfserving.KFModel):
         return self.features
 
     def predict(self, features: Dict) -> Dict:
+        if not self.infer_ctx:
+            self.infer_ctx = InferContext(self.predictor_host, self.protocol, self.model_name, self.model_version, http_headers='', verbose=True)
+
         batch_size = 1
         unique_ids = np.int32([1])
         segment_ids = features["segment_ids"]

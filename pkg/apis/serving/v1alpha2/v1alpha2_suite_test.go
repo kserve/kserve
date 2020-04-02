@@ -42,7 +42,7 @@ const (
 	DefaultPyTorchRuntimeVersion        = "0.1.0"
 	DefaultPyTorchRuntimeVersionGPU     = "0.1.0-gpu"
 	DefaultXGBoostRuntimeVersion        = "0.1.0"
-	DefaultTensorRTRuntimeVersion       = "19.05-py3"
+	DefaultTritonISRuntimeVersion       = "19.05-py3"
 	DefaultONNXRuntimeVersion           = "v0.5.0"
 	DefaultAlibiExplainerRuntimeVersion = "0.2.3"
 )
@@ -112,8 +112,8 @@ func TestMain(m *testing.M) {
 				   "v0.5.0"
 				]
 			},
-			"tensorrt" : {
-				"image" : "nvcr.io/nvidia/tensorrtserver",
+			"triton" : {
+				"image" : "nvcr.io/nvidia/tritonserver",
 				"defaultImageVersion": "19.05-py3",
 				"allowedImageVersions": [
 				   "19.05-py3"
