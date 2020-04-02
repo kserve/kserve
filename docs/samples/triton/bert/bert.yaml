@@ -8,7 +8,7 @@ spec:
       custom:
         container:
           name: kfserving-container      
-          image: yuzisun/bert_transformer:latest
+          image: gcr.io/kubeflow-ci/kfserving/bert_transformer:latest
           resources:
             limits:
               cpu: "1" 
@@ -22,7 +22,7 @@ spec:
             - "bert_transformer"
           env:
             - name: STORAGE_URI
-              value: "s3://triton/bert_transformer"
+              value: "gs://kfserving-samples/triton/bert_transformer"
     predictor:
       triton:
         resources:
@@ -34,4 +34,4 @@ spec:
             cpu: "1"
             memory: 16Gi
             nvidia.com/gpu: "1"
-        storageUri: "s3://triton/bert-large"
+        storageUri: "gs://kfserving-samples/triton/bert-large"

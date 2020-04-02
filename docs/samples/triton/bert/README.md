@@ -29,6 +29,9 @@ class BertTransformer(kfserving.KFModel):
 
         self.predictor_host = predictor_host
         self.tokenizer = tokenization.FullTokenizer(vocab_file="/mnt/models/vocab.txt", do_lower_case=True)
+        self.model_name = "bert_tf_v2_large_fp16_128_v2"
+        self.model_version = -1
+        self.protocol = ProtocolType.from_str('http')
 
     def preprocess(self, inputs: Dict) -> Dict:
         self.doc_tokens = data_processing.convert_doc_tokens(self.short_paragraph_text)
@@ -36,12 +39,10 @@ class BertTransformer(kfserving.KFModel):
         return self.features
 
     def predict(self, features: Dict) -> Dict:
-        model_name = "bert_tf_v2_large_fp16_128_v2"
-        model_version = -1
+        if not self.infer_ctx:
+            self.infer_ctx = InferContext(self.predictor_host, self.protocol, self.model_name, self.model_version, http_headers='', verbose=True)
+
         batch_size = 1
-        url = self.predictor_host
-        protocol = ProtocolType.from_str('http')
-        self.infer_ctx = InferContext(url, protocol, model_name, model_version, http_headers='', verbose=True)
         unique_ids = np.int32([1])
         segment_ids = features["segment_ids"]
         input_ids = features["input_ids"]
@@ -66,16 +67,17 @@ class BertTransformer(kfserving.KFModel):
         (prediction, nbest_json, scores_diff_json) = \
            data_processing.get_predictions(self.doc_tokens, self.features, start_logits, end_logits, n_best_size, max_answer_length)
         return {"predictions": prediction, "prob": nbest_json[0]['probability'] * 100.0}
+```
 
-```
-## Build the BERT Transformer Image
+Build the KFServing Transformer image with above code
 ```bash
-cd bert_transformer
-docker build -t yuzisun/bert_transformer:latest -f Dockerfile . --rm
+cd bert_tokenizer
+docker build -t $USER/bert_transformer:latest . --rm
 ```
+Or you can use the prebuild image `gcr.io/kubeflow-ci/kfserving/bert_transformer:latest`
 
 ## Create the InferenceService
-Apply the CRD
+Add above custom KFServing Transformer image and Triton Predictor to the `InferenceService` spec and then apply the yaml.
 ```
 kubectl apply -f bert.yaml 
 ```
@@ -100,7 +102,16 @@ bert-large-transformer-default-pcztn   bert-large-transformer-default   bert-lar
 ## Run a Prediction
 Use `kfserving-ingressgateway` as your `INGRESS_GATEWAY` if you are deploying KFServing as part of Kubeflow install, and not independently.
 
+Send a question request with following input
+```json
+{
+  "instances": [
+    "What President is credited with the original notion of putting Americans in space?" 
+  ]
+}
 ```
+
+```bash
 MODEL_NAME=bert-large
 INPUT_PATH=@./input.json
 SERVICE_HOSTNAME=$(kubectl get inferenceservices bert-large -o jsonpath='{.status.url}' | cut -d "/" -f 3)
@@ -113,4 +124,4 @@ Expected output
 ```
 {"predictions": "John F. Kennedy", "prob": 77.91848979818604}
 ```
-## Performance Test
+
