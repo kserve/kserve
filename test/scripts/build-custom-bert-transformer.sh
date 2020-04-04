@@ -23,7 +23,7 @@ set -o pipefail
 export PATH=${GOPATH}/bin:/usr/local/go/bin:${PATH}
 REGISTRY="${GCP_REGISTRY}"
 PROJECT="${GCP_PROJECT}"
-BERT_TRANSFOMER_DIR="docs/samples/triton/bert/bert_tokenizer/bert_transformer"
+BERT_TRANSFOMER_DIR="docs/samples/triton/bert/bert_tokenizer"
 VERSION=$(git describe --tags --always --dirty)
 
 echo "Activating service-account ..."
