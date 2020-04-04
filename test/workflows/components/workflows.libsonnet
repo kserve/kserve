@@ -239,6 +239,10 @@
                     template: "build-custom-image-transformer",
                   },
                   {
+                    name: "build-custom-bert-transformer",
+                    template: "build-custom-bert-transformer",
+                  },
+                  {
                     name: "build-pytorchserver",
                     template: "build-pytorchserver",
                   },

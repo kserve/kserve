@@ -1,4 +1,4 @@
-# Copyright 2019 kubeflow.org.
+# Copyright 2020 kubeflow.org.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -31,6 +31,7 @@ class BertTransformer(kfserving.KFModel):
         self.model_name = "bert_tf_v2_large_fp16_128_v2"
         self.model_version = -1
         self.protocol = ProtocolType.from_str('http')
+        self.infer_ctx = None
 
     def preprocess(self, inputs: Dict) -> Dict:
         self.doc_tokens = data_processing.convert_doc_tokens(self.short_paragraph_text)
