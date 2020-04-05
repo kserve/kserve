@@ -238,9 +238,9 @@ type InferenceServiceStatus struct {
 	// Traffic percentage that goes to canary services
 	CanaryTraffic int `json:"canaryTraffic,omitempty"`
 	// Statuses for the default endpoints of the InferenceService
-	Default *ComponentStatusMap `json:"default,omitempty"`
+	Default ComponentStatusMap `json:"default,omitempty"`
 	// Statuses for the canary endpoints of the InferenceService
-	Canary *ComponentStatusMap `json:"canary,omitempty"`
+	Canary ComponentStatusMap `json:"canary,omitempty"`
 	// Ducktype for addressable
 	Address *Addressable `json:"address,omitempty"`
 }

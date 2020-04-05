@@ -21,7 +21,6 @@ limitations under the License.
 package v1alpha2
 
 import (
-	"github.com/kubeflow/kfserving/pkg/constants"
 	"k8s.io/apimachinery/pkg/runtime"
 	"knative.dev/pkg/apis/duck/v1beta1"
 )
@@ -300,24 +299,16 @@ func (in *InferenceServiceStatus) DeepCopyInto(out *InferenceServiceStatus) {
 	in.Status.DeepCopyInto(&out.Status)
 	if in.Default != nil {
 		in, out := &in.Default, &out.Default
-		*out = new(map[constants.InferenceServiceComponent]StatusConfigurationSpec)
-		if **in != nil {
-			in, out := *in, *out
-			*out = make(map[constants.InferenceServiceComponent]StatusConfigurationSpec, len(*in))
-			for key, val := range *in {
-				(*out)[key] = val
-			}
+		*out = make(ComponentStatusMap, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
 		}
 	}
 	if in.Canary != nil {
 		in, out := &in.Canary, &out.Canary
-		*out = new(map[constants.InferenceServiceComponent]StatusConfigurationSpec)
-		if **in != nil {
-			in, out := *in, *out
-			*out = make(map[constants.InferenceServiceComponent]StatusConfigurationSpec, len(*in))
-			for key, val := range *in {
-				(*out)[key] = val
-			}
+		*out = make(ComponentStatusMap, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
 		}
 	}
 	if in.Address != nil {

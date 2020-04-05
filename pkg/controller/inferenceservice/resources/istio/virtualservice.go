@@ -166,12 +166,12 @@ func (r *VirtualServiceBuilder) CreateVirtualService(isvc *v1alpha2.InferenceSer
 	defaultWeight := 100 - isvc.Spec.CanaryTrafficPercent
 	canaryWeight := isvc.Spec.CanaryTrafficPercent
 
-	if defaultPredictRouteDestination, err := r.getPredictRouteDestination(isvc.GetObjectMeta(), false, &isvc.Spec.Default, isvc.Status.Default, int32(defaultWeight)); err != nil {
+	if defaultPredictRouteDestination, err := r.getPredictRouteDestination(isvc.GetObjectMeta(), false, &isvc.Spec.Default, &isvc.Status.Default, int32(defaultWeight)); err != nil {
 		return nil, err
 	} else {
 		predictRouteDestinations = append(predictRouteDestinations, defaultPredictRouteDestination)
 	}
-	if canaryPredictRouteDestination, err := r.getPredictRouteDestination(isvc.GetObjectMeta(), true, isvc.Spec.Canary, isvc.Status.Canary, int32(canaryWeight)); err != nil {
+	if canaryPredictRouteDestination, err := r.getPredictRouteDestination(isvc.GetObjectMeta(), true, isvc.Spec.Canary, &isvc.Status.Canary, int32(canaryWeight)); err != nil {
 		return nil, err
 	} else {
 		if canaryPredictRouteDestination != nil {
@@ -218,14 +218,14 @@ func (r *VirtualServiceBuilder) CreateVirtualService(isvc *v1alpha2.InferenceSer
 
 	// optionally add the explain route
 	explainRouteDestinations := []*istiov1alpha3.HTTPRouteDestination{}
-	if defaultExplainRouteDestination, err := r.getExplainerRouteDestination(isvc.GetObjectMeta(), false, &isvc.Spec.Default, isvc.Status.Default, int32(defaultWeight)); err != nil {
+	if defaultExplainRouteDestination, err := r.getExplainerRouteDestination(isvc.GetObjectMeta(), false, &isvc.Spec.Default, &isvc.Status.Default, int32(defaultWeight)); err != nil {
 		return nil, err
 	} else {
 		if defaultExplainRouteDestination != nil {
 			explainRouteDestinations = append(explainRouteDestinations, defaultExplainRouteDestination)
 		}
 	}
-	if canaryExplainRouteDestination, err := r.getExplainerRouteDestination(isvc.GetObjectMeta(), true, isvc.Spec.Canary, isvc.Status.Canary, int32(canaryWeight)); err != nil {
+	if canaryExplainRouteDestination, err := r.getExplainerRouteDestination(isvc.GetObjectMeta(), true, isvc.Spec.Canary, &isvc.Status.Canary, int32(canaryWeight)); err != nil {
 		return nil, err
 	} else {
 		if canaryExplainRouteDestination != nil {
@@ -315,7 +315,7 @@ func (r *VirtualServiceBuilder) CreateVirtualService(isvc *v1alpha2.InferenceSer
 }
 
 func getServiceHostname(isvc *v1alpha2.InferenceService) (string, error) {
-	predictorStatus, reason := getPredictStatusConfigurationSpec(isvc.Status.Default)
+	predictorStatus, reason := getPredictStatusConfigurationSpec(&isvc.Status.Default)
 	if predictorStatus == nil {
 		return "", fmt.Errorf("failed to get service hostname: %s", reason)
 	}

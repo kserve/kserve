@@ -8,7 +8,7 @@ import (
 	"github.com/kubeflow/kfserving/pkg/constants"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	"k8s.io/apimachinery/pkg/util/validation/field"
+	// "k8s.io/apimachinery/pkg/util/validation/field"
 	//	"k8s.io/kubernetes/pkg/apis/core"
 	//	"k8s.io/kubernetes/pkg/apis/core/validation"
 )
@@ -41,18 +41,18 @@ func setResourceRequirementDefaults(requirements *v1.ResourceRequirements) {
 
 }
 
-func toCoreResourceRequirements(rr *v1.ResourceRequirements) *core.ResourceRequirements {
-	resourceRequirements := &core.ResourceRequirements{
-		Limits:   make(core.ResourceList),
-		Requests: make(core.ResourceList),
+func toCoreResourceRequirements(rr *v1.ResourceRequirements) *v1.ResourceRequirements {
+	resourceRequirements := &v1.ResourceRequirements{
+		Limits:   make(v1.ResourceList),
+		Requests: make(v1.ResourceList),
 	}
 
 	for k, v := range rr.Requests {
-		resourceName := core.ResourceName(string(k))
+		resourceName := v1.ResourceName(string(k))
 		resourceRequirements.Requests[resourceName] = v
 	}
 	for k, v := range rr.Limits {
-		resourceName := core.ResourceName(string(k))
+		resourceName := v1.ResourceName(string(k))
 		resourceRequirements.Limits[resourceName] = v
 	}
 

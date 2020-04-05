@@ -72,33 +72,33 @@ func TestCreateVirtualService(t *testing.T) {
 	}
 	cases := []struct {
 		name            string
-		defaultStatus   *v1alpha2.ComponentStatusMap
-		canaryStatus    *v1alpha2.ComponentStatusMap
+		defaultStatus   v1alpha2.ComponentStatusMap
+		canaryStatus    v1alpha2.ComponentStatusMap
 		expectedStatus  *v1alpha2.VirtualServiceStatus
 		expectedService *v1alpha3.VirtualService
 	}{{
 		name:            "nil status should not be ready",
-		defaultStatus:   nil,
-		canaryStatus:    nil,
+		defaultStatus:   v1alpha2.ComponentStatusMap{},
+		canaryStatus:    v1alpha2.ComponentStatusMap{},
 		expectedStatus:  createFailedStatus(PredictorStatusUnknown, PredictorMissingMessage),
 		expectedService: nil,
 	}, {
 		name:            "empty status should not be ready",
-		defaultStatus:   &v1alpha2.ComponentStatusMap{},
-		canaryStatus:    nil,
+		defaultStatus:   v1alpha2.ComponentStatusMap{},
+		canaryStatus:    v1alpha2.ComponentStatusMap{},
 		expectedStatus:  createFailedStatus(PredictorStatusUnknown, PredictorMissingMessage),
 		expectedService: nil,
 	}, {
 		name: "predictor missing host name",
-		defaultStatus: &v1alpha2.ComponentStatusMap{
+		defaultStatus: v1alpha2.ComponentStatusMap{
 			constants.Predictor: v1alpha2.StatusConfigurationSpec{},
 		},
-		canaryStatus:    nil,
+		canaryStatus:    v1alpha2.ComponentStatusMap{},
 		expectedStatus:  createFailedStatus(PredictorHostnameUnknown, PredictorMissingMessage),
 		expectedService: nil,
 	}, {
 		name: "found predictor",
-		defaultStatus: &v1alpha2.ComponentStatusMap{
+		defaultStatus: v1alpha2.ComponentStatusMap{
 			constants.Predictor: v1alpha2.StatusConfigurationSpec{
 				Hostname: predictorHostname,
 			},
@@ -149,36 +149,36 @@ func TestCreateVirtualService(t *testing.T) {
 		},
 	}, {
 		name: "missing canary predictor",
-		defaultStatus: &v1alpha2.ComponentStatusMap{
+		defaultStatus: v1alpha2.ComponentStatusMap{
 			constants.Predictor: v1alpha2.StatusConfigurationSpec{
 				Hostname: predictorHostname,
 			},
 		},
-		canaryStatus: &v1alpha2.ComponentStatusMap{
+		canaryStatus: v1alpha2.ComponentStatusMap{
 			constants.Predictor: v1alpha2.StatusConfigurationSpec{},
 		},
 		expectedStatus:  createFailedStatus(PredictorHostnameUnknown, PredictorMissingMessage),
 		expectedService: nil,
 	}, {
 		name: "canary predictor no hostname",
-		defaultStatus: &v1alpha2.ComponentStatusMap{
+		defaultStatus: v1alpha2.ComponentStatusMap{
 			constants.Predictor: v1alpha2.StatusConfigurationSpec{
 				Hostname: predictorHostname,
 			},
 		},
-		canaryStatus: &v1alpha2.ComponentStatusMap{
+		canaryStatus: v1alpha2.ComponentStatusMap{
 			constants.Predictor: v1alpha2.StatusConfigurationSpec{},
 		},
 		expectedStatus:  createFailedStatus(PredictorHostnameUnknown, PredictorMissingMessage),
 		expectedService: nil,
 	}, {
 		name: "found default and canary predictor",
-		defaultStatus: &v1alpha2.ComponentStatusMap{
+		defaultStatus: v1alpha2.ComponentStatusMap{
 			constants.Predictor: v1alpha2.StatusConfigurationSpec{
 				Hostname: predictorHostname,
 			},
 		},
-		canaryStatus: &v1alpha2.ComponentStatusMap{
+		canaryStatus: v1alpha2.ComponentStatusMap{
 			constants.Predictor: v1alpha2.StatusConfigurationSpec{
 				Hostname: canaryPredictorHostname,
 			},
@@ -239,7 +239,7 @@ func TestCreateVirtualService(t *testing.T) {
 		},
 	}, {
 		name: "nil transformer status fails with status unknown",
-		defaultStatus: &v1alpha2.ComponentStatusMap{
+		defaultStatus: v1alpha2.ComponentStatusMap{
 			constants.Transformer: v1alpha2.StatusConfigurationSpec{},
 			constants.Predictor: v1alpha2.StatusConfigurationSpec{
 				Hostname: predictorHostname,
@@ -250,7 +250,7 @@ func TestCreateVirtualService(t *testing.T) {
 		expectedService: nil,
 	}, {
 		name: "transformer missing host name",
-		defaultStatus: &v1alpha2.ComponentStatusMap{
+		defaultStatus: v1alpha2.ComponentStatusMap{
 			constants.Transformer: v1alpha2.StatusConfigurationSpec{},
 			constants.Predictor: v1alpha2.StatusConfigurationSpec{
 				Hostname: predictorHostname,
@@ -261,7 +261,7 @@ func TestCreateVirtualService(t *testing.T) {
 		expectedService: nil,
 	}, {
 		name: "default transformer and predictor",
-		defaultStatus: &v1alpha2.ComponentStatusMap{
+		defaultStatus: v1alpha2.ComponentStatusMap{
 			constants.Transformer: v1alpha2.StatusConfigurationSpec{
 				Hostname: transformerHostname,
 			},
@@ -316,7 +316,7 @@ func TestCreateVirtualService(t *testing.T) {
 		},
 	}, {
 		name: "missing canary transformer",
-		defaultStatus: &v1alpha2.ComponentStatusMap{
+		defaultStatus: v1alpha2.ComponentStatusMap{
 			constants.Transformer: v1alpha2.StatusConfigurationSpec{
 				Hostname: transformerHostname,
 			},
@@ -324,7 +324,7 @@ func TestCreateVirtualService(t *testing.T) {
 				Hostname: predictorHostname,
 			},
 		},
-		canaryStatus: &v1alpha2.ComponentStatusMap{
+		canaryStatus: v1alpha2.ComponentStatusMap{
 			constants.Transformer: v1alpha2.StatusConfigurationSpec{},
 			constants.Predictor: v1alpha2.StatusConfigurationSpec{
 				Hostname: predictorHostname,
@@ -334,7 +334,7 @@ func TestCreateVirtualService(t *testing.T) {
 		expectedService: nil,
 	}, {
 		name: "canary & default transformer and predictor",
-		defaultStatus: &v1alpha2.ComponentStatusMap{
+		defaultStatus: v1alpha2.ComponentStatusMap{
 			constants.Transformer: v1alpha2.StatusConfigurationSpec{
 				Hostname: transformerHostname,
 			},
@@ -342,7 +342,7 @@ func TestCreateVirtualService(t *testing.T) {
 				Hostname: predictorHostname,
 			},
 		},
-		canaryStatus: &v1alpha2.ComponentStatusMap{
+		canaryStatus: v1alpha2.ComponentStatusMap{
 			constants.Transformer: v1alpha2.StatusConfigurationSpec{
 				Hostname: canaryTransformerHostname,
 			},
@@ -404,7 +404,7 @@ func TestCreateVirtualService(t *testing.T) {
 		},
 	}, {
 		name: "nil explainer status fails with status unknown",
-		defaultStatus: &v1alpha2.ComponentStatusMap{
+		defaultStatus: v1alpha2.ComponentStatusMap{
 			constants.Explainer: v1alpha2.StatusConfigurationSpec{},
 			constants.Predictor: v1alpha2.StatusConfigurationSpec{
 				Hostname: predictorHostname,
@@ -415,7 +415,7 @@ func TestCreateVirtualService(t *testing.T) {
 		expectedService: nil,
 	}, {
 		name: "explainer missing host name",
-		defaultStatus: &v1alpha2.ComponentStatusMap{
+		defaultStatus: v1alpha2.ComponentStatusMap{
 			constants.Explainer: v1alpha2.StatusConfigurationSpec{},
 			constants.Predictor: v1alpha2.StatusConfigurationSpec{
 				Hostname: predictorHostname,
@@ -426,7 +426,7 @@ func TestCreateVirtualService(t *testing.T) {
 		expectedService: nil,
 	}, {
 		name: "default explainer and predictor",
-		defaultStatus: &v1alpha2.ComponentStatusMap{
+		defaultStatus: v1alpha2.ComponentStatusMap{
 			constants.Explainer: v1alpha2.StatusConfigurationSpec{
 				Hostname: explainerHostname,
 			},
@@ -536,9 +536,9 @@ func TestCreateVirtualService(t *testing.T) {
 				},
 				Spec: v1alpha2.InferenceServiceSpec{
 					Default: v1alpha2.EndpointSpec{
-						Predictor:   createMockPredictorSpec(tc.defaultStatus),
-						Explainer:   createMockExplainerSpec(tc.defaultStatus),
-						Transformer: createMockTransformerSpec(tc.defaultStatus),
+						Predictor:   createMockPredictorSpec(&tc.defaultStatus),
+						Explainer:   createMockExplainerSpec(&tc.defaultStatus),
+						Transformer: createMockTransformerSpec(&tc.defaultStatus),
 					},
 				},
 				Status: v1alpha2.InferenceServiceStatus{
@@ -549,9 +549,9 @@ func TestCreateVirtualService(t *testing.T) {
 
 			if tc.canaryStatus != nil {
 				canarySpec := &v1alpha2.EndpointSpec{
-					Predictor:   createMockPredictorSpec(tc.canaryStatus),
-					Explainer:   createMockExplainerSpec(tc.canaryStatus),
-					Transformer: createMockTransformerSpec(tc.canaryStatus),
+					Predictor:   createMockPredictorSpec(&tc.canaryStatus),
+					Explainer:   createMockExplainerSpec(&tc.canaryStatus),
+					Transformer: createMockTransformerSpec(&tc.canaryStatus),
 				}
 				testIsvc.Spec.Canary = canarySpec
 				testIsvc.Spec.CanaryTrafficPercent = 20
@@ -609,7 +609,7 @@ func TestGetServiceHostname(t *testing.T) {
 func createInferenceServiceWithHostname(hostName string) *v1alpha2.InferenceService {
 	return &v1alpha2.InferenceService{
 		Status: v1alpha2.InferenceServiceStatus{
-			Default: &v1alpha2.ComponentStatusMap{constants.Predictor: v1alpha2.StatusConfigurationSpec{
+			Default: v1alpha2.ComponentStatusMap{constants.Predictor: v1alpha2.StatusConfigurationSpec{
 				Hostname: hostName,
 			}},
 		},
