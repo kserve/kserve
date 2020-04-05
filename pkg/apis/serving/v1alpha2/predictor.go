@@ -21,6 +21,8 @@ import (
 	"k8s.io/klog"
 )
 
+// +k8s:openapi-gen=false
+// +k8s:deepcopy-gen=false
 type Predictor interface {
 	GetResourceRequirements() *v1.ResourceRequirements
 	GetStorageUri() string

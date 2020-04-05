@@ -224,6 +224,10 @@ type CustomSpec struct {
 // EndpointStatusMap defines the observed state of InferenceService endpoints
 type ComponentStatusMap map[constants.InferenceServiceComponent]StatusConfigurationSpec
 
+type Addressable struct {
+	URL string `json:"address,omitempty"`
+}
+
 // InferenceServiceStatus defines the observed state of InferenceService
 type InferenceServiceStatus struct {
 	duckv1beta1.Status `json:",inline"`
@@ -238,7 +242,7 @@ type InferenceServiceStatus struct {
 	// Statuses for the canary endpoints of the InferenceService
 	Canary *ComponentStatusMap `json:"canary,omitempty"`
 	// Ducktype for addressable
-	Address *duckv1beta1.Addressable `json:"address,omitempty"`
+	Address *Addressable `json:"address,omitempty"`
 }
 
 // StatusConfigurationSpec describes the state of the configuration receiving traffic.
