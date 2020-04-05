@@ -1,9 +1,0 @@
-op {
-  graph_op_name: "Sqrt"
-  endpoint {
-    name: "math.sqrt"
-  }
-  endpoint {
-    name: "sqrt"
-  }
-}

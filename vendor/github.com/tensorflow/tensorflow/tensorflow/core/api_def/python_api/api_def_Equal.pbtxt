@@ -1,9 +1,0 @@
-op {
-  graph_op_name: "Equal"
-  endpoint {
-    name: "math.equal"
-  }
-  endpoint {
-    name: "equal"
-  }
-}
