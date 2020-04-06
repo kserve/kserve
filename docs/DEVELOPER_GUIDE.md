@@ -39,7 +39,7 @@ Before submitting a PR, see also [CONTRIBUTING.md](../CONTRIBUTING.md).
 
 You must install these tools:
 
-1. [`go`](https://golang.org/doc/install): KFServing controller is written in Go.
+1. [`go`](https://golang.org/doc/install): KFServing controller is written in Go and requires Go 1.13.0+.
 1. [`git`](https://help.github.com/articles/set-up-git/): For source control.
 1. [`dep`](https://github.com/golang/dep): For managing external Go
    dependencies. You should install `dep` using their `install.sh`.
@@ -54,11 +54,11 @@ You must install these tools:
 KFServing currently requires `Knative Serving` for auto-scaling, canary rollout, `Istio` for traffic routing and ingress.
 
 * You can follow the instructions on [Set up a kubernetes cluster and install Knative Serving](https://knative.dev/docs/install/) or
-[Custom Install](https://knative.dev/docs/install/knative-custom-install) to install `Istio` and `Knative Serving`. Observability plug-ins are good to have for monitoring. For working with KFServing master, we would recommend KNative 0.9.0+ and Istion 1.3.1+
+[Custom Install](https://knative.dev/docs/install/knative-custom-install) to install `Istio` and `Knative Serving`. Observability plug-ins are good to have for monitoring.
 
-* If you already have `Istio` or `Knative` (e.g. from a Kubeflow install) then you don't need to install them explictily. From Kubeflow v0.7 onwards, KNative 0.8 and Istio 1.1.6 are installed by default as part of the Kubeflow installation, and that's the combination which has been tested with last release of KFServing 0.2.2
+* If you already have `Istio` or `Knative` (e.g. from a Kubeflow install) then you don't need to install them explictly, as long as version dependencies are satisfied. With Kubeflow v0.7, KNative 0.8 and Istio 1.1.6 are installed by default as part of the Kubeflow installation. From Kubeflow 1.0 onwards, KNative 0.11.1 and Istio 1.1.6 are installed by default. If you are using DEX based config for Kubeflow 1.0, Istio 1.3.1 is installed by default in your Kubeflow cluster. To summarize, we would recommend KNative 0.11.1 at a minimum for KFServing 0.3.0 and for the KFServing code in master. For Istio use versions 1.1.6 and 1.3.1 which have been tested, and for Kubernetes use 1.15+ 
 
-* You need follow the instructions on [Updating your install to use cluster local gateway](https://knative.dev/v0.9-docs/install/installing-istio/#updating-your-install-to-use-cluster-local-gateway) to add cluster local gateway to your cluster if you are on knative serving 0.9.0+.
+* You need follow the instructions on [Updating your install to use cluster local gateway](https://knative.dev/docs/install/installing-istio/#updating-your-install-to-use-cluster-local-gateway) to add cluster local gateway to your cluster to serve cluster-internal traffic for transformer and explainer use cases.
 
 ### Setup your environment
 
@@ -147,6 +147,18 @@ export KFSERVING_ENABLE_SELF_SIGNED_CA=true
 
 After that you can run following command to deploy `KFServing`, you can skip above step once cert manager is installed.
 ```bash
+make deploy
+```
+
+**Optional**: you can set CPU and memory limits when deploying `KFServing`.
+```bash
+make deploy KFSERVING_CONTROLLER_CPU_LIMIT=<cpu_limit> KFSERVING_CONTROLLER_MEMORY_LIMIT=<memory_limit>
+```
+
+or
+```bash
+export KFSERVING_CONTROLLER_CPU_LIMIT=<cpu_limit>
+export KFSERVING_CONTROLLER_MEMORY_LIMIT=<memory_limit>
 make deploy
 ```
 
@@ -249,16 +261,8 @@ Error from server (InternalError): error when creating "docs/samples/tensorflow/
 Internal error occurred: failed calling webhook "inferenceservice.kfserving-webhook-server.defaulter": 
 Post https://kfserving-webhook-server-service.kfserving-system.svc:443/mutate-inferenceservices?timeout=30s:
 
-
-```shell
- context deadline exceeded
-```
-
-```shell
+context deadline exceeded
 unexpected EOF
-```
-
-```shell
 dial tcp x.x.x.x:443: connect: connection refused
 ```
 

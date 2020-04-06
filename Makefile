@@ -12,6 +12,12 @@ STORAGE_INIT_IMG ?= storage-initializer:latest
 CRD_OPTIONS ?= "crd:trivialVersions=true"
 KFSERVING_ENABLE_SELF_SIGNED_CA ?= false
 
+# CPU/Memory limits for controller-manager
+KFSERVING_CONTROLLER_CPU_LIMIT ?= 100m
+KFSERVING_CONTROLLER_MEMORY_LIMIT ?= 300Mi
+$(shell perl -pi -e 's/cpu:.*/cpu: $(KFSERVING_CONTROLLER_CPU_LIMIT)/' config/default/manager_resources_patch.yaml)
+$(shell perl -pi -e 's/memory:.*/memory: $(KFSERVING_CONTROLLER_MEMORY_LIMIT)/' config/default/manager_resources_patch.yaml)
+
 all: test manager logger
 
 # Run tests
@@ -49,11 +55,6 @@ deploy-dev: manifests
 
 	kustomize build config/overlays/development | kubectl apply -f -
 	if [ ${KFSERVING_ENABLE_SELF_SIGNED_CA} != false ]; then ./hack/self-signed-ca.sh; fi;
-
-
-deploy-local: manifests
-	./hack/image_patch_dev.sh local
-	kustomize build config/overlays/local | kubectl apply -f -
 
 deploy-dev-sklearn: docker-push-sklearn
 	./hack/model_server_patch_dev.sh sklearn ${KO_DOCKER_REPO}/${SKLEARN_IMG}

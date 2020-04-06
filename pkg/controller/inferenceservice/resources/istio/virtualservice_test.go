@@ -131,7 +131,7 @@ func TestCreateVirtualService(t *testing.T) {
 						Match: predictorRouteMatch,
 						Route: []*istiov1alpha3.HTTPRouteDestination{
 							{
-								Destination: &istiov1alpha3.Destination{Host: constants.LocalGatewayHost},
+								Destination: &istiov1alpha3.Destination{Host: constants.LocalGatewayHost, Port: &istiov1alpha3.PortSelector{Number: constants.CommonDefaultHttpPort}},
 								Weight:      100,
 								Headers: &istiov1alpha3.Headers{
 									Request: &istiov1alpha3.Headers_HeaderOperations{Set: map[string]string{
@@ -211,7 +211,7 @@ func TestCreateVirtualService(t *testing.T) {
 						Match: predictorRouteMatch,
 						Route: []*istiov1alpha3.HTTPRouteDestination{
 							{
-								Destination: &istiov1alpha3.Destination{Host: constants.LocalGatewayHost},
+								Destination: &istiov1alpha3.Destination{Host: constants.LocalGatewayHost, Port: &istiov1alpha3.PortSelector{Number: constants.CommonDefaultHttpPort}},
 								Weight:      80,
 								Headers: &istiov1alpha3.Headers{
 									Request: &istiov1alpha3.Headers_HeaderOperations{Set: map[string]string{
@@ -220,7 +220,7 @@ func TestCreateVirtualService(t *testing.T) {
 								},
 							},
 							{
-								Destination: &istiov1alpha3.Destination{Host: constants.LocalGatewayHost},
+								Destination: &istiov1alpha3.Destination{Host: constants.LocalGatewayHost, Port: &istiov1alpha3.PortSelector{Number: constants.CommonDefaultHttpPort}},
 								Weight:      20,
 								Headers: &istiov1alpha3.Headers{
 									Request: &istiov1alpha3.Headers_HeaderOperations{Set: map[string]string{
@@ -297,7 +297,7 @@ func TestCreateVirtualService(t *testing.T) {
 						Match: predictorRouteMatch,
 						Route: []*istiov1alpha3.HTTPRouteDestination{
 							{
-								Destination: &istiov1alpha3.Destination{Host: constants.LocalGatewayHost},
+								Destination: &istiov1alpha3.Destination{Host: constants.LocalGatewayHost, Port: &istiov1alpha3.PortSelector{Number: constants.CommonDefaultHttpPort}},
 								Weight:      100,
 								Headers: &istiov1alpha3.Headers{
 									Request: &istiov1alpha3.Headers_HeaderOperations{Set: map[string]string{
@@ -378,7 +378,7 @@ func TestCreateVirtualService(t *testing.T) {
 						Match: predictorRouteMatch,
 						Route: []*istiov1alpha3.HTTPRouteDestination{
 							{
-								Destination: &istiov1alpha3.Destination{Host: constants.LocalGatewayHost},
+								Destination: &istiov1alpha3.Destination{Host: constants.LocalGatewayHost, Port: &istiov1alpha3.PortSelector{Number: constants.CommonDefaultHttpPort}},
 								Weight:      80,
 								Headers: &istiov1alpha3.Headers{
 									Request: &istiov1alpha3.Headers_HeaderOperations{Set: map[string]string{
@@ -386,7 +386,7 @@ func TestCreateVirtualService(t *testing.T) {
 								},
 							},
 							{
-								Destination: &istiov1alpha3.Destination{Host: constants.LocalGatewayHost},
+								Destination: &istiov1alpha3.Destination{Host: constants.LocalGatewayHost, Port: &istiov1alpha3.PortSelector{Number: constants.CommonDefaultHttpPort}},
 								Weight:      20,
 								Headers: &istiov1alpha3.Headers{
 									Request: &istiov1alpha3.Headers_HeaderOperations{Set: map[string]string{
@@ -462,7 +462,7 @@ func TestCreateVirtualService(t *testing.T) {
 						Match: predictorRouteMatch,
 						Route: []*istiov1alpha3.HTTPRouteDestination{
 							{
-								Destination: &istiov1alpha3.Destination{Host: constants.LocalGatewayHost},
+								Destination: &istiov1alpha3.Destination{Host: constants.LocalGatewayHost, Port: &istiov1alpha3.PortSelector{Number: constants.CommonDefaultHttpPort}},
 								Weight:      100,
 								Headers: &istiov1alpha3.Headers{
 									Request: &istiov1alpha3.Headers_HeaderOperations{Set: map[string]string{
@@ -507,7 +507,7 @@ func TestCreateVirtualService(t *testing.T) {
 						},
 						Route: []*istiov1alpha3.HTTPRouteDestination{
 							{
-								Destination: &istiov1alpha3.Destination{Host: constants.LocalGatewayHost},
+								Destination: &istiov1alpha3.Destination{Host: constants.LocalGatewayHost, Port: &istiov1alpha3.PortSelector{Number: constants.CommonDefaultHttpPort}},
 								Weight:      100,
 								Headers: &istiov1alpha3.Headers{
 									Request: &istiov1alpha3.Headers_HeaderOperations{Set: map[string]string{
@@ -576,6 +576,46 @@ func TestCreateVirtualService(t *testing.T) {
 	}
 }
 
+func TestGetServiceHostname(t *testing.T) {
+
+	testCases := []struct {
+		name              string
+		expectedHostName  string
+		predictorHostName string
+	}{
+		{
+			name:              "using knative domainTemplate: {{.Name}}.{{.Namespace}}.{{.Domain}}",
+			expectedHostName:  "kftest.user1.example.com",
+			predictorHostName: "kftest-predictor-default.user1.example.com",
+		},
+		{
+			name:              "using knative domainTemplate: {{.Name}}-{{.Namespace}}.{{.Domain}}",
+			expectedHostName:  "kftest-user1.example.com",
+			predictorHostName: "kftest-predictor-default-user1.example.com",
+		},
+	}
+
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+			testIsvc := createInferenceServiceWithHostname(tt.predictorHostName)
+			result, _ := getServiceHostname(testIsvc)
+			if diff := cmp.Diff(tt.expectedHostName, result); diff != "" {
+				t.Errorf("Test %q unexpected result (-want +got): %v", t.Name(), diff)
+			}
+		})
+	}
+}
+
+func createInferenceServiceWithHostname(hostName string) *v1alpha2.InferenceService {
+	return &v1alpha2.InferenceService{
+		Status: v1alpha2.InferenceServiceStatus{
+			Default: &v1alpha2.ComponentStatusMap{constants.Predictor: v1alpha2.StatusConfigurationSpec{
+				Hostname: hostName,
+			}},
+		},
+	}
+}
+
 func createMockPredictorSpec(componentStatusMap *v1alpha2.ComponentStatusMap) v1alpha2.PredictorSpec {
 	return v1alpha2.PredictorSpec{}
 }
@@ -590,6 +630,7 @@ func createMockExplainerSpec(componentStatusMap *v1alpha2.ComponentStatusMap) *v
 	}
 	return nil
 }
+
 func createMockTransformerSpec(componentStatusMap *v1alpha2.ComponentStatusMap) *v1alpha2.TransformerSpec {
 	if componentStatusMap == nil {
 		return nil

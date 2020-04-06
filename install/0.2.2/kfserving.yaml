@@ -112,6 +112,11 @@ spec:
                         to 0 in case of no traffic
                       format: int64
                       type: integer
+                    parallelism:
+                      description: Parallelism, how many requests can be processed
+                        concurrently
+                      format: int64
+                      type: integer
                     serviceAccountName:
                       description: ServiceAccountName is the name of the ServiceAccount
                         to use to run the service
@@ -164,6 +169,11 @@ spec:
                       required:
                       - storageUri
                       type: object
+                    parallelism:
+                      description: Parallelism, how many requests can be processed
+                        concurrently
+                      format: int64
+                      type: integer
                     pytorch:
                       description: Spec for PyTorch predictor
                       properties:
@@ -291,6 +301,11 @@ spec:
                     minReplicas:
                       description: Minimum number of replicas, pods won't scale down
                         to 0 in case of no traffic
+                      format: int64
+                      type: integer
+                    parallelism:
+                      description: Parallelism, how many requests can be processed
+                        concurrently
                       format: int64
                       type: integer
                     serviceAccountName:
@@ -362,6 +377,11 @@ spec:
                         to 0 in case of no traffic
                       format: int64
                       type: integer
+                    parallelism:
+                      description: Parallelism, how many requests can be processed
+                        concurrently
+                      format: int64
+                      type: integer
                     serviceAccountName:
                       description: ServiceAccountName is the name of the ServiceAccount
                         to use to run the service
@@ -414,6 +434,11 @@ spec:
                       required:
                       - storageUri
                       type: object
+                    parallelism:
+                      description: Parallelism, how many requests can be processed
+                        concurrently
+                      format: int64
+                      type: integer
                     pytorch:
                       description: Spec for PyTorch predictor
                       properties:
@@ -541,6 +566,11 @@ spec:
                     minReplicas:
                       description: Minimum number of replicas, pods won't scale down
                         to 0 in case of no traffic
+                      format: int64
+                      type: integer
+                    parallelism:
+                      description: Parallelism, how many requests can be processed
+                        concurrently
                       format: int64
                       type: integer
                     serviceAccountName:

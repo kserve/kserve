@@ -30,7 +30,7 @@ webhooks:
         namespace: kfserving-system
         path: /mutate-pods
     failurePolicy: Fail
-    name: inferenceservice.kfserving-webhook-server.pod-muator
+    name: inferenceservice.kfserving-webhook-server.pod-mutator
     namespaceSelector:
       matchExpressions:
         - key: control-plane

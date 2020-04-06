@@ -30,25 +30,25 @@ data:
         },
         "sklearn": {
             "image": "gcr.io/kfserving/sklearnserver",
-            "defaultImageVersion": "0.2.2",
+            "defaultImageVersion": "v0.3.0",
             "allowedImageVersions": [
-               "0.2.2"
+               "v0.3.0"
             ]
         },
         "xgboost": {
             "image": "gcr.io/kfserving/xgbserver",
-            "defaultImageVersion": "0.2.2",
+            "defaultImageVersion": "v0.3.0",
             "allowedImageVersions": [
-               "0.2.2"
+               "v0.3.0"
             ]
         },
         "pytorch": {
             "image": "gcr.io/kfserving/pytorchserver",
-            "defaultImageVersion": "0.2.2",
-            "defaultGpuImageVersion": "0.2.2-gpu",
+            "defaultImageVersion": "v0.3.0",
+            "defaultGpuImageVersion": "v0.3.0-gpu",
             "allowedImageVersions": [
-               "0.2.2",
-               "0.2.2-gpu"
+               "v0.3.0",
+               "v0.3.0-gpu"
             ]
         },
         "tensorrt": {
@@ -66,15 +66,15 @@ data:
     {
         "alibi": {
             "image" : "gcr.io/kfserving/alibi-explainer",
-            "defaultImageVersion": "0.2.2",
+            "defaultImageVersion": "v0.3.0",
             "allowedImageVersions": [
-               "0.2.2"
+               "v0.3.0"
             ]
         }
     }
   storageInitializer: |-
     {
-        "image" : "gcr.io/kfserving/storage-initializer:0.2.2",
+        "image" : "gcr.io/kfserving/storage-initializer:v0.3.0",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
@@ -97,7 +97,7 @@ data:
     }
   logger: |-
     {
-        "image" : "gcr.io/kfserving/logger:0.2.2",
+        "image" : "gcr.io/kfserving/logger:v0.3.0",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",

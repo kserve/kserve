@@ -42,10 +42,11 @@ Create this InferenceService:
 kubectl create -f imagenet.yaml
 ```
 
-Set up some environment variables for the model name and cluster entrypoint:
+Set up some environment variables for the model name and cluster entrypoint. Use `kfserving-ingressgateway` as your `INGRESS_GATEWAY` if you are deploying KFServing as part of Kubeflow install, and not independently.
 
 ```
-export CLUSTER_IP=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+INGRESS_GATEWAY=istio-ingressgateway
+export CLUSTER_IP=$(kubectl -n istio-system get service $INGRESS_GATEWAY -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 ```
 
 Test the predictor on an example image:

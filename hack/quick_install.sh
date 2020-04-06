@@ -2,6 +2,7 @@ set -e
 
 export ISTIO_VERSION=1.3.6
 export KNATIVE_VERSION=v0.12.0
+export KFSERVING_VERSION=0.2.2
 curl -L https://git.io/getLatestIstio | sh -
 cd istio-${ISTIO_VERSION}
 
@@ -74,6 +75,7 @@ kubectl apply --filename https://github.com/knative/serving/releases/download/${
 
 cd ..
 # Install KFServing
-export KFSERVING_ENABLE_SELF_SIGNED_CA=true 
-make deploy
+kubectl apply -f install/${KFSERVING_VERSION}/kfserving.yaml
+
+# Clean up
 rm -rf istio-${ISTIO_VERSION} 

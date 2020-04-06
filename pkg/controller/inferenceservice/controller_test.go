@@ -163,7 +163,11 @@ func TestInferenceServiceWithOnlyPredictor(t *testing.T) {
 			ConfigurationSpec: knservingv1.ConfigurationSpec{
 				Template: knservingv1.RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
-						Labels: map[string]string{"serving.kubeflow.org/inferenceservice": serviceName},
+						Labels: map[string]string{"serving.kubeflow.org/inferenceservice": serviceName,
+							constants.KServiceEndpointLabel:  constants.InferenceServiceDefault,
+							constants.KServiceModelLabel:     defaultInstance.Name,
+							constants.KServiceComponentLabel: constants.Predictor.String(),
+						},
 						Annotations: map[string]string{
 							"autoscaling.knative.dev/target":                           "1",
 							"autoscaling.knative.dev/class":                            "kpa.autoscaling.knative.dev",
@@ -268,6 +272,7 @@ func TestInferenceServiceWithOnlyPredictor(t *testing.T) {
 							},
 							Destination: &istiov1alpha3.Destination{
 								Host: network.GetServiceHostname("cluster-local-gateway", "istio-system"),
+								Port: &istiov1alpha3.PortSelector{Number: constants.CommonDefaultHttpPort},
 							},
 							Weight: 100,
 						},
@@ -434,7 +439,11 @@ func TestInferenceServiceWithDefaultAndCanaryPredictor(t *testing.T) {
 			ConfigurationSpec: knservingv1.ConfigurationSpec{
 				Template: knservingv1.RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
-						Labels: map[string]string{"serving.kubeflow.org/inferenceservice": "bar"},
+						Labels: map[string]string{"serving.kubeflow.org/inferenceservice": "bar",
+							constants.KServiceEndpointLabel:  constants.InferenceServiceCanary,
+							constants.KServiceModelLabel:     "bar",
+							constants.KServiceComponentLabel: constants.Predictor.String(),
+						},
 						Annotations: map[string]string{
 							"autoscaling.knative.dev/target":                           "1",
 							"autoscaling.knative.dev/class":                            "kpa.autoscaling.knative.dev",
@@ -611,6 +620,7 @@ func TestInferenceServiceWithDefaultAndCanaryPredictor(t *testing.T) {
 							},
 							Destination: &istiov1alpha3.Destination{
 								Host: constants.LocalGatewayHost,
+								Port: &istiov1alpha3.PortSelector{Number: constants.CommonDefaultHttpPort},
 							},
 							Weight: 80,
 						},
@@ -624,6 +634,7 @@ func TestInferenceServiceWithDefaultAndCanaryPredictor(t *testing.T) {
 							},
 							Destination: &istiov1alpha3.Destination{
 								Host: constants.LocalGatewayHost,
+								Port: &istiov1alpha3.PortSelector{Number: constants.CommonDefaultHttpPort},
 							},
 							Weight: 20,
 						},
@@ -1043,7 +1054,11 @@ func TestInferenceServiceWithTransformer(t *testing.T) {
 			ConfigurationSpec: knservingv1.ConfigurationSpec{
 				Template: knservingv1.RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
-						Labels: map[string]string{"serving.kubeflow.org/inferenceservice": serviceName},
+						Labels: map[string]string{"serving.kubeflow.org/inferenceservice": serviceName,
+							constants.KServiceEndpointLabel:  constants.InferenceServiceCanary,
+							constants.KServiceModelLabel:     instance.Name,
+							constants.KServiceComponentLabel: constants.Transformer.String(),
+						},
 						Annotations: map[string]string{
 							"autoscaling.knative.dev/target":                       "1",
 							"autoscaling.knative.dev/class":                        "kpa.autoscaling.knative.dev",
@@ -1268,6 +1283,7 @@ func TestInferenceServiceWithTransformer(t *testing.T) {
 							},
 							Destination: &istiov1alpha3.Destination{
 								Host: constants.LocalGatewayHost,
+								Port: &istiov1alpha3.PortSelector{Number: constants.CommonDefaultHttpPort},
 							},
 							Weight: 80,
 						},
@@ -1281,6 +1297,7 @@ func TestInferenceServiceWithTransformer(t *testing.T) {
 							},
 							Destination: &istiov1alpha3.Destination{
 								Host: constants.LocalGatewayHost,
+								Port: &istiov1alpha3.PortSelector{Number: constants.CommonDefaultHttpPort},
 							},
 							Weight: 20,
 						},
@@ -1611,7 +1628,10 @@ func TestInferenceServiceWithExplainer(t *testing.T) {
 			ConfigurationSpec: knservingv1.ConfigurationSpec{
 				Template: knservingv1.RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
-						Labels: map[string]string{"serving.kubeflow.org/inferenceservice": serviceName},
+						Labels: map[string]string{"serving.kubeflow.org/inferenceservice": serviceName,
+							constants.KServiceModelLabel:     instance.Name,
+							constants.KServiceComponentLabel: constants.Explainer.String(),
+						},
 						Annotations: map[string]string{
 							"autoscaling.knative.dev/target":                       "1",
 							"autoscaling.knative.dev/class":                        "kpa.autoscaling.knative.dev",
@@ -1840,6 +1860,7 @@ func TestInferenceServiceWithExplainer(t *testing.T) {
 							},
 							Destination: &istiov1alpha3.Destination{
 								Host: constants.LocalGatewayHost,
+								Port: &istiov1alpha3.PortSelector{Number: constants.CommonDefaultHttpPort},
 							},
 							Weight: 80,
 						},
@@ -1853,6 +1874,7 @@ func TestInferenceServiceWithExplainer(t *testing.T) {
 							},
 							Destination: &istiov1alpha3.Destination{
 								Host: constants.LocalGatewayHost,
+								Port: &istiov1alpha3.PortSelector{Number: constants.CommonDefaultHttpPort},
 							},
 							Weight: 20,
 						},
@@ -1893,7 +1915,7 @@ func TestInferenceServiceWithExplainer(t *testing.T) {
 					},
 					Route: []*istiov1alpha3.HTTPRouteDestination{
 						{
-							Destination: &istiov1alpha3.Destination{Host: constants.LocalGatewayHost},
+							Destination: &istiov1alpha3.Destination{Host: constants.LocalGatewayHost, Port: &istiov1alpha3.PortSelector{Number: constants.CommonDefaultHttpPort}},
 							Weight:      80,
 							Headers: &istiov1alpha3.Headers{
 								Request: &istiov1alpha3.Headers_HeaderOperations{Set: map[string]string{
@@ -1901,7 +1923,7 @@ func TestInferenceServiceWithExplainer(t *testing.T) {
 							},
 						},
 						{
-							Destination: &istiov1alpha3.Destination{Host: constants.LocalGatewayHost},
+							Destination: &istiov1alpha3.Destination{Host: constants.LocalGatewayHost, Port: &istiov1alpha3.PortSelector{Number: constants.CommonDefaultHttpPort}},
 							Weight:      20,
 							Headers: &istiov1alpha3.Headers{
 								Request: &istiov1alpha3.Headers_HeaderOperations{Set: map[string]string{
@@ -1917,5 +1939,6 @@ func TestInferenceServiceWithExplainer(t *testing.T) {
 			},
 		},
 	}
+
 	g.Expect(cmp.Diff(virtualService.Spec, expectedVirtualService.Spec)).To(gomega.Equal(""))
 }

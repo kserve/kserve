@@ -3,13 +3,10 @@ kind: InferenceService
 metadata:
   labels:
     controller-tools.k8s.io: "1.0"
-  name: service-custom-sample
+  name: kfserving-custom-model
 spec:
   default:
     predictor:
       custom:
         container:
-          image: seldonio/mock_classifier:1.0
-          env:
-            - name: PREDICTIVE_UNIT_SERVICE_PORT
-              value: "8080"
+          image: {username}/kfserving-custom-model

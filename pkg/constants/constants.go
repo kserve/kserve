@@ -32,7 +32,7 @@ var (
 	KFServingName           = "kfserving"
 	KFServingAPIGroupName   = "serving.kubeflow.org"
 	KFServingNamespace      = getEnvOrDefault("POD_NAMESPACE", "kfserving-system")
-	KFServingDefaultVersion = "0.2.2"
+	KFServingDefaultVersion = "v0.3.0"
 )
 
 // InferenceService Constants
@@ -119,6 +119,14 @@ const (
 const (
 	InferenceServiceDefaultHttpPort   = "8080"
 	InferenceServiceDefaultLoggerPort = "8081"
+	CommonDefaultHttpPort             = 80
+)
+
+// Labels to put on kservice
+const (
+	KServiceComponentLabel = "component"
+	KServiceModelLabel     = "model"
+	KServiceEndpointLabel  = "endpoint"
 )
 
 // InferenceService default/canary constants
@@ -129,9 +137,12 @@ const (
 
 // InferenceService model server args
 const (
-	ArgumentModelName     = "--model_name"
-	ArgumentPredictorHost = "--predictor_host"
-	ArgumentHttpPort      = "--http_port"
+	ArgumentModelName      = "--model_name"
+	ArgumentModelDir       = "--model_dir"
+	ArgumentModelClassName = "--model_class_name"
+	ArgumentPredictorHost  = "--predictor_host"
+	ArgumentHttpPort       = "--http_port"
+	ArgumentWorkers        = "--workers"
 )
 
 // InferenceService container name
@@ -216,11 +227,6 @@ func PredictPrefix(name string) string {
 
 func ExplainPrefix(name string) string {
 	return fmt.Sprintf("/v1/models/%s:explain", name)
-}
-
-func VirtualServiceHostname(name string, predictorHostName string) string {
-	index := strings.Index(predictorHostName, ".")
-	return name + predictorHostName[index:]
 }
 
 func PredictorURL(metadata v1.ObjectMeta, isCanary bool) string {

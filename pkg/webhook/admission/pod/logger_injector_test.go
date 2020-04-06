@@ -47,11 +47,18 @@ func TestLoggerInjector(t *testing.T) {
 		"AddLogger": {
 			original: &v1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "deployment",
+					Name:      "deployment",
+					Namespace: "default",
 					Annotations: map[string]string{
 						constants.LoggerInternalAnnotationKey:        "true",
 						constants.LoggerSinkUrlInternalAnnotationKey: "http://httpbin.org/",
 						constants.LoggerModeInternalAnnotationKey:    string(v1alpha2.LogAll),
+					},
+					Labels: map[string]string{
+						"serving.kubeflow.org/inferenceservice": "sklearn",
+						constants.KServiceModelLabel:            "sklearn",
+						constants.KServiceEndpointLabel:         "default",
+						constants.KServiceComponentLabel:        "predictor",
 					},
 				},
 				Spec: v1.PodSpec{
@@ -77,14 +84,18 @@ func TestLoggerInjector(t *testing.T) {
 							Name:  LoggerContainerName,
 							Image: loggerConfig.Image,
 							Args: []string{
-								"--log-url",
+								LoggerArgumentLogUrl,
 								"http://httpbin.org/",
-								"--source-uri",
+								LoggerArgumentSourceUri,
 								"deployment",
-								"--log-mode",
+								LoggerArgumentMode,
 								"all",
-								"--model-id",
-								"",
+								LoggerArgumentInferenceService,
+								"sklearn",
+								LoggerArgumentNamespace,
+								"default",
+								LoggerArgumentEndpoint,
+								"default",
 							},
 							Resources: loggerResourceRequirement,
 						},

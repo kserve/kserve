@@ -51,7 +51,7 @@ request = [X[0].tolist()]
 formData = {
     'instances': request
 }
-res = requests.post('http://localhost:8080/models/xgb:predict', json=formData)
+res = requests.post('http://localhost:8080/v1/models/xgb:predict', json=formData)
 print(res)
 print(res.text)
 ```
@@ -76,10 +76,13 @@ $ inferenceservice.serving.kubeflow.org/xgboost-iris created
 
 ## Run a prediction
 
+Use `kfserving-ingressgateway` as your `INGRESS_GATEWAY` if you are deploying KFServing as part of Kubeflow install, and not independently.
+
 ```
 MODEL_NAME=xgboost-iris
 INPUT_PATH=@./iris-input.json
-CLUSTER_IP=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+INGRESS_GATEWAY=istio-ingressgateway
+CLUSTER_IP=$(kubectl -n istio-system get service $INGRESS_GATEWAY -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 SERVICE_HOSTNAME=$(kubectl get inferenceservice xgboost-iris -o jsonpath='{.status.url}' | cut -d "/" -f 3)
 curl -v -H "Host: ${SERVICE_HOSTNAME}" http://$CLUSTER_IP/v1/models/$MODEL_NAME:predict -d $INPUT_PATH
 ```
