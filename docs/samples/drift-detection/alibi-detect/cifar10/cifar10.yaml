@@ -1,0 +1,12 @@
+apiVersion: "serving.kubeflow.org/v1alpha2"
+kind: "InferenceService"
+metadata:
+  name: "tfserving-cifar10"
+spec:
+  default:
+    predictor:
+      minReplicas: 1
+      tensorflow:
+        storageUri: "gs://seldon-models/tfserving/cifar10/resnet32"
+      logger:
+        mode: all
