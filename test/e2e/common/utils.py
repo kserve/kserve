@@ -62,7 +62,7 @@ def explain(service_name, input_json):
             response = requests.post(url, json.dumps(data), headers=headers)
             logging.info("Got response code %s, content %s", response.status_code, response.content)
             precision = json.loads(response.content.decode('utf-8'))["precision"]
-        except (RuntimeError, JSONDecodeError) as e:
+        except (RuntimeError, json.decoder.JSONDecodeError) as e:
             logging.info("Explain runtime error -------")
             logging.info(KFServing.api_instance.get_namespaced_custom_object("serving.knative.dev", "v1", KFSERVING_TEST_NAMESPACE,
                                                                       "services", service_name + "-explainer-default"))
