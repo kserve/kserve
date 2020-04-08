@@ -63,7 +63,7 @@ def explain(service_name, input_json):
             logging.info("Got response code %s, content %s", response.status_code, response.content)
             precision = json.loads(response.content.decode('utf-8'))["precision"]
         except (RuntimeError, json.decoder.JSONDecodeError) as e:
-            logging.info("Explain runtime error -------")
+            logging.info("Explain error -------")
             logging.info(KFServing.api_instance.get_namespaced_custom_object("serving.knative.dev", "v1", KFSERVING_TEST_NAMESPACE,
                                                                       "services", service_name + "-explainer-default"))
             pods = KFServing.core_api.list_namespaced_pod(KFSERVING_TEST_NAMESPACE,
@@ -74,7 +74,8 @@ def explain(service_name, input_json):
                 logging.info("%s\t%s\t%s" % (pod.metadata.name, 
                                              pod.status.phase,
                                              pod.status.pod_ip))
-                api_response = KFServing.core_api.read_namespaced_pod_log(pod.metadata.name, KFSERVING_TEST_NAMESPACE)
+                api_response = KFServing.core_api.read_namespaced_pod_log(pod.metadata.name, 
+                        KFSERVING_TEST_NAMESPACE, container="kfserving-container")
                 pprint(api_response) 
             raise e
         return precision
