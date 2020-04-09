@@ -101,7 +101,7 @@ func (c *CredentialBuilder) CreateSecretVolumeAndEnv(namespace string, serviceAc
 		} else if _, ok := secret.Data[gcsCredentialFileName]; ok {
 			log.Info("Setting secret volume for gcs", "GCSSecret", secret.Name)
 			volume, volumeMount := gcs.BuildSecretVolume(secret)
-			*volumes = append(*volumes, volume)
+			*volumes = appendVolumeIfNotExists(*volumes, volume)
 			container.VolumeMounts =
 				append(container.VolumeMounts, volumeMount)
 			container.Env = append(container.Env,
@@ -119,4 +119,13 @@ func (c *CredentialBuilder) CreateSecretVolumeAndEnv(namespace string, serviceAc
 	}
 
 	return nil
+}
+
+func appendVolumeIfNotExists(slice []v1.Volume, volume v1.Volume) []v1.Volume {
+	for _, ele := range slice {
+		if ele.Name == volume.Name {
+			return slice
+		}
+	}
+	return append(slice, volume)
 }
