@@ -21,6 +21,8 @@
 
 [Prebuilt Image](./custom/prebuilt-image)
 
+[BentoML](./bentoml)
+
 ### Deploy KFServing InferenceService with Transformer
 [Image Transformer with PyTorch Predictor](./transformer/image_transformer)
 

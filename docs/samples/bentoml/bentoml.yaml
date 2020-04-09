@@ -1,0 +1,14 @@
+apiVersion: serving.kubeflow.org/v1alpha2
+kind: InferenceService
+metadata:
+  labels:
+    controller-tools.k8s.io: "1.0"
+  name: iris-classifier
+spec:
+  default:
+    predictor:
+      custom:
+        container:
+          image: {docker_username}/iris-classifier
+          ports:
+            - containerPort: 5000
