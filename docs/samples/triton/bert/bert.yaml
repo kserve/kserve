@@ -22,16 +22,14 @@ spec:
             - "bert_transformer"
           env:
             - name: STORAGE_URI
-              value: "gs://kfserving-samples/triton/bert-transformer"
+              value: "gs://kfserving-samples/models/triton/bert-transformer"
     predictor:
       triton:
         resources:
           limits:
             cpu: "1"
             memory: 16Gi
-            nvidia.com/gpu: "1"
           requests:
             cpu: "1"
             memory: 16Gi
-            nvidia.com/gpu: "1"
-        storageUri: "gs://kfserving-samples/triton/bert"
+        storageUri: "gs://kfserving-samples/models/triton/bert"
