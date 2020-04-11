@@ -28,11 +28,20 @@ const (
 )
 
 func InjectGKEAcceleratorSelector(pod *v1.Pod) error {
-	if gpuSelector, ok := pod.Annotations[constants.InferenceServiceGKEAcceleratorAnnotationKey]; ok {
-		pod.Spec.NodeSelector = utils.Union(
-			pod.Spec.NodeSelector,
-			map[string]string{GkeAcceleratorNodeSelector: gpuSelector},
-		)
+	gpuEnabled := false
+	for _, container := range pod.Spec.Containers {
+		if _, ok := container.Resources.Limits[constants.NvidiaGPUResourceType]; ok {
+			gpuEnabled = true
+		}
+	}
+	// check if GPU is specified on container resource before applying the node selector
+	if gpuEnabled {
+		if gpuSelector, ok := pod.Annotations[constants.InferenceServiceGKEAcceleratorAnnotationKey]; ok {
+			pod.Spec.NodeSelector = utils.Union(
+				pod.Spec.NodeSelector,
+				map[string]string{GkeAcceleratorNodeSelector: gpuSelector},
+			)
+		}
 	}
 	return nil
 }

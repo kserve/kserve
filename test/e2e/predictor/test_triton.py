@@ -33,12 +33,12 @@ api_version = constants.KFSERVING_GROUP + '/' + constants.KFSERVING_VERSION
 KFServing = KFServingClient(config_file="~/.kube/config")
 
 
-def test_transformer():
+def test_triton():
     service_name = 'isvc-triton'
     default_endpoint_spec = V1alpha2EndpointSpec(
         predictor=V1alpha2PredictorSpec(
             min_replicas=1,
-            pytorch=V1alpha2TritonSpec(
+            triton=V1alpha2TritonSpec(
                 storage_uri='gs://kfserving-samples/models/triton/bert-transformer',
                 resources=V1ResourceRequirements(
                     requests={'cpu': '100m', 'memory': '1Gi'},
@@ -50,13 +50,14 @@ def test_transformer():
                   image='gcr.io/kubeflow-ci/kfserving/bert-transformer:latest',
                   name='kfserving-container',
                   resources=V1ResourceRequirements(
-                    requests={'cpu': '1', 'memory': '16Gi'},
-                    limits={'cpu': '1', 'memory': '16Gi'})))))
+                    requests={'cpu': '1', 'memory': '16Gi', 'nvidia.com/gpu': '1'},
+                    limits={'cpu': '1', 'memory': '16Gi', 'nvidia.com/gpu': '1'})))))
 
     isvc = V1alpha2InferenceService(api_version=api_version,
                                     kind=constants.KFSERVING_KIND,
                                     metadata=client.V1ObjectMeta(
-                                        name=service_name, namespace=KFSERVING_TEST_NAMESPACE),
+                                        name=service_name, namespace=KFSERVING_TEST_NAMESPACE,
+                                        annotations={'serving.kubeflow.org/gke-accelerator': 'nvidia-tesla-k80'}),
                                     spec=V1alpha2InferenceServiceSpec(default=default_endpoint_spec))
 
     KFServing.create(isvc)
