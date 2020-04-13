@@ -43,7 +43,12 @@ func (c *Configuration) Validate(ctx context.Context) (errs *apis.FieldError) {
 
 	if apis.IsInUpdate(ctx) {
 		original := apis.GetBaseline(ctx).(*Configuration)
-
+		// Don't validate annotations(creator and lastModifier) when configuration owned by service
+		// validate only when configuration created independently.
+		if c.OwnerReferences == nil {
+			errs = errs.Also(apis.ValidateCreatorAndModifier(original.Spec, c.Spec, original.GetAnnotations(),
+				c.GetAnnotations(), serving.GroupName).ViaField("metadata.annotations"))
+		}
 		err := c.Spec.Template.VerifyNameChange(ctx, original.Spec.Template)
 		errs = errs.Also(err.ViaField("spec.template"))
 	}
@@ -51,31 +56,16 @@ func (c *Configuration) Validate(ctx context.Context) (errs *apis.FieldError) {
 	return errs
 }
 
-// Validate implements apis.Validatable
-func (cs *ConfigurationSpec) Validate(ctx context.Context) *apis.FieldError {
-	return cs.Template.Validate(ctx).ViaField("template")
-}
-
-// Validate implements apis.Validatable
-func (cs *ConfigurationStatus) Validate(ctx context.Context) *apis.FieldError {
-	return cs.ConfigurationStatusFields.Validate(ctx)
-}
-
-// Validate implements apis.Validatable
-func (csf *ConfigurationStatusFields) Validate(ctx context.Context) *apis.FieldError {
-	return nil
-}
-
 // validateLabels function validates configuration labels
 func (c *Configuration) validateLabels() (errs *apis.FieldError) {
 	for key, val := range c.GetLabels() {
 		switch {
 		case key == config.VisibilityLabelKey:
-			errs = errs.Also(validateClusterVisibilityLabel(val))
+			errs = errs.Also(serving.ValidateClusterVisibilityLabel(val))
 		case key == serving.RouteLabelKey:
 		case key == serving.ServiceLabelKey:
 			errs = errs.Also(verifyLabelOwnerRef(val, serving.ServiceLabelKey, "Service", c.GetOwnerReferences()))
-		case strings.HasPrefix(key, groupNamePrefix):
+		case strings.HasPrefix(key, serving.GroupNamePrefix):
 			errs = errs.Also(apis.ErrInvalidKeyName(key, apis.CurrentField))
 		}
 	}

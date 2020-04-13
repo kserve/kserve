@@ -2,13 +2,14 @@ package v1alpha2
 
 import (
 	"fmt"
+	"strings"
+	"testing"
+
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	"strings"
-	"testing"
 )
 
 func TestFrameworkXgBoost(t *testing.T) {
@@ -51,17 +52,12 @@ func TestFrameworkXgBoost(t *testing.T) {
 }
 
 func TestCreateXGBoostContainer(t *testing.T) {
-
 	var requestedResource = v1.ResourceRequirements{
 		Limits: v1.ResourceList{
-			"cpu": resource.Quantity{
-				Format: "100",
-			},
+			"cpu": resource.MustParse("100m"),
 		},
 		Requests: v1.ResourceList{
-			"cpu": resource.Quantity{
-				Format: "90",
-			},
+			"cpu": resource.MustParse("90m"),
 		},
 	}
 	var config = InferenceServicesConfig{
@@ -86,10 +82,84 @@ func TestCreateXGBoostContainer(t *testing.T) {
 		Args: []string{
 			"--model_name=someName",
 			"--model_dir=/mnt/models",
+			"--http_port=8080",
+			"--nthread=0",
 		},
 	}
 
 	// Test Create with config
-	container := spec.GetContainer("someName", &config)
+	container := spec.GetContainer("someName", 0, &config)
 	g.Expect(container).To(gomega.Equal(expectedContainer))
+
+	// Test Parallelism
+	expectedParallelism := &v1.Container{
+		Image:     "someOtherImage:0.1.0",
+		Name:      constants.InferenceServiceContainerName,
+		Resources: requestedResource,
+		Args: []string{
+			"--model_name=someName",
+			"--model_dir=/mnt/models",
+			"--http_port=8080",
+			"--nthread=0",
+			"--workers=1",
+		},
+	}
+
+	containerWithPar := spec.GetContainer("someName", 1, &config)
+	g.Expect(containerWithPar).To(gomega.Equal(expectedParallelism))
+}
+
+func TestCreateXGBoostContainerWithNThread(t *testing.T) {
+	var config = InferenceServicesConfig{
+		Predictors: &PredictorsConfig{
+			Xgboost: PredictorConfig{
+				ContainerImage:      "someOtherImage",
+				DefaultImageVersion: "0.1.0",
+			},
+		},
+	}
+	g := gomega.NewGomegaWithT(t)
+
+	scenarios := map[string]struct {
+		nthread     int
+		resourceReq v1.ResourceRequirements
+		expArgs     []string
+	}{
+		"TestNThread": {
+			nthread: 4,
+			resourceReq: v1.ResourceRequirements{
+				Limits: v1.ResourceList{
+					"cpu": resource.MustParse("1100m"),
+				},
+				Requests: v1.ResourceList{
+					"cpu": resource.MustParse("1100m"),
+				},
+			},
+			expArgs: []string{
+				"--model_name=someName",
+				"--model_dir=/mnt/models",
+				"--http_port=8080",
+				"--nthread=4",
+			},
+		},
+	}
+
+	// Test Create with config
+	for name, scenario := range scenarios {
+		spec := XGBoostSpec{
+			StorageURI:     "gs://someUri",
+			Resources:      scenario.resourceReq,
+			RuntimeVersion: "0.1.0",
+			NThread:        scenario.nthread,
+		}
+		container := spec.GetContainer("someName", 0, &config)
+
+		expContainer := &v1.Container{
+			Image:     "someOtherImage:0.1.0",
+			Name:      constants.InferenceServiceContainerName,
+			Resources: scenario.resourceReq,
+			Args:      scenario.expArgs,
+		}
+		g.Expect(container).To(gomega.Equal(expContainer), fmt.Sprintf("Testing %s", name))
+	}
 }

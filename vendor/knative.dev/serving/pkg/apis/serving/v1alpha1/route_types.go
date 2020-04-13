@@ -20,11 +20,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"knative.dev/pkg/apis"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 	duckv1alpha1 "knative.dev/pkg/apis/duck/v1alpha1"
-	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
 	"knative.dev/pkg/kmeta"
 
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
 // +genclient
@@ -70,9 +70,9 @@ type TrafficTarget struct {
 	// +optional
 	DeprecatedName string `json:"name,omitempty"`
 
-	// We inherit most of our fields by inlining the v1beta1 type.
-	// Ultimately all non-v1beta1 fields will be deprecated.
-	v1beta1.TrafficTarget `json:",inline"`
+	// We inherit most of our fields by inlining the v1 type.
+	// Ultimately all non-v1 fields will be deprecated.
+	v1.TrafficTarget `json:",inline"`
 }
 
 // RouteSpec holds the desired state of the Route (from the client).
@@ -104,7 +104,7 @@ const (
 	RouteConditionAllTrafficAssigned apis.ConditionType = "AllTrafficAssigned"
 
 	// RouteConditionIngressReady is set to False when the
-	// ClusterIngress fails to become Ready.
+	// Ingress fails to become Ready.
 	RouteConditionIngressReady apis.ConditionType = "IngressReady"
 
 	// RouteConditionCertificateProvisioned is set to False when the
@@ -112,7 +112,7 @@ const (
 	RouteConditionCertificateProvisioned apis.ConditionType = "CertificateProvisioned"
 )
 
-// RouteStatusFields holds all of the non-duckv1beta1.Status status fields of a Route.
+// RouteStatusFields holds all of the non-duckv1.Status status fields of a Route.
 // These are defined outline so that we can also inline them into Service, and more easily
 // copy them.
 type RouteStatusFields struct {
@@ -147,7 +147,7 @@ type RouteStatusFields struct {
 
 // RouteStatus communicates the observed state of the Route (from the controller).
 type RouteStatus struct {
-	duckv1beta1.Status `json:",inline"`
+	duckv1.Status `json:",inline"`
 
 	RouteStatusFields `json:",inline"`
 }

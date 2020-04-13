@@ -18,34 +18,82 @@ package inferenceservice
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
 	kfserving "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
+	"github.com/kubeflow/kfserving/pkg/constants"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
-	admissiontypes "sigs.k8s.io/controller-runtime/pkg/webhook/admission/types"
+
+	v1 "k8s.io/api/core/v1"
+	ktypes "k8s.io/apimachinery/pkg/types"
 )
+
+// +kubebuilder:webhook:path=/validate-inferenceservices,mutating=false,failurePolicy=fail,groups="serving.kubeflow.org",resources=inferenceservices,verbs=create;update,versions=v1alpha2,name=inferenceservice.kfserving-webhook-server.validator
 
 // Validator that validates InferenceServices
 type Validator struct {
 	Client  client.Client
-	Decoder admissiontypes.Decoder
+	Decoder *admission.Decoder
 }
 
 var _ admission.Handler = &Validator{}
 
 // Handle decodes the incoming InferenceService and executes Validation logic.
-func (validator *Validator) Handle(ctx context.Context, req admissiontypes.Request) admissiontypes.Response {
+func (validator *Validator) Handle(ctx context.Context, req admission.Request) admission.Response {
 	isvc := &kfserving.InferenceService{}
 
 	if err := validator.Decoder.Decode(req, isvc); err != nil {
-		return admission.ErrorResponse(http.StatusInternalServerError, err)
+		return admission.Errored(http.StatusInternalServerError, err)
+	}
+
+	if constants.IsEnableWebhookNamespaceSelector {
+		if err := validator.validateNamespace(isvc, req.AdmissionRequest.Namespace); err != nil {
+			return admission.Errored(http.StatusBadRequest, err)
+		}
 	}
 
 	if err := isvc.ValidateCreate(validator.Client); err != nil {
-		return admission.ErrorResponse(http.StatusBadRequest, err)
+		return admission.Errored(http.StatusBadRequest, err)
 	}
 
 	return admission.ValidationResponse(true, "allowed")
+}
+
+func (validator *Validator) validateNamespace(isvc *kfserving.InferenceService, namespace string) error {
+	ns := &v1.Namespace{}
+	if err := validator.Client.Get(context.TODO(), ktypes.NamespacedName{Name: namespace}, ns); err != nil {
+		return err
+	}
+	validNS := true
+	if ns.Labels == nil {
+		validNS = false
+	} else {
+		if v, ok := ns.Labels[constants.InferenceServicePodLabelKey]; !ok || v != constants.EnableKFServingMutatingWebhook {
+			validNS = false
+		}
+	}
+	if !validNS {
+		return fmt.Errorf("Cannot create the Inferenceservice %q in namespace %q: the namespace lacks label \"%s: %s\"",
+			isvc.Name, namespace, constants.InferenceServicePodLabelKey, constants.EnableKFServingMutatingWebhook)
+	} else {
+		return nil
+	}
+}
+
+// InjectClient injects the client.
+func (validator *Validator) InjectClient(c client.Client) error {
+	validator.Client = c
+	return nil
+}
+
+// podAnnotator implements admission.DecoderInjector.
+// A decoder will be automatically injected.
+
+// InjectDecoder injects the decoder.
+func (validator *Validator) InjectDecoder(d *admission.Decoder) error {
+	validator.Decoder = d
+	return nil
 }

@@ -39,7 +39,12 @@ func (c *Configuration) Validate(ctx context.Context) (errs *apis.FieldError) {
 
 	if apis.IsInUpdate(ctx) {
 		original := apis.GetBaseline(ctx).(*Configuration)
-
+		// Don't validate annotations(creator and lastModifier) when configuration owned by service
+		// validate only when configuration created independently.
+		if c.GetOwnerReferences() == nil {
+			errs = errs.Also(apis.ValidateCreatorAndModifier(original.Spec, c.Spec, original.GetAnnotations(),
+				c.GetAnnotations(), serving.GroupName).ViaField("metadata.annotations"))
+		}
 		err := c.Spec.GetTemplate().VerifyNameChange(ctx,
 			original.Spec.GetTemplate())
 		errs = errs.Also(err.ViaField("spec.revisionTemplate"))

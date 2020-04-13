@@ -25,7 +25,7 @@ import (
 	"knative.dev/pkg/apis"
 	"knative.dev/serving/pkg/apis/serving"
 
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
 // Validate validates the fields belonging to Service
@@ -121,7 +121,7 @@ func (ss *ServiceSpec) Validate(ctx context.Context) *apis.FieldError {
 		errs = errs.Also(ss.RouteSpec.Validate(
 			// Within the context of Service, the RouteSpec has a default
 			// configurationName.
-			v1beta1.WithDefaultConfigurationName(ctx)))
+			v1.WithDefaultConfigurationName(ctx)))
 	}
 
 	if len(set) > 1 {
@@ -170,7 +170,7 @@ func (rt *ReleaseType) Validate(ctx context.Context) *apis.FieldError {
 	}
 
 	if numRevisions < 2 && rt.RolloutPercent != 0 {
-		errs = errs.Also(apis.ErrInvalidValue(rt.RolloutPercent, "rolloutPercent"))
+		errs = errs.Also(apis.ErrGeneric("may not set rolloutPercent for a single revision", "rolloutPercent"))
 	}
 
 	if rt.RolloutPercent < 0 || rt.RolloutPercent > 99 {

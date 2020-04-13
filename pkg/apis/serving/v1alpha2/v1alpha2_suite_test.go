@@ -40,6 +40,7 @@ const (
 	DefaultTensorflowRuntimeVersionGPU  = "latest-gpu"
 	DefaultSKLearnRuntimeVersion        = "0.1.0"
 	DefaultPyTorchRuntimeVersion        = "0.1.0"
+	DefaultPyTorchRuntimeVersionGPU     = "0.1.0-gpu"
 	DefaultXGBoostRuntimeVersion        = "0.1.0"
 	DefaultTensorRTRuntimeVersion       = "19.05-py3"
 	DefaultONNXRuntimeVersion           = "v0.5.0"
@@ -48,7 +49,7 @@ const (
 
 func TestMain(m *testing.M) {
 	t := &envtest.Environment{
-		CRDDirectoryPaths: []string{filepath.Join("..", "..", "..", "..", "config", "default", "crds")},
+		CRDDirectoryPaths: []string{filepath.Join("..", "..", "..", "..", "config", "default", "crds", "base")},
 	}
 
 	err := SchemeBuilder.AddToScheme(scheme.Scheme)
@@ -96,9 +97,11 @@ func TestMain(m *testing.M) {
 			"pytorch" : {
 				"image" : "kfserving/pytorchserver",
 				"defaultImageVersion": "0.1.0",
+                "defaultGPUImageVersion": "0.1.0-gpu",
 				"allowedImageVersions": [
 				   "latest",
-				   "0.1.0"
+				   "0.1.0",
+                   "0.1.0-gpu"
 				]
 			},
 			"onnx" : {

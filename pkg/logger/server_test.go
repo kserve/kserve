@@ -70,7 +70,7 @@ func TestLogger(t *testing.T) {
 	g.Expect(err).To(gomega.BeNil())
 	sourceUri, err := url.Parse("http://localhost:8080/")
 	g.Expect(err).To(gomega.BeNil())
-	oh := New(log, "0.0.0.0", predictorSvcUrl.Port(), logSvcUrl, sourceUri, v1alpha2.LogAll, "mymodel")
+	oh := New(log, "0.0.0.0", predictorSvcUrl.Port(), logSvcUrl, sourceUri, v1alpha2.LogAll, "mymodel", "default", "default")
 
 	oh.ServeHTTP(w, r)
 

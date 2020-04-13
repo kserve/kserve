@@ -32,7 +32,8 @@ echo "Creating cluster ${CLUSTER_NAME} ... "
 gcloud --project ${PROJECT} beta container clusters create ${CLUSTER_NAME} \
     --addons=HorizontalPodAutoscaling,HttpLoadBalancing \
     --machine-type=n1-standard-4 \
-    --cluster-version 1.13 --zone ${ZONE} \
+    --cluster-version 1.14 --zone ${ZONE} \
+    --accelerator type=nvidia-tesla-k80,count=1 \
     --enable-stackdriver-kubernetes --enable-ip-alias \
     --enable-autoscaling --min-nodes=3 --max-nodes=10 \
     --enable-autorepair \
@@ -43,3 +44,6 @@ gcloud --project ${PROJECT} container clusters get-credentials ${CLUSTER_NAME} -
 
 echo "Creating namespace ${NAMESPACE} ..."
 kubectl create namespace ${NAMESPACE}
+
+echo "Intalling GPU Drivers"
+kubectl apply -f https://raw.githubusercontent.com/GoogleCloudPlatform/container-engine-accelerators/master/nvidia-driver-installer/cos/daemonset-preloaded.yaml

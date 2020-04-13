@@ -21,7 +21,7 @@ const (
 	GroupName = "networking.internal.knative.dev"
 
 	// IngressClassAnnotationKey is the annotation for the
-	// explicit class of ClusterIngress that a particular resource has
+	// explicit class of Ingress that a particular resource has
 	// opted into. For example,
 	//
 	//    networking.knative.dev/ingress.class: some-network-impl
@@ -30,14 +30,10 @@ const (
 	// user-facing.
 	//
 	// The parent resource may use its own annotations to choose the
-	// annotation value for the ClusterIngress it uses.  Based on such
+	// annotation value for the Ingress it uses.  Based on such
 	// value a different reconciliation logic may be used (for examples,
-	// Istio-based ClusterIngress will reconcile into a VirtualService).
+	// Istio-based Ingress will reconcile into a VirtualService).
 	IngressClassAnnotationKey = "networking.knative.dev/ingress.class"
-
-	// ClusterIngressLabelKey is the label key attached to underlying network programming
-	// resources to indicate which ClusterIngress triggered their creation.
-	ClusterIngressLabelKey = GroupName + "/clusteringress"
 
 	// IngressLabelKey is the label key attached to underlying network programming
 	// resources to indicate which Ingress triggered their creation.
@@ -73,6 +69,22 @@ const (
 	// value a different reconciliation logic may be used (for examples,
 	// Cert-Manager-based Certificate will reconcile into a Cert-Manager Certificate).
 	CertificateClassAnnotationKey = GroupName + "/certificate.class"
+
+	// ActivatorServiceName is the name of the activator Kubernetes service.
+	ActivatorServiceName = "activator-service"
+
+	// DisableWildcardCertLabelKey is the label key attached to a namespace to indicate that
+	// a wildcard certificate should be not created for it.
+	DisableWildcardCertLabelKey = GroupName + "/disableWildcardCert"
+
+	// WildcardCertDomainLabelKey is the label key attached to a certificate to indicate the
+	// domain for which it was issued.
+	WildcardCertDomainLabelKey = "networking.knative.dev/wildcardDomain"
+
+	// KnativeIngressGateway is the name of the ingress gateway
+	KnativeIngressGateway = "knative-ingress-gateway"
+	// ClusterLocalGateway is the name of the local gateway
+	ClusterLocalGateway = "cluster-local-gateway"
 )
 
 // ServiceType is the enumeration type for the Kubernetes services
@@ -88,6 +100,7 @@ const (
 	ServiceTypePublic ServiceType = "Public"
 	// ServiceTypeMetrics is the label value for Metrics services. Such services
 	// are used for meric scraping.
+	// TODO(5900): Remove after 0.12 is cut.
 	ServiceTypeMetrics ServiceType = "Metrics"
 )
 

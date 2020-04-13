@@ -1,4 +1,4 @@
-# Copyright 2019 kubeflow.org.
+# Copyright 2020 kubeflow.org.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,10 +15,11 @@
 import os
 
 # KFServing K8S constants
-KFSERVING_GROUP = "serving.kubeflow.org"
-KFSERVING_KIND = "InferenceService"
-KFSERVING_PLURAL = "inferenceservices"
-KFSERVING_VERSION = "v1alpha2"
+KFSERVING_GROUP = 'serving.kubeflow.org'
+KFSERVING_KIND = 'InferenceService'
+KFSERVING_PLURAL = 'inferenceservices'
+KFSERVING_VERSION = os.environ.get('KFSERVING_VERSION', 'v1alpha2')
+KFSERVING_API_VERSION = KFSERVING_GROUP + '/' + KFSERVING_VERSION
 
 KFSERVING_LOGLEVEL = os.environ.get('KFSERVING_LOGLEVEL', 'INFO').upper()
 

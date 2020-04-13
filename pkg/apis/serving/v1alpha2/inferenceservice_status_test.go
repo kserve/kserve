@@ -20,8 +20,9 @@ import (
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"k8s.io/api/core/v1"
 	"knative.dev/pkg/apis/duck"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"testing"
 )
 
@@ -47,20 +48,20 @@ func TestInferenceServiceDuckType(t *testing.T) {
 func TestInferenceServiceIsReady(t *testing.T) {
 	cases := []struct {
 		name                 string
-		defaultServiceStatus v1alpha1.ServiceStatus
-		canaryServiceStatus  v1alpha1.ServiceStatus
+		defaultServiceStatus knservingv1.ServiceStatus
+		canaryServiceStatus  knservingv1.ServiceStatus
 		routeStatus          VirtualServiceStatus
 		isReady              bool
 	}{{
 		name:                 "empty status should not be ready",
-		defaultServiceStatus: v1alpha1.ServiceStatus{},
+		defaultServiceStatus: knservingv1.ServiceStatus{},
 		routeStatus:          VirtualServiceStatus{},
 		isReady:              false,
 	}, {
 		name: "Different condition type should not be ready",
-		defaultServiceStatus: v1alpha1.ServiceStatus{
-			Status: duckv1beta1.Status{
-				Conditions: duckv1beta1.Conditions{{
+		defaultServiceStatus: knservingv1.ServiceStatus{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
 					Type:   "Foo",
 					Status: v1.ConditionTrue,
 				}},
@@ -69,10 +70,10 @@ func TestInferenceServiceIsReady(t *testing.T) {
 		isReady: false,
 	}, {
 		name: "False condition status should not be ready",
-		defaultServiceStatus: v1alpha1.ServiceStatus{
-			Status: duckv1beta1.Status{
-				Conditions: duckv1beta1.Conditions{{
-					Type:   v1alpha1.ServiceConditionReady,
+		defaultServiceStatus: knservingv1.ServiceStatus{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
+					Type:   knservingv1.ServiceConditionReady,
 					Status: v1.ConditionFalse,
 				}},
 			},
@@ -80,10 +81,10 @@ func TestInferenceServiceIsReady(t *testing.T) {
 		isReady: false,
 	}, {
 		name: "Unknown condition status should not be ready",
-		defaultServiceStatus: v1alpha1.ServiceStatus{
-			Status: duckv1beta1.Status{
-				Conditions: duckv1beta1.Conditions{{
-					Type:   v1alpha1.ServiceConditionReady,
+		defaultServiceStatus: knservingv1.ServiceStatus{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
+					Type:   knservingv1.ServiceConditionReady,
 					Status: v1.ConditionUnknown,
 				}},
 			},
@@ -91,20 +92,20 @@ func TestInferenceServiceIsReady(t *testing.T) {
 		isReady: false,
 	}, {
 		name: "Missing condition status should not be ready",
-		defaultServiceStatus: v1alpha1.ServiceStatus{
-			Status: duckv1beta1.Status{
-				Conditions: duckv1beta1.Conditions{{
-					Type: v1alpha1.ConfigurationConditionReady,
+		defaultServiceStatus: knservingv1.ServiceStatus{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
+					Type: knservingv1.ConfigurationConditionReady,
 				}},
 			},
 		},
 		isReady: false,
 	}, {
 		name: "True condition status should be ready",
-		defaultServiceStatus: v1alpha1.ServiceStatus{
-			Status: duckv1beta1.Status{
-				Conditions: duckv1beta1.Conditions{{
-					Type:   v1alpha1.ConfigurationConditionReady,
+		defaultServiceStatus: knservingv1.ServiceStatus{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
+					Type:   knservingv1.ConfigurationConditionReady,
 					Status: v1.ConditionTrue,
 				}},
 			},
@@ -120,13 +121,13 @@ func TestInferenceServiceIsReady(t *testing.T) {
 		isReady: true,
 	}, {
 		name: "Default service, route conditions with ready status should be ready",
-		defaultServiceStatus: v1alpha1.ServiceStatus{
-			Status: duckv1beta1.Status{
-				Conditions: duckv1beta1.Conditions{{
+		defaultServiceStatus: knservingv1.ServiceStatus{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
 					Type:   "Foo",
 					Status: v1.ConditionTrue,
 				}, {
-					Type:   v1alpha1.ConfigurationConditionReady,
+					Type:   knservingv1.ConfigurationConditionReady,
 					Status: v1.ConditionTrue,
 				},
 				},
@@ -143,19 +144,19 @@ func TestInferenceServiceIsReady(t *testing.T) {
 		isReady: true,
 	}, {
 		name: "Default/canary service, route conditions with ready status should be ready",
-		defaultServiceStatus: v1alpha1.ServiceStatus{
-			Status: duckv1beta1.Status{
-				Conditions: duckv1beta1.Conditions{{
-					Type:   v1alpha1.ConfigurationConditionReady,
+		defaultServiceStatus: knservingv1.ServiceStatus{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
+					Type:   knservingv1.ConfigurationConditionReady,
 					Status: v1.ConditionTrue,
 				},
 				},
 			},
 		},
-		canaryServiceStatus: v1alpha1.ServiceStatus{
-			Status: duckv1beta1.Status{
-				Conditions: duckv1beta1.Conditions{{
-					Type:   v1alpha1.ConfigurationConditionReady,
+		canaryServiceStatus: knservingv1.ServiceStatus{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
+					Type:   knservingv1.ConfigurationConditionReady,
 					Status: v1.ConditionTrue,
 				},
 				},
@@ -172,13 +173,13 @@ func TestInferenceServiceIsReady(t *testing.T) {
 		isReady: true,
 	}, {
 		name: "Multiple conditions with ready status false should not be ready",
-		defaultServiceStatus: v1alpha1.ServiceStatus{
-			Status: duckv1beta1.Status{
-				Conditions: duckv1beta1.Conditions{{
+		defaultServiceStatus: knservingv1.ServiceStatus{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
 					Type:   "Foo",
 					Status: v1.ConditionTrue,
 				}, {
-					Type:   v1alpha1.ConfigurationConditionReady,
+					Type:   knservingv1.ConfigurationConditionReady,
 					Status: v1.ConditionFalse,
 				}},
 			},

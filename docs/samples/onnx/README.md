@@ -3,7 +3,6 @@
 ## Setup
 1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/blob/master/docs/DEVELOPER_GUIDE.md#deploy-kfserving).
 2. Your cluster's Istio Ingress gateway must be network accessible.
-3. Your cluster's Istio Egresss gateway must [allow Google Cloud Storage](https://knative.dev/docs/serving/outbound-network-access/)
 
 ## Create the InferenceService
 Apply the CRD
@@ -17,14 +16,20 @@ $ inferenceservice.serving.kubeflow.org/style-sample configured
 ```
 
 ## Run a sample inference
+
 1. Setup env vars
+
+Use `kfserving-ingressgateway` as your `INGRESS_GATEWAY` if you are deploying KFServing as part of Kubeflow install, and not independently.
+
 ```
 export MODEL_NAME=style-sample
 export SERVICE_HOSTNAME=$(kubectl get inferenceservice ${MODEL_NAME} -o jsonpath='{.status.url}' | cut -d "/" -f 3)
-export CLUSTER_IP=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+export INGRESS_GATEWAY=istio-ingressgateway
+export CLUSTER_IP=$(kubectl -n istio-system get service $INGRESS_GATEWAY -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 ```
 2. Verify the service is healthy
 ```
+SERVICE_URL=http://$CLUSTER_IP/v1/models/$MODEL_NAME
 curl ${SERVICE_URL}
 ```
 3. Install dependencies

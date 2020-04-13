@@ -24,9 +24,8 @@
 ## Setup
 1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/blob/master/docs/DEVELOPER_GUIDE.md#deploy-kfserving).
 2. Your cluster's Istio Ingress gateway must be network accessible.
-3. Make sure your istio network policy [allow Google Cloud Storage](https://knative.dev/docs/serving/outbound-network-access/)
-4. [Metrics installation](https://knative.dev/docs/serving/installing-logging-metrics-traces) for viewing scaling graphs (optional).
-5. The [hey](https://github.com/rakyll/hey) load generator installed (go get -u github.com/rakyll/hey).
+3. [Metrics installation](https://knative.dev/docs/serving/installing-logging-metrics-traces) for viewing scaling graphs (optional).
+4. The [hey](https://github.com/rakyll/hey) load generator installed (go get -u github.com/rakyll/hey).
 
 ## Load your InferenceService with target concurrency
 
@@ -42,11 +41,12 @@ $ inferenceservice.serving.kubeflow.org/flowers-sample configured
 ```
 
 ### Load InferenceService with concurrent requests
-Send traffic in 30 seconds spurts maintaining 5 in-flight requests.
+Send traffic in 30 seconds spurts maintaining 5 in-flight requests. Also use `kfserving-ingressgateway` as your `INGRESS_GATEWAY` if you are deploying KFServing as part of Kubeflow install, and not independently.
 ```
 MODEL_NAME=flowers-sample
 INPUT_PATH=../tensorflow/input.json
-CLUSTER_IP=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+INGRESS_GATEWAY=istio-ingressgateway
+CLUSTER_IP=$(kubectl -n istio-system get service $INGRESS_GATEWAY -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 HOST=$(kubectl get inferenceservice $MODEL_NAME -o jsonpath='{.status.url}' | cut -d "/" -f 3)
 hey -z 30s -c 5 -m POST -host ${HOST} -D $INPUT_PATH http://$CLUSTER_IP/v1/models/$MODEL_NAME:predict
 ```
@@ -134,11 +134,12 @@ $ inferenceservice.serving.kubeflow.org/flowers-sample configured
 ```
 
 ### Load InferenceService with target QPS
-Send 30 seconds of traffic maintaining 50 qps.
+Send 30 seconds of traffic maintaining 50 qps. Also use `kfserving-ingressgateway` as your `INGRESS_GATEWAY` if you are deploying KFServing as part of Kubeflow install, and not independently.
 ```bash
 MODEL_NAME=flowers-sample
 INPUT_PATH=../tensorflow/input.json
-CLUSTER_IP=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+INGRESS_GATEWAY=istio-ingressgateway
+CLUSTER_IP=$(kubectl -n istio-system get service $INGRESS_GATEWAY -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 HOST=$(kubectl get inferenceservice $MODEL_NAME -o jsonpath='{.status.url}' | cut -d "/" -f 3)
 hey -z 30s -q 50 -m POST -host ${HOST} -D $INPUT_PATH http://$CLUSTER_IP/v1/models/$MODEL_NAME:predict
 ```

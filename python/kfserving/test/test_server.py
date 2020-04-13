@@ -1,4 +1,4 @@
-# Copyright 2019 kubeflow.org.
+# Copyright 2020 kubeflow.org.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -28,6 +28,9 @@ class DummyModel(kfserving.KFModel):
     def predict(self, request):
         return {"predictions": request["instances"]}
 
+    def explain(self, request):
+        return {"predictions": request["instances"]}
+
 
 class TestTFHttpServer():
 
@@ -48,7 +51,17 @@ class TestTFHttpServer():
         assert resp.code == 200
 
     async def test_predict(self, http_server_client):
-        resp = await http_server_client.fetch('/v1/models/TestModel:predict', method="POST",
+        resp = await http_server_client.fetch('/v1/models/TestModel:predict',
+                                              method="POST",
                                               body=b'{"instances":[[1,2]]}')
         assert resp.code == 200
         assert resp.body == b'{"predictions": [[1, 2]]}'
+        assert resp.headers['content-type'] == "application/json; charset=UTF-8"
+
+    async def test_explain(self, http_server_client):
+        resp = await http_server_client.fetch('/v1/models/TestModel:explain',
+                                              method="POST",
+                                              body=b'{"instances":[[1,2]]}')
+        assert resp.code == 200
+        assert resp.body == b'{"predictions": [[1, 2]]}'
+        assert resp.headers['content-type'] == "application/json; charset=UTF-8"

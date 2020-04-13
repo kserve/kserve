@@ -23,7 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"knative.dev/pkg/apis"
-	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 )
 
 var serviceCondSet = apis.NewLivingConditionSet(
@@ -156,6 +156,6 @@ func (ss *ServiceStatus) PropagateRouteStatus(rs *RouteStatus) {
 	}
 }
 
-func (ss *ServiceStatus) duck() *duckv1beta1.Status {
+func (ss *ServiceStatus) duck() *duckv1.Status {
 	return &ss.Status
 }

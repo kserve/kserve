@@ -5,7 +5,7 @@ required = [
     "k8s.io/client-go/plugin/pkg/client/auth/gcp", # for development against gcp
     "k8s.io/code-generator/cmd/client-gen", # for go generate
     "k8s.io/code-generator/cmd/deepcopy-gen", # for go generate
-    "k8s.io/code-generator/cmd/openapi-gen", # for go generate
+    "k8s.io/kube-openapi/cmd/openapi-gen", # for go generate
     "sigs.k8s.io/controller-tools/cmd/controller-gen", # for crd/rbac generation
     "sigs.k8s.io/controller-runtime/pkg/client/config",
     "sigs.k8s.io/controller-runtime/pkg/controller",
@@ -46,40 +46,36 @@ version="v1.4.7"
 
 [[constraint]]
   name = "knative.dev/serving"
-  version = "=v0.8.0"
+  version = "=v0.11"
 
 [[override]]
   name="sigs.k8s.io/controller-runtime"
-  # 0.1.9 is most recent version that still uses K8s 1.12. 0.1.10 uses K8s 1.13.
-  version = "=v0.1.9"
-
-[[override]]
-  name="sigs.k8s.io/controller-tools"
-  version = "=v0.1.9"
+  version = "=v0.3.0"
 
 [[override]]
   name = "knative.dev/pkg"
-  branch = "release-0.8"
+  branch = "release-0.11"
 
 [[override]]
   name = "k8s.io/api"
-  version = "kubernetes-1.12.6"
+  version = "kubernetes-1.15.3"
 
 [[override]]
   name = "k8s.io/apimachinery"
-  version = "kubernetes-1.12.6"
+  version = "kubernetes-1.15.3"
 
 [[override]]
   name = "k8s.io/code-generator"
-  version = "kubernetes-1.12.6"
+  version = "kubernetes-1.15.3"
 
 [[override]]
   name = "k8s.io/client-go"
-  version = "kubernetes-1.12.6"
+  version = "kubernetes-1.15.3"
 
 [[constraint]]
   name = "k8s.io/kube-openapi"
-  branch = "release-1.10"
+  # This is the version at which k8s.io/apiserver depends on this at its 1.15.3 tag.
+  revision = "b3a7cee44a305be0a69e1b9ac03018307287e1b0"
 
 [[override]]
   name = "github.com/tensorflow/tensorflow"
@@ -91,15 +87,15 @@ version="v1.4.7"
 
 [[constraint]]
   name = "k8s.io/kubernetes"
-  version = "=1.12.3"
+  version = "=1.15.3"
 
 [[override]]
   name = "k8s.io/apiserver"
-  version = "kubernetes-1.12.3"
+  version = "kubernetes-1.15.3"
 
 [[override]]
   name = "k8s.io/apiextensions-apiserver"
-  version = "kubernetes-1.12.3"
+  version = "kubernetes-1.15.3"
 
   
 

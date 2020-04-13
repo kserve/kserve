@@ -18,6 +18,7 @@ package knative
 
 import (
 	"fmt"
+	"strconv"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -29,8 +30,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/serving"
-	knservingv1alpha1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
 var serviceAnnotationDisallowedList = []string{
@@ -41,9 +41,9 @@ var serviceAnnotationDisallowedList = []string{
 }
 
 const (
-	// Use a very small percentage here so the minimum bound defined at
+	// Set to 20% of the resource for main container, InferenceService defaults to 1CPU which is 200m for queue-proxy
 	// https://github.com/knative/serving/blob/1d263950f9f2fea85a4dd394948a029c328af9d9/pkg/reconciler/revision/resources/resourceboundary.go#L30
-	DefaultQueueSideCarResourcePercentage = "0.2"
+	DefaultQueueSideCarResourcePercentage = "20"
 )
 
 type ServiceBuilder struct {
@@ -64,7 +64,7 @@ func NewServiceBuilder(client client.Client, config *v1.ConfigMap) *ServiceBuild
 	}
 }
 
-func (c *ServiceBuilder) CreateInferenceServiceComponent(isvc *v1alpha2.InferenceService, component constants.InferenceServiceComponent, isCanary bool) (*knservingv1alpha1.Service, error) {
+func (c *ServiceBuilder) CreateInferenceServiceComponent(isvc *v1alpha2.InferenceService, component constants.InferenceServiceComponent, isCanary bool) (*knservingv1.Service, error) {
 	serviceName := constants.DefaultServiceName(isvc.Name, component)
 	if isCanary {
 		serviceName = constants.CanaryServiceName(isvc.Name, component)
@@ -75,7 +75,7 @@ func (c *ServiceBuilder) CreateInferenceServiceComponent(isvc *v1alpha2.Inferenc
 		if isCanary {
 			predictorSpec = &isvc.Spec.Canary.Predictor
 		}
-		return c.CreatePredictorService(serviceName, isvc.ObjectMeta, predictorSpec)
+		return c.CreatePredictorService(serviceName, isvc.ObjectMeta, predictorSpec, isCanary)
 	case constants.Transformer:
 		transformerSpec := isvc.Spec.Default.Transformer
 		if isCanary {
@@ -99,8 +99,33 @@ func (c *ServiceBuilder) CreateInferenceServiceComponent(isvc *v1alpha2.Inferenc
 	return nil, fmt.Errorf("Invalid Component")
 }
 
-func (c *ServiceBuilder) CreatePredictorService(name string, metadata metav1.ObjectMeta, predictorSpec *v1alpha2.PredictorSpec) (*knservingv1alpha1.Service, error) {
-	annotations, err := c.buildAnnotations(metadata, predictorSpec.MinReplicas, predictorSpec.MaxReplicas)
+func addLoggerAnnotations(logger *v1alpha2.Logger, annotations map[string]string) bool {
+	if logger != nil {
+		annotations[constants.LoggerInternalAnnotationKey] = "true"
+		if logger.Url != nil {
+			annotations[constants.LoggerSinkUrlInternalAnnotationKey] = *logger.Url
+		}
+		annotations[constants.LoggerModeInternalAnnotationKey] = string(logger.Mode)
+		return true
+	}
+	return false
+}
+
+func addLoggerContainerPort(container *v1.Container) {
+	if container != nil {
+		if container.Ports == nil {
+			port, _ := strconv.Atoi(constants.InferenceServiceDefaultLoggerPort)
+			container.Ports = []v1.ContainerPort{
+				v1.ContainerPort{
+					ContainerPort: int32(port),
+				},
+			}
+		}
+	}
+}
+
+func (c *ServiceBuilder) CreatePredictorService(name string, metadata metav1.ObjectMeta, predictorSpec *v1alpha2.PredictorSpec, isCanary bool) (*knservingv1.Service, error) {
+	annotations, err := c.buildAnnotations(metadata, predictorSpec.MinReplicas, predictorSpec.MaxReplicas, predictorSpec.Parallelism)
 	if err != nil {
 		return nil, err
 	}
@@ -111,31 +136,45 @@ func (c *ServiceBuilder) CreatePredictorService(name string, metadata metav1.Obj
 		annotations[constants.StorageInitializerSourceUriInternalAnnotationKey] = sourceURI
 	}
 
-	service := &knservingv1alpha1.Service{
+	// Knative does not support multiple containers so we add an annotation that triggers pod
+	// mutator to add it
+	hasInferenceLogging := addLoggerAnnotations(predictorSpec.Logger, annotations)
+	container := predictorSpec.GetContainer(metadata.Name, predictorSpec.Parallelism, c.inferenceServiceConfig)
+	if hasInferenceLogging {
+		addLoggerContainerPort(container)
+	}
+
+	endpoint := constants.InferenceServiceDefault
+	if isCanary {
+		endpoint = constants.InferenceServiceCanary
+	}
+
+	service := &knservingv1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: metadata.Namespace,
 			Labels:    metadata.Labels,
 		},
-		Spec: knservingv1alpha1.ServiceSpec{
-			ConfigurationSpec: knservingv1alpha1.ConfigurationSpec{
-				Template: &knservingv1alpha1.RevisionTemplateSpec{
+		Spec: knservingv1.ServiceSpec{
+			ConfigurationSpec: knservingv1.ConfigurationSpec{
+				Template: knservingv1.RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: utils.Union(metadata.Labels, map[string]string{
 							constants.InferenceServicePodLabelKey: metadata.Name,
+							constants.KServiceComponentLabel:      constants.Predictor.String(),
+							constants.KServiceModelLabel:          metadata.Name,
+							constants.KServiceEndpointLabel:       endpoint,
 						}),
 						Annotations: annotations,
 					},
-					Spec: knservingv1alpha1.RevisionSpec{
-						RevisionSpec: v1beta1.RevisionSpec{
-							// Defaulting here since this always shows a diff with nil vs 300s(knative default)
-							// we may need to expose this field in future
-							TimeoutSeconds: &constants.DefaultPredictorTimeout,
-							PodSpec: v1.PodSpec{
-								ServiceAccountName: predictorSpec.ServiceAccountName,
-								Containers: []v1.Container{
-									*predictorSpec.GetContainer(metadata.Name, c.inferenceServiceConfig),
-								},
+					Spec: knservingv1.RevisionSpec{
+						// Defaulting here since this always shows a diff with nil vs 300s(knative default)
+						// we may need to expose this field in future
+						TimeoutSeconds: &constants.DefaultPredictorTimeout,
+						PodSpec: v1.PodSpec{
+							ServiceAccountName: predictorSpec.ServiceAccountName,
+							Containers: []v1.Container{
+								*container,
 							},
 						},
 					},
@@ -156,37 +195,56 @@ func (c *ServiceBuilder) CreatePredictorService(name string, metadata metav1.Obj
 	return service, nil
 }
 
-func (c *ServiceBuilder) CreateTransformerService(name string, metadata metav1.ObjectMeta, transformerSpec *v1alpha2.TransformerSpec, isCanary bool) (*knservingv1alpha1.Service, error) {
-	annotations, err := c.buildAnnotations(metadata, transformerSpec.MinReplicas, transformerSpec.MaxReplicas)
+func (c *ServiceBuilder) CreateTransformerService(name string, metadata metav1.ObjectMeta, transformerSpec *v1alpha2.TransformerSpec, isCanary bool) (*knservingv1.Service, error) {
+	annotations, err := c.buildAnnotations(metadata, transformerSpec.MinReplicas, transformerSpec.MaxReplicas, transformerSpec.Parallelism)
 	if err != nil {
 		return nil, err
 	}
+
+	// KNative does not support INIT containers or mounting, so we add annotations that trigger the
+	// StorageInitializer injector to mutate the underlying deployment to provision model data
+	if sourceURI := transformerSpec.GetStorageUri(); sourceURI != "" {
+		annotations[constants.StorageInitializerSourceUriInternalAnnotationKey] = sourceURI
+	}
+	// Knative does not support multiple containers so we add an annotation that triggers pod
+	// mutator to add it
+	hasInferenceLogging := addLoggerAnnotations(transformerSpec.Logger, annotations)
 	container := transformerSpec.GetContainerSpec(metadata, isCanary)
-	service := &knservingv1alpha1.Service{
+	if hasInferenceLogging {
+		addLoggerContainerPort(container)
+	}
+
+	endpoint := constants.InferenceServiceDefault
+	if isCanary {
+		endpoint = constants.InferenceServiceCanary
+	}
+
+	service := &knservingv1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: metadata.Namespace,
 			Labels:    metadata.Labels,
 		},
-		Spec: knservingv1alpha1.ServiceSpec{
-			ConfigurationSpec: knservingv1alpha1.ConfigurationSpec{
-				Template: &knservingv1alpha1.RevisionTemplateSpec{
+		Spec: knservingv1.ServiceSpec{
+			ConfigurationSpec: knservingv1.ConfigurationSpec{
+				Template: knservingv1.RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: utils.Union(metadata.Labels, map[string]string{
 							constants.InferenceServicePodLabelKey: metadata.Name,
+							constants.KServiceComponentLabel:      constants.Transformer.String(),
+							constants.KServiceModelLabel:          metadata.Name,
+							constants.KServiceEndpointLabel:       endpoint,
 						}),
 						Annotations: annotations,
 					},
-					Spec: knservingv1alpha1.RevisionSpec{
-						RevisionSpec: v1beta1.RevisionSpec{
-							// Defaulting here since this always shows a diff with nil vs 300s(knative default)
-							// we may need to expose this field in future
-							TimeoutSeconds: &constants.DefaultTransformerTimeout,
-							PodSpec: v1.PodSpec{
-								ServiceAccountName: transformerSpec.ServiceAccountName,
-								Containers: []v1.Container{
-									*container,
-								},
+					Spec: knservingv1.RevisionSpec{
+						// Defaulting here since this always shows a diff with nil vs 300s(knative default)
+						// we may need to expose this field in future
+						TimeoutSeconds: &constants.DefaultTransformerTimeout,
+						PodSpec: v1.PodSpec{
+							ServiceAccountName: transformerSpec.ServiceAccountName,
+							Containers: []v1.Container{
+								*container,
 							},
 						},
 					},
@@ -207,8 +265,8 @@ func (c *ServiceBuilder) CreateTransformerService(name string, metadata metav1.O
 	return service, nil
 }
 
-func (c *ServiceBuilder) CreateExplainerService(name string, metadata metav1.ObjectMeta, explainerSpec *v1alpha2.ExplainerSpec, predictorService string) (*knservingv1alpha1.Service, error) {
-	annotations, err := c.buildAnnotations(metadata, explainerSpec.MinReplicas, explainerSpec.MaxReplicas)
+func (c *ServiceBuilder) CreateExplainerService(name string, metadata metav1.ObjectMeta, explainerSpec *v1alpha2.ExplainerSpec, predictorService string) (*knservingv1.Service, error) {
+	annotations, err := c.buildAnnotations(metadata, explainerSpec.MinReplicas, explainerSpec.MaxReplicas, explainerSpec.Parallelism)
 	if err != nil {
 		return nil, err
 	}
@@ -219,31 +277,39 @@ func (c *ServiceBuilder) CreateExplainerService(name string, metadata metav1.Obj
 		annotations[constants.StorageInitializerSourceUriInternalAnnotationKey] = sourceURI
 	}
 
-	service := &knservingv1alpha1.Service{
+	// Knative does not support multiple containers so we add an annotation that triggers pod
+	// mutator to add it
+	hasInferenceLogging := addLoggerAnnotations(explainerSpec.Logger, annotations)
+	container := explainerSpec.CreateExplainerContainer(metadata.Name, explainerSpec.Parallelism, predictorService, c.inferenceServiceConfig)
+	if hasInferenceLogging {
+		addLoggerContainerPort(container)
+	}
+
+	service := &knservingv1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: metadata.Namespace,
 			Labels:    metadata.Labels,
 		},
-		Spec: knservingv1alpha1.ServiceSpec{
-			ConfigurationSpec: knservingv1alpha1.ConfigurationSpec{
-				Template: &knservingv1alpha1.RevisionTemplateSpec{
+		Spec: knservingv1.ServiceSpec{
+			ConfigurationSpec: knservingv1.ConfigurationSpec{
+				Template: knservingv1.RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: utils.Union(metadata.Labels, map[string]string{
 							constants.InferenceServicePodLabelKey: metadata.Name,
+							constants.KServiceComponentLabel:      constants.Explainer.String(),
+							constants.KServiceModelLabel:          metadata.Name,
 						}),
 						Annotations: annotations,
 					},
-					Spec: knservingv1alpha1.RevisionSpec{
-						RevisionSpec: v1beta1.RevisionSpec{
-							// Defaulting here since this always shows a diff with nil vs 300s(knative default)
-							// we may need to expose this field in future
-							TimeoutSeconds: &constants.DefaultExplainerTimeout,
-							PodSpec: v1.PodSpec{
-								ServiceAccountName: explainerSpec.ServiceAccountName,
-								Containers: []v1.Container{
-									*explainerSpec.CreateExplainerContainer(metadata.Name, predictorService, c.inferenceServiceConfig),
-								},
+					Spec: knservingv1.RevisionSpec{
+						// Defaulting here since this always shows a diff with nil vs 300s(knative default)
+						// we may need to expose this field in future
+						TimeoutSeconds: &constants.DefaultExplainerTimeout,
+						PodSpec: v1.PodSpec{
+							ServiceAccountName: explainerSpec.ServiceAccountName,
+							Containers: []v1.Container{
+								*container,
 							},
 						},
 					},
@@ -264,14 +330,17 @@ func (c *ServiceBuilder) CreateExplainerService(name string, metadata metav1.Obj
 	return service, nil
 }
 
-func (c *ServiceBuilder) buildAnnotations(metadata metav1.ObjectMeta, minReplicas int, maxReplicas int) (map[string]string, error) {
+func (c *ServiceBuilder) buildAnnotations(metadata metav1.ObjectMeta, minReplicas *int, maxReplicas int, parallelism int) (map[string]string, error) {
 	annotations := utils.Filter(metadata.Annotations, func(key string) bool {
 		return !utils.Includes(serviceAnnotationDisallowedList, key)
 	})
 
-	if minReplicas != 0 {
-		annotations[autoscaling.MinScaleAnnotationKey] = fmt.Sprint(minReplicas)
+	if minReplicas == nil {
+		annotations[autoscaling.MinScaleAnnotationKey] = fmt.Sprint(constants.DefaultMinReplicas)
+	} else if *minReplicas != 0 {
+		annotations[autoscaling.MinScaleAnnotationKey] = fmt.Sprint(*minReplicas)
 	}
+
 	if maxReplicas != 0 {
 		annotations[autoscaling.MaxScaleAnnotationKey] = fmt.Sprint(maxReplicas)
 	}
@@ -281,7 +350,11 @@ func (c *ServiceBuilder) buildAnnotations(metadata metav1.ObjectMeta, minReplica
 	}
 	// User can pass down scaling target annotation to overwrite the target default 1
 	if _, ok := annotations[autoscaling.TargetAnnotationKey]; !ok {
-		annotations[autoscaling.TargetAnnotationKey] = constants.DefaultScalingTarget
+		if parallelism == 0 {
+			annotations[autoscaling.TargetAnnotationKey] = constants.DefaultScalingTarget
+		} else {
+			annotations[autoscaling.TargetAnnotationKey] = strconv.Itoa(parallelism)
+		}
 	}
 	// User can pass down scaling class annotation to overwrite the default scaling KPA
 	if _, ok := annotations[autoscaling.ClassAnnotationKey]; !ok {

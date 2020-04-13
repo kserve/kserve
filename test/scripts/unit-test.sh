@@ -29,4 +29,11 @@ GO_DIR=${GOPATH}/src/github.com/${REPO_OWNER}/${REPO_NAME}
 mkdir -p ${GO_DIR}
 cp -r ./* ${GO_DIR}
 cd ${GO_DIR}
-make test
+# Run unit and integration tests
+n=0
+until [ $n -ge 3 ]
+do
+  make test && break
+  n=$[$n+1]
+  sleep 5
+done

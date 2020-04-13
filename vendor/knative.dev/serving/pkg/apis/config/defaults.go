@@ -44,6 +44,13 @@ const (
 	// DefaultUserContainerName is the default name we give to the container
 	// specified by the user, if `name:` is omitted.
 	DefaultUserContainerName = "user-container"
+
+	// DefaultContainerConcurrency is the default container concurrency. It will be set if ContainerConcurrency is not specified.
+	DefaultContainerConcurrency int64 = 0
+
+	// DefaultMaxRevisionContainerConcurrency is the maximum configurable
+	// container concurrency.
+	DefaultMaxRevisionContainerConcurrency int64 = 1000
 )
 
 // NewDefaultsConfigFromMap creates a Defaults from the supplied Map
@@ -64,6 +71,10 @@ func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
 		key:          "max-revision-timeout-seconds",
 		field:        &nc.MaxRevisionTimeoutSeconds,
 		defaultValue: DefaultMaxRevisionTimeoutSeconds,
+	}, {
+		key:          "container-concurrency",
+		field:        &nc.ContainerConcurrency,
+		defaultValue: DefaultContainerConcurrency,
 	}} {
 		if raw, ok := data[i64.key]; !ok {
 			*i64.field = i64.defaultValue
@@ -76,6 +87,10 @@ func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
 
 	if nc.RevisionTimeoutSeconds > nc.MaxRevisionTimeoutSeconds {
 		return nil, fmt.Errorf("revision-timeout-seconds (%d) cannot be greater than max-revision-timeout-seconds (%d)", nc.RevisionTimeoutSeconds, nc.MaxRevisionTimeoutSeconds)
+	}
+
+	if nc.ContainerConcurrency < 0 || nc.ContainerConcurrency > DefaultMaxRevisionContainerConcurrency {
+		return nil, apis.ErrOutOfBoundsValue(nc.ContainerConcurrency, 0, DefaultMaxRevisionContainerConcurrency, "containerConcurrency")
 	}
 
 	// Process resource quantity fields
@@ -113,7 +128,7 @@ func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
 		}
 		// Check that the template properly applies to ObjectMeta.
 		if err := tmpl.Execute(ioutil.Discard, metav1.ObjectMeta{}); err != nil {
-			return nil, fmt.Errorf("error executing template: %v", err)
+			return nil, fmt.Errorf("error executing template: %w", err)
 		}
 		// We store the raw template because we run deepcopy-gen on the
 		// config and that doesn't copy nicely.
@@ -136,6 +151,8 @@ type Defaults struct {
 	MaxRevisionTimeoutSeconds int64
 
 	UserContainerNameTemplate string
+
+	ContainerConcurrency int64
 
 	RevisionCPURequest    *resource.Quantity
 	RevisionCPULimit      *resource.Quantity

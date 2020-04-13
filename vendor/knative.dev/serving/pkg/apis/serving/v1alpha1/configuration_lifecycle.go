@@ -20,7 +20,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"knative.dev/pkg/apis"
-	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 )
 
 var confCondSet = apis.NewLivingConditionSet()
@@ -88,7 +88,9 @@ func (cs *ConfigurationStatus) SetLatestCreatedRevisionName(name string) {
 
 func (cs *ConfigurationStatus) SetLatestReadyRevisionName(name string) {
 	cs.LatestReadyRevisionName = name
-	confCondSet.Manage(cs).MarkTrue(ConfigurationConditionReady)
+	if cs.LatestReadyRevisionName == cs.LatestCreatedRevisionName {
+		confCondSet.Manage(cs).MarkTrue(ConfigurationConditionReady)
+	}
 }
 
 func (cs *ConfigurationStatus) MarkLatestCreatedFailed(name, message string) {
@@ -112,6 +114,6 @@ func (cs *ConfigurationStatus) MarkLatestReadyDeleted() {
 		"Revision %q was deleted.", cs.LatestReadyRevisionName)
 }
 
-func (cs *ConfigurationStatus) duck() *duckv1beta1.Status {
+func (cs *ConfigurationStatus) duck() *duckv1.Status {
 	return &cs.Status
 }

@@ -21,13 +21,17 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"knative.dev/pkg/apis"
-	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 )
 
 var ingressCondSet = apis.NewLivingConditionSet(
 	IngressConditionNetworkConfigured,
 	IngressConditionLoadBalancerReady,
 )
+
+// VirtualServiceNotReconciled is used for the reason of MarkLoadBalancerFailed
+// when VirtualService is failed to be reconciled.
+var VirtualServiceNotReconciled = "ReconcileVirtualServiceFailed"
 
 // GetGroupVersionKind returns SchemeGroupVersion of an Ingress
 func (i *Ingress) GetGroupVersionKind() schema.GroupVersionKind {
@@ -71,11 +75,21 @@ func (is *IngressStatus) MarkLoadBalancerReady(lbs []LoadBalancerIngressStatus, 
 	ingressCondSet.Manage(is).MarkTrue(IngressConditionLoadBalancerReady)
 }
 
-// MarkLoadBalancerPending marks the "IngressConditionLoadBalancerReady" condition to unknown to
+// MarkLoadBalancerNotReady marks the "IngressConditionLoadBalancerReady" condition to unknown to
 // reflect that the load balancer is not ready yet.
-func (is *IngressStatus) MarkLoadBalancerPending() {
+func (is *IngressStatus) MarkLoadBalancerNotReady() {
 	ingressCondSet.Manage(is).MarkUnknown(IngressConditionLoadBalancerReady, "Uninitialized",
 		"Waiting for VirtualService to be ready")
+}
+
+// MarkLoadBalancerFailed marks the "IngressConditionLoadBalancerReady" condition to false.
+func (is *IngressStatus) MarkLoadBalancerFailed(reason, message string) {
+	ingressCondSet.Manage(is).MarkFalse(IngressConditionLoadBalancerReady, reason, message)
+}
+
+// MarkIngressNotReady marks the "IngressConditionReady" condition to unknown.
+func (is *IngressStatus) MarkIngressNotReady(reason, message string) {
+	ingressCondSet.Manage(is).MarkUnknown(IngressConditionReady, reason, message)
 }
 
 // IsReady looks at the conditions and if the Status has a condition
@@ -84,6 +98,6 @@ func (is *IngressStatus) IsReady() bool {
 	return ingressCondSet.Manage(is).IsHappy()
 }
 
-func (is *IngressStatus) duck() *duckv1beta1.Status {
+func (is *IngressStatus) duck() *duckv1.Status {
 	return &is.Status
 }

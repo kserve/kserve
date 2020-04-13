@@ -30,7 +30,7 @@ spec:
               fieldRef:
                 fieldPath: metadata.namespace
           - name: SECRET_NAME
-            value: kfserving-webhook-server-secret
+            value: kfserving-webhook-server-cert
         resources:
           limits:
             cpu: 100m
@@ -39,11 +39,11 @@ spec:
             cpu: 100m
             memory: 200Mi
         ports:
-        - containerPort: 9876
+        - containerPort: 443
           name: webhook-server
           protocol: TCP
         volumeMounts:
-        - mountPath: /tmp/cert
+        - mountPath: /tmp/k8s-webhook-server/serving-certs
           name: cert
           readOnly: true
       terminationGracePeriodSeconds: 10
@@ -51,7 +51,7 @@ spec:
       - name: cert
         secret:
           defaultMode: 420
-          secretName: kfserving-webhook-server-secret
+          secretName: kfserving-webhook-server-cert
 ---
 apiVersion: v1
 kind: Secret

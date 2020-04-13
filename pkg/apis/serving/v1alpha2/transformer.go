@@ -17,8 +17,18 @@ const (
 // Transformer interface is implemented by all Transformers
 type Transformer interface {
 	GetContainerSpec() *v1.Container
+	GetStorageUri() string
 	ApplyDefaults(config *InferenceServicesConfig)
 	Validate(config *InferenceServicesConfig) error
+}
+
+// Returns a URI to the model. This URI is passed to the storage-initializer via the StorageInitializerSourceUriInternalAnnotationKey
+func (t *TransformerSpec) GetStorageUri() string {
+	transformer, err := getTransformer(t)
+	if err != nil {
+		return ""
+	}
+	return transformer.GetStorageUri()
 }
 
 // GetContainerSpec for the transformer
@@ -33,6 +43,8 @@ func (t *TransformerSpec) GetContainerSpec(metadata metav1.ObjectMeta, isCanary 
 		metadata.Name,
 		constants.ArgumentPredictorHost,
 		constants.PredictorURL(metadata, isCanary),
+		constants.ArgumentHttpPort,
+		constants.InferenceServiceDefaultHttpPort,
 	}...)
 	return container
 }
@@ -52,9 +64,11 @@ func (t *TransformerSpec) Validate(config *InferenceServicesConfig) error {
 		return err
 	}
 	for _, err := range []error{
+		validateParallelism(t.Parallelism),
 		validateReplicas(t.MinReplicas, t.MaxReplicas),
 		validateResourceRequirements(&transformer.GetContainerSpec().Resources),
 		transformer.Validate(config),
+		validateLogger(t.Logger),
 	} {
 		if err != nil {
 			return err

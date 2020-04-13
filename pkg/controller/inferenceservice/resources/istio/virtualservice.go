@@ -19,18 +19,27 @@ package istio
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/gogo/protobuf/types"
+	"knative.dev/pkg/apis"
+	"knative.dev/pkg/network"
+	"strings"
+	"time"
 
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	"github.com/kubeflow/kfserving/pkg/constants"
+	istiov1alpha3 "istio.io/api/networking/v1alpha3"
+	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
-	istiov1alpha1 "knative.dev/pkg/apis/istio/common/v1alpha1"
-	istiov1alpha3 "knative.dev/pkg/apis/istio/v1alpha3"
 )
 
 const (
 	IngressConfigKeyName = "ingress"
+)
+
+var (
+	RetryTimeout = types.DurationProto(time.Duration(10) * time.Minute)
 )
 
 // Status Constants
@@ -91,38 +100,55 @@ func createFailedStatus(reason string, message string) *v1alpha2.VirtualServiceS
 	}
 }
 
-func (r *VirtualServiceBuilder) getPredictRouteDestination(
-	endpointSpec *v1alpha2.EndpointSpec, componentStatusMap *v1alpha2.ComponentStatusMap, weight int) (*istiov1alpha3.HTTPRouteDestination, *v1alpha2.VirtualServiceStatus) {
+func (r *VirtualServiceBuilder) getPredictRouteDestination(meta metav1.Object, isCanary bool,
+	endpointSpec *v1alpha2.EndpointSpec, componentStatusMap *v1alpha2.ComponentStatusMap, weight int32) (*istiov1alpha3.HTTPRouteDestination, *v1alpha2.VirtualServiceStatus) {
 	if endpointSpec == nil {
 		return nil, nil
 	}
 	// destination for the predict is required
-	predictSpec, reason := getPredictStatusConfigurationSpec(endpointSpec, componentStatusMap)
-	if predictSpec == nil {
+	predictStatus, reason := getPredictStatusConfigurationSpec(componentStatusMap)
+	if predictStatus == nil {
 		return nil, createFailedStatus(reason, PredictorMissingMessage)
+	}
+
+	predictorHost := constants.DefaultPredictorServiceName(meta.GetName())
+	if isCanary {
+		predictorHost = constants.CanaryPredictorServiceName(meta.GetName())
 	}
 
 	// use transformer instead (if one is configured)
 	if endpointSpec.Transformer != nil {
-		predictSpec, reason = getTransformerStatusConfigurationSpec(endpointSpec, componentStatusMap)
-		if predictSpec == nil {
+		predictStatus, reason = getTransformerStatusConfigurationSpec(componentStatusMap)
+		if predictStatus == nil {
 			return nil, createFailedStatus(reason, TransformerMissingMessage)
+		}
+		predictorHost = constants.DefaultTransformerServiceName(meta.GetName())
+		if isCanary {
+			predictorHost = constants.CanaryTransformerServiceName(meta.GetName())
 		}
 	}
 
-	httpRouteDestination := createHTTPRouteDestination(predictSpec.Hostname, weight, r.ingressConfig.IngressServiceName)
+	httpRouteDestination := createHTTPRouteDestination(predictorHost, meta.GetNamespace(), weight, r.ingressConfig.IngressServiceName)
 	return &httpRouteDestination, nil
 }
 
-func (r *VirtualServiceBuilder) getExplainerRouteDestination(
-	endpointSpec *v1alpha2.EndpointSpec, componentStatusMap *v1alpha2.ComponentStatusMap, weight int) (*istiov1alpha3.HTTPRouteDestination, *v1alpha2.VirtualServiceStatus) {
+func (r *VirtualServiceBuilder) getExplainerRouteDestination(meta metav1.Object, isCanary bool,
+	endpointSpec *v1alpha2.EndpointSpec, componentStatusMap *v1alpha2.ComponentStatusMap, weight int32) (*istiov1alpha3.HTTPRouteDestination, *v1alpha2.VirtualServiceStatus) {
 	if endpointSpec == nil {
 		return nil, nil
+	}
+	predictorHost := constants.DefaultPredictorServiceName(meta.GetName())
+	if isCanary {
+		predictorHost = constants.CanaryPredictorServiceName(meta.GetName())
 	}
 	if endpointSpec.Explainer != nil {
 		explainSpec, explainerReason := getExplainStatusConfigurationSpec(endpointSpec, componentStatusMap)
 		if explainSpec != nil {
-			httpRouteDestination := createHTTPRouteDestination(explainSpec.Hostname, weight, r.ingressConfig.IngressServiceName)
+			predictorHost = constants.DefaultExplainerServiceName(meta.GetName())
+			if isCanary {
+				predictorHost = constants.CanaryExplainerServiceName(meta.GetName())
+			}
+			httpRouteDestination := createHTTPRouteDestination(predictorHost, meta.GetNamespace(), weight, r.ingressConfig.IngressServiceName)
 			return &httpRouteDestination, nil
 		} else {
 			return nil, createFailedStatus(explainerReason, ExplainerMissingMessage)
@@ -131,93 +157,150 @@ func (r *VirtualServiceBuilder) getExplainerRouteDestination(
 	return nil, nil
 }
 
-func (r *VirtualServiceBuilder) CreateVirtualService(isvc *v1alpha2.InferenceService) (*istiov1alpha3.VirtualService, *v1alpha2.VirtualServiceStatus) {
+func (r *VirtualServiceBuilder) CreateVirtualService(isvc *v1alpha2.InferenceService) (*v1alpha3.VirtualService, *v1alpha2.VirtualServiceStatus) {
 
-	httpRoutes := []istiov1alpha3.HTTPRoute{}
-	predictRouteDestinations := []istiov1alpha3.HTTPRouteDestination{}
+	httpRoutes := []*istiov1alpha3.HTTPRoute{}
+	predictRouteDestinations := []*istiov1alpha3.HTTPRouteDestination{}
+	serviceHostname, _ := getServiceHostname(isvc)
 
 	defaultWeight := 100 - isvc.Spec.CanaryTrafficPercent
 	canaryWeight := isvc.Spec.CanaryTrafficPercent
 
-	if defaultPredictRouteDestination, err := r.getPredictRouteDestination(&isvc.Spec.Default, isvc.Status.Default, defaultWeight); err != nil {
+	if defaultPredictRouteDestination, err := r.getPredictRouteDestination(isvc.GetObjectMeta(), false, &isvc.Spec.Default, isvc.Status.Default, int32(defaultWeight)); err != nil {
 		return nil, err
 	} else {
-		predictRouteDestinations = append(predictRouteDestinations, *defaultPredictRouteDestination)
+		predictRouteDestinations = append(predictRouteDestinations, defaultPredictRouteDestination)
 	}
-	if canaryPredictRouteDestination, err := r.getPredictRouteDestination(isvc.Spec.Canary, isvc.Status.Canary, canaryWeight); err != nil {
+	if canaryPredictRouteDestination, err := r.getPredictRouteDestination(isvc.GetObjectMeta(), true, isvc.Spec.Canary, isvc.Status.Canary, int32(canaryWeight)); err != nil {
 		return nil, err
 	} else {
 		if canaryPredictRouteDestination != nil {
-			predictRouteDestinations = append(predictRouteDestinations, *canaryPredictRouteDestination)
+			predictRouteDestinations = append(predictRouteDestinations, canaryPredictRouteDestination)
 		}
 	}
 	// prepare the predict route
-	predictRoute := istiov1alpha3.HTTPRoute{
-		Match: []istiov1alpha3.HTTPMatchRequest{
-			istiov1alpha3.HTTPMatchRequest{
-				URI: &istiov1alpha1.StringMatch{
-					Prefix: constants.PredictPrefix(isvc.Name),
+	predictRoute := &istiov1alpha3.HTTPRoute{
+		Match: []*istiov1alpha3.HTTPMatchRequest{
+			{
+				Uri: &istiov1alpha3.StringMatch{
+					MatchType: &istiov1alpha3.StringMatch_Prefix{
+						Prefix: constants.PredictPrefix(isvc.Name),
+					},
 				},
+				Authority: &istiov1alpha3.StringMatch{
+					MatchType: &istiov1alpha3.StringMatch_Regex{
+						Regex: constants.HostRegExp(serviceHostname),
+					},
+				},
+				Gateways: []string{r.ingressConfig.IngressGateway},
+			},
+			{
+				Uri: &istiov1alpha3.StringMatch{
+					MatchType: &istiov1alpha3.StringMatch_Prefix{
+						Prefix: constants.PredictPrefix(isvc.Name),
+					},
+				},
+				Authority: &istiov1alpha3.StringMatch{
+					MatchType: &istiov1alpha3.StringMatch_Regex{
+						Regex: constants.HostRegExp(network.GetServiceHostname(isvc.Name, isvc.Namespace)),
+					},
+				},
+				Gateways: []string{constants.KnativeLocalGateway},
 			},
 		},
 		Route: predictRouteDestinations,
+		Retries: &istiov1alpha3.HTTPRetry{
+			Attempts:      3,
+			PerTryTimeout: RetryTimeout,
+		},
 	}
 	httpRoutes = append(httpRoutes, predictRoute)
 
 	// optionally add the explain route
-	explainRouteDestinations := []istiov1alpha3.HTTPRouteDestination{}
-	if defaultExplainRouteDestination, err := r.getExplainerRouteDestination(&isvc.Spec.Default, isvc.Status.Default, defaultWeight); err != nil {
+	explainRouteDestinations := []*istiov1alpha3.HTTPRouteDestination{}
+	if defaultExplainRouteDestination, err := r.getExplainerRouteDestination(isvc.GetObjectMeta(), false, &isvc.Spec.Default, isvc.Status.Default, int32(defaultWeight)); err != nil {
 		return nil, err
 	} else {
 		if defaultExplainRouteDestination != nil {
-			explainRouteDestinations = append(explainRouteDestinations, *defaultExplainRouteDestination)
+			explainRouteDestinations = append(explainRouteDestinations, defaultExplainRouteDestination)
 		}
 	}
-	if canaryExplainRouteDestination, err := r.getExplainerRouteDestination(isvc.Spec.Canary, isvc.Status.Canary, canaryWeight); err != nil {
+	if canaryExplainRouteDestination, err := r.getExplainerRouteDestination(isvc.GetObjectMeta(), true, isvc.Spec.Canary, isvc.Status.Canary, int32(canaryWeight)); err != nil {
 		return nil, err
 	} else {
 		if canaryExplainRouteDestination != nil {
-			explainRouteDestinations = append(explainRouteDestinations, *canaryExplainRouteDestination)
+			explainRouteDestinations = append(explainRouteDestinations, canaryExplainRouteDestination)
 		}
 	}
 
 	if len(explainRouteDestinations) > 0 {
-		explainRoute := istiov1alpha3.HTTPRoute{
-			Match: []istiov1alpha3.HTTPMatchRequest{
-				istiov1alpha3.HTTPMatchRequest{
-					URI: &istiov1alpha1.StringMatch{
-						Prefix: constants.ExplainPrefix(isvc.Name),
+		explainRoute := &istiov1alpha3.HTTPRoute{
+			Match: []*istiov1alpha3.HTTPMatchRequest{
+				{
+					Uri: &istiov1alpha3.StringMatch{
+						MatchType: &istiov1alpha3.StringMatch_Prefix{
+							Prefix: constants.ExplainPrefix(isvc.Name),
+						},
 					},
+					Authority: &istiov1alpha3.StringMatch{
+						MatchType: &istiov1alpha3.StringMatch_Regex{
+							Regex: constants.HostRegExp(serviceHostname),
+						},
+					},
+					Gateways: []string{r.ingressConfig.IngressGateway},
+				},
+				{
+					Uri: &istiov1alpha3.StringMatch{
+						MatchType: &istiov1alpha3.StringMatch_Prefix{
+							Prefix: constants.ExplainPrefix(isvc.Name),
+						},
+					},
+					Authority: &istiov1alpha3.StringMatch{
+						MatchType: &istiov1alpha3.StringMatch_Regex{
+							Regex: constants.HostRegExp(network.GetServiceHostname(isvc.Name, isvc.Namespace)),
+						},
+					},
+					Gateways: []string{constants.KnativeLocalGateway},
 				},
 			},
 			Route: explainRouteDestinations,
+			Retries: &istiov1alpha3.HTTPRetry{
+				Attempts:      3,
+				PerTryTimeout: RetryTimeout,
+			},
 		}
 		httpRoutes = append(httpRoutes, explainRoute)
 	}
 	// extract the virtual service hostname from the predictor hostname
-	serviceHostname, _ := getServiceHostname(isvc)
-	serviceURL := constants.ServiceURL(isvc.Name, serviceHostname)
+	serviceURL := fmt.Sprintf("%s://%s%s", "http", serviceHostname, constants.InferenceServicePrefix(isvc.Name))
 
-	vs := istiov1alpha3.VirtualService{
+	vs := v1alpha3.VirtualService{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        isvc.Name,
 			Namespace:   isvc.Namespace,
 			Labels:      isvc.Labels,
 			Annotations: isvc.Annotations,
 		},
-		Spec: istiov1alpha3.VirtualServiceSpec{
+		Spec: istiov1alpha3.VirtualService{
 			Hosts: []string{
 				serviceHostname,
+				network.GetServiceHostname(isvc.Name, isvc.Namespace),
 			},
 			Gateways: []string{
 				r.ingressConfig.IngressGateway,
+				constants.KnativeLocalGateway,
 			},
-			HTTP: httpRoutes,
+			Http: httpRoutes,
 		},
 	}
 
 	status := v1alpha2.VirtualServiceStatus{
-		URL:           serviceURL,
+		URL: serviceURL,
+		Address: &duckv1beta1.Addressable{URL: &apis.URL{
+			Scheme: "http",
+			Host:   network.GetServiceHostname(isvc.Name, isvc.Namespace),
+			Path:   fmt.Sprintf("/v1/models/%s:predict", isvc.Name),
+		}},
 		CanaryWeight:  canaryWeight,
 		DefaultWeight: defaultWeight,
 		Status: duckv1beta1.Status{
@@ -232,52 +315,41 @@ func (r *VirtualServiceBuilder) CreateVirtualService(isvc *v1alpha2.InferenceSer
 }
 
 func getServiceHostname(isvc *v1alpha2.InferenceService) (string, error) {
-	predictSpec, reason := getPredictStatusConfigurationSpec(&isvc.Spec.Default, isvc.Status.Default)
-	if predictSpec == nil {
+	predictorStatus, reason := getPredictStatusConfigurationSpec(isvc.Status.Default)
+	if predictorStatus == nil {
 		return "", fmt.Errorf("failed to get service hostname: %s", reason)
 	}
-	return constants.VirtualServiceHostname(isvc.Name, predictSpec.Hostname), nil
+	return strings.ReplaceAll(predictorStatus.Hostname, fmt.Sprintf("-%s-%s", string(constants.Predictor), constants.InferenceServiceDefault), ""), nil
 }
 
-func getPredictStatusConfigurationSpec(endpointSpec *v1alpha2.EndpointSpec, componentStatusMap *v1alpha2.ComponentStatusMap) (*v1alpha2.StatusConfigurationSpec, string) {
-	if endpointSpec == nil {
-		return nil, PredictorSpecMissing
-	}
-
+func getPredictStatusConfigurationSpec(componentStatusMap *v1alpha2.ComponentStatusMap) (*v1alpha2.StatusConfigurationSpec, string) {
 	if componentStatusMap == nil {
 		return nil, PredictorStatusUnknown
 	}
 
 	if predictorStatus, ok := (*componentStatusMap)[constants.Predictor]; !ok {
 		return nil, PredictorStatusUnknown
-	} else if predictorStatus == nil {
-		return nil, PredictorStatusUnknown
 	} else if len(predictorStatus.Hostname) == 0 {
 		return nil, PredictorHostnameUnknown
 	} else {
-		return predictorStatus, ""
+		return &predictorStatus, ""
 	}
 }
 
-func getTransformerStatusConfigurationSpec(endpointSpec *v1alpha2.EndpointSpec, componentStatusMap *v1alpha2.ComponentStatusMap) (*v1alpha2.StatusConfigurationSpec, string) {
-	if endpointSpec.Transformer == nil {
-		return nil, TransformerSpecMissing
-	}
-
+func getTransformerStatusConfigurationSpec(componentStatusMap *v1alpha2.ComponentStatusMap) (*v1alpha2.StatusConfigurationSpec, string) {
 	if componentStatusMap == nil {
 		return nil, TransformerStatusUnknown
 	}
 
 	if transformerStatus, ok := (*componentStatusMap)[constants.Transformer]; !ok {
 		return nil, TransformerStatusUnknown
-	} else if transformerStatus == nil {
-		return nil, TransformerStatusUnknown
 	} else if len(transformerStatus.Hostname) == 0 {
 		return nil, TransformerHostnameUnknown
 	} else {
-		return transformerStatus, ""
+		return &transformerStatus, ""
 	}
 }
+
 func getExplainStatusConfigurationSpec(endpointSpec *v1alpha2.EndpointSpec, componentStatusMap *v1alpha2.ComponentStatusMap) (*v1alpha2.StatusConfigurationSpec, string) {
 	if endpointSpec.Explainer == nil {
 		return nil, ExplainerSpecMissing
@@ -289,27 +361,28 @@ func getExplainStatusConfigurationSpec(endpointSpec *v1alpha2.EndpointSpec, comp
 
 	if explainerStatus, ok := (*componentStatusMap)[constants.Explainer]; !ok {
 		return nil, ExplainerStatusUnknown
-	} else if explainerStatus == nil {
-		return nil, ExplainerStatusUnknown
 	} else if len(explainerStatus.Hostname) == 0 {
 		return nil, ExplainerHostnameUnknown
 	} else {
-		return explainerStatus, ""
+		return &explainerStatus, ""
 	}
 }
 
-func createHTTPRouteDestination(targetHost string, weight int, gatewayService string) istiov1alpha3.HTTPRouteDestination {
+func createHTTPRouteDestination(targetHost, namespace string, weight int32, gatewayService string) istiov1alpha3.HTTPRouteDestination {
 	httpRouteDestination := istiov1alpha3.HTTPRouteDestination{
 		Weight: weight,
 		Headers: &istiov1alpha3.Headers{
-			Request: &istiov1alpha3.HeaderOperations{
+			Request: &istiov1alpha3.Headers_HeaderOperations{
 				Set: map[string]string{
-					"Host": targetHost,
+					"Host": network.GetServiceHostname(targetHost, namespace),
 				},
 			},
 		},
-		Destination: istiov1alpha3.Destination{
-			Host: gatewayService,
+		Destination: &istiov1alpha3.Destination{
+			Host: constants.LocalGatewayHost,
+			Port: &istiov1alpha3.PortSelector{
+				Number: constants.CommonDefaultHttpPort,
+			},
 		},
 	}
 

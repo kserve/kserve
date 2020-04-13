@@ -20,7 +20,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"knative.dev/pkg/apis"
-	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/kmeta"
 )
 
@@ -31,7 +31,7 @@ import (
 // by a backend. An Ingress can be configured to give services externally-reachable URLs, load
 // balance traffic, offer name based virtual hosting, etc.
 //
-// This is heavily based on K8s Ingress https://godoc.org/k8s.io/api/extensions/v1beta1#Ingress
+// This is heavily based on K8s Ingress https://godoc.org/k8s.io/api/networking/v1beta1#Ingress
 // which some highlighted modifications.
 type Ingress struct {
 	metav1.TypeMeta `json:",inline"`
@@ -45,7 +45,7 @@ type Ingress struct {
 	// +optional
 	Spec IngressSpec `json:"spec,omitempty"`
 
-	// Status is the current state of the ClusterIngress.
+	// Status is the current state of the Ingress.
 	// More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#spec-and-status
 	// +optional
 	Status IngressStatus `json:"status,omitempty"`
@@ -95,7 +95,7 @@ type IngressSpec struct {
 	// +optional
 	DeprecatedGeneration int64 `json:"generation,omitempty"`
 
-	// TLS configuration. Currently ClusterIngress only supports a single TLS
+	// TLS configuration. Currently Ingress only supports a single TLS
 	// port: 443. If multiple members of this list specify different hosts, they
 	// will be multiplexed on the same port according to the hostname specified
 	// through the SNI TLS extension, if the ingress controller fulfilling the
@@ -130,7 +130,7 @@ type IngressTLS struct {
 	// Hosts is a list of hosts included in the TLS certificate. The values in
 	// this list must match the name/s used in the tlsSecret. Defaults to the
 	// wildcard host setting for the loadbalancer controller fulfilling this
-	// ClusterIngress, if left unspecified.
+	// Ingress, if left unspecified.
 	// +optional
 	Hosts []string `json:"hosts,omitempty"`
 
@@ -159,12 +159,12 @@ type IngressRule struct {
 	// by RFC 3986. Note the following deviations from the "host" part of the
 	// URI as defined in the RFC:
 	// 1. IPs are not allowed. Currently a rule value can only apply to the
-	//	  IP in the Spec of the parent ClusterIngress.
+	//	  IP in the Spec of the parent .
 	// 2. The `:` delimiter is not respected because ports are not allowed.
-	//	  Currently the port of an ClusterIngress is implicitly :80 for http and
+	//	  Currently the port of an Ingress is implicitly :80 for http and
 	//	  :443 for https.
 	// Both these may change in the future.
-	// If the host is unspecified, the ClusterIngress routes all traffic based on the
+	// If the host is unspecified, the Ingress routes all traffic based on the
 	// specified IngressRuleValue.
 	// If multiple matching Hosts were provided, the first rule will take precedent.
 	// +optional
@@ -276,7 +276,7 @@ type HTTPRetry struct {
 
 // IngressStatus describe the current state of the Ingress.
 type IngressStatus struct {
-	duckv1beta1.Status `json:",inline"`
+	duckv1.Status `json:",inline"`
 
 	// LoadBalancer contains the current status of the load-balancer.
 	// This is to be superseded by the combination of `PublicLoadBalancer` and `PrivateLoadBalancer`
@@ -321,7 +321,7 @@ type LoadBalancerIngressStatus struct {
 	// +optional
 	DomainInternal string `json:"domainInternal,omitempty"`
 
-	// MeshOnly is set if the ClusterIngress is only load-balanced through a Service mesh.
+	// MeshOnly is set if the Ingress is only load-balanced through a Service mesh.
 	// +optional
 	MeshOnly bool `json:"meshOnly,omitempty"`
 }

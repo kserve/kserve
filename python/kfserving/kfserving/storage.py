@@ -1,4 +1,4 @@
-# Copyright 2019 kubeflow.org.
+# Copyright 2020 kubeflow.org.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -209,7 +209,7 @@ The path or model %s does not exist." % (uri))
     @staticmethod
     def _create_minio_client():
         # Remove possible http scheme for Minio
-        url = urlparse(os.getenv("AWS_ENDPOINT_URL", ""))
+        url = urlparse(os.getenv("AWS_ENDPOINT_URL", "s3.amazonaws.com"))
         use_ssl = url.scheme == 'https' if url.scheme else bool(os.getenv("S3_USE_HTTPS", "true"))
         return Minio(url.netloc,
                      access_key=os.getenv("AWS_ACCESS_KEY_ID", ""),

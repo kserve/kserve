@@ -67,7 +67,7 @@ func (r *IngressRule) Validate(ctx context.Context) *apis.FieldError {
 	return all
 }
 
-// Validate inspects and validates HTTPClusterIngressRuleValue object.
+// Validate inspects and validates HTTPIngressRuleValue object.
 func (h *HTTPIngressRuleValue) Validate(ctx context.Context) *apis.FieldError {
 	if len(h.Paths) == 0 {
 		return apis.ErrMissingField("paths")
@@ -79,7 +79,7 @@ func (h *HTTPIngressRuleValue) Validate(ctx context.Context) *apis.FieldError {
 	return all
 }
 
-// Validate inspects and validates HTTPClusterIngressPath object.
+// Validate inspects and validates HTTPIngressPath object.
 func (h HTTPIngressPath) Validate(ctx context.Context) *apis.FieldError {
 	// Provided rule must not be empty.
 	if equality.Semantic.DeepEqual(h, HTTPIngressPath{}) {

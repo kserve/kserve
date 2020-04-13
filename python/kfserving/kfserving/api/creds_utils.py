@@ -179,9 +179,7 @@ def check_sa_exists(namespace, service_account):
     '''Check if the specified service account existing.'''
     sa_list = client.CoreV1Api().list_namespaced_service_account(namespace=namespace)
 
-    sa_name_list = []
-    for item in range(0, len(sa_list.items)-1):
-        sa_name_list.append(sa_list.items[item].metadata.name)
+    sa_name_list = [sa.metadata.name for sa in sa_list.items]
 
     if service_account in sa_name_list:
         return True
@@ -231,9 +229,11 @@ def get_creds_name_from_config_map(creds):
         isvc_config_map = client.CoreV1Api().read_namespaced_config_map(
             constants.INFERENCESERVICE_CONFIG_MAP_NAME,
             constants.INFERENCESERVICE_SYSTEM_NAMESPACE)
-    except client.rest.ApiException as e:
-        raise RuntimeError(
-            "Exception when calling CoreV1Api->read_namespaced_config_map: %s\n" % e)
+    except client.rest.ApiException:
+        logging.warning('Cannot get configmap %s in namespace %s.',
+                        constants.INFERENCESERVICE_CONFIG_MAP_NAME,
+                        constants.INFERENCESERVICE_SYSTEM_NAMESPACE)
+        return None
 
     isvc_creds_str = isvc_config_map.data['credentials']
     isvc_creds_json = json.loads(isvc_creds_str)

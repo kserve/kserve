@@ -67,14 +67,9 @@ func TestCreateModelServingContainer(t *testing.T) {
 			"--grpc-port=9000",
 			"--http-port=8080",
 		},
-		Ports: []v1.ContainerPort{
-			{
-				ContainerPort: 8080,
-			},
-		},
 	}
 
 	// Test Create with config
-	container := spec.GetContainer("someName", &config)
+	container := spec.GetContainer("someName", 0, &config)
 	g.Expect(container).To(gomega.Equal(expectedContainer))
 }

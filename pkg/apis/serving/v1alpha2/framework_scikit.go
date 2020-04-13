@@ -15,6 +15,7 @@ package v1alpha2
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/kubeflow/kfserving/pkg/constants"
@@ -37,15 +38,20 @@ func (s *SKLearnSpec) GetResourceRequirements() *v1.ResourceRequirements {
 	return &s.Resources
 }
 
-func (s *SKLearnSpec) GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container {
+func (s *SKLearnSpec) GetContainer(modelName string, parallelism int, config *InferenceServicesConfig) *v1.Container {
+	arguments := []string{
+		fmt.Sprintf("%s=%s", constants.ArgumentModelName, modelName),
+		fmt.Sprintf("%s=%s", constants.ArgumentModelDir, constants.DefaultModelLocalMountPath),
+		fmt.Sprintf("%s=%s", constants.ArgumentHttpPort, constants.InferenceServiceDefaultHttpPort),
+	}
+	if parallelism != 0 {
+		arguments = append(arguments, fmt.Sprintf("%s=%s", constants.ArgumentWorkers, strconv.Itoa(parallelism)))
+	}
 	return &v1.Container{
 		Image:     config.Predictors.SKlearn.ContainerImage + ":" + s.RuntimeVersion,
 		Name:      constants.InferenceServiceContainerName,
 		Resources: s.Resources,
-		Args: []string{
-			"--model_name=" + modelName,
-			"--model_dir=" + constants.DefaultModelLocalMountPath,
-		},
+		Args:      arguments,
 	}
 }
 

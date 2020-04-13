@@ -42,6 +42,10 @@ const (
 	// uses to mark requests going through it.
 	ProxyHeaderName = "K-Proxy-Request"
 
+	// HashHeaderName is the name of an internal header that Ingress controller
+	// uses to find out which version of the networking config is deployed.
+	HashHeaderName = "K-Network-Hash"
+
 	// OriginalHostHeader is used to avoid Istio host based routing rules
 	// in Activator.
 	// The header contains the original Host value that can be rewritten
@@ -56,16 +60,19 @@ const (
 	// that specifies Istio outbound ip ranges.
 	IstioOutboundIPRangesKey = "istio.sidecar.includeOutboundIPRanges"
 
-	// DefaultClusterIngressClassKey is the name of the configuration entry
-	// that specifies the default ClusterIngress.
-	DefaultClusterIngressClassKey = "clusteringress.class"
+	// DeprecatedDefaultIngressClassKey  Please use DefaultIngressClassKey instead.
+	DeprecatedDefaultIngressClassKey = "clusteringress.class"
+
+	// DefaultIngressClassKey is the name of the configuration entry
+	// that specifies the default Ingress.
+	DefaultIngressClassKey = "ingress.class"
 
 	// DefaultCertificateClassKey is the name of the configuration entry
 	// that specifies the default Certificate.
 	DefaultCertificateClassKey = "certificate.class"
 
 	// IstioIngressClassName value for specifying knative's Istio
-	// ClusterIngress reconciler.
+	// Ingress reconciler.
 	IstioIngressClassName = "istio.ingress.networking.knative.dev"
 
 	// CertManagerCertificateClassName value for specifying Knative's Cert-Manager
@@ -102,9 +109,7 @@ const (
 	//
 	// We should consider exposing this as a configuration.
 	DefaultConnTimeout = 200 * time.Millisecond
-)
 
-var (
 	// DefaultDomainTemplate is the default golang template to use when
 	// constructing the Knative Route's Domain(host)
 	DefaultDomainTemplate = "{{.Name}}.{{.Namespace}}.{{.Domain}}"
@@ -120,6 +125,17 @@ var (
 	// HTTPProtocolKey is the name of the configuration entry that
 	// specifies the HTTP endpoint behavior of Knative ingress.
 	HTTPProtocolKey = "httpProtocol"
+
+	// UserAgentKey is the constant for header "User-Agent".
+	UserAgentKey = "User-Agent"
+
+	// ActivatorUserAgent is the user-agent header value set in probe requests sent
+	// from activator.
+	ActivatorUserAgent = "Knative-Activator-Probe"
+
+	// QueueProxyUserAgent is the user-agent header value set in probe requests sent
+	// from queue-proxy.
+	QueueProxyUserAgent = "Knative-Queue-Proxy-Probe"
 )
 
 // DomainTemplateValues are the available properties people can choose from
@@ -147,8 +163,8 @@ type Config struct {
 	// by Istio sidecar.
 	IstioOutboundIPRanges string
 
-	// DefaultClusterIngressClass specifies the default ClusterIngress class.
-	DefaultClusterIngressClass string
+	// DefaultIngressClass specifies the default Ingress class.
+	DefaultIngressClass string
 
 	// DomainTemplate is the golang text template to use to generate the
 	// Route's domain (host) for the Service.
@@ -221,10 +237,11 @@ func NewConfigFromConfigMap(configMap *corev1.ConfigMap) (*Config, error) {
 		nc.IstioOutboundIPRanges = normalizedIpr
 	}
 
-	if ingressClass, ok := configMap.Data[DefaultClusterIngressClassKey]; !ok {
-		nc.DefaultClusterIngressClass = IstioIngressClassName
-	} else {
-		nc.DefaultClusterIngressClass = ingressClass
+	nc.DefaultIngressClass = IstioIngressClassName
+	if ingressClass, ok := configMap.Data[DefaultIngressClassKey]; ok {
+		nc.DefaultIngressClass = ingressClass
+	} else if ingressClass, ok := configMap.Data[DeprecatedDefaultIngressClassKey]; ok {
+		nc.DefaultIngressClass = ingressClass
 	}
 
 	nc.DefaultCertificateClass = CertManagerCertificateClassName
@@ -262,7 +279,7 @@ func NewConfigFromConfigMap(configMap *corev1.ConfigMap) (*Config, error) {
 		nc.TagTemplate = tt
 	}
 
-	nc.AutoTLS = strings.ToLower(configMap.Data[AutoTLSKey]) == "enabled"
+	nc.AutoTLS = strings.EqualFold(configMap.Data[AutoTLSKey], "enabled")
 
 	switch strings.ToLower(configMap.Data[HTTPProtocolKey]) {
 	case string(HTTPEnabled):

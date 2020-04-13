@@ -21,29 +21,34 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"knative.dev/pkg/apis"
-
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	"knative.dev/pkg/ptr"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
 func (r *Revision) SetDefaults(ctx context.Context) {
 	r.Spec.SetDefaults(apis.WithinSpec(ctx))
 }
 
+// SetDefaults implements apis.Defaultable
+func (rts *RevisionTemplateSpec) SetDefaults(ctx context.Context) {
+	rts.Spec.SetDefaults(apis.WithinSpec(ctx))
+}
+
 func (rs *RevisionSpec) SetDefaults(ctx context.Context) {
-	if v1beta1.IsUpgradeViaDefaulting(ctx) {
-		beta := v1beta1.RevisionSpec{}
-		if rs.ConvertUp(ctx, &beta) == nil {
+	if v1.IsUpgradeViaDefaulting(ctx) {
+		v1 := v1.RevisionSpec{}
+		if rs.ConvertUp(ctx, &v1) == nil {
 			alpha := RevisionSpec{}
-			if alpha.ConvertDown(ctx, beta) == nil {
+			if alpha.ConvertDown(ctx, v1) == nil {
 				*rs = alpha
 			}
 		}
 	}
 
 	// When ConcurrencyModel is specified but ContainerConcurrency
-	// is not (0), use the ConcurrencyModel value.
-	if rs.DeprecatedConcurrencyModel == DeprecatedRevisionRequestConcurrencyModelSingle && rs.ContainerConcurrency == 0 {
-		rs.ContainerConcurrency = 1
+	// is not (`nil`), use the ConcurrencyModel value.
+	if rs.DeprecatedConcurrencyModel == DeprecatedRevisionRequestConcurrencyModelSingle && rs.ContainerConcurrency == nil {
+		rs.ContainerConcurrency = ptr.Int64(1)
 	}
 
 	// When the PodSpec has no containers, move the single Container

@@ -19,9 +19,11 @@ package constants
 import (
 	"fmt"
 	"os"
+	"regexp"
 	"strings"
 
-	"k8s.io/api/admissionregistration/v1beta1"
+	"knative.dev/pkg/network"
+
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -30,7 +32,7 @@ var (
 	KFServingName           = "kfserving"
 	KFServingAPIGroupName   = "serving.kubeflow.org"
 	KFServingNamespace      = getEnvOrDefault("POD_NAMESPACE", "kfserving-system")
-	KFServingDefaultVersion = "0.2.1"
+	KFServingDefaultVersion = "v0.3.0"
 )
 
 // InferenceService Constants
@@ -50,6 +52,9 @@ var (
 var (
 	InferenceServiceInternalAnnotationsPrefix        = "internal." + KFServingAPIGroupName
 	StorageInitializerSourceUriInternalAnnotationKey = InferenceServiceInternalAnnotationsPrefix + "/storage-initializer-sourceuri"
+	LoggerInternalAnnotationKey                      = InferenceServiceInternalAnnotationsPrefix + "/logger"
+	LoggerSinkUrlInternalAnnotationKey               = InferenceServiceInternalAnnotationsPrefix + "/logger-sink-url"
+	LoggerModeInternalAnnotationKey                  = InferenceServiceInternalAnnotationsPrefix + "/logger-mode"
 )
 
 // Controller Constants
@@ -59,19 +64,16 @@ var (
 	DefaultTransformerTimeout int64 = 120
 	DefaultExplainerTimeout   int64 = 300
 	DefaultScalingTarget            = "1"
+	DefaultMinReplicas              = 1
 )
 
 // Webhook Constants
 var (
-	WebhookServerName                           = KFServingName + "-webhook-server"
-	WebhookServerServiceName                    = WebhookServerName + "-service"
-	WebhookServerSecretName                     = WebhookServerName + "-secret"
-	InferenceServiceValidatingWebhookConfigName = strings.Join([]string{InferenceServiceName, KFServingAPIGroupName}, ".")
-	InferenceServiceMutatingWebhookConfigName   = strings.Join([]string{InferenceServiceName, KFServingAPIGroupName}, ".")
-	InferenceServiceValidatingWebhookName       = strings.Join([]string{InferenceServiceName, WebhookServerName, "validator"}, ".")
-	InferenceServiceDefaultingWebhookName       = strings.Join([]string{InferenceServiceName, WebhookServerName, "defaulter"}, ".")
-	PodMutatorWebhookName                       = strings.Join([]string{InferenceServiceName, WebhookServerName, "pod-mutator"}, ".")
-	WebhookFailurePolicy                        = v1beta1.Fail
+	EnableKFServingMutatingWebhook         = "enabled"
+	EnableWebhookNamespaceSelectorEnvName  = "ENABLE_WEBHOOK_NAMESPACE_SELECTOR"
+	EnableWebhookNamespaceSelectorEnvValue = "enabled"
+	IsEnableWebhookNamespaceSelector       = isEnvVarMatched(EnableWebhookNamespaceSelectorEnvName, EnableWebhookNamespaceSelectorEnvValue)
+	PodMutatorWebhookName                  = KFServingName + "-pod-mutator-webhook"
 )
 
 // GPU Constants
@@ -91,6 +93,15 @@ type InferenceServiceComponent string
 
 type InferenceServiceVerb string
 
+const (
+	KnativeLocalGateway   = "knative-serving/cluster-local-gateway"
+	KnativeIngressGateway = "knative-serving/knative-ingress-gateway"
+)
+
+var (
+	LocalGatewayHost = "cluster-local-gateway.istio-system.svc." + network.GetClusterDomainName()
+)
+
 // InferenceService Component enums
 const (
 	Predictor   InferenceServiceComponent = "predictor"
@@ -104,6 +115,20 @@ const (
 	Explain InferenceServiceVerb = "explain"
 )
 
+// InferenceService Endpoint Ports
+const (
+	InferenceServiceDefaultHttpPort   = "8080"
+	InferenceServiceDefaultLoggerPort = "8081"
+	CommonDefaultHttpPort             = 80
+)
+
+// Labels to put on kservice
+const (
+	KServiceComponentLabel = "component"
+	KServiceModelLabel     = "model"
+	KServiceEndpointLabel  = "endpoint"
+)
+
 // InferenceService default/canary constants
 const (
 	InferenceServiceDefault = "default"
@@ -112,8 +137,12 @@ const (
 
 // InferenceService model server args
 const (
-	ArgumentModelName     = "--model_name"
-	ArgumentPredictorHost = "--predictor_host"
+	ArgumentModelName      = "--model_name"
+	ArgumentModelDir       = "--model_dir"
+	ArgumentModelClassName = "--model_class_name"
+	ArgumentPredictorHost  = "--predictor_host"
+	ArgumentHttpPort       = "--http_port"
+	ArgumentWorkers        = "--workers"
 )
 
 // InferenceService container name
@@ -136,16 +165,32 @@ func getEnvOrDefault(key string, fallback string) string {
 	return fallback
 }
 
+func isEnvVarMatched(envVar, matchtedValue string) bool {
+	return getEnvOrDefault(envVar, "") == matchtedValue
+}
+
+func InferenceServiceURL(scheme, name, namespace, domain string) string {
+	return fmt.Sprintf("%s://%s.%s.%s%s", scheme, name, namespace, domain, InferenceServicePrefix(name))
+}
+
+func InferenceServiceHostName(name string, namespace string, domain string) string {
+	return fmt.Sprintf("%s.%s.%s", name, namespace, domain)
+}
+
 func DefaultPredictorServiceName(name string) string {
 	return name + "-" + string(Predictor) + "-" + InferenceServiceDefault
 }
 
-func CanaryPredictorServiceName(name string) string {
-	return name + "-" + string(Predictor) + "-" + InferenceServiceCanary
+func DefaultPredictorServiceURL(name string, namespace string, domain string) string {
+	return fmt.Sprintf("%s-%s-%s.%s.%s", name, string(Predictor), InferenceServiceDefault, namespace, domain)
 }
 
-func PredictRouteName(name string) string {
-	return name + "-" + string(Predict)
+func CanaryPredictorServiceURL(name string, namespace string, domain string) string {
+	return fmt.Sprintf("%s-%s-%s.%s.%s", name, string(Predictor), InferenceServiceCanary, namespace, domain)
+}
+
+func CanaryPredictorServiceName(name string) string {
+	return name + "-" + string(Predictor) + "-" + InferenceServiceCanary
 }
 
 func DefaultExplainerServiceName(name string) string {
@@ -154,10 +199,6 @@ func DefaultExplainerServiceName(name string) string {
 
 func CanaryExplainerServiceName(name string) string {
 	return name + "-" + string(Explainer) + "-" + InferenceServiceCanary
-}
-
-func ExplainRouteName(name string) string {
-	return name + "-" + string(Explain)
 }
 
 func DefaultTransformerServiceName(name string) string {
@@ -176,12 +217,8 @@ func CanaryServiceName(name string, component InferenceServiceComponent) string 
 	return name + "-" + component.String() + "-" + InferenceServiceCanary
 }
 
-func RouteName(name string, verb InferenceServiceVerb) string {
-	return name + "-" + verb.String()
-}
-
-func ServiceURL(name string, hostName string) string {
-	return fmt.Sprintf("http://%s/v1/models/%s", hostName, name)
+func InferenceServicePrefix(name string) string {
+	return fmt.Sprintf("/v1/models/%s", name)
 }
 
 func PredictPrefix(name string) string {
@@ -190,11 +227,6 @@ func PredictPrefix(name string) string {
 
 func ExplainPrefix(name string) string {
 	return fmt.Sprintf("/v1/models/%s:explain", name)
-}
-
-func VirtualServiceHostname(name string, predictorHostName string) string {
-	index := strings.Index(predictorHostName, ".")
-	return name + predictorHostName[index:]
 }
 
 func PredictorURL(metadata v1.ObjectMeta, isCanary bool) string {
@@ -211,4 +243,32 @@ func TransformerURL(metadata v1.ObjectMeta, isCanary bool) string {
 		serviceName = CanaryTransformerServiceName(metadata.Name)
 	}
 	return fmt.Sprintf("%s.%s", serviceName, metadata.Namespace)
+}
+
+func GetLoggerDefaultUrl(namespace string) string {
+	return "http://default-broker." + namespace
+}
+
+// Should only match 1..65535, but for simplicity it matches 0-99999.
+const portMatch = `(?::\d{1,5})?`
+
+// hostRegExp returns an ECMAScript regular expression to match either host or host:<any port>
+// for clusterLocalHost, we will also match the prefixes.
+func HostRegExp(host string) string {
+	localDomainSuffix := ".svc." + network.GetClusterDomainName()
+	if !strings.HasSuffix(host, localDomainSuffix) {
+		return exact(regexp.QuoteMeta(host) + portMatch)
+	}
+	prefix := regexp.QuoteMeta(strings.TrimSuffix(host, localDomainSuffix))
+	clusterSuffix := regexp.QuoteMeta("." + network.GetClusterDomainName())
+	svcSuffix := regexp.QuoteMeta(".svc")
+	return exact(prefix + optional(svcSuffix+optional(clusterSuffix)) + portMatch)
+}
+
+func exact(regexp string) string {
+	return "^" + regexp + "$"
+}
+
+func optional(regexp string) string {
+	return "(" + regexp + ")?"
 }

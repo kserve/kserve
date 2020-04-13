@@ -20,10 +20,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
-	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/kmeta"
 
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
 // +genclient
@@ -93,7 +93,7 @@ const (
 
 // DeprecatedRevisionRequestConcurrencyModelType is an enumeration of the
 // concurrency models supported by a Revision.
-// DEPRECATED in favor of RevisionContainerConcurrencyType.
+// DEPRECATED in favor of an integer based ContainerConcurrency setting.
 // TODO(vagababov): retire completely in 0.9.
 type DeprecatedRevisionRequestConcurrencyModelType string
 
@@ -110,7 +110,7 @@ const (
 
 // RevisionSpec holds the desired state of the Revision (from the client).
 type RevisionSpec struct {
-	v1beta1.RevisionSpec `json:",inline"`
+	v1.RevisionSpec `json:",inline"`
 
 	// DeprecatedGeneration was used prior in Kubernetes versions <1.11
 	// when metadata.generation was not being incremented by the api server
@@ -173,7 +173,7 @@ const (
 
 // RevisionStatus communicates the observed state of the Revision (from the controller).
 type RevisionStatus struct {
-	duckv1beta1.Status `json:",inline"`
+	duckv1.Status `json:",inline"`
 
 	// ServiceName holds the name of a core Kubernetes Service resource that
 	// load balances over the pods backing this Revision.

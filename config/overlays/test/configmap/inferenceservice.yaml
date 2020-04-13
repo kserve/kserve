@@ -1,0 +1,105 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: inferenceservice-config
+  namespace: kfserving-system
+data:
+  predictors: |-
+    {
+        "tensorflow": {
+            "image": "tensorflow/serving",
+            "defaultImageVersion": "1.14.0",
+            "defaultGpuImageVersion": "1.14.0-gpu",
+            "allowedImageVersions": [
+               "1.11.0",
+               "1.11.0-gpu",
+               "1.12.0",
+               "1.12.0-gpu",
+               "1.13.0",
+               "1.13.0-gpu",
+               "1.14.0",
+               "1.14.0-gpu"
+            ]
+        },
+        "onnx": {
+            "image": "mcr.microsoft.com/onnxruntime/server",
+            "defaultImageVersion": "v0.5.1",
+            "allowedImageVersions": [
+               "v0.5.1"
+            ]
+        },
+        "sklearn": {
+            "image": "gcr.io/kubeflow-ci/kfserving/sklearnserver",
+            "defaultImageVersion": "latest",
+            "allowedImageVersions": [
+               "latest"
+            ]
+        },
+        "xgboost": {
+            "image": "gcr.io/kubeflow-ci/kfserving/xgbserver",
+            "defaultImageVersion": "latest",
+            "allowedImageVersions": [
+               "latest"
+            ]
+        },
+        "pytorch": {
+            "image": "gcr.io/kubeflow-ci/kfserving/pytorchserver",
+            "defaultImageVersion": "latest",
+            "defaultGpuImageVersion": "latest-gpu",
+            "allowedImageVersions": [
+               "latest",
+               "latest-gpu"
+            ]
+        },
+        "tensorrt": {
+            "image": "nvcr.io/nvidia/tensorrtserver",
+            "defaultImageVersion": "19.05-py3",
+            "allowedImageVersions": [
+               "19.05-py3"
+            ]
+        }
+    }
+  transformers: |-
+    {
+    }
+  explainers: |-
+    {
+        "alibi": {
+            "image" : "gcr.io/kubeflow-ci/kfserving/alibi-explainer",
+            "defaultImageVersion": "latest",
+            "allowedImageVersions": [
+               "latest"
+            ]
+        }
+    }
+  storageInitializer: |-
+    {
+        "image" : "gcr.io/kubeflow-ci/kfserving/storage-initializer:latest",
+        "memoryRequest": "100Mi",
+        "memoryLimit": "1Gi",
+        "cpuRequest": "100m",
+        "cpuLimit": "1"
+    }
+  credentials: |-
+    {
+       "gcs": {
+           "gcsCredentialFileName": "gcloud-application-credentials.json"
+       },
+       "s3": {
+           "s3AccessKeyIDName": "awsAccessKeyID",
+           "s3SecretAccessKeyName": "awsSecretAccessKey"
+       }
+    }
+  ingress: |-
+    {
+        "ingressGateway" : "knative-ingress-gateway.knative-serving",
+        "ingressService" : "istio-ingressgateway.istio-system.svc.cluster.local"
+    }
+  logger: |-
+    {
+        "image" : "gcr.io/kubeflow-ci/kfserving/logger",
+        "memoryRequest": "100Mi",
+        "memoryLimit": "1Gi",
+        "cpuRequest": "100m",
+        "cpuLimit": "1"
+    }

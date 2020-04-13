@@ -20,8 +20,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"knative.dev/pkg/apis"
-	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
 	"knative.dev/pkg/kmeta"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
 // +genclient
@@ -45,10 +45,10 @@ type Service struct {
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	// +optional
-	Spec ServiceSpec `json:"spec,omitempty"`
+	Spec v1.ServiceSpec `json:"spec,omitempty"`
 
 	// +optional
-	Status ServiceStatus `json:"status,omitempty"`
+	Status v1.ServiceStatus `json:"status,omitempty"`
 }
 
 // Verify that Service adheres to the appropriate interfaces.
@@ -64,43 +64,12 @@ var (
 	_ kmeta.OwnerRefable = (*Service)(nil)
 )
 
-// ServiceSpec represents the configuration for the Service object.
-// A Service's specification is the union of the specifications for a Route
-// and Configuration.  The Service restricts what can be expressed in these
-// fields, e.g. the Route must reference the provided Configuration;
-// however, these limitations also enable friendlier defaulting,
-// e.g. Route never needs a Configuration name, and may be defaulted to
-// the appropriate "run latest" spec.
-type ServiceSpec struct {
-	// ServiceSpec inlines an unrestricted ConfigurationSpec.
-	ConfigurationSpec `json:",inline"`
-
-	// ServiceSpec inlines RouteSpec and restricts/defaults its fields
-	// via webhook.  In particular, this spec can only reference this
-	// Service's configuration and revisions (which also influences
-	// defaults).
-	RouteSpec `json:",inline"`
-}
-
 // ConditionType represents a Service condition value
 const (
 	// ServiceConditionReady is set when the service is configured
 	// and has available backends ready to receive traffic.
 	ServiceConditionReady = apis.ConditionReady
 )
-
-// ServiceStatus represents the Status stanza of the Service resource.
-type ServiceStatus struct {
-	duckv1beta1.Status `json:",inline"`
-
-	// In addition to inlining ConfigurationSpec, we also inline the fields
-	// specific to ConfigurationStatus.
-	ConfigurationStatusFields `json:",inline"`
-
-	// In addition to inlining RouteSpec, we also inline the fields
-	// specific to RouteStatus.
-	RouteStatusFields `json:",inline"`
-}
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 

@@ -40,6 +40,8 @@ We can also use the inbuilt PyTorch support for sample datasets and do some simp
 import torch
 import torchvision
 import torchvision.transforms as transforms
+import requests
+
 transform = transforms.Compose([transforms.ToTensor(),
                                 transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
 testset = torchvision.datasets.CIFAR10(root='./data', train=False,
@@ -51,7 +53,7 @@ images, labels = dataiter.next()
 formData = {
     'instances': images[0:1].tolist()
 }
-res = requests.post('http://localhost:8080/models/pytorchmodel:predict', json=formData)
+res = requests.post('http://localhost:8080/v1/models/pytorchmodel:predict', json=formData)
 print(res)
 print(res.text)
 ```
@@ -61,7 +63,6 @@ print(res.text)
 ## Setup
 1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/blob/master/docs/DEVELOPER_GUIDE.md#deploy-kfserving).
 2. Your cluster's Istio Ingress gateway must be network accessible.
-3. Your cluster's Istio Egresss gateway must [allow Google Cloud Storage](https://knative.dev/docs/serving/outbound-network-access/)
 
 ## Create the InferenceService
 
@@ -77,10 +78,13 @@ $ inferenceservice.serving.kubeflow.org/pytorch-cifar10 created
 
 ## Run a prediction
 
+Use `kfserving-ingressgateway` as your `INGRESS_GATEWAY` if you are deploying KFServing as part of Kubeflow install, and not independently.
+
 ```
 MODEL_NAME=pytorch-cifar10
 INPUT_PATH=@./input.json
-CLUSTER_IP=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+INGRESS_GATEWAY=istio-ingressgateway
+CLUSTER_IP=$(kubectl -n istio-system get service $INGRESS_GATEWAY -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 
 SERVICE_HOSTNAME=$(kubectl get inferenceservice pytorch-cifar10 -o jsonpath='{.status.url}' | cut -d "/" -f 3)
 

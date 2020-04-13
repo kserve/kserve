@@ -56,10 +56,15 @@ type DeploymentSpec struct {
 	ServiceAccountName string `json:"serviceAccountName,omitempty"`
 	// Minimum number of replicas, pods won't scale down to 0 in case of no traffic
 	// +optional
-	MinReplicas int `json:"minReplicas,omitempty"`
+	MinReplicas *int `json:"minReplicas,omitempty"`
 	// This is the up bound for autoscaler to scale to
 	// +optional
 	MaxReplicas int `json:"maxReplicas,omitempty"`
+	// Parallelism specifies how many requests can be processed concurrently, this sets the target
+	// concurrency for Autoscaling(KPA). For model servers that support tuning parallelism will use this value,
+	// by default the parallelism is the number of the CPU cores for most of the model servers.
+	// +optional
+	Parallelism int `json:"parallelism,omitempty"`
 	// Activate request/response logging
 	// +optional
 	Logger *Logger `json:"logger,omitempty"`
@@ -80,7 +85,6 @@ type Logger struct {
 	// +optional
 	Url *string `json:"url,omitempty"`
 	// What payloads to log
-	// +optional
 	Mode LoggerMode `json:"mode,omitempty"`
 }
 
@@ -162,7 +166,7 @@ type TensorflowSpec struct {
 type TensorRTSpec struct {
 	// The location of the trained model
 	StorageURI string `json:"storageUri"`
-	// Allowed runtime versions are [19.05-py3] and defaults to the version specified in the inferenceservice config map
+	// Allowed runtime versions are specified in the inferenceservice config map
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
 	// Defaults to requests and limits of 1CPU, 2Gb MEM.
 	Resources v1.ResourceRequirements `json:"resources,omitempty"`
@@ -172,6 +176,8 @@ type TensorRTSpec struct {
 type XGBoostSpec struct {
 	// The location of the trained model
 	StorageURI string `json:"storageUri"`
+	// Number of thread to be used by XGBoost
+	NThread int `json:"nthread,omitempty"`
 	// Allowed runtime versions are specified in the inferenceservice config map
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
 	// Defaults to requests and limits of 1CPU, 2Gb MEM.
@@ -192,7 +198,7 @@ type SKLearnSpec struct {
 type ONNXSpec struct {
 	// The location of the trained model
 	StorageURI string `json:"storageUri"`
-	// Allowed runtime versions are [v0.5.0, latest] and defaults to the version specified in the inferenceservice config map
+	// Allowed runtime versions are specified in the inferenceservice config map
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
 	// Defaults to requests and limits of 1CPU, 2Gb MEM.
 	Resources v1.ResourceRequirements `json:"resources,omitempty"`
@@ -216,7 +222,7 @@ type CustomSpec struct {
 }
 
 // EndpointStatusMap defines the observed state of InferenceService endpoints
-type ComponentStatusMap map[constants.InferenceServiceComponent]*StatusConfigurationSpec
+type ComponentStatusMap map[constants.InferenceServiceComponent]StatusConfigurationSpec
 
 // InferenceServiceStatus defines the observed state of InferenceService
 type InferenceServiceStatus struct {
@@ -231,6 +237,8 @@ type InferenceServiceStatus struct {
 	Default *ComponentStatusMap `json:"default,omitempty"`
 	// Statuses for the canary endpoints of the InferenceService
 	Canary *ComponentStatusMap `json:"canary,omitempty"`
+	// Ducktype for addressable
+	Address *duckv1beta1.Addressable `json:"address,omitempty"`
 }
 
 // StatusConfigurationSpec describes the state of the configuration receiving traffic.
@@ -247,6 +255,8 @@ type StatusConfigurationSpec struct {
 
 // InferenceService is the Schema for the services API
 // +k8s:openapi-gen=true
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="URL",type="string",JSONPath=".status.url"
 // +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
 // +kubebuilder:printcolumn:name="Default Traffic",type="integer",JSONPath=".status.traffic"
@@ -262,12 +272,13 @@ type InferenceService struct {
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
+// +kubebuilder:object:root=true
 // InferenceServiceList contains a list of Service
 type InferenceServiceList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []InferenceService `json:"items"`
+	// +listType=set
+	Items []InferenceService `json:"items"`
 }
 
 // +k8s:openapi-gen=false
@@ -276,6 +287,9 @@ type VirtualServiceStatus struct {
 	URL           string
 	CanaryWeight  int
 	DefaultWeight int
+	// Address holds the information needed for a Route to be the target of an event.
+	// +optional
+	Address *duckv1beta1.Addressable `json:"address,omitempty"`
 
 	duckv1beta1.Status
 }

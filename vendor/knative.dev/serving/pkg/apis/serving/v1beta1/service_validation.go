@@ -51,27 +51,13 @@ func (s *Service) Validate(ctx context.Context) (errs *apis.FieldError) {
 	return errs
 }
 
-// Validate implements apis.Validatable
-func (ss *ServiceSpec) Validate(ctx context.Context) *apis.FieldError {
-	return ss.ConfigurationSpec.Validate(ctx).Also(
-		// Within the context of Service, the RouteSpec has a default
-		// configurationName.
-		ss.RouteSpec.Validate(WithDefaultConfigurationName(ctx)))
-}
-
-// Validate implements apis.Validatable
-func (ss *ServiceStatus) Validate(ctx context.Context) *apis.FieldError {
-	return ss.ConfigurationStatusFields.Validate(ctx).Also(
-		ss.RouteStatusFields.Validate(ctx))
-}
-
 // validateLabels function validates service labels
 func (s *Service) validateLabels() (errs *apis.FieldError) {
 	for key, val := range s.GetLabels() {
 		switch {
 		case key == config.VisibilityLabelKey:
-			errs = errs.Also(validateClusterVisibilityLabel(val))
-		case strings.HasPrefix(key, groupNamePrefix):
+			errs = errs.Also(serving.ValidateClusterVisibilityLabel(val))
+		case strings.HasPrefix(key, serving.GroupNamePrefix):
 			errs = errs.Also(apis.ErrInvalidKeyName(key, apis.CurrentField))
 		}
 	}

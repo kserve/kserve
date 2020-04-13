@@ -41,7 +41,7 @@ func ValidateAnnotations(anns map[string]string) *apis.FieldError {
 	if len(anns) == 0 {
 		return nil
 	}
-	return validateMinMaxScale(anns).Also(validateFloats(anns)).Also(validateWindows(anns))
+	return validateMinMaxScale(anns).Also(validateFloats(anns)).Also(validateWindows(anns).Also(validateMetric(anns)))
 }
 
 func validateFloats(annotations map[string]string) *apis.FieldError {
@@ -87,12 +87,15 @@ func validateFloats(annotations map[string]string) *apis.FieldError {
 
 func validateWindows(annotations map[string]string) *apis.FieldError {
 	var errs *apis.FieldError
-	if v, ok := annotations[WindowAnnotationKey]; ok {
-		d, err := time.ParseDuration(v)
+	if w, ok := annotations[WindowAnnotationKey]; ok {
+		if annotations[ClassAnnotationKey] == HPA && annotations[MetricAnnotationKey] == CPU {
+			return apis.ErrInvalidKeyName(WindowAnnotationKey, fmt.Sprintf("%s for %s %s", HPA, MetricAnnotationKey, CPU))
+		}
+		d, err := time.ParseDuration(w)
 		if err != nil {
-			errs = apis.ErrInvalidValue(v, WindowAnnotationKey)
+			errs = apis.ErrInvalidValue(w, WindowAnnotationKey)
 		} else if d < WindowMin || d > WindowMax {
-			errs = apis.ErrOutOfBoundsValue(v, WindowMin, WindowMax, WindowAnnotationKey)
+			errs = apis.ErrOutOfBoundsValue(w, WindowMin, WindowMax, WindowAnnotationKey)
 		}
 	}
 	return errs
@@ -114,4 +117,30 @@ func validateMinMaxScale(annotations map[string]string) *apis.FieldError {
 		})
 	}
 	return errs
+}
+
+func validateMetric(annotations map[string]string) *apis.FieldError {
+	if metric, ok := annotations[MetricAnnotationKey]; ok {
+		classValue := KPA
+		if c, ok := annotations[ClassAnnotationKey]; ok {
+			classValue = c
+		}
+		switch classValue {
+		case KPA:
+			switch metric {
+			case Concurrency, RPS:
+				return nil
+			}
+		case HPA:
+			switch metric {
+			case CPU, Concurrency, RPS:
+				return nil
+			}
+		default:
+			// Leave other classes of PodAutoscaler alone.
+			return nil
+		}
+		return apis.ErrInvalidValue(metric, MetricAnnotationKey)
+	}
+	return nil
 }

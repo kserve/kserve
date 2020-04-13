@@ -24,6 +24,8 @@ import (
 	"knative.dev/pkg/apis/duck"
 )
 
+// +genduck
+
 // LegacyTargetable left around until we migrate to Addressable in the
 // dependent resources. Addressable has more structure in the way it
 // defines the fields. LegacyTargetable only assumed a single string
@@ -32,7 +34,7 @@ import (
 // This is to support existing resources until they migrate.
 //
 // Do not use this for anything new, use Addressable
-
+//
 // LegacyTargetable is the old schema for the addressable portion
 // of the payload
 //
@@ -44,7 +46,6 @@ type LegacyTargetable struct {
 // LegacyTargetable is an Implementable "duck type".
 var _ duck.Implementable = (*LegacyTargetable)(nil)
 
-// +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // LegacyTarget is a skeleton type wrapping LegacyTargetable in the manner we

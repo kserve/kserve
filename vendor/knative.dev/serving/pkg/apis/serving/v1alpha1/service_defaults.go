@@ -19,43 +19,28 @@ package v1alpha1
 import (
 	"context"
 
-	"k8s.io/apimachinery/pkg/api/equality"
 	"knative.dev/pkg/apis"
 
 	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
 func (s *Service) SetDefaults(ctx context.Context) {
 	ctx = apis.WithinParent(ctx, s.ObjectMeta)
 	s.Spec.SetDefaults(apis.WithinSpec(ctx))
-
-	if ui := apis.GetUserInfo(ctx); ui != nil {
-		ans := s.GetAnnotations()
-		if ans == nil {
-			ans = map[string]string{}
-			s.SetAnnotations(ans)
-		}
-
-		if apis.IsInUpdate(ctx) {
-			old := apis.GetBaseline(ctx).(*Service)
-			if equality.Semantic.DeepEqual(old.Spec, s.Spec) {
-				return
-			}
-			ans[serving.UpdaterAnnotation] = ui.Username
-		} else {
-			ans[serving.CreatorAnnotation] = ui.Username
-			ans[serving.UpdaterAnnotation] = ui.Username
-		}
+	if apis.IsInUpdate(ctx) {
+		serving.SetUserInfo(ctx, apis.GetBaseline(ctx).(*Service).Spec, s.Spec, s)
+	} else {
+		serving.SetUserInfo(ctx, nil, s.Spec, s)
 	}
 }
 
 func (ss *ServiceSpec) SetDefaults(ctx context.Context) {
-	if v1beta1.IsUpgradeViaDefaulting(ctx) {
-		beta := v1beta1.ServiceSpec{}
-		if ss.ConvertUp(ctx, &beta) == nil {
+	if v1.IsUpgradeViaDefaulting(ctx) {
+		v := v1.ServiceSpec{}
+		if ss.ConvertUp(ctx, &v) == nil {
 			alpha := ServiceSpec{}
-			if alpha.ConvertDown(ctx, beta) == nil {
+			if alpha.ConvertDown(ctx, v) == nil {
 				*ss = alpha
 			}
 		}
@@ -70,6 +55,6 @@ func (ss *ServiceSpec) SetDefaults(ctx context.Context) {
 	} else if ss.DeprecatedManual != nil {
 	} else {
 		ss.ConfigurationSpec.SetDefaults(ctx)
-		ss.RouteSpec.SetDefaults(v1beta1.WithDefaultConfigurationName(ctx))
+		ss.RouteSpec.SetDefaults(v1.WithDefaultConfigurationName(ctx))
 	}
 }

@@ -18,14 +18,16 @@ package main
 
 import (
 	"flag"
+	"github.com/kubeflow/kfserving/pkg/webhook/admission/inferenceservice"
+	"github.com/kubeflow/kfserving/pkg/webhook/admission/pod"
+	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"os"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	"github.com/kubeflow/kfserving/pkg/apis"
 	"github.com/kubeflow/kfserving/pkg/controller"
-	"github.com/kubeflow/kfserving/pkg/webhook"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
-	istiov1alpha3 "knative.dev/pkg/apis/istio/v1alpha3"
-	knservingv1alpha1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
+	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
@@ -66,13 +68,13 @@ func main() {
 
 	// Setup Scheme for all resources
 	log.Info("Setting up Knative scheme")
-	if err := knservingv1alpha1.AddToScheme(mgr.GetScheme()); err != nil {
+	if err := knservingv1.AddToScheme(mgr.GetScheme()); err != nil {
 		log.Error(err, "unable to add Knative APIs to scheme")
 		os.Exit(1)
 	}
 
 	log.Info("Setting up Istio schemes")
-	if err := istiov1alpha3.AddToScheme(mgr.GetScheme()); err != nil {
+	if err := v1alpha3.AddToScheme(mgr.GetScheme()); err != nil {
 		log.Error(err, "unable to add Istio v1alpha3 APIs to scheme")
 		os.Exit(1)
 	}
@@ -84,11 +86,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	log.Info("Setting up webhooks")
-	if err := webhook.AddToManager(mgr); err != nil {
-		log.Error(err, "unable to register webhooks to the manager")
-		os.Exit(1)
-	}
+	log.Info("setting up webhook server")
+	hookServer := mgr.GetWebhookServer()
+
+	log.Info("registering webhooks to the webhook server")
+	hookServer.Register("/mutate-pods", &webhook.Admission{Handler: &pod.Mutator{}})
+	hookServer.Register("/validate-inferenceservices", &webhook.Admission{Handler: &inferenceservice.Validator{}})
+	hookServer.Register("/mutate-inferenceservices", &webhook.Admission{Handler: &inferenceservice.Defaulter{}})
 
 	// Start the Cmd
 	log.Info("Starting the Cmd.")

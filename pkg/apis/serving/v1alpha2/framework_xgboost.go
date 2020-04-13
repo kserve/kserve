@@ -15,6 +15,7 @@ package v1alpha2
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/kubeflow/kfserving/pkg/constants"
@@ -35,15 +36,21 @@ func (x *XGBoostSpec) GetResourceRequirements() *v1.ResourceRequirements {
 	return &x.Resources
 }
 
-func (x *XGBoostSpec) GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container {
+func (x *XGBoostSpec) GetContainer(modelName string, parallelism int, config *InferenceServicesConfig) *v1.Container {
+	arguments := []string{
+		fmt.Sprintf("%s=%s", constants.ArgumentModelName, modelName),
+		fmt.Sprintf("%s=%s", constants.ArgumentModelDir, constants.DefaultModelLocalMountPath),
+		fmt.Sprintf("%s=%s", constants.ArgumentHttpPort, constants.InferenceServiceDefaultHttpPort),
+		fmt.Sprintf("%s=%s", "--nthread", strconv.Itoa(x.NThread)),
+	}
+	if parallelism != 0 {
+		arguments = append(arguments, fmt.Sprintf("%s=%s", constants.ArgumentWorkers, strconv.Itoa(parallelism)))
+	}
 	return &v1.Container{
 		Image:     config.Predictors.Xgboost.ContainerImage + ":" + x.RuntimeVersion,
 		Name:      constants.InferenceServiceContainerName,
 		Resources: x.Resources,
-		Args: []string{
-			"--model_name=" + modelName,
-			"--model_dir=" + constants.DefaultModelLocalMountPath,
-		},
+		Args:      arguments,
 	}
 }
 
@@ -53,6 +60,9 @@ func (x *XGBoostSpec) ApplyDefaults(config *InferenceServicesConfig) {
 	}
 
 	setResourceRequirementDefaults(&x.Resources)
+	if x.NThread == 0 {
+		x.NThread = int(x.Resources.Requests.Cpu().Value())
+	}
 }
 
 func (x *XGBoostSpec) Validate(config *InferenceServicesConfig) error {

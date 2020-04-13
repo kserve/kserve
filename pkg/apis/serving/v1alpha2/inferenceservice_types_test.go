@@ -17,8 +17,9 @@ limitations under the License.
 package v1alpha2
 
 import (
-	"github.com/kubeflow/kfserving/pkg/constants"
 	"testing"
+
+	"github.com/kubeflow/kfserving/pkg/constants"
 
 	"github.com/onsi/gomega"
 	"golang.org/x/net/context"
@@ -40,7 +41,7 @@ func TestInferenceService(t *testing.T) {
 			Default: EndpointSpec{
 				Predictor: PredictorSpec{
 					DeploymentSpec: DeploymentSpec{
-						MinReplicas: 1,
+						MinReplicas: GetIntReference(1),
 						MaxReplicas: 3,
 					},
 					Tensorflow: &TensorflowSpec{
@@ -53,7 +54,7 @@ func TestInferenceService(t *testing.T) {
 			Canary: &EndpointSpec{
 				Predictor: PredictorSpec{
 					DeploymentSpec: DeploymentSpec{
-						MinReplicas: 1,
+						MinReplicas: GetIntReference(1),
 						MaxReplicas: 3,
 					},
 					Tensorflow: &TensorflowSpec{
@@ -88,21 +89,21 @@ func TestInferenceService(t *testing.T) {
 		Traffic:       20,
 		CanaryTraffic: 80,
 		Default: &ComponentStatusMap{
-			constants.Predictor: &StatusConfigurationSpec{
+			constants.Predictor: StatusConfigurationSpec{
 				Name:     "v1",
 				Replicas: 2,
 			},
 		},
 		Canary: &ComponentStatusMap{
-			constants.Predictor: &StatusConfigurationSpec{
+			constants.Predictor: StatusConfigurationSpec{
 				Name:     "v2",
 				Replicas: 3,
 			},
 		},
 	}
-	g.Expect(c.Update(context.TODO(), statusUpdated)).NotTo(gomega.HaveOccurred())
+	g.Expect(c.Status().Update(context.TODO(), statusUpdated)).NotTo(gomega.HaveOccurred())
 	g.Expect(c.Get(context.TODO(), key, fetched)).NotTo(gomega.HaveOccurred())
-	g.Expect(fetched).To(gomega.Equal(statusUpdated))
+	g.Expect(fetched.Status).To(gomega.Equal(statusUpdated.Status))
 
 	// Test Delete
 	g.Expect(c.Delete(context.TODO(), fetched)).NotTo(gomega.HaveOccurred())

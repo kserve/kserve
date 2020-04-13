@@ -20,7 +20,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
-	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/kmeta"
 	networking "knative.dev/serving/pkg/apis/networking"
 )
@@ -104,7 +104,7 @@ type ServerlessServiceSpec struct {
 
 // ServerlessServiceStatus describes the current state of the ServerlessService.
 type ServerlessServiceStatus struct {
-	duckv1beta1.Status `json:",inline"`
+	duckv1.Status `json:",inline"`
 
 	// ServiceName holds the name of a core K8s Service resource that
 	// load balances over the pods backing this Revision (activator or revision).
@@ -119,7 +119,7 @@ type ServerlessServiceStatus struct {
 
 // ConditionType represents a ServerlessService condition value
 const (
-	// ServerlessServiceConditionReady is set when the clusterIngress networking setting is
+	// ServerlessServiceConditionReady is set when the ingress networking setting is
 	// configured and it has a load balancer address.
 	ServerlessServiceConditionReady = apis.ConditionReady
 

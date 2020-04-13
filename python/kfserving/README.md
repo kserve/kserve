@@ -69,23 +69,26 @@ Class | Method |  Description
 [KFServingClient](docs/KFServingClient.md) | [rollout_canary](docs/KFServingClient.md#rollout_canary) | Rollout the traffic on `canary` version for specified InferenceService|
 [KFServingClient](docs/KFServingClient.md) | [promote](docs/KFServingClient.md#promote) | Promote the `canary` version of the InferenceService to `default`|
 [KFServingClient](docs/KFServingClient.md) | [delete](docs/KFServingClient.md#delete) | Delete the specified InferenceService |
-
+[KFServingClient](docs/KFServingClient.md) | [wait_isvc_ready](docs/KFServingClient.md#wait_isvc_ready) | Wait for the InferenceService to be ready |
+[KFServingClient](docs/KFServingClient.md) | [is_isvc_ready](docs/KFServingClient.md#is_isvc_ready) | Check if the InferenceService is ready |
 
 ## Documentation For Models
 
+ - [KnativeAddressable](docs/KnativeAddressable.md)
  - [KnativeCondition](docs/KnativeCondition.md)
+ - [KnativeURL](docs/KnativeURL.md)
  - [KnativeVolatileTime](docs/KnativeVolatileTime.md)
+ - [NetUrlUserinfo](docs/NetUrlUserinfo.md)
  - [V1alpha2AlibiExplainerSpec](docs/V1alpha2AlibiExplainerSpec.md)
  - [V1alpha2CustomSpec](docs/V1alpha2CustomSpec.md)
  - [V1alpha2DeploymentSpec](docs/V1alpha2DeploymentSpec.md)
  - [V1alpha2EndpointSpec](docs/V1alpha2EndpointSpec.md)
  - [V1alpha2ExplainerSpec](docs/V1alpha2ExplainerSpec.md)
- - [V1alpha2FrameworkConfig](docs/V1alpha2FrameworkConfig.md)
- - [V1alpha2FrameworksConfig](docs/V1alpha2FrameworksConfig.md)
  - [V1alpha2InferenceService](docs/V1alpha2InferenceService.md)
  - [V1alpha2InferenceServiceList](docs/V1alpha2InferenceServiceList.md)
  - [V1alpha2InferenceServiceSpec](docs/V1alpha2InferenceServiceSpec.md)
  - [V1alpha2InferenceServiceStatus](docs/V1alpha2InferenceServiceStatus.md)
+ - [V1alpha2Logger](docs/V1alpha2Logger.md)
  - [V1alpha2ONNXSpec](docs/V1alpha2ONNXSpec.md)
  - [V1alpha2PredictorSpec](docs/V1alpha2PredictorSpec.md)
  - [V1alpha2PyTorchSpec](docs/V1alpha2PyTorchSpec.md)

@@ -21,24 +21,32 @@ import (
 
 	"knative.dev/pkg/apis"
 
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	"knative.dev/serving/pkg/apis/serving"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
 func (c *Configuration) SetDefaults(ctx context.Context) {
 	ctx = apis.WithinParent(ctx, c.ObjectMeta)
 	c.Spec.SetDefaults(apis.WithinSpec(ctx))
+	if c.GetOwnerReferences() == nil {
+		if apis.IsInUpdate(ctx) {
+			serving.SetUserInfo(ctx, apis.GetBaseline(ctx).(*Configuration).Spec, c.Spec, c)
+		} else {
+			serving.SetUserInfo(ctx, nil, c.Spec, c)
+		}
+	}
 }
 
 func (cs *ConfigurationSpec) SetDefaults(ctx context.Context) {
-	if v1beta1.IsUpgradeViaDefaulting(ctx) {
-		beta := v1beta1.ConfigurationSpec{}
-		if cs.ConvertUp(ctx, &beta) == nil {
+	if v1.IsUpgradeViaDefaulting(ctx) {
+		v := v1.ConfigurationSpec{}
+		if cs.ConvertUp(ctx, &v) == nil {
 			alpha := ConfigurationSpec{}
-			if alpha.ConvertDown(ctx, beta) == nil {
+			if alpha.ConvertDown(ctx, v) == nil {
 				*cs = alpha
 			}
 		}
 	}
 
-	cs.GetTemplate().Spec.SetDefaults(ctx)
+	cs.GetTemplate().SetDefaults(ctx)
 }

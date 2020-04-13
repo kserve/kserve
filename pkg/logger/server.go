@@ -28,24 +28,28 @@ import (
 )
 
 type LoggerHandler struct {
-	log       logr.Logger
-	svcHost   string
-	svcPort   string
-	logUrl    *url.URL
-	sourceUri *url.URL
-	logMode   v1alpha2.LoggerMode
-	modelId   string
+	log              logr.Logger
+	svcHost          string
+	svcPort          string
+	logUrl           *url.URL
+	sourceUri        *url.URL
+	logMode          v1alpha2.LoggerMode
+	inferenceService string
+	namespace        string
+	endpoint         string
 }
 
-func New(log logr.Logger, svcHost string, svcPort string, logUrl *url.URL, sourceUri *url.URL, logMode v1alpha2.LoggerMode, modelId string) http.Handler {
+func New(log logr.Logger, svcHost string, svcPort string, logUrl *url.URL, sourceUri *url.URL, logMode v1alpha2.LoggerMode, inferenceService string, namespace string, endpoint string) http.Handler {
 	return &LoggerHandler{
-		log:       log,
-		svcHost:   svcHost,
-		svcPort:   svcPort,
-		logUrl:    logUrl,
-		sourceUri: sourceUri,
-		logMode:   logMode,
-		modelId:   modelId,
+		log:              log,
+		svcHost:          svcHost,
+		svcPort:          svcPort,
+		logUrl:           logUrl,
+		sourceUri:        sourceUri,
+		logMode:          logMode,
+		inferenceService: inferenceService,
+		namespace:        namespace,
+		endpoint:         endpoint,
 	}
 }
 
@@ -94,13 +98,15 @@ func (eh *LoggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// log Request
 	if eh.logMode == v1alpha2.LogAll || eh.logMode == v1alpha2.LogRequest {
 		if err := QueueLogRequest(LogRequest{
-			url:         eh.logUrl,
-			b:           &b,
-			contentType: "application/json", // Always JSON at present
-			reqType:     InferenceRequest,
-			id:          id,
-			sourceUri:   eh.sourceUri,
-			modelId:     eh.modelId,
+			Url:              eh.logUrl,
+			Bytes:            &b,
+			ContentType:      "application/json", // Always JSON at present
+			ReqType:          InferenceRequest,
+			Id:               id,
+			SourceUri:        eh.sourceUri,
+			InferenceService: eh.inferenceService,
+			Namespace:        eh.namespace,
+			Endpoint:         eh.endpoint,
 		}); err != nil {
 			eh.log.Error(err, "Failed to log request")
 		}
@@ -118,13 +124,15 @@ func (eh *LoggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if *statusCode == http.StatusOK {
 		if eh.logMode == v1alpha2.LogAll || eh.logMode == v1alpha2.LogResponse {
 			if err := QueueLogRequest(LogRequest{
-				url:         eh.logUrl,
-				b:           &b,
-				contentType: *respContentType,
-				reqType:     InferenceResponse,
-				id:          id,
-				sourceUri:   eh.sourceUri,
-				modelId:     eh.modelId,
+				Url:              eh.logUrl,
+				Bytes:            &b,
+				ContentType:      "application/json", // Always JSON at present
+				ReqType:          InferenceResponse,
+				Id:               id,
+				SourceUri:        eh.sourceUri,
+				InferenceService: eh.inferenceService,
+				Namespace:        eh.namespace,
+				Endpoint:         eh.endpoint,
 			}); err != nil {
 				eh.log.Error(err, "Failed to log response")
 			}

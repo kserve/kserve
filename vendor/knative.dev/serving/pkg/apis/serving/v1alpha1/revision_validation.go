@@ -18,8 +18,6 @@ package v1alpha1
 
 import (
 	"context"
-	"fmt"
-	"strings"
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	"knative.dev/pkg/apis"
@@ -61,28 +59,9 @@ func (r *Revision) Validate(ctx context.Context) *apis.FieldError {
 func (rt *RevisionTemplateSpec) Validate(ctx context.Context) *apis.FieldError {
 	errs := rt.Spec.Validate(ctx).ViaField("spec")
 	errs = errs.Also(autoscaling.ValidateAnnotations(rt.GetAnnotations()).ViaField("metadata.annotations"))
-
 	// If the DeprecatedRevisionTemplate has a name specified, then check that
 	// it follows the requirements on the name.
-	if rt.Name != "" {
-		om := apis.ParentMeta(ctx)
-		prefix := om.Name + "-"
-		if om.Name != "" {
-			// Even if there is GenerateName, allow the use
-			// of Name post-creation.
-		} else if om.GenerateName != "" {
-			// We disallow bringing your own name when the parent
-			// resource uses generateName (at creation).
-			return apis.ErrDisallowedFields("metadata.name")
-		}
-
-		if !strings.HasPrefix(rt.Name, prefix) {
-			errs = errs.Also(apis.ErrInvalidValue(
-				fmt.Sprintf("%q must have prefix %q", rt.Name, prefix),
-				"metadata.name"))
-		}
-	}
-
+	errs = errs.Also(serving.ValidateRevisionName(ctx, rt.Name, rt.GenerateName))
 	errs = errs.Also(serving.ValidateQueueSidecarAnnotation(rt.Annotations).ViaField("metadata.annotations"))
 	return errs
 }
@@ -108,7 +87,7 @@ func (current *RevisionTemplateSpec) VerifyNameChange(ctx context.Context, og *R
 	} else if diff != "" {
 		return &apis.FieldError{
 			Message: "Saw the following changes without a name change (-old +new)",
-			Paths:   []string{apis.CurrentField},
+			Paths:   []string{"metadata.name"},
 			Details: diff,
 		}
 	}
@@ -146,7 +125,9 @@ func (rs *RevisionSpec) Validate(ctx context.Context) *apis.FieldError {
 	if err := rs.DeprecatedConcurrencyModel.Validate(ctx).ViaField("concurrencyModel"); err != nil {
 		errs = errs.Also(err)
 	} else {
-		errs = errs.Also(rs.ContainerConcurrency.Validate(ctx).ViaField("containerConcurrency"))
+		if rs.ContainerConcurrency != nil {
+			errs = errs.Also(serving.ValidateContainerConcurrency(rs.ContainerConcurrency).ViaField("containerConcurrency"))
+		}
 	}
 
 	if rs.TimeoutSeconds != nil {

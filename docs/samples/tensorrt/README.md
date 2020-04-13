@@ -3,7 +3,6 @@
 ## Setup
 1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/blob/master/docs/DEVELOPER_GUIDE.md#deploy-kfserving).
 2. Your cluster's Istio Ingress gateway must be network accessible.
-3. Your cluster's Istio Egresss gateway must [allow Google Cloud Storage](https://knative.dev/docs/serving/outbound-network-access/)
 
 ## Create the InferenceService
 Apply the CRD
@@ -21,10 +20,13 @@ Uses the client at: https://docs.nvidia.com/deeplearning/sdk/tensorrt-inference-
 
 
 1. setup vars
+
+Use `kfserving-ingressgateway` as your `INGRESS_GATEWAY` if you are deploying KFServing as part of Kubeflow install, and not independently.
+
 ```
 SERVICE_HOSTNAME=$(kubectl get inferenceservice tensorrt-simple-string -o jsonpath='{.status.url}' | cut -d "/" -f 3)
-
-CLUSTER_IP=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+INGRESS_GATEWAY=istio-ingressgateway
+CLUSTER_IP=$(kubectl -n istio-system get service $INGRESS_GATEWAY -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 echo $CLUSTER_IP
 ```
 2. check server status
