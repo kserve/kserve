@@ -289,18 +289,12 @@ class KFServingClient(object):
         except KeyError:
             raise RuntimeError("Cannot promote a InferenceService that has no Canary Spec.")
 
-        try:
-            annotations = current_isvc['metadata']['annotations']
-        except KeyError:
-            annotations = dict()
+        metadata = current_isvc['metadata']
 
         inferenceservice = V1alpha2InferenceService(
             api_version=api_version,
             kind=constants.KFSERVING_KIND,
-            metadata=client.V1ObjectMeta(
-                name=name,
-                namespace=namespace,
-                annotations=annotations),
+            metadata=metadata,
             spec=V1alpha2InferenceServiceSpec(
                 default=current_canary_spec,
                 canary=None,
