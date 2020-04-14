@@ -53,6 +53,7 @@ deploy-dev: manifests
 	kustomize edit remove resource certmanager/certificate.yaml; \
 	else kustomize edit add resource certmanager/certificate.yaml; fi;
 
+	cp config/default/manager_auth_proxy_patch.yaml config/overlays/development/
 	kustomize build config/overlays/development | kubectl apply -f -
 	if [ ${KFSERVING_ENABLE_SELF_SIGNED_CA} != false ]; then ./hack/self-signed-ca.sh; fi;
 
