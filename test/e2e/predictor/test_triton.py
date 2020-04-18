@@ -26,6 +26,7 @@ from kfserving import V1alpha2InferenceServiceSpec
 from kfserving import V1alpha2InferenceService
 from kubernetes.client import V1ResourceRequirements
 from kubernetes.client import V1Container
+from kubernetes.client import V1EnvVar
 from ..common.utils import predict
 from ..common.utils import KFSERVING_TEST_NAMESPACE
 
@@ -39,7 +40,7 @@ def test_triton():
         predictor=V1alpha2PredictorSpec(
             min_replicas=1,
             triton=V1alpha2TritonSpec(
-                storage_uri='gs://kfserving-samples/models/triton/bert-transformer',
+                storage_uri='gs://kfserving-samples/models/triton/bert',
                 resources=V1ResourceRequirements(
                     requests={'cpu': '100m', 'memory': '1Gi'},
                     limits={'cpu': '100m', 'memory': '1Gi'}))),
@@ -49,6 +50,9 @@ def test_triton():
                 container=V1Container(
                   image='gcr.io/kubeflow-ci/kfserving/bert-transformer:latest',
                   name='kfserving-container',
+                  env=[
+                      V1EnvVar(name="STORAGE_URI", value="gs://kfserving-samples/models/triton/bert-transformer")
+                  ],
                   resources=V1ResourceRequirements(
                     requests={'cpu': '1', 'memory': '16Gi', 'nvidia.com/gpu': '1'},
                     limits={'cpu': '1', 'memory': '16Gi', 'nvidia.com/gpu': '1'})))))
@@ -66,6 +70,8 @@ def test_triton():
     except RuntimeError as e:
         print(KFServing.api_instance.get_namespaced_custom_object("serving.knative.dev", "v1", KFSERVING_TEST_NAMESPACE,
                                                                   "services", service_name + "-predictor-default"))
+        print(KFServing.api_instance.get_namespaced_custom_object("serving.knative.dev", "v1", KFSERVING_TEST_NAMESPACE,
+                                                                  "services", service_name + "-transformer-default"))
         raise e
     prediction = predict(service_name, './data/qa.json')
     assert(prediction["predictions"] == "John F. Kennedy")
