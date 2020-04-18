@@ -76,7 +76,7 @@ def explain(service_name, input_json):
                                              pod.status.pod_ip))
                 api_response = KFServing.core_api.read_namespaced_pod_log(pod.metadata.name, 
                         KFSERVING_TEST_NAMESPACE, container="kfserving-container")
-                pprint(api_response) 
+                logging.info(api_response) 
             raise e
         return precision
 
