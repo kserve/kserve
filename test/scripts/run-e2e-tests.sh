@@ -166,7 +166,7 @@ mv /usr/bin/lsb_release /usr/bin/lsb_release.bak
 
 echo "Installing KFServing Python SDK ..."
 python3 -m pip install --upgrade pip
-pip3 install --upgrade pytest pytest-xdist
+pip3 install --upgrade pytest pytest-xdist pytest-rerunfailures
 pip3 install --upgrade pytest-tornasync
 pip3 install urllib3==1.24.2
 pushd python/kfserving >/dev/null
