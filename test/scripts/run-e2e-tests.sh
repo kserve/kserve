@@ -158,7 +158,7 @@ echo "Istio, Knative and KFServing have been installed and started."
 
 echo "Installing KFServing Python SDK ..."
 python3 -m pip install --upgrade pip
-pip3 install --upgrade pytest pytest-xdist
+pip3 install --upgrade pytest pytest-xdist pytest-rerunfailures
 pip3 install --upgrade pytest-tornasync
 pip3 install urllib3==1.24.2
 pip3 install --upgrade setuptools

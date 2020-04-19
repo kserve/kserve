@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import numpy as np
+import pytest
 from kubernetes import client
 
 from kfserving import KFServingClient
@@ -34,6 +35,7 @@ api_version = constants.KFSERVING_GROUP + '/' + constants.KFSERVING_VERSION
 KFServing = KFServingClient(config_file="~/.kube/config")
 
 
+@pytest.mark.flaky(reruns=3)
 def test_triton():
     service_name = 'isvc-triton'
     default_endpoint_spec = V1alpha2EndpointSpec(
