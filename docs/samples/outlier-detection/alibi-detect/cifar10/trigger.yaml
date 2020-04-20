@@ -2,7 +2,6 @@ apiVersion: eventing.knative.dev/v1alpha1
 kind: Trigger
 metadata:
   name: vaeoutlier-trigger
-  namespace: default
 spec:
   filter:
     sourceAndType:

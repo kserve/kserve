@@ -5,8 +5,7 @@ metadata:
 spec:
   default:
     predictor:
-      minReplicas: 1
       tensorflow:
-        storageUri: "gs://seldon-models/tfserving/cifar10/resnet32"
+        storageUri: "gs://kfserving-samples/tfserving/cifar10/resnet32"
       logger:
         mode: all
