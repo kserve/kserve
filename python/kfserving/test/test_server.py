@@ -25,10 +25,10 @@ class DummyModel(kfserving.KFModel):
     def load(self):
         self.ready = True
 
-    def predict(self, request):
+    async def predict(self, request):
         return {"predictions": request["instances"]}
 
-    def explain(self, request):
+    async def explain(self, request):
         return {"predictions": request["instances"]}
 
 
