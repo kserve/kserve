@@ -6,7 +6,8 @@
 3. Install Minio with following Minio deploy step.
 4. Use existing Kafka cluster or install Kafka on your cluster with [Confluent helm chart](https://www.confluent.io/blog/getting-started-apache-kafka-kubernetes/).
 5. Install [Kafka Event Source](https://github.com/knative/eventing-contrib/tree/master/kafka/source).
-6. Install [Kustomize 3.0+](https://github.com/kubernetes-sigs/kustomize/blob/master/docs/INSTALL.md)
+6. Kubernetes 1.15+
+7. KFServing 0.3+
 
 This example shows an end to end inference pipeline which processes an kafka event and invoke the inference service to get the prediction with provided
 pre/post processing code.
@@ -35,10 +36,11 @@ my-kafka-cp-zookeeper-0   2/2     Running   0          127m
 ## Deploy Kafka Event Source
 Install Knative Eventing and Kafka Event Source.
 ```bash
+VERSION=v0.14.0
 kubectl apply --selector knative.dev/crd-install=true \
-  --filename https://github.com/knative/eventing/releases/download/v0.10.0/release.yaml
-kubectl apply --filename https://github.com/knative/eventing/releases/download/v0.10.0/release.yaml
-kubectl apply --filename https://github.com/knative/eventing-contrib/releases/download/v0.10.2/release.yaml
+  --filename https://github.com/knative/eventing/releases/download/$VERSION/eventing-crds.yaml
+kubectl apply --filename https://github.com/knative/eventing/releases/download/$VERSION/eventing.yaml
+kubectl apply --filename https://github.com/knative/eventing-contrib/releases/download/$VERSION/kafka-source.yaml
 ```
 Apply the `InferenceService` addressable cluster role
 ```bash
@@ -98,19 +100,16 @@ you should expect a notification event like following sent to kafka topic `mnist
 
 ## Train TF mnist model and save on Minio
 If you already have a mnist model saved on Minio or S3 you can skip this step, otherwise you can install [Kubeflow](https://www.kubeflow.org/docs/started/getting-started/)
-and follow [TF mnist example](https://github.com/kubeflow/examples/tree/master/mnist#using-s3) to train a TF mnist model and save it on Minio.
-Change following S3 credential settings to enable getting model from Minio.
-```bash
-export S3_USE_HTTPS=0 #set to 0 for default minio installs
-export S3_ENDPOINT=minio-service:9000
-export AWS_ENDPOINT_URL=http://${S3_ENDPOINT}
-
-kustomize edit add configmap mnist-map-training --from-literal=S3_ENDPOINT=${S3_ENDPOINT}
-kustomize edit add configmap mnist-map-training --from-literal=AWS_ENDPOINT_URL=${AWS_ENDPOINT_URL}
-kustomize edit add configmap mnist-map-training --from-literal=S3_USE_HTTPS=${S3_USE_HTTPS}
-
-kustomize edit add configmap mnist-map-training --from-literal=modelDir=s3://mnist/model-v1
-kustomize edit add configmap mnist-map-training --from-literal=exportDir=s3://mnist/model-v1/export
+and follow [TF mnist AWS example](https://github.com/kubeflow/examples/tree/master/mnist) to train a TF mnist model and save it on Minio.
+You may need to add following additional S3 environment variables to enable saving model on Minio.
+```yaml
+env:
+- name: S3_USE_HTTPS
+  value: "0"
+- name: S3_ENDPOINT
+  value: "minio-service.kubeflow:9000"
+- name: AWS_ENDPOINT_URL
+  value: "http://minio-service.kubeflow:9000"
 ```
 
 ## Create S3 Secret for Minio and attach to Service Account
