@@ -13,10 +13,12 @@
 # limitations under the License.
 
 from typing import Dict
+import sys
 
 import json
 import requests
 import tornado.web
+from tornado.httpclient import AsyncHTTPClient
 
 PREDICTOR_URL_FORMAT = "http://{0}/v1/models/{1}:predict"
 EXPLAINER_URL_FORMAT = "http://{0}/v1/models/{1}:explain"
@@ -30,6 +32,17 @@ class KFModel:
         self.ready = False
         self.predictor_host = None
         self.explainer_host = None
+        # The timeout matches what is set in generated Istio resorurces.
+        # We generally don't want things to time out at the request level here,
+        # timeouts should be handled elsewhere in the system.
+        self.timeout = 600
+        self._http_client_instance = None
+
+    @property
+    def _http_client(self):
+        if self._http_client_instance is None:
+            self._http_client_instance = AsyncHTTPClient(max_clients=sys.maxsize)
+        return self._http_client_instance
 
     def load(self):
         self.ready = True
@@ -40,30 +53,35 @@ class KFModel:
     def postprocess(self, request: Dict) -> Dict:
         return request
 
-    def predict(self, request: Dict) -> Dict:
+    async def predict(self, request: Dict) -> Dict:
+        import time
         if not self.predictor_host:
             raise NotImplementedError
 
-        response = requests.post(
+        response = await self._http_client.fetch(
             PREDICTOR_URL_FORMAT.format(self.predictor_host, self.name),
-            json.dumps(request)
+            method='POST',
+            request_timeout=self.timeout,
+            body=json.dumps(request)
         )
-        if response.status_code != 200:
+        if response.code != 200:
             raise tornado.web.HTTPError(
-                status_code=response.status_code,
-                reason=response.content)
-        return response.json()
+                status_code=code,
+                reason=response.body)
+        return json.loads(response.body)
 
-    def explain(self, request: Dict) -> Dict:
+    async def explain(self, request: Dict) -> Dict:
         if self.explainer_host is None:
             raise NotImplementedError
 
-        response = requests.post(
-            EXPLAINER_URL_FORMAT.format(self.explainer_host, self.name),
-            json.dumps(request)
+        response = await self._http_client.fetch(
+            url=PREDICTOR_URL_FORMAT.format(self.explainer_host, self.name),
+            method='POST',
+            request_timeout=self.timeout,
+            body=json.dumps(request)
         )
-        if response.status_code != 200:
+        if response.code != 200:
             raise tornado.web.HTTPError(
-                status_code=response.status_code,
-                reason=response.content)
-        return response.json()
+                status_code=code,
+                reason=response.body)
+        return json.loads(response.body)
