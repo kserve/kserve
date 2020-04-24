@@ -236,8 +236,8 @@ func TestInferenceServiceWithOnlyPredictor(t *testing.T) {
 					Match: []*istiov1alpha3.HTTPMatchRequest{
 						{
 							Uri: &istiov1alpha3.StringMatch{
-								MatchType: &istiov1alpha3.StringMatch_Prefix{
-									Prefix: constants.PredictPrefix(serviceName),
+								MatchType: &istiov1alpha3.StringMatch_Regex{
+									Regex: constants.PredictPrefix(),
 								},
 							},
 							Gateways: []string{constants.KnativeIngressGateway},
@@ -249,8 +249,8 @@ func TestInferenceServiceWithOnlyPredictor(t *testing.T) {
 						},
 						{
 							Uri: &istiov1alpha3.StringMatch{
-								MatchType: &istiov1alpha3.StringMatch_Prefix{
-									Prefix: constants.PredictPrefix(serviceName),
+								MatchType: &istiov1alpha3.StringMatch_Regex{
+									Regex: constants.PredictPrefix(),
 								},
 							},
 							Gateways: []string{constants.KnativeLocalGateway},
@@ -309,7 +309,7 @@ func TestInferenceServiceWithOnlyPredictor(t *testing.T) {
 		Address: &duckv1beta1.Addressable{
 			URL: &apis.URL{
 				Scheme: "http",
-				Path:   constants.PredictPrefix(serviceKey.Name),
+				Path:   constants.PredictPath(serviceKey.Name),
 				Host:   network.GetServiceHostname(serviceKey.Name, serviceKey.Namespace),
 			},
 		},
@@ -375,7 +375,7 @@ func TestInferenceServiceWithDefaultAndCanaryPredictor(t *testing.T) {
 				URL: &apis.URL{
 					Scheme: "http",
 					Host:   network.GetServiceHostname(canaryServiceKey.Name, canaryServiceKey.Namespace),
-					Path:   constants.PredictPrefix(canaryServiceKey.Name),
+					Path:   constants.PredictPath(canaryServiceKey.Name),
 				},
 			},
 			Default: &kfserving.ComponentStatusMap{
@@ -536,7 +536,7 @@ func TestInferenceServiceWithDefaultAndCanaryPredictor(t *testing.T) {
 		Address: &duckv1beta1.Addressable{
 			URL: &apis.URL{
 				Scheme: "http",
-				Path:   constants.PredictPrefix(canaryServiceKey.Name),
+				Path:   constants.PredictPath(canaryServiceKey.Name),
 				Host:   network.GetServiceHostname(canaryServiceKey.Name, canaryServiceKey.Namespace),
 			},
 		},
@@ -584,8 +584,8 @@ func TestInferenceServiceWithDefaultAndCanaryPredictor(t *testing.T) {
 					Match: []*istiov1alpha3.HTTPMatchRequest{
 						{
 							Uri: &istiov1alpha3.StringMatch{
-								MatchType: &istiov1alpha3.StringMatch_Prefix{
-									Prefix: constants.PredictPrefix(canaryServiceKey.Name),
+								MatchType: &istiov1alpha3.StringMatch_Regex{
+									Regex: constants.PredictPrefix(),
 								},
 							},
 							Gateways: []string{constants.KnativeIngressGateway},
@@ -597,8 +597,8 @@ func TestInferenceServiceWithDefaultAndCanaryPredictor(t *testing.T) {
 						},
 						{
 							Uri: &istiov1alpha3.StringMatch{
-								MatchType: &istiov1alpha3.StringMatch_Prefix{
-									Prefix: constants.PredictPrefix(canaryServiceKey.Name),
+								MatchType: &istiov1alpha3.StringMatch_Regex{
+									Regex: constants.PredictPrefix(),
 								},
 							},
 							Gateways: []string{constants.KnativeLocalGateway},
@@ -801,7 +801,7 @@ func TestCanaryDelete(t *testing.T) {
 		Address: &duckv1beta1.Addressable{
 			URL: &apis.URL{
 				Scheme: "http",
-				Path:   constants.PredictPrefix(serviceName),
+				Path:   constants.PredictPath(serviceName),
 				Host:   network.GetServiceHostname(serviceName, canaryServiceKey.Namespace),
 			},
 		},
@@ -887,7 +887,7 @@ func TestCanaryDelete(t *testing.T) {
 		Address: &duckv1beta1.Addressable{
 			URL: &apis.URL{
 				Scheme: "http",
-				Path:   constants.PredictPrefix(canaryServiceKey.Name),
+				Path:   constants.PredictPath(canaryServiceKey.Name),
 				Host:   network.GetServiceHostname(canaryServiceKey.Name, canaryServiceKey.Namespace),
 			},
 		},
@@ -1194,7 +1194,7 @@ func TestInferenceServiceWithTransformer(t *testing.T) {
 		Address: &duckv1beta1.Addressable{
 			URL: &apis.URL{
 				Scheme: "http",
-				Path:   constants.PredictPrefix(serviceKey.Name),
+				Path:   constants.PredictPath(serviceKey.Name),
 				Host:   network.GetServiceHostname(serviceKey.Name, serviceKey.Namespace),
 			},
 		},
@@ -1247,8 +1247,8 @@ func TestInferenceServiceWithTransformer(t *testing.T) {
 					Match: []*istiov1alpha3.HTTPMatchRequest{
 						{
 							Uri: &istiov1alpha3.StringMatch{
-								MatchType: &istiov1alpha3.StringMatch_Prefix{
-									Prefix: constants.PredictPrefix(serviceName),
+								MatchType: &istiov1alpha3.StringMatch_Regex{
+									Regex: constants.PredictPrefix(),
 								},
 							},
 							Gateways: []string{constants.KnativeIngressGateway},
@@ -1260,8 +1260,8 @@ func TestInferenceServiceWithTransformer(t *testing.T) {
 						},
 						{
 							Uri: &istiov1alpha3.StringMatch{
-								MatchType: &istiov1alpha3.StringMatch_Prefix{
-									Prefix: constants.PredictPrefix(serviceName),
+								MatchType: &istiov1alpha3.StringMatch_Regex{
+									Regex: constants.PredictPrefix(),
 								},
 							},
 							Gateways: []string{constants.KnativeLocalGateway},
@@ -1771,7 +1771,7 @@ func TestInferenceServiceWithExplainer(t *testing.T) {
 		Address: &duckv1beta1.Addressable{
 			URL: &apis.URL{
 				Scheme: "http",
-				Path:   constants.PredictPrefix(serviceKey.Name),
+				Path:   constants.PredictPath(serviceKey.Name),
 				Host:   network.GetServiceHostname(serviceKey.Name, serviceKey.Namespace),
 			},
 		},
@@ -1824,8 +1824,8 @@ func TestInferenceServiceWithExplainer(t *testing.T) {
 					Match: []*istiov1alpha3.HTTPMatchRequest{
 						{
 							Uri: &istiov1alpha3.StringMatch{
-								MatchType: &istiov1alpha3.StringMatch_Prefix{
-									Prefix: constants.PredictPrefix(serviceName),
+								MatchType: &istiov1alpha3.StringMatch_Regex{
+									Regex: constants.PredictPrefix(),
 								},
 							},
 							Gateways: []string{constants.KnativeIngressGateway},
@@ -1837,8 +1837,8 @@ func TestInferenceServiceWithExplainer(t *testing.T) {
 						},
 						{
 							Uri: &istiov1alpha3.StringMatch{
-								MatchType: &istiov1alpha3.StringMatch_Prefix{
-									Prefix: constants.PredictPrefix(serviceName),
+								MatchType: &istiov1alpha3.StringMatch_Regex{
+									Regex: constants.PredictPrefix(),
 								},
 							},
 							Gateways: []string{constants.KnativeLocalGateway},
@@ -1888,8 +1888,8 @@ func TestInferenceServiceWithExplainer(t *testing.T) {
 					Match: []*istiov1alpha3.HTTPMatchRequest{
 						{
 							Uri: &istiov1alpha3.StringMatch{
-								MatchType: &istiov1alpha3.StringMatch_Prefix{
-									Prefix: constants.ExplainPrefix(serviceName),
+								MatchType: &istiov1alpha3.StringMatch_Regex{
+									Regex: constants.ExplainPrefix(),
 								},
 							},
 							Gateways: []string{constants.KnativeIngressGateway},
@@ -1901,8 +1901,8 @@ func TestInferenceServiceWithExplainer(t *testing.T) {
 						},
 						{
 							Uri: &istiov1alpha3.StringMatch{
-								MatchType: &istiov1alpha3.StringMatch_Prefix{
-									Prefix: constants.ExplainPrefix(serviceName),
+								MatchType: &istiov1alpha3.StringMatch_Regex{
+									Regex: constants.ExplainPrefix(),
 								},
 							},
 							Gateways: []string{constants.KnativeLocalGateway},
