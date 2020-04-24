@@ -15,7 +15,13 @@ The InferenceService Data Plane architecture consists of a static graph of compo
 **Transformer**: The transformer enables users to define a pre and post processing step before the prediction and explanation workflows. Like the explainer, it is configured with relevant environment variables too. For common use cases, KFServing provides out-of-the-box transformers like Feast.
 
 # Data Plane (V1)
-KFServing has a standardized prediction workflow across all model frameworks.
+KFServing has a standardized prediction workflow across all model frameworks. 
+
+| API  | Verb | Path | Payload |
+| ------------- | ------------- | ------------- | ------------- |
+| Readiness| GET   | /v1/models/<model_name>          | Response:{"name": <model_name>, "ready": true/false}  |
+| Predict  | POST  | /v1/models/<model_name>:predict  | Request:{"instances": []}  Response:{"predictions": []} |
+| Explain  | POST  | /v1/models/<model_name>:explain  | Request:{"instances": []}  Response:{"predictions": [], "explainations": []}   ||
 
 ## Predict
 All InferenceServices speak the Tensorflow V1 HTTP API: https://www.tensorflow.org/tfx/serving/api_rest#predict_api.
