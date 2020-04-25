@@ -34,7 +34,8 @@ api_version = constants.KFSERVING_GROUP + '/' + constants.KFSERVING_VERSION
 KFServing = KFServingClient(config_file="~/.kube/config")
 
 
-@pytest.mark.flaky(reruns=3)
+@pytest.mark.skip(reason="Unable to fetch image nvcr.io/nvidia/tritonserver:20.03-py3: "
+                         "UNAUTHORIZED: authentication required")
 def test_triton():
     service_name = 'isvc-triton'
     default_endpoint_spec = V1alpha2EndpointSpec(
