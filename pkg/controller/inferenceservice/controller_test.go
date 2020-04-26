@@ -307,7 +307,7 @@ func TestInferenceServiceWithOnlyPredictor(t *testing.T) {
 		},
 		URL: constants.InferenceServiceURL("http", serviceKey.Name, serviceKey.Namespace, domain),
 		Address: v1alpha2.Addressable{
-			URL: "http://" + constants.PredictPrefix() + "/" + network.GetServiceHostname(serviceKey.Name, serviceKey.Namespace),
+			URL: "http://" + constants.PredictPath(serviceKey.Name) + "/" + network.GetServiceHostname(serviceKey.Name, serviceKey.Namespace),
 		},
 		Traffic:       100,
 		CanaryTraffic: 0,
@@ -368,8 +368,8 @@ func TestInferenceServiceWithDefaultAndCanaryPredictor(t *testing.T) {
 		Status: kfserving.InferenceServiceStatus{
 			URL: canaryServiceKey.Name + "." + domain,
 			Address: v1alpha2.Addressable{
-				URL: "http://" + network.GetServiceHostname(canaryServiceKey.Name, canaryServiceKey.Namespace) + "/" +
-					constants.PredictPrefix(),
+				URL: "http://" + constants.PredictPath(canaryServiceKey.Name) + "/" +
+					network.GetServiceHostname(canaryServiceKey.Name, canaryServiceKey.Namespace),
 			},
 			Default: kfserving.ComponentStatusMap{
 				constants.Predictor: kfserving.StatusConfigurationSpec{
@@ -527,7 +527,7 @@ func TestInferenceServiceWithDefaultAndCanaryPredictor(t *testing.T) {
 		URL: constants.InferenceServiceURL("http", canaryServiceKey.Name,
 			canaryService.Namespace, domain),
 		Address: v1alpha2.Addressable{
-			URL: "http://" + constants.PredictPrefix() + "/" +
+			URL: "http://" + constants.PredictPath(canaryServiceKey.Name) + "/" +
 				network.GetServiceHostname(canaryServiceKey.Name, canaryServiceKey.Namespace),
 		},
 		Traffic:       80,
@@ -789,8 +789,8 @@ func TestCanaryDelete(t *testing.T) {
 		},
 		URL: constants.InferenceServiceURL("http", serviceName, namespace, domain),
 		Address: v1alpha2.Addressable{
-			URL: "http" +
-				constants.PredictPrefix() + "/" +
+			URL: "http://" +
+				constants.PredictPath(serviceName) + "/" +
 				network.GetServiceHostname(serviceName, canaryServiceKey.Namespace),
 		},
 		Traffic:       80,
@@ -873,8 +873,8 @@ func TestCanaryDelete(t *testing.T) {
 		},
 		URL: constants.InferenceServiceURL("http", serviceName, namespace, domain),
 		Address: v1alpha2.Addressable{
-			URL: "http" +
-				constants.PredictPrefix() + "/" +
+			URL: "http://" +
+				constants.PredictPath(canaryServiceKey.Name) + "/" +
 				network.GetServiceHostname(canaryServiceKey.Name, canaryServiceKey.Namespace),
 		},
 		Traffic: 100,
@@ -1178,8 +1178,8 @@ func TestInferenceServiceWithTransformer(t *testing.T) {
 		CanaryTraffic: 20,
 		URL:           constants.InferenceServiceURL("http", serviceKey.Name, serviceKey.Namespace, domain),
 		Address: v1alpha2.Addressable{
-			URL: "http" +
-				constants.PredictPrefix() + "/" +
+			URL: "http://" +
+				constants.PredictPath(serviceKey.Name) + "/" +
 				network.GetServiceHostname(serviceKey.Name, serviceKey.Namespace),
 		},
 		Default: kfserving.ComponentStatusMap{
@@ -1753,8 +1753,8 @@ func TestInferenceServiceWithExplainer(t *testing.T) {
 		CanaryTraffic: 20,
 		URL:           constants.InferenceServiceURL("http", serviceKey.Name, serviceKey.Namespace, domain),
 		Address: v1alpha2.Addressable{
-			URL: "http" +
-				constants.PredictPrefix() + "/" +
+			URL: "http://" +
+				constants.PredictPath(serviceKey.Name) + "/" +
 				network.GetServiceHostname(serviceKey.Name, serviceKey.Namespace),
 		},
 		Default: kfserving.ComponentStatusMap{
