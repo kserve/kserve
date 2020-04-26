@@ -58,11 +58,11 @@ version="v1.4.7"
 
 [[override]]
   name = "k8s.io/api"
-  version = "kubernetes-1.15.3"
+  version = "kubernetes-1.16.1"
 
 [[override]]
   name = "k8s.io/apimachinery"
-  version = "kubernetes-1.15.3"
+  version = "kubernetes-1.16.1"
 
 [[override]]
   name = "k8s.io/code-generator"
@@ -70,7 +70,7 @@ version="v1.4.7"
 
 [[override]]
   name = "k8s.io/client-go"
-  version = "kubernetes-1.15.3"
+  version = "kubernetes-1.16.1"
 
 [[constraint]]
   name = "k8s.io/kube-openapi"
@@ -87,15 +87,15 @@ version="v1.4.7"
 
 [[constraint]]
   name = "k8s.io/kubernetes"
-  version = "=1.15.3"
+  version = "=1.16.1"
 
 [[override]]
   name = "k8s.io/apiserver"
-  version = "kubernetes-1.15.3"
+  version = "kubernetes-1.16.1"
 
 [[override]]
   name = "k8s.io/apiextensions-apiserver"
-  version = "kubernetes-1.15.3"
+  version = "kubernetes-1.16.1"
 
   
 

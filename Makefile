@@ -21,11 +21,11 @@ $(shell perl -pi -e 's/memory:.*/memory: $(KFSERVING_CONTROLLER_MEMORY_LIMIT)/' 
 all: test manager logger
 
 # Run tests
-test: generate fmt vet lint manifests
+test: fmt vet lint
 	go test ./pkg/... ./cmd/... -coverprofile cover.out
 
 # Build manager binary
-manager: generate fmt vet lint
+manager: fmt vet lint
 	go build -o bin/manager ./cmd/manager
 
 # Build manager binary

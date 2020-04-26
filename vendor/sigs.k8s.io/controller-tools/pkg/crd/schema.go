@@ -328,6 +328,7 @@ func structToSchema(ctx *schemaContext, structType *ast.StructType) *v1beta1.JSO
 		jsonTag, hasTag := field.Tag.Lookup("json")
 		if !hasTag {
 			// if the field doesn't have a JSON tag, it doesn't belong in output (and shouldn't exist in a serialized type)
+			ctx.pkg.AddError(loader.ErrFromNode(fmt.Errorf("encountered struct field %q without JSON tag in type %q", field.Name, ctx.info.Name), field.RawField))
 			continue
 		}
 		jsonOpts := strings.Split(jsonTag, ",")
