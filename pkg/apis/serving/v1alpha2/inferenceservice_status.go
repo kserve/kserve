@@ -77,10 +77,9 @@ func (ss *InferenceServiceStatus) GetCondition(t apis.ConditionType) *apis.Condi
 
 // PropagateDefaultStatus propagates the status for the default spec
 func (ss *InferenceServiceStatus) PropagateDefaultStatus(component constants.InferenceServiceComponent, defaultStatus *knservingv1.ServiceStatus) {
-	/*if ss.Default == nil {
-		emptyStatusMap := make(ComponentStatusMap)
-		ss.Default = &emptyStatusMap
-	}*/
+	if len(ss.Default) == 0 {
+		ss.Default = make(ComponentStatusMap)
+	}
 
 	conditionType := defaultConditionsMap[component]
 	if defaultStatus == nil {
@@ -99,10 +98,9 @@ func (ss *InferenceServiceStatus) PropagateDefaultStatus(component constants.Inf
 
 // PropagateCanaryStatus propagates the status for the canary spec
 func (ss *InferenceServiceStatus) PropagateCanaryStatus(component constants.InferenceServiceComponent, canaryStatus *knservingv1.ServiceStatus) {
-	/*if ss.Canary == nil {
-		emptyStatusMap := make(ComponentStatusMap)
-		ss.Canary = &emptyStatusMap
-	}*/
+	if len(ss.Canary) == 0 {
+		ss.Canary = make(ComponentStatusMap)
+	}
 
 	conditionType := canaryConditionsMap[component]
 	if canaryStatus == nil {
@@ -150,7 +148,9 @@ func (ss *InferenceServiceStatus) propagateStatus(component constants.InferenceS
 // PropagateRouteStatus propagates route's status to the service's status.
 func (ss *InferenceServiceStatus) PropagateRouteStatus(vs *VirtualServiceStatus) {
 	ss.URL = vs.URL
-	ss.Address.URL = vs.Address.URL.String()
+	if vs.Address != nil && vs.Address.URL != nil {
+		ss.Address.URL = vs.Address.URL.String()
+	}
 	ss.Traffic = vs.DefaultWeight
 	ss.CanaryTraffic = vs.CanaryWeight
 

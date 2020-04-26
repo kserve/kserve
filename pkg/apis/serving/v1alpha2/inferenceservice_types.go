@@ -242,7 +242,7 @@ type InferenceServiceStatus struct {
 	// Statuses for the canary endpoints of the InferenceService
 	Canary ComponentStatusMap `json:"canary,omitempty"`
 	// Ducktype for addressable
-	Address *Addressable `json:"address,omitempty"`
+	Address Addressable `json:"address,omitempty"`
 }
 
 // StatusConfigurationSpec describes the state of the configuration receiving traffic.

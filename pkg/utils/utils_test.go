@@ -124,9 +124,9 @@ func TestContainsUtil(t *testing.T) {
 func TestAppendVolumeIfNotExists(t *testing.T) {
 
 	scenarios := map[string]struct {
-		volumes             []v1.Volume
-		volume      		v1.Volume
-		expectedVolumes 	[]v1.Volume
+		volumes         []v1.Volume
+		volume          v1.Volume
+		expectedVolumes []v1.Volume
 	}{
 		"DuplicateVolume": {
 			volumes: []v1.Volume{
