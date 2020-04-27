@@ -18,7 +18,7 @@ data:
                "1.13.0",
                "1.13.0-gpu",
                "1.14.0",
-               "1.14.0-gpu"
+               "1.14.0-gpu"       
             ]
         },
         "onnx": {
@@ -86,8 +86,8 @@ data:
            "gcsCredentialFileName": "gcloud-application-credentials.json"
        },
        "s3": {
-           "s3AccessKeyIDName": "awsAccessKeyID",
-           "s3SecretAccessKeyName": "awsSecretAccessKey"
+           "s3AccessKeyIDName": "AWS_ACCESS_KEY_ID",
+           "s3SecretAccessKeyName": "AWS_SECRET_ACCESS_KEY"
        }
     }
   ingress: |-
