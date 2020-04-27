@@ -30,8 +30,8 @@ DEFAULT_SECRET_NAME = "kfserving-secret-"
 DEFAULT_SA_NAME = "kfserving-service-credentials"
 
 # S3 credentials constants
-S3_ACCESS_KEY_ID_DEFAULT_NAME = "awsAccessKeyID"
-S3_SECRET_ACCESS_KEY_DEFAULT_NAME = "awsSecretAccessKey"
+S3_ACCESS_KEY_ID_DEFAULT_NAME = "AWS_ACCESS_KEY_ID"
+S3_SECRET_ACCESS_KEY_DEFAULT_NAME = "AWS_SECRET_ACCESS_KEY"
 S3_DEFAULT_CREDS_FILE = '~/.aws/credentials'
 
 # GCS credentials constants

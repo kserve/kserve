@@ -38,9 +38,19 @@ func (t *TransformerSpec) GetContainerSpec(metadata metav1.ObjectMeta, isCanary 
 		return &v1.Container{}
 	}
 	container := transformer.GetContainerSpec().DeepCopy()
+	modelNameExists := false
+	for _, arg := range container.Args {
+		if arg == constants.ArgumentModelName {
+			modelNameExists = true
+		}
+	}
+	if !modelNameExists {
+		container.Args = append(container.Args, []string{
+			constants.ArgumentModelName,
+			metadata.Name,
+		}...)
+	}
 	container.Args = append(container.Args, []string{
-		constants.ArgumentModelName,
-		metadata.Name,
 		constants.ArgumentPredictorHost,
 		constants.PredictorURL(metadata, isCanary),
 		constants.ArgumentHttpPort,
