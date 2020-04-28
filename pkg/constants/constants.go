@@ -55,6 +55,12 @@ var (
 	LoggerInternalAnnotationKey                      = InferenceServiceInternalAnnotationsPrefix + "/logger"
 	LoggerSinkUrlInternalAnnotationKey               = InferenceServiceInternalAnnotationsPrefix + "/logger-sink-url"
 	LoggerModeInternalAnnotationKey                  = InferenceServiceInternalAnnotationsPrefix + "/logger-mode"
+	BatcherInternalAnnotationKey                    = InferenceServiceInternalAnnotationsPrefix + "/batcher"
+	BatcherPortInternalAnnotationKey                = InferenceServiceInternalAnnotationsPrefix + "/batcher-port"
+	BatcherComponentHostInternalAnnotationKey       = InferenceServiceInternalAnnotationsPrefix + "/batcher-component-host"
+	BatcherComponentPortInternalAnnotationKey       = InferenceServiceInternalAnnotationsPrefix + "/batcher-component-port"
+	BatcherMaxBatchsizeInternalAnnotationKey        = InferenceServiceInternalAnnotationsPrefix + "/batcher-max-batchsize"
+	BatcherMaxLatencyInternalAnnotationKey          = InferenceServiceInternalAnnotationsPrefix + "/batcher-max-latency"
 )
 
 // Controller Constants
@@ -117,9 +123,10 @@ const (
 
 // InferenceService Endpoint Ports
 const (
-	InferenceServiceDefaultHttpPort   = "8080"
-	InferenceServiceDefaultLoggerPort = "8081"
-	CommonDefaultHttpPort             = 80
+	InferenceServiceDefaultHttpPort    = "8080"
+	InferenceServiceDefaultLoggerPort  = "8081"
+	InferenceServiceDefaultBatcherPort = "8082"
+	CommonDefaultHttpPort              = 80
 )
 
 // Labels to put on kservice

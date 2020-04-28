@@ -1,0 +1,16 @@
+apiVersion: "serving.kubeflow.org/v1alpha2"
+kind: "InferenceService"
+metadata:
+  name: "sklearn-iris"
+spec:
+  default:
+    predictor:
+      minReplicas: 1
+      batcher:
+        port: "8082"
+        svcHost: "127.0.0.1"
+        svcPort: "8080"
+        maxBatchsize: "32"
+        maxLatency: "1.0"
+      sklearn:
+        storageUri: "gs://kfserving-samples/models/sklearn/iris"
