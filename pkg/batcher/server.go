@@ -18,12 +18,14 @@ package batcher
 
 import (
 	_ "github.com/kubeflow/kfserving/pkg/batcher/routers"
+	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/astaxie/beego"
+	"strconv"
 )
 
 func StartHttpServer() {
 	beego.BConfig.AppName = "batcher"
-	beego.BConfig.Listen.HTTPPort = 8082
+	beego.BConfig.Listen.HTTPPort, _ = strconv.Atoi(constants.InferenceServiceDefaultBatcherPort)
 	beego.BConfig.RunMode = "dev"
 	beego.BConfig.CopyRequestBody = true
 	beego.Run()
