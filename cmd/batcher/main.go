@@ -26,11 +26,11 @@ import (
 )
 
 var (
-	port             = flag.String("port", "8082", "Logger port")
-	componentHost    = flag.String("component-host", "127.0.0.1", "Component host")
-	componentPort    = flag.String("component-port", "8080", "Component port")
-	maxBatchsize     = flag.String("max-batchsize", "32", "Max Batchsize")
-	maxLatency     = flag.String("max-latency", "1.0", "Max Latency")
+	port          = flag.String("port", "8082", "Logger port")
+	componentHost = flag.String("component-host", "127.0.0.1", "Component host")
+	componentPort = flag.String("component-port", "8080", "Component port")
+	maxBatchsize  = flag.String("max-batchsize", "32", "Max Batchsize")
+	maxLatency    = flag.String("max-latency", "1.0", "Max Latency")
 )
 
 func main() {
@@ -53,7 +53,6 @@ func main() {
 
 	controllers.New(log, *port, *componentHost, *componentPort, maxBatchsizeInt, maxLatencyFloat64)
 
-	log.
 	log.Info("Starting", "Port", *port)
 	batcher.StartHttpServer()
 }
