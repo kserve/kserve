@@ -210,8 +210,8 @@ func (r *VirtualServiceBuilder) CreateVirtualService(isvc *v1alpha2.InferenceSer
 		},
 		Route: predictRouteDestinations,
 		Retries: &istiov1alpha3.HTTPRetry{
-			Attempts:      3,
-			PerTryTimeout: RetryTimeout,
+			Attempts:      0,
+			PerTryTimeout: nil,
 		},
 	}
 	httpRoutes = append(httpRoutes, predictRoute)
