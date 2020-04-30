@@ -130,8 +130,8 @@ func TestCreateVirtualService(t *testing.T) {
 							},
 						},
 						Retries: &istiov1alpha3.HTTPRetry{
-							Attempts:      3,
-							PerTryTimeout: RetryTimeout,
+							Attempts:      0,
+							PerTryTimeout: nil,
 						},
 					},
 				},
@@ -220,8 +220,8 @@ func TestCreateVirtualService(t *testing.T) {
 							},
 						},
 						Retries: &istiov1alpha3.HTTPRetry{
-							Attempts:      3,
-							PerTryTimeout: RetryTimeout,
+							Attempts:      0,
+							PerTryTimeout: nil,
 						},
 					},
 				},
@@ -297,8 +297,8 @@ func TestCreateVirtualService(t *testing.T) {
 							},
 						},
 						Retries: &istiov1alpha3.HTTPRetry{
-							Attempts:      3,
-							PerTryTimeout: RetryTimeout,
+							Attempts:      0,
+							PerTryTimeout: nil,
 						},
 					},
 				},
@@ -385,8 +385,8 @@ func TestCreateVirtualService(t *testing.T) {
 							},
 						},
 						Retries: &istiov1alpha3.HTTPRetry{
-							Attempts:      3,
-							PerTryTimeout: RetryTimeout,
+							Attempts:      0,
+							PerTryTimeout: nil,
 						},
 					},
 				},
@@ -489,8 +489,8 @@ func TestCreateVirtualService(t *testing.T) {
 							},
 						},
 						Retries: &istiov1alpha3.HTTPRetry{
-							Attempts:      3,
-							PerTryTimeout: RetryTimeout,
+							Attempts:      0,
+							PerTryTimeout: nil,
 						},
 					},
 					{
@@ -507,8 +507,8 @@ func TestCreateVirtualService(t *testing.T) {
 							},
 						},
 						Retries: &istiov1alpha3.HTTPRetry{
-							Attempts:      3,
-							PerTryTimeout: RetryTimeout,
+							Attempts:      0,
+							PerTryTimeout: nil,
 						},
 					},
 				},
