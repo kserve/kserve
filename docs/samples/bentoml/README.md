@@ -1,8 +1,8 @@
 # Predict on an InferenceService using BentoML
 
-In this guide, we will demo serving a scikit-learn based iris classifier model with BentoML
+This guide demonstrates how to serve a scikit-learn based iris classifier model with BentoML
 and deploying the BentoML model server with KFServing. The same deployment
-steps is also applicable for models trained with other machine learning frameworks, see
+steps are also applicable for models trained with other machine learning frameworks, see
 more BentoML examples [here](https://docs.bentoml.org/en/latest/examples.html).
 
 [BentoML](https://bentoml.org) is an open-source platform for high-performance ML model
@@ -19,6 +19,8 @@ workflow, with DevOps best practices baked in.
 
 ### Setup
 
+Before starting this guide, make sure you have the following:
+
 * Your ~/.kube/config should point to a cluster with KFServing installed.
 * Your cluster's Istio Ingress gateway must be network accessible.
 * Docker and Docker hub must be properly configured on your local system
@@ -32,7 +34,7 @@ workflow, with DevOps best practices baked in.
 ### Build API model server using BentoML
 
 The following code defines a BentoML prediction service that requires a `scikit-learn` model, and
-asks BentoML to figure out the required PyPI pip packages automatically. It also defined
+asks BentoML to figure out the required PyPI pip packages automatically. It also defines
 an API, which is the entry point for accessing this prediction service. And the API is
 expecting a `pandas.DataFrame` object as its input data.
 
@@ -109,16 +111,16 @@ curl -i \
 BentoML provides a convenient way of containerizing the model API server with Docker. To
 create a docker container image for the sample model above:
 
-Find the file directory of the SavedBundle with `bentoml get` command, which is
-directory structured as a docker build context. Running docker build with this
-directory produces a docker image containing the API model server. Replace
-`{docker_username}` with your Docker Hub username and run the following code:
+1. Find the file directory of the SavedBundle with `bentoml get` command, which is
+directory structured as a docker build context.
+2. Running docker build with this directory produces a docker image containing the API
+model server.
 
 ```shell
 model_path=$(bentoml get IrisClassifier:latest -q | jq -r ".uri.uri")
 
+# Replace {docker_username} with your Docker Hub username
 docker build -t {docker_username}/iris-classifier $model_path
-
 docker push {docker_username}/iris-classifier
 ```
 
