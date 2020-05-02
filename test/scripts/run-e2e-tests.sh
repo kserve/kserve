@@ -121,6 +121,8 @@ kubectl apply --filename https://github.com/knative/serving/releases/download/${
 
 echo "Waiting for knative started ..."
 waiting_pod_running "knative-serving"
+# skip nvcr.io for tag resolution due to auth issue
+kubectl patch cm config-deployment --patch '{"data":{"registriesSkippingTagResolving":"nvcr.io"}}' -n knative-serving
 
 echo "Installing cert manager ..."
 kubectl create namespace cert-manager
