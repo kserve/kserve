@@ -15,6 +15,7 @@ Here we use a BERT model fine-tuned on a SQuaD 2.0 Dataset which contains 100,00
 ## Setup
 1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/#install-kfserving).
 2. Your cluster's Istio Ingress gateway must be network accessible.
+3. Skip [tag resolution](https://knative.dev/docs/serving/tag-resolution/) for `nvcr.io` which requires auth to resolve triton inference server image digest
 
 ## Extend KFServer and Implement pre/postprocess and predict
 
