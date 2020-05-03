@@ -1,0 +1,14 @@
+apiVersion: eventing.knative.dev/v1alpha1
+kind: Trigger
+metadata:
+  name: vaeoutlier-trigger
+spec:
+  filter:
+    sourceAndType:
+      type: org.kubeflow.serving.inference.request
+  subscriber:
+    ref:
+      apiVersion: serving.knative.dev/v1alpha1
+      kind: Service
+      name: vae-outlier
+      
