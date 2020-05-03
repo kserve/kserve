@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import logging
-from typing import Callable, List, Dict
+from typing import Callable, List, Dict, Optional
 
 import kfserving
 import numpy as np
@@ -20,13 +20,15 @@ import spacy
 import alibi
 from alibi.utils.download import spacy_model
 from alibiexplainer.explainer_wrapper import ExplainerWrapper
+from alibi.api.interfaces import Explanation
+from alibi.utils.wrappers import ArgmaxTransformer
 
 logging.basicConfig(level=kfserving.constants.KFSERVING_LOGLEVEL)
 
 
 class AnchorText(ExplainerWrapper):
 
-    def __init__(self, predict_fn: Callable, explainer: alibi.explainers.AnchorText,
+    def __init__(self, predict_fn: Callable, explainer: Optional[alibi.explainers.AnchorText],
                  spacy_language_model: str = 'en_core_web_md', **kwargs):
         self.predict_fn = predict_fn
         self.kwargs = kwargs
@@ -38,10 +40,19 @@ class AnchorText(ExplainerWrapper):
             logging.info("Language model loaded")
         self.anchors_text = explainer
 
-    def explain(self, inputs: List) -> Dict:
+    def explain(self, inputs: List) -> Explanation:
         if self.anchors_text is None:
             self.anchors_text = alibi.explainers.AnchorText(self.nlp, self.predict_fn)
+
         # We assume the input has batch dimension but Alibi explainers presently assume no batch
-        np.random.seed(0)
-        anchor_exp = self.anchors_text.explain(inputs[0], **self.kwargs)
+        input_words = inputs[0]
+
+        # check if predictor returns predicted class or prediction probabilities for each class
+        # if needed adjust predictor so it returns the predicted class
+        if np.argmax(self.predict_fn(input_words).shape) == 0:
+            self.anchors_text.predictor = self.predict_fn
+        else:
+            self.anchors_text.predictor = ArgmaxTransformer(self.predict_fn)
+
+        anchor_exp = self.anchors_text.explain(input_words, **self.kwargs)
         return anchor_exp

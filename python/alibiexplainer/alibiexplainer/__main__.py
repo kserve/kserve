@@ -67,10 +67,26 @@ parser_anchor_tabular.add_argument('--tau', type=float, action=GroupedAction, de
                                    default=argparse.SUPPRESS)
 parser_anchor_tabular.add_argument('--batch_size', type=int, action=GroupedAction,
                                    dest='explainer.batch_size', default=argparse.SUPPRESS)
+parser_anchor_tabular.add_argument('--coverage_samples', type=int, action=GroupedAction,
+                                   dest='explainer.coverage_size', default=argparse.SUPPRESS)
+parser_anchor_tabular.add_argument('--beam_size', type=int, action=GroupedAction,
+                                   dest='explainer.beam_size', default=argparse.SUPPRESS)
+parser_anchor_tabular.add_argument('--stop_on_first', type=str2bool, action=GroupedAction,
+                                dest='explainer.stop_on_first', default=argparse.SUPPRESS)
 parser_anchor_tabular.add_argument('--max_anchor_size', type=int, action=GroupedAction,
                                    dest='explainer.max_anchor_size', default=argparse.SUPPRESS)
-parser_anchor_tabular.add_argument('--desired_label', type=int, action=GroupedAction,
-                                   dest='explainer.desired_label', default=argparse.SUPPRESS)
+parser_anchor_tabular.add_argument('--max_samples_start', type=int, action=GroupedAction,
+                                   dest='explainer.max_samples_start', default=argparse.SUPPRESS)
+parser_anchor_tabular.add_argument('--n_covered_ex', type=int, action=GroupedAction,
+                                   dest='explainer.n_covered_ex', default=argparse.SUPPRESS)
+parser_anchor_tabular.add_argument('--binary_cache_size', type=int, action=GroupedAction,
+                                   dest='explainer.binary_cache_size', default=argparse.SUPPRESS)
+parser_anchor_tabular.add_argument('--cache_margin', type=int, action=GroupedAction,
+                                   dest='explainer.cache_margin', default=argparse.SUPPRESS)
+parser_anchor_tabular.add_argument('--verbose', type=str2bool, action=GroupedAction,
+                                dest='explainer.verbose', default=argparse.SUPPRESS)
+parser_anchor_tabular.add_argument('--verbose_every', type=int, action=GroupedAction,
+                                   dest='explainer.verbose_every', default=argparse.SUPPRESS)
 
 # Anchor Text Arguments
 parser_anchor_text = subparsers.add_parser(str(ExplainerMethod.anchor_text))

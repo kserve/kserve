@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from typing import List, Dict, Optional
+from alibi.api.interfaces import Explanation
 
 
 class ExplainerWrapper(object):
@@ -20,5 +21,5 @@ class ExplainerWrapper(object):
     def validate(self, training_data_url: Optional[str]):
         pass
 
-    def explain(self, inputs: List) -> Dict:
+    def explain(self, inputs: List) -> Explanation:
         pass

@@ -21,7 +21,7 @@ import numpy as np
 from alibiexplainer.anchor_images import AnchorImages
 from alibiexplainer.anchor_tabular import AnchorTabular
 from alibiexplainer.anchor_text import AnchorText
-from kfserving.utils import NumpyEncoder
+from alibiexplainer.explainer_wrapper import ExplainerWrapper
 
 logging.basicConfig(level=kfserving.constants.KFSERVING_LOGLEVEL)
 
@@ -48,7 +48,7 @@ class AlibiExplainer(kfserving.KFModel):
         self.method = method
 
         if self.method is ExplainerMethod.anchor_tabular:
-            self.wrapper = AnchorTabular(self._predict_fn, explainer, **config)
+            self.wrapper: ExplainerWrapper = AnchorTabular(self._predict_fn, explainer, **config)
         elif self.method is ExplainerMethod.anchor_images:
             self.wrapper = AnchorImages(self._predict_fn, explainer, **config)
         elif self.method is ExplainerMethod.anchor_text:
@@ -72,7 +72,8 @@ class AlibiExplainer(kfserving.KFModel):
     def explain(self, request: Dict) -> Any:
         if self.method is ExplainerMethod.anchor_tabular or self.method is ExplainerMethod.anchor_images or self.method is ExplainerMethod.anchor_text:
             explanation = self.wrapper.explain(request["instances"])
-            logging.info("Explanation: %s", explanation)
-            return json.loads(json.dumps(explanation, cls=NumpyEncoder))
+            explanationAsJsonStr = explanation.to_json()
+            logging.info("Explanation: %s", explanationAsJsonStr)
+            return json.loads(explanationAsJsonStr)
         else:
             raise NotImplementedError
