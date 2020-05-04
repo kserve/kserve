@@ -17,9 +17,10 @@ limitations under the License.
 package testing
 
 import (
-	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"path/filepath"
 	"sync"
+
+	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	"github.com/onsi/gomega"
