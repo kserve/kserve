@@ -12,7 +12,7 @@ type RouterSpec struct {
 	// +required
 	Routes []RouteSpec `json:"routes"`
 	// +optional
-	Splitter *SplitterSpec `json,"weights,omitempty"`
+	Splitter *SplitterSpec `json:"splitter,omitempty"`
 	// +optional
 	ABTest *ABTestSpec `json:"abTest,omitempty"`
 	// +optional
@@ -28,7 +28,7 @@ type RouteSpec struct {
 	// The name for the route
 	Name string `json:"name"`
 	// The URL of the route
-	URL string `json:"name"`
+	URL string `json:"url"`
 }
 
 // Router is the Schema for the routers API

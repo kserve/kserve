@@ -14,6 +14,8 @@ type InferenceServiceStatus struct {
 	Components *ComponentStatusMap `json:"components,omitempty"`
 	// Addressable endpoint for the inferenceservice
 	Address *duckv1beta1.Addressable `json:"address,omitempty"`
+	// Statuses for the components of the service
+	Components map[ComponentType]ComponentStatusSpec `json:"components,omitempty"`
 }
 
 // ComponentStatusSpec describes the state of the component
@@ -23,3 +25,13 @@ type ComponentStatusSpec struct {
 	// Addressable endpoint for the inferenceservice
 	Address *duckv1beta1.Addressable `json:"address,omitempty"`
 }
+
+// ComponentType contains the different types of components of the service
+type ComponentType string
+
+// ComponentType Enum
+const (
+	PredictorComponent   ComponentType = "predictor"
+	ExplainerComponent   ComponentType = "explainer"
+	TransformerComponent ComponentType = "transformer"
+)
