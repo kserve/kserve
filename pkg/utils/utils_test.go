@@ -17,9 +17,10 @@ limitations under the License.
 package utils
 
 import (
+	"testing"
+
 	"github.com/kubeflow/kfserving/pkg/controller/inferenceservice/resources/credentials/gcs"
 	v1 "k8s.io/api/core/v1"
-	"testing"
 
 	"github.com/google/go-cmp/cmp"
 )

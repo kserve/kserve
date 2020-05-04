@@ -19,11 +19,12 @@ package istio
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
+	"time"
+
 	"github.com/gogo/protobuf/types"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/network"
-	"strings"
-	"time"
 
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	"github.com/kubeflow/kfserving/pkg/constants"

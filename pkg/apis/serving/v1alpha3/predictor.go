@@ -5,6 +5,7 @@ import (
 )
 
 // Predictor is an abstraction over machine learning server frameworks
+// +kubebuilder:object:generate=false
 type Predictor interface {
 	GetContainers() []v1.Container
 	Validate() error

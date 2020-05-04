@@ -20,8 +20,7 @@ import (
 	"k8s.io/klog"
 )
 
-// +k8s:openapi-gen=false
-// +k8s:deepcopy-gen=false
+// +kubebuilder:object:generate=false
 type Explainer interface {
 	GetResourceRequirements() *v1.ResourceRequirements
 	GetStorageUri() string

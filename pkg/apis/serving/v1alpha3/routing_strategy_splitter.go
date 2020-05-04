@@ -2,7 +2,8 @@ package v1alpha3
 
 // SplitterSpec defines a simple weighted traffic split interface
 type SplitterSpec struct {
-	Weights []*WeightsSpec `json,"weights,omitempty"`
+	// Weights defines the weights of the routes
+	Weights []*WeightsSpec `json:"weights,omitempty"`
 }
 
 // WeightsSpec defines a simple weighted traffic split interface
