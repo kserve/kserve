@@ -1,0 +1,150 @@
+
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: (unknown)
+  creationTimestamp: null
+  name: routers.serving.kubeflow.org
+spec:
+  additionalPrinterColumns:
+  - JSONPath: .status.url
+    name: URL
+    type: string
+  - JSONPath: .status.conditions[?(@.type=='Ready')].status
+    name: Ready
+    type: string
+  - JSONPath: .metadata.creationTimestamp
+    name: Age
+    type: date
+  group: serving.kubeflow.org
+  names:
+    kind: Router
+    listKind: RouterList
+    plural: routers
+    shortNames:
+    - kfrouter
+    singular: router
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      description: Router is the Schema for the routers API
+      properties:
+        inline:
+          description: TypeMeta describes an individual object in an API response
+            or request with strings representing the type of the object and its API
+            schema version. Structures that are versioned or persisted should inline
+            TypeMeta.
+          properties:
+            apiVersion:
+              description: 'APIVersion defines the versioned schema of this representation
+                of an object. Servers should convert recognized schemas to the latest
+                internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources'
+              type: string
+            kind:
+              description: 'Kind is a string value representing the REST resource
+                this object represents. Servers may infer this from the endpoint the
+                client submits requests to. Cannot be updated. In CamelCase. More
+                info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds'
+              type: string
+          type: object
+        metadata:
+          type: object
+        spec:
+          description: RouterSpec is the top level type for this resource A router
+            contains a set of strategies
+          properties:
+            abTest:
+              description: ABTestSpec is TODO
+              type: object
+            ensemble:
+              description: EnsembleSpec is TODO
+              type: object
+            multiArmBandit:
+              description: MultiArmBanditSpec is TODO
+              type: object
+            pipeline:
+              description: PipelineSpec is TODO
+              type: object
+            routes:
+              description: Routes is a list of route which can receive traffic All
+                routes are expected to have an equivalent data plane interface
+              items:
+                description: RouteSpec defines the available routes in this router.
+                  Route functions reference routes by Name
+                properties:
+                  name:
+                    description: The name for the route
+                    type: string
+                  url:
+                    description: The URL of the route
+                    type: string
+                required:
+                - name
+                - url
+                type: object
+              type: array
+            splitter:
+              description: SplitterSpec defines a simple weighted traffic split interface
+              properties:
+                weights:
+                  description: Weights defines the weights of the routes
+                  items:
+                    description: WeightsSpec defines a simple weighted traffic split
+                      interface
+                    properties:
+                      name:
+                        description: The name for the route
+                        type: string
+                      weight:
+                        description: The weight to send traffic to this route.
+                        type: integer
+                    required:
+                    - name
+                    - weight
+                    type: object
+                  type: array
+              type: object
+          required:
+          - routes
+          type: object
+        status:
+          description: RouterStatus defines the observed state of resource
+          properties:
+            address:
+              description: Addressable endpoint for the router
+              properties:
+                url:
+                  $ref: '#/definitions/net~1url~0URL'
+                  description: URL is an alias of url.URL. It has custom json marshal
+                    methods that enable it to be used in K8s CRDs such that the CRD
+                    resource will have the URL but operator code can can work with
+                    url.URL struct
+              type: object
+            conditions:
+              $ref: '#/definitions/knative.dev~1pkg~1apis~0Conditions'
+              description: Conditions the latest available observations of a resource's
+                current state.
+            observedGeneration:
+              description: ObservedGeneration is the 'Generation' of the Service that
+                was last processed by the controller.
+              format: int64
+              type: integer
+          type: object
+      required:
+      - inline
+      type: object
+  version: v1alpha3
+  versions:
+  - name: v1alpha3
+    served: true
+    storage: true
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []

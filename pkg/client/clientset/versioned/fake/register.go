@@ -19,7 +19,7 @@ limitations under the License.
 package fake
 
 import (
-	servingv1alpha2 "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
+	servingv1alpha3 "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha3"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -31,7 +31,7 @@ var scheme = runtime.NewScheme()
 var codecs = serializer.NewCodecFactory(scheme)
 var parameterCodec = runtime.NewParameterCodec(scheme)
 var localSchemeBuilder = runtime.SchemeBuilder{
-	servingv1alpha2.AddToScheme,
+	servingv1alpha3.AddToScheme,
 }
 
 // AddToScheme adds all types of this clientset into the given scheme. This allows composition

@@ -1,0 +1,24 @@
+apiVersion: "serving.kubeflow.org/v1alpha3"
+kind: "Service"
+metadata:
+  name: "tensorflow-pod-overridess"
+spec:
+  predictor:
+    tensorflow:
+      storageUri: "gs://kfserving-samples/models/tensorflow/flowers"
+      image: tensorflow/serving
+    spec:
+      serviceAccount: "serving-admin"
+
+--- # ===== VS ======
+
+apiVersion: "serving.kubeflow.org/v1alpha3"
+kind: "Service"
+metadata:
+  name: "tensorflow-pod-overridess"
+spec:
+  predictor:
+    serviceAccount: "serving-admin"
+    tensorflow:
+      storageUri: "gs://kfserving-samples/models/tensorflow/flowers"
+      image: tensorflow/serving

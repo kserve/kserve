@@ -19,22 +19,26 @@ limitations under the License.
 package fake
 
 import (
-	v1alpha2 "github.com/kubeflow/kfserving/pkg/client/clientset/versioned/typed/serving/v1alpha2"
+	v1alpha3 "github.com/kubeflow/kfserving/pkg/client/clientset/versioned/typed/serving/v1alpha3"
 	rest "k8s.io/client-go/rest"
 	testing "k8s.io/client-go/testing"
 )
 
-type FakeServingV1alpha2 struct {
+type FakeServingV1alpha3 struct {
 	*testing.Fake
 }
 
-func (c *FakeServingV1alpha2) InferenceServices(namespace string) v1alpha2.InferenceServiceInterface {
-	return &FakeInferenceServices{c, namespace}
+func (c *FakeServingV1alpha3) Routers(namespace string) v1alpha3.RouterInterface {
+	return &FakeRouters{c, namespace}
+}
+
+func (c *FakeServingV1alpha3) Services(namespace string) v1alpha3.ServiceInterface {
+	return &FakeServices{c, namespace}
 }
 
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
-func (c *FakeServingV1alpha2) RESTClient() rest.Interface {
+func (c *FakeServingV1alpha3) RESTClient() rest.Interface {
 	var ret *rest.RESTClient
 	return ret
 }

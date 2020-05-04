@@ -6576,6 +6576,7 @@ spec:
               description: Ducktype for addressable
               properties:
                 url:
+                  $ref: '#/definitions/net~1url~0URL'
                   description: URL is an alias of url.URL. It has custom json marshal
                     methods that enable it to be used in K8s CRDs such that the CRD
                     resource will have the URL but operator code can can work with
@@ -6601,39 +6602,9 @@ spec:
               description: Traffic percentage that goes to canary services
               type: integer
             conditions:
+              $ref: '#/definitions/knative.dev~1pkg~1apis~0Conditions'
               description: Conditions the latest available observations of a resource's
-                current state. +patchMergeKey=type +patchStrategy=merge
-              items:
-                properties:
-                  lastTransitionTime:
-                    description: LastTransitionTime is the last time the condition
-                      transitioned from one status to another. We use VolatileTime
-                      in place of metav1.Time to exclude this from creating equality.Semantic
-                      differences (all other things held constant).
-                    type: string
-                  message:
-                    description: A human readable message indicating details about
-                      the transition.
-                    type: string
-                  reason:
-                    description: The reason for the condition's last transition.
-                    type: string
-                  severity:
-                    description: Severity with which to treat failures of this type
-                      of condition. When this is not specified, it defaults to Error.
-                    type: string
-                  status:
-                    description: Status of the condition, one of True, False, Unknown.
-                      +required
-                    type: string
-                  type:
-                    description: Type of condition. +required
-                    type: string
-                required:
-                - type
-                - status
-                type: object
-              type: array
+                current state.
             default:
               additionalProperties:
                 description: StatusConfigurationSpec describes the state of the configuration
