@@ -23,15 +23,17 @@ spec:
     explainer:
       alibi:
         type: AnchorImages
-        storageUri: "gs://seldon-models/tfserving/imagenet/explainer"
+        storageUri: "gs://seldon-models/tfserving/imagenet/alibi/0.4.0"
         config:
           batch_size: "25"
+	  stop_in_first: "True"
         resources:
           requests:
             cpu: 0.1
             memory: 5Gi            
           limits:
-            memory: 10Gi        
+            memory: 10Gi
+        
 ```
 
 We set a custom config for batch_size as presently image requests are slow and may cause gateway timeouts if the batch size is too large.

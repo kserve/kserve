@@ -19,7 +19,7 @@ def test_anchor_images():
         model = InceptionV3(weights='imagenet')
         predictor = lambda x : model.predict(x)
         alibi_model = dill.load(f)
-        anchor_images = AnchorImages(predictor,alibi_model)
+        anchor_images = AnchorImages(predictor,alibi_model, batch_size=25, stop_on_first=True)
         category = 'Persian cat'
         image_shape = (299, 299, 3)
         data, labels = fetch_imagenet(category, nb_images=10, target_size=image_shape[:2], seed=2, return_X_y=True)
