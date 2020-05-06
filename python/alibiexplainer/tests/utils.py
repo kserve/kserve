@@ -2,7 +2,8 @@ import kfserving
 from typing import List, Union
 import numpy as np
 
-class Predictor(object):
+
+class Predictor(): # pylint:disable=too-few-public-methods
     def __init__(self, clf: kfserving.KFModel):
         self.clf = clf
 

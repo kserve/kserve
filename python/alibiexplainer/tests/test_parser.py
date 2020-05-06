@@ -16,29 +16,48 @@ CACHE_MARGIN = 75
 VERBOSE = True
 VERBOSE_EVERY = 2
 
+
 def test_basic_args():
-    args = ["--predictor_host",PREDICTOR_HOST]
-    parser, extra = parse_args(args)
+    args = ["--predictor_host", PREDICTOR_HOST]
+    parser, _ = parse_args(args)
     assert parser.predictor_host == PREDICTOR_HOST
 
+
 def test_shared_explainer_args():
-    args = ["--predictor_host", PREDICTOR_HOST,"AnchorTabular",
-            "--threshold",str(THRESHOLD),
-            "--delta",str(DELTA),
-            "--tau",str(TAU),
-            "--batch_size",str(BATCH_SIZE),
-            "--coverage_samples",str(COVERAGE_SAMPLES),
-            "--beam_size",str(BEAM_SIZE),
-            "--stop_on_first",str(STOP_ON_FIRST),
-            "--max_anchor_size",str(MAX_ANCHOR_SIZE),
-            "--max_samples_start",str(MAX_SAMPLES_START),
-            "--n_covered_ex",str(N_COVERED_EX),
-            "--binary_cache_size",str(BINARY_CACHE_SIZE),
-            "--cache_margin",str(CACHE_MARGIN),
-            "--verbose",str(VERBOSE),
-            "--verbose_every",str(VERBOSE_EVERY)
-            ]
-    parser,extra = parse_args(args)
+    args = [
+        "--predictor_host",
+        PREDICTOR_HOST,
+        "AnchorTabular",
+        "--threshold",
+        str(THRESHOLD),
+        "--delta",
+        str(DELTA),
+        "--tau",
+        str(TAU),
+        "--batch_size",
+        str(BATCH_SIZE),
+        "--coverage_samples",
+        str(COVERAGE_SAMPLES),
+        "--beam_size",
+        str(BEAM_SIZE),
+        "--stop_on_first",
+        str(STOP_ON_FIRST),
+        "--max_anchor_size",
+        str(MAX_ANCHOR_SIZE),
+        "--max_samples_start",
+        str(MAX_SAMPLES_START),
+        "--n_covered_ex",
+        str(N_COVERED_EX),
+        "--binary_cache_size",
+        str(BINARY_CACHE_SIZE),
+        "--cache_margin",
+        str(CACHE_MARGIN),
+        "--verbose",
+        str(VERBOSE),
+        "--verbose_every",
+        str(VERBOSE_EVERY),
+    ]
+    parser, _ = parse_args(args)
     assert parser.explainer.threshold == THRESHOLD
     assert parser.explainer.delta == DELTA
     assert parser.explainer.tau == TAU
@@ -54,21 +73,31 @@ def test_shared_explainer_args():
     assert parser.explainer.verbose == VERBOSE
     assert parser.explainer.verbose_every == VERBOSE_EVERY
 
+
 USE_UNK = True
 USE_SIMILARITY_PROBA = True
-SAMPLE_PROBA= 0.6
+SAMPLE_PROBA = 0.6
 TOP_N = 4
 TEMPERATURE = 0.2
 
+
 def test_anchor_text_parser():
-    args = ["--predictor_host", PREDICTOR_HOST, "AnchorText",
-            "--use_unk",str(USE_UNK),
-            "--use_similarity_proba",str(USE_SIMILARITY_PROBA),
-            "--sample_proba",str(SAMPLE_PROBA),
-            "--top_n",str(TOP_N),
-            "--temperature",str(TEMPERATURE)
-            ]
-    parser, extra = parse_args(args)
+    args = [
+        "--predictor_host",
+        PREDICTOR_HOST,
+        "AnchorText",
+        "--use_unk",
+        str(USE_UNK),
+        "--use_similarity_proba",
+        str(USE_SIMILARITY_PROBA),
+        "--sample_proba",
+        str(SAMPLE_PROBA),
+        "--top_n",
+        str(TOP_N),
+        "--temperature",
+        str(TEMPERATURE),
+    ]
+    parser, _ = parse_args(args)
     assert parser.predictor_host == PREDICTOR_HOST
     assert parser.explainer.use_unk == USE_UNK
     assert parser.explainer.use_similarity_proba == USE_SIMILARITY_PROBA
@@ -76,12 +105,18 @@ def test_anchor_text_parser():
     assert parser.explainer.top_n == TOP_N
     assert parser.explainer.temperature == TEMPERATURE
 
+
 P_SAMPLE = 0.15
 
+
 def test_anchor_images_parser():
-    args = ["--predictor_host", PREDICTOR_HOST, "AnchorImages",
-            "--p_sample", str(P_SAMPLE),
-            ]
-    parser, extra = parse_args(args)
+    args = [
+        "--predictor_host",
+        PREDICTOR_HOST,
+        "AnchorImages",
+        "--p_sample",
+        str(P_SAMPLE),
+    ]
+    parser, _ = parse_args(args)
     assert parser.predictor_host == PREDICTOR_HOST
     assert parser.explainer.p_sample == P_SAMPLE

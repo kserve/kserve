@@ -7,6 +7,7 @@ test: type_check lint
 
 lint:
 	pylint --rcfile=../.pylintrc alibiexplainer
+	pylint --rcfile=../.pylintrc tests
 
 type_check:
 	mypy --ignore-missing-imports alibiexplainer

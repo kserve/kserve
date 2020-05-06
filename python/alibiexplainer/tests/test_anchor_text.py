@@ -9,12 +9,13 @@ import numpy as np
 
 MOVIE_MODEL_URI = "gs://seldon-models/sklearn/moviesentiment"
 
+
 def test_anchor_text():
     os.environ.clear()
     skmodel = SKLearnModel("adult", MOVIE_MODEL_URI)
     skmodel.load()
     predictor = Predictor(skmodel)
-    anchor_text = AnchorText(predictor.predict_fn,None)
+    anchor_text = AnchorText(predictor.predict_fn, None)
     movies = fetch_movie_sentiment()
     np.random.seed(0)
     explanation: Explanation = anchor_text.explain(movies.data[4:5])

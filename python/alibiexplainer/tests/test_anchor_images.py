@@ -12,17 +12,24 @@ IMAGENET_EXPLAINER_URI = "gs://seldon-models/tfserving/imagenet/alibi/0.4.0"
 ADULT_MODEL_URI = "gs://seldon-models/sklearn/income/model"
 EXPLAINER_FILENAME = "explainer.dill"
 
+
 def test_anchor_images():
     os.environ.clear()
-    alibi_model = os.path.join(kfserving.Storage.download(IMAGENET_EXPLAINER_URI), EXPLAINER_FILENAME)
-    with open(alibi_model, 'rb') as f:
-        model = InceptionV3(weights='imagenet')
-        predictor = lambda x : model.predict(x)
+    alibi_model = os.path.join(
+        kfserving.Storage.download(IMAGENET_EXPLAINER_URI), EXPLAINER_FILENAME
+    )
+    with open(alibi_model, "rb") as f:
+        model = InceptionV3(weights="imagenet")
+        predictor = lambda x: model.predict(x) # pylint:disable=unnecessary-lambda
         alibi_model = dill.load(f)
-        anchor_images = AnchorImages(predictor,alibi_model, batch_size=25, stop_on_first=True)
-        category = 'Persian cat'
+        anchor_images = AnchorImages(
+            predictor, alibi_model, batch_size=25, stop_on_first=True
+        )
+        category = "Persian cat"
         image_shape = (299, 299, 3)
-        data, labels = fetch_imagenet(category, nb_images=10, target_size=image_shape[:2], seed=2, return_X_y=True)
+        data, _ = fetch_imagenet(
+            category, nb_images=10, target_size=image_shape[:2], seed=2, return_X_y=True
+        )
         images = preprocess_input(data)
         print(images.shape)
         np.random.seed(0)
