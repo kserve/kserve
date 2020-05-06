@@ -64,11 +64,14 @@ type ComponentExtensionSpec struct {
 	// Maximum number of replicas for autoscaling.
 	// +optional
 	MaxReplicas int `json:"maxReplicas,omitempty"`
-	// Parallelism specifies how many requests can be processed concurrently, this sets the target
+	// Concurrency specifies how many requests can be processed concurrently, this sets the target
 	// concurrency for Autoscaling(KPA). For model servers that support tuning parallelism will use this value,
 	// by default the parallelism is the number of the CPU cores for most of the model servers.
 	// +optional
-	Parallelism int `json:"parallelism,omitempty"`
+	ContainerConcurrency int `json:"parallelism,omitempty"`
+	// TimeoutSeconds specifies the numberof seconds to wait before timing out a request to the component.
+	// +optional
+	TimeoutSeconds int `json:"timeout,omitempty"`
 	// Specify request and response logging
 	// +optional
 	LoggerSpec *LoggerSpec `json:"logger,omitempty"`
