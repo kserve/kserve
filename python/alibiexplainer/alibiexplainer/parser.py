@@ -1,7 +1,7 @@
 import argparse
+import kfserving
 import logging
 import os
-import kfserving
 from alibiexplainer.explainer import ExplainerMethod  # pylint:disable=no-name-in-module
 
 logging.basicConfig(level=kfserving.constants.KFSERVING_LOGLEVEL)
@@ -23,10 +23,9 @@ def str2bool(v):
         return v
     if v.lower() in ("yes", "true", "t", "y", "1"):
         return True
-    elif v.lower() in ("no", "false", "f", "n", "0"):
+    if v.lower() in ("no", "false", "f", "n", "0"):
         return False
-    else:
-        raise argparse.ArgumentTypeError("Boolean value expected.")
+    raise argparse.ArgumentTypeError("Boolean value expected.")
 
 
 def addCommonParserArgs(parser):

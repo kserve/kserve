@@ -11,42 +11,31 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import logging
-from typing import Callable, List, Dict, Optional, Any
-
 import alibi
-import joblib
 import kfserving
+import logging
 import numpy as np
-from alibiexplainer.explainer_wrapper import ExplainerWrapper
 from alibi.api.interfaces import Explanation
 from alibi.utils.wrappers import ArgmaxTransformer
+from alibiexplainer.explainer_wrapper import ExplainerWrapper
+from typing import Callable, List, Optional
 
 logging.basicConfig(level=kfserving.constants.KFSERVING_LOGLEVEL)
 
 
 class AnchorTabular(ExplainerWrapper):
     def __init__(
-        self,
-        predict_fn: Callable,
-        explainer=Optional[alibi.explainers.AnchorTabular],
-        **kwargs
+            self,
+            predict_fn: Callable,
+            explainer=Optional[alibi.explainers.AnchorTabular],
+            **kwargs
     ):
         if explainer is None:
             raise Exception("Anchor images requires a built explainer")
         self.predict_fn = predict_fn
-        self.cmap: Optional[Dict[Any, Any]] = None
         self.anchors_tabular: alibi.explainers.AnchorTabular = explainer
         self.anchors_tabular = explainer
-        # self._reuse_cat_map(self.anchors_tabular.categorical_names)
         self.kwargs = kwargs
-
-    def _reuse_cat_map(self, categorical_map: Dict):
-        # reuse map for formatting output
-        cmap = dict.fromkeys(categorical_map.keys())
-        for key, val in categorical_map.items():
-            cmap[key] = {i: v for i, v in enumerate(val)}
-        self.cmap = cmap
 
     def explain(self, inputs: List) -> Explanation:
         arr = np.array(inputs)

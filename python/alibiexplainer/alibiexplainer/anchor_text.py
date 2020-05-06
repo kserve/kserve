@@ -11,28 +11,27 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import logging
-from typing import Callable, List, Dict, Optional
-
+import alibi
 import kfserving
+import logging
 import numpy as np
 import spacy
-import alibi
-from alibi.utils.download import spacy_model
-from alibiexplainer.explainer_wrapper import ExplainerWrapper
 from alibi.api.interfaces import Explanation
+from alibi.utils.download import spacy_model
 from alibi.utils.wrappers import ArgmaxTransformer
+from alibiexplainer.explainer_wrapper import ExplainerWrapper
+from typing import Callable, List, Optional
 
 logging.basicConfig(level=kfserving.constants.KFSERVING_LOGLEVEL)
 
 
 class AnchorText(ExplainerWrapper):
     def __init__(
-        self,
-        predict_fn: Callable,
-        explainer: Optional[alibi.explainers.AnchorText],
-        spacy_language_model: str = "en_core_web_md",
-        **kwargs
+            self,
+            predict_fn: Callable,
+            explainer: Optional[alibi.explainers.AnchorText],
+            spacy_language_model: str = "en_core_web_md",
+            **kwargs
     ):
         self.predict_fn = predict_fn
         self.kwargs = kwargs

@@ -11,25 +11,24 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import logging
-from typing import Callable, List, Dict, Optional
-
 import alibi
 import kfserving
+import logging
 import numpy as np
-from alibiexplainer.explainer_wrapper import ExplainerWrapper
 from alibi.api.interfaces import Explanation
 from alibi.utils.wrappers import ArgmaxTransformer
+from alibiexplainer.explainer_wrapper import ExplainerWrapper
+from typing import Callable, List, Optional
 
 logging.basicConfig(level=kfserving.constants.KFSERVING_LOGLEVEL)
 
 
 class AnchorImages(ExplainerWrapper):
     def __init__(
-        self,
-        predict_fn: Callable,
-        explainer: Optional[alibi.explainers.AnchorImage],
-        **kwargs
+            self,
+            predict_fn: Callable,
+            explainer: Optional[alibi.explainers.AnchorImage],
+            **kwargs
     ):
         if explainer is None:
             raise Exception("Anchor images requires a built explainer")

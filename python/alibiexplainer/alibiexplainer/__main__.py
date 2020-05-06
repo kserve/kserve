@@ -12,12 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import argparse
+import dill
+import kfserving
 import logging
 import os
 import sys
-import dill
-import kfserving
 from alibiexplainer import AlibiExplainer
 from alibiexplainer.explainer import ExplainerMethod  # pylint:disable=no-name-in-module
 from alibiexplainer.parser import parse_args
