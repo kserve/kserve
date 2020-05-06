@@ -23,9 +23,14 @@ from alibi.utils.wrappers import ArgmaxTransformer
 
 logging.basicConfig(level=kfserving.constants.KFSERVING_LOGLEVEL)
 
-class AnchorImages(ExplainerWrapper):
 
-    def __init__(self, predict_fn: Callable, explainer: Optional[alibi.explainers.AnchorImage], **kwargs):
+class AnchorImages(ExplainerWrapper):
+    def __init__(
+        self,
+        predict_fn: Callable,
+        explainer: Optional[alibi.explainers.AnchorImage],
+        **kwargs
+    ):
         if explainer is None:
             raise Exception("Anchor images requires a built explainer")
         self.predict_fn = predict_fn
@@ -41,6 +46,6 @@ class AnchorImages(ExplainerWrapper):
         else:
             self.anchors_image.predictor = ArgmaxTransformer(self.predict_fn)
         logging.info("Calling explain on image of shape %s", (arr.shape,))
-        logging.info("anchor image call with %s",self.kwargs)
+        logging.info("anchor image call with %s", self.kwargs)
         anchor_exp = self.anchors_image.explain(arr[0], **self.kwargs)
         return anchor_exp

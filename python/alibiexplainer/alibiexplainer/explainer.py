@@ -36,19 +36,23 @@ class ExplainerMethod(Enum):
 
 
 class AlibiExplainer(kfserving.KFModel):
-    def __init__(self,
-                 name: str,
-                 predictor_host: str,
-                 method: ExplainerMethod,
-                 config: Mapping,
-                 explainer: object = None):
+    def __init__(
+        self,
+        name: str,
+        predictor_host: str,
+        method: ExplainerMethod,
+        config: Mapping,
+        explainer: object = None,
+    ):
         super().__init__(name)
         self.predictor_host = predictor_host
         logging.info("Predict URL set to %s", self.predictor_host)
         self.method = method
 
         if self.method is ExplainerMethod.anchor_tabular:
-            self.wrapper: ExplainerWrapper = AnchorTabular(self._predict_fn, explainer, **config)
+            self.wrapper: ExplainerWrapper = AnchorTabular(
+                self._predict_fn, explainer, **config
+            )
         elif self.method is ExplainerMethod.anchor_images:
             self.wrapper = AnchorImages(self._predict_fn, explainer, **config)
         elif self.method is ExplainerMethod.anchor_text:
@@ -70,7 +74,11 @@ class AlibiExplainer(kfserving.KFModel):
         return np.array(resp["predictions"])
 
     def explain(self, request: Dict) -> Any:
-        if self.method is ExplainerMethod.anchor_tabular or self.method is ExplainerMethod.anchor_images or self.method is ExplainerMethod.anchor_text:
+        if (
+            self.method is ExplainerMethod.anchor_tabular
+            or self.method is ExplainerMethod.anchor_images
+            or self.method is ExplainerMethod.anchor_text
+        ):
             explanation = self.wrapper.explain(request["instances"])
             explanationAsJsonStr = explanation.to_json()
             logging.info("Explanation: %s", explanationAsJsonStr)

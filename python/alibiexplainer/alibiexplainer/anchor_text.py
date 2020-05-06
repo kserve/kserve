@@ -27,9 +27,13 @@ logging.basicConfig(level=kfserving.constants.KFSERVING_LOGLEVEL)
 
 
 class AnchorText(ExplainerWrapper):
-
-    def __init__(self, predict_fn: Callable, explainer: Optional[alibi.explainers.AnchorText],
-                 spacy_language_model: str = 'en_core_web_md', **kwargs):
+    def __init__(
+        self,
+        predict_fn: Callable,
+        explainer: Optional[alibi.explainers.AnchorText],
+        spacy_language_model: str = "en_core_web_md",
+        **kwargs
+    ):
         self.predict_fn = predict_fn
         self.kwargs = kwargs
         logging.info("Anchor Text args %s", self.kwargs)

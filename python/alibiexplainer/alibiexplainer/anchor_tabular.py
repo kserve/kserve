@@ -24,17 +24,21 @@ from alibi.utils.wrappers import ArgmaxTransformer
 
 logging.basicConfig(level=kfserving.constants.KFSERVING_LOGLEVEL)
 
-class AnchorTabular(ExplainerWrapper):
 
-    def __init__(self, predict_fn: Callable, explainer=Optional[alibi.explainers.AnchorTabular],
-                 **kwargs):
+class AnchorTabular(ExplainerWrapper):
+    def __init__(
+        self,
+        predict_fn: Callable,
+        explainer=Optional[alibi.explainers.AnchorTabular],
+        **kwargs
+    ):
         if explainer is None:
             raise Exception("Anchor images requires a built explainer")
         self.predict_fn = predict_fn
         self.cmap: Optional[Dict[Any, Any]] = None
         self.anchors_tabular: alibi.explainers.AnchorTabular = explainer
         self.anchors_tabular = explainer
-        #self._reuse_cat_map(self.anchors_tabular.categorical_names)
+        # self._reuse_cat_map(self.anchors_tabular.categorical_names)
         self.kwargs = kwargs
 
     def _reuse_cat_map(self, categorical_map: Dict):
@@ -57,9 +61,10 @@ class AnchorTabular(ExplainerWrapper):
             self.anchors_tabular.samplers[0].predictor = self.predict_fn
         else:
             self.anchors_tabular.predictor = ArgmaxTransformer(self.predict_fn)
-            self.anchors_tabular.samplers[0].predictor = ArgmaxTransformer(self.predict_fn)
+            self.anchors_tabular.samplers[0].predictor = ArgmaxTransformer(
+                self.predict_fn
+            )
 
         # We assume the input has batch dimension but Alibi explainers presently assume no batch
         anchor_exp = self.anchors_tabular.explain(arr[0], **self.kwargs)
         return anchor_exp
-

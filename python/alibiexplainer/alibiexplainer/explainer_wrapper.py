@@ -17,7 +17,6 @@ from alibi.api.interfaces import Explanation
 
 
 class ExplainerWrapper(object):
-
     def validate(self, training_data_url: Optional[str]):
         pass
 

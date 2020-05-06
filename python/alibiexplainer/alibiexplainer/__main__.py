@@ -21,26 +21,31 @@ import kfserving
 from alibiexplainer import AlibiExplainer
 from alibiexplainer.explainer import ExplainerMethod  # pylint:disable=no-name-in-module
 from alibiexplainer.parser import parse_args
+
 logging.basicConfig(level=kfserving.constants.KFSERVING_LOGLEVEL)
 
 EXPLAINER_FILENAME = "explainer.dill"
+
 
 def main():
     args, extra = parse_args(sys.argv[1:])
     # Pretrained Alibi explainer
     alibi_model = None
     if args.storage_uri is not None:
-        alibi_model = os.path.join(kfserving.Storage.download(args.storage_uri),
-                                   EXPLAINER_FILENAME)
-        with open(alibi_model, 'rb') as f:
+        alibi_model = os.path.join(
+            kfserving.Storage.download(args.storage_uri), EXPLAINER_FILENAME
+        )
+        with open(alibi_model, "rb") as f:
             logging.info("Loading Alibi model")
             alibi_model = dill.load(f)
 
-    explainer = AlibiExplainer(args.model_name,
-                               args.predictor_host,
-                               ExplainerMethod(args.command),
-                               extra,
-                               alibi_model)
+    explainer = AlibiExplainer(
+        args.model_name,
+        args.predictor_host,
+        ExplainerMethod(args.command),
+        extra,
+        alibi_model,
+    )
     explainer.load()
     kfserving.KFServer().start(models=[explainer])
 
