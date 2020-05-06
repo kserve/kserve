@@ -36,7 +36,7 @@ class ExplainerMethod(Enum):
 
 
 class AlibiExplainer(kfserving.KFModel):
-    def __init__(
+    def __init__( # pylint:disable=too-many-arguments
             self,
             name: str,
             predictor_host: str,
