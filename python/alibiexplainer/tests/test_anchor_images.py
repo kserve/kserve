@@ -2,7 +2,6 @@ from alibiexplainer.anchor_images import AnchorImages
 import os
 from tensorflow.keras.applications.inception_v3 import InceptionV3, preprocess_input
 from alibi.datasets import fetch_imagenet
-from alibi.api.interfaces import Explanation
 import json
 import numpy as np
 import kfserving
@@ -33,6 +32,6 @@ def test_anchor_images():
         images = preprocess_input(data)
         print(images.shape)
         np.random.seed(0)
-        explanation: Explanation = anchor_images.explain(images[0:1])
+        explanation = anchor_images.explain(images[0:1])
         exp_json = json.loads(explanation.to_json())
         assert exp_json["data"]["precision"] > 0.9

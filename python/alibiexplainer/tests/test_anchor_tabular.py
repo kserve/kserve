@@ -4,7 +4,6 @@ import os
 import dill
 from sklearnserver.model import SKLearnModel
 from alibi.datasets import fetch_adult
-from alibi.api.interfaces import Explanation
 import numpy as np
 import json
 from .utils import Predictor
@@ -28,7 +27,7 @@ def test_anchor_tabular():
         adult = fetch_adult()
         X_test = adult.data[30001:, :]
         np.random.seed(0)
-        explanation: Explanation = anchor_tabular.explain(X_test[0:1].tolist())
+        explanation = anchor_tabular.explain(X_test[0:1].tolist())
         exp_json = json.loads(explanation.to_json())
         assert exp_json["data"]["anchor"][0] == "Age <= 28.00"
         assert exp_json["data"]["anchor"][1] == "Marital Status = Never-Married"
