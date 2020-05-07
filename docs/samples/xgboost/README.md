@@ -6,7 +6,6 @@ To test the XGBoost Server, first we need to generate a simple XGBoost model usi
 import xgboost as xgb
 from sklearn.datasets import load_iris
 import os
-from xgbserver import XGBoostModel
 
 model_dir = "."
 BST_FILE = "model.bst"
@@ -38,13 +37,8 @@ We can also use the inbuilt sklearn support for sample datasets and do some simp
 ```python
 from sklearn.datasets import load_iris
 import requests
-from xgbserver import XGBoostModel
-
-model_dir = "."
-BST_FILE = "model.bst"
 
 iris = load_iris()
-y = iris['target']
 X = iris['data']
 
 request = [X[0].tolist()]
