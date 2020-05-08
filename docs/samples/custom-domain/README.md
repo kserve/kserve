@@ -4,13 +4,11 @@
 
 1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/blob/master/docs/DEVELOPER_GUIDE.md#deploy-kfserving).
 2. Your cluster's Istio Ingress gateway must be network accessible.
-3. You have a custom domain configured to route incoming traffic either to the Cloud provided Kubernetes Ingress gateway or the istio-ingressgateway / kfserving-ingressgateway's IP address / Load Balancer.
+3. You have a custom domain configured to route incoming traffic either to the Cloud provided Kubernetes Ingress gateway or the istio-ingressgateway's IP address / Load Balancer.
 
 ## Create the Ingress resource
 
 #### Note: This step is only necessary if using a domain that is configured to route incoming traffic to the cluster's Kubernetes Ingress. For example, many cloud platforms provide default domains which route to a Kuberenetes Ingress. If using a domain that is routed to the `istio-ingressgateway`, you can skip this step.
-
-#### Note: Use `kfserving-ingressgateway` instead of `istio-ingressgateway` as your `INGRESS_GATEWAY` if you are deploying KFServing as part of Kubeflow install, and not independently.
 
 Edit the `kfserving-ingress.yaml` file to add your custom wildcard domain to the `spec.rules.host` section, replacing `<*.custom_domain>` with your custom wildcard domain. This is so that all incoming network traffic from your custom domain and any subdomain is routed to the `istio-ingressgateway`.
 
