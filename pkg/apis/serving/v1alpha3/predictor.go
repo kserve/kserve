@@ -53,8 +53,8 @@ func (s *Service) GetPredictor() Predictor {
 }
 
 // GetPredictorPodSpec returns the PodSpec for the Predictor
-func (s *Service) GetPredictorPodSpec() v1.PodSpec {
-	p := s.Spec.Predictor.CustomPredictor.PodSpec
-	p.Containers = s.GetPredictor().GetContainers()
+func (s *Service) GetPredictorPodSpec() v1.PodTemplateSpec {
+	p := s.Spec.Predictor.CustomPredictor.PodTemplateSpec
+	p.Spec.Containers = s.GetPredictor().GetContainers()
 	return p
 }

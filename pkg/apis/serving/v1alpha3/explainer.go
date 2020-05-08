@@ -8,7 +8,7 @@ type ExplainerSpec struct {
 	// Spec for alibi explainer
 	Alibi *AlibiExplainerSpec `json:"alibi,omitempty"`
 	// Passthrough to underlying Pods
-	*v1.PodSpec `json:",inline"`
+	*v1.PodTemplateSpec `json:",inline"`
 	// Extensions available in all components
 	*ComponentExtensionSpec `json:",inline"`
 }
