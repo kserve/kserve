@@ -77,12 +77,37 @@ spec:
                   Route functions reference routes by Name
                 properties:
                   name:
+                    description: The name for the route
+                    type: string
+                  url:
                     description: The URL of the route
                     type: string
                 required:
                 - name
+                - url
                 type: object
               type: array
+            splitter:
+              description: SplitterSpec defines a simple weighted traffic split interface
+              properties:
+                weights:
+                  description: Weights defines the weights of the routes
+                  items:
+                    description: WeightsSpec defines a simple weighted traffic split
+                      interface
+                    properties:
+                      name:
+                        description: The name for the route
+                        type: string
+                      weight:
+                        description: The weight to send traffic to this route.
+                        type: integer
+                    required:
+                    - name
+                    - weight
+                    type: object
+                  type: array
+              type: object
           required:
           - routes
           type: object
