@@ -9,7 +9,7 @@ type CustomPredictor struct {
 	// The field PodSpec.Containers is mutually exclusive with other Predictors (i.e. TFServing).
 	// 2) Users may choose to provide a Predictor (i.e. TFServing) and specify PodSpec
 	// overrides in the CustomPredictor PodSpec. They must not provide PodSpec.Containers in this case.
-	v1.PodSpec `json:",inline"`
+	v1.PodTemplateSpec `json:",inline"`
 }
 
 // Validate returns an error if invalid
@@ -22,5 +22,5 @@ func (c *CustomPredictor) Default() {}
 
 // GetContainers transforms the resource into a container spec
 func (c *CustomPredictor) GetContainers() []v1.Container {
-	return c.Containers
+	return c.Spec.Containers
 }
