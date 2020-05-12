@@ -20,22 +20,6 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-echo "Upgrading to python 3.6 for testing ..."
-apt-get update -yqq
-apt-get install -y build-essential checkinstall >/dev/null
-apt-get install -y libreadline-gplv2-dev libncursesw5-dev libssl-dev libsqlite3-dev tk-dev libgdbm-dev libc6-dev libbz2-dev >/dev/null
-wget https://www.python.org/ftp/python/3.6.9/Python-3.6.9.tar.xz >/dev/null
-tar xvf Python-3.6.9.tar.xz >/dev/null
-pushd Python-3.6.9  >/dev/null
-  ./configure >/dev/null
-  make altinstall >/dev/null
-popd
-
-update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.5 1
-update-alternatives --install /usr/bin/python3 python3 /usr/local/bin/python3.6 2
-# Work around the issue https://github.com/pypa/pip/issues/4924
-mv /usr/bin/lsb_release /usr/bin/lsb_release.bak
-
 echo "Installing requirement pacakges ..."
 python3 -m pip install --upgrade pip
 pip3 install --upgrade pytest
