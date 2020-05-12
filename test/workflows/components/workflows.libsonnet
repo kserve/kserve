@@ -336,11 +336,9 @@
               "test/scripts/sdk-test.sh",
             ]),  // sdk unit test
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("pylint-checking", testWorkerImage, [
-              "python",
-              "-m",
-              "kubeflow.testing.test_py_lint",
-              "--artifacts_dir=" + artifactsDir,
-              "--src_dir=" + pylintSrcDir,
+              "test/scripts/pylint-test.sh",
+              artifactsDir,
+              pylintSrcDir,
             ]),  // pylint-checking
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("copy-artifacts", testWorkerImage, [
               "python",
