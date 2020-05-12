@@ -51,3 +51,5 @@
 [InferenceService with Request/Response Logger](./logger/basic)
 
 [InferenceService with Kafka Event Source](./kafka)
+
+[InferenceService on Kubeflow with Istio-Dex](./istio-dex)
