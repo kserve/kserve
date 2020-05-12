@@ -159,20 +159,17 @@ kubectl apply -f bentoml.yaml
 
 ### Run prediction
 
-*Note: Use kfserving-ingressgateway as your INGRESS_GATEWAY if you are deploying
-KFServing as part of Kubeflow install, and not independently.*
-
 ```shell
 MODEL_NAME=iris-classifier
 INGRESS_GATEWAY=istio-ingressgateway
 CLUSTER_IP=$(kubectl -n istio-system get service $INGRESS_GATEWAY -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-SERVICE_HOSTNAME=$(kubectl get inferenceservice ${MODEL_NAME} -o jsonpath='{.status.url}' | cut -d "/" -f 3)
+SERVICE_HOSTNAME=$(kubectl get route ${MODEL_NAME}-predictor-default -o jsonpath='{.status.url}' | cut -d "/" -f 3)
 
 curl -v -H "Host: ${SERVICE_HOSTNAME}" \
   --header "Content-Type: application/json" \
   --request POST \
   --data '[[5.1, 3.5, 1.4, 0.2]]' \
-  http://$CLUSTER_IP/model/predict
+  http://$CLUSTER_IP/predict
 ```
 
 ### Delete deployment
