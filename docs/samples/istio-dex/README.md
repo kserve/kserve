@@ -75,7 +75,7 @@ There are 2 methods to obtain the authservice_session token in order to send aut
     
     1. Log in to Kubeflow Central Dashboard with your user account.
     2. View cookies used in the Kubeflow Central Dashboard site from your browser.
-    3. Copy the token content from the cookie authservice_session
+    3. Copy the token content from the cookie `authservice_session`
 
         ![authservice_session](https://user-images.githubusercontent.com/41395198/81792510-bbd28800-953a-11ea-8cab-f9bee161d5a7.png)
 
