@@ -32,9 +32,13 @@ $ inferenceservice.serving.kubeflow.org/sklearn-iris created
 
 ## Run a prediction
 
-1. Authentication 
+### Authentication 
 
-    Follow the following steps to obtain your authservice_session
+There are 2 methods to obtain the authservice_session token in order to send authenticated prediction requests to the `InferenceService`.
+
+* From CLI
+
+    Follow the following steps:
 
     ```bash
     1) CLUSTER_IP=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.spec.clusterIP}')
@@ -67,7 +71,15 @@ $ inferenceservice.serving.kubeflow.org/sklearn-iris created
     SESSION=SESSION
     ```
 
-2. Prediction
+* From the browser
+    
+    1. Log in to Kubeflow Central Dashboard with your user account.
+    2. View cookies used in the Kubeflow Central Dashboard site from your browser.
+    3. Copy the token content from the cookie authservice_session
+
+        ![authservice_session](https://user-images.githubusercontent.com/41395198/81792510-bbd28800-953a-11ea-8cab-f9bee161d5a7.png)
+
+### Prediction
 
     ```bash
     MODEL_NAME=sklearn-iris
