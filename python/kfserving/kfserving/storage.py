@@ -214,4 +214,5 @@ The path or model %s does not exist." % (uri))
         return Minio(url.netloc,
                      access_key=os.getenv("AWS_ACCESS_KEY_ID", ""),
                      secret_key=os.getenv("AWS_SECRET_ACCESS_KEY", ""),
+                     region=os.getenv("AWS_REGION", ""),
                      secure=use_ssl)
