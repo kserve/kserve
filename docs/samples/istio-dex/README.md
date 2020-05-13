@@ -38,7 +38,7 @@ There are 2 methods to obtain the authservice_session token in order to send aut
 
 * From CLI
 
-    Follow the following steps:
+    Follow the steps:
 
     ```bash
     1) CLUSTER_IP=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.spec.clusterIP}')
@@ -81,36 +81,36 @@ There are 2 methods to obtain the authservice_session token in order to send aut
 
 ### Prediction
 
-    ```bash
-    MODEL_NAME=sklearn-iris
-    INPUT_PATH=@./iris-input.json
-    CLUSTER_IP=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.spec.clusterIP}')
-    SERVICE_HOSTNAME=$(kubectl get -n admin inferenceservice ${MODEL_NAME} -o jsonpath='{.status.url}' | cut -d "/" -f 3)
-    curl -v -H "Host: ${SERVICE_HOSTNAME}" -H "Cookie: authservice_session=${SESSION}" http://${CLUSTER_IP}/v1/models/${MODEL_NAME}:predict -d ${INPUT_PATH}
-    ```
+```bash
+MODEL_NAME=sklearn-iris
+INPUT_PATH=@./iris-input.json
+CLUSTER_IP=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.spec.clusterIP}')
+SERVICE_HOSTNAME=$(kubectl get -n admin inferenceservice ${MODEL_NAME} -o jsonpath='{.status.url}' | cut -d "/" -f 3)
+curl -v -H "Host: ${SERVICE_HOSTNAME}" -H "Cookie: authservice_session=${SESSION}" http://${CLUSTER_IP}/v1/models/${MODEL_NAME}:predict -d ${INPUT_PATH}
+```
 
-    Expected Output
+Expected Output
 
-    ```bash
-    *   Trying 10.152.183.241...
-    * TCP_NODELAY set
-    * Connected to 10.152.183.241 (10.152.183.241) port 80 (#0)
-    > POST /v1/models/sklearn-iris:predict HTTP/1.1
-    > Host: sklearn-iris.admin.example.com
-    > User-Agent: curl/7.58.0
-    > Accept: */*
-    > Cookie: authservice_session=MTU4OTI5NDAzMHxOd3dBTkVveldFUlRWa3hJUVVKV1NrZE1WVWhCVmxSS05GRTFSMGhaVmtWR1JrUlhSRXRRUmtnMVRrTkpUekpOTTBOSFNGcElXRkU9fLgsofp8amFkZv4N4gnFUGjCePgaZPAU20ylfr8J-63T
-    > Content-Length: 76
-    > Content-Type: application/x-www-form-urlencoded
-    > 
-    * upload completely sent off: 76 out of 76 bytes
-    < HTTP/1.1 200 OK
-    < content-length: 23
-    < content-type: text/html; charset=UTF-8
-    < date: Tue, 12 May 2020 14:38:50 GMT
-    < server: istio-envoy
-    < x-envoy-upstream-service-time: 7307
-    < 
-    * Connection #0 to host 10.152.183.241 left intact
-    {"predictions": [1, 1]}
-    ```
+```bash
+*   Trying 10.152.183.241...
+* TCP_NODELAY set
+* Connected to 10.152.183.241 (10.152.183.241) port 80 (#0)
+> POST /v1/models/sklearn-iris:predict HTTP/1.1
+> Host: sklearn-iris.admin.example.com
+> User-Agent: curl/7.58.0
+> Accept: */*
+> Cookie: authservice_session=MTU4OTI5NDAzMHxOd3dBTkVveldFUlRWa3hJUVVKV1NrZE1WVWhCVmxSS05GRTFSMGhaVmtWR1JrUlhSRXRRUmtnMVRrTkpUekpOTTBOSFNGcElXRkU9fLgsofp8amFkZv4N4gnFUGjCePgaZPAU20ylfr8J-63T
+> Content-Length: 76
+> Content-Type: application/x-www-form-urlencoded
+> 
+* upload completely sent off: 76 out of 76 bytes
+< HTTP/1.1 200 OK
+< content-length: 23
+< content-type: text/html; charset=UTF-8
+< date: Tue, 12 May 2020 14:38:50 GMT
+< server: istio-envoy
+< x-envoy-upstream-service-time: 7307
+< 
+* Connection #0 to host 10.152.183.241 left intact
+{"predictions": [1, 1]}
+```
