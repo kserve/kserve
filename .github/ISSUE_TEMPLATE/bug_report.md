@@ -23,6 +23,7 @@ about: Tell us about a problem you are experiencing
 - Knative Version:
 - KFServing Version:
 - Kubeflow version:
+- Kfdef:[k8s_istio/istio_dex/gcp_basic_auth/gcp_iap/aws/aws_cognito/ibm]
 - Minikube version:
 - Kubernetes version: (use `kubectl version`):
 - OS (e.g. from `/etc/os-release`):
