@@ -7,7 +7,7 @@ model-example               False                                      1m
 ```
 
 ## Check Service Status
-KFServing `InferenceService` creates [KNative Service](https://knative.dev/docs/serving/spec/knative-api-specification-1.0/#service) under the hood to instantiate a 
+KFServing `InferenceService` creates [Knative Service](https://knative.dev/docs/serving/spec/knative-api-specification-1.0/#service) under the hood to instantiate a 
 serverless container.
 
 If you see `IngressNotConfigured` error, this indicates `Istio Ingress Gateway` probes are failing and you can check KNative `networking-istio` pod logs for more details.
@@ -19,7 +19,7 @@ sklearn-iris-predictor-default   http://sklearn-iris-predictor-default.default.e
 ```
 
 ## Check Revision Status
-If you see `RevisionMissing` error, then your service pods are not in ready state. `Knative Service` creates [KNative Revision](https://knative.dev/docs/serving/spec/knative-api-specification-1.0/#revision) 
+If you see `RevisionMissing` error, then your service pods are not in ready state. `Knative Service` creates [Knative Revision](https://knative.dev/docs/serving/spec/knative-api-specification-1.0/#revision) 
 which represents a snapshot of the `InferenceService` code and configuration.
 
 
@@ -86,7 +86,7 @@ Traceback (most recent call last):
 StopIteration
 ```
 
-## Debug KFServing Request flow
+# Debug KFServing Request flow
 
 ```
   +----------------------+        +-----------------------+      +--------------------------+
@@ -108,13 +108,13 @@ StopIteration
   |  |                   |      |                 |       |                   |
   |  |kfserving-container|<-----+ Queue Proxy     |       |<------------------+
   |  |                   |      |                 |       |
-  |  +-------------------+      +-----------------+       |
-  |                                                       |
+  |  +-------------------+      +--------------^--+       |
+  |                                            |          |
   +-----------------------^-------------------------------+
-                          | scale deployment
-                 +--------+--------+
-                 |  Knative        |
-                 |  Autoscaler     |
+                          | scale deployment   |
+                 +--------+--------+           | pull metrics
+                 |  Knative        |           |
+                 |  Autoscaler     |-----------
                  |  KPA/HPA        |
                  +-----------------+
 ```
@@ -127,7 +127,7 @@ that should be exposed and the type of protocol to use. If you are using `Standa
 if you are using `Kubeflow KFServing`, it uses the `Gateway` in `kubeflow` namespace e.g on GCP the gateway is protected behind `IAP` with [Istio 
 authentication policy](https://istio.io/docs/tasks/security/authentication/authn-policy).
 ```bash
-kubectl get vs sklearn-iris -oyaml
+kubectl get gateway knative-ingress-gateway -n knative-serving -oyaml
 ```
 ```yaml
 kind: Gateway
@@ -162,6 +162,9 @@ The `InferenceService` request hitting the `Istio Ingress Gateway` first matches
 HTTPS with TLS certificates](https://knative.dev/docs/serving/using-a-tls-cert).
  
 2. KFServing creates a `Istio virtual service` to specify routing rule for predictor, transformer, explainer and canary
+```bash
+kubectl get vs sklearn-iris -oyaml
+```
 ```yaml
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -213,6 +216,9 @@ or `Explainer` based on the verb.
 
 3. KNative creates a `Istio virtual service` to configure the gateway to route the user traffic to correct revision
 The request then hits `Knative` created virtual service via local gateway, it matches with the in cluster host name.
+```bash
+kubectl get vs sklearn-iris-predictor-default -oyaml
+```
 ```yaml
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -259,6 +265,9 @@ user rolls out a new revision. When a new revision is rolled out and in ready st
 configured revision GC time the revision resource is garbage collected if the revision no longer has traffic referenced.
 
 4. Once the revision pods are ready, the `Kubernetes Service` sends the requests to the `queue proxy` sidecar on `port 8012`.
+```bash
+kubectl get svc sklearn-iris-predictor-default-fhmjk-private -oyaml
+```
 ```yaml
 apiVersion: v1
 kind: Service
@@ -291,7 +300,13 @@ spec:
 
 ```
 5. The `queue proxy` sends single or multi-threaded requests that the `kfserving container` can handle at a time.
-If the `queue proxy` has more requests than it can handle, the autoscaler creates more pods to handle additional requests.
+If the `queue proxy` has more requests than it can handle, the [Knative Autoscaler](https://knative.dev/docs/serving/configuring-autoscaling/)
+creates more pods to handle additional requests.
 
 6. Finally The `queue proxy` sends traffic to the `kfserving-container`.
+
+### Investigate Performance Issues
+You deployed your `InferenceService` but its performance does not meet your expectations. `Knative Serving` provides various
+dashboard and tools to help investigate such issues. You can follow up [Knative performance investigation](https://knative.dev/docs/serving/debugging-performance-issues/)
+doc to diagnose `InferenceService` performance with [metrics](https://knative.dev/docs/serving/accessing-metrics/) and [distributed tracing](https://knative.dev/docs/serving/accessing-traces/).
 
