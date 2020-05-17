@@ -310,3 +310,4 @@ You deployed your `InferenceService` but its performance does not meet your expe
 dashboard and tools to help investigate such issues. You can follow up [Knative performance investigation](https://knative.dev/docs/serving/debugging-performance-issues/)
 doc to diagnose `InferenceService` performance with [metrics](https://knative.dev/docs/serving/accessing-metrics/) and [distributed tracing](https://knative.dev/docs/serving/accessing-traces/).
 
+![sklearn-iris distributed tracing](./diagrams/sklearn-iris-tracing.png)
