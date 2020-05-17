@@ -119,11 +119,179 @@ StopIteration
                  +-----------------+
 ```
 1. Traffic arrive though:
-   - The Ingress Gateway for external traffic
-   - The Cluster Local Gateway for internal traffic
-2. KFServing creates a Istio virtual service to specify routing rule for predictor, transformer, explainer and canary
-3. KNative creates a Istio virtual service to configure the gateway to route the user traffic to correct revision
-4. If the revision pods are ready, the kubernetes service sends the requests to the queue proxy sidecar.
-5. The queue proxy sends single or multi-threaded requests that the KFServing container can handle at a time.
-6. If the queue proxy has more requests than it can handle, the autoscaler creates more pods to handle additional requests.
-7. The queue proxy sends traffic to the `kfserving-container`   
+   - The `Istio Ingress Gateway` for external traffic
+   - The `Istio Cluster Local Gateway` for internal traffic
+   
+`Istio Gateway` describes the edge of the mesh receiving incoming or outgoing HTTP/TCP connections. The specification describes a set of ports
+that should be exposed and the type of protocol to use. If you are using `Standalone KFServing`, it uses the `Gateway` in `knative-serving` namespace,
+if you are using `Kubeflow KFServing`, it uses the `Gateway` in `kubeflow` namespace e.g on GCP the gateway is protected behind `IAP` with [Istio 
+authentication policy](https://istio.io/docs/tasks/security/authentication/authn-policy).
+```bash
+kubectl get vs sklearn-iris -oyaml
+```
+```yaml
+kind: Gateway
+metadata:
+  labels:
+    networking.knative.dev/ingress-provider: istio
+    serving.knative.dev/release: v0.12.1
+  name: knative-ingress-gateway
+  namespace: knative-serving
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - hosts:
+    - '*'
+    port:
+      name: http
+      number: 80
+      protocol: HTTP
+  - hosts:
+    - '*'
+    port:
+      name: https
+      number: 443
+      protocol: HTTPS
+    tls:
+      mode: SIMPLE
+      privateKey: /etc/istio/ingressgateway-certs/tls.key
+      serverCertificate: /etc/istio/ingressgateway-certs/tls.crt
+```
+The `InferenceService` request hitting the `Istio Ingress Gateway` first matches the network port, by default http is configured. You can [configure
+HTTPS with TLS certificates](https://knative.dev/docs/serving/using-a-tls-cert).
+ 
+2. KFServing creates a `Istio virtual service` to specify routing rule for predictor, transformer, explainer and canary
+```yaml
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: sklearn-iris
+  namespace: default
+spec:
+  gateways:
+  - knative-ingress-gateway.knative-serving
+  - knative-serving/cluster-local-gateway
+  hosts:
+  - sklearn-iris.default.example.com
+  - sklearn-iris.default.svc.cluster.local
+  http:
+  - match:
+    - authority:
+        regex: ^sklearn-iris.default\.default\.example\.com(?::\d{1,5})?$
+      gateways:
+      - knative-ingress-gateway.knative-serving
+      uri:
+        prefix: /v1/models/sklearn-iris:predict
+    - authority:
+        regex: ^sklearn-iris\.default(\.svc(\.cluster\.local)?)?(?::\d{1,5})?$
+      gateways:
+      - knative-serving/cluster-local-gateway
+      uri:
+        prefix: /v1/models/sklearn-iris:predict
+    retries:
+      attempts: 3
+      perTryTimeout: 600s
+    route:
+    - destination:
+        host: cluster-local-gateway.istio-system.svc.cluster.local
+        port:
+          number: 80
+      headers:
+        request:
+          set:
+            Host: sklearn-iris-predictor-default.default.svc.cluster.local
+      weight: 100
+```
+- KFServing creates the routing rule based on uri prefix according to [KFServing V1 data plane](./README.md#data-plane-v1) and traffic
+is forwarded to `KFServing Predictor` if you only have `Predictor` specified on `InferenceService`,
+note that if you have custom container and the endpoint is not conforming to the protocol you get `HTTP 404` when you hit the KFServing
+top level virtual service.
+- When `Transformer` and `Explainer` are specified on `InferenceService` the routing rule sends the traffic to `Transformer`
+or `Explainer` based on the verb.
+- The top level virtual service also does `Canary Traffic Split` if canary is specified on `InferenceService`.
+
+3. KNative creates a `Istio virtual service` to configure the gateway to route the user traffic to correct revision
+The request then hits `Knative` created virtual service via local gateway, it matches with the in cluster host name.
+```yaml
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: sklearn-iris-predictor-default-mesh
+  namespace: default
+spec:
+  gateways:
+  - mesh
+  hosts:
+  - sklearn-iris-predictor-default.default
+  - sklearn-iris-predictor-default.default.svc
+  - sklearn-iris-predictor-default.default.svc.cluster.local
+  http:
+  - headers:
+      request:
+        set:
+          K-Network-Hash: dee002f4a2db24e3827d8088b7ddacf3
+    match:
+    - authority:
+        prefix: sklearn-iris-predictor-default.default
+      gateways:
+      - mesh
+    retries:
+      attempts: 3
+      perTryTimeout: 600s
+      retryOn: 5xx,connect-failure,refused-stream,cancelled,resource-exhausted,retriable-status-codes
+    route:
+    - destination:
+        host: sklearn-iris-predictor-default-fhmjk.default.svc.cluster.local
+        port:
+          number: 80
+      headers:
+        request:
+          set:
+            Knative-Serving-Namespace: default
+            Knative-Serving-Revision: sklearn-iris-predictor-default-fhmjk
+      weight: 100
+    timeout: 600s
+    websocketUpgrade: true
+```
+The destination here is the `k8s Service` for the latest ready `Knative Revision` and it is reconciled by `Knative` every time
+user rolls out a new revision. When a new revision is rolled out and in ready state, the old revision is then scaled down, after
+configured revision GC time the revision resource is garbage collected if the revision no longer has traffic referenced.
+
+4. Once the revision pods are ready, the `Kubernetes Service` sends the requests to the `queue proxy` sidecar on `port 8012`.
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: sklearn-iris-predictor-default-fhmjk-private
+  namespace: default
+spec:
+  clusterIP: 10.105.186.18
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 8012
+  - name: queue-metrics
+    port: 9090
+    protocol: TCP
+    targetPort: queue-metrics
+  - name: http-usermetric
+    port: 9091
+    protocol: TCP
+    targetPort: http-usermetric
+  - name: http-queueadm
+    port: 8022
+    protocol: TCP
+    targetPort: 8022
+  selector:
+    serving.knative.dev/revisionUID: a8f1eafc-3c64-4930-9a01-359f3235333a
+  sessionAffinity: None
+  type: ClusterIP
+
+```
+5. The `queue proxy` sends single or multi-threaded requests that the `kfserving container` can handle at a time.
+If the `queue proxy` has more requests than it can handle, the autoscaler creates more pods to handle additional requests.
+
+6. Finally The `queue proxy` sends traffic to the `kfserving-container`.
+
