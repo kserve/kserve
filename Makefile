@@ -115,7 +115,7 @@ endif
 
 # Generate code
 generate:
-	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..." paths="./pkg/... ./cmd/..."
+	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./pkg/... ./cmd/..."
 	#hack/update-codegen.sh
 	#hack/update-openapigen.sh
 
@@ -175,7 +175,7 @@ ifeq (, $(shell which controller-gen))
 	CONTROLLER_GEN_TMP_DIR=$$(mktemp -d) ;\
 	cd $$CONTROLLER_GEN_TMP_DIR ;\
 	go mod init tmp ;\
-	go get sigs.k8s.io/controller-tools/cmd/controller-gen@v0.2.5 ;\
+	go get sigs.k8s.io/controller-tools/cmd/controller-gen@e0d7c9d9723baea95e57a12751864e2e8f7d7c0f ;\
 	rm -rf $$CONTROLLER_GEN_TMP_DIR ;\
 	}
 CONTROLLER_GEN=$(GOBIN)/controller-gen
