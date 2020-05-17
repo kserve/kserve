@@ -19,12 +19,4 @@ patchesJson6902:
     kind: CustomResourceDefinition
     name: inferenceservices.serving.kubeflow.org
   path: patches/crd_status_condition_patch.yaml
-  # crd codegen in controller tool gives error on URL struct of the Addressable type for which it does not have the json tags
-  # https://github.com/kubernetes-sigs/controller-tools/issues/391
-  # we need a walkaround here to patch the addressable type on status
-- target:
-    group: apiextensions.k8s.io
-    version: v1beta1
-    kind: CustomResourceDefinition
-    name: inferenceservices.serving.kubeflow.org
-  path: patches/crd_status_address_patch.yaml
+
