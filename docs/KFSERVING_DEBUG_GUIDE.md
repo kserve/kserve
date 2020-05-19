@@ -10,13 +10,27 @@ model-example               False                                      1m
 KFServing `InferenceService` creates [Knative Service](https://knative.dev/docs/serving/spec/knative-api-specification-1.0/#service) under the hood to instantiate a 
 serverless container.
 
-If you see `IngressNotConfigured` error, this indicates `Istio Ingress Gateway` probes are failing and you can check KNative `networking-istio` pod logs for more details.
+If you see `IngressNotConfigured` error, this indicates `Istio Ingress Gateway` probes are failing.
 
 ```bash
 kubectl get ksvc
 NAME                             URL                                                            LATESTCREATED                          LATESTREADY                            READY     REASON
 sklearn-iris-predictor-default   http://sklearn-iris-predictor-default.default.example.com   sklearn-iris-predictor-default-jk794   mnist-sample-predictor-default-jk794   Unknown   IngressNotConfigured
 ```
+You can check Knative `networking-istio` pod logs for more details.
+```shell
+kubectl logs -l app=networking-istio -n knative-serving
+
+[2020-02-11T18:16:21.419Z] "GET / HTTP/1.1" 404 NR "-" "-" 0 0 0 - "10.88.0.31" "Go-http-client/1.1" "4a8bd584-2323-4f40-9230-9797d890b9fb" "helloworld-go.default:80" "-" - - 10.88.1.13:80 10.88.0.31:36237 - -
+[2020-02-11T18:16:21.419Z] "GET / HTTP/1.1" 404 NR "-" "-" 0 0 0 - "10.88.0.31" "Go-http-client/1.1" "7298dbfc-58bb-430f-92c5-cf39e97f63d7" "helloworld-go.default.svc:80" "-" - - 10.88.1.13:80 10.88.0.31:36239 - -
+[2020-02-11T18:16:21.420Z] "GET / HTTP/1.1" 302 UAEX "-" "-" 0 269 21 21 "10.88.0.31" "Go-http-client/1.1" "27aa43fa-ac17-4a71-8ca2-b4d9fb772219" "helloworld-go.default.example.com:80" "-" - - 10.88.1.13:80 10.88.0.31:36249 - -
+```
+If you are seeing HTTP 401 or 302, then you may have Auth turned on for `Istio Ingress Gateway` which blocks the Knative probes to your service.
+If you are seeing HTTP 403, then you may have `Istio RBAC` turned on which blocks the probes to your service.
+
+KNative has addressed this [probe issue](https://github.com/knative/serving/issues/6829) with best effort probes and the fix has been back ported to `Knative 0.11.2` release and `Knative 0.14.0+` onward, the same fix 
+has been ported to [Kubeflow manifest master](https://github.com/kubeflow/manifests/archive/master.tar.gz).
+
 
 ## Check Revision Status
 If you see `RevisionMissing` error, then your service pods are not in ready state. `Knative Service` creates [Knative Revision](https://knative.dev/docs/serving/spec/knative-api-specification-1.0/#revision) 

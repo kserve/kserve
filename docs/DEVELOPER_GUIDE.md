@@ -321,7 +321,7 @@ Please make sure not to deploy the inferenceservice in the `kfserving-system` or
 
 This often happens when KNative fails to probe the Istio ingress gateway to your inference service and you may find the HTTP error code in KNative `network-istio` pod logs.
 
-If you are seeing HTTP 401 or 302, then you may have Auth turned on for `Istio Ingress Gateway` which blocks the Knative probes to the your service.
+If you are seeing HTTP 401 or 302, then you may have Auth turned on for `Istio Ingress Gateway` which blocks the Knative probes to your service.
 
 ```shell
 kubectl logs -l app=networking-istio -n knative-serving
@@ -331,7 +331,7 @@ kubectl logs -l app=networking-istio -n knative-serving
 [2020-02-11T18:16:21.420Z] "GET / HTTP/1.1" 302 UAEX "-" "-" 0 269 21 21 "10.88.0.31" "Go-http-client/1.1" "27aa43fa-ac17-4a71-8ca2-b4d9fb772219" "helloworld-go.default.example.com:80" "-" - - 10.88.1.13:80 10.88.0.31:36249 - -
 ```
 
-If you are seeing HTTP 403, then you may have `Istio RBAC` turned on which blocks the probes to your service, you can create Istio RBAC rule to allow the probes from `knative-serving` namespace or disable the istio sidecar injection by adding the `sidecar.istio.io/inject: false` annotation to the inference service.
+If you are seeing HTTP 403, then you may have `Istio RBAC` turned on which blocks the probes to your service.
 
 ```json
 {"level":"error","ts":"2020-03-26T19:12:00.749Z","logger":"istiocontroller.ingress-controller.status-manager","caller":"ingress/status.go:366",
@@ -339,4 +339,5 @@ If you are seeing HTTP 403, then you may have `Istio RBAC` turned on which block
 "commit":"6b0e5c6","knative.dev/controller":"ingress-controller","stacktrace":"knative.dev/serving/pkg/reconciler/ingress.(*StatusProber).processWorkItem\n\t/home/prow/go/src/knative.dev/serving/pkg/reconciler/ingress/status.go:366\nknative.dev/serving/pkg/reconciler/ingress.(*StatusProber).Start.func1\n\t/home/prow/go/src/knative.dev/serving/pkg/reconciler/ingress/status.go:268"}
 ``` 
 
-KNative has been addressing the probe issue in https://github.com/knative/serving/issues/6829 with best effort probes and KFServing has a temporary solution with KFServing Ingress Gateway in Kubeflow manifests until the fix is released, meanwhile we are working a proper AuthN/AuthZ story for KFServing in https://github.com/kubeflow/kfserving/issues/760.
+KNative addressed the [probe issue](https://github.com/knative/serving/issues/6829) with best effort probes and the fix has been back ported to `Knative 0.11.2` release and `Knative 0.14.0+` onward, the same fix 
+has been ported to [Kubeflow manifest master](https://github.com/kubeflow/manifests/archive/master.tar.gz).
