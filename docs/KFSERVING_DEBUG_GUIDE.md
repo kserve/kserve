@@ -1,15 +1,15 @@
 # Debug KFServing InferenceService Status
-You deployed an InferenceService to KFServing, but it is not in ready state. Go through this step by step guide to understand what failed :heart:.
+You deployed an InferenceService to KFServing, but it is not in ready state. Go through this step by step guide to understand what failed.
 ```bash
 kubectl get inferenceservices sklearn-iris 
 NAME                  URL   READY   DEFAULT TRAFFIC   CANARY TRAFFIC   AGE
 model-example               False                                      1m
 ```
 
-## Check Service Status
 KFServing `InferenceService` creates [Knative Service](https://knative.dev/docs/serving/spec/knative-api-specification-1.0/#service) under the hood to instantiate a 
 serverless container.
 
+## IngressNotConfigured
 If you see `IngressNotConfigured` error, this indicates `Istio Ingress Gateway` probes are failing.
 
 ```bash
@@ -20,19 +20,27 @@ sklearn-iris-predictor-default   http://sklearn-iris-predictor-default.default.e
 You can check Knative `networking-istio` pod logs for more details.
 ```shell
 kubectl logs -l app=networking-istio -n knative-serving
+```
+If you are seeing HTTP 401 or 302, then you may have Auth turned on for `Istio Ingress Gateway` which blocks the Knative probes to your service.
 
+```shell
 [2020-02-11T18:16:21.419Z] "GET / HTTP/1.1" 404 NR "-" "-" 0 0 0 - "10.88.0.31" "Go-http-client/1.1" "4a8bd584-2323-4f40-9230-9797d890b9fb" "helloworld-go.default:80" "-" - - 10.88.1.13:80 10.88.0.31:36237 - -
 [2020-02-11T18:16:21.419Z] "GET / HTTP/1.1" 404 NR "-" "-" 0 0 0 - "10.88.0.31" "Go-http-client/1.1" "7298dbfc-58bb-430f-92c5-cf39e97f63d7" "helloworld-go.default.svc:80" "-" - - 10.88.1.13:80 10.88.0.31:36239 - -
 [2020-02-11T18:16:21.420Z] "GET / HTTP/1.1" 302 UAEX "-" "-" 0 269 21 21 "10.88.0.31" "Go-http-client/1.1" "27aa43fa-ac17-4a71-8ca2-b4d9fb772219" "helloworld-go.default.example.com:80" "-" - - 10.88.1.13:80 10.88.0.31:36249 - -
 ```
-If you are seeing HTTP 401 or 302, then you may have Auth turned on for `Istio Ingress Gateway` which blocks the Knative probes to your service.
-If you are seeing HTTP 403, then you may have `Istio RBAC` turned on which blocks the probes to your service.
 
-KNative has addressed this [probe issue](https://github.com/knative/serving/issues/6829) with best effort probes and the fix has been back ported to `Knative 0.11.2` release and `Knative 0.14.0+` onward, the same fix 
+If you are seeing HTTP 403, then you may have `Istio RBAC` turned on which blocks the probes to your service.
+```json
+{"level":"error","ts":"2020-03-26T19:12:00.749Z","logger":"istiocontroller.ingress-controller.status-manager","caller":"ingress/status.go:366",
+"msg":"Probing of http://flowers-sample-predictor-default.kubeflow-jeanarmel-luce.example.com:80/ failed, IP: 10.0.0.29:80, ready: false, error: unexpected status code: want [200], got 403 (depth: 0)",
+"commit":"6b0e5c6","knative.dev/controller":"ingress-controller","stacktrace":"knative.dev/serving/pkg/reconciler/ingress.(*StatusProber).processWorkItem\n\t/home/prow/go/src/knative.dev/serving/pkg/reconciler/ingress/status.go:366\nknative.dev/serving/pkg/reconciler/ingress.(*StatusProber).Start.func1\n\t/home/prow/go/src/knative.dev/serving/pkg/reconciler/ingress/status.go:268"}
+``` 
+
+Knative has addressed this [probe issue](https://github.com/knative/serving/issues/6829) with best effort probes and the fix has been back ported to `Knative 0.11.2` release and `Knative 0.14.0+` onward, the same fix 
 has been ported to [Kubeflow manifest master](https://github.com/kubeflow/manifests/archive/master.tar.gz).
 
 
-## Check Revision Status
+## RevisionMissing Error
 If you see `RevisionMissing` error, then your service pods are not in ready state. `Knative Service` creates [Knative Revision](https://knative.dev/docs/serving/spec/knative-api-specification-1.0/#revision) 
 which represents a snapshot of the `InferenceService` code and configuration.
 
@@ -68,7 +76,7 @@ RuntimeError: Failed to fetch model. The path or model gs://kfserving-samples/mo
 [I 200517 03:40:20 storage:60] Successfully copied gs://kfserving-samples/models/sklearn/iris to /mnt/models
 ```
 
-### Inference Service in OOM status
+### Inference Service Out Of Memory
 If you see revision fail reason `ExitCode137`, this usually indicates that the inference service pod is out of memory and you might need to bump up the
 memory limit of the `InferenceService`.
 ```bash
