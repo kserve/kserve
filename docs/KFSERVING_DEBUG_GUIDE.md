@@ -69,7 +69,7 @@ RuntimeError: Failed to fetch model. The path or model gs://kfserving-samples/mo
 ```
 
 ### Inference Service in OOM status
-If you see revision fail reason `ExitCode137`, this usually indicates that the inference service pod is out of memory and you might need to bump up the
+If you see `ExitCode137` from the revision status, this means the revision has failed and this usually happens when the inference service pod is out of memory. To address it, you might need to bump up the
 memory limit of the `InferenceService`.
 ```bash
 kubectl get revision $(kubectl get configuration sklearn-iris-predictor-default --output jsonpath="{.status.latestCreatedRevisionName}") 
@@ -132,13 +132,13 @@ StopIteration
                  |  KPA/HPA        |
                  +-----------------+
 ```
-1. Traffic arrive though:
+1. Traffic arrives through:
    - The `Istio Ingress Gateway` for external traffic
    - The `Istio Cluster Local Gateway` for internal traffic
    
 `Istio Gateway` describes the edge of the mesh receiving incoming or outgoing HTTP/TCP connections. The specification describes a set of ports
 that should be exposed and the type of protocol to use. If you are using `Standalone KFServing`, it uses the `Gateway` in `knative-serving` namespace,
-if you are using `Kubeflow KFServing`, it uses the `Gateway` in `kubeflow` namespace e.g on GCP the gateway is protected behind `IAP` with [Istio 
+if you are using `Kubeflow KFServing`(KFServing installed with Kubeflow), it uses the `Gateway` in `kubeflow` namespace e.g on GCP the gateway is protected behind `IAP` with [Istio 
 authentication policy](https://istio.io/docs/tasks/security/authentication/authn-policy).
 ```bash
 kubectl get gateway knative-ingress-gateway -n knative-serving -oyaml
