@@ -24,7 +24,7 @@ type PredictorSpec struct {
 	Triton *TritonSpec `json:"triton,omitempty"`
 	// Spec for ONNX runtime (https://github.com/microsoft/onnxruntime)
 	ONNXRuntime *ONNXRuntimeSpec `json:"onnxruntime,omitempty"`
-	// Passthrough to underlying Pods
+	// Passthrough Pod fields or specify a custom container spec
 	*CustomPredictor `json:",inline"`
 }
 
