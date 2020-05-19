@@ -44,7 +44,7 @@ Create this InferenceService:
 kubectl create -f imagenet.yaml
 ```
 
-Set up some environment variables for the model name and cluster entrypoint. Use `kfserving-ingressgateway` as your `INGRESS_GATEWAY` if you are deploying KFServing as part of Kubeflow install, and not independently.
+Set up some environment variables for the model name and cluster entrypoint.
 
 ```
 INGRESS_GATEWAY=istio-ingressgateway
