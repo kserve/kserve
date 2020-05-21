@@ -19,8 +19,6 @@ $ inferenceservice.serving.kubeflow.org/style-sample configured
 
 1. Setup env vars
 
-Use `kfserving-ingressgateway` as your `INGRESS_GATEWAY` if you are deploying KFServing as part of Kubeflow install, and not independently.
-
 ```
 export MODEL_NAME=style-sample
 export SERVICE_HOSTNAME=$(kubectl get inferenceservice ${MODEL_NAME} -o jsonpath='{.status.url}' | cut -d "/" -f 3)
