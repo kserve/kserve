@@ -105,6 +105,12 @@ class HealthHandler(tornado.web.RequestHandler):
             )
 
         model = self.models[name]
+        if not model.ready:
+            raise tornado.web.HTTPError(
+                status_code=503,
+                reason="Model with name %s is not ready." % name
+            )
+
         self.write(json.dumps({
             "name": model.name,
             "ready": model.ready

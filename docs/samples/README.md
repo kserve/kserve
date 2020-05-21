@@ -21,6 +21,8 @@
 
 [Prebuilt Image](./custom/prebuilt-image)
 
+[BentoML](./bentoml)
+
 ### Deploy KFServing InferenceService with Transformer
 [Image Transformer with PyTorch Predictor](./transformer/image_transformer)
 
@@ -51,3 +53,5 @@
 [InferenceService with Request/Response Logger](./logger/basic)
 
 [InferenceService with Kafka Event Source](./kafka)
+
+[InferenceService on Kubeflow with Istio-Dex](./istio-dex)
