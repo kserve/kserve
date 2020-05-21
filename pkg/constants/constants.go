@@ -80,6 +80,11 @@ var (
 	PodMutatorWebhookName                  = KFServingName + "-pod-mutator-webhook"
 )
 
+// Request Logging Constants
+var (
+	LoggerDefaultUrl = getEnvOrDefault("REQUEST_LOGGING_DEFAULT_ENDPOINT", "default-broker")
+)
+
 // GPU Constants
 const (
 	NvidiaGPUResourceType = "nvidia.com/gpu"
@@ -261,10 +266,6 @@ func TransformerURL(metadata v1.ObjectMeta, isCanary bool) string {
 		serviceName = CanaryTransformerServiceName(metadata.Name)
 	}
 	return fmt.Sprintf("%s.%s", serviceName, metadata.Namespace)
-}
-
-func GetLoggerDefaultUrl(namespace string) string {
-	return "http://default-broker." + namespace
 }
 
 // Should only match 1..65535, but for simplicity it matches 0-99999.
