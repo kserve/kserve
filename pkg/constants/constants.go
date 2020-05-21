@@ -78,7 +78,7 @@ var (
 
 // Request Logging Constants
 var (
-	LoggerDefaultUrl = getEnvOrDefault("REQUEST_LOGGING_DEFAULT_ENDPOINT", "default-broker")
+	LoggerDefaultUrl = getEnvOrDefault("REQUEST_LOGGING_DEFAULT_ENDPOINT", "http://default-broker")
 )
 
 // GPU Constants
