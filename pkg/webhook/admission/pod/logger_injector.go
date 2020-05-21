@@ -68,7 +68,7 @@ func (il *LoggerInjector) InjectLogger(pod *v1.Pod) error {
 
 	logUrl, ok := pod.ObjectMeta.Annotations[constants.LoggerSinkUrlInternalAnnotationKey]
 	if !ok {
-		logUrl = constants.GetLoggerDefaultUrl(pod.Namespace)
+		logUrl = constants.LoggerDefaultUrl
 	}
 
 	logMode, ok := pod.ObjectMeta.Annotations[constants.LoggerModeInternalAnnotationKey]
