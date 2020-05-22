@@ -56,9 +56,6 @@ var (
 	LoggerSinkUrlInternalAnnotationKey               = InferenceServiceInternalAnnotationsPrefix + "/logger-sink-url"
 	LoggerModeInternalAnnotationKey                  = InferenceServiceInternalAnnotationsPrefix + "/logger-mode"
 	BatcherInternalAnnotationKey                     = InferenceServiceInternalAnnotationsPrefix + "/batcher"
-	BatcherPortInternalAnnotationKey                 = InferenceServiceInternalAnnotationsPrefix + "/batcher-port"
-	BatcherComponentHostInternalAnnotationKey        = InferenceServiceInternalAnnotationsPrefix + "/batcher-component-host"
-	BatcherComponentPortInternalAnnotationKey        = InferenceServiceInternalAnnotationsPrefix + "/batcher-component-port"
 	BatcherMaxBatchsizeInternalAnnotationKey         = InferenceServiceInternalAnnotationsPrefix + "/batcher-max-batchsize"
 	BatcherMaxLatencyInternalAnnotationKey           = InferenceServiceInternalAnnotationsPrefix + "/batcher-max-latency"
 )

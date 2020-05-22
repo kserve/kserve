@@ -53,14 +53,14 @@ type Request struct {
 }
 
 type Input struct {
-	ContextInput *context.Context `json:"contextInput"`
-	Instances *[]interface{} `json:"instances"`
-	ChannelOut *chan Response `json:"channelOut"`
+	ContextInput *context.Context
+	Instances *[]interface{}
+	ChannelOut *chan Response
 }
 
 type InputInfo struct {
-	ChannelOut *chan Response `json:"channelOut"`
-	Index []int `json:"index"`
+	ChannelOut *chan Response
+	Index []int
 }
 
 type Response struct {
@@ -77,39 +77,39 @@ type Predictions struct {
 }
 
 type BatcherInfo struct {
-	MaxBatchsize int `json:"maxBatchsize"`
-	MaxLatency float64 `json:"maxLatency"`
-	BatchID string `json:"batchId"`
-	Instances []interface{} `json:"instances"`
-	Predictions Predictions `json:"predictions"`
-	Info map[*context.Context] InputInfo `json:"info"`
-	Start time.Time `json:"start"`
-	Now time.Time `json:"now"`
-	CurrentInputLen int `json:"currentInputLen"`
+	MaxBatchsize int
+	MaxLatency float64
+	BatchID string
+	Instances []interface{}
+	Predictions Predictions
+	Info map[*context.Context] InputInfo
+	Start time.Time
+	Now time.Time
+	CurrentInputLen int
 }
 
 type BatcherHandler struct {
-	Log              logr.Logger
-	Port             string
-	SvcHost          string
-	SvcPort          string
-	MaxBatchsize     int
-	MaxLatency       float64
-	Path             string
-	ContentTpye      string
+	Log logr.Logger
+	Port string
+	SvcHost string
+	SvcPort string
+	MaxBatchsize int
+	MaxLatency float64
+	Path string
+	ContentTpye string
 }
 
 func New(log logr.Logger, port string, svcHost string, svcPort string,
 	maxBatchsize int, maxLatency float64) {
 	batcherHandler = &BatcherHandler{
-		Log:              log,
-		Port:             port,
-		SvcHost:          svcHost,
-		SvcPort:          svcPort,
-		MaxBatchsize:     maxBatchsize,
-		MaxLatency:       maxLatency,
-		Path:             "",
-		ContentTpye:      "",
+		Log:          log,
+		Port:         port,
+		SvcHost:      svcHost,
+		SvcPort:      svcPort,
+		MaxBatchsize: maxBatchsize,
+		MaxLatency:   maxLatency,
+		Path:         "",
+		ContentTpye:  "",
 	}
 }
 
@@ -124,7 +124,7 @@ func GenerateUUID() string {
 	return ""
 }
 
-func CallService() {
+func CallService() *string {
 	var errStr string
 	url := fmt.Sprintf("http://%s:%s%s", batcherHandler.SvcHost, batcherHandler.SvcPort, batcherHandler.Path)
 	jsonStr, _ := json.Marshal(Request{
@@ -134,7 +134,7 @@ func CallService() {
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonStr))
 	if err != nil {
 		errStr = fmt.Sprintf("NewRequest create fail: %v", err)
-		panic(errStr)
+		return &errStr
 	}
 	req.Header.Add("Content-Type", batcherHandler.ContentTpye)
 	defer req.Body.Close()
@@ -142,72 +142,57 @@ func CallService() {
 	resp, err := client.Do(req)
 	if err != nil {
 		errStr = fmt.Sprintf("NewRequest send fail: %v", err)
-		panic(errStr)
+		return &errStr
 	}
 	defer resp.Body.Close()
 	result, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		errStr = fmt.Sprintf("Response read fail: %v", err)
-		panic(errStr)
+		return &errStr
 	}
 	err = json.Unmarshal(result, &batcherInfo.Predictions)
 	if err != nil {
 		errStr = fmt.Sprintf("Response unmarshal fail: %v, %s", err, string(result))
-		panic(errStr)
+		return &errStr
+	} else {
+		batcherHandler.Log.Info("CallService", "Results", string(result))
 	}
-	if jsonStr, err := json.Marshal(batcherInfo.Predictions); err == nil {
-		batcherHandler.Log.Info("CallService", "Results", string(jsonStr))
-	}
+	return nil
 }
 
 func BatchPredict(batcherInfo *BatcherInfo) {
-	defer func() {
-		if r := recover(); r != nil {
-			var err error
-			switch x := r.(type) {
-			case string:
-				err = errors.New(x)
-			case error:
-				err = x
-			default:
-				err = errors.New("predict fail")
+	err := CallService()
+	if err != nil {
+		batcherHandler.Log.Error(errors.New(*err), "")
+		for _, v := range batcherInfo.Info {
+			res := Response{
+				BatchID: "",
+				Predictions: nil,
 			}
-			if err != nil {
-				batcherHandler.Log.Error(err, "")
+			*v.ChannelOut <- res
+		}
+	} else {
+		batcherInfo.BatchID = GenerateUUID()
+		for _, v := range batcherInfo.Info {
+			predictions := make([]interface{}, 0)
+			for _, index := range v.Index {
+				predictions = append(predictions, batcherInfo.Predictions.Predictions[index])
 			}
-			for _, v := range batcherInfo.Info {
-				res := Response{
-					BatchID: "",
-					Predictions: nil,
-				}
-				*v.ChannelOut <- res
+			res := Response{
+				BatchID: batcherInfo.BatchID,
+				Predictions: predictions,
 			}
+			if jsonStr, err := json.Marshal(res); err == nil {
+				batcherHandler.Log.Info("BatchPredict", "Results", string(jsonStr))
+			}
+			*v.ChannelOut <- res
 		}
-		batcherInfo.BatchID = ""
-		batcherInfo.Instances = make([]interface{}, 0)
-		batcherInfo.Predictions = Predictions{}
-		batcherInfo.Info = make(map[*context.Context] InputInfo)
-		batcherInfo.CurrentInputLen = 0
-	}()
-
-	CallService()
-
-	batcherInfo.BatchID = GenerateUUID()
-
-	for _, v := range batcherInfo.Info {
-		predictions := make([]interface{}, 0)
-		for _, index := range v.Index {
-			predictions = append(predictions, batcherInfo.Predictions.Predictions[index])
-		}
-		res := Response{
-			BatchID: batcherInfo.BatchID,
-			Predictions: predictions,
-		}
-		if jsonStr, err := json.Marshal(res); err == nil {
-			batcherHandler.Log.Info("BatchPredict", "Results", string(jsonStr))
-		}
-		*v.ChannelOut <- res
 	}
+	batcherInfo.BatchID = ""
+	batcherInfo.Instances = make([]interface{}, 0)
+	batcherInfo.Predictions = Predictions{}
+	batcherInfo.Info = make(map[*context.Context] InputInfo)
+	batcherInfo.CurrentInputLen = 0
 }
 
 func Batcher(batcherInfo *BatcherInfo) {
@@ -227,8 +212,7 @@ func Batcher(batcherInfo *BatcherInfo) {
 			index,
 		}
 		batcherInfo.CurrentInputLen = len(batcherInfo.Instances)
-	default:
-		time.Sleep(SleepTime)
+	case <- time.After(SleepTime):
 	}
 	batcherInfo.Now = GetNowTime()
 	if batcherInfo.CurrentInputLen >= batcherInfo.MaxBatchsize ||
@@ -253,7 +237,7 @@ func Consume() {
 	batcherInfo.Start = GetNowTime()
 	batcherInfo.Now = batcherInfo.Start
 	batcherInfo.CurrentInputLen = 0
-	for true {
+	for {
 		Batcher(&batcherInfo)
 	}
 }

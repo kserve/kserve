@@ -81,9 +81,6 @@ func (il *BatcherInjector) InjectBatcher(pod *v1.Pod) error {
 	}
 
 	k_a := map[string] string {
-		constants.BatcherPortInternalAnnotationKey: BatcherArgumentPort,
-		constants.BatcherComponentHostInternalAnnotationKey: BatcherArgumentComponentHost,
-		constants.BatcherComponentPortInternalAnnotationKey: BatcherArgumentComponentPort,
 		constants.BatcherMaxBatchsizeInternalAnnotationKey: BatcherArgumentMaxBatchsize,
 		constants.BatcherMaxLatencyInternalAnnotationKey: BatcherArgumentMaxLatency,
 	}

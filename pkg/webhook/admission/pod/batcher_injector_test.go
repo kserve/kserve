@@ -66,7 +66,6 @@ func TestBatcherInjector(t *testing.T) {
 					Namespace: "default",
 					Annotations: map[string]string{
 						constants.BatcherInternalAnnotationKey:     "true",
-						constants.BatcherPortInternalAnnotationKey: constants.InferenceServiceDefaultBatcherPort,
 					},
 					Labels: map[string]string{
 						"serving.kubeflow.org/inferenceservice": "sklearn",
@@ -86,7 +85,6 @@ func TestBatcherInjector(t *testing.T) {
 					Name: "deployment",
 					Annotations: map[string]string{
 						constants.BatcherInternalAnnotationKey:     "true",
-						constants.BatcherPortInternalAnnotationKey: constants.InferenceServiceDefaultBatcherPort,
 					},
 				},
 				Spec: v1.PodSpec{

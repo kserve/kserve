@@ -1,6 +1,6 @@
 # Inference Batcher Demo
 
-We first create a sklearn predictor with a batcher.
+We first create a sklearn predictor with a batcher. The "maxLatency" is set to a big value (5000.0 milliseconds) to make us be able to observe the batching process.
 
 ```
 apiVersion: "serving.kubeflow.org/v1alpha2"
@@ -13,10 +13,8 @@ spec:
       minReplicas: 1
       batcher:
         port: 8082
-        svcHost: "127.0.0.1"
-        svcPort: 8080
         maxBatchsize: 32
-        maxLatency: 1.0
+        maxLatency: 5000.0
       sklearn:
         storageUri: "gs://kfserving-samples/models/sklearn/iris"
 ```
@@ -27,7 +25,7 @@ Let's apply this yaml:
 kubectl create -f sklearn-batcher.yaml
 ```
 
-We can now send a request to the sklearn model. Use `kfserving-ingressgateway` as your `INGRESS_GATEWAY` if you are deploying KFServing as part of Kubeflow install, and not independently.
+We can now send 2 requests to the sklearn model under 2 ssh terminal tabs. Use `kfserving-ingressgateway` as your `INGRESS_GATEWAY` if you are deploying KFServing as part of Kubeflow install, and not independently.
 
 ```
 MODEL_NAME=sklearn-iris
@@ -38,8 +36,11 @@ SERVICE_HOSTNAME=$(kubectl get inferenceservice sklearn-iris -o jsonpath='{.stat
 curl -v -H "Host: ${SERVICE_HOSTNAME}" http://$CLUSTER_IP/v1/models/$MODEL_NAME:predict -d $INPUT_PATH -H "Content-Type: application/json"
 ```
 
-The request will go to the batcher container first, and then the batcher container will do batching and send the batching request to predictor container.
-Expected Output
+The request will go to the batcher container first, and then the batcher container will do batching and send the batching request to the predictor container.
+
+Notice: If the interval of sending the two requests is less than "maxLatency", the returned "batchId" will be the same.
+
+Expected Output for each ssh terminal tab.
 
 ```
 *   Trying 169.63.251.68...

@@ -94,15 +94,6 @@ type Logger struct {
 // Batcher provides optional payload batcher for all endpoints
 // +experimental
 type Batcher struct {
-	// Port of batcher service
-	// +optional
-	Port *string `json:"port,omitempty"`
-	// SvcHost of batcher service
-	// +optional
-	SvcHost *string `json:"svcHost,omitempty"`
-	// SvcPort of batcher service
-	// +optional
-	SvcPort *string `json:"svcPort,omitempty"`
 	// MaxBatchsize of batcher service
 	// +optional
 	MaxBatchsize *string `json:"maxBatchsize,omitempty"`

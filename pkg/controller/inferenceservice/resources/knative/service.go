@@ -128,9 +128,6 @@ func addBatcherAnnotations(batcher *v1alpha2.Batcher, annotations map[string]str
 	if batcher != nil {
 		annotations[constants.BatcherInternalAnnotationKey] = "true"
 		k_v := map [string] *string {
-			constants.BatcherPortInternalAnnotationKey: batcher.Port,
-			constants.BatcherComponentHostInternalAnnotationKey: batcher.SvcHost,
-			constants.BatcherComponentPortInternalAnnotationKey: batcher.SvcPort,
 			constants.BatcherMaxBatchsizeInternalAnnotationKey: batcher.MaxBatchsize,
 			constants.BatcherMaxLatencyInternalAnnotationKey: batcher.MaxLatency,
 		}
