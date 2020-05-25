@@ -18,7 +18,7 @@ If you want to get up running Knative quickly or you do not need service mesh, w
 
 Currently only `Knative Serving` is required, `cluster-local-gateway` is required to serve cluster-internal traffic for transformer and explainer use cases. Please follow instructions here to install [cluster local gateway](https://knative.dev/docs/install/installing-istio/#updating-your-install-to-use-cluster-local-gateway)
 
-- [Cert Manager](https://cert-manager.io/docs/installation/kubernetes): v1.12.0+
+- [Cert Manager](https://cert-manager.io/docs/installation/kubernetes): v0.12.0+
 
 Cert manager is needed to provision KFServing webhook certs for production grade installation, alternatively you can run our self signed certs
 generation [script](./hack/self-signed-ca.sh).
