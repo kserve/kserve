@@ -46,6 +46,7 @@ from .models.v1alpha2_explainer_spec import V1alpha2ExplainerSpec
 from .models.v1alpha2_py_torch_spec import V1alpha2PyTorchSpec
 from .models.v1alpha2_sk_learn_spec import V1alpha2SKLearnSpec
 from .models.v1alpha2_logger import V1alpha2Logger
+from .models.v1alpha2_batcher import V1alpha2Batcher
 from .models.v1alpha2_onnx_spec import V1alpha2ONNXSpec
 from .models.v1alpha2_status_configuration_spec import V1alpha2StatusConfigurationSpec
 from .models.v1alpha2_tensor_rt_spec import V1alpha2TensorRTSpec
