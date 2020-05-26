@@ -11,7 +11,7 @@ ignore=CVS
 
 # Add files or directories matching the regex patterns to the blacklist. The
 # regex matches against base names, not paths.
-ignore-patterns=server.py,anchor_tabular.py,explainer.py,model.py,api_client.py,rest.py,configuration.py,v1alpha2_*,v1_time.py,knative_*,test_knative_*,test_v1alpha2_*,test_s3_storage.py,net_url_userinfo.py,test_net_url_userinfo.py
+ignore-patterns=server.py,model.py,api_client.py,rest.py,configuration.py,v1alpha2_*,v1_time.py,knative_*,test_knative_*,test_v1alpha2_*,test_s3_storage.py,net_url_userinfo.py,test_net_url_userinfo.py
 
 # Python code to execute, usually for sys.path manipulation such as
 # pygtk.require().
@@ -60,7 +60,9 @@ confidence=
 # --enable=similarities". If you want to run only the classes checker, but have
 # no Warning level messages displayed, use "--disable=all --enable=classes
 # --disable=W".
-disable=print-statement,
+disable=duplicate-code,
+        bad-continuation, #https://github.com/psf/black/issues/48
+        print-statement,
         parameter-unpacking,
         unpacking-in-except,
         old-raise-syntax,
