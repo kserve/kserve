@@ -36,7 +36,7 @@ spec:
         
 ```
 
-We set a custom config for batch_size as presently image requests are slow and may cause gateway timeouts if the batch size is too large.
+We set a custom config for batch_size as presently image requests are slow and may cause gateway timeouts if the batch size is too large and we ask to stop on first satisfactory anchor. See the [Alibi API documentation](https://docs.seldon.io/projects/alibi/en/latest/api/alibi.explainers.anchor_image.html#alibi.explainers.anchor_image.AnchorImage.explain) for more details of the available options.
 
 Create this InferenceService:
 
