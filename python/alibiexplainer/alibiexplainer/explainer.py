@@ -36,13 +36,13 @@ class ExplainerMethod(Enum):
 
 
 class AlibiExplainer(kfserving.KFModel):
-    def __init__( # pylint:disable=too-many-arguments
-            self,
-            name: str,
-            predictor_host: str,
-            method: ExplainerMethod,
-            config: Mapping,
-            explainer: object = None,
+    def __init__(  # pylint:disable=too-many-arguments
+        self,
+        name: str,
+        predictor_host: str,
+        method: ExplainerMethod,
+        config: Mapping,
+        explainer: object = None,
     ):
         super().__init__(name)
         self.predictor_host = predictor_host
@@ -75,9 +75,9 @@ class AlibiExplainer(kfserving.KFModel):
 
     def explain(self, request: Dict) -> Any:
         if (
-                self.method is ExplainerMethod.anchor_tabular
-                or self.method is ExplainerMethod.anchor_images
-                or self.method is ExplainerMethod.anchor_text
+            self.method is ExplainerMethod.anchor_tabular
+            or self.method is ExplainerMethod.anchor_images
+            or self.method is ExplainerMethod.anchor_text
         ):
             explanation = self.wrapper.explain(request["instances"])
             explanationAsJsonStr = explanation.to_json()
