@@ -18,7 +18,7 @@ If you want to get up running Knative quickly or you do not need service mesh, w
 
 Currently only `Knative Serving` is required, `cluster-local-gateway` is required to serve cluster-internal traffic for transformer and explainer use cases. Please follow instructions here to install [cluster local gateway](https://knative.dev/docs/install/installing-istio/#updating-your-install-to-use-cluster-local-gateway)
 
-- [Cert Manager](https://cert-manager.io/docs/installation/kubernetes): v1.12.0+
+- [Cert Manager](https://cert-manager.io/docs/installation/kubernetes): v0.12.0+
 
 Cert manager is needed to provision KFServing webhook certs for production grade installation, alternatively you can run our self signed certs
 generation [script](./hack/self-signed-ca.sh).
@@ -79,18 +79,20 @@ Please refer to our [troubleshooting section](docs/DEVELOPER_GUIDE.md#troublesho
 2) Wait all pods to be ready then launch KFServing `InferenceService`.(wait 1 min for everything to be ready and 40s to
 launch the `InferenceService`)
 ```bash
-kubectl apply -f docs/samples/sklearn/sklearn.yaml
+kubectl create namespace kfserving-test
+kubectl apply -f docs/samples/sklearn/sklearn.yaml -n kfserving-test
 ```
 3) Check KFServing `InferenceService` status.
 ```bash
-kubectl get inferenceservices sklearn-iris
+kubectl get inferenceservices sklearn-iris -n kfserving-test
 NAME           URL                                                              READY   DEFAULT TRAFFIC   CANARY TRAFFIC   AGE
-sklearn-iris   http://sklearn-iris.default.example.com/v1/models/sklearn-iris   True    100                                109s
+sklearn-iris   http://sklearn-iris.kfserving-test.example.com/v1/models/sklearn-iris   True    100                                109s
 ```
 4) Curl the `InferenceService`
 ```bash
 kubectl port-forward --namespace istio-system $(kubectl get pod --namespace istio-system --selector="app=istio-ingressgateway" --output jsonpath='{.items[0].metadata.name}') 8080:80
-curl -v -H "Host: sklearn-iris.default.example.com" http://localhost:8080/v1/models/sklearn-iris:predict -d @./docs/samples/sklearn/iris-input.json
+SERVICE_HOSTNAME=$(kubectl get inferenceservice sklearn-iris -n kfserving-test -o jsonpath='{.status.url}' | cut -d "/" -f 3)
+curl -v -H "Host: ${SERVICE_HOSTNAME}" http://localhost:8080/v1/models/sklearn-iris:predict -d @./docs/samples/sklearn/iris-input.json
 ```
 ### Use KFServing SDK
 * Install the SDK
@@ -109,6 +111,9 @@ curl -v -H "Host: sklearn-iris.default.example.com" http://localhost:8080/v1/mod
 
 ### KFServing API Reference
 [KFServing API Docs](./docs/apis/README.md)
+
+### KFServing Debugging Guide :star:
+[Debug KFServing InferenceService](./docs/KFSERVING_DEBUG_GUIDE.md)
 
 ### Developer Guide
 [Developer Guide](/docs/DEVELOPER_GUIDE.md).
