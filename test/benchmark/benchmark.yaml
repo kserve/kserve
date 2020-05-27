@@ -1,0 +1,58 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  labels:
+    job: benchmark
+  generateName: benchmark-
+spec:
+  backoffLimit: 6
+  parallelism: 1
+  template:
+    metadata:
+      annotations:
+        sidecar.istio.io/inject: "false"
+      labels:
+        job: benchmark
+    spec:
+      containers:
+        - args:
+            - vegeta -cpus=1 attack -duration=10m -rate=5/1s -targets=/var/vegeta/cfg
+              | vegeta report -type=text
+          command:
+            - sh
+            - -c
+          image: peterevans/vegeta:latest
+          imagePullPolicy: Always
+          name: vegeta
+          resources:
+            requests:
+              cpu: "1"
+              memory: 1Gi
+          volumeMounts:
+            - mountPath: /var/vegeta
+              name: vegeta-cfg
+      dnsPolicy: ClusterFirst
+      restartPolicy: Never
+      terminationGracePeriodSeconds: 30
+      volumes:
+        - configMap:
+            defaultMode: 420
+            name: vegeta-cfg
+          name: vegeta-cfg
+---
+apiVersion: v1
+data:
+  cfg: |
+    POST http://sklearn-iris.kfserving-test/v1/models/sklearn-iris:predict
+    @/var/vegeta/payload
+  payload: |
+    {
+      "instances": [
+        [6.8,  2.8,  4.8,  1.4],
+        [6.0,  3.4,  4.5,  1.6]
+      ]
+    }
+kind: ConfigMap
+metadata:
+  annotations:
+  name: vegeta-cfg
