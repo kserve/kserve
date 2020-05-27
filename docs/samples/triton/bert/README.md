@@ -16,7 +16,13 @@ Here we use a BERT model fine-tuned on a SQuaD 2.0 Dataset which contains 100,00
 1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/#install-kfserving).
 2. Your cluster's Istio Ingress gateway must be network accessible.
 3. Skip [tag resolution](https://knative.dev/docs/serving/tag-resolution/) for `nvcr.io` which requires auth to resolve triton inference server image digest
-
+```bash
+kubectl patch cm config-deployment --patch '{"data":{"registriesSkippingTagResolving":"nvcr.io"}}' -n knative-serving
+```
+4. Increase progress deadline since pulling triton image and big bert model may longer than default timeout for 120s
+```bash
+kubectl patch cm config-deployment --patch '{"data":{"progressDeadline": "600s"}}' -n knative-serving
+```
 ## Extend KFServer and Implement pre/postprocess and predict
 
 - The preprocess converts the paragraph and the question to BERT input with the help of the tokenizer

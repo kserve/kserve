@@ -26,7 +26,7 @@ PROJECT="${GCP_PROJECT}"
 NAMESPACE="${DEPLOY_NAMESPACE}"
 REGISTRY="${GCP_REGISTRY}"
 ISTIO_VERSION="1.3.1"
-KNATIVE_VERSION="v0.10.0"
+KNATIVE_VERSION="v0.15.0"
 KUBECTL_VERSION="v1.14.0"
 CERT_MANAGER_VERSION="v0.12.0"
 # Check and wait for istio/knative/kfserving pod started normally.
@@ -131,7 +131,8 @@ echo "Waiting for knative started ..."
 waiting_pod_running "knative-serving"
 # skip nvcr.io for tag resolution due to auth issue
 kubectl patch cm config-deployment --patch '{"data":{"registriesSkippingTagResolving":"nvcr.io"}}' -n knative-serving
-
+# give longer revision timeout
+kubectl patch cm config-deployment --patch '{"data":{"progressDeadline": "600s"}}' -n knative-serving
 echo "Installing cert manager ..."
 kubectl create namespace cert-manager
 sleep 2
