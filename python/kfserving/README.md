@@ -80,6 +80,7 @@ Class | Method |  Description
  - [KnativeVolatileTime](docs/KnativeVolatileTime.md)
  - [NetUrlUserinfo](docs/NetUrlUserinfo.md)
  - [V1alpha2AlibiExplainerSpec](docs/V1alpha2AlibiExplainerSpec.md)
+ - [V1alpha2Batcher](docs/V1alpha2Batcher.md)
  - [V1alpha2CustomSpec](docs/V1alpha2CustomSpec.md)
  - [V1alpha2DeploymentSpec](docs/V1alpha2DeploymentSpec.md)
  - [V1alpha2EndpointSpec](docs/V1alpha2EndpointSpec.md)

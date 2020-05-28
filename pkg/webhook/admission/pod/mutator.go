@@ -97,10 +97,20 @@ func (mutator *Mutator) mutate(pod *v1.Pod, configMap *v1.ConfigMap) error {
 		config: loggerConfig,
 	}
 
+	batcherConfig, err := getBatcherConfigs(configMap)
+	if err != nil {
+		return err
+	}
+
+	batcherInjector := &BatcherInjector{
+		config: batcherConfig,
+	}
+
 	mutators := []func(pod *v1.Pod) error{
 		InjectGKEAcceleratorSelector,
 		storageInitializer.InjectStorageInitializer,
 		loggerInjector.InjectLogger,
+		batcherInjector.InjectBatcher,
 	}
 
 	for _, mutator := range mutators {

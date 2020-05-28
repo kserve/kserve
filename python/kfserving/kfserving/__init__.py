@@ -26,6 +26,7 @@ from .api_client import ApiClient
 from .configuration import Configuration
 # import client apis into kfserving package
 from .api.kf_serving_client import KFServingClient
+from .constants import constants
 
 # import models into kfserving package
 from .models.knative_addressable import KnativeAddressable
@@ -34,6 +35,7 @@ from .models.knative_url import KnativeURL
 from .models.knative_volatile_time import KnativeVolatileTime
 from .models.net_url_userinfo import NetUrlUserinfo
 from .models.v1alpha2_alibi_explainer_spec import V1alpha2AlibiExplainerSpec
+from .models.v1alpha2_batcher import V1alpha2Batcher
 from .models.v1alpha2_custom_spec import V1alpha2CustomSpec
 from .models.v1alpha2_inference_service import V1alpha2InferenceService
 from .models.v1alpha2_inference_service_list import V1alpha2InferenceServiceList
