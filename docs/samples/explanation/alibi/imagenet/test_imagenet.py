@@ -61,11 +61,11 @@ def explain(cluster_ip):
     if r.status_code == 200:
         explanation = json.loads(r.content.decode('utf-8'))
 
-        exp_arr = np.array(explanation['anchor'])
+        exp_arr = np.array(explanation['data']['anchor'])
 
         f, axarr = plt.subplots(1, 2)
         axarr[0].imshow(data[0])
-        axarr[1].imshow(explanation['anchor'])
+        axarr[1].imshow(explanation['data']['anchor'])
         plt.show()
     else:
         print("Received response code and content",r.status_code,r.content)

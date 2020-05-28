@@ -36,7 +36,7 @@ metadata:
      serving.kubeflow.org/s3-endpoint: minio-service.kubeflow:9000 # replace with your s3 endpoint
      serving.kubeflow.org/s3-usehttps: "0" # by default 1, for testing with minio you need to set to 0
 type: Opaque
-data:
+stringData:
   awsAccessKeyID: XXXX
   awsSecretAccessKey: XXXXXXXX
 ```
