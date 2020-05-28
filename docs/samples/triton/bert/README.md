@@ -19,7 +19,7 @@ Here we use a BERT model fine-tuned on a SQuaD 2.0 Dataset which contains 100,00
 ```bash
 kubectl patch cm config-deployment --patch '{"data":{"registriesSkippingTagResolving":"nvcr.io"}}' -n knative-serving
 ```
-4. Increase progress deadline since pulling triton image and big bert model may longer than default timeout for 120s
+4. Increase progress deadline since pulling triton image and big bert model may longer than default timeout for 120s, this setting requires knative 0.15.0+
 ```bash
 kubectl patch cm config-deployment --patch '{"data":{"progressDeadline": "600s"}}' -n knative-serving
 ```
@@ -84,7 +84,46 @@ docker build -t $USER/bert_transformer:latest . --rm
 Or you can use the prebuild image `gcr.io/kubeflow-ci/kfserving/bert_transformer:latest`
 
 ## Create the InferenceService
-Add above custom KFServing Transformer image and Triton Predictor to the `InferenceService` spec and then apply the yaml.
+Add above custom KFServing Transformer image and Triton Predictor to the `InferenceService` spec
+```
+apiVersion: "serving.kubeflow.org/v1alpha2"
+kind: "InferenceService"
+metadata:
+  name: "bert-large"
+spec:
+  default:
+    transformer:
+      custom:
+        container:
+          name: kfserving-container
+          image: gcr.io/kubeflow-ci/kfserving/bert-transformer:latest
+          resources:
+            limits:
+              cpu: "1"
+              memory: 1Gi
+            requests:
+              cpu: "1"
+              memory: 1Gi
+          command:
+            - "python"
+            - "-m"
+            - "bert_transformer"
+          env:
+            - name: STORAGE_URI
+              value: "gs://kfserving-samples/models/triton/bert-transformer"
+    predictor:
+      triton:
+        resources:
+          limits:
+            cpu: "1"
+            memory: 16Gi
+          requests:
+            cpu: "1"
+            memory: 16Gi
+        storageUri: "gs://kfserving-samples/models/triton/bert"
+```
+
+Apply the inference service yaml.
 ```
 kubectl apply -f bert.yaml 
 ```
@@ -107,7 +146,6 @@ bert-large-predictor-default-2gh6p     bert-large-predictor-default     bert-lar
 bert-large-transformer-default-pcztn   bert-large-transformer-default   bert-large-transformer-default-pcztn   1            True 
 ```
 ## Run a Prediction
-Use `kfserving-ingressgateway` as your `INGRESS_GATEWAY` if you are deploying KFServing as part of Kubeflow install, and not independently.
 
 Send a question request with following input
 ```json
