@@ -51,11 +51,11 @@ data:
                "latest-gpu"
             ]
         },
-        "tensorrt": {
-            "image": "nvcr.io/nvidia/tensorrtserver",
-            "defaultImageVersion": "19.05-py3",
+        "triton": {
+            "image": "nvcr.io/nvidia/tritonserver",
+            "defaultImageVersion": "20.03-py3",
             "allowedImageVersions": [
-               "19.05-py3"
+               "20.03-py3"
             ]
         }
     }

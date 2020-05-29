@@ -26,9 +26,19 @@ SWAGGER_CODEGEN_FILE="pkg/apis/serving/v1alpha2/swagger.json"
 SDK_OUTPUT_PATH="python/kfserving"
 
 echo "Downloading the swagger-codegen JAR package ..."
-wget -O ${SWAGGER_CODEGEN_JAR} ${SWAGGER_JAR_URL}
+if [ ! -f ${SWAGGER_CODEGEN_JAR} ]
+then
+    wget -O ${SWAGGER_CODEGEN_JAR} ${SWAGGER_JAR_URL}
+fi
 
 echo "Generating Python SDK for KFServing ..."
 java -jar ${SWAGGER_CODEGEN_JAR} generate -i ${SWAGGER_CODEGEN_FILE} -l python -o ${SDK_OUTPUT_PATH} -c ${SWAGGER_CODEGEN_CONF}
 
+# revert following files since they are diveraged from generated ones
+git checkout python/kfserving/kfserving/rest.py
+git checkout python/kfserving/README.md
+git checkout python/kfserving/kfserving/__init__.py
+git checkout python/kfserving/test/__init__.py
+git checkout python/kfserving/setup.py
+git checkout python/kfserving/requirements.txt
 echo "KFServing Python SDK is generated successfully to folder ${SDK_OUTPUT_PATH}/."

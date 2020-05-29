@@ -206,7 +206,7 @@ func TestONNXDefaults(t *testing.T) {
 	g.Expect(isvc.Spec.Canary.Predictor.ONNX.Resources.Requests[v1.ResourceMemory]).To(gomega.Equal(resource.MustParse("3Gi")))
 }
 
-func TestTensorRTDefaults(t *testing.T) {
+func TestTritonISDefaults(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	isvc := InferenceService{
 		ObjectMeta: metav1.ObjectMeta{
@@ -216,24 +216,24 @@ func TestTensorRTDefaults(t *testing.T) {
 		Spec: InferenceServiceSpec{
 			Default: EndpointSpec{
 				Predictor: PredictorSpec{
-					TensorRT: &TensorRTSpec{StorageURI: "gs://testbucket/testmodel"},
+					Triton: &TritonSpec{StorageURI: "gs://testbucket/testmodel"},
 				},
 			},
 		},
 	}
 	isvc.Spec.Canary = isvc.Spec.Default.DeepCopy()
-	isvc.Spec.Canary.Predictor.TensorRT.RuntimeVersion = "19.09"
-	isvc.Spec.Canary.Predictor.TensorRT.Resources.Requests = v1.ResourceList{v1.ResourceMemory: resource.MustParse("3Gi")}
+	isvc.Spec.Canary.Predictor.Triton.RuntimeVersion = "19.09"
+	isvc.Spec.Canary.Predictor.Triton.Resources.Requests = v1.ResourceList{v1.ResourceMemory: resource.MustParse("3Gi")}
 	isvc.Default(c)
 
-	g.Expect(isvc.Spec.Default.Predictor.TensorRT.RuntimeVersion).To(gomega.Equal(DefaultTensorRTRuntimeVersion))
-	g.Expect(isvc.Spec.Default.Predictor.TensorRT.Resources.Requests[v1.ResourceCPU]).To(gomega.Equal(defaultResource[v1.ResourceCPU]))
-	g.Expect(isvc.Spec.Default.Predictor.TensorRT.Resources.Requests[v1.ResourceMemory]).To(gomega.Equal(defaultResource[v1.ResourceMemory]))
-	g.Expect(isvc.Spec.Default.Predictor.TensorRT.Resources.Limits[v1.ResourceCPU]).To(gomega.Equal(defaultResource[v1.ResourceCPU]))
-	g.Expect(isvc.Spec.Default.Predictor.TensorRT.Resources.Limits[v1.ResourceMemory]).To(gomega.Equal(defaultResource[v1.ResourceMemory]))
-	g.Expect(isvc.Spec.Canary.Predictor.TensorRT.RuntimeVersion).To(gomega.Equal("19.09"))
-	g.Expect(isvc.Spec.Canary.Predictor.TensorRT.Resources.Requests[v1.ResourceCPU]).To(gomega.Equal(defaultResource[v1.ResourceCPU]))
-	g.Expect(isvc.Spec.Canary.Predictor.TensorRT.Resources.Requests[v1.ResourceMemory]).To(gomega.Equal(resource.MustParse("3Gi")))
+	g.Expect(isvc.Spec.Default.Predictor.Triton.RuntimeVersion).To(gomega.Equal(DefaultTritonISRuntimeVersion))
+	g.Expect(isvc.Spec.Default.Predictor.Triton.Resources.Requests[v1.ResourceCPU]).To(gomega.Equal(defaultResource[v1.ResourceCPU]))
+	g.Expect(isvc.Spec.Default.Predictor.Triton.Resources.Requests[v1.ResourceMemory]).To(gomega.Equal(defaultResource[v1.ResourceMemory]))
+	g.Expect(isvc.Spec.Default.Predictor.Triton.Resources.Limits[v1.ResourceCPU]).To(gomega.Equal(defaultResource[v1.ResourceCPU]))
+	g.Expect(isvc.Spec.Default.Predictor.Triton.Resources.Limits[v1.ResourceMemory]).To(gomega.Equal(defaultResource[v1.ResourceMemory]))
+	g.Expect(isvc.Spec.Canary.Predictor.Triton.RuntimeVersion).To(gomega.Equal("19.09"))
+	g.Expect(isvc.Spec.Canary.Predictor.Triton.Resources.Requests[v1.ResourceCPU]).To(gomega.Equal(defaultResource[v1.ResourceCPU]))
+	g.Expect(isvc.Spec.Canary.Predictor.Triton.Resources.Requests[v1.ResourceMemory]).To(gomega.Equal(resource.MustParse("3Gi")))
 }
 
 func TestAlibiExplainerDefaults(t *testing.T) {
