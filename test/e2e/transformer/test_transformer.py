@@ -66,6 +66,11 @@ def test_transformer():
     except RuntimeError as e:
         print(KFServing.api_instance.get_namespaced_custom_object("serving.knative.dev", "v1", KFSERVING_TEST_NAMESPACE,
                                                                   "services", service_name + "-predictor-default"))
+        pods = KFServing.core_api.list_namespaced_pod(KFSERVING_TEST_NAMESPACE,
+                                                      label_selector='serving.kubeflow.org/inferenceservice={}'
+                                                      .format(service_name))
+        for pod in pods.items:
+            print(pod)
         raise e
     probs = predict(service_name, './data/transformer.json')
     assert(np.argmax(probs) == 3)

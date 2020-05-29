@@ -95,8 +95,8 @@ type PredictorSpec struct {
 	Custom *CustomSpec `json:"custom,omitempty"`
 	// Spec for Tensorflow Serving (https://github.com/tensorflow/serving)
 	Tensorflow *TensorflowSpec `json:"tensorflow,omitempty"`
-	// Spec for TensorRT Inference Server (https://github.com/NVIDIA/tensorrt-inference-server)
-	TensorRT *TensorRTSpec `json:"tensorrt,omitempty"`
+	// Spec for Triton Inference Server (https://github.com/NVIDIA/triton-inference-server)
+	Triton *TritonSpec `json:"triton,omitempty"`
 	// Spec for XGBoost predictor
 	XGBoost *XGBoostSpec `json:"xgboost,omitempty"`
 	// Spec for SKLearn predictor
@@ -162,8 +162,8 @@ type TensorflowSpec struct {
 	Resources v1.ResourceRequirements `json:"resources,omitempty"`
 }
 
-// TensorRTSpec defines arguments for configuring TensorRT model serving.
-type TensorRTSpec struct {
+// TritonSpec defines arguments for configuring Triton Inference Server.
+type TritonSpec struct {
 	// The location of the trained model
 	StorageURI string `json:"storageUri"`
 	// Allowed runtime versions are specified in the inferenceservice config map

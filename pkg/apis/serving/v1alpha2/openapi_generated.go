@@ -44,12 +44,12 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.PyTorchSpec":             schema_pkg_apis_serving_v1alpha2_PyTorchSpec(ref),
 		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.SKLearnSpec":             schema_pkg_apis_serving_v1alpha2_SKLearnSpec(ref),
 		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.StatusConfigurationSpec": schema_pkg_apis_serving_v1alpha2_StatusConfigurationSpec(ref),
-		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.TensorRTSpec":            schema_pkg_apis_serving_v1alpha2_TensorRTSpec(ref),
 		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.TensorflowSpec":          schema_pkg_apis_serving_v1alpha2_TensorflowSpec(ref),
 		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.TransformerSpec":         schema_pkg_apis_serving_v1alpha2_TransformerSpec(ref),
+		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.TritonSpec":              schema_pkg_apis_serving_v1alpha2_TritonSpec(ref),
 		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.XGBoostSpec":             schema_pkg_apis_serving_v1alpha2_XGBoostSpec(ref),
-		"knative.dev/pkg/apis.Condition":                                                  schema_knativedev_pkg_apis_Condition(ref),
 		"knative.dev/pkg/apis.URL":                                                        schema_knativedev_pkg_apis_URL(ref),
+		"knative.dev/pkg/apis.Condition":                                                  schema_knativedev_pkg_apis_Condition(ref),
 		"knative.dev/pkg/apis.VolatileTime":                                               schema_knativedev_pkg_apis_VolatileTime(ref),
 		"knative.dev/pkg/apis/duck/v1beta1.Addressable":                                   schema_pkg_apis_duck_v1beta1_Addressable(ref),
 	}
@@ -586,10 +586,10 @@ func schema_pkg_apis_serving_v1alpha2_PredictorSpec(ref common.ReferenceCallback
 							Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.TensorflowSpec"),
 						},
 					},
-					"tensorrt": {
+					"triton": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Spec for TensorRT Inference Server (https://github.com/NVIDIA/tensorrt-inference-server)",
-							Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.TensorRTSpec"),
+							Description: "Spec for Triton Inference Server (https://github.com/NVIDIA/triton-inference-server)",
+							Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.TritonSpec"),
 						},
 					},
 					"xgboost": {
@@ -654,7 +654,7 @@ func schema_pkg_apis_serving_v1alpha2_PredictorSpec(ref common.ReferenceCallback
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.CustomSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.Logger", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.ONNXSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.PyTorchSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.SKLearnSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.TensorRTSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.TensorflowSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.XGBoostSpec"},
+			"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.CustomSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.Logger", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.ONNXSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.PyTorchSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.SKLearnSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.TensorflowSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.TritonSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.XGBoostSpec"},
 	}
 }
 
@@ -770,42 +770,6 @@ func schema_pkg_apis_serving_v1alpha2_StatusConfigurationSpec(ref common.Referen
 	}
 }
 
-func schema_pkg_apis_serving_v1alpha2_TensorRTSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "TensorRTSpec defines arguments for configuring TensorRT model serving.",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"storageUri": {
-						SchemaProps: spec.SchemaProps{
-							Description: "The location of the trained model",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"runtimeVersion": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Allowed runtime versions are specified in the inferenceservice config map",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"resources": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Defaults to requests and limits of 1CPU, 2Gb MEM.",
-							Ref:         ref("k8s.io/api/core/v1.ResourceRequirements"),
-						},
-					},
-				},
-				Required: []string{"storageUri"},
-			},
-		},
-		Dependencies: []string{
-			"k8s.io/api/core/v1.ResourceRequirements"},
-	}
-}
-
 func schema_pkg_apis_serving_v1alpha2_TensorflowSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -894,6 +858,42 @@ func schema_pkg_apis_serving_v1alpha2_TransformerSpec(ref common.ReferenceCallba
 		},
 		Dependencies: []string{
 			"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.CustomSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.Logger"},
+	}
+}
+
+func schema_pkg_apis_serving_v1alpha2_TritonSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "TritonSpec defines arguments for configuring Triton Inference Server.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"storageUri": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The location of the trained model",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"runtimeVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Allowed runtime versions are specified in the inferenceservice config map",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"resources": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Defaults to requests and limits of 1CPU, 2Gb MEM.",
+							Ref:         ref("k8s.io/api/core/v1.ResourceRequirements"),
+						},
+					},
+				},
+				Required: []string{"storageUri"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/api/core/v1.ResourceRequirements"},
 	}
 }
 
@@ -997,6 +997,26 @@ func schema_knativedev_pkg_apis_Condition(ref common.ReferenceCallback) common.O
 	}
 }
 
+func schema_knativedev_pkg_apis_VolatileTime(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VolatileTime wraps metav1.Time",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"Time": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "date-time",
+						},
+					},
+				},
+				Required: []string{"Time"},
+			},
+		},
+	}
+}
+
 func schema_knativedev_pkg_apis_URL(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -1070,26 +1090,6 @@ func schema_knativedev_pkg_apis_URL(ref common.ReferenceCallback) common.OpenAPI
 		},
 		Dependencies: []string{
 			"net/url.Userinfo"},
-	}
-}
-
-func schema_knativedev_pkg_apis_VolatileTime(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "VolatileTime wraps metav1.Time",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"Time": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "date-time",
-						},
-					},
-				},
-				Required: []string{"Time"},
-			},
-		},
 	}
 }
 

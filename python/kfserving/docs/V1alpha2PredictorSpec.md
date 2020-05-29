@@ -13,7 +13,7 @@ Name | Type | Description | Notes
 **service_account_name** | **str** | ServiceAccountName is the name of the ServiceAccount to use to run the service | [optional] 
 **sklearn** | [**V1alpha2SKLearnSpec**](V1alpha2SKLearnSpec.md) | Spec for SKLearn predictor | [optional] 
 **tensorflow** | [**V1alpha2TensorflowSpec**](V1alpha2TensorflowSpec.md) | Spec for Tensorflow Serving (https://github.com/tensorflow/serving) | [optional] 
-**tensorrt** | [**V1alpha2TensorRTSpec**](V1alpha2TensorRTSpec.md) | Spec for TensorRT Inference Server (https://github.com/NVIDIA/tensorrt-inference-server) | [optional] 
+**triton** | [**V1alpha2TritonSpec**](V1alpha2TritonSpec.md) | Spec for Triton Inference Server (https://github.com/NVIDIA/triton-inference-server) | [optional] 
 **xgboost** | [**V1alpha2XGBoostSpec**](V1alpha2XGBoostSpec.md) | Spec for XGBoost predictor | [optional] 
 
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
