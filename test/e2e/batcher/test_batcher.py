@@ -67,7 +67,7 @@ def test_batcher():
         for pod in pods.items:
             print(pod)
         raise e
-    # time.sleep(10)
+    time.sleep(30)
     probs = predict(service_name, './data/cifar_input.json')
     assert(np.argmax(probs) == 3)
     KFServing.delete(service_name, KFSERVING_TEST_NAMESPACE)
