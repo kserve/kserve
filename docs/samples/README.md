@@ -55,3 +55,5 @@
 [InferenceService with Kafka Event Source](./kafka)
 
 [InferenceService on Kubeflow with Istio-Dex](./istio-dex)
+### Deploy KFServing InferenceService behind an Authentication Proxy
+[InferenceService behind GCP Identity Aware Proxy (IAP) ](./gcp-iap)
