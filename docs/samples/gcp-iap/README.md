@@ -49,7 +49,7 @@ Be careful to check whether the **source-ranges**, **target-tags** and **network
 
 To deploy the inference service apply the inferenceservice CRD:
 ```
-kubectl apply -f sklearn-iap-no-auth.yaml
+kubectl apply -f sklearn-iap-no-authz.yaml
 ```
 
 Expected Output
@@ -61,7 +61,7 @@ As well as the InferenceService, the kfserving webhook typically creates a Deplo
 
 See the [debug guide](https://github.com/kubeflow/kfserving/blob/master/docs/KFSERVING_DEBUG_GUIDE.md) for inferenceservice deployment issues.
 
-**Warning:** The [sklearn-iap-no-auth.yaml](./sklearn-iap-no-auth.yaml) has an annotation that prevents the istio sidecar from being injected and thus disables istio RBAC authorization.  This is unlikely to be suitable for production.
+**Warning:** The [sklearn-iap-no-authz.yaml](./sklearn-iap-no-authz.yaml) has an annotation that prevents the istio sidecar from being injected and thus disables istio RBAC authorization.  This is unlikely to be suitable for production.
 
 ### Test the private predict endpoint (using port-forwarding)
 We can't yet test the inferenceservice predict endpoint externally because GCP IAP only supports path-based routing but KFServing has exposed a host-based routing url.  We can, however, test the private (internal) service using port forwarding.
@@ -126,12 +126,12 @@ $ VirtualService/kfserving-iap created
 
 Perhaps the easiest way to test the inference service's external predict endpoint is by using the [iap_request.py](https://github.com/kubeflow/kubeflow/blob/master/docs/gke/iap_request.py) script described in the [TensorFlow Serving](https://www.kubeflow.org/docs/components/serving/tfserving_new/) documentation.  
 
-The [make-predictions.sh](./make-predictions.sh) explains some of the parameters required by iap_request.py
+The [make-prediction.sh](./make-prediction.sh) explains some of the parameters required by iap_request.py
 
 
 ## Adding Authorization
 The steps above authenticate but don't authorize.  You may wish to alter the inference service to enable service mesh authorization
 ```
-kubectl apply -f sklearn-iap-no-auth.yaml
+kubectl apply -f sklearn-iap-with-authz.yaml
 ```
 The inference service pod will have an additional container called istio-proxy.  Making requests to the service may be blocked (403) by the new istio sidecar container until a new AuthorizationPolicy is added that allows access to this inference URI from a specified ServiceAccount or Namespace.
