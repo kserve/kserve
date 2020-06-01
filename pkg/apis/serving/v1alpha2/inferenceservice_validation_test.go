@@ -76,20 +76,20 @@ func TestLocalPathStorageURIPrefixOK(t *testing.T) {
 func TestAzureBlobOK(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	isvc := makeTestInferenceService()
-	isvc.Spec.Default.Predictor.Tensorflow.StorageURI = "https://kfserving.blob.core.windows.net/tensorrt/simple_string/"
+	isvc.Spec.Default.Predictor.Tensorflow.StorageURI = "https://kfserving.blob.core.windows.net/triton/simple_string/"
 	g.Expect(isvc.ValidateCreate(c)).Should(gomega.Succeed())
-	isvc.Spec.Default.Predictor.Tensorflow.StorageURI = "https://kfserving.blob.core.windows.net/tensorrt/simple_string"
+	isvc.Spec.Default.Predictor.Tensorflow.StorageURI = "https://kfserving.blob.core.windows.net/triton/simple_string"
 	g.Expect(isvc.ValidateCreate(c)).Should(gomega.Succeed())
-	isvc.Spec.Default.Predictor.Tensorflow.StorageURI = "https://kfserving.blob.core.windows.net/tensorrt/"
+	isvc.Spec.Default.Predictor.Tensorflow.StorageURI = "https://kfserving.blob.core.windows.net/triton/"
 	g.Expect(isvc.ValidateCreate(c)).Should(gomega.Succeed())
-	isvc.Spec.Default.Predictor.Tensorflow.StorageURI = "https://kfserving.blob.core.windows.net/tensorrt"
+	isvc.Spec.Default.Predictor.Tensorflow.StorageURI = "https://kfserving.blob.core.windows.net/triton"
 	g.Expect(isvc.ValidateCreate(c)).Should(gomega.Succeed())
 }
 
 func TestAzureBlobNoAccountFails(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	isvc := makeTestInferenceService()
-	isvc.Spec.Default.Predictor.Tensorflow.StorageURI = "https://blob.core.windows.net/tensorrt/simple_string/"
+	isvc.Spec.Default.Predictor.Tensorflow.StorageURI = "https://blob.core.windows.net/triton/simple_string/"
 	g.Expect(isvc.ValidateCreate(c)).ShouldNot(gomega.Succeed())
 }
 

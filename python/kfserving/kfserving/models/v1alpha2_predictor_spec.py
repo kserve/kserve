@@ -36,8 +36,8 @@ from kfserving.models.v1alpha2_logger import V1alpha2Logger  # noqa: F401,E501
 from kfserving.models.v1alpha2_onnx_spec import V1alpha2ONNXSpec  # noqa: F401,E501
 from kfserving.models.v1alpha2_py_torch_spec import V1alpha2PyTorchSpec  # noqa: F401,E501
 from kfserving.models.v1alpha2_sk_learn_spec import V1alpha2SKLearnSpec  # noqa: F401,E501
-from kfserving.models.v1alpha2_tensor_rt_spec import V1alpha2TensorRTSpec  # noqa: F401,E501
 from kfserving.models.v1alpha2_tensorflow_spec import V1alpha2TensorflowSpec  # noqa: F401,E501
+from kfserving.models.v1alpha2_triton_spec import V1alpha2TritonSpec  # noqa: F401,E501
 from kfserving.models.v1alpha2_xg_boost_spec import V1alpha2XGBoostSpec  # noqa: F401,E501
 
 
@@ -66,7 +66,7 @@ class V1alpha2PredictorSpec(object):
         'service_account_name': 'str',
         'sklearn': 'V1alpha2SKLearnSpec',
         'tensorflow': 'V1alpha2TensorflowSpec',
-        'tensorrt': 'V1alpha2TensorRTSpec',
+        'triton': 'V1alpha2TritonSpec',
         'xgboost': 'V1alpha2XGBoostSpec'
     }
 
@@ -82,13 +82,13 @@ class V1alpha2PredictorSpec(object):
         'service_account_name': 'serviceAccountName',
         'sklearn': 'sklearn',
         'tensorflow': 'tensorflow',
-        'tensorrt': 'tensorrt',
+        'triton': 'triton',
         'xgboost': 'xgboost'
     }
 
     def __init__(self, batcher=None, custom=None, logger=None, max_replicas=None, min_replicas=None, onnx=None,
                  parallelism=None, pytorch=None, service_account_name=None, sklearn=None, tensorflow=None,
-                 tensorrt=None, xgboost=None):  # noqa: E501
+                 tensorrt=None, triton=None, xgboost=None):  # noqa: E501
         """V1alpha2PredictorSpec - a model defined in Swagger"""  # noqa: E501
         self._batcher = None
         self._custom = None
@@ -101,7 +101,7 @@ class V1alpha2PredictorSpec(object):
         self._service_account_name = None
         self._sklearn = None
         self._tensorflow = None
-        self._tensorrt = None
+        self._triton = None
         self._xgboost = None
         self.discriminator = None
 
@@ -127,8 +127,8 @@ class V1alpha2PredictorSpec(object):
             self.sklearn = sklearn
         if tensorflow is not None:
             self.tensorflow = tensorflow
-        if tensorrt is not None:
-            self.tensorrt = tensorrt
+        if triton is not None:
+            self.triton = triton
         if xgboost is not None:
             self.xgboost = xgboost
 
@@ -383,27 +383,27 @@ class V1alpha2PredictorSpec(object):
         self._tensorflow = tensorflow
 
     @property
-    def tensorrt(self):
-        """Gets the tensorrt of this V1alpha2PredictorSpec.  # noqa: E501
+    def triton(self):
+        """Gets the triton of this V1alpha2PredictorSpec.  # noqa: E501
 
-        Spec for TensorRT Inference Server (https://github.com/NVIDIA/tensorrt-inference-server)  # noqa: E501
+        Spec for Triton Inference Server (https://github.com/NVIDIA/triton-inference-server)  # noqa: E501
 
-        :return: The tensorrt of this V1alpha2PredictorSpec.  # noqa: E501
-        :rtype: V1alpha2TensorRTSpec
+        :return: The triton of this V1alpha2PredictorSpec.  # noqa: E501
+        :rtype: V1alpha2TritonSpec
         """
-        return self._tensorrt
+        return self._triton
 
-    @tensorrt.setter
-    def tensorrt(self, tensorrt):
-        """Sets the tensorrt of this V1alpha2PredictorSpec.
+    @triton.setter
+    def triton(self, triton):
+        """Sets the triton of this V1alpha2PredictorSpec.
 
-        Spec for TensorRT Inference Server (https://github.com/NVIDIA/tensorrt-inference-server)  # noqa: E501
+        Spec for Triton Inference Server (https://github.com/NVIDIA/triton-inference-server)  # noqa: E501
 
-        :param tensorrt: The tensorrt of this V1alpha2PredictorSpec.  # noqa: E501
-        :type: V1alpha2TensorRTSpec
+        :param triton: The triton of this V1alpha2PredictorSpec.  # noqa: E501
+        :type: V1alpha2TritonSpec
         """
 
-        self._tensorrt = tensorrt
+        self._triton = triton
 
     @property
     def xgboost(self):

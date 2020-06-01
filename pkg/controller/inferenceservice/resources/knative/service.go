@@ -170,6 +170,9 @@ func (c *ServiceBuilder) CreatePredictorService(name string, metadata metav1.Obj
 	// mutator to add it
 	hasInferenceLogging := addLoggerAnnotations(predictorSpec.Logger, annotations)
 	container := predictorSpec.GetContainer(metadata.Name, predictorSpec.Parallelism, c.inferenceServiceConfig)
+	if container == nil {
+		return nil, fmt.Errorf("Fail to get predictor container for %v", name)
+	}
 	if hasInferenceLogging {
 		addLoggerContainerPort(container)
 	}

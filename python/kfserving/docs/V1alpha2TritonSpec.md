@@ -1,4 +1,4 @@
-# V1alpha2TensorRTSpec
+# V1alpha2TritonSpec
 
 ## Properties
 Name | Type | Description | Notes

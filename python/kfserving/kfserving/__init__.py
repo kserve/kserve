@@ -50,6 +50,6 @@ from .models.v1alpha2_sk_learn_spec import V1alpha2SKLearnSpec
 from .models.v1alpha2_logger import V1alpha2Logger
 from .models.v1alpha2_onnx_spec import V1alpha2ONNXSpec
 from .models.v1alpha2_status_configuration_spec import V1alpha2StatusConfigurationSpec
-from .models.v1alpha2_tensor_rt_spec import V1alpha2TensorRTSpec
+from .models.v1alpha2_triton_spec import V1alpha2TritonSpec
 from .models.v1alpha2_tensorflow_spec import V1alpha2TensorflowSpec
 from .models.v1alpha2_xg_boost_spec import V1alpha2XGBoostSpec
