@@ -105,7 +105,7 @@ data:
     }
   batcher: |-
     {
-        "image" : "gcr.io/kfserving/batcher:latest",
+        "image" : "gcr.io/kubeflow-ci/kfserving/batcher",
         "memoryRequest": "2Gi",
         "memoryLimit": "2Gi",
         "cpuRequest": "2",
