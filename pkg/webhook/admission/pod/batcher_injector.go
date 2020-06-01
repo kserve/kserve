@@ -31,7 +31,7 @@ const (
 	BatcherArgumentPort          = "--port"
 	BatcherArgumentComponentHost = "--component-host"
 	BatcherArgumentComponentPort = "--component-port"
-	BatcherArgumentMaxBatchsize  = "--max-batchsize"
+	BatcherArgumentMaxBatchSize  = "--max-batchsize"
 	BatcherArgumentMaxLatency    = "--max-latency"
 )
 
@@ -81,7 +81,7 @@ func (il *BatcherInjector) InjectBatcher(pod *v1.Pod) error {
 	}
 
 	k_a := map[string] string {
-		constants.BatcherMaxBatchsizeInternalAnnotationKey: BatcherArgumentMaxBatchsize,
+		constants.BatcherMaxBatchSizeInternalAnnotationKey: BatcherArgumentMaxBatchSize,
 		constants.BatcherMaxLatencyInternalAnnotationKey: BatcherArgumentMaxLatency,
 	}
 	args := []string{}

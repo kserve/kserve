@@ -94,9 +94,9 @@ type Logger struct {
 // Batcher provides optional payload batcher for all endpoints
 // +experimental
 type Batcher struct {
-	// MaxBatchsize of batcher service
+	// MaxBatchSize of batcher service
 	// +optional
-	MaxBatchsize *string `json:"maxBatchsize,omitempty"`
+	MaxBatchSize *string `json:"maxBatchSize,omitempty"`
 	// MaxLatency of batcher service
 	// +optional
 	MaxLatency *string `json:"maxLatency,omitempty"`

@@ -26,11 +26,11 @@ import (
 )
 
 var (
-	port          = flag.String("port", "8082", "Batcher port")
+	port          = flag.String("port", "9082", "Batcher port")
 	componentHost = flag.String("component-host", "127.0.0.1", "Component host")
 	componentPort = flag.String("component-port", "8080", "Component port")
-	maxBatchsize  = flag.String("max-batchsize", "32", "Max Batchsize")
-	maxLatency    = flag.String("max-latency", "1.0", "Max Latency")
+	maxBatchSize  = flag.String("max-batchsize", "32", "Max Batch Size")
+	maxLatency    = flag.String("max-latency", "1.0", "Max Latency in milliseconds")
 )
 
 func main() {
@@ -39,9 +39,9 @@ func main() {
 	logf.SetLogger(logf.ZapLogger(false))
 	log := logf.Log.WithName("entrypoint")
 
-	maxBatchsizeInt, err := strconv.Atoi(*maxBatchsize)
-	if err != nil || maxBatchsizeInt <= 0 {
-		log.Info("Invalid max batchsize", "max-batchsize", *maxBatchsize)
+	maxBatchSizeInt, err := strconv.Atoi(*maxBatchSize)
+	if err != nil || maxBatchSizeInt <= 0 {
+		log.Info("Invalid max batch size", "max-batchsize", *maxBatchSize)
 		os.Exit(1)
 	}
 
@@ -51,7 +51,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	controllers.New(log, *port, *componentHost, *componentPort, maxBatchsizeInt, maxLatencyFloat64)
+	controllers.New(log, *port, *componentHost, *componentPort, maxBatchSizeInt, maxLatencyFloat64)
 
 	log.Info("Starting", "Port", *port)
 	batcher.StartHttpServer()

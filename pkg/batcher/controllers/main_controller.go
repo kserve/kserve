@@ -34,7 +34,7 @@ import (
 const (
     Timeout      = time.Second * 20
 	SleepTime    = time.Microsecond * 100
-	MaxBatchsize = 32
+	MaxBatchSize = 32
 	MaxLatency   = 1.0
 )
 
@@ -65,6 +65,7 @@ type InputInfo struct {
 }
 
 type Response struct {
+	Message string `json:"message"`
 	BatchID string `json:"batchId"`
 	Predictions []interface{} `json:"predictions"`
 }
@@ -78,7 +79,7 @@ type Predictions struct {
 }
 
 type BatcherInfo struct {
-	MaxBatchsize int
+	MaxBatchSize int
 	MaxLatency float64
 	BatchID string
 	Instances []interface{}
@@ -94,23 +95,23 @@ type BatcherHandler struct {
 	Port string
 	SvcHost string
 	SvcPort string
-	MaxBatchsize int
+	MaxBatchSize int
 	MaxLatency float64
 	Path string
-	ContentTpye string
+	ContentType string
 }
 
 func New(log logr.Logger, port string, svcHost string, svcPort string,
-	maxBatchsize int, maxLatency float64) {
+	maxBatchSize int, maxLatency float64) {
 	batcherHandler = &BatcherHandler{
 		Log:          log,
 		Port:         port,
 		SvcHost:      svcHost,
 		SvcPort:      svcPort,
-		MaxBatchsize: maxBatchsize,
+		MaxBatchSize: maxBatchSize,
 		MaxLatency:   maxLatency,
 		Path:         "",
-		ContentTpye:  "",
+		ContentType:  "",
 	}
 }
 
@@ -137,9 +138,9 @@ func CallService() *string {
 		errStr = fmt.Sprintf("NewRequest create fail: %v", err)
 		return &errStr
 	}
-	req.Header.Add("Content-Type", batcherHandler.ContentTpye)
+	req.Header.Add("Content-Type", batcherHandler.ContentType)
 	defer req.Body.Close()
-	client := &http.Client{Timeout: 5 * time.Second}
+	client := &http.Client{Timeout: Timeout}
 	resp, err := client.Do(req)
 	if err != nil {
 		errStr = fmt.Sprintf("NewRequest send fail: %v", err)
@@ -167,6 +168,7 @@ func BatchPredict(batcherInfo *BatcherInfo) {
 		batcherHandler.Log.Error(errors.New(*err), "")
 		for _, v := range batcherInfo.Info {
 			res := Response{
+				Message: *err,
 				BatchID: "",
 				Predictions: nil,
 			}
@@ -180,6 +182,7 @@ func BatchPredict(batcherInfo *BatcherInfo) {
 				predictions = append(predictions, batcherInfo.Predictions.Predictions[index])
 			}
 			res := Response{
+				Message: "",
 				BatchID: batcherInfo.BatchID,
 				Predictions: predictions,
 			}
@@ -216,7 +219,7 @@ func Batcher(batcherInfo *BatcherInfo) {
 	case <- time.After(SleepTime):
 	}
 	batcherInfo.Now = GetNowTime()
-	if batcherInfo.CurrentInputLen >= batcherInfo.MaxBatchsize ||
+	if batcherInfo.CurrentInputLen >= batcherInfo.MaxBatchSize ||
 		(float64(batcherInfo.Now.Sub(batcherInfo.Start).Milliseconds()) >= batcherInfo.MaxLatency &&
 			batcherInfo.CurrentInputLen > 0) {
 		BatchPredict(batcherInfo)
@@ -224,11 +227,11 @@ func Batcher(batcherInfo *BatcherInfo) {
 }
 
 func Consume() {
-	batcherInfo.MaxBatchsize = MaxBatchsize
+	batcherInfo.MaxBatchSize = MaxBatchSize
 	batcherInfo.MaxLatency = MaxLatency
 	if batcherHandler != nil {
-		if batcherHandler.MaxBatchsize > 0 {
-			batcherInfo.MaxBatchsize = batcherHandler.MaxBatchsize
+		if batcherHandler.MaxBatchSize > 0 {
+			batcherInfo.MaxBatchSize = batcherHandler.MaxBatchSize
 		}
 		if batcherHandler.MaxLatency > 0.0 {
 			batcherInfo.MaxLatency = batcherHandler.MaxLatency
@@ -261,7 +264,7 @@ func (c *MainController) Post() {
 		if batcherHandler != nil && batcherHandler.Path == "" {
 			batcherHandler.Log.Info("Post", "Request Path", c.Ctx.Input.URL())
 			batcherHandler.Path = c.Ctx.Input.URL()
-			batcherHandler.ContentTpye = c.Ctx.Input.Header("Content-Type")
+			batcherHandler.ContentType = c.Ctx.Input.Header("Content-Type")
 		}
 		mutex.Unlock()
 	}
@@ -277,13 +280,7 @@ func (c *MainController) Post() {
 	response := <- chl
 	close(chl)
 
-	if response.Predictions == nil || response.BatchID == "" {
-		c.Data["json"] = &ResponseError{
-			Message: "predict fail",
-		}
-	} else {
-		c.Data["json"] = &response
-	}
+	c.Data["json"] = &response
 	c.ServeJSON()
 }
 

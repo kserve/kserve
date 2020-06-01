@@ -128,7 +128,7 @@ func addBatcherAnnotations(batcher *v1alpha2.Batcher, annotations map[string]str
 	if batcher != nil {
 		annotations[constants.BatcherInternalAnnotationKey] = "true"
 		k_v := map [string] *string {
-			constants.BatcherMaxBatchsizeInternalAnnotationKey: batcher.MaxBatchsize,
+			constants.BatcherMaxBatchSizeInternalAnnotationKey: batcher.MaxBatchSize,
 			constants.BatcherMaxLatencyInternalAnnotationKey: batcher.MaxLatency,
 		}
 		for k, v := range k_v {

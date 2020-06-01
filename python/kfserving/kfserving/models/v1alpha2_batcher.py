@@ -50,7 +50,7 @@ class V1alpha2Batcher(object):
     }
 
     attribute_map = {
-        'max_batchsize': 'maxBatchsize',
+        'max_batchsize': 'maxBatchSize',
         'max_latency': 'maxLatency'
     }
 
@@ -70,7 +70,7 @@ class V1alpha2Batcher(object):
     def max_batchsize(self):
         """Gets the max_batchsize of this V1alpha2Batcher.  # noqa: E501
 
-        MaxBatchsize of batcher service  # noqa: E501
+        MaxBatchSize of batcher service  # noqa: E501
 
         :return: The max_batchsize of this V1alpha2Batcher.  # noqa: E501
         :rtype: str
@@ -81,7 +81,7 @@ class V1alpha2Batcher(object):
     def max_batchsize(self, max_batchsize):
         """Sets the max_batchsize of this V1alpha2Batcher.
 
-        MaxBatchsize of batcher service  # noqa: E501
+        MaxBatchSize of batcher service  # noqa: E501
 
         :param max_batchsize: The max_batchsize of this V1alpha2Batcher.  # noqa: E501
         :type: str
