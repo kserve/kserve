@@ -2,11 +2,21 @@
 When using Kubeflow with GCP it is common to use a [GCP Identity Aware Proxy](https://cloud.google.com/iap) (IAP) to manage client authentication to the KFServing endpoints.  The proxy intercepts and authenticates users and passes identity assertion (JWT) to kubernetes service/pods.  Whilst it is also possible to add access control (i.e. programmable or service mesh authorization), this is not described here.
 
 ### Prerequisites
-1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/blob/master/docs/DEVELOPER_GUIDE.md#deploy-kfserving).
+1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/blob/master/docs/DEVELOPER_GUIDE.md#deploy-kfserving) and have applied the [knative istio probe fix](https://github.com/kubeflow/manifests/commit/928cf483361730121ac18bc4d0e7a9c129f15ee2) (see below).
 2. Your gcloud config is initialised to the project containing the k8s cluster and has a service-account that can download IAP key file.
-2. Your k8s cluster has a GCP external http loadbalancer (i.e. you've configured an ingress gateway).
-3. You are using a fairly recent version of istio (istio-networking is v0.11.2+ )
+3. You are using Knative serving v0.11.2 or v0.14.0+
 4. You are using a recent version of KFServing (v0.3+)
+
+To ensure your cluster has the **knative istio probe fix**, you can use [kfctl_gcp_iap.v1.0.2.yaml](https://raw.githubusercontent.com/kubeflow/manifests/v1.0-branch/kfdef/kfctl_gcp_iap.v1.0.2.yaml), editing the repos section in the yaml before deploying to your Kubernetes cluster.
+```
+    repos:
+    - name: manifests
++     uri: https://github.com/kubeflow/manifests/archive/master.tar.gz
+-     uri: https://github.com/kubeflow/manifests/archive/v1.0.2.tar.gz
+-   version: v1.0.2
+```
+
+Once IAP is enabled and configured, your k8s cluster should have a GCP external http loadbalancer protected by IAP.
 
 ### Overview
 This example shows how the [sklearn iris sample](https://github.com/kubeflow/kfserving/tree/master/docs/samples/sklearn) can be adapted to support GCP IAP.  We will use a pre-trained model that is hosted on a public gcs bucket.  The model predicts a binary classificaton of iris specie using 4 numerical features.
@@ -32,7 +42,7 @@ This may not be essential for this example, but is recommended as it maps GCP se
 If you are running Kubeflow in a [private GKE cluster](https://cloud.google.com/kubernetes-engine/docs/how-to/private-clusters) it will be configured with a restrictive firewall.  
 You will need to ensure that the k8s master node(s) can talk to the following k8s worker node(s) ports: 
  - 6443 (for cert-manager) 
- - 8443 (for probes such as kfserving)
+ - 8443 (for istio readiness probe)
 
 To create these rules firewall rules, modify and run:
 
@@ -57,51 +67,13 @@ Expected Output
 $ inferenceservice.serving.kubeflow.org/sklearn-iap created
 ```
 
-As well as the InferenceService, the kfserving webhook typically creates a Deployment, Replicaset, Pod(s) + Knative Service, Route, Configuration and Revision!
+When the **KFServing Controller** detects the new InferenceService it creates a **KNative Service**, in turn [Knative Serving](https://knative.dev/docs/serving/) creates a configuration, revision and route.  
 
 See the [debug guide](https://github.com/kubeflow/kfserving/blob/master/docs/KFSERVING_DEBUG_GUIDE.md) for inferenceservice deployment issues.
 
 **Warning:** The [sklearn-iap-no-authz.yaml](./sklearn-iap-no-authz.yaml) has an annotation that prevents the istio sidecar from being injected and thus disables istio RBAC authorization.  This is unlikely to be suitable for production.
 
-### Test the private predict endpoint (using port-forwarding)
-We can't yet test the inferenceservice predict endpoint externally because GCP IAP only supports path-based routing but KFServing has exposed a host-based routing url.  We can, however, test the private (internal) service using port forwarding.
-
-We can use kubectl port-forward (bypassing IAP) to tunnel to the private service:
-```
-# terminal 1
-kubectl port-forward svc/sklearn-iap-predictor-default-<guid>-private 8080:80
-```
-And then make a request through the tunnel:
-```
-# terminal 2
-curl -v -H "Content-Type: application/json" http://localhost:8080/v1/models/sklearn-iris:predict -d @iris-input.json
-```
-
-Expected Output
-
-```
-*   Trying 127.0.0.1:8080...
-* TCP_NODELAY set
-* Connected to 127.0.0.1:8080 (127.0.0.1:8080) port 80 (#0)
-> POST /models/sklearn-iris:predict HTTP/1.1
-> Host: localhost
-> User-Agent: curl/7.60.0
-> Accept: */*
-> Content-Length: 76
-> Content-Type: application/x-www-form-urlencoded
->
-* upload completely sent off: 76 out of 76 bytes
-< HTTP/1.1 200 OK
-< content-length: 23
-< content-type: application/json; charset=UTF-8
-< date: Mon, 20 May 2019 20:49:02 GMT
-< server: istio-envoy
-< x-envoy-upstream-service-time: 1943
-<
-* Connection #0 to host 127.0.0.1 left intact
-{"predictions": [1, 1]}
-```
-
+We can't yet test the inferenceservice predict endpoint externally because GCP IAP only supports path-based routing but KFServing has exposed a host-based routing url.  
 
 ### Expose the inference service externally using an additional Istio Virtual Service
 
@@ -121,6 +93,7 @@ Expected Output
 ```
 $ VirtualService/kfserving-iap created
 ```
+This will be deployed to the namespace in the current kube config context.
 
 ### Test the external predict endpoint (using iap_request.py)
 
