@@ -7,7 +7,7 @@ By implementing this protocol both
 inference clients and servers will increase their utility and
 portability by being able to operate seamlessly on platforms that have
 standardized around this API. This protocol is endorsed by NVIDIA
-TensorRT Inference Server, TensorFlow Serving, and ONNX Runtime
+Triton Inference Server, TensorFlow Serving, and ONNX Runtime
 Server.
 
 For an inference server to be compliant with this protocol the server
