@@ -23,18 +23,20 @@ spec:
     explainer:
       alibi:
         type: AnchorImages
-        storageUri: "gs://seldon-models/tfserving/imagenet/explainer"
+        storageUri: "gs://seldon-models/tfserving/imagenet/alibi/0.4.0"
         config:
           batch_size: "25"
+	  stop_in_first: "True"
         resources:
           requests:
             cpu: 0.1
             memory: 5Gi            
           limits:
-            memory: 10Gi        
+            memory: 10Gi
+        
 ```
 
-We set a custom config for batch_size as presently image requests are slow and may cause gateway timeouts if the batch size is too large.
+We set a custom config for batch_size as presently image requests are slow and may cause gateway timeouts if the batch size is too large and we ask to stop on first satisfactory anchor. See the [Alibi API documentation](https://docs.seldon.io/projects/alibi/en/latest/api/alibi.explainers.anchor_image.html#alibi.explainers.anchor_image.AnchorImage.explain) for more details of the available options.
 
 Create this InferenceService:
 
@@ -42,7 +44,7 @@ Create this InferenceService:
 kubectl create -f imagenet.yaml
 ```
 
-Set up some environment variables for the model name and cluster entrypoint. Use `kfserving-ingressgateway` as your `INGRESS_GATEWAY` if you are deploying KFServing as part of Kubeflow install, and not independently.
+Set up some environment variables for the model name and cluster entrypoint.
 
 ```
 INGRESS_GATEWAY=istio-ingressgateway

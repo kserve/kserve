@@ -11,7 +11,9 @@
 
 [ONNX Model with ONNX Runtime](./onnx)
 
-[TensorRT Model with NVIDIA's TensorRT Inference Server](./tensorrt)
+[Simple String Model with NVIDIA Triton Inference Server](./triton/simple_string)
+
+[Serve BERT Model with NVIDIA Triton Inference Server](./triton/bert)
 
 ### Deploy KFServing InferenceService with a custom Predictor
 
@@ -20,6 +22,8 @@
 [KFServing Custom Model](./custom/kfserving-custom-model)
 
 [Prebuilt Image](./custom/prebuilt-image)
+
+[BentoML](./bentoml)
 
 ### Deploy KFServing InferenceService with Transformer
 [Image Transformer with PyTorch Predictor](./transformer/image_transformer)
@@ -51,3 +55,5 @@
 [InferenceService with Request/Response Logger](./logger/basic)
 
 [InferenceService with Kafka Event Source](./kafka)
+
+[InferenceService on Kubeflow with Istio-Dex](./istio-dex)

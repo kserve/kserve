@@ -26,7 +26,7 @@ PROJECT="${GCP_PROJECT}"
 NAMESPACE="${DEPLOY_NAMESPACE}"
 REGISTRY="${GCP_REGISTRY}"
 ISTIO_VERSION="1.3.1"
-KNATIVE_VERSION="v0.10.0"
+KNATIVE_VERSION="v0.15.0"
 KUBECTL_VERSION="v1.14.0"
 CERT_MANAGER_VERSION="v0.12.0"
 # Check and wait for istio/knative/kfserving pod started normally.
@@ -79,6 +79,14 @@ kubectl create clusterrolebinding cluster-admin-binding \
   --clusterrole=cluster-admin \
   --user=$(gcloud config get-value core/account)
 
+# Install and Initialize Helm
+wget -O /tmp/get_helm.sh \
+    https://raw.githubusercontent.com/kubernetes/helm/master/scripts/get && \
+    chmod 700 /tmp/get_helm.sh && \
+    /tmp/get_helm.sh && \
+    rm /tmp/get_helm.sh
+helm init --client-only
+
 echo "Install istio ..."
 mkdir istio_tmp
 pushd istio_tmp >/dev/null
@@ -121,7 +129,10 @@ kubectl apply --filename https://github.com/knative/serving/releases/download/${
 
 echo "Waiting for knative started ..."
 waiting_pod_running "knative-serving"
-
+# skip nvcr.io for tag resolution due to auth issue
+kubectl patch cm config-deployment --patch '{"data":{"registriesSkippingTagResolving":"nvcr.io"}}' -n knative-serving
+# give longer revision timeout
+kubectl patch cm config-deployment --patch '{"data":{"progressDeadline": "600s"}}' -n knative-serving
 echo "Installing cert manager ..."
 kubectl create namespace cert-manager
 sleep 2
@@ -148,27 +159,12 @@ kubectl create namespace kfserving-ci-e2e-test
 
 echo "Istio, Knative and KFServing have been installed and started."
 
-echo "Upgrading Python to 3.6 to install KFServing SDK ..."
-apt-get update -yqq
-apt-get install -y build-essential checkinstall >/dev/null
-apt-get install -y libreadline-gplv2-dev libncursesw5-dev libssl-dev libsqlite3-dev tk-dev libgdbm-dev libc6-dev libbz2-dev >/dev/null
-wget https://www.python.org/ftp/python/3.6.9/Python-3.6.9.tar.xz >/dev/null
-tar xvf Python-3.6.9.tar.xz >/dev/null
-pushd Python-3.6.9  >/dev/null
-  ./configure >/dev/null
-  make altinstall >/dev/null
-popd
-
-update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.5 1
-update-alternatives --install /usr/bin/python3 python3 /usr/local/bin/python3.6 2
-# Work around the issue https://github.com/pypa/pip/issues/4924
-mv /usr/bin/lsb_release /usr/bin/lsb_release.bak
-
 echo "Installing KFServing Python SDK ..."
 python3 -m pip install --upgrade pip
-pip3 install --upgrade pytest pytest-xdist
+pip3 install --upgrade pytest pytest-xdist pytest-rerunfailures
 pip3 install --upgrade pytest-tornasync
 pip3 install urllib3==1.24.2
+pip3 install --upgrade setuptools
 pushd python/kfserving >/dev/null
     pip3 install -r requirements.txt
     python3 setup.py install --force

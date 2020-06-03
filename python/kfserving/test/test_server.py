@@ -14,6 +14,7 @@
 
 import pytest
 import kfserving
+from tornado.httpclient import HTTPClientError
 
 
 class DummyModel(kfserving.KFModel):
@@ -65,3 +66,18 @@ class TestTFHttpServer():
         assert resp.code == 200
         assert resp.body == b'{"predictions": [[1, 2]]}'
         assert resp.headers['content-type'] == "application/json; charset=UTF-8"
+
+
+class TestTFHttpServerModelNotLoaded():
+
+    @pytest.fixture(scope="class")
+    def app(self):  # pylint: disable=no-self-use
+        model = DummyModel("TestModel")
+        server = kfserving.KFServer()
+        server.register_model(model)
+        return server.create_application()
+
+    async def test_model_not_ready_error(self, http_server_client):
+        with pytest.raises(HTTPClientError) as excinfo:
+            _ = await http_server_client.fetch('/v1/models/TestModel')
+        assert excinfo.value.code == 503

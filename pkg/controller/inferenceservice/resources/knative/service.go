@@ -140,6 +140,9 @@ func (c *ServiceBuilder) CreatePredictorService(name string, metadata metav1.Obj
 	// mutator to add it
 	hasInferenceLogging := addLoggerAnnotations(predictorSpec.Logger, annotations)
 	container := predictorSpec.GetContainer(metadata.Name, predictorSpec.Parallelism, c.inferenceServiceConfig)
+	if container == nil {
+		return nil, fmt.Errorf("Fail to get predictor container for %v", name)
+	}
 	if hasInferenceLogging {
 		addLoggerContainerPort(container)
 	}
@@ -148,7 +151,7 @@ func (c *ServiceBuilder) CreatePredictorService(name string, metadata metav1.Obj
 	if isCanary {
 		endpoint = constants.InferenceServiceCanary
 	}
-
+	concurrency := int64(predictorSpec.Parallelism)
 	service := &knservingv1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -170,7 +173,8 @@ func (c *ServiceBuilder) CreatePredictorService(name string, metadata metav1.Obj
 					Spec: knservingv1.RevisionSpec{
 						// Defaulting here since this always shows a diff with nil vs 300s(knative default)
 						// we may need to expose this field in future
-						TimeoutSeconds: &constants.DefaultPredictorTimeout,
+						TimeoutSeconds:       &constants.DefaultPredictorTimeout,
+						ContainerConcurrency: &concurrency,
 						PodSpec: v1.PodSpec{
 							ServiceAccountName: predictorSpec.ServiceAccountName,
 							Containers: []v1.Container{
@@ -219,6 +223,7 @@ func (c *ServiceBuilder) CreateTransformerService(name string, metadata metav1.O
 		endpoint = constants.InferenceServiceCanary
 	}
 
+	concurrency := int64(transformerSpec.Parallelism)
 	service := &knservingv1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -240,7 +245,8 @@ func (c *ServiceBuilder) CreateTransformerService(name string, metadata metav1.O
 					Spec: knservingv1.RevisionSpec{
 						// Defaulting here since this always shows a diff with nil vs 300s(knative default)
 						// we may need to expose this field in future
-						TimeoutSeconds: &constants.DefaultTransformerTimeout,
+						TimeoutSeconds:       &constants.DefaultTransformerTimeout,
+						ContainerConcurrency: &concurrency,
 						PodSpec: v1.PodSpec{
 							ServiceAccountName: transformerSpec.ServiceAccountName,
 							Containers: []v1.Container{
@@ -285,6 +291,7 @@ func (c *ServiceBuilder) CreateExplainerService(name string, metadata metav1.Obj
 		addLoggerContainerPort(container)
 	}
 
+	concurrency := int64(explainerSpec.Parallelism)
 	service := &knservingv1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -306,6 +313,7 @@ func (c *ServiceBuilder) CreateExplainerService(name string, metadata metav1.Obj
 						// Defaulting here since this always shows a diff with nil vs 300s(knative default)
 						// we may need to expose this field in future
 						TimeoutSeconds: &constants.DefaultExplainerTimeout,
+						ContainerConcurrency: &concurrency,
 						PodSpec: v1.PodSpec{
 							ServiceAccountName: explainerSpec.ServiceAccountName,
 							Containers: []v1.Container{

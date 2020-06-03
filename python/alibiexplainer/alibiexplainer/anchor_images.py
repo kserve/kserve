@@ -11,38 +11,40 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import logging
-from typing import Callable, List, Dict
-
-import alibi
 import kfserving
+import logging
 import numpy as np
+import alibi
+from alibi.api.interfaces import Explanation
+from alibi.utils.wrappers import ArgmaxTransformer
 from alibiexplainer.explainer_wrapper import ExplainerWrapper
+from typing import Callable, List, Optional
 
 logging.basicConfig(level=kfserving.constants.KFSERVING_LOGLEVEL)
 
 
 class AnchorImages(ExplainerWrapper):
-
-    def __init__(self, predict_fn: Callable, explainer: alibi.explainers.AnchorImage, **kwargs):
+    def __init__(
+        self,
+        predict_fn: Callable,
+        explainer: Optional[alibi.explainers.AnchorImage],
+        **kwargs
+    ):
+        if explainer is None:
+            raise Exception("Anchor images requires a built explainer")
         self.predict_fn = predict_fn
         self.anchors_image = explainer
         self.kwargs = kwargs
 
-    def explain(self, inputs: List) -> Dict:
-        if not self.anchors_image is None:
-            arr = np.array(inputs)
-            logging.info("Calling explain on image of shape %s", (arr.shape,))
-
-            # set anchor_images predict function so it always returns predicted class
-            # See anchor_images.__init__
-            if np.argmax(self.predict_fn(arr).shape) == 0:
-                self.anchors_image.predict_fn = self.predict_fn
-            else:
-                self.anchors_image.predict_fn = lambda x: np.argmax(self.predict_fn(x), axis=1)
-            # We assume the input has batch dimension but Alibi explainers presently assume no batch
-            np.random.seed(0)
-            anchor_exp = self.anchors_image.explain(arr[0], **self.kwargs)
-            return anchor_exp
+    def explain(self, inputs: List) -> Explanation:
+        arr = np.array(inputs)
+        # check if predictor returns predicted class or prediction probabilities for each class
+        # if needed adjust predictor so it returns the predicted class
+        if np.argmax(self.predict_fn(arr).shape) == 0:
+            self.anchors_image.predictor = self.predict_fn
         else:
-            raise Exception("Explainer not initialized")
+            self.anchors_image.predictor = ArgmaxTransformer(self.predict_fn)
+        logging.info("Calling explain on image of shape %s", (arr.shape,))
+        logging.info("anchor image call with %s", self.kwargs)
+        anchor_exp = self.anchors_image.explain(arr[0], **self.kwargs)
+        return anchor_exp

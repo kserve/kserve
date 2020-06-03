@@ -43,6 +43,7 @@ class KFServingClient(object):
         else:
             config.load_incluster_config()
         self.core_api = client.CoreV1Api()
+        self.app_api = client.AppsV1Api()
         self.api_instance = client.CustomObjectsApi()
 
     def set_credentials(self, storage_type, namespace=None, credentials_file=None,

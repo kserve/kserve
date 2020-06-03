@@ -2239,7 +2239,7 @@ spec:
                       - storageUri
                       type: object
                     tensorrt:
-                      description: Spec for TensorRT Inference Server (https://github.com/NVIDIA/tensorrt-inference-server)
+                      description: Spec for TensorRT Inference Server (https://github.com/NVIDIA/triton-inference-server)
                       properties:
                         resources:
                           description: Defaults to requests and limits of 1CPU, 2Gb
@@ -5493,7 +5493,7 @@ spec:
                       - storageUri
                       type: object
                     tensorrt:
-                      description: Spec for TensorRT Inference Server (https://github.com/NVIDIA/tensorrt-inference-server)
+                      description: Spec for TensorRT Inference Server (https://github.com/NVIDIA/triton-inference-server)
                       properties:
                         resources:
                           description: Defaults to requests and limits of 1CPU, 2Gb
