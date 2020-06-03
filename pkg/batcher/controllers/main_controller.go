@@ -19,7 +19,6 @@ package controllers
 import (
 	"bytes"
 	"fmt"
-	"github.com/go-logr/logr"
 	"io/ioutil"
 	"net/http"
 	"sync"
@@ -28,20 +27,21 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/astaxie/beego"
+	"github.com/go-logr/logr"
 	"github.com/satori/go.uuid"
+	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
 
 const (
-    Timeout      = time.Second * 20
 	SleepTime    = time.Microsecond * 100
 	MaxBatchSize = 32
 	MaxLatency   = 1.0
 )
 
 var (
+	log logr.Logger
 	channelIn = make(chan Input)
 	batcherInfo BatcherInfo
-	batcherHandler *BatcherHandler = nil
 	mutex sync.Mutex
 )
 
@@ -81,6 +81,12 @@ type Predictions struct {
 type BatcherInfo struct {
 	MaxBatchSize int
 	MaxLatency float64
+	Port string
+	SvcHost string
+	SvcPort string
+	Timeout time.Duration
+	Path string
+	ContentType string
 	BatchID string
 	Instances []interface{}
 	Predictions Predictions
@@ -90,29 +96,14 @@ type BatcherInfo struct {
 	CurrentInputLen int
 }
 
-type BatcherHandler struct {
-	Log logr.Logger
-	Port string
-	SvcHost string
-	SvcPort string
-	MaxBatchSize int
-	MaxLatency float64
-	Path string
-	ContentType string
-}
-
-func New(log logr.Logger, port string, svcHost string, svcPort string,
-	maxBatchSize int, maxLatency float64) {
-	batcherHandler = &BatcherHandler{
-		Log:          log,
-		Port:         port,
-		SvcHost:      svcHost,
-		SvcPort:      svcPort,
-		MaxBatchSize: maxBatchSize,
-		MaxLatency:   maxLatency,
-		Path:         "",
-		ContentType:  "",
-	}
+func Config(port string, svcHost string, svcPort string,
+	maxBatchSize int, maxLatency float64, timeout int) {
+	batcherInfo.Port = port
+	batcherInfo.SvcHost = svcHost
+	batcherInfo.SvcPort = svcPort
+	batcherInfo.MaxBatchSize = maxBatchSize
+	batcherInfo.MaxLatency = maxLatency
+	batcherInfo.Timeout = time.Duration(timeout) * time.Second
 }
 
 func GetNowTime() time.Time {
@@ -126,21 +117,21 @@ func GenerateUUID() string {
 	return ""
 }
 
-func CallService() *string {
+func (batcherInfo *BatcherInfo) CallService() *string {
 	var errStr string
-	url := fmt.Sprintf("http://%s:%s%s", batcherHandler.SvcHost, batcherHandler.SvcPort, batcherHandler.Path)
+	url := fmt.Sprintf("http://%s:%s%s", batcherInfo.SvcHost, batcherInfo.SvcPort, batcherInfo.Path)
 	jsonStr, _ := json.Marshal(Request{
 		batcherInfo.Instances,
 	})
-	batcherHandler.Log.Info("CallService", "URL", url)
+	log.Info("CallService", "URL", url)
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonStr))
 	if err != nil {
 		errStr = fmt.Sprintf("NewRequest create fail: %v", err)
 		return &errStr
 	}
-	req.Header.Add("Content-Type", batcherHandler.ContentType)
+	req.Header.Add("Content-Type", batcherInfo.ContentType)
 	defer req.Body.Close()
-	client := &http.Client{Timeout: Timeout}
+	client := &http.Client{Timeout: batcherInfo.Timeout}
 	resp, err := client.Do(req)
 	if err != nil {
 		errStr = fmt.Sprintf("NewRequest send fail: %v", err)
@@ -157,15 +148,25 @@ func CallService() *string {
 		errStr = fmt.Sprintf("Response unmarshal fail: %v, %s", err, string(result))
 		return &errStr
 	} else {
-		batcherHandler.Log.Info("CallService", "Results", string(result))
+		log.Info("CallService", "Results", string(result))
 	}
 	return nil
 }
 
-func BatchPredict(batcherInfo *BatcherInfo) {
-	err := CallService()
+func (batcherInfo *BatcherInfo) InitializeInfo() {
+	batcherInfo.BatchID = ""
+	batcherInfo.CurrentInputLen = 0
+	batcherInfo.Instances = make([]interface{}, 0)
+	batcherInfo.Predictions = Predictions{}
+	batcherInfo.Info = make(map[*context.Context] InputInfo)
+	batcherInfo.Start = GetNowTime()
+	batcherInfo.Now = batcherInfo.Start
+}
+
+func (batcherInfo *BatcherInfo) BatchPredict() {
+	err := batcherInfo.CallService()
 	if err != nil {
-		batcherHandler.Log.Error(errors.New(*err), "")
+		log.Error(errors.New(*err), "")
 		for _, v := range batcherInfo.Info {
 			res := Response{
 				Message: *err,
@@ -187,84 +188,76 @@ func BatchPredict(batcherInfo *BatcherInfo) {
 				Predictions: predictions,
 			}
 			if jsonStr, err := json.Marshal(res); err == nil {
-				batcherHandler.Log.Info("BatchPredict", "Results", string(jsonStr))
+				log.Info("BatchPredict", "Results", string(jsonStr))
+			} else {
+				log.Error(errors.New("marshal response fail"), "")
 			}
 			*v.ChannelOut <- res
 		}
 	}
-	batcherInfo.BatchID = ""
-	batcherInfo.Instances = make([]interface{}, 0)
-	batcherInfo.Predictions = Predictions{}
-	batcherInfo.Info = make(map[*context.Context] InputInfo)
-	batcherInfo.CurrentInputLen = 0
+	batcherInfo.InitializeInfo()
 }
 
-func Batcher(batcherInfo *BatcherInfo) {
-	select {
-	case req := <- channelIn:
-		if len(batcherInfo.Instances) == 0 {
-			batcherInfo.Start = GetNowTime()
-		}
-		batcherInfo.CurrentInputLen = len(batcherInfo.Instances)
-		batcherInfo.Instances = append(batcherInfo.Instances, *req.Instances...)
-		var index = make([]int, 0)
-		for i := 0; i < len(*req.Instances); i++ {
-			index = append(index, batcherInfo.CurrentInputLen + i)
-		}
-		batcherInfo.Info[req.ContextInput] = InputInfo{
-			req.ChannelOut,
-			index,
-		}
-		batcherInfo.CurrentInputLen = len(batcherInfo.Instances)
-	case <- time.After(SleepTime):
-	}
-	batcherInfo.Now = GetNowTime()
-	if batcherInfo.CurrentInputLen >= batcherInfo.MaxBatchSize ||
-		(float64(batcherInfo.Now.Sub(batcherInfo.Start).Milliseconds()) >= batcherInfo.MaxLatency &&
-			batcherInfo.CurrentInputLen > 0) {
-		BatchPredict(batcherInfo)
-	}
-}
-
-func Consume() {
-	batcherInfo.MaxBatchSize = MaxBatchSize
-	batcherInfo.MaxLatency = MaxLatency
-	if batcherHandler != nil {
-		if batcherHandler.MaxBatchSize > 0 {
-			batcherInfo.MaxBatchSize = batcherHandler.MaxBatchSize
-		}
-		if batcherHandler.MaxLatency > 0.0 {
-			batcherInfo.MaxLatency = batcherHandler.MaxLatency
-		}
-	}
-	batcherInfo.Info = make(map[*context.Context] InputInfo)
-	batcherInfo.Start = GetNowTime()
-	batcherInfo.Now = batcherInfo.Start
-	batcherInfo.CurrentInputLen = 0
+func (batcherInfo *BatcherInfo) Batcher() {
 	for {
-		Batcher(&batcherInfo)
+		select {
+		case req := <- channelIn:
+			if len(batcherInfo.Instances) == 0 {
+				batcherInfo.Start = GetNowTime()
+			}
+			batcherInfo.CurrentInputLen = len(batcherInfo.Instances)
+			batcherInfo.Instances = append(batcherInfo.Instances, *req.Instances...)
+			var index = make([]int, 0)
+			for i := 0; i < len(*req.Instances); i++ {
+				index = append(index, batcherInfo.CurrentInputLen + i)
+			}
+			batcherInfo.Info[req.ContextInput] = InputInfo{
+				req.ChannelOut,
+				index,
+			}
+			batcherInfo.CurrentInputLen = len(batcherInfo.Instances)
+		case <- time.After(SleepTime):
+		}
+		batcherInfo.Now = GetNowTime()
+		if batcherInfo.CurrentInputLen >= batcherInfo.MaxBatchSize ||
+			(float64(batcherInfo.Now.Sub(batcherInfo.Start).Milliseconds()) >= batcherInfo.MaxLatency &&
+				batcherInfo.CurrentInputLen > 0) {
+			batcherInfo.BatchPredict()
+		}
 	}
+}
+
+func (batcherInfo *BatcherInfo)  Consume() {
+	log.Info("Start Consume")
+	if batcherInfo.MaxBatchSize <= 0 {
+		batcherInfo.MaxBatchSize = MaxBatchSize
+	}
+	if batcherInfo.MaxLatency <= 0 {
+		batcherInfo.MaxLatency = MaxLatency
+	}
+	batcherInfo.InitializeInfo()
+	batcherInfo.Batcher()
 }
 
 func (c *MainController) Post() {
 	var req Request
 	var err error
-	batcherHandler.Log.Info("Post", "Request Body Len", len(string(c.Ctx.Input.RequestBody)))
+	log.Info("Post", "Request Body Len", len(string(c.Ctx.Input.RequestBody)))
 	if err = json.Unmarshal(c.Ctx.Input.RequestBody, &req); err != nil {
-		batcherHandler.Log.Error(errors.New("unmarshal fail"), "")
+		log.Error(errors.New("unmarshal fail"), "")
 		c.Abort("400")
 	}
 	if len(req.Instances) == 0 {
-		batcherHandler.Log.Error(errors.New("instances empty"), "")
+		log.Error(errors.New("instances empty"), "")
 		c.Abort("400")
 	}
 
-	if batcherHandler != nil && batcherHandler.Path == "" {
+	if batcherInfo.Path == "" {
 		mutex.Lock()
-		if batcherHandler != nil && batcherHandler.Path == "" {
-			batcherHandler.Log.Info("Post", "Request Path", c.Ctx.Input.URL())
-			batcherHandler.Path = c.Ctx.Input.URL()
-			batcherHandler.ContentType = c.Ctx.Input.Header("Content-Type")
+		if batcherInfo.Path == "" {
+			log.Info("Post", "Request Path", c.Ctx.Input.URL())
+			batcherInfo.Path = c.Ctx.Input.URL()
+			batcherInfo.ContentType = c.Ctx.Input.Header("Content-Type")
 		}
 		mutex.Unlock()
 	}
@@ -285,5 +278,7 @@ func (c *MainController) Post() {
 }
 
 func init() {
-	go Consume()
+	logf.SetLogger(logf.ZapLogger(false))
+	log = logf.Log.WithName("entrypoint")
+	go batcherInfo.Consume()
 }

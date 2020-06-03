@@ -24,13 +24,16 @@ spec:
       batcher:
         maxBatchSize: "32"
         maxLatency: "1.0"
+        timeout: "60"
       sklearn:
         storageUri: "gs://kfserving-samples/models/sklearn/iris"
 ```
 * port: the port of inferenceservice-batcher container.
 * maxBatchSize: the max batch size for predict.
 * maxLatency: the max latency for predict (In milliseconds).
+* timeout: timeout of calling predictor service (In seconds).
 
 All of the bellowing fields have default values in the code. You can config them or not as you wish.
 * maxBatchSize: "32".
 * maxLatency: "1.0".
+* timeout: "60".

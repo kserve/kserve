@@ -58,6 +58,7 @@ func TestBatcher(t *testing.T) {
 	// Close the server when test finishes
 	defer predictor.Close()
 
+	predictorSvcUrl, err := url.Parse(predictor.URL)
 	reader := bytes.NewReader(predictorRequest)
 	ip := "127.0.0.1"
 	batcherUrl := fmt.Sprintf("http://%s:%s/", ip, constants.InferenceServiceDefaultBatcherPort)
@@ -67,10 +68,9 @@ func TestBatcher(t *testing.T) {
 	logf.SetLogger(logf.ZapLogger(false))
 	log := logf.Log.WithName("entrypoint")
 
-	predictorSvcUrl, err := url.Parse(predictor.URL)
 	g.Expect(err).To(gomega.BeNil())
-	controllers.New(log, constants.InferenceServiceDefaultBatcherPort, predictorSvcUrl.Hostname(),
-		predictorSvcUrl.Port(), 32, 1.0)
+	controllers.Config(constants.InferenceServiceDefaultBatcherPort, predictorSvcUrl.Hostname(),
+		predictorSvcUrl.Port(), 32, 1.0, 60)
 	println(constants.InferenceServiceDefaultBatcherPort, predictorSvcUrl.Hostname(),
 		predictorSvcUrl.Port())
 

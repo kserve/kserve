@@ -31,6 +31,7 @@ var (
 	componentPort = flag.String("component-port", "8080", "Component port")
 	maxBatchSize  = flag.String("max-batchsize", "32", "Max Batch Size")
 	maxLatency    = flag.String("max-latency", "1.0", "Max Latency in milliseconds")
+	timeout       = flag.String("timeout", "60", "Timeout of calling predictor service in seconds")
 )
 
 func main() {
@@ -51,7 +52,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	controllers.New(log, *port, *componentHost, *componentPort, maxBatchSizeInt, maxLatencyFloat64)
+	timeoutInt, err := strconv.Atoi(*timeout)
+	if err != nil || timeoutInt <= 0 {
+		log.Info("Invalid timeout", "timeout", *timeout)
+		os.Exit(1)
+	}
+
+	controllers.Config(*port, *componentHost, *componentPort, maxBatchSizeInt, maxLatencyFloat64, timeoutInt)
 
 	log.Info("Starting", "Port", *port)
 	batcher.StartHttpServer()

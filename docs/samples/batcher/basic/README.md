@@ -12,8 +12,9 @@ spec:
     predictor:
       minReplicas: 1
       batcher:
-        maxBatchSize: 32
-        maxLatency: 5000.0
+        maxBatchSize: "32"
+        maxLatency: "5000.0"
+        timeout: "60"
       sklearn:
         storageUri: "gs://kfserving-samples/models/sklearn/iris"
 ```

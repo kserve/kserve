@@ -46,25 +46,30 @@ class V1alpha2Batcher(object):
     """
     swagger_types = {
         'max_batchsize': 'str',
-        'max_latency': 'str'
+        'max_latency': 'str',
+        'timeout': 'str'
     }
 
     attribute_map = {
         'max_batchsize': 'maxBatchSize',
-        'max_latency': 'maxLatency'
+        'max_latency': 'maxLatency',
+        'timeout': 'timeout'
     }
 
-    def __init__(self, max_batchsize=None, max_latency=None):  # noqa: E501
+    def __init__(self, max_batchsize=None, max_latency=None, timeout=None):  # noqa: E501
         """V1alpha2Batcher - a model defined in Swagger"""  # noqa: E501
 
         self._max_batchsize = None
         self._max_latency = None
+        self._timeout = None
         self.discriminator = None
 
         if max_batchsize is not None:
             self.max_batchsize = max_batchsize
         if max_latency is not None:
             self.max_latency = max_latency
+        if timeout is not None:
+            self.timeout = timeout
 
     @property
     def max_batchsize(self):
@@ -111,6 +116,28 @@ class V1alpha2Batcher(object):
         """
 
         self._max_latency = max_latency
+
+    @property
+    def timeout(self):
+        """Gets the timeout of this V1alpha2Batcher.  # noqa: E501
+
+        Timeout of batcher service  # noqa: E501
+
+        :return: The timeout of this V1alpha2Batcher.  # noqa: E501
+        :type: str
+        """
+        return self._timeout
+
+    @timeout.setter
+    def timeout(self, timeout):
+        """Sets the timeout of this V1alpha2Batcher.
+
+        Timeout of batcher service  # noqa: E501
+
+        :param timeout: The timeout of this V1alpha2Batcher.  # noqa: E501
+        :type: str
+        """
+        self._timeout = timeout
 
     def to_dict(self):
         """Returns the model properties as a dict"""

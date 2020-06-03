@@ -9,5 +9,6 @@ spec:
       batcher:
         maxBatchSize: "32"
         maxLatency: "1.0"
+        timeout: "60"
       sklearn:
         storageUri: "gs://kfserving-samples/models/sklearn/iris"

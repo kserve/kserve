@@ -100,6 +100,9 @@ type Batcher struct {
 	// MaxLatency of batcher service
 	// +optional
 	MaxLatency *string `json:"maxLatency,omitempty"`
+	// Timeout of batcher service
+	// +optional
+	Timeout *string `json:"timeout,omitempty"`
 }
 
 // PredictorSpec defines the configuration for a predictor,

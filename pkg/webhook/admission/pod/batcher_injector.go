@@ -33,6 +33,7 @@ const (
 	BatcherArgumentComponentPort = "--component-port"
 	BatcherArgumentMaxBatchSize  = "--max-batchsize"
 	BatcherArgumentMaxLatency    = "--max-latency"
+	BatcherArgumentTimeout       = "--timeout"
 )
 
 type BatcherConfig struct {
@@ -83,6 +84,7 @@ func (il *BatcherInjector) InjectBatcher(pod *v1.Pod) error {
 	k_a := map[string] string {
 		constants.BatcherMaxBatchSizeInternalAnnotationKey: BatcherArgumentMaxBatchSize,
 		constants.BatcherMaxLatencyInternalAnnotationKey: BatcherArgumentMaxLatency,
+		constants.BatcherTimeoutInternalAnnotationKey: BatcherArgumentTimeout,
 	}
 	args := []string{}
 	for k, a := range k_a {

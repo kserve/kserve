@@ -58,6 +58,7 @@ var (
 	BatcherInternalAnnotationKey                     = InferenceServiceInternalAnnotationsPrefix + "/batcher"
 	BatcherMaxBatchSizeInternalAnnotationKey         = InferenceServiceInternalAnnotationsPrefix + "/batcher-max-batchsize"
 	BatcherMaxLatencyInternalAnnotationKey           = InferenceServiceInternalAnnotationsPrefix + "/batcher-max-latency"
+	BatcherTimeoutInternalAnnotationKey              = InferenceServiceInternalAnnotationsPrefix + "/batcher-timeout"
 )
 
 // Controller Constants
