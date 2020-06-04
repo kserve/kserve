@@ -6,4 +6,4 @@ spec:
   default:
     predictor:
       triton:
-        storageUri: "gs://kfserving-samples/models/triton"
+        storageUri: "gs://kfserving-samples/models/tensorrt"
