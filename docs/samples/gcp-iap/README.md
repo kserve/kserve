@@ -42,7 +42,7 @@ This may not be essential for this example, but is recommended as it maps GCP se
 If you are running Kubeflow in a [private GKE cluster](https://cloud.google.com/kubernetes-engine/docs/how-to/private-clusters) it will be configured with a restrictive firewall.  
 You will need to ensure that the k8s master node(s) can talk to the following k8s worker node(s) ports: 
  - 6443 (for cert-manager) 
- - 8443 (for istio readiness probe)
+ - 8443 (for kfserving webhook)
 
 To create these rules firewall rules, modify and run:
 
