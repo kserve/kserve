@@ -115,6 +115,12 @@ const (
 	Explain InferenceServiceVerb = "explain"
 )
 
+// Custom URLS Annotation
+const (
+	CustomURLAnnotation InferenceServiceVerb = "custom.urls"
+        CustomURLSplit      InferenceServiceVerb = ","
+)
+
 // InferenceService Endpoint Ports
 const (
 	InferenceServiceDefaultHttpPort   = "8080"
@@ -215,6 +221,14 @@ func DefaultServiceName(name string, component InferenceServiceComponent) string
 
 func CanaryServiceName(name string, component InferenceServiceComponent) string {
 	return name + "-" + component.String() + "-" + InferenceServiceCanary
+}
+
+func ServiceCustomURL(name string, hostName string) string {
+	urls := strings.Split(name, ",")
+	for i := 0; i < len(urls); i++ {
+		urls[i] = fmt.Sprintf("http://%s%s", hostName, urls[i])
+	}
+	return strings.Join(urls, ",")
 }
 
 func InferenceServicePrefix(name string) string {

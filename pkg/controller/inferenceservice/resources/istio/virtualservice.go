@@ -158,7 +158,6 @@ func (r *VirtualServiceBuilder) getExplainerRouteDestination(meta metav1.Object,
 }
 
 func (r *VirtualServiceBuilder) CreateVirtualService(isvc *v1alpha2.InferenceService) (*v1alpha3.VirtualService, *v1alpha2.VirtualServiceStatus) {
-
 	httpRoutes := []*istiov1alpha3.HTTPRoute{}
 	predictRouteDestinations := []*istiov1alpha3.HTTPRouteDestination{}
 	serviceHostname, _ := getServiceHostname(isvc)
@@ -179,42 +178,86 @@ func (r *VirtualServiceBuilder) CreateVirtualService(isvc *v1alpha2.InferenceSer
 		}
 	}
 	// prepare the predict route
-	predictRoute := &istiov1alpha3.HTTPRoute{
-		Match: []*istiov1alpha3.HTTPMatchRequest{
-			{
-				Uri: &istiov1alpha3.StringMatch{
-					MatchType: &istiov1alpha3.StringMatch_Regex{
-						Regex: constants.PredictPrefix(),
+	annotations := isvc.GetAnnotations()
+	if v, ok := annotations[string(constants.CustomURLAnnotation)]; ok {
+		urls := strings.Split(v, ",")
+		for i, s := range urls {
+			log.Info("cqstest", "urls i ", i, "s", s)
+			predictRoute := &istiov1alpha3.HTTPRoute{
+				Match: []*istiov1alpha3.HTTPMatchRequest{
+					{
+						Uri: &istiov1alpha3.StringMatch{
+							MatchType: &istiov1alpha3.StringMatch_Prefix{
+								Prefix: s,
+							},
+						},
+						Authority: &istiov1alpha3.StringMatch{
+							MatchType: &istiov1alpha3.StringMatch_Regex{
+								Regex: constants.HostRegExp(serviceHostname),
+							},
+						},
+						Gateways: []string{r.ingressConfig.IngressGateway},
+					},
+					{
+						Uri: &istiov1alpha3.StringMatch{
+							MatchType: &istiov1alpha3.StringMatch_Prefix{
+								Prefix: s,
+							},
+						},
+						Authority: &istiov1alpha3.StringMatch{
+							MatchType: &istiov1alpha3.StringMatch_Regex{
+								Regex: constants.HostRegExp(network.GetServiceHostname(isvc.Name, isvc.Namespace)),
+							},
+						},
+						Gateways: []string{constants.KnativeLocalGateway},
 					},
 				},
-				Authority: &istiov1alpha3.StringMatch{
-					MatchType: &istiov1alpha3.StringMatch_Regex{
-						Regex: constants.HostRegExp(serviceHostname),
-					},
+				Route: predictRouteDestinations,
+				Retries: &istiov1alpha3.HTTPRetry{
+					Attempts:      3,
+					PerTryTimeout: RetryTimeout,
 				},
-				Gateways: []string{r.ingressConfig.IngressGateway},
+			}
+			httpRoutes = append(httpRoutes, predictRoute)
+		}
+	} else {
+		predictRoute := &istiov1alpha3.HTTPRoute{
+			Match: []*istiov1alpha3.HTTPMatchRequest{
+				{
+					Uri: &istiov1alpha3.StringMatch{
+						MatchType: &istiov1alpha3.StringMatch_Regex{
+							Regex: constants.PredictPrefix(),
+						},
+					},
+					Authority: &istiov1alpha3.StringMatch{
+						MatchType: &istiov1alpha3.StringMatch_Regex{
+							Regex: constants.HostRegExp(serviceHostname),
+						},
+					},
+					Gateways: []string{r.ingressConfig.IngressGateway},
+				},
+				{
+					Uri: &istiov1alpha3.StringMatch{
+						MatchType: &istiov1alpha3.StringMatch_Regex{
+							Regex: constants.PredictPrefix(),
+						},
+					},
+					Authority: &istiov1alpha3.StringMatch{
+						MatchType: &istiov1alpha3.StringMatch_Regex{
+							Regex: constants.HostRegExp(network.GetServiceHostname(isvc.Name, isvc.Namespace)),
+						},
+					},
+					Gateways: []string{constants.KnativeLocalGateway},
+				},
 			},
-			{
-				Uri: &istiov1alpha3.StringMatch{
-					MatchType: &istiov1alpha3.StringMatch_Regex{
-						Regex: constants.PredictPrefix(),
-					},
-				},
-				Authority: &istiov1alpha3.StringMatch{
-					MatchType: &istiov1alpha3.StringMatch_Regex{
-						Regex: constants.HostRegExp(network.GetServiceHostname(isvc.Name, isvc.Namespace)),
-					},
-				},
-				Gateways: []string{constants.KnativeLocalGateway},
+			Route: predictRouteDestinations,
+			Retries: &istiov1alpha3.HTTPRetry{
+				Attempts:      3,
+				PerTryTimeout: RetryTimeout,
 			},
-		},
-		Route: predictRouteDestinations,
-		Retries: &istiov1alpha3.HTTPRetry{
-			Attempts:      3,
-			PerTryTimeout: RetryTimeout,
-		},
+		}
+		httpRoutes = append(httpRoutes, predictRoute)
 	}
-	httpRoutes = append(httpRoutes, predictRoute)
 
 	// optionally add the explain route
 	explainRouteDestinations := []*istiov1alpha3.HTTPRouteDestination{}
@@ -271,8 +314,14 @@ func (r *VirtualServiceBuilder) CreateVirtualService(isvc *v1alpha2.InferenceSer
 		}
 		httpRoutes = append(httpRoutes, explainRoute)
 	}
+
 	// extract the virtual service hostname from the predictor hostname
-	serviceURL := fmt.Sprintf("%s://%s%s", "http", serviceHostname, constants.InferenceServicePrefix(isvc.Name))
+	var serviceURL string
+	if _, ok := annotations["custom.urls"]; ok {
+		serviceURL = constants.ServiceCustomURL(annotations["custom.urls"], serviceHostname)
+	} else {
+		serviceURL = fmt.Sprintf("%s://%s%s", "http", serviceHostname, constants.InferenceServicePrefix(isvc.Name))
+	}
 
 	vs := v1alpha3.VirtualService{
 		ObjectMeta: metav1.ObjectMeta{
