@@ -49,7 +49,7 @@ To create these rules firewall rules, modify and run:
 ```
 gcloud compute firewall-rules create kubeflow-webhook-probe --allow=tcp:8443 --target-tags kubeflow-worker --direction INGRESS --network default --priority 1000 --source-ranges 172.16.0.0/28
 
-gcloud compute firewall-rules create kubeflow-cert-manager --allow=tcp:8443 --target-tags kubeflow-worker --direction INGRESS --network default --priority 1000 --source-ranges 172.16.0.0/28
+gcloud compute firewall-rules create kubeflow-cert-manager --allow=tcp:6443 --target-tags kubeflow-worker --direction INGRESS --network default --priority 1000 --source-ranges 172.16.0.0/28
 
 ```
 Be careful to check whether the **source-ranges**, **target-tags** and **network** are suitable for your environment.  e.g. it assumes your worker nodes have been tagged with `kubeflow-worker` tags.
