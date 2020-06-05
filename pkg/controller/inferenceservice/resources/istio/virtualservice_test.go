@@ -34,6 +34,8 @@ func TestCreateVirtualService(t *testing.T) {
 	serviceName := "my-model"
 	namespace := "test"
 	domain := "example.com"
+	AnnotationTCName := "found annotation customized urls"
+	URLPaths := "/customized/urls/demo/test/1,/v1/models/customized-sample:predict"
 	expectedURL := constants.InferenceServiceURL("http", serviceName, namespace, domain)
 	serviceHostName := constants.InferenceServiceHostName(serviceName, namespace, domain)
 	serviceInternalHostName := network.GetServiceHostname(serviceName, namespace)
@@ -524,16 +526,79 @@ func TestCreateVirtualService(t *testing.T) {
 				},
 			},
 		},
+	}, {
+		name: AnnotationTCName,
+		defaultStatus: &v1alpha2.ComponentStatusMap{
+			constants.Predictor: v1alpha2.StatusConfigurationSpec{
+				Hostname: predictorHostname,
+			},
+		},
+		canaryStatus: nil,
+		expectedStatus: &v1alpha2.VirtualServiceStatus{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
+					Type:   v1alpha2.RoutesReady,
+					Status: corev1.ConditionTrue,
+				}},
+			},
+			URL: constants.GetServiceURL(URLPaths, serviceHostName),
+			Address: &duckv1beta1.Addressable{
+				URL: &apis.URL{
+					Scheme: "http",
+					Path:   constants.PredictPath(serviceName),
+					Host:   network.GetServiceHostname(serviceName, namespace),
+				},
+			},
+			DefaultWeight: 100,
+		},
+		expectedService: &v1alpha3.VirtualService{
+			ObjectMeta: metav1.ObjectMeta{Name: serviceName, Namespace: namespace},
+			Spec: istiov1alpha3.VirtualService{
+				Hosts:    []string{serviceHostName, serviceInternalHostName},
+				Gateways: []string{constants.KnativeIngressGateway, constants.KnativeLocalGateway},
+				Http: []*istiov1alpha3.HTTPRoute{
+					{
+						Match: []*istiov1alpha3.HTTPMatchRequest{
+							makeHttpMatchRequest(true, s, serviceHostName, constants.KnativeLocalGateway),
+						},
+						Route: []*istiov1alpha3.HTTPRouteDestination{
+							{
+								Destination: &istiov1alpha3.Destination{Host: constants.LocalGatewayHost, Port: &istiov1alpha3.PortSelector{Number: constants.CommonDefaultHttpPort}},
+								Weight:      100,
+								Headers: &istiov1alpha3.Headers{
+									Request: &istiov1alpha3.Headers_HeaderOperations{Set: map[string]string{
+										"Host": network.GetServiceHostname(constants.DefaultPredictorServiceName(serviceName), namespace)}},
+								},
+							},
+						},
+						Retries: &istiov1alpha3.HTTPRetry{
+							Attempts:      3,
+							PerTryTimeout: RetryTimeout,
+						},
+					},
+				},
+			},
+		},
 	},
 	}
 
 	for _, tc := range cases {
+		metadata := metav1.ObjectMeta{}
+		if tc.name==AnnotationTCName {
+			metadata = metav1.ObjectMeta{
+				Name:      serviceName,
+				Namespace: namespace,
+				Annotation: {constants.InferenceServiceCustomizedPredictorPathAnnotationKey: URLPaths},
+			}
+		} else {
+			metadata = metav1.ObjectMeta{
+				Name:      serviceName,
+				Namespace: namespace,
+			}
+		}
 		t.Run(tc.name, func(t *testing.T) {
 			testIsvc := &v1alpha2.InferenceService{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      serviceName,
-					Namespace: namespace,
-				},
+				ObjectMeta: metadata,
 				Spec: v1alpha2.InferenceServiceSpec{
 					Default: v1alpha2.EndpointSpec{
 						Predictor:   createMockPredictorSpec(&tc.defaultStatus),

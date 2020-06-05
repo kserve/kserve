@@ -1,0 +1,15 @@
+apiVersion: serving.kubeflow.org/v1alpha2
+kind: InferenceService
+metadata:
+  labels:
+    controller-tools.k8s.io: "1.0"
+  name: customized-urls-sample
+  annotations:
+    serving.kubeflow.org/custom-predictor-urlpaths: "/customized/urls/demo/test/1,/v1/models/customized-sample:predict"
+spec:
+  default:
+    predictor:
+      custom:
+        container:
+          image: iamlovingit/customized-urls:latest
+          container_port: 5000
