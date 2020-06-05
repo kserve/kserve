@@ -41,7 +41,7 @@ def test_triton():
         predictor=V1alpha2PredictorSpec(
             min_replicas=1,
             triton=V1alpha2TritonSpec(
-                storage_uri='gs://kfserving-samples/models/triton')))
+                storage_uri='gs://kfserving-samples/models/tensorrt')))
 
     isvc = V1alpha2InferenceService(api_version=api_version,
                                     kind=constants.KFSERVING_KIND,
