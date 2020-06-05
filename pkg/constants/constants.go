@@ -46,6 +46,7 @@ var (
 // InferenceService Annotations
 var (
 	InferenceServiceGKEAcceleratorAnnotationKey = KFServingAPIGroupName + "/gke-accelerator"
+	InferenceServiceCustomizedPredictorPathAnnotationKey = KFServingAPIGroupName + "/custom-predictor-urlpaths"
 )
 
 // InferenceService Internal Annotations
@@ -113,6 +114,11 @@ const (
 const (
 	Predict InferenceServiceVerb = "predict"
 	Explain InferenceServiceVerb = "explain"
+)
+
+// Customized Predictor Url Path Separator
+const (
+        CustomPredictorUrlPathSeparator = ","
 )
 
 // InferenceService Endpoint Ports
@@ -215,6 +221,14 @@ func DefaultServiceName(name string, component InferenceServiceComponent) string
 
 func CanaryServiceName(name string, component InferenceServiceComponent) string {
 	return name + "-" + component.String() + "-" + InferenceServiceCanary
+}
+
+func GetServiceURL(urlpaths string, serviceHostname string) string {
+	urls := strings.Split(urlpaths, CustomPredictorUrlPathSeparator)
+        for i := 0; i < len(urls); i++ {
+                urls[i] = fmt.Sprintf("http://%s%s", serviceHostname, urls[i])
+        }   
+        return strings.Join(urls, CustomPredictorUrlPathSeparator)
 }
 
 func InferenceServicePrefix(name string) string {
