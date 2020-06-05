@@ -4,8 +4,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// ServiceSpec is the top level type for this resource
-type ServiceSpec struct {
+// InferenceServiceSpec is the top level type for this resource
+type InferenceServiceSpec struct {
 	// Predictor defines the model serving spec
 	// +required
 	Predictor PredictorSpec `json:"predictor"`
@@ -19,7 +19,7 @@ type ServiceSpec struct {
 	Transformer *TransformerSpec `json:"transformer,omitempty"`
 }
 
-// ComponentExtensionSpec defines the configuration for a given service service component
+// ComponentExtensionSpec defines the configuration for a given inferenceservice component
 type ComponentExtensionSpec struct {
 	// Minimum number of replicas, defaults to 1 but can be set to enable scale-to-zero.
 	// +optional
@@ -60,7 +60,7 @@ type LoggerSpec struct {
 	Mode LoggerType `json:"mode,omitempty"`
 }
 
-// ComponentType contains the different types of components of the service
+// ComponentType contains the different types of components of the inferenceservice
 type ComponentType string
 
 // ComponentType Enum
@@ -70,7 +70,7 @@ const (
 	TransformerComponent ComponentType = "transformer"
 )
 
-// Service is the Schema for the services API
+// InferenceService is the Schema for the inferenceservices API
 // +k8s:openapi-gen=true
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -79,25 +79,25 @@ const (
 // +kubebuilder:printcolumn:name="URL",type="string",JSONPath=".status.url"
 // +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
-// +kubebuilder:resource:path=services,shortName=kfsvc
-type Service struct {
+// +kubebuilder:resource:path=inferenceservices,shortName=isvc
+type InferenceService struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   ServiceSpec   `json:"spec,omitempty"`
-	Status ServiceStatus `json:"status,omitempty"`
+	Spec   InferenceServiceSpec   `json:"spec,omitempty"`
+	Status InferenceServiceStatus `json:"status,omitempty"`
 }
 
-// ServiceList contains a list of Service
+// InferenceServiceList contains a list of Service
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:object:root=true
-type ServiceList struct {
+type InferenceServiceList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	// +listType=set
-	Items []Service `json:"items"`
+	Items []InferenceService `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&Service{}, &ServiceList{})
+	SchemeBuilder.Register(&InferenceService{}, &InferenceServiceList{})
 }
