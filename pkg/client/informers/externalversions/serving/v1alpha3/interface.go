@@ -24,10 +24,10 @@ import (
 
 // Interface provides access to all the informers in this group version.
 type Interface interface {
-	// Routers returns a RouterInformer.
-	Routers() RouterInformer
-	// Services returns a ServiceInformer.
-	Services() ServiceInformer
+	// InferenceRouters returns a InferenceRouterInformer.
+	InferenceRouters() InferenceRouterInformer
+	// InferenceServices returns a InferenceServiceInformer.
+	InferenceServices() InferenceServiceInformer
 }
 
 type version struct {
@@ -41,12 +41,12 @@ func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakList
 	return &version{factory: f, namespace: namespace, tweakListOptions: tweakListOptions}
 }
 
-// Routers returns a RouterInformer.
-func (v *version) Routers() RouterInformer {
-	return &routerInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+// InferenceRouters returns a InferenceRouterInformer.
+func (v *version) InferenceRouters() InferenceRouterInformer {
+	return &inferenceRouterInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
-// Services returns a ServiceInformer.
-func (v *version) Services() ServiceInformer {
-	return &serviceInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+// InferenceServices returns a InferenceServiceInformer.
+func (v *version) InferenceServices() InferenceServiceInformer {
+	return &inferenceServiceInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
