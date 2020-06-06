@@ -42,4 +42,3 @@ patchesStrategicMerge:
   # manager_prometheus_metrics_patch.yaml should be enabled.
 #- manager_prometheus_metrics_patch.yaml
 - webhookcainjection_patch.yaml
-- manager_resources_patch.yaml

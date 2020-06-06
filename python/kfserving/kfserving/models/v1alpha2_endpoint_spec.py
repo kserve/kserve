@@ -1,4 +1,4 @@
-# Copyright 2020 kubeflow.org.
+# Copyright 2019 kubeflow.org.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -78,7 +78,7 @@ class V1alpha2EndpointSpec(object):
     def explainer(self):
         """Gets the explainer of this V1alpha2EndpointSpec.  # noqa: E501
 
-        Explainer defines the model explanation service spec, explainer service calls to predictor or transformer if it is specified.  # noqa: E501
+        Explainer defines the model explanation service spec explainer service calls to transformer or predictor service  # noqa: E501
 
         :return: The explainer of this V1alpha2EndpointSpec.  # noqa: E501
         :rtype: V1alpha2ExplainerSpec
@@ -89,7 +89,7 @@ class V1alpha2EndpointSpec(object):
     def explainer(self, explainer):
         """Sets the explainer of this V1alpha2EndpointSpec.
 
-        Explainer defines the model explanation service spec, explainer service calls to predictor or transformer if it is specified.  # noqa: E501
+        Explainer defines the model explanation service spec explainer service calls to transformer or predictor service  # noqa: E501
 
         :param explainer: The explainer of this V1alpha2EndpointSpec.  # noqa: E501
         :type: V1alpha2ExplainerSpec
@@ -126,7 +126,7 @@ class V1alpha2EndpointSpec(object):
     def transformer(self):
         """Gets the transformer of this V1alpha2EndpointSpec.  # noqa: E501
 
-        Transformer defines the pre/post processing before and after the predictor call, transformer service calls to predictor service.  # noqa: E501
+        Transformer defines the transformer service spec for pre/post processing transformer service calls to predictor service  # noqa: E501
 
         :return: The transformer of this V1alpha2EndpointSpec.  # noqa: E501
         :rtype: V1alpha2TransformerSpec
@@ -137,7 +137,7 @@ class V1alpha2EndpointSpec(object):
     def transformer(self, transformer):
         """Sets the transformer of this V1alpha2EndpointSpec.
 
-        Transformer defines the pre/post processing before and after the predictor call, transformer service calls to predictor service.  # noqa: E501
+        Transformer defines the transformer service spec for pre/post processing transformer service calls to predictor service  # noqa: E501
 
         :param transformer: The transformer of this V1alpha2EndpointSpec.  # noqa: E501
         :type: V1alpha2TransformerSpec

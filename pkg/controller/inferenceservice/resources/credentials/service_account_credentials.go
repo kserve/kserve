@@ -24,7 +24,6 @@ import (
 	"github.com/kubeflow/kfserving/pkg/controller/inferenceservice/resources/credentials/azure"
 	"github.com/kubeflow/kfserving/pkg/controller/inferenceservice/resources/credentials/gcs"
 	"github.com/kubeflow/kfserving/pkg/controller/inferenceservice/resources/credentials/s3"
-	"github.com/kubeflow/kfserving/pkg/utils"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -102,7 +101,7 @@ func (c *CredentialBuilder) CreateSecretVolumeAndEnv(namespace string, serviceAc
 		} else if _, ok := secret.Data[gcsCredentialFileName]; ok {
 			log.Info("Setting secret volume for gcs", "GCSSecret", secret.Name)
 			volume, volumeMount := gcs.BuildSecretVolume(secret)
-			*volumes = utils.AppendVolumeIfNotExists(*volumes, volume)
+			*volumes = append(*volumes, volume)
 			container.VolumeMounts =
 				append(container.VolumeMounts, volumeMount)
 			container.Env = append(container.Env,
@@ -121,4 +120,3 @@ func (c *CredentialBuilder) CreateSecretVolumeAndEnv(namespace string, serviceAc
 
 	return nil
 }
-

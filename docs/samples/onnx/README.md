@@ -16,16 +16,11 @@ $ inferenceservice.serving.kubeflow.org/style-sample configured
 ```
 
 ## Run a sample inference
-
 1. Setup env vars
-
-Use `kfserving-ingressgateway` as your `INGRESS_GATEWAY` if you are deploying KFServing as part of Kubeflow install, and not independently.
-
 ```
 export MODEL_NAME=style-sample
 export SERVICE_HOSTNAME=$(kubectl get inferenceservice ${MODEL_NAME} -o jsonpath='{.status.url}' | cut -d "/" -f 3)
-export INGRESS_GATEWAY=istio-ingressgateway
-export CLUSTER_IP=$(kubectl -n istio-system get service $INGRESS_GATEWAY -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+export CLUSTER_IP=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 ```
 2. Verify the service is healthy
 ```

@@ -11,7 +11,7 @@ github:
   owner: kubeflow
   name: kfserving
   push:
-    tag: v*.*.*
+    tag: v*.*.*-gpu
 ###########################
 build:
   steps:
@@ -19,10 +19,10 @@ build:
     args:
     - "build"
     - "-t"
-    - "gcr.io/$REPO_NAME/${_COMPONENT}:$TAG_NAME-gpu"
+    - "gcr.io/$REPO_NAME/${_COMPONENT}:$TAG_NAME"
     - "-f"
     - "${_DOCKERFILE}"
     - "${_CONTEXT}"
   images:
-  - gcr.io/$REPO_NAME/${_COMPONENT}:$TAG_NAME-gpu
+  - gcr.io/$REPO_NAME/${_COMPONENT}:$TAG_NAME
   timeout: 1200s

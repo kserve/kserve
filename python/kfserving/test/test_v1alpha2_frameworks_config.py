@@ -1,4 +1,4 @@
-# Copyright 2020 kubeflow.org.
+# Copyright 2019 kubeflow.org.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,12 +30,12 @@ from __future__ import absolute_import
 import unittest
 
 import kfserving
-from kfserving.models.net_url_userinfo import NetUrlUserinfo  # noqa: E501
+from kfserving.models.v1alpha2_frameworks_config import V1alpha2FrameworksConfig  # noqa: E501
 from kfserving.rest import ApiException
 
 
-class TestNetUrlUserinfo(unittest.TestCase):
-    """NetUrlUserinfo unit test stubs"""
+class TestV1alpha2FrameworksConfig(unittest.TestCase):
+    """V1alpha2FrameworksConfig unit test stubs"""
 
     def setUp(self):
         pass
@@ -43,10 +43,10 @@ class TestNetUrlUserinfo(unittest.TestCase):
     def tearDown(self):
         pass
 
-    def testNetUrlUserinfo(self):
-        """Test NetUrlUserinfo"""
+    def testV1alpha2FrameworksConfig(self):
+        """Test V1alpha2FrameworksConfig"""
         # FIXME: construct object with mandatory attributes with example values
-        # model = kfserving.models.net_url_userinfo.NetUrlUserinfo()  # noqa: E501
+        # model = kfserving.models.v1alpha2_frameworks_config.V1alpha2FrameworksConfig()  # noqa: E501
         pass
 
 

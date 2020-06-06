@@ -1,4 +1,4 @@
-# Copyright 2020 kubeflow.org.
+# Copyright 2019 kubeflow.org.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -127,7 +127,7 @@ class V1alpha2PyTorchSpec(object):
     def runtime_version(self):
         """Gets the runtime_version of this V1alpha2PyTorchSpec.  # noqa: E501
 
-        Allowed runtime versions are specified in the inferenceservice config map  # noqa: E501
+        Defaults to latest PyTorch Version  # noqa: E501
 
         :return: The runtime_version of this V1alpha2PyTorchSpec.  # noqa: E501
         :rtype: str
@@ -138,7 +138,7 @@ class V1alpha2PyTorchSpec(object):
     def runtime_version(self, runtime_version):
         """Sets the runtime_version of this V1alpha2PyTorchSpec.
 
-        Allowed runtime versions are specified in the inferenceservice config map  # noqa: E501
+        Defaults to latest PyTorch Version  # noqa: E501
 
         :param runtime_version: The runtime_version of this V1alpha2PyTorchSpec.  # noqa: E501
         :type: str

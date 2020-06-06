@@ -1,4 +1,4 @@
-# Copyright 2020 kubeflow.org.
+# Copyright 2019 kubeflow.org.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -32,7 +32,6 @@ import six
 
 from kfserving.models.v1alpha2_alibi_explainer_spec import V1alpha2AlibiExplainerSpec  # noqa: F401,E501
 from kfserving.models.v1alpha2_custom_spec import V1alpha2CustomSpec  # noqa: F401,E501
-from kfserving.models.v1alpha2_logger import V1alpha2Logger  # noqa: F401,E501
 
 
 class V1alpha2ExplainerSpec(object):
@@ -51,32 +50,26 @@ class V1alpha2ExplainerSpec(object):
     swagger_types = {
         'alibi': 'V1alpha2AlibiExplainerSpec',
         'custom': 'V1alpha2CustomSpec',
-        'logger': 'V1alpha2Logger',
         'max_replicas': 'int',
         'min_replicas': 'int',
-        'parallelism': 'int',
         'service_account_name': 'str'
     }
 
     attribute_map = {
         'alibi': 'alibi',
         'custom': 'custom',
-        'logger': 'logger',
         'max_replicas': 'maxReplicas',
         'min_replicas': 'minReplicas',
-        'parallelism': 'parallelism',
         'service_account_name': 'serviceAccountName'
     }
 
-    def __init__(self, alibi=None, custom=None, logger=None, max_replicas=None, min_replicas=None, parallelism=None, service_account_name=None):  # noqa: E501
+    def __init__(self, alibi=None, custom=None, max_replicas=None, min_replicas=None, service_account_name=None):  # noqa: E501
         """V1alpha2ExplainerSpec - a model defined in Swagger"""  # noqa: E501
 
         self._alibi = None
         self._custom = None
-        self._logger = None
         self._max_replicas = None
         self._min_replicas = None
-        self._parallelism = None
         self._service_account_name = None
         self.discriminator = None
 
@@ -84,14 +77,10 @@ class V1alpha2ExplainerSpec(object):
             self.alibi = alibi
         if custom is not None:
             self.custom = custom
-        if logger is not None:
-            self.logger = logger
         if max_replicas is not None:
             self.max_replicas = max_replicas
         if min_replicas is not None:
             self.min_replicas = min_replicas
-        if parallelism is not None:
-            self.parallelism = parallelism
         if service_account_name is not None:
             self.service_account_name = service_account_name
 
@@ -99,7 +88,7 @@ class V1alpha2ExplainerSpec(object):
     def alibi(self):
         """Gets the alibi of this V1alpha2ExplainerSpec.  # noqa: E501
 
-        Spec for alibi explainer  # noqa: E501
+        The following fields follow a \"1-of\" semantic. Users must specify exactly one openapispec.  # noqa: E501
 
         :return: The alibi of this V1alpha2ExplainerSpec.  # noqa: E501
         :rtype: V1alpha2AlibiExplainerSpec
@@ -110,7 +99,7 @@ class V1alpha2ExplainerSpec(object):
     def alibi(self, alibi):
         """Sets the alibi of this V1alpha2ExplainerSpec.
 
-        Spec for alibi explainer  # noqa: E501
+        The following fields follow a \"1-of\" semantic. Users must specify exactly one openapispec.  # noqa: E501
 
         :param alibi: The alibi of this V1alpha2ExplainerSpec.  # noqa: E501
         :type: V1alpha2AlibiExplainerSpec
@@ -122,7 +111,6 @@ class V1alpha2ExplainerSpec(object):
     def custom(self):
         """Gets the custom of this V1alpha2ExplainerSpec.  # noqa: E501
 
-        Spec for a custom explainer  # noqa: E501
 
         :return: The custom of this V1alpha2ExplainerSpec.  # noqa: E501
         :rtype: V1alpha2CustomSpec
@@ -133,36 +121,12 @@ class V1alpha2ExplainerSpec(object):
     def custom(self, custom):
         """Sets the custom of this V1alpha2ExplainerSpec.
 
-        Spec for a custom explainer  # noqa: E501
 
         :param custom: The custom of this V1alpha2ExplainerSpec.  # noqa: E501
         :type: V1alpha2CustomSpec
         """
 
         self._custom = custom
-
-    @property
-    def logger(self):
-        """Gets the logger of this V1alpha2ExplainerSpec.  # noqa: E501
-
-        Activate request/response logging  # noqa: E501
-
-        :return: The logger of this V1alpha2ExplainerSpec.  # noqa: E501
-        :rtype: V1alpha2Logger
-        """
-        return self._logger
-
-    @logger.setter
-    def logger(self, logger):
-        """Sets the logger of this V1alpha2ExplainerSpec.
-
-        Activate request/response logging  # noqa: E501
-
-        :param logger: The logger of this V1alpha2ExplainerSpec.  # noqa: E501
-        :type: V1alpha2Logger
-        """
-
-        self._logger = logger
 
     @property
     def max_replicas(self):
@@ -209,29 +173,6 @@ class V1alpha2ExplainerSpec(object):
         """
 
         self._min_replicas = min_replicas
-
-    @property
-    def parallelism(self):
-        """Gets the parallelism of this V1alpha2ExplainerSpec.  # noqa: E501
-
-        Parallelism specifies how many requests can be processed concurrently, this sets the target concurrency for Autoscaling(KPA). For model servers that support tuning parallelism will use this value, by default the parallelism is the number of the CPU cores for most of the model servers.  # noqa: E501
-
-        :return: The parallelism of this V1alpha2ExplainerSpec.  # noqa: E501
-        :rtype: int
-        """
-        return self._parallelism
-
-    @parallelism.setter
-    def parallelism(self, parallelism):
-        """Sets the parallelism of this V1alpha2ExplainerSpec.
-
-        Parallelism specifies how many requests can be processed concurrently, this sets the target concurrency for Autoscaling(KPA). For model servers that support tuning parallelism will use this value, by default the parallelism is the number of the CPU cores for most of the model servers.  # noqa: E501
-
-        :param parallelism: The parallelism of this V1alpha2ExplainerSpec.  # noqa: E501
-        :type: int
-        """
-
-        self._parallelism = parallelism
 
     @property
     def service_account_name(self):

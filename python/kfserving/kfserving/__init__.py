@@ -1,4 +1,4 @@
-# Copyright 2020 kubeflow.org.
+# Copyright 2019 kubeflow.org.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -28,13 +28,12 @@ from .configuration import Configuration
 from .api.kf_serving_client import KFServingClient
 
 # import models into kfserving package
-from .models.knative_addressable import KnativeAddressable
 from .models.knative_condition import KnativeCondition
-from .models.knative_url import KnativeURL
 from .models.knative_volatile_time import KnativeVolatileTime
-from .models.net_url_userinfo import NetUrlUserinfo
 from .models.v1alpha2_alibi_explainer_spec import V1alpha2AlibiExplainerSpec
 from .models.v1alpha2_custom_spec import V1alpha2CustomSpec
+from .models.v1alpha2_framework_config import V1alpha2FrameworkConfig
+from .models.v1alpha2_frameworks_config import V1alpha2FrameworksConfig
 from .models.v1alpha2_inference_service import V1alpha2InferenceService
 from .models.v1alpha2_inference_service_list import V1alpha2InferenceServiceList
 from .models.v1alpha2_inference_service_spec import V1alpha2InferenceServiceSpec
@@ -45,7 +44,6 @@ from .models.v1alpha2_transformer_spec import V1alpha2TransformerSpec
 from .models.v1alpha2_explainer_spec import V1alpha2ExplainerSpec
 from .models.v1alpha2_py_torch_spec import V1alpha2PyTorchSpec
 from .models.v1alpha2_sk_learn_spec import V1alpha2SKLearnSpec
-from .models.v1alpha2_logger import V1alpha2Logger
 from .models.v1alpha2_onnx_spec import V1alpha2ONNXSpec
 from .models.v1alpha2_status_configuration_spec import V1alpha2StatusConfigurationSpec
 from .models.v1alpha2_tensor_rt_spec import V1alpha2TensorRTSpec

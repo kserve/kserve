@@ -17,8 +17,6 @@ limitations under the License.
 package utils
 
 import (
-	"github.com/kubeflow/kfserving/pkg/controller/inferenceservice/resources/credentials/gcs"
-	v1 "k8s.io/api/core/v1"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -117,124 +115,6 @@ func TestContainsUtil(t *testing.T) {
 		result := Includes(scenario.input1, scenario.input2)
 		if diff := cmp.Diff(scenario.expected, result); diff != "" {
 			t.Errorf("Test %q unexpected result (-want +got): %v", name, diff)
-		}
-	}
-}
-
-func TestAppendVolumeIfNotExists(t *testing.T) {
-
-	scenarios := map[string]struct {
-		volumes             []v1.Volume
-		volume      		v1.Volume
-		expectedVolumes 	[]v1.Volume
-	}{
-		"DuplicateVolume": {
-			volumes: []v1.Volume{
-				{
-					Name: gcs.GCSCredentialVolumeName,
-					VolumeSource: v1.VolumeSource{
-						Secret: &v1.SecretVolumeSource{
-							SecretName: "user-gcp-sa",
-						},
-					},
-				},
-				{
-					Name: "blue",
-					VolumeSource: v1.VolumeSource{
-						Secret: &v1.SecretVolumeSource{
-							SecretName: "user-gcp-sa",
-						},
-					},
-				},
-			},
-			volume: v1.Volume{
-				Name: gcs.GCSCredentialVolumeName,
-				VolumeSource: v1.VolumeSource{
-					Secret: &v1.SecretVolumeSource{
-						SecretName: "user-gcp-sa",
-					},
-				},
-			},
-			expectedVolumes: []v1.Volume{
-				{
-					Name: gcs.GCSCredentialVolumeName,
-					VolumeSource: v1.VolumeSource{
-						Secret: &v1.SecretVolumeSource{
-							SecretName: "user-gcp-sa",
-						},
-					},
-				},
-				{
-					Name: "blue",
-					VolumeSource: v1.VolumeSource{
-						Secret: &v1.SecretVolumeSource{
-							SecretName: "user-gcp-sa",
-						},
-					},
-				},
-			},
-		},
-		"NotDuplicateVolume": {
-			volumes: []v1.Volume{
-				{
-					Name: gcs.GCSCredentialVolumeName,
-					VolumeSource: v1.VolumeSource{
-						Secret: &v1.SecretVolumeSource{
-							SecretName: "user-gcp-sa",
-						},
-					},
-				},
-				{
-					Name: "blue",
-					VolumeSource: v1.VolumeSource{
-						Secret: &v1.SecretVolumeSource{
-							SecretName: "user-gcp-sa",
-						},
-					},
-				},
-			},
-			volume: v1.Volume{
-				Name: "green",
-				VolumeSource: v1.VolumeSource{
-					Secret: &v1.SecretVolumeSource{
-						SecretName: "user-gcp-sa",
-					},
-				},
-			},
-			expectedVolumes: []v1.Volume{
-				{
-					Name: gcs.GCSCredentialVolumeName,
-					VolumeSource: v1.VolumeSource{
-						Secret: &v1.SecretVolumeSource{
-							SecretName: "user-gcp-sa",
-						},
-					},
-				},
-				{
-					Name: "blue",
-					VolumeSource: v1.VolumeSource{
-						Secret: &v1.SecretVolumeSource{
-							SecretName: "user-gcp-sa",
-						},
-					},
-				},
-				{
-					Name: "green",
-					VolumeSource: v1.VolumeSource{
-						Secret: &v1.SecretVolumeSource{
-							SecretName: "user-gcp-sa",
-						},
-					},
-				},
-			},
-		},
-	}
-
-	for name, scenario := range scenarios {
-		volumes := AppendVolumeIfNotExists(scenario.volumes, scenario.volume)
-
-		if diff := cmp.Diff(scenario.expectedVolumes, volumes); diff != "" {
-			t.Errorf("Test %q unexpected volume (-want +got): %v", name, diff)
 		}
 	}
 }

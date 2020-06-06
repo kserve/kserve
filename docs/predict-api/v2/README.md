@@ -8,17 +8,11 @@ standardized around this protocol.
 
 The protocol is composed of a required set of APIs that must be
 implemented by a compliant server. This required set of APIs is
-described in [required_api.md](./required_api.md). The [GRPC proto
-specification](https://github.com/NVIDIA/triton-inference-server/blob/master/docs/protocol/grpc_core_service.proto)
-for the required APIs is available.
+described in [required_api.md](./required_api.md).
 
 The protocol supports an extension mechanism as a required part of the
 API, but no specific extensions are required to be implemented by a
-compliant server. Inference servers that have implemented extensions
-and the link to those extensions are:
-
-- Triton Inference Server:
-  https://github.com/NVIDIA/triton-inference-server/tree/master/docs/protocol
+compliant server.
 
 The protocol is not yet finalized and so feedback is welcome. To
 provide feedback open an issue and prepend the title with "[Predict

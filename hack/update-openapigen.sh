@@ -27,7 +27,7 @@ CURRENT_VIOLATION_EXCEPTIONS=hack/current_violation_exceptions.list
 
 # Generating OpenAPI specification
 go run vendor/k8s.io/kube-openapi/cmd/openapi-gen/openapi-gen.go \
-    --input-dirs github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2,knative.dev/pkg/apis,knative.dev/pkg/apis/duck/v1beta1 \
+    --input-dirs github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2,knative.dev/pkg/apis \
     --output-package github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2/ --go-header-file hack/boilerplate.go.txt \
     -r $CURRENT_VIOLATION_EXCEPTIONS
 

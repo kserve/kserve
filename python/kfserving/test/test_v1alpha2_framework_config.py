@@ -1,4 +1,4 @@
-# Copyright 2020 kubeflow.org.
+# Copyright 2019 kubeflow.org.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,12 +30,12 @@ from __future__ import absolute_import
 import unittest
 
 import kfserving
-from kfserving.models.v1alpha2_logger import V1alpha2Logger  # noqa: E501
+from kfserving.models.v1alpha2_framework_config import V1alpha2FrameworkConfig  # noqa: E501
 from kfserving.rest import ApiException
 
 
-class TestV1alpha2Logger(unittest.TestCase):
-    """V1alpha2Logger unit test stubs"""
+class TestV1alpha2FrameworkConfig(unittest.TestCase):
+    """V1alpha2FrameworkConfig unit test stubs"""
 
     def setUp(self):
         pass
@@ -43,10 +43,10 @@ class TestV1alpha2Logger(unittest.TestCase):
     def tearDown(self):
         pass
 
-    def testV1alpha2Logger(self):
-        """Test V1alpha2Logger"""
+    def testV1alpha2FrameworkConfig(self):
+        """Test V1alpha2FrameworkConfig"""
         # FIXME: construct object with mandatory attributes with example values
-        # model = kfserving.models.v1alpha2_logger.V1alpha2Logger()  # noqa: E501
+        # model = kfserving.models.v1alpha2_framework_config.V1alpha2FrameworkConfig()  # noqa: E501
         pass
 
 

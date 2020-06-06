@@ -1,4 +1,4 @@
-# Copyright 2020 kubeflow.org.
+# Copyright 2019 kubeflow.org.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -47,58 +47,30 @@ class V1alpha2XGBoostSpec(object):
                             and the value is json key in definition.
     """
     swagger_types = {
-        'nthread': 'int',
         'resources': 'V1ResourceRequirements',
         'runtime_version': 'str',
         'storage_uri': 'str'
     }
 
     attribute_map = {
-        'nthread': 'nthread',
         'resources': 'resources',
         'runtime_version': 'runtimeVersion',
         'storage_uri': 'storageUri'
     }
 
-    def __init__(self, nthread=None, resources=None, runtime_version=None, storage_uri=None):  # noqa: E501
+    def __init__(self, resources=None, runtime_version=None, storage_uri=None):  # noqa: E501
         """V1alpha2XGBoostSpec - a model defined in Swagger"""  # noqa: E501
 
-        self._nthread = None
         self._resources = None
         self._runtime_version = None
         self._storage_uri = None
         self.discriminator = None
 
-        if nthread is not None:
-            self.nthread = nthread
         if resources is not None:
             self.resources = resources
         if runtime_version is not None:
             self.runtime_version = runtime_version
         self.storage_uri = storage_uri
-
-    @property
-    def nthread(self):
-        """Gets the nthread of this V1alpha2XGBoostSpec.  # noqa: E501
-
-        Number of thread to be used by XGBoost  # noqa: E501
-
-        :return: The nthread of this V1alpha2XGBoostSpec.  # noqa: E501
-        :rtype: int
-        """
-        return self._nthread
-
-    @nthread.setter
-    def nthread(self, nthread):
-        """Sets the nthread of this V1alpha2XGBoostSpec.
-
-        Number of thread to be used by XGBoost  # noqa: E501
-
-        :param nthread: The nthread of this V1alpha2XGBoostSpec.  # noqa: E501
-        :type: int
-        """
-
-        self._nthread = nthread
 
     @property
     def resources(self):
@@ -127,7 +99,7 @@ class V1alpha2XGBoostSpec(object):
     def runtime_version(self):
         """Gets the runtime_version of this V1alpha2XGBoostSpec.  # noqa: E501
 
-        Allowed runtime versions are specified in the inferenceservice config map  # noqa: E501
+        Defaults to latest XGBoost Version.  # noqa: E501
 
         :return: The runtime_version of this V1alpha2XGBoostSpec.  # noqa: E501
         :rtype: str
@@ -138,7 +110,7 @@ class V1alpha2XGBoostSpec(object):
     def runtime_version(self, runtime_version):
         """Sets the runtime_version of this V1alpha2XGBoostSpec.
 
-        Allowed runtime versions are specified in the inferenceservice config map  # noqa: E501
+        Defaults to latest XGBoost Version.  # noqa: E501
 
         :param runtime_version: The runtime_version of this V1alpha2XGBoostSpec.  # noqa: E501
         :type: str

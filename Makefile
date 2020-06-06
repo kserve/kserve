@@ -12,12 +12,6 @@ STORAGE_INIT_IMG ?= storage-initializer:latest
 CRD_OPTIONS ?= "crd:trivialVersions=true"
 KFSERVING_ENABLE_SELF_SIGNED_CA ?= false
 
-# CPU/Memory limits for controller-manager
-KFSERVING_CONTROLLER_CPU_LIMIT ?= 100m
-KFSERVING_CONTROLLER_MEMORY_LIMIT ?= 300Mi
-$(shell perl -pi -e 's/cpu:.*/cpu: $(KFSERVING_CONTROLLER_CPU_LIMIT)/' config/default/manager_resources_patch.yaml)
-$(shell perl -pi -e 's/memory:.*/memory: $(KFSERVING_CONTROLLER_MEMORY_LIMIT)/' config/default/manager_resources_patch.yaml)
-
 all: test manager logger
 
 # Run tests

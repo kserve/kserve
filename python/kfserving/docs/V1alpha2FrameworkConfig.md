@@ -1,10 +1,9 @@
-# V1alpha2Logger
+# V1alpha2FrameworkConfig
 
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**mode** | **str** | What payloads to log | [optional] 
-**url** | **str** | URL to send request logging CloudEvents | [optional] 
+**image** | **str** |  | 
 
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
 

@@ -1,7 +1,7 @@
 # KF Serving Roadmap
 ## 2019 - 2020
 
-### v0.4 Performance (ETA: Jan 31, 2020)
+### v0.4 Performance (ETA: Jan 31, 2019)
 Objective: "Prevent performance regressions across a known set of representative models."
 * Automated Performance Tests 
     * Define a set of Models to test covering a wide array of usecases and frameworks.

@@ -1,4 +1,4 @@
-# Copyright 2020 kubeflow.org.
+# Copyright 2019 kubeflow.org.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -31,7 +31,6 @@ import re  # noqa: F401
 import six
 
 from kfserving.models.v1alpha2_custom_spec import V1alpha2CustomSpec  # noqa: F401,E501
-from kfserving.models.v1alpha2_logger import V1alpha2Logger  # noqa: F401,E501
 from kfserving.models.v1alpha2_onnx_spec import V1alpha2ONNXSpec  # noqa: F401,E501
 from kfserving.models.v1alpha2_py_torch_spec import V1alpha2PyTorchSpec  # noqa: F401,E501
 from kfserving.models.v1alpha2_sk_learn_spec import V1alpha2SKLearnSpec  # noqa: F401,E501
@@ -55,11 +54,9 @@ class V1alpha2PredictorSpec(object):
     """
     swagger_types = {
         'custom': 'V1alpha2CustomSpec',
-        'logger': 'V1alpha2Logger',
         'max_replicas': 'int',
         'min_replicas': 'int',
         'onnx': 'V1alpha2ONNXSpec',
-        'parallelism': 'int',
         'pytorch': 'V1alpha2PyTorchSpec',
         'service_account_name': 'str',
         'sklearn': 'V1alpha2SKLearnSpec',
@@ -70,11 +67,9 @@ class V1alpha2PredictorSpec(object):
 
     attribute_map = {
         'custom': 'custom',
-        'logger': 'logger',
         'max_replicas': 'maxReplicas',
         'min_replicas': 'minReplicas',
         'onnx': 'onnx',
-        'parallelism': 'parallelism',
         'pytorch': 'pytorch',
         'service_account_name': 'serviceAccountName',
         'sklearn': 'sklearn',
@@ -83,15 +78,13 @@ class V1alpha2PredictorSpec(object):
         'xgboost': 'xgboost'
     }
 
-    def __init__(self, custom=None, logger=None, max_replicas=None, min_replicas=None, onnx=None, parallelism=None, pytorch=None, service_account_name=None, sklearn=None, tensorflow=None, tensorrt=None, xgboost=None):  # noqa: E501
+    def __init__(self, custom=None, max_replicas=None, min_replicas=None, onnx=None, pytorch=None, service_account_name=None, sklearn=None, tensorflow=None, tensorrt=None, xgboost=None):  # noqa: E501
         """V1alpha2PredictorSpec - a model defined in Swagger"""  # noqa: E501
 
         self._custom = None
-        self._logger = None
         self._max_replicas = None
         self._min_replicas = None
         self._onnx = None
-        self._parallelism = None
         self._pytorch = None
         self._service_account_name = None
         self._sklearn = None
@@ -102,16 +95,12 @@ class V1alpha2PredictorSpec(object):
 
         if custom is not None:
             self.custom = custom
-        if logger is not None:
-            self.logger = logger
         if max_replicas is not None:
             self.max_replicas = max_replicas
         if min_replicas is not None:
             self.min_replicas = min_replicas
         if onnx is not None:
             self.onnx = onnx
-        if parallelism is not None:
-            self.parallelism = parallelism
         if pytorch is not None:
             self.pytorch = pytorch
         if service_account_name is not None:
@@ -129,7 +118,7 @@ class V1alpha2PredictorSpec(object):
     def custom(self):
         """Gets the custom of this V1alpha2PredictorSpec.  # noqa: E501
 
-        Spec for a custom predictor  # noqa: E501
+        The following fields follow a \"1-of\" semantic. Users must specify exactly one openapispec.  # noqa: E501
 
         :return: The custom of this V1alpha2PredictorSpec.  # noqa: E501
         :rtype: V1alpha2CustomSpec
@@ -140,36 +129,13 @@ class V1alpha2PredictorSpec(object):
     def custom(self, custom):
         """Sets the custom of this V1alpha2PredictorSpec.
 
-        Spec for a custom predictor  # noqa: E501
+        The following fields follow a \"1-of\" semantic. Users must specify exactly one openapispec.  # noqa: E501
 
         :param custom: The custom of this V1alpha2PredictorSpec.  # noqa: E501
         :type: V1alpha2CustomSpec
         """
 
         self._custom = custom
-
-    @property
-    def logger(self):
-        """Gets the logger of this V1alpha2PredictorSpec.  # noqa: E501
-
-        Activate request/response logging  # noqa: E501
-
-        :return: The logger of this V1alpha2PredictorSpec.  # noqa: E501
-        :rtype: V1alpha2Logger
-        """
-        return self._logger
-
-    @logger.setter
-    def logger(self, logger):
-        """Sets the logger of this V1alpha2PredictorSpec.
-
-        Activate request/response logging  # noqa: E501
-
-        :param logger: The logger of this V1alpha2PredictorSpec.  # noqa: E501
-        :type: V1alpha2Logger
-        """
-
-        self._logger = logger
 
     @property
     def max_replicas(self):
@@ -221,7 +187,6 @@ class V1alpha2PredictorSpec(object):
     def onnx(self):
         """Gets the onnx of this V1alpha2PredictorSpec.  # noqa: E501
 
-        Spec for ONNX runtime (https://github.com/microsoft/onnxruntime)  # noqa: E501
 
         :return: The onnx of this V1alpha2PredictorSpec.  # noqa: E501
         :rtype: V1alpha2ONNXSpec
@@ -232,7 +197,6 @@ class V1alpha2PredictorSpec(object):
     def onnx(self, onnx):
         """Sets the onnx of this V1alpha2PredictorSpec.
 
-        Spec for ONNX runtime (https://github.com/microsoft/onnxruntime)  # noqa: E501
 
         :param onnx: The onnx of this V1alpha2PredictorSpec.  # noqa: E501
         :type: V1alpha2ONNXSpec
@@ -241,33 +205,9 @@ class V1alpha2PredictorSpec(object):
         self._onnx = onnx
 
     @property
-    def parallelism(self):
-        """Gets the parallelism of this V1alpha2PredictorSpec.  # noqa: E501
-
-        Parallelism specifies how many requests can be processed concurrently, this sets the target concurrency for Autoscaling(KPA). For model servers that support tuning parallelism will use this value, by default the parallelism is the number of the CPU cores for most of the model servers.  # noqa: E501
-
-        :return: The parallelism of this V1alpha2PredictorSpec.  # noqa: E501
-        :rtype: int
-        """
-        return self._parallelism
-
-    @parallelism.setter
-    def parallelism(self, parallelism):
-        """Sets the parallelism of this V1alpha2PredictorSpec.
-
-        Parallelism specifies how many requests can be processed concurrently, this sets the target concurrency for Autoscaling(KPA). For model servers that support tuning parallelism will use this value, by default the parallelism is the number of the CPU cores for most of the model servers.  # noqa: E501
-
-        :param parallelism: The parallelism of this V1alpha2PredictorSpec.  # noqa: E501
-        :type: int
-        """
-
-        self._parallelism = parallelism
-
-    @property
     def pytorch(self):
         """Gets the pytorch of this V1alpha2PredictorSpec.  # noqa: E501
 
-        Spec for PyTorch predictor  # noqa: E501
 
         :return: The pytorch of this V1alpha2PredictorSpec.  # noqa: E501
         :rtype: V1alpha2PyTorchSpec
@@ -278,7 +218,6 @@ class V1alpha2PredictorSpec(object):
     def pytorch(self, pytorch):
         """Sets the pytorch of this V1alpha2PredictorSpec.
 
-        Spec for PyTorch predictor  # noqa: E501
 
         :param pytorch: The pytorch of this V1alpha2PredictorSpec.  # noqa: E501
         :type: V1alpha2PyTorchSpec
@@ -313,7 +252,6 @@ class V1alpha2PredictorSpec(object):
     def sklearn(self):
         """Gets the sklearn of this V1alpha2PredictorSpec.  # noqa: E501
 
-        Spec for SKLearn predictor  # noqa: E501
 
         :return: The sklearn of this V1alpha2PredictorSpec.  # noqa: E501
         :rtype: V1alpha2SKLearnSpec
@@ -324,7 +262,6 @@ class V1alpha2PredictorSpec(object):
     def sklearn(self, sklearn):
         """Sets the sklearn of this V1alpha2PredictorSpec.
 
-        Spec for SKLearn predictor  # noqa: E501
 
         :param sklearn: The sklearn of this V1alpha2PredictorSpec.  # noqa: E501
         :type: V1alpha2SKLearnSpec
@@ -336,7 +273,6 @@ class V1alpha2PredictorSpec(object):
     def tensorflow(self):
         """Gets the tensorflow of this V1alpha2PredictorSpec.  # noqa: E501
 
-        Spec for Tensorflow Serving (https://github.com/tensorflow/serving)  # noqa: E501
 
         :return: The tensorflow of this V1alpha2PredictorSpec.  # noqa: E501
         :rtype: V1alpha2TensorflowSpec
@@ -347,7 +283,6 @@ class V1alpha2PredictorSpec(object):
     def tensorflow(self, tensorflow):
         """Sets the tensorflow of this V1alpha2PredictorSpec.
 
-        Spec for Tensorflow Serving (https://github.com/tensorflow/serving)  # noqa: E501
 
         :param tensorflow: The tensorflow of this V1alpha2PredictorSpec.  # noqa: E501
         :type: V1alpha2TensorflowSpec
@@ -359,7 +294,6 @@ class V1alpha2PredictorSpec(object):
     def tensorrt(self):
         """Gets the tensorrt of this V1alpha2PredictorSpec.  # noqa: E501
 
-        Spec for TensorRT Inference Server (https://github.com/NVIDIA/tensorrt-inference-server)  # noqa: E501
 
         :return: The tensorrt of this V1alpha2PredictorSpec.  # noqa: E501
         :rtype: V1alpha2TensorRTSpec
@@ -370,7 +304,6 @@ class V1alpha2PredictorSpec(object):
     def tensorrt(self, tensorrt):
         """Sets the tensorrt of this V1alpha2PredictorSpec.
 
-        Spec for TensorRT Inference Server (https://github.com/NVIDIA/tensorrt-inference-server)  # noqa: E501
 
         :param tensorrt: The tensorrt of this V1alpha2PredictorSpec.  # noqa: E501
         :type: V1alpha2TensorRTSpec
@@ -382,7 +315,6 @@ class V1alpha2PredictorSpec(object):
     def xgboost(self):
         """Gets the xgboost of this V1alpha2PredictorSpec.  # noqa: E501
 
-        Spec for XGBoost predictor  # noqa: E501
 
         :return: The xgboost of this V1alpha2PredictorSpec.  # noqa: E501
         :rtype: V1alpha2XGBoostSpec
@@ -393,7 +325,6 @@ class V1alpha2PredictorSpec(object):
     def xgboost(self, xgboost):
         """Sets the xgboost of this V1alpha2PredictorSpec.
 
-        Spec for XGBoost predictor  # noqa: E501
 
         :param xgboost: The xgboost of this V1alpha2PredictorSpec.  # noqa: E501
         :type: V1alpha2XGBoostSpec
