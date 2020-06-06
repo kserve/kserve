@@ -33,7 +33,7 @@ setup(
     packages=find_packages("alibiexplainer"),
     install_requires=[
         "kfserving>=0.3.0",
-        "alibi>=0.3",
+        "alibi==0.3.2",
         "scikit-learn>=0.20.3",
         "argparse>=1.4.0",
         "requests>=2.22.0",
