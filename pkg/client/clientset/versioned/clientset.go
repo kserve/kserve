@@ -19,7 +19,7 @@ limitations under the License.
 package versioned
 
 import (
-	servingv1alpha3 "github.com/kubeflow/kfserving/pkg/client/clientset/versioned/typed/serving/v1alpha3"
+	servingv1beta1 "github.com/kubeflow/kfserving/pkg/client/clientset/versioned/typed/serving/v1beta1"
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"
 	flowcontrol "k8s.io/client-go/util/flowcontrol"
@@ -27,19 +27,19 @@ import (
 
 type Interface interface {
 	Discovery() discovery.DiscoveryInterface
-	ServingV1alpha3() servingv1alpha3.ServingV1alpha3Interface
+	ServingV1beta1() servingv1beta1.ServingV1beta1Interface
 }
 
 // Clientset contains the clients for groups. Each group has exactly one
 // version included in a Clientset.
 type Clientset struct {
 	*discovery.DiscoveryClient
-	servingV1alpha3 *servingv1alpha3.ServingV1alpha3Client
+	servingV1beta1 *servingv1beta1.ServingV1beta1Client
 }
 
-// ServingV1alpha3 retrieves the ServingV1alpha3Client
-func (c *Clientset) ServingV1alpha3() servingv1alpha3.ServingV1alpha3Interface {
-	return c.servingV1alpha3
+// ServingV1beta1 retrieves the ServingV1beta1Client
+func (c *Clientset) ServingV1beta1() servingv1beta1.ServingV1beta1Interface {
+	return c.servingV1beta1
 }
 
 // Discovery retrieves the DiscoveryClient
@@ -58,7 +58,7 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 	}
 	var cs Clientset
 	var err error
-	cs.servingV1alpha3, err = servingv1alpha3.NewForConfig(&configShallowCopy)
+	cs.servingV1beta1, err = servingv1beta1.NewForConfig(&configShallowCopy)
 	if err != nil {
 		return nil, err
 	}
@@ -74,7 +74,7 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 // panics if there is an error in the config.
 func NewForConfigOrDie(c *rest.Config) *Clientset {
 	var cs Clientset
-	cs.servingV1alpha3 = servingv1alpha3.NewForConfigOrDie(c)
+	cs.servingV1beta1 = servingv1beta1.NewForConfigOrDie(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClientForConfigOrDie(c)
 	return &cs
@@ -83,7 +83,7 @@ func NewForConfigOrDie(c *rest.Config) *Clientset {
 // New creates a new Clientset for the given RESTClient.
 func New(c rest.Interface) *Clientset {
 	var cs Clientset
-	cs.servingV1alpha3 = servingv1alpha3.New(c)
+	cs.servingV1beta1 = servingv1beta1.New(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClient(c)
 	return &cs
