@@ -31,46 +31,46 @@ type PredictorSpec struct {
 
 // PredictorExtensionSpec defines configuration shared across all predictor frameworks
 type PredictorExtensionSpec struct {
-	// User must pick StorageURI or ConfigMap. 
+	// User must pick StorageURI or ConfigMap.
 	// This field points to the location of the trained model which is mounted onto the pod.
 	StorageURI *string `json:"storageUri"`
-	
+
 	// User must pick StorageURI or ConfigMap. Escape hatch to configure a model server.
 	// Data in provided configmap must be compatible with the specified model server.
 	// May be used for multi-model serving or low level traffic splitting.
 	ConfigMap *string `json:"modelServerConfig"`
 
-	// Enables multi-model serving with three separate modes: manual, auto, or isolated. 
+	// Enables multi-model serving with three separate modes: manual, auto, or isolated.
 	// ModelServerConfig is not supported with TenancyKey.
 	// If tenancyKey is not provided, the system will use "single tenant mode" or 1 model per pod.
 	// If tenancyKey is specified, the system will co-locate all models using that key.
 	// If tenancyKey is `auto`, the system will intelligently generate a tenancyKey. This may change over time.
 	TenancyKey *string `json:"tenancyKey"`
-	
-	// Container enables overrides for the predictor. 
+
+	// Container enables overrides for the predictor.
 	// Each framework will have different defaults that are populated in the underlying container spec.
 	v1.Container `json:"inline"`
 }
 
 // GetPredictor returns the framework for the Predictor
-func (s *Service) GetPredictor() Predictor {
+func (i *InferenceService) GetPredictor() Predictor {
 	for _, f := range []Predictor{
-		s.Spec.Predictor.KFServer,
-		s.Spec.Predictor.ONNXRuntime,
-		s.Spec.Predictor.TFServing,
-		s.Spec.Predictor.TorchServe,
-		s.Spec.Predictor.Triton,
+		i.Spec.Predictor.KFServer,
+		i.Spec.Predictor.ONNXRuntime,
+		i.Spec.Predictor.TFServing,
+		i.Spec.Predictor.TorchServe,
+		i.Spec.Predictor.Triton,
 	} {
 		if f != nil {
 			return f
 		}
 	}
-	return s.Spec.Predictor.CustomPredictor
+	return i.Spec.Predictor.CustomPredictor
 }
 
 // GetPredictorPodSpec returns the PodSpec for the Predictor
-func (s *Service) GetPredictorPodSpec() v1.PodTemplateSpec {
-	p := s.Spec.Predictor.CustomPredictor.PodTemplateSpec
-	p.Spec.Containers = s.GetPredictor().GetContainers()
+func (i *InferenceService) GetPredictorPodSpec() v1.PodSpec {
+	p := i.Spec.Predictor.CustomPredictor.PodSpec
+	p.Containers = i.GetPredictor().GetContainers()
 	return p
 }

@@ -15,22 +15,6 @@ metadata:
   creationTimestamp: null
   name: inferenceservices.serving.kubeflow.org
 spec:
-  additionalPrinterColumns:
-  - JSONPath: .status.url
-    name: URL
-    type: string
-  - JSONPath: .status.conditions[?(@.type=='Ready')].status
-    name: Ready
-    type: string
-  - JSONPath: .status.traffic
-    name: Default Traffic
-    type: integer
-  - JSONPath: .status.canaryTraffic
-    name: Canary Traffic
-    type: integer
-  - JSONPath: .metadata.creationTimestamp
-    name: Age
-    type: date
   group: serving.kubeflow.org
   names:
     kind: InferenceService
@@ -6637,6 +6621,9 @@ spec:
   version: v1alpha2
   versions:
   - name: v1alpha2
+    served: true
+    storage: false
+  - name: v1alpha3
     served: true
     storage: true
 status:
