@@ -1,26 +1,34 @@
 # KF Serving Roadmap
-## 2019 - 2020
+## 2020
 ### v0.6 Inference Graph (ETA end of Q4)
-Objective: Enable model serving pipelines with flexible routing graph
+Objective: "Enable model serving pipelines with flexible routing graph"
 * Inference Router
     * Model Experimentation.
     * Ensembling.
     * Multi Arm Bandit.
     * Pipeline
+ 
+Proposal: https://docs.google.com/document/d/1rV8kI_40oiv8jMhY_LwkkyKLdOwSI1Qda-Dc6Dgjz1g
 
-### v0.5 KFServing V1Beta1 API and V2 prediction API (ETA: end of Q3)
-Objective: Stable V1Beta1 InferenceService API!
+### v0.5 API Stabilization and TCO Reduction (ETA: end of Q3)
+Objective:  "Stabilize KFServing API"
+* KFServing v1beta1 API
     * Promote v1alpha2 to v1beta1
     * Conversion webhook
 
-Objective: Unify protocols across frameworks with [prediction V2 API](https://github.com/kubeflow/kfserving/tree/master/docs/predict-api/v2).
-    * V2 Python Server
+Objective: "Unify prediction protocols across model servers"
+* KFServing [prediction V2 API]([prediction V2 API](https://github.com/kubeflow/kfserving/tree/master/docs/predict-api/v2))
+    * V2 KFServing Python Server(SKLearn/XgBoost/Custom)
     * Triton inference server V2 prediction API
     * TorchServe/KFServing integration
+
+Proposal: https://docs.google.com/document/d/1C2uf4SaAtwLTlBCciOhvdiKQ2Eay4U72VxAD4bXe7iU
 
 Objective: "Reduce Total Cost of Ownership when deploying multiple underutilized models."
 * Container/GPU Sharing
     * Reduce TCO by enabling models of the same framework and version to be co-hosted in a single model server.
+
+Proposal: https://docs.google.com/document/d/11qETyR--oOIquQke-DCaLsZY75vT1hRu21PesSUDy7o
 
 ### v0.4 Performance (end of Q2)
 Objective: "Prevent performance regressions across a known set of representative models."
@@ -34,10 +42,9 @@ Objective: "Enable users to deploy latency sensitive models with KFServing."
     * Continue to support existing HTTP Dataplane.
 
 Objective: "Increase throughput for the inference service"
-* Adaptive batching support(Inspur)
+* Adaptive batching support
     * Queue and batch requests to increase throughput.
 
-* Bias, Skew, and Outlier Detection.
 
 # Historical
 ### v0.3 Stability (Mar 11, 2020)
