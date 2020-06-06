@@ -29,7 +29,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/serving/pkg/apis/autoscaling"
-	"knative.dev/serving/pkg/apis/serving"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
@@ -39,12 +38,6 @@ var serviceAnnotationDisallowedList = []string{
 	constants.StorageInitializerSourceUriInternalAnnotationKey,
 	"kubectl.kubernetes.io/last-applied-configuration",
 }
-
-const (
-	// Set to 20% of the resource for main container, InferenceService defaults to 1CPU which is 200m for queue-proxy
-	// https://github.com/knative/serving/blob/1d263950f9f2fea85a4dd394948a029c328af9d9/pkg/reconciler/revision/resources/resourceboundary.go#L30
-	DefaultQueueSideCarResourcePercentage = "20"
-)
 
 type ServiceBuilder struct {
 	inferenceServiceConfig *v1alpha2.InferenceServicesConfig
@@ -353,9 +346,6 @@ func (c *ServiceBuilder) buildAnnotations(metadata metav1.ObjectMeta, minReplica
 		annotations[autoscaling.MaxScaleAnnotationKey] = fmt.Sprint(maxReplicas)
 	}
 
-	if _, ok := annotations[serving.QueueSideCarResourcePercentageAnnotation]; !ok {
-		annotations[serving.QueueSideCarResourcePercentageAnnotation] = DefaultQueueSideCarResourcePercentage
-	}
 	// User can pass down scaling target annotation to overwrite the target default 1
 	if _, ok := annotations[autoscaling.TargetAnnotationKey]; !ok {
 		if parallelism == 0 {
