@@ -40,7 +40,7 @@ KFServing supports the following storage providers:
     * By default, it uses `S3_ENDPOINT`, `AWS_ACCESS_KEY_ID`, and `AWS_SECRET_ACCESS_KEY` environment variables for user authentication.
 * Azure Blob Storage with the format: "https://{$STORAGE_ACCOUNT_NAME}.blob.core.windows.net/{$CONTAINER}/{$PATH}"
     * By default, it uses anonymous client to download the artifacts.
-    * For e.g. https://kfserving.blob.core.windows.net/tensorrt/simple_string/
+    * For e.g. https://kfserving.blob.core.windows.net/triton/simple_string/
 * Local filesystem either without any prefix or with a prefix "file://". For example:
     * Absolute path: `/absolute/path` or `file:///absolute/path`
     * Relative path: `relative/path` or `file://relative/path`
@@ -94,7 +94,7 @@ Class | Method |  Description
  - [V1alpha2PyTorchSpec](docs/V1alpha2PyTorchSpec.md)
  - [V1alpha2SKLearnSpec](docs/V1alpha2SKLearnSpec.md)
  - [V1alpha2StatusConfigurationSpec](docs/V1alpha2StatusConfigurationSpec.md)
- - [V1alpha2TensorRTSpec](docs/V1alpha2TensorRTSpec.md)
+ - [V1alpha2TritonSpec](docs/V1alpha2TritonSpec.md)
  - [V1alpha2TensorflowSpec](docs/V1alpha2TensorflowSpec.md)
  - [V1alpha2TransformerSpec](docs/V1alpha2TransformerSpec.md)
  - [V1alpha2XGBoostSpec](docs/V1alpha2XGBoostSpec.md)
