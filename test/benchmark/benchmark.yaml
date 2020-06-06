@@ -40,19 +40,3 @@ spec:
             name: vegeta-cfg
           name: vegeta-cfg
 ---
-apiVersion: v1
-data:
-  cfg: |
-    POST http://sklearn-iris.kfserving-test/v1/models/sklearn-iris:predict
-    @/var/vegeta/payload
-  payload: |
-    {
-      "instances": [
-        [6.8,  2.8,  4.8,  1.4],
-        [6.0,  3.4,  4.5,  1.6]
-      ]
-    }
-kind: ConfigMap
-metadata:
-  annotations:
-  name: vegeta-cfg
