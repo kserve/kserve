@@ -28,12 +28,12 @@ type FakeServingV1alpha3 struct {
 	*testing.Fake
 }
 
-func (c *FakeServingV1alpha3) Routers(namespace string) v1alpha3.RouterInterface {
-	return &FakeRouters{c, namespace}
+func (c *FakeServingV1alpha3) InferenceRouters(namespace string) v1alpha3.InferenceRouterInterface {
+	return &FakeInferenceRouters{c, namespace}
 }
 
-func (c *FakeServingV1alpha3) Services(namespace string) v1alpha3.ServiceInterface {
-	return &FakeServices{c, namespace}
+func (c *FakeServingV1alpha3) InferenceServices(namespace string) v1alpha3.InferenceServiceInterface {
+	return &FakeInferenceServices{c, namespace}
 }
 
 // RESTClient returns a RESTClient that is used to communicate

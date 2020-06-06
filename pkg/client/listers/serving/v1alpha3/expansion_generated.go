@@ -18,18 +18,18 @@ limitations under the License.
 
 package v1alpha3
 
-// RouterListerExpansion allows custom methods to be added to
-// RouterLister.
-type RouterListerExpansion interface{}
+// InferenceRouterListerExpansion allows custom methods to be added to
+// InferenceRouterLister.
+type InferenceRouterListerExpansion interface{}
 
-// RouterNamespaceListerExpansion allows custom methods to be added to
-// RouterNamespaceLister.
-type RouterNamespaceListerExpansion interface{}
+// InferenceRouterNamespaceListerExpansion allows custom methods to be added to
+// InferenceRouterNamespaceLister.
+type InferenceRouterNamespaceListerExpansion interface{}
 
-// ServiceListerExpansion allows custom methods to be added to
-// ServiceLister.
-type ServiceListerExpansion interface{}
+// InferenceServiceListerExpansion allows custom methods to be added to
+// InferenceServiceLister.
+type InferenceServiceListerExpansion interface{}
 
-// ServiceNamespaceListerExpansion allows custom methods to be added to
-// ServiceNamespaceLister.
-type ServiceNamespaceListerExpansion interface{}
+// InferenceServiceNamespaceListerExpansion allows custom methods to be added to
+// InferenceServiceNamespaceLister.
+type InferenceServiceNamespaceListerExpansion interface{}
