@@ -18,6 +18,6 @@ limitations under the License.
 
 package v1alpha3
 
-type RouterExpansion interface{}
+type InferenceRouterExpansion interface{}
 
-type ServiceExpansion interface{}
+type InferenceServiceExpansion interface{}

@@ -60,16 +60,6 @@ type LoggerSpec struct {
 	Mode LoggerType `json:"mode,omitempty"`
 }
 
-// ComponentType contains the different types of components of the inferenceservice
-type ComponentType string
-
-// ComponentType Enum
-const (
-	PredictorComponent   ComponentType = "predictor"
-	ExplainerComponent   ComponentType = "explainer"
-	TransformerComponent ComponentType = "transformer"
-)
-
 // InferenceService is the Schema for the inferenceservices API
 // +k8s:openapi-gen=true
 // +genclient
@@ -80,6 +70,7 @@ const (
 // +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:resource:path=inferenceservices,shortName=isvc
+// +kubebuilder:storageversion
 type InferenceService struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

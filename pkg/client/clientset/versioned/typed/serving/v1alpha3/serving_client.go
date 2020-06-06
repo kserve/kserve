@@ -26,8 +26,8 @@ import (
 
 type ServingV1alpha3Interface interface {
 	RESTClient() rest.Interface
-	RoutersGetter
-	ServicesGetter
+	InferenceRoutersGetter
+	InferenceServicesGetter
 }
 
 // ServingV1alpha3Client is used to interact with features provided by the serving group.
@@ -35,12 +35,12 @@ type ServingV1alpha3Client struct {
 	restClient rest.Interface
 }
 
-func (c *ServingV1alpha3Client) Routers(namespace string) RouterInterface {
-	return newRouters(c, namespace)
+func (c *ServingV1alpha3Client) InferenceRouters(namespace string) InferenceRouterInterface {
+	return newInferenceRouters(c, namespace)
 }
 
-func (c *ServingV1alpha3Client) Services(namespace string) ServiceInterface {
-	return newServices(c, namespace)
+func (c *ServingV1alpha3Client) InferenceServices(namespace string) InferenceServiceInterface {
+	return newInferenceServices(c, namespace)
 }
 
 // NewForConfig creates a new ServingV1alpha3Client for the given config.
