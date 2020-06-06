@@ -16,6 +16,8 @@ limitations under the License.
 
 package utils
 
+import v1 "k8s.io/api/core/v1"
+
 /* NOTE TO AUTHORS:
  *
  * Only you can prevent ... the proliferation of useless "utility" classes.
@@ -49,4 +51,13 @@ func Includes(slice []string, value string) bool {
 		}
 	}
 	return false
+}
+
+func AppendVolumeIfNotExists(slice []v1.Volume, volume v1.Volume) []v1.Volume {
+	for _, ele := range slice {
+		if ele.Name == volume.Name {
+			return slice
+		}
+	}
+	return append(slice, volume)
 }

@@ -1,8 +1,8 @@
 # Predict Protocol - Version 2
 
 This document proposes a predict/inference API independent of any
-specific ML/DL framework and model server. The proposed APIs are 
-able to support both easy-to-use and high-performance use cases. 
+specific ML/DL framework and model server. The proposed APIs are
+able to support both easy-to-use and high-performance use cases.
 By implementing this protocol both
 inference clients and servers will increase their utility and
 portability by being able to operate seamlessly on platforms that have
@@ -653,7 +653,8 @@ failure. The request and response messages for ModelInfer are:
       // The input tensors for the inference.
       repeated InferInputTensor inputs = 5;
 
-      // The requested output tensors for the inference.
+      // The requested output tensors for the inference. Optional, if not
+      // specified all outputs produced by the model will be returned.
       repeated InferRequestedOutputTensor outputs = 6;
     }
 
@@ -678,17 +679,20 @@ failure. The request and response messages for ModelInfer are:
         InferTensorContents contents = 5;
       }
 
+      // The name of the model used for inference.
+      string model_name = 1;
+
       // The version of the model used for inference.
-      string model_version = 1;
+      string model_version = 2;
 
       // The id of the inference request if one was specified.
-      string id = 2;
+      string id = 3;
 
       // Optional inference response parameters.
-      map<string, InferParameter> parameters = 3;
+      map<string, InferParameter> parameters = 4;
 
       // The output tensors holding inference results.
-      repeated InferOutputTensor outputs = 4;
+      repeated InferOutputTensor outputs = 5;
     }
 
 ### Parameters
@@ -718,7 +722,7 @@ server-specific parameters to provide non-standard capabilities.
         int64 int64_param = 2;
 
         // A string parameter value.
-        bytes string_param = 3;
+        string string_param = 3;
       }
     }
 

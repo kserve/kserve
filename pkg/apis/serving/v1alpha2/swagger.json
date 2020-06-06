@@ -7,6 +7,14 @@
   },
   "paths": {},
   "definitions": {
+    "knative.Addressable": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "$ref": "#/definitions/knative.URL"
+        }
+      }
+    },
     "knative.Condition": {
       "description": "Conditions defines a readiness condition for a Knative resource. See: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#typical-status-properties",
       "type": "object",
@@ -38,6 +46,57 @@
         "type": {
           "description": "Type of condition.",
           "type": "string"
+        }
+      }
+    },
+    "knative.URL": {
+      "description": "URL is an alias of url.URL. It has custom json marshal methods that enable it to be used in K8s CRDs such that the CRD resource will have the URL but operator code can can work with url.URL struct",
+      "type": "object",
+      "required": [
+        "Scheme",
+        "Opaque",
+        "User",
+        "Host",
+        "Path",
+        "RawPath",
+        "ForceQuery",
+        "RawQuery",
+        "Fragment"
+      ],
+      "properties": {
+        "ForceQuery": {
+          "description": "encoded path hint (see EscapedPath method)",
+          "type": "boolean"
+        },
+        "Fragment": {
+          "description": "encoded query values, without '?'",
+          "type": "string"
+        },
+        "Host": {
+          "description": "username and password information",
+          "type": "string"
+        },
+        "Opaque": {
+          "type": "string"
+        },
+        "Path": {
+          "description": "host or host:port",
+          "type": "string"
+        },
+        "RawPath": {
+          "description": "path (relative paths may omit leading slash)",
+          "type": "string"
+        },
+        "RawQuery": {
+          "description": "append a query ('?') even if RawQuery is empty",
+          "type": "string"
+        },
+        "Scheme": {
+          "type": "string"
+        },
+        "User": {
+          "description": "encoded opaque data",
+          "$ref": "#/definitions/net.url.Userinfo"
         }
       }
     },
@@ -262,7 +321,7 @@
       "properties": {
         "address": {
           "description": "Ducktype for addressable",
-          "$ref": "#/definitions/knative.dev.pkg.apis.duck.v1beta1.Addressable"
+          "$ref": "#/definitions/knative.Addressable"
         },
         "canary": {
           "description": "Statuses for the canary endpoints of the InferenceService",

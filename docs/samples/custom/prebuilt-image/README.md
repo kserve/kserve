@@ -25,9 +25,12 @@ This example uses the [codait/max-object-detector](https://github.com/IBM/MAX-Ob
 
 **WARNING:** by bypassing the top level inferenceservice you will be losing the capability to do a canary rollout.
 
+Use `kfserving-ingressgateway` as your `INGRESS_GATEWAY` if you are deploying KFServing as part of Kubeflow install, and not independently.
+
 ```
 MODEL_NAME=custom-prebuilt-image
-CLUSTER_IP=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+INGRESS_GATEWAY=istio-ingressgateway
+CLUSTER_IP=$(kubectl -n istio-system get service $INGRESS_GATEWAY -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 SERVICE_HOSTNAME=$(kubectl get route ${MODEL_NAME}-predictor-default -o jsonpath='{.status.url}' | cut -d "/" -f 3)
 curl -v -F "image=@dog-human.jpg" http://${CLUSTER_IP}/model/predict -H "Host: ${SERVICE_HOSTNAME}"
 ```
