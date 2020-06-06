@@ -11,7 +11,9 @@
 
 [ONNX Model with ONNX Runtime](./onnx)
 
-[TensorRT Model with NVIDIA's TensorRT Inference Server](./tensorrt)
+[Simple String Model with NVIDIA Triton Inference Server](./triton/simple_string)
+
+[Serve BERT Model with NVIDIA Triton Inference Server](./triton/bert)
 
 ### Deploy KFServing InferenceService with a custom Predictor
 
@@ -55,3 +57,5 @@
 [InferenceService with Kafka Event Source](./kafka)
 
 [InferenceService on Kubeflow with Istio-Dex](./istio-dex)
+### Deploy KFServing InferenceService behind an Authentication Proxy
+[InferenceService behind GCP Identity Aware Proxy (IAP) ](./gcp-iap)

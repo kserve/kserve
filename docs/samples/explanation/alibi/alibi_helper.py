@@ -20,7 +20,7 @@ def predict(X, name, ds, svc_hostname, cluster_ip):
     else:
         print("Failed with ",res.status_code)
         return []
-    
+
 def explain(X, name, svc_hostname, cluster_ip):
     formData = {
     'instances': X
@@ -38,31 +38,31 @@ def show_bar(X, labels, title):
     fig = go.Figure(go.Bar(x=X,y=labels,orientation='h',width=[0.5]))
     fig.update_layout(autosize=False,width=700,height=300,
                       xaxis=dict(range=[0, 1]),
-                      title_text=title,  
+                      title_text=title,
                       font=dict(family="Courier New, monospace",size=18,color="#7f7f7f"
     ))
     fig.show()
 
-    
+
 def show_feature_coverage(exp):
     data = []
-    for idx, name in enumerate(exp["names"]):
+    for idx, name in enumerate(exp["anchor"]):
         data.append(go.Bar(name=name, x=["coverage"], y=[exp['raw']['coverage'][idx]]))
     fig = go.Figure(data=data)
     fig.update_layout(yaxis=dict(range=[0, 1]))
     fig.show()
-    
+
 def show_anchors(names):
     display(Markdown('# Explanation:'))
     display(Markdown('## {}'.format(names)))
-    
+
 def show_examples(exp,fidx,ds,covered=True):
     if covered:
-        cname = 'covered'
-        display(Markdown("## Examples covered by Anchors: {}".format(exp['names'][0:fidx+1])))
+        cname = 'covered_true'
+        display(Markdown("## Examples covered by Anchors: {}".format(exp['anchor'][0:fidx+1])))
     else:
         cname = 'covered_false'
-        display(Markdown("## Examples not covered by Anchors: {}".format(exp['names'][0:fidx+1])))
+        display(Markdown("## Examples not covered by Anchors: {}".format(exp['anchor'][0:fidx+1])))
     if "feature_names" in ds:
         return pd.DataFrame(exp['raw']['examples'][fidx][cname],columns=ds.feature_names)
     else:
@@ -70,7 +70,7 @@ def show_examples(exp,fidx,ds,covered=True):
 
 def show_prediction(prediction):
     display(Markdown('## Prediction: {}'.format(prediction)))
-    
+
 def show_row(X,ds):
     display(pd.DataFrame(X,columns=ds.feature_names))
-                        
+

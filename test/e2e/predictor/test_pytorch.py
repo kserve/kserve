@@ -19,13 +19,10 @@ from kfserving import KFServingClient
 from kfserving import constants
 from kfserving import V1alpha2EndpointSpec
 from kfserving import V1alpha2PredictorSpec
-from kfserving import V1alpha2TransformerSpec
 from kfserving import V1alpha2PyTorchSpec
-from kfserving import V1alpha2CustomSpec
 from kfserving import V1alpha2InferenceServiceSpec
 from kfserving import V1alpha2InferenceService
 from kubernetes.client import V1ResourceRequirements
-from kubernetes.client import V1Container
 from ..common.utils import predict
 from ..common.utils import KFSERVING_TEST_NAMESPACE
 

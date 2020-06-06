@@ -449,9 +449,9 @@
           "description": "Spec for Tensorflow Serving (https://github.com/tensorflow/serving)",
           "$ref": "#/definitions/v1alpha2.TensorflowSpec"
         },
-        "tensorrt": {
-          "description": "Spec for TensorRT Inference Server (https://github.com/NVIDIA/tensorrt-inference-server)",
-          "$ref": "#/definitions/v1alpha2.TensorRTSpec"
+        "triton": {
+          "description": "Spec for Triton Inference Server (https://github.com/NVIDIA/triton-inference-server)",
+          "$ref": "#/definitions/v1alpha2.TritonSpec"
         },
         "xgboost": {
           "description": "Spec for XGBoost predictor",
@@ -523,27 +523,6 @@
         }
       }
     },
-    "v1alpha2.TensorRTSpec": {
-      "description": "TensorRTSpec defines arguments for configuring TensorRT model serving.",
-      "type": "object",
-      "required": [
-        "storageUri"
-      ],
-      "properties": {
-        "resources": {
-          "description": "Defaults to requests and limits of 1CPU, 2Gb MEM.",
-          "$ref": "#/definitions/v1.ResourceRequirements"
-        },
-        "runtimeVersion": {
-          "description": "Allowed runtime versions are specified in the inferenceservice config map",
-          "type": "string"
-        },
-        "storageUri": {
-          "description": "The location of the trained model",
-          "type": "string"
-        }
-      }
-    },
     "v1alpha2.TensorflowSpec": {
       "description": "TensorflowSpec defines arguments for configuring Tensorflow model serving.",
       "type": "object",
@@ -594,6 +573,27 @@
         },
         "serviceAccountName": {
           "description": "ServiceAccountName is the name of the ServiceAccount to use to run the service",
+          "type": "string"
+        }
+      }
+    },
+    "v1alpha2.TritonSpec": {
+      "description": "TritonSpec defines arguments for configuring Triton Inference Server.",
+      "type": "object",
+      "required": [
+        "storageUri"
+      ],
+      "properties": {
+        "resources": {
+          "description": "Defaults to requests and limits of 1CPU, 2Gb MEM.",
+          "$ref": "#/definitions/v1.ResourceRequirements"
+        },
+        "runtimeVersion": {
+          "description": "Allowed runtime versions are specified in the inferenceservice config map",
+          "type": "string"
+        },
+        "storageUri": {
+          "description": "The location of the trained model",
           "type": "string"
         }
       }

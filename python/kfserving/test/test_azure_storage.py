@@ -43,7 +43,7 @@ def get_call_args(call_args_list):
 def test_blob(mock_storage, mock_makedirs): # pylint: disable=unused-argument
 
     # given
-    blob_path = 'https://kfserving.blob.core.windows.net/tensorrt/simple_string/'
+    blob_path = 'https://kfserving.blob.core.windows.net/triton/simple_string/'
     paths = ['simple_string/1/model.graphdef', 'simple_string/config.pbtxt']
     mock_blob = create_mock_blob(mock_storage, paths)
 
@@ -53,8 +53,8 @@ def test_blob(mock_storage, mock_makedirs): # pylint: disable=unused-argument
     # then
     arg_list = get_call_args(mock_blob.get_blob_to_path.call_args_list)
     assert arg_list == [
-        ('tensorrt', 'simple_string/1/model.graphdef', 'dest_path/1/model.graphdef'),
-        ('tensorrt', 'simple_string/config.pbtxt', 'dest_path/config.pbtxt')
+        ('triton', 'simple_string/1/model.graphdef', 'dest_path/1/model.graphdef'),
+        ('triton', 'simple_string/config.pbtxt', 'dest_path/config.pbtxt')
         ]
 
     mock_storage.assert_called_with(account_name="kfserving")
@@ -65,7 +65,7 @@ def test_blob(mock_storage, mock_makedirs): # pylint: disable=unused-argument
 def test_secure_blob(mock_storage, mock_get_token, mock_makedirs): # pylint: disable=unused-argument
 
     # given
-    blob_path = 'https://kfsecured.blob.core.windows.net/tensorrt/simple_string/'
+    blob_path = 'https://kfsecured.blob.core.windows.net/triton/simple_string/'
     mock_blob = mock_storage.return_value
     mock_blob.list_blobs.side_effect = AzureMissingResourceHttpError("fail auth", 404)
     mock_get_token.return_value = "some_token"

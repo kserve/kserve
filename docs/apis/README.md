@@ -821,15 +821,15 @@ TensorflowSpec
 </tr>
 <tr>
 <td>
-<code>tensorrt</code></br>
+<code>triton</code></br>
 <em>
-<a href="#serving.kubeflow.org/v1alpha2.TensorRTSpec">
-TensorRTSpec
+<a href="#serving.kubeflow.org/v1alpha2.TritonSpec">
+TritonSpec
 </a>
 </em>
 </td>
 <td>
-<p>Spec for TensorRT Inference Server (<a href="https://github.com/NVIDIA/tensorrt-inference-server">https://github.com/NVIDIA/tensorrt-inference-server</a>)</p>
+<p>Spec for Triton Inference Server (<a href="https://github.com/NVIDIA/triton-inference-server">https://github.com/NVIDIA/triton-inference-server</a>)</p>
 </td>
 </tr>
 <tr>
@@ -927,7 +927,7 @@ PredictorConfig
 </tr>
 <tr>
 <td>
-<code>tensorrt</code></br>
+<code>triton</code></br>
 <em>
 <a href="#serving.kubeflow.org/v1alpha2.PredictorConfig">
 PredictorConfig
@@ -1153,14 +1153,14 @@ int
 </tr>
 </tbody>
 </table>
-<h3 id="serving.kubeflow.org/v1alpha2.TensorRTSpec">TensorRTSpec
+<h3 id="serving.kubeflow.org/v1alpha2.TritonSpec">TritonSpec
 </h3>
 <p>
 (<em>Appears on:</em>
 <a href="#serving.kubeflow.org/v1alpha2.PredictorSpec">PredictorSpec</a>)
 </p>
 <p>
-<p>TensorRTSpec defines arguments for configuring TensorRT model serving.</p>
+<p>TritonSpec defines arguments for configuring Triton Inference Server.</p>
 </p>
 <table>
 <thead>

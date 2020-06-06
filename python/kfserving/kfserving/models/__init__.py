@@ -49,7 +49,7 @@ from kfserving.models.v1alpha2_predictor_spec import V1alpha2PredictorSpec
 from kfserving.models.v1alpha2_py_torch_spec import V1alpha2PyTorchSpec
 from kfserving.models.v1alpha2_sk_learn_spec import V1alpha2SKLearnSpec
 from kfserving.models.v1alpha2_status_configuration_spec import V1alpha2StatusConfigurationSpec
-from kfserving.models.v1alpha2_tensor_rt_spec import V1alpha2TensorRTSpec
+from kfserving.models.v1alpha2_triton_spec import V1alpha2TritonSpec
 from kfserving.models.v1alpha2_tensorflow_spec import V1alpha2TensorflowSpec
 from kfserving.models.v1alpha2_transformer_spec import V1alpha2TransformerSpec
 from kfserving.models.v1alpha2_xg_boost_spec import V1alpha2XGBoostSpec

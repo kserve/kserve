@@ -42,12 +42,12 @@ func TestCreateModelServingContainer(t *testing.T) {
 	}
 	var config = InferenceServicesConfig{
 		Predictors: &PredictorsConfig{
-			TensorRT: PredictorConfig{
+			Triton: PredictorConfig{
 				ContainerImage: "someOtherImage",
 			},
 		},
 	}
-	var spec = TensorRTSpec{
+	var spec = TritonSpec{
 		StorageURI:     "gs://someUri",
 		Resources:      requestedResource,
 		RuntimeVersion: "19.05-py3",

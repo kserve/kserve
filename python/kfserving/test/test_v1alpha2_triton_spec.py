@@ -30,12 +30,12 @@ from __future__ import absolute_import
 import unittest
 
 import kfserving
-from kfserving.models.v1alpha2_tensor_rt_spec import V1alpha2TensorRTSpec  # noqa: E501
+from kfserving.models.v1alpha2_triton_spec import V1alpha2TritonSpec  # noqa: E501
 from kfserving.rest import ApiException
 
 
-class TestV1alpha2TensorRTSpec(unittest.TestCase):
-    """V1alpha2TensorRTSpec unit test stubs"""
+class TestV1alpha2TritonSpec(unittest.TestCase):
+    """V1alpha2TritonSpec unit test stubs"""
 
     def setUp(self):
         pass
@@ -43,10 +43,10 @@ class TestV1alpha2TensorRTSpec(unittest.TestCase):
     def tearDown(self):
         pass
 
-    def testV1alpha2TensorRTSpec(self):
-        """Test V1alpha2TensorRTSpec"""
+    def testV1alpha2TritonSpec(self):
+        """Test V1alpha2TritonSpec"""
         # FIXME: construct object with mandatory attributes with example values
-        # model = kfserving.models.v1alpha2_tensor_rt_spec.V1alpha2TensorRTSpec()  # noqa: E501
+        # model = kfserving.models.v1alpha2_triton_spec.V1alpha2TritonSpec()  # noqa: E501
         pass
 
 
