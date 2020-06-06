@@ -20,8 +20,8 @@ package fake
 
 import (
 	clientset "github.com/kubeflow/kfserving/pkg/client/clientset/versioned"
-	servingv1alpha3 "github.com/kubeflow/kfserving/pkg/client/clientset/versioned/typed/serving/v1alpha3"
-	fakeservingv1alpha3 "github.com/kubeflow/kfserving/pkg/client/clientset/versioned/typed/serving/v1alpha3/fake"
+	servingv1beta1 "github.com/kubeflow/kfserving/pkg/client/clientset/versioned/typed/serving/v1beta1"
+	fakeservingv1beta1 "github.com/kubeflow/kfserving/pkg/client/clientset/versioned/typed/serving/v1beta1/fake"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
@@ -76,7 +76,7 @@ func (c *Clientset) Tracker() testing.ObjectTracker {
 
 var _ clientset.Interface = &Clientset{}
 
-// ServingV1alpha3 retrieves the ServingV1alpha3Client
-func (c *Clientset) ServingV1alpha3() servingv1alpha3.ServingV1alpha3Interface {
-	return &fakeservingv1alpha3.FakeServingV1alpha3{Fake: &c.Fake}
+// ServingV1beta1 retrieves the ServingV1beta1Client
+func (c *Clientset) ServingV1beta1() servingv1beta1.ServingV1beta1Interface {
+	return &fakeservingv1beta1.FakeServingV1beta1{Fake: &c.Fake}
 }
