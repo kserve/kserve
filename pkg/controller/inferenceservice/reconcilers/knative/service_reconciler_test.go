@@ -42,6 +42,10 @@ const (
 	DefaultTensorflowRuntimeVersion = "latest"
 )
 
+var (
+	containerConcurrency int64 = 0
+)
+
 func TestKnativeServiceReconcile(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
@@ -130,7 +134,8 @@ func TestKnativeServiceReconcile(t *testing.T) {
 								},
 							},
 							Spec: knservingv1.RevisionSpec{
-								TimeoutSeconds: &constants.DefaultPredictorTimeout,
+								ContainerConcurrency: &containerConcurrency,
+								TimeoutSeconds:       &constants.DefaultPredictorTimeout,
 								PodSpec: v1.PodSpec{
 									Containers: []v1.Container{
 										{
@@ -174,7 +179,8 @@ func TestKnativeServiceReconcile(t *testing.T) {
 								},
 							},
 							Spec: knservingv1.RevisionSpec{
-								TimeoutSeconds: &constants.DefaultPredictorTimeout,
+								ContainerConcurrency: &containerConcurrency,
+								TimeoutSeconds:       &constants.DefaultPredictorTimeout,
 								PodSpec: v1.PodSpec{
 									Containers: []v1.Container{
 										{
@@ -236,7 +242,8 @@ func TestKnativeServiceReconcile(t *testing.T) {
 								},
 							},
 							Spec: knservingv1.RevisionSpec{
-								TimeoutSeconds: &constants.DefaultPredictorTimeout,
+								ContainerConcurrency: &containerConcurrency,
+								TimeoutSeconds:       &constants.DefaultPredictorTimeout,
 								PodSpec: v1.PodSpec{
 									Containers: []v1.Container{
 										{

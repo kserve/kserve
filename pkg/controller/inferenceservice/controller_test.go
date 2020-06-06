@@ -58,6 +58,10 @@ const (
 	TensorflowServingImageName = "tensorflow/serving"
 )
 
+var (
+	containerConcurrency int64 = 0
+)
+
 var configs = map[string]string{
 	"predictors": `{
         "tensorflow" : {
@@ -178,7 +182,8 @@ func TestInferenceServiceWithOnlyPredictor(t *testing.T) {
 						},
 					},
 					Spec: knservingv1.RevisionSpec{
-						TimeoutSeconds: &constants.DefaultPredictorTimeout,
+						ContainerConcurrency: &containerConcurrency,
+						TimeoutSeconds:       &constants.DefaultPredictorTimeout,
 						PodSpec: v1.PodSpec{
 							Containers: []v1.Container{
 								{
@@ -448,7 +453,8 @@ func TestInferenceServiceWithDefaultAndCanaryPredictor(t *testing.T) {
 						},
 					},
 					Spec: knservingv1.RevisionSpec{
-						TimeoutSeconds: &constants.DefaultPredictorTimeout,
+						ContainerConcurrency: &containerConcurrency,
+						TimeoutSeconds:       &constants.DefaultPredictorTimeout,
 						PodSpec: v1.PodSpec{
 							Containers: []v1.Container{
 								{
@@ -1054,7 +1060,8 @@ func TestInferenceServiceWithTransformer(t *testing.T) {
 						},
 					},
 					Spec: knservingv1.RevisionSpec{
-						TimeoutSeconds: &constants.DefaultTransformerTimeout,
+						ContainerConcurrency: &containerConcurrency,
+						TimeoutSeconds:       &constants.DefaultTransformerTimeout,
 						PodSpec: v1.PodSpec{
 							Containers: []v1.Container{
 								{
@@ -1624,7 +1631,8 @@ func TestInferenceServiceWithExplainer(t *testing.T) {
 						},
 					},
 					Spec: knservingv1.RevisionSpec{
-						TimeoutSeconds: &constants.DefaultExplainerTimeout,
+						ContainerConcurrency: &containerConcurrency,
+						TimeoutSeconds:       &constants.DefaultExplainerTimeout,
 						PodSpec: v1.PodSpec{
 							Containers: []v1.Container{
 								{
