@@ -1,10 +1,31 @@
 # KF Serving Roadmap
 ## 2019 - 2020
+### v0.6 Inference Graph (ETA end of Q4)
+Objective: Enable model serving pipelines with flexible routing graph
+* Inference Router
+    * Model Experimentation.
+    * Ensembling.
+    * Multi Arm Bandit.
+    * Pipeline
 
-### v0.4 Performance (ETA: Jan 31, 2020)
+### v0.5 KFServing V1Beta1 API and V2 prediction API (ETA: end of Q3)
+Objective: Stable V1Beta1 InferenceService API!
+    * Promote v1alpha2 to v1beta1
+    * Conversion webhook
+
+Objective: Unify protocols across frameworks with [prediction V2 API](https://github.com/kubeflow/kfserving/tree/master/docs/predict-api/v2).
+    * V2 Python Server
+    * Triton inference server V2 prediction API
+    * TorchServe/KFServing integration
+
+Objective: "Reduce Total Cost of Ownership when deploying multiple underutilized models."
+* Container/GPU Sharing
+    * Reduce TCO by enabling models of the same framework and version to be co-hosted in a single model server.
+
+### v0.4 Performance (end of Q2)
 Objective: "Prevent performance regressions across a known set of representative models."
-* Automated Performance Tests 
-    * Define a set of Models to test covering a wide array of usecases and frameworks.
+* Automated Performance Tests
+    * Define a set of Models to test covering a wide array of use cases and frameworks.
     * Publish performance results over time to enable regression tracking.
 
 Objective: "Enable users to deploy latency sensitive models with KFServing."
@@ -12,11 +33,14 @@ Objective: "Enable users to deploy latency sensitive models with KFServing."
     * Enable support for GRPC or similar.
     * Continue to support existing HTTP Dataplane.
 
-Objective: "Reduce Total Cost of Ownership when deploying multiple underutilized models."
-* GPU Sharing 
-    * Reduce TCO by enabling models of the same framework and version to be co-hosted in a single model server.
+Objective: "Increase throughput for the inference service"
+* Adaptive batching support(Inspur)
+    * Queue and batch requests to increase throughput.
 
-### v0.3 Stability (ETA: Dec 15, 2019)
+* Bias, Skew, and Outlier Detection.
+
+# Historical
+### v0.3 Stability (Mar 11, 2020)
 Objective: "Improve practices around dependency management." 
 * Migrate to Kubebuilder 2.0.
     * Use Go Modules.
@@ -40,23 +64,6 @@ Objective: "Improve build and release processes to improve the developer experie
 * Improve versioning of XGBoost, SKLearn, and PyTorch
     * Replace KFServing version with the corresponding framework version.
 
-# Future 
-## Unscheduled Work
-* Flexible Inference Graphs [MLGraph CRD](https://github.com/SeldonIO/mlgraph).
-    * Model Experimentation.
-    * Ensembling.
-    * Multi Arm Bandit.
-* Payload Logging
-    * Finalize the design and implementation for [Payload Logging](https://docs.google.com/document/d/1MBl5frM9l_wyQkYEaDeHOP6Mrsuz9YOob7276AAN9_c/edit?usp=sharing)
-* Bias, Skew, and Outlier Detection.
-    * Online support in graph.
-    * Offline support with Payload Logging.
-* Meta-Protocol Definition.
-    * Unify disparate protocols across frameworks.
-* Adaptive batching support
-    * Queue and batch requests to increase throughput.
-
-# Historical
 ### v0.2 Integrate with the ML Ecosystem (Oct 31, 2019)
 Objective: "Continue to simplify the user experience by deeply integrating with the Kubeflow Ecosystem."
 * Kubeflow Integration
@@ -78,8 +85,6 @@ Objective: "Increase coverage of ML frameworks to support previously unsupported
 * Frameworks
     * Deploy a ONNX model
     * Explore supporting other model serialization mechanisms for certain frameworks (e.g. saving PyTorch models with dill)
-
-
 
 ## Q2 2019
 ### v0.1: InferenceService Minimum Viable Product (June 30, 2019)
