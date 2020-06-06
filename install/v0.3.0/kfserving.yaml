@@ -17622,9 +17622,9 @@ spec:
               type: integer
           type: object
       type: object
-  version: v1alpha3
+  version: v1beta1
   versions:
-  - name: v1alpha3
+  - name: v1beta1
     served: true
     storage: true
 status:
