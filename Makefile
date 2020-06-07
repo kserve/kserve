@@ -114,10 +114,10 @@ endif
 	hack/verify-golint.sh
 
 # Generate code
-generate:
+generate: controller-gen
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./pkg/... ./cmd/..."
 	#hack/update-codegen.sh
-	#hack/update-openapigen.sh
+	hack/update-openapigen.sh
 
 # Build the docker image
 docker-build: test
