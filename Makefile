@@ -116,6 +116,7 @@ endif
 # Generate code
 generate: controller-gen
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./pkg/... ./cmd/..."
+	#TODO update-codegen.sh is not used and requires vendor, not sure how to run it with go module
 	#hack/update-codegen.sh
 	hack/update-openapigen.sh
 
