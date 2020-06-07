@@ -33,6 +33,8 @@ echo "Copy source to GOPATH"
 mkdir -p ${GO_DIR}
 cp -r cmd ${GO_DIR}/cmd
 cp -r pkg ${GO_DIR}/pkg
+cp go.mod ${GO_DIR}/go.mod
+cp go.sum ${GO_DIR}/go.sum
 cp -r third_party ${GO_DIR}/third_party
 cp Dockerfile ${GO_DIR}
 
