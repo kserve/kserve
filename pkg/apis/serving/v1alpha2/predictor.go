@@ -70,7 +70,6 @@ func (p *PredictorSpec) Validate(config *InferenceServicesConfig) error {
 		validateStorageURI(p.GetStorageUri()),
 		validateParallelism(p.Parallelism),
 		validateReplicas(p.MinReplicas, p.MaxReplicas),
-		validateResourceRequirements(predictor.GetResourceRequirements()),
 		validateLogger(p.Logger),
 	} {
 		if err != nil {

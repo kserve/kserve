@@ -8,9 +8,6 @@ import (
 	"github.com/kubeflow/kfserving/pkg/constants"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	// "k8s.io/apimachinery/pkg/util/validation/field"
-	//	"k8s.io/kubernetes/pkg/apis/core"
-	//	"k8s.io/kubernetes/pkg/apis/core/validation"
 )
 
 var (
@@ -57,14 +54,6 @@ func toCoreResourceRequirements(rr *v1.ResourceRequirements) *v1.ResourceRequire
 	}
 
 	return resourceRequirements
-}
-
-// validate the ResourceRequirements of the model.
-func validateResourceRequirements(rr *v1.ResourceRequirements) error {
-	//if errs := validation.ValidateResourceRequirements(toCoreResourceRequirements(rr), field.NewPath("resources")); len(errs) != 0 {
-	//	return fmt.Errorf("Unexpected error: %v", errs)
-	//}
-	return nil
 }
 
 func validateStorageURI(storageURI string) error {
