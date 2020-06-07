@@ -81,7 +81,7 @@ Build the KFServing Transformer image with above code
 cd bert_tokenizer
 docker build -t $USER/bert_transformer:latest . --rm
 ```
-Or you can use the prebuild image `gcr.io/kubeflow-ci/kfserving/bert_transformer:latest`
+Or you can use the prebuild image `gcr.io/kubeflow-ci/kfserving/bert-transformer:latest`
 
 ## Create the InferenceService
 Add above custom KFServing Transformer image and Triton Predictor to the `InferenceService` spec
