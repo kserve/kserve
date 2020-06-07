@@ -25,7 +25,7 @@ $(shell perl -pi -e 's/memory:.*/memory: $(KFSERVING_CONTROLLER_MEMORY_LIMIT)/' 
 all: test manager logger
 
 # Run tests
-test: generate fmt vet lint manifests
+test: fmt vet lint manifests
 	go test ./pkg/... ./cmd/... -coverprofile cover.out
 
 # Build manager binary
@@ -97,6 +97,7 @@ undeploy-dev:
 manifests: controller-gen
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=kfserving-manager-role webhook paths=./pkg/apis/... output:crd:dir=config/default/crds/base
 	kustomize build config/default/crds -o config/default/crds/base/serving.kubeflow.org_inferenceservices.yaml
+	# Remove this until new controller-tools is release
 	perl -pi -e 's/storedVersions: null/storedVersions: []/g' config/default/crds/base/serving.kubeflow.org_inferenceservices.yaml
 	perl -pi -e 's/conditions: null/conditions: []/g' config/default/crds/base/serving.kubeflow.org_inferenceservices.yaml
 
@@ -118,7 +119,7 @@ endif
 # Generate code
 generate: controller-gen
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./pkg/... ./cmd/..."
-	#TODO update-codegen.sh is not used and requires vendor, not sure how to run it with go module
+	#TODO update-codegen.sh is not used and requires vendor
 	#hack/update-codegen.sh
 	hack/update-openapigen.sh
 
