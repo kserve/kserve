@@ -179,6 +179,7 @@ ifeq (, $(shell which controller-gen))
 	CONTROLLER_GEN_TMP_DIR=$$(mktemp -d) ;\
 	cd $$CONTROLLER_GEN_TMP_DIR ;\
 	go mod init tmp ;\
+	#TODO use controller-tools release once commit e0d7c9d9723baea95e57a12751864e2e8f7d7c0f is in
 	go get sigs.k8s.io/controller-tools/cmd/controller-gen@e0d7c9d9723baea95e57a12751864e2e8f7d7c0f ;\
 	rm -rf $$CONTROLLER_GEN_TMP_DIR ;\
 	}
