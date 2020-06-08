@@ -225,7 +225,7 @@ type CustomSpec struct {
 type ComponentStatusMap map[constants.InferenceServiceComponent]StatusConfigurationSpec
 
 type Addressable struct {
-	URL string `json:"address,omitempty"`
+	URL string `json:"url,omitempty"`
 }
 
 // InferenceServiceStatus defines the observed state of InferenceService
@@ -251,7 +251,6 @@ type StatusConfigurationSpec struct {
 	Name string `json:"name,omitempty"`
 	// Host name of the service
 	Hostname string `json:"host,omitempty"`
-	Replicas int    `json:"replicas,omitempty"`
 }
 
 // +genclient

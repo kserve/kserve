@@ -7674,7 +7674,7 @@ spec:
             address:
               description: Ducktype for addressable
               properties:
-                address:
+                url:
                   type: string
               type: object
             canary:
