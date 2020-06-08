@@ -33,11 +33,10 @@ require (
 	github.com/tensorflow/tensorflow v1.13.1 // indirect
 	go.uber.org/multierr v1.2.0 // indirect
 	go.uber.org/zap v1.11.0 // indirect
-	golang.org/x/crypto v0.0.0-20191011191535-87dc89f01550 // indirect
-	golang.org/x/net v0.0.0-20191021144547-ec77196f6094
+	golang.org/x/lint v0.0.0-20200302205851-738671d3881b // indirect
+	golang.org/x/net v0.0.0-20200226121028-0de0cce0169b
 	golang.org/x/time v0.0.0-20191023065245-6d3f0bb11be5 // indirect
-	golang.org/x/tools v0.0.0-20191022213345-0bbdf54effa2 // indirect
-	golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543 // indirect
+	golang.org/x/tools v0.0.0-20200606014950-c42cb6316fb6 // indirect
 	gomodules.xyz/jsonpatch v2.0.1+incompatible // indirect
 	google.golang.org/api v0.15.0 // indirect
 	google.golang.org/genproto v0.0.0-20200108215221-bd8f9a0ef82f // indirect
