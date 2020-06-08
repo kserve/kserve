@@ -1,4 +1,6 @@
-# Example Anchors Image Explaination for Imagenet
+# Example Anchors Image Explanation for Imagenet
+
+For users of KFServing v0.3.0 please follow [the README for v0.3.0 branch](https://github.com/kubeflow/kfserving/tree/v0.3.0/docs/samples/explanation/alibi/imagenet).
 
 We can create a InferenceService with a trained Tensorflow Imagenet predictor for this dataset and an associated explainer. The black box explainer algorithm we will use is the Images version of Anchors from the [Alibi open source library](https://github.com/SeldonIO/alibi). More details on this algorithm and configuration settings that can be set can be found in the [Seldon Alibi documentation](https://docs.seldon.io/projects/alibi/en/stable/).
 
