@@ -39,10 +39,8 @@ do
      break
   fi
   n=$[$n+1]
-  echo "try $n time"
   sleep 5
 done
-echo $status
 if [ $status -ne 0 ]; then
    echo "tried 3 times, marking unit test failed"
    exit 1

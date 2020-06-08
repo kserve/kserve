@@ -326,7 +326,7 @@ func TestInferenceServiceWithOnlyPredictor(t *testing.T) {
 				Hostname: constants.InferenceServiceHostName(constants.DefaultPredictorServiceName(serviceKey.Name), serviceKey.Namespace, domain),
 			},
 		},
-		Canary: nil,
+		Canary: &map[constants.InferenceServiceComponent]v1alpha2.StatusConfigurationSpec{},
 	}
 	g.Eventually(func() *kfserving.InferenceServiceStatus {
 		isvc := &kfserving.InferenceService{}
@@ -904,7 +904,7 @@ func TestCanaryDelete(t *testing.T) {
 				Hostname: constants.InferenceServiceHostName(constants.DefaultPredictorServiceName(serviceName), namespace, domain),
 			},
 		},
-		Canary: nil,
+		Canary: &map[constants.InferenceServiceComponent]v1alpha2.StatusConfigurationSpec{},
 	}
 	g.Eventually(func() *kfserving.InferenceServiceStatus {
 		isvc := &kfserving.InferenceService{}
