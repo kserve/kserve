@@ -7675,7 +7675,7 @@ spec:
               description: Ducktype for addressable
               properties:
                 url:
-                  type: string
+                  type: Any
               type: object
             canary:
               additionalProperties:
@@ -7688,8 +7688,6 @@ spec:
                   name:
                     description: Latest revision name that is in ready state
                     type: string
-                  replicas:
-                    type: integer
                 type: object
               description: Statuses for the canary endpoints of the InferenceService
               type: object
@@ -7741,8 +7739,6 @@ spec:
                   name:
                     description: Latest revision name that is in ready state
                     type: string
-                  replicas:
-                    type: integer
                 type: object
               description: Statuses for the default endpoints of the InferenceService
               type: object

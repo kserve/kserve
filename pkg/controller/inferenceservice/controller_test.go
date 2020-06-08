@@ -311,9 +311,12 @@ func TestInferenceServiceWithOnlyPredictor(t *testing.T) {
 			},
 		},
 		URL: constants.InferenceServiceURL("http", serviceKey.Name, serviceKey.Namespace, domain),
-		Address: v1alpha2.Addressable{
-			URL: "http://" + network.GetServiceHostname(serviceKey.Name, serviceKey.Namespace) +
-				constants.PredictPath(serviceKey.Name),
+		Address: &duckv1beta1.Addressable{
+			URL: &apis.URL{
+				Scheme: "http",
+				Path:   constants.PredictPath(serviceKey.Name),
+				Host:   network.GetServiceHostname(serviceKey.Name, serviceKey.Namespace),
+			},
 		},
 		Traffic:       100,
 		CanaryTraffic: 0,
@@ -373,9 +376,12 @@ func TestInferenceServiceWithDefaultAndCanaryPredictor(t *testing.T) {
 		},
 		Status: kfserving.InferenceServiceStatus{
 			URL: canaryServiceKey.Name + "." + domain,
-			Address: v1alpha2.Addressable{
-				URL: "http://" + network.GetServiceHostname(canaryServiceKey.Name, canaryServiceKey.Namespace) +
-					constants.PredictPath(canaryServiceKey.Name),
+			Address: &duckv1beta1.Addressable{
+				URL: &apis.URL{
+					Scheme: "http",
+					Host:   network.GetServiceHostname(canaryServiceKey.Name, canaryServiceKey.Namespace),
+					Path:   constants.PredictPath(canaryServiceKey.Name),
+				},
 			},
 			Default: kfserving.ComponentStatusMap{
 				constants.Predictor: kfserving.StatusConfigurationSpec{
@@ -533,9 +539,12 @@ func TestInferenceServiceWithDefaultAndCanaryPredictor(t *testing.T) {
 		},
 		URL: constants.InferenceServiceURL("http", canaryServiceKey.Name,
 			canaryService.Namespace, domain),
-		Address: v1alpha2.Addressable{
-			URL: "http://" + network.GetServiceHostname(canaryServiceKey.Name, canaryServiceKey.Namespace) +
-				constants.PredictPath(canaryServiceKey.Name),
+		Address: &duckv1beta1.Addressable{
+			URL: &apis.URL{
+				Scheme: "http",
+				Path:   constants.PredictPath(canaryServiceKey.Name),
+				Host:   network.GetServiceHostname(canaryServiceKey.Name, canaryServiceKey.Namespace),
+			},
 		},
 		Traffic:       80,
 		CanaryTraffic: 20,
@@ -795,9 +804,12 @@ func TestCanaryDelete(t *testing.T) {
 			},
 		},
 		URL: constants.InferenceServiceURL("http", serviceName, namespace, domain),
-		Address: v1alpha2.Addressable{
-			URL: "http://" + network.GetServiceHostname(serviceName, canaryServiceKey.Namespace) +
-				constants.PredictPath(serviceName),
+		Address: &duckv1beta1.Addressable{
+			URL: &apis.URL{
+				Scheme: "http",
+				Path:   constants.PredictPath(serviceName),
+				Host:   network.GetServiceHostname(serviceName, canaryServiceKey.Namespace),
+			},
 		},
 		Traffic:       80,
 		CanaryTraffic: 20,
@@ -878,10 +890,12 @@ func TestCanaryDelete(t *testing.T) {
 			},
 		},
 		URL: constants.InferenceServiceURL("http", serviceName, namespace, domain),
-		Address: v1alpha2.Addressable{
-			URL: "http://" +
-				network.GetServiceHostname(canaryServiceKey.Name, canaryServiceKey.Namespace) +
-				constants.PredictPath(canaryServiceKey.Name),
+		Address: &duckv1beta1.Addressable{
+			URL: &apis.URL{
+				Scheme: "http",
+				Path:   constants.PredictPath(canaryServiceKey.Name),
+				Host:   network.GetServiceHostname(canaryServiceKey.Name, canaryServiceKey.Namespace),
+			},
 		},
 		Traffic: 100,
 		Default: kfserving.ComponentStatusMap{
@@ -1184,9 +1198,12 @@ func TestInferenceServiceWithTransformer(t *testing.T) {
 		Traffic:       80,
 		CanaryTraffic: 20,
 		URL:           constants.InferenceServiceURL("http", serviceKey.Name, serviceKey.Namespace, domain),
-		Address: v1alpha2.Addressable{
-			URL: "http://" + network.GetServiceHostname(serviceKey.Name, serviceKey.Namespace) +
-				constants.PredictPath(serviceKey.Name),
+		Address: &duckv1beta1.Addressable{
+			URL: &apis.URL{
+				Scheme: "http",
+				Path:   constants.PredictPath(serviceKey.Name),
+				Host:   network.GetServiceHostname(serviceKey.Name, serviceKey.Namespace),
+			},
 		},
 		Default: kfserving.ComponentStatusMap{
 			constants.Predictor: kfserving.StatusConfigurationSpec{
@@ -1759,9 +1776,12 @@ func TestInferenceServiceWithExplainer(t *testing.T) {
 		Traffic:       80,
 		CanaryTraffic: 20,
 		URL:           constants.InferenceServiceURL("http", serviceKey.Name, serviceKey.Namespace, domain),
-		Address: v1alpha2.Addressable{
-			URL: "http://" + network.GetServiceHostname(serviceKey.Name, serviceKey.Namespace) +
-				constants.PredictPath(serviceKey.Name),
+		Address: &duckv1beta1.Addressable{
+			URL: &apis.URL{
+				Scheme: "http",
+				Path:   constants.PredictPath(serviceKey.Name),
+				Host:   network.GetServiceHostname(serviceKey.Name, serviceKey.Namespace),
+			},
 		},
 		Default: kfserving.ComponentStatusMap{
 			constants.Predictor: kfserving.StatusConfigurationSpec{

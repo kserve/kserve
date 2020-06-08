@@ -1,4 +1,3 @@
-API rule violation: names_match,github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2,Addressable,URL
 API rule violation: names_match,github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2,AlibiExplainerSpec,StorageURI
 API rule violation: names_match,github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2,ONNXSpec,StorageURI
 API rule violation: names_match,github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2,PredictorSpec,PyTorch

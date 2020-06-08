@@ -118,7 +118,7 @@ endif
 
 # Generate code
 generate: controller-gen
-	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./pkg/... ./cmd/..."
+	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths=./pkg/apis/serving/v1alpha2
 	#TODO update-codegen.sh is not used and requires vendor
 	#hack/update-codegen.sh
 	hack/update-openapigen.sh

@@ -149,7 +149,7 @@ func (ss *InferenceServiceStatus) propagateStatus(component constants.InferenceS
 func (ss *InferenceServiceStatus) PropagateRouteStatus(vs *VirtualServiceStatus) {
 	ss.URL = vs.URL
 	if vs.Address != nil && vs.Address.URL != nil {
-		ss.Address.URL = vs.Address.URL.String()
+		ss.Address.URL = vs.Address.URL
 	}
 	ss.Traffic = vs.DefaultWeight
 	ss.CanaryTraffic = vs.CanaryWeight
