@@ -228,7 +228,7 @@ func TestInferenceServiceToKnativeService(t *testing.T) {
 					},
 				},
 				Status: v1alpha2.InferenceServiceStatus{
-					Default: v1alpha2.ComponentStatusMap{
+					Default: &map[constants.InferenceServiceComponent]v1alpha2.StatusConfigurationSpec{
 						constants.Predictor: v1alpha2.StatusConfigurationSpec{
 							Name: "v1",
 						},

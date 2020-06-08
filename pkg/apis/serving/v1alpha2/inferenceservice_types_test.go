@@ -88,16 +88,14 @@ func TestInferenceService(t *testing.T) {
 		URL:           "example.dev.com",
 		Traffic:       20,
 		CanaryTraffic: 80,
-		Default: ComponentStatusMap{
+		Default: &map[constants.InferenceServiceComponent]StatusConfigurationSpec{
 			constants.Predictor: StatusConfigurationSpec{
-				Name:     "v1",
-				Replicas: 2,
+				Name: "v1",
 			},
 		},
-		Canary: ComponentStatusMap{
+		Canary: &map[constants.InferenceServiceComponent]StatusConfigurationSpec{
 			constants.Predictor: StatusConfigurationSpec{
-				Name:     "v2",
-				Replicas: 3,
+				Name: "v2",
 			},
 		},
 	}

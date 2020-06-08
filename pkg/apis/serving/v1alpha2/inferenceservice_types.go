@@ -222,7 +222,7 @@ type CustomSpec struct {
 }
 
 // EndpointStatusMap defines the observed state of InferenceService endpoints
-type ComponentStatusMap map[constants.InferenceServiceComponent]StatusConfigurationSpec
+type ComponentStatusMap *map[constants.InferenceServiceComponent]StatusConfigurationSpec
 
 // InferenceServiceStatus defines the observed state of InferenceService
 type InferenceServiceStatus struct {

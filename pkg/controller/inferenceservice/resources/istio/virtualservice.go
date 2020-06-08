@@ -101,7 +101,7 @@ func createFailedStatus(reason string, message string) *v1alpha2.VirtualServiceS
 }
 
 func (r *VirtualServiceBuilder) getPredictRouteDestination(meta metav1.Object, isCanary bool,
-	endpointSpec *v1alpha2.EndpointSpec, componentStatusMap *v1alpha2.ComponentStatusMap, weight int32) (*istiov1alpha3.HTTPRouteDestination, *v1alpha2.VirtualServiceStatus) {
+	endpointSpec *v1alpha2.EndpointSpec, componentStatusMap v1alpha2.ComponentStatusMap, weight int32) (*istiov1alpha3.HTTPRouteDestination, *v1alpha2.VirtualServiceStatus) {
 	if endpointSpec == nil {
 		return nil, nil
 	}
@@ -133,7 +133,7 @@ func (r *VirtualServiceBuilder) getPredictRouteDestination(meta metav1.Object, i
 }
 
 func (r *VirtualServiceBuilder) getExplainerRouteDestination(meta metav1.Object, isCanary bool,
-	endpointSpec *v1alpha2.EndpointSpec, componentStatusMap *v1alpha2.ComponentStatusMap, weight int32) (*istiov1alpha3.HTTPRouteDestination, *v1alpha2.VirtualServiceStatus) {
+	endpointSpec *v1alpha2.EndpointSpec, componentStatusMap v1alpha2.ComponentStatusMap, weight int32) (*istiov1alpha3.HTTPRouteDestination, *v1alpha2.VirtualServiceStatus) {
 	if endpointSpec == nil {
 		return nil, nil
 	}
@@ -166,12 +166,12 @@ func (r *VirtualServiceBuilder) CreateVirtualService(isvc *v1alpha2.InferenceSer
 	defaultWeight := 100 - isvc.Spec.CanaryTrafficPercent
 	canaryWeight := isvc.Spec.CanaryTrafficPercent
 
-	if defaultPredictRouteDestination, err := r.getPredictRouteDestination(isvc.GetObjectMeta(), false, &isvc.Spec.Default, &isvc.Status.Default, int32(defaultWeight)); err != nil {
+	if defaultPredictRouteDestination, err := r.getPredictRouteDestination(isvc.GetObjectMeta(), false, &isvc.Spec.Default, isvc.Status.Default, int32(defaultWeight)); err != nil {
 		return nil, err
 	} else {
 		predictRouteDestinations = append(predictRouteDestinations, defaultPredictRouteDestination)
 	}
-	if canaryPredictRouteDestination, err := r.getPredictRouteDestination(isvc.GetObjectMeta(), true, isvc.Spec.Canary, &isvc.Status.Canary, int32(canaryWeight)); err != nil {
+	if canaryPredictRouteDestination, err := r.getPredictRouteDestination(isvc.GetObjectMeta(), true, isvc.Spec.Canary, isvc.Status.Canary, int32(canaryWeight)); err != nil {
 		return nil, err
 	} else {
 		if canaryPredictRouteDestination != nil {
@@ -218,14 +218,14 @@ func (r *VirtualServiceBuilder) CreateVirtualService(isvc *v1alpha2.InferenceSer
 
 	// optionally add the explain route
 	explainRouteDestinations := []*istiov1alpha3.HTTPRouteDestination{}
-	if defaultExplainRouteDestination, err := r.getExplainerRouteDestination(isvc.GetObjectMeta(), false, &isvc.Spec.Default, &isvc.Status.Default, int32(defaultWeight)); err != nil {
+	if defaultExplainRouteDestination, err := r.getExplainerRouteDestination(isvc.GetObjectMeta(), false, &isvc.Spec.Default, isvc.Status.Default, int32(defaultWeight)); err != nil {
 		return nil, err
 	} else {
 		if defaultExplainRouteDestination != nil {
 			explainRouteDestinations = append(explainRouteDestinations, defaultExplainRouteDestination)
 		}
 	}
-	if canaryExplainRouteDestination, err := r.getExplainerRouteDestination(isvc.GetObjectMeta(), true, isvc.Spec.Canary, &isvc.Status.Canary, int32(canaryWeight)); err != nil {
+	if canaryExplainRouteDestination, err := r.getExplainerRouteDestination(isvc.GetObjectMeta(), true, isvc.Spec.Canary, isvc.Status.Canary, int32(canaryWeight)); err != nil {
 		return nil, err
 	} else {
 		if canaryExplainRouteDestination != nil {
@@ -315,14 +315,14 @@ func (r *VirtualServiceBuilder) CreateVirtualService(isvc *v1alpha2.InferenceSer
 }
 
 func getServiceHostname(isvc *v1alpha2.InferenceService) (string, error) {
-	predictorStatus, reason := getPredictStatusConfigurationSpec(&isvc.Status.Default)
+	predictorStatus, reason := getPredictStatusConfigurationSpec(isvc.Status.Default)
 	if predictorStatus == nil {
 		return "", fmt.Errorf("failed to get service hostname: %s", reason)
 	}
 	return strings.ReplaceAll(predictorStatus.Hostname, fmt.Sprintf("-%s-%s", string(constants.Predictor), constants.InferenceServiceDefault), ""), nil
 }
 
-func getPredictStatusConfigurationSpec(componentStatusMap *v1alpha2.ComponentStatusMap) (*v1alpha2.StatusConfigurationSpec, string) {
+func getPredictStatusConfigurationSpec(componentStatusMap v1alpha2.ComponentStatusMap) (*v1alpha2.StatusConfigurationSpec, string) {
 	if componentStatusMap == nil {
 		return nil, PredictorStatusUnknown
 	}
@@ -336,7 +336,7 @@ func getPredictStatusConfigurationSpec(componentStatusMap *v1alpha2.ComponentSta
 	}
 }
 
-func getTransformerStatusConfigurationSpec(componentStatusMap *v1alpha2.ComponentStatusMap) (*v1alpha2.StatusConfigurationSpec, string) {
+func getTransformerStatusConfigurationSpec(componentStatusMap v1alpha2.ComponentStatusMap) (*v1alpha2.StatusConfigurationSpec, string) {
 	if componentStatusMap == nil {
 		return nil, TransformerStatusUnknown
 	}
@@ -350,7 +350,7 @@ func getTransformerStatusConfigurationSpec(componentStatusMap *v1alpha2.Componen
 	}
 }
 
-func getExplainStatusConfigurationSpec(endpointSpec *v1alpha2.EndpointSpec, componentStatusMap *v1alpha2.ComponentStatusMap) (*v1alpha2.StatusConfigurationSpec, string) {
+func getExplainStatusConfigurationSpec(endpointSpec *v1alpha2.EndpointSpec, componentStatusMap v1alpha2.ComponentStatusMap) (*v1alpha2.StatusConfigurationSpec, string) {
 	if endpointSpec.Explainer == nil {
 		return nil, ExplainerSpecMissing
 	}
