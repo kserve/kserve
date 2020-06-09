@@ -37,6 +37,10 @@ const (
 	XGBoostServerImageName             = "kfserving/xgbserver"
 )
 
+var (
+	containerConcurrency int64 = 0
+)
+
 var isvc = v1alpha2.InferenceService{
 	ObjectMeta: metav1.ObjectMeta{
 		Name:      "mnist",
@@ -102,7 +106,8 @@ var defaultService = &knservingv1.Service{
 					},
 				},
 				Spec: knservingv1.RevisionSpec{
-					TimeoutSeconds: &constants.DefaultPredictorTimeout,
+					ContainerConcurrency: &containerConcurrency,
+					TimeoutSeconds:       &constants.DefaultPredictorTimeout,
 					PodSpec: v1.PodSpec{
 						ServiceAccountName: "testsvcacc",
 						Containers: []v1.Container{
@@ -150,7 +155,8 @@ var canaryService = &knservingv1.Service{
 					},
 				},
 				Spec: knservingv1.RevisionSpec{
-					TimeoutSeconds: &constants.DefaultPredictorTimeout,
+					ContainerConcurrency: &containerConcurrency,
+					TimeoutSeconds:       &constants.DefaultPredictorTimeout,
 					PodSpec: v1.PodSpec{
 						Containers: []v1.Container{
 							{
@@ -222,7 +228,7 @@ func TestInferenceServiceToKnativeService(t *testing.T) {
 					},
 				},
 				Status: v1alpha2.InferenceServiceStatus{
-					Default: &v1alpha2.ComponentStatusMap{
+					Default: &map[constants.InferenceServiceComponent]v1alpha2.StatusConfigurationSpec{
 						constants.Predictor: v1alpha2.StatusConfigurationSpec{
 							Name: "v1",
 						},
@@ -271,7 +277,8 @@ func TestInferenceServiceToKnativeService(t *testing.T) {
 								},
 							},
 							Spec: knservingv1.RevisionSpec{
-								TimeoutSeconds: &constants.DefaultPredictorTimeout,
+								ContainerConcurrency: &containerConcurrency,
+								TimeoutSeconds:       &constants.DefaultPredictorTimeout,
 								PodSpec: v1.PodSpec{
 									Containers: []v1.Container{
 										{
@@ -331,7 +338,8 @@ func TestInferenceServiceToKnativeService(t *testing.T) {
 								},
 							},
 							Spec: knservingv1.RevisionSpec{
-								TimeoutSeconds: &constants.DefaultPredictorTimeout,
+								ContainerConcurrency: &containerConcurrency,
+								TimeoutSeconds:       &constants.DefaultPredictorTimeout,
 								PodSpec: v1.PodSpec{
 									Containers: []v1.Container{
 										{
@@ -392,7 +400,8 @@ func TestInferenceServiceToKnativeService(t *testing.T) {
 								},
 							},
 							Spec: knservingv1.RevisionSpec{
-								TimeoutSeconds: &constants.DefaultPredictorTimeout,
+								ContainerConcurrency: &containerConcurrency,
+								TimeoutSeconds:       &constants.DefaultPredictorTimeout,
 								PodSpec: v1.PodSpec{
 									Containers: []v1.Container{
 										{
@@ -467,7 +476,8 @@ func TestInferenceServiceToKnativeService(t *testing.T) {
 								},
 							},
 							Spec: knservingv1.RevisionSpec{
-								TimeoutSeconds: &constants.DefaultPredictorTimeout,
+								ContainerConcurrency: &containerConcurrency,
+								TimeoutSeconds:       &constants.DefaultPredictorTimeout,
 								PodSpec: v1.PodSpec{
 									Containers: []v1.Container{
 										{
@@ -611,7 +621,8 @@ func TestTransformerToKnativeService(t *testing.T) {
 						},
 					},
 					Spec: knservingv1.RevisionSpec{
-						TimeoutSeconds: &constants.DefaultTransformerTimeout,
+						ContainerConcurrency: &containerConcurrency,
+						TimeoutSeconds:       &constants.DefaultTransformerTimeout,
 						PodSpec: v1.PodSpec{
 							ServiceAccountName: "testsvcacc",
 							Containers: []v1.Container{
@@ -657,7 +668,8 @@ func TestTransformerToKnativeService(t *testing.T) {
 						},
 					},
 					Spec: knservingv1.RevisionSpec{
-						TimeoutSeconds: &constants.DefaultTransformerTimeout,
+						ContainerConcurrency: &containerConcurrency,
+						TimeoutSeconds:       &constants.DefaultTransformerTimeout,
 						PodSpec: v1.PodSpec{
 							ServiceAccountName: "testsvcacc",
 							Containers: []v1.Container{
@@ -802,7 +814,8 @@ func TestExplainerToKnativeService(t *testing.T) {
 						},
 					},
 					Spec: knservingv1.RevisionSpec{
-						TimeoutSeconds: &constants.DefaultExplainerTimeout,
+						ContainerConcurrency: &containerConcurrency,
+						TimeoutSeconds:       &constants.DefaultExplainerTimeout,
 						PodSpec: v1.PodSpec{
 							Containers: []v1.Container{
 								{
@@ -847,7 +860,8 @@ func TestExplainerToKnativeService(t *testing.T) {
 						},
 					},
 					Spec: knservingv1.RevisionSpec{
-						TimeoutSeconds: &constants.DefaultExplainerTimeout,
+						ContainerConcurrency: &containerConcurrency,
+						TimeoutSeconds:       &constants.DefaultExplainerTimeout,
 						PodSpec: v1.PodSpec{
 							Containers: []v1.Container{
 								{

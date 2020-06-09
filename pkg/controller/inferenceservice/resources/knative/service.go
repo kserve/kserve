@@ -312,7 +312,7 @@ func (c *ServiceBuilder) CreateExplainerService(name string, metadata metav1.Obj
 					Spec: knservingv1.RevisionSpec{
 						// Defaulting here since this always shows a diff with nil vs 300s(knative default)
 						// we may need to expose this field in future
-						TimeoutSeconds: &constants.DefaultExplainerTimeout,
+						TimeoutSeconds:       &constants.DefaultExplainerTimeout,
 						ContainerConcurrency: &concurrency,
 						PodSpec: v1.PodSpec{
 							ServiceAccountName: explainerSpec.ServiceAccountName,

@@ -1,4 +1,0 @@
-op {
-  graph_op_name: "Atan"
-  summary: "Computes atan of x element-wise."
-}

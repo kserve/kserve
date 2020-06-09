@@ -21,6 +21,8 @@ import (
 	"k8s.io/klog"
 )
 
+// +k8s:openapi-gen=false
+// +k8s:deepcopy-gen=false
 type Predictor interface {
 	GetResourceRequirements() *v1.ResourceRequirements
 	GetStorageUri() string
@@ -68,7 +70,6 @@ func (p *PredictorSpec) Validate(config *InferenceServicesConfig) error {
 		validateStorageURI(p.GetStorageUri()),
 		validateParallelism(p.Parallelism),
 		validateReplicas(p.MinReplicas, p.MaxReplicas),
-		validateResourceRequirements(predictor.GetResourceRequirements()),
 		validateLogger(p.Logger),
 	} {
 		if err != nil {
