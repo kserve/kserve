@@ -106,8 +106,8 @@ data:
   batcher: |-
     {
         "image" : "gcr.io/kfserving/batcher:latest",
-        "memoryRequest": "2Gi",
-        "memoryLimit": "2Gi",
-        "cpuRequest": "2",
-        "cpuLimit": "2"
+        "memoryRequest": "1Gi",
+        "memoryLimit": "1Gi",
+        "cpuRequest": "1",
+        "cpuLimit": "1"
     }
