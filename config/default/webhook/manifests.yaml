@@ -34,7 +34,7 @@ webhooks:
     namespaceSelector:
       matchExpressions:
         - key: control-plane
-          operator: Exists
+          operator: DoesNotExist
     rules:
       - apiGroups:
           - ""
