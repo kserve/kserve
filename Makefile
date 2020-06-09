@@ -1,9 +1,5 @@
 HAS_LINT := $(shell command -v golint;)
-ifeq (,$(shell go env GOBIN))
-GOBIN=$(shell go env GOPATH)/bin
-else
-GOBIN=$(shell go env GOBIN)
-endif
+GOBIN=${GOBIN:-$GOPATH/bin}
 
 # Image URL to use all building/pushing image targets
 IMG ?= kfserving-controller:latest

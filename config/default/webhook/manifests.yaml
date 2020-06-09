@@ -31,9 +31,9 @@ webhooks:
         path: /mutate-pods
     failurePolicy: Fail
     name: inferenceservice.kfserving-webhook-server.pod-mutator
-    objectSelector:
+    namespaceSelector:
       matchExpressions:
-        - key: serving.kubeflow.org/inferenceservice
+        - key: control-plane
           operator: Exists
     rules:
       - apiGroups:

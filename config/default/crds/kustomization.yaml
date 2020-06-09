@@ -18,5 +18,5 @@ patchesJson6902:
     version: v1beta1
     kind: CustomResourceDefinition
     name: inferenceservices.serving.kubeflow.org
-  path: patches/crd_status_condition_patch.yaml
+  path: patches/crd_status_patch.yaml
 
