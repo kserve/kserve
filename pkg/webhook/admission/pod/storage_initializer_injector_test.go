@@ -165,10 +165,11 @@ func TestStorageInitializerInjector(t *testing.T) {
 					},
 					InitContainers: []v1.Container{
 						{
-							Name:      "storage-initializer",
-							Image:     StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
-							Args:      []string{"gs://foo", constants.DefaultModelLocalMountPath},
-							Resources: resourceRequirement,
+							Name:                     "storage-initializer",
+							Image:                    StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
+							Args:                     []string{"gs://foo", constants.DefaultModelLocalMountPath},
+							Resources:                resourceRequirement,
+							TerminationMessagePolicy: "FallbackToLogsOnError",
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kfserving-provision-location",
@@ -229,10 +230,11 @@ func TestStorageInitializerInjector(t *testing.T) {
 					},
 					InitContainers: []v1.Container{
 						{
-							Name:      "storage-initializer",
-							Image:     StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
-							Args:      []string{"/mnt/pvc/some/path/on/pvc", constants.DefaultModelLocalMountPath},
-							Resources: resourceRequirement,
+							Name:                     "storage-initializer",
+							Image:                    StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
+							Args:                     []string{"/mnt/pvc/some/path/on/pvc", constants.DefaultModelLocalMountPath},
+							Resources:                resourceRequirement,
+							TerminationMessagePolicy: "FallbackToLogsOnError",
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kfserving-pvc-source",
@@ -507,10 +509,11 @@ func TestCredentialInjection(t *testing.T) {
 					},
 					InitContainers: []v1.Container{
 						{
-							Name:      "storage-initializer",
-							Image:     StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
-							Args:      []string{"gs://foo", constants.DefaultModelLocalMountPath},
-							Resources: resourceRequirement,
+							Name:                     "storage-initializer",
+							Image:                    StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
+							Args:                     []string{"gs://foo", constants.DefaultModelLocalMountPath},
+							Resources:                resourceRequirement,
+							TerminationMessagePolicy: "FallbackToLogsOnError",
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kfserving-provision-location",
@@ -606,10 +609,11 @@ func TestCredentialInjection(t *testing.T) {
 					},
 					InitContainers: []v1.Container{
 						{
-							Name:      "storage-initializer",
-							Image:     StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
-							Args:      []string{"gs://foo", constants.DefaultModelLocalMountPath},
-							Resources: resourceRequirement,
+							Name:                     "storage-initializer",
+							Image:                    StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
+							Args:                     []string{"gs://foo", constants.DefaultModelLocalMountPath},
+							Resources:                resourceRequirement,
+							TerminationMessagePolicy: "FallbackToLogsOnError",
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kfserving-provision-location",
@@ -724,10 +728,11 @@ func TestStorageInitializerConfigmap(t *testing.T) {
 					},
 					InitContainers: []v1.Container{
 						{
-							Name:      "storage-initializer",
-							Image:     "kfserving/storage-initializer@sha256:xxx",
-							Args:      []string{"gs://foo", constants.DefaultModelLocalMountPath},
-							Resources: resourceRequirement,
+							Name:                     "storage-initializer",
+							Image:                    "kfserving/storage-initializer@sha256:xxx",
+							Args:                     []string{"gs://foo", constants.DefaultModelLocalMountPath},
+							Resources:                resourceRequirement,
+							TerminationMessagePolicy: "FallbackToLogsOnError",
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kfserving-provision-location",

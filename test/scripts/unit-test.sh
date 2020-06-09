@@ -15,7 +15,6 @@
 # limitations under the License.
 
 # This shell script is used to build an image from our argo workflow
-set -o errexit
 set -o nounset
 set -o pipefail
 
@@ -33,7 +32,16 @@ cd ${GO_DIR}
 n=0
 until [ $n -ge 3 ]
 do
-  make test && break
+  make test
+  status=$?
+  if [ $status -eq 0 ]; then
+     echo "unit test run successfully"
+     break
+  fi
   n=$[$n+1]
   sleep 5
 done
+if [ $status -ne 0 ]; then
+   echo "tried 3 times, marking unit test failed"
+   exit 1
+fi

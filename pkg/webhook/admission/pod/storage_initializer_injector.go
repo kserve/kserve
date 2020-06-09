@@ -172,7 +172,7 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 			constants.DefaultModelLocalMountPath,
 		},
 		TerminationMessagePolicy: v1.TerminationMessageFallbackToLogsOnError,
-		VolumeMounts: storageInitializerMounts,
+		VolumeMounts:             storageInitializerMounts,
 		Resources: v1.ResourceRequirements{
 			Limits: map[v1.ResourceName]resource.Quantity{
 				v1.ResourceCPU:    resource.MustParse(mi.config.CpuLimit),

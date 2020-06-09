@@ -20,6 +20,8 @@ import (
 	"k8s.io/klog"
 )
 
+// +k8s:openapi-gen=false
+// +k8s:deepcopy-gen=false
 type Explainer interface {
 	GetResourceRequirements() *v1.ResourceRequirements
 	GetStorageUri() string
@@ -67,7 +69,6 @@ func (e *ExplainerSpec) Validate(config *InferenceServicesConfig) error {
 		validateStorageURI(e.GetStorageUri()),
 		validateParallelism(e.Parallelism),
 		validateReplicas(e.MinReplicas, e.MaxReplicas),
-		validateResourceRequirements(explainer.GetResourceRequirements()),
 		validateLogger(e.Logger),
 	} {
 		if err != nil {

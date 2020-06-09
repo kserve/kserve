@@ -78,7 +78,7 @@ func (ss *InferenceServiceStatus) GetCondition(t apis.ConditionType) *apis.Condi
 // PropagateDefaultStatus propagates the status for the default spec
 func (ss *InferenceServiceStatus) PropagateDefaultStatus(component constants.InferenceServiceComponent, defaultStatus *knservingv1.ServiceStatus) {
 	if ss.Default == nil {
-		emptyStatusMap := make(ComponentStatusMap)
+		emptyStatusMap := make(map[constants.InferenceServiceComponent]StatusConfigurationSpec)
 		ss.Default = &emptyStatusMap
 	}
 
@@ -100,7 +100,7 @@ func (ss *InferenceServiceStatus) PropagateDefaultStatus(component constants.Inf
 // PropagateCanaryStatus propagates the status for the canary spec
 func (ss *InferenceServiceStatus) PropagateCanaryStatus(component constants.InferenceServiceComponent, canaryStatus *knservingv1.ServiceStatus) {
 	if ss.Canary == nil {
-		emptyStatusMap := make(ComponentStatusMap)
+		emptyStatusMap := make(map[constants.InferenceServiceComponent]StatusConfigurationSpec)
 		ss.Canary = &emptyStatusMap
 	}
 

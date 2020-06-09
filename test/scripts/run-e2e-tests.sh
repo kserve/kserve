@@ -32,7 +32,7 @@ CERT_MANAGER_VERSION="v0.12.0"
 # Check and wait for istio/knative/kfserving pod started normally.
 waiting_pod_running(){
     namespace=$1
-    TIMEOUT=120
+    TIMEOUT=180
     PODNUM=$(kubectl get deployments -n ${namespace} | grep -v NAME | wc -l)
     until kubectl get pods -n ${namespace} | grep -E "Running" | [[ $(wc -l) -eq $PODNUM ]]; do
         echo Pod Status $(kubectl get pods -n ${namespace} | grep -E "Running" | wc -l)/$PODNUM

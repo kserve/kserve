@@ -125,6 +125,34 @@ InferenceServiceStatus
 </tr>
 </tbody>
 </table>
+<h3 id="serving.kubeflow.org/v1alpha2.Addressable">Addressable
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#serving.kubeflow.org/v1alpha2.InferenceServiceStatus">InferenceServiceStatus</a>)
+</p>
+<p>
+</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>address</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
 <h3 id="serving.kubeflow.org/v1alpha2.AlibiExplainerSpec">AlibiExplainerSpec
 </h3>
 <p>
@@ -210,6 +238,15 @@ map[string]string
 <a href="#serving.kubeflow.org/v1alpha2.AlibiExplainerSpec">AlibiExplainerSpec</a>)
 </p>
 <p>
+</p>
+<h3 id="serving.kubeflow.org/v1alpha2.ComponentStatusMap">ComponentStatusMap
+(<code>map[github.com/kubeflow/kfserving/pkg/constants.InferenceServiceComponent]github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.StatusConfigurationSpec</code> alias)</p></h3>
+<p>
+(<em>Appears on:</em>
+<a href="#serving.kubeflow.org/v1alpha2.InferenceServiceStatus">InferenceServiceStatus</a>)
+</p>
+<p>
+<p>EndpointStatusMap defines the observed state of InferenceService endpoints</p>
 </p>
 <h3 id="serving.kubeflow.org/v1alpha2.CustomSpec">CustomSpec
 </h3>
@@ -299,6 +336,34 @@ int
 <p>This is the up bound for autoscaler to scale to</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>parallelism</code></br>
+<em>
+int
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Parallelism specifies how many requests can be processed concurrently, this sets the target
+concurrency for Autoscaling(KPA). For model servers that support tuning parallelism will use this value,
+by default the parallelism is the number of the CPU cores for most of the model servers.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>logger</code></br>
+<em>
+<a href="#serving.kubeflow.org/v1alpha2.Logger">
+Logger
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Activate request/response logging</p>
+</td>
+</tr>
 </tbody>
 </table>
 <h3 id="serving.kubeflow.org/v1alpha2.EndpointSpec">EndpointSpec
@@ -362,15 +427,6 @@ transformer service calls to predictor service.</p>
 </tr>
 </tbody>
 </table>
-<h3 id="serving.kubeflow.org/v1alpha2.EndpointStatusMap">EndpointStatusMap
-(<code>map[invalid type]*github.com/yuzisun/kfserving/pkg/apis/serving/v1alpha2.StatusConfigurationSpec</code> alias)</p></h3>
-<p>
-(<em>Appears on:</em>
-<a href="#serving.kubeflow.org/v1alpha2.InferenceServiceStatus">InferenceServiceStatus</a>)
-</p>
-<p>
-<p>EndpointStatusMap defines the observed state of InferenceService endpoints</p>
-</p>
 <h3 id="serving.kubeflow.org/v1alpha2.Explainer">Explainer
 </h3>
 <p>
@@ -486,6 +542,10 @@ DeploymentSpec
 </table>
 <h3 id="serving.kubeflow.org/v1alpha2.ExplainersConfig">ExplainersConfig
 </h3>
+<p>
+(<em>Appears on:</em>
+<a href="#serving.kubeflow.org/v1alpha2.InferenceServicesConfig">InferenceServicesConfig</a>)
+</p>
 <p>
 </p>
 <table>
@@ -635,8 +695,8 @@ int
 <td>
 <code>default</code></br>
 <em>
-<a href="#serving.kubeflow.org/v1alpha2.EndpointStatusMap">
-EndpointStatusMap
+<a href="#serving.kubeflow.org/v1alpha2.ComponentStatusMap">
+ComponentStatusMap
 </a>
 </em>
 </td>
@@ -648,8 +708,8 @@ EndpointStatusMap
 <td>
 <code>canary</code></br>
 <em>
-<a href="#serving.kubeflow.org/v1alpha2.EndpointStatusMap">
-EndpointStatusMap
+<a href="#serving.kubeflow.org/v1alpha2.ComponentStatusMap">
+ComponentStatusMap
 </a>
 </em>
 </td>
@@ -657,8 +717,123 @@ EndpointStatusMap
 <p>Statuses for the canary endpoints of the InferenceService</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>address</code></br>
+<em>
+<a href="#serving.kubeflow.org/v1alpha2.Addressable">
+Addressable
+</a>
+</em>
+</td>
+<td>
+<p>Ducktype for addressable</p>
+</td>
+</tr>
 </tbody>
 </table>
+<h3 id="serving.kubeflow.org/v1alpha2.InferenceServicesConfig">InferenceServicesConfig
+</h3>
+<p>
+</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>transformers</code></br>
+<em>
+<a href="#serving.kubeflow.org/v1alpha2.TransformersConfig">
+TransformersConfig
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>predictors</code></br>
+<em>
+<a href="#serving.kubeflow.org/v1alpha2.PredictorsConfig">
+PredictorsConfig
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>explainers</code></br>
+<em>
+<a href="#serving.kubeflow.org/v1alpha2.ExplainersConfig">
+ExplainersConfig
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="serving.kubeflow.org/v1alpha2.Logger">Logger
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#serving.kubeflow.org/v1alpha2.DeploymentSpec">DeploymentSpec</a>)
+</p>
+<p>
+<p>Logger provides optional payload logging for all endpoints</p>
+</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>url</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>URL to send request logging CloudEvents</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>mode</code></br>
+<em>
+<a href="#serving.kubeflow.org/v1alpha2.LoggerMode">
+LoggerMode
+</a>
+</em>
+</td>
+<td>
+<p>What payloads to log</p>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="serving.kubeflow.org/v1alpha2.LoggerMode">LoggerMode
+(<code>string</code> alias)</p></h3>
+<p>
+(<em>Appears on:</em>
+<a href="#serving.kubeflow.org/v1alpha2.Logger">Logger</a>)
+</p>
+<p>
+</p>
 <h3 id="serving.kubeflow.org/v1alpha2.ONNXSpec">ONNXSpec
 </h3>
 <p>
@@ -695,7 +870,7 @@ string
 </em>
 </td>
 <td>
-<p>Allowed runtime versions are [v0.5.0, latest] and defaults to the version specified in kfservice config map</p>
+<p>Allowed runtime versions are specified in the inferenceservice config map</p>
 </td>
 </tr>
 <tr>
@@ -904,6 +1079,10 @@ DeploymentSpec
 <h3 id="serving.kubeflow.org/v1alpha2.PredictorsConfig">PredictorsConfig
 </h3>
 <p>
+(<em>Appears on:</em>
+<a href="#serving.kubeflow.org/v1alpha2.InferenceServicesConfig">InferenceServicesConfig</a>)
+</p>
+<p>
 </p>
 <table>
 <thead>
@@ -1034,7 +1213,7 @@ string
 </em>
 </td>
 <td>
-<p>Allowed runtime versions are [0.2.0, latest] and defaults to the version specified in kfservice config map</p>
+<p>Allowed runtime versions are specified in the inferenceservice config map</p>
 </td>
 </tr>
 <tr>
@@ -1088,7 +1267,7 @@ string
 </em>
 </td>
 <td>
-<p>Allowed runtime versions are [0.2.0, latest] and defaults to the version specified in kfservice config map</p>
+<p>Allowed runtime versions are specified in the inferenceservice config map</p>
 </td>
 </tr>
 <tr>
@@ -1153,60 +1332,6 @@ int
 </tr>
 </tbody>
 </table>
-<h3 id="serving.kubeflow.org/v1alpha2.TritonSpec">TritonSpec
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#serving.kubeflow.org/v1alpha2.PredictorSpec">PredictorSpec</a>)
-</p>
-<p>
-<p>TritonSpec defines arguments for configuring Triton Inference Server.</p>
-</p>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>storageUri</code></br>
-<em>
-string
-</em>
-</td>
-<td>
-<p>The location of the trained model</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>runtimeVersion</code></br>
-<em>
-string
-</em>
-</td>
-<td>
-<p>Allowed runtime versions are [19.05-py3] and defaults to the version specified in kfservice config map</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>resources</code></br>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.13/#resourcerequirements-v1-core">
-Kubernetes core/v1.ResourceRequirements
-</a>
-</em>
-</td>
-<td>
-<p>Defaults to requests and limits of 1CPU, 2Gb MEM.</p>
-</td>
-</tr>
-</tbody>
-</table>
 <h3 id="serving.kubeflow.org/v1alpha2.TensorflowSpec">TensorflowSpec
 </h3>
 <p>
@@ -1243,8 +1368,7 @@ string
 </em>
 </td>
 <td>
-<p>Allowed runtime versions are [1.11.0, 1.12.0, 1.13.0, 1.14.0, latest] or [1.11.0-gpu, 1.12.0-gpu, 1.13.0-gpu, 1.14.0-gpu, latest-gpu]
-if gpu resource is specified and defaults to the version specified in kfservice config map.</p>
+<p>Allowed runtime versions are specified in the inferenceservice config map.</p>
 </td>
 </tr>
 <tr>
@@ -1365,6 +1489,10 @@ DeploymentSpec
 <h3 id="serving.kubeflow.org/v1alpha2.TransformersConfig">TransformersConfig
 </h3>
 <p>
+(<em>Appears on:</em>
+<a href="#serving.kubeflow.org/v1alpha2.InferenceServicesConfig">InferenceServicesConfig</a>)
+</p>
+<p>
 </p>
 <table>
 <thead>
@@ -1384,6 +1512,60 @@ TransformerConfig
 </em>
 </td>
 <td>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="serving.kubeflow.org/v1alpha2.TritonSpec">TritonSpec
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#serving.kubeflow.org/v1alpha2.PredictorSpec">PredictorSpec</a>)
+</p>
+<p>
+<p>TritonSpec defines arguments for configuring Triton Inference Server.</p>
+</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>storageUri</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>The location of the trained model</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>runtimeVersion</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Allowed runtime versions are specified in the inferenceservice config map</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>resources</code></br>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.13/#resourcerequirements-v1-core">
+Kubernetes core/v1.ResourceRequirements
+</a>
+</em>
+</td>
+<td>
+<p>Defaults to requests and limits of 1CPU, 2Gb MEM.</p>
 </td>
 </tr>
 </tbody>
@@ -1433,6 +1615,18 @@ int
 </tr>
 <tr>
 <td>
+<code>address</code></br>
+<em>
+knative.dev/pkg/apis/duck/v1beta1.Addressable
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Address holds the information needed for a Route to be the target of an event.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>Status</code></br>
 <em>
 knative.dev/pkg/apis/duck/v1beta1.Status
@@ -1473,13 +1667,24 @@ string
 </tr>
 <tr>
 <td>
+<code>nthread</code></br>
+<em>
+int
+</em>
+</td>
+<td>
+<p>Number of thread to be used by XGBoost</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>runtimeVersion</code></br>
 <em>
 string
 </em>
 </td>
 <td>
-<p>Allowed runtime versions are [0.2.0, latest] and defaults to the version specified in kfservice config map</p>
+<p>Allowed runtime versions are specified in the inferenceservice config map</p>
 </td>
 </tr>
 <tr>
@@ -1500,5 +1705,5 @@ Kubernetes core/v1.ResourceRequirements
 <hr/>
 <p><em>
 Generated with <code>gen-crd-api-reference-docs</code>
-on git commit <code>52e137b</code>.
+on git commit <code>d7f65bc</code>.
 </em></p>

@@ -1,6 +1,5 @@
 HAS_LINT := $(shell command -v golint;)
 
-
 # Image URL to use all building/pushing image targets
 IMG ?= kfserving-controller:latest
 LOGGER_IMG ?= logger:latest
@@ -21,7 +20,7 @@ $(shell perl -pi -e 's/memory:.*/memory: $(KFSERVING_CONTROLLER_MEMORY_LIMIT)/' 
 all: test manager logger
 
 # Run tests
-test: generate fmt vet lint manifests
+test: fmt vet lint manifests
 	go test ./pkg/... ./cmd/... -coverprofile cover.out
 
 # Build manager binary
@@ -90,9 +89,12 @@ undeploy-dev:
 	kubectl delete mutatingwebhookconfigurations.admissionregistration.k8s.io inferenceservice.serving.kubeflow.org
 
 # Generate manifests e.g. CRD, RBAC etc.
-manifests:
-	go run vendor/sigs.k8s.io/controller-tools/cmd/controller-gen/main.go $(CRD_OPTIONS) rbac:roleName=kfserving-manager-role webhook paths=./pkg/apis/... output:crd:dir=config/default/crds/base
+manifests: controller-gen
+	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=kfserving-manager-role webhook paths=./pkg/apis/... output:crd:dir=config/default/crds/base
 	kustomize build config/default/crds -o config/default/crds/base/serving.kubeflow.org_inferenceservices.yaml
+	#TODO Remove this until new controller-tools is released
+	perl -pi -e 's/storedVersions: null/storedVersions: []/g' config/default/crds/base/serving.kubeflow.org_inferenceservices.yaml
+	perl -pi -e 's/conditions: null/conditions: []/g' config/default/crds/base/serving.kubeflow.org_inferenceservices.yaml
 
 # Run go fmt against code
 fmt:
@@ -110,12 +112,10 @@ endif
 	hack/verify-golint.sh
 
 # Generate code
-generate:
-ifndef GOPATH
-	$(error GOPATH not defined, please define GOPATH. Run "go help gopath" to learn more about GOPATH)
-endif
-	go generate ./pkg/... ./cmd/...
-	hack/update-codegen.sh
+generate: controller-gen
+	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths=./pkg/apis/serving/v1alpha2
+	#TODO update-codegen.sh is not used and requires vendor
+	#hack/update-codegen.sh
 	hack/update-openapigen.sh
 
 # Build the docker image
@@ -166,6 +166,21 @@ docker-build-storageInitializer:
 
 docker-push-storageInitializer: docker-build-storageInitializer
 	docker push ${KO_DOCKER_REPO}/${STORAGE_INIT_IMG}
+
+controller-gen:
+ifeq (, $(shell which controller-gen))
+	@{ \
+	set -e ;\
+	CONTROLLER_GEN_TMP_DIR=$$(mktemp -d) ;\
+	cd $$CONTROLLER_GEN_TMP_DIR ;\
+	go mod init tmp ;\
+	go get sigs.k8s.io/controller-tools/cmd/controller-gen@e0d7c9d9723baea95e57a12751864e2e8f7d7c0f ;\
+	rm -rf $$CONTROLLER_GEN_TMP_DIR ;\
+	}
+CONTROLLER_GEN=$(GOPATH)/bin/controller-gen
+else
+CONTROLLER_GEN=$(shell which controller-gen)
+endif
 
 apidocs:
 	docker build -f docs/apis/Dockerfile --rm -t apidocs-gen . && \

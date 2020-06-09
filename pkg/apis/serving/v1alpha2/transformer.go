@@ -14,6 +14,9 @@ const (
 	ExactlyOneTransformerViolatedError = "Exactly one of [Custom, Feast] must be specified in TransformerSpec"
 )
 
+// +k8s:openapi-gen=false
+// +k8s:deepcopy-gen=false
+
 // Transformer interface is implemented by all Transformers
 type Transformer interface {
 	GetContainerSpec() *v1.Container
@@ -76,7 +79,6 @@ func (t *TransformerSpec) Validate(config *InferenceServicesConfig) error {
 	for _, err := range []error{
 		validateParallelism(t.Parallelism),
 		validateReplicas(t.MinReplicas, t.MaxReplicas),
-		validateResourceRequirements(&transformer.GetContainerSpec().Resources),
 		transformer.Validate(config),
 		validateLogger(t.Logger),
 	} {
