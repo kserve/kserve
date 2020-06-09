@@ -20,7 +20,6 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-
 export PATH=${GOPATH}/bin:/usr/local/go/bin:${PATH}
 REGISTRY="${GCP_REGISTRY}"
 PROJECT="${GCP_PROJECT}"
