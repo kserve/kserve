@@ -101,7 +101,7 @@ func createFailedStatus(reason string, message string) *v1alpha2.VirtualServiceS
 }
 
 func (r *VirtualServiceBuilder) getPredictRouteDestination(meta metav1.Object, isCanary bool,
-	endpointSpec *v1alpha2.EndpointSpec, componentStatusMap *v1alpha2.ComponentStatusMap, weight int32) (*istiov1alpha3.HTTPRouteDestination, *v1alpha2.VirtualServiceStatus) {
+	endpointSpec *v1alpha2.EndpointSpec, componentStatusMap v1alpha2.ComponentStatusMap, weight int32) (*istiov1alpha3.HTTPRouteDestination, *v1alpha2.VirtualServiceStatus) {
 	if endpointSpec == nil {
 		return nil, nil
 	}
@@ -133,7 +133,7 @@ func (r *VirtualServiceBuilder) getPredictRouteDestination(meta metav1.Object, i
 }
 
 func (r *VirtualServiceBuilder) getExplainerRouteDestination(meta metav1.Object, isCanary bool,
-	endpointSpec *v1alpha2.EndpointSpec, componentStatusMap *v1alpha2.ComponentStatusMap, weight int32) (*istiov1alpha3.HTTPRouteDestination, *v1alpha2.VirtualServiceStatus) {
+	endpointSpec *v1alpha2.EndpointSpec, componentStatusMap v1alpha2.ComponentStatusMap, weight int32) (*istiov1alpha3.HTTPRouteDestination, *v1alpha2.VirtualServiceStatus) {
 	if endpointSpec == nil {
 		return nil, nil
 	}
@@ -322,7 +322,7 @@ func getServiceHostname(isvc *v1alpha2.InferenceService) (string, error) {
 	return strings.ReplaceAll(predictorStatus.Hostname, fmt.Sprintf("-%s-%s", string(constants.Predictor), constants.InferenceServiceDefault), ""), nil
 }
 
-func getPredictStatusConfigurationSpec(componentStatusMap *v1alpha2.ComponentStatusMap) (*v1alpha2.StatusConfigurationSpec, string) {
+func getPredictStatusConfigurationSpec(componentStatusMap v1alpha2.ComponentStatusMap) (*v1alpha2.StatusConfigurationSpec, string) {
 	if componentStatusMap == nil {
 		return nil, PredictorStatusUnknown
 	}
@@ -336,7 +336,7 @@ func getPredictStatusConfigurationSpec(componentStatusMap *v1alpha2.ComponentSta
 	}
 }
 
-func getTransformerStatusConfigurationSpec(componentStatusMap *v1alpha2.ComponentStatusMap) (*v1alpha2.StatusConfigurationSpec, string) {
+func getTransformerStatusConfigurationSpec(componentStatusMap v1alpha2.ComponentStatusMap) (*v1alpha2.StatusConfigurationSpec, string) {
 	if componentStatusMap == nil {
 		return nil, TransformerStatusUnknown
 	}
@@ -350,7 +350,7 @@ func getTransformerStatusConfigurationSpec(componentStatusMap *v1alpha2.Componen
 	}
 }
 
-func getExplainStatusConfigurationSpec(endpointSpec *v1alpha2.EndpointSpec, componentStatusMap *v1alpha2.ComponentStatusMap) (*v1alpha2.StatusConfigurationSpec, string) {
+func getExplainStatusConfigurationSpec(endpointSpec *v1alpha2.EndpointSpec, componentStatusMap v1alpha2.ComponentStatusMap) (*v1alpha2.StatusConfigurationSpec, string) {
 	if endpointSpec.Explainer == nil {
 		return nil, ExplainerSpecMissing
 	}

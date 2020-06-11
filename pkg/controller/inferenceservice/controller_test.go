@@ -58,6 +58,10 @@ const (
 	TensorflowServingImageName = "tensorflow/serving"
 )
 
+var (
+	containerConcurrency int64 = 0
+)
+
 var configs = map[string]string{
 	"predictors": `{
         "tensorflow" : {
@@ -178,7 +182,8 @@ func TestInferenceServiceWithOnlyPredictor(t *testing.T) {
 						},
 					},
 					Spec: knservingv1.RevisionSpec{
-						TimeoutSeconds: &constants.DefaultPredictorTimeout,
+						ContainerConcurrency: &containerConcurrency,
+						TimeoutSeconds:       &constants.DefaultPredictorTimeout,
 						PodSpec: v1.PodSpec{
 							Containers: []v1.Container{
 								{
@@ -315,13 +320,13 @@ func TestInferenceServiceWithOnlyPredictor(t *testing.T) {
 		},
 		Traffic:       100,
 		CanaryTraffic: 0,
-		Default: &kfserving.ComponentStatusMap{
+		Default: &map[constants.InferenceServiceComponent]v1alpha2.StatusConfigurationSpec{
 			constants.Predictor: kfserving.StatusConfigurationSpec{
 				Name:     "revision-v1",
 				Hostname: constants.InferenceServiceHostName(constants.DefaultPredictorServiceName(serviceKey.Name), serviceKey.Namespace, domain),
 			},
 		},
-		Canary: &kfserving.ComponentStatusMap{},
+		Canary: &map[constants.InferenceServiceComponent]v1alpha2.StatusConfigurationSpec{},
 	}
 	g.Eventually(func() *kfserving.InferenceServiceStatus {
 		isvc := &kfserving.InferenceService{}
@@ -378,7 +383,7 @@ func TestInferenceServiceWithDefaultAndCanaryPredictor(t *testing.T) {
 					Path:   constants.PredictPath(canaryServiceKey.Name),
 				},
 			},
-			Default: &kfserving.ComponentStatusMap{
+			Default: &map[constants.InferenceServiceComponent]v1alpha2.StatusConfigurationSpec{
 				constants.Predictor: kfserving.StatusConfigurationSpec{
 					Name: "revision-v1",
 				},
@@ -454,7 +459,8 @@ func TestInferenceServiceWithDefaultAndCanaryPredictor(t *testing.T) {
 						},
 					},
 					Spec: knservingv1.RevisionSpec{
-						TimeoutSeconds: &constants.DefaultPredictorTimeout,
+						ContainerConcurrency: &containerConcurrency,
+						TimeoutSeconds:       &constants.DefaultPredictorTimeout,
 						PodSpec: v1.PodSpec{
 							Containers: []v1.Container{
 								{
@@ -542,14 +548,14 @@ func TestInferenceServiceWithDefaultAndCanaryPredictor(t *testing.T) {
 		},
 		Traffic:       80,
 		CanaryTraffic: 20,
-		Default: &kfserving.ComponentStatusMap{
+		Default: &map[constants.InferenceServiceComponent]v1alpha2.StatusConfigurationSpec{
 			constants.Predictor: kfserving.StatusConfigurationSpec{
 				Name: "revision-v1",
 				Hostname: constants.InferenceServiceHostName(constants.DefaultPredictorServiceName(canaryServiceKey.Name), canaryServiceKey.Namespace,
 					domain),
 			},
 		},
-		Canary: &kfserving.ComponentStatusMap{
+		Canary: &map[constants.InferenceServiceComponent]v1alpha2.StatusConfigurationSpec{
 			constants.Predictor: kfserving.StatusConfigurationSpec{
 				Name: "revision-v2",
 				Hostname: constants.InferenceServiceHostName(constants.CanaryPredictorServiceName(canaryServiceKey.Name), canaryServiceKey.Namespace,
@@ -695,7 +701,7 @@ func TestCanaryDelete(t *testing.T) {
 		},
 		Status: kfserving.InferenceServiceStatus{
 			URL: canaryServiceKey.Name + ".svc.cluster.local",
-			Default: &kfserving.ComponentStatusMap{
+			Default: &map[constants.InferenceServiceComponent]v1alpha2.StatusConfigurationSpec{
 				constants.Predictor: kfserving.StatusConfigurationSpec{
 					Name: "revision-v1",
 				},
@@ -807,13 +813,13 @@ func TestCanaryDelete(t *testing.T) {
 		},
 		Traffic:       80,
 		CanaryTraffic: 20,
-		Default: &kfserving.ComponentStatusMap{
+		Default: &map[constants.InferenceServiceComponent]v1alpha2.StatusConfigurationSpec{
 			constants.Predictor: kfserving.StatusConfigurationSpec{
 				Name:     "revision-v1",
 				Hostname: constants.InferenceServiceHostName(constants.DefaultPredictorServiceName(serviceName), namespace, domain),
 			},
 		},
-		Canary: &kfserving.ComponentStatusMap{
+		Canary: &map[constants.InferenceServiceComponent]v1alpha2.StatusConfigurationSpec{
 			constants.Predictor: kfserving.StatusConfigurationSpec{
 				Name:     "revision-v2",
 				Hostname: constants.InferenceServiceHostName(constants.CanaryPredictorServiceName(serviceName), namespace, domain),
@@ -892,13 +898,13 @@ func TestCanaryDelete(t *testing.T) {
 			},
 		},
 		Traffic: 100,
-		Default: &kfserving.ComponentStatusMap{
+		Default: &map[constants.InferenceServiceComponent]v1alpha2.StatusConfigurationSpec{
 			constants.Predictor: kfserving.StatusConfigurationSpec{
 				Name:     "revision-v1",
 				Hostname: constants.InferenceServiceHostName(constants.DefaultPredictorServiceName(serviceName), namespace, domain),
 			},
 		},
-		Canary: &kfserving.ComponentStatusMap{},
+		Canary: &map[constants.InferenceServiceComponent]v1alpha2.StatusConfigurationSpec{},
 	}
 	g.Eventually(func() *kfserving.InferenceServiceStatus {
 		isvc := &kfserving.InferenceService{}
@@ -989,7 +995,7 @@ func TestInferenceServiceWithTransformer(t *testing.T) {
 		},
 		Status: kfserving.InferenceServiceStatus{
 			URL: serviceName + ".svc.cluster.local",
-			Default: &kfserving.ComponentStatusMap{
+			Default: &map[constants.InferenceServiceComponent]v1alpha2.StatusConfigurationSpec{
 				constants.Predictor: kfserving.StatusConfigurationSpec{
 					Name: "revision-v1",
 				},
@@ -1068,7 +1074,8 @@ func TestInferenceServiceWithTransformer(t *testing.T) {
 						},
 					},
 					Spec: knservingv1.RevisionSpec{
-						TimeoutSeconds: &constants.DefaultTransformerTimeout,
+						ContainerConcurrency: &containerConcurrency,
+						TimeoutSeconds:       &constants.DefaultTransformerTimeout,
 						PodSpec: v1.PodSpec{
 							Containers: []v1.Container{
 								{
@@ -1198,7 +1205,7 @@ func TestInferenceServiceWithTransformer(t *testing.T) {
 				Host:   network.GetServiceHostname(serviceKey.Name, serviceKey.Namespace),
 			},
 		},
-		Default: &kfserving.ComponentStatusMap{
+		Default: &map[constants.InferenceServiceComponent]v1alpha2.StatusConfigurationSpec{
 			constants.Predictor: kfserving.StatusConfigurationSpec{
 				Name:     "revision-v1",
 				Hostname: constants.InferenceServiceHostName(constants.DefaultPredictorServiceName(serviceKey.Name), serviceKey.Namespace, domain),
@@ -1208,7 +1215,7 @@ func TestInferenceServiceWithTransformer(t *testing.T) {
 				Hostname: constants.InferenceServiceHostName(constants.DefaultTransformerServiceName(serviceKey.Name), serviceKey.Namespace, domain),
 			},
 		},
-		Canary: &kfserving.ComponentStatusMap{
+		Canary: &map[constants.InferenceServiceComponent]v1alpha2.StatusConfigurationSpec{
 			constants.Predictor: kfserving.StatusConfigurationSpec{
 				Name:     "revision-v2",
 				Hostname: constants.InferenceServiceHostName(constants.CanaryPredictorServiceName(serviceKey.Name), serviceKey.Namespace, domain),
@@ -1383,7 +1390,7 @@ func TestInferenceServiceDeleteComponent(t *testing.T) {
 		},
 		Status: kfserving.InferenceServiceStatus{
 			URL: serviceName + ".svc.cluster.local",
-			Default: &kfserving.ComponentStatusMap{
+			Default: &map[constants.InferenceServiceComponent]v1alpha2.StatusConfigurationSpec{
 				constants.Predictor: kfserving.StatusConfigurationSpec{
 					Name: "revision-v1",
 				},
@@ -1563,7 +1570,7 @@ func TestInferenceServiceWithExplainer(t *testing.T) {
 		},
 		Status: kfserving.InferenceServiceStatus{
 			URL: serviceName + ".svc.cluster.local",
-			Default: &kfserving.ComponentStatusMap{
+			Default: &map[constants.InferenceServiceComponent]v1alpha2.StatusConfigurationSpec{
 				constants.Predictor: kfserving.StatusConfigurationSpec{
 					Name: "revision-v1",
 				},
@@ -1641,7 +1648,8 @@ func TestInferenceServiceWithExplainer(t *testing.T) {
 						},
 					},
 					Spec: knservingv1.RevisionSpec{
-						TimeoutSeconds: &constants.DefaultExplainerTimeout,
+						ContainerConcurrency: &containerConcurrency,
+						TimeoutSeconds:       &constants.DefaultExplainerTimeout,
 						PodSpec: v1.PodSpec{
 							Containers: []v1.Container{
 								{
@@ -1775,7 +1783,7 @@ func TestInferenceServiceWithExplainer(t *testing.T) {
 				Host:   network.GetServiceHostname(serviceKey.Name, serviceKey.Namespace),
 			},
 		},
-		Default: &kfserving.ComponentStatusMap{
+		Default: &map[constants.InferenceServiceComponent]v1alpha2.StatusConfigurationSpec{
 			constants.Predictor: kfserving.StatusConfigurationSpec{
 				Name:     "revision-v1",
 				Hostname: constants.InferenceServiceHostName(constants.DefaultPredictorServiceName(serviceKey.Name), serviceKey.Namespace, domain),
@@ -1785,7 +1793,7 @@ func TestInferenceServiceWithExplainer(t *testing.T) {
 				Hostname: constants.InferenceServiceHostName(constants.DefaultExplainerServiceName(serviceKey.Name), serviceKey.Namespace, domain),
 			},
 		},
-		Canary: &kfserving.ComponentStatusMap{
+		Canary: &map[constants.InferenceServiceComponent]v1alpha2.StatusConfigurationSpec{
 			constants.Predictor: kfserving.StatusConfigurationSpec{
 				Name:     "revision-v2",
 				Hostname: constants.InferenceServiceHostName(constants.CanaryPredictorServiceName(serviceKey.Name), serviceKey.Namespace, domain),

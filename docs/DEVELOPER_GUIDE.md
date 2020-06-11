@@ -41,8 +41,7 @@ You must install these tools:
 
 1. [`go`](https://golang.org/doc/install): KFServing controller is written in Go and requires Go 1.13.0+.
 1. [`git`](https://help.github.com/articles/set-up-git/): For source control.
-1. [`dep`](https://github.com/golang/dep): For managing external Go
-   dependencies. You should install `dep` using their `install.sh`.
+1. [`Go Module`](https://blog.golang.org/using-go-modules): Go's new dependency management system.
 1. [`ko`](https://github.com/google/ko):
    For development.
 1. [`kubectl`](https://kubernetes.io/docs/tasks/tools/install-kubectl/): For
@@ -222,19 +221,12 @@ of:
     [pkg/apis/serving/v1alpha2/](../pkg/apis/serving/v1alpha2/.),
   - Manifests or kustomize patches stored in [config](../config).
 
-- **If you change a package's deps** (including adding external dep), then you
-  must run `dep ensure`. Dependency changes should be a separate commit and not
-  mixed with logic changes.
+- **If you want to add new dependencies**, then you add the imports and the specific version of the dependency
+module in `go.mod`. When it encounters an import of a package not provided by any module in `go.mod`, the go
+command automatically looks up the module containing the package and adds it to `go.mod` using the latest version.
 
-These are both idempotent, and we expect that running these at `HEAD` to have no
-diffs. Code generation and dependencies are automatically checked to produce no
-diffs for each pull request.
-
-In some cases, if newer dependencies
-are required, you need to run "dep ensure -update package-name" manually.
-
-Once the codegen and dependency information is correct, redeploying the
-controller is simply:
+- **If you want to upgrade the dependency**, then you run go get command e.g `go get golang.org/x/text` to upgrade
+to the latest version, `go get golang.org/x/text@v0.3.0` to upgrade to a specific version.
 
 ```shell
 make deploy-dev
