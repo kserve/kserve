@@ -125,8 +125,13 @@ func TestInferenceServiceWithOnlyPredictor(t *testing.T) {
 	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	c = mgr.GetClient()
-
-	recFn, requests := SetupTestReconcile(newReconciler(mgr))
+	recorder := mgr.GetEventRecorderFor(fmt.Sprintf("InferenceReconciler"))
+	controller := &ReconcileService{
+		Client:   mgr.GetClient(),
+		scheme:   mgr.GetScheme(),
+		Recorder: recorder,
+	}
+	recFn, requests := SetupTestReconcile(controller)
 	g.Expect(add(mgr, recFn)).NotTo(gomega.HaveOccurred())
 
 	stopMgr, mgrStopped := StartTestManager(mgr, g)
@@ -336,6 +341,22 @@ func TestInferenceServiceWithOnlyPredictor(t *testing.T) {
 		}
 		return &isvc.Status
 	}, timeout).Should(testutils.BeSematicEqual(&expectedKfsvcStatus))
+	g.Eventually(func() error {
+		events := &v1.EventList{}
+		if err := c.List(context.TODO(), events); err != nil {
+			return fmt.Errorf("Test %q failed: returned error: %v", serviceName, err)
+		}
+		if len(events.Items) == 0 {
+			return fmt.Errorf("Test %q failed: no events were created", serviceName)
+		}
+		for _, event := range events.Items {
+			if event.Reason == string(kfserving.InferenceServiceReadyState) &&
+				event.Type == v1.EventTypeNormal {
+				return nil
+			}
+		}
+		return fmt.Errorf("Test %q failed: events [%v] did not contain ready", serviceName, events.Items)
+	}, timeout).Should(gomega.Succeed())
 }
 
 func TestInferenceServiceWithDefaultAndCanaryPredictor(t *testing.T) {

@@ -19,6 +19,7 @@ package knative
 import (
 	"context"
 	"fmt"
+	"k8s.io/client-go/tools/record"
 
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	"github.com/kubeflow/kfserving/pkg/constants"
@@ -44,13 +45,15 @@ type ServiceReconciler struct {
 	client         client.Client
 	scheme         *runtime.Scheme
 	serviceBuilder *knative.ServiceBuilder
+	recorder       record.EventRecorder
 }
 
-func NewServiceReconciler(client client.Client, scheme *runtime.Scheme, config *v1.ConfigMap) *ServiceReconciler {
+func NewServiceReconciler(client client.Client, scheme *runtime.Scheme, recorder record.EventRecorder, config *v1.ConfigMap) *ServiceReconciler {
 	return &ServiceReconciler{
 		client:         client,
 		scheme:         scheme,
 		serviceBuilder: knative.NewServiceBuilder(client, config),
+		recorder:       recorder,
 	}
 }
 
@@ -70,6 +73,9 @@ func (r *ServiceReconciler) reconcileComponent(isvc *v1alpha2.InferenceService, 
 	endpointSpec := &isvc.Spec.Default
 	serviceName := constants.DefaultServiceName(isvc.Name, component)
 	propagateStatusFn := isvc.Status.PropagateDefaultStatus
+	wasReady := isvc.Status.Conditions != nil &&
+		isvc.Status.GetCondition(knservingv1.ServiceConditionReady) != nil &&
+		isvc.Status.GetCondition(knservingv1.ServiceConditionReady).Status == v1.ConditionTrue
 	if isCanary {
 		endpointSpec = isvc.Spec.Canary
 		serviceName = constants.CanaryServiceName(isvc.Name, component)
@@ -83,20 +89,30 @@ func (r *ServiceReconciler) reconcileComponent(isvc *v1alpha2.InferenceService, 
 			return err
 		}
 	}
-
 	if service == nil {
 		if err = r.finalizeService(serviceName, isvc.Namespace); err != nil {
 			return err
 		}
-		propagateStatusFn(component, nil)
+		// If it was ready and is no longer ready
+		r.RecordServeEvent(isvc, wasReady, propagateStatusFn(component, nil))
 		return nil
 	} else {
 		if status, err := r.reconcileService(isvc, service); err != nil {
 			return err
 		} else {
-			propagateStatusFn(component, status)
+			r.RecordServeEvent(isvc, wasReady, propagateStatusFn(component, status))
 			return nil
 		}
+	}
+}
+
+func (r *ServiceReconciler) RecordServeEvent(isvc *v1alpha2.InferenceService, old bool, new bool) {
+	if old && !new {
+		r.recorder.Event(isvc, v1.EventTypeWarning, string(v1alpha2.InferenceServiceNotReadyState),
+			fmt.Sprintf("InferenceService [%v] is no longer Ready ", isvc.Name))
+	} else if !old && new {
+		r.recorder.Event(isvc, v1.EventTypeNormal, string(v1alpha2.InferenceServiceReadyState),
+			fmt.Sprintf("InferenceService [%v] is Ready ", isvc.Name))
 	}
 }
 

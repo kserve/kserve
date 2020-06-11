@@ -145,7 +145,7 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 	}
 
 	reconcilers := []Reconciler{
-		knative.NewServiceReconciler(r.Client, r.scheme, configMap),
+		knative.NewServiceReconciler(r.Client, r.scheme, r.Recorder, configMap),
 		istio.NewVirtualServiceReconciler(r.Client, r.scheme, configMap),
 	}
 
