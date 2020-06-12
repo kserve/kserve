@@ -111,10 +111,7 @@ func GetNowTime() time.Time {
 }
 
 func GenerateUUID() string {
-	if uuidStr, err := uuid.NewV4(); err == nil {
-		return uuidStr.String()
-	}
-	return ""
+	return uuid.NewV4().String()
 }
 
 func (batcherInfo *BatcherInfo) CallService() *string {
