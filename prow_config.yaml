@@ -15,6 +15,7 @@ workflows:
     - Dockerfile
     - Makefile
     - python/*
+    - vendor/*
     params:
       registry: "gcr.io/kubeflow-ci"
   # The postsubmit run publishes the docker images to gcr.io/kubeflow-images-public      
@@ -28,5 +29,6 @@ workflows:
     - cmd/*
     - Dockerfile
     - python/*
+    - vendor/*
     params:
       registry: "gcr.io/kubeflow-images-public"
