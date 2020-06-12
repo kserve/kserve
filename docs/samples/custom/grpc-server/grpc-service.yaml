@@ -1,0 +1,16 @@
+apiVersion: serving.kubeflow.org/v1alpha2
+kind: InferenceService
+metadata:
+  labels:
+    controller-tools.k8s.io: "1.0"
+  name: grpc-service
+spec:
+  default:
+    predictor:
+      custom:
+        container:
+          image: docker.io/{username}/grpc-ping-go:latest
+          ports:
+          - name: h2c
+            containerPort: 8080
+~                                  
