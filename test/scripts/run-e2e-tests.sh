@@ -80,12 +80,9 @@ kubectl create clusterrolebinding cluster-admin-binding \
   --user=$(gcloud config get-value core/account)
 
 # Install and Initialize Helm
-wget -O /tmp/get_helm.sh \
-    https://raw.githubusercontent.com/kubernetes/helm/master/scripts/get && \
-    chmod 700 /tmp/get_helm.sh && \
-    /tmp/get_helm.sh && \
-    rm /tmp/get_helm.sh
-helm init --client-only
+curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3
+chmod 700 get_helm.sh
+./get_helm.sh
 
 echo "Install istio ..."
 mkdir istio_tmp
@@ -94,11 +91,34 @@ pushd istio_tmp >/dev/null
   cd istio-${ISTIO_VERSION}
   export PATH=$PWD/bin:$PATH
   kubectl create namespace istio-system
-  helm template install/kubernetes/helm/istio-init \
-  --name istio-init --namespace istio-system | kubectl apply -f -
-  sleep 30
-  helm template install/kubernetes/helm/istio \
-  --name istio --namespace istio-system | kubectl apply -f -
+  #install istio lean
+  helm template --namespace=istio-system \
+  --set prometheus.enabled=false \
+  --set mixer.enabled=false \
+  --set mixer.policy.enabled=false \
+  --set mixer.telemetry.enabled=false \
+  `# Pilot doesn't need a sidecar.` \
+  --set pilot.sidecar=false \
+  --set pilot.resources.requests.memory=128Mi \
+  `# Disable galley (and things requiring galley).` \
+  --set galley.enabled=false \
+  --set global.useMCP=false \
+  `# Disable security / policy.` \
+  --set security.enabled=false \
+  --set global.disablePolicyChecks=true \
+  `# Disable sidecar injection.` \
+  --set sidecarInjectorWebhook.enabled=false \
+  --set global.proxy.autoInject=disabled \
+  --set global.omitSidecarInjectorConfigMap=true \
+  --set gateways.istio-ingressgateway.autoscaleMin=1 \
+  --set gateways.istio-ingressgateway.autoscaleMax=2 \
+  `# Set pilot trace sampling to 100%` \
+  --set pilot.traceSampling=100 \
+  --set global.mtls.auto=false \
+  install/kubernetes/helm/istio \
+  > ./istio-lean.yaml
+
+  kubectl apply -f istio-lean.yaml
 
   #use cluster local gateway
   helm template --namespace=istio-system \
