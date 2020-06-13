@@ -19,6 +19,9 @@ package service
 import (
 	"context"
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
+	"k8s.io/client-go/kubernetes"
+	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	"os"
 
 	"github.com/kubeflow/kfserving/pkg/controller/inferenceservice/reconcilers/istio"
 
@@ -60,11 +63,21 @@ func Add(mgr manager.Manager) error {
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 	eventBroadcaster := record.NewBroadcaster()
+	clientSet, err := kubernetes.NewForConfig(mgr.GetConfig())
+	if err != nil {
+		log.Error(err, "unable to start manager")
+		os.Exit(1)
+	}
+
+	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: clientSet.CoreV1().Events("")})
+
+	mgrScheme := mgr.GetScheme()
+
 	return &ReconcileService{
 		Client: mgr.GetClient(),
-		scheme: mgr.GetScheme(),
+		scheme: mgrScheme,
 		Recorder: eventBroadcaster.NewRecorder(
-			mgr.GetScheme(), v1.EventSource{Component: ControllerName}),
+			mgrScheme, v1.EventSource{Component: ControllerName}),
 	}
 }
 

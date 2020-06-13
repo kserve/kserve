@@ -125,13 +125,7 @@ func TestInferenceServiceWithOnlyPredictor(t *testing.T) {
 	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	c = mgr.GetClient()
-	recorder := mgr.GetEventRecorderFor(fmt.Sprintf("InferenceReconciler"))
-	controller := &ReconcileService{
-		Client:   mgr.GetClient(),
-		scheme:   mgr.GetScheme(),
-		Recorder: recorder,
-	}
-	recFn, requests := SetupTestReconcile(controller)
+	recFn, requests := SetupTestReconcile(newReconciler(mgr))
 	g.Expect(add(mgr, recFn)).NotTo(gomega.HaveOccurred())
 
 	stopMgr, mgrStopped := StartTestManager(mgr, g)
