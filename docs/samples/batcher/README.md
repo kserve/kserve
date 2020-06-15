@@ -16,7 +16,7 @@ This batcher module also support customized images.
 apiVersion: "serving.kubeflow.org/v1alpha2"
 kind: "InferenceService"
 metadata:
-  name: "sklearn-iris"
+  name: "pytorch-cifar10"
 spec:
   default:
     predictor:
@@ -25,8 +25,8 @@ spec:
         maxBatchSize: "32"
         maxLatency: "1.0"
         timeout: "60"
-      sklearn:
-        storageUri: "gs://kfserving-samples/models/sklearn/iris"
+      pytorch:
+        storageUri: "gs://kfserving-samples/models/pytorch/cifar10/"
 ```
 * port: the port of inferenceservice-batcher container.
 * maxBatchSize: the max batch size for predict.
