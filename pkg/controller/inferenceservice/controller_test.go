@@ -125,7 +125,6 @@ func TestInferenceServiceWithOnlyPredictor(t *testing.T) {
 	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	c = mgr.GetClient()
-
 	recFn, requests := SetupTestReconcile(newReconciler(mgr))
 	g.Expect(add(mgr, recFn)).NotTo(gomega.HaveOccurred())
 
@@ -336,6 +335,53 @@ func TestInferenceServiceWithOnlyPredictor(t *testing.T) {
 		}
 		return &isvc.Status
 	}, timeout).Should(testutils.BeSematicEqual(&expectedKfsvcStatus))
+	g.Eventually(func() error {
+		events := &v1.EventList{}
+		if err := c.List(context.TODO(), events); err != nil {
+			return fmt.Errorf("Test %q failed: returned error: %v", serviceName, err)
+		}
+		if len(events.Items) == 0 {
+			return fmt.Errorf("Test %q failed: no events were created", serviceName)
+		}
+		for _, event := range events.Items {
+			if event.Reason == string(kfserving.InferenceServiceReadyState) &&
+				event.Type == v1.EventTypeNormal {
+				return nil
+			}
+		}
+		return fmt.Errorf("Test %q failed: events [%v] did not contain ready", serviceName, events.Items)
+	}, timeout).Should(gomega.Succeed())
+	// Testing that when service fails, that an event is thrown
+	failingService := &knservingv1.Service{}
+	g.Eventually(func() error { return c.Get(context.TODO(), predictorService, failingService) }, timeout).
+		Should(gomega.Succeed())
+	failingService.Status.LatestCreatedRevisionName = "revision-v2"
+	failingService.Status.LatestReadyRevisionName = "revision-v2"
+	failingService.Status.URL = nil
+	failingService.Status.Conditions = duckv1.Conditions{
+		{
+			Type:   knservingv1.ServiceConditionReady,
+			Status: "False",
+		},
+	}
+	g.Expect(c.Status().Update(context.TODO(), failingService)).NotTo(gomega.HaveOccurred())
+	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
+	g.Eventually(func() error {
+		events := &v1.EventList{}
+		if err := c.List(context.TODO(), events); err != nil {
+			return fmt.Errorf("Test %q failed: returned error: %v", serviceName, err)
+		}
+		if len(events.Items) == 0 {
+			return fmt.Errorf("Test %q failed: no events were created", serviceName)
+		}
+		for _, event := range events.Items {
+			if event.Reason == string(kfserving.InferenceServiceNotReadyState) &&
+				event.Type == v1.EventTypeWarning {
+				return nil
+			}
+		}
+		return fmt.Errorf("Test %q failed: events [%v] did not contain warning", serviceName, events.Items)
+	}, timeout).Should(gomega.Succeed())
 }
 
 func TestInferenceServiceWithDefaultAndCanaryPredictor(t *testing.T) {
