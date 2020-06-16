@@ -7,7 +7,7 @@ require (
 	contrib.go.opencensus.io/exporter/stackdriver v0.12.9-0.20191108183826-59d068f8d8ff // indirect
 	github.com/aws/aws-sdk-go v1.28.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
-	github.com/cloudevents/sdk-go v0.9.2
+	github.com/cloudevents/sdk-go v1.2.0
 	github.com/emicklei/go-restful v2.11.0+incompatible // indirect
 	github.com/getkin/kin-openapi v0.2.0
 	github.com/go-logr/logr v0.1.0
@@ -16,7 +16,7 @@ require (
 	github.com/gogo/protobuf v1.3.1
 	github.com/golang/groupcache v0.0.0-20191002201903-404acd9df4cc // indirect
 	github.com/golang/protobuf v1.3.2
-	github.com/google/go-cmp v0.3.1
+	github.com/google/go-cmp v0.4.0
 	github.com/google/go-containerregistry v0.0.0-20190910142231-b02d448a3705 // indirect
 	github.com/google/uuid v1.1.1
 	github.com/imdario/mergo v0.3.8 // indirect
@@ -28,7 +28,6 @@ require (
 	github.com/spf13/cobra v0.0.5
 	go.uber.org/multierr v1.2.0 // indirect
 	go.uber.org/zap v1.11.0 // indirect
-	golang.org/x/crypto v0.0.0-20191011191535-87dc89f01550 // indirect
 	golang.org/x/net v0.0.0-20200226121028-0de0cce0169b
 	golang.org/x/sys v0.0.0-20191026070338-33540a1f6037 // indirect
 	golang.org/x/time v0.0.0-20191023065245-6d3f0bb11be5 // indirect
