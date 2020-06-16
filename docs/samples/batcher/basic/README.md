@@ -25,7 +25,7 @@ Let's apply this yaml:
 kubectl create -f pytorch-batcher.yaml
 ```
 
-We can now send requests to the pytorch model using hey. Use `kfserving-ingressgateway` as your `INGRESS_GATEWAY` if you are deploying KFServing as part of Kubeflow install, and not independently.
+We can now send requests to the pytorch model using hey.
 
 ```
 MODEL_NAME=pytorch-cifar10

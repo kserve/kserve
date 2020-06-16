@@ -26,7 +26,7 @@ import (
 )
 
 const (
-	BatcherContainerName         = "inferenceservice-batcher"
+	BatcherContainerName         = "batcher"
 	BatcherConfigMapKeyName      = "batcher"
 	BatcherArgumentMaxBatchSize  = "--max-batchsize"
 	BatcherArgumentMaxLatency    = "--max-latency"

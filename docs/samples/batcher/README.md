@@ -28,7 +28,7 @@ spec:
       pytorch:
         storageUri: "gs://kfserving-samples/models/pytorch/cifar10/"
 ```
-* port: the port of inferenceservice-batcher container.
+* port: the port of batcher container.
 * maxBatchSize: the max batch size for predict.
 * maxLatency: the max latency for predict (In milliseconds).
 * timeout: timeout of calling predictor service (In seconds).
