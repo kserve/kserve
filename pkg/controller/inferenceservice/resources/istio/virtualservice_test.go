@@ -76,7 +76,9 @@ func TestCreateVirtualService(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      serviceName,
 			Namespace: namespace,
-			Annotation: {constants.InferenceServiceCustomizedPredictorPathAnnotationKey: URLPaths},
+			Annotations: map[string]string{
+				constants.InferenceServiceCustomizedPredictorPathAnnotationKey: URLPaths,
+			},
 		},
 	}
 	predictDestination := []*istiov1alpha3.HTTPRouteDestination{
@@ -585,7 +587,9 @@ func TestCreateVirtualService(t *testing.T) {
 			metadata = metav1.ObjectMeta{
 				Name:      serviceName,
 				Namespace: namespace,
-				Annotation: {constants.InferenceServiceCustomizedPredictorPathAnnotationKey: URLPaths},
+				Annotations: map[string]string{
+					constants.InferenceServiceCustomizedPredictorPathAnnotationKey: URLPaths,
+				},
 			}
 		} else {
 			metadata = metav1.ObjectMeta{
