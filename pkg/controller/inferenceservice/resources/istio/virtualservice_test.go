@@ -105,7 +105,7 @@ func TestCreateVirtualService(t *testing.T) {
 		expectedService: nil,
 	}, {
 		name:            "empty status should not be ready",
-		defaultStatus:   &v1alpha2.ComponentStatusMap{},
+		defaultStatus:   nil,
 		canaryStatus:    nil,
 		expectedStatus:  createFailedStatus(PredictorStatusUnknown, PredictorMissingMessage),
 		expectedService: nil,
