@@ -53,6 +53,7 @@ func TestKnativeServiceReconcile(t *testing.T) {
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	stopMgr, mgrStopped := testutils.StartTestManager(mgr, g)
 	c := mgr.GetClient()
+	recorder := mgr.GetEventRecorderFor("InferenceServiceEventRecorder")
 
 	defer func() {
 		close(stopMgr)
@@ -78,7 +79,7 @@ func TestKnativeServiceReconcile(t *testing.T) {
         }`,
 	}
 
-	serviceReconciler := NewServiceReconciler(c, mgr.GetScheme(), &v1.ConfigMap{
+	serviceReconciler := NewServiceReconciler(c, mgr.GetScheme(), recorder, &v1.ConfigMap{
 		Data: configs,
 	})
 	scenarios := map[string]struct {
