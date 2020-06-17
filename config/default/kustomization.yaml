@@ -18,7 +18,7 @@ namespace: kfserving-system
 resources:
 - crds/base/serving.kubeflow.org_inferenceservices.yaml
 - configmap/inferenceservice.yaml
-- rbac/rbac_role.yaml
+- rbac/role.yaml
 - rbac/rbac_role_binding.yaml
 - manager/manager.yaml
 - manager/service.yaml
