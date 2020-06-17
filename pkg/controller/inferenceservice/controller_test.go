@@ -345,11 +345,11 @@ func TestInferenceServiceWithOnlyPredictor(t *testing.T) {
 		}
 		for _, event := range events.Items {
 			if event.Reason == string(kfserving.InferenceServiceReadyState) &&
-				event.Type == v1.EventTypeNormal {
+				event.Type == v1.EventTypeNormal && event.Count == 1 {
 				return nil
 			}
 		}
-		return fmt.Errorf("Test %q failed: events [%v] did not contain ready", serviceName, events.Items)
+		return fmt.Errorf("Test %q failed: events [%v] did not contain a ready event", serviceName, events.Items)
 	}, timeout).Should(gomega.Succeed())
 	// Testing that when service fails, that an event is thrown
 	failingService := &knservingv1.Service{}
@@ -366,6 +366,18 @@ func TestInferenceServiceWithOnlyPredictor(t *testing.T) {
 	}
 	g.Expect(c.Status().Update(context.TODO(), failingService)).NotTo(gomega.HaveOccurred())
 	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
+	g.Eventually(func() bool {
+		isvc := &kfserving.InferenceService{}
+		err := c.Get(context.TODO(), serviceKey, isvc)
+		if err != nil || isvc.Status.GetCondition(apis.ConditionReady) == nil {
+			return false
+		}
+		if isvc.Status.GetCondition(apis.ConditionReady).Status ==
+			v1.ConditionFalse {
+			return true
+		}
+		return false
+	}, timeout).Should(gomega.BeTrue())
 	g.Eventually(func() error {
 		events := &v1.EventList{}
 		if err := c.List(context.TODO(), events); err != nil {
@@ -376,11 +388,54 @@ func TestInferenceServiceWithOnlyPredictor(t *testing.T) {
 		}
 		for _, event := range events.Items {
 			if event.Reason == string(kfserving.InferenceServiceNotReadyState) &&
-				event.Type == v1.EventTypeWarning {
+				event.Type == v1.EventTypeWarning && event.Count == 1 {
 				return nil
 			}
 		}
-		return fmt.Errorf("Test %q failed: events [%v] did not contain warning", serviceName, events.Items)
+		return fmt.Errorf("Test %q failed: events [%v] did not contain warning event", serviceName, events.Items)
+	}, timeout).Should(gomega.Succeed())
+	succedingService := &knservingv1.Service{}
+	g.Eventually(func() error { return c.Get(context.TODO(), predictorService, succedingService) }, timeout).
+		Should(gomega.Succeed())
+	succedingService.Status.LatestCreatedRevisionName = "revision-v3"
+	succedingService.Status.LatestReadyRevisionName = "revision-v3"
+	succedingService.Status.URL, _ = apis.ParseURL(
+		constants.InferenceServiceURL("http", constants.DefaultPredictorServiceName(serviceKey.Name), serviceKey.Namespace, domain))
+	succedingService.Status.Conditions = duckv1.Conditions{
+		{
+			Type:   knservingv1.ServiceConditionReady,
+			Status: "True",
+		},
+	}
+	g.Expect(c.Status().Update(context.TODO(), succedingService)).NotTo(gomega.HaveOccurred())
+	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
+	g.Eventually(func() bool {
+		isvc := &kfserving.InferenceService{}
+		err := c.Get(context.TODO(), serviceKey, isvc)
+		if err != nil || isvc.Status.GetCondition(apis.ConditionReady) == nil {
+			return false
+		}
+		if isvc.Status.GetCondition(apis.ConditionReady).Status ==
+			v1.ConditionTrue {
+			return true
+		}
+		return false
+	}, timeout).Should(gomega.BeTrue())
+	g.Eventually(func() error {
+		events := &v1.EventList{}
+		if err := c.List(context.TODO(), events); err != nil {
+			return fmt.Errorf("Test %q failed: returned error: %v", serviceName, err)
+		}
+		if len(events.Items) == 0 {
+			return fmt.Errorf("Test %q failed: no events were created", serviceName)
+		}
+		for _, event := range events.Items {
+			if event.Reason == string(kfserving.InferenceServiceReadyState) &&
+				event.Type == v1.EventTypeNormal && event.Count == 2 {
+				return nil
+			}
+		}
+		return fmt.Errorf("Test %q failed: events [%v] did not contain 2 ready events", serviceName, events.Items)
 	}, timeout).Should(gomega.Succeed())
 }
 
