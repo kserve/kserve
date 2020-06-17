@@ -13,7 +13,7 @@ spec:
       minReplicas: 1
       batcher:
         maxBatchSize: "32"
-        maxLatency: "1.0"
+        maxLatency: "5000.0"
         timeout: "60"
       pytorch:
         storageUri: "gs://kfserving-samples/models/pytorch/cifar10/"
