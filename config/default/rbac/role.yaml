@@ -6,46 +6,11 @@ metadata:
   creationTimestamp: null
   name: kfserving-manager-role
 rules:
-- resources:
-  - configmaps
-  verbs:
-  - get
-  - list
-  - watch
-- resources:
-  - events
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- resources:
-  - namespaces
-  verbs:
-  - get
-  - list
-  - watch
-- resources:
-  - secrets
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- resources:
-  - serviceaccounts
-  verbs:
-  - get
-  - list
-  - watch
-- resources:
-  - services
+- apiGroups:
+  - admissionregistration.k8s.io
+  resources:
+  - mutatingwebhookconfigurations
+  - validatingwebhookconfigurations
   verbs:
   - create
   - delete
@@ -55,10 +20,57 @@ rules:
   - update
   - watch
 - apiGroups:
-  - admissionregistration.k8s.io
+  - ""
   resources:
-  - mutatingwebhookconfigurations
-  - validatingwebhookconfigurations
+  - configmaps
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - serviceaccounts
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - services
   verbs:
   - create
   - delete
