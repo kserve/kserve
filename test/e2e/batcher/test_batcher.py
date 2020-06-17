@@ -37,7 +37,7 @@ def test_batcher():
         predictor=V1alpha2PredictorSpec(
             batcher=V1alpha2Batcher(
                 max_batchsize='32',
-                max_latency='1.0',
+                max_latency='5000.0',
                 timeout='60'
             ),
             min_replicas=1,

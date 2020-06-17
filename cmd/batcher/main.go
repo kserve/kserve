@@ -30,7 +30,7 @@ var (
 	componentHost = flag.String("component-host", "127.0.0.1", "Component host")
 	componentPort = flag.String("component-port", "8080", "Component port")
 	maxBatchSize  = flag.String("max-batchsize", "32", "Max Batch Size")
-	maxLatency    = flag.String("max-latency", "1.0", "Max Latency in milliseconds")
+	maxLatency    = flag.String("max-latency", "5000.0", "Max Latency in milliseconds")
 	timeout       = flag.String("timeout", "60", "Timeout of calling predictor service in seconds")
 )
 
