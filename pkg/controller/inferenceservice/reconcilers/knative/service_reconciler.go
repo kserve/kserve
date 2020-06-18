@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"k8s.io/client-go/tools/record"
+	"knative.dev/pkg/apis"
 
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	"github.com/kubeflow/kfserving/pkg/constants"
@@ -74,8 +75,8 @@ func (r *ServiceReconciler) reconcileComponent(isvc *v1alpha2.InferenceService, 
 	serviceName := constants.DefaultServiceName(isvc.Name, component)
 	propagateStatusFn := isvc.Status.PropagateDefaultStatus
 	wasReady := isvc.Status.Conditions != nil &&
-		isvc.Status.GetCondition(knservingv1.ServiceConditionReady) != nil &&
-		isvc.Status.GetCondition(knservingv1.ServiceConditionReady).Status == v1.ConditionTrue
+		isvc.Status.GetCondition(apis.ConditionReady) != nil &&
+		isvc.Status.GetCondition(apis.ConditionReady).Status == v1.ConditionTrue
 	if isCanary {
 		endpointSpec = isvc.Spec.Canary
 		serviceName = constants.CanaryServiceName(isvc.Name, component)

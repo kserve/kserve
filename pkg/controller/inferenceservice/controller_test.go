@@ -376,10 +376,12 @@ func TestInferenceServiceWithOnlyPredictor(t *testing.T) {
 	g.Eventually(func() bool {
 		isvc := &kfserving.InferenceService{}
 		err := c.Get(context.TODO(), serviceKey, isvc)
-		if err != nil || isvc.Status.GetCondition(apis.ConditionReady) == nil {
+		if err != nil {
 			return false
 		}
-		if isvc.Status.GetCondition(apis.ConditionReady).Status ==
+		if isvc.Status.GetCondition(apis.ConditionReady) == nil {
+			return true // Because ConditionReady might be removed, this is true
+		} else if isvc.Status.GetCondition(apis.ConditionReady).Status ==
 			v1.ConditionFalse {
 			return true
 		}
