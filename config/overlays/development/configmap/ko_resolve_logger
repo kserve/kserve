@@ -1,1 +1,1 @@
-image: github.com/kubeflow/kfserving/cmd/logger
+image: ko://github.com/kubeflow/kfserving/cmd/logger
