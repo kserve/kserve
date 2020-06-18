@@ -18,6 +18,8 @@ package service
 
 import (
 	"fmt"
+	"reflect"
+	"sort"
 	"testing"
 	"time"
 
@@ -335,28 +337,16 @@ func TestInferenceServiceWithOnlyPredictor(t *testing.T) {
 		}
 		return &isvc.Status
 	}, timeout).Should(testutils.BeSematicEqual(&expectedKfsvcStatus))
+	// We are testing for a Ready event
+	expectedReadyEvents := []SimpleEvent{
+		{Count: 1, Type: v1.EventTypeNormal, Reason: string(kfserving.InferenceServiceReadyState)},
+	}
 	g.Eventually(func() error {
-		events := &v1.EventList{}
-		if err := c.List(context.TODO(), events); err != nil {
-			return fmt.Errorf("Test %q failed: returned error: %v", serviceName, err)
-		}
-		if len(events.Items) == 0 {
-			return fmt.Errorf("Test %q failed: no events were created", serviceName)
-		}
-		var passes = 0
-		for _, event := range events.Items {
-			if event.Reason == string(kfserving.InferenceServiceReadyState) &&
-				event.Type == v1.EventTypeNormal && event.Count == 1 {
-				passes += 1 // Should throw Ready Event
-			} else if event.Reason == string(kfserving.InferenceServiceNotReadyState) &&
-				event.Type == v1.EventTypeWarning {
-				passes -= 1 // Should NOT throw NotReady event
-			}
-		}
-		if passes == 1 {
+		events := getEvents()
+		if reflect.DeepEqual(events, expectedReadyEvents) {
 			return nil
 		}
-		return fmt.Errorf("[%d/1] test %q failed: events [%v] did not contain 1 ready event", passes, serviceName, events.Items)
+		return fmt.Errorf("test %q failed: [%v] did not equal [%v]", serviceName, events, expectedReadyEvents)
 	}, timeout).Should(gomega.Succeed())
 	// Testing that when service fails, that an event is thrown
 	failingService := &knservingv1.Service{}
@@ -387,28 +377,17 @@ func TestInferenceServiceWithOnlyPredictor(t *testing.T) {
 		}
 		return false
 	}, timeout).Should(gomega.BeTrue())
+	// We are testing for a NonReady event
+	expectedNonReadyEvent := []SimpleEvent{
+		{Count: 1, Type: v1.EventTypeNormal, Reason: string(kfserving.InferenceServiceReadyState)},
+		{Count: 1, Type: v1.EventTypeWarning, Reason: string(kfserving.InferenceServiceNotReadyState)},
+	}
 	g.Eventually(func() error {
-		events := &v1.EventList{}
-		if err := c.List(context.TODO(), events); err != nil {
-			return fmt.Errorf("Test %q failed: returned error: %v", serviceName, err)
-		}
-		if len(events.Items) == 0 {
-			return fmt.Errorf("Test %q failed: no events were created", serviceName)
-		}
-		var passes = 0
-		for _, event := range events.Items {
-			if event.Reason == string(kfserving.InferenceServiceReadyState) &&
-				event.Type == v1.EventTypeNormal && event.Count == 1 {
-				passes += 1 // Should not throw additional Ready Event
-			} else if event.Reason == string(kfserving.InferenceServiceNotReadyState) &&
-				event.Type == v1.EventTypeWarning && event.Count == 1 {
-				passes += 1 // Should throw NotReady Event
-			}
-		}
-		if passes == 2 {
+		events := getEvents()
+		if reflect.DeepEqual(events, expectedNonReadyEvent) {
 			return nil
 		}
-		return fmt.Errorf("[%d/2] test %q failed: events [%v] did not contain 1 of each event", passes, serviceName, events.Items)
+		return fmt.Errorf("test %q failed: [%v] did not equal [%v]", serviceName, events, expectedNonReadyEvent)
 	}, timeout).Should(gomega.Succeed())
 	succedingService := &knservingv1.Service{}
 	g.Eventually(func() error { return c.Get(context.TODO(), predictorService, succedingService) }, timeout).
@@ -437,29 +416,75 @@ func TestInferenceServiceWithOnlyPredictor(t *testing.T) {
 		}
 		return false
 	}, timeout).Should(gomega.BeTrue())
+	// We are testing for another Ready event
+	expectedTwoReadyEvents := []SimpleEvent{
+		{Count: 1, Type: v1.EventTypeWarning, Reason: string(kfserving.InferenceServiceNotReadyState)},
+		{Count: 2, Type: v1.EventTypeNormal, Reason: string(kfserving.InferenceServiceReadyState)},
+	}
 	g.Eventually(func() error {
-		events := &v1.EventList{}
-		if err := c.List(context.TODO(), events); err != nil {
-			return fmt.Errorf("Test %q failed: returned error: %v", serviceName, err)
-		}
-		if len(events.Items) == 0 {
-			return fmt.Errorf("Test %q failed: no events were created", serviceName)
-		}
-		var passes = 0
-		for _, event := range events.Items {
-			if event.Reason == string(kfserving.InferenceServiceReadyState) &&
-				event.Type == v1.EventTypeNormal && event.Count == 2 {
-				passes += 1 // Should throw an additional Ready Event
-			} else if event.Reason == string(kfserving.InferenceServiceNotReadyState) &&
-				event.Type == v1.EventTypeWarning && event.Count == 1 {
-				passes += 1 // Should NOT throw an additional NotReady Event
-			}
-		}
-		if passes == 2 {
+		events := getEvents()
+		if reflect.DeepEqual(events, expectedTwoReadyEvents) {
 			return nil
 		}
-		return fmt.Errorf("[%d/2] test %q failed: events [%v] did not contain 2 ready events", passes, serviceName, events.Items)
+		return fmt.Errorf("test %q failed: [%v] did not equal [%v]", serviceName, events, expectedTwoReadyEvents)
 	}, timeout).Should(gomega.Succeed())
+}
+
+type SimpleEvent struct {
+	Reason string
+	Count  int32
+	Type   string
+}
+
+type SimpleEventWithTime struct {
+	event         SimpleEvent
+	LastTimestamp metav1.Time
+}
+
+type timeSlice []SimpleEventWithTime
+
+func (p timeSlice) Len() int {
+	return len(p)
+}
+
+func (p timeSlice) Less(i, j int) bool {
+	return p[i].LastTimestamp.Before(&p[j].LastTimestamp)
+}
+
+func (p timeSlice) Swap(i, j int) {
+	p[i], p[j] = p[j], p[i]
+}
+
+func getEvents() []SimpleEvent {
+	events := &v1.EventList{}
+	if err := c.List(context.TODO(), events); err != nil {
+		return nil
+	}
+	numEvents := len(events.Items)
+	if numEvents == 0 {
+		return nil
+	}
+	sortedEvents := make(timeSlice, 0, numEvents)
+	for _, event := range events.Items {
+		if event.Reason != "Updated" { // Not checking for updates
+			sortedEvents = append(sortedEvents, SimpleEventWithTime{
+				event: SimpleEvent{
+					Reason: event.Reason,
+					Count:  event.Count,
+					Type:   event.Type,
+				},
+				LastTimestamp: event.LastTimestamp,
+			})
+		}
+	}
+	sort.Slice(sortedEvents, func(i, j int) bool {
+		return sortedEvents[i].LastTimestamp.Before(&sortedEvents[j].LastTimestamp)
+	})
+	simpleEvents := make([]SimpleEvent, 0, len(sortedEvents))
+	for _, sEvent := range sortedEvents {
+		simpleEvents = append(simpleEvents, sEvent.event)
+	}
+	return simpleEvents
 }
 
 func TestInferenceServiceWithDefaultAndCanaryPredictor(t *testing.T) {
