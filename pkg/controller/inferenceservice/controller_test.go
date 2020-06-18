@@ -18,6 +18,8 @@ package service
 
 import (
 	"fmt"
+	"reflect"
+	"sort"
 	"testing"
 	"time"
 
@@ -335,21 +337,16 @@ func TestInferenceServiceWithOnlyPredictor(t *testing.T) {
 		}
 		return &isvc.Status
 	}, timeout).Should(testutils.BeSematicEqual(&expectedKfsvcStatus))
+	// We are testing for a Ready event
+	expectedReadyEvents := []SimpleEvent{
+		{Count: 1, Type: v1.EventTypeNormal, Reason: string(kfserving.InferenceServiceReadyState)},
+	}
 	g.Eventually(func() error {
-		events := &v1.EventList{}
-		if err := c.List(context.TODO(), events); err != nil {
-			return fmt.Errorf("Test %q failed: returned error: %v", serviceName, err)
+		events := getEvents()
+		if reflect.DeepEqual(events, expectedReadyEvents) {
+			return nil
 		}
-		if len(events.Items) == 0 {
-			return fmt.Errorf("Test %q failed: no events were created", serviceName)
-		}
-		for _, event := range events.Items {
-			if event.Reason == string(kfserving.InferenceServiceReadyState) &&
-				event.Type == v1.EventTypeNormal {
-				return nil
-			}
-		}
-		return fmt.Errorf("Test %q failed: events [%v] did not contain ready", serviceName, events.Items)
+		return fmt.Errorf("test %q failed: [%v] did not equal [%v]", serviceName, events, expectedReadyEvents)
 	}, timeout).Should(gomega.Succeed())
 	// Testing that when service fails, that an event is thrown
 	failingService := &knservingv1.Service{}
@@ -366,22 +363,128 @@ func TestInferenceServiceWithOnlyPredictor(t *testing.T) {
 	}
 	g.Expect(c.Status().Update(context.TODO(), failingService)).NotTo(gomega.HaveOccurred())
 	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
+	g.Eventually(func() bool {
+		isvc := &kfserving.InferenceService{}
+		err := c.Get(context.TODO(), serviceKey, isvc)
+		if err != nil {
+			return false
+		}
+		if isvc.Status.GetCondition(apis.ConditionReady) == nil {
+			return true // Because ConditionReady might be removed, this is true
+		} else if isvc.Status.GetCondition(apis.ConditionReady).Status ==
+			v1.ConditionFalse {
+			return true
+		}
+		return false
+	}, timeout).Should(gomega.BeTrue())
+	// We are testing for a NonReady event
+	expectedNonReadyEvent := []SimpleEvent{
+		{Count: 1, Type: v1.EventTypeNormal, Reason: string(kfserving.InferenceServiceReadyState)},
+		{Count: 1, Type: v1.EventTypeWarning, Reason: string(kfserving.InferenceServiceNotReadyState)},
+	}
 	g.Eventually(func() error {
-		events := &v1.EventList{}
-		if err := c.List(context.TODO(), events); err != nil {
-			return fmt.Errorf("Test %q failed: returned error: %v", serviceName, err)
+		events := getEvents()
+		if reflect.DeepEqual(events, expectedNonReadyEvent) {
+			return nil
 		}
-		if len(events.Items) == 0 {
-			return fmt.Errorf("Test %q failed: no events were created", serviceName)
-		}
-		for _, event := range events.Items {
-			if event.Reason == string(kfserving.InferenceServiceNotReadyState) &&
-				event.Type == v1.EventTypeWarning {
-				return nil
-			}
-		}
-		return fmt.Errorf("Test %q failed: events [%v] did not contain warning", serviceName, events.Items)
+		return fmt.Errorf("test %q failed: [%v] did not equal [%v]", serviceName, events, expectedNonReadyEvent)
 	}, timeout).Should(gomega.Succeed())
+	succedingService := &knservingv1.Service{}
+	g.Eventually(func() error { return c.Get(context.TODO(), predictorService, succedingService) }, timeout).
+		Should(gomega.Succeed())
+	succedingService.Status.LatestCreatedRevisionName = "revision-v3"
+	succedingService.Status.LatestReadyRevisionName = "revision-v3"
+	succedingService.Status.URL, _ = apis.ParseURL(
+		constants.InferenceServiceURL("http", constants.DefaultPredictorServiceName(serviceKey.Name), serviceKey.Namespace, domain))
+	succedingService.Status.Conditions = duckv1.Conditions{
+		{
+			Type:   knservingv1.ServiceConditionReady,
+			Status: "True",
+		},
+	}
+	g.Expect(c.Status().Update(context.TODO(), succedingService)).NotTo(gomega.HaveOccurred())
+	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
+	g.Eventually(func() bool {
+		isvc := &kfserving.InferenceService{}
+		err := c.Get(context.TODO(), serviceKey, isvc)
+		if err != nil || isvc.Status.GetCondition(apis.ConditionReady) == nil {
+			return false
+		}
+		if isvc.Status.GetCondition(apis.ConditionReady).Status ==
+			v1.ConditionTrue {
+			return true
+		}
+		return false
+	}, timeout).Should(gomega.BeTrue())
+	// We are testing for another Ready event
+	expectedTwoReadyEvents := []SimpleEvent{
+		{Count: 1, Type: v1.EventTypeWarning, Reason: string(kfserving.InferenceServiceNotReadyState)},
+		{Count: 2, Type: v1.EventTypeNormal, Reason: string(kfserving.InferenceServiceReadyState)},
+	}
+	g.Eventually(func() error {
+		events := getEvents()
+		if reflect.DeepEqual(events, expectedTwoReadyEvents) {
+			return nil
+		}
+		return fmt.Errorf("test %q failed: [%v] did not equal [%v]", serviceName, events, expectedTwoReadyEvents)
+	}, timeout).Should(gomega.Succeed())
+}
+
+type SimpleEvent struct {
+	Reason string
+	Count  int32
+	Type   string
+}
+
+type SimpleEventWithTime struct {
+	event         SimpleEvent
+	LastTimestamp metav1.Time
+}
+
+type timeSlice []SimpleEventWithTime
+
+func (p timeSlice) Len() int {
+	return len(p)
+}
+
+func (p timeSlice) Less(i, j int) bool {
+	return p[i].LastTimestamp.Before(&p[j].LastTimestamp)
+}
+
+func (p timeSlice) Swap(i, j int) {
+	p[i], p[j] = p[j], p[i]
+}
+
+func getEvents() []SimpleEvent {
+	events := &v1.EventList{}
+	if err := c.List(context.TODO(), events); err != nil {
+		return nil
+	}
+	numEvents := len(events.Items)
+	if numEvents == 0 {
+		return nil
+	}
+	sortedEvents := make(timeSlice, 0, numEvents)
+	for _, event := range events.Items {
+		if event.Reason != "Updated" { // Not checking for updates
+			sortedEvents = append(sortedEvents, SimpleEventWithTime{
+				event: SimpleEvent{
+					Reason: event.Reason,
+					Count:  event.Count,
+					Type:   event.Type,
+				},
+				LastTimestamp: event.LastTimestamp,
+			})
+		}
+	}
+	sort.Slice(sortedEvents, func(i, j int) bool {
+		return sortedEvents[i].LastTimestamp.Before(&sortedEvents[j].LastTimestamp)
+	})
+	simpleEvents := make([]SimpleEvent, 0, len(sortedEvents))
+	for _, sEvent := range sortedEvents {
+		simpleEvents = append(simpleEvents, sEvent.event)
+	}
+	return simpleEvents
 }
 
 func TestInferenceServiceWithDefaultAndCanaryPredictor(t *testing.T) {
