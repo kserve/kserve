@@ -32,9 +32,11 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"k8s.io/client-go/kubernetes"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	"knative.dev/pkg/apis"
 	"os"
 
 	"github.com/kubeflow/kfserving/pkg/controller/inferenceservice/reconcilers/istio"
@@ -163,7 +165,7 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 	}
 
 	reconcilers := []Reconciler{
-		knative.NewServiceReconciler(r.Client, r.scheme, r.Recorder, configMap),
+		knative.NewServiceReconciler(r.Client, r.scheme, configMap),
 		istio.NewVirtualServiceReconciler(r.Client, r.scheme, configMap),
 	}
 
@@ -174,12 +176,17 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 			return reconcile.Result{}, err
 		}
 	}
-
 	if err = r.updateStatus(isvc); err != nil {
 		r.Recorder.Eventf(isvc, v1.EventTypeWarning, "InternalError", err.Error())
 		return reconcile.Result{}, err
 	}
 	return reconcile.Result{}, nil
+}
+
+func InferenceServiceReadiness(status v1alpha2.InferenceServiceStatus) bool {
+	return status.Conditions != nil &&
+		status.GetCondition(apis.ConditionReady) != nil &&
+		status.GetCondition(apis.ConditionReady).Status == v1.ConditionTrue
 }
 
 func (r *ReconcileService) updateStatus(desiredService *kfserving.InferenceService) error {
@@ -188,6 +195,7 @@ func (r *ReconcileService) updateStatus(desiredService *kfserving.InferenceServi
 	if err := r.Get(context.TODO(), namespacedName, existing); err != nil {
 		return err
 	}
+	wasReady := InferenceServiceReadiness(existing.Status)
 	if equality.Semantic.DeepEqual(existing.Status, desiredService.Status) {
 		// If we didn't change anything then don't call updateStatus.
 		// This is important because the copy we loaded from the informer's
@@ -200,8 +208,15 @@ func (r *ReconcileService) updateStatus(desiredService *kfserving.InferenceServi
 		return err
 	} else {
 		// If there was a difference and there was no error.
+		isReady := InferenceServiceReadiness(desiredService.Status)
+		if wasReady && !isReady { // Moved to NotReady State
+			r.Recorder.Eventf(desiredService, v1.EventTypeWarning, string(v1alpha2.InferenceServiceNotReadyState),
+				fmt.Sprintf("InferenceService [%v] is no longer Ready", desiredService.GetName()))
+		} else if !wasReady && isReady { // Moved to Ready State
+			r.Recorder.Eventf(desiredService, v1.EventTypeNormal, string(v1alpha2.InferenceServiceReadyState),
+				fmt.Sprintf("InferenceService [%v] is Ready", desiredService.GetName()))
+		}
 		r.Recorder.Eventf(desiredService, v1.EventTypeNormal, "Updated", "Updated InferenceService %q", desiredService.GetName())
 	}
-
 	return nil
 }
