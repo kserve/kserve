@@ -343,13 +343,20 @@ func TestInferenceServiceWithOnlyPredictor(t *testing.T) {
 		if len(events.Items) == 0 {
 			return fmt.Errorf("Test %q failed: no events were created", serviceName)
 		}
+		var passes = 0
 		for _, event := range events.Items {
 			if event.Reason == string(kfserving.InferenceServiceReadyState) &&
 				event.Type == v1.EventTypeNormal && event.Count == 1 {
-				return nil
+				passes += 1 // Should throw Ready Event
+			} else if event.Reason == string(kfserving.InferenceServiceNotReadyState) &&
+				event.Type == v1.EventTypeWarning {
+				passes -= 1 // Should NOT throw NotReady event
 			}
 		}
-		return fmt.Errorf("Test %q failed: events [%v] did not contain a ready event", serviceName, events.Items)
+		if passes == 1 {
+			return nil
+		}
+		return fmt.Errorf("[%d/1] test %q failed: events [%v] did not contain 1 ready event", passes, serviceName, events.Items)
 	}, timeout).Should(gomega.Succeed())
 	// Testing that when service fails, that an event is thrown
 	failingService := &knservingv1.Service{}
@@ -386,13 +393,20 @@ func TestInferenceServiceWithOnlyPredictor(t *testing.T) {
 		if len(events.Items) == 0 {
 			return fmt.Errorf("Test %q failed: no events were created", serviceName)
 		}
+		var passes = 0
 		for _, event := range events.Items {
-			if event.Reason == string(kfserving.InferenceServiceNotReadyState) &&
+			if event.Reason == string(kfserving.InferenceServiceReadyState) &&
+				event.Type == v1.EventTypeNormal && event.Count == 1 {
+				passes += 1 // Should not throw additional Ready Event
+			} else if event.Reason == string(kfserving.InferenceServiceNotReadyState) &&
 				event.Type == v1.EventTypeWarning && event.Count == 1 {
-				return nil
+				passes += 1 // Should throw NotReady Event
 			}
 		}
-		return fmt.Errorf("Test %q failed: events [%v] did not contain warning event", serviceName, events.Items)
+		if passes == 2 {
+			return nil
+		}
+		return fmt.Errorf("[%d/2] test %q failed: events [%v] did not contain 1 of each event", passes, serviceName, events.Items)
 	}, timeout).Should(gomega.Succeed())
 	succedingService := &knservingv1.Service{}
 	g.Eventually(func() error { return c.Get(context.TODO(), predictorService, succedingService) }, timeout).
@@ -429,13 +443,20 @@ func TestInferenceServiceWithOnlyPredictor(t *testing.T) {
 		if len(events.Items) == 0 {
 			return fmt.Errorf("Test %q failed: no events were created", serviceName)
 		}
+		var passes = 0
 		for _, event := range events.Items {
 			if event.Reason == string(kfserving.InferenceServiceReadyState) &&
 				event.Type == v1.EventTypeNormal && event.Count == 2 {
-				return nil
+				passes += 1 // Should throw an additional Ready Event
+			} else if event.Reason == string(kfserving.InferenceServiceNotReadyState) &&
+				event.Type == v1.EventTypeWarning && event.Count == 1 {
+				passes += 1 // Should NOT throw an additional NotReady Event
 			}
 		}
-		return fmt.Errorf("Test %q failed: events [%v] did not contain 2 ready events", serviceName, events.Items)
+		if passes == 2 {
+			return nil
+		}
+		return fmt.Errorf("[%d/2] test %q failed: events [%v] did not contain 2 ready events", passes, serviceName, events.Items)
 	}, timeout).Should(gomega.Succeed())
 }
 
