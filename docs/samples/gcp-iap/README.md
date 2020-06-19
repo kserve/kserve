@@ -2,7 +2,7 @@
 When using Kubeflow with GCP it is common to use a [GCP Identity Aware Proxy](https://cloud.google.com/iap) (IAP) to manage client authentication to the KFServing endpoints.  The proxy intercepts and authenticates users and passes identity assertion (JWT) to kubernetes service/pods.  Whilst it is also possible to add access control (i.e. programmable or service mesh authorization), this is not described here.
 
 ### Prerequisites
-1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/blob/master/docs/DEVELOPER_GUIDE.md#deploy-kfserving) and have applied the [knative istio probe fix](https://github.com/kubeflow/manifests/commit/928cf483361730121ac18bc4d0e7a9c129f15ee2) (see below).
+1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/#install-kfserving) and have applied the [knative istio probe fix](https://github.com/kubeflow/manifests/commit/928cf483361730121ac18bc4d0e7a9c129f15ee2) (see below).
 2. Your gcloud config is initialised to the project containing the k8s cluster and has a service-account that can download IAP key file.
 3. You are using Knative serving v0.11.2 or v0.14.0+
 4. You are using a recent version of KFServing (v0.3+)
