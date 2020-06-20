@@ -21,6 +21,7 @@ Objective: "Unify prediction protocols across model servers"
     * V2 KFServing Python Server(SKLearn/XgBoost/Custom)
     * Triton inference server V2 prediction API
     * TorchServe/KFServing integration
+    * Enable support for GRPC.
 
 Proposal: https://docs.google.com/document/d/1C2uf4SaAtwLTlBCciOhvdiKQ2Eay4U72VxAD4bXe7iU
 
@@ -35,11 +36,6 @@ Objective: "Prevent performance regressions across a known set of representative
 * Automated Performance Tests
     * Define a set of Models to test covering a wide array of use cases and frameworks.
     * Publish performance results over time to enable regression tracking.
-
-Objective: "Enable users to deploy latency sensitive models with KFServing."
-* High Performance Dataplane
-    * Enable support for GRPC or similar.
-    * Continue to support existing HTTP Dataplane.
 
 Objective: "Increase throughput for the inference service"
 * Adaptive batching support
