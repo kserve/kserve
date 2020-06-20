@@ -22,9 +22,9 @@ spec:
     predictor:
       minReplicas: 1
       batcher:
-        maxBatchSize: "32"
-        maxLatency: "5000.0"
-        timeout: "60"
+        maxBatchSize: 32
+        maxLatency: 5000
+        timeout: 60
       pytorch:
         storageUri: "gs://kfserving-samples/models/pytorch/cifar10/"
 ```
@@ -34,6 +34,6 @@ spec:
 * timeout: timeout of calling predictor service (In seconds).
 
 All of the bellowing fields have default values in the code. You can config them or not as you wish.
-* maxBatchSize: "32".
-* maxLatency: "5000.0".
-* timeout: "60".
+* maxBatchSize: 32.
+* maxLatency: 5000.
+* timeout: 60.

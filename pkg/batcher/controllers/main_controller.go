@@ -35,7 +35,7 @@ import (
 const (
 	SleepTime    = time.Microsecond * 100
 	MaxBatchSize = 32
-	MaxLatency   = 1.0
+	MaxLatency   = 5000
 )
 
 var (
@@ -80,7 +80,7 @@ type Predictions struct {
 
 type BatcherInfo struct {
 	MaxBatchSize int
-	MaxLatency float64
+	MaxLatency int
 	Port string
 	SvcHost string
 	SvcPort string
@@ -97,7 +97,7 @@ type BatcherInfo struct {
 }
 
 func Config(port string, svcHost string, svcPort string,
-	maxBatchSize int, maxLatency float64, timeout int) {
+	maxBatchSize int, maxLatency int, timeout int) {
 	batcherInfo.Port = port
 	batcherInfo.SvcHost = svcHost
 	batcherInfo.SvcPort = svcPort
@@ -217,7 +217,7 @@ func (batcherInfo *BatcherInfo) Batcher() {
 		}
 		batcherInfo.Now = GetNowTime()
 		if batcherInfo.CurrentInputLen >= batcherInfo.MaxBatchSize ||
-			(float64(batcherInfo.Now.Sub(batcherInfo.Start).Milliseconds()) >= batcherInfo.MaxLatency &&
+			(batcherInfo.Now.Sub(batcherInfo.Start).Milliseconds() >= int64(batcherInfo.MaxLatency) &&
 				batcherInfo.CurrentInputLen > 0) {
 			batcherInfo.BatchPredict()
 		}

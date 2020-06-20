@@ -96,13 +96,13 @@ type Logger struct {
 type Batcher struct {
 	// MaxBatchSize of batcher service
 	// +optional
-	MaxBatchSize *string `json:"maxBatchSize,omitempty"`
+	MaxBatchSize *int `json:"maxBatchSize,omitempty"`
 	// MaxLatency of batcher service
 	// +optional
-	MaxLatency *string `json:"maxLatency,omitempty"`
+	MaxLatency *int `json:"maxLatency,omitempty"`
 	// Timeout of batcher service
 	// +optional
-	Timeout *string `json:"timeout,omitempty"`
+	Timeout *int `json:"timeout,omitempty"`
 }
 
 // PredictorSpec defines the configuration for a predictor,

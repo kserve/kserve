@@ -45,9 +45,9 @@ class V1alpha2Batcher(object):
                             and the value is json key in definition.
     """
     swagger_types = {
-        'max_batchsize': 'str',
-        'max_latency': 'str',
-        'timeout': 'str'
+        'max_batchsize': 'int',
+        'max_latency': 'int',
+        'timeout': 'int'
     }
 
     attribute_map = {

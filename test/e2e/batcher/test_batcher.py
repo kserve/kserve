@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import time
+
 import numpy as np
 from kubernetes import client
 
@@ -36,9 +37,9 @@ def test_batcher():
     default_endpoint_spec = V1alpha2EndpointSpec(
         predictor=V1alpha2PredictorSpec(
             batcher=V1alpha2Batcher(
-                max_batchsize='32',
-                max_latency='5000.0',
-                timeout='60'
+                max_batchsize=32,
+                max_latency=5000,
+                timeout=60
             ),
             min_replicas=1,
             pytorch=V1alpha2PyTorchSpec(

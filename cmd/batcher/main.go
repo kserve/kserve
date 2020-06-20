@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"errors"
 	"flag"
 	"os"
 	"strconv"
@@ -30,7 +31,7 @@ var (
 	componentHost = flag.String("component-host", "127.0.0.1", "Component host")
 	componentPort = flag.String("component-port", "8080", "Component port")
 	maxBatchSize  = flag.String("max-batchsize", "32", "Max Batch Size")
-	maxLatency    = flag.String("max-latency", "5000.0", "Max Latency in milliseconds")
+	maxLatency    = flag.String("max-latency", "5000", "Max Latency in milliseconds")
 	timeout       = flag.String("timeout", "60", "Timeout of calling predictor service in seconds")
 )
 
@@ -42,23 +43,23 @@ func main() {
 
 	maxBatchSizeInt, err := strconv.Atoi(*maxBatchSize)
 	if err != nil || maxBatchSizeInt <= 0 {
-		log.Info("Invalid max batch size", "max-batchsize", *maxBatchSize)
+		log.Error(errors.New("Invalid max batch size"), *maxBatchSize)
 		os.Exit(1)
 	}
 
-	maxLatencyFloat64, err := strconv.ParseFloat(*maxLatency, 64)
-	if err != nil || maxLatencyFloat64 <= 0.0 {
-		log.Info("Invalid max latency", "max-latency", *maxLatency)
+	maxLatencyInt, err := strconv.Atoi(*maxLatency)
+	if err != nil || maxLatencyInt <= 0 {
+		log.Error(errors.New("Invalid max latency"), *maxLatency)
 		os.Exit(1)
 	}
 
 	timeoutInt, err := strconv.Atoi(*timeout)
 	if err != nil || timeoutInt <= 0 {
-		log.Info("Invalid timeout", "timeout", *timeout)
+		log.Error(errors.New("Invalid timeout"), *timeout)
 		os.Exit(1)
 	}
 
-	controllers.Config(*port, *componentHost, *componentPort, maxBatchSizeInt, maxLatencyFloat64, timeoutInt)
+	controllers.Config(*port, *componentHost, *componentPort, maxBatchSizeInt, maxLatencyInt, timeoutInt)
 
 	log.Info("Starting", "Port", *port)
 	batcher.StartHttpServer()

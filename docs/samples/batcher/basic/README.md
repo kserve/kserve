@@ -1,6 +1,6 @@
 # Inference Batcher Demo
 
-We first create a pytorch predictor with a batcher. The "maxLatency" is set to a big value (5000.0 milliseconds) to make us be able to observe the batching process.
+We first create a pytorch predictor with a batcher. The "maxLatency" is set to a big value (5000 milliseconds) to make us be able to observe the batching process.
 
 ```
 apiVersion: "serving.kubeflow.org/v1alpha2"
@@ -12,9 +12,9 @@ spec:
     predictor:
       minReplicas: 1
       batcher:
-        maxBatchSize: "32"
-        maxLatency: "5000.0"
-        timeout: "60"
+        maxBatchSize: 32
+        maxLatency: 5000
+        timeout: 60
       pytorch:
         storageUri: "gs://kfserving-samples/models/pytorch/cifar10/"
 ```

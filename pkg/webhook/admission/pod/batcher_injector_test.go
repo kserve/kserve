@@ -67,7 +67,7 @@ func TestBatcherInjector(t *testing.T) {
 					Annotations: map[string]string{
 						constants.BatcherInternalAnnotationKey:     "true",
 						constants.BatcherMaxBatchSizeInternalAnnotationKey: "32",
-						constants.BatcherMaxLatencyInternalAnnotationKey: "1.0",
+						constants.BatcherMaxLatencyInternalAnnotationKey: "5000",
 						constants.BatcherTimeoutInternalAnnotationKey: "60",
 					},
 					Labels: map[string]string{
@@ -89,7 +89,7 @@ func TestBatcherInjector(t *testing.T) {
 					Annotations: map[string]string{
 						constants.BatcherInternalAnnotationKey:     "true",
 						constants.BatcherMaxBatchSizeInternalAnnotationKey: "32",
-						constants.BatcherMaxLatencyInternalAnnotationKey: "1.0",
+						constants.BatcherMaxLatencyInternalAnnotationKey: "5000",
 						constants.BatcherTimeoutInternalAnnotationKey: "60",
 					},
 				},
@@ -105,7 +105,7 @@ func TestBatcherInjector(t *testing.T) {
 								BatcherArgumentMaxBatchSize,
 								"32",
 								BatcherArgumentMaxLatency,
-								"1.0",
+								"5000",
 								BatcherArgumentTimeout,
 								"60",
 							},

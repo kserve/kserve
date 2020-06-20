@@ -78,18 +78,24 @@ func (il *BatcherInjector) InjectBatcher(pod *v1.Pod) error {
 		return nil
 	}
 
-	k_a := map[string] string {
-		constants.BatcherMaxBatchSizeInternalAnnotationKey: BatcherArgumentMaxBatchSize,
-		constants.BatcherMaxLatencyInternalAnnotationKey: BatcherArgumentMaxLatency,
-		constants.BatcherTimeoutInternalAnnotationKey: BatcherArgumentTimeout,
+	var args []string
+
+	maxBatchSize, ok := pod.ObjectMeta.Annotations[constants.BatcherMaxBatchSizeInternalAnnotationKey]
+	if ok {
+		args = append(args, BatcherArgumentMaxBatchSize)
+		args = append(args, maxBatchSize)
 	}
-	args := []string{}
-	for k, a := range k_a {
-		v, ok := pod.ObjectMeta.Annotations[k]
-		if ok {
-			args = append(args, a)
-			args = append(args, v)
-		}
+
+	maxLatency, ok := pod.ObjectMeta.Annotations[constants.BatcherMaxLatencyInternalAnnotationKey]
+	if ok {
+		args = append(args, BatcherArgumentMaxLatency)
+		args = append(args, maxLatency)
+	}
+
+	timeout, ok := pod.ObjectMeta.Annotations[constants.BatcherTimeoutInternalAnnotationKey]
+	if ok {
+		args = append(args, BatcherArgumentTimeout)
+		args = append(args, timeout)
 	}
 
 	// Don't inject if Contianer already injected
