@@ -143,9 +143,9 @@ echo "Waiting for istio started ..."
 waiting_pod_running "istio-system"
 
 echo "Installing knative serving ..."
-kubectl apply --selector knative.dev/crd-install=true --filename https://github.com/knative/serving/releases/download/${KNATIVE_VERSION}/serving.yaml
-sleep 2
-kubectl apply --filename https://github.com/knative/serving/releases/download/${KNATIVE_VERSION}/serving.yaml
+kubectl apply --filename https://github.com/knative/serving/releases/download/${KNATIVE_VERSION}/serving-crds.yaml
+kubectl apply --filename https://github.com/knative/serving/releases/download/${KNATIVE_VERSION}/serving-core.yaml
+kubectl apply --filename https://github.com/knative/net-istio/releases/download/${KNATIVE_VERSION}/release.yaml
 
 echo "Waiting for knative started ..."
 waiting_pod_running "knative-serving"

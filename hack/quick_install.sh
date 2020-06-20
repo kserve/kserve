@@ -68,10 +68,8 @@ helm template --namespace=istio-system \
 kubectl apply -f istio-local-gateway.yaml
 
 # Install Knative
-kubectl apply --selector knative.dev/crd-install=true \
---filename https://github.com/knative/serving/releases/download/${KNATIVE_VERSION}/serving.yaml \
-
-kubectl apply --filename https://github.com/knative/serving/releases/download/${KNATIVE_VERSION}/serving.yaml \
+kubectl apply --filename https://github.com/knative/serving/releases/download/${KNATIVE_VERSION}/serving-crds.yaml
+kubectl apply --filename https://github.com/knative/serving/releases/download/${KNATIVE_VERSION}/serving-core.yaml
 
 cd ..
 # Install KFServing
