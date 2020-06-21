@@ -106,7 +106,7 @@ curl -v -H "Host: ${SERVICE_HOSTNAME}" http://localhost:8080/v1/models/sklearn-i
 
 * Follow the [example here](docs/samples/client/kfserving_sdk_sample.ipynb) to use the KFServing SDK to create, rollout, promote, and delete an InferenceService instance.
 
-### KFServing Examples 
+### KFServing Features and Examples
 [KFServing examples](./docs/samples/README.md)
 
 ### KFServing Concepts and Data Plane
