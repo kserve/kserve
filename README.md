@@ -55,7 +55,6 @@ If you are using Kubeflow dashboard or [profile controller](https://www.kubeflow
 
 Make sure you have
 [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/#install-kubectl-on-linux),
-[kustomize v3.5.4+](https://github.com/kubernetes-sigs/kustomize/blob/master/docs/INSTALL.md),
 [helm 3](https://helm.sh/docs/intro/install) installed before you start.(2 mins for setup)
 1) If you do not have an existing kubernetes cluster you can create a quick kubernetes local cluster with [kind](https://github.com/kubernetes-sigs/kind#installation-and-usage).(this takes 30s)
 ```bash
@@ -94,6 +93,10 @@ kubectl port-forward --namespace istio-system $(kubectl get pod --namespace isti
 SERVICE_HOSTNAME=$(kubectl get inferenceservice sklearn-iris -n kfserving-test -o jsonpath='{.status.url}' | cut -d "/" -f 3)
 curl -v -H "Host: ${SERVICE_HOSTNAME}" http://localhost:8080/v1/models/sklearn-iris:predict -d @./docs/samples/sklearn/iris-input.json
 ```
+
+### KFServing Demo
+![Demo gif](docs/diagrams/kfserving_demo.gif)
+ 
 ### Use KFServing SDK
 * Install the SDK
   ```
