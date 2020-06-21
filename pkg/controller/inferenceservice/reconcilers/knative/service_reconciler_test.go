@@ -22,8 +22,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kubeflow/kfserving/pkg/controller/inferenceservice/resources/knative"
-
 	"github.com/google/go-cmp/cmp"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	"github.com/kubeflow/kfserving/pkg/constants"
@@ -130,7 +128,6 @@ func TestKnativeServiceReconcile(t *testing.T) {
 									"autoscaling.knative.dev/minScale":                            "1",
 									"autoscaling.knative.dev/target":                              "1",
 									"internal.serving.kubeflow.org/storage-initializer-sourceuri": "gs://testuri",
-									"queue.sidecar.serving.knative.dev/resourcePercentage":        knative.DefaultQueueSideCarResourcePercentage,
 								},
 							},
 							Spec: knservingv1.RevisionSpec{
@@ -175,7 +172,6 @@ func TestKnativeServiceReconcile(t *testing.T) {
 									"autoscaling.knative.dev/minScale":                            "1",
 									"autoscaling.knative.dev/target":                              "1",
 									"internal.serving.kubeflow.org/storage-initializer-sourceuri": "gs://testuri2",
-									"queue.sidecar.serving.knative.dev/resourcePercentage":        knative.DefaultQueueSideCarResourcePercentage,
 								},
 							},
 							Spec: knservingv1.RevisionSpec{
@@ -238,7 +234,6 @@ func TestKnativeServiceReconcile(t *testing.T) {
 									"autoscaling.knative.dev/minScale":                            "1",
 									"autoscaling.knative.dev/target":                              "1",
 									"internal.serving.kubeflow.org/storage-initializer-sourceuri": "gs://testuri",
-									"queue.sidecar.serving.knative.dev/resourcePercentage":        knative.DefaultQueueSideCarResourcePercentage,
 								},
 							},
 							Spec: knservingv1.RevisionSpec{
