@@ -1,7 +1,7 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  generateName: sklearn-load-test
+  generateName: tf-load-test
 spec:
   backoffLimit: 6
   parallelism: 1
@@ -12,7 +12,7 @@ spec:
     spec:
       containers:
         - args:
-            - vegeta -cpus=1 attack -duration=10m -rate=5/1s -targets=/var/vegeta/cfg
+            - vegeta -cpus=5 attack -duration=10m -rate=5/1s -targets=/var/vegeta/cfg
               | vegeta report -type=text
           command:
             - sh
@@ -20,17 +20,12 @@ spec:
           image: peterevans/vegeta:latest
           imagePullPolicy: Always
           name: vegeta
-          resources:
-            requests:
-              cpu: "1"
-              memory: 1Gi
           volumeMounts:
             - mountPath: /var/vegeta
-              name: vegeta-cfg
+              name: tf-vegeta-cfg
       restartPolicy: Never
       volumes:
         - configMap:
             defaultMode: 420
-            name: vegeta-cfg
-          name: vegeta-cfg
----
+            name: tf-vegeta-cfg
+          name: tf-vegeta-cfg
