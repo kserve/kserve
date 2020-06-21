@@ -42,12 +42,14 @@ scale differently from the predictor if your transformer is CPU bound while pred
 | Features  | Examples |
 | ------------- | ------------- |
 | Deploy Transformer with KFServer | [Image Transformer with PyTorch KFServer](./transformer/image_transformer)  |
-| Deploy Transformer with Triton Server | [BERT Model with transformer](./triton/bert)  |
+| Deploy Transformer with Triton Server | [BERT Model with tokenizer](./triton/bert)  |
 
 ### Deploy InferenceService with Explainer and Outlier/Drift Detector
-Model explainability algorithm answers the question: "Why did my model make this prediction" for a given instance. 
-In order to trust and reliably act on model predictions, it is crucial to monitor the distribution of the incoming
-requests via various different type of detectors. Drift detector checks when the distribution of incoming requests 
+Model explainability answers the question: "Why did my model make this prediction" for a given instance. KFServing 
+integrates with [Alibi Explainer](https://github.com/SeldonIO/alibi) which implements a black-box algorithm by generating a lot of similar looking intances 
+for a given instance and send out to the model server to produce an explanation.
+Also in order to trust and reliably act on model predictions, it is crucial to monitor the distribution of the incoming
+requests via various different type of detectors. [Alibi Detect](https://github.com/SeldonIO/alibi-detect) checks when the distribution of incoming requests 
 is diverging from a reference distribution such as that of the training data.
 
 | Features  | Examples |
@@ -55,8 +57,8 @@ is diverging from a reference distribution such as that of the training data.
 | Deploy Alibi Image Explainer| [Imagenet Explainer](./explanation/alibi/imagenet)  |
 | Deploy Alibi Income Explainer| [Income Explainer](./explanation/alibi/income)  |
 | Deploy Alibi Text Explainer| [Alibi Text Explainer](./explanation/alibi/moviesentiment) |
-| Deploy Alibi Detect| [Cifar outlier detector](./outlier-detection/alibi-detect/cifar10) |
-| Deploy Alibi Drift detection| [Cifar drift detector](./drift-detection/alibi-detect/cifar10) |
+| Deploy Alibi Outlier Detection| [Cifar outlier detector](./outlier-detection/alibi-detect/cifar10) |
+| Deploy Alibi Drift Detection| [Cifar drift detector](./drift-detection/alibi-detect/cifar10) |
 
 ### Deploy InferenceService with Cloud/PVC storage
 | Feature  | Examples |
@@ -66,9 +68,8 @@ is diverging from a reference distribution such as that of the training data.
 | Deploy Model on Azure| [Models on Azure](./azure) |
 
 ### Autoscaling
-KFServing's main serverless capability is to allow you run inference workload without worrying about the service
-scaling once it is deployed. KFServing leverages Knative's [autoscaler](https://knative.dev/docs/serving/configuring-autoscaling/). 
-The autoscaling works pretty well on GPU since the autoscaler is based on request volume instead of GPU/CPU metrics which can be hard
+KFServing's main serverless capability is to allow you to run inference workload without worrying about scaling your service manually once it is deployed. KFServing leverages Knative's [autoscaler](https://knative.dev/docs/serving/configuring-autoscaling/),
+the autoscaler works on GPU as well since the Autoscaler is based on request volume instead of GPU/CPU metrics which can be hard
  to reason about. 
  
 [Autoscale inference workload on CPU/GPU](./autoscaling)
@@ -76,7 +77,7 @@ The autoscaling works pretty well on GPU since the autoscaler is based on reques
 [InferenceService on GPU nodes](./accelerators)
 
 ### Canary Rollout
-Canary deployment enables rollout releases by splitting traffic between different versions.
+Canary deployment enables rollout releases by splitting traffic between different versions to ensure safe rollout.
 
 [Canary Rollout](./rollouts)
 
@@ -84,7 +85,13 @@ Canary deployment enables rollout releases by splitting traffic between differen
 [InferenceService with Kubeflow Pipeline](./pipelines)
 
 ### Request/Response Logger
-[InferenceService with Request/Response Logger](./logger/basic)
+KFServing supports logging your inference request/response by injecting a sidecar alongside with your model server.
+
+| Features  | Examples |
+| ------------- | ------------- |
+| Deploy Logger with a Logger Service| [Message Dumper Service](./logger/basic)  |
+| Deploy Async Logger| [Message Dumper Using Knative Eventing](./logger/knative-eventing)  |
+
 
 ### Deploy InferenceService behind an Authentication Proxy with Kubeflow
 [InferenceService on Kubeflow with Istio-Dex](./istio-dex)
