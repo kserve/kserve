@@ -19,18 +19,20 @@ After model servers are deployed on KFServing, you get all the following serverl
 - Out-of-the-box metrics
 - Ingress/Egress control
 
-| Features  | Exported model| Examples |
-| ------------- | ------------- | ------------- |
-| Deploy SKLearn Model on KFServer | pickled model(model.pkl, model.joblib) | [SKLearn Iris](./sklearn)  |
-| Deploy XGBoost Model on KFServer | pickled model(model.bst) | [XGBoost Iris](./xgboost)  |
-| Deploy Pytorch Model on KFServer  | torch.save model(model.pt) | [PyTorch Cifar10](./pytorch)  |
-| Deploy Tensorflow Model on TFServing  | Tensorflow SavedModel | [Tensorflow Flowers](./tensorflow)  |
-| Deploy ONNX Model on ONNXRuntime  | exported onnx model(model.onnx) |[ONNX Style Model](./onnx)  |
-| Deploy Model on Triton Server  | tensorflow/torch/onnx model| [Simple String](./triton/simple_string) |
-| Deploy model on custom KFServer | | [Custom KFServer](./custom/kfserving-custom-model)|
-| Deploy model on BentoML | | [SKLearn Iris with BentoML](./bentoml)|
-| Deploy model on custom HTTP server | | [Prebuilt model server](./custom/prebuilt-image)|
-| Deploy model with Kafka event source | | [Mnist model with Kafka Event Source](./kafka)
+|   | Exported model| HTTP | gRPC | Examples |
+| ------------- | ------------- | ------------- | ------------- | ------------- |
+| Deploy SKLearn Model on KFServer | pickled model(model.pkl, model.joblib) | :heavy_check_mark: | V2 |[SKLearn Iris](./sklearn)  |
+| Deploy XGBoost Model on KFServer | pickled model(model.bst) | :heavy_check_mark: | V2 |[XGBoost Iris](./xgboost)  |
+| Deploy Pytorch Model on KFServer  | [torch.save model(model.pt)](https://pytorch.org/docs/master/generated/torch.save.html) | :heavy_check_mark: | V2 |  [PyTorch Cifar10](./pytorch)  |
+| Deploy Tensorflow Model on TFServing  | [Tensorflow SavedModel](https://www.tensorflow.org/guide/saved_model) | :heavy_check_mark: | :heavy_check_mark: | [Tensorflow Flowers](./tensorflow)  |
+| Deploy ONNX Model on ONNXRuntime  | [Exported onnx model(model.onnx)](https://github.com/onnx/tutorials#converting-to-onnx-format) | :heavy_check_mark: | :heavy_check_mark: |[ONNX Style Model](./onnx)  |
+| Deploy Model on Triton Server | [Tensorflow,PyTorch,ONNX,TensorRT](https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/model_repository.html)| :heavy_check_mark: | :heavy_check_mark: | [Simple String](./triton/simple_string) |
+| Deploy model on custom KFServer | | :heavy_check_mark: | V2 | [Custom KFServer](./custom/kfserving-custom-model)|
+| Deploy model on BentoML | | :heavy_check_mark: | | [SKLearn Iris with BentoML](./bentoml)|
+| Deploy model on custom HTTP server | | | | [Prebuilt model server](./custom/prebuilt-image)|
+
+In addition to deploy InferenceService with HTTP/gRPC endpoint, you can also deploy InferenceService with [Knative Event Sources](https://knative.dev/docs/eventing/sources/index.html) such as Kafka
+, you can find an example [here](./kafka) which shows how to build an async inference pipeline. 
 
 ### Deploy InferenceService with Transformer
 KFServing transformer enables users to define a pre/post processing step before the prediction and explanation workflow.
@@ -75,6 +77,7 @@ The autoscaling works pretty well on GPU since the autoscaler is based on reques
 
 ### Canary Rollout
 Canary deployment enables rollout releases by splitting traffic between different versions.
+
 [Canary Rollout](./rollouts)
 
 ### Kubeflow Pipeline Integration
