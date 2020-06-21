@@ -14,7 +14,7 @@ Knative Serving and Istio should be available on Kubernetes Cluster, Knative dep
 - [Istio](https://knative.dev/docs/install/installing-istio): v1.1.6+
 
 If you want to get up running Knative quickly or you do not need service mesh, we recommend installing Istio without service mesh(sidecar injection).
-- [Knative Serving](https://knative.dev/docs/install/knative-with-any-k8s): v0.11.1+
+- [Knative Serving](https://knative.dev/docs/install/knative-with-any-k8s): v0.11.2+
 
 Currently only `Knative Serving` is required, `cluster-local-gateway` is required to serve cluster-internal traffic for transformer and explainer use cases. Please follow instructions here to install [cluster local gateway](https://knative.dev/docs/install/installing-istio/#updating-your-install-to-use-cluster-local-gateway)
 
@@ -64,6 +64,15 @@ kind create cluster
 ```bash
 ./hack/quick_install.sh
 ```
+#### Ingress Setup and Monitoring Stack
+- [Configure Custom Ingress Gateway](https://knative.dev/docs/serving/setting-up-custom-ingress-gateway/)
+- [Configure HTTPS Connection](https://knative.dev/docs/serving/using-a-tls-cert/)
+- [Configure Custom Domain](https://knative.dev/docs/serving/using-a-custom-domain/)
+- [Metrics](https://knative.dev/docs/serving/accessing-metrics/)
+- [Tracing](https://knative.dev/docs/serving/accessing-traces/)
+- [Logging](https://knative.dev/docs/serving/using-a-custom-domain/)
+- [Dashboard for ServiceMesh](https://istio.io/latest/docs/tasks/observability/kiali/)
+
 ### Test KFServing Installation 
 
 1) To check if KFServing Controller is installed correctly, please run the following command
@@ -93,7 +102,20 @@ kubectl port-forward --namespace istio-system $(kubectl get pod --namespace isti
 SERVICE_HOSTNAME=$(kubectl get inferenceservice sklearn-iris -n kfserving-test -o jsonpath='{.status.url}' | cut -d "/" -f 3)
 curl -v -H "Host: ${SERVICE_HOSTNAME}" http://localhost:8080/v1/models/sklearn-iris:predict -d @./docs/samples/sklearn/iris-input.json
 ```
-
+5) Run Performance Test
+```bash
+kubectl create -f docs/samples/sklearn/perf.test
+# wait the job to be done and check the log
+kubectl logs load-test8b58n-rgfxr 
+Requests      [total, rate, throughput]         300, 5.02, 5.02
+Duration      [total, attack, wait]             59.805s, 59.8s, 4.939ms
+Latencies     [min, mean, 50, 90, 95, 99, max]  4.283ms, 14.86ms, 5.394ms, 41.726ms, 42.292ms, 46.739ms, 145.937ms
+Bytes In      [total, mean]                     6900, 23.00
+Bytes Out     [total, mean]                     24600, 82.00
+Success       [ratio]                           100.00%
+Status Codes  [code:count]                      200:300  
+Error Set:
+```
 ### KFServing Demo
 ![Demo gif](docs/diagrams/kfserving_demo.gif)
  
@@ -106,23 +128,16 @@ curl -v -H "Host: ${SERVICE_HOSTNAME}" http://localhost:8080/v1/models/sklearn-i
 
 * Follow the [example here](docs/samples/client/kfserving_sdk_sample.ipynb) to use the KFServing SDK to create, rollout, promote, and delete an InferenceService instance.
 
-### KFServing Features and Examples
-[KFServing examples](./docs/samples/README.md)
+###[KFServing Features and Examples](./docs/samples/README.md)
 
-### KFServing Concepts and Data Plane
-[KFServing Concepts and Data Plane](./docs/README.md)
+###[KFServing Concepts and Data Plane](./docs/README.md)
 
-### KFServing API Reference
-[KFServing API Docs](./docs/apis/README.md)
+###[KFServing API References](./docs/apis/README.md)
 
-### KFServing Debugging Guide :star:
-[Debug KFServing InferenceService](./docs/KFSERVING_DEBUG_GUIDE.md)
+###[KFServing Debugging Guide :star:](./docs/KFSERVING_DEBUG_GUIDE.md)
 
-### Developer Guide
-[Developer Guide](/docs/DEVELOPER_GUIDE.md).
+###[Developer Guide](/docs/DEVELOPER_GUIDE.md).
 
-### Performance Tests
-[Performance Tests](https://docs.google.com/document/d/1ss7M3cx1qD1PVpTaKTu_Y3C80JJz4nvMZlIyuZutZoE/edit#)
+###[Performance Tests](https://docs.google.com/document/d/1ss7M3cx1qD1PVpTaKTu_Y3C80JJz4nvMZlIyuZutZoE/edit#)
 
-### Contributor Guide
-[Contributor Guide](./CONTRIBUTING.md)
+###[Contributor Guide](./CONTRIBUTING.md)
