@@ -108,6 +108,19 @@ spec:
                       required:
                       - type
                       type: object
+                    batcher:
+                      description: Activate batcher
+                      properties:
+                        maxBatchSize:
+                          description: MaxBatchSize of batcher service
+                          type: integer
+                        maxLatency:
+                          description: MaxLatency of batcher service
+                          type: integer
+                        timeout:
+                          description: Timeout of batcher service
+                          type: integer
+                      type: object
                     custom:
                       description: Spec for a custom explainer
                       properties:
@@ -1273,6 +1286,19 @@ spec:
                 predictor:
                   description: Predictor defines the model serving spec
                   properties:
+                    batcher:
+                      description: Activate batcher
+                      properties:
+                        maxBatchSize:
+                          description: MaxBatchSize of batcher service
+                          type: integer
+                        maxLatency:
+                          description: MaxLatency of batcher service
+                          type: integer
+                        timeout:
+                          description: Timeout of batcher service
+                          type: integer
+                      type: object
                     custom:
                       description: Spec for a custom predictor
                       properties:
@@ -2692,6 +2718,19 @@ spec:
                     and after the predictor call, transformer service calls to predictor
                     service.
                   properties:
+                    batcher:
+                      description: Activate batcher
+                      properties:
+                        maxBatchSize:
+                          description: MaxBatchSize of batcher service
+                          type: integer
+                        maxLatency:
+                          description: MaxLatency of batcher service
+                          type: integer
+                        timeout:
+                          description: Timeout of batcher service
+                          type: integer
+                      type: object
                     custom:
                       description: Spec for a custom transformer
                       properties:
@@ -3916,6 +3955,19 @@ spec:
                       required:
                       - type
                       type: object
+                    batcher:
+                      description: Activate batcher
+                      properties:
+                        maxBatchSize:
+                          description: MaxBatchSize of batcher service
+                          type: integer
+                        maxLatency:
+                          description: MaxLatency of batcher service
+                          type: integer
+                        timeout:
+                          description: Timeout of batcher service
+                          type: integer
+                      type: object
                     custom:
                       description: Spec for a custom explainer
                       properties:
@@ -5081,6 +5133,19 @@ spec:
                 predictor:
                   description: Predictor defines the model serving spec
                   properties:
+                    batcher:
+                      description: Activate batcher
+                      properties:
+                        maxBatchSize:
+                          description: MaxBatchSize of batcher service
+                          type: integer
+                        maxLatency:
+                          description: MaxLatency of batcher service
+                          type: integer
+                        timeout:
+                          description: Timeout of batcher service
+                          type: integer
+                      type: object
                     custom:
                       description: Spec for a custom predictor
                       properties:
@@ -6500,6 +6565,19 @@ spec:
                     and after the predictor call, transformer service calls to predictor
                     service.
                   properties:
+                    batcher:
+                      description: Activate batcher
+                      properties:
+                        maxBatchSize:
+                          description: MaxBatchSize of batcher service
+                          type: integer
+                        maxLatency:
+                          description: MaxLatency of batcher service
+                          type: integer
+                        timeout:
+                          description: Timeout of batcher service
+                          type: integer
+                      type: object
                     custom:
                       description: Spec for a custom transformer
                       properties:
