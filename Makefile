@@ -47,7 +47,7 @@ deploy: manifests
 	kustomize edit remove resource certmanager/certificate.yaml; \
 	else kustomize edit add resource certmanager/certificate.yaml; fi;
 
-	kustomize build config/default | kubectl apply -f -
+	kustomize build config/default | kubectl apply --validate=false -f -
 	if [ ${KFSERVING_ENABLE_SELF_SIGNED_CA} != false ]; then ./hack/self-signed-ca.sh; fi;
 
 deploy-dev: manifests
@@ -57,7 +57,7 @@ deploy-dev: manifests
 	kustomize edit remove resource certmanager/certificate.yaml; \
 	else kustomize edit add resource certmanager/certificate.yaml; fi;
 
-	kustomize build config/overlays/development | kubectl apply -f -
+	kustomize build config/overlays/development | kubectl apply --validate=false -f -
 	if [ ${KFSERVING_ENABLE_SELF_SIGNED_CA} != false ]; then ./hack/self-signed-ca.sh; fi;
 
 deploy-dev-sklearn: docker-push-sklearn
@@ -96,6 +96,7 @@ undeploy-dev:
 # Generate manifests e.g. CRD, RBAC etc.
 manifests: controller-gen
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=kfserving-manager-role webhook paths=./pkg/apis/... output:crd:dir=config/default/crds/base
+	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=kfserving-manager-role paths=./pkg/controller/inferenceservice/... output:rbac:artifacts:config=config/default/rbac
 	kustomize build config/default/crds -o config/default/crds/base/serving.kubeflow.org_inferenceservices.yaml
 	#TODO Remove this until new controller-tools is released
 	perl -pi -e 's/storedVersions: null/storedVersions: []/g' config/default/crds/base/serving.kubeflow.org_inferenceservices.yaml

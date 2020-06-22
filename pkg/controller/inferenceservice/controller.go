@@ -14,13 +14,29 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// +kubebuilder:rbac:groups=serving.knative.dev,resources=services,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=serving.knative.dev,resources=services/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=networking.istio.io,resources=virtualservices,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=networking.istio.io,resources=virtualservices/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=serving.kubeflow.org,resources=inferenceservices,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=serving.kubeflow.org,resources=inferenceservices/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=core,resources=serviceaccounts,verbs=get;list;watch
+// +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch
+// +kubebuilder:rbac:groups=admissionregistration.k8s.io,resources=mutatingwebhookconfigurations;validatingwebhookconfigurations,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core,resources=namespaces,verbs=get;list;watch
+// +kubebuilder:rbac:groups=core,resources=events,verbs=get;list;watch;create;update;patch;delete
+
 package service
 
 import (
 	"context"
+	"fmt"
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"k8s.io/client-go/kubernetes"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	"knative.dev/pkg/apis"
 	"os"
 
 	"github.com/kubeflow/kfserving/pkg/controller/inferenceservice/reconcilers/istio"
@@ -128,15 +144,6 @@ type Reconciler interface {
 
 // Reconcile reads that state of the cluster for a Service object and makes changes based on the state read
 // and what is in the Service.Spec
-// +kubebuilder:rbac:groups=serving.knative.dev,resources=services,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=serving.knative.dev,resources=services/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=networking.istio.io,resources=virtualservices,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=networking.istio.io,resources=virtualservices/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=serving.kubeflow.org,resources=inferenceservices,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=serving.kubeflow.org,resources=inferenceservices/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=,resources=serviceaccounts,verbs=get;list;watch
-// +kubebuilder:rbac:groups=,resources=secrets,verbs=get;list;watch
-// +kubebuilder:rbac:groups=,resources=configmaps,verbs=get;list;watch
 func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	// Fetch the InferenceService instance
 	isvc := &kfserving.InferenceService{}
@@ -158,7 +165,7 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 	}
 
 	reconcilers := []Reconciler{
-		knative.NewServiceReconciler(r.Client, r.scheme, r.Recorder, configMap),
+		knative.NewServiceReconciler(r.Client, r.scheme, configMap),
 		istio.NewVirtualServiceReconciler(r.Client, r.scheme, configMap),
 	}
 
@@ -169,12 +176,17 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 			return reconcile.Result{}, err
 		}
 	}
-
 	if err = r.updateStatus(isvc); err != nil {
 		r.Recorder.Eventf(isvc, v1.EventTypeWarning, "InternalError", err.Error())
 		return reconcile.Result{}, err
 	}
 	return reconcile.Result{}, nil
+}
+
+func InferenceServiceReadiness(status v1alpha2.InferenceServiceStatus) bool {
+	return status.Conditions != nil &&
+		status.GetCondition(apis.ConditionReady) != nil &&
+		status.GetCondition(apis.ConditionReady).Status == v1.ConditionTrue
 }
 
 func (r *ReconcileService) updateStatus(desiredService *kfserving.InferenceService) error {
@@ -183,6 +195,7 @@ func (r *ReconcileService) updateStatus(desiredService *kfserving.InferenceServi
 	if err := r.Get(context.TODO(), namespacedName, existing); err != nil {
 		return err
 	}
+	wasReady := InferenceServiceReadiness(existing.Status)
 	if equality.Semantic.DeepEqual(existing.Status, desiredService.Status) {
 		// If we didn't change anything then don't call updateStatus.
 		// This is important because the copy we loaded from the informer's
@@ -195,8 +208,15 @@ func (r *ReconcileService) updateStatus(desiredService *kfserving.InferenceServi
 		return err
 	} else {
 		// If there was a difference and there was no error.
+		isReady := InferenceServiceReadiness(desiredService.Status)
+		if wasReady && !isReady { // Moved to NotReady State
+			r.Recorder.Eventf(desiredService, v1.EventTypeWarning, string(v1alpha2.InferenceServiceNotReadyState),
+				fmt.Sprintf("InferenceService [%v] is no longer Ready", desiredService.GetName()))
+		} else if !wasReady && isReady { // Moved to Ready State
+			r.Recorder.Eventf(desiredService, v1.EventTypeNormal, string(v1alpha2.InferenceServiceReadyState),
+				fmt.Sprintf("InferenceService [%v] is Ready", desiredService.GetName()))
+		}
 		r.Recorder.Eventf(desiredService, v1.EventTypeNormal, "Updated", "Updated InferenceService %q", desiredService.GetName())
 	}
-
 	return nil
 }
