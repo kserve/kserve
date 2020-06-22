@@ -17,10 +17,10 @@ limitations under the License.
 package routers
 
 import (
-	"github.com/kubeflow/kfserving/pkg/batcher/controllers"
 	"github.com/astaxie/beego"
+	"github.com/kubeflow/kfserving/pkg/batcher/controllers"
 )
 
 func init() {
-    beego.Router("/*", &controllers.MainController{})
+	beego.Router("/*", &controllers.MainController{})
 }

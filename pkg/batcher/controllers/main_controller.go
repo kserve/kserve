@@ -18,18 +18,18 @@ package controllers
 
 import (
 	"bytes"
-	"fmt"
-	"io/ioutil"
-	"net/http"
-	"sync"
-	"time"
-	"errors"
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"github.com/astaxie/beego"
 	"github.com/go-logr/logr"
 	"github.com/satori/go.uuid"
+	"io/ioutil"
+	"net/http"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
+	"sync"
+	"time"
 )
 
 const (
@@ -39,10 +39,10 @@ const (
 )
 
 var (
-	log logr.Logger
-	channelIn = make(chan Input)
+	log         logr.Logger
+	channelIn   = make(chan Input)
 	batcherInfo BatcherInfo
-	mutex sync.Mutex
+	mutex       sync.Mutex
 )
 
 type MainController struct {
@@ -55,18 +55,18 @@ type Request struct {
 
 type Input struct {
 	ContextInput *context.Context
-	Instances *[]interface{}
-	ChannelOut *chan Response
+	Instances    *[]interface{}
+	ChannelOut   *chan Response
 }
 
 type InputInfo struct {
 	ChannelOut *chan Response
-	Index []int
+	Index      []int
 }
 
 type Response struct {
-	Message string `json:"message"`
-	BatchID string `json:"batchId"`
+	Message     string        `json:"message"`
+	BatchID     string        `json:"batchId"`
 	Predictions []interface{} `json:"predictions"`
 }
 
@@ -79,20 +79,20 @@ type Predictions struct {
 }
 
 type BatcherInfo struct {
-	MaxBatchSize int
-	MaxLatency int
-	Port string
-	SvcHost string
-	SvcPort string
-	Timeout time.Duration
-	Path string
-	ContentType string
-	BatchID string
-	Instances []interface{}
-	Predictions Predictions
-	Info map[*context.Context] InputInfo
-	Start time.Time
-	Now time.Time
+	MaxBatchSize    int
+	MaxLatency      int
+	Port            string
+	SvcHost         string
+	SvcPort         string
+	Timeout         time.Duration
+	Path            string
+	ContentType     string
+	BatchID         string
+	Instances       []interface{}
+	Predictions     Predictions
+	Info            map[*context.Context]InputInfo
+	Start           time.Time
+	Now             time.Time
 	CurrentInputLen int
 }
 
@@ -155,7 +155,7 @@ func (batcherInfo *BatcherInfo) InitializeInfo() {
 	batcherInfo.CurrentInputLen = 0
 	batcherInfo.Instances = make([]interface{}, 0)
 	batcherInfo.Predictions = Predictions{}
-	batcherInfo.Info = make(map[*context.Context] InputInfo)
+	batcherInfo.Info = make(map[*context.Context]InputInfo)
 	batcherInfo.Start = GetNowTime()
 	batcherInfo.Now = batcherInfo.Start
 }
@@ -166,8 +166,8 @@ func (batcherInfo *BatcherInfo) BatchPredict() {
 		log.Error(errors.New(*err), "")
 		for _, v := range batcherInfo.Info {
 			res := Response{
-				Message: *err,
-				BatchID: "",
+				Message:     *err,
+				BatchID:     "",
 				Predictions: nil,
 			}
 			*v.ChannelOut <- res
@@ -180,8 +180,8 @@ func (batcherInfo *BatcherInfo) BatchPredict() {
 				predictions = append(predictions, batcherInfo.Predictions.Predictions[index])
 			}
 			res := Response{
-				Message: "",
-				BatchID: batcherInfo.BatchID,
+				Message:     "",
+				BatchID:     batcherInfo.BatchID,
 				Predictions: predictions,
 			}
 			if jsonStr, err := json.Marshal(res); err == nil {
@@ -198,7 +198,7 @@ func (batcherInfo *BatcherInfo) BatchPredict() {
 func (batcherInfo *BatcherInfo) Batcher() {
 	for {
 		select {
-		case req := <- channelIn:
+		case req := <-channelIn:
 			if len(batcherInfo.Instances) == 0 {
 				batcherInfo.Start = GetNowTime()
 			}
@@ -206,14 +206,14 @@ func (batcherInfo *BatcherInfo) Batcher() {
 			batcherInfo.Instances = append(batcherInfo.Instances, *req.Instances...)
 			var index = make([]int, 0)
 			for i := 0; i < len(*req.Instances); i++ {
-				index = append(index, batcherInfo.CurrentInputLen + i)
+				index = append(index, batcherInfo.CurrentInputLen+i)
 			}
 			batcherInfo.Info[req.ContextInput] = InputInfo{
 				req.ChannelOut,
 				index,
 			}
 			batcherInfo.CurrentInputLen = len(batcherInfo.Instances)
-		case <- time.After(SleepTime):
+		case <-time.After(SleepTime):
 		}
 		batcherInfo.Now = GetNowTime()
 		if batcherInfo.CurrentInputLen >= batcherInfo.MaxBatchSize ||
@@ -224,7 +224,7 @@ func (batcherInfo *BatcherInfo) Batcher() {
 	}
 }
 
-func (batcherInfo *BatcherInfo)  Consume() {
+func (batcherInfo *BatcherInfo) Consume() {
 	log.Info("Start Consume")
 	if batcherInfo.MaxBatchSize <= 0 {
 		batcherInfo.MaxBatchSize = MaxBatchSize
@@ -261,13 +261,13 @@ func (c *MainController) Post() {
 
 	var ctx = context.Background()
 	var chl = make(chan Response)
-	channelIn <- Input {
+	channelIn <- Input{
 		&ctx,
 		&req.Instances,
 		&chl,
 	}
 
-	response := <- chl
+	response := <-chl
 	close(chl)
 
 	c.Data["json"] = &response

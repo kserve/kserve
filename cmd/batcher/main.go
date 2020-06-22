@@ -19,11 +19,11 @@ package main
 import (
 	"errors"
 	"flag"
-	"os"
-	"strconv"
 	"github.com/kubeflow/kfserving/pkg/batcher"
 	"github.com/kubeflow/kfserving/pkg/batcher/controllers"
+	"os"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
+	"strconv"
 )
 
 var (
