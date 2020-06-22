@@ -115,7 +115,7 @@ ifndef HAS_LINT
 	go get -u golang.org/x/lint/golint
 	echo "installing golint"
 endif
-	#hack/verify-golint.sh
+	hack/verify-golint.sh
 
 # Generate code
 generate: controller-gen
