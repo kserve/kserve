@@ -235,6 +235,10 @@
                     template: "build-logger",
                   },
                   {
+                    name: "build-batcher",
+                    template: "build-batcher",
+                  },
+                  {
                     name: "build-custom-image-transformer",
                     template: "build-custom-image-transformer",
                   },
@@ -321,6 +325,9 @@
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-logger", testWorkerImage, [
               "test/scripts/build-logger.sh",
             ]),  // build-logger
+            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-batcher", testWorkerImage, [
+              "test/scripts/build-batcher.sh",
+            ]),  // build-batcher
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-custom-image-transformer", testWorkerImage, [
               "test/scripts/build-custom-image-transformer.sh",
             ]),  // build-custom-image-transformer

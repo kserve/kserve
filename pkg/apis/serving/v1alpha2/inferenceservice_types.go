@@ -68,6 +68,9 @@ type DeploymentSpec struct {
 	// Activate request/response logging
 	// +optional
 	Logger *Logger `json:"logger,omitempty"`
+	// Activate batcher
+	// +optional
+	Batcher *Batcher `json:"batcher,omitempty"`
 }
 
 type LoggerMode string
@@ -86,6 +89,20 @@ type Logger struct {
 	Url *string `json:"url,omitempty"`
 	// What payloads to log
 	Mode LoggerMode `json:"mode,omitempty"`
+}
+
+// Batcher provides optional payload batcher for all endpoints
+// +experimental
+type Batcher struct {
+	// MaxBatchSize of batcher service
+	// +optional
+	MaxBatchSize *int `json:"maxBatchSize,omitempty"`
+	// MaxLatency of batcher service
+	// +optional
+	MaxLatency *int `json:"maxLatency,omitempty"`
+	// Timeout of batcher service
+	// +optional
+	Timeout *int `json:"timeout,omitempty"`
 }
 
 // PredictorSpec defines the configuration for a predictor,

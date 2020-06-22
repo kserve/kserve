@@ -124,6 +124,40 @@ func addLoggerContainerPort(container *v1.Container) {
 	}
 }
 
+func addBatcherAnnotations(batcher *v1alpha2.Batcher, annotations map[string]string) bool {
+	if batcher != nil {
+		annotations[constants.BatcherInternalAnnotationKey] = "true"
+
+		if batcher.MaxBatchSize != nil {
+			s := strconv.Itoa(*batcher.MaxBatchSize)
+			annotations[constants.BatcherMaxBatchSizeInternalAnnotationKey] = s
+		}
+		if batcher.MaxLatency != nil {
+			s := strconv.Itoa(*batcher.MaxLatency)
+			annotations[constants.BatcherMaxLatencyInternalAnnotationKey] = s
+		}
+		if batcher.Timeout != nil {
+			s := strconv.Itoa(*batcher.Timeout)
+			annotations[constants.BatcherTimeoutInternalAnnotationKey] = s
+		}
+		return true
+	}
+	return false
+}
+
+func addBatcherContainerPort(container *v1.Container) {
+	if container != nil {
+		if container.Ports == nil {
+			port, _ := strconv.Atoi(constants.InferenceServiceDefaultBatcherPort)
+			container.Ports = []v1.ContainerPort{
+				v1.ContainerPort{
+					ContainerPort: int32(port),
+				},
+			}
+		}
+	}
+}
+
 func (c *ServiceBuilder) CreatePredictorService(name string, metadata metav1.ObjectMeta, predictorSpec *v1alpha2.PredictorSpec, isCanary bool) (*knservingv1.Service, error) {
 	annotations, err := c.buildAnnotations(metadata, predictorSpec.MinReplicas, predictorSpec.MaxReplicas, predictorSpec.Parallelism)
 	if err != nil {
@@ -145,6 +179,12 @@ func (c *ServiceBuilder) CreatePredictorService(name string, metadata metav1.Obj
 	}
 	if hasInferenceLogging {
 		addLoggerContainerPort(container)
+	}
+
+	hasInferenceBatcher := addBatcherAnnotations(predictorSpec.Batcher, annotations)
+	container = predictorSpec.GetContainer(metadata.Name, predictorSpec.Parallelism, c.inferenceServiceConfig)
+	if hasInferenceBatcher {
+		addBatcherContainerPort(container)
 	}
 
 	endpoint := constants.InferenceServiceDefault
