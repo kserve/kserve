@@ -127,18 +127,18 @@ func addLoggerContainerPort(container *v1.Container) {
 func addBatcherAnnotations(batcher *v1alpha2.Batcher, annotations map[string]string) bool {
 	if batcher != nil {
 		annotations[constants.BatcherInternalAnnotationKey] = "true"
-		maxBatchSize := string(*batcher.MaxBatchSize)
-		maxLatency := string(*batcher.MaxLatency)
-		timeout := string(*batcher.Timeout)
-		k_v := map [string] *string {
-			constants.BatcherMaxBatchSizeInternalAnnotationKey: &maxBatchSize,
-			constants.BatcherMaxLatencyInternalAnnotationKey: &maxLatency,
-			constants.BatcherTimeoutInternalAnnotationKey: &timeout,
+
+		if batcher.MaxBatchSize != nil {
+			s := strconv.Itoa(*batcher.MaxBatchSize)
+			annotations[constants.BatcherMaxBatchSizeInternalAnnotationKey] = s
 		}
-		for k, v := range k_v {
-			if v != nil {
-				annotations[k] = *v
-			}
+		if batcher.MaxLatency != nil {
+			s := strconv.Itoa(*batcher.MaxLatency)
+			annotations[constants.BatcherMaxLatencyInternalAnnotationKey] = s
+		}
+		if batcher.Timeout != nil {
+			s := strconv.Itoa(*batcher.Timeout)
+			annotations[constants.BatcherTimeoutInternalAnnotationKey] = s
 		}
 		return true
 	}
