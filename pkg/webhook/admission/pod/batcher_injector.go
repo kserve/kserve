@@ -26,11 +26,11 @@ import (
 )
 
 const (
-	BatcherContainerName         = "batcher"
-	BatcherConfigMapKeyName      = "batcher"
-	BatcherArgumentMaxBatchSize  = "--max-batchsize"
-	BatcherArgumentMaxLatency    = "--max-latency"
-	BatcherArgumentTimeout       = "--timeout"
+	BatcherContainerName        = "batcher"
+	BatcherConfigMapKeyName     = "batcher"
+	BatcherArgumentMaxBatchSize = "--max-batchsize"
+	BatcherArgumentMaxLatency   = "--max-latency"
+	BatcherArgumentTimeout      = "--timeout"
 )
 
 type BatcherConfig struct {
@@ -111,7 +111,7 @@ func (il *BatcherInjector) InjectBatcher(pod *v1.Pod) error {
 	batcherContainer := &v1.Container{
 		Name:  BatcherContainerName,
 		Image: il.config.Image,
-		Args: args,
+		Args:  args,
 		Resources: v1.ResourceRequirements{
 			Limits: map[v1.ResourceName]resource.Quantity{
 				v1.ResourceCPU:    resource.MustParse(il.config.CpuLimit),

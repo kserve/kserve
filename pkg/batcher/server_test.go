@@ -20,10 +20,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/astaxie/beego"
 	"github.com/kubeflow/kfserving/pkg/batcher/controllers"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/onsi/gomega"
-	"github.com/astaxie/beego"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -84,7 +84,7 @@ func TestBatcher(t *testing.T) {
 	b2, _ := ioutil.ReadAll(w.Result().Body)
 	var res controllers.Response
 	var predictions controllers.Predictions
-	_  = json.Unmarshal(b2, &res)
+	_ = json.Unmarshal(b2, &res)
 	predictions.Predictions = res.Predictions
 	josnStr, _ := json.Marshal(predictions)
 	fmt.Println(string(josnStr))

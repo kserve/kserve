@@ -65,10 +65,10 @@ func TestBatcherInjector(t *testing.T) {
 					Name:      "deployment",
 					Namespace: "default",
 					Annotations: map[string]string{
-						constants.BatcherInternalAnnotationKey:     "true",
+						constants.BatcherInternalAnnotationKey:             "true",
 						constants.BatcherMaxBatchSizeInternalAnnotationKey: "32",
-						constants.BatcherMaxLatencyInternalAnnotationKey: "5000",
-						constants.BatcherTimeoutInternalAnnotationKey: "60",
+						constants.BatcherMaxLatencyInternalAnnotationKey:   "5000",
+						constants.BatcherTimeoutInternalAnnotationKey:      "60",
 					},
 					Labels: map[string]string{
 						"serving.kubeflow.org/inferenceservice": "sklearn",
@@ -87,10 +87,10 @@ func TestBatcherInjector(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "deployment",
 					Annotations: map[string]string{
-						constants.BatcherInternalAnnotationKey:     "true",
+						constants.BatcherInternalAnnotationKey:             "true",
 						constants.BatcherMaxBatchSizeInternalAnnotationKey: "32",
-						constants.BatcherMaxLatencyInternalAnnotationKey: "5000",
-						constants.BatcherTimeoutInternalAnnotationKey: "60",
+						constants.BatcherMaxLatencyInternalAnnotationKey:   "5000",
+						constants.BatcherTimeoutInternalAnnotationKey:      "60",
 					},
 				},
 				Spec: v1.PodSpec{
@@ -101,7 +101,7 @@ func TestBatcherInjector(t *testing.T) {
 						{
 							Name:  BatcherContainerName,
 							Image: batcherConfig.Image,
-							Args: []string {
+							Args: []string{
 								BatcherArgumentMaxBatchSize,
 								"32",
 								BatcherArgumentMaxLatency,

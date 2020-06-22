@@ -17,9 +17,9 @@ limitations under the License.
 package batcher
 
 import (
+	"github.com/astaxie/beego"
 	_ "github.com/kubeflow/kfserving/pkg/batcher/routers"
 	"github.com/kubeflow/kfserving/pkg/constants"
-	"github.com/astaxie/beego"
 	"strconv"
 )
 
