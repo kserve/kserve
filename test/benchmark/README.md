@@ -25,45 +25,115 @@ queuing in the user pods.
 ## Benchmarking
 
 ### Results on KFServing SKLearn Iris Example
-- Create InferenceService
+- Create `InferenceService`
 ```bash
-kubectl apply -f ../docs/samples/sklearn/sklearn.yaml
+kubectl apply -f ./sklearn.yaml
 ```
-
 - Create the input vegeta configmap
 ```bash
 kubectl apply -f ./sklearn_vegeta_cfg.yaml
 ```
 - Create the benchmark job
 ```bash
-kubectl create -f ./benchmark.yaml
+kubectl create -f ./sk_benchmark.yaml
 ```
 
-#### With queue proxy and activator on the request path
-| QPS/Replicas | mean | p50 | p95 | p99 |
-| --- | --- | --- | --- | --- |
-| 5/s minReplicas=1 | 6.213ms | 5.915ms | 6.992ms | 7.615ms |
-| 50/s minReplicas=1 | 5.738ms | 5.608ms | 6.483ms | 6.801ms |
-| 500/s minReplicas=1 | 4.083ms | 3.743ms | 4.929ms | 5.642ms |
-| 1000/s minReplicas=5 | 4.326ms | 3.674ms | 5.303ms | 6.651ms |
+#### CC=8 With queue proxy and activator on the request path
+Create an `InferenceService` with `ContainerCurrency`(cc) set to 8 which equals to the number of codes on the node.
+```yaml
+apiVersion: "serving.kubeflow.org/v1alpha2"
+kind: "InferenceService"
+metadata:
+  name: "sklearn-iris"
+spec:
+  default:
+    parallelism: 8 # CC=8
+    predictor:
+      sklearn:
+        storageUri: "gs://kfserving-samples/models/sklearn/iris"
+```
+
+| QPS/Replicas | mean | p50 | p95 | p99 | Success Rate |
+| --- | --- | --- | --- | --- | --- |
+| 5/s minReplicas=1 | 6.213ms | 5.915ms | 6.992ms | 7.615ms | 100% |
+| 50/s minReplicas=1 | 5.738ms | 5.608ms | 6.483ms | 6.801ms | 100% |
+| 500/s minReplicas=1 | 4.083ms | 3.743ms | 4.929ms | 5.642ms | 100% |
+| 1000/s minReplicas=1 | 398.562ms | 5.95ms | 2.945s | 3.691s | 100% |
 
 #### Raw Kubernetes Service(Without queue proxy and activator on the request path)
-| QPS/Replicas | mean | p50 | p95 | p99 |
-| --- | --- | --- | --- | --- |
-| 5/s replicas=1 | 1.694ms | 1.614ms | 1.836ms | 2.004ms |
-| 50/s replicas=1 | 1.499ms | 1.476ms | 1.631ms | 1.777ms |
-| 500/s replicas=1 | 942.766µs | 894.353µs | 1.072ms | 1.19ms |
-| 1000/s replicas=5 | 895.969µs | 821.75µs | 1.033ms | 1.214ms |
+- Update the SKLearn Iris `InferenceService` with following yaml to use HPA
+```yaml
+apiVersion: "serving.kubeflow.org/v1alpha2"
+kind: "InferenceService"
+metadata:
+  name: "sklearn-iris"
+  annotations:
+    autoscaling.knative.dev/class: hpa.autoscaling.knative.dev
+    autoscaling.knative.dev/metric: cpu
+    autoscaling.knative.dev/target: "80"
+spec:
+  default:
+    predictor:
+      sklearn:
+        storageUri: "gs://kfserving-samples/models/sklearn/iris"
+```
+```bash
+kubectl apply -f ./sklearn_hpa.yaml
+```
+- Setup virtual service to go directly to the private service to bypass the Knative Activator and queue-proxy, change the benchmark
+test target url host to `sklearn-iris-raw.default.svc.cluster.local`.
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: sklearn-iris-raw
+spec:
+  externalName: cluster-local-gateway.istio-system.svc.cluster.local
+  sessionAffinity: None
+  type: ExternalName
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: sklearn-iris-raw
+spec:
+  gateways:
+  - knative-serving/cluster-local-gateway
+  hosts:
+  - sklearn-iris-raw.default.svc.cluster.local
+  http:
+  - match:
+    - authority:
+        regex: ^sklearn-iris-raw\.default(\.svc(\.cluster\.local)?)?(?::\d{1,5})?$
+      gateways:
+      - knative-serving/cluster-local-gateway
+      uri:
+        regex: ^/v1/models/[\w-]+(:predict)?
+    route:
+    - destination:
+        host: sklearn-iris-predictor-default-xt264-private.default.svc.cluster.local #this is the private service to user container
+        port:
+          number: 80
+      weight: 100
+```
 
-So you can see that queue-proxy and activator adds 2-3 millisecond overhead, but you get the advantage of autoscaling and
-smart load balancing. For this example we do not see much effect or benefits because the request takes only 1-2 ms to process.
+| QPS/Replicas | mean | p50 | p95 | p99 | Success Rate |
+| --- | --- | --- | --- | --- | --- |
+| 5/s Replicas=1 | 2.673ms | 2.381ms | 4.352ms | 5.966ms | 100% | 
+| 50/s Replicas=1 | 2.188ms | 2.117ms | 2.684ms | 3.02ms | 100% |
+| 500/s Replicas=1 | 1.376ms | 1.283ms | 1.713ms | 2.205ms | 100% |
+| 1000/s Replicas=1 | 7.969s | 8.658s | 16.669s | 20.307s | 93.72% |
+
+So you can see that queue-proxy and activator adds 2-3 millisecond overhead, but you get the advantage of KPA and
+smart load balancing. For this example we do not see much benefits because the request takes only 1-2 ms to process,
+however you can see the obvious advantage when request volume goes to 1000/s and KPA reacts faster and performs better 
+than HPA.
 
 ### Results on KFServing with TFServing Flower Example
-- Create InferenceService
+- Create `InferenceService`
 ```bash
 kubectl apply -f ../docs/samples/tensorflow/tensorflow.yaml
 ```
-
 - Create the input vegeta configmap
 ```bash
 kubectl apply -f ./tf_vegeta_cfg.yaml
@@ -74,8 +144,23 @@ kubectl create -f ./tf_benchmark.yaml
 ```
 
 #### CC=0
-- Create InferenceService with default Container Concurrency set to 0, so activator does not do smart load balancing based on
-queue size.
+- Create `InferenceService` with default `ContainerConcurrency` set to 0 which is unlimited concurrency, activator in this case does not do smart load balancing based on
+queue limit.
+```yaml
+apiVersion: "serving.kubeflow.org/v1alpha2"
+kind: "InferenceService"
+metadata:
+  name: "flowers-sample"
+spec:
+  default:
+    predictor:
+      tensorflow:
+        storageUri: "gs://kfserving-samples/models/tensorflow/flowers
+```
+
+```bash
+kubectl apply -f ./tf_flowers.yaml
+```
 
 | QPS/Replicas | mean | p50 | p95 | p99 | Success Rate |
 | --- | --- | --- | --- | --- | --- |
@@ -84,8 +169,8 @@ queue size.
 | 5/s minReplicas=1 | 1.748s | 515.565ms | 3.191s | 11.883s | 99.78% |
 
 #### CC=1
-- Create InferenceService with Container Concurrency set to 1, so activator respect container queue limit 1 and requests do
-not get queued on user pods.
+- Create `InferenceService` with `ContainerConcurrency` set to 1, so activator respect container queue limit 1 and requests do
+not get queued on user pods and requests can go to the pods which have capacity.
 
 ```yaml
 apiVersion: "serving.kubeflow.org/v1alpha2"
@@ -107,16 +192,32 @@ spec:
 | 5/s minReplicas=1 | 1.347s | 478.923ms | 3.357s | 6.48s | 100% |
 
 So here you can see that with CC=1, when you send one request at a time the latency does not make much different with CC=0 or CC=1.
-However when you send many concurrent requests you will notice pronounced result when CC=1 because each request takes ~500ms to process.
-You will see better tail latency at p95 and p99. 
+However when you send many concurrent requests you will notice pronounced result when CC=1 because each request takes ~500ms to process and you 
+will observe better tail latency at p95 and p99 thanks to Knative activator smarter load balancing than random. 
 
 #### Raw Kubernetes Service(Without queue proxy and activator)
+```yaml
+apiVersion: "serving.kubeflow.org/v1alpha2"
+kind: "InferenceService"
+metadata:
+  name: "flowers-sample"
+  annotations:
+    autoscaling.knative.dev/class: hpa.autoscaling.knative.dev
+    autoscaling.knative.dev/metric: cpu
+    autoscaling.knative.dev/target: "80"
+spec:
+  default:
+    predictor:
+      tensorflow:
+        storageUri: "gs://kfserving-samples/models/tensorflow/flowers
+```
 
 | QPS/Replicas | mean | p50 | p95 | p99 | Success Rate |
 | --- | --- | --- | --- | --- | --- |
 | 1/s Replicas=1 | 458.5ms | 429.096ms | 516.948ms | 522.311ms | 100% |
-| 3/s Replicas=1 | 15.353s | 14.889s | 30s | 30s | 93.89% |
-| 5/s Replicas=1 | 28.394s | 30s | 30s | 30s | 11.22% |
+| 3/s Replicas=1 | 9.867s | 8.35s | 22.906s | 28.907s | 95.74% |
+| 5/s Replicas=1 | 28.394s | 30s | 30s | 30s | 30.44% |
 
-With raw kubernetes service you can see that without Autoscaling, raw kubernetes deployment can not keep up the load and results in
-a lot of timeouts.
+This experiment runs the `InferenceService` using HPA with average target utilization 80% of CPU and calls directly to Kubernetes Service bypassing
+the Knative queue proxy and activator. You can see that KPA reacts faster with the load and performs better than HPA for both low latency and high latency 
+requests.
