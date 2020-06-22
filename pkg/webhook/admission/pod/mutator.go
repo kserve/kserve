@@ -16,17 +16,17 @@ limitations under the License.
 package pod
 
 import (
-	"context"
-	"encoding/json"
-	v1 "k8s.io/api/core/v1"
-	k8types "k8s.io/apimachinery/pkg/types"
-	"net/http"
+    "context"
+    "encoding/json"
+    v1 "k8s.io/api/core/v1"
+    k8types "k8s.io/apimachinery/pkg/types"
+    "net/http"
 
-	"github.com/kubeflow/kfserving/pkg/constants"
-	"github.com/kubeflow/kfserving/pkg/controller/inferenceservice/resources/credentials"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
-	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
+    "github.com/kubeflow/kfserving/pkg/constants"
+    "github.com/kubeflow/kfserving/pkg/controller/inferenceservice/resources/credentials"
+    "sigs.k8s.io/controller-runtime/pkg/client"
+    logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
+    "sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
 // +kubebuilder:webhook:path=/mutate-pods,mutating=true,failurePolicy=fail,groups="",resources=pods,verbs=create;update,versions=v1,name=inferenceservice.kfserving-webhook-server.pod-mutator
@@ -34,104 +34,104 @@ var log = logf.Log.WithName(constants.PodMutatorWebhookName)
 
 // Mutator is a webhook that injects incoming pods
 type Mutator struct {
-	Client  client.Client
-	Decoder *admission.Decoder
+    Client  client.Client
+    Decoder *admission.Decoder
 }
 
 // Handle decodes the incoming Pod and executes mutation logic.
 func (mutator *Mutator) Handle(ctx context.Context, req admission.Request) admission.Response {
-	pod := &v1.Pod{}
+    pod := &v1.Pod{}
 
-	if err := mutator.Decoder.Decode(req, pod); err != nil {
-		log.Error(err, "Failed to decode pod", "name", pod.Labels[constants.InferenceServicePodLabelKey])
-		return admission.Errored(http.StatusBadRequest, err)
-	}
+    if err := mutator.Decoder.Decode(req, pod); err != nil {
+        log.Error(err, "Failed to decode pod", "name", pod.Labels[constants.InferenceServicePodLabelKey])
+        return admission.Errored(http.StatusBadRequest, err)
+    }
 
-	if !needMutate(pod) {
-		return admission.ValidationResponse(true, "")
-	}
+    if !needMutate(pod) {
+        return admission.ValidationResponse(true, "")
+    }
 
-	configMap := &v1.ConfigMap{}
-	err := mutator.Client.Get(context.TODO(), k8types.NamespacedName{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KFServingNamespace}, configMap)
-	if err != nil {
-		log.Error(err, "Failed to find config map", "name", constants.InferenceServiceConfigMapName)
-		return admission.Errored(http.StatusInternalServerError, err)
-	}
+    configMap := &v1.ConfigMap{}
+    err := mutator.Client.Get(context.TODO(), k8types.NamespacedName{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KFServingNamespace}, configMap)
+    if err != nil {
+        log.Error(err, "Failed to find config map", "name", constants.InferenceServiceConfigMapName)
+        return admission.Errored(http.StatusInternalServerError, err)
+    }
 
-	// For some reason pod namespace is always empty when coming to pod mutator, need to set from admission request
-	pod.Namespace = req.AdmissionRequest.Namespace
+    // For some reason pod namespace is always empty when coming to pod mutator, need to set from admission request
+    pod.Namespace = req.AdmissionRequest.Namespace
 
-	if err := mutator.mutate(pod, configMap); err != nil {
-		log.Error(err, "Failed to mutate pod", "name", pod.Labels[constants.InferenceServicePodLabelKey])
-		return admission.Errored(http.StatusInternalServerError, err)
-	}
+    if err := mutator.mutate(pod, configMap); err != nil {
+        log.Error(err, "Failed to mutate pod", "name", pod.Labels[constants.InferenceServicePodLabelKey])
+        return admission.Errored(http.StatusInternalServerError, err)
+    }
 
-	patch, err := json.Marshal(pod)
-	if err != nil {
-		log.Error(err, "Failed to marshal pod", "name", pod.Labels[constants.InferenceServicePodLabelKey])
-		return admission.Errored(http.StatusInternalServerError, err)
-	}
+    patch, err := json.Marshal(pod)
+    if err != nil {
+        log.Error(err, "Failed to marshal pod", "name", pod.Labels[constants.InferenceServicePodLabelKey])
+        return admission.Errored(http.StatusInternalServerError, err)
+    }
 
-	return admission.PatchResponseFromRaw(req.AdmissionRequest.Object.Raw, patch)
+    return admission.PatchResponseFromRaw(req.AdmissionRequest.Object.Raw, patch)
 }
 
 func (mutator *Mutator) mutate(pod *v1.Pod, configMap *v1.ConfigMap) error {
-	credentialBuilder := credentials.NewCredentialBulder(mutator.Client, configMap)
+    credentialBuilder := credentials.NewCredentialBulder(mutator.Client, configMap)
 
-	storageInitializerConfig, err := getStorageInitializerConfigs(configMap)
-	if err != nil {
-		return err
-	}
+    storageInitializerConfig, err := getStorageInitializerConfigs(configMap)
+    if err != nil {
+        return err
+    }
 
-	storageInitializer := &StorageInitializerInjector{
-		credentialBuilder: credentialBuilder,
-		config:            storageInitializerConfig,
-	}
+    storageInitializer := &StorageInitializerInjector{
+        credentialBuilder: credentialBuilder,
+        config:            storageInitializerConfig,
+    }
 
-	loggerConfig, err := getLoggerConfigs(configMap)
-	if err != nil {
-		return err
-	}
+    loggerConfig, err := getLoggerConfigs(configMap)
+    if err != nil {
+        return err
+    }
 
-	loggerInjector := &LoggerInjector{
-		config: loggerConfig,
-	}
+    loggerInjector := &LoggerInjector{
+        config: loggerConfig,
+    }
 
-	batcherConfig, err := getBatcherConfigs(configMap)
-	if err != nil {
-		return err
-	}
+    batcherConfig, err := getBatcherConfigs(configMap)
+    if err != nil {
+        return err
+    }
 
-	batcherInjector := &BatcherInjector{
-		config: batcherConfig,
-	}
+    batcherInjector := &BatcherInjector{
+        config: batcherConfig,
+    }
 
-	mutators := []func(pod *v1.Pod) error{
-		InjectGKEAcceleratorSelector,
-		storageInitializer.InjectStorageInitializer,
-		loggerInjector.InjectLogger,
-		batcherInjector.InjectBatcher,
-	}
+    mutators := []func(pod *v1.Pod) error{
+        InjectGKEAcceleratorSelector,
+        storageInitializer.InjectStorageInitializer,
+        loggerInjector.InjectLogger,
+        batcherInjector.InjectBatcher,
+    }
 
-	for _, mutator := range mutators {
-		if err := mutator(pod); err != nil {
-			return err
-		}
-	}
+    for _, mutator := range mutators {
+        if err := mutator(pod); err != nil {
+            return err
+        }
+    }
 
-	return nil
+    return nil
 }
 
 func needMutate(pod *v1.Pod) bool {
-	// Skip webhook if pod not managed by kfserving
-	_, ok := pod.Labels[constants.InferenceServicePodLabelKey]
-	return ok
+    // Skip webhook if pod not managed by kfserving
+    _, ok := pod.Labels[constants.InferenceServicePodLabelKey]
+    return ok
 }
 
 // InjectClient injects the client.
 func (mutator *Mutator) InjectClient(c client.Client) error {
-	mutator.Client = c
-	return nil
+    mutator.Client = c
+    return nil
 }
 
 // podAnnotator implements admission.DecoderInjector.
@@ -139,6 +139,6 @@ func (mutator *Mutator) InjectClient(c client.Client) error {
 
 // InjectDecoder injects the decoder.
 func (mutator *Mutator) InjectDecoder(d *admission.Decoder) error {
-	mutator.Decoder = d
-	return nil
+    mutator.Decoder = d
+    return nil
 }
