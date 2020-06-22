@@ -103,3 +103,11 @@ data:
         "cpuRequest": "100m",
         "cpuLimit": "1"
     }
+  batcher: |-
+    {
+        "image" : "gcr.io/kubeflow-ci/kfserving/batcher",
+        "memoryRequest": "1Gi",
+        "memoryLimit": "1Gi",
+        "cpuRequest": "1",
+        "cpuLimit": "1"
+    }

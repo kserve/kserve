@@ -30,6 +30,7 @@ import re  # noqa: F401
 
 import six
 
+from kfserving.models.v1alpha2_batcher import V1alpha2Batcher  # noqa: F401,E501
 from kfserving.models.v1alpha2_logger import V1alpha2Logger  # noqa: F401,E501
 
 
@@ -47,6 +48,7 @@ class V1alpha2DeploymentSpec(object):
                             and the value is json key in definition.
     """
     swagger_types = {
+        'batcher': 'V1alpha2Batcher',
         'logger': 'V1alpha2Logger',
         'max_replicas': 'int',
         'min_replicas': 'int',
@@ -55,6 +57,7 @@ class V1alpha2DeploymentSpec(object):
     }
 
     attribute_map = {
+        'batcher': 'batcher',
         'logger': 'logger',
         'max_replicas': 'maxReplicas',
         'min_replicas': 'minReplicas',
@@ -62,9 +65,10 @@ class V1alpha2DeploymentSpec(object):
         'service_account_name': 'serviceAccountName'
     }
 
-    def __init__(self, logger=None, max_replicas=None, min_replicas=None, parallelism=None, service_account_name=None):  # noqa: E501
+    def __init__(self, batcher=None, logger=None, max_replicas=None, min_replicas=None, parallelism=None, service_account_name=None):  # noqa: E501
         """V1alpha2DeploymentSpec - a model defined in Swagger"""  # noqa: E501
 
+        self._batcher = None
         self._logger = None
         self._max_replicas = None
         self._min_replicas = None
@@ -72,6 +76,8 @@ class V1alpha2DeploymentSpec(object):
         self._service_account_name = None
         self.discriminator = None
 
+        if batcher is not None:
+            self.batcher = batcher
         if logger is not None:
             self.logger = logger
         if max_replicas is not None:
@@ -82,6 +88,29 @@ class V1alpha2DeploymentSpec(object):
             self.parallelism = parallelism
         if service_account_name is not None:
             self.service_account_name = service_account_name
+
+    @property
+    def batcher(self):
+        """Gets the batcher of this V1alpha2DeploymentSpec.  # noqa: E501
+
+        Activate batcher  # noqa: E501
+
+        :return: The batcher of this V1alpha2DeploymentSpec.  # noqa: E501
+        :rtype: V1alpha2Batcher
+        """
+        return self._batcher
+
+    @batcher.setter
+    def batcher(self, batcher):
+        """Sets the batcher of this V1alpha2DeploymentSpec.
+
+        Activate batcher  # noqa: E501
+
+        :param batcher: The batcher of this V1alpha2DeploymentSpec.  # noqa: E501
+        :type: V1alpha2Batcher
+        """
+
+        self._batcher = batcher
 
     @property
     def logger(self):
