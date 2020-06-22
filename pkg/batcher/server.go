@@ -17,16 +17,16 @@ limitations under the License.
 package batcher
 
 import (
-    "github.com/astaxie/beego"
-    _ "github.com/kubeflow/kfserving/pkg/batcher/routers"
-    "github.com/kubeflow/kfserving/pkg/constants"
-    "strconv"
+	"github.com/astaxie/beego"
+	_ "github.com/kubeflow/kfserving/pkg/batcher/routers"
+	"github.com/kubeflow/kfserving/pkg/constants"
+	"strconv"
 )
 
 func StartHttpServer() {
-    beego.BConfig.AppName = "batcher"
-    beego.BConfig.Listen.HTTPPort, _ = strconv.Atoi(constants.InferenceServiceDefaultBatcherPort)
-    beego.BConfig.RunMode = "dev"
-    beego.BConfig.CopyRequestBody = true
-    beego.Run()
+	beego.BConfig.AppName = "batcher"
+	beego.BConfig.Listen.HTTPPort, _ = strconv.Atoi(constants.InferenceServiceDefaultBatcherPort)
+	beego.BConfig.RunMode = "dev"
+	beego.BConfig.CopyRequestBody = true
+	beego.Run()
 }
