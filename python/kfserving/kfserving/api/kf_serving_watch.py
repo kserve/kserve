@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import time
 from kubernetes import client
 from kubernetes import watch as k8s_watch
 from table_logger import TableLogger
@@ -45,14 +46,20 @@ def watch(name=None, namespace=None, timeout_seconds=600):
         if name and name != isvc_name:
             continue
         else:
-            url = isvc['status'].get('url', '')
-            default_traffic = isvc['status'].get('traffic', '')
-            canary_traffic = isvc['status'].get('canaryTraffic', '')
-            status = 'Unknown'
-            for condition in isvc['status'].get('conditions', {}):
-                if condition.get('type', '') == 'Ready':
-                    status = condition.get('status', 'Unknown')
-            tbl(isvc_name, status, default_traffic, canary_traffic, url)
+            if isvc.get('status', ''):
+                url = isvc['status'].get('url', '')
+                default_traffic = isvc['status'].get('traffic', '')
+                canary_traffic = isvc['status'].get('canaryTraffic', '')
+                status = 'Unknown'
+                for condition in isvc['status'].get('conditions', {}):
+                    if condition.get('type', '') == 'Ready':
+                        status = condition.get('status', 'Unknown')
+                tbl(isvc_name, status, default_traffic, canary_traffic, url)
+            else:
+                tbl(isvc_name, 'Unknown', '', '', '')
+                # Sleep 2 to avoid status section is not generated within a very short time.
+                time.sleep(2)
+                continue
 
             if name == isvc_name and status == 'True':
                 break
