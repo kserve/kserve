@@ -17,7 +17,7 @@ After models are deployed onto model servers with KFServing, you get all the fol
 - Out-of-the-box metrics
 - Ingress/Egress control
 
-|   | Exported model| HTTP | gRPC | Examples |
+| Out-of-the-box Predictor  | Exported model| HTTP | gRPC | Examples |
 | ------------- | ------------- | ------------- | ------------- | ------------- |
 | Deploy SKLearn Model on KFServer | pickled model(model.pkl, model.joblib) | :heavy_check_mark: | V2 |[SKLearn Iris](./sklearn)  |
 | Deploy XGBoost Model on KFServer | pickled model(model.bst) | :heavy_check_mark: | V2 |[XGBoost Iris](./xgboost)  |
@@ -25,10 +25,13 @@ After models are deployed onto model servers with KFServing, you get all the fol
 | Deploy Tensorflow Model on TFServing  | [Tensorflow SavedModel](https://www.tensorflow.org/guide/saved_model) | :heavy_check_mark: | :heavy_check_mark: | [Tensorflow Flowers](./tensorflow)  |
 | Deploy ONNX Model on ONNXRuntime  | [Exported onnx model(model.onnx)](https://github.com/onnx/tutorials#converting-to-onnx-format) | :heavy_check_mark: | :heavy_check_mark: |[ONNX Style Model](./onnx)  |
 | Deploy Model on Triton Server | [Tensorflow,PyTorch,ONNX,TensorRT](https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/model_repository.html)| :heavy_check_mark: | :heavy_check_mark: | [Simple String](./triton/simple_string) |
-| Deploy model on custom KFServer | | :heavy_check_mark: | V2 | [Custom KFServer](./custom/kfserving-custom-model)|
-| Deploy model on BentoML | | :heavy_check_mark: | - | [SKLearn Iris with BentoML](./bentoml)|
-| Deploy model on custom HTTP Server | |:heavy_check_mark: | - | [Prebuilt model server](./custom/prebuilt-image)|
-| Deploy model on custom gRPC Server | |  -  | :heavy_check_mark: | [Prebuilt gRPC server](./custom/grpc-server)|
+
+| Custom Predictor  | Examples |
+| ------------- |  ------------- |
+| Deploy model on custom KFServer | [Custom KFServer](./custom/kfserving-custom-model)|
+| Deploy model on BentoML | [SKLearn Iris with BentoML](./bentoml)|
+| Deploy model on custom HTTP Server  | [Prebuilt model server](./custom/prebuilt-image)|
+| Deploy model on custom gRPC Server  | [Prebuilt gRPC server](./custom/grpc-server)|
 
 In addition to deploy InferenceService with HTTP/gRPC endpoint, you can also deploy InferenceService with [Knative Event Sources](https://knative.dev/docs/eventing/sources/index.html) such as Kafka
 , you can find an example [here](./kafka) which shows how to build an async inference pipeline. 
