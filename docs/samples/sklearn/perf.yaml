@@ -12,7 +12,7 @@ spec:
     spec:
       containers:
       - args:
-        - vegeta -cpus=5 attack -duration=1m -rate=5/1s -targets=/var/vegeta/cfg
+        - vegeta -cpus=5 attack -duration=1m -rate=500/1s -targets=/var/vegeta/cfg
           | vegeta report -type=text
         command:
         - sh 
@@ -20,16 +20,9 @@ spec:
         image: peterevans/vegeta:latest
         imagePullPolicy: Always
         name: vegeta
-        terminationMessagePath: /dev/termination-log
-        terminationMessagePolicy: File
         volumeMounts:
         - mountPath: /var/vegeta
           name: vegeta-cfg
-      dnsPolicy: ClusterFirst
-      restartPolicy: Never
-      schedulerName: default-scheduler
-      securityContext: {}
-      terminationGracePeriodSeconds: 30
       volumes:
       - configMap:
           defaultMode: 420
