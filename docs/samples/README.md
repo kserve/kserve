@@ -4,7 +4,7 @@
 KFServing provides a simple Kubernetes CRD to allow deploying trained models onto model servers such as [TFServing](https://www.tensorflow.org/tfx/guide/serving), 
 [ONNXRuntime](https://github.com/microsoft/onnxruntime), [Triton Inference Server](https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs),
 [KFServer](https://github.com/kubeflow/kfserving/tree/master/python/kfserving). These model servers are also exposing a standardized API for both REST and gRPC. You can also choose to build your own model server for more complex use cases, and 
-KFServing provides basic API primitives to allow you easily build custom model server, you can use other tools like [BentoML](https://docs.bentoml.org/en/latest) to build your custom model serve image.
+KFServing provides basic API primitives to allow you to easily build custom model servers. Additionally, you can use other tools like [BentoML](https://docs.bentoml.org/en/latest) to build your custom model serve image.
 After models are deployed onto model servers with KFServing, you get all the following serverless features provided by KFServing
 - Scale to and from Zero
 - Request based Autoscaling on CPU/GPU
@@ -30,11 +30,11 @@ After models are deployed onto model servers with KFServing, you get all the fol
 | Deploy model on custom HTTP Server | |:heavy_check_mark: | - | [Prebuilt model server](./custom/prebuilt-image)|
 | Deploy model on custom gRPC Server | |  -  | :heavy_check_mark: | [Prebuilt gRPC server](./custom/grpc-server)|
 
-In addition to deploy InferenceService with HTTP/gRPC endpoint, you can also deploy InferenceService with [Knative Event Sources](https://knative.dev/docs/eventing/sources/index.html) such as Kafka
-, you can find an example [here](./kafka) which shows how to build an async inference pipeline. 
+In addition to deploying InferenceService with HTTP/gRPC endpoint, you can also deploy InferenceService with [Knative Event Sources](https://knative.dev/docs/eventing/sources/index.html) such as Kafka. 
+ You can find an example [here](./kafka) which shows how to build an async inference pipeline with Kafka
 
 ### Deploy InferenceService with Transformer
-KFServing transformer enables users to define a pre/post processing step before the prediction and explanation workflow.
+KFServing transformer enables users to define pre/post processing steps before the prediction and explanation workflow.
 KFServing transformer runs as a separate microservice and can work with any type of pre-packaged model server, it can also 
 scale differently from the predictor if your transformer is CPU bound while predictor requires running on GPU. 
 
@@ -45,8 +45,8 @@ scale differently from the predictor if your transformer is CPU bound while pred
 
 ### Deploy InferenceService with Explainer and Outlier/Drift Detector
 Model explainability answers the question: "Why did my model make this prediction" for a given instance. KFServing 
-integrates with [Alibi Explainer](https://github.com/SeldonIO/alibi) which implements a black-box algorithm by generating a lot of similar looking intances 
-for a given instance and send out to the model server to produce an explanation.
+integrates with [Alibi Explainer](https://github.com/SeldonIO/alibi) which implements a black-box algorithm by generating a lot of similar looking instances 
+for a given instance and sends out to the model server to produce an explanation.
 Also in order to trust and reliably act on model predictions, it is crucial to monitor the distribution of the incoming
 requests via various different type of detectors. [Alibi Detect](https://github.com/SeldonIO/alibi-detect) checks when the distribution of incoming requests 
 is diverging from a reference distribution such as that of the training data.
@@ -68,7 +68,7 @@ is diverging from a reference distribution such as that of the training data.
 
 ### Autoscaling
 KFServing's main serverless capability is to allow you to run inference workload without worrying about scaling your service manually once it is deployed. KFServing leverages Knative's [autoscaler](https://knative.dev/docs/serving/configuring-autoscaling/),
-the autoscaler works on GPU as well since the Autoscaler is based on request volume instead of GPU/CPU metrics which can be hard
+which works on GPU as well since the autoscaler is based on request volume instead of GPU/CPU metrics which can be hard
  to reason about. 
  
 [Autoscale inference workload on CPU/GPU](./autoscaling)
