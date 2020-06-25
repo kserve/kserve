@@ -1,14 +1,12 @@
 ## KFServing Features and Examples
 
 ### Deploy InferenceService with Predictor
-KFServing supports deploying models with pre-packaged model servers such as [TFServing](https://www.tensorflow.org/tfx/guide/serving), 
+KFServing provides a simple Kubernetes CRD to allow deploying trained models onto model servers such as [TFServing](https://www.tensorflow.org/tfx/guide/serving), 
 [ONNXRuntime](https://github.com/microsoft/onnxruntime), [Triton Inference Server](https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs),
-[KFServer](https://github.com/kubeflow/kfserving/tree/master/python/kfserving)
-which can load and serve a model. The advantage of doing this is that model deployment can be reused, deploying a new model with the same framework does not require writing code.
-These model servers are also exposing a standardised API for both REST and gRPC. You could also choose to build your own model server for more complex use case,
+[KFServer](https://github.com/kubeflow/kfserving/tree/master/python/kfserving). These model servers are also exposing a standardised API for both REST and gRPC. You could also choose to build your own model server for more complex use case,
 KFServing provides basic API primitives to allow you easily build custom model server, you can use other tools like [BentoML](https://docs.bentoml.org/en/latest) to build your custom model serve image.
-After model servers are deployed on KFServing, you get all the following serverless features provided by KFServing
-- Scale to zero
+After models are deployed onto model servers with KFServing, you get all the following serverless features provided by KFServing
+- Scale to and from Zero
 - Request based Autoscaling on CPU/GPU
 - Revision Management
 - Optimized Container
@@ -28,8 +26,9 @@ After model servers are deployed on KFServing, you get all the following serverl
 | Deploy ONNX Model on ONNXRuntime  | [Exported onnx model(model.onnx)](https://github.com/onnx/tutorials#converting-to-onnx-format) | :heavy_check_mark: | :heavy_check_mark: |[ONNX Style Model](./onnx)  |
 | Deploy Model on Triton Server | [Tensorflow,PyTorch,ONNX,TensorRT](https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/model_repository.html)| :heavy_check_mark: | :heavy_check_mark: | [Simple String](./triton/simple_string) |
 | Deploy model on custom KFServer | | :heavy_check_mark: | V2 | [Custom KFServer](./custom/kfserving-custom-model)|
-| Deploy model on BentoML | | :heavy_check_mark: | | [SKLearn Iris with BentoML](./bentoml)|
-| Deploy model on custom HTTP server | | | | [Prebuilt model server](./custom/prebuilt-image)|
+| Deploy model on BentoML | | :heavy_check_mark: | - | [SKLearn Iris with BentoML](./bentoml)|
+| Deploy model on custom HTTP Server | |:heavy_check_mark: | - | [Prebuilt model server](./custom/prebuilt-image)|
+| Deploy model on custom gRPC Server | |  -  | :heavy_check_mark: | [Prebuilt gRPC server](./custom/grpc-server)|
 
 In addition to deploy InferenceService with HTTP/gRPC endpoint, you can also deploy InferenceService with [Knative Event Sources](https://knative.dev/docs/eventing/sources/index.html) such as Kafka
 , you can find an example [here](./kafka) which shows how to build an async inference pipeline. 
@@ -84,11 +83,12 @@ Canary deployment enables rollout releases by splitting traffic between differen
 ### Kubeflow Pipeline Integration
 [InferenceService with Kubeflow Pipeline](./pipelines)
 
-### Request/Response Logger
-KFServing supports logging your inference request/response by injecting a sidecar alongside with your model server.
+### Request Batching and Request/Response Logger
+KFServing supports batching incoming requests to increase throughput and logging your inference request/response by injecting a sidecar alongside with your model server.
 
 | Features  | Examples |
 | ------------- | ------------- |
+| Request Batching| [Batcher](./batcher)  |
 | Deploy Logger with a Logger Service| [Message Dumper Service](./logger/basic)  |
 | Deploy Async Logger| [Message Dumper Using Knative Eventing](./logger/knative-eventing)  |
 
