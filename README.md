@@ -66,6 +66,7 @@ kind create cluster
 ```
 #### Ingress Setup and Monitoring Stack
 - [Configure Custom Ingress Gateway](https://knative.dev/docs/serving/setting-up-custom-ingress-gateway/)
+  - In addition you need to update [KFServing configmap](config/default/configmap/inferenceservice.yaml) to use the custom ingress gateway.
 - [Configure HTTPS Connection](https://knative.dev/docs/serving/using-a-tls-cert/)
 - [Configure Custom Domain](https://knative.dev/docs/serving/using-a-custom-domain/)
 - [Metrics](https://knative.dev/docs/serving/accessing-metrics/)
@@ -107,17 +108,15 @@ curl -v -H "Host: ${SERVICE_HOSTNAME}" http://localhost:8080/v1/models/sklearn-i
 kubectl create -f docs/samples/sklearn/perf.test
 # wait the job to be done and check the log
 kubectl logs load-test8b58n-rgfxr 
-Requests      [total, rate, throughput]         300, 5.02, 5.02
-Duration      [total, attack, wait]             59.805s, 59.8s, 4.939ms
-Latencies     [min, mean, 50, 90, 95, 99, max]  4.283ms, 14.86ms, 5.394ms, 41.726ms, 42.292ms, 46.739ms, 145.937ms
-Bytes In      [total, mean]                     6900, 23.00
-Bytes Out     [total, mean]                     24600, 82.00
+Requests      [total, rate, throughput]         30000, 500.02, 499.99
+Duration      [total, attack, wait]             1m0s, 59.998s, 3.336ms
+Latencies     [min, mean, 50, 90, 95, 99, max]  1.743ms, 2.748ms, 2.494ms, 3.363ms, 4.091ms, 7.749ms, 46.354ms
+Bytes In      [total, mean]                     690000, 23.00
+Bytes Out     [total, mean]                     2460000, 82.00
 Success       [ratio]                           100.00%
-Status Codes  [code:count]                      200:300  
+Status Codes  [code:count]                      200:30000  
 Error Set:
 ```
-### KFServing Demo
-![Demo gif](docs/diagrams/kfserving_demo.gif)
  
 ### Use KFServing SDK
 * Install the SDK
@@ -131,6 +130,8 @@ Error Set:
 ###[KFServing Features and Examples](./docs/samples/README.md)
 
 ###[KFServing Concepts and Data Plane](./docs/README.md)
+
+###[KFServing Roadmap](./ROADMAP.md)
 
 ###[KFServing API References](./docs/apis/README.md)
 
