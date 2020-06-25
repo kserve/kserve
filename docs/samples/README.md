@@ -3,7 +3,7 @@
 ### Deploy InferenceService with Predictor
 KFServing provides a simple Kubernetes CRD to allow deploying trained models onto model servers such as [TFServing](https://www.tensorflow.org/tfx/guide/serving), 
 [ONNXRuntime](https://github.com/microsoft/onnxruntime), [Triton Inference Server](https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs),
-[KFServer](https://github.com/kubeflow/kfserving/tree/master/python/kfserving). These model servers are also exposing a standardised API for both REST and gRPC. You could also choose to build your own model server for more complex use case,
+[KFServer](https://github.com/kubeflow/kfserving/tree/master/python/kfserving). These model servers are also exposing a standardized API for both REST and gRPC. You can also choose to build your own model server for more complex use cases, and 
 KFServing provides basic API primitives to allow you easily build custom model server, you can use other tools like [BentoML](https://docs.bentoml.org/en/latest) to build your custom model serve image.
 After models are deployed onto model servers with KFServing, you get all the following serverless features provided by KFServing
 - Scale to and from Zero
