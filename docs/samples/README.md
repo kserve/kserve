@@ -51,8 +51,10 @@ Model explainability answers the question: "Why did my model make this predictio
 integrates with [Alibi Explainer](https://github.com/SeldonIO/alibi) which implements a black-box algorithm by generating a lot of similar looking intances 
 for a given instance and send out to the model server to produce an explanation.
 Also in order to trust and reliably act on model predictions, it is crucial to monitor the distribution of the incoming
-requests via various different type of detectors. [Alibi Detect](https://github.com/SeldonIO/alibi-detect) checks when the distribution of incoming requests 
-is diverging from a reference distribution such as that of the training data.
+requests via various different type of detectors. KFServing integrates [Alibi Detect](https://github.com/SeldonIO/alibi-detect) with the following components:
+- Drift detector checks when the distribution of incoming requests is diverging from a reference distribution such as that of the training data 
+- Outlier detector flags single instances which do not follow the training
+distribution
 
 | Features  | Examples |
 | ------------- | ------------- |
@@ -86,12 +88,16 @@ Canary deployment enables rollout releases by splitting traffic between differen
 ### Kubeflow Pipeline Integration
 [InferenceService with Kubeflow Pipeline](./pipelines)
 
-### Request Batching and Request/Response Logger
-KFServing supports batching incoming requests to increase throughput and logging your inference request/response by injecting a sidecar alongside with your model server.
+### Request Batching(Alpha)
+Batching individual inference requests can be important as most of ML/DL frameworks are optimized for batch requests.
+In cases where the services receive heavy load of requests, its advantageous to batch the requests. This allows for maximally
+utilizing the CPU/GPU compute resource, but user needs to carefully perform enough tests to find optimal batch size and analyze 
+the traffic patterns before enabling the batch inference. KFServing injects a batcher sidecar so it can work with any model server
+deployed on KFServing, you can read more from this [example](./batcher).
 
-| Features  | Examples |
-| ------------- | ------------- |
-| Request Batching| [Batcher](./batcher)  |
+### Request/Response Logger
+KFServing supports logging your inference request/response by injecting a sidecar alongside with your model server.
+
 | Deploy Logger with a Logger Service| [Message Dumper Service](./logger/basic)  |
 | Deploy Async Logger| [Message Dumper Using Knative Eventing](./logger/knative-eventing)  |
 
