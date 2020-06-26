@@ -2,7 +2,7 @@
 
 ## Setup
 
-1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/blob/master/docs/DEVELOPER_GUIDE.md#deploy-kfserving).
+1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/#install-kfserving).
 2. Your cluster's Istio Ingress gateway must be network accessible.
 3. You have a custom domain configured to route incoming traffic either to the Cloud provided Kubernetes Ingress gateway or the istio-ingressgateway's IP address / Load Balancer.
 
