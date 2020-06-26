@@ -2,7 +2,7 @@
 To test a canary rollout, you can use the canary.yaml, which declares a canary model that is set to receive 10% of requests.
 
 ## Setup
-1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/blob/master/docs/DEVELOPER_GUIDE.md#deploy-kfserving).
+1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/#install-kfserving).
 2. Your cluster's Istio Ingress gateway must be network accessible.
 
 ## Create the InferenceService

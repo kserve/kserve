@@ -14,7 +14,7 @@ Knative Serving and Istio should be available on Kubernetes Cluster, Knative dep
 - [Istio](https://knative.dev/docs/install/installing-istio): v1.1.6+
 
 If you want to get up running Knative quickly or you do not need service mesh, we recommend installing Istio without service mesh(sidecar injection).
-- [Knative Serving](https://knative.dev/docs/install/knative-with-any-k8s): v0.11.1+
+- [Knative Serving](https://knative.dev/docs/install/knative-with-any-k8s): v0.11.2+
 
 Currently only `Knative Serving` is required, `cluster-local-gateway` is required to serve cluster-internal traffic for transformer and explainer use cases. Please follow instructions here to install [cluster local gateway](https://knative.dev/docs/install/installing-istio/#updating-your-install-to-use-cluster-local-gateway)
 
@@ -55,7 +55,6 @@ If you are using Kubeflow dashboard or [profile controller](https://www.kubeflow
 
 Make sure you have
 [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/#install-kubectl-on-linux),
-[kustomize v3.5.4+](https://github.com/kubernetes-sigs/kustomize/blob/master/docs/INSTALL.md),
 [helm 3](https://helm.sh/docs/intro/install) installed before you start.(2 mins for setup)
 1) If you do not have an existing kubernetes cluster you can create a quick kubernetes local cluster with [kind](https://github.com/kubernetes-sigs/kind#installation-and-usage).(this takes 30s)
 ```bash
@@ -65,6 +64,16 @@ kind create cluster
 ```bash
 ./hack/quick_install.sh
 ```
+#### Ingress Setup and Monitoring Stack
+- [Configure Custom Ingress Gateway](https://knative.dev/docs/serving/setting-up-custom-ingress-gateway/)
+  - In addition you need to update [KFServing configmap](config/default/configmap/inferenceservice.yaml) to use the custom ingress gateway.
+- [Configure HTTPS Connection](https://knative.dev/docs/serving/using-a-tls-cert/)
+- [Configure Custom Domain](https://knative.dev/docs/serving/using-a-custom-domain/)
+- [Metrics](https://knative.dev/docs/serving/accessing-metrics/)
+- [Tracing](https://knative.dev/docs/serving/accessing-traces/)
+- [Logging](https://knative.dev/docs/serving/using-a-custom-domain/)
+- [Dashboard for ServiceMesh](https://istio.io/latest/docs/tasks/observability/kiali/)
+
 ### Test KFServing Installation 
 
 1) To check if KFServing Controller is installed correctly, please run the following command
@@ -94,6 +103,21 @@ kubectl port-forward --namespace istio-system $(kubectl get pod --namespace isti
 SERVICE_HOSTNAME=$(kubectl get inferenceservice sklearn-iris -n kfserving-test -o jsonpath='{.status.url}' | cut -d "/" -f 3)
 curl -v -H "Host: ${SERVICE_HOSTNAME}" http://localhost:8080/v1/models/sklearn-iris:predict -d @./docs/samples/sklearn/iris-input.json
 ```
+5) Run Performance Test
+```bash
+kubectl create -f docs/samples/sklearn/perf.test
+# wait the job to be done and check the log
+kubectl logs load-test8b58n-rgfxr 
+Requests      [total, rate, throughput]         30000, 500.02, 499.99
+Duration      [total, attack, wait]             1m0s, 59.998s, 3.336ms
+Latencies     [min, mean, 50, 90, 95, 99, max]  1.743ms, 2.748ms, 2.494ms, 3.363ms, 4.091ms, 7.749ms, 46.354ms
+Bytes In      [total, mean]                     690000, 23.00
+Bytes Out     [total, mean]                     2460000, 82.00
+Success       [ratio]                           100.00%
+Status Codes  [code:count]                      200:30000  
+Error Set:
+```
+ 
 ### Use KFServing SDK
 * Install the SDK
   ```
@@ -103,8 +127,11 @@ curl -v -H "Host: ${SERVICE_HOSTNAME}" http://localhost:8080/v1/models/sklearn-i
 
 * Follow the [example here](docs/samples/client/kfserving_sdk_sample.ipynb) to use the KFServing SDK to create, rollout, promote, and delete an InferenceService instance.
 
-### KFServing Examples 
-[KFServing examples](./docs/samples/README.md)
+### KFServing Features and Examples
+[KFServing Features and Examples](./docs/samples/README.md)
+
+### KFServing Roadmap
+[KFServing Roadmap](./ROADMAP.md)
 
 ### KFServing Concepts and Data Plane
 [KFServing Concepts and Data Plane](./docs/README.md)
@@ -123,3 +150,4 @@ curl -v -H "Host: ${SERVICE_HOSTNAME}" http://localhost:8080/v1/models/sklearn-i
 
 ### Contributor Guide
 [Contributor Guide](./CONTRIBUTING.md)
+

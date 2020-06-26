@@ -3,7 +3,7 @@
 Most of the model servers expect tensors as input data, so a pre-processing step is needed before making the prediction call if the user is sending in raw input format. Transformer is a service we orchestrated from InferenceService spec for user implemented pre/post processing code. In the [pytorch](../../pytorch/README.md) example we call the prediction endpoint with tensor inputs, and in this example we add additional pre-processing step to allow the user send raw image data.
 
 ## Setup
-1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/blob/master/docs/DEVELOPER_GUIDE.md#deploy-kfserving).
+1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/#install-kfserving).
 2. Your cluster's Istio Ingress gateway must be network accessible.
 
 ##  Build Transformer image
