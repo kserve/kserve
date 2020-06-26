@@ -441,20 +441,6 @@ type SimpleEventWithTime struct {
 	LastTimestamp metav1.Time
 }
 
-type timeSlice []SimpleEventWithTime
-
-func (p timeSlice) Len() int {
-	return len(p)
-}
-
-func (p timeSlice) Less(i, j int) bool {
-	return p[i].LastTimestamp.Before(&p[j].LastTimestamp)
-}
-
-func (p timeSlice) Swap(i, j int) {
-	p[i], p[j] = p[j], p[i]
-}
-
 func getEvents() []SimpleEvent {
 	events := &v1.EventList{}
 	if err := c.List(context.TODO(), events); err != nil {
@@ -464,9 +450,9 @@ func getEvents() []SimpleEvent {
 	if numEvents == 0 {
 		return nil
 	}
-	sortedEvents := make(timeSlice, 0, numEvents)
+	sortedEvents := make([]SimpleEventWithTime, 0, numEvents)
 	for _, event := range events.Items {
-		if event.Reason != "Updated" { // Not checking for updates
+		if event.Reason != "Updated" && event.Reason != "InternalError" { // Not checking for updates or errors
 			sortedEvents = append(sortedEvents, SimpleEventWithTime{
 				event: SimpleEvent{
 					Reason: event.Reason,
