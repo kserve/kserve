@@ -127,18 +127,27 @@ Error Set:
 
 * Follow the [example here](docs/samples/client/kfserving_sdk_sample.ipynb) to use the KFServing SDK to create, rollout, promote, and delete an InferenceService instance.
 
-###[KFServing Features and Examples](./docs/samples/README.md)
+### KFServing Features and Examples
+[KFServing Features and Examples](./docs/samples/README.md)
 
-###[KFServing Concepts and Data Plane](./docs/README.md)
+### KFServing Roadmap
+[KFServing Roadmap](./ROADMAP.md)
 
-###[KFServing Roadmap](./ROADMAP.md)
+### KFServing Concepts and Data Plane
+[KFServing Concepts and Data Plane](./docs/README.md)
 
-###[KFServing API References](./docs/apis/README.md)
+### KFServing API Reference
+[KFServing API Docs](./docs/apis/README.md)
 
-###[KFServing Debugging Guide :star:](./docs/KFSERVING_DEBUG_GUIDE.md)
+### KFServing Debugging Guide :star:
+[Debug KFServing InferenceService](./docs/KFSERVING_DEBUG_GUIDE.md)
 
-###[Developer Guide](/docs/DEVELOPER_GUIDE.md).
+### Developer Guide
+[Developer Guide](/docs/DEVELOPER_GUIDE.md).
 
-###[Performance Tests](https://docs.google.com/document/d/1ss7M3cx1qD1PVpTaKTu_Y3C80JJz4nvMZlIyuZutZoE/edit#)
+### Performance Tests
+[Performance Tests](https://docs.google.com/document/d/1ss7M3cx1qD1PVpTaKTu_Y3C80JJz4nvMZlIyuZutZoE/edit#)
 
-###[Contributor Guide](./CONTRIBUTING.md)
+### Contributor Guide
+[Contributor Guide](./CONTRIBUTING.md)
+

@@ -46,21 +46,26 @@ scale differently from the predictor if your transformer is CPU bound while pred
 | Deploy Transformer with KFServer | [Image Transformer with PyTorch KFServer](./transformer/image_transformer)  |
 | Deploy Transformer with Triton Server | [BERT Model with tokenizer](./triton/bert)  |
 
-### Deploy InferenceService with Explainer and Outlier/Drift Detector
+### Deploy InferenceService with Explainer
 Model explainability answers the question: "Why did my model make this prediction" for a given instance. KFServing 
 integrates with [Alibi Explainer](https://github.com/SeldonIO/alibi) which implements a black-box algorithm by generating a lot of similar looking intances 
 for a given instance and send out to the model server to produce an explanation.
-Also in order to trust and reliably act on model predictions, it is crucial to monitor the distribution of the incoming
-requests via various different type of detectors. KFServing integrates [Alibi Detect](https://github.com/SeldonIO/alibi-detect) with the following components:
-- Drift detector checks when the distribution of incoming requests is diverging from a reference distribution such as that of the training data 
-- Outlier detector flags single instances which do not follow the training
-distribution
+
 
 | Features  | Examples |
 | ------------- | ------------- |
 | Deploy Alibi Image Explainer| [Imagenet Explainer](./explanation/alibi/imagenet)  |
 | Deploy Alibi Income Explainer| [Income Explainer](./explanation/alibi/income)  |
 | Deploy Alibi Text Explainer| [Alibi Text Explainer](./explanation/alibi/moviesentiment) |
+
+### Deploy InferenceService with Outlier/Drift Detector
+In order to trust and reliably act on model predictions, it is crucial to monitor the distribution of the incoming
+requests via various different type of detectors. KFServing integrates [Alibi Detect](https://github.com/SeldonIO/alibi-detect) with the following components:
+- Drift detector checks when the distribution of incoming requests is diverging from a reference distribution such as that of the training data 
+- Outlier detector flags single instances which do not follow the training distribution.
+
+| Features  | Examples |
+| ------------- | ------------- |
 | Deploy Alibi Outlier Detection| [Cifar outlier detector](./outlier-detection/alibi-detect/cifar10) |
 | Deploy Alibi Drift Detection| [Cifar drift detector](./drift-detection/alibi-detect/cifar10) |
 
@@ -98,6 +103,8 @@ deployed on KFServing, you can read more from this [example](./batcher).
 ### Request/Response Logger
 KFServing supports logging your inference request/response by injecting a sidecar alongside with your model server.
 
+| Feature  | Examples |
+| ------------- | ------------- |
 | Deploy Logger with a Logger Service| [Message Dumper Service](./logger/basic)  |
 | Deploy Async Logger| [Message Dumper Using Knative Eventing](./logger/knative-eventing)  |
 
