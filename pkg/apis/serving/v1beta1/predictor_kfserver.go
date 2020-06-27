@@ -5,7 +5,7 @@ import v1 "k8s.io/api/core/v1"
 // KFServerSpec defines arguments for configuring KFServer model serving.
 type KFServerSpec struct {
 	// Contains fields shared across all predictors
-	PredictorExtensionSpec `json:"inline"`
+	PredictorExtensionSpec `json:",inline"`
 }
 
 // Validate returns an error if invalid
