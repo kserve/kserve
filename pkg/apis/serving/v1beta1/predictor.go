@@ -27,6 +27,8 @@ type PredictorSpec struct {
 	ONNXRuntime *ONNXRuntimeSpec `json:"onnxruntime,omitempty"`
 	// Passthrough Pod fields or specify a custom container spec
 	*CustomPredictor `json:",inline"`
+	// Extensions available in all components
+	*ComponentExtensionSpec `json:",inline"`
 }
 
 // PredictorExtensionSpec defines configuration shared across all predictor frameworks
@@ -34,7 +36,7 @@ type PredictorExtensionSpec struct {
 	// User must pick StorageURI or ConfigMap.
 	// This field points to the location of the trained model which is mounted onto the pod.
 	StorageURI *string `json:"storageUri"`
-	
+
 	// Container enables overrides for the predictor.
 	// Each framework will have different defaults that are populated in the underlying container spec.
 	v1.Container `json:"inline"`
