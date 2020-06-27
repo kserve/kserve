@@ -1,5 +1,5 @@
 - op: replace
-  path: /spec/validation/openAPIV3Schema/properties/status/properties/address
+  path: /spec/versions/0/schema/openAPIV3Schema/properties/status/properties/address
   value: {
     "description": "Ducktype for addressable",
     "properties": {
@@ -14,7 +14,7 @@
     "type": "object"
   }
 - op: replace
-  path: /spec/validation/openAPIV3Schema/properties/status/properties/conditions
+  path: /spec/versions/0/schema/openAPIV3Schema/properties/status/properties/conditions
   value: {
     "description": "Conditions the latest available observations of a resource's
                 current state. +patchMergeKey=type +patchStrategy=merge",
