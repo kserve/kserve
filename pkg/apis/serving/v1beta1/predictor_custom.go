@@ -22,5 +22,5 @@ func (c *CustomPredictor) Default() {}
 
 // GetContainers transforms the resource into a container spec
 func (c *CustomPredictor) GetContainers() []v1.Container {
-	return c.Containers
+	return []v1.Container{}
 }
