@@ -1,0 +1,21 @@
+# Labels to add to all resources and selectors.
+#commonLabels:
+#  someName: someValue
+
+# Each entry in this list must resolve to an existing
+# resource definition in YAML.  These are the resource
+# files that kustomize reads, modifies and emits as a
+# YAML string, with resources separated by document
+# markers ("---").
+resources:
+- generated/serving.kubeflow.org_inferencerouters.yaml
+
+patchesJson6902:
+  # crd codegen in controller tool generates the ref type when there is a type def https://github.com/kubernetes-sigs/controller-tools/issues/324
+  # we need a walkaround here to patch the condition type on status
+- target:
+    group: apiextensions.k8s.io
+    version: v1beta1
+    kind: CustomResourceDefinition
+    name: inferencerouters.serving.kubeflow.org
+  path: patches/crd_status_patch.yaml
