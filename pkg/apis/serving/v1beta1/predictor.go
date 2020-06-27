@@ -34,19 +34,7 @@ type PredictorExtensionSpec struct {
 	// User must pick StorageURI or ConfigMap.
 	// This field points to the location of the trained model which is mounted onto the pod.
 	StorageURI *string `json:"storageUri"`
-
-	// User must pick StorageURI or ConfigMap. Escape hatch to configure a model server.
-	// Data in provided configmap must be compatible with the specified model server.
-	// May be used for multi-model serving or low level traffic splitting.
-	ConfigMap *string `json:"modelServerConfig"`
-
-	// Enables multi-model serving with three separate modes: manual, auto, or isolated.
-	// ModelServerConfig is not supported with TenancyKey.
-	// If tenancyKey is not provided, the system will use "single tenant mode" or 1 model per pod.
-	// If tenancyKey is specified, the system will co-locate all models using that key.
-	// If tenancyKey is `auto`, the system will intelligently generate a tenancyKey. This may change over time.
-	TenancyKey *string `json:"tenancyKey"`
-
+	
 	// Container enables overrides for the predictor.
 	// Each framework will have different defaults that are populated in the underlying container spec.
 	v1.Container `json:"inline"`
