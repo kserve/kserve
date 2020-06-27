@@ -39,7 +39,7 @@ type PredictorExtensionSpec struct {
 
 	// Container enables overrides for the predictor.
 	// Each framework will have different defaults that are populated in the underlying container spec.
-	v1.Container `json:"inline"`
+	// *v1.Container `json:",inline"`
 }
 
 // GetPredictor returns the framework for the Predictor
@@ -60,7 +60,7 @@ func (i *InferenceService) GetPredictor() Predictor {
 
 // GetPredictorPodSpec returns the PodSpec for the Predictor
 func (i *InferenceService) GetPredictorPodSpec() v1.PodSpec {
-	p := i.Spec.Predictor.CustomPredictor.PodSpec
+	p := i.Spec.Predictor.CustomPredictor.Spec
 	p.Containers = i.GetPredictor().GetContainers()
 	return p
 }
