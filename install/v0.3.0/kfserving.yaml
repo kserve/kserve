@@ -5231,17 +5231,11 @@ spec:
                           required:
                           - name
                           type: object
-                        modelServerConfig:
-                          type: string
                         storageUri:
-                          type: string
-                        tenancyKey:
                           type: string
                       required:
                       - inline
-                      - modelServerConfig
                       - storageUri
-                      - tenancyKey
                       type: object
                   required:
                   - inline
@@ -5790,17 +5784,11 @@ spec:
                           required:
                           - name
                           type: object
-                        modelServerConfig:
-                          type: string
                         storageUri:
-                          type: string
-                        tenancyKey:
                           type: string
                       required:
                       - inline
-                      - modelServerConfig
                       - storageUri
-                      - tenancyKey
                       type: object
                   required:
                   - inline
@@ -6435,17 +6423,11 @@ spec:
                           required:
                           - name
                           type: object
-                        modelServerConfig:
-                          type: string
                         storageUri:
-                          type: string
-                        tenancyKey:
                           type: string
                       required:
                       - inline
-                      - modelServerConfig
                       - storageUri
-                      - tenancyKey
                       type: object
                   required:
                   - inline
@@ -7047,17 +7029,11 @@ spec:
                           required:
                           - name
                           type: object
-                        modelServerConfig:
-                          type: string
                         storageUri:
-                          type: string
-                        tenancyKey:
                           type: string
                       required:
                       - inline
-                      - modelServerConfig
                       - storageUri
-                      - tenancyKey
                       type: object
                     modelClassName:
                       type: string
@@ -7602,17 +7578,11 @@ spec:
                           required:
                           - name
                           type: object
-                        modelServerConfig:
-                          type: string
                         storageUri:
-                          type: string
-                        tenancyKey:
                           type: string
                       required:
                       - inline
-                      - modelServerConfig
                       - storageUri
-                      - tenancyKey
                       type: object
                   required:
                   - inline
