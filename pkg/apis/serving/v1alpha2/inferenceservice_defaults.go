@@ -16,7 +16,9 @@ limitations under the License.
 
 package v1alpha2
 
-import "sigs.k8s.io/controller-runtime/pkg/client"
+import (
+	"sigs.k8s.io/controller-runtime/pkg/client"
+)
 
 // Default implements https://godoc.org/sigs.k8s.io/controller-runtime/pkg/webhook/admission#Defaulter
 
