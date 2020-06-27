@@ -155,7 +155,7 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 		}
 		return reconcile.Result{}, err
 	}
-
+	log.Info("Reconciling inference service", "apiVersion", isvc.APIVersion, "isvc", isvc.Name)
 	configMap := &v1.ConfigMap{}
 	err := r.Get(context.TODO(), types.NamespacedName{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KFServingNamespace}, configMap)
 	if err != nil {
