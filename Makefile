@@ -97,9 +97,11 @@ undeploy-dev:
 manifests: controller-gen
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) paths=./pkg/apis/... output:crd:dir=config/crd
 	$(CONTROLLER_GEN) rbac:roleName=kfserving-manager-role paths=./pkg/controller/inferenceservice/... output:rbac:artifacts:config=config/rbac
+	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths=./pkg/apis/serving/v1alpha2
 	#TODO Remove this until new controller-tools is released
 	perl -pi -e 's/storedVersions: null/storedVersions: []/g' config/crd/serving.kubeflow.org_inferenceservices.yaml
 	perl -pi -e 's/conditions: null/conditions: []/g' config/crd/serving.kubeflow.org_inferenceservices.yaml
+	perl -pi -e 's/Any/string/g' config/crd/serving.kubeflow.org_inferenceservices.yaml
 
 # Run go fmt against code
 fmt:
@@ -118,7 +120,6 @@ endif
 
 # Generate code
 generate: controller-gen
-	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths=./pkg/apis/serving/v1alpha2
 	#TODO update-codegen.sh is not used and requires vendor
 	#hack/update-codegen.sh
 	hack/update-openapigen.sh
@@ -185,7 +186,7 @@ ifeq (, $(shell which controller-gen))
 	CONTROLLER_GEN_TMP_DIR=$$(mktemp -d) ;\
 	cd $$CONTROLLER_GEN_TMP_DIR ;\
 	go mod init tmp ;\
-	go get sigs.k8s.io/controller-tools/cmd/controller-gen@e0d7c9d9723baea95e57a12751864e2e8f7d7c0f ;\
+	go get sigs.k8s.io/controller-tools/cmd/controller-gen@5c0c6ae3b64bccf89fb16353880376d3ce9d9128 ;\
 	rm -rf $$CONTROLLER_GEN_TMP_DIR ;\
 	}
 CONTROLLER_GEN=$(GOPATH)/bin/controller-gen
