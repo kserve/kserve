@@ -266,9 +266,6 @@ type StatusConfigurationSpec struct {
 	Hostname string `json:"host,omitempty"`
 }
 
-// +genclient
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
 // InferenceService is the Schema for the services API
 // +k8s:openapi-gen=true
 // +kubebuilder:object:root=true
@@ -287,7 +284,6 @@ type InferenceService struct {
 	Status InferenceServiceStatus `json:"status,omitempty"`
 }
 
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:object:root=true
 // InferenceServiceList contains a list of Service
 type InferenceServiceList struct {
