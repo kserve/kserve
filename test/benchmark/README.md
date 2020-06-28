@@ -39,7 +39,7 @@ kubectl create -f ./sk_benchmark.yaml
 ```
 
 #### CC=8 With queue proxy and activator on the request path
-Create an `InferenceService` with `ContainerCurrency`(cc) set to 8 which equals to the number of codes on the node.
+Create an `InferenceService` with `ContainerCurrency`(cc) set to 8 which is equal to the number of cores on the node.
 ```yaml
 apiVersion: "serving.kubeflow.org/v1alpha2"
 kind: "InferenceService"
@@ -144,8 +144,8 @@ kubectl create -f ./tf_benchmark.yaml
 ```
 
 #### CC=0
-- Create `InferenceService` with default `ContainerConcurrency` set to 0 which is unlimited concurrency, activator in this case does not do smart load balancing based on
-queue limit.
+- Create `InferenceService` with default `ContainerConcurrency` set to 0 which is unlimited concurrency, activator in this case just pass
+through and you would still expect requests queued on user container in case of request overload.
 ```yaml
 apiVersion: "serving.kubeflow.org/v1alpha2"
 kind: "InferenceService"
@@ -165,12 +165,12 @@ kubectl apply -f ./tf_flowers.yaml
 | QPS/Replicas | mean | p50 | p95 | p99 | Success Rate |
 | --- | --- | --- | --- | --- | --- |
 | 1/s minReplicas=1 | 487.044ms | 488.311ms | 491.165ms | 492.091ms | 100% |
-| 5/s minReplicas=1 | 1.043s | 515.479ms | 1.823s | 4.539s | 100% |
+| 3/s minReplicas=1 | 1.043s | 515.479ms | 1.823s | 4.539s | 100% |
 | 5/s minReplicas=1 | 1.748s | 515.565ms | 3.191s | 11.883s | 99.78% |
 
 #### CC=1
-- Create `InferenceService` with `ContainerConcurrency` set to 1, so activator respect container queue limit 1 and requests do
-not get queued on user pods and requests can go to the pods which have capacity.
+- Create `InferenceService` with `ContainerConcurrency` set to 1, so activator respect container queue limit 1 and in this case requests do
+not get queued on user pods and activator chooses to route the requests to the pods which have capacity.
 
 ```yaml
 apiVersion: "serving.kubeflow.org/v1alpha2"
@@ -192,8 +192,8 @@ spec:
 | 5/s minReplicas=1 | 1.347s | 478.923ms | 3.357s | 6.48s | 100% |
 
 So here you can see that with CC=1, when you send one request at a time the latency does not make much different with CC=0 or CC=1.
-However when you send many concurrent requests you will notice pronounced result when CC=1 because each request takes ~500ms to process and you 
-will observe better tail latency at p95 and p99 thanks to Knative activator smarter load balancing than random. 
+However when you send more concurrent requests you start to notice pronounced result when CC=1 because each request takes ~500ms to process and you 
+will observe better tail latency at p95 and p99 thanks to Knative activator smarter load balancing than random load balancing.
 
 #### Raw Kubernetes Service(Without queue proxy and activator)
 ```yaml
