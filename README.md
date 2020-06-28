@@ -99,15 +99,15 @@ sklearn-iris   http://sklearn-iris.kfserving-test.example.com/v1/models/sklearn-
 ```
 4) Curl the `InferenceService`
 ```bash
-kubectl port-forward --namespace istio-system $(kubectl get pod --namespace istio-system --selector="app=istio-ingressgateway" --output jsonpath='{.items[0].metadata.name}') 8080:80
+kubectl port-forward --namespace istio-system $(kubectl get pod --namespace istio-system --selector="app=istio-ingressgateway" --output jsonpath='{.items[0].metadata.name}') 8080:80 &
 SERVICE_HOSTNAME=$(kubectl get inferenceservice sklearn-iris -n kfserving-test -o jsonpath='{.status.url}' | cut -d "/" -f 3)
 curl -v -H "Host: ${SERVICE_HOSTNAME}" http://localhost:8080/v1/models/sklearn-iris:predict -d @./docs/samples/sklearn/iris-input.json
 ```
 5) Run Performance Test
 ```bash
-kubectl create -f docs/samples/sklearn/perf.test
+kubectl create -f docs/samples/sklearn/perf.yaml -n kfserving-test
 # wait the job to be done and check the log
-kubectl logs load-test8b58n-rgfxr 
+kubectl logs load-test8b58n-rgfxr -n kfserving-test
 Requests      [total, rate, throughput]         30000, 500.02, 499.99
 Duration      [total, attack, wait]             1m0s, 59.998s, 3.336ms
 Latencies     [min, mean, 50, 90, 95, 99, max]  1.743ms, 2.748ms, 2.494ms, 3.363ms, 4.091ms, 7.749ms, 46.354ms
