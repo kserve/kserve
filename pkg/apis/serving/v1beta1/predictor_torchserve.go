@@ -7,7 +7,7 @@ type TorchServeSpec struct {
 	// Defaults PyTorch model class name to 'PyTorchModel'
 	ModelClassName string `json:"modelClassName,omitempty"`
 	// Contains fields shared across all predictors
-	PredictorExtensionSpec `json:"inline"`
+	PredictorExtensionSpec `json:",inline"`
 }
 
 // Validate returns an error if invalid
