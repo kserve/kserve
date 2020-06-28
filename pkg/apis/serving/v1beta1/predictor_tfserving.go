@@ -5,7 +5,7 @@ import v1 "k8s.io/api/core/v1"
 // TFServingSpec defines arguments for configuring Tensorflow model serving.
 type TFServingSpec struct {
 	// Contains fields shared across all predictors
-	PredictorExtensionSpec `json:"inline"`
+	PredictorExtensionSpec `json:",inline"`
 }
 
 // Validate returns an error if invalid
