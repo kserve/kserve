@@ -5,7 +5,7 @@ import v1 "k8s.io/api/core/v1"
 // ONNXRuntimeSpec defines arguments for configuring ONNX model serving.
 type ONNXRuntimeSpec struct {
 	// Contains fields shared across all predictors
-	PredictorExtensionSpec `json:"inline"`
+	PredictorExtensionSpec `json:",inline"`
 }
 
 // Validate returns an error if invalid
