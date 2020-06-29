@@ -10,27 +10,104 @@ data:
             "image": "tensorflow/serving",
             "defaultImageVersion": "1.14.0",
             "defaultGpuImageVersion": "1.14.0-gpu",
+<<<<<<< HEAD
         },
         "onnx": {
             "image": "mcr.microsoft.com/onnxruntime/server",
             "defaultImageVersion": "v1.0.0",
+=======
+            "allowedImageVersions": [
+               "1.11.0",
+               "1.11.0-gpu",
+               "1.12.0",
+               "1.12.0-gpu",
+               "1.13.0",
+               "1.13.0-gpu",
+               "1.14.0",
+               "1.14.0-gpu"       
+            ],
+            "supportedFrameworks": [
+              "tensorflow"
+            ],
+            "multiModelServer": "true"
+        },
+        "onnx": {
+            "image": "mcr.microsoft.com/onnxruntime/server",
+            "defaultImageVersion": "v0.5.1",
+            "allowedImageVersions": [
+               "v0.5.1"
+            ],
+            "supportedFrameworks": [
+              "xgboost",
+              "pytorch",
+              "tensorflow",
+              "sklearn",
+              "caffe2"
+            ],
+            "multiModelServer": "false"
+>>>>>>> Add trained model CRD
         },
         "sklearn": {
             "image": "gcr.io/kfserving/sklearnserver",
             "defaultImageVersion": "v0.3.0",
+<<<<<<< HEAD
+=======
+            "allowedImageVersions": [
+               "v0.3.0"
+            ],
+            "supportedFrameworks": [
+              "sklearn"
+            ],
+            "multiModelServer": "false"
+>>>>>>> Add trained model CRD
         },
         "xgboost": {
             "image": "gcr.io/kfserving/xgbserver",
             "defaultImageVersion": "v0.3.0",
+<<<<<<< HEAD
+=======
+            "allowedImageVersions": [
+               "v0.3.0"
+            ],
+            "supportedFrameworks": [
+              "xgboost"
+            ],
+            "multiModelServer": "false"
+>>>>>>> Add trained model CRD
         },
         "pytorch": {
             "image": "gcr.io/kfserving/pytorchserver",
             "defaultImageVersion": "v0.3.0",
             "defaultGpuImageVersion": "v0.3.0-gpu",
+<<<<<<< HEAD
+=======
+            "allowedImageVersions": [
+               "v0.3.0",
+               "v0.3.0-gpu"
+            ],
+            "supportedFrameworks": [
+              "pytorch"
+            ],
+            "multiModelServer": "false"
+>>>>>>> Add trained model CRD
         },
         "triton": {
             "image": "nvcr.io/nvidia/tritonserver",
             "defaultImageVersion": "20.03-py3",
+<<<<<<< HEAD
+=======
+            "allowedImageVersions": [
+              "20.03-py3"
+            ],
+            "supportedFrameworks": [
+              "tensorrt",
+              "tensorflow",
+              "onnx",
+              "pytorch",
+              "caffe2"
+            ],
+            "multiModelServer": "true"
+>>>>>>> Add trained model CRD
         }
     }
   transformers: |-
