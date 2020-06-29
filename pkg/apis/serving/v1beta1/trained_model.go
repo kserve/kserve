@@ -29,6 +29,7 @@ type TrainedModelSpec struct {
 	// Predictor model spec
 	PredictorModel ModelSpec `json:"predictorModel"`
 }
+
 type ModelSpec struct {
 	// Storage URI for the model repository
 	StorageURI string `json:"storageUri"`
