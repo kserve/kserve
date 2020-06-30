@@ -19,6 +19,9 @@ data:
                "1.13.0-gpu",
                "1.14.0",
                "1.14.0-gpu"       
+            ],
+            "supportedFrameworks": [
+              "tensorflow"
             ]
         },
         "onnx": {
@@ -26,6 +29,13 @@ data:
             "defaultImageVersion": "v0.5.1",
             "allowedImageVersions": [
                "v0.5.1"
+            ],
+            "supportedFrameworks": [
+              "xgboost",
+              "pytorch",
+              "tensorflow",
+              "sklearn",
+              "caffe2"
             ]
         },
         "sklearn": {
@@ -33,6 +43,9 @@ data:
             "defaultImageVersion": "v0.3.0",
             "allowedImageVersions": [
                "v0.3.0"
+            ],
+            "supportedFrameworks": [
+              "sklearn"
             ]
         },
         "xgboost": {
@@ -40,6 +53,9 @@ data:
             "defaultImageVersion": "v0.3.0",
             "allowedImageVersions": [
                "v0.3.0"
+            ],
+            "supportedFrameworks": [
+              "xgboost"
             ]
         },
         "pytorch": {
@@ -49,13 +65,23 @@ data:
             "allowedImageVersions": [
                "v0.3.0",
                "v0.3.0-gpu"
+            ],
+            "supportedFrameworks": [
+              "pytorch"
             ]
         },
         "triton": {
             "image": "nvcr.io/nvidia/tritonserver",
             "defaultImageVersion": "20.03-py3",
             "allowedImageVersions": [
-               "20.03-py3"
+              "20.03-py3"
+            ],
+            "supportedFrameworks": [
+              "tensorrt",
+              "tensorflow",
+              "onnx",
+              "pytorch",
+              "caffe2"
             ]
         }
     }
@@ -69,6 +95,11 @@ data:
             "defaultImageVersion": "v0.3.0",
             "allowedImageVersions": [
                "v0.3.0"
+            ],
+            "supportedModelType": [
+              "tabular",
+              "text",
+              "image"
             ]
         }
     }
