@@ -24,8 +24,8 @@ type ModelSpec struct {
 	StorageURI string `json:"storageUri"`
 	// Default to latest
 	ModelVersionPolicy ModelVersionPolicy `json:"modelVersionPolicy,omitempty"`
-	// Machine Learning <framework name>-<git tag>
-	// The values could be: "tensorflow-v2.2.0","pytorch-v1.5.1","sklearn-0.23.1","onnx-v1.7.0","xgboost-v1.1.1", "myawesomeinternalframework-1.1.0" etc.
+	// Machine Learning <framework name>:<git tag>
+	// The values could be: "tensorflow:v2.2.0","pytorch:v1.5.1","sklearn:0.23.1","onnx:v1.7.0","xgboost:v1.1.1", "myawesomeinternalframework:1.1.0" etc.
 	Framework string `json:"framework"`
 	// Defaults to requests and limits of 1CPU, 2Gb MEM.
 	Resources v1.ResourceRequirements `json:"resources,omitempty"`
