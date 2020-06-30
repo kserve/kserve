@@ -3,14 +3,13 @@ package v1beta1
 import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
 )
 
 type TrainedModel struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-	Spec              TrainedModelSpec         `json:"spec,omitempty"`
-	Status            TrainedModelDeployStatus `json:"status,omitempty"`
+	Spec              TrainedModelSpec   `json:"spec,omitempty"`
+	Status            TrainedModelStatus `json:"status,omitempty"`
 }
 type TrainedModelSpec struct {
 	// Required field for parent inference service
@@ -36,11 +35,4 @@ type ModelVersionPolicy struct {
 	ModelVersionPolicy string `json:"modelVersionPolicy"`
 	// A list of specific model versions to serve, it is required when model version policy is "specific"
 	ModelVersions []string `json:"modelVersions,omitempty"`
-}
-type TrainedModelDeployStatus struct {
-	// Condition for "Deployed"
-	duckv1beta1.Status `json:",inline"`
-	// Addressable endpoint for the deployed trained model
-	// http://inferenceservice.metadata.name/v1/models/trainedmodel.metadata.name
-	Address *duckv1beta1.Addressable `json:"address,omitempty"`
 }
