@@ -30,17 +30,6 @@ spec:
               properties:
                 framework:
                   type: string
-                modelVersionPolicy:
-                  properties:
-                    modelVersionPolicy:
-                      type: string
-                    modelVersions:
-                      items:
-                        type: string
-                      type: array
-                  required:
-                  - modelVersionPolicy
-                  type: object
                 resources:
                   properties:
                     limits:
@@ -72,17 +61,6 @@ spec:
               properties:
                 framework:
                   type: string
-                modelVersionPolicy:
-                  properties:
-                    modelVersionPolicy:
-                      type: string
-                    modelVersions:
-                      items:
-                        type: string
-                      type: array
-                  required:
-                  - modelVersionPolicy
-                  type: object
                 resources:
                   properties:
                     limits:
