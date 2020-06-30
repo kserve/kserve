@@ -26,7 +26,7 @@ type ModelSpec struct {
 	// Default to latest
 	ModelVersionPolicy ModelVersionPolicy `json:"modelVersionPolicy,omitempty"`
 	// ML framework name
-	// +kubebuilder:webhooks:Enum={"tensorflow","pytorch","sklearn","onnx","xgboost", "custom"}
+	// The values could be: "tensorflow","pytorch","sklearn","onnx","xgboost", "custom", "myawesomeinternalframework" etc.
 	Framework string `json:"framework"`
 	// Framework version for the trained model
 	FrameworkVersion string `json:"frameworkVersion,omitempty"`
