@@ -51,6 +51,8 @@ spec:
                   type: object
                 storageUri:
                   type: string
+                type:
+                  type: string
               required:
               - framework
               - storageUri
@@ -81,6 +83,8 @@ spec:
                       type: object
                   type: object
                 storageUri:
+                  type: string
+                type:
                   type: string
               required:
               - framework
