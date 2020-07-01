@@ -22,7 +22,8 @@ data:
             ],
             "supportedFrameworks": [
               "tensorflow"
-            ]
+            ],
+            "multiModelServer": "true"
         },
         "onnx": {
             "image": "mcr.microsoft.com/onnxruntime/server",
@@ -36,7 +37,8 @@ data:
               "tensorflow",
               "sklearn",
               "caffe2"
-            ]
+            ],
+            "multiModelServer": "false"
         },
         "sklearn": {
             "image": "gcr.io/kfserving/sklearnserver",
@@ -46,7 +48,8 @@ data:
             ],
             "supportedFrameworks": [
               "sklearn"
-            ]
+            ],
+            "multiModelServer": "false"
         },
         "xgboost": {
             "image": "gcr.io/kfserving/xgbserver",
@@ -56,7 +59,8 @@ data:
             ],
             "supportedFrameworks": [
               "xgboost"
-            ]
+            ],
+            "multiModelServer": "false"
         },
         "pytorch": {
             "image": "gcr.io/kfserving/pytorchserver",
@@ -68,7 +72,8 @@ data:
             ],
             "supportedFrameworks": [
               "pytorch"
-            ]
+            ],
+            "multiModelServer": "false"
         },
         "triton": {
             "image": "nvcr.io/nvidia/tritonserver",
@@ -82,7 +87,8 @@ data:
               "onnx",
               "pytorch",
               "caffe2"
-            ]
+            ],
+            "multiModelServer": "true"
         }
     }
   transformers: |-
