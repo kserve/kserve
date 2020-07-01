@@ -363,20 +363,6 @@ func TestInferenceServiceWithOnlyPredictor(t *testing.T) {
 	}
 	g.Expect(c.Status().Update(context.TODO(), failingService)).NotTo(gomega.HaveOccurred())
 	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
-	g.Eventually(func() bool {
-		isvc := &kfserving.InferenceService{}
-		err := c.Get(context.TODO(), serviceKey, isvc)
-		if err != nil {
-			return false
-		}
-		if isvc.Status.GetCondition(apis.ConditionReady) == nil {
-			return true // Because ConditionReady might be removed, this is true
-		} else if isvc.Status.GetCondition(apis.ConditionReady).Status ==
-			v1.ConditionFalse {
-			return true
-		}
-		return false
-	}, timeout).Should(gomega.BeTrue())
 	// We are testing for a NonReady event
 	expectedNonReadyEvent := []SimpleEvent{
 		{Count: 1, Type: v1.EventTypeNormal, Reason: string(kfserving.InferenceServiceReadyState)},
