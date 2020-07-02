@@ -36,8 +36,6 @@ spec:
                   type: string
                 storageUri:
                   type: string
-                type:
-                  type: string
               required:
               - framework
               - memory
