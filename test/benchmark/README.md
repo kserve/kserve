@@ -22,6 +22,9 @@ queuing in the user pods.
 - Knative: 0.11.2
 - KFServing: master(with fix for https://github.com/kubeflow/kfserving/issues/844)
 
+Note that `v1.14.10-gke.36` suffers the [CFS throttling bug](https://github.com/kubernetes/kubernetes/issues/67577), 
+and `1.15.11-gke.15` includes the CFS throttling fix.
+
 ## Benchmarking
 
 ### Results on KFServing SKLearn Iris Example
@@ -178,7 +181,7 @@ kubectl apply -f ./tf_flowers.yaml
 | 10/s minReplicas=1 | 946.376ms | 127.961ms | 4.635s | 6.934s | 100% |
 
 #### CC=1
-- Create `InferenceService` with `ContainerConcurrency` set to 1, so activator respect container queue limit 1 and in this case requests do
+- Create `InferenceService` with `ContainerConcurrency` set to 1, activator respects container queue limit 1 so that requests do
 not get queued on user pods and activator chooses to route the requests to the pods which have capacity.
 
 ```yaml
@@ -192,18 +195,25 @@ spec:
       parallelism: 1 #CC=1
       tensorflow:
         storageUri: "gs://kfserving-samples/models/tensorflow/flowers
+        resources:
+          requests:
+            cpu: "4"
+            memory: 2Gi
+          limits:
+            cpu: "4"
+            memory: 2Gi
 ```
 
 | QPS/Replicas | mean | p50 | p95 | p99 | Success Rate |
 | --- | --- | --- | --- | --- | --- |
-| 1/s minReplicas=1 | 95.699ms | 94.642ms | 105.798ms | 110.025ms | 100% |
+| 1/s minReplicas=1 | 103.766ms | 102.869ms | 111.559ms | 116.577ms | 100% |
 | 5/s minReplicas=1 | 117.456ms | 117.117ms | 122.346ms | 126.139ms | 100% |
 | 10/s minReplicas=1 | 702.249ms | 111.289ms | 3.469s | 3.831s | 100% |
 
 
 So here you can see that with CC=1, when you send one request at a time the latency does not make much different with CC=0 or CC=1.
-However when you send more concurrent requests you start to notice pronounced result when CC=1 because each request takes ~500ms to process and you 
-will observe better tail latency at p95 and p99 thanks to Knative activator smarter load balancing than random load balancing.
+However when you send more concurrent requests you start to notice pronounced result when CC=1 because activator starts to take effect and you 
+will observe better tail latency at p95 and p99 thanks to Knative activator [smarter load balancing](https://github.com/knative/serving/issues/5692) than random load balancing.
 
 #### Raw Kubernetes Service(Without queue proxy and activator)
 ```yaml
@@ -220,13 +230,20 @@ spec:
     predictor:
       tensorflow:
         storageUri: "gs://kfserving-samples/models/tensorflow/flowers
+        resources:
+          requests:
+            cpu: "4"
+            memory: 2Gi
+          limits:
+            cpu: "4"
+            memory: 2Gi
 ```
 
 | QPS/Replicas | mean | p50 | p95 | p99 | Success Rate |
 | --- | --- | --- | --- | --- | --- |
-| 1/s Replicas=1 | 458.5ms | 429.096ms | 516.948ms | 522.311ms | 100% |
-| 3/s Replicas=1 | 9.867s | 8.35s | 22.906s | 28.907s | 95.74% |
-| 5/s Replicas=1 | 28.394s | 30s | 30s | 30s | 30.44% |
+| 1/s Replicas=1 | 131.31ms | 142.952ms | 156.444ms | 162.049ms | 100% |
+| 5/s Replicas=1 | 157.063ms | 107.224ms | 118.301ms | 1.728s | 100% |
+| 10/s Replicas=1 | 9.61s | 9.369s | 17.789s | 20.525s | 100% |
 
 This experiment runs the `InferenceService` using HPA with average target utilization 80% of CPU and calls directly to Kubernetes Service bypassing
 the Knative queue proxy and activator. You can see that KPA reacts faster with the load and performs better than HPA for both low latency and high latency 
