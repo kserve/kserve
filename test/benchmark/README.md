@@ -158,6 +158,13 @@ spec:
     predictor:
       tensorflow:
         storageUri: "gs://kfserving-samples/models/tensorflow/flowers
+        resources:
+          requests:
+            cpu: "4"
+            memory: 2Gi
+          limits:
+            cpu: "4"
+            memory: 2Gi
 ```
 
 ```bash
@@ -166,9 +173,9 @@ kubectl apply -f ./tf_flowers.yaml
 
 | QPS/Replicas | mean | p50 | p95 | p99 | Success Rate |
 | --- | --- | --- | --- | --- | --- |
-| 1/s minReplicas=1 | 487.044ms | 488.311ms | 491.165ms | 492.091ms | 100% |
-| 3/s minReplicas=1 | 1.043s | 515.479ms | 1.823s | 4.539s | 100% |
-| 5/s minReplicas=1 | 1.748s | 515.565ms | 3.191s | 11.883s | 99.78% |
+| 1/s minReplicas=1 | 110.54ms | 110.343ms | 116.116ms | 117.298ms | 100% |
+| 5/s minReplicas=1 | 133.272ms | 131.242ms | 148.195ms | 153.291ms | 100% |
+| 10/s minReplicas=1 | 946.376ms | 127.961ms | 4.635s | 6.934s | 100% |
 
 #### CC=1
 - Create `InferenceService` with `ContainerConcurrency` set to 1, so activator respect container queue limit 1 and in this case requests do
@@ -189,9 +196,10 @@ spec:
 
 | QPS/Replicas | mean | p50 | p95 | p99 | Success Rate |
 | --- | --- | --- | --- | --- | --- |
-| 1/s minReplicas=1 | 479.772ms | 481.576ms | 485.584ms | 488.489ms | 100% |
-| 3/s minReplicas=1 | 775.227ms | 460.035ms | 936.037ms | 3.748s | 100% |
-| 5/s minReplicas=1 | 1.347s | 478.923ms | 3.357s | 6.48s | 100% |
+| 1/s minReplicas=1 | 95.699ms | 94.642ms | 105.798ms | 110.025ms | 100% |
+| 5/s minReplicas=1 | 117.456ms | 117.117ms | 122.346ms | 126.139ms | 100% |
+| 10/s minReplicas=1 | 702.249ms | 111.289ms | 3.469s | 3.831s | 100% |
+
 
 So here you can see that with CC=1, when you send one request at a time the latency does not make much different with CC=0 or CC=1.
 However when you send more concurrent requests you start to notice pronounced result when CC=1 because each request takes ~500ms to process and you 
