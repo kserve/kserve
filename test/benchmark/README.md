@@ -224,7 +224,7 @@ metadata:
   annotations:
     autoscaling.knative.dev/class: hpa.autoscaling.knative.dev
     autoscaling.knative.dev/metric: cpu
-    autoscaling.knative.dev/target: "80"
+    autoscaling.knative.dev/target: "60"
 spec:
   default:
     predictor:
@@ -241,9 +241,9 @@ spec:
 
 | QPS/Replicas | mean | p50 | p95 | p99 | Success Rate |
 | --- | --- | --- | --- | --- | --- |
-| 1/s Replicas=1 | 131.31ms | 142.952ms | 156.444ms | 162.049ms | 100% |
-| 5/s Replicas=1 | 157.063ms | 107.224ms | 118.301ms | 1.728s | 100% |
-| 10/s Replicas=1 | 9.61s | 9.369s | 17.789s | 20.525s | 100% |
+| 1/s Replicas=1 | 140.523ms | 141.497ms | 146.764ms | 152.506ms | 100% |
+| 5/s Replicas=1 | 98.32ms | 96.168ms | 108.948ms | 115.585ms | 100% |
+| 10/s Replicas=1 | 5.461s | 5.087s | 12.992s | 14.587s | 100% |
 
 This experiment runs the `InferenceService` using HPA with average target utilization 80% of CPU and calls directly to Kubernetes Service bypassing
 the Knative queue proxy and activator. You can see that KPA reacts faster with the load and performs better than HPA for both low latency and high latency 

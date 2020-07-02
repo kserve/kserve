@@ -12,7 +12,7 @@ spec:
     spec:
       containers:
         - args:
-            - vegeta -cpus=5 attack -keepalive=false -duration=1m -rate=1/1s -targets=/var/vegeta/cfg
+            - vegeta -cpus=5 attack -duration=1m -rate=10/1s -targets=/var/vegeta/cfg
               | vegeta report -type=text
           command:
             - sh
