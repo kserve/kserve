@@ -23,9 +23,9 @@ type ModelSpec struct {
 	// Machine Learning <framework name>:<git tag>
 	// The values could be: "tensorflow:v2.2.0","pytorch:v1.5.1","sklearn:0.23.1","onnx:v1.7.0","xgboost:v1.1.1", "myawesomeinternalframework:1.1.0" etc.
 	Framework string `json:"framework"`
-	// Machine Learning model type, this field is used to match explainer type
+	// Machine Learning model type, this field is used to match explainer type.
 	// +kubebuilder:webhooks:Enum={"tabular","text","image"}
 	Type string `json:"type,omitempty"`
-	//Defaults to requests and limits of 1CPU, 2Gb MEM.
-	Resources v1.ResourceRequirements `json:"resources,omitempty"`
+	// Maximum memory this model will consume, this field is used to decide if a model server has enough memory to load this model.
+	Memory v1.ResourceName `json:"memory"`
 }
