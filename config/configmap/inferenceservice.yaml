@@ -101,11 +101,6 @@ data:
             "defaultImageVersion": "v0.3.0",
             "allowedImageVersions": [
                "v0.3.0"
-            ],
-            "supportedModelType": [
-              "tabular",
-              "text",
-              "image"
             ]
         }
     }
