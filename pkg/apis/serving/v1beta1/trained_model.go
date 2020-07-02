@@ -16,8 +16,6 @@ type TrainedModelSpec struct {
 	InferenceService string `json:"inferenceService"`
 	// Predictor model spec
 	PredictorModel ModelSpec `json:"predictorModel"`
-	// Explainer model spec
-	ExplainerModel ModelSpec `json:"explainerModel,omitempty"`
 }
 type ModelSpec struct {
 	// Storage URI for the model repository
