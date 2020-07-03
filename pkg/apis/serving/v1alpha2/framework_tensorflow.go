@@ -49,11 +49,23 @@ func (t *TensorflowSpec) GetContainer(modelName string, parallelism int, config 
 	}
 
 	return &v1.Container{
-		Image:     config.Predictors.Tensorflow.ContainerImage + ":" + t.RuntimeVersion,
-		Name:      constants.InferenceServiceContainerName,
-		Command:   []string{TensorflowEntrypointCommand},
-		Resources: t.Resources,
-		Args:      arguments,
+		Image:     		config.Predictors.Tensorflow.ContainerImage + ":" + t.RuntimeVersion,
+		Name:      		constants.InferenceServiceContainerName,
+		Command:   		[]string{TensorflowEntrypointCommand},
+		Resources: 		t.Resources,
+		Args:      		arguments,
+		LivenessProbe:  &v1.Probe{
+			Handler: v1.Handler {
+				HTTPGet: &v1.HTTPGetAction{
+					Path: "/v1/models/" + modelName,
+				},
+			},
+			InitialDelaySeconds: 180,
+			PeriodSeconds: 10,
+			FailureThreshold: 3,
+			SuccessThreshold: 1,
+			TimeoutSeconds: 1,
+		},
 	}
 }
 
