@@ -103,3 +103,28 @@ Expected Output
 * Connection #0 to host 169.63.251.68 left intact
 {"predictions": [1.0, 1.0]}
 ```
+
+## Run XGBoost InferenceService with your own image
+Since the KFServing XGBoost image is built from a specific version of `xgboost` pip package, sometimes it might not be compatible with the pickled model
+you saved from your training environment, however you can build your own XGBServer image following [this instruction](../../../python/xgbserver/README.md#building-your-own-xgboost-server-docker-image).
+
+To use your XGBServer image:
+- Add the image to the KFServing [configmap](../../../config/configmap/inferenceservice.yaml)
+```yaml
+        "xgboost": {
+            "image": "<your-dockerhub-id>/kfserving/xbgserver",
+        },
+```
+- Specify the `runtimeVersion` on `InferenceService` spec
+```yaml
+apiVersion: "serving.kubeflow.org/v1alpha2"
+kind: "InferenceService"
+metadata:
+  name: "xgboost-iris"
+spec:
+  default:
+    predictor:
+      sklearn:
+        storageUri: "gs://kfserving-samples/models/xgboost/iris"
+        runtimeVersion: X.X.X
+```
