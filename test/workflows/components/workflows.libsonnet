@@ -91,8 +91,9 @@
         // command: List to pass as the container command.
         buildTemplate(step_name, image, command):: {
           name: step_name,
-          retryStrategy:
-            limit: 3
+          retryStrategy: {
+            limit: 3,
+          }
           container: {
             command: command,
             image: image,
