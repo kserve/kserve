@@ -62,23 +62,23 @@ deploy-dev: manifests
 
 deploy-dev-sklearn: docker-push-sklearn
 	./hack/model_server_patch_dev.sh sklearn ${KO_DOCKER_REPO}/${SKLEARN_IMG}
-	kustomize build config/overlays/dev-image-config | kubectl apply -f -
+	kustomize build config/overlays/dev-image-config | kubectl apply --validate=false -f -
 
 deploy-dev-xgb: docker-push-xgb
 	./hack/model_server_patch_dev.sh xgboost ${KO_DOCKER_REPO}/${XGB_IMG}
-	kustomize build config/overlays/dev-image-config | kubectl apply -f -
+	kustomize build config/overlays/dev-image-config | kubectl apply --validate=false -f -
 
 deploy-dev-pytorch: docker-push-pytorch
 	./hack/model_server_patch_dev.sh pytorch ${KO_DOCKER_REPO}/${PYTORCH_IMG}
-	kustomize build config/overlays/dev-image-config | kubectl apply -f -
+	kustomize build config/overlays/dev-image-config | kubectl apply --validate=false -f -
 
 deploy-dev-alibi: docker-push-alibi
 	./hack/alibi_patch_dev.sh ${KO_DOCKER_REPO}/${ALIBI_IMG}
-	kustomize build config/overlays/dev-image-config | kubectl apply -f -
+	kustomize build config/overlays/dev-image-config | kubectl apply --validate=false -f -
 
 deploy-dev-storageInitializer: docker-push-storageInitializer
 	./hack/misc_patch_dev.sh storageInitializer ${KO_DOCKER_REPO}/${STORAGE_INIT_IMG}
-	kustomize build config/overlays/dev-image-config | kubectl apply -f -
+	kustomize build config/overlays/dev-image-config | kubectl apply --validate=false -f -
 
 deploy-ci: manifests
 	kustomize build config/overlays/test | kubectl apply -f -

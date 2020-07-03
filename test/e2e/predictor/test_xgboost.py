@@ -30,7 +30,7 @@ api_version = constants.KFSERVING_GROUP + '/' + constants.KFSERVING_VERSION
 KFServing = KFServingClient(config_file="~/.kube/config")
 
 
-def test_sklearn_kfserving():
+def test_xgboost_kfserving():
     service_name = 'isvc-xgboost'
     default_endpoint_spec = V1alpha2EndpointSpec(
         predictor=V1alpha2PredictorSpec(

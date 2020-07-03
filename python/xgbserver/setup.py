@@ -33,8 +33,8 @@ setup(
     packages=find_packages("xgbserver"),
     install_requires=[
         "kfserving>=0.3.0",
-        "xgboost == 1.1.0",
-        "scikit-learn == 0.24",
+        "xgboost == 0.82",
+        "scikit-learn == 0.20.3",
         "argparse >= 1.4.0"
     ],
     tests_require=tests_require,

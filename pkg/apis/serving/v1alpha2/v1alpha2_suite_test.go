@@ -72,61 +72,34 @@ func TestMain(m *testing.M) {
 			"tensorflow" : {
 				"image" : "tensorflow/serving",
 				"defaultImageVersion": "latest",
-				"defaultGPUImageVersion": "latest-gpu",
-				"allowedImageVersions": [
-				   "latest",
-				   "latest-gpu"
-				]
+				"defaultGPUImageVersion": "latest-gpu"
 			},
 			"sklearn" : {
 				"image" : "kfserving/sklearnserver",
-				"defaultImageVersion": "0.1.0",
-				"allowedImageVersions": [
-				   "latest",
-				   "0.1.0"
-				]
+				"defaultImageVersion": "0.1.0"
 			},
 			"xgboost" : {
 				"image" : "kfserving/xgbserver",
-				"defaultImageVersion": "0.1.0",
-				"allowedImageVersions": [
-				   "latest",
-				   "0.1.0"
-				]
+				"defaultImageVersion": "0.1.0"
 			},
 			"pytorch" : {
 				"image" : "kfserving/pytorchserver",
 				"defaultImageVersion": "0.1.0",
-                "defaultGPUImageVersion": "0.1.0-gpu",
-				"allowedImageVersions": [
-				   "latest",
-				   "0.1.0",
-                   "0.1.0-gpu"
-				]
+                "defaultGPUImageVersion": "0.1.0-gpu"
 			},
 			"onnx" : {
 				"image" : "onnxruntime/server",
-				"defaultImageVersion": "v0.5.0",
-				"allowedImageVersions": [
-				   "latest",
-				   "v0.5.0"
-				]
+				"defaultImageVersion": "v0.5.0"
 			},
 			"triton" : {
 				"image" : "nvcr.io/nvidia/tritonserver",
-				"defaultImageVersion": "19.05-py3",
-				"allowedImageVersions": [
-				   "19.05-py3"
-				]
+				"defaultImageVersion": "19.05-py3"
 			}
 		}`,
 		"explainers": `{
 			"alibi" : {
 				"image" : "docker.io/seldonio/alibiexplainer",
-				"defaultImageVersion": "0.2.3",
-				"allowedImageVersions": [
-				   "0.2.3"
-				]
+				"defaultImageVersion": "0.2.3"
 			}
         }`,
 	}

@@ -79,10 +79,7 @@ var configs = map[string]string{
 	"explainers": `{
         "alibi": {
             "image" : "kfserving/alibi-explainer",
-			"defaultImageVersion": "latest",
-			"allowedImageVersions": [
-				"latest"
-			 ]
+			"defaultImageVersion": "latest"
         }
 	}`,
 	"ingress": `{
@@ -380,18 +377,7 @@ func TestInferenceServiceWithOnlyPredictor(t *testing.T) {
 	}
 	g.Expect(c.Status().Update(context.TODO(), succedingService)).NotTo(gomega.HaveOccurred())
 	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
-	g.Eventually(func() bool {
-		isvc := &kfserving.InferenceService{}
-		err := c.Get(context.TODO(), serviceKey, isvc)
-		if err != nil || isvc.Status.GetCondition(apis.ConditionReady) == nil {
-			return false
-		}
-		if isvc.Status.GetCondition(apis.ConditionReady).Status ==
-			v1.ConditionTrue {
-			return true
-		}
-		return false
-	}, timeout).Should(gomega.BeTrue())
+
 	// We are testing for another Ready event
 	expectedTwoReadyEvents := []SimpleEvent{
 		{Count: 1, Type: v1.EventTypeWarning, Reason: string(kfserving.InferenceServiceNotReadyState)},
