@@ -2,7 +2,6 @@ package v1alpha2
 
 import (
 	"fmt"
-	"strings"
 	"testing"
 
 	"github.com/kubeflow/kfserving/pkg/constants"
@@ -14,10 +13,6 @@ import (
 
 func TestFrameworkSKLearn(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	allowedSKLearnImageVersionsArray := []string{
-		DefaultSKLearnRuntimeVersion,
-	}
-	allowedSKLearnImageVersions := strings.Join(allowedSKLearnImageVersionsArray, ", ")
 
 	scenarios := map[string]struct {
 		spec    SKLearnSpec
@@ -29,21 +24,14 @@ func TestFrameworkSKLearn(t *testing.T) {
 			},
 			matcher: gomega.Succeed(),
 		},
-		"RejectBadRuntimeVersion": {
-			spec: SKLearnSpec{
-				RuntimeVersion: "",
-			},
-			matcher: gomega.MatchError(fmt.Sprintf(InvalidSKLearnRuntimeVersionError, allowedSKLearnImageVersions)),
-		},
 	}
 
 	for name, scenario := range scenarios {
 		config := &InferenceServicesConfig{
 			Predictors: &PredictorsConfig{
 				SKlearn: PredictorConfig{
-					ContainerImage:       "kfserving/sklearnserver",
-					DefaultImageVersion:  "latest",
-					AllowedImageVersions: allowedSKLearnImageVersionsArray,
+					ContainerImage:      "kfserving/sklearnserver",
+					DefaultImageVersion: "latest",
 				},
 			},
 		}

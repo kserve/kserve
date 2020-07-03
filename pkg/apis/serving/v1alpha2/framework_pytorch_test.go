@@ -2,7 +2,6 @@ package v1alpha2
 
 import (
 	"fmt"
-	"strings"
 	"testing"
 
 	"github.com/kubeflow/kfserving/pkg/constants"
@@ -14,11 +13,6 @@ import (
 
 func TestFrameworkPytorch(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	allowedPyTorchImageVersionsArray := []string{
-		DefaultPyTorchRuntimeVersion,
-		DefaultPyTorchRuntimeVersionGPU,
-	}
-	allowedPyTorchImageVersions := strings.Join(allowedPyTorchImageVersionsArray, ", ")
 
 	scenarios := map[string]struct {
 		spec    PyTorchSpec
@@ -30,17 +24,11 @@ func TestFrameworkPytorch(t *testing.T) {
 			},
 			matcher: gomega.Succeed(),
 		},
-		"RejectBadRuntimeVersion": {
-			spec: PyTorchSpec{
-				RuntimeVersion: "",
-			},
-			matcher: gomega.MatchError(fmt.Sprintf(InvalidPyTorchRuntimeVersionError, allowedPyTorchImageVersions)),
-		},
 		"RejectGPUResourcesExcluded": {
 			spec: PyTorchSpec{
 				RuntimeVersion: DefaultPyTorchRuntimeVersionGPU,
 			},
-			matcher: gomega.MatchError(fmt.Sprintf(InvalidPyTorchRuntimeExcludesGPU, allowedPyTorchImageVersions)),
+			matcher: gomega.MatchError(fmt.Sprintf(InvalidPyTorchRuntimeExcludesGPU)),
 		},
 		"RejectGPUResourcesIncluded": {
 			spec: PyTorchSpec{
@@ -49,16 +37,15 @@ func TestFrameworkPytorch(t *testing.T) {
 					Limits: v1.ResourceList{constants.NvidiaGPUResourceType: resource.MustParse("1")},
 				},
 			},
-			matcher: gomega.MatchError(fmt.Sprintf(InvalidPyTorchRuntimeIncludesGPU, allowedPyTorchImageVersions)),
+			matcher: gomega.MatchError(fmt.Sprintf(InvalidPyTorchRuntimeIncludesGPU)),
 		},
 	}
 
 	config := &InferenceServicesConfig{
 		Predictors: &PredictorsConfig{
 			PyTorch: PredictorConfig{
-				ContainerImage:       "kfserving/pytorchserver",
-				DefaultImageVersion:  "0.1.0",
-				AllowedImageVersions: allowedPyTorchImageVersionsArray,
+				ContainerImage:      "kfserving/pytorchserver",
+				DefaultImageVersion: "0.1.0",
 			},
 		},
 	}
