@@ -73,7 +73,7 @@ class KFModel:
             raise NotImplementedError
 
         response = await self._http_client.fetch(
-            url=PREDICTOR_URL_FORMAT.format(self.explainer_host, self.name),
+            url=EXPLAINER_URL_FORMAT.format(self.explainer_host, self.name),
             method='POST',
             request_timeout=self.timeout,
             body=json.dumps(request)
