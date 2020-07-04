@@ -1,3 +1,4 @@
+import inspect
 import tornado.web
 import json
 from typing import Dict
@@ -41,7 +42,7 @@ class PredictHandler(HTTPHandler):
             )
         request = model.preprocess(body)
         request = self.validate(request)
-        response = await model.predict(request)
+        response = await model.predict(request) if inspect.iscoroutinefunction(model.predict) else model.predict(request)
         response = model.postprocess(response)
         self.write(response)
 
@@ -58,6 +59,6 @@ class ExplainHandler(HTTPHandler):
             )
         request = model.preprocess(body)
         request = self.validate(request)
-        response = await model.explain(request)
+        response = await model.explain(request) if inspect.iscoroutinefunction(model.explain) else model.explain(request)
         response = model.postprocess(response)
         self.write(response)
