@@ -220,7 +220,7 @@ will observe better tail latency at p95 and p99 thanks to Knative activator [sma
 apiVersion: "serving.kubeflow.org/v1alpha2"
 kind: "InferenceService"
 metadata:
-  name: "flowers-sample"
+  name: "flowers-sample-hpa"
   annotations:
     autoscaling.knative.dev/class: hpa.autoscaling.knative.dev
     autoscaling.knative.dev/metric: cpu
@@ -238,11 +238,50 @@ spec:
             cpu: "4"
             memory: 2Gi
 ```
+Setup virtual service to bypass the knative proxy and update vegeta config target URL to 
+`http://flowers-sample-raw.default.svc.cluster.local/v1/models/flowers-sample-hpa:predict`
+
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: flowers-sample-raw
+  namespace: default
+spec:
+  externalName: cluster-local-gateway.istio-system.svc.cluster.local
+  sessionAffinity: None
+  type: ExternalName
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: flowers-sample-raw
+spec:
+  gateways:
+  - knative-serving/cluster-local-gateway
+  hosts:
+  - flowers-sample-raw.default.svc.cluster.local
+  http:
+  - match:
+    - authority:
+        regex: ^flowers-sample-raw\.default(\.svc(\.cluster\.local)?)?(?::\d{1,5})?$
+      gateways:
+      - knative-serving/cluster-local-gateway
+      uri:
+        regex: ^/v1/models/[\w-]+(:predict)?
+    route:
+    - destination:
+        host: flowers-sample-hpa-predictor-default-95bbz-private.default.svc.cluster.local #this is the private service to user container
+        port:
+          number: 80
+      weight: 100 
+```
 
 | QPS/Replicas | mean | p50 | p95 | p99 | Success Rate |
 | --- | --- | --- | --- | --- | --- |
-| 1/s Replicas=1 | 140.523ms | 141.497ms | 146.764ms | 152.506ms | 100% |
-| 5/s Replicas=1 | 98.32ms | 96.168ms | 108.948ms | 115.585ms | 100% |
+| 1/s Replicas=1 | 129.143ms | 112.853ms | 118.143ms | 128.557ms | 100% |
+| 5/s Replicas=1 | 127.947ms | 127.549ms | 132.171ms | 135.801ms | 100% |
 | 10/s Replicas=1 | 5.461s | 5.087s | 12.992s | 14.587s | 100% |
 
 This experiment runs the `InferenceService` using HPA with average target utilization 80% of CPU and calls directly to Kubernetes Service bypassing

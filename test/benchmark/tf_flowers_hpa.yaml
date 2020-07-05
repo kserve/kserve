@@ -1,7 +1,7 @@
 apiVersion: "serving.kubeflow.org/v1alpha2"
 kind: "InferenceService"
 metadata:
-  name: "flowers-sample"
+  name: "flowers-sample-hpa"
   annotations:
     autoscaling.knative.dev/class: hpa.autoscaling.knative.dev
     autoscaling.knative.dev/metric: cpu

@@ -1,7 +1,7 @@
 apiVersion: v1
 data:
   cfg: |
-    POST http://flowers-sample-raw.default.svc.cluster.local/v1/models/flowers-sample:predict
+    POST http://flowers-sample.default.svc.cluster.local/v1/models/flowers-sample:predict
     @/var/vegeta/payload
   payload: |
     {
