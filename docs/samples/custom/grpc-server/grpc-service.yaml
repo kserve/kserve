@@ -9,6 +9,7 @@ spec:
     predictor:
       custom:
         container:
+          name: grpc
           image: docker.io/iamlovingit/helloworld-grpc:latest
           ports:
           - name: h2c
