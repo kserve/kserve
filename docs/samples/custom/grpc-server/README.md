@@ -34,6 +34,7 @@ spec:
     predictor:
       custom:
         container:
+          name: grpc
           image: docker.io/{username}/helloworld-grpc:latest
           ports:
           - name: h2c
@@ -51,14 +52,14 @@ spec:
 **Get the inference service address:**
 
 ```
-kubectl get ksvc grpc-service-predictor-default
+kubectl get inferenceservice grpc-service
 ```
 
 **Expect output**
 
 ```
-NAME                             URL                                                                  READY   REASON
-grpc-service-predictor-default   http://grpc-service-predictor-default.default.1.2.3.4.xip.io   True    
+NAME           URL                                                READY   DEFAULT TRAFFIC   CANARY TRAFFIC   AGE
+grpc-service   http://grpc-service.default.1.2.3.4.xip.io         True    100                                4m30s
 ```
 **How to setup the magic DNS**
 
@@ -78,7 +79,7 @@ Replace `{username}` with your Docker Hub user name and run the command:
 ```shell
 docker run --rm {username}/helloworld-grpc \
   /client \
-  -server_addr="grpc-service-predictor-default.default.1.2.3.4.xip.io:80" \
+  -server_addr="grpc-service.default.1.2.3.4.xip.io:80" \
   -insecure
 ```
 
