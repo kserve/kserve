@@ -34,7 +34,7 @@ func TestCreateVirtualService(t *testing.T) {
 	serviceName := "my-model"
 	namespace := "test"
 	domain := "example.com"
-	expectedURL := constants.InferenceServiceURL("http", serviceName, namespace, domain)
+	expectedURL := "http://" + constants.InferenceServiceHostName(serviceName, namespace, domain)
 	serviceHostName := constants.InferenceServiceHostName(serviceName, namespace, domain)
 	serviceInternalHostName := network.GetServiceHostname(serviceName, namespace)
 	predictorHostname := constants.InferenceServiceHostName(constants.DefaultPredictorServiceName(serviceName), namespace, domain)
@@ -44,11 +44,6 @@ func TestCreateVirtualService(t *testing.T) {
 	canaryTransformerHostname := constants.InferenceServiceHostName(constants.CanaryTransformerServiceName(serviceName), namespace, domain)
 	predictorRouteMatch := []*istiov1alpha3.HTTPMatchRequest{
 		{
-			Uri: &istiov1alpha3.StringMatch{
-				MatchType: &istiov1alpha3.StringMatch_Regex{
-					Regex: constants.PredictPrefix(),
-				},
-			},
 			Authority: &istiov1alpha3.StringMatch{
 				MatchType: &istiov1alpha3.StringMatch_Regex{
 					Regex: constants.HostRegExp(constants.InferenceServiceHostName(serviceName, namespace, domain)),
@@ -57,11 +52,6 @@ func TestCreateVirtualService(t *testing.T) {
 			Gateways: []string{constants.KnativeIngressGateway},
 		},
 		{
-			Uri: &istiov1alpha3.StringMatch{
-				MatchType: &istiov1alpha3.StringMatch_Regex{
-					Regex: constants.PredictPrefix(),
-				},
-			},
 			Authority: &istiov1alpha3.StringMatch{
 				MatchType: &istiov1alpha3.StringMatch_Regex{
 					Regex: constants.HostRegExp(network.GetServiceHostname(serviceName, namespace)),
@@ -140,8 +130,8 @@ func TestCreateVirtualService(t *testing.T) {
 							},
 						},
 						Retries: &istiov1alpha3.HTTPRetry{
-							Attempts:      3,
-							PerTryTimeout: RetryTimeout,
+							Attempts:      0,
+							PerTryTimeout: nil,
 						},
 					},
 				},
@@ -230,8 +220,8 @@ func TestCreateVirtualService(t *testing.T) {
 							},
 						},
 						Retries: &istiov1alpha3.HTTPRetry{
-							Attempts:      3,
-							PerTryTimeout: RetryTimeout,
+							Attempts:      0,
+							PerTryTimeout: nil,
 						},
 					},
 				},
@@ -307,8 +297,8 @@ func TestCreateVirtualService(t *testing.T) {
 							},
 						},
 						Retries: &istiov1alpha3.HTTPRetry{
-							Attempts:      3,
-							PerTryTimeout: RetryTimeout,
+							Attempts:      0,
+							PerTryTimeout: nil,
 						},
 					},
 				},
@@ -395,8 +385,8 @@ func TestCreateVirtualService(t *testing.T) {
 							},
 						},
 						Retries: &istiov1alpha3.HTTPRetry{
-							Attempts:      3,
-							PerTryTimeout: RetryTimeout,
+							Attempts:      0,
+							PerTryTimeout: nil,
 						},
 					},
 				},
@@ -459,24 +449,6 @@ func TestCreateVirtualService(t *testing.T) {
 				Gateways: []string{constants.KnativeIngressGateway, constants.KnativeLocalGateway},
 				Http: []*istiov1alpha3.HTTPRoute{
 					{
-						Match: predictorRouteMatch,
-						Route: []*istiov1alpha3.HTTPRouteDestination{
-							{
-								Destination: &istiov1alpha3.Destination{Host: constants.LocalGatewayHost, Port: &istiov1alpha3.PortSelector{Number: constants.CommonDefaultHttpPort}},
-								Weight:      100,
-								Headers: &istiov1alpha3.Headers{
-									Request: &istiov1alpha3.Headers_HeaderOperations{Set: map[string]string{
-										"Host": network.GetServiceHostname(constants.DefaultPredictorServiceName(serviceName), namespace)},
-									},
-								},
-							},
-						},
-						Retries: &istiov1alpha3.HTTPRetry{
-							Attempts:      3,
-							PerTryTimeout: RetryTimeout,
-						},
-					},
-					{
 						Match: []*istiov1alpha3.HTTPMatchRequest{
 							{
 								Uri: &istiov1alpha3.StringMatch{
@@ -517,8 +489,26 @@ func TestCreateVirtualService(t *testing.T) {
 							},
 						},
 						Retries: &istiov1alpha3.HTTPRetry{
-							Attempts:      3,
-							PerTryTimeout: RetryTimeout,
+							Attempts:      0,
+							PerTryTimeout: nil,
+						},
+					},
+					{
+						Match: predictorRouteMatch,
+						Route: []*istiov1alpha3.HTTPRouteDestination{
+							{
+								Destination: &istiov1alpha3.Destination{Host: constants.LocalGatewayHost, Port: &istiov1alpha3.PortSelector{Number: constants.CommonDefaultHttpPort}},
+								Weight:      100,
+								Headers: &istiov1alpha3.Headers{
+									Request: &istiov1alpha3.Headers_HeaderOperations{Set: map[string]string{
+										"Host": network.GetServiceHostname(constants.DefaultPredictorServiceName(serviceName), namespace)},
+									},
+								},
+							},
+						},
+						Retries: &istiov1alpha3.HTTPRetry{
+							Attempts:      0,
+							PerTryTimeout: nil,
 						},
 					},
 				},
