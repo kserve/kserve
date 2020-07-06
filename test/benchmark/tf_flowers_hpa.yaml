@@ -1,0 +1,20 @@
+apiVersion: "serving.kubeflow.org/v1alpha2"
+kind: "InferenceService"
+metadata:
+  name: "flowers-sample-hpa"
+  annotations:
+    autoscaling.knative.dev/class: hpa.autoscaling.knative.dev
+    autoscaling.knative.dev/metric: cpu
+    autoscaling.knative.dev/target: "60"
+spec:
+  default:
+    predictor:
+      tensorflow:
+        storageUri: "gs://kfserving-samples/models/tensorflow/flowers"
+        resources:
+          requests:
+            cpu: "4"
+            memory: "2Gi"
+          limits:
+            cpu: "4"
+            memory: "2Gi"

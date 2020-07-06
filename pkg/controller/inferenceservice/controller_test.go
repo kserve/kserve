@@ -25,8 +25,6 @@ import (
 
 	"knative.dev/pkg/network"
 
-	"github.com/kubeflow/kfserving/pkg/controller/inferenceservice/resources/knative"
-
 	"k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/google/go-cmp/cmp"
@@ -174,7 +172,6 @@ func TestInferenceServiceWithOnlyPredictor(t *testing.T) {
 							"autoscaling.knative.dev/class":                            "kpa.autoscaling.knative.dev",
 							"autoscaling.knative.dev/maxScale":                         "3",
 							"autoscaling.knative.dev/minScale":                         "1",
-							"queue.sidecar.serving.knative.dev/resourcePercentage":     knative.DefaultQueueSideCarResourcePercentage,
 							constants.StorageInitializerSourceUriInternalAnnotationKey: defaultInstance.Spec.Default.Predictor.Tensorflow.StorageURI,
 						},
 					},
@@ -495,7 +492,6 @@ func TestInferenceServiceWithDefaultAndCanaryPredictor(t *testing.T) {
 							"autoscaling.knative.dev/class":                            "kpa.autoscaling.knative.dev",
 							"autoscaling.knative.dev/maxScale":                         "3",
 							"autoscaling.knative.dev/minScale":                         "1",
-							"queue.sidecar.serving.knative.dev/resourcePercentage":     knative.DefaultQueueSideCarResourcePercentage,
 							constants.StorageInitializerSourceUriInternalAnnotationKey: canary.Spec.Canary.Predictor.Tensorflow.StorageURI,
 						},
 					},
@@ -1097,11 +1093,10 @@ func TestInferenceServiceWithTransformer(t *testing.T) {
 							constants.KServiceComponentLabel: constants.Transformer.String(),
 						},
 						Annotations: map[string]string{
-							"autoscaling.knative.dev/target":                       "1",
-							"autoscaling.knative.dev/class":                        "kpa.autoscaling.knative.dev",
-							"autoscaling.knative.dev/maxScale":                     "3",
-							"autoscaling.knative.dev/minScale":                     "1",
-							"queue.sidecar.serving.knative.dev/resourcePercentage": knative.DefaultQueueSideCarResourcePercentage,
+							"autoscaling.knative.dev/target":   "1",
+							"autoscaling.knative.dev/class":    "kpa.autoscaling.knative.dev",
+							"autoscaling.knative.dev/maxScale": "3",
+							"autoscaling.knative.dev/minScale": "1",
 						},
 					},
 					Spec: knservingv1.RevisionSpec{
@@ -1661,11 +1656,10 @@ func TestInferenceServiceWithExplainer(t *testing.T) {
 							constants.KServiceComponentLabel: constants.Explainer.String(),
 						},
 						Annotations: map[string]string{
-							"autoscaling.knative.dev/target":                       "1",
-							"autoscaling.knative.dev/class":                        "kpa.autoscaling.knative.dev",
-							"autoscaling.knative.dev/maxScale":                     "3",
-							"autoscaling.knative.dev/minScale":                     "1",
-							"queue.sidecar.serving.knative.dev/resourcePercentage": knative.DefaultQueueSideCarResourcePercentage,
+							"autoscaling.knative.dev/target":   "1",
+							"autoscaling.knative.dev/class":    "kpa.autoscaling.knative.dev",
+							"autoscaling.knative.dev/maxScale": "3",
+							"autoscaling.knative.dev/minScale": "1",
 						},
 					},
 					Spec: knservingv1.RevisionSpec{
