@@ -14,13 +14,9 @@ limitations under the License.
 package v1alpha2
 
 import (
-	"fmt"
-	"strconv"
-	"strings"
-
 	"github.com/kubeflow/kfserving/pkg/constants"
-	"github.com/kubeflow/kfserving/pkg/utils"
 	v1 "k8s.io/api/core/v1"
+	"strconv"
 )
 
 var (
@@ -64,9 +60,5 @@ func (s *ONNXSpec) ApplyDefaults(config *InferenceServicesConfig) {
 }
 
 func (s *ONNXSpec) Validate(config *InferenceServicesConfig) error {
-	if !utils.Includes(config.Predictors.ONNX.AllowedImageVersions, s.RuntimeVersion) {
-		return fmt.Errorf(InvalidONNXRuntimeVersionError, strings.Join(config.Predictors.ONNX.AllowedImageVersions, ", "))
-	}
-
 	return nil
 }

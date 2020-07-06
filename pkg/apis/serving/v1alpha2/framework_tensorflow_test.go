@@ -18,7 +18,6 @@ package v1alpha2
 
 import (
 	"fmt"
-	"strings"
 	"testing"
 
 	"github.com/kubeflow/kfserving/pkg/constants"
@@ -30,11 +29,7 @@ import (
 
 func TestFrameworkTensorflow(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	allowedTFServingImageVersionsArray := []string{
-		"latest",
-		"latest-gpu",
-	}
-	allowedTFServingImageVersions := strings.Join(allowedTFServingImageVersionsArray, ", ")
+
 	scenarios := map[string]struct {
 		spec    TensorflowSpec
 		matcher types.GomegaMatcher
@@ -45,17 +40,11 @@ func TestFrameworkTensorflow(t *testing.T) {
 			},
 			matcher: gomega.Succeed(),
 		},
-		"RejectBadRuntimeVersion": {
-			spec: TensorflowSpec{
-				RuntimeVersion: "",
-			},
-			matcher: gomega.MatchError(fmt.Sprintf(InvalidTensorflowRuntimeVersionError, allowedTFServingImageVersions)),
-		},
 		"RejectGPUResourcesExcluded": {
 			spec: TensorflowSpec{
 				RuntimeVersion: DefaultTensorflowRuntimeVersionGPU,
 			},
-			matcher: gomega.MatchError(fmt.Sprintf(InvalidTensorflowRuntimeExcludesGPU, allowedTFServingImageVersions)),
+			matcher: gomega.MatchError(fmt.Sprintf(InvalidTensorflowRuntimeExcludesGPU)),
 		},
 		"RejectGPUResourcesIncluded": {
 			spec: TensorflowSpec{
@@ -64,7 +53,7 @@ func TestFrameworkTensorflow(t *testing.T) {
 					Limits: v1.ResourceList{constants.NvidiaGPUResourceType: resource.MustParse("1")},
 				},
 			},
-			matcher: gomega.MatchError(fmt.Sprintf(InvalidTensorflowRuntimeIncludesGPU, allowedTFServingImageVersions)),
+			matcher: gomega.MatchError(fmt.Sprintf(InvalidTensorflowRuntimeIncludesGPU)),
 		},
 	}
 
@@ -75,7 +64,6 @@ func TestFrameworkTensorflow(t *testing.T) {
 					ContainerImage:         "tensorflow/serving",
 					DefaultImageVersion:    "latest",
 					DefaultGpuImageVersion: "latest-gpu",
-					AllowedImageVersions:   allowedTFServingImageVersionsArray,
 				},
 			},
 		}

@@ -118,6 +118,9 @@ To build your own image, navigate up one directory level to the `python` directo
 docker build -t docker_user_name/xgbserver -f xgb.Dockerfile .
 ```
 
+Sometimes you may want to build the `XGBServer` image with a different version of `XGBoost`, you can modify the version `"xgboost == X.X.X"` in `setup.py` and build the image with
+tag like `docker_user_name/xgbserver:1.1.0`.
+
 You should see an output similar to this
 
 ```bash

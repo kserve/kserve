@@ -78,10 +78,7 @@ var configs = map[string]string{
 	"explainers": `{
         "alibi": {
             "image" : "kfserving/alibi-explainer",
-			"defaultImageVersion": "latest",
-			"allowedImageVersions": [
-				"latest"
-			 ]
+			"defaultImageVersion": "latest"
         }
 	}`,
 	"ingress": `{
@@ -336,72 +333,6 @@ func TestInferenceServiceWithOnlyPredictor(t *testing.T) {
 			return nil
 		}
 		return fmt.Errorf("test %q failed: [%v] did not equal [%v]", serviceName, events, expectedReadyEvents)
-	}, timeout).Should(gomega.Succeed())
-	// Testing that when service fails, that an event is thrown
-	failingService := &knservingv1.Service{}
-	g.Eventually(func() error { return c.Get(context.TODO(), predictorService, failingService) }, timeout).
-		Should(gomega.Succeed())
-	failingService.Status.LatestCreatedRevisionName = "revision-v2"
-	failingService.Status.LatestReadyRevisionName = "revision-v2"
-	failingService.Status.URL = nil
-	failingService.Status.Conditions = duckv1.Conditions{
-		{
-			Type:   knservingv1.ServiceConditionReady,
-			Status: "False",
-		},
-	}
-	g.Expect(c.Status().Update(context.TODO(), failingService)).NotTo(gomega.HaveOccurred())
-	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
-	// We are testing for a NonReady event
-	expectedNonReadyEvent := []SimpleEvent{
-		{Count: 1, Type: v1.EventTypeNormal, Reason: string(kfserving.InferenceServiceReadyState)},
-		{Count: 1, Type: v1.EventTypeWarning, Reason: string(kfserving.InferenceServiceNotReadyState)},
-	}
-	g.Eventually(func() error {
-		events := getEvents()
-		if reflect.DeepEqual(events, expectedNonReadyEvent) {
-			return nil
-		}
-		return fmt.Errorf("test %q failed: [%v] did not equal [%v]", serviceName, events, expectedNonReadyEvent)
-	}, timeout).Should(gomega.Succeed())
-	succedingService := &knservingv1.Service{}
-	g.Eventually(func() error { return c.Get(context.TODO(), predictorService, succedingService) }, timeout).
-		Should(gomega.Succeed())
-	succedingService.Status.LatestCreatedRevisionName = "revision-v3"
-	succedingService.Status.LatestReadyRevisionName = "revision-v3"
-	succedingService.Status.URL, _ = apis.ParseURL(
-		"http://" + constants.InferenceServiceHostName(constants.DefaultPredictorServiceName(serviceKey.Name), serviceKey.Namespace, domain))
-	succedingService.Status.Conditions = duckv1.Conditions{
-		{
-			Type:   knservingv1.ServiceConditionReady,
-			Status: "True",
-		},
-	}
-	g.Expect(c.Status().Update(context.TODO(), succedingService)).NotTo(gomega.HaveOccurred())
-	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
-	g.Eventually(func() bool {
-		isvc := &kfserving.InferenceService{}
-		err := c.Get(context.TODO(), serviceKey, isvc)
-		if err != nil || isvc.Status.GetCondition(apis.ConditionReady) == nil {
-			return false
-		}
-		if isvc.Status.GetCondition(apis.ConditionReady).Status ==
-			v1.ConditionTrue {
-			return true
-		}
-		return false
-	}, timeout).Should(gomega.BeTrue())
-	// We are testing for another Ready event
-	expectedTwoReadyEvents := []SimpleEvent{
-		{Count: 1, Type: v1.EventTypeWarning, Reason: string(kfserving.InferenceServiceNotReadyState)},
-		{Count: 2, Type: v1.EventTypeNormal, Reason: string(kfserving.InferenceServiceReadyState)},
-	}
-	g.Eventually(func() error {
-		events := getEvents()
-		if reflect.DeepEqual(events, expectedTwoReadyEvents) {
-			return nil
-		}
-		return fmt.Errorf("test %q failed: [%v] did not equal [%v]", serviceName, events, expectedTwoReadyEvents)
 	}, timeout).Should(gomega.Succeed())
 }
 

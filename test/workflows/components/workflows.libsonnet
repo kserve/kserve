@@ -208,6 +208,8 @@
                     name: "pylint-checking",
                     template: "pylint-checking",
                   },
+                ],
+                [
                   {
                     name: "setup-cluster",
                     template: "setup-cluster",

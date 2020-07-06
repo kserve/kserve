@@ -1,18 +1,10 @@
 package v1alpha2
 
 import (
-	"fmt"
+	"github.com/kubeflow/kfserving/pkg/constants"
+	v1 "k8s.io/api/core/v1"
 	"sort"
 	"strconv"
-	"strings"
-
-	"github.com/kubeflow/kfserving/pkg/constants"
-	"github.com/kubeflow/kfserving/pkg/utils"
-	v1 "k8s.io/api/core/v1"
-)
-
-var (
-	InvalidAlibiRuntimeVersionError = "Alibi RuntimeVersion must be one of %s"
 )
 
 func (s *AlibiExplainerSpec) GetStorageUri() string {
@@ -66,9 +58,5 @@ func (s *AlibiExplainerSpec) ApplyDefaults(config *InferenceServicesConfig) {
 }
 
 func (s *AlibiExplainerSpec) Validate(config *InferenceServicesConfig) error {
-	if !utils.Includes(config.Explainers.AlibiExplainer.AllowedImageVersions, s.RuntimeVersion) {
-		return fmt.Errorf(InvalidAlibiRuntimeVersionError, strings.Join(config.Explainers.AlibiExplainer.AllowedImageVersions, ", "))
-	}
-
 	return nil
 }

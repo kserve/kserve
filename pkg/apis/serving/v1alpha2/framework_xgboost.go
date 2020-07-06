@@ -15,16 +15,9 @@ package v1alpha2
 
 import (
 	"fmt"
-	"strconv"
-	"strings"
-
 	"github.com/kubeflow/kfserving/pkg/constants"
-	"github.com/kubeflow/kfserving/pkg/utils"
 	v1 "k8s.io/api/core/v1"
-)
-
-var (
-	InvalidXGBoostRuntimeVersionError = "XGBoost RuntimeVersion must be one of %s"
+	"strconv"
 )
 
 func (x *XGBoostSpec) GetStorageUri() string {
@@ -66,8 +59,5 @@ func (x *XGBoostSpec) ApplyDefaults(config *InferenceServicesConfig) {
 }
 
 func (x *XGBoostSpec) Validate(config *InferenceServicesConfig) error {
-	if utils.Includes(config.Predictors.Xgboost.AllowedImageVersions, x.RuntimeVersion) {
-		return nil
-	}
-	return fmt.Errorf(InvalidXGBoostRuntimeVersionError, strings.Join(config.Predictors.Xgboost.AllowedImageVersions, ", "))
+	return nil
 }

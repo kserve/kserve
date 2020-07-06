@@ -2,7 +2,6 @@ package v1alpha2
 
 import (
 	"fmt"
-	"strings"
 	"testing"
 
 	"github.com/kubeflow/kfserving/pkg/constants"
@@ -14,10 +13,6 @@ import (
 
 func TestAlibiExplainer(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	allowedAlibiImageVersionsArray := []string{
-		DefaultAlibiExplainerRuntimeVersion,
-	}
-	allowedAlibiImageVersions := strings.Join(allowedAlibiImageVersionsArray, ", ")
 
 	scenarios := map[string]struct {
 		spec    AlibiExplainerSpec
@@ -29,21 +24,14 @@ func TestAlibiExplainer(t *testing.T) {
 			},
 			matcher: gomega.Succeed(),
 		},
-		"RejectBadRuntimeVersion": {
-			spec: AlibiExplainerSpec{
-				RuntimeVersion: "",
-			},
-			matcher: gomega.MatchError(fmt.Sprintf(InvalidAlibiRuntimeVersionError, allowedAlibiImageVersions)),
-		},
 	}
 
 	for name, scenario := range scenarios {
 		config := &InferenceServicesConfig{
 			Explainers: &ExplainersConfig{
 				AlibiExplainer: ExplainerConfig{
-					ContainerImage:       "seldon.io/alibi",
-					DefaultImageVersion:  "latest",
-					AllowedImageVersions: allowedAlibiImageVersionsArray,
+					ContainerImage:      "seldon.io/alibi",
+					DefaultImageVersion: "latest",
 				},
 			},
 		}

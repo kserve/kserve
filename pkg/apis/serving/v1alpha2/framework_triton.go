@@ -15,18 +15,14 @@ package v1alpha2
 
 import (
 	"fmt"
-	"strings"
-
 	"github.com/kubeflow/kfserving/pkg/constants"
-	"github.com/kubeflow/kfserving/pkg/utils"
 	v1 "k8s.io/api/core/v1"
 )
 
 var (
 	// For versioning see https://github.com/NVIDIA/triton-inference-server/releases
-	InvalidTritonISRuntimeVersionError = "Triton Inference Server RuntimeVersion must be one of %s"
-	TritonISGRPCPort                   = int32(9000)
-	TritonISRestPort                   = int32(8080)
+	TritonISGRPCPort = int32(9000)
+	TritonISRestPort = int32(8080)
 )
 
 func (t *TritonSpec) GetStorageUri() string {
@@ -63,9 +59,5 @@ func (t *TritonSpec) ApplyDefaults(config *InferenceServicesConfig) {
 }
 
 func (t *TritonSpec) Validate(config *InferenceServicesConfig) error {
-	if !utils.Includes(config.Predictors.Triton.AllowedImageVersions, t.RuntimeVersion) {
-		return fmt.Errorf(InvalidTritonISRuntimeVersionError, strings.Join(config.Predictors.Triton.AllowedImageVersions, ", "))
-	}
-
 	return nil
 }
