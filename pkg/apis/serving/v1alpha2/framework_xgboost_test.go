@@ -2,7 +2,6 @@ package v1alpha2
 
 import (
 	"fmt"
-	"strings"
 	"testing"
 
 	"github.com/kubeflow/kfserving/pkg/constants"
@@ -14,10 +13,6 @@ import (
 
 func TestFrameworkXgBoost(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	allowedXgBoostImageVersionsArray := []string{
-		DefaultXGBoostRuntimeVersion,
-	}
-	allowedXGBoostImageVersions := strings.Join(allowedXgBoostImageVersionsArray, ", ")
 
 	scenarios := map[string]struct {
 		spec    XGBoostSpec
@@ -29,21 +24,14 @@ func TestFrameworkXgBoost(t *testing.T) {
 			},
 			matcher: gomega.Succeed(),
 		},
-		"RejectBadRuntimeVersion": {
-			spec: XGBoostSpec{
-				RuntimeVersion: "",
-			},
-			matcher: gomega.MatchError(fmt.Sprintf(InvalidXGBoostRuntimeVersionError, allowedXGBoostImageVersions)),
-		},
 	}
 
 	for name, scenario := range scenarios {
 		config := &InferenceServicesConfig{
 			Predictors: &PredictorsConfig{
 				Xgboost: PredictorConfig{
-					ContainerImage:       "kfserving/xgboostserver",
-					DefaultImageVersion:  "latest",
-					AllowedImageVersions: allowedXgBoostImageVersionsArray,
+					ContainerImage:      "kfserving/xgboostserver",
+					DefaultImageVersion: "latest",
 				},
 			},
 		}

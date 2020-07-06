@@ -18,18 +18,16 @@ import (
 	"strings"
 
 	"github.com/kubeflow/kfserving/pkg/constants"
-	"github.com/kubeflow/kfserving/pkg/utils"
 	v1 "k8s.io/api/core/v1"
 )
 
 var (
-	TensorflowEntrypointCommand          = "/usr/bin/tensorflow_model_server"
-	TensorflowServingGRPCPort            = "9000"
-	TensorflowServingRestPort            = "8080"
-	TensorflowServingGPUSuffix           = "-gpu"
-	InvalidTensorflowRuntimeVersionError = "Tensorflow RuntimeVersion must be one of %s"
-	InvalidTensorflowRuntimeIncludesGPU  = "Tensorflow RuntimeVersion is not GPU enabled but GPU resources are requested. " + InvalidTensorflowRuntimeVersionError
-	InvalidTensorflowRuntimeExcludesGPU  = "Tensorflow RuntimeVersion is GPU enabled but GPU resources are not requested. " + InvalidTensorflowRuntimeVersionError
+	TensorflowEntrypointCommand         = "/usr/bin/tensorflow_model_server"
+	TensorflowServingGRPCPort           = "9000"
+	TensorflowServingRestPort           = "8080"
+	TensorflowServingGPUSuffix          = "-gpu"
+	InvalidTensorflowRuntimeIncludesGPU = "Tensorflow RuntimeVersion is not GPU enabled but GPU resources are requested. "
+	InvalidTensorflowRuntimeExcludesGPU = "Tensorflow RuntimeVersion is GPU enabled but GPU resources are not requested. "
 )
 
 func (t *TensorflowSpec) GetStorageUri() string {
@@ -72,16 +70,12 @@ func (t *TensorflowSpec) ApplyDefaults(config *InferenceServicesConfig) {
 }
 
 func (t *TensorflowSpec) Validate(config *InferenceServicesConfig) error {
-	if !utils.Includes(config.Predictors.Tensorflow.AllowedImageVersions, t.RuntimeVersion) {
-		return fmt.Errorf(InvalidTensorflowRuntimeVersionError, strings.Join(config.Predictors.Tensorflow.AllowedImageVersions, ", "))
-	}
-
 	if isGPUEnabled(t.Resources) && !strings.Contains(t.RuntimeVersion, TensorflowServingGPUSuffix) {
-		return fmt.Errorf(InvalidTensorflowRuntimeIncludesGPU, strings.Join(config.Predictors.Tensorflow.AllowedImageVersions, ", "))
+		return fmt.Errorf(InvalidTensorflowRuntimeIncludesGPU)
 	}
 
 	if !isGPUEnabled(t.Resources) && strings.Contains(t.RuntimeVersion, TensorflowServingGPUSuffix) {
-		return fmt.Errorf(InvalidTensorflowRuntimeExcludesGPU, strings.Join(config.Predictors.Tensorflow.AllowedImageVersions, ", "))
+		return fmt.Errorf(InvalidTensorflowRuntimeExcludesGPU)
 	}
 
 	return nil

@@ -115,6 +115,9 @@ To build your own image, navigate up one directory level to the `python` directo
 docker build -t docker_user_name/sklearnserver -f sklearn.Dockerfile .
 ```
 
+Sometimes you may want to build the `SKLearnServer` image with a different version of `SKLearn`, you can modify the version `"scikit-learn == X.X.X"` in `setup.py` and build the image with
+tag like `docker_user_name/sklearnserver:0.24`.
+
 You should see an output similar to this
 
 ```bash

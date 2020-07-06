@@ -21,8 +21,7 @@ const (
 type ExplainerConfig struct {
 	ContainerImage string `json:"image"`
 
-	DefaultImageVersion  string   `json:"defaultImageVersion"`
-	AllowedImageVersions []string `json:"allowedImageVersions"`
+	DefaultImageVersion string `json:"defaultImageVersion"`
 }
 
 // +k8s:openapi-gen=false
@@ -34,9 +33,8 @@ type ExplainersConfig struct {
 type PredictorConfig struct {
 	ContainerImage string `json:"image"`
 
-	DefaultImageVersion    string   `json:"defaultImageVersion"`
-	DefaultGpuImageVersion string   `json:"defaultGpuImageVersion"`
-	AllowedImageVersions   []string `json:"allowedImageVersions"`
+	DefaultImageVersion    string `json:"defaultImageVersion"`
+	DefaultGpuImageVersion string `json:"defaultGpuImageVersion"`
 }
 
 // +k8s:openapi-gen=false
@@ -53,8 +51,7 @@ type PredictorsConfig struct {
 type TransformerConfig struct {
 	ContainerImage string `json:"image"`
 
-	DefaultImageVersion  string   `json:"defaultImageVersion"`
-	AllowedImageVersions []string `json:"allowedImageVersions"`
+	DefaultImageVersion string `json:"defaultImageVersion"`
 }
 
 // +k8s:openapi-gen=false

@@ -19,16 +19,14 @@ import (
 	"strings"
 
 	"github.com/kubeflow/kfserving/pkg/constants"
-	"github.com/kubeflow/kfserving/pkg/utils"
 	v1 "k8s.io/api/core/v1"
 )
 
 var (
-	InvalidPyTorchRuntimeVersionError = "PyTorch RuntimeVersion must be one of %s"
-	DefaultPyTorchModelClassName      = "PyTorchModel"
-	PyTorchServingGPUSuffix           = "-gpu"
-	InvalidPyTorchRuntimeIncludesGPU  = "PyTorch RuntimeVersion is not GPU enabled but GPU resources are requested. " + InvalidPyTorchRuntimeVersionError
-	InvalidPyTorchRuntimeExcludesGPU  = "PyTorch RuntimeVersion is GPU enabled but GPU resources are not requested. " + InvalidPyTorchRuntimeVersionError
+	DefaultPyTorchModelClassName     = "PyTorchModel"
+	PyTorchServingGPUSuffix          = "-gpu"
+	InvalidPyTorchRuntimeIncludesGPU = "PyTorch RuntimeVersion is not GPU enabled but GPU resources are requested. "
+	InvalidPyTorchRuntimeExcludesGPU = "PyTorch RuntimeVersion is GPU enabled but GPU resources are not requested. "
 )
 
 var _ Predictor = (*PyTorchSpec)(nil)
@@ -77,16 +75,13 @@ func (p *PyTorchSpec) ApplyDefaults(config *InferenceServicesConfig) {
 }
 
 func (p *PyTorchSpec) Validate(config *InferenceServicesConfig) error {
-	if !utils.Includes(config.Predictors.PyTorch.AllowedImageVersions, p.RuntimeVersion) {
-		return fmt.Errorf(InvalidPyTorchRuntimeVersionError, strings.Join(config.Predictors.PyTorch.AllowedImageVersions, ", "))
-	}
 
 	if isGPUEnabled(p.Resources) && !strings.Contains(p.RuntimeVersion, PyTorchServingGPUSuffix) {
-		return fmt.Errorf(InvalidPyTorchRuntimeIncludesGPU, strings.Join(config.Predictors.PyTorch.AllowedImageVersions, ", "))
+		return fmt.Errorf(InvalidPyTorchRuntimeIncludesGPU)
 	}
 
 	if !isGPUEnabled(p.Resources) && strings.Contains(p.RuntimeVersion, PyTorchServingGPUSuffix) {
-		return fmt.Errorf(InvalidPyTorchRuntimeExcludesGPU, strings.Join(config.Predictors.PyTorch.AllowedImageVersions, ", "))
+		return fmt.Errorf(InvalidPyTorchRuntimeExcludesGPU)
 	}
 	return nil
 }

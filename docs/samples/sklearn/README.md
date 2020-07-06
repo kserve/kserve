@@ -85,3 +85,29 @@ Expected Output
 * Connection #0 to host 169.63.251.68 left intact
 {"predictions": [1, 1]}
 ```
+
+## Run SKLearn InferenceService with your own image
+Since the KFServing SKLearnServer image is built from a specific version of `scikit-learn` pip package, sometimes it might not be compatible with the pickled model
+you saved from your training environment, however you can build your own SKLearnServer image following [this instruction](../../../python/sklearnserver/README.md#building-your-own-scikit-learn-server-docker-image
+).
+
+To use your SKLearnServer image:
+- Add the image to the KFServing [configmap](../../../config/configmap/inferenceservice.yaml)
+```yaml
+        "sklearn": {
+            "image": "<your-dockerhub-id>/kfserving/sklearnserver",
+        },
+```
+- Specify the `runtimeVersion` on `InferenceService` spec
+```yaml
+apiVersion: "serving.kubeflow.org/v1alpha2"
+kind: "InferenceService"
+metadata:
+  name: "sklearn-iris"
+spec:
+  default:
+    predictor:
+      sklearn:
+        storageUri: "gs://kfserving-samples/models/sklearn/iris"
+        runtimeVersion: X.X.X
+```

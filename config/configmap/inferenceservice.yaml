@@ -10,53 +10,27 @@ data:
             "image": "tensorflow/serving",
             "defaultImageVersion": "1.14.0",
             "defaultGpuImageVersion": "1.14.0-gpu",
-            "allowedImageVersions": [
-               "1.11.0",
-               "1.11.0-gpu",
-               "1.12.0",
-               "1.12.0-gpu",
-               "1.13.0",
-               "1.13.0-gpu",
-               "1.14.0",
-               "1.14.0-gpu"       
-            ]
         },
         "onnx": {
             "image": "mcr.microsoft.com/onnxruntime/server",
-            "defaultImageVersion": "v0.5.1",
-            "allowedImageVersions": [
-               "v0.5.1"
-            ]
+            "defaultImageVersion": "v1.0.0",
         },
         "sklearn": {
             "image": "gcr.io/kfserving/sklearnserver",
             "defaultImageVersion": "v0.3.0",
-            "allowedImageVersions": [
-               "v0.3.0"
-            ]
         },
         "xgboost": {
             "image": "gcr.io/kfserving/xgbserver",
             "defaultImageVersion": "v0.3.0",
-            "allowedImageVersions": [
-               "v0.3.0"
-            ]
         },
         "pytorch": {
             "image": "gcr.io/kfserving/pytorchserver",
             "defaultImageVersion": "v0.3.0",
             "defaultGpuImageVersion": "v0.3.0-gpu",
-            "allowedImageVersions": [
-               "v0.3.0",
-               "v0.3.0-gpu"
-            ]
         },
         "triton": {
             "image": "nvcr.io/nvidia/tritonserver",
             "defaultImageVersion": "20.03-py3",
-            "allowedImageVersions": [
-               "20.03-py3"
-            ]
         }
     }
   transformers: |-
@@ -67,9 +41,6 @@ data:
         "alibi": {
             "image" : "gcr.io/kfserving/alibi-explainer",
             "defaultImageVersion": "v0.3.0",
-            "allowedImageVersions": [
-               "v0.3.0"
-            ]
         }
     }
   storageInitializer: |-

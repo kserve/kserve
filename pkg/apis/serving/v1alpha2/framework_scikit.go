@@ -15,12 +15,9 @@ package v1alpha2
 
 import (
 	"fmt"
-	"strconv"
-	"strings"
-
 	"github.com/kubeflow/kfserving/pkg/constants"
-	"github.com/kubeflow/kfserving/pkg/utils"
 	v1 "k8s.io/api/core/v1"
+	"strconv"
 )
 
 var (
@@ -64,8 +61,5 @@ func (s *SKLearnSpec) ApplyDefaults(config *InferenceServicesConfig) {
 }
 
 func (s *SKLearnSpec) Validate(config *InferenceServicesConfig) error {
-	if utils.Includes(config.Predictors.SKlearn.AllowedImageVersions, s.RuntimeVersion) {
-		return nil
-	}
-	return fmt.Errorf(InvalidSKLearnRuntimeVersionError, strings.Join(config.Predictors.SKlearn.AllowedImageVersions, ", "))
+	return nil
 }
