@@ -28,6 +28,7 @@ type LoggerConfig struct {
 	CpuLimit      string `json:"cpuLimit"`
 	MemoryRequest string `json:"memoryRequest"`
 	MemoryLimit   string `json:"memoryLimit"`
+	DefaultUrl    string `json:"defaultUrl"`
 }
 
 type LoggerInjector struct {
@@ -68,7 +69,7 @@ func (il *LoggerInjector) InjectLogger(pod *v1.Pod) error {
 
 	logUrl, ok := pod.ObjectMeta.Annotations[constants.LoggerSinkUrlInternalAnnotationKey]
 	if !ok {
-		logUrl = constants.LoggerDefaultUrl
+		logUrl = il.config.DefaultUrl
 	}
 
 	logMode, ok := pod.ObjectMeta.Annotations[constants.LoggerModeInternalAnnotationKey]

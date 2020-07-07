@@ -80,11 +80,6 @@ var (
 	PodMutatorWebhookName                  = KFServingName + "-pod-mutator-webhook"
 )
 
-// Request Logging Constants
-var (
-	LoggerDefaultUrl = getEnvOrDefault("REQUEST_LOGGING_DEFAULT_ENDPOINT", "http://default-broker")
-)
-
 // GPU Constants
 const (
 	NvidiaGPUResourceType = "nvidia.com/gpu"
