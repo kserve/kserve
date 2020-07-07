@@ -67,6 +67,7 @@ var (
 	DefaultPredictorTimeout   int64 = 60
 	DefaultTransformerTimeout int64 = 120
 	DefaultExplainerTimeout   int64 = 300
+	DefaultReadinessTimeout	  int32 = 180
 	DefaultScalingTarget            = "1"
 	DefaultMinReplicas              = 1
 )

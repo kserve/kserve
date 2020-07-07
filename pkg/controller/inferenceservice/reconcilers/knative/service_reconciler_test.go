@@ -145,6 +145,18 @@ func TestKnativeServiceReconcile(t *testing.T) {
 												"--model_name=mnist",
 												"--model_base_path=" + constants.DefaultModelLocalMountPath,
 											},
+											LivenessProbe: &v1.Probe{
+												Handler: v1.Handler{
+													HTTPGet: &v1.HTTPGetAction{
+														Path: "/v1/models/mnist",
+													},
+												},
+												InitialDelaySeconds: constants.DefaultReadinessTimeout,
+												PeriodSeconds:       10,
+												FailureThreshold:    3,
+												SuccessThreshold:    1,
+												TimeoutSeconds:      1,
+											},
 										},
 									},
 								},
@@ -188,6 +200,18 @@ func TestKnativeServiceReconcile(t *testing.T) {
 												"--rest_api_port=" + v1alpha2.TensorflowServingRestPort,
 												"--model_name=mnist",
 												"--model_base_path=" + constants.DefaultModelLocalMountPath,
+											},
+											LivenessProbe: &v1.Probe{
+												Handler: v1.Handler{
+													HTTPGet: &v1.HTTPGetAction{
+														Path: "/v1/models/mnist",
+													},
+												},
+												InitialDelaySeconds: constants.DefaultReadinessTimeout,
+												PeriodSeconds:       10,
+												FailureThreshold:    3,
+												SuccessThreshold:    1,
+												TimeoutSeconds:      1,
 											},
 										},
 									},
@@ -250,6 +274,18 @@ func TestKnativeServiceReconcile(t *testing.T) {
 												"--rest_api_port=" + v1alpha2.TensorflowServingRestPort,
 												"--model_name=mnist",
 												"--model_base_path=" + constants.DefaultModelLocalMountPath,
+											},
+											LivenessProbe: &v1.Probe{
+												Handler: v1.Handler{
+													HTTPGet: &v1.HTTPGetAction{
+														Path: "/v1/models/mnist",
+													},
+												},
+												InitialDelaySeconds: constants.DefaultReadinessTimeout,
+												PeriodSeconds:       10,
+												FailureThreshold:    3,
+												SuccessThreshold:    1,
+												TimeoutSeconds:      1,
 											},
 										},
 									},
