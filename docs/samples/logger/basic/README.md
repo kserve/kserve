@@ -40,7 +40,7 @@ spec:
         storageUri: "gs://kfserving-samples/models/sklearn/iris"
 ```
 
-(Here we set the url explicitly. otherwise it defaults to the namespace knative broker or the value of the controller's REQUEST_LOGGING_DEFAULT_ENDPOINT env var.)
+(Here we set the url explicitly. otherwise it defaults to the namespace knative broker or the value of DefaultUrl in the logger section of the controller configmap.)
 
 Let's apply this yaml:
 
