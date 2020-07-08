@@ -263,10 +263,6 @@ func TransformerURL(metadata v1.ObjectMeta, isCanary bool) string {
 	return fmt.Sprintf("%s.%s", serviceName, metadata.Namespace)
 }
 
-func GetLoggerDefaultUrl(namespace string) string {
-	return "http://default-broker." + namespace
-}
-
 // Should only match 1..65535, but for simplicity it matches 0-99999.
 const portMatch = `(?::\d{1,5})?`
 
