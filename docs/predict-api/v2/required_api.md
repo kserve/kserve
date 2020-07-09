@@ -622,7 +622,9 @@ failure. The request and response messages for ModelInfer are:
         // Optional inference input tensor parameters.
         map<string, InferParameter> parameters = 4;
 
-        // The input tensor data.
+        // The tensor contents using a data-type format. This field must
+        // not be specified if "raw" tensor contents are being used for
+        // the inference request.
         InferTensorContents contents = 5;
       }
 
@@ -656,6 +658,22 @@ failure. The request and response messages for ModelInfer are:
       // The requested output tensors for the inference. Optional, if not
       // specified all outputs produced by the model will be returned.
       repeated InferRequestedOutputTensor outputs = 6;
+
+      // The data contained in an input tensor can be represented in "raw"
+      // bytes form or in the repeated type that matches the tensor's data
+      // type. To use the raw representation 'raw_input_contents' must be
+      // initialized with data for each tensor in the same order as
+      // 'inputs'. For each tensor, the size of this content must match
+      // what is expected by the tensor's shape and data type. The raw
+      // data must be the flattened, one-dimensional, row-major order of
+      // the tensor elements without any stride or padding between the
+      // elements. Note that the FP16 data type must be represented as raw
+      // content as there is no specific data type for a 16-bit float
+      // type.
+      //
+      // If this field is specified then InferInputTensor::contents must
+      // not be specified for any input tensor.
+      repeated bytes raw_input_contents = 7;
     }
 
     message ModelInferResponse
@@ -675,7 +693,9 @@ failure. The request and response messages for ModelInfer are:
         // Optional output tensor parameters.
         map<string, InferParameter> parameters = 4;
 
-        // The output tensor data.
+        // The tensor contents using a data-type format. This field must
+        // not be specified if "raw" tensor contents are being used for
+        // the inference response.
         InferTensorContents contents = 5;
       }
 
@@ -693,6 +713,22 @@ failure. The request and response messages for ModelInfer are:
 
       // The output tensors holding inference results.
       repeated InferOutputTensor outputs = 5;
+
+      // The data contained in an output tensor can be represented in
+      // "raw" bytes form or in the repeated type that matches the
+      // tensor's data type. To use the raw representation 'raw_output_contents'
+      // must be initialized with data for each tensor in the same order as
+      // 'outputs'. For each tensor, the size of this content must match
+      // what is expected by the tensor's shape and data type. The raw
+      // data must be the flattened, one-dimensional, row-major order of
+      // the tensor elements without any stride or padding between the
+      // elements. Note that the FP16 data type must be represented as raw
+      // content as there is no specific data type for a 16-bit float
+      // type.
+      //
+      // If this field is specified then InferOutputTensor::contents must
+      // not be specified for any output tensor.
+      repeated bytes raw_output_contents = 6;
     }
 
 ### Parameters
@@ -733,64 +769,64 @@ one-dimensional, row-major order of the tensor elements. Element
 values must be given in "linear" order without any stride or padding
 between elements.
 
+Using a "raw" representation of tensors with
+ModelInferRequest::raw_input_contents and
+ModelInferResponse::raw_output_contents will typically allow higher
+performance due to the way protobuf allocation and reuse interacts
+with GRPC. For example, see https://github.com/grpc/grpc/issues/23231.
+
+An alternative to the "raw" representation is to use
+InferTensorContents to represent the tensor data in a format that
+matches the tensor's data type.
+
     //
-    // The data contained in a tensor. For a given data type the
-    // tensor contents can be represented in "raw" bytes form or in
-    // the repeated type that matches the tensor's data type. Protobuf
-    // oneof is not used because oneofs cannot contain repeated fields.
+    // The data contained in a tensor represented by the repeated type
+    // that matches the tensor's data type. Protobuf oneof is not used
+    // because oneofs cannot contain repeated fields.
     //
     message InferTensorContents
     {
-      // Raw representation of the tensor contents. The size of this
-      // content must match what is expected by the tensor's shape
-      // and data type. The raw data must be the flattened, one-dimensional,
-      // row-major order of the tensor elements without any stride or padding
-      // between the elements. Note that the FP16 data type must be
-      // represented as raw content as there is no standard support for a
-      // 16-bit float type.
-      bytes raw_contents = 1;
-
       // Representation for BOOL data type. The size must match what is
       // expected by the tensor's shape. The contents must be the flattened,
       // one-dimensional, row-major order of the tensor elements.
-      repeated bool bool_contents = 2;
+      repeated bool bool_contents = 1;
 
       // Representation for INT8, INT16, and INT32 data types. The size
       // must match what is expected by the tensor's shape. The contents
       // must be the flattened, one-dimensional, row-major order of the
       // tensor elements.
-      repeated int32 int_contents = 3;
+      repeated int32 int_contents = 2;
 
       // Representation for INT64 data types. The size must match what
       // is expected by the tensor's shape. The contents must be the
       // flattened, one-dimensional, row-major order of the tensor elements.
-      repeated int64 int64_contents = 4;
+      repeated int64 int64_contents = 3;
 
       // Representation for UINT8, UINT16, and UINT32 data types. The size
       // must match what is expected by the tensor's shape. The contents
       // must be the flattened, one-dimensional, row-major order of the
       // tensor elements.
-      repeated uint32 uint_contents = 5;
+      repeated uint32 uint_contents = 4;
 
       // Representation for UINT64 data types. The size must match what
       // is expected by the tensor's shape. The contents must be the
       // flattened, one-dimensional, row-major order of the tensor elements.
-      repeated uint64 uint64_contents = 6;
+      repeated uint64 uint64_contents = 5;
 
       // Representation for FP32 data type. The size must match what is
       // expected by the tensor's shape. The contents must be the flattened,
       // one-dimensional, row-major order of the tensor elements.
-      repeated float fp32_contents = 7;
+      repeated float fp32_contents = 6;
 
       // Representation for FP64 data type. The size must match what is
       // expected by the tensor's shape. The contents must be the flattened,
       // one-dimensional, row-major order of the tensor elements.
-      repeated double fp64_contents = 8;
+      repeated double fp64_contents = 7;
 
       // Representation for BYTES data type. The size must match what is
       // expected by the tensor's shape. The contents must be the flattened,
       // one-dimensional, row-major order of the tensor elements.
-      repeated bytes bytes_contents = 9;
+      repeated bytes bytes_contents = 8;
     }
 
 ## Platforms
