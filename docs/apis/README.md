@@ -59,7 +59,7 @@ string
 </em>
 </td>
 <td>
-<p>Defaults to latest Alibi Version</p>
+<p>Alibi docker image versions</p>
 </td>
 </tr>
 <tr>
@@ -229,7 +229,7 @@ int
 </td>
 <td>
 <em>(Optional)</em>
-<p>Minimum number of replicas, when minReplicas &gt; 0 pods won&rsquo;t scale down to 0 in case of no traffic</p>
+<p>Minimum number of replicas which defaults to 1, when minReplicas = 0 pods scale down to 0 in case of no traffic</p>
 </td>
 </tr>
 <tr>
@@ -1212,7 +1212,7 @@ string
 </em>
 </td>
 <td>
-<p>PyTorch KFServer docker image versions</p>
+<p>PyTorch KFServer docker image version which defaults to latest release</p>
 </td>
 </tr>
 <tr>
@@ -1266,7 +1266,7 @@ string
 </em>
 </td>
 <td>
-<p>SKLearn KFServer docker image versions</p>
+<p>SKLearn KFServer docker image version which defaults to latest release</p>
 </td>
 </tr>
 <tr>
@@ -1357,7 +1357,7 @@ string
 </em>
 </td>
 <td>
-<p>TFServing docker image versions</p>
+<p>TFServing docker image version</p>
 </td>
 </tr>
 <tr>
@@ -1531,7 +1531,7 @@ string
 </em>
 </td>
 <td>
-<p>Triton Inference Server docker image versions</p>
+<p>Triton Inference Server docker image version</p>
 </td>
 </tr>
 <tr>
@@ -1663,7 +1663,7 @@ string
 </em>
 </td>
 <td>
-<p>XGBoost KFServer docker image versions</p>
+<p>XGBoost KFServer docker image version which defaults to latest release</p>
 </td>
 </tr>
 <tr>
