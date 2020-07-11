@@ -59,7 +59,7 @@ string
 </em>
 </td>
 <td>
-<p>Alibi docker image versions</p>
+<p>Alibi docker image version which defaults to latest release</p>
 </td>
 </tr>
 <tr>
@@ -879,7 +879,7 @@ string
 </em>
 </td>
 <td>
-<p>ONNXRuntime docker image versions</p>
+<p>ONNXRuntime docker image versions, default version can be set in the inferenceservice configmap</p>
 </td>
 </tr>
 <tr>
@@ -1357,7 +1357,7 @@ string
 </em>
 </td>
 <td>
-<p>TFServing docker image version</p>
+<p>TFServing docker image version(<a href="https://hub.docker.com/r/tensorflow/serving">https://hub.docker.com/r/tensorflow/serving</a>), default version can be set in the inferenceservice configmap.</p>
 </td>
 </tr>
 <tr>
@@ -1531,7 +1531,7 @@ string
 </em>
 </td>
 <td>
-<p>Triton Inference Server docker image version</p>
+<p>Triton Inference Server docker image version, default version can be set in the inferenceservice configmap</p>
 </td>
 </tr>
 <tr>
