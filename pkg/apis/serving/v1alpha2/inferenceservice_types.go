@@ -159,7 +159,7 @@ type AlibiExplainerSpec struct {
 	Type AlibiExplainerType `json:"type"`
 	// The location of a trained explanation model
 	StorageURI string `json:"storageUri,omitempty"`
-	// Alibi docker image versions
+	// Alibi docker image version which defaults to latest release
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
 	// Defaults to requests and limits of 1CPU, 2Gb MEM.
 	Resources v1.ResourceRequirements `json:"resources,omitempty"`
@@ -171,7 +171,7 @@ type AlibiExplainerSpec struct {
 type TensorflowSpec struct {
 	// The URI for the saved model(https://www.tensorflow.org/tutorials/keras/save_and_load)
 	StorageURI string `json:"storageUri"`
-	// TFServing docker image version
+	// TFServing docker image version(https://hub.docker.com/r/tensorflow/serving), default version can be set in the inferenceservice configmap.
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
 	// Defaults to requests and limits of 1CPU, 2Gb MEM.
 	Resources v1.ResourceRequirements `json:"resources,omitempty"`
@@ -181,7 +181,7 @@ type TensorflowSpec struct {
 type TritonSpec struct {
 	// The URI for the trained model repository(https://docs.nvidia.com/deeplearning/triton-inference-server/master-user-guide/docs/model_repository.html)
 	StorageURI string `json:"storageUri"`
-	// Triton Inference Server docker image version
+	// Triton Inference Server docker image version, default version can be set in the inferenceservice configmap
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
 	// Defaults to requests and limits of 1CPU, 2Gb MEM.
 	Resources v1.ResourceRequirements `json:"resources,omitempty"`
@@ -213,7 +213,7 @@ type SKLearnSpec struct {
 type ONNXSpec struct {
 	// The URI of the exported onnx model(model.onnx)
 	StorageURI string `json:"storageUri"`
-	// ONNXRuntime docker image versions
+	// ONNXRuntime docker image versions, default version can be set in the inferenceservice configmap
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
 	// Defaults to requests and limits of 1CPU, 2Gb MEM.
 	Resources v1.ResourceRequirements `json:"resources,omitempty"`

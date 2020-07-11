@@ -22,7 +22,7 @@ Uses the client at: https://docs.nvidia.com/deeplearning/triton-inference-server
 1. setup vars
 
 ```
-SERVICE_HOSTNAME=$(kubectl get ksvc triton-simple-string-predictor-default -o jsonpath='{.status.url}' | cut -d "/" -f 3)
+SERVICE_HOSTNAME=$(kubectl get ksvc triton-simple-string -o jsonpath='{.status.url}' | cut -d "/" -f 3)
 INGRESS_GATEWAY=istio-ingressgateway
 CLUSTER_IP=$(kubectl -n istio-system get service $INGRESS_GATEWAY -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 echo $CLUSTER_IP
@@ -31,7 +31,7 @@ echo $CLUSTER_IP
 ```
 curl -H "Host: ${SERVICE_HOSTNAME}" http://${CLUSTER_IP}/api/status
 ```
-3. edit /etc/hosts to map the CLUSTER IP to triton-simple-string-predictor-default.default.example.com
+3. edit /etc/hosts to map the CLUSTER IP to triton-simple-string.default.example.com
 4. run the client
 ```
 docker run -e SERVICE_HOSTNAME:$SERVICE_HOSTNAME -it --rm --net=host kcorer/tensorrtserver_client:19.05
