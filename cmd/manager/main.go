@@ -21,17 +21,28 @@ import (
 	"github.com/kubeflow/kfserving/pkg/webhook/admission/inferenceservice"
 	"github.com/kubeflow/kfserving/pkg/webhook/admission/pod"
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes"
+	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/tools/record"
 	"os"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
-	"github.com/kubeflow/kfserving/pkg/apis"
-	"github.com/kubeflow/kfserving/pkg/controller"
+	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
+	v1alph2controller "github.com/kubeflow/kfserving/pkg/controller/inferenceservice"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
+)
+
+var (
+	scheme   = runtime.NewScheme()
+	setupLog = ctrl.Log.WithName("setup")
 )
 
 func main() {
@@ -60,9 +71,9 @@ func main() {
 	log.Info("Registering Components.")
 
 	// Setup Scheme for all resources
-	log.Info("Setting up scheme")
-	if err := apis.AddToScheme(mgr.GetScheme()); err != nil {
-		log.Error(err, "unable to add APIs to scheme")
+	log.Info("Setting up KFServing v1alpha2 scheme")
+	if err := v1alpha2.AddToScheme(mgr.GetScheme()); err != nil {
+		log.Error(err, "unable to add KFServing v1alpha2 to scheme")
 		os.Exit(1)
 	}
 
@@ -80,9 +91,22 @@ func main() {
 	}
 
 	// Setup all Controllers
-	log.Info("Setting up controller")
-	if err := controller.AddToManager(mgr); err != nil {
-		log.Error(err, "unable to register controllers to the manager")
+	setupLog.Info("Setting up v1alpha2 controller")
+	eventBroadcaster := record.NewBroadcaster()
+	clientSet, err := kubernetes.NewForConfig(mgr.GetConfig())
+	if err != nil {
+		setupLog.Error(err, "unable to create clientSet")
+		os.Exit(1)
+	}
+	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: clientSet.CoreV1().Events("")})
+	if err = (&v1alph2controller.InferenceServiceReconciler{
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("v1alpha2Controllers").WithName("InferenceService"),
+		Scheme: mgr.GetScheme(),
+		Recorder: eventBroadcaster.NewRecorder(
+			mgr.GetScheme(), v1.EventSource{Component: "v1alpha2Controllers"}),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "v1alpha2Controller", "InferenceService")
 		os.Exit(1)
 	}
 
