@@ -32,6 +32,7 @@ import (
 )
 
 var log = logf.Log.WithName("TestingEnvSetup")
+var useExistingCluster = false
 
 func SetupEnvTest() *envtest.Environment {
 	t := &envtest.Environment{
@@ -43,6 +44,7 @@ func SetupEnvTest() *envtest.Environment {
 			filepath.Join("..", "..", "..", "config", "crd"),
 			filepath.Join("..", "..", "..", "test", "crds"),
 		},
+		UseExistingCluster: &useExistingCluster,
 	}
 
 	err := v1alpha2.SchemeBuilder.AddToScheme(scheme.Scheme)
