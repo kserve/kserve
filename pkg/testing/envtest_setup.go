@@ -32,6 +32,7 @@ import (
 )
 
 var log = logf.Log.WithName("TestingEnvSetup")
+var useExistingCluster = false
 
 func SetupEnvTest() *envtest.Environment {
 	t := &envtest.Environment{
