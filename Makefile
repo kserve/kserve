@@ -9,7 +9,7 @@ XGB_IMG ?= xgbserver:latest
 PYTORCH_IMG ?= pytorchserver:latest
 ALIBI_IMG ?= alibi-explainer:latest
 STORAGE_INIT_IMG ?= storage-initializer:latest
-CRD_OPTIONS ?= "crd:maxDescLen=0"
+CRD_OPTIONS ?= "crd:maxDescLen=0,trivialVersions=true"
 KFSERVING_ENABLE_SELF_SIGNED_CA ?= false
 
 # CPU/Memory limits for controller-manager
