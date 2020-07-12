@@ -1276,8 +1276,8 @@ var _ = Describe("test inference service controller", func() {
 		})
 	})
 
-	/*Context("Remove inference component", func() {
-		It("Should delete successfully", func() {
+	Context("Remove InferenceService component", func() {
+		It("Should delete the service successfully", func() {
 			serviceName := "svc-with-two-components"
 			namespace := "default"
 			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: namespace}}
@@ -1439,7 +1439,7 @@ var _ = Describe("test inference service controller", func() {
 				return true
 			}, timeout).Should(gomega.BeTrue())
 		})
-	})*/
+	})
 
 	Context("InferenceService with Explainer", func() {
 		It("Should create successfully", func() {

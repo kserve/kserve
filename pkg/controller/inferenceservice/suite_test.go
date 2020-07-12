@@ -40,7 +40,7 @@ func TestV1alpha2Controller(t *testing.T) {
 	RegisterFailHandler(Fail)
 
 	RunSpecsWithDefaultAndCustomReporters(t,
-		"v1beta1 Controller Suite",
+		"v1alpha2 InferenceService Controller Suite",
 		[]Reporter{envtest.NewlineReporter{}})
 }
 
