@@ -21,7 +21,7 @@ func (k *KFServerSpec) Validate() error {
 func (k *KFServerSpec) Default() {}
 
 // GetContainers transforms the resource into a container spec
-func (k *KFServerSpec) GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container{
+func (k *KFServerSpec) GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container {
 	arguments := []string{
 		fmt.Sprintf("%s=%s", constants.ArgumentModelName, modelName),
 		fmt.Sprintf("%s=%s", constants.ArgumentModelDir, constants.DefaultModelLocalMountPath),
@@ -34,8 +34,8 @@ func (k *KFServerSpec) GetContainer(modelName string, config *InferenceServicesC
 	k.Name = constants.InferenceServiceContainerName
 	k.Args = arguments
 	return &v1.Container{
-		Name:k.Name,
-		Image:k.Image,
-		Args: k.Args,
+		Name:  k.Name,
+		Image: k.Image,
+		Args:  k.Args,
 	}
 }

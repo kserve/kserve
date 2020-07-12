@@ -37,7 +37,7 @@ type PredictorExtensionSpec struct {
 	// This field points to the location of the trained model which is mounted onto the pod.
 	StorageURI *string `json:"storageUri"`
 	// Runtime version of the predictor
-    RuntimeVersion string `json:"runtimeVersion"`
+	RuntimeVersion string `json:"runtimeVersion"`
 	// Container enables overrides for the predictor.
 	// Each framework will have different defaults that are populated in the underlying container spec.
 	v1.Container `json:",inline"`

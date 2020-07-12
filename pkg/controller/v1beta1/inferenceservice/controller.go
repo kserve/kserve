@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	"github.com/kubeflow/kfserving/pkg/constants"
+	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/components"
+	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/components/predictor"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -30,18 +32,18 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/go-logr/logr"
+	v1beta1api "github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
+	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
-	v1beta1api "github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
 )
 
 // InferenceServiceReconciler reconciles a InferenceService object
 type InferenceServiceReconciler struct {
 	client.Client
-	Log    logr.Logger
-	Scheme *runtime.Scheme
+	Log      logr.Logger
+	Scheme   *runtime.Scheme
 	Recorder record.EventRecorder
 }
 
@@ -69,7 +71,7 @@ func (r *InferenceServiceReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 		}
 		return reconcile.Result{}, err
 	}
-	log.Info("Reconciling inference service", "apiVersion", isvc.APIVersion, "isvc", isvc.Spec.Predictor.MinReplicas)
+	log.Info("Reconciling inference service", "apiVersion", isvc.APIVersion, "isvc", isvc.Name)
 	configMap := &v1.ConfigMap{}
 	err := r.Get(context.TODO(), types.NamespacedName{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KFServingNamespace}, configMap)
 	if err != nil {
@@ -78,7 +80,17 @@ func (r *InferenceServiceReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 		return reconcile.Result{}, err
 	}
 
+	reconcilers := []components.Component{
+		predictor.NewPredictor(r.Client, r.Scheme, configMap),
+	}
 
+	for _, reconciler := range reconcilers {
+		if err := reconciler.Reconcile(isvc); err != nil {
+			log.Error(err, "Failed to reconcile")
+			r.Recorder.Eventf(isvc, v1.EventTypeWarning, "InternalError", err.Error())
+			return reconcile.Result{}, err
+		}
+	}
 	if err = r.updateStatus(isvc); err != nil {
 		r.Recorder.Eventf(isvc, v1.EventTypeWarning, "InternalError", err.Error())
 		return reconcile.Result{}, err
