@@ -55,7 +55,7 @@ var _ = BeforeSuite(func(done Done) {
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{filepath.Join("..", "..", "..", "..", "config", "crd"),
-			filepath.Join("..", "..", "..", "..", "test", "crds"),},
+			filepath.Join("..", "..", "..", "..", "test", "crds")},
 	}
 
 	var err error
@@ -79,10 +79,11 @@ var _ = BeforeSuite(func(done Done) {
 	Expect(err).ToNot(HaveOccurred())
 	err = (&InferenceServiceReconciler{
 		Client: k8sManager.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("v1beta1InferenceServiceController"),
+		Scheme: scheme.Scheme,
+		Log:    ctrl.Log.WithName("v1beta1InferenceServiceController"),
 	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
-
+	defer GinkgoRecover()
 	go func() {
 		err = k8sManager.Start(ctrl.SetupSignalHandler())
 		Expect(err).ToNot(HaveOccurred())
@@ -98,4 +99,3 @@ var _ = AfterSuite(func() {
 	err := testEnv.Stop()
 	Expect(err).ToNot(HaveOccurred())
 })
-
