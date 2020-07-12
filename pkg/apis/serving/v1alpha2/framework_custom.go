@@ -46,6 +46,7 @@ func (c *CustomSpec) CreateExplainerContainer(modelName string, parallelism int,
 }
 
 func (c *CustomSpec) ApplyDefaults(config *InferenceServicesConfig) {
+    c.Container.Name = constants.InferenceServiceContainerName
 	setResourceRequirementDefaults(&c.Container.Resources)
 }
 
