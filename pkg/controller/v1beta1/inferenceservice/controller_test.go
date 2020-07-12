@@ -2,6 +2,7 @@ package inferenceservice
 
 import (
 	"context"
+	"fmt"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
 	"github.com/kubeflow/kfserving/pkg/constants"
@@ -18,17 +19,13 @@ import (
 var _ = Describe("v1beta1 inference service controller", func() {
 	// Define utility constants for object names and testing timeouts/durations and intervals.
 	const (
-		CronjobName      = "test-cronjob"
-		CronjobNamespace = "test-cronjob-namespace"
-		JobName          = "test-job"
-
 		timeout  = time.Second * 10
 		duration = time.Second * 10
 		interval = time.Millisecond * 250
 	)
 	var (
-	 configs = map[string]string{
-		 "predictors": `{
+		configs = map[string]string{
+			"predictors": `{
         "tensorflow" : {
             "image" : "tensorflow/serving"
         },
@@ -39,7 +36,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
             "image" : "kfserving/xgbserver"
         }
 	}`,
-		 "explainers": `{
+			"explainers": `{
         "alibi": {
             "image" : "kfserving/alibi-explainer",
 			"defaultImageVersion": "latest",
@@ -48,11 +45,11 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			 ]
         }
 	}`,
-		 "ingress": `{
+			"ingress": `{
         "ingressGateway" : "knative-serving/knative-ingress-gateway",
         "ingressService" : "test-destination"
     }`,
-	 }
+		}
 	)
 	Context("When creating inference service", func() {
 		It("Should have knative service created", func() {
@@ -95,6 +92,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					},
 				},
 			}
+
 			Expect(k8sClient.Create(ctx, instance)).Should(Succeed())
 			inferenceService := &v1beta1.InferenceService{}
 
@@ -110,6 +108,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			defaultService := &knservingv1.Service{}
 			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorService, defaultService) }, timeout).
 				Should(Succeed())
+			fmt.Printf("knative service %+v\n", defaultService)
 		})
 	})
 })

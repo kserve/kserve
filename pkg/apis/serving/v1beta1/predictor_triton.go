@@ -18,7 +18,5 @@ func (t *TritonSpec) Default() {}
 
 // GetContainers transforms the resource into a container spec
 func (t *TritonSpec) GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container {
-	return &v1.Container{
-
-	}
+	return &v1.Container{}
 }

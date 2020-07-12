@@ -20,17 +20,21 @@ limitations under the License.
 package v1beta1
 
 import (
+	"github.com/kubeflow/kfserving/pkg/constants"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/scheme"
 )
 
 var (
+	APIVersion = "v1beta1"
 	// GroupVersion is group version used to register these objects
-	GroupVersion = schema.GroupVersion{Group: "serving.kubeflow.org", Version: "v1beta1"}
+	GroupVersion = schema.GroupVersion{Group: constants.KFServingAPIGroupName, Version: APIVersion}
 
 	// SchemeBuilder is used to add go types to the GroupVersionKind scheme
 	SchemeBuilder = &scheme.Builder{GroupVersion: GroupVersion}
 
 	// AddToScheme adds the types in this group-version to the given scheme.
 	AddToScheme = SchemeBuilder.AddToScheme
+
+	SchemeGroupVersion = schema.GroupVersion{Group: constants.KFServingAPIGroupName, Version: APIVersion}
 )

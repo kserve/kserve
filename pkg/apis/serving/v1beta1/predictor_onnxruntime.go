@@ -18,6 +18,5 @@ func (o *ONNXRuntimeSpec) Default() {}
 
 // GetContainers transforms the resource into a container spec
 func (o *ONNXRuntimeSpec) GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container {
-	return &v1.Container{
-	}
+	return &v1.Container{}
 }
