@@ -11,9 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import time
 
-import numpy as np
 from kubernetes import client
 
 from kfserving import KFServingClient
@@ -27,6 +25,7 @@ from kfserving import V1alpha2InferenceService
 from kubernetes.client import V1ResourceRequirements
 from ..common.utils import predict
 from ..common.utils import KFSERVING_TEST_NAMESPACE
+from concurrent import futures
 
 api_version = constants.KFSERVING_GROUP + '/' + constants.KFSERVING_VERSION
 KFServing = KFServingClient(config_file="~/.kube/config")
@@ -46,8 +45,8 @@ def test_batcher():
                 storage_uri='gs://kfserving-samples/models/pytorch/cifar10',
                 model_class_name='Net',
                 resources=V1ResourceRequirements(
-                    requests={'cpu': '2000m', 'memory': '2Gi'},
-                    limits={'cpu': '2000m', 'memory': '2Gi'}))))
+                    requests={'cpu': '1000m', 'memory': '2Gi'},
+                    limits={'cpu': '1000m', 'memory': '2Gi'}))))
 
     isvc = V1alpha2InferenceService(api_version=api_version,
                                     kind=constants.KFSERVING_KIND,
@@ -68,7 +67,12 @@ def test_batcher():
         for pod in pods.items:
             print(pod)
         raise e
-    time.sleep(30)
-    probs = predict(service_name, './data/cifar_input.json')
-    assert(np.argmax(probs) == 3)
+    with futures.ThreadPoolExecutor(max_workers=4) as executor:
+        future_res = [
+            executor.submit(lambda: predict(service_name, './data/cifar_input.json')) for _ in range(4)
+        ]
+    results = [
+        f.result()["batchId"] for f in future_res
+    ]
+    assert(all(x == results[0] for x in results) == True)
     KFServing.delete(service_name, KFSERVING_TEST_NAMESPACE)

@@ -1,4 +1,4 @@
-# Copyright 2019 kubeflow.org.
+# Copyright 2020 kubeflow.org.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,11 +18,13 @@ from kfserving import KFServingClient
 from kfserving import constants
 from kfserving import V1alpha2EndpointSpec
 from kfserving import V1alpha2PredictorSpec
+from kfserving import V1alpha2CustomSpec
 from kfserving import V1alpha2SKLearnSpec
 from kfserving import V1alpha2InferenceServiceSpec
 from kfserving import V1alpha2InferenceService
+from kfserving import V1alpha2Logger
 from kubernetes.client import V1ResourceRequirements
-
+from kubernetes.client import V1Container
 from ..common.utils import predict
 from ..common.utils import KFSERVING_TEST_NAMESPACE
 
@@ -30,11 +32,34 @@ api_version = constants.KFSERVING_GROUP + '/' + constants.KFSERVING_VERSION
 KFServing = KFServingClient(config_file="~/.kube/config")
 
 
-def test_sklearn_kfserving():
-    service_name = 'isvc-sklearn'
+def test_kfserving_logger():
+    msg_dumper = 'message-dumper'
     default_endpoint_spec = V1alpha2EndpointSpec(
         predictor=V1alpha2PredictorSpec(
             min_replicas=1,
+            custom=V1alpha2CustomSpec(
+                container=V1Container(
+                    name="kfserving-container",
+                    image='gcr.io/knative-releases/github.com/knative/eventing-sources/cmd/event_display',
+                ))))
+
+    isvc = V1alpha2InferenceService(api_version=api_version,
+                                    kind=constants.KFSERVING_KIND,
+                                    metadata=client.V1ObjectMeta(
+                                        name=msg_dumper, namespace=KFSERVING_TEST_NAMESPACE),
+                                    spec=V1alpha2InferenceServiceSpec(default=default_endpoint_spec))
+
+    KFServing.create(isvc)
+    KFServing.wait_isvc_ready(msg_dumper, namespace=KFSERVING_TEST_NAMESPACE)
+
+    service_name = 'isvc-logger'
+    default_endpoint_spec = V1alpha2EndpointSpec(
+        predictor=V1alpha2PredictorSpec(
+            min_replicas=1,
+            logger=V1alpha2Logger(
+               mode="all",
+               url="http://message-dumper-predictor-default."+KFSERVING_TEST_NAMESPACE
+            ),
             sklearn=V1alpha2SKLearnSpec(
                 storage_uri='gs://kfserving-samples/models/sklearn/iris',
                 resources=V1ResourceRequirements(
@@ -51,4 +76,14 @@ def test_sklearn_kfserving():
     KFServing.wait_isvc_ready(service_name, namespace=KFSERVING_TEST_NAMESPACE)
     res = predict(service_name, './data/iris_input.json')
     assert(res["predictions"] == [1, 1])
+    pods = KFServing.core_api.list_namespaced_pod(KFSERVING_TEST_NAMESPACE,
+                                                  label_selector='serving.kubeflow.org/inferenceservice={}'.
+                                                  format(msg_dumper))
+    for pod in pods.items:
+        log = KFServing.core_api.read_namespaced_pod_log(name=pod.metadata.name,
+                                                         namespace=pod.metadata.namespace,
+                                                         container="kfserving-container")
+        assert("org.kubeflow.serving.inference.request" in log)
+        assert("org.kubeflow.serving.inference.response" in log)
     KFServing.delete(service_name, KFSERVING_TEST_NAMESPACE)
+    KFServing.delete(msg_dumper, KFSERVING_TEST_NAMESPACE)

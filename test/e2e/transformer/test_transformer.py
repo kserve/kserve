@@ -72,7 +72,7 @@ def test_transformer():
         for pod in pods.items:
             print(pod)
         raise e
-    probs = predict(service_name, './data/transformer.json')
-    assert(np.argmax(probs) == 3)
+    res = predict(service_name, './data/transformer.json')
+    assert(np.argmax(res["predictions"]) == 3)
     KFServing.delete(service_name, KFSERVING_TEST_NAMESPACE)
 
