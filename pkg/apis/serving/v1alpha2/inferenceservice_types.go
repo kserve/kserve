@@ -25,7 +25,7 @@ type InferenceServiceSpec struct {
 	// Default defines default InferenceService endpoints
 	// +required
 	Default EndpointSpec `json:"default"`
-	// Canary defines an alternate endpoints to route a percentage of traffic.
+	// Canary defines alternate endpoints to route a percentage of traffic.
 	// +optional
 	Canary *EndpointSpec `json:"canary,omitempty"`
 	// CanaryTrafficPercent defines the percentage of traffic going to canary InferenceService endpoints
@@ -54,21 +54,19 @@ type DeploymentSpec struct {
 	// ServiceAccountName is the name of the ServiceAccount to use to run the service
 	// +optional
 	ServiceAccountName string `json:"serviceAccountName,omitempty"`
-	// Minimum number of replicas, pods won't scale down to 0 in case of no traffic
+	// Minimum number of replicas which defaults to 1, when minReplicas = 0 pods scale down to 0 in case of no traffic
 	// +optional
 	MinReplicas *int `json:"minReplicas,omitempty"`
 	// This is the up bound for autoscaler to scale to
 	// +optional
 	MaxReplicas int `json:"maxReplicas,omitempty"`
-	// Parallelism specifies how many requests can be processed concurrently, this sets the target
-	// concurrency for Autoscaling(KPA). For model servers that support tuning parallelism will use this value,
-	// by default the parallelism is the number of the CPU cores for most of the model servers.
-	// +optional
+	// Parallelism specifies how many requests can be processed concurrently, this sets the hard limit of the container
+	// concurrency(https://knative.dev/docs/serving/autoscaling/concurrency).
 	Parallelism int `json:"parallelism,omitempty"`
 	// Activate request/response logging
 	// +optional
 	Logger *Logger `json:"logger,omitempty"`
-	// Activate batcher
+	// Activate request batching
 	// +optional
 	Batcher *Batcher `json:"batcher,omitempty"`
 }
@@ -87,7 +85,7 @@ type Logger struct {
 	// URL to send request logging CloudEvents
 	// +optional
 	Url *string `json:"url,omitempty"`
-	// What payloads to log
+	// What payloads to log: [all, request, response]
 	Mode LoggerMode `json:"mode,omitempty"`
 }
 
@@ -161,7 +159,7 @@ type AlibiExplainerSpec struct {
 	Type AlibiExplainerType `json:"type"`
 	// The location of a trained explanation model
 	StorageURI string `json:"storageUri,omitempty"`
-	// Defaults to latest Alibi Version
+	// Alibi docker image version which defaults to latest release
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
 	// Defaults to requests and limits of 1CPU, 2Gb MEM.
 	Resources v1.ResourceRequirements `json:"resources,omitempty"`
@@ -171,9 +169,9 @@ type AlibiExplainerSpec struct {
 
 // TensorflowSpec defines arguments for configuring Tensorflow model serving.
 type TensorflowSpec struct {
-	// The location of the trained model
+	// The URI for the saved model(https://www.tensorflow.org/tutorials/keras/save_and_load)
 	StorageURI string `json:"storageUri"`
-	// Allowed runtime versions are specified in the inferenceservice config map.
+	// TFServing docker image version(https://hub.docker.com/r/tensorflow/serving), default version can be set in the inferenceservice configmap.
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
 	// Defaults to requests and limits of 1CPU, 2Gb MEM.
 	Resources v1.ResourceRequirements `json:"resources,omitempty"`
@@ -181,9 +179,9 @@ type TensorflowSpec struct {
 
 // TritonSpec defines arguments for configuring Triton Inference Server.
 type TritonSpec struct {
-	// The location of the trained model
+	// The URI for the trained model repository(https://docs.nvidia.com/deeplearning/triton-inference-server/master-user-guide/docs/model_repository.html)
 	StorageURI string `json:"storageUri"`
-	// Allowed runtime versions are specified in the inferenceservice config map
+	// Triton Inference Server docker image version, default version can be set in the inferenceservice configmap
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
 	// Defaults to requests and limits of 1CPU, 2Gb MEM.
 	Resources v1.ResourceRequirements `json:"resources,omitempty"`
@@ -191,11 +189,11 @@ type TritonSpec struct {
 
 // XGBoostSpec defines arguments for configuring XGBoost model serving.
 type XGBoostSpec struct {
-	// The location of the trained model
+	// The URI of the trained model which contains model.bst
 	StorageURI string `json:"storageUri"`
 	// Number of thread to be used by XGBoost
 	NThread int `json:"nthread,omitempty"`
-	// Allowed runtime versions are specified in the inferenceservice config map
+	// XGBoost KFServer docker image version which defaults to latest release
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
 	// Defaults to requests and limits of 1CPU, 2Gb MEM.
 	Resources v1.ResourceRequirements `json:"resources,omitempty"`
@@ -203,9 +201,9 @@ type XGBoostSpec struct {
 
 // SKLearnSpec defines arguments for configuring SKLearn model serving.
 type SKLearnSpec struct {
-	// The location of the trained model
+	// The URI of the trained model which contains model.pickle, model.pkl or model.joblib
 	StorageURI string `json:"storageUri"`
-	// Allowed runtime versions are specified in the inferenceservice config map
+	// SKLearn KFServer docker image version which defaults to latest release
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
 	// Defaults to requests and limits of 1CPU, 2Gb MEM.
 	Resources v1.ResourceRequirements `json:"resources,omitempty"`
@@ -213,9 +211,9 @@ type SKLearnSpec struct {
 
 // ONNXSpec defines arguments for configuring ONNX model serving.
 type ONNXSpec struct {
-	// The location of the trained model
+	// The URI of the exported onnx model(model.onnx)
 	StorageURI string `json:"storageUri"`
-	// Allowed runtime versions are specified in the inferenceservice config map
+	// ONNXRuntime docker image versions, default version can be set in the inferenceservice configmap
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
 	// Defaults to requests and limits of 1CPU, 2Gb MEM.
 	Resources v1.ResourceRequirements `json:"resources,omitempty"`
@@ -223,11 +221,11 @@ type ONNXSpec struct {
 
 // PyTorchSpec defines arguments for configuring PyTorch model serving.
 type PyTorchSpec struct {
-	// The location of the trained model
+	// The URI of the trained model which contains model.pt
 	StorageURI string `json:"storageUri"`
 	// Defaults PyTorch model class name to 'PyTorchModel'
 	ModelClassName string `json:"modelClassName,omitempty"`
-	// Allowed runtime versions are specified in the inferenceservice config map
+	// PyTorch KFServer docker image version which defaults to latest release
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
 	// Defaults to requests and limits of 1CPU, 2Gb MEM.
 	Resources v1.ResourceRequirements `json:"resources,omitempty"`
@@ -254,7 +252,7 @@ type InferenceServiceStatus struct {
 	Default ComponentStatusMap `json:"default,omitempty"`
 	// Statuses for the canary endpoints of the InferenceService
 	Canary ComponentStatusMap `json:"canary,omitempty"`
-	// Ducktype for addressable
+	// Addressable URL for eventing
 	Address *duckv1beta1.Addressable `json:"address,omitempty"`
 }
 

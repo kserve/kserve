@@ -9,150 +9,7 @@
 <p>Package v1alpha2 contains API Schema definitions for the serving v1alpha2 API group</p>
 </p>
 Resource Types:
-<ul><li>
-<a href="#serving.kubeflow.org/v1alpha2.InferenceService">InferenceService</a>
-</li></ul>
-<h3 id="serving.kubeflow.org/v1alpha2.InferenceService">InferenceService
-</h3>
-<p>
-<p>InferenceService is the Schema for the services API</p>
-</p>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>apiVersion</code></br>
-string</td>
-<td>
-<code>
-serving.kubeflow.org/v1alpha2
-</code>
-</td>
-</tr>
-<tr>
-<td>
-<code>kind</code></br>
-string
-</td>
-<td><code>InferenceService</code></td>
-</tr>
-<tr>
-<td>
-<code>metadata</code></br>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.13/#objectmeta-v1-meta">
-Kubernetes meta/v1.ObjectMeta
-</a>
-</em>
-</td>
-<td>
-Refer to the Kubernetes API documentation for the fields of the
-<code>metadata</code> field.
-</td>
-</tr>
-<tr>
-<td>
-<code>spec</code></br>
-<em>
-<a href="#serving.kubeflow.org/v1alpha2.InferenceServiceSpec">
-InferenceServiceSpec
-</a>
-</em>
-</td>
-<td>
-<br/>
-<br/>
-<table>
-<tr>
-<td>
-<code>default</code></br>
-<em>
-<a href="#serving.kubeflow.org/v1alpha2.EndpointSpec">
-EndpointSpec
-</a>
-</em>
-</td>
-<td>
-<p>Default defines default InferenceService endpoints</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>canary</code></br>
-<em>
-<a href="#serving.kubeflow.org/v1alpha2.EndpointSpec">
-EndpointSpec
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Canary defines an alternate endpoints to route a percentage of traffic.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>canaryTrafficPercent</code></br>
-<em>
-int
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>CanaryTrafficPercent defines the percentage of traffic going to canary InferenceService endpoints</p>
-</td>
-</tr>
-</table>
-</td>
-</tr>
-<tr>
-<td>
-<code>status</code></br>
-<em>
-<a href="#serving.kubeflow.org/v1alpha2.InferenceServiceStatus">
-InferenceServiceStatus
-</a>
-</em>
-</td>
-<td>
-</td>
-</tr>
-</tbody>
-</table>
-<h3 id="serving.kubeflow.org/v1alpha2.Addressable">Addressable
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#serving.kubeflow.org/v1alpha2.InferenceServiceStatus">InferenceServiceStatus</a>)
-</p>
-<p>
-</p>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>address</code></br>
-<em>
-string
-</em>
-</td>
-<td>
-</td>
-</tr>
-</tbody>
-</table>
+<ul></ul>
 <h3 id="serving.kubeflow.org/v1alpha2.AlibiExplainerSpec">AlibiExplainerSpec
 </h3>
 <p>
@@ -202,7 +59,7 @@ string
 </em>
 </td>
 <td>
-<p>Defaults to latest Alibi Version</p>
+<p>Alibi docker image version which defaults to latest release</p>
 </td>
 </tr>
 <tr>
@@ -239,12 +96,63 @@ map[string]string
 </p>
 <p>
 </p>
-<h3 id="serving.kubeflow.org/v1alpha2.ComponentStatusMap">ComponentStatusMap
-(<code>map[github.com/kubeflow/kfserving/pkg/constants.InferenceServiceComponent]github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.StatusConfigurationSpec</code> alias)</p></h3>
+<h3 id="serving.kubeflow.org/v1alpha2.Batcher">Batcher
+</h3>
 <p>
 (<em>Appears on:</em>
-<a href="#serving.kubeflow.org/v1alpha2.InferenceServiceStatus">InferenceServiceStatus</a>)
+<a href="#serving.kubeflow.org/v1alpha2.DeploymentSpec">DeploymentSpec</a>)
 </p>
+<p>
+<p>Batcher provides optional payload batcher for all endpoints</p>
+</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>maxBatchSize</code></br>
+<em>
+int
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>MaxBatchSize of batcher service</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>maxLatency</code></br>
+<em>
+int
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>MaxLatency of batcher service</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>timeout</code></br>
+<em>
+int
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Timeout of batcher service</p>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="&lt;UNKNOWN_API_GROUP&gt;.ComponentStatusMap">ComponentStatusMap
+</h3>
 <p>
 <p>EndpointStatusMap defines the observed state of InferenceService endpoints</p>
 </p>
@@ -321,7 +229,7 @@ int
 </td>
 <td>
 <em>(Optional)</em>
-<p>Minimum number of replicas, pods won&rsquo;t scale down to 0 in case of no traffic</p>
+<p>Minimum number of replicas which defaults to 1, when minReplicas = 0 pods scale down to 0 in case of no traffic</p>
 </td>
 </tr>
 <tr>
@@ -344,10 +252,8 @@ int
 </em>
 </td>
 <td>
-<em>(Optional)</em>
-<p>Parallelism specifies how many requests can be processed concurrently, this sets the target
-concurrency for Autoscaling(KPA). For model servers that support tuning parallelism will use this value,
-by default the parallelism is the number of the CPU cores for most of the model servers.</p>
+<p>Parallelism specifies how many requests can be processed concurrently, this sets the hard limit of the container
+concurrency(<a href="https://knative.dev/docs/serving/autoscaling/concurrency">https://knative.dev/docs/serving/autoscaling/concurrency</a>).</p>
 </td>
 </tr>
 <tr>
@@ -362,6 +268,20 @@ Logger
 <td>
 <em>(Optional)</em>
 <p>Activate request/response logging</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>batcher</code></br>
+<em>
+<a href="#serving.kubeflow.org/v1alpha2.Batcher">
+Batcher
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Activate request batching</p>
 </td>
 </tr>
 </tbody>
@@ -467,16 +387,6 @@ string
 <td>
 </td>
 </tr>
-<tr>
-<td>
-<code>allowedImageVersions</code></br>
-<em>
-[]string
-</em>
-</td>
-<td>
-</td>
-</tr>
 </tbody>
 </table>
 <h3 id="serving.kubeflow.org/v1alpha2.ExplainerSpec">ExplainerSpec
@@ -570,6 +480,102 @@ ExplainerConfig
 </tr>
 </tbody>
 </table>
+<h3 id="serving.kubeflow.org/v1alpha2.InferenceService">InferenceService
+</h3>
+<p>
+<p>InferenceService is the Schema for the services API</p>
+</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>metadata</code></br>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.13/#objectmeta-v1-meta">
+Kubernetes meta/v1.ObjectMeta
+</a>
+</em>
+</td>
+<td>
+Refer to the Kubernetes API documentation for the fields of the
+<code>metadata</code> field.
+</td>
+</tr>
+<tr>
+<td>
+<code>spec</code></br>
+<em>
+<a href="#serving.kubeflow.org/v1alpha2.InferenceServiceSpec">
+InferenceServiceSpec
+</a>
+</em>
+</td>
+<td>
+<br/>
+<br/>
+<table>
+<tr>
+<td>
+<code>default</code></br>
+<em>
+<a href="#serving.kubeflow.org/v1alpha2.EndpointSpec">
+EndpointSpec
+</a>
+</em>
+</td>
+<td>
+<p>Default defines default InferenceService endpoints</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>canary</code></br>
+<em>
+<a href="#serving.kubeflow.org/v1alpha2.EndpointSpec">
+EndpointSpec
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Canary defines alternate endpoints to route a percentage of traffic.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>canaryTrafficPercent</code></br>
+<em>
+int
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>CanaryTrafficPercent defines the percentage of traffic going to canary InferenceService endpoints</p>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+<tr>
+<td>
+<code>status</code></br>
+<em>
+<a href="#serving.kubeflow.org/v1alpha2.InferenceServiceStatus">
+InferenceServiceStatus
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
 <h3 id="serving.kubeflow.org/v1alpha2.InferenceServiceSpec">InferenceServiceSpec
 </h3>
 <p>
@@ -611,7 +617,7 @@ EndpointSpec
 </td>
 <td>
 <em>(Optional)</em>
-<p>Canary defines an alternate endpoints to route a percentage of traffic.</p>
+<p>Canary defines alternate endpoints to route a percentage of traffic.</p>
 </td>
 </tr>
 <tr>
@@ -628,6 +634,11 @@ int
 </tr>
 </tbody>
 </table>
+<h3 id="serving.kubeflow.org/v1alpha2.InferenceServiceState">InferenceServiceState
+(<code>string</code> alias)</p></h3>
+<p>
+<p>InferenceState describes the Readiness of the InferenceService</p>
+</p>
 <h3 id="serving.kubeflow.org/v1alpha2.InferenceServiceStatus">InferenceServiceStatus
 </h3>
 <p>
@@ -695,8 +706,8 @@ int
 <td>
 <code>default</code></br>
 <em>
-<a href="#serving.kubeflow.org/v1alpha2.ComponentStatusMap">
-ComponentStatusMap
+<a href="#serving.kubeflow.org/v1alpha2.map[github.com/kubeflow/kfserving/pkg/constants.InferenceServiceComponent]github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.StatusConfigurationSpec">
+map[github.com/kubeflow/kfserving/pkg/constants.InferenceServiceComponent]github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.StatusConfigurationSpec
 </a>
 </em>
 </td>
@@ -708,8 +719,8 @@ ComponentStatusMap
 <td>
 <code>canary</code></br>
 <em>
-<a href="#serving.kubeflow.org/v1alpha2.ComponentStatusMap">
-ComponentStatusMap
+<a href="#serving.kubeflow.org/v1alpha2.map[github.com/kubeflow/kfserving/pkg/constants.InferenceServiceComponent]github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.StatusConfigurationSpec">
+map[github.com/kubeflow/kfserving/pkg/constants.InferenceServiceComponent]github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.StatusConfigurationSpec
 </a>
 </em>
 </td>
@@ -721,13 +732,11 @@ ComponentStatusMap
 <td>
 <code>address</code></br>
 <em>
-<a href="#serving.kubeflow.org/v1alpha2.Addressable">
-Addressable
-</a>
+knative.dev/pkg/apis/duck/v1beta1.Addressable
 </em>
 </td>
 <td>
-<p>Ducktype for addressable</p>
+<p>Addressable URL for eventing</p>
 </td>
 </tr>
 </tbody>
@@ -821,7 +830,7 @@ LoggerMode
 </em>
 </td>
 <td>
-<p>What payloads to log</p>
+<p>What payloads to log: [all, request, response]</p>
 </td>
 </tr>
 </tbody>
@@ -859,7 +868,7 @@ string
 </em>
 </td>
 <td>
-<p>The location of the trained model</p>
+<p>The URI of the exported onnx model(model.onnx)</p>
 </td>
 </tr>
 <tr>
@@ -870,7 +879,7 @@ string
 </em>
 </td>
 <td>
-<p>Allowed runtime versions are specified in the inferenceservice config map</p>
+<p>ONNXRuntime docker image versions, default version can be set in the inferenceservice configmap</p>
 </td>
 </tr>
 <tr>
@@ -933,16 +942,6 @@ string
 <code>defaultGpuImageVersion</code></br>
 <em>
 string
-</em>
-</td>
-<td>
-</td>
-</tr>
-<tr>
-<td>
-<code>allowedImageVersions</code></br>
-<em>
-[]string
 </em>
 </td>
 <td>
@@ -1191,7 +1190,7 @@ string
 </em>
 </td>
 <td>
-<p>The location of the trained model</p>
+<p>The URI of the trained model which contains model.pt</p>
 </td>
 </tr>
 <tr>
@@ -1213,7 +1212,7 @@ string
 </em>
 </td>
 <td>
-<p>Allowed runtime versions are specified in the inferenceservice config map</p>
+<p>PyTorch KFServer docker image version which defaults to latest release</p>
 </td>
 </tr>
 <tr>
@@ -1256,7 +1255,7 @@ string
 </em>
 </td>
 <td>
-<p>The location of the trained model</p>
+<p>The URI of the trained model which contains model.pickle, model.pkl or model.joblib</p>
 </td>
 </tr>
 <tr>
@@ -1267,7 +1266,7 @@ string
 </em>
 </td>
 <td>
-<p>Allowed runtime versions are specified in the inferenceservice config map</p>
+<p>SKLearn KFServer docker image version which defaults to latest release</p>
 </td>
 </tr>
 <tr>
@@ -1320,16 +1319,6 @@ string
 <p>Host name of the service</p>
 </td>
 </tr>
-<tr>
-<td>
-<code>replicas</code></br>
-<em>
-int
-</em>
-</td>
-<td>
-</td>
-</tr>
 </tbody>
 </table>
 <h3 id="serving.kubeflow.org/v1alpha2.TensorflowSpec">TensorflowSpec
@@ -1357,7 +1346,7 @@ string
 </em>
 </td>
 <td>
-<p>The location of the trained model</p>
+<p>The URI for the saved model(<a href="https://www.tensorflow.org/tutorials/keras/save_and_load">https://www.tensorflow.org/tutorials/keras/save_and_load</a>)</p>
 </td>
 </tr>
 <tr>
@@ -1368,7 +1357,7 @@ string
 </em>
 </td>
 <td>
-<p>Allowed runtime versions are specified in the inferenceservice config map.</p>
+<p>TFServing docker image version(<a href="https://hub.docker.com/r/tensorflow/serving">https://hub.docker.com/r/tensorflow/serving</a>), default version can be set in the inferenceservice configmap.</p>
 </td>
 </tr>
 <tr>
@@ -1422,16 +1411,6 @@ string
 <code>defaultImageVersion</code></br>
 <em>
 string
-</em>
-</td>
-<td>
-</td>
-</tr>
-<tr>
-<td>
-<code>allowedImageVersions</code></br>
-<em>
-[]string
 </em>
 </td>
 <td>
@@ -1541,7 +1520,7 @@ string
 </em>
 </td>
 <td>
-<p>The location of the trained model</p>
+<p>The URI for the trained model repository(<a href="https://docs.nvidia.com/deeplearning/triton-inference-server/master-user-guide/docs/model_repository.html">https://docs.nvidia.com/deeplearning/triton-inference-server/master-user-guide/docs/model_repository.html</a>)</p>
 </td>
 </tr>
 <tr>
@@ -1552,7 +1531,7 @@ string
 </em>
 </td>
 <td>
-<p>Allowed runtime versions are specified in the inferenceservice config map</p>
+<p>Triton Inference Server docker image version, default version can be set in the inferenceservice configmap</p>
 </td>
 </tr>
 <tr>
@@ -1662,7 +1641,7 @@ string
 </em>
 </td>
 <td>
-<p>The location of the trained model</p>
+<p>The URI of the trained model which contains model.bst</p>
 </td>
 </tr>
 <tr>
@@ -1684,7 +1663,7 @@ string
 </em>
 </td>
 <td>
-<p>Allowed runtime versions are specified in the inferenceservice config map</p>
+<p>XGBoost KFServer docker image version which defaults to latest release</p>
 </td>
 </tr>
 <tr>
