@@ -13,7 +13,7 @@ data:
         },
         "onnx": {
             "image": "mcr.microsoft.com/onnxruntime/server",
-            "defaultImageVersion": "v0.5.1"
+            "defaultImageVersion": "v1.0.0"
         },
         "sklearn": {
             "image": "gcr.io/kubeflow-ci/kfserving/sklearnserver",
