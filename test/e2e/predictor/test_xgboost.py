@@ -49,6 +49,6 @@ def test_xgboost_kfserving():
 
     KFServing.create(isvc)
     KFServing.wait_isvc_ready(service_name, namespace=KFSERVING_TEST_NAMESPACE)
-    probs = predict(service_name, './data/iris_input.json')
-    assert(probs == [1, 1])
+    res = predict(service_name, './data/iris_input.json')
+    assert(res["predictions"] == [1, 1])
     KFServing.delete(service_name, KFSERVING_TEST_NAMESPACE)

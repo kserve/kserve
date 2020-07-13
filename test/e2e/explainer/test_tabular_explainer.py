@@ -72,8 +72,8 @@ def test_tabular_explainer():
            logging.info(pod)
        raise e
     
-    probs = predict(service_name, './data/income_input.json')
-    assert(probs == [0])
+    res = predict(service_name, './data/income_input.json')
+    assert(res["predictions"] == [0])
     precision = explain(service_name, './data/income_input.json')
     assert(precision > 0.9)
     KFServing.delete(service_name, KFSERVING_TEST_NAMESPACE)

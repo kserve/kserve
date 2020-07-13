@@ -50,8 +50,8 @@ def test_tensorflow_kfserving():
 
     KFServing.create(isvc)
     KFServing.wait_isvc_ready(service_name, namespace=KFSERVING_TEST_NAMESPACE)
-    probs = predict(service_name, './data/flower_input.json')
-    assert(np.argmax(probs[0].get('scores')) == 0 )
+    res = predict(service_name, './data/flower_input.json')
+    assert(np.argmax(res["predictions"][0].get('scores')) == 0)
 
     # Delete the InferenceService
     KFServing.delete(service_name, namespace=KFSERVING_TEST_NAMESPACE)

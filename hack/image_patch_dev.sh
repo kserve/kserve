@@ -22,6 +22,10 @@ EOF
 
 LOGGER_IMG=$(ko resolve -f config/overlays/development/configmap/ko_resolve_logger| grep 'image:' | awk '{print $2}')
 if [ -z ${LOGGER_IMG} ]; then exit; fi
+
+BATCHER_IMG=$(ko resolve -f config/overlays/development/configmap/ko_resolve_batcher| grep 'image:' | awk '{print $2}')
+if [ -z ${BATCHER_IMG} ]; then exit; fi
+
 cat > config/overlays/${OVERLAY}/configmap/inferenceservice_patch.yaml << EOF
 apiVersion: v1
 kind: ConfigMap
@@ -37,17 +41,6 @@ data:
         "cpuRequest": "100m",
         "cpuLimit": "1"
     }
-EOF
-
-BATCHER_IMG=$(ko resolve -f config/overlays/development/configmap/ko_resolve_batcher| grep 'image:' | awk '{print $2}')
-if [ -z ${BATCHER_IMG} ]; then exit; fi
-cat > config/overlays/${OVERLAY}/configmap/inferenceservice_patch.yaml << EOF
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: inferenceservice-config
-  namespace: kfserving-system
-data:
   batcher: |-
     {
         "image" : "${BATCHER_IMG}",
