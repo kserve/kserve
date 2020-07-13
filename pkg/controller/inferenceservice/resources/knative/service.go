@@ -106,10 +106,10 @@ func addLoggerAnnotations(logger *v1alpha2.Logger, annotations map[string]string
 
 func addLoggerContainerPort(container *v1.Container) {
 	if container != nil {
-		if container.Ports == nil {
+		if container.Ports == nil || len(container.Ports) == 0 {
 			port, _ := strconv.Atoi(constants.InferenceServiceDefaultLoggerPort)
 			container.Ports = []v1.ContainerPort{
-				v1.ContainerPort{
+				{
 					ContainerPort: int32(port),
 				},
 			}
@@ -140,10 +140,10 @@ func addBatcherAnnotations(batcher *v1alpha2.Batcher, annotations map[string]str
 
 func addBatcherContainerPort(container *v1.Container) {
 	if container != nil {
-		if container.Ports == nil {
+		if container.Ports == nil || len(container.Ports) == 0{
 			port, _ := strconv.Atoi(constants.InferenceServiceDefaultBatcherPort)
 			container.Ports = []v1.ContainerPort{
-				v1.ContainerPort{
+				{
 					ContainerPort: int32(port),
 				},
 			}
@@ -175,7 +175,6 @@ func (c *ServiceBuilder) CreatePredictorService(name string, metadata metav1.Obj
 	}
 
 	hasInferenceBatcher := addBatcherAnnotations(predictorSpec.Batcher, annotations)
-	container = predictorSpec.GetContainer(metadata.Name, predictorSpec.Parallelism, c.inferenceServiceConfig)
 	if hasInferenceBatcher {
 		addBatcherContainerPort(container)
 	}

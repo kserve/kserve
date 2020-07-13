@@ -4,7 +4,7 @@ First let us create a message dumper KNative service which will print out the Cl
 We will use the following resource yaml:
 
 ```
-apiVersion: serving.knative.dev/v1alpha1
+apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
   name: message-dumper
@@ -12,7 +12,7 @@ spec:
   template:
     spec:
       containers:
-      - image: gcr.io/knative-releases/github.com/knative/eventing-sources/cmd/event_display
+      - image: gcr.io/knative-releases/knative.dev/eventing-contrib/cmd/event_display
 
 ```
 

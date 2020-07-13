@@ -39,8 +39,9 @@ def predict(service_name, input_json):
         logging.info("Sending request data: %s", json.dumps(data))
         response = requests.post(url, json.dumps(data), headers=headers)
         logging.info("Got response code %s, content %s", response.status_code, response.content)
-        probs = json.loads(response.content.decode('utf-8'))["predictions"]
-        return probs
+        preds = json.loads(response.content.decode('utf-8'))
+        return preds
+
 
 def explain(service_name, input_json):
     isvc = KFServing.get(service_name, namespace=KFSERVING_TEST_NAMESPACE)
@@ -80,11 +81,12 @@ def explain(service_name, input_json):
             raise e
         return precision
 
+
 def get_cluster_ip():
     api_instance = client.CoreV1Api(client.ApiClient())
     service = api_instance.read_namespaced_service("istio-ingressgateway", "istio-system", exact='true')
     if service.status.load_balancer.ingress is None:
-       cluster_ip = service.spec.cluster_ip
+        cluster_ip = service.spec.cluster_ip
     else:
-       cluster_ip = service.status.load_balancer.ingress[0].ip
+        cluster_ip = service.status.load_balancer.ingress[0].ip
     return cluster_ip
