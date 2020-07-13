@@ -1,0 +1,75 @@
+apiVersion: tekton.dev/v1alpha1
+kind: PipelineRun
+metadata:
+  generateName: kfserving-ci-
+  namespace: kf-ci
+spec:
+  serviceAccountName: kf-ci
+  params:
+  - name: testing-cluster-pattern
+    value: 'kf-ci-v1'
+  - name: testing-cluster-location
+    value: 'us-east1-d'
+  - name: artifacts-gcs
+    value: 'gs://kubeflow-ci-deployment/kfserving-ci-testing'
+  resources:
+  - name: kfserving-repo
+    resourceSpec:
+      type: git
+      params:
+      - name: url
+        value: https://github.com/kubeflow/kfserving.git
+      - name: revision
+        value: master
+  pipelineSpec:
+    params:
+    - name: artifacts-gcs
+      type: string
+      description: GCS bucket and directory artifacts will be uploaded to.
+    resources:
+    - name: kfserving-repo
+      type: git
+    tasks:
+    - name: kfserving-ci-test
+      resources:
+        inputs:
+        - name: kfserving-repo
+          resource: kfserving-repo
+      taskSpec:
+        inputs:
+          params:
+          - name: test-name
+            type: string
+            default: kfserving-ci
+            description: Name to give the test results file.
+          - name: artifacts-gcs
+            type: string
+            default: 'gs://kubeflow-ci-deployment/kfserving-ci-testing'
+            description: GCS bucket and directory artifacts will be uploaded to. 
+          - name: test-image
+            type: string
+            default: gcr.io/kubeflow-ci/test-worker-py3@sha256:b679ce5d7edbcc373fd7d28c57454f4f22ae987f200f601252b6dcca1fd8823b
+            description: The docker image to run the tests in
+          resources:
+          - name: kfserving-repo
+            type: git
+            description: The GitHub repo containing code to test
+        steps:
+        - name: sdk-test
+          image: $(inputs.params.test-image)
+          workingDir: /workspace/$(inputs.resources.kfserving-repo.name)
+          command:
+            - test/scripts/sdk-test.sh
+        #- name: copy-artifacts
+        #  image: $(inputs.params.test-image)
+        #  command:
+        #  - python
+        #  args:
+        #  - -m
+        #  - kubeflow.testing.tekton_client
+        #  - junit-parse-and-upload
+        #  - --artifacts-dir=/workspace/artifacts
+        #  - --output-gcs=$(inputs.params.artifacts-gcs)
+        #  env:
+        #  - name: PYTHONPATH
+        #    value: /srcCache/kubeflow/testing/py

@@ -1,24 +1,7 @@
 # This file configures the workflows to trigger in our Prow jobs.
 # see https://github.com/kubeflow/testing/blob/master/py/kubeflow/testing/run_e2e_workflow.py
 workflows:
-  - app_dir: kubeflow/kfserving/test/workflows
-    component: workflows
-    name: e2e
-    job_types:
-      - presubmit
-    include_dirs:
-    - pkg/*
-    - cmd/*
-    - config/*
-    - test/*
-    - hack/*
-    - Dockerfile
-    - Makefile
-    - python/*
-    - vendor/*
-    params:
-      registry: "gcr.io/kubeflow-ci"
-  # The postsubmit run publishes the docker images to gcr.io/kubeflow-images-public      
+  # The postsubmit run publishes the docker images to gcr.io/kubeflow-images-public
   - app_dir: kubeflow/kfserving/test/workflows
     component: workflows
     name: e2e-release
@@ -32,3 +15,21 @@ workflows:
     - vendor/*
     params:
       registry: "gcr.io/kubeflow-images-public"
+  # Tekton intergration for presubmit CI tests.
+  - tekton_run: kubeflow/kfserving/test/tekton/kfserving-ci-test.yaml
+    name: kfserving-e2e
+    tekton_params:
+      - name: testing-cluster-pattern
+        value: kf-ci-v1
+    job_types:
+    - presubmit
+    include_dirs:
+      - pkg/*
+      - cmd/*
+      - config/*
+      - test/*
+      - hack/*
+      - Dockerfile
+      - Makefile
+      - python/*
+      - vendor/*
