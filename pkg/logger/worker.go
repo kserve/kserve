@@ -55,7 +55,7 @@ func (W *Worker) sendCloudEvent(logReq LogRequest) error {
 
 	t, err := cloudevents.NewHTTPTransport(
 		cloudevents.WithTarget(logReq.Url.String()),
-		cloudevents.WithEncoding(cloudevents.HTTPBinaryV01),
+		cloudevents.WithEncoding(cloudevents.HTTPBinaryV1),
 	)
 
 	if err != nil {

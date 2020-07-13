@@ -40,7 +40,7 @@ def test_kfserving_logger():
             custom=V1alpha2CustomSpec(
                 container=V1Container(
                     name="kfserving-container",
-                    image='gcr.io/knative-releases/github.com/knative/eventing-sources/cmd/event_display',
+                    image='gcr.io/knative-releases/knative.dev/eventing-contrib/cmd/event_display',
                 ))))
 
     isvc = V1alpha2InferenceService(api_version=api_version,
