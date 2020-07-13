@@ -55,7 +55,7 @@ func (W *Worker) sendCloudEvent(logReq LogRequest) error {
 
 	t, err := cloudevents.NewHTTPTransport(
 		cloudevents.WithTarget(logReq.Url.String()),
-		cloudevents.WithEncoding(cloudevents.HTTPBinaryV1),
+		cloudevents.WithEncoding(cloudevents.HTTPBinaryV01),
 	)
 
 	if err != nil {
@@ -102,7 +102,8 @@ func (w *Worker) Start() {
 			select {
 			case work := <-w.Work:
 				// Receive a work request.
-				fmt.Printf("worker%d: Received work request for %s\n", w.ID, work.Url.String())
+				w.Log.Info("Received work request", "workerId", w.ID, "url", work.Url.String(),
+					"requestId", work.Id)
 
 				if err := w.sendCloudEvent(work); err != nil {
 					w.Log.Error(err, "Failed to send log", "URL", work.Url.String())

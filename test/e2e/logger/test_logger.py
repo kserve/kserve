@@ -83,6 +83,7 @@ def test_kfserving_logger():
         log = KFServing.core_api.read_namespaced_pod_log(name=pod.metadata.name,
                                                          namespace=pod.metadata.namespace,
                                                          container="kfserving-container")
+        print(log)
         assert("org.kubeflow.serving.inference.request" in log)
         assert("org.kubeflow.serving.inference.response" in log)
     KFServing.delete(service_name, KFSERVING_TEST_NAMESPACE)
