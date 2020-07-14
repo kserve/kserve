@@ -9,6 +9,7 @@ spec:
     predictor:
       custom:
         container:
+          name: custom
           image: {username}/custom-sample
           env:
             - name: GREETING_TARGET

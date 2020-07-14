@@ -9,6 +9,7 @@ spec:
     predictor:
       custom:
         container:
+          name: custom
           image: codait/max-object-detector
           ports:
             - containerPort: 5000
