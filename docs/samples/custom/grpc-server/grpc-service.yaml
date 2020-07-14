@@ -10,7 +10,7 @@ spec:
       custom:
         container:
           name: grpc
-          image: docker.io/iamlovingit/helloworld-grpc:latest
+          image: docker.io/${username}/helloworld-grpc:latest
           ports:
           - name: h2c
             containerPort: 8080
