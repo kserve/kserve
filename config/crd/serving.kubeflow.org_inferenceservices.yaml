@@ -24,7 +24,7 @@ spec:
     listKind: InferenceServiceList
     plural: inferenceservices
     shortNames:
-    - isvc
+    - inferenceservice
     singular: inferenceservice
   scope: Namespaced
   validation:
