@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	"github.com/kubeflow/kfserving/pkg/constants"
+	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/components"
+	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/components/predictor"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -78,7 +80,7 @@ func (r *InferenceServiceReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 		return reconcile.Result{}, err
 	}
 
-	/*reconcilers := []components.Component{
+	reconcilers := []components.Component{
 		predictor.NewPredictor(r.Client, r.Scheme, configMap),
 	}
 
@@ -88,7 +90,7 @@ func (r *InferenceServiceReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 			r.Recorder.Eventf(isvc, v1.EventTypeWarning, "InternalError", err.Error())
 			return reconcile.Result{}, err
 		}
-	}*/
+	}
 	if err = r.updateStatus(isvc); err != nil {
 		r.Recorder.Eventf(isvc, v1.EventTypeWarning, "InternalError", err.Error())
 		return reconcile.Result{}, err
