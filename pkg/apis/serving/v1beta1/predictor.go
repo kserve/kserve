@@ -1,7 +1,13 @@
 package v1beta1
 
 import (
+	"fmt"
 	v1 "k8s.io/api/core/v1"
+)
+
+const (
+	// ExactlyOnePredictorViolatedError is a known error message
+	ExactlyOnePredictorViolatedError = "Exactly one of [Custom, ONNX, Tensorflow, Triton, SKLearn, XGBoost] must be specified in PredictorSpec"
 )
 
 // Predictor is an abstraction over machine learning server frameworks
@@ -10,18 +16,18 @@ type Predictor interface {
 	GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container
 	Validate() error
 	Default()
-    GetStorageUri() *string
+	GetStorageUri() *string
 }
 
 // PredictorSpec defines the configuration for a predictor,
 // The following fields follow a "1-of" semantic. Users must specify exactly one spec.
 type PredictorSpec struct {
 	// Spec for KFServer
-	KFServer *KFServerSpec `json:"kfserver,omitempty"`
+	SKLearn *SKLearnSpec `json:"sklearn,omitempty"`
 	// Spec for TFServing (https://github.com/tensorflow/serving)
-	TFServing *TFServingSpec `json:"tfserving,omitempty"`
+	Tensorflow *TensorflowSpec `json:"tensorflow,omitempty"`
 	// Spec for PyTorch predictor
-	TorchServe *TorchServeSpec `json:"torchserve,omitempty"`
+	PyTorch *TorchServeSpec `json:"pytorch,omitempty"`
 	// Spec for Triton Inference Server (https://github.com/NVIDIA/triton-inference-server)
 	Triton *TritonSpec `json:"triton,omitempty"`
 	// Spec for ONNX runtime (https://github.com/microsoft/onnxruntime)
@@ -45,14 +51,27 @@ type PredictorExtensionSpec struct {
 }
 
 // GetPredictor returns the framework for the Predictor
-func (i *InferenceService) GetPredictor() Predictor {
-	if i.Spec.Predictor.TFServing != nil {
-		return i.Spec.Predictor.TFServing
+func (i *InferenceService) GetPredictor() (Predictor, error) {
+	if i.Spec.Predictor.Tensorflow != nil {
+		return i.Spec.Predictor.Tensorflow, nil
 	}
-	if i.Spec.Predictor.KFServer != nil {
-		return i.Spec.Predictor.KFServer
+	if i.Spec.Predictor.SKLearn != nil {
+		return i.Spec.Predictor.SKLearn, nil
 	}
-	return i.Spec.Predictor.CustomPredictor
+	if i.Spec.Predictor.ONNXRuntime != nil {
+		return i.Spec.Predictor.ONNXRuntime, nil
+	}
+	if i.Spec.Predictor.PyTorch != nil {
+		return i.Spec.Predictor.PyTorch, nil
+	}
+	if i.Spec.Predictor.Triton != nil {
+		return i.Spec.Predictor.Triton, nil
+	}
+	if i.Spec.Predictor.CustomPredictor != nil {
+		return i.Spec.Predictor.CustomPredictor, nil
+	}
+	err := fmt.Errorf(ExactlyOnePredictorViolatedError)
+	return nil, err
 }
 
 // GetPredictorPodSpec returns the PodSpec for the Predictor

@@ -15,26 +15,26 @@ var (
 	InvalidTensorflowRuntimeExcludesGPU  = "Tensorflow RuntimeVersion is GPU enabled but GPU resources are not requested. " + InvalidTensorflowRuntimeVersionError
 )
 
-// TFServingSpec defines arguments for configuring Tensorflow model serving.
-type TFServingSpec struct {
+// TensorflowSpec defines arguments for configuring Tensorflow model serving.
+type TensorflowSpec struct {
 	// Contains fields shared across all predictors
 	PredictorExtensionSpec `json:",inline"`
 }
 
 // Validate returns an error if invalid
-func (t *TFServingSpec) Validate() error {
+func (t *TensorflowSpec) Validate() error {
 	return nil
 }
 
 // Default sets defaults on the resource
-func (t *TFServingSpec) Default() {}
+func (t *TensorflowSpec) Default() {}
 
-func (t *TFServingSpec) GetStorageUri() *string {
+func (t *TensorflowSpec) GetStorageUri() *string {
 	return t.StorageURI
 }
 
 // GetContainers transforms the resource into a container spec
-func (t *TFServingSpec) GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container {
+func (t *TensorflowSpec) GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container {
 	arguments := []string{
 		"--port=" + TensorflowServingGRPCPort,
 		"--rest_api_port=" + TensorflowServingRestPort,
@@ -54,4 +54,3 @@ func (t *TFServingSpec) GetContainer(modelName string, config *InferenceServices
 		Command: t.Container.Command,
 	}
 }
-

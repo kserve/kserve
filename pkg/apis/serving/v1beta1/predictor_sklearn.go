@@ -6,22 +6,22 @@ import (
 	v1 "k8s.io/api/core/v1"
 )
 
-// KFServerSpec defines arguments for configuring KFServer model serving.
-type KFServerSpec struct {
+// SKLearnSpec defines arguments for configuring KFServer model serving.
+type SKLearnSpec struct {
 	// Contains fields shared across all predictors
 	PredictorExtensionSpec `json:",inline"`
 }
 
 // Validate returns an error if invalid
-func (k *KFServerSpec) Validate() error {
+func (k *SKLearnSpec) Validate() error {
 	return nil
 }
 
 // Default sets defaults on the resource
-func (k *KFServerSpec) Default() {}
+func (k *SKLearnSpec) Default() {}
 
 // GetContainers transforms the resource into a container spec
-func (k *KFServerSpec) GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container {
+func (k *SKLearnSpec) GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container {
 	arguments := []string{
 		fmt.Sprintf("%s=%s", constants.ArgumentModelName, modelName),
 		fmt.Sprintf("%s=%s", constants.ArgumentModelDir, constants.DefaultModelLocalMountPath),
@@ -42,6 +42,6 @@ func (k *KFServerSpec) GetContainer(modelName string, config *InferenceServicesC
 	}
 }
 
-func (k *KFServerSpec) GetStorageUri() *string {
+func (k *SKLearnSpec) GetStorageUri() *string {
 	return k.StorageURI
 }
