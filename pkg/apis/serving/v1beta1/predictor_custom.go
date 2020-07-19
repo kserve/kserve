@@ -1,6 +1,9 @@
 package v1beta1
 
-import v1 "k8s.io/api/core/v1"
+import (
+	"github.com/kubeflow/kfserving/pkg/constants"
+	v1 "k8s.io/api/core/v1"
+)
 
 // CustomPredictor defines arguments for configuring a custom server.
 type CustomPredictor struct {
@@ -20,8 +23,13 @@ func (c *CustomPredictor) Validate() error {
 // Default sets defaults on the resource
 func (c *CustomPredictor) Default() {}
 
-func (t *CustomPredictor) GetStorageUri() *string {
-	//TODO
+func (c *CustomPredictor) GetStorageUri() *string {
+	// return the CustomSpecStorageUri env variable value if set on the spec
+	for _, envVar := range c.Spec.Containers[0].Env {
+		if envVar.Name == constants.CustomSpecStorageUriEnvVarKey {
+			return &envVar.Value
+		}
+	}
 	return nil
 }
 

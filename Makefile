@@ -9,7 +9,7 @@ XGB_IMG ?= xgbserver:latest
 PYTORCH_IMG ?= pytorchserver:latest
 ALIBI_IMG ?= alibi-explainer:latest
 STORAGE_INIT_IMG ?= storage-initializer:latest
-CRD_OPTIONS ?= "crd:maxDescLen=0,trivialVersions=true"
+CRD_OPTIONS ?= "crd:maxDescLen=0"
 KFSERVING_ENABLE_SELF_SIGNED_CA ?= false
 
 # CPU/Memory limits for controller-manager
@@ -98,6 +98,7 @@ manifests: controller-gen
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) paths=./pkg/apis/... output:crd:dir=config/crd
 	$(CONTROLLER_GEN) rbac:roleName=kfserving-manager-role paths=./pkg/controller/inferenceservice/... output:rbac:artifacts:config=config/rbac
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths=./pkg/apis/serving/v1alpha2
+	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths=./pkg/apis/serving/v1beta1
 	#TODO Remove this until new controller-tools is released
 	perl -pi -e 's/storedVersions: null/storedVersions: []/g' config/crd/serving.kubeflow.org_inferenceservices.yaml
 	perl -pi -e 's/conditions: null/conditions: []/g' config/crd/serving.kubeflow.org_inferenceservices.yaml
