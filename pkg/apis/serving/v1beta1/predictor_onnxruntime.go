@@ -20,3 +20,9 @@ func (o *ONNXRuntimeSpec) Default() {}
 func (o *ONNXRuntimeSpec) GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container {
 	return &v1.Container{}
 }
+
+func (o *ONNXRuntimeSpec) GetStorageUri() *string {
+	return o.StorageURI
+}
+
+
