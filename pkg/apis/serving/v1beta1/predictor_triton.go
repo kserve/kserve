@@ -20,3 +20,7 @@ func (t *TritonSpec) Default() {}
 func (t *TritonSpec) GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container {
 	return &v1.Container{}
 }
+
+func (t *TritonSpec) GetStorageUri() *string {
+	return t.StorageURI
+}

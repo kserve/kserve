@@ -72,6 +72,10 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
 
 func (p *Predictor) CreatePredictorService(isvc *v1beta1.InferenceService) (*knservingv1.Service, error) {
 	log := p.Log.WithValues("Predictor", isvc.Name)
+	predictor, err := isvc.GetPredictor()
+	if err != nil {
+		return nil, err
+	}
 	log.Info("Reconciling Predictor", "PredictorSpec", isvc.Spec)
 	serviceName := constants.DefaultServiceName(isvc.Name, constants.Predictor)
 
@@ -83,10 +87,10 @@ func (p *Predictor) CreatePredictorService(isvc *v1beta1.InferenceService) (*kns
 
 	// KNative does not support INIT containers or mounting, so we add annotations that trigger the
 	// StorageInitializer injector to mutate the underlying deployment to provision model data
-	if sourceURI := isvc.GetPredictor().GetStorageUri(); sourceURI != nil {
+	if sourceURI := predictor.GetStorageUri(); sourceURI != nil {
 		annotations[constants.StorageInitializerSourceUriInternalAnnotationKey] = *sourceURI
 	}
-	container := isvc.GetPredictor().GetContainer(isvc.Name, p.inferenceServiceConfig)
+	container := predictor.GetContainer(isvc.Name, p.inferenceServiceConfig)
 
 	// Knative does not support multiple containers so we add an annotation that triggers pod
 	// mutator to add it
