@@ -30,12 +30,18 @@ func (k *KFServerSpec) GetContainer(modelName string, config *InferenceServicesC
 	/*if parallelism != 0 {
 		arguments = append(arguments, fmt.Sprintf("%s=%s", constants.ArgumentWorkers, strconv.Itoa(parallelism)))
 	}*/
-	k.Image = config.Predictors.SKlearn.ContainerImage + ":" + k.RuntimeVersion
-	k.Name = constants.InferenceServiceContainerName
-	k.Args = arguments
-	return &v1.Container{
-		Name:  k.Name,
-		Image: k.Image,
-		Args:  k.Args,
+	if k.Container.Image == "" {
+		k.Container.Image = config.Predictors.SKlearn.ContainerImage + ":" + *k.RuntimeVersion
 	}
+	k.Container.Name = constants.InferenceServiceContainerName
+	k.Container.Args = arguments
+	return &v1.Container{
+		Name:  k.Container.Name,
+		Image: k.Container.Image,
+		Args:  k.Container.Args,
+	}
+}
+
+func (k *KFServerSpec) GetStorageUri() *string {
+	return k.StorageURI
 }

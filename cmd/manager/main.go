@@ -18,6 +18,7 @@ package main
 
 import (
 	"flag"
+	"github.com/kubeflow/kfserving/pkg/webhook/admission/inferenceservice"
 	"github.com/kubeflow/kfserving/pkg/webhook/admission/pod"
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	v1 "k8s.io/api/core/v1"
@@ -114,8 +115,8 @@ func main() {
 
 	log.Info("registering webhooks to the webhook server")
 	hookServer.Register("/mutate-pods", &webhook.Admission{Handler: &pod.Mutator{}})
-	//hookServer.Register("/validate-inferenceservices", &webhook.Admission{Handler: &inferenceservice.Validator{}})
-	//hookServer.Register("/mutate-inferenceservices", &webhook.Admission{Handler: &inferenceservice.Defaulter{}})
+	hookServer.Register("/validate-inferenceservices", &webhook.Admission{Handler: &inferenceservice.Validator{}})
+	hookServer.Register("/mutate-inferenceservices", &webhook.Admission{Handler: &inferenceservice.Defaulter{}})
 
 	// Start the Cmd
 	log.Info("Starting the Cmd.")
