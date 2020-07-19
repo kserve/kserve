@@ -10,6 +10,7 @@ type Predictor interface {
 	GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container
 	Validate() error
 	Default()
+    GetStorageUri() *string
 }
 
 // PredictorSpec defines the configuration for a predictor,
@@ -28,18 +29,18 @@ type PredictorSpec struct {
 	// Passthrough Pod fields or specify a custom container spec
 	*CustomPredictor `json:",inline"`
 	// Extensions available in all components
-	*ComponentExtensionSpec `json:",inline"`
+	ComponentExtensionSpec `json:",inline"`
 }
 
 // PredictorExtensionSpec defines configuration shared across all predictor frameworks
 type PredictorExtensionSpec struct {
-	// User must pick StorageURI or ConfigMap.
 	// This field points to the location of the trained model which is mounted onto the pod.
 	StorageURI *string `json:"storageUri"`
-	// Runtime version of the predictor
-	RuntimeVersion string `json:"runtimeVersion"`
+	// Runtime version of the predictor docker image
+	RuntimeVersion *string `json:"runtimeVersion,omitempty"`
 	// Container enables overrides for the predictor.
 	// Each framework will have different defaults that are populated in the underlying container spec.
+	// +optional
 	v1.Container `json:",inline"`
 }
 
