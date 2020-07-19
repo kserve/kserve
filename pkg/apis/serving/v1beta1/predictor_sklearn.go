@@ -35,11 +35,7 @@ func (k *SKLearnSpec) GetContainer(modelName string, config *InferenceServicesCo
 	}
 	k.Container.Name = constants.InferenceServiceContainerName
 	k.Container.Args = arguments
-	return &v1.Container{
-		Name:  k.Container.Name,
-		Image: k.Container.Image,
-		Args:  k.Container.Args,
-	}
+	return &k.Container
 }
 
 func (k *SKLearnSpec) GetStorageUri() *string {

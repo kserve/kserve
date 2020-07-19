@@ -28,23 +28,21 @@ func (t *TritonSpec) Default() {}
 
 // GetContainers transforms the resource into a container spec
 func (t *TritonSpec) GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container {
+	arguments := []string{
+		"trtserver",
+		fmt.Sprintf("%s=%s", "--model-store=", constants.DefaultModelLocalMountPath),
+		fmt.Sprintf("%s=%s", "--grpc-port=", fmt.Sprint(TritonISGRPCPort)),
+		fmt.Sprintf("%s=%s", "--http-port=", fmt.Sprint(TritonISRestPort)),
+		"--allow-poll-model-repository=false",
+		"--allow-grpc=true",
+		"--allow-http=true",
+	}
+	t.Args = arguments
+	t.Name = constants.InferenceServiceContainerName
 	if t.Container.Image == "" {
 		t.Container.Image = config.Predictors.Triton.ContainerImage + ":" + *t.RuntimeVersion
 	}
-	return &v1.Container{
-		Name:      constants.InferenceServiceContainerName,
-		Image:     t.Container.Image,
-		Resources: t.Resources,
-		Args: []string{
-			"trtserver",
-			"--model-store=" + constants.DefaultModelLocalMountPath,
-			"--allow-poll-model-repository=false",
-			"--allow-grpc=true",
-			"--allow-http=true",
-			"--grpc-port=" + fmt.Sprint(TritonISGRPCPort),
-			"--http-port=" + fmt.Sprint(TritonISRestPort),
-		},
-	}
+	return &t.Container
 }
 
 func (t *TritonSpec) GetStorageUri() *string {
