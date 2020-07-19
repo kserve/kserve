@@ -22,3 +22,7 @@ func (t *TorchServeSpec) Default() {}
 func (t *TorchServeSpec) GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container {
 	return &v1.Container{}
 }
+
+func (t *TorchServeSpec) GetStorageUri() *string {
+	return t.StorageURI
+}
