@@ -86,7 +86,7 @@ func AddBatcherContainerPort(container *v1.Container) {
 		if container.Ports == nil {
 			port, _ := strconv.Atoi(constants.InferenceServiceDefaultBatcherPort)
 			container.Ports = []v1.ContainerPort{
-				v1.ContainerPort{
+				{
 					ContainerPort: int32(port),
 				},
 			}
