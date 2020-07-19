@@ -79,14 +79,17 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				},
 				Spec: v1beta1.InferenceServiceSpec{
 					Predictor: v1beta1.PredictorSpec{
-						ComponentExtensionSpec: &v1beta1.ComponentExtensionSpec{
+						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
 							MinReplicas: v1alpha2.GetIntReference(1),
 							MaxReplicas: 3,
 						},
 						TFServing: &v1beta1.TFServingSpec{
 							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
-								StorageURI:     &storageUri,
-								RuntimeVersion: "1.13.0",
+								StorageURI: &storageUri,
+								//RuntimeVersion: "1.13.0",
+								Container: v1.Container{
+									Name: "kfs",
+								},
 							},
 						},
 					},

@@ -41,14 +41,17 @@ func (t *TFServingSpec) GetContainer(modelName string, config *InferenceServices
 		"--model_name=" + modelName,
 		"--model_base_path=" + constants.DefaultModelLocalMountPath,
 	}
-	t.Image = config.Predictors.Tensorflow.ContainerImage
-	t.Name = constants.InferenceServiceContainerName
-	t.Command = []string{TensorflowEntrypointCommand}
-	t.Args = arguments
+	if t.Container.Image == "" {
+		t.Container.Image = config.Predictors.Tensorflow.ContainerImage
+	}
+	t.Container.Name = constants.InferenceServiceContainerName
+	t.Container.Command = []string{TensorflowEntrypointCommand}
+	t.Container.Args = arguments
 	return &v1.Container{
-		Name:    t.Name,
-		Image:   t.Image,
-		Args:    t.Args,
-		Command: t.Command,
+		Name:    t.Container.Name,
+		Image:   t.Container.Image,
+		Args:    t.Container.Args,
+		Command: t.Container.Command,
 	}
 }
+
