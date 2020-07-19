@@ -24,5 +24,3 @@ func (o *ONNXRuntimeSpec) GetContainer(modelName string, config *InferenceServic
 func (o *ONNXRuntimeSpec) GetStorageUri() *string {
 	return o.StorageURI
 }
-
-
