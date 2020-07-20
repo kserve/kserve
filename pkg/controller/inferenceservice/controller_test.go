@@ -191,6 +191,18 @@ func TestInferenceServiceWithOnlyPredictor(t *testing.T) {
 										"--model_name=" + defaultInstance.Name,
 										"--model_base_path=" + constants.DefaultModelLocalMountPath,
 									},
+									LivenessProbe: &v1.Probe{
+										Handler: v1.Handler{
+											HTTPGet: &v1.HTTPGetAction{
+												Path: "/v1/models/"+ defaultInstance.Name,
+											},
+										},
+										InitialDelaySeconds: constants.DefaultReadinessTimeout,
+										PeriodSeconds:       10,
+										FailureThreshold:    3,
+										SuccessThreshold:    1,
+										TimeoutSeconds:      1,
+									},
 								},
 							},
 						},
@@ -510,6 +522,18 @@ func TestInferenceServiceWithDefaultAndCanaryPredictor(t *testing.T) {
 										"--rest_api_port=" + kfserving.TensorflowServingRestPort,
 										"--model_name=" + canary.Name,
 										"--model_base_path=" + constants.DefaultModelLocalMountPath,
+									},
+									LivenessProbe: &v1.Probe{
+										Handler: v1.Handler{
+											HTTPGet: &v1.HTTPGetAction{
+												Path: "/v1/models/"+ canary.Name,
+											},
+										},
+										InitialDelaySeconds: constants.DefaultReadinessTimeout,
+										PeriodSeconds:       10,
+										FailureThreshold:    3,
+										SuccessThreshold:    1,
+										TimeoutSeconds:      1,
 									},
 								},
 							},
