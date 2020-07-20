@@ -111,6 +111,18 @@ func TestTensorflowContainer(t *testing.T) {
 			"--model_name=someName",
 			"--model_base_path=/mnt/models",
 		},
+		LivenessProbe: &v1.Probe{
+			Handler: v1.Handler{
+				HTTPGet: &v1.HTTPGetAction{
+					Path: "/v1/models/someName",
+				},
+			},
+			InitialDelaySeconds: constants.DefaultReadinessTimeout,
+			PeriodSeconds:       10,
+			FailureThreshold:    3,
+			SuccessThreshold:    1,
+			TimeoutSeconds:      1,
+		},
 	}
 
 	// Test Create with config
