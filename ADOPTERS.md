@@ -10,10 +10,8 @@ This page contains a list of organizations who are using KFServing either in pro
 | [CoreWeave](https://coreweave.com/) | [Peter Salanki](https://github.com/salanki) |
 | [Gojek](https://www.gojek.com/) | [Willem Pienaar](https://github.com/woop) |
 | [IBM](https://www.ibm.com/) | [Animesh Singh](https://github.com/animeshsingh) |
-| [Max Kelsen](https://www.maxkelsen.com/) | [Jacob O'Farrell](https://github.com/ofaz) |
 | [Inspur](https://www.inspur.com/) | [Qingshan Chen](https://github.com/iamlovingit) |
+| [Max Kelsen](https://www.maxkelsen.com/) | [Jacob O'Farrell](https://github.com/ofaz) |
 | [NVIDIA](https://www.nvidia.com/en-us/) | [David Goodwin](deadeyegoodwin) |
 | [Seldon](https://www.seldon.io/) | [Clive Cox](https://github.com/cliveseldon) |
-
-
 
