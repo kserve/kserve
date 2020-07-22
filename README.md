@@ -1,12 +1,12 @@
 # KFServing
 KFServing provides a Kubernetes [Custom Resource Definition](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/) for serving machine learning (ML) models on arbitrary frameworks. It aims to solve production model serving use cases by providing performant, high abstraction interfaces for common ML frameworks like Tensorflow, XGBoost, ScikitLearn, PyTorch, and ONNX.
 
-It encapsulates the complexity of autoscaling, networking, health checking, and server configuration to bring cutting edge serving features like GPU Autoscaling, Scale to Zero, and Canary Rollouts to your ML deployments. It enables a simple, pluggable, and complete story for Production ML Serving including prediction, pre-processing, post-processing and explainability.
+It encapsulates the complexity of autoscaling, networking, health checking, and server configuration to bring cutting edge serving features like GPU Autoscaling, Scale to Zero, and Canary Rollouts to your ML deployments. It enables a simple, pluggable, and complete story for Production ML Serving including prediction, pre-processing, post-processing and explainability. KFServing is being [used across various organizations.](./ADOPTERS.md)
 
 ![KFServing](/docs/diagrams/kfserving.png)
 
 ### Learn More
-To learn more about KFServing, how to deploy it as part of Kubeflow, how to use various supported features, and how to participate in the KFServing community, please follow the [KFServing docs on the Kubeflow Website](https://www.kubeflow.org/docs/components/serving/kfserving/).
+To learn more about KFServing, how to deploy it as part of Kubeflow, how to use various supported features, and how to participate in the KFServing community, please follow the [KFServing docs on the Kubeflow Website](https://www.kubeflow.org/docs/components/serving/kfserving/). Additionally, we have compiled a list of [KFServing presentations and demoes](/docs/PRESENTATIONS.md) to dive through various details.
 
 ### Prerequisites
 Knative Serving and Istio should be available on Kubernetes Cluster, Knative depends on Istio Ingress Gateway to route requests to Knative services. To use the exact versions tested by the Kubeflow and KFServing teams, please refer to the [prerequisites on developer guide](docs/DEVELOPER_GUIDE.md#install-knative-on-a-kubernetes-cluster)
@@ -130,6 +130,8 @@ Error Set:
 ### KFServing Features and Examples
 [KFServing Features and Examples](./docs/samples/README.md)
 
+[KFServing Presentations and Demoes](./docs/PRESENTATIONS.md)
+
 ### KFServing Roadmap
 [KFServing Roadmap](./ROADMAP.md)
 
@@ -153,3 +155,5 @@ Error Set:
 ### Contributor Guide
 [Contributor Guide](./CONTRIBUTING.md)
 
+### KFServing Adopters
+[KFServing Adopters](./ADOPTERS.md)
