@@ -34,10 +34,14 @@ func TestCreateVirtualService(t *testing.T) {
 	serviceName := "my-model"
 	namespace := "test"
 	domain := "example.com"
+	clusterLocalDomain := "svc.cluster.local"
 	expectedURL := "http://" + constants.InferenceServiceHostName(serviceName, namespace, domain)
+	expectedClusterLocalURL := "http://" + constants.InferenceServiceHostName(serviceName, namespace, clusterLocalDomain)
 	serviceHostName := constants.InferenceServiceHostName(serviceName, namespace, domain)
+	serviceClusterLocalHostName := constants.InferenceServiceHostName(serviceName, namespace, clusterLocalDomain)
 	serviceInternalHostName := network.GetServiceHostname(serviceName, namespace)
 	predictorHostname := constants.InferenceServiceHostName(constants.DefaultPredictorServiceName(serviceName), namespace, domain)
+	predictorClusterLocalHostname := constants.InferenceServiceHostName(constants.DefaultPredictorServiceName(serviceName), namespace, clusterLocalDomain)
 	transformerHostname := constants.InferenceServiceHostName(constants.DefaultTransformerServiceName(serviceName), namespace, domain)
 	explainerHostname := constants.InferenceServiceHostName(constants.DefaultExplainerServiceName(serviceName), namespace, domain)
 	canaryPredictorHostname := constants.InferenceServiceHostName(constants.CanaryPredictorServiceName(serviceName), namespace, domain)
@@ -47,6 +51,24 @@ func TestCreateVirtualService(t *testing.T) {
 			Authority: &istiov1alpha3.StringMatch{
 				MatchType: &istiov1alpha3.StringMatch_Regex{
 					Regex: constants.HostRegExp(constants.InferenceServiceHostName(serviceName, namespace, domain)),
+				},
+			},
+			Gateways: []string{constants.KnativeIngressGateway},
+		},
+		{
+			Authority: &istiov1alpha3.StringMatch{
+				MatchType: &istiov1alpha3.StringMatch_Regex{
+					Regex: constants.HostRegExp(network.GetServiceHostname(serviceName, namespace)),
+				},
+			},
+			Gateways: []string{constants.KnativeLocalGateway},
+		},
+	}
+	predictorClusterLocalRouteMatch := []*istiov1alpha3.HTTPMatchRequest{
+		{
+			Authority: &istiov1alpha3.StringMatch{
+				MatchType: &istiov1alpha3.StringMatch_Regex{
+					Regex: constants.HostRegExp(constants.InferenceServiceHostName(serviceName, namespace, clusterLocalDomain)),
 				},
 			},
 			Gateways: []string{constants.KnativeIngressGateway},
@@ -119,6 +141,57 @@ func TestCreateVirtualService(t *testing.T) {
 				Http: []*istiov1alpha3.HTTPRoute{
 					{
 						Match: predictorRouteMatch,
+						Route: []*istiov1alpha3.HTTPRouteDestination{
+							{
+								Destination: &istiov1alpha3.Destination{Host: constants.LocalGatewayHost, Port: &istiov1alpha3.PortSelector{Number: constants.CommonDefaultHttpPort}},
+								Weight:      100,
+								Headers: &istiov1alpha3.Headers{
+									Request: &istiov1alpha3.Headers_HeaderOperations{Set: map[string]string{
+										"Host": network.GetServiceHostname(constants.DefaultPredictorServiceName(serviceName), namespace)}},
+								},
+							},
+						},
+						Retries: &istiov1alpha3.HTTPRetry{
+							Attempts:      0,
+							PerTryTimeout: nil,
+						},
+					},
+				},
+			},
+		},
+	}, {
+		name: "avoid duplicate hostnames for predictor with svc.cluster.local domain",
+		defaultStatus: &map[constants.InferenceServiceComponent]v1alpha2.StatusConfigurationSpec{
+			constants.Predictor: v1alpha2.StatusConfigurationSpec{
+				Hostname: predictorClusterLocalHostname,
+			},
+		},
+		canaryStatus: nil,
+		expectedStatus: &v1alpha2.VirtualServiceStatus{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
+					Type:   v1alpha2.RoutesReady,
+					Status: corev1.ConditionTrue,
+				}},
+			},
+			URL: expectedClusterLocalURL,
+			Address: &duckv1beta1.Addressable{
+				URL: &apis.URL{
+					Scheme: "http",
+					Path:   constants.PredictPath(serviceName),
+					Host:   network.GetServiceHostname(serviceName, namespace),
+				},
+			},
+			DefaultWeight: 100,
+		},
+		expectedService: &v1alpha3.VirtualService{
+			ObjectMeta: metav1.ObjectMeta{Name: serviceName, Namespace: namespace},
+			Spec: istiov1alpha3.VirtualService{
+				Hosts:    []string{serviceClusterLocalHostName},
+				Gateways: []string{constants.KnativeIngressGateway, constants.KnativeLocalGateway},
+				Http: []*istiov1alpha3.HTTPRoute{
+					{
+						Match: predictorClusterLocalRouteMatch,
 						Route: []*istiov1alpha3.HTTPRouteDestination{
 							{
 								Destination: &istiov1alpha3.Destination{Host: constants.LocalGatewayHost, Port: &istiov1alpha3.PortSelector{Number: constants.CommonDefaultHttpPort}},

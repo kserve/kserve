@@ -266,6 +266,14 @@ func (r *VirtualServiceBuilder) CreateVirtualService(isvc *v1alpha2.InferenceSer
 	// extract the virtual service hostname from the predictor hostname
 	serviceURL := fmt.Sprintf("%s://%s", "http", serviceHostname)
 
+	serviceInternalHostName := network.GetServiceHostname(isvc.Name, isvc.Namespace)
+	hosts := []string{
+		serviceHostname,
+	}
+	if serviceInternalHostName != hosts[0] {
+		hosts = append(hosts, serviceInternalHostName)
+	}
+
 	vs := v1alpha3.VirtualService{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        isvc.Name,
@@ -274,10 +282,7 @@ func (r *VirtualServiceBuilder) CreateVirtualService(isvc *v1alpha2.InferenceSer
 			Annotations: isvc.Annotations,
 		},
 		Spec: istiov1alpha3.VirtualService{
-			Hosts: []string{
-				serviceHostname,
-				network.GetServiceHostname(isvc.Name, isvc.Namespace),
-			},
+			Hosts: hosts,
 			Gateways: []string{
 				r.ingressConfig.IngressGateway,
 				constants.KnativeLocalGateway,
