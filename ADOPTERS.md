@@ -12,6 +12,6 @@ This page contains a list of organizations who are using KFServing either in pro
 | [NVIDIA](https://www.nvidia.com/en-us/) | [David Goodwin](deadeyegoodwin) |
 | [Seldon](https://www.seldon.io/) | [Clive Cox](https://github.com/cliveseldon) |
 | [Inspur](https://www.inspur.com/) | [Qingshan Chen](https://github.com/iamlovingit) |
-
+| [Cisco](https://www.cisco.com/) | [Krishna Durai](https://github.com/krishnadurai) |
 
 
