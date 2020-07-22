@@ -1,6 +1,6 @@
 # Adopters of KFServing
 
-This page contains a list of organizations who are using KFServing either in production, or providing integrations or deployment options with their Cloud offerings. If you'd like to be included here, please send a pull request which modifies this file. Please keep the list in alphabetical order.
+This page contains a list of organizations who are using KFServing either in production, or providing integrations or deployment options with their Cloud or product offerings. If you'd like to be included here, please send a pull request which modifies this file. Please keep the list in alphabetical order.
 
 | Organization | Contact |
 | ------------ | ------- |
