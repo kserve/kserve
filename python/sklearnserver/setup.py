@@ -21,7 +21,7 @@ tests_require = [
 ]
 setup(
     name='sklearnserver',
-    version='0.3.0',
+    version='0.4.0',
     author_email='singhan@us.ibm.com',
     license='https://github.com/kubeflow/kfserving/LICENSE',
     url='https://github.com/kubeflow/kfserving/python/sklearnserver',
@@ -31,7 +31,7 @@ setup(
     python_requires='>3.4',
     packages=find_packages("sklearnserver"),
     install_requires=[
-        "kfserving>=0.3.0",
+        "kfserving>=0.4.0",
         "scikit-learn == 0.20.3",
         "argparse >= 1.4.0",
         "numpy >= 1.8.2",
