@@ -17,16 +17,16 @@ data:
         },
         "sklearn": {
             "image": "gcr.io/kfserving/sklearnserver",
-            "defaultImageVersion": "v0.3.0"
+            "defaultImageVersion": "v0.4.0"
         },
         "xgboost": {
             "image": "gcr.io/kfserving/xgbserver",
-            "defaultImageVersion": "v0.3.0"
+            "defaultImageVersion": "v0.4.0"
         },
         "pytorch": {
             "image": "gcr.io/kfserving/pytorchserver",
-            "defaultImageVersion": "v0.3.0",
-            "defaultGpuImageVersion": "v0.3.0-gpu"
+            "defaultImageVersion": "v0.4.0",
+            "defaultGpuImageVersion": "v0.4.0-gpu"
         },
         "triton": {
             "image": "nvcr.io/nvidia/tritonserver",
@@ -40,12 +40,12 @@ data:
     {
         "alibi": {
             "image" : "gcr.io/kfserving/alibi-explainer",
-            "defaultImageVersion": "v0.3.0"
+            "defaultImageVersion": "v0.4.0"
         }
     }
   storageInitializer: |-
     {
-        "image" : "gcr.io/kfserving/storage-initializer:v0.3.0",
+        "image" : "gcr.io/kfserving/storage-initializer:v0.4.0",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
@@ -68,7 +68,7 @@ data:
     }
   logger: |-
     {
-        "image" : "gcr.io/kfserving/logger:v0.3.0",
+        "image" : "gcr.io/kfserving/logger:v0.4.0",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
@@ -77,7 +77,7 @@ data:
     }
   batcher: |-
     {
-        "image" : "gcr.io/kfserving/batcher:latest",
+        "image" : "gcr.io/kfserving/batcher:v0.4.0",
         "memoryRequest": "1Gi",
         "memoryLimit": "1Gi",
         "cpuRequest": "1",
