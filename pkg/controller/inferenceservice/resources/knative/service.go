@@ -377,7 +377,7 @@ func (c *ServiceBuilder) buildAnnotations(metadata metav1.ObjectMeta, minReplica
 
 	if minReplicas == nil {
 		annotations[autoscaling.MinScaleAnnotationKey] = fmt.Sprint(constants.DefaultMinReplicas)
-	} else if *minReplicas != 0 {
+	} else {
 		annotations[autoscaling.MinScaleAnnotationKey] = fmt.Sprint(*minReplicas)
 	}
 
