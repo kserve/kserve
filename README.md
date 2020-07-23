@@ -71,7 +71,7 @@ kind create cluster
 - [Configure Custom Domain](https://knative.dev/docs/serving/using-a-custom-domain/)
 - [Metrics](https://knative.dev/docs/serving/accessing-metrics/)
 - [Tracing](https://knative.dev/docs/serving/accessing-traces/)
-- [Logging](https://knative.dev/docs/serving/using-a-custom-domain/)
+- [Logging](https://knative.dev/docs/serving/accessing-logs/)
 - [Dashboard for ServiceMesh](https://istio.io/latest/docs/tasks/observability/kiali/)
 
 ### Test KFServing Installation 
