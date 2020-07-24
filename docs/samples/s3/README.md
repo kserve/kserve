@@ -37,8 +37,8 @@ metadata:
      serving.kubeflow.org/s3-usehttps: "0" # by default 1, for testing with minio you need to set to 0
 type: Opaque
 stringData:
-  awsAccessKeyID: XXXX
-  awsSecretAccessKey: XXXXXXXX
+  AWS_ACCESS_KEY_ID: XXXX
+  AWS_SECRET_ACCESS_KEY: XXXXXXXX
 ```
 
 `KFServing` gets the secrets from your service account, you need to add the above created or existing secret to your service account's secret list. 
