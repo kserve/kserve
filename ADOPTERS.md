@@ -14,4 +14,5 @@ This page contains a list of organizations who are using KFServing either in pro
 | [Max Kelsen](https://www.maxkelsen.com/) | [Jacob O'Farrell](https://github.com/ofaz) |
 | [NVIDIA](https://www.nvidia.com/en-us/) | [David Goodwin](deadeyegoodwin) |
 | [Seldon](https://www.seldon.io/) | [Clive Cox](https://github.com/cliveseldon) |
+| [Patterson Consulting](https://www.pattersonconsultingtn.com/) | [Josh Patterson](https://github.com/jpatanooga) |
 
