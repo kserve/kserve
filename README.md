@@ -26,10 +26,18 @@ generation [script](./hack/self-signed-ca.sh).
 ### Install KFServing
 #### Standalone KFServing Installation
 KFServing can be installed standalone if your kubernetes cluster meets the above prerequisites and KFServing controller is deployed in `kfserving-system` namespace.
+
+For Kubernetes 1.16+ users
 ```
-TAG=v0.3.0
+TAG=v0.4.0
 kubectl apply -f ./install/$TAG/kfserving.yaml
 ```
+For Kubernetes 1.14/1.15 users
+```
+TAG=v0.4.0
+kubectl apply -f ./install/$TAG/kfserving.yaml --validate=false
+```
+
 KFServing uses pod mutator or [mutating admission webhooks](https://kubernetes.io/blog/2019/03/21/a-guide-to-kubernetes-admission-controllers/) to inject the storage initializer component of KFServing. By default all the pods in namespaces which are not labelled with `control-plane` label go through the pod mutator.
 This can cause problems and interfere with Kubernetes control panel when KFServing pod mutator webhook is not in ready state yet.
 
@@ -41,7 +49,7 @@ env:
   value: enabled
 ```
 
-For Kubernetes 1.15+ users we strongly suggest turning on the [object selector](https://kubernetes.io/docs/reference/access-authn-authz/extensible-admission-controllers/#matching-requests-objectselector) so that only KFServing `InferenceService` pods go through the pod mutator.
+As of KFServing 0.4 release [object selector](https://kubernetes.io/docs/reference/access-authn-authz/extensible-admission-controllers/#matching-requests-objectselector) is turned on by default, only KFServing `InferenceService` pods go through the pod mutator. For prior releases you can turn on manually by using following command.
 ```bash
 kubectl patch mutatingwebhookconfiguration inferenceservice.serving.kubeflow.org --patch '{"webhooks":[{"name": "inferenceservice.kfserving-webhook-server.pod-mutator","objectSelector":{"matchExpressions":[{"key":"serving.kubeflow.org/inferenceservice", "operator": "Exists"}]}}]}'
 ```
