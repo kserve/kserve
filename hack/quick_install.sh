@@ -2,7 +2,7 @@ set -e
 
 export ISTIO_VERSION=1.6.2
 export KNATIVE_VERSION=v0.15.0
-export KFSERVING_VERSION=v0.3.0
+export KFSERVING_VERSION=v0.4.0
 curl -L https://git.io/getLatestIstio | sh -
 cd istio-${ISTIO_VERSION}
 
