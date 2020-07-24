@@ -74,7 +74,7 @@ kind create cluster
 - [Logging](https://knative.dev/docs/serving/accessing-logs/)
 - [Dashboard for ServiceMesh](https://istio.io/latest/docs/tasks/observability/kiali/)
 
-### Test KFServing Installation 
+### Test KFServing Installation
 
 1) To check if KFServing Controller is installed correctly, please run the following command
 ```shell
@@ -99,7 +99,10 @@ sklearn-iris   http://sklearn-iris.kfserving-test.example.com/v1/models/sklearn-
 ```
 4) Curl the `InferenceService`
 ```bash
-kubectl port-forward --namespace istio-system $(kubectl get pod --namespace istio-system --selector="app=istio-ingressgateway" --output jsonpath='{.items[0].metadata.name}') 8080:80 &
+INGRESS_SERVICE=$(kubectl get svc --namespace istio-system --selector="app=istio-ingressgateway" --output jsonpath='{.items[0].metadata.name}')
+kubectl port-forward --namespace istio-system ${INGRESS_SERVICE} 8080:80
+
+# start another terminal
 SERVICE_HOSTNAME=$(kubectl get inferenceservice sklearn-iris -n kfserving-test -o jsonpath='{.status.url}' | cut -d "/" -f 3)
 curl -v -H "Host: ${SERVICE_HOSTNAME}" http://localhost:8080/v1/models/sklearn-iris:predict -d @./docs/samples/sklearn/iris-input.json
 ```
@@ -114,10 +117,10 @@ Latencies     [min, mean, 50, 90, 95, 99, max]  1.743ms, 2.748ms, 2.494ms, 3.363
 Bytes In      [total, mean]                     690000, 23.00
 Bytes Out     [total, mean]                     2460000, 82.00
 Success       [ratio]                           100.00%
-Status Codes  [code:count]                      200:30000  
+Status Codes  [code:count]                      200:30000
 Error Set:
 ```
- 
+
 ### Use KFServing SDK
 * Install the SDK
   ```
