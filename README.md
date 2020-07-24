@@ -100,7 +100,7 @@ sklearn-iris   http://sklearn-iris.kfserving-test.example.com/v1/models/sklearn-
 4) Curl the `InferenceService`
 ```bash
 INGRESS_SERVICE=$(kubectl get svc --namespace istio-system --selector="app=istio-ingressgateway" --output jsonpath='{.items[0].metadata.name}')
-kubectl port-forward --namespace istio-system ${INGRESS_SERVICE} 8080:80
+kubectl port-forward --namespace istio-system svc/${INGRESS_SERVICE} 8080:80
 
 # start another terminal
 SERVICE_HOSTNAME=$(kubectl get inferenceservice sklearn-iris -n kfserving-test -o jsonpath='{.status.url}' | cut -d "/" -f 3)
