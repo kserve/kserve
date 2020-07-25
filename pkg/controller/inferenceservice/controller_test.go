@@ -105,7 +105,7 @@ func getEvents() []SimpleEvent {
 	}
 	sortedEvents := make([]SimpleEventWithTime, 0, numEvents)
 	for _, event := range events.Items {
-		if event.Reason != "Updated" && event.Reason != "InternalError" { // Not checking for updates or errors
+		if event.Reason != "Updated" && event.Reason != "InternalError" && event.Reason != "UpdateFailed" { // Not checking for updates or errors
 			sortedEvents = append(sortedEvents, SimpleEventWithTime{
 				event: SimpleEvent{
 					Reason: event.Reason,
@@ -1400,13 +1400,15 @@ var _ = Describe("test inference service controller", func() {
 
 			// Update instance to remove transformer endpoint
 			// transformer services should be removed during reconcile
-			updateInstance := &kfserving.InferenceService{}
-			g.Eventually(func() error { return k8sClient.Get(context.TODO(), serviceKey, updateInstance) }, timeout).
-				Should(gomega.Succeed())
-
-			updateInstance.Spec.Canary.Transformer = nil
-			updateInstance.Spec.Default.Transformer = nil
-			g.Expect(k8sClient.Update(context.TODO(), updateInstance)).NotTo(gomega.HaveOccurred())
+			g.Eventually(func() error {
+				updateInstance := &kfserving.InferenceService{}
+				g.Eventually(func() error { return k8sClient.Get(context.TODO(), serviceKey, updateInstance) }, timeout).
+					Should(gomega.Succeed())
+				updateInstance.Spec.Canary.Transformer = nil
+				updateInstance.Spec.Default.Transformer = nil
+				err := k8sClient.Update(context.TODO(), updateInstance)
+				return err
+			}, timeout).Should(gomega.BeNil())
 
 			defaultTransformerServiceShouldBeDeleted := &knservingv1.Service{}
 			g.Eventually(func() bool {
