@@ -24,7 +24,13 @@ func (t *TritonSpec) Validate() error {
 }
 
 // Default sets defaults on the resource
-func (t *TritonSpec) Default() {}
+func (t *TritonSpec) Default(config *InferenceServicesConfig) {
+	t.Container.Name = constants.InferenceServiceContainerName
+	if t.RuntimeVersion == "" {
+		t.RuntimeVersion = config.Predictors.Triton.DefaultGpuImageVersion
+	}
+	setResourceRequirementDefaults(&t.Resources)
+}
 
 // GetContainers transforms the resource into a container spec
 func (t *TritonSpec) GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container {
@@ -40,7 +46,7 @@ func (t *TritonSpec) GetContainer(modelName string, config *InferenceServicesCon
 	t.Args = arguments
 	t.Name = constants.InferenceServiceContainerName
 	if t.Container.Image == "" {
-		t.Container.Image = config.Predictors.Triton.ContainerImage + ":" + *t.RuntimeVersion
+		t.Container.Image = config.Predictors.Triton.ContainerImage + ":" + t.RuntimeVersion
 	}
 	return &t.Container
 }
