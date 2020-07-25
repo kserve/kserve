@@ -3988,9 +3988,22 @@ spec:
                     required:
                     - type
                     type: object
+                  batcher:
+                    properties:
+                      maxBatchSize:
+                        type: integer
+                      maxLatency:
+                        type: integer
+                      timeout:
+                        type: integer
+                    type: object
                   logger:
                     properties:
                       mode:
+                        enum:
+                        - all
+                        - request
+                        - response
                         type: string
                       url:
                         type: string
@@ -6686,9 +6699,22 @@ spec:
                 type: object
               predictor:
                 properties:
+                  batcher:
+                    properties:
+                      maxBatchSize:
+                        type: integer
+                      maxLatency:
+                        type: integer
+                      timeout:
+                        type: integer
+                    type: object
                   logger:
                     properties:
                       mode:
+                        enum:
+                        - all
+                        - request
+                        - response
                         type: string
                       url:
                         type: string
@@ -12620,9 +12646,22 @@ spec:
                 type: object
               transformer:
                 properties:
+                  batcher:
+                    properties:
+                      maxBatchSize:
+                        type: integer
+                      maxLatency:
+                        type: integer
+                      timeout:
+                        type: integer
+                    type: object
                   logger:
                     properties:
                       mode:
+                        enum:
+                        - all
+                        - request
+                        - response
                         type: string
                       url:
                         type: string
