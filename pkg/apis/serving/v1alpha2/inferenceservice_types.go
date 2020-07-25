@@ -167,7 +167,7 @@ type AlibiExplainerSpec struct {
 	Config map[string]string `json:"config,omitempty"`
 }
 
-// SKLearnSpec defines arguments for configuring Tensorflow model serving.
+// TensorflowSpec defines arguments for configuring Tensorflow model serving.
 type TensorflowSpec struct {
 	// The URI for the saved model(https://www.tensorflow.org/tutorials/keras/save_and_load)
 	StorageURI string `json:"storageUri"`

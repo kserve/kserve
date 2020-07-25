@@ -53,8 +53,12 @@ type ComponentExtensionSpec struct {
 	// Specify request and response logging
 	// +optional
 	LoggerSpec *LoggerSpec `json:"logger,omitempty"`
+	// Activate request batching
+	// +optional
+	Batcher *Batcher `json:"batcher,omitempty"`
 }
 
+// +kubebuilder:validation:Enum=all;request;response
 // LoggerType controls the scope of log publishing
 type LoggerType string
 
@@ -71,9 +75,23 @@ type LoggerSpec struct {
 	// URL to send logging events
 	// +optional
 	URL *string `json:"url,omitempty"`
-	// See Enum: LoggerType
+	// LoggerType [all, request, response]
 	Mode LoggerType `json:"mode,omitempty"`
 }
+
+// Batcher provides optional payload batcher for all endpoints
+// +experimental
+type Batcher struct {
+	// MaxBatchSize of batcher service
+	// +optional
+	MaxBatchSize *int `json:"maxBatchSize,omitempty"`
+	// MaxLatency of batcher service
+	// +optional
+	MaxLatency *int `json:"maxLatency,omitempty"`
+	// Timeout of batcher service
+	// +optional
+	Timeout *int `json:"timeout,omitempty"`
+}	
 
 // InferenceService is the Schema for the inferenceservices API
 // +k8s:openapi-gen=true
