@@ -18,6 +18,7 @@ webhooks:
           - serving.kubeflow.org
         apiVersions:
           - v1alpha2
+          - v1beta1
         operations:
           - CREATE
           - UPDATE
@@ -70,6 +71,7 @@ webhooks:
           - serving.kubeflow.org
         apiVersions:
           - v1alpha2
+          - v1beta1
         operations:
           - CREATE
           - UPDATE

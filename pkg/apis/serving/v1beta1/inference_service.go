@@ -88,3 +88,4 @@ type InferenceServiceList struct {
 func init() {
 	SchemeBuilder.Register(&InferenceService{}, &InferenceServiceList{})
 }
+

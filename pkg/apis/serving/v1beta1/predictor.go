@@ -15,18 +15,20 @@ const (
 type Predictor interface {
 	GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container
 	Validate() error
-	Default()
+	Default(config *InferenceServicesConfig)
 	GetStorageUri() *string
 }
 
 // PredictorSpec defines the configuration for a predictor,
 // The following fields follow a "1-of" semantic. Users must specify exactly one spec.
 type PredictorSpec struct {
-	// Spec for KFServer
+	// Spec for SKLearn model server
 	SKLearn *SKLearnSpec `json:"sklearn,omitempty"`
+	// Spec for XGBoost model server
+	XGBoost *XGBoostSpec `json:"xgboost,omitempty"`
 	// Spec for TFServing (https://github.com/tensorflow/serving)
 	Tensorflow *TensorflowSpec `json:"tensorflow,omitempty"`
-	// Spec for PyTorch predictor
+	// Spec for TorchServe
 	PyTorch *TorchServeSpec `json:"pytorch,omitempty"`
 	// Spec for Triton Inference Server (https://github.com/NVIDIA/triton-inference-server)
 	Triton *TritonSpec `json:"triton,omitempty"`
@@ -43,7 +45,7 @@ type PredictorExtensionSpec struct {
 	// This field points to the location of the trained model which is mounted onto the pod.
 	StorageURI *string `json:"storageUri"`
 	// Runtime version of the predictor docker image
-	RuntimeVersion *string `json:"runtimeVersion,omitempty"`
+	RuntimeVersion string `json:"runtimeVersion,omitempty"`
 	// Container enables overrides for the predictor.
 	// Each framework will have different defaults that are populated in the underlying container spec.
 	// +optional

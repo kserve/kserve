@@ -24,7 +24,7 @@ import (
 )
 
 // log is for logging in this package.
-var inferenceservicelog = logf.Log.WithName("inferenceservice-resource")
+var log = logf.Log.WithName("inferenceservice-webhook")
 
 func (r *InferenceService) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
@@ -45,7 +45,7 @@ var _ webhook.Validator = &InferenceService{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (r *InferenceService) ValidateCreate() error {
-	inferenceservicelog.Info("validate create", "name", r.Name)
+	log.Info("validate create", "name", r.Name)
 
 	// TODO(user): fill in your validation logic upon object creation.
 	return nil
@@ -53,7 +53,7 @@ func (r *InferenceService) ValidateCreate() error {
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (r *InferenceService) ValidateUpdate(old runtime.Object) error {
-	inferenceservicelog.Info("validate update", "name", r.Name)
+	log.Info("validate update", "name", r.Name)
 
 	// TODO(user): fill in your validation logic upon object update.
 	return nil
@@ -61,7 +61,7 @@ func (r *InferenceService) ValidateUpdate(old runtime.Object) error {
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
 func (r *InferenceService) ValidateDelete() error {
-	inferenceservicelog.Info("validate delete", "name", r.Name)
+	log.Info("validate delete", "name", r.Name)
 
 	// TODO(user): fill in your validation logic upon object deletion.
 	return nil
