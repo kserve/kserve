@@ -18,29 +18,25 @@ const (
 	ExplainerConfigKeyName   = "explainers"
 )
 
-// +k8s:openapi-gen=false
+// +kubebuilder:object:generate=false
 type ExplainerConfig struct {
 	ContainerImage string `json:"image"`
-
 	DefaultImageVersion  string   `json:"defaultImageVersion"`
-	AllowedImageVersions []string `json:"allowedImageVersions"`
 }
 
-// +k8s:openapi-gen=false
+// +kubebuilder:object:generate=false
 type ExplainersConfig struct {
 	AlibiExplainer ExplainerConfig `json:"alibi,omitempty"`
 }
 
-// +k8s:openapi-gen=false
+// +kubebuilder:object:generate=false
 type PredictorConfig struct {
 	ContainerImage string `json:"image"`
-
 	DefaultImageVersion    string   `json:"defaultImageVersion"`
 	DefaultGpuImageVersion string   `json:"defaultGpuImageVersion"`
-	AllowedImageVersions   []string `json:"allowedImageVersions"`
 }
 
-// +k8s:openapi-gen=false
+// +kubebuilder:object:generate=false
 type PredictorsConfig struct {
 	Tensorflow PredictorConfig `json:"tensorflow,omitempty"`
 	Triton     PredictorConfig `json:"triton,omitempty"`
@@ -50,20 +46,17 @@ type PredictorsConfig struct {
 	ONNX       PredictorConfig `json:"onnx,omitempty"`
 }
 
-// +k8s:openapi-gen=false
+// +kubebuilder:object:generate=false
 type TransformerConfig struct {
 	ContainerImage string `json:"image"`
-
 	DefaultImageVersion  string   `json:"defaultImageVersion"`
-	AllowedImageVersions []string `json:"allowedImageVersions"`
 }
 
-// +k8s:openapi-gen=false
+// +kubebuilder:object:generate=false
 type TransformersConfig struct {
 	Feast TransformerConfig `json:"feast,omitempty"`
 }
 
-// +k8s:openapi-gen=false
 // +kubebuilder:object:generate=false
 type InferenceServicesConfig struct {
 	Transformers *TransformersConfig `json:"transformers"`

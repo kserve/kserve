@@ -27,7 +27,17 @@ func (t *TensorflowSpec) Validate() error {
 }
 
 // Default sets defaults on the resource
-func (t *TensorflowSpec) Default() {}
+func (t *TensorflowSpec) Default(config *InferenceServicesConfig) {
+	t.Container.Name = constants.InferenceServiceContainerName
+	if t.RuntimeVersion == "" {
+		if isGPUEnabled(t.Resources) {
+			t.RuntimeVersion = config.Predictors.Tensorflow.DefaultGpuImageVersion
+		} else {
+			t.RuntimeVersion = config.Predictors.Tensorflow.DefaultImageVersion
+		}
+	}
+	setResourceRequirementDefaults(&t.Resources)
+}
 
 func (t *TensorflowSpec) GetStorageUri() *string {
 	return t.StorageURI
@@ -42,9 +52,8 @@ func (t *TensorflowSpec) GetContainer(modelName string, config *InferenceService
 		"--model_base_path=" + constants.DefaultModelLocalMountPath,
 	}
 	if t.Container.Image == "" {
-		t.Container.Image = config.Predictors.Tensorflow.ContainerImage + ":" + *t.RuntimeVersion
+		t.Container.Image = config.Predictors.Tensorflow.ContainerImage + ":" + t.RuntimeVersion
 	}
-	t.Container.Name = constants.InferenceServiceContainerName
 	t.Container.Command = []string{TensorflowEntrypointCommand}
 	t.Container.Args = arguments
 	return &t.Container

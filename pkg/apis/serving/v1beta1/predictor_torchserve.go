@@ -1,6 +1,9 @@
 package v1beta1
 
-import v1 "k8s.io/api/core/v1"
+import (
+	"github.com/kubeflow/kfserving/pkg/constants"
+	v1 "k8s.io/api/core/v1"
+)
 
 // TorchServeSpec defines arguments for configuring PyTorch model serving.
 type TorchServeSpec struct {
@@ -16,7 +19,9 @@ func (t *TorchServeSpec) Validate() error {
 }
 
 // Default sets defaults on the resource
-func (t *TorchServeSpec) Default() {}
+func (t *TorchServeSpec) Default(config *InferenceServicesConfig) {
+	t.Container.Name = constants.InferenceServiceContainerName
+}
 
 // GetContainers transforms the resource into a container spec
 func (t *TorchServeSpec) GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container {
