@@ -21,7 +21,9 @@ func (c *CustomPredictor) Validate() error {
 }
 
 // Default sets defaults on the resource
-func (c *CustomPredictor) Default() {}
+func (c *CustomPredictor) Default(config *InferenceServicesConfig) {
+	c.Name = constants.InferenceServiceContainerName
+}
 
 func (c *CustomPredictor) GetStorageUri() *string {
 	// return the CustomSpecStorageUri env variable value if set on the spec

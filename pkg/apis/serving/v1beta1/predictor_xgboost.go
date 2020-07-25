@@ -7,27 +7,27 @@ import (
 )
 
 // SKLearnSpec defines arguments for configuring SKLearn model serving.
-type SKLearnSpec struct {
+type XGBoostSpec struct {
 	// Contains fields shared across all predictors
 	PredictorExtensionSpec `json:",inline"`
 }
 
 // Validate returns an error if invalid
-func (k *SKLearnSpec) Validate() error {
+func (x *XGBoostSpec) Validate() error {
 	return nil
 }
 
 // Default sets defaults on the resource
-func (k *SKLearnSpec) Default(config *InferenceServicesConfig) {
-	k.Container.Name = constants.InferenceServiceContainerName
-	if k.RuntimeVersion == "" {
-		k.RuntimeVersion = config.Predictors.SKlearn.DefaultGpuImageVersion
+func (x *XGBoostSpec) Default(config *InferenceServicesConfig) {
+	x.Container.Name = constants.InferenceServiceContainerName
+	if x.RuntimeVersion == "" {
+		x.RuntimeVersion = config.Predictors.Xgboost.DefaultGpuImageVersion
 	}
-	setResourceRequirementDefaults(&k.Resources)
+	setResourceRequirementDefaults(&x.Resources)
 }
 
 // GetContainer transforms the resource into a container spec
-func (k *SKLearnSpec) GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container {
+func (x *XGBoostSpec) GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container {
 	arguments := []string{
 		fmt.Sprintf("%s=%s", constants.ArgumentModelName, modelName),
 		fmt.Sprintf("%s=%s", constants.ArgumentModelDir, constants.DefaultModelLocalMountPath),
@@ -36,14 +36,14 @@ func (k *SKLearnSpec) GetContainer(modelName string, config *InferenceServicesCo
 	/*if parallelism != 0 {
 		arguments = append(arguments, fmt.Sprintf("%s=%s", constants.ArgumentWorkers, strconv.Itoa(parallelism)))
 	}*/
-	if k.Container.Image == "" {
-		k.Container.Image = config.Predictors.SKlearn.ContainerImage + ":" + k.RuntimeVersion
+	if x.Container.Image == "" {
+		x.Container.Image = config.Predictors.SKlearn.ContainerImage + ":" + x.RuntimeVersion
 	}
-	k.Container.Name = constants.InferenceServiceContainerName
-	k.Container.Args = arguments
-	return &k.Container
+	x.Container.Name = constants.InferenceServiceContainerName
+	x.Container.Args = arguments
+	return &x.Container
 }
 
-func (k *SKLearnSpec) GetStorageUri() *string {
+func (k *XGBoostSpec) GetStorageUri() *string {
 	return k.StorageURI
 }

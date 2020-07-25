@@ -1,0 +1,117 @@
+package v1beta1
+
+import (
+	"fmt"
+	"regexp"
+	"strings"
+
+	"github.com/kubeflow/kfserving/pkg/constants"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+)
+
+var (
+	defaultResource = v1.ResourceList{
+		v1.ResourceCPU:    resource.MustParse("1"),
+		v1.ResourceMemory: resource.MustParse("2Gi"),
+	}
+)
+
+func setResourceRequirementDefaults(requirements *v1.ResourceRequirements) {
+	if requirements.Requests == nil {
+		requirements.Requests = v1.ResourceList{}
+	}
+	for k, v := range defaultResource {
+		if _, ok := requirements.Requests[k]; !ok {
+			requirements.Requests[k] = v
+		}
+	}
+
+	if requirements.Limits == nil {
+		requirements.Limits = v1.ResourceList{}
+	}
+	for k, v := range defaultResource {
+		if _, ok := requirements.Limits[k]; !ok {
+			requirements.Limits[k] = v
+		}
+	}
+
+}
+
+func toCoreResourceRequirements(rr *v1.ResourceRequirements) *v1.ResourceRequirements {
+	resourceRequirements := &v1.ResourceRequirements{
+		Limits:   make(v1.ResourceList),
+		Requests: make(v1.ResourceList),
+	}
+
+	for k, v := range rr.Requests {
+		resourceName := v1.ResourceName(string(k))
+		resourceRequirements.Requests[resourceName] = v
+	}
+	for k, v := range rr.Limits {
+		resourceName := v1.ResourceName(string(k))
+		resourceRequirements.Limits[resourceName] = v
+	}
+
+	return resourceRequirements
+}
+
+func validateStorageURI(storageURI string) error {
+	if storageURI == "" {
+		return nil
+	}
+
+	// local path (not some protocol?)
+	if !regexp.MustCompile("\\w+?://").MatchString(storageURI) {
+		return nil
+	}
+
+	// one of the prefixes we know?
+	for _, prefix := range SupportedStorageURIPrefixList {
+		if strings.HasPrefix(storageURI, prefix) {
+			return nil
+		}
+	}
+
+	azureURIMatcher := regexp.MustCompile(AzureBlobURIRegEx)
+	if parts := azureURIMatcher.FindStringSubmatch(storageURI); parts != nil {
+		return nil
+	}
+
+	return fmt.Errorf(UnsupportedStorageURIFormatError, strings.Join(SupportedStorageURIPrefixList, ", "), storageURI)
+}
+
+func validateReplicas(minReplicas *int, maxReplicas int) error {
+	if minReplicas == nil {
+		minReplicas = &constants.DefaultMinReplicas
+	}
+	if *minReplicas < 0 {
+		return fmt.Errorf(MinReplicasLowerBoundExceededError)
+	}
+	if maxReplicas < 0 {
+		return fmt.Errorf(MaxReplicasLowerBoundExceededError)
+	}
+	if *minReplicas > maxReplicas && maxReplicas != 0 {
+		return fmt.Errorf(MinReplicasShouldBeLessThanMaxError)
+	}
+	return nil
+}
+
+func validateParallelism(parallelism int) error {
+	if parallelism < 0 {
+		return fmt.Errorf(ParallelismLowerBoundExceededError)
+	}
+	return nil
+}
+
+// GetIntReference returns the pointer for the integer input
+func GetIntReference(number int) *int {
+	num := number
+	return &num
+}
+
+
+func isGPUEnabled(requirements v1.ResourceRequirements) bool {
+	_, ok := requirements.Limits[constants.NvidiaGPUResourceType]
+	return ok
+}
