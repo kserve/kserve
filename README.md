@@ -49,7 +49,7 @@ env:
   value: enabled
 ```
 
-As of KFServing 0.4 release [object selector](https://kubernetes.io/docs/reference/access-authn-authz/extensible-admission-controllers/#matching-requests-objectselector) is turned on by default, only KFServing `InferenceService` pods go through the pod mutator. For prior releases you can turn on manually by using following command.
+As of KFServing 0.4 release [object selector](https://kubernetes.io/docs/reference/access-authn-authz/extensible-admission-controllers/#matching-requests-objectselector) is turned on by default, the KFServing pod mutator is only invoked for KFServing `InferenceService` pods. For prior releases you can turn on manually by running following command.
 ```bash
 kubectl patch mutatingwebhookconfiguration inferenceservice.serving.kubeflow.org --patch '{"webhooks":[{"name": "inferenceservice.kfserving-webhook-server.pod-mutator","objectSelector":{"matchExpressions":[{"key":"serving.kubeflow.org/inferenceservice", "operator": "Exists"}]}}]}'
 ```
