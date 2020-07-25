@@ -20,7 +20,7 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-echo "Installing requirement pacakges ..."
+echo "Installing requirement packages ..."
 python3 -m pip install --upgrade pip
 pip3 install --upgrade pytest
 pip install --upgrade pytest-tornasync
