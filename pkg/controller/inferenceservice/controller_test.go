@@ -52,6 +52,7 @@ import (
 const (
 	timeout                    = time.Second * 30
 	TensorflowServingImageName = "tensorflow/serving"
+	domain                     = "example.com"
 )
 
 var (
@@ -81,8 +82,6 @@ var configs = map[string]string{
         "ingressService" : "test-destination"
     }`,
 }
-
-var domain = "example.com"
 
 type SimpleEvent struct {
 	Reason string
