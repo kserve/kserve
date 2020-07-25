@@ -24,7 +24,7 @@ import (
 
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	"github.com/kubeflow/kfserving/pkg/constants"
-	"github.com/kubeflow/kfserving/pkg/controller/inferenceservice/resources/credentials"
+	"github.com/kubeflow/kfserving/pkg/credentials"
 	"github.com/kubeflow/kfserving/pkg/utils"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

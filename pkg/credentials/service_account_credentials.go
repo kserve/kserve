@@ -21,9 +21,9 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/kubeflow/kfserving/pkg/controller/inferenceservice/resources/credentials/azure"
-	"github.com/kubeflow/kfserving/pkg/controller/inferenceservice/resources/credentials/gcs"
-	"github.com/kubeflow/kfserving/pkg/controller/inferenceservice/resources/credentials/s3"
+	"github.com/kubeflow/kfserving/pkg/credentials/azure"
+	"github.com/kubeflow/kfserving/pkg/credentials/gcs"
+	"github.com/kubeflow/kfserving/pkg/credentials/s3"
 	"github.com/kubeflow/kfserving/pkg/utils"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
