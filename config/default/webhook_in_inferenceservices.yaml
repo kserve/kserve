@@ -5,6 +5,7 @@ kind: CustomResourceDefinition
 metadata:
   name: inferenceservices.serving.kubeflow.org
 spec:
+  preserveUnknownFields: false
   conversion:
     strategy: Webhook
     webhookClientConfig:
