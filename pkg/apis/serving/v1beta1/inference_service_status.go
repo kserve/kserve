@@ -102,9 +102,12 @@ const (
 )
 
 func (ss *InferenceServiceStatus) PropagateStatus(component ComponentType, serviceStatus *knservingv1.ServiceStatus) {
+	if len(ss.Components) == 0 {
+		ss.Components = make(map[ComponentType]ComponentStatusSpec)
+	}
 	statusSpec, ok := ss.Components[component]
 	if !ok {
-		statusSpec = ComponentStatusSpec{}
+		ss.Components[component] = ComponentStatusSpec{}
 	}
 	conditionType := conditionsMap[component]
 	statusSpec.Name = serviceStatus.LatestCreatedRevisionName
