@@ -168,7 +168,7 @@ func (p *Predictor) CreatePredictorService(isvc *v1beta1.InferenceService) (*kns
 			RouteSpec: knservingv1.RouteSpec{
 				Traffic: []knservingv1.TrafficTarget{
 					{
-						Tag: "default",
+						Tag:     "default",
 						Percent: proto.Int64(100),
 					},
 				},
