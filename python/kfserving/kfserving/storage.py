@@ -17,7 +17,9 @@ import logging
 import tempfile
 import os
 import re
+import shutil
 from urllib.parse import urlparse
+import requests
 from azure.storage.blob import BlockBlobService
 from google.auth import exceptions
 from google.cloud import storage
@@ -27,7 +29,8 @@ _GCS_PREFIX = "gs://"
 _S3_PREFIX = "s3://"
 _BLOB_RE = "https://(.+?).blob.core.windows.net/(.+)"
 _LOCAL_PREFIX = "file://"
-
+_HTTPS_PREFIX = "https://"
+_HTTP_PREFIX = "http://"
 
 class Storage(object): # pylint: disable=too-few-public-methods
     @staticmethod
@@ -52,10 +55,12 @@ class Storage(object): # pylint: disable=too-few-public-methods
             Storage._download_blob(uri, out_dir)
         elif is_local:
             return Storage._download_local(uri, out_dir)
+        elif uri.startswith(_HTTPS_PREFIX) or uri.startswith(_HTTP_PREFIX):
+            return Storage._download_from_uri(uri, out_dir)
         else:
             raise Exception("Cannot recognize storage type for " + uri +
-                            "\n'%s', '%s', and '%s' are the current available storage type." %
-                            (_GCS_PREFIX, _S3_PREFIX, _LOCAL_PREFIX))
+                            "\n'%s', '%s', '%s', and '%s' are the current available storage type." %
+                            (_GCS_PREFIX, _S3_PREFIX, _LOCAL_PREFIX, _HTTPS_PREFIX))
 
         logging.info("Successfully copied %s to %s", uri, out_dir)
         return out_dir
@@ -204,6 +209,17 @@ The path or model %s does not exist." % (uri))
             dest_path = os.path.join(out_dir, tail)
             logging.info("Linking: %s to %s", src, dest_path)
             os.symlink(src, dest_path)
+        return out_dir
+
+    @staticmethod
+    def _download_from_uri(uri, out_dir=None):
+        fname = uri.spli('/')[-1]
+        local_path = os.path.join(out_dir, fname)
+        with requests.get(uri, stream=True) as response:
+            if response.status_code != 200:
+                raise RuntimeError("URI: %s does not exist." % (uri))
+            with open(local_path, 'wb') as out:
+                shutil.copyfileobj(response.raw, out)
         return out_dir
 
     @staticmethod
