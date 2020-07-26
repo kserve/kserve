@@ -45,7 +45,7 @@ func (defaulter *Defaulter) Handle(ctx context.Context, req admission.Request) a
 		return admission.Errored(http.StatusBadRequest, err)
 	}
 
-	isvc.Default(defaulter.Client)
+	isvc.Default()
 
 	patch, err := json.Marshal(isvc)
 	if err != nil {

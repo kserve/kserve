@@ -10,9 +10,9 @@ webhooks:
       service:
         name: kfserving-webhook-server-service
         namespace: kfserving-system
-        path: /mutate-inferenceservices
+        path: /mutate-serving-kubeflow-org-v1alpha2-inferenceservice
     failurePolicy: Fail
-    name: inferenceservice.kfserving-webhook-server.defaulter
+    name: inferenceservice.kfserving-webhook-server.v1alpha2.defaulter
     rules:
       - apiGroups:
           - serving.kubeflow.org
@@ -79,9 +79,9 @@ webhooks:
       service:
         name: kfserving-webhook-server-service
         namespace: kfserving-system
-        path: /validate-inferenceservices
+        path: /validate-serving-kubeflow-org-v1alpha2-inferenceservice
     failurePolicy: Fail
-    name: inferenceservice.kfserving-webhook-server.validator
+    name: inferenceservice.kfserving-webhook-server.v1alpha2.validator
     rules:
       - apiGroups:
           - serving.kubeflow.org
@@ -99,7 +99,7 @@ webhooks:
         namespace: kfserving-system
         path: /validate-serving-kubeflow-org-v1beta1-inferenceservice
     failurePolicy: Fail
-    name: inferenceservice.kfserving-webhook-server.v1beta1.validator
+    name: inferenceservice.kfserving-webhook-server.v1alpha2.validator
     rules:
       - apiGroups:
           - serving.kubeflow.org
