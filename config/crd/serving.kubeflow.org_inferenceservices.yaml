@@ -14,7 +14,7 @@ spec:
     listKind: InferenceServiceList
     plural: inferenceservices
     shortNames:
-    - inferenceservice
+    - isvc
     singular: inferenceservice
   scope: Namespaced
   subresources:

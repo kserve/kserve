@@ -19,6 +19,7 @@ package predictor
 import (
 	"fmt"
 	"github.com/go-logr/logr"
+	"github.com/golang/protobuf/proto"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/controller/inferenceservice/resources/credentials"
 	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/components"
@@ -168,7 +169,7 @@ func (p *Predictor) CreatePredictorService(isvc *v1beta1.InferenceService) (*kns
 				Traffic: []knservingv1.TrafficTarget{
 					{
 						Tag: "default",
-						Percent: 100,
+						Percent: proto.Int64(100),
 					},
 				},
 			},
