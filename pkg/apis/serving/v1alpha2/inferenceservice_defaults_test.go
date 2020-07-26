@@ -45,7 +45,7 @@ func TestTensorflowDefaults(t *testing.T) {
 	isvc.Spec.Canary = isvc.Spec.Default.DeepCopy()
 	isvc.Spec.Canary.Predictor.Tensorflow.RuntimeVersion = "1.11"
 	isvc.Spec.Canary.Predictor.Tensorflow.Resources.Requests = v1.ResourceList{v1.ResourceMemory: resource.MustParse("3Gi")}
-	isvc.Default(c)
+	isvc.Default()
 
 	g.Expect(isvc.Spec.Default.Predictor.Tensorflow.RuntimeVersion).To(gomega.Equal(DefaultTensorflowRuntimeVersion))
 	g.Expect(isvc.Spec.Default.Predictor.Tensorflow.Resources.Requests[v1.ResourceCPU]).To(gomega.Equal(defaultResource[v1.ResourceCPU]))
@@ -79,7 +79,7 @@ func TestTensorflowGPUDefaults(t *testing.T) {
 			},
 		},
 	}
-	isvc.Default(c)
+	isvc.Default()
 	g.Expect(isvc.Spec.Default.Predictor.Tensorflow.RuntimeVersion).To(gomega.Equal(DefaultTensorflowRuntimeVersionGPU))
 }
 
@@ -101,7 +101,7 @@ func TestPyTorchDefaults(t *testing.T) {
 	isvc.Spec.Canary = isvc.Spec.Default.DeepCopy()
 	isvc.Spec.Canary.Predictor.PyTorch.RuntimeVersion = constants.KFServingDefaultVersion
 	isvc.Spec.Canary.Predictor.PyTorch.Resources.Requests = v1.ResourceList{v1.ResourceMemory: resource.MustParse("3Gi")}
-	isvc.Default(c)
+	isvc.Default()
 
 	g.Expect(isvc.Spec.Default.Predictor.PyTorch.RuntimeVersion).To(gomega.Equal(DefaultPyTorchRuntimeVersion))
 	g.Expect(isvc.Spec.Default.Predictor.PyTorch.Resources.Requests[v1.ResourceCPU]).To(gomega.Equal(defaultResource[v1.ResourceCPU]))
@@ -131,7 +131,7 @@ func TestSKLearnDefaults(t *testing.T) {
 	isvc.Spec.Canary = isvc.Spec.Default.DeepCopy()
 	isvc.Spec.Canary.Predictor.SKLearn.RuntimeVersion = constants.KFServingDefaultVersion
 	isvc.Spec.Canary.Predictor.SKLearn.Resources.Requests = v1.ResourceList{v1.ResourceMemory: resource.MustParse("3Gi")}
-	isvc.Default(c)
+	isvc.Default()
 
 	g.Expect(isvc.Spec.Default.Predictor.SKLearn.RuntimeVersion).To(gomega.Equal(DefaultSKLearnRuntimeVersion))
 	g.Expect(isvc.Spec.Default.Predictor.SKLearn.Resources.Requests[v1.ResourceCPU]).To(gomega.Equal(defaultResource[v1.ResourceCPU]))
@@ -161,7 +161,7 @@ func TestXGBoostDefaults(t *testing.T) {
 	isvc.Spec.Canary = isvc.Spec.Default.DeepCopy()
 	isvc.Spec.Canary.Predictor.XGBoost.RuntimeVersion = constants.KFServingDefaultVersion
 	isvc.Spec.Canary.Predictor.XGBoost.Resources.Requests = v1.ResourceList{v1.ResourceMemory: resource.MustParse("3Gi")}
-	isvc.Default(c)
+	isvc.Default()
 
 	g.Expect(isvc.Spec.Default.Predictor.XGBoost.RuntimeVersion).To(gomega.Equal(DefaultXGBoostRuntimeVersion))
 	g.Expect(isvc.Spec.Default.Predictor.XGBoost.Resources.Requests[v1.ResourceCPU]).To(gomega.Equal(defaultResource[v1.ResourceCPU]))
@@ -194,7 +194,7 @@ func TestONNXDefaults(t *testing.T) {
 	isvc.Spec.Canary = isvc.Spec.Default.DeepCopy()
 	isvc.Spec.Canary.Predictor.ONNX.RuntimeVersion = "0.6.0"
 	isvc.Spec.Canary.Predictor.ONNX.Resources.Requests = v1.ResourceList{v1.ResourceMemory: resource.MustParse("3Gi")}
-	isvc.Default(c)
+	isvc.Default()
 
 	g.Expect(isvc.Spec.Default.Predictor.ONNX.RuntimeVersion).To(gomega.Equal(DefaultONNXRuntimeVersion))
 	g.Expect(isvc.Spec.Default.Predictor.ONNX.Resources.Requests[v1.ResourceCPU]).To(gomega.Equal(defaultResource[v1.ResourceCPU]))
@@ -224,7 +224,7 @@ func TestTritonISDefaults(t *testing.T) {
 	isvc.Spec.Canary = isvc.Spec.Default.DeepCopy()
 	isvc.Spec.Canary.Predictor.Triton.RuntimeVersion = "19.09"
 	isvc.Spec.Canary.Predictor.Triton.Resources.Requests = v1.ResourceList{v1.ResourceMemory: resource.MustParse("3Gi")}
-	isvc.Default(c)
+	isvc.Default()
 
 	g.Expect(isvc.Spec.Default.Predictor.Triton.RuntimeVersion).To(gomega.Equal(DefaultTritonISRuntimeVersion))
 	g.Expect(isvc.Spec.Default.Predictor.Triton.Resources.Requests[v1.ResourceCPU]).To(gomega.Equal(defaultResource[v1.ResourceCPU]))
@@ -261,7 +261,7 @@ func TestAlibiExplainerDefaults(t *testing.T) {
 	isvc.Spec.Canary = isvc.Spec.Default.DeepCopy()
 	isvc.Spec.Canary.Explainer.Alibi.RuntimeVersion = "0.2.4"
 	isvc.Spec.Canary.Explainer.Alibi.Resources.Requests = v1.ResourceList{v1.ResourceMemory: resource.MustParse("3Gi")}
-	isvc.Default(c)
+	isvc.Default()
 
 	g.Expect(isvc.Spec.Default.Explainer.Alibi.RuntimeVersion).To(gomega.Equal(DefaultAlibiExplainerRuntimeVersion))
 	g.Expect(isvc.Spec.Default.Explainer.Alibi.Resources.Requests[v1.ResourceCPU]).To(gomega.Equal(defaultResource[v1.ResourceCPU]))
