@@ -18,7 +18,7 @@ package main
 
 import (
 	"flag"
-	"github.com/kubeflow/kfserving/pkg/webhook/admission/inferenceservice"
+	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	"github.com/kubeflow/kfserving/pkg/webhook/admission/pod"
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	v1 "k8s.io/api/core/v1"
@@ -69,16 +69,15 @@ func main() {
 	log.Info("Registering Components.")
 
 	// Setup Scheme for all resources
-	log.Info("Setting up KFServing scheme")
-	if err := v1beta1.AddToScheme(mgr.GetScheme()); err != nil {
-		log.Error(err, "unable to add KFServing v1beta1 api to scheme")
+	log.Info("Setting up core scheme")
+	if err := v1.AddToScheme(mgr.GetScheme()); err != nil {
+		log.Error(err, "unable to add Core APIs to scheme")
 		os.Exit(1)
 	}
 
-	// Setup Scheme for all resources
-	log.Info("Setting up Knative scheme")
-	if err := v1.AddToScheme(mgr.GetScheme()); err != nil {
-		log.Error(err, "unable to add Core APIs to scheme")
+	log.Info("Setting up KFServing scheme")
+	if err := v1beta1.AddToScheme(mgr.GetScheme()); err != nil {
+		log.Error(err, "unable to add KFServing v1beta1 api to scheme")
 		os.Exit(1)
 	}
 
@@ -119,8 +118,10 @@ func main() {
 
 	log.Info("registering webhooks to the webhook server")
 	hookServer.Register("/mutate-pods", &webhook.Admission{Handler: &pod.Mutator{}})
-	hookServer.Register("/validate-inferenceservices", &webhook.Admission{Handler: &inferenceservice.Validator{}})
-	hookServer.Register("/mutate-inferenceservices", &webhook.Admission{Handler: &inferenceservice.Defaulter{}})
+	if err = (&v1alpha2.InferenceService{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "v1alpha2")
+		os.Exit(1)
+	}
 	if err = (&v1beta1.InferenceService{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "v1beta1")
 		os.Exit(1)
