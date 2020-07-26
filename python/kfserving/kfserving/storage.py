@@ -213,7 +213,8 @@ The path or model %s does not exist." % (uri))
 
     @staticmethod
     def _download_from_uri(uri, out_dir=None):
-        fname = uri.spli('/')[-1]
+
+        fname = uri.split('?')[0].split('/')[-1]
         local_path = os.path.join(out_dir, fname)
         with requests.get(uri, stream=True) as response:
             if response.status_code != 200:
