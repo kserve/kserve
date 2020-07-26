@@ -75,7 +75,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	log.Info("Setting up KFServing scheme")
+	log.Info("Setting up KFServing v1alpha2 scheme")
+	if err := v1alpha2.AddToScheme(mgr.GetScheme()); err != nil {
+		log.Error(err, "unable to add KFServing v1alpha2 api to scheme")
+		os.Exit(1)
+	}
+
+	log.Info("Setting up KFServing v1beta1 scheme")
 	if err := v1beta1.AddToScheme(mgr.GetScheme()); err != nil {
 		log.Error(err, "unable to add KFServing v1beta1 api to scheme")
 		os.Exit(1)
