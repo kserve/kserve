@@ -55,7 +55,7 @@ func (validator *Validator) Handle(ctx context.Context, req admission.Request) a
 		}
 	}
 
-	if err := isvc.ValidateCreate(validator.Client); err != nil {
+	if err := isvc.ValidateCreate(); err != nil {
 		return admission.Errored(http.StatusBadRequest, err)
 	}
 
