@@ -44,3 +44,18 @@ kind: Secret
 metadata:
   name: kfserving-webhook-server-secret
   namespace: kfserving-system
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: kfserving-controller-manager
+  namespace: kfserving-system
+spec:
+  selector:
+    matchLabels:
+      control-plane: kfserving-controller-manager
+  replicas: 0
+  template:
+    metadata:
+      labels:
+        control-plane: kfserving-controller-manager

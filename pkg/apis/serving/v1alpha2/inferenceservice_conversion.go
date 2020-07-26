@@ -8,11 +8,11 @@ import (
 // Convert to hub version v1beta1
 func (src *InferenceService) ConvertTo(dstRaw conversion.Hub) error {
 	dst := dstRaw.(*v1beta1.InferenceService)
-    dst.ObjectMeta = src.ObjectMeta
-    if src.Spec.Default.Predictor.Tensorflow != nil {
-        dst.Spec.Predictor.Tensorflow.RuntimeVersion = src.Spec.Default.Predictor.Tensorflow.RuntimeVersion
-        dst.Spec.Predictor.Tensorflow.StorageURI = &src.Spec.Default.Predictor.Tensorflow.StorageURI
-        dst.Spec.Predictor.Tensorflow.Resources = src.Spec.Default.Predictor.Tensorflow.Resources
+	dst.ObjectMeta = src.ObjectMeta
+	if src.Spec.Default.Predictor.Tensorflow != nil {
+		dst.Spec.Predictor.Tensorflow.RuntimeVersion = src.Spec.Default.Predictor.Tensorflow.RuntimeVersion
+		dst.Spec.Predictor.Tensorflow.StorageURI = &src.Spec.Default.Predictor.Tensorflow.StorageURI
+		dst.Spec.Predictor.Tensorflow.Resources = src.Spec.Default.Predictor.Tensorflow.Resources
 	} else if src.Spec.Default.Predictor.SKLearn != nil {
 		dst.Spec.Predictor.SKLearn.RuntimeVersion = src.Spec.Default.Predictor.SKLearn.RuntimeVersion
 		dst.Spec.Predictor.SKLearn.StorageURI = &src.Spec.Default.Predictor.SKLearn.StorageURI
