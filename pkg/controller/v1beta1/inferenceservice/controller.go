@@ -127,7 +127,7 @@ func (r *InferenceServiceReconciler) updateStatus(desiredService *v1beta1api.Inf
 			r.Recorder.Eventf(desiredService, v1.EventTypeNormal, string(v1alpha2.InferenceServiceReadyState),
 				fmt.Sprintf("InferenceService [%v] is Ready", desiredService.GetName()))
 		}
-		r.Recorder.Eventf(desiredService, v1.EventTypeNormal, "Updated", "Updated InferenceService %q", desiredService.GetName())
+		//r.Recorder.Eventf(desiredService, v1.EventTypeNormal, "Updated", "Updated InferenceService %q", desiredService.GetName())
 	}
 	return nil
 }
