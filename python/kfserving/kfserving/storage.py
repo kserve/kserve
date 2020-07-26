@@ -59,8 +59,8 @@ class Storage(object): # pylint: disable=too-few-public-methods
             return Storage._download_from_uri(uri, out_dir)
         else:
             raise Exception("Cannot recognize storage type for " + uri +
-                            "\n'%s', '%s', '%s', and '%s' are the current available storage type." %
-                            (_GCS_PREFIX, _S3_PREFIX, _LOCAL_PREFIX, _HTTPS_PREFIX))
+                            "\n'%s', '%s', '%s', '%s', and '%s' are the current available storage type." %
+                            (_GCS_PREFIX, _S3_PREFIX, _LOCAL_PREFIX, _HTTPS_PREFIX, _HTTP_PREFIX))
 
         logging.info("Successfully copied %s to %s", uri, out_dir)
         return out_dir
