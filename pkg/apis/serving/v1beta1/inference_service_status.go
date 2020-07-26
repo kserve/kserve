@@ -62,7 +62,7 @@ const (
 	ExplainerReady apis.ConditionType = "ExplainerReady"
 )
 
-var defaultConditionsMap = map[ComponentType]apis.ConditionType{
+var conditionsMap = map[ComponentType]apis.ConditionType{
 	PredictorComponent:   PredictorReady,
 	ExplainerComponent:   ExplainerReady,
 	TransformerComponent: TransformerReady,
@@ -101,29 +101,12 @@ const (
 	InferenceServiceNotReadyState InferenceServiceState = "InferenceServiceNotReady"
 )
 
-// PropagateDefaultStatus propagates the status for the default spec
-func (ss *InferenceServiceStatus) PropagateDefaultStatus(component ComponentType,
-	defaultStatus *knservingv1.ServiceStatus) {
-
-	/*conditionType := defaultConditionsMap[component]
-	if defaultStatus == nil {
-		conditionSet.Manage(ss).ClearCondition(conditionType)
-		delete(ss.Components, component)
-		return
-	}
-
+func (ss *InferenceServiceStatus) PropagateStatus(component ComponentType, serviceStatus *knservingv1.ServiceStatus) {
 	statusSpec, ok := ss.Components[component]
 	if !ok {
 		statusSpec = ComponentStatusSpec{}
-		ss.Components[component] = statusSpec
 	}
-	ss.propagateStatus(component, false, conditionType, defaultStatus)*/
-}
-
-func (ss *InferenceServiceStatus) propagateStatus(component ComponentType, isCanary bool,
-	conditionType apis.ConditionType,
-	serviceStatus *knservingv1.ServiceStatus) {
-	statusSpec := ComponentStatusSpec{}
+	conditionType := conditionsMap[component]
 	statusSpec.Name = serviceStatus.LatestCreatedRevisionName
 	serviceCondition := serviceStatus.GetCondition(knservingv1.ServiceConditionReady)
 
