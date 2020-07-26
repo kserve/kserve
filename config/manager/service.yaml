@@ -21,3 +21,5 @@ spec:
     controller-tools.k8s.io: "1.0"
   ports:
   - port: 443
+    targetPort: 9443
+
