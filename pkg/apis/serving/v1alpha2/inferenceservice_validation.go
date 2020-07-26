@@ -19,7 +19,6 @@ package v1alpha2
 import (
 	"fmt"
 
-	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -38,16 +37,6 @@ var (
 	SupportedStorageURIPrefixList = []string{"gs://", "s3://", "pvc://", "file://"}
 	AzureBlobURIRegEx             = "https://(.+?).blob.core.windows.net/(.+)"
 )
-
-// ValidateCreate implements https://godoc.org/sigs.k8s.io/controller-runtime/pkg/webhook/admission#Validator
-func (isvc *InferenceService) ValidateCreate(client client.Client) error {
-	return isvc.validate(client)
-}
-
-// ValidateUpdate implements https://godoc.org/sigs.k8s.io/controller-runtime/pkg/webhook/admission#Validator
-func (isvc *InferenceService) ValidateUpdate(old runtime.Object, client client.Client) error {
-	return isvc.validate(client)
-}
 
 func (isvc *InferenceService) validate(client client.Client) error {
 	logger.Info("Validating InferenceService", "namespace", isvc.Namespace, "name", isvc.Name)
