@@ -65,7 +65,7 @@ func NewPredictor(client client.Client, scheme *runtime.Scheme, config *v1.Confi
 
 // Reconcile observes the world and attempts to drive the status towards the desired state.
 func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
-	propagateStatusFn := isvc.Status.PropagateDefaultStatus
+	propagateStatusFn := isvc.Status.PropagateStatus
 
 	var service *knservingv1.Service
 	var err error
@@ -161,6 +161,14 @@ func (p *Predictor) CreatePredictorService(isvc *v1beta1.InferenceService) (*kns
 						TimeoutSeconds:       &constants.DefaultPredictorTimeout,
 						ContainerConcurrency: &concurrency,
 						PodSpec:              isvc.Spec.Predictor.CustomPredictor.Spec,
+					},
+				},
+			},
+			RouteSpec: knservingv1.RouteSpec{
+				Traffic: []knservingv1.TrafficTarget{
+					{
+						Tag: "default",
+						Percent: 100,
 					},
 				},
 			},

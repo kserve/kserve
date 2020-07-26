@@ -32,14 +32,11 @@ func (r *InferenceService) SetupWebhookWithManager(mgr ctrl.Manager) error {
 		Complete()
 }
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-
-// +kubebuilder:webhook:path=/mutate-serving-kubeflow-org-v1beta1-inferenceservice,mutating=true,failurePolicy=fail,groups=serving.kubeflow.org,resources=inferenceservices,verbs=create;update,versions=v1beta1,name=minferenceservice.kb.io
+// +kubebuilder:webhook:path=/inferenceservice.kfserving-webhook-server.defaulter,mutating=true,failurePolicy=fail,groups=serving.kubeflow.org,resources=inferenceservices,verbs=create;update,versions=v1beta1,name=minferenceservice.kb.io
 
 var _ webhook.Defaulter = &InferenceService{}
 
-// TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
-// +kubebuilder:webhook:verbs=create;update,path=/validate-serving-kubeflow-org-v1beta1-inferenceservice,mutating=false,failurePolicy=fail,groups=serving.kubeflow.org,resources=inferenceservices,versions=v1beta1,name=vinferenceservice.kb.io
+// +kubebuilder:webhook:verbs=create;update,path=/inferenceservice.kfserving-webhook-server.validator,mutating=false,failurePolicy=fail,groups=serving.kubeflow.org,resources=inferenceservices,versions=v1beta1,name=vinferenceservice.kb.io
 
 var _ webhook.Validator = &InferenceService{}
 
