@@ -42,29 +42,26 @@ var _ = Describe("v1beta1 inference service controller", func() {
 	var (
 		configs = map[string]string{
 			"predictors": `{
-        "tensorflow" : {
-            "image" : "tensorflow/serving"
-        },
-        "sklearn" : {
-            "image" : "kfserving/sklearnserver"
-        },
-        "xgboost" : {
-            "image" : "kfserving/xgbserver"
-        }
-	}`,
+               "tensorflow": {
+                  "image": "tensorflow/serving"
+               },
+               "sklearn": {
+                  "image": "kfserving/sklearnserver"
+               },
+               "xgboost": {
+                  "image": "kfserving/xgbserver"
+               }
+	         }`,
 			"explainers": `{
-        "alibi": {
-            "image" : "kfserving/alibi-explainer",
-			"defaultImageVersion": "latest",
-			"allowedImageVersions": [
-				"latest"
-			 ]
-        }
-	}`,
+               "alibi": {
+                  "image": "kfserving/alibi-explainer",
+			      "defaultImageVersion": "latest"
+               }
+            }`,
 			"ingress": `{
-        "ingressGateway" : "knative-serving/knative-ingress-gateway",
-        "ingressService" : "test-destination"
-    }`,
+               "ingressGateway": "knative-serving/knative-ingress-gateway",
+               "ingressService": "test-destination"
+            }`,
 		}
 	)
 	Context("When creating inference service", func() {

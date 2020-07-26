@@ -91,7 +91,7 @@ type Batcher struct {
 	// Timeout of batcher service
 	// +optional
 	Timeout *int `json:"timeout,omitempty"`
-}	
+}
 
 // InferenceService is the Schema for the inferenceservices API
 // +k8s:openapi-gen=true
