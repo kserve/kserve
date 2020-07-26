@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import io
+import os
 import pytest
 import kfserving
 from minio import Minio, error
@@ -40,6 +42,45 @@ def test_no_prefix_local_path():
     assert kfserving.Storage.download(abs_path) == abs_path
     assert kfserving.Storage.download(relative_path) == relative_path
 
+def _mock_request_get(*args, **kwargs):
+    class MockResponse(object):
+        def __init__(self, status_code, raw):
+            self.status_code = status_code
+            self.raw = io.BytesIO(raw)
+        def __enter__(self):
+            return self
+        def __exit__(self, ex_type, ex_val, traceback):
+            pass
+
+    if 'foo.bar' in args[0]:
+        return MockResponse(200, b'testing')
+    if 'theabyss.net' in args[0]:
+        return MockResponse(404, b'')
+    return MockResponse(404, b'')
+
+@mock.patch('requests.get', side_effect=_mock_request_get)
+def test_http_uri_path(_):
+    http_uri = 'http://foo.bar/model.joblib' 
+    http_with_query_uri = 'http://foo.bar/model.joblib?foo=bar'
+    out_dir = '.'
+    assert kfserving.Storage.download(http_uri, out_dir=out_dir) == out_dir
+    assert kfserving.Storage.download(http_with_query_uri, out_dir=out_dir) == out_dir
+    os.remove('./model.joblib')
+
+@mock.patch('requests.get', side_effect=_mock_request_get)
+def test_https_uri_path(_):
+    https_uri = 'https://foo.bar/model.joblib' 
+    https_with_query_uri = 'https://foo.bar/model.joblib?foo=bar'
+    out_dir = '.'
+    assert kfserving.Storage.download(https_uri, out_dir=out_dir) == out_dir
+    assert kfserving.Storage.download(https_with_query_uri, out_dir=out_dir) == out_dir
+    os.remove('./model.joblib')
+
+@mock.patch('requests.get', side_effect=_mock_request_get)
+def test_nonexistent_uri(_):
+    non_existent_uri = 'https://theabyss.net/model.joblib'
+    with pytest.raises(RuntimeError):
+        kfserving.Storage.download(non_existent_uri)
 
 @mock.patch(STORAGE_MODULE + '.storage')
 def test_mock_gcs(mock_storage):
