@@ -1,26 +1,25 @@
 apiVersion: apps/v1
-kind: StatefulSet
+kind: Deployment
 metadata:
   name: kfserving-controller-manager
   namespace: kfserving-system
   labels:
     control-plane: kfserving-controller-manager
-    controller-tools.k8s.io: "1.0"
 spec:
   selector:
     matchLabels:
       control-plane: kfserving-controller-manager
-      controller-tools.k8s.io: "1.0"
   serviceName: controller-manager-service
   template:
     metadata:
       labels:
         control-plane: kfserving-controller-manager
-        controller-tools.k8s.io: "1.0"
     spec:
       containers:
       - command:
         - /manager
+        args:
+          - --enable-leader-election
         image: ko://github.com/kubeflow/kfserving/cmd/manager
         imagePullPolicy: Always
         name: manager
@@ -38,20 +37,7 @@ spec:
           requests:
             cpu: 100m
             memory: 200Mi
-        ports:
-        - containerPort: 443
-          name: webhook-server
-          protocol: TCP
-        volumeMounts:
-        - mountPath: /tmp/k8s-webhook-server/serving-certs
-          name: cert
-          readOnly: true
       terminationGracePeriodSeconds: 10
-      volumes:
-      - name: cert
-        secret:
-          defaultMode: 420
-          secretName: kfserving-webhook-server-cert
 ---
 apiVersion: v1
 kind: Secret
