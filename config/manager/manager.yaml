@@ -9,7 +9,6 @@ spec:
   selector:
     matchLabels:
       control-plane: kfserving-controller-manager
-  serviceName: controller-manager-service
   template:
     metadata:
       labels:
@@ -42,20 +41,7 @@ spec:
 apiVersion: v1
 kind: Secret
 metadata:
-  name: kfserving-webhook-server-secret
+  name: kfserving-webhook-server-cert
   namespace: kfserving-system
 ---
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: kfserving-controller-manager
-  namespace: kfserving-system
-spec:
-  selector:
-    matchLabels:
-      control-plane: kfserving-controller-manager
-  replicas: 0
-  template:
-    metadata:
-      labels:
-        control-plane: kfserving-controller-manager
+
