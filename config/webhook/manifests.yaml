@@ -12,7 +12,7 @@ webhooks:
         namespace: kfserving-system
         path: /mutate-serving-kubeflow-org-v1alpha2-inferenceservice
     failurePolicy: Fail
-    name: inferenceservice.kfserving-webhook-server.v1alpha2.defaulter
+    name: inferenceservice.kfserving-webhook-server.defaulter
     rules:
       - apiGroups:
           - serving.kubeflow.org
@@ -67,6 +67,7 @@ webhooks:
           - UPDATE
         resources:
           - pods
+
 ---
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: ValidatingWebhookConfiguration
@@ -81,7 +82,7 @@ webhooks:
         namespace: kfserving-system
         path: /validate-serving-kubeflow-org-v1alpha2-inferenceservice
     failurePolicy: Fail
-    name: inferenceservice.kfserving-webhook-server.v1alpha2.validator
+    name: inferenceservice.kfserving-webhook-server.validator
     rules:
       - apiGroups:
           - serving.kubeflow.org
@@ -99,7 +100,7 @@ webhooks:
         namespace: kfserving-system
         path: /validate-serving-kubeflow-org-v1beta1-inferenceservice
     failurePolicy: Fail
-    name: inferenceservice.kfserving-webhook-server.v1alpha2.validator
+    name: inferenceservice.kfserving-webhook-server.v1beta1.validator
     rules:
       - apiGroups:
           - serving.kubeflow.org
