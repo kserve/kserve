@@ -32,11 +32,11 @@ func (r *InferenceService) SetupWebhookWithManager(mgr ctrl.Manager) error {
 		Complete()
 }
 
-// +kubebuilder:webhook:path=/inferenceservice.kfserving-webhook-server.defaulter,mutating=true,failurePolicy=fail,groups=serving.kubeflow.org,resources=inferenceservices,verbs=create;update,versions=v1beta1,name=minferenceservice.kb.io
+// +kubebuilder:webhook:path=/mutate-inferenceservices,mutating=true,failurePolicy=fail,groups=serving.kubeflow.org,resources=inferenceservices,verbs=create;update,versions=v1beta1,name=inferenceservice.kfserving-webhook-server.defaulter
 
 var _ webhook.Defaulter = &InferenceService{}
 
-// +kubebuilder:webhook:verbs=create;update,path=/inferenceservice.kfserving-webhook-server.validator,mutating=false,failurePolicy=fail,groups=serving.kubeflow.org,resources=inferenceservices,versions=v1beta1,name=vinferenceservice.kb.io
+// +kubebuilder:webhook:verbs=create;update,path=/validate-inferenceservices,mutating=false,failurePolicy=fail,groups=serving.kubeflow.org,resources=inferenceservices,versions=v1beta1,name=inferenceservice.kfserving-webhook-server.validator
 
 var _ webhook.Validator = &InferenceService{}
 
