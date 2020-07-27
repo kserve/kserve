@@ -140,7 +140,7 @@ func addBatcherAnnotations(batcher *v1alpha2.Batcher, annotations map[string]str
 
 func addBatcherContainerPort(container *v1.Container) {
 	if container != nil {
-		if container.Ports == nil || len(container.Ports) == 0{
+		if container.Ports == nil || len(container.Ports) == 0 {
 			port, _ := strconv.Atoi(constants.InferenceServiceDefaultBatcherPort)
 			container.Ports = []v1.ContainerPort{
 				{
