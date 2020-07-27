@@ -33,13 +33,12 @@ package service
 import (
 	"context"
 	"fmt"
-	"istio.io/client-go/pkg/apis/networking/v1alpha3"
-	"k8s.io/client-go/kubernetes"
-	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
-	"knative.dev/pkg/apis"
-	"os"
-
+	"github.com/go-logr/logr"
 	"github.com/kubeflow/kfserving/pkg/controller/inferenceservice/reconcilers/istio"
+	"istio.io/client-go/pkg/apis/networking/v1alpha3"
+	"knative.dev/pkg/apis"
+	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
+	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/controller/inferenceservice/reconcilers/knative"
@@ -51,100 +50,38 @@ import (
 
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	kfserving "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
-	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
-
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 )
-
-const (
-	ControllerName = "kfserving-controller"
-)
-
-var log = logf.Log.WithName(ControllerName)
-
-// Add creates a new InferenceService Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
-// and Start it when the Manager is Started.
-func Add(mgr manager.Manager) error {
-	return add(mgr, newReconciler(mgr))
-}
-
-// newReconciler returns a new reconcile.Reconciler
-func newReconciler(mgr manager.Manager) reconcile.Reconciler {
-	eventBroadcaster := record.NewBroadcaster()
-	clientSet, err := kubernetes.NewForConfig(mgr.GetConfig())
-	if err != nil {
-		log.Error(err, "unable to start manager")
-		os.Exit(1)
-	}
-
-	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: clientSet.CoreV1().Events("")})
-
-	mgrScheme := mgr.GetScheme()
-
-	return &ReconcileService{
-		Client: mgr.GetClient(),
-		scheme: mgrScheme,
-		Recorder: eventBroadcaster.NewRecorder(
-			mgrScheme, v1.EventSource{Component: ControllerName}),
-	}
-}
-
-// add adds a new Controller to mgr with r as the reconcile.Reconciler
-func add(mgr manager.Manager, r reconcile.Reconciler) error {
-	// Create a new controller
-	c, err := controller.New(ControllerName, mgr, controller.Options{Reconciler: r})
-	if err != nil {
-		return err
-	}
-
-	// Watch for changes to InferenceService
-	if err = c.Watch(&source.Kind{Type: &kfserving.InferenceService{}}, &handler.EnqueueRequestForObject{}); err != nil {
-		return err
-	}
-
-	kfservingController := &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    &kfserving.InferenceService{},
-	}
-
-	// Watch for changes to Knative Service
-	if err = c.Watch(&source.Kind{Type: &knservingv1.Service{}}, kfservingController); err != nil {
-		return err
-	}
-
-	// Watch for changes to Virtual Service
-	if err = c.Watch(&source.Kind{Type: &v1alpha3.VirtualService{}}, kfservingController); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-var _ reconcile.Reconciler = &ReconcileService{}
-
-// ReconcileService reconciles a Service object
-type ReconcileService struct {
-	client.Client
-	scheme   *runtime.Scheme
-	Recorder record.EventRecorder
-}
 
 // Reconciler is implemented by all subresources
 type Reconciler interface {
 	Reconcile(isvc *v1alpha2.InferenceService) error
 }
 
+var _ reconcile.Reconciler = &InferenceServiceReconciler{}
+
+// ReconcileService reconciles a Service object
+type InferenceServiceReconciler struct {
+	client.Client
+	Log      logr.Logger
+	Scheme   *runtime.Scheme
+	Recorder record.EventRecorder
+}
+
+func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&v1alpha2.InferenceService{}).
+		Owns(&knservingv1.Service{}).
+		Owns(&v1alpha3.VirtualService{}).
+		Complete(r)
+}
+
 // Reconcile reads that state of the cluster for a Service object and makes changes based on the state read
 // and what is in the Service.Spec
-func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+func (r *InferenceServiceReconciler) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	// Fetch the InferenceService instance
 	isvc := &kfserving.InferenceService{}
 	if err := r.Get(context.TODO(), request.NamespacedName, isvc); err != nil {
@@ -159,19 +96,19 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 	configMap := &v1.ConfigMap{}
 	err := r.Get(context.TODO(), types.NamespacedName{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KFServingNamespace}, configMap)
 	if err != nil {
-		log.Error(err, "Failed to find ConfigMap", "name", constants.InferenceServiceConfigMapName, "namespace", constants.KFServingNamespace)
+		r.Log.Error(err, "Failed to find ConfigMap", "name", constants.InferenceServiceConfigMapName, "namespace", constants.KFServingNamespace)
 		// Error reading the object - requeue the request.
 		return reconcile.Result{}, err
 	}
 
 	reconcilers := []Reconciler{
-		knative.NewServiceReconciler(r.Client, r.scheme, configMap),
-		istio.NewVirtualServiceReconciler(r.Client, r.scheme, configMap),
+		knative.NewServiceReconciler(r.Client, r.Scheme, configMap),
+		istio.NewVirtualServiceReconciler(r.Client, r.Scheme, configMap),
 	}
 
 	for _, reconciler := range reconcilers {
 		if err := reconciler.Reconcile(isvc); err != nil {
-			log.Error(err, "Failed to reconcile")
+			r.Log.Error(err, "Failed to reconcile")
 			r.Recorder.Eventf(isvc, v1.EventTypeWarning, "InternalError", err.Error())
 			return reconcile.Result{}, err
 		}
@@ -189,7 +126,7 @@ func InferenceServiceReadiness(status v1alpha2.InferenceServiceStatus) bool {
 		status.GetCondition(apis.ConditionReady).Status == v1.ConditionTrue
 }
 
-func (r *ReconcileService) updateStatus(desiredService *kfserving.InferenceService) error {
+func (r *InferenceServiceReconciler) updateStatus(desiredService *kfserving.InferenceService) error {
 	existing := &kfserving.InferenceService{}
 	namespacedName := types.NamespacedName{Name: desiredService.Name, Namespace: desiredService.Namespace}
 	if err := r.Get(context.TODO(), namespacedName, existing); err != nil {
@@ -202,7 +139,7 @@ func (r *ReconcileService) updateStatus(desiredService *kfserving.InferenceServi
 		// cache may be stale and we don't want to overwrite a prior update
 		// to status with this stale state.
 	} else if err := r.Status().Update(context.TODO(), desiredService); err != nil {
-		log.Error(err, "Failed to update InferenceService status")
+		r.Log.Error(err, "Failed to update InferenceService status")
 		r.Recorder.Eventf(desiredService, v1.EventTypeWarning, "UpdateFailed",
 			"Failed to update status for InferenceService %q: %v", desiredService.Name, err)
 		return err

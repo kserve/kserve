@@ -17,6 +17,7 @@ limitations under the License.
 package testing
 
 import (
+	"github.com/gogo/protobuf/proto"
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"path/filepath"
 	"sync"
@@ -27,7 +28,6 @@ import (
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
 
@@ -43,6 +43,7 @@ func SetupEnvTest() *envtest.Environment {
 			filepath.Join("..", "..", "..", "config", "crd"),
 			filepath.Join("..", "..", "..", "test", "crds"),
 		},
+		UseExistingCluster: proto.Bool(false),
 	}
 
 	err := v1alpha2.SchemeBuilder.AddToScheme(scheme.Scheme)
@@ -59,18 +60,6 @@ func SetupEnvTest() *envtest.Environment {
 		log.Error(err, "Failed to add istio scheme")
 	}
 	return t
-}
-
-// SetupTestReconcile returns a reconcile.Reconcile implementation that delegates to inner and
-// writes the request to requests after Reconcile is finished.
-func SetupTestReconcile(inner reconcile.Reconciler) (reconcile.Reconciler, chan reconcile.Request) {
-	requests := make(chan reconcile.Request)
-	fn := reconcile.Func(func(req reconcile.Request) (reconcile.Result, error) {
-		result, err := inner.Reconcile(req)
-		requests <- req
-		return result, err
-	})
-	return fn, requests
 }
 
 // StartTestManager adds recFn

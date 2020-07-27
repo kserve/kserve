@@ -17,7 +17,7 @@ limitations under the License.
 package utils
 
 import (
-	"github.com/kubeflow/kfserving/pkg/controller/inferenceservice/resources/credentials/gcs"
+	"github.com/kubeflow/kfserving/pkg/credentials/gcs"
 	v1 "k8s.io/api/core/v1"
 	"testing"
 
