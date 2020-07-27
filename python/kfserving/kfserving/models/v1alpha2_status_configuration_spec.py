@@ -46,30 +46,25 @@ class V1alpha2StatusConfigurationSpec(object):
     """
     swagger_types = {
         'host': 'str',
-        'name': 'str',
-        'replicas': 'int'
+        'name': 'str'
     }
 
     attribute_map = {
         'host': 'host',
-        'name': 'name',
-        'replicas': 'replicas'
+        'name': 'name'
     }
 
-    def __init__(self, host=None, name=None, replicas=None):  # noqa: E501
+    def __init__(self, host=None, name=None):  # noqa: E501
         """V1alpha2StatusConfigurationSpec - a model defined in Swagger"""  # noqa: E501
 
         self._host = None
         self._name = None
-        self._replicas = None
         self.discriminator = None
 
         if host is not None:
             self.host = host
         if name is not None:
             self.name = name
-        if replicas is not None:
-            self.replicas = replicas
 
     @property
     def host(self):
@@ -116,27 +111,6 @@ class V1alpha2StatusConfigurationSpec(object):
         """
 
         self._name = name
-
-    @property
-    def replicas(self):
-        """Gets the replicas of this V1alpha2StatusConfigurationSpec.  # noqa: E501
-
-
-        :return: The replicas of this V1alpha2StatusConfigurationSpec.  # noqa: E501
-        :rtype: int
-        """
-        return self._replicas
-
-    @replicas.setter
-    def replicas(self, replicas):
-        """Sets the replicas of this V1alpha2StatusConfigurationSpec.
-
-
-        :param replicas: The replicas of this V1alpha2StatusConfigurationSpec.  # noqa: E501
-        :type: int
-        """
-
-        self._replicas = replicas
 
     def to_dict(self):
         """Returns the model properties as a dict"""

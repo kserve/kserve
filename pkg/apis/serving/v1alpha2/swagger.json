@@ -7,112 +7,6 @@
   },
   "paths": {},
   "definitions": {
-    "knative.Addressable": {
-      "type": "object",
-      "properties": {
-        "url": {
-          "$ref": "#/definitions/knative.URL"
-        }
-      }
-    },
-    "knative.Condition": {
-      "description": "Conditions defines a readiness condition for a Knative resource. See: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#typical-status-properties",
-      "type": "object",
-      "required": [
-        "type",
-        "status"
-      ],
-      "properties": {
-        "lastTransitionTime": {
-          "description": "LastTransitionTime is the last time the condition transitioned from one status to another. We use VolatileTime in place of metav1.Time to exclude this from creating equality.Semantic differences (all other things held constant).",
-          "$ref": "#/definitions/knative.VolatileTime"
-        },
-        "message": {
-          "description": "A human readable message indicating details about the transition.",
-          "type": "string"
-        },
-        "reason": {
-          "description": "The reason for the condition's last transition.",
-          "type": "string"
-        },
-        "severity": {
-          "description": "Severity with which to treat failures of this type of condition. When this is not specified, it defaults to Error.",
-          "type": "string"
-        },
-        "status": {
-          "description": "Status of the condition, one of True, False, Unknown.",
-          "type": "string"
-        },
-        "type": {
-          "description": "Type of condition.",
-          "type": "string"
-        }
-      }
-    },
-    "knative.URL": {
-      "description": "URL is an alias of url.URL. It has custom json marshal methods that enable it to be used in K8s CRDs such that the CRD resource will have the URL but operator code can can work with url.URL struct",
-      "type": "object",
-      "required": [
-        "Scheme",
-        "Opaque",
-        "User",
-        "Host",
-        "Path",
-        "RawPath",
-        "ForceQuery",
-        "RawQuery",
-        "Fragment"
-      ],
-      "properties": {
-        "ForceQuery": {
-          "description": "encoded path hint (see EscapedPath method)",
-          "type": "boolean"
-        },
-        "Fragment": {
-          "description": "encoded query values, without '?'",
-          "type": "string"
-        },
-        "Host": {
-          "description": "username and password information",
-          "type": "string"
-        },
-        "Opaque": {
-          "type": "string"
-        },
-        "Path": {
-          "description": "host or host:port",
-          "type": "string"
-        },
-        "RawPath": {
-          "description": "path (relative paths may omit leading slash)",
-          "type": "string"
-        },
-        "RawQuery": {
-          "description": "append a query ('?') even if RawQuery is empty",
-          "type": "string"
-        },
-        "Scheme": {
-          "type": "string"
-        },
-        "User": {
-          "description": "encoded opaque data",
-          "$ref": "#/definitions/net.url.Userinfo"
-        }
-      }
-    },
-    "knative.VolatileTime": {
-      "description": "VolatileTime wraps metav1.Time",
-      "type": "object",
-      "required": [
-        "Time"
-      ],
-      "properties": {
-        "Time": {
-          "type": "string",
-          "format": "date-time"
-        }
-      }
-    },
     "v1alpha2.AlibiExplainerSpec": {
       "description": "AlibiExplainerSpec defines the arguments for configuring an Alibi Explanation Server",
       "type": "object",
@@ -132,7 +26,7 @@
           "$ref": "#/definitions/v1.ResourceRequirements"
         },
         "runtimeVersion": {
-          "description": "Defaults to latest Alibi Version",
+          "description": "Alibi docker image version which defaults to latest release",
           "type": "string"
         },
         "storageUri": {
@@ -142,6 +36,27 @@
         "type": {
           "description": "The type of Alibi explainer",
           "type": "string"
+        }
+      }
+    },
+    "v1alpha2.Batcher": {
+      "description": "Batcher provides optional payload batcher for all endpoints",
+      "type": "object",
+      "properties": {
+        "maxBatchSize": {
+          "description": "MaxBatchSize of batcher service",
+          "type": "integer",
+          "format": "int32"
+        },
+        "maxLatency": {
+          "description": "MaxLatency of batcher service",
+          "type": "integer",
+          "format": "int32"
+        },
+        "timeout": {
+          "description": "Timeout of batcher service",
+          "type": "integer",
+          "format": "int32"
         }
       }
     },
@@ -161,6 +76,10 @@
       "description": "DeploymentSpec defines the configuration for a given InferenceService service component",
       "type": "object",
       "properties": {
+        "batcher": {
+          "description": "Activate request batching",
+          "$ref": "#/definitions/v1alpha2.Batcher"
+        },
         "logger": {
           "description": "Activate request/response logging",
           "$ref": "#/definitions/v1alpha2.Logger"
@@ -171,12 +90,12 @@
           "format": "int32"
         },
         "minReplicas": {
-          "description": "Minimum number of replicas, pods won't scale down to 0 in case of no traffic",
+          "description": "Minimum number of replicas which defaults to 1, when minReplicas = 0 pods scale down to 0 in case of no traffic",
           "type": "integer",
           "format": "int32"
         },
         "parallelism": {
-          "description": "Parallelism specifies how many requests can be processed concurrently, this sets the target concurrency for Autoscaling(KPA). For model servers that support tuning parallelism will use this value, by default the parallelism is the number of the CPU cores for most of the model servers.",
+          "description": "Parallelism specifies how many requests can be processed concurrently, this sets the hard limit of the container concurrency(https://knative.dev/docs/serving/autoscaling/concurrency).",
           "type": "integer",
           "format": "int32"
         },
@@ -214,6 +133,10 @@
           "description": "Spec for alibi explainer",
           "$ref": "#/definitions/v1alpha2.AlibiExplainerSpec"
         },
+        "batcher": {
+          "description": "Activate request batching",
+          "$ref": "#/definitions/v1alpha2.Batcher"
+        },
         "custom": {
           "description": "Spec for a custom explainer",
           "$ref": "#/definitions/v1alpha2.CustomSpec"
@@ -228,12 +151,12 @@
           "format": "int32"
         },
         "minReplicas": {
-          "description": "Minimum number of replicas, pods won't scale down to 0 in case of no traffic",
+          "description": "Minimum number of replicas which defaults to 1, when minReplicas = 0 pods scale down to 0 in case of no traffic",
           "type": "integer",
           "format": "int32"
         },
         "parallelism": {
-          "description": "Parallelism specifies how many requests can be processed concurrently, this sets the target concurrency for Autoscaling(KPA). For model servers that support tuning parallelism will use this value, by default the parallelism is the number of the CPU cores for most of the model servers.",
+          "description": "Parallelism specifies how many requests can be processed concurrently, this sets the hard limit of the container concurrency(https://knative.dev/docs/serving/autoscaling/concurrency).",
           "type": "integer",
           "format": "int32"
         },
@@ -248,11 +171,11 @@
       "type": "object",
       "properties": {
         "apiVersion": {
-          "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
+          "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
           "type": "string"
         },
         "kind": {
-          "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds",
+          "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
           "type": "string"
         },
         "metadata": {
@@ -274,7 +197,7 @@
       ],
       "properties": {
         "apiVersion": {
-          "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
+          "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
           "type": "string"
         },
         "items": {
@@ -285,7 +208,7 @@
           "x-kubernetes-list-type": "set"
         },
         "kind": {
-          "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds",
+          "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
           "type": "string"
         },
         "metadata": {
@@ -301,7 +224,7 @@
       ],
       "properties": {
         "canary": {
-          "description": "Canary defines an alternate endpoints to route a percentage of traffic.",
+          "description": "Canary defines alternate endpoints to route a percentage of traffic.",
           "$ref": "#/definitions/v1alpha2.EndpointSpec"
         },
         "canaryTrafficPercent": {
@@ -320,7 +243,7 @@
       "type": "object",
       "properties": {
         "address": {
-          "description": "Ducktype for addressable",
+          "description": "Addressable URL for eventing",
           "$ref": "#/definitions/knative.Addressable"
         },
         "canary": {
@@ -372,7 +295,7 @@
       "type": "object",
       "properties": {
         "mode": {
-          "description": "What payloads to log",
+          "description": "What payloads to log: [all, request, response]",
           "type": "string"
         },
         "url": {
@@ -393,11 +316,11 @@
           "$ref": "#/definitions/v1.ResourceRequirements"
         },
         "runtimeVersion": {
-          "description": "Allowed runtime versions are specified in the inferenceservice config map",
+          "description": "ONNXRuntime docker image versions, default version can be set in the inferenceservice configmap",
           "type": "string"
         },
         "storageUri": {
-          "description": "The location of the trained model",
+          "description": "The URI of the exported onnx model(model.onnx)",
           "type": "string"
         }
       }
@@ -406,6 +329,10 @@
       "description": "PredictorSpec defines the configuration for a predictor, The following fields follow a \"1-of\" semantic. Users must specify exactly one spec.",
       "type": "object",
       "properties": {
+        "batcher": {
+          "description": "Activate request batching",
+          "$ref": "#/definitions/v1alpha2.Batcher"
+        },
         "custom": {
           "description": "Spec for a custom predictor",
           "$ref": "#/definitions/v1alpha2.CustomSpec"
@@ -420,7 +347,7 @@
           "format": "int32"
         },
         "minReplicas": {
-          "description": "Minimum number of replicas, pods won't scale down to 0 in case of no traffic",
+          "description": "Minimum number of replicas which defaults to 1, when minReplicas = 0 pods scale down to 0 in case of no traffic",
           "type": "integer",
           "format": "int32"
         },
@@ -429,7 +356,7 @@
           "$ref": "#/definitions/v1alpha2.ONNXSpec"
         },
         "parallelism": {
-          "description": "Parallelism specifies how many requests can be processed concurrently, this sets the target concurrency for Autoscaling(KPA). For model servers that support tuning parallelism will use this value, by default the parallelism is the number of the CPU cores for most of the model servers.",
+          "description": "Parallelism specifies how many requests can be processed concurrently, this sets the hard limit of the container concurrency(https://knative.dev/docs/serving/autoscaling/concurrency).",
           "type": "integer",
           "format": "int32"
         },
@@ -475,11 +402,11 @@
           "$ref": "#/definitions/v1.ResourceRequirements"
         },
         "runtimeVersion": {
-          "description": "Allowed runtime versions are specified in the inferenceservice config map",
+          "description": "PyTorch KFServer docker image version which defaults to latest release",
           "type": "string"
         },
         "storageUri": {
-          "description": "The location of the trained model",
+          "description": "The URI of the trained model which contains model.pt",
           "type": "string"
         }
       }
@@ -496,11 +423,11 @@
           "$ref": "#/definitions/v1.ResourceRequirements"
         },
         "runtimeVersion": {
-          "description": "Allowed runtime versions are specified in the inferenceservice config map",
+          "description": "SKLearn KFServer docker image version which defaults to latest release",
           "type": "string"
         },
         "storageUri": {
-          "description": "The location of the trained model",
+          "description": "The URI of the trained model which contains model.pickle, model.pkl or model.joblib",
           "type": "string"
         }
       }
@@ -516,10 +443,6 @@
         "name": {
           "description": "Latest revision name that is in ready state",
           "type": "string"
-        },
-        "replicas": {
-          "type": "integer",
-          "format": "int32"
         }
       }
     },
@@ -535,11 +458,11 @@
           "$ref": "#/definitions/v1.ResourceRequirements"
         },
         "runtimeVersion": {
-          "description": "Allowed runtime versions are specified in the inferenceservice config map.",
+          "description": "TFServing docker image version(https://hub.docker.com/r/tensorflow/serving), default version can be set in the inferenceservice configmap.",
           "type": "string"
         },
         "storageUri": {
-          "description": "The location of the trained model",
+          "description": "The URI for the saved model(https://www.tensorflow.org/tutorials/keras/save_and_load)",
           "type": "string"
         }
       }
@@ -548,6 +471,10 @@
       "description": "TransformerSpec defines transformer service for pre/post processing",
       "type": "object",
       "properties": {
+        "batcher": {
+          "description": "Activate request batching",
+          "$ref": "#/definitions/v1alpha2.Batcher"
+        },
         "custom": {
           "description": "Spec for a custom transformer",
           "$ref": "#/definitions/v1alpha2.CustomSpec"
@@ -562,12 +489,12 @@
           "format": "int32"
         },
         "minReplicas": {
-          "description": "Minimum number of replicas, pods won't scale down to 0 in case of no traffic",
+          "description": "Minimum number of replicas which defaults to 1, when minReplicas = 0 pods scale down to 0 in case of no traffic",
           "type": "integer",
           "format": "int32"
         },
         "parallelism": {
-          "description": "Parallelism specifies how many requests can be processed concurrently, this sets the target concurrency for Autoscaling(KPA). For model servers that support tuning parallelism will use this value, by default the parallelism is the number of the CPU cores for most of the model servers.",
+          "description": "Parallelism specifies how many requests can be processed concurrently, this sets the hard limit of the container concurrency(https://knative.dev/docs/serving/autoscaling/concurrency).",
           "type": "integer",
           "format": "int32"
         },
@@ -589,11 +516,11 @@
           "$ref": "#/definitions/v1.ResourceRequirements"
         },
         "runtimeVersion": {
-          "description": "Allowed runtime versions are specified in the inferenceservice config map",
+          "description": "Triton Inference Server docker image version, default version can be set in the inferenceservice configmap",
           "type": "string"
         },
         "storageUri": {
-          "description": "The location of the trained model",
+          "description": "The URI for the trained model repository(https://docs.nvidia.com/deeplearning/triton-inference-server/master-user-guide/docs/model_repository.html)",
           "type": "string"
         }
       }
@@ -615,11 +542,11 @@
           "$ref": "#/definitions/v1.ResourceRequirements"
         },
         "runtimeVersion": {
-          "description": "Allowed runtime versions are specified in the inferenceservice config map",
+          "description": "XGBoost KFServer docker image version which defaults to latest release",
           "type": "string"
         },
         "storageUri": {
-          "description": "The location of the trained model",
+          "description": "The URI of the trained model which contains model.bst",
           "type": "string"
         }
       }

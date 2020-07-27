@@ -3,7 +3,7 @@
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**canary** | [**V1alpha2EndpointSpec**](V1alpha2EndpointSpec.md) | Canary defines an alternate endpoints to route a percentage of traffic. | [optional] 
+**canary** | [**V1alpha2EndpointSpec**](V1alpha2EndpointSpec.md) | Canary defines alternate endpoints to route a percentage of traffic. | [optional] 
 **canary_traffic_percent** | **int** | CanaryTrafficPercent defines the percentage of traffic going to canary InferenceService endpoints | [optional] 
 **default** | [**V1alpha2EndpointSpec**](V1alpha2EndpointSpec.md) | Default defines default InferenceService endpoints | 
 

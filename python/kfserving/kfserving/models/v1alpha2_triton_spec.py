@@ -99,7 +99,7 @@ class V1alpha2TritonSpec(object):
     def runtime_version(self):
         """Gets the runtime_version of this V1alpha2TritonSpec.  # noqa: E501
 
-        Allowed runtime versions are specified in the inferenceservice config map  # noqa: E501
+        Triton Inference Server docker image version, default version can be set in the inferenceservice configmap  # noqa: E501
 
         :return: The runtime_version of this V1alpha2TritonSpec.  # noqa: E501
         :rtype: str
@@ -110,7 +110,7 @@ class V1alpha2TritonSpec(object):
     def runtime_version(self, runtime_version):
         """Sets the runtime_version of this V1alpha2TritonSpec.
 
-        Allowed runtime versions are specified in the inferenceservice config map  # noqa: E501
+        Triton Inference Server docker image version, default version can be set in the inferenceservice configmap  # noqa: E501
 
         :param runtime_version: The runtime_version of this V1alpha2TritonSpec.  # noqa: E501
         :type: str
@@ -122,7 +122,7 @@ class V1alpha2TritonSpec(object):
     def storage_uri(self):
         """Gets the storage_uri of this V1alpha2TritonSpec.  # noqa: E501
 
-        The location of the trained model  # noqa: E501
+        The URI for the trained model repository(https://docs.nvidia.com/deeplearning/triton-inference-server/master-user-guide/docs/model_repository.html)  # noqa: E501
 
         :return: The storage_uri of this V1alpha2TritonSpec.  # noqa: E501
         :rtype: str
@@ -133,7 +133,7 @@ class V1alpha2TritonSpec(object):
     def storage_uri(self, storage_uri):
         """Sets the storage_uri of this V1alpha2TritonSpec.
 
-        The location of the trained model  # noqa: E501
+        The URI for the trained model repository(https://docs.nvidia.com/deeplearning/triton-inference-server/master-user-guide/docs/model_repository.html)  # noqa: E501
 
         :param storage_uri: The storage_uri of this V1alpha2TritonSpec.  # noqa: E501
         :type: str
