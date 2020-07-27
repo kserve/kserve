@@ -76,7 +76,7 @@ class V1alpha2InferenceServiceSpec(object):
     def canary(self):
         """Gets the canary of this V1alpha2InferenceServiceSpec.  # noqa: E501
 
-        Canary defines an alternate endpoints to route a percentage of traffic.  # noqa: E501
+        Canary defines alternate endpoints to route a percentage of traffic.  # noqa: E501
 
         :return: The canary of this V1alpha2InferenceServiceSpec.  # noqa: E501
         :rtype: V1alpha2EndpointSpec
@@ -87,7 +87,7 @@ class V1alpha2InferenceServiceSpec(object):
     def canary(self, canary):
         """Sets the canary of this V1alpha2InferenceServiceSpec.
 
-        Canary defines an alternate endpoints to route a percentage of traffic.  # noqa: E501
+        Canary defines alternate endpoints to route a percentage of traffic.  # noqa: E501
 
         :param canary: The canary of this V1alpha2InferenceServiceSpec.  # noqa: E501
         :type: V1alpha2EndpointSpec

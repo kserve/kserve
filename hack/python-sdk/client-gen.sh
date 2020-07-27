@@ -41,4 +41,6 @@ git checkout python/kfserving/kfserving/__init__.py
 git checkout python/kfserving/test/__init__.py
 git checkout python/kfserving/setup.py
 git checkout python/kfserving/requirements.txt
+
+hack/boilerplate.sh
 echo "KFServing Python SDK is generated successfully to folder ${SDK_OUTPUT_PATH}/."

@@ -132,7 +132,7 @@ class V1alpha2AlibiExplainerSpec(object):
     def runtime_version(self):
         """Gets the runtime_version of this V1alpha2AlibiExplainerSpec.  # noqa: E501
 
-        Defaults to latest Alibi Version.  # noqa: E501
+        Alibi docker image version which defaults to latest release  # noqa: E501
 
         :return: The runtime_version of this V1alpha2AlibiExplainerSpec.  # noqa: E501
         :rtype: str
@@ -143,7 +143,7 @@ class V1alpha2AlibiExplainerSpec(object):
     def runtime_version(self, runtime_version):
         """Sets the runtime_version of this V1alpha2AlibiExplainerSpec.
 
-        Defaults to latest Alibi Version.  # noqa: E501
+        Alibi docker image version which defaults to latest release  # noqa: E501
 
         :param runtime_version: The runtime_version of this V1alpha2AlibiExplainerSpec.  # noqa: E501
         :type: str
