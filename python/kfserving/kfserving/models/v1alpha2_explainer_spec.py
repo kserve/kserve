@@ -128,7 +128,7 @@ class V1alpha2ExplainerSpec(object):
     def batcher(self):
         """Gets the batcher of this V1alpha2ExplainerSpec.  # noqa: E501
 
-        Activate batcher  # noqa: E501
+        Activate request batching  # noqa: E501
 
         :return: The batcher of this V1alpha2ExplainerSpec.  # noqa: E501
         :rtype: V1alpha2Batcher
@@ -139,7 +139,7 @@ class V1alpha2ExplainerSpec(object):
     def batcher(self, batcher):
         """Sets the batcher of this V1alpha2ExplainerSpec.
 
-        Activate batcher  # noqa: E501
+        Activate request batching  # noqa: E501
 
         :param batcher: The batcher of this V1alpha2ExplainerSpec.  # noqa: E501
         :type: V1alpha2Batcher
@@ -220,7 +220,7 @@ class V1alpha2ExplainerSpec(object):
     def min_replicas(self):
         """Gets the min_replicas of this V1alpha2ExplainerSpec.  # noqa: E501
 
-        Minimum number of replicas, pods won't scale down to 0 in case of no traffic  # noqa: E501
+        Minimum number of replicas which defaults to 1, when minReplicas = 0 pods scale down to 0 in case of no traffic  # noqa: E501
 
         :return: The min_replicas of this V1alpha2ExplainerSpec.  # noqa: E501
         :rtype: int
@@ -231,7 +231,7 @@ class V1alpha2ExplainerSpec(object):
     def min_replicas(self, min_replicas):
         """Sets the min_replicas of this V1alpha2ExplainerSpec.
 
-        Minimum number of replicas, pods won't scale down to 0 in case of no traffic  # noqa: E501
+        Minimum number of replicas which defaults to 1, when minReplicas = 0 pods scale down to 0 in case of no traffic  # noqa: E501
 
         :param min_replicas: The min_replicas of this V1alpha2ExplainerSpec.  # noqa: E501
         :type: int
@@ -243,7 +243,7 @@ class V1alpha2ExplainerSpec(object):
     def parallelism(self):
         """Gets the parallelism of this V1alpha2ExplainerSpec.  # noqa: E501
 
-        Parallelism specifies how many requests can be processed concurrently, this sets the target concurrency for Autoscaling(KPA). For model servers that support tuning parallelism will use this value, by default the parallelism is the number of the CPU cores for most of the model servers.  # noqa: E501
+        Parallelism specifies how many requests can be processed concurrently, this sets the hard limit of the container concurrency(https://knative.dev/docs/serving/autoscaling/concurrency).  # noqa: E501
 
         :return: The parallelism of this V1alpha2ExplainerSpec.  # noqa: E501
         :rtype: int
@@ -254,7 +254,7 @@ class V1alpha2ExplainerSpec(object):
     def parallelism(self, parallelism):
         """Sets the parallelism of this V1alpha2ExplainerSpec.
 
-        Parallelism specifies how many requests can be processed concurrently, this sets the target concurrency for Autoscaling(KPA). For model servers that support tuning parallelism will use this value, by default the parallelism is the number of the CPU cores for most of the model servers.  # noqa: E501
+        Parallelism specifies how many requests can be processed concurrently, this sets the hard limit of the container concurrency(https://knative.dev/docs/serving/autoscaling/concurrency).  # noqa: E501
 
         :param parallelism: The parallelism of this V1alpha2ExplainerSpec.  # noqa: E501
         :type: int

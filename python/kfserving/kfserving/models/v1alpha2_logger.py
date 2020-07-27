@@ -70,7 +70,7 @@ class V1alpha2Logger(object):
     def mode(self):
         """Gets the mode of this V1alpha2Logger.  # noqa: E501
 
-        What payloads to log  # noqa: E501
+        What payloads to log: [all, request, response]  # noqa: E501
 
         :return: The mode of this V1alpha2Logger.  # noqa: E501
         :rtype: str
@@ -81,7 +81,7 @@ class V1alpha2Logger(object):
     def mode(self, mode):
         """Sets the mode of this V1alpha2Logger.
 
-        What payloads to log  # noqa: E501
+        What payloads to log: [all, request, response]  # noqa: E501
 
         :param mode: The mode of this V1alpha2Logger.  # noqa: E501
         :type: str

@@ -18,17 +18,13 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-if [ -z "${GOPATH:-}" ]; then
-    export GOPATH=$(go env GOPATH)
-fi
-
 KNOWN_VIOLATION_EXCEPTIONS=hack/violation_exceptions.list
 CURRENT_VIOLATION_EXCEPTIONS=hack/current_violation_exceptions.list
 
 # Generating OpenAPI specification
 go run k8s.io/kube-openapi/cmd/openapi-gen \
-    --input-dirs github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2,knative.dev/pkg/apis,knative.dev/pkg/apis/duck/v1beta1 \
-    --output-package github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2/ --go-header-file hack/boilerplate.go.txt \
+    --input-dirs ./pkg/apis/serving/v1alpha2,knative.dev/pkg/apis,knative.dev/pkg/apis/duck/v1beta1 \
+    --output-package ./pkg/apis/serving/v1alpha2 -o ./ -v 5 --go-header-file hack/boilerplate.go.txt \
     -r $CURRENT_VIOLATION_EXCEPTIONS
 
 test -f $CURRENT_VIOLATION_EXCEPTIONS || touch $CURRENT_VIOLATION_EXCEPTIONS
