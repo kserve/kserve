@@ -49,6 +49,10 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"./pkg/apis/serving/v1alpha2.TransformerSpec":         schema_pkg_apis_serving_v1alpha2_TransformerSpec(ref),
 		"./pkg/apis/serving/v1alpha2.TritonSpec":              schema_pkg_apis_serving_v1alpha2_TritonSpec(ref),
 		"./pkg/apis/serving/v1alpha2.XGBoostSpec":             schema_pkg_apis_serving_v1alpha2_XGBoostSpec(ref),
+		"knative.dev/pkg/apis.URL":                            schema_knativedev_pkg_apis_URL(ref),
+		"knative.dev/pkg/apis.Condition":                      schema_knativedev_pkg_apis_Condition(ref),
+		"knative.dev/pkg/apis.VolatileTime":                   schema_knativedev_pkg_apis_VolatileTime(ref),
+		"knative.dev/pkg/apis/duck/v1beta1.Addressable":       schema_pkg_apis_duck_v1beta1_Addressable(ref),
 	}
 }
 
@@ -986,5 +990,177 @@ func schema_pkg_apis_serving_v1alpha2_XGBoostSpec(ref common.ReferenceCallback) 
 		},
 		Dependencies: []string{
 			"k8s.io/api/core/v1.ResourceRequirements"},
+	}
+}
+
+func schema_knativedev_pkg_apis_Condition(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "Conditions defines a readiness condition for a Knative resource. See: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#typical-status-properties",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Type of condition.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Status of the condition, one of True, False, Unknown.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"severity": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Severity with which to treat failures of this type of condition. When this is not specified, it defaults to Error.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"lastTransitionTime": {
+						SchemaProps: spec.SchemaProps{
+							Description: "LastTransitionTime is the last time the condition transitioned from one status to another. We use VolatileTime in place of metav1.Time to exclude this from creating equality.Semantic differences (all other things held constant).",
+							Ref:         ref("knative.dev/pkg/apis.VolatileTime"),
+						},
+					},
+					"reason": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The reason for the condition's last transition.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"message": {
+						SchemaProps: spec.SchemaProps{
+							Description: "A human readable message indicating details about the transition.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"type", "status"},
+			},
+		},
+		Dependencies: []string{
+			"knative.dev/pkg/apis.VolatileTime"},
+	}
+}
+
+func schema_knativedev_pkg_apis_VolatileTime(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VolatileTime wraps metav1.Time",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"Time": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "date-time",
+						},
+					},
+				},
+				Required: []string{"Time"},
+			},
+		},
+	}
+}
+
+func schema_knativedev_pkg_apis_URL(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "URL is an alias of url.URL. It has custom json marshal methods that enable it to be used in K8s CRDs such that the CRD resource will have the URL but operator code can can work with url.URL struct",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"Scheme": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"Opaque": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"User": {
+						SchemaProps: spec.SchemaProps{
+							Description: "encoded opaque data",
+							Ref:         ref("net/url.Userinfo"),
+						},
+					},
+					"Host": {
+						SchemaProps: spec.SchemaProps{
+							Description: "username and password information",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"Path": {
+						SchemaProps: spec.SchemaProps{
+							Description: "host or host:port",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"RawPath": {
+						SchemaProps: spec.SchemaProps{
+							Description: "path (relative paths may omit leading slash)",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"ForceQuery": {
+						SchemaProps: spec.SchemaProps{
+							Description: "encoded path hint (see EscapedPath method)",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"RawQuery": {
+						SchemaProps: spec.SchemaProps{
+							Description: "append a query ('?') even if RawQuery is empty",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"Fragment": {
+						SchemaProps: spec.SchemaProps{
+							Description: "encoded query values, without '?'",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"Scheme", "Opaque", "User", "Host", "Path", "RawPath", "ForceQuery", "RawQuery", "Fragment"},
+			},
+		},
+		Dependencies: []string{
+			"net/url.Userinfo"},
+	}
+}
+
+func schema_pkg_apis_duck_v1beta1_Addressable(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"url": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("knative.dev/pkg/apis.URL"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"knative.dev/pkg/apis.URL"},
 	}
 }

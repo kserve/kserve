@@ -29,6 +29,10 @@
 from __future__ import absolute_import
 
 # import models into model package
+from kfserving.models.knative_addressable import KnativeAddressable
+from kfserving.models.knative_condition import KnativeCondition
+from kfserving.models.knative_url import KnativeURL
+from kfserving.models.knative_volatile_time import KnativeVolatileTime
 from kfserving.models.v1alpha2_alibi_explainer_spec import V1alpha2AlibiExplainerSpec
 from kfserving.models.v1alpha2_batcher import V1alpha2Batcher
 from kfserving.models.v1alpha2_custom_spec import V1alpha2CustomSpec
