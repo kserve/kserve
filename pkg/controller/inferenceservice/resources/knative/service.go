@@ -24,7 +24,7 @@ import (
 
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	"github.com/kubeflow/kfserving/pkg/constants"
-	"github.com/kubeflow/kfserving/pkg/controller/inferenceservice/resources/credentials"
+	"github.com/kubeflow/kfserving/pkg/credentials"
 	"github.com/kubeflow/kfserving/pkg/utils"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -140,7 +140,7 @@ func addBatcherAnnotations(batcher *v1alpha2.Batcher, annotations map[string]str
 
 func addBatcherContainerPort(container *v1.Container) {
 	if container != nil {
-		if container.Ports == nil || len(container.Ports) == 0{
+		if container.Ports == nil || len(container.Ports) == 0 {
 			port, _ := strconv.Atoi(constants.InferenceServiceDefaultBatcherPort)
 			container.Ports = []v1.ContainerPort{
 				{

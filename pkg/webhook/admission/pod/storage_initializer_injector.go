@@ -20,7 +20,7 @@ import (
 	"strings"
 
 	"github.com/kubeflow/kfserving/pkg/constants"
-	"github.com/kubeflow/kfserving/pkg/controller/inferenceservice/resources/credentials"
+	"github.com/kubeflow/kfserving/pkg/credentials"
 
 	v1 "k8s.io/api/core/v1"
 )
