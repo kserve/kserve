@@ -5,17 +5,7 @@ This example shows how to create a KFServing InferenceService as well as sending
 We will be using the [SKLearn example](../sklearn) to create our InferenceService.
 
 ## Setup
-Deploy a Multi-user, auth-enabled Kubeflow from Kustomize manifests after [knative istio probe issue has been fixed](https://github.com/kubeflow/manifests/commit/928cf483361730121ac18bc4d0e7a9c129f15ee2).
-
-* You can use [kfctl_istio_dex.v1.0.2.yaml](https://raw.githubusercontent.com/kubeflow/manifests/v1.0-branch/kfdef/kfctl_istio_dex.v1.0.2.yaml), editing the repos section in the yaml before deploying to your Kubernetes cluster.
-
-    ```diff
-        repos:
-        - name: manifests
-    +     uri: https://github.com/kubeflow/manifests/archive/master.tar.gz
-    -     uri: https://github.com/kubeflow/manifests/archive/v1.0.2.tar.gz
-    -   version: v1.0.2
-    ```
+Deploy a Multi-user, auth-enabled Kubeflow from Kustomize manifests using [kftcl_istio_dex.yaml](https://raw.githubusercontent.com/kubeflow/manifests/v1.1-branch/kfdef/kfctl_istio_dex.yaml)
 
 ## Create the InferenceService
 
