@@ -36,7 +36,7 @@ def test_batcher():
     default_endpoint_spec = V1alpha2EndpointSpec(
         predictor=V1alpha2PredictorSpec(
             batcher=V1alpha2Batcher(
-                max_batchsize=32,
+                max_batch_size=32,
                 max_latency=5000,
                 timeout=60
             ),
