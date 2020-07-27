@@ -1,0 +1,26 @@
+# permissions to do edit inferenceservices.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: inferenceservice-editor-role
+rules:
+- apiGroups:
+  - serving.kubeflow.org.serving.kubeflow.org
+  resources:
+  - inferenceservices
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - serving.kubeflow.org.serving.kubeflow.org
+  resources:
+  - inferenceservices/status
+  verbs:
+  - get
+  - patch
+  - update
