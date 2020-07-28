@@ -14,7 +14,7 @@ func (src *InferenceService) ConvertTo(dstRaw conversion.Hub) error {
 		dst.Spec.Predictor.Tensorflow = &v1beta1.TensorflowSpec{
 			PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
 				RuntimeVersion: src.Spec.Default.Predictor.Tensorflow.RuntimeVersion,
-				StorageURI: &src.Spec.Default.Predictor.Tensorflow.StorageURI,
+				StorageURI:     &src.Spec.Default.Predictor.Tensorflow.StorageURI,
 				Container: v1.Container{
 					Resources: src.Spec.Default.Predictor.Tensorflow.Resources,
 				},
@@ -24,7 +24,7 @@ func (src *InferenceService) ConvertTo(dstRaw conversion.Hub) error {
 		dst.Spec.Predictor.SKLearn = &v1beta1.SKLearnSpec{
 			PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
 				RuntimeVersion: src.Spec.Default.Predictor.SKLearn.RuntimeVersion,
-				StorageURI: &src.Spec.Default.Predictor.SKLearn.StorageURI,
+				StorageURI:     &src.Spec.Default.Predictor.SKLearn.StorageURI,
 				Container: v1.Container{
 					Resources: src.Spec.Default.Predictor.SKLearn.Resources,
 				},
@@ -34,7 +34,7 @@ func (src *InferenceService) ConvertTo(dstRaw conversion.Hub) error {
 		dst.Spec.Predictor.XGBoost = &v1beta1.XGBoostSpec{
 			PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
 				RuntimeVersion: src.Spec.Default.Predictor.XGBoost.RuntimeVersion,
-				StorageURI: &src.Spec.Default.Predictor.XGBoost.StorageURI,
+				StorageURI:     &src.Spec.Default.Predictor.XGBoost.StorageURI,
 				Container: v1.Container{
 					Resources: src.Spec.Default.Predictor.XGBoost.Resources,
 				},
@@ -44,7 +44,7 @@ func (src *InferenceService) ConvertTo(dstRaw conversion.Hub) error {
 		dst.Spec.Predictor.Triton = &v1beta1.TritonSpec{
 			PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
 				RuntimeVersion: src.Spec.Default.Predictor.Triton.RuntimeVersion,
-				StorageURI: &src.Spec.Default.Predictor.Triton.StorageURI,
+				StorageURI:     &src.Spec.Default.Predictor.Triton.StorageURI,
 				Container: v1.Container{
 					Resources: src.Spec.Default.Predictor.Triton.Resources,
 				},
@@ -54,7 +54,7 @@ func (src *InferenceService) ConvertTo(dstRaw conversion.Hub) error {
 		dst.Spec.Predictor.ONNXRuntime = &v1beta1.ONNXRuntimeSpec{
 			PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
 				RuntimeVersion: src.Spec.Default.Predictor.ONNX.RuntimeVersion,
-				StorageURI: &src.Spec.Default.Predictor.ONNX.StorageURI,
+				StorageURI:     &src.Spec.Default.Predictor.ONNX.StorageURI,
 				Container: v1.Container{
 					Resources: src.Spec.Default.Predictor.ONNX.Resources,
 				},
@@ -88,7 +88,7 @@ func (dst *InferenceService) ConvertFrom(srcRaw conversion.Hub) error {
 	if src.Spec.Predictor.Tensorflow != nil {
 		dst.Spec.Default.Predictor.Tensorflow = &TensorflowSpec{
 			RuntimeVersion: src.Spec.Predictor.Tensorflow.RuntimeVersion,
-			Resources: src.Spec.Predictor.Tensorflow.Resources,
+			Resources:      src.Spec.Predictor.Tensorflow.Resources,
 		}
 		if src.Spec.Predictor.PyTorch.StorageURI != nil {
 			dst.Spec.Default.Predictor.Tensorflow.StorageURI = *src.Spec.Predictor.Tensorflow.StorageURI
@@ -96,7 +96,7 @@ func (dst *InferenceService) ConvertFrom(srcRaw conversion.Hub) error {
 	} else if src.Spec.Predictor.SKLearn != nil {
 		dst.Spec.Default.Predictor.SKLearn = &SKLearnSpec{
 			RuntimeVersion: src.Spec.Predictor.SKLearn.RuntimeVersion,
-			Resources: src.Spec.Predictor.SKLearn.Resources,
+			Resources:      src.Spec.Predictor.SKLearn.Resources,
 		}
 		if src.Spec.Predictor.SKLearn.StorageURI != nil {
 			dst.Spec.Default.Predictor.SKLearn.StorageURI = *src.Spec.Predictor.SKLearn.StorageURI
@@ -104,7 +104,7 @@ func (dst *InferenceService) ConvertFrom(srcRaw conversion.Hub) error {
 	} else if src.Spec.Predictor.XGBoost != nil {
 		dst.Spec.Default.Predictor.XGBoost = &XGBoostSpec{
 			RuntimeVersion: src.Spec.Predictor.XGBoost.RuntimeVersion,
-			Resources: src.Spec.Predictor.XGBoost.Resources,
+			Resources:      src.Spec.Predictor.XGBoost.Resources,
 		}
 		if src.Spec.Predictor.XGBoost.StorageURI != nil {
 			dst.Spec.Default.Predictor.XGBoost.StorageURI = *src.Spec.Predictor.XGBoost.StorageURI
@@ -112,7 +112,7 @@ func (dst *InferenceService) ConvertFrom(srcRaw conversion.Hub) error {
 	} else if src.Spec.Predictor.Triton != nil {
 		dst.Spec.Default.Predictor.Triton = &TritonSpec{
 			RuntimeVersion: src.Spec.Predictor.Triton.RuntimeVersion,
-			Resources: src.Spec.Predictor.Triton.Resources,
+			Resources:      src.Spec.Predictor.Triton.Resources,
 		}
 		if src.Spec.Predictor.Triton.StorageURI != nil {
 			dst.Spec.Default.Predictor.Triton.StorageURI = *src.Spec.Predictor.Triton.StorageURI
@@ -120,7 +120,7 @@ func (dst *InferenceService) ConvertFrom(srcRaw conversion.Hub) error {
 	} else if src.Spec.Predictor.ONNXRuntime != nil {
 		dst.Spec.Default.Predictor.ONNX = &ONNXSpec{
 			RuntimeVersion: src.Spec.Predictor.ONNXRuntime.RuntimeVersion,
-			Resources: src.Spec.Predictor.ONNXRuntime.Resources,
+			Resources:      src.Spec.Predictor.ONNXRuntime.Resources,
 		}
 		if src.Spec.Predictor.ONNXRuntime.StorageURI != nil {
 			dst.Spec.Default.Predictor.ONNX.StorageURI = *src.Spec.Predictor.ONNXRuntime.StorageURI
@@ -128,7 +128,7 @@ func (dst *InferenceService) ConvertFrom(srcRaw conversion.Hub) error {
 	} else if src.Spec.Predictor.PyTorch != nil {
 		dst.Spec.Default.Predictor.PyTorch = &PyTorchSpec{
 			RuntimeVersion: src.Spec.Predictor.PyTorch.RuntimeVersion,
-			Resources: src.Spec.Predictor.PyTorch.Resources,
+			Resources:      src.Spec.Predictor.PyTorch.Resources,
 		}
 		if src.Spec.Predictor.PyTorch.StorageURI != nil {
 			dst.Spec.Default.Predictor.PyTorch.StorageURI = *src.Spec.Predictor.PyTorch.StorageURI
