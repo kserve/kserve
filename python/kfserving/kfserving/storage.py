@@ -215,6 +215,8 @@ The path or model %s does not exist." % (uri))
     def _download_from_uri(uri, out_dir=None):
         url = urlparse(uri)
         fname = os.path.basename(url.path)
+        if fname == '':
+            raise ValueError('No filename contained in URI: %s' % (uri))
         local_path = os.path.join(out_dir, fname)
         with requests.get(uri, stream=True) as response:
             if response.status_code != 200:
