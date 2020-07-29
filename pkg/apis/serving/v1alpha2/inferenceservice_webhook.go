@@ -19,12 +19,11 @@ package v1alpha2
 import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
-// log is for logging in this package.
-var log = logf.Log.WithName("inferenceservice-v1alpha2-webhook")
+var c client.Client
 
 func (r *InferenceService) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
@@ -42,24 +41,26 @@ var _ webhook.Validator = &InferenceService{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (r *InferenceService) ValidateCreate() error {
-	log.Info("validate create", "name", r.Name)
+	logger.Info("validate create", "name", r.Name)
 
-	// TODO(user): fill in your validation logic upon object creation.
+	if err := r.validate(c); err != nil {
+		return err
+	}
 	return nil
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (r *InferenceService) ValidateUpdate(old runtime.Object) error {
-	log.Info("validate update", "name", r.Name)
+	logger.Info("validate update", "name", r.Name)
 
-	// TODO(user): fill in your validation logic upon object update.
+	if err := r.validate(c); err != nil {
+		return err
+	}
 	return nil
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
 func (r *InferenceService) ValidateDelete() error {
-	log.Info("validate delete", "name", r.Name)
-
-	// TODO(user): fill in your validation logic upon object deletion.
+	logger.Info("validate delete", "name", r.Name)
 	return nil
 }
