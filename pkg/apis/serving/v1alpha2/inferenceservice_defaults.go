@@ -25,15 +25,18 @@ import (
 
 func (isvc *InferenceService) Default() {
 	logger.Info("Defaulting InferenceService", "namespace", isvc.Namespace, "name", isvc.Name)
-	cli, err := client.New(config.GetConfigOrDie(), client.Options{})
-	if err != nil {
-		logger.Error(err, "unable to create apiReader")
-		return
+	if c == nil {
+		cli, err := client.New(config.GetConfigOrDie(), client.Options{})
+		if err != nil {
+			logger.Error(err, "unable to create apiReader")
+			return
+		}
+		c = cli
 	}
-	if err := isvc.applyDefaultsEndpoint(&isvc.Spec.Default, cli); err != nil {
+	if err := isvc.applyDefaultsEndpoint(&isvc.Spec.Default, c); err != nil {
 		logger.Error(err, "Failed to apply defaults for default endpoints")
 	}
-	if err := isvc.applyDefaultsEndpoint(isvc.Spec.Canary, cli); err != nil {
+	if err := isvc.applyDefaultsEndpoint(isvc.Spec.Canary, c); err != nil {
 		logger.Error(err, "Failed to apply defaults for canary endpoints")
 	}
 }
