@@ -18,8 +18,8 @@ package v1alpha2
 
 import (
 	"fmt"
-
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
 
 // Known error messages
@@ -38,9 +38,17 @@ var (
 	AzureBlobURIRegEx             = "https://(.+?).blob.core.windows.net/(.+)"
 )
 
-func (isvc *InferenceService) validate(client client.Client) error {
+func (isvc *InferenceService) validate(cli client.Client) error {
+	if cli == nil {
+		c, err := client.New(config.GetConfigOrDie(), client.Options{})
+		if err != nil {
+			logger.Error(err, "unable to create apiReader")
+			return err
+		}
+		cli = c
+	}
 	logger.Info("Validating InferenceService", "namespace", isvc.Namespace, "name", isvc.Name)
-	if err := validateInferenceService(isvc, client); err != nil {
+	if err := validateInferenceService(isvc, cli); err != nil {
 		logger.Info("Failed to validate InferenceService", "namespace", isvc.Namespace, "name", isvc.Name,
 			"error", err.Error())
 		return err
