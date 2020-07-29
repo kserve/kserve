@@ -33,7 +33,6 @@ import (
 )
 
 var cfg *rest.Config
-var c client.Client
 
 const (
 	DefaultTensorflowRuntimeVersion     = "latest"
