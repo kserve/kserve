@@ -29,8 +29,8 @@ _GCS_PREFIX = "gs://"
 _S3_PREFIX = "s3://"
 _BLOB_RE = "https://(.+?).blob.core.windows.net/(.+)"
 _LOCAL_PREFIX = "file://"
-_HTTPS_PREFIX = "https://"
-_HTTP_PREFIX = "http://"
+_URI_RE = "https?://(.+?)/(.+)"
+_HTTP_PREFIX = "http(s)://"
 
 class Storage(object): # pylint: disable=too-few-public-methods
     @staticmethod
@@ -55,12 +55,12 @@ class Storage(object): # pylint: disable=too-few-public-methods
             Storage._download_blob(uri, out_dir)
         elif is_local:
             return Storage._download_local(uri, out_dir)
-        elif uri.startswith(_HTTPS_PREFIX) or uri.startswith(_HTTP_PREFIX):
+        elif re.search(_URI_RE, uri):
             return Storage._download_from_uri(uri, out_dir)
         else:
             raise Exception("Cannot recognize storage type for " + uri +
-                            "\n'%s', '%s', '%s', '%s', and '%s' are the current available storage type." %
-                            (_GCS_PREFIX, _S3_PREFIX, _LOCAL_PREFIX, _HTTPS_PREFIX, _HTTP_PREFIX))
+                            "\n'%s', '%s', '%s', and '%s' are the current available storage type." %
+                            (_GCS_PREFIX, _S3_PREFIX, _LOCAL_PREFIX, _HTTP_PREFIX))
 
         logging.info("Successfully copied %s to %s", uri, out_dir)
         return out_dir
