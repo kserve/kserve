@@ -82,6 +82,12 @@ def test_nonexistent_uri(_):
     with pytest.raises(RuntimeError):
         kfserving.Storage.download(non_existent_uri)
 
+@mock.patch('requests.get', side_effect=_mock_request_get)
+def test_uri_no_filename(_):
+    bad_uri = 'https://foo.bar/test/'
+    with pytest.raises(ValueError):
+        kfserving.Storage.download(bad_uri)
+
 @mock.patch(STORAGE_MODULE + '.storage')
 def test_mock_gcs(mock_storage):
     gcs_path = 'gs://foo/bar'
