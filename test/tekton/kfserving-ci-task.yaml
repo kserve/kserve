@@ -1,0 +1,95 @@
+apiVersion: tekton.dev/v1alpha1
+kind: Task
+metadata:
+  name: kfserving-ci-task
+spec:
+  workspaces:
+  - name: github-token
+    mountPath: /secret/github-token
+  - name: gcp-credentials
+    mountPath: /secret/gcp-credentials
+  - name: kubeflow-test-volume
+    mountPath: /mnt/test-data-volume
+  params:
+  - name: artifacts-gcs
+    type: string
+    default: 'gs://kubeflow-ci-deployment/kfserving-ci-testring'
+    description: GCS bucket and directory artifacts will be uploaded to. 
+  - name: test-image
+    type: string
+    default: gcr.io/kubeflow-ci/test-worker-py3@sha256:b679ce5d7edbcc373fd7d28c57454f4f22ae987f200f601252b6dcca1fd8823b
+  - name: gcp-project
+    type: string
+    default: kubeflow-ci
+  - name: gcp-registry
+    type: string
+    default: gcr.io/kubeflow-ci
+  - name: gcp-zone
+    type: string
+    default: us-east1-d
+  - name: python-path
+    type: string
+    default: /srcCache/kubeflow/testring/py
+  - name: go-path #@jinchi: Removed?
+    type: string
+    default: $(workspaces.kubeflow-test-volume.path)/$(context.pipelineRun.name)/src/kubeflow/kfserving/go
+  - name: command
+    type: array
+  - name: deploy-namespace
+    type: string
+    default: kubeflow
+  - name: job-name
+    type: string
+    default: kubeflow-kfserving-presubmit
+  - name: job-type
+    type: string
+    default: presubmit
+  - name: cluster-name
+    type: string
+    default: $(context.pipelineRun.name)
+  steps:
+  - name: kfserving-ci
+    image: $(params.test-image)
+    workingDir: $(workspaces.kubeflow-test-volume.path)/$(context.pipelineRun.name)/src/kubeflow/kfserving
+    command: ["$(params.command[*])"]
+    env:
+      - name: PYTHONPATH
+        value: "$(params.python-path)"
+      - name: GOPATH
+        value: "$(params.go-path)"
+      - name: CLUSTER_NAME
+        value: "$(params.cluster-name)"
+      - name: GCP_ZONE
+        value: "$(params.gcp-zone)"
+      - name: GCP_PROJECT
+        value: "$(params.gcp-project)"
+      - name: GCP_REGISTRY
+        value: $(params.gcp-registry)
+      - name: DEPLOY_NAMESPACE
+        value: "$(params.deploy-namespace)"
+      - name: GOOGLE_APPLICATION_CREDENTIALS
+        value: "/secret/gcp-credentials/key.json"
+      - name: JOB_NAME
+        value: "$(params.job-name)"
+      - name: JOB_TYPE
+        value: "$(params.job-type)"
+      - name: GIT_TOKEN
+        valueFrom:
+          secretKeyRef: 
+            name: github-token
+            key: github_token
+      #- name: BUILD_ID  #@jinchi: Removed?
+      #  value: "$(params.build-id)"
+      #- name: BUILD_NUMBER
+      #  value: "$(params.build-number)"
+      #- name: PULL_BASE_SHA
+      #  value: "$(params.pull-base-sha)"
+      #- name: PULL_NUMBER
+      #  value: "$(params.pull-number)"
+      #- name: PULL_PULL_SHA
+      #  value: "$(params.pull-sha)"
+      - name: REPO_NAME
+        value: "kfserving"
+      - name: REPO_OWNER
+        value: "kfserving"
+

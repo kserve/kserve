@@ -1,0 +1,34 @@
+apiVersion: tekton.dev/v1alpha1
+kind: PipelineRun
+metadata:
+  generateName: kfserving-ci-
+  namespace: kf-ci
+  labels:
+    pipeline: kfserving-ci-pipeline
+    repo: kfserving
+spec:
+  params:
+  - name: artifacts-gcs
+    value: "gs://kubeflow-ci-deployment/kfserving-ci-test"
+  serviceAccountName: kf-ci
+  resources:
+  - name: source-repo
+    resourceSpec:
+      type: git
+      params:
+      - name: url
+        value: https://github.com/kubeflow/kfserving.git
+      - name: revision
+        value: master
+  pipelineRef:
+    name: kfserving-ci-pipeline
+  workspaces:
+  - name: github-token
+    secret:
+      secretName: github-token
+  - name: gcp-credentials
+    secret:
+      secretName: kubeflow-testing-credentials
+  - name: kubeflow-test-volume
+    persistentVolumeClaim:
+      claimName: nfs-external

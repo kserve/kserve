@@ -1,0 +1,361 @@
+apiVersion: tekton.dev/v1alpha1
+kind: Pipeline
+metadata:
+  name: kfserving-ci-pipeline
+spec:
+  workspaces:
+  - name: github-token
+  - name: gcp-credentials
+  - name: kubeflow-test-volume
+  params:
+  - name: artifacts-gcs
+    default: 'gs://kubeflow-ci-deployment/kfserving-ci-testing'
+  resources:
+  - name: source-repo
+    type: git
+  tasks:
+  - name: checkout-code
+    workspaces:
+    - name: github-token
+      workspace: github-token
+    - name: gcp-credentials
+      workspace: gcp-credentials
+    - name: kubeflow-test-volume
+      workspace: kubeflow-test-volume
+    resources:
+      inputs:
+      - name: source-repo
+        resource: source-repo
+    taskSpec:
+      workspaces:
+        - name: github-token
+        - name: gcp-credentials
+        - name: kubeflow-test-volume
+      resources:
+        inputs:
+        - name: source-repo
+          type: git
+          targetPath: kubeflow-test-volume/$(context.pipelineRun.name)/src/kubeflow/kfserving
+      steps:
+      - name: kfserving-ci
+        image: $(inputs.params.test-image)
+        script: |
+            echo "Download and checkout the KFServing repo from github."
+  - name: sdk-test
+    runAfter:
+    - checkout-code
+    taskRef:
+      name: kfserving-ci-task
+    workspaces:
+    - name: github-token
+      workspace: github-token
+    - name: gcp-credentials
+      workspace: gcp-credentials
+    - name: kubeflow-test-volume
+      workspace: kubeflow-test-volume
+    params:
+    - name: command
+      value: 
+        - test/scripts/sdk-test.sh
+  - name: pylint-check
+    runAfter:
+    - checkout-code
+    taskRef:
+      name: kfserving-ci-task
+    workspaces:
+    - name: github-token
+      workspace: github-token
+    - name: gcp-credentials
+      workspace: gcp-credentials
+    - name: kubeflow-test-volume
+      workspace: kubeflow-test-volume
+    params:
+    - name: command
+      value:
+        - python
+        - -m
+        - kubeflow.testing.test_py_lint
+        - --artifacts_dir=$(inputs.params.artifacts-gcs)
+        - --src_dir=$(workspaces.kubeflow-test-volume.path)/$(context.pipelineRun.name)/src/kubeflow/kfserving/python
+  - name: unit-test
+    runAfter:
+    - checkout-code
+    taskRef:
+      name: kfserving-ci-task
+    workspaces:
+    - name: github-token
+      workspace: github-token
+    - name: gcp-credentials
+      workspace: gcp-credentials
+    - name: kubeflow-test-volume
+      workspace: kubeflow-test-volume
+    params:
+    - name: command
+      value:
+        - test/scripts/unit-test.sh
+  - name: setup-cluster
+    runAfter:
+    - sdk-test
+    - pylint-check
+    - unit-test
+    taskRef:
+      name: kfserving-ci-task
+    workspaces:
+    - name: github-token
+      workspace: github-token
+    - name: gcp-credentials
+      workspace: gcp-credentials
+    - name: kubeflow-test-volume
+      workspace: kubeflow-test-volume
+    params:
+    - name: command
+      value:
+        - test/scripts/create-cluster.sh
+  - name: build-logger
+    runAfter:
+    - setup-cluster
+    taskRef:
+      name: kfserving-ci-task
+    workspaces:
+    - name: github-token
+      workspace: github-token
+    - name: gcp-credentials
+      workspace: gcp-credentials
+    - name: kubeflow-test-volume
+      workspace: kubeflow-test-volume
+    params:
+    - name: command
+      value:
+        - test/scripts/build-logger.sh
+  - name: build-batcher
+    runAfter:
+    - setup-cluster
+    taskRef:
+      name: kfserving-ci-task
+    workspaces:
+    - name: github-token
+      workspace: github-token
+    - name: gcp-credentials
+      workspace: gcp-credentials
+    - name: kubeflow-test-volume
+      workspace: kubeflow-test-volume
+    params:
+    - name: command
+      value:
+        - test/scripts/build-batcher.sh
+  - name: build-storage-initializer
+    runAfter:
+    - setup-cluster
+    taskRef:
+      name: kfserving-ci-task
+    workspaces:
+    - name: github-token
+      workspace: github-token
+    - name: gcp-credentials
+      workspace: gcp-credentials
+    - name: kubeflow-test-volume
+      workspace: kubeflow-test-volume
+    params:
+    - name: command
+      value:
+        - test/scripts/build-python-image.sh
+        - storage-initializer.Dockerfile
+        - storage-initializer
+        - latest
+  - name: build-alibi-explainer
+    runAfter:
+    - setup-cluster
+    taskRef:
+      name: kfserving-ci-task
+    workspaces:
+    - name: github-token
+      workspace: github-token
+    - name: gcp-credentials
+      workspace: gcp-credentials
+    - name: kubeflow-test-volume
+      workspace: kubeflow-test-volume
+    params:
+    - name: command
+      value:
+        - test/scripts/build-python-image.sh
+        - alibiexplainer.Dockerfile
+        - alibi-explainer
+        - latest
+  - name: build-xgbserver
+    runAfter:
+    - setup-cluster
+    taskRef:
+      name: kfserving-ci-task
+    workspaces:
+    - name: github-token
+      workspace: github-token
+    - name: gcp-credentials
+      workspace: gcp-credentials
+    - name: kubeflow-test-volume
+      workspace: kubeflow-test-volume
+    params:
+    - name: command
+      value:
+        - test/scripts/build-python-image.sh
+        - xgb.Dockerfile
+        - xgbserver
+        - latest
+  - name: build-custom-image-transformer
+    runAfter:
+    - setup-cluster
+    taskRef:
+      name: kfserving-ci-task
+    workspaces:
+    - name: github-token
+      workspace: github-token
+    - name: gcp-credentials
+      workspace: gcp-credentials
+    - name: kubeflow-test-volume
+      workspace: kubeflow-test-volume
+    params:
+    - name: command
+      value:
+        - test/scripts/build-custom-image-transformer.sh
+  - name: build-pytorchserver-gpu
+    runAfter:
+    - setup-cluster
+    taskRef:
+      name: kfserving-ci-task
+    workspaces:
+    - name: github-token
+      workspace: github-token
+    - name: gcp-credentials
+      workspace: gcp-credentials
+    - name: kubeflow-test-volume
+      workspace: kubeflow-test-volume
+    params:
+    - name: command
+      value:
+        - test/scripts/build-python-image.sh
+        - pytorch-gpu.Dockerfile
+        - pytorchserver
+        - latest-gpu
+  - name: build-sklearnserver
+    runAfter:
+    - setup-cluster
+    taskRef:
+      name: kfserving-ci-task
+    workspaces:
+    - name: github-token
+      workspace: github-token
+    - name: gcp-credentials
+      workspace: gcp-credentials
+    - name: kubeflow-test-volume
+      workspace: kubeflow-test-volume
+    params:
+    - name: command
+      value:
+        - test/scripts/build-python-image.sh
+        - sklearn.Dockerfile
+        - sklearnserver
+        - latest
+  - name: build-pytorchserver
+    runAfter:
+    - setup-cluster
+    taskRef:
+      name: kfserving-ci-task
+    workspaces:
+    - name: github-token
+      workspace: github-token
+    - name: gcp-credentials
+      workspace: gcp-credentials
+    - name: kubeflow-test-volume
+      workspace: kubeflow-test-volume
+    params:
+    - name: command
+      value:
+        - test/scripts/build-python-image.sh
+        - pytorch.Dockerfile
+        - pytorchserver
+        - latest
+  - name: build-custom-bert-transformer
+    runAfter:
+    - setup-cluster
+    taskRef:
+      name: kfserving-ci-task
+    workspaces:
+    - name: github-token
+      workspace: github-token
+    - name: gcp-credentials
+      workspace: gcp-credentials
+    - name: kubeflow-test-volume
+      workspace: kubeflow-test-volume
+    params:
+    - name: command
+      value:
+        - test/scripts/build-custom-bert-transformer.sh
+  - name: build-kfserving-manager
+    runAfter:
+    - setup-cluster
+    taskRef:
+      name: kfserving-ci-task
+    workspaces:
+    - name: github-token
+      workspace: github-token
+    - name: gcp-credentials
+      workspace: gcp-credentials
+    - name: kubeflow-test-volume
+      workspace: kubeflow-test-volume
+    params:
+    - name: command
+      value:
+        - test/scripts/build-kfserving.sh
+  - name: run-e2e-tests
+    runAfter:
+    - setup-cluster
+    taskRef:
+      name: kfserving-ci-task
+    workspaces:
+    - name: github-token
+      workspace: github-token
+    - name: gcp-credentials
+      workspace: gcp-credentials
+    - name: kubeflow-test-volume
+      workspace: kubeflow-test-volume
+    params:
+    - name: command
+      value:
+        - test/scripts/run-e2e-tests.sh
+  finally:
+  - name: teardown-cluster
+    runAfter:
+    - run-e2e-tests
+    taskRef:
+      name: kfserving-ci-task
+    workspaces:
+    - name: github-token
+      workspace: github-token
+    - name: gcp-credentials
+      workspace: gcp-credentials
+    - name: kubeflow-test-volume
+      workspace: kubeflow-test-volume
+    params:
+    - name: command
+      value:
+        - test/scripts/delete-cluster.sh
+  - name: copy-artifacts
+    runAfter:
+    - run-e2e-tests
+    taskRef:
+      name: kfserving-ci-task
+    workspaces:
+    - name: github-token
+      workspace: github-token
+    - name: gcp-credentials
+      workspace: gcp-credentials
+    - name: kubeflow-test-volume
+      workspace: kubeflow-test-volume
+    params:
+    - name: command
+      value:
+        - python
+        - -m
+        - kubeflow.testing.prow_artifacts
+        - --artifacts_dir=$(workspaces.kubeflow-test-volume.path)/$(context.pipelineRun.name)/output
+        - copy_artifacts
+        - --bucket=$(params.artifacts-gcs)

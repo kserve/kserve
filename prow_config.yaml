@@ -16,7 +16,7 @@ workflows:
     params:
       registry: "gcr.io/kubeflow-images-public"
   # Tekton intergration for presubmit CI tests.
-  - tekton_run: kubeflow/kfserving/test/tekton/kfserving-ci-test.yaml
+  - tekton_run: kubeflow/kfserving/test/tekton/kfserving-ci-pipelinerun.yaml
     name: kfserving-e2e
     tekton_params:
       - name: testing-cluster-pattern
