@@ -1,2 +1,3 @@
 resources:
 - inferenceservice.yaml
+- multimodel_config.yaml
