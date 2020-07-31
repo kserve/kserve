@@ -86,10 +86,9 @@ class V1alpha2PredictorSpec(object):
         'xgboost': 'xgboost'
     }
 
-    def __init__(self, batcher=None, custom=None, logger=None, max_replicas=None, min_replicas=None, onnx=None,
-                 parallelism=None, pytorch=None, service_account_name=None, sklearn=None, tensorflow=None,
-                 tensorrt=None, triton=None, xgboost=None):  # noqa: E501
+    def __init__(self, batcher=None, custom=None, logger=None, max_replicas=None, min_replicas=None, onnx=None, parallelism=None, pytorch=None, service_account_name=None, sklearn=None, tensorflow=None, triton=None, xgboost=None):  # noqa: E501
         """V1alpha2PredictorSpec - a model defined in Swagger"""  # noqa: E501
+
         self._batcher = None
         self._custom = None
         self._logger = None
@@ -132,24 +131,27 @@ class V1alpha2PredictorSpec(object):
         if xgboost is not None:
             self.xgboost = xgboost
 
-    @ property
+    @property
     def batcher(self):
-        """
-        Gets the batcher of this V1alpha2PredictorSpec.  # noqa: E501
-        Activate batcher  # noqa: E501
+        """Gets the batcher of this V1alpha2PredictorSpec.  # noqa: E501
+
+        Activate request batching  # noqa: E501
+
         :return: The batcher of this V1alpha2PredictorSpec.  # noqa: E501
         :rtype: V1alpha2Batcher
         """
         return self._batcher
 
-    @ batcher.setter
+    @batcher.setter
     def batcher(self, batcher):
-        """
-        Sets the batcher of this V1alpha2PredictorSpec.
-        Activate batcher  # noqa: E501
+        """Sets the batcher of this V1alpha2PredictorSpec.
+
+        Activate request batching  # noqa: E501
+
         :param batcher: The batcher of this V1alpha2PredictorSpec.  # noqa: E501
         :type: V1alpha2Batcher
         """
+
         self._batcher = batcher
 
     @property
@@ -225,7 +227,7 @@ class V1alpha2PredictorSpec(object):
     def min_replicas(self):
         """Gets the min_replicas of this V1alpha2PredictorSpec.  # noqa: E501
 
-        Minimum number of replicas, pods won't scale down to 0 in case of no traffic  # noqa: E501
+        Minimum number of replicas which defaults to 1, when minReplicas = 0 pods scale down to 0 in case of no traffic  # noqa: E501
 
         :return: The min_replicas of this V1alpha2PredictorSpec.  # noqa: E501
         :rtype: int
@@ -236,7 +238,7 @@ class V1alpha2PredictorSpec(object):
     def min_replicas(self, min_replicas):
         """Sets the min_replicas of this V1alpha2PredictorSpec.
 
-        Minimum number of replicas, pods won't scale down to 0 in case of no traffic  # noqa: E501
+        Minimum number of replicas which defaults to 1, when minReplicas = 0 pods scale down to 0 in case of no traffic  # noqa: E501
 
         :param min_replicas: The min_replicas of this V1alpha2PredictorSpec.  # noqa: E501
         :type: int
@@ -271,7 +273,7 @@ class V1alpha2PredictorSpec(object):
     def parallelism(self):
         """Gets the parallelism of this V1alpha2PredictorSpec.  # noqa: E501
 
-        Parallelism specifies how many requests can be processed concurrently, this sets the target concurrency for Autoscaling(KPA). For model servers that support tuning parallelism will use this value, by default the parallelism is the number of the CPU cores for most of the model servers.  # noqa: E501
+        Parallelism specifies how many requests can be processed concurrently, this sets the hard limit of the container concurrency(https://knative.dev/docs/serving/autoscaling/concurrency).  # noqa: E501
 
         :return: The parallelism of this V1alpha2PredictorSpec.  # noqa: E501
         :rtype: int
@@ -282,7 +284,7 @@ class V1alpha2PredictorSpec(object):
     def parallelism(self, parallelism):
         """Sets the parallelism of this V1alpha2PredictorSpec.
 
-        Parallelism specifies how many requests can be processed concurrently, this sets the target concurrency for Autoscaling(KPA). For model servers that support tuning parallelism will use this value, by default the parallelism is the number of the CPU cores for most of the model servers.  # noqa: E501
+        Parallelism specifies how many requests can be processed concurrently, this sets the hard limit of the container concurrency(https://knative.dev/docs/serving/autoscaling/concurrency).  # noqa: E501
 
         :param parallelism: The parallelism of this V1alpha2PredictorSpec.  # noqa: E501
         :type: int

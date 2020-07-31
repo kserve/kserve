@@ -104,7 +104,7 @@ class V1alpha2InferenceServiceStatus(object):
     def address(self):
         """Gets the address of this V1alpha2InferenceServiceStatus.  # noqa: E501
 
-        Ducktype for addressable  # noqa: E501
+        Addressable URL for eventing  # noqa: E501
 
         :return: The address of this V1alpha2InferenceServiceStatus.  # noqa: E501
         :rtype: KnativeAddressable
@@ -115,7 +115,7 @@ class V1alpha2InferenceServiceStatus(object):
     def address(self, address):
         """Sets the address of this V1alpha2InferenceServiceStatus.
 
-        Ducktype for addressable  # noqa: E501
+        Addressable URL for eventing  # noqa: E501
 
         :param address: The address of this V1alpha2InferenceServiceStatus.  # noqa: E501
         :type: KnativeAddressable
