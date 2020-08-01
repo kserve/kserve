@@ -18,8 +18,8 @@ package utils
 
 import (
 	"github.com/kubeflow/kfserving/pkg/credentials/gcs"
-	"testing"
 	v1 "k8s.io/api/core/v1"
+	"testing"
 
 	"github.com/google/go-cmp/cmp"
 )
