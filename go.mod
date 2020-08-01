@@ -10,6 +10,7 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cloudevents/sdk-go v1.2.0
 	github.com/emicklei/go-restful v2.11.0+incompatible // indirect
+	github.com/fsnotify/fsnotify v1.4.9
 	github.com/getkin/kin-openapi v0.2.0
 	github.com/go-logr/logr v0.1.0
 	github.com/go-logr/zapr v0.1.1 // indirect
