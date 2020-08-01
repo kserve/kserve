@@ -1,3 +1,19 @@
+/*
+Copyright 2020 kubeflow.org.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package v1beta1
 
 import (
@@ -18,29 +34,30 @@ const (
 	ExplainerConfigKeyName   = "explainers"
 )
 
-// +k8s:openapi-gen=false
+// +kubebuilder:object:generate=false
 type ExplainerConfig struct {
+	// explainer docker image name
 	ContainerImage string `json:"image"`
-
-	DefaultImageVersion  string   `json:"defaultImageVersion"`
-	AllowedImageVersions []string `json:"allowedImageVersions"`
+	// default explainer docker image version
+	DefaultImageVersion string `json:"defaultImageVersion"`
 }
 
-// +k8s:openapi-gen=false
+// +kubebuilder:object:generate=false
 type ExplainersConfig struct {
 	AlibiExplainer ExplainerConfig `json:"alibi,omitempty"`
 }
 
-// +k8s:openapi-gen=false
+// +kubebuilder:object:generate=false
 type PredictorConfig struct {
+	// predictor docker image name
 	ContainerImage string `json:"image"`
-
-	DefaultImageVersion    string   `json:"defaultImageVersion"`
-	DefaultGpuImageVersion string   `json:"defaultGpuImageVersion"`
-	AllowedImageVersions   []string `json:"allowedImageVersions"`
+	// default predictor docker image version on cpu
+	DefaultImageVersion string `json:"defaultImageVersion"`
+	// default predictor docker image version on gpu
+	DefaultGpuImageVersion string `json:"defaultGpuImageVersion"`
 }
 
-// +k8s:openapi-gen=false
+// +kubebuilder:object:generate=false
 type PredictorsConfig struct {
 	Tensorflow PredictorConfig `json:"tensorflow,omitempty"`
 	Triton     PredictorConfig `json:"triton,omitempty"`
@@ -50,25 +67,27 @@ type PredictorsConfig struct {
 	ONNX       PredictorConfig `json:"onnx,omitempty"`
 }
 
-// +k8s:openapi-gen=false
+// +kubebuilder:object:generate=false
 type TransformerConfig struct {
+	// transformer docker image name
 	ContainerImage string `json:"image"`
-
-	DefaultImageVersion  string   `json:"defaultImageVersion"`
-	AllowedImageVersions []string `json:"allowedImageVersions"`
+	// default transformer docker image version
+	DefaultImageVersion string `json:"defaultImageVersion"`
 }
 
-// +k8s:openapi-gen=false
+// +kubebuilder:object:generate=false
 type TransformersConfig struct {
 	Feast TransformerConfig `json:"feast,omitempty"`
 }
 
-// +k8s:openapi-gen=false
 // +kubebuilder:object:generate=false
 type InferenceServicesConfig struct {
+	// Transformer configurations
 	Transformers *TransformersConfig `json:"transformers"`
-	Predictors   *PredictorsConfig   `json:"predictors"`
-	Explainers   *ExplainersConfig   `json:"explainers"`
+	// Predictor configurations
+	Predictors *PredictorsConfig `json:"predictors"`
+	// Explainer configurations
+	Explainers *ExplainersConfig `json:"explainers"`
 }
 
 func GetInferenceServicesConfig(client client.Client) (*InferenceServicesConfig, error) {

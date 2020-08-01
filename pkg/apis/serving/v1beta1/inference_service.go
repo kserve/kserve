@@ -1,3 +1,19 @@
+/*
+Copyright 2020 kubeflow.org.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package v1beta1
 
 import (
@@ -19,27 +35,30 @@ type InferenceServiceSpec struct {
 	Transformer *TransformerSpec `json:"transformer,omitempty"`
 }
 
-// ComponentExtensionSpec defines the configuration for a given inferenceservice component
+// ComponentExtensionSpec defines the deployment configuration for a given InferenceService component
 type ComponentExtensionSpec struct {
-	// Minimum number of replicas, defaults to 1 but can be set to enable scale-to-zero.
+	// Minimum number of replicas, defaults to 1 but can be set to 0 to enable scale-to-zero.
 	// +optional
 	MinReplicas *int `json:"minReplicas,omitempty"`
 	// Maximum number of replicas for autoscaling.
 	// +optional
 	MaxReplicas int `json:"maxReplicas,omitempty"`
-	// Concurrency specifies how many requests can be processed concurrently, this sets the target
-	// concurrency for Autoscaling(KPA). For model servers that support tuning parallelism will use this value,
-	// by default the parallelism is the number of the CPU cores for most of the model servers.
+	// ContainerConcurrency specifies how many requests can be processed concurrently, this sets the hard limit of the container
+	// concurrency(https://knative.dev/docs/serving/autoscaling/concurrency).
 	// +optional
-	ContainerConcurrency int `json:"parallelism,omitempty"`
-	// TimeoutSeconds specifies the numberof seconds to wait before timing out a request to the component.
+	ContainerConcurrency int `json:"containerConcurrency,omitempty"`
+	// TimeoutSeconds specifies the number of seconds to wait before timing out a request to the component.
 	// +optional
 	TimeoutSeconds int `json:"timeout,omitempty"`
-	// Specify request and response logging
+	// Activate request/response logging and configurations
 	// +optional
 	LoggerSpec *LoggerSpec `json:"logger,omitempty"`
+	// Activate request batching and batching configurations
+	// +optional
+	Batcher *Batcher `json:"batcher,omitempty"`
 }
 
+// +kubebuilder:validation:Enum=all;request;response
 // LoggerType controls the scope of log publishing
 type LoggerType string
 
@@ -56,14 +75,26 @@ type LoggerSpec struct {
 	// URL to send logging events
 	// +optional
 	URL *string `json:"url,omitempty"`
-	// See Enum: LoggerType
+	// LoggerType [all, request, response]
 	Mode LoggerType `json:"mode,omitempty"`
+}
+
+// Batcher provides optional payload batcher for all endpoints
+// +experimental
+type Batcher struct {
+	// MaxBatchSize of batcher service
+	// +optional
+	MaxBatchSize *int `json:"maxBatchSize,omitempty"`
+	// MaxLatency of batcher service
+	// +optional
+	MaxLatency *int `json:"maxLatency,omitempty"`
+	// Timeout of batcher service
+	// +optional
+	Timeout *int `json:"timeout,omitempty"`
 }
 
 // InferenceService is the Schema for the inferenceservices API
 // +k8s:openapi-gen=true
-// +genclient
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="URL",type="string",JSONPath=".status.url"
@@ -80,7 +111,6 @@ type InferenceService struct {
 }
 
 // InferenceServiceList contains a list of Service
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:object:root=true
 type InferenceServiceList struct {
 	metav1.TypeMeta `json:",inline"`

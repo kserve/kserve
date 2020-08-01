@@ -19,6 +19,7 @@ limitations under the License.
 package v1beta1
 
 import (
+	"github.com/kubeflow/kfserving/pkg/apis/routing/v1alpha1"
 	v1beta1 "github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
@@ -28,7 +29,7 @@ import (
 // InferenceRouterLister helps list InferenceRouters.
 type InferenceRouterLister interface {
 	// List lists all InferenceRouters in the indexer.
-	List(selector labels.Selector) (ret []*v1beta1.InferenceRouter, err error)
+	List(selector labels.Selector) (ret []*v1alpha1.InferenceRouter, err error)
 	// InferenceRouters returns an object that can list and get InferenceRouters.
 	InferenceRouters(namespace string) InferenceRouterNamespaceLister
 	InferenceRouterListerExpansion
@@ -45,9 +46,9 @@ func NewInferenceRouterLister(indexer cache.Indexer) InferenceRouterLister {
 }
 
 // List lists all InferenceRouters in the indexer.
-func (s *inferenceRouterLister) List(selector labels.Selector) (ret []*v1beta1.InferenceRouter, err error) {
+func (s *inferenceRouterLister) List(selector labels.Selector) (ret []*v1alpha1.InferenceRouter, err error) {
 	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1beta1.InferenceRouter))
+		ret = append(ret, m.(*v1alpha1.InferenceRouter))
 	})
 	return ret, err
 }
@@ -60,9 +61,9 @@ func (s *inferenceRouterLister) InferenceRouters(namespace string) InferenceRout
 // InferenceRouterNamespaceLister helps list and get InferenceRouters.
 type InferenceRouterNamespaceLister interface {
 	// List lists all InferenceRouters in the indexer for a given namespace.
-	List(selector labels.Selector) (ret []*v1beta1.InferenceRouter, err error)
+	List(selector labels.Selector) (ret []*v1alpha1.InferenceRouter, err error)
 	// Get retrieves the InferenceRouter from the indexer for a given namespace and name.
-	Get(name string) (*v1beta1.InferenceRouter, error)
+	Get(name string) (*v1alpha1.InferenceRouter, error)
 	InferenceRouterNamespaceListerExpansion
 }
 
@@ -74,15 +75,15 @@ type inferenceRouterNamespaceLister struct {
 }
 
 // List lists all InferenceRouters in the indexer for a given namespace.
-func (s inferenceRouterNamespaceLister) List(selector labels.Selector) (ret []*v1beta1.InferenceRouter, err error) {
+func (s inferenceRouterNamespaceLister) List(selector labels.Selector) (ret []*v1alpha1.InferenceRouter, err error) {
 	err = cache.ListAllByNamespace(s.indexer, s.namespace, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1beta1.InferenceRouter))
+		ret = append(ret, m.(*v1alpha1.InferenceRouter))
 	})
 	return ret, err
 }
 
 // Get retrieves the InferenceRouter from the indexer for a given namespace and name.
-func (s inferenceRouterNamespaceLister) Get(name string) (*v1beta1.InferenceRouter, error) {
+func (s inferenceRouterNamespaceLister) Get(name string) (*v1alpha1.InferenceRouter, error) {
 	obj, exists, err := s.indexer.GetByKey(s.namespace + "/" + name)
 	if err != nil {
 		return nil, err
@@ -90,5 +91,5 @@ func (s inferenceRouterNamespaceLister) Get(name string) (*v1beta1.InferenceRout
 	if !exists {
 		return nil, errors.NewNotFound(v1beta1.Resource("inferencerouter"), name)
 	}
-	return obj.(*v1beta1.InferenceRouter), nil
+	return obj.(*v1alpha1.InferenceRouter), nil
 }
