@@ -1,4 +1,4 @@
-package v1beta1
+package v1alpha1
 
 // SplitterSpec defines a simple weighted traffic split interface
 type SplitterSpec struct {

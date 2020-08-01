@@ -1,7 +1,9 @@
-package v1beta1
+package v1alpha1
 
-import "sigs.k8s.io/controller-runtime/pkg/client"
+import (
+	"sigs.k8s.io/controller-runtime/pkg/client"
+)
 
 // Validate the resource
-func (i *InferenceRouter) Validate(client client.Client) {
+func (i *v1alpha1.InferenceRouter) Validate(client client.Client) {
 }
