@@ -1,6 +1,7 @@
-package v1beta1
+package v1alpha1
 
 import (
+	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -60,5 +61,5 @@ type InferenceRouterList struct {
 }
 
 func init() {
-	SchemeBuilder.Register(&InferenceRouter{}, &InferenceRouterList{})
+	v1beta1.SchemeBuilder.Register(&InferenceRouter{}, &InferenceRouterList{})
 }
