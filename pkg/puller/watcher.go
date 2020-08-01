@@ -21,7 +21,7 @@ type ModelDefinition struct {
 	// TODO: This needs to be defined by the ConfigMap PR
 	StorageUri string  `json:"storageUri"`
 	Framework string  `json:"framework"`
-	Version string  `json:"version"`
+	Memory string  `json:"memory"`
 }
 
 func init() {
