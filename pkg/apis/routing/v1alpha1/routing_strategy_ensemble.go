@@ -1,4 +1,4 @@
-package v1beta1
+package v1alpha1
 
 // EnsembleSpec is TODO
 type EnsembleSpec struct{}

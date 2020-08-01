@@ -1,4 +1,4 @@
-package v1beta1
+package v1alpha1
 
 import (
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
