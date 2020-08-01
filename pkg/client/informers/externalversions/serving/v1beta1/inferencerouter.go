@@ -19,9 +19,9 @@ limitations under the License.
 package v1beta1
 
 import (
+	"github.com/kubeflow/kfserving/pkg/apis/routing/v1alpha1"
 	time "time"
 
-	servingv1beta1 "github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
 	versioned "github.com/kubeflow/kfserving/pkg/client/clientset/versioned"
 	internalinterfaces "github.com/kubeflow/kfserving/pkg/client/informers/externalversions/internalinterfaces"
 	v1beta1 "github.com/kubeflow/kfserving/pkg/client/listers/serving/v1beta1"
@@ -70,7 +70,7 @@ func NewFilteredInferenceRouterInformer(client versioned.Interface, namespace st
 				return client.ServingV1beta1().InferenceRouters(namespace).Watch(options)
 			},
 		},
-		&servingv1beta1.InferenceRouter{},
+		&v1alpha1.InferenceRouter{},
 		resyncPeriod,
 		indexers,
 	)
@@ -81,7 +81,7 @@ func (f *inferenceRouterInformer) defaultInformer(client versioned.Interface, re
 }
 
 func (f *inferenceRouterInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&servingv1beta1.InferenceRouter{}, f.defaultInformer)
+	return f.factory.InformerFor(&v1alpha1.InferenceRouter{}, f.defaultInformer)
 }
 
 func (f *inferenceRouterInformer) Lister() v1beta1.InferenceRouterLister {

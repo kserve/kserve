@@ -19,9 +19,9 @@ limitations under the License.
 package v1beta1
 
 import (
+	"github.com/kubeflow/kfserving/pkg/apis/routing/v1alpha1"
 	"time"
 
-	v1beta1 "github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
 	scheme "github.com/kubeflow/kfserving/pkg/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -37,15 +37,15 @@ type InferenceRoutersGetter interface {
 
 // InferenceRouterInterface has methods to work with InferenceRouter resources.
 type InferenceRouterInterface interface {
-	Create(*v1beta1.InferenceRouter) (*v1beta1.InferenceRouter, error)
-	Update(*v1beta1.InferenceRouter) (*v1beta1.InferenceRouter, error)
-	UpdateStatus(*v1beta1.InferenceRouter) (*v1beta1.InferenceRouter, error)
+	Create(*v1alpha1.InferenceRouter) (*v1alpha1.InferenceRouter, error)
+	Update(*v1alpha1.InferenceRouter) (*v1alpha1.InferenceRouter, error)
+	UpdateStatus(*v1alpha1.InferenceRouter) (*v1alpha1.InferenceRouter, error)
 	Delete(name string, options *v1.DeleteOptions) error
 	DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error
-	Get(name string, options v1.GetOptions) (*v1beta1.InferenceRouter, error)
-	List(opts v1.ListOptions) (*v1beta1.InferenceRouterList, error)
+	Get(name string, options v1.GetOptions) (*v1alpha1.InferenceRouter, error)
+	List(opts v1.ListOptions) (*v1alpha1.InferenceRouterList, error)
 	Watch(opts v1.ListOptions) (watch.Interface, error)
-	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1beta1.InferenceRouter, err error)
+	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1alpha1.InferenceRouter, err error)
 	InferenceRouterExpansion
 }
 
@@ -64,8 +64,8 @@ func newInferenceRouters(c *ServingV1beta1Client, namespace string) *inferenceRo
 }
 
 // Get takes name of the inferenceRouter, and returns the corresponding inferenceRouter object, and an error if there is any.
-func (c *inferenceRouters) Get(name string, options v1.GetOptions) (result *v1beta1.InferenceRouter, err error) {
-	result = &v1beta1.InferenceRouter{}
+func (c *inferenceRouters) Get(name string, options v1.GetOptions) (result *v1alpha1.InferenceRouter, err error) {
+	result = &v1alpha1.InferenceRouter{}
 	err = c.client.Get().
 		Namespace(c.ns).
 		Resource("inferencerouters").
@@ -77,12 +77,12 @@ func (c *inferenceRouters) Get(name string, options v1.GetOptions) (result *v1be
 }
 
 // List takes label and field selectors, and returns the list of InferenceRouters that match those selectors.
-func (c *inferenceRouters) List(opts v1.ListOptions) (result *v1beta1.InferenceRouterList, err error) {
+func (c *inferenceRouters) List(opts v1.ListOptions) (result *v1alpha1.InferenceRouterList, err error) {
 	var timeout time.Duration
 	if opts.TimeoutSeconds != nil {
 		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
 	}
-	result = &v1beta1.InferenceRouterList{}
+	result = &v1alpha1.InferenceRouterList{}
 	err = c.client.Get().
 		Namespace(c.ns).
 		Resource("inferencerouters").
@@ -109,8 +109,8 @@ func (c *inferenceRouters) Watch(opts v1.ListOptions) (watch.Interface, error) {
 }
 
 // Create takes the representation of a inferenceRouter and creates it.  Returns the server's representation of the inferenceRouter, and an error, if there is any.
-func (c *inferenceRouters) Create(inferenceRouter *v1beta1.InferenceRouter) (result *v1beta1.InferenceRouter, err error) {
-	result = &v1beta1.InferenceRouter{}
+func (c *inferenceRouters) Create(inferenceRouter *v1alpha1.InferenceRouter) (result *v1alpha1.InferenceRouter, err error) {
+	result = &v1alpha1.InferenceRouter{}
 	err = c.client.Post().
 		Namespace(c.ns).
 		Resource("inferencerouters").
@@ -121,8 +121,8 @@ func (c *inferenceRouters) Create(inferenceRouter *v1beta1.InferenceRouter) (res
 }
 
 // Update takes the representation of a inferenceRouter and updates it. Returns the server's representation of the inferenceRouter, and an error, if there is any.
-func (c *inferenceRouters) Update(inferenceRouter *v1beta1.InferenceRouter) (result *v1beta1.InferenceRouter, err error) {
-	result = &v1beta1.InferenceRouter{}
+func (c *inferenceRouters) Update(inferenceRouter *v1alpha1.InferenceRouter) (result *v1alpha1.InferenceRouter, err error) {
+	result = &v1alpha1.InferenceRouter{}
 	err = c.client.Put().
 		Namespace(c.ns).
 		Resource("inferencerouters").
@@ -136,8 +136,8 @@ func (c *inferenceRouters) Update(inferenceRouter *v1beta1.InferenceRouter) (res
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
 
-func (c *inferenceRouters) UpdateStatus(inferenceRouter *v1beta1.InferenceRouter) (result *v1beta1.InferenceRouter, err error) {
-	result = &v1beta1.InferenceRouter{}
+func (c *inferenceRouters) UpdateStatus(inferenceRouter *v1alpha1.InferenceRouter) (result *v1alpha1.InferenceRouter, err error) {
+	result = &v1alpha1.InferenceRouter{}
 	err = c.client.Put().
 		Namespace(c.ns).
 		Resource("inferencerouters").
@@ -177,8 +177,8 @@ func (c *inferenceRouters) DeleteCollection(options *v1.DeleteOptions, listOptio
 }
 
 // Patch applies the patch and returns the patched inferenceRouter.
-func (c *inferenceRouters) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1beta1.InferenceRouter, err error) {
-	result = &v1beta1.InferenceRouter{}
+func (c *inferenceRouters) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1alpha1.InferenceRouter, err error) {
+	result = &v1alpha1.InferenceRouter{}
 	err = c.client.Patch(pt).
 		Namespace(c.ns).
 		Resource("inferencerouters").
