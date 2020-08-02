@@ -19,10 +19,11 @@ package v1beta1
 import (
 	"github.com/kubeflow/kfserving/pkg/constants"
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// CustomPredictor defines arguments for configuring a custom server.
-type CustomPredictor struct {
+// CustomExplainer defines arguments for configuring a custom transformer.
+type CustomExplainer struct {
 	// This spec is dual purpose.
 	// 1) Users may choose to provide a full PodSpec for their predictor.
 	// The field PodSpec.Containers is mutually exclusive with other Predictors (i.e. TFServing).
@@ -32,17 +33,17 @@ type CustomPredictor struct {
 }
 
 // Validate returns an error if invalid
-func (c *CustomPredictor) Validate() error {
+func (c *CustomExplainer) Validate(config *InferenceServicesConfig) error {
 	return nil
 }
 
 // Default sets defaults on the resource
-func (c *CustomPredictor) Default(config *InferenceServicesConfig) {
+func (c *CustomExplainer) Default(config *InferenceServicesConfig) {
 	c.Name = constants.InferenceServiceContainerName
 	setResourceRequirementDefaults(&c.Spec.Containers[0].Resources)
 }
 
-func (c *CustomPredictor) GetStorageUri() *string {
+func (c *CustomExplainer) GetStorageUri() *string {
 	// return the CustomSpecStorageUri env variable value if set on the spec
 	for _, envVar := range c.Spec.Containers[0].Env {
 		if envVar.Name == constants.CustomSpecStorageUriEnvVarKey {
@@ -53,6 +54,6 @@ func (c *CustomPredictor) GetStorageUri() *string {
 }
 
 // GetContainers transforms the resource into a container spec
-func (c *CustomPredictor) GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container {
+func (c *CustomExplainer) GetContainer(metadata metav1.ObjectMeta, parallelism int, config *InferenceServicesConfig) *v1.Container {
 	return &c.Spec.Containers[0]
 }

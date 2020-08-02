@@ -19,10 +19,11 @@ package v1beta1
 import (
 	"github.com/kubeflow/kfserving/pkg/constants"
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// CustomPredictor defines arguments for configuring a custom server.
-type CustomPredictor struct {
+// CustomTransformer defines arguments for configuring a custom transformer.
+type CustomTransformer struct {
 	// This spec is dual purpose.
 	// 1) Users may choose to provide a full PodSpec for their predictor.
 	// The field PodSpec.Containers is mutually exclusive with other Predictors (i.e. TFServing).
@@ -32,17 +33,17 @@ type CustomPredictor struct {
 }
 
 // Validate returns an error if invalid
-func (c *CustomPredictor) Validate() error {
+func (c *CustomTransformer) Validate(config *InferenceServicesConfig) error {
 	return nil
 }
 
 // Default sets defaults on the resource
-func (c *CustomPredictor) Default(config *InferenceServicesConfig) {
+func (c *CustomTransformer) Default(config *InferenceServicesConfig) {
 	c.Name = constants.InferenceServiceContainerName
 	setResourceRequirementDefaults(&c.Spec.Containers[0].Resources)
 }
 
-func (c *CustomPredictor) GetStorageUri() *string {
+func (c *CustomTransformer) GetStorageUri() *string {
 	// return the CustomSpecStorageUri env variable value if set on the spec
 	for _, envVar := range c.Spec.Containers[0].Env {
 		if envVar.Name == constants.CustomSpecStorageUriEnvVarKey {
@@ -53,6 +54,25 @@ func (c *CustomPredictor) GetStorageUri() *string {
 }
 
 // GetContainers transforms the resource into a container spec
-func (c *CustomPredictor) GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container {
+func (c *CustomTransformer) GetContainer(metadata metav1.ObjectMeta) *v1.Container {
+	container := &c.Spec.Containers[0]
+	modelNameExists := false
+	for _, arg := range container.Args {
+		if arg == constants.ArgumentModelName {
+			modelNameExists = true
+		}
+	}
+	if !modelNameExists {
+		container.Args = append(container.Args, []string{
+			constants.ArgumentModelName,
+			metadata.Name,
+		}...)
+	}
+	container.Args = append(container.Args, []string{
+		constants.ArgumentPredictorHost,
+		constants.PredictorURL(metadata, false),
+		constants.ArgumentHttpPort,
+		constants.InferenceServiceDefaultHttpPort,
+	}...)
 	return &c.Spec.Containers[0]
 }

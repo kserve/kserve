@@ -23,20 +23,23 @@ import (
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
-// InferenceServiceStatus defines the observed state of inferenceservice
+// InferenceServiceStatus defines the observed state of InferenceService
 type InferenceServiceStatus struct {
+	// Conditions for the InferenceService
 	duckv1.Status `json:",inline"`
-	// Addressable endpoint for the inferenceservice
+	// Addressable endpoint for the InferenceService
 	Address *duckv1.Addressable `json:"address,omitempty"`
-	// Statuses for the components of the inferenceservice
+	// Statuses for the components of the InferenceService
 	Components map[ComponentType]ComponentStatusSpec `json:"components,omitempty"`
 }
 
 // ComponentStatusSpec describes the state of the component
 type ComponentStatusSpec struct {
 	// Latest revision name that is in ready state
-	Name string `json:"name,omitempty"`
-	// Addressable endpoint for the inferenceservice
+	LatestReadyRevision string `json:"latestReadyRevision,omitempty"`
+	// Latest revsion name that is in created
+	LatestCreatedRevision string `json:"latestCreatedRevision,omitempty"`
+	// Addressable endpoint for the InferenceService
 	Address *duckv1.Addressable `json:"address,omitempty"`
 }
 
@@ -54,11 +57,11 @@ const (
 const (
 	// RoutesReady is set when network configuration has completed.
 	RoutesReady apis.ConditionType = "RoutesReady"
-	// DefaultPredictorReady is set when default predictor has reported readiness.
+	// PredictorReady is set when predictor has reported readiness.
 	PredictorReady apis.ConditionType = "PredictorReady"
-	// DefaultTransformerReady is set when default transformer has reported readiness.
+	// TransformerReady is set when transformer has reported readiness.
 	TransformerReady apis.ConditionType = "TransformerReady"
-	// DefaultExplainerReady is set when default explainer has reported readiness.
+	// ExplainerReady is set when explainer has reported readiness.
 	ExplainerReady apis.ConditionType = "ExplainerReady"
 )
 
@@ -92,15 +95,6 @@ func (ss *InferenceServiceStatus) GetCondition(t apis.ConditionType) *apis.Condi
 	return conditionSet.Manage(ss).GetCondition(t)
 }
 
-// InferenceState describes the Readiness of the InferenceService
-type InferenceServiceState string
-
-// Different InferenceServiceState an InferenceService may have.
-const (
-	InferenceServiceReadyState    InferenceServiceState = "InferenceServiceReady"
-	InferenceServiceNotReadyState InferenceServiceState = "InferenceServiceNotReady"
-)
-
 func (ss *InferenceServiceStatus) PropagateStatus(component ComponentType, serviceStatus *knservingv1.ServiceStatus) {
 	if len(ss.Components) == 0 {
 		ss.Components = make(map[ComponentType]ComponentStatusSpec)
@@ -110,7 +104,8 @@ func (ss *InferenceServiceStatus) PropagateStatus(component ComponentType, servi
 		ss.Components[component] = ComponentStatusSpec{}
 	}
 	conditionType := conditionsMap[component]
-	statusSpec.Name = serviceStatus.LatestCreatedRevisionName
+	statusSpec.LatestCreatedRevision = serviceStatus.LatestCreatedRevisionName
+	statusSpec.LatestReadyRevision = serviceStatus.LatestReadyRevisionName
 	serviceCondition := serviceStatus.GetCondition(knservingv1.ServiceConditionReady)
 
 	switch {

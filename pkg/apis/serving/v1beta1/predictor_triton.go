@@ -23,7 +23,6 @@ import (
 )
 
 var (
-	// For versioning see https://github.com/NVIDIA/triton-inference-server/releases
 	TritonISGRPCPort = int32(9000)
 	TritonISRestPort = int32(8080)
 )
@@ -59,11 +58,12 @@ func (t *TritonSpec) GetContainer(modelName string, config *InferenceServicesCon
 		"--allow-grpc=true",
 		"--allow-http=true",
 	}
-	t.Args = arguments
-	t.Name = constants.InferenceServiceContainerName
+
 	if t.Container.Image == "" {
 		t.Container.Image = config.Predictors.Triton.ContainerImage + ":" + t.RuntimeVersion
 	}
+	t.Name = constants.InferenceServiceContainerName
+	t.Args = arguments
 	return &t.Container
 }
 

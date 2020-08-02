@@ -21,6 +21,12 @@ import (
 	v1 "k8s.io/api/core/v1"
 )
 
+var (
+	ONNXServingRestPort = "8080"
+	ONNXServingGRPCPort = "9000"
+	ONNXModelFileName   = "model.onnx"
+)
+
 // ONNXRuntimeSpec defines arguments for configuring ONNX model serving.
 type ONNXRuntimeSpec struct {
 	// Contains fields shared across all predictors
@@ -36,14 +42,28 @@ func (o *ONNXRuntimeSpec) Validate() error {
 func (o *ONNXRuntimeSpec) Default(config *InferenceServicesConfig) {
 	o.Container.Name = constants.InferenceServiceContainerName
 	if o.RuntimeVersion == "" {
-		o.RuntimeVersion = config.Predictors.ONNX.DefaultGpuImageVersion
+		o.RuntimeVersion = config.Predictors.ONNX.DefaultImageVersion
 	}
 	setResourceRequirementDefaults(&o.Resources)
 }
 
 // GetContainers transforms the resource into a container spec
 func (o *ONNXRuntimeSpec) GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container {
-	return &v1.Container{}
+	arguments := []string{
+		"--model_path",
+		constants.DefaultModelLocalMountPath + "/" + ONNXModelFileName,
+		"--http_port",
+		ONNXServingRestPort,
+		"--grpc_port",
+		ONNXServingGRPCPort,
+	}
+
+	if o.Container.Image == "" {
+		o.Container.Image = config.Predictors.Triton.ContainerImage + ":" + o.RuntimeVersion
+	}
+	o.Name = constants.InferenceServiceContainerName
+	o.Args = arguments
+	return &o.Container
 }
 
 func (o *ONNXRuntimeSpec) GetStorageUri() *string {
