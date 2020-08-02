@@ -48,13 +48,9 @@ type RouteSpec struct {
 	// e.g. _x-request-id_.
 	//
 	// Header values are case-sensitive and formatted as follows:
-	//
 	// - `exact: "value"` for exact string match
-	//
 	// - `prefix: "value"` for prefix-based match
-	//
 	// - `regex: "value"` for ECMAscript style regex-based match
-	//
 	Headers map[string]*StringMatch `json:"headers,omitempty"`
 }
 
@@ -70,9 +66,6 @@ type StringMatch struct {
 }
 
 // InferenceRouter is the Schema for the routers API
-// +k8s:openapi-gen=true
-// +genclient
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="URL",type="string",JSONPath=".status.url"
@@ -88,7 +81,6 @@ type InferenceRouter struct {
 }
 
 // InferenceRouterList contains a list of Router
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:object:root=true
 type InferenceRouterList struct {
 	metav1.TypeMeta `json:",inline"`

@@ -17,6 +17,7 @@ limitations under the License.
 package v1beta1
 
 import (
+	"fmt"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	v1 "k8s.io/api/core/v1"
 )
@@ -41,7 +42,18 @@ func (t *TorchServeSpec) Default(config *InferenceServicesConfig) {
 
 // GetContainers transforms the resource into a container spec
 func (t *TorchServeSpec) GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container {
-	return &v1.Container{}
+	arguments := []string{
+		"torchserve",
+		"--start",
+		fmt.Sprintf("%s=%s", "--model-store=", constants.DefaultModelLocalMountPath),
+	}
+
+	if t.Container.Image == "" {
+		t.Container.Image = config.Predictors.PyTorch	.ContainerImage + ":" + t.RuntimeVersion
+	}
+	t.Name = constants.InferenceServiceContainerName
+	t.Args = arguments
+	return &t.Container
 }
 
 func (t *TorchServeSpec) GetStorageUri() *string {

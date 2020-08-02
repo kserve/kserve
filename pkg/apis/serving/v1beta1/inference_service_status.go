@@ -42,7 +42,7 @@ type InferenceServiceStatus struct {
 type ComponentStatusSpec struct {
 	// Latest revision name that is in ready state
 	LatestReadyRevision string `json:"latestReadyRevision,omitempty"`
-	// Latest revsion name that is in created
+	// Latest revision name that is in created
 	LatestCreatedRevision string `json:"latestCreatedRevision,omitempty"`
 	// Addressable endpoint for the InferenceService
 	Address *duckv1.Addressable `json:"address,omitempty"`
