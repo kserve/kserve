@@ -68,7 +68,7 @@ func TestXGBoostValidation(t *testing.T) {
 		"InvalidReplica": {
 			spec: PredictorSpec{
 				ComponentExtensionSpec: ComponentExtensionSpec{
-					MinReplicas: proto.Int32(3),
+					MinReplicas: GetIntReference(3),
 					MaxReplicas: 2,
 				},
 				XGBoost: &XGBoostSpec{
@@ -82,7 +82,7 @@ func TestXGBoostValidation(t *testing.T) {
 		"InvalidContainerConcurrency": {
 			spec: PredictorSpec{
 				ComponentExtensionSpec: ComponentExtensionSpec{
-					MinReplicas:          proto.Int32(3),
+					MinReplicas:          GetIntReference(3),
 					ContainerConcurrency: -1,
 				},
 				XGBoost: &XGBoostSpec{

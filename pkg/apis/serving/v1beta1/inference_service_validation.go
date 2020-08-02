@@ -127,7 +127,7 @@ func validateStorageURI(storageURI *string) error {
 	return fmt.Errorf(UnsupportedStorageURIFormatError, strings.Join(SupportedStorageURIPrefixList, ", "), *storageURI)
 }
 
-func validateReplicas(minReplicas *int32, maxReplicas int32) error {
+func validateReplicas(minReplicas *int, maxReplicas int) error {
 	if minReplicas == nil {
 		minReplicas = &constants.DefaultMinReplicas
 	}
@@ -162,4 +162,10 @@ func validateLogger(logger *LoggerSpec) error {
 		}
 	}
 	return nil
+}
+
+// GetIntReference returns the pointer for the integer input
+func GetIntReference(number int) *int {
+	num := number
+	return &num
 }
