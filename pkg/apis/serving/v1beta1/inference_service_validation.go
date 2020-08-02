@@ -127,7 +127,7 @@ func validateStorageURI(storageURI *string) error {
 	return fmt.Errorf(UnsupportedStorageURIFormatError, strings.Join(SupportedStorageURIPrefixList, ", "), *storageURI)
 }
 
-func validateReplicas(minReplicas *int, maxReplicas int) error {
+func validateReplicas(minReplicas *int32, maxReplicas int32) error {
 	if minReplicas == nil {
 		minReplicas = &constants.DefaultMinReplicas
 	}

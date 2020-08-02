@@ -1,0 +1,270 @@
+/*
+Copyright 2020 kubeflow.org.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package v1beta1
+
+import (
+	"fmt"
+	"github.com/golang/protobuf/proto"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"testing"
+
+	"github.com/kubeflow/kfserving/pkg/constants"
+	"github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+)
+
+func TestTensorflowValidation(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	scenarios := map[string]struct {
+		spec    PredictorSpec
+		matcher types.GomegaMatcher
+	}{
+		"AcceptGoodRuntimeVersion": {
+			spec: PredictorSpec{
+				Tensorflow: &TFServingSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						RuntimeVersion: "latest",
+					},
+				},
+			},
+			matcher: gomega.BeNil(),
+		},
+		"RejectGpuRuntimeVersionWithoutGpuResource": {
+			spec: PredictorSpec{
+				Tensorflow: &TFServingSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						RuntimeVersion: "latest-gpu",
+					},
+				},
+			},
+			matcher: gomega.MatchError(fmt.Sprintf(InvalidTensorflowRuntimeExcludesGPU)),
+		},
+		"RejectGpuGpuResourceWithoutGpuRuntime": {
+			spec: PredictorSpec{
+				Tensorflow: &TFServingSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						RuntimeVersion: "latest",
+						Container: v1.Container{
+							Resources: v1.ResourceRequirements{
+								Limits: v1.ResourceList{constants.NvidiaGPUResourceType: resource.MustParse("1")},
+							},
+						},
+					},
+				},
+			},
+			matcher: gomega.MatchError(fmt.Sprintf(InvalidTensorflowRuntimeIncludesGPU)),
+		},
+		"ValidStorageUri": {
+			spec: PredictorSpec{
+				Tensorflow: &TFServingSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						StorageURI: proto.String("s3://modelzoo"),
+					},
+				},
+			},
+			matcher: gomega.BeNil(),
+		},
+		"InvalidStorageUri": {
+			spec: PredictorSpec{
+				Tensorflow: &TFServingSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						StorageURI: proto.String("hdfs://modelzoo"),
+					},
+				},
+			},
+			matcher: gomega.Not(gomega.BeNil()),
+		},
+		"InvalidReplica": {
+			spec: PredictorSpec{
+				ComponentExtensionSpec: ComponentExtensionSpec{
+					MinReplicas: proto.Int32(3),
+					MaxReplicas: 2,
+				},
+				Tensorflow: &TFServingSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						StorageURI: proto.String("hdfs://modelzoo"),
+					},
+				},
+			},
+			matcher: gomega.Not(gomega.BeNil()),
+		},
+		"InvalidContainerConcurrency": {
+			spec: PredictorSpec{
+				ComponentExtensionSpec: ComponentExtensionSpec{
+					MinReplicas:          proto.Int32(3),
+					ContainerConcurrency: -1,
+				},
+				Tensorflow: &TFServingSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						StorageURI: proto.String("hdfs://modelzoo"),
+					},
+				},
+			},
+			matcher: gomega.Not(gomega.BeNil()),
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			res := scenario.spec.Validate()
+			if !g.Expect(res).To(scenario.matcher) {
+				t.Errorf("got %q, want %q", res, scenario.matcher)
+			}
+		})
+	}
+}
+
+func TestCreateTFServingContainer(t *testing.T) {
+
+	var requestedResource = v1.ResourceRequirements{
+		Limits: v1.ResourceList{
+			"cpu": resource.Quantity{
+				Format: "100",
+			},
+		},
+		Requests: v1.ResourceList{
+			"cpu": resource.Quantity{
+				Format: "90",
+			},
+		},
+	}
+	var config = InferenceServicesConfig{
+		Predictors: &PredictorsConfig{
+			Tensorflow: PredictorConfig{
+				ContainerImage:      "tfserving",
+				DefaultImageVersion: "1.14.0",
+			},
+		},
+	}
+	g := gomega.NewGomegaWithT(t)
+	scenarios := map[string]struct {
+		isvc                  InferenceService
+		expectedContainerSpec *v1.Container
+	}{
+		"ContainerSpecWithDefaultImage": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "tfserving",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Tensorflow: &TFServingSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI:     proto.String("gs://someUri"),
+								RuntimeVersion: "1.14.0",
+								Container: v1.Container{
+									Resources: requestedResource,
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedContainerSpec: &v1.Container{
+				Image:     "tfserving:1.14.0",
+				Name:      constants.InferenceServiceContainerName,
+				Resources: requestedResource,
+				Command:   []string{"/usr/bin/tensorflow_model_server"},
+				Args: []string{
+					"--port=" + TensorflowServingGRPCPort,
+					"--rest_api_port=" + TensorflowServingRestPort,
+					"--model_name=someName",
+					"--model_base_path=/mnt/models",
+				},
+			},
+		},
+		"ContainerSpecWithCustomImage": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "tfserving",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Tensorflow: &TFServingSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI: proto.String("gs://someUri"),
+								Container: v1.Container{
+									Image:     "tfserving:2.0.0",
+									Resources: requestedResource,
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedContainerSpec: &v1.Container{
+				Image:     "tfserving:2.0.0",
+				Name:      constants.InferenceServiceContainerName,
+				Resources: requestedResource,
+				Command:   []string{"/usr/bin/tensorflow_model_server"},
+				Args: []string{
+					"--port=" + TensorflowServingGRPCPort,
+					"--rest_api_port=" + TensorflowServingRestPort,
+					"--model_name=someName",
+					"--model_base_path=/mnt/models",
+				},
+			},
+		},
+		"ContainerSpecWithContainerConcurrency": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "tfserving",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						ComponentExtensionSpec: ComponentExtensionSpec{
+							ContainerConcurrency: 1,
+						},
+						Tensorflow: &TFServingSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI:     proto.String("gs://someUri"),
+								RuntimeVersion: "2.0.0",
+								Container: v1.Container{
+									Resources: requestedResource,
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedContainerSpec: &v1.Container{
+				Image:     "tfserving:2.0.0",
+				Name:      constants.InferenceServiceContainerName,
+				Resources: requestedResource,
+				Command:   []string{"/usr/bin/tensorflow_model_server"},
+				Args: []string{
+					"--port=" + TensorflowServingGRPCPort,
+					"--rest_api_port=" + TensorflowServingRestPort,
+					"--model_name=someName",
+					"--model_base_path=/mnt/models",
+				},
+			},
+		},
+	}
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			predictor, _ := scenario.isvc.Spec.Predictor.GetPredictor()
+			res := predictor.GetContainer("someName", scenario.isvc.Spec.Predictor.ContainerConcurrency, &config)
+			if !g.Expect(res).To(gomega.Equal(scenario.expectedContainerSpec)) {
+				t.Errorf("got %q, want %q", res, scenario.expectedContainerSpec)
+			}
+		})
+	}
+}

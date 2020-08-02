@@ -39,10 +39,10 @@ type InferenceServiceSpec struct {
 type ComponentExtensionSpec struct {
 	// Minimum number of replicas, defaults to 1 but can be set to 0 to enable scale-to-zero.
 	// +optional
-	MinReplicas *int `json:"minReplicas,omitempty"`
+	MinReplicas *int32 `json:"minReplicas,omitempty"`
 	// Maximum number of replicas for autoscaling.
 	// +optional
-	MaxReplicas int `json:"maxReplicas,omitempty"`
+	MaxReplicas int32 `json:"maxReplicas,omitempty"`
 	// ContainerConcurrency specifies how many requests can be processed concurrently, this sets the hard limit of the container
 	// concurrency(https://knative.dev/docs/serving/autoscaling/concurrency).
 	// +optional
