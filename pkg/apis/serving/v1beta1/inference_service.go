@@ -50,6 +50,9 @@ type ComponentExtensionSpec struct {
 	// TimeoutSeconds specifies the number of seconds to wait before timing out a request to the component.
 	// +optional
 	TimeoutSeconds int `json:"timeout,omitempty"`
+	// CanaryTrafficPercent defines the traffic split percentage between the candidate revision and the last ready revision
+	// +optional
+	CanaryTrafficPercent int `json:"canaryTrafficPercent,omitempty"`
 	// Activate request/response logging and logger configurations
 	// +optional
 	LoggerSpec *LoggerSpec `json:"logger,omitempty"`
