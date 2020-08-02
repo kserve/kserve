@@ -22,6 +22,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/components"
+	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/reconcilers/configmap"
 	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/reconcilers/knative"
 	knativeres "github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/resources/knative"
 	"github.com/kubeflow/kfserving/pkg/credentials"
@@ -68,6 +69,7 @@ func NewPredictor(client client.Client, scheme *runtime.Scheme, config *v1.Confi
 func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
 	propagateStatusFn := isvc.Status.PropagateStatus
 
+	//Reconcile knative service
 	var service *knservingv1.Service
 	var err error
 	service, err = p.CreatePredictorService(isvc)
@@ -89,6 +91,7 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
 
 func (p *Predictor) CreatePredictorService(isvc *v1beta1.InferenceService) (*knservingv1.Service, error) {
 	log := p.Log.WithValues("Predictor", isvc.Name)
+
 	predictor, err := isvc.GetPredictor()
 	if err != nil {
 		return nil, err
@@ -176,6 +179,26 @@ func (p *Predictor) CreatePredictorService(isvc *v1beta1.InferenceService) (*kns
 		},
 	}
 
+	//If InferenceService's storageUri if empty, create multi-model service configMap and
+	//mount it into this predictor's knative service
+	storageUri := isvc.Spec.Predictor.GetStorageUri()
+	if storageUri != nil && len(*storageUri) > 0 {
+		multiModelConfigMap, err := configmap.CreateEmptyMultiModelConfigMap(isvc)
+		if err == nil {
+			podVolumes := []v1.Volume{}
+
+			multiModelConfigVolume := v1.Volume{
+				Name: "config-mms",
+				VolumeSource: v1.VolumeSource{
+					ConfigMap: &v1.ConfigMapVolumeSource{},
+				},
+			}
+			multiModelConfigVolume.ConfigMap.Name = multiModelConfigMap.Name
+			podVolumes = append(podVolumes, multiModelConfigVolume)
+			service.Spec.Template.Spec.Volumes = podVolumes
+			//TODO mount multi-model configmap in container
+		}
+	}
 	if err := p.credentialBuilder.CreateSecretVolumeAndEnv(
 		isvc.Namespace,
 		isvc.Spec.Predictor.CustomPredictor.Spec.ServiceAccountName,
