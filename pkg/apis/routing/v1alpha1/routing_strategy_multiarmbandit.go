@@ -16,5 +16,14 @@ limitations under the License.
 
 package v1alpha1
 
-// MultiArmBanditSpec is TODO
-type MultiArmBanditSpec struct{}
+//
+type MultiArmBanditSpec struct {
+	EpsilonGreedy *EpsilonGreedySpec `json:"epsilonGreedy,omitempty"`
+}
+
+type EpsilonGreedySpec struct {
+	// The probability of choosing a random branch
+	Epsilon float32 `json:"epsilon"`
+	// Set the seed for reproducbility
+	Seed int64 `json:"seed,omitempty"`
+}

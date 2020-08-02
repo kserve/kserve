@@ -40,11 +40,11 @@ type TransformerSpec struct {
 type Transformer interface {
 	GetContainer(metadata metav1.ObjectMeta) *v1.Container
 	GetStorageUri() *string
-	Default(config *InferenceServicesConfig)
-	Validate(config *InferenceServicesConfig) error
+	Default()
+	Validate() error
 }
 
-func getTransformer(t *TransformerSpec) (Transformer, error) {
+func (t *TransformerSpec) GetTransformer() (Transformer, error) {
 	transformers := []Transformer{}
 	if t.CustomTransformer != nil {
 		transformers = append(transformers, t.CustomTransformer)
@@ -59,14 +59,14 @@ func getTransformer(t *TransformerSpec) (Transformer, error) {
 
 // Validate the TransformerSpec
 func (t *TransformerSpec) Validate(config *InferenceServicesConfig) error {
-	transformer, err := getTransformer(t)
+	transformer, err := t.GetTransformer()
 	if err != nil {
 		return err
 	}
 	for _, err := range []error{
 		validateContainerConcurrency(t.ContainerConcurrency),
 		validateReplicas(t.MinReplicas, t.MaxReplicas),
-		transformer.Validate(config),
+		transformer.Validate(),
 		validateLogger(t.LoggerSpec),
 	} {
 		if err != nil {
@@ -78,8 +78,8 @@ func (t *TransformerSpec) Validate(config *InferenceServicesConfig) error {
 
 // Apply Defaults to the TransformerSpec
 func (t *TransformerSpec) Default(config *InferenceServicesConfig) {
-	transformer, err := getTransformer(t)
+	transformer, err := t.GetTransformer()
 	if err == nil {
-		transformer.Default(config)
+		transformer.Default()
 	}
 }
