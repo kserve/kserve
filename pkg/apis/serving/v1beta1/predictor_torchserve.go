@@ -41,7 +41,7 @@ func (t *TorchServeSpec) Default(config *InferenceServicesConfig) {
 }
 
 // GetContainers transforms the resource into a container spec
-func (t *TorchServeSpec) GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container {
+func (t *TorchServeSpec) GetContainer(modelName string, containerConcurrency int, config *InferenceServicesConfig) *v1.Container {
 	arguments := []string{
 		"torchserve",
 		"--start",
@@ -49,7 +49,7 @@ func (t *TorchServeSpec) GetContainer(modelName string, config *InferenceService
 	}
 
 	if t.Container.Image == "" {
-		t.Container.Image = config.Predictors.PyTorch	.ContainerImage + ":" + t.RuntimeVersion
+		t.Container.Image = config.Predictors.PyTorch.ContainerImage + ":" + t.RuntimeVersion
 	}
 	t.Name = constants.InferenceServiceContainerName
 	t.Args = arguments

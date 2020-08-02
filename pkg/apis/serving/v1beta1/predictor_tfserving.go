@@ -69,7 +69,7 @@ func (t *TFServingSpec) GetStorageUri() *string {
 }
 
 // GetContainers transforms the resource into a container spec
-func (t *TFServingSpec) GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container {
+func (t *TFServingSpec) GetContainer(modelName string, containerConcurrency int, config *InferenceServicesConfig) *v1.Container {
 	arguments := []string{
 		"--port=" + TensorflowServingGRPCPort,
 		"--rest_api_port=" + TensorflowServingRestPort,

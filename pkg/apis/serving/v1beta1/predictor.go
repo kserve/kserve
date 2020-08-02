@@ -29,7 +29,7 @@ const (
 // Predictor is an abstraction over machine learning server frameworks
 // +kubebuilder:object:generate=false
 type Predictor interface {
-	GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container
+	GetContainer(modelName string, containerConcurrency int, config *InferenceServicesConfig) *v1.Container
 	Validate() error
 	Default(config *InferenceServicesConfig)
 	GetStorageUri() *string
@@ -105,14 +105,14 @@ func (p *PredictorSpec) GetPredictorPodSpec() v1.PodSpec {
 	return p.CustomPredictor.Spec
 }
 
-func (p *PredictorSpec) Validate(config *InferenceServicesConfig) error {
+func (p *PredictorSpec) Validate() error {
 	predictor, err := p.GetPredictor()
 	if err != nil {
 		return err
 	}
 	for _, err := range []error{
 		predictor.Validate(),
-		validateStorageURI(p.GetStorageUri()),
+		validateStorageURI(predictor.GetStorageUri()),
 		validateContainerConcurrency(p.ContainerConcurrency),
 		validateReplicas(p.MinReplicas, p.MaxReplicas),
 		validateLogger(p.LoggerSpec),

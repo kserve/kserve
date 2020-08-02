@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	v1 "k8s.io/api/core/v1"
+	"strconv"
 )
 
 // SKLearnSpec defines arguments for configuring SKLearn model serving.
@@ -30,6 +31,7 @@ type SKLearnSpec struct {
 
 // Validate returns an error if invalid
 func (k *SKLearnSpec) Validate() error {
+	validateStorageURI(k.StorageURI)
 	return nil
 }
 
@@ -43,15 +45,15 @@ func (k *SKLearnSpec) Default(config *InferenceServicesConfig) {
 }
 
 // GetContainer transforms the resource into a container spec
-func (k *SKLearnSpec) GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container {
+func (k *SKLearnSpec) GetContainer(modelName string, containerConcurrency int, config *InferenceServicesConfig) *v1.Container {
 	arguments := []string{
 		fmt.Sprintf("%s=%s", constants.ArgumentModelName, modelName),
 		fmt.Sprintf("%s=%s", constants.ArgumentModelDir, constants.DefaultModelLocalMountPath),
 		fmt.Sprintf("%s=%s", constants.ArgumentHttpPort, constants.InferenceServiceDefaultHttpPort),
 	}
-	/*if parallelism != 0 {
-		arguments = append(arguments, fmt.Sprintf("%s=%s", constants.ArgumentWorkers, strconv.Itoa(parallelism)))
-	}*/
+	if containerConcurrency != 0 {
+		arguments = append(arguments, fmt.Sprintf("%s=%s", constants.ArgumentWorkers, strconv.Itoa(containerConcurrency)))
+	}
 	if k.Container.Image == "" {
 		k.Container.Image = config.Predictors.SKlearn.ContainerImage + ":" + k.RuntimeVersion
 	}

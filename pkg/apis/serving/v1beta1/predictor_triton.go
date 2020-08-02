@@ -48,12 +48,12 @@ func (t *TritonSpec) Default(config *InferenceServicesConfig) {
 }
 
 // GetContainers transforms the resource into a container spec
-func (t *TritonSpec) GetContainer(modelName string, config *InferenceServicesConfig) *v1.Container {
+func (t *TritonSpec) GetContainer(modelName string, containerConcurrency int, config *InferenceServicesConfig) *v1.Container {
 	arguments := []string{
 		"trtserver",
-		fmt.Sprintf("%s=%s", "--model-store=", constants.DefaultModelLocalMountPath),
-		fmt.Sprintf("%s=%s", "--grpc-port=", fmt.Sprint(TritonISGRPCPort)),
-		fmt.Sprintf("%s=%s", "--http-port=", fmt.Sprint(TritonISRestPort)),
+		fmt.Sprintf("%s=%s", "--model-store", constants.DefaultModelLocalMountPath),
+		fmt.Sprintf("%s=%s", "--grpc-port", fmt.Sprint(TritonISGRPCPort)),
+		fmt.Sprintf("%s=%s", "--http-port", fmt.Sprint(TritonISRestPort)),
 		"--allow-poll-model-repository=false",
 		"--allow-grpc=true",
 		"--allow-http=true",
