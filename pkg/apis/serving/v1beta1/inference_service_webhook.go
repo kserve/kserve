@@ -17,7 +17,6 @@ limitations under the License.
 package v1beta1
 
 import (
-	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
@@ -39,27 +38,3 @@ var _ webhook.Defaulter = &InferenceService{}
 // +kubebuilder:webhook:verbs=create;update,path=/validate-inferenceservices,mutating=false,failurePolicy=fail,groups=serving.kubeflow.org,resources=inferenceservices,versions=v1beta1,name=inferenceservice.kfserving-webhook-server.validator
 
 var _ webhook.Validator = &InferenceService{}
-
-// ValidateCreate implements webhook.Validator so a webhook will be registered for the type
-func (r *InferenceService) ValidateCreate() error {
-	log.Info("validate create", "name", r.Name)
-
-	// TODO(user): fill in your validation logic upon object creation.
-	return nil
-}
-
-// ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (r *InferenceService) ValidateUpdate(old runtime.Object) error {
-	log.Info("validate update", "name", r.Name)
-
-	// TODO(user): fill in your validation logic upon object update.
-	return nil
-}
-
-// ValidateDelete implements webhook.Validator so a webhook will be registered for the type
-func (r *InferenceService) ValidateDelete() error {
-	log.Info("validate delete", "name", r.Name)
-
-	// TODO(user): fill in your validation logic upon object deletion.
-	return nil
-}

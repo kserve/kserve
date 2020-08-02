@@ -22,7 +22,7 @@ import (
 
 // TrainedModelStatus defines the observed state of TrainedModel
 type TrainedModelStatus struct {
-	// Condition for "Deployed"
+	// Conditions for trained model
 	duckv1.Status `json:",inline"`
 	// Addressable endpoint for the deployed trained model
 	// http://<inferenceservice.metadata.name>/v1/models/<trainedmodel>.metadata.name

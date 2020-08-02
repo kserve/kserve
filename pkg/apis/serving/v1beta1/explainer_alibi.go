@@ -100,6 +100,6 @@ func (alibi *AlibiExplainerSpec) Default(config *InferenceServicesConfig) {
 	setResourceRequirementDefaults(&alibi.Resources)
 }
 
-func (alibi *AlibiExplainerSpec) Validate(config *InferenceServicesConfig) error {
+func (alibi *AlibiExplainerSpec) Validate() error {
 	return nil
 }
