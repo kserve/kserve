@@ -39,13 +39,11 @@ func (isvc *InferenceService) Default() {
 		predictor.Default(configMap)
 	}
 
-	/*isvc.Spec.Predictor.ApplyDefaults(configMap)
-
 	if isvc.Spec.Transformer != nil {
-		isvc.Spec.Transformer.ApplyDefaults(configMap)
+		isvc.Spec.Transformer.Default(configMap)
 	}
 
 	if isvc.Spec.Explainer != nil {
-		isvc.Spec.Explainer.ApplyDefaults(configMap)
-	}*/
+		isvc.Spec.Explainer.Default(configMap)
+	}
 }

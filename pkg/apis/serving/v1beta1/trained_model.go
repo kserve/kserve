@@ -21,8 +21,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// +k8s:openapi-gen=true
+
+// TrainedModel is the Schema for the TrainedModel API
 // +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="URL",type="string",JSONPath=".status.url"
+// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
+// +kubebuilder:resource:path=trainedmodel,shortName=tm
 type TrainedModel struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -39,19 +45,28 @@ type TrainedModelList struct {
 	Items []TrainedModel `json:"items"`
 }
 
+// TrainedModelSpec defines the trained model spec
 type TrainedModelSpec struct {
-	// Required field for parent inference service
+	// parent inference service to deploy to
+	// +required
 	InferenceService string `json:"inferenceService"`
 	// Predictor model spec
+	// +required
 	PredictorModel ModelSpec `json:"predictorModel"`
 }
 
+// ModelSpec describes a trained model
 type ModelSpec struct {
 	// Storage URI for the model repository
 	StorageURI string `json:"storageUri"`
 	// Machine Learning <framework name>
 	// The values could be: "tensorflow","pytorch","sklearn","onnx","xgboost", "myawesomeinternalframework" etc.
 	Framework string `json:"framework"`
+	// Framework version for trained model
+	// +optional
+	FrameworkVersion string `json:"frameworkVersion,omitempty"`
 	// Maximum memory this model will consume, this field is used to decide if a model server has enough memory to load this model.
+	// +optional
 	Memory resource.Quantity `json:"memory,omitempty"`
 }
+

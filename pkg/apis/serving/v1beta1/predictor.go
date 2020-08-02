@@ -44,7 +44,7 @@ type PredictorSpec struct {
 	XGBoost *XGBoostSpec `json:"xgboost,omitempty"`
 	// Spec for TFServing (https://github.com/tensorflow/serving)
 	Tensorflow *TFServingSpec `json:"tensorflow,omitempty"`
-	// Spec for TorchServe
+	// Spec for TorchServe (https://pytorch.org/serve)
 	PyTorch *TorchServeSpec `json:"pytorch,omitempty"`
 	// Spec for Triton Inference Server (https://github.com/NVIDIA/triton-inference-server)
 	Triton *TritonSpec `json:"triton,omitempty"`
@@ -61,6 +61,7 @@ type PredictorExtensionSpec struct {
 	// This field points to the location of the trained model which is mounted onto the pod.
 	StorageURI *string `json:"storageUri"`
 	// Runtime version of the predictor docker image
+	// +optional
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
 	// Container enables overrides for the predictor.
 	// Each framework will have different defaults that are populated in the underlying container spec.
@@ -97,7 +98,5 @@ func (i *InferenceService) GetPredictor() (Predictor, error) {
 
 // GetPredictorPodSpec returns the PodSpec for the Predictor
 func (i *InferenceService) GetPredictorPodSpec() v1.PodSpec {
-	p := i.Spec.Predictor.CustomPredictor.Spec
-	//p.Containers = i.GetPredictor().
-	return p
+	return i.Spec.Predictor.CustomPredictor.Spec
 }

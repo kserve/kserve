@@ -50,7 +50,7 @@ type ComponentExtensionSpec struct {
 	// TimeoutSeconds specifies the number of seconds to wait before timing out a request to the component.
 	// +optional
 	TimeoutSeconds int `json:"timeout,omitempty"`
-	// Activate request/response logging and configurations
+	// Activate request/response logging and logger configurations
 	// +optional
 	LoggerSpec *LoggerSpec `json:"logger,omitempty"`
 	// Activate request batching and batching configurations
@@ -58,43 +58,48 @@ type ComponentExtensionSpec struct {
 	Batcher *Batcher `json:"batcher,omitempty"`
 }
 
-// +kubebuilder:validation:Enum=all;request;response
 // LoggerType controls the scope of log publishing
+// +kubebuilder:validation:Enum=all;request;response
 type LoggerType string
 
 // LoggerType Enum
 const (
-	LogAll      LoggerType = "all"
-	LogRequest  LoggerType = "request"
+	// Logger mode to log both request and response
+	LogAll LoggerType = "all"
+	// Logger mode to log only request
+	LogRequest LoggerType = "request"
+	// Logger mode to log only response
 	LogResponse LoggerType = "response"
 )
 
-// LoggerSpec provides optional payload logging for all endpoints
-// +experimental
+// LoggerSpec specifies optional payload logging available for all components
 type LoggerSpec struct {
 	// URL to send logging events
 	// +optional
 	URL *string `json:"url,omitempty"`
-	// LoggerType [all, request, response]
+	// Specifies the scope of the loggers.
+	// Valid values are:
+	// - "all" (default): log both request and response;
+	// - "request": log only request;
+	// - "response": log only response
+	// +optional
 	Mode LoggerType `json:"mode,omitempty"`
 }
 
-// Batcher provides optional payload batcher for all endpoints
-// +experimental
+// Batcher specifies optional payload batching available for all components
 type Batcher struct {
-	// MaxBatchSize of batcher service
+	// Specifies the max number of requests to trigger a batch
 	// +optional
 	MaxBatchSize *int `json:"maxBatchSize,omitempty"`
-	// MaxLatency of batcher service
+	// Specifies the max latency to trigger a batch
 	// +optional
 	MaxLatency *int `json:"maxLatency,omitempty"`
-	// Timeout of batcher service
+	// Specifies the timeout of a batch
 	// +optional
 	Timeout *int `json:"timeout,omitempty"`
 }
 
-// InferenceService is the Schema for the inferenceservices API
-// +k8s:openapi-gen=true
+// InferenceService is the Schema for the InferenceServices API
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="URL",type="string",JSONPath=".status.url"

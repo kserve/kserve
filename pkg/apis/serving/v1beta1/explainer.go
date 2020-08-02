@@ -16,15 +16,91 @@ limitations under the License.
 
 package v1beta1
 
-import v1 "k8s.io/api/core/v1"
+import (
+	"fmt"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
+const (
+	// ExactlyOneExplainerViolatedError is a known error message
+	ExactlyOneExplainerViolatedError = "Exactly one of [Custom, Alibi] must be specified in ExplainerSpec"
+)
 
 // ExplainerSpec defines the container spec for a model explanation server,
 // The following fields follow a "1-of" semantic. Users must specify exactly one spec.
 type ExplainerSpec struct {
 	// Spec for alibi explainer
 	Alibi *AlibiExplainerSpec `json:"alibi,omitempty"`
-	// Passthrough to underlying Pods
-	*v1.PodTemplateSpec `json:",inline"`
+	// Pass through Pod fields or specify a custom container spec
+	*CustomExplainer `json:",inline"`
 	// Extensions available in all components
 	*ComponentExtensionSpec `json:",inline"`
+}
+
+// Explainer interface is implemented by all explainers
+// +kubebuilder:object:generate=false
+type Explainer interface {
+	GetContainer(metadata metav1.ObjectMeta, parallelism int, config *InferenceServicesConfig) *v1.Container
+	GetStorageUri() *string
+	Default(config *InferenceServicesConfig)
+	Validate(config *InferenceServicesConfig) error
+}
+
+// Returns a URI to the explainer. This URI is passed to the model-initializer via the ModelInitializerSourceUriInternalAnnotationKey
+func (e *ExplainerSpec) GetStorageUri() *string {
+	explainer, err := getExplainer(e)
+	if err != nil {
+		return nil
+	}
+	return explainer.GetStorageUri()
+}
+
+func (e *ExplainerSpec) GetContainer(metadata metav1.ObjectMeta, parallelism int, config *InferenceServicesConfig) *v1.Container {
+	explainer, err := getExplainer(e)
+	if err != nil {
+		return nil
+	}
+	return explainer.GetContainer(metadata, parallelism, config)
+}
+
+func (e *ExplainerSpec) ApplyDefaults(config *InferenceServicesConfig) {
+	explainer, err := getExplainer(e)
+	if err == nil {
+		explainer.Default(config)
+	}
+}
+
+func (e *ExplainerSpec) Validate(config *InferenceServicesConfig) error {
+	explainer, err := getExplainer(e)
+	if err != nil {
+		return err
+	}
+	for _, err := range []error{
+		explainer.Validate(config),
+		validateStorageURI(e.GetStorageUri()),
+		validateContainerConcurrency(e.ContainerConcurrency),
+		validateReplicas(e.MinReplicas, e.MaxReplicas),
+		validateLogger(e.LoggerSpec),
+	} {
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func getExplainer(explainerSpec *ExplainerSpec) (Explainer, error) {
+	handlers := []Explainer{}
+	if explainerSpec.CustomExplainer != nil {
+		handlers = append(handlers, explainerSpec.CustomExplainer)
+	}
+	if explainerSpec.Alibi != nil {
+		handlers = append(handlers, explainerSpec.Alibi)
+	}
+	if len(handlers) != 1 {
+		err := fmt.Errorf(ExactlyOneExplainerViolatedError)
+		return nil, err
+	}
+	return handlers[0], nil
 }

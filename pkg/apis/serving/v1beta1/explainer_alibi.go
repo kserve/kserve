@@ -16,7 +16,13 @@ limitations under the License.
 
 package v1beta1
 
-import v1 "k8s.io/api/core/v1"
+import (
+	"github.com/kubeflow/kfserving/pkg/constants"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sort"
+	"strconv"
+)
 
 // AlibiExplainerType is the explanation method
 type AlibiExplainerType string
@@ -42,4 +48,58 @@ type AlibiExplainerSpec struct {
 	Resources v1.ResourceRequirements `json:"resources,omitempty"`
 	// Inline custom parameter settings for explainer
 	Config map[string]string `json:"config,omitempty"`
+}
+
+func (alibi *AlibiExplainerSpec) GetStorageUri() *string {
+	return &alibi.StorageURI
+}
+
+func (alibi *AlibiExplainerSpec) GetResourceRequirements() *v1.ResourceRequirements {
+	// return the ResourceRequirements value if set on the spec
+	return &alibi.Resources
+}
+
+func (alibi *AlibiExplainerSpec) GetContainer(metadata metav1.ObjectMeta, parallelism int, config *InferenceServicesConfig) *v1.Container {
+	var args = []string{
+		constants.ArgumentModelName, metadata.Name,
+		constants.ArgumentPredictorHost, constants.PredictorURL(metadata, false),
+		constants.ArgumentHttpPort, constants.InferenceServiceDefaultHttpPort,
+	}
+	if parallelism != 0 {
+		args = append(args, constants.ArgumentWorkers, strconv.Itoa(parallelism))
+	}
+	if alibi.StorageURI != "" {
+		args = append(args, "--storage_uri", constants.DefaultModelLocalMountPath)
+	}
+
+	args = append(args, string(alibi.Type))
+
+	// Order explainer config map keys
+	var keys []string
+	for k, _ := range alibi.Config {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		args = append(args, "--"+k)
+		args = append(args, alibi.Config[k])
+	}
+
+	return &v1.Container{
+		Image:     config.Explainers.AlibiExplainer.ContainerImage + ":" + alibi.RuntimeVersion,
+		Name:      constants.InferenceServiceContainerName,
+		Resources: alibi.Resources,
+		Args:      args,
+	}
+}
+
+func (alibi *AlibiExplainerSpec) Default(config *InferenceServicesConfig) {
+	if alibi.RuntimeVersion == "" {
+		alibi.RuntimeVersion = config.Explainers.AlibiExplainer.DefaultImageVersion
+	}
+	setResourceRequirementDefaults(&alibi.Resources)
+}
+
+func (alibi *AlibiExplainerSpec) Validate(config *InferenceServicesConfig) error {
+	return nil
 }

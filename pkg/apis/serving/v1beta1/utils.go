@@ -72,29 +72,29 @@ func toCoreResourceRequirements(rr *v1.ResourceRequirements) *v1.ResourceRequire
 	return resourceRequirements
 }
 
-func validateStorageURI(storageURI string) error {
-	if storageURI == "" {
+func validateStorageURI(storageURI *string) error {
+	if storageURI == nil {
 		return nil
 	}
 
 	// local path (not some protocol?)
-	if !regexp.MustCompile("\\w+?://").MatchString(storageURI) {
+	if !regexp.MustCompile("\\w+?://").MatchString(*storageURI) {
 		return nil
 	}
 
 	// one of the prefixes we know?
 	for _, prefix := range SupportedStorageURIPrefixList {
-		if strings.HasPrefix(storageURI, prefix) {
+		if strings.HasPrefix(*storageURI, prefix) {
 			return nil
 		}
 	}
 
 	azureURIMatcher := regexp.MustCompile(AzureBlobURIRegEx)
-	if parts := azureURIMatcher.FindStringSubmatch(storageURI); parts != nil {
+	if parts := azureURIMatcher.FindStringSubmatch(*storageURI); parts != nil {
 		return nil
 	}
 
-	return fmt.Errorf(UnsupportedStorageURIFormatError, strings.Join(SupportedStorageURIPrefixList, ", "), storageURI)
+	return fmt.Errorf(UnsupportedStorageURIFormatError, strings.Join(SupportedStorageURIPrefixList, ", "), *storageURI)
 }
 
 func validateReplicas(minReplicas *int, maxReplicas int) error {
@@ -113,8 +113,8 @@ func validateReplicas(minReplicas *int, maxReplicas int) error {
 	return nil
 }
 
-func validateParallelism(parallelism int) error {
-	if parallelism < 0 {
+func validateContainerConcurrency(concurrency int) error {
+	if concurrency < 0 {
 		return fmt.Errorf(ParallelismLowerBoundExceededError)
 	}
 	return nil
@@ -129,4 +129,13 @@ func GetIntReference(number int) *int {
 func isGPUEnabled(requirements v1.ResourceRequirements) bool {
 	_, ok := requirements.Limits[constants.NvidiaGPUResourceType]
 	return ok
+}
+
+func validateLogger(logger *LoggerSpec) error {
+	if logger != nil {
+		if !(logger.Mode == LogAll || logger.Mode == LogRequest || logger.Mode == LogResponse) {
+			return fmt.Errorf(InvalidLoggerType)
+		}
+	}
+	return nil
 }

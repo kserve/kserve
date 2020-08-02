@@ -17,8 +17,10 @@ limitations under the License.
 package v1beta1
 
 import (
+	"fmt"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	v1 "k8s.io/api/core/v1"
+	"strings"
 )
 
 var (
@@ -39,6 +41,13 @@ type TFServingSpec struct {
 
 // Validate returns an error if invalid
 func (t *TFServingSpec) Validate() error {
+	if isGPUEnabled(t.Resources) && !strings.Contains(t.RuntimeVersion, TensorflowServingGPUSuffix) {
+		return fmt.Errorf(InvalidTensorflowRuntimeIncludesGPU)
+	}
+
+	if !isGPUEnabled(t.Resources) && strings.Contains(t.RuntimeVersion, TensorflowServingGPUSuffix) {
+		return fmt.Errorf(InvalidTensorflowRuntimeExcludesGPU)
+	}
 	return nil
 }
 
@@ -70,7 +79,8 @@ func (t *TFServingSpec) GetContainer(modelName string, config *InferenceServices
 	if t.Container.Image == "" {
 		t.Container.Image = config.Predictors.Tensorflow.ContainerImage + ":" + t.RuntimeVersion
 	}
-	t.Container.Command = []string{TensorflowEntrypointCommand}
+	t.Container.Name = constants.InferenceServiceContainerName
 	t.Container.Args = arguments
+	t.Container.Command = []string{TensorflowEntrypointCommand}
 	return &t.Container
 }

@@ -25,6 +25,7 @@ const (
 	MaxReplicasLowerBoundExceededError  = "MaxReplicas cannot be less than 0."
 	ParallelismLowerBoundExceededError  = "Parallelism cannot be less than 0."
 	UnsupportedStorageURIFormatError    = "storageUri, must be one of: [%s] or match https://{}.blob.core.windows.net/{}/{} or be an absolute or relative local path. StorageUri [%s] is not supported."
+	InvalidLoggerType                   = "Invalid logger type"
 )
 
 var (

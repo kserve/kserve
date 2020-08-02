@@ -20,6 +20,7 @@ import (
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 )
 
+// TrainedModelStatus defines the observed state of TrainedModel
 type TrainedModelStatus struct {
 	// Condition for "Deployed"
 	duckv1.Status `json:",inline"`
