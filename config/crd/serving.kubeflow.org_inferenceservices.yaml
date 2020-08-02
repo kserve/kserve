@@ -7262,7 +7262,6 @@ spec:
                         type: string
                     required:
                     - name
-                    - storageUri
                     type: object
                   parallelism:
                     type: integer
@@ -7805,7 +7804,6 @@ spec:
                         type: string
                     required:
                     - name
-                    - storageUri
                     type: object
                   sklearn:
                     properties:
@@ -8344,7 +8342,6 @@ spec:
                         type: string
                     required:
                     - name
-                    - storageUri
                     type: object
                   spec:
                     properties:
@@ -11561,7 +11558,6 @@ spec:
                         type: string
                     required:
                     - name
-                    - storageUri
                     type: object
                   timeout:
                     type: integer
@@ -12102,7 +12098,6 @@ spec:
                         type: string
                     required:
                     - name
-                    - storageUri
                     type: object
                   xgboost:
                     properties:
@@ -12641,7 +12636,6 @@ spec:
                         type: string
                     required:
                     - name
-                    - storageUri
                     type: object
                 type: object
               transformer:

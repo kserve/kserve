@@ -23,7 +23,9 @@ import (
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/components"
 	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/reconcilers/knative"
+	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/reconcilers/multimodelconfig"
 	knativeres "github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/resources/knative"
+	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/trainedmodel/shard"
 	"github.com/kubeflow/kfserving/pkg/credentials"
 	"github.com/kubeflow/kfserving/pkg/utils"
 	v1 "k8s.io/api/core/v1"
@@ -68,6 +70,7 @@ func NewPredictor(client client.Client, scheme *runtime.Scheme, config *v1.Confi
 func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
 	propagateStatusFn := isvc.Status.PropagateStatus
 
+	//Reconcile knative service
 	var service *knservingv1.Service
 	var err error
 	service, err = p.CreatePredictorService(isvc)
@@ -89,6 +92,7 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
 
 func (p *Predictor) CreatePredictorService(isvc *v1beta1.InferenceService) (*knservingv1.Service, error) {
 	log := p.Log.WithValues("Predictor", isvc.Name)
+
 	predictor, err := isvc.GetPredictor()
 	if err != nil {
 		return nil, err
@@ -176,6 +180,11 @@ func (p *Predictor) CreatePredictorService(isvc *v1beta1.InferenceService) (*kns
 		},
 	}
 
+	err = mountMultiModelConfigMap(isvc, service)
+	if err != nil {
+		return nil, err
+	}
+
 	if err := p.credentialBuilder.CreateSecretVolumeAndEnv(
 		isvc.Namespace,
 		isvc.Spec.Predictor.CustomPredictor.Spec.ServiceAccountName,
@@ -186,4 +195,47 @@ func (p *Predictor) CreatePredictorService(isvc *v1beta1.InferenceService) (*kns
 	}
 
 	return service, nil
+}
+
+func mountMultiModelConfigMap(isvc *v1beta1.InferenceService, ksvc *knservingv1.Service) error {
+	//If InferenceService's storageUri is empty, create multi-model service configMap and
+	//mount it into this predictor's knative service
+	storageUri := isvc.Spec.Predictor.GetStorageUri()
+	if storageUri == nil || len(*storageUri) == 0 {
+		shardManager := shard.ShardManager{Strategy: shard.Memory}
+		for _, id := range shardManager.GetShardIdsForInferenceService(isvc) {
+			multiModelConfigMap, err := multimodelconfig.CreateEmptyMultiModelConfigMap(isvc, id)
+			if err == nil {
+
+				multiModelConfigVolume := v1.Volume{
+					Name: constants.MultiModelConfigVolumeName,
+					VolumeSource: v1.VolumeSource{
+						ConfigMap: &v1.ConfigMapVolumeSource{},
+					},
+				}
+				multiModelConfigVolume.ConfigMap.Name = multiModelConfigMap.Name
+				// Mount the multi-model configmap to ksvc if not already mounted
+				ksvc.Spec.Template.Spec.Volumes = mountVolumeIfNotExist(ksvc.Spec.Template.Spec.Volumes, multiModelConfigVolume)
+				//TODO mount multi-model configmap in the the knative user container
+			} else {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+
+func mountVolumeIfNotExist(existingVolumes []v1.Volume, additionalVolume v1.Volume) []v1.Volume {
+	if existingVolumes == nil {
+		existingVolumes = []v1.Volume{}
+	}
+	for _, volume := range existingVolumes {
+		if volume.Name == additionalVolume.Name {
+			//additionalVolume exists
+			return existingVolumes
+		}
+	}
+	updatedVolumes := append(existingVolumes, additionalVolume)
+	return updatedVolumes
 }

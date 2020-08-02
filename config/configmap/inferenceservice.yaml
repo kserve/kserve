@@ -9,28 +9,60 @@ data:
         "tensorflow": {
             "image": "tensorflow/serving",
             "defaultImageVersion": "1.14.0",
-            "defaultGpuImageVersion": "1.14.0-gpu"
+            "defaultGpuImageVersion": "1.14.0-gpu",
+            "supportedFrameworks": [
+              "tensorflow"
+            ],
+            "multiModelServer": "true"
         },
         "onnx": {
             "image": "mcr.microsoft.com/onnxruntime/server",
-            "defaultImageVersion": "v1.0.0"
+            "defaultImageVersion": "v1.0.0",
+            "supportedFrameworks": [
+              "xgboost",
+              "pytorch",
+              "tensorflow",
+              "sklearn",
+              "caffe2"
+            ],
+            "multiModelServer": "false"
         },
         "sklearn": {
             "image": "gcr.io/kfserving/sklearnserver",
-            "defaultImageVersion": "v0.4.0"
+            "defaultImageVersion": "v0.3.0",
+            "supportedFrameworks": [
+              "sklearn"
+            ],
+            "multiModelServer": "false"
         },
         "xgboost": {
             "image": "gcr.io/kfserving/xgbserver",
-            "defaultImageVersion": "v0.4.0"
+            "defaultImageVersion": "v0.3.0",
+            "supportedFrameworks": [
+              "xgboost"
+            ],
+            "multiModelServer": "false"
         },
         "pytorch": {
             "image": "gcr.io/kfserving/pytorchserver",
-            "defaultImageVersion": "v0.4.0",
-            "defaultGpuImageVersion": "v0.4.0-gpu"
+            "defaultImageVersion": "v0.3.0",
+            "defaultGpuImageVersion": "v0.3.0-gpu",
+            "supportedFrameworks": [
+              "pytorch"
+            ],
+            "multiModelServer": "false"
         },
         "triton": {
             "image": "nvcr.io/nvidia/tritonserver",
-            "defaultImageVersion": "20.03-py3"
+            "defaultImageVersion": "20.03-py3",
+            "supportedFrameworks": [
+              "tensorrt",
+              "tensorflow",
+              "onnx",
+              "pytorch",
+              "caffe2"
+            ],
+            "multiModelServer": "true"
         }
     }
   transformers: |-
