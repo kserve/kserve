@@ -23,6 +23,7 @@ import (
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/components"
 	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/components/predictor"
+	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/reconcilers/configmap"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -30,6 +31,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	"knative.dev/pkg/apis"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"time"
 
 	"github.com/go-logr/logr"
 	v1beta1api "github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
@@ -94,6 +96,12 @@ func (r *InferenceServiceReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 	if err = r.updateStatus(isvc); err != nil {
 		r.Recorder.Eventf(isvc, v1.EventTypeWarning, "InternalError", err.Error())
 		return reconcile.Result{}, err
+	}
+
+	//Reconcile multi-model configmap
+	configMapReconciler := configmap.NewConfigMapReconciler(r.Client, r.Scheme)
+	if err := configMapReconciler.Reconcile(isvc, req); err != nil {
+		return reconcile.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
 	}
 
 	return ctrl.Result{}, nil
