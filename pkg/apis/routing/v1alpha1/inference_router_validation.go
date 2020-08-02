@@ -17,5 +17,5 @@ limitations under the License.
 package v1alpha1
 
 // Validate the resource
-func (i *InferenceRouter) Validate() {
+func (irouter *InferenceRouter) Validate() {
 }

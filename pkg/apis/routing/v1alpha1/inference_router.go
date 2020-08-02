@@ -18,6 +18,7 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 )
 
 // InferenceRouterSpec is the top level type for this resource
@@ -35,16 +36,37 @@ type InferenceRouterSpec struct {
 	MultiArmBandit *MultiArmBanditSpec `json:"multiArmBandit,omitempty"`
 	// +optional
 	Ensemble *EnsembleSpec `json:"ensemble,omitempty"`
-	// +optional
-	Pipeline *PipelineSpec `json:"pipeline,omitempty"`
 }
 
 // RouteSpec defines the available routes in this router. Route functions reference routes by Name
 type RouteSpec struct {
 	// The name for the route
 	Name string `json:"name"`
-	// The URL of the route
-	URL string `json:"url"`
+	// The destination of the route
+	Destination duckv1.Destination `json:",inline"`
+	// The header keys must be lowercase and use hyphen as the separator,
+	// e.g. _x-request-id_.
+	//
+	// Header values are case-sensitive and formatted as follows:
+	//
+	// - `exact: "value"` for exact string match
+	//
+	// - `prefix: "value"` for prefix-based match
+	//
+	// - `regex: "value"` for ECMAscript style regex-based match
+	//
+	Headers map[string]*StringMatch `json:"headers,omitempty"`
+}
+
+// Describes how to match a given string in HTTP headers. Match is
+// case-sensitive and you can only do one-of the following string matching type
+type StringMatch struct {
+	// Exact string match
+	Exact string `json:"exact,omitempty"`
+	// Prefix-based string match
+	Prefix string `json:"prefix,omitempty"`
+	// Regex-based string match
+	Regex string `json:"regex,omitempty"`
 }
 
 // InferenceRouter is the Schema for the routers API

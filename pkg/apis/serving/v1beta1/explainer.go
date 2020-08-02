@@ -44,12 +44,12 @@ type Explainer interface {
 	GetContainer(metadata metav1.ObjectMeta, parallelism int, config *InferenceServicesConfig) *v1.Container
 	GetStorageUri() *string
 	Default(config *InferenceServicesConfig)
-	Validate(config *InferenceServicesConfig) error
+	Validate() error
 }
 
 // Returns a URI to the explainer. This URI is passed to the model-initializer via the ModelInitializerSourceUriInternalAnnotationKey
 func (e *ExplainerSpec) GetStorageUri() *string {
-	explainer, err := getExplainer(e)
+	explainer, err := e.GetExplainer()
 	if err != nil {
 		return nil
 	}
@@ -57,27 +57,20 @@ func (e *ExplainerSpec) GetStorageUri() *string {
 }
 
 func (e *ExplainerSpec) GetContainer(metadata metav1.ObjectMeta, parallelism int, config *InferenceServicesConfig) *v1.Container {
-	explainer, err := getExplainer(e)
+	explainer, err := e.GetExplainer()
 	if err != nil {
 		return nil
 	}
 	return explainer.GetContainer(metadata, parallelism, config)
 }
 
-func (e *ExplainerSpec) ApplyDefaults(config *InferenceServicesConfig) {
-	explainer, err := getExplainer(e)
-	if err == nil {
-		explainer.Default(config)
-	}
-}
-
 func (e *ExplainerSpec) Validate(config *InferenceServicesConfig) error {
-	explainer, err := getExplainer(e)
+	explainer, err := e.GetExplainer()
 	if err != nil {
 		return err
 	}
 	for _, err := range []error{
-		explainer.Validate(config),
+		explainer.Validate(),
 		validateStorageURI(e.GetStorageUri()),
 		validateContainerConcurrency(e.ContainerConcurrency),
 		validateReplicas(e.MinReplicas, e.MaxReplicas),
@@ -90,13 +83,13 @@ func (e *ExplainerSpec) Validate(config *InferenceServicesConfig) error {
 	return nil
 }
 
-func getExplainer(explainerSpec *ExplainerSpec) (Explainer, error) {
+func (e *ExplainerSpec) GetExplainer() (Explainer, error) {
 	handlers := []Explainer{}
-	if explainerSpec.CustomExplainer != nil {
-		handlers = append(handlers, explainerSpec.CustomExplainer)
+	if e.CustomExplainer != nil {
+		handlers = append(handlers, e.CustomExplainer)
 	}
-	if explainerSpec.Alibi != nil {
-		handlers = append(handlers, explainerSpec.Alibi)
+	if e.Alibi != nil {
+		handlers = append(handlers, e.Alibi)
 	}
 	if len(handlers) != 1 {
 		err := fmt.Errorf(ExactlyOneExplainerViolatedError)

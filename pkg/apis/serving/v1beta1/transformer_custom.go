@@ -33,12 +33,12 @@ type CustomTransformer struct {
 }
 
 // Validate returns an error if invalid
-func (c *CustomTransformer) Validate(config *InferenceServicesConfig) error {
+func (c *CustomTransformer) Validate() error {
 	return nil
 }
 
 // Default sets defaults on the resource
-func (c *CustomTransformer) Default(config *InferenceServicesConfig) {
+func (c *CustomTransformer) Default() {
 	c.Name = constants.InferenceServiceContainerName
 	setResourceRequirementDefaults(&c.Spec.Containers[0].Resources)
 }

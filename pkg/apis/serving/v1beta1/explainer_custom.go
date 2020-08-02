@@ -33,7 +33,7 @@ type CustomExplainer struct {
 }
 
 // Validate returns an error if invalid
-func (c *CustomExplainer) Validate(config *InferenceServicesConfig) error {
+func (c *CustomExplainer) Validate() error {
 	return nil
 }
 

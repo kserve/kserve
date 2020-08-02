@@ -70,33 +70,56 @@ type PredictorExtensionSpec struct {
 }
 
 // GetPredictor returns the framework for the Predictor
-func (i *InferenceService) GetPredictor() (Predictor, error) {
-	if i.Spec.Predictor.Tensorflow != nil {
-		return i.Spec.Predictor.Tensorflow, nil
+func (p *PredictorSpec) GetPredictor() (Predictor, error) {
+	predictors := []Predictor{}
+	if p.CustomPredictor != nil {
+		predictors = append(predictors, p.CustomPredictor)
 	}
-	if i.Spec.Predictor.SKLearn != nil {
-		return i.Spec.Predictor.SKLearn, nil
+	if p.XGBoost != nil {
+		predictors = append(predictors, p.XGBoost)
 	}
-	if i.Spec.Predictor.XGBoost != nil {
-		return i.Spec.Predictor.XGBoost, nil
+	if p.SKLearn != nil {
+		predictors = append(predictors, p.SKLearn)
 	}
-	if i.Spec.Predictor.ONNX != nil {
-		return i.Spec.Predictor.ONNX, nil
+	if p.Tensorflow != nil {
+		predictors = append(predictors, p.Tensorflow)
 	}
-	if i.Spec.Predictor.PyTorch != nil {
-		return i.Spec.Predictor.PyTorch, nil
+	if p.ONNX != nil {
+		predictors = append(predictors, p.ONNX)
 	}
-	if i.Spec.Predictor.Triton != nil {
-		return i.Spec.Predictor.Triton, nil
+	if p.PyTorch != nil {
+		predictors = append(predictors, p.PyTorch)
 	}
-	if i.Spec.Predictor.CustomPredictor != nil {
-		return i.Spec.Predictor.CustomPredictor, nil
+	if p.Triton != nil {
+		predictors = append(predictors, p.Triton)
 	}
-	err := fmt.Errorf(ExactlyOnePredictorViolatedError)
-	return nil, err
+	if len(predictors) != 1 {
+		err := fmt.Errorf(ExactlyOnePredictorViolatedError)
+		return nil, err
+	}
+	return predictors[0], nil
 }
 
 // GetPredictorPodSpec returns the PodSpec for the Predictor
-func (i *InferenceService) GetPredictorPodSpec() v1.PodSpec {
-	return i.Spec.Predictor.CustomPredictor.Spec
+func (p *PredictorSpec) GetPredictorPodSpec() v1.PodSpec {
+	return p.CustomPredictor.Spec
+}
+
+func (p *PredictorSpec) Validate(config *InferenceServicesConfig) error {
+	predictor, err := p.GetPredictor()
+	if err != nil {
+		return err
+	}
+	for _, err := range []error{
+		predictor.Validate(),
+		validateStorageURI(p.GetStorageUri()),
+		validateContainerConcurrency(p.ContainerConcurrency),
+		validateReplicas(p.MinReplicas, p.MaxReplicas),
+		validateLogger(p.LoggerSpec),
+	} {
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }

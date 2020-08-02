@@ -16,7 +16,14 @@ limitations under the License.
 
 package v1beta1
 
-import "sigs.k8s.io/controller-runtime/pkg/client"
+import (
+	"fmt"
+	"github.com/kubeflow/kfserving/pkg/constants"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"regexp"
+	"strings"
+)
 
 // Known error messages
 const (
@@ -33,7 +40,126 @@ var (
 	AzureBlobURIRegEx             = "https://(.+?).blob.core.windows.net/(.+)"
 )
 
-// Validate the resource
-func (i *InferenceService) Validate(client client.Client) {
-	//i.GetPredictor().Validate()
+// ValidateCreate implements webhook.Validator so a webhook will be registered for the type
+func (isvc *InferenceService) ValidateCreate() error {
+	log.Info("validate create", "name", isvc.Name)
+
+	predictor, err := isvc.Spec.Predictor.GetPredictor()
+	if err != nil {
+		return err
+	}
+	if err = predictor.Validate(); err != nil {
+		return err
+	}
+	transformer, err := isvc.Spec.Transformer.GetTransformer()
+	if err != nil {
+		return err
+	}
+	if err = transformer.Validate(); err != nil {
+		return err
+	}
+	explainer, err := isvc.Spec.Explainer.GetExplainer()
+	if err != nil {
+		return err
+	}
+	if err = explainer.Validate(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
+func (isvc *InferenceService) ValidateUpdate(old runtime.Object) error {
+	log.Info("validate update", "name", isvc.Name)
+
+	predictor, err := isvc.Spec.Predictor.GetPredictor()
+	if err != nil {
+		return err
+	}
+	if err = predictor.Validate(); err != nil {
+		return err
+	}
+	transformer, err := isvc.Spec.Transformer.GetTransformer()
+	if err != nil {
+		return err
+	}
+	if err = transformer.Validate(); err != nil {
+		return err
+	}
+	explainer, err := isvc.Spec.Explainer.GetExplainer()
+	if err != nil {
+		return err
+	}
+	if err = explainer.Validate(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// ValidateDelete implements webhook.Validator so a webhook will be registered for the type
+func (isvc *InferenceService) ValidateDelete() error {
+	log.Info("validate delete", "name", isvc.Name)
+	return nil
+}
+
+func validateStorageURI(storageURI *string) error {
+	if storageURI == nil {
+		return nil
+	}
+
+	// local path (not some protocol?)
+	if !regexp.MustCompile("\\w+?://").MatchString(*storageURI) {
+		return nil
+	}
+
+	// one of the prefixes we know?
+	for _, prefix := range SupportedStorageURIPrefixList {
+		if strings.HasPrefix(*storageURI, prefix) {
+			return nil
+		}
+	}
+
+	azureURIMatcher := regexp.MustCompile(AzureBlobURIRegEx)
+	if parts := azureURIMatcher.FindStringSubmatch(*storageURI); parts != nil {
+		return nil
+	}
+
+	return fmt.Errorf(UnsupportedStorageURIFormatError, strings.Join(SupportedStorageURIPrefixList, ", "), *storageURI)
+}
+
+func validateReplicas(minReplicas *int, maxReplicas int) error {
+	if minReplicas == nil {
+		minReplicas = &constants.DefaultMinReplicas
+	}
+	if *minReplicas < 0 {
+		return fmt.Errorf(MinReplicasLowerBoundExceededError)
+	}
+	if maxReplicas < 0 {
+		return fmt.Errorf(MaxReplicasLowerBoundExceededError)
+	}
+	if *minReplicas > maxReplicas && maxReplicas != 0 {
+		return fmt.Errorf(MinReplicasShouldBeLessThanMaxError)
+	}
+	return nil
+}
+
+func validateContainerConcurrency(concurrency int) error {
+	if concurrency < 0 {
+		return fmt.Errorf(ParallelismLowerBoundExceededError)
+	}
+	return nil
+}
+
+func isGPUEnabled(requirements v1.ResourceRequirements) bool {
+	_, ok := requirements.Limits[constants.NvidiaGPUResourceType]
+	return ok
+}
+
+func validateLogger(logger *LoggerSpec) error {
+	if logger != nil {
+		if !(logger.Mode == LogAll || logger.Mode == LogRequest || logger.Mode == LogResponse) {
+			return fmt.Errorf(InvalidLoggerType)
+		}
+	}
+	return nil
 }

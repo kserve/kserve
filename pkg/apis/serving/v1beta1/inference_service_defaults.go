@@ -17,12 +17,41 @@ limitations under the License.
 package v1beta1
 
 import (
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
 
 var logger = logf.Log.WithName("kfserving-v1beta1-defaulter")
+
+var (
+	defaultResource = v1.ResourceList{
+		v1.ResourceCPU:    resource.MustParse("1"),
+		v1.ResourceMemory: resource.MustParse("2Gi"),
+	}
+)
+
+func setResourceRequirementDefaults(requirements *v1.ResourceRequirements) {
+	if requirements.Requests == nil {
+		requirements.Requests = v1.ResourceList{}
+	}
+	for k, v := range defaultResource {
+		if _, ok := requirements.Requests[k]; !ok {
+			requirements.Requests[k] = v
+		}
+	}
+
+	if requirements.Limits == nil {
+		requirements.Limits = v1.ResourceList{}
+	}
+	for k, v := range defaultResource {
+		if _, ok := requirements.Limits[k]; !ok {
+			requirements.Limits[k] = v
+		}
+	}
+}
 
 func (isvc *InferenceService) Default() {
 	logger.Info("Defaulting InferenceService", "namespace", isvc.Namespace, "name", isvc.Name)
@@ -35,15 +64,19 @@ func (isvc *InferenceService) Default() {
 	if err != nil {
 		panic(err)
 	}
-	if predictor, err := isvc.GetPredictor(); err == nil {
+	if predictor, err := isvc.Spec.Predictor.GetPredictor(); err == nil {
 		predictor.Default(configMap)
 	}
 
 	if isvc.Spec.Transformer != nil {
-		isvc.Spec.Transformer.Default(configMap)
+		if transformer, err := isvc.Spec.Transformer.GetTransformer(); err == nil {
+			transformer.Default()
+		}
 	}
 
 	if isvc.Spec.Explainer != nil {
-		isvc.Spec.Explainer.Default(configMap)
+		if explainer, err := isvc.Spec.Explainer.GetExplainer(); err == nil {
+			explainer.Default(configMap)
+		}
 	}
 }
