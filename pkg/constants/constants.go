@@ -69,7 +69,7 @@ var (
 	DefaultExplainerTimeout   int64 = 300
 	DefaultReadinessTimeout   int32 = 600
 	DefaultScalingTarget            = "1"
-	DefaultMinReplicas              = 1
+	DefaultMinReplicas        int   = 1
 )
 
 // Webhook Constants

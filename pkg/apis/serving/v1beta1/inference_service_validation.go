@@ -163,3 +163,9 @@ func validateLogger(logger *LoggerSpec) error {
 	}
 	return nil
 }
+
+// GetIntReference returns the pointer for the integer input
+func GetIntReference(number int) *int {
+	num := number
+	return &num
+}
