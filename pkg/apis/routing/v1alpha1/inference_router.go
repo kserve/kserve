@@ -26,18 +26,30 @@ import (
 type InferenceRouterSpec struct {
 	// Routes is a list of route which can receive traffic
 	// All routes are expected to have an equivalent data plane interface
+	// RouteSpec is validated based on RouterType
 	// +required
 	Routes []RouteSpec `json:"routes"`
+	// Splitter splits the traffic among multiple routes, the number of routes should be equal to the
+	// the elements in weight array and the weights should sum to 100.
 	// +optional
 	Splitter *SplitterSpec `json:"splitter,omitempty"`
+	// AB testing between new and old model and compare the performance based on predefined metric.
 	// +optional
 	ABTest *ABTestSpec `json:"abTest,omitempty"`
+	// MultiArmBandit is an inference router node which routes traffic to the best model most of time,
+	// it also explores the other models, e.g epsilon greedy strategy routes to a random model with
+	// probability e and best model with probability 1-e.
 	// +optional
 	MultiArmBandit *MultiArmBanditSpec `json:"multiArmBandit,omitempty"`
+	// Ensemble is an inference router node which can combine results from previous steps
 	// +optional
 	Ensemble *EnsembleSpec `json:"ensemble,omitempty"`
+	// Pipeline defines a series of steps which are depending on previous step.
+	// Only one root node is allowed and all other routes should specify dependencies with the consumes field.
+	// The graph should form a valid DAG, no cycles are allowed, branches are allowed but they needs
+	// be mutually exclusive. Each route on the pipeline can be either an InferenceService or an Inference Router.
 	// +optional
-    Pipeline *PipelineSpec `json:"pipeline,omitempty"`
+	Pipeline *PipelineSpec `json:"pipeline,omitempty"`
 }
 
 // RouteSpec defines the available routes in this router. Route functions reference routes by Name
