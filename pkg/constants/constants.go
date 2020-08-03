@@ -219,10 +219,6 @@ func DefaultServiceName(name string, component InferenceServiceComponent) string
 	return name + "-" + component.String() + "-" + InferenceServiceDefault
 }
 
-func DefaultMultiModelConfigMapName(inferenceserviceName string) string {
-	return "multiModelConfig" + "-" + inferenceserviceName
-}
-
 func CanaryServiceName(name string, component InferenceServiceComponent) string {
 	return name + "-" + component.String() + "-" + InferenceServiceCanary
 }
