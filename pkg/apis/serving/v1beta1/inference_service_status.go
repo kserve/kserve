@@ -60,8 +60,12 @@ const (
 
 // ConditionType represents a Service condition value
 const (
-	// RoutesReady is set when network configuration has completed.
-	RoutesReady apis.ConditionType = "RoutesReady"
+	// PredictorRoutesReady is set when network configuration has completed.
+	PredictorRouteReady apis.ConditionType = "PredictorRouteReady"
+	// TransformerRoutesReady is set when network configuration has completed.
+	TransformerRouteReady apis.ConditionType = "TransformerRouteReady"
+	// ExplainerRoutesReady is set when network configuration has completed.
+	ExplainerRoutesReady apis.ConditionType = "ExplainerRoutesReady"
 	// PredictorReady is set when predictor has reported readiness.
 	PredictorReady apis.ConditionType = "PredictorReady"
 	// TransformerReady is set when transformer has reported readiness.
@@ -76,12 +80,16 @@ var conditionsMap = map[ComponentType]apis.ConditionType{
 	TransformerComponent: TransformerReady,
 }
 
-// InferenceService Ready condition is depending on default predictor and route readiness condition
-// canary readiness condition only present when canary is used and currently does
-// not affect InferenceService readiness condition.
+var routeConditionsMap = map[ComponentType]apis.ConditionType{
+	PredictorComponent:   PredictorRouteReady,
+	ExplainerComponent:   ExplainerRoutesReady,
+	TransformerComponent: TransformerRouteReady,
+}
+
+// InferenceService Ready condition is depending on predictor and route readiness condition
 var conditionSet = apis.NewLivingConditionSet(
 	PredictorReady,
-	RoutesReady,
+	PredictorRouteReady,
 )
 
 var _ apis.ConditionsAccessor = (*InferenceServiceStatus)(nil)
@@ -108,22 +116,36 @@ func (ss *InferenceServiceStatus) PropagateStatus(component ComponentType, servi
 	if !ok {
 		ss.Components[component] = ComponentStatusSpec{}
 	}
-	conditionType := conditionsMap[component]
 	statusSpec.LatestCreatedRevision = serviceStatus.LatestCreatedRevisionName
 	statusSpec.LatestReadyRevision = serviceStatus.LatestReadyRevisionName
+	// propagate overall service condition
 	serviceCondition := serviceStatus.GetCondition(knservingv1.ServiceConditionReady)
-
-	switch {
-	case serviceCondition == nil:
-	case serviceCondition.Status == v1.ConditionUnknown:
-		conditionSet.Manage(ss).MarkUnknown(conditionType, serviceCondition.Reason, serviceCondition.Message)
-	case serviceCondition.Status == v1.ConditionTrue:
-		conditionSet.Manage(ss).MarkTrue(conditionType)
+	if serviceCondition != nil && serviceCondition.Status == v1.ConditionTrue {
 		if serviceStatus.URL != nil {
 			statusSpec.Address = serviceStatus.Address
 		}
-	case serviceCondition.Status == v1.ConditionFalse:
-		conditionSet.Manage(ss).MarkFalse(conditionType, serviceCondition.Reason, serviceCondition.Message)
 	}
+	ss.setCondition(knservingv1.ServiceConditionReady, serviceCondition)
+	// propagate route condition for each component
+	routeCondition := serviceStatus.GetCondition(knservingv1.RouteConditionReady)
+	routeConditionType := conditionsMap[component]
+	ss.setCondition(routeConditionType, routeCondition)
+	// propagate configuration condition for each component
+	configurationCondition := serviceStatus.GetCondition(knservingv1.ConfigurationConditionReady)
+	configurationConditionType := conditionsMap[component]
+	ss.setCondition(configurationConditionType, configurationCondition)
+
 	ss.Components[component] = statusSpec
+}
+
+func (ss *InferenceServiceStatus) setCondition(conditionType apis.ConditionType, condition *apis.Condition) {
+	switch {
+	case condition == nil:
+	case condition.Status == v1.ConditionUnknown:
+		conditionSet.Manage(ss).MarkUnknown(conditionType, condition.Reason, condition.Message)
+	case condition.Status == v1.ConditionTrue:
+		conditionSet.Manage(ss).MarkTrue(conditionType)
+	case condition.Status == v1.ConditionFalse:
+		conditionSet.Manage(ss).MarkFalse(conditionType, condition.Reason, condition.Message)
+	}
 }
