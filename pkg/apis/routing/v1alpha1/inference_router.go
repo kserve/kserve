@@ -36,6 +36,8 @@ type InferenceRouterSpec struct {
 	MultiArmBandit *MultiArmBanditSpec `json:"multiArmBandit,omitempty"`
 	// +optional
 	Ensemble *EnsembleSpec `json:"ensemble,omitempty"`
+	// +optional
+    Pipeline *PipelineSpec `json:"pipeline,omitempty"`
 }
 
 // RouteSpec defines the available routes in this router. Route functions reference routes by Name
@@ -50,8 +52,11 @@ type RouteSpec struct {
 	// Header values are case-sensitive and formatted as follows:
 	// - `exact: "value"` for exact string match
 	// - `prefix: "value"` for prefix-based match
-	// - `regex: "value"` for ECMAscript style regex-based match
+	// - `regex: "value"` for regex-based match
 	Headers map[string]*StringMatch `json:"headers,omitempty"`
+	// This is a list of pipeline route names that should be executed before the current route.
+	// The field is only valid for pipeline routing type
+	Consumes []string `json:"consumes,omitempty"`
 }
 
 // Describes how to match a given string in HTTP headers. Match is

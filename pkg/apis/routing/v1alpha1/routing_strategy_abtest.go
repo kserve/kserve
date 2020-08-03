@@ -17,4 +17,5 @@ limitations under the License.
 package v1alpha1
 
 // ABTestSpec is TODO
-type ABTestSpec struct{}
+type ABTestSpec struct{
+}
