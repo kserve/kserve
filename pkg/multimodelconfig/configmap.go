@@ -2,22 +2,22 @@ package multimodelconfig
 
 import (
 	"encoding/json"
-	"github.com/kubeflow/kfserving/pkg/constants"
 	"k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/klog"
 )
 
 type MultiModelConfig struct {
-	fileName string
+	fileName    string
 	fileContent ModelDefinition
 }
 
 type ModelDefinition struct {
-	StorageUri string  `json:"storageUri"`
-	Framework string  `json:"framework"`
-	Memory string  `json:"memory"`
+	StorageUri string `json:"storageUri"`
+	Framework  string `json:"framework"`
+	Memory     string `json:"memory"`
 }
-//create ConfigMap
+
+//multi-model ConfigMap
 //apiVersion: v1
 //kind: ConfigMap
 //metadata:
@@ -36,22 +36,36 @@ type ModelDefinition struct {
 //      framework: sklearn
 //      memory: 2G
 //    }
-func CreateMultiModelConfigMap(modelNamespace string, inferenceServiceName string, multiModelConfig... MultiModelConfig) (*v1.ConfigMap, error) {
+
+func AddOrUpdateMultiModelConfigMap(configMap *v1.ConfigMap, multiModelConfig ...MultiModelConfig) error {
 	if data, err := convert(multiModelConfig...); err == nil {
-		configMap := v1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: constants.DefaultMultiModelConfigMapName(inferenceServiceName),
-				Namespace: modelNamespace,
-			},
-			Data: data,
+		if configMap.Data == nil {
+			configMap.Data = map[string]string{}
 		}
-		return &configMap, nil
+		for filename, modeldef := range data {
+			configMap.Data[filename] = modeldef
+		}
+		return nil
 	} else {
-		return nil, err
+		return err
 	}
 }
 
-func convert(from... MultiModelConfig) (map[string]string, error) {
+func DeleteMultiModelConfigMap(configMap *v1.ConfigMap, modelFileNames ...string) {
+	if configMap.Data == nil || len(configMap.Data) == 0 {
+		klog.Warningf("configmap %s data is empty, cannot remove models", configMap.Name)
+		return
+	}
+	for _, filename := range modelFileNames {
+		if _, ok := configMap.Data[filename]; ok {
+			delete(configMap.Data, filename)
+		} else {
+			klog.Warningf("%s does not exist in configmap %s", filename, configMap.Name)
+		}
+	}
+}
+
+func convert(from ...MultiModelConfig) (map[string]string, error) {
 	to := map[string]string{}
 	for _, mmcfg := range from {
 		if b, err := json.Marshal(&(mmcfg.fileContent)); err == nil {
@@ -62,7 +76,3 @@ func convert(from... MultiModelConfig) (map[string]string, error) {
 	}
 	return to, nil
 }
-
-//Update
-
-//Delete
