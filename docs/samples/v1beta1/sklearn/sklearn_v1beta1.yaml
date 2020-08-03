@@ -4,5 +4,5 @@ metadata:
   name: "sklearn-iris"
 spec:
   predictor:
-    kfserver:
+    sklearn:
       storageUri: "gs://kfserving-samples/models/sklearn/iris"
