@@ -49,7 +49,6 @@ type EventWrapper struct {
 	ModelDef *ModelDefinition
 	LoadState State
 	ModelName string
-	DownloadRetries int
 }
 func WatchConfig(modelDir string) {
 	log.Println("Entering watch")
@@ -91,20 +90,18 @@ func (w*Watcher) WatchConfig() {
 							w.onConfigChange(EventWrapper{
 								LoadState: ShouldUnload,
 								ModelName: fileName,
-								DownloadRetries: 0,
 							})
 						} else {
 							file, _ := ioutil.ReadFile(filepath.Clean(event.Name))
 							modelDef := ModelDefinition{}
 							err := json.Unmarshal([]byte(file), &modelDef)
 							if err != nil {
-								log.Println("unable to marshall\n", err)
+								log.Println("unable to marshall for", event, "error:", err)
 							} else {
 								w.onConfigChange(EventWrapper{
 									ModelDef: &modelDef,
 									LoadState: ShouldLoad,
 									ModelName: fileName,
-									DownloadRetries: 0,
 								})
 							}
 						}
