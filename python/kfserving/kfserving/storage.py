@@ -18,18 +18,21 @@ import tempfile
 import os
 import re
 import shutil
+import tarfile
+import zipfile
+import gzip
 from urllib.parse import urlparse
-import requests
-from azure.storage.blob import BlockBlobService
-from google.auth import exceptions
-from google.cloud import storage
-from minio import Minio
+import requests 
+# from azure.storage.blob import BlockBlobService
+# from google.auth import exceptions
+# from google.cloud import storage
+# from minio import Minio
 
 _GCS_PREFIX = "gs://"
 _S3_PREFIX = "s3://"
 _BLOB_RE = "https://(.+?).blob.core.windows.net/(.+)"
 _LOCAL_PREFIX = "file://"
-_URI_RE = "https?://(.+?)/(.+)"
+_URI_RE = "https?://(.+)/(.+)"
 _HTTP_PREFIX = "http(s)://"
 
 class Storage(object): # pylint: disable=too-few-public-methods
@@ -214,15 +217,33 @@ The path or model %s does not exist." % (uri))
     @staticmethod
     def _download_from_uri(uri, out_dir=None):
         url = urlparse(uri)
-        fname = os.path.basename(url.path)
-        if fname == '':
+        filename = os.path.basename(url.path)
+        _, ext = os.path.splitext(filename)
+        local_path = os.path.join(out_dir, filename)
+
+        if filename == '':
             raise ValueError('No filename contained in URI: %s' % (uri))
-        local_path = os.path.join(out_dir, fname)
+
+        # TODO: add support for gzipped (both by user and server side)
         with requests.get(uri, stream=True) as response:
             if response.status_code != 200:
-                raise RuntimeError("URI: %s does not exist." % (uri))
+                raise RuntimeError("URI: %s returned a %s response code." % (uri, response.status_code))
+            if ext == '.zip' and not response.headers.get('Content-Type', '').startswith('application/zip'):
+                raise RuntimeError("URI: %s did not respond with \'Content-Type\': \'application/zip\'" % (uri))
+            elif not response.headers.get('Content-Type', '').startswith('application/octet-stream'):
+                raise RuntimeError("URI: %s did not respond with \'Content-Type\': \'application/octet-stream\'" % (uri))
             with open(local_path, 'wb') as out:
                 shutil.copyfileobj(response.raw, out)
+        
+        if ext == ".tar" or ext == ".zip":
+            if ext == ".tar":
+                archive = tarfile.open(local_path, 'r', encoding='utf-8')
+            else:
+                archive = zipfile.ZipFile(local_path, 'r')
+            archive.extractall(out_dir)
+            archive.close()
+            os.remove(local_path)
+
         return out_dir
 
     @staticmethod
