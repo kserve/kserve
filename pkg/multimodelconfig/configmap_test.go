@@ -4,31 +4,30 @@ import (
 	testify "github.com/stretchr/testify/assert"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"testing"
 )
 
-func TestAddOrUpdateMultiModelConfigMap(t *testing.T) {
+func TestProcess_addOrUpdate(t *testing.T) {
 	testCases := map[string]struct {
-		multiModelConfigs []MultiModelConfig
+		modelConfigs []ModelConfig
 		configMap         *v1.ConfigMap
 		expectedConfigMap *v1.ConfigMap
 	}{
 		"add to empty": {
-			multiModelConfigs: []MultiModelConfig{
+			modelConfigs: []ModelConfig{
 				{
 					fileName: "example_model1.json",
-					fileContent: ModelDefinition{
+					fileContent: &ModelDefinition{
 						StorageUri: "s3//model1",
 						Framework:  "framework1",
-						Memory:     "1G",
 					},
 				},
 				{
 					fileName: "example_model2.json",
-					fileContent: ModelDefinition{
+					fileContent: &ModelDefinition{
 						StorageUri: "s3//model2",
 						Framework:  "framework2",
-						Memory:     "1G",
 					},
 				},
 			},
@@ -44,19 +43,18 @@ func TestAddOrUpdateMultiModelConfigMap(t *testing.T) {
 					Namespace: "test",
 				},
 				Data: map[string]string{
-					"example_model1.json": `{"storageUri":"s3//model1","framework":"framework1","memory":"1G"}`,
-					"example_model2.json": `{"storageUri":"s3//model2","framework":"framework2","memory":"1G"}`,
+					"example_model1.json": `{"storageUri":"s3//model1","framework":"framework1"}`,
+					"example_model2.json": `{"storageUri":"s3//model2","framework":"framework2"}`,
 				},
 			},
 		},
 		"add to non-empty": {
-			multiModelConfigs: []MultiModelConfig{
+			modelConfigs: []ModelConfig{
 				{
 					fileName: "example_model3.json",
-					fileContent: ModelDefinition{
+					fileContent: &ModelDefinition{
 						StorageUri: "s3//model3",
 						Framework:  "framework3",
-						Memory:     "1G",
 					},
 				},
 			},
@@ -66,8 +64,8 @@ func TestAddOrUpdateMultiModelConfigMap(t *testing.T) {
 					Namespace: "test",
 				},
 				Data: map[string]string{
-					"example_model1.json": `{"storageUri":"s3//model1","framework":"framework1","memory":"1G"}`,
-					"example_model2.json": `{"storageUri":"s3//model2","framework":"framework2","memory":"1G"}`,
+					"example_model1.json": `{"storageUri":"s3//model1","framework":"framework1"}`,
+					"example_model2.json": `{"storageUri":"s3//model2","framework":"framework2"}`,
 				},
 			},
 			expectedConfigMap: &v1.ConfigMap{
@@ -76,20 +74,19 @@ func TestAddOrUpdateMultiModelConfigMap(t *testing.T) {
 					Namespace: "test",
 				},
 				Data: map[string]string{
-					"example_model1.json": `{"storageUri":"s3//model1","framework":"framework1","memory":"1G"}`,
-					"example_model2.json": `{"storageUri":"s3//model2","framework":"framework2","memory":"1G"}`,
-					"example_model3.json": `{"storageUri":"s3//model3","framework":"framework3","memory":"1G"}`,
+					"example_model1.json": `{"storageUri":"s3//model1","framework":"framework1"}`,
+					"example_model2.json": `{"storageUri":"s3//model2","framework":"framework2"}`,
+					"example_model3.json": `{"storageUri":"s3//model3","framework":"framework3"}`,
 				},
 			},
 		},
 		"update": {
-			multiModelConfigs: []MultiModelConfig{
+			modelConfigs: []ModelConfig{
 				{
 					fileName: "example_model1.json",
-					fileContent: ModelDefinition{
+					fileContent: &ModelDefinition{
 						StorageUri: "s3//new-model1",
 						Framework:  "new-framework1",
-						Memory:     "2G",
 					},
 				},
 			},
@@ -99,8 +96,8 @@ func TestAddOrUpdateMultiModelConfigMap(t *testing.T) {
 					Namespace: "test",
 				},
 				Data: map[string]string{
-					"example_model1.json": `{"storageUri":"s3//model1","framework":"framework1","memory":"1G"}`,
-					"example_model2.json": `{"storageUri":"s3//model2","framework":"framework2","memory":"1G"}`,
+					"example_model1.json": `{"storageUri":"s3//model1","framework":"framework1"}`,
+					"example_model2.json": `{"storageUri":"s3//model2","framework":"framework2"}`,
 				},
 			},
 			expectedConfigMap: &v1.ConfigMap{
@@ -109,26 +106,31 @@ func TestAddOrUpdateMultiModelConfigMap(t *testing.T) {
 					Namespace: "test",
 				},
 				Data: map[string]string{
-					"example_model1.json": `{"storageUri":"s3//new-model1","framework":"new-framework1","memory":"2G"}`,
-					"example_model2.json": `{"storageUri":"s3//model2","framework":"framework2","memory":"1G"}`,
+					"example_model1.json": `{"storageUri":"s3//new-model1","framework":"new-framework1"}`,
+					"example_model2.json": `{"storageUri":"s3//model2","framework":"framework2"}`,
 				},
 			},
 		},
 	}
 	for _, tc := range testCases {
-		AddOrUpdateMultiModelConfigMap(tc.configMap, tc.multiModelConfigs...)
+		mConfig, err := NewHandler(tc.modelConfigs, []ModelConfig{})
+		testify.Nil(t, err)
+		mConfig.Process(tc.configMap)
 		testify.Equal(t, tc.expectedConfigMap, tc.configMap)
 	}
 }
 
-func TestDeleteMultiModelConfigMap(t *testing.T) {
+func TestProcess_delete(t *testing.T) {
+	log.SetLogger(log.ZapLogger(false))
 	testCases := map[string]struct {
-		modelFileNames    []string
+		modelConfigs      []ModelConfig
 		configMap         *v1.ConfigMap
 		expectedConfigMap *v1.ConfigMap
 	}{
 		"delete nil configmap": {
-			modelFileNames: []string{"example_model1.json"},
+			modelConfigs: []ModelConfig{
+				{"example_model1.json", nil},
+			},
 			configMap: &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "empty-config",
@@ -143,7 +145,9 @@ func TestDeleteMultiModelConfigMap(t *testing.T) {
 			},
 		},
 		"delete empty configmap": {
-			modelFileNames: []string{"example_model1.json"},
+			modelConfigs: []ModelConfig{
+				{"example_model1.json", nil},
+			},
 			configMap: &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "empty-config",
@@ -160,15 +164,17 @@ func TestDeleteMultiModelConfigMap(t *testing.T) {
 			},
 		},
 		"delete filename non-exist": {
-			modelFileNames: []string{"example.json"},
+			modelConfigs: []ModelConfig{
+				{"example.json", nil},
+			},
 			configMap: &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "empty-config",
 					Namespace: "test",
 				},
 				Data: map[string]string{
-					"example_model1.json": `{"storageUri":"s3//model1","framework":"framework1","memory":"1G"}`,
-					"example_model2.json": `{"storageUri":"s3//model2","framework":"framework2","memory":"1G"}`,
+					"example_model1.json": `{"storageUri":"s3//model1","framework":"framework1"}`,
+					"example_model2.json": `{"storageUri":"s3//model2","framework":"framework2"}`,
 				},
 			},
 			expectedConfigMap: &v1.ConfigMap{
@@ -177,21 +183,23 @@ func TestDeleteMultiModelConfigMap(t *testing.T) {
 					Namespace: "test",
 				},
 				Data: map[string]string{
-					"example_model1.json": `{"storageUri":"s3//model1","framework":"framework1","memory":"1G"}`,
-					"example_model2.json": `{"storageUri":"s3//model2","framework":"framework2","memory":"1G"}`,
+					"example_model1.json": `{"storageUri":"s3//model1","framework":"framework1"}`,
+					"example_model2.json": `{"storageUri":"s3//model2","framework":"framework2"}`,
 				},
 			},
 		},
 		"delete filename ": {
-			modelFileNames: []string{"example_model1.json"},
+			modelConfigs: []ModelConfig{
+				{"example_model1.json", nil},
+			},
 			configMap: &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "empty-config",
 					Namespace: "test",
 				},
 				Data: map[string]string{
-					"example_model1.json": `{"storageUri":"s3//model1","framework":"framework1","memory":"1G"}`,
-					"example_model2.json": `{"storageUri":"s3//model2","framework":"framework2","memory":"1G"}`,
+					"example_model1.json": `{"storageUri":"s3//model1","framework":"framework1"}`,
+					"example_model2.json": `{"storageUri":"s3//model2","framework":"framework2"}`,
 				},
 			},
 			expectedConfigMap: &v1.ConfigMap{
@@ -200,13 +208,15 @@ func TestDeleteMultiModelConfigMap(t *testing.T) {
 					Namespace: "test",
 				},
 				Data: map[string]string{
-					"example_model2.json": `{"storageUri":"s3//model2","framework":"framework2","memory":"1G"}`,
+					"example_model2.json": `{"storageUri":"s3//model2","framework":"framework2"}`,
 				},
 			},
 		},
 	}
 	for _, tc := range testCases {
-		DeleteMultiModelConfigMap(tc.configMap, tc.modelFileNames...)
+		handler, err := NewHandler([]ModelConfig{}, tc.modelConfigs)
+		testify.Nil(t, err)
+		handler.Process(tc.configMap)
 		testify.Equal(t, tc.expectedConfigMap, tc.configMap)
 	}
 }
