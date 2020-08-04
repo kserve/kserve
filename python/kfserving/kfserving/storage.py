@@ -23,10 +23,10 @@ import zipfile
 import gzip
 from urllib.parse import urlparse
 import requests 
-# from azure.storage.blob import BlockBlobService
-# from google.auth import exceptions
-# from google.cloud import storage
-# from minio import Minio
+from azure.storage.blob import BlockBlobService
+from google.auth import exceptions
+from google.cloud import storage
+from minio import Minio
 
 _GCS_PREFIX = "gs://"
 _S3_PREFIX = "s3://"
