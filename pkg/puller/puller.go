@@ -12,6 +12,7 @@ var (
 type Puller struct {
 	NumWorkers int
 	Channel chan EventWrapper
+	NumRetries int
 }
 
 func init() {
@@ -27,14 +28,22 @@ func worker(id int, events<-chan EventWrapper) {
 	log.Println("worker", id)
 	for event := range events {
 		log.Println("worker", id, "started  job", event)
-		// TODO: Need to signal to close done and downloadChannel
-		// instead of closing in go-routines
-		done := make(chan struct{})
-		downloadChannel := make(chan EventWrapper, 1)
-		downloadChannel <- event
-		requestChannel := DownloadFunc(done, downloadChannel)
-		result := RequestFunc(done, requestChannel)
-		log.Println("worker", id, "finished job", event, "with:", result)
+		var err error
+		switch event.LoadState {
+		case ShouldLoad:
+			err = DownloadModel(p.NumRetries, event)
+			if err != nil {
+				log.Println("worker", id, "failed on", event, "because: ", err)
+			}
+		}
+		if err == nil {
+			innerErr := RequestModel(event)
+			if innerErr != nil {
+				log.Println("worker", id, "failed on", event, "because: ", err)
+			} else {
+				log.Println("worker", id, "finished  job", event)
+			}
+		}
 	}
 }
 
@@ -42,8 +51,9 @@ func AddModelToChannel(e EventWrapper) {
 	p.Channel <- e
 }
 
-func InitiatePullers(numWorkers int) {
+func InitiatePullers(numWorkers int, numRetries int) {
 	p.NumWorkers = numWorkers
+	p.NumRetries = numRetries
 	p.Channel = make(chan EventWrapper)
 	for workers := 1; workers <= p.NumWorkers; workers++ {
 		go worker(workers, p.Channel)

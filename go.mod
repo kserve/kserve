@@ -38,6 +38,7 @@ require (
 	golang.org/x/time v0.0.0-20191023065245-6d3f0bb11be5 // indirect
 	google.golang.org/grpc v1.27.0
 	google.golang.org/protobuf v1.25.0
+	gopkg.in/matryer/try.v1 v1.0.0-20150601225556-312d2599e12e // indirect
 	istio.io/api v0.0.0-20191115173247-e1a1952e5b81
 	istio.io/client-go v0.0.0-20191120150049-26c62a04cdbc
 	istio.io/gogo-genproto v0.0.0-20191029161641-f7d19ec0141d // indirect
