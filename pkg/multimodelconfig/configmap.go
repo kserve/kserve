@@ -46,13 +46,11 @@ func NewConfigsDelta(updatedCfg[]ModelConfig, deletedCfg []ModelConfig) (*Config
 //    {
 //      storageUri: s3://example-bucket/path/to/model_name1
 //      framework: sklearn
-//      memory: 1G
 //    }
 //  example_model_name2.json: |
 //    {
 //      storageUri: s3://example-bucket/path/to/model_name2
 //      framework: sklearn
-//      memory: 2G
 //    }
 
 func (config *ConfigsDelta) Process(configMap *v1.ConfigMap) {
