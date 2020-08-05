@@ -42,32 +42,35 @@ def test_no_prefix_local_path():
     assert kfserving.Storage.download(abs_path) == abs_path
     assert kfserving.Storage.download(relative_path) == relative_path
 
-def _mock_request_get(*args, **kwargs):
-    class MockResponse(object):
-        def __init__(self, status_code, raw):
-            self.status_code = status_code
-            self.raw = io.BytesIO(raw)
-        def __enter__(self):
-            return self
-        def __exit__(self, ex_type, ex_val, traceback):
-            pass
+def _mock_requests_get(*args, **kwargs):
+    return None
 
-    if 'foo.bar' in args[0]:
-        return MockResponse(200, b'testing')
-    if 'theabyss.net' in args[0]:
-        return MockResponse(404, b'')
-    return MockResponse(404, b'')
+class MockHttpResponse(object):
+    def __init__(
+        self,
+        status_code=404,
+        raw=b'',
+        content_type=''
+    ):
+        self.status_code = status_code
+        self.raw = io.BytesIO(raw)
+        self.headers = {'Content-Type': content_type}
 
-@mock.patch('requests.get', side_effect=_mock_request_get)
+    def __enter__(self):
+        return self
+    def __exit__(self, ex_type, ex_val, traceback):
+        pass                                                                                                                    
+
+@mock.patch('requests.get', return_value=MockHttpResponse(status_code=200, content_type='application/octet-stream'))
 def test_http_uri_path(_):
-    http_uri = 'http://foo.bar/model.joblib' 
+    http_uri = 'http://foo.bar/model.joblib'
     http_with_query_uri = 'http://foo.bar/model.joblib?foo=bar'
     out_dir = '.'
     assert kfserving.Storage.download(http_uri, out_dir=out_dir) == out_dir
     assert kfserving.Storage.download(http_with_query_uri, out_dir=out_dir) == out_dir
     os.remove('./model.joblib')
 
-@mock.patch('requests.get', side_effect=_mock_request_get)
+@mock.patch('requests.get', return_value=MockHttpResponse(status_code=200, content_type='application/octet-stream'))
 def test_https_uri_path(_):
     https_uri = 'https://foo.bar/model.joblib' 
     https_with_query_uri = 'https://foo.bar/model.joblib?foo=bar'
@@ -76,16 +79,22 @@ def test_https_uri_path(_):
     assert kfserving.Storage.download(https_with_query_uri, out_dir=out_dir) == out_dir
     os.remove('./model.joblib')
 
-@mock.patch('requests.get', side_effect=_mock_request_get)
+@mock.patch('requests.get', return_value=MockHttpResponse(status_code=404))
 def test_nonexistent_uri(_):
     non_existent_uri = 'https://theabyss.net/model.joblib'
     with pytest.raises(RuntimeError):
         kfserving.Storage.download(non_existent_uri)
 
-@mock.patch('requests.get', side_effect=_mock_request_get)
+@mock.patch('requests.get', return_value=MockHttpResponse(status_code=200))
 def test_uri_no_filename(_):
     bad_uri = 'https://foo.bar/test/'
     with pytest.raises(ValueError):
+        kfserving.Storage.download(bad_uri)
+
+@mock.patch('requests.get', return_value=MockHttpResponse(status_code=200, content_type='text/html'))
+def test_html_content_type(_):
+    bad_uri = 'https://some.site.com/test.model'
+    with pytest.raises(RuntimeError):
         kfserving.Storage.download(bad_uri)
 
 @mock.patch(STORAGE_MODULE + '.storage')
