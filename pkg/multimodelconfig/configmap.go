@@ -8,7 +8,7 @@ import (
 
 var logger = log.Log.WithName("MultiModelConfig")
 
-type Handler struct {
+type ConfigsDelta struct {
 	updatedCfg map[string]string
 	deletedCfg map[string]string
 }
@@ -23,16 +23,16 @@ type ModelDefinition struct {
 	Framework  string `json:"framework"`
 }
 
-func NewHandler(updatedCfg[]ModelConfig, deletedCfg []ModelConfig) (*Handler, error) {
-	var handler Handler
+func NewConfigsDelta(updatedCfg[]ModelConfig, deletedCfg []ModelConfig) (*ConfigsDelta, error) {
+	var configsDelta ConfigsDelta
 	var err error
-	if handler.updatedCfg, err = convert(updatedCfg...); err != nil {
+	if configsDelta.updatedCfg, err = convert(updatedCfg...); err != nil {
 		return nil, err
 	}
-	if handler.deletedCfg, err = convert(deletedCfg...); err != nil {
+	if configsDelta.deletedCfg, err = convert(deletedCfg...); err != nil {
 		return nil, err
 	}
-	return &handler, err
+	return &configsDelta, err
 }
 
 //multi-model ConfigMap
@@ -55,12 +55,12 @@ func NewHandler(updatedCfg[]ModelConfig, deletedCfg []ModelConfig) (*Handler, er
 //      memory: 2G
 //    }
 
-func (config *Handler) Process(configMap *v1.ConfigMap) {
+func (config *ConfigsDelta) Process(configMap *v1.ConfigMap) {
 	config.addOrUpdate(configMap)
 	config.delete(configMap)
 }
 
-func (config *Handler) addOrUpdate(configMap *v1.ConfigMap) {
+func (config *ConfigsDelta) addOrUpdate(configMap *v1.ConfigMap) {
 	if isEmpty(config.updatedCfg) {
 		return
 	}
@@ -72,7 +72,7 @@ func (config *Handler) addOrUpdate(configMap *v1.ConfigMap) {
 	}
 }
 
-func (config *Handler) delete(configMap *v1.ConfigMap) {
+func (config *ConfigsDelta) delete(configMap *v1.ConfigMap) {
 	if isEmpty(config.deletedCfg) {
 		return
 	}

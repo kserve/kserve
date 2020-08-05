@@ -113,7 +113,7 @@ func TestProcess_addOrUpdate(t *testing.T) {
 		},
 	}
 	for _, tc := range testCases {
-		mConfig, err := NewHandler(tc.modelConfigs, []ModelConfig{})
+		mConfig, err := NewConfigsDelta(tc.modelConfigs, []ModelConfig{})
 		testify.Nil(t, err)
 		mConfig.Process(tc.configMap)
 		testify.Equal(t, tc.expectedConfigMap, tc.configMap)
@@ -214,7 +214,7 @@ func TestProcess_delete(t *testing.T) {
 		},
 	}
 	for _, tc := range testCases {
-		handler, err := NewHandler([]ModelConfig{}, tc.modelConfigs)
+		handler, err := NewConfigsDelta([]ModelConfig{}, tc.modelConfigs)
 		testify.Nil(t, err)
 		handler.Process(tc.configMap)
 		testify.Equal(t, tc.expectedConfigMap, tc.configMap)
