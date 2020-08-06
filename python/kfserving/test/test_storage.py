@@ -42,9 +42,6 @@ def test_no_prefix_local_path():
     assert kfserving.Storage.download(abs_path) == abs_path
     assert kfserving.Storage.download(relative_path) == relative_path
 
-def _mock_requests_get(*args, **kwargs):
-    return None
-
 class MockHttpResponse(object):
     def __init__(
         self,

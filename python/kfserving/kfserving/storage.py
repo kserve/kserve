@@ -224,7 +224,6 @@ The path or model %s does not exist." % (uri))
         if filename == '':
             raise ValueError('No filename contained in URI: %s' % (uri))
 
-        # TODO: add support for gzipped (both by user and server side)
         with requests.get(uri, stream=True) as response:
             if response.status_code != 200:
                 raise RuntimeError("URI: %s returned a %s response code." % (uri, response.status_code))
@@ -232,10 +231,19 @@ The path or model %s does not exist." % (uri))
                 raise RuntimeError("URI: %s did not respond with \'Content-Type\': \'application/zip\'" % (uri))
             elif not response.headers.get('Content-Type', '').startswith('application/octet-stream'):
                 raise RuntimeError("URI: %s did not respond with \'Content-Type\': \'application/octet-stream\'" % (uri))
+
+            # TODO: server-side gzip in Content-Encoding
+            # https://requests.readthedocs.io/en/master/user/quickstart/?highlight=.raw#raw-response-content
+            if ext in ['.tgz', '.gz']:
+                stream = gzip.GzipFile(fileobj=response.raw)
+                local_path = os.path.join(out_dir, f'{filename}.tar')
+                ext = '.tar'
+            else:
+                stream = response.raw
             with open(local_path, 'wb') as out:
-                shutil.copyfileobj(response.raw, out)
+                shutil.copyfileobj(stream, out)
         
-        if ext == ".tar" or ext == ".zip":
+        if ext in [".tar", ".zip"]:
             if ext == ".tar":
                 archive = tarfile.open(local_path, 'r', encoding='utf-8')
             else:
