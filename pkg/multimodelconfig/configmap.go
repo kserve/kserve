@@ -18,21 +18,23 @@ type ModelConfig struct {
 	fileContent *ModelDefinition
 }
 
+//ModelDefinition will be replaced by ModelSpec
+//after we merge https://github.com/kubeflow/kfserving/pull/991 to master
 type ModelDefinition struct {
 	StorageUri string `json:"storageUri"`
 	Framework  string `json:"framework"`
 }
 
 func NewConfigsDelta(updatedCfg[]ModelConfig, deletedCfg []ModelConfig) (*ConfigsDelta, error) {
-	var configsDelta ConfigsDelta
-	var err error
-	if configsDelta.updatedCfg, err = convert(updatedCfg...); err != nil {
+	updatedcfgs, err := convert(updatedCfg...)
+	if err != nil {
 		return nil, err
 	}
-	if configsDelta.deletedCfg, err = convert(deletedCfg...); err != nil {
+	deletedcfgs, err := convert(deletedCfg...)
+	if err != nil {
 		return nil, err
 	}
-	return &configsDelta, err
+	return &ConfigsDelta{ updatedCfg: updatedcfgs, deletedCfg: deletedcfgs }, err
 }
 
 //multi-model ConfigMap
@@ -54,11 +56,11 @@ func NewConfigsDelta(updatedCfg[]ModelConfig, deletedCfg []ModelConfig) (*Config
 //    }
 
 func (config *ConfigsDelta) Process(configMap *v1.ConfigMap) {
-	config.addOrUpdate(configMap)
+	config.apply(configMap)
 	config.delete(configMap)
 }
 
-func (config *ConfigsDelta) addOrUpdate(configMap *v1.ConfigMap) {
+func (config *ConfigsDelta) apply(configMap *v1.ConfigMap) {
 	if isEmpty(config.updatedCfg) {
 		return
 	}
