@@ -21,7 +21,7 @@ package externalversions
 import (
 	"fmt"
 
-	v1alpha2 "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
+	v1alpha3 "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha3"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	cache "k8s.io/client-go/tools/cache"
 )
@@ -52,9 +52,11 @@ func (f *genericInformer) Lister() cache.GenericLister {
 // TODO extend this to unknown resources with a client pool
 func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource) (GenericInformer, error) {
 	switch resource {
-	// Group=serving.kubeflow.org, Version=v1alpha2
-	case v1alpha2.SchemeGroupVersion.WithResource("inferenceservices"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1alpha2().InferenceServices().Informer()}, nil
+	// Group=serving, Version=v1alpha3
+	case v1alpha3.SchemeGroupVersion.WithResource("routers"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1alpha3().Routers().Informer()}, nil
+	case v1alpha3.SchemeGroupVersion.WithResource("services"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1alpha3().Services().Informer()}, nil
 
 	}
 
