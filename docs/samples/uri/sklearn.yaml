@@ -1,0 +1,9 @@
+apiVersion: serving.kubeflow.org/v1alpha2
+kind: InferenceService
+metadata:
+  name: sklearn-from-uri
+spec:
+  default:
+    predictor:
+      sklearn:
+        storageUri: https://github.com/tduffy000/kfserving-uri-examples/blob/master/sklearn/frozen/model.joblib?raw=true
