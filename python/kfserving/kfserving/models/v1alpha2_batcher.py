@@ -45,54 +45,54 @@ class V1alpha2Batcher(object):
                             and the value is json key in definition.
     """
     swagger_types = {
-        'max_batchsize': 'int',
+        'max_batch_size': 'int',
         'max_latency': 'int',
         'timeout': 'int'
     }
 
     attribute_map = {
-        'max_batchsize': 'maxBatchSize',
+        'max_batch_size': 'maxBatchSize',
         'max_latency': 'maxLatency',
         'timeout': 'timeout'
     }
 
-    def __init__(self, max_batchsize=None, max_latency=None, timeout=None):  # noqa: E501
+    def __init__(self, max_batch_size=None, max_latency=None, timeout=None):  # noqa: E501
         """V1alpha2Batcher - a model defined in Swagger"""  # noqa: E501
 
-        self._max_batchsize = None
+        self._max_batch_size = None
         self._max_latency = None
         self._timeout = None
         self.discriminator = None
 
-        if max_batchsize is not None:
-            self.max_batchsize = max_batchsize
+        if max_batch_size is not None:
+            self.max_batch_size = max_batch_size
         if max_latency is not None:
             self.max_latency = max_latency
         if timeout is not None:
             self.timeout = timeout
 
     @property
-    def max_batchsize(self):
-        """Gets the max_batchsize of this V1alpha2Batcher.  # noqa: E501
+    def max_batch_size(self):
+        """Gets the max_batch_size of this V1alpha2Batcher.  # noqa: E501
 
         MaxBatchSize of batcher service  # noqa: E501
 
-        :return: The max_batchsize of this V1alpha2Batcher.  # noqa: E501
-        :rtype: str
+        :return: The max_batch_size of this V1alpha2Batcher.  # noqa: E501
+        :rtype: int
         """
-        return self._max_batchsize
+        return self._max_batch_size
 
-    @max_batchsize.setter
-    def max_batchsize(self, max_batchsize):
-        """Sets the max_batchsize of this V1alpha2Batcher.
+    @max_batch_size.setter
+    def max_batch_size(self, max_batch_size):
+        """Sets the max_batch_size of this V1alpha2Batcher.
 
         MaxBatchSize of batcher service  # noqa: E501
 
-        :param max_batchsize: The max_batchsize of this V1alpha2Batcher.  # noqa: E501
-        :type: str
+        :param max_batch_size: The max_batch_size of this V1alpha2Batcher.  # noqa: E501
+        :type: int
         """
 
-        self._max_batchsize = max_batchsize
+        self._max_batch_size = max_batch_size
 
     @property
     def max_latency(self):
@@ -101,7 +101,7 @@ class V1alpha2Batcher(object):
         MaxLatency of batcher service  # noqa: E501
 
         :return: The max_latency of this V1alpha2Batcher.  # noqa: E501
-        :rtype: str
+        :rtype: int
         """
         return self._max_latency
 
@@ -112,7 +112,7 @@ class V1alpha2Batcher(object):
         MaxLatency of batcher service  # noqa: E501
 
         :param max_latency: The max_latency of this V1alpha2Batcher.  # noqa: E501
-        :type: str
+        :type: int
         """
 
         self._max_latency = max_latency
@@ -124,7 +124,7 @@ class V1alpha2Batcher(object):
         Timeout of batcher service  # noqa: E501
 
         :return: The timeout of this V1alpha2Batcher.  # noqa: E501
-        :type: str
+        :rtype: int
         """
         return self._timeout
 
@@ -135,8 +135,9 @@ class V1alpha2Batcher(object):
         Timeout of batcher service  # noqa: E501
 
         :param timeout: The timeout of this V1alpha2Batcher.  # noqa: E501
-        :type: str
+        :type: int
         """
+
         self._timeout = timeout
 
     def to_dict(self):
