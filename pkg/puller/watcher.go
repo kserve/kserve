@@ -2,26 +2,30 @@ package puller
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/fsnotify/fsnotify"
+	"github.com/google/go-cmp/cmp"
+	"golang.org/x/sync/syncmap"
 	"io/ioutil"
 	"log"
+	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 var w *Watcher
 
 type Watcher struct {
-	modelDir string
-	onConfigChange func(EventWrapper)
-	fileExtension string
+	configDir    string
+	ModelTracker *syncmap.Map
+	numWorkers   int
 }
 
 type ModelDefinition struct {
 	// TODO: This needs to be defined by the ConfigMap PR
-	StorageUri string  `json:"storageUri"`
-	Framework string  `json:"framework"`
-	Memory string  `json:"memory"`
+	StorageUri string `json:"storageUri"`
+	Framework  string `json:"framework"`
 }
 
 func init() {
@@ -30,38 +34,40 @@ func init() {
 
 func NewWatcher() *Watcher {
 	w := new(Watcher)
-	// TODO: This should probably be overridable
-	w.fileExtension = ".json"
+	m := new(syncmap.Map)
+	w.ModelTracker = m
 	return w
 }
 
-type State string
+type LoadState string
 
 const (
 	// State Related
-	ShouldLoad State = "Load"
-	ShouldUnload State = "Unload"
-
- 	writeOrCreateMask = fsnotify.Write | fsnotify.Create
+	ShouldLoad   LoadState = "Load"
+	ShouldUnload LoadState = "Unload"
 )
 
 type EventWrapper struct {
-	ModelDef *ModelDefinition
-	LoadState State
-	ModelName string
+	ModelDef       *ModelDefinition
+	LoadState      LoadState
+	ShouldDownload bool
 }
-func WatchConfig(modelDir string) {
+
+type ModelWrapper struct {
+	ModelDef *ModelDefinition
+	Time     time.Time
+	Stale    bool
+	Success  bool
+}
+
+func WatchConfig(configDir string, numWorkers int) {
 	log.Println("Entering watch")
-	w.modelDir = modelDir
+	w.configDir = configDir
+	w.numWorkers = numWorkers
 	w.WatchConfig()
 }
 
-func OnConfigChange(run func(in EventWrapper)) {
-	log.Println("Applying onConfigChange")
-	w.onConfigChange = run
-}
-
-func (w*Watcher) WatchConfig() {
+func (w *Watcher) WatchConfig() {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		log.Fatal(err)
@@ -76,35 +82,99 @@ func (w*Watcher) WatchConfig() {
 				if !ok {
 					return
 				}
-				// we only care about the model file:
-				// 1 - if the model file was modified or created
-				// 2 - if the model file was removed as a result of deletion or renaming
-				if w.onConfigChange != nil {
-					ext := filepath.Ext(event.Name)
-					isEdit := event.Op&writeOrCreateMask != 0
-					isRemove := event.Op&fsnotify.Remove != 0
-					isValidFile := ext == w.fileExtension
-					if isValidFile && (isEdit || isRemove) {
-						fileName := strings.TrimSuffix(filepath.Base(event.Name), ext)
-						if isRemove {
-							w.onConfigChange(EventWrapper{
-								LoadState: ShouldUnload,
-								ModelName: fileName,
-							})
-						} else {
-							file, _ := ioutil.ReadFile(filepath.Clean(event.Name))
+				isCreate := event.Op&fsnotify.Create != 0
+				eventPath := filepath.Clean(event.Name)
+				isDataDir := filepath.Base(eventPath) == "..data"
+				if isDataDir && isCreate {
+					symlink, _ := filepath.EvalSymlinks(eventPath)
+					timeNow := time.Now()
+					err := filepath.Walk(symlink, func(path string, info os.FileInfo, err error) error {
+						// TODO: Filter SUCCESS files when they are added
+						if !info.IsDir() {
+							file, _ := ioutil.ReadFile(path)
+							modelName := strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
 							modelDef := ModelDefinition{}
 							err := json.Unmarshal([]byte(file), &modelDef)
 							if err != nil {
-								log.Println("unable to marshall for", event, "error:", err)
+								return fmt.Errorf("unable to marshall for %v, error: %v", event, err)
 							} else {
-								w.onConfigChange(EventWrapper{
+								log.Println("Model:", modelName, "storage:", modelDef.StorageUri)
+							}
+							oldModelInterface, ok := w.ModelTracker.Load(modelName)
+							if !ok {
+								w.ModelTracker.Store(modelName, ModelWrapper{
 									ModelDef: &modelDef,
-									LoadState: ShouldLoad,
-									ModelName: fileName,
+									Time:     timeNow,
+									Stale:    true,
+									Success:  false,
 								})
+							} else {
+								oldModel := oldModelInterface.(ModelWrapper)
+								isSame := false
+								if oldModel.ModelDef != nil {
+									isSame = cmp.Equal(*oldModel.ModelDef, modelDef)
+									log.Println("same", isSame, *oldModel.ModelDef, modelDef)
+								}
+								if isSame {
+									// Need to store new time, maybe worth to have seperate map?
+									w.ModelTracker.Store(modelName, ModelWrapper{
+										ModelDef: &modelDef,
+										Time:     timeNow,
+										Stale:    false,
+										Success:  false,
+									})
+								} else {
+									w.ModelTracker.Store(modelName, ModelWrapper{
+										ModelDef: &modelDef,
+										Time:     timeNow,
+										Stale:    true,
+										Success:  false,
+									})
+								}
+
 							}
 						}
+						return nil
+					})
+					// TODO: Maybe make parallel and more efficient?
+					w.ModelTracker.Range(func(key interface{}, value interface{}) bool {
+						modelName, modelWrapper := key.(string), value.(ModelWrapper)
+						if modelWrapper.Time.Before(timeNow) {
+							log.Println("Delete", modelName)
+							w.ModelTracker.Delete(modelName)
+							channel, ok := p.ChannelMap[modelName]
+							if !ok {
+								log.Println("Model", modelName, "was never added to channel map")
+							} else {
+								event := EventWrapper{
+									ModelDef:       nil,
+									LoadState:      ShouldUnload,
+									ShouldDownload: !modelWrapper.Success,
+								}
+								log.Println("Sending event", event)
+								channel.EventChannel <- event
+							}
+						} else {
+							if modelWrapper.Stale {
+								channel, ok := p.ChannelMap[modelName]
+								if !ok {
+									log.Println("Need to add model", modelName)
+									// TODO: Maybe have more workers per Channel?
+									channel = p.AddModel(modelName, w.numWorkers)
+								}
+								event := EventWrapper{
+									ModelDef:       modelWrapper.ModelDef,
+									LoadState:      ShouldLoad,
+									ShouldDownload: !modelWrapper.Success,
+								}
+								log.Println("Sending event", event)
+								channel.EventChannel <- event
+							}
+						}
+						return true
+					})
+					if err != nil {
+						log.Println("Error in filepath walk", err)
 					}
 				}
 
@@ -118,7 +188,7 @@ func (w*Watcher) WatchConfig() {
 			}
 		}
 	}()
-	err = watcher.Add(w.modelDir)
+	err = watcher.Add(w.configDir)
 	if err != nil {
 		log.Fatal(err)
 	}
