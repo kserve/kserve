@@ -151,7 +151,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 		serviceName := "bar"
 		var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
 		var serviceKey = expectedRequest.NamespacedName
-		var multiModelConfigMapKey = types.NamespacedName{Name: constants.DefaultMultiModelConfigMapName(serviceName),
+		var multiModelConfigMapKey = types.NamespacedName{Name: constants.DefaultMultiModelConfigMapName(serviceName, 0),
 			Namespace: serviceKey.Namespace}
 		ctx := context.Background()
 		instance := createTestInferenceService(serviceKey, false)
