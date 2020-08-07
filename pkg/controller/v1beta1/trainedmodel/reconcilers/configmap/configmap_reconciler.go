@@ -40,15 +40,12 @@ func NewConfigMapReconciler(client client.Client, scheme *runtime.Scheme) *Confi
 }
 
 func (c *ConfigMapReconciler) Reconcile(desired *corev1.ConfigMap, trainedModel *v1beta1api.TrainedModel) error {
-	//TODO make sure this reconcile loop will be triggered by Create/Delete/Update event for TrainedModel
-	//TODO update an existing configmap to add/remove a model in it
-
 	if trainedModel.DeletionTimestamp != nil {
 		//A Trainedmodel is being deleted, remove the model from multi-model configmap
-		//TODO call multimodelconfig handler once Yao's PR is merged
+		//TODO call multimodelconfig handler once https://github.com/kubeflow/kfserving/pull/992 is merged
 	} else {
 		//A Trainedmodel is created or updated, add or update the model from multi-model configmap
-		//TODO call multimodelconfig handler once Yao's PR is merged
+		//TODO call multimodelconfig handler once https://github.com/kubeflow/kfserving/pull/992 is merged
 	}
 	err := c.client.Create(context.TODO(), desired)
 	if err != nil {

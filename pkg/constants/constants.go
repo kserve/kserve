@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"knative.dev/pkg/network"
@@ -220,8 +221,8 @@ func DefaultServiceName(name string, component InferenceServiceComponent) string
 }
 
 //TODO: need to add shard id to the configmap name
-func DefaultMultiModelConfigMapName(inferenceserviceName string) string {
-	return "multimodelconfig" + "-" + inferenceserviceName
+func DefaultMultiModelConfigMapName(inferenceserviceName string, shardId int) string {
+	return "multimodelconfig" + "-" + inferenceserviceName + "-" + strconv.Itoa(shardId)
 }
 
 func CanaryServiceName(name string, component InferenceServiceComponent) string {

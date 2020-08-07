@@ -25,6 +25,7 @@ import (
 	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/reconcilers/configmap"
 	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/reconcilers/knative"
 	knativeres "github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/resources/knative"
+	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/scheduler"
 	"github.com/kubeflow/kfserving/pkg/credentials"
 	"github.com/kubeflow/kfserving/pkg/utils"
 	v1 "k8s.io/api/core/v1"
@@ -179,24 +180,27 @@ func (p *Predictor) CreatePredictorService(isvc *v1beta1.InferenceService) (*kns
 		},
 	}
 
-	//If InferenceService's storageUri if empty, create multi-model service configMap and
+	//If InferenceService's storageUri is empty, create multi-model service configMap and
 	//mount it into this predictor's knative service
 	storageUri := isvc.Spec.Predictor.GetStorageUri()
 	if storageUri != nil && len(*storageUri) > 0 {
-		multiModelConfigMap, err := configmap.CreateEmptyMultiModelConfigMap(isvc)
-		if err == nil {
-			podVolumes := []v1.Volume{}
+		shardManager := scheduler.ShardManager{Strategy: scheduler.Memory}
+		for _, id := range shardManager.GetShardId(isvc) {
+			multiModelConfigMap, err := configmap.CreateEmptyMultiModelConfigMap(isvc, id)
+			if err == nil {
+				podVolumes := []v1.Volume{}
 
-			multiModelConfigVolume := v1.Volume{
-				Name: "config-mms",
-				VolumeSource: v1.VolumeSource{
-					ConfigMap: &v1.ConfigMapVolumeSource{},
-				},
+				multiModelConfigVolume := v1.Volume{
+					Name: "config-mms",
+					VolumeSource: v1.VolumeSource{
+						ConfigMap: &v1.ConfigMapVolumeSource{},
+					},
+				}
+				multiModelConfigVolume.ConfigMap.Name = multiModelConfigMap.Name
+				podVolumes = append(podVolumes, multiModelConfigVolume)
+				service.Spec.Template.Spec.Volumes = podVolumes
+				//TODO mount multi-model configmap in the user container
 			}
-			multiModelConfigVolume.ConfigMap.Name = multiModelConfigMap.Name
-			podVolumes = append(podVolumes, multiModelConfigVolume)
-			service.Spec.Template.Spec.Volumes = podVolumes
-			//TODO mount multi-model configmap in container
 		}
 	}
 	if err := p.credentialBuilder.CreateSecretVolumeAndEnv(

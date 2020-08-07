@@ -53,19 +53,19 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 
 	Context("When creating a new TrainedModel", func() {
 		It("Should add a model file to the multi-model configmap", func() {
-			//TODO need to be implemented
+			//TODO need to be implemented once https://github.com/kubeflow/kfserving/pull/992 is merged
 		})
 	})
 
 	Context("When updating a TrainedModel", func() {
 		It("Should update a model file to the multi-model configmap", func() {
-			//TODO need to be implemented
+			//TODO need to be implemented once https://github.com/kubeflow/kfserving/pull/992 is merged
 		})
 	})
 
 	Context("When deleting a TrainedModel", func() {
 		It("Should remove a model file to the multi-model configmap", func() {
-			//TODO need to be implemented
+			//TODO need to be implemented once https://github.com/kubeflow/kfserving/pull/992 is merged
 		})
 	})
 })

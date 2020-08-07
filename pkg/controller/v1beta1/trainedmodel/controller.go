@@ -19,6 +19,7 @@ package trainedmodel
 import (
 	"context"
 	"github.com/kubeflow/kfserving/pkg/constants"
+	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/scheduler"
 	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/trainedmodel/reconcilers/configmap"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -67,20 +68,34 @@ func (r *TrainedModelReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 	}
 	log.Info("Reconciling TrainedModel", "apiVersion", trainedModel.APIVersion, "trainedModel", trainedModel.Spec)
 
-	// Use trainedModel's parent InferenceService field to get the multi-model configMap
-	multiModelConfigMapName := constants.DefaultMultiModelConfigMapName(trainedModel.Spec.InferenceService)
-	configMap := &v1.ConfigMap{}
-	err := r.Get(context.TODO(), types.NamespacedName{Name: multiModelConfigMapName, Namespace: req.Namespace}, configMap)
-	if err != nil {
-		log.Error(err, "Failed to find Multi-model ConfigMap", "name", multiModelConfigMapName, "namespace", req.Namespace)
-		// Error reading the object - requeue the request.
-		return reconcile.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
+	// Fetch the InferenceService
+	isvc := &v1beta1api.InferenceService{}
+	if err := r.Get(context.TODO(), types.NamespacedName{Name: trainedModel.Spec.InferenceService, Namespace: req.Namespace}, isvc); err != nil {
+		if errors.IsNotFound(err) {
+			// Object not found, return. Created objects are automatically garbage collected.
+			// For additional cleanup logic use finalizers.
+			return reconcile.Result{}, nil
+		}
+		return reconcile.Result{}, err
 	}
 
-	//Reconcile multi-model configmap to add/update/remove model files
-	configMapReconciler := configmap.NewConfigMapReconciler(r.Client, r.Scheme)
-	if err := configMapReconciler.Reconcile(configMap, trainedModel); err != nil {
-		return reconcile.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
+	shardManager := scheduler.ShardManager{Strategy: scheduler.Memory}
+	for _, id := range shardManager.GetShardId(isvc) {
+		// Use trainedModel's parent InferenceService field to get the multi-model configMap
+		multiModelConfigMapName := constants.DefaultMultiModelConfigMapName(trainedModel.Spec.InferenceService, id)
+		configMap := &v1.ConfigMap{}
+		err := r.Get(context.TODO(), types.NamespacedName{Name: multiModelConfigMapName, Namespace: req.Namespace}, configMap)
+		if err != nil {
+			log.Error(err, "Failed to find Multi-model ConfigMap", "name", multiModelConfigMapName, "namespace", req.Namespace)
+			// Error reading the object - requeue the request.
+			return reconcile.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
+		}
+
+		//Reconcile multi-model configmap to add/update/remove model files
+		configMapReconciler := configmap.NewConfigMapReconciler(r.Client, r.Scheme)
+		if err := configMapReconciler.Reconcile(configMap, trainedModel); err != nil {
+			return reconcile.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
+		}
 	}
 
 	return ctrl.Result{}, nil
