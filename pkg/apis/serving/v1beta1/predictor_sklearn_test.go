@@ -171,7 +171,7 @@ func TestSKLearnDefaulter(t *testing.T) {
 
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
-			scenario.spec.Tensorflow.Default(&config)
+			scenario.spec.SKLearn.Default(&config)
 			if !g.Expect(scenario.spec).To(gomega.Equal(scenario.expected)) {
 				t.Errorf("got %q, want %q", scenario.spec, scenario.expected)
 			}
