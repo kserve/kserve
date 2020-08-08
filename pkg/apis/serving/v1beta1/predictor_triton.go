@@ -42,7 +42,7 @@ func (t *TritonSpec) Validate() error {
 func (t *TritonSpec) Default(config *InferenceServicesConfig) {
 	t.Container.Name = constants.InferenceServiceContainerName
 	if t.RuntimeVersion == "" {
-		t.RuntimeVersion = config.Predictors.Triton.DefaultGpuImageVersion
+		t.RuntimeVersion = config.Predictors.Triton.DefaultImageVersion
 	}
 	setResourceRequirementDefaults(&t.Resources)
 }
@@ -54,9 +54,9 @@ func (t *TritonSpec) GetContainer(modelName string, containerConcurrency int, co
 		fmt.Sprintf("%s=%s", "--model-store", constants.DefaultModelLocalMountPath),
 		fmt.Sprintf("%s=%s", "--grpc-port", fmt.Sprint(TritonISGRPCPort)),
 		fmt.Sprintf("%s=%s", "--http-port", fmt.Sprint(TritonISRestPort)),
-		"--allow-poll-model-repository=false",
-		"--allow-grpc=true",
-		"--allow-http=true",
+		fmt.Sprintf("%s=%s", "--allow-poll-model-repository", "false"),
+		fmt.Sprintf("%s=%s", "--allow-grpc", "true"),
+		fmt.Sprintf("%s=%s", "--allow-http", "true"),
 	}
 
 	if t.Container.Image == "" {

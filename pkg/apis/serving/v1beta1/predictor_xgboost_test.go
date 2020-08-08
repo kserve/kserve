@@ -105,6 +105,80 @@ func TestXGBoostValidation(t *testing.T) {
 	}
 }
 
+func TestXGBoostDefaulter(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	config := InferenceServicesConfig{
+		Predictors: &PredictorsConfig{
+			XGBoost: PredictorConfig{
+				ContainerImage:      "xgboost",
+				DefaultImageVersion: "v0.4.0",
+			},
+		},
+	}
+	defaultResource = v1.ResourceList{
+		v1.ResourceCPU:    resource.MustParse("1"),
+		v1.ResourceMemory: resource.MustParse("2Gi"),
+	}
+	scenarios := map[string]struct {
+		spec     PredictorSpec
+		expected PredictorSpec
+	}{
+		"DefaultRuntimeVersion": {
+			spec: PredictorSpec{
+				XGBoost: &XGBoostSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{},
+				},
+			},
+			expected: PredictorSpec{
+				XGBoost: &XGBoostSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						RuntimeVersion: "v0.4.0",
+						Container: v1.Container{
+							Name: constants.InferenceServiceContainerName,
+							Resources: v1.ResourceRequirements{
+								Requests: defaultResource,
+								Limits:   defaultResource,
+							},
+						},
+					},
+				},
+			},
+		},
+		"DefaultResources": {
+			spec: PredictorSpec{
+				XGBoost: &XGBoostSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						RuntimeVersion: "v0.3.0",
+					},
+				},
+			},
+			expected: PredictorSpec{
+				XGBoost: &XGBoostSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						RuntimeVersion: "v0.3.0",
+						Container: v1.Container{
+							Name: constants.InferenceServiceContainerName,
+							Resources: v1.ResourceRequirements{
+								Requests: defaultResource,
+								Limits:   defaultResource,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			scenario.spec.XGBoost.Default(&config)
+			if !g.Expect(scenario.spec).To(gomega.Equal(scenario.expected)) {
+				t.Errorf("got %q, want %q", scenario.spec, scenario.expected)
+			}
+		})
+	}
+}
+
 func TestCreateXGBoostModelServingContainer(t *testing.T) {
 
 	var requestedResource = v1.ResourceRequirements{
