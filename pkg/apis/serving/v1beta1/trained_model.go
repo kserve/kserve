@@ -58,9 +58,6 @@ type ModelSpec struct {
 	// - "onnx";
 	// - "customframework";
 	Framework string `json:"framework"`
-	// Framework version for trained model
-	// +optional
-	FrameworkVersion string `json:"frameworkVersion,omitempty"`
 	// Maximum memory this model will consume, this field is used to decide if a model server has enough memory to load this model.
 	// +optional
 	Memory resource.Quantity `json:"memory,omitempty"`
