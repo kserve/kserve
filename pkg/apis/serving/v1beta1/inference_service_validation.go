@@ -22,6 +22,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"regexp"
+	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"strings"
 )
 
@@ -38,11 +39,13 @@ const (
 var (
 	SupportedStorageURIPrefixList = []string{"gs://", "s3://", "pvc://", "file://"}
 	AzureBlobURIRegEx             = "https://(.+?).blob.core.windows.net/(.+)"
+	// logger for the validation webhook.
+	validatorLogger = logf.Log.WithName("inferenceservice-v1beta1-validation-webhook")
 )
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (isvc *InferenceService) ValidateCreate() error {
-	log.Info("validate create", "name", isvc.Name)
+	validatorLogger.Info("validate create", "name", isvc.Name)
 
 	predictor, err := isvc.Spec.Predictor.GetPredictor()
 	if err != nil {
@@ -51,6 +54,7 @@ func (isvc *InferenceService) ValidateCreate() error {
 	if err = predictor.Validate(); err != nil {
 		return err
 	}
+
 	transformer, err := isvc.Spec.Transformer.GetTransformer()
 	if err != nil {
 		return err
@@ -58,6 +62,7 @@ func (isvc *InferenceService) ValidateCreate() error {
 	if err = transformer.Validate(); err != nil {
 		return err
 	}
+
 	explainer, err := isvc.Spec.Explainer.GetExplainer()
 	if err != nil {
 		return err
@@ -70,7 +75,7 @@ func (isvc *InferenceService) ValidateCreate() error {
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (isvc *InferenceService) ValidateUpdate(old runtime.Object) error {
-	log.Info("validate update", "name", isvc.Name)
+	validatorLogger.Info("validate update", "name", isvc.Name)
 
 	predictor, err := isvc.Spec.Predictor.GetPredictor()
 	if err != nil {
@@ -79,6 +84,7 @@ func (isvc *InferenceService) ValidateUpdate(old runtime.Object) error {
 	if err = predictor.Validate(); err != nil {
 		return err
 	}
+
 	transformer, err := isvc.Spec.Transformer.GetTransformer()
 	if err != nil {
 		return err
@@ -86,6 +92,7 @@ func (isvc *InferenceService) ValidateUpdate(old runtime.Object) error {
 	if err = transformer.Validate(); err != nil {
 		return err
 	}
+
 	explainer, err := isvc.Spec.Explainer.GetExplainer()
 	if err != nil {
 		return err
@@ -98,7 +105,7 @@ func (isvc *InferenceService) ValidateUpdate(old runtime.Object) error {
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
 func (isvc *InferenceService) ValidateDelete() error {
-	log.Info("validate delete", "name", isvc.Name)
+	validatorLogger.Info("validate delete", "name", isvc.Name)
 	return nil
 }
 

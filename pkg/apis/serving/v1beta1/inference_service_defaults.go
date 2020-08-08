@@ -31,6 +31,8 @@ var (
 		v1.ResourceCPU:    resource.MustParse("1"),
 		v1.ResourceMemory: resource.MustParse("2Gi"),
 	}
+	// logger for the mutating webhook.
+	mutatorLogger = logf.Log.WithName("inferenceservice-v1beta1-mutating-webhook")
 )
 
 func setResourceRequirementDefaults(requirements *v1.ResourceRequirements) {
@@ -57,8 +59,8 @@ func (isvc *InferenceService) Default() {
 	logger.Info("Defaulting InferenceService", "namespace", isvc.Namespace, "name", isvc.Name)
 	cli, err := client.New(config.GetConfigOrDie(), client.Options{})
 	if err != nil {
-		log.Error(err, "unable to create api client")
-		return
+		mutatorLogger.Error(err, "unable to create api client")
+		panic("unable to create api client")
 	}
 	configMap, err := GetInferenceServicesConfig(cli)
 	if err != nil {
