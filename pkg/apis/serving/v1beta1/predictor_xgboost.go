@@ -38,7 +38,7 @@ func (x *XGBoostSpec) Validate() error {
 func (x *XGBoostSpec) Default(config *InferenceServicesConfig) {
 	x.Container.Name = constants.InferenceServiceContainerName
 	if x.RuntimeVersion == "" {
-		x.RuntimeVersion = config.Predictors.Xgboost.DefaultGpuImageVersion
+		x.RuntimeVersion = config.Predictors.XGBoost.DefaultGpuImageVersion
 	}
 	setResourceRequirementDefaults(&x.Resources)
 }

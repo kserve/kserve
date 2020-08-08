@@ -31,7 +31,14 @@ import (
 
 func TestTensorflowValidation(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-
+	config := InferenceServicesConfig{
+		Predictors: &PredictorsConfig{
+			Tensorflow: PredictorConfig{
+				ContainerImage:      "tfserving",
+				DefaultImageVersion: "1.14.0",
+			},
+		},
+	}
 	scenarios := map[string]struct {
 		spec    PredictorSpec
 		matcher types.GomegaMatcher
@@ -123,9 +130,84 @@ func TestTensorflowValidation(t *testing.T) {
 
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
+			scenario.spec.Tensorflow.Default(&config)
 			res := scenario.spec.Validate()
 			if !g.Expect(res).To(scenario.matcher) {
 				t.Errorf("got %q, want %q", res, scenario.matcher)
+			}
+		})
+	}
+}
+
+func TestTensorflowDefaulter(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	config := InferenceServicesConfig{
+		Predictors: &PredictorsConfig{
+			Tensorflow: PredictorConfig{
+				ContainerImage:      "tfserving",
+				DefaultImageVersion: "1.14.0",
+			},
+		},
+	}
+	defaultResource = v1.ResourceList{
+		v1.ResourceCPU:    resource.MustParse("1"),
+		v1.ResourceMemory: resource.MustParse("2Gi"),
+	}
+	scenarios := map[string]struct {
+		spec     PredictorSpec
+		expected PredictorSpec
+	}{
+		"DefaultRuntimeVersion": {
+			spec: PredictorSpec{
+				Tensorflow: &TFServingSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{},
+				},
+			},
+			expected: PredictorSpec{
+				Tensorflow: &TFServingSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						RuntimeVersion: "1.14.0",
+						Container: v1.Container{
+							Name: constants.InferenceServiceContainerName,
+							Resources: v1.ResourceRequirements{
+								Requests: defaultResource,
+								Limits:   defaultResource,
+							},
+						},
+					},
+				},
+			},
+		},
+		"DefaultResources": {
+			spec: PredictorSpec{
+				Tensorflow: &TFServingSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						RuntimeVersion: "latest-gpu",
+					},
+				},
+			},
+			expected: PredictorSpec{
+				Tensorflow: &TFServingSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						RuntimeVersion: "latest-gpu",
+						Container: v1.Container{
+							Name: constants.InferenceServiceContainerName,
+							Resources: v1.ResourceRequirements{
+								Requests: defaultResource,
+								Limits:   defaultResource,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			scenario.spec.Tensorflow.Default(&config)
+			if !g.Expect(scenario.spec).To(gomega.Equal(scenario.expected)) {
+				t.Errorf("got %q, want %q", scenario.spec, scenario.expected)
 			}
 		})
 	}

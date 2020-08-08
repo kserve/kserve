@@ -105,6 +105,80 @@ func TestSKLearnValidation(t *testing.T) {
 	}
 }
 
+func TestSKLearnDefaulter(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	config := InferenceServicesConfig{
+		Predictors: &PredictorsConfig{
+			SKlearn: PredictorConfig{
+				ContainerImage:      "sklearnserver",
+				DefaultImageVersion: "v0.4.0",
+			},
+		},
+	}
+	defaultResource = v1.ResourceList{
+		v1.ResourceCPU:    resource.MustParse("1"),
+		v1.ResourceMemory: resource.MustParse("2Gi"),
+	}
+	scenarios := map[string]struct {
+		spec     PredictorSpec
+		expected PredictorSpec
+	}{
+		"DefaultRuntimeVersion": {
+			spec: PredictorSpec{
+				SKLearn: &SKLearnSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{},
+				},
+			},
+			expected: PredictorSpec{
+				SKLearn: &SKLearnSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						RuntimeVersion: "v0.4.0",
+						Container: v1.Container{
+							Name: constants.InferenceServiceContainerName,
+							Resources: v1.ResourceRequirements{
+								Requests: defaultResource,
+								Limits:   defaultResource,
+							},
+						},
+					},
+				},
+			},
+		},
+		"DefaultResources": {
+			spec: PredictorSpec{
+				SKLearn: &SKLearnSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						RuntimeVersion: "v0.3.0",
+					},
+				},
+			},
+			expected: PredictorSpec{
+				SKLearn: &SKLearnSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						RuntimeVersion: "v0.3.0",
+						Container: v1.Container{
+							Name: constants.InferenceServiceContainerName,
+							Resources: v1.ResourceRequirements{
+								Requests: defaultResource,
+								Limits:   defaultResource,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			scenario.spec.Tensorflow.Default(&config)
+			if !g.Expect(scenario.spec).To(gomega.Equal(scenario.expected)) {
+				t.Errorf("got %q, want %q", scenario.spec, scenario.expected)
+			}
+		})
+	}
+}
+
 func TestCreateSKLearnModelServingContainer(t *testing.T) {
 
 	var requestedResource = v1.ResourceRequirements{
