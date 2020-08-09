@@ -85,7 +85,7 @@ Or you can use the prebuild image `gcr.io/kubeflow-ci/kfserving/bert-transformer
 
 ## Create the InferenceService
 Add above custom KFServing Transformer image and Triton Predictor to the `InferenceService` spec
-```
+```yaml
 apiVersion: "serving.kubeflow.org/v1alpha2"
 kind: "InferenceService"
 metadata:
@@ -146,6 +146,7 @@ bert-large-predictor-default-2gh6p     bert-large-predictor-default     bert-lar
 bert-large-transformer-default-pcztn   bert-large-transformer-default   bert-large-transformer-default-pcztn   1            True 
 ```
 ## Run a Prediction
+The first step is to [determine the ingress IP and ports](../../../README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
 
 Send a question request with following input
 ```json
@@ -161,8 +162,7 @@ MODEL_NAME=bert-large
 INPUT_PATH=@./input.json
 SERVICE_HOSTNAME=$(kubectl get inferenceservices bert-large -o jsonpath='{.status.url}' | cut -d "/" -f 3)
 
-CLUSTER_IP=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-curl -v -H "Host: ${SERVICE_HOSTNAME}" -d $INPUT_PATH http://$CLUSTER_IP/v1/models/$MODEL_NAME:predict
+curl -v -H "Host: ${SERVICE_HOSTNAME}" -d $INPUT_PATH http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/$MODEL_NAME:predict
 ```
 
 Expected output

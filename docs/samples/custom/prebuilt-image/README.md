@@ -20,15 +20,14 @@ inferenceservice.serving.kubeflow.org/custom-prebuilt-image
 ```
 
 ## Run a prediction
+The first step is to [determine the ingress IP and ports](../../../README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
 
 This example uses the [codait/max-object-detector](https://github.com/IBM/MAX-Object-Detector) image. The Max Object Detector api server expects a POST request to the `/model/predict` endpoint that includes an `image` multipart/form-data and an optional `threshold` query string.
 
 ```
 MODEL_NAME=custom-prebuilt-image
-INGRESS_GATEWAY=istio-ingressgateway
-CLUSTER_IP=$(kubectl -n istio-system get service $INGRESS_GATEWAY -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 SERVICE_HOSTNAME=$(kubectl get inferenceservice ${MODEL_NAME} -o jsonpath='{.status.url}' | cut -d "/" -f 3)
-curl -v -F "image=@dog-human.jpg" http://${CLUSTER_IP}/model/predict -H "Host: ${SERVICE_HOSTNAME}"
+curl -v -F "image=@dog-human.jpg" http://${INGRESS_HOST}:${INGRESS_PORT}/model/predict -H "Host: ${SERVICE_HOSTNAME}"
 ```
 
 Expected output

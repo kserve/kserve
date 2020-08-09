@@ -20,16 +20,14 @@ Uses the client at: https://docs.nvidia.com/deeplearning/triton-inference-server
 
 
 1. setup vars
+The first step is to [determine the ingress IP and ports](../../../README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
 
 ```
 SERVICE_HOSTNAME=$(kubectl get inferenceservice triton-simple-string -o jsonpath='{.status.url}' | cut -d "/" -f 3)
-INGRESS_GATEWAY=istio-ingressgateway
-CLUSTER_IP=$(kubectl -n istio-system get service $INGRESS_GATEWAY -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-echo $CLUSTER_IP
 ```
 2. check server status
 ```
-curl -H "Host: ${SERVICE_HOSTNAME}" http://${CLUSTER_IP}/api/status
+curl -H "Host: ${SERVICE_HOSTNAME}" http://${INGRESS_HOST}:${INGRESS_PORT}/api/status
 ```
 3. edit /etc/hosts to map the CLUSTER IP to triton-simple-string.default.example.com
 4. run the client

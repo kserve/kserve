@@ -18,16 +18,15 @@ $ inferenceservice.serving.kubeflow.org/style-sample configured
 ## Run a sample inference
 
 1. Setup env vars
+The first step is to [determine the ingress IP and ports](../../../README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
 
 ```
 export MODEL_NAME=style-sample
 export SERVICE_HOSTNAME=$(kubectl get inferenceservice ${MODEL_NAME} -o jsonpath='{.status.url}' | cut -d "/" -f 3)
-export INGRESS_GATEWAY=istio-ingressgateway
-export CLUSTER_IP=$(kubectl -n istio-system get service $INGRESS_GATEWAY -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 ```
 2. Verify the service is healthy
 ```
-SERVICE_URL=http://$CLUSTER_IP/v1/models/$MODEL_NAME
+SERVICE_URL=http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/$MODEL_NAME
 curl ${SERVICE_URL}
 ```
 3. Install dependencies

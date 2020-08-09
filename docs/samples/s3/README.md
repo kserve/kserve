@@ -70,13 +70,12 @@ $ inferenceservice.serving.kubeflow.org/mnist-s3 created
 ```
 
 ## Run a prediction
+The first step is to [determine the ingress IP and ports](../../../README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
 
 ```bash
 MODEL_NAME=mnist-s3
 INPUT_PATH=@./input.json
-INGRESS_GATEWAY=istio-ingressgateway
-CLUSTER_IP=$(kubectl -n istio-system get service $INGRESS_GATEWAY -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-curl -v -H "Host: mnist-s3.default.svc.cluster.local" http://$CLUSTER_IP/v1/models/$MODEL_NAME:predict -d $INPUT_PATH
+curl -v -H "Host: mnist-s3.default.svc.cluster.local" http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/$MODEL_NAME:predict -d $INPUT_PATH
 ```
 Expected Output
 ```

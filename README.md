@@ -91,7 +91,7 @@ minikube start --cpus 4 --memory 8192
 
 ### Test KFServing Installation
 
-1) To check if KFServing Controller is installed correctly, please run the following command
+#### Check KFServing controller installation
 ```shell
 kubectl get po -n kfserving-system
 NAME                             READY   STATUS    RESTARTS   AGE
@@ -100,20 +100,19 @@ kfserving-controller-manager-0   2/2     Running   2          13m
 
 Please refer to our [troubleshooting section](docs/DEVELOPER_GUIDE.md#troubleshooting) for recommendations and tips for issues with installation.
 
-2) Wait all pods to be ready then launch KFServing `InferenceService`.(wait 1 min for everything to be ready and 40s to
-launch the `InferenceService`)
+#### Create KFServing test inference service
 ```bash
 kubectl create namespace kfserving-test
 kubectl apply -f docs/samples/sklearn/sklearn.yaml -n kfserving-test
 ```
-3) Check KFServing `InferenceService` status.
+#### Check KFServing `InferenceService` status.
 ```bash
 kubectl get inferenceservices sklearn-iris -n kfserving-test
 NAME           URL                                                              READY   DEFAULT TRAFFIC   CANARY TRAFFIC   AGE
 sklearn-iris   http://sklearn-iris.kfserving-test.example.com/v1/models/sklearn-iris   True    100                                109s
 ```
 
-4) Determine the ingress IP and ports
+#### Determine the ingress IP and ports
 Execute the following command to determine if your kubernetes cluster is running in an environment that supports external load balancers
 ```bash
 $ kubectl get svc istio-ingressgateway -n istio-system
@@ -148,13 +147,13 @@ export INGRESS_HOST=localhost
 export INGRESS_PORT=8080
 ```
 
-5) Curl the `InferenceService`
+#### Curl the `InferenceService`
 ```bash
 SERVICE_HOSTNAME=$(kubectl get inferenceservice sklearn-iris -n kfserving-test -o jsonpath='{.status.url}' | cut -d "/" -f 3)
 curl -v -H "Host: ${SERVICE_HOSTNAME}" http://${INGRESS_HOST}:{INGRESS_PORT}/v1/models/sklearn-iris:predict -d @./docs/samples/sklearn/iris-input.json
 ```
 
-6) Run Performance Test
+#### Run Performance Test
 ```bash
 kubectl create -f docs/samples/sklearn/perf.yaml -n kfserving-test
 # wait the job to be done and check the log
