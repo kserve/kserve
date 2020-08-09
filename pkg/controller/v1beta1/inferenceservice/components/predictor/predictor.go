@@ -22,8 +22,8 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/components"
-	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/reconcilers/configmap"
 	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/reconcilers/knative"
+	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/reconcilers/multimodelconfig"
 	knativeres "github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/resources/knative"
 	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/scheduler"
 	"github.com/kubeflow/kfserving/pkg/credentials"
@@ -186,7 +186,7 @@ func (p *Predictor) CreatePredictorService(isvc *v1beta1.InferenceService) (*kns
 	if storageUri != nil && len(*storageUri) > 0 {
 		shardManager := scheduler.ShardManager{Strategy: scheduler.Memory}
 		for _, id := range shardManager.GetShardId(isvc) {
-			multiModelConfigMap, err := configmap.CreateEmptyMultiModelConfigMap(isvc, id)
+			multiModelConfigMap, err := multimodelconfig.CreateEmptyMultiModelConfigMap(isvc, id)
 			if err == nil {
 				podVolumes := []v1.Volume{}
 

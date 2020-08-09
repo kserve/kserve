@@ -20,7 +20,7 @@ import (
 	"context"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/scheduler"
-	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/trainedmodel/reconcilers/configmap"
+	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/trainedmodel/reconcilers/multimodelconfig"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -92,7 +92,7 @@ func (r *TrainedModelReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 		}
 
 		//Reconcile multi-model configmap to add/update/remove model files
-		configMapReconciler := configmap.NewConfigMapReconciler(r.Client, r.Scheme)
+		configMapReconciler := multimodelconfig.NewConfigMapReconciler(r.Client, r.Scheme)
 		if err := configMapReconciler.Reconcile(configMap, trainedModel); err != nil {
 			return reconcile.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
 		}

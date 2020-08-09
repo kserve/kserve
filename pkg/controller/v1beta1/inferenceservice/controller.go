@@ -23,7 +23,7 @@ import (
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/components"
 	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/components/predictor"
-	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/reconcilers/configmap"
+	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/reconcilers/multimodelconfig"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -99,7 +99,7 @@ func (r *InferenceServiceReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 	}
 
 	//Reconcile multi-model configmap
-	configMapReconciler := configmap.NewConfigMapReconciler(r.Client, r.Scheme)
+	configMapReconciler := multimodelconfig.NewConfigMapReconciler(r.Client, r.Scheme)
 	if err := configMapReconciler.Reconcile(isvc, req); err != nil {
 		return reconcile.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
 	}
