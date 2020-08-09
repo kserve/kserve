@@ -70,11 +70,16 @@ If you are using Kubeflow dashboard or [profile controller](https://www.kubeflow
 
 Make sure you have
 [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/#install-kubectl-on-linux),
-[helm 3](https://helm.sh/docs/intro/install) installed before you start.(2 mins for setup)
 1) If you do not have an existing kubernetes cluster you can create a quick kubernetes local cluster with [kind](https://github.com/kubernetes-sigs/kind#installation-and-usage).(this takes 30s)
 ```bash
 kind create cluster
 ```
+alternatively you can use Minikube
+```bash
+minikube start --cpus 4 --memory 8192
+```
+Note that the minimal requirement for running KFServing is 4 cpus and 8Gi memory.
+
 2) Install Istio lean version, Knative Serving, KFServing all in one.(this takes 30s)
 ```bash
 ./hack/quick_install.sh
@@ -112,16 +117,49 @@ kubectl get inferenceservices sklearn-iris -n kfserving-test
 NAME           URL                                                              READY   DEFAULT TRAFFIC   CANARY TRAFFIC   AGE
 sklearn-iris   http://sklearn-iris.kfserving-test.example.com/v1/models/sklearn-iris   True    100                                109s
 ```
-4) Curl the `InferenceService`
+
+4) Determine the ingress IP and ports
+Execute the following command to determine if your kubernetes cluster is running in an environment that supports external load balancers
+```bash
+$ kubectl get svc istio-ingressgateway -n istio-system
+NAME                   TYPE           CLUSTER-IP       EXTERNAL-IP      PORT(S)   AGE
+istio-ingressgateway   LoadBalancer   172.21.109.129   130.211.10.121   ...       17h
+```
+If the EXTERNAL-IP value is set, your environment has an external load balancer that you can use for the ingress gateway. 
+
+```bash
+export INGRESS_HOST=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+export INGRESS_PORT=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.spec.ports[?(@.name=="http2")].port}')
+```
+
+If the EXTERNAL-IP value is none (or perpetually pending), your environment does not provide an external load balancer for the ingress gateway. In this case, you can access the gateway using the service’s node port.
+```bash
+# GKE
+export INGRESS_HOST=worker-node-address
+# Minikube
+export INGRESS_HOST=$(minikube ip)
+# Other environment(On Prem)
+export INGRESS_HOST=$(kubectl get po -l istio=ingressgateway -n istio-system -o jsonpath='{.items[0].status.hostIP}')
+
+export INGRESS_PORT=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.spec.ports[?(@.name=="http2")].nodePort}')
+```
+
+Alternatively you can do `Port Forward` for testing purpose
 ```bash
 INGRESS_GATEWAY_SERVICE=$(kubectl get svc --namespace istio-system --selector="app=istio-ingressgateway" --output jsonpath='{.items[0].metadata.name}')
 kubectl port-forward --namespace istio-system svc/${INGRESS_GATEWAY_SERVICE} 8080:80
-
 # start another terminal
-SERVICE_HOSTNAME=$(kubectl get inferenceservice sklearn-iris -n kfserving-test -o jsonpath='{.status.url}' | cut -d "/" -f 3)
-curl -v -H "Host: ${SERVICE_HOSTNAME}" http://localhost:8080/v1/models/sklearn-iris:predict -d @./docs/samples/sklearn/iris-input.json
+INGRESS_HOST=localhost
+INGRESS_PORT=8080
 ```
-5) Run Performance Test
+
+5) Curl the `InferenceService`
+```
+SERVICE_HOSTNAME=$(kubectl get inferenceservice sklearn-iris -n kfserving-test -o jsonpath='{.status.url}' | cut -d "/" -f 3)
+curl -v -H "Host: ${SERVICE_HOSTNAME}" http://${INGRESS_HOST}:{INGRESS_PORT}/v1/models/sklearn-iris:predict -d @./docs/samples/sklearn/iris-input.json
+```
+
+6) Run Performance Test
 ```bash
 kubectl create -f docs/samples/sklearn/perf.yaml -n kfserving-test
 # wait the job to be done and check the log
