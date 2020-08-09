@@ -32,13 +32,15 @@ type CustomTransformer struct {
 	v1.PodTemplateSpec `json:",inline"`
 }
 
+var _ Component = &CustomTransformer{}
+
 // Validate returns an error if invalid
 func (c *CustomTransformer) Validate() error {
 	return nil
 }
 
 // Default sets defaults on the resource
-func (c *CustomTransformer) Default() {
+func (c *CustomTransformer) Default(config *InferenceServicesConfig) {
 	c.Name = constants.InferenceServiceContainerName
 	setResourceRequirementDefaults(&c.Spec.Containers[0].Resources)
 }
@@ -54,7 +56,7 @@ func (c *CustomTransformer) GetStorageUri() *string {
 }
 
 // GetContainers transforms the resource into a container spec
-func (c *CustomTransformer) GetContainer(metadata metav1.ObjectMeta) *v1.Container {
+func (c *CustomTransformer) GetContainer(metadata metav1.ObjectMeta, containerConcurrency *int64, config *InferenceServicesConfig) *v1.Container {
 	container := &c.Spec.Containers[0]
 	modelNameExists := false
 	for _, arg := range container.Args {

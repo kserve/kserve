@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"strconv"
 )
 
@@ -28,6 +29,8 @@ type XGBoostSpec struct {
 	// Contains fields shared across all predictors
 	PredictorExtensionSpec `json:",inline"`
 }
+
+var _ Component = &XGBoostSpec{}
 
 // Validate returns an error if invalid
 func (x *XGBoostSpec) Validate() error {
@@ -44,9 +47,9 @@ func (x *XGBoostSpec) Default(config *InferenceServicesConfig) {
 }
 
 // GetContainer transforms the resource into a container spec
-func (x *XGBoostSpec) GetContainer(modelName string, containerConcurrency *int64, config *InferenceServicesConfig) *v1.Container {
+func (x *XGBoostSpec) GetContainer(metadata metav1.ObjectMeta, containerConcurrency *int64, config *InferenceServicesConfig) *v1.Container {
 	arguments := []string{
-		fmt.Sprintf("%s=%s", constants.ArgumentModelName, modelName),
+		fmt.Sprintf("%s=%s", constants.ArgumentModelName, metadata.Name),
 		fmt.Sprintf("%s=%s", constants.ArgumentModelDir, constants.DefaultModelLocalMountPath),
 		fmt.Sprintf("%s=%s", constants.ArgumentHttpPort, constants.InferenceServiceDefaultHttpPort),
 	}

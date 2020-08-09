@@ -303,7 +303,7 @@ func TestCreateONNXRuntimeContainer(t *testing.T) {
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
 			predictor, _ := scenario.isvc.Spec.Predictor.GetPredictor()
-			res := predictor.GetContainer("someName", scenario.isvc.Spec.Predictor.ContainerConcurrency, &config)
+			res := predictor.GetContainer(metav1.ObjectMeta{Name: "someName"}, scenario.isvc.Spec.Predictor.ContainerConcurrency, &config)
 			if !g.Expect(res).To(gomega.Equal(scenario.expectedContainerSpec)) {
 				t.Errorf("got %q, want %q", res, scenario.expectedContainerSpec)
 			}

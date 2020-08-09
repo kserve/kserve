@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var (
@@ -33,6 +34,8 @@ type ONNXRuntimeSpec struct {
 	// Contains fields shared across all predictors
 	PredictorExtensionSpec `json:",inline"`
 }
+
+var _ Component = &ONNXRuntimeSpec{}
 
 // Validate returns an error if invalid
 func (o *ONNXRuntimeSpec) Validate() error {
@@ -49,7 +52,7 @@ func (o *ONNXRuntimeSpec) Default(config *InferenceServicesConfig) {
 }
 
 // GetContainers transforms the resource into a container spec
-func (o *ONNXRuntimeSpec) GetContainer(modelName string, containerConcurrency *int64, config *InferenceServicesConfig) *v1.Container {
+func (o *ONNXRuntimeSpec) GetContainer(metadata metav1.ObjectMeta, containerConcurrency *int64, config *InferenceServicesConfig) *v1.Container {
 	arguments := []string{
 		fmt.Sprintf("%s=%s", "--model_path", constants.DefaultModelLocalMountPath+"/"+ONNXModelFileName),
 		fmt.Sprintf("%s=%s", "--http_port", ONNXServingRestPort),

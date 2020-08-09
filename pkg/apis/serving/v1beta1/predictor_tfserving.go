@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"strings"
 )
 
@@ -38,6 +39,8 @@ type TFServingSpec struct {
 	// Contains fields shared across all predictors
 	PredictorExtensionSpec `json:",inline"`
 }
+
+var _ Component = &TFServingSpec{}
 
 // Validate returns an error if invalid
 func (t *TFServingSpec) Validate() error {
@@ -69,12 +72,12 @@ func (t *TFServingSpec) GetStorageUri() *string {
 }
 
 // GetContainers transforms the resource into a container spec
-func (t *TFServingSpec) GetContainer(modelName string, containerConcurrency *int64, config *InferenceServicesConfig) *v1.Container {
+func (t *TFServingSpec) GetContainer(metadata metav1.ObjectMeta, containerConcurrency *int64, config *InferenceServicesConfig) *v1.Container {
 	arguments := []string{
-		"--port=" + TensorflowServingGRPCPort,
-		"--rest_api_port=" + TensorflowServingRestPort,
-		"--model_name=" + modelName,
-		"--model_base_path=" + constants.DefaultModelLocalMountPath,
+		fmt.Sprintf("%s=%s", "--port", TensorflowServingGRPCPort),
+		fmt.Sprintf("%s=%s", "--rest_api_port", TensorflowServingRestPort),
+		fmt.Sprintf("%s=%s", "--model_name", metadata.Name),
+		fmt.Sprintf("%s=%s", "--model_base_path", constants.DefaultModelLocalMountPath),
 	}
 	if t.Container.Image == "" {
 		t.Container.Image = config.Predictors.Tensorflow.ContainerImage + ":" + t.RuntimeVersion

@@ -22,6 +22,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
 var logger = logf.Log.WithName("kfserving-v1beta1-defaulter")
@@ -34,6 +35,9 @@ var (
 	// logger for the mutating webhook.
 	mutatorLogger = logf.Log.WithName("inferenceservice-v1beta1-mutating-webhook")
 )
+
+// +kubebuilder:webhook:path=/mutate-inferenceservices,mutating=true,failurePolicy=fail,groups=serving.kubeflow.org,resources=inferenceservices,verbs=create;update,versions=v1beta1,name=inferenceservice.kfserving-webhook-server.defaulter
+var _ webhook.Defaulter = &InferenceService{}
 
 func setResourceRequirementDefaults(requirements *v1.ResourceRequirements) {
 	if requirements.Requests == nil {
@@ -72,7 +76,7 @@ func (isvc *InferenceService) Default() {
 
 	if isvc.Spec.Transformer != nil {
 		if transformer, err := isvc.Spec.Transformer.GetTransformer(); err == nil {
-			transformer.Default()
+			transformer.Default(configMap)
 		}
 	}
 

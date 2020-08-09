@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var (
@@ -32,6 +33,8 @@ type TritonSpec struct {
 	// Contains fields shared across all predictors
 	PredictorExtensionSpec `json:",inline"`
 }
+
+var _ Component = &TritonSpec{}
 
 // Validate returns an error if invalid
 func (t *TritonSpec) Validate() error {
@@ -48,9 +51,8 @@ func (t *TritonSpec) Default(config *InferenceServicesConfig) {
 }
 
 // GetContainers transforms the resource into a container spec
-func (t *TritonSpec) GetContainer(modelName string, containerConcurrency *int64, config *InferenceServicesConfig) *v1.Container {
+func (t *TritonSpec) GetContainer(metadata metav1.ObjectMeta, containerConcurrency *int64, config *InferenceServicesConfig) *v1.Container {
 	arguments := []string{
-		"trtserver",
 		fmt.Sprintf("%s=%s", "--model-store", constants.DefaultModelLocalMountPath),
 		fmt.Sprintf("%s=%s", "--grpc-port", fmt.Sprint(TritonISGRPCPort)),
 		fmt.Sprintf("%s=%s", "--http-port", fmt.Sprint(TritonISRestPort)),
@@ -63,6 +65,7 @@ func (t *TritonSpec) GetContainer(modelName string, containerConcurrency *int64,
 		t.Container.Image = config.Predictors.Triton.ContainerImage + ":" + t.RuntimeVersion
 	}
 	t.Name = constants.InferenceServiceContainerName
+	t.Command = []string{"trtserver"}
 	t.Args = arguments
 	return &t.Container
 }
