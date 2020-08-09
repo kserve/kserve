@@ -70,7 +70,11 @@ If you are using Kubeflow dashboard or [profile controller](https://www.kubeflow
 
 Make sure you have
 [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/#install-kubectl-on-linux),
-1) If you do not have an existing kubernetes cluster you can create a quick kubernetes local cluster with [kind](https://github.com/kubernetes-sigs/kind#installation-and-usage).(this takes 30s)
+1) If you do not have an existing kubernetes cluster,
+you can create a quick kubernetes local cluster with [kind](https://github.com/kubernetes-sigs/kind#installation-and-usage).
+
+Note that the minimal requirement for running KFServing is 4 cpus and 8Gi memory.
+So you need to change the [docker resource setting](https://docs.docker.com/docker-for-mac/#advanced) to use 4 cpus and 8Gi memory.
 ```bash
 kind create cluster
 ```
@@ -78,21 +82,11 @@ alternatively you can use Minikube
 ```bash
 minikube start --cpus 4 --memory 8192
 ```
-Note that the minimal requirement for running KFServing is 4 cpus and 8Gi memory.
 
 2) Install Istio lean version, Knative Serving, KFServing all in one.(this takes 30s)
 ```bash
 ./hack/quick_install.sh
 ```
-#### Ingress Setup and Monitoring Stack
-- [Configure Custom Ingress Gateway](https://knative.dev/docs/serving/setting-up-custom-ingress-gateway/)
-  - In addition you need to update [KFServing configmap](config/default/configmap/inferenceservice.yaml) to use the custom ingress gateway.
-- [Configure HTTPS Connection](https://knative.dev/docs/serving/using-a-tls-cert/)
-- [Configure Custom Domain](https://knative.dev/docs/serving/using-a-custom-domain/)
-- [Metrics](https://knative.dev/docs/serving/accessing-metrics/)
-- [Tracing](https://knative.dev/docs/serving/accessing-traces/)
-- [Logging](https://knative.dev/docs/serving/accessing-logs/)
-- [Dashboard for ServiceMesh](https://istio.io/latest/docs/tasks/observability/kiali/)
 
 ### Test KFServing Installation
 
@@ -149,12 +143,12 @@ Alternatively you can do `Port Forward` for testing purpose
 INGRESS_GATEWAY_SERVICE=$(kubectl get svc --namespace istio-system --selector="app=istio-ingressgateway" --output jsonpath='{.items[0].metadata.name}')
 kubectl port-forward --namespace istio-system svc/${INGRESS_GATEWAY_SERVICE} 8080:80
 # start another terminal
-INGRESS_HOST=localhost
-INGRESS_PORT=8080
+export INGRESS_HOST=localhost
+export INGRESS_PORT=8080
 ```
 
 5) Curl the `InferenceService`
-```
+```bash
 SERVICE_HOSTNAME=$(kubectl get inferenceservice sklearn-iris -n kfserving-test -o jsonpath='{.status.url}' | cut -d "/" -f 3)
 curl -v -H "Host: ${SERVICE_HOSTNAME}" http://${INGRESS_HOST}:{INGRESS_PORT}/v1/models/sklearn-iris:predict -d @./docs/samples/sklearn/iris-input.json
 ```
@@ -173,6 +167,18 @@ Success       [ratio]                           100.00%
 Status Codes  [code:count]                      200:30000
 Error Set:
 ```
+### Setup Ingress Gateway
+If the default ingress gateway setup does not fit your need, you can choose to setup a custom ingress gateway
+- [Configure Custom Ingress Gateway](https://knative.dev/docs/serving/setting-up-custom-ingress-gateway/)
+  -  In addition you need to update [KFServing configmap](config/default/configmap/inferenceservice.yaml) to use the custom ingress gateway.
+- [Configure Custom Domain](https://knative.dev/docs/serving/using-a-custom-domain/)
+- [Configure HTTPS Connection](https://knative.dev/docs/serving/using-a-tls-cert/)
+
+### Setup Monitoring
+- [Metrics](https://knative.dev/docs/serving/accessing-metrics/)
+- [Tracing](https://knative.dev/docs/serving/accessing-traces/)
+- [Logging](https://knative.dev/docs/serving/accessing-logs/)
+- [Dashboard for ServiceMesh](https://istio.io/latest/docs/tasks/observability/kiali/)
 
 ### Use KFServing SDK
 * Install the SDK
