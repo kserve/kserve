@@ -26,10 +26,10 @@ import (
 // CustomTransformer defines arguments for configuring a custom transformer.
 type CustomTransformer struct {
 	// This spec is dual purpose.
-	// 1) Users may choose to provide a full PodSpec for their predictor.
-	// The field PodSpec.Containers is mutually exclusive with other Predictors (i.e. TFServing).
-	// 2) Users may choose to provide a Predictor (i.e. TFServing) and specify PodSpec
-	// overrides in the CustomPredictor PodSpec. They must not provide PodSpec.Containers in this case.
+	// 1) Users may choose to provide a full PodSpec for their transformer.
+	// The field PodSpec.Containers is mutually exclusive with other Transformer (i.e. Feast).
+	// 2) Users may choose to provide a Transformer (i.e. Feast) and specify PodSpec
+	// overrides in the CustomTransformer PodSpec. They must not provide PodSpec.Containers in this case.
 	v1.PodTemplateSpec `json:",inline"`
 }
 

@@ -22,13 +22,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// CustomExplainer defines arguments for configuring a custom transformer.
+// CustomExplainer defines arguments for configuring a custom explainer.
 type CustomExplainer struct {
 	// This spec is dual purpose.
-	// 1) Users may choose to provide a full PodSpec for their predictor.
-	// The field PodSpec.Containers is mutually exclusive with other Predictors (i.e. TFServing).
-	// 2) Users may choose to provide a Predictor (i.e. TFServing) and specify PodSpec
-	// overrides in the CustomPredictor PodSpec. They must not provide PodSpec.Containers in this case.
+	// 1) Users may choose to provide a full PodSpec for their explainer.
+	// The field PodSpec.Containers is mutually exclusive with other explainers (i.e. Alibi).
+	// 2) Users may choose to provide a Explainer (i.e. Alibi) and specify PodSpec
+	// overrides in the CustomExplainer PodSpec. They must not provide PodSpec.Containers in this case.
 	v1.PodTemplateSpec `json:",inline"`
 }
 
@@ -39,7 +39,10 @@ func (c *CustomExplainer) Validate() error {
 
 // Default sets defaults on the resource
 func (c *CustomExplainer) Default(config *InferenceServicesConfig) {
-	c.Name = constants.InferenceServiceContainerName
+	if len(c.Spec.Containers) == 0 {
+		c.Spec.Containers = append(c.Spec.Containers, v1.Container{})
+	}
+	c.Spec.Containers[0].Name = constants.InferenceServiceContainerName
 	setResourceRequirementDefaults(&c.Spec.Containers[0].Resources)
 }
 

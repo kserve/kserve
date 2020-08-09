@@ -20,6 +20,7 @@ import (
 	"github.com/kubeflow/kfserving/pkg/constants"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"strconv"
 )
 
 // CustomPredictor defines arguments for configuring a custom server.
@@ -39,7 +40,10 @@ func (c *CustomPredictor) Validate() error {
 
 // Default sets defaults on the resource
 func (c *CustomPredictor) Default(config *InferenceServicesConfig) {
-	c.Name = constants.InferenceServiceContainerName
+	if len(c.Spec.Containers) == 0 {
+		c.Spec.Containers = append(c.Spec.Containers, v1.Container{})
+	}
+	c.Spec.Containers[0].Name = constants.InferenceServiceContainerName
 	setResourceRequirementDefaults(&c.Spec.Containers[0].Resources)
 }
 
@@ -55,5 +59,21 @@ func (c *CustomPredictor) GetStorageUri() *string {
 
 // GetContainers transforms the resource into a container spec
 func (c *CustomPredictor) GetContainer(metadata metav1.ObjectMeta, containerConcurrency *int64, config *InferenceServicesConfig) *v1.Container {
+	container := &c.Spec.Containers[0]
+	modelNameExists := false
+	for _, arg := range container.Args {
+		if arg == constants.ArgumentModelName {
+			modelNameExists = true
+		}
+	}
+	if !modelNameExists {
+		container.Args = append(container.Args, []string{
+			constants.ArgumentModelName,
+			metadata.Name,
+		}...)
+	}
+	if containerConcurrency != nil {
+		container.Args = append(container.Args, constants.ArgumentWorkers, strconv.FormatInt(*containerConcurrency, 10))
+	}
 	return &c.Spec.Containers[0]
 }
