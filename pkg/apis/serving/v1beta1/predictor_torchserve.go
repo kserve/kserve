@@ -41,7 +41,7 @@ func (t *TorchServeSpec) Default(config *InferenceServicesConfig) {
 }
 
 // GetContainers transforms the resource into a container spec
-func (t *TorchServeSpec) GetContainer(modelName string, containerConcurrency int, config *InferenceServicesConfig) *v1.Container {
+func (t *TorchServeSpec) GetContainer(modelName string, containerConcurrency *int64, config *InferenceServicesConfig) *v1.Container {
 	arguments := []string{
 		"torchserve",
 		"--start",

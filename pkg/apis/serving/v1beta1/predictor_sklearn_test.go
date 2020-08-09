@@ -83,7 +83,7 @@ func TestSKLearnValidation(t *testing.T) {
 			spec: PredictorSpec{
 				ComponentExtensionSpec: ComponentExtensionSpec{
 					MinReplicas:          GetIntReference(3),
-					ContainerConcurrency: -1,
+					ContainerConcurrency: proto.Int64(-1),
 				},
 				SKLearn: &SKLearnSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
@@ -274,7 +274,7 @@ func TestCreateSKLearnModelServingContainer(t *testing.T) {
 				Spec: InferenceServiceSpec{
 					Predictor: PredictorSpec{
 						ComponentExtensionSpec: ComponentExtensionSpec{
-							ContainerConcurrency: 1,
+							ContainerConcurrency: proto.Int64(1),
 						},
 						SKLearn: &SKLearnSpec{
 							PredictorExtensionSpec: PredictorExtensionSpec{

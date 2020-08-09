@@ -35,7 +35,7 @@ type ExplainerSpec struct {
 	// Pass through Pod fields or specify a custom container spec
 	*CustomExplainer `json:",inline"`
 	// Extensions available in all components
-	*ComponentExtensionSpec `json:",inline"`
+	ComponentExtensionSpec `json:",inline"`
 }
 
 // Explainer interface is implemented by all explainers

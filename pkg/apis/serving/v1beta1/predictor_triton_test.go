@@ -83,7 +83,7 @@ func TestTritonValidation(t *testing.T) {
 			spec: PredictorSpec{
 				ComponentExtensionSpec: ComponentExtensionSpec{
 					MinReplicas:          GetIntReference(3),
-					ContainerConcurrency: -1,
+					ContainerConcurrency: proto.Int64(-1),
 				},
 				Triton: &TritonSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
@@ -282,7 +282,7 @@ func TestCreateTritonContainer(t *testing.T) {
 				Spec: InferenceServiceSpec{
 					Predictor: PredictorSpec{
 						ComponentExtensionSpec: ComponentExtensionSpec{
-							ContainerConcurrency: 1,
+							ContainerConcurrency: proto.Int64(-1),
 						},
 						Triton: &TritonSpec{
 							PredictorExtensionSpec: PredictorExtensionSpec{

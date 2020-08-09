@@ -45,14 +45,14 @@ func (k *SKLearnSpec) Default(config *InferenceServicesConfig) {
 }
 
 // GetContainer transforms the resource into a container spec
-func (k *SKLearnSpec) GetContainer(modelName string, containerConcurrency int, config *InferenceServicesConfig) *v1.Container {
+func (k *SKLearnSpec) GetContainer(modelName string, containerConcurrency *int64, config *InferenceServicesConfig) *v1.Container {
 	arguments := []string{
 		fmt.Sprintf("%s=%s", constants.ArgumentModelName, modelName),
 		fmt.Sprintf("%s=%s", constants.ArgumentModelDir, constants.DefaultModelLocalMountPath),
 		fmt.Sprintf("%s=%s", constants.ArgumentHttpPort, constants.InferenceServiceDefaultHttpPort),
 	}
-	if containerConcurrency != 0 {
-		arguments = append(arguments, fmt.Sprintf("%s=%s", constants.ArgumentWorkers, strconv.Itoa(containerConcurrency)))
+	if containerConcurrency != nil {
+		arguments = append(arguments, fmt.Sprintf("%s=%s", constants.ArgumentWorkers, strconv.FormatInt(*containerConcurrency, 10)))
 	}
 	if k.Container.Image == "" {
 		k.Container.Image = config.Predictors.SKlearn.ContainerImage + ":" + k.RuntimeVersion

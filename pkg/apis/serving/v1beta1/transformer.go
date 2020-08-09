@@ -32,7 +32,7 @@ type TransformerSpec struct {
 	// Pass through Pod fields or specify a custom container spec
 	*CustomTransformer `json:",inline"`
 	// Extensions available in all components
-	*ComponentExtensionSpec `json:",inline"`
+	ComponentExtensionSpec `json:",inline"`
 }
 
 // Transformer interface is implemented by all Transformers

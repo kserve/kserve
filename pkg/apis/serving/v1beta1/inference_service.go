@@ -46,13 +46,13 @@ type ComponentExtensionSpec struct {
 	// ContainerConcurrency specifies how many requests can be processed concurrently, this sets the hard limit of the container
 	// concurrency(https://knative.dev/docs/serving/autoscaling/concurrency).
 	// +optional
-	ContainerConcurrency int `json:"containerConcurrency,omitempty"`
+	ContainerConcurrency *int64 `json:"containerConcurrency,omitempty"`
 	// TimeoutSeconds specifies the number of seconds to wait before timing out a request to the component.
 	// +optional
-	TimeoutSeconds int `json:"timeout,omitempty"`
+	TimeoutSeconds *int64 `json:"timeout,omitempty"`
 	// CanaryTrafficPercent defines the traffic split percentage between the candidate revision and the last ready revision
 	// +optional
-	CanaryTrafficPercent int `json:"canaryTrafficPercent,omitempty"`
+	CanaryTrafficPercent *int `json:"canaryTrafficPercent,omitempty"`
 	// Activate request/response logging and logger configurations
 	// +optional
 	LoggerSpec *LoggerSpec `json:"logger,omitempty"`

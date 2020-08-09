@@ -26,17 +26,12 @@ import (
 
 type ServingV1beta1Interface interface {
 	RESTClient() rest.Interface
-	InferenceRoutersGetter
 	InferenceServicesGetter
 }
 
 // ServingV1beta1Client is used to interact with features provided by the serving group.
 type ServingV1beta1Client struct {
 	restClient rest.Interface
-}
-
-func (c *ServingV1beta1Client) InferenceRouters(namespace string) InferenceRouterInterface {
-	return newInferenceRouters(c, namespace)
 }
 
 func (c *ServingV1beta1Client) InferenceServices(namespace string) InferenceServiceInterface {

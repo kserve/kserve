@@ -28,10 +28,6 @@ type FakeServingV1beta1 struct {
 	*testing.Fake
 }
 
-func (c *FakeServingV1beta1) InferenceRouters(namespace string) v1beta1.InferenceRouterInterface {
-	return &FakeInferenceRouters{c, namespace}
-}
-
 func (c *FakeServingV1beta1) InferenceServices(namespace string) v1beta1.InferenceServiceInterface {
 	return &FakeInferenceServices{c, namespace}
 }
