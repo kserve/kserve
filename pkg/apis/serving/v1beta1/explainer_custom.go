@@ -20,6 +20,7 @@ import (
 	"github.com/kubeflow/kfserving/pkg/constants"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"strconv"
 )
 
 // CustomExplainer defines arguments for configuring a custom explainer.
@@ -58,5 +59,27 @@ func (c *CustomExplainer) GetStorageUri() *string {
 
 // GetContainers transforms the resource into a container spec
 func (c *CustomExplainer) GetContainer(metadata metav1.ObjectMeta, containerConcurrency *int64, config *InferenceServicesConfig) *v1.Container {
+	container := &c.Spec.Containers[0]
+	modelNameExists := false
+	for _, arg := range container.Args {
+		if arg == constants.ArgumentModelName {
+			modelNameExists = true
+		}
+	}
+	if !modelNameExists {
+		container.Args = append(container.Args, []string{
+			constants.ArgumentModelName,
+			metadata.Name,
+		}...)
+	}
+	container.Args = append(container.Args, []string{
+		constants.ArgumentPredictorHost,
+		constants.PredictorURL(metadata, false),
+		constants.ArgumentHttpPort,
+		constants.InferenceServiceDefaultHttpPort,
+	}...)
+	if containerConcurrency != nil {
+		container.Args = append(container.Args, constants.ArgumentWorkers, strconv.FormatInt(*containerConcurrency, 10))
+	}
 	return &c.Spec.Containers[0]
 }
