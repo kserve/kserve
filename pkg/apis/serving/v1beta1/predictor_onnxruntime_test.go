@@ -39,7 +39,7 @@ func TestOnnxRuntimeValidation(t *testing.T) {
 			spec: PredictorSpec{
 				ONNX: &ONNXRuntimeSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
-						RuntimeVersion: "latest",
+						RuntimeVersion: proto.String("latest"),
 					},
 				},
 			},
@@ -132,7 +132,7 @@ func TestONNXRuntimeDefaulter(t *testing.T) {
 			expected: PredictorSpec{
 				ONNX: &ONNXRuntimeSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
-						RuntimeVersion: "v1.0.0",
+						RuntimeVersion: proto.String("v1.0.0"),
 						Container: v1.Container{
 							Name: constants.InferenceServiceContainerName,
 							Resources: v1.ResourceRequirements{
@@ -148,14 +148,14 @@ func TestONNXRuntimeDefaulter(t *testing.T) {
 			spec: PredictorSpec{
 				ONNX: &ONNXRuntimeSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
-						RuntimeVersion: "v1.0.0",
+						RuntimeVersion: proto.String("v1.0.0"),
 					},
 				},
 			},
 			expected: PredictorSpec{
 				ONNX: &ONNXRuntimeSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
-						RuntimeVersion: "v1.0.0",
+						RuntimeVersion: proto.String("v1.0.0"),
 						Container: v1.Container{
 							Name: constants.InferenceServiceContainerName,
 							Resources: v1.ResourceRequirements{
@@ -216,7 +216,7 @@ func TestCreateONNXRuntimeContainer(t *testing.T) {
 						ONNX: &ONNXRuntimeSpec{
 							PredictorExtensionSpec: PredictorExtensionSpec{
 								StorageURI:     proto.String("gs://someUri"),
-								RuntimeVersion: "v1.0.0",
+								RuntimeVersion: proto.String("v1.0.0"),
 								Container: v1.Container{
 									Resources: requestedResource,
 								},
@@ -279,7 +279,7 @@ func TestCreateONNXRuntimeContainer(t *testing.T) {
 						ONNX: &ONNXRuntimeSpec{
 							PredictorExtensionSpec: PredictorExtensionSpec{
 								StorageURI:     proto.String("gs://someUri"),
-								RuntimeVersion: "v1.0.0",
+								RuntimeVersion: proto.String("v1.0.0"),
 								Container: v1.Container{
 									Resources: requestedResource,
 								},

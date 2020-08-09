@@ -70,19 +70,14 @@ func (isvc *InferenceService) Default() {
 	if err != nil {
 		panic(err)
 	}
-	if predictor, err := isvc.Spec.Predictor.GetPredictor(); err == nil {
-		predictor.Default(configMap)
-	}
-
-	if isvc.Spec.Transformer != nil {
-		if transformer, err := isvc.Spec.Transformer.GetTransformer(); err == nil {
-			transformer.Default(configMap)
-		}
-	}
-
-	if isvc.Spec.Explainer != nil {
-		if explainer, err := isvc.Spec.Explainer.GetExplainer(); err == nil {
-			explainer.Default(configMap)
+	for _, componentProducer := range []func() (Component, error){
+		isvc.Spec.Predictor.GetPredictor,
+		isvc.Spec.Explainer.GetExplainer,
+		isvc.Spec.Transformer.GetTransformer,
+	} {
+		component, err := componentProducer()
+		if err == nil {
+			component.Default(configMap)
 		}
 	}
 }

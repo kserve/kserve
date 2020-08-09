@@ -39,7 +39,7 @@ func TestTritonValidation(t *testing.T) {
 			spec: PredictorSpec{
 				Triton: &TritonSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
-						RuntimeVersion: "latest",
+						RuntimeVersion: proto.String("latest"),
 					},
 				},
 			},
@@ -132,7 +132,7 @@ func TestTritonDefaulter(t *testing.T) {
 			expected: PredictorSpec{
 				Triton: &TritonSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
-						RuntimeVersion: "20.03-py3",
+						RuntimeVersion: proto.String("20.03-py3"),
 						Container: v1.Container{
 							Name: constants.InferenceServiceContainerName,
 							Resources: v1.ResourceRequirements{
@@ -148,14 +148,14 @@ func TestTritonDefaulter(t *testing.T) {
 			spec: PredictorSpec{
 				Triton: &TritonSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
-						RuntimeVersion: "20.03-py3",
+						RuntimeVersion: proto.String("20.05-py3"),
 					},
 				},
 			},
 			expected: PredictorSpec{
 				Triton: &TritonSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
-						RuntimeVersion: "20.03-py3",
+						RuntimeVersion: proto.String("20.05-py3"),
 						Container: v1.Container{
 							Name: constants.InferenceServiceContainerName,
 							Resources: v1.ResourceRequirements{
@@ -216,7 +216,7 @@ func TestCreateTritonContainer(t *testing.T) {
 						Triton: &TritonSpec{
 							PredictorExtensionSpec: PredictorExtensionSpec{
 								StorageURI:     proto.String("gs://someUri"),
-								RuntimeVersion: "20.03-py3",
+								RuntimeVersion: proto.String("20.03-py3"),
 								Container: v1.Container{
 									Resources: requestedResource,
 								},
@@ -291,7 +291,7 @@ func TestCreateTritonContainer(t *testing.T) {
 						Triton: &TritonSpec{
 							PredictorExtensionSpec: PredictorExtensionSpec{
 								StorageURI:     proto.String("gs://someUri"),
-								RuntimeVersion: "20.03-py3",
+								RuntimeVersion: proto.String("20.03-py3"),
 								Container: v1.Container{
 									Resources: requestedResource,
 								},
@@ -321,6 +321,7 @@ func TestCreateTritonContainer(t *testing.T) {
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
 			predictor, _ := scenario.isvc.Spec.Predictor.GetPredictor()
+			predictor.Default(&config)
 			res := predictor.GetContainer(metav1.ObjectMeta{Name: "someName"}, scenario.isvc.Spec.Predictor.ContainerConcurrency, &config)
 			if !g.Expect(res).To(gomega.Equal(scenario.expectedContainerSpec)) {
 				t.Errorf("got %q, want %q", res, scenario.expectedContainerSpec)
