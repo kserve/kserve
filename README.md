@@ -1,6 +1,10 @@
 # KFServing
+[![go.dev reference](https://img.shields.io/badge/go.dev-reference-007d9c?logo=go&logoColor=white)](https://pkg.go.dev/github.com/knative/serving)
 [![Coverage Status](https://coveralls.io/repos/github/kubeflow/kfserving/badge.svg?branch=master)](https://coveralls.io/github/kubeflow/kfserving?branch=master)
 [![Go Report Card](https://goreportcard.com/badge/github.com/kubeflow/kfserving)](https://goreportcard.com/report/github.com/kubeflow/kfserving)
+[![Releases](https://img.shields.io/github/release-pre/kubeflow/kfserving.svg?sort=semver)](https://github.com/kubeflow/kfserving/releases)
+[![LICENSE](https://img.shields.io/github/license/kubeflow/kfserving.svg)](https://github.com/kubeflow/kfserving/blob/master/LICENSE)
+[![Slack Status](https://img.shields.io/badge/slack-join_chat-white.svg?logo=slack&style=social)](https://kubeflow.slack.com/join/shared_invite/zt-cpr020z4-PfcAue_2nw67~iIDy7maAQ)
 
 KFServing provides a Kubernetes [Custom Resource Definition](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/) for serving machine learning (ML) models on arbitrary frameworks. It aims to solve production model serving use cases by providing performant, high abstraction interfaces for common ML frameworks like Tensorflow, XGBoost, ScikitLearn, PyTorch, and ONNX.
 
