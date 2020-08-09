@@ -69,16 +69,17 @@ If you are using Kubeflow dashboard or [profile controller](https://www.kubeflow
 #### Install KFServing in 5 Minutes (On your local machine)
 
 Make sure you have
-[kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/#install-kubectl-on-linux),
+[kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/#install-kubectl-on-linux) installed.
+
 1) If you do not have an existing kubernetes cluster,
 you can create a quick kubernetes local cluster with [kind](https://github.com/kubernetes-sigs/kind#installation-and-usage).
 
-Note that the minimal requirement for running KFServing is 4 cpus and 8Gi memory.
-So you need to change the [docker resource setting](https://docs.docker.com/docker-for-mac/#advanced) to use 4 cpus and 8Gi memory.
+Note that the minimal requirement for running KFServing is 4 cpus and 8Gi memory,
+so you need to change the [docker resource setting](https://docs.docker.com/docker-for-mac/#advanced) to use 4 cpus and 8Gi memory.
 ```bash
 kind create cluster
 ```
-alternatively you can use Minikube
+alternatively you can use [Minikube](https://kubernetes.io/docs/setup/learning-environment/minikube)
 ```bash
 minikube start --cpus 4 --memory 8192
 ```
