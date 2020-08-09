@@ -18,8 +18,6 @@ package v1beta1
 
 import (
 	"fmt"
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -45,14 +43,6 @@ func (e *ExplainerSpec) GetStorageUri() *string {
 		return nil
 	}
 	return explainer.GetStorageUri()
-}
-
-func (e *ExplainerSpec) GetContainer(metadata metav1.ObjectMeta, containerConcurrency *int64, config *InferenceServicesConfig) *v1.Container {
-	explainer, err := e.GetExplainer()
-	if err != nil {
-		return nil
-	}
-	return explainer.GetContainer(metadata, containerConcurrency, config)
 }
 
 func (e *ExplainerSpec) Validate() error {
