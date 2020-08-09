@@ -65,11 +65,3 @@ func (t *TransformerSpec) Validate() error {
 	}
 	return nil
 }
-
-// Apply Defaults to the TransformerSpec
-func (t *TransformerSpec) Default(config *InferenceServicesConfig) {
-	transformer, err := t.GetTransformer()
-	if err == nil {
-		transformer.Default(config)
-	}
-}
