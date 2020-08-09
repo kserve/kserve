@@ -20,7 +20,7 @@ Uses the client at: https://docs.nvidia.com/deeplearning/triton-inference-server
 
 
 1. setup vars
-The first step is to [determine the ingress IP and ports](../../../README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
+The first step is to [determine the ingress IP and ports](../../../../README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
 
 ```
 SERVICE_HOSTNAME=$(kubectl get inferenceservice triton-simple-string -o jsonpath='{.status.url}' | cut -d "/" -f 3)
