@@ -26,9 +26,7 @@ spec:
           type: object
         spec:
           properties:
-            inferenceService:
-              type: string
-            predictorModel:
+            inference:
               properties:
                 framework:
                   type: string
@@ -44,9 +42,11 @@ spec:
               - framework
               - storageUri
               type: object
+            inferenceService:
+              type: string
           required:
+          - inference
           - inferenceService
-          - predictorModel
           type: object
         status:
           properties:
