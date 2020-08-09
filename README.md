@@ -1,5 +1,5 @@
 # KFServing
-[![go.dev reference](https://img.shields.io/badge/go.dev-reference-007d9c?logo=go&logoColor=white)](https://pkg.go.dev/github.com/knative/serving)
+[![go.dev reference](https://img.shields.io/badge/go.dev-reference-007d9c?logo=go&logoColor=white)](https://pkg.go.dev/github.com/kubeflow/kfserving)
 [![Coverage Status](https://coveralls.io/repos/github/kubeflow/kfserving/badge.svg?branch=master)](https://coveralls.io/github/kubeflow/kfserving?branch=master)
 [![Go Report Card](https://goreportcard.com/badge/github.com/kubeflow/kfserving)](https://goreportcard.com/report/github.com/kubeflow/kfserving)
 [![Releases](https://img.shields.io/github/release-pre/kubeflow/kfserving.svg?sort=semver)](https://github.com/kubeflow/kfserving/releases)
@@ -148,6 +148,7 @@ Error Set:
 ### KFServing Features and Examples
 [KFServing Features and Examples](./docs/samples/README.md)
 
+### KFServing Presentations and Demoes
 [KFServing Presentations and Demoes](./docs/PRESENTATIONS.md)
 
 ### KFServing Roadmap
