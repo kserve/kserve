@@ -34,7 +34,6 @@ var _ Component = &SKLearnSpec{}
 
 // Validate returns an error if invalid
 func (k *SKLearnSpec) Validate() error {
-	validateStorageURI(k.StorageURI)
 	return nil
 }
 

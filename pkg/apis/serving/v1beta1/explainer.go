@@ -55,7 +55,7 @@ func (e *ExplainerSpec) GetContainer(metadata metav1.ObjectMeta, containerConcur
 	return explainer.GetContainer(metadata, containerConcurrency, config)
 }
 
-func (e *ExplainerSpec) Validate(config *InferenceServicesConfig) error {
+func (e *ExplainerSpec) Validate() error {
 	explainer, err := e.GetExplainer()
 	if err != nil {
 		return err
