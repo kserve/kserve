@@ -24,8 +24,6 @@ import (
 
 // Interface provides access to all the informers in this group version.
 type Interface interface {
-	// InferenceRouters returns a InferenceRouterInformer.
-	InferenceRouters() InferenceRouterInformer
 	// InferenceServices returns a InferenceServiceInformer.
 	InferenceServices() InferenceServiceInformer
 }
@@ -39,11 +37,6 @@ type version struct {
 // New returns a new Interface.
 func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakListOptions internalinterfaces.TweakListOptionsFunc) Interface {
 	return &version{factory: f, namespace: namespace, tweakListOptions: tweakListOptions}
-}
-
-// InferenceRouters returns a InferenceRouterInformer.
-func (v *version) InferenceRouters() InferenceRouterInformer {
-	return &inferenceRouterInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
 // InferenceServices returns a InferenceServiceInformer.

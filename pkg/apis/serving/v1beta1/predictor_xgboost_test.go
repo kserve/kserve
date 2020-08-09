@@ -274,7 +274,7 @@ func TestCreateXGBoostModelServingContainer(t *testing.T) {
 				Spec: InferenceServiceSpec{
 					Predictor: PredictorSpec{
 						ComponentExtensionSpec: ComponentExtensionSpec{
-							ContainerConcurrency: proto.Int64(-1),
+							ContainerConcurrency: proto.Int64(1),
 						},
 						XGBoost: &XGBoostSpec{
 							PredictorExtensionSpec: PredictorExtensionSpec{
