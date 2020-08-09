@@ -50,7 +50,7 @@ func (c *ConfigMapReconciler) Reconcile(isvc *v1beta1api.InferenceService, req c
 
 	// Find the InferenceService's configmap. If its configmap does not exist, create an empty configmap.
 	shardManager := scheduler.ShardManager{Strategy: scheduler.Memory}
-	for _, id := range shardManager.GetShardId(isvc) {
+	for _, id := range shardManager.GetShardIdsForInferenceService(isvc) {
 		multiModelConfigMap := corev1.ConfigMap{}
 		multiModelConfigMapName := types.NamespacedName{Name: constants.DefaultMultiModelConfigMapName(isvc.Name, id), Namespace: req.Namespace}
 		if err := c.client.Get(context.TODO(), multiModelConfigMapName, &multiModelConfigMap); err != nil {

@@ -183,23 +183,22 @@ func (p *Predictor) CreatePredictorService(isvc *v1beta1.InferenceService) (*kns
 	//If InferenceService's storageUri is empty, create multi-model service configMap and
 	//mount it into this predictor's knative service
 	storageUri := isvc.Spec.Predictor.GetStorageUri()
-	if storageUri != nil && len(*storageUri) > 0 {
+	if storageUri == nil || len(*storageUri) == 0 {
 		shardManager := scheduler.ShardManager{Strategy: scheduler.Memory}
-		for _, id := range shardManager.GetShardId(isvc) {
+		for _, id := range shardManager.GetShardIdsForInferenceService(isvc) {
 			multiModelConfigMap, err := multimodelconfig.CreateEmptyMultiModelConfigMap(isvc, id)
 			if err == nil {
-				podVolumes := []v1.Volume{}
 
 				multiModelConfigVolume := v1.Volume{
-					Name: "config-mms",
+					Name: constants.MultiModelConfigVolumeName,
 					VolumeSource: v1.VolumeSource{
 						ConfigMap: &v1.ConfigMapVolumeSource{},
 					},
 				}
 				multiModelConfigVolume.ConfigMap.Name = multiModelConfigMap.Name
-				podVolumes = append(podVolumes, multiModelConfigVolume)
-				service.Spec.Template.Spec.Volumes = podVolumes
-				//TODO mount multi-model configmap in the user container
+				// Mount the multi-model configmap to ksvc if not already mounted
+				service.Spec.Template.Spec.Volumes = mountVolumeIfNotExist(service.Spec.Template.Spec.Volumes, multiModelConfigVolume)
+				//TODO mount multi-model configmap in the the knative user container
 			}
 		}
 	}
@@ -213,4 +212,18 @@ func (p *Predictor) CreatePredictorService(isvc *v1beta1.InferenceService) (*kns
 	}
 
 	return service, nil
+}
+
+func mountVolumeIfNotExist(existingVolumes []v1.Volume, additionalVolume v1.Volume) []v1.Volume {
+	if existingVolumes == nil {
+		existingVolumes = []v1.Volume{}
+	}
+	for _, volume := range existingVolumes {
+		if volume.Name == additionalVolume.Name {
+			//additionalVolume exists
+			return existingVolumes
+		}
+	}
+	updatedVolumes := append(existingVolumes, additionalVolume)
+	return updatedVolumes
 }

@@ -153,17 +153,18 @@ var _ = Describe("v1beta1 inference service controller", func() {
 		var serviceKey = expectedRequest.NamespacedName
 		var multiModelConfigMapKey = types.NamespacedName{Name: constants.DefaultMultiModelConfigMapName(serviceName, 0),
 			Namespace: serviceKey.Namespace}
+		var ksvcKey = types.NamespacedName{Name: constants.DefaultServiceName(serviceKey.Name, constants.Predictor),
+			Namespace: expectedRequest.Namespace}
 		ctx := context.Background()
 		instance := createTestInferenceService(serviceKey, false)
 
-		It("Should have multi-model configmap created", func() {
+		It("Should have multi-model configmap created and mounted", func() {
 			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
 			defer k8sClient.Delete(context.TODO(), configMap)
 			By("By creating a new InferenceService")
 			Expect(k8sClient.Create(ctx, instance)).Should(Succeed())
-			inferenceService := &v1beta1.InferenceService{}
-			multiModelConfigMap := &corev1.ConfigMap{}
 
+			inferenceService := &v1beta1.InferenceService{}
 			Eventually(func() bool {
 				//Check if InferenceService is created
 				err := k8sClient.Get(ctx, serviceKey, inferenceService)
@@ -173,6 +174,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				return true
 			}, timeout, interval).Should(BeTrue())
 
+			multiModelConfigMap := &corev1.ConfigMap{}
 			Eventually(func() bool {
 				//Check if multiModelConfigMap is created
 				err := k8sClient.Get(ctx, multiModelConfigMapKey, multiModelConfigMap)
@@ -182,6 +184,27 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 				//Verify that this configmap's ownerreference is it's parent InferenceService
 				Expect(multiModelConfigMap.OwnerReferences[0].Name).To(Equal(serviceKey.Name))
+
+				return true
+			}, timeout, interval).Should(BeTrue())
+
+			ksvc := &knservingv1.Service{}
+			Eventually(func() bool {
+				//Check if ksvc is created
+				err := k8sClient.Get(ctx, ksvcKey, ksvc)
+				if err != nil {
+					return false
+				}
+				//Check if the multi-model configmap is mounted
+				isMounted := false
+				for _, volume := range ksvc.Spec.Template.Spec.Volumes {
+					if volume.Name == constants.MultiModelConfigVolumeName {
+						isMounted = true
+					}
+				}
+				if isMounted == false {
+					return false
+				}
 
 				return true
 			}, timeout, interval).Should(BeTrue())

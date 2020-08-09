@@ -53,7 +53,6 @@ type TrainedModelReconciler struct {
 // +kubebuilder:rbac:groups=core,resources=namespaces,verbs=get;list;watch
 // +kubebuilder:rbac:groups=core,resources=events,verbs=get;list;watch;create;update;patch;delete
 func (r *TrainedModelReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
-	_ = context.Background()
 	log := r.Log.WithValues("trainedmodel", req.NamespacedName)
 
 	// Fetch the TrainedModel instance
@@ -80,22 +79,21 @@ func (r *TrainedModelReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 	}
 
 	shardManager := scheduler.ShardManager{Strategy: scheduler.Memory}
-	for _, id := range shardManager.GetShardId(isvc) {
-		// Use trainedModel's parent InferenceService field to get the multi-model configMap
-		multiModelConfigMapName := constants.DefaultMultiModelConfigMapName(trainedModel.Spec.InferenceService, id)
-		configMap := &v1.ConfigMap{}
-		err := r.Get(context.TODO(), types.NamespacedName{Name: multiModelConfigMapName, Namespace: req.Namespace}, configMap)
-		if err != nil {
-			log.Error(err, "Failed to find Multi-model ConfigMap", "name", multiModelConfigMapName, "namespace", req.Namespace)
-			// Error reading the object - requeue the request.
-			return reconcile.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
-		}
+	shardId := shardManager.GetShardIdForTrainedMode(trainedModel)
+	// Use trainedModel's parent InferenceService field to get the multi-model configMap
+	multiModelConfigMapName := constants.DefaultMultiModelConfigMapName(trainedModel.Spec.InferenceService, shardId)
+	configMap := &v1.ConfigMap{}
+	err := r.Get(context.TODO(), types.NamespacedName{Name: multiModelConfigMapName, Namespace: req.Namespace}, configMap)
+	if err != nil {
+		log.Error(err, "Failed to find Multi-model ConfigMap", "name", multiModelConfigMapName, "namespace", req.Namespace)
+		// Error reading the object - requeue the request.
+		return reconcile.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
+	}
 
-		//Reconcile multi-model configmap to add/update/remove model files
-		configMapReconciler := multimodelconfig.NewConfigMapReconciler(r.Client, r.Scheme)
-		if err := configMapReconciler.Reconcile(configMap, trainedModel); err != nil {
-			return reconcile.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
-		}
+	//Reconcile multi-model configmap to add/update/remove models
+	configMapReconciler := multimodelconfig.NewConfigMapReconciler(r.Client, r.Scheme)
+	if err := configMapReconciler.Reconcile(configMap, trainedModel); err != nil {
+		return reconcile.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
 	}
 
 	return ctrl.Result{}, nil

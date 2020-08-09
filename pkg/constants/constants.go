@@ -157,6 +157,11 @@ const (
 	InferenceServiceContainerName = "kfserving-container"
 )
 
+// Multi-model InferenceService
+const (
+	MultiModelConfigVolumeName = "config-mms"
+)
+
 func (e InferenceServiceComponent) String() string {
 	return string(e)
 }
