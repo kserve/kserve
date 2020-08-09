@@ -11,59 +11,101 @@ import (
 	"testing"
 )
 
-func TestAlibiValidation(t *testing.T) {
+func TestTransformerValidation(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	scenarios := map[string]struct {
-		spec    ExplainerSpec
+		spec    TransformerSpec
 		matcher types.GomegaMatcher
 	}{
-		"AcceptGoodRuntimeVersion": {
-			spec: ExplainerSpec{
-				Alibi: &AlibiExplainerSpec{
-					Type:           "AnchorTabular",
-					RuntimeVersion: "latest",
-				},
-			},
-			matcher: gomega.BeNil(),
-		},
 		"ValidStorageUri": {
-			spec: ExplainerSpec{
-				Alibi: &AlibiExplainerSpec{
-					Type:       "AnchorTabular",
-					StorageURI: "s3://modelzoo",
+			spec: TransformerSpec{
+				CustomTransformer: &CustomTransformer{
+					PodTemplateSpec: v1.PodTemplateSpec{
+						Spec: v1.PodSpec{
+							Containers: []v1.Container{
+								{
+									Env: []v1.EnvVar{
+										{
+											Name:  "STORAGE_URI",
+											Value: "s3://modelzoo",
+										},
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 			matcher: gomega.BeNil(),
 		},
 		"InvalidStorageUri": {
-			spec: ExplainerSpec{
-				Alibi: &AlibiExplainerSpec{
-					StorageURI: "hdfs://modelzoo",
+			spec: TransformerSpec{
+				CustomTransformer: &CustomTransformer{
+					PodTemplateSpec: v1.PodTemplateSpec{
+						Spec: v1.PodSpec{
+							Containers: []v1.Container{
+								{
+									Env: []v1.EnvVar{
+										{
+											Name:  "STORAGE_URI",
+											Value: "hdfs://modelzoo",
+										},
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 			matcher: gomega.Not(gomega.BeNil()),
 		},
 		"InvalidReplica": {
-			spec: ExplainerSpec{
+			spec: TransformerSpec{
 				ComponentExtensionSpec: ComponentExtensionSpec{
 					MinReplicas: GetIntReference(3),
 					MaxReplicas: 2,
 				},
-				Alibi: &AlibiExplainerSpec{
-					StorageURI: "hdfs://modelzoo",
+				CustomTransformer: &CustomTransformer{
+					PodTemplateSpec: v1.PodTemplateSpec{
+						Spec: v1.PodSpec{
+							Containers: []v1.Container{
+								{
+									Env: []v1.EnvVar{
+										{
+											Name:  "STORAGE_URI",
+											Value: "hdfs://modelzoo",
+										},
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 			matcher: gomega.Not(gomega.BeNil()),
 		},
 		"InvalidContainerConcurrency": {
-			spec: ExplainerSpec{
+			spec: TransformerSpec{
 				ComponentExtensionSpec: ComponentExtensionSpec{
 					MinReplicas:          GetIntReference(3),
 					ContainerConcurrency: proto.Int64(-1),
 				},
-				Alibi: &AlibiExplainerSpec{
-					StorageURI: "hdfs://modelzoo",
+				CustomTransformer: &CustomTransformer{
+					PodTemplateSpec: v1.PodTemplateSpec{
+						Spec: v1.PodSpec{
+							Containers: []v1.Container{
+								{
+									Env: []v1.EnvVar{
+										{
+											Name:  "STORAGE_URI",
+											Value: "hdfs://modelzoo",
+										},
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 			matcher: gomega.Not(gomega.BeNil()),
@@ -80,55 +122,57 @@ func TestAlibiValidation(t *testing.T) {
 	}
 }
 
-func TestAlibiDefaulter(t *testing.T) {
+func TestTransformerDefaulter(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	config := InferenceServicesConfig{
-		Explainers: &ExplainersConfig{
-			AlibiExplainer: ExplainerConfig{
-				ContainerImage:      "alibi",
-				DefaultImageVersion: "v0.4.0",
-			},
-		},
+		Transformers: &TransformersConfig{},
 	}
 	defaultResource = v1.ResourceList{
 		v1.ResourceCPU:    resource.MustParse("1"),
 		v1.ResourceMemory: resource.MustParse("2Gi"),
 	}
 	scenarios := map[string]struct {
-		spec     ExplainerSpec
-		expected ExplainerSpec
+		spec     TransformerSpec
+		expected TransformerSpec
 	}{
-		"DefaultRuntimeVersion": {
-			spec: ExplainerSpec{
-				Alibi: &AlibiExplainerSpec{},
-			},
-			expected: ExplainerSpec{
-				Alibi: &AlibiExplainerSpec{
-					RuntimeVersion: "v0.4.0",
-					Container: v1.Container{
-						Name: constants.InferenceServiceContainerName,
-						Resources: v1.ResourceRequirements{
-							Requests: defaultResource,
-							Limits:   defaultResource,
+		"DefaultResources": {
+			spec: TransformerSpec{
+				CustomTransformer: &CustomTransformer{
+					PodTemplateSpec: v1.PodTemplateSpec{
+						Spec: v1.PodSpec{
+							Containers: []v1.Container{
+								{
+									Env: []v1.EnvVar{
+										{
+											Name:  "STORAGE_URI",
+											Value: "hdfs://modelzoo",
+										},
+									},
+								},
+							},
 						},
 					},
 				},
 			},
-		},
-		"DefaultResources": {
-			spec: ExplainerSpec{
-				Alibi: &AlibiExplainerSpec{
-					RuntimeVersion: "v0.3.0",
-				},
-			},
-			expected: ExplainerSpec{
-				Alibi: &AlibiExplainerSpec{
-					RuntimeVersion: "v0.3.0",
-					Container: v1.Container{
-						Name: constants.InferenceServiceContainerName,
-						Resources: v1.ResourceRequirements{
-							Requests: defaultResource,
-							Limits:   defaultResource,
+			expected: TransformerSpec{
+				CustomTransformer: &CustomTransformer{
+					PodTemplateSpec: v1.PodTemplateSpec{
+						Spec: v1.PodSpec{
+							Containers: []v1.Container{
+								{
+									Name: constants.InferenceServiceContainerName,
+									Env: []v1.EnvVar{
+										{
+											Name:  "STORAGE_URI",
+											Value: "hdfs://modelzoo",
+										},
+									},
+									Resources: v1.ResourceRequirements{
+										Requests: defaultResource,
+										Limits:   defaultResource,
+									},
+								},
+							},
 						},
 					},
 				},
@@ -138,7 +182,7 @@ func TestAlibiDefaulter(t *testing.T) {
 
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
-			scenario.spec.Alibi.Default(&config)
+			scenario.spec.CustomTransformer.Default(&config)
 			if !g.Expect(scenario.spec).To(gomega.Equal(scenario.expected)) {
 				t.Errorf("got %q, want %q", scenario.spec, scenario.expected)
 			}
@@ -146,7 +190,7 @@ func TestAlibiDefaulter(t *testing.T) {
 	}
 }
 
-func TestCreateAlibiModelServingContainer(t *testing.T) {
+func TestCreateTransformerContainer(t *testing.T) {
 
 	var requestedResource = v1.ResourceRequirements{
 		Limits: v1.ResourceList{
@@ -163,64 +207,13 @@ func TestCreateAlibiModelServingContainer(t *testing.T) {
 		},
 	}
 	var config = InferenceServicesConfig{
-		Explainers: &ExplainersConfig{
-			AlibiExplainer: ExplainerConfig{
-				ContainerImage:      "alibi",
-				DefaultImageVersion: "0.4.0",
-			},
-		},
+		Transformers: &TransformersConfig{},
 	}
 	g := gomega.NewGomegaWithT(t)
 	scenarios := map[string]struct {
 		isvc                  InferenceService
 		expectedContainerSpec *v1.Container
 	}{
-		"ContainerSpecWithDefaultImage": {
-			isvc: InferenceService{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "sklearn",
-					Namespace: "default",
-				},
-				Spec: InferenceServiceSpec{
-					Predictor: PredictorSpec{
-						SKLearn: &SKLearnSpec{
-							PredictorExtensionSpec: PredictorExtensionSpec{
-								StorageURI:     proto.String("gs://someUri"),
-								RuntimeVersion: "0.1.0",
-								Container: v1.Container{
-									Resources: requestedResource,
-								},
-							},
-						},
-					},
-					Explainer: &ExplainerSpec{
-						Alibi: &AlibiExplainerSpec{
-							Type:       AlibiAnchorsTabularExplainer,
-							StorageURI: "s3://explainer",
-							Container: v1.Container{
-								Resources: requestedResource,
-							},
-						},
-					},
-				},
-			},
-			expectedContainerSpec: &v1.Container{
-				Image:     "alibi:0.4.0",
-				Name:      constants.InferenceServiceContainerName,
-				Resources: requestedResource,
-				Args: []string{
-					"--model_name",
-					"someName",
-					"--predictor_host",
-					"someName-predictor-default.default",
-					"--http_port",
-					"8080",
-					"--storage_uri",
-					"/mnt/models",
-					"AnchorTabular",
-				},
-			},
-		},
 		"ContainerSpecWithCustomImage": {
 			isvc: InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
@@ -238,21 +231,30 @@ func TestCreateAlibiModelServingContainer(t *testing.T) {
 							},
 						},
 					},
-					Explainer: &ExplainerSpec{
-						Alibi: &AlibiExplainerSpec{
-							Type:           AlibiAnchorsTabularExplainer,
-							StorageURI:     "s3://explainer",
-							RuntimeVersion: "v0.4.0",
-							Container: v1.Container{
-								Image:     "explainer:0.1.0",
-								Resources: requestedResource,
+					Transformer: &TransformerSpec{
+						CustomTransformer: &CustomTransformer{
+							PodTemplateSpec: v1.PodTemplateSpec{
+								Spec: v1.PodSpec{
+									Containers: []v1.Container{
+										{
+											Image: "transformer:0.1.0",
+											Env: []v1.EnvVar{
+												{
+													Name:  "STORAGE_URI",
+													Value: "hdfs://modelzoo",
+												},
+											},
+											Resources: requestedResource,
+										},
+									},
+								},
 							},
 						},
 					},
 				},
 			},
 			expectedContainerSpec: &v1.Container{
-				Image:     "explainer:0.1.0",
+				Image:     "transformer:0.1.0",
 				Name:      constants.InferenceServiceContainerName,
 				Resources: requestedResource,
 				Args: []string{
@@ -262,9 +264,12 @@ func TestCreateAlibiModelServingContainer(t *testing.T) {
 					"someName-predictor-default.default",
 					"--http_port",
 					"8080",
-					"--storage_uri",
-					"/mnt/models",
-					"AnchorTabular",
+				},
+				Env: []v1.EnvVar{
+					{
+						Name:  "STORAGE_URI",
+						Value: "hdfs://modelzoo",
+					},
 				},
 			},
 		},
@@ -288,24 +293,33 @@ func TestCreateAlibiModelServingContainer(t *testing.T) {
 							},
 						},
 					},
-					Explainer: &ExplainerSpec{
+					Transformer: &TransformerSpec{
 						ComponentExtensionSpec: ComponentExtensionSpec{
 							ContainerConcurrency: proto.Int64(2),
 						},
-						Alibi: &AlibiExplainerSpec{
-							Type:           AlibiAnchorsTabularExplainer,
-							StorageURI:     "s3://explainer",
-							RuntimeVersion: "v0.4.0",
-							Container: v1.Container{
-								Image:     "explainer:0.1.0",
-								Resources: requestedResource,
+						CustomTransformer: &CustomTransformer{
+							PodTemplateSpec: v1.PodTemplateSpec{
+								Spec: v1.PodSpec{
+									Containers: []v1.Container{
+										{
+											Image: "transformer:0.1.0",
+											Env: []v1.EnvVar{
+												{
+													Name:  "STORAGE_URI",
+													Value: "hdfs://modelzoo",
+												},
+											},
+											Resources: requestedResource,
+										},
+									},
+								},
 							},
 						},
 					},
 				},
 			},
 			expectedContainerSpec: &v1.Container{
-				Image:     "explainer:0.1.0",
+				Image:     "transformer:0.1.0",
 				Name:      constants.InferenceServiceContainerName,
 				Resources: requestedResource,
 				Args: []string{
@@ -317,18 +331,21 @@ func TestCreateAlibiModelServingContainer(t *testing.T) {
 					"8080",
 					"--workers",
 					"2",
-					"--storage_uri",
-					"/mnt/models",
-					"AnchorTabular",
+				},
+				Env: []v1.EnvVar{
+					{
+						Name:  "STORAGE_URI",
+						Value: "hdfs://modelzoo",
+					},
 				},
 			},
 		},
 	}
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
-			explainer, _ := scenario.isvc.Spec.Explainer.GetExplainer()
-			explainer.Default(&config)
-			res := explainer.GetContainer(metav1.ObjectMeta{Name: "someName", Namespace: "default"}, scenario.isvc.Spec.Explainer.ContainerConcurrency, &config)
+			transformer, _ := scenario.isvc.Spec.Transformer.GetTransformer()
+			transformer.Default(&config)
+			res := transformer.GetContainer(metav1.ObjectMeta{Name: "someName", Namespace: "default"}, scenario.isvc.Spec.Transformer.ContainerConcurrency, &config)
 			if !g.Expect(res).To(gomega.Equal(scenario.expectedContainerSpec)) {
 				t.Errorf("got %q, want %q", res, scenario.expectedContainerSpec)
 			}

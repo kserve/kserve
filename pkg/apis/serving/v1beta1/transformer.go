@@ -47,15 +47,16 @@ func (t *TransformerSpec) GetTransformer() (Component, error) {
 }
 
 // Validate the TransformerSpec
-func (t *TransformerSpec) Validate(config *InferenceServicesConfig) error {
+func (t *TransformerSpec) Validate() error {
 	transformer, err := t.GetTransformer()
 	if err != nil {
 		return err
 	}
 	for _, err := range []error{
+		transformer.Validate(),
+		validateStorageURI(transformer.GetStorageUri()),
 		validateContainerConcurrency(t.ContainerConcurrency),
 		validateReplicas(t.MinReplicas, t.MaxReplicas),
-		transformer.Validate(),
 		validateLogger(t.LoggerSpec),
 	} {
 		if err != nil {

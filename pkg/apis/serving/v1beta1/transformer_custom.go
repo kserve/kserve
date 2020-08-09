@@ -20,6 +20,7 @@ import (
 	"github.com/kubeflow/kfserving/pkg/constants"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"strconv"
 )
 
 // CustomTransformer defines arguments for configuring a custom transformer.
@@ -41,7 +42,10 @@ func (c *CustomTransformer) Validate() error {
 
 // Default sets defaults on the resource
 func (c *CustomTransformer) Default(config *InferenceServicesConfig) {
-	c.Name = constants.InferenceServiceContainerName
+	if len(c.Spec.Containers) == 0 {
+		c.Spec.Containers = append(c.Spec.Containers, v1.Container{})
+	}
+	c.Spec.Containers[0].Name = constants.InferenceServiceContainerName
 	setResourceRequirementDefaults(&c.Spec.Containers[0].Resources)
 }
 
@@ -76,5 +80,8 @@ func (c *CustomTransformer) GetContainer(metadata metav1.ObjectMeta, containerCo
 		constants.ArgumentHttpPort,
 		constants.InferenceServiceDefaultHttpPort,
 	}...)
+	if containerConcurrency != nil {
+		container.Args = append(container.Args, constants.ArgumentWorkers, strconv.FormatInt(*containerConcurrency, 10))
+	}
 	return &c.Spec.Containers[0]
 }
