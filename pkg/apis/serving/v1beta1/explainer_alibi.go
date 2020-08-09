@@ -39,15 +39,23 @@ const (
 // AlibiExplainerSpec defines the arguments for configuring an Alibi Explanation Server
 type AlibiExplainerSpec struct {
 	// The type of Alibi explainer
+	// Valid values are:
+	// - "AnchorTabular";
+	// - "AnchorImages";
+	// - "AnchorText";
+	// - "Counterfactuals";
+	// - "Contrastive";
 	Type AlibiExplainerType `json:"type"`
 	// The location of a trained explanation model
 	StorageURI string `json:"storageUri,omitempty"`
 	// Alibi docker image version, defaults to latest Alibi Version
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
-	// Alibi explainer container resources, defaults to requests and limits of 1CPU, 2Gi MEM.
-	Resources v1.ResourceRequirements `json:"resources,omitempty"`
 	// Inline custom parameter settings for explainer
 	Config map[string]string `json:"config,omitempty"`
+	// Container enables overrides for the predictor.
+	// Each framework will have different defaults that are populated in the underlying container spec.
+	// +optional
+	v1.Container `json:",inline"`
 }
 
 func (alibi *AlibiExplainerSpec) GetStorageUri() *string {
@@ -84,16 +92,18 @@ func (alibi *AlibiExplainerSpec) GetContainer(metadata metav1.ObjectMeta, contai
 		args = append(args, "--"+k)
 		args = append(args, alibi.Config[k])
 	}
+	if alibi.Container.Image == "" {
+		alibi.Image = config.Explainers.AlibiExplainer.ContainerImage + ":" + alibi.RuntimeVersion
+	} else {
 
-	return &v1.Container{
-		Image:     config.Explainers.AlibiExplainer.ContainerImage + ":" + alibi.RuntimeVersion,
-		Name:      constants.InferenceServiceContainerName,
-		Resources: alibi.Resources,
-		Args:      args,
 	}
+	alibi.Name = constants.InferenceServiceContainerName
+	alibi.Args = args
+	return &alibi.Container
 }
 
 func (alibi *AlibiExplainerSpec) Default(config *InferenceServicesConfig) {
+	alibi.Name = constants.InferenceServiceContainerName
 	if alibi.RuntimeVersion == "" {
 		alibi.RuntimeVersion = config.Explainers.AlibiExplainer.DefaultImageVersion
 	}
