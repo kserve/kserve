@@ -29,7 +29,7 @@ const (
 // Predictor is an abstraction over machine learning server frameworks
 // +kubebuilder:object:generate=false
 type Predictor interface {
-	GetContainer(modelName string, containerConcurrency int, config *InferenceServicesConfig) *v1.Container
+	GetContainer(modelName string, containerConcurrency *int64, config *InferenceServicesConfig) *v1.Container
 	Validate() error
 	Default(config *InferenceServicesConfig)
 	GetStorageUri() *string

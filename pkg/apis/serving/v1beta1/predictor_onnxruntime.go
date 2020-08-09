@@ -49,7 +49,7 @@ func (o *ONNXRuntimeSpec) Default(config *InferenceServicesConfig) {
 }
 
 // GetContainers transforms the resource into a container spec
-func (o *ONNXRuntimeSpec) GetContainer(modelName string, containerConcurrency int, config *InferenceServicesConfig) *v1.Container {
+func (o *ONNXRuntimeSpec) GetContainer(modelName string, containerConcurrency *int64, config *InferenceServicesConfig) *v1.Container {
 	arguments := []string{
 		fmt.Sprintf("%s=%s", "--model_path", constants.DefaultModelLocalMountPath+"/"+ONNXModelFileName),
 		fmt.Sprintf("%s=%s", "--http_port", ONNXServingRestPort),

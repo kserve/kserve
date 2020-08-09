@@ -150,8 +150,11 @@ func validateReplicas(minReplicas *int, maxReplicas int) error {
 	return nil
 }
 
-func validateContainerConcurrency(concurrency int) error {
-	if concurrency < 0 {
+func validateContainerConcurrency(containerConcurrency *int64) error {
+	if containerConcurrency == nil {
+		return nil
+	}
+	if *containerConcurrency < 0 {
 		return fmt.Errorf(ParallelismLowerBoundExceededError)
 	}
 	return nil

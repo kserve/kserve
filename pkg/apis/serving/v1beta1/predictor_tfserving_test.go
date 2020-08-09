@@ -116,7 +116,7 @@ func TestTensorflowValidation(t *testing.T) {
 			spec: PredictorSpec{
 				ComponentExtensionSpec: ComponentExtensionSpec{
 					MinReplicas:          GetIntReference(3),
-					ContainerConcurrency: -1,
+					ContainerConcurrency: proto.Int64(-1),
 				},
 				Tensorflow: &TFServingSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
@@ -312,7 +312,7 @@ func TestCreateTFServingContainer(t *testing.T) {
 				Spec: InferenceServiceSpec{
 					Predictor: PredictorSpec{
 						ComponentExtensionSpec: ComponentExtensionSpec{
-							ContainerConcurrency: 1,
+							ContainerConcurrency: proto.Int64(1),
 						},
 						Tensorflow: &TFServingSpec{
 							PredictorExtensionSpec: PredictorExtensionSpec{

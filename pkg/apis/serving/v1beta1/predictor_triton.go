@@ -48,7 +48,7 @@ func (t *TritonSpec) Default(config *InferenceServicesConfig) {
 }
 
 // GetContainers transforms the resource into a container spec
-func (t *TritonSpec) GetContainer(modelName string, containerConcurrency int, config *InferenceServicesConfig) *v1.Container {
+func (t *TritonSpec) GetContainer(modelName string, containerConcurrency *int64, config *InferenceServicesConfig) *v1.Container {
 	arguments := []string{
 		"trtserver",
 		fmt.Sprintf("%s=%s", "--model-store", constants.DefaultModelLocalMountPath),
