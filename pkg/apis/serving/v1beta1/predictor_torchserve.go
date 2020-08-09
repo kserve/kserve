@@ -39,6 +39,9 @@ func (t *TorchServeSpec) Validate() error {
 // Default sets defaults on the resource
 func (t *TorchServeSpec) Default(config *InferenceServicesConfig) {
 	t.Container.Name = constants.InferenceServiceContainerName
+	if t.RuntimeVersion == nil {
+		*t.RuntimeVersion = config.Predictors.PyTorch.DefaultImageVersion
+	}
 }
 
 // GetContainers transforms the resource into a container spec
@@ -50,7 +53,7 @@ func (t *TorchServeSpec) GetContainer(metadata metav1.ObjectMeta, containerConcu
 	}
 
 	if t.Container.Image == "" {
-		t.Container.Image = config.Predictors.PyTorch.ContainerImage + ":" + t.RuntimeVersion
+		t.Container.Image = config.Predictors.PyTorch.ContainerImage + ":" + *t.RuntimeVersion
 	}
 	t.Name = constants.InferenceServiceContainerName
 	t.Args = arguments

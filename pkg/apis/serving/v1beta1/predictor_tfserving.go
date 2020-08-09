@@ -18,6 +18,7 @@ package v1beta1
 
 import (
 	"fmt"
+	"github.com/golang/protobuf/proto"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -44,11 +45,11 @@ var _ Component = &TFServingSpec{}
 
 // Validate returns an error if invalid
 func (t *TFServingSpec) Validate() error {
-	if isGPUEnabled(t.Resources) && !strings.Contains(t.RuntimeVersion, TensorflowServingGPUSuffix) {
+	if isGPUEnabled(t.Resources) && !strings.Contains(*t.RuntimeVersion, TensorflowServingGPUSuffix) {
 		return fmt.Errorf(InvalidTensorflowRuntimeIncludesGPU)
 	}
 
-	if !isGPUEnabled(t.Resources) && strings.Contains(t.RuntimeVersion, TensorflowServingGPUSuffix) {
+	if !isGPUEnabled(t.Resources) && strings.Contains(*t.RuntimeVersion, TensorflowServingGPUSuffix) {
 		return fmt.Errorf(InvalidTensorflowRuntimeExcludesGPU)
 	}
 	return nil
@@ -57,11 +58,11 @@ func (t *TFServingSpec) Validate() error {
 // Default sets defaults on the resource
 func (t *TFServingSpec) Default(config *InferenceServicesConfig) {
 	t.Container.Name = constants.InferenceServiceContainerName
-	if t.RuntimeVersion == "" {
+	if t.RuntimeVersion == nil {
 		if isGPUEnabled(t.Resources) {
-			t.RuntimeVersion = config.Predictors.Tensorflow.DefaultGpuImageVersion
+			t.RuntimeVersion = proto.String(config.Predictors.Tensorflow.DefaultGpuImageVersion)
 		} else {
-			t.RuntimeVersion = config.Predictors.Tensorflow.DefaultImageVersion
+			t.RuntimeVersion = proto.String(config.Predictors.Tensorflow.DefaultImageVersion)
 		}
 	}
 	setResourceRequirementDefaults(&t.Resources)
@@ -80,7 +81,7 @@ func (t *TFServingSpec) GetContainer(metadata metav1.ObjectMeta, containerConcur
 		fmt.Sprintf("%s=%s", "--model_base_path", constants.DefaultModelLocalMountPath),
 	}
 	if t.Container.Image == "" {
-		t.Container.Image = config.Predictors.Tensorflow.ContainerImage + ":" + t.RuntimeVersion
+		t.Container.Image = config.Predictors.Tensorflow.ContainerImage + ":" + *t.RuntimeVersion
 	}
 	t.Container.Name = constants.InferenceServiceContainerName
 	t.Container.Args = arguments

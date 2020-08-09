@@ -390,6 +390,11 @@ func (in *PredictorExtensionSpec) DeepCopyInto(out *PredictorExtensionSpec) {
 		*out = new(string)
 		**out = **in
 	}
+	if in.RuntimeVersion != nil {
+		in, out := &in.RuntimeVersion, &out.RuntimeVersion
+		*out = new(string)
+		**out = **in
+	}
 	in.Container.DeepCopyInto(&out.Container)
 }
 

@@ -18,6 +18,7 @@ package v1beta1
 
 import (
 	"fmt"
+	"github.com/golang/protobuf/proto"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -45,8 +46,8 @@ func (o *ONNXRuntimeSpec) Validate() error {
 // Default sets defaults on the resource
 func (o *ONNXRuntimeSpec) Default(config *InferenceServicesConfig) {
 	o.Container.Name = constants.InferenceServiceContainerName
-	if o.RuntimeVersion == "" {
-		o.RuntimeVersion = config.Predictors.ONNX.DefaultImageVersion
+	if o.RuntimeVersion == nil {
+		o.RuntimeVersion = proto.String(config.Predictors.ONNX.DefaultImageVersion)
 	}
 	setResourceRequirementDefaults(&o.Resources)
 }
@@ -60,7 +61,7 @@ func (o *ONNXRuntimeSpec) GetContainer(metadata metav1.ObjectMeta, containerConc
 	}
 
 	if o.Container.Image == "" {
-		o.Container.Image = config.Predictors.ONNX.ContainerImage + ":" + o.RuntimeVersion
+		o.Container.Image = config.Predictors.ONNX.ContainerImage + ":" + *o.RuntimeVersion
 	}
 	o.Name = constants.InferenceServiceContainerName
 	o.Args = arguments

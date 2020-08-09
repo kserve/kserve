@@ -18,6 +18,7 @@ package v1beta1
 
 import (
 	"fmt"
+	"github.com/golang/protobuf/proto"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -44,8 +45,8 @@ func (t *TritonSpec) Validate() error {
 // Default sets defaults on the resource
 func (t *TritonSpec) Default(config *InferenceServicesConfig) {
 	t.Container.Name = constants.InferenceServiceContainerName
-	if t.RuntimeVersion == "" {
-		t.RuntimeVersion = config.Predictors.Triton.DefaultImageVersion
+	if t.RuntimeVersion == nil {
+		t.RuntimeVersion = proto.String(config.Predictors.Triton.DefaultImageVersion)
 	}
 	setResourceRequirementDefaults(&t.Resources)
 }
@@ -62,7 +63,7 @@ func (t *TritonSpec) GetContainer(metadata metav1.ObjectMeta, containerConcurren
 	}
 
 	if t.Container.Image == "" {
-		t.Container.Image = config.Predictors.Triton.ContainerImage + ":" + t.RuntimeVersion
+		t.Container.Image = config.Predictors.Triton.ContainerImage + ":" + *t.RuntimeVersion
 	}
 	t.Name = constants.InferenceServiceContainerName
 	t.Command = []string{"trtserver"}

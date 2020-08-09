@@ -18,6 +18,7 @@ package v1beta1
 
 import (
 	"fmt"
+	"github.com/golang/protobuf/proto"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -40,8 +41,8 @@ func (k *SKLearnSpec) Validate() error {
 // Default sets defaults on the resource
 func (k *SKLearnSpec) Default(config *InferenceServicesConfig) {
 	k.Container.Name = constants.InferenceServiceContainerName
-	if k.RuntimeVersion == "" {
-		k.RuntimeVersion = config.Predictors.SKlearn.DefaultImageVersion
+	if k.RuntimeVersion == nil {
+		k.RuntimeVersion = proto.String(config.Predictors.SKlearn.DefaultImageVersion)
 	}
 	setResourceRequirementDefaults(&k.Resources)
 }
@@ -57,7 +58,7 @@ func (k *SKLearnSpec) GetContainer(metadata metav1.ObjectMeta, containerConcurre
 		arguments = append(arguments, fmt.Sprintf("%s=%s", constants.ArgumentWorkers, strconv.FormatInt(*containerConcurrency, 10)))
 	}
 	if k.Container.Image == "" {
-		k.Container.Image = config.Predictors.SKlearn.ContainerImage + ":" + k.RuntimeVersion
+		k.Container.Image = config.Predictors.SKlearn.ContainerImage + ":" + *k.RuntimeVersion
 	}
 	k.Container.Name = constants.InferenceServiceContainerName
 	k.Container.Args = arguments

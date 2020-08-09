@@ -34,8 +34,9 @@ func TestTensorflowValidation(t *testing.T) {
 	config := InferenceServicesConfig{
 		Predictors: &PredictorsConfig{
 			Tensorflow: PredictorConfig{
-				ContainerImage:      "tfserving",
-				DefaultImageVersion: "1.14.0",
+				ContainerImage:         "tfserving",
+				DefaultImageVersion:    "1.14.0",
+				DefaultGpuImageVersion: "1.14.0-gpu",
 			},
 		},
 	}
@@ -47,7 +48,7 @@ func TestTensorflowValidation(t *testing.T) {
 			spec: PredictorSpec{
 				Tensorflow: &TFServingSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
-						RuntimeVersion: "latest",
+						RuntimeVersion: proto.String("latest"),
 					},
 				},
 			},
@@ -57,7 +58,7 @@ func TestTensorflowValidation(t *testing.T) {
 			spec: PredictorSpec{
 				Tensorflow: &TFServingSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
-						RuntimeVersion: "latest-gpu",
+						RuntimeVersion: proto.String("latest-gpu"),
 					},
 				},
 			},
@@ -67,7 +68,7 @@ func TestTensorflowValidation(t *testing.T) {
 			spec: PredictorSpec{
 				Tensorflow: &TFServingSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
-						RuntimeVersion: "latest",
+						RuntimeVersion: proto.String("latest"),
 						Container: v1.Container{
 							Resources: v1.ResourceRequirements{
 								Limits: v1.ResourceList{constants.NvidiaGPUResourceType: resource.MustParse("1")},
@@ -144,14 +145,20 @@ func TestTensorflowDefaulter(t *testing.T) {
 	config := InferenceServicesConfig{
 		Predictors: &PredictorsConfig{
 			Tensorflow: PredictorConfig{
-				ContainerImage:      "tfserving",
-				DefaultImageVersion: "1.14.0",
+				ContainerImage:         "tfserving",
+				DefaultImageVersion:    "1.14.0",
+				DefaultGpuImageVersion: "1.14.0-gpu",
 			},
 		},
 	}
 	defaultResource = v1.ResourceList{
 		v1.ResourceCPU:    resource.MustParse("1"),
 		v1.ResourceMemory: resource.MustParse("2Gi"),
+	}
+	defaultGpuResource := v1.ResourceList{
+		v1.ResourceCPU:                  resource.MustParse("1"),
+		v1.ResourceMemory:               resource.MustParse("2Gi"),
+		constants.NvidiaGPUResourceType: resource.MustParse("1"),
 	}
 	scenarios := map[string]struct {
 		spec     PredictorSpec
@@ -166,7 +173,7 @@ func TestTensorflowDefaulter(t *testing.T) {
 			expected: PredictorSpec{
 				Tensorflow: &TFServingSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
-						RuntimeVersion: "1.14.0",
+						RuntimeVersion: proto.String("1.14.0"),
 						Container: v1.Container{
 							Name: constants.InferenceServiceContainerName,
 							Resources: v1.ResourceRequirements{
@@ -178,18 +185,44 @@ func TestTensorflowDefaulter(t *testing.T) {
 				},
 			},
 		},
-		"DefaultResources": {
+		"DefaultGpuRuntimeVersion": {
 			spec: PredictorSpec{
 				Tensorflow: &TFServingSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
-						RuntimeVersion: "latest-gpu",
+						Container: v1.Container{
+							Resources: v1.ResourceRequirements{
+								Requests: defaultGpuResource,
+								Limits:   defaultGpuResource,
+							},
+						},
 					},
 				},
 			},
 			expected: PredictorSpec{
 				Tensorflow: &TFServingSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
-						RuntimeVersion: "latest-gpu",
+						RuntimeVersion: proto.String("1.14.0-gpu"),
+						Container: v1.Container{
+							Name: constants.InferenceServiceContainerName,
+							Resources: v1.ResourceRequirements{
+								Requests: defaultGpuResource,
+								Limits:   defaultGpuResource,
+							},
+						},
+					},
+				},
+			},
+		},
+		"DefaultResources": {
+			spec: PredictorSpec{
+				Tensorflow: &TFServingSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{},
+				},
+			},
+			expected: PredictorSpec{
+				Tensorflow: &TFServingSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						RuntimeVersion: proto.String("1.14.0"),
 						Container: v1.Container{
 							Name: constants.InferenceServiceContainerName,
 							Resources: v1.ResourceRequirements{
@@ -249,8 +282,7 @@ func TestCreateTFServingContainer(t *testing.T) {
 					Predictor: PredictorSpec{
 						Tensorflow: &TFServingSpec{
 							PredictorExtensionSpec: PredictorExtensionSpec{
-								StorageURI:     proto.String("gs://someUri"),
-								RuntimeVersion: "1.14.0",
+								StorageURI: proto.String("gs://someUri"),
 								Container: v1.Container{
 									Resources: requestedResource,
 								},
@@ -317,7 +349,7 @@ func TestCreateTFServingContainer(t *testing.T) {
 						Tensorflow: &TFServingSpec{
 							PredictorExtensionSpec: PredictorExtensionSpec{
 								StorageURI:     proto.String("gs://someUri"),
-								RuntimeVersion: "2.0.0",
+								RuntimeVersion: proto.String("2.0.0"),
 								Container: v1.Container{
 									Resources: requestedResource,
 								},
@@ -343,6 +375,7 @@ func TestCreateTFServingContainer(t *testing.T) {
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
 			predictor, _ := scenario.isvc.Spec.Predictor.GetPredictor()
+			predictor.Default(&config)
 			res := predictor.GetContainer(metav1.ObjectMeta{Name: "someName"}, scenario.isvc.Spec.Predictor.ContainerConcurrency, &config)
 			if !g.Expect(res).To(gomega.Equal(scenario.expectedContainerSpec)) {
 				t.Errorf("got %q, want %q", res, scenario.expectedContainerSpec)

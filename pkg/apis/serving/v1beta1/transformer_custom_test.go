@@ -285,8 +285,7 @@ func TestCreateTransformerContainer(t *testing.T) {
 						},
 						SKLearn: &SKLearnSpec{
 							PredictorExtensionSpec: PredictorExtensionSpec{
-								StorageURI:     proto.String("gs://someUri"),
-								RuntimeVersion: "0.1.0",
+								StorageURI: proto.String("gs://someUri"),
 								Container: v1.Container{
 									Resources: requestedResource,
 								},

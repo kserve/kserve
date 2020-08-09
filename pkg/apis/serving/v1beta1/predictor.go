@@ -55,7 +55,7 @@ type PredictorExtensionSpec struct {
 	StorageURI *string `json:"storageUri"`
 	// Runtime version of the predictor docker image
 	// +optional
-	RuntimeVersion string `json:"runtimeVersion,omitempty"`
+	RuntimeVersion *string `json:"runtimeVersion,omitempty"`
 	// Container enables overrides for the predictor.
 	// Each framework will have different defaults that are populated in the underlying container spec.
 	// +optional

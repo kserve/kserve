@@ -39,7 +39,7 @@ func TestXGBoostValidation(t *testing.T) {
 			spec: PredictorSpec{
 				XGBoost: &XGBoostSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
-						RuntimeVersion: "latest",
+						RuntimeVersion: proto.String("latest"),
 					},
 				},
 			},
@@ -132,7 +132,7 @@ func TestXGBoostDefaulter(t *testing.T) {
 			expected: PredictorSpec{
 				XGBoost: &XGBoostSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
-						RuntimeVersion: "v0.4.0",
+						RuntimeVersion: proto.String("v0.4.0"),
 						Container: v1.Container{
 							Name: constants.InferenceServiceContainerName,
 							Resources: v1.ResourceRequirements{
@@ -148,14 +148,14 @@ func TestXGBoostDefaulter(t *testing.T) {
 			spec: PredictorSpec{
 				XGBoost: &XGBoostSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
-						RuntimeVersion: "v0.3.0",
+						RuntimeVersion: proto.String("v0.3.0"),
 					},
 				},
 			},
 			expected: PredictorSpec{
 				XGBoost: &XGBoostSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
-						RuntimeVersion: "v0.3.0",
+						RuntimeVersion: proto.String("v0.3.0"),
 						Container: v1.Container{
 							Name: constants.InferenceServiceContainerName,
 							Resources: v1.ResourceRequirements{
@@ -216,7 +216,7 @@ func TestCreateXGBoostModelServingContainer(t *testing.T) {
 						XGBoost: &XGBoostSpec{
 							PredictorExtensionSpec: PredictorExtensionSpec{
 								StorageURI:     proto.String("gs://someUri"),
-								RuntimeVersion: "0.1.0",
+								RuntimeVersion: proto.String("0.1.0"),
 								Container: v1.Container{
 									Resources: requestedResource,
 								},
@@ -279,7 +279,7 @@ func TestCreateXGBoostModelServingContainer(t *testing.T) {
 						XGBoost: &XGBoostSpec{
 							PredictorExtensionSpec: PredictorExtensionSpec{
 								StorageURI:     proto.String("gs://someUri"),
-								RuntimeVersion: "0.1.0",
+								RuntimeVersion: proto.String("0.1.0"),
 								Container: v1.Container{
 									Resources: requestedResource,
 								},
@@ -304,6 +304,7 @@ func TestCreateXGBoostModelServingContainer(t *testing.T) {
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
 			predictor, _ := scenario.isvc.Spec.Predictor.GetPredictor()
+			predictor.Default(&config)
 			res := predictor.GetContainer(metav1.ObjectMeta{Name: "someName"}, scenario.isvc.Spec.Predictor.ContainerConcurrency, &config)
 			if !g.Expect(res).To(gomega.Equal(scenario.expectedContainerSpec)) {
 				t.Errorf("got %q, want %q", res, scenario.expectedContainerSpec)

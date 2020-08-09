@@ -186,7 +186,7 @@ func TestCreateAlibiModelServingContainer(t *testing.T) {
 						SKLearn: &SKLearnSpec{
 							PredictorExtensionSpec: PredictorExtensionSpec{
 								StorageURI:     proto.String("gs://someUri"),
-								RuntimeVersion: "0.1.0",
+								RuntimeVersion: proto.String("0.1.0"),
 								Container: v1.Container{
 									Resources: requestedResource,
 								},
@@ -281,7 +281,7 @@ func TestCreateAlibiModelServingContainer(t *testing.T) {
 						SKLearn: &SKLearnSpec{
 							PredictorExtensionSpec: PredictorExtensionSpec{
 								StorageURI:     proto.String("gs://someUri"),
-								RuntimeVersion: "0.1.0",
+								RuntimeVersion: proto.String("0.1.0"),
 								Container: v1.Container{
 									Resources: requestedResource,
 								},
