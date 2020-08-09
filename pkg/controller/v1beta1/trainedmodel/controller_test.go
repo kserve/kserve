@@ -33,7 +33,7 @@ func createTestTrainedModel(modelName string, namespace string) *v1beta1.Trained
 		},
 		Spec: v1beta1.TrainedModelSpec{
 			InferenceService: "parent",
-			PredictorModel: v1beta1.ModelSpec{
+			Inference: v1beta1.ModelSpec{
 				StorageURI: "s3://test/mnist/export",
 				Framework:  "pytorch",
 				Memory:     memory,

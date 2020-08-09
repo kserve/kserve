@@ -27,7 +27,7 @@ type TrainedModelSpec struct {
 	// Required field for parent inference service
 	InferenceService string `json:"inferenceService"`
 	// Predictor model spec
-	PredictorModel ModelSpec `json:"predictorModel"`
+	Inference ModelSpec `json:"inference"`
 }
 type ModelSpec struct {
 	// Storage URI for the model repository
