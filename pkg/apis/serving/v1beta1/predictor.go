@@ -26,15 +26,6 @@ const (
 	ExactlyOnePredictorViolatedError = "Exactly one of [Custom, ONNX, Tensorflow, Triton, SKLearn, XGBoost] must be specified in PredictorSpec"
 )
 
-// Predictor is an abstraction over machine learning server frameworks
-// +kubebuilder:object:generate=false
-type Predictor interface {
-	GetContainer(modelName string, containerConcurrency *int64, config *InferenceServicesConfig) *v1.Container
-	Validate() error
-	Default(config *InferenceServicesConfig)
-	GetStorageUri() *string
-}
-
 // PredictorSpec defines the configuration for a predictor,
 // The following fields follow a "1-of" semantic. Users must specify exactly one spec.
 type PredictorSpec struct {
@@ -56,6 +47,8 @@ type PredictorSpec struct {
 	ComponentExtensionSpec `json:",inline"`
 }
 
+var _ Component = &PredictorSpec{}
+
 // PredictorExtensionSpec defines configuration shared across all predictor frameworks
 type PredictorExtensionSpec struct {
 	// This field points to the location of the trained model which is mounted onto the pod.
@@ -70,8 +63,8 @@ type PredictorExtensionSpec struct {
 }
 
 // GetPredictor returns the framework for the Predictor
-func (p *PredictorSpec) GetPredictor() (Predictor, error) {
-	predictors := []Predictor{}
+func (p *PredictorSpec) GetPredictor() (Component, error) {
+	predictors := []Component{}
 	if p.CustomPredictor != nil {
 		predictors = append(predictors, p.CustomPredictor)
 	}

@@ -59,14 +59,14 @@ func (alibi *AlibiExplainerSpec) GetResourceRequirements() *v1.ResourceRequireme
 	return &alibi.Resources
 }
 
-func (alibi *AlibiExplainerSpec) GetContainer(metadata metav1.ObjectMeta, parallelism int, config *InferenceServicesConfig) *v1.Container {
+func (alibi *AlibiExplainerSpec) GetContainer(metadata metav1.ObjectMeta, containerConcurrency *int64, config *InferenceServicesConfig) *v1.Container {
 	var args = []string{
 		constants.ArgumentModelName, metadata.Name,
 		constants.ArgumentPredictorHost, constants.PredictorURL(metadata, false),
 		constants.ArgumentHttpPort, constants.InferenceServiceDefaultHttpPort,
 	}
-	if parallelism != 0 {
-		args = append(args, constants.ArgumentWorkers, strconv.Itoa(parallelism))
+	if containerConcurrency != nil {
+		args = append(args, constants.ArgumentWorkers, strconv.FormatInt(*containerConcurrency, 10))
 	}
 	if alibi.StorageURI != "" {
 		args = append(args, "--storage_uri", constants.DefaultModelLocalMountPath)

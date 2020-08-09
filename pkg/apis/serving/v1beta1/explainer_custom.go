@@ -54,6 +54,6 @@ func (c *CustomExplainer) GetStorageUri() *string {
 }
 
 // GetContainers transforms the resource into a container spec
-func (c *CustomExplainer) GetContainer(metadata metav1.ObjectMeta, parallelism int, config *InferenceServicesConfig) *v1.Container {
+func (c *CustomExplainer) GetContainer(metadata metav1.ObjectMeta, containerConcurrency *int64, config *InferenceServicesConfig) *v1.Container {
 	return &c.Spec.Containers[0]
 }

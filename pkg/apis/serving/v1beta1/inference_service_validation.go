@@ -23,6 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"regexp"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"strings"
 )
 
@@ -43,32 +44,25 @@ var (
 	validatorLogger = logf.Log.WithName("inferenceservice-v1beta1-validation-webhook")
 )
 
+// +kubebuilder:webhook:verbs=create;update,path=/validate-inferenceservices,mutating=false,failurePolicy=fail,groups=serving.kubeflow.org,resources=inferenceservices,versions=v1beta1,name=inferenceservice.kfserving-webhook-server.validator
+var _ webhook.Validator = &InferenceService{}
+
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (isvc *InferenceService) ValidateCreate() error {
 	validatorLogger.Info("validate create", "name", isvc.Name)
 
-	predictor, err := isvc.Spec.Predictor.GetPredictor()
-	if err != nil {
-		return err
-	}
-	if err = predictor.Validate(); err != nil {
-		return err
-	}
-
-	transformer, err := isvc.Spec.Transformer.GetTransformer()
-	if err != nil {
-		return err
-	}
-	if err = transformer.Validate(); err != nil {
-		return err
-	}
-
-	explainer, err := isvc.Spec.Explainer.GetExplainer()
-	if err != nil {
-		return err
-	}
-	if err = explainer.Validate(); err != nil {
-		return err
+	for _, componentProducer := range []func() (Component, error){
+		isvc.Spec.Predictor.GetPredictor,
+		isvc.Spec.Explainer.GetExplainer,
+		isvc.Spec.Transformer.GetTransformer,
+	} {
+		component, err := componentProducer()
+		if err != nil {
+			return err
+		}
+		if err := component.Validate(); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -77,30 +71,7 @@ func (isvc *InferenceService) ValidateCreate() error {
 func (isvc *InferenceService) ValidateUpdate(old runtime.Object) error {
 	validatorLogger.Info("validate update", "name", isvc.Name)
 
-	predictor, err := isvc.Spec.Predictor.GetPredictor()
-	if err != nil {
-		return err
-	}
-	if err = predictor.Validate(); err != nil {
-		return err
-	}
-
-	transformer, err := isvc.Spec.Transformer.GetTransformer()
-	if err != nil {
-		return err
-	}
-	if err = transformer.Validate(); err != nil {
-		return err
-	}
-
-	explainer, err := isvc.Spec.Explainer.GetExplainer()
-	if err != nil {
-		return err
-	}
-	if err = explainer.Validate(); err != nil {
-		return err
-	}
-	return nil
+	return isvc.ValidateCreate()
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type

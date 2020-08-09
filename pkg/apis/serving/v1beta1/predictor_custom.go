@@ -19,6 +19,7 @@ package v1beta1
 import (
 	"github.com/kubeflow/kfserving/pkg/constants"
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // CustomPredictor defines arguments for configuring a custom server.
@@ -53,6 +54,6 @@ func (c *CustomPredictor) GetStorageUri() *string {
 }
 
 // GetContainers transforms the resource into a container spec
-func (c *CustomPredictor) GetContainer(modelName string, containerConcurrency *int64, config *InferenceServicesConfig) *v1.Container {
+func (c *CustomPredictor) GetContainer(metadata metav1.ObjectMeta, containerConcurrency *int64, config *InferenceServicesConfig) *v1.Container {
 	return &c.Spec.Containers[0]
 }

@@ -21,9 +21,8 @@ $(shell perl -pi -e 's/memory:.*/memory: $(KFSERVING_CONTROLLER_MEMORY_LIMIT)/' 
 all: test manager logger batcher
 
 # Run tests
-test: fmt vet lint manifests
-	go test ./pkg/... ./cmd/... -coverprofile cover.out.tmp
-	cat cover.out.tmp |grep -v "_generated.go" > cover.out
+test: fmt vet manifests
+	go test ./pkg/... ./cmd/... -coverprofile cover.out
 
 # Build manager binary
 manager: generate fmt vet lint

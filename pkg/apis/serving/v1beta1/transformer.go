@@ -18,8 +18,6 @@ package v1beta1
 
 import (
 	"fmt"
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // Constants
@@ -35,17 +33,8 @@ type TransformerSpec struct {
 	ComponentExtensionSpec `json:",inline"`
 }
 
-// Transformer interface is implemented by all Transformers
-// +kubebuilder:object:generate=false
-type Transformer interface {
-	GetContainer(metadata metav1.ObjectMeta) *v1.Container
-	GetStorageUri() *string
-	Default()
-	Validate() error
-}
-
-func (t *TransformerSpec) GetTransformer() (Transformer, error) {
-	transformers := []Transformer{}
+func (t *TransformerSpec) GetTransformer() (Component, error) {
+	transformers := []Component{}
 	if t.CustomTransformer != nil {
 		transformers = append(transformers, t.CustomTransformer)
 	}
@@ -80,6 +69,6 @@ func (t *TransformerSpec) Validate(config *InferenceServicesConfig) error {
 func (t *TransformerSpec) Default(config *InferenceServicesConfig) {
 	transformer, err := t.GetTransformer()
 	if err == nil {
-		transformer.Default()
+		transformer.Default(config)
 	}
 }

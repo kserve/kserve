@@ -38,15 +38,6 @@ type ExplainerSpec struct {
 	ComponentExtensionSpec `json:",inline"`
 }
 
-// Explainer interface is implemented by all explainers
-// +kubebuilder:object:generate=false
-type Explainer interface {
-	GetContainer(metadata metav1.ObjectMeta, parallelism int, config *InferenceServicesConfig) *v1.Container
-	GetStorageUri() *string
-	Default(config *InferenceServicesConfig)
-	Validate() error
-}
-
 // Returns a URI to the explainer. This URI is passed to the model-initializer via the ModelInitializerSourceUriInternalAnnotationKey
 func (e *ExplainerSpec) GetStorageUri() *string {
 	explainer, err := e.GetExplainer()
@@ -56,12 +47,12 @@ func (e *ExplainerSpec) GetStorageUri() *string {
 	return explainer.GetStorageUri()
 }
 
-func (e *ExplainerSpec) GetContainer(metadata metav1.ObjectMeta, parallelism int, config *InferenceServicesConfig) *v1.Container {
+func (e *ExplainerSpec) GetContainer(metadata metav1.ObjectMeta, containerConcurrency *int64, config *InferenceServicesConfig) *v1.Container {
 	explainer, err := e.GetExplainer()
 	if err != nil {
 		return nil
 	}
-	return explainer.GetContainer(metadata, parallelism, config)
+	return explainer.GetContainer(metadata, containerConcurrency, config)
 }
 
 func (e *ExplainerSpec) Validate(config *InferenceServicesConfig) error {
@@ -83,8 +74,8 @@ func (e *ExplainerSpec) Validate(config *InferenceServicesConfig) error {
 	return nil
 }
 
-func (e *ExplainerSpec) GetExplainer() (Explainer, error) {
-	handlers := []Explainer{}
+func (e *ExplainerSpec) GetExplainer() (Component, error) {
+	handlers := []Component{}
 	if e.CustomExplainer != nil {
 		handlers = append(handlers, e.CustomExplainer)
 	}
