@@ -19,8 +19,8 @@ package trainedmodel
 import (
 	"context"
 	"github.com/kubeflow/kfserving/pkg/constants"
-	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/scheduler"
 	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/trainedmodel/reconcilers/multimodelconfig"
+	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/trainedmodel/shard"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -78,7 +78,7 @@ func (r *TrainedModelReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 		return reconcile.Result{}, err
 	}
 
-	shardManager := scheduler.ShardManager{Strategy: scheduler.Memory}
+	shardManager := shard.ShardManager{Strategy: shard.Memory}
 	shardId := shardManager.GetShardIdForTrainedMode(trainedModel)
 	// Use trainedModel's parent InferenceService field to get the multi-model configMap
 	multiModelConfigMapName := constants.DefaultMultiModelConfigMapName(trainedModel.Spec.InferenceService, shardId)

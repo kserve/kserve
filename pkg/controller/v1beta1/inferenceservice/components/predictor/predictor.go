@@ -25,7 +25,7 @@ import (
 	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/reconcilers/knative"
 	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/reconcilers/multimodelconfig"
 	knativeres "github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/resources/knative"
-	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/scheduler"
+	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/trainedmodel/shard"
 	"github.com/kubeflow/kfserving/pkg/credentials"
 	"github.com/kubeflow/kfserving/pkg/utils"
 	v1 "k8s.io/api/core/v1"
@@ -184,7 +184,7 @@ func (p *Predictor) CreatePredictorService(isvc *v1beta1.InferenceService) (*kns
 	//mount it into this predictor's knative service
 	storageUri := isvc.Spec.Predictor.GetStorageUri()
 	if storageUri == nil || len(*storageUri) == 0 {
-		shardManager := scheduler.ShardManager{Strategy: scheduler.Memory}
+		shardManager := shard.ShardManager{Strategy: shard.Memory}
 		for _, id := range shardManager.GetShardIdsForInferenceService(isvc) {
 			multiModelConfigMap, err := multimodelconfig.CreateEmptyMultiModelConfigMap(isvc, id)
 			if err == nil {

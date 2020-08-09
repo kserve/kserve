@@ -20,7 +20,7 @@ import (
 	"context"
 	v1beta1api "github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
 	"github.com/kubeflow/kfserving/pkg/constants"
-	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/scheduler"
+	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/trainedmodel/shard"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -51,7 +51,7 @@ func (c *ShardConfigMapReconciler) Reconcile(isvc *v1beta1api.InferenceService, 
 	// If the InferenceService's storageUri is not set, create an empty multiModelConfigMap for every multi-model service shard
 	storageUri := isvc.Spec.Predictor.GetStorageUri()
 	if storageUri == nil {
-		shardManager := scheduler.ShardManager{Strategy: scheduler.Memory}
+		shardManager := shard.ShardManager{Strategy: shard.Memory}
 		for _, id := range shardManager.GetShardIdsForInferenceService(isvc) {
 			multiModelConfigMap := corev1.ConfigMap{}
 			multiModelConfigMapName := types.NamespacedName{Name: constants.DefaultMultiModelConfigMapName(isvc.Name, id), Namespace: req.Namespace}
