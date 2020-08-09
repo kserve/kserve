@@ -34,19 +34,19 @@ import (
 
 var log = logf.Log.WithName("Reconciler")
 
-type ConfigMapReconciler struct {
+type ShardConfigMapReconciler struct {
 	client client.Client
 	scheme *runtime.Scheme
 }
 
-func NewConfigMapReconciler(client client.Client, scheme *runtime.Scheme) *ConfigMapReconciler {
-	return &ConfigMapReconciler{
+func NewConfigMapReconciler(client client.Client, scheme *runtime.Scheme) *ShardConfigMapReconciler {
+	return &ShardConfigMapReconciler{
 		client: client,
 		scheme: scheme,
 	}
 }
 
-func (c *ConfigMapReconciler) Reconcile(isvc *v1beta1api.InferenceService, req ctrl.Request) error {
+func (c *ShardConfigMapReconciler) Reconcile(isvc *v1beta1api.InferenceService, req ctrl.Request) error {
 
 	// If the InferenceService's storageUri is not set, create an empty multiModelConfigMap for every multi-model service shard
 	storageUri := isvc.Spec.Predictor.GetStorageUri()
