@@ -48,16 +48,16 @@ func NewConfigMapReconciler(client client.Client, scheme *runtime.Scheme) *Confi
 
 func (c *ConfigMapReconciler) Reconcile(isvc *v1beta1api.InferenceService, req ctrl.Request) error {
 
-	// Find the InferenceService's configmap. If its configmap does not exist, create an empty configmap.
-	shardManager := scheduler.ShardManager{Strategy: scheduler.Memory}
-	for _, id := range shardManager.GetShardIdsForInferenceService(isvc) {
-		multiModelConfigMap := corev1.ConfigMap{}
-		multiModelConfigMapName := types.NamespacedName{Name: constants.DefaultMultiModelConfigMapName(isvc.Name, id), Namespace: req.Namespace}
-		if err := c.client.Get(context.TODO(), multiModelConfigMapName, &multiModelConfigMap); err != nil {
-			if errors.IsNotFound(err) {
-				storageUri := isvc.Spec.Predictor.GetStorageUri()
-				if storageUri == nil {
-					// If the InferenceService's storageUri is not set, create an empty multiModelConfigMap
+	// If the InferenceService's storageUri is not set, create an empty multiModelConfigMap for every multi-model service shard
+	storageUri := isvc.Spec.Predictor.GetStorageUri()
+	if storageUri == nil {
+		shardManager := scheduler.ShardManager{Strategy: scheduler.Memory}
+		for _, id := range shardManager.GetShardIdsForInferenceService(isvc) {
+			multiModelConfigMap := corev1.ConfigMap{}
+			multiModelConfigMapName := types.NamespacedName{Name: constants.DefaultMultiModelConfigMapName(isvc.Name, id), Namespace: req.Namespace}
+			if err := c.client.Get(context.TODO(), multiModelConfigMapName, &multiModelConfigMap); err != nil {
+				if errors.IsNotFound(err) {
+					// If the multi-model InferenceService's configmap does not exist, create an empty multiModelConfigMap
 					log.Info("Creating multimodel configmap", "configmap", multiModelConfigMapName, "inferenceservice", isvc.Name, "namespace", isvc.Namespace)
 					newConfigMap, err := CreateEmptyMultiModelConfigMap(isvc, id)
 					if err != nil {
@@ -70,9 +70,9 @@ func (c *ConfigMapReconciler) Reconcile(isvc *v1beta1api.InferenceService, req c
 					if err != nil {
 						return err
 					}
+				} else {
+					return err
 				}
-			} else {
-				return err
 			}
 		}
 	}
