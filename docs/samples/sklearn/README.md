@@ -1,4 +1,4 @@
-## Creating your own model and testing the Scikit-Learn server.
+## Creating your own model and testing the SKLearn Server locally.
 
 To test the [Scikit-Learn](https://scikit-learn.org/stable/) server, first we need to generate a simple scikit-learn model using Python. 
 
@@ -13,7 +13,7 @@ clf.fit(X, y)
 dump(clf, 'model.joblib')
 ```
 
-Then, we can run the scikit-learn server using the generated model and test for prediction. Models can be on local filesystem, S3 compatible object storage, Azure Blob Storage, or Google Cloud Storage.
+Then, we can install and run the [SKLearn Server](../../../python/sklearnserver) using the generated model and test for prediction. Models can be on local filesystem, S3 compatible object storage, Azure Blob Storage, or Google Cloud Storage.
 
 ```shell
 python -m sklearnserver --model_dir model.joblib --model_name svm
@@ -34,11 +34,11 @@ print(res)
 print(res.text)
 ```
 
-# Predict on a InferenceService using SKLearn
+# Predict on a InferenceService using SKLearnServer
 
 ## Setup
 1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/#install-kfserving).
-2. Your cluster's Istio Ingress gateway must be network accessible.
+2. Your cluster's Istio Ingress gateway must be [network accessible](https://istio.io/latest/docs/tasks/traffic-management/ingress/ingress-control/).
 
 ## Create the InferenceService
 

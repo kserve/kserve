@@ -22,7 +22,7 @@ workflow, with DevOps best practices baked in.
 Before starting this guide, make sure you have the following:
 
 * Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/#install-kfserving).
-* Your cluster's Istio Ingress gateway must be network accessible.
+* Your cluster's Istio Ingress gateway must be [network accessible](https://istio.io/latest/docs/tasks/traffic-management/ingress/ingress-control/).
 * Docker and Docker hub must be properly configured on your local system
 * Python 3.6 or above
   * Install required packages `bentoml` and `scikit-learn` on your local system:

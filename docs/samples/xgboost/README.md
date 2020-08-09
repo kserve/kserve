@@ -26,7 +26,7 @@ model_file = os.path.join((model_dir), BST_FILE)
 xgb_model.save_model(model_file)
 ```
 
-Then, we can run the XGBoost Server using the generated model and test for prediction. Models can be on local filesystem, S3 compatible object storage, Azure Blob Storage, or Google Cloud Storage.
+Then, we can install and run the [XGBoost Server](../../../python/xgbserver) using the generated model and test for prediction. Models can be on local filesystem, S3 compatible object storage, Azure Blob Storage, or Google Cloud Storage.
 
 ```shell
 python -m xgbserver --model_dir /path/to/model_dir --model_name xgb
@@ -50,11 +50,11 @@ print(res)
 print(res.text)
 ```
 
-## Predict on a InferenceService using XGBoost
+## Predict on a InferenceService using XGBoost Server
 
 ## Setup
 1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/#install-kfserving).
-2. Your cluster's Istio Ingress gateway must be network accessible.
+2. Your cluster's Istio Ingress gateway must be [network accessible](https://istio.io/latest/docs/tasks/traffic-management/ingress/ingress-control/).
 
 ## Create the InferenceService
 
