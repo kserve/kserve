@@ -1,40 +1,28 @@
 package multimodelconfig
 
 import (
+	"bytes"
 	"encoding/json"
+	"fmt"
+	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
+	"github.com/kubeflow/kfserving/pkg/constants"
+	"io"
 	"k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/runtime/log"
+	"strings"
 )
 
 var logger = log.Log.WithName("MultiModelConfig")
 
+type ModelConfig map[string]*v1beta1.ModelSpec
+
 type ConfigsDelta struct {
-	updatedCfg map[string]string
-	deletedCfg map[string]string
+	updated ModelConfig
+	deleted ModelConfig
 }
 
-type ModelConfig struct {
-	fileName    string
-	fileContent *ModelDefinition
-}
-
-//ModelDefinition will be replaced by ModelSpec
-//after we merge https://github.com/kubeflow/kfserving/pull/991 to master
-type ModelDefinition struct {
-	StorageUri string `json:"storageUri"`
-	Framework  string `json:"framework"`
-}
-
-func NewConfigsDelta(updatedCfg[]ModelConfig, deletedCfg []ModelConfig) (*ConfigsDelta, error) {
-	updatedcfgs, err := convert(updatedCfg...)
-	if err != nil {
-		return nil, err
-	}
-	deletedcfgs, err := convert(deletedCfg...)
-	if err != nil {
-		return nil, err
-	}
-	return &ConfigsDelta{ updatedCfg: updatedcfgs, deletedCfg: deletedcfgs }, err
+func NewConfigsDelta(updatedCfg ModelConfig, deletedCfg ModelConfig) *ConfigsDelta {
+	return &ConfigsDelta{updated: updatedCfg, deleted: deletedCfg}
 }
 
 //multi-model ConfigMap
@@ -44,69 +32,97 @@ func NewConfigsDelta(updatedCfg[]ModelConfig, deletedCfg []ModelConfig) (*Config
 //  name: models-config
 //  namespace: <user-model-namespace>
 //data:
-//  example_model_name1.json: |
+//  example_models.json: |
 //    {
-//      storageUri: s3://example-bucket/path/to/model_name1
-//      framework: sklearn
-//    }
-//  example_model_name2.json: |
-//    {
-//      storageUri: s3://example-bucket/path/to/model_name2
-//      framework: sklearn
+//      example_model_name1: {
+//        storageUri: s3://example-bucket/path/to/model_name1
+//        framework: sklearn
+//      },
+//      example_model_name2: {
+//        storageUri: s3://example-bucket/path/to/model_name2
+//        framework: sklearn
+//      }
 //    }
 
-func (config *ConfigsDelta) Process(configMap *v1.ConfigMap) {
-	config.apply(configMap)
-	config.delete(configMap)
+func (config *ConfigsDelta) Process(configMap *v1.ConfigMap) (err error) {
+	if err = config.apply(configMap); err != nil {
+		return err
+	}
+	if err = config.delete(configMap); err != nil {
+		return err
+	}
+	return nil
 }
 
-func (config *ConfigsDelta) apply(configMap *v1.ConfigMap) {
-	if isEmpty(config.updatedCfg) {
-		return
+func (config *ConfigsDelta) apply(configMap *v1.ConfigMap) (err error) {
+	if len(config.updated) == 0 {
+		return nil
 	}
 	if configMap.Data == nil {
 		configMap.Data = map[string]string{}
 	}
-	for name, content := range config.updatedCfg {
-		configMap.Data[name] = content
-	}
-}
-
-func (config *ConfigsDelta) delete(configMap *v1.ConfigMap) {
-	if isEmpty(config.deletedCfg) {
-		return
-	}
-	if configMap.Data == nil || len(configMap.Data) == 0 {
-		logger.Info("Cannot remove models from empty configmap",
-			"configmap name", configMap.Name)
-		return
-	}
-	for filename, _:= range config.deletedCfg {
-		if _, ok := configMap.Data[filename]; ok {
-			delete(configMap.Data, filename)
-		} else {
-			logger.Info("Model filename does not exist in configmap",
-				"model file name", filename, "configmap name", configMap.Name)
+	if data, err := decode(configMap.Data[constants.MultiModeConfigFileName]); err == nil {
+		if len(data) == 0 {
+			data = ModelConfig{}
 		}
-	}
-}
-
-func isEmpty(input map[string]string) bool {
-	return input == nil || len(input) == 0
-}
-
-func convert(from ...ModelConfig) (map[string]string, error) {
-	to := map[string]string{}
-	for _, mmcfg := range from {
-		if mmcfg.fileContent == nil {
-			to[mmcfg.fileName] = ""
+		for name, spec := range config.updated {
+			data[name] = spec
+		}
+		if to, err := encode(data); err == nil {
+			configMap.Data[constants.MultiModeConfigFileName] = to
 		} else {
-			if b, err := json.Marshal(&(mmcfg.fileContent)); err == nil {
-				to[mmcfg.fileName] = string(b)
-			} else {
-				return nil, err
+			err = fmt.Errorf("while updating %s err %v", configMap.Name, err)
+		}
+	} else {
+		err = fmt.Errorf("while updating %s err %v", configMap.Name, err)
+	}
+	return err
+}
+
+func (config *ConfigsDelta) delete(configMap *v1.ConfigMap) (err error) {
+	if len(config.deleted) == 0 || len(configMap.Data) == 0 {
+		return nil
+	}
+	if configData, ok := configMap.Data[constants.MultiModeConfigFileName]; ok && len(configData) != 0 {
+		if data, err := decode(configData); err == nil {
+			for name, _ := range config.deleted {
+				if _, ok := data[name]; ok {
+					delete(data, name)
+				} else {
+					logger.Info("Model %s does not exist in %s", name, configMap.Name)
+				}
 			}
+			if to, err := encode(data); err == nil {
+				configMap.Data[constants.MultiModeConfigFileName] = to
+			} else {
+				err = fmt.Errorf("while deleting %s err %v", configMap.Name, err)
+			}
+		} else {
+			err = fmt.Errorf("while deleting %s err %v", configMap.Name, err)
 		}
 	}
-	return to, nil
+	return err
+}
+
+func decode(from string) (to ModelConfig, err error) {
+	dec := json.NewDecoder(strings.NewReader(from))
+	for {
+		if err = dec.Decode(&to); err == io.EOF {
+			err = nil
+			break
+		} else if err != nil {
+			err = fmt.Errorf("fail to decode %s", from)
+			break
+		}
+	}
+	return to, err
+}
+
+func encode(from ModelConfig) (to string, err error) {
+	buffer := new(bytes.Buffer)
+	err = json.NewEncoder(buffer).Encode(from)
+	if err == nil {
+		to = strings.TrimSuffix(buffer.String(), "\n")
+	}
+	return to, err
 }
