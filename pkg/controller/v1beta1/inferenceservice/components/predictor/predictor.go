@@ -180,6 +180,24 @@ func (p *Predictor) CreatePredictorService(isvc *v1beta1.InferenceService) (*kns
 		},
 	}
 
+	err = mountMultiModelConfigMap(isvc, service)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := p.credentialBuilder.CreateSecretVolumeAndEnv(
+		isvc.Namespace,
+		isvc.Spec.Predictor.CustomPredictor.Spec.ServiceAccountName,
+		&service.Spec.Template.Spec.Containers[0],
+		&service.Spec.Template.Spec.Volumes,
+	); err != nil {
+		return nil, err
+	}
+
+	return service, nil
+}
+
+func mountMultiModelConfigMap(isvc *v1beta1.InferenceService, ksvc *knservingv1.Service) error {
 	//If InferenceService's storageUri is empty, create multi-model service configMap and
 	//mount it into this predictor's knative service
 	storageUri := isvc.Spec.Predictor.GetStorageUri()
@@ -197,22 +215,16 @@ func (p *Predictor) CreatePredictorService(isvc *v1beta1.InferenceService) (*kns
 				}
 				multiModelConfigVolume.ConfigMap.Name = multiModelConfigMap.Name
 				// Mount the multi-model configmap to ksvc if not already mounted
-				service.Spec.Template.Spec.Volumes = mountVolumeIfNotExist(service.Spec.Template.Spec.Volumes, multiModelConfigVolume)
+				ksvc.Spec.Template.Spec.Volumes = mountVolumeIfNotExist(ksvc.Spec.Template.Spec.Volumes, multiModelConfigVolume)
 				//TODO mount multi-model configmap in the the knative user container
+			} else {
+				return err
 			}
 		}
 	}
-	if err := p.credentialBuilder.CreateSecretVolumeAndEnv(
-		isvc.Namespace,
-		isvc.Spec.Predictor.CustomPredictor.Spec.ServiceAccountName,
-		&service.Spec.Template.Spec.Containers[0],
-		&service.Spec.Template.Spec.Volumes,
-	); err != nil {
-		return nil, err
-	}
-
-	return service, nil
+	return nil
 }
+
 
 func mountVolumeIfNotExist(existingVolumes []v1.Volume, additionalVolume v1.Volume) []v1.Volume {
 	if existingVolumes == nil {

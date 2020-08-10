@@ -229,7 +229,7 @@ func CanaryServiceName(name string, component InferenceServiceComponent) string 
 }
 
 func MultiModelConfigMapName(inferenceserviceName string, shardId int) string {
-	return fmt.Sprint("multimodelconfig-%s-%d" , inferenceserviceName, shardId)
+	return fmt.Sprintf("multimodelconfig-%s-%d" , inferenceserviceName, shardId)
 }
 
 func InferenceServicePrefix(name string) string {
