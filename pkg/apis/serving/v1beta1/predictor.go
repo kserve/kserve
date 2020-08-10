@@ -17,8 +17,8 @@ limitations under the License.
 package v1beta1
 
 import (
-	"fmt"
 	v1 "k8s.io/api/core/v1"
+	"reflect"
 )
 
 const (
@@ -63,34 +63,22 @@ type PredictorExtensionSpec struct {
 }
 
 // GetPredictor returns the framework for the Predictor
-func (p *PredictorSpec) GetPredictor() (Component, error) {
+func (p *PredictorSpec) GetPredictor() []Component {
 	predictors := []Component{}
-	if p.CustomPredictor != nil {
-		predictors = append(predictors, p.CustomPredictor)
+	for _, predictor := range []Component{
+		p.XGBoost,
+		p.PyTorch,
+		p.Triton,
+		p.SKLearn,
+		p.Tensorflow,
+		p.ONNX,
+		p.CustomPredictor,
+	} {
+		if !reflect.ValueOf(predictor).IsNil() {
+			predictors = append(predictors, predictor)
+		}
 	}
-	if p.XGBoost != nil {
-		predictors = append(predictors, p.XGBoost)
-	}
-	if p.SKLearn != nil {
-		predictors = append(predictors, p.SKLearn)
-	}
-	if p.Tensorflow != nil {
-		predictors = append(predictors, p.Tensorflow)
-	}
-	if p.ONNX != nil {
-		predictors = append(predictors, p.ONNX)
-	}
-	if p.PyTorch != nil {
-		predictors = append(predictors, p.PyTorch)
-	}
-	if p.Triton != nil {
-		predictors = append(predictors, p.Triton)
-	}
-	if len(predictors) != 1 {
-		err := fmt.Errorf(ExactlyOnePredictorViolatedError)
-		return nil, err
-	}
-	return predictors[0], nil
+	return predictors
 }
 
 // GetPredictorPodSpec returns the PodSpec for the Predictor
@@ -99,10 +87,7 @@ func (p *PredictorSpec) GetPredictorPodSpec() v1.PodSpec {
 }
 
 func (p *PredictorSpec) Validate() error {
-	predictor, err := p.GetPredictor()
-	if err != nil {
-		return err
-	}
+	predictor := p.GetPredictor()[0]
 	for _, err := range []error{
 		predictor.Validate(),
 		validateStorageURI(predictor.GetStorageUri()),

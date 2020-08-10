@@ -33,6 +33,8 @@ type CustomPredictor struct {
 	v1.PodTemplateSpec `json:",inline"`
 }
 
+var _ Component = &CustomPredictor{}
+
 // Validate returns an error if invalid
 func (c *CustomPredictor) Validate() error {
 	return nil

@@ -13,7 +13,14 @@ import (
 
 func TestAlibiValidation(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-
+	config := InferenceServicesConfig{
+		Explainers: &ExplainersConfig{
+			AlibiExplainer: ExplainerConfig{
+				ContainerImage:      "alibi",
+				DefaultImageVersion: "v0.4.0",
+			},
+		},
+	}
 	scenarios := map[string]struct {
 		spec    ExplainerSpec
 		matcher types.GomegaMatcher
@@ -22,7 +29,7 @@ func TestAlibiValidation(t *testing.T) {
 			spec: ExplainerSpec{
 				Alibi: &AlibiExplainerSpec{
 					Type:           "AnchorTabular",
-					RuntimeVersion: "latest",
+					RuntimeVersion: proto.String("latest"),
 				},
 			},
 			matcher: gomega.BeNil(),
@@ -72,6 +79,7 @@ func TestAlibiValidation(t *testing.T) {
 
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
+			scenario.spec.Alibi.Default(&config)
 			res := scenario.spec.Validate()
 			if !g.Expect(res).To(scenario.matcher) {
 				t.Errorf("got %q, want %q", res, scenario.matcher)
@@ -104,7 +112,7 @@ func TestAlibiDefaulter(t *testing.T) {
 			},
 			expected: ExplainerSpec{
 				Alibi: &AlibiExplainerSpec{
-					RuntimeVersion: "v0.4.0",
+					RuntimeVersion: proto.String("v0.4.0"),
 					Container: v1.Container{
 						Name: constants.InferenceServiceContainerName,
 						Resources: v1.ResourceRequirements{
@@ -118,12 +126,12 @@ func TestAlibiDefaulter(t *testing.T) {
 		"DefaultResources": {
 			spec: ExplainerSpec{
 				Alibi: &AlibiExplainerSpec{
-					RuntimeVersion: "v0.3.0",
+					RuntimeVersion: proto.String("v0.3.0"),
 				},
 			},
 			expected: ExplainerSpec{
 				Alibi: &AlibiExplainerSpec{
-					RuntimeVersion: "v0.3.0",
+					RuntimeVersion: proto.String("v0.3.0"),
 					Container: v1.Container{
 						Name: constants.InferenceServiceContainerName,
 						Resources: v1.ResourceRequirements{
@@ -242,7 +250,7 @@ func TestCreateAlibiModelServingContainer(t *testing.T) {
 						Alibi: &AlibiExplainerSpec{
 							Type:           AlibiAnchorsTabularExplainer,
 							StorageURI:     "s3://explainer",
-							RuntimeVersion: "v0.4.0",
+							RuntimeVersion: proto.String("v0.4.0"),
 							Container: v1.Container{
 								Image:     "explainer:0.1.0",
 								Resources: requestedResource,
@@ -295,7 +303,7 @@ func TestCreateAlibiModelServingContainer(t *testing.T) {
 						Alibi: &AlibiExplainerSpec{
 							Type:           AlibiAnchorsTabularExplainer,
 							StorageURI:     "s3://explainer",
-							RuntimeVersion: "v0.4.0",
+							RuntimeVersion: proto.String("v0.4.0"),
 							Container: v1.Container{
 								Image:     "explainer:0.1.0",
 								Resources: requestedResource,
@@ -326,7 +334,7 @@ func TestCreateAlibiModelServingContainer(t *testing.T) {
 	}
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
-			explainer, _ := scenario.isvc.Spec.Explainer.GetExplainer()
+			explainer := scenario.isvc.Spec.Explainer.GetExplainer()[0]
 			explainer.Default(&config)
 			res := explainer.GetContainer(metav1.ObjectMeta{Name: "someName", Namespace: "default"}, scenario.isvc.Spec.Explainer.ContainerConcurrency, &config)
 			if !g.Expect(res).To(gomega.Equal(scenario.expectedContainerSpec)) {

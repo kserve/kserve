@@ -17,6 +17,7 @@ limitations under the License.
 package v1beta1
 
 import (
+	"fmt"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -70,14 +71,29 @@ func (isvc *InferenceService) Default() {
 	if err != nil {
 		panic(err)
 	}
-	for _, componentProducer := range []func() (Component, error){
-		isvc.Spec.Predictor.GetPredictor,
-		isvc.Spec.Explainer.GetExplainer,
-		isvc.Spec.Transformer.GetTransformer,
-	} {
-		component, err := componentProducer()
-		if err == nil {
-			component.Default(configMap)
+	components := isvc.Spec.Predictor.GetPredictor()
+	if len(components) != 1 {
+		mutatorLogger.Error(fmt.Errorf(ExactlyOnePredictorViolatedError), "more than one predictor")
+		return
+	}
+
+	if isvc.Spec.Transformer != nil {
+		transformers := isvc.Spec.Transformer.GetTransformer()
+		if len(transformers) != 1 {
+			mutatorLogger.Error(fmt.Errorf(ExactlyOneTransformerViolatedError), "more than one transformer")
+			return
 		}
+		components = append(components, transformers...)
+	}
+	if isvc.Spec.Explainer != nil {
+		explainers := isvc.Spec.Explainer.GetExplainer()
+		if len(explainers) != 1 {
+			mutatorLogger.Error(fmt.Errorf(ExactlyOneExplainerViolatedError), "more than one explainer")
+			return
+		}
+		components = append(components, explainers...)
+	}
+	for _, component := range components {
+		component.Default(configMap)
 	}
 }

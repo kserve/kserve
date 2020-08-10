@@ -16,10 +16,6 @@ limitations under the License.
 
 package v1beta1
 
-import (
-	"fmt"
-)
-
 // Constants
 const (
 	ExactlyOneTransformerViolatedError = "Exactly one of [Custom] must be specified in TransformerSpec"
@@ -33,25 +29,17 @@ type TransformerSpec struct {
 	ComponentExtensionSpec `json:",inline"`
 }
 
-func (t *TransformerSpec) GetTransformer() (Component, error) {
+func (t *TransformerSpec) GetTransformer() []Component {
 	transformers := []Component{}
 	if t.CustomTransformer != nil {
 		transformers = append(transformers, t.CustomTransformer)
 	}
-	// Fail if not exactly one
-	if len(transformers) != 1 {
-		err := fmt.Errorf(ExactlyOneTransformerViolatedError)
-		return nil, err
-	}
-	return transformers[0], nil
+	return transformers
 }
 
 // Validate the TransformerSpec
 func (t *TransformerSpec) Validate() error {
-	transformer, err := t.GetTransformer()
-	if err != nil {
-		return err
-	}
+	transformer := t.GetTransformer()[0]
 	for _, err := range []error{
 		transformer.Validate(),
 		validateStorageURI(transformer.GetStorageUri()),

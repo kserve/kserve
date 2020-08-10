@@ -51,15 +51,25 @@ var _ webhook.Validator = &InferenceService{}
 func (isvc *InferenceService) ValidateCreate() error {
 	validatorLogger.Info("validate create", "name", isvc.Name)
 
-	for _, componentProducer := range []func() (Component, error){
-		isvc.Spec.Predictor.GetPredictor,
-		isvc.Spec.Explainer.GetExplainer,
-		isvc.Spec.Transformer.GetTransformer,
-	} {
-		component, err := componentProducer()
-		if err != nil {
-			return err
+	components := isvc.Spec.Predictor.GetPredictor()
+	if len(components) != 1 {
+		return fmt.Errorf(ExactlyOnePredictorViolatedError)
+	}
+	if isvc.Spec.Transformer != nil {
+		transformers := isvc.Spec.Transformer.GetTransformer()
+		if len(transformers) != 1 {
+			return fmt.Errorf(ExactlyOneTransformerViolatedError)
 		}
+		components = append(components, transformers...)
+	}
+	if isvc.Spec.Explainer != nil {
+		explainers := isvc.Spec.Explainer.GetExplainer()
+		if len(explainers) != 1 {
+			return fmt.Errorf(ExactlyOneExplainerViolatedError)
+		}
+		components = append(components, explainers...)
+	}
+	for _, component := range components {
 		if err := component.Validate(); err != nil {
 			return err
 		}

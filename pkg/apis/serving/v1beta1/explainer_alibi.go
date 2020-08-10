@@ -17,6 +17,7 @@ limitations under the License.
 package v1beta1
 
 import (
+	"github.com/golang/protobuf/proto"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -49,7 +50,7 @@ type AlibiExplainerSpec struct {
 	// The location of a trained explanation model
 	StorageURI string `json:"storageUri,omitempty"`
 	// Alibi docker image version, defaults to latest Alibi Version
-	RuntimeVersion string `json:"runtimeVersion,omitempty"`
+	RuntimeVersion *string `json:"runtimeVersion,omitempty"`
 	// Inline custom parameter settings for explainer
 	Config map[string]string `json:"config,omitempty"`
 	// Container enables overrides for the predictor.
@@ -57,6 +58,8 @@ type AlibiExplainerSpec struct {
 	// +optional
 	v1.Container `json:",inline"`
 }
+
+var _ Component = &AlibiExplainerSpec{}
 
 func (alibi *AlibiExplainerSpec) GetStorageUri() *string {
 	return &alibi.StorageURI
@@ -93,9 +96,7 @@ func (alibi *AlibiExplainerSpec) GetContainer(metadata metav1.ObjectMeta, contai
 		args = append(args, alibi.Config[k])
 	}
 	if alibi.Container.Image == "" {
-		alibi.Image = config.Explainers.AlibiExplainer.ContainerImage + ":" + alibi.RuntimeVersion
-	} else {
-
+		alibi.Image = config.Explainers.AlibiExplainer.ContainerImage + ":" + *alibi.RuntimeVersion
 	}
 	alibi.Name = constants.InferenceServiceContainerName
 	alibi.Args = args
@@ -104,8 +105,8 @@ func (alibi *AlibiExplainerSpec) GetContainer(metadata metav1.ObjectMeta, contai
 
 func (alibi *AlibiExplainerSpec) Default(config *InferenceServicesConfig) {
 	alibi.Name = constants.InferenceServiceContainerName
-	if alibi.RuntimeVersion == "" {
-		alibi.RuntimeVersion = config.Explainers.AlibiExplainer.DefaultImageVersion
+	if alibi.RuntimeVersion == nil {
+		alibi.RuntimeVersion = proto.String(config.Explainers.AlibiExplainer.DefaultImageVersion)
 	}
 	setResourceRequirementDefaults(&alibi.Resources)
 }

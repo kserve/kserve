@@ -17,7 +17,7 @@ limitations under the License.
 package v1beta1
 
 import (
-	"fmt"
+	"reflect"
 )
 
 const (
@@ -36,23 +36,13 @@ type ExplainerSpec struct {
 	ComponentExtensionSpec `json:",inline"`
 }
 
-// Returns a URI to the explainer. This URI is passed to the model-initializer via the ModelInitializerSourceUriInternalAnnotationKey
-func (e *ExplainerSpec) GetStorageUri() *string {
-	explainer, err := e.GetExplainer()
-	if err != nil {
-		return nil
-	}
-	return explainer.GetStorageUri()
-}
+var _ Component = &ExplainerSpec{}
 
 func (e *ExplainerSpec) Validate() error {
-	explainer, err := e.GetExplainer()
-	if err != nil {
-		return err
-	}
+	explainer := e.GetExplainer()[0]
 	for _, err := range []error{
 		explainer.Validate(),
-		validateStorageURI(e.GetStorageUri()),
+		validateStorageURI(explainer.GetStorageUri()),
 		validateContainerConcurrency(e.ContainerConcurrency),
 		validateReplicas(e.MinReplicas, e.MaxReplicas),
 		validateLogger(e.LoggerSpec),
@@ -64,17 +54,15 @@ func (e *ExplainerSpec) Validate() error {
 	return nil
 }
 
-func (e *ExplainerSpec) GetExplainer() (Component, error) {
-	handlers := []Component{}
-	if e.CustomExplainer != nil {
-		handlers = append(handlers, e.CustomExplainer)
+func (e *ExplainerSpec) GetExplainer() []Component {
+	explainers := []Component{}
+	for _, explainer := range []Component{
+		e.Alibi,
+		e.CustomExplainer,
+	} {
+		if !reflect.ValueOf(explainer).IsNil() {
+			explainers = append(explainers, explainer)
+		}
 	}
-	if e.Alibi != nil {
-		handlers = append(handlers, e.Alibi)
-	}
-	if len(handlers) != 1 {
-		err := fmt.Errorf(ExactlyOneExplainerViolatedError)
-		return nil, err
-	}
-	return handlers[0], nil
+	return explainers
 }

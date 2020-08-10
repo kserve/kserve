@@ -326,7 +326,7 @@ func TestCreateCustomPredictorContainer(t *testing.T) {
 	}
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
-			predictor, _ := scenario.isvc.Spec.Predictor.GetPredictor()
+			predictor := scenario.isvc.Spec.Predictor.GetPredictor()[0]
 			predictor.Default(&config)
 			res := predictor.GetContainer(metav1.ObjectMeta{Name: "someName", Namespace: "default"}, scenario.isvc.Spec.Predictor.ContainerConcurrency, &config)
 			if !g.Expect(res).To(gomega.Equal(scenario.expectedContainerSpec)) {

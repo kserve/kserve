@@ -13,7 +13,9 @@ import (
 
 func TestCustomExplainerValidation(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-
+	config := InferenceServicesConfig{
+		Explainers: &ExplainersConfig{},
+	}
 	scenarios := map[string]struct {
 		spec    ExplainerSpec
 		matcher types.GomegaMatcher
@@ -114,6 +116,7 @@ func TestCustomExplainerValidation(t *testing.T) {
 
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
+			scenario.spec.CustomExplainer.Default(&config)
 			res := scenario.spec.Validate()
 			if !g.Expect(res).To(scenario.matcher) {
 				t.Errorf("got %q, want %q", res, scenario.matcher)
@@ -125,7 +128,7 @@ func TestCustomExplainerValidation(t *testing.T) {
 func TestCustomExplainerDefaulter(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	config := InferenceServicesConfig{
-		Transformers: &TransformersConfig{},
+		Explainers: &ExplainersConfig{},
 	}
 	defaultResource = v1.ResourceList{
 		v1.ResourceCPU:    resource.MustParse("1"),
@@ -342,7 +345,7 @@ func TestCreateCustomExplainerContainer(t *testing.T) {
 	}
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
-			explainer, _ := scenario.isvc.Spec.Explainer.GetExplainer()
+			explainer := scenario.isvc.Spec.Explainer.GetExplainer()[0]
 			explainer.Default(&config)
 			res := explainer.GetContainer(metav1.ObjectMeta{Name: "someName", Namespace: "default"}, scenario.isvc.Spec.Explainer.ContainerConcurrency, &config)
 			if !g.Expect(res).To(gomega.Equal(scenario.expectedContainerSpec)) {

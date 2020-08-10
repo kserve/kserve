@@ -33,6 +33,8 @@ type CustomExplainer struct {
 	v1.PodTemplateSpec `json:",inline"`
 }
 
+var _ Component = &CustomExplainer{}
+
 // Validate returns an error if invalid
 func (c *CustomExplainer) Validate() error {
 	return nil
