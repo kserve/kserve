@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// +kubebuilder:validation:Required
 package v1beta1
 
 import (
