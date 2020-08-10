@@ -1,3 +1,4 @@
+// +kubebuilder:validation:Required
 package v1beta1
 
 import (
