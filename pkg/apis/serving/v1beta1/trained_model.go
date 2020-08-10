@@ -7,6 +7,7 @@ import (
 )
 
 // +k8s:openapi-gen=true
+// +k8s:deepcopy-gen=true
 // +kubebuilder:object:root=true
 type TrainedModel struct {
 	metav1.TypeMeta   `json:",inline"`
@@ -19,6 +20,7 @@ type TrainedModel struct {
 
 // TrainedModelList contains a list of TrainedModel
 // +kubebuilder:object:root=true
+// +k8s:deepcopy-gen=true
 type TrainedModelList struct {
 	metav1.TypeMeta `json:",inline"`
 	// +optional
