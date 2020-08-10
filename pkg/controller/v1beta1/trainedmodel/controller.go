@@ -79,7 +79,7 @@ func (r *TrainedModelReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 	}
 
 	shardManager := shard.ShardManager{Strategy: shard.Memory}
-	shardId := shardManager.GetShardIdForTrainedMode(trainedModel)
+	shardId := shardManager.GetShardIdForTrainedModel(trainedModel)
 	// Use trainedModel's parent InferenceService field to get the multi-model configMap
 	multiModelConfigMapName := constants.MultiModelConfigMapName(trainedModel.Spec.InferenceService, shardId)
 	configMap := &v1.ConfigMap{}

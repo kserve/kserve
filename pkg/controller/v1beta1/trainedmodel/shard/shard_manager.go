@@ -23,7 +23,7 @@ func (v *ShardManager) GetShardIdsForInferenceService(isvc *v1beta1api.Inference
 }
 
 // Return a TrainedModel's shardId
-func (v *ShardManager) GetShardIdForTrainedMode(trainedModel *v1beta1api.TrainedModel) int {
+func (v *ShardManager) GetShardIdForTrainedModel(trainedModel *v1beta1api.TrainedModel) int {
 	//TODO to be implemented in another PR
 	return 0
 }
