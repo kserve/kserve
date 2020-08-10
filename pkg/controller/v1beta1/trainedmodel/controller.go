@@ -67,17 +67,6 @@ func (r *TrainedModelReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 	}
 	log.Info("Reconciling TrainedModel", "apiVersion", trainedModel.APIVersion, "trainedModel", trainedModel.Spec)
 
-	// Fetch the InferenceService
-	isvc := &v1beta1api.InferenceService{}
-	if err := r.Get(context.TODO(), types.NamespacedName{Name: trainedModel.Spec.InferenceService, Namespace: req.Namespace}, isvc); err != nil {
-		if errors.IsNotFound(err) {
-			// Object not found, return. Created objects are automatically garbage collected.
-			// For additional cleanup logic use finalizers.
-			return reconcile.Result{}, nil
-		}
-		return reconcile.Result{}, err
-	}
-
 	shardManager := shard.ShardManager{Strategy: shard.Memory}
 	shardId := shardManager.GetShardIdForTrainedModel(trainedModel)
 	// Use trainedModel's parent InferenceService field to get the multi-model configMap
