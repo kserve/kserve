@@ -54,7 +54,7 @@ func (c *ShardConfigMapReconciler) Reconcile(isvc *v1beta1api.InferenceService, 
 		shardManager := shard.ShardManager{Strategy: shard.Memory}
 		for _, id := range shardManager.GetShardIdsForInferenceService(isvc) {
 			multiModelConfigMap := corev1.ConfigMap{}
-			multiModelConfigMapName := types.NamespacedName{Name: constants.DefaultMultiModelConfigMapName(isvc.Name, id), Namespace: req.Namespace}
+			multiModelConfigMapName := types.NamespacedName{Name: constants.MultiModelConfigMapName(isvc.Name, id), Namespace: req.Namespace}
 			if err := c.client.Get(context.TODO(), multiModelConfigMapName, &multiModelConfigMap); err != nil {
 				if errors.IsNotFound(err) {
 					// If the multi-model InferenceService's configmap does not exist, create an empty multiModelConfigMap
@@ -80,7 +80,7 @@ func (c *ShardConfigMapReconciler) Reconcile(isvc *v1beta1api.InferenceService, 
 }
 
 func CreateEmptyMultiModelConfigMap(isvc *v1beta1api.InferenceService, shardId int) (*corev1.ConfigMap, error) {
-	multiModelConfigMapName := constants.DefaultMultiModelConfigMapName(isvc.Name, shardId)
+	multiModelConfigMapName := constants.MultiModelConfigMapName(isvc.Name, shardId)
 	// Create a Multi-Model ConfigMap without any models in it
 	multiModelConfigMap := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{

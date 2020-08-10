@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"os"
 	"regexp"
-	"strconv"
 	"strings"
 
 	"knative.dev/pkg/network"
@@ -225,12 +224,12 @@ func DefaultServiceName(name string, component InferenceServiceComponent) string
 	return name + "-" + component.String() + "-" + InferenceServiceDefault
 }
 
-func DefaultMultiModelConfigMapName(inferenceserviceName string, shardId int) string {
-	return "multimodelconfig" + "-" + inferenceserviceName + "-" + strconv.Itoa(shardId)
-}
-
 func CanaryServiceName(name string, component InferenceServiceComponent) string {
 	return name + "-" + component.String() + "-" + InferenceServiceCanary
+}
+
+func MultiModelConfigMapName(inferenceserviceName string, shardId int) string {
+	return fmt.Sprint("multimodelconfig-%s-%d" , inferenceserviceName, shardId)
 }
 
 func InferenceServicePrefix(name string) string {

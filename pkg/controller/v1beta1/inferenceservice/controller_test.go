@@ -151,7 +151,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 		serviceName := "bar"
 		var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
 		var serviceKey = expectedRequest.NamespacedName
-		var multiModelConfigMapKey = types.NamespacedName{Name: constants.DefaultMultiModelConfigMapName(serviceName, 0),
+		var multiModelConfigMapKey = types.NamespacedName{Name: constants.MultiModelConfigMapName(serviceName, 0),
 			Namespace: serviceKey.Namespace}
 		var ksvcKey = types.NamespacedName{Name: constants.DefaultServiceName(serviceKey.Name, constants.Predictor),
 			Namespace: expectedRequest.Namespace}
