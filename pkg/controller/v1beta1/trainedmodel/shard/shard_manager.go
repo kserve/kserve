@@ -14,6 +14,14 @@ type ShardManager struct {
 	Strategy ShardingStrategy
 }
 
+// Return all the shard ids for an InferenceService
+func (v *ShardManager) GetShardIdsForInferenceService(isvc *v1beta1api.InferenceService) []int {
+	//TODO implement sharding logic for InferenceService
+	//Currently each InfereceService only has one shard with id 0
+	ids := []int{0}
+	return ids
+}
+
 // Return a TrainedModel's shardId
 func (v *ShardManager) GetShardIdForTrainedModel(trainedModel *v1beta1api.TrainedModel) int {
 	//TODO to be implemented in another PR
