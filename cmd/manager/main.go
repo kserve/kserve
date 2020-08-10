@@ -18,6 +18,7 @@ package main
 
 import (
 	"flag"
+	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/trainedmodel/reconcilers/modelconfig"
 	"github.com/kubeflow/kfserving/pkg/webhook/admission/inferenceservice"
 	"github.com/kubeflow/kfserving/pkg/webhook/admission/pod"
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
@@ -32,6 +33,7 @@ import (
 
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	v1alph2controller "github.com/kubeflow/kfserving/pkg/controller/inferenceservice"
+	trainedmodelcontroller "github.com/kubeflow/kfserving/pkg/controller/v1beta1/trainedmodel"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
@@ -105,6 +107,25 @@ func main() {
 		Scheme: mgr.GetScheme(),
 		Recorder: eventBroadcaster.NewRecorder(
 			mgr.GetScheme(), v1.EventSource{Component: "v1alpha2Controllers"}),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "v1alpha2Controller", "InferenceService")
+		os.Exit(1)
+	}
+
+	//Setup TrainedModel controller
+	setupLog.Info("Setting up v1beta1 TrainedModel controller")
+	if err != nil {
+		setupLog.Error(err, "unable to create clientSet")
+		os.Exit(1)
+	}
+	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: clientSet.CoreV1().Events("")})
+	if err = (&trainedmodelcontroller.TrainedModelReconciler{
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("v1alpha2Controllers").WithName("InferenceService"),
+		Scheme: mgr.GetScheme(),
+		Recorder: eventBroadcaster.NewRecorder(
+			mgr.GetScheme(), v1.EventSource{Component: "v1alpha2Controllers"}),
+		ModelConfigReconciler: modelconfig.NewConfigMapReconciler(mgr.GetClient(), mgr.GetScheme()),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "v1alpha2Controller", "InferenceService")
 		os.Exit(1)
