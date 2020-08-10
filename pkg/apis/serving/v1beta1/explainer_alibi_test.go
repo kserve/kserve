@@ -14,7 +14,7 @@ import (
 func TestAlibiValidation(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	config := InferenceServicesConfig{
-		Explainers: &ExplainersConfig{
+		Explainers: ExplainersConfig{
 			AlibiExplainer: ExplainerConfig{
 				ContainerImage:      "alibi",
 				DefaultImageVersion: "v0.4.0",
@@ -91,7 +91,7 @@ func TestAlibiValidation(t *testing.T) {
 func TestAlibiDefaulter(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	config := InferenceServicesConfig{
-		Explainers: &ExplainersConfig{
+		Explainers: ExplainersConfig{
 			AlibiExplainer: ExplainerConfig{
 				ContainerImage:      "alibi",
 				DefaultImageVersion: "v0.4.0",
@@ -171,7 +171,7 @@ func TestCreateAlibiModelServingContainer(t *testing.T) {
 		},
 	}
 	var config = InferenceServicesConfig{
-		Explainers: &ExplainersConfig{
+		Explainers: ExplainersConfig{
 			AlibiExplainer: ExplainerConfig{
 				ContainerImage:      "alibi",
 				DefaultImageVersion: "0.4.0",

@@ -108,7 +108,7 @@ func TestOnnxRuntimeValidation(t *testing.T) {
 func TestONNXRuntimeDefaulter(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	config := InferenceServicesConfig{
-		Predictors: &PredictorsConfig{
+		Predictors: PredictorsConfig{
 			ONNX: PredictorConfig{
 				ContainerImage:      "onnxruntime",
 				DefaultImageVersion: "v1.0.0",
@@ -194,7 +194,7 @@ func TestCreateONNXRuntimeContainer(t *testing.T) {
 		},
 	}
 	var config = InferenceServicesConfig{
-		Predictors: &PredictorsConfig{
+		Predictors: PredictorsConfig{
 			ONNX: PredictorConfig{
 				ContainerImage:      "mcr.microsoft.com/onnxruntime/server",
 				DefaultImageVersion: "v1.0.0",

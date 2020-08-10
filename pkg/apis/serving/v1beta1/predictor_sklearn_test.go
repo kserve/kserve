@@ -108,7 +108,7 @@ func TestSKLearnValidation(t *testing.T) {
 func TestSKLearnDefaulter(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	config := InferenceServicesConfig{
-		Predictors: &PredictorsConfig{
+		Predictors: PredictorsConfig{
 			SKlearn: PredictorConfig{
 				ContainerImage:      "sklearnserver",
 				DefaultImageVersion: "v0.4.0",
@@ -194,7 +194,7 @@ func TestCreateSKLearnModelServingContainer(t *testing.T) {
 		},
 	}
 	var config = InferenceServicesConfig{
-		Predictors: &PredictorsConfig{
+		Predictors: PredictorsConfig{
 			SKlearn: PredictorConfig{
 				ContainerImage:      "someOtherImage",
 				DefaultImageVersion: "0.1.0",

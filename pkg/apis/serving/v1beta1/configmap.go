@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
 	"github.com/kubeflow/kfserving/pkg/constants"
 	v1 "k8s.io/api/core/v1"
@@ -83,29 +84,24 @@ type TransformersConfig struct {
 // +kubebuilder:object:generate=false
 type InferenceServicesConfig struct {
 	// Transformer configurations
-	Transformers *TransformersConfig `json:"transformers"`
+	Transformers TransformersConfig `json:"transformers"`
 	// Predictor configurations
-	Predictors *PredictorsConfig `json:"predictors"`
+	Predictors PredictorsConfig `json:"predictors"`
 	// Explainer configurations
-	Explainers *ExplainersConfig `json:"explainers"`
+	Explainers ExplainersConfig `json:"explainers"`
 }
 
-func GetInferenceServicesConfig(client client.Client) (*InferenceServicesConfig, error) {
+func NewInferenceServicesConfig() (*InferenceServicesConfig, error) {
+	cli, err := client.New(config.GetConfigOrDie(), client.Options{})
+	if err != nil {
+		return nil, err
+	}
 	configMap := &v1.ConfigMap{}
-	err := client.Get(context.TODO(), types.NamespacedName{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KFServingNamespace}, configMap)
+	err = cli.Get(context.TODO(), types.NamespacedName{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KFServingNamespace}, configMap)
 	if err != nil {
 		return nil, err
 	}
 
-	inferenceServiceConfigMap, err := NewInferenceServicesConfig(configMap)
-	if err != nil {
-		return nil, err
-	}
-
-	return inferenceServiceConfigMap, nil
-}
-
-func NewInferenceServicesConfig(configMap *v1.ConfigMap) (*InferenceServicesConfig, error) {
 	predictorsConfig, err := getPredictorsConfigs(configMap)
 	if err != nil {
 		return nil, err
@@ -119,9 +115,9 @@ func NewInferenceServicesConfig(configMap *v1.ConfigMap) (*InferenceServicesConf
 		return nil, err
 	}
 	return &InferenceServicesConfig{
-		Predictors:   predictorsConfig,
-		Transformers: transformersConfig,
-		Explainers:   explainersConfig,
+		Predictors:   *predictorsConfig,
+		Transformers: *transformersConfig,
+		Explainers:   *explainersConfig,
 	}, nil
 }
 

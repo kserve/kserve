@@ -108,7 +108,7 @@ func TestTritonValidation(t *testing.T) {
 func TestTritonDefaulter(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	config := InferenceServicesConfig{
-		Predictors: &PredictorsConfig{
+		Predictors: PredictorsConfig{
 			Triton: PredictorConfig{
 				ContainerImage:      "tritonserver",
 				DefaultImageVersion: "20.03-py3",
@@ -194,7 +194,7 @@ func TestCreateTritonContainer(t *testing.T) {
 		},
 	}
 	var config = InferenceServicesConfig{
-		Predictors: &PredictorsConfig{
+		Predictors: PredictorsConfig{
 			Triton: PredictorConfig{
 				ContainerImage:      "tritonserver",
 				DefaultImageVersion: "20.03-py3",

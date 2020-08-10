@@ -20,8 +20,6 @@ import (
 	"fmt"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
@@ -62,15 +60,14 @@ func setResourceRequirementDefaults(requirements *v1.ResourceRequirements) {
 
 func (isvc *InferenceService) Default() {
 	logger.Info("Defaulting InferenceService", "namespace", isvc.Namespace, "name", isvc.Name)
-	cli, err := client.New(config.GetConfigOrDie(), client.Options{})
-	if err != nil {
-		mutatorLogger.Error(err, "unable to create api client")
-		panic("unable to create api client")
-	}
-	configMap, err := GetInferenceServicesConfig(cli)
+	configMap, err := NewInferenceServicesConfig()
 	if err != nil {
 		panic(err)
 	}
+	isvc.defaultInferenceService(configMap)
+}
+
+func (isvc *InferenceService) defaultInferenceService(configMap *InferenceServicesConfig) {
 	components := isvc.Spec.Predictor.GetPredictor()
 	if len(components) != 1 {
 		mutatorLogger.Error(fmt.Errorf(ExactlyOnePredictorViolatedError), "more than one predictor")

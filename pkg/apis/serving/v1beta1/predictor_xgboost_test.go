@@ -108,7 +108,7 @@ func TestXGBoostValidation(t *testing.T) {
 func TestXGBoostDefaulter(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	config := InferenceServicesConfig{
-		Predictors: &PredictorsConfig{
+		Predictors: PredictorsConfig{
 			XGBoost: PredictorConfig{
 				ContainerImage:      "xgboost",
 				DefaultImageVersion: "v0.4.0",
@@ -194,7 +194,7 @@ func TestCreateXGBoostModelServingContainer(t *testing.T) {
 		},
 	}
 	var config = InferenceServicesConfig{
-		Predictors: &PredictorsConfig{
+		Predictors: PredictorsConfig{
 			SKlearn: PredictorConfig{
 				ContainerImage:      "someOtherImage",
 				DefaultImageVersion: "0.1.0",

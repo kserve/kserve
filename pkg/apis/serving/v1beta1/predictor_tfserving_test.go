@@ -32,7 +32,7 @@ import (
 func TestTensorflowValidation(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	config := InferenceServicesConfig{
-		Predictors: &PredictorsConfig{
+		Predictors: PredictorsConfig{
 			Tensorflow: PredictorConfig{
 				ContainerImage:         "tfserving",
 				DefaultImageVersion:    "1.14.0",
@@ -143,7 +143,7 @@ func TestTensorflowValidation(t *testing.T) {
 func TestTensorflowDefaulter(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	config := InferenceServicesConfig{
-		Predictors: &PredictorsConfig{
+		Predictors: PredictorsConfig{
 			Tensorflow: PredictorConfig{
 				ContainerImage:         "tfserving",
 				DefaultImageVersion:    "1.14.0",
@@ -261,7 +261,7 @@ func TestCreateTFServingContainer(t *testing.T) {
 		},
 	}
 	var config = InferenceServicesConfig{
-		Predictors: &PredictorsConfig{
+		Predictors: PredictorsConfig{
 			Tensorflow: PredictorConfig{
 				ContainerImage:      "tfserving",
 				DefaultImageVersion: "1.14.0",

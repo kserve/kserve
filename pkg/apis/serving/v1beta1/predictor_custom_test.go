@@ -125,7 +125,7 @@ func TestCustomPredictorValidation(t *testing.T) {
 func TestCustomPredictorDefaulter(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	config := InferenceServicesConfig{
-		Predictors: &PredictorsConfig{},
+		Predictors: PredictorsConfig{},
 	}
 	defaultResource = v1.ResourceList{
 		v1.ResourceCPU:    resource.MustParse("1"),
@@ -207,7 +207,7 @@ func TestCreateCustomPredictorContainer(t *testing.T) {
 		},
 	}
 	var config = InferenceServicesConfig{
-		Predictors: &PredictorsConfig{},
+		Predictors: PredictorsConfig{},
 	}
 	g := gomega.NewGomegaWithT(t)
 	scenarios := map[string]struct {

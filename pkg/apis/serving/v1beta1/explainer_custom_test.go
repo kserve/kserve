@@ -14,7 +14,7 @@ import (
 func TestCustomExplainerValidation(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	config := InferenceServicesConfig{
-		Explainers: &ExplainersConfig{},
+		Explainers: ExplainersConfig{},
 	}
 	scenarios := map[string]struct {
 		spec    ExplainerSpec
@@ -128,7 +128,7 @@ func TestCustomExplainerValidation(t *testing.T) {
 func TestCustomExplainerDefaulter(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	config := InferenceServicesConfig{
-		Explainers: &ExplainersConfig{},
+		Explainers: ExplainersConfig{},
 	}
 	defaultResource = v1.ResourceList{
 		v1.ResourceCPU:    resource.MustParse("1"),
@@ -210,7 +210,7 @@ func TestCreateCustomExplainerContainer(t *testing.T) {
 		},
 	}
 	var config = InferenceServicesConfig{
-		Transformers: &TransformersConfig{},
+		Transformers: TransformersConfig{},
 	}
 	g := gomega.NewGomegaWithT(t)
 	scenarios := map[string]struct {

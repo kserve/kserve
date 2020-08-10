@@ -125,7 +125,7 @@ func TestTransformerValidation(t *testing.T) {
 func TestTransformerDefaulter(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	config := InferenceServicesConfig{
-		Transformers: &TransformersConfig{},
+		Transformers: TransformersConfig{},
 	}
 	defaultResource = v1.ResourceList{
 		v1.ResourceCPU:    resource.MustParse("1"),
@@ -207,7 +207,7 @@ func TestCreateTransformerContainer(t *testing.T) {
 		},
 	}
 	var config = InferenceServicesConfig{
-		Transformers: &TransformersConfig{},
+		Transformers: TransformersConfig{},
 	}
 	g := gomega.NewGomegaWithT(t)
 	scenarios := map[string]struct {
