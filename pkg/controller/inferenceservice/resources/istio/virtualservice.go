@@ -268,10 +268,16 @@ func (r *VirtualServiceBuilder) CreateVirtualService(isvc *v1alpha2.InferenceSer
 
 	serviceInternalHostName := network.GetServiceHostname(isvc.Name, isvc.Namespace)
 	hosts := []string{
-		serviceHostname,
+		serviceInternalHostName,
 	}
-	if serviceInternalHostName != hosts[0] {
-		hosts = append(hosts, serviceInternalHostName)
+	isClusterLocal := false
+	if val, ok := isvc.Labels["serving.knative.dev/visibility"]; ok {
+		if val == "cluster-local" {
+			isClusterLocal = true
+		}
+	}
+	if serviceHostname != serviceInternalHostName && !isClusterLocal {
+		hosts = append(hosts, serviceHostname)
 	}
 
 	vs := v1alpha3.VirtualService{
