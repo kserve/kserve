@@ -26,7 +26,7 @@ model_file = os.path.join((model_dir), BST_FILE)
 xgb_model.save_model(model_file)
 ```
 
-Then, we can run the XGBoost Server using the generated model and test for prediction. Models can be on local filesystem, S3 compatible object storage, Azure Blob Storage, or Google Cloud Storage.
+Then, we can install and run the [XGBoost Server](../../../python/xgbserver) using the generated model and test for prediction. Models can be on local filesystem, S3 compatible object storage, Azure Blob Storage, or Google Cloud Storage.
 
 ```shell
 python -m xgbserver --model_dir /path/to/model_dir --model_name xgb
@@ -50,11 +50,11 @@ print(res)
 print(res.text)
 ```
 
-## Predict on a InferenceService using XGBoost
+## Predict on a InferenceService using XGBoost Server
 
 ## Setup
 1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/#install-kfserving).
-2. Your cluster's Istio Ingress gateway must be network accessible.
+2. Your cluster's Istio Ingress gateway must be [network accessible](https://istio.io/latest/docs/tasks/traffic-management/ingress/ingress-control/).
 
 ## Create the InferenceService
 
@@ -69,14 +69,13 @@ $ inferenceservice.serving.kubeflow.org/xgboost-iris created
 ```
 
 ## Run a prediction
+The first step is to [determine the ingress IP and ports](../../../README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
 
 ```
 MODEL_NAME=xgboost-iris
 INPUT_PATH=@./iris-input.json
-INGRESS_GATEWAY=istio-ingressgateway
-CLUSTER_IP=$(kubectl -n istio-system get service $INGRESS_GATEWAY -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 SERVICE_HOSTNAME=$(kubectl get inferenceservice xgboost-iris -o jsonpath='{.status.url}' | cut -d "/" -f 3)
-curl -v -H "Host: ${SERVICE_HOSTNAME}" http://$CLUSTER_IP/v1/models/$MODEL_NAME:predict -d $INPUT_PATH
+curl -v -H "Host: ${SERVICE_HOSTNAME}" http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/$MODEL_NAME:predict -d $INPUT_PATH
 ```
 
 Expected Output

@@ -26,14 +26,13 @@ kubectl create -f pytorch-batcher.yaml
 ```
 
 We can now send requests to the pytorch model using hey.
+The first step is to [determine the ingress IP and ports](../../../README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
 
 ```
 MODEL_NAME=pytorch-cifar10
 INPUT_PATH=@./input.json
-INGRESS_GATEWAY=istio-ingressgateway
-CLUSTER_IP=$(kubectl -n istio-system get service $INGRESS_GATEWAY -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 SERVICE_HOSTNAME=$(kubectl get inferenceservice pytorch-cifar10 -o jsonpath='{.status.url}' | cut -d "/" -f 3)
-hey -z 10s -c 5 -m POST -host "${SERVICE_HOSTNAME}" -H "Content-Type: application/json" -D ./input.json "http://$CLUSTER_IP/v1/models/$MODEL_NAME:predict"
+hey -z 10s -c 5 -m POST -host "${SERVICE_HOSTNAME}" -H "Content-Type: application/json" -D ./input.json "http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/$MODEL_NAME:predict"
 ```
 
 The request will go to the batcher container first, and then the batcher container will do batching and send the batching request to the predictor container.

@@ -31,7 +31,7 @@ Follow the instructions in the notebook to deploy the InferenseService with the 
 ### Setup
 
 1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/#install-kfserving).
-2. Your cluster's Istio Ingress gateway must be network accessible.
+2. Your cluster's Istio Ingress gateway must be [network accessible](https://istio.io/latest/docs/tasks/traffic-management/ingress/ingress-control/).
 
 ### Build and push the sample Docker Image
 
@@ -62,15 +62,14 @@ $ inferenceservice.serving.kubeflow.org/kfserving-custom-model created
 ```
 
 ### Run a prediction
+The first step is to [determine the ingress IP and ports](../../../../README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
 
 ```
 MODEL_NAME=kfserving-custom-model
 INPUT_PATH=@./input.json
-INGRESS_GATEWAY=istio-ingressgateway
-CLUSTER_IP=$(kubectl -n istio-system get service $INGRESS_GATEWAY -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 SERVICE_HOSTNAME=$(kubectl get inferenceservice ${MODEL_NAME} -o jsonpath='{.status.url}' | cut -d "/" -f 3)
 
-curl -v -H "Host: ${SERVICE_HOSTNAME}" http://${CLUSTER_IP}/v1/models/${MODEL_NAME}:predict -d $INPUT_PATH
+curl -v -H "Host: ${SERVICE_HOSTNAME}" http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/${MODEL_NAME}:predict -d $INPUT_PATH
 ```
 
 Expected Output:

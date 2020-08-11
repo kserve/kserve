@@ -1,4 +1,4 @@
-## Creating your own model and testing the PyTorch server.
+## Creating your own model and testing the PyTorch Server locally.
 
 To test the [PyTorch](https://pytorch.org/) server, first we need to generate a simple cifar10 model using PyTorch. 
 
@@ -26,7 +26,7 @@ Failed download. Trying https -> http instead. Downloading http://www.cs.toronto
 Finished Training
 ```
 
-Then, we can run the PyTorch server using the trained model and test for predictions. Models can be on local filesystem, S3 compatible object storage, Azure Blob Storage, or Google Cloud Storage. 
+Then, we can install and run the [PyTorch Server](../../../python/pytorchserver) using the trained model and test for predictions. Models can be on local filesystem, S3 compatible object storage, Azure Blob Storage, or Google Cloud Storage. 
 
 Note: Currently KFServing supports PyTorch models saved using [state_dict method](https://pytorch.org/tutorials/beginner/saving_loading_models.html#saving-loading-model-for-inference), PyTorch's recommended way of saving models for inference. The KFServing interface for PyTorch expects users to upload the model_class_file in same location as the PyTorch model, and accepts an optional model_class_name to be passed in as a runtime input. If model class name is not specified, we use 'PyTorchModel' as the default class name. The current interface may undergo changes as we evolve this to support PyTorch models saved using other methods as well.
 
@@ -58,11 +58,11 @@ print(res)
 print(res.text)
 ```
 
-# Predict on a InferenceService using PyTorch
+# Predict on a InferenceService using PyTorch Server
 
 ## Setup
 1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/#install-kfserving).
-2. Your cluster's Istio Ingress gateway must be network accessible.
+2. Your cluster's Istio Ingress gateway must be [network accessible](https://istio.io/latest/docs/tasks/traffic-management/ingress/ingress-control/).
 
 ## Create the InferenceService
 
@@ -77,16 +77,14 @@ $ inferenceservice.serving.kubeflow.org/pytorch-cifar10 created
 ```
 
 ## Run a prediction
+The first step is to [determine the ingress IP and ports](../../../README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
 
 ```
 MODEL_NAME=pytorch-cifar10
 INPUT_PATH=@./input.json
-INGRESS_GATEWAY=istio-ingressgateway
-CLUSTER_IP=$(kubectl -n istio-system get service $INGRESS_GATEWAY -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-
 SERVICE_HOSTNAME=$(kubectl get inferenceservice pytorch-cifar10 -o jsonpath='{.status.url}' | cut -d "/" -f 3)
 
-curl -v -H "Host: ${SERVICE_HOSTNAME}" -d $INPUT_PATH http://$CLUSTER_IP/v1/models/$MODEL_NAME:predict
+curl -v -H "Host: ${SERVICE_HOSTNAME}" -d $INPUT_PATH http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/$MODEL_NAME:predict
 ```
 
 You should see an output similar to the one below:

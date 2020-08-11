@@ -1,4 +1,11 @@
 # KFServing
+[![go.dev reference](https://img.shields.io/badge/go.dev-reference-007d9c?logo=go&logoColor=white)](https://pkg.go.dev/github.com/kubeflow/kfserving)
+[![Coverage Status](https://coveralls.io/repos/github/kubeflow/kfserving/badge.svg?branch=master)](https://coveralls.io/github/kubeflow/kfserving?branch=master)
+[![Go Report Card](https://goreportcard.com/badge/github.com/kubeflow/kfserving)](https://goreportcard.com/report/github.com/kubeflow/kfserving)
+[![Releases](https://img.shields.io/github/release-pre/kubeflow/kfserving.svg?sort=semver)](https://github.com/kubeflow/kfserving/releases)
+[![LICENSE](https://img.shields.io/github/license/kubeflow/kfserving.svg)](https://github.com/kubeflow/kfserving/blob/master/LICENSE)
+[![Slack Status](https://img.shields.io/badge/slack-join_chat-white.svg?logo=slack&style=social)](https://kubeflow.slack.com/join/shared_invite/zt-cpr020z4-PfcAue_2nw67~iIDy7maAQ)
+
 KFServing provides a Kubernetes [Custom Resource Definition](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/) for serving machine learning (ML) models on arbitrary frameworks. It aims to solve production model serving use cases by providing performant, high abstraction interfaces for common ML frameworks like Tensorflow, XGBoost, ScikitLearn, PyTorch, and ONNX.
 
 It encapsulates the complexity of autoscaling, networking, health checking, and server configuration to bring cutting edge serving features like GPU Autoscaling, Scale to Zero, and Canary Rollouts to your ML deployments. It enables a simple, pluggable, and complete story for Production ML Serving including prediction, pre-processing, post-processing and explainability. KFServing is being [used across various organizations.](./ADOPTERS.md)
@@ -62,29 +69,29 @@ If you are using Kubeflow dashboard or [profile controller](https://www.kubeflow
 #### Install KFServing in 5 Minutes (On your local machine)
 
 Make sure you have
-[kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/#install-kubectl-on-linux),
-[helm 3](https://helm.sh/docs/intro/install) installed before you start.(2 mins for setup)
-1) If you do not have an existing kubernetes cluster you can create a quick kubernetes local cluster with [kind](https://github.com/kubernetes-sigs/kind#installation-and-usage).(this takes 30s)
+[kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/#install-kubectl-on-linux) installed.
+
+1) If you do not have an existing kubernetes cluster,
+you can create a quick kubernetes local cluster with [kind](https://github.com/kubernetes-sigs/kind#installation-and-usage).
+
+Note that the minimal requirement for running KFServing is 4 cpus and 8Gi memory,
+so you need to change the [docker resource setting](https://docs.docker.com/docker-for-mac/#advanced) to use 4 cpus and 8Gi memory.
 ```bash
 kind create cluster
 ```
+alternatively you can use [Minikube](https://kubernetes.io/docs/setup/learning-environment/minikube)
+```bash
+minikube start --cpus 4 --memory 8192
+```
+
 2) Install Istio lean version, Knative Serving, KFServing all in one.(this takes 30s)
 ```bash
 ./hack/quick_install.sh
 ```
-#### Ingress Setup and Monitoring Stack
-- [Configure Custom Ingress Gateway](https://knative.dev/docs/serving/setting-up-custom-ingress-gateway/)
-  - In addition you need to update [KFServing configmap](config/default/configmap/inferenceservice.yaml) to use the custom ingress gateway.
-- [Configure HTTPS Connection](https://knative.dev/docs/serving/using-a-tls-cert/)
-- [Configure Custom Domain](https://knative.dev/docs/serving/using-a-custom-domain/)
-- [Metrics](https://knative.dev/docs/serving/accessing-metrics/)
-- [Tracing](https://knative.dev/docs/serving/accessing-traces/)
-- [Logging](https://knative.dev/docs/serving/accessing-logs/)
-- [Dashboard for ServiceMesh](https://istio.io/latest/docs/tasks/observability/kiali/)
 
 ### Test KFServing Installation
 
-1) To check if KFServing Controller is installed correctly, please run the following command
+#### Check KFServing controller installation
 ```shell
 kubectl get po -n kfserving-system
 NAME                             READY   STATUS    RESTARTS   AGE
@@ -93,28 +100,65 @@ kfserving-controller-manager-0   2/2     Running   2          13m
 
 Please refer to our [troubleshooting section](docs/DEVELOPER_GUIDE.md#troubleshooting) for recommendations and tips for issues with installation.
 
-2) Wait all pods to be ready then launch KFServing `InferenceService`.(wait 1 min for everything to be ready and 40s to
-launch the `InferenceService`)
+#### Create KFServing test inference service
 ```bash
 kubectl create namespace kfserving-test
 kubectl apply -f docs/samples/sklearn/sklearn.yaml -n kfserving-test
 ```
-3) Check KFServing `InferenceService` status.
+#### Check KFServing `InferenceService` status.
 ```bash
 kubectl get inferenceservices sklearn-iris -n kfserving-test
 NAME           URL                                                              READY   DEFAULT TRAFFIC   CANARY TRAFFIC   AGE
 sklearn-iris   http://sklearn-iris.kfserving-test.example.com/v1/models/sklearn-iris   True    100                                109s
 ```
-4) Curl the `InferenceService`
+
+#### Determine the ingress IP and ports
+Execute the following command to determine if your kubernetes cluster is running in an environment that supports external load balancers
+```bash
+$ kubectl get svc istio-ingressgateway -n istio-system
+NAME                   TYPE           CLUSTER-IP       EXTERNAL-IP      PORT(S)   AGE
+istio-ingressgateway   LoadBalancer   172.21.109.129   130.211.10.121   ...       17h
+```
+If the EXTERNAL-IP value is set, your environment has an external load balancer that you can use for the ingress gateway. 
+
+```bash
+export INGRESS_HOST=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+export INGRESS_PORT=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.spec.ports[?(@.name=="http2")].port}')
+```
+
+If the EXTERNAL-IP value is none (or perpetually pending), your environment does not provide an external load balancer for the ingress gateway. In this case, you can access the gateway using the service’s node port.
+```bash
+# GKE
+export INGRESS_HOST=worker-node-address
+# Minikube
+export INGRESS_HOST=$(minikube ip)
+# Other environment(On Prem)
+export INGRESS_HOST=$(kubectl get po -l istio=ingressgateway -n istio-system -o jsonpath='{.items[0].status.hostIP}')
+
+export INGRESS_PORT=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.spec.ports[?(@.name=="http2")].nodePort}')
+```
+
+Alternatively you can do `Port Forward` for testing purpose
 ```bash
 INGRESS_GATEWAY_SERVICE=$(kubectl get svc --namespace istio-system --selector="app=istio-ingressgateway" --output jsonpath='{.items[0].metadata.name}')
 kubectl port-forward --namespace istio-system svc/${INGRESS_GATEWAY_SERVICE} 8080:80
-
 # start another terminal
-SERVICE_HOSTNAME=$(kubectl get inferenceservice sklearn-iris -n kfserving-test -o jsonpath='{.status.url}' | cut -d "/" -f 3)
-curl -v -H "Host: ${SERVICE_HOSTNAME}" http://localhost:8080/v1/models/sklearn-iris:predict -d @./docs/samples/sklearn/iris-input.json
+export INGRESS_HOST=localhost
+export INGRESS_PORT=8080
 ```
-5) Run Performance Test
+
+#### Curl the `InferenceService`
+Curl from ingress gateway
+```bash
+SERVICE_HOSTNAME=$(kubectl get inferenceservice sklearn-iris -n kfserving-test -o jsonpath='{.status.url}' | cut -d "/" -f 3)
+curl -v -H "Host: ${SERVICE_HOSTNAME}" http://${INGRESS_HOST}:{INGRESS_PORT}/v1/models/sklearn-iris:predict -d @./docs/samples/sklearn/iris-input.json
+```
+Curl from local cluster gateway
+```bash
+curl -v http://sklearn-iris.kfserving-test/v1/models/sklearn-iris:predict -d @./docs/samples/sklearn/iris-input.json
+```
+
+#### Run Performance Test
 ```bash
 kubectl create -f docs/samples/sklearn/perf.yaml -n kfserving-test
 # wait the job to be done and check the log
@@ -129,6 +173,19 @@ Status Codes  [code:count]                      200:30000
 Error Set:
 ```
 
+### Setup Ingress Gateway
+If the default ingress gateway setup does not fit your need, you can choose to setup a custom ingress gateway
+- [Configure Custom Ingress Gateway](https://knative.dev/docs/serving/setting-up-custom-ingress-gateway/)
+  -  In addition you need to update [KFServing configmap](config/default/configmap/inferenceservice.yaml) to use the custom ingress gateway.
+- [Configure Custom Domain](https://knative.dev/docs/serving/using-a-custom-domain/)
+- [Configure HTTPS Connection](https://knative.dev/docs/serving/using-a-tls-cert/)
+
+### Setup Monitoring
+- [Metrics](https://knative.dev/docs/serving/accessing-metrics/)
+- [Tracing](https://knative.dev/docs/serving/accessing-traces/)
+- [Logging](https://knative.dev/docs/serving/accessing-logs/)
+- [Dashboard for ServiceMesh](https://istio.io/latest/docs/tasks/observability/kiali/)
+
 ### Use KFServing SDK
 * Install the SDK
   ```
@@ -141,6 +198,7 @@ Error Set:
 ### KFServing Features and Examples
 [KFServing Features and Examples](./docs/samples/README.md)
 
+### KFServing Presentations and Demoes
 [KFServing Presentations and Demoes](./docs/PRESENTATIONS.md)
 
 ### KFServing Roadmap

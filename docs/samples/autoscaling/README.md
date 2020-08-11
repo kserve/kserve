@@ -23,7 +23,7 @@
 # Autoscale InferenceService with your inference workload
 ## Setup
 1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/#install-kfserving).
-2. Your cluster's Istio Ingress gateway must be network accessible.
+2. Your cluster's Istio Ingress gateway must be [network accessible](https://istio.io/latest/docs/tasks/traffic-management/ingress/ingress-control/).
 3. [Metrics installation](https://knative.dev/docs/serving/installing-logging-metrics-traces) for viewing scaling graphs (optional).
 4. The [hey](https://github.com/rakyll/hey) load generator installed (go get -u github.com/rakyll/hey).
 
@@ -41,14 +41,14 @@ $ inferenceservice.serving.kubeflow.org/flowers-sample configured
 ```
 
 ### Load InferenceService with concurrent requests
+The first step is to [determine the ingress IP and ports](../../../README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
+
 Send traffic in 30 seconds spurts maintaining 5 in-flight requests.
 ```
 MODEL_NAME=flowers-sample
 INPUT_PATH=../tensorflow/input.json
-INGRESS_GATEWAY=istio-ingressgateway
-CLUSTER_IP=$(kubectl -n istio-system get service $INGRESS_GATEWAY -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 HOST=$(kubectl get inferenceservice $MODEL_NAME -o jsonpath='{.status.url}' | cut -d "/" -f 3)
-hey -z 30s -c 5 -m POST -host ${HOST} -D $INPUT_PATH http://$CLUSTER_IP/v1/models/$MODEL_NAME:predict
+hey -z 30s -c 5 -m POST -host ${HOST} -D $INPUT_PATH http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/$MODEL_NAME:predict
 ```
 Expected Output
 ```shell
@@ -134,14 +134,14 @@ $ inferenceservice.serving.kubeflow.org/flowers-sample configured
 ```
 
 ### Load InferenceService with target QPS
+The first step is to [determine the ingress IP and ports](../../../README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
+
 Send 30 seconds of traffic maintaining 50 qps.
 ```bash
 MODEL_NAME=flowers-sample
 INPUT_PATH=../tensorflow/input.json
-INGRESS_GATEWAY=istio-ingressgateway
-CLUSTER_IP=$(kubectl -n istio-system get service $INGRESS_GATEWAY -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 HOST=$(kubectl get inferenceservice $MODEL_NAME -o jsonpath='{.status.url}' | cut -d "/" -f 3)
-hey -z 30s -q 50 -m POST -host ${HOST} -D $INPUT_PATH http://$CLUSTER_IP/v1/models/$MODEL_NAME:predict
+hey -z 30s -q 50 -m POST -host ${HOST} -D $INPUT_PATH http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/$MODEL_NAME:predict
 ```
 
 ```shell
@@ -233,13 +233,14 @@ kubectl apply -f autoscale_gpu.yaml
 ```
 
 ### Load InferenceService with concurrent requests
+The first step is to [determine the ingress IP and ports](../../../README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
+
 Send 30 seconds of traffic maintaining 5 in-flight requests.
 ```
 MODEL_NAME=flowers-sample-gpu
 INPUT_PATH=../tensorflow/input.json
-CLUSTER_IP=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 HOST=$(kubectl get inferenceservice $MODEL_NAME -o jsonpath='{.status.url}' | cut -d "/" -f 3)
-hey -z 30s -c 5 -m POST -host ${HOST} -D $INPUT_PATH http://$CLUSTER_IP/v1/models/$MODEL_NAME:predict
+hey -z 30s -c 5 -m POST -host ${HOST} -D $INPUT_PATH http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/$MODEL_NAME:predict
 ```
 Expected output
 ```shell
