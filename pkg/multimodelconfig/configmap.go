@@ -95,7 +95,8 @@ func (config *ConfigsDelta) delete(configMap *v1.ConfigMap) error {
 		if _, ok := data[name]; ok {
 			delete(data, name)
 		} else {
-			logger.Info("Model %s does not exist in %s", name, configMap.Name)
+			logger.Info("Model does not exist in ConfigMap.",
+				"model", name, "ConfigMap", configMap.Name)
 		}
 	}
 	to, err := encode(data)
