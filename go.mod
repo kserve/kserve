@@ -21,6 +21,7 @@ require (
 	github.com/google/go-containerregistry v0.0.0-20190910142231-b02d448a3705 // indirect
 	github.com/google/uuid v1.1.1
 	github.com/imdario/mergo v0.3.8 // indirect
+	github.com/json-iterator/go v1.1.8
 	github.com/mattbaird/jsonpatch v0.0.0-20171005235357-81af80346b1a // indirect
 	github.com/onsi/ginkgo v1.11.0
 	github.com/onsi/gomega v1.8.1
