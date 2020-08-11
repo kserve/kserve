@@ -1,5 +1,5 @@
 /*
-Copyright 2019 kubeflow.org.
+Copyright 2020 kubeflow.org.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -55,6 +55,24 @@ func TestInferenceServiceDefaults(t *testing.T) {
 					},
 				},
 			},
+			Transformer: &TransformerSpec{
+				CustomTransformer: &CustomTransformer{
+					PodTemplateSpec: v1.PodTemplateSpec{
+						Spec: v1.PodSpec{
+							Containers: []v1.Container{
+								{
+									Env: []v1.EnvVar{
+										{
+											Name:  "STORAGE_URI",
+											Value: "s3://transformer",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
 			Explainer: &ExplainerSpec{
 				Alibi: &AlibiExplainerSpec{
 					StorageURI: "gs://testbucket/testmodel",
@@ -62,16 +80,14 @@ func TestInferenceServiceDefaults(t *testing.T) {
 			},
 		},
 	}
+	resources := v1.ResourceRequirements{Requests: defaultResource, Limits: defaultResource}
 	isvc.Spec.DeepCopy()
 	isvc.defaultInferenceService(config)
 	g.Expect(*isvc.Spec.Predictor.Tensorflow.RuntimeVersion).To(gomega.Equal("1.14.0"))
-	g.Expect(isvc.Spec.Predictor.Tensorflow.Resources.Requests[v1.ResourceCPU]).To(gomega.Equal(defaultResource[v1.ResourceCPU]))
-	g.Expect(isvc.Spec.Predictor.Tensorflow.Resources.Requests[v1.ResourceMemory]).To(gomega.Equal(defaultResource[v1.ResourceMemory]))
-	g.Expect(isvc.Spec.Predictor.Tensorflow.Resources.Limits[v1.ResourceCPU]).To(gomega.Equal(defaultResource[v1.ResourceCPU]))
-	g.Expect(isvc.Spec.Predictor.Tensorflow.Resources.Limits[v1.ResourceMemory]).To(gomega.Equal(defaultResource[v1.ResourceMemory]))
+	g.Expect(isvc.Spec.Predictor.Tensorflow.Resources).To(gomega.Equal(resources))
+
+	g.Expect(isvc.Spec.Transformer.CustomTransformer.Spec.Containers[0].Resources).To(gomega.Equal(resources))
+
 	g.Expect(*isvc.Spec.Explainer.Alibi.RuntimeVersion).To(gomega.Equal("v0.4.0"))
-	g.Expect(isvc.Spec.Explainer.Alibi.Resources.Requests[v1.ResourceCPU]).To(gomega.Equal(defaultResource[v1.ResourceCPU]))
-	g.Expect(isvc.Spec.Explainer.Alibi.Resources.Requests[v1.ResourceMemory]).To(gomega.Equal(defaultResource[v1.ResourceMemory]))
-	g.Expect(isvc.Spec.Explainer.Alibi.Resources.Limits[v1.ResourceCPU]).To(gomega.Equal(defaultResource[v1.ResourceCPU]))
-	g.Expect(isvc.Spec.Explainer.Alibi.Resources.Limits[v1.ResourceMemory]).To(gomega.Equal(defaultResource[v1.ResourceMemory]))
+	g.Expect(isvc.Spec.Explainer.Alibi.Resources).To(gomega.Equal(resources))
 }

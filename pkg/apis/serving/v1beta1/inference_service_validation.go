@@ -21,6 +21,7 @@ import (
 	"github.com/kubeflow/kfserving/pkg/constants"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"reflect"
 	"regexp"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
@@ -51,8 +52,8 @@ var _ webhook.Validator = &InferenceService{}
 func (isvc *InferenceService) ValidateCreate() error {
 	validatorLogger.Info("validate create", "name", isvc.Name)
 
-	components := isvc.Spec.Predictor.GetPredictor()
-	if len(components) != 1 {
+	predictors := isvc.Spec.Predictor.GetPredictor()
+	if len(predictors) != 1 {
 		return fmt.Errorf(ExactlyOnePredictorViolatedError)
 	}
 	if isvc.Spec.Transformer != nil {
@@ -60,18 +61,22 @@ func (isvc *InferenceService) ValidateCreate() error {
 		if len(transformers) != 1 {
 			return fmt.Errorf(ExactlyOneTransformerViolatedError)
 		}
-		components = append(components, transformers...)
 	}
 	if isvc.Spec.Explainer != nil {
 		explainers := isvc.Spec.Explainer.GetExplainer()
 		if len(explainers) != 1 {
 			return fmt.Errorf(ExactlyOneExplainerViolatedError)
 		}
-		components = append(components, explainers...)
 	}
-	for _, component := range components {
-		if err := component.Validate(); err != nil {
-			return err
+	for _, component := range []Component{
+		&isvc.Spec.Predictor,
+		isvc.Spec.Transformer,
+		isvc.Spec.Explainer,
+	} {
+		if !reflect.ValueOf(component).IsNil() {
+			if err := component.Validate(); err != nil {
+				return err
+			}
 		}
 	}
 	return nil

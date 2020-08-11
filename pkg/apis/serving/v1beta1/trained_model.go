@@ -21,7 +21,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-
 // TrainedModel is the Schema for the TrainedModel API
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
@@ -66,4 +65,3 @@ type ModelSpec struct {
 	// +optional
 	Memory resource.Quantity `json:"memory,omitempty"`
 }
-
