@@ -54,60 +54,65 @@ func (config *ConfigsDelta) Process(configMap *v1.ConfigMap) (err error) {
 	return nil
 }
 
-func (config *ConfigsDelta) apply(configMap *v1.ConfigMap) (err error) {
+func (config *ConfigsDelta) apply(configMap *v1.ConfigMap) error {
 	if len(config.updated) == 0 {
 		return nil
 	}
 	if configMap.Data == nil {
-		configMap.Data = map[string]string{}
+		configMap.Data = make(map[string]string)
 	}
-	if data, err := decode(configMap.Data[constants.MultiModeConfigFileName]); err == nil {
-		if len(data) == 0 {
-			data = ModelConfig{}
-		}
-		for name, spec := range config.updated {
-			data[name] = spec
-		}
-		if to, err := encode(data); err == nil {
-			configMap.Data[constants.MultiModeConfigFileName] = to
-		} else {
-			err = fmt.Errorf("while updating %s err %v", configMap.Name, err)
-		}
-	} else {
-		err = fmt.Errorf("while updating %s err %v", configMap.Name, err)
+	data, err := decode(configMap.Data[constants.ModelConfigFileName])
+	if err != nil {
+		return fmt.Errorf("while updating %s err %v", configMap.Name, err)
 	}
-	return err
+
+	for name, spec := range config.updated {
+		data[name] = spec
+	}
+	to, err := encode(data)
+	if err != nil {
+		return fmt.Errorf("while updating %s err %v", configMap.Name, err)
+	}
+	configMap.Data[constants.ModelConfigFileName] = to
+	return nil
 }
 
-func (config *ConfigsDelta) delete(configMap *v1.ConfigMap) (err error) {
+func (config *ConfigsDelta) delete(configMap *v1.ConfigMap) error {
 	if len(config.deleted) == 0 || len(configMap.Data) == 0 {
 		return nil
 	}
-	if configData, ok := configMap.Data[constants.MultiModeConfigFileName]; ok && len(configData) != 0 {
-		if data, err := decode(configData); err == nil {
-			for name, _ := range config.deleted {
-				if _, ok := data[name]; ok {
-					delete(data, name)
-				} else {
-					logger.Info("Model %s does not exist in %s", name, configMap.Name)
-				}
-			}
-			if to, err := encode(data); err == nil {
-				configMap.Data[constants.MultiModeConfigFileName] = to
-			} else {
-				err = fmt.Errorf("while deleting %s err %v", configMap.Name, err)
-			}
+	configData, ok := configMap.Data[constants.ModelConfigFileName]
+	if !ok || len(configData) == 0 {
+		return nil
+	}
+
+	data, err := decode(configData)
+	if err != nil {
+		return fmt.Errorf("while deleting %s err %v", configMap.Name, err)
+	}
+
+	for name, _ := range config.deleted {
+		if _, ok := data[name]; ok {
+			delete(data, name)
 		} else {
-			err = fmt.Errorf("while deleting %s err %v", configMap.Name, err)
+			logger.Info("Model %s does not exist in %s", name, configMap.Name)
 		}
 	}
-	return err
+	to, err := encode(data)
+	if err != nil {
+		return fmt.Errorf("while deleting %s err %v", configMap.Name, err)
+	}
+	configMap.Data[constants.ModelConfigFileName] = to
+	return nil
 }
 
 func decode(from string) (to ModelConfig, err error) {
 	dec := json.NewDecoder(strings.NewReader(from))
 	for {
 		if err = dec.Decode(&to); err == io.EOF {
+			if len(to) == 0 {
+				to = ModelConfig{}
+			}
 			err = nil
 			break
 		} else if err != nil {

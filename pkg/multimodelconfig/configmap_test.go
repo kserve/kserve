@@ -32,7 +32,7 @@ func TestProcess_addOrUpdate(t *testing.T) {
 					Namespace: "test",
 				},
 				Data: map[string]string{
-					constants.MultiModeConfigFileName: `{"example_model1":{"storageUri":"s3//model1","framework":"framework1","memory":"0"}}`,
+					constants.ModelConfigFileName: `{"example_model1":{"storageUri":"s3//model1","framework":"framework1","memory":"0"}}`,
 				},
 			},
 		},
@@ -46,7 +46,7 @@ func TestProcess_addOrUpdate(t *testing.T) {
 					Namespace: "test",
 				},
 				Data: map[string]string{
-					constants.MultiModeConfigFileName: "",
+					constants.ModelConfigFileName: "",
 				},
 			},
 			expectedConfigMap: &v1.ConfigMap{
@@ -55,7 +55,7 @@ func TestProcess_addOrUpdate(t *testing.T) {
 					Namespace: "test",
 				},
 				Data: map[string]string{
-					constants.MultiModeConfigFileName: `{"example_model1":{"storageUri":"s3//model1","framework":"framework1","memory":"0"}}`,
+					constants.ModelConfigFileName: `{"example_model1":{"storageUri":"s3//model1","framework":"framework1","memory":"0"}}`,
 				},
 			},
 		},
@@ -69,7 +69,7 @@ func TestProcess_addOrUpdate(t *testing.T) {
 					Namespace: "test",
 				},
 				Data: map[string]string{
-					constants.MultiModeConfigFileName: "{}",
+					constants.ModelConfigFileName: "{}",
 				},
 			},
 			expectedConfigMap: &v1.ConfigMap{
@@ -78,7 +78,7 @@ func TestProcess_addOrUpdate(t *testing.T) {
 					Namespace: "test",
 				},
 				Data: map[string]string{
-					constants.MultiModeConfigFileName: `{"example_model1":{"storageUri":"s3//model1","framework":"framework1","memory":"0"}}`,
+					constants.ModelConfigFileName: `{"example_model1":{"storageUri":"s3//model1","framework":"framework1","memory":"0"}}`,
 				},
 			},
 		},
@@ -92,7 +92,7 @@ func TestProcess_addOrUpdate(t *testing.T) {
 					Namespace: "test",
 				},
 				Data: map[string]string{
-					constants.MultiModeConfigFileName: `{"example_model1":{"storageUri":"s3//model1","framework":"framework1","memory":"0"}}`,
+					constants.ModelConfigFileName: `{"example_model1":{"storageUri":"s3//model1","framework":"framework1","memory":"0"}}`,
 				},
 			},
 			expectedConfigMap: &v1.ConfigMap{
@@ -101,7 +101,7 @@ func TestProcess_addOrUpdate(t *testing.T) {
 					Namespace: "test",
 				},
 				Data: map[string]string{
-					constants.MultiModeConfigFileName: `{"example_model1":{"storageUri":"s3//model1","framework":"framework1","memory":"0"},` +
+					constants.ModelConfigFileName: `{"example_model1":{"storageUri":"s3//model1","framework":"framework1","memory":"0"},` +
 						`"example_model2":{"storageUri":"s3//model2","framework":"framework2","memory":"0"}}`,
 				},
 			},
@@ -116,7 +116,7 @@ func TestProcess_addOrUpdate(t *testing.T) {
 					Namespace: "test",
 				},
 				Data: map[string]string{
-					constants.MultiModeConfigFileName: `{"example_model1":{"storageUri":"s3//model1","framework":"framework1","memory":"0"},` +
+					constants.ModelConfigFileName: `{"example_model1":{"storageUri":"s3//model1","framework":"framework1","memory":"0"},` +
 						`"example_model2":{"storageUri":"s3//model2","framework":"framework2","memory":"0"}}`,
 				},
 			},
@@ -126,7 +126,7 @@ func TestProcess_addOrUpdate(t *testing.T) {
 					Namespace: "test",
 				},
 				Data: map[string]string{
-					constants.MultiModeConfigFileName: `{"example_model1":{"storageUri":"s3//new-model1","framework":"new-framework1","memory":"0"},` +
+					constants.ModelConfigFileName: `{"example_model1":{"storageUri":"s3//new-model1","framework":"new-framework1","memory":"0"},` +
 						`"example_model2":{"storageUri":"s3//model2","framework":"framework2","memory":"0"}}`,
 				},
 			},
@@ -174,7 +174,7 @@ func TestProcess_delete(t *testing.T) {
 					Namespace: "test",
 				},
 				Data: map[string]string{
-					constants.MultiModeConfigFileName: "",
+					constants.ModelConfigFileName: "",
 				},
 			},
 			expectedConfigMap: &v1.ConfigMap{
@@ -183,7 +183,7 @@ func TestProcess_delete(t *testing.T) {
 					Namespace: "test",
 				},
 				Data: map[string]string{
-					constants.MultiModeConfigFileName: "",
+					constants.ModelConfigFileName: "",
 				},
 			},
 		},
@@ -197,7 +197,7 @@ func TestProcess_delete(t *testing.T) {
 					Namespace: "test",
 				},
 				Data: map[string]string{
-					constants.MultiModeConfigFileName: "{}",
+					constants.ModelConfigFileName: "{}",
 				},
 			},
 			expectedConfigMap: &v1.ConfigMap{
@@ -206,7 +206,7 @@ func TestProcess_delete(t *testing.T) {
 					Namespace: "test",
 				},
 				Data: map[string]string{
-					constants.MultiModeConfigFileName: "{}",
+					constants.ModelConfigFileName: "{}",
 				},
 			},
 		},
@@ -220,7 +220,7 @@ func TestProcess_delete(t *testing.T) {
 					Namespace: "test",
 				},
 				Data: map[string]string{
-					constants.MultiModeConfigFileName: `{"example_model2":{"storageUri":"s3//model2","framework":"framework2","memory":"0"}}`,
+					constants.ModelConfigFileName: `{"example_model2":{"storageUri":"s3//model2","framework":"framework2","memory":"0"}}`,
 				},
 			},
 			expectedConfigMap: &v1.ConfigMap{
@@ -229,7 +229,7 @@ func TestProcess_delete(t *testing.T) {
 					Namespace: "test",
 				},
 				Data: map[string]string{
-					constants.MultiModeConfigFileName: `{"example_model2":{"storageUri":"s3//model2","framework":"framework2","memory":"0"}}`,
+					constants.ModelConfigFileName: `{"example_model2":{"storageUri":"s3//model2","framework":"framework2","memory":"0"}}`,
 				},
 			},
 		},
@@ -243,7 +243,7 @@ func TestProcess_delete(t *testing.T) {
 					Namespace: "test",
 				},
 				Data: map[string]string{
-					constants.MultiModeConfigFileName: `{"example_model1":{"storageUri":"s3//model1","framework":"framework1","memory":"0"}}`,
+					constants.ModelConfigFileName: `{"example_model1":{"storageUri":"s3//model1","framework":"framework1","memory":"0"}}`,
 				},
 			},
 			expectedConfigMap: &v1.ConfigMap{
@@ -252,7 +252,7 @@ func TestProcess_delete(t *testing.T) {
 					Namespace: "test",
 				},
 				Data: map[string]string{
-					constants.MultiModeConfigFileName: "{}",
+					constants.ModelConfigFileName: "{}",
 				},
 			},
 		},

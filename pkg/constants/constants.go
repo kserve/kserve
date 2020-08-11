@@ -45,7 +45,7 @@ var (
 
 // InferenceService MultiModel Constants
 var (
-	MultiModeConfigFileName = "multi-models-config.json"
+	ModelConfigFileName = "multi-models-config.json"
 )
 
 // InferenceService Annotations
