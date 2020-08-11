@@ -84,28 +84,28 @@ func TestCreateVirtualService(t *testing.T) {
 	}
 	cases := []struct {
 		name            string
-		labels			map[string]string
+		labels          map[string]string
 		defaultStatus   v1alpha2.ComponentStatusMap
 		canaryStatus    v1alpha2.ComponentStatusMap
 		expectedStatus  *v1alpha2.VirtualServiceStatus
 		expectedService *v1alpha3.VirtualService
 	}{{
 		name:            "nil status should not be ready",
-		labels:   		 nil,
+		labels:          nil,
 		defaultStatus:   nil,
 		canaryStatus:    nil,
 		expectedStatus:  createFailedStatus(PredictorStatusUnknown, PredictorMissingMessage),
 		expectedService: nil,
 	}, {
 		name:            "empty status should not be ready",
-		labels:   		 nil,
+		labels:          nil,
 		defaultStatus:   nil,
 		canaryStatus:    nil,
 		expectedStatus:  createFailedStatus(PredictorStatusUnknown, PredictorMissingMessage),
 		expectedService: nil,
 	}, {
-		name: "predictor missing host name",
-		labels:   		 nil,
+		name:   "predictor missing host name",
+		labels: nil,
 		defaultStatus: &map[constants.InferenceServiceComponent]v1alpha2.StatusConfigurationSpec{
 			constants.Predictor: v1alpha2.StatusConfigurationSpec{},
 		},
@@ -113,7 +113,7 @@ func TestCreateVirtualService(t *testing.T) {
 		expectedStatus:  createFailedStatus(PredictorHostnameUnknown, PredictorMissingMessage),
 		expectedService: nil,
 	}, {
-		name: "found predictor",
+		name:   "found predictor",
 		labels: nil,
 		defaultStatus: &map[constants.InferenceServiceComponent]v1alpha2.StatusConfigurationSpec{
 			constants.Predictor: v1alpha2.StatusConfigurationSpec{
@@ -165,7 +165,7 @@ func TestCreateVirtualService(t *testing.T) {
 			},
 		},
 	}, {
-		name: "avoid duplicate hostnames for predictor with globally configured cluster-local domain",
+		name:   "avoid duplicate hostnames for predictor with globally configured cluster-local domain",
 		labels: nil,
 		defaultStatus: &map[constants.InferenceServiceComponent]v1alpha2.StatusConfigurationSpec{
 			constants.Predictor: v1alpha2.StatusConfigurationSpec{
@@ -217,7 +217,7 @@ func TestCreateVirtualService(t *testing.T) {
 			},
 		},
 	}, {
-		name: "avoid duplicate hostnames for predictor with cluster-local label",
+		name:   "avoid duplicate hostnames for predictor with cluster-local label",
 		labels: map[string]string{"serving.knative.dev/visibility": "cluster-local"},
 		defaultStatus: &map[constants.InferenceServiceComponent]v1alpha2.StatusConfigurationSpec{
 			constants.Predictor: v1alpha2.StatusConfigurationSpec{
@@ -269,7 +269,7 @@ func TestCreateVirtualService(t *testing.T) {
 			},
 		},
 	}, {
-		name: "missing canary predictor",
+		name:   "missing canary predictor",
 		labels: nil,
 		defaultStatus: &map[constants.InferenceServiceComponent]v1alpha2.StatusConfigurationSpec{
 			constants.Predictor: v1alpha2.StatusConfigurationSpec{
@@ -282,7 +282,7 @@ func TestCreateVirtualService(t *testing.T) {
 		expectedStatus:  createFailedStatus(PredictorHostnameUnknown, PredictorMissingMessage),
 		expectedService: nil,
 	}, {
-		name: "canary predictor no hostname",
+		name:   "canary predictor no hostname",
 		labels: nil,
 		defaultStatus: &map[constants.InferenceServiceComponent]v1alpha2.StatusConfigurationSpec{
 			constants.Predictor: v1alpha2.StatusConfigurationSpec{
@@ -295,7 +295,7 @@ func TestCreateVirtualService(t *testing.T) {
 		expectedStatus:  createFailedStatus(PredictorHostnameUnknown, PredictorMissingMessage),
 		expectedService: nil,
 	}, {
-		name: "found default and canary predictor",
+		name:   "found default and canary predictor",
 		labels: nil,
 		defaultStatus: &map[constants.InferenceServiceComponent]v1alpha2.StatusConfigurationSpec{
 			constants.Predictor: v1alpha2.StatusConfigurationSpec{
@@ -362,7 +362,7 @@ func TestCreateVirtualService(t *testing.T) {
 			},
 		},
 	}, {
-		name: "nil transformer status fails with status unknown",
+		name:   "nil transformer status fails with status unknown",
 		labels: nil,
 		defaultStatus: &map[constants.InferenceServiceComponent]v1alpha2.StatusConfigurationSpec{
 			constants.Transformer: v1alpha2.StatusConfigurationSpec{},
@@ -374,7 +374,7 @@ func TestCreateVirtualService(t *testing.T) {
 		expectedStatus:  createFailedStatus(TransformerHostnameUnknown, TransformerMissingMessage),
 		expectedService: nil,
 	}, {
-		name: "transformer missing host name",
+		name:   "transformer missing host name",
 		labels: nil,
 		defaultStatus: &map[constants.InferenceServiceComponent]v1alpha2.StatusConfigurationSpec{
 			constants.Transformer: v1alpha2.StatusConfigurationSpec{},
@@ -386,7 +386,7 @@ func TestCreateVirtualService(t *testing.T) {
 		expectedStatus:  createFailedStatus(TransformerHostnameUnknown, TransformerMissingMessage),
 		expectedService: nil,
 	}, {
-		name: "default transformer and predictor",
+		name:   "default transformer and predictor",
 		labels: nil,
 		defaultStatus: &map[constants.InferenceServiceComponent]v1alpha2.StatusConfigurationSpec{
 			constants.Transformer: v1alpha2.StatusConfigurationSpec{
@@ -442,7 +442,7 @@ func TestCreateVirtualService(t *testing.T) {
 			},
 		},
 	}, {
-		name: "missing canary transformer",
+		name:   "missing canary transformer",
 		labels: nil,
 		defaultStatus: &map[constants.InferenceServiceComponent]v1alpha2.StatusConfigurationSpec{
 			constants.Transformer: v1alpha2.StatusConfigurationSpec{
@@ -461,7 +461,7 @@ func TestCreateVirtualService(t *testing.T) {
 		expectedStatus:  createFailedStatus(TransformerHostnameUnknown, TransformerMissingMessage),
 		expectedService: nil,
 	}, {
-		name: "canary & default transformer and predictor",
+		name:   "canary & default transformer and predictor",
 		labels: nil,
 		defaultStatus: &map[constants.InferenceServiceComponent]v1alpha2.StatusConfigurationSpec{
 			constants.Transformer: v1alpha2.StatusConfigurationSpec{
@@ -532,7 +532,7 @@ func TestCreateVirtualService(t *testing.T) {
 			},
 		},
 	}, {
-		name: "nil explainer status fails with status unknown",
+		name:   "nil explainer status fails with status unknown",
 		labels: nil,
 		defaultStatus: &map[constants.InferenceServiceComponent]v1alpha2.StatusConfigurationSpec{
 			constants.Explainer: v1alpha2.StatusConfigurationSpec{},
@@ -544,7 +544,7 @@ func TestCreateVirtualService(t *testing.T) {
 		expectedStatus:  createFailedStatus(ExplainerHostnameUnknown, ExplainerMissingMessage),
 		expectedService: nil,
 	}, {
-		name: "explainer missing host name",
+		name:   "explainer missing host name",
 		labels: nil,
 		defaultStatus: &map[constants.InferenceServiceComponent]v1alpha2.StatusConfigurationSpec{
 			constants.Explainer: v1alpha2.StatusConfigurationSpec{},
@@ -556,7 +556,7 @@ func TestCreateVirtualService(t *testing.T) {
 		expectedStatus:  createFailedStatus(ExplainerHostnameUnknown, ExplainerMissingMessage),
 		expectedService: nil,
 	}, {
-		name: "default explainer and predictor",
+		name:   "default explainer and predictor",
 		labels: nil,
 		defaultStatus: &map[constants.InferenceServiceComponent]v1alpha2.StatusConfigurationSpec{
 			constants.Explainer: v1alpha2.StatusConfigurationSpec{
