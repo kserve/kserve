@@ -61,7 +61,9 @@ func (t *TritonSpec) GetContainer(metadata metav1.ObjectMeta, containerConcurren
 		fmt.Sprintf("%s=%s", "--allow-grpc", "true"),
 		fmt.Sprintf("%s=%s", "--allow-http", "true"),
 	}
-
+	if containerConcurrency != nil {
+		arguments = append(arguments, fmt.Sprintf("%s=%d", "--http-thread-count", *containerConcurrency))
+	}
 	if t.Container.Image == "" {
 		t.Container.Image = config.Predictors.Triton.ContainerImage + ":" + *t.RuntimeVersion
 	}

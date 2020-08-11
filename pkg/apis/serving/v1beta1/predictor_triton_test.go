@@ -286,7 +286,7 @@ func TestCreateTritonContainer(t *testing.T) {
 				Spec: InferenceServiceSpec{
 					Predictor: PredictorSpec{
 						ComponentExtensionSpec: ComponentExtensionSpec{
-							ContainerConcurrency: proto.Int64(-1),
+							ContainerConcurrency: proto.Int64(4),
 						},
 						Triton: &TritonSpec{
 							PredictorExtensionSpec: PredictorExtensionSpec{
@@ -314,6 +314,7 @@ func TestCreateTritonContainer(t *testing.T) {
 					"--allow-poll-model-repository=false",
 					"--allow-grpc=true",
 					"--allow-http=true",
+					"--http-thread-count=4",
 				},
 			},
 		},
