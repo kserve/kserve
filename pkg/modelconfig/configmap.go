@@ -41,19 +41,19 @@ func NewConfigsDelta(updatedConfigs ModelConfigs, deletedConfigs ModelConfigs) *
 //  example_models.json: |
 //    [
 //      {
-//        modelName: model1,
-//        modelSpec: {
-//          storageUri: s3://example-bucket/path/to/model_name1,
-//          framework: sklearn,
-//          memory: 1G
+//        "modelName": "model1",
+//        "modelSpec": {
+//          "storageUri": "s3://example-bucket/path/to/model1",
+//          "framework": "sklearn",
+//          "memory": "1G"
 //        }
 //      },
 //      {
-//        modelName: model2,
-//        modelSpec: {
-//          storageUri: s3://example-bucket/path/to/model_name2,
-//          framework: sklearn,
-//          memory: 1G
+//        "modelName": "model2",
+//        "modelSpec": {
+//          "storageUri": "s3://example-bucket/path/to/model2",
+//          "framework": "sklearn",
+//          "memory": "1G"
 //        }
 //      }
 //   ]
