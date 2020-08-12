@@ -57,19 +57,8 @@ func NewConfigsDelta(updatedConfigs ModelConfigs, deletedConfigs ModelConfigs) *
 //        }
 //      }
 //   ]
-
 func (config *ConfigsDelta) Process(configMap *v1.ConfigMap) (err error) {
-	if err = config.apply(configMap); err != nil {
-		return err
-	}
-	if err = config.delete(configMap); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (config *ConfigsDelta) apply(configMap *v1.ConfigMap) error {
-	if len(config.updated) == 0 {
+	if len(config.updated) == 0 && len(config.deleted) == 0 {
 		return nil
 	}
 	if configMap.Data == nil {
@@ -80,31 +69,11 @@ func (config *ConfigsDelta) apply(configMap *v1.ConfigMap) error {
 		return fmt.Errorf("while updating %s err %v", configMap.Name, err)
 	}
 
+	//add/update models
 	for name, spec := range config.updated {
 		data[name] = spec
 	}
-	to, err := encode(data)
-	if err != nil {
-		return fmt.Errorf("while updating %s err %v", configMap.Name, err)
-	}
-	configMap.Data[constants.ModelConfigFileName] = to
-	return nil
-}
-
-func (config *ConfigsDelta) delete(configMap *v1.ConfigMap) error {
-	if len(config.deleted) == 0 || len(configMap.Data) == 0 {
-		return nil
-	}
-	configData, ok := configMap.Data[constants.ModelConfigFileName]
-	if !ok || len(configData) == 0 {
-		return nil
-	}
-
-	data, err := decode(configData)
-	if err != nil {
-		return fmt.Errorf("while deleting %s err %v", configMap.Name, err)
-	}
-
+	//delete models
 	for name, _ := range config.deleted {
 		if _, ok := data[name]; ok {
 			delete(data, name)
@@ -113,9 +82,10 @@ func (config *ConfigsDelta) delete(configMap *v1.ConfigMap) error {
 				"model", name, "ConfigMap", configMap.Name)
 		}
 	}
+
 	to, err := encode(data)
 	if err != nil {
-		return fmt.Errorf("while deleting %s err %v", configMap.Name, err)
+		return fmt.Errorf("while updating %s err %v", configMap.Name, err)
 	}
 	configMap.Data[constants.ModelConfigFileName] = to
 	return nil
