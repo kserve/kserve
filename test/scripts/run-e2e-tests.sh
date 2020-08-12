@@ -80,9 +80,9 @@ kubectl create clusterrolebinding cluster-admin-binding \
   --user=$(gcloud config get-value core/account)
 
 # Install and Initialize Helm
-curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3
-chmod 700 get_helm.sh
-./get_helm.sh
+wget https://get.helm.sh/helm-v3.0.2-linux-amd64.tar.gz
+tar xvf helm-v3.0.2-linux-amd64.tar.gz
+mv linux-amd64/helm /usr/local/bin/
 
 echo "Install istio ..."
 mkdir istio_tmp
