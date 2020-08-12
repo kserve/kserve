@@ -113,12 +113,13 @@ func main() {
 	}
 
 	//Setup TrainedModel controller
+	trainedModelEventBroadcaster := record.NewBroadcaster()
 	setupLog.Info("Setting up v1beta1 TrainedModel controller")
 	if err != nil {
 		setupLog.Error(err, "unable to create clientSet")
 		os.Exit(1)
 	}
-	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: clientSet.CoreV1().Events("")})
+	trainedModelEventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: clientSet.CoreV1().Events("")})
 	if err = (&trainedmodelcontroller.TrainedModelReconciler{
 		Client: mgr.GetClient(),
 		Log:    ctrl.Log.WithName("v1alpha2Controllers").WithName("InferenceService"),
