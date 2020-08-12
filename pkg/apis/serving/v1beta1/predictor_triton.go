@@ -18,8 +18,10 @@ package v1beta1
 
 import (
 	"fmt"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/kubeflow/kfserving/pkg/constants"
+	"github.com/kubeflow/kfserving/pkg/utils"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -35,11 +37,13 @@ type TritonSpec struct {
 	PredictorExtensionSpec `json:",inline"`
 }
 
-var _ Component = &TritonSpec{}
+var _ ComponentImplementation = &TritonSpec{}
 
 // Validate returns an error if invalid
 func (t *TritonSpec) Validate() error {
-	return nil
+	return utils.FirstNonNilError([]error{
+		validateStorageURI(t.GetStorageUri()),
+	})
 }
 
 // Default sets defaults on the resource
@@ -52,7 +56,7 @@ func (t *TritonSpec) Default(config *InferenceServicesConfig) {
 }
 
 // GetContainers transforms the resource into a container spec
-func (t *TritonSpec) GetContainer(metadata metav1.ObjectMeta, containerConcurrency *int64, config *InferenceServicesConfig) *v1.Container {
+func (t *TritonSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig) *v1.Container {
 	arguments := []string{
 		fmt.Sprintf("%s=%s", "--model-store", constants.DefaultModelLocalMountPath),
 		fmt.Sprintf("%s=%s", "--grpc-port", fmt.Sprint(TritonISGRPCPort)),
@@ -61,8 +65,8 @@ func (t *TritonSpec) GetContainer(metadata metav1.ObjectMeta, containerConcurren
 		fmt.Sprintf("%s=%s", "--allow-grpc", "true"),
 		fmt.Sprintf("%s=%s", "--allow-http", "true"),
 	}
-	if containerConcurrency != nil {
-		arguments = append(arguments, fmt.Sprintf("%s=%d", "--http-thread-count", *containerConcurrency))
+	if extensions.ContainerConcurrency != nil {
+		arguments = append(arguments, fmt.Sprintf("%s=%d", "--http-thread-count", *extensions.ContainerConcurrency))
 	}
 	if t.Container.Image == "" {
 		t.Container.Image = config.Predictors.Triton.ContainerImage + ":" + *t.RuntimeVersion

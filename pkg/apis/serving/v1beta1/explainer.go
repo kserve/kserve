@@ -16,15 +16,6 @@ limitations under the License.
 
 package v1beta1
 
-import (
-	"reflect"
-)
-
-const (
-	// ExactlyOneExplainerViolatedError is a known error message
-	ExactlyOneExplainerViolatedError = "Exactly one of [Custom, Alibi] must be specified in ExplainerSpec"
-)
-
 // ExplainerSpec defines the container spec for a model explanation server,
 // The following fields follow a "1-of" semantic. Users must specify exactly one spec.
 type ExplainerSpec struct {
@@ -38,31 +29,20 @@ type ExplainerSpec struct {
 
 var _ Component = &ExplainerSpec{}
 
-func (e *ExplainerSpec) Validate() error {
-	explainer := e.GetExplainer()[0]
-	for _, err := range []error{
-		explainer.Validate(),
-		validateStorageURI(explainer.GetStorageUri()),
-		validateContainerConcurrency(e.ContainerConcurrency),
-		validateReplicas(e.MinReplicas, e.MaxReplicas),
-		validateLogger(e.LoggerSpec),
-	} {
-		if err != nil {
-			return err
-		}
+// GetImplementations returns the implementations for the component
+func (s *ExplainerSpec) GetImplementations() []ComponentImplementation {
+	return []ComponentImplementation{
+		s.Alibi,
+		s.CustomExplainer,
 	}
-	return nil
 }
 
-func (e *ExplainerSpec) GetExplainer() []Component {
-	explainers := []Component{}
-	for _, explainer := range []Component{
-		e.Alibi,
-		e.CustomExplainer,
-	} {
-		if !reflect.ValueOf(explainer).IsNil() {
-			explainers = append(explainers, explainer)
-		}
-	}
-	return explainers
+// GetImplementation returns the implementation for the component
+func (s *ExplainerSpec) GetImplementation() ComponentImplementation {
+	return FirstNonNilComponent(s.GetImplementations())
+}
+
+// GetExtensions returns the extensions for the component
+func (s *ExplainerSpec) GetExtensions() *ComponentExtensionSpec {
+	return &s.ComponentExtensionSpec
 }

@@ -16,7 +16,10 @@ limitations under the License.
 
 package utils
 
-import v1 "k8s.io/api/core/v1"
+import (
+	"github.com/kubeflow/kfserving/pkg/constants"
+	v1 "k8s.io/api/core/v1"
+)
 
 /* NOTE TO AUTHORS:
  *
@@ -60,4 +63,19 @@ func AppendVolumeIfNotExists(slice []v1.Volume, volume v1.Volume) []v1.Volume {
 		}
 	}
 	return append(slice, volume)
+}
+
+func IsGPUEnabled(requirements v1.ResourceRequirements) bool {
+	_, ok := requirements.Limits[constants.NvidiaGPUResourceType]
+	return ok
+}
+
+// FirstNonNilError returns the first non nil interface in the slice
+func FirstNonNilError(objects []error) error {
+	for _, object := range objects {
+		if object != nil {
+			return object
+		}
+	}
+	return nil
 }

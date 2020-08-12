@@ -17,10 +17,12 @@ limitations under the License.
 package v1beta1
 
 import (
+	"strconv"
+
 	"github.com/kubeflow/kfserving/pkg/constants"
+	"github.com/kubeflow/kfserving/pkg/utils"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"strconv"
 )
 
 // CustomExplainer defines arguments for configuring a custom explainer.
@@ -33,11 +35,13 @@ type CustomExplainer struct {
 	v1.PodTemplateSpec `json:",inline"`
 }
 
-var _ Component = &CustomExplainer{}
+var _ ComponentImplementation = &CustomExplainer{}
 
-// Validate returns an error if invalid
-func (c *CustomExplainer) Validate() error {
-	return nil
+// Validate the spec
+func (s *CustomExplainer) Validate() error {
+	return utils.FirstNonNilError([]error{
+		validateStorageURI(s.GetStorageUri()),
+	})
 }
 
 // Default sets defaults on the resource
@@ -59,8 +63,8 @@ func (c *CustomExplainer) GetStorageUri() *string {
 	return nil
 }
 
-// GetContainers transforms the resource into a container spec
-func (c *CustomExplainer) GetContainer(metadata metav1.ObjectMeta, containerConcurrency *int64, config *InferenceServicesConfig) *v1.Container {
+// GetContainer transforms the resource into a container spec
+func (c *CustomExplainer) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig) *v1.Container {
 	container := &c.Spec.Containers[0]
 	modelNameExists := false
 	for _, arg := range container.Args {
@@ -80,8 +84,8 @@ func (c *CustomExplainer) GetContainer(metadata metav1.ObjectMeta, containerConc
 		constants.ArgumentHttpPort,
 		constants.InferenceServiceDefaultHttpPort,
 	}...)
-	if containerConcurrency != nil {
-		container.Args = append(container.Args, constants.ArgumentWorkers, strconv.FormatInt(*containerConcurrency, 10))
+	if extensions.ContainerConcurrency != nil {
+		container.Args = append(container.Args, constants.ArgumentWorkers, strconv.FormatInt(*extensions.ContainerConcurrency, 10))
 	}
 	return &c.Spec.Containers[0]
 }

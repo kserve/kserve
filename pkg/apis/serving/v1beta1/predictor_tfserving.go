@@ -18,11 +18,13 @@ package v1beta1
 
 import (
 	"fmt"
+	"strings"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/kubeflow/kfserving/pkg/constants"
+	"github.com/kubeflow/kfserving/pkg/utils"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"strings"
 )
 
 var (
@@ -41,15 +43,22 @@ type TFServingSpec struct {
 	PredictorExtensionSpec `json:",inline"`
 }
 
-var _ Component = &TFServingSpec{}
+var _ ComponentImplementation = &TFServingSpec{}
 
 // Validate returns an error if invalid
 func (t *TFServingSpec) Validate() error {
-	if isGPUEnabled(t.Resources) && !strings.Contains(*t.RuntimeVersion, TensorflowServingGPUSuffix) {
+	return utils.FirstNonNilError([]error{
+		validateStorageURI(t.GetStorageUri()),
+		t.validateGPU(),
+	})
+}
+
+func (t *TFServingSpec) validateGPU() error {
+	if utils.IsGPUEnabled(t.Resources) && !strings.Contains(*t.RuntimeVersion, TensorflowServingGPUSuffix) {
 		return fmt.Errorf(InvalidTensorflowRuntimeIncludesGPU)
 	}
 
-	if !isGPUEnabled(t.Resources) && strings.Contains(*t.RuntimeVersion, TensorflowServingGPUSuffix) {
+	if !utils.IsGPUEnabled(t.Resources) && strings.Contains(*t.RuntimeVersion, TensorflowServingGPUSuffix) {
 		return fmt.Errorf(InvalidTensorflowRuntimeExcludesGPU)
 	}
 	return nil
@@ -59,7 +68,7 @@ func (t *TFServingSpec) Validate() error {
 func (t *TFServingSpec) Default(config *InferenceServicesConfig) {
 	t.Container.Name = constants.InferenceServiceContainerName
 	if t.RuntimeVersion == nil {
-		if isGPUEnabled(t.Resources) {
+		if utils.IsGPUEnabled(t.Resources) {
 			t.RuntimeVersion = proto.String(config.Predictors.Tensorflow.DefaultGpuImageVersion)
 		} else {
 			t.RuntimeVersion = proto.String(config.Predictors.Tensorflow.DefaultImageVersion)
@@ -73,7 +82,7 @@ func (t *TFServingSpec) GetStorageUri() *string {
 }
 
 // GetContainers transforms the resource into a container spec
-func (t *TFServingSpec) GetContainer(metadata metav1.ObjectMeta, containerConcurrency *int64, config *InferenceServicesConfig) *v1.Container {
+func (t *TFServingSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig) *v1.Container {
 	arguments := []string{
 		fmt.Sprintf("%s=%s", "--port", TensorflowServingGRPCPort),
 		fmt.Sprintf("%s=%s", "--rest_api_port", TensorflowServingRestPort),

@@ -18,12 +18,6 @@ package v1beta1
 
 import (
 	v1 "k8s.io/api/core/v1"
-	"reflect"
-)
-
-const (
-	// ExactlyOnePredictorViolatedError is a known error message
-	ExactlyOnePredictorViolatedError = "Exactly one of [Custom, ONNX, Tensorflow, Triton, SKLearn, XGBoost] must be specified in PredictorSpec"
 )
 
 // PredictorSpec defines the configuration for a predictor,
@@ -62,42 +56,30 @@ type PredictorExtensionSpec struct {
 	v1.Container `json:",inline"`
 }
 
-// GetPredictor returns the framework for the Predictor
-func (p *PredictorSpec) GetPredictor() []Component {
-	predictors := []Component{}
-	for _, predictor := range []Component{
-		p.XGBoost,
-		p.PyTorch,
-		p.Triton,
-		p.SKLearn,
-		p.Tensorflow,
-		p.ONNX,
-		p.CustomPredictor,
-	} {
-		if !reflect.ValueOf(predictor).IsNil() {
-			predictors = append(predictors, predictor)
-		}
-	}
-	return predictors
-}
-
 // GetPredictorPodSpec returns the PodSpec for the Predictor
-func (p *PredictorSpec) GetPredictorPodSpec() v1.PodSpec {
-	return p.CustomPredictor.Spec
+func (s *PredictorSpec) GetPredictorPodSpec() v1.PodSpec {
+	return s.CustomPredictor.Spec
 }
 
-func (p *PredictorSpec) Validate() error {
-	predictor := p.GetPredictor()[0]
-	for _, err := range []error{
-		predictor.Validate(),
-		validateStorageURI(predictor.GetStorageUri()),
-		validateContainerConcurrency(p.ContainerConcurrency),
-		validateReplicas(p.MinReplicas, p.MaxReplicas),
-		validateLogger(p.LoggerSpec),
-	} {
-		if err != nil {
-			return err
-		}
+// GetImplementations returns the implementations for the component
+func (s *PredictorSpec) GetImplementations() []ComponentImplementation {
+	return []ComponentImplementation{
+		s.XGBoost,
+		s.PyTorch,
+		s.Triton,
+		s.SKLearn,
+		s.Tensorflow,
+		s.ONNX,
+		s.CustomPredictor,
 	}
-	return nil
+}
+
+// GetImplementation returns the implementation for the component
+func (s *PredictorSpec) GetImplementation() ComponentImplementation {
+	return FirstNonNilComponent(s.GetImplementations())
+}
+
+// GetExtensions returns the extensions for the component
+func (s *PredictorSpec) GetExtensions() *ComponentExtensionSpec {
+	return &s.ComponentExtensionSpec
 }

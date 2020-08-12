@@ -18,8 +18,9 @@ package v1beta1
 
 import (
 	"fmt"
-	"github.com/golang/protobuf/proto"
 	"testing"
+
+	"github.com/golang/protobuf/proto"
 
 	"github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
@@ -123,14 +124,14 @@ func TestRejectMultipleModelSpecs(t *testing.T) {
 			},
 		},
 	}
-	g.Expect(isvc.ValidateCreate()).Should(gomega.MatchError(ExactlyOnePredictorViolatedError))
+	g.Expect(isvc.ValidateCreate()).Should(gomega.MatchError(ExactlyOneErrorFor(&isvc.Spec.Predictor)))
 }
 
 func TestRejectModelSpecMissing(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	isvc := makeTestInferenceService()
 	isvc.Spec.Predictor.Tensorflow = nil
-	g.Expect(isvc.ValidateCreate()).Should(gomega.MatchError(ExactlyOnePredictorViolatedError))
+	g.Expect(isvc.ValidateCreate()).Should(gomega.MatchError(ExactlyOneErrorFor(&isvc.Spec.Predictor)))
 }
 
 func TestBadParallelismValues(t *testing.T) {
@@ -217,14 +218,14 @@ func TestRejectBadTransformer(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	isvc := makeTestInferenceService()
 	isvc.Spec.Transformer = &TransformerSpec{}
-	g.Expect(isvc.ValidateCreate()).Should(gomega.MatchError(ExactlyOneTransformerViolatedError))
+	g.Expect(isvc.ValidateCreate()).Should(gomega.MatchError(ExactlyOneErrorFor(isvc.Spec.Transformer)))
 }
 
 func TestRejectBadExplainer(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	isvc := makeTestInferenceService()
 	isvc.Spec.Explainer = &ExplainerSpec{}
-	g.Expect(isvc.ValidateCreate()).Should(gomega.MatchError(ExactlyOneExplainerViolatedError))
+	g.Expect(isvc.ValidateCreate()).Should(gomega.MatchError(ExactlyOneErrorFor(isvc.Spec.Explainer)))
 }
 
 func TestGoodExplainer(t *testing.T) {

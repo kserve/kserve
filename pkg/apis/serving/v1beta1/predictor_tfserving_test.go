@@ -18,9 +18,10 @@ package v1beta1
 
 import (
 	"fmt"
+	"testing"
+
 	"github.com/golang/protobuf/proto"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"testing"
 
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/onsi/gomega"
@@ -132,7 +133,7 @@ func TestTensorflowValidation(t *testing.T) {
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
 			scenario.spec.Tensorflow.Default(&config)
-			res := scenario.spec.Validate()
+			res := scenario.spec.Tensorflow.Validate()
 			if !g.Expect(res).To(scenario.matcher) {
 				t.Errorf("got %q, want %q", res, scenario.matcher)
 			}
@@ -374,9 +375,9 @@ func TestCreateTFServingContainer(t *testing.T) {
 	}
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
-			predictor := scenario.isvc.Spec.Predictor.GetPredictor()[0]
+			predictor := scenario.isvc.Spec.Predictor.GetImplementation()
 			predictor.Default(&config)
-			res := predictor.GetContainer(metav1.ObjectMeta{Name: "someName"}, scenario.isvc.Spec.Predictor.ContainerConcurrency, &config)
+			res := predictor.GetContainer(metav1.ObjectMeta{Name: "someName"}, &scenario.isvc.Spec.Predictor.ComponentExtensionSpec, &config)
 			if !g.Expect(res).To(gomega.Equal(scenario.expectedContainerSpec)) {
 				t.Errorf("got %q, want %q", res, scenario.expectedContainerSpec)
 			}
