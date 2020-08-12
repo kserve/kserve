@@ -14,7 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// +kubebuilder:validation:Required
 package v1beta1
 
 import (
@@ -52,28 +51,17 @@ type TrainedModelSpec struct {
 	InferenceService string `json:"inferenceService"`
 	// Predictor model spec
 	// +required
-	PredictorModel ModelSpec `json:"predictorModel"`
+	Inference ModelSpec `json:"predictorModel"`
 }
 
 // ModelSpec describes a trained model
-type TrainedModelSpec struct {
-	// Required field for parent inference service
-	InferenceService string `json:"inferenceService"`
-	// Inference model spec
-	Inference ModelSpec `json:"inference"`
-}
 type ModelSpec struct {
 	// Storage URI for the model repository
 	StorageURI string `json:"storageUri"`
 	// Machine Learning <framework name>
-	// The values could be: "tensorflow","pytorch","sklearn","onnx","xgboost","myawesomeinternalframework" etc.
 	// The values could be: "tensorflow","pytorch","sklearn","onnx","xgboost", "myawesomeinternalframework" etc.
 	Framework string `json:"framework"`
 	// Maximum memory this model will consume, this field is used to decide if a model server has enough memory to load this model.
 	// +optional
 	Memory resource.Quantity `json:"memory,omitempty"`
-}
-
-func init() {
-	SchemeBuilder.Register(&TrainedModel{}, &TrainedModelList{})
 }
