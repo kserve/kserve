@@ -11,7 +11,7 @@ import (
 	"testing"
 )
 
-func TestProcess_addOrUpdate(t *testing.T) {
+func TestProcessAddOrUpdate(t *testing.T) {
 	log.SetLogger(log.ZapLogger(true))
 	testCases := map[string]struct {
 		modelConfigs ModelConfigs
@@ -105,7 +105,7 @@ func TestProcess_addOrUpdate(t *testing.T) {
 	}
 }
 
-func TestProcess_delete(t *testing.T) {
+func TestProcessDelete(t *testing.T) {
 	log.SetLogger(log.ZapLogger(true))
 	testCases := map[string]struct {
 		modelConfigs      []string
