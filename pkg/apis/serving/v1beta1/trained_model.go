@@ -1,3 +1,19 @@
+/*
+Copyright 2020 kubeflow.org.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package v1beta1
 
 import (
@@ -5,8 +21,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// +k8s:openapi-gen=true
+// TrainedModel is the Schema for the TrainedModel API
 // +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="URL",type="string",JSONPath=".status.url"
+// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
+// +kubebuilder:resource:path=trainedmodel,shortName=tm
 type TrainedModel struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -23,12 +44,17 @@ type TrainedModelList struct {
 	Items []TrainedModel `json:"items"`
 }
 
+// TrainedModelSpec defines the trained model spec
 type TrainedModelSpec struct {
-	// Required field for parent inference service
+	// parent inference service to deploy to
+	// +required
 	InferenceService string `json:"inferenceService"`
 	// Predictor model spec
+	// +required
 	PredictorModel ModelSpec `json:"predictorModel"`
 }
+
+// ModelSpec describes a trained model
 type ModelSpec struct {
 	// Storage URI for the model repository
 	StorageURI string `json:"storageUri"`
@@ -36,5 +62,6 @@ type ModelSpec struct {
 	// The values could be: "tensorflow","pytorch","sklearn","onnx","xgboost", "myawesomeinternalframework" etc.
 	Framework string `json:"framework"`
 	// Maximum memory this model will consume, this field is used to decide if a model server has enough memory to load this model.
+	// +optional
 	Memory resource.Quantity `json:"memory,omitempty"`
 }

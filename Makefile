@@ -21,7 +21,7 @@ $(shell perl -pi -e 's/memory:.*/memory: $(KFSERVING_CONTROLLER_MEMORY_LIMIT)/' 
 all: test manager logger batcher
 
 # Run tests
-test: fmt vet lint manifests
+test: fmt vet manifests
 	go test ./pkg/... ./cmd/... -coverprofile cover.out
 
 # Build manager binary
@@ -95,9 +95,10 @@ undeploy-dev:
 
 # Generate manifests e.g. CRD, RBAC etc.
 manifests: controller-gen
-	$(CONTROLLER_GEN) $(CRD_OPTIONS) paths=./pkg/apis/... output:crd:dir=config/crd
+	$(CONTROLLER_GEN) $(CRD_OPTIONS) paths=./pkg/apis/serving/v1alpha2/... output:crd:dir=config/crd
 	$(CONTROLLER_GEN) rbac:roleName=kfserving-manager-role paths=./pkg/controller/inferenceservice/... output:rbac:artifacts:config=config/rbac
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths=./pkg/apis/serving/v1alpha2
+	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths=./pkg/apis/serving/v1beta1
 	#TODO Remove this until new controller-tools is released
 	perl -pi -e 's/storedVersions: null/storedVersions: []/g' config/crd/serving.kubeflow.org_inferenceservices.yaml
 	perl -pi -e 's/conditions: null/conditions: []/g' config/crd/serving.kubeflow.org_inferenceservices.yaml
@@ -120,6 +121,8 @@ endif
 
 # Generate code
 generate: controller-gen
+	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths=./pkg/apis/serving/v1alpha2
+	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths=./pkg/apis/serving/v1beta1
 	#TODO update-codegen.sh is not used and requires vendor
 	#hack/update-codegen.sh
 	hack/update-openapigen.sh

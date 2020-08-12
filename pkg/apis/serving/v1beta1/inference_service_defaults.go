@@ -1,0 +1,96 @@
+/*
+Copyright 2020 kubeflow.org.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package v1beta1
+
+import (
+	"fmt"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
+)
+
+var logger = logf.Log.WithName("kfserving-v1beta1-defaulter")
+
+var (
+	defaultResource = v1.ResourceList{
+		v1.ResourceCPU:    resource.MustParse("1"),
+		v1.ResourceMemory: resource.MustParse("2Gi"),
+	}
+	// logger for the mutating webhook.
+	mutatorLogger = logf.Log.WithName("inferenceservice-v1beta1-mutating-webhook")
+)
+
+// +kubebuilder:webhook:path=/mutate-inferenceservices,mutating=true,failurePolicy=fail,groups=serving.kubeflow.org,resources=inferenceservices,verbs=create;update,versions=v1beta1,name=inferenceservice.kfserving-webhook-server.defaulter
+var _ webhook.Defaulter = &InferenceService{}
+
+func setResourceRequirementDefaults(requirements *v1.ResourceRequirements) {
+	if requirements.Requests == nil {
+		requirements.Requests = v1.ResourceList{}
+	}
+	for k, v := range defaultResource {
+		if _, ok := requirements.Requests[k]; !ok {
+			requirements.Requests[k] = v
+		}
+	}
+
+	if requirements.Limits == nil {
+		requirements.Limits = v1.ResourceList{}
+	}
+	for k, v := range defaultResource {
+		if _, ok := requirements.Limits[k]; !ok {
+			requirements.Limits[k] = v
+		}
+	}
+}
+
+func (isvc *InferenceService) Default() {
+	logger.Info("Defaulting InferenceService", "namespace", isvc.Namespace, "name", isvc.Name)
+	configMap, err := NewInferenceServicesConfig()
+	if err != nil {
+		panic(err)
+	}
+	isvc.defaultInferenceService(configMap)
+}
+
+func (isvc *InferenceService) defaultInferenceService(configMap *InferenceServicesConfig) {
+	components := isvc.Spec.Predictor.GetPredictor()
+	if len(components) != 1 {
+		mutatorLogger.Error(fmt.Errorf(ExactlyOnePredictorViolatedError), "more than one predictor")
+		return
+	}
+
+	if isvc.Spec.Transformer != nil {
+		transformers := isvc.Spec.Transformer.GetTransformer()
+		if len(transformers) != 1 {
+			mutatorLogger.Error(fmt.Errorf(ExactlyOneTransformerViolatedError), "more than one transformer")
+			return
+		}
+		components = append(components, transformers...)
+	}
+	if isvc.Spec.Explainer != nil {
+		explainers := isvc.Spec.Explainer.GetExplainer()
+		if len(explainers) != 1 {
+			mutatorLogger.Error(fmt.Errorf(ExactlyOneExplainerViolatedError), "more than one explainer")
+			return
+		}
+		components = append(components, explainers...)
+	}
+	for _, component := range components {
+		component.Default(configMap)
+	}
+}
