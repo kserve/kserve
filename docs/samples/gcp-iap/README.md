@@ -2,19 +2,11 @@
 When using Kubeflow with GCP it is common to use a [GCP Identity Aware Proxy](https://cloud.google.com/iap) (IAP) to manage client authentication to the KFServing endpoints.  The proxy intercepts and authenticates users and passes identity assertion (JWT) to kubernetes service/pods.  Whilst it is also possible to add access control (i.e. programmable or service mesh authorization), this is not described here.
 
 ### Prerequisites
-1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/#install-kfserving) and have applied the [knative istio probe fix](https://github.com/kubeflow/manifests/commit/928cf483361730121ac18bc4d0e7a9c129f15ee2) (see below).
+1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/#install-kfserving).
 2. Your gcloud config is initialised to the project containing the k8s cluster and has a service-account that can download IAP key file.
 3. You are using Knative serving v0.11.2 or v0.14.0+
 4. You are using a recent version of KFServing (v0.3+)
-
-To ensure your cluster has the **knative istio probe fix**, you can use [kfctl_gcp_iap.v1.0.2.yaml](https://raw.githubusercontent.com/kubeflow/manifests/v1.0-branch/kfdef/kfctl_gcp_iap.v1.0.2.yaml), editing the repos section in the yaml before deploying to your Kubernetes cluster.
-```
-    repos:
-    - name: manifests
-+     uri: https://github.com/kubeflow/manifests/archive/master.tar.gz
--     uri: https://github.com/kubeflow/manifests/archive/v1.0.2.tar.gz
--   version: v1.0.2
-```
+5. Kubeflow 1.1+ with kfdef [kfctl_anthos.yaml](https://github.com/kubeflow/manifests/blob/v1.1-branch/kfdef/kfctl_anthos.yaml)
 
 Once IAP is enabled and configured, your k8s cluster should have a GCP external http loadbalancer protected by IAP.
 

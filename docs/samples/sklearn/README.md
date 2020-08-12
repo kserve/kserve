@@ -1,4 +1,4 @@
-## Creating your own model and testing the Scikit-Learn server.
+## Creating your own model and testing the SKLearn Server locally.
 
 To test the [Scikit-Learn](https://scikit-learn.org/stable/) server, first we need to generate a simple scikit-learn model using Python. 
 
@@ -13,7 +13,7 @@ clf.fit(X, y)
 dump(clf, 'model.joblib')
 ```
 
-Then, we can run the scikit-learn server using the generated model and test for prediction. Models can be on local filesystem, S3 compatible object storage, Azure Blob Storage, or Google Cloud Storage.
+Then, we can install and run the [SKLearn Server](../../../python/sklearnserver) using the generated model and test for prediction. Models can be on local filesystem, S3 compatible object storage, Azure Blob Storage, or Google Cloud Storage.
 
 ```shell
 python -m sklearnserver --model_dir model.joblib --model_name svm
@@ -34,11 +34,11 @@ print(res)
 print(res.text)
 ```
 
-# Predict on a InferenceService using SKLearn
+# Predict on a InferenceService using SKLearnServer
 
 ## Setup
 1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/#install-kfserving).
-2. Your cluster's Istio Ingress gateway must be network accessible.
+2. Your cluster's Istio Ingress gateway must be [network accessible](https://istio.io/latest/docs/tasks/traffic-management/ingress/ingress-control/).
 
 ## Create the InferenceService
 
@@ -52,13 +52,13 @@ Expected Output
 $ inferenceservice.serving.kubeflow.org/sklearn-iris created
 ```
 ## Run a prediction
+The first step is to [determine the ingress IP and ports](../../../README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
 
 ```
 MODEL_NAME=sklearn-iris
 INPUT_PATH=@./iris-input.json
-CLUSTER_IP=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 SERVICE_HOSTNAME=$(kubectl get inferenceservice sklearn-iris -o jsonpath='{.status.url}' | cut -d "/" -f 3)
-curl -v -H "Host: ${SERVICE_HOSTNAME}" http://$CLUSTER_IP/v1/models/$MODEL_NAME:predict -d $INPUT_PATH
+curl -v -H "Host: ${SERVICE_HOSTNAME}" http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/$MODEL_NAME:predict -d $INPUT_PATH
 ```
 
 Expected Output

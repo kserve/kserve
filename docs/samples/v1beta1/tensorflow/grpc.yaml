@@ -1,0 +1,11 @@
+apiVersion: "serving.kubeflow.org/v1beta1"
+kind: "InferenceService"
+metadata:
+  name: "tensorflow-grpc"
+spec:
+  predictor:
+    tensorflow:
+      storageUri: "gs://kfserving-samples/models/tensorflow/flowers"
+      ports:
+        - containerPort: 9000
+          name: h2c

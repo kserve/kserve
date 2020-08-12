@@ -1,0 +1,13 @@
+apiVersion: "serving.kubeflow.org/v1alpha3"
+kind: "Service"
+metadata:
+  name: "tensorflow-gpu"
+spec:
+  predictor:
+    tensorflow:
+      storageUri: "gs://kfserving-samples/models/tensorflow/flowers"
+      resources:
+        limits:
+          nvidia.com/gpu: 1
+    nodeSelector:
+      cloud.google.com/gke-accelerator: nvidia-tesla-k80
