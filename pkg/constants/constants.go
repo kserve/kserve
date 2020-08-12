@@ -45,7 +45,7 @@ var (
 
 // InferenceService MultiModel Constants
 var (
-	ModelConfigFileName = "models-config.json"
+	ModelConfigFileName = "models.json"
 )
 
 // InferenceService Annotations

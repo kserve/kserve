@@ -38,7 +38,7 @@ func NewConfigsDelta(updatedConfigs ModelConfigs, deletedConfigs []string) *Conf
 //  name: models-config
 //  namespace: <user-model-namespace>
 //data:
-//  multi-models-config.json: |
+//  models.json: |
 //    [
 //      {
 //        "modelName": "model1",
