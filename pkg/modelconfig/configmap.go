@@ -21,13 +21,13 @@ type ModelConfigs []*ModelConfig
 
 type ConfigsDelta struct {
 	updated map[string]*ModelConfig
-	deleted map[string]*ModelConfig
+	deleted []string
 }
 
-func NewConfigsDelta(updatedConfigs ModelConfigs, deletedConfigs ModelConfigs) *ConfigsDelta {
+func NewConfigsDelta(updatedConfigs ModelConfigs, deletedConfigs []string) *ConfigsDelta {
 	return &ConfigsDelta{
 		updated: slice2Map(updatedConfigs),
-		deleted: slice2Map(deletedConfigs),
+		deleted: deletedConfigs,
 	}
 }
 
@@ -74,7 +74,7 @@ func (config *ConfigsDelta) Process(configMap *v1.ConfigMap) (err error) {
 		data[name] = spec
 	}
 	//delete models
-	for name, _ := range config.deleted {
+	for _, name := range config.deleted {
 		if _, ok := data[name]; ok {
 			delete(data, name)
 		} else {

@@ -95,7 +95,7 @@ func TestProcess_addOrUpdate(t *testing.T) {
 		},
 	}
 	for _, tc := range testCases {
-		mConfig := NewConfigsDelta(tc.modelConfigs, ModelConfigs{})
+		mConfig := NewConfigsDelta(tc.modelConfigs, nil)
 		err := mConfig.Process(tc.configMap)
 		testify.Nil(t, err)
 		data, err := getSortedConfigData(tc.configMap.Data[constants.ModelConfigFileName])
@@ -108,29 +108,19 @@ func TestProcess_addOrUpdate(t *testing.T) {
 func TestProcess_delete(t *testing.T) {
 	log.SetLogger(log.ZapLogger(true))
 	testCases := map[string]struct {
-		modelConfigs      ModelConfigs
+		modelConfigs      []string
 		configMap         *v1.ConfigMap
 		expected          string
 	}{
 		"delete nil data": {
-			modelConfigs: ModelConfigs{
-				&ModelConfig{
-					Name: "model1",
-					Spec: &v1beta1.ModelSpec{StorageURI: "s3//model1", Framework: "framework1"},
-				},
-			},
+			modelConfigs: []string{"model1"},
 			configMap: &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{Name: "empty-config", Namespace: "test"},
 			},
 			expected: "[]",
 		},
 		"delete empty data": {
-			modelConfigs: ModelConfigs{
-				&ModelConfig{
-					Name: "model1",
-					Spec: &v1beta1.ModelSpec{StorageURI: "s3//model1", Framework: "framework1"},
-				},
-			},
+			modelConfigs: []string{"model1"},
 			configMap: &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{Name: "empty-config", Namespace: "test"},
 				Data: map[string]string{
@@ -140,12 +130,7 @@ func TestProcess_delete(t *testing.T) {
 			expected: "[]",
 		},
 		"delete empty data value": {
-			modelConfigs: ModelConfigs{
-				&ModelConfig{
-					Name: "model1",
-					Spec: &v1beta1.ModelSpec{StorageURI: "s3//model1", Framework: "framework1"},
-				},
-			},
+			modelConfigs: []string{"model1"},
 			configMap: &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{Name: "empty-config", Namespace: "test"},
 				Data: map[string]string{
@@ -155,12 +140,7 @@ func TestProcess_delete(t *testing.T) {
 			expected: "[]",
 		},
 		"delete filename non-exist": {
-			modelConfigs: ModelConfigs{
-				&ModelConfig{
-					Name: "model1",
-					Spec: &v1beta1.ModelSpec{StorageURI: "s3//model1", Framework: "framework1"},
-				},
-			},
+			modelConfigs: []string{"model1"},
 			configMap: &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{Name: "test-config", Namespace: "test"},
 				Data: map[string]string{
@@ -170,12 +150,7 @@ func TestProcess_delete(t *testing.T) {
 			expected: `[{"modelName":"model2","modelSpec":{"storageUri":"s3//model2","framework":"framework2","memory":"0"}}]`,
 		},
 		"delete filename exist": {
-			modelConfigs: ModelConfigs{
-				&ModelConfig{
-					Name: "model1",
-					Spec: &v1beta1.ModelSpec{StorageURI: "s3//model1", Framework: "framework1"},
-				},
-			},
+			modelConfigs: []string{"model1"},
 			configMap: &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{Name: "test-config", Namespace: "test"},
 				Data: map[string]string{
@@ -186,7 +161,7 @@ func TestProcess_delete(t *testing.T) {
 		},
 	}
 	for _, tc := range testCases {
-		mConfig := NewConfigsDelta(ModelConfigs{}, tc.modelConfigs)
+		mConfig := NewConfigsDelta(nil, tc.modelConfigs)
 		err := mConfig.Process(tc.configMap)
 		testify.Nil(t, err)
 		data, err := getSortedConfigData(tc.configMap.Data[constants.ModelConfigFileName])
@@ -200,7 +175,7 @@ func TestProcess(t *testing.T) {
 	log.SetLogger(log.ZapLogger(true))
 	testCases := map[string]struct {
 		updated           ModelConfigs
-		deleted           ModelConfigs
+		deleted           []string
 		configMap         *v1.ConfigMap
 		expected          string
 	}{
@@ -215,9 +190,7 @@ func TestProcess(t *testing.T) {
 					Spec: &v1beta1.ModelSpec{StorageURI: "s3//model3", Framework: "framework3"},
 				},
 			},
-			deleted: ModelConfigs{
-				&ModelConfig{Name: "model2", Spec: nil},
-			},
+			deleted: []string{"model2"},
 			configMap: &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{Name: "test-config", Namespace: "test"},
 				Data: map[string]string{
