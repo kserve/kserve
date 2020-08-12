@@ -99,7 +99,7 @@ func slice2Map(from ModelConfigs) map[string]*ModelConfig {
 	return to
 }
 
-func map2slice(from map[string]*ModelConfig) ModelConfigs {
+func map2Slice(from map[string]*ModelConfig) ModelConfigs {
 	to := make(ModelConfigs, 0, len(from))
 	for _, config := range from {
 		to = append(to, config)
@@ -118,7 +118,7 @@ func decode(from string) (map[string]*ModelConfig, error) {
 }
 
 func encode(from map[string]*ModelConfig) (string, error) {
-	modelConfigs := map2slice(from)
+	modelConfigs := map2Slice(from)
 	to, err := json.Marshal(&modelConfigs)
 	return string(to), err
 }
