@@ -20,9 +20,9 @@ func TestProcess_addOrUpdate(t *testing.T) {
 	}{
 		"add to nil data": {
 			modelConfigs: ModelConfigs{
-				&ModelConfig{
+				ModelConfig{
 					Name: "model1",
-					Spec: &v1beta1.ModelSpec{StorageURI: "s3//model1", Framework: "framework1"},
+					Spec: v1beta1.ModelSpec{StorageURI: "s3//model1", Framework: "framework1"},
 				},
 			},
 			configMap: &v1.ConfigMap{
@@ -32,9 +32,9 @@ func TestProcess_addOrUpdate(t *testing.T) {
 		},
 		"add to empty data": {
 			modelConfigs: ModelConfigs{
-				&ModelConfig{
+				ModelConfig{
 					Name: "model1",
-					Spec: &v1beta1.ModelSpec{StorageURI: "s3//model1", Framework: "framework1"},
+					Spec: v1beta1.ModelSpec{StorageURI: "s3//model1", Framework: "framework1"},
 				},
 			},
 			configMap: &v1.ConfigMap{
@@ -47,9 +47,9 @@ func TestProcess_addOrUpdate(t *testing.T) {
 		},
 		"add to empty data value": {
 			modelConfigs: ModelConfigs{
-				&ModelConfig{
+				ModelConfig{
 					Name: "model1",
-					Spec: &v1beta1.ModelSpec{StorageURI: "s3//model1", Framework: "framework1"},
+					Spec: v1beta1.ModelSpec{StorageURI: "s3//model1", Framework: "framework1"},
 				},
 			},
 			configMap: &v1.ConfigMap{
@@ -62,9 +62,9 @@ func TestProcess_addOrUpdate(t *testing.T) {
 		},
 		"add to non-empty data": {
 			modelConfigs: ModelConfigs{
-				&ModelConfig{
+				ModelConfig{
 					Name: "model2",
-					Spec: &v1beta1.ModelSpec{StorageURI: "s3//model2", Framework: "framework2"},
+					Spec: v1beta1.ModelSpec{StorageURI: "s3//model2", Framework: "framework2"},
 				},
 			},
 			configMap: &v1.ConfigMap{
@@ -78,9 +78,9 @@ func TestProcess_addOrUpdate(t *testing.T) {
 		},
 		"update": {
 			modelConfigs: ModelConfigs{
-				&ModelConfig{
+				ModelConfig{
 					Name: "model1",
-					Spec: &v1beta1.ModelSpec{StorageURI: "s3//new-model1", Framework: "new-framework1"},
+					Spec: v1beta1.ModelSpec{StorageURI: "s3//new-model1", Framework: "new-framework1"},
 				},
 			},
 			configMap: &v1.ConfigMap{
@@ -181,13 +181,13 @@ func TestProcess(t *testing.T) {
 	}{
 		"process configmap": {
 			updated: ModelConfigs{
-				&ModelConfig{
+				ModelConfig{
 					Name: "model1",
-					Spec: &v1beta1.ModelSpec{StorageURI: "s3//new-model1", Framework: "new-framework1"},
+					Spec: v1beta1.ModelSpec{StorageURI: "s3//new-model1", Framework: "new-framework1"},
 				},
-				&ModelConfig{
+				ModelConfig{
 					Name: "model3",
-					Spec: &v1beta1.ModelSpec{StorageURI: "s3//model3", Framework: "framework3"},
+					Spec: v1beta1.ModelSpec{StorageURI: "s3//model3", Framework: "framework3"},
 				},
 			},
 			deleted: []string{"model2"},

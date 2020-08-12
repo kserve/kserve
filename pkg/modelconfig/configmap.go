@@ -14,13 +14,13 @@ var json = jsoniter.ConfigCompatibleWithStandardLibrary
 
 type ModelConfig struct {
 	Name string             `json:"modelName"`
-	Spec *v1beta1.ModelSpec `json:"modelSpec"`
+	Spec v1beta1.ModelSpec  `json:"modelSpec"`
 }
 
-type ModelConfigs []*ModelConfig
+type ModelConfigs []ModelConfig
 
 type ConfigsDelta struct {
-	updated map[string]*ModelConfig
+	updated map[string]ModelConfig
 	deleted []string
 }
 
@@ -91,15 +91,15 @@ func (config *ConfigsDelta) Process(configMap *v1.ConfigMap) (err error) {
 	return nil
 }
 
-func slice2Map(from ModelConfigs) map[string]*ModelConfig {
-	to := make(map[string]*ModelConfig)
+func slice2Map(from ModelConfigs) map[string]ModelConfig {
+	to := make(map[string]ModelConfig)
 	for _, config := range from {
 		to[config.Name] = config
 	}
 	return to
 }
 
-func map2Slice(from map[string]*ModelConfig) ModelConfigs {
+func map2Slice(from map[string]ModelConfig) ModelConfigs {
 	to := make(ModelConfigs, 0, len(from))
 	for _, config := range from {
 		to = append(to, config)
@@ -107,7 +107,7 @@ func map2Slice(from map[string]*ModelConfig) ModelConfigs {
 	return to
 }
 
-func decode(from string) (map[string]*ModelConfig, error) {
+func decode(from string) (map[string]ModelConfig, error) {
 	modelConfigs := ModelConfigs{}
 	if len(from) != 0 {
 		if err := json.Unmarshal([]byte(from), &modelConfigs); err != nil {
@@ -117,7 +117,7 @@ func decode(from string) (map[string]*ModelConfig, error) {
 	return slice2Map(modelConfigs), nil
 }
 
-func encode(from map[string]*ModelConfig) (string, error) {
+func encode(from map[string]ModelConfig) (string, error) {
 	modelConfigs := map2Slice(from)
 	to, err := json.Marshal(&modelConfigs)
 	return string(to), err
