@@ -108,6 +108,30 @@ Traceback (most recent call last):
 StopIteration
 ```
 
+### Inference Service cannot fetch docker images from AWS ECR
+If you don't see the inference service created at all for custom images from private registries (such as AWS ECR), it might be that the Knative Serving Controller fails to authenticate itself against the registry.
+
+```bash
+failed to resolve image to digest: failed to fetch image information: unsupported status code 401; body: Not Authorized
+```
+
+You can verify that this is actually the case by spinning up a pod that uses your image. The pod should be able to fetch it, if the correct IAM roles are attached, while Knative is not able to. To circumvent this issue you can skip tag resolution.
+
+ ```bash
+kubectl -n knative-serving edit configmap config-deployment
+```
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config-deployment
+  namespace: knative-serving
+data:
+  # List of repositories for which tag to digest resolving should be skipped (for AWS ECR: {account_id}.dkr.ecr.{region}.amazonaws.com)
+  registriesSkippingTagResolving: registry.example.com
+```
+
 # Debug KFServing Request flow
 
 ```
