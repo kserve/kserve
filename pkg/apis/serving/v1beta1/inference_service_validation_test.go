@@ -113,18 +113,19 @@ func TestUnkownStorageURIPrefixFails(t *testing.T) {
 func TestRejectMultipleModelSpecs(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	isvc := makeTestInferenceService()
+	isvc.Spec.Predictor.XGBoost = &XGBoostSpec{}
+	g.Expect(isvc.ValidateCreate()).Should(gomega.MatchError(ExactlyOneErrorFor(&isvc.Spec.Predictor)))
+}
+
+func TestModelSpecAndCustomOverridesIsValid(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	isvc := makeTestInferenceService()
 	isvc.Spec.Predictor.CustomPredictor = &CustomPredictor{
 		PodTemplateSpec: v1.PodTemplateSpec{
-			Spec: v1.PodSpec{
-				Containers: []v1.Container{
-					{
-						Image: "some-image",
-					},
-				},
-			},
+			Spec: v1.PodSpec{},
 		},
 	}
-	g.Expect(isvc.ValidateCreate()).Should(gomega.MatchError(ExactlyOneErrorFor(&isvc.Spec.Predictor)))
+	g.Expect(isvc.ValidateCreate()).Should(gomega.Succeed())
 }
 
 func TestRejectModelSpecMissing(t *testing.T) {

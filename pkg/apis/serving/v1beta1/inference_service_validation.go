@@ -44,8 +44,8 @@ func (isvc *InferenceService) ValidateCreate() error {
 		isvc.Spec.Explainer,
 	} {
 		if !reflect.ValueOf(component).IsNil() {
-			if len(NonNilComponents(component.GetImplementations())) != 1 {
-				return ExactlyOneErrorFor(component)
+			if err := validateExactlyOneImplementation(component); err != nil {
+				return err
 			}
 			if err := utils.FirstNonNilError([]error{
 				component.GetImplementation().Validate(),
@@ -75,6 +75,25 @@ func (isvc *InferenceService) ValidateDelete() error {
 func GetIntReference(number int) *int {
 	num := number
 	return &num
+}
+
+func validateExactlyOneImplementation(component Component) error {
+	implementations := NonNilComponents(component.GetImplementations())
+	count := len(implementations)
+	if count == 2 { // If two implementations, allow if one of them is custom overrides
+		for _, implementation := range implementations {
+			switch reflect.ValueOf(implementation).Type().Elem().Name() {
+			case
+				reflect.ValueOf(CustomPredictor{}).Type().Name(),
+				reflect.ValueOf(CustomExplainer{}).Type().Name(),
+				reflect.ValueOf(CustomTransformer{}).Type().Name():
+				return nil
+			}
+		}
+	} else if count == 1 {
+		return nil
+	}
+	return ExactlyOneErrorFor(component)
 }
 
 // ExactlyOneErrorFor creates an error for the component's one-of semantic.
