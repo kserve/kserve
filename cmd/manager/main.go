@@ -18,7 +18,6 @@ package main
 
 import (
 	"flag"
-	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/trainedmodel/reconcilers/modelconfig"
 	"github.com/kubeflow/kfserving/pkg/webhook/admission/inferenceservice"
 	"github.com/kubeflow/kfserving/pkg/webhook/admission/pod"
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
@@ -122,13 +121,12 @@ func main() {
 	trainedModelEventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: clientSet.CoreV1().Events("")})
 	if err = (&trainedmodelcontroller.TrainedModelReconciler{
 		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("v1alpha2Controllers").WithName("InferenceService"),
+		Log:    ctrl.Log.WithName("v1beta1Controllers").WithName("TrainedModel"),
 		Scheme: mgr.GetScheme(),
 		Recorder: eventBroadcaster.NewRecorder(
-			mgr.GetScheme(), v1.EventSource{Component: "v1alpha2Controllers"}),
-		ModelConfigReconciler: modelconfig.NewConfigMapReconciler(mgr.GetClient(), mgr.GetScheme()),
+			mgr.GetScheme(), v1.EventSource{Component: "v1beta1Controllers"}),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "v1alpha2Controller", "InferenceService")
+		setupLog.Error(err, "unable to create controller", "v1beta1Controllers", "TrainedModel")
 		os.Exit(1)
 	}
 
