@@ -43,6 +43,11 @@ var (
 	InferenceServiceConfigMapName = "inferenceservice-config"
 )
 
+// InferenceService MultiModel Constants
+var (
+	ModelConfigFileName = "models.json"
+)
+
 // InferenceService Annotations
 var (
 	InferenceServiceGKEAcceleratorAnnotationKey = KFServingAPIGroupName + "/gke-accelerator"

@@ -21,6 +21,7 @@ require (
 	github.com/google/go-containerregistry v0.0.0-20190910142231-b02d448a3705 // indirect
 	github.com/google/uuid v1.1.1
 	github.com/imdario/mergo v0.3.8 // indirect
+	github.com/json-iterator/go v1.1.8
 	github.com/mattbaird/jsonpatch v0.0.0-20171005235357-81af80346b1a // indirect
 	github.com/onsi/ginkgo v1.11.0
 	github.com/onsi/gomega v1.8.1
@@ -30,6 +31,7 @@ require (
 	github.com/satori/go.uuid v1.2.0
 	github.com/shiena/ansicolor v0.0.0-20151119151921-a422bbe96644 // indirect
 	github.com/spf13/cobra v0.0.5
+	github.com/stretchr/testify v1.4.0
 	go.uber.org/multierr v1.2.0 // indirect
 	go.uber.org/zap v1.11.0 // indirect
 	golang.org/x/net v0.0.0-20200226121028-0de0cce0169b
