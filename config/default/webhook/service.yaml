@@ -2,7 +2,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: kfserving-webhook-server-service
-  namespace: kfserving-system
+  namespace: kubeflow
 spec:
   ports:
     - port: 443

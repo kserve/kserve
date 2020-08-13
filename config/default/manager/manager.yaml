@@ -2,7 +2,6 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: kfserving-controller-manager
-  namespace: kfserving-system
   labels:
     control-plane: kfserving-controller-manager
     controller-tools.k8s.io: "1.0"
@@ -57,4 +56,4 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: kfserving-webhook-server-secret
-  namespace: kfserving-system
+  namespace: kubeflow
