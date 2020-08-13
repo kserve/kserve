@@ -74,7 +74,7 @@ func (r *TrainedModelReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 	configMap := &v1.ConfigMap{}
 	err := r.Get(context.TODO(), types.NamespacedName{Name: modelConfigName, Namespace: req.Namespace}, configMap)
 	if err != nil {
-		log.Error(err, "Failed to find Multi-model ConfigMap", "name", modelConfigName, "namespace", req.Namespace)
+		log.Error(err, "Failed to find model ConfigMap", "name", modelConfigName, "namespace", req.Namespace)
 		// Error reading the object - requeue the request.
 		return reconcile.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
 	}
