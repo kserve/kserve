@@ -50,7 +50,7 @@ func (c *ConfigMapReconciler) Reconcile(desired *corev1.ConfigMap, tm *v1beta1ap
 			return err
 		}
 	} else {
-		//A Trainedmodel is created or updated, add or update the model from multi-model configmap
+		//A TrainedModel is created or updated, add or update the model from multi-model configmap
 		modelConfig := modelconfig.ModelConfig{Name: tm.Name, Spec: tm.Spec.Inference}
 		updatedConfigs := []modelconfig.ModelConfig{modelConfig}
 		mConfig := modelconfig.NewConfigsDelta(updatedConfigs, nil)
