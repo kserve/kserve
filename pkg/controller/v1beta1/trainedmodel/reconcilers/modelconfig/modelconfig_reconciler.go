@@ -33,7 +33,7 @@ type ConfigMapReconciler struct {
 	scheme *runtime.Scheme
 }
 
-func NewConfigMapReconciler(client client.Client, scheme *runtime.Scheme) *ConfigMapReconciler {
+func NewModelConfigReconciler(client client.Client, scheme *runtime.Scheme) *ConfigMapReconciler {
 	return &ConfigMapReconciler{
 		client: client,
 		scheme: scheme,

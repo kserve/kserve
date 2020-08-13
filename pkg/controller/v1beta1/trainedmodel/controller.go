@@ -77,7 +77,7 @@ func (r *TrainedModelReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 		// Error reading the object - requeue the request.
 		return reconcile.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
 	}
-	reconciler := modelconfig.NewConfigMapReconciler(r.Client, r.Scheme)
+	reconciler := modelconfig.NewModelConfigReconciler(r.Client, r.Scheme)
 
 	if err := reconciler.Reconcile(configMap, tm); err != nil {
 		return reconcile.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
