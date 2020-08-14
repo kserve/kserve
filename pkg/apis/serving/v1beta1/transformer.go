@@ -16,11 +16,6 @@ limitations under the License.
 
 package v1beta1
 
-// Constants
-const (
-	ExactlyOneTransformerViolatedError = "Exactly one of [Custom] must be specified in TransformerSpec"
-)
-
 // TransformerSpec defines transformer service for pre/post processing
 type TransformerSpec struct {
 	// Pass through Pod fields or specify a custom container spec
@@ -29,27 +24,19 @@ type TransformerSpec struct {
 	ComponentExtensionSpec `json:",inline"`
 }
 
-func (t *TransformerSpec) GetTransformer() []Component {
-	transformers := []Component{}
-	if t.CustomTransformer != nil {
-		transformers = append(transformers, t.CustomTransformer)
+// GetImplementations returns the implementations for the component
+func (s *TransformerSpec) GetImplementations() []ComponentImplementation {
+	return []ComponentImplementation{
+		s.CustomTransformer,
 	}
-	return transformers
 }
 
-// Validate the TransformerSpec
-func (t *TransformerSpec) Validate() error {
-	transformer := t.GetTransformer()[0]
-	for _, err := range []error{
-		transformer.Validate(),
-		validateStorageURI(transformer.GetStorageUri()),
-		validateContainerConcurrency(t.ContainerConcurrency),
-		validateReplicas(t.MinReplicas, t.MaxReplicas),
-		validateLogger(t.LoggerSpec),
-	} {
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+// GetImplementation returns the implementation for the component
+func (s *TransformerSpec) GetImplementation() ComponentImplementation {
+	return FirstNonNilComponent(s.GetImplementations())
+}
+
+// GetExtensions returns the extensions for the component
+func (s *TransformerSpec) GetExtensions() *ComponentExtensionSpec {
+	return &s.ComponentExtensionSpec
 }

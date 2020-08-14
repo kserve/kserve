@@ -1,6 +1,8 @@
 package v1beta1
 
 import (
+	"testing"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/onsi/gomega"
@@ -8,7 +10,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"testing"
 )
 
 func TestCustomPredictorValidation(t *testing.T) {
@@ -114,7 +115,7 @@ func TestCustomPredictorValidation(t *testing.T) {
 
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
-			res := scenario.spec.Validate()
+			res := scenario.spec.CustomPredictor.Validate()
 			if !g.Expect(res).To(scenario.matcher) {
 				t.Errorf("got %q, want %q", res, scenario.matcher)
 			}
@@ -326,9 +327,9 @@ func TestCreateCustomPredictorContainer(t *testing.T) {
 	}
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
-			predictor := scenario.isvc.Spec.Predictor.GetPredictor()[0]
+			predictor := scenario.isvc.Spec.Predictor.GetImplementation()
 			predictor.Default(&config)
-			res := predictor.GetContainer(metav1.ObjectMeta{Name: "someName", Namespace: "default"}, scenario.isvc.Spec.Predictor.ContainerConcurrency, &config)
+			res := predictor.GetContainer(metav1.ObjectMeta{Name: "someName", Namespace: "default"}, &scenario.isvc.Spec.Predictor.ComponentExtensionSpec, &config)
 			if !g.Expect(res).To(gomega.Equal(scenario.expectedContainerSpec)) {
 				t.Errorf("got %q, want %q", res, scenario.expectedContainerSpec)
 			}

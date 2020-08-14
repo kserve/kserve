@@ -17,12 +17,14 @@ limitations under the License.
 package v1beta1
 
 import (
-	"github.com/golang/protobuf/proto"
-	"github.com/kubeflow/kfserving/pkg/constants"
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sort"
 	"strconv"
+
+	"github.com/golang/protobuf/proto"
+	"github.com/kubeflow/kfserving/pkg/constants"
+	"github.com/kubeflow/kfserving/pkg/utils"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // AlibiExplainerType is the explanation method
@@ -59,58 +61,61 @@ type AlibiExplainerSpec struct {
 	v1.Container `json:",inline"`
 }
 
-var _ Component = &AlibiExplainerSpec{}
+var _ ComponentImplementation = &AlibiExplainerSpec{}
 
-func (alibi *AlibiExplainerSpec) GetStorageUri() *string {
-	return &alibi.StorageURI
+func (s *AlibiExplainerSpec) GetStorageUri() *string {
+	return &s.StorageURI
 }
 
-func (alibi *AlibiExplainerSpec) GetResourceRequirements() *v1.ResourceRequirements {
+func (s *AlibiExplainerSpec) GetResourceRequirements() *v1.ResourceRequirements {
 	// return the ResourceRequirements value if set on the spec
-	return &alibi.Resources
+	return &s.Resources
 }
 
-func (alibi *AlibiExplainerSpec) GetContainer(metadata metav1.ObjectMeta, containerConcurrency *int64, config *InferenceServicesConfig) *v1.Container {
+func (s *AlibiExplainerSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig) *v1.Container {
 	var args = []string{
 		constants.ArgumentModelName, metadata.Name,
 		constants.ArgumentPredictorHost, constants.PredictorURL(metadata, false),
 		constants.ArgumentHttpPort, constants.InferenceServiceDefaultHttpPort,
 	}
-	if containerConcurrency != nil {
-		args = append(args, constants.ArgumentWorkers, strconv.FormatInt(*containerConcurrency, 10))
+	if extensions.ContainerConcurrency != nil {
+		args = append(args, constants.ArgumentWorkers, strconv.FormatInt(*extensions.ContainerConcurrency, 10))
 	}
-	if alibi.StorageURI != "" {
+	if s.StorageURI != "" {
 		args = append(args, "--storage_uri", constants.DefaultModelLocalMountPath)
 	}
 
-	args = append(args, string(alibi.Type))
+	args = append(args, string(s.Type))
 
 	// Order explainer config map keys
 	var keys []string
-	for k, _ := range alibi.Config {
+	for k, _ := range s.Config {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
 	for _, k := range keys {
 		args = append(args, "--"+k)
-		args = append(args, alibi.Config[k])
+		args = append(args, s.Config[k])
 	}
-	if alibi.Container.Image == "" {
-		alibi.Image = config.Explainers.AlibiExplainer.ContainerImage + ":" + *alibi.RuntimeVersion
+	if s.Container.Image == "" {
+		s.Image = config.Explainers.AlibiExplainer.ContainerImage + ":" + *s.RuntimeVersion
 	}
-	alibi.Name = constants.InferenceServiceContainerName
-	alibi.Args = args
-	return &alibi.Container
+	s.Name = constants.InferenceServiceContainerName
+	s.Args = args
+	return &s.Container
 }
 
-func (alibi *AlibiExplainerSpec) Default(config *InferenceServicesConfig) {
-	alibi.Name = constants.InferenceServiceContainerName
-	if alibi.RuntimeVersion == nil {
-		alibi.RuntimeVersion = proto.String(config.Explainers.AlibiExplainer.DefaultImageVersion)
+func (s *AlibiExplainerSpec) Default(config *InferenceServicesConfig) {
+	s.Name = constants.InferenceServiceContainerName
+	if s.RuntimeVersion == nil {
+		s.RuntimeVersion = proto.String(config.Explainers.AlibiExplainer.DefaultImageVersion)
 	}
-	setResourceRequirementDefaults(&alibi.Resources)
+	setResourceRequirementDefaults(&s.Resources)
 }
 
-func (alibi *AlibiExplainerSpec) Validate() error {
-	return nil
+// Validate the spec
+func (s *AlibiExplainerSpec) Validate() error {
+	return utils.FirstNonNilError([]error{
+		validateStorageURI(s.GetStorageUri()),
+	})
 }

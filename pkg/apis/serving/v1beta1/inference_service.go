@@ -35,32 +35,6 @@ type InferenceServiceSpec struct {
 	Transformer *TransformerSpec `json:"transformer,omitempty"`
 }
 
-// ComponentExtensionSpec defines the deployment configuration for a given InferenceService component
-type ComponentExtensionSpec struct {
-	// Minimum number of replicas, defaults to 1 but can be set to 0 to enable scale-to-zero.
-	// +optional
-	MinReplicas *int `json:"minReplicas,omitempty"`
-	// Maximum number of replicas for autoscaling.
-	// +optional
-	MaxReplicas int `json:"maxReplicas,omitempty"`
-	// ContainerConcurrency specifies how many requests can be processed concurrently, this sets the hard limit of the container
-	// concurrency(https://knative.dev/docs/serving/autoscaling/concurrency).
-	// +optional
-	ContainerConcurrency *int64 `json:"containerConcurrency,omitempty"`
-	// TimeoutSeconds specifies the number of seconds to wait before timing out a request to the component.
-	// +optional
-	TimeoutSeconds *int64 `json:"timeout,omitempty"`
-	// CanaryTrafficPercent defines the traffic split percentage between the candidate revision and the last ready revision
-	// +optional
-	CanaryTrafficPercent *int `json:"canaryTrafficPercent,omitempty"`
-	// Activate request/response logging and logger configurations
-	// +optional
-	LoggerSpec *LoggerSpec `json:"logger,omitempty"`
-	// Activate request batching and batching configurations
-	// +optional
-	Batcher *Batcher `json:"batcher,omitempty"`
-}
-
 // LoggerType controls the scope of log publishing
 // +kubebuilder:validation:Enum=all;request;response
 type LoggerType string

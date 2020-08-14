@@ -18,8 +18,10 @@ package v1beta1
 
 import (
 	"fmt"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/kubeflow/kfserving/pkg/constants"
+	"github.com/kubeflow/kfserving/pkg/utils"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -36,11 +38,13 @@ type ONNXRuntimeSpec struct {
 	PredictorExtensionSpec `json:",inline"`
 }
 
-var _ Component = &ONNXRuntimeSpec{}
+var _ ComponentImplementation = &ONNXRuntimeSpec{}
 
 // Validate returns an error if invalid
 func (o *ONNXRuntimeSpec) Validate() error {
-	return nil
+	return utils.FirstNonNilError([]error{
+		validateStorageURI(o.GetStorageUri()),
+	})
 }
 
 // Default sets defaults on the resource
@@ -53,7 +57,7 @@ func (o *ONNXRuntimeSpec) Default(config *InferenceServicesConfig) {
 }
 
 // GetContainers transforms the resource into a container spec
-func (o *ONNXRuntimeSpec) GetContainer(metadata metav1.ObjectMeta, containerConcurrency *int64, config *InferenceServicesConfig) *v1.Container {
+func (o *ONNXRuntimeSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig) *v1.Container {
 	arguments := []string{
 		fmt.Sprintf("%s=%s", "--model_path", constants.DefaultModelLocalMountPath+"/"+ONNXModelFileName),
 		fmt.Sprintf("%s=%s", "--http_port", ONNXServingRestPort),

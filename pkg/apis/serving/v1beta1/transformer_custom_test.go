@@ -1,6 +1,8 @@
 package v1beta1
 
 import (
+	"testing"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/onsi/gomega"
@@ -8,7 +10,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"testing"
 )
 
 func TestTransformerValidation(t *testing.T) {
@@ -114,7 +115,7 @@ func TestTransformerValidation(t *testing.T) {
 
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
-			res := scenario.spec.Validate()
+			res := scenario.spec.CustomTransformer.Validate()
 			if !g.Expect(res).To(scenario.matcher) {
 				t.Errorf("got %q, want %q", res, scenario.matcher)
 			}
@@ -342,9 +343,9 @@ func TestCreateTransformerContainer(t *testing.T) {
 	}
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
-			transformer := scenario.isvc.Spec.Transformer.GetTransformer()[0]
+			transformer := scenario.isvc.Spec.Transformer.GetImplementation()
 			transformer.Default(&config)
-			res := transformer.GetContainer(metav1.ObjectMeta{Name: "someName", Namespace: "default"}, scenario.isvc.Spec.Transformer.ContainerConcurrency, &config)
+			res := transformer.GetContainer(metav1.ObjectMeta{Name: "someName", Namespace: "default"}, &scenario.isvc.Spec.Transformer.ComponentExtensionSpec, &config)
 			if !g.Expect(res).To(gomega.Equal(scenario.expectedContainerSpec)) {
 				t.Errorf("got %q, want %q", res, scenario.expectedContainerSpec)
 			}

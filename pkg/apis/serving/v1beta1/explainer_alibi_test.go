@@ -1,6 +1,8 @@
 package v1beta1
 
 import (
+	"testing"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/onsi/gomega"
@@ -8,7 +10,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"testing"
 )
 
 func TestAlibiValidation(t *testing.T) {
@@ -80,7 +81,7 @@ func TestAlibiValidation(t *testing.T) {
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
 			scenario.spec.Alibi.Default(&config)
-			res := scenario.spec.Validate()
+			res := scenario.spec.Alibi.Validate()
 			if !g.Expect(res).To(scenario.matcher) {
 				t.Errorf("got %q, want %q", res, scenario.matcher)
 			}
@@ -334,9 +335,9 @@ func TestCreateAlibiModelServingContainer(t *testing.T) {
 	}
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
-			explainer := scenario.isvc.Spec.Explainer.GetExplainer()[0]
+			explainer := scenario.isvc.Spec.Explainer.GetImplementation()
 			explainer.Default(&config)
-			res := explainer.GetContainer(metav1.ObjectMeta{Name: "someName", Namespace: "default"}, scenario.isvc.Spec.Explainer.ContainerConcurrency, &config)
+			res := explainer.GetContainer(metav1.ObjectMeta{Name: "someName", Namespace: "default"}, &scenario.isvc.Spec.Explainer.ComponentExtensionSpec, &config)
 			if !g.Expect(res).To(gomega.Equal(scenario.expectedContainerSpec)) {
 				t.Errorf("got %q, want %q", res, scenario.expectedContainerSpec)
 			}
