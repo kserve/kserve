@@ -51,18 +51,21 @@ func NewPuller() *Puller {
 }
 
 func worker(id int, modelName string, events <-chan EventWrapper) {
-	log.Println("worker", id, modelName, "initialized")
+	log.Println("worker", id, "for", modelName, "is initialized")
+	var err error
 	for event := range events {
 		log.Println("worker", id, modelName, "started  job", event)
 		switch event.LoadState {
 		case ShouldLoad:
-			log.Println("Should download", event)
-			//err = DownloadModel(p.NumRetries, event)
-			//if err != nil {
-			//	log.Println("worker", id, "failed on", event, "because: ", err)
-			//}
+			log.Println("Should download", event.ModelSpec.StorageURI)
+			err = DownloadModel(event)
+			if err != nil {
+				log.Println("worker", id, "failed on", event, "because: ", err)
+			}
 		}
-		log.Println("Now doing a request on", event)
+		if err == nil {
+			log.Println("Now doing a request on", event)
+		}
 		//innerErr := RequestModel(event)
 		//if innerErr != nil {
 		//	log.Println("worker", id, "failed on", event, "because: ", err)

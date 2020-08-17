@@ -2,15 +2,15 @@ package puller
 
 import (
 	"encoding/json"
-	"fmt"
 	"github.com/fsnotify/fsnotify"
 	"github.com/google/go-cmp/cmp"
+	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
+	"github.com/kubeflow/kfserving/pkg/constants"
+	"github.com/kubeflow/kfserving/pkg/modelconfig"
 	"golang.org/x/sync/syncmap"
 	"io/ioutil"
 	"log"
-	"os"
 	"path/filepath"
-	"strings"
 	"time"
 )
 
@@ -20,12 +20,6 @@ type Watcher struct {
 	configDir    string
 	ModelTracker *syncmap.Map
 	numWorkers   int
-}
-
-type ModelDefinition struct {
-	// TODO: This needs to be defined by the ConfigMap PR
-	StorageUri string `json:"storageUri"`
-	Framework  string `json:"framework"`
 }
 
 func init() {
@@ -48,16 +42,16 @@ const (
 )
 
 type EventWrapper struct {
-	ModelDef       *ModelDefinition
+	ModelSpec      *v1beta1.ModelSpec
 	LoadState      LoadState
 	ShouldDownload bool
 }
 
 type ModelWrapper struct {
-	ModelDef *ModelDefinition
-	Time     time.Time
-	Stale    bool
-	Success  bool
+	ModelSpec *v1beta1.ModelSpec
+	Time      time.Time
+	Stale     bool
+	Success   bool
 }
 
 func WatchConfig(configDir string, numWorkers int) {
@@ -85,69 +79,67 @@ func (w *Watcher) WatchConfig() {
 				isCreate := event.Op&fsnotify.Create != 0
 				eventPath := filepath.Clean(event.Name)
 				isDataDir := filepath.Base(eventPath) == "..data"
+				// TODO: Should we use atomic integer or timestamp??
+				timeNow := time.Now()
 				if isDataDir && isCreate {
 					symlink, _ := filepath.EvalSymlinks(eventPath)
-					timeNow := time.Now()
-					err := filepath.Walk(symlink, func(path string, info os.FileInfo, err error) error {
-						// TODO: Filter SUCCESS files when they are added
-						if !info.IsDir() {
-							file, _ := ioutil.ReadFile(path)
-							modelName := strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
-							modelDef := ModelDefinition{}
-							err := json.Unmarshal([]byte(file), &modelDef)
-							if err != nil {
-								return fmt.Errorf("unable to marshall for %v, error: %v", event, err)
-							} else {
-								log.Println("Model:", modelName, "storage:", modelDef.StorageUri)
+					file, err := ioutil.ReadFile(filepath.Join(symlink, constants.ModelConfigFileName))
+					modelConfigs := make(modelconfig.ModelConfigs, 0)
+					if err != nil {
+						log.Println("Error in reading file", err)
+					}
+					err = json.Unmarshal([]byte(file), &modelConfigs)
+					if err != nil {
+						log.Println("unable to marshall for", event, "with error", err)
+					}
+					for _, modelConfig := range modelConfigs {
+						modelName := modelConfig.Name
+						modelSpec := modelConfig.Spec
+						log.Println("Name:", modelName, "Spec:", modelSpec)
+						oldModelInterface, ok := w.ModelTracker.Load(modelName)
+						if !ok {
+							w.ModelTracker.Store(modelName, ModelWrapper{
+								ModelSpec: &modelSpec,
+								Time:      timeNow,
+								Stale:     true,
+								Success:   false,
+							})
+						} else {
+							oldModel := oldModelInterface.(ModelWrapper)
+							isSame := false
+							if oldModel.ModelSpec != nil {
+								isSame = cmp.Equal(*oldModel.ModelSpec, modelSpec)
+								log.Println("same", isSame, *oldModel.ModelSpec, modelSpec)
 							}
-							oldModelInterface, ok := w.ModelTracker.Load(modelName)
-							if !ok {
+							if isSame {
+								// Need to store new time, maybe worth to have seperate map?
 								w.ModelTracker.Store(modelName, ModelWrapper{
-									ModelDef: &modelDef,
-									Time:     timeNow,
-									Stale:    true,
-									Success:  false,
+									ModelSpec: &modelSpec,
+									Time:      timeNow,
+									Stale:     false,
+									Success:   false,
 								})
 							} else {
-								oldModel := oldModelInterface.(ModelWrapper)
-								isSame := false
-								if oldModel.ModelDef != nil {
-									isSame = cmp.Equal(*oldModel.ModelDef, modelDef)
-									log.Println("same", isSame, *oldModel.ModelDef, modelDef)
-								}
-								if isSame {
-									// Need to store new time, maybe worth to have seperate map?
-									w.ModelTracker.Store(modelName, ModelWrapper{
-										ModelDef: &modelDef,
-										Time:     timeNow,
-										Stale:    false,
-										Success:  false,
-									})
-								} else {
-									w.ModelTracker.Store(modelName, ModelWrapper{
-										ModelDef: &modelDef,
-										Time:     timeNow,
-										Stale:    true,
-										Success:  false,
-									})
-								}
-
+								w.ModelTracker.Store(modelName, ModelWrapper{
+									ModelSpec: &modelSpec,
+									Time:      timeNow,
+									Stale:     true,
+									Success:   false,
+								})
 							}
 						}
-						return nil
-					})
+					}
 					// TODO: Maybe make parallel and more efficient?
 					w.ModelTracker.Range(func(key interface{}, value interface{}) bool {
 						modelName, modelWrapper := key.(string), value.(ModelWrapper)
 						if modelWrapper.Time.Before(timeNow) {
-							log.Println("Delete", modelName)
 							w.ModelTracker.Delete(modelName)
 							channel, ok := p.ChannelMap[modelName]
 							if !ok {
 								log.Println("Model", modelName, "was never added to channel map")
 							} else {
 								event := EventWrapper{
-									ModelDef:       nil,
+									ModelSpec:      nil,
 									LoadState:      ShouldUnload,
 									ShouldDownload: !modelWrapper.Success,
 								}
@@ -163,7 +155,7 @@ func (w *Watcher) WatchConfig() {
 									channel = p.AddModel(modelName, w.numWorkers)
 								}
 								event := EventWrapper{
-									ModelDef:       modelWrapper.ModelDef,
+									ModelSpec:      modelWrapper.ModelSpec,
 									LoadState:      ShouldLoad,
 									ShouldDownload: !modelWrapper.Success,
 								}
@@ -173,11 +165,7 @@ func (w *Watcher) WatchConfig() {
 						}
 						return true
 					})
-					if err != nil {
-						log.Println("Error in filepath walk", err)
-					}
 				}
-
 			case err, ok := <-watcher.Errors:
 				if ok { // 'Errors' channel is not closed
 					log.Println("watcher error", err)

@@ -6,7 +6,7 @@ require (
 	cloud.google.com/go v0.47.0 // indirect
 	contrib.go.opencensus.io/exporter/stackdriver v0.12.9-0.20191108183826-59d068f8d8ff // indirect
 	github.com/astaxie/beego v1.12.1
-	github.com/aws/aws-sdk-go v1.28.0 // indirect
+	github.com/aws/aws-sdk-go v1.28.0
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cloudevents/sdk-go v1.2.0
 	github.com/emicklei/go-restful v2.11.0+incompatible // indirect

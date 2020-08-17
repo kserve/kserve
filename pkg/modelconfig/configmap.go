@@ -13,8 +13,8 @@ var logger = log.Log.WithName("ModelConfig")
 var json = jsoniter.ConfigCompatibleWithStandardLibrary
 
 type ModelConfig struct {
-	Name string             `json:"modelName"`
-	Spec v1beta1.ModelSpec  `json:"modelSpec"`
+	Name string            `json:"modelName"`
+	Spec v1beta1.ModelSpec `json:"modelSpec"`
 }
 
 type ModelConfigs []ModelConfig
