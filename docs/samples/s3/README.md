@@ -37,11 +37,15 @@ metadata:
      serving.kubeflow.org/s3-usehttps: "0" # by default 1, for testing with minio you need to set to 0
 type: Opaque
 stringData:
+# Before KFServing 0.3
+  awsAccessKeyID: XXXX
+  awsSecretAccessKey: XXXXXXXX
+# KFServing 0.4
   AWS_ACCESS_KEY_ID: XXXX
   AWS_SECRET_ACCESS_KEY: XXXXXXXX
 ```
 
-`KFServing` gets the secrets from your service account, you need to add the above created or existing secret to your service account's secret list. 
+`KFServing` gets the secrets from your service account, you need to add the above created or existing secret to your service account's secret list.
 By default `KFServing` uses `default` service account, user can use own service account and overwrite on `InferenceService` CRD.
 
 ```yaml
@@ -61,7 +65,7 @@ kubectl apply -f s3_secret.yaml
 ## Create the InferenceService
 Apply the CRD
 ```bash
-kubectl apply -f tensorflow_s3.yaml 
+kubectl apply -f tensorflow_s3.yaml
 ```
 
 Expected Output
@@ -90,7 +94,7 @@ Expected Output
 > Content-Length: 2052
 > Content-Type: application/x-www-form-urlencoded
 > Expect: 100-continue
-> 
+>
 < HTTP/1.1 100 Continue
 * We are completely uploaded and fine
 
@@ -100,7 +104,7 @@ Expected Output
 < date: Thu, 23 May 2019 01:33:08 GMT
 < server: istio-envoy
 < x-envoy-upstream-service-time: 20536
-< 
+<
 {
     "predictions": [
         {
