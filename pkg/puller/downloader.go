@@ -26,16 +26,15 @@ type Downloader struct {
 type Protocol string
 
 const (
-	// Supported Protocols
 	S3    Protocol = "s3://"
-	GS    Protocol = "gs://"
-	PVC   Protocol = "pvc://"
-	File  Protocol = "file://"
-	HTTPS Protocol = "https://"
+	GCS    Protocol = "gs://"
+	//PVC   Protocol = "pvc://"
+	//File  Protocol = "file://"
+	//HTTPS Protocol = "https://"
 )
 
 // TODO: Add more supported protocols
-var SupportedProtocols = []Protocol{S3}
+var SupportedProtocols = []Protocol{S3, GCS}
 
 func init() {
 	d = NewDownloader()
@@ -46,7 +45,7 @@ func NewDownloader() *Downloader {
 	return d
 }
 
-func SetEnvs(numRetries int, modelDir string) {
+func SetDownloadSettings(numRetries int, modelDir string) {
 	d.NumRetries = numRetries
 	d.ModelDir = modelDir
 }
