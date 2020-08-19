@@ -81,7 +81,7 @@ var _ = BeforeSuite(func(done Done) {
 	err = (&TrainedModelReconciler{
 		Client: k8sManager.GetClient(),
 		Scheme: scheme.Scheme,
-		Log:    ctrl.Log.WithName("v1beta1TranedModelController"),
+		Log:    ctrl.Log.WithName("v1beta1TrainedModelController"),
 	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 	defer GinkgoRecover()

@@ -68,7 +68,7 @@ func (r *TrainedModelReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 	log.Info("Reconciling TrainedModel", "apiVersion", tm.APIVersion, "trainedmodel", tm.Spec)
 	shardStrategy := sharding.MemoryStrategy{}
 	shardId := shardStrategy.GetOrAssignShard(tm)
-	// Use tm's parent InferenceService field to get the multi-model configMap
+	// Use tm's parent InferenceService field to get the model configMap
 	modelConfigName := constants.ModelConfigName(tm.Spec.InferenceService, shardId)
 	configMap := &v1.ConfigMap{}
 	err := r.Get(context.TODO(), types.NamespacedName{Name: modelConfigName, Namespace: req.Namespace}, configMap)
