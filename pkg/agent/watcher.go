@@ -1,4 +1,4 @@
-package puller
+package agent
 
 import (
 	"encoding/json"
@@ -14,23 +14,11 @@ import (
 	"time"
 )
 
-var w *Watcher
-
 type Watcher struct {
-	configDir    string
+	ConfigDir    string
 	ModelTracker *syncmap.Map
-	numWorkers   int
-}
-
-func init() {
-	w = NewWatcher()
-}
-
-func NewWatcher() *Watcher {
-	w := new(Watcher)
-	m := new(syncmap.Map)
-	w.ModelTracker = m
-	return w
+	NumWorkers   int
+	Puller Puller
 }
 
 type LoadState string
@@ -54,14 +42,7 @@ type ModelWrapper struct {
 	Success   bool
 }
 
-func WatchConfig(configDir string, numWorkers int) {
-	log.Println("Entering watch")
-	w.configDir = configDir
-	w.numWorkers = numWorkers
-	w.WatchConfig()
-}
-
-func (w *Watcher) WatchConfig() {
+func (w *Watcher) Start() {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		log.Fatal(err)
@@ -134,7 +115,7 @@ func (w *Watcher) WatchConfig() {
 						modelName, modelWrapper := key.(string), value.(ModelWrapper)
 						if modelWrapper.Time.Before(timeNow) {
 							w.ModelTracker.Delete(modelName)
-							channel, ok := p.ChannelMap[modelName]
+							channel, ok := w.Puller.ChannelMap[modelName]
 							if !ok {
 								log.Println("Model", modelName, "was never added to channel map")
 							} else {
@@ -148,11 +129,11 @@ func (w *Watcher) WatchConfig() {
 							}
 						} else {
 							if modelWrapper.Stale {
-								channel, ok := p.ChannelMap[modelName]
+								channel, ok := w.Puller.ChannelMap[modelName]
 								if !ok {
 									log.Println("Need to add model", modelName)
 									// TODO: Maybe have more workers per Channel?
-									channel = p.AddModel(modelName, w.numWorkers)
+									channel = w.Puller.AddModel(modelName, w.NumWorkers)
 								}
 								event := EventWrapper{
 									ModelSpec:      modelWrapper.ModelSpec,
@@ -176,7 +157,7 @@ func (w *Watcher) WatchConfig() {
 			}
 		}
 	}()
-	err = watcher.Add(w.configDir)
+	err = watcher.Add(w.ConfigDir)
 	if err != nil {
 		log.Fatal(err)
 	}
