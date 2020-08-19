@@ -44,7 +44,7 @@ func (c *ConfigMapReconciler) Reconcile(desired *corev1.ConfigMap, tm *v1beta1ap
 	if tm.DeletionTimestamp != nil {
 		//A TrainedModel is being deleted, remove the model from the model configmap
 		deletedConfigs := []string{tm.Name}
-		mConfig := modelconfig.NewConfigsDelta(nil, deletedConfigs)
+		mConfig := modelconfig.NewConfigsDelta([]modelconfig.ModelConfig{}, deletedConfigs)
 		err := mConfig.Process(desired)
 		if err != nil {
 			return err

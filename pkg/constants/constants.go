@@ -163,7 +163,7 @@ const (
 
 // Multi-model InferenceService
 const (
-	MultiModelConfigVolumeName = "model-config"
+	ModelConfigVolumeName = "model-config"
 )
 
 func (e InferenceServiceComponent) String() string {
