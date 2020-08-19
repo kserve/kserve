@@ -15,13 +15,14 @@ type S3Manager struct {
 	S3 *s3.S3
 }
 
-func (m *S3Manager) Download(modelDir string, storageUri string) error {
+func (m *S3Manager) Download(modelDir string, modelName string, storageUri string) error {
 	s3Uri := strings.TrimPrefix(storageUri, string(S3))
 	path := strings.SplitN(s3Uri, "/", 2)
 	bucket := path[0]
 	item := path[1]
 	s3ObjectLoactor := &S3ObjectDownloader{
 		ModelDir: modelDir,
+		ModelName: modelName,
 		Bucket: bucket,
 		Item: item,
 	}
@@ -40,6 +41,7 @@ var _ ProtocolManager = (*S3Manager)(nil)
 
 type S3ObjectDownloader struct {
 	ModelDir string
+	ModelName string
 	Bucket string
 	Item string
 }
@@ -55,7 +57,7 @@ func (s *S3ObjectDownloader) GetAllObjects(s3Svc *s3.S3) ([]s3manager.BatchDownl
 	results := make([]s3manager.BatchDownloadObject, 0)
 
 	for _, object := range resp.Contents {
-		fileName := filepath.Join(s.ModelDir, *object.Key)
+		fileName := filepath.Join(s.ModelDir, s.ModelName, *object.Key)
 		ok := FileExists(fileName)
 		if ok {
 			// File got corrupted or is mid-download :(

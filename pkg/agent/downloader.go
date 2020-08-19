@@ -21,13 +21,14 @@ var SupportedProtocols = []pro.Protocol{pro.S3}
 
 func (d *Downloader) DownloadModel(event EventWrapper) error {
 	modelSpec := event.ModelSpec
+	modelName := event.ModelName
 	if modelSpec != nil {
 		modelUri := modelSpec.StorageURI
 		hashString := hash(modelUri)
 		log.Println("Processing:", modelUri, "=", hashString)
-		successFile := filepath.Join(d.ModelDir, fmt.Sprintf("SUCCESS.%d", hashString))
+		successFile := filepath.Join(d.ModelDir, modelName, fmt.Sprintf("SUCCESS.%d", hashString))
 		if !pro.FileExists(successFile) {
-			downloadErr := d.download(modelUri)
+			downloadErr := d.download(modelName, modelUri)
 			if downloadErr != nil {
 				return fmt.Errorf("download error: %v", downloadErr)
 			} else {
@@ -44,7 +45,7 @@ func (d *Downloader) DownloadModel(event EventWrapper) error {
 	return nil
 }
 
-func (d* Downloader) download(storageUri string) error {
+func (d* Downloader) download(modelName string, storageUri string) error {
 	log.Println("Downloading: ", storageUri)
 	protocol, err := validateStorageURI(storageUri)
 	if err != nil {
@@ -54,7 +55,7 @@ func (d* Downloader) download(storageUri string) error {
 	if !ok {
 		return fmt.Errorf("protocol manager for %s is not initialized", protocol)
 	}
-	if err = manager.Download(d.ModelDir, storageUri); err != nil {
+	if err = manager.Download(d.ModelDir, modelName, storageUri); err != nil {
 		return fmt.Errorf("failure on download: %v", err)
 	}
 
