@@ -51,7 +51,7 @@ type TrainedModelSpec struct {
 	InferenceService string `json:"inferenceService"`
 	// Predictor model spec
 	// +required
-	Inference ModelSpec `json:"predictorModel"`
+	Inference ModelSpec `json:"inference"`
 }
 
 // ModelSpec describes a trained model
