@@ -29,26 +29,30 @@ import (
 
 func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
 	return map[string]common.OpenAPIDefinition{
-		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.AlibiExplainerSpec":      schema_pkg_apis_serving_v1alpha2_AlibiExplainerSpec(ref),
-		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.Batcher":                 schema_pkg_apis_serving_v1alpha2_Batcher(ref),
-		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.CustomSpec":              schema_pkg_apis_serving_v1alpha2_CustomSpec(ref),
-		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.DeploymentSpec":          schema_pkg_apis_serving_v1alpha2_DeploymentSpec(ref),
-		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.EndpointSpec":            schema_pkg_apis_serving_v1alpha2_EndpointSpec(ref),
-		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.ExplainerSpec":           schema_pkg_apis_serving_v1alpha2_ExplainerSpec(ref),
-		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.InferenceService":        schema_pkg_apis_serving_v1alpha2_InferenceService(ref),
-		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.InferenceServiceList":    schema_pkg_apis_serving_v1alpha2_InferenceServiceList(ref),
-		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.InferenceServiceSpec":    schema_pkg_apis_serving_v1alpha2_InferenceServiceSpec(ref),
-		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.InferenceServiceStatus":  schema_pkg_apis_serving_v1alpha2_InferenceServiceStatus(ref),
-		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.Logger":                  schema_pkg_apis_serving_v1alpha2_Logger(ref),
-		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.ONNXSpec":                schema_pkg_apis_serving_v1alpha2_ONNXSpec(ref),
-		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.PredictorSpec":           schema_pkg_apis_serving_v1alpha2_PredictorSpec(ref),
-		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.PyTorchSpec":             schema_pkg_apis_serving_v1alpha2_PyTorchSpec(ref),
-		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.SKLearnSpec":             schema_pkg_apis_serving_v1alpha2_SKLearnSpec(ref),
-		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.StatusConfigurationSpec": schema_pkg_apis_serving_v1alpha2_StatusConfigurationSpec(ref),
-		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.TensorflowSpec":          schema_pkg_apis_serving_v1alpha2_TensorflowSpec(ref),
-		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.TransformerSpec":         schema_pkg_apis_serving_v1alpha2_TransformerSpec(ref),
-		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.TritonSpec":              schema_pkg_apis_serving_v1alpha2_TritonSpec(ref),
-		"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.XGBoostSpec":             schema_pkg_apis_serving_v1alpha2_XGBoostSpec(ref),
+		"./pkg/apis/serving/v1alpha2.AlibiExplainerSpec":      schema_pkg_apis_serving_v1alpha2_AlibiExplainerSpec(ref),
+		"./pkg/apis/serving/v1alpha2.Batcher":                 schema_pkg_apis_serving_v1alpha2_Batcher(ref),
+		"./pkg/apis/serving/v1alpha2.CustomSpec":              schema_pkg_apis_serving_v1alpha2_CustomSpec(ref),
+		"./pkg/apis/serving/v1alpha2.DeploymentSpec":          schema_pkg_apis_serving_v1alpha2_DeploymentSpec(ref),
+		"./pkg/apis/serving/v1alpha2.EndpointSpec":            schema_pkg_apis_serving_v1alpha2_EndpointSpec(ref),
+		"./pkg/apis/serving/v1alpha2.ExplainerSpec":           schema_pkg_apis_serving_v1alpha2_ExplainerSpec(ref),
+		"./pkg/apis/serving/v1alpha2.InferenceService":        schema_pkg_apis_serving_v1alpha2_InferenceService(ref),
+		"./pkg/apis/serving/v1alpha2.InferenceServiceList":    schema_pkg_apis_serving_v1alpha2_InferenceServiceList(ref),
+		"./pkg/apis/serving/v1alpha2.InferenceServiceSpec":    schema_pkg_apis_serving_v1alpha2_InferenceServiceSpec(ref),
+		"./pkg/apis/serving/v1alpha2.InferenceServiceStatus":  schema_pkg_apis_serving_v1alpha2_InferenceServiceStatus(ref),
+		"./pkg/apis/serving/v1alpha2.Logger":                  schema_pkg_apis_serving_v1alpha2_Logger(ref),
+		"./pkg/apis/serving/v1alpha2.ONNXSpec":                schema_pkg_apis_serving_v1alpha2_ONNXSpec(ref),
+		"./pkg/apis/serving/v1alpha2.PredictorSpec":           schema_pkg_apis_serving_v1alpha2_PredictorSpec(ref),
+		"./pkg/apis/serving/v1alpha2.PyTorchSpec":             schema_pkg_apis_serving_v1alpha2_PyTorchSpec(ref),
+		"./pkg/apis/serving/v1alpha2.SKLearnSpec":             schema_pkg_apis_serving_v1alpha2_SKLearnSpec(ref),
+		"./pkg/apis/serving/v1alpha2.StatusConfigurationSpec": schema_pkg_apis_serving_v1alpha2_StatusConfigurationSpec(ref),
+		"./pkg/apis/serving/v1alpha2.TensorflowSpec":          schema_pkg_apis_serving_v1alpha2_TensorflowSpec(ref),
+		"./pkg/apis/serving/v1alpha2.TransformerSpec":         schema_pkg_apis_serving_v1alpha2_TransformerSpec(ref),
+		"./pkg/apis/serving/v1alpha2.TritonSpec":              schema_pkg_apis_serving_v1alpha2_TritonSpec(ref),
+		"./pkg/apis/serving/v1alpha2.XGBoostSpec":             schema_pkg_apis_serving_v1alpha2_XGBoostSpec(ref),
+		"knative.dev/pkg/apis.URL":                            schema_knativedev_pkg_apis_URL(ref),
+		"knative.dev/pkg/apis.Condition":                      schema_knativedev_pkg_apis_Condition(ref),
+		"knative.dev/pkg/apis.VolatileTime":                   schema_knativedev_pkg_apis_VolatileTime(ref),
+		"knative.dev/pkg/apis/duck/v1beta1.Addressable":       schema_pkg_apis_duck_v1beta1_Addressable(ref),
 	}
 }
 
@@ -203,20 +207,20 @@ func schema_pkg_apis_serving_v1alpha2_DeploymentSpec(ref common.ReferenceCallbac
 					"logger": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Activate request/response logging",
-							Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.Logger"),
+							Ref:         ref("./pkg/apis/serving/v1alpha2.Logger"),
 						},
 					},
 					"batcher": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Activate request batching",
-							Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.Batcher"),
+							Ref:         ref("./pkg/apis/serving/v1alpha2.Batcher"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.Batcher", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.Logger"},
+			"./pkg/apis/serving/v1alpha2.Batcher", "./pkg/apis/serving/v1alpha2.Logger"},
 	}
 }
 
@@ -229,19 +233,19 @@ func schema_pkg_apis_serving_v1alpha2_EndpointSpec(ref common.ReferenceCallback)
 					"predictor": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Predictor defines the model serving spec",
-							Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.PredictorSpec"),
+							Ref:         ref("./pkg/apis/serving/v1alpha2.PredictorSpec"),
 						},
 					},
 					"explainer": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Explainer defines the model explanation service spec, explainer service calls to predictor or transformer if it is specified.",
-							Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.ExplainerSpec"),
+							Ref:         ref("./pkg/apis/serving/v1alpha2.ExplainerSpec"),
 						},
 					},
 					"transformer": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Transformer defines the pre/post processing before and after the predictor call, transformer service calls to predictor service.",
-							Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.TransformerSpec"),
+							Ref:         ref("./pkg/apis/serving/v1alpha2.TransformerSpec"),
 						},
 					},
 				},
@@ -249,7 +253,7 @@ func schema_pkg_apis_serving_v1alpha2_EndpointSpec(ref common.ReferenceCallback)
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.ExplainerSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.PredictorSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.TransformerSpec"},
+			"./pkg/apis/serving/v1alpha2.ExplainerSpec", "./pkg/apis/serving/v1alpha2.PredictorSpec", "./pkg/apis/serving/v1alpha2.TransformerSpec"},
 	}
 }
 
@@ -263,13 +267,13 @@ func schema_pkg_apis_serving_v1alpha2_ExplainerSpec(ref common.ReferenceCallback
 					"alibi": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Spec for alibi explainer",
-							Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.AlibiExplainerSpec"),
+							Ref:         ref("./pkg/apis/serving/v1alpha2.AlibiExplainerSpec"),
 						},
 					},
 					"custom": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Spec for a custom explainer",
-							Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.CustomSpec"),
+							Ref:         ref("./pkg/apis/serving/v1alpha2.CustomSpec"),
 						},
 					},
 					"serviceAccountName": {
@@ -303,20 +307,20 @@ func schema_pkg_apis_serving_v1alpha2_ExplainerSpec(ref common.ReferenceCallback
 					"logger": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Activate request/response logging",
-							Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.Logger"),
+							Ref:         ref("./pkg/apis/serving/v1alpha2.Logger"),
 						},
 					},
 					"batcher": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Activate request batching",
-							Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.Batcher"),
+							Ref:         ref("./pkg/apis/serving/v1alpha2.Batcher"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.AlibiExplainerSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.Batcher", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.CustomSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.Logger"},
+			"./pkg/apis/serving/v1alpha2.AlibiExplainerSpec", "./pkg/apis/serving/v1alpha2.Batcher", "./pkg/apis/serving/v1alpha2.CustomSpec", "./pkg/apis/serving/v1alpha2.Logger"},
 	}
 }
 
@@ -348,19 +352,19 @@ func schema_pkg_apis_serving_v1alpha2_InferenceService(ref common.ReferenceCallb
 					},
 					"spec": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.InferenceServiceSpec"),
+							Ref: ref("./pkg/apis/serving/v1alpha2.InferenceServiceSpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.InferenceServiceStatus"),
+							Ref: ref("./pkg/apis/serving/v1alpha2.InferenceServiceStatus"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.InferenceServiceSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.InferenceServiceStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"./pkg/apis/serving/v1alpha2.InferenceServiceSpec", "./pkg/apis/serving/v1alpha2.InferenceServiceStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
@@ -401,7 +405,7 @@ func schema_pkg_apis_serving_v1alpha2_InferenceServiceList(ref common.ReferenceC
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Ref: ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.InferenceService"),
+										Ref: ref("./pkg/apis/serving/v1alpha2.InferenceService"),
 									},
 								},
 							},
@@ -412,7 +416,7 @@ func schema_pkg_apis_serving_v1alpha2_InferenceServiceList(ref common.ReferenceC
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.InferenceService", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+			"./pkg/apis/serving/v1alpha2.InferenceService", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
 	}
 }
 
@@ -426,13 +430,13 @@ func schema_pkg_apis_serving_v1alpha2_InferenceServiceSpec(ref common.ReferenceC
 					"default": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Default defines default InferenceService endpoints",
-							Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.EndpointSpec"),
+							Ref:         ref("./pkg/apis/serving/v1alpha2.EndpointSpec"),
 						},
 					},
 					"canary": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Canary defines alternate endpoints to route a percentage of traffic.",
-							Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.EndpointSpec"),
+							Ref:         ref("./pkg/apis/serving/v1alpha2.EndpointSpec"),
 						},
 					},
 					"canaryTrafficPercent": {
@@ -447,7 +451,7 @@ func schema_pkg_apis_serving_v1alpha2_InferenceServiceSpec(ref common.ReferenceC
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.EndpointSpec"},
+			"./pkg/apis/serving/v1alpha2.EndpointSpec"},
 	}
 }
 
@@ -513,7 +517,7 @@ func schema_pkg_apis_serving_v1alpha2_InferenceServiceStatus(ref common.Referenc
 								Allows: true,
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Ref: ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.StatusConfigurationSpec"),
+										Ref: ref("./pkg/apis/serving/v1alpha2.StatusConfigurationSpec"),
 									},
 								},
 							},
@@ -527,7 +531,7 @@ func schema_pkg_apis_serving_v1alpha2_InferenceServiceStatus(ref common.Referenc
 								Allows: true,
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Ref: ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.StatusConfigurationSpec"),
+										Ref: ref("./pkg/apis/serving/v1alpha2.StatusConfigurationSpec"),
 									},
 								},
 							},
@@ -543,7 +547,7 @@ func schema_pkg_apis_serving_v1alpha2_InferenceServiceStatus(ref common.Referenc
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.StatusConfigurationSpec", "knative.dev/pkg/apis.Condition", "knative.dev/pkg/apis/duck/v1beta1.Addressable"},
+			"./pkg/apis/serving/v1alpha2.StatusConfigurationSpec", "knative.dev/pkg/apis.Condition", "knative.dev/pkg/apis/duck/v1beta1.Addressable"},
 	}
 }
 
@@ -620,43 +624,43 @@ func schema_pkg_apis_serving_v1alpha2_PredictorSpec(ref common.ReferenceCallback
 					"custom": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Spec for a custom predictor",
-							Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.CustomSpec"),
+							Ref:         ref("./pkg/apis/serving/v1alpha2.CustomSpec"),
 						},
 					},
 					"tensorflow": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Spec for Tensorflow Serving (https://github.com/tensorflow/serving)",
-							Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.TensorflowSpec"),
+							Ref:         ref("./pkg/apis/serving/v1alpha2.TensorflowSpec"),
 						},
 					},
 					"triton": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Spec for Triton Inference Server (https://github.com/NVIDIA/triton-inference-server)",
-							Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.TritonSpec"),
+							Ref:         ref("./pkg/apis/serving/v1alpha2.TritonSpec"),
 						},
 					},
 					"xgboost": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Spec for XGBoost predictor",
-							Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.XGBoostSpec"),
+							Ref:         ref("./pkg/apis/serving/v1alpha2.XGBoostSpec"),
 						},
 					},
 					"sklearn": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Spec for SKLearn predictor",
-							Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.SKLearnSpec"),
+							Ref:         ref("./pkg/apis/serving/v1alpha2.SKLearnSpec"),
 						},
 					},
 					"onnx": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Spec for ONNX runtime (https://github.com/microsoft/onnxruntime)",
-							Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.ONNXSpec"),
+							Ref:         ref("./pkg/apis/serving/v1alpha2.ONNXSpec"),
 						},
 					},
 					"pytorch": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Spec for PyTorch predictor",
-							Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.PyTorchSpec"),
+							Ref:         ref("./pkg/apis/serving/v1alpha2.PyTorchSpec"),
 						},
 					},
 					"serviceAccountName": {
@@ -690,20 +694,20 @@ func schema_pkg_apis_serving_v1alpha2_PredictorSpec(ref common.ReferenceCallback
 					"logger": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Activate request/response logging",
-							Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.Logger"),
+							Ref:         ref("./pkg/apis/serving/v1alpha2.Logger"),
 						},
 					},
 					"batcher": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Activate request batching",
-							Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.Batcher"),
+							Ref:         ref("./pkg/apis/serving/v1alpha2.Batcher"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.Batcher", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.CustomSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.Logger", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.ONNXSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.PyTorchSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.SKLearnSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.TensorflowSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.TritonSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.XGBoostSpec"},
+			"./pkg/apis/serving/v1alpha2.Batcher", "./pkg/apis/serving/v1alpha2.CustomSpec", "./pkg/apis/serving/v1alpha2.Logger", "./pkg/apis/serving/v1alpha2.ONNXSpec", "./pkg/apis/serving/v1alpha2.PyTorchSpec", "./pkg/apis/serving/v1alpha2.SKLearnSpec", "./pkg/apis/serving/v1alpha2.TensorflowSpec", "./pkg/apis/serving/v1alpha2.TritonSpec", "./pkg/apis/serving/v1alpha2.XGBoostSpec"},
 	}
 }
 
@@ -859,7 +863,7 @@ func schema_pkg_apis_serving_v1alpha2_TransformerSpec(ref common.ReferenceCallba
 					"custom": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Spec for a custom transformer",
-							Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.CustomSpec"),
+							Ref:         ref("./pkg/apis/serving/v1alpha2.CustomSpec"),
 						},
 					},
 					"serviceAccountName": {
@@ -893,20 +897,20 @@ func schema_pkg_apis_serving_v1alpha2_TransformerSpec(ref common.ReferenceCallba
 					"logger": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Activate request/response logging",
-							Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.Logger"),
+							Ref:         ref("./pkg/apis/serving/v1alpha2.Logger"),
 						},
 					},
 					"batcher": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Activate request batching",
-							Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.Batcher"),
+							Ref:         ref("./pkg/apis/serving/v1alpha2.Batcher"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.Batcher", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.CustomSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2.Logger"},
+			"./pkg/apis/serving/v1alpha2.Batcher", "./pkg/apis/serving/v1alpha2.CustomSpec", "./pkg/apis/serving/v1alpha2.Logger"},
 	}
 }
 
@@ -986,5 +990,177 @@ func schema_pkg_apis_serving_v1alpha2_XGBoostSpec(ref common.ReferenceCallback) 
 		},
 		Dependencies: []string{
 			"k8s.io/api/core/v1.ResourceRequirements"},
+	}
+}
+
+func schema_knativedev_pkg_apis_Condition(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "Conditions defines a readiness condition for a Knative resource. See: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#typical-status-properties",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Type of condition.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Status of the condition, one of True, False, Unknown.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"severity": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Severity with which to treat failures of this type of condition. When this is not specified, it defaults to Error.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"lastTransitionTime": {
+						SchemaProps: spec.SchemaProps{
+							Description: "LastTransitionTime is the last time the condition transitioned from one status to another. We use VolatileTime in place of metav1.Time to exclude this from creating equality.Semantic differences (all other things held constant).",
+							Ref:         ref("knative.dev/pkg/apis.VolatileTime"),
+						},
+					},
+					"reason": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The reason for the condition's last transition.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"message": {
+						SchemaProps: spec.SchemaProps{
+							Description: "A human readable message indicating details about the transition.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"type", "status"},
+			},
+		},
+		Dependencies: []string{
+			"knative.dev/pkg/apis.VolatileTime"},
+	}
+}
+
+func schema_knativedev_pkg_apis_VolatileTime(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VolatileTime wraps metav1.Time",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"Time": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "date-time",
+						},
+					},
+				},
+				Required: []string{"Time"},
+			},
+		},
+	}
+}
+
+func schema_knativedev_pkg_apis_URL(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "URL is an alias of url.URL. It has custom json marshal methods that enable it to be used in K8s CRDs such that the CRD resource will have the URL but operator code can can work with url.URL struct",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"Scheme": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"Opaque": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"User": {
+						SchemaProps: spec.SchemaProps{
+							Description: "encoded opaque data",
+							Ref:         ref("net/url.Userinfo"),
+						},
+					},
+					"Host": {
+						SchemaProps: spec.SchemaProps{
+							Description: "username and password information",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"Path": {
+						SchemaProps: spec.SchemaProps{
+							Description: "host or host:port",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"RawPath": {
+						SchemaProps: spec.SchemaProps{
+							Description: "path (relative paths may omit leading slash)",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"ForceQuery": {
+						SchemaProps: spec.SchemaProps{
+							Description: "encoded path hint (see EscapedPath method)",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"RawQuery": {
+						SchemaProps: spec.SchemaProps{
+							Description: "append a query ('?') even if RawQuery is empty",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"Fragment": {
+						SchemaProps: spec.SchemaProps{
+							Description: "encoded query values, without '?'",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"Scheme", "Opaque", "User", "Host", "Path", "RawPath", "ForceQuery", "RawQuery", "Fragment"},
+			},
+		},
+		Dependencies: []string{
+			"net/url.Userinfo"},
+	}
+}
+
+func schema_pkg_apis_duck_v1beta1_Addressable(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"url": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("knative.dev/pkg/apis.URL"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"knative.dev/pkg/apis.URL"},
 	}
 }
