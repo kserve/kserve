@@ -30,6 +30,7 @@ const (
 )
 
 type EventWrapper struct {
+	ModelName 	   string
 	ModelSpec      *v1beta1.ModelSpec
 	LoadState      LoadState
 	ShouldDownload bool
@@ -120,6 +121,7 @@ func (w *Watcher) Start() {
 								log.Println("Model", modelName, "was never added to channel map")
 							} else {
 								event := EventWrapper{
+									ModelName: modelName,
 									ModelSpec:      nil,
 									LoadState:      ShouldUnload,
 									ShouldDownload: !modelWrapper.Success,
@@ -136,6 +138,7 @@ func (w *Watcher) Start() {
 									channel = w.Puller.AddModel(modelName, w.NumWorkers)
 								}
 								event := EventWrapper{
+									ModelName: modelName,
 									ModelSpec:      modelWrapper.ModelSpec,
 									LoadState:      ShouldLoad,
 									ShouldDownload: !modelWrapper.Success,

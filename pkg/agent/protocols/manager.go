@@ -1,7 +1,7 @@
 package protocols
 
 type ProtocolManager interface {
-	Download(modelDir string, storageUri string) error
+	Download(modelDir string, modelName string, storageUri string) error
 }
 
 type Protocol string
