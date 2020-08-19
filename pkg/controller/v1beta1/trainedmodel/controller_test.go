@@ -52,7 +52,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			tmKey := types.NamespacedName{Name: modelName, Namespace: namespace}
 
 			modelConfig := &v1.ConfigMap{
-				TypeMeta: metav1.TypeMeta{Kind: "ConfigMap", APIVersion: "v1"},
+				TypeMeta:   metav1.TypeMeta{Kind: "ConfigMap", APIVersion: "v1"},
 				ObjectMeta: metav1.ObjectMeta{Name: modelConfigName, Namespace: namespace},
 				Data: map[string]string{
 					constants.ModelConfigFileName: "",
@@ -121,7 +121,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			}
 
 			modelConfig := &v1.ConfigMap{
-				TypeMeta: metav1.TypeMeta{Kind: "ConfigMap", APIVersion: "v1"},
+				TypeMeta:   metav1.TypeMeta{Kind: "ConfigMap", APIVersion: "v1"},
 				ObjectMeta: metav1.ObjectMeta{Name: modelConfigName, Namespace: namespace},
 				Data: map[string]string{
 					constants.ModelConfigFileName: "",
@@ -161,7 +161,8 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 				k8sClient.Get(ctx, tmKey, tmActual)
 
 				return configmapActual.Data
-			}, timeout, interval).Should(Equal(expected.Data))		})
+			}, timeout, interval).Should(Equal(expected.Data))
+		})
 	})
 
 	Context("When deleting a TrainedModel", func() {
@@ -186,7 +187,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			}
 
 			modelConfig := &v1.ConfigMap{
-				TypeMeta: metav1.TypeMeta{Kind: "ConfigMap", APIVersion: "v1"},
+				TypeMeta:   metav1.TypeMeta{Kind: "ConfigMap", APIVersion: "v1"},
 				ObjectMeta: metav1.ObjectMeta{Name: modelConfigName, Namespace: namespace},
 				Data: map[string]string{
 					constants.ModelConfigFileName: `[{"modelName":"model1-delete","modelSpec":{"storageUri":"s3//model1","framework":"pytorch","memory":"1G"}}]`,
@@ -227,6 +228,6 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			//
 			//	return configmapActual.Data
 			//}, timeout, interval).Should(Equal(expected.Data))
-			})
+		})
 	})
 })

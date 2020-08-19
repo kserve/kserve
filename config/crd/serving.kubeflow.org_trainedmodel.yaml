@@ -6,15 +6,29 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.3.1-0.20200528125929-5c0c6ae3b64b
   creationTimestamp: null
-  name: trainedmodels.serving.kubeflow.org
+  name: trainedmodel.serving.kubeflow.org
 spec:
+  additionalPrinterColumns:
+  - JSONPath: .status.url
+    name: URL
+    type: string
+  - JSONPath: .status.conditions[?(@.type=='Ready')].status
+    name: Ready
+    type: string
+  - JSONPath: .metadata.creationTimestamp
+    name: Age
+    type: date
   group: serving.kubeflow.org
   names:
     kind: TrainedModel
     listKind: TrainedModelList
-    plural: trainedmodels
+    plural: trainedmodel
+    shortNames:
+    - tm
     singular: trainedmodel
   scope: Namespaced
+  subresources:
+    status: {}
   validation:
     openAPIV3Schema:
       properties:
@@ -26,9 +40,7 @@ spec:
           type: object
         spec:
           properties:
-            inferenceService:
-              type: string
-            predictorModel:
+            inference:
               properties:
                 framework:
                   type: string
@@ -44,9 +56,11 @@ spec:
               - framework
               - storageUri
               type: object
+            inferenceService:
+              type: string
           required:
+          - inference
           - inferenceService
-          - predictorModel
           type: object
         status:
           properties:
@@ -79,8 +93,6 @@ spec:
               format: int64
               type: integer
           type: object
-      required:
-      - spec
       type: object
   version: v1beta1
   versions:
