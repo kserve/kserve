@@ -42,15 +42,19 @@ func NewModelConfigReconciler(client client.Client, scheme *runtime.Scheme) *Con
 
 func (c *ConfigMapReconciler) Reconcile(desired *corev1.ConfigMap, tm *v1beta1api.TrainedModel) error {
 	if tm.DeletionTimestamp != nil {
-		//A Trainedmodel is being deleted, remove the model from multi-model configmap
+		//A TrainedModel is being deleted, remove the model from the model configmap
 		deletedConfigs := []string{tm.Name}
 		mConfig := modelconfig.NewConfigsDelta(nil, deletedConfigs)
 		err := mConfig.Process(desired)
 		if err != nil {
 			return err
 		}
+		err = c.client.Delete(context.TODO(), desired)
+		if err != nil {
+			return err
+		}
 	} else {
-		//A TrainedModel is created or updated, add or update the model from multi-model configmap
+		//A TrainedModel is created or updated, add or update the model from the model configmap
 		modelConfig := modelconfig.ModelConfig{Name: tm.Name, Spec: tm.Spec.Inference}
 		updatedConfigs := []modelconfig.ModelConfig{modelConfig}
 		mConfig := modelconfig.NewConfigsDelta(updatedConfigs, nil)
@@ -58,10 +62,11 @@ func (c *ConfigMapReconciler) Reconcile(desired *corev1.ConfigMap, tm *v1beta1ap
 		if err != nil {
 			return err
 		}
-	}
-	err := c.client.Create(context.TODO(), desired)
-	if err != nil {
-		return err
+		// Update the modelConfig created by the InferenceService controller
+		err = c.client.Update(context.TODO(), desired)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
