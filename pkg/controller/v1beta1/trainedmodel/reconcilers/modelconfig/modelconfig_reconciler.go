@@ -29,19 +29,19 @@ import (
 
 var log = logf.Log.WithName("Reconciler")
 
-type ConfigMapReconciler struct {
+type ModelConfigReconciler struct {
 	client client.Client
 	scheme *runtime.Scheme
 }
 
-func NewModelConfigReconciler(client client.Client, scheme *runtime.Scheme) *ConfigMapReconciler {
-	return &ConfigMapReconciler{
+func NewModelConfigReconciler(client client.Client, scheme *runtime.Scheme) *ModelConfigReconciler {
+	return &ModelConfigReconciler{
 		client: client,
 		scheme: scheme,
 	}
 }
 
-func (c *ConfigMapReconciler) Reconcile(desired *corev1.ConfigMap, tm *v1beta1api.TrainedModel) error {
+func (c *ModelConfigReconciler) Reconcile(desired *corev1.ConfigMap, tm *v1beta1api.TrainedModel) error {
 	if tm.DeletionTimestamp != nil {
 		//A TrainedModel is being deleted, remove the model from the model configmap
 		deletedConfigs := []string{tm.Name}
