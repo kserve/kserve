@@ -34,6 +34,7 @@ type EventWrapper struct {
 	ModelSpec      *v1beta1.ModelSpec
 	LoadState      LoadState
 	ShouldDownload bool
+	NumRetries     int32
 }
 
 type ModelWrapper struct {
@@ -118,6 +119,7 @@ func (w *Watcher) Start() {
 									ModelSpec:      nil,
 									LoadState:      ShouldUnload,
 									ShouldDownload: false,
+									NumRetries:     0,
 								}
 								log.Println("Sending event", event)
 								channel.EventChannel <- event
@@ -134,6 +136,7 @@ func (w *Watcher) Start() {
 									ModelSpec:      modelWrapper.ModelSpec,
 									LoadState:      ShouldLoad,
 									ShouldDownload: modelWrapper.Redownload,
+									NumRetries:     0,
 								}
 								log.Println("Sending event", event)
 								channel.EventChannel <- event

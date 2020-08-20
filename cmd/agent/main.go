@@ -46,5 +46,6 @@ func main() {
 			Downloader: downloader,
 		},
 	}
+	// TODO: Need to handle on-start loop (in the case of container failure)
 	watcher.Start()
 }

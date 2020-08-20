@@ -5,7 +5,6 @@ import (
 	"github.com/kubeflow/kfserving/pkg/agent/storage"
 	"hash/fnv"
 	"log"
-	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -31,7 +30,7 @@ func (d *Downloader) DownloadModel(event EventWrapper) error {
 			if err := d.download(modelName, modelUri); err != nil {
 				return fmt.Errorf("download error: %v", err)
 			}
-			file, createErr := os.Create(successFile)
+			file, createErr := storage.Create(successFile)
 			if createErr != nil {
 				return fmt.Errorf("create file error: %v", createErr)
 			}
@@ -55,7 +54,6 @@ func (d *Downloader) download(modelName string, storageUri string) error {
 	if !ok {
 		return fmt.Errorf("protocol manager for %s is not initialized", protocol)
 	}
-	// TODO: Back-off retries
 	if err := manager.Download(d.ModelDir, modelName, storageUri); err != nil {
 		return fmt.Errorf("failure on download: %v", err)
 	}
