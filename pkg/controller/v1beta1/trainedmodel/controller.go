@@ -68,17 +68,17 @@ func (r *TrainedModelReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 	log.Info("Reconciling TrainedModel", "apiVersion", tm.APIVersion, "trainedmodel", tm.Spec)
 	shardStrategy := memory.MemoryStrategy{}
 	shardId := shardStrategy.GetOrAssignShard(tm)
-	// Use tm's parent InferenceService field to get the model configMap
+	// Use tm's parent InferenceService field to get the model modelConfig
 	modelConfigName := constants.ModelConfigName(tm.Spec.InferenceService, shardId)
-	configMap := &v1.ConfigMap{}
-	if err := r.Get(context.TODO(), types.NamespacedName{Name: modelConfigName, Namespace: req.Namespace}, configMap); err != nil {
+	modelConfig := &v1.ConfigMap{}
+	if err := r.Get(context.TODO(), types.NamespacedName{Name: modelConfigName, Namespace: req.Namespace}, modelConfig); err != nil {
 		log.Error(err, "Failed to find model ConfigMap to reconcile for InferenceService", "name", tm.Spec.Inference, "namespace", req.Namespace)
 		// Error reading the object - requeue the request.
 		return reconcile.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
 	}
 	reconciler := modelconfig.NewModelConfigReconciler(r.Client, r.Scheme)
 
-	if err := reconciler.Reconcile(configMap, tm); err != nil {
+	if err := reconciler.Reconcile(modelConfig, tm); err != nil {
 		return reconcile.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
 	}
 
