@@ -19,10 +19,11 @@ func (m *S3Provider) Download(modelDir string, modelName string, storageUri stri
 	s3Uri := strings.TrimPrefix(storageUri, string(S3))
 	path := strings.Split(s3Uri, "/")
 	s3ObjectDownloader := &S3ObjectDownloader{
-		ModelDir:  modelDir,
-		ModelName: modelName,
-		Bucket:    path[0],
-		Item:      path[1],
+		StorageUri: storageUri,
+		ModelDir:   modelDir,
+		ModelName:  modelName,
+		Bucket:     path[0],
+		Item:       path[1],
 	}
 	objects, err := s3ObjectDownloader.GetAllObjects(m.Client)
 	if err != nil {
@@ -37,10 +38,11 @@ func (m *S3Provider) Download(modelDir string, modelName string, storageUri stri
 var _ Provider = (*S3Provider)(nil)
 
 type S3ObjectDownloader struct {
-	ModelDir  string
-	ModelName string
-	Bucket    string
-	Item      string
+	StorageUri string
+	ModelDir   string
+	ModelName  string
+	Bucket     string
+	Item       string
 }
 
 func (s *S3ObjectDownloader) GetAllObjects(s3Svc *s3.S3) ([]s3manager.BatchDownloadObject, error) {
@@ -52,6 +54,10 @@ func (s *S3ObjectDownloader) GetAllObjects(s3Svc *s3.S3) ([]s3manager.BatchDownl
 		return nil, err
 	}
 	results := make([]s3manager.BatchDownloadObject, 0)
+
+	if len(resp.Contents) == 0 {
+		return nil, fmt.Errorf("%s has no objects or does not exist", s.StorageUri)
+	}
 
 	for _, object := range resp.Contents {
 		fileName := filepath.Join(s.ModelDir, s.ModelName, *object.Key)

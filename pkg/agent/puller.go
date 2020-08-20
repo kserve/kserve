@@ -5,10 +5,11 @@ import (
 	"github.com/kubeflow/kfserving/pkg/agent/storage"
 	"log"
 	"path/filepath"
+	"time"
 )
 
 type Puller struct {
-	// TODO: Should this be a syncmap?
+	// TODO: Should this be a syncmap.Map?
 	ChannelMap map[string]Channel
 	Downloader Downloader
 }
@@ -45,7 +46,7 @@ func (p *Puller) RemoveModel(modelName string) error {
 	return nil
 }
 
-func (p *Puller) modelProcessor(id int, modelName string, events <-chan EventWrapper) {
+func (p *Puller) modelProcessor(id int, modelName string, events chan EventWrapper) {
 	log.Println("worker", id, "for", modelName, "is initialized")
 	var err error
 	// TODO: Instead of going through each event, one-by-one, we need to drain and combine
@@ -60,23 +61,44 @@ func (p *Puller) modelProcessor(id int, modelName string, events <-chan EventWra
 			err = p.Downloader.DownloadModel(event)
 			if err != nil {
 				log.Println("worker", id, "failed on", event, "because: ", err)
+				event.NumRetries += 1
+				if event.NumRetries > 5 {
+					// TODO: Maybe use a done channel from another event coming in?
+					log.Println("Too many retries")
+				} else {
+					log.Println("Adding", event, "back to queue")
+					time.Sleep(time.Duration(event.NumRetries) * time.Second)
+					channel, ok := p.ChannelMap[modelName]
+					if !ok {
+						log.Println("channel for", modelName, "does not exist")
+					}
+					channel.EventChannel <- event
+				}
 			}
 		case ShouldUnload:
 			log.Println("Should unload", event.ModelName)
 			if err := p.RemoveModel(event.ModelName); err != nil {
 				log.Println("worker", id, "failed on", event, "because: ", err)
+				event.NumRetries += 1
+				if event.NumRetries > 5 {
+					// TODO: Maybe use a done channel from another event coming in?
+					log.Println("Too many retries")
+				} else {
+					log.Println("Adding", event, "back to queue")
+					time.Sleep(time.Duration(event.NumRetries) * time.Second)
+					channel, ok := p.ChannelMap[modelName]
+					if !ok {
+						log.Println("channel for", modelName, "does not exist")
+					}
+					channel.EventChannel <- event
+				}
 			}
 		}
 		// If there is an error, we will NOT send a request. As such, to know about errors, you will
 		// need to call the error endpoint of the puller
 		if err == nil {
+			// TODO: Do request logic
 			log.Println("Now doing a request on", event)
 		}
-		//innerErr := RequestModel(event)
-		//if innerErr != nil {
-		//	log.Println("worker", id, "failed on", event, "because: ", err)
-		//} else {
-		//	log.Println("worker", id, "finished  job", event)
-		//}
 	}
 }
