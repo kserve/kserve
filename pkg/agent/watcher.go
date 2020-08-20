@@ -18,7 +18,7 @@ type Watcher struct {
 	ConfigDir    string
 	ModelTracker *syncmap.Map
 	NumWorkers   int
-	Puller Puller
+	Puller       Puller
 }
 
 type LoadState string
@@ -30,7 +30,7 @@ const (
 )
 
 type EventWrapper struct {
-	ModelName 	   string
+	ModelName      string
 	ModelSpec      *v1beta1.ModelSpec
 	LoadState      LoadState
 	ShouldDownload bool
@@ -40,7 +40,6 @@ type ModelWrapper struct {
 	ModelSpec *v1beta1.ModelSpec
 	Time      time.Time
 	Stale     bool
-	Success   bool
 }
 
 func (w *Watcher) Start() {
@@ -84,7 +83,6 @@ func (w *Watcher) Start() {
 								ModelSpec: &modelSpec,
 								Time:      timeNow,
 								Stale:     true,
-								Success:   false,
 							})
 						} else {
 							oldModel := oldModelInterface.(ModelWrapper)
@@ -99,14 +97,12 @@ func (w *Watcher) Start() {
 									ModelSpec: &modelSpec,
 									Time:      timeNow,
 									Stale:     false,
-									Success:   false,
 								})
 							} else {
 								w.ModelTracker.Store(modelName, ModelWrapper{
 									ModelSpec: &modelSpec,
 									Time:      timeNow,
 									Stale:     true,
-									Success:   false,
 								})
 							}
 						}
@@ -122,9 +118,8 @@ func (w *Watcher) Start() {
 							} else {
 								event := EventWrapper{
 									ModelName: modelName,
-									ModelSpec:      nil,
-									LoadState:      ShouldUnload,
-									ShouldDownload: !modelWrapper.Success,
+									ModelSpec: nil,
+									LoadState: ShouldUnload,
 								}
 								log.Println("Sending event", event)
 								channel.EventChannel <- event
@@ -139,9 +134,8 @@ func (w *Watcher) Start() {
 								}
 								event := EventWrapper{
 									ModelName: modelName,
-									ModelSpec:      modelWrapper.ModelSpec,
-									LoadState:      ShouldLoad,
-									ShouldDownload: !modelWrapper.Success,
+									ModelSpec: modelWrapper.ModelSpec,
+									LoadState: ShouldLoad,
 								}
 								log.Println("Sending event", event)
 								channel.EventChannel <- event

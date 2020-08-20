@@ -1,13 +1,13 @@
-package protocols
+package storage
 
-type ProtocolManager interface {
+type Provider interface {
 	Download(modelDir string, modelName string, storageUri string) error
 }
 
 type Protocol string
 
 const (
-	S3    Protocol = "s3://"
+	S3 Protocol = "s3://"
 	//GCS    Protocol = "gs://"
 	//PVC   Protocol = "pvc://"
 	//File  Protocol = "file://"
