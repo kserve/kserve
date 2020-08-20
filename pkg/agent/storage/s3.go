@@ -59,8 +59,7 @@ func (s *S3ObjectDownloader) GetAllObjects(s3Svc *s3.S3) ([]s3manager.BatchDownl
 			// File got corrupted or is mid-download :(
 			// TODO: Figure out if we can maybe continue?
 			log.Println("Deleting", fileName)
-			err := os.Remove(fileName)
-			if err != nil {
+			if err := os.Remove(fileName); err != nil {
 				return nil, fmt.Errorf("file is unable to be deleted: %v", err)
 			}
 		}

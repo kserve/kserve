@@ -37,9 +37,10 @@ type EventWrapper struct {
 }
 
 type ModelWrapper struct {
-	ModelSpec *v1beta1.ModelSpec
-	Time      time.Time
-	Stale     bool
+	ModelSpec  *v1beta1.ModelSpec
+	Time       time.Time
+	Stale      bool
+	Redownload bool
 }
 
 func (w *Watcher) Start() {
@@ -80,31 +81,27 @@ func (w *Watcher) Start() {
 						oldModelInterface, ok := w.ModelTracker.Load(modelName)
 						if !ok {
 							w.ModelTracker.Store(modelName, ModelWrapper{
-								ModelSpec: &modelSpec,
-								Time:      timeNow,
-								Stale:     true,
+								ModelSpec:  &modelSpec,
+								Time:       timeNow,
+								Stale:      true,
+								Redownload: true,
 							})
 						} else {
 							oldModel := oldModelInterface.(ModelWrapper)
-							isSame := false
+							isStale := true
+							reDownload := true
 							if oldModel.ModelSpec != nil {
-								isSame = cmp.Equal(*oldModel.ModelSpec, modelSpec)
-								log.Println("same", isSame, *oldModel.ModelSpec, modelSpec)
+								isStale = !cmp.Equal(*oldModel.ModelSpec, modelSpec)
+								reDownload = !cmp.Equal(oldModel.ModelSpec.StorageURI, modelSpec.StorageURI)
+								log.Println("same", !isStale, *oldModel.ModelSpec, modelSpec)
 							}
-							if isSame {
-								// Need to store new time, maybe worth to have seperate map?
-								w.ModelTracker.Store(modelName, ModelWrapper{
-									ModelSpec: &modelSpec,
-									Time:      timeNow,
-									Stale:     false,
-								})
-							} else {
-								w.ModelTracker.Store(modelName, ModelWrapper{
-									ModelSpec: &modelSpec,
-									Time:      timeNow,
-									Stale:     true,
-								})
-							}
+							// Need to store new time, TODO: maybe worth to have seperate map?
+							w.ModelTracker.Store(modelName, ModelWrapper{
+								ModelSpec:  &modelSpec,
+								Time:       timeNow,
+								Stale:      isStale,
+								Redownload: reDownload,
+							})
 						}
 					}
 					// TODO: Maybe make parallel and more efficient?
@@ -117,9 +114,10 @@ func (w *Watcher) Start() {
 								log.Println("Model", modelName, "was never added to channel map")
 							} else {
 								event := EventWrapper{
-									ModelName: modelName,
-									ModelSpec: nil,
-									LoadState: ShouldUnload,
+									ModelName:      modelName,
+									ModelSpec:      nil,
+									LoadState:      ShouldUnload,
+									ShouldDownload: false,
 								}
 								log.Println("Sending event", event)
 								channel.EventChannel <- event
@@ -129,13 +127,13 @@ func (w *Watcher) Start() {
 								channel, ok := w.Puller.ChannelMap[modelName]
 								if !ok {
 									log.Println("Need to add model", modelName)
-									// TODO: Maybe have more workers per Channel?
 									channel = w.Puller.AddModel(modelName, w.NumWorkers)
 								}
 								event := EventWrapper{
-									ModelName: modelName,
-									ModelSpec: modelWrapper.ModelSpec,
-									LoadState: ShouldLoad,
+									ModelName:      modelName,
+									ModelSpec:      modelWrapper.ModelSpec,
+									LoadState:      ShouldLoad,
+									ShouldDownload: modelWrapper.Redownload,
 								}
 								log.Println("Sending event", event)
 								channel.EventChannel <- event
