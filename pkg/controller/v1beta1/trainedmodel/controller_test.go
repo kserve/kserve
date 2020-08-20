@@ -170,6 +170,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			modelName := "model1-delete"
 			parentInferenceService := modelName + "-parent"
 			modelConfigName := constants.ModelConfigName(parentInferenceService, shardId)
+			configmapKey := types.NamespacedName{Name: modelConfigName, Namespace: namespace}
 			tmKey := types.NamespacedName{Name: modelName, Namespace: namespace}
 			tmInstance := &v1beta1.TrainedModel{
 				ObjectMeta: metav1.ObjectMeta{
@@ -211,23 +212,23 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 
 			// Verify that the model is remove from model config
 			//TODO? it seems that the deletion event is not triggered
-			//configmapActual := &v1.ConfigMap{}
-			//tmActual := &v1beta1.TrainedModel{}
-			//expected := &v1.ConfigMap{
-			//	TypeMeta:   metav1.TypeMeta{Kind: "ConfigMap", APIVersion: "v1"},
-			//	ObjectMeta: metav1.ObjectMeta{Name: modelConfigName, Namespace: namespace},
-			//	Data: map[string]string{
-			//		constants.ModelConfigFileName: "",
-			//	},
-			//}
+			configmapActual := &v1.ConfigMap{}
+			tmActual := &v1beta1.TrainedModel{}
+			expected := &v1.ConfigMap{
+				TypeMeta:   metav1.TypeMeta{Kind: "ConfigMap", APIVersion: "v1"},
+				ObjectMeta: metav1.ObjectMeta{Name: modelConfigName, Namespace: namespace},
+				Data: map[string]string{
+					constants.ModelConfigFileName: "",
+				},
+			}
 
-			//Eventually(func() map[string]string {
-			//	ctx := context.Background()
-			//	k8sClient.Get(ctx, configmapKey, configmapActual)
-			//	k8sClient.Get(ctx, tmKey, tmActual)
-			//
-			//	return configmapActual.Data
-			//}, timeout, interval).Should(Equal(expected.Data))
+			Eventually(func() map[string]string {
+				ctx := context.Background()
+				k8sClient.Get(ctx, configmapKey, configmapActual)
+				k8sClient.Get(ctx, tmKey, tmActual)
+
+				return configmapActual.Data
+			}, timeout, interval).Should(Equal(expected.Data))
 		})
 	})
 })

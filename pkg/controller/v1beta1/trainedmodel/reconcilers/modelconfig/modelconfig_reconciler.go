@@ -18,6 +18,7 @@ package modelconfig
 
 import (
 	"context"
+	"fmt"
 	v1beta1api "github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
 	"github.com/kubeflow/kfserving/pkg/modelconfig"
 	corev1 "k8s.io/api/core/v1"
@@ -44,25 +45,26 @@ func (c *ConfigMapReconciler) Reconcile(desired *corev1.ConfigMap, tm *v1beta1ap
 	if tm.DeletionTimestamp != nil {
 		//A TrainedModel is being deleted, remove the model from the model configmap
 		deletedConfigs := []string{tm.Name}
-		mConfig := modelconfig.NewConfigsDelta([]modelconfig.ModelConfig{}, deletedConfigs)
-		err := mConfig.Process(desired)
+		configDelta := modelconfig.NewConfigsDelta([]modelconfig.ModelConfig{}, deletedConfigs)
+		err := configDelta.Process(desired)
 		if err != nil {
-			return err
+			return fmt.Errorf("Can not remove model %v from config because of error %v", tm.Name, err)
 		}
-		err = c.client.Delete(context.TODO(), desired)
+		// Update the model Config created by the InferenceService controller
+		err = c.client.Update(context.TODO(), desired)
 		if err != nil {
-			return err
+			return fmt.Errorf("Can not delete model config %v", err)
 		}
 	} else {
-		//A TrainedModel is created or updated, add or update the model from the model configmap
+		// A TrainedModel is created or updated, add or update the model from the model configmap
 		modelConfig := modelconfig.ModelConfig{Name: tm.Name, Spec: tm.Spec.Inference}
 		updatedConfigs := []modelconfig.ModelConfig{modelConfig}
-		mConfig := modelconfig.NewConfigsDelta(updatedConfigs, nil)
-		err := mConfig.Process(desired)
+		configDelta := modelconfig.NewConfigsDelta(updatedConfigs, nil)
+		err := configDelta.Process(desired)
 		if err != nil {
-			return err
+			return fmt.Errorf("Can not add or update a model %v from config because of error %v", tm.Name, err)
 		}
-		// Update the modelConfig created by the InferenceService controller
+		// Update the model Config created by the InferenceService controller
 		err = c.client.Update(context.TODO(), desired)
 		if err != nil {
 			return err
