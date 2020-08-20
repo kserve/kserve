@@ -71,9 +71,8 @@ func (r *TrainedModelReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 	// Use tm's parent InferenceService field to get the model configMap
 	modelConfigName := constants.ModelConfigName(tm.Spec.InferenceService, shardId)
 	configMap := &v1.ConfigMap{}
-	err := r.Get(context.TODO(), types.NamespacedName{Name: modelConfigName, Namespace: req.Namespace}, configMap)
-	if err != nil {
-		log.Error(err, "Failed to find model ConfigMap", "name", modelConfigName, "namespace", req.Namespace)
+	if err := r.Get(context.TODO(), types.NamespacedName{Name: modelConfigName, Namespace: req.Namespace}, configMap); err != nil {
+		log.Error(err, "Failed to find model ConfigMap for InferenceService", "name", tm.Spec.Inference, "namespace", req.Namespace)
 		// Error reading the object - requeue the request.
 		return reconcile.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
 	}
