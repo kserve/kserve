@@ -38,7 +38,7 @@ func (p *Puller) RemoveModel(modelName string) {
 	}
 }
 
-func (p * Puller) modelProcessor(id int, modelName string, events <-chan EventWrapper) {
+func (p *Puller) modelProcessor(id int, modelName string, events <-chan EventWrapper) {
 	log.Println("worker", id, "for", modelName, "is initialized")
 	var err error
 	// TODO: Instead of going through each event, one-by-one, we need to drain and combine

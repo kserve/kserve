@@ -2,7 +2,7 @@ package agent
 
 import (
 	"fmt"
-	pro "github.com/kubeflow/kfserving/pkg/agent/protocols"
+	"github.com/kubeflow/kfserving/pkg/agent/storage"
 	"hash/fnv"
 	"log"
 	"os"
@@ -12,12 +12,11 @@ import (
 )
 
 type Downloader struct {
-	// TODO: Add back-off retries
-	ModelDir   string
-	ProtocolManagers map[pro.Protocol]pro.ProtocolManager
+	ModelDir  string
+	Providers map[storage.Protocol]storage.Provider
 }
 
-var SupportedProtocols = []pro.Protocol{pro.S3}
+var SupportedProtocols = []storage.Protocol{storage.S3}
 
 func (d *Downloader) DownloadModel(event EventWrapper) error {
 	modelSpec := event.ModelSpec
@@ -27,17 +26,15 @@ func (d *Downloader) DownloadModel(event EventWrapper) error {
 		hashString := hash(modelUri)
 		log.Println("Processing:", modelUri, "=", hashString)
 		successFile := filepath.Join(d.ModelDir, modelName, fmt.Sprintf("SUCCESS.%d", hashString))
-		if !pro.FileExists(successFile) {
-			downloadErr := d.download(modelName, modelUri)
-			if downloadErr != nil {
-				return fmt.Errorf("download error: %v", downloadErr)
-			} else {
-				file, createErr := os.Create(successFile)
-				if createErr != nil {
-					return fmt.Errorf("create file error: %v", createErr)
-				}
-				defer file.Close()
+		if !storage.FileExists(successFile) {
+			if err := d.download(modelName, modelUri); err != nil {
+				return fmt.Errorf("download error: %v", err)
 			}
+			file, createErr := os.Create(successFile)
+			if createErr != nil {
+				return fmt.Errorf("create file error: %v", createErr)
+			}
+			defer file.Close()
 		} else {
 			log.Println("Model", modelSpec.StorageURI, "exists already")
 		}
@@ -45,17 +42,18 @@ func (d *Downloader) DownloadModel(event EventWrapper) error {
 	return nil
 }
 
-func (d* Downloader) download(modelName string, storageUri string) error {
+func (d *Downloader) download(modelName string, storageUri string) error {
 	log.Println("Downloading: ", storageUri)
-	protocol, err := validateStorageURI(storageUri)
+	protocol, err := extractProtocol(storageUri)
 	if err != nil {
 		return fmt.Errorf("unsupported protocol: %v", err)
 	}
-	manager, ok := d.ProtocolManagers[protocol]
+	manager, ok := d.Providers[protocol]
 	if !ok {
 		return fmt.Errorf("protocol manager for %s is not initialized", protocol)
 	}
-	if err = manager.Download(d.ModelDir, modelName, storageUri); err != nil {
+	// TODO: Back-off retries
+	if err := manager.Download(d.ModelDir, modelName, storageUri); err != nil {
 		return fmt.Errorf("failure on download: %v", err)
 	}
 
@@ -68,7 +66,7 @@ func hash(s string) uint32 {
 	return h.Sum32()
 }
 
-func validateStorageURI(storageURI string) (pro.Protocol, error) {
+func extractProtocol(storageURI string) (storage.Protocol, error) {
 	if storageURI == "" {
 		return "", fmt.Errorf("there is no storageUri supplied")
 	}

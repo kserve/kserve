@@ -1,4 +1,4 @@
-package protocols
+package storage
 
 import (
 	"os"
@@ -19,4 +19,3 @@ func Create(fileName string) (*os.File, error) {
 	}
 	return os.Create(fileName)
 }
-

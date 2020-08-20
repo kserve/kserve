@@ -1,4 +1,4 @@
-package protocols
+package storage
 
 import (
 	"fmt"
@@ -11,45 +11,42 @@ import (
 	"strings"
 )
 
-type S3Manager struct {
-	S3 *s3.S3
+type S3Provider struct {
+	Client *s3.S3
 }
 
-func (m *S3Manager) Download(modelDir string, modelName string, storageUri string) error {
+func (m *S3Provider) Download(modelDir string, modelName string, storageUri string) error {
 	s3Uri := strings.TrimPrefix(storageUri, string(S3))
-	path := strings.SplitN(s3Uri, "/", 2)
-	bucket := path[0]
-	item := path[1]
-	s3ObjectLoactor := &S3ObjectDownloader{
-		ModelDir: modelDir,
+	path := strings.Split(s3Uri, "/")
+	s3ObjectDownloader := &S3ObjectDownloader{
+		ModelDir:  modelDir,
 		ModelName: modelName,
-		Bucket: bucket,
-		Item: item,
+		Bucket:    path[0],
+		Item:      path[1],
 	}
-	objects, err := s3ObjectLoactor.GetAllObjects(m.S3)
+	objects, err := s3ObjectDownloader.GetAllObjects(m.Client)
 	if err != nil {
 		return fmt.Errorf("unable to get batch objects %v", err)
 	}
-	err = s3ObjectLoactor.Download(m.S3, objects)
-	if err != nil {
+	if err := s3ObjectDownloader.Download(m.Client, objects); err != nil {
 		return fmt.Errorf("unable to get download objects %v", err)
 	}
 	return nil
 }
 
-var _ ProtocolManager = (*S3Manager)(nil)
+var _ Provider = (*S3Provider)(nil)
 
 type S3ObjectDownloader struct {
-	ModelDir string
+	ModelDir  string
 	ModelName string
-	Bucket string
-	Item string
+	Bucket    string
+	Item      string
 }
 
-func (s *S3ObjectDownloader) GetAllObjects(s3Svc *s3.S3) ([]s3manager.BatchDownloadObject, error){
+func (s *S3ObjectDownloader) GetAllObjects(s3Svc *s3.S3) ([]s3manager.BatchDownloadObject, error) {
 	resp, err := s3Svc.ListObjects(&s3.ListObjectsInput{
-		Bucket:    aws.String(s.Bucket),
-		Prefix:    aws.String(s.Item),
+		Bucket: aws.String(s.Bucket),
+		Prefix: aws.String(s.Item),
 	})
 	if err != nil {
 		return nil, err
@@ -58,8 +55,7 @@ func (s *S3ObjectDownloader) GetAllObjects(s3Svc *s3.S3) ([]s3manager.BatchDownl
 
 	for _, object := range resp.Contents {
 		fileName := filepath.Join(s.ModelDir, s.ModelName, *object.Key)
-		ok := FileExists(fileName)
-		if ok {
+		if FileExists(fileName) {
 			// File got corrupted or is mid-download :(
 			// TODO: Figure out if we can maybe continue?
 			log.Println("Deleting", fileName)
@@ -91,8 +87,7 @@ func (s *S3ObjectDownloader) GetAllObjects(s3Svc *s3.S3) ([]s3manager.BatchDownl
 func (s *S3ObjectDownloader) Download(s3Svc *s3.S3, objects []s3manager.BatchDownloadObject) error {
 	iter := &s3manager.DownloadObjectsIterator{Objects: objects}
 	downloader := s3manager.NewDownloaderWithClient(s3Svc, func(d *s3manager.Downloader) {
-		d.Concurrency = 5             // TODO: Override?
-		d.PartSize = 64 * 1024 * 1024 // TODO: Override?
+		// TODO: Consider to do overrides
 	})
 	if err := downloader.DownloadWithIterator(aws.BackgroundContext(), iter); err != nil {
 		return err
