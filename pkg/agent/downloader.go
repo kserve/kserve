@@ -26,7 +26,8 @@ func (d *Downloader) DownloadModel(event EventWrapper) error {
 		hashString := hash(modelUri)
 		log.Println("Processing:", modelUri, "=", hashString)
 		successFile := filepath.Join(d.ModelDir, modelName, fmt.Sprintf("SUCCESS.%d", hashString))
-		if !storage.FileExists(successFile) {
+		// Download if the event there is a success file and the event is one which we wish to Download
+		if !storage.FileExists(successFile) && event.ShouldDownload {
 			if err := d.download(modelName, modelUri); err != nil {
 				return fmt.Errorf("download error: %v", err)
 			}
@@ -35,6 +36,8 @@ func (d *Downloader) DownloadModel(event EventWrapper) error {
 				return fmt.Errorf("create file error: %v", createErr)
 			}
 			defer file.Close()
+		} else if !event.ShouldDownload {
+			log.Println("Model", modelName, "does not need to be re-downloaded")
 		} else {
 			log.Println("Model", modelSpec.StorageURI, "exists already")
 		}
