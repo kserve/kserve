@@ -15,6 +15,7 @@
 import glob
 import logging
 import tempfile
+import mimetypes
 import os
 import re
 import shutil
@@ -218,7 +219,7 @@ The path or model %s does not exist." % (uri))
     def _download_from_uri(uri, out_dir=None):
         url = urlparse(uri)
         filename = os.path.basename(url.path)
-        _, ext = os.path.splitext(filename)
+        mimetype, encoding = mimetypes.guess_type(uri)
         local_path = os.path.join(out_dir, filename)
 
         if filename == '':
@@ -227,24 +228,23 @@ The path or model %s does not exist." % (uri))
         with requests.get(uri, stream=True) as response:
             if response.status_code != 200:
                 raise RuntimeError("URI: %s returned a %s response code." % (uri, response.status_code))
-            if ext == '.zip' and not response.headers.get('Content-Type', '').startswith('application/zip'):
+            if mimetype == 'application/zip' and not response.headers.get('Content-Type', '').startswith('application/zip'):
                 raise RuntimeError("URI: %s did not respond with \'Content-Type\': \'application/zip\'" % (uri))
-            elif not response.headers.get('Content-Type', '').startswith('application/octet-stream'):
+            if mimetype == 'application/x-tar' and not response.headers.get('Content-Type', '').startswith('application/x-tar'):
+                raise RuntimeError("URI: %s did not respond with \'Content-Type\': \'application/x-tar\'" % (uri))
+            if not response.headers.get('Content-Type', '').startswith('application/octet-stream'):
                 raise RuntimeError("URI: %s did not respond with \'Content-Type\': \'application/octet-stream\'" % (uri))
 
-            # TODO: server-side gzip in Content-Encoding
-            # https://requests.readthedocs.io/en/master/user/quickstart/?highlight=.raw#raw-response-content
-            if ext in ['.tgz', '.gz']:
+            if encoding == 'gzip':
                 stream = gzip.GzipFile(fileobj=response.raw)
                 local_path = os.path.join(out_dir, f'{filename}.tar')
-                ext = '.tar'
             else:
                 stream = response.raw
             with open(local_path, 'wb') as out:
                 shutil.copyfileobj(stream, out)
         
-        if ext in [".tar", ".zip"]:
-            if ext == ".tar":
+        if mimetype in ["application/x-tar", "application/zip"]:
+            if mimetype == "application/x-tar":
                 archive = tarfile.open(local_path, 'r', encoding='utf-8')
             else:
                 archive = zipfile.ZipFile(local_path, 'r')
