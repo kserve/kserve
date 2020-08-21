@@ -27,6 +27,7 @@ func (d *Downloader) DownloadModel(event EventWrapper) error {
 		successFile := filepath.Join(d.ModelDir, modelName, fmt.Sprintf("SUCCESS.%d", hashString))
 		// Download if the event there is a success file and the event is one which we wish to Download
 		if !storage.FileExists(successFile) && event.ShouldDownload {
+			// TODO: Handle retry logic
 			if err := d.download(modelName, modelUri); err != nil {
 				return fmt.Errorf("download error: %v", err)
 			}

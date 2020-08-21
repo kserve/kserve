@@ -37,15 +37,25 @@ func main() {
 		}
 	}
 
+	puller := agent.Puller{
+		ChannelMap: map[string]agent.Channel{},
+		Downloader: downloader,
+	}
+
 	watcher := agent.Watcher{
 		ConfigDir:    *configDir,
 		ModelTracker: new(syncmap.Map),
 		NumWorkers:   *numWorkers,
-		Puller: agent.Puller{
-			ChannelMap: map[string]agent.Channel{},
-			Downloader: downloader,
-		},
+		Puller:       puller,
 	}
-	// TODO: Need to handle on-start loop (in the case of container failure)
+
+	syncer := agent.Syncer{
+		Watcher: watcher,
+	}
+
+	// Doing a forced sync in the case of container failures
+	// and for pre-filled config maps
+	syncer.Start()
 	watcher.Start()
+
 }
