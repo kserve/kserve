@@ -230,9 +230,7 @@ The path or model %s does not exist." % (uri))
                 raise RuntimeError("URI: %s returned a %s response code." % (uri, response.status_code))
             if mimetype == 'application/zip' and not response.headers.get('Content-Type', '').startswith('application/zip'):
                 raise RuntimeError("URI: %s did not respond with \'Content-Type\': \'application/zip\'" % (uri))
-            if mimetype == 'application/x-tar' and not response.headers.get('Content-Type', '').startswith('application/x-tar'):
-                raise RuntimeError("URI: %s did not respond with \'Content-Type\': \'application/x-tar\'" % (uri))
-            if not response.headers.get('Content-Type', '').startswith('application/octet-stream'):
+            if mimetype != 'application/zip' and not response.headers.get('Content-Type', '').startswith('application/octet-stream'):
                 raise RuntimeError("URI: %s did not respond with \'Content-Type\': \'application/octet-stream\'" % (uri))
 
             if encoding == 'gzip':
