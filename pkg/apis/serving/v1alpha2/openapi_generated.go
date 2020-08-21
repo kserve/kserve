@@ -635,7 +635,7 @@ func schema_pkg_apis_serving_v1alpha2_PredictorSpec(ref common.ReferenceCallback
 					},
 					"triton": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Spec for Triton Model Server (https://github.com/NVIDIA/triton-inference-server)",
+							Description: "Spec for Triton Inference Server (https://github.com/NVIDIA/triton-inference-server)",
 							Ref:         ref("./pkg/apis/serving/v1alpha2.TritonSpec"),
 						},
 					},
@@ -918,7 +918,7 @@ func schema_pkg_apis_serving_v1alpha2_TritonSpec(ref common.ReferenceCallback) c
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "TritonSpec defines arguments for configuring Triton Model Server.",
+				Description: "TritonSpec defines arguments for configuring Triton Inference Server.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"storageUri": {
@@ -930,7 +930,7 @@ func schema_pkg_apis_serving_v1alpha2_TritonSpec(ref common.ReferenceCallback) c
 					},
 					"runtimeVersion": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Triton Model Server docker image version, default version can be set in the inferenceservice configmap",
+							Description: "Triton Inference Server docker image version, default version can be set in the inferenceservice configmap",
 							Type:        []string{"string"},
 							Format:      "",
 						},
