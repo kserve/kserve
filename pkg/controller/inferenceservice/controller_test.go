@@ -370,7 +370,7 @@ var _ = Describe("test inference service controller", func() {
 		})
 	})
 
-	Context("Inference Service with Canary", func() {
+	Context("Model Service with Canary", func() {
 		It("Should create successfully", func() {
 			var expectedCanaryRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: "bar", Namespace: "default"}}
 			var canaryServiceKey = expectedCanaryRequest.NamespacedName
@@ -921,7 +921,7 @@ var _ = Describe("test inference service controller", func() {
 		})
 	})
 
-	Context("Inference Service with transformer", func() {
+	Context("Model Service with transformer", func() {
 		It("Should create successfully", func() {
 			serviceName := "svc-with-transformer"
 			namespace := "default"

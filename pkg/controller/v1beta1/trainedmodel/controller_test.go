@@ -66,7 +66,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 				},
 				Spec: v1beta1.TrainedModelSpec{
 					InferenceService: parentInferenceService,
-					Inference: v1beta1.ModelSpec{
+					Model: v1beta1.ModelSpec{
 						StorageURI: storageUri,
 						Framework:  framework,
 						Memory:     memory,
@@ -112,7 +112,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 				},
 				Spec: v1beta1.TrainedModelSpec{
 					InferenceService: parentInferenceService,
-					Inference: v1beta1.ModelSpec{
+					Model: v1beta1.ModelSpec{
 						StorageURI: storageUri,
 						Framework:  framework,
 						Memory:     memory,
@@ -141,7 +141,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			}, timeout).Should(BeTrue())
 
 			updatedModelUri := "s3//model2"
-			tmInstanceUpdate.Spec.Inference.StorageURI = updatedModelUri
+			tmInstanceUpdate.Spec.Model.StorageURI = updatedModelUri
 			Expect(k8sClient.Update(context.TODO(), tmInstanceUpdate)).NotTo(HaveOccurred())
 			defer k8sClient.Delete(context.TODO(), tmInstanceUpdate)
 

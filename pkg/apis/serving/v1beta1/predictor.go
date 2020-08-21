@@ -31,7 +31,7 @@ type PredictorSpec struct {
 	Tensorflow *TFServingSpec `json:"tensorflow,omitempty"`
 	// Spec for TorchServe (https://pytorch.org/serve)
 	PyTorch *TorchServeSpec `json:"pytorch,omitempty"`
-	// Spec for Triton Inference Server (https://github.com/NVIDIA/triton-inference-server)
+	// Spec for Triton Model Server (https://github.com/NVIDIA/triton-inference-server)
 	Triton *TritonSpec `json:"triton,omitempty"`
 	// Spec for ONNX runtime (https://github.com/microsoft/onnxruntime)
 	ONNX *ONNXRuntimeSpec `json:"onnx,omitempty"`
