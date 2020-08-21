@@ -38,9 +38,10 @@ import (
 // TrainedModelReconciler reconciles a TrainedModel object
 type TrainedModelReconciler struct {
 	client.Client
-	Log      logr.Logger
-	Scheme   *runtime.Scheme
-	Recorder record.EventRecorder
+	Log                   logr.Logger
+	Scheme                *runtime.Scheme
+	Recorder              record.EventRecorder
+	ModelConfigReconciler *modelconfig.ModelConfigReconciler
 }
 
 // +kubebuilder:rbac:groups=serving.kubeflow.org,resources=trainedmodel,verbs=get;list;watch;create;update;patch;delete
@@ -76,9 +77,8 @@ func (r *TrainedModelReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 		// Error reading the object - requeue the request.
 		return reconcile.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
 	}
-	reconciler := modelconfig.NewModelConfigReconciler(r.Client, r.Scheme)
 
-	if err := reconciler.Reconcile(modelConfig, tm); err != nil {
+	if err := r.ModelConfigReconciler.Reconcile(modelConfig, tm); err != nil {
 		return reconcile.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
 	}
 

@@ -17,6 +17,7 @@ limitations under the License.
 package trainedmodel
 
 import (
+	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/trainedmodel/reconcilers/modelconfig"
 	"path/filepath"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"testing"
@@ -82,6 +83,7 @@ var _ = BeforeSuite(func(done Done) {
 		Client: k8sManager.GetClient(),
 		Scheme: scheme.Scheme,
 		Log:    ctrl.Log.WithName("v1beta1TrainedModelController"),
+		ModelConfigReconciler: modelconfig.NewModelConfigReconciler(k8sManager.GetClient(), scheme.Scheme),
 	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 	defer GinkgoRecover()
