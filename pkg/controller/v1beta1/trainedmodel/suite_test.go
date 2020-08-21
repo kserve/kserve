@@ -80,9 +80,9 @@ var _ = BeforeSuite(func(done Done) {
 	})
 	Expect(err).ToNot(HaveOccurred())
 	err = (&TrainedModelReconciler{
-		Client: k8sManager.GetClient(),
-		Scheme: scheme.Scheme,
-		Log:    ctrl.Log.WithName("v1beta1TrainedModelController"),
+		Client:                k8sManager.GetClient(),
+		Scheme:                scheme.Scheme,
+		Log:                   ctrl.Log.WithName("v1beta1TrainedModelController"),
 		ModelConfigReconciler: modelconfig.NewModelConfigReconciler(k8sManager.GetClient(), scheme.Scheme),
 	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
