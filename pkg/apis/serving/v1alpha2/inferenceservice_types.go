@@ -110,7 +110,7 @@ type PredictorSpec struct {
 	Custom *CustomSpec `json:"custom,omitempty"`
 	// Spec for Tensorflow Serving (https://github.com/tensorflow/serving)
 	Tensorflow *TensorflowSpec `json:"tensorflow,omitempty"`
-	// Spec for Triton Inference Server (https://github.com/NVIDIA/triton-inference-server)
+	// Spec for Triton Model Server (https://github.com/NVIDIA/triton-inference-server)
 	Triton *TritonSpec `json:"triton,omitempty"`
 	// Spec for XGBoost predictor
 	XGBoost *XGBoostSpec `json:"xgboost,omitempty"`
@@ -177,11 +177,11 @@ type TensorflowSpec struct {
 	Resources v1.ResourceRequirements `json:"resources,omitempty"`
 }
 
-// TritonSpec defines arguments for configuring Triton Inference Server.
+// TritonSpec defines arguments for configuring Triton Model Server.
 type TritonSpec struct {
 	// The URI for the trained model repository(https://docs.nvidia.com/deeplearning/triton-inference-server/master-user-guide/docs/model_repository.html)
 	StorageURI string `json:"storageUri"`
-	// Triton Inference Server docker image version, default version can be set in the inferenceservice configmap
+	// Triton Model Server docker image version, default version can be set in the inferenceservice configmap
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
 	// Defaults to requests and limits of 1CPU, 2Gb MEM.
 	Resources v1.ResourceRequirements `json:"resources,omitempty"`
