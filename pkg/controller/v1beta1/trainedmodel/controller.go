@@ -18,21 +18,19 @@ package trainedmodel
 
 import (
 	"context"
+	"github.com/go-logr/logr"
+	v1beta1api "github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/trainedmodel/reconcilers/modelconfig"
 	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/trainedmodel/sharding/memory"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"time"
-
-	"github.com/go-logr/logr"
-	v1beta1api "github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
-	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 // TrainedModelReconciler reconciles a TrainedModel object
@@ -75,11 +73,11 @@ func (r *TrainedModelReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 	if err := r.Get(context.TODO(), types.NamespacedName{Name: modelConfigName, Namespace: req.Namespace}, modelConfig); err != nil {
 		log.Error(err, "Failed to find model ConfigMap to reconcile for InferenceService", "name", tm.Spec.Model, "namespace", req.Namespace)
 		// Error reading the object - requeue the request.
-		return reconcile.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
+		return reconcile.Result{}, err
 	}
 
 	if err := r.ModelConfigReconciler.Reconcile(modelConfig, tm); err != nil {
-		return reconcile.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
+		return reconcile.Result{}, err
 	}
 
 	return ctrl.Result{}, nil
