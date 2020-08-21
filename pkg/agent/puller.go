@@ -5,7 +5,6 @@ import (
 	"github.com/kubeflow/kfserving/pkg/agent/storage"
 	"log"
 	"path/filepath"
-	"time"
 )
 
 type Puller struct {
@@ -61,37 +60,11 @@ func (p *Puller) modelProcessor(id int, modelName string, events chan EventWrapp
 			err = p.Downloader.DownloadModel(event)
 			if err != nil {
 				log.Println("worker", id, "failed on", event, "because: ", err)
-				event.NumRetries += 1
-				if event.NumRetries > 5 {
-					// TODO: Maybe use a done channel from another event coming in?
-					log.Println("Too many retries")
-				} else {
-					log.Println("Adding", event, "back to queue")
-					time.Sleep(time.Duration(event.NumRetries) * time.Second)
-					channel, ok := p.ChannelMap[modelName]
-					if !ok {
-						log.Println("channel for", modelName, "does not exist")
-					}
-					channel.EventChannel <- event
-				}
 			}
 		case ShouldUnload:
 			log.Println("Should unload", event.ModelName)
 			if err := p.RemoveModel(event.ModelName); err != nil {
 				log.Println("worker", id, "failed on", event, "because: ", err)
-				event.NumRetries += 1
-				if event.NumRetries > 5 {
-					// TODO: Maybe use a done channel from another event coming in?
-					log.Println("Too many retries")
-				} else {
-					log.Println("Adding", event, "back to queue")
-					time.Sleep(time.Duration(event.NumRetries) * time.Second)
-					channel, ok := p.ChannelMap[modelName]
-					if !ok {
-						log.Println("channel for", modelName, "does not exist")
-					}
-					channel.EventChannel <- event
-				}
 			}
 		}
 		// If there is an error, we will NOT send a request. As such, to know about errors, you will
