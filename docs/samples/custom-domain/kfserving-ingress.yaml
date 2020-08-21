@@ -11,4 +11,3 @@ spec:
           - backend:
               serviceName: istio-ingressgateway
               servicePort: 80
-            path: /
