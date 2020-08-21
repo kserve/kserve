@@ -57,15 +57,14 @@ Expected Output
 $ inferenceservice.serving.kubeflow.org/sklearn-from-uri created
 ```
 ### Run a prediction
+The first is to [determine the ingress IP and ports](https://github.com/kubeflow/kfserving/blob/master/README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`.
+
 Now, if everything went according to plan you should be able to hit the endpoint exposing the model we just uploaded.
 
 ```bash
 MODEL_NAME=sklearn-from-uri
 INPUT_PATH=@./input.json
-INGRESS_GATEWAY=istio-ingressgateway
-SERVICE_HOSTNAME=$(sudo kubectl get inferenceservice sklearn-from-uri -o jsonpath='{.status.url}' | cut -d "/" -f 3)
-CLUSTER_IP=$(kubectl -n istio-system get service $INGRESS_GATEWAY -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-curl -v -H "Host: ${SERVICE_HOSTNAME}" http://$CLUSTER_IP/v1/models/$MODEL_NAME:predict -d $INPUT_PATH
+curl -v -H "Host: ${SERVICE_HOSTNAME}" http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/$MODEL_NAME:predict -d $INPUT_PATH
 ```
 Expected Output
 ```
@@ -180,15 +179,14 @@ $ inferenceservice.serving.kubeflow.org/tensorflow-from-uri created
 ```
 
 ## Run a prediction
+Again, make sure to first [determine the ingress IP and ports](https://github.com/kubeflow/kfserving/blob/master/README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`.
+
 Now that our endpoint is up and running, we can get some predictions.
 
 ```bash
 MODEL_NAME=tensorflow-from-uri
 INPUT_PATH=@./input.json
-INGRESS_GATEWAY=istio-ingressgateway
-SERVICE_HOSTNAME=$(sudo kubectl get inferenceservice tensorflow-from-uri -o jsonpath='{.status.url}' | cut -d "/" -f 3)
-CLUSTER_IP=$(kubectl -n istio-system get service $INGRESS_GATEWAY -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-curl -v -H "Host: ${SERVICE_HOSTNAME}" http://$CLUSTER_IP/v1/models/$MODEL_NAME:predict -d $INPUT_PATH
+curl -v -H "Host: ${SERVICE_HOSTNAME}" http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/$MODEL_NAME:predict -d $INPUT_PATH
 ```
 Expected Output
 ```
