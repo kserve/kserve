@@ -23,7 +23,7 @@ import (
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
-	"github.com/kubeflow/kfserving/pkg/controller/inferenceservice/resources/istio"
+	"github.com/kubeflow/kfserving/pkg/controller/v1alpha2/inferenceservice/resources/istio"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"

@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	"github.com/kubeflow/kfserving/pkg/constants"
-	"github.com/kubeflow/kfserving/pkg/controller/inferenceservice/resources/knative"
+	"github.com/kubeflow/kfserving/pkg/controller/v1alpha2/inferenceservice/resources/knative"
 	"knative.dev/pkg/kmp"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 
