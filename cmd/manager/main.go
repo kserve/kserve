@@ -21,6 +21,7 @@ import (
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
 	v1alph2controller "github.com/kubeflow/kfserving/pkg/controller/inferenceservice"
+	v1alph2controller "github.com/kubeflow/kfserving/pkg/controller/v1alpha2/inferenceservice"
 	trainedmodelcontroller "github.com/kubeflow/kfserving/pkg/controller/v1beta1/trainedmodel"
 	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/trainedmodel/reconcilers/modelconfig"
 	"github.com/kubeflow/kfserving/pkg/webhook/admission/inferenceservice"

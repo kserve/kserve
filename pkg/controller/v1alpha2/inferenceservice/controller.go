@@ -34,14 +34,14 @@ import (
 	"context"
 	"fmt"
 	"github.com/go-logr/logr"
-	"github.com/kubeflow/kfserving/pkg/controller/inferenceservice/reconcilers/istio"
+	"github.com/kubeflow/kfserving/pkg/controller/v1alpha2/inferenceservice/reconcilers/istio"
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"knative.dev/pkg/apis"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/kubeflow/kfserving/pkg/constants"
-	"github.com/kubeflow/kfserving/pkg/controller/inferenceservice/reconcilers/knative"
+	"github.com/kubeflow/kfserving/pkg/controller/v1alpha2/inferenceservice/reconcilers/knative"
 	"k8s.io/apimachinery/pkg/types"
 
 	v1 "k8s.io/api/core/v1"
