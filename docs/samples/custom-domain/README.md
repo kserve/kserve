@@ -73,11 +73,10 @@ $ ingress.networking.k8s.io/kfserving-ingress created
 
 ## Verify 
 
-You can call your models using your custom domain by passing the `Host` header and supplying the correct subdomain. For example if you deploy the sample [sklearn model](https://github.com/kubeflow/kfserving/tree/master/docs/samples/sklearn) in the `default` namespace using `customdomain.com`, you can reach it in the following way
+You can call your models using your custom top-level domain with the correct subdomain. For example if you deploy the sample [sklearn model](https://github.com/kubeflow/kfserving/tree/master/docs/samples/sklearn) in the `default` namespace using `customdomain.com`, you can reach it in the following way
 
 ```
 curl -v \
-    -H "Host: sklearn-iris.default.customdomain.com" \
     http://sklearn-iris.default.customdomain.com/v1/models/sklearn-iris:predict \
     -d @./input.json
 ```
