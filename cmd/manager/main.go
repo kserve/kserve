@@ -31,7 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
-	v1alph2controller "github.com/kubeflow/kfserving/pkg/controller/inferenceservice"
+	v1alph2controller "github.com/kubeflow/kfserving/pkg/controller/v1alpha2/inferenceservice"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
