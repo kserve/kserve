@@ -18,7 +18,7 @@ package main
 
 import (
 	"flag"
-	"github.com/kubeflow/kfserving/pkg/webhook/admission/inferenceservice"
+	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
 	"github.com/kubeflow/kfserving/pkg/webhook/admission/pod"
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	v1 "k8s.io/api/core/v1"
@@ -31,7 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
-	v1alph2controller "github.com/kubeflow/kfserving/pkg/controller/v1alpha2/inferenceservice"
+	v1beta1controller "github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
@@ -70,14 +70,18 @@ func main() {
 
 	log.Info("Registering Components.")
 
-	// Setup Scheme for all resources
 	log.Info("Setting up KFServing v1alpha2 scheme")
 	if err := v1alpha2.AddToScheme(mgr.GetScheme()); err != nil {
 		log.Error(err, "unable to add KFServing v1alpha2 to scheme")
 		os.Exit(1)
 	}
 
-	// Setup Scheme for all resources
+	log.Info("Setting up KFServing v1beta1 scheme")
+	if err := v1beta1.AddToScheme(mgr.GetScheme()); err != nil {
+		log.Error(err, "unable to add KFServing v1beta1 to scheme")
+		os.Exit(1)
+	}
+
 	log.Info("Setting up Knative scheme")
 	if err := knservingv1.AddToScheme(mgr.GetScheme()); err != nil {
 		log.Error(err, "unable to add Knative APIs to scheme")
@@ -91,7 +95,7 @@ func main() {
 	}
 
 	// Setup all Controllers
-	setupLog.Info("Setting up v1alpha2 controller")
+	setupLog.Info("Setting up v1beta1 controller")
 	eventBroadcaster := record.NewBroadcaster()
 	clientSet, err := kubernetes.NewForConfig(mgr.GetConfig())
 	if err != nil {
@@ -99,14 +103,14 @@ func main() {
 		os.Exit(1)
 	}
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: clientSet.CoreV1().Events("")})
-	if err = (&v1alph2controller.InferenceServiceReconciler{
+	if err = (&v1beta1controller.InferenceServiceReconciler{
 		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("v1alpha2Controllers").WithName("InferenceService"),
+		Log:    ctrl.Log.WithName("v1beta1Controllers").WithName("InferenceService"),
 		Scheme: mgr.GetScheme(),
 		Recorder: eventBroadcaster.NewRecorder(
-			mgr.GetScheme(), v1.EventSource{Component: "v1alpha2Controllers"}),
+			mgr.GetScheme(), v1.EventSource{Component: "v1beta1Controllers"}),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "v1alpha2Controller", "InferenceService")
+		setupLog.Error(err, "unable to create controller", "v1beta1Controller", "InferenceService")
 		os.Exit(1)
 	}
 
@@ -115,8 +119,19 @@ func main() {
 
 	log.Info("registering webhooks to the webhook server")
 	hookServer.Register("/mutate-pods", &webhook.Admission{Handler: &pod.Mutator{}})
-	hookServer.Register("/validate-inferenceservices", &webhook.Admission{Handler: &inferenceservice.Validator{}})
-	hookServer.Register("/mutate-inferenceservices", &webhook.Admission{Handler: &inferenceservice.Defaulter{}})
+
+	if err = ctrl.NewWebhookManagedBy(mgr).
+		For(&v1alpha2.InferenceService{}).
+		Complete(); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "v1alpha2")
+		os.Exit(1)
+	}
+	if err = ctrl.NewWebhookManagedBy(mgr).
+		For(&v1beta1.InferenceService{}).
+		Complete(); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "v1beta1")
+		os.Exit(1)
+	}
 
 	// Start the Cmd
 	log.Info("Starting the Cmd.")
