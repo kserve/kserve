@@ -19,9 +19,12 @@ package v1alpha2
 import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
 // Default implements https://godoc.org/sigs.k8s.io/controller-runtime/pkg/webhook/admission#Defaulter
+
+var _ webhook.Defaulter = &InferenceService{}
 
 func (isvc *InferenceService) Default() {
 	logger.Info("Defaulting InferenceService", "namespace", isvc.Namespace, "name", isvc.Name)
