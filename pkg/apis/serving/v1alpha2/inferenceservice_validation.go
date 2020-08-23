@@ -18,9 +18,10 @@ package v1alpha2
 
 import (
 	"fmt"
-
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
 // Known error messages
@@ -39,14 +40,29 @@ var (
 	AzureBlobURIRegEx             = "https://(.+?).blob.core.windows.net/(.+)"
 )
 
+var _ webhook.Validator = &InferenceService{}
+
 // ValidateCreate implements https://godoc.org/sigs.k8s.io/controller-runtime/pkg/webhook/admission#Validator
-func (isvc *InferenceService) ValidateCreate(client client.Client) error {
+func (isvc *InferenceService) ValidateCreate() error {
+	client, err := client.New(config.GetConfigOrDie(), client.Options{})
+	if err != nil {
+		panic("Failed to create client in validator")
+	}
 	return isvc.validate(client)
 }
 
 // ValidateUpdate implements https://godoc.org/sigs.k8s.io/controller-runtime/pkg/webhook/admission#Validator
-func (isvc *InferenceService) ValidateUpdate(old runtime.Object, client client.Client) error {
+func (isvc *InferenceService) ValidateUpdate(old runtime.Object) error {
+	client, err := client.New(config.GetConfigOrDie(), client.Options{})
+	if err != nil {
+		panic("Failed to create client in validator")
+	}
 	return isvc.validate(client)
+}
+
+// ValidateDelete implements webhook.Validator so a webhook will be registered for the type
+func (isvc *InferenceService) ValidateDelete() error {
+	return nil
 }
 
 func (isvc *InferenceService) validate(client client.Client) error {

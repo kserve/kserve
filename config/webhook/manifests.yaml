@@ -6,23 +6,23 @@ metadata:
   name: inferenceservice.serving.kubeflow.org
 webhooks:
   - clientConfig:
-        caBundle: Cg==
-        service:
-          name: kfserving-webhook-server-service
-          namespace: kfserving-system
-          path: /mutate-serving-kubeflow-org-v1alpha2-inferenceservice
-      failurePolicy: Fail
-      name: inferenceservice.kfserving-webhook-server.v1alpha2.defaulter
-      rules:
-        - apiGroups:
-            - serving.kubeflow.org
-          apiVersions:
-            - v1alpha2
-          operations:
-            - CREATE
-            - UPDATE
-          resources:
-            - inferenceservices
+      caBundle: Cg==
+      service:
+        name: kfserving-webhook-server-service
+        namespace: kfserving-system
+        path: /mutate-serving-kubeflow-org-v1alpha2-inferenceservice
+    failurePolicy: Fail
+    name: inferenceservice.kfserving-webhook-server.defaulter
+    rules:
+      - apiGroups:
+          - serving.kubeflow.org
+        apiVersions:
+          - v1alpha2
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - inferenceservices
   - clientConfig:
       caBundle: Cg==
       service:
@@ -76,23 +76,23 @@ metadata:
   name: inferenceservice.serving.kubeflow.org
 webhooks:
   - clientConfig:
-        caBundle: Cg==
-        service:
-          name: kfserving-webhook-server-service
-          namespace: kfserving-system
-          path: /validate-serving-kubeflow-org-v1alpha2-inferenceservice
-      failurePolicy: Fail
-      name: inferenceservice.kfserving-webhook-server.v1alpha2.validator
-      rules:
-        - apiGroups:
-            - serving.kubeflow.org
-          apiVersions:
-            - v1alpha2
-          operations:
-            - CREATE
-            - UPDATE
-          resources:
-            - inferenceservices
+      caBundle: Cg==
+      service:
+        name: kfserving-webhook-server-service
+        namespace: kfserving-system
+        path: /validate-serving-kubeflow-org-v1alpha2-inferenceservice
+    failurePolicy: Fail
+    name: inferenceservice.kfserving-webhook-server.validator
+    rules:
+      - apiGroups:
+          - serving.kubeflow.org
+        apiVersions:
+          - v1alpha2
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - inferenceservices
   - clientConfig:
       caBundle: Cg==
       service:
