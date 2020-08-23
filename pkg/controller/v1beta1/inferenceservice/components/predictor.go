@@ -14,11 +14,11 @@ limitations under the License.
 package components
 
 import (
-	"fmt"
 	"github.com/go-logr/logr"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/reconcilers/knative"
 	"github.com/kubeflow/kfserving/pkg/credentials"
+	"github.com/kubeflow/kfserving/pkg/utils"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -40,12 +40,7 @@ type Predictor struct {
 	Log                    logr.Logger
 }
 
-func NewPredictor(client client.Client, scheme *runtime.Scheme, config *v1.ConfigMap) Component {
-	inferenceServiceConfig, err := v1beta1.NewInferenceServicesConfig()
-	if err != nil {
-		fmt.Printf("Failed to get inference service config %s", err)
-		panic("Failed to get inference service config")
-	}
+func NewPredictor(client client.Client, scheme *runtime.Scheme, inferenceServiceConfig *v1beta1.InferenceServicesConfig) Component {
 	return &Predictor{
 		client:                 client,
 		scheme:                 scheme,
@@ -59,13 +54,23 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
 	propagateStatusFn := isvc.Status.PropagateStatus
 	p.Log.Info("Reconciling Predictor", "PredictorSpec", isvc.Spec)
 	predictor := (&isvc.Spec.Predictor).GetImplementation()
-
+	annotations := utils.Filter(isvc.Annotations, func(key string) bool {
+		return !utils.Includes(constants.ServiceAnnotationDisallowedList, key)
+	})
 	// KNative does not support INIT containers or mounting, so we add annotations that trigger the
 	// StorageInitializer injector to mutate the underlying deployment to provision model data
 	if sourceURI := predictor.GetStorageUri(); sourceURI != nil {
-		isvc.Annotations[constants.StorageInitializerSourceUriInternalAnnotationKey] = *sourceURI
+		annotations[constants.StorageInitializerSourceUriInternalAnnotationKey] = *sourceURI
 	}
-
+	objectMeta := metav1.ObjectMeta{
+		Name:      isvc.Name + "-" + string(v1beta1.PredictorComponent),
+		Namespace: isvc.Namespace,
+		Labels: utils.Union(isvc.Labels, map[string]string{
+			constants.InferenceServicePodLabelKey: isvc.Name,
+			constants.KServiceComponentLabel:      string(v1beta1.PredictorComponent),
+		}),
+		Annotations: annotations,
+	}
 	if isvc.Spec.Predictor.CustomPredictor == nil {
 		container := predictor.GetContainer(isvc.ObjectMeta, isvc.Spec.Predictor.GetExtensions(), p.inferenceServiceConfig)
 		isvc.Spec.Predictor.CustomPredictor = &v1beta1.CustomPredictor{
@@ -80,7 +85,7 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
 		}
 	}
 	// Here we allow switch between knative and vanilla deployment
-	r := knative.NewKsvcReconciler(p.client, p.scheme, &isvc.ObjectMeta, v1beta1.PredictorComponent, &isvc.Spec.Predictor.ComponentExtensionSpec,
+	r := knative.NewKsvcReconciler(p.client, p.scheme, objectMeta, &isvc.Spec.Predictor.ComponentExtensionSpec,
 		&isvc.Spec.Predictor.CustomPredictor.Spec)
 
 	if err := controllerutil.SetControllerReference(isvc, r.Service, p.scheme); err != nil {

@@ -32,13 +32,6 @@ import (
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
-var serviceAnnotationDisallowedList = []string{
-	autoscaling.MinScaleAnnotationKey,
-	autoscaling.MaxScaleAnnotationKey,
-	constants.StorageInitializerSourceUriInternalAnnotationKey,
-	"kubectl.kubernetes.io/last-applied-configuration",
-}
-
 type ServiceBuilder struct {
 	inferenceServiceConfig *v1alpha2.InferenceServicesConfig
 	credentialBuilder      *credentials.CredentialBuilder
@@ -372,7 +365,7 @@ func (c *ServiceBuilder) CreateExplainerService(name string, metadata metav1.Obj
 
 func (c *ServiceBuilder) buildAnnotations(metadata metav1.ObjectMeta, minReplicas *int, maxReplicas int, parallelism int) (map[string]string, error) {
 	annotations := utils.Filter(metadata.Annotations, func(key string) bool {
-		return !utils.Includes(serviceAnnotationDisallowedList, key)
+		return !utils.Includes(constants.ServiceAnnotationDisallowedList, key)
 	})
 
 	if minReplicas == nil {

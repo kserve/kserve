@@ -17,7 +17,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
-	"github.com/kubeflow/kfserving/pkg/constants"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -67,16 +66,12 @@ func (r *InferenceServiceReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 		return reconcile.Result{}, err
 	}
 	r.Log.Info("Reconciling inference service", "apiVersion", isvc.APIVersion, "isvc", isvc.Name)
-	configMap := &v1.ConfigMap{}
-	err := r.Get(context.TODO(), types.NamespacedName{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KFServingNamespace}, configMap)
+	isvcConfig, err := v1beta1api.NewInferenceServicesConfig(r.Client)
 	if err != nil {
-		r.Log.Error(err, "Failed to find ConfigMap", "name", constants.InferenceServiceConfigMapName, "namespace", constants.KFServingNamespace)
-		// Error reading the object - requeue the request.
-		return reconcile.Result{}, err
+		return reconcile.Result{}, fmt.Errorf("Failed to create InferenceServicesConfig in reconciler: %v", err)
 	}
-
 	reconcilers := []components.Component{
-		components.NewPredictor(r.Client, r.Scheme, configMap),
+		components.NewPredictor(r.Client, r.Scheme, isvcConfig),
 	}
 
 	for _, reconciler := range reconcilers {
@@ -121,7 +116,6 @@ func (r *InferenceServiceReconciler) updateStatus(desiredService *v1beta1api.Inf
 			r.Recorder.Eventf(desiredService, v1.EventTypeNormal, string(v1alpha2.InferenceServiceReadyState),
 				fmt.Sprintf("InferenceService [%v] is Ready", desiredService.GetName()))
 		}
-		r.Recorder.Eventf(desiredService, v1.EventTypeNormal, "Updated", "Updated InferenceService %q", desiredService.GetName())
 	}
 	return nil
 }
