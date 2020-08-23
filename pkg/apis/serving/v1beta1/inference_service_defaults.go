@@ -19,6 +19,8 @@ package v1beta1
 import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
@@ -59,7 +61,11 @@ func setResourceRequirementDefaults(requirements *v1.ResourceRequirements) {
 
 func (isvc *InferenceService) Default() {
 	logger.Info("Defaulting InferenceService", "namespace", isvc.Namespace, "name", isvc.Name)
-	configMap, err := NewInferenceServicesConfig()
+	cli, err := client.New(config.GetConfigOrDie(), client.Options{})
+	if err != nil {
+		panic("Failed to create client in defauler")
+	}
+	configMap, err := NewInferenceServicesConfig(cli)
 	if err != nil {
 		panic(err)
 	}
