@@ -79,6 +79,7 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
 			},
 		}
 	}
+	// Here we allow switch between knative and vanilla deployment
 	r := knative.NewKsvcReconciler(p.client, p.scheme, &isvc.ObjectMeta, v1beta1.PredictorComponent, &isvc.Spec.Predictor.ComponentExtensionSpec,
 		&isvc.Spec.Predictor.CustomPredictor.Spec)
 
