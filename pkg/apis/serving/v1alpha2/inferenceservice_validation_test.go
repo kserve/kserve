@@ -39,7 +39,7 @@ func makeTestInferenceService() InferenceService {
 			},
 		},
 	}
-	inferenceservice.Default(c)
+	inferenceservice.applyDefaultsEndpoint(&inferenceservice.Spec.Default, c)
 	return inferenceservice
 }
 
@@ -195,7 +195,7 @@ func TestBadReplicaValues(t *testing.T) {
 			Image: "custom:0.1",
 		},
 	}
-	isvc.Default(c)
+	isvc.applyDefaultsEndpoint(&isvc.Spec.Default, c)
 	isvc.Spec.Default.Transformer.MinReplicas = GetIntReference(-1)
 	g.Expect(isvc.ValidateCreate(c)).Should(gomega.MatchError(MinReplicasLowerBoundExceededError))
 	isvc.Spec.Default.Transformer.MinReplicas = GetIntReference(1)
@@ -212,7 +212,7 @@ func TestBadReplicaValues(t *testing.T) {
 			StorageURI: "gs://testbucket/testmodel",
 		},
 	}
-	isvc.Default(c)
+	isvc.applyDefaultsEndpoint(&isvc.Spec.Default, c)
 	isvc.Spec.Default.Explainer.MinReplicas = GetIntReference(-1)
 	g.Expect(isvc.ValidateCreate(c)).Should(gomega.MatchError(MinReplicasLowerBoundExceededError))
 	isvc.Spec.Default.Explainer.MinReplicas = GetIntReference(1)
@@ -274,6 +274,6 @@ func TestGoodExplainer(t *testing.T) {
 			StorageURI: "gs://testbucket/testmodel",
 		},
 	}
-	isvc.Default(c)
+	isvc.applyDefaultsEndpoint(&isvc.Spec.Default, c)
 	g.Expect(isvc.ValidateCreate(c)).Should(gomega.Succeed())
 }
