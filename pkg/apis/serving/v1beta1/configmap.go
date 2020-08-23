@@ -20,8 +20,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"sigs.k8s.io/controller-runtime/pkg/client/config"
-
 	"github.com/kubeflow/kfserving/pkg/constants"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -91,13 +89,9 @@ type InferenceServicesConfig struct {
 	Explainers ExplainersConfig `json:"explainers"`
 }
 
-func NewInferenceServicesConfig() (*InferenceServicesConfig, error) {
-	cli, err := client.New(config.GetConfigOrDie(), client.Options{})
-	if err != nil {
-		return nil, err
-	}
+func NewInferenceServicesConfig(cli client.Client) (*InferenceServicesConfig, error) {
 	configMap := &v1.ConfigMap{}
-	err = cli.Get(context.TODO(), types.NamespacedName{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KFServingNamespace}, configMap)
+	err := cli.Get(context.TODO(), types.NamespacedName{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KFServingNamespace}, configMap)
 	if err != nil {
 		return nil, err
 	}

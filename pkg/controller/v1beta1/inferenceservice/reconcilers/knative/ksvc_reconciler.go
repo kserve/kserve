@@ -19,7 +19,6 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
 	"github.com/kubeflow/kfserving/pkg/constants"
-	"github.com/kubeflow/kfserving/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -42,18 +41,18 @@ type KsvcReconciler struct {
 	Service *knservingv1.Service
 }
 
-func NewKsvcReconciler(client client.Client, scheme *runtime.Scheme, isvc *metav1.ObjectMeta,
-	component v1beta1.ComponentType, deploymentSpec *v1beta1.ComponentExtensionSpec, podSpec *corev1.PodSpec) *KsvcReconciler {
+func NewKsvcReconciler(client client.Client, scheme *runtime.Scheme, componentMeta metav1.ObjectMeta,
+	deploymentSpec *v1beta1.ComponentExtensionSpec, podSpec *corev1.PodSpec) *KsvcReconciler {
 	return &KsvcReconciler{
 		client:  client,
 		scheme:  scheme,
-		Service: createKnativeService(isvc, component, deploymentSpec, podSpec),
+		Service: createKnativeService(componentMeta, deploymentSpec, podSpec),
 	}
 }
 
-func createKnativeService(isvc *metav1.ObjectMeta,
-	component v1beta1.ComponentType, deploymentSpec *v1beta1.ComponentExtensionSpec, podSpec *corev1.PodSpec) *knservingv1.Service {
-	annotations := isvc.GetAnnotations()
+func createKnativeService(componentMeta metav1.ObjectMeta,
+	deploymentSpec *v1beta1.ComponentExtensionSpec, podSpec *corev1.PodSpec) *knservingv1.Service {
+	annotations := componentMeta.GetAnnotations()
 
 	if deploymentSpec.MinReplicas == nil {
 		annotations[autoscaling.MinScaleAnnotationKey] = fmt.Sprint(constants.DefaultMinReplicas)
@@ -72,18 +71,15 @@ func createKnativeService(isvc *metav1.ObjectMeta,
 
 	return &knservingv1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      isvc.Name + "-" + string(component),
-			Namespace: isvc.Namespace,
-			Labels:    isvc.Labels,
+			Name:      componentMeta.Name,
+			Namespace: componentMeta.Namespace,
+			Labels:    componentMeta.Labels,
 		},
 		Spec: knservingv1.ServiceSpec{
 			ConfigurationSpec: knservingv1.ConfigurationSpec{
 				Template: knservingv1.RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
-						Labels: utils.Union(isvc.Labels, map[string]string{
-							constants.InferenceServicePodLabelKey: isvc.Name,
-							constants.KServiceComponentLabel:      string(component),
-						}),
+						Labels:      componentMeta.Labels,
 						Annotations: annotations,
 					},
 					Spec: knservingv1.RevisionSpec{

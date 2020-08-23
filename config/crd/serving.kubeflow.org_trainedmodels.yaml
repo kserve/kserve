@@ -8,13 +8,27 @@ metadata:
   creationTimestamp: null
   name: trainedmodels.serving.kubeflow.org
 spec:
+  additionalPrinterColumns:
+  - JSONPath: .status.url
+    name: URL
+    type: string
+  - JSONPath: .status.conditions[?(@.type=='Ready')].status
+    name: Ready
+    type: string
+  - JSONPath: .metadata.creationTimestamp
+    name: Age
+    type: date
   group: serving.kubeflow.org
   names:
     kind: TrainedModel
     listKind: TrainedModelList
     plural: trainedmodels
+    shortNames:
+    - tm
     singular: trainedmodel
   scope: Namespaced
+  subresources:
+    status: {}
   validation:
     openAPIV3Schema:
       properties:

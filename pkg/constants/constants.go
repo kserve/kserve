@@ -18,6 +18,7 @@ package constants
 
 import (
 	"fmt"
+	"knative.dev/serving/pkg/apis/autoscaling"
 	"os"
 	"regexp"
 	"strings"
@@ -161,6 +162,15 @@ const (
 	InferenceServiceContainerName = "kfserving-container"
 )
 
+var (
+	ServiceAnnotationDisallowedList = []string{
+		autoscaling.MinScaleAnnotationKey,
+		autoscaling.MaxScaleAnnotationKey,
+		StorageInitializerSourceUriInternalAnnotationKey,
+		"kubectl.kubernetes.io/last-applied-configuration",
+	}
+)
+
 func (e InferenceServiceComponent) String() string {
 	return string(e)
 }
@@ -190,6 +200,10 @@ func InferenceServiceHostName(name string, namespace string, domain string) stri
 
 func DefaultPredictorServiceName(name string) string {
 	return name + "-" + string(Predictor) + "-" + InferenceServiceDefault
+}
+
+func PredictorServiceName(name string) string {
+	return name + "-" + string(Predictor)
 }
 
 func DefaultPredictorServiceURL(name string, namespace string, domain string) string {
