@@ -27,5 +27,7 @@ patchesStrategicMerge:
 - manager_auth_proxy_patch.yaml
 - webhookcainjection_patch.yaml
 - manager_resources_patch.yaml
+- inferenceservice_conversion_webhook.yaml
+- cainjection_conversion_webhook.yaml
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
