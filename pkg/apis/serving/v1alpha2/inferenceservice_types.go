@@ -129,6 +129,8 @@ type PredictorSpec struct {
 type ExplainerSpec struct {
 	// Spec for alibi explainer
 	Alibi *AlibiExplainerSpec `json:"alibi,omitempty"`
+	// Spec for AIX explainer
+	AIX *AIXExplainerSpec `json:"aix,omitempty"`
 	// Spec for a custom explainer
 	Custom *CustomSpec `json:"custom,omitempty"`
 
@@ -160,6 +162,26 @@ type AlibiExplainerSpec struct {
 	// The location of a trained explanation model
 	StorageURI string `json:"storageUri,omitempty"`
 	// Alibi docker image version which defaults to latest release
+	RuntimeVersion string `json:"runtimeVersion,omitempty"`
+	// Defaults to requests and limits of 1CPU, 2Gb MEM.
+	Resources v1.ResourceRequirements `json:"resources,omitempty"`
+	// Inline custom parameter settings for explainer
+	Config map[string]string `json:"config,omitempty"`
+}
+
+type AIXExplainerType string
+
+const (
+	AIXLimeImageExplainer AIXExplainerType = "LimeImages"
+)
+
+// AIXExplainerSpec defines the arguments for configuring an AIX Explanation Server
+type AIXExplainerSpec struct {
+	// The type of AIX explainer
+	Type AIXExplainerType `json:"type"`
+	// The location of a trained explanation model
+	StorageURI string `json:"storageUri,omitempty"`
+	// Defaults to latest AIX Version
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
 	// Defaults to requests and limits of 1CPU, 2Gb MEM.
 	Resources v1.ResourceRequirements `json:"resources,omitempty"`

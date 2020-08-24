@@ -69,6 +69,13 @@ data:
         "alibi": {
             "image" : "gcr.io/kfserving/alibi-explainer",
             "defaultImageVersion": "v0.4.0"
+        },
+        "aix": {
+            "image" : "aipipeline/aix-explainer",
+            "defaultImageVersion": "0.2.2",
+            "allowedImageVersions": [
+               "0.2.2"
+            ]
         }
     }
   storageInitializer: |-
