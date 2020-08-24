@@ -17,10 +17,10 @@ import (
 	"context"
 	"fmt"
 	"github.com/golang/protobuf/proto"
-	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	. "github.com/onsi/ginkgo"
+	"github.com/onsi/gomega"
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -62,7 +62,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
             }`,
 		}
 	)
-	Context("When creating inference service", func() {
+	Context("When creating inference service with predictor", func() {
 		It("Should have knative service created", func() {
 			By("By creating a new InferenceService")
 			// Create configmap
@@ -79,11 +79,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			serviceName := "foo"
 			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
 			var serviceKey = expectedRequest.NamespacedName
-			var predictorService = types.NamespacedName{Name: constants.PredictorServiceName(serviceKey.Name),
-				Namespace: serviceKey.Namespace}
 			var storageUri = "s3://test/mnist/export"
 			ctx := context.Background()
-			instance := &v1beta1.InferenceService{
+			isvc := &v1beta1.InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      serviceKey.Name,
 					Namespace: serviceKey.Namespace,
@@ -91,7 +89,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Spec: v1beta1.InferenceServiceSpec{
 					Predictor: v1beta1.PredictorSpec{
 						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
-							MinReplicas: v1alpha2.GetIntReference(1),
+							MinReplicas: v1beta1.GetIntReference(1),
 							MaxReplicas: 3,
 						},
 						Tensorflow: &v1beta1.TFServingSpec{
@@ -107,7 +105,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				},
 			}
 
-			Expect(k8sClient.Create(ctx, instance)).Should(Succeed())
+			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
 			inferenceService := &v1beta1.InferenceService{}
 
 			// We'll need to retry getting this newly created CronJob, given that creation may not immediately happen.
@@ -119,10 +117,71 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				return true
 			}, timeout, interval).Should(BeTrue())
 
-			defaultService := &knservingv1.Service{}
-			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorService, defaultService) }, timeout).
+			actualService := &knservingv1.Service{}
+			predictorServiceKey := types.NamespacedName{Name: constants.PredictorServiceName(serviceKey.Name),
+				Namespace: serviceKey.Namespace}
+			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorServiceKey, actualService) }, timeout).
 				Should(Succeed())
-			fmt.Printf("knative service %+v\n", defaultService)
+			fmt.Printf("knative service %+v\n", actualService)
+
+			expectedService := &knservingv1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      predictorServiceKey.Name,
+					Namespace: predictorServiceKey.Namespace,
+				},
+				Spec: knservingv1.ServiceSpec{
+					ConfigurationSpec: knservingv1.ConfigurationSpec{
+						Template: knservingv1.RevisionTemplateSpec{
+							ObjectMeta: metav1.ObjectMeta{
+								Labels: map[string]string{"serving.kubeflow.org/inferenceservice": serviceName,
+									constants.KServiceComponentLabel: constants.Predictor.String(),
+								},
+								Annotations: map[string]string{
+									"autoscaling.knative.dev/target":                           "1",
+									"autoscaling.knative.dev/class":                            "kpa.autoscaling.knative.dev",
+									"autoscaling.knative.dev/maxScale":                         "3",
+									"autoscaling.knative.dev/minScale":                         "1",
+									constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Tensorflow.StorageURI,
+								},
+							},
+							Spec: knservingv1.RevisionSpec{
+								ContainerConcurrency: isvc.Spec.Predictor.ContainerConcurrency,
+								TimeoutSeconds:       isvc.Spec.Predictor.TimeoutSeconds,
+								PodSpec: v1.PodSpec{
+									Containers: []v1.Container{
+										{
+											Image: "tensorflow/serving:" +
+												*isvc.Spec.Predictor.Tensorflow.RuntimeVersion,
+											Name:    constants.InferenceServiceContainerName,
+											Command: []string{v1beta1.TensorflowEntrypointCommand},
+											Args: []string{
+												"--port=" + v1beta1.TensorflowServingGRPCPort,
+												"--rest_api_port=" + v1beta1.TensorflowServingRestPort,
+												"--model_name=" + isvc.Name,
+												"--model_base_path=" + constants.DefaultModelLocalMountPath,
+											},
+											//TODO default liveness probe
+											/*LivenessProbe: &v1.Probe{
+												Handler: v1.Handler{
+													HTTPGet: &v1.HTTPGetAction{
+														Path: "/v1/models/" + defaultInstance.Name,
+													},
+												},
+												InitialDelaySeconds: constants.DefaultReadinessTimeout,
+												PeriodSeconds:       10,
+												FailureThreshold:    3,
+												SuccessThreshold:    1,
+												TimeoutSeconds:      1,
+											},*/
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+			Expect(actualService.Spec).To(gomega.Equal(expectedService.Spec))
 		})
 	})
 })
