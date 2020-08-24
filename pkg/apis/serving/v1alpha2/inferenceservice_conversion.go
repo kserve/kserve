@@ -107,7 +107,7 @@ func (dst *InferenceService) ConvertFrom(srcRaw conversion.Hub) error {
 			RuntimeVersion: *src.Spec.Predictor.Tensorflow.RuntimeVersion,
 			Resources:      src.Spec.Predictor.Tensorflow.Resources,
 		}
-		if src.Spec.Predictor.PyTorch.StorageURI != nil {
+		if src.Spec.Predictor.Tensorflow.StorageURI != nil {
 			dst.Spec.Default.Predictor.Tensorflow.StorageURI = *src.Spec.Predictor.Tensorflow.StorageURI
 		}
 	} else if src.Spec.Predictor.SKLearn != nil {
