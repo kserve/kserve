@@ -95,12 +95,11 @@ func NewInferenceServicesConfig(cli client.Client) (*InferenceServicesConfig, er
 	if err != nil {
 		return nil, err
 	}
-
 	icfg := &InferenceServicesConfig{}
 	for _, err := range []error{
-		getComponentConfig(PredictorConfigKeyName, configMap, icfg.Predictors),
-		getComponentConfig(ExplainerConfigKeyName, configMap, icfg.Explainers),
-		getComponentConfig(TransformerConfigKeyName, configMap, icfg.Transformers),
+		getComponentConfig(PredictorConfigKeyName, configMap, &icfg.Predictors),
+		getComponentConfig(ExplainerConfigKeyName, configMap, &icfg.Explainers),
+		getComponentConfig(TransformerConfigKeyName, configMap, &icfg.Transformers),
 	} {
 		if err != nil {
 			return nil, err
@@ -111,7 +110,7 @@ func NewInferenceServicesConfig(cli client.Client) (*InferenceServicesConfig, er
 
 func getComponentConfig(key string, configMap *v1.ConfigMap, componentConfig interface{}) error {
 	if data, ok := configMap.Data[key]; ok {
-		err := json.Unmarshal([]byte(data), &componentConfig)
+		err := json.Unmarshal([]byte(data), componentConfig)
 		if err != nil {
 			return fmt.Errorf("Unable to unmarshall %v json string due to %v ", key, err)
 		}

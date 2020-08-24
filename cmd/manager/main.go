@@ -94,6 +94,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	log.Info("Setting up core scheme")
+	if err := v1.AddToScheme(mgr.GetScheme()); err != nil {
+		log.Error(err, "unable to add Core APIs to scheme")
+		os.Exit(1)
+	}
+
 	// Setup all Controllers
 	setupLog.Info("Setting up v1beta1 controller")
 	eventBroadcaster := record.NewBroadcaster()
