@@ -133,15 +133,15 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					ConfigurationSpec: knservingv1.ConfigurationSpec{
 						Template: knservingv1.RevisionTemplateSpec{
 							ObjectMeta: metav1.ObjectMeta{
-								Labels: map[string]string{"serving.kubeflow.org/inferenceservice": serviceName,
+								Labels: map[string]string{
 									constants.KServiceComponentLabel: constants.Predictor.String(),
+									constants.InferenceServicePodLabelKey: serviceName,
 								},
 								Annotations: map[string]string{
-									"autoscaling.knative.dev/target":                           "1",
-									"autoscaling.knative.dev/class":                            "kpa.autoscaling.knative.dev",
 									"autoscaling.knative.dev/maxScale":                         "3",
 									"autoscaling.knative.dev/minScale":                         "1",
 									constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Tensorflow.StorageURI,
+									"autoscaling.knative.dev/class":                            "kpa.autoscaling.knative.dev",
 								},
 							},
 							Spec: knservingv1.RevisionSpec{
@@ -181,7 +181,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					},
 				},
 			}
-			Expect(actualService.Spec).To(gomega.Equal(expectedService.Spec))
+			Expect(actualService.Spec.ConfigurationSpec).To(gomega.Equal(expectedService.Spec.ConfigurationSpec))
 		})
 	})
 })
