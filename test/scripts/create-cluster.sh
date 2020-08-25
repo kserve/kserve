@@ -20,24 +20,24 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-CLUSTER_NAME="${CLUSTER_NAME}"
-ZONE="${GCP_ZONE}"
-PROJECT="${GCP_PROJECT}"
+CLUSTER_NAME=kfserving-ci-cluster
+ZONE=us-east1-d
+PROJECT=kfserving-test
 NAMESPACE="${DEPLOY_NAMESPACE}"
 
 echo "Activating service-account ..."
 gcloud auth activate-service-account --key-file=${GOOGLE_APPLICATION_CREDENTIALS}
-
-echo "Creating cluster ${CLUSTER_NAME} ... "
-gcloud --project ${PROJECT} beta container clusters create ${CLUSTER_NAME} \
-    --addons=HorizontalPodAutoscaling,HttpLoadBalancing \
-    --machine-type=n1-standard-8 \
-    --cluster-version 1.16 --zone ${ZONE} \
-    --accelerator type=nvidia-tesla-k80,count=2 \
-    --enable-stackdriver-kubernetes --enable-ip-alias \
-    --enable-autoscaling --min-nodes=3 --max-nodes=10 \
-    --enable-autorepair \
-    --scopes cloud-platform
+gcloud auth list
+#echo "Creating cluster ${CLUSTER_NAME} ... "
+#gcloud --project ${PROJECT} beta container clusters create ${CLUSTER_NAME} \
+#    --addons=HorizontalPodAutoscaling,HttpLoadBalancing \
+#    --machine-type=n1-standard-8 \
+#    --cluster-version 1.16 --zone ${ZONE} \
+#    --accelerator type=nvidia-tesla-k80,count=2 \
+#    --enable-stackdriver-kubernetes --enable-ip-alias \
+#    --enable-autoscaling --min-nodes=3 --max-nodes=10 \
+#    --enable-autorepair \
+#    --scopes cloud-platform
 
 echo "Configuring kubectl ..."
 gcloud --project ${PROJECT} container clusters get-credentials ${CLUSTER_NAME} --zone ${ZONE}
