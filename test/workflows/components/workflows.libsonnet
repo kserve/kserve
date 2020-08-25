@@ -17,7 +17,7 @@
 
   // default parameters.
   defaultParams:: {
-    project:: "kubeflow-ci",
+    project:: "kfserving",
     zone:: "us-east1-d",
     // Default registry to use.
     //registry:: "gcr.io/" + $.defaultParams.project,
