@@ -7,13 +7,11 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/kubeflow/kfserving/pkg/agent"
 	"github.com/kubeflow/kfserving/pkg/agent/storage"
-	"golang.org/x/sync/syncmap"
 )
 
 var (
 	configDir  = flag.String("config-dir", "/mnt/configs", "directory for model config files")
 	modelDir   = flag.String("model-dir", "/mnt/models", "directory for model files")
-	numWorkers = flag.Int("num-workers", 1, "number of workers, per model")
 	s3Endpoint = flag.String("s3-endpoint", "", "endpoint for s3 bucket")
 	s3Region   = flag.String("s3-region", "us-west-2", "region for s3 bucket")
 )
@@ -44,8 +42,7 @@ func main() {
 
 	watcher := agent.Watcher{
 		ConfigDir:    *configDir,
-		ModelTracker: new(syncmap.Map),
-		NumWorkers:   *numWorkers,
+		ModelTracker: map[string]agent.ModelWrapper{},
 		Puller:       puller,
 	}
 

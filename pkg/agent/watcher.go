@@ -7,7 +7,6 @@ import (
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/modelconfig"
-	"golang.org/x/sync/syncmap"
 	"io/ioutil"
 	"log"
 	"path/filepath"
@@ -16,8 +15,7 @@ import (
 
 type Watcher struct {
 	ConfigDir    string
-	ModelTracker *syncmap.Map
-	NumWorkers   int
+	ModelTracker map[string]ModelWrapper
 	Puller       Puller
 }
 
@@ -99,16 +97,15 @@ func (w *Watcher) ParseConfig(modelConfigs modelconfig.ModelConfigs) {
 		modelName := modelConfig.Name
 		modelSpec := modelConfig.Spec
 		log.Println("Name:", modelName, "Spec:", modelSpec)
-		oldModelInterface, ok := w.ModelTracker.Load(modelName)
+		oldModel, ok := w.ModelTracker[modelName]
 		if !ok {
-			w.ModelTracker.Store(modelName, ModelWrapper{
+			w.ModelTracker[modelName] = ModelWrapper{
 				ModelSpec:  &modelSpec,
 				Time:       timeNow,
 				Stale:      true,
 				Redownload: true,
-			})
+			}
 		} else {
-			oldModel := oldModelInterface.(ModelWrapper)
 			isStale := true
 			reDownload := true
 			if oldModel.ModelSpec != nil {
@@ -117,19 +114,18 @@ func (w *Watcher) ParseConfig(modelConfigs modelconfig.ModelConfigs) {
 				log.Println("same", !isStale, *oldModel.ModelSpec, modelSpec)
 			}
 			// Need to store new time, TODO: maybe worth to have seperate map?
-			w.ModelTracker.Store(modelName, ModelWrapper{
+			w.ModelTracker[modelName] = ModelWrapper{
 				ModelSpec:  &modelSpec,
 				Time:       timeNow,
 				Stale:      isStale,
 				Redownload: reDownload,
-			})
+			}
 		}
 	}
 	// TODO: Maybe make parallel and more efficient?
-	w.ModelTracker.Range(func(key interface{}, value interface{}) bool {
-		modelName, modelWrapper := key.(string), value.(ModelWrapper)
+	for modelName, modelWrapper := range w.ModelTracker {
 		if modelWrapper.Time.Before(timeNow) {
-			w.ModelTracker.Delete(modelName)
+			delete(w. ModelTracker, modelName)
 			channel, ok := w.Puller.ChannelMap[modelName]
 			if !ok {
 				log.Println("Model", modelName, "was never added to channel map")
@@ -148,7 +144,7 @@ func (w *Watcher) ParseConfig(modelConfigs modelconfig.ModelConfigs) {
 				channel, ok := w.Puller.ChannelMap[modelName]
 				if !ok {
 					log.Println("Need to add model", modelName)
-					channel = w.Puller.AddModel(modelName, w.NumWorkers)
+					channel = w.Puller.AddModel(modelName)
 				}
 				event := EventWrapper{
 					ModelName:      modelName,
@@ -160,6 +156,5 @@ func (w *Watcher) ParseConfig(modelConfigs modelconfig.ModelConfigs) {
 				channel.EventChannel <- event
 			}
 		}
-		return true
-	})
+	}
 }

@@ -1,9 +1,9 @@
 package agent
 
 import (
+	"encoding/hex"
 	"fmt"
 	"github.com/kubeflow/kfserving/pkg/agent/storage"
-	"hash/fnv"
 	"log"
 	"path/filepath"
 	"regexp"
@@ -22,9 +22,12 @@ func (d *Downloader) DownloadModel(event EventWrapper) error {
 	modelName := event.ModelName
 	if modelSpec != nil {
 		modelUri := modelSpec.StorageURI
-		hashString := hash(modelUri)
-		log.Println("Processing:", modelUri, "=", hashString)
-		successFile := filepath.Join(d.ModelDir, modelName, fmt.Sprintf("SUCCESS.%d", hashString))
+		hashModelUri := hash(modelUri)
+		hashFramework := hash(modelSpec.Framework)
+		hashMemory := hash(modelSpec.Memory.String())
+		log.Println("Processing:", modelUri, "=", hashModelUri, hashFramework, hashMemory)
+		successFile := filepath.Join(d.ModelDir, modelName,
+			fmt.Sprintf("SUCCESS.%s.%s.%s", hashModelUri, hashFramework, hashMemory))
 		// Download if the event there is a success file and the event is one which we wish to Download
 		if !storage.FileExists(successFile) && event.ShouldDownload {
 			// TODO: Handle retry logic
@@ -51,22 +54,25 @@ func (d *Downloader) download(modelName string, storageUri string) error {
 	if err != nil {
 		return fmt.Errorf("unsupported protocol: %v", err)
 	}
-	manager, ok := d.Providers[protocol]
+	provider, ok := d.Providers[protocol]
 	if !ok {
 		return fmt.Errorf("protocol manager for %s is not initialized", protocol)
 	}
-	if err := manager.Download(d.ModelDir, modelName, storageUri); err != nil {
+	if err := provider.Download(d.ModelDir, modelName, storageUri); err != nil {
 		return fmt.Errorf("failure on download: %v", err)
 	}
 
 	return nil
 }
 
-func hash(s string) uint32 {
-	h := fnv.New32a()
-	h.Write([]byte(s))
-	return h.Sum32()
+func hash(s string) string {
+	src := []byte(s)
+	dst := make([]byte, hex.EncodedLen(len(src)))
+	hex.Encode(dst, src)
+	return string(dst)
 }
+
+
 
 func extractProtocol(storageURI string) (storage.Protocol, error) {
 	if storageURI == "" {
