@@ -35,15 +35,13 @@ func main() {
 		}
 	}
 
-	puller := agent.Puller{
-		ChannelMap: map[string]agent.Channel{},
-		Downloader: downloader,
-	}
-
 	watcher := agent.Watcher{
 		ConfigDir:    *configDir,
 		ModelTracker: map[string]agent.ModelWrapper{},
-		Puller:       puller,
+		Puller: agent.Puller{
+			ChannelMap: map[string]agent.Channel{},
+			Downloader: downloader,
+		},
 	}
 
 	syncer := agent.Syncer{
