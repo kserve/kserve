@@ -62,10 +62,9 @@ func (p *Puller) modelProcessor(modelName string, events chan EventWrapper) {
 				log.Println("Now doing a request on", event)
 			}
 		case ShouldUnload:
-			// If there is an error, we will NOT send a request. As such, to know about errors, you will
-			// need to call the error endpoint of the puller
 			// TODO: Do request logic
 			log.Println("Now doing a request on", event)
+			// If there is an error, we will NOT do a delete... that could be problematic
 			log.Println("Should unload", event.ModelName)
 			if err := p.RemoveModel(event.ModelName); err != nil {
 				log.Println("worker failed on", event, "because: ", err)
