@@ -63,15 +63,16 @@ func (w *Watcher) Start() {
 				if isDataDir && isCreate {
 					symlink, _ := filepath.EvalSymlinks(eventPath)
 					file, err := ioutil.ReadFile(filepath.Join(symlink, constants.ModelConfigFileName))
-					modelConfigs := make(modelconfig.ModelConfigs, 0)
 					if err != nil {
 						log.Println("Error in reading file", err)
+					} else {
+						modelConfigs := make(modelconfig.ModelConfigs, 0)
+						err = json.Unmarshal([]byte(file), &modelConfigs)
+						if err != nil {
+							log.Println("unable to marshall for", event, "with error", err)
+						}
+						w.ParseConfig(modelConfigs)
 					}
-					err = json.Unmarshal([]byte(file), &modelConfigs)
-					if err != nil {
-						log.Println("unable to marshall for", event, "with error", err)
-					}
-					w.ParseConfig(modelConfigs)
 				}
 			case err, ok := <-watcher.Errors:
 				if ok { // 'Errors' channel is not closed

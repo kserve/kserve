@@ -20,6 +20,10 @@ type Syncer struct {
 	Watcher Watcher
 }
 
+type FileError error
+
+var NoSuccessFile FileError = fmt.Errorf("no success file can be found")
+
 func (s *Syncer) Start() {
 	modelDir := filepath.Clean(s.Watcher.Puller.Downloader.ModelDir)
 	timeNow := time.Now()
@@ -34,11 +38,18 @@ func (s *Syncer) Start() {
 						if e := s.successParse(timeNow, modelName, baseSplit); e != nil {
 							return fmt.Errorf("error parsing SUCCESS file: %v", e)
 						}
+						return nil
 					}
 				}
-				return fmt.Errorf("did not find success file")
+				return NoSuccessFile
 			})
-			log.Println("result from walk:", ierr)
+			switch ierr {
+			case NoSuccessFile:
+				return nil
+			default:
+				log.Println("failed to parse SUCCESS file:", ierr)
+				return ierr
+			}
 		}
 		return nil
 	})
@@ -50,13 +61,14 @@ func (s *Syncer) Start() {
 	file, err := ioutil.ReadFile(filePath)
 	if err != nil {
 		log.Println("Error in reading file", err)
+	} else {
+		modelConfigs := make(modelconfig.ModelConfigs, 0)
+		err = json.Unmarshal([]byte(file), &modelConfigs)
+		if err != nil {
+			log.Println("unable to marshall for modelConfig with error", err)
+		}
+		s.Watcher.ParseConfig(modelConfigs)
 	}
-	modelConfigs := make(modelconfig.ModelConfigs, 0)
-	err = json.Unmarshal([]byte(file), &modelConfigs)
-	if err != nil {
-		log.Println("unable to marshall for modelConfig with error", err)
-	}
-	s.Watcher.ParseConfig(modelConfigs)
 }
 
 func (s *Syncer) successParse(timeNow time.Time, modelName string, baseSplit []string) error {
