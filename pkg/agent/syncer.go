@@ -29,7 +29,7 @@ func (s *Syncer) Start() {
 			ierr := filepath.Walk(path, func(path string, f os.FileInfo, _ error) error {
 				if !f.IsDir() {
 					base := filepath.Base(path)
-					baseSplit := strings.SplitN(base,".", 4)
+					baseSplit := strings.SplitN(base, ".", 4)
 					if baseSplit[0] == "SUCCESS" {
 						if e := s.successParse(timeNow, modelName, baseSplit); e != nil {
 							return fmt.Errorf("error parsing SUCCESS file: %v", e)
@@ -76,7 +76,7 @@ func (s *Syncer) successParse(timeNow time.Time, modelName string, baseSplit []s
 	memoryResource := resource.MustParse(memory)
 
 	s.Watcher.ModelTracker[modelName] = ModelWrapper{
-		ModelSpec:  &v1beta1.ModelSpec{
+		ModelSpec: &v1beta1.ModelSpec{
 			StorageURI: storageURI,
 			Framework:  framework,
 			Memory:     memoryResource,

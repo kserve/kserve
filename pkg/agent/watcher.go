@@ -125,7 +125,7 @@ func (w *Watcher) ParseConfig(modelConfigs modelconfig.ModelConfigs) {
 	// TODO: Maybe make parallel and more efficient?
 	for modelName, modelWrapper := range w.ModelTracker {
 		if modelWrapper.Time.Before(timeNow) {
-			delete(w. ModelTracker, modelName)
+			delete(w.ModelTracker, modelName)
 			channel, ok := w.Puller.ChannelMap[modelName]
 			if !ok {
 				log.Println("Model", modelName, "was never added to channel map")

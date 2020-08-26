@@ -72,8 +72,6 @@ func hash(s string) string {
 	return string(dst)
 }
 
-
-
 func extractProtocol(storageURI string) (storage.Protocol, error) {
 	if storageURI == "" {
 		return "", fmt.Errorf("there is no storageUri supplied")
