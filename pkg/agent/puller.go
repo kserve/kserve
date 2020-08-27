@@ -8,7 +8,6 @@ import (
 )
 
 type Puller struct {
-	// TODO: Should this be a syncmap.Map?
 	ChannelMap map[string]Channel
 	Downloader Downloader
 }
