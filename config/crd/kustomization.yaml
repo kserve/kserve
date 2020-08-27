@@ -9,4 +9,5 @@
 # markers ("---").
 resources:
 - serving.kubeflow.org_inferenceservices.yaml
+- serving.kubeflow.org_trainedmodels.yaml
 
