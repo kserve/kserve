@@ -92,7 +92,7 @@
         buildTemplate(step_name, image, command):: {
           name: step_name,
           retryStrategy: {
-            limit: 10
+            limit: 3
             retryPolicy: "Always"
             backoff: {
               duration: 1
