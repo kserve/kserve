@@ -30,8 +30,8 @@ import (
 	"os"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
-
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
+	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
 	v1alph2controller "github.com/kubeflow/kfserving/pkg/controller/inferenceservice"
 	trainedmodelcontroller "github.com/kubeflow/kfserving/pkg/controller/v1beta1/trainedmodel"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -72,14 +72,18 @@ func main() {
 
 	log.Info("Registering Components.")
 
-	// Setup Scheme for all resources
 	log.Info("Setting up KFServing v1alpha2 scheme")
 	if err := v1alpha2.AddToScheme(mgr.GetScheme()); err != nil {
 		log.Error(err, "unable to add KFServing v1alpha2 to scheme")
 		os.Exit(1)
 	}
 
-	// Setup Scheme for all resources
+	log.Info("Setting up KFServing v1beta1 scheme")
+	if err := v1beta1.AddToScheme(mgr.GetScheme()); err != nil {
+		log.Error(err, "unable to add KFServing v1beta1 to scheme")
+		os.Exit(1)
+	}
+
 	log.Info("Setting up Knative scheme")
 	if err := knservingv1.AddToScheme(mgr.GetScheme()); err != nil {
 		log.Error(err, "unable to add Knative APIs to scheme")
