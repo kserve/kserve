@@ -74,7 +74,7 @@ func TestProcessAddOrUpdate(t *testing.T) {
 				},
 			},
 			expected: `[{"modelName":"model1","modelSpec":{"storageUri":"s3//model1","framework":"framework1","memory":"0"}},` +
-						`{"modelName":"model2","modelSpec":{"storageUri":"s3//model2","framework":"framework2","memory":"0"}}]`,
+				`{"modelName":"model2","modelSpec":{"storageUri":"s3//model2","framework":"framework2","memory":"0"}}]`,
 		},
 		"update": {
 			modelConfigs: ModelConfigs{
@@ -91,7 +91,7 @@ func TestProcessAddOrUpdate(t *testing.T) {
 				},
 			},
 			expected: `[{"modelName":"model1","modelSpec":{"storageUri":"s3//new-model1","framework":"new-framework1","memory":"0"}},` +
-						`{"modelName":"model2","modelSpec":{"storageUri":"s3//model2","framework":"framework2","memory":"0"}}]`,
+				`{"modelName":"model2","modelSpec":{"storageUri":"s3//model2","framework":"framework2","memory":"0"}}]`,
 		},
 	}
 	for _, tc := range testCases {
@@ -108,9 +108,9 @@ func TestProcessAddOrUpdate(t *testing.T) {
 func TestProcessDelete(t *testing.T) {
 	log.SetLogger(log.ZapLogger(true))
 	testCases := map[string]struct {
-		modelConfigs      []string
-		configMap         *v1.ConfigMap
-		expected          string
+		modelConfigs []string
+		configMap    *v1.ConfigMap
+		expected     string
 	}{
 		"delete nil data": {
 			modelConfigs: []string{"model1"},
@@ -174,10 +174,10 @@ func TestProcessDelete(t *testing.T) {
 func TestProcess(t *testing.T) {
 	log.SetLogger(log.ZapLogger(true))
 	testCases := map[string]struct {
-		updated           ModelConfigs
-		deleted           []string
-		configMap         *v1.ConfigMap
-		expected          string
+		updated   ModelConfigs
+		deleted   []string
+		configMap *v1.ConfigMap
+		expected  string
 	}{
 		"process configmap": {
 			updated: ModelConfigs{
@@ -194,14 +194,12 @@ func TestProcess(t *testing.T) {
 			configMap: &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{Name: "test-config", Namespace: "test"},
 				Data: map[string]string{
-					constants.ModelConfigFileName:
-						`[{"modelName":"model1","modelSpec":{"storageUri":"s3//model1","framework":"framework1","memory":"0"}},` +
+					constants.ModelConfigFileName: `[{"modelName":"model1","modelSpec":{"storageUri":"s3//model1","framework":"framework1","memory":"0"}},` +
 						`{"modelName":"model2","modelSpec":{"storageUri":"s3//model2","framework":"framework2","memory":"0"}}]`,
 				},
 			},
 			expected: `[{"modelName":"model1","modelSpec":{"storageUri":"s3//new-model1","framework":"new-framework1","memory":"0"}},` +
 				`{"modelName":"model3","modelSpec":{"storageUri":"s3//model3","framework":"framework3","memory":"0"}}]`,
-
 		},
 	}
 	for _, tc := range testCases {
