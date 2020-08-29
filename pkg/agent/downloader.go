@@ -39,10 +39,9 @@ func (d *Downloader) DownloadModel(modelName string, modelSpec *v1beta1.ModelSpe
 		modelUri := modelSpec.StorageURI
 		hashModelUri := hash(modelUri)
 		hashFramework := hash(modelSpec.Framework)
-		hashMemory := hash(modelSpec.Memory.String())
-		log.Println("Processing:", modelUri, "=", hashModelUri, hashFramework, hashMemory)
+		log.Println("Processing:", modelUri, "=", hashModelUri, hashFramework)
 		successFile := filepath.Join(d.ModelDir, modelName,
-			fmt.Sprintf("SUCCESS.%s.%s.%s", hashModelUri, hashFramework, hashMemory))
+			fmt.Sprintf("SUCCESS.%s.%s", hashModelUri, hashFramework))
 		// Download if the event there is a success file and the event is one which we wish to Download
 		if !storage.FileExists(successFile) {
 			// TODO: Handle retry logic
@@ -50,10 +49,10 @@ func (d *Downloader) DownloadModel(modelName string, modelSpec *v1beta1.ModelSpe
 				return fmt.Errorf("download error: %v", err)
 			}
 			file, createErr := storage.Create(successFile)
+			defer file.Close()
 			if createErr != nil {
 				return fmt.Errorf("create file error: %v", createErr)
 			}
-			defer file.Close()
 		} else {
 			log.Println("Model", modelSpec.StorageURI, "exists already")
 		}
@@ -71,10 +70,9 @@ func (d *Downloader) download(modelName string, storageUri string) error {
 	if !ok {
 		return fmt.Errorf("protocol manager for %s is not initialized", protocol)
 	}
-	if err := provider.Download(d.ModelDir, modelName, storageUri); err != nil {
+	if err := provider.DownloadModel(d.ModelDir, modelName, storageUri); err != nil {
 		return fmt.Errorf("failure on download: %v", err)
 	}
-
 	return nil
 }
 
