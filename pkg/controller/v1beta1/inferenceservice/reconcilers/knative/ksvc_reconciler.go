@@ -42,11 +42,11 @@ type KsvcReconciler struct {
 }
 
 func NewKsvcReconciler(client client.Client, scheme *runtime.Scheme, componentMeta metav1.ObjectMeta,
-	deploymentSpec *v1beta1.ComponentExtensionSpec, podSpec *corev1.PodSpec) *KsvcReconciler {
+	componentExt *v1beta1.ComponentExtensionSpec, podSpec *corev1.PodSpec) *KsvcReconciler {
 	return &KsvcReconciler{
 		client:  client,
 		scheme:  scheme,
-		Service: createKnativeService(componentMeta, deploymentSpec, podSpec),
+		Service: createKnativeService(componentMeta, componentExt, podSpec),
 	}
 }
 
