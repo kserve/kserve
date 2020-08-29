@@ -134,7 +134,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						Template: knservingv1.RevisionTemplateSpec{
 							ObjectMeta: metav1.ObjectMeta{
 								Labels: map[string]string{
-									constants.KServiceComponentLabel: constants.Predictor.String(),
+									constants.KServiceComponentLabel:      constants.Predictor.String(),
 									constants.InferenceServicePodLabelKey: serviceName,
 								},
 								Annotations: map[string]string{

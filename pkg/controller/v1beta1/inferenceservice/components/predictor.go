@@ -51,7 +51,6 @@ func NewPredictor(client client.Client, scheme *runtime.Scheme, inferenceService
 
 // Reconcile observes the world and attempts to drive the status towards the desired state.
 func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
-	propagateStatusFn := isvc.Status.PropagateStatus
 	p.Log.Info("Reconciling Predictor", "PredictorSpec", isvc.Spec)
 	predictor := (&isvc.Spec.Predictor).GetImplementation()
 	annotations := utils.Filter(isvc.Annotations, func(key string) bool {
@@ -75,7 +74,6 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
 		container := predictor.GetContainer(isvc.ObjectMeta, isvc.Spec.Predictor.GetExtensions(), p.inferenceServiceConfig)
 		isvc.Spec.Predictor.CustomPredictor = &v1beta1.CustomPredictor{
 			PodTemplateSpec: v1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{},
 				Spec: v1.PodSpec{
 					Containers: []v1.Container{
 						*container,
@@ -94,7 +92,7 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
 	if status, err := r.Reconcile(); err != nil {
 		return err
 	} else {
-		propagateStatusFn(v1beta1.PredictorComponent, status)
+		isvc.Status.PropagateStatus(v1beta1.PredictorComponent, status)
 		return nil
 	}
 }
