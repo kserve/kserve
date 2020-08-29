@@ -39,9 +39,9 @@ func (d *Downloader) DownloadModel(modelName string, modelSpec *v1beta1.ModelSpe
 		modelUri := modelSpec.StorageURI
 		hashModelUri := hash(modelUri)
 		hashFramework := hash(modelSpec.Framework)
-		log.Println("Processing:", modelUri, "=", hashModelUri, hashFramework)
 		successFile := filepath.Join(d.ModelDir, modelName,
 			fmt.Sprintf("SUCCESS.%s.%s", hashModelUri, hashFramework))
+		log.Printf("Downloading %v to model dir %v\n", modelUri, d.ModelDir)
 		// Download if the event there is a success file and the event is one which we wish to Download
 		if !storage.FileExists(successFile) {
 			// TODO: Handle retry logic
@@ -54,14 +54,13 @@ func (d *Downloader) DownloadModel(modelName string, modelSpec *v1beta1.ModelSpe
 				return fmt.Errorf("create file error: %v", createErr)
 			}
 		} else {
-			log.Println("Model", modelSpec.StorageURI, "exists already")
+			log.Printf("Model %v exists already at location %v\n", modelSpec.StorageURI, filepath.Join(d.ModelDir, successFile))
 		}
 	}
 	return nil
 }
 
 func (d *Downloader) download(modelName string, storageUri string) error {
-	log.Println("Downloading: ", storageUri)
 	protocol, err := extractProtocol(storageUri)
 	if err != nil {
 		return fmt.Errorf("unsupported protocol: %v", err)

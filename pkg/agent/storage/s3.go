@@ -102,7 +102,7 @@ func (s *S3ObjectDownloader) GetAllObjects(s3Svc s3iface.S3API) ([]s3manager.Bat
 			Writer: file,
 			After: func() error {
 				defer file.Close()
-				fmt.Println("Downloaded %v", aws.String(*object.Key))
+				log.Printf("Downloaded %v\n", aws.String(*object.Key))
 				return nil
 			},
 		}
