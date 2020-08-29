@@ -17,7 +17,7 @@ limitations under the License.
 package storage
 
 type Provider interface {
-	Download(modelDir string, modelName string, storageUri string) error
+	DownloadModel(modelDir string, modelName string, storageUri string) error
 }
 
 type Protocol string
