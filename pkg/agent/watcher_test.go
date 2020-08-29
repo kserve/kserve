@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"fmt"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3iface"
@@ -44,7 +45,7 @@ var _ = Describe("Watcher", func() {
 		Context("Sync new models", func() {
 			It("should download the new models", func() {
 				defer GinkgoRecover()
-				done := make(chan bool)
+				done := make(chan EventWrapper)
 				watcher = Watcher{
 					ConfigDir:    "/tmp/configs",
 					ModelTracker: map[string]ModelWrapper{},
@@ -60,7 +61,7 @@ var _ = Describe("Watcher", func() {
 							},
 						},
 					},
-					WorkerDoneChannel: done,
+					EventDoneChannel: done,
 				}
 				modelConfigs := modelconfig.ModelConfigs{
 					{
@@ -79,8 +80,10 @@ var _ = Describe("Watcher", func() {
 					},
 				}
 				watcher.ParseConfig(modelConfigs)
-				<-done
-				<-done
+				event1 := <- done
+				fmt.Printf("event done %v\n", event1)
+				event2 := <-done
+				fmt.Printf("event done %v\n", event2)
 			})
 		})
 	})
