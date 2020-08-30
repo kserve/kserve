@@ -21,9 +21,9 @@ import (
 	"fmt"
 	"github.com/kubeflow/kfserving/pkg/agent/storage"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
-	"log"
 	"path/filepath"
 	"regexp"
+	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"strings"
 )
 
@@ -35,13 +35,14 @@ type Downloader struct {
 var SupportedProtocols = []storage.Protocol{storage.S3}
 
 func (d *Downloader) DownloadModel(modelName string, modelSpec *v1beta1.ModelSpec) error {
+	log := logf.Log.WithName("Downloader")
 	if modelSpec != nil {
 		modelUri := modelSpec.StorageURI
 		hashModelUri := hash(modelUri)
 		hashFramework := hash(modelSpec.Framework)
 		successFile := filepath.Join(d.ModelDir, modelName,
 			fmt.Sprintf("SUCCESS.%s.%s", hashModelUri, hashFramework))
-		log.Printf("Downloading %v to model dir %v\n", modelUri, d.ModelDir)
+		log.Info("Downloading to model dir", "modelUri", modelUri, "modelDir", d.ModelDir)
 		// Download if the event there is a success file and the event is one which we wish to Download
 		if !storage.FileExists(successFile) {
 			// TODO: Handle retry logic
@@ -54,7 +55,7 @@ func (d *Downloader) DownloadModel(modelName string, modelSpec *v1beta1.ModelSpe
 				return fmt.Errorf("create file error: %v", createErr)
 			}
 		} else {
-			log.Printf("Model %v exists already at location %v\n", modelSpec.StorageURI, filepath.Join(d.ModelDir, successFile))
+			log.Info("Model exists already at location %v\n", "model", modelName, "successFile", filepath.Join(d.ModelDir, successFile))
 		}
 	}
 	return nil

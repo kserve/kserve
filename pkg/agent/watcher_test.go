@@ -11,6 +11,7 @@ import (
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
 	"github.com/kubeflow/kfserving/pkg/modelconfig"
 	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 	"io"
 	"io/ioutil"
 	"log"
@@ -94,10 +95,25 @@ var _ = Describe("Watcher", func() {
 					},
 				}
 				watcher.ParseConfig(modelConfigs)
+				doneEventMap := map[string]EventWrapper{}
 				event1 := <-done
-				log.Printf("event done %v\n", event1)
+				doneEventMap[event1.ModelName] = event1
 				event2 := <-done
-				log.Printf("event done %v\n", event2)
+				doneEventMap[event2.ModelName] = event2
+				Expect(doneEventMap["model1"]).To(Equal(EventWrapper{
+					ModelName:      "model1",
+					ModelSpec:      &modelConfigs[0].Spec,
+					Error:          nil,
+					LoadState:      ShouldLoad,
+					ShouldDownload: true,
+				}))
+				Expect(doneEventMap["model2"]).To(Equal(EventWrapper{
+					ModelName:      "model2",
+					ModelSpec:      &modelConfigs[1].Spec,
+					Error:          nil,
+					LoadState:      ShouldLoad,
+					ShouldDownload: true,
+				}))
 			})
 		})
 
@@ -107,27 +123,8 @@ var _ = Describe("Watcher", func() {
 				log.Printf("Using temp dir %v\n", modelDir)
 				done := make(chan EventWrapper)
 				watcher = Watcher{
-					ConfigDir: "/tmp/configs",
-					ModelTracker: map[string]ModelWrapper{
-						"model1": {
-							ModelSpec: v1beta1.ModelSpec{
-								StorageURI: "s3://models/model1",
-								Framework:  "sklearn",
-							},
-						},
-						"model2": {
-							ModelSpec: v1beta1.ModelSpec{
-								StorageURI: "s3://models/model2",
-								Framework:  "sklearn",
-							},
-						},
-						"model3": {
-							ModelSpec: v1beta1.ModelSpec{
-								StorageURI: "s3://models/model3",
-								Framework:  "sklearn",
-							},
-						},
-					},
+					ConfigDir:    "/tmp/configs",
+					ModelTracker: map[string]ModelWrapper{},
 					Puller: Puller{
 						ChannelMap: map[string]Channel{},
 						Downloader: Downloader{
@@ -159,8 +156,103 @@ var _ = Describe("Watcher", func() {
 					},
 				}
 				watcher.ParseConfig(modelConfigs)
+				<-done
+				<-done
+				// remove model2
+				modelConfigs = modelconfig.ModelConfigs{
+					{
+						Name: "model1",
+						Spec: v1beta1.ModelSpec{
+							StorageURI: "s3://models/model1",
+							Framework:  "sklearn",
+						},
+					},
+				}
+				watcher.ParseConfig(modelConfigs)
 				event1 := <-done
-				log.Printf("event done %v\n", event1)
+				Expect(event1).To(Equal(EventWrapper{
+					ModelName: "model2",
+					ModelSpec: &v1beta1.ModelSpec{
+						StorageURI: "s3://models/model2",
+						Framework:  "sklearn",
+					},
+					ShouldDownload: false,
+					LoadState:      ShouldUnload,
+					Error:          nil,
+				}))
+			})
+		})
+
+		Context("Sync update models", func() {
+			It("should update models", func() {
+				defer GinkgoRecover()
+				log.Printf("Using temp dir %v\n", modelDir)
+				done := make(chan EventWrapper)
+				watcher = Watcher{
+					ConfigDir:    "/tmp/configs",
+					ModelTracker: map[string]ModelWrapper{},
+					Puller: Puller{
+						ChannelMap: map[string]Channel{},
+						Downloader: Downloader{
+							ModelDir: modelDir + "/test3",
+							Providers: map[storage.Protocol]storage.Provider{
+								storage.S3: &storage.S3Provider{
+									Client:     &mockS3Client{},
+									Downloader: &mockS3Downloder{},
+								},
+							},
+						},
+					},
+					EventDoneChannel: done,
+				}
+				modelConfigs := modelconfig.ModelConfigs{
+					{
+						Name: "model1",
+						Spec: v1beta1.ModelSpec{
+							StorageURI: "s3://models/model1",
+							Framework:  "sklearn",
+						},
+					},
+					{
+						Name: "model2",
+						Spec: v1beta1.ModelSpec{
+							StorageURI: "s3://models/model2",
+							Framework:  "sklearn",
+						},
+					},
+				}
+				watcher.ParseConfig(modelConfigs)
+				<-done
+				<-done
+				// remove model2
+				modelConfigs = modelconfig.ModelConfigs{
+					{
+						Name: "model1",
+						Spec: v1beta1.ModelSpec{
+							StorageURI: "s3://models/model1",
+							Framework:  "sklearn",
+						},
+					},
+					{
+						Name: "model2",
+						Spec: v1beta1.ModelSpec{
+							StorageURI: "s3://models/model2v2",
+							Framework:  "sklearn",
+						},
+					},
+				}
+				watcher.ParseConfig(modelConfigs)
+				event1 := <-done
+				Expect(event1).To(Equal(EventWrapper{
+					ModelName: "model2",
+					ModelSpec: &v1beta1.ModelSpec{
+						StorageURI: "s3://models/model2v2",
+						Framework:  "sklearn",
+					},
+					ShouldDownload: true,
+					LoadState:      ShouldLoad,
+					Error:          nil,
+				}))
 			})
 		})
 	})

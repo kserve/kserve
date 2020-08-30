@@ -19,8 +19,8 @@ package agent
 import (
 	"github.com/kubeflow/kfserving/pkg/agent/storage"
 	v1 "github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
-	"log"
 	"path/filepath"
+	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
 
 type OpType string
@@ -86,6 +86,7 @@ func (p *Puller) enqueueModelOp(modelOp *ModelOp) {
 }
 
 func (p *Puller) modelOpComplete(modelOp *ModelOp, closed bool) {
+	log := logf.Log.WithName("modelOp")
 	modelChan, ok := p.channelMap[modelOp.ModelName]
 	if ok {
 		modelChan.opsInFlight -= 1
@@ -98,12 +99,13 @@ func (p *Puller) modelOpComplete(modelOp *ModelOp, closed bool) {
 			}
 		}
 	} else {
-		log.Println("Op completion event for model", modelOp.ModelName, "not found in channelMap")
+		log.Info("Op completion event for model", modelOp.ModelName, "not found in channelMap")
 	}
 }
 
 func (p *Puller) modelProcessor(modelName string, ops <-chan *ModelOp) {
-	log.Println("worker for", modelName, "is initialized")
+	log := logf.Log.WithName("modelProcessor")
+	log.Info("worker is started for", "model", modelName)
 	// TODO: Instead of going through each event, one-by-one, we need to drain and combine
 	// this is important for handling Load --> Unload requests sent in tandem
 	// Load --> Unload = 0 (cancel first load)
@@ -112,24 +114,24 @@ func (p *Puller) modelProcessor(modelName string, ops <-chan *ModelOp) {
 		switch modelOp.Op {
 		case Add:
 			// Load
-			log.Println("Should download", modelOp.Spec.StorageURI)
+			log.Info("Should download", modelOp.Spec.StorageURI)
 			err := p.Downloader.DownloadModel(modelName, modelOp.Spec)
 			if err != nil {
-				log.Println("Download of model", modelName, "failed because: ", err)
+				log.Info("Download of model", modelName, "failed because: ", err)
 			} else {
 				// If there is an error, we will NOT send a request. As such, to know about errors, you will
 				// need to call the error endpoint of the puller
 				// TODO: Do request logic
-				log.Println("Now doing load request for", modelName)
+				log.Info("Now doing load request for", modelName)
 			}
 		case Remove:
 			// Unload
 			// TODO: Do request logic
-			log.Println("Now doing unload request for", modelName)
+			log.Info("Now doing unload request for", modelName)
 			// If there is an error, we will NOT do a delete... that could be problematic
-			log.Println("Should unload", modelName)
+			log.Info("Should unload", modelName)
 			if err := storage.RemoveDir(filepath.Join(p.Downloader.ModelDir, modelName)); err != nil {
-				log.Printf("failing to delete model directory: %v", err)
+				log.Info("failing to delete model directory: %v", err)
 			}
 		}
 		p.completions <- modelOp
