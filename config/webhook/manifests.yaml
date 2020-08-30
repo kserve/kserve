@@ -8,8 +8,8 @@ webhooks:
   - clientConfig:
       caBundle: Cg==
       service:
-        name: kfserving-webhook-server-service
-        namespace: kubeflow
+        name: $(webhookServiceName)
+        namespace: kfserving-system
         path: /mutate-inferenceservices
     failurePolicy: Fail
     name: inferenceservice.kfserving-webhook-server.defaulter
@@ -26,8 +26,8 @@ webhooks:
   - clientConfig:
       caBundle: Cg==
       service:
-        name: kfserving-webhook-server-service
-        namespace: kubeflow
+        name: $(webhookServiceName)
+        namespace: kfserving-system
         path: /mutate-pods
     failurePolicy: Fail
     name: inferenceservice.kfserving-webhook-server.pod-mutator
@@ -60,8 +60,8 @@ webhooks:
   - clientConfig:
       caBundle: Cg==
       service:
-        name: kfserving-webhook-server-service
-        namespace: kubeflow
+        name: $(webhookServiceName)
+        namespace: kfserving-system
         path: /validate-inferenceservices
     failurePolicy: Fail
     name: inferenceservice.kfserving-webhook-server.validator
