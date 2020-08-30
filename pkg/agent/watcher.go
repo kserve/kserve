@@ -15,14 +15,18 @@ import (
 type Watcher struct {
 	configDir    string
 	modelTracker map[string]modelWrapper
-	puller       Puller
 	ModelEvents  chan ModelOp
 }
 
-func NewWatcher(configDir string) Watcher {
+func NewWatcher(configDir string, modelDir string) Watcher {
+	modelTracker, err := SyncModelDir(modelDir)
+	if err != nil {
+		log.Fatal(err)
+	}
 	return Watcher{
-		configDir:   configDir,
-		ModelEvents: make(chan ModelOp),
+		configDir:    configDir,
+		modelTracker: modelTracker,
+		ModelEvents:  make(chan ModelOp),
 	}
 }
 
@@ -32,10 +36,6 @@ type modelWrapper struct {
 }
 
 func (w *Watcher) Start() {
-	var err error
-	if w.modelTracker, err = SyncModelDir(w.puller.Downloader.ModelDir); err != nil {
-		log.Fatal(err)
-	}
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		log.Fatal(err)

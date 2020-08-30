@@ -31,30 +31,34 @@ type ModelOp struct {
 
 func StartPuller(downloader Downloader, commands <-chan ModelOp) {
 	puller := Puller{
-		channelMap:  map[string]ModelChannel{},
+		channelMap:  make(map[string]ModelChannel),
 		completions: make(chan string, 128),
 		Downloader:  downloader,
 	}
-	go func() {
-		var finished bool
-		for {
-			select {
-			case modelOp, ok := <-commands:
-				if !ok {
-					finished = true
-				} else {
-					switch modelOp.Op {
-					case Add:
-						puller.enqueueModelOp(modelOp.ModelName, modelOp.Spec)
-					case Remove:
-						puller.enqueueModelOp(modelOp.ModelName, &remove)
-					}
+	go puller.processCommands(commands)
+}
+
+func (p *Puller) processCommands(commands <-chan ModelOp) {
+	// channelMap accessed only by this goroutine
+	var finished bool
+	for {
+		select {
+		case modelOp, ok := <-commands:
+			if !ok {
+				finished = true
+				//commands = nil //TODO tbd
+			} else {
+				switch modelOp.Op {
+				case Add:
+					p.enqueueModelOp(modelOp.ModelName, modelOp.Spec)
+				case Remove:
+					p.enqueueModelOp(modelOp.ModelName, &remove)
 				}
-			case completed := <-puller.completions:
-				puller.modelOpComplete(completed, finished)
 			}
+		case completed := <-p.completions:
+			p.modelOpComplete(completed, finished)
 		}
-	}()
+	}
 }
 
 type ModelChannel struct {
