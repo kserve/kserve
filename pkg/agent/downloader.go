@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"github.com/kubeflow/kfserving/pkg/agent/storage"
+	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
 	"log"
 	"path/filepath"
 	"regexp"
@@ -17,9 +18,7 @@ type Downloader struct {
 
 var SupportedProtocols = []storage.Protocol{storage.S3}
 
-func (d *Downloader) DownloadModel(event EventWrapper) error {
-	modelSpec := event.ModelSpec
-	modelName := event.ModelName
+func (d *Downloader) DownloadModel(modelName string, modelSpec *v1beta1.ModelSpec) error {
 	if modelSpec != nil {
 		modelUri := modelSpec.StorageURI
 		hashModelUri := hash(modelUri)
@@ -29,7 +28,7 @@ func (d *Downloader) DownloadModel(event EventWrapper) error {
 		successFile := filepath.Join(d.ModelDir, modelName,
 			fmt.Sprintf("SUCCESS.%s.%s.%s", hashModelUri, hashFramework, hashMemory))
 		// Download if the event there is a success file and the event is one which we wish to Download
-		if !storage.FileExists(successFile) && event.ShouldDownload {
+		if !storage.FileExists(successFile) {
 			// TODO: Handle retry logic
 			if err := d.download(modelName, modelUri); err != nil {
 				return fmt.Errorf("download error: %v", err)
@@ -39,8 +38,6 @@ func (d *Downloader) DownloadModel(event EventWrapper) error {
 				return fmt.Errorf("create file error: %v", createErr)
 			}
 			defer file.Close()
-		} else if !event.ShouldDownload {
-			log.Println("Model", modelName, "does not need to be re-downloaded")
 		} else {
 			log.Println("Model", modelSpec.StorageURI, "exists already")
 		}
