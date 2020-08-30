@@ -43,6 +43,11 @@ var (
 	InferenceServiceConfigMapName = "inferenceservice-config"
 )
 
+// InferenceService MultiModel Constants
+var (
+	ModelConfigFileName = "models.json"
+)
+
 // InferenceService Annotations
 var (
 	InferenceServiceGKEAcceleratorAnnotationKey = KFServingAPIGroupName + "/gke-accelerator"
@@ -69,7 +74,7 @@ var (
 	DefaultExplainerTimeout   int64 = 300
 	DefaultReadinessTimeout   int32 = 600
 	DefaultScalingTarget            = "1"
-	DefaultMinReplicas              = 1
+	DefaultMinReplicas        int   = 1
 )
 
 // Webhook Constants
