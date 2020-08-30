@@ -35,7 +35,7 @@ func main() {
 		}
 	}
 
-	watcher := agent.NewWatcher(*configDir)
+	watcher := agent.NewWatcher(*configDir, *modelDir)
 	agent.StartPuller(downloader, watcher.ModelEvents)
 	watcher.Start()
 }
