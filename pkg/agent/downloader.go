@@ -47,7 +47,7 @@ func (d *Downloader) DownloadModel(modelName string, modelSpec *v1beta1.ModelSpe
 		if !storage.FileExists(successFile) {
 			// TODO: Handle retry logic
 			if err := d.download(modelName, modelUri); err != nil {
-				return fmt.Errorf("download error: %v", err)
+				return err
 			}
 			file, createErr := storage.Create(successFile)
 			defer file.Close()
@@ -71,7 +71,7 @@ func (d *Downloader) download(modelName string, storageUri string) error {
 		return fmt.Errorf("protocol manager for %s is not initialized", protocol)
 	}
 	if err := provider.DownloadModel(d.ModelDir, modelName, storageUri); err != nil {
-		return fmt.Errorf("failure on download: %v", err)
+		return err
 	}
 	return nil
 }
