@@ -181,7 +181,7 @@ type TensorflowSpec struct {
 type TritonSpec struct {
 	// The URI for the trained model repository(https://docs.nvidia.com/deeplearning/triton-inference-server/master-user-guide/docs/model_repository.html)
 	StorageURI string `json:"storageUri"`
-	// Triton Model Server docker image version, default version can be set in the inferenceservice configmap
+	// Triton Inference Server docker image version, default version can be set in the inferenceservice configmap
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
 	// Defaults to requests and limits of 1CPU, 2Gb MEM.
 	Resources v1.ResourceRequirements `json:"resources,omitempty"`
