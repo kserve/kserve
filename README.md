@@ -47,7 +47,7 @@ kubectl apply -f ./install/$TAG/kfserving.yaml --validate=false
 
 If you want to deploy the KFServing controller in `kubeflow` namespace.
 
-1. Set the namespace field to `kubeflow` in overlays/env/kustomization.yaml and [ingressGateway](https://github.com/kubeflow/kfserving/blob/master/config/configmap/inferenceservice.yaml#L94) field to `kubeflow-gateway.kubeflow` in [config/configmap/inferenceservice.yaml](https://github.com/kubeflow/kfserving/blob/master/config/configmap/inferenceservice.yaml).
+1. Set the namespace field to `kubeflow` in overlays/env/kustomization.yaml and [ingressGateway](https://github.com/kubeflow/kfserving/blob/master/config/configmap/inferenceservice.yaml#L94) to `kubeflow-gateway.kubeflow` in [config/configmap/inferenceservice.yaml](https://github.com/kubeflow/kfserving/blob/master/config/configmap/inferenceservice.yaml).
 2. Apply the changes to update the kfseving deployment:
 ```
 kubectl apply -k config/overlays/env
