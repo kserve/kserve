@@ -22,7 +22,7 @@ all: test manager logger batcher
 
 # Run tests
 test: fmt vet manifests
-	go test ./pkg/... ./cmd/... -coverprofile cover.out
+	go test ./pkg/... ./cmd/... -coverprofile coverage.out
 
 # Build manager binary
 manager: generate fmt vet lint
