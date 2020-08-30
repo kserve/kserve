@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: inferenceservice-config
-  namespace: kubeflow
+  namespace: kfserving-system
 data:
   predictors: |-
     {

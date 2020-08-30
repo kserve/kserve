@@ -9,7 +9,7 @@ metadata:
     control-plane: controller-manager
     controller-tools.k8s.io: "1.0"
   name: kfserving-controller-manager-metrics-service
-  namespace: kubeflow
+  namespace: kfserving-system
 spec:
   ports:
   - name: https

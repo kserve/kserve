@@ -1,0 +1,367 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  annotations:
+    autoscaling.knative.dev/class: kpa.autoscaling.knative.dev
+    autoscaling.knative.dev/minScale: "1"
+    autoscaling.knative.dev/target: "1"
+    internal.serving.kubeflow.org/storage-initializer-sourceuri: s3://tensorboard/result/saved_model
+    serving.knative.dev/creator: system:serviceaccount:kubeflow:default
+    traffic.sidecar.istio.io/includeOutboundIPRanges: '*'
+  creationTimestamp: "2020-08-30T09:57:34Z"
+  generateName: kfserving-mnist-01-predictor-default-j6fmm-deployment-67758f7c65-
+  labels:
+    app: kfserving-mnist-01-predictor-default-j6fmm
+    component: predictor
+    endpoint: default
+    model: kfserving-mnist-01
+    pod-template-hash: 67758f7c65
+    serving.knative.dev/configuration: kfserving-mnist-01-predictor-default
+    serving.knative.dev/configurationGeneration: "1"
+    serving.knative.dev/revision: kfserving-mnist-01-predictor-default-j6fmm
+    serving.knative.dev/revisionUID: 716d3e8f-987c-4574-b611-d6193b32c30a
+    serving.knative.dev/service: kfserving-mnist-01-predictor-default
+    serving.kubeflow.org/inferenceservice: kfserving-mnist-01
+  name: kfserving-mnist-01-predictor-default-j6fmm-deployment-6775sgmm5
+  namespace: admin
+  ownerReferences:
+  - apiVersion: apps/v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: ReplicaSet
+    name: kfserving-mnist-01-predictor-default-j6fmm-deployment-67758f7c65
+    uid: 3b4e2f8f-3f4a-47e9-813a-e5070f6a16ff
+  resourceVersion: "25540"
+  selfLink: /api/v1/namespaces/admin/pods/kfserving-mnist-01-predictor-default-j6fmm-deployment-6775sgmm5
+  uid: cefdc4dc-91ed-47a4-a792-56e5f7555e00
+spec:
+  containers:
+  - args:
+    - --port=9000
+    - --rest_api_port=8080
+    - --model_name=kfserving-mnist-01
+    - --model_base_path=/mnt/models
+    command:
+    - /usr/bin/tensorflow_model_server
+    env:
+    - name: PORT
+      value: "8080"
+    - name: K_REVISION
+      value: kfserving-mnist-01-predictor-default-j6fmm
+    - name: K_CONFIGURATION
+      value: kfserving-mnist-01-predictor-default
+    - name: K_SERVICE
+      value: kfserving-mnist-01-predictor-default
+    image: index.docker.io/tensorflow/serving@sha256:f7e59a29cbc17a6b507751cddde37bccad4407c05ebf2c13b8e6ccb7d2e9affb
+    imagePullPolicy: IfNotPresent
+    lifecycle:
+      preStop:
+        httpGet:
+          path: /wait-for-drain
+          port: 8022
+          scheme: HTTP
+    livenessProbe:
+      failureThreshold: 3
+      httpGet:
+        httpHeaders:
+        - name: K-Kubelet-Probe
+          value: queue
+        path: /v1/models/kfserving-mnist-01
+        port: 8012
+        scheme: HTTP
+      initialDelaySeconds: 600
+      periodSeconds: 10
+      successThreshold: 1
+      timeoutSeconds: 1
+    name: kfserving-container
+    ports:
+    - containerPort: 8080
+      name: user-port
+      protocol: TCP
+    resources:
+      limits:
+        cpu: 100m
+        memory: 1Gi
+      requests:
+        cpu: 100m
+        memory: 1Gi
+    terminationMessagePath: /dev/termination-log
+    terminationMessagePolicy: FallbackToLogsOnError
+    volumeMounts:
+    - mountPath: /var/log
+      name: knative-var-log
+    - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+      name: s3-sa-token-sktdf
+      readOnly: true
+    - mountPath: /mnt/models
+      name: kfserving-provision-location
+      readOnly: true
+  - env:
+    - name: SERVING_NAMESPACE
+      value: admin
+    - name: SERVING_SERVICE
+      value: kfserving-mnist-01-predictor-default
+    - name: SERVING_CONFIGURATION
+      value: kfserving-mnist-01-predictor-default
+    - name: SERVING_REVISION
+      value: kfserving-mnist-01-predictor-default-j6fmm
+    - name: QUEUE_SERVING_PORT
+      value: "8012"
+    - name: CONTAINER_CONCURRENCY
+      value: "0"
+    - name: REVISION_TIMEOUT_SECONDS
+      value: "60"
+    - name: SERVING_POD
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.name
+    - name: SERVING_POD_IP
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: status.podIP
+    - name: SERVING_LOGGING_CONFIG
+      value: |-
+        {
+          "level": "info",
+          "development": false,
+          "outputPaths": ["stdout"],
+          "errorOutputPaths": ["stderr"],
+          "encoding": "json",
+          "encoderConfig": {
+            "timeKey": "ts",
+            "levelKey": "level",
+            "nameKey": "logger",
+            "callerKey": "caller",
+            "messageKey": "msg",
+            "stacktraceKey": "stacktrace",
+            "lineEnding": "",
+            "levelEncoder": "",
+            "timeEncoder": "iso8601",
+            "durationEncoder": "",
+            "callerEncoder": ""
+          }
+        }
+    - name: SERVING_LOGGING_LEVEL
+    - name: SERVING_REQUEST_LOG_TEMPLATE
+    - name: SERVING_REQUEST_METRICS_BACKEND
+      value: prometheus
+    - name: TRACING_CONFIG_BACKEND
+      value: none
+    - name: TRACING_CONFIG_ZIPKIN_ENDPOINT
+    - name: TRACING_CONFIG_STACKDRIVER_PROJECT_ID
+    - name: TRACING_CONFIG_DEBUG
+      value: "false"
+    - name: TRACING_CONFIG_SAMPLE_RATE
+      value: "0.100000"
+    - name: USER_PORT
+      value: "8080"
+    - name: SYSTEM_NAMESPACE
+      value: knative-serving
+    - name: METRICS_DOMAIN
+      value: knative.dev/internal/serving
+    - name: USER_CONTAINER_NAME
+      value: kfserving-container
+    - name: ENABLE_VAR_LOG_COLLECTION
+      value: "false"
+    - name: VAR_LOG_VOLUME_NAME
+      value: knative-var-log
+    - name: INTERNAL_VOLUME_PATH
+      value: /var/knative-internal
+    - name: SERVING_READINESS_PROBE
+      value: '{"tcpSocket":{"port":8080,"host":"127.0.0.1"},"successThreshold":1}'
+    - name: ENABLE_PROFILING
+      value: "false"
+    - name: SERVING_ENABLE_PROBE_REQUEST_LOG
+      value: "false"
+    image: gcr.io/knative-releases/knative.dev/serving/cmd/queue@sha256:792f6945c7bc73a49a470a5b955c39c8bd174705743abf5fb71aa0f4c04128eb
+    imagePullPolicy: IfNotPresent
+    name: queue-proxy
+    ports:
+    - containerPort: 8022
+      name: http-queueadm
+      protocol: TCP
+    - containerPort: 9090
+      name: queue-metrics
+      protocol: TCP
+    - containerPort: 9091
+      name: http-usermetric
+      protocol: TCP
+    - containerPort: 8012
+      name: queue-port
+      protocol: TCP
+    readinessProbe:
+      exec:
+        command:
+        - /ko-app/queue
+        - -probe-period
+        - "0"
+      failureThreshold: 3
+      periodSeconds: 1
+      successThreshold: 1
+      timeoutSeconds: 10
+    resources:
+      requests:
+        cpu: 25m
+    securityContext:
+      allowPrivilegeEscalation: false
+    terminationMessagePath: /dev/termination-log
+    terminationMessagePolicy: File
+    volumeMounts:
+    - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+      name: s3-sa-token-sktdf
+      readOnly: true
+  dnsPolicy: ClusterFirst
+  enableServiceLinks: true
+  initContainers:
+  - args:
+    - s3://tensorboard/result/saved_model
+    - /mnt/models
+    image: gcr.io/kfserving/storage-initializer:v0.4.0
+    imagePullPolicy: IfNotPresent
+    name: storage-initializer
+    resources:
+      limits:
+        cpu: "1"
+        memory: 1Gi
+      requests:
+        cpu: 100m
+        memory: 100Mi
+    terminationMessagePath: /dev/termination-log
+    terminationMessagePolicy: FallbackToLogsOnError
+    volumeMounts:
+    - mountPath: /mnt/models
+      name: kfserving-provision-location
+    - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+      name: s3-sa-token-sktdf
+      readOnly: true
+  nodeName: hbseo-g2
+  priority: 0
+  restartPolicy: Always
+  schedulerName: default-scheduler
+  securityContext: {}
+  serviceAccount: s3-sa
+  serviceAccountName: s3-sa
+  terminationGracePeriodSeconds: 60
+  tolerations:
+  - effect: NoExecute
+    key: node.kubernetes.io/not-ready
+    operator: Exists
+    tolerationSeconds: 300
+  - effect: NoExecute
+    key: node.kubernetes.io/unreachable
+    operator: Exists
+    tolerationSeconds: 300
+  volumes:
+  - emptyDir: {}
+    name: knative-var-log
+  - name: s3-sa-token-sktdf
+    secret:
+      defaultMode: 420
+      secretName: s3-sa-token-sktdf
+  - emptyDir: {}
+    name: kfserving-provision-location
+status:
+  conditions:
+  - lastProbeTime: null
+    lastTransitionTime: "2020-08-30T09:57:34Z"
+    message: 'containers with incomplete status: [storage-initializer]'
+    reason: ContainersNotInitialized
+    status: "False"
+    type: Initialized
+  - lastProbeTime: null
+    lastTransitionTime: "2020-08-30T09:57:34Z"
+    message: 'containers with unready status: [kfserving-container queue-proxy]'
+    reason: ContainersNotReady
+    status: "False"
+    type: Ready
+  - lastProbeTime: null
+    lastTransitionTime: "2020-08-30T09:57:34Z"
+    message: 'containers with unready status: [kfserving-container queue-proxy]'
+    reason: ContainersNotReady
+    status: "False"
+    type: ContainersReady
+  - lastProbeTime: null
+    lastTransitionTime: "2020-08-30T09:57:34Z"
+    status: "True"
+    type: PodScheduled
+  containerStatuses:
+  - image: index.docker.io/tensorflow/serving@sha256:f7e59a29cbc17a6b507751cddde37bccad4407c05ebf2c13b8e6ccb7d2e9affb
+    imageID: ""
+    lastState: {}
+    name: kfserving-container
+    ready: false
+    restartCount: 0
+    started: false
+    state:
+      waiting:
+        reason: PodInitializing
+  - image: gcr.io/knative-releases/knative.dev/serving/cmd/queue@sha256:792f6945c7bc73a49a470a5b955c39c8bd174705743abf5fb71aa0f4c04128eb
+    imageID: ""
+    lastState: {}
+    name: queue-proxy
+    ready: false
+    restartCount: 0
+    started: false
+    state:
+      waiting:
+        reason: PodInitializing
+  hostIP: 10.146.0.28
+  initContainerStatuses:
+  - containerID: docker://4c8384522bfc4af3698b8b967f9eaf89b6e49c676deb7f08612694a6d76227a8
+    image: gcr.io/kfserving/storage-initializer:v0.4.0
+    imageID: docker-pullable://gcr.io/kfserving/storage-initializer@sha256:02e089391bdc50772393c8db2baa330f20147b7565355f5867f2291458cd60f7
+    lastState:
+      terminated:
+        containerID: docker://be217ca39947bf6886d204422cc57627078075c7203bd4ed0577b1d9967c6a67
+        exitCode: 1
+        finishedAt: "2020-08-30T09:57:38Z"
+        message: |
+          [I 200830 09:57:37 initializer-entrypoint:13] Initializing, args: src_uri [s3://tensorboard/result/saved_model] dest_path[ [/mnt/models]
+          [I 200830 09:57:37 storage:35] Copying contents of s3://tensorboard/result/saved_model to local
+          Traceback (most recent call last):
+            File "/storage-initializer/scripts/initializer-entrypoint", line 14, in <module>
+              kfserving.Storage.download(src_uri, dest_path)
+            File "/usr/local/lib/python3.7/site-packages/kfserving/storage.py", line 50, in download
+              Storage._download_s3(uri, out_dir)
+            File "/usr/local/lib/python3.7/site-packages/kfserving/storage.py", line 71, in _download_s3
+              for obj in objects:
+            File "/usr/local/lib/python3.7/site-packages/minio/api.py", line 1036, in list_objects
+              headers=headers)
+            File "/usr/local/lib/python3.7/site-packages/minio/api.py", line 2020, in _url_open
+              object_name).get_exception()
+          minio.error.AccessDenied: AccessDenied: message: Access Denied
+        reason: Error
+        startedAt: "2020-08-30T09:57:36Z"
+    name: storage-initializer
+    ready: false
+    restartCount: 2
+    state:
+      terminated:
+        containerID: docker://4c8384522bfc4af3698b8b967f9eaf89b6e49c676deb7f08612694a6d76227a8
+        exitCode: 1
+        finishedAt: "2020-08-30T09:57:53Z"
+        message: |
+          [I 200830 09:57:53 initializer-entrypoint:13] Initializing, args: src_uri [s3://tensorboard/result/saved_model] dest_path[ [/mnt/models]
+          [I 200830 09:57:53 storage:35] Copying contents of s3://tensorboard/result/saved_model to local
+          Traceback (most recent call last):
+            File "/storage-initializer/scripts/initializer-entrypoint", line 14, in <module>
+              kfserving.Storage.download(src_uri, dest_path)
+            File "/usr/local/lib/python3.7/site-packages/kfserving/storage.py", line 50, in download
+              Storage._download_s3(uri, out_dir)
+            File "/usr/local/lib/python3.7/site-packages/kfserving/storage.py", line 71, in _download_s3
+              for obj in objects:
+            File "/usr/local/lib/python3.7/site-packages/minio/api.py", line 1036, in list_objects
+              headers=headers)
+            File "/usr/local/lib/python3.7/site-packages/minio/api.py", line 2020, in _url_open
+              object_name).get_exception()
+          minio.error.AccessDenied: AccessDenied: message: Access Denied
+        reason: Error
+        startedAt: "2020-08-30T09:57:52Z"
+  phase: Pending
+  podIP: 10.32.0.32
+  podIPs:
+  - ip: 10.32.0.32
+  qosClass: Burstable
+  startTime: "2020-08-30T09:57:34Z"
