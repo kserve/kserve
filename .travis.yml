@@ -1,0 +1,17 @@
+jobs:
+  include:
+    - name: "Go unit tests, gofmt, golint and coveralls"
+      language: go
+      go: "1.14.2"
+      go_import_path: github.com/kubeflow/kfserving
+      install:
+        - os=$(go env GOOS)
+        - arch=$(go env GOARCH)   
+        - curl -L -O "https://go.kubebuilder.io/dl/2.3.1/${os}/${arch}" | tar -xz -C /tmp/
+        - sudo mv kubebuilder_2.3.1_${os}_${arch} /usr/local/kubebuilder
+        - export PATH=$PATH:/usr/local/kubebuilder/bin
+        # get coveralls.io support
+        - go get github.com/mattn/goveralls
+      script:
+        - make test
+        - goveralls -coverprofile=coverage.out
