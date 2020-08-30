@@ -23,7 +23,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3iface"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager/s3manageriface"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -85,7 +84,6 @@ func (s *S3ObjectDownloader) GetAllObjects(s3Svc s3iface.S3API) ([]s3manager.Bat
 		if FileExists(fileName) {
 			// File got corrupted or is mid-download :(
 			// TODO: Figure out if we can maybe continue?
-			log.Println("Deleting", fileName)
 			if err := os.Remove(fileName); err != nil {
 				return nil, fmt.Errorf("file is unable to be deleted: %v", err)
 			}
@@ -102,7 +100,6 @@ func (s *S3ObjectDownloader) GetAllObjects(s3Svc s3iface.S3API) ([]s3manager.Bat
 			Writer: file,
 			After: func() error {
 				defer file.Close()
-				log.Printf("Downloaded %v\n", aws.String(*object.Key))
 				return nil
 			},
 		}
