@@ -30,7 +30,7 @@ import (
 
 type S3Provider struct {
 	Client     s3iface.S3API
-	Downloader s3manageriface.DownloaderAPI
+	Downloader s3manageriface.DownloadWithIterator
 }
 
 var _ Provider = (*S3Provider)(nil)
@@ -41,7 +41,7 @@ type S3ObjectDownloader struct {
 	ModelName  string
 	Bucket     string
 	Prefix     string
-	downloader s3manageriface.DownloaderAPI
+	downloader s3manageriface.DownloadWithIterator
 }
 
 func (m *S3Provider) DownloadModel(modelDir string, modelName string, storageUri string) error {
@@ -60,7 +60,7 @@ func (m *S3Provider) DownloadModel(modelDir string, modelName string, storageUri
 		return fmt.Errorf("unable to get batch objects %v", err)
 	}
 	if err := s3ObjectDownloader.Download(objects); err != nil {
-		return fmt.Errorf("unable to get download objects %v", err)
+		return err
 	}
 	return nil
 }
@@ -110,32 +110,8 @@ func (s *S3ObjectDownloader) GetAllObjects(s3Svc s3iface.S3API) ([]s3manager.Bat
 
 func (s *S3ObjectDownloader) Download(objects []s3manager.BatchDownloadObject) error {
 	iter := &s3manager.DownloadObjectsIterator{Objects: objects}
-	var errs []s3manager.Error
-	for iter.Next() {
-		object := iter.DownloadObject()
-		if _, err := s.downloader.DownloadWithContext(aws.BackgroundContext(), object.Writer, object.Object); err != nil {
-			errs = append(errs, s3manager.Error{
-				OrigErr: err,
-				Bucket:  object.Object.Bucket,
-				Key:     object.Object.Key,
-			})
-		}
-
-		if object.After == nil {
-			continue
-		}
-
-		if err := object.After(); err != nil {
-			errs = append(errs, s3manager.Error{
-				OrigErr: err,
-				Bucket:  object.Object.Bucket,
-				Key:     object.Object.Key,
-			})
-		}
-	}
-
-	if len(errs) > 0 {
-		return s3manager.NewBatchError("BatchedDownloadIncomplete", "some objects have failed to download.", errs)
+	if err := s.downloader.DownloadWithIterator(aws.BackgroundContext(), iter); err != nil {
+		return err
 	}
 	return nil
 }

@@ -1,18 +1,17 @@
 package agent
 
 import (
+	"fmt"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3iface"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
-	"github.com/aws/aws-sdk-go/service/s3/s3manager/s3manageriface"
 	"github.com/golang/protobuf/proto"
 	"github.com/kubeflow/kfserving/pkg/agent/storage"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
 	"github.com/kubeflow/kfserving/pkg/modelconfig"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"io"
 	"io/ioutil"
 	"log"
 	"os"
@@ -33,11 +32,24 @@ func (m *mockS3Client) ListObjects(*s3.ListObjectsInput) (*s3.ListObjectsOutput,
 }
 
 type mockS3Downloder struct {
-	s3manageriface.DownloaderAPI
 }
 
-func (m *mockS3Downloder) DownloadWithContext(aws.Context, io.WriterAt, *s3.GetObjectInput, ...func(*s3manager.Downloader)) (int64, error) {
-	return 0, nil
+func (m *mockS3Downloder) DownloadWithIterator(aws.Context, s3manager.BatchDownloadIterator, ...func(*s3manager.Downloader)) error {
+	return nil
+}
+
+type mockS3FailDownloder struct {
+	err error
+}
+
+func (m *mockS3FailDownloder) DownloadWithIterator(aws.Context, s3manager.BatchDownloadIterator, ...func(*s3manager.Downloader)) error {
+	var errs []s3manager.Error
+	errs = append(errs, s3manager.Error{
+		OrigErr: fmt.Errorf("failed to download"),
+		Bucket:  aws.String("modelRepo"),
+		Key:     aws.String("model1/model.pt"),
+	})
+	return s3manager.NewBatchError("BatchedDownloadIncomplete", "some objects have failed to download.", errs)
 }
 
 var _ = Describe("Watcher", func() {
@@ -252,6 +264,60 @@ var _ = Describe("Watcher", func() {
 					ShouldDownload: true,
 					LoadState:      ShouldLoad,
 					Error:          nil,
+				}))
+			})
+		})
+
+		Context("Model download failure", func() {
+			It("should not create success file", func() {
+				defer GinkgoRecover()
+				log.Printf("Using temp dir %v\n", modelDir)
+				done := make(chan EventWrapper)
+				var errs []s3manager.Error
+				errs = append(errs, s3manager.Error{
+					OrigErr: fmt.Errorf("failed to download"),
+					Bucket:  aws.String("modelRepo"),
+					Key:     aws.String("model1/model.pt"),
+				})
+				var err error
+				err = s3manager.NewBatchError("BatchedDownloadIncomplete", "some objects have failed to download.", errs)
+				watcher = Watcher{
+					ConfigDir:    "/tmp/configs",
+					ModelTracker: map[string]ModelWrapper{},
+					Puller: Puller{
+						ChannelMap: map[string]Channel{},
+						Downloader: Downloader{
+							ModelDir: modelDir + "/test4",
+							Providers: map[storage.Protocol]storage.Provider{
+								storage.S3: &storage.S3Provider{
+									Client:     &mockS3Client{},
+									Downloader: &mockS3FailDownloder{err: err},
+								},
+							},
+						},
+					},
+					EventDoneChannel: done,
+				}
+				modelConfigs := modelconfig.ModelConfigs{
+					{
+						Name: "model1",
+						Spec: v1beta1.ModelSpec{
+							StorageURI: "s3://models/model1",
+							Framework:  "sklearn",
+						},
+					},
+				}
+				watcher.ParseConfig(modelConfigs)
+				event1 := <-done
+				Expect(event1).To(Equal(EventWrapper{
+					ModelName: "model1",
+					ModelSpec: &v1beta1.ModelSpec{
+						StorageURI: "s3://models/model1",
+						Framework:  "sklearn",
+					},
+					ShouldDownload: true,
+					LoadState:      ShouldLoad,
+					Error:          err,
 				}))
 			})
 		})
