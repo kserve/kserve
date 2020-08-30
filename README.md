@@ -45,6 +45,14 @@ TAG=v0.4.0
 kubectl apply -f ./install/$TAG/kfserving.yaml --validate=false
 ```
 
+If you want to deploy the KFServing controller in `kubeflow` namespace.
+
+1. Set the namespace field to `kubeflow` in overlays/env/kustomization.yaml and [ingressGateway](https://github.com/kubeflow/kfserving/blob/master/config/configmap/inferenceservice.yaml#L94) field to `kubeflow-gateway.kubeflow` in config/configmap/inferenceservice.yaml.
+2. Apply the changes to update the kfseving deployment:
+```
+kubectl apply -k config/overlays/env
+```
+
 KFServing uses pod mutator or [mutating admission webhooks](https://kubernetes.io/blog/2019/03/21/a-guide-to-kubernetes-admission-controllers/) to inject the storage initializer component of KFServing. By default all the pods in namespaces which are not labelled with `control-plane` label go through the pod mutator.
 This can cause problems and interfere with Kubernetes control panel when KFServing pod mutator webhook is not in ready state yet.
 
