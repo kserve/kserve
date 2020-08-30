@@ -94,7 +94,7 @@ undeploy-dev:
 	kubectl delete mutatingwebhookconfigurations.admissionregistration.k8s.io inferenceservice.serving.kubeflow.org
 
 # Generate manifests e.g. CRD, RBAC etc.
-manifests: controller-gen
+manifests: controller-gen kubebuilder
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) paths=./pkg/apis/serving/v1alpha2/... output:crd:dir=config/crd
 	$(CONTROLLER_GEN) rbac:roleName=kfserving-manager-role paths=./pkg/controller/inferenceservice/... output:rbac:artifacts:config=config/rbac
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths=./pkg/apis/serving/v1alpha2
@@ -181,6 +181,19 @@ docker-build-storageInitializer:
 
 docker-push-storageInitializer: docker-build-storageInitializer
 	docker push ${KO_DOCKER_REPO}/${STORAGE_INIT_IMG}
+
+kubebuilder:
+ifeq (, $(shell which kubebuilder))
+	@{ \
+	set -e ;\
+        os=$$(go env GOOS) ; \
+        arch=$$(go env GOARCH) ;\
+        curl -L "https://go.kubebuilder.io/dl/2.3.1/$${os}/$${arch}" | tar -xz -C /tmp/ ;\
+        sudo mkdir -p /usr/local/kubebuilder/bin/ ;\
+	sudo mv /tmp/kubebuilder_2.3.1_$${os}_$${arch}/bin/* /usr/local/kubebuilder/bin/ ;\
+	echo "Add /usr/local/kubebuilder/bin/ to your PATH!!" ;\
+	}
+endif
 
 controller-gen:
 ifeq (, $(shell which controller-gen))
