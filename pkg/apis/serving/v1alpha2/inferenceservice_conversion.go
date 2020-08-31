@@ -79,6 +79,7 @@ func (src *InferenceService) ConvertTo(dstRaw conversion.Hub) error {
 		}
 	} else if src.Spec.Default.Predictor.PyTorch != nil {
 		dst.Spec.Predictor.PyTorch = &v1beta1.TorchServeSpec{
+			ModelClassName: src.Spec.Default.Predictor.PyTorch.ModelClassName,
 			PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
 				RuntimeVersion: &src.Spec.Default.Predictor.PyTorch.RuntimeVersion,
 				StorageURI:     &src.Spec.Default.Predictor.PyTorch.StorageURI,
@@ -94,6 +95,43 @@ func (src *InferenceService) ConvertTo(dstRaw conversion.Hub) error {
 	if src.Spec.Default.Predictor.ServiceAccountName != "" {
 		dst.Spec.Predictor.Spec = v1.PodSpec{}
 		dst.Spec.Predictor.Spec.ServiceAccountName = src.Spec.Default.Predictor.ServiceAccountName
+	}
+
+	if src.Spec.Default.Transformer != nil {
+		if src.Spec.Default.Transformer.Custom != nil {
+			dst.Spec.Transformer = &v1beta1.TransformerSpec{
+				CustomTransformer: &v1beta1.CustomTransformer{
+					PodTemplateSpec: v1.PodTemplateSpec{
+						Spec: v1.PodSpec{
+							Containers: []v1.Container{
+								src.Spec.Default.Transformer.Custom.Container,
+							},
+						},
+					},
+				},
+			}
+		}
+	}
+	if src.Spec.Default.Explainer != nil {
+		if src.Spec.Default.Explainer.Alibi != nil {
+			dst.Spec.Explainer = &v1beta1.ExplainerSpec{
+				Alibi: &v1beta1.AlibiExplainerSpec{
+				},
+			}
+		}
+		if src.Spec.Default.Explainer.Custom != nil {
+			dst.Spec.Explainer = &v1beta1.ExplainerSpec{
+				CustomExplainer: &v1beta1.CustomExplainer{
+					PodTemplateSpec: v1.PodTemplateSpec{
+						Spec: v1.PodSpec{
+							Containers: []v1.Container{
+								src.Spec.Default.Transformer.Custom.Container,
+							},
+						},
+					},
+				},
+			}
+		}
 	}
 	return nil
 }
@@ -158,6 +196,13 @@ func (dst *InferenceService) ConvertFrom(srcRaw conversion.Hub) error {
 	}
 	if src.Spec.Predictor.CustomPredictor != nil {
 		dst.Spec.Default.Predictor.ServiceAccountName = src.Spec.Predictor.CustomPredictor.Spec.ServiceAccountName
+		dst.Spec.Default.Predictor.Custom.Container = src.Spec.Predictor.CustomPredictor.Spec.Containers[0]
+	}
+	//Transformer
+	if src.Spec.Transformer != nil {
+		if src.Spec.Transformer.CustomTransformer != nil {
+			dst.Spec.Default.Transformer.Custom.Container = src.Spec.Transformer.CustomTransformer.Spec.Containers[0]
+		}
 	}
 	return nil
 }
