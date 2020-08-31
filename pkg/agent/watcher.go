@@ -44,12 +44,6 @@ func (w *Watcher) Start() {
 	if err = watcher.Add(w.configDir); err != nil {
 		log.Fatal(err)
 	}
-	// Add a first create event to the channel to force initial sync
-	watcher.Events <- fsnotify.Event{
-		Name: filepath.Join(w.configDir, "..data"),
-		Op:   fsnotify.Create,
-	}
-	done := make(chan bool)
 	go func() {
 		for {
 			select {
@@ -86,8 +80,12 @@ func (w *Watcher) Start() {
 			}
 		}
 	}()
+	// Add a first create event to the channel to force initial sync
+	watcher.Events <- fsnotify.Event{
+		Name: filepath.Join(w.configDir, "..data"),
+		Op:   fsnotify.Create,
+	}
 	log.Println("Watching", w.configDir)
-	<-done
 }
 
 func (w *Watcher) parseConfig(modelConfigs modelconfig.ModelConfigs) {

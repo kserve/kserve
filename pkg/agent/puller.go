@@ -14,12 +14,9 @@ const (
 	Remove OpType = "Remove"
 )
 
-// sentinel to represent model absence
-var remove v1.ModelSpec = v1.ModelSpec{}
-
 type Puller struct {
 	channelMap  map[string]ModelChannel
-	completions chan string
+	completions chan *ModelOp
 	Downloader  Downloader
 }
 
@@ -32,7 +29,7 @@ type ModelOp struct {
 func StartPuller(downloader Downloader, commands <-chan ModelOp) {
 	puller := Puller{
 		channelMap:  make(map[string]ModelChannel),
-		completions: make(chan string, 128),
+		completions: make(chan *ModelOp, 4),
 		Downloader:  downloader,
 	}
 	go puller.processCommands(commands)
@@ -40,73 +37,67 @@ func StartPuller(downloader Downloader, commands <-chan ModelOp) {
 
 func (p *Puller) processCommands(commands <-chan ModelOp) {
 	// channelMap accessed only by this goroutine
-	var finished bool
 	for {
 		select {
 		case modelOp, ok := <-commands:
-			if !ok {
-				finished = true
-				//commands = nil //TODO tbd
+			if ok {
+				p.enqueueModelOp(&modelOp)
 			} else {
-				switch modelOp.Op {
-				case Add:
-					p.enqueueModelOp(modelOp.ModelName, modelOp.Spec)
-				case Remove:
-					p.enqueueModelOp(modelOp.ModelName, &remove)
-				}
+				commands = nil
 			}
 		case completed := <-p.completions:
-			p.modelOpComplete(completed, finished)
+			p.modelOpComplete(completed, commands == nil)
 		}
 	}
 }
 
 type ModelChannel struct {
-	modelOps    chan *v1.ModelSpec
+	modelOps    chan *ModelOp
 	opsInFlight int
 }
 
-func (p *Puller) enqueueModelOp(modelName string, modelSpec *v1.ModelSpec) {
-	modelChan, ok := p.channelMap[modelName]
+func (p *Puller) enqueueModelOp(modelOp *ModelOp) {
+	modelChan, ok := p.channelMap[modelOp.ModelName]
 	if !ok {
 		modelChan = ModelChannel{
-			modelOps: make(chan *v1.ModelSpec, 8),
+			modelOps: make(chan *ModelOp, 8),
 		}
-		go p.modelProcessor(modelName, modelChan.modelOps)
-		p.channelMap[modelName] = modelChan
+		go p.modelProcessor(modelOp.ModelName, modelChan.modelOps)
+		p.channelMap[modelOp.ModelName] = modelChan
 	}
 	modelChan.opsInFlight += 1
-	modelChan.modelOps <- modelSpec
+	modelChan.modelOps <- modelOp
 }
 
-func (p *Puller) modelOpComplete(modelName string, closed bool) {
-	modelChan, ok := p.channelMap[modelName]
+func (p *Puller) modelOpComplete(modelOp *ModelOp, closed bool) {
+	modelChan, ok := p.channelMap[modelOp.ModelName]
 	if ok {
 		modelChan.opsInFlight -= 1
 		if modelChan.opsInFlight == 0 {
 			close(modelChan.modelOps)
-			delete(p.channelMap, modelName)
+			delete(p.channelMap, modelOp.ModelName)
 			if closed && len(p.channelMap) == 0 {
 				// this was the final completion, close the channel
 				close(p.completions)
 			}
 		}
 	} else {
-		//TODO log warning, shouldn't happen
+		log.Println("Op completion event for model", modelOp.ModelName, "not found in channelMap")
 	}
 }
 
-func (p *Puller) modelProcessor(modelName string, ops <-chan *v1.ModelSpec) {
+func (p *Puller) modelProcessor(modelName string, ops <-chan *ModelOp) {
 	log.Println("worker for", modelName, "is initialized")
 	// TODO: Instead of going through each event, one-by-one, we need to drain and combine
 	// this is important for handling Load --> Unload requests sent in tandem
 	// Load --> Unload = 0 (cancel first load)
 	// Load --> Unload --> Load = 1 Load (cancel second load?)
-	for modelSpec := range ops {
-		if modelSpec != &remove {
+	for modelOp := range ops {
+		switch modelOp.Op {
+		case Add:
 			// Load
-			log.Println("Should download", modelSpec.StorageURI)
-			err := p.Downloader.DownloadModel(modelName, modelSpec)
+			log.Println("Should download", modelOp.Spec.StorageURI)
+			err := p.Downloader.DownloadModel(modelName, modelOp.Spec)
 			if err != nil {
 				log.Println("Download of model", modelName, "failed because: ", err)
 			} else {
@@ -115,7 +106,7 @@ func (p *Puller) modelProcessor(modelName string, ops <-chan *v1.ModelSpec) {
 				// TODO: Do request logic
 				log.Println("Now doing load request for", modelName)
 			}
-		} else {
+		case Remove:
 			// Unload
 			// TODO: Do request logic
 			log.Println("Now doing unload request for", modelName)
@@ -125,6 +116,6 @@ func (p *Puller) modelProcessor(modelName string, ops <-chan *v1.ModelSpec) {
 				log.Printf("failing to delete model directory: %v", err)
 			}
 		}
-		p.completions <- modelName
+		p.completions <- modelOp
 	}
 }
