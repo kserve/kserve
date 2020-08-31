@@ -51,9 +51,9 @@ func (t *TorchServeSpec) Default(config *InferenceServicesConfig) {
 // GetContainers transforms the resource into a container spec
 func (t *TorchServeSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig) *v1.Container {
 	arguments := []string{
-		"torchserve",
-		"--start",
-		fmt.Sprintf("%s=%s", "--model-store=", constants.DefaultModelLocalMountPath),
+		fmt.Sprintf("%s=%s", constants.ArgumentModelName, metadata.Name),
+		fmt.Sprintf("%s=%s", constants.ArgumentModelDir, constants.DefaultModelLocalMountPath),
+		fmt.Sprintf("%s=%s", constants.ArgumentHttpPort, constants.InferenceServiceDefaultHttpPort),
 	}
 
 	if t.Container.Image == "" {

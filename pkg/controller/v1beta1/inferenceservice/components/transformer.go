@@ -29,10 +29,10 @@ import (
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
 )
 
-var _ Component = &Predictor{}
+var _ Component = &Transformer{}
 
-// Predictor reconciles resources for this component.
-type Predictor struct {
+// Transformer reconciles resources for this component.
+type Transformer struct {
 	client                 client.Client
 	scheme                 *runtime.Scheme
 	inferenceServiceConfig *v1beta1.InferenceServicesConfig
@@ -40,39 +40,39 @@ type Predictor struct {
 	Log                    logr.Logger
 }
 
-func NewPredictor(client client.Client, scheme *runtime.Scheme, inferenceServiceConfig *v1beta1.InferenceServicesConfig) Component {
-	return &Predictor{
+func NewTransformer(client client.Client, scheme *runtime.Scheme, inferenceServiceConfig *v1beta1.InferenceServicesConfig) Component {
+	return &Transformer{
 		client:                 client,
 		scheme:                 scheme,
 		inferenceServiceConfig: inferenceServiceConfig,
-		Log:                    ctrl.Log.WithName("PredictorReconciler"),
+		Log:                    ctrl.Log.WithName("TransformerReconciler"),
 	}
 }
 
 // Reconcile observes the world and attempts to drive the status towards the desired state.
-func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
-	p.Log.Info("Reconciling Predictor", "PredictorSpec", isvc.Spec.Predictor)
-	predictor := isvc.Spec.Predictor.GetImplementation()
+func (p *Transformer) Reconcile(isvc *v1beta1.InferenceService) error {
+	p.Log.Info("Reconciling Transformer", "TranformerSpec", isvc.Spec.Transformer)
+	transformer := isvc.Spec.Transformer.GetImplementation()
 	annotations := utils.Filter(isvc.Annotations, func(key string) bool {
 		return !utils.Includes(constants.ServiceAnnotationDisallowedList, key)
 	})
 	// KNative does not support INIT containers or mounting, so we add annotations that trigger the
 	// StorageInitializer injector to mutate the underlying deployment to provision model data
-	if sourceURI := predictor.GetStorageUri(); sourceURI != nil {
+	if sourceURI := transformer.GetStorageUri(); sourceURI != nil {
 		annotations[constants.StorageInitializerSourceUriInternalAnnotationKey] = *sourceURI
 	}
 	objectMeta := metav1.ObjectMeta{
-		Name:      isvc.Name + "-" + string(v1beta1.PredictorComponent),
+		Name:      isvc.Name + "-" + string(v1beta1.TransformerComponent),
 		Namespace: isvc.Namespace,
 		Labels: utils.Union(isvc.Labels, map[string]string{
 			constants.InferenceServicePodLabelKey: isvc.Name,
-			constants.KServiceComponentLabel:      string(v1beta1.PredictorComponent),
+			constants.KServiceComponentLabel:      string(v1beta1.TransformerComponent),
 		}),
 		Annotations: annotations,
 	}
-	if isvc.Spec.Predictor.CustomPredictor == nil {
-		container := predictor.GetContainer(isvc.ObjectMeta, isvc.Spec.Predictor.GetExtensions(), p.inferenceServiceConfig)
-		isvc.Spec.Predictor.CustomPredictor = &v1beta1.CustomPredictor{
+	if isvc.Spec.Transformer.CustomTransformer == nil {
+		container := transformer.GetContainer(isvc.ObjectMeta, isvc.Spec.Transformer.GetExtensions(), p.inferenceServiceConfig)
+		isvc.Spec.Transformer.CustomTransformer = &v1beta1.CustomTransformer{
 			PodTemplateSpec: v1.PodTemplateSpec{
 				Spec: v1.PodSpec{
 					Containers: []v1.Container{
@@ -83,8 +83,8 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
 		}
 	}
 	// Here we allow switch between knative and vanilla deployment
-	r := knative.NewKsvcReconciler(p.client, p.scheme, objectMeta, &isvc.Spec.Predictor.ComponentExtensionSpec,
-		&isvc.Spec.Predictor.CustomPredictor.Spec)
+	r := knative.NewKsvcReconciler(p.client, p.scheme, objectMeta, &isvc.Spec.Transformer.ComponentExtensionSpec,
+		&isvc.Spec.Transformer.CustomTransformer.Spec)
 
 	if err := controllerutil.SetControllerReference(isvc, r.Service, p.scheme); err != nil {
 		return err
@@ -92,7 +92,7 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
 	if status, err := r.Reconcile(); err != nil {
 		return err
 	} else {
-		isvc.Status.PropagateStatus(v1beta1.PredictorComponent, status)
+		isvc.Status.PropagateStatus(v1beta1.TransformerComponent, status)
 		return nil
 	}
 }
