@@ -74,7 +74,7 @@ cd ..
 # Install KFServing
 K8S_MINOR=$(kubectl version | perl -ne 'print $1."\n" if /Server Version:.*?Minor:"(\d+)"/')
 if [[ $K8S_MINOR -gt 17 ]]; then
-  echo "Kubernetes minor version must be < 18 got ${K8S_MINOR}"
+  echo "Kubernetes minor version must be <= 17 got ${K8S_MINOR}"
   exit 1
 elif [[ $K8S_MINOR -lt 16 ]]; then
   kubectl apply -f install/${KFSERVING_VERSION}/kfserving.yaml --validate=false
