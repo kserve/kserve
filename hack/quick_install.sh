@@ -71,8 +71,16 @@ kubectl apply --filename https://github.com/knative/net-istio/releases/download/
 kubectl apply --validate=false -f https://github.com/jetstack/cert-manager/releases/download/v0.15.1/cert-manager.yaml
 kubectl wait --for=condition=available --timeout=600s deployment/cert-manager-webhook -n cert-manager
 cd ..
-# Install KFServing
-kubectl apply -f install/${KFSERVING_VERSION}/kfserving.yaml --validate=false
+# Install KFServing 
+K8S_MINOR=$(kubectl version | perl -ne 'print $1."\n" if /Server Version:.*?Minor:"(\d+)"/')
+if [[ $K8S_MINOR -gt 17 ]]; then
+  echo "Kubernetes minor version must be < 18 got ${K8S_MINOR}"
+  exit 1
+elif [[ $K8S_MINOR -lt 16 ]]; then
+  kubectl apply -f install/${KFSERVING_VERSION}/kfserving.yaml --validate=false
+else
+  kubectl apply -f install/${KFSERVING_VERSION}/kfserving.yaml
+fi
 
 # Clean up
 rm -rf istio-${ISTIO_VERSION} 
