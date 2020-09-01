@@ -187,7 +187,7 @@ pip3 install urllib3==1.24.2
 pip3 install --upgrade setuptools
 pushd python/kfserving >/dev/null
     pip3 install -r requirements.txt
-    python3 setup.py install --force
+    python3 setup.py install --force --user
 popd
 
 echo "Starting E2E functional tests ..."
