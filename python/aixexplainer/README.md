@@ -14,4 +14,4 @@ Once your docker image is pushed you can pull the image from `dockeruser/aixserv
 
 ## Example 
 
-Try deploying [LIME with MNIST](https://github.com/drewbutlerbb4/kfserving/tree/master/docs/samples/explanation/aix/mnist)
+Try deploying [LIME with MNIST](../../docs/samples/explanation/aix/mnist)
