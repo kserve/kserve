@@ -21,6 +21,8 @@ package v1beta1
 type ExplainerSpec struct {
 	// Spec for alibi explainer
 	Alibi *AlibiExplainerSpec `json:"alibi,omitempty"`
+	// Spec for AIX explainer
+	AIX *AIXExplainerSpec `json:"aix,omitempty"`
 	// Pass through Pod fields or specify a custom container spec
 	*CustomExplainer `json:",inline"`
 	// Extensions available in all components

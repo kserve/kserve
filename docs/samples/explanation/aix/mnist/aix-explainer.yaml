@@ -1,9 +1,8 @@
-apiVersion: serving.kubeflow.org/v1alpha2
-kind: InferenceService
+apiVersion: "serving.kubeflow.org/v1alpha2"
+kind: "InferenceService"
 metadata:
-  labels:
-    controller-tools.k8s.io: "1.0"
-  name: aixserver
+  name: "aix-explainer"
+  namespace: default
 spec:
   default:
     predictor:
@@ -11,7 +10,7 @@ spec:
         container:
           name: predictor
           image: aipipeline/rf-predictor:0.2.2
-          command: ["python", "-m", "rfserver", "--model_name", "aixserver"]
+          command: ["python", "-m", "rfserver", "--model_name", "aix-explainer"]
           imagePullPolicy: Always
           resources:
             requests:
@@ -21,16 +20,13 @@ spec:
               memory: "2Gi"
               cpu: "1"
     explainer:
-      custom:
-        container:
-          name: explainer
-          image: aipipeline/aix-explainer:0.2.2
-          command: ["python", "-m", "aixserver", "--predictor_host", "aixserver-predictor-default.default.svc.cluster.local", "explainer_type", "LimeImages"]
-          imagePullPolicy: Always
-          resources:
-            requests:
-              memory: "4Gi"
-              cpu: "2"
-            limits:
-              memory: "4Gi"
-              cpu: "2"
+      aix:
+        type: LimeImages
+        config:
+          num_samples: "100"
+          top_labels: "10"
+          min_weight: "0.01"
+        resources:
+          requests:
+            cpu: 0.1
+            memory: 2Gi
