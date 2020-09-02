@@ -21,7 +21,7 @@ $(shell perl -pi -e 's/memory:.*/memory: $(KFSERVING_CONTROLLER_MEMORY_LIMIT)/' 
 all: test manager logger batcher
 
 # Run tests
-test: fmt vet manifests
+test: fmt vet manifests kubebuilder
 	go test ./pkg/... ./cmd/... -coverprofile coverage.out
 
 # Build manager binary
@@ -94,7 +94,7 @@ undeploy-dev:
 	kubectl delete mutatingwebhookconfigurations.admissionregistration.k8s.io inferenceservice.serving.kubeflow.org
 
 # Generate manifests e.g. CRD, RBAC etc.
-manifests: controller-gen kubebuilder
+manifests: controller-gen
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) paths=./pkg/apis/serving/v1alpha2/... output:crd:dir=config/crd
 	$(CONTROLLER_GEN) rbac:roleName=kfserving-manager-role paths=./pkg/controller/... output:rbac:artifacts:config=config/rbac
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths=./pkg/apis/serving/v1alpha2
