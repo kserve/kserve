@@ -18,6 +18,10 @@ package main
 
 import (
 	"flag"
+	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
+	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
+	v1alph2controller "github.com/kubeflow/kfserving/pkg/controller/inferenceservice"
+	trainedmodelcontroller "github.com/kubeflow/kfserving/pkg/controller/v1beta1/trainedmodel"
 	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/trainedmodel/reconcilers/modelconfig"
 	"github.com/kubeflow/kfserving/pkg/webhook/admission/inferenceservice"
 	"github.com/kubeflow/kfserving/pkg/webhook/admission/pod"
@@ -26,20 +30,16 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"k8s.io/client-go/tools/record"
+	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"os"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
-	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
-	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
-	v1alph2controller "github.com/kubeflow/kfserving/pkg/controller/inferenceservice"
-	trainedmodelcontroller "github.com/kubeflow/kfserving/pkg/controller/v1beta1/trainedmodel"
-	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
-	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
 var (
