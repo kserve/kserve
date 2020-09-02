@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import inspect
 import tornado.web
 import json
 from typing import Dict
@@ -44,7 +45,7 @@ class HTTPHandler(tornado.web.RequestHandler):
 
 
 class PredictHandler(HTTPHandler):
-    def post(self, name: str):
+    async def post(self, name: str):
         model = self.get_model(name)
         try:
             body = json.loads(self.request.body)
@@ -55,13 +56,13 @@ class PredictHandler(HTTPHandler):
             )
         request = model.preprocess(body)
         request = self.validate(request)
-        response = model.predict(request)
+        response = (await model.predict(request)) if inspect.iscoroutinefunction(model.predict) else model.predict(request)
         response = model.postprocess(response)
         self.write(response)
 
 
 class ExplainHandler(HTTPHandler):
-    def post(self, name: str):
+    async def post(self, name: str):
         model = self.get_model(name)
         try:
             body = json.loads(self.request.body)
@@ -72,6 +73,6 @@ class ExplainHandler(HTTPHandler):
             )
         request = model.preprocess(body)
         request = self.validate(request)
-        response = model.explain(request)
+        response = (await model.explain(request)) if inspect.iscoroutinefunction(model.explain) else model.explain(request)
         response = model.postprocess(response)
         self.write(response)

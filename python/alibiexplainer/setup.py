@@ -42,7 +42,8 @@ setup(
         "pandas>=0.24.2",
         "numpy>=1.16.3",
         "dill>=0.3.0",
-        "spacy>=2.1.4"
+        "spacy>=2.1.4",
+        "nest_asyncio>=1.4.0"
     ],
     tests_require=tests_require,
     extras_require={'test': tests_require}

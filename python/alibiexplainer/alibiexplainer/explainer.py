@@ -13,6 +13,7 @@
 # limitations under the License.
 import json
 import logging
+import asyncio
 from enum import Enum
 from typing import List, Any, Mapping, Union, Dict
 
@@ -70,7 +71,8 @@ class AlibiExplainer(kfserving.KFModel):
                 instances.append(req_data.tolist())
             else:
                 instances.append(req_data)
-        resp = self.predict({"instances": instances})
+        loop = asyncio.get_running_loop()
+        resp = loop.run_until_complete(self.predict({"instances": instances}))
         return np.array(resp["predictions"])
 
     def explain(self, request: Dict) -> Any:
