@@ -51,7 +51,7 @@ func NewPredictor(client client.Client, scheme *runtime.Scheme, inferenceService
 
 // Reconcile observes the world and attempts to drive the status towards the desired state.
 func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
-	p.Log.Info("Reconciling Predictor", "PredictorSpec", isvc.Spec.Predictor)
+	p.Log.Info("Reconciling Predictor", "PredictorSpec", isvc.Spec)
 	predictor := isvc.Spec.Predictor.GetImplementation()
 	annotations := utils.Filter(isvc.Annotations, func(key string) bool {
 		return !utils.Includes(constants.ServiceAnnotationDisallowedList, key)
@@ -81,6 +81,9 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
 				},
 			},
 		}
+	} else {
+		container := predictor.GetContainer(isvc.ObjectMeta, isvc.Spec.Transformer.GetExtensions(), p.inferenceServiceConfig)
+		isvc.Spec.Predictor.CustomPredictor.Spec.Containers[0] = *container
 	}
 	// Here we allow switch between knative and vanilla deployment
 	r := knative.NewKsvcReconciler(p.client, p.scheme, objectMeta, &isvc.Spec.Predictor.ComponentExtensionSpec,

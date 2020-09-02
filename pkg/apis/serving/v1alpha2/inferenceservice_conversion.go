@@ -115,8 +115,7 @@ func (src *InferenceService) ConvertTo(dstRaw conversion.Hub) error {
 	if src.Spec.Default.Explainer != nil {
 		if src.Spec.Default.Explainer.Alibi != nil {
 			dst.Spec.Explainer = &v1beta1.ExplainerSpec{
-				Alibi: &v1beta1.AlibiExplainerSpec{
-				},
+				Alibi: &v1beta1.AlibiExplainerSpec{},
 			}
 		}
 		if src.Spec.Default.Explainer.Custom != nil {

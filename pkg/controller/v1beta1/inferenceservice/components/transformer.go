@@ -81,6 +81,9 @@ func (p *Transformer) Reconcile(isvc *v1beta1.InferenceService) error {
 				},
 			},
 		}
+	} else {
+		container := transformer.GetContainer(isvc.ObjectMeta, isvc.Spec.Transformer.GetExtensions(), p.inferenceServiceConfig)
+		isvc.Spec.Transformer.CustomTransformer.Spec.Containers[0] = *container
 	}
 	// Here we allow switch between knative and vanilla deployment
 	r := knative.NewKsvcReconciler(p.client, p.scheme, objectMeta, &isvc.Spec.Transformer.ComponentExtensionSpec,

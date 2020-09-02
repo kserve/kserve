@@ -17,6 +17,7 @@ limitations under the License.
 package v1beta1
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/kubeflow/kfserving/pkg/constants"
@@ -80,7 +81,7 @@ func (c *CustomTransformer) GetContainer(metadata metav1.ObjectMeta, extensions 
 	}
 	container.Args = append(container.Args, []string{
 		constants.ArgumentPredictorHost,
-		constants.PredictorURL(metadata, false),
+		fmt.Sprintf("%s.%s", constants.PredictorServiceName(metadata.Name), metadata.Namespace),
 		constants.ArgumentHttpPort,
 		constants.InferenceServiceDefaultHttpPort,
 	}...)
