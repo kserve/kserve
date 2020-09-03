@@ -22,6 +22,7 @@ package v1beta1
 
 import (
 	"k8s.io/apimachinery/pkg/runtime"
+	"knative.dev/pkg/apis"
 	"knative.dev/pkg/apis/duck/v1"
 )
 
@@ -314,6 +315,11 @@ func (in *InferenceServiceStatus) DeepCopyInto(out *InferenceServiceStatus) {
 	if in.Address != nil {
 		in, out := &in.Address, &out.Address
 		*out = new(v1.Addressable)
+		(*in).DeepCopyInto(*out)
+	}
+	if in.URL != nil {
+		in, out := &in.URL, &out.URL
+		*out = new(apis.URL)
 		(*in).DeepCopyInto(*out)
 	}
 	if in.Components != nil {

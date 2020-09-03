@@ -17,6 +17,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
+	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/reconcilers/ingress"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -81,6 +82,13 @@ func (r *InferenceServiceReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 		if err := reconciler.Reconcile(isvc); err != nil {
 			r.Log.Error(err, "Failed to reconcile", "reconciler", reflect.ValueOf(reconciler), "Name", isvc.Name)
 			r.Recorder.Eventf(isvc, v1.EventTypeWarning, "InternalError", err.Error())
+			return reconcile.Result{}, err
+		}
+	}
+	//Reconcile ingress only if all isvc components are in ready state
+	if isvc.Status.IsReady() {
+		reconciler := ingress.NewIngressReconciler(r.Client, r.Scheme)
+		if err := reconciler.Reconcile(isvc); err != nil {
 			return reconcile.Result{}, err
 		}
 	}

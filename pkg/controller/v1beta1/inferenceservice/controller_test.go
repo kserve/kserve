@@ -19,7 +19,6 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	kfserving "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	. "github.com/onsi/ginkgo"
@@ -318,13 +317,16 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 			// mock update knative service status since knative serving controller is not running in test
 			domain := "example.com"
+			predictorUrl, _ := apis.ParseURL("http://" + constants.InferenceServiceHostName(constants.PredictorServiceName(serviceKey.Name), serviceKey.Namespace, domain))
+			transformerUrl, _ := apis.ParseURL("http://" + constants.InferenceServiceHostName(constants.TransformerServiceName(serviceKey.Name), serviceKey.Namespace, domain))
 			// update predictor
 			{
 				updateDefault := defaultPredictorService.DeepCopy()
 				updateDefault.Status.LatestCreatedRevisionName = "revision-v1"
 				updateDefault.Status.LatestReadyRevisionName = "revision-v1"
-				updateDefault.Status.URL, _ = apis.ParseURL(
-					constants.InferenceServiceURL("http", constants.PredictorServiceName(serviceKey.Name), namespace, domain))
+				updateDefault.Status.Address = &duckv1.Addressable{
+					URL: predictorUrl,
+				}
 				updateDefault.Status.Conditions = duckv1.Conditions{
 					{
 						Type:   knservingv1.ServiceConditionReady,
@@ -339,8 +341,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				updateDefault := transformerService.DeepCopy()
 				updateDefault.Status.LatestCreatedRevisionName = "t-revision-v1"
 				updateDefault.Status.LatestReadyRevisionName = "t-revision-v1"
-				updateDefault.Status.URL, _ = apis.ParseURL(
-					constants.InferenceServiceURL("http", constants.TransformerServiceName(serviceKey.Name), namespace, domain))
+				updateDefault.Status.Address = &duckv1.Addressable{
+					URL: transformerUrl,
+				}
 				updateDefault.Status.Conditions = duckv1.Conditions{
 					{
 						Type:   knservingv1.ServiceConditionReady,
@@ -351,8 +354,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 
 			// verify if InferenceService status is updated
-			predictorUrl, _ := apis.ParseURL(constants.InferenceServiceHostName(constants.PredictorServiceName(serviceKey.Name), serviceKey.Namespace, domain))
-			transformerUrl, _ := apis.ParseURL(constants.InferenceServiceHostName(constants.TransformerServiceName(serviceKey.Name), serviceKey.Namespace, domain))
 			expectedKfsvcStatus := v1beta1.InferenceServiceStatus{
 				Status: duckv1.Status{
 					Conditions: duckv1.Conditions{
@@ -361,37 +362,37 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							Status: "True",
 						},
 						{
-							Type:     v1beta1.TransformerReady,
-							Severity: "Info",
-							Status:   "True",
-						},
-						{
 							Type:   apis.ConditionReady,
 							Status: "True",
 						},
 						{
-							Type:   kfserving.RoutesReady,
-							Status: "True",
+							Type:     v1beta1.TransformerReady,
+							Severity: "Info",
+							Status:   "True",
 						},
 					},
 				},
-				//URL: "http://" + constants.InferenceServiceHostName(serviceKey.Name, serviceKey.Namespace, domain),
+				URL: &apis.URL{
+					Scheme: "http",
+					Host:   constants.InferenceServiceHostName(serviceKey.Name, serviceKey.Namespace, domain),
+				},
 				Address: &duckv1.Addressable{
 					URL: &apis.URL{
 						Scheme: "http",
-						Path:   constants.PredictPath(serviceKey.Name),
 						Host:   network.GetServiceHostname(serviceKey.Name, serviceKey.Namespace),
 					},
 				},
 				Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
 					v1beta1.PredictorComponent: {
-						LatestReadyRevision: "revision-v1",
+						LatestReadyRevision:   "revision-v1",
+						LatestCreatedRevision: "revision-v1",
 						Address: &duckv1.Addressable{
 							URL: predictorUrl,
 						},
 					},
 					v1beta1.TransformerComponent: {
-						LatestReadyRevision: "t-revision-v1",
+						LatestReadyRevision:   "t-revision-v1",
+						LatestCreatedRevision: "t-revision-v1",
 						Address: &duckv1.Addressable{
 							URL: transformerUrl,
 						},
