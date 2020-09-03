@@ -103,9 +103,9 @@ func TestHttpStorageURIPrefixOK(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	isvc := makeTestInferenceService()
 	isvc.Spec.Default.Predictor.Tensorflow.StorageURI = "https://raw.githubusercontent.com/someOrg/someRepo/model.tar.gz"
-	g.Expect(isvc.ValidateCreate()).Should(gomega.Succeed())
+	g.Expect(isvc.validate(c)).Should(gomega.Succeed())
 	isvc.Spec.Default.Predictor.Tensorflow.StorageURI = "http://raw.githubusercontent.com/someOrg/someRepo/model.tar.gz"
-	g.Expect(isvc.ValidateCreate()).Should(gomega.Succeed())
+	g.Expect(isvc.validate(c)).Should(gomega.Succeed())
 }
 
 func TestUnkownStorageURIPrefixFails(t *testing.T) {
