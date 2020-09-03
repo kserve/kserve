@@ -14,15 +14,20 @@ limitations under the License.
 package v1alpha2
 
 import (
+	"net/url"
+	"path"
+
+	"strconv"
+
 	"github.com/kubeflow/kfserving/pkg/constants"
 	v1 "k8s.io/api/core/v1"
-	"strconv"
 )
 
 var (
 	ONNXServingRestPort            = "8080"
 	ONNXServingGRPCPort            = "9000"
-	ONNXModelFileName              = "model.onnx"
+	DefaultONNXModelName           = "model.onnx"
+	ONNXFileExt                    = "onnx"
 	InvalidONNXRuntimeVersionError = "ONNX RuntimeVersion must be one of %s"
 )
 
@@ -36,8 +41,15 @@ func (s *ONNXSpec) GetResourceRequirements() *v1.ResourceRequirements {
 }
 
 func (s *ONNXSpec) GetContainer(modelName string, parallelism int, config *InferenceServicesConfig) *v1.Container {
+	uri, _ := url.Parse(s.StorageURI)
+	var filename string
+	if path.Ext(uri.Path) != ONNXFileExt {
+		filename = DefaultONNXModelName
+	} else {
+		filename = path.Base(uri.Path)
+	}
 	arguments := []string{
-		"--model_path", constants.DefaultModelLocalMountPath + "/" + ONNXModelFileName,
+		"--model_path", constants.DefaultModelLocalMountPath + "/" + filename,
 		"--http_port", ONNXServingRestPort,
 		"--grpc_port", ONNXServingGRPCPort,
 	}
