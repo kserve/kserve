@@ -72,5 +72,9 @@ func (s *ONNXSpec) ApplyDefaults(config *InferenceServicesConfig) {
 }
 
 func (s *ONNXSpec) Validate(config *InferenceServicesConfig) error {
+	_, err := url.Parse(s.StorageURI)
+	if err != nil {
+		return err
+	}
 	return nil
 }
