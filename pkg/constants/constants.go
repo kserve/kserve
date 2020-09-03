@@ -223,6 +223,10 @@ func CanaryPredictorServiceName(name string) string {
 	return name + "-" + string(Predictor) + "-" + InferenceServiceCanary
 }
 
+func ExplainerServiceName(name string) string {
+	return name + "-" + string(Explainer)
+}
+
 func DefaultExplainerServiceName(name string) string {
 	return name + "-" + string(Explainer) + "-" + InferenceServiceDefault
 }

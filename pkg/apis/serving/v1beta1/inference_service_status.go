@@ -34,6 +34,10 @@ type InferenceServiceStatus struct {
 	duckv1.Status `json:",inline"`
 	// Addressable endpoint for the InferenceService
 	Address *duckv1.Addressable `json:"address,omitempty"`
+	// URL holds the url that will distribute traffic over the provided traffic targets.
+	// It generally has the form http[s]://{route-name}.{route-namespace}.{cluster-level-suffix}
+	// +optional
+	URL *apis.URL `json:"url,omitempty"`
 	// Statuses for the components of the InferenceService
 	Components map[ComponentType]ComponentStatusSpec `json:"components,omitempty"`
 }
@@ -121,7 +125,7 @@ func (ss *InferenceServiceStatus) PropagateStatus(component ComponentType, servi
 	// propagate overall service condition
 	serviceCondition := serviceStatus.GetCondition(knservingv1.ServiceConditionReady)
 	if serviceCondition != nil && serviceCondition.Status == v1.ConditionTrue {
-		if serviceStatus.URL != nil {
+		if serviceStatus.Address != nil {
 			statusSpec.Address = serviceStatus.Address
 		}
 	}

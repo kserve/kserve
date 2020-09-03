@@ -69,9 +69,10 @@ var _ = BeforeSuite(func(done Done) {
 	})
 	Expect(err).ToNot(HaveOccurred())
 	err = (&InferenceServiceReconciler{
-		Client: k8sManager.GetClient(),
-		Scheme: scheme.Scheme,
-		Log:    ctrl.Log.WithName("v1beta1InferenceServiceController"),
+		Client:   k8sManager.GetClient(),
+		Scheme:   scheme.Scheme,
+		Log:      ctrl.Log.WithName("V1beta1InferenceServiceController"),
+		Recorder: k8sManager.GetEventRecorderFor("V1beta1InferenceServiceController"),
 	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 	defer GinkgoRecover()
