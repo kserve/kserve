@@ -27,7 +27,7 @@ var (
 	ONNXServingRestPort            = "8080"
 	ONNXServingGRPCPort            = "9000"
 	DefaultONNXModelName           = "model.onnx"
-	ONNXFileExt                    = "onnx"
+	ONNXFileExt                    = ".onnx"
 	InvalidONNXRuntimeVersionError = "ONNX RuntimeVersion must be one of %s"
 )
 
