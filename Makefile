@@ -9,7 +9,7 @@ XGB_IMG ?= xgbserver:latest
 PYTORCH_IMG ?= pytorchserver:latest
 ALIBI_IMG ?= alibi-explainer:latest
 STORAGE_INIT_IMG ?= storage-initializer:latest
-CRD_OPTIONS ?= "crd:maxDescLen=0"
+CRD_OPTIONS ?= "crd:maxDescLen=0,preserveUnknownFields=false,crdVersions=v1beta1"
 KFSERVING_ENABLE_SELF_SIGNED_CA ?= false
 
 # CPU/Memory limits for controller-manager
@@ -191,7 +191,7 @@ ifeq (, $(shell which controller-gen))
 	CONTROLLER_GEN_TMP_DIR=$$(mktemp -d) ;\
 	cd $$CONTROLLER_GEN_TMP_DIR ;\
 	go mod init tmp ;\
-	go get sigs.k8s.io/controller-tools/cmd/controller-gen@5c0c6ae3b64bccf89fb16353880376d3ce9d9128 ;\
+	go get sigs.k8s.io/controller-tools/cmd/controller-gen@c7154a3a46038eaffeef9ff8d37bbc775728c60d ;\
 	rm -rf $$CONTROLLER_GEN_TMP_DIR ;\
 	}
 CONTROLLER_GEN=$(GOPATH)/bin/controller-gen
