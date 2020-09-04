@@ -17,6 +17,7 @@ import setuptools
 TESTS_REQUIRES = [
     'pytest',
     'pytest-tornasync',
+    'pytest-asyncio'
     'mypy'
 ]
 
@@ -25,7 +26,7 @@ with open('requirements.txt') as f:
 
 setuptools.setup(
     name='kfserving',
-    version='0.4.0',
+    version='0.4.1',
     author="Kubeflow Authors",
     author_email='ellisbigelow@google.com, hejinchi@cn.ibm.com, dsun20@bloomberg.net',
     license="Apache License Version 2.0",

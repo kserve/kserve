@@ -20,14 +20,15 @@ import importlib
 import sys
 
 PYTORCH_FILE = "model.pt"
+DEFAULT_MODEL_CLASS_NAME = "PyTorchModel"
 
 
 class PyTorchModel(kfserving.KFModel):
-    def __init__(self, name: str, model_class_name: str, model_dir: str):
+    def __init__(self, name: str, model_dir: str, model_class_name: str = DEFAULT_MODEL_CLASS_NAME):
         super().__init__(name)
         self.name = name
-        self.model_class_name = model_class_name
         self.model_dir = model_dir
+        self.model_class_name = model_class_name
         self.ready = False
         self.model = None
         self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')

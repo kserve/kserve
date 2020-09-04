@@ -13,15 +13,20 @@
 # limitations under the License.
 
 import argparse
+import asyncio
 import logging
 import json
-from typing import List, Dict
+import sys
+from typing import List, Optional
 import tornado.ioloop
 import tornado.web
 import tornado.httpserver
 import tornado.log
+
 from kfserving.handlers.http import PredictHandler, ExplainHandler
 from kfserving import KFModel
+from kfserving import KFModelRepository
+from kfserving.kfmodel_factory import UnsupportedModelError
 
 DEFAULT_HTTP_PORT = 8080
 DEFAULT_GRPC_PORT = 8081
@@ -40,17 +45,18 @@ args, _ = parser.parse_known_args()
 
 tornado.log.enable_pretty_logging()
 
+
 class KFServer:
     def __init__(self, http_port: int = args.http_port,
                  grpc_port: int = args.grpc_port,
                  max_buffer_size: int = args.max_buffer_size,
                  workers: int = args.workers):
-        self.registered_models = {}
+        self.registered_models = KFModelRepository()
         self.http_port = http_port
         self.grpc_port = grpc_port
         self.max_buffer_size = max_buffer_size
         self.workers = workers
-        self._http_server = None
+        self._http_server: Optional[tornado.httpserver.HTTPServer] = None
 
     def create_application(self):
         return tornado.web.Application([
@@ -65,6 +71,10 @@ class KFServer:
              PredictHandler, dict(models=self.registered_models)),
             (r"/v1/models/([a-zA-Z0-9_-]+):explain",
              ExplainHandler, dict(models=self.registered_models)),
+            (r"/v1/models/([a-zA-Z0-9_-]+)/load",
+             LoadHandler, dict(models=self.registered_models)),
+            (r"/v1/models/([a-zA-Z0-9_-]+)/unload",
+             UnloadHandler, dict(models=self.registered_models)),
         ])
 
     def start(self, models: List[KFModel], nest_asyncio: bool = False):
@@ -92,7 +102,7 @@ class KFServer:
         if not model.name:
             raise Exception(
                 "Failed to register model, model.name must be provided.")
-        self.registered_models[model.name] = model
+        self.registered_models.update(model)
         logging.info("Registering model: %s", model.name)
 
 
@@ -102,17 +112,17 @@ class LivenessHandler(tornado.web.RequestHandler):  # pylint:disable=too-few-pub
 
 
 class HealthHandler(tornado.web.RequestHandler):
-    def initialize(self, models: Dict[str, KFModel]):
+    def initialize(self, models: KFModelRepository):
         self.models = models  # pylint:disable=attribute-defined-outside-init
 
     def get(self, name: str):
-        if name not in self.models:
+        model = self.models.get_model(name)
+        if model is None:
             raise tornado.web.HTTPError(
                 status_code=404,
                 reason="Model with name %s does not exist." % name
             )
 
-        model = self.models[name]
         if not model.ready:
             raise tornado.web.HTTPError(
                 status_code=503,
@@ -126,8 +136,52 @@ class HealthHandler(tornado.web.RequestHandler):
 
 
 class ListHandler(tornado.web.RequestHandler):
-    def initialize(self, models: Dict[str, KFModel]):
+    def initialize(self, models: KFModelRepository):
         self.models = models  # pylint:disable=attribute-defined-outside-init
 
     def get(self):
-        self.write(json.dumps(list(self.models.values())))
+        self.write(json.dumps([ob.name for ob in self.models.get_models()]))
+
+
+class LoadHandler(tornado.web.RequestHandler):
+    def initialize(self, models: KFModelRepository):  # pylint:disable=attribute-defined-outside-init
+        self.models = models
+
+    async def post(self, name: str):
+        try:
+            loop = asyncio.get_running_loop()
+            ready = loop.run_until_complete(self.models.load(name))
+        except UnsupportedModelError as e:
+            raise tornado.web.HTTPError(
+                status_code=404,
+                reason=f"fail to load model {name}, error {e}"
+            )
+        except Exception as e:
+            ex_type, ex_value, ex_traceback = sys.exc_info()
+            raise tornado.web.HTTPError(
+                status_code=503,
+                reason=f"Model with name {name} is not ready. "
+                       f"Error type: {ex_type} error msg: {ex_value}"
+            )
+
+        if not ready:
+            raise tornado.web.HTTPError(
+                status_code=503,
+                reason=f"Model with name {name} is not ready."
+            )
+        self.write(f"succeed to load model {name}")
+
+
+class UnloadHandler(tornado.web.RequestHandler):
+    def initialize(self, models: KFModelRepository):  # pylint:disable=attribute-defined-outside-init
+        self.models = models
+
+    def post(self, name: str):
+        try:
+            self.models.unload(name)
+        except KeyError:
+            raise tornado.web.HTTPError(
+                status_code=404,
+                reason="Model with name %s does not exist." % name
+            )
+        self.write(f"succeed to unload model {name}")

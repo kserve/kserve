@@ -12,7 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import nest_asyncio
 import pytest
+import os
 import kfserving
 from tornado.httpclient import HTTPClientError
 
@@ -41,6 +43,8 @@ class TestTFHttpServer():
         model.load()
         server = kfserving.KFServer()
         server.register_model(model)
+        models_dir = os.path.join(os.path.dirname(__file__), "example_models", "xgboost")
+        server.registered_models.set_models_dir(models_dir)
         return server.create_application()
 
     async def test_liveness(self, http_server_client):
@@ -66,6 +70,37 @@ class TestTFHttpServer():
         assert resp.code == 200
         assert resp.body == b'{"predictions": [[1, 2]]}'
         assert resp.headers['content-type'] == "application/json; charset=UTF-8"
+
+    async def test_load(self, http_server_client):
+        nest_asyncio.apply()
+        resp = await http_server_client.fetch('/v1/models/model/load',
+                                              method="POST", body=b'')
+        assert resp.code == 200
+        assert resp.body == b'succeed to load model model'
+
+    async def test_unload(self, http_server_client):
+        resp = await http_server_client.fetch('/v1/models/model/unload',
+                                              method="POST", body=b'')
+        assert resp.code == 200
+        assert resp.body == b'succeed to unload model model'
+
+    async def test_load_fail(self, http_server_client):
+        nest_asyncio.apply()
+        with pytest.raises(HTTPClientError) as err:
+            _ = await http_server_client.fetch('/v1/models/Model1/load',
+                                               method="POST", body=b'')
+        assert err.value.code == 404
+
+    async def test_unload_fail(self, http_server_client):
+        with pytest.raises(HTTPClientError) as err:
+            _ = await http_server_client.fetch('/v1/models/ModelNotExist/unload',
+                                               method="POST", body=b'')
+        assert err.value.code == 404
+
+    async def test_list(self, http_server_client):
+        resp = await http_server_client.fetch('/v1/models')
+        assert resp.code == 200
+        assert resp.body == b'["TestModel"]'
 
 
 class TestTFHttpServerModelNotLoaded():

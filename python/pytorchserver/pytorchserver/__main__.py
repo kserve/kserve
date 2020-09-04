@@ -12,10 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import kfserving
 import argparse
 
-from pytorchserver import PyTorchModel
+import kfserving
+from kfserving import PyTorchModel
 
 DEFAULT_MODEL_NAME = "model"
 DEFAULT_LOCAL_MODEL_DIR = "/tmp/model"
@@ -31,6 +31,6 @@ parser.add_argument('--model_class_name', default=DEFAULT_MODEL_CLASS_NAME,
 args, _ = parser.parse_known_args()
 
 if __name__ == "__main__":
-    model = PyTorchModel(args.model_name, args.model_class_name, args.model_dir)
+    model = PyTorchModel(args.model_name, args.model_dir, args.model_class_name)
     model.load()
     kfserving.KFServer().start([model])

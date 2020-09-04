@@ -12,17 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import pytest
 from sklearn import svm
 from sklearn import datasets
-from sklearnserver import SKLearnModel
+from kfserving import SKLearnModel
 import joblib
 import pickle
 import os
 
 _MODEL_DIR = os.path.join(os.path.dirname(__file__), "example_models")
-JOBLIB_FILE = [os.path.join(_MODEL_DIR, "joblib"), "model.joblib"]
-PICKLE_FILES = [[os.path.join(_MODEL_DIR, "pkl"), "model.pkl"],
-                [os.path.join(_MODEL_DIR, "pickle"), "model.pickle"]]
+JOBLIB_FILE = [os.path.join(_MODEL_DIR, "sklearn", "joblib"), "model.joblib"]
+PICKLE_FILES = [[os.path.join(_MODEL_DIR, "sklearn", "pkl"), "model.pkl"],
+                [os.path.join(_MODEL_DIR, "sklearn", "pickle"), "model.pickle"]]
 
 
 def _train_sample_model():
@@ -33,28 +34,30 @@ def _train_sample_model():
     return sklearn_model, X
 
 
-def _run_pickle_model(model_dir, model_name):
+async def _run_pickle_model(model_dir, model_name):
     sklearn_model, data = _train_sample_model()
     model_file = os.path.join(model_dir, model_name)
     pickle.dump(sklearn_model, open(model_file, 'wb'))
     model = SKLearnModel("sklearnmodel", model_dir)
-    model.load()
+    await model.load()
     request = data[0:1].tolist()
     response = model.predict({"instances": request})
     assert response["predictions"] == [0]
 
 
-def test_model_joblib():
+@pytest.mark.asyncio
+async def test_model_joblib():
     sklearn_model, data = _train_sample_model()
     model_file = os.path.join(JOBLIB_FILE[0], JOBLIB_FILE[1])
     joblib.dump(value=sklearn_model, filename=model_file)
     model = SKLearnModel("sklearnmodel", JOBLIB_FILE[0])
-    model.load()
+    await model.load()
     request = data[0:1].tolist()
     response = model.predict({"instances": request})
     assert response["predictions"] == [0]
 
 
-def test_model_pickle():
+@pytest.mark.asyncio
+async def test_model_pickle():
     for pickle_file in PICKLE_FILES:
         _run_pickle_model(pickle_file[0], pickle_file[1])
