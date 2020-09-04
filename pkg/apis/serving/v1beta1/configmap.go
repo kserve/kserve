@@ -33,6 +33,10 @@ const (
 	ExplainerConfigKeyName   = "explainers"
 )
 
+const (
+	IngressConfigKeyName = "ingress"
+)
+
 // +kubebuilder:object:generate=false
 type ExplainerConfig struct {
 	// explainer docker image name
@@ -89,6 +93,12 @@ type InferenceServicesConfig struct {
 	Explainers ExplainersConfig `json:"explainers"`
 }
 
+// +kubebuilder:object:generate=false
+type IngressConfig struct {
+	IngressGateway     string `json:"ingressGateway,omitempty"`
+	IngressServiceName string `json:"ingressService,omitempty"`
+}
+
 func NewInferenceServicesConfig(cli client.Client) (*InferenceServicesConfig, error) {
 	configMap := &v1.ConfigMap{}
 	err := cli.Get(context.TODO(), types.NamespacedName{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KFServingNamespace}, configMap)
@@ -106,6 +116,26 @@ func NewInferenceServicesConfig(cli client.Client) (*InferenceServicesConfig, er
 		}
 	}
 	return icfg, nil
+}
+
+func NewIngressConfig(cli client.Client) (*IngressConfig, error) {
+	configMap := &v1.ConfigMap{}
+	err := cli.Get(context.TODO(), types.NamespacedName{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KFServingNamespace}, configMap)
+	if err != nil {
+		return nil, err
+	}
+	ingressConfig := &IngressConfig{}
+	if ingress, ok := configMap.Data[IngressConfigKeyName]; ok {
+		err := json.Unmarshal([]byte(ingress), &ingressConfig)
+		if err != nil {
+			return nil, fmt.Errorf("Unable to parse ingress config json: %v", err)
+		}
+
+		if ingressConfig.IngressGateway == "" || ingressConfig.IngressServiceName == "" {
+			return nil, fmt.Errorf("Invalid ingress config, ingressGateway and ingressService are required.")
+		}
+	}
+	return ingressConfig, nil
 }
 
 func getComponentConfig(key string, configMap *v1.ConfigMap, componentConfig interface{}) error {

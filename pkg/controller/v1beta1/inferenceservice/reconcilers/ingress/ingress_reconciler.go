@@ -21,37 +21,40 @@ import (
 	"fmt"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
 	"github.com/kubeflow/kfserving/pkg/constants"
+	istiov1alpha3 "istio.io/api/networking/v1alpha3"
+	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	corev1 "k8s.io/api/core/v1"
-	networking "k8s.io/api/networking/v1beta1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/kmp"
 	"knative.dev/pkg/network"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	//?"knative.dev/pkg/apis"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"strings"
 )
 
-var log = logf.Log.WithName("IngressReconciler")
+var (
+	log = logf.Log.WithName("IngressReconciler")
+)
 
 type IngressReconciler struct {
-	client client.Client
-	scheme *runtime.Scheme
+	client        client.Client
+	scheme        *runtime.Scheme
+	ingressConfig *v1beta1.IngressConfig
 }
 
-func NewIngressReconciler(client client.Client, scheme *runtime.Scheme) *IngressReconciler {
+func NewIngressReconciler(client client.Client, scheme *runtime.Scheme, ingressConfig *v1beta1.IngressConfig) *IngressReconciler {
 	return &IngressReconciler{
-		client: client,
-		scheme: scheme,
+		client:        client,
+		scheme:        scheme,
+		ingressConfig: ingressConfig,
 	}
 }
 
@@ -142,6 +145,26 @@ func (r *IngressReconciler) reconcileExternalService(isvc *v1beta1.InferenceServ
 	return nil
 }
 
+func (ir *IngressReconciler) createHTTPRouteDestination(targetHost, namespace string, gatewayService string) *istiov1alpha3.HTTPRouteDestination {
+	httpRouteDestination := &istiov1alpha3.HTTPRouteDestination{
+		Headers: &istiov1alpha3.Headers{
+			Request: &istiov1alpha3.Headers_HeaderOperations{
+				Set: map[string]string{
+					"Host": network.GetServiceHostname(targetHost, namespace),
+				},
+			},
+		},
+		Destination: &istiov1alpha3.Destination{
+			Host: gatewayService,
+			Port: &istiov1alpha3.PortSelector{
+				Number: constants.CommonDefaultHttpPort,
+			},
+		},
+	}
+
+	return httpRouteDestination
+}
+
 func (ir *IngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
 	//Create external service which points to local gateway
 	if err := ir.reconcileExternalService(isvc); err != nil {
@@ -157,41 +180,54 @@ func (ir *IngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
 	if isvc.Spec.Transformer != nil {
 		backend = constants.TransformerServiceName(isvc.Name)
 	}
-	desiredIngress := &networking.Ingress{
+	httpRoutes := []*istiov1alpha3.HTTPRoute{
+		{
+			Match: []*istiov1alpha3.HTTPMatchRequest{
+				{
+					Authority: &istiov1alpha3.StringMatch{
+						MatchType: &istiov1alpha3.StringMatch_Regex{
+							Regex: constants.HostRegExp(serviceHost),
+						},
+					},
+					Gateways: []string{ir.ingressConfig.IngressGateway},
+				},
+				{
+					Authority: &istiov1alpha3.StringMatch{
+						MatchType: &istiov1alpha3.StringMatch_Regex{
+							Regex: constants.HostRegExp(network.GetServiceHostname(isvc.Name, isvc.Namespace)),
+						},
+					},
+					Gateways: []string{constants.KnativeLocalGateway},
+				},
+			},
+			Route: []*istiov1alpha3.HTTPRouteDestination{
+				ir.createHTTPRouteDestination(backend, isvc.Namespace, constants.LocalGatewayHost),
+			},
+		},
+	}
+
+	desiredIngress := &v1alpha3.VirtualService{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      isvc.Name,
 			Namespace: isvc.Namespace,
 		},
-		Spec: networking.IngressSpec{
-			Backend: &networking.IngressBackend{
-				ServiceName: network.GetServiceHostname(backend, isvc.Namespace),
-				ServicePort: intstr.FromInt(80),
+		Spec: istiov1alpha3.VirtualService{
+			Hosts: []string{
+				serviceHost,
+				network.GetServiceHostname(isvc.Name, isvc.Namespace),
 			},
-			Rules: []networking.IngressRule{
-				{
-					Host: serviceHost,
-					IngressRuleValue: networking.IngressRuleValue{
-						HTTP: &networking.HTTPIngressRuleValue{
-							Paths: []networking.HTTPIngressPath{
-								{
-									Path: constants.ExplainPath(isvc.Name),
-									Backend: networking.IngressBackend{
-										ServiceName: network.GetServiceHostname(constants.ExplainerServiceName(isvc.Name), isvc.Namespace),
-										ServicePort: intstr.FromInt(80),
-									},
-								},
-							},
-						},
-					},
-				},
+			Gateways: []string{
+				ir.ingressConfig.IngressGateway,
+				constants.KnativeLocalGateway,
 			},
+			Http: httpRoutes,
 		},
 	}
 	if err := controllerutil.SetControllerReference(isvc, desiredIngress, ir.scheme); err != nil {
 		return err
 	}
 
-	existing := &networking.Ingress{}
+	existing := &v1alpha3.VirtualService{}
 	err := ir.client.Get(context.TODO(), types.NamespacedName{Name: desiredIngress.Name, Namespace: desiredIngress.Namespace}, existing)
 	if err != nil {
 		if errors.IsNotFound(err) {

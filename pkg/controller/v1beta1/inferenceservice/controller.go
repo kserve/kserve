@@ -40,7 +40,7 @@ import (
 // +kubebuilder:rbac:groups=serving.kubeflow.org,resources=inferenceservices/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=serving.knative.dev,resources=services,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=serving.knative.dev,resources=services/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=networking.k8s.io,resources=ingresses,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=networking.istio.io,resources=virtualservices,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=serviceaccounts,verbs=get;list;watch
 // +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch
@@ -90,7 +90,13 @@ func (r *InferenceServiceReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 	}
 	//Reconcile ingress only if all isvc components are in ready state
 	if isvc.Status.IsReady() {
-		reconciler := ingress.NewIngressReconciler(r.Client, r.Scheme)
+		//TODO check cluster local service annotation in which case service should not be exposed outside
+		ingressConfig, err := v1beta1api.NewIngressConfig(r.Client)
+		if err != nil {
+			return reconcile.Result{}, fmt.Errorf("Failed to create IngressConfig in reconciler: %v", err)
+		}
+		reconciler := ingress.NewIngressReconciler(r.Client, r.Scheme, ingressConfig)
+		r.Log.Info("Reconciling ingress for inference service", "isvc", isvc.Name)
 		if err := reconciler.Reconcile(isvc); err != nil {
 			return reconcile.Result{}, err
 		}
