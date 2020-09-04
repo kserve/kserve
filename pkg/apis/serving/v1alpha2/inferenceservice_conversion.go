@@ -92,10 +92,14 @@ func (src *InferenceService) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec.Predictor.MinReplicas = src.Spec.Default.Predictor.MinReplicas
 	dst.Spec.Predictor.MaxReplicas = src.Spec.Default.Predictor.MaxReplicas
 	dst.Spec.Predictor.ContainerConcurrency = proto.Int64(int64(src.Spec.Default.Predictor.Parallelism))
-	if src.Spec.Default.Predictor.ServiceAccountName != "" {
-		dst.Spec.Predictor.Spec = v1.PodSpec{}
-		dst.Spec.Predictor.Spec.ServiceAccountName = src.Spec.Default.Predictor.ServiceAccountName
+	dst.Spec.Predictor.CustomPredictor = &v1beta1.CustomPredictor{
+		PodTemplateSpec: v1.PodTemplateSpec{
+			Spec: v1.PodSpec{
+				ServiceAccountName: src.Spec.Default.Predictor.ServiceAccountName,
+			},
+		},
 	}
+
 
 	if src.Spec.Default.Transformer != nil {
 		if src.Spec.Default.Transformer.Custom != nil {
@@ -124,7 +128,7 @@ func (src *InferenceService) ConvertTo(dstRaw conversion.Hub) error {
 					PodTemplateSpec: v1.PodTemplateSpec{
 						Spec: v1.PodSpec{
 							Containers: []v1.Container{
-								src.Spec.Default.Transformer.Custom.Container,
+								src.Spec.Default.Explainer.Custom.Container,
 							},
 						},
 					},
