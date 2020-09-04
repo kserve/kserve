@@ -36,7 +36,6 @@ const (
 	PvcSourceMountName                      = "kfserving-pvc-source"
 	LocalFileMountName                      = "kfserving-local-source"
 	PvcSourceMountPath                      = "/mnt/pvc"
-	LocalSourceMountPath                    = "/mnt/local"
 )
 
 type StorageInitializerConfig struct {
@@ -162,7 +161,7 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 		// add a corresponding PVC volume mount to the INIT container
 		localSourceVolumeMount := v1.VolumeMount{
 			Name:      LocalFileMountName,
-			MountPath: LocalSourceMountPath,
+			MountPath: constants.DefaultModelLocalMountPath,
 			ReadOnly:  true,
 		}
 		// Since the model path is linked from source pvc, userContainer also need to mount the pvc.
@@ -217,7 +216,11 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 		MountPath: constants.DefaultModelLocalMountPath,
 		ReadOnly:  true,
 	}
-	userContainer.VolumeMounts = append(userContainer.VolumeMounts, sharedVolumeReadMount)
+	// only mount localpath
+	if !isLocal {
+		userContainer.VolumeMounts = append(userContainer.VolumeMounts, sharedVolumeReadMount)
+	}
+
 	// Change the CustomSpecStorageUri env variable value to the default model path if present
 	for index, envVar := range userContainer.Env {
 		if envVar.Name == constants.CustomSpecStorageUriEnvVarKey && envVar.Value != "" {
