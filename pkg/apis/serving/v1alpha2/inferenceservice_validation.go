@@ -130,7 +130,7 @@ func validateCanaryTrafficPercent(spec InferenceServiceSpec) error {
 }
 
 func validateInferenceServiceName(isvc *InferenceService) error {
-    if isvc.Name[0] < 64 || strings.ContainsRune(isvc.Name, '_') {
+    if isvc.Name[0] < 65 || strings.ContainsRune(isvc.Name, '_') {
 		return fmt.Errorf(InvalidKSVCNameError, isvc.Name)
     }
 	return nil
