@@ -51,41 +51,35 @@ spec:
                 explainer:
                   properties:
                     aix:
-                      description: Spec for AIX explainer
                       properties:
                         config:
                           additionalProperties:
                             type: string
-                          description: Inline custom parameter settings for explainer
                           type: object
                         resources:
-                          description: Defaults to requests and limits of 1CPU, 2Gb
-                            MEM.
                           properties:
                             limits:
                               additionalProperties:
-                                type: string
-                              description: 'Limits describes the maximum amount of
-                                compute resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                                anyOf:
+                                - type: integer
+                                - type: string
+                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                x-kubernetes-int-or-string: true
                               type: object
                             requests:
                               additionalProperties:
-                                type: string
-                              description: 'Requests describes the minimum amount
-                                of compute resources required. If Requests is omitted
-                                for a container, it defaults to Limits if that is
-                                explicitly specified, otherwise to an implementation-defined
-                                value. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                                anyOf:
+                                - type: integer
+                                - type: string
+                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                x-kubernetes-int-or-string: true
                               type: object
                           type: object
                         runtimeVersion:
-                          description: Defaults to latest AIX Version
                           type: string
                         storageUri:
-                          description: The location of a trained explanation model
                           type: string
                         type:
-                          description: The type of AIX explainer
                           type: string
                       required:
                       - type
@@ -2001,6 +1995,40 @@ spec:
               properties:
                 explainer:
                   properties:
+                    aix:
+                      properties:
+                        config:
+                          additionalProperties:
+                            type: string
+                          type: object
+                        resources:
+                          properties:
+                            limits:
+                              additionalProperties:
+                                anyOf:
+                                - type: integer
+                                - type: string
+                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                x-kubernetes-int-or-string: true
+                              type: object
+                            requests:
+                              additionalProperties:
+                                anyOf:
+                                - type: integer
+                                - type: string
+                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                x-kubernetes-int-or-string: true
+                              type: object
+                          type: object
+                        runtimeVersion:
+                          type: string
+                        storageUri:
+                          type: string
+                        type:
+                          type: string
+                      required:
+                      - type
+                      type: object
                     alibi:
                       properties:
                         config:

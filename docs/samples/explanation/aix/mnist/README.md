@@ -13,16 +13,19 @@ NAME         URL                                               READY   DEFAULT T
 aixserver   http://aixserver.somecluster/v1/models/aixserver   True    100                                40m
 ```
 
-Query the inferenceservice with the url and append `:explain` to signify the query is asking for an explanation.
+## Prediction
+The first step is to [determine the ingress IP and ports](../../../README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
 
 ```
-python query_explain.py http://aixserver.somecluster/v1/models/aixserver:explain
+MODEL_NAME=aix-explainer
+SERVICE_HOSTNAME=$(kubectl get inferenceservice ${MODEL_NAME} -o jsonpath='{.status.url}' | cut -d "/" -f 3)
+python query_explain.py http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/$MODEL_NAME:explain ${SERVICE_HOSTNAME}
 ```
 
 To try a different MNIST example add an integer to the end of the query between 0-10,000. The integer chosen will be the index of the image to be chosen in the MNIST dataset.
 
 ```
-python query_explain.py http://aixserver.somecluster/v1/models/aixserver:explain 100
+python query_explain.py http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/$MODEL_NAME:explain ${SERVICE_HOSTNAME} 100
 ```
 
 ## Deploying AIX explanations for another Image Classifier

@@ -16,12 +16,15 @@ print('************************************************************')
 print('************************************************************')
 print("starting query")
 
-if len(sys.argv) == 1:
+if len(sys.argv) < 3:
     raise Exception("No endpoint specified. ")
 endpoint = sys.argv[1]
+headers = {
+    'Host': sys.argv[2]
+}
 test_num = 1002
 is_file = False
-if len(sys.argv) > 2:
+if len(sys.argv) > 3:
     try:
         test_num = int(sys.argv[2])
     except:
@@ -46,7 +49,7 @@ print("Sending Explain Query")
 
 x = time.time()
 
-res = requests.post(endpoint, json=input_image)
+res = requests.post(endpoint, json=input_image, headers=headers)
 
 print("TIME TAKEN: ", time.time() - x)
 
