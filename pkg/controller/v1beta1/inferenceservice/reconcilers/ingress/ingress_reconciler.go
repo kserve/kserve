@@ -164,7 +164,7 @@ func (ir *IngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
 		},
 		Spec: networking.IngressSpec{
 			Backend: &networking.IngressBackend{
-				ServiceName: backend,
+				ServiceName: network.GetServiceHostname(backend, isvc.Namespace),
 				ServicePort: intstr.FromInt(80),
 			},
 			Rules: []networking.IngressRule{
@@ -176,7 +176,7 @@ func (ir *IngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
 								{
 									Path: constants.ExplainPath(isvc.Name),
 									Backend: networking.IngressBackend{
-										ServiceName: constants.ExplainerServiceName(isvc.Name),
+										ServiceName: network.GetServiceHostname(constants.ExplainerServiceName(isvc.Name), isvc.Namespace),
 										ServicePort: intstr.FromInt(80),
 									},
 								},
@@ -200,6 +200,7 @@ func (ir *IngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
 		}
 	} else {
 		if !equality.Semantic.DeepEqual(desiredIngress.Spec, existing.Spec) {
+			existing.Spec = desiredIngress.Spec
 			err = ir.client.Update(context.TODO(), existing)
 		}
 	}

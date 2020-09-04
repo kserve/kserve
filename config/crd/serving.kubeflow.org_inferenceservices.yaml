@@ -10117,6 +10117,8 @@ spec:
                         type: string
                       latestReadyRevision:
                         type: string
+                      url:
+                        type: string
                     type: object
                   type: object
                 conditions:
