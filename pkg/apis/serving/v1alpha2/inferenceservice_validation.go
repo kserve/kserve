@@ -19,6 +19,7 @@ package v1alpha2
 import (
 	"fmt"
 
+    "strings"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -32,6 +33,7 @@ const (
 	TrafficBoundsExceededError          = "TrafficPercent must be between [0, 100]."
 	TrafficProvidedWithoutCanaryError   = "Canary must be specified when CanaryTrafficPercent > 0."
 	UnsupportedStorageURIFormatError    = "storageUri, must be one of: [%s] or match https://{}.blob.core.windows.net/{}/{} or be an absolute or relative local path. StorageUri [%s] is not supported."
+    InvalidKSVCNameError                = "The InferenceService %s is invalid: the name must consist of lower case alphanumeric characters or '-', and must start with alphabetical character. (e.g. 'example-com')"
 )
 
 var (
@@ -65,6 +67,11 @@ func validateInferenceService(isvc *InferenceService, client client.Client) erro
 	if isvc == nil {
 		return fmt.Errorf("Unable to validate, InferenceService is nil")
 	}
+
+	if err := validateInferenceServiceName(isvc); err != nil {
+		return err
+	}
+
 	endpoints := []*EndpointSpec{
 		&isvc.Spec.Default,
 		isvc.Spec.Canary,
@@ -119,5 +126,12 @@ func validateCanaryTrafficPercent(spec InferenceServiceSpec) error {
 	if spec.CanaryTrafficPercent < 0 || spec.CanaryTrafficPercent > 100 {
 		return fmt.Errorf(TrafficBoundsExceededError)
 	}
+	return nil
+}
+
+func validateInferenceServiceName(isvc *InferenceService) error {
+    if isvc.Name[0] < 64 || strings.ContainsRune(isvc.Name, '_') {
+		return fmt.Errorf(InvalidKSVCNameError, isvc.Name)
+    }
 	return nil
 }
