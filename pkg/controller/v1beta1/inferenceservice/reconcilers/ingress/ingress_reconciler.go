@@ -63,19 +63,19 @@ func getServiceHost(isvc *v1beta1.InferenceService) string {
 	if isvc.Spec.Transformer != nil {
 		if transformerStatus, ok := isvc.Status.Components[v1beta1.TransformerComponent]; !ok {
 			return ""
-		} else if transformerStatus.Address == nil {
+		} else if transformerStatus.URL == nil {
 			return ""
 		} else {
-			return strings.ReplaceAll(transformerStatus.Address.URL.Host, fmt.Sprintf("-%s", string(constants.Transformer)), "")
+			return strings.ReplaceAll(transformerStatus.URL.Host, fmt.Sprintf("-%s", string(constants.Transformer)), "")
 		}
 	}
 
 	if predictorStatus, ok := isvc.Status.Components[v1beta1.PredictorComponent]; !ok {
 		return ""
-	} else if predictorStatus.Address == nil {
+	} else if predictorStatus.URL == nil {
 		return ""
 	} else {
-		return strings.ReplaceAll(predictorStatus.Address.URL.Host, fmt.Sprintf("-%s", string(constants.Predictor)), "")
+		return strings.ReplaceAll(predictorStatus.URL.Host, fmt.Sprintf("-%s", string(constants.Predictor)), "")
 	}
 }
 
@@ -86,10 +86,10 @@ func getServiceUrl(isvc *v1beta1.InferenceService) string {
 
 	if predictorStatus, ok := isvc.Status.Components[v1beta1.PredictorComponent]; !ok {
 		return ""
-	} else if predictorStatus.Address == nil || predictorStatus.Address.URL == nil {
+	} else if predictorStatus.URL == nil {
 		return ""
 	} else {
-		return strings.ReplaceAll(predictorStatus.Address.URL.String(), fmt.Sprintf("-%s", string(constants.Predictor)), "")
+		return strings.ReplaceAll(predictorStatus.URL.String(), fmt.Sprintf("-%s", string(constants.Predictor)), "")
 	}
 }
 

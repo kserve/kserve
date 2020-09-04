@@ -33,6 +33,7 @@ type InferenceServiceStatus struct {
 	// - Ready: aggregated condition;
 	duckv1.Status `json:",inline"`
 	// Addressable endpoint for the InferenceService
+	// +optional
 	Address *duckv1.Addressable `json:"address,omitempty"`
 	// URL holds the url that will distribute traffic over the provided traffic targets.
 	// It generally has the form http[s]://{route-name}.{route-namespace}.{cluster-level-suffix}
@@ -45,10 +46,17 @@ type InferenceServiceStatus struct {
 // ComponentStatusSpec describes the state of the component
 type ComponentStatusSpec struct {
 	// Latest revision name that is in ready state
+	// +optional
 	LatestReadyRevision string `json:"latestReadyRevision,omitempty"`
 	// Latest revision name that is in created
+	// +optional
 	LatestCreatedRevision string `json:"latestCreatedRevision,omitempty"`
+	// URL holds the url that will distribute traffic over the provided traffic targets.
+	// It generally has the form http[s]://{route-name}.{route-namespace}.{cluster-level-suffix}
+	// +optional
+	URL *apis.URL `json:"url,omitempty"`
 	// Addressable endpoint for the InferenceService
+	// +optional
 	Address *duckv1.Addressable `json:"address,omitempty"`
 }
 
@@ -127,6 +135,9 @@ func (ss *InferenceServiceStatus) PropagateStatus(component ComponentType, servi
 	if serviceCondition != nil && serviceCondition.Status == v1.ConditionTrue {
 		if serviceStatus.Address != nil {
 			statusSpec.Address = serviceStatus.Address
+		}
+		if serviceStatus.URL != nil {
+			statusSpec.URL = serviceStatus.URL
 		}
 	}
 	ss.setCondition(knservingv1.ServiceConditionReady, serviceCondition)
