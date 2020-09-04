@@ -96,7 +96,7 @@ undeploy-dev:
 # Generate manifests e.g. CRD, RBAC etc.
 manifests: controller-gen
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) paths=./pkg/apis/serving/... output:crd:dir=config/crd
-	$(CONTROLLER_GEN) rbac:roleName=kfserving-manager-role paths=./pkg/controller/inferenceservice/... output:rbac:artifacts:config=config/rbac
+	$(CONTROLLER_GEN) rbac:roleName=kfserving-manager-role paths=./pkg/controller/... output:rbac:artifacts:config=config/rbac
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths=./pkg/apis/serving/v1alpha2
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths=./pkg/apis/serving/v1beta1
 	#TODO Remove this until new controller-tools is released
@@ -105,6 +105,7 @@ manifests: controller-gen
 	perl -pi -e 's/Any/string/g' config/crd/serving.kubeflow.org_inferenceservices.yaml
 	perl -pi -e 's/storedVersions: null/storedVersions: []/g' config/crd/serving.kubeflow.org_trainedmodels.yaml
 	perl -pi -e 's/conditions: null/conditions: []/g' config/crd/serving.kubeflow.org_trainedmodels.yaml
+	perl -pi -e 's/Any/string/g' config/crd/serving.kubeflow.org_trainedmodels.yaml
 	#TODO slim down crd openAPIV3Schema as v1beta1 crd is too big and kubectl client side apply takes long time to do diffs, need to use k8s 1.18's server side apply
 	#https://github.com/kubernetes-sigs/kubebuilder/issues/1140
 	yq d -i config/crd/serving.kubeflow.org_inferenceservices.yaml 'spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.*.properties.spec.properties.containers'

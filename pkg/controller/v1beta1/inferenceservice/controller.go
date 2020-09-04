@@ -35,6 +35,17 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
+// +kubebuilder:rbac:groups=serving.kubeflow.org,resources=inferenceservices,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=serving.kubeflow.org,resources=inferenceservices/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=serving.knative.dev,resources=services,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=serving.knative.dev,resources=services/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=networking.k8s.io,resources=ingresses,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core,resources=serviceaccounts,verbs=get;list;watch
+// +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch
+// +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core,resources=namespaces,verbs=get;list;watch
+// +kubebuilder:rbac:groups=core,resources=events,verbs=get;list;watch;create;update;patch;delete
 
 // InferenceServiceReconciler reconciles a InferenceService object
 type InferenceServiceReconciler struct {
@@ -44,15 +55,6 @@ type InferenceServiceReconciler struct {
 	Recorder record.EventRecorder
 }
 
-// +kubebuilder:rbac:groups=serving.kubeflow.org,resources=inferenceservices,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=serving.kubeflow.org,resources=inferenceservices/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=serving.knative.dev,resources=services,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=serving.knative.dev,resources=services/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=core,resources=serviceaccounts,verbs=get;list;watch
-// +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch
-// +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=core,resources=namespaces,verbs=get;list;watch
-// +kubebuilder:rbac:groups=core,resources=events,verbs=get;list;watch;create;update;patch;delete
 func (r *InferenceServiceReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	_ = context.Background()
 

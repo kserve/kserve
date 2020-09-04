@@ -51,7 +51,7 @@ func NewPredictor(client client.Client, scheme *runtime.Scheme, inferenceService
 
 // Reconcile observes the world and attempts to drive the status towards the desired state.
 func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
-	p.Log.Info("Reconciling Predictor", "PredictorSpec", isvc.Spec)
+	p.Log.Info("Reconciling Predictor", "PredictorSpec", isvc.Spec.Predictor)
 	predictor := isvc.Spec.Predictor.GetImplementation()
 	annotations := utils.Filter(isvc.Annotations, func(key string) bool {
 		return !utils.Includes(constants.ServiceAnnotationDisallowedList, key)
