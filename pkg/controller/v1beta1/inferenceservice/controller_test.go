@@ -324,9 +324,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				updateDefault := defaultPredictorService.DeepCopy()
 				updateDefault.Status.LatestCreatedRevisionName = "revision-v1"
 				updateDefault.Status.LatestReadyRevisionName = "revision-v1"
-				updateDefault.Status.Address = &duckv1.Addressable{
-					URL: predictorUrl,
-				}
+				updateDefault.Status.URL = predictorUrl
 				updateDefault.Status.Conditions = duckv1.Conditions{
 					{
 						Type:   knservingv1.ServiceConditionReady,
@@ -341,9 +339,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				updateDefault := transformerService.DeepCopy()
 				updateDefault.Status.LatestCreatedRevisionName = "t-revision-v1"
 				updateDefault.Status.LatestReadyRevisionName = "t-revision-v1"
-				updateDefault.Status.Address = &duckv1.Addressable{
-					URL: transformerUrl,
-				}
+				updateDefault.Status.URL = transformerUrl
 				updateDefault.Status.Conditions = duckv1.Conditions{
 					{
 						Type:   knservingv1.ServiceConditionReady,
@@ -386,16 +382,12 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					v1beta1.PredictorComponent: {
 						LatestReadyRevision:   "revision-v1",
 						LatestCreatedRevision: "revision-v1",
-						Address: &duckv1.Addressable{
-							URL: predictorUrl,
-						},
+						URL:                   predictorUrl,
 					},
 					v1beta1.TransformerComponent: {
 						LatestReadyRevision:   "t-revision-v1",
 						LatestCreatedRevision: "t-revision-v1",
-						Address: &duckv1.Addressable{
-							URL: transformerUrl,
-						},
+						URL:                   transformerUrl,
 					},
 				},
 			}
