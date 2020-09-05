@@ -92,7 +92,7 @@ func (src *InferenceService) ConvertTo(dstRaw conversion.Hub) error {
 		dst.Spec.Predictor.CustomPredictor = &v1beta1.CustomPredictor{
 			PodTemplateSpec: v1.PodTemplateSpec{
 				Spec: v1.PodSpec{
-                    Containers: []v1.Container{
+					Containers: []v1.Container{
 						src.Spec.Default.Predictor.Custom.Container,
 					},
 				},
@@ -145,11 +145,11 @@ func (src *InferenceService) ConvertTo(dstRaw conversion.Hub) error {
 					ContainerConcurrency: proto.Int64(int64(src.Spec.Default.Explainer.Parallelism)),
 				},
 				Alibi: &v1beta1.AlibiExplainerSpec{
-					Type: v1beta1.AlibiExplainerType(src.Spec.Default.Explainer.Alibi.Type),
-					StorageURI: src.Spec.Default.Explainer.Alibi.StorageURI,
+					Type:           v1beta1.AlibiExplainerType(src.Spec.Default.Explainer.Alibi.Type),
+					StorageURI:     src.Spec.Default.Explainer.Alibi.StorageURI,
 					RuntimeVersion: proto.String(src.Spec.Default.Explainer.Alibi.RuntimeVersion),
 					Container: v1.Container{
-					    Resources: src.Spec.Default.Explainer.Alibi.Resources,
+						Resources: src.Spec.Default.Explainer.Alibi.Resources,
 					},
 				},
 			}
@@ -256,10 +256,10 @@ func (dst *InferenceService) ConvertFrom(srcRaw conversion.Hub) error {
 		if src.Spec.Explainer.Alibi != nil {
 			dst.Spec.Default.Explainer = &ExplainerSpec{
 				Alibi: &AlibiExplainerSpec{
-                    Type: AlibiExplainerType(src.Spec.Explainer.Alibi.Type),
-                    StorageURI: src.Spec.Explainer.Alibi.StorageURI,
-                    RuntimeVersion: *src.Spec.Explainer.Alibi.RuntimeVersion,
-                    Resources: src.Spec.Explainer.Alibi.Resources,
+					Type:           AlibiExplainerType(src.Spec.Explainer.Alibi.Type),
+					StorageURI:     src.Spec.Explainer.Alibi.StorageURI,
+					RuntimeVersion: *src.Spec.Explainer.Alibi.RuntimeVersion,
+					Resources:      src.Spec.Explainer.Alibi.Resources,
 				},
 			}
 		} else if src.Spec.Explainer.CustomExplainer != nil {
