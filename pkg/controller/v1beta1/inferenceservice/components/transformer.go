@@ -85,7 +85,7 @@ func (p *Transformer) Reconcile(isvc *v1beta1.InferenceService) error {
 
 	podSpec := corev1.PodSpec(isvc.Spec.Transformer.PodSpec)
 	r := knative.NewKsvcReconciler(p.client, p.scheme, objectMeta, &isvc.Spec.Transformer.ComponentExtensionSpec,
-		&podSpec, isvc.Status.Components[v1beta1.TransformerComponent])
+		&podSpec, isvc.Status.Components[v1beta1.TransformerComponent], constants.Transformer, isvc)
 
 	if err := controllerutil.SetControllerReference(isvc, r.Service, p.scheme); err != nil {
 		return errors.Wrapf(err, "fails to set owner reference for transformer")

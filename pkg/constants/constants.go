@@ -49,6 +49,13 @@ var (
 	ModelConfigFileName = "models.json"
 )
 
+// Model agent Constants
+const (
+	AgentContainerName     = "agent"
+	AgentConfigMapKeyName  = "agent"
+	AgentS3EndpointArgName = "-s3-endpoint"
+)
+
 // InferenceService Annotations
 var (
 	InferenceServiceGKEAcceleratorAnnotationKey = KFServingAPIGroupName + "/gke-accelerator"
@@ -65,6 +72,10 @@ var (
 	BatcherMaxBatchSizeInternalAnnotationKey         = InferenceServiceInternalAnnotationsPrefix + "/batcher-max-batchsize"
 	BatcherMaxLatencyInternalAnnotationKey           = InferenceServiceInternalAnnotationsPrefix + "/batcher-max-latency"
 	BatcherTimeoutInternalAnnotationKey              = InferenceServiceInternalAnnotationsPrefix + "/batcher-timeout"
+	AgentInternalAnnotationKey                       = InferenceServiceInternalAnnotationsPrefix + "/agent"
+	AgentModelConfigAnnotationKey                    = InferenceServiceInternalAnnotationsPrefix + "/configDir"
+	AgentS3endpointAnnotationKey                     = InferenceServiceInternalAnnotationsPrefix + "/s3-endpoint"
+	AgentModelDirAnnotationKey                       = InferenceServiceInternalAnnotationsPrefix + "/modelDir"
 )
 
 // Controller Constants
@@ -167,6 +178,9 @@ const (
 // Multi-model InferenceService
 const (
 	ModelConfigVolumeName = "model-config"
+	ModelDirVolumeName    = "model-dir"
+	ModelConfigDir        = "/mnt/configs"
+	ModelDir              = DefaultModelLocalMountPath
 )
 
 var (

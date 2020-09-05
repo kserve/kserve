@@ -96,8 +96,10 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
 	}
 
 	podSpec := v1.PodSpec(isvc.Spec.Predictor.PodSpec)
+
+	// Here we allow switch between knative and vanilla deployment
 	r := knative.NewKsvcReconciler(p.client, p.scheme, objectMeta, &isvc.Spec.Predictor.ComponentExtensionSpec,
-		&podSpec, isvc.Status.Components[v1beta1.PredictorComponent])
+		&podSpec, isvc.Status.Components[v1beta1.PredictorComponent], constants.Predictor, isvc)
 
 	if err := controllerutil.SetControllerReference(isvc, r.Service, p.scheme); err != nil {
 		return errors.Wrapf(err, "fails to set owner reference for predictor")
