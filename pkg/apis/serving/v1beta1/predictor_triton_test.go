@@ -230,10 +230,8 @@ func TestCreateTritonContainer(t *testing.T) {
 				Image:     "tritonserver:20.03-py3",
 				Name:      constants.InferenceServiceContainerName,
 				Resources: requestedResource,
-				Command: []string{
-					"trtserver",
-				},
 				Args: []string{
+					"trtserver",
 					"--model-store=/mnt/models",
 					"--grpc-port=9000",
 					"--http-port=8080",
@@ -266,10 +264,8 @@ func TestCreateTritonContainer(t *testing.T) {
 				Image:     "tritonserver:19.10-py3",
 				Name:      constants.InferenceServiceContainerName,
 				Resources: requestedResource,
-				Command: []string{
-					"trtserver",
-				},
 				Args: []string{
+					"trtserver",
 					"--model-store=/mnt/models",
 					"--grpc-port=9000",
 					"--http-port=8080",
@@ -305,10 +301,8 @@ func TestCreateTritonContainer(t *testing.T) {
 				Image:     "tritonserver:20.03-py3",
 				Name:      constants.InferenceServiceContainerName,
 				Resources: requestedResource,
-				Command: []string{
-					"trtserver",
-				},
 				Args: []string{
+					"trtserver",
 					"--model-store=/mnt/models",
 					"--grpc-port=9000",
 					"--http-port=8080",

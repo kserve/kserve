@@ -23,6 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/util/retry"
 	"knative.dev/pkg/kmp"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -145,10 +146,12 @@ func (r *KsvcReconciler) Reconcile() (*knservingv1.ServiceStatus, error) {
 	log.Info("Updating Knative Service", "namespace", desired.Namespace, "name", desired.Name)
 	existing.Spec.ConfigurationSpec = desired.Spec.ConfigurationSpec
 	existing.ObjectMeta.Labels = desired.ObjectMeta.Labels
-	if err := r.client.Update(context.TODO(), existing); err != nil {
+	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		return r.client.Update(context.TODO(), existing)
+	})
+	if err != nil {
 		return &existing.Status, err
 	}
-
 	return &existing.Status, nil
 }
 

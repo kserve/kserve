@@ -4,8 +4,10 @@ metadata:
   name: "custom-simple"
 spec:
   predictor:
-    spec:
-      containers:
-      - image: codait/max-object-detector
-        ports:
-          - containerPort: 5000
+    custom:
+      spec:
+        containers:
+        - image: codait/max-object-detector
+          name: kfserving-container
+          ports:
+            - containerPort: 5000

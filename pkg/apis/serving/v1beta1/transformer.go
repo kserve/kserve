@@ -19,7 +19,7 @@ package v1beta1
 // TransformerSpec defines transformer service for pre/post processing
 type TransformerSpec struct {
 	// Pass through Pod fields or specify a custom container spec
-	*CustomTransformer `json:",inline"`
+	CustomTransformer *CustomTransformer `json:"custom,omitempty"`
 	// Extensions available in all components
 	ComponentExtensionSpec `json:",inline"`
 }

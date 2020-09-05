@@ -62,7 +62,7 @@ func (x *XGBoostSpec) GetContainer(metadata metav1.ObjectMeta, extensions *Compo
 		arguments = append(arguments, fmt.Sprintf("%s=%s", constants.ArgumentWorkers, strconv.FormatInt(*extensions.ContainerConcurrency, 10)))
 	}
 	if x.Container.Image == "" {
-		x.Container.Image = config.Predictors.SKlearn.ContainerImage + ":" + *x.RuntimeVersion
+		x.Container.Image = config.Predictors.XGBoost.ContainerImage + ":" + *x.RuntimeVersion
 	}
 	x.Container.Name = constants.InferenceServiceContainerName
 	x.Container.Args = arguments
