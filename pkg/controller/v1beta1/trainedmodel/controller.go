@@ -19,7 +19,7 @@ limitations under the License.
 // +kubebuilder:rbac:groups=serving.knative.dev,resources=services,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=serving.knative.dev,resources=services/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=core,resources=serviceaccounts,verbs=get;list;watch
-// +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch
+// +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch;update
 // +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=namespaces,verbs=get;list;watch
 // +kubebuilder:rbac:groups=core,resources=events,verbs=get;list;watch;create;update;patch;delete
@@ -29,10 +29,7 @@ import (
 	"context"
 	"github.com/go-logr/logr"
 	v1beta1api "github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
-	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/trainedmodel/reconcilers/modelconfig"
-	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/trainedmodel/sharding/memory"
-	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -40,7 +37,10 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
+
+var log = logf.Log.WithName("TrainedModel controller")
 
 // TrainedModelReconciler reconciles a TrainedModel object
 type TrainedModelReconciler struct {
@@ -52,8 +52,6 @@ type TrainedModelReconciler struct {
 }
 
 func (r *TrainedModelReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
-	log := r.Log.WithValues("trainedmodel", req.NamespacedName)
-
 	// Fetch the TrainedModel instance
 	tm := &v1beta1api.TrainedModel{}
 	if err := r.Get(context.TODO(), req.NamespacedName, tm); err != nil {
@@ -64,22 +62,57 @@ func (r *TrainedModelReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 		}
 		return reconcile.Result{}, err
 	}
-	log.Info("Reconciling TrainedModel", "apiVersion", tm.APIVersion, "trainedmodel", tm.Spec)
-	shardStrategy := memory.MemoryStrategy{}
-	shardId := shardStrategy.GetOrAssignShard(tm)
-	// Use tm's parent InferenceService field to get the model modelConfig
-	modelConfigName := constants.ModelConfigName(tm.Spec.InferenceService, shardId)
-	modelConfig := &v1.ConfigMap{}
-	if err := r.Get(context.TODO(), types.NamespacedName{Name: modelConfigName, Namespace: req.Namespace}, modelConfig); err != nil {
-		log.Error(err, "Failed to find model ConfigMap to reconcile for InferenceService", "name", tm.Spec.Model, "namespace", req.Namespace)
-		// Error reading the object - requeue the request.
+	// If the parent InferenceService does not exists, delete the trainedmodel
+	isvc := &v1beta1api.InferenceService{}
+	if err := r.Get(context.TODO(), types.NamespacedName{Namespace: req.Namespace, Name: tm.Spec.InferenceService}, isvc); err != nil {
+		if errors.IsNotFound(err) {
+			log.Info("Parent InferenceService does not exists, deleting TrainedModel", "TrainedModel", tm.Name, "InferenceService", isvc.Name)
+			r.Delete(context.TODO(), tm)
+			return reconcile.Result{}, nil
+		}
 		return reconcile.Result{}, err
 	}
 
-	if err := r.ModelConfigReconciler.Reconcile(modelConfig, tm); err != nil {
-		return reconcile.Result{}, err
+	// Use finalizer to handle TrainedModel deletion properly
+	// When a TrainedModel object is being deleted it should
+	// 1) Get its parent InferenceService
+	// 2) Find its parent InferenceService model configmap
+	// 3) Remove itself from the model configmap
+	tmFinalizerName := "trainedmodel.finalizer"
+
+	// examine DeletionTimestamp to determine if object is under deletion
+	if tm.ObjectMeta.DeletionTimestamp.IsZero() {
+		// The object is not being deleted, so if it does not have our finalizer,
+		// then lets add the finalizer and update the object. This is equivalent
+		// registering our finalizer.
+		if !containsString(tm.GetFinalizers(), tmFinalizerName) {
+			tm.SetFinalizers(append(tm.GetFinalizers(), tmFinalizerName))
+			if err := r.Update(context.Background(), tm); err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+	} else {
+		// The object is being deleted
+		if containsString(tm.GetFinalizers(), tmFinalizerName) {
+			//reconcile configmap to remove the model
+			if err := r.ModelConfigReconciler.Reconcile(req, tm); err != nil {
+				return reconcile.Result{}, err
+			}
+			// remove our finalizer from the list and update it.
+			tm.SetFinalizers(removeString(tm.GetFinalizers(), tmFinalizerName))
+			if err := r.Update(context.Background(), tm); err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+
+		// Stop reconciliation as the item is being deleted
+		return ctrl.Result{}, nil
 	}
 
+	// Reconcile modelconfig to add this TrainedModel to its parent InferenceService's configmap
+	if err := r.ModelConfigReconciler.Reconcile(req, tm); err != nil {
+		return ctrl.Result{}, err
+	}
 	return ctrl.Result{}, nil
 }
 
@@ -92,4 +125,24 @@ func (r *TrainedModelReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1beta1api.TrainedModel{}).
 		Complete(r)
+}
+
+// Helper functions to check and remove string from a slice of strings.
+func containsString(slice []string, s string) bool {
+	for _, item := range slice {
+		if item == s {
+			return true
+		}
+	}
+	return false
+}
+
+func removeString(slice []string, s string) (result []string) {
+	for _, item := range slice {
+		if item == s {
+			continue
+		}
+		result = append(result, item)
+	}
+	return
 }
