@@ -25,8 +25,14 @@ type MemoryStrategy struct {
 }
 
 // Return a TrainedModel's shardId
-func (v *MemoryStrategy) GetOrAssignShard(trainedModel *v1beta1api.TrainedModel) int {
+func (v *MemoryStrategy) GetOrAssignShard(tm *v1beta1api.TrainedModel) int {
 	//TODO to be implemented in another PR
 	//Currently each InferenceService only has one shard with id=0
 	return 0
+}
+
+func (v *MemoryStrategy) GetShard(isvc *v1beta1api.InferenceService) []int {
+	//TODO to be implemented in another PR
+	//Currently each InferenceService only has one shard with id=0
+	return []int{0}
 }

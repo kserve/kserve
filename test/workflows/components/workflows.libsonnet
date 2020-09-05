@@ -250,6 +250,10 @@
                     template: "build-batcher",
                   },
                   {
+                    name: "build-agent",
+                    template: "build-agent",
+                  },
+                  {
                     name: "build-custom-image-transformer",
                     template: "build-custom-image-transformer",
                   },
@@ -342,6 +346,9 @@
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-batcher", testWorkerImage, [
               "test/scripts/build-batcher.sh",
             ]),  // build-batcher
+            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-agent", testWorkerImage, [
+              "test/scripts/build-agent.sh",
+            ]),  // build-agent
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-custom-image-transformer", testWorkerImage, [
               "test/scripts/build-custom-image-transformer.sh",
             ]),  // build-custom-image-transformer
