@@ -95,6 +95,7 @@ undeploy-dev:
 
 # Generate manifests e.g. CRD, RBAC etc.
 manifests: controller-gen
+	$(CONTROLLER_GEN) $(CRD_OPTIONS) paths=./pkg/apis/serving/v1beta1/... output:crd:dir=config/crd
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) paths=./pkg/apis/serving/v1alpha2/... output:crd:dir=config/crd
 	$(CONTROLLER_GEN) rbac:roleName=kfserving-manager-role paths=./pkg/controller/... output:rbac:artifacts:config=config/rbac
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths=./pkg/apis/serving/v1alpha2
@@ -105,6 +106,7 @@ manifests: controller-gen
 	perl -pi -e 's/Any/string/g' config/crd/serving.kubeflow.org_inferenceservices.yaml
 	perl -pi -e 's/storedVersions: null/storedVersions: []/g' config/crd/serving.kubeflow.org_trainedmodels.yaml
 	perl -pi -e 's/conditions: null/conditions: []/g' config/crd/serving.kubeflow.org_trainedmodels.yaml
+	perl -pi -e 's/Any/string/g' config/crd/serving.kubeflow.org_trainedmodels.yaml
 
 # Run go fmt against code
 fmt:
@@ -191,7 +193,7 @@ ifeq (, $(shell which controller-gen))
 	CONTROLLER_GEN_TMP_DIR=$$(mktemp -d) ;\
 	cd $$CONTROLLER_GEN_TMP_DIR ;\
 	go mod init tmp ;\
-	go get sigs.k8s.io/controller-tools/cmd/controller-gen@5c0c6ae3b64bccf89fb16353880376d3ce9d9128 ;\
+	go get sigs.k8s.io/controller-tools/cmd/controller-gen@c7154a3a46038eaffeef9ff8d37bbc775728c60d ;\
 	rm -rf $$CONTROLLER_GEN_TMP_DIR ;\
 	}
 CONTROLLER_GEN=$(GOPATH)/bin/controller-gen
