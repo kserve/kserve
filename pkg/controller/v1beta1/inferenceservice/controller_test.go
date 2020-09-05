@@ -152,6 +152,18 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								ContainerConcurrency: isvc.Spec.Predictor.ContainerConcurrency,
 								TimeoutSeconds:       isvc.Spec.Predictor.TimeoutSeconds,
 								PodSpec: v1.PodSpec{
+									Volumes: []v1.Volume{
+										{
+											Name: "model-config",
+											VolumeSource: v1.VolumeSource{
+												ConfigMap: &v1.ConfigMapVolumeSource{
+													LocalObjectReference: v1.LocalObjectReference{
+														Name: "modelconfig-foo-0",
+													},
+												},
+											},
+										},
+									},
 									Containers: []v1.Container{
 										{
 											Image: "tensorflow/serving:" +
@@ -385,6 +397,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					},
 				},
 			}
+
 			Expect(cmp.Diff(transformerService.Spec, expectedTransformerService.Spec)).To(gomega.Equal(""))
 
 			// mock update knative service status since knative serving controller is not running in test
@@ -612,4 +625,98 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}, timeout).Should(gomega.Equal(expectedTrafficTarget))
 		})
 	})
+
+	Context("When creating and deleting inference service without storageUri (multi-model inferenceservice)", func() {
+		// Create configmap
+		var configMap = &v1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      constants.InferenceServiceConfigMapName,
+				Namespace: constants.KFServingNamespace,
+			},
+			Data: configs,
+		}
+
+		serviceName := "bar"
+		var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
+		var serviceKey = expectedRequest.NamespacedName
+		var modelConfigMapKey = types.NamespacedName{Name: constants.ModelConfigName(serviceName, 0),
+			Namespace: serviceKey.Namespace}
+		var ksvcKey = types.NamespacedName{Name: constants.DefaultServiceName(serviceKey.Name, constants.Predictor),
+			Namespace: expectedRequest.Namespace}
+		ctx := context.Background()
+		instance := &v1beta1.InferenceService{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      serviceKey.Name,
+				Namespace: serviceKey.Namespace,
+			},
+			Spec: v1beta1.InferenceServiceSpec{
+				Predictor: v1beta1.PredictorSpec{
+					ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
+						MinReplicas: v1beta1.GetIntReference(1),
+						MaxReplicas: 3,
+					},
+					Tensorflow: &v1beta1.TFServingSpec{
+						PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
+							Container: v1.Container{
+								Name: "kfs",
+							},
+						},
+					},
+				},
+			},
+		}
+		It("Should have model config created and mounted", func() {
+			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), configMap)
+			By("By creating a new InferenceService")
+			Expect(k8sClient.Create(ctx, instance)).Should(Succeed())
+
+			inferenceService := &v1beta1.InferenceService{}
+			Eventually(func() bool {
+				//Check if InferenceService is created
+				err := k8sClient.Get(ctx, serviceKey, inferenceService)
+				if err != nil {
+					return false
+				}
+				return true
+			}, timeout, interval).Should(BeTrue())
+
+			modelConfigMap := &v1.ConfigMap{}
+			Eventually(func() bool {
+				//Check if modelconfig is created
+				err := k8sClient.Get(ctx, modelConfigMapKey, modelConfigMap)
+				if err != nil {
+					return false
+				}
+
+				//Verify that this configmap's ownerreference is it's parent InferenceService
+				Expect(modelConfigMap.OwnerReferences[0].Name).To(Equal(serviceKey.Name))
+
+				return true
+			}, timeout, interval).Should(BeTrue())
+
+			ksvc := &knservingv1.Service{}
+			Eventually(func() bool {
+				//Check if ksvc is created
+				err := k8sClient.Get(ctx, ksvcKey, ksvc)
+				if err != nil {
+					return false
+				}
+				//Check if the  modelConfig configmap is mounted
+				isMounted := false
+				for _, volume := range ksvc.Spec.Template.Spec.Volumes {
+					if volume.Name == constants.ModelConfigVolumeName {
+						isMounted = true
+					}
+				}
+				if isMounted == false {
+					return false
+				}
+
+				return true
+			}, timeout, interval).Should(BeTrue())
+		})
+
+	})
+
 })

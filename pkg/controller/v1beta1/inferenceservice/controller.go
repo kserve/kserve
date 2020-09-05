@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/reconcilers/ingress"
+	modelconfig "github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/reconcilers/modelconfig"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -26,6 +27,7 @@ import (
 	"knative.dev/pkg/apis"
 	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"time"
 
 	"github.com/go-logr/logr"
 	v1beta1api "github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
@@ -43,7 +45,7 @@ import (
 // +kubebuilder:rbac:groups=networking.istio.io,resources=virtualservices,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=serviceaccounts,verbs=get;list;watch
-// +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch
+// +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch;create
 // +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=namespaces,verbs=get;list;watch
 // +kubebuilder:rbac:groups=core,resources=events,verbs=get;list;watch;create;update;patch;delete
@@ -99,6 +101,12 @@ func (r *InferenceServiceReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 	r.Log.Info("Reconciling ingress for inference service", "isvc", isvc.Name)
 	if err := reconciler.Reconcile(isvc); err != nil {
 		return reconcile.Result{}, err
+	}
+
+	//Reconcile modelConfig
+	configMapReconciler := modelconfig.NewModelConfigReconciler(r.Client, r.Scheme)
+	if err := configMapReconciler.Reconcile(isvc, req); err != nil {
+		return reconcile.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
 	}
 
 	if err = r.updateStatus(isvc); err != nil {

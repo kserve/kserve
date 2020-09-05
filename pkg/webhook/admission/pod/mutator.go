@@ -106,11 +106,21 @@ func (mutator *Mutator) mutate(pod *v1.Pod, configMap *v1.ConfigMap) error {
 		config: batcherConfig,
 	}
 
+	agentConfig, err := getAgentConfigs(configMap)
+	if err != nil {
+		return err
+	}
+
+	agentInjector := &AgentInjector{
+		config: agentConfig,
+	}
+
 	mutators := []func(pod *v1.Pod) error{
 		InjectGKEAcceleratorSelector,
 		storageInitializer.InjectStorageInitializer,
 		loggerInjector.InjectLogger,
 		batcherInjector.InjectBatcher,
+		agentInjector.InjectAgent,
 	}
 
 	for _, mutator := range mutators {

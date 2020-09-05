@@ -111,3 +111,11 @@ data:
         "cpuRequest": "1",
         "cpuLimit": "1"
     }
+  agent: |-
+    {
+        "image" : "docker.io/yuzhui/agent:latest",
+        "memoryRequest": "1Gi",
+        "memoryLimit": "1Gi",
+        "cpuRequest": "1",
+        "cpuLimit": "1"
+    }

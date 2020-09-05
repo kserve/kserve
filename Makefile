@@ -2,6 +2,7 @@ HAS_LINT := $(shell command -v golint;)
 
 # Image URL to use all building/pushing image targets
 IMG ?= kfserving-controller:latest
+AGENT_IMG ?= agent:latest
 LOGGER_IMG ?= logger:latest
 BATCHER_IMG ?= batcher:latest
 SKLEARN_IMG ?= sklearnserver:latest
@@ -28,6 +29,9 @@ test: fmt vet manifests kubebuilder
 manager: generate fmt vet lint
 	go build -o bin/manager ./cmd/manager
 
+# Build agent binary
+agent: fmt vet
+	go build -o bin/agent ./cmd/agent
 # Build logger binary
 logger: fmt vet
 	go build -o bin/logger ./cmd/logger
@@ -151,17 +155,23 @@ docker-build: test
 docker-push:
 	docker push ${IMG}
 
+docker-build-agent:
+	docker build -f agent.Dockerfile . -t ${KO_DOCKER_REPO}/${AGENT_IMG}
+
+docker-push-agent:
+	docker push ${KO_DOCKER_REPO}/${AGENT_IMG}
+
 docker-build-logger: test
-	docker build -f logger.Dockerfile . -t ${LOGGER_IMG}
+	docker build -f logger.Dockerfile . -t ${KO_DOCKER_REPO}/${LOGGER_IMG}
 
 docker-push-logger:
-	docker push ${LOGGER_IMG}
+	docker push ${KO_DOCKER_REPO}/${LOGGER_IMG}
 
 docker-build-batcher:
-	docker build -f batcher.Dockerfile . -t ${BATCHER_IMG}
+	docker build -f batcher.Dockerfile . -t ${KO_DOCKER_REPO}/${BATCHER_IMG}
 
 docker-push-batcher:
-	docker push ${BATCHER_IMG}
+	docker push ${KO_DOCKER_REPO}/${BATCHER_IMG}
 
 docker-build-sklearn: 
 	cd python && docker build -t ${KO_DOCKER_REPO}/${SKLEARN_IMG} -f sklearn.Dockerfile .

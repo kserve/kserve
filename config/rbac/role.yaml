@@ -24,6 +24,7 @@ rules:
   resources:
   - configmaps
   verbs:
+  - create
   - get
   - list
   - watch

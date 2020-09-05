@@ -53,4 +53,5 @@ require (
 	knative.dev/pkg v0.0.0-20191217184203-cf220a867b3d
 	knative.dev/serving v0.11.0
 	sigs.k8s.io/controller-runtime v0.4.0
+	github.com/kr/pretty v0.2.1
 )

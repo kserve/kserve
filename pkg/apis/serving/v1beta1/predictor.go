@@ -46,7 +46,8 @@ var _ Component = &PredictorSpec{}
 // PredictorExtensionSpec defines configuration shared across all predictor frameworks
 type PredictorExtensionSpec struct {
 	// This field points to the location of the trained model which is mounted onto the pod.
-	StorageURI *string `json:"storageUri"`
+	// +optional
+	StorageURI *string `json:"storageUri,omitempty"`
 	// Runtime version of the predictor docker image
 	// +optional
 	RuntimeVersion *string `json:"runtimeVersion,omitempty"`
