@@ -257,6 +257,10 @@
                     template: "build-batcher",
                   },
                   {
+                    name: "build-agent",
+                    template: "build-agent",
+                  },
+                  {
                     name: "build-custom-image-transformer",
                     template: "build-custom-image-transformer",
                   },
@@ -372,6 +376,12 @@
               "--context=dir://" + srcDir,
               "--destination=" + "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/batcher:$(PULL_BASE_SHA)",
             ]),  // build-batcher
+            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-agent", kanikoExecutorImage, [
+              "/kaniko/executor",
+              "--dockerfile=" + srcDir + "/agent.Dockerfile",
+              "--context=dir://" + srcDir,
+              "--destination=" + "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/agent:$(PULL_BASE_SHA)",
+            ]),  // build-agent
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-custom-image-transformer", kanikoExecutorImage, [
               "/kaniko/executor",
               "--dockerfile=" + srcDir + "/docs/samples/transformer/image_transformer/transformer.Dockerfile",
