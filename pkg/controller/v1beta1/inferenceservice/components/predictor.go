@@ -17,7 +17,9 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/reconcilers/knative"
+	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/trainedmodel/sharding/memory"
 	"github.com/kubeflow/kfserving/pkg/credentials"
+	"github.com/kubeflow/kfserving/pkg/modelconfig"
 	"github.com/kubeflow/kfserving/pkg/utils"
 	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
@@ -65,6 +67,8 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
 	}
 	hasInferenceLogging := addLoggerAnnotations(isvc.Spec.Predictor.Logger, annotations)
 	hasInferenceBatcher := addBatcherAnnotations(isvc.Spec.Predictor.Batcher, annotations)
+	// Add agent annotations so mutator will mount model agent to multi-model InferenceService's predictor
+	addAgentAnnotations(isvc, annotations)
 
 	objectMeta := metav1.ObjectMeta{
 		Name:      constants.DefaultPredictorServiceName(isvc.Name),
@@ -77,10 +81,8 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
 	}
 	container := predictor.GetContainer(isvc.ObjectMeta, isvc.Spec.Predictor.GetExtensions(), p.inferenceServiceConfig)
 	if len(isvc.Spec.Predictor.PodSpec.Containers) == 0 {
-		isvc.Spec.Predictor.PodSpec = v1beta1.PodSpec{
-			Containers: []v1.Container{
-				*container,
-			},
+		isvc.Spec.Predictor.PodSpec.Containers = []v1.Container{
+			*container,
 		}
 	} else {
 		isvc.Spec.Predictor.PodSpec.Containers[0] = *container
@@ -96,6 +98,8 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
 	}
 
 	podSpec := v1.PodSpec(isvc.Spec.Predictor.PodSpec)
+
+	// Here we allow switch between knative and vanilla deployment
 	r := knative.NewKsvcReconciler(p.client, p.scheme, objectMeta, &isvc.Spec.Predictor.ComponentExtensionSpec,
 		&podSpec, isvc.Status.Components[v1beta1.PredictorComponent])
 
@@ -167,4 +171,23 @@ func addBatcherContainerPort(container *v1.Container) {
 			}
 		}
 	}
+}
+
+func addAgentAnnotations(isvc *v1beta1.InferenceService, annotations map[string]string) bool {
+	if isvc.Spec.Predictor.GetImplementation().GetStorageUri() == nil {
+		annotations[constants.AgentShouldInjectAnnotationKey] = "true"
+		shardStrategy := memory.MemoryStrategy{}
+		for _, id := range shardStrategy.GetShard(isvc) {
+			modelConfig, err := modelconfig.CreateEmptyModelConfig(isvc, id)
+			if err == nil {
+				annotations[constants.AgentModelConfigVolumeNameAnnotationKey] = modelConfig.Name
+				annotations[constants.AgentModelConfigMountPathAnnotationKey] = constants.ModelConfigDir
+				annotations[constants.AgentModelDirAnnotationKey] = constants.ModelDir
+			} else {
+				return false
+			}
+		}
+		return true
+	}
+	return false
 }

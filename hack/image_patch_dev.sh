@@ -26,6 +26,9 @@ if [ -z ${LOGGER_IMG} ]; then exit; fi
 BATCHER_IMG=$(ko resolve -f config/overlays/development/configmap/ko_resolve_batcher| grep 'image:' | awk '{print $2}')
 if [ -z ${BATCHER_IMG} ]; then exit; fi
 
+AGENT_IMG=$(ko resolve -f config/overlays/development/configmap/ko_resolve_agent| grep 'image:' | awk '{print $2}')
+if [ -z ${AGENT_IMG} ]; then exit; fi
+
 cat > config/overlays/${OVERLAY}/configmap/inferenceservice_patch.yaml << EOF
 apiVersion: v1
 kind: ConfigMap
@@ -49,4 +52,32 @@ data:
         "cpuRequest": "100m",
         "cpuLimit": "1"
     }
+  agent: |-
+    {
+        "image" : "${AGENT_IMG}",
+        "memoryRequest": "100Mi",
+        "memoryLimit": "1Gi",
+        "cpuRequest": "100m",
+        "cpuLimit": "1"
+    }
+  predictors: |-
+   {
+       "sklearn": {
+           "image": "yuzhui/sklearnserver",
+           "defaultImageVersion": "storage2",
+           "supportedFrameworks": [
+             "sklearn"
+           ],
+           "multiModelServer": "false"
+       },
+       "xgboost": {
+           "image": "gcr.io/kfserving/xgbserver",
+           "defaultImageVersion": "v0.4.0",
+           "supportedFrameworks": [
+             "xgboost"
+           ],
+           "multiModelServer": "false"
+       }
+   }
+
 EOF

@@ -49,6 +49,14 @@ var (
 	ModelConfigFileName = "models.json"
 )
 
+// Model agent Constants
+const (
+	AgentContainerName    = "agent"
+	AgentConfigMapKeyName = "agent"
+	AgentConfigDirArgName = "-config-dir"
+	AgentModelDirArgName  = "-model-dir"
+)
+
 // InferenceService Annotations
 var (
 	InferenceServiceGKEAcceleratorAnnotationKey = KFServingAPIGroupName + "/gke-accelerator"
@@ -65,6 +73,10 @@ var (
 	BatcherMaxBatchSizeInternalAnnotationKey         = InferenceServiceInternalAnnotationsPrefix + "/batcher-max-batchsize"
 	BatcherMaxLatencyInternalAnnotationKey           = InferenceServiceInternalAnnotationsPrefix + "/batcher-max-latency"
 	BatcherTimeoutInternalAnnotationKey              = InferenceServiceInternalAnnotationsPrefix + "/batcher-timeout"
+	AgentShouldInjectAnnotationKey                   = InferenceServiceInternalAnnotationsPrefix + "/agent"
+	AgentModelConfigVolumeNameAnnotationKey          = InferenceServiceInternalAnnotationsPrefix + "/configVolumeName"
+	AgentModelConfigMountPathAnnotationKey           = InferenceServiceInternalAnnotationsPrefix + "/configMountPath"
+	AgentModelDirAnnotationKey                       = InferenceServiceInternalAnnotationsPrefix + "/modelDir"
 )
 
 // Controller Constants
@@ -91,9 +103,6 @@ var (
 const (
 	NvidiaGPUResourceType = "nvidia.com/gpu"
 )
-
-// DefaultModelLocalMountPath is where models will be mounted by the storage-initializer
-const DefaultModelLocalMountPath = "/mnt/models"
 
 // InferenceService Environment Variables
 const (
@@ -164,9 +173,15 @@ const (
 	InferenceServiceContainerName = "kfserving-container"
 )
 
+// DefaultModelLocalMountPath is where models will be mounted by the storage-initializer
+const DefaultModelLocalMountPath = "/mnt/models"
+
 // Multi-model InferenceService
 const (
 	ModelConfigVolumeName = "model-config"
+	ModelDirVolumeName    = "model-dir"
+	ModelConfigDir        = "/mnt/configs"
+	ModelDir              = DefaultModelLocalMountPath
 )
 
 var (
