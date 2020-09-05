@@ -209,8 +209,8 @@ func TestInferenceServiceConversion(t *testing.T) {
 								Parallelism: 1,
 							},
 							Alibi: &AlibiExplainerSpec{
-								Type: AlibiAnchorsTabularExplainer,
-								StorageURI: "s3://test/mnist/explainer",
+								Type:           AlibiAnchorsTabularExplainer,
+								StorageURI:     "s3://test/mnist/explainer",
 								RuntimeVersion: "0.4.0",
 								Resources: v1.ResourceRequirements{
 									Requests: v1.ResourceList{
@@ -253,8 +253,8 @@ func TestInferenceServiceConversion(t *testing.T) {
 							ContainerConcurrency: proto.Int64(1),
 						},
 						Alibi: &v1beta1.AlibiExplainerSpec{
-							Type: v1beta1.AlibiAnchorsTabularExplainer,
-							StorageURI: "s3://test/mnist/explainer",
+							Type:           v1beta1.AlibiAnchorsTabularExplainer,
+							StorageURI:     "s3://test/mnist/explainer",
 							RuntimeVersion: proto.String("0.4.0"),
 							Container: v1.Container{
 								Resources: v1.ResourceRequirements{

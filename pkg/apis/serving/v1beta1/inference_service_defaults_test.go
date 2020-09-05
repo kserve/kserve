@@ -91,3 +91,52 @@ func TestInferenceServiceDefaults(t *testing.T) {
 	g.Expect(*isvc.Spec.Explainer.Alibi.RuntimeVersion).To(gomega.Equal("v0.4.0"))
 	g.Expect(isvc.Spec.Explainer.Alibi.Resources).To(gomega.Equal(resources))
 }
+
+func TestCustomPredictorDefaults(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	config := &InferenceServicesConfig{
+		Predictors: PredictorsConfig{
+			Tensorflow: PredictorConfig{
+				ContainerImage:         "tfserving",
+				DefaultImageVersion:    "1.14.0",
+				DefaultGpuImageVersion: "1.14.0-gpu",
+			},
+		},
+		Explainers: ExplainersConfig{
+			AlibiExplainer: ExplainerConfig{
+				ContainerImage:      "alibi",
+				DefaultImageVersion: "v0.4.0",
+			},
+		},
+	}
+	isvc := InferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "foo",
+			Namespace: "default",
+		},
+		Spec: InferenceServiceSpec{
+			Predictor: PredictorSpec{
+				CustomPredictor: &CustomPredictor{
+					PodTemplateSpec: v1.PodTemplateSpec{
+						Spec: v1.PodSpec{
+							Containers: []v1.Container{
+								{
+									Env: []v1.EnvVar{
+										{
+											Name:  "STORAGE_URI",
+											Value: "s3://transformer",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	resources := v1.ResourceRequirements{Requests: defaultResource, Limits: defaultResource}
+	isvc.Spec.DeepCopy()
+	isvc.DefaultInferenceService(config)
+	g.Expect(isvc.Spec.Predictor.CustomPredictor.Spec.Containers[0].Resources).To(gomega.Equal(resources))
+}
