@@ -53,7 +53,7 @@ type ComponentImplementation interface {
 	GetStorageUri() *string
 }
 
-// Component interface is implemented by all specs that contain component implentations, e.g. PredictorSpec, ExplainerSpec, TransformerSpec.
+// Component interface is implemented by all specs that contain component implementations, e.g. PredictorSpec, ExplainerSpec, TransformerSpec.
 // +kubebuilder:object:generate=false
 type Component interface {
 	GetImplementation() ComponentImplementation

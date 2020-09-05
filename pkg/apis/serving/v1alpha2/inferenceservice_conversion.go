@@ -147,6 +147,7 @@ func (src *InferenceService) ConvertTo(dstRaw conversion.Hub) error {
 			}
 		}
 	}
+	logger.Info("converted to v1beta1:", "v1beta1", dst.Spec.Transformer)
 	return nil
 }
 
@@ -215,8 +216,19 @@ func (dst *InferenceService) ConvertFrom(srcRaw conversion.Hub) error {
 	//Transformer
 	if src.Spec.Transformer != nil {
 		if src.Spec.Transformer.CustomTransformer != nil {
-			dst.Spec.Default.Transformer.Custom.Container = src.Spec.Transformer.CustomTransformer.Spec.Containers[0]
+			dst.Spec.Default.Transformer = &TransformerSpec{
+				Custom: &CustomSpec{
+					Container: src.Spec.Transformer.CustomTransformer.Spec.Containers[0],
+				},
+			}
+		}
+
+		dst.Spec.Default.Transformer.MinReplicas = src.Spec.Transformer.MinReplicas
+		dst.Spec.Default.Transformer.MaxReplicas = src.Spec.Transformer.MaxReplicas
+		if src.Spec.Transformer.ContainerConcurrency != nil {
+			dst.Spec.Default.Transformer.Parallelism = int(*src.Spec.Transformer.ContainerConcurrency)
 		}
 	}
+	logger.Info("converted to v1alpha2:", "v1alpha2", dst.Spec.Default.Transformer.Custom)
 	return nil
 }

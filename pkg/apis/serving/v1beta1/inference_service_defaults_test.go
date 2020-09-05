@@ -82,7 +82,7 @@ func TestInferenceServiceDefaults(t *testing.T) {
 	}
 	resources := v1.ResourceRequirements{Requests: defaultResource, Limits: defaultResource}
 	isvc.Spec.DeepCopy()
-	isvc.defaultInferenceService(config)
+	isvc.DefaultInferenceService(config)
 	g.Expect(*isvc.Spec.Predictor.Tensorflow.RuntimeVersion).To(gomega.Equal("1.14.0"))
 	g.Expect(isvc.Spec.Predictor.Tensorflow.Resources).To(gomega.Equal(resources))
 

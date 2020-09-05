@@ -5,6 +5,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"testing"
 )
@@ -41,7 +42,18 @@ func TestInferenceServiceConversion(t *testing.T) {
 							},
 							Custom: &CustomSpec{
 								Container: v1.Container{
+									Name:  "kfserving-container",
 									Image: "transformer:v1",
+									Resources: v1.ResourceRequirements{
+										Requests: v1.ResourceList{
+											v1.ResourceCPU:    resource.MustParse("1"),
+											v1.ResourceMemory: resource.MustParse("2Gi"),
+										},
+										Limits: v1.ResourceList{
+											v1.ResourceCPU:    resource.MustParse("1"),
+											v1.ResourceMemory: resource.MustParse("2Gi"),
+										},
+									},
 								},
 							},
 						},
@@ -78,7 +90,18 @@ func TestInferenceServiceConversion(t *testing.T) {
 								Spec: v1.PodSpec{
 									Containers: []v1.Container{
 										{
+											Name:  "kfserving-container",
 											Image: "transformer:v1",
+											Resources: v1.ResourceRequirements{
+												Requests: v1.ResourceList{
+													v1.ResourceCPU:    resource.MustParse("1"),
+													v1.ResourceMemory: resource.MustParse("2Gi"),
+												},
+												Limits: v1.ResourceList{
+													v1.ResourceCPU:    resource.MustParse("1"),
+													v1.ResourceMemory: resource.MustParse("2Gi"),
+												},
+											},
 										},
 									},
 								},
@@ -95,6 +118,11 @@ func TestInferenceServiceConversion(t *testing.T) {
 			scenario.v1alpha2spec.ConvertTo(dst)
 			if cmp.Diff(scenario.v1beta1Spec, dst) != "" {
 				t.Errorf("diff: %s", cmp.Diff(scenario.v1beta1Spec, dst))
+			}
+			v1alpha2ExpectedSpec := &InferenceService{}
+			v1alpha2ExpectedSpec.ConvertFrom(scenario.v1beta1Spec)
+			if cmp.Diff(scenario.v1alpha2spec, v1alpha2ExpectedSpec) != "" {
+				t.Errorf("diff: %s", cmp.Diff(scenario.v1alpha2spec, v1alpha2ExpectedSpec))
 			}
 		})
 	}

@@ -47,6 +47,7 @@ func (c *CustomTransformer) Validate() error {
 
 // Default sets defaults on the resource
 func (c *CustomTransformer) Default(config *InferenceServicesConfig) {
+	logger.Info("custom transformer:", "custom", c.Spec)
 	if len(c.Spec.Containers) == 0 {
 		c.Spec.Containers = append(c.Spec.Containers, v1.Container{})
 	}
