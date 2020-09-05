@@ -61,7 +61,7 @@ func TestInferenceServiceConversion(t *testing.T) {
 							MaxReplicas:          3,
 							ContainerConcurrency: proto.Int64(1),
 						},
-						CustomPredictor: &v1beta1.CustomPredictor{
+						Custom: &v1beta1.CustomPredictor{
 							PodTemplateSpec: v1.PodTemplateSpec{
 								Spec: v1.PodSpec{
 									Containers: []v1.Container{

@@ -89,7 +89,7 @@ func (src *InferenceService) ConvertTo(dstRaw conversion.Hub) error {
 			},
 		}
 	} else if src.Spec.Default.Predictor.Custom != nil {
-		dst.Spec.Predictor.CustomPredictor = &v1beta1.CustomPredictor{
+		dst.Spec.Predictor.Custom = &v1beta1.CustomPredictor{
 			PodTemplateSpec: v1.PodTemplateSpec{
 				Spec: v1.PodSpec{
 					Containers: []v1.Container{
@@ -103,8 +103,8 @@ func (src *InferenceService) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec.Predictor.MaxReplicas = src.Spec.Default.Predictor.MaxReplicas
 	dst.Spec.Predictor.ContainerConcurrency = proto.Int64(int64(src.Spec.Default.Predictor.Parallelism))
 	if src.Spec.Default.Predictor.ServiceAccountName != "" {
-		if dst.Spec.Predictor.CustomPredictor == nil {
-			dst.Spec.Predictor.CustomPredictor = &v1beta1.CustomPredictor{
+		if dst.Spec.Predictor.Custom == nil {
+			dst.Spec.Predictor.Custom = &v1beta1.CustomPredictor{
 				PodTemplateSpec: v1.PodTemplateSpec{
 					Spec: v1.PodSpec{
 						ServiceAccountName: src.Spec.Default.Predictor.ServiceAccountName,
@@ -112,7 +112,7 @@ func (src *InferenceService) ConvertTo(dstRaw conversion.Hub) error {
 				},
 			}
 		} else {
-			dst.Spec.Predictor.CustomPredictor.Spec.ServiceAccountName = src.Spec.Default.Predictor.ServiceAccountName
+			dst.Spec.Predictor.Custom.Spec.ServiceAccountName = src.Spec.Default.Predictor.ServiceAccountName
 		}
 	}
 
@@ -223,10 +223,10 @@ func (dst *InferenceService) ConvertFrom(srcRaw conversion.Hub) error {
 		if src.Spec.Predictor.PyTorch.StorageURI != nil {
 			dst.Spec.Default.Predictor.PyTorch.StorageURI = *src.Spec.Predictor.PyTorch.StorageURI
 		}
-	} else if src.Spec.Predictor.CustomPredictor != nil {
-		dst.Spec.Default.Predictor.ServiceAccountName = src.Spec.Predictor.CustomPredictor.Spec.ServiceAccountName
+	} else if src.Spec.Predictor.Custom != nil {
+		dst.Spec.Default.Predictor.ServiceAccountName = src.Spec.Predictor.Custom.Spec.ServiceAccountName
 		dst.Spec.Default.Predictor.Custom = &CustomSpec{
-			src.Spec.Predictor.CustomPredictor.Spec.Containers[0],
+			src.Spec.Predictor.Custom.Spec.Containers[0],
 		}
 	}
 

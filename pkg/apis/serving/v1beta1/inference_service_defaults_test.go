@@ -116,7 +116,7 @@ func TestCustomPredictorDefaults(t *testing.T) {
 		},
 		Spec: InferenceServiceSpec{
 			Predictor: PredictorSpec{
-				CustomPredictor: &CustomPredictor{
+				Custom: &CustomPredictor{
 					PodTemplateSpec: v1.PodTemplateSpec{
 						Spec: v1.PodSpec{
 							Containers: []v1.Container{
@@ -138,5 +138,5 @@ func TestCustomPredictorDefaults(t *testing.T) {
 	resources := v1.ResourceRequirements{Requests: defaultResource, Limits: defaultResource}
 	isvc.Spec.DeepCopy()
 	isvc.DefaultInferenceService(config)
-	g.Expect(isvc.Spec.Predictor.CustomPredictor.Spec.Containers[0].Resources).To(gomega.Equal(resources))
+	g.Expect(isvc.Spec.Predictor.Custom.Spec.Containers[0].Resources).To(gomega.Equal(resources))
 }
