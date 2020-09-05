@@ -78,6 +78,12 @@ const (
 	TransformerRouteReady apis.ConditionType = "TransformerRouteReady"
 	// ExplainerRoutesReady is set when network configuration has completed.
 	ExplainerRoutesReady apis.ConditionType = "ExplainerRoutesReady"
+	// PredictorConfigurationReady is set when predictor pods are ready.
+	PredictorConfigurationReady apis.ConditionType = "PredictorConfigurationReady"
+	// TransformerConfigurationeReady is set when transformer pods are ready.
+	TransformerConfigurationeReady apis.ConditionType = "TransformerConfigurationeReady"
+	// ExplainerConfigurationReady is set when explainer pods are ready.
+	ExplainerConfigurationReady apis.ConditionType = "ExplainerConfigurationReady"
 	// PredictorReady is set when predictor has reported readiness.
 	PredictorReady apis.ConditionType = "PredictorReady"
 	// TransformerReady is set when transformer has reported readiness.
@@ -98,10 +104,15 @@ var routeConditionsMap = map[ComponentType]apis.ConditionType{
 	TransformerComponent: TransformerRouteReady,
 }
 
+var configurationConditionsMap = map[ComponentType]apis.ConditionType{
+	PredictorComponent:   PredictorConfigurationReady,
+	ExplainerComponent:   ExplainerConfigurationReady,
+	TransformerComponent: TransformerConfigurationeReady,
+}
+
 // InferenceService Ready condition is depending on predictor and route readiness condition
 var conditionSet = apis.NewLivingConditionSet(
 	PredictorReady,
-	PredictorRouteReady,
 )
 
 var _ apis.ConditionsAccessor = (*InferenceServiceStatus)(nil)
@@ -140,14 +151,16 @@ func (ss *InferenceServiceStatus) PropagateStatus(component ComponentType, servi
 			statusSpec.URL = serviceStatus.URL
 		}
 	}
-	ss.setCondition(knservingv1.ServiceConditionReady, serviceCondition)
+	// propagate ready condition for each component
+	readyCondition := conditionsMap[component]
+	ss.setCondition(readyCondition, serviceCondition)
 	// propagate route condition for each component
-	routeCondition := serviceStatus.GetCondition(knservingv1.RouteConditionReady)
-	routeConditionType := conditionsMap[component]
+	routeCondition := serviceStatus.GetCondition("ConfigurationsReady")
+	routeConditionType := routeConditionsMap[component]
 	ss.setCondition(routeConditionType, routeCondition)
 	// propagate configuration condition for each component
-	configurationCondition := serviceStatus.GetCondition(knservingv1.ConfigurationConditionReady)
-	configurationConditionType := conditionsMap[component]
+	configurationCondition := serviceStatus.GetCondition("RoutesReady")
+	configurationConditionType := configurationConditionsMap[component]
 	ss.setCondition(configurationConditionType, configurationCondition)
 
 	ss.Components[component] = statusSpec

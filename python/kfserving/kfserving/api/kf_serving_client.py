@@ -140,7 +140,7 @@ class KFServingClient(object):
                 try:
                     return self.api_instance.get_namespaced_custom_object(
                         constants.KFSERVING_GROUP,
-                        constants.KFSERVING_VERSION,
+                        constants.KFSERVING_V1BETA1_VERSION,
                         namespace,
                         constants.KFSERVING_PLURAL,
                         name)
@@ -157,7 +157,7 @@ class KFServingClient(object):
                 try:
                     return self.api_instance.list_namespaced_custom_object(
                         constants.KFSERVING_GROUP,
-                        constants.KFSERVING_VERSION,
+                        constants.KFSERVING_V1BETA1_VERSION,
                         namespace,
                         constants.KFSERVING_PLURAL)
                 except client.rest.ApiException as e:

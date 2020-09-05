@@ -22,7 +22,7 @@ type ExplainerSpec struct {
 	// Spec for alibi explainer
 	Alibi *AlibiExplainerSpec `json:"alibi,omitempty"`
 	// Pass through Pod fields or specify a custom container spec
-	*CustomExplainer `json:",inline"`
+	CustomExplainer *CustomExplainer `json:"custom,omitempty"`
 	// Extensions available in all components
 	ComponentExtensionSpec `json:",inline"`
 }

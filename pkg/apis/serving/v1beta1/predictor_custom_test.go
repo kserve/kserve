@@ -283,63 +283,6 @@ func TestCreateCustomPredictorContainer(t *testing.T) {
 				},
 			},
 		},
-		"ContainerSpecWithContainerConcurrency": {
-			isvc: InferenceService{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "custom-predictor",
-				},
-				Spec: InferenceServiceSpec{
-					Predictor: PredictorSpec{
-						ComponentExtensionSpec: ComponentExtensionSpec{
-							ContainerConcurrency: proto.Int64(2),
-						},
-						Custom: &CustomPredictor{
-							PodTemplateSpec: v1.PodTemplateSpec{
-								Spec: v1.PodSpec{
-									Containers: []v1.Container{
-										{
-											Image: "custom-predictor:0.1.0",
-											Args: []string{
-												"--model_name",
-												"someName",
-												"--http_port",
-												"8080",
-											},
-											Env: []v1.EnvVar{
-												{
-													Name:  "STORAGE_URI",
-													Value: "hdfs://modelzoo",
-												},
-											},
-											Resources: requestedResource,
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-			expectedContainerSpec: &v1.Container{
-				Image:     "custom-predictor:0.1.0",
-				Name:      constants.InferenceServiceContainerName,
-				Resources: requestedResource,
-				Args: []string{
-					"--model_name",
-					"someName",
-					"--http_port",
-					"8080",
-					"--workers",
-					"2",
-				},
-				Env: []v1.EnvVar{
-					{
-						Name:  "STORAGE_URI",
-						Value: "hdfs://modelzoo",
-					},
-				},
-			},
-		},
 	}
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {

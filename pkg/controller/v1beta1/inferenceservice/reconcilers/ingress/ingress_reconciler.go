@@ -180,6 +180,7 @@ func (ir *IngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
 	if isvc.Spec.Transformer != nil {
 		backend = constants.TransformerServiceName(isvc.Name)
 	}
+
 	httpRoutes := []*istiov1alpha3.HTTPRoute{
 		{
 			Match: []*istiov1alpha3.HTTPMatchRequest{
@@ -205,7 +206,42 @@ func (ir *IngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
 			},
 		},
 	}
-
+	if isvc.Spec.Explainer != nil {
+		explainerRouter := istiov1alpha3.HTTPRoute{
+			Match: []*istiov1alpha3.HTTPMatchRequest{
+				{
+					Uri: &istiov1alpha3.StringMatch{
+						MatchType: &istiov1alpha3.StringMatch_Regex{
+							Regex: constants.ExplainPrefix(),
+						},
+					},
+					Authority: &istiov1alpha3.StringMatch{
+						MatchType: &istiov1alpha3.StringMatch_Regex{
+							Regex: constants.HostRegExp(serviceHost),
+						},
+					},
+					Gateways: []string{ir.ingressConfig.IngressGateway},
+				},
+				{
+					Uri: &istiov1alpha3.StringMatch{
+						MatchType: &istiov1alpha3.StringMatch_Regex{
+							Regex: constants.ExplainPrefix(),
+						},
+					},
+					Authority: &istiov1alpha3.StringMatch{
+						MatchType: &istiov1alpha3.StringMatch_Regex{
+							Regex: constants.HostRegExp(network.GetServiceHostname(isvc.Name, isvc.Namespace)),
+						},
+					},
+					Gateways: []string{constants.KnativeLocalGateway},
+				},
+			},
+			Route: []*istiov1alpha3.HTTPRouteDestination{
+				ir.createHTTPRouteDestination(constants.ExplainerServiceName(isvc.Name), isvc.Namespace, constants.LocalGatewayHost),
+			},
+		}
+		httpRoutes = append(httpRoutes, &explainerRouter)
+	}
 	desiredIngress := &v1alpha3.VirtualService{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      isvc.Name,

@@ -17,8 +17,6 @@ limitations under the License.
 package v1beta1
 
 import (
-	"strconv"
-
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/utils"
 	v1 "k8s.io/api/core/v1"
@@ -65,21 +63,5 @@ func (c *CustomPredictor) GetStorageUri() *string {
 
 // GetContainers transforms the resource into a container spec
 func (c *CustomPredictor) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig) *v1.Container {
-	container := &c.Spec.Containers[0]
-	modelNameExists := false
-	for _, arg := range container.Args {
-		if arg == constants.ArgumentModelName {
-			modelNameExists = true
-		}
-	}
-	if !modelNameExists {
-		container.Args = append(container.Args, []string{
-			constants.ArgumentModelName,
-			metadata.Name,
-		}...)
-	}
-	if extensions.ContainerConcurrency != nil {
-		container.Args = append(container.Args, constants.ArgumentWorkers, strconv.FormatInt(*extensions.ContainerConcurrency, 10))
-	}
 	return &c.Spec.Containers[0]
 }

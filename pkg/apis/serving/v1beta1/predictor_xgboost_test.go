@@ -196,7 +196,7 @@ func TestCreateXGBoostModelServingContainer(t *testing.T) {
 	}
 	var config = InferenceServicesConfig{
 		Predictors: PredictorsConfig{
-			SKlearn: PredictorConfig{
+			XGBoost: PredictorConfig{
 				ContainerImage:      "someOtherImage",
 				DefaultImageVersion: "0.1.0",
 			},
