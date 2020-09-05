@@ -19,6 +19,7 @@ package v1beta1
 import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
@@ -69,16 +70,18 @@ func (isvc *InferenceService) Default() {
 	if err != nil {
 		panic(err)
 	}
-	isvc.defaultInferenceService(configMap)
+	isvc.DefaultInferenceService(configMap)
 }
 
-func (isvc *InferenceService) defaultInferenceService(config *InferenceServicesConfig) {
+func (isvc *InferenceService) DefaultInferenceService(config *InferenceServicesConfig) {
 	for _, component := range []Component{
 		&isvc.Spec.Predictor,
 		isvc.Spec.Transformer,
 		isvc.Spec.Explainer,
 	} {
-		component.GetImplementation().Default(config)
-		component.GetExtensions().Default(config)
+		if component != nil && !reflect.ValueOf(component).IsNil() {
+			component.GetImplementation().Default(config)
+			component.GetExtensions().Default(config)
+		}
 	}
 }

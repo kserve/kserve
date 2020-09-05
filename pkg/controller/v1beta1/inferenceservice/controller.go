@@ -80,7 +80,9 @@ func (r *InferenceServiceReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 	if isvc.Spec.Transformer != nil {
 		reconcilers = append(reconcilers, components.NewTransformer(r.Client, r.Scheme, isvcConfig))
 	}
-
+	if isvc.Spec.Explainer != nil {
+		reconcilers = append(reconcilers, components.NewExplainer(r.Client, r.Scheme, isvcConfig))
+	}
 	for _, reconciler := range reconcilers {
 		if err := reconciler.Reconcile(isvc); err != nil {
 			r.Log.Error(err, "Failed to reconcile", "reconciler", reflect.ValueOf(reconciler), "Name", isvc.Name)
