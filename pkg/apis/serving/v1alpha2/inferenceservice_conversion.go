@@ -92,18 +92,29 @@ func (src *InferenceService) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec.Predictor.MinReplicas = src.Spec.Default.Predictor.MinReplicas
 	dst.Spec.Predictor.MaxReplicas = src.Spec.Default.Predictor.MaxReplicas
 	dst.Spec.Predictor.ContainerConcurrency = proto.Int64(int64(src.Spec.Default.Predictor.Parallelism))
-	dst.Spec.Predictor.CustomPredictor = &v1beta1.CustomPredictor{
-		PodTemplateSpec: v1.PodTemplateSpec{
-			Spec: v1.PodSpec{
-				ServiceAccountName: src.Spec.Default.Predictor.ServiceAccountName,
+	if src.Spec.Default.Predictor.ServiceAccountName != "" {
+		dst.Spec.Predictor.CustomPredictor = &v1beta1.CustomPredictor{
+			PodTemplateSpec: v1.PodTemplateSpec{
+				Spec: v1.PodSpec{
+					ServiceAccountName: src.Spec.Default.Predictor.ServiceAccountName,
+				},
 			},
-		},
+		}
+		if src.Spec.Default.Predictor.Custom != nil {
+			dst.Spec.Predictor.CustomPredictor.Spec.Containers = []v1.Container{
+				src.Spec.Default.Predictor.Custom.Container,
+			}
+		}
 	}
-
 
 	if src.Spec.Default.Transformer != nil {
 		if src.Spec.Default.Transformer.Custom != nil {
 			dst.Spec.Transformer = &v1beta1.TransformerSpec{
+				ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
+					MinReplicas:          src.Spec.Default.Transformer.MinReplicas,
+					MaxReplicas:          src.Spec.Default.Transformer.MaxReplicas,
+					ContainerConcurrency: proto.Int64(int64(src.Spec.Default.Transformer.Parallelism)),
+				},
 				CustomTransformer: &v1beta1.CustomTransformer{
 					PodTemplateSpec: v1.PodTemplateSpec{
 						Spec: v1.PodSpec{
