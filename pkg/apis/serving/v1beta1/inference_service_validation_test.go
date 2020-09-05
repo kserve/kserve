@@ -120,7 +120,7 @@ func TestRejectMultipleModelSpecs(t *testing.T) {
 func TestModelSpecAndCustomOverridesIsValid(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	isvc := makeTestInferenceService()
-	isvc.Spec.Predictor.CustomPredictor = &CustomPredictor{
+	isvc.Spec.Predictor.Custom = &CustomPredictor{
 		PodTemplateSpec: v1.PodTemplateSpec{
 			Spec: v1.PodSpec{},
 		},
@@ -199,7 +199,7 @@ func TestCustomOK(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	isvc := makeTestInferenceService()
 	isvc.Spec.Predictor.Tensorflow = nil
-	isvc.Spec.Predictor.CustomPredictor = &CustomPredictor{
+	isvc.Spec.Predictor.Custom = &CustomPredictor{
 		PodTemplateSpec: v1.PodTemplateSpec{
 			Spec: v1.PodSpec{
 				Containers: []v1.Container{

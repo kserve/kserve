@@ -70,9 +70,9 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
 		}),
 		Annotations: annotations,
 	}
-	if isvc.Spec.Predictor.CustomPredictor == nil {
+	if isvc.Spec.Predictor.Custom == nil {
 		container := predictor.GetContainer(isvc.ObjectMeta, isvc.Spec.Predictor.GetExtensions(), p.inferenceServiceConfig)
-		isvc.Spec.Predictor.CustomPredictor = &v1beta1.CustomPredictor{
+		isvc.Spec.Predictor.Custom = &v1beta1.CustomPredictor{
 			PodTemplateSpec: v1.PodTemplateSpec{
 				Spec: v1.PodSpec{
 					Containers: []v1.Container{
@@ -82,12 +82,12 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
 			},
 		}
 	} else {
-		container := predictor.GetContainer(isvc.ObjectMeta, isvc.Spec.Transformer.GetExtensions(), p.inferenceServiceConfig)
-		isvc.Spec.Predictor.CustomPredictor.Spec.Containers[0] = *container
+		container := predictor.GetContainer(isvc.ObjectMeta, isvc.Spec.Predictor.GetExtensions(), p.inferenceServiceConfig)
+		isvc.Spec.Predictor.Custom.Spec.Containers[0] = *container
 	}
 	// Here we allow switch between knative and vanilla deployment
 	r := knative.NewKsvcReconciler(p.client, p.scheme, objectMeta, &isvc.Spec.Predictor.ComponentExtensionSpec,
-		&isvc.Spec.Predictor.CustomPredictor.Spec)
+		&isvc.Spec.Predictor.Custom.Spec)
 
 	if err := controllerutil.SetControllerReference(isvc, r.Service, p.scheme); err != nil {
 		return err

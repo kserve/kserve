@@ -457,8 +457,8 @@ func (in *PredictorSpec) DeepCopyInto(out *PredictorSpec) {
 		*out = new(ONNXRuntimeSpec)
 		(*in).DeepCopyInto(*out)
 	}
-	if in.CustomPredictor != nil {
-		in, out := &in.CustomPredictor, &out.CustomPredictor
+	if in.Custom != nil {
+		in, out := &in.Custom, &out.Custom
 		*out = new(CustomPredictor)
 		(*in).DeepCopyInto(*out)
 	}
