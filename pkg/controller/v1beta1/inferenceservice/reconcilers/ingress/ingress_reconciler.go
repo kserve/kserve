@@ -161,11 +161,48 @@ func (ir *IngressReconciler) createHTTPRouteDestination(targetHost, namespace st
 			},
 		},
 	}
-
 	return httpRouteDestination
 }
 
+func (ir *IngressReconciler) createHTTPMatchRequest(prefix, targetHost, internalHost string, isInternal bool) []*istiov1alpha3.HTTPMatchRequest {
+	matchRequests := []*istiov1alpha3.HTTPMatchRequest{
+		{
+			Uri: &istiov1alpha3.StringMatch{
+				MatchType: &istiov1alpha3.StringMatch_Regex{
+					Regex: prefix,
+				},
+			},
+			Authority: &istiov1alpha3.StringMatch{
+				MatchType: &istiov1alpha3.StringMatch_Regex{
+					Regex: constants.HostRegExp(internalHost),
+				},
+			},
+			Gateways: []string{constants.KnativeLocalGateway},
+		},
+	}
+	if !isInternal {
+		matchRequests = append(matchRequests,
+			&istiov1alpha3.HTTPMatchRequest{
+				Authority: &istiov1alpha3.StringMatch{
+					MatchType: &istiov1alpha3.StringMatch_Regex{
+						Regex: constants.HostRegExp(targetHost),
+					},
+				},
+				Gateways: []string{ir.ingressConfig.IngressGateway},
+			})
+	}
+	return matchRequests
+}
+
 func (ir *IngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
+	if !isvc.Status.IsConditionReady(v1beta1.PredictorReady) {
+		isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
+			Type:   v1beta1.IngressReady,
+			Status: corev1.ConditionFalse,
+			Reason: "Predictor ingress not created",
+		})
+		return nil
+	}
 	//Create external service which points to local gateway
 	if err := ir.reconcileExternalService(isvc); err != nil {
 		return err
@@ -179,69 +216,46 @@ func (ir *IngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
 	backend := constants.PredictorServiceName(isvc.Name)
 	if isvc.Spec.Transformer != nil {
 		backend = constants.TransformerServiceName(isvc.Name)
+		if !isvc.Status.IsConditionReady(v1beta1.TransformerReady) {
+			isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
+				Type:   v1beta1.IngressReady,
+				Status: corev1.ConditionFalse,
+				Reason: "Transformer ingress not created",
+			})
+			return nil
+		}
 	}
-
-	httpRoutes := []*istiov1alpha3.HTTPRoute{
-		{
-			Match: []*istiov1alpha3.HTTPMatchRequest{
-				{
-					Authority: &istiov1alpha3.StringMatch{
-						MatchType: &istiov1alpha3.StringMatch_Regex{
-							Regex: constants.HostRegExp(serviceHost),
-						},
-					},
-					Gateways: []string{ir.ingressConfig.IngressGateway},
-				},
-				{
-					Authority: &istiov1alpha3.StringMatch{
-						MatchType: &istiov1alpha3.StringMatch_Regex{
-							Regex: constants.HostRegExp(network.GetServiceHostname(isvc.Name, isvc.Namespace)),
-						},
-					},
-					Gateways: []string{constants.KnativeLocalGateway},
-				},
-			},
-			Route: []*istiov1alpha3.HTTPRouteDestination{
-				ir.createHTTPRouteDestination(backend, isvc.Namespace, constants.LocalGatewayHost),
-			},
-		},
+	isInternal := false
+	if val, ok := isvc.Labels["serving.knative.dev/visibility"]; ok && val == "ClusterLocal" {
+		isInternal = true
 	}
+	httpRoutes := []*istiov1alpha3.HTTPRoute{}
 	if isvc.Spec.Explainer != nil {
+		if !isvc.Status.IsConditionReady(v1beta1.ExplainerReady) {
+			isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
+				Type:   v1beta1.IngressReady,
+				Status: corev1.ConditionFalse,
+				Reason: "Explainer ingress not created",
+			})
+			return nil
+		}
 		explainerRouter := istiov1alpha3.HTTPRoute{
-			Match: []*istiov1alpha3.HTTPMatchRequest{
-				{
-					Uri: &istiov1alpha3.StringMatch{
-						MatchType: &istiov1alpha3.StringMatch_Regex{
-							Regex: constants.ExplainPrefix(),
-						},
-					},
-					Authority: &istiov1alpha3.StringMatch{
-						MatchType: &istiov1alpha3.StringMatch_Regex{
-							Regex: constants.HostRegExp(serviceHost),
-						},
-					},
-					Gateways: []string{ir.ingressConfig.IngressGateway},
-				},
-				{
-					Uri: &istiov1alpha3.StringMatch{
-						MatchType: &istiov1alpha3.StringMatch_Regex{
-							Regex: constants.ExplainPrefix(),
-						},
-					},
-					Authority: &istiov1alpha3.StringMatch{
-						MatchType: &istiov1alpha3.StringMatch_Regex{
-							Regex: constants.HostRegExp(network.GetServiceHostname(isvc.Name, isvc.Namespace)),
-						},
-					},
-					Gateways: []string{constants.KnativeLocalGateway},
-				},
-			},
+			Match: ir.createHTTPMatchRequest(constants.ExplainPrefix(), constants.HostRegExp(serviceHost),
+				network.GetServiceHostname(isvc.Name, isvc.Namespace), isInternal),
 			Route: []*istiov1alpha3.HTTPRouteDestination{
 				ir.createHTTPRouteDestination(constants.ExplainerServiceName(isvc.Name), isvc.Namespace, constants.LocalGatewayHost),
 			},
 		}
 		httpRoutes = append(httpRoutes, &explainerRouter)
 	}
+	httpRoutes = append(httpRoutes, &istiov1alpha3.HTTPRoute{
+		Match: ir.createHTTPMatchRequest("*", constants.HostRegExp(serviceHost),
+			network.GetServiceHostname(isvc.Name, isvc.Namespace), isInternal),
+		Route: []*istiov1alpha3.HTTPRouteDestination{
+			ir.createHTTPRouteDestination(backend, isvc.Namespace, constants.LocalGatewayHost),
+		},
+	})
+
 	desiredIngress := &v1alpha3.VirtualService{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      isvc.Name,
@@ -287,6 +301,10 @@ func (ir *IngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
 					Scheme: "http",
 				},
 			}
+			isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
+				Type:   v1beta1.IngressReady,
+				Status: corev1.ConditionTrue,
+			})
 			return nil
 		} else {
 			return err

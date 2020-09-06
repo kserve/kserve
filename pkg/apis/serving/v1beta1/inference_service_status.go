@@ -90,6 +90,8 @@ const (
 	TransformerReady apis.ConditionType = "TransformerReady"
 	// ExplainerReady is set when explainer has reported readiness.
 	ExplainerReady apis.ConditionType = "ExplainerReady"
+	// Ingress is created
+	IngressReady apis.ConditionType = "IngressReady"
 )
 
 var conditionsMap = map[ComponentType]apis.ConditionType{
@@ -113,6 +115,7 @@ var configurationConditionsMap = map[ComponentType]apis.ConditionType{
 // InferenceService Ready condition is depending on predictor and route readiness condition
 var conditionSet = apis.NewLivingConditionSet(
 	PredictorReady,
+	IngressReady,
 )
 
 var _ apis.ConditionsAccessor = (*InferenceServiceStatus)(nil)
@@ -129,6 +132,11 @@ func (ss *InferenceServiceStatus) IsReady() bool {
 // GetCondition returns the condition by name.
 func (ss *InferenceServiceStatus) GetCondition(t apis.ConditionType) *apis.Condition {
 	return conditionSet.Manage(ss).GetCondition(t)
+}
+
+// IsConditionReady returns the readiness for a given condition
+func (ss *InferenceServiceStatus) IsConditionReady(t apis.ConditionType) bool {
+	return conditionSet.Manage(ss).GetCondition(t) != nil && conditionSet.Manage(ss).GetCondition(t).Status == v1.ConditionTrue
 }
 
 func (ss *InferenceServiceStatus) PropagateStatus(component ComponentType, serviceStatus *knservingv1.ServiceStatus) {
@@ -153,20 +161,20 @@ func (ss *InferenceServiceStatus) PropagateStatus(component ComponentType, servi
 	}
 	// propagate ready condition for each component
 	readyCondition := conditionsMap[component]
-	ss.setCondition(readyCondition, serviceCondition)
+	ss.SetCondition(readyCondition, serviceCondition)
 	// propagate route condition for each component
 	routeCondition := serviceStatus.GetCondition("ConfigurationsReady")
 	routeConditionType := routeConditionsMap[component]
-	ss.setCondition(routeConditionType, routeCondition)
+	ss.SetCondition(routeConditionType, routeCondition)
 	// propagate configuration condition for each component
 	configurationCondition := serviceStatus.GetCondition("RoutesReady")
 	configurationConditionType := configurationConditionsMap[component]
-	ss.setCondition(configurationConditionType, configurationCondition)
+	ss.SetCondition(configurationConditionType, configurationCondition)
 
 	ss.Components[component] = statusSpec
 }
 
-func (ss *InferenceServiceStatus) setCondition(conditionType apis.ConditionType, condition *apis.Condition) {
+func (ss *InferenceServiceStatus) SetCondition(conditionType apis.ConditionType, condition *apis.Condition) {
 	switch {
 	case condition == nil:
 	case condition.Status == v1.ConditionUnknown:

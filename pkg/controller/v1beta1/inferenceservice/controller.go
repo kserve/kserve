@@ -90,19 +90,17 @@ func (r *InferenceServiceReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 			return reconcile.Result{}, err
 		}
 	}
-	//Reconcile ingress only if all isvc components are in ready state
-	if isvc.Status.IsReady() {
-		//TODO check cluster local service annotation in which case service should not be exposed outside
-		ingressConfig, err := v1beta1api.NewIngressConfig(r.Client)
-		if err != nil {
-			return reconcile.Result{}, fmt.Errorf("Failed to create IngressConfig in reconciler: %v", err)
-		}
-		reconciler := ingress.NewIngressReconciler(r.Client, r.Scheme, ingressConfig)
-		r.Log.Info("Reconciling ingress for inference service", "isvc", isvc.Name)
-		if err := reconciler.Reconcile(isvc); err != nil {
-			return reconcile.Result{}, err
-		}
+	//Reconcile ingress
+	ingressConfig, err := v1beta1api.NewIngressConfig(r.Client)
+	if err != nil {
+		return reconcile.Result{}, fmt.Errorf("Failed to create IngressConfig in reconciler: %v", err)
 	}
+	reconciler := ingress.NewIngressReconciler(r.Client, r.Scheme, ingressConfig)
+	r.Log.Info("Reconciling ingress for inference service", "isvc", isvc.Name)
+	if err := reconciler.Reconcile(isvc); err != nil {
+		return reconcile.Result{}, err
+	}
+
 	if err = r.updateStatus(isvc); err != nil {
 		r.Recorder.Eventf(isvc, v1.EventTypeWarning, "InternalError", err.Error())
 		return reconcile.Result{}, err
