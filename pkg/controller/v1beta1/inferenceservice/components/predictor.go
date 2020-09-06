@@ -25,6 +25,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"strconv"
 
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
 )
@@ -61,6 +62,7 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
 	if sourceURI := predictor.GetStorageUri(); sourceURI != nil {
 		annotations[constants.StorageInitializerSourceUriInternalAnnotationKey] = *sourceURI
 	}
+
 	objectMeta := metav1.ObjectMeta{
 		Name:      isvc.Name + "-" + string(v1beta1.PredictorComponent),
 		Namespace: isvc.Namespace,
@@ -85,6 +87,18 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
 		container := predictor.GetContainer(isvc.ObjectMeta, isvc.Spec.Predictor.GetExtensions(), p.inferenceServiceConfig)
 		isvc.Spec.Predictor.Custom.Spec.Containers[0] = *container
 	}
+	//TODO now knative supports multi containers, consolidate logger/batcher/puller to the sidecar container
+	//https://github.com/kubeflow/kfserving/issues/973
+	hasInferenceLogging := addLoggerAnnotations(isvc.Spec.Predictor.Logger, annotations)
+	if hasInferenceLogging {
+		addLoggerContainerPort(&isvc.Spec.Predictor.Custom.Spec.Containers[0])
+	}
+
+	hasInferenceBatcher := addBatcherAnnotations(isvc.Spec.Predictor.Batcher, annotations)
+	if hasInferenceBatcher {
+		addBatcherContainerPort(&isvc.Spec.Predictor.Custom.Spec.Containers[0])
+	}
+
 	// Here we allow switch between knative and vanilla deployment
 	r := knative.NewKsvcReconciler(p.client, p.scheme, objectMeta, &isvc.Spec.Predictor.ComponentExtensionSpec,
 		&isvc.Spec.Predictor.Custom.Spec)
@@ -97,5 +111,64 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
 	} else {
 		isvc.Status.PropagateStatus(v1beta1.PredictorComponent, status)
 		return nil
+	}
+}
+
+func addLoggerAnnotations(logger *v1beta1.LoggerSpec, annotations map[string]string) bool {
+	if logger != nil {
+		annotations[constants.LoggerInternalAnnotationKey] = "true"
+		if logger.URL != nil {
+			annotations[constants.LoggerSinkUrlInternalAnnotationKey] = *logger.URL
+		}
+		annotations[constants.LoggerModeInternalAnnotationKey] = string(logger.Mode)
+		return true
+	}
+	return false
+}
+
+func addLoggerContainerPort(container *v1.Container) {
+	if container != nil {
+		if container.Ports == nil || len(container.Ports) == 0 {
+			port, _ := strconv.Atoi(constants.InferenceServiceDefaultLoggerPort)
+			container.Ports = []v1.ContainerPort{
+				{
+					ContainerPort: int32(port),
+				},
+			}
+		}
+	}
+}
+
+func addBatcherAnnotations(batcher *v1beta1.Batcher, annotations map[string]string) bool {
+	if batcher != nil {
+		annotations[constants.BatcherInternalAnnotationKey] = "true"
+
+		if batcher.MaxBatchSize != nil {
+			s := strconv.Itoa(*batcher.MaxBatchSize)
+			annotations[constants.BatcherMaxBatchSizeInternalAnnotationKey] = s
+		}
+		if batcher.MaxLatency != nil {
+			s := strconv.Itoa(*batcher.MaxLatency)
+			annotations[constants.BatcherMaxLatencyInternalAnnotationKey] = s
+		}
+		if batcher.Timeout != nil {
+			s := strconv.Itoa(*batcher.Timeout)
+			annotations[constants.BatcherTimeoutInternalAnnotationKey] = s
+		}
+		return true
+	}
+	return false
+}
+
+func addBatcherContainerPort(container *v1.Container) {
+	if container != nil {
+		if container.Ports == nil || len(container.Ports) == 0 {
+			port, _ := strconv.Atoi(constants.InferenceServiceDefaultBatcherPort)
+			container.Ports = []v1.ContainerPort{
+				{
+					ContainerPort: int32(port),
+				},
+			}
+		}
 	}
 }

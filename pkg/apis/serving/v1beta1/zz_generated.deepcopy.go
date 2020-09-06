@@ -107,8 +107,8 @@ func (in *ComponentExtensionSpec) DeepCopyInto(out *ComponentExtensionSpec) {
 		*out = new(int)
 		**out = **in
 	}
-	if in.LoggerSpec != nil {
-		in, out := &in.LoggerSpec, &out.LoggerSpec
+	if in.Logger != nil {
+		in, out := &in.Logger, &out.Logger
 		*out = new(LoggerSpec)
 		(*in).DeepCopyInto(*out)
 	}

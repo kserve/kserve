@@ -18,11 +18,19 @@ package v1beta1
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/utils"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
+const (
+	DefaultPyTorchModelClassName     = "PyTorchModel"
+	PyTorchServingGPUSuffix          = "-gpu"
+	InvalidPyTorchRuntimeIncludesGPU = "PyTorch RuntimeVersion is not GPU enabled but GPU resources are requested. "
+	InvalidPyTorchRuntimeExcludesGPU = "PyTorch RuntimeVersion is GPU enabled but GPU resources are not requested. "
 )
 
 // TorchServeSpec defines arguments for configuring PyTorch model serving.
@@ -35,6 +43,13 @@ type TorchServeSpec struct {
 
 // Validate returns an error if invalid
 func (t *TorchServeSpec) Validate() error {
+	if utils.IsGPUEnabled(t.Resources) && !strings.Contains(*t.RuntimeVersion, PyTorchServingGPUSuffix) {
+		return fmt.Errorf(InvalidPyTorchRuntimeIncludesGPU)
+	}
+
+	if !utils.IsGPUEnabled(t.Resources) && strings.Contains(*t.RuntimeVersion, PyTorchServingGPUSuffix) {
+		return fmt.Errorf(InvalidPyTorchRuntimeExcludesGPU)
+	}
 	return utils.FirstNonNilError([]error{
 		validateStorageURI(t.GetStorageUri()),
 	})
@@ -44,8 +59,16 @@ func (t *TorchServeSpec) Validate() error {
 func (t *TorchServeSpec) Default(config *InferenceServicesConfig) {
 	t.Container.Name = constants.InferenceServiceContainerName
 	if t.RuntimeVersion == nil {
-		*t.RuntimeVersion = config.Predictors.PyTorch.DefaultImageVersion
+		if utils.IsGPUEnabled(t.Resources) {
+			*t.RuntimeVersion = config.Predictors.PyTorch.DefaultGpuImageVersion
+		} else {
+			*t.RuntimeVersion = config.Predictors.PyTorch.DefaultImageVersion
+		}
 	}
+	if t.ModelClassName == "" {
+		t.ModelClassName = DefaultPyTorchModelClassName
+	}
+	setResourceRequirementDefaults(&t.Resources)
 }
 
 // GetContainers transforms the resource into a container spec

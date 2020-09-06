@@ -81,7 +81,7 @@ type ComponentExtensionSpec struct {
 	CanaryTrafficPercent *int `json:"canaryTrafficPercent,omitempty"`
 	// Activate request/response logging and logger configurations
 	// +optional
-	LoggerSpec *LoggerSpec `json:"logger,omitempty"`
+	Logger *LoggerSpec `json:"logger,omitempty"`
 	// Activate request batching and batching configurations
 	// +optional
 	Batcher *Batcher `json:"batcher,omitempty"`
@@ -95,7 +95,7 @@ func (s *ComponentExtensionSpec) Validate() error {
 	return utils.FirstNonNilError([]error{
 		validateContainerConcurrency(s.ContainerConcurrency),
 		validateReplicas(s.MinReplicas, s.MaxReplicas),
-		validateLogger(s.LoggerSpec),
+		validateLogger(s.Logger),
 	})
 }
 
