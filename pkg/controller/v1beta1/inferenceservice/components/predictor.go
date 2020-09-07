@@ -62,6 +62,8 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
 	if sourceURI := predictor.GetStorageUri(); sourceURI != nil {
 		annotations[constants.StorageInitializerSourceUriInternalAnnotationKey] = *sourceURI
 	}
+	hasInferenceLogging := addLoggerAnnotations(isvc.Spec.Predictor.Logger, annotations)
+	hasInferenceBatcher := addBatcherAnnotations(isvc.Spec.Predictor.Batcher, annotations)
 
 	objectMeta := metav1.ObjectMeta{
 		Name:      isvc.Name + "-" + string(v1beta1.PredictorComponent),
@@ -89,12 +91,10 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
 	}
 	//TODO now knative supports multi containers, consolidate logger/batcher/puller to the sidecar container
 	//https://github.com/kubeflow/kfserving/issues/973
-	hasInferenceLogging := addLoggerAnnotations(isvc.Spec.Predictor.Logger, annotations)
 	if hasInferenceLogging {
 		addLoggerContainerPort(&isvc.Spec.Predictor.Custom.Spec.Containers[0])
 	}
 
-	hasInferenceBatcher := addBatcherAnnotations(isvc.Spec.Predictor.Batcher, annotations)
 	if hasInferenceBatcher {
 		addBatcherContainerPort(&isvc.Spec.Predictor.Custom.Spec.Containers[0])
 	}

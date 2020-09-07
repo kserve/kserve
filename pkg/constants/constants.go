@@ -211,14 +211,6 @@ func PredictorServiceName(name string) string {
 	return name + "-" + string(Predictor)
 }
 
-func DefaultPredictorServiceURL(name string, namespace string, domain string) string {
-	return fmt.Sprintf("%s-%s-%s.%s.%s", name, string(Predictor), InferenceServiceDefault, namespace, domain)
-}
-
-func CanaryPredictorServiceURL(name string, namespace string, domain string) string {
-	return fmt.Sprintf("%s-%s-%s.%s.%s", name, string(Predictor), InferenceServiceCanary, namespace, domain)
-}
-
 func CanaryPredictorServiceName(name string) string {
 	return name + "-" + string(Predictor) + "-" + InferenceServiceCanary
 }
