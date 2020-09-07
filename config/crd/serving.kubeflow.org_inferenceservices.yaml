@@ -4507,6 +4507,7 @@ spec:
                           type: integer
                       type: object
                     canaryTrafficPercent:
+                      format: int64
                       type: integer
                     containerConcurrency:
                       format: int64
@@ -5257,6 +5258,7 @@ spec:
                           type: integer
                       type: object
                     canaryTrafficPercent:
+                      format: int64
                       type: integer
                     containerConcurrency:
                       format: int64
@@ -9243,6 +9245,7 @@ spec:
                           type: integer
                       type: object
                     canaryTrafficPercent:
+                      format: int64
                       type: integer
                     containerConcurrency:
                       format: int64
@@ -10002,6 +10005,8 @@ spec:
                       latestCreatedRevision:
                         type: string
                       latestReadyRevision:
+                        type: string
+                      previousReadyRevision:
                         type: string
                       url:
                         type: string

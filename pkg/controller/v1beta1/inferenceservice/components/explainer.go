@@ -87,7 +87,7 @@ func (p *Explainer) Reconcile(isvc *v1beta1.InferenceService) error {
 	}
 	// Here we allow switch between knative and vanilla deployment
 	r := knative.NewKsvcReconciler(p.client, p.scheme, objectMeta, &isvc.Spec.Explainer.ComponentExtensionSpec,
-		&isvc.Spec.Explainer.CustomExplainer.Spec)
+		&isvc.Spec.Explainer.CustomExplainer.Spec, isvc.Status.Components[v1beta1.ExplainerComponent])
 
 	if err := controllerutil.SetControllerReference(isvc, r.Service, p.scheme); err != nil {
 		return err

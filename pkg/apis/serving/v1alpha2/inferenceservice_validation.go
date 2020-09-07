@@ -128,11 +128,14 @@ func validateEndpoint(endpoint *EndpointSpec, client client.Client) error {
 }
 
 func validateCanaryTrafficPercent(spec InferenceServiceSpec) error {
-	if spec.Canary == nil && spec.CanaryTrafficPercent != 0 {
+	if spec.CanaryTrafficPercent == nil {
+		return nil
+	}
+	if spec.Canary == nil && *spec.CanaryTrafficPercent != 0 {
 		return fmt.Errorf(TrafficProvidedWithoutCanaryError)
 	}
 
-	if spec.CanaryTrafficPercent < 0 || spec.CanaryTrafficPercent > 100 {
+	if *spec.CanaryTrafficPercent < 0 || *spec.CanaryTrafficPercent > 100 {
 		return fmt.Errorf(TrafficBoundsExceededError)
 	}
 	return nil

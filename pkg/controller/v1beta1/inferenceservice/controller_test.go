@@ -15,7 +15,6 @@ package inferenceservice
 
 import (
 	"context"
-	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -115,7 +114,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
 			inferenceService := &v1beta1.InferenceService{}
 
-			// We'll need to retry getting this newly created CronJob, given that creation may not immediately happen.
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, serviceKey, inferenceService)
 				if err != nil {
@@ -129,7 +127,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Namespace: serviceKey.Namespace}
 			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorServiceKey, actualService) }, timeout).
 				Should(Succeed())
-			fmt.Printf("knative service %+v\n", actualService)
 
 			expectedService := &knservingv1.Service{
 				ObjectMeta: metav1.ObjectMeta{
@@ -384,7 +381,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						},
 					},
 					RouteSpec: knservingv1.RouteSpec{
-						Traffic: []knservingv1.TrafficTarget{{Tag: "default", Percent: proto.Int64(100)}},
+						Traffic: []knservingv1.TrafficTarget{{Tag: "latest", LatestRevision: proto.Bool(true), Percent: proto.Int64(100)}},
 					},
 				},
 			}
@@ -393,35 +390,32 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			// mock update knative service status since knative serving controller is not running in test
 			predictorUrl, _ := apis.ParseURL("http://" + constants.InferenceServiceHostName(constants.PredictorServiceName(serviceKey.Name), serviceKey.Namespace, domain))
 			transformerUrl, _ := apis.ParseURL("http://" + constants.InferenceServiceHostName(constants.TransformerServiceName(serviceKey.Name), serviceKey.Namespace, domain))
+
 			// update predictor
-			{
-				updatedPredictorService := predictorService.DeepCopy()
-				updatedPredictorService.Status.LatestCreatedRevisionName = "revision-v1"
-				updatedPredictorService.Status.LatestReadyRevisionName = "revision-v1"
-				updatedPredictorService.Status.URL = predictorUrl
-				updatedPredictorService.Status.Conditions = duckv1.Conditions{
-					{
-						Type:   knservingv1.ServiceConditionReady,
-						Status: "True",
-					},
-				}
-				Expect(k8sClient.Status().Update(context.TODO(), updatedPredictorService)).NotTo(gomega.HaveOccurred())
+			updatedPredictorService := predictorService.DeepCopy()
+			updatedPredictorService.Status.LatestCreatedRevisionName = "revision-v1"
+			updatedPredictorService.Status.LatestReadyRevisionName = "revision-v1"
+			updatedPredictorService.Status.URL = predictorUrl
+			updatedPredictorService.Status.Conditions = duckv1.Conditions{
+				{
+					Type:   knservingv1.ServiceConditionReady,
+					Status: "True",
+				},
 			}
+			Expect(k8sClient.Status().Update(context.TODO(), updatedPredictorService)).NotTo(gomega.HaveOccurred())
 
 			// update transformer
-			{
-				updatedTransformerService := transformerService.DeepCopy()
-				updatedTransformerService.Status.LatestCreatedRevisionName = "t-revision-v1"
-				updatedTransformerService.Status.LatestReadyRevisionName = "t-revision-v1"
-				updatedTransformerService.Status.URL = transformerUrl
-				updatedTransformerService.Status.Conditions = duckv1.Conditions{
-					{
-						Type:   knservingv1.ServiceConditionReady,
-						Status: "True",
-					},
-				}
-				Expect(k8sClient.Status().Update(context.TODO(), updatedTransformerService)).NotTo(gomega.HaveOccurred())
+			updatedTransformerService := transformerService.DeepCopy()
+			updatedTransformerService.Status.LatestCreatedRevisionName = "t-revision-v1"
+			updatedTransformerService.Status.LatestReadyRevisionName = "t-revision-v1"
+			updatedTransformerService.Status.URL = transformerUrl
+			updatedTransformerService.Status.Conditions = duckv1.Conditions{
+				{
+					Type:   knservingv1.ServiceConditionReady,
+					Status: "True",
+				},
 			}
+			Expect(k8sClient.Status().Update(context.TODO(), updatedTransformerService)).NotTo(gomega.HaveOccurred())
 
 			// verify if InferenceService status is updated
 			expectedIsvcStatus := v1beta1.InferenceServiceStatus{
@@ -476,6 +470,146 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				}
 				return cmp.Diff(&expectedIsvcStatus, &isvc.Status, cmpopts.IgnoreTypes(apis.VolatileTime{}))
 			}, timeout).Should(gomega.BeEmpty())
+		})
+	})
+
+	Context("When doing canary out with inference service", func() {
+		It("Should have traffic split between two revisions", func() {
+			By("By moving canary traffic percent to the latest revision")
+			// Create configmap
+			var configMap = &v1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.InferenceServiceConfigMapName,
+					Namespace: constants.KFServingNamespace,
+				},
+				Data: configs,
+			}
+			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), configMap)
+
+			serviceName := "foo-canary"
+			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
+			var serviceKey = expectedRequest.NamespacedName
+			var storageUri = "s3://test/mnist/export"
+			var storageUri2 = "s3://test/mnist/export/v2"
+			ctx := context.Background()
+			isvc := &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      serviceKey.Name,
+					Namespace: serviceKey.Namespace,
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
+							MinReplicas: v1beta1.GetIntReference(1),
+							MaxReplicas: 3,
+						},
+						Tensorflow: &v1beta1.TFServingSpec{
+							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
+								StorageURI:     &storageUri,
+								RuntimeVersion: proto.String("1.14.0"),
+								Container: v1.Container{
+									Name: "kfs",
+								},
+							},
+						},
+					},
+				},
+			}
+
+			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
+			inferenceService := &v1beta1.InferenceService{}
+
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, serviceKey, inferenceService)
+				if err != nil {
+					return false
+				}
+				return true
+			}, timeout, interval).Should(BeTrue())
+
+			actualService := &knservingv1.Service{}
+			predictorServiceKey := types.NamespacedName{Name: constants.PredictorServiceName(serviceKey.Name),
+				Namespace: serviceKey.Namespace}
+			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorServiceKey, actualService) }, timeout).
+				Should(Succeed())
+
+			predictorUrl, _ := apis.ParseURL("http://" + constants.InferenceServiceHostName(constants.PredictorServiceName(serviceKey.Name), serviceKey.Namespace, domain))
+			// update predictor status
+			updatedService := actualService.DeepCopy()
+			updatedService.Status.LatestCreatedRevisionName = "revision-v1"
+			updatedService.Status.LatestReadyRevisionName = "revision-v1"
+			updatedService.Status.URL = predictorUrl
+			updatedService.Status.Conditions = duckv1.Conditions{
+				{
+					Type:   knservingv1.ServiceConditionReady,
+					Status: "True",
+				},
+			}
+			Expect(k8sClient.Status().Update(context.TODO(), updatedService)).NotTo(gomega.HaveOccurred())
+
+			// assert inference service predictor status
+			Eventually(func() string {
+				err := k8sClient.Get(ctx, serviceKey, inferenceService)
+				if err != nil {
+					return ""
+				}
+				return inferenceService.Status.Components[v1beta1.PredictorComponent].LatestReadyRevision
+			}, timeout, interval).Should(Equal("revision-v1"))
+
+			// update canary traffic percent to 20%
+			updatedIsvc := inferenceService.DeepCopy()
+			updatedIsvc.Spec.Predictor.Tensorflow.StorageURI = &storageUri2
+			updatedIsvc.Spec.Predictor.CanaryTrafficPercent = proto.Int64(20)
+			Expect(k8sClient.Update(context.TODO(), updatedIsvc)).NotTo(gomega.HaveOccurred())
+
+			// update predictor status
+			canaryService := updatedService.DeepCopy()
+			canaryService.Status.LatestCreatedRevisionName = "revision-v2"
+			canaryService.Status.LatestReadyRevisionName = "revision-v2"
+			canaryService.Status.URL = predictorUrl
+			canaryService.Status.Conditions = duckv1.Conditions{
+				{
+					Type:   knservingv1.ServiceConditionReady,
+					Status: "True",
+				},
+			}
+			Expect(k8sClient.Status().Update(context.TODO(), canaryService)).NotTo(gomega.HaveOccurred())
+
+			// assert predictor service spec
+			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorServiceKey, actualService) }, timeout).
+				Should(Succeed())
+			// assert inference service predictor status
+			Eventually(func() string {
+				err := k8sClient.Get(ctx, serviceKey, inferenceService)
+				if err != nil {
+					return ""
+				}
+				return inferenceService.Status.Components[v1beta1.PredictorComponent].PreviousReadyRevision
+			}, timeout, interval).Should(Equal("revision-v1"))
+
+			expectedTrafficTarget := []knservingv1.TrafficTarget{
+				{
+					Tag:            "latest",
+					LatestRevision: proto.Bool(true),
+					Percent:        proto.Int64(20),
+				},
+				{
+					Tag:            "prev",
+					RevisionName:   "revision-v1",
+					LatestRevision: proto.Bool(false),
+					Percent:        proto.Int64(80),
+				},
+			}
+			Eventually(func() []knservingv1.TrafficTarget {
+				actualService := &knservingv1.Service{}
+				err := k8sClient.Get(context.TODO(), predictorServiceKey, actualService)
+				if err != nil {
+					return []knservingv1.TrafficTarget{}
+				} else {
+					return actualService.Spec.Traffic
+				}
+			}, timeout).Should(gomega.Equal(expectedTrafficTarget))
 		})
 	})
 })

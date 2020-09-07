@@ -78,7 +78,7 @@ type ComponentExtensionSpec struct {
 	TimeoutSeconds *int64 `json:"timeout,omitempty"`
 	// CanaryTrafficPercent defines the traffic split percentage between the candidate revision and the last ready revision
 	// +optional
-	CanaryTrafficPercent *int `json:"canaryTrafficPercent,omitempty"`
+	CanaryTrafficPercent *int64 `json:"canaryTrafficPercent,omitempty"`
 	// Activate request/response logging and logger configurations
 	// +optional
 	Logger *LoggerSpec `json:"logger,omitempty"`

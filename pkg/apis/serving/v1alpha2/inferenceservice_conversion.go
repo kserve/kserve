@@ -102,6 +102,9 @@ func (src *InferenceService) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec.Predictor.MinReplicas = src.Spec.Default.Predictor.MinReplicas
 	dst.Spec.Predictor.MaxReplicas = src.Spec.Default.Predictor.MaxReplicas
 	dst.Spec.Predictor.ContainerConcurrency = proto.Int64(int64(src.Spec.Default.Predictor.Parallelism))
+	if src.Spec.CanaryTrafficPercent != nil {
+		dst.Spec.Predictor.CanaryTrafficPercent = proto.Int64(int64(*src.Spec.CanaryTrafficPercent))
+	}
 	if src.Spec.Default.Predictor.Batcher != nil {
 		dst.Spec.Predictor.Batcher = &v1beta1.Batcher{
 			MaxBatchSize: src.Spec.Default.Predictor.Batcher.MaxBatchSize,
@@ -247,6 +250,9 @@ func (dst *InferenceService) ConvertFrom(srcRaw conversion.Hub) error {
 	dst.Spec.Default.Predictor.MaxReplicas = src.Spec.Predictor.MaxReplicas
 	if src.Spec.Predictor.ContainerConcurrency != nil {
 		dst.Spec.Default.Predictor.Parallelism = int(*src.Spec.Predictor.ContainerConcurrency)
+	}
+	if src.Spec.Predictor.CanaryTrafficPercent != nil {
+		dst.Spec.CanaryTrafficPercent = GetIntReference(int(*src.Spec.Predictor.CanaryTrafficPercent))
 	}
 	if src.Spec.Predictor.Batcher != nil {
 		dst.Spec.Default.Predictor.Batcher = &Batcher{
