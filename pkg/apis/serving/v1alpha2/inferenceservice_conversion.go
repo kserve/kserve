@@ -102,6 +102,19 @@ func (src *InferenceService) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec.Predictor.MinReplicas = src.Spec.Default.Predictor.MinReplicas
 	dst.Spec.Predictor.MaxReplicas = src.Spec.Default.Predictor.MaxReplicas
 	dst.Spec.Predictor.ContainerConcurrency = proto.Int64(int64(src.Spec.Default.Predictor.Parallelism))
+	if src.Spec.Default.Predictor.Batcher != nil {
+		dst.Spec.Predictor.Batcher = &v1beta1.Batcher{
+			MaxBatchSize: src.Spec.Default.Predictor.Batcher.MaxBatchSize,
+			MaxLatency:   src.Spec.Default.Predictor.Batcher.MaxLatency,
+			Timeout:      src.Spec.Default.Predictor.Batcher.Timeout,
+		}
+	}
+	if src.Spec.Default.Predictor.Logger != nil {
+		dst.Spec.Predictor.Logger = &v1beta1.LoggerSpec{
+			URL:  src.Spec.Default.Predictor.Logger.Url,
+			Mode: v1beta1.LoggerType(src.Spec.Default.Predictor.Logger.Mode),
+		}
+	}
 	if src.Spec.Default.Predictor.ServiceAccountName != "" {
 		if dst.Spec.Predictor.Custom == nil {
 			dst.Spec.Predictor.Custom = &v1beta1.CustomPredictor{
@@ -235,7 +248,19 @@ func (dst *InferenceService) ConvertFrom(srcRaw conversion.Hub) error {
 	if src.Spec.Predictor.ContainerConcurrency != nil {
 		dst.Spec.Default.Predictor.Parallelism = int(*src.Spec.Predictor.ContainerConcurrency)
 	}
-
+	if src.Spec.Predictor.Batcher != nil {
+		dst.Spec.Default.Predictor.Batcher = &Batcher{
+			MaxBatchSize: src.Spec.Predictor.Batcher.MaxBatchSize,
+			MaxLatency:   src.Spec.Predictor.Batcher.MaxLatency,
+			Timeout:      src.Spec.Predictor.Batcher.Timeout,
+		}
+	}
+	if src.Spec.Predictor.Logger != nil {
+		dst.Spec.Default.Predictor.Logger = &Logger{
+			Url:  src.Spec.Predictor.Logger.URL,
+			Mode: LoggerMode(src.Spec.Predictor.Logger.Mode),
+		}
+	}
 	//Transformer
 	if src.Spec.Transformer != nil {
 		if src.Spec.Transformer.CustomTransformer != nil {

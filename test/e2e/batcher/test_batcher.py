@@ -60,7 +60,7 @@ def test_batcher():
         KFServing.wait_isvc_ready(service_name, namespace=KFSERVING_TEST_NAMESPACE)
     except RuntimeError as e:
         print(KFServing.api_instance.get_namespaced_custom_object("serving.knative.dev", "v1", KFSERVING_TEST_NAMESPACE,
-                                                                  "services", service_name + "-predictor-default"))
+                                                                  "services", service_name + "-predictor"))
         pods = KFServing.core_api.list_namespaced_pod(KFSERVING_TEST_NAMESPACE,
                                                       label_selector='serving.kubeflow.org/inferenceservice={}'.
                                                       format(service_name))

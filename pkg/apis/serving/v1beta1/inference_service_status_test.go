@@ -166,7 +166,7 @@ func TestInferenceServiceIsReady(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			status := InferenceServiceStatus{}
 			status.PropagateStatus(PredictorComponent, &tc.ServiceStatus)
-			if e, a := tc.isReady, status.IsReady(); e != a {
+			if e, a := tc.isReady, status.IsConditionReady(PredictorReady); e != a {
 				t.Errorf("%q expected: %v got: %v conditions: %v", tc.name, e, a, status.Conditions)
 			}
 		})
