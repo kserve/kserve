@@ -37,37 +37,69 @@ import (
 var log = logf.Log.WithName("KsvcReconciler")
 
 type KsvcReconciler struct {
-	client  client.Client
-	scheme  *runtime.Scheme
-	Service *knservingv1.Service
+	client          client.Client
+	scheme          *runtime.Scheme
+	Service         *knservingv1.Service
+	componentExt    *v1beta1.ComponentExtensionSpec
+	componentStatus v1beta1.ComponentStatusSpec
 }
 
 func NewKsvcReconciler(client client.Client, scheme *runtime.Scheme, componentMeta metav1.ObjectMeta,
-	componentExt *v1beta1.ComponentExtensionSpec, podSpec *corev1.PodSpec) *KsvcReconciler {
+	componentExt *v1beta1.ComponentExtensionSpec, podSpec *corev1.PodSpec,
+	componentStatus v1beta1.ComponentStatusSpec) *KsvcReconciler {
 	return &KsvcReconciler{
-		client:  client,
-		scheme:  scheme,
-		Service: createKnativeService(componentMeta, componentExt, podSpec),
+		client:          client,
+		scheme:          scheme,
+		Service:         createKnativeService(componentMeta, componentExt, podSpec, componentStatus),
+		componentExt:    componentExt,
+		componentStatus: componentStatus,
 	}
 }
 
 func createKnativeService(componentMeta metav1.ObjectMeta,
-	deploymentSpec *v1beta1.ComponentExtensionSpec, podSpec *corev1.PodSpec) *knservingv1.Service {
+	componentExtension *v1beta1.ComponentExtensionSpec, podSpec *corev1.PodSpec,
+	componentStatus v1beta1.ComponentStatusSpec) *knservingv1.Service {
 	annotations := componentMeta.GetAnnotations()
 
-	if deploymentSpec.MinReplicas == nil {
+	if componentExtension.MinReplicas == nil {
 		annotations[autoscaling.MinScaleAnnotationKey] = fmt.Sprint(constants.DefaultMinReplicas)
 	} else {
-		annotations[autoscaling.MinScaleAnnotationKey] = fmt.Sprint(*deploymentSpec.MinReplicas)
+		annotations[autoscaling.MinScaleAnnotationKey] = fmt.Sprint(*componentExtension.MinReplicas)
 	}
 
-	if deploymentSpec.MaxReplicas != 0 {
-		annotations[autoscaling.MaxScaleAnnotationKey] = fmt.Sprint(deploymentSpec.MaxReplicas)
+	if componentExtension.MaxReplicas != 0 {
+		annotations[autoscaling.MaxScaleAnnotationKey] = fmt.Sprint(componentExtension.MaxReplicas)
 	}
 
 	// User can pass down scaling class annotation to overwrite the default scaling KPA
 	if _, ok := annotations[autoscaling.ClassAnnotationKey]; !ok {
 		annotations[autoscaling.ClassAnnotationKey] = autoscaling.KPA
+	}
+	trafficTargets := []knservingv1.TrafficTarget{}
+	if componentExtension.CanaryTrafficPercent != nil && componentStatus.PreviousReadyRevision != "" {
+		//canary rollout
+		trafficTargets = append(trafficTargets,
+			knservingv1.TrafficTarget{
+				Tag:            "latest",
+				LatestRevision: proto.Bool(true),
+				Percent:        proto.Int64(*componentExtension.CanaryTrafficPercent),
+			})
+		remainingTraffic := 100 - *componentExtension.CanaryTrafficPercent
+		trafficTargets = append(trafficTargets,
+			knservingv1.TrafficTarget{
+				Tag:            "prev",
+				RevisionName:   componentStatus.PreviousReadyRevision,
+				LatestRevision: proto.Bool(false),
+				Percent:        proto.Int64(remainingTraffic),
+			})
+	} else {
+		//blue green rollout
+		trafficTargets = append(trafficTargets,
+			knservingv1.TrafficTarget{
+				Tag:            "latest",
+				LatestRevision: proto.Bool(true),
+				Percent:        proto.Int64(100),
+			})
 	}
 
 	return &knservingv1.Service{
@@ -84,19 +116,14 @@ func createKnativeService(componentMeta metav1.ObjectMeta,
 						Annotations: annotations,
 					},
 					Spec: knservingv1.RevisionSpec{
-						TimeoutSeconds:       deploymentSpec.TimeoutSeconds,
-						ContainerConcurrency: deploymentSpec.ContainerConcurrency,
+						TimeoutSeconds:       componentExtension.TimeoutSeconds,
+						ContainerConcurrency: componentExtension.ContainerConcurrency,
 						PodSpec:              *podSpec,
 					},
 				},
 			},
 			RouteSpec: knservingv1.RouteSpec{
-				Traffic: []knservingv1.TrafficTarget{
-					{
-						Tag:     "default",
-						Percent: proto.Int64(100),
-					},
-				},
+				Traffic: trafficTargets,
 			},
 		},
 	}
@@ -131,7 +158,6 @@ func (r *KsvcReconciler) Reconcile() (*knservingv1.ServiceStatus, error) {
 		}
 		return nil, err
 	}
-
 	// Return if no differences to reconcile.
 	if semanticEquals(desired, existing) {
 		return &existing.Status, nil
@@ -146,6 +172,27 @@ func (r *KsvcReconciler) Reconcile() (*knservingv1.ServiceStatus, error) {
 	log.Info("Updating Knative Service", "namespace", desired.Namespace, "name", desired.Name)
 	existing.Spec.ConfigurationSpec = desired.Spec.ConfigurationSpec
 	existing.ObjectMeta.Labels = desired.ObjectMeta.Labels
+
+	if r.componentExt.CanaryTrafficPercent != nil && r.componentStatus.LatestReadyRevision != "" &&
+		r.componentStatus.LatestReadyRevision != existing.Status.LatestReadyRevisionName {
+		log.Info("Updating Knative Service traffic target", "namespace", desired.Namespace, "name", desired.Name)
+		trafficTargets := []knservingv1.TrafficTarget{}
+		trafficTargets = append(trafficTargets,
+			knservingv1.TrafficTarget{
+				Tag:            "latest",
+				LatestRevision: proto.Bool(true),
+				Percent:        r.componentExt.CanaryTrafficPercent,
+			})
+		remainingTraffic := 100 - *r.componentExt.CanaryTrafficPercent
+		trafficTargets = append(trafficTargets,
+			knservingv1.TrafficTarget{
+				Tag:            "prev",
+				RevisionName:   r.componentStatus.LatestReadyRevision,
+				LatestRevision: proto.Bool(false),
+				Percent:        proto.Int64(remainingTraffic),
+			})
+		existing.Spec.Traffic = trafficTargets
+	}
 	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		return r.client.Update(context.TODO(), existing)
 	})

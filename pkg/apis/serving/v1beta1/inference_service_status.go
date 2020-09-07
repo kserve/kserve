@@ -48,6 +48,9 @@ type ComponentStatusSpec struct {
 	// Latest revision name that is in ready state
 	// +optional
 	LatestReadyRevision string `json:"latestReadyRevision,omitempty"`
+	// Previous revision name that is in ready state
+	// +optional
+	PreviousReadyRevision string `json:"previousReadyRevision,omitempty"`
 	// Latest revision name that is in created
 	// +optional
 	LatestCreatedRevision string `json:"latestCreatedRevision,omitempty"`
@@ -148,7 +151,10 @@ func (ss *InferenceServiceStatus) PropagateStatus(component ComponentType, servi
 		ss.Components[component] = ComponentStatusSpec{}
 	}
 	statusSpec.LatestCreatedRevision = serviceStatus.LatestCreatedRevisionName
-	statusSpec.LatestReadyRevision = serviceStatus.LatestReadyRevisionName
+	if serviceStatus.LatestReadyRevisionName != statusSpec.LatestReadyRevision {
+		statusSpec.PreviousReadyRevision = statusSpec.LatestReadyRevision
+		statusSpec.LatestReadyRevision = serviceStatus.LatestReadyRevisionName
+	}
 	// propagate overall service condition
 	serviceCondition := serviceStatus.GetCondition(knservingv1.ServiceConditionReady)
 	if serviceCondition != nil && serviceCondition.Status == v1.ConditionTrue {

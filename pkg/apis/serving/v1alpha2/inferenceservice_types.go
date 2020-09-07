@@ -30,7 +30,7 @@ type InferenceServiceSpec struct {
 	Canary *EndpointSpec `json:"canary,omitempty"`
 	// CanaryTrafficPercent defines the percentage of traffic going to canary InferenceService endpoints
 	// +optional
-	CanaryTrafficPercent int `json:"canaryTrafficPercent,omitempty"`
+	CanaryTrafficPercent *int `json:"canaryTrafficPercent,omitempty"`
 }
 
 type EndpointSpec struct {

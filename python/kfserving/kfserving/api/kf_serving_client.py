@@ -264,7 +264,7 @@ class KFServingClient(object):
 
         current_isvc['spec']['canaryTrafficPercent'] = percent
         if canary:
-            current_isvc['spec']['canary'] = canary
+            current_isvc['spec']['default'] = canary
 
         return self.patch(name=name, inferenceservice=current_isvc, namespace=namespace,
                           watch=watch, timeout_seconds=timeout_seconds)
