@@ -62,14 +62,15 @@ func getServiceHost(isvc *v1beta1.InferenceService) string {
 	if isvc.Status.Components == nil {
 		return ""
 	}
-
+	//Derive the ingress service host from underlying service url
 	if isvc.Spec.Transformer != nil {
 		if transformerStatus, ok := isvc.Status.Components[v1beta1.TransformerComponent]; !ok {
 			return ""
 		} else if transformerStatus.URL == nil {
 			return ""
 		} else {
-			return strings.ReplaceAll(transformerStatus.URL.Host, fmt.Sprintf("-%s", string(constants.Transformer)), "")
+			return strings.Replace(transformerStatus.URL.Host, fmt.Sprintf("-%s", string(constants.Transformer)), "",
+				1)
 		}
 	}
 
@@ -78,7 +79,8 @@ func getServiceHost(isvc *v1beta1.InferenceService) string {
 	} else if predictorStatus.URL == nil {
 		return ""
 	} else {
-		return strings.ReplaceAll(predictorStatus.URL.Host, fmt.Sprintf("-%s", string(constants.Predictor)), "")
+		return strings.Replace(predictorStatus.URL.Host, fmt.Sprintf("-%s", string(constants.Predictor)), "",
+			1)
 	}
 }
 
@@ -86,13 +88,23 @@ func getServiceUrl(isvc *v1beta1.InferenceService) string {
 	if isvc.Status.Components == nil {
 		return ""
 	}
+	//Derive the ingress url from underlying service url
+	if isvc.Spec.Transformer != nil {
+		if transformerStatus, ok := isvc.Status.Components[v1beta1.TransformerComponent]; !ok {
+			return ""
+		} else if transformerStatus.URL == nil {
+			return ""
+		} else {
+			return strings.Replace(transformerStatus.URL.String(), fmt.Sprintf("-%s", string(constants.Transformer)), "", 1)
+		}
+	}
 
 	if predictorStatus, ok := isvc.Status.Components[v1beta1.PredictorComponent]; !ok {
 		return ""
 	} else if predictorStatus.URL == nil {
 		return ""
 	} else {
-		return strings.ReplaceAll(predictorStatus.URL.String(), fmt.Sprintf("-%s", string(constants.Predictor)), "")
+		return strings.Replace(predictorStatus.URL.String(), fmt.Sprintf("-%s", string(constants.Predictor)), "", 1)
 	}
 }
 
@@ -165,13 +177,17 @@ func (ir *IngressReconciler) createHTTPRouteDestination(targetHost, namespace st
 }
 
 func (ir *IngressReconciler) createHTTPMatchRequest(prefix, targetHost, internalHost string, isInternal bool) []*istiov1alpha3.HTTPMatchRequest {
+	var uri *istiov1alpha3.StringMatch
+	if prefix != "" {
+		uri = &istiov1alpha3.StringMatch{
+			MatchType: &istiov1alpha3.StringMatch_Regex{
+				Regex: prefix,
+			},
+		}
+	}
 	matchRequests := []*istiov1alpha3.HTTPMatchRequest{
 		{
-			Uri: &istiov1alpha3.StringMatch{
-				MatchType: &istiov1alpha3.StringMatch_Regex{
-					Regex: prefix,
-				},
-			},
+			Uri: uri,
 			Authority: &istiov1alpha3.StringMatch{
 				MatchType: &istiov1alpha3.StringMatch_Regex{
 					Regex: constants.HostRegExp(internalHost),
@@ -183,6 +199,7 @@ func (ir *IngressReconciler) createHTTPMatchRequest(prefix, targetHost, internal
 	if !isInternal {
 		matchRequests = append(matchRequests,
 			&istiov1alpha3.HTTPMatchRequest{
+				Uri: uri,
 				Authority: &istiov1alpha3.StringMatch{
 					MatchType: &istiov1alpha3.StringMatch_Regex{
 						Regex: constants.HostRegExp(targetHost),
@@ -203,11 +220,6 @@ func (ir *IngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
 		})
 		return nil
 	}
-	//Create external service which points to local gateway
-	if err := ir.reconcileExternalService(isvc); err != nil {
-		return err
-	}
-	//Create ingress
 	serviceHost := getServiceHost(isvc)
 	serviceUrl := getServiceUrl(isvc)
 	if serviceHost == "" || serviceUrl == "" {
@@ -240,7 +252,7 @@ func (ir *IngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
 			return nil
 		}
 		explainerRouter := istiov1alpha3.HTTPRoute{
-			Match: ir.createHTTPMatchRequest(constants.ExplainPrefix(), constants.HostRegExp(serviceHost),
+			Match: ir.createHTTPMatchRequest(constants.ExplainPrefix(), serviceHost,
 				network.GetServiceHostname(isvc.Name, isvc.Namespace), isInternal),
 			Route: []*istiov1alpha3.HTTPRouteDestination{
 				ir.createHTTPRouteDestination(constants.ExplainerServiceName(isvc.Name), isvc.Namespace, constants.LocalGatewayHost),
@@ -249,13 +261,17 @@ func (ir *IngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
 		httpRoutes = append(httpRoutes, &explainerRouter)
 	}
 	httpRoutes = append(httpRoutes, &istiov1alpha3.HTTPRoute{
-		Match: ir.createHTTPMatchRequest("*", constants.HostRegExp(serviceHost),
+		Match: ir.createHTTPMatchRequest("", serviceHost,
 			network.GetServiceHostname(isvc.Name, isvc.Namespace), isInternal),
 		Route: []*istiov1alpha3.HTTPRouteDestination{
 			ir.createHTTPRouteDestination(backend, isvc.Namespace, constants.LocalGatewayHost),
 		},
 	})
-
+	//Create external service which points to local gateway
+	if err := ir.reconcileExternalService(isvc); err != nil {
+		return err
+	}
+	//Create ingress
 	desiredIngress := &v1alpha3.VirtualService{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      isvc.Name,
@@ -287,6 +303,7 @@ func (ir *IngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
 	} else {
 		if !equality.Semantic.DeepEqual(desiredIngress.Spec, existing.Spec) {
 			existing.Spec = desiredIngress.Spec
+			log.Info("Update Ingress for isvc", "namespace", desiredIngress.Namespace, "name", desiredIngress.Name)
 			err = ir.client.Update(context.TODO(), existing)
 		}
 	}
