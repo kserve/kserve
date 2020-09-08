@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 from kubernetes import client
 
 from kfserving import KFServingClient
@@ -29,7 +30,7 @@ from ..common.utils import predict
 from ..common.utils import KFSERVING_TEST_NAMESPACE
 
 api_version = constants.KFSERVING_GROUP + '/' + constants.KFSERVING_VERSION
-KFServing = KFServingClient(config_file="~/.kube/config")
+KFServing = KFServingClient(config_file=os.environ.get("KUBECONFIG","~/.kube/config"))
 
 
 def test_kfserving_logger():
@@ -58,7 +59,7 @@ def test_kfserving_logger():
             min_replicas=1,
             logger=V1alpha2Logger(
                mode="all",
-               url="http://message-dumper-predictor-default."+KFSERVING_TEST_NAMESPACE
+               url="http://message-dumper-predictor."+KFSERVING_TEST_NAMESPACE
             ),
             sklearn=V1alpha2SKLearnSpec(
                 storage_uri='gs://kfserving-samples/models/sklearn/iris',

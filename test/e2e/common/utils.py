@@ -15,19 +15,21 @@ import time
 import logging
 import json
 import requests
+import os
 from urllib.parse import urlparse
 from kubernetes import client, config
 from kfserving import KFServingClient
+from kfserving import constants
 
 logging.basicConfig(level=logging.INFO)
 
-KFServing = KFServingClient(config_file="~/.kube/config")
+KFServing = KFServingClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
 KFSERVING_NAMESPACE = "kfserving-system"
 KFSERVING_TEST_NAMESPACE = "kfserving-ci-e2e-test"
 
 
 def predict(service_name, input_json):
-    isvc = KFServing.get(service_name, namespace=KFSERVING_TEST_NAMESPACE)
+    isvc = KFServing.get(service_name, namespace=KFSERVING_TEST_NAMESPACE, version=constants.KFSERVING_V1BETA1_VERSION)
     # temporary sleep until this is fixed https://github.com/kubeflow/kfserving/issues/604
     time.sleep(10)
     cluster_ip = get_cluster_ip()
@@ -44,7 +46,7 @@ def predict(service_name, input_json):
 
 
 def explain(service_name, input_json):
-    isvc = KFServing.get(service_name, namespace=KFSERVING_TEST_NAMESPACE)
+    isvc = KFServing.get(service_name, namespace=KFSERVING_TEST_NAMESPACE, version=constants.KFSERVING_V1BETA1_VERSION)
     # temporary sleep until this is fixed https://github.com/kubeflow/kfserving/issues/604
     time.sleep(10)
     cluster_ip = get_cluster_ip()
@@ -84,4 +86,4 @@ def get_cluster_ip():
         cluster_ip = service.spec.cluster_ip
     else:
         cluster_ip = service.status.load_balancer.ingress[0].ip
-    return cluster_ip
+    return os.environ.get("KFSERVING_INGRESS_HOST_PORT", cluster_ip)

@@ -85,13 +85,14 @@ class KFServingClient(object):
             raise RuntimeError("Invalid storage_type: %s, only support GCS, S3 and Azure\
                 currently.\n" % storage_type)
 
-    def create(self, inferenceservice, namespace=None, watch=False, timeout_seconds=600): #pylint:disable=inconsistent-return-statements
+    def create(self, inferenceservice, namespace=None, watch=False, timeout_seconds=600, version=constants.KFSERVING_VERSION): #pylint:disable=inconsistent-return-statements
         """
         Create the inference service
         :param inferenceservice: inference service object
         :param namespace: defaults to current or default namespace
         :param watch: True to watch the created service until timeout elapsed or status is ready
         :param timeout_seconds: timeout seconds for watch, default to 600s
+        :param version: api group version
         :return: created inference service
         """
 
@@ -101,7 +102,7 @@ class KFServingClient(object):
         try:
             outputs = self.api_instance.create_namespaced_custom_object(
                 constants.KFSERVING_GROUP,
-                constants.KFSERVING_VERSION,
+                version,
                 namespace,
                 constants.KFSERVING_PLURAL,
                 inferenceservice)
@@ -118,13 +119,14 @@ class KFServingClient(object):
         else:
             return outputs
 
-    def get(self, name=None, namespace=None, watch=False, timeout_seconds=600): #pylint:disable=inconsistent-return-statements
+    def get(self, name=None, namespace=None, watch=False, timeout_seconds=600, version=constants.KFSERVING_VERSION): #pylint:disable=inconsistent-return-statements
         """
         Get the inference service
         :param name: existing inference service name
         :param namespace: defaults to current or default namespace
         :param watch: True to watch the service until timeout elapsed or status is ready
         :param timeout_seconds: timeout seconds for watch, default to 600s
+        :param version: api group version
         :return: inference service
         """
         if namespace is None:
@@ -140,7 +142,7 @@ class KFServingClient(object):
                 try:
                     return self.api_instance.get_namespaced_custom_object(
                         constants.KFSERVING_GROUP,
-                        constants.KFSERVING_V1BETA1_VERSION,
+                        version,
                         namespace,
                         constants.KFSERVING_PLURAL,
                         name)
@@ -157,7 +159,7 @@ class KFServingClient(object):
                 try:
                     return self.api_instance.list_namespaced_custom_object(
                         constants.KFSERVING_GROUP,
-                        constants.KFSERVING_V1BETA1_VERSION,
+                        version,
                         namespace,
                         constants.KFSERVING_PLURAL)
                 except client.rest.ApiException as e:
@@ -165,7 +167,7 @@ class KFServingClient(object):
                         "Exception when calling CustomObjectsApi->list_namespaced_custom_object:\
                         %s\n" % e)
 
-    def patch(self, name, inferenceservice, namespace=None, watch=False, timeout_seconds=600): # pylint:disable=too-many-arguments,inconsistent-return-statements
+    def patch(self, name, inferenceservice, namespace=None, watch=False, timeout_seconds=600, version=constants.KFSERVING_VERSION): # pylint:disable=too-many-arguments,inconsistent-return-statements
         """
         Patch existing inference service
         :param name: existing inference service name
@@ -173,6 +175,7 @@ class KFServingClient(object):
         :param namespace: defaults to current or default namespace
         :param watch: True to watch the patched service until timeout elapsed or status is ready
         :param timeout_seconds: timeout seconds for watch, default to 600s
+        :param version: api group version
         :return: patched inference service
         """
         if namespace is None:
@@ -181,7 +184,7 @@ class KFServingClient(object):
         try:
             outputs = self.api_instance.patch_namespaced_custom_object(
                 constants.KFSERVING_GROUP,
-                constants.KFSERVING_VERSION,
+                version,
                 namespace,
                 constants.KFSERVING_PLURAL,
                 name,
@@ -201,7 +204,7 @@ class KFServingClient(object):
         else:
             return outputs
 
-    def replace(self, name, inferenceservice, namespace=None, watch=False, timeout_seconds=600): # pylint:disable=too-many-arguments,inconsistent-return-statements
+    def replace(self, name, inferenceservice, namespace=None, watch=False, timeout_seconds=600, version=constants.KFSERVING_VERSION): # pylint:disable=too-many-arguments,inconsistent-return-statements
         """
         Replace the existing inference service
         :param name: existing inference service name
@@ -209,6 +212,7 @@ class KFServingClient(object):
         :param namespace: defaults to current or default namespace
         :param watch: True to watch the replaced service until timeout elapsed or status is ready
         :param timeout_seconds: timeout seconds for watch, default to 600s
+        :param version: api group version
         :return: replaced inference service
         """
 
@@ -223,7 +227,7 @@ class KFServingClient(object):
         try:
             outputs = self.api_instance.replace_namespaced_custom_object(
                 constants.KFSERVING_GROUP,
-                constants.KFSERVING_VERSION,
+                version,
                 namespace,
                 constants.KFSERVING_PLURAL,
                 name,
@@ -242,7 +246,7 @@ class KFServingClient(object):
             return outputs
 
     def rollout_canary(self, name, percent, namespace=None, # pylint:disable=too-many-arguments,inconsistent-return-statements
-                       canary=None, watch=False, timeout_seconds=600):
+                       canary=None, watch=False, timeout_seconds=600, version=constants.KFSERVING_VERSION):
         """
         Rollout the canary endpoint
         :param name: inference service name
@@ -251,6 +255,7 @@ class KFServingClient(object):
         :param canary: canary endpoint spec
         :param watch: True to watch the service until timeout elapsed or status is ready
         :param timeout_seconds: timeout seconds for watch, default to 600s
+        :param version: api group version
         :return: inference service with canary endpoint
         """
 
@@ -265,56 +270,17 @@ class KFServingClient(object):
         current_isvc['spec']['canaryTrafficPercent'] = percent
         if canary:
             current_isvc['spec']['default'] = canary
+            current_isvc['spec']['canary'] = canary
 
         return self.patch(name=name, inferenceservice=current_isvc, namespace=namespace,
-                          watch=watch, timeout_seconds=timeout_seconds)
+                          watch=watch, timeout_seconds=timeout_seconds, version=version)
 
-    def promote(self, name, namespace=None, watch=False, timeout_seconds=600): # pylint:disable=too-many-arguments,inconsistent-return-statements
-        """
-        Promote canary endpoint to default
-        :param name: inference service name
-        :param namespace: defaults to current or default namespace
-        :param watch: True to watch the service until timeout elapsed or status is ready
-        :param timeout_seconds: timeout seconds for watch, default to 600s
-        :return: promoted inference service
-        """
-
-        if namespace is None:
-            namespace = utils.get_default_target_namespace()
-
-        current_isvc = self.get(name, namespace=namespace)
-        api_version = current_isvc['apiVersion']
-
-        try:
-            current_canary_spec = current_isvc['spec']['canary']
-        except KeyError:
-            raise RuntimeError("Cannot promote a InferenceService that has no Canary Spec.")
-
-        try:
-            annotations = current_isvc['metadata']['annotations']
-        except KeyError:
-            annotations = dict()
-
-        inferenceservice = V1alpha2InferenceService(
-            api_version=api_version,
-            kind=constants.KFSERVING_KIND,
-            metadata=client.V1ObjectMeta(
-                name=name,
-                namespace=namespace,
-                annotations=annotations),
-            spec=V1alpha2InferenceServiceSpec(
-                default=current_canary_spec,
-                canary=None,
-                canary_traffic_percent=0))
-
-        return self.replace(name=name, inferenceservice=inferenceservice, namespace=namespace,
-                            watch=watch, timeout_seconds=timeout_seconds)
-
-    def delete(self, name, namespace=None):
+    def delete(self, name, namespace=None, version=constants.KFSERVING_VERSION):
         """
         Delete the inference service
         :param name: inference service name
         :param namespace: defaults to current or default namespace
+        :param version: api group version
         :return:
         """
         if namespace is None:
@@ -323,7 +289,7 @@ class KFServingClient(object):
         try:
             return self.api_instance.delete_namespaced_custom_object(
                 constants.KFSERVING_GROUP,
-                constants.KFSERVING_VERSION,
+                version,
                 namespace,
                 constants.KFSERVING_PLURAL,
                 name,
@@ -341,7 +307,7 @@ class KFServingClient(object):
         :param namespace: defaults to current or default namespace
         :return:
         """
-        kfsvc_status = self.get(name, namespace=namespace)
+        kfsvc_status = self.get(name, namespace=namespace, version=constants.KFSERVING_V1BETA1_VERSION)
         status = 'Unknown'
         for condition in kfsvc_status['status'].get('conditions', {}):
             if condition.get('type', '') == 'Ready':
@@ -375,6 +341,6 @@ class KFServingClient(object):
                 if self.is_isvc_ready(name, namespace=namespace):
                     return
 
-            current_isvc = self.get(name, namespace=namespace)
+            current_isvc = self.get(name, namespace=namespace, version=constants.KFSERVING_V1BETA1_VERSION)
             raise RuntimeError("Timeout to start the InferenceService {}. \
                                The InferenceService is as following: {}".format(name, current_isvc))
