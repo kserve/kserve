@@ -14,6 +14,7 @@
 
 import numpy as np
 import os
+import pytest
 from kubernetes import client
 
 from kfserving import KFServingClient
@@ -30,7 +31,7 @@ from ..common.utils import KFSERVING_TEST_NAMESPACE
 api_version = constants.KFSERVING_GROUP + '/' + constants.KFSERVING_VERSION
 KFServing = KFServingClient(config_file=os.environ.get("KUBECONFIG","~/.kube/config"))
 
-
+@pytest.mark.skip(reason="disable gpu test")
 def test_pytorch():
     service_name = 'isvc-pytorch'
     default_endpoint_spec = V1alpha2EndpointSpec(
