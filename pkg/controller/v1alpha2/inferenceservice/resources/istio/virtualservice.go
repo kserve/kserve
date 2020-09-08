@@ -163,9 +163,11 @@ func (r *VirtualServiceBuilder) CreateVirtualService(isvc *v1alpha2.InferenceSer
 	httpRoutes := []*istiov1alpha3.HTTPRoute{}
 	predictRouteDestinations := []*istiov1alpha3.HTTPRouteDestination{}
 	serviceHostname, _ := getServiceHostname(isvc)
-
-	defaultWeight := 100 - isvc.Spec.CanaryTrafficPercent
-	canaryWeight := isvc.Spec.CanaryTrafficPercent
+	canaryWeight := 0
+	if isvc.Spec.CanaryTrafficPercent != nil {
+		canaryWeight = *isvc.Spec.CanaryTrafficPercent
+	}
+	defaultWeight := 100 - canaryWeight
 
 	if defaultPredictRouteDestination, err := r.getPredictRouteDestination(isvc.GetObjectMeta(), false, &isvc.Spec.Default, isvc.Status.Default, int32(defaultWeight)); err != nil {
 		return nil, err

@@ -394,7 +394,7 @@ var _ = Describe("test inference service controller", func() {
 							},
 						},
 					},
-					CanaryTrafficPercent: 20,
+					CanaryTrafficPercent: kfserving.GetIntReference(20),
 					Canary: &kfserving.EndpointSpec{
 						Predictor: kfserving.PredictorSpec{
 							DeploymentSpec: kfserving.DeploymentSpec{
@@ -704,7 +704,7 @@ var _ = Describe("test inference service controller", func() {
 							},
 						},
 					},
-					CanaryTrafficPercent: 20,
+					CanaryTrafficPercent: kfserving.GetIntReference(20),
 					Canary: &kfserving.EndpointSpec{
 						Predictor: kfserving.PredictorSpec{
 							DeploymentSpec: kfserving.DeploymentSpec{
@@ -846,7 +846,7 @@ var _ = Describe("test inference service controller", func() {
 			// Update instance to remove Canary Spec
 			// Canary service should be removed during reconcile
 			canaryUpdate.Spec.Canary = nil
-			canaryUpdate.Spec.CanaryTrafficPercent = 0
+			canaryUpdate.Spec.CanaryTrafficPercent = kfserving.GetIntReference(0)
 			err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 				return k8sClient.Update(context.TODO(), canaryUpdate)
 			})
@@ -972,7 +972,7 @@ var _ = Describe("test inference service controller", func() {
 							},
 						},
 					},
-					CanaryTrafficPercent: 20,
+					CanaryTrafficPercent: kfserving.GetIntReference(20),
 					Canary: &kfserving.EndpointSpec{
 						Predictor: kfserving.PredictorSpec{
 							DeploymentSpec: kfserving.DeploymentSpec{
@@ -1337,7 +1337,7 @@ var _ = Describe("test inference service controller", func() {
 							},
 						},
 					},
-					CanaryTrafficPercent: 20,
+					CanaryTrafficPercent: kfserving.GetIntReference(20),
 					Canary: &kfserving.EndpointSpec{
 						Predictor: kfserving.PredictorSpec{
 							DeploymentSpec: kfserving.DeploymentSpec{
@@ -1504,7 +1504,7 @@ var _ = Describe("test inference service controller", func() {
 							},
 						},
 					},
-					CanaryTrafficPercent: 20,
+					CanaryTrafficPercent: kfserving.GetIntReference(20),
 					Canary: &kfserving.EndpointSpec{
 						Predictor: kfserving.PredictorSpec{
 							DeploymentSpec: kfserving.DeploymentSpec{
