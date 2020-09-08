@@ -233,7 +233,7 @@ func TestInferenceServiceToKnativeService(t *testing.T) {
 							},
 						},
 					},
-					CanaryTrafficPercent: 20,
+					CanaryTrafficPercent: v1alpha2.GetIntReference(20),
 					Canary: &v1alpha2.EndpointSpec{
 						Predictor: v1alpha2.PredictorSpec{
 							DeploymentSpec: v1alpha2.DeploymentSpec{
@@ -586,7 +586,7 @@ func TestTransformerToKnativeService(t *testing.T) {
 	}
 
 	isvcCanary := isvc.DeepCopy()
-	isvcCanary.Spec.CanaryTrafficPercent = 20
+	isvcCanary.Spec.CanaryTrafficPercent = v1alpha2.GetIntReference(20)
 	isvcCanary.Spec.Canary = &v1alpha2.EndpointSpec{
 		Transformer: &v1alpha2.TransformerSpec{
 			DeploymentSpec: v1alpha2.DeploymentSpec{
@@ -785,7 +785,7 @@ func TestExplainerToKnativeService(t *testing.T) {
 	}
 
 	isvcCanary := isvc.DeepCopy()
-	isvcCanary.Spec.CanaryTrafficPercent = 20
+	isvcCanary.Spec.CanaryTrafficPercent = v1alpha2.GetIntReference(20)
 	isvcCanary.Spec.Canary = &v1alpha2.EndpointSpec{
 		Predictor: v1alpha2.PredictorSpec{
 			DeploymentSpec: v1alpha2.DeploymentSpec{

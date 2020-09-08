@@ -544,7 +544,7 @@ func TestCreateVirtualService(t *testing.T) {
 					Transformer: createMockTransformerSpec(tc.canaryStatus),
 				}
 				testIsvc.Spec.Canary = canarySpec
-				testIsvc.Spec.CanaryTrafficPercent = 20
+				testIsvc.Spec.CanaryTrafficPercent = v1alpha2.GetIntReference(20)
 			}
 
 			serviceBuilder := VirtualServiceBuilder{

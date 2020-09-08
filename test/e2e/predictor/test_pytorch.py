@@ -29,14 +29,15 @@ from ..common.utils import predict
 from ..common.utils import KFSERVING_TEST_NAMESPACE
 
 api_version = constants.KFSERVING_GROUP + '/' + constants.KFSERVING_VERSION
-KFServing = KFServingClient(config_file=os.environ.get("KUBECONFIG","~/.kube/config"))
+KFServing = KFServingClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
 
-@pytest.mark.skip(reason="disable gpu test")
+
 def test_pytorch():
     service_name = 'isvc-pytorch'
     default_endpoint_spec = V1alpha2EndpointSpec(
         predictor=V1alpha2PredictorSpec(
             min_replicas=1,
+            parallelism=1,
             pytorch=V1alpha2PyTorchSpec(
                 storage_uri='gs://kfserving-samples/models/pytorch/cifar10',
                 model_class_name="Net",

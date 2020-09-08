@@ -154,16 +154,16 @@ func TestRejectBadCanaryTrafficValues(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	isvc := makeTestInferenceService()
 	isvc.Spec.Canary = &isvc.Spec.Default
-	isvc.Spec.CanaryTrafficPercent = -1
+	isvc.Spec.CanaryTrafficPercent = GetIntReference(-1)
 	g.Expect(isvc.validate(c)).Should(gomega.MatchError(TrafficBoundsExceededError))
-	isvc.Spec.CanaryTrafficPercent = 101
+	isvc.Spec.CanaryTrafficPercent = GetIntReference(101)
 	g.Expect(isvc.validate(c)).Should(gomega.MatchError(TrafficBoundsExceededError))
 }
 
 func TestRejectTrafficProvidedWithoutCanary(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	isvc := makeTestInferenceService()
-	isvc.Spec.CanaryTrafficPercent = 1
+	isvc.Spec.CanaryTrafficPercent = GetIntReference(1)
 	g.Expect(isvc.validate(c)).Should(gomega.MatchError(TrafficProvidedWithoutCanaryError))
 }
 

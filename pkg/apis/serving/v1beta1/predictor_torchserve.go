@@ -18,6 +18,7 @@ package v1beta1
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/kubeflow/kfserving/pkg/constants"
@@ -79,7 +80,11 @@ func (t *TorchServeSpec) GetContainer(metadata metav1.ObjectMeta, extensions *Co
 		fmt.Sprintf("%s=%s", constants.ArgumentModelDir, constants.DefaultModelLocalMountPath),
 		fmt.Sprintf("%s=%s", constants.ArgumentHttpPort, constants.InferenceServiceDefaultHttpPort),
 	}
-
+	if utils.IsGPUEnabled(t.Resources) {
+		arguments = append(arguments, fmt.Sprintf("%s=%s", constants.ArgumentWorkers, "1"))
+	} else if extensions.ContainerConcurrency != nil {
+		arguments = append(arguments, fmt.Sprintf("%s=%s", constants.ArgumentWorkers, strconv.FormatInt(*extensions.ContainerConcurrency, 10)))
+	}
 	if t.Container.Image == "" {
 		t.Container.Image = config.Predictors.PyTorch.ContainerImage + ":" + *t.RuntimeVersion
 	}
