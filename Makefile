@@ -21,8 +21,8 @@ $(shell perl -pi -e 's/memory:.*/memory: $(KFSERVING_CONTROLLER_MEMORY_LIMIT)/' 
 all: test manager logger batcher
 
 # Run tests
-test: fmt vet manifests
-	go test ./pkg/... ./cmd/... -coverprofile cover.out
+test: fmt vet manifests kubebuilder
+	go test ./pkg/... ./cmd/... -coverprofile coverage.out
 
 # Build manager binary
 manager: generate fmt vet lint
@@ -183,6 +183,19 @@ docker-build-storageInitializer:
 
 docker-push-storageInitializer: docker-build-storageInitializer
 	docker push ${KO_DOCKER_REPO}/${STORAGE_INIT_IMG}
+
+kubebuilder:
+ifeq (, $(shell which kubebuilder))
+	@{ \
+	set -e ;\
+        os=$$(go env GOOS) ; \
+        arch=$$(go env GOARCH) ;\
+        curl -L "https://go.kubebuilder.io/dl/2.3.1/$${os}/$${arch}" | tar -xz -C /tmp/ ;\
+        sudo mkdir -p /usr/local/kubebuilder/bin/ ;\
+	sudo mv /tmp/kubebuilder_2.3.1_$${os}_$${arch}/bin/* /usr/local/kubebuilder/bin/ ;\
+	echo "Add /usr/local/kubebuilder/bin/ to your PATH!!" ;\
+	}
+endif
 
 controller-gen:
 ifeq (, $(shell which controller-gen))
