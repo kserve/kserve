@@ -18,6 +18,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/kr/pretty"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	. "github.com/onsi/ginkgo"
@@ -152,18 +153,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								ContainerConcurrency: isvc.Spec.Predictor.ContainerConcurrency,
 								TimeoutSeconds:       isvc.Spec.Predictor.TimeoutSeconds,
 								PodSpec: v1.PodSpec{
-									Volumes: []v1.Volume{
-										{
-											Name: "model-config",
-											VolumeSource: v1.VolumeSource{
-												ConfigMap: &v1.ConfigMapVolumeSource{
-													LocalObjectReference: v1.LocalObjectReference{
-														Name: "modelconfig-foo-0",
-													},
-												},
-											},
-										},
-									},
 									Containers: []v1.Container{
 										{
 											Image: "tensorflow/serving:" +

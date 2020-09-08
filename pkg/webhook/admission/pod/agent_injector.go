@@ -109,7 +109,7 @@ func (il *AgentInjector) InjectAgent(pod *v1.Pod) error {
 	// Add container to the spec
 	pod.Spec.Containers = append(pod.Spec.Containers, *agentContainer)
 
-	if _, ok := pod.Labels[constants.AgentInternalAnnotationKey]; ok {
+	if _, ok := pod.ObjectMeta.Annotations[constants.AgentInternalAnnotationKey]; ok {
 		// Mount the modelconfig volume to the pod and model agent container
 		return mountModelConfigMap(pod)
 	}
@@ -118,7 +118,7 @@ func (il *AgentInjector) InjectAgent(pod *v1.Pod) error {
 }
 
 func mountModelConfigMap(pod *v1.Pod) error {
-	if modelConfigName, ok := pod.Labels[constants.AgentModelConfigAnnotationKey]; ok {
+	if modelConfigName, ok := pod.ObjectMeta.Annotations[constants.AgentModelConfigAnnotationKey]; ok {
 		modelConfigVolume := v1.Volume{
 			Name: constants.ModelConfigVolumeName,
 			VolumeSource: v1.VolumeSource{

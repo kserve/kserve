@@ -65,7 +65,8 @@ func TestAgentInjector(t *testing.T) {
 					Name:      "deployment",
 					Namespace: "default",
 					Annotations: map[string]string{
-						constants.AgentInternalAnnotationKey: "true",
+						constants.AgentInternalAnnotationKey:    "true",
+						constants.AgentModelConfigAnnotationKey: "modelconfig-deployment-0",
 					},
 					Labels: map[string]string{
 						"serving.kubeflow.org/inferenceservice": "sklearn",
@@ -96,6 +97,25 @@ func TestAgentInjector(t *testing.T) {
 							Name:      AgentContainerName,
 							Image:     agentConfig.Image,
 							Resources: agentResourceRequirement,
+							VolumeMounts: []v1.VolumeMount{
+								{
+									Name:      constants.ModelConfigVolumeName,
+									ReadOnly:  true,
+									MountPath: constants.ModelConfigDir,
+								},
+							},
+						},
+					},
+					Volumes: []v1.Volume{
+						{
+							Name: "model-config",
+							VolumeSource: v1.VolumeSource{
+								ConfigMap: &v1.ConfigMapVolumeSource{
+									LocalObjectReference: v1.LocalObjectReference{
+										Name: "modelconfig-deployment-0",
+									},
+								},
+							},
 						},
 					},
 				},
