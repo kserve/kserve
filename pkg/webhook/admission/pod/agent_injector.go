@@ -26,8 +26,9 @@ import (
 )
 
 const (
-	AgentContainerName    = "agent"
-	AgentConfigMapKeyName = "agent"
+	AgentContainerName       = "agent"
+	AgentConfigMapKeyName    = "agent"
+	AgentS3EndpointArgName   = "--s3-endpoint"
 )
 
 type AgentConfig struct {
@@ -84,7 +85,11 @@ func (il *AgentInjector) InjectAgent(pod *v1.Pod) error {
 	}
 
 	var args []string
-	//TODO figure out the s3 endpoint from bcs identity
+	s3Endpoint, ok := pod.ObjectMeta.Annotations[constants.AgentS3endpointAnnotationKey]
+	if ok {
+		args = append(args, AgentS3EndpointArgName)
+		args = append(args, s3Endpoint)
+	}
 
 	// Make sure securityContext is initialized and valid
 	securityContext := pod.Spec.Containers[0].SecurityContext.DeepCopy()
