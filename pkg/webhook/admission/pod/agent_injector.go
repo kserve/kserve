@@ -28,7 +28,7 @@ import (
 const (
 	AgentContainerName       = "agent"
 	AgentConfigMapKeyName    = "agent"
-	AgentS3EndpointArgName   = "--s3-endpoint"
+	AgentS3EndpointArgName   = "-s3-endpoint"
 )
 
 type AgentConfig struct {
