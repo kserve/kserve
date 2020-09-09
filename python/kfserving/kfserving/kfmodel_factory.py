@@ -13,8 +13,7 @@
 # limitations under the License.
 
 from typing import Optional
-from kfserving import KFModel
-from kfserving.kfmodels import kfmodel_types, sklearn, pytorch, xgboost
+from kfserving import KFModel, KFModelTypes, SKLearnModel, PyTorchModel, XGBoostModel, UnsupportedModelError
 
 
 class KFModelFactory:
@@ -22,13 +21,13 @@ class KFModelFactory:
     def create_model(model_name: str,
                      model_dir: str,
                      full_model_path: str,
-                     model_type: Optional[kfmodel_types.KFModelTypes]) -> KFModel:
+                     model_type: Optional[KFModelTypes]) -> KFModel:
 
-        if model_type == kfmodel_types.KFModelTypes.Sklearn:
-            return sklearn.SKLearnModel(model_name, model_dir, full_model_path)
-        elif model_type == kfmodel_types.KFModelTypes.Pytorch:
-            return pytorch.PyTorchModel(model_name, model_dir)
-        elif model_type == kfmodel_types.KFModelTypes.Xgboost:
-            return xgboost.XGBoostModel(model_name, model_dir, full_model_path)
+        if model_type == KFModelTypes.Sklearn:
+            return SKLearnModel(model_name, model_dir, full_model_path)
+        elif model_type == KFModelTypes.Pytorch:
+            return PyTorchModel(model_name, model_dir)
+        elif model_type == KFModelTypes.Xgboost:
+            return XGBoostModel(model_name, model_dir, full_model_path)
         else:
-            raise kfmodel_types.UnsupportedModelError
+            raise UnsupportedModelError

@@ -24,9 +24,7 @@ import tornado.httpserver
 import tornado.log
 
 from kfserving.handlers.http import PredictHandler, ExplainHandler
-from kfserving import KFModel
-from kfserving import KFModelRepository
-from kfserving.kfmodels.kfmodel_types import UnsupportedModelError
+from kfserving import KFModel, KFModelRepository, UnsupportedModelError
 
 DEFAULT_HTTP_PORT = 8080
 DEFAULT_GRPC_PORT = 8081

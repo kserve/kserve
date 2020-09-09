@@ -14,9 +14,7 @@
 
 import inspect
 from typing import List, Optional
-from kfserving import KFModel
-from kfserving.kfmodel_factory import KFModelFactory
-from kfserving.kfmodels.kfmodel_types import get_kfmodel_type
+from kfserving import KFModel, KFModelFactory, get_kfmodel_type
 
 MODEL_MOUNT_DIRS = "/mnt/models"
 
