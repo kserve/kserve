@@ -67,7 +67,7 @@ class KFServer:
              ExplainHandler, dict(models=self.registered_models)),
         ])
 
-    def start(self, models: List[KFModel]):
+    def start(self, models: List[KFModel], nest_asyncio: bool = False):
         for model in models:
             self.register_model(model)
 
@@ -78,6 +78,14 @@ class KFServer:
         self._http_server.bind(self.http_port)
         logging.info("Will fork %d workers", self.workers)
         self._http_server.start(self.workers)
+
+        # Need to start the IOLoop after workers have been started
+        # https://github.com/tornadoweb/tornado/issues/2426
+        # The nest_asyncio package needs to be installed by the downstream module
+        if nest_asyncio:
+            import nest_asyncio
+            nest_asyncio.apply()
+
         tornado.ioloop.IOLoop.current().start()
 
     def register_model(self, model: KFModel):

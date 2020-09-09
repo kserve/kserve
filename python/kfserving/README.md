@@ -49,7 +49,9 @@ KFServing supports the following storage providers:
     * The `pvcname` is the name of the PVC that contains the model.
     * The `[path]` is the relative path to the model on the PVC.
     * For e.g. `pvc://mypvcname/model/path/on/pvc`
-
+* Generic URI, over either `HTTP`, prefixed with `http://` or `HTTPS`, prefixed with `https://`. For example:
+    * `https://<some_url>.com/model.joblib`
+    * `http://<some_url>.com/model.joblib`
 
 ## KFServing Client
 

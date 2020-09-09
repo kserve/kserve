@@ -81,7 +81,7 @@ kind create cluster
 ```
 alternatively you can use [Minikube](https://kubernetes.io/docs/setup/learning-environment/minikube)
 ```bash
-minikube start --cpus 4 --memory 8192
+minikube start --cpus 4 --memory 8192 --kubernetes-version=v1.17.11
 ```
 
 2) Install Istio lean version, Knative Serving, KFServing all in one.(this takes 30s)

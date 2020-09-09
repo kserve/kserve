@@ -91,6 +91,15 @@
         // command: List to pass as the container command.
         buildTemplate(step_name, image, command):: {
           name: step_name,
+          retryStrategy: {
+            limit: 3,
+            retryPolicy: "Always",
+            backoff: {
+              duration: 1,
+              factor: 2,
+              maxDuration: "1m",
+            },
+          },
           container: {
             command: command,
             image: image,
@@ -196,10 +205,6 @@
                   template: "checkout",
                 }],
                 [
-                  {
-                    name: "unit-test",
-                    template: "unit-test",
-                  },
                   {
                     name: "sdk-test",
                     template: "sdk-test",

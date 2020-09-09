@@ -18,6 +18,7 @@ package service
 
 import (
 	"fmt"
+	"k8s.io/client-go/util/retry"
 	"reflect"
 	"sort"
 	"time"
@@ -846,7 +847,9 @@ var _ = Describe("test inference service controller", func() {
 			// Canary service should be removed during reconcile
 			canaryUpdate.Spec.Canary = nil
 			canaryUpdate.Spec.CanaryTrafficPercent = 0
-			g.Expect(k8sClient.Update(context.TODO(), canaryUpdate)).NotTo(gomega.HaveOccurred())
+			err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				return k8sClient.Update(context.TODO(), canaryUpdate)
+			})
 			// Need to wait for update propagate back to controller before checking
 			canaryDelete := &kfserving.InferenceService{}
 			g.Eventually(func() bool {
@@ -856,7 +859,10 @@ var _ = Describe("test inference service controller", func() {
 				return canaryDelete.Spec.Canary == nil
 			}, timeout).Should(gomega.BeTrue())
 			// Trigger another reconcile
-			g.Expect(k8sClient.Update(context.TODO(), canaryDelete)).NotTo(gomega.HaveOccurred())
+			err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				return k8sClient.Update(context.TODO(), canaryDelete)
+			})
+			g.Expect(err).NotTo(gomega.HaveOccurred())
 
 			defaultService = &knservingv1.Service{}
 			g.Eventually(func() error { return k8sClient.Get(context.TODO(), defaultPredictor, defaultService) }, timeout).
