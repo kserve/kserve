@@ -25,12 +25,6 @@ import (
 	"strings"
 )
 
-const (
-	AgentContainerName       = "agent"
-	AgentConfigMapKeyName    = "agent"
-	AgentS3EndpointArgName   = "-s3-endpoint"
-)
-
 type AgentConfig struct {
 	Image         string `json:"image"`
 	CpuRequest    string `json:"cpuRequest"`
@@ -46,7 +40,7 @@ type AgentInjector struct {
 func getAgentConfigs(configMap *v1.ConfigMap) (*AgentConfig, error) {
 
 	agentConfig := &AgentConfig{}
-	if agentConfigValue, ok := configMap.Data[AgentConfigMapKeyName]; ok {
+	if agentConfigValue, ok := configMap.Data[constants.AgentConfigMapKeyName]; ok {
 		err := json.Unmarshal([]byte(agentConfigValue), &agentConfig)
 		if err != nil {
 			panic(fmt.Errorf("Unable to unmarshall agent json string due to %v ", err))
@@ -79,7 +73,7 @@ func (il *AgentInjector) InjectAgent(pod *v1.Pod) error {
 
 	// Don't inject if Container already injected
 	for _, container := range pod.Spec.Containers {
-		if strings.Compare(container.Name, AgentContainerName) == 0 {
+		if strings.Compare(container.Name, constants.AgentContainerName) == 0 {
 			return nil
 		}
 	}
@@ -87,7 +81,7 @@ func (il *AgentInjector) InjectAgent(pod *v1.Pod) error {
 	var args []string
 	s3Endpoint, ok := pod.ObjectMeta.Annotations[constants.AgentS3endpointAnnotationKey]
 	if ok {
-		args = append(args, AgentS3EndpointArgName)
+		args = append(args, constants.AgentS3EndpointArgName)
 		args = append(args, s3Endpoint)
 	}
 
@@ -95,7 +89,7 @@ func (il *AgentInjector) InjectAgent(pod *v1.Pod) error {
 	securityContext := pod.Spec.Containers[0].SecurityContext.DeepCopy()
 
 	agentContainer := &v1.Container{
-		Name:  AgentContainerName,
+		Name:  constants.AgentContainerName,
 		Image: il.config.Image,
 		Args:  args,
 		Resources: v1.ResourceRequirements{
@@ -134,7 +128,7 @@ func mountModelConfigMap(pod *v1.Pod) error {
 				},
 			},
 		}
-		mountVolume(AgentContainerName, pod, modelConfigVolume)
+		mountVolume(constants.AgentContainerName, pod, modelConfigVolume)
 		return nil
 	}
 	return fmt.Errorf("can not find %v label", constants.AgentModelConfigAnnotationKey)

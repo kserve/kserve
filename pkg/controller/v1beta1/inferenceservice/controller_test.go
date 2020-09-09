@@ -18,7 +18,6 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"github.com/kr/pretty"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	. "github.com/onsi/ginkgo"
@@ -630,9 +629,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 		var serviceKey = expectedRequest.NamespacedName
 		var modelConfigMapKey = types.NamespacedName{Name: constants.ModelConfigName(serviceName, 0),
 			Namespace: serviceKey.Namespace}
-		var ksvcKey = types.NamespacedName{Name: constants.DefaultServiceName(serviceKey.Name, constants.Predictor),
-			Namespace: expectedRequest.Namespace}
 		ctx := context.Background()
+
 		instance := &v1beta1.InferenceService{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      serviceKey.Name,
@@ -646,6 +644,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					},
 					Tensorflow: &v1beta1.TFServingSpec{
 						PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
+							RuntimeVersion: proto.String("1.14.0"),
 							Container: v1.Container{
 								Name: "kfs",
 							},
@@ -654,6 +653,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				},
 			},
 		}
+
 		It("Should have model config created and mounted", func() {
 			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
 			defer k8sClient.Delete(context.TODO(), configMap)
@@ -683,29 +683,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 				return true
 			}, timeout, interval).Should(BeTrue())
-
-			ksvc := &knservingv1.Service{}
-			Eventually(func() bool {
-				//Check if ksvc is created
-				err := k8sClient.Get(ctx, ksvcKey, ksvc)
-				if err != nil {
-					return false
-				}
-				//Check if the  modelConfig configmap is mounted
-				isMounted := false
-				for _, volume := range ksvc.Spec.Template.Spec.Volumes {
-					if volume.Name == constants.ModelConfigVolumeName {
-						isMounted = true
-					}
-				}
-				if isMounted == false {
-					return false
-				}
-
-				return true
-			}, timeout, interval).Should(BeTrue())
 		})
-
 	})
-
 })

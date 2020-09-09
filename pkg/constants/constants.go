@@ -49,6 +49,13 @@ var (
 	ModelConfigFileName = "models.json"
 )
 
+// Model agent Constants
+const (
+	AgentContainerName     = "agent"
+	AgentConfigMapKeyName  = "agent"
+	AgentS3EndpointArgName = "-s3-endpoint"
+)
+
 // InferenceService Annotations
 var (
 	InferenceServiceGKEAcceleratorAnnotationKey = KFServingAPIGroupName + "/gke-accelerator"

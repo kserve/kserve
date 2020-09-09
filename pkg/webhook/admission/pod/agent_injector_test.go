@@ -26,13 +26,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const (
-	AgentDefaultCPURequest    = "100m"
-	AgentDefaultCPULimit      = "1"
-	AgentDefaultMemoryRequest = "200Mi"
-	AgentDefaultMemoryLimit   = "1Gi"
-)
-
 var (
 	agentConfig = &AgentConfig{
 		Image:         "gcr.io/kfserving/agent:latest",
@@ -94,7 +87,7 @@ func TestAgentInjector(t *testing.T) {
 							Name: "sklearn",
 						},
 						{
-							Name:      AgentContainerName,
+							Name:      constants.AgentContainerName,
 							Image:     agentConfig.Image,
 							Resources: agentResourceRequirement,
 							VolumeMounts: []v1.VolumeMount{

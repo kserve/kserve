@@ -19,6 +19,8 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
 	"github.com/kubeflow/kfserving/pkg/constants"
+	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/trainedmodel/sharding/memory"
+	"github.com/kubeflow/kfserving/pkg/modelconfig"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -44,21 +46,29 @@ type KsvcReconciler struct {
 	componentStatus v1beta1.ComponentStatusSpec
 }
 
-func NewKsvcReconciler(client client.Client, scheme *runtime.Scheme, componentMeta metav1.ObjectMeta,
-	componentExt *v1beta1.ComponentExtensionSpec, podSpec *corev1.PodSpec,
-	componentStatus v1beta1.ComponentStatusSpec) *KsvcReconciler {
+func NewKsvcReconciler(client client.Client,
+	scheme *runtime.Scheme,
+	componentMeta metav1.ObjectMeta,
+	componentExt *v1beta1.ComponentExtensionSpec,
+	podSpec *corev1.PodSpec,
+	componentStatus v1beta1.ComponentStatusSpec,
+	component constants.InferenceServiceComponent,
+	isvc *v1beta1.InferenceService) *KsvcReconciler {
 	return &KsvcReconciler{
 		client:          client,
 		scheme:          scheme,
-		Service:         createKnativeService(componentMeta, componentExt, podSpec, componentStatus),
+		Service:         createKnativeService(componentMeta, componentExt, podSpec, componentStatus, component, isvc),
 		componentExt:    componentExt,
 		componentStatus: componentStatus,
 	}
 }
 
 func createKnativeService(componentMeta metav1.ObjectMeta,
-	componentExtension *v1beta1.ComponentExtensionSpec, podSpec *corev1.PodSpec,
-	componentStatus v1beta1.ComponentStatusSpec) *knservingv1.Service {
+	componentExtension *v1beta1.ComponentExtensionSpec,
+	podSpec *corev1.PodSpec,
+	componentStatus v1beta1.ComponentStatusSpec,
+	component constants.InferenceServiceComponent,
+	isvc *v1beta1.InferenceService) *knservingv1.Service {
 	annotations := componentMeta.GetAnnotations()
 
 	if componentExtension.MinReplicas == nil {
@@ -75,6 +85,9 @@ func createKnativeService(componentMeta metav1.ObjectMeta,
 	if _, ok := annotations[autoscaling.ClassAnnotationKey]; !ok {
 		annotations[autoscaling.ClassAnnotationKey] = autoscaling.KPA
 	}
+	// Add agent annotations so mutator will mount model agent to multi-model InferenceService's predictor
+	addAgentAnnotations(component, isvc, annotations)
+
 	trafficTargets := []knservingv1.TrafficTarget{}
 	if componentExtension.CanaryTrafficPercent != nil && componentStatus.PreviousReadyRevision != "" {
 		//canary rollout
@@ -127,6 +140,25 @@ func createKnativeService(componentMeta metav1.ObjectMeta,
 			},
 		},
 	}
+}
+
+func addAgentAnnotations(component constants.InferenceServiceComponent, isvc *v1beta1.InferenceService, annotations map[string]string) bool {
+	if component == constants.Predictor && isvc.Spec.Predictor.GetImplementation().GetStorageUri() == nil {
+		annotations[constants.AgentInternalAnnotationKey] = "true"
+		shardStrategy := memory.MemoryStrategy{}
+		for _, id := range shardStrategy.GetShard(isvc) {
+			modelConfig, err := modelconfig.CreateEmptyModelConfig(isvc, id)
+			if err == nil {
+				annotations[constants.AgentModelConfigAnnotationKey] = modelConfig.Name
+				//TODO figure out the proper way to inject s3 endpoint from s3 identity
+				annotations[constants.AgentS3endpointAnnotationKey] = "gs://kfserving-samples"
+			} else {
+				return false
+			}
+		}
+		return true
+	}
+	return false
 }
 
 func (r *KsvcReconciler) finalizeService(serviceName, namespace string) error {
