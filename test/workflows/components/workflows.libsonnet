@@ -206,10 +206,6 @@
                 }],
                 [
                   {
-                    name: "unit-test",
-                    template: "unit-test",
-                  },
-                  {
                     name: "sdk-test",
                     template: "sdk-test",
                   },
