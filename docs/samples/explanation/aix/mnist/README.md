@@ -1,5 +1,7 @@
 # Using AIX to get explanations for MNIST classifications
 
+This is an example of how to explain model outputs using [AIX360](https://github.com/Trusted-AI/AIX360) on KFServing. We will be using mnist, a dataset for handwritten digits, for this model and explain how the model decides the predicted results.
+
 To deploy the inferenceservice
 
 `kubectl apply -f aix-explainer.yaml`
@@ -27,32 +29,6 @@ To try a different MNIST example add an integer to the end of the query between 
 ```
 python query_explain.py http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/$MODEL_NAME:explain ${SERVICE_HOSTNAME} 100
 ```
-
-## Deploying AIX explanations for another Image Classifier
-
-This section is for users who have another Image classifier which you would like to get explanations for. Change the image from `aipipeline/aix-explainer:0.2.2` to the endpoint of your image in aix-explainer.yaml.
-
-```
-name: predictor
-image: <your image endpoint>
-```
-
-Then deploy your inferenceservice.
-
-`kubectl apply -f aix-explainer.yaml`
-
-## Deploying a Development Explainer Image
-
-To deploy a development image go to `aix-explainer.yaml` and change the original explainer image to the endpoint of your image.
-
-```
-name: explainer
-image: <your image endpoint>
-```
-
-Then deploy your inferenceservice.
-
-`kubectl apply -f aix-explainer.yaml`
 
 ## Stopping the Inference Service
 
