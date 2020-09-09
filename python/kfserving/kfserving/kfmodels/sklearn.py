@@ -24,10 +24,10 @@ MODEL_EXTENSIONS = MODEL_EXTENSIONS[KFModelTypes.Sklearn]
 
 
 class SKLearnModel(kfserving.KFModel):  # pylint:disable=c-extension-no-member
-    def __init__(self, name: str, model_dir: str):
+    def __init__(self, name: str, model_dir: str, full_model_path: str = ""):
         super().__init__(name)
         self.name = name
-        self.full_model_path = ""
+        self.full_model_path = full_model_path
         self.model_dir = model_dir
         self.ready = False
         self._model = None

@@ -21,7 +21,7 @@ tests_require = [
 ]
 setup(
     name='pytorchserver',
-    version='0.4.1',
+    version='0.4.0',
     author_email='singhan@us.ibm.com',
     license='https://github.com/kubeflow/kfserving/LICENSE',
     url='https://github.com/kubeflow/kfserving/python/pytorchserver',
@@ -31,7 +31,7 @@ setup(
     python_requires='>3.4',
     packages=find_packages("pytorchserver"),
     install_requires=[
-        "kfserving>=0.4.1",
+        "kfserving>=0.4.0",
         "argparse >= 1.4.0"
     ],
     tests_require=tests_require,

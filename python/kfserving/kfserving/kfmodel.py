@@ -44,9 +44,6 @@ class KFModel:
             self._http_client_instance = AsyncHTTPClient(max_clients=sys.maxsize)
         return self._http_client_instance
 
-    def set_full_model_path(self, full_model_path: str):
-        self.full_model_path = full_model_path
-
     def load(self):
         self.ready = True
 

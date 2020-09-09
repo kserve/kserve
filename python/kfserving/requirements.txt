@@ -17,4 +17,5 @@ joblib >= 0.13.0
 xgboost == 0.82
 torch >= 1.0.0
 torchvision >= 0.2.0
+asyncio >= 3.4.3
 nest_asyncio >= 1.4.0

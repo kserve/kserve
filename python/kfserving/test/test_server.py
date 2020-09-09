@@ -76,13 +76,13 @@ class TestTFHttpServer():
         resp = await http_server_client.fetch('/v1/models/model/load',
                                               method="POST", body=b'')
         assert resp.code == 200
-        assert resp.body == b'succeed to load model model'
+        assert resp.body == b'{"name": "model", "load": true}'
 
     async def test_unload(self, http_server_client):
         resp = await http_server_client.fetch('/v1/models/model/unload',
                                               method="POST", body=b'')
         assert resp.code == 200
-        assert resp.body == b'succeed to unload model model'
+        assert resp.body == b'{"name": "model", "unload": true}'
 
     async def test_load_fail(self, http_server_client):
         nest_asyncio.apply()

@@ -1,4 +1,4 @@
-# Copyright 2019 kubeflow.org.
+# Copyright 2020 kubeflow.org.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,10 +30,16 @@ MODEL_EXTENSIONS = {
 }
 
 
+class UnsupportedModelError(Exception):
+    def __init__(self):
+        super().__init__(f"Invalid model type, must be one of "
+                         f"{[m.name for m in KFModelTypes]}")
+
+
 def get_kfmodel_type(model_name: str, model_dir: str) -> Tuple[Optional[KFModelTypes], str]:
     for model_type in MODEL_EXTENSIONS:
         for extension in MODEL_EXTENSIONS[model_type]:
             path = os.path.join(model_dir, model_name + extension)
             if os.path.exists(path):
                 return model_type, path
-    return None, ""
+    raise UnsupportedModelError

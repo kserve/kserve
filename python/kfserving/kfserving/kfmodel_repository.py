@@ -1,4 +1,4 @@
-# Copyright 2019 kubeflow.org.
+# Copyright 2020 kubeflow.org.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -46,8 +46,7 @@ class KFModelRepository:
     async def load(self, name: str) -> bool:
         model_type, model_full_path = get_kfmodel_type(name, self.models_dir)
 
-        model = KFModelFactory.create_model(name, self.models_dir, model_type)
-        model.set_full_model_path(model_full_path)
+        model = KFModelFactory.create_model(name, self.models_dir, model_full_path, model_type)
 
         if inspect.iscoroutinefunction(model.load):
             await model.load()

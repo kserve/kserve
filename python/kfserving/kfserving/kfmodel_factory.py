@@ -1,4 +1,4 @@
-# Copyright 2019 kubeflow.org.
+# Copyright 2020 kubeflow.org.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,23 +17,18 @@ from kfserving import KFModel
 from kfserving.kfmodels import kfmodel_types, sklearn, pytorch, xgboost
 
 
-class UnsupportedModelError(Exception):
-    def __init__(self):
-        super().__init__(f"Invalid model type, must be one of "
-                         f"{[m.name for m in kfmodel_types.KFModelTypes]}")
-
-
 class KFModelFactory:
     @staticmethod
     def create_model(model_name: str,
                      model_dir: str,
+                     full_model_path: str,
                      model_type: Optional[kfmodel_types.KFModelTypes]) -> KFModel:
 
         if model_type == kfmodel_types.KFModelTypes.Sklearn:
-            return sklearn.SKLearnModel(model_name, model_dir)
+            return sklearn.SKLearnModel(model_name, model_dir, full_model_path)
         elif model_type == kfmodel_types.KFModelTypes.Pytorch:
             return pytorch.PyTorchModel(model_name, model_dir)
         elif model_type == kfmodel_types.KFModelTypes.Xgboost:
-            return xgboost.XGBoostModel(model_name, model_dir)
+            return xgboost.XGBoostModel(model_name, model_dir, full_model_path)
         else:
-            raise UnsupportedModelError
+            raise kfmodel_types.UnsupportedModelError

@@ -23,11 +23,11 @@ DEFAULT_NTHREAD = 1
 
 
 class XGBoostModel(kfserving.KFModel):
-    def __init__(self, name: str, model_dir: str, nthread: int = DEFAULT_NTHREAD,
-                 booster: XGBModel = None):
+    def __init__(self, name: str, model_dir: str, full_model_path: str = "",
+                 nthread: int = DEFAULT_NTHREAD, booster: XGBModel = None):
         super().__init__(name)
         self.name = name
-        self.full_model_path = ""
+        self.full_model_path = full_model_path
         self.model_dir = model_dir
         self.nthread = nthread
         if not booster is None:

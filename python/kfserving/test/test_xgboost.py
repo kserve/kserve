@@ -38,7 +38,7 @@ async def test_model():
     xgb_model = xgb.train(params=param, dtrain=dtrain)
     model_file = os.path.join((model_dir), BST_FILE)
     xgb_model.save_model(model_file)
-    model = XGBoostModel("xgbmodel", model_dir, NTHREAD)
+    model = XGBoostModel("xgbmodel", model_dir, "", NTHREAD)
     await model.load()
     request = [X[0].tolist()]
     response = model.predict({"instances": request})

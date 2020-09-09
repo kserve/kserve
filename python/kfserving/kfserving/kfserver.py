@@ -26,7 +26,7 @@ import tornado.log
 from kfserving.handlers.http import PredictHandler, ExplainHandler
 from kfserving import KFModel
 from kfserving import KFModelRepository
-from kfserving.kfmodel_factory import UnsupportedModelError
+from kfserving.kfmodels.kfmodel_types import UnsupportedModelError
 
 DEFAULT_HTTP_PORT = 8080
 DEFAULT_GRPC_PORT = 8081
@@ -149,8 +149,7 @@ class LoadHandler(tornado.web.RequestHandler):
 
     async def post(self, name: str):
         try:
-            loop = asyncio.get_running_loop()
-            ready = loop.run_until_complete(self.models.load(name))
+            await self.models.load(name)
         except UnsupportedModelError as e:
             raise tornado.web.HTTPError(
                 status_code=404,
@@ -159,17 +158,20 @@ class LoadHandler(tornado.web.RequestHandler):
         except Exception as e:
             ex_type, ex_value, ex_traceback = sys.exc_info()
             raise tornado.web.HTTPError(
-                status_code=503,
+                status_code=500,
                 reason=f"Model with name {name} is not ready. "
                        f"Error type: {ex_type} error msg: {ex_value}"
             )
 
-        if not ready:
+        if not self.models.get_model(name).ready:
             raise tornado.web.HTTPError(
                 status_code=503,
                 reason=f"Model with name {name} is not ready."
             )
-        self.write(f"succeed to load model {name}")
+        self.write(json.dumps({
+            "name": name,
+            "load": True
+        }))
 
 
 class UnloadHandler(tornado.web.RequestHandler):
@@ -184,4 +186,7 @@ class UnloadHandler(tornado.web.RequestHandler):
                 status_code=404,
                 reason="Model with name %s does not exist." % name
             )
-        self.write(f"succeed to unload model {name}")
+        self.write(json.dumps({
+            "name": name,
+            "unload": True
+        }))
