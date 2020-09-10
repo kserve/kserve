@@ -76,8 +76,8 @@ func (isvc *InferenceService) Default() {
 func (isvc *InferenceService) DefaultInferenceService(config *InferenceServicesConfig) {
 	for _, component := range []Component{
 		&isvc.Spec.Predictor,
-		//isvc.Spec.Transformer, //TODO the transformer defaulter causes a nil pointer
-		//isvc.Spec.Explainer, //TODO the explainer defaulter causes a nil pointer
+		isvc.Spec.Transformer,
+		isvc.Spec.Explainer,
 	} {
 		if component != nil && !reflect.ValueOf(component).IsNil() {
 			component.GetImplementation().Default(config)

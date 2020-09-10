@@ -17,9 +17,11 @@ limitations under the License.
 package v1beta1
 
 import (
+	"fmt"
 	"github.com/golang/protobuf/proto"
 	"testing"
 
+	"github.com/kr/pretty"
 	"github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -85,6 +87,9 @@ func TestInferenceServiceDefaults(t *testing.T) {
 	isvc.DefaultInferenceService(config)
 	g.Expect(*isvc.Spec.Predictor.Tensorflow.RuntimeVersion).To(gomega.Equal("1.14.0"))
 	g.Expect(isvc.Spec.Predictor.Tensorflow.Resources).To(gomega.Equal(resources))
+
+	fmt.Printf("expected %# v", pretty.Formatter(resources))
+	fmt.Printf("actual %# v", pretty.Formatter(isvc.Spec.Transformer.CustomTransformer.Spec.Containers[0]))
 
 	g.Expect(isvc.Spec.Transformer.CustomTransformer.Spec.Containers[0].Resources).To(gomega.Equal(resources))
 
