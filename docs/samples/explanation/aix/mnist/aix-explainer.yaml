@@ -9,7 +9,7 @@ spec:
       custom:
         container:
           name: predictor
-          image: aipipeline/rf-predictor:0.4
+          image: aipipeline/rf-predictor:0.4.0
           command: ["python", "-m", "rfserver", "--model_name", "aix-explainer"]
           imagePullPolicy: Always
           resources:
