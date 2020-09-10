@@ -152,6 +152,7 @@ func addAgentAnnotations(component constants.InferenceServiceComponent, isvc *v1
 				annotations[constants.AgentModelConfigAnnotationKey] = modelConfig.Name
 				//TODO figure out the proper way to inject s3 endpoint from s3 identity
 				annotations[constants.AgentS3endpointAnnotationKey] = "gs://kfserving-samples"
+				annotations[constants.AgentModelDirAnnotationKey] = constants.ModelDir
 			} else {
 				return false
 			}

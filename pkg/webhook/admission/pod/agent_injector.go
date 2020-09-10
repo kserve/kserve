@@ -60,7 +60,6 @@ func getAgentConfigs(configMap *v1.ConfigMap) (*AgentConfig, error) {
 		}
 	}
 
-	//constants.KServiceComponentLabel
 	return agentConfig, nil
 }
 
@@ -109,14 +108,37 @@ func (il *AgentInjector) InjectAgent(pod *v1.Pod) error {
 	pod.Spec.Containers = append(pod.Spec.Containers, *agentContainer)
 
 	if _, ok := pod.ObjectMeta.Annotations[constants.AgentInternalAnnotationKey]; ok {
-		// Mount the modelconfig volume to the pod and model agent container
-		return mountModelConfigMap(pod)
+		// Mount the modelDir volume to the pod and model agent container
+		err := mountModelDir(pod)
+		if err != nil {
+			return err
+		}
+		// Mount the modelConfig volume to the pod and model agent container
+		err = mountModelConfig(pod)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
 }
 
-func mountModelConfigMap(pod *v1.Pod) error {
+func mountModelDir(pod *v1.Pod) error {
+	if _, ok := pod.ObjectMeta.Annotations[constants.AgentModelDirAnnotationKey]; ok {
+		modelDirVolume := v1.Volume{
+			Name: constants.ModelDirVolumeName,
+			VolumeSource: v1.VolumeSource{
+				EmptyDir: &v1.EmptyDirVolumeSource{
+				},
+			},
+		}
+		mountVolume(constants.AgentContainerName, pod, modelDirVolume, constants.ModelDir)
+		return nil
+	}
+	return fmt.Errorf("can not find %v label", constants.AgentModelConfigAnnotationKey)
+}
+
+func mountModelConfig(pod *v1.Pod) error {
 	if modelConfigName, ok := pod.ObjectMeta.Annotations[constants.AgentModelConfigAnnotationKey]; ok {
 		modelConfigVolume := v1.Volume{
 			Name: constants.ModelConfigVolumeName,
@@ -128,13 +150,13 @@ func mountModelConfigMap(pod *v1.Pod) error {
 				},
 			},
 		}
-		mountVolume(constants.AgentContainerName, pod, modelConfigVolume)
+		mountVolume(constants.AgentContainerName, pod, modelConfigVolume, constants.ModelConfigDir)
 		return nil
 	}
 	return fmt.Errorf("can not find %v label", constants.AgentModelConfigAnnotationKey)
 }
 
-func mountVolume(containerName string, pod *v1.Pod, additionalVolume v1.Volume) {
+func mountVolume(containerName string, pod *v1.Pod, additionalVolume v1.Volume,  mountPath string) {
 	pod.Spec.Volumes = appendVolume(pod.Spec.Volumes, additionalVolume)
 	var mountedContainers []v1.Container
 	for _, container := range pod.Spec.Containers {
@@ -143,9 +165,9 @@ func mountVolume(containerName string, pod *v1.Pod, additionalVolume v1.Volume) 
 				container.VolumeMounts = []v1.VolumeMount{}
 			}
 			container.VolumeMounts = append(container.VolumeMounts, v1.VolumeMount{
-				Name:      constants.ModelConfigVolumeName,
+				Name:      additionalVolume.Name,
 				ReadOnly:  true,
-				MountPath: constants.ModelConfigDir,
+				MountPath: mountPath,
 			})
 		}
 		mountedContainers = append(mountedContainers, container)

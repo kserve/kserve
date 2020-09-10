@@ -73,8 +73,9 @@ var (
 	BatcherMaxLatencyInternalAnnotationKey           = InferenceServiceInternalAnnotationsPrefix + "/batcher-max-latency"
 	BatcherTimeoutInternalAnnotationKey              = InferenceServiceInternalAnnotationsPrefix + "/batcher-timeout"
 	AgentInternalAnnotationKey                       = InferenceServiceInternalAnnotationsPrefix + "/agent"
-	AgentModelConfigAnnotationKey                    = InferenceServiceInternalAnnotationsPrefix + "/modelConfig"
+	AgentModelConfigAnnotationKey                    = InferenceServiceInternalAnnotationsPrefix + "/configDir"
 	AgentS3endpointAnnotationKey                     = InferenceServiceInternalAnnotationsPrefix + "/s3-endpoint"
+	AgentModelDirAnnotationKey                       = InferenceServiceInternalAnnotationsPrefix + "/modelDir"
 )
 
 // Controller Constants
@@ -175,7 +176,9 @@ const (
 // Multi-model InferenceService
 const (
 	ModelConfigVolumeName = "model-config"
+	ModelDirVolumeName    = "model-dir"
 	ModelConfigDir        = "/mnt/configs"
+	ModelDir              = DefaultModelLocalMountPath
 )
 
 var (
