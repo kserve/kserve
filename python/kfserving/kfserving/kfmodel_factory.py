@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from typing import Optional
-from kfserving import KFModel, KFModelTypes, SKLearnModel, PyTorchModel, XGBoostModel, UnsupportedModelError
+from kfserving import KFModel, KFModelTypes, SKLearnModel, XGBoostModel, UnsupportedModelError
 
 
 class KFModelFactory:
@@ -25,8 +25,6 @@ class KFModelFactory:
 
         if model_type == KFModelTypes.Sklearn:
             return SKLearnModel(model_name, model_dir, full_model_path)
-        elif model_type == KFModelTypes.Pytorch:
-            return PyTorchModel(model_name, model_dir)
         elif model_type == KFModelTypes.Xgboost:
             return XGBoostModel(model_name, model_dir, full_model_path)
         else:

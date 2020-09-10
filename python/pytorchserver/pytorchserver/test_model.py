@@ -12,18 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from kfserving import PyTorchModel
+from pytorchserver import PyTorchModel
 import torch
 import torchvision
 import torchvision.transforms as transforms
 import os
 
-model_dir = model_dir = os.path.join(os.path.dirname(__file__), "example_models", "pytorch")
+model_dir = model_dir = os.path.join(os.path.dirname(__file__), "example_model")
 MODEL_FILE = "model.pt"
 
 
 def test_model():
-    server = PyTorchModel("pytorchmodel", model_dir, "Net")
+    server = PyTorchModel("pytorchmodel", "Net", model_dir)
     server.load()
 
     transform = transforms.Compose([transforms.ToTensor(),
@@ -35,6 +35,6 @@ def test_model():
     dataiter = iter(testloader)
     images, _ = dataiter.next()
 
-    request = {"instances": images[0:1].tolist()}
+    request = {"instances" : images[0:1].tolist()}
     response = server.predict(request)
-    assert isinstance(response["predictions"][0], list)
+    assert isinstance(response["instances"][0], list)

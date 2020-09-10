@@ -20,13 +20,11 @@ from typing import Optional, Tuple
 class KFModelTypes(enum.Enum):
     Sklearn = "sklearn"
     Xgboost = "xgboost"
-    Pytorch = "pytorch"
 
 
 MODEL_EXTENSIONS = {
     KFModelTypes.Sklearn: [".joblib", ".pkl", ".pickle"],
     KFModelTypes.Xgboost: [".bst"],
-    KFModelTypes.Pytorch: [".pt"]
 }
 
 

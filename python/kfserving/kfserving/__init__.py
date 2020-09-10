@@ -18,7 +18,6 @@ from .kfmodels.kfmodel_types import KFModelTypes
 from .kfmodels.kfmodel_types import UnsupportedModelError
 from .kfmodels.kfmodel_types import get_kfmodel_type
 from .kfmodels.sklearn import SKLearnModel
-from .kfmodels.pytorch import PyTorchModel
 from .kfmodels.xgboost import XGBoostModel
 from .kfmodel_factory import KFModelFactory
 from .kfmodel_repository import KFModelRepository
