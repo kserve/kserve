@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import argparse
-import asyncio
 import logging
 import json
 import sys

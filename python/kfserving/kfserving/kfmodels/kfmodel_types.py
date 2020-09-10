@@ -24,7 +24,7 @@ class KFModelTypes(enum.Enum):
 
 MODEL_EXTENSIONS = {
     KFModelTypes.Sklearn: [".joblib", ".pkl", ".pickle"],
-    KFModelTypes.Xgboost: [".bst"],
+    KFModelTypes.Xgboost: [".bst"]
 }
 
 

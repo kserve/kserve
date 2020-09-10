@@ -18,6 +18,7 @@ import sys
 
 import kfserving
 
+
 DEFAULT_MODEL_NAME = "model"
 DEFAULT_LOCAL_MODEL_DIR = "/tmp/model"
 

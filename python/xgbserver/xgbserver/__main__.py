@@ -16,13 +16,15 @@ import argparse
 import logging
 import sys
 
-import kfserving
+from kfserving import KFServer
+from kfserving import kfserver
+from kfserving.kfmodels.xgboost import XGBoostModel
 
 DEFAULT_MODEL_NAME = "default"
 DEFAULT_LOCAL_MODEL_DIR = "/tmp/model"
 DEFAULT_NTHREAD = 1
 
-parser = argparse.ArgumentParser(parents=[kfserving.kfserver.parser])  # pylint:disable=c-extension-no-member
+parser = argparse.ArgumentParser(parents=[kfserver.parser])  # pylint:disable=c-extension-no-member
 parser.add_argument('--model_dir', required=True,
                     help='A URI pointer to the model directory')
 parser.add_argument('--model_name', default=DEFAULT_MODEL_NAME,
@@ -32,7 +34,7 @@ parser.add_argument('--nthread', default=DEFAULT_NTHREAD,
 args, _ = parser.parse_known_args()
 
 if __name__ == "__main__":
-    model = kfserving.XGBoostModel(args.model_name, args.model_dir, "", args.nthread)
+    model = XGBoostModel(args.model_name, args.model_dir, "", args.nthread)
     try:
         model.load_from_model_dir()
     except Exception as e:
@@ -42,4 +44,4 @@ if __name__ == "__main__":
         model.ready = False
     # if fail to load model, start kfserver with an empty model list
     # client can use v1/models/$model_name/load to load models
-    kfserving.KFServer().start([model] if model.ready else [])  # pylint:disable=c-extension-no-member
+    KFServer().start([model] if model.ready else [])  # pylint:disable=c-extension-no-member
