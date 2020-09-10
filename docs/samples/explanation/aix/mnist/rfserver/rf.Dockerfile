@@ -1,6 +1,6 @@
 FROM python:3.7
 
 COPY . .
-RUN pip install --upgrade pip && pip install -e ./kfserving
-RUN pip install -e ./rfserver
+RUN pip install --upgrade pip && pip install kfserving==0.4.0
+RUN pip install -e .
 ENTRYPOINT ["python", "-m", "rfserver", "--model_name", "aixserver"]

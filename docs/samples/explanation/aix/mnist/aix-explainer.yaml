@@ -9,7 +9,7 @@ spec:
       custom:
         container:
           name: predictor
-          image: aipipeline/rf-predictor:0.2.2
+          image: aipipeline/rf-predictor:0.4
           command: ["python", "-m", "rfserver", "--model_name", "aix-explainer"]
           imagePullPolicy: Always
           resources:
@@ -28,5 +28,5 @@ spec:
           min_weight: "0.01"
         resources:
           requests:
-            cpu: 0.1
+            cpu: 1
             memory: 2Gi

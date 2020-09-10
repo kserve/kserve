@@ -44,7 +44,7 @@ class RFModel(kfserving.KFModel): #pylint:disable=c-extension-no-member
 
     def load(self):
 
-        with open('/rfserver/rfmodel.pickle', 'rb') as f:
+        with open('../rfmodel.pickle', 'rb') as f:
             rf = pickle.load(f)
         self.model = rf
 
