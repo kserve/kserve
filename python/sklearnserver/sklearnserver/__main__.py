@@ -17,7 +17,6 @@ import logging
 import sys
 
 import kfserving
-from kfserving import SKLearnModel
 
 DEFAULT_MODEL_NAME = "model"
 DEFAULT_LOCAL_MODEL_DIR = "/tmp/model"
@@ -31,7 +30,7 @@ args, _ = parser.parse_known_args()
 
 
 if __name__ == "__main__":
-    model = SKLearnModel(args.model_name, args.model_dir)
+    model = kfserving.SKLearnModel(args.model_name, args.model_dir)
     try:
         model.load_from_model_dir()
     except Exception as e:

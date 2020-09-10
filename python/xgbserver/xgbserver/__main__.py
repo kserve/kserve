@@ -17,7 +17,6 @@ import logging
 import sys
 
 import kfserving
-from kfserving import XGBoostModel
 
 DEFAULT_MODEL_NAME = "default"
 DEFAULT_LOCAL_MODEL_DIR = "/tmp/model"
@@ -33,7 +32,7 @@ parser.add_argument('--nthread', default=DEFAULT_NTHREAD,
 args, _ = parser.parse_known_args()
 
 if __name__ == "__main__":
-    model = XGBoostModel(args.model_name, args.model_dir, "", args.nthread)
+    model = kfserving.XGBoostModel(args.model_name, args.model_dir, "", args.nthread)
     try:
         model.load_from_model_dir()
     except Exception as e:
