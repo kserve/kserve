@@ -72,7 +72,7 @@ data:
         },
         "aix": {
             "image" : "aipipeline/aix-explainer",
-            "defaultImageVersion": "0.4"
+            "defaultImageVersion": "0.4.0"
         }
     }
   storageInitializer: |-
