@@ -16,6 +16,7 @@ from setuptools import setup, find_packages
 
 tests_require = [
     'pytest',
+    'pytest-asyncio',
     'pytest-tornasync',
     'mypy'
 ]
@@ -33,6 +34,8 @@ setup(
     packages=find_packages("xgbserver"),
     install_requires=[
         "kfserving>=0.4.0",
+        "xgboost == 0.82",
+        "scikit-learn == 0.20.3",
         "argparse >= 1.4.0"
     ],
     tests_require=tests_require,

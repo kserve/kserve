@@ -1,4 +1,4 @@
-# Copyright 2019 kubeflow.org.
+# Copyright 2020 kubeflow.org.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,5 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .model import XGBoostModel
-from .xgboost_model_repository import XGBoostModelRepository
+from kfserving.kfmodel_repository import KFModelRepository
+from xgbserver import XGBoostModel
+
+
+class XGBoostModelRepository(KFModelRepository):
+    def __init__(self, model_dir: str, nthread: int):
+        super().__init__(model_dir)
+        self.nthread = nthread
+
+    async def load(self, name: str, ) -> bool:
+        model = XGBoostModel(name, self.models_dir, self.nthread)
+        if model.load_from_model_dir(name):
+            self.update(model)
+        return model.ready

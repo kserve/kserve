@@ -16,6 +16,7 @@ from setuptools import setup, find_packages
 
 tests_require = [
     'pytest',
+    'pytest-asyncio',
     'pytest-tornasync',
     'mypy'
 ]
@@ -32,7 +33,10 @@ setup(
     packages=find_packages("sklearnserver"),
     install_requires=[
         "kfserving>=0.4.0",
-        "argparse >= 1.4.0"
+        "scikit-learn == 0.20.3",
+        "argparse >= 1.4.0",
+        "numpy >= 1.8.2",
+        "joblib >= 0.13.0"
     ],
     tests_require=tests_require,
     extras_require={'test': tests_require}

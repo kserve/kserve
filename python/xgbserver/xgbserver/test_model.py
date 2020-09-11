@@ -12,18 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import pytest
 import xgboost as xgb
 import os
 from sklearn.datasets import load_iris
-from kfserving.kfmodels.xgboost import XGBoostModel
+from xgbserver import XGBoostModel
 
-model_dir = model_dir = os.path.join(os.path.dirname(__file__), "example_models", "xgboost")
+model_dir = model_dir = os.path.join(os.path.dirname(__file__), "example_model")
 BST_FILE = "model.bst"
 NTHREAD = 1
 
-@pytest.mark.asyncio
-async def test_model():
+def test_model():
     iris = load_iris()
     y = iris['target']
     X = iris['data']
@@ -34,12 +32,12 @@ async def test_model():
              'nthread': 4,
              'num_class': 10,
              'objective': 'multi:softmax'
-             }
+            }
     xgb_model = xgb.train(params=param, dtrain=dtrain)
     model_file = os.path.join((model_dir), BST_FILE)
     xgb_model.save_model(model_file)
-    model = XGBoostModel("xgbmodel", model_dir, "", NTHREAD)
-    await model.load()
+    model = XGBoostModel("xgbmodel", model_dir, NTHREAD)
+    model.load()
     request = [X[0].tolist()]
     response = model.predict({"instances": request})
     assert response["predictions"] == [0]

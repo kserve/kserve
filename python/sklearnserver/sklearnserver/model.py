@@ -17,22 +17,19 @@ import joblib
 import numpy as np
 import os
 from typing import Dict
-from kfserving.kfmodels.kfmodel_types import KFModelTypes, MODEL_EXTENSIONS
 
 MODEL_BASENAME = "model"
-MODEL_EXTENSIONS = MODEL_EXTENSIONS[KFModelTypes.Sklearn]
+MODEL_EXTENSIONS = [".joblib", ".pkl", ".pickle"]
 
 
 class SKLearnModel(kfserving.KFModel):  # pylint:disable=c-extension-no-member
-    def __init__(self, name: str, model_dir: str, full_model_path: str = ""):
+    def __init__(self, name: str, model_dir: str):
         super().__init__(name)
         self.name = name
-        self.full_model_path = full_model_path
         self.model_dir = model_dir
         self.ready = False
-        self._model = None
 
-    def load_from_model_dir(self):
+    def load(self):
         model_path = kfserving.Storage.download(self.model_dir)
         paths = [os.path.join(model_path, MODEL_BASENAME + model_extension)
                  for model_extension in MODEL_EXTENSIONS]
@@ -40,15 +37,13 @@ class SKLearnModel(kfserving.KFModel):  # pylint:disable=c-extension-no-member
         self._model = joblib.load(model_file)  # pylint:disable=attribute-defined-outside-init
         self.ready = True
 
-    def load_from_full_model_path(self):
-        self._model = joblib.load(self.full_model_path)
-        self.ready = True
-
-    async def load(self):
-        if len(self.full_model_path) != 0:
-            self.load_from_full_model_path()
-        else:
-            self.load_from_model_dir()
+    def load_from_model_dir(self, name: str) -> bool:
+        paths = [os.path.join(self.model_dir, name + model_extension) for model_extension in MODEL_EXTENSIONS]
+        for path in paths:
+            if os.path.exists(path):
+                self._model = joblib.load(path)  # pylint:disable=attribute-defined-outside-init
+                self.ready = True
+        return self.ready
 
     def predict(self, request: Dict) -> Dict:
         instances = request["instances"]

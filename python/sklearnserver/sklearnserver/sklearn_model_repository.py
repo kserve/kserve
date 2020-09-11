@@ -11,3 +11,18 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+from kfserving.kfmodel_repository import KFModelRepository
+from sklearnserver import SKLearnModel
+
+
+class SKLearnModelRepository(KFModelRepository):
+
+    def __init__(self, model_dir: str):
+        super().__init__(model_dir)
+
+    async def load(self, name: str) -> bool:
+        model = SKLearnModel(name, self.models_dir)
+        if model.load_from_model_dir(name):
+            self.update(model)
+        return model.ready

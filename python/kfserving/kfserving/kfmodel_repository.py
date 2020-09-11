@@ -12,11 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import inspect
 from typing import List, Optional
 from kfserving import KFModel
-from kfserving.kfmodel_factory import KFModelFactory
-from kfserving.kfmodels.kfmodel_types import get_kfmodel_type
 
 MODEL_MOUNT_DIRS = "/mnt/models"
 
@@ -40,21 +37,15 @@ class KFModelRepository:
     def get_models(self) -> List[KFModel]:
         return list(self.models.values())
 
+    def is_model_ready(self, name: str):
+        model = self.get_model(name)
+        return False if model is None else model.ready
+
     def update(self, model: KFModel):
         self.models[model.name] = model
 
-    async def load(self, name: str) -> bool:
-        model_type, model_full_path = get_kfmodel_type(name, self.models_dir)
-
-        model = KFModelFactory.create_model(name, self.models_dir, model_full_path, model_type)
-
-        if inspect.iscoroutinefunction(model.load):
-            await model.load()
-        else:
-            model.load()
-
-        self.update(model)
-        return model.ready
+    def load(self, name: str) -> bool:
+        pass
 
     def unload(self, name: str):
         if name in self.models:

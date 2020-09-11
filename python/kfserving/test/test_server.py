@@ -14,10 +14,10 @@
 
 import nest_asyncio
 import pytest
-import os
 from kfserving import kfmodel
 from kfserving import kfserver
 from tornado.httpclient import HTTPClientError
+from kfserving.kfmodel_repository import KFModelRepository
 
 
 class DummyModel(kfmodel.KFModel):
@@ -36,6 +36,21 @@ class DummyModel(kfmodel.KFModel):
         return {"predictions": request["instances"]}
 
 
+class DummyKFModelRepository(KFModelRepository):
+    def __init__(self, test_load_success: bool):
+        super().__init__()
+        self.test_load_success = test_load_success
+
+    async def load(self, name: str) -> bool:
+        if self.test_load_success:
+            model = DummyModel(name)
+            model.load()
+            self.update(model)
+            return model.ready
+        else:
+            return False
+
+
 class TestTFHttpServer():
 
     @pytest.fixture(scope="class")
@@ -44,8 +59,6 @@ class TestTFHttpServer():
         model.load()
         server = kfserver.KFServer()
         server.register_model(model)
-        models_dir = os.path.join(os.path.dirname(__file__), "example_models", "xgboost")
-        server.registered_models.set_models_dir(models_dir)
         return server.create_application()
 
     async def test_liveness(self, http_server_client):
@@ -72,8 +85,19 @@ class TestTFHttpServer():
         assert resp.body == b'{"predictions": [[1, 2]]}'
         assert resp.headers['content-type'] == "application/json; charset=UTF-8"
 
+    async def test_list(self, http_server_client):
+        resp = await http_server_client.fetch('/v1/models')
+        assert resp.code == 200
+        assert resp.body == b'["TestModel"]'
+
+
+class TestTFHttpServerLoadAndUnLoad():
+    @pytest.fixture(scope="class")
+    def app(self):  # pylint: disable=no-self-use
+        server = kfserver.KFServer(DummyKFModelRepository(test_load_success=True))
+        return server.create_application()
+
     async def test_load(self, http_server_client):
-        nest_asyncio.apply()
         resp = await http_server_client.fetch('/v1/models/model/load',
                                               method="POST", body=b'')
         assert resp.code == 200
@@ -85,23 +109,25 @@ class TestTFHttpServer():
         assert resp.code == 200
         assert resp.body == b'{"name": "model", "unload": true}'
 
+
+class TestTFHttpServerLoadAndUnLoadFailure():
+    @pytest.fixture(scope="class")
+    def app(self):  # pylint: disable=no-self-use
+        server = kfserver.KFServer(DummyKFModelRepository(test_load_success=False))
+        return server.create_application()
+
     async def test_load_fail(self, http_server_client):
         nest_asyncio.apply()
         with pytest.raises(HTTPClientError) as err:
-            _ = await http_server_client.fetch('/v1/models/Model1/load',
+            _ = await http_server_client.fetch('/v1/models/model/load',
                                                method="POST", body=b'')
-        assert err.value.code == 404
+        assert err.value.code == 503
 
     async def test_unload_fail(self, http_server_client):
         with pytest.raises(HTTPClientError) as err:
-            _ = await http_server_client.fetch('/v1/models/ModelNotExist/unload',
+            _ = await http_server_client.fetch('/v1/models/model/unload',
                                                method="POST", body=b'')
         assert err.value.code == 404
-
-    async def test_list(self, http_server_client):
-        resp = await http_server_client.fetch('/v1/models')
-        assert resp.code == 200
-        assert resp.body == b'["TestModel"]'
 
 
 class TestTFHttpServerModelNotLoaded():

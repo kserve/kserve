@@ -15,6 +15,7 @@
 import argparse
 import logging
 import json
+import inspect
 import sys
 from typing import List, Optional
 import tornado.ioloop
@@ -25,7 +26,6 @@ import tornado.log
 from kfserving.handlers.http import PredictHandler, ExplainHandler
 from kfserving import KFModel
 from kfserving.kfmodel_repository import KFModelRepository
-from kfserving.kfmodels.kfmodel_types import UnsupportedModelError
 
 DEFAULT_HTTP_PORT = 8080
 DEFAULT_GRPC_PORT = 8081
@@ -46,11 +46,12 @@ tornado.log.enable_pretty_logging()
 
 
 class KFServer:
-    def __init__(self, http_port: int = args.http_port,
+    def __init__(self, registered_models: KFModelRepository = KFModelRepository(),
+                 http_port: int = args.http_port,
                  grpc_port: int = args.grpc_port,
                  max_buffer_size: int = args.max_buffer_size,
                  workers: int = args.workers):
-        self.registered_models = KFModelRepository()
+        self.registered_models = registered_models
         self.http_port = http_port
         self.grpc_port = grpc_port
         self.max_buffer_size = max_buffer_size
@@ -148,12 +149,7 @@ class LoadHandler(tornado.web.RequestHandler):
 
     async def post(self, name: str):
         try:
-            await self.models.load(name)
-        except UnsupportedModelError as e:
-            raise tornado.web.HTTPError(
-                status_code=404,
-                reason=f"fail to load model {name}, error {e}"
-            )
+            (await self.models.load(name)) if inspect.iscoroutinefunction(self.models.load) else self.models.load(name)
         except Exception as e:
             ex_type, ex_value, ex_traceback = sys.exc_info()
             raise tornado.web.HTTPError(
@@ -162,7 +158,7 @@ class LoadHandler(tornado.web.RequestHandler):
                        f"Error type: {ex_type} error msg: {ex_value}"
             )
 
-        if not self.models.get_model(name).ready:
+        if not self.models.is_model_ready(name):
             raise tornado.web.HTTPError(
                 status_code=503,
                 reason=f"Model with name {name} is not ready."

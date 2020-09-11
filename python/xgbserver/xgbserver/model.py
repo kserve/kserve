@@ -19,44 +19,39 @@ import os
 from typing import Dict
 
 BOOSTER_FILE = "model.bst"
-DEFAULT_NTHREAD = 1
-
 
 class XGBoostModel(kfserving.KFModel):
-    def __init__(self, name: str, model_dir: str, full_model_path: str = "",
-                 nthread: int = DEFAULT_NTHREAD, booster: XGBModel = None):
+    def __init__(self, name: str, model_dir: str, nthread: int, booster: \
+        XGBModel = None):
         super().__init__(name)
         self.name = name
-        self.full_model_path = full_model_path
         self.model_dir = model_dir
         self.nthread = nthread
         if not booster is None:
             self._booster = booster
             self.ready = True
 
-    def load_from_model_dir(self):
+    def load(self):
         model_file = os.path.join(
             kfserving.Storage.download(self.model_dir), BOOSTER_FILE)
-        self._booster = xgb.Booster(params={"nthread": self.nthread},
+        self._booster = xgb.Booster(params={"nthread" : self.nthread},
                                     model_file=model_file)
         self.ready = True
 
-    def load_from_full_model_path(self):
-        self._booster = xgb.Booster(params={"nthread": self.nthread},
-                                    model_file=self.full_model_path)
-        self.ready = True
-
-    async def load(self):
-        if len(self.full_model_path) != 0:
-            self.load_from_full_model_path()
-        else:
-            self.load_from_model_dir()
+    def load_from_model_dir(self, name: str) -> bool:
+        model_file = os.path.join(
+            kfserving.Storage.download(self.model_dir), name + ".bst")
+        if os.path.exists(model_file):
+            self._booster = xgb.Booster(params={"nthread": self.nthread},
+                                        model_file=model_file)
+            self.ready = True
+        return self.ready
 
     def predict(self, request: Dict) -> Dict:
         try:
             # Use of list as input is deprecated see https://github.com/dmlc/xgboost/pull/3970
             dmatrix = xgb.DMatrix(request["instances"], nthread=self.nthread)
             result: xgb.DMatrix = self._booster.predict(dmatrix)
-            return {"predictions": result.tolist()}
+            return { "predictions": result.tolist() }
         except Exception as e:
             raise Exception("Failed to predict %s" % e)

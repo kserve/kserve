@@ -1,7 +1,5 @@
 FROM python:3.7-slim
 
-RUN apt-get update && apt-get install libgomp1
-
 COPY sklearnserver sklearnserver
 COPY kfserving kfserving
 

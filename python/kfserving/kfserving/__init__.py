@@ -14,9 +14,11 @@
 from __future__ import absolute_import
 
 from .kfmodel import KFModel
+from .kfserver import KFServer
 from .storage import Storage
 from .constants import constants
 from .utils import utils
+from .handlers import http
 
 # Below is merged from kfserving client.
 # import ApiClient
