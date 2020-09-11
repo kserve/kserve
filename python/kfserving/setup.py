@@ -17,7 +17,6 @@ import setuptools
 TESTS_REQUIRES = [
     'pytest',
     'pytest-tornasync',
-    'pytest-asyncio'
     'mypy'
 ]
 

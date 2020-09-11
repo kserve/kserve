@@ -28,7 +28,6 @@ class KFModel:
 
     def __init__(self, name: str):
         self.name = name
-        self.full_model_path = ""
         self.ready = False
         self.predictor_host = None
         self.explainer_host = None

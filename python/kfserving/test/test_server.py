@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import nest_asyncio
 import pytest
 from kfserving import kfmodel
 from kfserving import kfserver
@@ -117,7 +116,6 @@ class TestTFHttpServerLoadAndUnLoadFailure():
         return server.create_application()
 
     async def test_load_fail(self, http_server_client):
-        nest_asyncio.apply()
         with pytest.raises(HTTPClientError) as err:
             _ = await http_server_client.fetch('/v1/models/model/load',
                                                method="POST", body=b'')
