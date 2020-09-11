@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
 	"github.com/kubeflow/kfserving/pkg/constants"
@@ -46,6 +47,7 @@ type ExplainerConfig struct {
 // +kubebuilder:object:generate=false
 type ExplainersConfig struct {
 	AlibiExplainer ExplainerConfig `json:"alibi,omitempty"`
+	AIXExplainer   ExplainerConfig `json:"aix,omitempty"`
 }
 
 // +kubebuilder:object:generate=false
