@@ -6,6 +6,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/kubeflow/kfserving/pkg/constants"
+	"github.com/kubeflow/kfserving/pkg/utils"
 	v1 "k8s.io/api/core/v1"
 )
 
@@ -22,15 +23,17 @@ type AIXExplainerSpec struct {
 	// The location of a trained explanation model
 	StorageURI string `json:"storageUri,omitempty"`
 	// Defaults to latest AIX Version
-	RuntimeVersion string `json:"runtimeVersion,omitempty"`
-	// Defaults to requests and limits of 1CPU, 2Gb MEM.
-	Resources v1.ResourceRequirements `json:"resources,omitempty"`
+	RuntimeVersion *string `json:"runtimeVersion,omitempty"`
+	// Container enables overrides for the predictor.
+	// Each framework will have different defaults that are populated in the underlying container spec.
+	// +optional
+	v1.Container `json:",inline"`
 	// Inline custom parameter settings for explainer
 	Config map[string]string `json:"config,omitempty"`
 }
 
-func (s *AIXExplainerSpec) GetStorageUri() string {
-	return s.StorageURI
+func (s *AIXExplainerSpec) GetStorageUri() *string {
+	return &s.StorageURI
 }
 
 func (s *AIXExplainerSpec) GetResourceRequirements() *v1.ResourceRequirements {
@@ -65,7 +68,7 @@ func (s *AIXExplainerSpec) CreateExplainerContainer(modelName string, parallelis
 	}
 
 	return &v1.Container{
-		Image:     config.Explainers.AIXExplainer.ContainerImage + ":" + s.RuntimeVersion,
+		Image:     config.Explainers.AIXExplainer.ContainerImage + ":" + *s.RuntimeVersion,
 		Name:      constants.InferenceServiceContainerName,
 		Resources: s.Resources,
 		Args:      args,
@@ -78,4 +81,11 @@ func (s *AIXExplainerSpec) Default(config *InferenceServicesConfig) {
 		s.RuntimeVersion = proto.String(config.Explainers.AIXExplainer.DefaultImageVersion)
 	}
 	setResourceRequirementDefaults(&s.Resources)
+}
+
+// Validate the spec
+func (s *AIXExplainerSpec) Validate() error {
+	return utils.FirstNonNilError([]error{
+		validateStorageURI(s.GetStorageUri()),
+	})
 }

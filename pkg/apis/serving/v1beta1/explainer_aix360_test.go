@@ -1,10 +1,9 @@
 package v1beta1
 
 import (
-	"fmt"
-	"strings"
 	"testing"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
@@ -14,10 +13,14 @@ import (
 
 func TestAIXExplainer(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	allowedAIXImageVersionsArray := []string{
-		DefaultAIXExplainerRuntimeVersion,
+	config := InferenceServicesConfig{
+		Explainers: ExplainersConfig{
+			AIXExplainer: ExplainerConfig{
+				ContainerImage:      "aipipeline/aixexplainer",
+				DefaultImageVersion: "latest",
+			},
+		},
 	}
-	allowedAIXImageVersions := strings.Join(allowedAIXImageVersionsArray, ", ")
 
 	scenarios := map[string]struct {
 		spec    AIXExplainerSpec
@@ -25,28 +28,19 @@ func TestAIXExplainer(t *testing.T) {
 	}{
 		"AcceptGoodRuntimeVersion": {
 			spec: AIXExplainerSpec{
-				RuntimeVersion: DefaultAIXExplainerRuntimeVersion,
+				RuntimeVersion: proto.String("latest"),
 			},
 			matcher: gomega.Succeed(),
 		},
-		"RejectBadRuntimeVersion": {
-			spec: AIXExplainerSpec{
-				RuntimeVersion: "",
-			},
-			matcher: gomega.MatchError(fmt.Sprintf(InvalidAIXRuntimeVersionError, allowedAIXImageVersions)),
-		},
 	}
-
 	for name, scenario := range scenarios {
-		config := &InferenceServicesConfig{
-			Explainers: &ExplainersConfig{
-				AIXExplainer: ExplainerConfig{
-					ContainerImage:      "aipipeline/aixexplainer",
-					DefaultImageVersion: "latest",
-				},
-			},
-		}
-		g.Expect(scenario.spec.Validate(config)).Should(scenario.matcher, fmt.Sprintf("Testing %s", name))
+		t.Run(name, func(t *testing.T) {
+			scenario.spec.Default(&config)
+			res := scenario.spec.Validate()
+			if !g.Expect(res).To(scenario.matcher) {
+				t.Errorf("got %q, want %q", res, scenario.matcher)
+			}
+		})
 	}
 }
 
@@ -65,7 +59,7 @@ func TestCreateAIXExplainerContainer(t *testing.T) {
 		},
 	}
 	config := &InferenceServicesConfig{
-		Explainers: &ExplainersConfig{
+		Explainers: ExplainersConfig{
 			AIXExplainer: ExplainerConfig{
 				ContainerImage:      "aipipeline/aixexplainer",
 				DefaultImageVersion: "latest",
@@ -73,10 +67,12 @@ func TestCreateAIXExplainerContainer(t *testing.T) {
 		},
 	}
 	var spec = AIXExplainerSpec{
-		Type:           "LimeImages",
-		StorageURI:     "gs://someUri",
-		Resources:      requestedResource,
-		RuntimeVersion: "0.2.2",
+		Type:       "LimeImages",
+		StorageURI: "gs://someUri",
+		Container: v1.Container{
+			Resources: requestedResource,
+		},
+		RuntimeVersion: proto.String("0.2.2"),
 	}
 	g := gomega.NewGomegaWithT(t)
 
@@ -118,7 +114,7 @@ func TestCreateAIXExplainerContainerWithConfig(t *testing.T) {
 		},
 	}
 	config := &InferenceServicesConfig{
-		Explainers: &ExplainersConfig{
+		Explainers: ExplainersConfig{
 			AIXExplainer: ExplainerConfig{
 				ContainerImage:      "aipipeline/aixexplainer",
 				DefaultImageVersion: "latest",
@@ -126,10 +122,12 @@ func TestCreateAIXExplainerContainerWithConfig(t *testing.T) {
 		},
 	}
 	var spec = AIXExplainerSpec{
-		Type:           "LimeImages",
-		StorageURI:     "gs://someUri",
-		Resources:      requestedResource,
-		RuntimeVersion: "0.2.2",
+		Type:       "LimeImages",
+		StorageURI: "gs://someUri",
+		Container: v1.Container{
+			Resources: requestedResource,
+		},
+		RuntimeVersion: proto.String("0.2.2"),
 		Config: map[string]string{
 			"num_classes": "10",
 			"num_samples": "20",

@@ -2,7 +2,6 @@ package v1alpha2
 
 import (
 	"fmt"
-	"strings"
 	"testing"
 
 	"github.com/kubeflow/kfserving/pkg/constants"
@@ -14,10 +13,6 @@ import (
 
 func TestAIXExplainer(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	allowedAIXImageVersionsArray := []string{
-		DefaultAIXExplainerRuntimeVersion,
-	}
-	allowedAIXImageVersions := strings.Join(allowedAIXImageVersionsArray, ", ")
 
 	scenarios := map[string]struct {
 		spec    AIXExplainerSpec
@@ -28,12 +23,6 @@ func TestAIXExplainer(t *testing.T) {
 				RuntimeVersion: DefaultAIXExplainerRuntimeVersion,
 			},
 			matcher: gomega.Succeed(),
-		},
-		"RejectBadRuntimeVersion": {
-			spec: AIXExplainerSpec{
-				RuntimeVersion: "",
-			},
-			matcher: gomega.MatchError(fmt.Sprintf(InvalidAIXRuntimeVersionError, allowedAIXImageVersions)),
 		},
 	}
 
