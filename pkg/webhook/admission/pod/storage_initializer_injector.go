@@ -163,9 +163,9 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 	}
 
 	modelLocalMountPath := constants.DefaultModelLocalMountPath
-	//if modelName, ok := pod.ObjectMeta.Labels[constants.InferenceServicePodLabelKey]; ok {
-	//	modelLocalMountPath += "/" + modelName
-	//}
+	if modelName, ok := pod.ObjectMeta.Labels[constants.InferenceServicePodLabelKey]; ok {
+		modelLocalMountPath += "/" + modelName
+	}
 
 	securityContext := userContainer.SecurityContext.DeepCopy()
 	// Add an init container to run provisioning logic to the PodSpec

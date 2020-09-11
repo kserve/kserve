@@ -173,7 +173,7 @@ func TestStorageInitializerInjector(t *testing.T) {
 						{
 							Name:                     "storage-initializer",
 							Image:                    StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
-							Args:                     []string{"gs://foo", constants.DefaultModelLocalMountPath},
+							Args:                     []string{"gs://foo", constants.DefaultModelLocalMountPath + "/model"},
 							Resources:                resourceRequirement,
 							TerminationMessagePolicy: "FallbackToLogsOnError",
 							VolumeMounts: []v1.VolumeMount{
