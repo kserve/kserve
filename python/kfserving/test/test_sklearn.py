@@ -15,7 +15,7 @@
 import pytest
 from sklearn import svm
 from sklearn import datasets
-from kfserving import SKLearnModel
+from kfserving.kfmodels.sklearn import SKLearnModel
 import joblib
 import pickle
 import os

@@ -14,18 +14,9 @@
 from __future__ import absolute_import
 
 from .kfmodel import KFModel
-from .kfmodels.kfmodel_types import KFModelTypes
-from .kfmodels.kfmodel_types import UnsupportedModelError
-from .kfmodels.kfmodel_types import get_kfmodel_type
-from .kfmodels.sklearn import SKLearnModel
-from .kfmodels.xgboost import XGBoostModel
-from .kfmodel_factory import KFModelFactory
-from .kfmodel_repository import KFModelRepository
-from .kfserver import KFServer
 from .storage import Storage
 from .constants import constants
 from .utils import utils
-from .handlers import http
 
 # Below is merged from kfserving client.
 # import ApiClient

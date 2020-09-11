@@ -13,8 +13,11 @@
 # limitations under the License.
 
 from typing import Optional
-from kfserving import KFModel, KFModelTypes, UnsupportedModelError
-from kfserving import SKLearnModel, XGBoostModel
+from kfserving import KFModel
+from kfserving.kfmodels.kfmodel_types import KFModelTypes, UnsupportedModelError
+from kfserving.kfmodels.sklearn import SKLearnModel
+from kfserving.kfmodels.xgboost import XGBoostModel
+
 
 class KFModelFactory:
     @staticmethod

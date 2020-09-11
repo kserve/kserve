@@ -16,7 +16,7 @@ import inspect
 import tornado.web
 import json
 from http import HTTPStatus
-from kfserving import KFModelRepository
+from kfserving.kfmodel_repository import KFModelRepository
 
 
 class HTTPHandler(tornado.web.RequestHandler):

@@ -16,7 +16,6 @@ import argparse
 import logging
 import sys
 
-from kfserving import KFServer
 from kfserving import kfserver
 from kfserving.kfmodels.xgboost import XGBoostModel
 
@@ -44,4 +43,4 @@ if __name__ == "__main__":
         model.ready = False
     # if fail to load model, start kfserver with an empty model list
     # client can use v1/models/$model_name/load to load models
-    KFServer().start([model] if model.ready else [])  # pylint:disable=c-extension-no-member
+    kfserver.KFServer().start([model] if model.ready else [])  # pylint:disable=c-extension-no-member

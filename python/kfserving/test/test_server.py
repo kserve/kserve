@@ -15,11 +15,12 @@
 import nest_asyncio
 import pytest
 import os
-import kfserving
+from kfserving import kfmodel
+from kfserving import kfserver
 from tornado.httpclient import HTTPClientError
 
 
-class DummyModel(kfserving.KFModel):
+class DummyModel(kfmodel.KFModel):
     def __init__(self, name):
         super().__init__(name)
         self.name = name
@@ -41,7 +42,7 @@ class TestTFHttpServer():
     def app(self):  # pylint: disable=no-self-use
         model = DummyModel("TestModel")
         model.load()
-        server = kfserving.KFServer()
+        server = kfserver.KFServer()
         server.register_model(model)
         models_dir = os.path.join(os.path.dirname(__file__), "example_models", "xgboost")
         server.registered_models.set_models_dir(models_dir)
@@ -108,7 +109,7 @@ class TestTFHttpServerModelNotLoaded():
     @pytest.fixture(scope="class")
     def app(self):  # pylint: disable=no-self-use
         model = DummyModel("TestModel")
-        server = kfserving.KFServer()
+        server = kfserver.KFServer()
         server.register_model(model)
         return server.create_application()
 

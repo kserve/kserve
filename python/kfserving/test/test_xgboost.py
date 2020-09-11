@@ -16,7 +16,7 @@ import pytest
 import xgboost as xgb
 import os
 from sklearn.datasets import load_iris
-from kfserving import XGBoostModel
+from kfserving.kfmodels.xgboost import XGBoostModel
 
 model_dir = model_dir = os.path.join(os.path.dirname(__file__), "example_models", "xgboost")
 BST_FILE = "model.bst"
