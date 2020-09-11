@@ -19,6 +19,7 @@ from sklearnserver import SKLearnModelRepository
 _MODEL_DIR = os.path.join(os.path.dirname(__file__), "example_models")
 JOBLIB_FILE_DIR = os.path.join(_MODEL_DIR, "joblib")
 PICKLE_FILE_DIRS = [os.path.join(_MODEL_DIR, "pkl"), os.path.join(_MODEL_DIR, "pickle")]
+INVALID_MODEL_DIR = os.path.join(os.path.dirname(__file__), "models_not_exist")
 
 
 @pytest.mark.asyncio
@@ -32,16 +33,6 @@ async def test_load_pickle():
 
 
 @pytest.mark.asyncio
-async def test_load_pickle_fail():
-    for model_dir in PICKLE_FILE_DIRS:
-        repo = SKLearnModelRepository(model_dir)
-        model_name = "model-not-exist"
-        await repo.load(model_name)
-        assert repo.get_model(model_name) is None
-        assert not repo.is_model_ready(model_name)
-
-
-@pytest.mark.asyncio
 async def test_load_joblib():
     repo = SKLearnModelRepository(JOBLIB_FILE_DIR)
     model_name = "model"
@@ -51,9 +42,10 @@ async def test_load_joblib():
 
 
 @pytest.mark.asyncio
-async def test_load_joblib_fail():
-    repo = SKLearnModelRepository(JOBLIB_FILE_DIR)
-    model_name = "model-not-exist"
-    await repo.load(model_name)
-    assert repo.get_model(model_name) is None
-    assert not repo.is_model_ready(model_name)
+async def test_load_fail():
+    repo = SKLearnModelRepository(INVALID_MODEL_DIR)
+    model_name = "model"
+    with pytest.raises(Exception):
+        await repo.load(model_name)
+        assert repo.get_model(model_name) is None
+        assert not repo.is_model_ready(model_name)

@@ -23,6 +23,6 @@ class SKLearnModelRepository(KFModelRepository):
 
     async def load(self, name: str) -> bool:
         model = SKLearnModel(name, self.models_dir)
-        if model.load_from_model_dir(name):
+        if model.load():
             self.update(model)
         return model.ready

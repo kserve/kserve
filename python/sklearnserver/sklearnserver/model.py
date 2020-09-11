@@ -29,20 +29,15 @@ class SKLearnModel(kfserving.KFModel):  # pylint:disable=c-extension-no-member
         self.model_dir = model_dir
         self.ready = False
 
-    def load(self):
-        model_path = kfserving.Storage.download(self.model_dir)
+    def load(self) -> bool:
+        model_path = kfserving.Storage.download(os.path.join(self.model_dir, self.name))
         paths = [os.path.join(model_path, MODEL_BASENAME + model_extension)
                  for model_extension in MODEL_EXTENSIONS]
-        model_file = next(path for path in paths if os.path.exists(path))
-        self._model = joblib.load(model_file)  # pylint:disable=attribute-defined-outside-init
-        self.ready = True
-
-    def load_from_model_dir(self, name: str) -> bool:
-        paths = [os.path.join(self.model_dir, name + model_extension) for model_extension in MODEL_EXTENSIONS]
         for path in paths:
             if os.path.exists(path):
-                self._model = joblib.load(path)  # pylint:disable=attribute-defined-outside-init
+                self._model = joblib.load(path)
                 self.ready = True
+                break
         return self.ready
 
     def predict(self, request: Dict) -> Dict:

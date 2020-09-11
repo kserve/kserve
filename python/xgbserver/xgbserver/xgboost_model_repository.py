@@ -23,6 +23,6 @@ class XGBoostModelRepository(KFModelRepository):
 
     async def load(self, name: str, ) -> bool:
         model = XGBoostModel(name, self.models_dir, self.nthread)
-        if model.load_from_model_dir(name):
+        if model.load():
             self.update(model)
         return model.ready
