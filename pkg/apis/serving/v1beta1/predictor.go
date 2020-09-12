@@ -80,7 +80,7 @@ func (s *PredictorSpec) GetImplementations() []ComponentImplementation {
 
 // GetImplementation returns the implementation for the component
 func (s *PredictorSpec) GetImplementation() ComponentImplementation {
-	return FirstNonNilComponent(s.GetImplementations())
+	return s.GetImplementations()[0]
 }
 
 // GetExtensions returns the extensions for the component

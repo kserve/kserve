@@ -144,28 +144,8 @@ func validateLogger(logger *LoggerSpec) error {
 }
 
 func validateExactlyOneImplementation(component Component) error {
-	implementations := component.GetImplementations()
-	count := len(implementations)
-	if count == 2 { // If two implementations, allow if one of them to be custom overrides
-		for _, implementation := range implementations {
-			switch reflect.ValueOf(implementation).Type().Elem().Name() {
-			case
-				reflect.ValueOf(CustomPredictor{}).Type().Name(),
-				reflect.ValueOf(CustomExplainer{}).Type().Name(),
-				reflect.ValueOf(CustomTransformer{}).Type().Name():
-				return nil
-			}
-		}
-	} else if count == 1 {
-		return nil
-	}
-	return ExactlyOneErrorFor(component)
-}
-
-// FirstNonNilComponent returns the first non nil object or returns nil
-func FirstNonNilComponent(objects []ComponentImplementation) ComponentImplementation {
-	if results := NonNilComponents(objects); len(results) > 0 {
-		return results[0]
+	if len(component.GetImplementations()) != 1 {
+		return ExactlyOneErrorFor(component)
 	}
 	return nil
 }

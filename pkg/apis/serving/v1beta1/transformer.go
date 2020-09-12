@@ -36,7 +36,7 @@ func (s *TransformerSpec) GetImplementations() []ComponentImplementation {
 
 // GetImplementation returns the implementation for the component
 func (s *TransformerSpec) GetImplementation() ComponentImplementation {
-	return FirstNonNilComponent(s.GetImplementations())
+	return s.GetImplementations()[0]
 }
 
 // GetExtensions returns the extensions for the component
