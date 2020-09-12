@@ -80,8 +80,12 @@ func (isvc *InferenceService) DefaultInferenceService(config *InferenceServicesC
 		isvc.Spec.Explainer,
 	} {
 		if component != nil && !reflect.ValueOf(component).IsNil() {
-			component.GetImplementation().Default(config)
-			component.GetExtensions().Default(config)
+			if component.GetImplementation() != nil {
+				component.GetImplementation().Default(config)
+				component.GetExtensions().Default(config)
+			} else {
+				mutatorLogger.Error(ExactlyOneErrorFor(component), "Missing component implementation")
+			}
 		}
 	}
 }
