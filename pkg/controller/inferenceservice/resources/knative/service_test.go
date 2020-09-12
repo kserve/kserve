@@ -117,7 +117,7 @@ var defaultService = &knservingv1.Service{
 									"--port=" + v1alpha2.TensorflowServingGRPCPort,
 									"--rest_api_port=" + v1alpha2.TensorflowServingRestPort,
 									"--model_name=mnist",
-									"--model_base_path=" + constants.DefaultModelLocalMountPath,
+									"--model_base_path=" + constants.DefaultModelLocalMountPath + "/mnist",
 								},
 								LivenessProbe: &v1.Probe{
 									Handler: v1.Handler{
@@ -176,7 +176,7 @@ var canaryService = &knservingv1.Service{
 									"--port=" + v1alpha2.TensorflowServingGRPCPort,
 									"--rest_api_port=" + v1alpha2.TensorflowServingRestPort,
 									"--model_name=mnist",
-									"--model_base_path=" + constants.DefaultModelLocalMountPath,
+									"--model_base_path=" + constants.DefaultModelLocalMountPath + "/mnist",
 								},
 								LivenessProbe: &v1.Probe{
 									Handler: v1.Handler{
@@ -305,7 +305,7 @@ func TestInferenceServiceToKnativeService(t *testing.T) {
 											Name:  constants.InferenceServiceContainerName,
 											Args: []string{
 												"--model_name=sklearn",
-												"--model_dir=" + constants.DefaultModelLocalMountPath,
+												"--model_dir=" + constants.DefaultModelLocalMountPath + "/sklearn",
 												"--http_port=8080",
 											},
 										},
@@ -365,7 +365,7 @@ func TestInferenceServiceToKnativeService(t *testing.T) {
 											Name:  constants.InferenceServiceContainerName,
 											Args: []string{
 												"--model_name=xgboost",
-												"--model_dir=" + constants.DefaultModelLocalMountPath,
+												"--model_dir=" + constants.DefaultModelLocalMountPath + "/xgboost",
 												"--http_port=8080",
 												"--nthread=0",
 											},
@@ -426,7 +426,7 @@ func TestInferenceServiceToKnativeService(t *testing.T) {
 											Name:  constants.InferenceServiceContainerName,
 											Args: []string{
 												"--model_name=xgboost",
-												"--model_dir=" + constants.DefaultModelLocalMountPath,
+												"--model_dir=" + constants.DefaultModelLocalMountPath + "/xgboost",
 												"--http_port=8080",
 												"--nthread=0",
 											},
@@ -500,7 +500,7 @@ func TestInferenceServiceToKnativeService(t *testing.T) {
 											Name:  constants.InferenceServiceContainerName,
 											Args: []string{
 												"--model_name=sklearn",
-												"--model_dir=" + constants.DefaultModelLocalMountPath,
+												"--model_dir=" + constants.DefaultModelLocalMountPath + "/sklearn",
 												"--http_port=8080",
 											},
 										},

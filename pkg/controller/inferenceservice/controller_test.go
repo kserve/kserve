@@ -215,7 +215,7 @@ var _ = Describe("test inference service controller", func() {
 												"--port=" + kfserving.TensorflowServingGRPCPort,
 												"--rest_api_port=" + kfserving.TensorflowServingRestPort,
 												"--model_name=" + defaultInstance.Name,
-												"--model_base_path=" + constants.DefaultModelLocalMountPath,
+												"--model_base_path=" + constants.DefaultModelLocalMountPath + "/" + defaultInstance.Name,
 											},
 											LivenessProbe: &v1.Probe{
 												Handler: v1.Handler{
@@ -489,7 +489,7 @@ var _ = Describe("test inference service controller", func() {
 												"--port=" + kfserving.TensorflowServingGRPCPort,
 												"--rest_api_port=" + kfserving.TensorflowServingRestPort,
 												"--model_name=" + canary.Name,
-												"--model_base_path=" + constants.DefaultModelLocalMountPath,
+												"--model_base_path=" + constants.DefaultModelLocalMountPath + "/" + canaryInstance.Name,
 											},
 											LivenessProbe: &v1.Probe{
 												Handler: v1.Handler{
