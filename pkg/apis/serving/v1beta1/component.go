@@ -165,11 +165,7 @@ func ExactlyOneErrorFor(component Component) error {
 	componentType := reflect.ValueOf(component).Type().Elem()
 	implementationTypes := []string{}
 	for i := 0; i < componentType.NumField()-1; i++ {
-		if reflect.ValueOf(i).Kind() == reflect.Ptr {
-			implementationTypes = append(implementationTypes, componentType.Field(i).Type.Elem().Name())
-		} else {
-			implementationTypes = append(implementationTypes, componentType.Field(i).Name)
-		}
+		implementationTypes = append(implementationTypes, componentType.Field(i).Name)
 	}
 	return fmt.Errorf(
 		"Exactly one of [%s] must be specified in %s",
