@@ -21,7 +21,7 @@ func TestTransformerValidation(t *testing.T) {
 	}{
 		"ValidStorageUri": {
 			spec: TransformerSpec{
-				CustomTransformer: &CustomTransformer{
+				CustomTransformer: CustomTransformer{
 					PodTemplateSpec: v1.PodTemplateSpec{
 						Spec: v1.PodSpec{
 							Containers: []v1.Container{
@@ -42,7 +42,7 @@ func TestTransformerValidation(t *testing.T) {
 		},
 		"InvalidStorageUri": {
 			spec: TransformerSpec{
-				CustomTransformer: &CustomTransformer{
+				CustomTransformer: CustomTransformer{
 					PodTemplateSpec: v1.PodTemplateSpec{
 						Spec: v1.PodSpec{
 							Containers: []v1.Container{
@@ -67,7 +67,7 @@ func TestTransformerValidation(t *testing.T) {
 					MinReplicas: GetIntReference(3),
 					MaxReplicas: 2,
 				},
-				CustomTransformer: &CustomTransformer{
+				CustomTransformer: CustomTransformer{
 					PodTemplateSpec: v1.PodTemplateSpec{
 						Spec: v1.PodSpec{
 							Containers: []v1.Container{
@@ -92,7 +92,7 @@ func TestTransformerValidation(t *testing.T) {
 					MinReplicas:          GetIntReference(3),
 					ContainerConcurrency: proto.Int64(-1),
 				},
-				CustomTransformer: &CustomTransformer{
+				CustomTransformer: CustomTransformer{
 					PodTemplateSpec: v1.PodTemplateSpec{
 						Spec: v1.PodSpec{
 							Containers: []v1.Container{
@@ -117,7 +117,7 @@ func TestTransformerValidation(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			res := scenario.spec.CustomTransformer.Validate()
 			if !g.Expect(res).To(scenario.matcher) {
-				t.Errorf("got %q, want %q", res, scenario.matcher)
+				t.Errorf("got %v, want %v", res, scenario.matcher)
 			}
 		})
 	}
@@ -138,7 +138,7 @@ func TestTransformerDefaulter(t *testing.T) {
 	}{
 		"DefaultResources": {
 			spec: TransformerSpec{
-				CustomTransformer: &CustomTransformer{
+				CustomTransformer: CustomTransformer{
 					PodTemplateSpec: v1.PodTemplateSpec{
 						Spec: v1.PodSpec{
 							Containers: []v1.Container{
@@ -156,7 +156,7 @@ func TestTransformerDefaulter(t *testing.T) {
 				},
 			},
 			expected: TransformerSpec{
-				CustomTransformer: &CustomTransformer{
+				CustomTransformer: CustomTransformer{
 					PodTemplateSpec: v1.PodTemplateSpec{
 						Spec: v1.PodSpec{
 							Containers: []v1.Container{
@@ -185,7 +185,7 @@ func TestTransformerDefaulter(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			scenario.spec.CustomTransformer.Default(&config)
 			if !g.Expect(scenario.spec).To(gomega.Equal(scenario.expected)) {
-				t.Errorf("got %q, want %q", scenario.spec, scenario.expected)
+				t.Errorf("got %v, want %v", scenario.spec, scenario.expected)
 			}
 		})
 	}
@@ -233,7 +233,7 @@ func TestCreateTransformerContainer(t *testing.T) {
 						},
 					},
 					Transformer: &TransformerSpec{
-						CustomTransformer: &CustomTransformer{
+						CustomTransformer: CustomTransformer{
 							PodTemplateSpec: v1.PodTemplateSpec{
 								Spec: v1.PodSpec{
 									Containers: []v1.Container{
@@ -297,7 +297,7 @@ func TestCreateTransformerContainer(t *testing.T) {
 						ComponentExtensionSpec: ComponentExtensionSpec{
 							ContainerConcurrency: proto.Int64(2),
 						},
-						CustomTransformer: &CustomTransformer{
+						CustomTransformer: CustomTransformer{
 							PodTemplateSpec: v1.PodTemplateSpec{
 								Spec: v1.PodSpec{
 									Containers: []v1.Container{
@@ -347,7 +347,7 @@ func TestCreateTransformerContainer(t *testing.T) {
 			transformer.Default(&config)
 			res := transformer.GetContainer(metav1.ObjectMeta{Name: "someName", Namespace: "default"}, &scenario.isvc.Spec.Transformer.ComponentExtensionSpec, &config)
 			if !g.Expect(res).To(gomega.Equal(scenario.expectedContainerSpec)) {
-				t.Errorf("got %q, want %q", res, scenario.expectedContainerSpec)
+				t.Errorf("got %v, want %v", res, scenario.expectedContainerSpec)
 			}
 		})
 	}

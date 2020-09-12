@@ -22,7 +22,7 @@ type ExplainerSpec struct {
 	// Spec for alibi explainer
 	Alibi *AlibiExplainerSpec `json:"alibi,omitempty"`
 	// Pass through Pod fields or specify a custom container spec
-	*CustomExplainer `json:",inline"`
+	CustomExplainer `json:",inline,omitempty"`
 	// Extensions available in all components
 	ComponentExtensionSpec `json:",inline"`
 }
@@ -31,15 +31,19 @@ var _ Component = &ExplainerSpec{}
 
 // GetImplementations returns the implementations for the component
 func (s *ExplainerSpec) GetImplementations() []ComponentImplementation {
-	return []ComponentImplementation{
+	implementations := NonNilComponents([]ComponentImplementation{
 		s.Alibi,
-		s.CustomExplainer,
+	})
+	// This struct is not a pointer, so it will never be nil; include if containers are specified
+	if len(s.CustomExplainer.Spec.Containers) != 0 {
+		implementations = append(implementations, &s.CustomExplainer)
 	}
+	return implementations
 }
 
 // GetImplementation returns the implementation for the component
 func (s *ExplainerSpec) GetImplementation() ComponentImplementation {
-	return FirstNonNilComponent(s.GetImplementations())
+	return s.GetImplementations()[0]
 }
 
 // GetExtensions returns the extensions for the component

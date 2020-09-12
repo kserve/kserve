@@ -21,7 +21,7 @@ func TestCustomPredictorValidation(t *testing.T) {
 	}{
 		"ValidStorageUri": {
 			spec: PredictorSpec{
-				CustomPredictor: &CustomPredictor{
+				CustomPredictor: CustomPredictor{
 					PodTemplateSpec: v1.PodTemplateSpec{
 						Spec: v1.PodSpec{
 							Containers: []v1.Container{
@@ -42,7 +42,7 @@ func TestCustomPredictorValidation(t *testing.T) {
 		},
 		"InvalidStorageUri": {
 			spec: PredictorSpec{
-				CustomPredictor: &CustomPredictor{
+				CustomPredictor: CustomPredictor{
 					PodTemplateSpec: v1.PodTemplateSpec{
 						Spec: v1.PodSpec{
 							Containers: []v1.Container{
@@ -67,7 +67,7 @@ func TestCustomPredictorValidation(t *testing.T) {
 					MinReplicas: GetIntReference(3),
 					MaxReplicas: 2,
 				},
-				CustomPredictor: &CustomPredictor{
+				CustomPredictor: CustomPredictor{
 					PodTemplateSpec: v1.PodTemplateSpec{
 						Spec: v1.PodSpec{
 							Containers: []v1.Container{
@@ -92,7 +92,7 @@ func TestCustomPredictorValidation(t *testing.T) {
 					MinReplicas:          GetIntReference(3),
 					ContainerConcurrency: proto.Int64(-1),
 				},
-				CustomPredictor: &CustomPredictor{
+				CustomPredictor: CustomPredictor{
 					PodTemplateSpec: v1.PodTemplateSpec{
 						Spec: v1.PodSpec{
 							Containers: []v1.Container{
@@ -117,7 +117,7 @@ func TestCustomPredictorValidation(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			res := scenario.spec.CustomPredictor.Validate()
 			if !g.Expect(res).To(scenario.matcher) {
-				t.Errorf("got %q, want %q", res, scenario.matcher)
+				t.Errorf("got %v, want %v", res, scenario.matcher)
 			}
 		})
 	}
@@ -138,7 +138,7 @@ func TestCustomPredictorDefaulter(t *testing.T) {
 	}{
 		"DefaultResources": {
 			spec: PredictorSpec{
-				CustomPredictor: &CustomPredictor{
+				CustomPredictor: CustomPredictor{
 					PodTemplateSpec: v1.PodTemplateSpec{
 						Spec: v1.PodSpec{
 							Containers: []v1.Container{
@@ -156,7 +156,7 @@ func TestCustomPredictorDefaulter(t *testing.T) {
 				},
 			},
 			expected: PredictorSpec{
-				CustomPredictor: &CustomPredictor{
+				CustomPredictor: CustomPredictor{
 					PodTemplateSpec: v1.PodTemplateSpec{
 						Spec: v1.PodSpec{
 							Containers: []v1.Container{
@@ -185,7 +185,7 @@ func TestCustomPredictorDefaulter(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			scenario.spec.CustomPredictor.Default(&config)
 			if !g.Expect(scenario.spec).To(gomega.Equal(scenario.expected)) {
-				t.Errorf("got %q, want %q", scenario.spec, scenario.expected)
+				t.Errorf("got %v, want %v", scenario.spec, scenario.expected)
 			}
 		})
 	}
@@ -222,7 +222,7 @@ func TestCreateCustomPredictorContainer(t *testing.T) {
 				},
 				Spec: InferenceServiceSpec{
 					Predictor: PredictorSpec{
-						CustomPredictor: &CustomPredictor{
+						CustomPredictor: CustomPredictor{
 							PodTemplateSpec: v1.PodTemplateSpec{
 								Spec: v1.PodSpec{
 									Containers: []v1.Container{
@@ -277,7 +277,7 @@ func TestCreateCustomPredictorContainer(t *testing.T) {
 						ComponentExtensionSpec: ComponentExtensionSpec{
 							ContainerConcurrency: proto.Int64(2),
 						},
-						CustomPredictor: &CustomPredictor{
+						CustomPredictor: CustomPredictor{
 							PodTemplateSpec: v1.PodTemplateSpec{
 								Spec: v1.PodSpec{
 									Containers: []v1.Container{
@@ -331,7 +331,7 @@ func TestCreateCustomPredictorContainer(t *testing.T) {
 			predictor.Default(&config)
 			res := predictor.GetContainer(metav1.ObjectMeta{Name: "someName", Namespace: "default"}, &scenario.isvc.Spec.Predictor.ComponentExtensionSpec, &config)
 			if !g.Expect(res).To(gomega.Equal(scenario.expectedContainerSpec)) {
-				t.Errorf("got %q, want %q", res, scenario.expectedContainerSpec)
+				t.Errorf("got %v, want %v", res, scenario.expectedContainerSpec)
 			}
 		})
 	}

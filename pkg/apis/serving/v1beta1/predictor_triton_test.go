@@ -100,7 +100,7 @@ func TestTritonValidation(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			res := scenario.spec.Triton.Validate()
 			if !g.Expect(res).To(scenario.matcher) {
-				t.Errorf("got %q, want %q", res, scenario.matcher)
+				t.Errorf("got %v, want %v", res, scenario.matcher)
 			}
 		})
 	}
@@ -174,7 +174,7 @@ func TestTritonDefaulter(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			scenario.spec.Triton.Default(&config)
 			if !g.Expect(scenario.spec).To(gomega.Equal(scenario.expected)) {
-				t.Errorf("got %q, want %q", scenario.spec, scenario.expected)
+				t.Errorf("got %v, want %v", scenario.spec, scenario.expected)
 			}
 		})
 	}
@@ -326,7 +326,7 @@ func TestCreateTritonContainer(t *testing.T) {
 			predictor.Default(&config)
 			res := predictor.GetContainer(metav1.ObjectMeta{Name: "someName"}, &scenario.isvc.Spec.Predictor.DeepCopy().ComponentExtensionSpec, &config)
 			if !g.Expect(res).To(gomega.Equal(scenario.expectedContainerSpec)) {
-				t.Errorf("got %q, want %q", res, scenario.expectedContainerSpec)
+				t.Errorf("got %v, want %v", res, scenario.expectedContainerSpec)
 			}
 		})
 	}

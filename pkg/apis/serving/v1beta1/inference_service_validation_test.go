@@ -17,7 +17,6 @@ limitations under the License.
 package v1beta1
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/golang/protobuf/proto"
@@ -120,7 +119,7 @@ func TestRejectMultipleModelSpecs(t *testing.T) {
 func TestModelSpecAndCustomOverridesIsValid(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	isvc := makeTestInferenceService()
-	isvc.Spec.Predictor.CustomPredictor = &CustomPredictor{
+	isvc.Spec.Predictor.CustomPredictor = CustomPredictor{
 		PodTemplateSpec: v1.PodTemplateSpec{
 			Spec: v1.PodSpec{},
 		},
@@ -158,7 +157,7 @@ func TestBadReplicaValues(t *testing.T) {
 	isvc.Spec.Predictor.MaxReplicas = 0
 
 	isvc.Spec.Transformer = &TransformerSpec{}
-	isvc.Spec.Transformer.CustomTransformer = &CustomTransformer{
+	isvc.Spec.Transformer.CustomTransformer = CustomTransformer{
 		PodTemplateSpec: v1.PodTemplateSpec{
 			Spec: v1.PodSpec{
 				Containers: []v1.Container{
@@ -199,7 +198,7 @@ func TestCustomOK(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	isvc := makeTestInferenceService()
 	isvc.Spec.Predictor.Tensorflow = nil
-	isvc.Spec.Predictor.CustomPredictor = &CustomPredictor{
+	isvc.Spec.Predictor.CustomPredictor = CustomPredictor{
 		PodTemplateSpec: v1.PodTemplateSpec{
 			Spec: v1.PodSpec{
 				Containers: []v1.Container{
@@ -210,8 +209,6 @@ func TestCustomOK(t *testing.T) {
 			},
 		},
 	}
-	err := isvc.ValidateCreate()
-	fmt.Println(err)
 	g.Expect(isvc.ValidateCreate()).Should(gomega.Succeed())
 }
 

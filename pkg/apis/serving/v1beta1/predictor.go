@@ -36,7 +36,7 @@ type PredictorSpec struct {
 	// Spec for ONNX runtime (https://github.com/microsoft/onnxruntime)
 	ONNX *ONNXRuntimeSpec `json:"onnx,omitempty"`
 	// Passthrough Pod fields or specify a custom container spec
-	*CustomPredictor `json:",inline"`
+	CustomPredictor `json:",inline,omitempty"`
 	// Extensions available in all components
 	ComponentExtensionSpec `json:",inline"`
 }
@@ -63,15 +63,19 @@ func (s *PredictorSpec) GetPredictorPodSpec() v1.PodSpec {
 
 // GetImplementations returns the implementations for the component
 func (s *PredictorSpec) GetImplementations() []ComponentImplementation {
-	return []ComponentImplementation{
+	implementations := NonNilComponents([]ComponentImplementation{
 		s.XGBoost,
 		s.PyTorch,
 		s.Triton,
 		s.SKLearn,
 		s.Tensorflow,
 		s.ONNX,
-		s.CustomPredictor,
+	})
+	// This struct is not a pointer, so it will never be nil; include if containers are specified
+	if len(s.CustomPredictor.Spec.Containers) != 0 {
+		implementations = append(implementations, &s.CustomPredictor)
 	}
+	return implementations
 }
 
 // GetImplementation returns the implementation for the component

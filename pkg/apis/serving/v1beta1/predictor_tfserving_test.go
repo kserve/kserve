@@ -135,7 +135,7 @@ func TestTensorflowValidation(t *testing.T) {
 			scenario.spec.Tensorflow.Default(&config)
 			res := scenario.spec.Tensorflow.Validate()
 			if !g.Expect(res).To(scenario.matcher) {
-				t.Errorf("got %q, want %q", res, scenario.matcher)
+				t.Errorf("got %v, want %v", res, scenario.matcher)
 			}
 		})
 	}
@@ -241,7 +241,7 @@ func TestTensorflowDefaulter(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			scenario.spec.Tensorflow.Default(&config)
 			if !g.Expect(scenario.spec).To(gomega.Equal(scenario.expected)) {
-				t.Errorf("got %q, want %q", scenario.spec, scenario.expected)
+				t.Errorf("got %v, want %v", scenario.spec, scenario.expected)
 			}
 		})
 	}
@@ -379,7 +379,7 @@ func TestCreateTFServingContainer(t *testing.T) {
 			predictor.Default(&config)
 			res := predictor.GetContainer(metav1.ObjectMeta{Name: "someName"}, &scenario.isvc.Spec.Predictor.ComponentExtensionSpec, &config)
 			if !g.Expect(res).To(gomega.Equal(scenario.expectedContainerSpec)) {
-				t.Errorf("got %q, want %q", res, scenario.expectedContainerSpec)
+				t.Errorf("got %v, want %v", res, scenario.expectedContainerSpec)
 			}
 		})
 	}

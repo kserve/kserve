@@ -23,7 +23,7 @@ func TestCustomExplainerValidation(t *testing.T) {
 	}{
 		"ValidStorageUri": {
 			spec: ExplainerSpec{
-				CustomExplainer: &CustomExplainer{
+				CustomExplainer: CustomExplainer{
 					PodTemplateSpec: v1.PodTemplateSpec{
 						Spec: v1.PodSpec{
 							Containers: []v1.Container{
@@ -44,7 +44,7 @@ func TestCustomExplainerValidation(t *testing.T) {
 		},
 		"InvalidStorageUri": {
 			spec: ExplainerSpec{
-				CustomExplainer: &CustomExplainer{
+				CustomExplainer: CustomExplainer{
 					PodTemplateSpec: v1.PodTemplateSpec{
 						Spec: v1.PodSpec{
 							Containers: []v1.Container{
@@ -69,7 +69,7 @@ func TestCustomExplainerValidation(t *testing.T) {
 					MinReplicas: GetIntReference(3),
 					MaxReplicas: 2,
 				},
-				CustomExplainer: &CustomExplainer{
+				CustomExplainer: CustomExplainer{
 					PodTemplateSpec: v1.PodTemplateSpec{
 						Spec: v1.PodSpec{
 							Containers: []v1.Container{
@@ -94,7 +94,7 @@ func TestCustomExplainerValidation(t *testing.T) {
 					MinReplicas:          GetIntReference(3),
 					ContainerConcurrency: proto.Int64(-1),
 				},
-				CustomExplainer: &CustomExplainer{
+				CustomExplainer: CustomExplainer{
 					PodTemplateSpec: v1.PodTemplateSpec{
 						Spec: v1.PodSpec{
 							Containers: []v1.Container{
@@ -120,7 +120,7 @@ func TestCustomExplainerValidation(t *testing.T) {
 			scenario.spec.CustomExplainer.Default(&config)
 			res := scenario.spec.CustomExplainer.Validate()
 			if !g.Expect(res).To(scenario.matcher) {
-				t.Errorf("got %q, want %q", res, scenario.matcher)
+				t.Errorf("got %v, want %v", res, scenario.matcher)
 			}
 		})
 	}
@@ -141,7 +141,7 @@ func TestCustomExplainerDefaulter(t *testing.T) {
 	}{
 		"DefaultResources": {
 			spec: ExplainerSpec{
-				CustomExplainer: &CustomExplainer{
+				CustomExplainer: CustomExplainer{
 					PodTemplateSpec: v1.PodTemplateSpec{
 						Spec: v1.PodSpec{
 							Containers: []v1.Container{
@@ -159,7 +159,7 @@ func TestCustomExplainerDefaulter(t *testing.T) {
 				},
 			},
 			expected: ExplainerSpec{
-				CustomExplainer: &CustomExplainer{
+				CustomExplainer: CustomExplainer{
 					PodTemplateSpec: v1.PodTemplateSpec{
 						Spec: v1.PodSpec{
 							Containers: []v1.Container{
@@ -188,7 +188,7 @@ func TestCustomExplainerDefaulter(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			scenario.spec.CustomExplainer.Default(&config)
 			if !g.Expect(scenario.spec).To(gomega.Equal(scenario.expected)) {
-				t.Errorf("got %q, want %q", scenario.spec, scenario.expected)
+				t.Errorf("got %v, want %v", scenario.spec, scenario.expected)
 			}
 		})
 	}
@@ -236,7 +236,7 @@ func TestCreateCustomExplainerContainer(t *testing.T) {
 						},
 					},
 					Explainer: &ExplainerSpec{
-						CustomExplainer: &CustomExplainer{
+						CustomExplainer: CustomExplainer{
 							PodTemplateSpec: v1.PodTemplateSpec{
 								Spec: v1.PodSpec{
 									Containers: []v1.Container{
@@ -300,7 +300,7 @@ func TestCreateCustomExplainerContainer(t *testing.T) {
 						ComponentExtensionSpec: ComponentExtensionSpec{
 							ContainerConcurrency: proto.Int64(2),
 						},
-						CustomExplainer: &CustomExplainer{
+						CustomExplainer: CustomExplainer{
 							PodTemplateSpec: v1.PodTemplateSpec{
 								Spec: v1.PodSpec{
 									Containers: []v1.Container{
@@ -350,7 +350,7 @@ func TestCreateCustomExplainerContainer(t *testing.T) {
 			explainer.Default(&config)
 			res := explainer.GetContainer(metav1.ObjectMeta{Name: "someName", Namespace: "default"}, &scenario.isvc.Spec.Explainer.ComponentExtensionSpec, &config)
 			if !g.Expect(res).To(gomega.Equal(scenario.expectedContainerSpec)) {
-				t.Errorf("got %q, want %q", res, scenario.expectedContainerSpec)
+				t.Errorf("got %v, want %v", res, scenario.expectedContainerSpec)
 			}
 		})
 	}

@@ -17,8 +17,9 @@ limitations under the License.
 package v1beta1
 
 import (
-	"github.com/golang/protobuf/proto"
 	"testing"
+
+	"github.com/golang/protobuf/proto"
 
 	"github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
@@ -56,7 +57,7 @@ func TestInferenceServiceDefaults(t *testing.T) {
 				},
 			},
 			Transformer: &TransformerSpec{
-				CustomTransformer: &CustomTransformer{
+				CustomTransformer: CustomTransformer{
 					PodTemplateSpec: v1.PodTemplateSpec{
 						Spec: v1.PodSpec{
 							Containers: []v1.Container{
