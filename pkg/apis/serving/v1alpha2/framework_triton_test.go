@@ -60,7 +60,7 @@ func TestCreateModelServingContainer(t *testing.T) {
 		Resources: requestedResource,
 		Args: []string{
 			"trtserver",
-			"--model-store=/mnt/models",
+			"--model-store=/mnt/models/someName",
 			"--allow-poll-model-repository=false",
 			"--allow-grpc=true",
 			"--allow-http=true",

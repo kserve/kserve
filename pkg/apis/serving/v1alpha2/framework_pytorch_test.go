@@ -107,7 +107,7 @@ func TestCreatePytorchModelServingContainer(t *testing.T) {
 		Args: []string{
 			"--model_name=someName",
 			"--model_class_name=Net",
-			"--model_dir=/mnt/models",
+			"--model_dir=/mnt/models/someName",
 			"--http_port=8080",
 		},
 	}
@@ -124,7 +124,7 @@ func TestCreatePytorchModelServingContainer(t *testing.T) {
 		Args: []string{
 			"--model_name=someName",
 			"--model_class_name=Net",
-			"--model_dir=/mnt/models",
+			"--model_dir=/mnt/models/someName",
 			"--http_port=8080",
 			"--workers=1",
 		},

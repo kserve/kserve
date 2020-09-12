@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha2
 
 import (
+	"fmt"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	v1 "k8s.io/api/core/v1"
 	"sort"
@@ -42,7 +43,7 @@ func (s *AlibiExplainerSpec) CreateExplainerContainer(modelName string, parallel
 		args = append(args, constants.ArgumentWorkers, strconv.Itoa(parallelism))
 	}
 	if s.StorageURI != "" {
-		args = append(args, "--storage_uri", constants.DefaultModelLocalMountPath)
+		args = append(args, "--storage_uri", fmt.Sprintf("%s/%s", constants.DefaultModelLocalMountPath, modelName))
 	}
 
 	args = append(args, string(s.Type))

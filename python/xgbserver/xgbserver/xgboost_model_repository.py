@@ -12,17 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from kfserving.kfmodel_repository import KFModelRepository
+import os
+from kfserving.kfmodel_repository import KFModelRepository, MODEL_MOUNT_DIRS
 from xgbserver import XGBoostModel
 
 
 class XGBoostModelRepository(KFModelRepository):
-    def __init__(self, model_dir: str, nthread: int):
+    def __init__(self, model_dir: str = MODEL_MOUNT_DIRS, nthread: int = 1):
         super().__init__(model_dir)
         self.nthread = nthread
 
     async def load(self, name: str, ) -> bool:
-        model = XGBoostModel(name, self.models_dir, self.nthread)
+        model = XGBoostModel(name, os.path.join(self.models_dir, name), self.nthread)
         if model.load():
             self.update(model)
         return model.ready

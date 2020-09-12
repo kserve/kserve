@@ -55,7 +55,7 @@ func (k *SKLearnSpec) Default(config *InferenceServicesConfig) {
 func (k *SKLearnSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig) *v1.Container {
 	arguments := []string{
 		fmt.Sprintf("%s=%s", constants.ArgumentModelName, metadata.Name),
-		fmt.Sprintf("%s=%s", constants.ArgumentModelDir, constants.DefaultModelLocalMountPath),
+		fmt.Sprintf("%s=%s/%s", constants.ArgumentModelDir, constants.DefaultModelLocalMountPath, metadata.Name),
 		fmt.Sprintf("%s=%s", constants.ArgumentHttpPort, constants.InferenceServiceDefaultHttpPort),
 	}
 	if extensions.ContainerConcurrency != nil {

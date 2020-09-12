@@ -34,7 +34,7 @@ class XGBoostModel(kfserving.KFModel):
 
     def load(self) -> bool:
         model_file = os.path.join(
-            kfserving.Storage.download(os.path.join(self.model_dir, self.name)), BOOSTER_FILE)
+            kfserving.Storage.download(self.model_dir), BOOSTER_FILE)
         self._booster = xgb.Booster(params={"nthread": self.nthread},
                                     model_file=model_file)
         self.ready = True

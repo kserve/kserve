@@ -14,6 +14,7 @@ limitations under the License.
 package v1alpha2
 
 import (
+	"fmt"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	v1 "k8s.io/api/core/v1"
 	"strconv"
@@ -37,10 +38,11 @@ func (s *ONNXSpec) GetResourceRequirements() *v1.ResourceRequirements {
 
 func (s *ONNXSpec) GetContainer(modelName string, parallelism int, config *InferenceServicesConfig) *v1.Container {
 	arguments := []string{
-		"--model_path", constants.DefaultModelLocalMountPath + "/" + ONNXModelFileName,
+		"--model_path", fmt.Sprintf("%s/%s/%s", constants.DefaultModelLocalMountPath, modelName, ONNXModelFileName),
 		"--http_port", ONNXServingRestPort,
 		"--grpc_port", ONNXServingGRPCPort,
 	}
+
 	if parallelism != 0 {
 		arguments = append(arguments, []string{"--num_http_threads", strconv.Itoa(parallelism)}...)
 	}

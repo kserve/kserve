@@ -32,7 +32,7 @@ func (x *XGBoostSpec) GetResourceRequirements() *v1.ResourceRequirements {
 func (x *XGBoostSpec) GetContainer(modelName string, parallelism int, config *InferenceServicesConfig) *v1.Container {
 	arguments := []string{
 		fmt.Sprintf("%s=%s", constants.ArgumentModelName, modelName),
-		fmt.Sprintf("%s=%s", constants.ArgumentModelDir, constants.DefaultModelLocalMountPath),
+		fmt.Sprintf("%s=%s/%s", constants.ArgumentModelDir, constants.DefaultModelLocalMountPath, modelName),
 		fmt.Sprintf("%s=%s", constants.ArgumentHttpPort, constants.InferenceServiceDefaultHttpPort),
 		fmt.Sprintf("%s=%s", "--nthread", strconv.Itoa(x.NThread)),
 	}

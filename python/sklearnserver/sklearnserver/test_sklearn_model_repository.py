@@ -47,5 +47,5 @@ async def test_load_fail():
     model_name = "model"
     with pytest.raises(Exception):
         await repo.load(model_name)
-        assert repo.get_model(model_name) is None
-        assert not repo.is_model_ready(model_name)
+    assert repo.get_model(model_name) is None
+    assert not repo.is_model_ready(model_name)

@@ -18,7 +18,7 @@ import torchvision
 import torchvision.transforms as transforms
 import os
 
-model_dir = model_dir = os.path.join(os.path.dirname(__file__), "example_model")
+model_dir = model_dir = os.path.join(os.path.dirname(__file__), "example_model", "model")
 
 
 def test_model():

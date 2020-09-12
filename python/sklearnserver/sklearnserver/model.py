@@ -30,7 +30,7 @@ class SKLearnModel(kfserving.KFModel):  # pylint:disable=c-extension-no-member
         self.ready = False
 
     def load(self) -> bool:
-        model_path = kfserving.Storage.download(os.path.join(self.model_dir, self.name))
+        model_path = kfserving.Storage.download(self.model_dir)
         paths = [os.path.join(model_path, MODEL_BASENAME + model_extension)
                  for model_extension in MODEL_EXTENSIONS]
         for path in paths:

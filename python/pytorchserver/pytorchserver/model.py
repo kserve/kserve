@@ -33,7 +33,7 @@ class PyTorchModel(kfserving.KFModel):
         self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
     def load(self) -> bool:
-        model_file_dir = kfserving.Storage.download(os.path.join(self.model_dir, self.name))
+        model_file_dir = kfserving.Storage.download(self.model_dir, self.name)
         model_file = os.path.join(model_file_dir, PYTORCH_FILE)
         py_files = []
         for filename in os.listdir(model_file_dir):

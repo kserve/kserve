@@ -17,12 +17,12 @@ import pytest
 from xgbserver import XGBoostModelRepository
 
 model_dir = os.path.join(os.path.dirname(__file__), "example_model")
-invalid_model_dir = os.path.join(os.path.dirname(__file__), "model_not_exist")
+invalid_model_dir = os.path.join(os.path.dirname(__file__), "model_not_exist", "model")
 
 
 @pytest.mark.asyncio
 async def test_load():
-    repo = XGBoostModelRepository(model_dir, nthread=1)
+    repo = XGBoostModelRepository(model_dir=model_dir, nthread=1)
     model_name = "model"
     await repo.load(model_name)
     assert repo.get_model(model_name) is not None
@@ -31,7 +31,7 @@ async def test_load():
 
 @pytest.mark.asyncio
 async def test_load_fail():
-    repo = XGBoostModelRepository(invalid_model_dir, nthread=1)
+    repo = XGBoostModelRepository(model_dir=model_dir, nthread=1)
     model_name = "model"
     with pytest.raises(Exception):
         await repo.load(model_name)

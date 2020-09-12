@@ -17,9 +17,10 @@ import os
 from sklearn.datasets import load_iris
 from xgbserver import XGBoostModel
 
-model_dir = os.path.join(os.path.dirname(__file__), "example_model")
+model_dir = os.path.join(os.path.dirname(__file__), "example_model", "model")
 BST_FILE = "model.bst"
 NTHREAD = 1
+
 
 def test_model():
     iris = load_iris()
@@ -34,7 +35,7 @@ def test_model():
              'objective': 'multi:softmax'
             }
     xgb_model = xgb.train(params=param, dtrain=dtrain)
-    model_file = os.path.join((model_dir), "model", BST_FILE)
+    model_file = os.path.join(model_dir, BST_FILE)
     xgb_model.save_model(model_file)
     model = XGBoostModel("model", model_dir, NTHREAD)
     model.load()

@@ -231,7 +231,7 @@ func TestCreateONNXRuntimeContainer(t *testing.T) {
 				Name:      constants.InferenceServiceContainerName,
 				Resources: requestedResource,
 				Args: []string{
-					"--model_path=/mnt/models/model.onnx",
+					"--model_path=/mnt/models/someName/model.onnx",
 					"--http_port=8080",
 					"--grpc_port=9000",
 				},
@@ -261,7 +261,7 @@ func TestCreateONNXRuntimeContainer(t *testing.T) {
 				Name:      constants.InferenceServiceContainerName,
 				Resources: requestedResource,
 				Args: []string{
-					"--model_path=/mnt/models/model.onnx",
+					"--model_path=/mnt/models/someName/model.onnx",
 					"--http_port=8080",
 					"--grpc_port=9000",
 				},
@@ -294,7 +294,7 @@ func TestCreateONNXRuntimeContainer(t *testing.T) {
 				Name:      constants.InferenceServiceContainerName,
 				Resources: requestedResource,
 				Args: []string{
-					"--model_path=/mnt/models/model.onnx",
+					"--model_path=/mnt/models/someName/model.onnx",
 					"--http_port=8080",
 					"--grpc_port=9000",
 				},

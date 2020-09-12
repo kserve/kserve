@@ -53,7 +53,7 @@ func (t *TorchServeSpec) GetContainer(metadata metav1.ObjectMeta, extensions *Co
 	arguments := []string{
 		"torchserve",
 		"--start",
-		fmt.Sprintf("%s=%s", "--model-store=", constants.DefaultModelLocalMountPath),
+		fmt.Sprintf("%s=%s/%s", "--model-store=", constants.DefaultModelLocalMountPath, metadata.Name),
 	}
 
 	if t.Container.Image == "" {

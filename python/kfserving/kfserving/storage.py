@@ -50,10 +50,8 @@ class Storage(object): # pylint: disable=too-few-public-methods
                 # noop if out_dir is not set and the path is local
                 return Storage._download_local(uri)
             out_dir = tempfile.mkdtemp()
-        else:
-            if not os.path.exists(out_dir):
-                os.mkdir(out_dir)
-
+        elif not os.path.exists(out_dir):
+            os.mkdir(out_dir)
 
         if uri.startswith(_GCS_PREFIX):
             Storage._download_gcs(uri, out_dir)

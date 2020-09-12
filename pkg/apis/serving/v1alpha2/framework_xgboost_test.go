@@ -85,7 +85,7 @@ func TestCreateXGBoostContainer(t *testing.T) {
 		Resources: requestedResource,
 		Args: []string{
 			"--model_name=someName",
-			"--model_dir=/mnt/models",
+			"--model_dir=/mnt/models/someName",
 			"--http_port=8080",
 			"--nthread=0",
 		},
@@ -102,7 +102,7 @@ func TestCreateXGBoostContainer(t *testing.T) {
 		Resources: requestedResource,
 		Args: []string{
 			"--model_name=someName",
-			"--model_dir=/mnt/models",
+			"--model_dir=/mnt/models/someName",
 			"--http_port=8080",
 			"--nthread=0",
 			"--workers=1",
@@ -141,7 +141,7 @@ func TestCreateXGBoostContainerWithNThread(t *testing.T) {
 			},
 			expArgs: []string{
 				"--model_name=someName",
-				"--model_dir=/mnt/models",
+				"--model_dir=/mnt/models/someName",
 				"--http_port=8080",
 				"--nthread=4",
 			},

@@ -97,7 +97,7 @@ func TestCreateAlibiExplainerContainer(t *testing.T) {
 			constants.ArgumentHttpPort,
 			constants.InferenceServiceDefaultHttpPort,
 			"--storage_uri",
-			"/mnt/models",
+			"/mnt/models/someName",
 			"Anchor",
 		},
 	}
@@ -154,7 +154,7 @@ func TestCreateAlibiExplainerContainerWithConfig(t *testing.T) {
 			"--http_port",
 			"8080",
 			"--storage_uri",
-			"/mnt/models",
+			"/mnt/models/someName",
 			"AnchorText",
 			"--sample_proba",
 			"0.5",

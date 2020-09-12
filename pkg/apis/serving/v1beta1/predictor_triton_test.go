@@ -234,7 +234,7 @@ func TestCreateTritonContainer(t *testing.T) {
 					"trtserver",
 				},
 				Args: []string{
-					"--model-store=/mnt/models",
+					"--model-store=/mnt/models/someName",
 					"--grpc-port=9000",
 					"--http-port=8080",
 					"--allow-poll-model-repository=false",
@@ -270,7 +270,7 @@ func TestCreateTritonContainer(t *testing.T) {
 					"trtserver",
 				},
 				Args: []string{
-					"--model-store=/mnt/models",
+					"--model-store=/mnt/models/someName",
 					"--grpc-port=9000",
 					"--http-port=8080",
 					"--allow-poll-model-repository=false",
@@ -309,7 +309,7 @@ func TestCreateTritonContainer(t *testing.T) {
 					"trtserver",
 				},
 				Args: []string{
-					"--model-store=/mnt/models",
+					"--model-store=/mnt/models/someName",
 					"--grpc-port=9000",
 					"--http-port=8080",
 					"--allow-poll-model-repository=false",

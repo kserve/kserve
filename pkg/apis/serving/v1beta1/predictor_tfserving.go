@@ -87,7 +87,7 @@ func (t *TFServingSpec) GetContainer(metadata metav1.ObjectMeta, extensions *Com
 		fmt.Sprintf("%s=%s", "--port", TensorflowServingGRPCPort),
 		fmt.Sprintf("%s=%s", "--rest_api_port", TensorflowServingRestPort),
 		fmt.Sprintf("%s=%s", "--model_name", metadata.Name),
-		fmt.Sprintf("%s=%s", "--model_base_path", constants.DefaultModelLocalMountPath),
+		fmt.Sprintf("%s=%s/%s", "--model_base_path", constants.DefaultModelLocalMountPath, metadata.Name),
 	}
 	if t.Container.Image == "" {
 		t.Container.Image = config.Predictors.Tensorflow.ContainerImage + ":" + *t.RuntimeVersion
