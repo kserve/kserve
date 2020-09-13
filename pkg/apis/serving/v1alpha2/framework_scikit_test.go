@@ -90,7 +90,7 @@ func TestCreateSKLearnModelServingContainer(t *testing.T) {
 		Resources: requestedResource,
 		Args: []string{
 			"--model_name=someName",
-			"--model_dir=/mnt/models/someName",
+			"--model_dir=/mnt/models",
 			"--http_port=8080",
 		},
 	}
@@ -106,7 +106,7 @@ func TestCreateSKLearnModelServingContainer(t *testing.T) {
 		Resources: requestedResource,
 		Args: []string{
 			"--model_name=someName",
-			"--model_dir=/mnt/models/someName",
+			"--model_dir=/mnt/models",
 			"--http_port=8080",
 			"--workers=2",
 		},

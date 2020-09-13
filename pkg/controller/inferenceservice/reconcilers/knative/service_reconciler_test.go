@@ -143,7 +143,7 @@ func TestKnativeServiceReconcile(t *testing.T) {
 												"--port=" + v1alpha2.TensorflowServingGRPCPort,
 												"--rest_api_port=" + v1alpha2.TensorflowServingRestPort,
 												"--model_name=mnist",
-												"--model_base_path=" + constants.DefaultModelLocalMountPath + "/mnist",
+												"--model_base_path=" + constants.DefaultModelLocalMountPath,
 											},
 											LivenessProbe: &v1.Probe{
 												Handler: v1.Handler{
@@ -199,7 +199,7 @@ func TestKnativeServiceReconcile(t *testing.T) {
 												"--port=" + v1alpha2.TensorflowServingGRPCPort,
 												"--rest_api_port=" + v1alpha2.TensorflowServingRestPort,
 												"--model_name=mnist",
-												"--model_base_path=" + constants.DefaultModelLocalMountPath + "/mnist",
+												"--model_base_path=" + constants.DefaultModelLocalMountPath,
 											},
 											LivenessProbe: &v1.Probe{
 												Handler: v1.Handler{
@@ -273,7 +273,7 @@ func TestKnativeServiceReconcile(t *testing.T) {
 												"--port=" + v1alpha2.TensorflowServingGRPCPort,
 												"--rest_api_port=" + v1alpha2.TensorflowServingRestPort,
 												"--model_name=mnist",
-												"--model_base_path=" + constants.DefaultModelLocalMountPath + "/mnist",
+												"--model_base_path=" + constants.DefaultModelLocalMountPath,
 											},
 											LivenessProbe: &v1.Probe{
 												Handler: v1.Handler{

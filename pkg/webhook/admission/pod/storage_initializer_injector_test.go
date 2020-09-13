@@ -135,9 +135,6 @@ func TestStorageInitializerInjector(t *testing.T) {
 					Annotations: map[string]string{
 						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
 					},
-					Labels: map[string]string{
-						constants.InferenceServicePodLabelKey: "model",
-					},
 				},
 				Spec: v1.PodSpec{
 					Containers: []v1.Container{
@@ -151,9 +148,6 @@ func TestStorageInitializerInjector(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
-					},
-					Labels: map[string]string{
-						constants.InferenceServicePodLabelKey: "model",
 					},
 				},
 				Spec: v1.PodSpec{
@@ -173,7 +167,7 @@ func TestStorageInitializerInjector(t *testing.T) {
 						{
 							Name:                     "storage-initializer",
 							Image:                    StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
-							Args:                     []string{"gs://foo", constants.DefaultModelLocalMountPath + "/model"},
+							Args:                     []string{"gs://foo", constants.DefaultModelLocalMountPath},
 							Resources:                resourceRequirement,
 							TerminationMessagePolicy: "FallbackToLogsOnError",
 							VolumeMounts: []v1.VolumeMount{

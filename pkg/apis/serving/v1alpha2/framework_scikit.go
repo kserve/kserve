@@ -38,7 +38,7 @@ func (s *SKLearnSpec) GetResourceRequirements() *v1.ResourceRequirements {
 func (s *SKLearnSpec) GetContainer(modelName string, parallelism int, config *InferenceServicesConfig) *v1.Container {
 	arguments := []string{
 		fmt.Sprintf("%s=%s", constants.ArgumentModelName, modelName),
-		fmt.Sprintf("%s=%s/%s", constants.ArgumentModelDir, constants.DefaultModelLocalMountPath, modelName),
+		fmt.Sprintf("%s=%s", constants.ArgumentModelDir, constants.DefaultModelLocalMountPath),
 		fmt.Sprintf("%s=%s", constants.ArgumentHttpPort, constants.InferenceServiceDefaultHttpPort),
 	}
 	if parallelism != 0 {

@@ -62,7 +62,7 @@ func TestCreateOnnxModelServingContainer(t *testing.T) {
 		Name:      constants.InferenceServiceContainerName,
 		Resources: onnxRequestedResource,
 		Args: []string{
-			"--model_path", "/mnt/models/someName/model.onnx",
+			"--model_path", "/mnt/models/model.onnx",
 			"--http_port", "8080",
 			"--grpc_port", "9000",
 		},

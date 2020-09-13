@@ -17,7 +17,6 @@ limitations under the License.
 package v1beta1
 
 import (
-	"fmt"
 	"sort"
 	"strconv"
 
@@ -83,7 +82,7 @@ func (s *AlibiExplainerSpec) GetContainer(metadata metav1.ObjectMeta, extensions
 		args = append(args, constants.ArgumentWorkers, strconv.FormatInt(*extensions.ContainerConcurrency, 10))
 	}
 	if s.StorageURI != "" {
-		args = append(args, "--storage_uri", fmt.Sprintf("%s/%s", constants.DefaultModelLocalMountPath, metadata.Name))
+		args = append(args, "--storage_uri", constants.DefaultModelLocalMountPath)
 	}
 
 	args = append(args, string(s.Type))

@@ -41,7 +41,7 @@ func (t *TritonSpec) GetContainer(modelName string, parallelism int, config *Inf
 		Resources: t.Resources,
 		Args: []string{
 			"trtserver",
-			"--model-store=" + constants.DefaultModelLocalMountPath + "/" + modelName,
+			"--model-store=" + constants.DefaultModelLocalMountPath,
 			"--allow-poll-model-repository=false",
 			"--allow-grpc=true",
 			"--allow-http=true",

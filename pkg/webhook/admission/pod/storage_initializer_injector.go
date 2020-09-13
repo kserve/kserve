@@ -162,11 +162,6 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 		storageInitializerImage = mi.config.Image
 	}
 
-	modelLocalMountPath := constants.DefaultModelLocalMountPath
-	if modelName, ok := pod.ObjectMeta.Labels[constants.InferenceServicePodLabelKey]; ok {
-		modelLocalMountPath += "/" + modelName
-	}
-
 	securityContext := userContainer.SecurityContext.DeepCopy()
 	// Add an init container to run provisioning logic to the PodSpec
 	initContainer := &v1.Container{
@@ -174,7 +169,7 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 		Image: storageInitializerImage,
 		Args: []string{
 			srcURI,
-			modelLocalMountPath,
+			constants.DefaultModelLocalMountPath,
 		},
 		TerminationMessagePolicy: v1.TerminationMessageFallbackToLogsOnError,
 		VolumeMounts:             storageInitializerMounts,

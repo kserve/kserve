@@ -58,7 +58,7 @@ func (t *TritonSpec) Default(config *InferenceServicesConfig) {
 // GetContainers transforms the resource into a container spec
 func (t *TritonSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig) *v1.Container {
 	arguments := []string{
-		fmt.Sprintf("%s=%s/%s", "--model-store", constants.DefaultModelLocalMountPath, metadata.Name),
+		fmt.Sprintf("%s=%s", "--model-store", constants.DefaultModelLocalMountPath),
 		fmt.Sprintf("%s=%s", "--grpc-port", fmt.Sprint(TritonISGRPCPort)),
 		fmt.Sprintf("%s=%s", "--http-port", fmt.Sprint(TritonISRestPort)),
 		fmt.Sprintf("%s=%s", "--allow-poll-model-repository", "false"),

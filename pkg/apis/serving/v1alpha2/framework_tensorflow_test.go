@@ -109,7 +109,7 @@ func TestTensorflowContainer(t *testing.T) {
 			"--port=" + TensorflowServingGRPCPort,
 			"--rest_api_port=" + TensorflowServingRestPort,
 			"--model_name=someName",
-			"--model_base_path=/mnt/models/someName",
+			"--model_base_path=/mnt/models",
 		},
 		LivenessProbe: &v1.Probe{
 			Handler: v1.Handler{
