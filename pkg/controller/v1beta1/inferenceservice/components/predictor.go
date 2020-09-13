@@ -74,15 +74,14 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
 		}),
 		Annotations: annotations,
 	}
+	container := predictor.GetContainer(isvc.ObjectMeta, isvc.Spec.Predictor.GetExtensions(), p.inferenceServiceConfig)
 	if len(isvc.Spec.Predictor.PodSpec.Containers) == 0 {
-		container := predictor.GetContainer(isvc.ObjectMeta, isvc.Spec.Predictor.GetExtensions(), p.inferenceServiceConfig)
 		isvc.Spec.Predictor.PodSpec = v1beta1.PodSpec{
 			Containers: []v1.Container{
 				*container,
 			},
 		}
 	} else {
-		container := predictor.GetContainer(isvc.ObjectMeta, isvc.Spec.Predictor.GetExtensions(), p.inferenceServiceConfig)
 		isvc.Spec.Predictor.PodSpec.Containers[0] = *container
 	}
 	//TODO now knative supports multi containers, consolidate logger/batcher/puller to the sidecar container

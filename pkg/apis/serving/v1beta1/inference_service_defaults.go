@@ -64,7 +64,7 @@ func (isvc *InferenceService) Default() {
 	mutatorLogger.Info("Defaulting InferenceService", "namespace", isvc.Namespace, "isvc", isvc.Spec.Predictor)
 	cli, err := client.New(config.GetConfigOrDie(), client.Options{})
 	if err != nil {
-		panic("Failed to create client in defauler")
+		panic("Failed to create client in defaulter")
 	}
 	configMap, err := NewInferenceServicesConfig(cli)
 	if err != nil {
