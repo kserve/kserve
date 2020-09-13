@@ -103,6 +103,15 @@ func TestAzureBlobNoContainerFails(t *testing.T) {
 	g.Expect(isvc.ValidateCreate()).ShouldNot(gomega.Succeed())
 }
 
+func TestHttpStorageURIPrefixOK(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	isvc := makeTestInferenceService()
+	isvc.Spec.Predictor.Tensorflow.StorageURI = proto.String("https://raw.githubusercontent.com/someOrg/someRepo/model.tar.gz")
+	g.Expect(isvc.ValidateCreate()).Should(gomega.Succeed())
+	isvc.Spec.Predictor.Tensorflow.StorageURI = proto.String("http://raw.githubusercontent.com/someOrg/someRepo/model.tar.gz")
+	g.Expect(isvc.ValidateCreate()).Should(gomega.Succeed())
+}
+
 func TestUnkownStorageURIPrefixFails(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	isvc := makeTestInferenceService()

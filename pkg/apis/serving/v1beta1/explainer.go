@@ -22,10 +22,10 @@ type ExplainerSpec struct {
 	// Spec for alibi explainer
 	Alibi *AlibiExplainerSpec `json:"alibi,omitempty"`
 	// This spec is dual purpose.
-	// 1) Users may choose to provide a full PodSpec for their explainer.
+	// 1) Users may choose to provide a full PodSpec for their custom explainer.
 	// The field PodSpec.Containers is mutually exclusive with other explainers (i.e. Alibi).
 	// 2) Users may choose to provide a Explainer (i.e. Alibi) and specify PodSpec
-	// overrides in the CustomExplainer PodSpec. They must not provide PodSpec.Containers in this case.
+	// overrides in the PodSpec. They must not provide PodSpec.Containers in this case.
 	PodSpec `json:",inline"`
 	// Extensions available in all components
 	ComponentExtensionSpec `json:",inline"`
