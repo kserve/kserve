@@ -37,17 +37,13 @@ func TestCustomPredictorValidation(t *testing.T) {
 	}{
 		"ValidStorageUri": {
 			spec: PredictorSpec{
-				Custom: &CustomPredictor{
-					PodTemplateSpec: v1.PodTemplateSpec{
-						Spec: v1.PodSpec{
-							Containers: []v1.Container{
+				PodSpec: PodSpec{
+					Containers: []v1.Container{
+						{
+							Env: []v1.EnvVar{
 								{
-									Env: []v1.EnvVar{
-										{
-											Name:  "STORAGE_URI",
-											Value: "s3://modelzoo",
-										},
-									},
+									Name:  "STORAGE_URI",
+									Value: "s3://modelzoo",
 								},
 							},
 						},
@@ -58,17 +54,13 @@ func TestCustomPredictorValidation(t *testing.T) {
 		},
 		"InvalidStorageUri": {
 			spec: PredictorSpec{
-				Custom: &CustomPredictor{
-					PodTemplateSpec: v1.PodTemplateSpec{
-						Spec: v1.PodSpec{
-							Containers: []v1.Container{
+				PodSpec: PodSpec{
+					Containers: []v1.Container{
+						{
+							Env: []v1.EnvVar{
 								{
-									Env: []v1.EnvVar{
-										{
-											Name:  "STORAGE_URI",
-											Value: "hdfs://modelzoo",
-										},
-									},
+									Name:  "STORAGE_URI",
+									Value: "hdfs://modelzoo",
 								},
 							},
 						},
@@ -83,17 +75,13 @@ func TestCustomPredictorValidation(t *testing.T) {
 					MinReplicas: GetIntReference(3),
 					MaxReplicas: 2,
 				},
-				Custom: &CustomPredictor{
-					PodTemplateSpec: v1.PodTemplateSpec{
-						Spec: v1.PodSpec{
-							Containers: []v1.Container{
+				PodSpec: PodSpec{
+					Containers: []v1.Container{
+						{
+							Env: []v1.EnvVar{
 								{
-									Env: []v1.EnvVar{
-										{
-											Name:  "STORAGE_URI",
-											Value: "hdfs://modelzoo",
-										},
-									},
+									Name:  "STORAGE_URI",
+									Value: "hdfs://modelzoo",
 								},
 							},
 						},
@@ -108,17 +96,13 @@ func TestCustomPredictorValidation(t *testing.T) {
 					MinReplicas:          GetIntReference(3),
 					ContainerConcurrency: proto.Int64(-1),
 				},
-				Custom: &CustomPredictor{
-					PodTemplateSpec: v1.PodTemplateSpec{
-						Spec: v1.PodSpec{
-							Containers: []v1.Container{
+				PodSpec: PodSpec{
+					Containers: []v1.Container{
+						{
+							Env: []v1.EnvVar{
 								{
-									Env: []v1.EnvVar{
-										{
-											Name:  "STORAGE_URI",
-											Value: "hdfs://modelzoo",
-										},
-									},
+									Name:  "STORAGE_URI",
+									Value: "hdfs://modelzoo",
 								},
 							},
 						},
@@ -131,7 +115,8 @@ func TestCustomPredictorValidation(t *testing.T) {
 
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
-			res := scenario.spec.Custom.Validate()
+			customPredictor := NewCustomPredictor(&scenario.spec.PodSpec)
+			res := customPredictor.Validate()
 			if !g.Expect(res).To(scenario.matcher) {
 				t.Errorf("got %q, want %q", res, scenario.matcher)
 			}
@@ -154,17 +139,13 @@ func TestCustomPredictorDefaulter(t *testing.T) {
 	}{
 		"DefaultResources": {
 			spec: PredictorSpec{
-				Custom: &CustomPredictor{
-					PodTemplateSpec: v1.PodTemplateSpec{
-						Spec: v1.PodSpec{
-							Containers: []v1.Container{
+				PodSpec: PodSpec{
+					Containers: []v1.Container{
+						{
+							Env: []v1.EnvVar{
 								{
-									Env: []v1.EnvVar{
-										{
-											Name:  "STORAGE_URI",
-											Value: "hdfs://modelzoo",
-										},
-									},
+									Name:  "STORAGE_URI",
+									Value: "hdfs://modelzoo",
 								},
 							},
 						},
@@ -172,23 +153,19 @@ func TestCustomPredictorDefaulter(t *testing.T) {
 				},
 			},
 			expected: PredictorSpec{
-				Custom: &CustomPredictor{
-					PodTemplateSpec: v1.PodTemplateSpec{
-						Spec: v1.PodSpec{
-							Containers: []v1.Container{
+				PodSpec: PodSpec{
+					Containers: []v1.Container{
+						{
+							Name: constants.InferenceServiceContainerName,
+							Env: []v1.EnvVar{
 								{
-									Name: constants.InferenceServiceContainerName,
-									Env: []v1.EnvVar{
-										{
-											Name:  "STORAGE_URI",
-											Value: "hdfs://modelzoo",
-										},
-									},
-									Resources: v1.ResourceRequirements{
-										Requests: defaultResource,
-										Limits:   defaultResource,
-									},
+									Name:  "STORAGE_URI",
+									Value: "hdfs://modelzoo",
 								},
+							},
+							Resources: v1.ResourceRequirements{
+								Requests: defaultResource,
+								Limits:   defaultResource,
 							},
 						},
 					},
@@ -199,7 +176,8 @@ func TestCustomPredictorDefaulter(t *testing.T) {
 
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
-			scenario.spec.Custom.Default(&config)
+			customPredictor := NewCustomPredictor(&scenario.spec.PodSpec)
+			customPredictor.Default(&config)
 			if !g.Expect(scenario.spec).To(gomega.Equal(scenario.expected)) {
 				t.Errorf("got %v, want %v", scenario.spec, scenario.expected)
 			}
@@ -238,27 +216,23 @@ func TestCreateCustomPredictorContainer(t *testing.T) {
 				},
 				Spec: InferenceServiceSpec{
 					Predictor: PredictorSpec{
-						Custom: &CustomPredictor{
-							PodTemplateSpec: v1.PodTemplateSpec{
-								Spec: v1.PodSpec{
-									Containers: []v1.Container{
+						PodSpec: PodSpec{
+							Containers: []v1.Container{
+								{
+									Image: "custom-predictor:0.1.0",
+									Args: []string{
+										"--model_name",
+										"someName",
+										"--http_port",
+										"8080",
+									},
+									Env: []v1.EnvVar{
 										{
-											Image: "custom-predictor:0.1.0",
-											Args: []string{
-												"--model_name",
-												"someName",
-												"--http_port",
-												"8080",
-											},
-											Env: []v1.EnvVar{
-												{
-													Name:  "STORAGE_URI",
-													Value: "hdfs://modelzoo",
-												},
-											},
-											Resources: requestedResource,
+											Name:  "STORAGE_URI",
+											Value: "hdfs://modelzoo",
 										},
 									},
+									Resources: requestedResource,
 								},
 							},
 						},

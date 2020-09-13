@@ -74,34 +74,31 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
 		}),
 		Annotations: annotations,
 	}
-	if isvc.Spec.Predictor.Custom == nil {
+	if len(isvc.Spec.Predictor.PodSpec.Containers) == 0 {
 		container := predictor.GetContainer(isvc.ObjectMeta, isvc.Spec.Predictor.GetExtensions(), p.inferenceServiceConfig)
-		isvc.Spec.Predictor.Custom = &v1beta1.CustomPredictor{
-			PodTemplateSpec: v1.PodTemplateSpec{
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
-						*container,
-					},
-				},
+		isvc.Spec.Predictor.PodSpec = v1beta1.PodSpec{
+			Containers: []v1.Container{
+				*container,
 			},
 		}
 	} else {
 		container := predictor.GetContainer(isvc.ObjectMeta, isvc.Spec.Predictor.GetExtensions(), p.inferenceServiceConfig)
-		isvc.Spec.Predictor.Custom.Spec.Containers[0] = *container
+		isvc.Spec.Predictor.PodSpec.Containers[0] = *container
 	}
 	//TODO now knative supports multi containers, consolidate logger/batcher/puller to the sidecar container
 	//https://github.com/kubeflow/kfserving/issues/973
 	if hasInferenceLogging {
-		addLoggerContainerPort(&isvc.Spec.Predictor.Custom.Spec.Containers[0])
+		addLoggerContainerPort(&isvc.Spec.Predictor.PodSpec.Containers[0])
 	}
 
 	if hasInferenceBatcher {
-		addBatcherContainerPort(&isvc.Spec.Predictor.Custom.Spec.Containers[0])
+		addBatcherContainerPort(&isvc.Spec.Predictor.PodSpec.Containers[0])
 	}
 
 	// Here we allow switch between knative and vanilla deployment
+	podSpec := v1.PodSpec(isvc.Spec.Predictor.PodSpec)
 	r := knative.NewKsvcReconciler(p.client, p.scheme, objectMeta, &isvc.Spec.Predictor.ComponentExtensionSpec,
-		&isvc.Spec.Predictor.Custom.Spec, isvc.Status.Components[v1beta1.PredictorComponent])
+		&podSpec, isvc.Status.Components[v1beta1.PredictorComponent])
 
 	if err := controllerutil.SetControllerReference(isvc, r.Service, p.scheme); err != nil {
 		return err

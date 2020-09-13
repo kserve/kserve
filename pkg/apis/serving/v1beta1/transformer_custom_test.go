@@ -37,17 +37,13 @@ func TestTransformerValidation(t *testing.T) {
 	}{
 		"ValidStorageUri": {
 			spec: TransformerSpec{
-				CustomTransformer: &CustomTransformer{
-					PodTemplateSpec: v1.PodTemplateSpec{
-						Spec: v1.PodSpec{
-							Containers: []v1.Container{
+				PodSpec: PodSpec{
+					Containers: []v1.Container{
+						{
+							Env: []v1.EnvVar{
 								{
-									Env: []v1.EnvVar{
-										{
-											Name:  "STORAGE_URI",
-											Value: "s3://modelzoo",
-										},
-									},
+									Name:  "STORAGE_URI",
+									Value: "s3://modelzoo",
 								},
 							},
 						},
@@ -58,17 +54,13 @@ func TestTransformerValidation(t *testing.T) {
 		},
 		"InvalidStorageUri": {
 			spec: TransformerSpec{
-				CustomTransformer: &CustomTransformer{
-					PodTemplateSpec: v1.PodTemplateSpec{
-						Spec: v1.PodSpec{
-							Containers: []v1.Container{
+				PodSpec: PodSpec{
+					Containers: []v1.Container{
+						{
+							Env: []v1.EnvVar{
 								{
-									Env: []v1.EnvVar{
-										{
-											Name:  "STORAGE_URI",
-											Value: "hdfs://modelzoo",
-										},
-									},
+									Name:  "STORAGE_URI",
+									Value: "hdfs://modelzoo",
 								},
 							},
 						},
@@ -83,17 +75,13 @@ func TestTransformerValidation(t *testing.T) {
 					MinReplicas: GetIntReference(3),
 					MaxReplicas: 2,
 				},
-				CustomTransformer: &CustomTransformer{
-					PodTemplateSpec: v1.PodTemplateSpec{
-						Spec: v1.PodSpec{
-							Containers: []v1.Container{
+				PodSpec: PodSpec{
+					Containers: []v1.Container{
+						{
+							Env: []v1.EnvVar{
 								{
-									Env: []v1.EnvVar{
-										{
-											Name:  "STORAGE_URI",
-											Value: "hdfs://modelzoo",
-										},
-									},
+									Name:  "STORAGE_URI",
+									Value: "hdfs://modelzoo",
 								},
 							},
 						},
@@ -108,17 +96,13 @@ func TestTransformerValidation(t *testing.T) {
 					MinReplicas:          GetIntReference(3),
 					ContainerConcurrency: proto.Int64(-1),
 				},
-				CustomTransformer: &CustomTransformer{
-					PodTemplateSpec: v1.PodTemplateSpec{
-						Spec: v1.PodSpec{
-							Containers: []v1.Container{
+				PodSpec: PodSpec{
+					Containers: []v1.Container{
+						{
+							Env: []v1.EnvVar{
 								{
-									Env: []v1.EnvVar{
-										{
-											Name:  "STORAGE_URI",
-											Value: "hdfs://modelzoo",
-										},
-									},
+									Name:  "STORAGE_URI",
+									Value: "hdfs://modelzoo",
 								},
 							},
 						},
@@ -131,7 +115,8 @@ func TestTransformerValidation(t *testing.T) {
 
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
-			res := scenario.spec.CustomTransformer.Validate()
+			CustomTransformer := NewCustomTransformer(&scenario.spec.PodSpec)
+			res := CustomTransformer.Validate()
 			if !g.Expect(res).To(scenario.matcher) {
 				t.Errorf("got %q, want %q", res, scenario.matcher)
 			}
@@ -154,17 +139,13 @@ func TestTransformerDefaulter(t *testing.T) {
 	}{
 		"DefaultResources": {
 			spec: TransformerSpec{
-				CustomTransformer: &CustomTransformer{
-					PodTemplateSpec: v1.PodTemplateSpec{
-						Spec: v1.PodSpec{
-							Containers: []v1.Container{
+				PodSpec: PodSpec{
+					Containers: []v1.Container{
+						{
+							Env: []v1.EnvVar{
 								{
-									Env: []v1.EnvVar{
-										{
-											Name:  "STORAGE_URI",
-											Value: "hdfs://modelzoo",
-										},
-									},
+									Name:  "STORAGE_URI",
+									Value: "hdfs://modelzoo",
 								},
 							},
 						},
@@ -172,23 +153,19 @@ func TestTransformerDefaulter(t *testing.T) {
 				},
 			},
 			expected: TransformerSpec{
-				CustomTransformer: &CustomTransformer{
-					PodTemplateSpec: v1.PodTemplateSpec{
-						Spec: v1.PodSpec{
-							Containers: []v1.Container{
+				PodSpec: PodSpec{
+					Containers: []v1.Container{
+						{
+							Name: constants.InferenceServiceContainerName,
+							Env: []v1.EnvVar{
 								{
-									Name: constants.InferenceServiceContainerName,
-									Env: []v1.EnvVar{
-										{
-											Name:  "STORAGE_URI",
-											Value: "hdfs://modelzoo",
-										},
-									},
-									Resources: v1.ResourceRequirements{
-										Requests: defaultResource,
-										Limits:   defaultResource,
-									},
+									Name:  "STORAGE_URI",
+									Value: "hdfs://modelzoo",
 								},
+							},
+							Resources: v1.ResourceRequirements{
+								Requests: defaultResource,
+								Limits:   defaultResource,
 							},
 						},
 					},
@@ -199,7 +176,8 @@ func TestTransformerDefaulter(t *testing.T) {
 
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
-			scenario.spec.CustomTransformer.Default(&config)
+			CustomTransformer := NewCustomTransformer(&scenario.spec.PodSpec)
+			CustomTransformer.Default(&config)
 			if !g.Expect(scenario.spec).To(gomega.Equal(scenario.expected)) {
 				t.Errorf("got %v, want %v", scenario.spec, scenario.expected)
 			}
@@ -249,21 +227,17 @@ func TestCreateTransformerContainer(t *testing.T) {
 						},
 					},
 					Transformer: &TransformerSpec{
-						CustomTransformer: &CustomTransformer{
-							PodTemplateSpec: v1.PodTemplateSpec{
-								Spec: v1.PodSpec{
-									Containers: []v1.Container{
+						PodSpec: PodSpec{
+							Containers: []v1.Container{
+								{
+									Image: "transformer:0.1.0",
+									Env: []v1.EnvVar{
 										{
-											Image: "transformer:0.1.0",
-											Env: []v1.EnvVar{
-												{
-													Name:  "STORAGE_URI",
-													Value: "hdfs://modelzoo",
-												},
-											},
-											Resources: requestedResource,
+											Name:  "STORAGE_URI",
+											Value: "hdfs://modelzoo",
 										},
 									},
+									Resources: requestedResource,
 								},
 							},
 						},
@@ -313,21 +287,17 @@ func TestCreateTransformerContainer(t *testing.T) {
 						ComponentExtensionSpec: ComponentExtensionSpec{
 							ContainerConcurrency: proto.Int64(2),
 						},
-						CustomTransformer: &CustomTransformer{
-							PodTemplateSpec: v1.PodTemplateSpec{
-								Spec: v1.PodSpec{
-									Containers: []v1.Container{
+						PodSpec: PodSpec{
+							Containers: []v1.Container{
+								{
+									Image: "transformer:0.1.0",
+									Env: []v1.EnvVar{
 										{
-											Image: "transformer:0.1.0",
-											Env: []v1.EnvVar{
-												{
-													Name:  "STORAGE_URI",
-													Value: "hdfs://modelzoo",
-												},
-											},
-											Resources: requestedResource,
+											Name:  "STORAGE_URI",
+											Value: "hdfs://modelzoo",
 										},
 									},
+									Resources: requestedResource,
 								},
 							},
 						},

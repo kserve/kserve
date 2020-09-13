@@ -70,24 +70,21 @@ func (p *Explainer) Reconcile(isvc *v1beta1.InferenceService) error {
 		}),
 		Annotations: annotations,
 	}
-	if isvc.Spec.Explainer.CustomExplainer == nil {
+	if len(isvc.Spec.Explainer.PodSpec.Containers) == 0 {
 		container := explainer.GetContainer(isvc.ObjectMeta, isvc.Spec.Explainer.GetExtensions(), p.inferenceServiceConfig)
-		isvc.Spec.Explainer.CustomExplainer = &v1beta1.CustomExplainer{
-			PodTemplateSpec: v1.PodTemplateSpec{
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
-						*container,
-					},
-				},
+		isvc.Spec.Explainer.PodSpec = v1beta1.PodSpec{
+			Containers: []v1.Container{
+				*container,
 			},
 		}
 	} else {
 		container := explainer.GetContainer(isvc.ObjectMeta, isvc.Spec.Explainer.GetExtensions(), p.inferenceServiceConfig)
-		isvc.Spec.Explainer.CustomExplainer.Spec.Containers[0] = *container
+		isvc.Spec.Explainer.PodSpec.Containers[0] = *container
 	}
 	// Here we allow switch between knative and vanilla deployment
+	podSpec := v1.PodSpec(isvc.Spec.Explainer.PodSpec)
 	r := knative.NewKsvcReconciler(p.client, p.scheme, objectMeta, &isvc.Spec.Explainer.ComponentExtensionSpec,
-		&isvc.Spec.Explainer.CustomExplainer.Spec, isvc.Status.Components[v1beta1.ExplainerComponent])
+		&podSpec, isvc.Status.Components[v1beta1.ExplainerComponent])
 
 	if err := controllerutil.SetControllerReference(isvc, r.Service, p.scheme); err != nil {
 		return err

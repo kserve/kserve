@@ -120,11 +120,7 @@ func TestRejectMultipleModelSpecs(t *testing.T) {
 func TestModelSpecAndCustomOverridesIsValid(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	isvc := makeTestInferenceService()
-	isvc.Spec.Predictor.Custom = &CustomPredictor{
-		PodTemplateSpec: v1.PodTemplateSpec{
-			Spec: v1.PodSpec{},
-		},
-	}
+	isvc.Spec.Predictor.PodSpec = PodSpec{ServiceAccountName: "test"}
 	g.Expect(isvc.ValidateCreate()).Should(gomega.Succeed())
 }
 
@@ -158,14 +154,10 @@ func TestBadReplicaValues(t *testing.T) {
 	isvc.Spec.Predictor.MaxReplicas = 0
 
 	isvc.Spec.Transformer = &TransformerSpec{}
-	isvc.Spec.Transformer.CustomTransformer = &CustomTransformer{
-		PodTemplateSpec: v1.PodTemplateSpec{
-			Spec: v1.PodSpec{
-				Containers: []v1.Container{
-					{
-						Image: "some-image",
-					},
-				},
+	isvc.Spec.Transformer.PodSpec = PodSpec{
+		Containers: []v1.Container{
+			{
+				Image: "some-image",
 			},
 		},
 	}
@@ -199,14 +191,10 @@ func TestCustomOK(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	isvc := makeTestInferenceService()
 	isvc.Spec.Predictor.Tensorflow = nil
-	isvc.Spec.Predictor.Custom = &CustomPredictor{
-		PodTemplateSpec: v1.PodTemplateSpec{
-			Spec: v1.PodSpec{
-				Containers: []v1.Container{
-					{
-						Image: "some-image",
-					},
-				},
+	isvc.Spec.Predictor.PodSpec = PodSpec{
+		Containers: []v1.Container{
+			{
+				Image: "some-image",
 			},
 		},
 	}

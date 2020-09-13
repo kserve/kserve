@@ -61,7 +61,7 @@ func setResourceRequirementDefaults(requirements *v1.ResourceRequirements) {
 }
 
 func (isvc *InferenceService) Default() {
-	mutatorLogger.Info("Defaulting InferenceService", "namespace", isvc.Namespace, "name", isvc.Name)
+	mutatorLogger.Info("Defaulting InferenceService", "namespace", isvc.Namespace, "isvc", isvc.Spec.Predictor)
 	cli, err := client.New(config.GetConfigOrDie(), client.Options{})
 	if err != nil {
 		panic("Failed to create client in defauler")
@@ -80,7 +80,7 @@ func (isvc *InferenceService) DefaultInferenceService(config *InferenceServicesC
 		isvc.Spec.Explainer,
 	} {
 		if component != nil && !reflect.ValueOf(component).IsNil() {
-			if component.GetImplementation() != nil {
+			if len(component.GetImplementations()) != 0 {
 				component.GetImplementation().Default(config)
 				component.GetExtensions().Default(config)
 			} else {

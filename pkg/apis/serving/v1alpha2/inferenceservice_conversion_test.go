@@ -61,23 +61,19 @@ func TestInferenceServiceConversion(t *testing.T) {
 							MaxReplicas:          3,
 							ContainerConcurrency: proto.Int64(1),
 						},
-						Custom: &v1beta1.CustomPredictor{
-							PodTemplateSpec: v1.PodTemplateSpec{
-								Spec: v1.PodSpec{
-									Containers: []v1.Container{
-										{
-											Name:  "kfserving-container",
-											Image: "custom-predictor:v1",
-											Resources: v1.ResourceRequirements{
-												Requests: v1.ResourceList{
-													v1.ResourceCPU:    resource.MustParse("1"),
-													v1.ResourceMemory: resource.MustParse("2Gi"),
-												},
-												Limits: v1.ResourceList{
-													v1.ResourceCPU:    resource.MustParse("1"),
-													v1.ResourceMemory: resource.MustParse("2Gi"),
-												},
-											},
+						PodSpec: v1beta1.PodSpec{
+							Containers: []v1.Container{
+								{
+									Name:  "kfserving-container",
+									Image: "custom-predictor:v1",
+									Resources: v1.ResourceRequirements{
+										Requests: v1.ResourceList{
+											v1.ResourceCPU:    resource.MustParse("1"),
+											v1.ResourceMemory: resource.MustParse("2Gi"),
+										},
+										Limits: v1.ResourceList{
+											v1.ResourceCPU:    resource.MustParse("1"),
+											v1.ResourceMemory: resource.MustParse("2Gi"),
 										},
 									},
 								},
@@ -157,23 +153,19 @@ func TestInferenceServiceConversion(t *testing.T) {
 							MaxReplicas:          3,
 							ContainerConcurrency: proto.Int64(1),
 						},
-						CustomTransformer: &v1beta1.CustomTransformer{
-							PodTemplateSpec: v1.PodTemplateSpec{
-								Spec: v1.PodSpec{
-									Containers: []v1.Container{
-										{
-											Name:  "kfserving-container",
-											Image: "transformer:v1",
-											Resources: v1.ResourceRequirements{
-												Requests: v1.ResourceList{
-													v1.ResourceCPU:    resource.MustParse("1"),
-													v1.ResourceMemory: resource.MustParse("2Gi"),
-												},
-												Limits: v1.ResourceList{
-													v1.ResourceCPU:    resource.MustParse("1"),
-													v1.ResourceMemory: resource.MustParse("2Gi"),
-												},
-											},
+						PodSpec: v1beta1.PodSpec{
+							Containers: []v1.Container{
+								{
+									Name:  "kfserving-container",
+									Image: "transformer:v1",
+									Resources: v1.ResourceRequirements{
+										Requests: v1.ResourceList{
+											v1.ResourceCPU:    resource.MustParse("1"),
+											v1.ResourceMemory: resource.MustParse("2Gi"),
+										},
+										Limits: v1.ResourceList{
+											v1.ResourceCPU:    resource.MustParse("1"),
+											v1.ResourceMemory: resource.MustParse("2Gi"),
 										},
 									},
 								},

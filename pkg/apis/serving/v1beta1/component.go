@@ -160,22 +160,10 @@ func validateLogger(logger *LoggerSpec) error {
 }
 
 func validateExactlyOneImplementation(component Component) error {
-	implementations := NonNilComponents(component.GetImplementations())
-	count := len(implementations)
-	if count == 2 { // If two implementations, allow if one of them is custom overrides
-		for _, implementation := range implementations {
-			switch reflect.ValueOf(implementation).Type().Elem().Name() {
-			case
-				reflect.ValueOf(CustomPredictor{}).Type().Name(),
-				reflect.ValueOf(CustomExplainer{}).Type().Name(),
-				reflect.ValueOf(CustomTransformer{}).Type().Name():
-				return nil
-			}
-		}
-	} else if count == 1 {
-		return nil
+	if len(component.GetImplementations()) != 1 {
+		return ExactlyOneErrorFor(component)
 	}
-	return ExactlyOneErrorFor(component)
+	return nil
 }
 
 // FirstNonNilComponent returns the first non nil object or returns nil
@@ -201,7 +189,7 @@ func ExactlyOneErrorFor(component Component) error {
 	componentType := reflect.ValueOf(component).Type().Elem()
 	implementationTypes := []string{}
 	for i := 0; i < componentType.NumField()-1; i++ {
-		implementationTypes = append(implementationTypes, componentType.Field(i).Type.Elem().Name())
+		implementationTypes = append(implementationTypes, componentType.Field(i).Name)
 	}
 	return fmt.Errorf(
 		"Exactly one of [%s] must be specified in %s",

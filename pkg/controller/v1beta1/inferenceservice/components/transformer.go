@@ -19,7 +19,7 @@ import (
 	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/reconcilers/knative"
 	"github.com/kubeflow/kfserving/pkg/credentials"
 	"github.com/kubeflow/kfserving/pkg/utils"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -70,24 +70,21 @@ func (p *Transformer) Reconcile(isvc *v1beta1.InferenceService) error {
 		}),
 		Annotations: annotations,
 	}
-	if isvc.Spec.Transformer.CustomTransformer == nil {
+	if len(isvc.Spec.Transformer.PodSpec.Containers) == 0 {
 		container := transformer.GetContainer(isvc.ObjectMeta, isvc.Spec.Transformer.GetExtensions(), p.inferenceServiceConfig)
-		isvc.Spec.Transformer.CustomTransformer = &v1beta1.CustomTransformer{
-			PodTemplateSpec: v1.PodTemplateSpec{
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
-						*container,
-					},
-				},
+		isvc.Spec.Transformer.PodSpec = v1beta1.PodSpec{
+			Containers: []corev1.Container{
+				*container,
 			},
 		}
 	} else {
 		container := transformer.GetContainer(isvc.ObjectMeta, isvc.Spec.Transformer.GetExtensions(), p.inferenceServiceConfig)
-		isvc.Spec.Transformer.CustomTransformer.Spec.Containers[0] = *container
+		isvc.Spec.Transformer.PodSpec.Containers[0] = *container
 	}
 	// Here we allow switch between knative and vanilla deployment
+	podSpec := corev1.PodSpec(isvc.Spec.Transformer.PodSpec)
 	r := knative.NewKsvcReconciler(p.client, p.scheme, objectMeta, &isvc.Spec.Transformer.ComponentExtensionSpec,
-		&isvc.Spec.Transformer.CustomTransformer.Spec, isvc.Status.Components[v1beta1.TransformerComponent])
+		&podSpec, isvc.Status.Components[v1beta1.TransformerComponent])
 
 	if err := controllerutil.SetControllerReference(isvc, r.Service, p.scheme); err != nil {
 		return err

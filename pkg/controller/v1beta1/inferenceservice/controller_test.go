@@ -164,19 +164,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 												"--model_name=" + isvc.Name,
 												"--model_base_path=" + constants.DefaultModelLocalMountPath,
 											},
-											//TODO default liveness probe
-											/*LivenessProbe: &v1.Probe{
-												Handler: v1.Handler{
-													HTTPGet: &v1.HTTPGetAction{
-														Path: "/v1/models/" + defaultInstance.Name,
-													},
-												},
-												InitialDelaySeconds: constants.DefaultReadinessTimeout,
-												PeriodSeconds:       10,
-												FailureThreshold:    3,
-												SuccessThreshold:    1,
-												TimeoutSeconds:      1,
-											},*/
 										},
 									},
 								},
@@ -295,14 +282,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							MinReplicas: v1beta1.GetIntReference(1),
 							MaxReplicas: 3,
 						},
-						CustomTransformer: &v1beta1.CustomTransformer{
-							PodTemplateSpec: v1.PodTemplateSpec{
-								Spec: v1.PodSpec{
-									Containers: []v1.Container{
-										{
-											Image: "transformer:v1",
-										},
-									},
+						PodSpec: v1beta1.PodSpec{
+							Containers: []v1.Container{
+								{
+									Image: "transformer:v1",
 								},
 							},
 						},

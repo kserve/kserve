@@ -89,13 +89,9 @@ func (src *InferenceService) ConvertTo(dstRaw conversion.Hub) error {
 			},
 		}
 	} else if src.Spec.Default.Predictor.Custom != nil {
-		dst.Spec.Predictor.Custom = &v1beta1.CustomPredictor{
-			PodTemplateSpec: v1.PodTemplateSpec{
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
-						src.Spec.Default.Predictor.Custom.Container,
-					},
-				},
+		dst.Spec.Predictor.PodSpec = v1beta1.PodSpec{
+			Containers: []v1.Container{
+				src.Spec.Default.Predictor.Custom.Container,
 			},
 		}
 	}
@@ -119,17 +115,7 @@ func (src *InferenceService) ConvertTo(dstRaw conversion.Hub) error {
 		}
 	}
 	if src.Spec.Default.Predictor.ServiceAccountName != "" {
-		if dst.Spec.Predictor.Custom == nil {
-			dst.Spec.Predictor.Custom = &v1beta1.CustomPredictor{
-				PodTemplateSpec: v1.PodTemplateSpec{
-					Spec: v1.PodSpec{
-						ServiceAccountName: src.Spec.Default.Predictor.ServiceAccountName,
-					},
-				},
-			}
-		} else {
-			dst.Spec.Predictor.Custom.Spec.ServiceAccountName = src.Spec.Default.Predictor.ServiceAccountName
-		}
+		dst.Spec.Predictor.PodSpec.ServiceAccountName = src.Spec.Default.Predictor.ServiceAccountName
 	}
 
 	if src.Spec.Default.Transformer != nil {
@@ -140,13 +126,9 @@ func (src *InferenceService) ConvertTo(dstRaw conversion.Hub) error {
 					MaxReplicas:          src.Spec.Default.Transformer.MaxReplicas,
 					ContainerConcurrency: proto.Int64(int64(src.Spec.Default.Transformer.Parallelism)),
 				},
-				CustomTransformer: &v1beta1.CustomTransformer{
-					PodTemplateSpec: v1.PodTemplateSpec{
-						Spec: v1.PodSpec{
-							Containers: []v1.Container{
-								src.Spec.Default.Transformer.Custom.Container,
-							},
-						},
+				PodSpec: v1beta1.PodSpec{
+					Containers: []v1.Container{
+						src.Spec.Default.Transformer.Custom.Container,
 					},
 				},
 			}
@@ -172,13 +154,9 @@ func (src *InferenceService) ConvertTo(dstRaw conversion.Hub) error {
 		}
 		if src.Spec.Default.Explainer.Custom != nil {
 			dst.Spec.Explainer = &v1beta1.ExplainerSpec{
-				CustomExplainer: &v1beta1.CustomExplainer{
-					PodTemplateSpec: v1.PodTemplateSpec{
-						Spec: v1.PodSpec{
-							Containers: []v1.Container{
-								src.Spec.Default.Explainer.Custom.Container,
-							},
-						},
+				PodSpec: v1beta1.PodSpec{
+					Containers: []v1.Container{
+						src.Spec.Default.Explainer.Custom.Container,
 					},
 				},
 			}
@@ -239,10 +217,10 @@ func (dst *InferenceService) ConvertFrom(srcRaw conversion.Hub) error {
 		if src.Spec.Predictor.PyTorch.StorageURI != nil {
 			dst.Spec.Default.Predictor.PyTorch.StorageURI = *src.Spec.Predictor.PyTorch.StorageURI
 		}
-	} else if src.Spec.Predictor.Custom != nil {
-		dst.Spec.Default.Predictor.ServiceAccountName = src.Spec.Predictor.Custom.Spec.ServiceAccountName
+	} else if len(src.Spec.Predictor.PodSpec.Containers) != 0 {
+		dst.Spec.Default.Predictor.ServiceAccountName = src.Spec.Predictor.PodSpec.ServiceAccountName
 		dst.Spec.Default.Predictor.Custom = &CustomSpec{
-			src.Spec.Predictor.Custom.Spec.Containers[0],
+			src.Spec.Predictor.PodSpec.Containers[0],
 		}
 	}
 
@@ -269,15 +247,16 @@ func (dst *InferenceService) ConvertFrom(srcRaw conversion.Hub) error {
 	}
 	//Transformer
 	if src.Spec.Transformer != nil {
-		if src.Spec.Transformer.CustomTransformer != nil {
+		if len(src.Spec.Transformer.PodSpec.Containers) != 0 {
 			dst.Spec.Default.Transformer = &TransformerSpec{
 				Custom: &CustomSpec{
-					Container: src.Spec.Transformer.CustomTransformer.Spec.Containers[0],
+					Container: src.Spec.Transformer.PodSpec.Containers[0],
 				},
 			}
 		}
 		dst.Spec.Default.Transformer.MinReplicas = src.Spec.Transformer.MinReplicas
 		dst.Spec.Default.Transformer.MaxReplicas = src.Spec.Transformer.MaxReplicas
+		dst.Spec.Default.Transformer.ServiceAccountName = src.Spec.Transformer.PodSpec.ServiceAccountName
 		if src.Spec.Transformer.ContainerConcurrency != nil {
 			dst.Spec.Default.Transformer.Parallelism = int(*src.Spec.Transformer.ContainerConcurrency)
 		}
@@ -293,13 +272,14 @@ func (dst *InferenceService) ConvertFrom(srcRaw conversion.Hub) error {
 					Resources:      src.Spec.Explainer.Alibi.Resources,
 				},
 			}
-		} else if src.Spec.Explainer.CustomExplainer != nil {
+		} else if len(src.Spec.Explainer.PodSpec.Containers) != 0 {
 			dst.Spec.Default.Explainer = &ExplainerSpec{
 				Custom: &CustomSpec{
-					Container: src.Spec.Explainer.CustomExplainer.Spec.Containers[0],
+					Container: src.Spec.Explainer.PodSpec.Containers[0],
 				},
 			}
 		}
+		dst.Spec.Default.Explainer.ServiceAccountName = src.Spec.Explainer.PodSpec.ServiceAccountName
 		dst.Spec.Default.Explainer.MinReplicas = src.Spec.Explainer.MinReplicas
 		dst.Spec.Default.Explainer.MaxReplicas = src.Spec.Explainer.MaxReplicas
 		if src.Spec.Explainer.ContainerConcurrency != nil {
