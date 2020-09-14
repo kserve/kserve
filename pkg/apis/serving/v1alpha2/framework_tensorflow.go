@@ -73,13 +73,13 @@ func (t *TensorflowSpec) Validate(config *InferenceServicesConfig) error {
 		return fmt.Errorf(InvalidTensorflowRuntimeVersionError, strings.Join(config.Predictors.Tensorflow.AllowedImageVersions, ", "))
 	}
 
-	if isGPUEnabled(t.Resources) && !strings.Contains(t.RuntimeVersion, TensorflowServingGPUSuffix) {
-		return fmt.Errorf(InvalidTensorflowRuntimeIncludesGPU, strings.Join(config.Predictors.Tensorflow.AllowedImageVersions, ", "))
-	}
-
-	if !isGPUEnabled(t.Resources) && strings.Contains(t.RuntimeVersion, TensorflowServingGPUSuffix) {
-		return fmt.Errorf(InvalidTensorflowRuntimeExcludesGPU, strings.Join(config.Predictors.Tensorflow.AllowedImageVersions, ", "))
-	}
+	//if isGPUEnabled(t.Resources) && !strings.Contains(t.RuntimeVersion, TensorflowServingGPUSuffix) {
+	//	return fmt.Errorf(InvalidTensorflowRuntimeIncludesGPU, strings.Join(config.Predictors.Tensorflow.AllowedImageVersions, ", "))
+	//}
+	//
+	//if !isGPUEnabled(t.Resources) && strings.Contains(t.RuntimeVersion, TensorflowServingGPUSuffix) {
+	//	return fmt.Errorf(InvalidTensorflowRuntimeExcludesGPU, strings.Join(config.Predictors.Tensorflow.AllowedImageVersions, ", "))
+	//}
 
 	return nil
 }
