@@ -593,6 +593,34 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					return actualService.Spec.Traffic
 				}
 			}, timeout).Should(gomega.Equal(expectedTrafficTarget))
+
+			Eventually(func() string {
+				err := k8sClient.Get(ctx, serviceKey, updatedIsvc)
+				if err != nil {
+					return ""
+				}
+				return inferenceService.Status.Components[v1beta1.PredictorComponent].LatestReadyRevision
+			}, timeout, interval).Should(Equal("revision-v2"))
+			// rollout canary
+			rolloutIsvc := updatedIsvc.DeepCopy()
+			rolloutIsvc.Spec.Predictor.CanaryTrafficPercent = nil
+			Expect(k8sClient.Update(context.TODO(), rolloutIsvc)).NotTo(gomega.HaveOccurred())
+			expectedTrafficTarget = []knservingv1.TrafficTarget{
+				{
+					Tag:            "latest",
+					LatestRevision: proto.Bool(true),
+					Percent:        proto.Int64(100),
+				},
+			}
+			Eventually(func() []knservingv1.TrafficTarget {
+				actualService := &knservingv1.Service{}
+				err := k8sClient.Get(context.TODO(), predictorServiceKey, actualService)
+				if err != nil {
+					return []knservingv1.TrafficTarget{}
+				} else {
+					return actualService.Spec.Traffic
+				}
+			}, timeout).Should(gomega.Equal(expectedTrafficTarget))
 		})
 	})
 })

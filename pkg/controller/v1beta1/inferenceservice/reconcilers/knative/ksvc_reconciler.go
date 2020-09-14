@@ -166,16 +166,16 @@ func (r *KsvcReconciler) Reconcile() (*knservingv1.ServiceStatus, error) {
 	// Reconcile differences and update
 	diff, err := kmp.SafeDiff(desired.Spec.ConfigurationSpec, existing.Spec.ConfigurationSpec)
 	if err != nil {
-		return &existing.Status, fmt.Errorf("failed to diff Knative Service configuration spec: %v", err)
+		return &existing.Status, fmt.Errorf("failed to diff knative service configuration spec: %v", err)
 	}
-	log.Info("Reconciling Knative Service configuration diff (-desired, +observed):", "diff", diff)
-	log.Info("Updating Knative Service", "namespace", desired.Namespace, "name", desired.Name)
+	log.Info("knative service configuration diff (-desired, +observed):", "diff", diff)
 	existing.Spec.ConfigurationSpec = desired.Spec.ConfigurationSpec
 	existing.ObjectMeta.Labels = desired.ObjectMeta.Labels
 
 	if r.componentExt.CanaryTrafficPercent != nil && r.componentStatus.LatestReadyRevision != "" &&
 		r.componentStatus.LatestReadyRevision != existing.Status.LatestReadyRevisionName {
-		log.Info("Updating Knative Service traffic target", "namespace", desired.Namespace, "name", desired.Name)
+		log.Info("Updating knative service traffic target", "namespace", desired.Namespace, "name", desired.Name, "canaryPercent",
+			r.componentExt.CanaryTrafficPercent)
 		trafficTargets := []knservingv1.TrafficTarget{}
 		trafficTargets = append(trafficTargets,
 			knservingv1.TrafficTarget{
@@ -195,12 +195,13 @@ func (r *KsvcReconciler) Reconcile() (*knservingv1.ServiceStatus, error) {
 	} else {
 		diff, err := kmp.SafeDiff(desired.Spec.RouteSpec, existing.Spec.RouteSpec)
 		if err != nil {
-			return &existing.Status, fmt.Errorf("failed to diff Knative Service routespec: %v", err)
+			return &existing.Status, fmt.Errorf("failed to diff knative service route spec: %v", err)
 		}
-		log.Info("Reconciling Knative Service routing spec diff (-desired, +observed):", "diff", diff)
+		log.Info("knative service routing spec diff (-desired, +observed):", "diff", diff)
 		existing.Spec.Traffic = desired.Spec.Traffic
 	}
 	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		log.Info("Updating Knative Service", "namespace", desired.Namespace, "name", desired.Name)
 		return r.client.Update(context.TODO(), existing)
 	})
 	if err != nil {
