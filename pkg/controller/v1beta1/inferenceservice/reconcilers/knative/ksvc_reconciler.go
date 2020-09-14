@@ -166,9 +166,9 @@ func (r *KsvcReconciler) Reconcile() (*knservingv1.ServiceStatus, error) {
 	// Reconcile differences and update
 	diff, err := kmp.SafeDiff(desired.Spec.ConfigurationSpec, existing.Spec.ConfigurationSpec)
 	if err != nil {
-		return &existing.Status, fmt.Errorf("failed to diff Knative Service: %v", err)
+		return &existing.Status, fmt.Errorf("failed to diff Knative Service configuration spec: %v", err)
 	}
-	log.Info("Reconciling Knative Service diff (-desired, +observed):", "diff", diff)
+	log.Info("Reconciling Knative Service configuration diff (-desired, +observed):", "diff", diff)
 	log.Info("Updating Knative Service", "namespace", desired.Namespace, "name", desired.Name)
 	existing.Spec.ConfigurationSpec = desired.Spec.ConfigurationSpec
 	existing.ObjectMeta.Labels = desired.ObjectMeta.Labels
@@ -192,6 +192,13 @@ func (r *KsvcReconciler) Reconcile() (*knservingv1.ServiceStatus, error) {
 				Percent:        proto.Int64(remainingTraffic),
 			})
 		existing.Spec.Traffic = trafficTargets
+	} else {
+		diff, err := kmp.SafeDiff(desired.Spec.RouteSpec, existing.Spec.RouteSpec)
+		if err != nil {
+			return &existing.Status, fmt.Errorf("failed to diff Knative Service routespec: %v", err)
+		}
+		log.Info("Reconciling Knative Service routing spec diff (-desired, +observed):", "diff", diff)
+		existing.Spec.Traffic = desired.Spec.Traffic
 	}
 	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		return r.client.Update(context.TODO(), existing)
@@ -204,5 +211,6 @@ func (r *KsvcReconciler) Reconcile() (*knservingv1.ServiceStatus, error) {
 
 func semanticEquals(desiredService, service *knservingv1.Service) bool {
 	return equality.Semantic.DeepEqual(desiredService.Spec.ConfigurationSpec, service.Spec.ConfigurationSpec) &&
-		equality.Semantic.DeepEqual(desiredService.ObjectMeta.Labels, service.ObjectMeta.Labels)
+		equality.Semantic.DeepEqual(desiredService.ObjectMeta.Labels, service.ObjectMeta.Labels) &&
+		equality.Semantic.DeepEqual(desiredService.Spec.RouteSpec, service.Spec.RouteSpec)
 }
