@@ -34,5 +34,6 @@ func InjectGKEAcceleratorSelector(pod *v1.Pod) error {
 			map[string]string{GkeAcceleratorNodeSelector: gpuSelector},
 		)
 	}
+
 	return nil
 }
