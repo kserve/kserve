@@ -20,9 +20,9 @@ import pickle
 import os
 
 _MODEL_DIR = os.path.join(os.path.dirname(__file__), "example_models")
-JOBLIB_FILE = [os.path.join(_MODEL_DIR, "joblib"), "model.joblib"]
-PICKLE_FILES = [[os.path.join(_MODEL_DIR, "pkl"), "model.pkl"],
-                [os.path.join(_MODEL_DIR, "pickle"), "model.pickle"]]
+JOBLIB_FILE = [os.path.join(_MODEL_DIR, "joblib", "model"), "model.joblib"]
+PICKLE_FILES = [[os.path.join(_MODEL_DIR, "pkl", "model"), "model.pkl"],
+                [os.path.join(_MODEL_DIR, "pickle", "model"), "model.pickle"]]
 
 
 def _train_sample_model():
@@ -37,7 +37,7 @@ def _run_pickle_model(model_dir, model_name):
     sklearn_model, data = _train_sample_model()
     model_file = os.path.join(model_dir, model_name)
     pickle.dump(sklearn_model, open(model_file, 'wb'))
-    model = SKLearnModel("sklearnmodel", model_dir)
+    model = SKLearnModel("model", model_dir)
     model.load()
     request = data[0:1].tolist()
     response = model.predict({"instances": request})
@@ -48,7 +48,7 @@ def test_model_joblib():
     sklearn_model, data = _train_sample_model()
     model_file = os.path.join(JOBLIB_FILE[0], JOBLIB_FILE[1])
     joblib.dump(value=sklearn_model, filename=model_file)
-    model = SKLearnModel("sklearnmodel", JOBLIB_FILE[0])
+    model = SKLearnModel("model", JOBLIB_FILE[0])
     model.load()
     request = data[0:1].tolist()
     response = model.predict({"instances": request})

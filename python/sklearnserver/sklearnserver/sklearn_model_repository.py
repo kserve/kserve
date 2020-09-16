@@ -1,4 +1,4 @@
-# Copyright 2019 kubeflow.org.
+# Copyright 2020 kubeflow.org.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,5 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .model import XGBoostModel
-from .xgboost_model_repository import XGBoostModelRepository
+import os
+from kfserving.kfmodel_repository import KFModelRepository, MODEL_MOUNT_DIRS
+from sklearnserver import SKLearnModel
+
+
+class SKLearnModelRepository(KFModelRepository):
+
+    def __init__(self, model_dir: str = MODEL_MOUNT_DIRS):
+        super().__init__(model_dir)
+
+    async def load(self, name: str) -> bool:
+        model = SKLearnModel(name, os.path.join(self.models_dir, name))
+        if model.load():
+            self.update(model)
+        return model.ready

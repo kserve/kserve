@@ -61,7 +61,7 @@ class AlibiExplainer(kfserving.KFModel):
         else:
             raise NotImplementedError
 
-    def load(self):
+    def load(self) -> bool:
         pass
 
     def _predict_fn(self, arr: Union[np.ndarray, List]) -> np.ndarray:

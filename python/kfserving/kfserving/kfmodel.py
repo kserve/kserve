@@ -43,8 +43,9 @@ class KFModel:
             self._http_client_instance = AsyncHTTPClient(max_clients=sys.maxsize)
         return self._http_client_instance
 
-    def load(self):
+    def load(self) -> bool:
         self.ready = True
+        return self.ready
 
     def preprocess(self, request: Dict) -> Dict:
         return request
