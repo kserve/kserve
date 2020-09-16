@@ -46,11 +46,11 @@ tornado.log.enable_pretty_logging()
 
 
 class KFServer:
-    def __init__(self, registered_models: KFModelRepository = KFModelRepository(),
-                 http_port: int = args.http_port,
+    def __init__(self, http_port: int = args.http_port,
                  grpc_port: int = args.grpc_port,
                  max_buffer_size: int = args.max_buffer_size,
-                 workers: int = args.workers):
+                 workers: int = args.workers,
+                 registered_models: KFModelRepository = KFModelRepository()):
         self.registered_models = registered_models
         self.http_port = http_port
         self.grpc_port = grpc_port

@@ -93,7 +93,7 @@ class TestTFHttpServer():
 class TestTFHttpServerLoadAndUnLoad():
     @pytest.fixture(scope="class")
     def app(self):  # pylint: disable=no-self-use
-        server = kfserver.KFServer(DummyKFModelRepository(test_load_success=True))
+        server = kfserver.KFServer(registered_models=DummyKFModelRepository(test_load_success=True))
         return server.create_application()
 
     async def test_load(self, http_server_client):
@@ -112,7 +112,7 @@ class TestTFHttpServerLoadAndUnLoad():
 class TestTFHttpServerLoadAndUnLoadFailure():
     @pytest.fixture(scope="class")
     def app(self):  # pylint: disable=no-self-use
-        server = kfserver.KFServer(DummyKFModelRepository(test_load_success=False))
+        server = kfserver.KFServer(registered_models=DummyKFModelRepository(test_load_success=False))
         return server.create_application()
 
     async def test_load_fail(self, http_server_client):

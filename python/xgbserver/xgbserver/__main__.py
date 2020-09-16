@@ -43,4 +43,4 @@ if __name__ == "__main__":
                       f"exception type {ex_type}, exception msg: {ex_value}")
         model.ready = False
 
-    kfserving.KFServer(XGBoostModelRepository(args.model_dir, args.nthread)).start([model] if model.ready else [])  # pylint:disable=c-extension-no-member
+    kfserving.KFServer(registered_models=XGBoostModelRepository(args.model_dir, args.nthread)).start([model] if model.ready else [])  # pylint:disable=c-extension-no-member
