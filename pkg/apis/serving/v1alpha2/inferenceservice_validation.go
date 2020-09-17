@@ -19,8 +19,8 @@ package v1alpha2
 import (
 	"fmt"
 
-    "strings"
 	"k8s.io/apimachinery/pkg/runtime"
+	"regexp"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -33,7 +33,8 @@ const (
 	TrafficBoundsExceededError          = "TrafficPercent must be between [0, 100]."
 	TrafficProvidedWithoutCanaryError   = "Canary must be specified when CanaryTrafficPercent > 0."
 	UnsupportedStorageURIFormatError    = "storageUri, must be one of: [%s] or match https://{}.blob.core.windows.net/{}/{} or be an absolute or relative local path. StorageUri [%s] is not supported."
-    InvalidKSVCNameError                = "The InferenceService %s is invalid: the name must consist of lower case alphanumeric characters or '-', and must start with alphabetical character. (e.g. 'example-com')"
+	InvalidISVCNameMaxLenError          = "The InferenceService \"%s\" is invalid: a InferenceService name must be no more than %d characters"
+	InvalidISVCNameFormatError          = "The InferenceService \"%s\" is invalid: a InferenceService name must consist of lower case alphanumeric characters or '-', and must start with alphabetical character. (e.g. \"my-name\" or \"abc-123\", regex used for validation is '%s')"
 )
 
 var (
@@ -129,9 +130,17 @@ func validateCanaryTrafficPercent(spec InferenceServiceSpec) error {
 	return nil
 }
 
+const isvcNameFmt string = "[a-z]([-a-z0-9]*[a-z0-9])?"
+const isvcNameMaxLength int = 45
+
+var isvcRegexp = regexp.MustCompile("^" + isvcNameFmt + "$")
+
 func validateInferenceServiceName(isvc *InferenceService) error {
-    if isvc.Name[0] < 65 || strings.ContainsRune(isvc.Name, '_') {
-		return fmt.Errorf(InvalidKSVCNameError, isvc.Name)
-    }
+	if len(isvc.Name) > isvcNameMaxLength {
+		return fmt.Errorf(InvalidISVCNameMaxLenError, isvc.Name, isvcNameMaxLength)
+	}
+	if !isvcRegexp.MatchString(isvc.Name) {
+		return fmt.Errorf(InvalidISVCNameFormatError, isvc.Name, isvcNameFmt)
+	}
 	return nil
 }
