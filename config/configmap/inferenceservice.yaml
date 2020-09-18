@@ -50,7 +50,7 @@ data:
         },
         "triton": {
             "image": "nvcr.io/nvidia/tritonserver",
-            "defaultImageVersion": "20.03-py3",
+            "defaultImageVersion": "20.08-py3",
             "supportedFrameworks": [
               "tensorrt",
               "tensorflow",
