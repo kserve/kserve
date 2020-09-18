@@ -26,8 +26,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
-var logger = logf.Log.WithName("kfserving-v1beta1-defaulter")
-
 var (
 	defaultResource = v1.ResourceList{
 		v1.ResourceCPU:    resource.MustParse("1"),
@@ -79,12 +77,12 @@ func (isvc *InferenceService) DefaultInferenceService(config *InferenceServicesC
 		isvc.Spec.Transformer,
 		isvc.Spec.Explainer,
 	} {
-		if component != nil && !reflect.ValueOf(component).IsNil() {
-			if len(component.GetImplementations()) != 0 {
+		if !reflect.ValueOf(component).IsNil() {
+			if err := validateExactlyOneImplementation(component); err != nil {
+				mutatorLogger.Error(ExactlyOneErrorFor(component), "Missing component implementation")
+			} else {
 				component.GetImplementation().Default(config)
 				component.GetExtensions().Default(config)
-			} else {
-				mutatorLogger.Error(ExactlyOneErrorFor(component), "Missing component implementation")
 			}
 		}
 	}

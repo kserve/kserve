@@ -4,6 +4,10 @@ import (
 	v1 "k8s.io/api/core/v1"
 )
 
+// ***This is a copy of kubernetes corev1.PodSpec to make field Containers optional***
+// PodSpec on InferenceService is for a custom component or an escape hatch for buildin component, so Containers field
+// needs to be optional
+
 // PodSpec is a description of a pod.
 type PodSpec struct {
 	// List of volumes that can be mounted by containers belonging to the pod.

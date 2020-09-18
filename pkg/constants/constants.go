@@ -104,9 +104,11 @@ type InferenceServiceComponent string
 
 type InferenceServiceVerb string
 
+// Knative constants
 const (
 	KnativeLocalGateway   = "knative-serving/cluster-local-gateway"
 	KnativeIngressGateway = "knative-serving/knative-ingress-gateway"
+	VisibilityLabel       = "serving.knative.dev/visibility"
 )
 
 var (

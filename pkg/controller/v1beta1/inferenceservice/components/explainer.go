@@ -19,6 +19,7 @@ import (
 	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/reconcilers/knative"
 	"github.com/kubeflow/kfserving/pkg/credentials"
 	"github.com/kubeflow/kfserving/pkg/utils"
+	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -49,7 +50,7 @@ func NewExplainer(client client.Client, scheme *runtime.Scheme, inferenceService
 	}
 }
 
-// Reconcile observes the world and attempts to drive the status towards the desired state.
+// Reconcile observes the explainer and attempts to drive the status towards the desired state.
 func (p *Explainer) Reconcile(isvc *v1beta1.InferenceService) error {
 	p.Log.Info("Reconciling Explainer", "ExplainerSpec", isvc.Spec.Explainer)
 	explainer := isvc.Spec.Explainer.GetImplementation()
@@ -81,18 +82,18 @@ func (p *Explainer) Reconcile(isvc *v1beta1.InferenceService) error {
 		container := explainer.GetContainer(isvc.ObjectMeta, isvc.Spec.Explainer.GetExtensions(), p.inferenceServiceConfig)
 		isvc.Spec.Explainer.PodSpec.Containers[0] = *container
 	}
-	// Here we allow switch between knative and vanilla deployment
+
 	podSpec := v1.PodSpec(isvc.Spec.Explainer.PodSpec)
 	r := knative.NewKsvcReconciler(p.client, p.scheme, objectMeta, &isvc.Spec.Explainer.ComponentExtensionSpec,
 		&podSpec, isvc.Status.Components[v1beta1.ExplainerComponent])
 
 	if err := controllerutil.SetControllerReference(isvc, r.Service, p.scheme); err != nil {
-		return err
+		return errors.Wrapf(err, "fails to set owner reference for explainer")
 	}
-	if status, err := r.Reconcile(); err != nil {
-		return err
-	} else {
-		isvc.Status.PropagateStatus(v1beta1.ExplainerComponent, status)
-		return nil
+	status, err := r.Reconcile()
+	if err != nil {
+		return errors.Wrapf(err, "fails to reconcile explainer")
 	}
+	isvc.Status.PropagateStatus(v1beta1.ExplainerComponent, status)
+	return nil
 }

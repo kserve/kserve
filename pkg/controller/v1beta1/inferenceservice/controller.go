@@ -18,9 +18,10 @@ import (
 	"fmt"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/reconcilers/ingress"
+	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierr "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"knative.dev/pkg/apis"
@@ -62,7 +63,7 @@ func (r *InferenceServiceReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 	// Fetch the InferenceService instance
 	isvc := &v1beta1api.InferenceService{}
 	if err := r.Get(context.TODO(), req.NamespacedName, isvc); err != nil {
-		if errors.IsNotFound(err) {
+		if apierr.IsNotFound(err) {
 			// Object not found, return.  Created objects are automatically garbage collected.
 			// For additional cleanup logic use finalizers.
 			return reconcile.Result{}, nil
@@ -72,7 +73,7 @@ func (r *InferenceServiceReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 	r.Log.Info("Reconciling inference service", "apiVersion", isvc.APIVersion, "isvc", isvc.Name)
 	isvcConfig, err := v1beta1api.NewInferenceServicesConfig(r.Client)
 	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("Failed to create InferenceServicesConfig in reconciler: %v", err)
+		return reconcile.Result{}, errors.Wrapf(err, "fails to create InferenceServicesConfig")
 	}
 	reconcilers := []components.Component{
 		components.NewPredictor(r.Client, r.Scheme, isvcConfig),
@@ -87,18 +88,18 @@ func (r *InferenceServiceReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 		if err := reconciler.Reconcile(isvc); err != nil {
 			r.Log.Error(err, "Failed to reconcile", "reconciler", reflect.ValueOf(reconciler), "Name", isvc.Name)
 			r.Recorder.Eventf(isvc, v1.EventTypeWarning, "InternalError", err.Error())
-			return reconcile.Result{}, err
+			return reconcile.Result{}, errors.Wrapf(err, "fails to reconcile component")
 		}
 	}
 	//Reconcile ingress
 	ingressConfig, err := v1beta1api.NewIngressConfig(r.Client)
 	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("Failed to create IngressConfig in reconciler: %v", err)
+		return reconcile.Result{}, errors.Wrapf(err, "fails to create IngressConfig")
 	}
 	reconciler := ingress.NewIngressReconciler(r.Client, r.Scheme, ingressConfig)
 	r.Log.Info("Reconciling ingress for inference service", "isvc", isvc.Name)
 	if err := reconciler.Reconcile(isvc); err != nil {
-		return reconcile.Result{}, err
+		return reconcile.Result{}, errors.Wrapf(err, "fails to reconcile ingress")
 	}
 
 	if err = r.updateStatus(isvc); err != nil {
@@ -125,7 +126,7 @@ func (r *InferenceServiceReconciler) updateStatus(desiredService *v1beta1api.Inf
 		r.Log.Error(err, "Failed to update InferenceService status", "InferenceService", desiredService.Name)
 		r.Recorder.Eventf(desiredService, v1.EventTypeWarning, "UpdateFailed",
 			"Failed to update status for InferenceService %q: %v", desiredService.Name, err)
-		return err
+		return errors.Wrapf(err, "fails to update InferenceService status")
 	} else {
 		// If there was a difference and there was no error.
 		isReady := inferenceServiceReadiness(desiredService.Status)

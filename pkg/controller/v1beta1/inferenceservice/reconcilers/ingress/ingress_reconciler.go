@@ -21,11 +21,12 @@ import (
 	"fmt"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
 	"github.com/kubeflow/kfserving/pkg/constants"
+	"github.com/pkg/errors"
 	istiov1alpha3 "istio.io/api/networking/v1alpha3"
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierr "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -127,8 +128,8 @@ func (r *IngressReconciler) reconcileExternalService(isvc *v1beta1.InferenceServ
 	existing := &corev1.Service{}
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, existing)
 	if err != nil {
-		if errors.IsNotFound(err) {
-			log.Info("Creating External Service", "namespace", desired.Namespace, "name", desired.Name)
+		if apierr.IsNotFound(err) {
+			log.Info("Creating external name service", "namespace", desired.Namespace, "name", desired.Name)
 			err = r.client.Create(context.TODO(), desired)
 		}
 		return err
@@ -142,7 +143,7 @@ func (r *IngressReconciler) reconcileExternalService(isvc *v1beta1.InferenceServ
 	// Reconcile differences and update
 	diff, err := kmp.SafeDiff(desired.Spec, existing.Spec)
 	if err != nil {
-		return fmt.Errorf("failed to diff virtual service: %v", err)
+		return errors.Wrapf(err, "failed to diff external name service")
 	}
 	log.Info("Reconciling external service diff (-desired, +observed):", "diff", diff)
 	log.Info("Updating external service", "namespace", existing.Namespace, "name", existing.Name)
@@ -151,7 +152,7 @@ func (r *IngressReconciler) reconcileExternalService(isvc *v1beta1.InferenceServ
 	existing.ObjectMeta.Annotations = desired.ObjectMeta.Annotations
 	err = r.client.Update(context.TODO(), existing)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "fails to update external name service")
 	}
 
 	return nil
@@ -226,6 +227,7 @@ func (ir *IngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
 		return nil
 	}
 	backend := constants.PredictorServiceName(isvc.Name)
+
 	if isvc.Spec.Transformer != nil {
 		backend = constants.TransformerServiceName(isvc.Name)
 		if !isvc.Status.IsConditionReady(v1beta1.TransformerReady) {
@@ -238,10 +240,11 @@ func (ir *IngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
 		}
 	}
 	isInternal := false
-	if val, ok := isvc.Labels["serving.knative.dev/visibility"]; ok && val == "ClusterLocal" {
+	if val, ok := isvc.Labels[constants.VisibilityLabel]; ok && val == "ClusterLocal" {
 		isInternal = true
 	}
 	httpRoutes := []*istiov1alpha3.HTTPRoute{}
+	// Build explain route
 	if isvc.Spec.Explainer != nil {
 		if !isvc.Status.IsConditionReady(v1beta1.ExplainerReady) {
 			isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
@@ -260,6 +263,7 @@ func (ir *IngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
 		}
 		httpRoutes = append(httpRoutes, &explainerRouter)
 	}
+	// Add predict route
 	httpRoutes = append(httpRoutes, &istiov1alpha3.HTTPRoute{
 		Match: ir.createHTTPMatchRequest("", serviceHost,
 			network.GetServiceHostname(isvc.Name, isvc.Namespace), isInternal),
@@ -267,9 +271,10 @@ func (ir *IngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
 			ir.createHTTPRouteDestination(backend, isvc.Namespace, constants.LocalGatewayHost),
 		},
 	})
+
 	//Create external service which points to local gateway
 	if err := ir.reconcileExternalService(isvc); err != nil {
-		return err
+		return errors.Wrapf(err, "fails to reconcile external name service")
 	}
 	//Create ingress
 	desiredIngress := &v1alpha3.VirtualService{
@@ -290,13 +295,13 @@ func (ir *IngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
 		},
 	}
 	if err := controllerutil.SetControllerReference(isvc, desiredIngress, ir.scheme); err != nil {
-		return err
+		return errors.Wrapf(err, "fails to set owner reference for ingress")
 	}
 
 	existing := &v1alpha3.VirtualService{}
 	err := ir.client.Get(context.TODO(), types.NamespacedName{Name: desiredIngress.Name, Namespace: desiredIngress.Namespace}, existing)
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if apierr.IsNotFound(err) {
 			log.Info("Creating Ingress for isvc", "namespace", desiredIngress.Namespace, "name", desiredIngress.Name)
 			err = ir.client.Create(context.TODO(), desiredIngress)
 		}
@@ -308,23 +313,23 @@ func (ir *IngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
 		}
 	}
 	if err != nil {
-		return err
-	} else {
-		if url, err := apis.ParseURL(serviceUrl); err == nil {
-			isvc.Status.URL = url
-			isvc.Status.Address = &duckv1.Addressable{
-				URL: &apis.URL{
-					Host:   network.GetServiceHostname(isvc.Name, isvc.Namespace),
-					Scheme: "http",
-				},
-			}
-			isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
-				Type:   v1beta1.IngressReady,
-				Status: corev1.ConditionTrue,
-			})
-			return nil
-		} else {
-			return err
+		return errors.Wrapf(err, "fails to create or update ingress")
+	}
+
+	if url, err := apis.ParseURL(serviceUrl); err == nil {
+		isvc.Status.URL = url
+		isvc.Status.Address = &duckv1.Addressable{
+			URL: &apis.URL{
+				Host:   network.GetServiceHostname(isvc.Name, isvc.Namespace),
+				Scheme: "http",
+			},
 		}
+		isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
+			Type:   v1beta1.IngressReady,
+			Status: corev1.ConditionTrue,
+		})
+		return nil
+	} else {
+		return errors.Wrapf(err, "fails to parse service url")
 	}
 }

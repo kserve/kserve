@@ -19,6 +19,7 @@ import (
 	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/reconcilers/knative"
 	"github.com/kubeflow/kfserving/pkg/credentials"
 	"github.com/kubeflow/kfserving/pkg/utils"
+	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -81,18 +82,18 @@ func (p *Transformer) Reconcile(isvc *v1beta1.InferenceService) error {
 		container := transformer.GetContainer(isvc.ObjectMeta, isvc.Spec.Transformer.GetExtensions(), p.inferenceServiceConfig)
 		isvc.Spec.Transformer.PodSpec.Containers[0] = *container
 	}
-	// Here we allow switch between knative and vanilla deployment
+
 	podSpec := corev1.PodSpec(isvc.Spec.Transformer.PodSpec)
 	r := knative.NewKsvcReconciler(p.client, p.scheme, objectMeta, &isvc.Spec.Transformer.ComponentExtensionSpec,
 		&podSpec, isvc.Status.Components[v1beta1.TransformerComponent])
 
 	if err := controllerutil.SetControllerReference(isvc, r.Service, p.scheme); err != nil {
-		return err
+		return errors.Wrapf(err, "fails to set owner reference for transformer")
 	}
-	if status, err := r.Reconcile(); err != nil {
-		return err
-	} else {
-		isvc.Status.PropagateStatus(v1beta1.TransformerComponent, status)
-		return nil
+	status, err := r.Reconcile()
+	if err != nil {
+		return errors.Wrapf(err, "fails to reconcile transformer")
 	}
+	isvc.Status.PropagateStatus(v1beta1.TransformerComponent, status)
+	return nil
 }

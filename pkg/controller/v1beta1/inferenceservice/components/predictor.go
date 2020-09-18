@@ -19,6 +19,7 @@ import (
 	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/reconcilers/knative"
 	"github.com/kubeflow/kfserving/pkg/credentials"
 	"github.com/kubeflow/kfserving/pkg/utils"
+	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -50,7 +51,7 @@ func NewPredictor(client client.Client, scheme *runtime.Scheme, inferenceService
 	}
 }
 
-// Reconcile observes the world and attempts to drive the status towards the desired state.
+// Reconcile observes the predictor and attempts to drive the status towards the desired state.
 func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
 	p.Log.Info("Reconciling Predictor", "PredictorSpec", isvc.Spec.Predictor)
 	predictor := isvc.Spec.Predictor.GetImplementation()
@@ -94,20 +95,19 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
 		addBatcherContainerPort(&isvc.Spec.Predictor.PodSpec.Containers[0])
 	}
 
-	// Here we allow switch between knative and vanilla deployment
 	podSpec := v1.PodSpec(isvc.Spec.Predictor.PodSpec)
 	r := knative.NewKsvcReconciler(p.client, p.scheme, objectMeta, &isvc.Spec.Predictor.ComponentExtensionSpec,
 		&podSpec, isvc.Status.Components[v1beta1.PredictorComponent])
 
 	if err := controllerutil.SetControllerReference(isvc, r.Service, p.scheme); err != nil {
-		return err
+		return errors.Wrapf(err, "fails to set owner reference for predictor")
 	}
-	if status, err := r.Reconcile(); err != nil {
-		return err
-	} else {
-		isvc.Status.PropagateStatus(v1beta1.PredictorComponent, status)
-		return nil
+	status, err := r.Reconcile()
+	if err != nil {
+		return errors.Wrapf(err, "fails to reconcile predictor")
 	}
+	isvc.Status.PropagateStatus(v1beta1.PredictorComponent, status)
+	return nil
 }
 
 func addLoggerAnnotations(logger *v1beta1.LoggerSpec, annotations map[string]string) bool {

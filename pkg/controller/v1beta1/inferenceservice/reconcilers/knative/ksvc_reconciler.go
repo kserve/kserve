@@ -19,9 +19,10 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
 	"github.com/kubeflow/kfserving/pkg/constants"
+	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierr "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/retry"
 	"knative.dev/pkg/kmp"
@@ -129,31 +130,14 @@ func createKnativeService(componentMeta metav1.ObjectMeta,
 	}
 }
 
-func (r *KsvcReconciler) finalizeService(serviceName, namespace string) error {
-	existing := &knservingv1.Service{}
-	if err := r.client.Get(context.TODO(), types.NamespacedName{Name: serviceName, Namespace: namespace}, existing); err != nil {
-		if !errors.IsNotFound(err) {
-			return err
-		}
-	} else {
-		log.Info("Deleting Knative Service", "namespace", namespace, "name", serviceName)
-		if err := r.client.Delete(context.TODO(), existing, client.PropagationPolicy(metav1.DeletePropagationBackground)); err != nil {
-			if !errors.IsNotFound(err) {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
 func (r *KsvcReconciler) Reconcile() (*knservingv1.ServiceStatus, error) {
 	// Create service if does not exist
 	desired := r.Service
 	existing := &knservingv1.Service{}
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, existing)
 	if err != nil {
-		if errors.IsNotFound(err) {
-			log.Info("Creating Knative Service", "namespace", desired.Namespace, "name", desired.Name)
+		if apierr.IsNotFound(err) {
+			log.Info("Creating knative service", "namespace", desired.Namespace, "name", desired.Name)
 			return &desired.Status, r.client.Create(context.TODO(), desired)
 		}
 		return nil, err
@@ -166,7 +150,7 @@ func (r *KsvcReconciler) Reconcile() (*knservingv1.ServiceStatus, error) {
 	// Reconcile differences and update
 	diff, err := kmp.SafeDiff(desired.Spec.ConfigurationSpec, existing.Spec.ConfigurationSpec)
 	if err != nil {
-		return &existing.Status, fmt.Errorf("failed to diff knative service configuration spec: %v", err)
+		return &existing.Status, errors.Wrapf(err, "failed to diff knative service configuration spec")
 	}
 	log.Info("knative service configuration diff (-desired, +observed):", "diff", diff)
 	existing.Spec.ConfigurationSpec = desired.Spec.ConfigurationSpec
@@ -195,17 +179,17 @@ func (r *KsvcReconciler) Reconcile() (*knservingv1.ServiceStatus, error) {
 	} else {
 		diff, err := kmp.SafeDiff(desired.Spec.RouteSpec, existing.Spec.RouteSpec)
 		if err != nil {
-			return &existing.Status, fmt.Errorf("failed to diff knative service route spec: %v", err)
+			return &existing.Status, errors.Wrapf(err, "fails to diff knative service route spec")
 		}
 		log.Info("knative service routing spec diff (-desired, +observed):", "diff", diff)
 		existing.Spec.Traffic = desired.Spec.Traffic
 	}
 	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		log.Info("Updating Knative Service", "namespace", desired.Namespace, "name", desired.Name)
+		log.Info("Updating knative service", "namespace", desired.Namespace, "name", desired.Name)
 		return r.client.Update(context.TODO(), existing)
 	})
 	if err != nil {
-		return &existing.Status, err
+		return &existing.Status, errors.Wrapf(err, "fails to update knative service")
 	}
 	return &existing.Status, nil
 }
