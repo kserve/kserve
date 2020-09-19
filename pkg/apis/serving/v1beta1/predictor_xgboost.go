@@ -49,14 +49,18 @@ func (x *XGBoostSpec) Default(config *InferenceServicesConfig) {
 		x.RuntimeVersion = proto.String(config.Predictors.XGBoost.DefaultImageVersion)
 	}
 	setResourceRequirementDefaults(&x.Resources)
+
 }
 
 // GetContainer transforms the resource into a container spec
 func (x *XGBoostSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig) *v1.Container {
+	cpuLimit := x.Resources.Limits.Cpu()
+	cpuLimit.RoundUp(0)
 	arguments := []string{
 		fmt.Sprintf("%s=%s", constants.ArgumentModelName, metadata.Name),
 		fmt.Sprintf("%s=%s", constants.ArgumentModelDir, constants.DefaultModelLocalMountPath),
 		fmt.Sprintf("%s=%s", constants.ArgumentHttpPort, constants.InferenceServiceDefaultHttpPort),
+		fmt.Sprintf("%s=%s", "--nthread", strconv.Itoa(int(cpuLimit.Value()))),
 	}
 	if extensions.ContainerConcurrency != nil {
 		arguments = append(arguments, fmt.Sprintf("%s=%s", constants.ArgumentWorkers, strconv.FormatInt(*extensions.ContainerConcurrency, 10)))

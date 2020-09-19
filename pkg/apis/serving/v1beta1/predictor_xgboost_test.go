@@ -184,14 +184,10 @@ func TestCreateXGBoostModelServingContainer(t *testing.T) {
 
 	var requestedResource = v1.ResourceRequirements{
 		Limits: v1.ResourceList{
-			"cpu": resource.Quantity{
-				Format: "100",
-			},
+			"cpu": resource.MustParse("100m"),
 		},
 		Requests: v1.ResourceList{
-			"cpu": resource.Quantity{
-				Format: "90",
-			},
+			"cpu": resource.MustParse("90m"),
 		},
 	}
 	var config = InferenceServicesConfig{
@@ -234,13 +230,14 @@ func TestCreateXGBoostModelServingContainer(t *testing.T) {
 					"--model_name=someName",
 					"--model_dir=/mnt/models",
 					"--http_port=8080",
+					"--nthread=1",
 				},
 			},
 		},
 		"ContainerSpecWithCustomImage": {
 			isvc: InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "sklearn",
+					Name: "xgboost",
 				},
 				Spec: InferenceServiceSpec{
 					Predictor: PredictorSpec{
@@ -264,6 +261,7 @@ func TestCreateXGBoostModelServingContainer(t *testing.T) {
 					"--model_name=someName",
 					"--model_dir=/mnt/models",
 					"--http_port=8080",
+					"--nthread=1",
 				},
 			},
 		},
@@ -297,6 +295,7 @@ func TestCreateXGBoostModelServingContainer(t *testing.T) {
 					"--model_name=someName",
 					"--model_dir=/mnt/models",
 					"--http_port=8080",
+					"--nthread=1",
 					"--workers=1",
 				},
 			},

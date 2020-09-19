@@ -15799,15 +15799,15 @@ spec:
                           url:
                             type: string
                         type: object
-                      canaryTrafficPercent:
-                        format: int64
-                        type: integer
                       latestCreatedRevision:
                         type: string
                       latestReadyRevision:
                         type: string
                       previousReadyRevision:
                         type: string
+                      trafficPercent:
+                        format: int64
+                        type: integer
                       url:
                         type: string
                     type: object
