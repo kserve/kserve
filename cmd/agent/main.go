@@ -35,22 +35,7 @@ func main() {
 		}
 	}
 
-	watcher := agent.Watcher{
-		ConfigDir:    *configDir,
-		ModelTracker: map[string]agent.ModelWrapper{},
-		Puller: agent.Puller{
-			ChannelMap: map[string]agent.Channel{},
-			Downloader: downloader,
-		},
-	}
-
-	syncer := agent.Syncer{
-		Watcher: watcher,
-	}
-
-	// Doing a forced sync in the case of container failures
-	// and for pre-filled config maps
-	syncer.Start()
+	watcher := agent.NewWatcher(*configDir, *modelDir)
+	agent.StartPuller(downloader, watcher.ModelEvents)
 	watcher.Start()
-
 }
