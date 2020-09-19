@@ -7,6 +7,5 @@ spec:
     minReplicas: 1
     containers:
     - image: codait/max-object-detector
-      name: kfserving-container
       ports:
         - containerPort: 5000

@@ -108,7 +108,13 @@ manifests: controller-gen
 	perl -pi -e 's/Any/string/g' config/crd/serving.kubeflow.org_trainedmodels.yaml
 	#TODO slim down crd openAPIV3Schema as v1beta1 crd is too big and kubectl client side apply takes long time to do diffs, need to use k8s 1.18's server side apply
 	#https://github.com/kubernetes-sigs/kubebuilder/issues/1140
-	#yq d -i config/crd/serving.kubeflow.org_inferenceservices.yaml 'spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.*.properties.custom.properties.spec.properties.ephemeralContainers'
+	#remove the required property on framework as name field needs to be optional
+	yq d -i config/crd/serving.kubeflow.org_inferenceservices.yaml 'spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.required'
+	#knative does not allow set port on liveness or readiness probe
+	yq d -i config/crd/serving.kubeflow.org_inferenceservices.yaml 'spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.properties.readinessProbe.properties.httpGet.required'
+	yq d -i config/crd/serving.kubeflow.org_inferenceservices.yaml 'spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.properties.livenessProbe.properties.httpGet.required'
+	yq d -i config/crd/serving.kubeflow.org_inferenceservices.yaml 'spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.properties.readinessProbe.properties.tcpSocket.required'
+	yq d -i config/crd/serving.kubeflow.org_inferenceservices.yaml 'spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.properties.livenessProbe.properties.tcpSocket.required'
 
 
 # Run go fmt against code
