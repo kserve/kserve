@@ -14,6 +14,7 @@ limitations under the License.
 package v1alpha2
 
 import (
+	"fmt"
 	"net/url"
 	"path"
 
@@ -26,7 +27,6 @@ import (
 var (
 	ONNXServingRestPort            = "8080"
 	ONNXServingGRPCPort            = "9000"
-	DefaultONNXModelName           = "model.onnx"
 	ONNXFileExt                    = ".onnx"
 	InvalidONNXRuntimeVersionError = "ONNX RuntimeVersion must be one of %s"
 )
@@ -42,12 +42,7 @@ func (s *ONNXSpec) GetResourceRequirements() *v1.ResourceRequirements {
 
 func (s *ONNXSpec) GetContainer(modelName string, parallelism int, config *InferenceServicesConfig) *v1.Container {
 	uri, _ := url.Parse(s.StorageURI)
-	var filename string
-	if path.Ext(uri.Path) != ONNXFileExt {
-		filename = DefaultONNXModelName
-	} else {
-		filename = path.Base(uri.Path)
-	}
+	filename := path.Base(uri.Path)
 	arguments := []string{
 		"--model_path", constants.DefaultModelLocalMountPath + "/" + filename,
 		"--http_port", ONNXServingRestPort,
@@ -72,9 +67,12 @@ func (s *ONNXSpec) ApplyDefaults(config *InferenceServicesConfig) {
 }
 
 func (s *ONNXSpec) Validate(config *InferenceServicesConfig) error {
-	_, err := url.Parse(s.StorageURI)
+	uri, err := url.Parse(s.StorageURI)
 	if err != nil {
 		return err
+	}
+	if ext := uri.Path; path.Ext(ext) != ONNXFileExt {
+		return fmt.Errorf("Expected storageUri file extension: %s but got %s", ONNXFileExt, ext)
 	}
 	return nil
 }

@@ -40,7 +40,7 @@ var onnxRequestedResource = v1.ResourceRequirements{
 }
 
 var onnxSpec = ONNXSpec{
-	StorageURI:     "gs://someUri",
+	StorageURI:     "gs://someUri/model.onnx",
 	Resources:      onnxRequestedResource,
 	RuntimeVersion: "someAmazingVersion",
 }
