@@ -54,6 +54,9 @@ type ComponentStatusSpec struct {
 	// Latest revision name that is in created
 	// +optional
 	LatestCreatedRevision string `json:"latestCreatedRevision,omitempty"`
+	// Traffic percent on the latest ready revision
+	// +optional
+	TrafficPercent *int64 `json:"trafficPercent,omitempty"`
 	// URL holds the url that will distribute traffic over the provided traffic targets.
 	// It generally has the form http[s]://{route-name}.{route-namespace}.{cluster-level-suffix}
 	// +optional
@@ -175,6 +178,12 @@ func (ss *InferenceServiceStatus) PropagateStatus(component ComponentType, servi
 	// propagate configuration condition for each component
 	configurationCondition := serviceStatus.GetCondition("RoutesReady")
 	configurationConditionType := configurationConditionsMap[component]
+	// propagate traffic status for each component
+	for _, traffic := range serviceStatus.Traffic {
+		if traffic.LatestRevision != nil && *traffic.LatestRevision {
+			statusSpec.TrafficPercent = traffic.Percent
+		}
+	}
 	ss.SetCondition(configurationConditionType, configurationCondition)
 
 	ss.Components[component] = statusSpec

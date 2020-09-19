@@ -4475,8 +4475,6 @@ spec:
                                     - type: integer
                                     - type: string
                                   x-kubernetes-int-or-string: true
-                              required:
-                                - port
                               type: object
                             timeoutSeconds:
                               format: int32
@@ -4544,8 +4542,6 @@ spec:
                                   x-kubernetes-int-or-string: true
                                 scheme:
                                   type: string
-                              required:
-                                - port
                               type: object
                             initialDelaySeconds:
                               format: int32
@@ -4565,8 +4561,6 @@ spec:
                                     - type: integer
                                     - type: string
                                   x-kubernetes-int-or-string: true
-                              required:
-                                - port
                               type: object
                             timeoutSeconds:
                               format: int32
@@ -9414,8 +9408,6 @@ spec:
                                     - type: integer
                                     - type: string
                                   x-kubernetes-int-or-string: true
-                              required:
-                                - port
                               type: object
                             timeoutSeconds:
                               format: int32
@@ -9483,8 +9475,6 @@ spec:
                                   x-kubernetes-int-or-string: true
                                 scheme:
                                   type: string
-                              required:
-                                - port
                               type: object
                             initialDelaySeconds:
                               format: int32
@@ -9504,8 +9494,6 @@ spec:
                                     - type: integer
                                     - type: string
                                   x-kubernetes-int-or-string: true
-                              required:
-                                - port
                               type: object
                             timeoutSeconds:
                               format: int32
@@ -9963,8 +9951,6 @@ spec:
                                     - type: integer
                                     - type: string
                                   x-kubernetes-int-or-string: true
-                              required:
-                                - port
                               type: object
                             timeoutSeconds:
                               format: int32
@@ -10034,8 +10020,6 @@ spec:
                                   x-kubernetes-int-or-string: true
                                 scheme:
                                   type: string
-                              required:
-                                - port
                               type: object
                             initialDelaySeconds:
                               format: int32
@@ -10055,8 +10039,6 @@ spec:
                                     - type: integer
                                     - type: string
                                   x-kubernetes-int-or-string: true
-                              required:
-                                - port
                               type: object
                             timeoutSeconds:
                               format: int32
@@ -10571,8 +10553,6 @@ spec:
                                     - type: integer
                                     - type: string
                                   x-kubernetes-int-or-string: true
-                              required:
-                                - port
                               type: object
                             timeoutSeconds:
                               format: int32
@@ -10640,8 +10620,6 @@ spec:
                                   x-kubernetes-int-or-string: true
                                 scheme:
                                   type: string
-                              required:
-                                - port
                               type: object
                             initialDelaySeconds:
                               format: int32
@@ -10661,8 +10639,6 @@ spec:
                                     - type: integer
                                     - type: string
                                   x-kubernetes-int-or-string: true
-                              required:
-                                - port
                               type: object
                             timeoutSeconds:
                               format: int32
@@ -11107,8 +11083,6 @@ spec:
                                     - type: integer
                                     - type: string
                                   x-kubernetes-int-or-string: true
-                              required:
-                                - port
                               type: object
                             timeoutSeconds:
                               format: int32
@@ -11176,8 +11150,6 @@ spec:
                                   x-kubernetes-int-or-string: true
                                 scheme:
                                   type: string
-                              required:
-                                - port
                               type: object
                             initialDelaySeconds:
                               format: int32
@@ -11197,8 +11169,6 @@ spec:
                                     - type: integer
                                     - type: string
                                   x-kubernetes-int-or-string: true
-                              required:
-                                - port
                               type: object
                             timeoutSeconds:
                               format: int32
@@ -11706,8 +11676,6 @@ spec:
                                     - type: integer
                                     - type: string
                                   x-kubernetes-int-or-string: true
-                              required:
-                                - port
                               type: object
                             timeoutSeconds:
                               format: int32
@@ -11775,8 +11743,6 @@ spec:
                                   x-kubernetes-int-or-string: true
                                 scheme:
                                   type: string
-                              required:
-                                - port
                               type: object
                             initialDelaySeconds:
                               format: int32
@@ -11796,8 +11762,6 @@ spec:
                                     - type: integer
                                     - type: string
                                   x-kubernetes-int-or-string: true
-                              required:
-                                - port
                               type: object
                             timeoutSeconds:
                               format: int32
@@ -12833,8 +12797,6 @@ spec:
                                     - type: integer
                                     - type: string
                                   x-kubernetes-int-or-string: true
-                              required:
-                                - port
                               type: object
                             timeoutSeconds:
                               format: int32
@@ -12902,8 +12864,6 @@ spec:
                                   x-kubernetes-int-or-string: true
                                 scheme:
                                   type: string
-                              required:
-                                - port
                               type: object
                             initialDelaySeconds:
                               format: int32
@@ -12923,8 +12883,6 @@ spec:
                                     - type: integer
                                     - type: string
                                   x-kubernetes-int-or-string: true
-                              required:
-                                - port
                               type: object
                             timeoutSeconds:
                               format: int32
@@ -15841,6 +15799,9 @@ spec:
                           url:
                             type: string
                         type: object
+                      canaryTrafficPercent:
+                        format: int64
+                        type: integer
                       latestCreatedRevision:
                         type: string
                       latestReadyRevision:
