@@ -17,6 +17,7 @@ limitations under the License.
 package v1beta1
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/golang/protobuf/proto"
@@ -255,7 +256,7 @@ func TestCreateCustomExplainerContainer(t *testing.T) {
 					"--model_name",
 					"someName",
 					"--predictor_host",
-					"someName-predictor-default.default",
+					fmt.Sprintf("%s.%s", constants.DefaultPredictorServiceName("someName"), "default"),
 					"--http_port",
 					"8080",
 				},
@@ -315,7 +316,7 @@ func TestCreateCustomExplainerContainer(t *testing.T) {
 					"--model_name",
 					"someName",
 					"--predictor_host",
-					"someName-predictor-default.default",
+					fmt.Sprintf("%s.%s", constants.DefaultPredictorServiceName("someName"), "default"),
 					"--http_port",
 					"8080",
 					"--workers",

@@ -67,7 +67,7 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
 	hasInferenceBatcher := addBatcherAnnotations(isvc.Spec.Predictor.Batcher, annotations)
 
 	objectMeta := metav1.ObjectMeta{
-		Name:      isvc.Name + "-" + string(v1beta1.PredictorComponent),
+		Name:      constants.DefaultPredictorServiceName(isvc.Name),
 		Namespace: isvc.Namespace,
 		Labels: utils.Union(isvc.Labels, map[string]string{
 			constants.InferenceServicePodLabelKey: isvc.Name,

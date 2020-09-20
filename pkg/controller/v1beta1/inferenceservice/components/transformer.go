@@ -63,7 +63,7 @@ func (p *Transformer) Reconcile(isvc *v1beta1.InferenceService) error {
 		annotations[constants.StorageInitializerSourceUriInternalAnnotationKey] = *sourceURI
 	}
 	objectMeta := metav1.ObjectMeta{
-		Name:      isvc.Name + "-" + string(v1beta1.TransformerComponent),
+		Name:      constants.DefaultTransformerServiceName(isvc.Name),
 		Namespace: isvc.Namespace,
 		Labels: utils.Union(isvc.Labels, map[string]string{
 			constants.InferenceServicePodLabelKey: isvc.Name,

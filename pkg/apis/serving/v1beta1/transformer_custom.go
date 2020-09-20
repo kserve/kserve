@@ -80,7 +80,7 @@ func (c *CustomTransformer) GetContainer(metadata metav1.ObjectMeta, extensions 
 	}
 	container.Args = append(container.Args, []string{
 		constants.ArgumentPredictorHost,
-		fmt.Sprintf("%s.%s", constants.PredictorServiceName(metadata.Name), metadata.Namespace),
+		fmt.Sprintf("%s.%s", constants.DefaultPredictorServiceName(metadata.Name), metadata.Namespace),
 		constants.ArgumentHttpPort,
 		constants.InferenceServiceDefaultHttpPort,
 	}...)

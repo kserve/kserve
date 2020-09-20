@@ -17,6 +17,7 @@ limitations under the License.
 package v1beta1
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/golang/protobuf/proto"
@@ -237,7 +238,7 @@ func TestCreateAlibiModelServingContainer(t *testing.T) {
 					"--model_name",
 					"someName",
 					"--predictor_host",
-					"someName-predictor.default",
+					fmt.Sprintf("%s.%s", constants.DefaultPredictorServiceName("someName"), "default"),
 					"--http_port",
 					"8080",
 					"--storage_uri",
@@ -284,7 +285,7 @@ func TestCreateAlibiModelServingContainer(t *testing.T) {
 					"--model_name",
 					"someName",
 					"--predictor_host",
-					"someName-predictor.default",
+					fmt.Sprintf("%s.%s", constants.DefaultPredictorServiceName("someName"), "default"),
 					"--http_port",
 					"8080",
 					"--storage_uri",
@@ -337,7 +338,7 @@ func TestCreateAlibiModelServingContainer(t *testing.T) {
 					"--model_name",
 					"someName",
 					"--predictor_host",
-					"someName-predictor.default",
+					fmt.Sprintf("%s.%s", constants.DefaultPredictorServiceName("someName"), "default"),
 					"--http_port",
 					"8080",
 					"--workers",

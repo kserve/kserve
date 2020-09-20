@@ -209,16 +209,8 @@ func DefaultPredictorServiceName(name string) string {
 	return name + "-" + string(Predictor) + "-" + InferenceServiceDefault
 }
 
-func PredictorServiceName(name string) string {
-	return name + "-" + string(Predictor)
-}
-
 func CanaryPredictorServiceName(name string) string {
 	return name + "-" + string(Predictor) + "-" + InferenceServiceCanary
-}
-
-func ExplainerServiceName(name string) string {
-	return name + "-" + string(Explainer)
 }
 
 func DefaultExplainerServiceName(name string) string {
@@ -227,10 +219,6 @@ func DefaultExplainerServiceName(name string) string {
 
 func CanaryExplainerServiceName(name string) string {
 	return name + "-" + string(Explainer) + "-" + InferenceServiceCanary
-}
-
-func TransformerServiceName(name string) string {
-	return name + "-" + string(Transformer)
 }
 
 func DefaultTransformerServiceName(name string) string {

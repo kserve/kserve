@@ -70,7 +70,7 @@ func getServiceHost(isvc *v1beta1.InferenceService) string {
 		} else if transformerStatus.URL == nil {
 			return ""
 		} else {
-			return strings.Replace(transformerStatus.URL.Host, fmt.Sprintf("-%s", string(constants.Transformer)), "",
+			return strings.Replace(transformerStatus.URL.Host, fmt.Sprintf("-%s-default", string(constants.Transformer)), "",
 				1)
 		}
 	}
@@ -80,7 +80,7 @@ func getServiceHost(isvc *v1beta1.InferenceService) string {
 	} else if predictorStatus.URL == nil {
 		return ""
 	} else {
-		return strings.Replace(predictorStatus.URL.Host, fmt.Sprintf("-%s", string(constants.Predictor)), "",
+		return strings.Replace(predictorStatus.URL.Host, fmt.Sprintf("-%s-default", string(constants.Predictor)), "",
 			1)
 	}
 }
@@ -96,7 +96,7 @@ func getServiceUrl(isvc *v1beta1.InferenceService) string {
 		} else if transformerStatus.URL == nil {
 			return ""
 		} else {
-			return strings.Replace(transformerStatus.URL.String(), fmt.Sprintf("-%s", string(constants.Transformer)), "", 1)
+			return strings.Replace(transformerStatus.URL.String(), fmt.Sprintf("-%s-default", string(constants.Transformer)), "", 1)
 		}
 	}
 
@@ -105,7 +105,7 @@ func getServiceUrl(isvc *v1beta1.InferenceService) string {
 	} else if predictorStatus.URL == nil {
 		return ""
 	} else {
-		return strings.Replace(predictorStatus.URL.String(), fmt.Sprintf("-%s", string(constants.Predictor)), "", 1)
+		return strings.Replace(predictorStatus.URL.String(), fmt.Sprintf("-%s-default", string(constants.Predictor)), "", 1)
 	}
 }
 
@@ -226,10 +226,10 @@ func (ir *IngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
 	if serviceHost == "" || serviceUrl == "" {
 		return nil
 	}
-	backend := constants.PredictorServiceName(isvc.Name)
+	backend := constants.DefaultPredictorServiceName(isvc.Name)
 
 	if isvc.Spec.Transformer != nil {
-		backend = constants.TransformerServiceName(isvc.Name)
+		backend = constants.DefaultTransformerServiceName(isvc.Name)
 		if !isvc.Status.IsConditionReady(v1beta1.TransformerReady) {
 			isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
 				Type:   v1beta1.IngressReady,
@@ -258,7 +258,7 @@ func (ir *IngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
 			Match: ir.createHTTPMatchRequest(constants.ExplainPrefix(), serviceHost,
 				network.GetServiceHostname(isvc.Name, isvc.Namespace), isInternal),
 			Route: []*istiov1alpha3.HTTPRouteDestination{
-				ir.createHTTPRouteDestination(constants.ExplainerServiceName(isvc.Name), isvc.Namespace, constants.LocalGatewayHost),
+				ir.createHTTPRouteDestination(constants.DefaultExplainerServiceName(isvc.Name), isvc.Namespace, constants.LocalGatewayHost),
 			},
 		}
 		httpRoutes = append(httpRoutes, &explainerRouter)
