@@ -103,7 +103,7 @@ func createKnativeService(componentMeta metav1.ObjectMeta,
 			})
 	}
 
-	return &knservingv1.Service{
+	service := &knservingv1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      componentMeta.Name,
 			Namespace: componentMeta.Namespace,
@@ -128,6 +128,10 @@ func createKnativeService(componentMeta metav1.ObjectMeta,
 			},
 		},
 	}
+	//Call setDefaults on desired knative service here to avoid diffs generated because knative defaulter webhook is
+	//called when creating or updating the knative service
+	service.SetDefaults(context.TODO())
+	return service
 }
 
 func (r *KsvcReconciler) Reconcile() (*knservingv1.ServiceStatus, error) {

@@ -26,6 +26,7 @@ import (
 	istiov1alpha3 "istio.io/api/networking/v1alpha3"
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
@@ -45,6 +46,16 @@ var _ = Describe("v1beta1 inference service controller", func() {
 		domain   = "example.com"
 	)
 	var (
+		defaultResource = v1.ResourceRequirements{
+			Limits: v1.ResourceList{
+				v1.ResourceCPU:    resource.MustParse("1"),
+				v1.ResourceMemory: resource.MustParse("2Gi"),
+			},
+			Requests: v1.ResourceList{
+				v1.ResourceCPU:    resource.MustParse("1"),
+				v1.ResourceMemory: resource.MustParse("2Gi"),
+			},
+		}
 		configs = map[string]string{
 			"predictors": `{
                "tensorflow": {
@@ -104,14 +115,14 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								StorageURI:     &storageUri,
 								RuntimeVersion: proto.String("1.14.0"),
 								Container: v1.Container{
-									Name: "kfs",
+									Name:      "kfs",
+									Resources: defaultResource,
 								},
 							},
 						},
 					},
 				},
 			}
-
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
 			inferenceService := &v1beta1.InferenceService{}
 
@@ -165,6 +176,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 												"--model_name=" + isvc.Name,
 												"--model_base_path=" + constants.DefaultModelLocalMountPath,
 											},
+											Resources: defaultResource,
 										},
 									},
 								},
@@ -173,6 +185,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					},
 				},
 			}
+			expectedService.SetDefaults(context.TODO())
 			Expect(actualService.Spec.ConfigurationSpec).To(gomega.Equal(expectedService.Spec.ConfigurationSpec))
 			predictorUrl, _ := apis.ParseURL("http://" + constants.InferenceServiceHostName(constants.DefaultPredictorServiceName(serviceKey.Name), serviceKey.Namespace, domain))
 			// update predictor
@@ -286,7 +299,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						PodSpec: v1beta1.PodSpec{
 							Containers: []v1.Container{
 								{
-									Image: "transformer:v1",
+									Image:     "transformer:v1",
+									Resources: defaultResource,
 								},
 							},
 						},
@@ -358,6 +372,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 												constants.ArgumentHttpPort,
 												constants.InferenceServiceDefaultHttpPort,
 											},
+											Resources: defaultResource,
 										},
 									},
 								},
@@ -369,6 +384,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					},
 				},
 			}
+			expectedTransformerService.SetDefaults(context.TODO())
 			Expect(cmp.Diff(transformerService.Spec, expectedTransformerService.Spec)).To(gomega.Equal(""))
 
 			// mock update knative service status since knative serving controller is not running in test
@@ -495,6 +511,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							Type:           v1beta1.AlibiAnchorsTabularExplainer,
 							StorageURI:     "s3://test/mnist/explainer",
 							RuntimeVersion: proto.String("0.4.0"),
+							Container: v1.Container{
+								Name:      "kfserving-contaienr",
+								Resources: defaultResource,
+							},
 						},
 					},
 				},
@@ -569,6 +589,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 												"/mnt/models",
 												"AnchorTabular",
 											},
+											Resources: defaultResource,
 										},
 									},
 								},
@@ -580,6 +601,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					},
 				},
 			}
+			expectedExplainerService.SetDefaults(context.TODO())
 			Expect(cmp.Diff(explainerService.Spec, expectedExplainerService.Spec)).To(gomega.Equal(""))
 
 			// mock update knative service status since knative serving controller is not running in test
