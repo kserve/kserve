@@ -54,7 +54,7 @@ func (d *Downloader) DownloadModel(modelName string, modelSpec *v1beta1.ModelSpe
 			file, createErr := storage.Create(successFile)
 			defer file.Close()
 			if createErr != nil {
-				return errors.Wrapf(createErr,"failed to create success file")
+				return errors.Wrapf(createErr, "failed to create success file")
 			}
 		} else {
 			log.Info("Model exists already at location %v\n", "model", modelName, "successFile", filepath.Join(d.ModelDir, successFile))
