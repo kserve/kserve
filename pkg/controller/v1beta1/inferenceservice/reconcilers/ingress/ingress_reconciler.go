@@ -118,6 +118,7 @@ func (r *IngressReconciler) reconcileExternalService(isvc *v1beta1.InferenceServ
 		Spec: corev1.ServiceSpec{
 			ExternalName: constants.LocalGatewayHost,
 			Type:         corev1.ServiceTypeExternalName,
+			SessionAffinity: corev1.ServiceAffinityNone,
 		},
 	}
 	if err := controllerutil.SetControllerReference(isvc, desired, r.scheme); err != nil {
