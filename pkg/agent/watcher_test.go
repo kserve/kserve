@@ -13,7 +13,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"io/ioutil"
-	"log"
+	logger "log"
 	"os"
 )
 
@@ -53,43 +53,40 @@ func (m *mockS3FailDownloder) DownloadWithIterator(aws.Context, s3manager.BatchD
 }
 
 var _ = Describe("Watcher", func() {
-	var watcher Watcher
 	var modelDir string
 	BeforeEach(func() {
 		dir, err := ioutil.TempDir("", "example")
 		if err != nil {
-			log.Fatal(err)
+			logger.Fatal(err)
 		}
 		modelDir = dir
-		log.Printf("Creating temp dir %v\n", modelDir)
+		logger.Printf("Creating temp dir %v\n", modelDir)
 	})
 	AfterEach(func() {
 		os.RemoveAll(modelDir)
-		log.Printf("Deleted temp dir %v\n", modelDir)
+		logger.Printf("Deleted temp dir %v\n", modelDir)
 	})
 	Describe("Sync model config", func() {
 		Context("Sync new models", func() {
 			It("should download the new models", func() {
 				defer GinkgoRecover()
-				log.Printf("Using temp dir %v\n", modelDir)
-				done := make(chan EventWrapper)
-				watcher = Watcher{
-					ConfigDir:    "/tmp/configs",
-					ModelTracker: map[string]ModelWrapper{},
-					Puller: Puller{
-						ChannelMap: map[string]Channel{},
-						Downloader: Downloader{
-							ModelDir: modelDir + "/test1",
-							Providers: map[storage.Protocol]storage.Provider{
-								storage.S3: &storage.S3Provider{
-									Client:     &mockS3Client{},
-									Downloader: &mockS3Downloder{},
-								},
+				logger.Printf("Sync model config using temp dir %v\n", modelDir)
+				watcher := NewWatcher("/tmp/configs", modelDir)
+				puller := Puller{
+					channelMap:  make(map[string]*ModelChannel),
+					completions: make(chan *ModelOp, 4),
+					opStats:     make(map[string]map[OpType]int),
+					Downloader: Downloader{
+						ModelDir: modelDir + "/test1",
+						Providers: map[storage.Protocol]storage.Provider{
+							storage.S3: &storage.S3Provider{
+								Client:     &mockS3Client{},
+								Downloader: &mockS3Downloder{},
 							},
 						},
 					},
-					EventDoneChannel: done,
 				}
+				go puller.processCommands(watcher.ModelEvents)
 				modelConfigs := modelconfig.ModelConfigs{
 					{
 						Name: "model1",
@@ -106,51 +103,33 @@ var _ = Describe("Watcher", func() {
 						},
 					},
 				}
-				watcher.ParseConfig(modelConfigs)
-				doneEventMap := map[string]EventWrapper{}
-				event1 := <-done
-				doneEventMap[event1.ModelName] = event1
-				event2 := <-done
-				doneEventMap[event2.ModelName] = event2
-				Expect(doneEventMap["model1"]).To(Equal(EventWrapper{
-					ModelName:      "model1",
-					ModelSpec:      &modelConfigs[0].Spec,
-					Error:          nil,
-					LoadState:      ShouldLoad,
-					ShouldDownload: true,
-				}))
-				Expect(doneEventMap["model2"]).To(Equal(EventWrapper{
-					ModelName:      "model2",
-					ModelSpec:      &modelConfigs[1].Spec,
-					Error:          nil,
-					LoadState:      ShouldLoad,
-					ShouldDownload: true,
-				}))
+				watcher.parseConfig(modelConfigs)
+				Eventually(func() int { return len(puller.channelMap) }).Should(Equal(0))
+				Eventually(func() int { return puller.opStats["model1"][Add] }).Should(Equal(1))
+				Eventually(func() int { return puller.opStats["model2"][Add] }).Should(Equal(1))
 			})
 		})
 
 		Context("Sync delete models", func() {
 			It("should download the deleted models", func() {
 				defer GinkgoRecover()
-				log.Printf("Using temp dir %v\n", modelDir)
-				done := make(chan EventWrapper)
-				watcher = Watcher{
-					ConfigDir:    "/tmp/configs",
-					ModelTracker: map[string]ModelWrapper{},
-					Puller: Puller{
-						ChannelMap: map[string]Channel{},
-						Downloader: Downloader{
-							ModelDir: modelDir + "/test2",
-							Providers: map[storage.Protocol]storage.Provider{
-								storage.S3: &storage.S3Provider{
-									Client:     &mockS3Client{},
-									Downloader: &mockS3Downloder{},
-								},
+				logger.Printf("Sync delete models using temp dir %v\n", modelDir)
+				watcher := NewWatcher("/tmp/configs", modelDir)
+				puller := Puller{
+					channelMap:  make(map[string]*ModelChannel),
+					completions: make(chan *ModelOp, 4),
+					opStats:     make(map[string]map[OpType]int),
+					Downloader: Downloader{
+						ModelDir: modelDir + "/test2",
+						Providers: map[storage.Protocol]storage.Provider{
+							storage.S3: &storage.S3Provider{
+								Client:     &mockS3Client{},
+								Downloader: &mockS3Downloder{},
 							},
 						},
 					},
-					EventDoneChannel: done,
 				}
+				go puller.processCommands(watcher.ModelEvents)
 				modelConfigs := modelconfig.ModelConfigs{
 					{
 						Name: "model1",
@@ -167,9 +146,7 @@ var _ = Describe("Watcher", func() {
 						},
 					},
 				}
-				watcher.ParseConfig(modelConfigs)
-				<-done
-				<-done
+				watcher.parseConfig(modelConfigs)
 				// remove model2
 				modelConfigs = modelconfig.ModelConfigs{
 					{
@@ -180,43 +157,35 @@ var _ = Describe("Watcher", func() {
 						},
 					},
 				}
-				watcher.ParseConfig(modelConfigs)
-				event1 := <-done
-				Expect(event1).To(Equal(EventWrapper{
-					ModelName: "model2",
-					ModelSpec: &v1beta1.ModelSpec{
-						StorageURI: "s3://models/model2",
-						Framework:  "sklearn",
-					},
-					ShouldDownload: false,
-					LoadState:      ShouldUnload,
-					Error:          nil,
-				}))
+				watcher.parseConfig(modelConfigs)
+				Eventually(func() int { return len(puller.channelMap) }).Should(Equal(0))
+				Eventually(func() int { return puller.opStats["model1"][Add] }).Should(Equal(1))
+				Eventually(func() int { return puller.opStats["model2"][Add] }).Should(Equal(1))
+				Eventually(func() int { return puller.opStats["model2"][Remove] }).Should(Equal(1))
 			})
 		})
 
 		Context("Sync update models", func() {
 			It("should update models", func() {
 				defer GinkgoRecover()
-				log.Printf("Using temp dir %v\n", modelDir)
-				done := make(chan EventWrapper)
-				watcher = Watcher{
-					ConfigDir:    "/tmp/configs",
-					ModelTracker: map[string]ModelWrapper{},
-					Puller: Puller{
-						ChannelMap: map[string]Channel{},
-						Downloader: Downloader{
-							ModelDir: modelDir + "/test3",
-							Providers: map[storage.Protocol]storage.Provider{
-								storage.S3: &storage.S3Provider{
-									Client:     &mockS3Client{},
-									Downloader: &mockS3Downloder{},
-								},
+				logger.Printf("Sync update models using temp dir %v\n", modelDir)
+				watcher := NewWatcher("/tmp/configs", modelDir)
+				puller := Puller{
+					channelMap:  make(map[string]*ModelChannel),
+					completions: make(chan *ModelOp, 4),
+					opStats:     make(map[string]map[OpType]int),
+					Downloader: Downloader{
+						ModelDir: modelDir + "/test3",
+						Providers: map[storage.Protocol]storage.Provider{
+							storage.S3: &storage.S3Provider{
+								Client:     &mockS3Client{},
+								Downloader: &mockS3Downloder{},
 							},
 						},
 					},
-					EventDoneChannel: done,
 				}
+				go puller.processCommands(watcher.ModelEvents)
+				logger.Printf("starting go routing")
 				modelConfigs := modelconfig.ModelConfigs{
 					{
 						Name: "model1",
@@ -233,9 +202,7 @@ var _ = Describe("Watcher", func() {
 						},
 					},
 				}
-				watcher.ParseConfig(modelConfigs)
-				<-done
-				<-done
+				watcher.parseConfig(modelConfigs)
 				// remove model2
 				modelConfigs = modelconfig.ModelConfigs{
 					{
@@ -253,26 +220,18 @@ var _ = Describe("Watcher", func() {
 						},
 					},
 				}
-				watcher.ParseConfig(modelConfigs)
-				event1 := <-done
-				Expect(event1).To(Equal(EventWrapper{
-					ModelName: "model2",
-					ModelSpec: &v1beta1.ModelSpec{
-						StorageURI: "s3://models/model2v2",
-						Framework:  "sklearn",
-					},
-					ShouldDownload: true,
-					LoadState:      ShouldLoad,
-					Error:          nil,
-				}))
+				watcher.parseConfig(modelConfigs)
+				Eventually(func() int { return len(puller.channelMap) }).Should(Equal(0))
+				Eventually(func() int { return puller.opStats["model1"][Add] }).Should(Equal(1))
+				Eventually(func() int { return puller.opStats["model2"][Add] }).Should(Equal(2))
+				Eventually(func() int { return puller.opStats["model2"][Remove] }).Should(Equal(1))
 			})
 		})
 
 		Context("Model download failure", func() {
 			It("should not create success file", func() {
 				defer GinkgoRecover()
-				log.Printf("Using temp dir %v\n", modelDir)
-				done := make(chan EventWrapper)
+				logger.Printf("Using temp dir %v\n", modelDir)
 				var errs []s3manager.Error
 				errs = append(errs, s3manager.Error{
 					OrigErr: fmt.Errorf("failed to download"),
@@ -281,23 +240,22 @@ var _ = Describe("Watcher", func() {
 				})
 				var err error
 				err = s3manager.NewBatchError("BatchedDownloadIncomplete", "some objects have failed to download.", errs)
-				watcher = Watcher{
-					ConfigDir:    "/tmp/configs",
-					ModelTracker: map[string]ModelWrapper{},
-					Puller: Puller{
-						ChannelMap: map[string]Channel{},
-						Downloader: Downloader{
-							ModelDir: modelDir + "/test4",
-							Providers: map[storage.Protocol]storage.Provider{
-								storage.S3: &storage.S3Provider{
-									Client:     &mockS3Client{},
-									Downloader: &mockS3FailDownloder{err: err},
-								},
+				watcher := NewWatcher("/tmp/configs", modelDir)
+				puller := Puller{
+					channelMap:  make(map[string]*ModelChannel),
+					completions: make(chan *ModelOp, 4),
+					opStats:     make(map[string]map[OpType]int),
+					Downloader: Downloader{
+						ModelDir: modelDir + "/test4",
+						Providers: map[storage.Protocol]storage.Provider{
+							storage.S3: &storage.S3Provider{
+								Client:     &mockS3Client{},
+								Downloader: &mockS3FailDownloder{err: err},
 							},
 						},
 					},
-					EventDoneChannel: done,
 				}
+				go puller.processCommands(watcher.ModelEvents)
 				modelConfigs := modelconfig.ModelConfigs{
 					{
 						Name: "model1",
@@ -307,18 +265,9 @@ var _ = Describe("Watcher", func() {
 						},
 					},
 				}
-				watcher.ParseConfig(modelConfigs)
-				event1 := <-done
-				Expect(event1).To(Equal(EventWrapper{
-					ModelName: "model1",
-					ModelSpec: &v1beta1.ModelSpec{
-						StorageURI: "s3://models/model1",
-						Framework:  "sklearn",
-					},
-					ShouldDownload: true,
-					LoadState:      ShouldLoad,
-					Error:          err,
-				}))
+				watcher.parseConfig(modelConfigs)
+				Eventually(func() int { return len(puller.channelMap) }).Should(Equal(0))
+				Eventually(func() int { return puller.opStats["model1"][Add] }).Should(Equal(1))
 			})
 		})
 	})

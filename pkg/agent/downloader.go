@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"github.com/kubeflow/kfserving/pkg/agent/storage"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
+	"github.com/pkg/errors"
 	"path/filepath"
 	"regexp"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
@@ -40,19 +41,20 @@ func (d *Downloader) DownloadModel(modelName string, modelSpec *v1beta1.ModelSpe
 		modelUri := modelSpec.StorageURI
 		hashModelUri := hash(modelUri)
 		hashFramework := hash(modelSpec.Framework)
+		hashMemory := hash(modelSpec.Memory.String())
 		successFile := filepath.Join(d.ModelDir, modelName,
-			fmt.Sprintf("SUCCESS.%s.%s", hashModelUri, hashFramework))
+			fmt.Sprintf("SUCCESS.%s.%s.%s", hashModelUri, hashFramework, hashMemory))
 		log.Info("Downloading to model dir", "modelUri", modelUri, "modelDir", d.ModelDir)
 		// Download if the event there is a success file and the event is one which we wish to Download
 		if !storage.FileExists(successFile) {
 			// TODO: Handle retry logic
 			if err := d.download(modelName, modelUri); err != nil {
-				return err
+				return errors.Wrapf(err, "failed to download model")
 			}
 			file, createErr := storage.Create(successFile)
 			defer file.Close()
 			if createErr != nil {
-				return fmt.Errorf("create file error: %v", createErr)
+				return errors.Wrapf(createErr,"failed to create success file")
 			}
 		} else {
 			log.Info("Model exists already at location %v\n", "model", modelName, "successFile", filepath.Join(d.ModelDir, successFile))
@@ -64,14 +66,14 @@ func (d *Downloader) DownloadModel(modelName string, modelSpec *v1beta1.ModelSpe
 func (d *Downloader) download(modelName string, storageUri string) error {
 	protocol, err := extractProtocol(storageUri)
 	if err != nil {
-		return fmt.Errorf("unsupported protocol: %v", err)
+		return errors.Wrapf(err, "unsupported protocol")
 	}
 	provider, ok := d.Providers[protocol]
 	if !ok {
-		return fmt.Errorf("protocol manager for %s is not initialized", protocol)
+		return errors.Wrapf(err, "protocol manager for %s is not initialized", protocol)
 	}
 	if err := provider.DownloadModel(d.ModelDir, modelName, storageUri); err != nil {
-		return err
+		return errors.Wrapf(err, "failed to download model")
 	}
 	return nil
 }
