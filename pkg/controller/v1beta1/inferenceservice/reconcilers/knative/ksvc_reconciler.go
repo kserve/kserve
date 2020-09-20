@@ -181,7 +181,9 @@ func (r *KsvcReconciler) Reconcile() (*knservingv1.ServiceStatus, error) {
 		if err != nil {
 			return &existing.Status, errors.Wrapf(err, "fails to diff knative service route spec")
 		}
-		log.Info("knative service routing spec diff (-desired, +observed):", "diff", diff)
+		if diff != "" {
+			log.Info("knative service routing spec diff (-desired, +observed):", "diff", diff)
+		}
 		existing.Spec.Traffic = desired.Spec.Traffic
 	}
 	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
