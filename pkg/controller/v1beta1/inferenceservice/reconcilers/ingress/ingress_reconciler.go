@@ -116,8 +116,8 @@ func (r *IngressReconciler) reconcileExternalService(isvc *v1beta1.InferenceServ
 			Namespace: isvc.Namespace,
 		},
 		Spec: corev1.ServiceSpec{
-			ExternalName: constants.LocalGatewayHost,
-			Type:         corev1.ServiceTypeExternalName,
+			ExternalName:    constants.LocalGatewayHost,
+			Type:            corev1.ServiceTypeExternalName,
 			SessionAffinity: corev1.ServiceAffinityNone,
 		},
 	}
@@ -241,7 +241,12 @@ func (ir *IngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
 		}
 	}
 	isInternal := false
+	//if service is labelled with cluster local or knative domain is configured as internal
 	if val, ok := isvc.Labels[constants.VisibilityLabel]; ok && val == "ClusterLocal" {
+		isInternal = true
+	}
+	serviceInternalHostName := network.GetServiceHostname(isvc.Name, isvc.Namespace)
+	if serviceHost == serviceInternalHostName {
 		isInternal = true
 	}
 	httpRoutes := []*istiov1alpha3.HTTPRoute{}

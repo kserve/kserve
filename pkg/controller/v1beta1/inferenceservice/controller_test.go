@@ -726,7 +726,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								StorageURI:     &storageUri,
 								RuntimeVersion: proto.String("1.14.0"),
 								Container: v1.Container{
-									Name: "kfs",
+									Name:      "kfs",
+									Resources: defaultResource,
 								},
 							},
 						},
@@ -783,8 +784,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 			// update predictor status
 			canaryService := &knservingv1.Service{}
-			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorServiceKey, canaryService) }, timeout).
-				Should(Succeed())
+			Eventually(func() string {
+				k8sClient.Get(context.TODO(), predictorServiceKey, canaryService)
+				return canaryService.Spec.Template.Annotations[constants.StorageInitializerSourceUriInternalAnnotationKey]
+			}, timeout).Should(Equal(storageUri2))
 			canaryService.Status.LatestCreatedRevisionName = "revision-v2"
 			canaryService.Status.LatestReadyRevisionName = "revision-v2"
 			canaryService.Status.URL = predictorUrl
