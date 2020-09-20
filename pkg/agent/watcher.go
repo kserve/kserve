@@ -111,6 +111,7 @@ func (w *Watcher) Start() {
 }
 
 func (w *Watcher) parseConfig(modelConfigs modelconfig.ModelConfigs) {
+
 	for _, modelConfig := range modelConfigs {
 		name, spec := modelConfig.Name, modelConfig.Spec
 		existing, exists := w.modelTracker[name]
@@ -119,7 +120,10 @@ func (w *Watcher) parseConfig(modelConfigs modelconfig.ModelConfigs) {
 			w.modelTracker[name] = modelWrapper{Spec: &spec}
 			w.modelAdded(name, &spec)
 		} else if !cmp.Equal(spec, *existing.Spec) {
-			existing.Spec, existing.stale = &spec, false
+			w.modelTracker[name] = modelWrapper{
+				Spec:  existing.Spec,
+				stale: false,
+			}
 			// Changed - replace
 			w.modelRemoved(name)
 			w.modelAdded(name, &spec)
@@ -131,12 +135,17 @@ func (w *Watcher) parseConfig(modelConfigs modelconfig.ModelConfigs) {
 			delete(w.modelTracker, name)
 			w.modelRemoved(name)
 		} else {
-			wrapper.stale = true // reset for next iteration
+			// reset for next iteration
+			w.modelTracker[name] = modelWrapper{
+				Spec:  wrapper.Spec,
+				stale: true,
+			}
 		}
 	}
 }
 
 func (w *Watcher) modelAdded(name string, spec *v1beta1.ModelSpec) {
+	log.Info("adding model", "modelName", name)
 	w.ModelEvents <- ModelOp{
 		ModelName: name,
 		Op:        Add,
@@ -145,6 +154,7 @@ func (w *Watcher) modelAdded(name string, spec *v1beta1.ModelSpec) {
 }
 
 func (w *Watcher) modelRemoved(name string) {
+	log.Info("removing model", "modelName", name)
 	w.ModelEvents <- ModelOp{
 		ModelName: name,
 		Op:        Remove,

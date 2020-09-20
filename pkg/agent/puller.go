@@ -31,8 +31,9 @@ const (
 )
 
 type Puller struct {
-	channelMap  map[string]ModelChannel
+	channelMap  map[string]*ModelChannel
 	completions chan *ModelOp
+	opStats     map[string]map[OpType]int
 	Downloader  Downloader
 }
 
@@ -44,8 +45,9 @@ type ModelOp struct {
 
 func StartPuller(downloader Downloader, commands <-chan ModelOp) {
 	puller := Puller{
-		channelMap:  make(map[string]ModelChannel),
+		channelMap:  make(map[string]*ModelChannel),
 		completions: make(chan *ModelOp, 4),
+		opStats:     make(map[string]map[OpType]int),
 		Downloader:  downloader,
 	}
 	go puller.processCommands(commands)
@@ -75,7 +77,7 @@ type ModelChannel struct {
 func (p *Puller) enqueueModelOp(modelOp *ModelOp) {
 	modelChan, ok := p.channelMap[modelOp.ModelName]
 	if !ok {
-		modelChan = ModelChannel{
+		modelChan = &ModelChannel{
 			modelOps: make(chan *ModelOp, 8),
 		}
 		go p.modelProcessor(modelOp.ModelName, modelChan.modelOps)
@@ -86,7 +88,13 @@ func (p *Puller) enqueueModelOp(modelOp *ModelOp) {
 }
 
 func (p *Puller) modelOpComplete(modelOp *ModelOp, closed bool) {
-	log := logf.Log.WithName("modelOp")
+	log := logf.Log.WithName("modelOnComplete")
+	if opMap, ok := p.opStats[modelOp.ModelName]; ok {
+		opMap[modelOp.Op] += 1
+	} else {
+		p.opStats[modelOp.ModelName] = make(map[OpType]int)
+		p.opStats[modelOp.ModelName][modelOp.Op] = 1
+	}
 	modelChan, ok := p.channelMap[modelOp.ModelName]
 	if ok {
 		modelChan.opsInFlight -= 1
@@ -98,8 +106,9 @@ func (p *Puller) modelOpComplete(modelOp *ModelOp, closed bool) {
 				close(p.completions)
 			}
 		}
+		log.Info("completion event for model", "modelName", modelOp.ModelName, "inFlight", modelChan.opsInFlight)
 	} else {
-		log.Info("Op completion event for model", modelOp.ModelName, "not found in channelMap")
+		log.Info("Op completion event did not find channel for", "modelName", modelOp.ModelName)
 	}
 }
 
@@ -114,24 +123,23 @@ func (p *Puller) modelProcessor(modelName string, ops <-chan *ModelOp) {
 		switch modelOp.Op {
 		case Add:
 			// Load
-			log.Info("Should download", modelOp.Spec.StorageURI)
+			log.Info("Downloading model", "storageUri", modelOp.Spec.StorageURI)
 			err := p.Downloader.DownloadModel(modelName, modelOp.Spec)
 			if err != nil {
-				log.Info("Download of model", modelName, "failed because: ", err)
+				log.Error(err, "Fails to download model", "modelName", modelName)
 			} else {
 				// If there is an error, we will NOT send a request. As such, to know about errors, you will
 				// need to call the error endpoint of the puller
 				// TODO: Do request logic
-				log.Info("Now doing load request for", modelName)
+				log.Info("Load model", "modelName", modelName)
 			}
 		case Remove:
 			// Unload
 			// TODO: Do request logic
-			log.Info("Now doing unload request for", modelName)
+			log.Info("unloading model", "modelName", modelName)
 			// If there is an error, we will NOT do a delete... that could be problematic
-			log.Info("Should unload", modelName)
 			if err := storage.RemoveDir(filepath.Join(p.Downloader.ModelDir, modelName)); err != nil {
-				log.Info("failing to delete model directory: %v", err)
+				log.Error(err, "failing to delete model directory")
 			}
 		}
 		p.completions <- modelOp
