@@ -3,6 +3,7 @@
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
+**aix** | [**V1alpha2AIXExplainerSpec**](V1alpha2AIXExplainerSpec.md) | Spec for AIX explainer | [optional] 
 **alibi** | [**V1alpha2AlibiExplainerSpec**](V1alpha2AlibiExplainerSpec.md) | Spec for alibi explainer | [optional] 
 **batcher** | [**V1alpha2Batcher**](V1alpha2Batcher.md) | Activate request batching | [optional] 
 **custom** | [**V1alpha2CustomSpec**](V1alpha2CustomSpec.md) | Spec for a custom explainer | [optional] 

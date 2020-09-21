@@ -30,6 +30,7 @@ import re  # noqa: F401
 
 import six
 
+from kfserving.models.v1alpha2_aix_explainer_spec import V1alpha2AIXExplainerSpec  # noqa: F401,E501
 from kfserving.models.v1alpha2_alibi_explainer_spec import V1alpha2AlibiExplainerSpec  # noqa: F401,E501
 from kfserving.models.v1alpha2_batcher import V1alpha2Batcher  # noqa: F401,E501
 from kfserving.models.v1alpha2_custom_spec import V1alpha2CustomSpec  # noqa: F401,E501
@@ -50,6 +51,7 @@ class V1alpha2ExplainerSpec(object):
                             and the value is json key in definition.
     """
     swagger_types = {
+        'aix': 'V1alpha2AIXExplainerSpec',
         'alibi': 'V1alpha2AlibiExplainerSpec',
         'batcher': 'V1alpha2Batcher',
         'custom': 'V1alpha2CustomSpec',
@@ -61,6 +63,7 @@ class V1alpha2ExplainerSpec(object):
     }
 
     attribute_map = {
+        'aix': 'aix',
         'alibi': 'alibi',
         'batcher': 'batcher',
         'custom': 'custom',
@@ -71,9 +74,10 @@ class V1alpha2ExplainerSpec(object):
         'service_account_name': 'serviceAccountName'
     }
 
-    def __init__(self, alibi=None, batcher=None, custom=None, logger=None, max_replicas=None, min_replicas=None, parallelism=None, service_account_name=None):  # noqa: E501
+    def __init__(self, aix=None, alibi=None, batcher=None, custom=None, logger=None, max_replicas=None, min_replicas=None, parallelism=None, service_account_name=None):  # noqa: E501
         """V1alpha2ExplainerSpec - a model defined in Swagger"""  # noqa: E501
 
+        self._aix = None
         self._alibi = None
         self._batcher = None
         self._custom = None
@@ -84,6 +88,8 @@ class V1alpha2ExplainerSpec(object):
         self._service_account_name = None
         self.discriminator = None
 
+        if aix is not None:
+            self.aix = aix
         if alibi is not None:
             self.alibi = alibi
         if batcher is not None:
@@ -100,6 +106,29 @@ class V1alpha2ExplainerSpec(object):
             self.parallelism = parallelism
         if service_account_name is not None:
             self.service_account_name = service_account_name
+
+    @property
+    def aix(self):
+        """Gets the aix of this V1alpha2ExplainerSpec.  # noqa: E501
+
+        Spec for AIX explainer  # noqa: E501
+
+        :return: The aix of this V1alpha2ExplainerSpec.  # noqa: E501
+        :rtype: V1alpha2AIXExplainerSpec
+        """
+        return self._aix
+
+    @aix.setter
+    def aix(self, aix):
+        """Sets the aix of this V1alpha2ExplainerSpec.
+
+        Spec for AIX explainer  # noqa: E501
+
+        :param aix: The aix of this V1alpha2ExplainerSpec.  # noqa: E501
+        :type: V1alpha2AIXExplainerSpec
+        """
+
+        self._aix = aix
 
     @property
     def alibi(self):
