@@ -50,23 +50,26 @@ class V1alpha2XGBoostSpec(object):
         'nthread': 'int',
         'resources': 'V1ResourceRequirements',
         'runtime_version': 'str',
-        'storage_uri': 'str'
+        'storage_uri': 'str',
+        'method': 'str'
     }
 
     attribute_map = {
         'nthread': 'nthread',
         'resources': 'resources',
         'runtime_version': 'runtimeVersion',
-        'storage_uri': 'storageUri'
+        'storage_uri': 'storageUri',
+        'method': 'method'
     }
 
-    def __init__(self, nthread=None, resources=None, runtime_version=None, storage_uri=None):  # noqa: E501
+    def __init__(self, nthread=None, resources=None, runtime_version=None, storage_uri=None, method=None):  # noqa: E501
         """V1alpha2XGBoostSpec - a model defined in Swagger"""  # noqa: E501
 
         self._nthread = None
         self._resources = None
         self._runtime_version = None
         self._storage_uri = None
+        self._method = None
         self.discriminator = None
 
         if nthread is not None:
@@ -75,6 +78,8 @@ class V1alpha2XGBoostSpec(object):
             self.resources = resources
         if runtime_version is not None:
             self.runtime_version = runtime_version
+        if method is not None:
+            self.method = method
         self.storage_uri = storage_uri
 
     @property
@@ -170,6 +175,29 @@ class V1alpha2XGBoostSpec(object):
             raise ValueError("Invalid value for `storage_uri`, must not be `None`")  # noqa: E501
 
         self._storage_uri = storage_uri
+
+    @property
+    def method(self):
+        """Gets the method of this V1alpha2XGBoostSpec.  # noqa: E501
+
+        The XGBoost prediction method. Either "predict" or "predict_proba".  # noqa: E501
+
+        :return: The prediction method of this V1alpha2XGBoostSpec.  # noqa: E501
+        :rtype: str
+        """
+        return self._method
+
+    @method.setter
+    def method(self, method):
+        """Sets the method of this V1alpha2XGBoostSpec.
+
+        The XGBoost prediction method. Either "predict" or "predict_proba".  # noqa: E501
+
+        :param method: The prediction method of this V1alpha2XGBoostSpec.  # noqa: E501
+        :type: str
+        """
+
+        self._method = method
 
     def to_dict(self):
         """Returns the model properties as a dict"""
