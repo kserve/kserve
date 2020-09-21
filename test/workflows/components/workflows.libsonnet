@@ -230,6 +230,10 @@
                     template: "build-alibi-explainer",
                   },
                   {
+                    name: "build-aix-explainer",
+                    template: "build-aix-explainer",
+                  },
+                  {
                     name: "build-storage-initializer",
                     template: "build-storage-initializer",
                   },
@@ -323,6 +327,9 @@
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-alibi-explainer", testWorkerImage, [
               "test/scripts/build-python-image.sh", "alibiexplainer.Dockerfile", "alibi-explainer", "latest"
             ]),  // build-alibi-explainer
+            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-aix-explainer", testWorkerImage, [
+              "test/scripts/build-python-image.sh", "aixexplainer.Dockerfile ", "aix-explainer", "latest"
+            ]),  // build-aix-explainer
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-storage-initializer", testWorkerImage, [
               "test/scripts/build-python-image.sh", "storage-initializer.Dockerfile", "storage-initializer", "latest"
             ]),  // build-storage-initializer
