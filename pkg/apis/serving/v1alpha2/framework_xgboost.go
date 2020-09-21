@@ -15,13 +15,18 @@ package v1alpha2
 
 import (
 	"fmt"
+	"strconv"
+
 	"github.com/kubeflow/kfserving/pkg/constants"
 	v1 "k8s.io/api/core/v1"
-	"strconv"
 )
 
 func (x *XGBoostSpec) GetStorageUri() string {
 	return x.StorageURI
+}
+
+func (x *XGBoostSpec) GetMethod() string {
+	return x.Method
 }
 
 func (x *XGBoostSpec) GetResourceRequirements() *v1.ResourceRequirements {
@@ -35,6 +40,7 @@ func (x *XGBoostSpec) GetContainer(modelName string, parallelism int, config *In
 		fmt.Sprintf("%s=%s", constants.ArgumentModelDir, constants.DefaultModelLocalMountPath),
 		fmt.Sprintf("%s=%s", constants.ArgumentHttpPort, constants.InferenceServiceDefaultHttpPort),
 		fmt.Sprintf("%s=%s", "--nthread", strconv.Itoa(x.NThread)),
+		fmt.Sprintf("%s=%s", constants.ArgumentMethod, config.Method),
 	}
 	if parallelism != 0 {
 		arguments = append(arguments, fmt.Sprintf("%s=%s", constants.ArgumentWorkers, strconv.Itoa(parallelism)))
@@ -50,6 +56,9 @@ func (x *XGBoostSpec) GetContainer(modelName string, parallelism int, config *In
 func (x *XGBoostSpec) ApplyDefaults(config *InferenceServicesConfig) {
 	if x.RuntimeVersion == "" {
 		x.RuntimeVersion = config.Predictors.Xgboost.DefaultImageVersion
+	}
+	if x.Method == "" {
+		x.Method = config.Predictors.Xgboost.DefaultMethod
 	}
 
 	setResourceRequirementDefaults(&x.Resources)

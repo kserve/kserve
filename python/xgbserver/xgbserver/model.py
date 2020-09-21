@@ -22,12 +22,13 @@ BOOSTER_FILE = "model.bst"
 
 
 class XGBoostModel(kfserving.KFModel):
-    def __init__(self, name: str, model_dir: str, nthread: int,
+    def __init__(self, name: str, model_dir: str, nthread: int, method: str,
                  booster: XGBModel = None):
         super().__init__(name)
         self.name = name
         self.model_dir = model_dir
         self.nthread = nthread
+        self.method = method
         if not booster is None:
             self._booster = booster
             self.ready = True
@@ -44,7 +45,12 @@ class XGBoostModel(kfserving.KFModel):
         try:
             # Use of list as input is deprecated see https://github.com/dmlc/xgboost/pull/3970
             dmatrix = xgb.DMatrix(request["instances"], nthread=self.nthread)
-            result: xgb.DMatrix = self._booster.predict(dmatrix)
+            if self.method == "predict":
+                result: xgb.DMatrix = self._booster.predict(dmatrix)
+            elif self.method == "predict_proba":
+                result: xgb.DMatrix = self._booster.predict_proba(dmatrix)
+            else:
+                raise Exception("Not a valid prediction method: %s" % self.method)
             return {"predictions": result.tolist()}
         except Exception as e:
             raise Exception("Failed to predict %s" % e)

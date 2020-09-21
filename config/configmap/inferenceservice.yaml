@@ -42,6 +42,11 @@ data:
             "supportedFrameworks": [
               "xgboost"
             ],
+            "defaultMethod": "predict",
+            "allowedMethods": [
+              "predict",
+              "predict_proba"
+             ],
             "multiModelServer": "false"
         },
         "pytorch": {

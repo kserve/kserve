@@ -23,6 +23,7 @@ from xgbserver import XGBoostModel, XGBoostModelRepository
 DEFAULT_MODEL_NAME = "default"
 DEFAULT_LOCAL_MODEL_DIR = "/tmp/model"
 DEFAULT_NTHREAD = 1
+DEFAULT_METHOD = "predict"
 
 parser = argparse.ArgumentParser(parents=[kfserving.kfserver.parser])  # pylint:disable=c-extension-no-member
 parser.add_argument('--model_dir', required=True,
@@ -31,10 +32,12 @@ parser.add_argument('--model_name', default=DEFAULT_MODEL_NAME,
                     help='The name that the model is served under.')
 parser.add_argument('--nthread', default=DEFAULT_NTHREAD,
                     help='Number of threads to use by XGBoost.')
+parser.add_argument('--method', default=DEFAULT_METHOD,
+                    help='The prediction method.')
 args, _ = parser.parse_known_args()
 
 if __name__ == "__main__":
-    model = XGBoostModel(args.model_name, args.model_dir, args.nthread)
+    model = XGBoostModel(args.model_name, args.model_dir, args.nthread, args.method)
     try:
         model.load()
     except Exception as e:
