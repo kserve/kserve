@@ -45,7 +45,7 @@ func (s *SKLearnSpec) GetContainer(modelName string, parallelism int, config *In
 		fmt.Sprintf("%s=%s", constants.ArgumentModelName, modelName),
 		fmt.Sprintf("%s=%s", constants.ArgumentModelDir, constants.DefaultModelLocalMountPath),
 		fmt.Sprintf("%s=%s", constants.ArgumentHttpPort, constants.InferenceServiceDefaultHttpPort),
-		fmt.Sprintf("%s=%s", constants.ArgumentMethod, config.Method),
+		fmt.Sprintf("%s=%s", constants.ArgumentMethod, s.Method),
 	}
 	if parallelism != 0 {
 		arguments = append(arguments, fmt.Sprintf("%s=%s", constants.ArgumentWorkers, strconv.Itoa(parallelism)))
