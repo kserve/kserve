@@ -81,6 +81,7 @@ func TestCreateSKLearnModelServingContainer(t *testing.T) {
 		StorageURI:     "gs://someUri",
 		Resources:      requestedResource,
 		RuntimeVersion: "0.1.0",
+		Method:         "predict",
 	}
 	g := gomega.NewGomegaWithT(t)
 
@@ -92,6 +93,7 @@ func TestCreateSKLearnModelServingContainer(t *testing.T) {
 			"--model_name=someName",
 			"--model_dir=/mnt/models",
 			"--http_port=8080",
+			"--method=predict",
 		},
 	}
 
@@ -109,6 +111,7 @@ func TestCreateSKLearnModelServingContainer(t *testing.T) {
 			"--model_dir=/mnt/models",
 			"--http_port=8080",
 			"--workers=2",
+			"--method=predict_proba",
 		},
 	}
 	containerWithPar := spec.GetContainer("someName", 2, &config)
