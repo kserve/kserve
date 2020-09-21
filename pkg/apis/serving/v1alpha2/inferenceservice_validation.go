@@ -33,14 +33,12 @@ const (
 	TrafficBoundsExceededError          = "TrafficPercent must be between [0, 100]."
 	TrafficProvidedWithoutCanaryError   = "Canary must be specified when CanaryTrafficPercent > 0."
 	UnsupportedStorageURIFormatError    = "storageUri, must be one of: [%s] or match https://{}.blob.core.windows.net/{}/{} or be an absolute or relative local path. StorageUri [%s] is not supported."
-	InvalidISVCNameMaxLenError          = "The InferenceService \"%s\" is invalid: a InferenceService name must be no more than %d characters"
 	InvalidISVCNameFormatError          = "The InferenceService \"%s\" is invalid: a InferenceService name must consist of lower case alphanumeric characters or '-', and must start with alphabetical character. (e.g. \"my-name\" or \"abc-123\", regex used for validation is '%s')"
 )
 
 // Validation for isvc name
 const (
-	IsvcNameFmt       string = "[a-z]([-a-z0-9]*[a-z0-9])?"
-	IsvcNameMaxLength int    = 45
+	IsvcNameFmt string = "[a-z]([-a-z0-9]*[a-z0-9])?"
 )
 
 var (
@@ -138,9 +136,6 @@ func validateCanaryTrafficPercent(spec InferenceServiceSpec) error {
 }
 
 func validateInferenceServiceName(isvc *InferenceService) error {
-	if len(isvc.Name) > IsvcNameMaxLength {
-		return fmt.Errorf(InvalidISVCNameMaxLenError, isvc.Name, IsvcNameMaxLength)
-	}
 	if !IsvcRegexp.MatchString(isvc.Name) {
 		return fmt.Errorf(InvalidISVCNameFormatError, isvc.Name, IsvcNameFmt)
 	}

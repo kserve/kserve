@@ -260,10 +260,3 @@ func TestRejectBadNameIncludeDot(t *testing.T) {
 	isvc.Name = "abc.de"
 	g.Expect(isvc.ValidateCreate()).ShouldNot(gomega.Succeed())
 }
-
-func TestRejectBadNameMoreMax(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-	isvc := makeTestInferenceService()
-	isvc.Name = "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrst"
-	g.Expect(isvc.ValidateCreate()).ShouldNot(gomega.Succeed())
-}

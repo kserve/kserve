@@ -29,8 +29,7 @@ import (
 
 // regular expressions for validation of isvc name
 const (
-	IsvcNameFmt       string = "[a-z]([-a-z0-9]*[a-z0-9])?"
-	IsvcNameMaxLength int    = 45
+	IsvcNameFmt string = "[a-z]([-a-z0-9]*[a-z0-9])?"
 )
 
 var (
@@ -92,9 +91,6 @@ func GetIntReference(number int) *int {
 
 // Validation of isvc name
 func validateInferenceServiceName(isvc *InferenceService) error {
-	if len(isvc.Name) > IsvcNameMaxLength {
-		return fmt.Errorf(InvalidISVCNameMaxLenError, isvc.Name, IsvcNameMaxLength)
-	}
 	if !IsvcRegexp.MatchString(isvc.Name) {
 		return fmt.Errorf(InvalidISVCNameFormatError, isvc.Name, IsvcNameFmt)
 	}
