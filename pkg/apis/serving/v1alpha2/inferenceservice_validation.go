@@ -37,10 +37,17 @@ const (
 	InvalidISVCNameFormatError          = "The InferenceService \"%s\" is invalid: a InferenceService name must consist of lower case alphanumeric characters or '-', and must start with alphabetical character. (e.g. \"my-name\" or \"abc-123\", regex used for validation is '%s')"
 )
 
+// Validation for isvc name
+const (
+	IsvcNameFmt       string = "[a-z]([-a-z0-9]*[a-z0-9])?"
+	IsvcNameMaxLength int    = 45
+)
+
 var (
 	SupportedStorageURIPrefixList = []string{"gs://", "s3://", "pvc://", "file://", "https://", "http://"}
 	AzureBlobURL                  = "blob.core.windows.net"
 	AzureBlobURIRegEx             = "https://(.+?).blob.core.windows.net/(.+)"
+	IsvcRegexp                    = regexp.MustCompile("^" + IsvcNameFmt + "$")
 )
 
 // ValidateCreate implements https://godoc.org/sigs.k8s.io/controller-runtime/pkg/webhook/admission#Validator
@@ -130,17 +137,12 @@ func validateCanaryTrafficPercent(spec InferenceServiceSpec) error {
 	return nil
 }
 
-const isvcNameFmt string = "[a-z]([-a-z0-9]*[a-z0-9])?"
-const isvcNameMaxLength int = 45
-
-var isvcRegexp = regexp.MustCompile("^" + isvcNameFmt + "$")
-
 func validateInferenceServiceName(isvc *InferenceService) error {
-	if len(isvc.Name) > isvcNameMaxLength {
-		return fmt.Errorf(InvalidISVCNameMaxLenError, isvc.Name, isvcNameMaxLength)
+	if len(isvc.Name) > IsvcNameMaxLength {
+		return fmt.Errorf(InvalidISVCNameMaxLenError, isvc.Name, IsvcNameMaxLength)
 	}
-	if !isvcRegexp.MatchString(isvc.Name) {
-		return fmt.Errorf(InvalidISVCNameFormatError, isvc.Name, isvcNameFmt)
+	if !IsvcRegexp.MatchString(isvc.Name) {
+		return fmt.Errorf(InvalidISVCNameFormatError, isvc.Name, IsvcNameFmt)
 	}
 	return nil
 }
