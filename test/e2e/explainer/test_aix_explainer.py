@@ -29,8 +29,10 @@ from kubernetes.client import V1ResourceRequirements
 from kubernetes.client import V1Container
 
 from ..common.utils import predict
-from ..common.utils import explain
+from ..common.utils import explain_aix
 from ..common.utils import KFSERVING_TEST_NAMESPACE
+
+import numpy as np
 
 logging.basicConfig(level=logging.INFO)
 api_version = constants.KFSERVING_GROUP + '/' + constants.KFSERVING_VERSION
@@ -78,7 +80,8 @@ def test_tabular_explainer():
 
     res = predict(service_name, './data/mnist_input.json')
     assert(res["predictions"] == [[0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]])
-    # TODO: add explain test
-    # precision = explain(service_name, './data/mnist_input.json')
-    # assert(precision > 0.9)
+
+    mask = explain_aix(service_name, './data/mnist_input.json')
+    percent_in_mask = np.count_nonzero(mask) / np.size(np.array(mask))
+    assert(percent_in_mask > 0.6)
     KFServing.delete(service_name, KFSERVING_TEST_NAMESPACE)
