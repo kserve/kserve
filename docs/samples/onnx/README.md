@@ -39,4 +39,4 @@ jupyter notebook
 ```
 
 ## Uploading your own model
-The sample model for the example in this readme is already uploaded and available for use. However if you would like to modify the example to use your own ONNX model, all you need to do is to upload your model as `model.onnx` to S3, GCS or an Azure Blob.
+The sample model for the example in this readme is made available in the [ONNX model zoo](https://github.com/onnx/models). However if you would like to modify the example to use your own ONNX model, all you need to do is to upload your model to S3, GCS or an Azure Blob.

@@ -6,4 +6,4 @@ spec:
   default:
     predictor:
       onnx:
-        storageUri: "https://kfserving.blob.core.windows.net/examples/onnx/style/model.onnx"
+        storageUri: "https://github.com/onnx/models/blob/master/vision/style_transfer/fast_neural_style/model/mosaic-9.onnx?raw=true"
