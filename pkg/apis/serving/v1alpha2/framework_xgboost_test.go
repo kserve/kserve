@@ -76,6 +76,7 @@ func TestCreateXGBoostContainer(t *testing.T) {
 		StorageURI:     "gs://someUri",
 		Resources:      requestedResource,
 		RuntimeVersion: "0.1.0",
+		Method:         "predict",
 	}
 	g := gomega.NewGomegaWithT(t)
 
@@ -88,6 +89,7 @@ func TestCreateXGBoostContainer(t *testing.T) {
 			"--model_dir=/mnt/models",
 			"--http_port=8080",
 			"--nthread=0",
+			"--method=predict",
 		},
 	}
 
@@ -106,6 +108,7 @@ func TestCreateXGBoostContainer(t *testing.T) {
 			"--http_port=8080",
 			"--nthread=0",
 			"--workers=1",
+			"--method=predict_proba",
 		},
 	}
 
@@ -144,6 +147,7 @@ func TestCreateXGBoostContainerWithNThread(t *testing.T) {
 				"--model_dir=/mnt/models",
 				"--http_port=8080",
 				"--nthread=4",
+				"--method=predict",
 			},
 		},
 	}
@@ -155,6 +159,7 @@ func TestCreateXGBoostContainerWithNThread(t *testing.T) {
 			Resources:      scenario.resourceReq,
 			RuntimeVersion: "0.1.0",
 			NThread:        scenario.nthread,
+			Method:         "predict",
 		}
 		container := spec.GetContainer("someName", 0, &config)
 
