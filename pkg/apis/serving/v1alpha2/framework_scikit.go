@@ -15,9 +15,10 @@ package v1alpha2
 
 import (
 	"fmt"
+	"strconv"
+
 	"github.com/kubeflow/kfserving/pkg/constants"
 	v1 "k8s.io/api/core/v1"
-	"strconv"
 )
 
 var (
@@ -30,6 +31,10 @@ func (s *SKLearnSpec) GetStorageUri() string {
 	return s.StorageURI
 }
 
+func (s *SKLearnSpec) GetMethod() string {
+	return s.Method
+}
+
 func (s *SKLearnSpec) GetResourceRequirements() *v1.ResourceRequirements {
 	// return the ResourceRequirements value if set on the spec
 	return &s.Resources
@@ -40,6 +45,7 @@ func (s *SKLearnSpec) GetContainer(modelName string, parallelism int, config *In
 		fmt.Sprintf("%s=%s", constants.ArgumentModelName, modelName),
 		fmt.Sprintf("%s=%s", constants.ArgumentModelDir, constants.DefaultModelLocalMountPath),
 		fmt.Sprintf("%s=%s", constants.ArgumentHttpPort, constants.InferenceServiceDefaultHttpPort),
+		fmt.Sprintf("%s=%s", constants.ArgumentMethod, config.Method),
 	}
 	if parallelism != 0 {
 		arguments = append(arguments, fmt.Sprintf("%s=%s", constants.ArgumentWorkers, strconv.Itoa(parallelism)))
@@ -55,6 +61,9 @@ func (s *SKLearnSpec) GetContainer(modelName string, parallelism int, config *In
 func (s *SKLearnSpec) ApplyDefaults(config *InferenceServicesConfig) {
 	if s.RuntimeVersion == "" {
 		s.RuntimeVersion = config.Predictors.SKlearn.DefaultImageVersion
+	}
+	if s.Method == "" {
+		s.Method = config.Predictors.SKlearn.DefaultMethod
 	}
 
 	setResourceRequirementDefaults(&s.Resources)

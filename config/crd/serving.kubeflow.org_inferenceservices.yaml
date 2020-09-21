@@ -1296,6 +1296,8 @@ spec:
                           type: string
                         storageUri:
                           type: string
+                        method:
+                          type: string
                       required:
                       - storageUri
                       type: object
@@ -3206,6 +3208,8 @@ spec:
                         runtimeVersion:
                           type: string
                         storageUri:
+                          type: string
+                        method:
                           type: string
                       required:
                       - storageUri

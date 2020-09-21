@@ -23,10 +23,11 @@ MODEL_EXTENSIONS = [".joblib", ".pkl", ".pickle"]
 
 
 class SKLearnModel(kfserving.KFModel):  # pylint:disable=c-extension-no-member
-    def __init__(self, name: str, model_dir: str):
+    def __init__(self, name: str, model_dir: str, method: str):
         super().__init__(name)
         self.name = name
         self.model_dir = model_dir
+        self.method = method
         self.ready = False
 
     def load(self) -> bool:
@@ -48,7 +49,12 @@ class SKLearnModel(kfserving.KFModel):  # pylint:disable=c-extension-no-member
             raise Exception(
                 "Failed to initialize NumPy array from inputs: %s, %s" % (e, instances))
         try:
-            result = self._model.predict(inputs).tolist()
+            if self.method == "predict":
+                result = self._model.predict(inputs).tolist()
+            elif self.method == "predict_proba":
+                result = self._model.predict_proba(inputs).tolist()
+            else:
+                raise Exception("Not a valid prediction method: %s" % self.method)
             return {"predictions": result}
         except Exception as e:
             raise Exception("Failed to predict %s" % e)
