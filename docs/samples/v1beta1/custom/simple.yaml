@@ -4,6 +4,7 @@ metadata:
   name: "custom-simple"
 spec:
   predictor:
+    minReplicas: 1
     containers:
     - image: codait/max-object-detector
       ports:

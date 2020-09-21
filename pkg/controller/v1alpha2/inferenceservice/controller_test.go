@@ -394,7 +394,7 @@ var _ = Describe("test inference service controller", func() {
 							},
 						},
 					},
-					CanaryTrafficPercent: 20,
+					CanaryTrafficPercent: kfserving.GetIntReference(20),
 					Canary: &kfserving.EndpointSpec{
 						Predictor: kfserving.PredictorSpec{
 							DeploymentSpec: kfserving.DeploymentSpec{
@@ -704,7 +704,7 @@ var _ = Describe("test inference service controller", func() {
 							},
 						},
 					},
-					CanaryTrafficPercent: 20,
+					CanaryTrafficPercent: kfserving.GetIntReference(20),
 					Canary: &kfserving.EndpointSpec{
 						Predictor: kfserving.PredictorSpec{
 							DeploymentSpec: kfserving.DeploymentSpec{
@@ -846,10 +846,12 @@ var _ = Describe("test inference service controller", func() {
 			// Update instance to remove Canary Spec
 			// Canary service should be removed during reconcile
 			canaryUpdate.Spec.Canary = nil
-			canaryUpdate.Spec.CanaryTrafficPercent = 0
+			canaryUpdate.Spec.CanaryTrafficPercent = kfserving.GetIntReference(0)
 			err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 				return k8sClient.Update(context.TODO(), canaryUpdate)
 			})
+			g.Expect(err).NotTo(gomega.HaveOccurred())
+
 			// Need to wait for update propagate back to controller before checking
 			canaryDelete := &kfserving.InferenceService{}
 			g.Eventually(func() bool {
@@ -858,11 +860,6 @@ var _ = Describe("test inference service controller", func() {
 				}
 				return canaryDelete.Spec.Canary == nil
 			}, timeout).Should(gomega.BeTrue())
-			// Trigger another reconcile
-			err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-				return k8sClient.Update(context.TODO(), canaryDelete)
-			})
-			g.Expect(err).NotTo(gomega.HaveOccurred())
 
 			defaultService = &knservingv1.Service{}
 			g.Eventually(func() error { return k8sClient.Get(context.TODO(), defaultPredictor, defaultService) }, timeout).
@@ -972,7 +969,7 @@ var _ = Describe("test inference service controller", func() {
 							},
 						},
 					},
-					CanaryTrafficPercent: 20,
+					CanaryTrafficPercent: kfserving.GetIntReference(20),
 					Canary: &kfserving.EndpointSpec{
 						Predictor: kfserving.PredictorSpec{
 							DeploymentSpec: kfserving.DeploymentSpec{
@@ -1337,7 +1334,7 @@ var _ = Describe("test inference service controller", func() {
 							},
 						},
 					},
-					CanaryTrafficPercent: 20,
+					CanaryTrafficPercent: kfserving.GetIntReference(20),
 					Canary: &kfserving.EndpointSpec{
 						Predictor: kfserving.PredictorSpec{
 							DeploymentSpec: kfserving.DeploymentSpec{
@@ -1504,7 +1501,7 @@ var _ = Describe("test inference service controller", func() {
 							},
 						},
 					},
-					CanaryTrafficPercent: 20,
+					CanaryTrafficPercent: kfserving.GetIntReference(20),
 					Canary: &kfserving.EndpointSpec{
 						Predictor: kfserving.PredictorSpec{
 							DeploymentSpec: kfserving.DeploymentSpec{

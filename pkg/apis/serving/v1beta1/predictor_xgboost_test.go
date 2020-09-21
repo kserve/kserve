@@ -174,7 +174,7 @@ func TestXGBoostDefaulter(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			scenario.spec.XGBoost.Default(&config)
 			if !g.Expect(scenario.spec).To(gomega.Equal(scenario.expected)) {
-				t.Errorf("got %q, want %q", scenario.spec, scenario.expected)
+				t.Errorf("got %v, want %v", scenario.spec, scenario.expected)
 			}
 		})
 	}
@@ -184,19 +184,15 @@ func TestCreateXGBoostModelServingContainer(t *testing.T) {
 
 	var requestedResource = v1.ResourceRequirements{
 		Limits: v1.ResourceList{
-			"cpu": resource.Quantity{
-				Format: "100",
-			},
+			"cpu": resource.MustParse("100m"),
 		},
 		Requests: v1.ResourceList{
-			"cpu": resource.Quantity{
-				Format: "90",
-			},
+			"cpu": resource.MustParse("90m"),
 		},
 	}
 	var config = InferenceServicesConfig{
 		Predictors: PredictorsConfig{
-			SKlearn: PredictorConfig{
+			XGBoost: PredictorConfig{
 				ContainerImage:      "someOtherImage",
 				DefaultImageVersion: "0.1.0",
 			},
@@ -234,13 +230,14 @@ func TestCreateXGBoostModelServingContainer(t *testing.T) {
 					"--model_name=someName",
 					"--model_dir=/mnt/models",
 					"--http_port=8080",
+					"--nthread=1",
 				},
 			},
 		},
 		"ContainerSpecWithCustomImage": {
 			isvc: InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "sklearn",
+					Name: "xgboost",
 				},
 				Spec: InferenceServiceSpec{
 					Predictor: PredictorSpec{
@@ -264,6 +261,7 @@ func TestCreateXGBoostModelServingContainer(t *testing.T) {
 					"--model_name=someName",
 					"--model_dir=/mnt/models",
 					"--http_port=8080",
+					"--nthread=1",
 				},
 			},
 		},
@@ -297,6 +295,7 @@ func TestCreateXGBoostModelServingContainer(t *testing.T) {
 					"--model_name=someName",
 					"--model_dir=/mnt/models",
 					"--http_port=8080",
+					"--nthread=1",
 					"--workers=1",
 				},
 			},
