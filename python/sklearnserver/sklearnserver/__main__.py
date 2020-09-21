@@ -21,16 +21,19 @@ from sklearnserver import SKLearnModel, SKLearnModelRepository
 
 DEFAULT_MODEL_NAME = "model"
 DEFAULT_LOCAL_MODEL_DIR = "/tmp/model"
+DEFAULT_METHOD = "predict"
 
 parser = argparse.ArgumentParser(parents=[kfserving.kfserver.parser])
 parser.add_argument('--model_dir', required=True,
                     help='A URI pointer to the model binary')
 parser.add_argument('--model_name', default=DEFAULT_MODEL_NAME,
                     help='The name that the model is served under.')
+parser.add_argument('--method', default=DEFAULT_METHOD,
+                    help='The prediction method.')
 args, _ = parser.parse_known_args()
 
 if __name__ == "__main__":
-    model = SKLearnModel(args.model_name, args.model_dir)
+    model = SKLearnModel(args.model_name, args.model_dir, args.method)
     try:
         model.load()
     except Exception as e:

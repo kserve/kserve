@@ -29,6 +29,11 @@ data:
             "supportedFrameworks": [
               "sklearn"
             ],
+            "defaultMethod": "predict",
+            "allowedMethods": [
+              "predict",
+              "predict_proba"
+             ],
             "multiModelServer": "false"
         },
         "xgboost": {

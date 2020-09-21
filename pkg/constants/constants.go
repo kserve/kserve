@@ -157,6 +157,7 @@ const (
 	ArgumentPredictorHost  = "--predictor_host"
 	ArgumentHttpPort       = "--http_port"
 	ArgumentWorkers        = "--workers"
+	ArgumentMethod         = "--method"
 )
 
 // InferenceService container name

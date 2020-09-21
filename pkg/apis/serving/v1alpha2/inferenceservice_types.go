@@ -207,6 +207,8 @@ type SKLearnSpec struct {
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
 	// Defaults to requests and limits of 1CPU, 2Gb MEM.
 	Resources v1.ResourceRequirements `json:"resources,omitempty"`
+	// The prediction method. Defaults to "predict".
+	Method string `json:"method,omitempty"`
 }
 
 // ONNXSpec defines arguments for configuring ONNX model serving.

@@ -52,6 +52,9 @@ type PredictorConfig struct {
 
 	DefaultImageVersion    string `json:"defaultImageVersion"`
 	DefaultGpuImageVersion string `json:"defaultGpuImageVersion"`
+
+	DefaultMethod  string   `json:"defaultMethod,omitempty"`
+	AllowedMethods []string `json:"allowedMethods,omitempty"`
 }
 
 // +k8s:openapi-gen=false
