@@ -107,8 +107,8 @@ func TestCreateXGBoostContainer(t *testing.T) {
 			"--model_dir=/mnt/models",
 			"--http_port=8080",
 			"--nthread=0",
-			"--workers=1",
 			"--method=predict",
+			"--workers=1",
 		},
 	}
 
