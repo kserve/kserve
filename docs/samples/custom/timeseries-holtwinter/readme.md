@@ -48,6 +48,7 @@ SERVICE_HOSTNAME=$(kubectl get inferenceservice ${MODEL_NAME} -o jsonpath='{.sta
 
 curl -v -H "Host: ${SERVICE_HOSTNAME}" http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/${MODEL_NAME}:predict -d '{"instances": [{ "image": {"weeks":"4"}}]}'
 ```
+Replace 4 with the number of values for which you want a prediction.
 
 Expected Output:
 
