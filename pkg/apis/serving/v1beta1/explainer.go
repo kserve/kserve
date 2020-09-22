@@ -23,8 +23,6 @@ type ExplainerSpec struct {
 	Alibi *AlibiExplainerSpec `json:"alibi,omitempty"`
 	// Spec for AIX explainer
 	AIX *AIXExplainerSpec `json:"aix,omitempty"`
-	// Pass through Pod fields or specify a custom container spec
-	*CustomExplainer `json:",inline"`
 	// This spec is dual purpose.
 	// 1) Users may choose to provide a full PodSpec for their custom explainer.
 	// The field PodSpec.Containers is mutually exclusive with other explainers (i.e. Alibi).

@@ -249,11 +249,6 @@ func (in *ExplainerSpec) DeepCopyInto(out *ExplainerSpec) {
 		*out = new(AIXExplainerSpec)
 		(*in).DeepCopyInto(*out)
 	}
-	if in.CustomExplainer != nil {
-		in, out := &in.CustomExplainer, &out.CustomExplainer
-		*out = new(CustomExplainer)
-		(*in).DeepCopyInto(*out)
-	}
 	in.PodSpec.DeepCopyInto(&out.PodSpec)
 	in.ComponentExtensionSpec.DeepCopyInto(&out.ComponentExtensionSpec)
 }
