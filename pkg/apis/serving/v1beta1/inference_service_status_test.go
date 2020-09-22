@@ -101,24 +101,44 @@ func TestInferenceServiceIsReady(t *testing.T) {
 		name: "True condition status should be ready",
 		ServiceStatus: knservingv1.ServiceStatus{
 			Status: duckv1.Status{
-				Conditions: duckv1.Conditions{{
-					Type:   knservingv1.ConfigurationConditionReady,
-					Status: v1.ConditionTrue,
-				}},
+				Conditions: duckv1.Conditions{
+					{
+						Type:   "ConfigurationsReady",
+						Status: v1.ConditionTrue,
+					},
+					{
+						Type:   "RoutesReady",
+						Status: v1.ConditionTrue,
+					},
+					{
+						Type:   knservingv1.ServiceConditionReady,
+						Status: v1.ConditionTrue,
+					},
+				},
 			},
 		},
 		isReady: true,
 	}, {
-		name: "Default service, route conditions with ready status should be ready",
+		name: "Conditions with ready status should be ready",
 		ServiceStatus: knservingv1.ServiceStatus{
 			Status: duckv1.Status{
-				Conditions: duckv1.Conditions{{
-					Type:   "Foo",
-					Status: v1.ConditionTrue,
-				}, {
-					Type:   knservingv1.ConfigurationConditionReady,
-					Status: v1.ConditionTrue,
-				},
+				Conditions: duckv1.Conditions{
+					{
+						Type:   "Foo",
+						Status: v1.ConditionTrue,
+					},
+					{
+						Type:   "RoutesReady",
+						Status: v1.ConditionTrue,
+					},
+					{
+						Type:   "ConfigurationsReady",
+						Status: v1.ConditionTrue,
+					},
+					{
+						Type:   knservingv1.ServiceConditionReady,
+						Status: v1.ConditionTrue,
+					},
 				},
 			},
 		},
@@ -127,13 +147,16 @@ func TestInferenceServiceIsReady(t *testing.T) {
 		name: "Multiple conditions with ready status false should not be ready",
 		ServiceStatus: knservingv1.ServiceStatus{
 			Status: duckv1.Status{
-				Conditions: duckv1.Conditions{{
-					Type:   "Foo",
-					Status: v1.ConditionTrue,
-				}, {
-					Type:   knservingv1.ConfigurationConditionReady,
-					Status: v1.ConditionFalse,
-				}},
+				Conditions: duckv1.Conditions{
+					{
+						Type:   "Foo",
+						Status: v1.ConditionTrue,
+					},
+					{
+						Type:   knservingv1.ConfigurationConditionReady,
+						Status: v1.ConditionFalse,
+					},
+				},
 			},
 		},
 		isReady: false,
@@ -143,7 +166,7 @@ func TestInferenceServiceIsReady(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			status := InferenceServiceStatus{}
 			status.PropagateStatus(PredictorComponent, &tc.ServiceStatus)
-			if e, a := tc.isReady, status.IsReady(); e != a {
+			if e, a := tc.isReady, status.IsConditionReady(PredictorReady); e != a {
 				t.Errorf("%q expected: %v got: %v conditions: %v", tc.name, e, a, status.Conditions)
 			}
 		})

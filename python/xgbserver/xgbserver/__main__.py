@@ -12,16 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import kfserving
 import argparse
+import logging
+import sys
+import kfserving
 
-from xgbserver import XGBoostModel
+
+from xgbserver import XGBoostModel, XGBoostModelRepository
 
 DEFAULT_MODEL_NAME = "default"
 DEFAULT_LOCAL_MODEL_DIR = "/tmp/model"
 DEFAULT_NTHREAD = 1
 
-parser = argparse.ArgumentParser(parents=[kfserving.kfserver.parser]) #pylint:disable=c-extension-no-member
+parser = argparse.ArgumentParser(parents=[kfserving.kfserver.parser])  # pylint:disable=c-extension-no-member
 parser.add_argument('--model_dir', required=True,
                     help='A URI pointer to the model directory')
 parser.add_argument('--model_name', default=DEFAULT_MODEL_NAME,
@@ -32,5 +35,12 @@ args, _ = parser.parse_known_args()
 
 if __name__ == "__main__":
     model = XGBoostModel(args.model_name, args.model_dir, args.nthread)
-    model.load()
-    kfserving.KFServer().start([model]) #pylint:disable=c-extension-no-member
+    try:
+        model.load()
+    except Exception as e:
+        ex_type, ex_value, _ = sys.exc_info()
+        logging.error(f"fail to load model {args.model_name} from dir {args.model_dir}. "
+                      f"exception type {ex_type}, exception msg: {ex_value}")
+        model.ready = False
+
+    kfserving.KFServer(registered_models=XGBoostModelRepository(args.model_dir, args.nthread)).start([model] if model.ready else [])  # pylint:disable=c-extension-no-member

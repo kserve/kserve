@@ -13,3 +13,4 @@
 # limitations under the License.
 
 from .model import SKLearnModel
+from .sklearn_model_repository import SKLearnModelRepository
