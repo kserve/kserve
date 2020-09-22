@@ -2,8 +2,6 @@
 
 The goal of custom image support is to allow users to bring their own wrapped model inside a container and serve it with KFServing. Please note that you will need to ensure that your container is also running a web server e.g. Flask to expose your model endpoints. This example located in the `model-server` directory extends `kfserving.KFModel` which uses the tornado web server.
 
-You can choose to deploy the model server using the kubectl command line, or using the KFServing client SDK.
-
  You can use model_creation.py to create a joblib file
 
 ## Deploy a custom image InferenceService using the command line
