@@ -47,11 +47,11 @@ def test_tabular_explainer():
                 container=V1Container(
                     name="predictor",
                     image='aipipeline/rf-predictor:0.4.0',
-                    command=["python", "-m", "rfserver", "--model_name", "aix-explainer"]
-                ),
-                resources=V1ResourceRequirements(
-                    requests={'cpu': '1', 'memory': '2Gi'},
-                    limits={'cpu': '1', 'memory': '2Gi'}))),
+                    command=["python", "-m", "rfserver", "--model_name", "aix-explainer"],
+                    resources=V1ResourceRequirements(
+                        requests={'cpu': '1', 'memory': '2Gi'},
+                        limits={'cpu': '1', 'memory': '2Gi'})
+                ))),
         explainer=V1alpha2ExplainerSpec(
             min_replicas=1,
             aix=V1alpha2AIXExplainerSpec(
