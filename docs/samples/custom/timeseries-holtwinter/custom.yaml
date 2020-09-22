@@ -10,4 +10,4 @@ spec:
       custom:
         name: custom
         container:
-          image: narennadig/kfserving-sales-application:0.1.4
+          image: {docker-username}/kfserving-custom-example
