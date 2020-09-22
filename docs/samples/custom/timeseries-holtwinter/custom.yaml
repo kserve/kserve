@@ -1,0 +1,13 @@
+apiVersion: serving.kubeflow.org/v1alpha2
+kind: InferenceService
+metadata:
+  labels:
+    controller-tools.k8s.io: "1.0"
+  name: sales-application
+spec:
+  default:
+    predictor:
+      custom:
+        name: custom
+        container:
+          image: narennadig/kfserving-sales-application:0.1.4
