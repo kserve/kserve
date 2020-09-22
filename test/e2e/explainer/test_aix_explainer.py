@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import logging
+import os
 
 from kubernetes import client
 
@@ -36,7 +37,7 @@ import numpy as np
 
 logging.basicConfig(level=logging.INFO)
 api_version = constants.KFSERVING_GROUP + '/' + constants.KFSERVING_VERSION
-KFServing = KFServingClient(config_file="~/.kube/config")
+KFServing = KFServingClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
 
 
 def test_tabular_explainer():
@@ -71,7 +72,7 @@ def test_tabular_explainer():
         KFServing.wait_isvc_ready(service_name, namespace=KFSERVING_TEST_NAMESPACE, timeout_seconds=720)
     except RuntimeError as e:
         logging.info(KFServing.api_instance.get_namespaced_custom_object("serving.knative.dev", "v1",
-                     KFSERVING_TEST_NAMESPACE, "services", service_name + "-predictor-default"))
+                     KFSERVING_TEST_NAMESPACE, "services", service_name + "-predictor"))
         pods = KFServing.core_api.list_namespaced_pod(KFSERVING_TEST_NAMESPACE,
                                                       label_selector='serving.kubeflow.org/inferenceservice={}'.format(service_name))
         for pod in pods.items:
