@@ -289,6 +289,15 @@ func (dst *InferenceService) ConvertFrom(srcRaw conversion.Hub) error {
 					Resources:      src.Spec.Explainer.Alibi.Resources,
 				},
 			}
+		} else if src.Spec.Explainer.AIX != nil {
+			dst.Spec.Default.Explainer = &ExplainerSpec{
+				AIX: &AIXExplainerSpec{
+					Type:           AIXExplainerType(src.Spec.Explainer.AIX.Type),
+					StorageURI:     src.Spec.Explainer.AIX.StorageURI,
+					RuntimeVersion: *src.Spec.Explainer.AIX.RuntimeVersion,
+					Resources:      src.Spec.Explainer.AIX.Resources,
+				},
+			}
 		} else if len(src.Spec.Explainer.PodSpec.Containers) != 0 {
 			dst.Spec.Default.Explainer = &ExplainerSpec{
 				Custom: &CustomSpec{

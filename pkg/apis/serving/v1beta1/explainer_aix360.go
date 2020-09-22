@@ -37,6 +37,9 @@ type AIXExplainerSpec struct {
 var _ ComponentImplementation = &AIXExplainerSpec{}
 
 func (s *AIXExplainerSpec) GetStorageUri() *string {
+	if s.StorageURI == "" {
+		return nil
+	}
 	return &s.StorageURI
 }
 
