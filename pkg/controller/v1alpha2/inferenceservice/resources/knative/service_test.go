@@ -72,10 +72,12 @@ var configMapData = map[string]string{
             "image" : "tensorflow/tfserving"
         },
         "sklearn" : {
-            "image" : "kfserving/sklearnserver"
+            "image" : "kfserving/sklearnserver",
+			"defaultMethod": "predict"
         },
         "xgboost" : {
-            "image" : "kfserving/xgbserver"
+            "image" : "kfserving/xgbserver",
+			"defaultMethod": "predict"
         }
     }`,
 }
@@ -270,6 +272,7 @@ func TestInferenceServiceToKnativeService(t *testing.T) {
 							SKLearn: &v1alpha2.SKLearnSpec{
 								StorageURI:     "s3://test/sklearn/export",
 								RuntimeVersion: "latest",
+								Method:         "predict",
 							},
 						},
 					},
@@ -330,6 +333,7 @@ func TestInferenceServiceToKnativeService(t *testing.T) {
 							XGBoost: &v1alpha2.XGBoostSpec{
 								StorageURI:     "s3://test/xgboost/export",
 								RuntimeVersion: "latest",
+								Method:         "predict",
 							},
 						},
 					},
@@ -392,6 +396,7 @@ func TestInferenceServiceToKnativeService(t *testing.T) {
 							XGBoost: &v1alpha2.XGBoostSpec{
 								StorageURI:     "s3://test/xgboost/export",
 								RuntimeVersion: "latest",
+								Method:         "predict",
 							},
 						},
 					},
@@ -462,6 +467,7 @@ func TestInferenceServiceToKnativeService(t *testing.T) {
 							SKLearn: &v1alpha2.SKLearnSpec{
 								StorageURI:     "s3://test/sklearn/export",
 								RuntimeVersion: "latest",
+								Method:         "predict",
 							},
 							DeploymentSpec: v1alpha2.DeploymentSpec{
 								MinReplicas: v1alpha2.GetIntReference(1),

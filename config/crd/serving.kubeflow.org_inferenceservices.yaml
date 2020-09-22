@@ -1274,6 +1274,8 @@ spec:
                           type: string
                         sklearn:
                           properties:
+                            method:
+                              type: string
                             resources:
                               properties:
                                 limits:
@@ -1358,6 +1360,8 @@ spec:
                           type: object
                         xgboost:
                           properties:
+                            method:
+                              type: string
                             nthread:
                               type: integer
                             resources:
@@ -3185,6 +3189,8 @@ spec:
                           type: string
                         sklearn:
                           properties:
+                            method:
+                              type: string
                             resources:
                               properties:
                                 limits:
@@ -3269,6 +3275,8 @@ spec:
                           type: object
                         xgboost:
                           properties:
+                            method:
+                              type: string
                             nthread:
                               type: integer
                             resources:
