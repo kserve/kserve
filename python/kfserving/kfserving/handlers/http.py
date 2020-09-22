@@ -15,22 +15,21 @@
 import inspect
 import tornado.web
 import json
-from typing import Dict
 from http import HTTPStatus
-from kfserving.kfmodel import KFModel
+from kfserving.kfmodel_repository import KFModelRepository
 
 
 class HTTPHandler(tornado.web.RequestHandler):
-    def initialize(self, models: Dict[str, KFModel]):
-        self.models = models # pylint:disable=attribute-defined-outside-init
+    def initialize(self, models: KFModelRepository):
+        self.models = models  # pylint:disable=attribute-defined-outside-init
 
     def get_model(self, name: str):
-        if name not in self.models:
+        model = self.models.get_model(name)
+        if model is None:
             raise tornado.web.HTTPError(
                 status_code=HTTPStatus.NOT_FOUND,
                 reason="Model with name %s does not exist." % name
             )
-        model = self.models[name]
         if not model.ready:
             model.load()
         return model

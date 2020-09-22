@@ -30,7 +30,7 @@ type InferenceServiceSpec struct {
 	Canary *EndpointSpec `json:"canary,omitempty"`
 	// CanaryTrafficPercent defines the percentage of traffic going to canary InferenceService endpoints
 	// +optional
-	CanaryTrafficPercent int `json:"canaryTrafficPercent,omitempty"`
+	CanaryTrafficPercent *int `json:"canaryTrafficPercent,omitempty"`
 }
 
 type EndpointSpec struct {
@@ -295,7 +295,7 @@ type StatusConfigurationSpec struct {
 // +kubebuilder:printcolumn:name="Default Traffic",type="integer",JSONPath=".status.traffic"
 // +kubebuilder:printcolumn:name="Canary Traffic",type="integer",JSONPath=".status.canaryTraffic"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
-// +kubebuilder:resource:path=inferenceservices,shortName=inferenceservice
+// +kubebuilder:resource:path=inferenceservices,shortName=isvc
 type InferenceService struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

@@ -1,6 +1,7 @@
 package v1beta1
 
 import (
+	"fmt"
 	"sort"
 	"strconv"
 
@@ -8,6 +9,7 @@ import (
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/utils"
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type AIXExplainerType string
@@ -32,6 +34,8 @@ type AIXExplainerSpec struct {
 	Config map[string]string `json:"config,omitempty"`
 }
 
+var _ ComponentImplementation = &AIXExplainerSpec{}
+
 func (s *AIXExplainerSpec) GetStorageUri() *string {
 	return &s.StorageURI
 }
@@ -41,14 +45,14 @@ func (s *AIXExplainerSpec) GetResourceRequirements() *v1.ResourceRequirements {
 	return &s.Resources
 }
 
-func (s *AIXExplainerSpec) CreateExplainerContainer(modelName string, parallelism int, predictorHost string, config *InferenceServicesConfig) *v1.Container {
+func (s *AIXExplainerSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig) *v1.Container {
 	var args = []string{
-		constants.ArgumentModelName, modelName,
-		constants.ArgumentPredictorHost, predictorHost,
+		constants.ArgumentModelName, metadata.Name,
+		constants.ArgumentPredictorHost, fmt.Sprintf("%s.%s", constants.DefaultPredictorServiceName(metadata.Name), metadata.Namespace),
 		constants.ArgumentHttpPort, constants.InferenceServiceDefaultHttpPort,
 	}
-	if parallelism != 0 {
-		args = append(args, constants.ArgumentWorkers, strconv.Itoa(parallelism))
+	if extensions.ContainerConcurrency != nil {
+		args = append(args, constants.ArgumentWorkers, strconv.FormatInt(*extensions.ContainerConcurrency, 10))
 	}
 	if s.StorageURI != "" {
 		args = append(args, "--storage_uri", constants.DefaultModelLocalMountPath)

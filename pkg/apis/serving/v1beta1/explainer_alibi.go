@@ -17,6 +17,7 @@ limitations under the License.
 package v1beta1
 
 import (
+	"fmt"
 	"sort"
 	"strconv"
 
@@ -75,7 +76,7 @@ func (s *AlibiExplainerSpec) GetResourceRequirements() *v1.ResourceRequirements 
 func (s *AlibiExplainerSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig) *v1.Container {
 	var args = []string{
 		constants.ArgumentModelName, metadata.Name,
-		constants.ArgumentPredictorHost, constants.PredictorURL(metadata, false),
+		constants.ArgumentPredictorHost, fmt.Sprintf("%s.%s", constants.DefaultPredictorServiceName(metadata.Name), metadata.Namespace),
 		constants.ArgumentHttpPort, constants.InferenceServiceDefaultHttpPort,
 	}
 	if extensions.ContainerConcurrency != nil {

@@ -9,6 +9,7 @@ import (
 	"github.com/onsi/gomega/types"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestAIXExplainer(t *testing.T) {
@@ -66,6 +67,9 @@ func TestCreateAIXExplainerContainer(t *testing.T) {
 			},
 		},
 	}
+	ComponentExtensionSpec := ComponentExtensionSpec{
+		MaxReplicas: 2,
+	}
 	var spec = AIXExplainerSpec{
 		Type:       "LimeImages",
 		StorageURI: "gs://someUri",
@@ -84,7 +88,7 @@ func TestCreateAIXExplainerContainer(t *testing.T) {
 			constants.ArgumentModelName,
 			"someName",
 			constants.ArgumentPredictorHost,
-			"predictor.svc.cluster.local",
+			"someName-predictor-default.default",
 			constants.ArgumentHttpPort,
 			constants.InferenceServiceDefaultHttpPort,
 			"--storage_uri",
@@ -95,7 +99,7 @@ func TestCreateAIXExplainerContainer(t *testing.T) {
 	}
 
 	// Test Create with config
-	container := spec.CreateExplainerContainer("someName", 0, "predictor.svc.cluster.local", config)
+	container := spec.GetContainer(metav1.ObjectMeta{Name: "someName", Namespace: "default"}, &ComponentExtensionSpec, config)
 	g.Expect(container).To(gomega.Equal(expectedContainer))
 }
 
@@ -121,6 +125,9 @@ func TestCreateAIXExplainerContainerWithConfig(t *testing.T) {
 			},
 		},
 	}
+	ComponentExtensionSpec := ComponentExtensionSpec{
+		MaxReplicas: 2,
+	}
 	var spec = AIXExplainerSpec{
 		Type:       "LimeImages",
 		StorageURI: "gs://someUri",
@@ -144,7 +151,7 @@ func TestCreateAIXExplainerContainerWithConfig(t *testing.T) {
 			"--model_name",
 			"someName",
 			"--predictor_host",
-			"predictor.svc.cluster.local",
+			"someName-predictor-default.default",
 			"--http_port",
 			"8080",
 			"--storage_uri",
@@ -161,6 +168,6 @@ func TestCreateAIXExplainerContainerWithConfig(t *testing.T) {
 	}
 
 	// Test Create with config
-	container := spec.CreateExplainerContainer("someName", 0, "predictor.svc.cluster.local", config)
+	container := spec.GetContainer(metav1.ObjectMeta{Name: "someName", Namespace: "default"}, &ComponentExtensionSpec, config)
 	g.Expect(container).To(gomega.Equal(expectedContainer))
 }
