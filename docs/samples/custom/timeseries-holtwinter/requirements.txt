@@ -1,5 +1,4 @@
 joblib
-#pickle
 numpy
 pandas
 statsmodels==0.11.1
