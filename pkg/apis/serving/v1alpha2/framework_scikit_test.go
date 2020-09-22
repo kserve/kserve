@@ -111,7 +111,7 @@ func TestCreateSKLearnModelServingContainer(t *testing.T) {
 			"--model_dir=/mnt/models",
 			"--http_port=8080",
 			"--workers=2",
-			"--method=predict_proba",
+			"--method=predict",
 		},
 	}
 	containerWithPar := spec.GetContainer("someName", 2, &config)

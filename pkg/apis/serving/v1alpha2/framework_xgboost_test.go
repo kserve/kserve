@@ -108,7 +108,7 @@ func TestCreateXGBoostContainer(t *testing.T) {
 			"--http_port=8080",
 			"--nthread=0",
 			"--workers=1",
-			"--method=predict_proba",
+			"--method=predict",
 		},
 	}
 
