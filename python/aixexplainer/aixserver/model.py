@@ -14,6 +14,7 @@
 from typing import Dict
 
 import kfserving
+import logging
 import numpy as np
 from aix360.algorithms.lime import LimeImageExplainer
 from lime.wrappers.scikit_image import SegmentationAlgorithm
@@ -23,7 +24,6 @@ class AIXModel(kfserving.KFModel):  # pylint:disable=c-extension-no-member
     def __init__(self, name: str, predictor_host: str, segm_alg: str, num_samples: str,
                  top_labels: str, min_weight: str, positive_only: str, explainer_type: str):
         super().__init__(name)
-        print("INIT")
         self.name = name
         self.top_labels = int(top_labels)
         self.num_samples = int(num_samples)
@@ -37,7 +37,6 @@ class AIXModel(kfserving.KFModel):  # pylint:disable=c-extension-no-member
         self.ready = False
 
     def load(self):
-        print("LOADED")
         self.ready = True
 
     def _predict(self, input_im):
@@ -48,10 +47,10 @@ class AIXModel(kfserving.KFModel):  # pylint:disable=c-extension-no-member
         return predictions['predictions']
 
     def explain(self, request: Dict) -> Dict:
-        print("Explaining now")
         instances = request["instances"]
         try:
             inputs = np.array(instances[0])
+            logging.info("Calling explain on image of shape %s", (inputs.shape,))
         except Exception as err:
             raise Exception(
                 "Failed to initialize NumPy array from inputs: %s, %s" % (err, instances))
