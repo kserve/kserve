@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import json
 import numpy as np
 from kubernetes import client
 
@@ -28,16 +27,8 @@ from kubernetes.client import V1ResourceRequirements
 from ..common.utils import predict
 from ..common.utils import KFSERVING_TEST_NAMESPACE
 
-from PIL import Image
-
 api_version = constants.KFSERVING_GROUP + '/' + constants.KFSERVING_VERSION
 KFServing = KFServingClient(config_file="~/.kube/config")
-ONNX_EXAMPLE_IMAGE_FILE = './data/onnx_input.jpg'
-ONNX_EXAMPLE_JSON_FILE = './data/onnx_input.json'
-
-def prepare_onnx_example(path):
-    im = Image.open(path)
-    return np.array(im.resize((300, 400))).astype('float32') / 255
 
 def test_onnx_kfserving():
     service_name = 'isvc-onnx'
@@ -45,7 +36,7 @@ def test_onnx_kfserving():
         predictor=V1alpha2PredictorSpec(
             min_replicas=1,
             onnx=V1alpha2ONNXSpec(
-                storage_uri='https://github.com/onnx/models/blob/master/vision/style_transfer/fast_neural_style/model/mosaic-9.onnx?raw=true',
+                storage_uri='https://github.com/tduffy000/kfserving-uri-examples/blob/master/onnx/frozen/iris.onnx?raw=true',
                 resources=V1ResourceRequirements(
                     requests={'cpu': '1', 'memory': '2Gi'},
                     limits={'cpu': '1', 'memory': '2Gi'}))))
@@ -58,15 +49,8 @@ def test_onnx_kfserving():
 
     KFServing.create(isvc)
     KFServing.wait_isvc_ready(service_name, namespace=KFSERVING_TEST_NAMESPACE)
-
-    arr = prepare_onnx_example(ONNX_EXAMPLE_IMAGE_FILE)
-    with open(ONNX_EXAMPLE_JSON_FILE, 'w') as stream:
-        payload = {'instances': [arr]}
-        json.dump(payload, stream)
-        stream.close()
-
-    res = predict(service_name, ONNX_EXAMPLE_IMAGE_FILE)
-    assert(arr.shape == res.shape)
+    res = predict(service_name, './data/flower_input.json')
+    assert(np.argmax(res["predictions"][0].get('scores')) == 0)
 
     # Delete the InferenceService
     KFServing.delete(service_name, namespace=KFSERVING_TEST_NAMESPACE)
