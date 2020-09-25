@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import os
+import logging
 from typing import Dict
 import pickle
 
@@ -38,25 +39,24 @@ class PipeStep(object):
 class RFModel(kfserving.KFModel): #pylint:disable=c-extension-no-member
     def __init__(self, name: str):
         super().__init__(name)
-        print("INIT")
         self.name = name
         self.ready = False
 
-    def load(self):
+    def load(self) -> bool:
 
         with open('../rfmodel.pickle', 'rb') as f:
             rf = pickle.load(f)
         self.model = rf
 
-        print("LOADED")
         self.ready = True
+        return self.ready
 
     def predict(self, request: Dict) -> Dict:
-        print("Prediction requested")
         instances = request["instances"]
 
         try:
             inputs = np.asarray(instances)
+            logging.info("Calling predict on image of shape %s", (inputs.shape,))
         except Exception as e:
             raise Exception(
                 "Failed to initialize NumPy array from inputs: %s, %s" % (e, instances))
@@ -75,4 +75,4 @@ class RFModel(kfserving.KFModel): #pylint:disable=c-extension-no-member
 
             return {"predictions" : class_preds}
         except Exception as e:
-            raise Exception("Failed to predict %s" % e)
+            raise Exception("Failed to predict: %s" % e)

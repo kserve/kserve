@@ -13,8 +13,9 @@
 # limitations under the License.
 from typing import Dict
 
-import kfserving
+import asyncio
 import logging
+import kfserving
 import numpy as np
 from aix360.algorithms.lime import LimeImageExplainer
 from lime.wrappers.scikit_image import SegmentationAlgorithm
@@ -36,15 +37,16 @@ class AIXModel(kfserving.KFModel):  # pylint:disable=c-extension-no-member
         self.explainer_type = explainer_type
         self.ready = False
 
-    def load(self):
+    def load(self) -> bool:
         self.ready = True
+        return self.ready
 
     def _predict(self, input_im):
-        input_im = np.array(input_im)
         scoring_data = {'instances': input_im.tolist()}
 
-        predictions = self.predict(scoring_data)
-        return predictions['predictions']
+        loop = asyncio.get_running_loop()
+        resp = loop.run_until_complete(self.predict(scoring_data))
+        return np.array(resp["predictions"])
 
     def explain(self, request: Dict) -> Dict:
         instances = request["instances"]

@@ -31,11 +31,12 @@ setup(
     python_requires='>3.4',
     packages=find_packages("aixserver"),
     install_requires=[
-        "kfserving>=0.2.1",
+        "kfserving>=0.4.0",
         "argparse >= 1.4.0",
         "numpy >= 1.8.2",
         "aix360 >= 0.1.0",
         "lime >= 0.1.1.37",
+        "nest_asyncio>=1.4.0"
     ],
     tests_require=tests_require,
     extras_require={'test': tests_require}

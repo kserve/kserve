@@ -51,4 +51,4 @@ if __name__ == "__main__":
                      top_labels=args.top_labels, min_weight=args.min_weight,
                      positive_only=args.positive_only, explainer_type=args.explainer_type)
     model.load()
-    kfserving.KFServer().start([model])
+    kfserving.KFServer().start([model], nest_asyncio=True)
