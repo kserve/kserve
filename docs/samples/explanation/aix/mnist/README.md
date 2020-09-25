@@ -2,7 +2,7 @@
 
 This is an example of how to explain model outputs using [AIX360](https://github.com/Trusted-AI/AIX360) on KFServing. We will be using mnist, a dataset for handwritten digits, for this model and explain how the model decides the predicted results.
 
-To deploy the inferenceservice
+To deploy the inferenceservice with v1beta1 API
 
 `kubectl apply -f aix-explainer.yaml`
 
