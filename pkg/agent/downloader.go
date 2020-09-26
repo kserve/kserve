@@ -19,9 +19,10 @@ package agent
 import (
 	"encoding/hex"
 	"fmt"
-	"github.com/kubeflow/kfserving/pkg/agent/storage"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
 	"github.com/pkg/errors"
+	"github.com/kubeflow/kfserving/pkg/agent/utils"
+	"log"
 	"path/filepath"
 	"regexp"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
@@ -30,10 +31,10 @@ import (
 
 type Downloader struct {
 	ModelDir  string
-	Providers map[storage.Protocol]storage.Provider
+	Providers map[utils.Protocol]utils.Provider
 }
 
-var SupportedProtocols = []storage.Protocol{storage.S3}
+var SupportedProtocols = []utils.Protocol{utils.S3, utils.GCS}
 
 func (d *Downloader) DownloadModel(modelName string, modelSpec *v1beta1.ModelSpec) error {
 	log := logf.Log.WithName("Downloader")
@@ -50,7 +51,7 @@ func (d *Downloader) DownloadModel(modelName string, modelSpec *v1beta1.ModelSpe
 			if err := d.download(modelName, modelUri); err != nil {
 				return errors.Wrapf(err, "failed to download model")
 			}
-			file, createErr := storage.Create(successFile)
+			file, createErr := utils.Create(successFile)
 			defer file.Close()
 			if createErr != nil {
 				return errors.Wrapf(createErr, "failed to create success file")
@@ -84,7 +85,7 @@ func hash(s string) string {
 	return string(dst)
 }
 
-func extractProtocol(storageURI string) (storage.Protocol, error) {
+func extractProtocol(storageURI string) (utils.Protocol, error) {
 	if storageURI == "" {
 		return "", fmt.Errorf("there is no storageUri supplied")
 	}

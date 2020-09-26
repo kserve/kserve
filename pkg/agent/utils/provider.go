@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package storage
+package utils
 
 type Provider interface {
 	DownloadModel(modelDir string, modelName string, storageUri string) error
@@ -24,7 +24,7 @@ type Protocol string
 
 const (
 	S3 Protocol = "s3://"
-	//GCS   Protocol = "gs://"
+	GCS     Protocol = "gs://"
 	//PVC   Protocol = "pvc://"
 	//File  Protocol = "file://"
 	//HTTPS Protocol = "https://"

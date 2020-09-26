@@ -19,10 +19,11 @@ package agent
 import (
 	"bytes"
 	"fmt"
-	"github.com/kubeflow/kfserving/pkg/agent/storage"
 	v1 "github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
 	"io/ioutil"
 	"net/http"
+	"github.com/kubeflow/kfserving/pkg/agent/utils"
+	"log"
 	"path/filepath"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
