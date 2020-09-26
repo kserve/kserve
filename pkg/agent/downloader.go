@@ -23,6 +23,7 @@ import (
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
+	"log"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -34,7 +35,7 @@ type Downloader struct {
 	Logger    *zap.SugaredLogger
 }
 
-var SupportedProtocols = []storage.Protocol{storage.S3}
+var SupportedProtocols = []storage.Protocol{storage.S3, storage.GCS}
 
 func (d *Downloader) DownloadModel(modelName string, modelSpec *v1alpha1.ModelSpec) error {
 	if modelSpec != nil {

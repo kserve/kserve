@@ -1,6 +1,7 @@
 package main
 
 import (
+	gstorage "cloud.google.com/go/storage"
 	"context"
 	"flag"
 	"fmt"
@@ -9,10 +10,12 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/kelseyhightower/envconfig"
+	"github.com/googleapis/google-cloud-go-testing/storage/stiface"
 	"github.com/kubeflow/kfserving/pkg/agent"
 	"github.com/kubeflow/kfserving/pkg/agent/storage"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
 	"github.com/kubeflow/kfserving/pkg/batcher"
+	gcscredential "github.com/kubeflow/kfserving/pkg/credentials/gcs"
 	s3credential "github.com/kubeflow/kfserving/pkg/credentials/s3"
 	kfslogger "github.com/kubeflow/kfserving/pkg/logger"
 	"github.com/pkg/errors"
@@ -301,6 +304,23 @@ func startModelPuller(logger *zap.SugaredLogger) {
 	logger.Info("Starting puller")
 	agent.StartPuller(downloader, watcher.ModelEvents, logger)
 	logger.Info("Starting watcher")
+
+	if _, ok := os.LookupEnv(gcscredential.GCSCredentialEnvKey); ok {
+		// GCS relies on environment variable GOOGLE_APPLICATION_CREDENTIALS to point to the service-account-key
+		// If set, it will be automatically be picked up by the client.
+		logger.Info("Initializing gcs client, using existing GOOGLE_APPLICATION_CREDENTIALS variable.")
+		ctx := context.Background()
+		client, err := gstorage.NewClient(ctx)
+		if err != nil {
+			panic(err)
+		}
+		downloader.Providers[storage.GCS] = &storage.GCSProvider{
+			Client: stiface.AdaptClient(client),
+		}
+	}
+
+	watcher := agent.NewWatcher(*configDir, *modelDir)
+	agent.StartPuller(downloader, watcher.ModelEvents)
 	watcher.Start()
 }
 
