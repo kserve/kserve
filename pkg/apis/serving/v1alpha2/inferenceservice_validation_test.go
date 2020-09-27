@@ -282,19 +282,20 @@ func TestGoodName(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	isvc := makeTestInferenceService()
 	isvc.Name = "abc-123"
-	g.Expect(isvc.ValidateCreate(c)).Should(gomega.Succeed())
+	g.Expect(isvc.validate(c)).Should(gomega.Succeed())
 }
 
 func TestRejectBadNameStartWithNumber(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	isvc := makeTestInferenceService()
 	isvc.Name = "1abcde"
-	g.Expect(isvc.ValidateCreate(c)).ShouldNot(gomega.Succeed())
+	g.Expect(isvc.validate(c)).Should(gomega.MatchError(fmt.Sprintf(InvalidISVCNameFormatError, isvc.Name, IsvcNameFmt)))
+
 }
 
 func TestRejectBadNameIncludeDot(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	isvc := makeTestInferenceService()
 	isvc.Name = "abc.de"
-	g.Expect(isvc.ValidateCreate(c)).ShouldNot(gomega.Succeed())
+	g.Expect(isvc.validate(c)).Should(gomega.MatchError(fmt.Sprintf(InvalidISVCNameFormatError, isvc.Name, IsvcNameFmt)))
 }
