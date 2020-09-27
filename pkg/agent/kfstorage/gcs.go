@@ -48,8 +48,7 @@ type GCSObjectDownloader struct {
 
 func (g *GCSObjectDownloader) GetObjectIterator(client mockapi.Client) mockapi.ObjectIterator {
 	query := &storage.Query{Prefix: g.Item}
-	it := client.Bucket(g.Bucket).Objects(g.Context, query)
-	return it
+	return client.Bucket(g.Bucket).Objects(g.Context, query)
 }
 
 func (g *GCSObjectDownloader) Download(client mockapi.Client, it mockapi.ObjectIterator) error {
@@ -86,7 +85,7 @@ func (g *GCSObjectDownloader) Download(client mockapi.Client, it mockapi.ObjectI
 func (g *GCSObjectDownloader) DownloadFile(client mockapi.Client, attrs *storage.ObjectAttrs, file *os.File) error {
 	rc, err := client.Bucket(attrs.Bucket).Object(attrs.Name).NewReader(g.Context)
 	if err != nil {
-		return fmt.Errorf("failed to create reader for object(%q) in bucket(%b): %v",
+		return fmt.Errorf("failed to create reader for object(%s) in bucket(%s): %v",
 			attrs.Name,
 			attrs.Bucket,
 			err,
@@ -95,7 +94,7 @@ func (g *GCSObjectDownloader) DownloadFile(client mockapi.Client, attrs *storage
 	defer rc.Close()
 	data, err := ioutil.ReadAll(rc)
 	if err != nil {
-		return fmt.Errorf("failed to read object(%q) in bucket(%b): %v",
+		return fmt.Errorf("failed to read object(%s) in bucket(%s): %v",
 			attrs.Name,
 			attrs.Bucket,
 			err,
@@ -108,7 +107,7 @@ func (g *GCSObjectDownloader) WriteToFile(data []byte, attrs *storage.ObjectAttr
 	_, err := file.Write(data)
 	defer file.Close()
 	if err != nil {
-		return fmt.Errorf("failed to write data to file(%q): from object(%q) in bucket(%b): %v",
+		return fmt.Errorf("failed to write data to file(%s): from object(%s) in bucket(%s): %v",
 			file.Name(),
 			attrs.Name,
 			attrs.Bucket,
