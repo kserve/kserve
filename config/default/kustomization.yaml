@@ -1,5 +1,5 @@
 # Adds namespace to all resources.
-namespace: kfserving-system
+#namespace: kfserving-system
 
 # Labels to add to all resources and selectors.
 #commonLabels:

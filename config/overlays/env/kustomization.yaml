@@ -1,0 +1,28 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+bases:
+  - ../../default
+
+namespace: kfserving-system
+
+generatorOptions:
+  disableNameSuffixHash: true
+vars:
+- fieldref:
+    fieldPath: metadata.name
+  name: webhookServiceName
+  objref:
+    apiVersion: v1
+    kind: Service
+    name: kfserving-webhook-server-service
+- name: kfservingNamespace
+  objref:
+    kind: Certificate
+    group: cert-manager.io
+    version: v1alpha2
+    name: serving-cert
+  fieldref:
+    fieldpath: metadata.namespace
+configurations:
+- params.yaml

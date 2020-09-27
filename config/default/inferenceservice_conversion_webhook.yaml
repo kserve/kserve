@@ -14,6 +14,6 @@ spec:
       # but we're going to set it later using the cert-manager (or potentially a patch if not using cert-manager)
       caBundle: Cg==
       service:
-        namespace: kfserving-system
-        name: kfserving-webhook-server-service
+        namespace: $(kfservingNamespace)
+        name: $(webhookServiceName)
         path: /convert
