@@ -19,11 +19,10 @@ package agent
 import (
 	"bytes"
 	"fmt"
+	"github.com/kubeflow/kfserving/pkg/agent/kfstorage"
 	v1 "github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
 	"io/ioutil"
 	"net/http"
-	"github.com/kubeflow/kfserving/pkg/agent/utils"
-	"log"
 	"path/filepath"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
@@ -152,7 +151,7 @@ func (p *Puller) modelProcessor(modelName string, ops <-chan *ModelOp) {
 		case Remove:
 			log.Info("unloading model", "modelName", modelName)
 			// If there is an error, we will NOT do a delete... that could be problematic
-			if err := storage.RemoveDir(filepath.Join(p.Downloader.ModelDir, modelName)); err != nil {
+			if err := kfstorage.RemoveDir(filepath.Join(p.Downloader.ModelDir, modelName)); err != nil {
 				log.Error(err, "failing to delete model directory")
 			} else {
 				// unload model from model server

@@ -19,10 +19,9 @@ package agent
 import (
 	"encoding/hex"
 	"fmt"
+	"github.com/kubeflow/kfserving/pkg/agent/kfstorage"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
 	"github.com/pkg/errors"
-	"github.com/kubeflow/kfserving/pkg/agent/utils"
-	"log"
 	"path/filepath"
 	"regexp"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
@@ -31,10 +30,10 @@ import (
 
 type Downloader struct {
 	ModelDir  string
-	Providers map[utils.Protocol]utils.Provider
+	Providers map[kfstorage.Protocol]kfstorage.Provider
 }
 
-var SupportedProtocols = []utils.Protocol{utils.S3, utils.GCS}
+var SupportedProtocols = []kfstorage.Protocol{kfstorage.S3, kfstorage.GCS}
 
 func (d *Downloader) DownloadModel(modelName string, modelSpec *v1beta1.ModelSpec) error {
 	log := logf.Log.WithName("Downloader")
@@ -47,11 +46,12 @@ func (d *Downloader) DownloadModel(modelName string, modelSpec *v1beta1.ModelSpe
 			fmt.Sprintf("SUCCESS.%s.%s.%s", hashModelUri, hashFramework, hashMemory))
 		log.Info("Downloading to model dir", "modelUri", modelUri, "modelDir", d.ModelDir)
 		// Download if the event there is a success file and the event is one which we wish to Download
-		if !storage.FileExists(successFile) {
+		if !kfstorage.FileExists(successFile) {
+			// TODO: Handle retry logic
 			if err := d.download(modelName, modelUri); err != nil {
 				return errors.Wrapf(err, "failed to download model")
 			}
-			file, createErr := utils.Create(successFile)
+			file, createErr := kfstorage.Create(successFile)
 			defer file.Close()
 			if createErr != nil {
 				return errors.Wrapf(createErr, "failed to create success file")
@@ -85,7 +85,7 @@ func hash(s string) string {
 	return string(dst)
 }
 
-func extractProtocol(storageURI string) (utils.Protocol, error) {
+func extractProtocol(storageURI string) (kfstorage.Protocol, error) {
 	if storageURI == "" {
 		return "", fmt.Errorf("there is no storageUri supplied")
 	}

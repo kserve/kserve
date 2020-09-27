@@ -6,7 +6,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/kubeflow/kfserving/pkg/agent/test/mockapi"
-	"github.com/kubeflow/kfserving/pkg/agent/utils"
+	"github.com/kubeflow/kfserving/pkg/agent/kfstorage"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"google.golang.org/api/iterator"
@@ -166,7 +166,7 @@ var _ = Describe("GCS Provider", func() {
 				logger.Printf("Creating mock GCS Client")
 				ctx := context.Background()
 				client := newMockClient()
-				cl := utils.GCSProvider {
+				cl := kfstorage.GCSProvider {
 					Client: client,
 				}
 

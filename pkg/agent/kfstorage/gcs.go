@@ -1,4 +1,4 @@
-package utils
+package kfstorage
 
 import (
 	"cloud.google.com/go/storage"
