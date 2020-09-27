@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/kubeflow/kfserving/pkg/agent/test/mockapi"
 	"google.golang.org/api/iterator"
 	"io/ioutil"
 	"log"
@@ -14,7 +15,7 @@ import (
 )
 
 type GCSProvider struct {
-	Client *storage.Client
+	Client mockapi.Client
 }
 
 func (p *GCSProvider) Download(modelDir string, modelName string, storageUri string) error {
@@ -31,7 +32,7 @@ func (p *GCSProvider) Download(modelDir string, modelName string, storageUri str
 	}
 	it := gcsObjectDownloader.GetObjectIterator(p.Client)
 	if err := gcsObjectDownloader.Download(p.Client, it); err != nil {
-		return fmt.Errorf("unable to get download objects %v", err)
+		return fmt.Errorf("unable to download objects %v", err)
 	}
 	return nil
 }
@@ -45,13 +46,13 @@ type GCSObjectDownloader struct {
 	Item       string
 }
 
-func (g *GCSObjectDownloader) GetObjectIterator(client *storage.Client) *storage.ObjectIterator {
+func (g *GCSObjectDownloader) GetObjectIterator(client mockapi.Client) mockapi.ObjectIterator {
 	query := &storage.Query{Prefix: g.Item}
 	it := client.Bucket(g.Bucket).Objects(g.Context, query)
 	return it
 }
 
-func (g *GCSObjectDownloader) Download(client *storage.Client, it *storage.ObjectIterator) error {
+func (g *GCSObjectDownloader) Download(client mockapi.Client, it mockapi.ObjectIterator) error {
 	var errs []error
 	for {
 		attrs, err := it.Next()
@@ -82,7 +83,7 @@ func (g *GCSObjectDownloader) Download(client *storage.Client, it *storage.Objec
 	return nil
 }
 
-func (g *GCSObjectDownloader) DownloadFile(client *storage.Client, attrs *storage.ObjectAttrs, file *os.File) error {
+func (g *GCSObjectDownloader) DownloadFile(client mockapi.Client, attrs *storage.ObjectAttrs, file *os.File) error {
 	rc, err := client.Bucket(attrs.Bucket).Object(attrs.Name).NewReader(g.Context)
 	if err != nil {
 		return fmt.Errorf("failed to create reader for object(%q) in bucket(%b): %v",

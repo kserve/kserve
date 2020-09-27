@@ -1,9 +1,9 @@
 package main
 
 import (
+	"cloud.google.com/go/storage"
 	"context"
 	"flag"
-	"cloud.google.com/go/storage"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
@@ -12,6 +12,7 @@ import (
 	"github.com/kubeflow/kfserving/pkg/agent/storage"
 	s3credential "github.com/kubeflow/kfserving/pkg/credentials/s3"
 	"os"
+	"github.com/kubeflow/kfserving/pkg/agent/test/mockapi"
 	"github.com/kubeflow/kfserving/pkg/agent/utils"
 )
 
@@ -51,7 +52,7 @@ func main() {
 			panic(err)
 		}
 		downloader.Providers[utils.GCS] = &utils.GCSProvider{
-			Client: client,
+			Client: mockapi.AdaptClient(client),
 		}
 	}
 
