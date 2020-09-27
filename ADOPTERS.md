@@ -17,4 +17,5 @@ This page contains a list of organizations who are using KFServing either in pro
 | [One Convergence](https://dkube.io/) | [Subra Ongole](https://github.com/songole) |
 | [Seldon](https://www.seldon.io/) | [Clive Cox](https://github.com/cliveseldon) |
 | [Patterson Consulting](https://www.pattersonconsultingtn.com/) | [Josh Patterson](https://github.com/jpatanooga) |
+| [Samsung SDS](https://www.samsungsds.com/) | [Hanbae Seo](https://github.com/jazzsir) |
 
