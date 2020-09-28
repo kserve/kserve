@@ -277,3 +277,24 @@ func TestGoodExplainer(t *testing.T) {
 	isvc.applyDefaultsEndpoint(&isvc.Spec.Default, c)
 	g.Expect(isvc.validate(c)).Should(gomega.Succeed())
 }
+
+func TestGoodName(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	isvc := makeTestInferenceService()
+	isvc.Name = "abc-123"
+	g.Expect(isvc.validate(c)).Should(gomega.Succeed())
+}
+
+func TestRejectBadNameStartWithNumber(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	isvc := makeTestInferenceService()
+	isvc.Name = "1abcde"
+	g.Expect(isvc.validate(c)).ShouldNot(gomega.Succeed())
+}
+
+func TestRejectBadNameIncludeDot(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	isvc := makeTestInferenceService()
+	isvc.Name = "abc.de"
+	g.Expect(isvc.validate(c)).ShouldNot(gomega.Succeed())
+}
