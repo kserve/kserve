@@ -15,7 +15,7 @@ class KFServingSampleModel(kfserving.KFModel):
 
     def load(self):
         #Loading the joblib files 
-        self.holt =  joblib.load('model_holt.sav')
+        self.model =  joblib.load('model_holt.sav')
         self.ready = True
 
     def predict(self, request: Dict) -> Dict:
@@ -23,12 +23,12 @@ class KFServingSampleModel(kfserving.KFModel):
         weeks = int(inputs[0]["image"]["weeks"])
         print(weeks)
         #creating  dictionary to return
-        dict1={}
-        dict1["forecast_weeks"]=str(weeks)
+        predicted_values={}
+        predicted_values["forecast_weeks"]=str(weeks)
         #Holt values
-        n=np.array((self.holt).forecast(weeks))
-        dict1["predicted_values_holt"]=str(n)
-        return {"predictions": dict1}
+        n=np.array((self.model).forecast(weeks))
+        predicted_values["predicted_values_holt"]=str(n)
+        return {"predictions": predicted_values}
 
 
 if __name__ == "__main__":
