@@ -1,6 +1,6 @@
 # Using AIX to get explanations for MNIST classifications
 
-This is an example of how to explain model outputs using [AIX360](https://github.com/Trusted-AI/AIX360) on KFServing. We will be using mnist, a dataset for handwritten digits, for this model and explain how the model decides the predicted results.
+This is an example of how to explain model predictions using [AI Explainability 360 (AIX360)](https://ai-explainability-360.org/) on KFServing. We will be using mnist dataset for handwritten digits for this model and explain how the model decides the predicted results.
 
 To deploy the inferenceservice with v1beta1 API
 
@@ -36,6 +36,6 @@ python query_explain.py http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/$MODEL_
 
 ## Troubleshooting
 
-`<504> Gateway Timeout <504>` - the explainer is probably taking to long and not sending a response back quickly enough. Either there aren't enough resources allocated or the number of samples the explainer is allowed to take needs to be reduced. To fix this go to aix-explainer.yaml and increase resources. Or to lower the number of allowed samples go to aix-explainer.yaml and add a flag to `explainer: command:` '--num_samples' (the default number of samples is 1000)
+`<504> Gateway Timeout <504>` - the explainer is probably taking too long and not sending a response back quickly enough. Either there aren't enough resources allocated or the number of samples the explainer is allowed to take needs to be reduced. To fix this go to aix-explainer.yaml and increase resources. Or to lower the number of allowed samples go to aix-explainer.yaml and add a flag to `explainer: command:` '--num_samples' (the default number of samples is 1000)
 
 If you see `Configuration "aixserver-explainer-default" does not have any ready Revision` the container may have taken too long to download. If you run `kubectl get revision` and see your revision is stuck in `ContainerCreating` try deleting the inferenceservice and redeploying.
