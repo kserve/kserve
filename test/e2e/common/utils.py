@@ -45,7 +45,16 @@ def predict(service_name, input_json):
         return preds
 
 
+
 def explain(service_name, input_json):
+    return explain_response(service_name, input_json)["data"]["precision"]
+
+
+def explain_aix(service_name, input_json):
+    return explain_response(service_name, input_json)["explanations"]["masks"][0]
+
+
+def explain_response(service_name, input_json):
     isvc = KFServing.get(service_name, namespace=KFSERVING_TEST_NAMESPACE, version=constants.KFSERVING_V1BETA1_VERSION)
     # temporary sleep until this is fixed https://github.com/kubeflow/kfserving/issues/604
     time.sleep(10)
@@ -59,7 +68,7 @@ def explain(service_name, input_json):
         try: 
             response = requests.post(url, json.dumps(data), headers=headers)
             logging.info("Got response code %s, content %s", response.status_code, response.content)
-            precision = json.loads(response.content.decode('utf-8'))["data"]["precision"]
+            json_response = json.loads(response.content.decode('utf-8'))
         except (RuntimeError, json.decoder.JSONDecodeError) as e:
             logging.info("Explain error -------")
             logging.info(KFServing.api_instance.get_namespaced_custom_object("serving.knative.dev", "v1", KFSERVING_TEST_NAMESPACE,
@@ -76,7 +85,7 @@ def explain(service_name, input_json):
                         KFSERVING_TEST_NAMESPACE, container="kfserving-container")
                 logging.info(api_response) 
             raise e
-        return precision
+        return json_response
 
 
 def get_cluster_ip():

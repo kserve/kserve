@@ -152,6 +152,23 @@ func (src *InferenceService) ConvertTo(dstRaw conversion.Hub) error {
 				},
 			}
 		}
+		if src.Spec.Default.Explainer.AIX != nil {
+			dst.Spec.Explainer = &v1beta1.ExplainerSpec{
+				ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
+					MinReplicas:          src.Spec.Default.Explainer.MinReplicas,
+					MaxReplicas:          src.Spec.Default.Explainer.MaxReplicas,
+					ContainerConcurrency: proto.Int64(int64(src.Spec.Default.Explainer.Parallelism)),
+				},
+				AIX: &v1beta1.AIXExplainerSpec{
+					Type:           v1beta1.AIXExplainerType(src.Spec.Default.Explainer.AIX.Type),
+					StorageURI:     src.Spec.Default.Explainer.AIX.StorageURI,
+					RuntimeVersion: proto.String(src.Spec.Default.Explainer.AIX.RuntimeVersion),
+					Container: v1.Container{
+						Resources: src.Spec.Default.Explainer.AIX.Resources,
+					},
+				},
+			}
+		}
 		if src.Spec.Default.Explainer.Custom != nil {
 			dst.Spec.Explainer = &v1beta1.ExplainerSpec{
 				PodSpec: v1beta1.PodSpec{
@@ -270,6 +287,15 @@ func (dst *InferenceService) ConvertFrom(srcRaw conversion.Hub) error {
 					StorageURI:     src.Spec.Explainer.Alibi.StorageURI,
 					RuntimeVersion: *src.Spec.Explainer.Alibi.RuntimeVersion,
 					Resources:      src.Spec.Explainer.Alibi.Resources,
+				},
+			}
+		} else if src.Spec.Explainer.AIX != nil {
+			dst.Spec.Default.Explainer = &ExplainerSpec{
+				AIX: &AIXExplainerSpec{
+					Type:           AIXExplainerType(src.Spec.Explainer.AIX.Type),
+					StorageURI:     src.Spec.Explainer.AIX.StorageURI,
+					RuntimeVersion: *src.Spec.Explainer.AIX.RuntimeVersion,
+					Resources:      src.Spec.Explainer.AIX.Resources,
 				},
 			}
 		} else if len(src.Spec.Explainer.PodSpec.Containers) != 0 {

@@ -41,6 +41,10 @@ data:
         "alibi": {
             "image" : "gcr.io/kubeflow-ci/kfserving/alibi-explainer",
             "defaultImageVersion": "latest"
+        },
+          "aix": {
+            "image" : "gcr.io/kubeflow-ci/kfserving/aix-explainer",
+            "defaultImageVersion": "latest"
         }
     }
   storageInitializer: |-
