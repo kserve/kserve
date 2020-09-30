@@ -24,7 +24,7 @@ data:
             "defaultImageVersion": "latest"
         },
         "pytorch": {
-            "image": "gcr.io/kubeflow-ci/kfserving/pytorchserver",
+            "image": "pytorch/torchserve",
             "defaultImageVersion": "latest",
             "defaultGpuImageVersion": "latest-gpu"
         },

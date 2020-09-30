@@ -40,9 +40,9 @@ data:
             "multiModelServer": "false"
         },
         "pytorch": {
-            "image": "gcr.io/kfserving/pytorchserver",
-            "defaultImageVersion": "v0.4.1",
-            "defaultGpuImageVersion": "v0.4.1-gpu",
+            "image": "pytorch/torchserve",
+            "defaultImageVersion": "latest",
+            "defaultGpuImageVersion": "latest-gpu",
             "supportedFrameworks": [
               "pytorch"
             ],

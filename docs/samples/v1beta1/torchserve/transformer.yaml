@@ -1,0 +1,15 @@
+apiVersion: "serving.kubeflow.org/v1beta1"
+kind: "InferenceService"
+metadata:
+  name: "torch-pred"
+spec:
+  transformer:
+    containers:
+      - image: {username}/transformer:latest
+        name: transformer-container
+        env:
+          - name: STORAGE_URI
+            value: "pvc://model-pv-claim"
+  predictor:
+    pytorch:
+      storageUri: "pvc://model-pv-claim"
