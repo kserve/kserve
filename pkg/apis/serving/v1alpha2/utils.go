@@ -82,16 +82,18 @@ func validateStorageURI(storageURI string) error {
 		return nil
 	}
 
-	// one of the prefixes we know?
-	for _, prefix := range SupportedStorageURIPrefixList {
-		if strings.HasPrefix(storageURI, prefix) {
+	// need to verify Azure Blob first, because it uses http(s):// prefix
+	if strings.Contains(storageURI, AzureBlobURL) {
+		azureURIMatcher := regexp.MustCompile(AzureBlobURIRegEx)
+		if parts := azureURIMatcher.FindStringSubmatch(storageURI); parts != nil {
 			return nil
 		}
-	}
-
-	azureURIMatcher := regexp.MustCompile(AzureBlobURIRegEx)
-	if parts := azureURIMatcher.FindStringSubmatch(storageURI); parts != nil {
-		return nil
+	} else {
+		for _, prefix := range SupportedStorageURIPrefixList {
+			if strings.HasPrefix(storageURI, prefix) {
+				return nil
+			}
+		}
 	}
 
 	return fmt.Errorf(UnsupportedStorageURIFormatError, strings.Join(SupportedStorageURIPrefixList, ", "), storageURI)

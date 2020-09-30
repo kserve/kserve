@@ -91,6 +91,15 @@
         // command: List to pass as the container command.
         buildTemplate(step_name, image, command):: {
           name: step_name,
+          retryStrategy: {
+            limit: 3,
+            retryPolicy: "Always",
+            backoff: {
+              duration: 1,
+              factor: 2,
+              maxDuration: "1m",
+            },
+          },
           container: {
             command: command,
             image: image,
@@ -197,10 +206,6 @@
                 }],
                 [
                   {
-                    name: "unit-test",
-                    template: "unit-test",
-                  },
-                  {
                     name: "sdk-test",
                     template: "sdk-test",
                   },
@@ -223,6 +228,10 @@
                   {
                     name: "build-alibi-explainer",
                     template: "build-alibi-explainer",
+                  },
+                  {
+                    name: "build-aix-explainer",
+                    template: "build-aix-explainer",
                   },
                   {
                     name: "build-storage-initializer",
@@ -318,6 +327,9 @@
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-alibi-explainer", testWorkerImage, [
               "test/scripts/build-python-image.sh", "alibiexplainer.Dockerfile", "alibi-explainer", "latest"
             ]),  // build-alibi-explainer
+            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-aix-explainer", testWorkerImage, [
+              "test/scripts/build-python-image.sh", "aixexplainer.Dockerfile ", "aix-explainer", "latest"
+            ]),  // build-aix-explainer
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-storage-initializer", testWorkerImage, [
               "test/scripts/build-python-image.sh", "storage-initializer.Dockerfile", "storage-initializer", "latest"
             ]),  // build-storage-initializer

@@ -139,3 +139,23 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - serving.kubeflow.org
+  resources:
+  - trainedmodels
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - serving.kubeflow.org
+  resources:
+  - trainedmodels/status
+  verbs:
+  - get
+  - patch
+  - update

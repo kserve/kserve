@@ -181,13 +181,13 @@ echo "Istio, Knative and KFServing have been installed and started."
 
 echo "Installing KFServing Python SDK ..."
 python3 -m pip install --upgrade pip
-pip3 install --upgrade pytest pytest-xdist pytest-rerunfailures
+pip3 install pytest==6.0.2 pytest-xdist pytest-rerunfailures
 pip3 install --upgrade pytest-tornasync
 pip3 install urllib3==1.24.2
 pip3 install --upgrade setuptools
 pushd python/kfserving >/dev/null
     pip3 install -r requirements.txt
-    python3 setup.py install --force
+    python3 setup.py install --force --user
 popd
 
 echo "Starting E2E functional tests ..."

@@ -21,8 +21,8 @@ $(shell perl -pi -e 's/memory:.*/memory: $(KFSERVING_CONTROLLER_MEMORY_LIMIT)/' 
 all: test manager logger batcher
 
 # Run tests
-test: fmt vet manifests
-	go test ./pkg/... ./cmd/... -coverprofile cover.out
+test: fmt vet manifests kubebuilder
+	go test ./pkg/... ./cmd/... -coverprofile coverage.out
 
 # Build manager binary
 manager: generate fmt vet lint
@@ -95,14 +95,27 @@ undeploy-dev:
 
 # Generate manifests e.g. CRD, RBAC etc.
 manifests: controller-gen
-	$(CONTROLLER_GEN) $(CRD_OPTIONS) paths=./pkg/apis/serving/v1alpha2/... output:crd:dir=config/crd
-	$(CONTROLLER_GEN) rbac:roleName=kfserving-manager-role paths=./pkg/controller/inferenceservice/... output:rbac:artifacts:config=config/rbac
+	$(CONTROLLER_GEN) $(CRD_OPTIONS) paths=./pkg/apis/serving/... output:crd:dir=config/crd
+	$(CONTROLLER_GEN) rbac:roleName=kfserving-manager-role paths=./pkg/controller/... output:rbac:artifacts:config=config/rbac
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths=./pkg/apis/serving/v1alpha2
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths=./pkg/apis/serving/v1beta1
 	#TODO Remove this until new controller-tools is released
 	perl -pi -e 's/storedVersions: null/storedVersions: []/g' config/crd/serving.kubeflow.org_inferenceservices.yaml
 	perl -pi -e 's/conditions: null/conditions: []/g' config/crd/serving.kubeflow.org_inferenceservices.yaml
 	perl -pi -e 's/Any/string/g' config/crd/serving.kubeflow.org_inferenceservices.yaml
+	perl -pi -e 's/storedVersions: null/storedVersions: []/g' config/crd/serving.kubeflow.org_trainedmodels.yaml
+	perl -pi -e 's/conditions: null/conditions: []/g' config/crd/serving.kubeflow.org_trainedmodels.yaml
+	perl -pi -e 's/Any/string/g' config/crd/serving.kubeflow.org_trainedmodels.yaml
+	#TODO v1beta1 crd openAPIV3Schema is too big and kubectl client side apply takes long time to do diffs, need to use k8s 1.18's server side apply
+	#https://kubernetes.io/blog/2020/04/01/kubernetes-1.18-feature-server-side-apply-beta-2/#what-is-server-side-apply
+	#remove the required property on framework as name field needs to be optional
+	yq d -i config/crd/serving.kubeflow.org_inferenceservices.yaml 'spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.required'
+	#knative does not allow setting port on liveness or readiness probe
+	yq d -i config/crd/serving.kubeflow.org_inferenceservices.yaml 'spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.properties.readinessProbe.properties.httpGet.required'
+	yq d -i config/crd/serving.kubeflow.org_inferenceservices.yaml 'spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.properties.livenessProbe.properties.httpGet.required'
+	yq d -i config/crd/serving.kubeflow.org_inferenceservices.yaml 'spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.properties.readinessProbe.properties.tcpSocket.required'
+	yq d -i config/crd/serving.kubeflow.org_inferenceservices.yaml 'spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.properties.livenessProbe.properties.tcpSocket.required'
+
 
 # Run go fmt against code
 fmt:
@@ -181,6 +194,19 @@ docker-build-storageInitializer:
 
 docker-push-storageInitializer: docker-build-storageInitializer
 	docker push ${KO_DOCKER_REPO}/${STORAGE_INIT_IMG}
+
+kubebuilder:
+ifeq (, $(shell which kubebuilder))
+	@{ \
+	set -e ;\
+        os=$$(go env GOOS) ; \
+        arch=$$(go env GOARCH) ;\
+        curl -L "https://go.kubebuilder.io/dl/2.3.1/$${os}/$${arch}" | tar -xz -C /tmp/ ;\
+        sudo mkdir -p /usr/local/kubebuilder/bin/ ;\
+	sudo mv /tmp/kubebuilder_2.3.1_$${os}_$${arch}/bin/* /usr/local/kubebuilder/bin/ ;\
+	echo "Add /usr/local/kubebuilder/bin/ to your PATH!!" ;\
+	}
+endif
 
 controller-gen:
 ifeq (, $(shell which controller-gen))

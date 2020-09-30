@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 from kubernetes import client
 
 from kfserving import KFServingClient
@@ -28,7 +29,7 @@ from ..common.utils import KFSERVING_TEST_NAMESPACE
 from concurrent import futures
 
 api_version = constants.KFSERVING_GROUP + '/' + constants.KFSERVING_VERSION
-KFServing = KFServingClient(config_file="~/.kube/config")
+KFServing = KFServingClient(config_file=os.environ.get("KUBECONFIG","~/.kube/config"))
 
 
 def test_batcher():
@@ -60,7 +61,7 @@ def test_batcher():
         KFServing.wait_isvc_ready(service_name, namespace=KFSERVING_TEST_NAMESPACE)
     except RuntimeError as e:
         print(KFServing.api_instance.get_namespaced_custom_object("serving.knative.dev", "v1", KFSERVING_TEST_NAMESPACE,
-                                                                  "services", service_name + "-predictor-default"))
+                                                                  "services", service_name + "-predictor"))
         pods = KFServing.core_api.list_namespaced_pod(KFSERVING_TEST_NAMESPACE,
                                                       label_selector='serving.kubeflow.org/inferenceservice={}'.
                                                       format(service_name))

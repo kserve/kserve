@@ -50,7 +50,7 @@ data:
         },
         "triton": {
             "image": "nvcr.io/nvidia/tritonserver",
-            "defaultImageVersion": "20.03-py3",
+            "defaultImageVersion": "20.08-py3",
             "supportedFrameworks": [
               "tensorrt",
               "tensorflow",
@@ -69,6 +69,10 @@ data:
         "alibi": {
             "image" : "gcr.io/kfserving/alibi-explainer",
             "defaultImageVersion": "v0.4.0"
+        },
+        "aix": {
+            "image" : "aipipeline/aix-explainer",
+            "defaultImageVersion": "0.4.0"
         }
     }
   storageInitializer: |-

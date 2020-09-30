@@ -15,19 +15,21 @@ import time
 import logging
 import json
 import requests
+import os
 from urllib.parse import urlparse
 from kubernetes import client, config
 from kfserving import KFServingClient
+from kfserving import constants
 
 logging.basicConfig(level=logging.INFO)
 
-KFServing = KFServingClient(config_file="~/.kube/config")
+KFServing = KFServingClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
 KFSERVING_NAMESPACE = "kfserving-system"
 KFSERVING_TEST_NAMESPACE = "kfserving-ci-e2e-test"
 
 
 def predict(service_name, input_json):
-    isvc = KFServing.get(service_name, namespace=KFSERVING_TEST_NAMESPACE)
+    isvc = KFServing.get(service_name, namespace=KFSERVING_TEST_NAMESPACE, version=constants.KFSERVING_V1BETA1_VERSION)
     # temporary sleep until this is fixed https://github.com/kubeflow/kfserving/issues/604
     time.sleep(10)
     cluster_ip = get_cluster_ip()
@@ -43,8 +45,17 @@ def predict(service_name, input_json):
         return preds
 
 
+
 def explain(service_name, input_json):
-    isvc = KFServing.get(service_name, namespace=KFSERVING_TEST_NAMESPACE)
+    return explain_response(service_name, input_json)["data"]["precision"]
+
+
+def explain_aix(service_name, input_json):
+    return explain_response(service_name, input_json)["explanations"]["masks"][0]
+
+
+def explain_response(service_name, input_json):
+    isvc = KFServing.get(service_name, namespace=KFSERVING_TEST_NAMESPACE, version=constants.KFSERVING_V1BETA1_VERSION)
     # temporary sleep until this is fixed https://github.com/kubeflow/kfserving/issues/604
     time.sleep(10)
     cluster_ip = get_cluster_ip()
@@ -54,19 +65,14 @@ def explain(service_name, input_json):
     with open(input_json) as json_file:
         data = json.load(json_file)
         logging.info("Sending request data: %s", json.dumps(data))
-        logging.info("Print pod info before explain")
-        pods = KFServing.core_api.list_namespaced_pod(KFSERVING_TEST_NAMESPACE,
-               label_selector='serving.kubeflow.org/inferenceservice={}'.format(service_name))
-        for pod in pods.items:
-            logging.info(pod)
         try: 
             response = requests.post(url, json.dumps(data), headers=headers)
             logging.info("Got response code %s, content %s", response.status_code, response.content)
-            precision = json.loads(response.content.decode('utf-8'))["data"]["precision"]
+            json_response = json.loads(response.content.decode('utf-8'))
         except (RuntimeError, json.decoder.JSONDecodeError) as e:
             logging.info("Explain error -------")
             logging.info(KFServing.api_instance.get_namespaced_custom_object("serving.knative.dev", "v1", KFSERVING_TEST_NAMESPACE,
-                                                                      "services", service_name + "-explainer-default"))
+                                                                      "services", service_name + "-explainer"))
             pods = KFServing.core_api.list_namespaced_pod(KFSERVING_TEST_NAMESPACE,
                                                         label_selector='serving.kubeflow.org/inferenceservice={}'.
                                                         format(service_name))
@@ -79,7 +85,7 @@ def explain(service_name, input_json):
                         KFSERVING_TEST_NAMESPACE, container="kfserving-container")
                 logging.info(api_response) 
             raise e
-        return precision
+        return json_response
 
 
 def get_cluster_ip():
@@ -89,4 +95,4 @@ def get_cluster_ip():
         cluster_ip = service.spec.cluster_ip
     else:
         cluster_ip = service.status.load_balancer.ingress[0].ip
-    return cluster_ip
+    return os.environ.get("KFSERVING_INGRESS_HOST_PORT", cluster_ip)

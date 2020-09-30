@@ -39,7 +39,7 @@ func makeTestInferenceService() InferenceService {
 			},
 		},
 	}
-	inferenceservice.Default(c)
+	inferenceservice.applyDefaultsEndpoint(&inferenceservice.Spec.Default, c)
 	return inferenceservice
 }
 
@@ -48,7 +48,7 @@ func TestValidStorageURIPrefixOK(t *testing.T) {
 	for _, prefix := range SupportedStorageURIPrefixList {
 		isvc := makeTestInferenceService()
 		isvc.Spec.Default.Predictor.Tensorflow.StorageURI = prefix + "foo/bar"
-		g.Expect(isvc.ValidateCreate(c)).Should(gomega.Succeed())
+		g.Expect(isvc.validate(c)).Should(gomega.Succeed())
 	}
 }
 
@@ -56,68 +56,77 @@ func TestEmptyStorageURIPrefixOK(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	isvc := makeTestInferenceService()
 	isvc.Spec.Default.Predictor.Tensorflow.StorageURI = ""
-	g.Expect(isvc.ValidateCreate(c)).Should(gomega.Succeed())
+	g.Expect(isvc.validate(c)).Should(gomega.Succeed())
 }
 
 func TestLocalPathStorageURIPrefixOK(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	isvc := makeTestInferenceService()
 	isvc.Spec.Default.Predictor.Tensorflow.StorageURI = "some/relative/path"
-	g.Expect(isvc.ValidateCreate(c)).Should(gomega.Succeed())
+	g.Expect(isvc.validate(c)).Should(gomega.Succeed())
 	isvc.Spec.Default.Predictor.Tensorflow.StorageURI = "/some/absolute/path"
-	g.Expect(isvc.ValidateCreate(c)).Should(gomega.Succeed())
+	g.Expect(isvc.validate(c)).Should(gomega.Succeed())
 	isvc.Spec.Default.Predictor.Tensorflow.StorageURI = "/"
-	g.Expect(isvc.ValidateCreate(c)).Should(gomega.Succeed())
+	g.Expect(isvc.validate(c)).Should(gomega.Succeed())
 	isvc.Spec.Default.Predictor.Tensorflow.StorageURI = "foo"
-	g.Expect(isvc.ValidateCreate(c)).Should(gomega.Succeed())
+	g.Expect(isvc.validate(c)).Should(gomega.Succeed())
 }
 
 func TestAzureBlobOK(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	isvc := makeTestInferenceService()
 	isvc.Spec.Default.Predictor.Tensorflow.StorageURI = "https://kfserving.blob.core.windows.net/triton/simple_string/"
-	g.Expect(isvc.ValidateCreate(c)).Should(gomega.Succeed())
+	g.Expect(isvc.validate(c)).Should(gomega.Succeed())
 	isvc.Spec.Default.Predictor.Tensorflow.StorageURI = "https://kfserving.blob.core.windows.net/triton/simple_string"
-	g.Expect(isvc.ValidateCreate(c)).Should(gomega.Succeed())
+	g.Expect(isvc.validate(c)).Should(gomega.Succeed())
 	isvc.Spec.Default.Predictor.Tensorflow.StorageURI = "https://kfserving.blob.core.windows.net/triton/"
-	g.Expect(isvc.ValidateCreate(c)).Should(gomega.Succeed())
+	g.Expect(isvc.validate(c)).Should(gomega.Succeed())
 	isvc.Spec.Default.Predictor.Tensorflow.StorageURI = "https://kfserving.blob.core.windows.net/triton"
-	g.Expect(isvc.ValidateCreate(c)).Should(gomega.Succeed())
+	g.Expect(isvc.validate(c)).Should(gomega.Succeed())
 }
 
 func TestAzureBlobNoAccountFails(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	isvc := makeTestInferenceService()
 	isvc.Spec.Default.Predictor.Tensorflow.StorageURI = "https://blob.core.windows.net/triton/simple_string/"
-	g.Expect(isvc.ValidateCreate(c)).ShouldNot(gomega.Succeed())
+	g.Expect(isvc.validate(c)).ShouldNot(gomega.Succeed())
 }
 
 func TestAzureBlobNoContainerFails(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	isvc := makeTestInferenceService()
 	isvc.Spec.Default.Predictor.Tensorflow.StorageURI = "https://foo.blob.core.windows.net/"
-	g.Expect(isvc.ValidateCreate(c)).ShouldNot(gomega.Succeed())
+	g.Expect(isvc.validate(c)).ShouldNot(gomega.Succeed())
+}
+
+func TestHttpStorageURIPrefixOK(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	isvc := makeTestInferenceService()
+	isvc.Spec.Default.Predictor.Tensorflow.StorageURI = "https://raw.githubusercontent.com/someOrg/someRepo/model.tar.gz"
+	g.Expect(isvc.validate(c)).Should(gomega.Succeed())
+	isvc.Spec.Default.Predictor.Tensorflow.StorageURI = "http://raw.githubusercontent.com/someOrg/someRepo/model.tar.gz"
+	g.Expect(isvc.validate(c)).Should(gomega.Succeed())
 }
 
 func TestUnkownStorageURIPrefixFails(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	isvc := makeTestInferenceService()
 	isvc.Spec.Default.Predictor.Tensorflow.StorageURI = "blob://foo/bar"
-	g.Expect(isvc.ValidateCreate(c)).ShouldNot(gomega.Succeed())
+	g.Expect(isvc.validate(c)).ShouldNot(gomega.Succeed())
 }
 
 func TestRejectMultipleModelSpecs(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	isvc := makeTestInferenceService()
 	isvc.Spec.Default.Predictor.Custom = &CustomSpec{Container: v1.Container{}}
-	g.Expect(isvc.ValidateCreate(c)).Should(gomega.MatchError(ExactlyOnePredictorViolatedError))
+	g.Expect(isvc.validate(c)).Should(gomega.MatchError(ExactlyOnePredictorViolatedError))
 }
 
 func TestRejectModelSpecMissing(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	isvc := makeTestInferenceService()
 	isvc.Spec.Default.Predictor.Tensorflow = nil
-	g.Expect(isvc.ValidateCreate(c)).Should(gomega.MatchError(ExactlyOnePredictorViolatedError))
+	g.Expect(isvc.validate(c)).Should(gomega.MatchError(ExactlyOnePredictorViolatedError))
 }
 
 func TestRejectMultipleCanaryModelSpecs(t *testing.T) {
@@ -129,7 +138,7 @@ func TestRejectMultipleCanaryModelSpecs(t *testing.T) {
 			Tensorflow: isvc.Spec.Default.Predictor.Tensorflow,
 		},
 	}
-	g.Expect(isvc.ValidateCreate(c)).Should(gomega.MatchError(ExactlyOnePredictorViolatedError))
+	g.Expect(isvc.validate(c)).Should(gomega.MatchError(ExactlyOnePredictorViolatedError))
 }
 
 func TestRejectCanaryModelSpecMissing(t *testing.T) {
@@ -138,44 +147,44 @@ func TestRejectCanaryModelSpecMissing(t *testing.T) {
 	isvc.Spec.Canary = &EndpointSpec{
 		Predictor: PredictorSpec{},
 	}
-	g.Expect(isvc.ValidateCreate(c)).Should(gomega.MatchError(ExactlyOnePredictorViolatedError))
+	g.Expect(isvc.validate(c)).Should(gomega.MatchError(ExactlyOnePredictorViolatedError))
 }
 
 func TestRejectBadCanaryTrafficValues(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	isvc := makeTestInferenceService()
 	isvc.Spec.Canary = &isvc.Spec.Default
-	isvc.Spec.CanaryTrafficPercent = -1
-	g.Expect(isvc.ValidateCreate(c)).Should(gomega.MatchError(TrafficBoundsExceededError))
-	isvc.Spec.CanaryTrafficPercent = 101
-	g.Expect(isvc.ValidateCreate(c)).Should(gomega.MatchError(TrafficBoundsExceededError))
+	isvc.Spec.CanaryTrafficPercent = GetIntReference(-1)
+	g.Expect(isvc.validate(c)).Should(gomega.MatchError(TrafficBoundsExceededError))
+	isvc.Spec.CanaryTrafficPercent = GetIntReference(101)
+	g.Expect(isvc.validate(c)).Should(gomega.MatchError(TrafficBoundsExceededError))
 }
 
 func TestRejectTrafficProvidedWithoutCanary(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	isvc := makeTestInferenceService()
-	isvc.Spec.CanaryTrafficPercent = 1
-	g.Expect(isvc.ValidateCreate(c)).Should(gomega.MatchError(TrafficProvidedWithoutCanaryError))
+	isvc.Spec.CanaryTrafficPercent = GetIntReference(1)
+	g.Expect(isvc.validate(c)).Should(gomega.MatchError(TrafficProvidedWithoutCanaryError))
 }
 
 func TestBadParallelismValues(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	isvc := makeTestInferenceService()
 	isvc.Spec.Default.Predictor.Parallelism = -1
-	g.Expect(isvc.ValidateCreate(c)).Should(gomega.MatchError(ParallelismLowerBoundExceededError))
+	g.Expect(isvc.validate(c)).Should(gomega.MatchError(ParallelismLowerBoundExceededError))
 }
 
 func TestBadReplicaValues(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	isvc := makeTestInferenceService()
 	isvc.Spec.Default.Predictor.MinReplicas = GetIntReference(-1)
-	g.Expect(isvc.ValidateCreate(c)).Should(gomega.MatchError(MinReplicasLowerBoundExceededError))
+	g.Expect(isvc.validate(c)).Should(gomega.MatchError(MinReplicasLowerBoundExceededError))
 	isvc.Spec.Default.Predictor.MinReplicas = GetIntReference(1)
 	isvc.Spec.Default.Predictor.MaxReplicas = -1
-	g.Expect(isvc.ValidateCreate(c)).Should(gomega.MatchError(MaxReplicasLowerBoundExceededError))
+	g.Expect(isvc.validate(c)).Should(gomega.MatchError(MaxReplicasLowerBoundExceededError))
 	isvc.Spec.Default.Predictor.MinReplicas = GetIntReference(2)
 	isvc.Spec.Default.Predictor.MaxReplicas = 1
-	g.Expect(isvc.ValidateCreate(c)).Should(gomega.MatchError(MinReplicasShouldBeLessThanMaxError))
+	g.Expect(isvc.validate(c)).Should(gomega.MatchError(MinReplicasShouldBeLessThanMaxError))
 	// Now test transformer and explainer, so set correct value for predictor
 	isvc.Spec.Default.Predictor.MinReplicas = GetIntReference(0)
 	isvc.Spec.Default.Predictor.MaxReplicas = 0
@@ -186,15 +195,15 @@ func TestBadReplicaValues(t *testing.T) {
 			Image: "custom:0.1",
 		},
 	}
-	isvc.Default(c)
+	isvc.applyDefaultsEndpoint(&isvc.Spec.Default, c)
 	isvc.Spec.Default.Transformer.MinReplicas = GetIntReference(-1)
-	g.Expect(isvc.ValidateCreate(c)).Should(gomega.MatchError(MinReplicasLowerBoundExceededError))
+	g.Expect(isvc.validate(c)).Should(gomega.MatchError(MinReplicasLowerBoundExceededError))
 	isvc.Spec.Default.Transformer.MinReplicas = GetIntReference(1)
 	isvc.Spec.Default.Transformer.MaxReplicas = -1
-	g.Expect(isvc.ValidateCreate(c)).Should(gomega.MatchError(MaxReplicasLowerBoundExceededError))
+	g.Expect(isvc.validate(c)).Should(gomega.MatchError(MaxReplicasLowerBoundExceededError))
 	isvc.Spec.Default.Transformer.MinReplicas = GetIntReference(2)
 	isvc.Spec.Default.Transformer.MaxReplicas = 1
-	g.Expect(isvc.ValidateCreate(c)).Should(gomega.MatchError(MinReplicasShouldBeLessThanMaxError))
+	g.Expect(isvc.validate(c)).Should(gomega.MatchError(MinReplicasShouldBeLessThanMaxError))
 	// Now test explainer, so ignore transformer
 	isvc.Spec.Default.Transformer = nil
 
@@ -203,15 +212,15 @@ func TestBadReplicaValues(t *testing.T) {
 			StorageURI: "gs://testbucket/testmodel",
 		},
 	}
-	isvc.Default(c)
+	isvc.applyDefaultsEndpoint(&isvc.Spec.Default, c)
 	isvc.Spec.Default.Explainer.MinReplicas = GetIntReference(-1)
-	g.Expect(isvc.ValidateCreate(c)).Should(gomega.MatchError(MinReplicasLowerBoundExceededError))
+	g.Expect(isvc.validate(c)).Should(gomega.MatchError(MinReplicasLowerBoundExceededError))
 	isvc.Spec.Default.Explainer.MinReplicas = GetIntReference(1)
 	isvc.Spec.Default.Explainer.MaxReplicas = -1
-	g.Expect(isvc.ValidateCreate(c)).Should(gomega.MatchError(MaxReplicasLowerBoundExceededError))
+	g.Expect(isvc.validate(c)).Should(gomega.MatchError(MaxReplicasLowerBoundExceededError))
 	isvc.Spec.Default.Explainer.MinReplicas = GetIntReference(2)
 	isvc.Spec.Default.Explainer.MaxReplicas = 1
-	g.Expect(isvc.ValidateCreate(c)).Should(gomega.MatchError(MinReplicasShouldBeLessThanMaxError))
+	g.Expect(isvc.validate(c)).Should(gomega.MatchError(MinReplicasShouldBeLessThanMaxError))
 }
 
 func TestCustomBadFields(t *testing.T) {
@@ -226,7 +235,7 @@ func TestCustomBadFields(t *testing.T) {
 			StdinOnce: true,
 		},
 	}
-	g.Expect(isvc.ValidateCreate(c)).Should(gomega.MatchError("Custom container validation error: must not set the field(s): stdin, stdinOnce"))
+	g.Expect(isvc.validate(c)).Should(gomega.MatchError("Custom container validation error: must not set the field(s): stdin, stdinOnce"))
 }
 
 func TestCustomOK(t *testing.T) {
@@ -238,23 +247,23 @@ func TestCustomOK(t *testing.T) {
 			Image: "custom:0.1",
 		},
 	}
-	err := isvc.ValidateCreate(c)
+	err := isvc.validate(c)
 	fmt.Println(err)
-	g.Expect(isvc.ValidateCreate(c)).Should(gomega.Succeed())
+	g.Expect(isvc.validate(c)).Should(gomega.Succeed())
 }
 
 func TestRejectBadTransformer(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	isvc := makeTestInferenceService()
 	isvc.Spec.Default.Transformer = &TransformerSpec{}
-	g.Expect(isvc.ValidateCreate(c)).Should(gomega.MatchError(ExactlyOneTransformerViolatedError))
+	g.Expect(isvc.validate(c)).Should(gomega.MatchError(ExactlyOneTransformerViolatedError))
 }
 
 func TestRejectBadExplainer(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	isvc := makeTestInferenceService()
 	isvc.Spec.Default.Explainer = &ExplainerSpec{}
-	g.Expect(isvc.ValidateCreate(c)).Should(gomega.MatchError(ExactlyOneExplainerViolatedError))
+	g.Expect(isvc.validate(c)).Should(gomega.MatchError(ExactlyOneExplainerViolatedError))
 }
 
 func TestGoodExplainer(t *testing.T) {
@@ -265,6 +274,27 @@ func TestGoodExplainer(t *testing.T) {
 			StorageURI: "gs://testbucket/testmodel",
 		},
 	}
-	isvc.Default(c)
-	g.Expect(isvc.ValidateCreate(c)).Should(gomega.Succeed())
+	isvc.applyDefaultsEndpoint(&isvc.Spec.Default, c)
+	g.Expect(isvc.validate(c)).Should(gomega.Succeed())
+}
+
+func TestGoodName(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	isvc := makeTestInferenceService()
+	isvc.Name = "abc-123"
+	g.Expect(isvc.validate(c)).Should(gomega.Succeed())
+}
+
+func TestRejectBadNameStartWithNumber(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	isvc := makeTestInferenceService()
+	isvc.Name = "1abcde"
+	g.Expect(isvc.validate(c)).ShouldNot(gomega.Succeed())
+}
+
+func TestRejectBadNameIncludeDot(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	isvc := makeTestInferenceService()
+	isvc.Name = "abc.de"
+	g.Expect(isvc.validate(c)).ShouldNot(gomega.Succeed())
 }

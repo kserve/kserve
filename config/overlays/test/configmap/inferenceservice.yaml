@@ -30,7 +30,7 @@ data:
         },
         "triton": {
             "image": "nvcr.io/nvidia/tritonserver",
-            "defaultImageVersion": "20.03-py3"
+            "defaultImageVersion": "20.08-py3"
         }
     }
   transformers: |-
@@ -40,6 +40,10 @@ data:
     {
         "alibi": {
             "image" : "gcr.io/kubeflow-ci/kfserving/alibi-explainer",
+            "defaultImageVersion": "latest"
+        },
+          "aix": {
+            "image" : "gcr.io/kubeflow-ci/kfserving/aix-explainer",
             "defaultImageVersion": "latest"
         }
     }

@@ -44,6 +44,7 @@ type ExplainerConfig struct {
 // +k8s:openapi-gen=false
 type ExplainersConfig struct {
 	AlibiExplainer ExplainerConfig `json:"alibi,omitempty"`
+	AIXExplainer   ExplainerConfig `json:"aix,omitempty"`
 }
 
 // +k8s:openapi-gen=false

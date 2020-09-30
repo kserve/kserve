@@ -113,6 +113,38 @@
         }
       }
     },
+    "v1alpha2.AIXExplainerSpec": {
+      "description": "AIXExplainerSpec defines the arguments for configuring an AIX Explanation Server",
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "config": {
+          "description": "Inline custom parameter settings for explainer",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "resources": {
+          "description": "Defaults to requests and limits of 1CPU, 2Gb MEM.",
+          "$ref": "#/definitions/v1.ResourceRequirements"
+        },
+        "runtimeVersion": {
+          "description": "Defaults to latest AIX Version",
+          "type": "string"
+        },
+        "storageUri": {
+          "description": "The location of a trained explanation model",
+          "type": "string"
+        },
+        "type": {
+          "description": "The type of AIX explainer",
+          "type": "string"
+        }
+      }
+    },
     "v1alpha2.AlibiExplainerSpec": {
       "description": "AlibiExplainerSpec defines the arguments for configuring an Alibi Explanation Server",
       "type": "object",
@@ -235,6 +267,10 @@
       "description": "ExplainerSpec defines the arguments for a model explanation server, The following fields follow a \"1-of\" semantic. Users must specify exactly one spec.",
       "type": "object",
       "properties": {
+        "aix": {
+          "description": "Spec for AIX explainer",
+          "$ref": "#/definitions/v1alpha2.AIXExplainerSpec"
+        },
         "alibi": {
           "description": "Spec for alibi explainer",
           "$ref": "#/definitions/v1alpha2.AlibiExplainerSpec"
