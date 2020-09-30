@@ -18,17 +18,17 @@ package v1beta1
 
 import (
 	"fmt"
+	"strings"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/utils"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"strconv"
-	"strings"
 )
 
 const (
-	DefaultPyTorchModelClassName     = "PyTorchModel"
 	PyTorchServingGPUSuffix          = "-gpu"
 	InvalidPyTorchRuntimeIncludesGPU = "PyTorch RuntimeVersion is not GPU enabled but GPU resources are requested. "
 	InvalidPyTorchRuntimeExcludesGPU = "PyTorch RuntimeVersion is GPU enabled but GPU resources are not requested. "
@@ -36,14 +36,21 @@ const (
 
 // TorchServeSpec defines arguments for configuring PyTorch model serving.
 type TorchServeSpec struct {
-	// Defaults PyTorch model class name to 'PyTorchModel'
-	ModelClassName string `json:"modelClassName,omitempty"`
 	// Contains fields shared across all predictors
 	PredictorExtensionSpec `json:",inline"`
 }
 
+var _ ComponentImplementation = &TorchServeSpec{}
+
 // Validate returns an error if invalid
 func (t *TorchServeSpec) Validate() error {
+	return utils.FirstNonNilError([]error{
+		validateStorageURI(t.GetStorageUri()),
+		t.validateGPU(),
+	})
+}
+
+func (t *TorchServeSpec) validateGPU() error {
 	if utils.IsGPUEnabled(t.Resources) && !strings.Contains(*t.RuntimeVersion, PyTorchServingGPUSuffix) {
 		return fmt.Errorf(InvalidPyTorchRuntimeIncludesGPU)
 	}
@@ -51,9 +58,7 @@ func (t *TorchServeSpec) Validate() error {
 	if !utils.IsGPUEnabled(t.Resources) && strings.Contains(*t.RuntimeVersion, PyTorchServingGPUSuffix) {
 		return fmt.Errorf(InvalidPyTorchRuntimeExcludesGPU)
 	}
-	return utils.FirstNonNilError([]error{
-		validateStorageURI(t.GetStorageUri()),
-	})
+	return nil
 }
 
 // Default sets defaults on the resource
@@ -66,24 +71,16 @@ func (t *TorchServeSpec) Default(config *InferenceServicesConfig) {
 			t.RuntimeVersion = proto.String(config.Predictors.PyTorch.DefaultImageVersion)
 		}
 	}
-	if t.ModelClassName == "" {
-		t.ModelClassName = DefaultPyTorchModelClassName
-	}
 	setResourceRequirementDefaults(&t.Resources)
 }
 
 // GetContainers transforms the resource into a container spec
 func (t *TorchServeSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig) *v1.Container {
 	arguments := []string{
-		fmt.Sprintf("%s=%s", constants.ArgumentModelName, metadata.Name),
-		fmt.Sprintf("%s=%s", constants.ArgumentModelClassName, t.ModelClassName),
-		fmt.Sprintf("%s=%s", constants.ArgumentModelDir, constants.DefaultModelLocalMountPath),
-		fmt.Sprintf("%s=%s", constants.ArgumentHttpPort, constants.InferenceServiceDefaultHttpPort),
-	}
-	if utils.IsGPUEnabled(t.Resources) {
-		arguments = append(arguments, fmt.Sprintf("%s=%s", constants.ArgumentWorkers, "1"))
-	} else if extensions.ContainerConcurrency != nil {
-		arguments = append(arguments, fmt.Sprintf("%s=%s", constants.ArgumentWorkers, strconv.FormatInt(*extensions.ContainerConcurrency, 10)))
+		"torchserve",
+		"--start",
+		fmt.Sprintf("%s=%s", "--model-store", constants.DefaultModelLocalMountPath+"/model-store"),
+		fmt.Sprintf("%s=%s", "--ts-config", constants.DefaultModelLocalMountPath+"/config/config.properties"),
 	}
 	if t.Container.Image == "" {
 		t.Container.Image = config.Predictors.PyTorch.ContainerImage + ":" + *t.RuntimeVersion

@@ -24,7 +24,7 @@ data:
             "defaultImageVersion": "latest"
         },
         "pytorch": {
-            "image": "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/pytorchserver",
+            "image": "pytorch/torchserve",
             "defaultImageVersion": "latest",
             "defaultGpuImageVersion": "latest-gpu"
         },
