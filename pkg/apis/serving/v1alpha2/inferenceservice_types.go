@@ -110,7 +110,7 @@ type PredictorSpec struct {
 	Custom *CustomSpec `json:"custom,omitempty"`
 	// Spec for Tensorflow Serving (https://github.com/tensorflow/serving)
 	Tensorflow *TensorflowSpec `json:"tensorflow,omitempty"`
-	// Spec for Triton Inference Server (https://github.com/NVIDIA/triton-inference-server)
+	// Spec for Triton Inference Server (https://github.com/triton-inference-server/server)
 	Triton *TritonSpec `json:"triton,omitempty"`
 	// Spec for XGBoost predictor
 	XGBoost *XGBoostSpec `json:"xgboost,omitempty"`

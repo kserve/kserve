@@ -388,7 +388,7 @@ class V1alpha2PredictorSpec(object):
     def triton(self):
         """Gets the triton of this V1alpha2PredictorSpec.  # noqa: E501
 
-        Spec for Triton Inference Server (https://github.com/NVIDIA/triton-inference-server)  # noqa: E501
+        Spec for Triton Inference Server (https://github.com/triton-inference-server/server)  # noqa: E501
 
         :return: The triton of this V1alpha2PredictorSpec.  # noqa: E501
         :rtype: V1alpha2TritonSpec
@@ -399,7 +399,7 @@ class V1alpha2PredictorSpec(object):
     def triton(self, triton):
         """Sets the triton of this V1alpha2PredictorSpec.
 
-        Spec for Triton Inference Server (https://github.com/NVIDIA/triton-inference-server)  # noqa: E501
+        Spec for Triton Inference Server (https://github.com/triton-inference-server/server)  # noqa: E501
 
         :param triton: The triton of this V1alpha2PredictorSpec.  # noqa: E501
         :type: V1alpha2TritonSpec
