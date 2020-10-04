@@ -185,7 +185,6 @@ var _ = Describe("Watcher", func() {
 					},
 				}
 				go puller.processCommands(watcher.ModelEvents)
-				logger.Printf("starting go routing")
 				modelConfigs := modelconfig.ModelConfigs{
 					{
 						Name: "model1",

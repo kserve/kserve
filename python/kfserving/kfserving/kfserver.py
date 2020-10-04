@@ -71,9 +71,9 @@ class KFServer:
              PredictHandler, dict(models=self.registered_models)),
             (r"/v1/models/([a-zA-Z0-9_-]+):explain",
              ExplainHandler, dict(models=self.registered_models)),
-            (r"/v1/models/([a-zA-Z0-9_-]+)/load",
+            (r"/v2/repository/models/([a-zA-Z0-9_-]+)/load",
              LoadHandler, dict(models=self.registered_models)),
-            (r"/v1/models/([a-zA-Z0-9_-]+)/unload",
+            (r"/v2/repository/models/([a-zA-Z0-9_-]+)/unload",
              UnloadHandler, dict(models=self.registered_models)),
         ])
 

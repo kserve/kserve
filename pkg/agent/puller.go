@@ -17,8 +17,12 @@ limitations under the License.
 package agent
 
 import (
+	"bytes"
+	"fmt"
 	"github.com/kubeflow/kfserving/pkg/agent/storage"
 	v1 "github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
+	"io/ioutil"
+	"net/http"
 	"path/filepath"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
@@ -122,24 +126,48 @@ func (p *Puller) modelProcessor(modelName string, ops <-chan *ModelOp) {
 	for modelOp := range ops {
 		switch modelOp.Op {
 		case Add:
-			// Load
 			log.Info("Downloading model", "storageUri", modelOp.Spec.StorageURI)
 			err := p.Downloader.DownloadModel(modelName, modelOp.Spec)
 			if err != nil {
-				log.Error(err, "Fails to download model", "modelName", modelName)
-			} else {
 				// If there is an error, we will NOT send a request. As such, to know about errors, you will
 				// need to call the error endpoint of the puller
-				// TODO: Do request logic
-				log.Info("Load model", "modelName", modelName)
+				log.Error(err, "Fails to download model", "modelName", modelName)
+			} else {
+				// Load the model onto the model server
+				resp, err := http.Post(fmt.Sprintf("http://localhost:8080/v2/repository/models/%s/load", modelName),
+					"application/json",
+					bytes.NewBufferString("{}"))
+				if err != nil {
+					// handle error
+					log.Error(err, "Failed to Load model", "modelName", modelName)
+				} else {
+					defer resp.Body.Close()
+					body, err := ioutil.ReadAll(resp.Body)
+					if err != nil {
+						log.Info("Loaded model", "modelName", modelName, "resp", body)
+					}
+				}
 			}
 		case Remove:
-			// Unload
-			// TODO: Do request logic
 			log.Info("unloading model", "modelName", modelName)
 			// If there is an error, we will NOT do a delete... that could be problematic
 			if err := storage.RemoveDir(filepath.Join(p.Downloader.ModelDir, modelName)); err != nil {
 				log.Error(err, "failing to delete model directory")
+			} else {
+				// unload model from model server
+				resp, err := http.Post(fmt.Sprintf("http://localhost:8080/v2/repository/models/%s/unload", modelName),
+					"application/json",
+					bytes.NewBufferString("{}"))
+				if err != nil {
+					// handle error
+					log.Error(err, "Failed to Unload model", "modelName", modelName)
+				} else {
+					defer resp.Body.Close()
+					body, err := ioutil.ReadAll(resp.Body)
+					if err != nil {
+						log.Info("Unloaded model", "modelName", modelName, "resp", body)
+					}
+				}
 			}
 		}
 		p.completions <- modelOp
