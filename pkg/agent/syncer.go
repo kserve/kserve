@@ -20,8 +20,8 @@ import (
 	"encoding/hex"
 	"fmt"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
+	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -45,8 +45,8 @@ func SyncModelDir(modelDir string) (map[string]modelWrapper, error) {
 					base := filepath.Base(path)
 					baseSplit := strings.SplitN(base, ".", 4)
 					if baseSplit[0] == "SUCCESS" {
-						if spec, e := successParse(modelName, baseSplit); e != nil {
-							return fmt.Errorf("error parsing SUCCESS file: %v", e)
+						if spec, e := successParse(baseSplit); e != nil {
+							return errors.Wrapf(err, "error parsing SUCCESS file")
 						} else {
 							modelTracker[modelName] = modelWrapper{
 								Spec:  spec,
@@ -62,31 +62,30 @@ func SyncModelDir(modelDir string) (map[string]modelWrapper, error) {
 			case NoSuccessFile:
 				return nil
 			default:
-				log.Println("failed to parse SUCCESS file:", ierr)
-				return ierr
+				return errors.Wrapf(ierr, "failed to parse success file")
 			}
 		}
 		return nil
 	})
 	if err != nil {
-		return nil, fmt.Errorf("error in syncing %s: %w", modelDir, err)
+		return nil, errors.Wrapf(err, "error in syncing model dir")
 	}
 	return modelTracker, nil
 }
 
-func successParse(modelName string, baseSplit []string) (*v1beta1.ModelSpec, error) {
+func successParse(baseSplit []string) (*v1beta1.ModelSpec, error) {
 	storageURI, err := unhash(baseSplit[1])
-	errorMessage := "unable to unhash the SUCCESS file, maybe the SUCCESS file has been modified?: %v"
+	errorMessage := "unable to unhash the SUCCESS file, maybe the SUCCESS file has been modified?"
 	if err != nil {
-		return nil, fmt.Errorf(errorMessage, err)
+		return nil, errors.Wrapf(err, errorMessage)
 	}
 	framework, err := unhash(baseSplit[2])
 	if err != nil {
-		return nil, fmt.Errorf(errorMessage, err)
+		return nil, errors.Wrapf(err, errorMessage)
 	}
 	memory, err := unhash(baseSplit[3])
 	if err != nil {
-		return nil, fmt.Errorf(errorMessage, err)
+		return nil, errors.Wrapf(err, errorMessage)
 	}
 	memoryResource := resource.MustParse(memory)
 	return &v1beta1.ModelSpec{

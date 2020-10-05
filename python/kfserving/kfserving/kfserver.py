@@ -62,18 +62,27 @@ class KFServer:
         return tornado.web.Application([
             # Server Liveness API returns 200 if server is alive.
             (r"/", LivenessHandler),
+            (r"/v2/health/live", LivenessHandler),
             (r"/v1/models",
+             ListHandler, dict(models=self.registered_models)),
+            (r"/v2/models",
              ListHandler, dict(models=self.registered_models)),
             # Model Health API returns 200 if model is ready to serve.
             (r"/v1/models/([a-zA-Z0-9_-]+)",
              HealthHandler, dict(models=self.registered_models)),
+            (r"/v2/models/([a-zA-Z0-9_-]+)/status",
+             HealthHandler, dict(models=self.registered_models)),
             (r"/v1/models/([a-zA-Z0-9_-]+):predict",
+             PredictHandler, dict(models=self.registered_models)),
+            (r"/v2/models/([a-zA-Z0-9_-]+)/infer",
              PredictHandler, dict(models=self.registered_models)),
             (r"/v1/models/([a-zA-Z0-9_-]+):explain",
              ExplainHandler, dict(models=self.registered_models)),
-            (r"/v1/models/([a-zA-Z0-9_-]+)/load",
+            (r"/v2/models/([a-zA-Z0-9_-]+)/explain",
+             ExplainHandler, dict(models=self.registered_models)),
+            (r"/v2/repository/models/([a-zA-Z0-9_-]+)/load",
              LoadHandler, dict(models=self.registered_models)),
-            (r"/v1/models/([a-zA-Z0-9_-]+)/unload",
+            (r"/v2/repository/models/([a-zA-Z0-9_-]+)/unload",
              UnloadHandler, dict(models=self.registered_models)),
         ])
 
