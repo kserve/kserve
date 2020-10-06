@@ -700,7 +700,7 @@ func schema_pkg_apis_serving_v1alpha2_PredictorSpec(ref common.ReferenceCallback
 					},
 					"triton": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Spec for Triton Inference Server (https://github.com/NVIDIA/triton-inference-server)",
+							Description: "Spec for Triton Inference Server (https://github.com/triton-inference-server/server)",
 							Ref:         ref("./pkg/apis/serving/v1alpha2.TritonSpec"),
 						},
 					},
