@@ -47,6 +47,7 @@ kubectl apply -f ./install/$TAG/kfserving.yaml --validate=false
 KFServing can also be installed standalone in `kubeflow` namespace.
 ```
 TAG=v0.4.0
+git checkout tags/$TAG
 kubectl kustomize ./config/overlays/kubeflow | sed s/:latest/:$TAG/ | kubectl apply -f -
 ```
 
