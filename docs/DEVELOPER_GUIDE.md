@@ -308,3 +308,28 @@ It`s a red herring. To resolve it, please ensure you have logged into dockerhub 
 ```
 
 Please make sure not to deploy the inferenceservice in the `kfserving-system` or other namespaces where namespace has  `control-plane` as a label. The `storage-initializer` init container does not get injected for deployments in those namespaces since they do not go through the mutating webhook.
+
+6. Older version of [controller-tools](https://github.com/kubernetes-sigs/controller-tools) does not allow generators to run successfully:
+
+```
+% make deploy
+/Users/theofpa/go/bin/controller-gen "crd:maxDescLen=0" paths=./pkg/apis/serving/... output:crd:dir=config/crd
+/usr/local/Cellar/go/1.15.2/libexec/src/net/url/url.go:359:2: encountered struct field "Scheme" without JSON tag in type "URL"
+/usr/local/Cellar/go/1.15.2/libexec/src/net/url/url.go:360:2: encountered struct field "Opaque" without JSON tag in type "URL"
+/usr/local/Cellar/go/1.15.2/libexec/src/net/url/url.go:361:2: encountered struct field "User" without JSON tag in type "URL"
+/usr/local/Cellar/go/1.15.2/libexec/src/net/url/url.go:362:2: encountered struct field "Host" without JSON tag in type "URL"
+/usr/local/Cellar/go/1.15.2/libexec/src/net/url/url.go:363:2: encountered struct field "Path" without JSON tag in type "URL"
+/usr/local/Cellar/go/1.15.2/libexec/src/net/url/url.go:364:2: encountered struct field "RawPath" without JSON tag in type "URL"
+/usr/local/Cellar/go/1.15.2/libexec/src/net/url/url.go:365:2: encountered struct field "ForceQuery" without JSON tag in type "URL"
+/usr/local/Cellar/go/1.15.2/libexec/src/net/url/url.go:366:2: encountered struct field "RawQuery" without JSON tag in type "URL"
+/usr/local/Cellar/go/1.15.2/libexec/src/net/url/url.go:367:2: encountered struct field "Fragment" without JSON tag in type "URL"
+/usr/local/Cellar/go/1.15.2/libexec/src/net/url/url.go:368:2: encountered struct field "RawFragment" without JSON tag in type "URL"
+/Users/theofpa/go/pkg/mod/knative.dev/pkg@v0.0.0-20191217184203-cf220a867b3d/apis/volatile_time.go:26:2: encountered struct field "Inner" without JSON tag in type "VolatileTime"
+Error: not all generators ran successfully
+run `controller-gen crd:maxDescLen=0 paths=./pkg/apis/serving/... output:crd:dir=config/crd -w` to see all available markers, or `controller-gen crd:maxDescLen=0 paths=./pkg/apis/serving/... output:crd:dir=config/crd -h` for usage
+make: *** [manifests] Error 1
+
+% controller-gen --version
+Version: v0.3.0
+```
+Deleting $GOPATH/bin/controller-gen helps to resolve this issue, as Makefile will fetch the correct version.
