@@ -44,12 +44,6 @@ For Kubernetes 1.14/1.15 users
 TAG=v0.4.0
 kubectl apply -f ./install/$TAG/kfserving.yaml --validate=false
 ```
-KFServing can also be installed standalone in `kubeflow` namespace.
-```
-TAG=v0.4.0
-git checkout tags/$TAG
-kubectl kustomize ./config/overlays/kubeflow | sed s/:latest/:$TAG/ | kubectl apply -f -
-```
 
 KFServing uses pod mutator or [mutating admission webhooks](https://kubernetes.io/blog/2019/03/21/a-guide-to-kubernetes-admission-controllers/) to inject the storage initializer component of KFServing. By default all the pods in namespaces which are not labelled with `control-plane` label go through the pod mutator.
 This can cause problems and interfere with Kubernetes control panel when KFServing pod mutator webhook is not in ready state yet.
