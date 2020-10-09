@@ -31,7 +31,7 @@ Then, we can install and run the [PyTorch Server](../../../python/pytorchserver)
 Note: Currently KFServing supports PyTorch models saved using [state_dict method](https://pytorch.org/tutorials/beginner/saving_loading_models.html#saving-loading-model-for-inference), PyTorch's recommended way of saving models for inference. The KFServing interface for PyTorch expects users to upload the model_class_file in same location as the PyTorch model, and accepts an optional model_class_name to be passed in as a runtime input. If model class name is not specified, we use 'PyTorchModel' as the default class name. The current interface may undergo changes as we evolve this to support PyTorch models saved using other methods as well.
 
 ```shell
-python -m pytorchserver --model_dir ./ --model_name pytorchmodel --model_class_name Net
+python -m pytorchserver --model_dir `pwd` --model_name pytorchmodel --model_class_name Net
 ```
 
 We can also use the inbuilt PyTorch support for sample datasets and do some simple predictions
