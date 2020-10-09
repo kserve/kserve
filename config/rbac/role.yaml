@@ -94,6 +94,18 @@ rules:
 - apiGroups:
   - networking.istio.io
   resources:
+  - virtualservices/finalizers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - networking.istio.io
+  resources:
   - virtualservices/status
   verbs:
   - get
@@ -103,6 +115,18 @@ rules:
   - serving.knative.dev
   resources:
   - services
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - serving.knative.dev
+  resources:
+  - services/finalizers
   verbs:
   - create
   - delete
