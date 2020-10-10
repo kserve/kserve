@@ -41,7 +41,8 @@ generatorOptions:
 # kfserving namespace in webhook configurations
 configMapGenerator:
   - name: kfserving-config
-    env: params.env
+    envs: 
+    - params.env
 vars:
 - name: ingressGateway
   objref:
