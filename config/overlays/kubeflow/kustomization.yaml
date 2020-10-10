@@ -20,4 +20,5 @@ generatorOptions:
 configMapGenerator:
   - name: kfserving-config
     behavior: replace
-    env: params.env
+    envs: 
+    - params.env
