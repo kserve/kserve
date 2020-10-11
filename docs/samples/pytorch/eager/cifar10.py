@@ -91,3 +91,8 @@ if __name__ == "__main__":
 
     # Save model
     torch.save(net.state_dict(), "model.pt")
+
+    # Save torchscript model
+    example = torch.rand(1, 3, 32, 32) 
+    traced_script_module = torch.jit.trace(net, example)
+    traced_script_module.save("torchscript.pt")
