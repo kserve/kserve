@@ -13,22 +13,24 @@
 # limitations under the License.
 
 import glob
+import gzip
 import logging
-import tempfile
 import mimetypes
 import os
 import re
 import json
 import shutil
 import tarfile
+import tempfile
 import zipfile
-import gzip
 from urllib.parse import urlparse
+
+import boto3
 import requests
 from azure.storage.blob import BlockBlobService
 from google.auth import exceptions
 from google.cloud import storage
-from minio import Minio
+
 from kfserving.kfmodel_repository import MODEL_MOUNT_DIRS
 
 _GCS_PREFIX = "gs://"
@@ -81,25 +83,18 @@ class Storage(object):  # pylint: disable=too-few-public-methods
 
     @staticmethod
     def _download_s3(uri, temp_dir: str):
-        client = Storage._create_minio_client()
-        bucket_args = uri.replace(_S3_PREFIX, "", 1).split("/", 1)
-        bucket_name = bucket_args[0]
-        bucket_path = bucket_args[1] if len(bucket_args) > 1 else ""
-        objects = client.list_objects(bucket_name, prefix=bucket_path, recursive=True)
-        count = 0
-        for obj in objects:
-            # Replace any prefix from the object key with temp_dir
-            subdir_object_key = obj.object_name.replace(bucket_path, "", 1).strip("/")
-            # fget_object handles directory creation if does not exist
-            if not obj.is_dir:
-                if subdir_object_key == "":
-                    subdir_object_key = obj.object_name
-                client.fget_object(bucket_name, obj.object_name,
-                                   os.path.join(temp_dir, subdir_object_key))
-            count = count + 1
-        if count == 0:
-            raise RuntimeError("Failed to fetch model. \
-The path or model %s does not exist." % (uri))
+        s3 = boto3.resource('s3', endpoint_url=os.getenv("AWS_ENDPOINT_URL", "http://s3.amazonaws.com"))
+        parsed = urlparse(uri, scheme='s3')
+        bucket_name = parsed.netloc
+        bucket_path = parsed.path.lstrip('/')
+
+        bucket = s3.Bucket(bucket_name)
+        for obj in bucket.objects.filter(Prefix=bucket_path):
+            target = temp_dir + '/' + os.path.basename(obj.key)
+            print(f"Moving {obj.key} -> {temp_dir}/{os.path.basename(obj.key)}")
+            if not os.path.exists(os.path.dirname(target)):
+                os.makedirs(os.path.dirname(target), exist_ok=True)
+            bucket.download_file(obj.key, target)
 
     @staticmethod
     def _download_gcs(uri, temp_dir: str):
@@ -275,13 +270,3 @@ The path or model %s does not exist." % (uri))
 
         return out_dir
 
-    @staticmethod
-    def _create_minio_client():
-        # Adding prefixing "http" in urlparse is necessary for it to be the netloc
-        url = urlparse(os.getenv("AWS_ENDPOINT_URL", "http://s3.amazonaws.com"))
-        use_ssl = url.scheme == 'https' if url.scheme else bool(os.getenv("S3_USE_HTTPS", "true"))
-        return Minio(url.netloc,
-                     access_key=os.getenv("AWS_ACCESS_KEY_ID", ""),
-                     secret_key=os.getenv("AWS_SECRET_ACCESS_KEY", ""),
-                     region=os.getenv("AWS_REGION", ""),
-                     secure=use_ssl)
