@@ -1,4 +1,4 @@
-name: "cifar"
+name: "cifar10"
 platform: "pytorch_libtorch"
 max_batch_size: 1
 input [

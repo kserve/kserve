@@ -17,14 +17,14 @@ After models are deployed onto model servers with KFServing, you get all the fol
 - Out-of-the-box metrics
 - Ingress/Egress control
 
-| Out-of-the-box Predictor  | Exported model| HTTP | gRPC | Examples |
-| ------------- | ------------- | ------------- | ------------- | ------------- |
-| Deploy SKLearn Model on KFServer | pickled model(model.pkl, model.joblib) | :heavy_check_mark: | V2 |[SKLearn Iris](./sklearn)  |
-| Deploy XGBoost Model on KFServer | pickled model(model.bst) | :heavy_check_mark: | V2 |[XGBoost Iris](./xgboost)  |
-| Deploy Pytorch Model on KFServer  | [torch.save model(model.pt)](https://pytorch.org/docs/master/generated/torch.save.html) | :heavy_check_mark: | V2 |  [PyTorch Cifar10](./pytorch)  |
-| Deploy Tensorflow Model on TFServing  | [Tensorflow SavedModel](https://www.tensorflow.org/guide/saved_model) | :heavy_check_mark: | :heavy_check_mark: | [Tensorflow Flowers](./tensorflow)  |
-| Deploy ONNX Model on ONNXRuntime  | [Exported onnx model(model.onnx)](https://github.com/onnx/tutorials#converting-to-onnx-format) | :heavy_check_mark: | :heavy_check_mark: |[ONNX Style Model](./onnx)  |
-| Deploy Model on Triton Server | [Tensorflow,PyTorch,ONNX,TensorRT](https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/model_repository.html)| :heavy_check_mark: | :heavy_check_mark: | [Simple String](./triton/simple_string) |
+| Out-of-the-box Predictor  | Exported model| Prediction Protocol | HTTP | gRPC | Examples |
+| ------------- | ------------- | ------------- | ------------- | ------------- | ------------- |
+| Deploy SKLearn Model on KFServer | pickled model(model.pkl, model.joblib) | v1 | :heavy_check_mark: | support in v2 |[SKLearn Iris](./sklearn)  |
+| Deploy XGBoost Model on KFServer | pickled model(model.bst) | v1 | :heavy_check_mark: |  support in v2 |[XGBoost Iris](./xgboost)  |
+| Deploy Pytorch Model on KFServer  | [torch.save model(model.pt)](https://pytorch.org/docs/master/generated/torch.save.html) | v1 | :heavy_check_mark: | -- |  [PyTorch Cifar10](./pytorch)  |
+| Deploy Tensorflow Model on TFServing  | [Tensorflow SavedModel](https://www.tensorflow.org/guide/saved_model) | v1 | :heavy_check_mark: | :heavy_check_mark: | [Tensorflow Flowers](./tensorflow)  |
+| Deploy ONNX Model on ONNXRuntime  | [Exported onnx model(model.onnx)](https://github.com/onnx/tutorials#converting-to-onnx-format) | v1 | :heavy_check_mark: | :heavy_check_mark: |[ONNX Style Model](./onnx)  |
+| Deploy Model on Triton Server | [Tensorflow,Torchscript,ONNX,TensorRT](https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/model_repository.html)| v2 | :heavy_check_mark: | :heavy_check_mark: | [Cifar10 Torchscript](./pytorch/torchscript) |
 
 | Custom Predictor  | Examples |
 | ------------- |  ------------- |

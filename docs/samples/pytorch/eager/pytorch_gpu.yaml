@@ -10,10 +10,10 @@ spec:
         modelClassName: "Net"
         resources:
           limits:
-            cpu: 100m
+            cpu: 1
             memory: 1Gi
             nvidia.com/gpu: "1"
           requests:
-            cpu: 100m
+            cpu: 1
             memory: 1Gi
             nvidia.com/gpu: "1"

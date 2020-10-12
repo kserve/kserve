@@ -18,7 +18,7 @@ Convert the above model via Tracing and serialize the script module to a file
 import torch
 # Use torch.jit.trace to generate a torch.jit.ScriptModule via tracing.
 example = torch.rand(1, 3, 32, 32)
-traced_script_module = torch.jit.trace(model, example)
+traced_script_module = torch.jit.trace(net, example)
 traced_script_module.save("model.pt")
 ```
 
@@ -114,19 +114,11 @@ spec:
       env:
       - name: OMP_NUM_THREADS
         value: "1"
-      resources:
-        limits:
-          cpu: "1"
-          memory: 16Gi
-        requests:
-          cpu: "1"
-          memory: 16Gi
-    minReplicas: 1
 ```
 
 > :warning: **Setting OMP_NUM_THREADS env is critical for performance**: 
 OMP_NUM_THREADS is commonly used in numpy, PyTorch, and Tensorflow to perform multi-threaded linear algebra. 
-In multi-worker setting, we want one thread per worker instead of many threads per worker to avoid contention.
+We want one thread per worker instead of many threads per worker to avoid contention.
 
 
 Expected Output and check the readiness of the `InferenceService`
@@ -142,25 +134,33 @@ kubectl get inferenceservices torchscript-demo
 The latest Triton Inference Server already switched to use KFServing [prediction V2 protocol](https://github.com/kubeflow/kfserving/tree/master/docs/predict-api/v2), so 
 the input request needs to follow the V2 schema with the specified data type, shape.
 ```bash
-MODEL_NAME=cifar
+MODEL_NAME=cifar10
 INPUT_PATH=@./input.json
 SERVICE_HOSTNAME=$(kubectl get inferenceservice torchscript-cifar10 -o jsonpath='{.status.url}' | cut -d "/" -f 3)
 curl -v -X POST https://$SERVICE_HOSTNAME/v2/models/$MODEL_NAME/infer -d $INPUT_PATH
 ```
 expected output
-```json
-{
-  "model_name":"cifar",
-  "model_version":"1",
-  "outputs":[
-  {
-     "name":"OUTPUT__0",
-     "datatype":"FP32",
-     "shape":[1,10],
-     "data":[-0.7299326062202454,-2.186835289001465,-0.029627874493598939,2.3753483295440676,-0.3476247489452362,1.3253062963485718,0.5721136927604675,0.049311548471450809,-0.3691796362400055,-1.0804035663604737]
-  }
-  ]
-}
+```bash
+* Connected to torchscript-cifar.default.svc.cluster.local (10.51.242.87) port 80 (#0)
+> POST /v2/models/cifar10/infer HTTP/1.1
+> Host: torchscript-cifar.default.svc.cluster.local
+> User-Agent: curl/7.47.0
+> Accept: */*
+> Content-Length: 110765
+> Content-Type: application/x-www-form-urlencoded
+> Expect: 100-continue
+> 
+< HTTP/1.1 100 Continue
+* We are completely uploaded and fine
+< HTTP/1.1 200 OK
+< content-length: 315
+< content-type: application/json
+< date: Sun, 11 Oct 2020 21:26:51 GMT
+< x-envoy-upstream-service-time: 8
+< server: istio-envoy
+< 
+* Connection #0 to host torchscript-cifar.default.svc.cluster.local left intact
+{"model_name":"cifar10","model_version":"1","outputs":[{"name":"OUTPUT__0","datatype":"FP32","shape":[1,10],"data":[-2.0964810848236086,-0.13700756430625916,-0.5095657706260681,2.795621395111084,-0.5605481863021851,1.9934231042861939,1.1288187503814698,-1.4043136835098267,0.6004879474639893,-2.1237082481384279]}]}
 ```
 
 # Add transformer step before the triton inference server
@@ -188,8 +188,6 @@ logging.basicConfig(level=kfserving.constants.KFSERVING_LOGLEVEL)
 transform = transforms.Compose(
         [transforms.ToTensor(),
          transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
-
-PREDICTOR_URL_FORMAT = "http://{0}/v2/models/{1}/infer"
 
 def image_transform(instance):
     byte_array = base64.b64decode(instance['image_bytes']['b64'])
@@ -223,7 +221,6 @@ class ImageTransformer(kfserving.KFModel):
         # since we are not using the triton python client library which takes care of the reshape it is up to user to reshape the returned tensor.
         return {output["name"] : np.array(output["data"]).reshape(output["shape"]) for output in results["outputs"]} 
 ```
-Note that here we need to override `predict` because currently KFServing transformer only supports v1 protocol, while triton already uses v2 protocol.
 
 ### Build Transformer docker image
 
@@ -242,29 +239,14 @@ spec:
         env:
         - name: OMP_NUM_THREADS
           value: "1"
-        resources:
-          limits:
-            cpu: "1"
-            memory: 16Gi
-          requests:
-            cpu: "1"
-            memory: 16Gi
   transformer:
       custom:
         container:
-          image: artifactory.inf.bloomberg.com/dspuser/dsun/image-transformer-v2:v1-SNAPSHOT
-          resources:
-            limits:
-              cpu: 1
-              memory: 1Gi
-            requests:
-              cpu: 1
-              memory: 1Gi
+          image: $DOCKER_USER/image-transformer-v2:latest
           command:
             - "python"
             - "-m"
             - "image_transformer_v2"
-      minReplicas: 1
 ```
 
 ```

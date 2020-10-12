@@ -72,6 +72,7 @@ func (t *TritonSpec) GetContainer(metadata metav1.ObjectMeta, extensions *Compon
 		t.Container.Image = config.Predictors.Triton.ContainerImage + ":" + *t.RuntimeVersion
 	}
 	t.Name = constants.InferenceServiceContainerName
+	arguments = append(arguments, t.Args...)
 	t.Args = arguments
 	return &t.Container
 }
