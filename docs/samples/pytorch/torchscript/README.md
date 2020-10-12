@@ -131,13 +131,15 @@ kubectl get inferenceservices torchscript-demo
 ```
 
 ## Run a prediction with curl
+The first step is to [determine the ingress IP and ports](../../../README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
+
 The latest Triton Inference Server already switched to use KFServing [prediction V2 protocol](https://github.com/kubeflow/kfserving/tree/master/docs/predict-api/v2), so 
 the input request needs to follow the V2 schema with the specified data type, shape.
 ```bash
 MODEL_NAME=cifar10
 INPUT_PATH=@./input.json
 SERVICE_HOSTNAME=$(kubectl get inferenceservice torchscript-cifar10 -o jsonpath='{.status.url}' | cut -d "/" -f 3)
-curl -v -X POST https://$SERVICE_HOSTNAME/v2/models/$MODEL_NAME/infer -d $INPUT_PATH
+curl -v -X -H "Host: ${SERVICE_HOSTNAME}" POST https://${INGRESS_HOST}:${INGRESS_PORT}/v2/models/$MODEL_NAME/infer -d $INPUT_PATH
 ```
 expected output
 ```bash
@@ -223,6 +225,9 @@ class ImageTransformer(kfserving.KFModel):
 ```
 
 ### Build Transformer docker image
+```
+docker build -t $DOCKER_USER/image-transformer-v2:latest -f transformer.Dockerfile . --rm
+```
 
 ## Create the InferenceService with Transformer
 Please use the [YAML file](./torch_transformer.yaml) to create the InferenceService, which adds the image transformer component with the docker image built from above.
@@ -247,6 +252,11 @@ spec:
             - "python"
             - "-m"
             - "image_transformer_v2"
+          args:
+            - --model_name
+            - cifar10
+            - --protocol
+            - v2
 ```
 
 ```
@@ -277,12 +287,12 @@ The transformer does not enforce a specific schema like predictor but the genera
 ```
 ```
 SERVICE_NAME=torch-transfomer
-MODEL_NAME=cifar
+MODEL_NAME=cifar10
 INPUT_PATH=@./image.json
 
 SERVICE_HOSTNAME=$(kubectl get inferenceservice $SERVICE_NAME -o jsonpath='{.status.url}' | cut -d "/" -f 3)
 
-curl -v -X POST https://$SERVICE_HOSTNAME/v1/models/$MODEL_NAME:predict -d $INPUT_PATH
+curl -v -X POST -H "Host: ${SERVICE_HOSTNAME}" https://${INGRESS_HOST}:${INGRESS_PORT}/v2/models/$MODEL_NAME/infer -d $INPUT_PATH
 ```
 
 You should see an output similar to the one below:
