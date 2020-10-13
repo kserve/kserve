@@ -37,7 +37,7 @@ func main() {
 			panic(err)
 		}
 		sessionClient := s3.New(sess)
-		downloader.Providers[kfstorage.S3] = &storage.S3Provider{
+		downloader.Providers[kfstorage.S3] = &kfstorage.S3Provider{
 			Client: sessionClient,
 			Downloader: s3manager.NewDownloaderWithClient(sessionClient, func(d *s3manager.Downloader) {
 			}),

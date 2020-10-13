@@ -18,7 +18,7 @@ type GCSProvider struct {
 	Client mockapi.Client
 }
 
-func (p *GCSProvider) Download(modelDir string, modelName string, storageUri string) error {
+func (p *GCSProvider) DownloadModel(modelDir string, modelName string, storageUri string) error {
 	gcsUri := strings.TrimPrefix(storageUri, string(GCS))
 	path := strings.Split(gcsUri, "/")
 	ctx := context.Background()
