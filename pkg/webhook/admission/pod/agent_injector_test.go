@@ -60,6 +60,8 @@ func TestAgentInjector(t *testing.T) {
 					Annotations: map[string]string{
 						constants.AgentInternalAnnotationKey:    "true",
 						constants.AgentModelConfigAnnotationKey: "modelconfig-deployment-0",
+						constants.AgentS3endpointAnnotationKey: "gs://kfserving-samples",
+						constants.AgentModelDirAnnotationKey: "/mnt/models",
 					},
 					Labels: map[string]string{
 						"serving.kubeflow.org/inferenceservice": "sklearn",
@@ -92,14 +94,26 @@ func TestAgentInjector(t *testing.T) {
 							Resources: agentResourceRequirement,
 							VolumeMounts: []v1.VolumeMount{
 								{
+									Name:      constants.ModelDirVolumeName,
+									ReadOnly:  true,
+									MountPath: constants.ModelDir,
+								},
+								{
 									Name:      constants.ModelConfigVolumeName,
 									ReadOnly:  true,
 									MountPath: constants.ModelConfigDir,
 								},
 							},
+							Args: []string{"-s3-endpoint", "gs://kfserving-samples"},
 						},
 					},
 					Volumes: []v1.Volume{
+						{
+							Name: "model-dir",
+							VolumeSource: v1.VolumeSource{
+								EmptyDir: &v1.EmptyDirVolumeSource{},
+							},
+						},
 						{
 							Name: "model-config",
 							VolumeSource: v1.VolumeSource{
@@ -110,6 +124,7 @@ func TestAgentInjector(t *testing.T) {
 								},
 							},
 						},
+
 					},
 				},
 			},

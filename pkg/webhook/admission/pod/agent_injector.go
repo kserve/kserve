@@ -64,7 +64,7 @@ func getAgentConfigs(configMap *v1.ConfigMap) (*AgentConfig, error) {
 }
 
 func (il *AgentInjector) InjectAgent(pod *v1.Pod) error {
-	// Only inject if the required annotations are set
+	// Only inject the model agent sidecar if the required annotations are set
 	_, ok := pod.ObjectMeta.Annotations[constants.AgentInternalAnnotationKey]
 	if !ok {
 		return nil
