@@ -99,7 +99,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 	})
 
 	Context("When updating a TrainedModel", func() {
-		It("Should update a model to the model configmap", func() {
+		It("Should add the model to the model configmap", func() {
 			modelName := "model1-update"
 			parentInferenceService := modelName + "-parent"
 			modelConfigName := constants.ModelConfigName(parentInferenceService, shardId)
@@ -137,7 +137,11 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 				if err := k8sClient.Get(context.TODO(), tmKey, tmInstanceUpdate); err != nil {
 					return false
 				}
-				return true
+				if len(tmInstanceUpdate.Finalizers) > 0{
+					return true
+				} else {
+					return false
+				}
 			}, timeout).Should(BeTrue())
 
 			updatedModelUri := "s3//model2"
@@ -160,6 +164,82 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 				k8sClient.Get(ctx, configmapKey, configmapActual)
 				k8sClient.Get(ctx, tmKey, tmActual)
 
+				return configmapActual.Data
+			}, timeout, interval).Should(Equal(expected.Data))
+		})
+	})
+
+	Context("When deleting a TrainedModel", func() {
+		It("Should update the model configmap to remove model", func() {
+			modelName := "model1-delete"
+			// modelconfig-model1-delete-parent-0
+			parentInferenceService := modelName + "-parent"
+			modelConfigName := constants.ModelConfigName(parentInferenceService, shardId)
+			configmapKey := types.NamespacedName{Name: modelConfigName, Namespace: namespace}
+			tmKey := types.NamespacedName{Name: modelName, Namespace: namespace}
+			tmInstance := &v1beta1.TrainedModel{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      modelName,
+					Namespace: namespace,
+				},
+				Spec: v1beta1.TrainedModelSpec{
+					InferenceService: parentInferenceService,
+					Model: v1beta1.ModelSpec{
+						StorageURI: storageUri,
+						Framework:  framework,
+						Memory:     memory,
+					},
+				},
+			}
+
+			modelConfig := &v1.ConfigMap{
+				TypeMeta:   metav1.TypeMeta{Kind: "ConfigMap", APIVersion: "v1"},
+				ObjectMeta: metav1.ObjectMeta{Name: modelConfigName, Namespace: namespace},
+				Data: map[string]string{
+					constants.ModelConfigFileName: "",
+				},
+			}
+
+			Expect(k8sClient.Create(context.TODO(), modelConfig)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), modelConfig)
+			Expect(k8sClient.Create(context.TODO(), tmInstance)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), tmInstance)
+			//tmInstanceUpdate := &v1beta1.TrainedModel{}
+			//Verify that the model configmap is updated with the new TrainedModel
+			configmapActual := &v1.ConfigMap{}
+			tmActual := &v1beta1.TrainedModel{}
+			expected := &v1.ConfigMap{
+				TypeMeta:   metav1.TypeMeta{Kind: "ConfigMap", APIVersion: "v1"},
+				ObjectMeta: metav1.ObjectMeta{Name: modelConfigName, Namespace: namespace},
+				Data: map[string]string{
+					constants.ModelConfigFileName: `[{"modelName":"model1-delete","modelSpec":{"storageUri":"s3//model1","framework":"pytorch","memory":"1G"}}]`,
+				},
+			}
+			Eventually(func() map[string]string {
+				ctx := context.Background()
+				k8sClient.Get(ctx, configmapKey, configmapActual)
+				k8sClient.Get(ctx, tmKey, tmActual)
+
+				return configmapActual.Data
+			}, timeout, interval).Should(Equal(expected.Data))
+
+			Expect(k8sClient.Delete(context.TODO(), tmActual)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), tmActual)
+
+			// Verify that the model is removed from the configmap
+			configmapActual = &v1.ConfigMap{}
+			tmActual = &v1beta1.TrainedModel{}
+			expected = &v1.ConfigMap{
+				TypeMeta:   metav1.TypeMeta{Kind: "ConfigMap", APIVersion: "v1"},
+				ObjectMeta: metav1.ObjectMeta{Name: modelConfigName, Namespace: namespace},
+				Data: map[string]string{
+					constants.ModelConfigFileName: "[]",
+				},
+			}
+			Eventually(func() map[string]string {
+				ctx := context.Background()
+				k8sClient.Get(ctx, configmapKey, configmapActual)
+				k8sClient.Get(ctx, tmKey, tmActual)
 				return configmapActual.Data
 			}, timeout, interval).Should(Equal(expected.Data))
 		})

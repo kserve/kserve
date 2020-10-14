@@ -60,8 +60,8 @@ func TestAgentInjector(t *testing.T) {
 					Annotations: map[string]string{
 						constants.AgentInternalAnnotationKey:    "true",
 						constants.AgentModelConfigAnnotationKey: "modelconfig-deployment-0",
-						constants.AgentS3endpointAnnotationKey: "gs://kfserving-samples",
-						constants.AgentModelDirAnnotationKey: "/mnt/models",
+						constants.AgentS3endpointAnnotationKey:  "gs://kfserving-samples",
+						constants.AgentModelDirAnnotationKey:    "/mnt/models",
 					},
 					Labels: map[string]string{
 						"serving.kubeflow.org/inferenceservice": "sklearn",
@@ -124,7 +124,6 @@ func TestAgentInjector(t *testing.T) {
 								},
 							},
 						},
-
 					},
 				},
 			},
