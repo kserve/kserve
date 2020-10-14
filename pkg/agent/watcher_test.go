@@ -7,7 +7,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3iface"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/golang/protobuf/proto"
-	"github.com/kubeflow/kfserving/pkg/agent/storage"
+	"github.com/kubeflow/kfserving/pkg/agent/kfstorage"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
 	"github.com/kubeflow/kfserving/pkg/modelconfig"
 	. "github.com/onsi/ginkgo"
@@ -78,8 +78,8 @@ var _ = Describe("Watcher", func() {
 					opStats:     make(map[string]map[OpType]int),
 					Downloader: Downloader{
 						ModelDir: modelDir + "/test1",
-						Providers: map[storage.Protocol]storage.Provider{
-							storage.S3: &storage.S3Provider{
+						Providers: map[kfstorage.Protocol]kfstorage.Provider{
+							kfstorage.S3: &kfstorage.S3Provider{
 								Client:     &mockS3Client{},
 								Downloader: &mockS3Downloder{},
 							},
@@ -121,8 +121,8 @@ var _ = Describe("Watcher", func() {
 					opStats:     make(map[string]map[OpType]int),
 					Downloader: Downloader{
 						ModelDir: modelDir + "/test2",
-						Providers: map[storage.Protocol]storage.Provider{
-							storage.S3: &storage.S3Provider{
+						Providers: map[kfstorage.Protocol]kfstorage.Provider{
+							kfstorage.S3: &kfstorage.S3Provider{
 								Client:     &mockS3Client{},
 								Downloader: &mockS3Downloder{},
 							},
@@ -176,8 +176,8 @@ var _ = Describe("Watcher", func() {
 					opStats:     make(map[string]map[OpType]int),
 					Downloader: Downloader{
 						ModelDir: modelDir + "/test3",
-						Providers: map[storage.Protocol]storage.Provider{
-							storage.S3: &storage.S3Provider{
+						Providers: map[kfstorage.Protocol]kfstorage.Provider{
+							kfstorage.S3: &kfstorage.S3Provider{
 								Client:     &mockS3Client{},
 								Downloader: &mockS3Downloder{},
 							},
@@ -246,8 +246,8 @@ var _ = Describe("Watcher", func() {
 					opStats:     make(map[string]map[OpType]int),
 					Downloader: Downloader{
 						ModelDir: modelDir + "/test4",
-						Providers: map[storage.Protocol]storage.Provider{
-							storage.S3: &storage.S3Provider{
+						Providers: map[kfstorage.Protocol]kfstorage.Provider{
+							kfstorage.S3: &kfstorage.S3Provider{
 								Client:     &mockS3Client{},
 								Downloader: &mockS3FailDownloder{err: err},
 							},
