@@ -182,7 +182,7 @@ var _ = Describe("GCS Provider", func() {
 				if _, err := fmt.Fprint(w, modelContents); err != nil {
 					Fail("Failed to write contents.")
 				}
-				err := cl.Download(modelDir, modelName, modelStorageURI)
+				err := cl.DownloadModel(modelDir, modelName, modelStorageURI)
 				Expect(err).To(BeNil())
 
 				testFile := filepath.Join(modelDir, "model1/testModel1")
