@@ -29,6 +29,7 @@ class XGBoostModel(kfserving.KFModel):
         self.model_dir = model_dir
         self.nthread = nthread
         self.method = method
+        self._classifier = None
         if not booster is None:
             self._booster = booster
             self.ready = True
@@ -36,19 +37,24 @@ class XGBoostModel(kfserving.KFModel):
     def load(self) -> bool:
         model_file = os.path.join(
             kfserving.Storage.download(self.model_dir), BOOSTER_FILE)
-        self._booster = xgb.Booster(params={"nthread": self.nthread},
-                                    model_file=model_file)
+        if self.method == "predict_proba":
+            self._classifier = xgb.XGBClassifier()
+            self._classifier.load_model(model_file)
+        else:
+            self._booster = xgb.Booster(params={"nthread": self.nthread},
+                                        model_file=model_file)
         self.ready = True
         return self.ready
 
     def predict(self, request: Dict) -> Dict:
         try:
             # Use of list as input is deprecated see https://github.com/dmlc/xgboost/pull/3970
-            dmatrix = xgb.DMatrix(request["instances"], nthread=self.nthread)
+            instances = request["instances"]
+            dmatrix = xgb.DMatrix(instances, nthread=self.nthread)
             if self.method == "predict":
                 result: xgb.DMatrix = self._booster.predict(dmatrix)
             elif self.method == "predict_proba":
-                result: xgb.DMatrix = self._booster.predict_proba(dmatrix)
+                result: xgb.DMatrix = self._classifier.predict_proba(instances)
             else:
                 raise Exception("Not a valid prediction method: %s" % self.method)
             return {"predictions": result.tolist()}
