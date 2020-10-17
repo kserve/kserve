@@ -251,7 +251,7 @@
                   },
                   {
                     name: "build-agent",
-                    template: "build-batcher",
+                    template: "build-agent",
                   },
                   {
                     name: "build-custom-image-transformer",

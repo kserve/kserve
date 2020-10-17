@@ -149,14 +149,13 @@ func createKnativeService(componentMeta metav1.ObjectMeta,
 
 func addAgentAnnotations(component constants.InferenceServiceComponent, isvc *v1beta1.InferenceService, annotations map[string]string) bool {
 	if component == constants.Predictor && isvc.Spec.Predictor.GetImplementation().GetStorageUri() == nil {
-		annotations[constants.AgentInternalAnnotationKey] = "true"
+		annotations[constants.AgentShouldInjectAnnotationKey] = "true"
 		shardStrategy := memory.MemoryStrategy{}
 		for _, id := range shardStrategy.GetShard(isvc) {
 			modelConfig, err := modelconfig.CreateEmptyModelConfig(isvc, id)
 			if err == nil {
-				annotations[constants.AgentModelConfigAnnotationKey] = modelConfig.Name
-				//TODO figure out the proper way to inject s3 endpoint from s3 identity
-				annotations[constants.AgentS3endpointAnnotationKey] = "gs://kfserving-samples"
+				annotations[constants.AgentModelConfigVolumeNameAnnotationKey] = modelConfig.Name
+				annotations[constants.AgentModelConfigMountPathAnnotationKey] = constants.ModelConfigDir
 				annotations[constants.AgentModelDirAnnotationKey] = constants.ModelDir
 			} else {
 				return false

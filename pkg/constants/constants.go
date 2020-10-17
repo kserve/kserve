@@ -51,9 +51,10 @@ var (
 
 // Model agent Constants
 const (
-	AgentContainerName     = "agent"
-	AgentConfigMapKeyName  = "agent"
-	AgentS3EndpointArgName = "-s3-endpoint"
+	AgentContainerName    = "agent"
+	AgentConfigMapKeyName = "agent"
+	AgentConfigDirArgName = "-config-dir"
+	AgentModelDirArgName  = "-model-dir"
 )
 
 // InferenceService Annotations
@@ -72,9 +73,9 @@ var (
 	BatcherMaxBatchSizeInternalAnnotationKey         = InferenceServiceInternalAnnotationsPrefix + "/batcher-max-batchsize"
 	BatcherMaxLatencyInternalAnnotationKey           = InferenceServiceInternalAnnotationsPrefix + "/batcher-max-latency"
 	BatcherTimeoutInternalAnnotationKey              = InferenceServiceInternalAnnotationsPrefix + "/batcher-timeout"
-	AgentInternalAnnotationKey                       = InferenceServiceInternalAnnotationsPrefix + "/agent"
-	AgentModelConfigAnnotationKey                    = InferenceServiceInternalAnnotationsPrefix + "/configDir"
-	AgentS3endpointAnnotationKey                     = InferenceServiceInternalAnnotationsPrefix + "/s3-endpoint"
+	AgentShouldInjectAnnotationKey                   = InferenceServiceInternalAnnotationsPrefix + "/agent"
+	AgentModelConfigVolumeNameAnnotationKey          = InferenceServiceInternalAnnotationsPrefix + "/configVolumeName"
+	AgentModelConfigMountPathAnnotationKey           = InferenceServiceInternalAnnotationsPrefix + "/configMountPath"
 	AgentModelDirAnnotationKey                       = InferenceServiceInternalAnnotationsPrefix + "/modelDir"
 )
 
@@ -102,9 +103,6 @@ var (
 const (
 	NvidiaGPUResourceType = "nvidia.com/gpu"
 )
-
-// DefaultModelLocalMountPath is where models will be mounted by the storage-initializer
-const DefaultModelLocalMountPath = "/mnt/models"
 
 // InferenceService Environment Variables
 const (
@@ -174,6 +172,9 @@ const (
 const (
 	InferenceServiceContainerName = "kfserving-container"
 )
+
+// DefaultModelLocalMountPath is where models will be mounted by the storage-initializer
+const DefaultModelLocalMountPath = "/mnt/models"
 
 // Multi-model InferenceService
 const (

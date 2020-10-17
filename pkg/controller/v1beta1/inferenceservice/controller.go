@@ -18,26 +18,24 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/go-logr/logr"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
+	v1beta1api "github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
+	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/components"
 	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/reconcilers/ingress"
 	modelconfig "github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/reconcilers/modelconfig"
 	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"knative.dev/pkg/apis"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"time"
-
-	"github.com/go-logr/logr"
-	v1beta1api "github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
-	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/components"
-	"k8s.io/apimachinery/pkg/runtime"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 // +kubebuilder:rbac:groups=serving.kubeflow.org,resources=inferenceservices,verbs=get;list;watch;create;update;patch;delete
@@ -110,7 +108,7 @@ func (r *InferenceServiceReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 	//Reconcile modelConfig
 	configMapReconciler := modelconfig.NewModelConfigReconciler(r.Client, r.Scheme)
 	if err := configMapReconciler.Reconcile(isvc, req); err != nil {
-		return reconcile.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
+		return reconcile.Result{}, err
 	}
 
 	if err = r.updateStatus(isvc); err != nil {

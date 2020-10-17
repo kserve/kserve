@@ -29,10 +29,10 @@ import (
 var (
 	agentConfig = &AgentConfig{
 		Image:         "gcr.io/kfserving/agent:latest",
-		CpuRequest:    BatcherDefaultCPURequest,
-		CpuLimit:      BatcherDefaultCPULimit,
-		MemoryRequest: BatcherDefaultMemoryRequest,
-		MemoryLimit:   BatcherDefaultMemoryLimit,
+		CpuRequest:    AgentDefaultCPURequest,
+		CpuLimit:      AgentDefaultCPULimit,
+		MemoryRequest: AgentDefaultMemoryRequest,
+		MemoryLimit:   AgentDefaultMemoryLimit,
 	}
 
 	agentResourceRequirement = v1.ResourceRequirements{
@@ -58,10 +58,10 @@ func TestAgentInjector(t *testing.T) {
 					Name:      "deployment",
 					Namespace: "default",
 					Annotations: map[string]string{
-						constants.AgentInternalAnnotationKey:    "true",
-						constants.AgentModelConfigAnnotationKey: "modelconfig-deployment-0",
-						constants.AgentS3endpointAnnotationKey:  "gs://kfserving-samples",
-						constants.AgentModelDirAnnotationKey:    "/mnt/models",
+						constants.AgentShouldInjectAnnotationKey:          "true",
+						constants.AgentModelConfigVolumeNameAnnotationKey: "modelconfig-deployment-0",
+						constants.AgentModelDirAnnotationKey:              "/mnt/models",
+						constants.AgentModelConfigMountPathAnnotationKey:  "/mnt/configs",
 					},
 					Labels: map[string]string{
 						"serving.kubeflow.org/inferenceservice": "sklearn",
@@ -80,7 +80,7 @@ func TestAgentInjector(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "deployment",
 					Annotations: map[string]string{
-						constants.AgentInternalAnnotationKey: "true",
+						constants.AgentShouldInjectAnnotationKey: "true",
 					},
 				},
 				Spec: v1.PodSpec{
@@ -95,16 +95,16 @@ func TestAgentInjector(t *testing.T) {
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      constants.ModelDirVolumeName,
-									ReadOnly:  true,
+									ReadOnly:  false,
 									MountPath: constants.ModelDir,
 								},
 								{
 									Name:      constants.ModelConfigVolumeName,
-									ReadOnly:  true,
+									ReadOnly:  false,
 									MountPath: constants.ModelConfigDir,
 								},
 							},
-							Args: []string{"-s3-endpoint", "gs://kfserving-samples"},
+							Args: []string{"-config-dir", "/mnt/configs", "-model-dir", "/mnt/models"},
 						},
 					},
 					Volumes: []v1.Volume{

@@ -45,7 +45,7 @@ func NewModelConfigReconciler(client client.Client, scheme *runtime.Scheme) *Mod
 	}
 }
 
-func (c *ModelConfigReconciler) Reconcile(req ctrl.Request , tm *v1beta1api.TrainedModel) error {
+func (c *ModelConfigReconciler) Reconcile(req ctrl.Request, tm *v1beta1api.TrainedModel) error {
 	log.Info("Reconciling TrainedModel", "apiVersion", tm.APIVersion, "trainedmodel", tm.Spec)
 	shardStrategy := memory.MemoryStrategy{}
 	shardId := shardStrategy.GetOrAssignShard(tm)

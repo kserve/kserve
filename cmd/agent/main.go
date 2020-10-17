@@ -10,9 +10,11 @@ import (
 	"github.com/kubeflow/kfserving/pkg/agent/storage"
 	s3credential "github.com/kubeflow/kfserving/pkg/credentials/s3"
 	"os"
+	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
 
 var (
+	log       = logf.Log.WithName("modelAgent")
 	configDir = flag.String("config-dir", "/mnt/configs", "directory for model config files")
 	modelDir  = flag.String("model-dir", "/mnt/models", "directory for model files")
 )
@@ -23,6 +25,9 @@ func main() {
 		ModelDir:  *modelDir,
 		Providers: map[storage.Protocol]storage.Provider{},
 	}
+
+	log.Info("Initializing model agent with for", "config-dir", configDir, "model-dir", modelDir)
+	log.Info("debug")
 	if endpoint, ok := os.LookupEnv(s3credential.AWSEndpointUrl); ok {
 		region, _ := os.LookupEnv(s3credential.AWSRegion)
 		sess, err := session.NewSession(&aws.Config{

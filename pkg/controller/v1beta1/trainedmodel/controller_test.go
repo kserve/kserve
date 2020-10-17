@@ -137,7 +137,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 				if err := k8sClient.Get(context.TODO(), tmKey, tmInstanceUpdate); err != nil {
 					return false
 				}
-				if len(tmInstanceUpdate.Finalizers) > 0{
+				if len(tmInstanceUpdate.Finalizers) > 0 {
 					return true
 				} else {
 					return false

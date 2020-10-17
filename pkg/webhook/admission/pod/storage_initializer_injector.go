@@ -84,7 +84,7 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 	}
 
 	// Don't inject if model agent is injected
-	if _, ok := pod.ObjectMeta.Annotations[constants.AgentInternalAnnotationKey]; ok {
+	if _, ok := pod.ObjectMeta.Annotations[constants.AgentShouldInjectAnnotationKey]; ok {
 		return nil
 	}
 
