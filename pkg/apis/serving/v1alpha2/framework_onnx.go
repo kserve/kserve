@@ -77,7 +77,7 @@ func (s *ONNXSpec) Validate(config *InferenceServicesConfig) error {
 	if err != nil {
 		return err
 	}
-	if ext := path.Ext(uri.Path); ext != ONNXFileExt || ext != "" {
+	if ext := path.Ext(uri.Path); ext != ONNXFileExt && ext != "" {
 		return fmt.Errorf("Expected storageUri file extension: %s but got %s", ONNXFileExt, ext)
 	}
 	return nil
