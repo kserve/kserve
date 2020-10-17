@@ -85,7 +85,7 @@ func (p *Explainer) Reconcile(isvc *v1beta1.InferenceService) error {
 
 	podSpec := v1.PodSpec(isvc.Spec.Explainer.PodSpec)
 	r := knative.NewKsvcReconciler(p.client, p.scheme, objectMeta, &isvc.Spec.Explainer.ComponentExtensionSpec,
-		&podSpec, isvc.Status.Components[v1beta1.ExplainerComponent], constants.Explainer, isvc)
+		&podSpec, isvc.Status.Components[v1beta1.ExplainerComponent])
 
 	if err := controllerutil.SetControllerReference(isvc, r.Service, p.scheme); err != nil {
 		return errors.Wrapf(err, "fails to set owner reference for explainer")
