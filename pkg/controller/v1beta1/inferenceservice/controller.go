@@ -17,7 +17,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-
+	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/reconcilers/ingress"
 	"github.com/pkg/errors"
@@ -154,5 +154,6 @@ func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1beta1api.InferenceService{}).
 		Owns(&knservingv1.Service{}).
+		Owns(&v1alpha3.VirtualService{}).
 		Complete(r)
 }
