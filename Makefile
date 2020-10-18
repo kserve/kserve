@@ -7,6 +7,7 @@ BATCHER_IMG ?= batcher:latest
 SKLEARN_IMG ?= sklearnserver:latest
 XGB_IMG ?= xgbserver:latest
 PYTORCH_IMG ?= pytorchserver:latest
+PMML_IMG ?= pmmlserver:latest
 ALIBI_IMG ?= alibi-explainer:latest
 STORAGE_INIT_IMG ?= storage-initializer:latest
 CRD_OPTIONS ?= "crd:maxDescLen=0"
@@ -70,6 +71,10 @@ deploy-dev-xgb: docker-push-xgb
 
 deploy-dev-pytorch: docker-push-pytorch
 	./hack/model_server_patch_dev.sh pytorch ${KO_DOCKER_REPO}/${PYTORCH_IMG}
+	kustomize build config/overlays/dev-image-config | kubectl apply --validate=false -f -
+
+deploy-dev-pmml : docker-push-pmml
+	./hack/model_server_patch_dev.sh sklearn ${KO_DOCKER_REPO}/${PMML_IMG}
 	kustomize build config/overlays/dev-image-config | kubectl apply --validate=false -f -
 
 deploy-dev-alibi: docker-push-alibi
@@ -165,31 +170,37 @@ docker-build-batcher:
 docker-push-batcher:
 	docker push ${BATCHER_IMG}
 
-docker-build-sklearn: 
+docker-build-sklearn:
 	cd python && docker build -t ${KO_DOCKER_REPO}/${SKLEARN_IMG} -f sklearn.Dockerfile .
 
 docker-push-sklearn: docker-build-sklearn
 	docker push ${KO_DOCKER_REPO}/${SKLEARN_IMG}
 
-docker-build-xgb: 
+docker-build-xgb:
 	cd python && docker build -t ${KO_DOCKER_REPO}/${XGB_IMG} -f xgb.Dockerfile .
 
 docker-push-xgb: docker-build-xgb
 	docker push ${KO_DOCKER_REPO}/${XGB_IMG}
 
-docker-build-pytorch: 
+docker-build-pytorch:
 	cd python && docker build -t ${KO_DOCKER_REPO}/${PYTORCH_IMG} -f pytorch.Dockerfile .
 
 docker-push-pytorch: docker-build-pytorch
 	docker push ${KO_DOCKER_REPO}/${PYTORCH_IMG}
 
-docker-build-alibi: 
+docker-build-pmml:
+	cd python && docker build -t ${KO_DOCKER_REPO}/${PMML_IMG} -f pmml.Dockerfile .
+
+docker-push-pmml: docker-build-pmml
+	docker push ${KO_DOCKER_REPO}/${PMML_IMG}
+
+docker-build-alibi:
 	cd python && docker build -t ${KO_DOCKER_REPO}/${ALIBI_IMG} -f alibiexplainer.Dockerfile .
 
 docker-push-alibi: docker-build-alibi
 	docker push ${KO_DOCKER_REPO}/${ALIBI_IMG}
 
-docker-build-storageInitializer: 
+docker-build-storageInitializer:
 	cd python && docker build -t ${KO_DOCKER_REPO}/${STORAGE_INIT_IMG} -f storage-initializer.Dockerfile .
 
 docker-push-storageInitializer: docker-build-storageInitializer

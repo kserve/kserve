@@ -48,6 +48,7 @@ from .models.v1alpha2_transformer_spec import V1alpha2TransformerSpec
 from .models.v1alpha2_explainer_spec import V1alpha2ExplainerSpec
 from .models.v1alpha2_py_torch_spec import V1alpha2PyTorchSpec
 from .models.v1alpha2_sk_learn_spec import V1alpha2SKLearnSpec
+from .models.v1alpha2_pmml_spec import V1alpha2PMMLSpec
 from .models.v1alpha2_logger import V1alpha2Logger
 from .models.v1alpha2_onnx_spec import V1alpha2ONNXSpec
 from .models.v1alpha2_status_configuration_spec import V1alpha2StatusConfigurationSpec
