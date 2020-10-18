@@ -60,6 +60,8 @@ type PredictorConfig struct {
 	DefaultImageVersion string `json:"defaultImageVersion"`
 	// default predictor docker image version on gpu
 	DefaultGpuImageVersion string `json:"defaultGpuImageVersion"`
+	// default predictor method
+	DefaultMethod string `json:"defaultMethod,omitempty"`
 }
 
 // +kubebuilder:object:generate=false

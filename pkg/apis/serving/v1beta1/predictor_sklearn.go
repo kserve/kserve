@@ -48,6 +48,9 @@ func (k *SKLearnSpec) Default(config *InferenceServicesConfig) {
 	if k.RuntimeVersion == nil {
 		k.RuntimeVersion = proto.String(config.Predictors.SKlearn.DefaultImageVersion)
 	}
+	if k.Method == nil {
+		k.Method = proto.String(config.Predictors.SKlearn.DefaultMethod)
+	}
 	setResourceRequirementDefaults(&k.Resources)
 }
 
@@ -57,6 +60,7 @@ func (k *SKLearnSpec) GetContainer(metadata metav1.ObjectMeta, extensions *Compo
 		fmt.Sprintf("%s=%s", constants.ArgumentModelName, metadata.Name),
 		fmt.Sprintf("%s=%s", constants.ArgumentModelDir, constants.DefaultModelLocalMountPath),
 		fmt.Sprintf("%s=%s", constants.ArgumentHttpPort, constants.InferenceServiceDefaultHttpPort),
+		fmt.Sprintf("%s=%s", constants.ArgumentMethod, s.Method),
 	}
 	if extensions.ContainerConcurrency != nil {
 		arguments = append(arguments, fmt.Sprintf("%s=%s", constants.ArgumentWorkers, strconv.FormatInt(*extensions.ContainerConcurrency, 10)))
@@ -71,4 +75,8 @@ func (k *SKLearnSpec) GetContainer(metadata metav1.ObjectMeta, extensions *Compo
 
 func (k *SKLearnSpec) GetStorageUri() *string {
 	return k.StorageURI
+}
+
+func (s *SKLearnSpec) GetMethod() string {
+	return s.Method
 }
