@@ -117,6 +117,9 @@ func CreateEmptyModelConfig(isvc *v1beta1.InferenceService, shardId int) (*v1.Co
 			Namespace: isvc.Namespace,
 			Labels:    isvc.Labels,
 		},
+		Data: map[string]string{
+			constants.ModelConfigFileName: "[]",
+		},
 	}
 	return multiModelConfigMap, nil
 }
