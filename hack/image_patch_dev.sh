@@ -60,23 +60,4 @@ data:
         "cpuRequest": "100m",
         "cpuLimit": "1"
     }
-  predictors: |-
-    {
-        "sklearn": {
-            "image": "yuzhui/sklearnserver",
-            "defaultImageVersion": "latest",
-            "supportedFrameworks": [
-              "sklearn"
-            ],
-            "multiModelServer": "false"
-        },
-        "xgboost": {
-            "image": "gcr.io/kfserving/xgbserver",
-            "defaultImageVersion": "v0.4.0",
-            "supportedFrameworks": [
-              "xgboost"
-            ],
-            "multiModelServer": "false"
-        }
-    }
 EOF

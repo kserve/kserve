@@ -35,6 +35,7 @@ _BLOB_RE = "https://(.+?).blob.core.windows.net/(.+)"
 _LOCAL_PREFIX = "file://"
 _URI_RE = "https?://(.+)/(.+)"
 _HTTP_PREFIX = "http(s)://"
+_MULTI_MODEL_DIR = "/mnt/models"
 
 class Storage(object): # pylint: disable=too-few-public-methods
     @staticmethod
@@ -63,6 +64,10 @@ class Storage(object): # pylint: disable=too-few-public-methods
             return Storage._download_local(uri, out_dir)
         elif re.search(_URI_RE, uri):
             return Storage._download_from_uri(uri, out_dir)
+        elif uri == _MULTI_MODEL_DIR:
+            # Don't need to download models at initialization time. Models will be downloaded
+            # during run time.
+            return out_dir
         else:
             raise Exception("Cannot recognize storage type for " + uri +
                             "\n'%s', '%s', '%s', and '%s' are the current available storage type." %
