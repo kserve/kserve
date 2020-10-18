@@ -165,6 +165,21 @@ expected output
 {"model_name":"cifar10","model_version":"1","outputs":[{"name":"OUTPUT__0","datatype":"FP32","shape":[1,10],"data":[-2.0964810848236086,-0.13700756430625916,-0.5095657706260681,2.795621395111084,-0.5605481863021851,1.9934231042861939,1.1288187503814698,-1.4043136835098267,0.6004879474639893,-2.1237082481384279]}]}
 ```
 
+## Run a performance test
+QPS rate `--rate` can be changed in the [perf.yaml](./perf.yaml).
+```
+kubectl create -f perf.yaml
+
+Requests      [total, rate, throughput]         6000, 100.02, 100.01
+Duration      [total, attack, wait]             59.995s, 59.99s, 4.961ms
+Latencies     [min, mean, 50, 90, 95, 99, max]  4.222ms, 5.7ms, 5.548ms, 6.384ms, 6.743ms, 9.286ms, 25.85ms
+Bytes In      [total, mean]                     1890000, 315.00
+Bytes Out     [total, mean]                     665874000, 110979.00
+Success       [ratio]                           100.00%
+Status Codes  [code:count]                      200:6000
+Error Set:
+```
+
 # Add transformer step before the triton inference server
 
 `Triton Inference Server` expects tensors as input data, often the time a pre-processing step is required before making the prediction call

@@ -126,12 +126,12 @@ QPS rate `--rate` can be changed in the [perf.yaml](./perf.yaml).
 ```
 kubectl create -f perf.yaml
 
-Requests      [total, rate, throughput]         60, 1.02, 1.02
-Duration      [total, attack, wait]             59.009s, 59s, 8.754ms
-Latencies     [min, mean, 50, 90, 95, 99, max]  7.669ms, 9.492ms, 8.297ms, 10.543ms, 11.04ms, 55.663ms, 60.599ms
-Bytes In      [total, mean]                     13620, 227.00
-Bytes Out     [total, mean]                     4298700, 71645.00
+Requests      [total, rate, throughput]         6000, 100.02, 100.01
+Duration      [total, attack, wait]             59.996s, 59.99s, 6.392ms
+Latencies     [min, mean, 50, 90, 95, 99, max]  4.792ms, 6.185ms, 5.948ms, 7.184ms, 7.64ms, 9.996ms, 38.185ms
+Bytes In      [total, mean]                     1362000, 227.00
+Bytes Out     [total, mean]                     429870000, 71645.00
 Success       [ratio]                           100.00%
-Status Codes  [code:count]                      200:60  
+Status Codes  [code:count]                      200:6000
 Error Set:
 ```
