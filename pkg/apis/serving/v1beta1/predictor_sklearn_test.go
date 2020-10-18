@@ -157,6 +157,7 @@ func TestSKLearnDefaulter(t *testing.T) {
 			},
 			expected: PredictorSpec{
 				SKLearn: &SKLearnSpec{
+					Method: "predict",
 					PredictorExtensionSpec: PredictorExtensionSpec{
 						RuntimeVersion: proto.String("v0.3.0"),
 						Container: v1.Container{
