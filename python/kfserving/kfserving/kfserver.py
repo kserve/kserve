@@ -38,7 +38,7 @@ parser.add_argument('--grpc_port', default=DEFAULT_GRPC_PORT, type=int,
                     help='The GRPC Port listened to by the model server.')
 parser.add_argument('--max_buffer_size', default=DEFAULT_MAX_BUFFER_SIZE, type=int,
                     help='The max buffer size for tornado.')
-parser.add_argument('--workers', default=0, type=int,
+parser.add_argument('--workers', default=1, type=int,
                     help='The number of works to fork')
 args, _ = parser.parse_known_args()
 
@@ -62,18 +62,27 @@ class KFServer:
         return tornado.web.Application([
             # Server Liveness API returns 200 if server is alive.
             (r"/", LivenessHandler),
+            (r"/v2/health/live", LivenessHandler),
             (r"/v1/models",
+             ListHandler, dict(models=self.registered_models)),
+            (r"/v2/models",
              ListHandler, dict(models=self.registered_models)),
             # Model Health API returns 200 if model is ready to serve.
             (r"/v1/models/([a-zA-Z0-9_-]+)",
              HealthHandler, dict(models=self.registered_models)),
+            (r"/v2/models/([a-zA-Z0-9_-]+)/status",
+             HealthHandler, dict(models=self.registered_models)),
             (r"/v1/models/([a-zA-Z0-9_-]+):predict",
+             PredictHandler, dict(models=self.registered_models)),
+            (r"/v2/models/([a-zA-Z0-9_-]+)/infer",
              PredictHandler, dict(models=self.registered_models)),
             (r"/v1/models/([a-zA-Z0-9_-]+):explain",
              ExplainHandler, dict(models=self.registered_models)),
-            (r"/v1/models/([a-zA-Z0-9_-]+)/load",
+            (r"/v2/models/([a-zA-Z0-9_-]+)/explain",
+             ExplainHandler, dict(models=self.registered_models)),
+            (r"/v2/repository/models/([a-zA-Z0-9_-]+)/load",
              LoadHandler, dict(models=self.registered_models)),
-            (r"/v1/models/([a-zA-Z0-9_-]+)/unload",
+            (r"/v2/repository/models/([a-zA-Z0-9_-]+)/unload",
              UnloadHandler, dict(models=self.registered_models)),
         ])
 

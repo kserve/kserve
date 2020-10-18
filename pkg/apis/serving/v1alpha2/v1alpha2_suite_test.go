@@ -46,6 +46,7 @@ const (
 	DefaultTritonISRuntimeVersion       = "19.05-py3"
 	DefaultONNXRuntimeVersion           = "v0.5.0"
 	DefaultAlibiExplainerRuntimeVersion = "0.2.3"
+	DefaultAIXExplainerRuntimeVersion   = "0.2.2"
 )
 
 func TestMain(m *testing.M) {

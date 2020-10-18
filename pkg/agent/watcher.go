@@ -24,8 +24,12 @@ import (
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/modelconfig"
 	"io/ioutil"
-	"log"
 	"path/filepath"
+	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
+)
+
+var (
+	log = logf.Log.WithName("modelWatcher")
 )
 
 type Watcher struct {
@@ -37,7 +41,7 @@ type Watcher struct {
 func NewWatcher(configDir string, modelDir string) Watcher {
 	modelTracker, err := SyncModelDir(modelDir)
 	if err != nil {
-		log.Fatal(err)
+		log.Error(err, "Failed to sync model dir")
 	}
 	return Watcher{
 		configDir:    configDir,
@@ -52,13 +56,15 @@ type modelWrapper struct {
 }
 
 func (w *Watcher) Start() {
+	log := logf.Log.WithName("Watcher")
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
-		log.Fatal(err)
+		log.Error(err, "Failed to create model dir watcher")
+		panic(err)
 	}
 	defer watcher.Close()
 	if err = watcher.Add(w.configDir); err != nil {
-		log.Fatal(err)
+		log.Error(err, "Failed to add watcher config dir")
 	}
 	go func() {
 		for {
@@ -75,12 +81,12 @@ func (w *Watcher) Start() {
 					symlink, _ := filepath.EvalSymlinks(eventPath)
 					file, err := ioutil.ReadFile(filepath.Join(symlink, constants.ModelConfigFileName))
 					if err != nil {
-						log.Println("Error in reading file", err)
+						log.Error(err, "Error in reading model config file")
 					} else {
 						modelConfigs := make(modelconfig.ModelConfigs, 0)
-						err = json.Unmarshal([]byte(file), &modelConfigs)
+						err = json.Unmarshal(file, &modelConfigs)
 						if err != nil {
-							log.Println("unable to marshall for", event, "with error", err)
+							log.Error(err, "Failed to unmarshall model config")
 						} else {
 							w.parseConfig(modelConfigs)
 						}
@@ -88,7 +94,7 @@ func (w *Watcher) Start() {
 				}
 			case err, ok := <-watcher.Errors:
 				if ok { // 'Errors' channel is not closed
-					log.Println("watcher error", err)
+					log.Error(err, "watcher error")
 				}
 				if !ok {
 					return
@@ -101,10 +107,11 @@ func (w *Watcher) Start() {
 		Name: filepath.Join(w.configDir, "..data"),
 		Op:   fsnotify.Create,
 	}
-	log.Println("Watching", w.configDir)
+	log.Info("Watching", w.configDir)
 }
 
 func (w *Watcher) parseConfig(modelConfigs modelconfig.ModelConfigs) {
+
 	for _, modelConfig := range modelConfigs {
 		name, spec := modelConfig.Name, modelConfig.Spec
 		existing, exists := w.modelTracker[name]
@@ -113,7 +120,10 @@ func (w *Watcher) parseConfig(modelConfigs modelconfig.ModelConfigs) {
 			w.modelTracker[name] = modelWrapper{Spec: &spec}
 			w.modelAdded(name, &spec)
 		} else if !cmp.Equal(spec, *existing.Spec) {
-			existing.Spec, existing.stale = &spec, false
+			w.modelTracker[name] = modelWrapper{
+				Spec:  existing.Spec,
+				stale: false,
+			}
 			// Changed - replace
 			w.modelRemoved(name)
 			w.modelAdded(name, &spec)
@@ -125,12 +135,17 @@ func (w *Watcher) parseConfig(modelConfigs modelconfig.ModelConfigs) {
 			delete(w.modelTracker, name)
 			w.modelRemoved(name)
 		} else {
-			wrapper.stale = true // reset for next iteration
+			// reset for next iteration
+			w.modelTracker[name] = modelWrapper{
+				Spec:  wrapper.Spec,
+				stale: true,
+			}
 		}
 	}
 }
 
 func (w *Watcher) modelAdded(name string, spec *v1beta1.ModelSpec) {
+	log.Info("adding model", "modelName", name)
 	w.ModelEvents <- ModelOp{
 		ModelName: name,
 		Op:        Add,
@@ -139,6 +154,7 @@ func (w *Watcher) modelAdded(name string, spec *v1beta1.ModelSpec) {
 }
 
 func (w *Watcher) modelRemoved(name string) {
+	log.Info("removing model", "modelName", name)
 	w.ModelEvents <- ModelOp{
 		ModelName: name,
 		Op:        Remove,

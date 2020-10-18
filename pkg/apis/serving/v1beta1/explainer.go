@@ -21,6 +21,8 @@ package v1beta1
 type ExplainerSpec struct {
 	// Spec for alibi explainer
 	Alibi *AlibiExplainerSpec `json:"alibi,omitempty"`
+	// Spec for AIX explainer
+	AIX *AIXExplainerSpec `json:"aix,omitempty"`
 	// This spec is dual purpose.
 	// 1) Users may choose to provide a full PodSpec for their custom explainer.
 	// The field PodSpec.Containers is mutually exclusive with other explainers (i.e. Alibi).
@@ -37,6 +39,7 @@ var _ Component = &ExplainerSpec{}
 func (s *ExplainerSpec) GetImplementations() []ComponentImplementation {
 	implementations := NonNilComponents([]ComponentImplementation{
 		s.Alibi,
+		s.AIX,
 	})
 	// This struct is not a pointer, so it will never be nil; include if containers are specified
 	if len(s.PodSpec.Containers) != 0 {

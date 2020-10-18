@@ -29,6 +29,7 @@ import (
 
 func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
 	return map[string]common.OpenAPIDefinition{
+		"./pkg/apis/serving/v1alpha2.AIXExplainerSpec":        schema_pkg_apis_serving_v1alpha2_AIXExplainerSpec(ref),
 		"./pkg/apis/serving/v1alpha2.AlibiExplainerSpec":      schema_pkg_apis_serving_v1alpha2_AlibiExplainerSpec(ref),
 		"./pkg/apis/serving/v1alpha2.Batcher":                 schema_pkg_apis_serving_v1alpha2_Batcher(ref),
 		"./pkg/apis/serving/v1alpha2.CustomSpec":              schema_pkg_apis_serving_v1alpha2_CustomSpec(ref),
@@ -53,6 +54,64 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"knative.dev/pkg/apis.Condition":                      schema_knativedev_pkg_apis_Condition(ref),
 		"knative.dev/pkg/apis.VolatileTime":                   schema_knativedev_pkg_apis_VolatileTime(ref),
 		"knative.dev/pkg/apis/duck/v1beta1.Addressable":       schema_pkg_apis_duck_v1beta1_Addressable(ref),
+	}
+}
+
+func schema_pkg_apis_serving_v1alpha2_AIXExplainerSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AIXExplainerSpec defines the arguments for configuring an AIX Explanation Server",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The type of AIX explainer",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"storageUri": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The location of a trained explanation model",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"runtimeVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Defaults to latest AIX Version",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"resources": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Defaults to requests and limits of 1CPU, 2Gb MEM.",
+							Ref:         ref("k8s.io/api/core/v1.ResourceRequirements"),
+						},
+					},
+					"config": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Inline custom parameter settings for explainer",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"type"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/api/core/v1.ResourceRequirements"},
 	}
 }
 
@@ -270,6 +329,12 @@ func schema_pkg_apis_serving_v1alpha2_ExplainerSpec(ref common.ReferenceCallback
 							Ref:         ref("./pkg/apis/serving/v1alpha2.AlibiExplainerSpec"),
 						},
 					},
+					"aix": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Spec for AIX explainer",
+							Ref:         ref("./pkg/apis/serving/v1alpha2.AIXExplainerSpec"),
+						},
+					},
 					"custom": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Spec for a custom explainer",
@@ -320,7 +385,7 @@ func schema_pkg_apis_serving_v1alpha2_ExplainerSpec(ref common.ReferenceCallback
 			},
 		},
 		Dependencies: []string{
-			"./pkg/apis/serving/v1alpha2.AlibiExplainerSpec", "./pkg/apis/serving/v1alpha2.Batcher", "./pkg/apis/serving/v1alpha2.CustomSpec", "./pkg/apis/serving/v1alpha2.Logger"},
+			"./pkg/apis/serving/v1alpha2.AIXExplainerSpec", "./pkg/apis/serving/v1alpha2.AlibiExplainerSpec", "./pkg/apis/serving/v1alpha2.Batcher", "./pkg/apis/serving/v1alpha2.CustomSpec", "./pkg/apis/serving/v1alpha2.Logger"},
 	}
 }
 
@@ -635,7 +700,7 @@ func schema_pkg_apis_serving_v1alpha2_PredictorSpec(ref common.ReferenceCallback
 					},
 					"triton": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Spec for Triton Inference Server (https://github.com/NVIDIA/triton-inference-server)",
+							Description: "Spec for Triton Inference Server (https://github.com/triton-inference-server/server)",
 							Ref:         ref("./pkg/apis/serving/v1alpha2.TritonSpec"),
 						},
 					},

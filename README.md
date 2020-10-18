@@ -219,8 +219,6 @@ If the default ingress gateway setup does not fit your need, you can choose to s
 ### Performance Tests
 [KFServing benchmark test comparing Knative and Kubernetes Deployment with HPA](test/benchmark/README.md)
 
-[Performance Tests](https://docs.google.com/document/d/1ss7M3cx1qD1PVpTaKTu_Y3C80JJz4nvMZlIyuZutZoE/edit#)
-
 ### Contributor Guide
 [Contributor Guide](./CONTRIBUTING.md)
 

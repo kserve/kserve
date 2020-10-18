@@ -1,3 +1,4 @@
+API rule violation: names_match,./pkg/apis/serving/v1alpha2,AIXExplainerSpec,StorageURI
 API rule violation: names_match,./pkg/apis/serving/v1alpha2,AlibiExplainerSpec,StorageURI
 API rule violation: names_match,./pkg/apis/serving/v1alpha2,ONNXSpec,StorageURI
 API rule violation: names_match,./pkg/apis/serving/v1alpha2,PredictorSpec,PyTorch

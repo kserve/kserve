@@ -20,7 +20,7 @@ import (
 )
 
 var (
-	// For versioning see https://github.com/NVIDIA/triton-inference-server/releases
+	// For versioning see https://github.com/triton-inference-server/server/releases
 	TritonISGRPCPort = int32(9000)
 	TritonISRestPort = int32(8080)
 )
