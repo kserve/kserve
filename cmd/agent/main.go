@@ -21,13 +21,14 @@ var (
 
 func main() {
 	flag.Parse()
+	logf.SetLogger(logf.ZapLogger(false))
+	//filepath.
+	log.Info("Initializing model agent with", "config-dir", configDir, "model-dir", modelDir)
 	downloader := agent.Downloader{
 		ModelDir:  *modelDir,
 		Providers: map[storage.Protocol]storage.Provider{},
 	}
 
-	log.Info("Initializing model agent with for", "config-dir", configDir, "model-dir", modelDir)
-	log.Info("debug")
 	if endpoint, ok := os.LookupEnv(s3credential.AWSEndpointUrl); ok {
 		region, _ := os.LookupEnv(s3credential.AWSRegion)
 		sess, err := session.NewSession(&aws.Config{
