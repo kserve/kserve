@@ -113,7 +113,7 @@ func TestSKLearnDefaulter(t *testing.T) {
 			SKlearn: PredictorConfig{
 				ContainerImage:      "sklearnserver",
 				DefaultImageVersion: "v0.4.0",
-				Method:              "predict",
+				DefaultMethod:       "predict",
 			},
 		},
 	}
@@ -133,9 +133,9 @@ func TestSKLearnDefaulter(t *testing.T) {
 			},
 			expected: PredictorSpec{
 				SKLearn: &SKLearnSpec{
+					Method: "predict",
 					PredictorExtensionSpec: PredictorExtensionSpec{
 						RuntimeVersion: proto.String("v0.4.0"),
-						Method:         proto.String("predict"),
 						Container: v1.Container{
 							Name: constants.InferenceServiceContainerName,
 							Resources: v1.ResourceRequirements{
@@ -152,7 +152,6 @@ func TestSKLearnDefaulter(t *testing.T) {
 				SKLearn: &SKLearnSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
 						RuntimeVersion: proto.String("v0.3.0"),
-						Method:         proto.String("predict_proba"),
 					},
 				},
 			},
@@ -160,7 +159,6 @@ func TestSKLearnDefaulter(t *testing.T) {
 				SKLearn: &SKLearnSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
 						RuntimeVersion: proto.String("v0.3.0"),
-						Method:         proto.String("predict_proba"),
 						Container: v1.Container{
 							Name: constants.InferenceServiceContainerName,
 							Resources: v1.ResourceRequirements{
@@ -203,7 +201,7 @@ func TestCreateSKLearnModelServingContainer(t *testing.T) {
 			SKlearn: PredictorConfig{
 				ContainerImage:      "someOtherImage",
 				DefaultImageVersion: "0.1.0",
-				Method:              "predict_proba",
+				DefaultMethod:       "predict",
 			},
 		},
 	}
@@ -220,10 +218,10 @@ func TestCreateSKLearnModelServingContainer(t *testing.T) {
 				Spec: InferenceServiceSpec{
 					Predictor: PredictorSpec{
 						SKLearn: &SKLearnSpec{
+							Method: "predict_proba",
 							PredictorExtensionSpec: PredictorExtensionSpec{
 								StorageURI:     proto.String("gs://someUri"),
 								RuntimeVersion: proto.String("0.1.0"),
-								Method:         proto.String("predict_proba"),
 								Container: v1.Container{
 									Resources: requestedResource,
 								},
@@ -286,10 +284,10 @@ func TestCreateSKLearnModelServingContainer(t *testing.T) {
 							ContainerConcurrency: proto.Int64(1),
 						},
 						SKLearn: &SKLearnSpec{
+							Method: "predict",
 							PredictorExtensionSpec: PredictorExtensionSpec{
 								StorageURI:     proto.String("gs://someUri"),
 								RuntimeVersion: proto.String("0.1.0"),
-								Method:         proto.String("predict"),
 								Container: v1.Container{
 									Resources: requestedResource,
 								},
