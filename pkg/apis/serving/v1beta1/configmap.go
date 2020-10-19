@@ -60,6 +60,8 @@ type PredictorConfig struct {
 	DefaultImageVersion string `json:"defaultImageVersion"`
 	// default predictor docker image version on gpu
 	DefaultGpuImageVersion string `json:"defaultGpuImageVersion"`
+	// default timeout for model serving
+	DefaultTimeout string `json:"defaultTimeout,omitempty"`
 }
 
 // +kubebuilder:object:generate=false
