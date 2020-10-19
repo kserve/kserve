@@ -144,7 +144,10 @@ func mountModelDir(pod *v1.Pod) error {
 				EmptyDir: &v1.EmptyDirVolumeSource{},
 			},
 		}
+		//Mount the model dir into agent container
 		mountVolumeToContainer(constants.AgentContainerName, pod, modelDirVolume, constants.ModelDir)
+		//Mount the model dir into model server container
+		mountVolumeToContainer(constants.InferenceServiceContainerName, pod, modelDirVolume, constants.ModelDir)
 		return nil
 	}
 	return fmt.Errorf("can not find %v label", constants.AgentModelConfigVolumeNameAnnotationKey)
