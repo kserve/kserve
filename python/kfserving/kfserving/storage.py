@@ -28,6 +28,7 @@ from azure.storage.blob import BlockBlobService
 from google.auth import exceptions
 from google.cloud import storage
 from minio import Minio
+from kfserving.kfmodel_repository import MODEL_MOUNT_DIRS
 
 _GCS_PREFIX = "gs://"
 _S3_PREFIX = "s3://"
@@ -35,7 +36,6 @@ _BLOB_RE = "https://(.+?).blob.core.windows.net/(.+)"
 _LOCAL_PREFIX = "file://"
 _URI_RE = "https?://(.+)/(.+)"
 _HTTP_PREFIX = "http(s)://"
-_MULTI_MODEL_DIR = "/mnt/models"
 
 class Storage(object): # pylint: disable=too-few-public-methods
     @staticmethod
@@ -64,9 +64,9 @@ class Storage(object): # pylint: disable=too-few-public-methods
             return Storage._download_local(uri, out_dir)
         elif re.search(_URI_RE, uri):
             return Storage._download_from_uri(uri, out_dir)
-        elif uri == _MULTI_MODEL_DIR:
-            # Don't need to download models at initialization time. Models will be downloaded
-            # during run time.
+        elif uri.startswith(MODEL_MOUNT_DIRS):
+            # Don't need to download models if this InferenceService is running in the multi-model
+            # serving mode. The model agent will download models.
             return out_dir
         else:
             raise Exception("Cannot recognize storage type for " + uri +
