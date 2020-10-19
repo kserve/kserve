@@ -69,6 +69,10 @@ spec:
                 url:
                   type: string
               type: object
+            annotations:
+              additionalProperties:
+                type: string
+              type: object
             conditions:
               items:
                 properties:
