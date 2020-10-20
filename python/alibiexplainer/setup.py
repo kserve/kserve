@@ -34,7 +34,7 @@ setup(
     install_requires=[
         "shap==0.35",
         "kfserving>=0.4.1",
-        "alibi==0.4.1",
+        "alibi==0.4.0",
         "scikit-learn>=0.20.3",
         "argparse>=1.4.0",
         "requests>=2.22.0",
