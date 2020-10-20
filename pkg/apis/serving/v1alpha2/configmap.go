@@ -53,7 +53,8 @@ type PredictorConfig struct {
 
 	DefaultImageVersion    string `json:"defaultImageVersion"`
 	DefaultGpuImageVersion string `json:"defaultGpuImageVersion"`
-	DefaultTimeout         string `json:"defaultTimeout,omitempty"`
+	// Default timeout of predictor for serving a request, in milliseconds
+	DefaultTimeout string `json:"defaultTimeout,omitempty"`
 }
 
 // +k8s:openapi-gen=false

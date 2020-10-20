@@ -60,7 +60,7 @@ type PredictorConfig struct {
 	DefaultImageVersion string `json:"defaultImageVersion"`
 	// default predictor docker image version on gpu
 	DefaultGpuImageVersion string `json:"defaultGpuImageVersion"`
-	// default timeout for model serving
+	// default timeout of predictor for serving a request, in milliseconds
 	DefaultTimeout string `json:"defaultTimeout,omitempty"`
 }
 

@@ -1066,6 +1066,7 @@ string
 </em>
 </td>
 <td>
+<p>Default timeout of predictor for serving a request, in milliseconds</p>
 </td>
 </tr>
 </tbody>
