@@ -118,6 +118,7 @@ var defaultService = &knservingv1.Service{
 									"--rest_api_port=" + v1alpha2.TensorflowServingRestPort,
 									"--model_name=mnist",
 									"--model_base_path=" + constants.DefaultModelLocalMountPath,
+									"--rest_api_timeout_in_ms=",
 								},
 								LivenessProbe: &v1.Probe{
 									Handler: v1.Handler{
@@ -177,6 +178,7 @@ var canaryService = &knservingv1.Service{
 									"--rest_api_port=" + v1alpha2.TensorflowServingRestPort,
 									"--model_name=mnist",
 									"--model_base_path=" + constants.DefaultModelLocalMountPath,
+									"--rest_api_timeout_in_ms=",
 								},
 								LivenessProbe: &v1.Probe{
 									Handler: v1.Handler{
