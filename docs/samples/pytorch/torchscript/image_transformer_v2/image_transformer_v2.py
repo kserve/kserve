@@ -38,13 +38,23 @@ def image_transform(instance):
     return res.tolist()
 
 
-class ImageTransformer(kfserving.KFModel):
-    def __init__(self, name: str, predictor_host: str):
+class ImageTransformerV2(kfserving.KFModel):
+    def __init__(self, name: str, predictor_host: str, protocol: str):
         super().__init__(name)
         self.predictor_host = predictor_host
+        self.protocol = protocol
 
     def preprocess(self, inputs: Dict) -> Dict:
-        return {'instances': [image_transform(instance) for instance in inputs['instances']]}
+        return {
+           'inputs': [
+               {
+                 'name': 'INPUT__0',
+                 'shape': [1, 3, 32, 32],
+                 'datatype': "FP32",
+                 'data': [image_transform(instance) for instance in inputs['instances']]
+               }
+            ]
+        }
 
-    def postprocess(self, outputs: Dict) -> Dict:
-        return outputs
+    def postprocess(self, results: Dict) -> Dict:
+        return {output["name"]: np.array(output["data"]).reshape(output["shape"]).tolist() for output in results["outputs"]}

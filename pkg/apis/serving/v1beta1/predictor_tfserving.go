@@ -93,6 +93,7 @@ func (t *TFServingSpec) GetContainer(metadata metav1.ObjectMeta, extensions *Com
 		t.Container.Image = config.Predictors.Tensorflow.ContainerImage + ":" + *t.RuntimeVersion
 	}
 	t.Container.Name = constants.InferenceServiceContainerName
+	arguments = append(arguments, t.Args...)
 	t.Container.Args = arguments
 	t.Container.Command = []string{TensorflowEntrypointCommand}
 	return &t.Container

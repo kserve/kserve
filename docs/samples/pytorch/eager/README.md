@@ -66,15 +66,23 @@ print(res.text)
 
 ## Create the InferenceService
 
-Apply the CRD
+Apply the `InferenceService`
 ```
+# For v1alpha2
 kubectl apply -f pytorch.yaml
+
+# For v1beta1
+kubectl apply -f pytorch_v1beta1.yaml
 ```
 
 Expected Output
 ```
 $ inferenceservice.serving.kubeflow.org/pytorch-cifar10 created
 ```
+
+> :warning: **Setting OMP_NUM_THREADS env is critical for performance**: 
+OMP_NUM_THREADS is commonly used in numpy, PyTorch, and Tensorflow to perform multi-threaded linear algebra. 
+We want one thread per worker instead of many threads per worker to avoid contention.
 
 ## Run a prediction
 The first step is to [determine the ingress IP and ports](../../../README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
@@ -90,9 +98,11 @@ curl -v -H "Host: ${SERVICE_HOSTNAME}" -d $INPUT_PATH http://${INGRESS_HOST}:${I
 You should see an output similar to the one below:
 
 ```
-> POST /models/pytorch-cifar10:predict HTTP/1.1
+*   Trying 10.51.242.87...
+* Connected to pytorch-cifar10.default.svc.cluster.local (10.51.242.87) port 80 (#0)
+> POST /v1/models/pytorch-cifar10:predict HTTP/1.1
 > Host: pytorch-cifar10.default.svc.cluster.local
-> User-Agent: curl/7.54.0
+> User-Agent: curl/7.47.0
 > Accept: */*
 > Content-Length: 110681
 > Content-Type: application/x-www-form-urlencoded
@@ -101,12 +111,27 @@ You should see an output similar to the one below:
 < HTTP/1.1 100 Continue
 * We are completely uploaded and fine
 < HTTP/1.1 200 OK
-< content-length: 221
+< content-length: 227
 < content-type: application/json; charset=UTF-8
-< date: Fri, 21 Jun 2019 04:05:39 GMT
+< date: Sun, 11 Oct 2020 21:17:04 GMT
 < server: istio-envoy
-< x-envoy-upstream-service-time: 35292
+< x-envoy-upstream-service-time: 11
 < 
+* Connection #0 to host pytorch-cifar10.default.svc.cluster.local left intact
+{"predictions": [[-1.6099599599838257, -2.6461076736450195, 0.32844460010528564, 2.4825072288513184, 0.43524596095085144, 2.3108041286468506, 1.0005676746368408, -0.42327630519866943, -0.5100945234298706, -1.7978392839431763]]}
+```
 
-{"predictions": [[-0.8955065011978149, -1.4453213214874268, 0.1515328735113144, 2.638284683227539, -1.00240159034729, 2.270702600479126, 0.22645258903503418, -0.880557119846344, 0.08783778548240662, -1.5551214218139648]]
+## Run a performance test
+QPS rate `--rate` can be changed in the [perf.yaml](./perf.yaml).
+```
+kubectl create -f perf.yaml
+
+Requests      [total, rate, throughput]         6000, 100.02, 100.01
+Duration      [total, attack, wait]             59.996s, 59.99s, 6.392ms
+Latencies     [min, mean, 50, 90, 95, 99, max]  4.792ms, 6.185ms, 5.948ms, 7.184ms, 7.64ms, 9.996ms, 38.185ms
+Bytes In      [total, mean]                     1362000, 227.00
+Bytes Out     [total, mean]                     429870000, 71645.00
+Success       [ratio]                           100.00%
+Status Codes  [code:count]                      200:6000
+Error Set:
 ```

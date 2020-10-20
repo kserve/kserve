@@ -21,6 +21,8 @@ from tornado.httpclient import AsyncHTTPClient
 
 PREDICTOR_URL_FORMAT = "http://{0}/v1/models/{1}:predict"
 EXPLAINER_URL_FORMAT = "http://{0}/v1/models/{1}:explain"
+PREDICTOR_V2_URL_FORMAT = "http://{0}/v2/models/{1}/infer"
+EXPLAINER_V2_URL_FORMAT = "http://{0}/v2/models/{1}/explain"
 
 
 # KFModel is intended to be subclassed by various components within KFServing.
@@ -29,9 +31,10 @@ class KFModel:
     def __init__(self, name: str):
         self.name = name
         self.ready = False
+        self.protocol = "v1"
         self.predictor_host = None
         self.explainer_host = None
-        # The timeout matches what is set in generated Istio resorurces.
+        # The timeout matches what is set in generated Istio resources.
         # We generally don't want things to time out at the request level here,
         # timeouts should be handled elsewhere in the system.
         self.timeout = 600
@@ -56,9 +59,11 @@ class KFModel:
     async def predict(self, request: Dict) -> Dict:
         if not self.predictor_host:
             raise NotImplementedError
-
+        predict_url = PREDICTOR_URL_FORMAT.format(self.predictor_host, self.name)
+        if self.protocol == "v2":
+            predict_url = PREDICTOR_V2_URL_FORMAT.format(self.predictor_host, self.name)
         response = await self._http_client.fetch(
-            PREDICTOR_URL_FORMAT.format(self.predictor_host, self.name),
+            predict_url,
             method='POST',
             request_timeout=self.timeout,
             body=json.dumps(request)
@@ -72,9 +77,11 @@ class KFModel:
     async def explain(self, request: Dict) -> Dict:
         if self.explainer_host is None:
             raise NotImplementedError
-
+        explain_url = EXPLAINER_URL_FORMAT.format(self.predictor_host, self.name)
+        if self.protocol == "v2":
+            explain_url = EXPLAINER_V2_URL_FORMAT.format(self.predictor_host, self.name)
         response = await self._http_client.fetch(
-            url=EXPLAINER_URL_FORMAT.format(self.explainer_host, self.name),
+            url=explain_url,
             method='POST',
             request_timeout=self.timeout,
             body=json.dumps(request)
