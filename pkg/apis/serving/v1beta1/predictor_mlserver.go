@@ -17,6 +17,8 @@ limitations under the License.
 package v1beta1
 
 import (
+	"github.com/golang/protobuf/proto"
+	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/utils"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -37,7 +39,11 @@ func (m *MLServerSpec) Validate() error {
 
 // Default sets some of the spec fields to default values if undefined
 func (m *MLServerSpec) Default(config *InferenceServicesConfig) {
-
+	m.Container.Name = constants.InferenceServiceContainerName
+	if m.RuntimeVersion == nil {
+		m.RuntimeVersion = proto.String(config.Predictors.MLServer.DefaultImageVersion)
+	}
+	setResourceRequirementDefaults(&m.Resources)
 }
 
 // GetContainers transforms the resource into a container spec
