@@ -1,10 +1,14 @@
 package v1beta1
 
 import (
+	"fmt"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var _ = Describe("MLServer predictor", func() {
@@ -62,6 +66,42 @@ var _ = Describe("MLServer predictor", func() {
 			mlserverSpec.Default(config)
 
 			Expect(*mlserverSpec.RuntimeVersion).To(Equal(customVersion))
+		})
+	})
+
+	Context("When getting the container", func() {
+		var metadata metav1.ObjectMeta
+		var extensions *ComponentExtensionSpec
+
+		BeforeEach(func() {
+			metadata = metav1.ObjectMeta{}
+			extensions = &ComponentExtensionSpec{}
+			mlserverSpec.Default(config)
+		})
+
+		It("Should set env vars and image name", func() {
+			c := mlserverSpec.GetContainer(metadata, extensions, config)
+
+			Expect(c.Env).To(ContainElements(
+				v1.EnvVar{
+					Name:  MLServerHTTPPortEnv,
+					Value: fmt.Sprint(MLServerISRestPort),
+				},
+				v1.EnvVar{
+					Name:  MLServerGRPCPortEnv,
+					Value: fmt.Sprint(MLServerISGRPCPort),
+				},
+				v1.EnvVar{
+					Name:  MLServerModelsDirEnv,
+					Value: constants.DefaultModelLocalMountPath,
+				},
+			))
+
+			Expect(c.Image).To(Equal(fmt.Sprintf(
+				"%s:%s",
+				config.Predictors.MLServer.ContainerImage,
+				*mlserverSpec.RuntimeVersion,
+			)))
 		})
 	})
 })
