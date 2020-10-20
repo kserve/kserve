@@ -59,6 +59,17 @@ data:
               "caffe2"
             ],
             "multiModelServer": "true"
+        },
+        "mlserver": {
+            "image": "seldonio/mlserver",
+            "defaultImageVersion": "0.1.1",
+            "supportedFrameworks": [
+              "sklearn",
+              "xgboost"
+            ],
+            # TODO: Switch to true once MLServer introduces support for dynamic
+            # MMS
+            "multiModelServer": "false"
         }
     }
   transformers: |-
