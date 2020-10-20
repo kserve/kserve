@@ -31,7 +31,7 @@ setup(
     python_requires='>3.4',
     packages=find_packages("aixserver"),
     install_requires=[
-        "kfserving>=0.4.0",
+        "kfserving>=0.4.1",
         "argparse >= 1.4.0",
         "numpy >= 1.8.2",
         "aix360 >= 0.1.0",

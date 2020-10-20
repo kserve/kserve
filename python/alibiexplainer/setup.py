@@ -22,7 +22,7 @@ tests_require = [
 
 setup(
     name='alibiexplainer',
-    version='0.4.0',
+    version='0.4.1',
     author_email='cc@seldon.io',
     license='../../LICENSE.txt',
     url='https://github.com/kubeflow/kfserving/python/kfserving/alibiexplainer',
@@ -33,7 +33,7 @@ setup(
     packages=find_packages("alibiexplainer"),
     install_requires=[
         "shap==0.35",
-        "kfserving>=0.4.0",
+        "kfserving>=0.4.1",
         "alibi==0.4.0",
         "scikit-learn>=0.20.3",
         "argparse>=1.4.0",
