@@ -50,4 +50,14 @@ Then go to `test/e2e`.
 
 Run `kubectl create namespace kfserving-ci-e2e-test`
 
+For KIND/minikube:
+
+* Run `export KFSERVING_INGRESS_HOST_PORT=localhost:8080`
+* In a different window run `kubectl port-forward -n istio-system svc/istio-ingressgateway 8080:80`
+* Note that not all tests will pass as the pytorch test requires gpu. These will show as pending pods at the end.
+
 Run `pytest > testresults.txt`
+
+Tests do not clean up. To re-run, first do `kubectl delete namespace kfserving-ci-e2e-test`, recreate namespace and run again.
+
+Optionally for more detailed info, in another window do `kubectl get pod -n kfserving-ci-e2e-test -w > podwatch.txt`
