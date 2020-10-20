@@ -10,6 +10,92 @@
 </p>
 Resource Types:
 <ul></ul>
+<h3 id="serving.kubeflow.org/v1alpha2.AIXExplainerSpec">AIXExplainerSpec
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#serving.kubeflow.org/v1alpha2.ExplainerSpec">ExplainerSpec</a>)
+</p>
+<p>
+<p>AIXExplainerSpec defines the arguments for configuring an AIX Explanation Server</p>
+</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>type</code></br>
+<em>
+<a href="#serving.kubeflow.org/v1alpha2.AIXExplainerType">
+AIXExplainerType
+</a>
+</em>
+</td>
+<td>
+<p>The type of AIX explainer</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>storageUri</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>The location of a trained explanation model</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>runtimeVersion</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Defaults to latest AIX Version</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>resources</code></br>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.13/#resourcerequirements-v1-core">
+Kubernetes core/v1.ResourceRequirements
+</a>
+</em>
+</td>
+<td>
+<p>Defaults to requests and limits of 1CPU, 2Gb MEM.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>config</code></br>
+<em>
+map[string]string
+</em>
+</td>
+<td>
+<p>Inline custom parameter settings for explainer</p>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="serving.kubeflow.org/v1alpha2.AIXExplainerType">AIXExplainerType
+(<code>string</code> alias)</p></h3>
+<p>
+(<em>Appears on:</em>
+<a href="#serving.kubeflow.org/v1alpha2.AIXExplainerSpec">AIXExplainerSpec</a>)
+</p>
+<p>
+</p>
 <h3 id="serving.kubeflow.org/v1alpha2.AlibiExplainerSpec">AlibiExplainerSpec
 </h3>
 <p>
@@ -422,6 +508,19 @@ AlibiExplainerSpec
 </tr>
 <tr>
 <td>
+<code>aix</code></br>
+<em>
+<a href="#serving.kubeflow.org/v1alpha2.AIXExplainerSpec">
+AIXExplainerSpec
+</a>
+</em>
+</td>
+<td>
+<p>Spec for AIX explainer</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>custom</code></br>
 <em>
 <a href="#serving.kubeflow.org/v1alpha2.CustomSpec">
@@ -469,6 +568,18 @@ DeploymentSpec
 <tr>
 <td>
 <code>alibi</code></br>
+<em>
+<a href="#serving.kubeflow.org/v1alpha2.ExplainerConfig">
+ExplainerConfig
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>aix</code></br>
 <em>
 <a href="#serving.kubeflow.org/v1alpha2.ExplainerConfig">
 ExplainerConfig
@@ -940,6 +1051,16 @@ string
 <tr>
 <td>
 <code>defaultGpuImageVersion</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>defaultTimeout</code></br>
 <em>
 string
 </em>
