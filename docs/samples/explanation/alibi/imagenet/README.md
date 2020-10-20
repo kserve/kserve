@@ -25,7 +25,7 @@ spec:
     explainer:
       alibi:
         type: AnchorImages
-        storageUri: "gs://seldon-models/tfserving/imagenet/alibi/0.4.0"
+        storageUri: "gs://seldon-models/tfserving/imagenet/alibi/0.4.1"
         config:
           batch_size: "25"
 	  stop_in_first: "True"
