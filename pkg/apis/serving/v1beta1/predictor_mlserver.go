@@ -61,7 +61,7 @@ func (m *MLServerSpec) Default(config *InferenceServicesConfig) {
 
 // GetContainers transforms the resource into a container spec
 func (m *MLServerSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig) *v1.Container {
-	// TODO: Merge env vars with existing ones
+	// TODO: Check for duplicates
 	envVars := m.getEnvVars()
 	m.Container.Env = append(envVars, m.Env...)
 
