@@ -109,7 +109,7 @@ data:
     }
   batcher: |-
     {
-        "image" : "gcr.io/kfserving/batcher:v0.4.1",
+        "image" : "kfserving/batcher:v0.4.0",
         "memoryRequest": "1Gi",
         "memoryLimit": "1Gi",
         "cpuRequest": "1",
