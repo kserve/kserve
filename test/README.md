@@ -58,6 +58,6 @@ For KIND/minikube:
 
 Run `pytest > testresults.txt`
 
-Tests do not clean up. To re-run, first do `kubectl delete namespace kfserving-ci-e2e-test`, recreate namespace and run again.
+Tests may not clean up. To re-run, first do `kubectl delete namespace kfserving-ci-e2e-test`, recreate namespace and run again.
 
 Optionally for more detailed info, in another window do `kubectl get pod -n kfserving-ci-e2e-test -w > podwatch.txt`
