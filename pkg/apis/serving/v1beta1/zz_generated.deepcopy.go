@@ -651,6 +651,11 @@ func (in *PredictorSpec) DeepCopyInto(out *PredictorSpec) {
 		*out = new(ONNXRuntimeSpec)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.MLServer != nil {
+		in, out := &in.MLServer, &out.MLServer
+		*out = new(MLServerSpec)
+		(*in).DeepCopyInto(*out)
+	}
 	in.PodSpec.DeepCopyInto(&out.PodSpec)
 	in.ComponentExtensionSpec.DeepCopyInto(&out.ComponentExtensionSpec)
 }
