@@ -19,10 +19,10 @@
 set -o errexit
 set -o nounset
 
-SWAGGER_JAR_URL="http://search.maven.org/maven2/io/swagger/swagger-codegen-cli/2.4.6/swagger-codegen-cli-2.4.6.jar"
-SWAGGER_CODEGEN_JAR="hack/python-sdk/swagger-codegen-cli.jar"
+SWAGGER_JAR_URL="https://repo1.maven.org/maven2/org/openapitools/openapi-generator-cli/4.3.1/openapi-generator-cli-4.3.1.jar"
+SWAGGER_CODEGEN_JAR="hack/python-sdk/openapi-generator-cli.jar"
 SWAGGER_CODEGEN_CONF="hack/python-sdk/swagger_config.json"
-SWAGGER_CODEGEN_FILE="pkg/apis/serving/v1alpha2/swagger.json"
+SWAGGER_CODEGEN_FILE="pkg/apis/serving/v1beta1/swagger.json"
 SDK_OUTPUT_PATH="python/kfserving"
 
 echo "Downloading the swagger-codegen JAR package ..."
@@ -32,15 +32,21 @@ then
 fi
 
 echo "Generating Python SDK for KFServing ..."
-java -jar ${SWAGGER_CODEGEN_JAR} generate -i ${SWAGGER_CODEGEN_FILE} -l python -o ${SDK_OUTPUT_PATH} -c ${SWAGGER_CODEGEN_CONF}
+java -jar ${SWAGGER_CODEGEN_JAR} generate -i ${SWAGGER_CODEGEN_FILE} -g python -o ${SDK_OUTPUT_PATH} -c ${SWAGGER_CODEGEN_CONF}
 
 # revert following files since they are diveraged from generated ones
-git checkout python/kfserving/kfserving/rest.py
 git checkout python/kfserving/README.md
 git checkout python/kfserving/kfserving/__init__.py
-git checkout python/kfserving/test/__init__.py
 git checkout python/kfserving/setup.py
 git checkout python/kfserving/requirements.txt
+
+# Update kubernetes docs link.
+K8S_IMPORT_LIST=`cat hack/python-sdk/swagger_config.json|grep "V1" | awk -F"\"" '{print $2}'`
+K8S_DOC_LINK="https://github.com/kubernetes-client/python/blob/master/kubernetes/docs"
+for item in $K8S_IMPORT_LIST; do
+    sed -i'.bak' -e "s@($item.md)@($K8S_DOC_LINK/$item.md)@g" python/kfserving/docs/*
+    rm -rf python/kfserving/docs/*.bak
+done
 
 hack/boilerplate.sh
 echo "KFServing Python SDK is generated successfully to folder ${SDK_OUTPUT_PATH}/."

@@ -77,6 +77,7 @@ type Batcher struct {
 }
 
 // InferenceService is the Schema for the InferenceServices API
+// +k8s:openapi-gen=true
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="URL",type="string",JSONPath=".status.url"

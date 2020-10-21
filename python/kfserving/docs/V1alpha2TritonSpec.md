@@ -1,5 +1,6 @@
 # V1alpha2TritonSpec
 
+TritonSpec defines arguments for configuring Triton Inference Server.
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
