@@ -21,21 +21,28 @@ from ..constants import constants
 from ..utils import utils
 
 
-def watch(name=None, namespace=None, timeout_seconds=600):
+def watch(name=None, namespace=None, timeout_seconds=600, version=constants.KFSERVING_VERSION):
     """Watch the created or patched InferenceService in the specified namespace"""
 
     if namespace is None:
         namespace = utils.get_default_target_namespace()
 
-    tbl = TableLogger(
-        columns='NAME,READY,DEFAULT_TRAFFIC,CANARY_TRAFFIC,URL',
-        colwidth={'NAME': 20, 'READY':10, 'DEFAULT_TRAFFIC':15, 'CANARY_TRAFFIC':15, 'URL': 50},
-        border=False)
+    if version == 'v1alpha2':
+        tbl = TableLogger(
+            columns='NAME,READY,DEFAULT_TRAFFIC,CANARY_TRAFFIC,URL',
+            colwidth={'NAME': 20, 'READY': 10, 'DEFAULT_TRAFFIC': 15,
+                      'CANARY_TRAFFIC': 15, 'URL': 50},
+            border=False)
+    else:
+        tbl = TableLogger(
+            columns='NAME,READY,CANARY_TRAFFIC,URL',
+            colwidth={'NAME': 20, 'READY': 10, 'TRAFFIC_PERCENT': 15, 'URL': 65},
+            border=False)
 
     stream = k8s_watch.Watch().stream(
         client.CustomObjectsApi().list_namespaced_custom_object,
         constants.KFSERVING_GROUP,
-        constants.KFSERVING_VERSION,
+        version,
         namespace,
         constants.KFSERVING_PLURAL,
         timeout_seconds=timeout_seconds)
@@ -48,15 +55,25 @@ def watch(name=None, namespace=None, timeout_seconds=600):
         else:
             if isvc.get('status', ''):
                 url = isvc['status'].get('url', '')
-                default_traffic = isvc['status'].get('traffic', '')
-                canary_traffic = isvc['status'].get('canaryTraffic', '')
+                if version == 'v1alpha2':
+                    default_traffic = isvc['status'].get('traffic', '')
+                    canary_traffic = isvc['status'].get('canaryTraffic', '')
+                else:
+                    traffic_percent = isvc['status'].get('components', {}).get(
+                        'predictor', {}).get('trafficPercent', '')
                 status = 'Unknown'
                 for condition in isvc['status'].get('conditions', {}):
                     if condition.get('type', '') == 'Ready':
                         status = condition.get('status', 'Unknown')
-                tbl(isvc_name, status, default_traffic, canary_traffic, url)
+                if version == 'v1alpha2':
+                    tbl(isvc_name, status, default_traffic, canary_traffic, url)
+                else:
+                    tbl(isvc_name, status, traffic_percent, url)
             else:
-                tbl(isvc_name, 'Unknown', '', '', '')
+                if version == 'v1alpha2':
+                    tbl(isvc_name, 'Unknown', '', '', '')
+                else:
+                    tbl(isvc_name, 'Unknown', '', '')
                 # Sleep 2 to avoid status section is not generated within a very short time.
                 time.sleep(2)
                 continue

@@ -1,5 +1,6 @@
 # KnativeVolatileTime
 
+VolatileTime wraps metav1.Time
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------

@@ -1,9 +1,10 @@
 # V1alpha2InferenceServiceStatus
 
+InferenceServiceStatus defines the observed state of InferenceService
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**address** | [**KnativeAddressable**](KnativeAddressable.md) | Addressable URL for eventing | [optional] 
+**address** | [**KnativeAddressable**](KnativeAddressable.md) |  | [optional] 
 **canary** | [**dict(str, V1alpha2StatusConfigurationSpec)**](V1alpha2StatusConfigurationSpec.md) | Statuses for the canary endpoints of the InferenceService | [optional] 
 **canary_traffic** | **int** | Traffic percentage that goes to canary services | [optional] 
 **conditions** | [**list[KnativeCondition]**](KnativeCondition.md) | Conditions the latest available observations of a resource&#39;s current state. | [optional] 
