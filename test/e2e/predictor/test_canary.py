@@ -14,6 +14,7 @@
 
 import os
 import numpy as np
+import pytest
 from kubernetes import client
 
 from kfserving import KFServingClient
@@ -32,7 +33,7 @@ from ..common.utils import KFSERVING_TEST_NAMESPACE
 # Setting config_file is required since SDK is running in a different cluster than KFServing
 KFServing = KFServingClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
 
-
+@pytest.mark.skip(reason="No need to test this for v1beta1 version.")
 def test_canary_rollout():
     service_name = 'isvc-canary'
     default_endpoint_spec = V1alpha2EndpointSpec(
