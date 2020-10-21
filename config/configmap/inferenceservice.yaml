@@ -67,8 +67,6 @@ data:
               "sklearn",
               "xgboost"
             ],
-            # TODO: Switch to true once MLServer introduces support for dynamic
-            # MMS
             "multiModelServer": "false"
         }
     }
