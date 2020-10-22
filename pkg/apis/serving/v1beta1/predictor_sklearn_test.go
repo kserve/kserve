@@ -17,6 +17,7 @@ limitations under the License.
 package v1beta1
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/golang/protobuf/proto"
@@ -230,10 +231,23 @@ func TestCreateSKLearnModelServingContainer(t *testing.T) {
 				Image:     "someOtherImage:0.1.0",
 				Name:      constants.InferenceServiceContainerName,
 				Resources: requestedResource,
-				Args: []string{
-					"--model_name=someName",
-					"--model_dir=/mnt/models",
-					"--http_port=8080",
+				Env: []v1.EnvVar{
+					{
+						Name:  constants.MLServerHTTPPortEnv,
+						Value: fmt.Sprint(constants.MLServerISRestPort),
+					},
+					{
+						Name:  constants.MLServerGRPCPortEnv,
+						Value: fmt.Sprint(constants.MLServerISGRPCPort),
+					},
+					{
+						Name:  constants.MLServerModelsDirEnv,
+						Value: constants.DefaultModelLocalMountPath,
+					},
+					{
+						Name:  constants.MLServerModelImplementationEnv,
+						Value: constants.MLServerSKLearnImplementation,
+					},
 				},
 			},
 		},
@@ -260,44 +274,23 @@ func TestCreateSKLearnModelServingContainer(t *testing.T) {
 				Image:     "customImage:0.1.0",
 				Name:      constants.InferenceServiceContainerName,
 				Resources: requestedResource,
-				Args: []string{
-					"--model_name=someName",
-					"--model_dir=/mnt/models",
-					"--http_port=8080",
-				},
-			},
-		},
-		"ContainerSpecWithContainerConcurrency": {
-			isvc: InferenceService{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "sklearn",
-				},
-				Spec: InferenceServiceSpec{
-					Predictor: PredictorSpec{
-						ComponentExtensionSpec: ComponentExtensionSpec{
-							ContainerConcurrency: proto.Int64(1),
-						},
-						SKLearn: &SKLearnSpec{
-							PredictorExtensionSpec: PredictorExtensionSpec{
-								StorageURI:     proto.String("gs://someUri"),
-								RuntimeVersion: proto.String("0.1.0"),
-								Container: v1.Container{
-									Resources: requestedResource,
-								},
-							},
-						},
+				Env: []v1.EnvVar{
+					{
+						Name:  constants.MLServerHTTPPortEnv,
+						Value: fmt.Sprint(constants.MLServerISRestPort),
 					},
-				},
-			},
-			expectedContainerSpec: &v1.Container{
-				Image:     "someOtherImage:0.1.0",
-				Name:      constants.InferenceServiceContainerName,
-				Resources: requestedResource,
-				Args: []string{
-					"--model_name=someName",
-					"--model_dir=/mnt/models",
-					"--http_port=8080",
-					"--workers=1",
+					{
+						Name:  constants.MLServerGRPCPortEnv,
+						Value: fmt.Sprint(constants.MLServerISGRPCPort),
+					},
+					{
+						Name:  constants.MLServerModelsDirEnv,
+						Value: constants.DefaultModelLocalMountPath,
+					},
+					{
+						Name:  constants.MLServerModelImplementationEnv,
+						Value: constants.MLServerSKLearnImplementation,
+					},
 				},
 			},
 		},
