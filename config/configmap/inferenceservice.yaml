@@ -24,8 +24,8 @@ data:
             "multiModelServer": "false"
         },
         "sklearn": {
-            "image": "gcr.io/kfserving/sklearnserver",
-            "defaultImageVersion": "v0.4.1",
+            "image": "seldonio/mlserver",
+            "defaultImageVersion": "v0.1.1",
             "supportedFrameworks": [
               "sklearn"
             ],
@@ -59,15 +59,6 @@ data:
               "caffe2"
             ],
             "multiModelServer": "true"
-        },
-        "mlserver": {
-            "image": "seldonio/mlserver",
-            "defaultImageVersion": "0.1.1",
-            "supportedFrameworks": [
-              "sklearn",
-              "xgboost"
-            ],
-            "multiModelServer": "false"
         }
     }
   transformers: |-
