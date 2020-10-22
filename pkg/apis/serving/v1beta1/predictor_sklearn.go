@@ -53,19 +53,30 @@ func (k *SKLearnSpec) Default(config *InferenceServicesConfig) {
 
 // GetContainer transforms the resource into a container spec
 func (k *SKLearnSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig) *v1.Container {
-	arguments := []string{
-		fmt.Sprintf("%s=%s", constants.ArgumentModelName, metadata.Name),
-		fmt.Sprintf("%s=%s", constants.ArgumentModelDir, constants.DefaultModelLocalMountPath),
-		fmt.Sprintf("%s=%s", constants.ArgumentHttpPort, constants.InferenceServiceDefaultHttpPort),
-	}
-	if extensions.ContainerConcurrency != nil {
-		arguments = append(arguments, fmt.Sprintf("%s=%s", constants.ArgumentWorkers, strconv.FormatInt(*extensions.ContainerConcurrency, 10)))
-	}
+	k.Container.Env = append(
+		k.Container.Env,
+		v1.EnvVar{
+			Name:  constants.MLServerHTTPPortEnv,
+			Value: fmt.Sprint(constants.MLServerISRestPort),
+		},
+		v1.EnvVar{
+			Name:  constants.MLServerGRPCPortEnv,
+			Value: fmt.Sprint(MLServerISGRPCPort),
+		},
+		v1.EnvVar{
+			Name:  constants.MLServerModelsDirEnv,
+			Value: constants.DefaultModelLocalMountPath,
+		},
+		v1.EnvVar{
+			Name:  constants.MLServerModelImplementationEnv,
+			Value: constants.MLServerSKLearnImplementation,
+		},
+	)
+
 	if k.Container.Image == "" {
 		k.Container.Image = config.Predictors.SKlearn.ContainerImage + ":" + *k.RuntimeVersion
 	}
-	k.Container.Name = constants.InferenceServiceContainerName
-	k.Container.Args = arguments
+
 	return &k.Container
 }
 
