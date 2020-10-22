@@ -17,7 +17,6 @@ limitations under the License.
 package v1beta1
 
 import (
-	"fmt"
 	"strconv"
 
 	"github.com/golang/protobuf/proto"
@@ -57,16 +56,18 @@ func (k *SKLearnSpec) GetContainer(metadata metav1.ObjectMeta, extensions *Compo
 		k.Container.Env,
 		v1.EnvVar{
 			Name:  constants.MLServerHTTPPortEnv,
-			Value: fmt.Sprint(constants.MLServerISRestPort),
+			Value: strconv.Itoa(int(constants.MLServerISRestPort)),
 		},
 		v1.EnvVar{
 			Name:  constants.MLServerGRPCPortEnv,
-			Value: fmt.Sprint(MLServerISGRPCPort),
+			Value: strconv.Itoa(int(constants.MLServerISGRPCPort)),
 		},
 		v1.EnvVar{
 			Name:  constants.MLServerModelsDirEnv,
 			Value: constants.DefaultModelLocalMountPath,
 		},
+		// Set SKLearn as default implementation.
+		// Can still be overriden through `model-settings.json` files.
 		v1.EnvVar{
 			Name:  constants.MLServerModelImplementationEnv,
 			Value: constants.MLServerSKLearnImplementation,
