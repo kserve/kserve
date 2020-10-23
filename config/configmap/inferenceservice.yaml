@@ -25,7 +25,7 @@ data:
         },
         "sklearn": {
             "image": "seldonio/mlserver",
-            "defaultImageVersion": "v0.1.1",
+            "defaultImageVersion": "0.1.2",
             "supportedFrameworks": [
               "sklearn"
             ],
