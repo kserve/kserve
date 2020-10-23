@@ -24,7 +24,7 @@ data:
             "multiModelServer": "false"
         },
         "sklearn": {
-            "image": "seldonio/mlserver",
+            "image": "docker.io/seldonio/mlserver",
             "defaultImageVersion": "0.1.2",
             "supportedFrameworks": [
               "sklearn"
