@@ -63,11 +63,13 @@ These can be specified through environment variables or by creating a local
 }
 ```
 
-Note that, when we deploy our model, KFServing will already inject some
-sensible defaults so that it runs out-of-the-box without any further
+Note that, when we deploy our model, **KFServing will already inject some
+sensible defaults** so that it runs out-of-the-box without any further
 configuration.
-You can still override these defaults by providing a `model-settings.json` file
-similar to the one below.
+However, you can still override these defaults by providing a
+`model-settings.json` file similar to your local one.
+You can even provide a [set of `model-settings.json` files to load multiple
+models](https://github.com/SeldonIO/MLServer/tree/master/examples/mms).
 
 ### Serving our model locally
 
@@ -92,14 +94,14 @@ metadata:
 spec:
   predictor:
     sklearn:
-      storageUri: "gs://kfserving-samples/models/sklearn/iris"
+      storageUri: "gs://seldon-models/sklearn/iris"
 ```
 
 Note that this makes the following assumptions:
 
 - Your model weights (i.e. your `model.joblib` file) have already been uploaded
   to a "model repository" (GCS in this example) and can be accessed as
-  `gs://kfserving-samples/models/sklearn/iris`.
+  `gs://seldon-models/sklearn/iris`.
 - There is a K8s cluster available, accessible through `kubectl`.
 - KFServing has already been [installed in your
   cluster](https://github.com/kubeflow/kfserving/#install-kfserving).
