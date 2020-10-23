@@ -1,0 +1,74 @@
+# Predict on a InferenceService using a Custom Torchserve Image
+
+## Setup
+
+1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/#install-kfserving).
+2. Your cluster's Istio Ingress gateway must be [network accessible](https://istio.io/latest/docs/tasks/traffic-management/ingress/ingress-control/).
+
+## Build and push the sample Docker Image
+
+The custom torchserve image is wrapped with model inside the container and serves it with KFServing.
+
+In this example we use Docker to build the torchserve image with marfile and config.properties into a container. To build and push with Docker Hub, run these commands replacing {username} with your Docker Hub username:
+
+```
+# Build the container on your local machine
+docker build -t {username}/torchserve-custom .
+
+# Push the container to docker registry
+docker push {username}/torchserve-custom
+```
+
+## Create the InferenceService
+
+In the `torchserve-custom.yaml` file edit the container image and replace {username} with your Docker Hub username.
+
+Apply the CRD
+
+```
+kubectl apply -f torchserve-custom.yaml
+```
+
+Expected Output
+
+```
+$ inferenceservice.serving.kubeflow.org/torchserve-custom created
+```
+
+## Run a prediction
+The first step is to [determine the ingress IP and ports](../../../../README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
+
+```
+MODEL_NAME=torchserve-custom
+SERVICE_HOSTNAME=$(kubectl get route ${MODEL_NAME}-predictor-default -n <namespace> -o jsonpath='{.status.url}' | cut -d "/" -f 3)
+
+curl -v -H "Host: ${SERVICE_HOSTNAME}" http://${INGRESS_HOST}:${INGRESS_PORT}/predictions/mnist
+```
+
+Expected Output
+
+```
+*   Trying 52.89.19.61...
+* Connected to a881f5a8c676a41edbccdb0a394a80d6-2069247558.us-west-2.elb.amazonaws.com (52.89.19.61) port 80 (#0)
+> PUT /predictions/mnist HTTP/1.1
+> Host: torchserve-custom.kfserving-test.example.com
+> User-Agent: curl/7.47.0
+> Accept: */*
+> Content-Length: 272
+> Expect: 100-continue
+> 
+< HTTP/1.1 100 Continue
+* We are completely uploaded and fine
+< HTTP/1.1 200 OK
+< cache-control: no-cache; no-store, must-revalidate, private
+< content-length: 1
+< date: Fri, 23 Oct 2020 13:01:09 GMT
+< expires: Thu, 01 Jan 1970 00:00:00 UTC
+< pragma: no-cache
+< x-request-id: 8881f2b9-462e-4e2d-972f-90b4eb083e53
+< x-envoy-upstream-service-time: 5018
+< server: istio-envoy
+< 
+* Connection #0 to host a881f5a8c676a41edbccdb0a394a80d6-2069247558.us-west-2.elb.amazonaws.com left intact
+0
+```
