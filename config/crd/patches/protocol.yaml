@@ -1,0 +1,23 @@
+- op: add
+  path: /spec/validation/openAPIV3Schema/properties/spec/properties/canary/properties/explainer/properties/custom/properties/container/properties/ports/items/required/1
+  value: protocol
+
+- op: add
+  path:  /spec/validation/openAPIV3Schema/properties/spec/properties/canary/properties/predictor/properties/custom/properties/container/properties/ports/items/required/1
+  value: protocol
+
+- op: add
+  path:  /spec/validation/openAPIV3Schema/properties/spec/properties/canary/properties/transformer/properties/custom/properties/container/properties/ports/items/required/1
+  value: protocol
+
+- op: add
+  path:  /spec/validation/openAPIV3Schema/properties/spec/properties/default/properties/explainer/properties/custom/properties/container/properties/ports/items/required/1
+  value: protocol
+
+- op: add
+  path:  /spec/validation/openAPIV3Schema/properties/spec/properties/default/properties/predictor/properties/custom/properties/container/properties/ports/items/required/1
+  value: protocol
+
+- op: add
+  path:  /spec/validation/openAPIV3Schema/properties/spec/properties/default/properties/transformer/properties/custom/properties/container/properties/ports/items/required/1
+  value: protocol
