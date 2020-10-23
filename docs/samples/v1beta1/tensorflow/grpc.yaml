@@ -9,3 +9,4 @@ spec:
       ports:
         - containerPort: 9000
           name: h2c
+          protocol: TCP
