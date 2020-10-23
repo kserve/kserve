@@ -256,6 +256,10 @@ func TestCreateSKLearnModelServingContainer(t *testing.T) {
 						Name:  constants.MLServerModelVersionEnv,
 						Value: constants.MLServerModelVersionDefault,
 					},
+					{
+						Name:  constants.MLServerModelURIEnv,
+						Value: constants.DefaultModelLocalMountPath,
+					},
 				},
 			},
 		},
@@ -306,6 +310,10 @@ func TestCreateSKLearnModelServingContainer(t *testing.T) {
 					{
 						Name:  constants.MLServerModelVersionEnv,
 						Value: constants.MLServerModelVersionDefault,
+					},
+					{
+						Name:  constants.MLServerModelURIEnv,
+						Value: constants.DefaultModelLocalMountPath,
 					},
 				},
 			},
