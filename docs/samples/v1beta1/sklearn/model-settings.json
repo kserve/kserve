@@ -1,5 +1,5 @@
 {
-  "name": "iris-classifier",
+  "name": "sklearn-iris",
   "version": "v1.0.0",
   "implementation": "mlserver.models.SKLearnModel"
 }
