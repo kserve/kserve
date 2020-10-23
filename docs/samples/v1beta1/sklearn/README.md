@@ -162,7 +162,7 @@ The output will be something similar to:
   "model_version": "v1.0.0",
   "outputs": [
     {
-      "data": [1, 1],
+      "data": [1, 2],
       "datatype": "FP32",
       "name": "predict",
       "parameters": null,
