@@ -248,6 +248,14 @@ func TestCreateSKLearnModelServingContainer(t *testing.T) {
 						Name:  constants.MLServerModelImplementationEnv,
 						Value: constants.MLServerSKLearnImplementation,
 					},
+					{
+						Name:  constants.MLServerModelNameEnv,
+						Value: "sklearn",
+					},
+					{
+						Name:  constants.MLServerModelVersionEnv,
+						Value: constants.MLServerModelVersionDefault,
+					},
 				},
 			},
 		},
@@ -291,6 +299,14 @@ func TestCreateSKLearnModelServingContainer(t *testing.T) {
 						Name:  constants.MLServerModelImplementationEnv,
 						Value: constants.MLServerSKLearnImplementation,
 					},
+					{
+						Name:  constants.MLServerModelNameEnv,
+						Value: "sklearn",
+					},
+					{
+						Name:  constants.MLServerModelVersionEnv,
+						Value: constants.MLServerModelVersionDefault,
+					},
 				},
 			},
 		},
@@ -299,7 +315,7 @@ func TestCreateSKLearnModelServingContainer(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			predictor := scenario.isvc.Spec.Predictor.GetImplementation()
 			predictor.Default(&config)
-			res := predictor.GetContainer(metav1.ObjectMeta{Name: "someName"}, &scenario.isvc.Spec.Predictor.ComponentExtensionSpec, &config)
+			res := predictor.GetContainer(scenario.isvc.ObjectMeta, &scenario.isvc.Spec.Predictor.ComponentExtensionSpec, &config)
 			if !g.Expect(res).To(gomega.Equal(scenario.expectedContainerSpec)) {
 				t.Errorf("got %q, want %q", res, scenario.expectedContainerSpec)
 			}
