@@ -66,12 +66,12 @@ func (k *SKLearnSpec) GetContainer(metadata metav1.ObjectMeta, extensions *Compo
 			Name:  constants.MLServerModelsDirEnv,
 			Value: constants.DefaultModelLocalMountPath,
 		},
-		// Set SKLearn as default implementation.
-		// Can still be overriden through `model-settings.json` files.
-		v1.EnvVar{
-			Name:  constants.MLServerModelImplementationEnv,
-			Value: constants.MLServerSKLearnImplementation,
-		},
+	)
+
+	// Append fallbacks for model settings
+	k.Container.Env = append(
+		k.Container.Env,
+		k.getDefaults(metadata)...,
 	)
 
 	if k.Container.Image == "" {
@@ -79,6 +79,25 @@ func (k *SKLearnSpec) GetContainer(metadata metav1.ObjectMeta, extensions *Compo
 	}
 
 	return &k.Container
+}
+
+func (k *SKLearnSpec) getDefaults(metadata metav1.ObjectMeta) []v1.EnvVar {
+	// These env vars set default parameters that can always be overriden
+	// individually through `model-settings.json` config files
+	return []v1.EnvVar{
+		v1.EnvVar{
+			Name:  constants.MLServerModelImplementationEnv,
+			Value: constants.MLServerSKLearnImplementation,
+		},
+		v1.EnvVar{
+			Name:  constants.MLServerModelNameEnv,
+			Value: metadata.Name,
+		},
+		v1.EnvVar{
+			Name:  constants.MLServerModelVersionEnv,
+			Value: constants.MLServerModelVersionDefault,
+		},
+	}
 }
 
 func (k *SKLearnSpec) GetStorageUri() *string {
