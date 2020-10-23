@@ -118,7 +118,7 @@ kubectl apply -f ./sklearn.yaml
 We can now test our deployed model by sending a sample request.
 
 Note that this request **needs to follow the [V2 Dataplane
-protocol**](../../../predict-api/v2).
+protocol](../../../predict-api/v2)**.
 You can see an example payload below:
 
 ```json
@@ -141,7 +141,7 @@ Now, assuming that our ingress can be accessed at
 `${INGRESS_HOST}:${INGRESS_PORT}`, we can use `curl` to send our inference
 request as:
 
-> You can follow [these instructions](../../../README.md#determine-the-ingress-ip-and-ports) to find
+> You can follow [these instructions](../../../../README.md#determine-the-ingress-ip-and-ports) to find
 > out your ingress IP and port.
 
 ```bash
