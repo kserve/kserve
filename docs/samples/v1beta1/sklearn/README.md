@@ -57,7 +57,7 @@ These can be specified through environment variables or by creating a local
 
 ```json
 {
-  "name": "sklearn-iris,
+  "name": "sklearn-iris",
   "version": "v1.0.0",
   "implementation": "mlserver.models.SKLearnModel"
 }
