@@ -99,7 +99,8 @@ type PredictorSpec struct {
 	// Spec for ONNX runtime (https://github.com/microsoft/onnxruntime)
 	ONNX *ONNXSpec `json:"onnx,omitempty"`
 	// Spec for PyTorch predictor
-	PyTorch *PyTorchSpec `json:"pytorch,omitempty"`
+	PyTorch      *PyTorchSpec  `json:"pytorch,omitempty"`
+	ApulisVision *TensorRTSpec `json:"apulisVision,omitempty"`
 
 	DeploymentSpec `json:",inline"`
 }

@@ -107,6 +107,9 @@ func getPredictor(predictorSpec *PredictorSpec) (Predictor, error) {
 	if predictorSpec.TensorRT != nil {
 		predictors = append(predictors, predictorSpec.TensorRT)
 	}
+	if predictorSpec.ApulisVision != nil {
+		predictors = append(predictors, predictorSpec.ApulisVision)
+	}
 	if len(predictors) != 1 {
 		err := fmt.Errorf(ExactlyOnePredictorViolatedError)
 		klog.Error(err)
