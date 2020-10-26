@@ -1,1 +1,0 @@
-# MNIST Model in KFServing
