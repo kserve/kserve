@@ -26,7 +26,9 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"time"
+	"github.com/golang/protobuf/proto"
 )
 
 var _ = Describe("v1beta1 TrainedModel controller", func() {
@@ -37,11 +39,46 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 		interval = time.Millisecond * 250
 	)
 
-	namespace := "test"
-	storageUri := "s3//model1"
-	framework := "pytorch"
-	memory, _ := resource.ParseQuantity("1G")
-	shardId := 0
+	var (
+		defaultResource = v1.ResourceRequirements{
+			Limits: v1.ResourceList{
+				v1.ResourceCPU:    resource.MustParse("1"),
+				v1.ResourceMemory: resource.MustParse("2Gi"),
+			},
+			Requests: v1.ResourceList{
+				v1.ResourceCPU:    resource.MustParse("1"),
+				v1.ResourceMemory: resource.MustParse("2Gi"),
+			},
+		}
+		configs = map[string]string{
+			"predictors": `{
+               "tensorflow": {
+                  "image": "tensorflow/serving"
+               },
+               "sklearn": {
+                  "image": "kfserving/sklearnserver"
+               },
+               "xgboost": {
+                  "image": "kfserving/xgbserver"
+               }
+	         }`,
+			"explainers": `{
+               "alibi": {
+                  "image": "kfserving/alibi-explainer",
+			      "defaultImageVersion": "latest"
+               }
+            }`,
+			"ingress": `{
+               "ingressGateway": "knative-serving/knative-ingress-gateway",
+               "ingressService": "test-destination"
+            }`,
+		}
+		namespace = "test"
+		storageUri = "s3//model1"
+		framework = "pytorch"
+		memory, _ = resource.ParseQuantity("1G")
+		shardId = 0
+	)
 
 	Context("When creating a new TrainedModel", func() {
 		It("Should add a model to the model configmap", func() {
@@ -51,6 +88,48 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			configmapKey := types.NamespacedName{Name: modelConfigName, Namespace: namespace}
 			tmKey := types.NamespacedName{Name: modelName, Namespace: namespace}
 
+			// Create InferenceService configmap
+			var configMap = &v1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.InferenceServiceConfigMapName,
+					Namespace: constants.KFServingNamespace,
+				},
+				Data: configs,
+			}
+			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), configMap)
+
+			// Create the parent InferenceService
+			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: parentInferenceService, Namespace: namespace}}
+			var serviceKey = expectedRequest.NamespacedName
+			ctx := context.Background()
+			isvc := &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      serviceKey.Name,
+					Namespace: serviceKey.Namespace,
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
+							MinReplicas: v1beta1.GetIntReference(1),
+							MaxReplicas: 3,
+						},
+						Tensorflow: &v1beta1.TFServingSpec{
+							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
+								StorageURI:     &storageUri,
+								RuntimeVersion: proto.String("1.14.0"),
+								Container: v1.Container{
+									Name:      "kfserving-container",
+									Resources: defaultResource,
+								},
+							},
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
+
+			// Create modelConfig
 			modelConfig := &v1.ConfigMap{
 				TypeMeta:   metav1.TypeMeta{Kind: "ConfigMap", APIVersion: "v1"},
 				ObjectMeta: metav1.ObjectMeta{Name: modelConfigName, Namespace: namespace},
@@ -105,6 +184,48 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			modelConfigName := constants.ModelConfigName(parentInferenceService, shardId)
 			configmapKey := types.NamespacedName{Name: modelConfigName, Namespace: namespace}
 			tmKey := types.NamespacedName{Name: modelName, Namespace: namespace}
+
+			// Create InferenceService configmap
+			var configMap = &v1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.InferenceServiceConfigMapName,
+					Namespace: constants.KFServingNamespace,
+				},
+				Data: configs,
+			}
+			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), configMap)
+
+			// Create the parent InferenceService
+			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: parentInferenceService, Namespace: namespace}}
+			var serviceKey = expectedRequest.NamespacedName
+			ctx := context.Background()
+			isvc := &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      serviceKey.Name,
+					Namespace: serviceKey.Namespace,
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
+							MinReplicas: v1beta1.GetIntReference(1),
+							MaxReplicas: 3,
+						},
+						Tensorflow: &v1beta1.TFServingSpec{
+							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
+								StorageURI:     &storageUri,
+								RuntimeVersion: proto.String("1.14.0"),
+								Container: v1.Container{
+									Name:      "kfserving-container",
+									Resources: defaultResource,
+								},
+							},
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
+
 			tmInstance := &v1beta1.TrainedModel{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      modelName,
@@ -177,6 +298,48 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			modelConfigName := constants.ModelConfigName(parentInferenceService, shardId)
 			configmapKey := types.NamespacedName{Name: modelConfigName, Namespace: namespace}
 			tmKey := types.NamespacedName{Name: modelName, Namespace: namespace}
+
+			// Create InferenceService configmap
+			var configMap = &v1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.InferenceServiceConfigMapName,
+					Namespace: constants.KFServingNamespace,
+				},
+				Data: configs,
+			}
+			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), configMap)
+
+			// Create the parent InferenceService
+			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: parentInferenceService, Namespace: namespace}}
+			var serviceKey = expectedRequest.NamespacedName
+			ctx := context.Background()
+			isvc := &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      serviceKey.Name,
+					Namespace: serviceKey.Namespace,
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
+							MinReplicas: v1beta1.GetIntReference(1),
+							MaxReplicas: 3,
+						},
+						Tensorflow: &v1beta1.TFServingSpec{
+							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
+								StorageURI:     &storageUri,
+								RuntimeVersion: proto.String("1.14.0"),
+								Container: v1.Container{
+									Name:      "kfserving-container",
+									Resources: defaultResource,
+								},
+							},
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
+
 			tmInstance := &v1beta1.TrainedModel{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      modelName,

@@ -108,7 +108,7 @@ func (w *Watcher) Start() {
 	// Add a first create event to the channel to force initial sync
 	watchPath := filepath.Join(w.configDir, "../data", constants.ModelConfigFileName)
 	watcher.Events <- fsnotify.Event{
-		Name: filepath.Join(w.configDir, "..data/" + constants.ModelConfigFileName),
+		Name: filepath.Join(w.configDir, "..data/"+constants.ModelConfigFileName),
 		Op:   fsnotify.Create,
 	}
 	log.Info("Watching", "modelConfig", watchPath)
