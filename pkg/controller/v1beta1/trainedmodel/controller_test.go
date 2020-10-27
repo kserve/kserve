@@ -18,6 +18,7 @@ package trainedmodel
 
 import (
 	"context"
+	"github.com/golang/protobuf/proto"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	. "github.com/onsi/ginkgo"
@@ -28,7 +29,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"time"
-	"github.com/golang/protobuf/proto"
 )
 
 var _ = Describe("v1beta1 TrainedModel controller", func() {
@@ -73,11 +73,11 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
                "ingressService": "test-destination"
             }`,
 		}
-		namespace = "test"
+		namespace  = "test"
 		storageUri = "s3//model1"
-		framework = "pytorch"
-		memory, _ = resource.ParseQuantity("1G")
-		shardId = 0
+		framework  = "pytorch"
+		memory, _  = resource.ParseQuantity("1G")
+		shardId    = 0
 	)
 
 	Context("When creating a new TrainedModel", func() {
