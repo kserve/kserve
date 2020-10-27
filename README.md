@@ -181,10 +181,10 @@ If the default ingress gateway setup does not fit your need, you can choose to s
 - [Configure Custom Domain](https://knative.dev/docs/serving/using-a-custom-domain/)
 - [Configure HTTPS Connection](https://knative.dev/docs/serving/using-a-tls-cert/)
 
-### Setup Monitoring
-- [Metrics](https://knative.dev/docs/serving/accessing-metrics/)
+### Metrics, Tracing and Debugging
+- [AutoScaling Metrics](https://knative.dev/docs/serving/autoscaling/autoscaling-metrics/)
 - [Tracing](https://knative.dev/docs/serving/accessing-traces/)
-- [Logging](https://knative.dev/docs/serving/accessing-logs/)
+- [Debugging Knative Services](https://knative.dev/docs/serving/debugging-application-issues/)
 - [Dashboard for ServiceMesh](https://istio.io/latest/docs/tasks/observability/kiali/)
 
 ### Use KFServing SDK
