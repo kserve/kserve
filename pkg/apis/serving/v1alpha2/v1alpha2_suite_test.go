@@ -51,9 +51,9 @@ const (
 
 func TestMain(m *testing.M) {
 	t := &envtest.Environment{
-		CRDDirectoryPaths: []string{filepath.Join("..", "..", "..", "..", "config", "crd")},
+		CRDDirectoryPaths: []string{filepath.Join("..", "..", "..", "..", "config", "crd", "serving.kubeflow.org_inferenceservices.yaml"),
+			filepath.Join("..", "..", "..", "..", "config", "crd", "serving.kubeflow.org_trainedmodels.yaml")},
 	}
-
 	err := SchemeBuilder.AddToScheme(scheme.Scheme)
 
 	if err != nil {
@@ -112,7 +112,17 @@ func TestMain(m *testing.M) {
 		},
 		Data: configs,
 	}
-	if err := c.Create(context.TODO(), configMap); err != nil {
+	//Create namespace
+	kfservingNamespaceObj := &v1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: constants.KFServingNamespace,
+		},
+	}
+	if err := c.Create(context.Background(), kfservingNamespaceObj); err != nil {
+		klog.Fatal(err)
+	}
+
+	if err = c.Create(context.TODO(), configMap); err != nil {
 		klog.Fatal(err)
 	}
 	defer c.Delete(context.TODO(), configMap)

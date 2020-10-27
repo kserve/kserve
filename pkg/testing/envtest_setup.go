@@ -38,9 +38,11 @@ func SetupEnvTest() *envtest.Environment {
 		// The relative paths must be provided for each level of test nesting
 		// This code should be illegal
 		CRDDirectoryPaths: []string{
-			filepath.Join("..", "..", "..", "..", "..", "..", "config", "crd"),
+			filepath.Join("..", "..", "..", "..", "..", "..", "config", "crd", "serving.kubeflow.org_inferenceservices.yaml"),
+			filepath.Join("..", "..", "..", "..", "..", "..", "config", "crd", "serving.kubeflow.org_trainedmodels.yaml"),
 			filepath.Join("..", "..", "..", "..", "..", "..", "test", "crds"),
-			filepath.Join("..", "..", "..", "..", "config", "crd"),
+			filepath.Join("..", "..", "..", "..", "config", "crd", "serving.kubeflow.org_inferenceservices.yaml"),
+			filepath.Join("..", "..", "..", "..", "config", "crd", "serving.kubeflow.org_trainedmodels.yaml"),
 			filepath.Join("..", "..", "..", "..", "test", "crds"),
 		},
 		UseExistingCluster: proto.Bool(false),

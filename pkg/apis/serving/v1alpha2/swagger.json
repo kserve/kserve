@@ -388,6 +388,13 @@
           "description": "Addressable URL for eventing",
           "$ref": "#/definitions/knative.Addressable"
         },
+        "annotations": {
+          "description": "Annotations is additional Status fields for the Resource to save some additional State as well as convey more information to the user. This is roughly akin to Annotations on any k8s resource, just the reconciler conveying richer information outwards.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
         "canary": {
           "description": "Statuses for the canary endpoints of the InferenceService",
           "type": "object",

@@ -14,6 +14,7 @@ limitations under the License.
 package v1alpha2
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/kubeflow/kfserving/pkg/constants"
@@ -50,7 +51,7 @@ func (c *CustomSpec) ApplyDefaults(config *InferenceServicesConfig) {
 }
 
 func (c *CustomSpec) Validate(config *InferenceServicesConfig) error {
-	err := knserving.ValidateContainer(c.Container, sets.String{})
+	err := knserving.ValidateContainer(context.TODO(), c.Container, sets.String{})
 	if err != nil {
 		return fmt.Errorf("Custom container validation error: %s", err.Error())
 	}

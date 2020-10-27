@@ -74,6 +74,14 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 				},
 			}
 
+			//Create namespace
+			namespaceObj := &v1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: namespace,
+				},
+			}
+			Expect(k8sClient.Create(context.Background(), namespaceObj)).Should(Succeed())
+
 			Expect(k8sClient.Create(context.TODO(), modelConfig)).NotTo(HaveOccurred())
 			defer k8sClient.Delete(context.TODO(), modelConfig)
 			Expect(k8sClient.Create(context.TODO(), tmInstance)).NotTo(HaveOccurred())
