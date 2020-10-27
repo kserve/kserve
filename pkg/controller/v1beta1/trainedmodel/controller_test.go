@@ -73,7 +73,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
                "ingressService": "test-destination"
             }`,
 		}
-		namespace  = "test"
+		namespace  = "default"
 		storageUri = "s3//model1"
 		framework  = "pytorch"
 		memory, _  = resource.ParseQuantity("1G")
@@ -152,14 +152,6 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 					},
 				},
 			}
-
-			//Create namespace
-			namespaceObj := &v1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: namespace,
-				},
-			}
-			Expect(k8sClient.Create(context.Background(), namespaceObj)).Should(Succeed())
 
 			Expect(k8sClient.Create(context.TODO(), modelConfig)).NotTo(HaveOccurred())
 			defer k8sClient.Delete(context.TODO(), modelConfig)
