@@ -21,7 +21,7 @@ import numpy as np
 import kfserving
 import dill
 
-IMAGENET_EXPLAINER_URI = "gs://seldon-models/tfserving/imagenet/alibi/0.4.0"
+IMAGENET_EXPLAINER_URI = "gs://seldon-models/tfserving/imagenet/explainer-py36-0.5.2"
 ADULT_MODEL_URI = "gs://seldon-models/sklearn/income/model"
 EXPLAINER_FILENAME = "explainer.dill"
 
