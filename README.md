@@ -16,9 +16,12 @@ It encapsulates the complexity of autoscaling, networking, health checking, and 
 To learn more about KFServing, how to deploy it as part of Kubeflow, how to use various supported features, and how to participate in the KFServing community, please follow the [KFServing docs on the Kubeflow Website](https://www.kubeflow.org/docs/components/serving/kfserving/). Additionally, we have compiled a list of [KFServing presentations and demoes](/docs/PRESENTATIONS.md) to dive through various details.
 
 ### Prerequisites
+
+Kubernetes 1.15+ is the recommended version for KFServing. 
+
 Knative Serving and Istio should be available on Kubernetes Cluster, Knative depends on Istio Ingress Gateway to route requests to Knative services. To use the exact versions tested by the Kubeflow and KFServing teams, please refer to the [prerequisites on developer guide](docs/DEVELOPER_GUIDE.md#install-knative-on-a-kubernetes-cluster)
 
-- [Istio](https://knative.dev/docs/install/installing-istio): v1.1.6+
+- [Istio](https://knative.dev/docs/install/installing-istio): v1.3.1+
 
 If you want to get up running Knative quickly or you do not need service mesh, we recommend installing Istio without service mesh(sidecar injection).
 - [Knative Serving](https://knative.dev/docs/install/knative-with-any-k8s): v0.11.2+
@@ -36,31 +39,23 @@ KFServing can be installed standalone if your kubernetes cluster meets the above
 
 For Kubernetes 1.16+ users
 ```
-TAG=v0.4.0
+TAG=v0.4.1
 kubectl apply -f ./install/$TAG/kfserving.yaml
 ```
-For Kubernetes 1.14/1.15 users
+For Kubernetes 1.15 users
 ```
-TAG=v0.4.0
+TAG=v0.4.1
 kubectl apply -f ./install/$TAG/kfserving.yaml --validate=false
 ```
 
 KFServing uses pod mutator or [mutating admission webhooks](https://kubernetes.io/blog/2019/03/21/a-guide-to-kubernetes-admission-controllers/) to inject the storage initializer component of KFServing. By default all the pods in namespaces which are not labelled with `control-plane` label go through the pod mutator.
 This can cause problems and interfere with Kubernetes control panel when KFServing pod mutator webhook is not in ready state yet.
 
-For Kubernetes 1.14 users we suggest enabling the following environment variable `ENABLE_WEBHOOK_NAMESPACE_SELECTOR` so that only pods
- in the namespaces which are labelled `serving.kubeflow.org/inferenceservice: enabled` go through the KFServing pod mutator.
-```
-env:
-- name: ENABLE_WEBHOOK_NAMESPACE_SELECTOR
-  value: enabled
-```
-
 As of KFServing 0.4 release [object selector](https://kubernetes.io/docs/reference/access-authn-authz/extensible-admission-controllers/#matching-requests-objectselector) is turned on by default, the KFServing pod mutator is only invoked for KFServing `InferenceService` pods. For prior releases you can turn on manually by running following command.
 ```bash
 kubectl patch mutatingwebhookconfiguration inferenceservice.serving.kubeflow.org --patch '{"webhooks":[{"name": "inferenceservice.kfserving-webhook-server.pod-mutator","objectSelector":{"matchExpressions":[{"key":"serving.kubeflow.org/inferenceservice", "operator": "Exists"}]}}]}'
 ```
-#### KFServing in Kubeflow Installation
+#### KFServing with Kubeflow Installation
 KFServing is installed by default as part of Kubeflow installation using [Kubeflow manifests](https://github.com/kubeflow/manifests/tree/master/kfserving) and KFServing controller is deployed in `kubeflow` namespace.
 Since Kubeflow Kubernetes minimal requirement is 1.14 which does not support object selector, `ENABLE_WEBHOOK_NAMESPACE_SELECTOR` is enabled in Kubeflow installation by default.
 If you are using Kubeflow dashboard or [profile controller](https://www.kubeflow.org/docs/components/multi-tenancy/getting-started/#manual-profile-creation) to create  user namespaces, labels are automatically added to enable KFServing to deploy models. If you are creating namespaces manually using Kubernetes apis directly, you will need to add label `serving.kubeflow.org/inferenceservice: enabled` to allow deploying KFServing `InferenceService` in the given namespaces, and do ensure you do not deploy
