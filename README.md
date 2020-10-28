@@ -191,7 +191,7 @@ If the default ingress gateway setup does not fit your need, you can choose to s
   ```
   pip install kfserving
   ```
-* Get the KFServing SDK documents from [here](python/kfserving/README.md).
+* Check the KFServing SDK documents from [here](python/kfserving/README.md).
 
 * Follow the [example here](docs/samples/client/kfserving_sdk_sample.ipynb) to use the KFServing SDK to create, rollout, promote, and delete an InferenceService instance.
 
