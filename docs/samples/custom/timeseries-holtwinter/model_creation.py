@@ -7,7 +7,6 @@ import pandas as pd
 from statsmodels.tsa.holtwinters import ExponentialSmoothing
 import numpy as np
 import joblib
-from holt import holt
 
 df=pd.read_csv('https://raw.githubusercontent.com/jbrownlee/Datasets/master/shampoo.csv')
 
