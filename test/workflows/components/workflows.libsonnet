@@ -269,6 +269,10 @@
                     name: "build-sklearnserver",
                     template: "build-sklearnserver",
                   },
+                  {
+                    name: "build-pmmlserver",
+                    template: "build-pmmlserver",
+                  },
                 ],
                 [
                   {
@@ -357,6 +361,9 @@
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-sklearnserver", testWorkerImage, [
               "test/scripts/build-python-image.sh", "sklearn.Dockerfile", "sklearnserver", "latest"
             ]),  // build-sklearnserver
+            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-pmmlserver", testWorkerImage, [
+              "test/scripts/build-python-image.sh", "pmml.Dockerfile", "pmmlserver", "latest"
+            ]),  // build-pmmlserver
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("unit-test", testWorkerImage, [
               "test/scripts/unit-test.sh",
             ]),  // unit test

@@ -31,6 +31,10 @@ data:
         "triton": {
             "image": "nvcr.io/nvidia/tritonserver",
             "defaultImageVersion": "20.08-py3"
+        },
+        "pmml": {
+            "image": "gcr.io/kubeflow-ci/kfserving/pmmlserver",
+            "defaultImageVersion": "latest"
         }
     }
   transformers: |-
