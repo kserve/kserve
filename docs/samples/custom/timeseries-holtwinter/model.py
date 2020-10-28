@@ -15,7 +15,7 @@ class KFServingSampleModel(kfserving.KFModel):
 
     def load(self):
         #Loading the joblib files 
-        self.model =  joblib.load('model_holt.sav')
+        self.model =  joblib.load('/mnt/model/model_holt.sav')
         self.ready = True
 
     def predict(self, request: Dict) -> Dict:
