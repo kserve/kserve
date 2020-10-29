@@ -36,7 +36,7 @@ setup(
         "pandas>=0.24.2",
         "nest_asyncio>=1.4.0",
         "alibi==0.5.5",
-        "scikit-learn>= 0.23.0",
+        "scikit-learn == 0.20.3",
         "argparse>=1.4.0",
         "requests>=2.22.0",
         "joblib>=0.13.2",

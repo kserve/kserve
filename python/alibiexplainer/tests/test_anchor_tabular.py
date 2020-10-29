@@ -23,7 +23,7 @@ import json
 from .utils import Predictor
 
 ADULT_EXPLAINER_URI = "gs://seldon-models/sklearn/income/alibi/0.4.0"
-ADULT_MODEL_URI = "gs://seldon-models/sklearn/income/model-0.23.2"
+ADULT_MODEL_URI = "gs://seldon-models/sklearn/income/model"
 EXPLAINER_FILENAME = "explainer.dill"
 
 
@@ -43,4 +43,5 @@ def test_anchor_tabular():
         np.random.seed(0)
         explanation = anchor_tabular.explain(X_test[0:1].tolist())
         exp_json = json.loads(explanation.to_json())
-        assert exp_json["data"]["anchor"][0] == "Marital Status = Never-Married"
+        assert exp_json["data"]["anchor"][0] == "Marital Status = Never-Married" or \
+               exp_json["data"]["anchor"][0] == "Age <= 28.00"
