@@ -1,5 +1,6 @@
 # V1alpha2InferenceServiceSpec
 
+InferenceServiceSpec defines the desired state of InferenceService
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
