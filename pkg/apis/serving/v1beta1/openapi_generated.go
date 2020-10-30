@@ -29,43 +29,44 @@ import (
 
 func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
 	return map[string]common.OpenAPIDefinition{
-		"./pkg/apis/serving/v1beta1.AIXExplainerSpec":        schema_pkg_apis_serving_v1beta1_AIXExplainerSpec(ref),
-		"./pkg/apis/serving/v1beta1.AlibiExplainerSpec":      schema_pkg_apis_serving_v1beta1_AlibiExplainerSpec(ref),
-		"./pkg/apis/serving/v1beta1.Batcher":                 schema_pkg_apis_serving_v1beta1_Batcher(ref),
-		"./pkg/apis/serving/v1beta1.ComponentExtensionSpec":  schema_pkg_apis_serving_v1beta1_ComponentExtensionSpec(ref),
-		"./pkg/apis/serving/v1beta1.ComponentStatusSpec":     schema_pkg_apis_serving_v1beta1_ComponentStatusSpec(ref),
-		"./pkg/apis/serving/v1beta1.CustomExplainer":         schema_pkg_apis_serving_v1beta1_CustomExplainer(ref),
-		"./pkg/apis/serving/v1beta1.CustomPredictor":         schema_pkg_apis_serving_v1beta1_CustomPredictor(ref),
-		"./pkg/apis/serving/v1beta1.CustomTransformer":       schema_pkg_apis_serving_v1beta1_CustomTransformer(ref),
-		"./pkg/apis/serving/v1beta1.ExplainerConfig":         schema_pkg_apis_serving_v1beta1_ExplainerConfig(ref),
-		"./pkg/apis/serving/v1beta1.ExplainerSpec":           schema_pkg_apis_serving_v1beta1_ExplainerSpec(ref),
-		"./pkg/apis/serving/v1beta1.ExplainersConfig":        schema_pkg_apis_serving_v1beta1_ExplainersConfig(ref),
-		"./pkg/apis/serving/v1beta1.InferenceService":        schema_pkg_apis_serving_v1beta1_InferenceService(ref),
-		"./pkg/apis/serving/v1beta1.InferenceServiceList":    schema_pkg_apis_serving_v1beta1_InferenceServiceList(ref),
-		"./pkg/apis/serving/v1beta1.InferenceServiceSpec":    schema_pkg_apis_serving_v1beta1_InferenceServiceSpec(ref),
-		"./pkg/apis/serving/v1beta1.InferenceServiceStatus":  schema_pkg_apis_serving_v1beta1_InferenceServiceStatus(ref),
-		"./pkg/apis/serving/v1beta1.InferenceServicesConfig": schema_pkg_apis_serving_v1beta1_InferenceServicesConfig(ref),
-		"./pkg/apis/serving/v1beta1.IngressConfig":           schema_pkg_apis_serving_v1beta1_IngressConfig(ref),
-		"./pkg/apis/serving/v1beta1.LoggerSpec":              schema_pkg_apis_serving_v1beta1_LoggerSpec(ref),
-		"./pkg/apis/serving/v1beta1.ModelSpec":               schema_pkg_apis_serving_v1beta1_ModelSpec(ref),
-		"./pkg/apis/serving/v1beta1.ONNXRuntimeSpec":         schema_pkg_apis_serving_v1beta1_ONNXRuntimeSpec(ref),
-		"./pkg/apis/serving/v1beta1.PodSpec":                 schema_pkg_apis_serving_v1beta1_PodSpec(ref),
-		"./pkg/apis/serving/v1beta1.PredictorConfig":         schema_pkg_apis_serving_v1beta1_PredictorConfig(ref),
-		"./pkg/apis/serving/v1beta1.PredictorExtensionSpec":  schema_pkg_apis_serving_v1beta1_PredictorExtensionSpec(ref),
-		"./pkg/apis/serving/v1beta1.PredictorSpec":           schema_pkg_apis_serving_v1beta1_PredictorSpec(ref),
-		"./pkg/apis/serving/v1beta1.PredictorsConfig":        schema_pkg_apis_serving_v1beta1_PredictorsConfig(ref),
-		"./pkg/apis/serving/v1beta1.SKLearnSpec":             schema_pkg_apis_serving_v1beta1_SKLearnSpec(ref),
-		"./pkg/apis/serving/v1beta1.TFServingSpec":           schema_pkg_apis_serving_v1beta1_TFServingSpec(ref),
-		"./pkg/apis/serving/v1beta1.TorchServeSpec":          schema_pkg_apis_serving_v1beta1_TorchServeSpec(ref),
-		"./pkg/apis/serving/v1beta1.TrainedModel":            schema_pkg_apis_serving_v1beta1_TrainedModel(ref),
-		"./pkg/apis/serving/v1beta1.TrainedModelList":        schema_pkg_apis_serving_v1beta1_TrainedModelList(ref),
-		"./pkg/apis/serving/v1beta1.TrainedModelSpec":        schema_pkg_apis_serving_v1beta1_TrainedModelSpec(ref),
-		"./pkg/apis/serving/v1beta1.TrainedModelStatus":      schema_pkg_apis_serving_v1beta1_TrainedModelStatus(ref),
-		"./pkg/apis/serving/v1beta1.TransformerConfig":       schema_pkg_apis_serving_v1beta1_TransformerConfig(ref),
-		"./pkg/apis/serving/v1beta1.TransformerSpec":         schema_pkg_apis_serving_v1beta1_TransformerSpec(ref),
-		"./pkg/apis/serving/v1beta1.TransformersConfig":      schema_pkg_apis_serving_v1beta1_TransformersConfig(ref),
-		"./pkg/apis/serving/v1beta1.TritonSpec":              schema_pkg_apis_serving_v1beta1_TritonSpec(ref),
-		"./pkg/apis/serving/v1beta1.XGBoostSpec":             schema_pkg_apis_serving_v1beta1_XGBoostSpec(ref),
+		"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.AIXExplainerSpec":        schema_pkg_apis_serving_v1beta1_AIXExplainerSpec(ref),
+		"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.AlibiExplainerSpec":      schema_pkg_apis_serving_v1beta1_AlibiExplainerSpec(ref),
+		"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.Batcher":                 schema_pkg_apis_serving_v1beta1_Batcher(ref),
+		"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.ComponentExtensionSpec":  schema_pkg_apis_serving_v1beta1_ComponentExtensionSpec(ref),
+		"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.ComponentStatusSpec":     schema_pkg_apis_serving_v1beta1_ComponentStatusSpec(ref),
+		"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.CustomExplainer":         schema_pkg_apis_serving_v1beta1_CustomExplainer(ref),
+		"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.CustomPredictor":         schema_pkg_apis_serving_v1beta1_CustomPredictor(ref),
+		"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.CustomTransformer":       schema_pkg_apis_serving_v1beta1_CustomTransformer(ref),
+		"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.ExplainerConfig":         schema_pkg_apis_serving_v1beta1_ExplainerConfig(ref),
+		"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.ExplainerSpec":           schema_pkg_apis_serving_v1beta1_ExplainerSpec(ref),
+		"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.ExplainersConfig":        schema_pkg_apis_serving_v1beta1_ExplainersConfig(ref),
+		"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.InferenceService":        schema_pkg_apis_serving_v1beta1_InferenceService(ref),
+		"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.InferenceServiceList":    schema_pkg_apis_serving_v1beta1_InferenceServiceList(ref),
+		"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.InferenceServiceSpec":    schema_pkg_apis_serving_v1beta1_InferenceServiceSpec(ref),
+		"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.InferenceServiceStatus":  schema_pkg_apis_serving_v1beta1_InferenceServiceStatus(ref),
+		"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.InferenceServicesConfig": schema_pkg_apis_serving_v1beta1_InferenceServicesConfig(ref),
+		"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.IngressConfig":           schema_pkg_apis_serving_v1beta1_IngressConfig(ref),
+		"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.LoggerSpec":              schema_pkg_apis_serving_v1beta1_LoggerSpec(ref),
+		"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.ModelSpec":               schema_pkg_apis_serving_v1beta1_ModelSpec(ref),
+		"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.ONNXRuntimeSpec":         schema_pkg_apis_serving_v1beta1_ONNXRuntimeSpec(ref),
+		"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.PMMLSpec":                schema_pkg_apis_serving_v1beta1_PMMLSpec(ref),
+		"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.PodSpec":                 schema_pkg_apis_serving_v1beta1_PodSpec(ref),
+		"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.PredictorConfig":         schema_pkg_apis_serving_v1beta1_PredictorConfig(ref),
+		"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.PredictorExtensionSpec":  schema_pkg_apis_serving_v1beta1_PredictorExtensionSpec(ref),
+		"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.PredictorSpec":           schema_pkg_apis_serving_v1beta1_PredictorSpec(ref),
+		"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.PredictorsConfig":        schema_pkg_apis_serving_v1beta1_PredictorsConfig(ref),
+		"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.SKLearnSpec":             schema_pkg_apis_serving_v1beta1_SKLearnSpec(ref),
+		"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.TFServingSpec":           schema_pkg_apis_serving_v1beta1_TFServingSpec(ref),
+		"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.TorchServeSpec":          schema_pkg_apis_serving_v1beta1_TorchServeSpec(ref),
+		"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.TrainedModel":            schema_pkg_apis_serving_v1beta1_TrainedModel(ref),
+		"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.TrainedModelList":        schema_pkg_apis_serving_v1beta1_TrainedModelList(ref),
+		"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.TrainedModelSpec":        schema_pkg_apis_serving_v1beta1_TrainedModelSpec(ref),
+		"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.TrainedModelStatus":      schema_pkg_apis_serving_v1beta1_TrainedModelStatus(ref),
+		"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.TransformerConfig":       schema_pkg_apis_serving_v1beta1_TransformerConfig(ref),
+		"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.TransformerSpec":         schema_pkg_apis_serving_v1beta1_TransformerSpec(ref),
+		"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.TransformersConfig":      schema_pkg_apis_serving_v1beta1_TransformersConfig(ref),
+		"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.TritonSpec":              schema_pkg_apis_serving_v1beta1_TritonSpec(ref),
+		"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.XGBoostSpec":             schema_pkg_apis_serving_v1beta1_XGBoostSpec(ref),
 	}
 }
 
@@ -235,7 +236,7 @@ func schema_pkg_apis_serving_v1beta1_AIXExplainerSpec(ref common.ReferenceCallba
 							},
 						},
 						SchemaProps: spec.SchemaProps{
-							Description: "volumeDevices is the list of block devices to be used by the container. This is a beta feature.",
+							Description: "volumeDevices is the list of block devices to be used by the container.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -260,7 +261,7 @@ func schema_pkg_apis_serving_v1beta1_AIXExplainerSpec(ref common.ReferenceCallba
 					},
 					"startupProbe": {
 						SchemaProps: spec.SchemaProps{
-							Description: "StartupProbe indicates that the Pod has successfully initialized. If specified, no other probes are executed until this completes successfully. If this probe fails, the Pod will be restarted, just as if the livenessProbe failed. This can be used to provide different probe parameters at the beginning of a Pod's lifecycle, when it might take a long time to load data or warm a cache, than during steady-state operation. This cannot be updated. This is an alpha feature enabled by the StartupProbe feature flag. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
+							Description: "StartupProbe indicates that the Pod has successfully initialized. If specified, no other probes are executed until this completes successfully. If this probe fails, the Pod will be restarted, just as if the livenessProbe failed. This can be used to provide different probe parameters at the beginning of a Pod's lifecycle, when it might take a long time to load data or warm a cache, than during steady-state operation. This cannot be updated. This is a beta feature enabled by the StartupProbe feature flag. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
 							Ref:         ref("k8s.io/api/core/v1.Probe"),
 						},
 					},
@@ -523,7 +524,7 @@ func schema_pkg_apis_serving_v1beta1_AlibiExplainerSpec(ref common.ReferenceCall
 							},
 						},
 						SchemaProps: spec.SchemaProps{
-							Description: "volumeDevices is the list of block devices to be used by the container. This is a beta feature.",
+							Description: "volumeDevices is the list of block devices to be used by the container.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -548,7 +549,7 @@ func schema_pkg_apis_serving_v1beta1_AlibiExplainerSpec(ref common.ReferenceCall
 					},
 					"startupProbe": {
 						SchemaProps: spec.SchemaProps{
-							Description: "StartupProbe indicates that the Pod has successfully initialized. If specified, no other probes are executed until this completes successfully. If this probe fails, the Pod will be restarted, just as if the livenessProbe failed. This can be used to provide different probe parameters at the beginning of a Pod's lifecycle, when it might take a long time to load data or warm a cache, than during steady-state operation. This cannot be updated. This is an alpha feature enabled by the StartupProbe feature flag. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
+							Description: "StartupProbe indicates that the Pod has successfully initialized. If specified, no other probes are executed until this completes successfully. If this probe fails, the Pod will be restarted, just as if the livenessProbe failed. This can be used to provide different probe parameters at the beginning of a Pod's lifecycle, when it might take a long time to load data or warm a cache, than during steady-state operation. This cannot be updated. This is a beta feature enabled by the StartupProbe feature flag. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
 							Ref:         ref("k8s.io/api/core/v1.Probe"),
 						},
 					},
@@ -694,20 +695,20 @@ func schema_pkg_apis_serving_v1beta1_ComponentExtensionSpec(ref common.Reference
 					"logger": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Activate request/response logging and logger configurations",
-							Ref:         ref("./pkg/apis/serving/v1beta1.LoggerSpec"),
+							Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.LoggerSpec"),
 						},
 					},
 					"batcher": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Activate request batching and batching configurations",
-							Ref:         ref("./pkg/apis/serving/v1beta1.Batcher"),
+							Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.Batcher"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"./pkg/apis/serving/v1beta1.Batcher", "./pkg/apis/serving/v1beta1.LoggerSpec"},
+			"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.Batcher", "github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.LoggerSpec"},
 	}
 }
 
@@ -1113,7 +1114,7 @@ func schema_pkg_apis_serving_v1beta1_CustomExplainer(ref common.ReferenceCallbac
 							},
 						},
 						SchemaProps: spec.SchemaProps{
-							Description: "TopologySpreadConstraints describes how a group of pods ought to spread across topology domains. Scheduler will schedule pods in a way which abides by the constraints. This field is alpha-level and is only honored by clusters that enables the EvenPodsSpread feature. All topologySpreadConstraints are ANDed.",
+							Description: "TopologySpreadConstraints describes how a group of pods ought to spread across topology domains. Scheduler will schedule pods in a way which abides by the constraints. This field is only honored by clusters that enable the EvenPodsSpread feature. All topologySpreadConstraints are ANDed.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -1480,7 +1481,7 @@ func schema_pkg_apis_serving_v1beta1_CustomPredictor(ref common.ReferenceCallbac
 							},
 						},
 						SchemaProps: spec.SchemaProps{
-							Description: "TopologySpreadConstraints describes how a group of pods ought to spread across topology domains. Scheduler will schedule pods in a way which abides by the constraints. This field is alpha-level and is only honored by clusters that enables the EvenPodsSpread feature. All topologySpreadConstraints are ANDed.",
+							Description: "TopologySpreadConstraints describes how a group of pods ought to spread across topology domains. Scheduler will schedule pods in a way which abides by the constraints. This field is only honored by clusters that enable the EvenPodsSpread feature. All topologySpreadConstraints are ANDed.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -1847,7 +1848,7 @@ func schema_pkg_apis_serving_v1beta1_CustomTransformer(ref common.ReferenceCallb
 							},
 						},
 						SchemaProps: spec.SchemaProps{
-							Description: "TopologySpreadConstraints describes how a group of pods ought to spread across topology domains. Scheduler will schedule pods in a way which abides by the constraints. This field is alpha-level and is only honored by clusters that enables the EvenPodsSpread feature. All topologySpreadConstraints are ANDed.",
+							Description: "TopologySpreadConstraints describes how a group of pods ought to spread across topology domains. Scheduler will schedule pods in a way which abides by the constraints. This field is only honored by clusters that enable the EvenPodsSpread feature. All topologySpreadConstraints are ANDed.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -1904,13 +1905,13 @@ func schema_pkg_apis_serving_v1beta1_ExplainerSpec(ref common.ReferenceCallback)
 					"alibi": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Spec for alibi explainer",
-							Ref:         ref("./pkg/apis/serving/v1beta1.AlibiExplainerSpec"),
+							Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.AlibiExplainerSpec"),
 						},
 					},
 					"aix": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Spec for AIX explainer",
-							Ref:         ref("./pkg/apis/serving/v1beta1.AIXExplainerSpec"),
+							Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.AIXExplainerSpec"),
 						},
 					},
 					"volumes": {
@@ -2302,20 +2303,20 @@ func schema_pkg_apis_serving_v1beta1_ExplainerSpec(ref common.ReferenceCallback)
 					"logger": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Activate request/response logging and logger configurations",
-							Ref:         ref("./pkg/apis/serving/v1beta1.LoggerSpec"),
+							Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.LoggerSpec"),
 						},
 					},
 					"batcher": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Activate request batching and batching configurations",
-							Ref:         ref("./pkg/apis/serving/v1beta1.Batcher"),
+							Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.Batcher"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"./pkg/apis/serving/v1beta1.AIXExplainerSpec", "./pkg/apis/serving/v1beta1.AlibiExplainerSpec", "./pkg/apis/serving/v1beta1.Batcher", "./pkg/apis/serving/v1beta1.LoggerSpec", "k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Container", "k8s.io/api/core/v1.EphemeralContainer", "k8s.io/api/core/v1.HostAlias", "k8s.io/api/core/v1.LocalObjectReference", "k8s.io/api/core/v1.PodDNSConfig", "k8s.io/api/core/v1.PodReadinessGate", "k8s.io/api/core/v1.PodSecurityContext", "k8s.io/api/core/v1.Toleration", "k8s.io/api/core/v1.TopologySpreadConstraint", "k8s.io/api/core/v1.Volume", "k8s.io/apimachinery/pkg/api/resource.Quantity"},
+			"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.AIXExplainerSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.AlibiExplainerSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.Batcher", "github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.LoggerSpec", "k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Container", "k8s.io/api/core/v1.EphemeralContainer", "k8s.io/api/core/v1.HostAlias", "k8s.io/api/core/v1.LocalObjectReference", "k8s.io/api/core/v1.PodDNSConfig", "k8s.io/api/core/v1.PodReadinessGate", "k8s.io/api/core/v1.PodSecurityContext", "k8s.io/api/core/v1.Toleration", "k8s.io/api/core/v1.TopologySpreadConstraint", "k8s.io/api/core/v1.Volume", "k8s.io/apimachinery/pkg/api/resource.Quantity"},
 	}
 }
 
@@ -2327,19 +2328,19 @@ func schema_pkg_apis_serving_v1beta1_ExplainersConfig(ref common.ReferenceCallba
 				Properties: map[string]spec.Schema{
 					"alibi": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("./pkg/apis/serving/v1beta1.ExplainerConfig"),
+							Ref: ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.ExplainerConfig"),
 						},
 					},
 					"aix": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("./pkg/apis/serving/v1beta1.ExplainerConfig"),
+							Ref: ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.ExplainerConfig"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"./pkg/apis/serving/v1beta1.ExplainerConfig"},
+			"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.ExplainerConfig"},
 	}
 }
 
@@ -2371,19 +2372,19 @@ func schema_pkg_apis_serving_v1beta1_InferenceService(ref common.ReferenceCallba
 					},
 					"spec": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("./pkg/apis/serving/v1beta1.InferenceServiceSpec"),
+							Ref: ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.InferenceServiceSpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("./pkg/apis/serving/v1beta1.InferenceServiceStatus"),
+							Ref: ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.InferenceServiceStatus"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"./pkg/apis/serving/v1beta1.InferenceServiceSpec", "./pkg/apis/serving/v1beta1.InferenceServiceStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.InferenceServiceSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.InferenceServiceStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
@@ -2424,7 +2425,7 @@ func schema_pkg_apis_serving_v1beta1_InferenceServiceList(ref common.ReferenceCa
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Ref: ref("./pkg/apis/serving/v1beta1.InferenceService"),
+										Ref: ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.InferenceService"),
 									},
 								},
 							},
@@ -2435,7 +2436,7 @@ func schema_pkg_apis_serving_v1beta1_InferenceServiceList(ref common.ReferenceCa
 			},
 		},
 		Dependencies: []string{
-			"./pkg/apis/serving/v1beta1.InferenceService", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+			"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.InferenceService", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
 	}
 }
 
@@ -2449,19 +2450,19 @@ func schema_pkg_apis_serving_v1beta1_InferenceServiceSpec(ref common.ReferenceCa
 					"predictor": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Predictor defines the model serving spec",
-							Ref:         ref("./pkg/apis/serving/v1beta1.PredictorSpec"),
+							Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.PredictorSpec"),
 						},
 					},
 					"explainer": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Explainer defines the model explanation service spec, explainer service calls to predictor or transformer if it is specified.",
-							Ref:         ref("./pkg/apis/serving/v1beta1.ExplainerSpec"),
+							Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.ExplainerSpec"),
 						},
 					},
 					"transformer": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Transformer defines the pre/post processing before and after the predictor call, transformer service calls to predictor service.",
-							Ref:         ref("./pkg/apis/serving/v1beta1.TransformerSpec"),
+							Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.TransformerSpec"),
 						},
 					},
 				},
@@ -2469,7 +2470,7 @@ func schema_pkg_apis_serving_v1beta1_InferenceServiceSpec(ref common.ReferenceCa
 			},
 		},
 		Dependencies: []string{
-			"./pkg/apis/serving/v1beta1.ExplainerSpec", "./pkg/apis/serving/v1beta1.PredictorSpec", "./pkg/apis/serving/v1beta1.TransformerSpec"},
+			"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.ExplainerSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.PredictorSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.TransformerSpec"},
 	}
 }
 
@@ -2506,6 +2507,21 @@ func schema_pkg_apis_serving_v1beta1_InferenceServiceStatus(ref common.Reference
 							},
 						},
 					},
+					"annotations": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Annotations is additional Status fields for the Resource to save some additional State as well as convey more information to the user. This is roughly akin to Annotations on any k8s resource, just the reconciler conveying richer information outwards.",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
 					"address": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Addressable endpoint for the InferenceService",
@@ -2526,7 +2542,7 @@ func schema_pkg_apis_serving_v1beta1_InferenceServiceStatus(ref common.Reference
 								Allows: true,
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Ref: ref("./pkg/apis/serving/v1beta1.ComponentStatusSpec"),
+										Ref: ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.ComponentStatusSpec"),
 									},
 								},
 							},
@@ -2536,7 +2552,7 @@ func schema_pkg_apis_serving_v1beta1_InferenceServiceStatus(ref common.Reference
 			},
 		},
 		Dependencies: []string{
-			"./pkg/apis/serving/v1beta1.ComponentStatusSpec", "knative.dev/pkg/apis.Condition", "knative.dev/pkg/apis.URL", "knative.dev/pkg/apis/duck/v1.Addressable"},
+			"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.ComponentStatusSpec", "knative.dev/pkg/apis.Condition", "knative.dev/pkg/apis.URL", "knative.dev/pkg/apis/duck/v1.Addressable"},
 	}
 }
 
@@ -2549,19 +2565,19 @@ func schema_pkg_apis_serving_v1beta1_InferenceServicesConfig(ref common.Referenc
 					"transformers": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Transformer configurations",
-							Ref:         ref("./pkg/apis/serving/v1beta1.TransformersConfig"),
+							Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.TransformersConfig"),
 						},
 					},
 					"predictors": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Predictor configurations",
-							Ref:         ref("./pkg/apis/serving/v1beta1.PredictorsConfig"),
+							Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.PredictorsConfig"),
 						},
 					},
 					"explainers": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Explainer configurations",
-							Ref:         ref("./pkg/apis/serving/v1beta1.ExplainersConfig"),
+							Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.ExplainersConfig"),
 						},
 					},
 				},
@@ -2569,7 +2585,7 @@ func schema_pkg_apis_serving_v1beta1_InferenceServicesConfig(ref common.Referenc
 			},
 		},
 		Dependencies: []string{
-			"./pkg/apis/serving/v1beta1.ExplainersConfig", "./pkg/apis/serving/v1beta1.PredictorsConfig", "./pkg/apis/serving/v1beta1.TransformersConfig"},
+			"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.ExplainersConfig", "github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.PredictorsConfig", "github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.TransformersConfig"},
 	}
 }
 
@@ -2819,7 +2835,7 @@ func schema_pkg_apis_serving_v1beta1_ONNXRuntimeSpec(ref common.ReferenceCallbac
 							},
 						},
 						SchemaProps: spec.SchemaProps{
-							Description: "volumeDevices is the list of block devices to be used by the container. This is a beta feature.",
+							Description: "volumeDevices is the list of block devices to be used by the container.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -2844,7 +2860,258 @@ func schema_pkg_apis_serving_v1beta1_ONNXRuntimeSpec(ref common.ReferenceCallbac
 					},
 					"startupProbe": {
 						SchemaProps: spec.SchemaProps{
-							Description: "StartupProbe indicates that the Pod has successfully initialized. If specified, no other probes are executed until this completes successfully. If this probe fails, the Pod will be restarted, just as if the livenessProbe failed. This can be used to provide different probe parameters at the beginning of a Pod's lifecycle, when it might take a long time to load data or warm a cache, than during steady-state operation. This cannot be updated. This is an alpha feature enabled by the StartupProbe feature flag. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
+							Description: "StartupProbe indicates that the Pod has successfully initialized. If specified, no other probes are executed until this completes successfully. If this probe fails, the Pod will be restarted, just as if the livenessProbe failed. This can be used to provide different probe parameters at the beginning of a Pod's lifecycle, when it might take a long time to load data or warm a cache, than during steady-state operation. This cannot be updated. This is a beta feature enabled by the StartupProbe feature flag. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
+							Ref:         ref("k8s.io/api/core/v1.Probe"),
+						},
+					},
+					"lifecycle": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Actions that the management system should take in response to container lifecycle events. Cannot be updated.",
+							Ref:         ref("k8s.io/api/core/v1.Lifecycle"),
+						},
+					},
+					"terminationMessagePath": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Optional: Path at which the file to which the container's termination message will be written is mounted into the container's filesystem. Message written is intended to be brief final status, such as an assertion failure message. Will be truncated by the node if greater than 4096 bytes. The total message length across all containers will be limited to 12kb. Defaults to /dev/termination-log. Cannot be updated.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"terminationMessagePolicy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Indicate how the termination message should be populated. File will use the contents of terminationMessagePath to populate the container status message on both success and failure. FallbackToLogsOnError will use the last chunk of container log output if the termination message file is empty and the container exited with an error. The log output is limited to 2048 bytes or 80 lines, whichever is smaller. Defaults to File. Cannot be updated.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"imagePullPolicy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Image pull policy. One of Always, Never, IfNotPresent. Defaults to Always if :latest tag is specified, or IfNotPresent otherwise. Cannot be updated. More info: https://kubernetes.io/docs/concepts/containers/images#updating-images",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"securityContext": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Security options the pod should run with. More info: https://kubernetes.io/docs/concepts/policy/security-context/ More info: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/",
+							Ref:         ref("k8s.io/api/core/v1.SecurityContext"),
+						},
+					},
+					"stdin": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Whether this container should allocate a buffer for stdin in the container runtime. If this is not set, reads from stdin in the container will always result in EOF. Default is false.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"stdinOnce": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Whether the container runtime should close the stdin channel after it has been opened by a single attach. When stdin is true the stdin stream will remain open across multiple attach sessions. If stdinOnce is set to true, stdin is opened on container start, is empty until the first client attaches to stdin, and then remains open and accepts data until the client disconnects, at which time stdin is closed and remains closed until the container is restarted. If this flag is false, a container processes that reads from stdin will never receive an EOF. Default is false",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"tty": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Whether this container should allocate a TTY for itself, also requires 'stdin' to be true. Default is false.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"storageUri"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/api/core/v1.ContainerPort", "k8s.io/api/core/v1.EnvFromSource", "k8s.io/api/core/v1.EnvVar", "k8s.io/api/core/v1.Lifecycle", "k8s.io/api/core/v1.Probe", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.SecurityContext", "k8s.io/api/core/v1.VolumeDevice", "k8s.io/api/core/v1.VolumeMount"},
+	}
+}
+
+func schema_pkg_apis_serving_v1beta1_PMMLSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "PMMLSpec defines arguments for configuring PMML model serving.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"storageUri": {
+						SchemaProps: spec.SchemaProps{
+							Description: "This field points to the location of the trained model which is mounted onto the pod.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"runtimeVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Runtime version of the predictor docker image",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name of the container specified as a DNS_LABEL. Each container in a pod must have a unique name (DNS_LABEL). Cannot be updated.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"image": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Docker image name. More info: https://kubernetes.io/docs/concepts/containers/images This field is optional to allow higher level config management to default or override container images in workload controllers like Deployments and StatefulSets.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"command": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Entrypoint array. Not executed within a shell. The docker image's ENTRYPOINT is used if this is not provided. Variable references $(VAR_NAME) are expanded using the container's environment. If a variable cannot be resolved, the reference in the input string will be unchanged. The $(VAR_NAME) syntax can be escaped with a double $$, ie: $$(VAR_NAME). Escaped references will never be expanded, regardless of whether the variable exists or not. Cannot be updated. More info: https://kubernetes.io/docs/tasks/inject-data-application/define-command-argument-container/#running-a-command-in-a-shell",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"args": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Arguments to the entrypoint. The docker image's CMD is used if this is not provided. Variable references $(VAR_NAME) are expanded using the container's environment. If a variable cannot be resolved, the reference in the input string will be unchanged. The $(VAR_NAME) syntax can be escaped with a double $$, ie: $$(VAR_NAME). Escaped references will never be expanded, regardless of whether the variable exists or not. Cannot be updated. More info: https://kubernetes.io/docs/tasks/inject-data-application/define-command-argument-container/#running-a-command-in-a-shell",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"workingDir": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Container's working directory. If not specified, the container runtime's default will be used, which might be configured in the container image. Cannot be updated.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"ports": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-map-keys": []interface{}{
+									"containerPort",
+									"protocol",
+								},
+								"x-kubernetes-list-type":       "map",
+								"x-kubernetes-patch-merge-key": "containerPort",
+								"x-kubernetes-patch-strategy":  "merge",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "List of ports to expose from the container. Exposing a port here gives the system additional information about the network connections a container uses, but is primarily informational. Not specifying a port here DOES NOT prevent that port from being exposed. Any port which is listening on the default \"0.0.0.0\" address inside a container will be accessible from the network. Cannot be updated.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("k8s.io/api/core/v1.ContainerPort"),
+									},
+								},
+							},
+						},
+					},
+					"envFrom": {
+						SchemaProps: spec.SchemaProps{
+							Description: "List of sources to populate environment variables in the container. The keys defined within a source must be a C_IDENTIFIER. All invalid keys will be reported as an event when the container is starting. When a key exists in multiple sources, the value associated with the last source will take precedence. Values defined by an Env with a duplicate key will take precedence. Cannot be updated.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("k8s.io/api/core/v1.EnvFromSource"),
+									},
+								},
+							},
+						},
+					},
+					"env": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-patch-merge-key": "name",
+								"x-kubernetes-patch-strategy":  "merge",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "List of environment variables to set in the container. Cannot be updated.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("k8s.io/api/core/v1.EnvVar"),
+									},
+								},
+							},
+						},
+					},
+					"resources": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Compute Resources required by this container. Cannot be updated. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/",
+							Ref:         ref("k8s.io/api/core/v1.ResourceRequirements"),
+						},
+					},
+					"volumeMounts": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-patch-merge-key": "mountPath",
+								"x-kubernetes-patch-strategy":  "merge",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "Pod volumes to mount into the container's filesystem. Cannot be updated.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("k8s.io/api/core/v1.VolumeMount"),
+									},
+								},
+							},
+						},
+					},
+					"volumeDevices": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-patch-merge-key": "devicePath",
+								"x-kubernetes-patch-strategy":  "merge",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "volumeDevices is the list of block devices to be used by the container.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("k8s.io/api/core/v1.VolumeDevice"),
+									},
+								},
+							},
+						},
+					},
+					"livenessProbe": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Periodic probe of container liveness. Container will be restarted if the probe fails. Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
+							Ref:         ref("k8s.io/api/core/v1.Probe"),
+						},
+					},
+					"readinessProbe": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Periodic probe of container service readiness. Container will be removed from service endpoints if the probe fails. Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
+							Ref:         ref("k8s.io/api/core/v1.Probe"),
+						},
+					},
+					"startupProbe": {
+						SchemaProps: spec.SchemaProps{
+							Description: "StartupProbe indicates that the Pod has successfully initialized. If specified, no other probes are executed until this completes successfully. If this probe fails, the Pod will be restarted, just as if the livenessProbe failed. This can be used to provide different probe parameters at the beginning of a Pod's lifecycle, when it might take a long time to load data or warm a cache, than during steady-state operation. This cannot be updated. This is a beta feature enabled by the StartupProbe feature flag. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
 							Ref:         ref("k8s.io/api/core/v1.Probe"),
 						},
 					},
@@ -3470,7 +3737,7 @@ func schema_pkg_apis_serving_v1beta1_PredictorExtensionSpec(ref common.Reference
 							},
 						},
 						SchemaProps: spec.SchemaProps{
-							Description: "volumeDevices is the list of block devices to be used by the container. This is a beta feature.",
+							Description: "volumeDevices is the list of block devices to be used by the container.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -3495,7 +3762,7 @@ func schema_pkg_apis_serving_v1beta1_PredictorExtensionSpec(ref common.Reference
 					},
 					"startupProbe": {
 						SchemaProps: spec.SchemaProps{
-							Description: "StartupProbe indicates that the Pod has successfully initialized. If specified, no other probes are executed until this completes successfully. If this probe fails, the Pod will be restarted, just as if the livenessProbe failed. This can be used to provide different probe parameters at the beginning of a Pod's lifecycle, when it might take a long time to load data or warm a cache, than during steady-state operation. This cannot be updated. This is an alpha feature enabled by the StartupProbe feature flag. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
+							Description: "StartupProbe indicates that the Pod has successfully initialized. If specified, no other probes are executed until this completes successfully. If this probe fails, the Pod will be restarted, just as if the livenessProbe failed. This can be used to provide different probe parameters at the beginning of a Pod's lifecycle, when it might take a long time to load data or warm a cache, than during steady-state operation. This cannot be updated. This is a beta feature enabled by the StartupProbe feature flag. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
 							Ref:         ref("k8s.io/api/core/v1.Probe"),
 						},
 					},
@@ -3572,37 +3839,43 @@ func schema_pkg_apis_serving_v1beta1_PredictorSpec(ref common.ReferenceCallback)
 					"sklearn": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Spec for SKLearn model server",
-							Ref:         ref("./pkg/apis/serving/v1beta1.SKLearnSpec"),
+							Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.SKLearnSpec"),
 						},
 					},
 					"xgboost": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Spec for XGBoost model server",
-							Ref:         ref("./pkg/apis/serving/v1beta1.XGBoostSpec"),
+							Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.XGBoostSpec"),
 						},
 					},
 					"tensorflow": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Spec for TFServing (https://github.com/tensorflow/serving)",
-							Ref:         ref("./pkg/apis/serving/v1beta1.TFServingSpec"),
+							Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.TFServingSpec"),
 						},
 					},
 					"pytorch": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Spec for TorchServe (https://pytorch.org/serve)",
-							Ref:         ref("./pkg/apis/serving/v1beta1.TorchServeSpec"),
+							Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.TorchServeSpec"),
 						},
 					},
 					"triton": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Spec for Triton Inference Server (https://github.com/triton-inference-server/server)",
-							Ref:         ref("./pkg/apis/serving/v1beta1.TritonSpec"),
+							Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.TritonSpec"),
 						},
 					},
 					"onnx": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Spec for ONNX runtime (https://github.com/microsoft/onnxruntime)",
-							Ref:         ref("./pkg/apis/serving/v1beta1.ONNXRuntimeSpec"),
+							Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.ONNXRuntimeSpec"),
+						},
+					},
+					"pmml": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Spec for PMML",
+							Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.PMMLSpec"),
 						},
 					},
 					"volumes": {
@@ -3994,20 +4267,20 @@ func schema_pkg_apis_serving_v1beta1_PredictorSpec(ref common.ReferenceCallback)
 					"logger": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Activate request/response logging and logger configurations",
-							Ref:         ref("./pkg/apis/serving/v1beta1.LoggerSpec"),
+							Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.LoggerSpec"),
 						},
 					},
 					"batcher": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Activate request batching and batching configurations",
-							Ref:         ref("./pkg/apis/serving/v1beta1.Batcher"),
+							Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.Batcher"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"./pkg/apis/serving/v1beta1.Batcher", "./pkg/apis/serving/v1beta1.LoggerSpec", "./pkg/apis/serving/v1beta1.ONNXRuntimeSpec", "./pkg/apis/serving/v1beta1.SKLearnSpec", "./pkg/apis/serving/v1beta1.TFServingSpec", "./pkg/apis/serving/v1beta1.TorchServeSpec", "./pkg/apis/serving/v1beta1.TritonSpec", "./pkg/apis/serving/v1beta1.XGBoostSpec", "k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Container", "k8s.io/api/core/v1.EphemeralContainer", "k8s.io/api/core/v1.HostAlias", "k8s.io/api/core/v1.LocalObjectReference", "k8s.io/api/core/v1.PodDNSConfig", "k8s.io/api/core/v1.PodReadinessGate", "k8s.io/api/core/v1.PodSecurityContext", "k8s.io/api/core/v1.Toleration", "k8s.io/api/core/v1.TopologySpreadConstraint", "k8s.io/api/core/v1.Volume", "k8s.io/apimachinery/pkg/api/resource.Quantity"},
+			"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.Batcher", "github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.LoggerSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.ONNXRuntimeSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.PMMLSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.SKLearnSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.TFServingSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.TorchServeSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.TritonSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.XGBoostSpec", "k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Container", "k8s.io/api/core/v1.EphemeralContainer", "k8s.io/api/core/v1.HostAlias", "k8s.io/api/core/v1.LocalObjectReference", "k8s.io/api/core/v1.PodDNSConfig", "k8s.io/api/core/v1.PodReadinessGate", "k8s.io/api/core/v1.PodSecurityContext", "k8s.io/api/core/v1.Toleration", "k8s.io/api/core/v1.TopologySpreadConstraint", "k8s.io/api/core/v1.Volume", "k8s.io/apimachinery/pkg/api/resource.Quantity"},
 	}
 }
 
@@ -4019,39 +4292,44 @@ func schema_pkg_apis_serving_v1beta1_PredictorsConfig(ref common.ReferenceCallba
 				Properties: map[string]spec.Schema{
 					"tensorflow": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("./pkg/apis/serving/v1beta1.PredictorConfig"),
+							Ref: ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.PredictorConfig"),
 						},
 					},
 					"triton": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("./pkg/apis/serving/v1beta1.PredictorConfig"),
+							Ref: ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.PredictorConfig"),
 						},
 					},
 					"xgboost": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("./pkg/apis/serving/v1beta1.PredictorConfig"),
+							Ref: ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.PredictorConfig"),
 						},
 					},
 					"sklearn": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("./pkg/apis/serving/v1beta1.PredictorConfig"),
+							Ref: ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.PredictorConfig"),
 						},
 					},
 					"pytorch": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("./pkg/apis/serving/v1beta1.PredictorConfig"),
+							Ref: ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.PredictorConfig"),
 						},
 					},
 					"onnx": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("./pkg/apis/serving/v1beta1.PredictorConfig"),
+							Ref: ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.PredictorConfig"),
+						},
+					},
+					"pmml": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.PredictorConfig"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"./pkg/apis/serving/v1beta1.PredictorConfig"},
+			"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.PredictorConfig"},
 	}
 }
 
@@ -4214,7 +4492,7 @@ func schema_pkg_apis_serving_v1beta1_SKLearnSpec(ref common.ReferenceCallback) c
 							},
 						},
 						SchemaProps: spec.SchemaProps{
-							Description: "volumeDevices is the list of block devices to be used by the container. This is a beta feature.",
+							Description: "volumeDevices is the list of block devices to be used by the container.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -4239,7 +4517,7 @@ func schema_pkg_apis_serving_v1beta1_SKLearnSpec(ref common.ReferenceCallback) c
 					},
 					"startupProbe": {
 						SchemaProps: spec.SchemaProps{
-							Description: "StartupProbe indicates that the Pod has successfully initialized. If specified, no other probes are executed until this completes successfully. If this probe fails, the Pod will be restarted, just as if the livenessProbe failed. This can be used to provide different probe parameters at the beginning of a Pod's lifecycle, when it might take a long time to load data or warm a cache, than during steady-state operation. This cannot be updated. This is an alpha feature enabled by the StartupProbe feature flag. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
+							Description: "StartupProbe indicates that the Pod has successfully initialized. If specified, no other probes are executed until this completes successfully. If this probe fails, the Pod will be restarted, just as if the livenessProbe failed. This can be used to provide different probe parameters at the beginning of a Pod's lifecycle, when it might take a long time to load data or warm a cache, than during steady-state operation. This cannot be updated. This is a beta feature enabled by the StartupProbe feature flag. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
 							Ref:         ref("k8s.io/api/core/v1.Probe"),
 						},
 					},
@@ -4465,7 +4743,7 @@ func schema_pkg_apis_serving_v1beta1_TFServingSpec(ref common.ReferenceCallback)
 							},
 						},
 						SchemaProps: spec.SchemaProps{
-							Description: "volumeDevices is the list of block devices to be used by the container. This is a beta feature.",
+							Description: "volumeDevices is the list of block devices to be used by the container.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -4490,7 +4768,7 @@ func schema_pkg_apis_serving_v1beta1_TFServingSpec(ref common.ReferenceCallback)
 					},
 					"startupProbe": {
 						SchemaProps: spec.SchemaProps{
-							Description: "StartupProbe indicates that the Pod has successfully initialized. If specified, no other probes are executed until this completes successfully. If this probe fails, the Pod will be restarted, just as if the livenessProbe failed. This can be used to provide different probe parameters at the beginning of a Pod's lifecycle, when it might take a long time to load data or warm a cache, than during steady-state operation. This cannot be updated. This is an alpha feature enabled by the StartupProbe feature flag. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
+							Description: "StartupProbe indicates that the Pod has successfully initialized. If specified, no other probes are executed until this completes successfully. If this probe fails, the Pod will be restarted, just as if the livenessProbe failed. This can be used to provide different probe parameters at the beginning of a Pod's lifecycle, when it might take a long time to load data or warm a cache, than during steady-state operation. This cannot be updated. This is a beta feature enabled by the StartupProbe feature flag. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
 							Ref:         ref("k8s.io/api/core/v1.Probe"),
 						},
 					},
@@ -4723,7 +5001,7 @@ func schema_pkg_apis_serving_v1beta1_TorchServeSpec(ref common.ReferenceCallback
 							},
 						},
 						SchemaProps: spec.SchemaProps{
-							Description: "volumeDevices is the list of block devices to be used by the container. This is a beta feature.",
+							Description: "volumeDevices is the list of block devices to be used by the container.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -4748,7 +5026,7 @@ func schema_pkg_apis_serving_v1beta1_TorchServeSpec(ref common.ReferenceCallback
 					},
 					"startupProbe": {
 						SchemaProps: spec.SchemaProps{
-							Description: "StartupProbe indicates that the Pod has successfully initialized. If specified, no other probes are executed until this completes successfully. If this probe fails, the Pod will be restarted, just as if the livenessProbe failed. This can be used to provide different probe parameters at the beginning of a Pod's lifecycle, when it might take a long time to load data or warm a cache, than during steady-state operation. This cannot be updated. This is an alpha feature enabled by the StartupProbe feature flag. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
+							Description: "StartupProbe indicates that the Pod has successfully initialized. If specified, no other probes are executed until this completes successfully. If this probe fails, the Pod will be restarted, just as if the livenessProbe failed. This can be used to provide different probe parameters at the beginning of a Pod's lifecycle, when it might take a long time to load data or warm a cache, than during steady-state operation. This cannot be updated. This is a beta feature enabled by the StartupProbe feature flag. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
 							Ref:         ref("k8s.io/api/core/v1.Probe"),
 						},
 					},
@@ -4843,19 +5121,19 @@ func schema_pkg_apis_serving_v1beta1_TrainedModel(ref common.ReferenceCallback) 
 					},
 					"spec": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("./pkg/apis/serving/v1beta1.TrainedModelSpec"),
+							Ref: ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.TrainedModelSpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("./pkg/apis/serving/v1beta1.TrainedModelStatus"),
+							Ref: ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.TrainedModelStatus"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"./pkg/apis/serving/v1beta1.TrainedModelSpec", "./pkg/apis/serving/v1beta1.TrainedModelStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.TrainedModelSpec", "github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.TrainedModelStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
@@ -4896,7 +5174,7 @@ func schema_pkg_apis_serving_v1beta1_TrainedModelList(ref common.ReferenceCallba
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Ref: ref("./pkg/apis/serving/v1beta1.TrainedModel"),
+										Ref: ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.TrainedModel"),
 									},
 								},
 							},
@@ -4907,7 +5185,7 @@ func schema_pkg_apis_serving_v1beta1_TrainedModelList(ref common.ReferenceCallba
 			},
 		},
 		Dependencies: []string{
-			"./pkg/apis/serving/v1beta1.TrainedModel", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+			"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.TrainedModel", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
 	}
 }
 
@@ -4928,7 +5206,7 @@ func schema_pkg_apis_serving_v1beta1_TrainedModelSpec(ref common.ReferenceCallba
 					"model": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Predictor model spec",
-							Ref:         ref("./pkg/apis/serving/v1beta1.ModelSpec"),
+							Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.ModelSpec"),
 						},
 					},
 				},
@@ -4936,7 +5214,7 @@ func schema_pkg_apis_serving_v1beta1_TrainedModelSpec(ref common.ReferenceCallba
 			},
 		},
 		Dependencies: []string{
-			"./pkg/apis/serving/v1beta1.ModelSpec"},
+			"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.ModelSpec"},
 	}
 }
 
@@ -4968,6 +5246,21 @@ func schema_pkg_apis_serving_v1beta1_TrainedModelStatus(ref common.ReferenceCall
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Ref: ref("knative.dev/pkg/apis.Condition"),
+									},
+								},
+							},
+						},
+					},
+					"annotations": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Annotations is additional Status fields for the Resource to save some additional State as well as convey more information to the user. This is roughly akin to Annotations on any k8s resource, just the reconciler conveying richer information outwards.",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
 									},
 								},
 							},
@@ -5410,20 +5703,20 @@ func schema_pkg_apis_serving_v1beta1_TransformerSpec(ref common.ReferenceCallbac
 					"logger": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Activate request/response logging and logger configurations",
-							Ref:         ref("./pkg/apis/serving/v1beta1.LoggerSpec"),
+							Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.LoggerSpec"),
 						},
 					},
 					"batcher": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Activate request batching and batching configurations",
-							Ref:         ref("./pkg/apis/serving/v1beta1.Batcher"),
+							Ref:         ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.Batcher"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"./pkg/apis/serving/v1beta1.Batcher", "./pkg/apis/serving/v1beta1.LoggerSpec", "k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Container", "k8s.io/api/core/v1.EphemeralContainer", "k8s.io/api/core/v1.HostAlias", "k8s.io/api/core/v1.LocalObjectReference", "k8s.io/api/core/v1.PodDNSConfig", "k8s.io/api/core/v1.PodReadinessGate", "k8s.io/api/core/v1.PodSecurityContext", "k8s.io/api/core/v1.Toleration", "k8s.io/api/core/v1.TopologySpreadConstraint", "k8s.io/api/core/v1.Volume", "k8s.io/apimachinery/pkg/api/resource.Quantity"},
+			"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.Batcher", "github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.LoggerSpec", "k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Container", "k8s.io/api/core/v1.EphemeralContainer", "k8s.io/api/core/v1.HostAlias", "k8s.io/api/core/v1.LocalObjectReference", "k8s.io/api/core/v1.PodDNSConfig", "k8s.io/api/core/v1.PodReadinessGate", "k8s.io/api/core/v1.PodSecurityContext", "k8s.io/api/core/v1.Toleration", "k8s.io/api/core/v1.TopologySpreadConstraint", "k8s.io/api/core/v1.Volume", "k8s.io/apimachinery/pkg/api/resource.Quantity"},
 	}
 }
 
@@ -5435,14 +5728,14 @@ func schema_pkg_apis_serving_v1beta1_TransformersConfig(ref common.ReferenceCall
 				Properties: map[string]spec.Schema{
 					"feast": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("./pkg/apis/serving/v1beta1.TransformerConfig"),
+							Ref: ref("github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.TransformerConfig"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"./pkg/apis/serving/v1beta1.TransformerConfig"},
+			"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1.TransformerConfig"},
 	}
 }
 
@@ -5605,7 +5898,7 @@ func schema_pkg_apis_serving_v1beta1_TritonSpec(ref common.ReferenceCallback) co
 							},
 						},
 						SchemaProps: spec.SchemaProps{
-							Description: "volumeDevices is the list of block devices to be used by the container. This is a beta feature.",
+							Description: "volumeDevices is the list of block devices to be used by the container.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -5630,7 +5923,7 @@ func schema_pkg_apis_serving_v1beta1_TritonSpec(ref common.ReferenceCallback) co
 					},
 					"startupProbe": {
 						SchemaProps: spec.SchemaProps{
-							Description: "StartupProbe indicates that the Pod has successfully initialized. If specified, no other probes are executed until this completes successfully. If this probe fails, the Pod will be restarted, just as if the livenessProbe failed. This can be used to provide different probe parameters at the beginning of a Pod's lifecycle, when it might take a long time to load data or warm a cache, than during steady-state operation. This cannot be updated. This is an alpha feature enabled by the StartupProbe feature flag. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
+							Description: "StartupProbe indicates that the Pod has successfully initialized. If specified, no other probes are executed until this completes successfully. If this probe fails, the Pod will be restarted, just as if the livenessProbe failed. This can be used to provide different probe parameters at the beginning of a Pod's lifecycle, when it might take a long time to load data or warm a cache, than during steady-state operation. This cannot be updated. This is a beta feature enabled by the StartupProbe feature flag. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
 							Ref:         ref("k8s.io/api/core/v1.Probe"),
 						},
 					},
@@ -5856,7 +6149,7 @@ func schema_pkg_apis_serving_v1beta1_XGBoostSpec(ref common.ReferenceCallback) c
 							},
 						},
 						SchemaProps: spec.SchemaProps{
-							Description: "volumeDevices is the list of block devices to be used by the container. This is a beta feature.",
+							Description: "volumeDevices is the list of block devices to be used by the container.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -5881,7 +6174,7 @@ func schema_pkg_apis_serving_v1beta1_XGBoostSpec(ref common.ReferenceCallback) c
 					},
 					"startupProbe": {
 						SchemaProps: spec.SchemaProps{
-							Description: "StartupProbe indicates that the Pod has successfully initialized. If specified, no other probes are executed until this completes successfully. If this probe fails, the Pod will be restarted, just as if the livenessProbe failed. This can be used to provide different probe parameters at the beginning of a Pod's lifecycle, when it might take a long time to load data or warm a cache, than during steady-state operation. This cannot be updated. This is an alpha feature enabled by the StartupProbe feature flag. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
+							Description: "StartupProbe indicates that the Pod has successfully initialized. If specified, no other probes are executed until this completes successfully. If this probe fails, the Pod will be restarted, just as if the livenessProbe failed. This can be used to provide different probe parameters at the beginning of a Pod's lifecycle, when it might take a long time to load data or warm a cache, than during steady-state operation. This cannot be updated. This is a beta feature enabled by the StartupProbe feature flag. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
 							Ref:         ref("k8s.io/api/core/v1.Probe"),
 						},
 					},

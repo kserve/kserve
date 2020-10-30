@@ -70,6 +70,7 @@ type PredictorsConfig struct {
 	SKlearn    PredictorConfig `json:"sklearn,omitempty"`
 	PyTorch    PredictorConfig `json:"pytorch,omitempty"`
 	ONNX       PredictorConfig `json:"onnx,omitempty"`
+	PMML       PredictorConfig `json:"pmml,omitempty"`
 }
 
 // +kubebuilder:object:generate=false
