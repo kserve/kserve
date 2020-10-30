@@ -59,6 +59,14 @@ data:
               "caffe2"
             ],
             "multiModelServer": "true"
+        },
+        "pmml": {
+            "image": "goeldicloud/pmmlserver",
+            "defaultImageVersion": "v0.4.0",
+            "supportedFrameworks": [
+              "pmml"
+            ],
+            "multiModelServer": "false"
         }
     }
   transformers: |-

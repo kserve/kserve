@@ -107,6 +107,9 @@ func getPredictor(predictorSpec *PredictorSpec) (Predictor, error) {
 	if predictorSpec.Triton != nil {
 		predictors = append(predictors, predictorSpec.Triton)
 	}
+	if predictorSpec.PMML != nil {
+		predictors = append(predictors, predictorSpec.PMML)
+	}
 	if len(predictors) != 1 {
 		err := fmt.Errorf(ExactlyOnePredictorViolatedError)
 		klog.Error(err)
