@@ -69,6 +69,14 @@ data:
               "caffe2"
             ],
             "multiModelServer": "true"
+        },
+        "pmml": {
+            "image": "gcr.io/kfserving/pmmlserver",
+            "defaultImageVersion": "v0.4.1",
+            "supportedFrameworks": [
+              "pmml"
+            ],
+            "multiModelServer": "false"
         }
     }
   transformers: |-

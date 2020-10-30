@@ -37,6 +37,10 @@ data:
         "triton": {
             "image": "nvcr.io/nvidia/tritonserver",
             "defaultImageVersion": "20.08-py3"
+        },
+        "pmml": {
+            "image": "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/pmmlserver",
+            "defaultImageVersion": "latest"
         }
     }
   transformers: |-

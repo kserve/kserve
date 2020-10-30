@@ -72,6 +72,7 @@ class V1beta1PredictorSpec(object):
         'node_selector': 'dict(str, str)',
         'onnx': 'V1beta1ONNXRuntimeSpec',
         'overhead': 'dict(str, ResourceQuantity)',
+        'pmml': 'V1beta1PMMLSpec',
         'preemption_policy': 'str',
         'priority': 'int',
         'priority_class_name': 'str',
@@ -122,6 +123,7 @@ class V1beta1PredictorSpec(object):
         'node_selector': 'nodeSelector',
         'onnx': 'onnx',
         'overhead': 'overhead',
+        'pmml': 'pmml',
         'preemption_policy': 'preemptionPolicy',
         'priority': 'priority',
         'priority_class_name': 'priorityClassName',
@@ -146,7 +148,7 @@ class V1beta1PredictorSpec(object):
         'xgboost': 'xgboost'
     }
 
-    def __init__(self, active_deadline_seconds=None, affinity=None, automount_service_account_token=None, batcher=None, canary_traffic_percent=None, container_concurrency=None, containers=None, dns_config=None, dns_policy=None, enable_service_links=None, ephemeral_containers=None, host_aliases=None, host_ipc=None, host_network=None, host_pid=None, hostname=None, image_pull_secrets=None, init_containers=None, logger=None, max_replicas=None, min_replicas=None, node_name=None, node_selector=None, onnx=None, overhead=None, preemption_policy=None, priority=None, priority_class_name=None, pytorch=None, readiness_gates=None, restart_policy=None, runtime_class_name=None, scheduler_name=None, security_context=None, service_account=None, service_account_name=None, share_process_namespace=None, sklearn=None, subdomain=None, tensorflow=None, termination_grace_period_seconds=None, timeout=None, tolerations=None, topology_spread_constraints=None, triton=None, volumes=None, xgboost=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, active_deadline_seconds=None, affinity=None, automount_service_account_token=None, batcher=None, canary_traffic_percent=None, container_concurrency=None, containers=None, dns_config=None, dns_policy=None, enable_service_links=None, ephemeral_containers=None, host_aliases=None, host_ipc=None, host_network=None, host_pid=None, hostname=None, image_pull_secrets=None, init_containers=None, logger=None, max_replicas=None, min_replicas=None, node_name=None, node_selector=None, onnx=None, overhead=None, pmml=None, preemption_policy=None, priority=None, priority_class_name=None, pytorch=None, readiness_gates=None, restart_policy=None, runtime_class_name=None, scheduler_name=None, security_context=None, service_account=None, service_account_name=None, share_process_namespace=None, sklearn=None, subdomain=None, tensorflow=None, termination_grace_period_seconds=None, timeout=None, tolerations=None, topology_spread_constraints=None, triton=None, volumes=None, xgboost=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1PredictorSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -177,6 +179,7 @@ class V1beta1PredictorSpec(object):
         self._node_selector = None
         self._onnx = None
         self._overhead = None
+        self._pmml = None
         self._preemption_policy = None
         self._priority = None
         self._priority_class_name = None
@@ -251,6 +254,8 @@ class V1beta1PredictorSpec(object):
             self.onnx = onnx
         if overhead is not None:
             self.overhead = overhead
+        if pmml is not None:
+            self.pmml = pmml
         if preemption_policy is not None:
             self.preemption_policy = preemption_policy
         if priority is not None:
@@ -860,6 +865,27 @@ class V1beta1PredictorSpec(object):
         """
 
         self._overhead = overhead
+
+    @property
+    def pmml(self):
+        """Gets the pmml of this V1beta1PredictorSpec.  # noqa: E501
+
+
+        :return: The pmml of this V1beta1PredictorSpec.  # noqa: E501
+        :rtype: V1beta1PMMLSpec
+        """
+        return self._pmml
+
+    @pmml.setter
+    def pmml(self, pmml):
+        """Sets the pmml of this V1beta1PredictorSpec.
+
+
+        :param pmml: The pmml of this V1beta1PredictorSpec.  # noqa: E501
+        :type: V1beta1PMMLSpec
+        """
+
+        self._pmml = pmml
 
     @property
     def preemption_policy(self):

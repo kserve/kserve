@@ -48,6 +48,7 @@ from kfserving.models.v1beta1_ingress_config import V1beta1IngressConfig
 from kfserving.models.v1beta1_logger_spec import V1beta1LoggerSpec
 from kfserving.models.v1beta1_model_spec import V1beta1ModelSpec
 from kfserving.models.v1beta1_onnx_runtime_spec import V1beta1ONNXRuntimeSpec
+from kfserving.models.v1beta1_pmml_spec import V1beta1PMMLSpec
 from kfserving.models.v1beta1_pod_spec import V1beta1PodSpec
 from kfserving.models.v1beta1_predictor_config import V1beta1PredictorConfig
 from kfserving.models.v1beta1_predictor_extension_spec import V1beta1PredictorExtensionSpec
