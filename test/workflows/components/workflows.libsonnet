@@ -49,7 +49,7 @@
       // The directory containing the kubeflow/kfserving repo
       local srcDir = srcRootDir + "/kubeflow/kfserving";
       local pylintSrcDir = srcDir + "/python";
-      local testWorkerImage = "gcr.io/kubeflow-ci/test-worker-py3@sha256:b679ce5d7edbcc373fd7d28c57454f4f22ae987f200f601252b6dcca1fd8823b";
+      local testWorkerImage = "527798164940.dkr.ecr.us-west-2.amazonaws.com/aws-kubeflow-ci/test-worker:latest";
       local golangImage = "golang:1.9.4-stretch";
       // TODO(jose5918) Build our own helm image
       local pythonImage = "python:3.6-jessie";
@@ -80,8 +80,8 @@
       // and if we cut the prefix we might end up starting with "-" or other invalid
       // character for first character.
       local cluster =
-        if std.length(name) > 40 then
-          "z" + std.substr(name, std.length(name) - 39, 39)
+        if std.length(name) > 80 then
+          "z" + std.substr(name, std.length(name) - 79, 79)
         else
           name;
       local zone = params.zone;
@@ -90,7 +90,7 @@
         // Build an Argo template to execute a particular command.
         // step_name: Name for the template
         // command: List to pass as the container command.
-        buildTemplate(step_name, image, command):: {
+        buildTemplate(step_name, image, command, env_vars=[], volume_mounts=[]):: {
           name: step_name,
           retryStrategy: {
             limit: 3,
@@ -121,24 +121,12 @@
                 value: cluster,
               },
               {
-                name: "GCP_ZONE",
-                value: zone,
-              },
-              {
-                name: "GCP_PROJECT",
-                value: project,
-              },
-              {
                 name: "GCP_REGISTRY",
                 value: registry,
               },
               {
                 name: "DEPLOY_NAMESPACE",
                 value: deployNamespace,
-              },
-              {
-                name: "GOOGLE_APPLICATION_CREDENTIALS",
-                value: "/secret/gcp-credentials/key.json",
               },
               {
                 name: "GIT_TOKEN",
@@ -149,7 +137,11 @@
                   },
                 },
               },
-            ] + prow_env,
+              {
+                name: "AWS_REGION",
+                value: "us-west-2",
+              },
+            ] + prow_env + env_vars,
             volumeMounts: [
               {
                 name: dataVolume,
@@ -160,8 +152,8 @@
                 mountPath: "/secret/github-token",
               },
               {
-                name: "gcp-credentials",
-                mountPath: "/secret/gcp-credentials",
+                name: "aws-secret",
+                mountPath: "/root/.aws/",
               },
             ],
           },
@@ -183,15 +175,21 @@
               },
             },
             {
-              name: "gcp-credentials",
-              secret: {
-                secretName: params.gcpCredentialsSecretName,
-              },
-            },
-            {
               name: dataVolume,
               persistentVolumeClaim: {
                 claimName: nfsVolumeClaim,
+              },
+            },
+            {
+              name: "docker-config",
+              configMap: {
+                name: "docker-config",
+              },
+            },
+            {
+              name: "aws-secret",
+              secret: {
+                secretName: "aws-secret",
               },
             },
           ],  // volumes
@@ -374,9 +372,9 @@
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("copy-artifacts", testWorkerImage, [
               "python",
               "-m",
-              "kubeflow.testing.prow_artifacts",
+              "kubeflow.testing.cloudprovider.aws.prow_artifacts",
               "--artifacts_dir=" + outputDir,
-              "copy_artifacts",
+              "copy_artifacts_to_s3",
               "--bucket=" + bucket,
             ]),  // copy-artifacts
           ],  // templates
