@@ -120,6 +120,8 @@ type PredictorSpec struct {
 	ONNX *ONNXSpec `json:"onnx,omitempty"`
 	// Spec for PyTorch predictor
 	PyTorch *PyTorchSpec `json:"pytorch,omitempty"`
+	// Spec for PMML predictor
+	PMML *PMMLSpec `json:"pmml,omitempty"`
 
 	DeploymentSpec `json:",inline"`
 }
@@ -248,6 +250,16 @@ type PyTorchSpec struct {
 	// Defaults PyTorch model class name to 'PyTorchModel'
 	ModelClassName string `json:"modelClassName,omitempty"`
 	// PyTorch KFServer docker image version which defaults to latest release
+	RuntimeVersion string `json:"runtimeVersion,omitempty"`
+	// Defaults to requests and limits of 1CPU, 2Gb MEM.
+	Resources v1.ResourceRequirements `json:"resources,omitempty"`
+}
+
+// PMMLSpec defines arguments for configuring PMML model serving.
+type PMMLSpec struct {
+	// The URI of the trained model which contains model.pmml
+	StorageURI string `json:"storageUri"`
+	// PMML KFServer docker image version which defaults to latest release
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
 	// Defaults to requests and limits of 1CPU, 2Gb MEM.
 	Resources v1.ResourceRequirements `json:"resources,omitempty"`
