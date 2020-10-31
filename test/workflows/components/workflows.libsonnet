@@ -210,12 +210,6 @@
                 ],
                 [
                   {
-                    name: "setup-cluster",
-                    template: "setup-cluster",
-                  },
-                ],
-                [
-                  {
                     name: "build-kfserving-manager",
                     template: "build-kfserving",
                   },
@@ -258,6 +252,12 @@
                   {
                     name: "build-sklearnserver",
                     template: "build-sklearnserver",
+                  },
+                ],
+                [
+                  {
+                    name: "setup-cluster",
+                    template: "setup-cluster",
                   },
                 ],
                 [
@@ -311,7 +311,7 @@
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("teardown-cluster",testWorkerImage, [
               "test/scripts/delete-cluster.sh",
              ]),  // teardown cluster
-            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-kfserving", testWorkerImage, [
+            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-kfserving", kanikoExecutorImage, [
               "/kaniko/executor",
               "--dockerfile=" + srcDir + "/Dockerfile",
               "--context=dir://" + srcDir,
@@ -355,8 +355,8 @@
             ]),  // build-batcher
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-custom-image-transformer", kanikoExecutorImage, [
               "/kaniko/executor",
-              "--dockerfile=" + srcDir + "/transformer.Dockerfile",
-              "--context=dir://" + srcDir + "docs/samples/transformer/image_transformer",
+              "--dockerfile=" + srcDir + "/docs/samples/transformer/image_transformer/transformer.Dockerfile",
+              "--context=dir://" + srcDir + "/docs/samples/transformer/image_transformer",
               "--destination=" + "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/image-transformer:latest",
             ]),  // build-custom-image-transformer
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-pytorchserver", kanikoExecutorImage, [
