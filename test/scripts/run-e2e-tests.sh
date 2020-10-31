@@ -21,10 +21,8 @@ set -o nounset
 set -o pipefail
 
 CLUSTER_NAME="${CLUSTER_NAME}"
-ZONE="${GCP_ZONE}"
-PROJECT="${GCP_PROJECT}"
-NAMESPACE="${DEPLOY_NAMESPACE}"
-REGISTRY="${GCP_REGISTRY}"
+AWS_REGION="${AWS_REGION}"
+
 ISTIO_VERSION="1.3.1"
 KNATIVE_VERSION="v0.15.0"
 KUBECTL_VERSION="v1.14.0"
@@ -62,22 +60,14 @@ waiting_for_kfserving_controller(){
     done
 }
 
-echo "Activating service-account ..."
-gcloud auth activate-service-account --key-file=${GOOGLE_APPLICATION_CREDENTIALS}
-
 echo "Upgrading kubectl ..."
 # The kubectl need to be upgraded to 1.14.0 to avoid dismatch issue.
 wget -q -O /usr/local/bin/kubectl https://storage.googleapis.com/kubernetes-release/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl
 chmod a+x /usr/local/bin/kubectl
 
 echo "Configuring kubectl ..."
-gcloud --project ${PROJECT} container clusters get-credentials ${CLUSTER_NAME} --zone ${ZONE}
+aws eks update-kubeconfig --region=${AWS_REGION} --name=${CLUSTER_NAME}
 kubectl config set-context $(kubectl config current-context) --namespace=default
-
-echo "Grant cluster-admin permissions to the current user ..."
-kubectl create clusterrolebinding cluster-admin-binding \
-  --clusterrole=cluster-admin \
-  --user=$(gcloud config get-value core/account)
 
 # Install and Initialize Helm
 wget https://get.helm.sh/helm-v3.0.2-linux-amd64.tar.gz
