@@ -19,15 +19,10 @@
   defaultParams:: {
     project:: "kubeflow-ci",
     zone:: "us-east1-d",
-    // Default registry to use.
-    //registry:: "gcr.io/" + $.defaultParams.project,
 
     // The image tag to use.
     // Defaults to a value based on the name.
     versionTag:: null,
-
-    // The name of the secret containing GCP credentials.
-    gcpCredentialsSecretName:: "kubeflow-testing-credentials",
   },
 
   parts(namespace, name, overrides):: {
@@ -49,6 +44,7 @@
       // The directory containing the kubeflow/kfserving repo
       local srcDir = srcRootDir + "/kubeflow/kfserving";
       local pylintSrcDir = srcDir + "/python";
+      local kanikoExecutorImage = "gcr.io/kaniko-project/executor:v1.0.0";
       local testWorkerImage = "527798164940.dkr.ecr.us-west-2.amazonaws.com/aws-kubeflow-ci/test-worker:latest";
       local golangImage = "golang:1.9.4-stretch";
       // TODO(jose5918) Build our own helm image
@@ -253,10 +249,6 @@
                     template: "build-custom-image-transformer",
                   },
                   {
-                    name: "build-custom-bert-transformer",
-                    template: "build-custom-bert-transformer",
-                  },
-                  {
                     name: "build-pytorchserver",
                     template: "build-pytorchserver",
                   },
@@ -321,40 +313,70 @@
               "test/scripts/delete-cluster.sh",
              ]),  // teardown cluster
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-kfserving", testWorkerImage, [
-              "test/scripts/build-kfserving.sh",
+              "/kaniko/executor",
+              "--dockerfile=" + srcDir + "/Dockerfile",
+              "--context=dir://" + srcDir,
+              "--destination=" + "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/kfserving-controller:latest",
             ]),  // build-kfserving
-            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-alibi-explainer", testWorkerImage, [
-              "test/scripts/build-python-image.sh", "alibiexplainer.Dockerfile", "alibi-explainer", "latest"
+            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-alibi-explainer", kanikoExecutorImage, [
+              "/kaniko/executor",
+              "--dockerfile=" + srcDir + "/python/alibiexplainer.Dockerfile",
+              "--context=dir://" + srcDir + "/python",
+              "--destination=" + "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/alibi-explainer:latest",
             ]),  // build-alibi-explainer
-            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-aix-explainer", testWorkerImage, [
-              "test/scripts/build-python-image.sh", "aixexplainer.Dockerfile ", "aix-explainer", "latest"
+            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-aix-explainer", kanikoExecutorImage, [
+              "/kaniko/executor",
+              "--dockerfile=" + srcDir + "/python/aixexplainer.Dockerfile",
+              "--context=dir://" + srcDir + "/python",
+              "--destination=" + "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/aix-explainer:latest",
             ]),  // build-aix-explainer
-            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-storage-initializer", testWorkerImage, [
-              "test/scripts/build-python-image.sh", "storage-initializer.Dockerfile", "storage-initializer", "latest"
+            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-storage-initializer", kanikoExecutorImage, [
+              "/kaniko/executor",
+              "--dockerfile=" + srcDir + "/python/storage-initializer.Dockerfile",
+              "--context=dir://" + srcDir + "/python",
+              "--destination=" + "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/storage-initializer:latest",
             ]),  // build-storage-initializer
-            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-xgbserver", testWorkerImage, [
-              "test/scripts/build-python-image.sh", "xgb.Dockerfile", "xgbserver", "latest"
+            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-xgbserver", kanikoExecutorImage, [
+              "/kaniko/executor",
+              "--dockerfile=" + srcDir + "/python/xgb.Dockerfile",
+              "--context=dir://" + srcDir + "/python",
+              "--destination=" + "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/xgbserver:latest",
             ]),  // build-xgbserver
-            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-logger", testWorkerImage, [
-              "test/scripts/build-logger.sh",
+            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-logger", kanikoExecutorImage, [
+              "/kaniko/executor",
+              "--dockerfile=" + srcDir + "/logger.Dockerfile",
+              "--context=dir://" + srcDir,
+              "--destination=" + "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/logger:latest",
             ]),  // build-logger
-            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-batcher", testWorkerImage, [
-              "test/scripts/build-batcher.sh",
+            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-batcher", kanikoExecutorImage, [
+              "/kaniko/executor",
+              "--dockerfile=" + srcDir + "/batcher.Dockerfile",
+              "--context=dir://" + srcDir,
+              "--destination=" + "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/batcher:latest",
             ]),  // build-batcher
-            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-custom-image-transformer", testWorkerImage, [
-              "test/scripts/build-custom-image-transformer.sh",
+            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-custom-image-transformer", kanikoExecutorImage, [
+              "/kaniko/executor",
+              "--dockerfile=" + srcDir + "/transformer.Dockerfile",
+              "--context=dir://" + srcDir + "docs/samples/transformer/image_transformer",
+              "--destination=" + "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/image-transformer:latest",
             ]),  // build-custom-image-transformer
-            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-custom-bert-transformer", testWorkerImage, [
-              "test/scripts/build-custom-bert-transformer.sh",
-            ]),  // build-custom-bert-transformer
-            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-pytorchserver", testWorkerImage, [
-              "test/scripts/build-python-image.sh", "pytorch.Dockerfile", "pytorchserver", "latest"
+            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-pytorchserver", kanikoExecutorImage, [
+              "/kaniko/executor",
+              "--dockerfile=" + srcDir + "/python/pytorch.Dockerfile",
+              "--context=dir://" + srcDir + "/python",
+              "--destination=" + "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/pytorchserver:latest",
             ]),  // build-pytorchserver
-            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-pytorchserver-gpu", testWorkerImage, [
-              "test/scripts/build-python-image.sh", "pytorch-gpu.Dockerfile", "pytorchserver", "latest-gpu"
+            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-pytorchserver-gpu", kanikoExecutorImage, [
+              "/kaniko/executor",
+              "--dockerfile=" + srcDir + "/python/pytorch-gpu.Dockerfile",
+              "--context=dir://" + srcDir + "/python",
+              "--destination=" + "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/pytorchserver:latest-gpu",
             ]),  // build-pytorchserver-gpu
-            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-sklearnserver", testWorkerImage, [
-              "test/scripts/build-python-image.sh", "sklearn.Dockerfile", "sklearnserver", "latest"
+            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-sklearnserver", kanikoExecutorImage, [
+              "/kaniko/executor",
+              "--dockerfile=" + srcDir + "/python/sklearn.Dockerfile",
+              "--context=dir://" + srcDir + "/python",
+              "--destination=" + "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/sklearnserver:latest",
             ]),  // build-sklearnserver
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("unit-test", testWorkerImage, [
               "test/scripts/unit-test.sh",
