@@ -21,9 +21,9 @@ set -o nounset
 set -o pipefail
 
 EKS_CLUSTER_NAME="${CLUSTER_NAME}"
-DESIRED_NODE="${DESIRED_NODE:-3}"
-MIN_NODE="${MIN_NODE:-2}"
-MAX_NODE="${MAX_NODE:-5}"
+DESIRED_NODE="${DESIRED_NODE:-2}"
+MIN_NODE="${MIN_NODE:-1}"
+MAX_NODE="${MAX_NODE:-3}"
 
 echo "Starting to create eks cluster"
 eksctl create cluster \
