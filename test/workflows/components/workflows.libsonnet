@@ -228,52 +228,6 @@
                 ],
                 [
                   {
-                    name: "build-kfserving-manager",
-                    template: "build-kfserving",
-                  },
-                  {
-                    name: "build-alibi-explainer",
-                    template: "build-alibi-explainer",
-                  },
-                  {
-                    name: "build-aix-explainer",
-                    template: "build-aix-explainer",
-                  },
-                  {
-                    name: "build-storage-initializer",
-                    template: "build-storage-initializer",
-                  },
-                  {
-                    name: "build-xgbserver",
-                    template: "build-xgbserver",
-                  },
-                  {
-                    name: "build-logger",
-                    template: "build-logger",
-                  },
-                  {
-                    name: "build-batcher",
-                    template: "build-batcher",
-                  },
-                  {
-                    name: "build-custom-image-transformer",
-                    template: "build-custom-image-transformer",
-                  },
-                  {
-                    name: "build-pytorchserver",
-                    template: "build-pytorchserver",
-                  },
-                  {
-                    name: "build-pytorchserver-gpu",
-                    template: "build-pytorchserver-gpu",
-                  },
-                  {
-                    name: "build-sklearnserver",
-                    template: "build-sklearnserver",
-                  },
-                ],
-                [
-                  {
                     name: "setup-cluster",
                     template: "setup-cluster",
                   },
