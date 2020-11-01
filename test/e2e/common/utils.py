@@ -94,5 +94,8 @@ def get_cluster_ip():
     if service.status.load_balancer.ingress is None:
         cluster_ip = service.spec.cluster_ip
     else:
-        cluster_ip = service.status.load_balancer.ingress[0].ip
+        if service.status.load_balancer.ingress[0].hostname:
+            cluster_ip = service.status.load_balancer.ingress[0].hostname
+        else:
+            cluster_ip = service.status.load_balancer.ingress[0].ip
     return os.environ.get("KFSERVING_INGRESS_HOST_PORT", cluster_ip)
