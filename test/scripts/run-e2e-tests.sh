@@ -45,21 +45,6 @@ waiting_pod_running(){
     done
 }
 
-waiting_for_kfserving_controller(){
-    TIMEOUT=120
-    until [[ $(kubectl get statefulsets kfserving-controller-manager -n kfserving-system -o=jsonpath='{.status.readyReplicas}') -eq 1 ]]; do
-        kubectl get pods -n kfserving-system
-        kubectl get cm -n kfserving-system
-        sleep 10
-        TIMEOUT=$(( TIMEOUT - 10 ))
-        if [[ $TIMEOUT -eq 0 ]];then
-            echo "Timeout to waiting for kfserving controller to start."
-            kubectl get pods -n kfserving-system
-            exit 1
-        fi
-    done
-}
-
 echo "Upgrading kubectl ..."
 # The kubectl need to be upgraded to 1.14.0 to avoid dismatch issue.
 wget -q -O /usr/local/bin/kubectl https://storage.googleapis.com/kubernetes-release/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl
@@ -164,8 +149,7 @@ chmod +x $GOPATH/bin/yq
 make deploy-ci
 
 echo "Waiting for KFServing started ..."
-waiting_for_kfserving_controller
-sleep 60  # Wait for webhook install finished totally.
+kubectl wait --for=condition=ready pod -l control-plane=kfserving-controller-manager -n kfserving-system
 
 echo "Creating a namespace kfserving-ci-test ..."
 kubectl create namespace kfserving-ci-e2e-test
