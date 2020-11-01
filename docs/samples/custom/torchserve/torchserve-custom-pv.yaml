@@ -1,0 +1,14 @@
+apiVersion: "serving.kubeflow.org/v1beta1"
+kind: "InferenceService"
+metadata:
+  name: "torchserve-custom"
+spec:
+  predictor:
+    containers:
+      - image: {username}/ts_custom:v1.0
+        name: transformer-container
+        ports:
+          - containerPort: 8080
+        env:
+          - name: STORAGE_URI
+            value: "pvc://model-pv-claim" # The storage mounts to /mnt/models
