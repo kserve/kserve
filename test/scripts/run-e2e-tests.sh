@@ -67,7 +67,7 @@ chmod a+x /usr/local/bin/kubectl
 
 echo "Configuring kubectl ..."
 aws eks update-kubeconfig --region=${AWS_REGION} --name=${CLUSTER_NAME}
-kubectl config set-context $(kubectl config current-context) --namespace=default
+cat /root/.kube/config
 
 # Install and Initialize Helm
 wget https://get.helm.sh/helm-v3.0.2-linux-amd64.tar.gz
