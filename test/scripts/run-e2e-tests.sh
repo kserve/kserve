@@ -66,8 +66,8 @@ wget -q -O /usr/local/bin/kubectl https://storage.googleapis.com/kubernetes-rele
 chmod a+x /usr/local/bin/kubectl
 
 echo "Configuring kubectl ..."
+pip3 install awscli --upgrade --user
 aws eks update-kubeconfig --region=${AWS_REGION} --name=${CLUSTER_NAME}
-kubectl config set-context $(kubectl config current-context) --namespace=default
 
 # Install and Initialize Helm
 wget https://get.helm.sh/helm-v3.0.2-linux-amd64.tar.gz
@@ -177,7 +177,6 @@ python3 -m pip install --upgrade pip
 pip3 install pytest==6.0.2 pytest-xdist pytest-rerunfailures
 pip3 install --upgrade pytest-tornasync
 pip3 install urllib3==1.24.2
-pip3 install awscli --upgrade --user
 pip3 install --upgrade setuptools
 pushd python/kfserving >/dev/null
     pip3 install -r requirements.txt
