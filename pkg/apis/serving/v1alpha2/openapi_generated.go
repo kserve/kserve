@@ -51,10 +51,10 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"./pkg/apis/serving/v1alpha2.TritonSpec":              schema_pkg_apis_serving_v1alpha2_TritonSpec(ref),
 		"./pkg/apis/serving/v1alpha2.XGBoostSpec":             schema_pkg_apis_serving_v1alpha2_XGBoostSpec(ref),
 		//TODO: `make generate` will remove this due to knative version upgrade but is used by python client
-		"knative.dev/pkg/apis.URL":                            schema_knativedev_pkg_apis_URL(ref),
-		"knative.dev/pkg/apis.Condition":                      schema_knativedev_pkg_apis_Condition(ref),
-		"knative.dev/pkg/apis.VolatileTime":                   schema_knativedev_pkg_apis_VolatileTime(ref),
-		"knative.dev/pkg/apis/duck/v1beta1.Addressable":       schema_pkg_apis_duck_v1beta1_Addressable(ref),
+		"knative.dev/pkg/apis.URL":                      schema_knativedev_pkg_apis_URL(ref),
+		"knative.dev/pkg/apis.Condition":                schema_knativedev_pkg_apis_Condition(ref),
+		"knative.dev/pkg/apis.VolatileTime":             schema_knativedev_pkg_apis_VolatileTime(ref),
+		"knative.dev/pkg/apis/duck/v1beta1.Addressable": schema_pkg_apis_duck_v1beta1_Addressable(ref),
 	}
 }
 
