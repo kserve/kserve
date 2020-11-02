@@ -5,4 +5,5 @@ metadata:
 spec:
   predictor:
     sklearn:
+      protocolVersion: v2
       storageUri: "gs://seldon-models/sklearn/iris"
