@@ -25,7 +25,7 @@ logging.basicConfig(level=logging.INFO)
 
 KFServing = KFServingClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
 KFSERVING_NAMESPACE = "kfserving-system"
-KFSERVING_TEST_NAMESPACE = "default"
+KFSERVING_TEST_NAMESPACE = "kfserving-ci-e2e-test"
 
 
 def predict(service_name, input_json):
