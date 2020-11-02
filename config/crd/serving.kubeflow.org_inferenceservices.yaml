@@ -10040,6 +10040,8 @@ spec:
                         - containerPort
                         - protocol
                         x-kubernetes-list-type: map
+                      protocolVersion:
+                        type: string
                       readinessProbe:
                         properties:
                           exec:
@@ -10585,6 +10587,8 @@ spec:
                         - containerPort
                         - protocol
                         x-kubernetes-list-type: map
+                      protocolVersion:
+                        type: string
                       readinessProbe:
                         properties:
                           exec:
@@ -11185,6 +11189,8 @@ spec:
                         - containerPort
                         - protocol
                         x-kubernetes-list-type: map
+                      protocolVersion:
+                        type: string
                       readinessProbe:
                         properties:
                           exec:
@@ -11715,6 +11721,8 @@ spec:
                         - containerPort
                         - protocol
                         x-kubernetes-list-type: map
+                      protocolVersion:
+                        type: string
                       readinessProbe:
                         properties:
                           exec:
@@ -12308,6 +12316,8 @@ spec:
                         - containerPort
                         - protocol
                         x-kubernetes-list-type: map
+                      protocolVersion:
+                        type: string
                       readinessProbe:
                         properties:
                           exec:
@@ -13429,6 +13439,8 @@ spec:
                         - containerPort
                         - protocol
                         x-kubernetes-list-type: map
+                      protocolVersion:
+                        type: string
                       readinessProbe:
                         properties:
                           exec:
