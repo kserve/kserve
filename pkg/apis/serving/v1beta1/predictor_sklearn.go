@@ -44,9 +44,16 @@ func (k *SKLearnSpec) Validate() error {
 // Default sets defaults on the resource
 func (k *SKLearnSpec) Default(config *InferenceServicesConfig) {
 	k.Container.Name = constants.InferenceServiceContainerName
+
 	if k.RuntimeVersion == nil {
 		k.RuntimeVersion = proto.String(config.Predictors.SKlearn.DefaultImageVersion)
 	}
+
+	if k.ProtocolVersion == nil {
+		defaultProtocol := constants.ProtocolV1
+		k.ProtocolVersion = &defaultProtocol
+	}
+
 	setResourceRequirementDefaults(&k.Resources)
 }
 
