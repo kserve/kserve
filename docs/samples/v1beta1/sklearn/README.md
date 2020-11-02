@@ -2,8 +2,10 @@
 
 This example walks you through how to deploy a `scikit-learn` model leveraging
 the `v1beta1` version of the `InferenceService` CRD.
-By default, the `v1beta1` version will expose your model through an API
-compatible with the [V2 Dataplane](../../../predict-api/v2).
+Note that, by default the `v1beta1` version will expose your model through an
+API compatible with the existing V1 Dataplane.
+However, this example will show you how to serve a model through an API
+compatible with the new [V2 Dataplane](../../../predict-api/v2).
 
 ## Training
 
@@ -83,8 +85,8 @@ mlserver start .
 ## Deployment
 
 Lastly, we will use KFServing to deploy our trained model.
-For this, we will just need to use version `v1beta1` of the `InferenceService`
-CRD.
+For this, we will just need to use **version `v1beta1`** of the
+`InferenceService` CRD and set the the **`protocolVersion` field to `v2`**.
 
 ```yaml
 apiVersion: "serving.kubeflow.org/v1beta1"
@@ -94,6 +96,7 @@ metadata:
 spec:
   predictor:
     sklearn:
+      protocolVersion: "v2"
       storageUri: "gs://seldon-models/sklearn/iris"
 ```
 
