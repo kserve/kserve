@@ -17,6 +17,7 @@ limitations under the License.
 package v1beta1
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/golang/protobuf/proto"
@@ -59,6 +60,34 @@ func (k *SKLearnSpec) Default(config *InferenceServicesConfig) {
 
 // GetContainer transforms the resource into a container spec
 func (k *SKLearnSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig) *v1.Container {
+	if k.ProtocolVersion == nil || *k.ProtocolVersion == constants.ProtocolV1 {
+		return k.getContainerV1(metadata, extensions, config)
+	}
+
+	return k.getContainerV2(metadata, extensions, config)
+}
+
+func (k *SKLearnSpec) getContainerV1(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig) *v1.Container {
+	arguments := []string{
+		fmt.Sprintf("%s=%s", constants.ArgumentModelName, metadata.Name),
+		fmt.Sprintf("%s=%s", constants.ArgumentModelDir, constants.DefaultModelLocalMountPath),
+		fmt.Sprintf("%s=%s", constants.ArgumentHttpPort, constants.InferenceServiceDefaultHttpPort),
+	}
+
+	if extensions.ContainerConcurrency != nil {
+		arguments = append(arguments, fmt.Sprintf("%s=%s", constants.ArgumentWorkers, strconv.FormatInt(*extensions.ContainerConcurrency, 10)))
+	}
+
+	if k.Container.Image == "" {
+		k.Container.Image = config.Predictors.SKlearn.ContainerImage + ":" + *k.RuntimeVersion
+	}
+
+	k.Container.Name = constants.InferenceServiceContainerName
+	k.Container.Args = arguments
+	return &k.Container
+}
+
+func (k *SKLearnSpec) getContainerV2(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig) *v1.Container {
 	k.Container.Env = append(
 		k.Container.Env,
 		v1.EnvVar{
@@ -78,7 +107,7 @@ func (k *SKLearnSpec) GetContainer(metadata metav1.ObjectMeta, extensions *Compo
 	// Append fallbacks for model settings
 	k.Container.Env = append(
 		k.Container.Env,
-		k.getDefaults(metadata)...,
+		k.getDefaultsV2(metadata)...,
 	)
 
 	if k.Container.Image == "" {
@@ -88,7 +117,7 @@ func (k *SKLearnSpec) GetContainer(metadata metav1.ObjectMeta, extensions *Compo
 	return &k.Container
 }
 
-func (k *SKLearnSpec) getDefaults(metadata metav1.ObjectMeta) []v1.EnvVar {
+func (k *SKLearnSpec) getDefaultsV2(metadata metav1.ObjectMeta) []v1.EnvVar {
 	// These env vars set default parameters that can always be overriden
 	// individually through `model-settings.json` config files.
 	// These will be used as fallbacks for any missing properties and / or to run
