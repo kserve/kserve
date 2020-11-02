@@ -24,6 +24,14 @@ data:
             "multiModelServer": "false"
         },
         "sklearn": {
+            "image": "gcr.io/kfserving/sklearnserver",
+            "defaultImageVersion": "v0.4.1",
+            "supportedFrameworks": [
+              "sklearn"
+            ],
+            "multiModelServer": "false"
+        },
+        "sklearnV2": {
             "image": "docker.io/seldonio/mlserver",
             "defaultImageVersion": "0.1.2",
             "supportedFrameworks": [

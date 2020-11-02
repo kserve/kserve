@@ -68,6 +68,7 @@ type PredictorsConfig struct {
 	Triton     PredictorConfig `json:"triton,omitempty"`
 	XGBoost    PredictorConfig `json:"xgboost,omitempty"`
 	SKlearn    PredictorConfig `json:"sklearn,omitempty"`
+	SKlearnV2  PredictorConfig `json:"sklearnV2,omitempty"`
 	PyTorch    PredictorConfig `json:"pytorch,omitempty"`
 	ONNX       PredictorConfig `json:"onnx,omitempty"`
 }
