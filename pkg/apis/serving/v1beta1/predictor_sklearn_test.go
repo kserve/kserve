@@ -109,6 +109,7 @@ func TestSKLearnValidation(t *testing.T) {
 
 func TestSKLearnDefaulter(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
+
 	config := InferenceServicesConfig{
 		Predictors: PredictorsConfig{
 			SKlearn: PredictorConfig{
@@ -117,6 +118,10 @@ func TestSKLearnDefaulter(t *testing.T) {
 			},
 		},
 	}
+
+	protocolV1 := constants.ProtocolV1
+	protocolV2 := constants.ProtocolV2
+
 	defaultResource = v1.ResourceList{
 		v1.ResourceCPU:    resource.MustParse("1"),
 		v1.ResourceMemory: resource.MustParse("2Gi"),
@@ -134,7 +139,32 @@ func TestSKLearnDefaulter(t *testing.T) {
 			expected: PredictorSpec{
 				SKLearn: &SKLearnSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
-						RuntimeVersion: proto.String("v0.4.0"),
+						RuntimeVersion:  proto.String("v0.4.0"),
+						ProtocolVersion: &protocolV1,
+						Container: v1.Container{
+							Name: constants.InferenceServiceContainerName,
+							Resources: v1.ResourceRequirements{
+								Requests: defaultResource,
+								Limits:   defaultResource,
+							},
+						},
+					},
+				},
+			},
+		},
+		"DefaultRuntimeVersionAndProtocol": {
+			spec: PredictorSpec{
+				SKLearn: &SKLearnSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						ProtocolVersion: &protocolV2,
+					},
+				},
+			},
+			expected: PredictorSpec{
+				SKLearn: &SKLearnSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						RuntimeVersion:  proto.String("v0.4.0"),
+						ProtocolVersion: &protocolV2,
 						Container: v1.Container{
 							Name: constants.InferenceServiceContainerName,
 							Resources: v1.ResourceRequirements{
@@ -157,7 +187,8 @@ func TestSKLearnDefaulter(t *testing.T) {
 			expected: PredictorSpec{
 				SKLearn: &SKLearnSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
-						RuntimeVersion: proto.String("v0.3.0"),
+						RuntimeVersion:  proto.String("v0.3.0"),
+						ProtocolVersion: &protocolV1,
 						Container: v1.Container{
 							Name: constants.InferenceServiceContainerName,
 							Resources: v1.ResourceRequirements{
