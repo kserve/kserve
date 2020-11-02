@@ -143,12 +143,6 @@ func BuildSecretEnvs(secret *v1.Secret, s3Config *S3Config) []v1.EnvVar {
 			Name:  S3UseVirtualBucket,
 			Value: useVirtualBucket,
 		})
-	} else {
-		envs = append(envs, v1.EnvVar{
-			Name:  S3UseVirtualBucket,
-			Value: "true", // Use virtual bucket by default since both aws and alicloud
-			// use it and it is the preferred way to request S3 storage
-		})
 	}
 	return envs
 }
