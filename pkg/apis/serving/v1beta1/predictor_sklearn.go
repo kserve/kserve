@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/utils"
 	v1 "k8s.io/api/core/v1"
@@ -47,7 +46,12 @@ func (k *SKLearnSpec) Default(config *InferenceServicesConfig) {
 	k.Container.Name = constants.InferenceServiceContainerName
 
 	if k.RuntimeVersion == nil {
-		k.RuntimeVersion = proto.String(config.Predictors.SKlearn.DefaultImageVersion)
+		defaultVersion := config.Predictors.SKlearn.DefaultImageVersion
+		if k.ProtocolVersion != nil && *k.ProtocolVersion == constants.ProtocolV2 {
+			defaultVersion = config.Predictors.SKlearnV2.DefaultImageVersion
+		}
+
+		k.RuntimeVersion = &defaultVersion
 	}
 
 	if k.ProtocolVersion == nil {
@@ -111,7 +115,7 @@ func (k *SKLearnSpec) getContainerV2(metadata metav1.ObjectMeta, extensions *Com
 	)
 
 	if k.Container.Image == "" {
-		k.Container.Image = config.Predictors.SKlearn.ContainerImage + ":" + *k.RuntimeVersion
+		k.Container.Image = config.Predictors.SKlearnV2.ContainerImage + ":" + *k.RuntimeVersion
 	}
 
 	return &k.Container
