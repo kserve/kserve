@@ -20,12 +20,8 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-CLUSTER_NAME="${CLUSTER_NAME}"
-ZONE="${GCP_ZONE}"
-PROJECT="${GCP_PROJECT}"
+EKS_CLUSTER_NAME="${CLUSTER_NAME}"
 
-echo "Activating service-account"
-gcloud auth activate-service-account --key-file=${GOOGLE_APPLICATION_CREDENTIALS}
-
-echo "Tearing down the cluster"
-gcloud container clusters delete ${CLUSTER_NAME} --zone=${ZONE} --project=${PROJECT} --async
+echo "Tearing down the cluster ${EKS_CLUSTER_NAME}"
+eksctl delete cluster ${EKS_CLUSTER_NAME}
+echo "Successfully tear down the cluster ${EKS_CLUSTER_NAME}"

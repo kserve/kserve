@@ -27,6 +27,7 @@ import (
 	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/trainedmodel/reconcilers/modelconfig"
 	"github.com/kubeflow/kfserving/pkg/webhook/admission/pod"
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
+	istio_networking "istio.io/api/networking/v1alpha3"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
@@ -46,6 +47,12 @@ var (
 	scheme   = runtime.NewScheme()
 	setupLog = ctrl.Log.WithName("setup")
 )
+
+func init() {
+	// Allow unknown fields in Istio API client for backwards compatibility if cluster has existing vs with deprecated fields.
+	istio_networking.VirtualServiceUnmarshaler.AllowUnknownFields = true
+	istio_networking.GatewayUnmarshaler.AllowUnknownFields = true
+}
 
 func main() {
 	var metricsAddr string

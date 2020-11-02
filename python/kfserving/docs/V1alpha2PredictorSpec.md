@@ -1,5 +1,6 @@
 # V1alpha2PredictorSpec
 
+PredictorSpec defines the configuration for a predictor, The following fields follow a \"1-of\" semantic. Users must specify exactly one spec.
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------

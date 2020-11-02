@@ -1,5 +1,6 @@
 # V1alpha2XGBoostSpec
 
+XGBoostSpec defines arguments for configuring XGBoost model serving.
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------

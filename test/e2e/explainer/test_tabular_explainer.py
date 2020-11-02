@@ -65,7 +65,7 @@ def test_tabular_explainer():
         KFServing.wait_isvc_ready(service_name, namespace=KFSERVING_TEST_NAMESPACE, timeout_seconds=300)
     except RuntimeError as e:
         logging.info(KFServing.api_instance.get_namespaced_custom_object("serving.knative.dev", "v1",
-           KFSERVING_TEST_NAMESPACE, "services", service_name + "-predictor"))
+           KFSERVING_TEST_NAMESPACE, "services", service_name + "-predictor-default"))
         pods = KFServing.core_api.list_namespaced_pod(KFSERVING_TEST_NAMESPACE,
                label_selector='serving.kubeflow.org/inferenceservice={}'.format(service_name))
         for pod in pods.items:

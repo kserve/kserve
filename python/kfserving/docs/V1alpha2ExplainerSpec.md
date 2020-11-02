@@ -1,5 +1,6 @@
 # V1alpha2ExplainerSpec
 
+ExplainerSpec defines the arguments for a model explanation server, The following fields follow a \"1-of\" semantic. Users must specify exactly one spec.
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
