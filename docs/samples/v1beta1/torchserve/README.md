@@ -194,3 +194,9 @@ Expected Output
 * Connection #0 to host a881f5a8c676a41edbccdb0a394a80d6-2069247558.us-west-2.elb.amazonaws.com left intact
 1
 ```
+
+## For Autoscaling 
+Configurations for autoscaling pods [Auto scaling](docs/autoscaling.md)
+
+## Canary Rollout
+Configurations for canary [Canary Deployment](docs/canary.md)
