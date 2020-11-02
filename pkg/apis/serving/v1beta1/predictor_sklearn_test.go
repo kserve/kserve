@@ -116,6 +116,10 @@ func TestSKLearnDefaulter(t *testing.T) {
 				ContainerImage:      "sklearnserver",
 				DefaultImageVersion: "v0.4.0",
 			},
+			SKlearnV2: PredictorConfig{
+				ContainerImage:      "mlserver",
+				DefaultImageVersion: "0.1.2",
+			},
 		},
 	}
 
@@ -163,7 +167,7 @@ func TestSKLearnDefaulter(t *testing.T) {
 			expected: PredictorSpec{
 				SKLearn: &SKLearnSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
-						RuntimeVersion:  proto.String("v0.4.0"),
+						RuntimeVersion:  proto.String("0.1.2"),
 						ProtocolVersion: &protocolV2,
 						Container: v1.Container{
 							Name: constants.InferenceServiceContainerName,
@@ -366,6 +370,10 @@ func TestCreateSKLearnModelServingContainerV2(t *testing.T) {
 				ContainerImage:      "someOtherImage",
 				DefaultImageVersion: "0.1.0",
 			},
+			SKlearnV2: PredictorConfig{
+				ContainerImage:      "mlserver",
+				DefaultImageVersion: "0.1.2",
+			},
 		},
 	}
 	g := gomega.NewGomegaWithT(t)
@@ -394,7 +402,7 @@ func TestCreateSKLearnModelServingContainerV2(t *testing.T) {
 				},
 			},
 			expectedContainerSpec: &v1.Container{
-				Image:     "someOtherImage:0.1.0",
+				Image:     "mlserver:0.1.0",
 				Name:      constants.InferenceServiceContainerName,
 				Resources: requestedResource,
 				Env: []v1.EnvVar{
