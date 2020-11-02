@@ -212,6 +212,139 @@ func TestSKLearnDefaulter(t *testing.T) {
 	}
 }
 
+func TestCreateSKLearnModelServingContainerV1(t *testing.T) {
+	var requestedResource = v1.ResourceRequirements{
+		Limits: v1.ResourceList{
+			"cpu": resource.Quantity{
+				Format: "100",
+			},
+		},
+		Requests: v1.ResourceList{
+			"cpu": resource.Quantity{
+				Format: "90",
+			},
+		},
+	}
+	var config = InferenceServicesConfig{
+		Predictors: PredictorsConfig{
+			SKlearn: PredictorConfig{
+				ContainerImage:      "someOtherImage",
+				DefaultImageVersion: "0.1.0",
+			},
+		},
+	}
+	g := gomega.NewGomegaWithT(t)
+	scenarios := map[string]struct {
+		isvc                  InferenceService
+		expectedContainerSpec *v1.Container
+	}{
+		"ContainerSpecWithDefaultImage": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "sklearn",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						SKLearn: &SKLearnSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI:     proto.String("gs://someUri"),
+								RuntimeVersion: proto.String("0.1.0"),
+								Container: v1.Container{
+									Resources: requestedResource,
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedContainerSpec: &v1.Container{
+				Image:     "someOtherImage:0.1.0",
+				Name:      constants.InferenceServiceContainerName,
+				Resources: requestedResource,
+				Args: []string{
+					"--model_name=someName",
+					"--model_dir=/mnt/models",
+					"--http_port=8080",
+				},
+			},
+		},
+		"ContainerSpecWithCustomImage": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "sklearn",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						SKLearn: &SKLearnSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI: proto.String("gs://someUri"),
+								Container: v1.Container{
+									Image:     "customImage:0.1.0",
+									Resources: requestedResource,
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedContainerSpec: &v1.Container{
+				Image:     "customImage:0.1.0",
+				Name:      constants.InferenceServiceContainerName,
+				Resources: requestedResource,
+				Args: []string{
+					"--model_name=someName",
+					"--model_dir=/mnt/models",
+					"--http_port=8080",
+				},
+			},
+		},
+		"ContainerSpecWithContainerConcurrency": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "sklearn",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						ComponentExtensionSpec: ComponentExtensionSpec{
+							ContainerConcurrency: proto.Int64(1),
+						},
+						SKLearn: &SKLearnSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI:     proto.String("gs://someUri"),
+								RuntimeVersion: proto.String("0.1.0"),
+								Container: v1.Container{
+									Resources: requestedResource,
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedContainerSpec: &v1.Container{
+				Image:     "someOtherImage:0.1.0",
+				Name:      constants.InferenceServiceContainerName,
+				Resources: requestedResource,
+				Args: []string{
+					"--model_name=someName",
+					"--model_dir=/mnt/models",
+					"--http_port=8080",
+					"--workers=1",
+				},
+			},
+		},
+	}
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			predictor := scenario.isvc.Spec.Predictor.GetImplementation()
+			predictor.Default(&config)
+			res := predictor.GetContainer(metav1.ObjectMeta{Name: "someName"}, &scenario.isvc.Spec.Predictor.ComponentExtensionSpec, &config)
+			if !g.Expect(res).To(gomega.Equal(scenario.expectedContainerSpec)) {
+				t.Errorf("got %q, want %q", res, scenario.expectedContainerSpec)
+			}
+		})
+	}
+}
+
 func TestCreateSKLearnModelServingContainerV2(t *testing.T) {
 	protocolV2 := constants.ProtocolV2
 
