@@ -19,11 +19,6 @@ docker build -t {username}/torchserve-custom .
 docker push {username}/torchserve-custom
 ```
 
-### Torchserve with external storage
-
-For running torchserve with external storage, the model archive files and config.properties should be copied to the storage.
-The image should be built, to start torchserve with config.properties in /mnt/models path.
-
 ## Create the InferenceService
 
 In the `torchserve-custom.yaml` file edit the container image and replace {username} with your Docker Hub username.

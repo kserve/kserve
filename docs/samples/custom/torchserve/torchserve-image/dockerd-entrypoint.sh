@@ -3,7 +3,6 @@ set -e
 
 if [[ "$1" = "serve" ]]; then
     shift 1
-    # External storage mount to /mnt/models/
     torchserve --start --ts-config /home/model-server/config.properties
 else
     eval "$@"
