@@ -59,8 +59,6 @@ func StartPuller(downloader Downloader, commands <-chan ModelOp) {
 
 func (p *Puller) processCommands(commands <-chan ModelOp) {
 	// channelMap accessed only by this goroutine
-	log.Info("Start to process model commands")
-
 	for {
 		select {
 		case modelOp, ok := <-commands:
@@ -81,7 +79,7 @@ type ModelChannel struct {
 }
 
 func (p *Puller) enqueueModelOp(modelOp *ModelOp) {
-	log.Info("enqueue", "modelop", modelOp)
+	log.V(10).Info("enqueue", "modelop", modelOp)
 	modelChan, ok := p.channelMap[modelOp.ModelName]
 	if !ok {
 		modelChan = &ModelChannel{

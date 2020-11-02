@@ -23,7 +23,6 @@ var (
 func main() {
 	flag.Parse()
 	logf.SetLogger(logf.ZapLogger(false))
-	//filepath.
 	log.Info("Initializing model agent with", "config-dir", configDir, "model-dir", modelDir)
 	downloader := agent.Downloader{
 		ModelDir:  *modelDir,
