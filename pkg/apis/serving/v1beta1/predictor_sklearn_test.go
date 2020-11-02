@@ -212,7 +212,8 @@ func TestSKLearnDefaulter(t *testing.T) {
 	}
 }
 
-func TestCreateSKLearnModelServingContainer(t *testing.T) {
+func TestCreateSKLearnModelServingContainerV2(t *testing.T) {
+	protocolV2 := constants.ProtocolV2
 
 	var requestedResource = v1.ResourceRequirements{
 		Limits: v1.ResourceList{
@@ -248,8 +249,9 @@ func TestCreateSKLearnModelServingContainer(t *testing.T) {
 					Predictor: PredictorSpec{
 						SKLearn: &SKLearnSpec{
 							PredictorExtensionSpec: PredictorExtensionSpec{
-								StorageURI:     proto.String("gs://someUri"),
-								RuntimeVersion: proto.String("0.1.0"),
+								StorageURI:      proto.String("gs://someUri"),
+								RuntimeVersion:  proto.String("0.1.0"),
+								ProtocolVersion: &protocolV2,
 								Container: v1.Container{
 									Resources: requestedResource,
 								},
@@ -303,7 +305,8 @@ func TestCreateSKLearnModelServingContainer(t *testing.T) {
 					Predictor: PredictorSpec{
 						SKLearn: &SKLearnSpec{
 							PredictorExtensionSpec: PredictorExtensionSpec{
-								StorageURI: proto.String("gs://someUri"),
+								StorageURI:      proto.String("gs://someUri"),
+								ProtocolVersion: &protocolV2,
 								Container: v1.Container{
 									Image:     "customImage:0.1.0",
 									Resources: requestedResource,
