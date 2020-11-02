@@ -104,6 +104,8 @@ type InferenceServiceComponent string
 
 type InferenceServiceVerb string
 
+type InferenceServiceProtocol string
+
 // Knative constants
 const (
 	KnativeLocalGateway   = "knative-serving/cluster-local-gateway"
@@ -126,6 +128,12 @@ const (
 const (
 	Predict InferenceServiceVerb = "predict"
 	Explain InferenceServiceVerb = "explain"
+)
+
+// InferenceService protocol enums
+const (
+	ProtocolV1 InferenceServiceProtocol = "v1"
+	ProtocolV2 InferenceServiceProtocol = "v2"
 )
 
 // InferenceService Endpoint Ports
