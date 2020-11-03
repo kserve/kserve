@@ -133,10 +133,6 @@ func TestS3CredentialBuilder(t *testing.T) {
 													Name:  s3.AWSEndpointUrl,
 													Value: "https://s3.aws.com",
 												},
-												{
-													Name:  s3.S3UseVirtualBucket,
-													Value: "true",
-												},
 											},
 										},
 									},
