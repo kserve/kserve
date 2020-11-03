@@ -112,13 +112,15 @@ func TestSKLearnDefaulter(t *testing.T) {
 
 	config := InferenceServicesConfig{
 		Predictors: PredictorsConfig{
-			SKlearn: PredictorConfig{
-				ContainerImage:      "sklearnserver",
-				DefaultImageVersion: "v0.4.0",
-			},
-			SKlearnV2: PredictorConfig{
-				ContainerImage:      "mlserver",
-				DefaultImageVersion: "0.1.2",
+			SKlearn: PredictorProtocols{
+				V1: &PredictorConfig{
+					ContainerImage:      "sklearnserver",
+					DefaultImageVersion: "v0.4.0",
+				},
+				V2: &PredictorConfig{
+					ContainerImage:      "mlserver",
+					DefaultImageVersion: "0.1.2",
+				},
 			},
 		},
 	}
@@ -231,9 +233,11 @@ func TestCreateSKLearnModelServingContainerV1(t *testing.T) {
 	}
 	var config = InferenceServicesConfig{
 		Predictors: PredictorsConfig{
-			SKlearn: PredictorConfig{
-				ContainerImage:      "someOtherImage",
-				DefaultImageVersion: "0.1.0",
+			SKlearn: PredictorProtocols{
+				V1: &PredictorConfig{
+					ContainerImage:      "someOtherImage",
+					DefaultImageVersion: "0.1.0",
+				},
 			},
 		},
 	}
@@ -366,13 +370,15 @@ func TestCreateSKLearnModelServingContainerV2(t *testing.T) {
 	}
 	var config = InferenceServicesConfig{
 		Predictors: PredictorsConfig{
-			SKlearn: PredictorConfig{
-				ContainerImage:      "someOtherImage",
-				DefaultImageVersion: "0.1.0",
-			},
-			SKlearnV2: PredictorConfig{
-				ContainerImage:      "mlserver",
-				DefaultImageVersion: "0.1.2",
+			SKlearn: PredictorProtocols{
+				V1: &PredictorConfig{
+					ContainerImage:      "someOtherImage",
+					DefaultImageVersion: "0.1.0",
+				},
+				V2: &PredictorConfig{
+					ContainerImage:      "mlserver",
+					DefaultImageVersion: "0.1.2",
+				},
 			},
 		},
 	}
