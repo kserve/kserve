@@ -46,9 +46,9 @@ func (k *SKLearnSpec) Default(config *InferenceServicesConfig) {
 	k.Container.Name = constants.InferenceServiceContainerName
 
 	if k.RuntimeVersion == nil {
-		defaultVersion := config.Predictors.SKlearn.DefaultImageVersion
+		defaultVersion := config.Predictors.SKlearn.V1.DefaultImageVersion
 		if k.ProtocolVersion != nil && *k.ProtocolVersion == constants.ProtocolV2 {
-			defaultVersion = config.Predictors.SKlearnV2.DefaultImageVersion
+			defaultVersion = config.Predictors.SKlearn.V2.DefaultImageVersion
 		}
 
 		k.RuntimeVersion = &defaultVersion
@@ -83,7 +83,7 @@ func (k *SKLearnSpec) getContainerV1(metadata metav1.ObjectMeta, extensions *Com
 	}
 
 	if k.Container.Image == "" {
-		k.Container.Image = config.Predictors.SKlearn.ContainerImage + ":" + *k.RuntimeVersion
+		k.Container.Image = config.Predictors.SKlearn.V1.ContainerImage + ":" + *k.RuntimeVersion
 	}
 
 	k.Container.Name = constants.InferenceServiceContainerName
@@ -115,7 +115,7 @@ func (k *SKLearnSpec) getContainerV2(metadata metav1.ObjectMeta, extensions *Com
 	)
 
 	if k.Container.Image == "" {
-		k.Container.Image = config.Predictors.SKlearnV2.ContainerImage + ":" + *k.RuntimeVersion
+		k.Container.Image = config.Predictors.SKlearn.V2.ContainerImage + ":" + *k.RuntimeVersion
 	}
 
 	return &k.Container
