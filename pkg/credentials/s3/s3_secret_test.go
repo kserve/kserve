@@ -69,10 +69,6 @@ func TestS3Secret(t *testing.T) {
 					Name:  AWSEndpointUrl,
 					Value: "https://s3.aws.com",
 				},
-				{
-					Name:  S3UseVirtualBucket,
-					Value: "true",
-				},
 			},
 		},
 
@@ -127,10 +123,6 @@ func TestS3Secret(t *testing.T) {
 					Name:  S3VerifySSL,
 					Value: "0",
 				},
-				{
-					Name:  S3UseVirtualBucket,
-					Value: "true",
-				},
 			},
 		},
 
@@ -180,10 +172,6 @@ func TestS3Secret(t *testing.T) {
 				{
 					Name:  AWSEndpointUrl,
 					Value: "http://s3.aws.com",
-				},
-				{
-					Name:  S3UseVirtualBucket,
-					Value: "true",
 				},
 			},
 		},

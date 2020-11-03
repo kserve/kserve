@@ -64,9 +64,6 @@ func (r *TrainedModelReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 		return reconcile.Result{}, err
 	}
 
-
-
-
 	// Use finalizer to handle TrainedModel deletion properly
 	// When a TrainedModel object is being deleted it should
 	// 1) Get its parent InferenceService
