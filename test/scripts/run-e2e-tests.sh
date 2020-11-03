@@ -134,8 +134,7 @@ sleep 2
 kubectl apply --validate=false -f https://github.com/jetstack/cert-manager/releases/download/${CERT_MANAGER_VERSION}/cert-manager.yaml
 
 echo "Waiting for cert manager started ..."
-waiting_pod_running "cert-manager"
-sleep 120  # Wait for webhook install finished totally.
+kubectl wait --for=condition=ready pod -l app=cert-manager -n cert-manager
 
 echo "Install KFServing ..."
 export GOPATH="$HOME/go"
