@@ -64,6 +64,23 @@ func (r *TrainedModelReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 		return reconcile.Result{}, err
 	}
 
+	// If the parent InferenceService does not exists, delete the trainedmodel
+	isvc := &v1beta1api.InferenceService{}
+	if err := r.Get(context.TODO(), types.NamespacedName{Namespace: req.Namespace, Name: tm.Spec.InferenceService}, isvc); err != nil {
+		if errors.IsNotFound(err) {
+			log.Info("Parent InferenceService does not exists, deleting TrainedModel", "TrainedModel", tm.Name, "InferenceService", isvc.Name)
+			r.Delete(context.TODO(), tm)
+			return reconcile.Result{}, nil
+		}
+		return reconcile.Result{}, err
+	}
+	// Set TrainedModel's ownerReference to its parent InferenceService so when the parent InferenceService is removed
+	// the TraineModel object will be removed
+	log.Info("add owner reference")
+	if err := controllerutil.SetControllerReference(isvc, tm, r.Scheme); err != nil {
+		return ctrl.Result{}, err
+	}
+
 	// Use finalizer to handle TrainedModel deletion properly
 	// When a TrainedModel object is being deleted it should
 	// 1) Get its parent InferenceService
@@ -100,21 +117,7 @@ func (r *TrainedModelReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 		return ctrl.Result{}, nil
 	}
 
-	// If the parent InferenceService does not exists, delete the trainedmodel
-	isvc := &v1beta1api.InferenceService{}
-	if err := r.Get(context.TODO(), types.NamespacedName{Namespace: req.Namespace, Name: tm.Spec.InferenceService}, isvc); err != nil {
-		if errors.IsNotFound(err) {
-			log.Info("Parent InferenceService does not exists, deleting TrainedModel", "TrainedModel", tm.Name, "InferenceService", isvc.Name)
-			r.Delete(context.TODO(), tm)
-			return reconcile.Result{}, nil
-		}
-		return reconcile.Result{}, err
-	}
-	// Set TrainedModel's ownerReference to its parent InferenceService so when the parent InferenceService is removed
-	// the TraineModel object will be removed
-	if err := controllerutil.SetControllerReference(isvc, tm, r.Scheme); err != nil {
-		return ctrl.Result{}, err
-	}
+
 
 	// Reconcile modelconfig to add this TrainedModel to its parent InferenceService's configmap
 	if err := r.ModelConfigReconciler.Reconcile(req, tm); err != nil {
