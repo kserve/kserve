@@ -16,7 +16,7 @@ Name | Type | Description | Notes
 **name** | **str** | Name of the container specified as a DNS_LABEL. Each container in a pod must have a unique name (DNS_LABEL). Cannot be updated. | 
 **ports** | [**list[V1ContainerPort]**](https://github.com/kubernetes-client/python/blob/master/kubernetes/docs/V1ContainerPort.md) | List of ports to expose from the container. Exposing a port here gives the system additional information about the network connections a container uses, but is primarily informational. Not specifying a port here DOES NOT prevent that port from being exposed. Any port which is listening on the default \&quot;0.0.0.0\&quot; address inside a container will be accessible from the network. Cannot be updated. | [optional] 
 **readiness_probe** | [**V1Probe**](https://github.com/kubernetes-client/python/blob/master/kubernetes/docs/V1Probe.md) |  | [optional] 
-**resources** | [**V1ResourceRequirements**](https://github.com/kubernetes-client/python/blob/master/kubernetes/docs/V1ResourceRequirements.md) | Defaults to requests and limits of 1CPU, 2Gb MEM. | [optional] 
+**resources** | [**V1ResourceRequirements**](https://github.com/kubernetes-client/python/blob/master/kubernetes/docs/V1ResourceRequirements.md) |  | [optional] 
 **runtime_version** | **str** | Defaults to latest AIX Version | [optional] 
 **security_context** | [**V1SecurityContext**](https://github.com/kubernetes-client/python/blob/master/kubernetes/docs/V1SecurityContext.md) |  | [optional] 
 **startup_probe** | [**V1Probe**](https://github.com/kubernetes-client/python/blob/master/kubernetes/docs/V1Probe.md) |  | [optional] 
@@ -27,7 +27,7 @@ Name | Type | Description | Notes
 **termination_message_policy** | **str** | Indicate how the termination message should be populated. File will use the contents of terminationMessagePath to populate the container status message on both success and failure. FallbackToLogsOnError will use the last chunk of container log output if the termination message file is empty and the container exited with an error. The log output is limited to 2048 bytes or 80 lines, whichever is smaller. Defaults to File. Cannot be updated. | [optional] 
 **tty** | **bool** | Whether this container should allocate a TTY for itself, also requires &#39;stdin&#39; to be true. Default is false. | [optional] 
 **type** | **str** | The type of AIX explainer | 
-**volume_devices** | [**list[V1VolumeDevice]**](https://github.com/kubernetes-client/python/blob/master/kubernetes/docs/V1VolumeDevice.md) | volumeDevices is the list of block devices to be used by the container. This is a beta feature. | [optional] 
+**volume_devices** | [**list[V1VolumeDevice]**](https://github.com/kubernetes-client/python/blob/master/kubernetes/docs/V1VolumeDevice.md) | volumeDevices is the list of block devices to be used by the container. | [optional] 
 **volume_mounts** | [**list[V1VolumeMount]**](https://github.com/kubernetes-client/python/blob/master/kubernetes/docs/V1VolumeMount.md) | Pod volumes to mount into the container&#39;s filesystem. Cannot be updated. | [optional] 
 **working_dir** | **str** | Container&#39;s working directory. If not specified, the container runtime&#39;s default will be used, which might be configured in the container image. Cannot be updated. | [optional] 
 

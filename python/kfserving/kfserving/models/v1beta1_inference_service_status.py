@@ -48,6 +48,7 @@ class V1beta1InferenceServiceStatus(object):
     """
     openapi_types = {
         'address': 'KnativeAddressable',
+        'annotations': 'dict(str, str)',
         'components': 'dict(str, V1beta1ComponentStatusSpec)',
         'conditions': 'list[KnativeCondition]',
         'observed_generation': 'int',
@@ -56,19 +57,21 @@ class V1beta1InferenceServiceStatus(object):
 
     attribute_map = {
         'address': 'address',
+        'annotations': 'annotations',
         'components': 'components',
         'conditions': 'conditions',
         'observed_generation': 'observedGeneration',
         'url': 'url'
     }
 
-    def __init__(self, address=None, components=None, conditions=None, observed_generation=None, url=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, address=None, annotations=None, components=None, conditions=None, observed_generation=None, url=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1InferenceServiceStatus - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._address = None
+        self._annotations = None
         self._components = None
         self._conditions = None
         self._observed_generation = None
@@ -77,6 +80,8 @@ class V1beta1InferenceServiceStatus(object):
 
         if address is not None:
             self.address = address
+        if annotations is not None:
+            self.annotations = annotations
         if components is not None:
             self.components = components
         if conditions is not None:
@@ -106,6 +111,29 @@ class V1beta1InferenceServiceStatus(object):
         """
 
         self._address = address
+
+    @property
+    def annotations(self):
+        """Gets the annotations of this V1beta1InferenceServiceStatus.  # noqa: E501
+
+        Annotations is additional Status fields for the Resource to save some additional State as well as convey more information to the user. This is roughly akin to Annotations on any k8s resource, just the reconciler conveying richer information outwards.  # noqa: E501
+
+        :return: The annotations of this V1beta1InferenceServiceStatus.  # noqa: E501
+        :rtype: dict(str, str)
+        """
+        return self._annotations
+
+    @annotations.setter
+    def annotations(self, annotations):
+        """Sets the annotations of this V1beta1InferenceServiceStatus.
+
+        Annotations is additional Status fields for the Resource to save some additional State as well as convey more information to the user. This is roughly akin to Annotations on any k8s resource, just the reconciler conveying richer information outwards.  # noqa: E501
+
+        :param annotations: The annotations of this V1beta1InferenceServiceStatus.  # noqa: E501
+        :type: dict(str, str)
+        """
+
+        self._annotations = annotations
 
     @property
     def components(self):

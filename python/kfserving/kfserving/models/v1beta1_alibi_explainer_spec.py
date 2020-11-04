@@ -714,7 +714,7 @@ class V1beta1AlibiExplainerSpec(object):
     def volume_devices(self):
         """Gets the volume_devices of this V1beta1AlibiExplainerSpec.  # noqa: E501
 
-        volumeDevices is the list of block devices to be used by the container. This is a beta feature.  # noqa: E501
+        volumeDevices is the list of block devices to be used by the container.  # noqa: E501
 
         :return: The volume_devices of this V1beta1AlibiExplainerSpec.  # noqa: E501
         :rtype: list[V1VolumeDevice]
@@ -725,7 +725,7 @@ class V1beta1AlibiExplainerSpec(object):
     def volume_devices(self, volume_devices):
         """Sets the volume_devices of this V1beta1AlibiExplainerSpec.
 
-        volumeDevices is the list of block devices to be used by the container. This is a beta feature.  # noqa: E501
+        volumeDevices is the list of block devices to be used by the container.  # noqa: E501
 
         :param volume_devices: The volume_devices of this V1beta1AlibiExplainerSpec.  # noqa: E501
         :type: list[V1VolumeDevice]
