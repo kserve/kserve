@@ -16,7 +16,7 @@ dump(clf, 'model.joblib')
 Then, we can install and run the [SKLearn Server](../../../python/sklearnserver) using the generated model and test for prediction. Models can be on local filesystem, S3 compatible object storage, Azure Blob Storage, or Google Cloud Storage.
 
 ```shell
-python -m sklearnserver --model_dir model.joblib --model_name svm
+python -m sklearnserver --model_dir ./  --model_name svm
 ```
 
 We can also use the inbuilt sklearn support for sample datasets and do some simple predictions
