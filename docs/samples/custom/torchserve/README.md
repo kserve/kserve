@@ -11,7 +11,7 @@ The custom torchserve image is wrapped with model inside the container and serve
 
 In this example we use Docker to build the torchserve image with marfile and config.properties into a container. To build and push with Docker Hub, run these commands replacing {username} with your Docker Hub username:
 
-```
+```bash
 # Build the container on your local machine
 docker build -t {username}/torchserve-custom .
 
@@ -25,20 +25,21 @@ In the `torchserve-custom.yaml` file edit the container image and replace {usern
 
 Apply the CRD
 
-```
+```bash
 kubectl apply -f torchserve-custom.yaml
 ```
 
 Expected Output
 
-```
-$ inferenceservice.serving.kubeflow.org/torchserve-custom created
+```bash
+$inferenceservice.serving.kubeflow.org/torchserve-custom created
 ```
 
 ## Run a prediction
+
 The first step is to [determine the ingress IP and ports](../../../../README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
 
-```
+```bash
 MODEL_NAME=torchserve-custom
 SERVICE_HOSTNAME=$(kubectl get route ${MODEL_NAME}-predictor-default -n <namespace> -o jsonpath='{.status.url}' | cut -d "/" -f 3)
 
@@ -47,7 +48,7 @@ curl -v -H "Host: ${SERVICE_HOSTNAME}" http://${INGRESS_HOST}:${INGRESS_PORT}/pr
 
 Expected Output
 
-```
+```bash
 *   Trying 52.89.19.61...
 * Connected to a881f5a8c676a41edbccdb0a394a80d6-2069247558.us-west-2.elb.amazonaws.com (52.89.19.61) port 80 (#0)
 > PUT /predictions/mnist HTTP/1.1
@@ -56,7 +57,7 @@ Expected Output
 > Accept: */*
 > Content-Length: 272
 > Expect: 100-continue
-> 
+>
 < HTTP/1.1 100 Continue
 * We are completely uploaded and fine
 < HTTP/1.1 200 OK
@@ -68,7 +69,7 @@ Expected Output
 < x-request-id: 8881f2b9-462e-4e2d-972f-90b4eb083e53
 < x-envoy-upstream-service-time: 5018
 < server: istio-envoy
-< 
+<
 * Connection #0 to host a881f5a8c676a41edbccdb0a394a80d6-2069247558.us-west-2.elb.amazonaws.com left intact
 0
 ```

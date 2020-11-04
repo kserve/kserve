@@ -47,7 +47,9 @@ RUN update-alternatives --install /usr/local/bin/pip pip /usr/local/bin/pip3 1
 # This is only useful for cuda env 
 RUN export USE_CUDA=1
 
-RUN pip install --no-cache-dir torch torchvision torchtext torchserve torch-model-archiver transformers
+RUN pip install -U pip setuptools
+
+RUN pip install --no-cache-dir torch torchvision torchtext torchserve torch-model-archiver
 
 # Final image for production
 FROM ${BASE_IMAGE} AS runtime-image
@@ -58,7 +60,10 @@ RUN --mount=type=cache,target=/var/cache/apt \
     apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y \
     python3 \
+    python3-distutils \
+    python3-dev \
     openjdk-11-jre-headless \
+    build-essential \
     && rm -rf /var/lib/apt/lists/* \
     && cd /tmp
 

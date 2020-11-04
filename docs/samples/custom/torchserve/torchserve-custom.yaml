@@ -9,4 +9,3 @@ spec:
       name: torchserve-container
       ports:
         - containerPort: 8080
-       
