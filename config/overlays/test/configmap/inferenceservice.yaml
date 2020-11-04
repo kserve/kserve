@@ -16,8 +16,14 @@ data:
             "defaultImageVersion": "v1.0.0"
         },
         "sklearn": {
+          "v1": {
             "image": "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/sklearnserver",
             "defaultImageVersion": "latest"
+          },
+          "v2": {
+            "image": "docker.io/seldonio/mlserver",
+            "defaultImageVersion": "0.1.2"
+          }
         },
         "xgboost": {
             "image": "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/xgbserver",
