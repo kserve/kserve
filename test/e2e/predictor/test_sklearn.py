@@ -32,7 +32,10 @@ from kubernetes.client import V1ResourceRequirements
 from ..common.utils import predict
 from ..common.utils import KFSERVING_TEST_NAMESPACE
 
-api_version = constants.KFSERVING_GROUP + "/" + constants.KFSERVING_VERSION
+api_version = f"{constants.KFSERVING_GROUP}/{constants.KFSERVING_VERSION}"
+api_v1beta1_version = (
+    f"{constants.KFSERVING_GROUP}/{constants.KFSERVING_V1BETA1_VERSION}"
+)
 KFServing = KFServingClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
 
 
@@ -82,17 +85,18 @@ def test_sklearn_v2_kfserving():
     )
 
     isvc = V1beta1InferenceService(
-        api_version=api_version,
+        api_version=api_v1beta1_version,
         kind=constants.KFSERVING_KIND,
         metadata=client.V1ObjectMeta(
             name=service_name, namespace=KFSERVING_TEST_NAMESPACE
         ),
-        spec=V1beta1InferenceServiceSpec(predictor=default_endpoint_spec),
+        spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
-    KFServing.create(isvc)
+    KFServing.create(isvc, version=constants.KFSERVING_V1BETA1_VERSION)
     KFServing.wait_isvc_ready(service_name, namespace=KFSERVING_TEST_NAMESPACE)
-    res = predict(service_name, "./data/iris_input_v2.json")
-    breakpoint()
-    #  assert res["predictions"] == [1, 1]
+
+    res = predict(service_name, "./data/iris_input_v2.json", protocol_version="v2")
+    assert res["outputs"][0]["data"] == [1, 2]
+
     KFServing.delete(service_name, KFSERVING_TEST_NAMESPACE)
