@@ -173,3 +173,5 @@ echo "Starting E2E functional tests ..."
 pushd test/e2e >/dev/null
   pytest -n 4
 popd
+
+kubectl logs kfserving-controller-manager-0 -n kfserving-system manager
