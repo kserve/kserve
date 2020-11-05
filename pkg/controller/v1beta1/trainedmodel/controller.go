@@ -76,7 +76,6 @@ func (r *TrainedModelReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 	}
 	// Set TrainedModel's ownerReference to its parent InferenceService so when the parent InferenceService is removed
 	// the TraineModel object will be removed
-	log.Info("add owner reference")
 	if err := controllerutil.SetControllerReference(isvc, tm, r.Scheme); err != nil {
 		return ctrl.Result{}, err
 	}
