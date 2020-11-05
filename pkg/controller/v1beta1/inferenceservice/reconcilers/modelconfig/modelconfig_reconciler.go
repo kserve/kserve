@@ -56,8 +56,8 @@ func (c *ModelConfigReconciler) Reconcile(isvc *v1beta1api.InferenceService, req
 		modelConfig := corev1.ConfigMap{}
 		modelConfigName := types.NamespacedName{Name: constants.ModelConfigName(isvc.Name, id), Namespace: req.Namespace}
 		if err := c.client.Get(context.TODO(), modelConfigName, &modelConfig); err != nil {
-			if errors.IsNotFound(err) {
-				// If the modelConfig does not exist, create an empty modelConfig
+			if errors.IsNotFound(err) && isvc.Spec.Predictor.GetImplementation().GetStorageUri() == nil {
+				// If the modelConfig does not exist for an InferenceService without storageUri, create an empty modelConfig
 				log.Info("Creating modelConfig", "configmap", modelConfigName, "inferenceservice", isvc.Name, "namespace", isvc.Namespace)
 				newModelConfig, err := modelconfig.CreateEmptyModelConfig(isvc, id)
 				if err != nil {

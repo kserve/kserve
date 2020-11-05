@@ -107,7 +107,7 @@ func (r *InferenceServiceReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 		return reconcile.Result{}, errors.Wrapf(err, "fails to reconcile ingress")
 	}
 
-	//Reconcile modelConfig
+	// Reconcile modelConfig
 	configMapReconciler := modelconfig.NewModelConfigReconciler(r.Client, r.Scheme)
 	if err := configMapReconciler.Reconcile(isvc, req); err != nil {
 		return reconcile.Result{}, err
