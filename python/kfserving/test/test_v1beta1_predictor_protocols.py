@@ -30,8 +30,11 @@ import unittest
 import datetime
 
 import kfserving
-from kfserving.models.v1beta1_predictor_protocols import V1beta1PredictorProtocols  # noqa: E501
+from kfserving.models.v1beta1_predictor_protocols import (
+    V1beta1PredictorProtocols,
+)  # noqa: E501
 from kfserving.rest import ApiException
+
 
 class TestV1beta1PredictorProtocols(unittest.TestCase):
     """V1beta1PredictorProtocols unit test stubs"""
@@ -44,24 +47,25 @@ class TestV1beta1PredictorProtocols(unittest.TestCase):
 
     def make_instance(self, include_optional):
         """Test V1beta1PredictorProtocols
-            include_option is a boolean, when False only required
-            params are included, when True both required and
-            optional params are included """
+        include_option is a boolean, when False only required
+        params are included, when True both required and
+        optional params are included"""
         # model = kfserving.models.v1beta1_predictor_protocols.V1beta1PredictorProtocols()  # noqa: E501
-        if include_optional :
+        if include_optional:
             return V1beta1PredictorProtocols(
-                v1 = kfserving.models.v1beta1/predictor_config.v1beta1.PredictorConfig(
-                    default_gpu_image_version = '0', 
-                    default_image_version = '0', 
-                    image = '0', ), 
-                v2 = kfserving.models.v1beta1/predictor_config.v1beta1.PredictorConfig(
-                    default_gpu_image_version = '0', 
-                    default_image_version = '0', 
-                    image = '0', )
+                v1=kfserving.models.v1beta1_predictor_config.V1beta1PredictorConfig(
+                    default_gpu_image_version="0",
+                    default_image_version="0",
+                    image="0",
+                ),
+                v2=kfserving.models.v1beta1_predictor_config.V1beta1PredictorConfig(
+                    default_gpu_image_version="0",
+                    default_image_version="0",
+                    image="0",
+                ),
             )
-        else :
-            return V1beta1PredictorProtocols(
-        )
+        else:
+            return V1beta1PredictorProtocols()
 
     def testV1beta1PredictorProtocols(self):
         """Test V1beta1PredictorProtocols"""
@@ -69,5 +73,5 @@ class TestV1beta1PredictorProtocols(unittest.TestCase):
         inst_req_and_optional = self.make_instance(include_optional=True)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()
