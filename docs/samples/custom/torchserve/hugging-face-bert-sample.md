@@ -2,6 +2,8 @@
 
 ## Model archive file creation
 
+Clone [pytorch/serve](https://github.com/pytorch/serve) repository. Install torchserve and torch model archiver with the steps provided. Navigate to examples/Huggingface_Transformers and follow the steps for creating mar file.
+
 [Torchserve Huggingface Transformers Bert example](https://github.com/pytorch/serve/tree/master/examples/Huggingface_Transformers)
 
 ## Download and install transformer models
@@ -18,7 +20,7 @@ Modify setup_config.json
  "mode":"sequence_classification",
  "do_lower_case":"True",
  "num_labels":"2",
- "save_mode":"torchscript",
+ "save_mode":"pretrained",
  "max_length":"150"
 }
 ```
@@ -34,7 +36,7 @@ Create a requirements.txt and add `transformers` to it.
 Run the below command with all files in place to generate mar file.
 
 ```bash
-torch-model-archiver --model-name BERTSeqClassification --version 1.0 --serialized-file Transformer_model/pytorch_model.bin --handler ./Transformer_handler_generalized.py --extra-files"Transformer_model/config.json,./setup_config.json,./Seq_classification_artifacts/index_to_name.json" -r requirements.txt
+torch-model-archiver --model-name BERTSeqClassification --version 1.0 --serialized-file Transformer_model/pytorch_model.bin --handler ./Transformer_handler_generalized.py --extra-files "Transformer_model/config.json,./setup_config.json,./Seq_classification_artifacts/index_to_name.json" -r requirements.txt
 ```
 
 ## Build and push the sample Docker Image
@@ -43,13 +45,23 @@ The custom torchserve image is wrapped with model inside the container and serve
 
 In this example we use Docker to build the torchserve image with marfile and config.properties into a container.
 
-Add the below config in config.properties to install transformers
+Add the `install_py_dep_per_model=true` config in config.properties to install transformers
+
 
 ```json
+inference_address=http://0.0.0.0:8080
+management_address=http://0.0.0.0:8081
+number_of_netty_threads=4
+job_queue_size=100
 install_py_dep_per_model=true
+model_store=/mnt/models
+model_snapshot={"name":"startup.cfg","modelCount":1,"models":{"BERTSeqClassification":{"1.0":{"defaultVersion":true,"marName":"BERTSeqClassification.mar","minWorkers":1,"maxWorkers":5,"batchSize":1,"maxBatchDelay":5000,"responseTimeout":120}}}}
 ```
 
 To build and push with Docker Hub, run these commands replacing {username} with your Docker Hub username:
+
+[Dockerfile for torchserve image building](https://github.com/pytorch/serve/blob/master/docker/Dockerfile)
+
 
 ```bash
 # Build the container on your local machine

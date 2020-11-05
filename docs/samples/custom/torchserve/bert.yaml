@@ -1,0 +1,14 @@
+apiVersion: "serving.kubeflow.org/v1beta1"
+kind: "InferenceService"
+metadata:
+  name: torchserve-custom
+spec:
+  predictor:
+    containers:
+    - image: {username}/torchserve_custom:latest
+      name: kfserving-container
+      ports:
+        - containerPort: 8080
+      env:
+        - name: STORAGE_URI
+          value: "gs://kfserving-examples/models/torchserve/bert/" # The storage mounts to       
