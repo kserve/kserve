@@ -181,6 +181,7 @@
         },
         spec: {
           entrypoint: "e2e",
+          ttlSecondsAfterFinished: 86400,
           volumes: [
             {
               name: "github-token",
