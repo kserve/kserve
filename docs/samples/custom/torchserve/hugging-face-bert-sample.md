@@ -99,7 +99,7 @@ The first step is to [determine the ingress IP and ports](../../../../README.md#
 
 ```bash
 MODEL_NAME=torchserve-custom
-SERVICE_HOSTNAME=$(kubectl get route ${MODEL_NAME}-predictor-default -n <namespace> -o jsonpath='{.status.url}' | cut -d "/" -f 3)
+SERVICE_HOSTNAME=$(kubectl get inferenceservice ${MODEL_NAME} -n <namespace> -o jsonpath='{.status.url}' | cut -d "/" -f 3)
 
 curl -v -H "Host: ${SERVICE_HOSTNAM}" http://${INGRESS_HOST}:${INGRESS_PORT}/predictions/BERTSeqClassification -T serve/examples/Huggingface_Transformers/sample_text.txt
 ```
