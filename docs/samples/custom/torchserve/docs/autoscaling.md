@@ -41,7 +41,7 @@ The first step is to [determine the ingress IP and ports](../../../README.md#det
 
 ```bash
 MODEL_NAME=torchserve-custom-autoscaling
-SERVICE_HOSTNAME=$(kubectl get route torchserve-predictor-default -o jsonpath='{.status.url}' | cut -d "/" -f 3)
+SERVICE_HOSTNAME=$(kubectl get inferenceservice ${MODEL_NAME} -o jsonpath='{.status.url}' | cut -d "/" -f 3)
 curl -v -H "Host: ${SERVICE_HOSTNAME}" http://${INGRESS_HOST}:${INGRESS_PORT}/predictions/mnist -T 1.png
 ```
 
