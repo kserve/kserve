@@ -5,6 +5,8 @@
 1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/#install-kfserving).
 2. Your cluster's Istio Ingress gateway must be [network accessible](https://istio.io/latest/docs/tasks/traffic-management/ingress/ingress-control/).
 
+### This example requires v1beta1/KFS 0.5
+
 ## Build and push the sample Docker Image
 
 The custom torchserve image is wrapped with model inside the container and serves it with KFServing.

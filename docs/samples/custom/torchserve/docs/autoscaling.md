@@ -2,7 +2,7 @@
 
 ## Deployment yaml
 
-For example, specify a “concurrency target” of “10”, the autoscaler will try to make sure that every replica receives on average 10 requests at a time.
+For example, specify a “concurrency target” of “5”, the autoscaler will try to make sure that every replica receives on average 5 requests at a time.
 By default the pod scale with concurrency metrics
 
 ```yaml
