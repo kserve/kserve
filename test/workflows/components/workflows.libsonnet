@@ -290,17 +290,15 @@
                     template: "run-e2e-tests",
                   },
                 ],
-                [
-                  {
-                    name: "e2e-tests-post-process",
-                    template: "e2e-tests-post-process",
-                  },
-                ],
               ],
             },
             {
               name: "exit-handler",
               steps: [
+                [{
+                  name: "e2e-tests-post-process",
+                  template: "e2e-tests-post-process",
+                }],
                 [{
                   name: "teardown-cluster",
                   template: "teardown-cluster",
