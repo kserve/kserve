@@ -21,6 +21,7 @@ limitations under the License.
 package v1beta1
 
 import (
+	"github.com/kubeflow/kfserving/pkg/constants"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"knative.dev/pkg/apis"
@@ -587,6 +588,11 @@ func (in *PredictorExtensionSpec) DeepCopyInto(out *PredictorExtensionSpec) {
 	if in.RuntimeVersion != nil {
 		in, out := &in.RuntimeVersion, &out.RuntimeVersion
 		*out = new(string)
+		**out = **in
+	}
+	if in.ProtocolVersion != nil {
+		in, out := &in.ProtocolVersion, &out.ProtocolVersion
+		*out = new(constants.InferenceServiceProtocol)
 		**out = **in
 	}
 	in.Container.DeepCopyInto(&out.Container)

@@ -103,7 +103,7 @@
           "$ref": "#/definitions/v1.SecurityContext"
         },
         "startupProbe": {
-          "description": "StartupProbe indicates that the Pod has successfully initialized. If specified, no other probes are executed until this completes successfully. If this probe fails, the Pod will be restarted, just as if the livenessProbe failed. This can be used to provide different probe parameters at the beginning of a Pod's lifecycle, when it might take a long time to load data or warm a cache, than during steady-state operation. This cannot be updated. This is an alpha feature enabled by the StartupProbe feature flag. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
+          "description": "StartupProbe indicates that the Pod has successfully initialized. If specified, no other probes are executed until this completes successfully. If this probe fails, the Pod will be restarted, just as if the livenessProbe failed. This can be used to provide different probe parameters at the beginning of a Pod's lifecycle, when it might take a long time to load data or warm a cache, than during steady-state operation. This cannot be updated. This is a beta feature enabled by the StartupProbe feature flag. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
           "$ref": "#/definitions/v1.Probe"
         },
         "stdin": {
@@ -135,7 +135,7 @@
           "type": "string"
         },
         "volumeDevices": {
-          "description": "volumeDevices is the list of block devices to be used by the container. This is a beta feature.",
+          "description": "volumeDevices is the list of block devices to be used by the container.",
           "type": "array",
           "items": {
             "$ref": "#/definitions/v1.VolumeDevice"
@@ -254,7 +254,7 @@
           "$ref": "#/definitions/v1.SecurityContext"
         },
         "startupProbe": {
-          "description": "StartupProbe indicates that the Pod has successfully initialized. If specified, no other probes are executed until this completes successfully. If this probe fails, the Pod will be restarted, just as if the livenessProbe failed. This can be used to provide different probe parameters at the beginning of a Pod's lifecycle, when it might take a long time to load data or warm a cache, than during steady-state operation. This cannot be updated. This is an alpha feature enabled by the StartupProbe feature flag. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
+          "description": "StartupProbe indicates that the Pod has successfully initialized. If specified, no other probes are executed until this completes successfully. If this probe fails, the Pod will be restarted, just as if the livenessProbe failed. This can be used to provide different probe parameters at the beginning of a Pod's lifecycle, when it might take a long time to load data or warm a cache, than during steady-state operation. This cannot be updated. This is a beta feature enabled by the StartupProbe feature flag. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
           "$ref": "#/definitions/v1.Probe"
         },
         "stdin": {
@@ -286,7 +286,7 @@
           "type": "string"
         },
         "volumeDevices": {
-          "description": "volumeDevices is the list of block devices to be used by the container. This is a beta feature.",
+          "description": "volumeDevices is the list of block devices to be used by the container.",
           "type": "array",
           "items": {
             "$ref": "#/definitions/v1.VolumeDevice"
@@ -576,7 +576,7 @@
           }
         },
         "topologySpreadConstraints": {
-          "description": "TopologySpreadConstraints describes how a group of pods ought to spread across topology domains. Scheduler will schedule pods in a way which abides by the constraints. This field is alpha-level and is only honored by clusters that enables the EvenPodsSpread feature. All topologySpreadConstraints are ANDed.",
+          "description": "TopologySpreadConstraints describes how a group of pods ought to spread across topology domains. Scheduler will schedule pods in a way which abides by the constraints. This field is only honored by clusters that enable the EvenPodsSpread feature. All topologySpreadConstraints are ANDed.",
           "type": "array",
           "items": {
             "$ref": "#/definitions/v1.TopologySpreadConstraint"
@@ -776,7 +776,7 @@
           }
         },
         "topologySpreadConstraints": {
-          "description": "TopologySpreadConstraints describes how a group of pods ought to spread across topology domains. Scheduler will schedule pods in a way which abides by the constraints. This field is alpha-level and is only honored by clusters that enables the EvenPodsSpread feature. All topologySpreadConstraints are ANDed.",
+          "description": "TopologySpreadConstraints describes how a group of pods ought to spread across topology domains. Scheduler will schedule pods in a way which abides by the constraints. This field is only honored by clusters that enable the EvenPodsSpread feature. All topologySpreadConstraints are ANDed.",
           "type": "array",
           "items": {
             "$ref": "#/definitions/v1.TopologySpreadConstraint"
@@ -976,7 +976,7 @@
           }
         },
         "topologySpreadConstraints": {
-          "description": "TopologySpreadConstraints describes how a group of pods ought to spread across topology domains. Scheduler will schedule pods in a way which abides by the constraints. This field is alpha-level and is only honored by clusters that enables the EvenPodsSpread feature. All topologySpreadConstraints are ANDed.",
+          "description": "TopologySpreadConstraints describes how a group of pods ought to spread across topology domains. Scheduler will schedule pods in a way which abides by the constraints. This field is only honored by clusters that enable the EvenPodsSpread feature. All topologySpreadConstraints are ANDed.",
           "type": "array",
           "items": {
             "$ref": "#/definitions/v1.TopologySpreadConstraint"
@@ -1345,6 +1345,13 @@
           "description": "Addressable endpoint for the InferenceService",
           "$ref": "#/definitions/knative.Addressable"
         },
+        "annotations": {
+          "description": "Annotations is additional Status fields for the Resource to save some additional State as well as convey more information to the user. This is roughly akin to Annotations on any k8s resource, just the reconciler conveying richer information outwards.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
         "components": {
           "description": "Statuses for the components of the InferenceService",
           "type": "object",
@@ -1512,6 +1519,10 @@
           "x-kubernetes-patch-merge-key": "containerPort",
           "x-kubernetes-patch-strategy": "merge"
         },
+        "protocolVersion": {
+          "description": "Protocol version to use by the predictor (i.e. v1 or v2)",
+          "type": "string"
+        },
         "readinessProbe": {
           "description": "Periodic probe of container service readiness. Container will be removed from service endpoints if the probe fails. Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
           "$ref": "#/definitions/v1.Probe"
@@ -1529,7 +1540,7 @@
           "$ref": "#/definitions/v1.SecurityContext"
         },
         "startupProbe": {
-          "description": "StartupProbe indicates that the Pod has successfully initialized. If specified, no other probes are executed until this completes successfully. If this probe fails, the Pod will be restarted, just as if the livenessProbe failed. This can be used to provide different probe parameters at the beginning of a Pod's lifecycle, when it might take a long time to load data or warm a cache, than during steady-state operation. This cannot be updated. This is an alpha feature enabled by the StartupProbe feature flag. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
+          "description": "StartupProbe indicates that the Pod has successfully initialized. If specified, no other probes are executed until this completes successfully. If this probe fails, the Pod will be restarted, just as if the livenessProbe failed. This can be used to provide different probe parameters at the beginning of a Pod's lifecycle, when it might take a long time to load data or warm a cache, than during steady-state operation. This cannot be updated. This is a beta feature enabled by the StartupProbe feature flag. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
           "$ref": "#/definitions/v1.Probe"
         },
         "stdin": {
@@ -1557,7 +1568,7 @@
           "type": "boolean"
         },
         "volumeDevices": {
-          "description": "volumeDevices is the list of block devices to be used by the container. This is a beta feature.",
+          "description": "volumeDevices is the list of block devices to be used by the container.",
           "type": "array",
           "items": {
             "$ref": "#/definitions/v1.VolumeDevice"
@@ -1870,6 +1881,10 @@
           "x-kubernetes-patch-merge-key": "containerPort",
           "x-kubernetes-patch-strategy": "merge"
         },
+        "protocolVersion": {
+          "description": "Protocol version to use by the predictor (i.e. v1 or v2)",
+          "type": "string"
+        },
         "readinessProbe": {
           "description": "Periodic probe of container service readiness. Container will be removed from service endpoints if the probe fails. Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
           "$ref": "#/definitions/v1.Probe"
@@ -1887,7 +1902,7 @@
           "$ref": "#/definitions/v1.SecurityContext"
         },
         "startupProbe": {
-          "description": "StartupProbe indicates that the Pod has successfully initialized. If specified, no other probes are executed until this completes successfully. If this probe fails, the Pod will be restarted, just as if the livenessProbe failed. This can be used to provide different probe parameters at the beginning of a Pod's lifecycle, when it might take a long time to load data or warm a cache, than during steady-state operation. This cannot be updated. This is an alpha feature enabled by the StartupProbe feature flag. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
+          "description": "StartupProbe indicates that the Pod has successfully initialized. If specified, no other probes are executed until this completes successfully. If this probe fails, the Pod will be restarted, just as if the livenessProbe failed. This can be used to provide different probe parameters at the beginning of a Pod's lifecycle, when it might take a long time to load data or warm a cache, than during steady-state operation. This cannot be updated. This is a beta feature enabled by the StartupProbe feature flag. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
           "$ref": "#/definitions/v1.Probe"
         },
         "stdin": {
@@ -1915,7 +1930,7 @@
           "type": "boolean"
         },
         "volumeDevices": {
-          "description": "volumeDevices is the list of block devices to be used by the container. This is a beta feature.",
+          "description": "volumeDevices is the list of block devices to be used by the container.",
           "type": "array",
           "items": {
             "$ref": "#/definitions/v1.VolumeDevice"
@@ -1935,6 +1950,17 @@
         "workingDir": {
           "description": "Container's working directory. If not specified, the container runtime's default will be used, which might be configured in the container image. Cannot be updated.",
           "type": "string"
+        }
+      }
+    },
+    "v1beta1.PredictorProtocols": {
+      "type": "object",
+      "properties": {
+        "v1": {
+          "$ref": "#/definitions/v1beta1.PredictorConfig"
+        },
+        "v2": {
+          "$ref": "#/definitions/v1beta1.PredictorConfig"
         }
       }
     },
@@ -2202,7 +2228,7 @@
           "$ref": "#/definitions/v1beta1.PredictorConfig"
         },
         "sklearn": {
-          "$ref": "#/definitions/v1beta1.PredictorConfig"
+          "$ref": "#/definitions/v1beta1.PredictorProtocols"
         },
         "tensorflow": {
           "$ref": "#/definitions/v1beta1.PredictorConfig"
@@ -2286,6 +2312,10 @@
           "x-kubernetes-patch-merge-key": "containerPort",
           "x-kubernetes-patch-strategy": "merge"
         },
+        "protocolVersion": {
+          "description": "Protocol version to use by the predictor (i.e. v1 or v2)",
+          "type": "string"
+        },
         "readinessProbe": {
           "description": "Periodic probe of container service readiness. Container will be removed from service endpoints if the probe fails. Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
           "$ref": "#/definitions/v1.Probe"
@@ -2303,7 +2333,7 @@
           "$ref": "#/definitions/v1.SecurityContext"
         },
         "startupProbe": {
-          "description": "StartupProbe indicates that the Pod has successfully initialized. If specified, no other probes are executed until this completes successfully. If this probe fails, the Pod will be restarted, just as if the livenessProbe failed. This can be used to provide different probe parameters at the beginning of a Pod's lifecycle, when it might take a long time to load data or warm a cache, than during steady-state operation. This cannot be updated. This is an alpha feature enabled by the StartupProbe feature flag. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
+          "description": "StartupProbe indicates that the Pod has successfully initialized. If specified, no other probes are executed until this completes successfully. If this probe fails, the Pod will be restarted, just as if the livenessProbe failed. This can be used to provide different probe parameters at the beginning of a Pod's lifecycle, when it might take a long time to load data or warm a cache, than during steady-state operation. This cannot be updated. This is a beta feature enabled by the StartupProbe feature flag. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
           "$ref": "#/definitions/v1.Probe"
         },
         "stdin": {
@@ -2331,7 +2361,7 @@
           "type": "boolean"
         },
         "volumeDevices": {
-          "description": "volumeDevices is the list of block devices to be used by the container. This is a beta feature.",
+          "description": "volumeDevices is the list of block devices to be used by the container.",
           "type": "array",
           "items": {
             "$ref": "#/definitions/v1.VolumeDevice"
@@ -2425,6 +2455,10 @@
           "x-kubernetes-patch-merge-key": "containerPort",
           "x-kubernetes-patch-strategy": "merge"
         },
+        "protocolVersion": {
+          "description": "Protocol version to use by the predictor (i.e. v1 or v2)",
+          "type": "string"
+        },
         "readinessProbe": {
           "description": "Periodic probe of container service readiness. Container will be removed from service endpoints if the probe fails. Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
           "$ref": "#/definitions/v1.Probe"
@@ -2442,7 +2476,7 @@
           "$ref": "#/definitions/v1.SecurityContext"
         },
         "startupProbe": {
-          "description": "StartupProbe indicates that the Pod has successfully initialized. If specified, no other probes are executed until this completes successfully. If this probe fails, the Pod will be restarted, just as if the livenessProbe failed. This can be used to provide different probe parameters at the beginning of a Pod's lifecycle, when it might take a long time to load data or warm a cache, than during steady-state operation. This cannot be updated. This is an alpha feature enabled by the StartupProbe feature flag. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
+          "description": "StartupProbe indicates that the Pod has successfully initialized. If specified, no other probes are executed until this completes successfully. If this probe fails, the Pod will be restarted, just as if the livenessProbe failed. This can be used to provide different probe parameters at the beginning of a Pod's lifecycle, when it might take a long time to load data or warm a cache, than during steady-state operation. This cannot be updated. This is a beta feature enabled by the StartupProbe feature flag. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
           "$ref": "#/definitions/v1.Probe"
         },
         "stdin": {
@@ -2470,7 +2504,7 @@
           "type": "boolean"
         },
         "volumeDevices": {
-          "description": "volumeDevices is the list of block devices to be used by the container. This is a beta feature.",
+          "description": "volumeDevices is the list of block devices to be used by the container.",
           "type": "array",
           "items": {
             "$ref": "#/definitions/v1.VolumeDevice"
@@ -2568,6 +2602,10 @@
           "x-kubernetes-patch-merge-key": "containerPort",
           "x-kubernetes-patch-strategy": "merge"
         },
+        "protocolVersion": {
+          "description": "Protocol version to use by the predictor (i.e. v1 or v2)",
+          "type": "string"
+        },
         "readinessProbe": {
           "description": "Periodic probe of container service readiness. Container will be removed from service endpoints if the probe fails. Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
           "$ref": "#/definitions/v1.Probe"
@@ -2585,7 +2623,7 @@
           "$ref": "#/definitions/v1.SecurityContext"
         },
         "startupProbe": {
-          "description": "StartupProbe indicates that the Pod has successfully initialized. If specified, no other probes are executed until this completes successfully. If this probe fails, the Pod will be restarted, just as if the livenessProbe failed. This can be used to provide different probe parameters at the beginning of a Pod's lifecycle, when it might take a long time to load data or warm a cache, than during steady-state operation. This cannot be updated. This is an alpha feature enabled by the StartupProbe feature flag. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
+          "description": "StartupProbe indicates that the Pod has successfully initialized. If specified, no other probes are executed until this completes successfully. If this probe fails, the Pod will be restarted, just as if the livenessProbe failed. This can be used to provide different probe parameters at the beginning of a Pod's lifecycle, when it might take a long time to load data or warm a cache, than during steady-state operation. This cannot be updated. This is a beta feature enabled by the StartupProbe feature flag. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
           "$ref": "#/definitions/v1.Probe"
         },
         "stdin": {
@@ -2613,7 +2651,7 @@
           "type": "boolean"
         },
         "volumeDevices": {
-          "description": "volumeDevices is the list of block devices to be used by the container. This is a beta feature.",
+          "description": "volumeDevices is the list of block devices to be used by the container.",
           "type": "array",
           "items": {
             "$ref": "#/definitions/v1.VolumeDevice"
@@ -2711,6 +2749,13 @@
         "address": {
           "description": "Addressable endpoint for the deployed trained model http://\u003cinferenceservice.metadata.name\u003e/v1/models/\u003ctrainedmodel\u003e.metadata.name",
           "$ref": "#/definitions/knative.Addressable"
+        },
+        "annotations": {
+          "description": "Annotations is additional Status fields for the Resource to save some additional State as well as convey more information to the user. This is roughly akin to Annotations on any k8s resource, just the reconciler conveying richer information outwards.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
         },
         "conditions": {
           "description": "Conditions the latest available observations of a resource's current state.",
@@ -3054,6 +3099,10 @@
           "x-kubernetes-patch-merge-key": "containerPort",
           "x-kubernetes-patch-strategy": "merge"
         },
+        "protocolVersion": {
+          "description": "Protocol version to use by the predictor (i.e. v1 or v2)",
+          "type": "string"
+        },
         "readinessProbe": {
           "description": "Periodic probe of container service readiness. Container will be removed from service endpoints if the probe fails. Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
           "$ref": "#/definitions/v1.Probe"
@@ -3071,7 +3120,7 @@
           "$ref": "#/definitions/v1.SecurityContext"
         },
         "startupProbe": {
-          "description": "StartupProbe indicates that the Pod has successfully initialized. If specified, no other probes are executed until this completes successfully. If this probe fails, the Pod will be restarted, just as if the livenessProbe failed. This can be used to provide different probe parameters at the beginning of a Pod's lifecycle, when it might take a long time to load data or warm a cache, than during steady-state operation. This cannot be updated. This is an alpha feature enabled by the StartupProbe feature flag. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
+          "description": "StartupProbe indicates that the Pod has successfully initialized. If specified, no other probes are executed until this completes successfully. If this probe fails, the Pod will be restarted, just as if the livenessProbe failed. This can be used to provide different probe parameters at the beginning of a Pod's lifecycle, when it might take a long time to load data or warm a cache, than during steady-state operation. This cannot be updated. This is a beta feature enabled by the StartupProbe feature flag. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
           "$ref": "#/definitions/v1.Probe"
         },
         "stdin": {
@@ -3099,7 +3148,7 @@
           "type": "boolean"
         },
         "volumeDevices": {
-          "description": "volumeDevices is the list of block devices to be used by the container. This is a beta feature.",
+          "description": "volumeDevices is the list of block devices to be used by the container.",
           "type": "array",
           "items": {
             "$ref": "#/definitions/v1.VolumeDevice"
@@ -3193,6 +3242,10 @@
           "x-kubernetes-patch-merge-key": "containerPort",
           "x-kubernetes-patch-strategy": "merge"
         },
+        "protocolVersion": {
+          "description": "Protocol version to use by the predictor (i.e. v1 or v2)",
+          "type": "string"
+        },
         "readinessProbe": {
           "description": "Periodic probe of container service readiness. Container will be removed from service endpoints if the probe fails. Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
           "$ref": "#/definitions/v1.Probe"
@@ -3210,7 +3263,7 @@
           "$ref": "#/definitions/v1.SecurityContext"
         },
         "startupProbe": {
-          "description": "StartupProbe indicates that the Pod has successfully initialized. If specified, no other probes are executed until this completes successfully. If this probe fails, the Pod will be restarted, just as if the livenessProbe failed. This can be used to provide different probe parameters at the beginning of a Pod's lifecycle, when it might take a long time to load data or warm a cache, than during steady-state operation. This cannot be updated. This is an alpha feature enabled by the StartupProbe feature flag. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
+          "description": "StartupProbe indicates that the Pod has successfully initialized. If specified, no other probes are executed until this completes successfully. If this probe fails, the Pod will be restarted, just as if the livenessProbe failed. This can be used to provide different probe parameters at the beginning of a Pod's lifecycle, when it might take a long time to load data or warm a cache, than during steady-state operation. This cannot be updated. This is a beta feature enabled by the StartupProbe feature flag. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
           "$ref": "#/definitions/v1.Probe"
         },
         "stdin": {
@@ -3238,7 +3291,7 @@
           "type": "boolean"
         },
         "volumeDevices": {
-          "description": "volumeDevices is the list of block devices to be used by the container. This is a beta feature.",
+          "description": "volumeDevices is the list of block devices to be used by the container.",
           "type": "array",
           "items": {
             "$ref": "#/definitions/v1.VolumeDevice"
