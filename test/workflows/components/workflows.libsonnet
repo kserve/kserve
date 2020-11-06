@@ -437,14 +437,6 @@
               "copy_artifacts_to_s3",
               "--bucket=" + bucket,
             ]),  // copy-artifacts
-            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("copy-artifacts", testWorkerImage, [
-              "python",
-              "-m",
-              "kubeflow.testing.cloudprovider.aws.prow_artifacts",
-              "--artifacts_dir=" + outputDir,
-              "copy_artifacts_to_s3",
-              "--bucket=" + bucket,
-            ]),  // copy-artifacts
           ],  // templates
         },
       },  // e2e
