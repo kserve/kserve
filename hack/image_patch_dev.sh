@@ -60,5 +60,72 @@ data:
         "cpuRequest": "100m",
         "cpuLimit": "1"
     }
+  predictors: |-
+    {
+        "tensorflow": {
+            "image": "tensorflow/serving",
+            "defaultImageVersion": "1.14.0",
+            "defaultGpuImageVersion": "1.14.0-gpu",
+            "supportedFrameworks": [
+              "tensorflow"
+            ],
+            "multiModelServer": "true"
+        },
+        "onnx": {
+            "image": "mcr.microsoft.com/onnxruntime/server",
+            "defaultImageVersion": "v1.0.0",
+            "supportedFrameworks": [
+              "onnx"
+            ],
+            "multiModelServer": "false"
+        },
+        "sklearn": {
+          "v1": {
+            "image": "yuzhui/sklearnserver",
+            "defaultImageVersion": "fixstorage3",
+            "supportedFrameworks": [
+              "sklearn"
+            ],
+            "multiModelServer": "false"
+          },
+          "v2": {
+            "image": "docker.io/seldonio/mlserver",
+            "defaultImageVersion": "0.1.2",
+            "supportedFrameworks": [
+              "sklearn"
+            ],
+            "multiModelServer": "false"
+          }
+        },
+        "xgboost": {
+            "image": "gcr.io/kfserving/xgbserver",
+            "defaultImageVersion": "v0.4.1",
+            "supportedFrameworks": [
+              "xgboost"
+            ],
+            "multiModelServer": "false"
+        },
+        "pytorch": {
+            "image": "gcr.io/kfserving/pytorchserver",
+            "defaultImageVersion": "v0.4.1",
+            "defaultGpuImageVersion": "v0.4.1-gpu",
+            "supportedFrameworks": [
+              "pytorch"
+            ],
+            "multiModelServer": "false"
+        },
+        "triton": {
+            "image": "nvcr.io/nvidia/tritonserver",
+            "defaultImageVersion": "20.08-py3",
+            "supportedFrameworks": [
+              "tensorrt",
+              "tensorflow",
+              "onnx",
+              "pytorch",
+              "caffe2"
+            ],
+            "multiModelServer": "true"
+        }
+    }
 
 EOF
