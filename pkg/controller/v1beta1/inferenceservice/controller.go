@@ -16,25 +16,26 @@ package inferenceservice
 import (
 	"context"
 	"fmt"
-
+	"github.com/go-logr/logr"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	v1beta1api "github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
+	"github.com/kubeflow/kfserving/pkg/constants"
+	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/components"
 	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/reconcilers/ingress"
 	modelconfig "github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/reconcilers/modelconfig"
+	"github.com/kubeflow/kfserving/pkg/utils"
 	"github.com/pkg/errors"
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"knative.dev/pkg/apis"
-	"reflect"
-
-	"github.com/go-logr/logr"
-	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/components"
-	"k8s.io/apimachinery/pkg/runtime"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
+	"reflect"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -75,6 +76,42 @@ func (r *InferenceServiceReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 		}
 		return reconcile.Result{}, err
 	}
+
+	// name of our custom finalizer
+	finalizerName := "inferenceservice.finalizers"
+
+	// examine DeletionTimestamp to determine if object is under deletion
+	if isvc.ObjectMeta.DeletionTimestamp.IsZero() {
+		// The object is not being deleted, so if it does not have our finalizer,
+		// then lets add the finalizer and update the object. This is equivalent
+		// registering our finalizer.
+		if !utils.ContainsString(isvc.ObjectMeta.Finalizers, finalizerName) {
+			isvc.ObjectMeta.Finalizers = append(isvc.ObjectMeta.Finalizers, finalizerName)
+			if err := r.Update(context.Background(), isvc); err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+	} else {
+		// The object is being deleted
+		if utils.ContainsString(isvc.ObjectMeta.Finalizers, finalizerName) {
+			// our finalizer is present, so lets handle any external dependency
+			if err := r.deleteExternalResources(isvc); err != nil {
+				// if fail to delete the external dependency here, return with error
+				// so that it can be retried
+				return ctrl.Result{}, err
+			}
+
+			// remove our finalizer from the list and update it.
+			isvc.ObjectMeta.Finalizers = utils.RemoveString(isvc.ObjectMeta.Finalizers, finalizerName)
+			if err := r.Update(context.Background(), isvc); err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+
+		// Stop reconciliation as the item is being deleted
+		return ctrl.Result{}, nil
+	}
+
 	r.Log.Info("Reconciling inference service", "apiVersion", isvc.APIVersion, "isvc", isvc.Name)
 	isvcConfig, err := v1beta1api.NewInferenceServicesConfig(r.Client)
 	if err != nil {
@@ -164,4 +201,20 @@ func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&knservingv1.Service{}).
 		Owns(&v1alpha3.VirtualService{}).
 		Complete(r)
+}
+
+func (r *InferenceServiceReconciler) deleteExternalResources(isvc *v1beta1api.InferenceService) error {
+	// Delete all the TrainedModel that uses this InferenceService as parent
+	var trainedModels v1beta1api.TrainedModelList
+	if err := r.List(context.TODO(), &trainedModels, client.MatchingLabels{constants.ParentInferenceServiceLabel: isvc.Name}); err != nil {
+		r.Log.Error(err, "unable to list trained models", "inferenceservice", isvc.Name)
+		return err
+	}
+
+	for _, v := range trainedModels.Items {
+		if err := r.Delete(context.TODO(), &v, client.PropagationPolicy(metav1.DeletePropagationBackground)); client.IgnoreNotFound(err) != nil {
+			r.Log.Error(err, "unable to delete trainedmodel", "trainedmodel", v)
+		}
+	}
+	return nil
 }

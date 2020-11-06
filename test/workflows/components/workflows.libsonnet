@@ -304,10 +304,6 @@
                   name: "copy-artifacts",
                   template: "copy-artifacts",
                 }],
-                [{
-                  name: "test-dir-delete",
-                  template: "test-dir-delete",
-                 }],
               ],
             },
             {
@@ -432,16 +428,6 @@
               "copy_artifacts_to_s3",
               "--bucket=" + bucket,
             ]),  // copy-artifacts
-            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("test-dir-delete", testWorkerImage, [
-              "python",
-              "-m",
-              "testing.util.run_with_retry",
-              "--retries=5",
-              "--",
-              "rm",
-              "-rf",
-              testDir,
-            ]),  // test-dir-delete
           ],  // templates
         },
       },  // e2e

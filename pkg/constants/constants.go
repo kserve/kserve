@@ -160,6 +160,11 @@ const (
 	KServiceEndpointLabel  = "endpoint"
 )
 
+// Labels for TrainedModel
+const (
+	ParentInferenceServiceLabel = "inferenceservice"
+)
+
 // InferenceService default/canary constants
 const (
 	InferenceServiceDefault = "default"

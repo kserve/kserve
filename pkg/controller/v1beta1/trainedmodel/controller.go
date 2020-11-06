@@ -29,14 +29,15 @@ import (
 	"context"
 	"github.com/go-logr/logr"
 	v1beta1api "github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
+	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/trainedmodel/reconcilers/modelconfig"
+	"github.com/kubeflow/kfserving/pkg/utils"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
@@ -74,11 +75,11 @@ func (r *TrainedModelReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 		}
 		return reconcile.Result{}, err
 	}
-	// Set TrainedModel's ownerReference to its parent InferenceService so when the parent InferenceService is removed
-	// the TraineModel object will be removed
-	if err := controllerutil.SetControllerReference(isvc, tm, r.Scheme); err != nil {
-		return ctrl.Result{}, err
+	// Add parent InferenceService's name to TrainedModel's label
+	if tm.Labels == nil {
+		tm.Labels = make(map[string]string)
 	}
+	tm.Labels[constants.ParentInferenceServiceLabel] = isvc.Name
 
 	// Use finalizer to handle TrainedModel deletion properly
 	// When a TrainedModel object is being deleted it should
@@ -92,7 +93,7 @@ func (r *TrainedModelReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 		// The object is not being deleted, so if it does not have our finalizer,
 		// then lets add the finalizer and update the object. This is equivalent
 		// registering our finalizer.
-		if !containsString(tm.GetFinalizers(), tmFinalizerName) {
+		if !utils.ContainsString(tm.GetFinalizers(), tmFinalizerName) {
 			tm.SetFinalizers(append(tm.GetFinalizers(), tmFinalizerName))
 			if err := r.Update(context.Background(), tm); err != nil {
 				return ctrl.Result{}, err
@@ -100,13 +101,13 @@ func (r *TrainedModelReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 		}
 	} else {
 		// The object is being deleted
-		if containsString(tm.GetFinalizers(), tmFinalizerName) {
+		if utils.ContainsString(tm.GetFinalizers(), tmFinalizerName) {
 			//reconcile configmap to remove the model
 			if err := r.ModelConfigReconciler.Reconcile(req, tm); err != nil {
 				return reconcile.Result{}, err
 			}
 			// remove our finalizer from the list and update it.
-			tm.SetFinalizers(removeString(tm.GetFinalizers(), tmFinalizerName))
+			tm.SetFinalizers(utils.RemoveString(tm.GetFinalizers(), tmFinalizerName))
 			if err := r.Update(context.Background(), tm); err != nil {
 				return ctrl.Result{}, err
 			}
@@ -115,8 +116,6 @@ func (r *TrainedModelReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 		// Stop reconciliation as the item is being deleted
 		return ctrl.Result{}, nil
 	}
-
-
 
 	// Reconcile modelconfig to add this TrainedModel to its parent InferenceService's configmap
 	if err := r.ModelConfigReconciler.Reconcile(req, tm); err != nil {
@@ -134,24 +133,4 @@ func (r *TrainedModelReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1beta1api.TrainedModel{}).
 		Complete(r)
-}
-
-// Helper functions to check and remove string from a slice of strings.
-func containsString(slice []string, s string) bool {
-	for _, item := range slice {
-		if item == s {
-			return true
-		}
-	}
-	return false
-}
-
-func removeString(slice []string, s string) (result []string) {
-	for _, item := range slice {
-		if item == s {
-			continue
-		}
-		result = append(result, item)
-	}
-	return
 }
