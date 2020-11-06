@@ -290,6 +290,12 @@
                     template: "run-e2e-tests",
                   },
                 ],
+                [
+                  {
+                    name: "e2e-tests-post-process",
+                    template: "e2e-tests-post-process",
+                  },
+                ],
               ],
             },
             {
@@ -335,6 +341,9 @@
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("teardown-cluster",testWorkerImage, [
               "test/scripts/delete-cluster.sh",
              ]),  // teardown cluster
+            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("e2e-tests-post-process",testWorkerImage, [
+              "test/scripts/post-e2e-tests.sh",
+             ]),  // run debug and clean up steps after running e2e test
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-kfserving", kanikoExecutorImage, [
               "/kaniko/executor",
               "--dockerfile=" + srcDir + "/Dockerfile",
@@ -420,6 +429,14 @@
               "--artifacts_dir=" + artifactsDir,
               "--src_dir=" + pylintSrcDir,
             ]),  // pylint-checking
+            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("copy-artifacts", testWorkerImage, [
+              "python",
+              "-m",
+              "kubeflow.testing.cloudprovider.aws.prow_artifacts",
+              "--artifacts_dir=" + outputDir,
+              "copy_artifacts_to_s3",
+              "--bucket=" + bucket,
+            ]),  // copy-artifacts
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("copy-artifacts", testWorkerImage, [
               "python",
               "-m",
