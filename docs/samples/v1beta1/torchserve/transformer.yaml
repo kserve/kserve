@@ -1,11 +1,11 @@
 apiVersion: "serving.kubeflow.org/v1beta1"
 kind: "InferenceService"
 metadata:
-  name: "torch-pred"
+  name: "torchserve"
 spec:
   transformer:
     containers:
-      - image: {username}/transformer:latest
+      - image: {username}/image-transformer:latest
         name: transformer-container
         env:
           - name: STORAGE_URI

@@ -1,74 +1,72 @@
 # Predict on a InferenceService using Torchserve
 
 ## Setup
+
 1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/#install-kfserving).
 2. Your cluster's Istio Ingress gateway must be [network accessible](https://istio.io/latest/docs/tasks/traffic-management/ingress/ingress-control/).
 
+## Build image transformer
+
+This example requires image transformer for converting bytes array image to json array. Refer torchserve image tranformer for building image.
+
+[Image-transformer](../../transformer/torchserve_image_transformer/README.md)
+
 ## Create PV and PVC
-This document uses amazonEBS PV 
+
+This document uses amazonEBS PV
 
 ### Create PV
 
 Edit volume id in pv.yaml file
 
-```
+```bash
 kubectl apply -f pv.yaml
 ```
 
 Expected Output
 
-```
+```bash
 persistentvolume/model-pv-volume created
 ```
 
 ### Create PVC
 
-```
+```bash
 kubectl apply -f pvc.yaml
 ```
 
 Expected Output
 
-```
+```bash
 persistentvolumeclaim/model-pv-claim created
 ```
 
 ### Create PV Pod
 
-```
+```bash
 kubectl apply -f pvpod.yaml
 ```
 
 Expected Output
 
-```
+```bash
 pod/model-store-pod created
 ```
 
+Generate marfile from [here](https://github.com/pytorch/serve/tree/master/examples/image_classifier/mnist)
+
 ### Copy mar file and config properties to storage
-
-Download Marfile
-
-```
-wget https://torchserve.pytorch.org/mar_files/mnist.mar
-```
-
-Download input image
-
-```
-wget https://raw.githubusercontent.com/pytorch/serve/master/examples/image_classifier/mnist/test_data/0.png
-```
 
 Copy Marfile
 
-```
+```bash
 kubectl exec --tty pod/model-store-pod -- mkdir /pv/model-store/
 kubectl cp mnist.mar model-store-pod:/pv/model-store/mnist.mar
 ```
 
 Copy config.properties
 
-```
+```bash
 kubectl exec --tty pod/model-store-pod -- mkdir /pv/config/
 kubectl cp config.properties model-store-pod:/pv/config/config.properties
 ```
@@ -77,7 +75,7 @@ kubectl cp config.properties model-store-pod:/pv/config/config.properties
 
 Since amazon EBS provide only ReadWriteOnce mode
 
-```
+```bash
 kubectl delete pod model-store-pod -n kfserving-test
 ```
 
@@ -85,29 +83,41 @@ kubectl delete pod model-store-pod -n kfserving-test
 
 Apply the CRD
 
-```
-kubectl apply -f torchserve.yaml
+```bash
+kubectl apply -f transformer.yaml
 ```
 
 Expected Output
 
+```bash
+$inferenceservice.serving.kubeflow.org/torchserve created
 ```
-$ inferenceservice.serving.kubeflow.org/torchserve created
-```
+
+[Torchserve inference endpoints](https://github.com/pytorch/serve/blob/master/docs/inference_api.md)
 
 ## Run a prediction
+
 The first step is to [determine the ingress IP and ports](../../../README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
 
-
-```
+```bash
 MODEL_NAME=torchserve
-SERVICE_HOSTNAME=$(kubectl get route torchserve-predictor-default -o jsonpath='{.status.url}' | cut -d "/" -f 3)
-curl -v -H "Host: ${SERVICE_HOSTNAME}" http://${INGRESS_HOST}:${INGRESS_PORT}/predictions/mnist -T 1.png
+SERVICE_HOSTNAME=$(kubectl get inferenceservice torchserve -o jsonpath='{.status.url}' | cut -d "/" -f 3)
+curl -v -H "Host: ${SERVICE_HOSTNAME}" http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/mnist:predict -d @./imgconv/input.json
+```
+
+Get Pods
+
+```bash
+kubectl get pods -n <namespace>
+
+NAME                                                                  READY   STATUS    RESTARTS   AGE
+pod/torchserve-predictor-default-8mw55-deployment-57f979c88-f2dkn     2/2     Running   0          4m25s
+pod/torchserve-transformer-default-fssw5-deployment-74cbd5798f94rtd   2/2     Running   0          4m25s
 ```
 
 Expected Output
 
-```
+```bash
 *   Trying 52.89.19.61...
 * Connected to a881f5a8c676a41edbccdb0a394a80d6-2069247558.us-west-2.elb.amazonaws.com (52.89.19.61) port 80 (#0)
 > PUT /predictions/mnist HTTP/1.1
@@ -116,7 +126,7 @@ Expected Output
 > Accept: */*
 > Content-Length: 167
 > Expect: 100-continue
-> 
+>
 < HTTP/1.1 100 Continue
 * We are completely uploaded and fine
 < HTTP/1.1 200 OK
@@ -128,13 +138,19 @@ Expected Output
 < x-request-id: b10cfc9f-cd0f-4cda-9c6c-194c2cdaa517
 < x-envoy-upstream-service-time: 6
 < server: istio-envoy
-< 
+<
 * Connection #0 to host a881f5a8c676a41edbccdb0a394a80d6-2069247558.us-west-2.elb.amazonaws.com left intact
-1
+{
+    "predictions": [
+        2
+    ]
+}
 ```
 
-## For Autoscaling 
+## For Autoscaling
+
 Configurations for autoscaling pods [Auto scaling](docs/autoscaling.md)
 
 ## Canary Rollout
+
 Configurations for canary [Canary Deployment](docs/canary.md)
