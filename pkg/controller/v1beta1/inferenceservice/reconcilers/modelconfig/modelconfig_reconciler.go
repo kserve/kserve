@@ -47,8 +47,6 @@ func NewModelConfigReconciler(client client.Client, scheme *runtime.Scheme) *Mod
 }
 
 func (c *ModelConfigReconciler) Reconcile(isvc *v1beta1api.InferenceService, req ctrl.Request) error {
-
-	if isvc.Spec.Predictor.GetImplementation().GetStorageUri() == nil {
 		// Create an empty modelConfig for every InferenceService shard
 		// An InferenceService without storageUri is an empty model server with for multi-model serving so a modelConfig configmap should be created
 		// An InferenceService with storageUri is considered as multi-model InferenceService with only one model, a modelConfig configmap should be created as well
@@ -76,6 +74,5 @@ func (c *ModelConfigReconciler) Reconcile(isvc *v1beta1api.InferenceService, req
 				}
 			}
 		}
-	}
 	return nil
 }
