@@ -19,6 +19,7 @@ package trainedmodel
 import (
 	"context"
 	"github.com/golang/protobuf/proto"
+	v1alpha1api "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	. "github.com/onsi/ginkgo"
@@ -138,14 +139,14 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 				},
 			}
 
-			tmInstance := &v1beta1.TrainedModel{
+			tmInstance := &v1alpha1api.TrainedModel{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      modelName,
 					Namespace: namespace,
 				},
-				Spec: v1beta1.TrainedModelSpec{
+				Spec: v1alpha1api.TrainedModelSpec{
 					InferenceService: parentInferenceService,
-					Model: v1beta1.ModelSpec{
+					Model: v1alpha1api.ModelSpec{
 						StorageURI: storageUri,
 						Framework:  framework,
 						Memory:     memory,
@@ -160,7 +161,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 
 			// Verify that the model configmap is updated with the TrainedModel
 			configmapActual := &v1.ConfigMap{}
-			tmActual := &v1beta1.TrainedModel{}
+			tmActual := &v1alpha1api.TrainedModel{}
 			expected := &v1.ConfigMap{
 				TypeMeta:   metav1.TypeMeta{Kind: "ConfigMap", APIVersion: "v1"},
 				ObjectMeta: metav1.ObjectMeta{Name: modelConfigName, Namespace: namespace},
@@ -226,14 +227,14 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			}
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
 
-			tmInstance := &v1beta1.TrainedModel{
+			tmInstance := &v1alpha1api.TrainedModel{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      modelName,
 					Namespace: namespace,
 				},
-				Spec: v1beta1.TrainedModelSpec{
+				Spec: v1alpha1api.TrainedModelSpec{
 					InferenceService: parentInferenceService,
-					Model: v1beta1.ModelSpec{
+					Model: v1alpha1api.ModelSpec{
 						StorageURI: storageUri,
 						Framework:  framework,
 						Memory:     memory,
@@ -253,7 +254,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			defer k8sClient.Delete(context.TODO(), modelConfig)
 			Expect(k8sClient.Create(context.TODO(), tmInstance)).NotTo(HaveOccurred())
 			defer k8sClient.Delete(context.TODO(), tmInstance)
-			tmInstanceUpdate := &v1beta1.TrainedModel{}
+			tmInstanceUpdate := &v1alpha1api.TrainedModel{}
 			Eventually(func() bool {
 				if err := k8sClient.Get(context.TODO(), tmKey, tmInstanceUpdate); err != nil {
 					return false
@@ -272,7 +273,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 
 			// Verify that the model configmap is updated with the TrainedModel
 			configmapActual := &v1.ConfigMap{}
-			tmActual := &v1beta1.TrainedModel{}
+			tmActual := &v1alpha1api.TrainedModel{}
 			expected := &v1.ConfigMap{
 				TypeMeta:   metav1.TypeMeta{Kind: "ConfigMap", APIVersion: "v1"},
 				ObjectMeta: metav1.ObjectMeta{Name: modelConfigName, Namespace: namespace},
@@ -340,14 +341,14 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			}
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
 
-			tmInstance := &v1beta1.TrainedModel{
+			tmInstance := &v1alpha1api.TrainedModel{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      modelName,
 					Namespace: namespace,
 				},
-				Spec: v1beta1.TrainedModelSpec{
+				Spec: v1alpha1api.TrainedModelSpec{
 					InferenceService: parentInferenceService,
-					Model: v1beta1.ModelSpec{
+					Model: v1alpha1api.ModelSpec{
 						StorageURI: storageUri,
 						Framework:  framework,
 						Memory:     memory,
@@ -370,7 +371,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			//tmInstanceUpdate := &v1beta1.TrainedModel{}
 			//Verify that the model configmap is updated with the new TrainedModel
 			configmapActual := &v1.ConfigMap{}
-			tmActual := &v1beta1.TrainedModel{}
+			tmActual := &v1alpha1api.TrainedModel{}
 			expected := &v1.ConfigMap{
 				TypeMeta:   metav1.TypeMeta{Kind: "ConfigMap", APIVersion: "v1"},
 				ObjectMeta: metav1.ObjectMeta{Name: modelConfigName, Namespace: namespace},
@@ -391,7 +392,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 
 			// Verify that the model is removed from the configmap
 			configmapActual = &v1.ConfigMap{}
-			tmActual = &v1beta1.TrainedModel{}
+			tmActual = &v1alpha1api.TrainedModel{}
 			expected = &v1.ConfigMap{
 				TypeMeta:   metav1.TypeMeta{Kind: "ConfigMap", APIVersion: "v1"},
 				ObjectMeta: metav1.ObjectMeta{Name: modelConfigName, Namespace: namespace},

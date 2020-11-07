@@ -20,7 +20,7 @@ import (
 	"encoding/json"
 	"github.com/fsnotify/fsnotify"
 	"github.com/google/go-cmp/cmp"
-	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
+	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/modelconfig"
 	"io/ioutil"
@@ -51,7 +51,7 @@ func NewWatcher(configDir string, modelDir string) Watcher {
 }
 
 type modelWrapper struct {
-	Spec  *v1beta1.ModelSpec
+	Spec  *v1alpha1.ModelSpec
 	stale bool
 }
 
@@ -156,7 +156,7 @@ func (w *Watcher) parseConfig(modelConfigs modelconfig.ModelConfigs) {
 	}
 }
 
-func (w *Watcher) modelAdded(name string, spec *v1beta1.ModelSpec) {
+func (w *Watcher) modelAdded(name string, spec *v1alpha1.ModelSpec) {
 	log.Info("adding model", "modelName", name)
 	w.ModelEvents <- ModelOp{
 		ModelName: name,

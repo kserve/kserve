@@ -17,6 +17,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/go-logr/logr"
+	v1alpha1api "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	v1beta1api "github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
 	"github.com/kubeflow/kfserving/pkg/constants"
@@ -206,7 +207,7 @@ func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 func (r *InferenceServiceReconciler) deleteExternalResources(isvc *v1beta1api.InferenceService) error {
 	// Delete all the TrainedModel that uses this InferenceService as parent
 	r.Log.Info("Deleting external resources", "InferenceService", isvc.Name)
-	var trainedModels v1beta1api.TrainedModelList
+	var trainedModels v1alpha1api.TrainedModelList
 	if err := r.List(context.TODO(), &trainedModels, client.MatchingLabels{constants.ParentInferenceServiceLabel: isvc.Name}); err != nil {
 		r.Log.Error(err, "unable to list trained models", "inferenceservice", isvc.Name)
 		return err

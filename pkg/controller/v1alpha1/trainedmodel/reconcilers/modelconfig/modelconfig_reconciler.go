@@ -19,9 +19,9 @@ package modelconfig
 import (
 	"context"
 	"fmt"
-	v1beta1api "github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
+	v1alpha1api "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 	"github.com/kubeflow/kfserving/pkg/constants"
-	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/trainedmodel/sharding/memory"
+	"github.com/kubeflow/kfserving/pkg/controller/v1alpha1/trainedmodel/sharding/memory"
 	"github.com/kubeflow/kfserving/pkg/modelconfig"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -45,7 +45,7 @@ func NewModelConfigReconciler(client client.Client, scheme *runtime.Scheme) *Mod
 	}
 }
 
-func (c *ModelConfigReconciler) Reconcile(req ctrl.Request, tm *v1beta1api.TrainedModel) error {
+func (c *ModelConfigReconciler) Reconcile(req ctrl.Request, tm *v1alpha1api.TrainedModel) error {
 	log.Info("Reconciling TrainedModel", "apiVersion", tm.APIVersion, "trainedmodel", tm.Spec)
 	shardStrategy := memory.MemoryStrategy{}
 	shardId := shardStrategy.GetOrAssignShard(tm)

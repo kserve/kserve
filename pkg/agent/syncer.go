@@ -19,7 +19,7 @@ package agent
 import (
 	"encoding/hex"
 	"fmt"
-	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
+	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"os"
@@ -73,7 +73,7 @@ func SyncModelDir(modelDir string) (map[string]modelWrapper, error) {
 	return modelTracker, nil
 }
 
-func successParse(baseSplit []string) (*v1beta1.ModelSpec, error) {
+func successParse(baseSplit []string) (*v1alpha1.ModelSpec, error) {
 	storageURI, err := unhash(baseSplit[1])
 	errorMessage := "unable to unhash the SUCCESS file, maybe the SUCCESS file has been modified?"
 	if err != nil {
@@ -88,7 +88,7 @@ func successParse(baseSplit []string) (*v1beta1.ModelSpec, error) {
 		return nil, errors.Wrapf(err, errorMessage)
 	}
 	memoryResource := resource.MustParse(memory)
-	return &v1beta1.ModelSpec{
+	return &v1alpha1.ModelSpec{
 		StorageURI: storageURI,
 		Framework:  framework,
 		Memory:     memoryResource,

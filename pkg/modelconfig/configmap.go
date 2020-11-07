@@ -19,6 +19,7 @@ package modelconfig
 import (
 	"fmt"
 	jsoniter "github.com/json-iterator/go"
+	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"k8s.io/api/core/v1"
@@ -30,8 +31,8 @@ var logger = log.Log.WithName("ModelConfig")
 var json = jsoniter.ConfigCompatibleWithStandardLibrary
 
 type ModelConfig struct {
-	Name string            `json:"modelName"`
-	Spec v1beta1.ModelSpec `json:"modelSpec"`
+	Name string             `json:"modelName"`
+	Spec v1alpha1.ModelSpec `json:"modelSpec"`
 }
 
 type ModelConfigs []ModelConfig

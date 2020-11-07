@@ -20,7 +20,7 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/kubeflow/kfserving/pkg/agent/storage"
-	v1 "github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
+	v1 "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 	"io/ioutil"
 	"net/http"
 	"path/filepath"

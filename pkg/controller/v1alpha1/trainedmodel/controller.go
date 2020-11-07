@@ -28,9 +28,10 @@ package trainedmodel
 import (
 	"context"
 	"github.com/go-logr/logr"
+	v1alpha1api "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 	v1beta1api "github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
 	"github.com/kubeflow/kfserving/pkg/constants"
-	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/trainedmodel/reconcilers/modelconfig"
+	"github.com/kubeflow/kfserving/pkg/controller/v1alpha1/trainedmodel/reconcilers/modelconfig"
 	"github.com/kubeflow/kfserving/pkg/utils"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -55,7 +56,7 @@ type TrainedModelReconciler struct {
 
 func (r *TrainedModelReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	// Fetch the TrainedModel instance
-	tm := &v1beta1api.TrainedModel{}
+	tm := &v1alpha1api.TrainedModel{}
 	if err := r.Get(context.TODO(), req.NamespacedName, tm); err != nil {
 		if errors.IsNotFound(err) {
 			// Object not found, return.  Created objects are automatically garbage collected.
@@ -124,13 +125,13 @@ func (r *TrainedModelReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 	return ctrl.Result{}, nil
 }
 
-func (r *TrainedModelReconciler) updateStatus(desiredService *v1beta1api.TrainedModel) error {
+func (r *TrainedModelReconciler) updateStatus(desiredService *v1alpha1api.TrainedModel) error {
 	//TODO update TrainedModel status object, this will be done in a separate PR
 	return nil
 }
 
 func (r *TrainedModelReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&v1beta1api.TrainedModel{}).
+		For(&v1alpha1api.TrainedModel{}).
 		Complete(r)
 }

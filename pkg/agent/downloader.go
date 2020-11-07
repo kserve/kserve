@@ -20,7 +20,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"github.com/kubeflow/kfserving/pkg/agent/storage"
-	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
+	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 	"github.com/pkg/errors"
 	"path/filepath"
 	"regexp"
@@ -35,7 +35,7 @@ type Downloader struct {
 
 var SupportedProtocols = []storage.Protocol{storage.S3}
 
-func (d *Downloader) DownloadModel(modelName string, modelSpec *v1beta1.ModelSpec) error {
+func (d *Downloader) DownloadModel(modelName string, modelSpec *v1alpha1.ModelSpec) error {
 	log := logf.Log.WithName("Downloader")
 	if modelSpec != nil {
 		modelUri := modelSpec.StorageURI

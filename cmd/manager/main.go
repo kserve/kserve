@@ -18,11 +18,12 @@ package main
 
 import (
 	"flag"
+	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
+	trainedmodelcontroller "github.com/kubeflow/kfserving/pkg/controller/v1alpha1/trainedmodel"
+	"github.com/kubeflow/kfserving/pkg/controller/v1alpha1/trainedmodel/reconcilers/modelconfig"
 	v1beta1controller "github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice"
-	trainedmodelcontroller "github.com/kubeflow/kfserving/pkg/controller/v1beta1/trainedmodel"
-	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/trainedmodel/reconcilers/modelconfig"
 	"github.com/kubeflow/kfserving/pkg/webhook/admission/pod"
 	istio_networking "istio.io/api/networking/v1alpha3"
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
@@ -77,6 +78,12 @@ func main() {
 	}
 
 	log.Info("Registering Components.")
+
+	log.Info("Setting up KFServing v1alpha1 scheme")
+	if err := v1alpha1.AddToScheme(mgr.GetScheme()); err != nil {
+		log.Error(err, "unable to add KFServing v1alpha1 to scheme")
+		os.Exit(1)
+	}
 
 	log.Info("Setting up KFServing v1alpha2 scheme")
 	if err := v1alpha2.AddToScheme(mgr.GetScheme()); err != nil {
