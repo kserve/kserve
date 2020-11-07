@@ -47,30 +47,32 @@ func NewModelConfigReconciler(client client.Client, scheme *runtime.Scheme) *Mod
 }
 
 func (c *ModelConfigReconciler) Reconcile(isvc *v1beta1api.InferenceService, req ctrl.Request) error {
-	// Create an empty modelConfig for every InferenceService shard
-	// An InferenceService without storageUri is an empty model server with for multi-model serving so a modelConfig configmap should be created
-	// An InferenceService with storageUri is considered as multi-model InferenceService with only one model, a modelConfig configmap should be created as well
-	shardStrategy := memory.MemoryStrategy{}
-	for _, id := range shardStrategy.GetShard(isvc) {
-		modelConfig := corev1.ConfigMap{}
-		modelConfigName := types.NamespacedName{Name: constants.ModelConfigName(isvc.Name, id), Namespace: req.Namespace}
-		if err := c.client.Get(context.TODO(), modelConfigName, &modelConfig); err != nil {
-			if errors.IsNotFound(err) {
-				// If the modelConfig does not exist for an InferenceService without storageUri, create an empty modelConfig
-				log.Info("Creating modelConfig", "configmap", modelConfigName, "inferenceservice", isvc.Name, "namespace", isvc.Namespace)
-				newModelConfig, err := modelconfig.CreateEmptyModelConfig(isvc, id)
-				if err != nil {
+	if isvc.Spec.Predictor.GetImplementation().GetStorageUri() == nil {
+		// Create an empty modelConfig for every InferenceService shard
+		// An InferenceService without storageUri is an empty model server with for multi-model serving so a modelConfig configmap should be created
+		// An InferenceService with storageUri is considered as multi-model InferenceService with only one model, a modelConfig configmap should be created as well
+		shardStrategy := memory.MemoryStrategy{}
+		for _, id := range shardStrategy.GetShard(isvc) {
+			modelConfig := corev1.ConfigMap{}
+			modelConfigName := types.NamespacedName{Name: constants.ModelConfigName(isvc.Name, id), Namespace: req.Namespace}
+			if err := c.client.Get(context.TODO(), modelConfigName, &modelConfig); err != nil {
+				if errors.IsNotFound(err) {
+					// If the modelConfig does not exist for an InferenceService without storageUri, create an empty modelConfig
+					log.Info("Creating modelConfig", "configmap", modelConfigName, "inferenceservice", isvc.Name, "namespace", isvc.Namespace)
+					newModelConfig, err := modelconfig.CreateEmptyModelConfig(isvc, id)
+					if err != nil {
+						return err
+					}
+					if err := controllerutil.SetControllerReference(isvc, newModelConfig, c.scheme); err != nil {
+						return err
+					}
+					err = c.client.Create(context.TODO(), newModelConfig)
+					if err != nil {
+						return err
+					}
+				} else {
 					return err
 				}
-				if err := controllerutil.SetControllerReference(isvc, newModelConfig, c.scheme); err != nil {
-					return err
-				}
-				err = c.client.Create(context.TODO(), newModelConfig)
-				if err != nil {
-					return err
-				}
-			} else {
-				return err
 			}
 		}
 	}
