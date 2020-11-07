@@ -173,7 +173,9 @@ func addBatcherContainerPort(container *v1.Container) {
 }
 
 func addAgentAnnotations(isvc *v1beta1.InferenceService, annotations map[string]string) bool {
-	if isvc.Spec.Predictor.GetImplementation().GetStorageUri() == nil && len(isvc.Spec.Predictor.PodSpec.Containers) != 0 {
+	// Only inject for out-of-the-box predictors without storage uri
+        //@TODO also need to check if the predictor supports MMS
+	if isvc.Spec.Predictor.GetImplementation().GetStorageUri() == nil && len(isvc.Spec.Predictor.PodSpec.Containers) == 0 {
 		annotations[constants.AgentShouldInjectAnnotationKey] = "true"
 		shardStrategy := memory.MemoryStrategy{}
 		for _, id := range shardStrategy.GetShard(isvc) {
