@@ -147,7 +147,7 @@ func (r *InferenceServiceReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 
 	// Reconcile modelConfig
 	configMapReconciler := modelconfig.NewModelConfigReconciler(r.Client, r.Scheme)
-	if err := configMapReconciler.Reconcile(isvc, req); err != nil {
+	if err := configMapReconciler.Reconcile(isvc); err != nil {
 		return reconcile.Result{}, err
 	}
 

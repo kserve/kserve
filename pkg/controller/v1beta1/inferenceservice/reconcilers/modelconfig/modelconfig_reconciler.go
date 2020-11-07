@@ -21,12 +21,12 @@ import (
 	v1beta1api "github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/controller/v1alpha1/trainedmodel/sharding/memory"
+	v1beta1utils "github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/utils"
 	"github.com/kubeflow/kfserving/pkg/modelconfig"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
@@ -46,15 +46,15 @@ func NewModelConfigReconciler(client client.Client, scheme *runtime.Scheme) *Mod
 	}
 }
 
-func (c *ModelConfigReconciler) Reconcile(isvc *v1beta1api.InferenceService, req ctrl.Request) error {
-	if isvc.Spec.Predictor.GetImplementation().GetStorageUri() == nil && len(isvc.Spec.Predictor.PodSpec.Containers) == 0 {
+func (c *ModelConfigReconciler) Reconcile(isvc *v1beta1api.InferenceService) error {
+	if v1beta1utils.IsMMSPredictor(&isvc.Spec.Predictor) {
 		// Create an empty modelConfig for every InferenceService shard
 		// An InferenceService without storageUri is an empty model server with for multi-model serving so a modelConfig configmap should be created
 		// An InferenceService with storageUri is considered as multi-model InferenceService with only one model, a modelConfig configmap should be created as well
 		shardStrategy := memory.MemoryStrategy{}
 		for _, id := range shardStrategy.GetShard(isvc) {
 			modelConfig := corev1.ConfigMap{}
-			modelConfigName := types.NamespacedName{Name: constants.ModelConfigName(isvc.Name, id), Namespace: req.Namespace}
+			modelConfigName := types.NamespacedName{Name: constants.ModelConfigName(isvc.Name, id), Namespace: isvc.Namespace}
 			if err := c.client.Get(context.TODO(), modelConfigName, &modelConfig); err != nil {
 				if errors.IsNotFound(err) {
 					// If the modelConfig does not exist for an InferenceService without storageUri, create an empty modelConfig

@@ -62,7 +62,12 @@ var _ = Describe("v1beta1 inference service controller", func() {
                   "image": "tensorflow/serving"
                },
                "sklearn": {
+                 "v1": {
                   "image": "kfserving/sklearnserver"
+                 },
+                 "v2": {
+                  "image": "kfserving/sklearnserver"
+                 }
                },
                "xgboost": {
                   "image": "kfserving/xgbserver"
@@ -889,12 +894,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						MinReplicas: v1beta1.GetIntReference(1),
 						MaxReplicas: 3,
 					},
-					Tensorflow: &v1beta1.TFServingSpec{
+					SKLearn: &v1beta1.SKLearnSpec{
 						PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
 							RuntimeVersion: proto.String("1.14.0"),
-							Container: v1.Container{
-								Name: "kfs",
-							},
 						},
 					},
 				},
