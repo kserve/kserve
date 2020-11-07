@@ -16,13 +16,13 @@ limitations under the License.
 
 // NOTE: Boilerplate only.  Ignore this file.
 
-// Package v1beta1 contains API Schema definitions for the serving v1beta1 API group
+// Package v1alpha1 contains API Schema definitions for the serving v1alpha1 API group
 // +k8s:openapi-gen=true
 // +k8s:deepcopy-gen=package,register
 // +k8s:conversion-gen=kfserving/pkg/apis/serving
 // +k8s:defaulter-gen=TypeMeta
 // +groupName=serving.kubeflow.org
-package v1beta1
+package v1alpha1
 
 import (
 	"github.com/kubeflow/kfserving/pkg/constants"
@@ -32,7 +32,7 @@ import (
 
 var (
 	// APIVersion is the current API version used to register these objects
-	APIVersion = "v1beta1"
+	APIVersion = "v1alpha1"
 
 	// SchemeGroupVersion is group version used to register these objects
 	SchemeGroupVersion = schema.GroupVersion{Group: constants.KFServingAPIGroupName, Version: APIVersion}
@@ -47,4 +47,8 @@ var (
 // Resource is required by pkg/client/listers/...
 func Resource(resource string) schema.GroupResource {
 	return SchemeGroupVersion.WithResource(resource).GroupResource()
+}
+
+func init() {
+	SchemeBuilder.Register(&TrainedModel{}, &TrainedModelList{})
 }

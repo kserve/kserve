@@ -14,26 +14,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This shell script is used to build a cluster and create a namespace.
+# The script is used to deploy knative and kfserving, and run e2e tests.
 
 set -o errexit
 set -o nounset
 set -o pipefail
 
-EKS_CLUSTER_NAME="${CLUSTER_NAME}"
-DESIRED_NODE="${DESIRED_NODE:-4}"
-MIN_NODE="${MIN_NODE:-1}"
-MAX_NODE="${MAX_NODE:-4}"
+echo "Configuring kubectl ..."
+pip3 install awscli --upgrade --user
+aws eks update-kubeconfig --region=${AWS_REGION} --name=${CLUSTER_NAME}
 
-echo "Starting to create eks cluster"
-eksctl create cluster \
-	--name ${EKS_CLUSTER_NAME} \
-	--version 1.17 \
-	--region us-west-2 \
-	--zones us-west-2a,us-west-2b,us-west-2c \
-	--nodegroup-name linux-nodes \
-	--node-type m5.xlarge \
-	--nodes ${DESIRED_NODE} \
-	--nodes-min ${MIN_NODE} \
-	--nodes-max ${MAX_NODE}
-echo "Successfully create eks cluster ${EKS_CLUSTER_NAME}"
+# Print controller logs
+kubectl logs kfserving-controller-manager-0 -n kfserving-system manager

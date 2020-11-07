@@ -93,3 +93,11 @@ data:
         "cpuRequest": "1",
         "cpuLimit": "1"
     }
+  agent: |-
+    {
+        "image" : "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/batcherc/kfserving/agent",
+        "memoryRequest": "100Mi",
+        "memoryLimit": "1Gi",
+        "cpuRequest": "100m",
+        "cpuLimit": "1"
+    }

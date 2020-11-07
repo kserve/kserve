@@ -45,8 +45,11 @@ type KsvcReconciler struct {
 	componentStatus v1beta1.ComponentStatusSpec
 }
 
-func NewKsvcReconciler(client client.Client, scheme *runtime.Scheme, componentMeta metav1.ObjectMeta,
-	componentExt *v1beta1.ComponentExtensionSpec, podSpec *corev1.PodSpec,
+func NewKsvcReconciler(client client.Client,
+	scheme *runtime.Scheme,
+	componentMeta metav1.ObjectMeta,
+	componentExt *v1beta1.ComponentExtensionSpec,
+	podSpec *corev1.PodSpec,
 	componentStatus v1beta1.ComponentStatusSpec) *KsvcReconciler {
 	return &KsvcReconciler{
 		client:          client,
@@ -58,7 +61,8 @@ func NewKsvcReconciler(client client.Client, scheme *runtime.Scheme, componentMe
 }
 
 func createKnativeService(componentMeta metav1.ObjectMeta,
-	componentExtension *v1beta1.ComponentExtensionSpec, podSpec *corev1.PodSpec,
+	componentExtension *v1beta1.ComponentExtensionSpec,
+	podSpec *corev1.PodSpec,
 	componentStatus v1beta1.ComponentStatusSpec) *knservingv1.Service {
 	annotations := componentMeta.GetAnnotations()
 
@@ -76,6 +80,7 @@ func createKnativeService(componentMeta metav1.ObjectMeta,
 	if _, ok := annotations[autoscaling.ClassAnnotationKey]; !ok {
 		annotations[autoscaling.ClassAnnotationKey] = autoscaling.KPA
 	}
+
 	trafficTargets := []knservingv1.TrafficTarget{}
 	if componentExtension.CanaryTrafficPercent != nil && componentStatus.PreviousReadyRevision != "" {
 		//canary rollout
