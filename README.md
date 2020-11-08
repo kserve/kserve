@@ -17,7 +17,7 @@ To learn more about KFServing, how to deploy it as part of Kubeflow, how to use 
 
 ### Prerequisites
 
-Kubernetes 1.15+ is the recommended version for KFServing. 
+Kubernetes 1.15+ is the recommended version for KFServing.
 
 Knative Serving and Istio should be available on Kubernetes Cluster, Knative depends on Istio Ingress Gateway to route requests to Knative services. To use the exact versions tested by the Kubeflow and KFServing teams, please refer to the [prerequisites on developer guide](docs/DEVELOPER_GUIDE.md#install-knative-on-a-kubernetes-cluster)
 
@@ -114,7 +114,7 @@ $ kubectl get svc istio-ingressgateway -n istio-system
 NAME                   TYPE           CLUSTER-IP       EXTERNAL-IP      PORT(S)   AGE
 istio-ingressgateway   LoadBalancer   172.21.109.129   130.211.10.121   ...       17h
 ```
-If the EXTERNAL-IP value is set, your environment has an external load balancer that you can use for the ingress gateway. 
+If the EXTERNAL-IP value is set, your environment has an external load balancer that you can use for the ingress gateway.
 
 ```bash
 export INGRESS_HOST=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
@@ -188,7 +188,7 @@ If the default ingress gateway setup does not fit your need, you can choose to s
   ```
 * Check the KFServing SDK documents from [here](python/kfserving/README.md).
 
-* Follow the [example here](docs/samples/client/kfserving_sdk_sample.ipynb) to use the KFServing SDK to create, rollout, promote, and delete an InferenceService instance.
+* Follow the [example(s) here](docs/samples/client) to use the KFServing SDK to create, rollout, promote, and delete an InferenceService instance.
 
 ### KFServing Features and Examples
 [KFServing Features and Examples](./docs/samples/README.md)
