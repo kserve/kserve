@@ -34,7 +34,7 @@ For more details on MLServer, feel free to check the [SKLearn example in their
 docs](https://github.com/SeldonIO/MLServer/tree/master/examples/sklearn).
 
 > Note that this step is optional and just meant for testing.
-> Feel free to jump straight to [deploying your trained model](#deploying-a-sample-model).
+> Feel free to jump straight to [deploying your trained model](#deployment).
 
 ### Pre-requisites
 
@@ -65,9 +65,9 @@ These can be specified through environment variables or by creating a local
 }
 ```
 
-Note that, when we deploy our model, **KFServing will already inject some
-sensible defaults** so that it runs out-of-the-box without any further
-configuration.
+Note that, when we [deploy our model](#deployment), **KFServing will already
+inject some sensible defaults** so that it runs out-of-the-box without any
+further configuration.
 However, you can still override these defaults by providing a
 `model-settings.json` file similar to your local one.
 You can even provide a [set of `model-settings.json` files to load multiple
