@@ -67,10 +67,10 @@ To build and push with Docker Hub, run these commands replacing {username} with 
 # Build the container on your local machine
 
 # For CPU
-DOCKER_BUILDKIT=1 docker build --file Dockerfile -t torchserve:latest .
+DOCKER_BUILDKIT=1 docker build --file Dockerfile -t torchserve-bert:latest .
 
 # For GPU
-DOCKER_BUILDKIT=1 docker build --file Dockerfile --build-arg BASE_IMAGE=nvidia/cuda:10.1-cudnn7-runtime-ubuntu18.04 -t torchserve:latest .
+DOCKER_BUILDKIT=1 docker build --file Dockerfile --build-arg BASE_IMAGE=nvidia/cuda:10.1-cudnn7-runtime-ubuntu18.04 -t torchserve-bert-gpu:latest .
 
 # Push the container to docker registry
 docker tag torchserve:latest {username}/torchserve:latest
@@ -79,18 +79,18 @@ docker push {username}/torchserve:latest
 
 ## Create the InferenceService
 
-In the `torchserve-custom.yaml` file edit the container image and replace {username} with your Docker Hub username.
+In the `bert.yaml` file edit the container image and replace {username} with your Docker Hub username.
 
 Apply the CRD
 
 ```bash
-kubectl apply -f torchserve-custom.yaml
+kubectl apply -f bert.yaml
 ```
 
 Expected Output
 
 ```bash
-$inferenceservice.serving.kubeflow.org/torchserve-custom created
+$inferenceservice.serving.kubeflow.org/torchserve-bert created
 ```
 
 ## Run a prediction
@@ -98,7 +98,7 @@ $inferenceservice.serving.kubeflow.org/torchserve-custom created
 The first step is to [determine the ingress IP and ports](../../../../README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
 
 ```bash
-MODEL_NAME=torchserve-custom
+MODEL_NAME=torchserve-bert
 SERVICE_HOSTNAME=$(kubectl get inferenceservice ${MODEL_NAME} -n <namespace> -o jsonpath='{.status.url}' | cut -d "/" -f 3)
 
 curl -v -H "Host: ${SERVICE_HOSTNAME}" http://${INGRESS_HOST}:${INGRESS_PORT}/predictions/BERTSeqClassification -T serve/examples/Huggingface_Transformers/sample_text.txt
@@ -110,7 +110,7 @@ Expected Output
 *   Trying 44.239.20.204...
 * Connected to a881f5a8c676a41edbccdb0a394a80d6-2069247558.us-west-2.elb.amazonaws.com (44.239.20.204) port 80 (#0)
 > PUT /predictions/BERTSeqClassification HTTP/1.1
-> Host: torchserve-custom-predictor-default.kfserving-test.example.com
+> Host: torchserve-bert.kfserving-test.example.com
 > User-Agent: curl/7.47.0
 > Accept: */*
 > Content-Length: 79
@@ -128,6 +128,6 @@ Expected Output
 < x-envoy-upstream-service-time: 2085
 < server: istio-envoy
 <
-* Connection #0 to host torchserve-custom-predictor-default.kfserving-test.example.com left intact
+* Connection #0 to host torchserve-bert.kfserving-test.example.com left intact
 Accepted
 ```

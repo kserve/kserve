@@ -1,11 +1,11 @@
 apiVersion: "serving.kubeflow.org/v1beta1"
 kind: "InferenceService"
 metadata:
-  name: torchserve-custom
+  name: torchserve-bert
 spec:
   predictor:
     containers:
-    - image: {username}/torchserve_custom:latest
+    - image: {username}/torchserve-bert:latest
       name: kfserving-container
       env:
         - name: STORAGE_URI
