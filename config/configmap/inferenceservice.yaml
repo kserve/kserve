@@ -42,12 +42,22 @@ data:
           }
         },
         "xgboost": {
+          "v1": {
             "image": "gcr.io/kfserving/xgbserver",
             "defaultImageVersion": "v0.4.1",
             "supportedFrameworks": [
               "xgboost"
             ],
             "multiModelServer": "false"
+          },
+          "v2": {
+            "image": "docker.io/seldonio/mlserver",
+            "defaultImageVersion": "0.1.2",
+            "supportedFrameworks": [
+              "xgboost"
+            ],
+            "multiModelServer": "false"
+          },
         },
         "pytorch": {
             "image": "gcr.io/kfserving/pytorchserver",
