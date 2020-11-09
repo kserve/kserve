@@ -185,15 +185,15 @@ func TestXGBoostDefaulter(t *testing.T) {
 			spec: PredictorSpec{
 				XGBoost: &XGBoostSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
-						ProtocolVersion: &protocolV1,
-						RuntimeVersion:  proto.String("v0.3.0"),
+						RuntimeVersion: proto.String("v0.3.0"),
 					},
 				},
 			},
 			expected: PredictorSpec{
 				XGBoost: &XGBoostSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
-						RuntimeVersion: proto.String("v0.3.0"),
+						RuntimeVersion:  proto.String("v0.3.0"),
+						ProtocolVersion: &protocolV1,
 						Container: v1.Container{
 							Name: constants.InferenceServiceContainerName,
 							Resources: v1.ResourceRequirements{
