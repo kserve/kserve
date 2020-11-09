@@ -70,13 +70,13 @@ type PredictorProtocols struct {
 
 // +kubebuilder:object:generate=false
 type PredictorsConfig struct {
-	Tensorflow PredictorConfig `json:"tensorflow,omitempty"`
-	Triton     PredictorConfig `json:"triton,omitempty"`
-	XGBoost    PredictorConfig `json:"xgboost,omitempty"`
+	Tensorflow PredictorConfig    `json:"tensorflow,omitempty"`
+	Triton     PredictorConfig    `json:"triton,omitempty"`
+	XGBoost    PredictorProtocols `json:"xgboost,omitempty"`
 	SKlearn    PredictorProtocols `json:"sklearn,omitempty"`
-	PyTorch    PredictorConfig `json:"pytorch,omitempty"`
-	ONNX       PredictorConfig `json:"onnx,omitempty"`
-	PMML       PredictorConfig `json:"pmml,omitempty"`
+	PyTorch    PredictorConfig    `json:"pytorch,omitempty"`
+	ONNX       PredictorConfig    `json:"onnx,omitempty"`
+	PMML       PredictorConfig    `json:"pmml,omitempty"`
 }
 
 // +kubebuilder:object:generate=false
