@@ -22,12 +22,12 @@ from kfserving import (
     V1alpha2XGBoostSpec,
     V1alpha2InferenceServiceSpec,
     V1alpha2InferenceService,
-    V1ResourceRequirements,
     V1beta1InferenceService,
     V1beta1InferenceServiceSpec,
     V1beta1PredictorSpec,
     V1beta1XGBoostSpec,
 )
+from kubernetes.client import V1ResourceRequirements
 
 from ..common.utils import predict, KFSERVING_TEST_NAMESPACE
 
@@ -69,11 +69,11 @@ def test_xgboost_kfserving():
     KFServing.delete(service_name, KFSERVING_TEST_NAMESPACE)
 
 
-def test_sklearn_v2_kfserving():
-    service_name = "isvc-sklearn-v2"
+def test_xgboost_v2_kfserving():
+    service_name = "isvc-xgboost-v2"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
-        sklearn=V1beta1XGBoostSpec(
+        xgboost=V1beta1XGBoostSpec(
             storage_uri="gs://kfserving-samples/models/xgboost/iris",
             protocol_version="v2",
             resources=V1ResourceRequirements(
@@ -96,6 +96,6 @@ def test_sklearn_v2_kfserving():
     KFServing.wait_isvc_ready(service_name, namespace=KFSERVING_TEST_NAMESPACE)
 
     res = predict(service_name, "./data/iris_input_v2.json", protocol_version="v2")
-    assert res["outputs"][0]["data"] == [1, 2]
+    assert res["outputs"][0]["data"] == [1.0, 1.0]
 
     KFServing.delete(service_name, KFSERVING_TEST_NAMESPACE)
