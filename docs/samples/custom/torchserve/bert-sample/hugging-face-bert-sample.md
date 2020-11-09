@@ -73,8 +73,8 @@ DOCKER_BUILDKIT=1 docker build --file Dockerfile -t torchserve-bert:latest .
 DOCKER_BUILDKIT=1 docker build --file Dockerfile --build-arg BASE_IMAGE=nvidia/cuda:10.1-cudnn7-runtime-ubuntu18.04 -t torchserve-bert-gpu:latest .
 
 # Push the container to docker registry
-docker tag torchserve:latest {username}/torchserve:latest
-docker push {username}/torchserve:latest
+docker tag torchserve-bert:latest {username}/torchserve-bert:latest
+docker push {username}/torchserve-bert:latest
 ```
 
 ## Create the InferenceService
