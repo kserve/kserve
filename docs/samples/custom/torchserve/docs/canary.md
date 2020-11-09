@@ -65,7 +65,7 @@ Expected Output
 *   Trying 52.89.19.61...
 * Connected to a881f5a8c676a41edbccdb0a394a80d6-2069247558.us-west-2.elb.amazonaws.com (52.89.19.61) port 80 (#0)
 > PUT /predictions/mnist HTTP/1.1
-> Host: torchserve-predictor-default.kfserving-test.example.com
+> Host: torchserve.kfserving-test.example.com
 > User-Agent: curl/7.47.0
 > Accept: */*
 > Content-Length: 167
@@ -93,6 +93,18 @@ Expected Output
 Kubectl get pods -n kfserving-test
 
 NAME                                                             READY   STATUS        RESTARTS   AGE
-torchserve-predictor-default-cj2d8-deployment-69444c9c74-tsrwr   2/2     Running       0          113s
-torchserve-predictor-default-cj2d8-deployment-69444c9c74-vvpjl   2/2     Running       0          109s
+torchserve-torchserve-custom-cj2d8-deployment-69444c9c74-tsrwr   2/2     Running       0          113s
+torchserve-torchserve-custom-cj2d8-deployment-69444c9c74-vvpjl   2/2     Running       0          109s
+```
+
+## Get Revisions
+
+Install [Knative CLI tool](https://knative.dev/docs/install/install-kn/)
+
+```bash
+kn revision list -n <namespace>
+
+NAME                                                 SERVICE                                           TRAFFIC   TAGS     GENERATION   AGE   CONDITIONS   READY   REASON
+torchserve-custom-predictor-defaul ...   torchserve-custom-predictor-default   20%       latest   2            34s   4 OK / 4     True    
+torchserve-custom-predictor-defaul ...   torchserve-custom-predictor-default   80%       prev     1            56s   4 OK / 4     True  
 ```

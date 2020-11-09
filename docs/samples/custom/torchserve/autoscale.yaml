@@ -1,7 +1,7 @@
 apiVersion: "serving.kubeflow.org/v1beta1"
 kind: "InferenceService"
 metadata:
-  name: torchserve-custom-autoscaling
+  name: torchserve-custom
   annotations:
     autoscaling.knative.dev/target: "5"
 spec:
@@ -9,5 +9,3 @@ spec:
     containers:
     - image: {username}/torchserve:latest
       name: torchserve-container
-      ports:
-        - containerPort: 8080

@@ -7,8 +7,6 @@ spec:
     containers:
     - image: {username}/torchserve:latest-gpu
       name: torchserve-container
-      ports:
-        - containerPort: 8080
       resources:
         limits:
           nvidia.com/gpu: 1

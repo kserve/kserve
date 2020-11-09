@@ -7,5 +7,3 @@ spec:
     containers:
     - image: {username}/torchserve:latest
       name: torchserve-container
-      ports:
-        - containerPort: 8080
