@@ -70,7 +70,7 @@ To build and push with Docker Hub, run these commands replacing {username} with 
 DOCKER_BUILDKIT=1 docker build --file Dockerfile -t torchserve:latest .
 
 # For GPU
-DOCKER_BUILDKIT=1 docker build --file Dockerfile --build-argBASE_IMAGE=nvidia/cuda:10.1-cudnn7-runtime-ubuntu18.04 -t torchserve:latest .
+DOCKER_BUILDKIT=1 docker build --file Dockerfile --build-arg BASE_IMAGE=nvidia/cuda:10.1-cudnn7-runtime-ubuntu18.04 -t torchserve:latest .
 
 # Push the container to docker registry
 docker tag torchserve:latest {username}/torchserve:latest
@@ -101,7 +101,7 @@ The first step is to [determine the ingress IP and ports](../../../../README.md#
 MODEL_NAME=torchserve-custom
 SERVICE_HOSTNAME=$(kubectl get inferenceservice ${MODEL_NAME} -n <namespace> -o jsonpath='{.status.url}' | cut -d "/" -f 3)
 
-curl -v -H "Host: ${SERVICE_HOSTNAM}" http://${INGRESS_HOST}:${INGRESS_PORT}/predictions/BERTSeqClassification -T serve/examples/Huggingface_Transformers/sample_text.txt
+curl -v -H "Host: ${SERVICE_HOSTNAME}" http://${INGRESS_HOST}:${INGRESS_PORT}/predictions/BERTSeqClassification -T serve/examples/Huggingface_Transformers/sample_text.txt
 ```
 
 Expected Output
