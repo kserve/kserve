@@ -26,7 +26,7 @@ data:
         "sklearn": {
           "v1": {
             "image": "gcr.io/kfserving/sklearnserver",
-            "defaultImageVersion": "v0.4.1",
+            "defaultImageVersion": "v0.5.0-rc0",
             "supportedFrameworks": [
               "sklearn"
             ],
@@ -43,7 +43,7 @@ data:
         },
         "xgboost": {
             "image": "gcr.io/kfserving/xgbserver",
-            "defaultImageVersion": "v0.4.1",
+            "defaultImageVersion": "v0.5.0-rc0",
             "supportedFrameworks": [
               "xgboost"
             ],
@@ -51,8 +51,8 @@ data:
         },
         "pytorch": {
             "image": "gcr.io/kfserving/pytorchserver",
-            "defaultImageVersion": "v0.4.1",
-            "defaultGpuImageVersion": "v0.4.1-gpu",
+            "defaultImageVersion": "v0.5.0-rc0",
+            "defaultGpuImageVersion": "v0.5.0-rc0-gpu",
             "supportedFrameworks": [
               "pytorch"
             ],
@@ -86,16 +86,16 @@ data:
     {
         "alibi": {
             "image" : "gcr.io/kfserving/alibi-explainer",
-            "defaultImageVersion": "v0.4.1"
+            "defaultImageVersion": "v0.5.0-rc0"
         },
         "aix": {
             "image" : "aipipeline/aix-explainer",
-            "defaultImageVersion": "0.4.1"
+            "defaultImageVersion": "0.5.0-rc0"
         }
     }
   storageInitializer: |-
     {
-        "image" : "gcr.io/kfserving/storage-initializer:v0.4.1",
+        "image" : "gcr.io/kfserving/storage-initializer:v0.5.0-rc0",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
@@ -118,7 +118,7 @@ data:
     }
   logger: |-
     {
-        "image" : "gcr.io/kfserving/logger:v0.4.1",
+        "image" : "gcr.io/kfserving/logger:v0.5.0-rc0",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
@@ -127,7 +127,7 @@ data:
     }
   batcher: |-
     {
-        "image" : "kfserving/batcher:v0.4.0",
+        "image" : "kfserving/batcher:v0.5.0-rc0",
         "memoryRequest": "1Gi",
         "memoryLimit": "1Gi",
         "cpuRequest": "1",
