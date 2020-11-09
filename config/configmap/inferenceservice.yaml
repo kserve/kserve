@@ -57,7 +57,7 @@ data:
               "xgboost"
             ],
             "multiModelServer": "false"
-          },
+          }
         },
         "pytorch": {
             "image": "gcr.io/kfserving/pytorchserver",
