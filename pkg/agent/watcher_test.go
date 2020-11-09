@@ -24,7 +24,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/golang/protobuf/proto"
 	"github.com/kubeflow/kfserving/pkg/agent/storage"
-	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
+	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 	"github.com/kubeflow/kfserving/pkg/modelconfig"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -106,14 +106,14 @@ var _ = Describe("Watcher", func() {
 				modelConfigs := modelconfig.ModelConfigs{
 					{
 						Name: "model1",
-						Spec: v1beta1.ModelSpec{
+						Spec: v1alpha1.ModelSpec{
 							StorageURI: "s3://models/model1",
 							Framework:  "sklearn",
 						},
 					},
 					{
 						Name: "model2",
-						Spec: v1beta1.ModelSpec{
+						Spec: v1alpha1.ModelSpec{
 							StorageURI: "s3://models/model2",
 							Framework:  "sklearn",
 						},
@@ -149,14 +149,14 @@ var _ = Describe("Watcher", func() {
 				modelConfigs := modelconfig.ModelConfigs{
 					{
 						Name: "model1",
-						Spec: v1beta1.ModelSpec{
+						Spec: v1alpha1.ModelSpec{
 							StorageURI: "s3://models/model1",
 							Framework:  "sklearn",
 						},
 					},
 					{
 						Name: "model2",
-						Spec: v1beta1.ModelSpec{
+						Spec: v1alpha1.ModelSpec{
 							StorageURI: "s3://models/model2",
 							Framework:  "sklearn",
 						},
@@ -167,7 +167,7 @@ var _ = Describe("Watcher", func() {
 				modelConfigs = modelconfig.ModelConfigs{
 					{
 						Name: "model1",
-						Spec: v1beta1.ModelSpec{
+						Spec: v1alpha1.ModelSpec{
 							StorageURI: "s3://models/model1",
 							Framework:  "sklearn",
 						},
@@ -204,14 +204,14 @@ var _ = Describe("Watcher", func() {
 				modelConfigs := modelconfig.ModelConfigs{
 					{
 						Name: "model1",
-						Spec: v1beta1.ModelSpec{
+						Spec: v1alpha1.ModelSpec{
 							StorageURI: "s3://models/model1",
 							Framework:  "sklearn",
 						},
 					},
 					{
 						Name: "model2",
-						Spec: v1beta1.ModelSpec{
+						Spec: v1alpha1.ModelSpec{
 							StorageURI: "s3://models/model2",
 							Framework:  "sklearn",
 						},
@@ -222,14 +222,14 @@ var _ = Describe("Watcher", func() {
 				modelConfigs = modelconfig.ModelConfigs{
 					{
 						Name: "model1",
-						Spec: v1beta1.ModelSpec{
+						Spec: v1alpha1.ModelSpec{
 							StorageURI: "s3://models/model1",
 							Framework:  "sklearn",
 						},
 					},
 					{
 						Name: "model2",
-						Spec: v1beta1.ModelSpec{
+						Spec: v1alpha1.ModelSpec{
 							StorageURI: "s3://models/model2v2",
 							Framework:  "sklearn",
 						},
@@ -274,7 +274,7 @@ var _ = Describe("Watcher", func() {
 				modelConfigs := modelconfig.ModelConfigs{
 					{
 						Name: "model1",
-						Spec: v1beta1.ModelSpec{
+						Spec: v1alpha1.ModelSpec{
 							StorageURI: "s3://models/model1",
 							Framework:  "sklearn",
 						},

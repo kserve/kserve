@@ -17,6 +17,7 @@ limitations under the License.
 package v1beta1
 
 import (
+	"github.com/kubeflow/kfserving/pkg/constants"
 	v1 "k8s.io/api/core/v1"
 )
 
@@ -50,10 +51,13 @@ var _ Component = &PredictorSpec{}
 // PredictorExtensionSpec defines configuration shared across all predictor frameworks
 type PredictorExtensionSpec struct {
 	// This field points to the location of the trained model which is mounted onto the pod.
-	StorageURI *string `json:"storageUri"`
+	// +optional
+	StorageURI *string `json:"storageUri,omitempty"`
 	// Runtime version of the predictor docker image
 	// +optional
 	RuntimeVersion *string `json:"runtimeVersion,omitempty"`
+	// Protocol version to use by the predictor (i.e. v1 or v2)
+	ProtocolVersion *constants.InferenceServiceProtocol `json:"protocolVersion,omitempty"`
 	// Container enables overrides for the predictor.
 	// Each framework will have different defaults that are populated in the underlying container spec.
 	// +optional

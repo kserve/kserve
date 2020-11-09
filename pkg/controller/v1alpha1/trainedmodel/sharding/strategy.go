@@ -14,17 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1beta1
+package main
 
-import (
-	duckv1 "knative.dev/pkg/apis/duck/v1"
-)
+import v1alpha1 "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 
-// TrainedModelStatus defines the observed state of TrainedModel
-type TrainedModelStatus struct {
-	// Conditions for trained model
-	duckv1.Status `json:",inline"`
-	// Addressable endpoint for the deployed trained model
-	// http://<inferenceservice.metadata.name>/v1/models/<trainedmodel>.metadata.name
-	Address *duckv1.Addressable `json:"address,omitempty"`
+type Strategy interface {
+	GetOrAssignShard(trainedModel *v1alpha1.TrainedModel) int
 }

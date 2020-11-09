@@ -17,6 +17,7 @@ limitations under the License.
 package memory
 
 import (
+	v1alpha1api "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 	v1beta1api "github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
 )
 
@@ -25,8 +26,14 @@ type MemoryStrategy struct {
 }
 
 // Return a TrainedModel's shardId
-func (v *MemoryStrategy) GetOrAssignShard(trainedModel *v1beta1api.TrainedModel) int {
+func (v *MemoryStrategy) GetOrAssignShard(tm *v1alpha1api.TrainedModel) int {
 	//TODO to be implemented in another PR
 	//Currently each InferenceService only has one shard with id=0
 	return 0
+}
+
+func (v *MemoryStrategy) GetShard(isvc *v1beta1api.InferenceService) []int {
+	//TODO to be implemented in another PR
+	//Currently each InferenceService only has one shard with id=0
+	return []int{0}
 }

@@ -16,7 +16,10 @@ package components
 import (
 	"github.com/go-logr/logr"
 	"github.com/kubeflow/kfserving/pkg/constants"
+	"github.com/kubeflow/kfserving/pkg/controller/v1alpha1/trainedmodel/sharding/memory"
 	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/reconcilers/knative"
+	modelconfig "github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/reconcilers/modelconfig"
+	v1beta1utils "github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/utils"
 	"github.com/kubeflow/kfserving/pkg/credentials"
 	"github.com/kubeflow/kfserving/pkg/utils"
 	"github.com/pkg/errors"
@@ -65,6 +68,8 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
 	}
 	hasInferenceLogging := addLoggerAnnotations(isvc.Spec.Predictor.Logger, annotations)
 	hasInferenceBatcher := addBatcherAnnotations(isvc.Spec.Predictor.Batcher, annotations)
+	// Add agent annotations so mutator will mount model agent to multi-model InferenceService's predictor
+	addAgentAnnotations(isvc, annotations)
 
 	objectMeta := metav1.ObjectMeta{
 		Name:      constants.DefaultPredictorServiceName(isvc.Name),
@@ -77,10 +82,8 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
 	}
 	container := predictor.GetContainer(isvc.ObjectMeta, isvc.Spec.Predictor.GetExtensions(), p.inferenceServiceConfig)
 	if len(isvc.Spec.Predictor.PodSpec.Containers) == 0 {
-		isvc.Spec.Predictor.PodSpec = v1beta1.PodSpec{
-			Containers: []v1.Container{
-				*container,
-			},
+		isvc.Spec.Predictor.PodSpec.Containers = []v1.Container{
+			*container,
 		}
 	} else {
 		isvc.Spec.Predictor.PodSpec.Containers[0] = *container
@@ -96,6 +99,14 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
 	}
 
 	podSpec := v1.PodSpec(isvc.Spec.Predictor.PodSpec)
+
+	// Reconcile modelConfig
+	configMapReconciler := modelconfig.NewModelConfigReconciler(p.client, p.scheme)
+	if err := configMapReconciler.Reconcile(isvc); err != nil {
+		return err
+	}
+
+	// Here we allow switch between knative and vanilla deployment
 	r := knative.NewKsvcReconciler(p.client, p.scheme, objectMeta, &isvc.Spec.Predictor.ComponentExtensionSpec,
 		&podSpec, isvc.Status.Components[v1beta1.PredictorComponent])
 
@@ -167,4 +178,19 @@ func addBatcherContainerPort(container *v1.Container) {
 			}
 		}
 	}
+}
+
+func addAgentAnnotations(isvc *v1beta1.InferenceService, annotations map[string]string) bool {
+	if v1beta1utils.IsMMSPredictor(&isvc.Spec.Predictor) {
+		annotations[constants.AgentShouldInjectAnnotationKey] = "true"
+		shardStrategy := memory.MemoryStrategy{}
+		for _, id := range shardStrategy.GetShard(isvc) {
+			multiModelConfigMapName := constants.ModelConfigName(isvc.Name, id)
+			annotations[constants.AgentModelConfigVolumeNameAnnotationKey] = multiModelConfigMapName
+			annotations[constants.AgentModelConfigMountPathAnnotationKey] = constants.ModelConfigDir
+			annotations[constants.AgentModelDirAnnotationKey] = constants.ModelDir
+		}
+		return true
+	}
+	return false
 }

@@ -2,6 +2,7 @@ HAS_LINT := $(shell command -v golint;)
 
 # Image URL to use all building/pushing image targets
 IMG ?= kfserving-controller:latest
+AGENT_IMG ?= agent:latest
 LOGGER_IMG ?= logger:latest
 BATCHER_IMG ?= batcher:latest
 SKLEARN_IMG ?= sklearnserver:latest
@@ -28,6 +29,9 @@ test: fmt vet manifests kubebuilder
 manager: generate fmt vet lint
 	go build -o bin/manager ./cmd/manager
 
+# Build agent binary
+agent: fmt vet
+	go build -o bin/agent ./cmd/agent
 # Build logger binary
 logger: fmt vet
 	go build -o bin/logger ./cmd/logger
@@ -97,8 +101,10 @@ undeploy-dev:
 manifests: controller-gen
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) paths=./pkg/apis/serving/... output:crd:dir=config/crd
 	$(CONTROLLER_GEN) rbac:roleName=kfserving-manager-role paths=./pkg/controller/... output:rbac:artifacts:config=config/rbac
+	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths=./pkg/apis/serving/v1alpha1
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths=./pkg/apis/serving/v1alpha2
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths=./pkg/apis/serving/v1beta1
+
 	#TODO Remove this until new controller-tools is released
 	perl -pi -e 's/storedVersions: null/storedVersions: []/g' config/crd/serving.kubeflow.org_inferenceservices.yaml
 	perl -pi -e 's/conditions: null/conditions: []/g' config/crd/serving.kubeflow.org_inferenceservices.yaml
@@ -134,6 +140,7 @@ endif
 
 # Generate code
 generate: controller-gen
+	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths=./pkg/apis/serving/v1alpha1
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths=./pkg/apis/serving/v1alpha2
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths=./pkg/apis/serving/v1beta1
 	#TODO update-codegen.sh is not used and requires vendor
@@ -153,17 +160,23 @@ docker-build: test
 docker-push:
 	docker push ${IMG}
 
+docker-build-agent:
+	docker build -f agent.Dockerfile . -t ${KO_DOCKER_REPO}/${AGENT_IMG}
+
+docker-push-agent:
+	docker push ${KO_DOCKER_REPO}/${AGENT_IMG}
+
 docker-build-logger: test
-	docker build -f logger.Dockerfile . -t ${LOGGER_IMG}
+	docker build -f logger.Dockerfile . -t ${KO_DOCKER_REPO}/${LOGGER_IMG}
 
 docker-push-logger:
-	docker push ${LOGGER_IMG}
+	docker push ${KO_DOCKER_REPO}/${LOGGER_IMG}
 
 docker-build-batcher:
-	docker build -f batcher.Dockerfile . -t ${BATCHER_IMG}
+	docker build -f batcher.Dockerfile . -t ${KO_DOCKER_REPO}/${BATCHER_IMG}
 
 docker-push-batcher:
-	docker push ${BATCHER_IMG}
+	docker push ${KO_DOCKER_REPO}/${BATCHER_IMG}
 
 docker-build-sklearn: 
 	cd python && docker build -t ${KO_DOCKER_REPO}/${SKLEARN_IMG} -f sklearn.Dockerfile .
