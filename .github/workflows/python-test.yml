@@ -33,4 +33,5 @@ jobs:
         pip install -e ./sklearnserver
         pip install -e ./xgbserver
         pip install -e ./pytorchserver
+        pip install -e ./pmmlserver
         pytest
