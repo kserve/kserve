@@ -7,11 +7,14 @@
  2. Copy model archive files to model-store folder
  3. Edit config.properties for requirement
  4. Run docker build
+ 5. Publish the image to dockerhub repo
 
 ```bash
-For CPU:
+# For CPU:
 DOCKER_BUILDKIT=1 docker build --file Dockerfile -t torchserve:latest .
 
-For GPU:
+# For GPU:
 DOCKER_BUILDKIT=1 docker build --file Dockerfile --build-arg BASE_IMAGE=nvidia/cuda:10.1-cudnn7-runtime-ubuntu18.04 -t torchserve-gpu:latest .
+
+docker push {username}/torchserve:latest
 ```
