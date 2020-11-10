@@ -277,6 +277,10 @@
                     name: "build-sklearnserver",
                     template: "build-sklearnserver",
                   },
+                  {
+                    name: "build-pmmlserver",
+                    template: "build-pmmlserver",
+                  },
                 ],
                 [
                   {
@@ -414,6 +418,12 @@
               "--context=dir://" + srcDir + "/python",
               "--destination=" + "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/sklearnserver:$(PULL_BASE_SHA)",
             ]),  // build-sklearnserver
+            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-pmmlserver", kanikoExecutorImage, [
+                "/kaniko/executor",
+                "--dockerfile=" + srcDir + "/python/pmml.Dockerfile",
+                "--context=dir://" + srcDir + "/python",
+                "--destination=" + "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/pmmlserver:$(PULL_BASE_SHA)",
+            ]),  // build-pmmlserver
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("unit-test", testWorkerImage, [
               "test/scripts/unit-test.sh",
             ]),  // unit test

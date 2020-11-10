@@ -36,6 +36,8 @@ type PredictorSpec struct {
 	Triton *TritonSpec `json:"triton,omitempty"`
 	// Spec for ONNX runtime (https://github.com/microsoft/onnxruntime)
 	ONNX *ONNXRuntimeSpec `json:"onnx,omitempty"`
+	// Spec for PMML
+	PMML *PMMLSpec `json:"pmml,omitempty"`
 	// This spec is dual purpose.
 	// 1) Users may choose to provide a full PodSpec for their predictor.
 	// The field PodSpec.Containers is mutually exclusive with other Predictors (i.e. TFServing).
@@ -73,6 +75,7 @@ func (s *PredictorSpec) GetImplementations() []ComponentImplementation {
 		s.SKLearn,
 		s.Tensorflow,
 		s.ONNX,
+		s.PMML,
 	})
 	// This struct is not a pointer, so it will never be nil; include if containers are specified
 	if len(s.PodSpec.Containers) != 0 {
