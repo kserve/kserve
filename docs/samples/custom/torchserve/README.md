@@ -9,17 +9,7 @@
 
 ## Build and push the sample Docker Image
 
-The custom torchserve image is wrapped with model inside the container and serves it with KFServing.
-
-In this example we use Docker to build the torchserve image with marfile and config.properties into a container. To build and push with Docker Hub, run these commands replacing {username} with your Docker Hub username:
-
-```bash
-# Build the container on your local machine
-docker build -t {username}/torchserve-custom .
-
-# Push the container to docker registry
-docker push {username}/torchserve-custom
-```
+Refer steps for [building and publishing](./torchserve-image/README.md) docker image.
 
 ## Create the InferenceService
 
