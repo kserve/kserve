@@ -6,7 +6,7 @@
 apiVersion: "serving.kubeflow.org/v1beta1"
 kind: "InferenceService"
 metadata:
- name: "torchserve"
+ name: "torchserve-custom"
 spec:
  predictor:
    pytorch:
@@ -21,7 +21,7 @@ Change the path and deploy
 apiVersion: "serving.kubeflow.org/v1beta1"
 kind: "InferenceService"
 metadata:
- name: "torchserve"
+ name: "torchserve-custom"
 spec:
  predictor:
    canaryTrafficPercent: 20
@@ -34,7 +34,7 @@ spec:
 Apply the CRD
 
 ```bash
-kubectl apply -f torchserve.yaml
+kubectl apply -f torchserve-custom.yaml
 ```
 
 Apply canary
@@ -46,7 +46,7 @@ kubectl apply -f canary.yaml
 Expected Output
 
 ```bash
-$inferenceservice.serving.kubeflow.org/torchserve created
+$inferenceservice.serving.kubeflow.org/torchserve-custom created
 ```
 
 ## Run a prediction
@@ -54,7 +54,7 @@ $inferenceservice.serving.kubeflow.org/torchserve created
 The first step is to [determine the ingress IP and ports](../../../README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
 
 ```bash
-MODEL_NAME=torchserve
+MODEL_NAME=torchserve-custom
 SERVICE_HOSTNAME=$(kubectl get inferenceservice ${MODEL_NAME} -o jsonpath='{.status.url}' | cut -d "/" -f 3)
 curl -v -H "Host: ${SERVICE_HOSTNAME}" http://${INGRESS_HOST}:${INGRESS_PORT}/predictions/mnist -T 1.png
 ```
@@ -65,7 +65,7 @@ Expected Output
 *   Trying 52.89.19.61...
 * Connected to a881f5a8c676a41edbccdb0a394a80d6-2069247558.us-west-2.elb.amazonaws.com (52.89.19.61) port 80 (#0)
 > PUT /predictions/mnist HTTP/1.1
-> Host: torchserve.kfserving-test.example.com
+> Host: torchserve-custom.kfserving-test.example.com
 > User-Agent: curl/7.47.0
 > Accept: */*
 > Content-Length: 167
@@ -93,8 +93,8 @@ Expected Output
 Kubectl get pods -n kfserving-test
 
 NAME                                                             READY   STATUS        RESTARTS   AGE
-torchserve-torchserve-custom-cj2d8-deployment-69444c9c74-tsrwr   2/2     Running       0          113s
-torchserve-torchserve-custom-cj2d8-deployment-69444c9c74-vvpjl   2/2     Running       0          109s
+torchserve-custom-predictor-default-cj2d8-deployment-69444c9c74-tsrwr   2/2     Running       0          113s
+torchserve-custom-predictor-default-cj2d8-deployment-69444c9c74-vvpjl   2/2     Running       0          109s
 ```
 
 ## Get Revisions

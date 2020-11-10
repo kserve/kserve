@@ -5,9 +5,8 @@ metadata:
 spec:
   predictor:
     containers:
-    - image: {username}/torchserve:latest-gpu
+    - image: {username}/torchserve-gpu:latest
       name: torchserve-container
       resources:
         limits:
           nvidia.com/gpu: 1
-   
