@@ -26,8 +26,14 @@ data:
           }
         },
         "xgboost": {
+          "v1": {
             "image": "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/xgbserver",
             "defaultImageVersion": "latest"
+          },
+          "v2": {
+            "image": "docker.io/seldonio/mlserver",
+            "defaultImageVersion": "0.1.2"
+          }
         },
         "pytorch": {
             "image": "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/pytorchserver",

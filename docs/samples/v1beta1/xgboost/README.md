@@ -1,7 +1,7 @@
-# Deploying SKLearn models
+# Deploying XGBoost models
 
-This example walks you through how to deploy a `scikit-learn` model leveraging
-the `v1beta1` version of the `InferenceService` CRD.
+This example walks you through how to deploy a `xgboost` model leveraging the
+`v1beta1` version of the `InferenceService` CRD.
 Note that, by default the `v1beta1` version will expose your model through an
 API compatible with the existing V1 Dataplane.
 However, this example will show you how to serve a model through an API
@@ -9,29 +9,39 @@ compatible with the new [V2 Dataplane](../../../predict-api/v2).
 
 ## Training
 
-The first step will be to train a sample `scikit-learn` model.
-Note that this model will be then saved as `model.joblib`.
+The first step will be to train a sample `xgboost` model.
+We will save this model as `model.bst`.
 
 ```python
-from sklearn import svm
-from sklearn import datasets
-from joblib import dump
+import xgboost as xgb
+from sklearn.datasets import load_iris
+import os
 
-iris = datasets.load_iris()
-X, y = iris.data, iris.target
+model_dir = "."
+BST_FILE = "model.bst"
 
-clf = svm.SVC(gamma='scale')
-clf.fit(X, y)
-
-dump(clf, 'model.joblib')
+iris = load_iris()
+y = iris['target']
+X = iris['data']
+dtrain = xgb.DMatrix(X, label=y)
+param = {'max_depth': 6,
+            'eta': 0.1,
+            'silent': 1,
+            'nthread': 4,
+            'num_class': 10,
+            'objective': 'multi:softmax'
+            }
+xgb_model = xgb.train(params=param, dtrain=dtrain)
+model_file = os.path.join((model_dir), BST_FILE)
+xgb_model.save_model(model_file)
 ```
 
 ## Testing locally
 
-Once we've got our model serialised `model.joblib`, we can then use
+Once we've got our `model.bst` model serialised, we can then use
 [MLServer](https://github.com/SeldonIO/MLServer) to spin up a local server.
-For more details on MLServer, feel free to check the [SKLearn example in their
-docs](https://github.com/SeldonIO/MLServer/tree/master/examples/sklearn).
+For more details on MLServer, feel free to check the [XGBoost example in their
+docs](https://github.com/SeldonIO/MLServer/tree/master/examples/xgboost).
 
 > Note that this step is optional and just meant for testing.
 > Feel free to jump straight to [deploying your trained model](#deployment).
@@ -51,7 +61,7 @@ The next step will be providing some model settings so that
 MLServer knows:
 
 - The inference runtime that we want our model to use (i.e.
-  `mlserver.models.SKLearnModel`)
+  `mlserver.models.XGBoostModel`)
 - Our model's name and version
 
 These can be specified through environment variables or by creating a local
@@ -59,9 +69,9 @@ These can be specified through environment variables or by creating a local
 
 ```json
 {
-  "name": "sklearn-iris",
+  "name": "xgboost-iris",
   "version": "v1.0.0",
-  "implementation": "mlserver.models.SKLearnModel"
+  "implementation": "mlserver.models.XGBoostModel"
 }
 ```
 
@@ -92,19 +102,19 @@ For this, we will just need to use **version `v1beta1`** of the
 apiVersion: "serving.kubeflow.org/v1beta1"
 kind: "InferenceService"
 metadata:
-  name: "sklearn-iris"
+  name: "xgboost-iris"
 spec:
   predictor:
-    sklearn:
+    xgboost:
       protocolVersion: "v2"
-      storageUri: "gs://seldon-models/sklearn/iris"
+      storageUri: "gs://kfserving-samples/models/xgboost/iris"
 ```
 
 Note that this makes the following assumptions:
 
-- Your model weights (i.e. your `model.joblib` file) have already been uploaded
+- Your model weights (i.e. your `model.bst` file) have already been uploaded
   to a "model repository" (GCS in this example) and can be accessed as
-  `gs://seldon-models/sklearn/iris`.
+  `gs://kfserving-samples/models/xgboost/iris`.
 - There is a K8s cluster available, accessible through `kubectl`.
 - KFServing has already been [installed in your
   cluster](https://github.com/kubeflow/kfserving/#install-kfserving).
@@ -113,7 +123,7 @@ Assuming that we've got a cluster accessible through `kubectl` with KFServing
 already installed, we can deploy our model as:
 
 ```
-kubectl apply -f ./sklearn.yaml
+kubectl apply -f ./xgboost.yaml
 ```
 
 ### Testing deployed model
@@ -148,24 +158,24 @@ request as:
 > out your ingress IP and port.
 
 ```bash
-SERVICE_HOSTNAME=$(kubectl get inferenceservice sklearn-iris -o jsonpath='{.status.url}' | cut -d "/" -f 3)
+SERVICE_HOSTNAME=$(kubectl get inferenceservice xgboost-iris -o jsonpath='{.status.url}' | cut -d "/" -f 3)
 
 curl -v \
   -H "Host: ${SERVICE_HOSTNAME}" \
   -d @./iris-input.json \
-  http://${INGRESS_HOST}:${INGRESS_PORT}/v2/models/sklearn-iris/infer
+  http://${INGRESS_HOST}:${INGRESS_PORT}/v2/models/xgboost-iris/infer
 ```
 
 The output will be something similar to:
 
 ```json
 {
-  "id": "823248cc-d770-4a51-9606-16803395569c",
-  "model_name": "iris-classifier",
+  "id": "4e546709-0887-490a-abd6-00cbc4c26cf4",
+  "model_name": "xgboost-iris",
   "model_version": "v1.0.0",
   "outputs": [
     {
-      "data": [1, 2],
+      "data": [1.0, 1.0],
       "datatype": "FP32",
       "name": "predict",
       "parameters": null,

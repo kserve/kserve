@@ -110,16 +110,27 @@ func TestXGBoostDefaulter(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	config := InferenceServicesConfig{
 		Predictors: PredictorsConfig{
-			XGBoost: PredictorConfig{
-				ContainerImage:      "xgboost",
-				DefaultImageVersion: "v0.4.0",
+			XGBoost: PredictorProtocols{
+				V1: &PredictorConfig{
+					ContainerImage:      "xgboost",
+					DefaultImageVersion: "v0.4.0",
+				},
+				V2: &PredictorConfig{
+					ContainerImage:      "mlserver",
+					DefaultImageVersion: "v0.1.2",
+				},
 			},
 		},
 	}
+
+	protocolV1 := constants.ProtocolV1
+	protocolV2 := constants.ProtocolV2
+
 	defaultResource = v1.ResourceList{
 		v1.ResourceCPU:    resource.MustParse("1"),
 		v1.ResourceMemory: resource.MustParse("2Gi"),
 	}
+
 	scenarios := map[string]struct {
 		spec     PredictorSpec
 		expected PredictorSpec
@@ -133,7 +144,32 @@ func TestXGBoostDefaulter(t *testing.T) {
 			expected: PredictorSpec{
 				XGBoost: &XGBoostSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
-						RuntimeVersion: proto.String("v0.4.0"),
+						RuntimeVersion:  proto.String("v0.4.0"),
+						ProtocolVersion: &protocolV1,
+						Container: v1.Container{
+							Name: constants.InferenceServiceContainerName,
+							Resources: v1.ResourceRequirements{
+								Requests: defaultResource,
+								Limits:   defaultResource,
+							},
+						},
+					},
+				},
+			},
+		},
+		"DefaultRuntimeVersionAndProtocol": {
+			spec: PredictorSpec{
+				XGBoost: &XGBoostSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						ProtocolVersion: &protocolV2,
+					},
+				},
+			},
+			expected: PredictorSpec{
+				XGBoost: &XGBoostSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						RuntimeVersion:  proto.String("v0.1.2"),
+						ProtocolVersion: &protocolV2,
 						Container: v1.Container{
 							Name: constants.InferenceServiceContainerName,
 							Resources: v1.ResourceRequirements{
@@ -156,7 +192,8 @@ func TestXGBoostDefaulter(t *testing.T) {
 			expected: PredictorSpec{
 				XGBoost: &XGBoostSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
-						RuntimeVersion: proto.String("v0.3.0"),
+						RuntimeVersion:  proto.String("v0.3.0"),
+						ProtocolVersion: &protocolV1,
 						Container: v1.Container{
 							Name: constants.InferenceServiceContainerName,
 							Resources: v1.ResourceRequirements{
@@ -180,7 +217,7 @@ func TestXGBoostDefaulter(t *testing.T) {
 	}
 }
 
-func TestCreateXGBoostModelServingContainer(t *testing.T) {
+func TestCreateXGBoostModelServingContainerV1(t *testing.T) {
 
 	var requestedResource = v1.ResourceRequirements{
 		Limits: v1.ResourceList{
@@ -192,9 +229,11 @@ func TestCreateXGBoostModelServingContainer(t *testing.T) {
 	}
 	var config = InferenceServicesConfig{
 		Predictors: PredictorsConfig{
-			XGBoost: PredictorConfig{
-				ContainerImage:      "someOtherImage",
-				DefaultImageVersion: "0.1.0",
+			XGBoost: PredictorProtocols{
+				V1: &PredictorConfig{
+					ContainerImage:      "someOtherImage",
+					DefaultImageVersion: "0.1.0",
+				},
 			},
 		},
 	}
