@@ -16036,7 +16036,7 @@ data:
             "supportedFrameworks": [
               "tensorflow"
             ],
-            "multiModelServer": "true"
+            "multiModelServer": "false"
         },
         "onnx": {
             "image": "mcr.microsoft.com/onnxruntime/server",
@@ -16053,7 +16053,7 @@ data:
             "supportedFrameworks": [
               "sklearn"
             ],
-            "multiModelServer": "false"
+            "multiModelServer": "ture"
           },
           "v2": {
             "image": "docker.io/seldonio/mlserver",
@@ -16065,12 +16065,22 @@ data:
           }
         },
         "xgboost": {
+          "v1": {
             "image": "gcr.io/kfserving/xgbserver",
             "defaultImageVersion": "v0.5.0-rc0",
             "supportedFrameworks": [
               "xgboost"
             ],
+            "multiModelServer": "true"
+          },
+          "v2": {
+            "image": "docker.io/seldonio/mlserver",
+            "defaultImageVersion": "0.1.2",
+            "supportedFrameworks": [
+              "xgboost"
+            ],
             "multiModelServer": "false"
+          }
         },
         "pytorch": {
             "image": "gcr.io/kfserving/pytorchserver",

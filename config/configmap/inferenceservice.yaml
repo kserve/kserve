@@ -13,7 +13,7 @@ data:
             "supportedFrameworks": [
               "tensorflow"
             ],
-            "multiModelServer": "true"
+            "multiModelServer": "false"
         },
         "onnx": {
             "image": "mcr.microsoft.com/onnxruntime/server",
@@ -30,7 +30,7 @@ data:
             "supportedFrameworks": [
               "sklearn"
             ],
-            "multiModelServer": "false"
+            "multiModelServer": "ture"
           },
           "v2": {
             "image": "docker.io/seldonio/mlserver",
@@ -48,7 +48,7 @@ data:
             "supportedFrameworks": [
               "xgboost"
             ],
-            "multiModelServer": "false"
+            "multiModelServer": "true"
           },
           "v2": {
             "image": "docker.io/seldonio/mlserver",
