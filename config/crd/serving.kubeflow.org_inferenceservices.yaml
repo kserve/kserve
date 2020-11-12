@@ -5990,13 +5990,6 @@ spec:
                       type: string
                     enableServiceLinks:
                       type: boolean
-                    ephemeralContainers:
-                      items:
-                        required:
-                          - name
-                        type: object
-                      type: array
-                      x-kubernetes-preserve-unknown-fields: true
                     hostAliases:
                       items:
                         properties:
@@ -8174,13 +8167,6 @@ spec:
                       type: string
                     enableServiceLinks:
                       type: boolean
-                    ephemeralContainers:
-                      items:
-                        required:
-                          - name
-                        type: object
-                      type: array
-                      x-kubernetes-preserve-unknown-fields: true
                     hostAliases:
                       items:
                         properties:
@@ -14070,13 +14056,6 @@ spec:
                       type: string
                     enableServiceLinks:
                       type: boolean
-                    ephemeralContainers:
-                      items:
-                        required:
-                          - name
-                        type: object
-                      type: array
-                      x-kubernetes-preserve-unknown-fields: true
                     hostAliases:
                       items:
                         properties:

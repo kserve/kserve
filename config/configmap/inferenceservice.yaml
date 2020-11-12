@@ -143,3 +143,11 @@ data:
         "cpuRequest": "1",
         "cpuLimit": "1"
     }
+  agent: |-
+    {
+        "image" : "kfserving/agent:v0.5.0-rc0",
+        "memoryRequest": "100Mi",
+        "memoryLimit": "1Gi",
+        "cpuRequest": "100m",
+        "cpuLimit": "1"
+    }
