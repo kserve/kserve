@@ -10,7 +10,7 @@ We can create a InferenceService with a trained sklearn predictor for this datas
 
 The InferenceService is shown below:
 
-```
+```yaml
 apiVersion: "serving.kubeflow.org/v1alpha2"
 kind: "InferenceService"
 metadata:
@@ -30,13 +30,14 @@ spec:
       minReplicas: 1
       alibi:
         type: AnchorTabular
-        storageUri: "gs://seldon-models/sklearn/income/explainer"
+        storageUri: "gs://seldon-models/sklearn/income/explainer-py36-0.5.2"
         resources:
           requests:
             cpu: 0.1
           limits:
             cpu: 1
 ```
+For KFS 0.4 the explainer storageUri is `gs://seldon-models/sklearn/income/alibi/0.4.0`
 
 Create this InferenceService:
 

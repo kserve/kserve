@@ -5,12 +5,12 @@ IMG ?= kfserving-controller:latest
 AGENT_IMG ?= agent:latest
 LOGGER_IMG ?= logger:latest
 BATCHER_IMG ?= batcher:latest
-SKLEARN_IMG ?= sklearnserver:latest
-XGB_IMG ?= xgbserver:latest
-PYTORCH_IMG ?= pytorchserver:latest
-PMML_IMG ?= pmmlserver:latest
-ALIBI_IMG ?= alibi-explainer:latest
-STORAGE_INIT_IMG ?= storage-initializer:latest
+SKLEARN_IMG ?= sklearnserver
+XGB_IMG ?= xgbserver
+PYTORCH_IMG ?= pytorchserver
+PMML_IMG ?= pmmlserver
+ALIBI_IMG ?= alibi-explainer
+STORAGE_INIT_IMG ?= storage-initializer
 CRD_OPTIONS ?= "crd:maxDescLen=0"
 KFSERVING_ENABLE_SELF_SIGNED_CA ?= false
 
@@ -121,8 +121,8 @@ manifests: controller-gen
 	#https://kubernetes.io/blog/2020/04/01/kubernetes-1.18-feature-server-side-apply-beta-2/#what-is-server-side-apply
 	#remove the required property on framework as name field needs to be optional
 	yq d -i config/crd/serving.kubeflow.org_inferenceservices.yaml 'spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.required'
-	#remove affinity properties for compress crd size https://github.com/kubeflow/kfserving/pull/1141#issuecomment-714170602
-	yq d -i config/crd/serving.kubeflow.org_inferenceservices.yaml 'spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.*.properties.ephemeralContainers.items.properties'
+	#remove ephemeralContainers properties for compress crd size https://github.com/kubeflow/kfserving/pull/1141#issuecomment-714170602
+	yq d -i config/crd/serving.kubeflow.org_inferenceservices.yaml 'spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.*.properties.ephemeralContainers'
 	#knative does not allow setting port on liveness or readiness probe
 	yq d -i config/crd/serving.kubeflow.org_inferenceservices.yaml 'spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.properties.readinessProbe.properties.httpGet.required'
 	yq d -i config/crd/serving.kubeflow.org_inferenceservices.yaml 'spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.properties.livenessProbe.properties.httpGet.required'

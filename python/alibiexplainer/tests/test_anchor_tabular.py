@@ -22,7 +22,7 @@ import numpy as np
 import json
 from .utils import Predictor
 
-ADULT_EXPLAINER_URI = "gs://seldon-models/sklearn/income/alibi/0.4.0"
+ADULT_EXPLAINER_URI = "gs://seldon-models/sklearn/income/explainer-py36-0.5.2"
 ADULT_MODEL_URI = "gs://seldon-models/sklearn/income/model"
 EXPLAINER_FILENAME = "explainer.dill"
 
