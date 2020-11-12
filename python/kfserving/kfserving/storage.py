@@ -15,19 +15,27 @@
 import glob
 import logging
 import tempfile
+import mimetypes
 import os
 import re
+import shutil
+import tarfile
+import zipfile
+import gzip
 from urllib.parse import urlparse
+import requests 
 from azure.storage.blob import BlockBlobService
 from google.auth import exceptions
 from google.cloud import storage
 from minio import Minio
+from kfserving.kfmodel_repository import MODEL_MOUNT_DIRS
 
 _GCS_PREFIX = "gs://"
 _S3_PREFIX = "s3://"
 _BLOB_RE = "https://(.+?).blob.core.windows.net/(.+)"
 _LOCAL_PREFIX = "file://"
-
+_URI_RE = "https?://(.+)/(.+)"
+_HTTP_PREFIX = "http(s)://"
 
 class Storage(object): # pylint: disable=too-few-public-methods
     @staticmethod
@@ -43,6 +51,8 @@ class Storage(object): # pylint: disable=too-few-public-methods
                 # noop if out_dir is not set and the path is local
                 return Storage._download_local(uri)
             out_dir = tempfile.mkdtemp()
+        elif not os.path.exists(out_dir):
+            os.mkdir(out_dir)
 
         if uri.startswith(_GCS_PREFIX):
             Storage._download_gcs(uri, out_dir)
@@ -52,10 +62,16 @@ class Storage(object): # pylint: disable=too-few-public-methods
             Storage._download_blob(uri, out_dir)
         elif is_local:
             return Storage._download_local(uri, out_dir)
+        elif re.search(_URI_RE, uri):
+            return Storage._download_from_uri(uri, out_dir)
+        elif uri.startswith(MODEL_MOUNT_DIRS):
+            # Don't need to download models if this InferenceService is running in the multi-model
+            # serving mode. The model agent will download models.
+            return out_dir
         else:
             raise Exception("Cannot recognize storage type for " + uri +
-                            "\n'%s', '%s', and '%s' are the current available storage type." %
-                            (_GCS_PREFIX, _S3_PREFIX, _LOCAL_PREFIX))
+                            "\n'%s', '%s', '%s', and '%s' are the current available storage type." %
+                            (_GCS_PREFIX, _S3_PREFIX, _LOCAL_PREFIX, _HTTP_PREFIX))
 
         logging.info("Successfully copied %s to %s", uri, out_dir)
         return out_dir
@@ -204,6 +220,43 @@ The path or model %s does not exist." % (uri))
             dest_path = os.path.join(out_dir, tail)
             logging.info("Linking: %s to %s", src, dest_path)
             os.symlink(src, dest_path)
+        return out_dir
+
+    @staticmethod
+    def _download_from_uri(uri, out_dir=None):
+        url = urlparse(uri)
+        filename = os.path.basename(url.path)
+        mimetype, encoding = mimetypes.guess_type(uri)
+        local_path = os.path.join(out_dir, filename)
+
+        if filename == '':
+            raise ValueError('No filename contained in URI: %s' % (uri))
+
+        with requests.get(uri, stream=True) as response:
+            if response.status_code != 200:
+                raise RuntimeError("URI: %s returned a %s response code." % (uri, response.status_code))
+            if mimetype == 'application/zip' and not response.headers.get('Content-Type', '').startswith('application/zip'):
+                raise RuntimeError("URI: %s did not respond with \'Content-Type\': \'application/zip\'" % (uri))
+            if mimetype != 'application/zip' and not response.headers.get('Content-Type', '').startswith('application/octet-stream'):
+                raise RuntimeError("URI: %s did not respond with \'Content-Type\': \'application/octet-stream\'" % (uri))
+
+            if encoding == 'gzip':
+                stream = gzip.GzipFile(fileobj=response.raw)
+                local_path = os.path.join(out_dir, f'{filename}.tar')
+            else:
+                stream = response.raw
+            with open(local_path, 'wb') as out:
+                shutil.copyfileobj(stream, out)
+        
+        if mimetype in ["application/x-tar", "application/zip"]:
+            if mimetype == "application/x-tar":
+                archive = tarfile.open(local_path, 'r', encoding='utf-8')
+            else:
+                archive = zipfile.ZipFile(local_path, 'r')
+            archive.extractall(out_dir)
+            archive.close()
+            os.remove(local_path)
+
         return out_dir
 
     @staticmethod

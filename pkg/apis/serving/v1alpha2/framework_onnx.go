@@ -14,15 +14,21 @@ limitations under the License.
 package v1alpha2
 
 import (
+	"fmt"
+	"net/url"
+	"path"
+
+	"strconv"
+
 	"github.com/kubeflow/kfserving/pkg/constants"
 	v1 "k8s.io/api/core/v1"
-	"strconv"
 )
 
 var (
 	ONNXServingRestPort            = "8080"
 	ONNXServingGRPCPort            = "9000"
-	ONNXModelFileName              = "model.onnx"
+	ONNXFileExt                    = ".onnx"
+	DefaultONNXFileName            = "model.onnx"
 	InvalidONNXRuntimeVersionError = "ONNX RuntimeVersion must be one of %s"
 )
 
@@ -36,8 +42,15 @@ func (s *ONNXSpec) GetResourceRequirements() *v1.ResourceRequirements {
 }
 
 func (s *ONNXSpec) GetContainer(modelName string, parallelism int, config *InferenceServicesConfig) *v1.Container {
+	uri, _ := url.Parse(s.StorageURI)
+	var filename string
+	if ext := path.Ext(uri.Path); ext == "" {
+		filename = DefaultONNXFileName
+	} else {
+		filename = path.Base(uri.Path)
+	}
 	arguments := []string{
-		"--model_path", constants.DefaultModelLocalMountPath + "/" + ONNXModelFileName,
+		"--model_path", constants.DefaultModelLocalMountPath + "/" + filename,
 		"--http_port", ONNXServingRestPort,
 		"--grpc_port", ONNXServingGRPCPort,
 	}
@@ -60,5 +73,12 @@ func (s *ONNXSpec) ApplyDefaults(config *InferenceServicesConfig) {
 }
 
 func (s *ONNXSpec) Validate(config *InferenceServicesConfig) error {
+	uri, err := url.Parse(s.StorageURI)
+	if err != nil {
+		return err
+	}
+	if ext := path.Ext(uri.Path); ext != ONNXFileExt && ext != "" {
+		return fmt.Errorf("Expected storageUri file extension: %s but got %s", ONNXFileExt, ext)
+	}
 	return nil
 }

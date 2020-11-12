@@ -1,7 +1,23 @@
+/*
+Copyright 2020 kubeflow.org.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package modelconfig
 
 import (
-	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
+	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	testify "github.com/stretchr/testify/assert"
 	v1 "k8s.io/api/core/v1"
@@ -22,7 +38,7 @@ func TestProcessAddOrUpdate(t *testing.T) {
 			modelConfigs: ModelConfigs{
 				ModelConfig{
 					Name: "model1",
-					Spec: v1beta1.ModelSpec{StorageURI: "s3//model1", Framework: "framework1"},
+					Spec: v1alpha1.ModelSpec{StorageURI: "s3//model1", Framework: "framework1"},
 				},
 			},
 			configMap: &v1.ConfigMap{
@@ -34,7 +50,7 @@ func TestProcessAddOrUpdate(t *testing.T) {
 			modelConfigs: ModelConfigs{
 				ModelConfig{
 					Name: "model1",
-					Spec: v1beta1.ModelSpec{StorageURI: "s3//model1", Framework: "framework1"},
+					Spec: v1alpha1.ModelSpec{StorageURI: "s3//model1", Framework: "framework1"},
 				},
 			},
 			configMap: &v1.ConfigMap{
@@ -49,7 +65,7 @@ func TestProcessAddOrUpdate(t *testing.T) {
 			modelConfigs: ModelConfigs{
 				ModelConfig{
 					Name: "model1",
-					Spec: v1beta1.ModelSpec{StorageURI: "s3//model1", Framework: "framework1"},
+					Spec: v1alpha1.ModelSpec{StorageURI: "s3//model1", Framework: "framework1"},
 				},
 			},
 			configMap: &v1.ConfigMap{
@@ -64,7 +80,7 @@ func TestProcessAddOrUpdate(t *testing.T) {
 			modelConfigs: ModelConfigs{
 				ModelConfig{
 					Name: "model2",
-					Spec: v1beta1.ModelSpec{StorageURI: "s3//model2", Framework: "framework2"},
+					Spec: v1alpha1.ModelSpec{StorageURI: "s3//model2", Framework: "framework2"},
 				},
 			},
 			configMap: &v1.ConfigMap{
@@ -74,13 +90,13 @@ func TestProcessAddOrUpdate(t *testing.T) {
 				},
 			},
 			expected: `[{"modelName":"model1","modelSpec":{"storageUri":"s3//model1","framework":"framework1","memory":"0"}},` +
-						`{"modelName":"model2","modelSpec":{"storageUri":"s3//model2","framework":"framework2","memory":"0"}}]`,
+				`{"modelName":"model2","modelSpec":{"storageUri":"s3//model2","framework":"framework2","memory":"0"}}]`,
 		},
 		"update": {
 			modelConfigs: ModelConfigs{
 				ModelConfig{
 					Name: "model1",
-					Spec: v1beta1.ModelSpec{StorageURI: "s3//new-model1", Framework: "new-framework1"},
+					Spec: v1alpha1.ModelSpec{StorageURI: "s3//new-model1", Framework: "new-framework1"},
 				},
 			},
 			configMap: &v1.ConfigMap{
@@ -91,7 +107,7 @@ func TestProcessAddOrUpdate(t *testing.T) {
 				},
 			},
 			expected: `[{"modelName":"model1","modelSpec":{"storageUri":"s3//new-model1","framework":"new-framework1","memory":"0"}},` +
-						`{"modelName":"model2","modelSpec":{"storageUri":"s3//model2","framework":"framework2","memory":"0"}}]`,
+				`{"modelName":"model2","modelSpec":{"storageUri":"s3//model2","framework":"framework2","memory":"0"}}]`,
 		},
 	}
 	for _, tc := range testCases {
@@ -108,9 +124,9 @@ func TestProcessAddOrUpdate(t *testing.T) {
 func TestProcessDelete(t *testing.T) {
 	log.SetLogger(log.ZapLogger(true))
 	testCases := map[string]struct {
-		modelConfigs      []string
-		configMap         *v1.ConfigMap
-		expected          string
+		modelConfigs []string
+		configMap    *v1.ConfigMap
+		expected     string
 	}{
 		"delete nil data": {
 			modelConfigs: []string{"model1"},
@@ -174,34 +190,32 @@ func TestProcessDelete(t *testing.T) {
 func TestProcess(t *testing.T) {
 	log.SetLogger(log.ZapLogger(true))
 	testCases := map[string]struct {
-		updated           ModelConfigs
-		deleted           []string
-		configMap         *v1.ConfigMap
-		expected          string
+		updated   ModelConfigs
+		deleted   []string
+		configMap *v1.ConfigMap
+		expected  string
 	}{
 		"process configmap": {
 			updated: ModelConfigs{
 				ModelConfig{
 					Name: "model1",
-					Spec: v1beta1.ModelSpec{StorageURI: "s3//new-model1", Framework: "new-framework1"},
+					Spec: v1alpha1.ModelSpec{StorageURI: "s3//new-model1", Framework: "new-framework1"},
 				},
 				ModelConfig{
 					Name: "model3",
-					Spec: v1beta1.ModelSpec{StorageURI: "s3//model3", Framework: "framework3"},
+					Spec: v1alpha1.ModelSpec{StorageURI: "s3//model3", Framework: "framework3"},
 				},
 			},
 			deleted: []string{"model2"},
 			configMap: &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{Name: "test-config", Namespace: "test"},
 				Data: map[string]string{
-					constants.ModelConfigFileName:
-						`[{"modelName":"model1","modelSpec":{"storageUri":"s3//model1","framework":"framework1","memory":"0"}},` +
+					constants.ModelConfigFileName: `[{"modelName":"model1","modelSpec":{"storageUri":"s3//model1","framework":"framework1","memory":"0"}},` +
 						`{"modelName":"model2","modelSpec":{"storageUri":"s3//model2","framework":"framework2","memory":"0"}}]`,
 				},
 			},
 			expected: `[{"modelName":"model1","modelSpec":{"storageUri":"s3//new-model1","framework":"new-framework1","memory":"0"}},` +
 				`{"modelName":"model3","modelSpec":{"storageUri":"s3//model3","framework":"framework3","memory":"0"}}]`,
-
 		},
 	}
 	for _, tc := range testCases {

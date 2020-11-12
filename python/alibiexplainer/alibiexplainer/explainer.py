@@ -13,6 +13,7 @@
 # limitations under the License.
 import json
 import logging
+import asyncio
 from enum import Enum
 from typing import List, Any, Mapping, Union, Dict
 
@@ -60,7 +61,7 @@ class AlibiExplainer(kfserving.KFModel):
         else:
             raise NotImplementedError
 
-    def load(self):
+    def load(self) -> bool:
         pass
 
     def _predict_fn(self, arr: Union[np.ndarray, List]) -> np.ndarray:
@@ -70,7 +71,8 @@ class AlibiExplainer(kfserving.KFModel):
                 instances.append(req_data.tolist())
             else:
                 instances.append(req_data)
-        resp = self.predict({"instances": instances})
+        loop = asyncio.get_running_loop()  # type: ignore
+        resp = loop.run_until_complete(self.predict({"instances": instances}))
         return np.array(resp["predictions"])
 
     def explain(self, request: Dict) -> Any:
@@ -83,5 +85,5 @@ class AlibiExplainer(kfserving.KFModel):
             explanationAsJsonStr = explanation.to_json()
             logging.info("Explanation: %s", explanationAsJsonStr)
             return json.loads(explanationAsJsonStr)
-        else:
-            raise NotImplementedError
+
+        raise NotImplementedError

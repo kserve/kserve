@@ -58,21 +58,21 @@ func (t *TritonSpec) Default(config *InferenceServicesConfig) {
 // GetContainers transforms the resource into a container spec
 func (t *TritonSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig) *v1.Container {
 	arguments := []string{
+		"tritonserver",
 		fmt.Sprintf("%s=%s", "--model-store", constants.DefaultModelLocalMountPath),
 		fmt.Sprintf("%s=%s", "--grpc-port", fmt.Sprint(TritonISGRPCPort)),
 		fmt.Sprintf("%s=%s", "--http-port", fmt.Sprint(TritonISRestPort)),
-		fmt.Sprintf("%s=%s", "--allow-poll-model-repository", "false"),
 		fmt.Sprintf("%s=%s", "--allow-grpc", "true"),
 		fmt.Sprintf("%s=%s", "--allow-http", "true"),
 	}
-	if extensions.ContainerConcurrency != nil {
+	if extensions.ContainerConcurrency != nil && *extensions.ContainerConcurrency != 0 {
 		arguments = append(arguments, fmt.Sprintf("%s=%d", "--http-thread-count", *extensions.ContainerConcurrency))
 	}
 	if t.Container.Image == "" {
 		t.Container.Image = config.Predictors.Triton.ContainerImage + ":" + *t.RuntimeVersion
 	}
 	t.Name = constants.InferenceServiceContainerName
-	t.Command = []string{"trtserver"}
+	arguments = append(arguments, t.Args...)
 	t.Args = arguments
 	return &t.Container
 }

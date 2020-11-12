@@ -18,6 +18,7 @@ package constants
 
 import (
 	"fmt"
+	"knative.dev/serving/pkg/apis/autoscaling"
 	"os"
 	"regexp"
 	"strings"
@@ -48,6 +49,14 @@ var (
 	ModelConfigFileName = "models.json"
 )
 
+// Model agent Constants
+const (
+	AgentContainerName    = "agent"
+	AgentConfigMapKeyName = "agent"
+	AgentConfigDirArgName = "-config-dir"
+	AgentModelDirArgName  = "-model-dir"
+)
+
 // InferenceService Annotations
 var (
 	InferenceServiceGKEAcceleratorAnnotationKey = KFServingAPIGroupName + "/gke-accelerator"
@@ -64,6 +73,10 @@ var (
 	BatcherMaxBatchSizeInternalAnnotationKey         = InferenceServiceInternalAnnotationsPrefix + "/batcher-max-batchsize"
 	BatcherMaxLatencyInternalAnnotationKey           = InferenceServiceInternalAnnotationsPrefix + "/batcher-max-latency"
 	BatcherTimeoutInternalAnnotationKey              = InferenceServiceInternalAnnotationsPrefix + "/batcher-timeout"
+	AgentShouldInjectAnnotationKey                   = InferenceServiceInternalAnnotationsPrefix + "/agent"
+	AgentModelConfigVolumeNameAnnotationKey          = InferenceServiceInternalAnnotationsPrefix + "/configVolumeName"
+	AgentModelConfigMountPathAnnotationKey           = InferenceServiceInternalAnnotationsPrefix + "/configMountPath"
+	AgentModelDirAnnotationKey                       = InferenceServiceInternalAnnotationsPrefix + "/modelDir"
 )
 
 // Controller Constants
@@ -91,9 +104,6 @@ const (
 	NvidiaGPUResourceType = "nvidia.com/gpu"
 )
 
-// DefaultModelLocalMountPath is where models will be mounted by the storage-initializer
-const DefaultModelLocalMountPath = "/mnt/models"
-
 // InferenceService Environment Variables
 const (
 	CustomSpecStorageUriEnvVarKey = "STORAGE_URI"
@@ -103,9 +113,13 @@ type InferenceServiceComponent string
 
 type InferenceServiceVerb string
 
+type InferenceServiceProtocol string
+
+// Knative constants
 const (
 	KnativeLocalGateway   = "knative-serving/cluster-local-gateway"
 	KnativeIngressGateway = "knative-serving/knative-ingress-gateway"
+	VisibilityLabel       = "serving.knative.dev/visibility"
 )
 
 var (
@@ -125,6 +139,12 @@ const (
 	Explain InferenceServiceVerb = "explain"
 )
 
+// InferenceService protocol enums
+const (
+	ProtocolV1 InferenceServiceProtocol = "v1"
+	ProtocolV2 InferenceServiceProtocol = "v2"
+)
+
 // InferenceService Endpoint Ports
 const (
 	InferenceServiceDefaultHttpPort    = "8080"
@@ -138,6 +158,11 @@ const (
 	KServiceComponentLabel = "component"
 	KServiceModelLabel     = "model"
 	KServiceEndpointLabel  = "endpoint"
+)
+
+// Labels for TrainedModel
+const (
+	ParentInferenceServiceLabel = "inferenceservice"
 )
 
 // InferenceService default/canary constants
@@ -159,6 +184,26 @@ const (
 // InferenceService container name
 const (
 	InferenceServiceContainerName = "kfserving-container"
+)
+
+// DefaultModelLocalMountPath is where models will be mounted by the storage-initializer
+const DefaultModelLocalMountPath = "/mnt/models"
+
+// Multi-model InferenceService
+const (
+	ModelConfigVolumeName = "model-config"
+	ModelDirVolumeName    = "model-dir"
+	ModelConfigDir        = "/mnt/configs"
+	ModelDir              = DefaultModelLocalMountPath
+)
+
+var (
+	ServiceAnnotationDisallowedList = []string{
+		autoscaling.MinScaleAnnotationKey,
+		autoscaling.MaxScaleAnnotationKey,
+		StorageInitializerSourceUriInternalAnnotationKey,
+		"kubectl.kubernetes.io/last-applied-configuration",
+	}
 )
 
 func (e InferenceServiceComponent) String() string {
@@ -192,14 +237,6 @@ func DefaultPredictorServiceName(name string) string {
 	return name + "-" + string(Predictor) + "-" + InferenceServiceDefault
 }
 
-func DefaultPredictorServiceURL(name string, namespace string, domain string) string {
-	return fmt.Sprintf("%s-%s-%s.%s.%s", name, string(Predictor), InferenceServiceDefault, namespace, domain)
-}
-
-func CanaryPredictorServiceURL(name string, namespace string, domain string) string {
-	return fmt.Sprintf("%s-%s-%s.%s.%s", name, string(Predictor), InferenceServiceCanary, namespace, domain)
-}
-
 func CanaryPredictorServiceName(name string) string {
 	return name + "-" + string(Predictor) + "-" + InferenceServiceCanary
 }
@@ -226,6 +263,10 @@ func DefaultServiceName(name string, component InferenceServiceComponent) string
 
 func CanaryServiceName(name string, component InferenceServiceComponent) string {
 	return name + "-" + component.String() + "-" + InferenceServiceCanary
+}
+
+func ModelConfigName(inferenceserviceName string, shardId int) string {
+	return fmt.Sprintf("modelconfig-%s-%d", inferenceserviceName, shardId)
 }
 
 func InferenceServicePrefix(name string) string {

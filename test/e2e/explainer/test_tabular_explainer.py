@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import logging
-
+import os
 from kubernetes import client
 
 from kfserving import KFServingClient
@@ -33,7 +33,7 @@ from ..common.utils import KFSERVING_TEST_NAMESPACE
 
 logging.basicConfig(level=logging.INFO)
 api_version = constants.KFSERVING_GROUP + '/' + constants.KFSERVING_VERSION
-KFServing = KFServingClient(config_file="~/.kube/config")
+KFServing = KFServingClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
 
 
 def test_tabular_explainer():
@@ -47,9 +47,9 @@ def test_tabular_explainer():
                     limits={'cpu': '100m', 'memory': '1Gi'}))),
         explainer=V1alpha2ExplainerSpec(
             min_replicas=1,
-             alibi=V1alpha2AlibiExplainerSpec(
+            alibi=V1alpha2AlibiExplainerSpec(
                 type='AnchorTabular',
-                storage_uri='gs://seldon-models/sklearn/income/alibi/0.4.0',
+                storage_uri='gs://seldon-models/sklearn/income/explainer-py36-0.5.2',
                 resources=V1ResourceRequirements(
                     requests={'cpu': '100m', 'memory': '1Gi'},
                     limits={'cpu': '100m', 'memory': '1Gi'}))))
@@ -57,20 +57,20 @@ def test_tabular_explainer():
     isvc = V1alpha2InferenceService(api_version=api_version,
                                     kind=constants.KFSERVING_KIND,
                                     metadata=client.V1ObjectMeta(
-                                    name=service_name, namespace=KFSERVING_TEST_NAMESPACE),
+                                      name=service_name, namespace=KFSERVING_TEST_NAMESPACE),
                                     spec=V1alpha2InferenceServiceSpec(default=default_endpoint_spec))
 
     KFServing.create(isvc)
     try:
-       KFServing.wait_isvc_ready(service_name, namespace=KFSERVING_TEST_NAMESPACE, timeout_seconds=720)
+        KFServing.wait_isvc_ready(service_name, namespace=KFSERVING_TEST_NAMESPACE, timeout_seconds=300)
     except RuntimeError as e:
-       logging.info(KFServing.api_instance.get_namespaced_custom_object("serving.knative.dev", "v1", 
+        logging.info(KFServing.api_instance.get_namespaced_custom_object("serving.knative.dev", "v1",
            KFSERVING_TEST_NAMESPACE, "services", service_name + "-predictor-default"))
-       pods = KFServing.core_api.list_namespaced_pod(KFSERVING_TEST_NAMESPACE, 
+        pods = KFServing.core_api.list_namespaced_pod(KFSERVING_TEST_NAMESPACE,
                label_selector='serving.kubeflow.org/inferenceservice={}'.format(service_name))
-       for pod in pods.items:
-           logging.info(pod)
-       raise e
+        for pod in pods.items:
+            logging.info(pod)
+        raise e
     
     res = predict(service_name, './data/income_input.json')
     assert(res["predictions"] == [0])

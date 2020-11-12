@@ -6,4 +6,4 @@ spec:
   default:
     predictor:
       onnx:
-        storageUri: "https://kfserving.blob.core.windows.net/examples/onnx/style/model.onnx"
+        storageUri: "gs://kfserving-examples/onnx/style"

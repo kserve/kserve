@@ -48,7 +48,7 @@ RUN mkdir -p /opt/conda/
 WORKDIR /workspace
 RUN chmod -R a+w /workspace
 
-COPY --chown=1000 --from=build /opt/conda/. $CONDA_DIR
+COPY --from=build /opt/conda/. $CONDA_DIR
 COPY pytorchserver pytorchserver
 COPY kfserving kfserving
 

@@ -110,16 +110,27 @@ func TestXGBoostDefaulter(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	config := InferenceServicesConfig{
 		Predictors: PredictorsConfig{
-			XGBoost: PredictorConfig{
-				ContainerImage:      "xgboost",
-				DefaultImageVersion: "v0.4.0",
+			XGBoost: PredictorProtocols{
+				V1: &PredictorConfig{
+					ContainerImage:      "xgboost",
+					DefaultImageVersion: "v0.4.0",
+				},
+				V2: &PredictorConfig{
+					ContainerImage:      "mlserver",
+					DefaultImageVersion: "v0.1.2",
+				},
 			},
 		},
 	}
+
+	protocolV1 := constants.ProtocolV1
+	protocolV2 := constants.ProtocolV2
+
 	defaultResource = v1.ResourceList{
 		v1.ResourceCPU:    resource.MustParse("1"),
 		v1.ResourceMemory: resource.MustParse("2Gi"),
 	}
+
 	scenarios := map[string]struct {
 		spec     PredictorSpec
 		expected PredictorSpec
@@ -133,7 +144,32 @@ func TestXGBoostDefaulter(t *testing.T) {
 			expected: PredictorSpec{
 				XGBoost: &XGBoostSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
-						RuntimeVersion: proto.String("v0.4.0"),
+						RuntimeVersion:  proto.String("v0.4.0"),
+						ProtocolVersion: &protocolV1,
+						Container: v1.Container{
+							Name: constants.InferenceServiceContainerName,
+							Resources: v1.ResourceRequirements{
+								Requests: defaultResource,
+								Limits:   defaultResource,
+							},
+						},
+					},
+				},
+			},
+		},
+		"DefaultRuntimeVersionAndProtocol": {
+			spec: PredictorSpec{
+				XGBoost: &XGBoostSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						ProtocolVersion: &protocolV2,
+					},
+				},
+			},
+			expected: PredictorSpec{
+				XGBoost: &XGBoostSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						RuntimeVersion:  proto.String("v0.1.2"),
+						ProtocolVersion: &protocolV2,
 						Container: v1.Container{
 							Name: constants.InferenceServiceContainerName,
 							Resources: v1.ResourceRequirements{
@@ -156,7 +192,8 @@ func TestXGBoostDefaulter(t *testing.T) {
 			expected: PredictorSpec{
 				XGBoost: &XGBoostSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
-						RuntimeVersion: proto.String("v0.3.0"),
+						RuntimeVersion:  proto.String("v0.3.0"),
+						ProtocolVersion: &protocolV1,
 						Container: v1.Container{
 							Name: constants.InferenceServiceContainerName,
 							Resources: v1.ResourceRequirements{
@@ -174,31 +211,29 @@ func TestXGBoostDefaulter(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			scenario.spec.XGBoost.Default(&config)
 			if !g.Expect(scenario.spec).To(gomega.Equal(scenario.expected)) {
-				t.Errorf("got %q, want %q", scenario.spec, scenario.expected)
+				t.Errorf("got %v, want %v", scenario.spec, scenario.expected)
 			}
 		})
 	}
 }
 
-func TestCreateXGBoostModelServingContainer(t *testing.T) {
+func TestCreateXGBoostModelServingContainerV1(t *testing.T) {
 
 	var requestedResource = v1.ResourceRequirements{
 		Limits: v1.ResourceList{
-			"cpu": resource.Quantity{
-				Format: "100",
-			},
+			"cpu": resource.MustParse("100m"),
 		},
 		Requests: v1.ResourceList{
-			"cpu": resource.Quantity{
-				Format: "90",
-			},
+			"cpu": resource.MustParse("90m"),
 		},
 	}
 	var config = InferenceServicesConfig{
 		Predictors: PredictorsConfig{
-			SKlearn: PredictorConfig{
-				ContainerImage:      "someOtherImage",
-				DefaultImageVersion: "0.1.0",
+			XGBoost: PredictorProtocols{
+				V1: &PredictorConfig{
+					ContainerImage:      "someOtherImage",
+					DefaultImageVersion: "0.1.0",
+				},
 			},
 		},
 	}
@@ -234,13 +269,14 @@ func TestCreateXGBoostModelServingContainer(t *testing.T) {
 					"--model_name=someName",
 					"--model_dir=/mnt/models",
 					"--http_port=8080",
+					"--nthread=1",
 				},
 			},
 		},
 		"ContainerSpecWithCustomImage": {
 			isvc: InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "sklearn",
+					Name: "xgboost",
 				},
 				Spec: InferenceServiceSpec{
 					Predictor: PredictorSpec{
@@ -264,6 +300,7 @@ func TestCreateXGBoostModelServingContainer(t *testing.T) {
 					"--model_name=someName",
 					"--model_dir=/mnt/models",
 					"--http_port=8080",
+					"--nthread=1",
 				},
 			},
 		},
@@ -297,6 +334,7 @@ func TestCreateXGBoostModelServingContainer(t *testing.T) {
 					"--model_name=someName",
 					"--model_dir=/mnt/models",
 					"--http_port=8080",
+					"--nthread=1",
 					"--workers=1",
 				},
 			},

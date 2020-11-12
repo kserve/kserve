@@ -1003,7 +1003,7 @@ TritonSpec
 </em>
 </td>
 <td>
-<p>Spec for Triton Inference Server (<a href="https://github.com/NVIDIA/triton-inference-server">https://github.com/NVIDIA/triton-inference-server</a>)</p>
+<p>Spec for Triton Inference Server (<a href="https://github.com/triton-inference-server/server">https://github.com/triton-inference-server/server</a>)</p>
 </td>
 </tr>
 <tr>

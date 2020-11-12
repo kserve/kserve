@@ -8,9 +8,9 @@ webhooks:
   - clientConfig:
       caBundle: Cg==
       service:
-        name: kfserving-webhook-server-service
-        namespace: kfserving-system
-        path: /mutate-inferenceservices
+        name: $(webhookServiceName)
+        namespace: $(kfservingNamespace)
+        path: /mutate-serving-kubeflow-org-v1alpha2-inferenceservice
     failurePolicy: Fail
     name: inferenceservice.kfserving-webhook-server.defaulter
     rules:
@@ -26,8 +26,26 @@ webhooks:
   - clientConfig:
       caBundle: Cg==
       service:
-        name: kfserving-webhook-server-service
-        namespace: kfserving-system
+        name: $(webhookServiceName)
+        namespace: $(kfservingNamespace)
+        path: /mutate-serving-kubeflow-org-v1beta1-inferenceservice
+    failurePolicy: Fail
+    name: inferenceservice.kfserving-webhook-server.v1beta1.defaulter
+    rules:
+      - apiGroups:
+          - serving.kubeflow.org
+        apiVersions:
+          - v1beta1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - inferenceservices
+  - clientConfig:
+      caBundle: Cg==
+      service:
+        name: $(webhookServiceName)
+        namespace: $(kfservingNamespace)
         path: /mutate-pods
     failurePolicy: Fail
     name: inferenceservice.kfserving-webhook-server.pod-mutator
@@ -60,9 +78,9 @@ webhooks:
   - clientConfig:
       caBundle: Cg==
       service:
-        name: kfserving-webhook-server-service
-        namespace: kfserving-system
-        path: /validate-inferenceservices
+        name: $(webhookServiceName)
+        namespace: $(kfservingNamespace)
+        path: /validate-serving-kubeflow-org-v1alpha2-inferenceservice
     failurePolicy: Fail
     name: inferenceservice.kfserving-webhook-server.validator
     rules:
@@ -70,6 +88,23 @@ webhooks:
           - serving.kubeflow.org
         apiVersions:
           - v1alpha2
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - inferenceservices
+  - clientConfig:
+      caBundle: Cg==
+      service:
+        name: $(webhookServiceName)
+        namespace: $(kfservingNamespace)
+        path: /validate-serving-kubeflow-org-v1beta1-inferenceservice
+    failurePolicy: Fail
+    name: inferenceservice.kfserving-webhook-server.v1beta1.validator
+    rules:
+      - apiGroups:
+          - serving.kubeflow.org
+        apiVersions:
           - v1beta1
         operations:
           - CREATE

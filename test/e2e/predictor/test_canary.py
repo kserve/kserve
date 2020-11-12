@@ -12,7 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 import numpy as np
+import pytest
 from kubernetes import client
 
 from kfserving import KFServingClient
@@ -29,9 +31,9 @@ from ..common.utils import KFSERVING_TEST_NAMESPACE
 
 
 # Setting config_file is required since SDK is running in a different cluster than KFServing
-KFServing = KFServingClient(config_file="~/.kube/config")
+KFServing = KFServingClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
 
-
+@pytest.mark.skip(reason="No need to test this for v1beta1 version.")
 def test_canary_rollout():
     service_name = 'isvc-canary'
     default_endpoint_spec = V1alpha2EndpointSpec(
@@ -62,11 +64,7 @@ def test_canary_rollout():
                     limits={'cpu':'100m', 'memory':'256Mi'}))))
 
     KFServing.rollout_canary(service_name, canary=canary_endpoint_spec, percent=10,
-       namespace=KFSERVING_TEST_NAMESPACE, watch=True, timeout_seconds=120)
-    KFServing.wait_isvc_ready(service_name, namespace=KFSERVING_TEST_NAMESPACE)
-
-    # Promote Canary to Default
-    KFServing.promote(service_name, namespace=KFSERVING_TEST_NAMESPACE, watch=True, timeout_seconds=120)
+                             namespace=KFSERVING_TEST_NAMESPACE, watch=True, timeout_seconds=120)
     KFServing.wait_isvc_ready(service_name, namespace=KFSERVING_TEST_NAMESPACE)
 
     # Delete the InferenceService

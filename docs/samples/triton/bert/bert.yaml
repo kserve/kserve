@@ -32,4 +32,4 @@ spec:
           requests:
             cpu: "1"
             memory: 16Gi
-        storageUri: "gs://kfserving-samples/models/triton/bert"
+        storageUri: "gs://kfserving-examples/models/triton/bert"

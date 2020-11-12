@@ -9,4 +9,13 @@
 # markers ("---").
 resources:
 - serving.kubeflow.org_inferenceservices.yaml
+- serving.kubeflow.org_trainedmodels.yaml
 
+patchesJson6902:
+  # Fix for https://github.com/kubernetes/kubernetes/issues/91395
+  - target:
+      group: apiextensions.k8s.io
+      version: v1beta1
+      kind: CustomResourceDefinition
+      name: inferenceservices.serving.kubeflow.org
+    path: patches/protocol.yaml

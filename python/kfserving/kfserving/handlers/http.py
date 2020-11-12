@@ -12,39 +12,40 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import inspect
 import tornado.web
 import json
-from typing import Dict
 from http import HTTPStatus
-from kfserving.kfmodel import KFModel
+from kfserving.kfmodel_repository import KFModelRepository
 
 
 class HTTPHandler(tornado.web.RequestHandler):
-    def initialize(self, models: Dict[str, KFModel]):
-        self.models = models # pylint:disable=attribute-defined-outside-init
+    def initialize(self, models: KFModelRepository):
+        self.models = models  # pylint:disable=attribute-defined-outside-init
 
     def get_model(self, name: str):
-        if name not in self.models:
+        model = self.models.get_model(name)
+        if model is None:
             raise tornado.web.HTTPError(
                 status_code=HTTPStatus.NOT_FOUND,
                 reason="Model with name %s does not exist." % name
             )
-        model = self.models[name]
         if not model.ready:
             model.load()
         return model
 
     def validate(self, request):
-        if "instances" in request and not isinstance(request["instances"], list):
+        if ("instances" in request and not isinstance(request["instances"], list)) or \
+           ("inputs" in request and not isinstance(request["inputs"], list)):
             raise tornado.web.HTTPError(
                 status_code=HTTPStatus.BAD_REQUEST,
-                reason="Expected \"instances\" to be a list"
+                reason="Expected \"instances\" or \"inputs\" to be a list"
             )
         return request
 
 
 class PredictHandler(HTTPHandler):
-    def post(self, name: str):
+    async def post(self, name: str):
         model = self.get_model(name)
         try:
             body = json.loads(self.request.body)
@@ -55,13 +56,13 @@ class PredictHandler(HTTPHandler):
             )
         request = model.preprocess(body)
         request = self.validate(request)
-        response = model.predict(request)
+        response = (await model.predict(request)) if inspect.iscoroutinefunction(model.predict) else model.predict(request)
         response = model.postprocess(response)
         self.write(response)
 
 
 class ExplainHandler(HTTPHandler):
-    def post(self, name: str):
+    async def post(self, name: str):
         model = self.get_model(name)
         try:
             body = json.loads(self.request.body)
@@ -72,6 +73,6 @@ class ExplainHandler(HTTPHandler):
             )
         request = model.preprocess(body)
         request = self.validate(request)
-        response = model.explain(request)
+        response = (await model.explain(request)) if inspect.iscoroutinefunction(model.explain) else model.explain(request)
         response = model.postprocess(response)
         self.write(response)

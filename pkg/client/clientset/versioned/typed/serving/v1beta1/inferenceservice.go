@@ -19,14 +19,14 @@ limitations under the License.
 package v1beta1
 
 import (
-	"time"
-
+	"context"
 	v1beta1 "github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
 	scheme "github.com/kubeflow/kfserving/pkg/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	rest "k8s.io/client-go/rest"
+	"time"
 )
 
 // InferenceServicesGetter has a method to return a InferenceServiceInterface.
@@ -71,7 +71,7 @@ func (c *inferenceServices) Get(name string, options v1.GetOptions) (result *v1b
 		Resource("inferenceservices").
 		Name(name).
 		VersionedParams(&options, scheme.ParameterCodec).
-		Do().
+		Do(context.TODO()).
 		Into(result)
 	return
 }
@@ -88,7 +88,7 @@ func (c *inferenceServices) List(opts v1.ListOptions) (result *v1beta1.Inference
 		Resource("inferenceservices").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
-		Do().
+		Do(context.TODO()).
 		Into(result)
 	return
 }
@@ -105,7 +105,7 @@ func (c *inferenceServices) Watch(opts v1.ListOptions) (watch.Interface, error) 
 		Resource("inferenceservices").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
-		Watch()
+		Watch(context.TODO())
 }
 
 // Create takes the representation of a inferenceService and creates it.  Returns the server's representation of the inferenceService, and an error, if there is any.
@@ -115,7 +115,7 @@ func (c *inferenceServices) Create(inferenceService *v1beta1.InferenceService) (
 		Namespace(c.ns).
 		Resource("inferenceservices").
 		Body(inferenceService).
-		Do().
+		Do(context.TODO()).
 		Into(result)
 	return
 }
@@ -128,7 +128,7 @@ func (c *inferenceServices) Update(inferenceService *v1beta1.InferenceService) (
 		Resource("inferenceservices").
 		Name(inferenceService.Name).
 		Body(inferenceService).
-		Do().
+		Do(context.TODO()).
 		Into(result)
 	return
 }
@@ -144,7 +144,7 @@ func (c *inferenceServices) UpdateStatus(inferenceService *v1beta1.InferenceServ
 		Name(inferenceService.Name).
 		SubResource("status").
 		Body(inferenceService).
-		Do().
+		Do(context.TODO()).
 		Into(result)
 	return
 }
@@ -156,7 +156,7 @@ func (c *inferenceServices) Delete(name string, options *v1.DeleteOptions) error
 		Resource("inferenceservices").
 		Name(name).
 		Body(options).
-		Do().
+		Do(context.TODO()).
 		Error()
 }
 
@@ -172,7 +172,7 @@ func (c *inferenceServices) DeleteCollection(options *v1.DeleteOptions, listOpti
 		VersionedParams(&listOptions, scheme.ParameterCodec).
 		Timeout(timeout).
 		Body(options).
-		Do().
+		Do(context.TODO()).
 		Error()
 }
 
@@ -185,7 +185,7 @@ func (c *inferenceServices) Patch(name string, pt types.PatchType, data []byte, 
 		SubResource(subresources...).
 		Name(name).
 		Body(data).
-		Do().
+		Do(context.TODO()).
 		Into(result)
 	return
 }

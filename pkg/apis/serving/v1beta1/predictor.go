@@ -17,6 +17,7 @@ limitations under the License.
 package v1beta1
 
 import (
+	"github.com/kubeflow/kfserving/pkg/constants"
 	v1 "k8s.io/api/core/v1"
 )
 
@@ -31,12 +32,18 @@ type PredictorSpec struct {
 	Tensorflow *TFServingSpec `json:"tensorflow,omitempty"`
 	// Spec for TorchServe (https://pytorch.org/serve)
 	PyTorch *TorchServeSpec `json:"pytorch,omitempty"`
-	// Spec for Triton Inference Server (https://github.com/NVIDIA/triton-inference-server)
+	// Spec for Triton Inference Server (https://github.com/triton-inference-server/server)
 	Triton *TritonSpec `json:"triton,omitempty"`
 	// Spec for ONNX runtime (https://github.com/microsoft/onnxruntime)
 	ONNX *ONNXRuntimeSpec `json:"onnx,omitempty"`
-	// Passthrough Pod fields or specify a custom container spec
-	*CustomPredictor `json:",inline"`
+	// Spec for PMML
+	PMML *PMMLSpec `json:"pmml,omitempty"`
+	// This spec is dual purpose.
+	// 1) Users may choose to provide a full PodSpec for their predictor.
+	// The field PodSpec.Containers is mutually exclusive with other Predictors (i.e. TFServing).
+	// 2) Users may choose to provide a Predictor (i.e. TFServing) and specify PodSpec
+	// overrides in the CustomPredictor PodSpec. They must not provide PodSpec.Containers in this case.
+	PodSpec `json:",inline"`
 	// Extensions available in all components
 	ComponentExtensionSpec `json:",inline"`
 }
@@ -46,37 +53,40 @@ var _ Component = &PredictorSpec{}
 // PredictorExtensionSpec defines configuration shared across all predictor frameworks
 type PredictorExtensionSpec struct {
 	// This field points to the location of the trained model which is mounted onto the pod.
-	StorageURI *string `json:"storageUri"`
+	// +optional
+	StorageURI *string `json:"storageUri,omitempty"`
 	// Runtime version of the predictor docker image
 	// +optional
 	RuntimeVersion *string `json:"runtimeVersion,omitempty"`
+	// Protocol version to use by the predictor (i.e. v1 or v2)
+	ProtocolVersion *constants.InferenceServiceProtocol `json:"protocolVersion,omitempty"`
 	// Container enables overrides for the predictor.
 	// Each framework will have different defaults that are populated in the underlying container spec.
 	// +optional
 	v1.Container `json:",inline"`
 }
 
-// GetPredictorPodSpec returns the PodSpec for the Predictor
-func (s *PredictorSpec) GetPredictorPodSpec() v1.PodSpec {
-	return s.CustomPredictor.Spec
-}
-
 // GetImplementations returns the implementations for the component
 func (s *PredictorSpec) GetImplementations() []ComponentImplementation {
-	return []ComponentImplementation{
+	implementations := NonNilComponents([]ComponentImplementation{
 		s.XGBoost,
 		s.PyTorch,
 		s.Triton,
 		s.SKLearn,
 		s.Tensorflow,
 		s.ONNX,
-		s.CustomPredictor,
+		s.PMML,
+	})
+	// This struct is not a pointer, so it will never be nil; include if containers are specified
+	if len(s.PodSpec.Containers) != 0 {
+		implementations = append(implementations, NewCustomPredictor(&s.PodSpec))
 	}
+	return implementations
 }
 
 // GetImplementation returns the implementation for the component
 func (s *PredictorSpec) GetImplementation() ComponentImplementation {
-	return FirstNonNilComponent(s.GetImplementations())
+	return s.GetImplementations()[0]
 }
 
 // GetExtensions returns the extensions for the component

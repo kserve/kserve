@@ -13,6 +13,8 @@
 # limitations under the License.
 
 import numpy as np
+import os
+import pytest
 from kubernetes import client
 
 from kfserving import KFServingClient
@@ -27,7 +29,7 @@ from ..common.utils import predict
 from ..common.utils import KFSERVING_TEST_NAMESPACE
 
 api_version = constants.KFSERVING_GROUP + '/' + constants.KFSERVING_VERSION
-KFServing = KFServingClient(config_file="~/.kube/config")
+KFServing = KFServingClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
 
 
 def test_pytorch():
@@ -35,18 +37,18 @@ def test_pytorch():
     default_endpoint_spec = V1alpha2EndpointSpec(
         predictor=V1alpha2PredictorSpec(
             min_replicas=1,
+            parallelism=1,
             pytorch=V1alpha2PyTorchSpec(
                 storage_uri='gs://kfserving-samples/models/pytorch/cifar10',
                 model_class_name="Net",
                 resources=V1ResourceRequirements(
-                    requests={'cpu': '100m', 'memory': '2Gi', 'nvidia.com/gpu': '1'},
-                    limits={'cpu': '100m', 'memory': '2Gi', 'nvidia.com/gpu': '1'}))))
+                    requests={'cpu': '100m', 'memory': '2Gi'},
+                    limits={'cpu': '100m', 'memory': '2Gi'}))))
 
     isvc = V1alpha2InferenceService(api_version=api_version,
                                     kind=constants.KFSERVING_KIND,
                                     metadata=client.V1ObjectMeta(
-                                        name=service_name, namespace=KFSERVING_TEST_NAMESPACE,
-                                        annotations={'serving.kubeflow.org/gke-accelerator': 'nvidia-tesla-k80'}),
+                                        name=service_name, namespace=KFSERVING_TEST_NAMESPACE),
                                     spec=V1alpha2InferenceServiceSpec(default=default_endpoint_spec))
 
     KFServing.create(isvc)

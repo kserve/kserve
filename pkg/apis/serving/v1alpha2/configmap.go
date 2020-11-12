@@ -44,6 +44,7 @@ type ExplainerConfig struct {
 // +k8s:openapi-gen=false
 type ExplainersConfig struct {
 	AlibiExplainer ExplainerConfig `json:"alibi,omitempty"`
+	AIXExplainer   ExplainerConfig `json:"aix,omitempty"`
 }
 
 // +k8s:openapi-gen=false
@@ -62,6 +63,7 @@ type PredictorsConfig struct {
 	SKlearn    PredictorConfig `json:"sklearn,omitempty"`
 	PyTorch    PredictorConfig `json:"pytorch,omitempty"`
 	ONNX       PredictorConfig `json:"onnx,omitempty"`
+	PMML       PredictorConfig `json:"pmml,omitempty"`
 }
 
 // +k8s:openapi-gen=false

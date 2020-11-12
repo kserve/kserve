@@ -19,7 +19,7 @@ spec:
       minReplicas: 1
       alibi:
         type: AnchorTabular
-        storageUri: "gs://seldon-models/sklearn/income/alibi/0.4.0"
+        storageUri: "gs://seldon-models/sklearn/income/explainer-py36-0.5.2"
         resources:
           requests:
             cpu: 0.1

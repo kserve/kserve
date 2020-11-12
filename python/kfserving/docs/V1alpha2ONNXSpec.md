@@ -1,5 +1,6 @@
 # V1alpha2ONNXSpec
 
+ONNXSpec defines arguments for configuring ONNX model serving.
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------

@@ -1,5 +1,6 @@
 # V1alpha2PredictorSpec
 
+PredictorSpec defines the configuration for a predictor, The following fields follow a \"1-of\" semantic. Users must specify exactly one spec.
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
@@ -13,8 +14,9 @@ Name | Type | Description | Notes
 **pytorch** | [**V1alpha2PyTorchSpec**](V1alpha2PyTorchSpec.md) | Spec for PyTorch predictor | [optional] 
 **service_account_name** | **str** | ServiceAccountName is the name of the ServiceAccount to use to run the service | [optional] 
 **sklearn** | [**V1alpha2SKLearnSpec**](V1alpha2SKLearnSpec.md) | Spec for SKLearn predictor | [optional] 
+**pmml** | [**V1alpha2PMMLSpec**](V1alpha2PMMLSpec.md) | Spec for PMML predictor | [optional] 
 **tensorflow** | [**V1alpha2TensorflowSpec**](V1alpha2TensorflowSpec.md) | Spec for Tensorflow Serving (https://github.com/tensorflow/serving) | [optional] 
-**triton** | [**V1alpha2TritonSpec**](V1alpha2TritonSpec.md) | Spec for Triton Inference Server (https://github.com/NVIDIA/triton-inference-server) | [optional] 
+**triton** | [**V1alpha2TritonSpec**](V1alpha2TritonSpec.md) | Spec for Triton Inference Server (https://github.com/triton-inference-server/server) | [optional] 
 **xgboost** | [**V1alpha2XGBoostSpec**](V1alpha2XGBoostSpec.md) | Spec for XGBoost predictor | [optional] 
 
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
