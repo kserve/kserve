@@ -6021,13 +6021,6 @@ spec:
                     type: string
                   enableServiceLinks:
                     type: boolean
-                  ephemeralContainers:
-                    items:
-                      required:
-                      - name
-                      type: object
-                    type: array
-                    x-kubernetes-preserve-unknown-fields: true
                   hostAliases:
                     items:
                       properties:
@@ -8207,13 +8200,6 @@ spec:
                     type: string
                   enableServiceLinks:
                     type: boolean
-                  ephemeralContainers:
-                    items:
-                      required:
-                      - name
-                      type: object
-                    type: array
-                    x-kubernetes-preserve-unknown-fields: true
                   hostAliases:
                     items:
                       properties:
@@ -14111,13 +14097,6 @@ spec:
                     type: string
                   enableServiceLinks:
                     type: boolean
-                  ephemeralContainers:
-                    items:
-                      required:
-                      - name
-                      type: object
-                    type: array
-                    x-kubernetes-preserve-unknown-fields: true
                   hostAliases:
                     items:
                       properties:
@@ -15984,6 +15963,14 @@ subjects:
 ---
 apiVersion: v1
 data:
+  agent: |-
+    {
+        "image" : "kfserving/agent:v0.5.0-rc0",
+        "memoryRequest": "100Mi",
+        "memoryLimit": "1Gi",
+        "cpuRequest": "100m",
+        "cpuLimit": "1"
+    }
   batcher: |-
     {
         "image" : "kfserving/batcher:v0.5.0-rc0",
