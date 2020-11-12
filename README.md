@@ -17,14 +17,14 @@ To learn more about KFServing, how to deploy it as part of Kubeflow, how to use 
 
 ### Prerequisites
 
-Kubernetes 1.15+ is the recommended version for KFServing.
+Kubernetes 1.15+ is the minimum recommended version for KFServing.
 
 Knative Serving and Istio should be available on Kubernetes Cluster, Knative depends on Istio Ingress Gateway to route requests to Knative services. To use the exact versions tested by the Kubeflow and KFServing teams, please refer to the [prerequisites on developer guide](docs/DEVELOPER_GUIDE.md#install-knative-on-a-kubernetes-cluster)
 
 - [Istio](https://knative.dev/docs/install/installing-istio): v1.3.1+
 
 If you want to get up running Knative quickly or you do not need service mesh, we recommend installing Istio without service mesh(sidecar injection).
-- [Knative Serving](https://knative.dev/docs/install/knative-with-any-k8s): v0.11.2+
+- [Knative Serving](https://knative.dev/docs/install/knative-with-any-k8s): v0.14.3+
 
 Currently only `Knative Serving` is required, `cluster-local-gateway` is required to serve cluster-internal traffic for transformer and explainer use cases. Please follow instructions here to install [cluster local gateway](https://knative.dev/docs/install/installing-istio/#updating-your-install-to-use-cluster-local-gateway)
 
