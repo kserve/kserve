@@ -34,8 +34,6 @@ setup(
     install_requires=[
         "kfserving>=0.5.0",
         "scikit-learn == 0.20.3",
-        "argparse >= 1.4.0",
-        "numpy >= 1.8.2",
         "joblib >= 0.13.0"
     ],
     tests_require=tests_require,
