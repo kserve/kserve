@@ -82,7 +82,7 @@ data:
         },
         "pmml": {
             "image": "gcr.io/kfserving/pmmlserver",
-            "defaultImageVersion": "v0.4.1",
+            "defaultImageVersion": "v0.5.0-rc0",
             "supportedFrameworks": [
               "pmml"
             ],
