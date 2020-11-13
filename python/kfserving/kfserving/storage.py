@@ -23,12 +23,14 @@ import tarfile
 import zipfile
 import gzip
 from urllib.parse import urlparse
+from google.cloud.storage import client
 import requests 
 from azure.storage.blob import BlockBlobService
 from google.auth import exceptions
 from google.cloud import storage
 from minio import Minio
 from kfserving.kfmodel_repository import MODEL_MOUNT_DIRS
+from glob import glob
 
 _GCS_PREFIX = "gs://"
 _S3_PREFIX = "s3://"
@@ -110,23 +112,17 @@ The path or model %s does not exist." % (uri))
         bucket = storage_client.bucket(bucket_name)
         prefix = bucket_path
         if not prefix.endswith("/"):
-            prefix = prefix + "/"
+            prefix += "/"
         blobs = bucket.list_blobs(prefix=prefix)
         count = 0
         for blob in blobs:
-            # Replace any prefix from the object key with temp_dir
+            if blob.name.endswith("/"):
+                continue
             subdir_object_key = blob.name.replace(bucket_path, "", 1).strip("/")
-
-            # Create necessary subdirectory to store the object locally
-            if "/" in subdir_object_key:
-                local_object_dir = os.path.join(temp_dir, subdir_object_key.rsplit("/", 1)[0])
-                if not os.path.isdir(local_object_dir):
-                    os.makedirs(local_object_dir, exist_ok=True)
-            if subdir_object_key.strip() != "":
-                dest_path = os.path.join(temp_dir, subdir_object_key)
-                logging.info("Downloading: %s", dest_path)
-                blob.download_to_filename(dest_path)
-            count = count + 1
+            local_object_path = os.path.join(temp_dir, subdir_object_key)
+            os.makedirs(local_object_path.rsplit("/", 1)[0], exist_ok=True)
+            blob.download_to_filename(local_object_path)
+            count += 1
         if count == 0:
             raise RuntimeError("Failed to fetch model. \
 The path or model %s does not exist." % (uri))

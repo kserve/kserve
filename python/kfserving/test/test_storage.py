@@ -132,3 +132,6 @@ def test_no_permission_buckets(mock_connection, mock_minio):
     #mock_connection.side_effect = exceptions.Forbidden(None)
     #with pytest.raises(exceptions.Forbidden):
     #    kfserving.Storage.download(bad_gcs_path)
+
+def test_gcs_download(tmp_path):
+    kfserving.Storage._download_gcs("gs://kfp1/...", tmp_path)
