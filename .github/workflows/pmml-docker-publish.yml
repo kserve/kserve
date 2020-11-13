@@ -53,7 +53,7 @@ jobs:
           docker build . --file pmml.Dockerfile --tag $IMAGE_NAME
 
       - name: Log into registry
-        run: docker login -u $DOCKER_USER -p $DOCKER_PASSWORD
+        run: docker login -u ${{ secrets.DOCKER_USER }} -p ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Push image
         run: |
