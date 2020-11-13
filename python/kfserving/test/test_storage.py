@@ -134,4 +134,4 @@ def test_no_permission_buckets(mock_connection, mock_minio):
     #    kfserving.Storage.download(bad_gcs_path)
 
 def test_gcs_download(tmp_path):
-    kfserving.Storage._download_gcs("gs://kfp1/...", tmp_path)
+    kfserving.Storage._download_gcs("gs://seldon-models/tfserving/mnist-model", tmp_path)
