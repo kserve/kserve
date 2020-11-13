@@ -50,13 +50,17 @@ type S3ObjectDownloader struct {
 func (m *S3Provider) DownloadModel(modelDir string, modelName string, storageUri string) error {
 	log.Info("Download model ", "modelName", modelName, "storagUri", storageUri, "modelDir", modelDir)
 	s3Uri := strings.TrimPrefix(storageUri, string(S3))
-	path := strings.Split(s3Uri, "/")
+	tokens := strings.Split(s3Uri, "/")
+	prefix := ""
+    if len(tokens) > 1 {
+		prefix = tokens[1]
+	}
 	s3ObjectDownloader := &S3ObjectDownloader{
 		StorageUri: storageUri,
 		ModelDir:   modelDir,
 		ModelName:  modelName,
-		Bucket:     path[0],
-		Prefix:     path[1],
+		Bucket:     tokens[0],
+		Prefix:     prefix,
 		downloader: m.Downloader,
 	}
 	objects, err := s3ObjectDownloader.GetAllObjects(m.Client)
