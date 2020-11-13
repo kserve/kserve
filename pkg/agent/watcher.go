@@ -18,6 +18,7 @@ package agent
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/fsnotify/fsnotify"
 	"github.com/google/go-cmp/cmp"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
@@ -43,16 +44,38 @@ func NewWatcher(configDir string, modelDir string) Watcher {
 	if err != nil {
 		log.Error(err, "Failed to sync model dir")
 	}
-	return Watcher{
+	watcher := Watcher{
 		configDir:    configDir,
 		modelTracker: modelTracker,
-		ModelEvents:  make(chan ModelOp),
+		ModelEvents:  make(chan ModelOp, 100),
 	}
+	modelConfigFile := fmt.Sprintf("%s/%s", configDir, constants.ModelConfigFileName)
+	err = watcher.syncModelConfig(modelConfigFile)
+	if err != nil {
+		log.Error(err, "Failed to sync model config file")
+	}
+	return watcher
 }
 
 type modelWrapper struct {
 	Spec  *v1alpha1.ModelSpec
 	stale bool
+}
+
+func (w *Watcher) syncModelConfig(modelConfigFile string) error {
+	file, err := ioutil.ReadFile(modelConfigFile)
+	if err != nil {
+		return err
+	} else {
+		modelConfigs := make(modelconfig.ModelConfigs, 0)
+		err = json.Unmarshal(file, &modelConfigs)
+		if err != nil {
+			return err
+		} else {
+			w.parseConfig(modelConfigs)
+		}
+	}
+	return nil
 }
 
 func (w *Watcher) Start() {
@@ -82,17 +105,10 @@ func (w *Watcher) Start() {
 				if isDataDir && isCreate {
 					log.Info("Processing event", "event", event)
 					symlink, _ := filepath.EvalSymlinks(eventPath)
-					file, err := ioutil.ReadFile(filepath.Join(symlink, constants.ModelConfigFileName))
+					modelConfigFile := filepath.Join(symlink, constants.ModelConfigFileName)
+					err := w.syncModelConfig(modelConfigFile)
 					if err != nil {
-						log.Error(err, "Error in reading model config file")
-					} else {
-						modelConfigs := make(modelconfig.ModelConfigs, 0)
-						err = json.Unmarshal(file, &modelConfigs)
-						if err != nil {
-							log.Error(err, "Failed to unmarshall model config")
-						} else {
-							w.parseConfig(modelConfigs)
-						}
+						log.Error(err, "Failed to sync model config file")
 					}
 				}
 			case err, ok := <-watcher.Errors:
