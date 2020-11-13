@@ -50,11 +50,11 @@ func NewWatcher(configDir string, modelDir string) Watcher {
 		ModelEvents:  make(chan ModelOp, 100),
 	}
 	modelConfigFile := fmt.Sprintf("%s/%s", configDir, constants.ModelConfigFileName)
-	err  = watcher.syncModelConfig(modelConfigFile)
+	err = watcher.syncModelConfig(modelConfigFile)
 	if err != nil {
 		log.Error(err, "Failed to sync model config file")
 	}
-    return watcher
+	return watcher
 }
 
 type modelWrapper struct {

@@ -52,7 +52,7 @@ func (m *S3Provider) DownloadModel(modelDir string, modelName string, storageUri
 	s3Uri := strings.TrimPrefix(storageUri, string(S3))
 	tokens := strings.Split(s3Uri, "/")
 	prefix := ""
-    if len(tokens) > 1 {
+	if len(tokens) > 1 {
 		prefix = tokens[1]
 	}
 	s3ObjectDownloader := &S3ObjectDownloader{
