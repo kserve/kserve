@@ -24,7 +24,7 @@ OPENAPI_SPEC_FILE=pkg/apis/serving/v1beta1/openapi_generated.go
 
 # Generating OpenAPI specification
 go run k8s.io/kube-openapi/cmd/openapi-gen \
-    --input-dirs ./pkg/apis/serving/v1beta1,knative.dev/pkg/apis,knative.dev/pkg/apis/duck/v1 \
+    --input-dirs ./pkg/apis/serving/v1beta1,./pkg/apis/serving/v1alpha1,knative.dev/pkg/apis,knative.dev/pkg/apis/duck/v1 \
     --output-package ./pkg/apis/serving/v1beta1 -o ./ -v 5 --go-header-file hack/boilerplate.go.txt \
     -r $CURRENT_VIOLATION_EXCEPTIONS
 

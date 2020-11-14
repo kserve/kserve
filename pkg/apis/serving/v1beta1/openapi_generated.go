@@ -29,6 +29,8 @@ import (
 
 func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
 	return map[string]common.OpenAPIDefinition{
+		"./pkg/apis/serving/v1alpha1.TrainedModel":           schema_pkg_apis_serving_v1alpha1_TrainedModel(ref),
+		"./pkg/apis/serving/v1alpha1.TrainedModelList":       schema_pkg_apis_serving_v1alpha1_TrainedModelList(ref),
 		"./pkg/apis/serving/v1beta1.AIXExplainerSpec":        schema_pkg_apis_serving_v1beta1_AIXExplainerSpec(ref),
 		"./pkg/apis/serving/v1beta1.AlibiExplainerSpec":      schema_pkg_apis_serving_v1beta1_AlibiExplainerSpec(ref),
 		"./pkg/apis/serving/v1beta1.Batcher":                 schema_pkg_apis_serving_v1beta1_Batcher(ref),
@@ -63,6 +65,102 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"./pkg/apis/serving/v1beta1.TransformersConfig":      schema_pkg_apis_serving_v1beta1_TransformersConfig(ref),
 		"./pkg/apis/serving/v1beta1.TritonSpec":              schema_pkg_apis_serving_v1beta1_TritonSpec(ref),
 		"./pkg/apis/serving/v1beta1.XGBoostSpec":             schema_pkg_apis_serving_v1beta1_XGBoostSpec(ref),
+	}
+}
+
+func schema_pkg_apis_serving_v1alpha1_TrainedModel(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "TrainedModel is the Schema for the TrainedModel API",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("./pkg/apis/serving/v1alpha1.TrainedModelSpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("./pkg/apis/serving/v1alpha1.TrainedModelStatus"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"./pkg/apis/serving/v1alpha1.TrainedModelSpec", "./pkg/apis/serving/v1alpha1.TrainedModelStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
+func schema_pkg_apis_serving_v1alpha1_TrainedModelList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "TrainedModelList contains a list of TrainedModel",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "set",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("./pkg/apis/serving/v1alpha1.TrainedModel"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"./pkg/apis/serving/v1alpha1.TrainedModel", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
 	}
 }
 
