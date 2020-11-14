@@ -18,6 +18,9 @@ from kubernetes import client
 from kfserving import KFServingClient
 from kfserving import constants
 
+KFSERVING_TEST_NAMESPACE = "kfserving-ci-e2e-test"
+
+
 gcp_testing_creds = '''ewogICAgImNsaWVudF9pZCI6ICI3NjA1MTg1MDY0MDgtNnFyNHA2Z3BpNmhuNTA2cH\
 Q4ZWp1cTgzZGkzNDFodXIuYXBwcy5nb29nbGV1c2VyY29udGVudC5jb20iLAogICAgImNsaWVudF9zZWNyZXQiOiAi\
 ZC1GTDk1UTE5cTdNUW1IRDBUeUZwZDdoIiwKICAgICJyZWZyZXNoX3Rva2VuIjogIjEvYnFZbWt4bkRieEVzdEcxMlh\
@@ -27,26 +30,27 @@ jbU9ack4wLWV5STNiZWFuSmJSZDRrcXM2ZyIsCiAgICAidHlwZSI6ICJhdXRob3JpemVkX3VzZXIiCn0
 def get_created_secret(secret_name):
     return client.CoreV1Api().read_namespaced_secret(
         name=secret_name,
-        namespace='kubeflow'
+        namespace=KFSERVING_TEST_NAMESPACE
     )
 
 
 def get_created_sa(sa_name):
     return client.CoreV1Api().read_namespaced_service_account(
         name=sa_name,
-        namespace='kubeflow'
+        namespace=KFSERVING_TEST_NAMESPACE
     )
 
 
 def delete_sa(sa_name):
     return client.CoreV1Api().delete_namespaced_service_account( # pylint:disable=no-value-for-parameter
         name=sa_name,
-        namespace='kubeflow'
+        namespace=KFSERVING_TEST_NAMESPACE
     )
+
 
 def check_sa_exists(service_account):
     '''Check if the specified service account existing.'''
-    sa_list = client.CoreV1Api().list_namespaced_service_account(namespace='kubeflow')
+    sa_list = client.CoreV1Api().list_namespaced_service_account(namespace=KFSERVING_TEST_NAMESPACE)
     sa_name_list = []
     for item in range(0, len(sa_list.items)-1):
         sa_name_list.append(sa_list.items[item].metadata.name)
@@ -54,10 +58,11 @@ def check_sa_exists(service_account):
         return True
     return False
 
+
 def test_set_credentials_s3():
     '''Test S3 credentials creating.'''
     KFServing = KFServingClient()
-    credentials_file = './aws_credentials'
+    credentials_file = './credentials/aws_credentials'
 
     #Test creating service account case.
     sa_name = constants.DEFAULT_SA_NAME
@@ -65,7 +70,7 @@ def test_set_credentials_s3():
         delete_sa(sa_name)
 
     KFServing.set_credentials(storage_type='s3',
-                              namespace='kubeflow',
+                              namespace=KFSERVING_TEST_NAMESPACE,
                               credentials_file=credentials_file,
                               s3_profile='default',
                               s3_endpoint='s3.us-west-2.amazonaws.com',
@@ -100,8 +105,8 @@ def test_set_credentials_gcp():
     KFServing = KFServingClient()
     sa_name = constants.DEFAULT_SA_NAME
     KFServing.set_credentials(storage_type='gcs',
-                              namespace='kubeflow',
-                              credentials_file='./gcp_credentials.json',
+                              namespace=KFSERVING_TEST_NAMESPACE,
+                              credentials_file='./credentials/gcp_credentials.json',
                               sa_name=sa_name)
     created_sa = get_created_sa(sa_name)
     created_secret_name = created_sa.secrets[0].name
@@ -114,13 +119,13 @@ def test_azure_credentials():
     KFServing = KFServingClient()
     sa_name = constants.DEFAULT_SA_NAME
     KFServing.set_credentials(storage_type='Azure',
-                              namespace='kubeflow',
-                              credentials_file='./azure_credentials.json',
+                              namespace=KFSERVING_TEST_NAMESPACE,
+                              credentials_file='./credentials/azure_credentials.json',
                               sa_name=sa_name)
     created_sa = get_created_sa(sa_name)
     created_secret_name = created_sa.secrets[0].name
     created_secret = get_created_secret(created_secret_name)
-    assert created_secret.data['AZ_CLIENT_ID'] == 'YTJhYjExYWYtMDFhYS00NzU5LTgzNDUtNzgwMzI4N2RiZD'
-    assert created_secret.data['AZ_CLIENT_SECRET'] == 'password'
+    assert created_secret.data['AZ_CLIENT_ID'] == 'dXNlcgo='
+    assert created_secret.data['AZ_CLIENT_SECRET'] == 'cGFzc3dvcmQ='
     assert created_secret.data['AZ_SUBSCRIPTION_ID'] == 'MzMzMzMzMzMtMzMzMy0zMzMzLTMzMzMtMzMzMzMz'
-    assert created_secret.data['AZ_TENANT_ID'] == 'QUJDREVGR0gtMTIzNC0xMjM0LTEyMzQtQUJDREVGR0hJSk'
+    assert created_secret.data['AZ_TENANT_ID'] == 'MTIzNAo='

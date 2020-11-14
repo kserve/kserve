@@ -23,7 +23,7 @@ from kfserving import V1alpha2InferenceServiceSpec
 from kfserving import V1alpha2InferenceService
 from kfserving import KFServingClient
 
-KFServing = KFServingClient()
+KFServing = KFServingClient(config_file='./kfserving/test/kubeconfig')
 
 mocked_unit_result = \
     '''
