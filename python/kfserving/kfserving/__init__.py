@@ -100,3 +100,6 @@ from kfserving.models.v1beta1_transformer_spec import V1beta1TransformerSpec
 from kfserving.models.v1beta1_transformers_config import V1beta1TransformersConfig
 from kfserving.models.v1beta1_triton_spec import V1beta1TritonSpec
 from kfserving.models.v1beta1_xg_boost_spec import V1beta1XGBoostSpec
+
+from kfserving.models.v1alpha1_trained_model import V1alpha1TrainedModel
+from kfserving.models.v1alpha1_trained_model_list import V1alpha1TrainedModelList
