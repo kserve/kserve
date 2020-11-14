@@ -6,6 +6,3 @@ The architecture used is shown below and links the payload logging available wit
 
 ![Architecture](architecture.png)
 
-## Dependencies
-
-You will need a version of Knative that support V1 protocol of CloudEvents. Suggested **KNative Eventing >=0.14.2**
