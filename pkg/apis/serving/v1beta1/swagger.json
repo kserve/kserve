@@ -1426,33 +1426,11 @@
         }
       }
     },
-    "v1beta1.ModelSpec": {
-      "description": "ModelSpec describes a trained model",
-      "type": "object",
-      "required": [
-        "storageUri",
-        "framework"
-      ],
-      "properties": {
-        "framework": {
-          "description": "Machine Learning \u003cframework name\u003e The values could be: \"tensorflow\",\"pytorch\",\"sklearn\",\"onnx\",\"xgboost\", \"myawesomeinternalframework\" etc.",
-          "type": "string"
-        },
-        "memory": {
-          "description": "Maximum memory this model will consume, this field is used to decide if a model server has enough memory to load this model.",
-          "$ref": "#/definitions/resource.Quantity"
-        },
-        "storageUri": {
-          "description": "Storage URI for the model repository",
-          "type": "string"
-        }
-      }
-    },
     "v1beta1.ONNXRuntimeSpec": {
       "description": "ONNXRuntimeSpec defines arguments for configuring ONNX model serving.",
       "type": "object",
       "required": [
-        "storageUri"
+        "name"
       ],
       "properties": {
         "args": {
@@ -1595,7 +1573,7 @@
       "description": "PMMLSpec defines arguments for configuring PMML model serving.",
       "type": "object",
       "required": [
-        "storageUri"
+        "name"
       ],
       "properties": {
         "args": {
@@ -1957,7 +1935,7 @@
       "description": "PredictorExtensionSpec defines configuration shared across all predictor frameworks",
       "type": "object",
       "required": [
-        "storageUri"
+        "name"
       ],
       "properties": {
         "args": {
@@ -2387,7 +2365,7 @@
           "$ref": "#/definitions/v1beta1.PredictorConfig"
         },
         "xgboost": {
-          "$ref": "#/definitions/v1beta1.PredictorConfig"
+          "$ref": "#/definitions/v1beta1.PredictorProtocols"
         }
       }
     },
@@ -2395,7 +2373,7 @@
       "description": "SKLearnSpec defines arguments for configuring SKLearn model serving.",
       "type": "object",
       "required": [
-        "storageUri"
+        "name"
       ],
       "properties": {
         "args": {
@@ -2538,7 +2516,7 @@
       "description": "TFServingSpec defines arguments for configuring Tensorflow model serving.",
       "type": "object",
       "required": [
-        "storageUri"
+        "name"
       ],
       "properties": {
         "args": {
@@ -2681,7 +2659,7 @@
       "description": "TorchServeSpec defines arguments for configuring PyTorch model serving.",
       "type": "object",
       "required": [
-        "storageUri"
+        "name"
       ],
       "properties": {
         "args": {
@@ -2821,105 +2799,6 @@
         "workingDir": {
           "description": "Container's working directory. If not specified, the container runtime's default will be used, which might be configured in the container image. Cannot be updated.",
           "type": "string"
-        }
-      }
-    },
-    "v1beta1.TrainedModel": {
-      "description": "TrainedModel is the Schema for the TrainedModel API",
-      "type": "object",
-      "properties": {
-        "apiVersion": {
-          "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-          "type": "string"
-        },
-        "kind": {
-          "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-          "type": "string"
-        },
-        "metadata": {
-          "$ref": "#/definitions/v1.ObjectMeta"
-        },
-        "spec": {
-          "$ref": "#/definitions/v1beta1.TrainedModelSpec"
-        },
-        "status": {
-          "$ref": "#/definitions/v1beta1.TrainedModelStatus"
-        }
-      }
-    },
-    "v1beta1.TrainedModelList": {
-      "description": "TrainedModelList contains a list of TrainedModel",
-      "type": "object",
-      "required": [
-        "items"
-      ],
-      "properties": {
-        "apiVersion": {
-          "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-          "type": "string"
-        },
-        "items": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/v1beta1.TrainedModel"
-          },
-          "x-kubernetes-list-type": "set"
-        },
-        "kind": {
-          "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-          "type": "string"
-        },
-        "metadata": {
-          "$ref": "#/definitions/v1.ListMeta"
-        }
-      }
-    },
-    "v1beta1.TrainedModelSpec": {
-      "description": "TrainedModelSpec defines the trained model spec",
-      "type": "object",
-      "required": [
-        "inferenceService",
-        "model"
-      ],
-      "properties": {
-        "inferenceService": {
-          "description": "parent inference service to deploy to",
-          "type": "string"
-        },
-        "model": {
-          "description": "Predictor model spec",
-          "$ref": "#/definitions/v1beta1.ModelSpec"
-        }
-      }
-    },
-    "v1beta1.TrainedModelStatus": {
-      "description": "TrainedModelStatus defines the observed state of TrainedModel",
-      "type": "object",
-      "properties": {
-        "address": {
-          "description": "Addressable endpoint for the deployed trained model http://\u003cinferenceservice.metadata.name\u003e/v1/models/\u003ctrainedmodel\u003e.metadata.name",
-          "$ref": "#/definitions/knative.Addressable"
-        },
-        "annotations": {
-          "description": "Annotations is additional Status fields for the Resource to save some additional State as well as convey more information to the user. This is roughly akin to Annotations on any k8s resource, just the reconciler conveying richer information outwards.",
-          "type": "object",
-          "additionalProperties": {
-            "type": "string"
-          }
-        },
-        "conditions": {
-          "description": "Conditions the latest available observations of a resource's current state.",
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/knative.Condition"
-          },
-          "x-kubernetes-patch-merge-key": "type",
-          "x-kubernetes-patch-strategy": "merge"
-        },
-        "observedGeneration": {
-          "description": "ObservedGeneration is the 'Generation' of the Service that was last processed by the controller.",
-          "type": "integer",
-          "format": "int64"
         }
       }
     },
@@ -3182,7 +3061,7 @@
       "description": "TritonSpec defines arguments for configuring Triton model serving.",
       "type": "object",
       "required": [
-        "storageUri"
+        "name"
       ],
       "properties": {
         "args": {
@@ -3325,7 +3204,7 @@
       "description": "SKLearnSpec defines arguments for configuring SKLearn model serving.",
       "type": "object",
       "required": [
-        "storageUri"
+        "name"
       ],
       "properties": {
         "args": {
