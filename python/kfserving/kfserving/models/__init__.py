@@ -28,6 +28,8 @@
 from __future__ import absolute_import
 
 # import models into model package
+from kfserving.models.v1alpha1_trained_model import V1alpha1TrainedModel
+from kfserving.models.v1alpha1_trained_model_list import V1alpha1TrainedModelList
 from kfserving.models.v1beta1_aix_explainer_spec import V1beta1AIXExplainerSpec
 from kfserving.models.v1beta1_alibi_explainer_spec import V1beta1AlibiExplainerSpec
 from kfserving.models.v1beta1_batcher import V1beta1Batcher
@@ -46,7 +48,6 @@ from kfserving.models.v1beta1_inference_service_status import V1beta1InferenceSe
 from kfserving.models.v1beta1_inference_services_config import V1beta1InferenceServicesConfig
 from kfserving.models.v1beta1_ingress_config import V1beta1IngressConfig
 from kfserving.models.v1beta1_logger_spec import V1beta1LoggerSpec
-from kfserving.models.v1beta1_model_spec import V1beta1ModelSpec
 from kfserving.models.v1beta1_onnx_runtime_spec import V1beta1ONNXRuntimeSpec
 from kfserving.models.v1beta1_pmml_spec import V1beta1PMMLSpec
 from kfserving.models.v1beta1_pod_spec import V1beta1PodSpec
@@ -58,10 +59,6 @@ from kfserving.models.v1beta1_predictors_config import V1beta1PredictorsConfig
 from kfserving.models.v1beta1_sk_learn_spec import V1beta1SKLearnSpec
 from kfserving.models.v1beta1_tf_serving_spec import V1beta1TFServingSpec
 from kfserving.models.v1beta1_torch_serve_spec import V1beta1TorchServeSpec
-from kfserving.models.v1beta1_trained_model import V1beta1TrainedModel
-from kfserving.models.v1beta1_trained_model_list import V1beta1TrainedModelList
-from kfserving.models.v1beta1_trained_model_spec import V1beta1TrainedModelSpec
-from kfserving.models.v1beta1_trained_model_status import V1beta1TrainedModelStatus
 from kfserving.models.v1beta1_transformer_config import V1beta1TransformerConfig
 from kfserving.models.v1beta1_transformer_spec import V1beta1TransformerSpec
 from kfserving.models.v1beta1_transformers_config import V1beta1TransformersConfig

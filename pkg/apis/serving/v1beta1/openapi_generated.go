@@ -2984,7 +2984,7 @@ func schema_pkg_apis_serving_v1beta1_ONNXRuntimeSpec(ref common.ReferenceCallbac
 						},
 					},
 				},
-				Required: []string{"name"},
+				
 			},
 		},
 		Dependencies: []string{
@@ -3242,7 +3242,7 @@ func schema_pkg_apis_serving_v1beta1_PMMLSpec(ref common.ReferenceCallback) comm
 						},
 					},
 				},
-				Required: []string{"name"},
+				
 			},
 		},
 		Dependencies: []string{
@@ -3900,7 +3900,7 @@ func schema_pkg_apis_serving_v1beta1_PredictorExtensionSpec(ref common.Reference
 						},
 					},
 				},
-				Required: []string{"name"},
+				
 			},
 		},
 		Dependencies: []string{
@@ -4686,7 +4686,7 @@ func schema_pkg_apis_serving_v1beta1_SKLearnSpec(ref common.ReferenceCallback) c
 						},
 					},
 				},
-				Required: []string{"name"},
+				
 			},
 		},
 		Dependencies: []string{
@@ -4944,7 +4944,7 @@ func schema_pkg_apis_serving_v1beta1_TFServingSpec(ref common.ReferenceCallback)
 						},
 					},
 				},
-				Required: []string{"name"},
+				
 			},
 		},
 		Dependencies: []string{
@@ -5209,7 +5209,7 @@ func schema_pkg_apis_serving_v1beta1_TorchServeSpec(ref common.ReferenceCallback
 						},
 					},
 				},
-				Required: []string{"name"},
+				
 			},
 		},
 		Dependencies: []string{
@@ -5926,7 +5926,7 @@ func schema_pkg_apis_serving_v1beta1_TritonSpec(ref common.ReferenceCallback) co
 						},
 					},
 				},
-				Required: []string{"name"},
+				
 			},
 		},
 		Dependencies: []string{
@@ -6184,7 +6184,7 @@ func schema_pkg_apis_serving_v1beta1_XGBoostSpec(ref common.ReferenceCallback) c
 						},
 					},
 				},
-				Required: []string{"name"},
+				
 			},
 		},
 		Dependencies: []string{

@@ -29,7 +29,7 @@ go run k8s.io/kube-openapi/cmd/openapi-gen \
     -r $CURRENT_VIOLATION_EXCEPTIONS
 
 # Hack, the name is required in openAPI specification even if set "+optional" for v1.Container in PredictorExtensionSpec.
-sed -i'.bak' -e 's/{"storageUri",\ "name"}/{"storageUri"}/g' $OPENAPI_SPEC_FILE && rm -rf $OPENAPI_SPEC_FILE.bak
+sed -i'.bak' -e 's/Required: \[\]string{\"name\"},//g' $OPENAPI_SPEC_FILE && rm -rf $OPENAPI_SPEC_FILE.bak
 
 test -f $CURRENT_VIOLATION_EXCEPTIONS || touch $CURRENT_VIOLATION_EXCEPTIONS
 
