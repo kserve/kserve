@@ -52,7 +52,7 @@ class TestV1alpha1TrainedModelList(unittest.TestCase):
             return V1alpha1TrainedModelList(
                 api_version = '0', 
                 items = [
-                    kfserving.models.v1alpha1/trained_model.v1alpha1.TrainedModel(
+                    kfserving.models.v1alpha1_trained_model.V1alpha1TrainedModel(
                         api_version = '0', 
                         kind = '0', 
                         metadata = None, 
@@ -65,7 +65,7 @@ class TestV1alpha1TrainedModelList(unittest.TestCase):
         else :
             return V1alpha1TrainedModelList(
                 items = [
-                    kfserving.models.v1alpha1/trained_model.v1alpha1.TrainedModel(
+                    kfserving.models.v1alpha1_trained_model.V1alpha1TrainedModel(
                         api_version = '0', 
                         kind = '0', 
                         metadata = None, 
