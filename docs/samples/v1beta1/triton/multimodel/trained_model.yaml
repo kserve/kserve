@@ -3,7 +3,8 @@ kind: "TrainedModel"
 metadata:
   name: "cifar10"
 spec:
-  inferenceService: bert
+  inferenceService: triton-mms 
   model:
     framework: pytorch
     storageUri: s3://triton/torchscript/cifar10
+    memory: "1Gi"  

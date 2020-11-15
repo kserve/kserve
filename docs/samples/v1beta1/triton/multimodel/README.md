@@ -66,6 +66,8 @@ Now you have an `InferenceService` running with 16Gi memory but no model is load
 
 On `TrainedModel` CR you specify the model framework you trained with and the `storageUri` where the model is getting stored, last you set the `InferenceService` name you want
 the model to deploy onto.
+
+### Deploy Cifar10 Torchscript Model
 ```yaml
 apiVersion: "serving.kubeflow.org/v1alpha1"
 kind: "TrainedModel"
@@ -115,6 +117,40 @@ curl -H "Host: ${SERVICE_HOSTNAME}" http://${INGRESS_HOST}:${INGRESS_PORT}/v2/mo
 
 {"name":"cifar10","versions":["1"],"platform":"pytorch_libtorch","inputs":[{"name":"INPUT__0","datatype":"FP32","shape":[-1,3,32,32]}],"outputs":[{"name":"OUTPUT__0","datatype":"FP32","shape":[-1,10]}]}
 ```
+
+### Deploy Simple String Tensorflow Model
+Next let's deploy another model to the same `InferenceService`
+
+```yaml
+apiVersion: "serving.kubeflow.org/v1alpha1"
+kind: "TrainedModel"
+metadata:
+  name: "simple_string"
+spec:
+  inferenceService: triton-mms
+  model:
+    framework: pytorch
+    storageUri: s3://triton/simple_string
+``` 
+
+Check the `Triton Inference Service` log you will see that the model is also loaded into the memory
+```bash
+I1115 14:11:52.060489 1 model_repository_manager.cc:737] loading: cifar10:1
+I1115 14:11:52.061524 1 libtorch_backend.cc:217] Creating instance cifar10_0_0_cpu on CPU using model.pt
+I1115 14:11:52.690479 1 model_repository_manager.cc:925] successfully loaded 'cifar10' version 1
+```
+
+Now you can curl the `simple_string` model endpoint
+```bash
+MODEL_NAME=simple_string
+INPUT_PATH=@./input.json
+SERVICE_HOSTNAME=$(kubectl get inferenceservices triton-mms -o jsonpath='{.status.url}' | cut -d "/" -f 3)
+
+curl -H "Host: ${SERVICE_HOSTNAME}" http://${INGRESS_HOST}:${INGRESS_PORT}/v2/models/$MODEL_NAME
+
+{"name":"simple_string","versions":["1"],"platform":"tensorflow_graphdef","inputs":[{"name":"INPUT0","datatype":"BYTES","shape":[-1,16]},{"name":"INPUT1","datatype":"BYTES","shape":[-1,16]}],"outputs":[{"name":"OUTPUT0","datatype":"BYTES","shape":[-1,16]},{"name":"OUTPUT1","datatype":"BYTES","shape":[-1,16]}]}
+```
+
 
 
 
