@@ -1,0 +1,18 @@
+apiVersion: "serving.kubeflow.org/v1beta1"
+kind: "InferenceService"
+metadata:
+  name: "bert"
+spec:
+    predictor:
+      serviceAccountName: default 
+      triton:
+        args:
+        - --model-control-mode=explicit
+        - --log-verbose=1     
+        resources:
+          limits:
+            cpu: "1"
+            memory: 1Gi
+          requests:
+            cpu: "1"
+            memory: 1Gi

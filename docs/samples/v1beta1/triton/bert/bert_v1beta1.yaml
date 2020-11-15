@@ -1,12 +1,12 @@
 apiVersion: "serving.kubeflow.org/v1beta1"
 kind: "InferenceService"
 metadata:
-  name: "bert-tritonv2"
+  name: "bert-v2"
 spec:
   transformer:
     containers:
       - name: kfserving-container      
-        image: yuzisun/bert-transformer-v2:latest
+        image: kfserving/bert-transformer-v2:latest
         command:
           - "python"
           - "-m"

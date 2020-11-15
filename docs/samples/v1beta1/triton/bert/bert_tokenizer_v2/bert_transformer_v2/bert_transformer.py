@@ -41,13 +41,13 @@ class BertTransformer(kfserving.KFModel):
             self.triton_client = httpclient.InferenceServerClient(
                 url=self.predictor_host, verbose=True)
      
-        unique_ids = np.zeros([1,1], dtype=np.int32)
-        segment_ids = features["segment_ids"].reshape(1,128)
-        input_ids = features["input_ids"].reshape(1,128)
-        input_mask = features["input_mask"].reshape(1,128)
+        unique_ids = np.zeros([1, 1], dtype=np.int32)
+        segment_ids = features["segment_ids"].reshape(1, 128)
+        input_ids = features["input_ids"].reshape(1, 128)
+        input_mask = features["input_mask"].reshape(1, 128)
         
         inputs = []
-        inputs.append(httpclient.InferInput('unique_ids', [1,1], "INT32"))
+        inputs.append(httpclient.InferInput('unique_ids', [1, 1], "INT32"))
         inputs.append(httpclient.InferInput('segment_ids', [1, 128], "INT32"))
         inputs.append(httpclient.InferInput('input_ids', [1, 128], "INT32"))
         inputs.append(httpclient.InferInput('input_mask', [1, 128], "INT32"))
@@ -60,6 +60,7 @@ class BertTransformer(kfserving.KFModel):
         return result.get_response()
     
     def postprocess(self, result: Dict) -> Dict:
+        print(result)
         end_logits = result['outputs'][0]['data']
         start_logits = result['outputs'][1]['data']
         n_best_size = 20
