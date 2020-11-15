@@ -1,9 +1,9 @@
 apiVersion: "serving.kubeflow.org/v1alpha1"
 kind: "TrainedModel"
 metadata:
-  name: "cifar"
+  name: "cifar10"
 spec:
   inferenceService: bert
   model:
     framework: pytorch
-    storageUri: s3://torchscript/cifar
+    storageUri: s3://triton/torchscript/cifar10
