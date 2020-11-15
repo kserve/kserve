@@ -43,7 +43,7 @@ Triton supports loading multiple models so it expects a model repository which f
     <version>/
       <model-definition-file>
 ```
-For example in your model repository bucket `s3://platform-test/pytorch/torchscript`, the layout can be
+For example in your model repository bucket `gs://kfserving-examples/models/torchscript`, the layout can be
 ```
 torchscript/
   cifar/
@@ -109,7 +109,7 @@ metadata:
 spec:
   predictor:
     triton:
-      storageUri: gs://platform-test/models/torchscript
+      storageUri: gs://kfserving-examples/models/torchscript
       runtimeVersion: 20.09-py3
       env:
       - name: OMP_NUM_THREADS
@@ -254,7 +254,7 @@ metadata:
 spec:
   predictor:
       triton:
-        storageUri: gs://platform-test/models/torchscript
+        storageUri: gs://kfserving-examples/models/torchscript
         runtimeVersion: 20.09-py3
         env:
         - name: OMP_NUM_THREADS
@@ -331,6 +331,5 @@ You should see an output similar to the one below:
 < server: istio-envoy
 < x-envoy-upstream-service-time: 52
 < 
-* Connection #0 to host transformer-cifar10-dsun.ds-pw-dev02.dsp.bce.dev.bloomberg.com left intact
 {"model_name": "cifar", "model_version": "1", "outputs": [{"name": "OUTPUT__0", "datatype": "FP32", "shape": [1, 10], "data": [-0.7299326062202454, -2.186835289001465, -0.029627874493598938, 2.3753483295440674, -0.3476247489452362, 1.3253062963485718, 0.5721136927604675, 0.049311548471450806, -0.3691796362400055, -1.0804035663604736]}]}
 ```
