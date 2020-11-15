@@ -15997,8 +15997,8 @@ data:
             "defaultImageVersion": "v0.5.0-rc0"
         },
         "aix": {
-            "image" : "aipipeline/aix-explainer",
-            "defaultImageVersion": "0.5.0-rc0"
+            "image" : "kfserving/aix-explainer",
+            "defaultImageVersion": "v0.5.0-rc0"
         }
     }
   ingress: |-
@@ -16092,7 +16092,7 @@ data:
             "multiModelServer": "true"
         },
         "pmml": {
-            "image": "gcr.io/kfserving/pmmlserver",
+            "image": "kfserving/pmmlserver",
             "defaultImageVersion": "v0.5.0-rc0",
             "supportedFrameworks": [
               "pmml"

@@ -13,7 +13,6 @@ API rule violation: names_match,./pkg/apis/serving/v1beta1,ExplainerConfig,Conta
 API rule violation: names_match,./pkg/apis/serving/v1beta1,ExplainersConfig,AIXExplainer
 API rule violation: names_match,./pkg/apis/serving/v1beta1,ExplainersConfig,AlibiExplainer
 API rule violation: names_match,./pkg/apis/serving/v1beta1,IngressConfig,IngressServiceName
-API rule violation: names_match,./pkg/apis/serving/v1beta1,ModelSpec,StorageURI
 API rule violation: names_match,./pkg/apis/serving/v1beta1,PodSpec,DeprecatedServiceAccount
 API rule violation: names_match,./pkg/apis/serving/v1beta1,PredictorConfig,ContainerImage
 API rule violation: names_match,./pkg/apis/serving/v1beta1,PredictorExtensionSpec,StorageURI

@@ -1,4 +1,4 @@
-name: Agent Docker Publisher
+name: AIXExapliner Docker Publisher
 
 on:
   push:
@@ -14,7 +14,7 @@ on:
   pull_request:
 
 env:
-  IMAGE_NAME: agent
+  IMAGE_NAME: aix-explainer 
 
 jobs:
   # Run tests.
@@ -31,7 +31,8 @@ jobs:
             docker-compose --file docker-compose.test.yml build
             docker-compose --file docker-compose.test.yml run sut
           else
-            docker build . --file agent.Dockerfile
+            cd python
+            docker build . --file aixexplainer.Dockerfile
           fi
 
   # Push image to GitHub Packages.
@@ -47,7 +48,9 @@ jobs:
       - uses: actions/checkout@v2
 
       - name: Build image
-        run: docker build . --file agent.Dockerfile --tag $IMAGE_NAME
+        run: |
+          cd python
+          docker build . --file aixexplainer.Dockerfile --tag $IMAGE_NAME
 
       - name: Log into registry
         run: docker login -u ${{ secrets.DOCKER_USER }} -p ${{ secrets.DOCKER_PASSWORD }}
