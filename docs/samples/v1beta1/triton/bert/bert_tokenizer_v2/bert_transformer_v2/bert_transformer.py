@@ -19,7 +19,8 @@ from . import tokenization
 from . import data_processing
 import tritonclient.http as httpclient
 from tritonclient.utils import InferenceServerException
-
+import logging
+logging.basicConfig(level=logging.DEBUG)
 
 class BertTransformer(kfserving.KFModel):
     def __init__(self, name: str, predictor_host: str):
@@ -55,12 +56,15 @@ class BertTransformer(kfserving.KFModel):
         inputs[1].set_data_from_numpy(segment_ids)
         inputs[2].set_data_from_numpy(input_ids)
         inputs[3].set_data_from_numpy(input_mask)
-        
-        result = self.triton_client.infer(self.model_name, inputs, outputs=None)
+
+        outputs = []
+        outputs.append(httpclient.InferRequestedOutput('start_logits', binary_data=False))
+        outputs.append(httpclient.InferRequestedOutput('end_logits', binary_data=False))
+        result = self.triton_client.infer(self.model_name, inputs, outputs=outputs)
         return result.get_response()
     
     def postprocess(self, result: Dict) -> Dict:
-        print(result)
+        logging.info(result) 
         end_logits = result['outputs'][0]['data']
         start_logits = result['outputs'][1]['data']
         n_best_size = 20
