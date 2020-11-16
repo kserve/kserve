@@ -30,7 +30,7 @@ After a bit of time you should see a pop up containing the explanation, similar 
 
 To give an example, the top-left image with the title "Positive for 2 Actual 2" is the image with pixels highlighted that score above a specified confidence level for indicating a classification of 2 (where 2 is also the correct classification). 
 
-Similarly, the bottom-right image with the title "Positive for 0 Actual 2" is the image with pixels highlighted that score above a specified confidence level for indicating a classification of 0 (where 2 is actual the correct classification). If the model were to incorrectly classify the image as 0, then you could get an explanation of why by looking at the highlighted pixels as being especially troublesome. By raising and lowering the min_weight parameter in the deployment yaml you can test to see which pixels your model believes are the most and least relevant for each classification.
+Similarly, the bottom-right image with the title "Positive for 0 Actual 2" is the image with pixels highlighted that score above a specified confidence level for indicating a classification of 0 (where 2 is the correct classification). If the model were to incorrectly classify the image as 0, then you could get an explanation of why by looking at the highlighted pixels as being especially troublesome. By raising and lowering the min_weight parameter in the deployment yaml you can test to see which pixels your model believes are the most and least relevant for each classification.
 
 To try a different MNIST example add an integer to the end of the query between 0-10,000. The integer chosen will be the index of the image to be chosen in the MNIST dataset.
 
