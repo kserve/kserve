@@ -42,6 +42,10 @@ python query_explain.py http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/$MODEL_
 
 `kubectl delete -f aix-explainer.yaml`
 
+## Build a Development AIX Model Explainer Docker Image
+
+If you would like to build a development image for the AIX Model Explainer then follow [these instructions](/python/aixexplainer#build-a-development-aix-model-explainer-docker-image)
+
 ## Troubleshooting
 
 `<504> Gateway Timeout <504>` - the explainer is probably taking too long and not sending a response back quickly enough. Either there aren't enough resources allocated or the number of samples the explainer is allowed to take needs to be reduced. To fix this go to aix-explainer.yaml and increase resources. Or to lower the number of allowed samples go to aix-explainer.yaml and add a flag to `explainer: command:` '--num_samples' (the default number of samples is 1000)
