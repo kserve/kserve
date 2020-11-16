@@ -113,6 +113,7 @@ spec:
               value: "gs://kfserving-samples/models/triton/bert-transformer"
     predictor:
       triton:
+        runtimeVersion: 20.03-py3 # Higher triton version does not work with KFS 0.4
         resources:
           limits:
             cpu: "1"

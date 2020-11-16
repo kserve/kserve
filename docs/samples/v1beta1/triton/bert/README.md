@@ -65,7 +65,10 @@ class BertTransformer(kfserving.KFModel):
         inputs[2].set_data_from_numpy(input_ids)
         inputs[3].set_data_from_numpy(input_mask)
         
-        result = self.triton_client.infer(self.model_name, inputs, outputs=None)
+        outputs = []
+        outputs.append(httpclient.InferRequestedOutput('start_logits', binary_data=False))
+        outputs.append(httpclient.InferRequestedOutput('end_logits', binary_data=False))
+        result = self.triton_client.infer(self.model_name, inputs, outputs=outputs)
         return result.get_response()
     
     def postprocess(self, result: Dict) -> Dict:
@@ -110,7 +113,7 @@ spec:
             value: "gs://kfserving-samples/models/triton/bert-transformer"
   predictor:
     triton:
-      runtimeVersion: 20.09-py3
+      runtimeVersion: 20.10-py3
       resources:
         limits:
           cpu: "1"
@@ -121,7 +124,7 @@ spec:
       storageUri: "gs://kfserving-examples/models/triton/bert"
 ```
 
-Apply the inference service yaml.
+Apply the `InferenceService` yaml.
 ```
 kubectl apply -f bert_v1beta1.yaml 
 ```

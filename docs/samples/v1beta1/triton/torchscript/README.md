@@ -5,6 +5,18 @@ the latter often applies is production – the land of low latencies and strict 
 C++ is very often the language of choice, The following example will outline the path PyTorch provides to go from an existing Python model
 to a serialized representation that can be loaded and executed purely from C++ like Triton Inference Server, with no dependency on Python.
 
+## Setup
+1. Your ~/.kube/config should point to a cluster with [KFServing 0.5 installed](https://github.com/kubeflow/kfserving/#install-kfserving).
+2. Your cluster's Istio Ingress gateway must be [network accessible](https://istio.io/latest/docs/tasks/traffic-management/ingress/ingress-control/).
+3. Skip [tag resolution](https://knative.dev/docs/serving/tag-resolution/) for `nvcr.io` which requires auth to resolve triton inference server image digest
+```bash
+kubectl patch cm config-deployment --patch '{"data":{"registriesSkippingTagResolving":"nvcr.io"}}' -n knative-serving
+```
+4. Increase progress deadline since pulling triton image and big bert model may longer than default timeout for 120s, this setting requires knative 0.15.0+
+```bash
+kubectl patch cm config-deployment --patch '{"data":{"progressDeadline": "600s"}}' -n knative-serving
+```
+
 ## Train a Pytorch Model
 Train the [cifar pytorch model](../eager/cifar10.py).
 
@@ -110,7 +122,7 @@ spec:
   predictor:
     triton:
       storageUri: gs://kfserving-examples/models/torchscript
-      runtimeVersion: 20.09-py3
+      runtimeVersion: 20.10-py3
       env:
       - name: OMP_NUM_THREADS
         value: "1"
@@ -255,7 +267,7 @@ spec:
   predictor:
       triton:
         storageUri: gs://kfserving-examples/models/torchscript
-        runtimeVersion: 20.09-py3
+        runtimeVersion: 20.10-py3
         env:
         - name: OMP_NUM_THREADS
           value: "1"

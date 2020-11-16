@@ -20,10 +20,19 @@ kubectl patch cm config-deployment --patch '{"data":{"progressDeadline": "600s"}
 ```
 5. Setup Minio for storing the models as currently model agent sidecar only supports S3 protocol.
 ```bash
-gsutil cp -r gs://kfserving-examples/models/torchscript .
-mc cp -r torchscript myminio/triton/
-mc ls myminio/triton/torchscript/
-[2020-11-15 07:21:38 EST]      0B cifar10/
+# Setup Minio
+kubectl apply -f minio.yaml
+kubectl apply -f s3_secret.yaml
+kubectl port-forward $(kubectl get pod --selector="app=minio" --output jsonpath='{.items[0].metadata.name}') 9000:9000
+mc config host add myminio http://127.0.0.1:9000 minio minio123
+
+# Copy cifar10 model to minio
+gsutil cp -r gs://kfserving-examples/models/torchscript/cifar10 .
+mc cp -r cifar10 myminio/triton/torchscript
+
+# Copy simple string model to minio
+gsutil cp -r gs://kfserving-samples/models/triton/simple_string
+mc cp -r simple_string myminio/triton
 ```
 
 ## Create the hosting InferenceService
@@ -150,7 +159,3 @@ curl -H "Host: ${SERVICE_HOSTNAME}" http://${INGRESS_HOST}:${INGRESS_PORT}/v2/mo
 
 {"name":"simple_string","versions":["1"],"platform":"tensorflow_graphdef","inputs":[{"name":"INPUT0","datatype":"BYTES","shape":[-1,16]},{"name":"INPUT1","datatype":"BYTES","shape":[-1,16]}],"outputs":[{"name":"OUTPUT0","datatype":"BYTES","shape":[-1,16]},{"name":"OUTPUT1","datatype":"BYTES","shape":[-1,16]}]}
 ```
-
-
-
-
