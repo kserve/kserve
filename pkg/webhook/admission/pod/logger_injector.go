@@ -83,6 +83,13 @@ func (il *LoggerInjector) InjectLogger(pod *v1.Pod) error {
 		return nil
 	}
 
+	queueProxyEnvs := []v1.EnvVar{}
+	for _, container := range pod.Spec.Containers {
+		if container.Name == "queue-proxy" {
+			queueProxyEnvs = container.Env
+		}
+	}
+
 	logUrl, ok := pod.ObjectMeta.Annotations[constants.LoggerSinkUrlInternalAnnotationKey]
 	if !ok {
 		logUrl = il.config.DefaultUrl
@@ -93,11 +100,11 @@ func (il *LoggerInjector) InjectLogger(pod *v1.Pod) error {
 		logMode = string(v1alpha2.LogAll)
 	}
 
-	inferenceServiceName, _ := pod.ObjectMeta.Labels[constants.KServiceModelLabel]
+	inferenceServiceName, _ := pod.ObjectMeta.Labels[constants.InferenceServiceLabel]
 	namespace := pod.ObjectMeta.Namespace
 	endpoint := pod.ObjectMeta.Labels[constants.KServiceEndpointLabel]
 
-	// Don't inject if Contianer already injected
+	// Don't inject if Container already injected
 	for _, container := range pod.Spec.Containers {
 		if strings.Compare(container.Name, LoggerContainerName) == 0 {
 			return nil
@@ -114,7 +121,7 @@ func (il *LoggerInjector) InjectLogger(pod *v1.Pod) error {
 			LoggerArgumentLogUrl,
 			logUrl,
 			LoggerArgumentSourceUri,
-			pod.Name,
+			pod.ObjectMeta.Name,
 			LoggerArgumentMode,
 			logMode,
 			LoggerArgumentInferenceService,
@@ -135,6 +142,18 @@ func (il *LoggerInjector) InjectLogger(pod *v1.Pod) error {
 			},
 		},
 		SecurityContext: securityContext,
+		ReadinessProbe: &v1.Probe{
+			Handler: v1.Handler{
+				Exec: &v1.ExecAction{
+					Command: []string{
+						"/logger",
+						"-probe-period",
+						"0",
+					},
+				},
+			},
+		},
+		Env: queueProxyEnvs,
 	}
 
 	// Add container to the spec

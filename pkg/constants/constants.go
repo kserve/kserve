@@ -163,6 +163,7 @@ const (
 // Labels for TrainedModel
 const (
 	ParentInferenceServiceLabel = "inferenceservice"
+	InferenceServiceLabel       = "serving.kubeflow.org/inferenceservice"
 )
 
 // InferenceService default/canary constants
