@@ -93,10 +93,6 @@ func (mutator *Mutator) mutate(pod *v1.Pod, configMap *v1.ConfigMap) error {
 		return err
 	}
 
-	loggerInjector := &LoggerInjector{
-		config: loggerConfig,
-	}
-
 	batcherConfig, err := getBatcherConfigs(configMap)
 	if err != nil {
 		return err
@@ -113,13 +109,13 @@ func (mutator *Mutator) mutate(pod *v1.Pod, configMap *v1.ConfigMap) error {
 
 	agentInjector := &AgentInjector{
 		credentialBuilder: credentialBuilder,
-		config:            agentConfig,
+		agentConfig:       agentConfig,
+		loggerConfig:      loggerConfig,
 	}
 
 	mutators := []func(pod *v1.Pod) error{
 		InjectGKEAcceleratorSelector,
 		storageInitializer.InjectStorageInitializer,
-		loggerInjector.InjectLogger,
 		batcherInjector.InjectBatcher,
 		agentInjector.InjectAgent,
 	}

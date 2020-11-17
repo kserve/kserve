@@ -17,8 +17,6 @@ limitations under the License.
 package pod
 
 import (
-	"encoding/json"
-	"fmt"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	v1 "k8s.io/api/core/v1"
@@ -49,31 +47,6 @@ type LoggerConfig struct {
 
 type LoggerInjector struct {
 	config *LoggerConfig
-}
-
-func getLoggerConfigs(configMap *v1.ConfigMap) (*LoggerConfig, error) {
-
-	loggerConfig := &LoggerConfig{}
-	if loggerConfigValue, ok := configMap.Data[LoggerConfigMapKeyName]; ok {
-		err := json.Unmarshal([]byte(loggerConfigValue), &loggerConfig)
-		if err != nil {
-			panic(fmt.Errorf("Unable to unmarshall logger json string due to %v ", err))
-		}
-	}
-
-	//Ensure that we set proper values for CPU/Memory Limit/Request
-	resourceDefaults := []string{loggerConfig.MemoryRequest,
-		loggerConfig.MemoryLimit,
-		loggerConfig.CpuRequest,
-		loggerConfig.CpuLimit}
-	for _, key := range resourceDefaults {
-		_, err := resource.ParseQuantity(key)
-		if err != nil {
-			return loggerConfig, fmt.Errorf("Failed to parse resource configuration for %q: %q", LoggerConfigMapKeyName, err.Error())
-		}
-	}
-
-	return loggerConfig, nil
 }
 
 func (il *LoggerInjector) InjectLogger(pod *v1.Pod) error {
