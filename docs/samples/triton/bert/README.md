@@ -13,7 +13,7 @@ We can run inference on a fine-tuned BERT model for tasks like Question Answerin
 Here we use a BERT model fine-tuned on a SQuaD 2.0 Dataset which contains 100,000+ question-answer pairs on 500+ articles combined with over 50,000 new, unanswerable questions.
 
 ## Setup
-1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/#install-kfserving).
+1. Your ~/.kube/config should point to a cluster with [KFServing 0.4 installed](https://github.com/kubeflow/kfserving/#install-kfserving).
 2. Your cluster's Istio Ingress gateway must be [network accessible](https://istio.io/latest/docs/tasks/traffic-management/ingress/ingress-control/).
 3. Skip [tag resolution](https://knative.dev/docs/serving/tag-resolution/) for `nvcr.io` which requires auth to resolve triton inference server image digest
 ```bash
@@ -113,6 +113,7 @@ spec:
               value: "gs://kfserving-samples/models/triton/bert-transformer"
     predictor:
       triton:
+        runtimeVersion: 20.03-py3 # Higher triton version does not work with KFS 0.4
         resources:
           limits:
             cpu: "1"

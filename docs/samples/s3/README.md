@@ -1,4 +1,4 @@
-
+    
 # Predict on a InferenceService with saved model on S3
 ## Setup
 1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/#install-kfserving).

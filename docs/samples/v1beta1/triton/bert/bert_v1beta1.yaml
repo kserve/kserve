@@ -1,0 +1,27 @@
+apiVersion: "serving.kubeflow.org/v1beta1"
+kind: "InferenceService"
+metadata:
+  name: "bert-v2"
+spec:
+  transformer:
+    containers:
+      - name: kfserving-container
+        image: kfserving/bert-transformer-v2:latest
+        command:
+          - "python"
+          - "-m"
+          - "bert_transformer_v2"
+        env:
+          - name: STORAGE_URI
+            value: "gs://kfserving-samples/models/triton/bert-transformer"
+  predictor:
+    triton:
+      runtimeVersion: 20.10-py3
+      resources:
+        limits:
+          cpu: "1"
+          memory: 8Gi
+        requests:
+          cpu: "1"
+          memory: 8Gi
+      storageUri: "gs://kfserving-examples/models/triton/bert"
