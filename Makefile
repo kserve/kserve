@@ -7,6 +7,7 @@ LOGGER_IMG ?= logger:latest
 BATCHER_IMG ?= batcher:latest
 SKLEARN_IMG ?= sklearnserver
 XGB_IMG ?= xgbserver
+LGB_IMG ?= lgbserver
 PYTORCH_IMG ?= pytorchserver
 PMML_IMG ?= pmmlserver
 ALIBI_IMG ?= alibi-explainer
@@ -71,6 +72,10 @@ deploy-dev-sklearn: docker-push-sklearn
 
 deploy-dev-xgb: docker-push-xgb
 	./hack/model_server_patch_dev.sh xgboost ${KO_DOCKER_REPO}/${XGB_IMG}
+	kustomize build config/overlays/dev-image-config | kubectl apply --validate=false -f -
+
+deploy-dev-lgb: docker-push-lgb
+	./hack/model_server_patch_dev.sh lightgbm ${KO_DOCKER_REPO}/${LGB_IMG}
 	kustomize build config/overlays/dev-image-config | kubectl apply --validate=false -f -
 
 deploy-dev-pytorch: docker-push-pytorch
@@ -197,7 +202,13 @@ docker-build-xgb:
 docker-push-xgb: docker-build-xgb
 	docker push ${KO_DOCKER_REPO}/${XGB_IMG}
 
-docker-build-pytorch:
+docker-build-lgb: 
+	cd python && docker build -t ${KO_DOCKER_REPO}/${LGB_IMG} -f lgb.Dockerfile .
+
+docker-push-lgb: docker-build-lgb
+	docker push ${KO_DOCKER_REPO}/${LGB_IMG}
+
+docker-build-pytorch: 
 	cd python && docker build -t ${KO_DOCKER_REPO}/${PYTORCH_IMG} -f pytorch.Dockerfile .
 
 docker-push-pytorch: docker-build-pytorch

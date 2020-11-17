@@ -87,6 +87,14 @@ data:
               "pmml"
             ],
             "multiModelServer": "false"
+        },
+        "lightgbm": {
+            "image": "docker.io/linym/lgbserver",
+            "defaultImageVersion": "v0.5.0-rc0",
+            "supportedFrameworks": [
+              "lightgbm"
+            ],
+            "multiModelServer": "false"
         }
     }
   transformers: |-

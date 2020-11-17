@@ -114,6 +114,8 @@ type PredictorSpec struct {
 	Triton *TritonSpec `json:"triton,omitempty"`
 	// Spec for XGBoost predictor
 	XGBoost *XGBoostSpec `json:"xgboost,omitempty"`
+	// Spec for LightGBM predictor
+	LightGBM *LightGBMSpec `json:"lightgbm,omitempty"`
 	// Spec for SKLearn predictor
 	SKLearn *SKLearnSpec `json:"sklearn,omitempty"`
 	// Spec for ONNX runtime (https://github.com/microsoft/onnxruntime)
@@ -218,6 +220,18 @@ type XGBoostSpec struct {
 	// Number of thread to be used by XGBoost
 	NThread int `json:"nthread,omitempty"`
 	// XGBoost KFServer docker image version which defaults to latest release
+	RuntimeVersion string `json:"runtimeVersion,omitempty"`
+	// Defaults to requests and limits of 1CPU, 2Gb MEM.
+	Resources v1.ResourceRequirements `json:"resources,omitempty"`
+}
+
+// LightGBMSpec defines arguments for configuring LightGBM model serving.
+type LightGBMSpec struct {
+	// The URI of the trained model which contains model.bst
+	StorageURI string `json:"storageUri"`
+	// Number of thread to be used by LightGBM
+	NThread int `json:"nthread,omitempty"`
+	// LightGBM KFServer docker image version which defaults to latest release
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
 	// Defaults to requests and limits of 1CPU, 2Gb MEM.
 	Resources v1.ResourceRequirements `json:"resources,omitempty"`

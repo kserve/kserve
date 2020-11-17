@@ -318,7 +318,7 @@ class KFServingClient(object):
                 "Exception when calling CustomObjectsApi->delete_namespaced_custom_object:\
                  %s\n" % e)
 
-    def is_isvc_ready(self, name, namespace=None):  # pylint:disable=inconsistent-return-statements
+    def is_isvc_ready(self, name, namespace=None, version=constants.KFSERVING_V1BETA1_VERSION):  # pylint:disable=inconsistent-return-statements
         """
         Check if the inference service is ready.
         :param name: inference service name
@@ -326,7 +326,7 @@ class KFServingClient(object):
         :return:
         """
         kfsvc_status = self.get(name, namespace=namespace,
-                                version=constants.KFSERVING_V1BETA1_VERSION)
+                                version=version)
         status = 'Unknown'
         for condition in kfsvc_status['status'].get('conditions', {}):
             if condition.get('type', '') == 'Ready':
@@ -359,9 +359,9 @@ class KFServingClient(object):
         else:
             for _ in range(round(timeout_seconds/polling_interval)):
                 time.sleep(polling_interval)
-                if self.is_isvc_ready(name, namespace=namespace):
+                if self.is_isvc_ready(name, namespace=namespace, version=version):
                     return
 
-            current_isvc = self.get(name, namespace=namespace)
+            current_isvc = self.get(name, namespace=namespace, version=version)
             raise RuntimeError("Timeout to start the InferenceService {}. \
                                The InferenceService is as following: {}".format(name, current_isvc))

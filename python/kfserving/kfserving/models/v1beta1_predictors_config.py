@@ -47,6 +47,7 @@ class V1beta1PredictorsConfig(object):
                             and the value is json key in definition.
     """
     openapi_types = {
+        'lightgbm': 'V1beta1PredictorConfig',
         'onnx': 'V1beta1PredictorConfig',
         'pmml': 'V1beta1PredictorConfig',
         'pytorch': 'V1beta1PredictorConfig',
@@ -57,6 +58,7 @@ class V1beta1PredictorsConfig(object):
     }
 
     attribute_map = {
+        'lightgbm': 'lightgbm',
         'onnx': 'onnx',
         'pmml': 'pmml',
         'pytorch': 'pytorch',
@@ -66,12 +68,13 @@ class V1beta1PredictorsConfig(object):
         'xgboost': 'xgboost'
     }
 
-    def __init__(self, onnx=None, pmml=None, pytorch=None, sklearn=None, tensorflow=None, triton=None, xgboost=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, lightgbm=None, onnx=None, pmml=None, pytorch=None, sklearn=None, tensorflow=None, triton=None, xgboost=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1PredictorsConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
+        self._lightgbm = None
         self._onnx = None
         self._pmml = None
         self._pytorch = None
@@ -81,6 +84,8 @@ class V1beta1PredictorsConfig(object):
         self._xgboost = None
         self.discriminator = None
 
+        if lightgbm is not None:
+            self.lightgbm = lightgbm
         if onnx is not None:
             self.onnx = onnx
         if pmml is not None:
@@ -95,6 +100,27 @@ class V1beta1PredictorsConfig(object):
             self.triton = triton
         if xgboost is not None:
             self.xgboost = xgboost
+
+    @property
+    def lightgbm(self):
+        """Gets the lightgbm of this V1beta1PredictorsConfig.  # noqa: E501
+
+
+        :return: The lightgbm of this V1beta1PredictorsConfig.  # noqa: E501
+        :rtype: V1beta1PredictorConfig
+        """
+        return self._lightgbm
+
+    @lightgbm.setter
+    def lightgbm(self, lightgbm):
+        """Sets the lightgbm of this V1beta1PredictorsConfig.
+
+
+        :param lightgbm: The lightgbm of this V1beta1PredictorsConfig.  # noqa: E501
+        :type: V1beta1PredictorConfig
+        """
+
+        self._lightgbm = lightgbm
 
     @property
     def onnx(self):
