@@ -35,11 +35,15 @@ $inferenceservice.serving.kubeflow.org/torchserve-custom created
 
 The first step is to [determine the ingress IP and ports](../../../../README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
 
+Download input image:
+
+wget https://raw.githubusercontent.com/pytorch/serve/master/examples/image_classifier/mnist/test_data/0.png
+
 ```bash
 MODEL_NAME=torchserve-custom
 SERVICE_HOSTNAME=$(kubectl get inferenceservice ${MODEL_NAME} -n <namespace> -o jsonpath='{.status.url}' | cut -d "/" -f 3)
 
-curl -v -H "Host: ${SERVICE_HOSTNAME}" http://${INGRESS_HOST}:${INGRESS_PORT}/predictions/mnist
+curl -v -H "Host: ${SERVICE_HOSTNAME}" http://${INGRESS_HOST}:${INGRESS_PORT}/predictions/mnist -T 0.png
 ```
 
 Expected Output
