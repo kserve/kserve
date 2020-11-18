@@ -34,7 +34,6 @@ api_version = constants.KFSERVING_GROUP + '/' + constants.KFSERVING_VERSION
 KFServing = KFServingClient(config_file=os.environ.get("KUBECONFIG","~/.kube/config"))
 
 
-@pytest.mark.skip(reason="reworking this in v1beta1")
 def test_kfserving_logger():
     msg_dumper = 'message-dumper'
     default_endpoint_spec = V1alpha2EndpointSpec(
