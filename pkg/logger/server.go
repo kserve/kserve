@@ -31,8 +31,6 @@ import (
 
 type LoggerHandler struct {
 	log              logr.Logger
-	svcHost          string
-	svcPort          string
 	logUrl           *url.URL
 	sourceUri        *url.URL
 	logMode          v1beta1.LoggerType
@@ -42,13 +40,11 @@ type LoggerHandler struct {
 	next             http.Handler
 }
 
-func New(svcHost string, svcPort string, logUrl *url.URL, sourceUri *url.URL, logMode v1beta1.LoggerType,
+func New(logUrl *url.URL, sourceUri *url.URL, logMode v1beta1.LoggerType,
 	inferenceService string, namespace string, endpoint string, next http.Handler) http.Handler {
 	logf.SetLogger(logf.ZapLogger(false))
 	return &LoggerHandler{
 		log:              logf.Log.WithName("Logger"),
-		svcHost:          svcHost,
-		svcPort:          svcPort,
 		logUrl:           logUrl,
 		sourceUri:        sourceUri,
 		logMode:          logMode,

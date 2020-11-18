@@ -36,8 +36,9 @@ import (
 )
 
 var (
-	log  = logf.Log.WithName("modelAgent")
-	port = flag.String("port", "8081", "Agent port")
+	log           = logf.Log.WithName("modelAgent")
+	port          = flag.String("port", "8081", "Agent port")
+	componentPort = flag.String("component-port", "8080", "Component port")
 	// model puller flags
 	enablePuller = flag.Bool("enable-puller", false, "Enable model puller")
 	configDir    = flag.String("config-dir", "/mnt/configs", "directory for model config files")
@@ -112,7 +113,7 @@ func main() {
 	ctx := signals.NewContext()
 	// Setup probe to run for checking user-application healthiness.
 	logger, _ := pkglogging.NewLogger(env.ServingLoggingConfig, env.ServingLoggingLevel)
-	probe := buildProbe(logger, env.ServingReadinessProbe, env.UserPort)
+	probe := buildProbe(logger, env.ServingReadinessProbe, *componentPort)
 	userPort := strconv.Itoa(env.UserPort)
 	mainServer := buildServer(ctx, *port, userPort, loggerArgs, healthState, probe, logger)
 	servers := map[string]*http.Server{
@@ -231,6 +232,7 @@ func startLogger(workers int) *loggerArgs {
 		namespace:        *namespace,
 	}
 }
+
 func startModelPuller() {
 	log.Info("Initializing model agent with", "config-dir", configDir, "model-dir", modelDir)
 
@@ -268,15 +270,15 @@ func startModelPuller() {
 	watcher.Start()
 }
 
-func buildProbe(logger *zap.SugaredLogger, probeJSON string, port int) *readiness.Probe {
+func buildProbe(logger *zap.SugaredLogger, probeJSON string, port string) *readiness.Probe {
 	coreProbe, err := readiness.DecodeProbe(probeJSON)
 	if err != nil {
 		logger.Fatalw("Queue container failed to parse readiness probe", zap.Error(err))
 	}
 	if coreProbe.TCPSocket != nil {
-		coreProbe.TCPSocket.Port = intstr.FromInt(port)
+		coreProbe.TCPSocket.Port = intstr.FromString(port)
 	} else if coreProbe.HTTPGet != nil {
-		coreProbe.HTTPGet.Port = intstr.FromInt(port)
+		coreProbe.HTTPGet.Port = intstr.FromString(port)
 	}
 	return readiness.NewProbe(coreProbe)
 }
@@ -301,7 +303,7 @@ func buildServer(ctx context.Context, port string, userPort string, loggerArgs *
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first.
 	var composedHandler http.Handler = httpProxy
 	if loggerArgs != nil {
-		composedHandler = kfslogger.New("127.0.0.1", userPort, loggerArgs.logUrl, loggerArgs.sourceUrl, loggerArgs.loggerType,
+		composedHandler = kfslogger.New(loggerArgs.logUrl, loggerArgs.sourceUrl, loggerArgs.loggerType,
 			loggerArgs.inferenceService, loggerArgs.namespace, loggerArgs.endpoint, composedHandler)
 
 		composedHandler = queue.ForwardedShimHandler(composedHandler)

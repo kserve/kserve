@@ -19,7 +19,7 @@ package pod
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
+	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/credentials"
 	v1 "k8s.io/api/core/v1"
@@ -101,8 +101,10 @@ func getLoggerConfigs(configMap *v1.ConfigMap) (*LoggerConfig, error) {
 
 func (ag *AgentInjector) InjectAgent(pod *v1.Pod) error {
 	// Only inject the model agent sidecar if the required annotations are set
-	_, ok := pod.ObjectMeta.Annotations[constants.AgentShouldInjectAnnotationKey]
-	if !ok {
+	_, injectLogger := pod.ObjectMeta.Annotations[constants.LoggerInternalAnnotationKey]
+	_, injectPuller := pod.ObjectMeta.Annotations[constants.AgentShouldInjectAnnotationKey]
+
+	if !injectLogger && !injectPuller {
 		return nil
 	}
 
@@ -127,7 +129,7 @@ func (ag *AgentInjector) InjectAgent(pod *v1.Pod) error {
 	}
 
 	// Only inject if the required annotations are set
-	if _, ok := pod.ObjectMeta.Annotations[constants.LoggerInternalAnnotationKey]; !ok {
+	if _, ok := pod.ObjectMeta.Annotations[constants.LoggerInternalAnnotationKey]; ok {
 		logUrl, ok := pod.ObjectMeta.Annotations[constants.LoggerSinkUrlInternalAnnotationKey]
 		if !ok {
 			logUrl = ag.loggerConfig.DefaultUrl
@@ -135,7 +137,7 @@ func (ag *AgentInjector) InjectAgent(pod *v1.Pod) error {
 
 		logMode, ok := pod.ObjectMeta.Annotations[constants.LoggerModeInternalAnnotationKey]
 		if !ok {
-			logMode = string(v1alpha2.LogAll)
+			logMode = string(v1beta1.LogAll)
 		}
 
 		inferenceServiceName, _ := pod.ObjectMeta.Labels[constants.InferenceServiceLabel]
