@@ -30,7 +30,6 @@ import (
 	"net/url"
 	"os"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -114,8 +113,7 @@ func main() {
 	// Setup probe to run for checking user-application healthiness.
 	logger, _ := pkglogging.NewLogger(env.ServingLoggingConfig, env.ServingLoggingLevel)
 	probe := buildProbe(logger, env.ServingReadinessProbe, *componentPort)
-	userPort := strconv.Itoa(env.UserPort)
-	mainServer := buildServer(ctx, *port, userPort, loggerArgs, healthState, probe, logger)
+	mainServer := buildServer(ctx, *port, *componentPort, loggerArgs, healthState, probe, logger)
 	servers := map[string]*http.Server{
 		"main": mainServer,
 	}
