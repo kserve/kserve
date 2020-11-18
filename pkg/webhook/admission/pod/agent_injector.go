@@ -187,17 +187,20 @@ func (ag *AgentInjector) InjectAgent(pod *v1.Pod) error {
 		},
 		SecurityContext: securityContext,
 		Env:             queueProxyEnvs,
-		ReadinessProbe: &v1.Probe{
-			Handler: v1.Handler{
-				Exec: &v1.ExecAction{
-					Command: []string{
-						"/agent",
-						"-probe-period",
-						"0",
-					},
+	}
+	readinessProbe := &v1.Probe{
+		Handler: v1.Handler{
+			Exec: &v1.ExecAction{
+				Command: []string{
+					"/agent",
+					"-probe-period",
+					"0",
 				},
 			},
 		},
+	}
+	if injectLogger {
+		agentContainer.ReadinessProbe = readinessProbe
 	}
 
 	// Inject credentials
