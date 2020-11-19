@@ -36,11 +36,13 @@ func TestLogger(t *testing.T) {
 	predictorRequest := []byte(`{"instances":[[0,0,0]]}`)
 	predictorResponse := []byte(`{"instances":[[4,5,6]]}`)
 
+	responseChan := make(chan string)
 	// Start a local HTTP server
 	logSvc := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		b, err := ioutil.ReadAll(req.Body)
 		g.Expect(err).To(gomega.BeNil())
 		println(string(b))
+		responseChan <- string(b)
 		g.Expect(b).To(gomega.Or(gomega.Equal(predictorRequest), gomega.Equal(predictorResponse)))
 		_, err = rw.Write([]byte(`ok`))
 		g.Expect(err).To(gomega.BeNil())
@@ -80,4 +82,8 @@ func TestLogger(t *testing.T) {
 
 	b2, _ := ioutil.ReadAll(w.Result().Body)
 	g.Expect(b2).To(gomega.Equal(predictorResponse))
+    // get logRequest
+	<- responseChan
+	// get logResponse
+	<- responseChan
 }

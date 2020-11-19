@@ -79,7 +79,6 @@ type Worker struct {
 }
 
 func (W *Worker) sendCloudEvent(logReq LogRequest) error {
-
 	t, err := cloudevents.NewHTTPTransport(
 		cloudevents.WithTarget(logReq.Url.String()),
 		cloudevents.WithEncoding(cloudevents.HTTPBinaryV1),
@@ -88,6 +87,7 @@ func (W *Worker) sendCloudEvent(logReq LogRequest) error {
 	if err != nil {
 		return fmt.Errorf("while creating http transport: %s", err)
 	}
+
 	c, err := cloudevents.NewClient(t,
 		cloudevents.WithTimeNow(),
 	)
@@ -133,7 +133,7 @@ func (w *Worker) Start() {
 					"requestId", work.Id)
 
 				if err := w.sendCloudEvent(work); err != nil {
-					w.Log.Error(err, "Failed to send log", "URL", work.Url.String())
+					w.Log.Error(err, "Failed to send cloud event", "URL", work.Url.String())
 				}
 
 			case <-w.QuitChan:
