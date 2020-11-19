@@ -36,7 +36,18 @@ const (
 	NamespaceAttr        = "namespace"
 	//endpoint would be either default or canary
 	EndpointAttr = "endpoint"
+
+	LoggerWorkerQueueSize = 100
+	CloudEventsIdHeader   = "Ce-Id"
 )
+
+// A buffered channel that we can send work requests on.
+var WorkQueue = make(chan LogRequest, LoggerWorkerQueueSize)
+
+func QueueLogRequest(req LogRequest) error {
+	WorkQueue <- req
+	return nil
+}
 
 // NewWorker creates, and returns a new Worker object. Its only argument
 // is a channel that the worker can add itself to whenever it is done its
