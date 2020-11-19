@@ -88,7 +88,7 @@ data:
     }
   logger: |-
     {
-        "image" : "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/logger",
+        "image" : "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/agent:latest",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
@@ -97,7 +97,7 @@ data:
     }
   batcher: |-
     {
-        "image" : "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/batcher",
+        "image" : "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/batcher:latest",
         "memoryRequest": "1Gi",
         "memoryLimit": "1Gi",
         "cpuRequest": "1",
@@ -105,7 +105,7 @@ data:
     }
   agent: |-
     {
-        "image" : "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/batcherc/kfserving/agent",
+        "image" : "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/agent:latest",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",

@@ -29,13 +29,11 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"strings"
 	"time"
 )
 
 var (
-	log           = logf.Log.WithName("modelAgent")
 	port          = flag.String("port", "8081", "Agent port")
 	componentPort = flag.String("component-port", "8080", "Component port")
 	// model puller flags
@@ -99,19 +97,20 @@ func main() {
 
 		os.Exit(standaloneProbeMain(*readinessProbeTimeout, transport, *port))
 	}
+	logger, _ := pkglogging.NewLogger(env.ServingLoggingConfig, env.ServingLoggingLevel)
+
 	if *enablePuller {
-		startModelPuller()
+		startModelPuller(logger)
 	}
 
 	var loggerArgs *loggerArgs
 	if *logUrl != "" {
-		startLogger(*workers)
+		loggerArgs = startLogger(*workers, logger)
 	}
 
 	healthState := &health.State{}
 	ctx := signals.NewContext()
 	// Setup probe to run for checking user-application healthiness.
-	logger, _ := pkglogging.NewLogger(env.ServingLoggingConfig, env.ServingLoggingLevel)
 	probe := buildProbe(logger, env.ServingReadinessProbe, *componentPort)
 	mainServer := buildServer(ctx, *port, *componentPort, loggerArgs, healthState, probe, logger)
 	servers := map[string]*http.Server{
@@ -163,7 +162,7 @@ func main() {
 	// to act on the first of those to reach here.
 	select {
 	case err := <-errCh:
-		logger.Errorw("Failed to bring up queue-proxy, shutting down.", zap.Error(err))
+		logger.Errorw("Failed to bring up kfserving agent, shutting down.", zap.Error(err))
 		// This extra flush is needed because defers are not handled via os.Exit calls.
 		logger.Sync()
 		os.Stdout.Sync()
@@ -195,18 +194,18 @@ func main() {
 	}
 }
 
-func startLogger(workers int) *loggerArgs {
+func startLogger(workers int, logger *zap.SugaredLogger) *loggerArgs {
 	loggingMode := v1beta1.LoggerType(*logMode)
 	switch loggingMode {
 	case v1beta1.LogAll, v1beta1.LogRequest, v1beta1.LogResponse:
 	default:
-		log.Info("Malformed log-mode", "mode", *logMode)
+		logger.Info("Malformed log-mode", "mode", *logMode)
 		os.Exit(-1)
 	}
 
 	logUrlParsed, err := url.Parse(*logUrl)
 	if err != nil {
-		log.Info("Malformed log-url", "URL", *logUrl)
+		logger.Info("Malformed log-url", "URL", *logUrl)
 		os.Exit(-1)
 	}
 
@@ -216,11 +215,11 @@ func startLogger(workers int) *loggerArgs {
 
 	sourceUriParsed, err := url.Parse(*sourceUri)
 	if err != nil {
-		log.Info("Malformed source_uri", "URL", *sourceUri)
+		logger.Info("Malformed source_uri", "URL", *sourceUri)
 		os.Exit(-1)
 	}
-	log.Info("Starting the log dispatcher")
-	kfslogger.StartDispatcher(workers, log)
+	logger.Info("Starting the log dispatcher")
+	kfslogger.StartDispatcher(workers, logger)
 	return &loggerArgs{
 		loggerType:       loggingMode,
 		logUrl:           logUrlParsed,
@@ -231,8 +230,8 @@ func startLogger(workers int) *loggerArgs {
 	}
 }
 
-func startModelPuller() {
-	log.Info("Initializing model agent with", "config-dir", configDir, "model-dir", modelDir)
+func startModelPuller(logger *zap.SugaredLogger) {
+	logger.Info("Initializing model agent with", "config-dir", configDir, "model-dir", modelDir)
 
 	downloader := agent.Downloader{
 		ModelDir:  *modelDir,
@@ -251,7 +250,7 @@ func startModelPuller() {
 			Region:           aws.String(region),
 			S3ForcePathStyle: aws.Bool(!useVirtualBucket)},
 		)
-		log.Info("Initializing s3 client with ", "endpoint", endpoint, "region", region)
+		logger.Info("Initializing s3 client with ", "endpoint", endpoint, "region", region)
 		if err != nil {
 			panic(err)
 		}

@@ -21,6 +21,7 @@ import (
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
 	"github.com/onsi/gomega"
 	"io/ioutil"
+	pkglogging "knative.dev/pkg/logging"
 	"net/http"
 	"net/http/httptest"
 	"net/http/httputil"
@@ -64,9 +65,8 @@ func TestLogger(t *testing.T) {
 	reader := bytes.NewReader(predictorRequest)
 	r := httptest.NewRequest("POST", "http://a", reader)
 	w := httptest.NewRecorder()
-
+	logger, _ := pkglogging.NewLogger("", "INFO")
 	logf.SetLogger(logf.ZapLogger(false))
-	logging := logf.Log.WithName("entrypoint")
 	logSvcUrl, err := url.Parse(logSvc.URL)
 	g.Expect(err).To(gomega.BeNil())
 	sourceUri, err := url.Parse("http://localhost:8081/")
@@ -74,7 +74,7 @@ func TestLogger(t *testing.T) {
 	targetUri, err := url.Parse(predictor.URL)
 	g.Expect(err).To(gomega.BeNil())
 
-	StartDispatcher(5, logging)
+	StartDispatcher(5, logger)
 	httpProxy := httputil.NewSingleHostReverseProxy(targetUri)
 	oh := New(logSvcUrl, sourceUri, v1beta1.LogAll, "mymodel", "default", "default", httpProxy)
 
@@ -82,8 +82,8 @@ func TestLogger(t *testing.T) {
 
 	b2, _ := ioutil.ReadAll(w.Result().Body)
 	g.Expect(b2).To(gomega.Equal(predictorResponse))
-    // get logRequest
-	<- responseChan
+	// get logRequest
+	<-responseChan
 	// get logResponse
-	<- responseChan
+	<-responseChan
 }
