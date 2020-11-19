@@ -40,6 +40,7 @@ func TestLogger(t *testing.T) {
 	logSvc := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		b, err := ioutil.ReadAll(req.Body)
 		g.Expect(err).To(gomega.BeNil())
+		println(string(b))
 		g.Expect(b).To(gomega.Or(gomega.Equal(predictorRequest), gomega.Equal(predictorResponse)))
 		_, err = rw.Write([]byte(`ok`))
 		g.Expect(err).To(gomega.BeNil())
@@ -63,7 +64,7 @@ func TestLogger(t *testing.T) {
 	w := httptest.NewRecorder()
 
 	logf.SetLogger(logf.ZapLogger(false))
-
+	logging := logf.Log.WithName("entrypoint")
 	logSvcUrl, err := url.Parse(logSvc.URL)
 	g.Expect(err).To(gomega.BeNil())
 	sourceUri, err := url.Parse("http://localhost:8081/")
@@ -71,6 +72,7 @@ func TestLogger(t *testing.T) {
 	targetUri, err := url.Parse(predictor.URL)
 	g.Expect(err).To(gomega.BeNil())
 
+	StartDispatcher(5, logging)
 	httpProxy := httputil.NewSingleHostReverseProxy(targetUri)
 	oh := New(logSvcUrl, sourceUri, v1beta1.LogAll, "mymodel", "default", "default", httpProxy)
 
@@ -78,5 +80,4 @@ func TestLogger(t *testing.T) {
 
 	b2, _ := ioutil.ReadAll(w.Result().Body)
 	g.Expect(b2).To(gomega.Equal(predictorResponse))
-
 }

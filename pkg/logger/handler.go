@@ -63,15 +63,6 @@ func getOrCreateID(r *http.Request) string {
 	return id
 }
 
-type MyResponseWriter struct {
-	http.ResponseWriter
-	buf *bytes.Buffer
-}
-
-func (mrw *MyResponseWriter) Write(p []byte) (int, error) {
-	return mrw.buf.Write(p)
-}
-
 // call svc and add send request/responses to logUrl
 func (eh *LoggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if network.IsKubeletProbe(r) {
