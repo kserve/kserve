@@ -28,10 +28,13 @@ import (
 )
 
 const (
-	AgentDefaultCPURequest    = "100m"
-	AgentDefaultCPULimit      = "1"
-	AgentDefaultMemoryRequest = "200Mi"
-	AgentDefaultMemoryLimit   = "1Gi"
+	LoggerConfigMapKeyName         = "logger"
+	LoggerArgumentLogUrl           = "--log-url"
+	LoggerArgumentSourceUri        = "--source-uri"
+	LoggerArgumentMode             = "--log-mode"
+	LoggerArgumentInferenceService = "--inference-service"
+	LoggerArgumentNamespace        = "--namespace"
+	LoggerArgumentEndpoint         = "--endpoint"
 )
 
 type AgentConfig struct {
@@ -40,6 +43,15 @@ type AgentConfig struct {
 	CpuLimit      string `json:"cpuLimit"`
 	MemoryRequest string `json:"memoryRequest"`
 	MemoryLimit   string `json:"memoryLimit"`
+}
+
+type LoggerConfig struct {
+	Image         string `json:"image"`
+	CpuRequest    string `json:"cpuRequest"`
+	CpuLimit      string `json:"cpuLimit"`
+	MemoryRequest string `json:"memoryRequest"`
+	MemoryLimit   string `json:"memoryLimit"`
+	DefaultUrl    string `json:"defaultUrl"`
 }
 
 type AgentInjector struct {

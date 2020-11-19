@@ -18,11 +18,12 @@ package logger
 
 import (
 	"bytes"
-	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
+	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
 	"github.com/onsi/gomega"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"net/http/httputil"
 	"net/url"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"testing"
@@ -62,15 +63,16 @@ func TestLogger(t *testing.T) {
 	w := httptest.NewRecorder()
 
 	logf.SetLogger(logf.ZapLogger(false))
-	log := logf.Log.WithName("entrypoint")
 
-	predictorSvcUrl, err := url.Parse(predictor.URL)
-	g.Expect(err).To(gomega.BeNil())
 	logSvcUrl, err := url.Parse(logSvc.URL)
 	g.Expect(err).To(gomega.BeNil())
-	sourceUri, err := url.Parse("http://localhost:8080/")
+	sourceUri, err := url.Parse("http://localhost:8081/")
 	g.Expect(err).To(gomega.BeNil())
-	oh := New(log, "0.0.0.0", predictorSvcUrl.Port(), logSvcUrl, sourceUri, v1alpha2.LogAll, "mymodel", "default", "default")
+	targetUri, err := url.Parse(predictor.URL)
+	g.Expect(err).To(gomega.BeNil())
+
+	httpProxy := httputil.NewSingleHostReverseProxy(targetUri)
+	oh := New(logSvcUrl, sourceUri, v1beta1.LogAll, "mymodel", "default", "default", httpProxy)
 
 	oh.ServeHTTP(w, r)
 
