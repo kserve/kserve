@@ -1,6 +1,6 @@
 # KFServing Observability
 
-The Knative Observability project is deprecated and no longer ships releases. So for the time being, it is necessary to look deeper for metrics regarding deployed `InferenceServices`.
+The [Knative Observability](https://github.com/knative/observability) project is deprecated and no longer ships releases. So for the time being, it is necessary to look deeper for metrics regarding deployed `InferenceServices`.
 
 ## Istio / Prometheus
 
