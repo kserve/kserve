@@ -6,11 +6,12 @@
 apiVersion: "serving.kubeflow.org/v1beta1"
 kind: "InferenceService"
 metadata:
- name: "torchserve-custom"
+  name: "torchserve-custom"
 spec:
- predictor:
-   pytorch:
-     storageUri: "pvc://model-pv-claim"
+  predictor:
+    containers:
+    - image: {username}/torchserve:latest
+      name: torchserve-container
 ```
 
 ### Canary model
@@ -21,12 +22,13 @@ Change the path and deploy
 apiVersion: "serving.kubeflow.org/v1beta1"
 kind: "InferenceService"
 metadata:
- name: "torchserve-custom"
+  name: "torchserve-custom"
 spec:
- predictor:
-   canaryTrafficPercent: 20
-   pytorch:
-     storageUri: "pvc://model-store-claim-1"
+  predictor:
+    canaryTrafficPercent: 20
+    containers:
+    - image: {username}/torchserve_v2:latest
+      name: torchserve-container
 ```
 
 ## Create the InferenceService
