@@ -1,5 +1,5 @@
 /*
-Copyright 2019 kubeflow.org.
+Copyright 2020 kubeflow.org.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,20 +14,21 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package istio
+package ingress
 
 import (
-	"github.com/google/go-cmp/cmp"
-	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
+"github.com/google/go-cmp/cmp"
+"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
+	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
 	"github.com/kubeflow/kfserving/pkg/constants"
-	istiov1alpha3 "istio.io/api/networking/v1alpha3"
-	"istio.io/client-go/pkg/apis/networking/v1alpha3"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"knative.dev/pkg/apis"
-	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
-	"knative.dev/pkg/network"
-	"testing"
+istiov1alpha3 "istio.io/api/networking/v1alpha3"
+"istio.io/client-go/pkg/apis/networking/v1alpha3"
+corev1 "k8s.io/api/core/v1"
+metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+"knative.dev/pkg/apis"
+duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
+"knative.dev/pkg/network"
+"testing"
 )
 
 func TestCreateVirtualService(t *testing.T) {
@@ -60,29 +61,21 @@ func TestCreateVirtualService(t *testing.T) {
 	}
 	cases := []struct {
 		name            string
-		defaultStatus   v1alpha2.ComponentStatusMap
-		canaryStatus    v1alpha2.ComponentStatusMap
-		expectedStatus  *v1alpha2.VirtualServiceStatus
+		defaultStatus   *map[constants.InferenceServiceComponent]v1beta1.ComponentStatusSpec
 		expectedService *v1alpha3.VirtualService
 	}{{
 		name:            "nil status should not be ready",
 		defaultStatus:   nil,
-		canaryStatus:    nil,
-		expectedStatus:  createFailedStatus(PredictorStatusUnknown, PredictorMissingMessage),
 		expectedService: nil,
 	}, {
 		name:            "empty status should not be ready",
 		defaultStatus:   nil,
-		canaryStatus:    nil,
-		expectedStatus:  createFailedStatus(PredictorStatusUnknown, PredictorMissingMessage),
 		expectedService: nil,
 	}, {
 		name: "predictor missing host name",
-		defaultStatus: &map[constants.InferenceServiceComponent]v1alpha2.StatusConfigurationSpec{
-			constants.Predictor: v1alpha2.StatusConfigurationSpec{},
+		defaultStatus: &map[constants.InferenceServiceComponent]v1beta1.ComponentStatusSpec{
+			constants.Predictor: v1beta1.ComponentStatusSpec{},
 		},
-		canaryStatus:    nil,
-		expectedStatus:  createFailedStatus(PredictorHostnameUnknown, PredictorMissingMessage),
 		expectedService: nil,
 	}, {
 		name: "found predictor",
@@ -90,24 +83,6 @@ func TestCreateVirtualService(t *testing.T) {
 			constants.Predictor: v1alpha2.StatusConfigurationSpec{
 				Hostname: predictorHostname,
 			},
-		},
-		canaryStatus: nil,
-		expectedStatus: &v1alpha2.VirtualServiceStatus{
-			Status: duckv1beta1.Status{
-				Conditions: duckv1beta1.Conditions{{
-					Type:   v1alpha2.RoutesReady,
-					Status: corev1.ConditionTrue,
-				}},
-			},
-			URL: expectedURL,
-			Address: &duckv1beta1.Addressable{
-				URL: &apis.URL{
-					Scheme: "http",
-					Path:   constants.PredictPath(serviceName),
-					Host:   network.GetServiceHostname(serviceName, namespace),
-				},
-			},
-			DefaultWeight: 100,
 		},
 		expectedService: &v1alpha3.VirtualService{
 			ObjectMeta: metav1.ObjectMeta{Name: serviceName, Namespace: namespace},
@@ -135,7 +110,7 @@ func TestCreateVirtualService(t *testing.T) {
 				},
 			},
 		},
-	}, {
+	},{
 		name: "nil transformer status fails with status unknown",
 		defaultStatus: &map[constants.InferenceServiceComponent]v1alpha2.StatusConfigurationSpec{
 			constants.Transformer: v1alpha2.StatusConfigurationSpec{},
@@ -143,8 +118,6 @@ func TestCreateVirtualService(t *testing.T) {
 				Hostname: predictorHostname,
 			},
 		},
-		canaryStatus:    nil,
-		expectedStatus:  createFailedStatus(TransformerHostnameUnknown, TransformerMissingMessage),
 		expectedService: nil,
 	}, {
 		name: "transformer missing host name",
@@ -154,8 +127,6 @@ func TestCreateVirtualService(t *testing.T) {
 				Hostname: predictorHostname,
 			},
 		},
-		canaryStatus:    nil,
-		expectedStatus:  createFailedStatus(TransformerHostnameUnknown, TransformerMissingMessage),
 		expectedService: nil,
 	}, {
 		name: "default transformer and predictor",
@@ -166,24 +137,6 @@ func TestCreateVirtualService(t *testing.T) {
 			constants.Predictor: v1alpha2.StatusConfigurationSpec{
 				Hostname: predictorHostname,
 			},
-		},
-		canaryStatus: nil,
-		expectedStatus: &v1alpha2.VirtualServiceStatus{
-			Status: duckv1beta1.Status{
-				Conditions: duckv1beta1.Conditions{{
-					Type:   v1alpha2.RoutesReady,
-					Status: corev1.ConditionTrue,
-				}},
-			},
-			URL: expectedURL,
-			Address: &duckv1beta1.Addressable{
-				URL: &apis.URL{
-					Scheme: "http",
-					Path:   constants.PredictPath(serviceName),
-					Host:   network.GetServiceHostname(serviceName, namespace),
-				},
-			},
-			DefaultWeight: 100,
 		},
 		expectedService: &v1alpha3.VirtualService{
 			ObjectMeta: metav1.ObjectMeta{Name: serviceName, Namespace: namespace},
@@ -213,6 +166,61 @@ func TestCreateVirtualService(t *testing.T) {
 			},
 		},
 	}, {
+		name: "missing canary transformer",
+		defaultStatus: &map[constants.InferenceServiceComponent]v1alpha2.StatusConfigurationSpec{
+			constants.Transformer: v1alpha2.StatusConfigurationSpec{
+				Hostname: transformerHostname,
+			},
+			constants.Predictor: v1alpha2.StatusConfigurationSpec{
+				Hostname: predictorHostname,
+			},
+		},
+		expectedService: nil,
+	}, {
+		name: "canary & default transformer and predictor",
+		defaultStatus: &map[constants.InferenceServiceComponent]v1alpha2.StatusConfigurationSpec{
+			constants.Transformer: v1alpha2.StatusConfigurationSpec{
+				Hostname: transformerHostname,
+			},
+			constants.Predictor: v1alpha2.StatusConfigurationSpec{
+				Hostname: predictorHostname,
+			},
+		},
+		expectedService: &v1alpha3.VirtualService{
+			ObjectMeta: metav1.ObjectMeta{Name: serviceName, Namespace: namespace},
+			Spec: istiov1alpha3.VirtualService{
+				Hosts:    []string{serviceHostName, serviceInternalHostName},
+				Gateways: []string{constants.KnativeIngressGateway, constants.KnativeLocalGateway},
+				Http: []*istiov1alpha3.HTTPRoute{
+					{
+						Match: predictorRouteMatch,
+						Route: []*istiov1alpha3.HTTPRouteDestination{
+							{
+								Destination: &istiov1alpha3.Destination{Host: constants.LocalGatewayHost, Port: &istiov1alpha3.PortSelector{Number: constants.CommonDefaultHttpPort}},
+								Weight:      80,
+								Headers: &istiov1alpha3.Headers{
+									Request: &istiov1alpha3.Headers_HeaderOperations{Set: map[string]string{
+										"Host": network.GetServiceHostname(constants.DefaultTransformerServiceName(serviceName), namespace)}},
+								},
+							},
+							{
+								Destination: &istiov1alpha3.Destination{Host: constants.LocalGatewayHost, Port: &istiov1alpha3.PortSelector{Number: constants.CommonDefaultHttpPort}},
+								Weight:      20,
+								Headers: &istiov1alpha3.Headers{
+									Request: &istiov1alpha3.Headers_HeaderOperations{Set: map[string]string{
+										"Host": network.GetServiceHostname(constants.CanaryTransformerServiceName(serviceName), namespace)}},
+								},
+							},
+						},
+						Retries: &istiov1alpha3.HTTPRetry{
+							Attempts:      0,
+							PerTryTimeout: nil,
+						},
+					},
+				},
+			},
+		},
+	}, {
 		name: "nil explainer status fails with status unknown",
 		defaultStatus: &map[constants.InferenceServiceComponent]v1alpha2.StatusConfigurationSpec{
 			constants.Explainer: v1alpha2.StatusConfigurationSpec{},
@@ -220,19 +228,15 @@ func TestCreateVirtualService(t *testing.T) {
 				Hostname: predictorHostname,
 			},
 		},
-		canaryStatus:    nil,
-		expectedStatus:  createFailedStatus(ExplainerHostnameUnknown, ExplainerMissingMessage),
 		expectedService: nil,
 	}, {
 		name: "explainer missing host name",
-		defaultStatus: &map[constants.InferenceServiceComponent]v1alpha2.StatusConfigurationSpec{
+		defaultStatus: &map[constants.InferenceServiceComponent]v1beta1.ComponentStatusSpec{
 			constants.Explainer: v1alpha2.StatusConfigurationSpec{},
 			constants.Predictor: v1alpha2.StatusConfigurationSpec{
 				Hostname: predictorHostname,
 			},
 		},
-		canaryStatus:    nil,
-		expectedStatus:  createFailedStatus(ExplainerHostnameUnknown, ExplainerMissingMessage),
 		expectedService: nil,
 	}, {
 		name: "default explainer and predictor",
@@ -243,24 +247,6 @@ func TestCreateVirtualService(t *testing.T) {
 			constants.Predictor: v1alpha2.StatusConfigurationSpec{
 				Hostname: predictorHostname,
 			},
-		},
-		canaryStatus: nil,
-		expectedStatus: &v1alpha2.VirtualServiceStatus{
-			Status: duckv1beta1.Status{
-				Conditions: duckv1beta1.Conditions{{
-					Type:   v1alpha2.RoutesReady,
-					Status: corev1.ConditionTrue,
-				}},
-			},
-			URL: expectedURL,
-			Address: &duckv1beta1.Addressable{
-				URL: &apis.URL{
-					Scheme: "http",
-					Path:   constants.PredictPath(serviceName),
-					Host:   network.GetServiceHostname(serviceName, namespace),
-				},
-			},
-			DefaultWeight: 100,
 		},
 		expectedService: &v1alpha3.VirtualService{
 			ObjectMeta: metav1.ObjectMeta{Name: serviceName, Namespace: namespace},
@@ -332,36 +318,35 @@ func TestCreateVirtualService(t *testing.T) {
 						},
 					},
 				},
-			},
+			}
 		},
 	},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			testIsvc := &v1alpha2.InferenceService{
+			testIsvc := &v1beta1.InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      serviceName,
 					Namespace: namespace,
 				},
-				Spec: v1alpha2.InferenceServiceSpec{
-					Default: v1alpha2.EndpointSpec{
-					},
+				Spec: v1beta1.InferenceServiceSpec{
+						Predictor:   createMockPredictorSpec(&tc.defaultStatus),
+						Explainer:   createMockExplainerSpec(tc.defaultStatus),
+						Transformer: createMockTransformerSpec(tc.defaultStatus),
 				},
-				Status: v1alpha2.InferenceServiceStatus{
-					Default: tc.defaultStatus,
-					Canary:  tc.canaryStatus,
+				Status: v1beta1.InferenceServiceStatus{
+					Components: tc.defaultStatus,
 				},
 			}
 
-			serviceBuilder := VirtualServiceBuilder{
-				ingressConfig: &IngressConfig{
-					IngressGateway:     constants.KnativeIngressGateway,
-					IngressServiceName: "someIngressServiceName",
-				},
+			ingressConfig := &v1beta1.IngressConfig{
+				IngressGateway:     constants.KnativeIngressGateway,
+				IngressServiceName: "someIngressServiceName",
 			}
-			actualService, actualStatus := serviceBuilder.CreateVirtualService(testIsvc)
 
+			reconciler := NewIngressReconciler(r.Client, r.Scheme, ingressConfig)
+			reconciler.Reconcile(testIsvc)
 			if diff := cmp.Diff(tc.expectedStatus, actualStatus); diff != "" {
 				t.Errorf("Test %q unexpected status (-want +got): %v", tc.name, diff)
 			}
@@ -412,5 +397,31 @@ func createInferenceServiceWithHostname(hostName string) *v1alpha2.InferenceServ
 				}},
 		},
 	}
+}
+
+func createMockPredictorSpec(componentStatusMap *v1alpha2.ComponentStatusMap) v1alpha2.PredictorSpec {
+	return v1alpha2.PredictorSpec{}
+}
+
+func createMockExplainerSpec(componentStatusMap v1alpha2.ComponentStatusMap) *v1alpha2.ExplainerSpec {
+	if componentStatusMap == nil {
+		return nil
+	}
+
+	if _, ok := (*componentStatusMap)[constants.Explainer]; ok {
+		return &v1alpha2.ExplainerSpec{}
+	}
+	return nil
+}
+
+func createMockTransformerSpec(componentStatusMap v1alpha2.ComponentStatusMap) *v1alpha2.TransformerSpec {
+	if componentStatusMap == nil {
+		return nil
+	}
+
+	if _, ok := (*componentStatusMap)[constants.Transformer]; ok {
+		return &v1alpha2.TransformerSpec{}
+	}
+	return nil
 }
 
