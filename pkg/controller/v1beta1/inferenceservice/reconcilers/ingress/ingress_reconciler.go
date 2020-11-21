@@ -242,7 +242,7 @@ func (ir *IngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
 	}
 	isInternal := false
 	//if service is labelled with cluster local or knative domain is configured as internal
-	if val, ok := isvc.Labels[constants.VisibilityLabel]; ok && val == "ClusterLocal" {
+	if val, ok := isvc.Labels[constants.VisibilityLabel]; ok && val == "cluster-local" {
 		isInternal = true
 	}
 	serviceInternalHostName := network.GetServiceHostname(isvc.Name, isvc.Namespace)
