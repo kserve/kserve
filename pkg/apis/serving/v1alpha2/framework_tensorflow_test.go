@@ -110,7 +110,7 @@ func TestTensorflowContainer(t *testing.T) {
 			"--rest_api_port=" + TensorflowServingRestPort,
 			"--model_name=someName",
 			"--model_base_path=/mnt/models",
-			"--rest_api_timeout_in_ms=",
+			"--rest_api_timeout_in_ms=0",
 		},
 		LivenessProbe: &v1.Probe{
 			Handler: v1.Handler{

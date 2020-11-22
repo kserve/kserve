@@ -46,7 +46,7 @@ func (t *TensorflowSpec) GetContainer(modelName string, parallelism int, config 
 		"--rest_api_port=" + TensorflowServingRestPort,
 		"--model_name=" + modelName,
 		"--model_base_path=" + constants.DefaultModelLocalMountPath,
-		"--rest_api_timeout_in_ms=" + config.Predictors.Tensorflow.DefaultTimeout,
+		"--rest_api_timeout_in_ms=" + fmt.Sprint(config.Predictors.Tensorflow.DefaultTimeout),
 	}
 
 	return &v1.Container{
