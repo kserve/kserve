@@ -159,7 +159,7 @@ func (r *IngressReconciler) reconcileExternalService(isvc *v1beta1.InferenceServ
 	return nil
 }
 
-func (ir *IngressReconciler) createHTTPRouteDestination(targetHost, namespace string, gatewayService string) *istiov1alpha3.HTTPRouteDestination {
+func createHTTPRouteDestination(targetHost, namespace string, gatewayService string) *istiov1alpha3.HTTPRouteDestination {
 	httpRouteDestination := &istiov1alpha3.HTTPRouteDestination{
 		Headers: &istiov1alpha3.Headers{
 			Request: &istiov1alpha3.Headers_HeaderOperations{
@@ -174,11 +174,12 @@ func (ir *IngressReconciler) createHTTPRouteDestination(targetHost, namespace st
 				Number: constants.CommonDefaultHttpPort,
 			},
 		},
+		Weight: 100,
 	}
 	return httpRouteDestination
 }
 
-func (ir *IngressReconciler) createHTTPMatchRequest(prefix, targetHost, internalHost string, isInternal bool) []*istiov1alpha3.HTTPMatchRequest {
+func createHTTPMatchRequest(prefix, targetHost, internalHost string, isInternal bool, config *v1beta1.IngressConfig) []*istiov1alpha3.HTTPMatchRequest {
 	var uri *istiov1alpha3.StringMatch
 	if prefix != "" {
 		uri = &istiov1alpha3.StringMatch{
@@ -207,24 +208,15 @@ func (ir *IngressReconciler) createHTTPMatchRequest(prefix, targetHost, internal
 						Regex: constants.HostRegExp(targetHost),
 					},
 				},
-				Gateways: []string{ir.ingressConfig.IngressGateway},
+				Gateways: []string{config.IngressGateway},
 			})
 	}
 	return matchRequests
 }
 
-func (ir *IngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
-	if !isvc.Status.IsConditionReady(v1beta1.PredictorReady) {
-		isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
-			Type:   v1beta1.IngressReady,
-			Status: corev1.ConditionFalse,
-			Reason: "Predictor ingress not created",
-		})
-		return nil
-	}
+func createIngress(isvc *v1beta1.InferenceService, config *v1beta1.IngressConfig) *v1alpha3.VirtualService {
 	serviceHost := getServiceHost(isvc)
-	serviceUrl := getServiceUrl(isvc)
-	if serviceHost == "" || serviceUrl == "" {
+	if serviceHost == "" {
 		return nil
 	}
 	backend := constants.DefaultPredictorServiceName(isvc.Name)
@@ -261,28 +253,23 @@ func (ir *IngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
 			return nil
 		}
 		explainerRouter := istiov1alpha3.HTTPRoute{
-			Match: ir.createHTTPMatchRequest(constants.ExplainPrefix(), serviceHost,
-				network.GetServiceHostname(isvc.Name, isvc.Namespace), isInternal),
+			Match: createHTTPMatchRequest(constants.ExplainPrefix(), serviceHost,
+				network.GetServiceHostname(isvc.Name, isvc.Namespace), isInternal, config),
 			Route: []*istiov1alpha3.HTTPRouteDestination{
-				ir.createHTTPRouteDestination(constants.DefaultExplainerServiceName(isvc.Name), isvc.Namespace, constants.LocalGatewayHost),
+				createHTTPRouteDestination(constants.DefaultExplainerServiceName(isvc.Name), isvc.Namespace, constants.LocalGatewayHost),
 			},
 		}
 		httpRoutes = append(httpRoutes, &explainerRouter)
 	}
 	// Add predict route
 	httpRoutes = append(httpRoutes, &istiov1alpha3.HTTPRoute{
-		Match: ir.createHTTPMatchRequest("", serviceHost,
-			network.GetServiceHostname(isvc.Name, isvc.Namespace), isInternal),
+		Match: createHTTPMatchRequest("", serviceHost,
+			network.GetServiceHostname(isvc.Name, isvc.Namespace), isInternal, config),
 		Route: []*istiov1alpha3.HTTPRouteDestination{
-			ir.createHTTPRouteDestination(backend, isvc.Namespace, constants.LocalGatewayHost),
+			createHTTPRouteDestination(backend, isvc.Namespace, constants.LocalGatewayHost),
 		},
 	})
 
-	//Create external service which points to local gateway
-	if err := ir.reconcileExternalService(isvc); err != nil {
-		return errors.Wrapf(err, "fails to reconcile external name service")
-	}
-	//Create ingress
 	desiredIngress := &v1alpha3.VirtualService{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      isvc.Name,
@@ -294,12 +281,37 @@ func (ir *IngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
 				network.GetServiceHostname(isvc.Name, isvc.Namespace),
 			},
 			Gateways: []string{
-				ir.ingressConfig.IngressGateway,
+				config.IngressGateway,
 				constants.KnativeLocalGateway,
 			},
 			Http: httpRoutes,
 		},
 	}
+	return desiredIngress
+}
+
+func (ir *IngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
+	if !isvc.Status.IsConditionReady(v1beta1.PredictorReady) {
+		isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
+			Type:   v1beta1.IngressReady,
+			Status: corev1.ConditionFalse,
+			Reason: "Predictor ingress not created",
+		})
+		return nil
+	}
+
+	serviceHost := getServiceHost(isvc)
+	serviceUrl := getServiceUrl(isvc)
+	if serviceHost == "" || serviceUrl == "" {
+		return nil
+	}
+	//Create external service which points to local gateway
+	if err := ir.reconcileExternalService(isvc); err != nil {
+		return errors.Wrapf(err, "fails to reconcile external name service")
+	}
+	//Create ingress
+	desiredIngress := createIngress(isvc, ir.ingressConfig)
+
 	if err := controllerutil.SetControllerReference(isvc, desiredIngress, ir.scheme); err != nil {
 		return errors.Wrapf(err, "fails to set owner reference for ingress")
 	}
