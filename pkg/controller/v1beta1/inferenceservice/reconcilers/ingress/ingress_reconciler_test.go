@@ -22,6 +22,7 @@ import (
 	"github.com/kubeflow/kfserving/pkg/constants"
 	istiov1alpha3 "istio.io/api/networking/v1alpha3"
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
@@ -58,7 +59,7 @@ func TestCreateVirtualService(t *testing.T) {
 	}
 	cases := []struct {
 		name            string
-		componentStatus map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec
+		componentStatus *v1beta1.InferenceServiceStatus
 		expectedService *v1alpha3.VirtualService
 	}{{
 		name:            "nil status should not be ready",
@@ -66,22 +67,34 @@ func TestCreateVirtualService(t *testing.T) {
 		expectedService: nil,
 	}, {
 		name: "predictor missing url",
-		componentStatus: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
-			v1beta1.PredictorComponent: {},
+		componentStatus: &v1beta1.InferenceServiceStatus{
+			Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
+				v1beta1.PredictorComponent: {},
+			},
 		},
 		expectedService: nil,
 	}, {
 		name: "found predictor status",
-		componentStatus: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
-			v1beta1.PredictorComponent: {
-				URL: &apis.URL{
-					Scheme: "http",
-					Host:   predictorHostname,
+		componentStatus: &v1beta1.InferenceServiceStatus{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{
+					{
+						Type:   v1beta1.PredictorReady,
+						Status: corev1.ConditionTrue,
+					},
 				},
-				Address: &duckv1.Addressable{
+			},
+			Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
+				v1beta1.PredictorComponent: {
 					URL: &apis.URL{
 						Scheme: "http",
-						Host:   network.GetServiceHostname(constants.DefaultPredictorServiceName(serviceName), namespace),
+						Host:   predictorHostname,
+					},
+					Address: &duckv1.Addressable{
+						URL: &apis.URL{
+							Scheme: "http",
+							Host:   network.GetServiceHostname(constants.DefaultPredictorServiceName(serviceName), namespace),
+						},
 					},
 				},
 			},
@@ -89,8 +102,8 @@ func TestCreateVirtualService(t *testing.T) {
 		expectedService: &v1alpha3.VirtualService{
 			ObjectMeta: metav1.ObjectMeta{Name: serviceName, Namespace: namespace},
 			Spec: istiov1alpha3.VirtualService{
-				Hosts:    []string{serviceHostName, serviceInternalHostName},
-				Gateways: []string{constants.KnativeIngressGateway, constants.KnativeLocalGateway},
+				Hosts:    []string{serviceInternalHostName, serviceHostName},
+				Gateways: []string{constants.KnativeLocalGateway, constants.KnativeIngressGateway},
 				Http: []*istiov1alpha3.HTTPRoute{
 					{
 						Match: predictorRouteMatch,
@@ -109,147 +122,40 @@ func TestCreateVirtualService(t *testing.T) {
 			},
 		},
 	}, {
-		name: "nil transformer status fails with status unknown",
-		componentStatus: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
-			v1beta1.TransformerComponent: {},
-			v1beta1.PredictorComponent: {
-				URL: &apis.URL{
-					Scheme: "http",
-					Host:   predictorHostname,
-				},
-				Address: &duckv1.Addressable{
-					URL: &apis.URL{
-						Scheme: "http",
-						Host:   network.GetServiceHostname(serviceName, namespace),
+		name: "local cluster predictor",
+		componentStatus: &v1beta1.InferenceServiceStatus{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{
+					{
+						Type:   v1beta1.PredictorReady,
+						Status: corev1.ConditionTrue,
 					},
 				},
 			},
-		},
-		expectedService: nil,
-	}, {
-		name: "found transformer and predictor status",
-		componentStatus: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
-			v1beta1.TransformerComponent: {
-				URL: &apis.URL{
-					Scheme: "http",
-					Host:   transformerHostname,
-				},
-				Address: &duckv1.Addressable{
-					URL: &apis.URL{
-						Scheme: "http",
-						Host:   network.GetServiceHostname(constants.DefaultTransformerServiceName(serviceName), namespace),
-					},
-				},
-			},
-			v1beta1.PredictorComponent: {
-				URL: &apis.URL{
-					Scheme: "http",
-					Host:   predictorHostname,
-				},
-				Address: &duckv1.Addressable{
+			Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
+				v1beta1.PredictorComponent: {
 					URL: &apis.URL{
 						Scheme: "http",
 						Host:   network.GetServiceHostname(constants.DefaultPredictorServiceName(serviceName), namespace),
 					},
-				},
-			},
-		},
-		expectedService: &v1alpha3.VirtualService{
-			ObjectMeta: metav1.ObjectMeta{Name: serviceName, Namespace: namespace},
-			Spec: istiov1alpha3.VirtualService{
-				Hosts:    []string{serviceHostName, serviceInternalHostName},
-				Gateways: []string{constants.KnativeIngressGateway, constants.KnativeLocalGateway},
-				Http: []*istiov1alpha3.HTTPRoute{
-					{
-						Match: predictorRouteMatch,
-						Route: []*istiov1alpha3.HTTPRouteDestination{
-							{
-								Destination: &istiov1alpha3.Destination{Host: constants.LocalGatewayHost, Port: &istiov1alpha3.PortSelector{Number: constants.CommonDefaultHttpPort}},
-								Weight:      100,
-								Headers: &istiov1alpha3.Headers{
-									Request: &istiov1alpha3.Headers_HeaderOperations{Set: map[string]string{
-										"Host": network.GetServiceHostname(constants.DefaultTransformerServiceName(serviceName), namespace),
-									}},
-								},
-							},
+					Address: &duckv1.Addressable{
+						URL: &apis.URL{
+							Scheme: "http",
+							Host:   network.GetServiceHostname(constants.DefaultPredictorServiceName(serviceName), namespace),
 						},
 					},
 				},
 			},
 		},
-	}, {
-		name: "nil explainer status fails with status unknown",
-		componentStatus: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
-			v1beta1.ExplainerComponent: {},
-			v1beta1.PredictorComponent: {
-				URL: &apis.URL{
-					Scheme: "http",
-					Host:   predictorHostname,
-				},
-				Address: &duckv1.Addressable{
-					URL: &apis.URL{
-						Scheme: "http",
-						Host:   network.GetServiceHostname(serviceName, namespace),
-					},
-				},
-			},
-		},
-		expectedService: nil,
-	}, {
-		name: "default explainer and predictor",
-		componentStatus: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
-			v1beta1.TransformerComponent: {
-				URL: &apis.URL{
-					Scheme: "http",
-					Host:   explainerHostname,
-				},
-				Address: &duckv1.Addressable{
-					URL: &apis.URL{
-						Scheme: "http",
-						Host:   network.GetServiceHostname(serviceName, namespace),
-					},
-				},
-			},
-			v1beta1.PredictorComponent: {
-				URL: &apis.URL{
-					Scheme: "http",
-					Host:   predictorHostname,
-				},
-				Address: &duckv1.Addressable{
-					URL: &apis.URL{
-						Scheme: "http",
-						Host:   network.GetServiceHostname(serviceName, namespace),
-					},
-				},
-			},
-		},
 		expectedService: &v1alpha3.VirtualService{
 			ObjectMeta: metav1.ObjectMeta{Name: serviceName, Namespace: namespace},
 			Spec: istiov1alpha3.VirtualService{
-				Hosts:    []string{serviceHostName, serviceInternalHostName},
-				Gateways: []string{constants.KnativeIngressGateway, constants.KnativeLocalGateway},
+				Hosts:    []string{serviceInternalHostName},
+				Gateways: []string{constants.KnativeLocalGateway},
 				Http: []*istiov1alpha3.HTTPRoute{
 					{
 						Match: []*istiov1alpha3.HTTPMatchRequest{
 							{
-								Uri: &istiov1alpha3.StringMatch{
-									MatchType: &istiov1alpha3.StringMatch_Regex{
-										Regex: constants.ExplainPrefix(),
-									},
-								},
-								Authority: &istiov1alpha3.StringMatch{
-									MatchType: &istiov1alpha3.StringMatch_Regex{
-										Regex: constants.HostRegExp(constants.InferenceServiceHostName(serviceName, namespace, domain)),
-									},
-								},
-								Gateways: []string{constants.KnativeIngressGateway},
-							},
-							{
-								Uri: &istiov1alpha3.StringMatch{
-									MatchType: &istiov1alpha3.StringMatch_Regex{
-										Regex: constants.ExplainPrefix(),
-									},
-								},
 								Authority: &istiov1alpha3.StringMatch{
 									MatchType: &istiov1alpha3.StringMatch_Regex{
 										Regex: constants.HostRegExp(network.GetServiceHostname(serviceName, namespace)),
@@ -264,22 +170,7 @@ func TestCreateVirtualService(t *testing.T) {
 								Weight:      100,
 								Headers: &istiov1alpha3.Headers{
 									Request: &istiov1alpha3.Headers_HeaderOperations{Set: map[string]string{
-										"Host": network.GetServiceHostname(constants.DefaultExplainerServiceName(serviceName), namespace)},
-									},
-								},
-							},
-						},
-					},
-					{
-						Match: predictorRouteMatch,
-						Route: []*istiov1alpha3.HTTPRouteDestination{
-							{
-								Destination: &istiov1alpha3.Destination{Host: constants.LocalGatewayHost, Port: &istiov1alpha3.PortSelector{Number: constants.CommonDefaultHttpPort}},
-								Weight:      100,
-								Headers: &istiov1alpha3.Headers{
-									Request: &istiov1alpha3.Headers_HeaderOperations{Set: map[string]string{
-										"Host": network.GetServiceHostname(constants.DefaultPredictorServiceName(serviceName), namespace)},
-									},
+										"Host": network.GetServiceHostname(constants.DefaultPredictorServiceName(serviceName), namespace)}},
 								},
 							},
 						},
@@ -288,6 +179,283 @@ func TestCreateVirtualService(t *testing.T) {
 			},
 		},
 	},
+		{
+			name: "nil transformer status fails with status unknown",
+			componentStatus: &v1beta1.InferenceServiceStatus{
+				Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
+					v1beta1.TransformerComponent: {},
+					v1beta1.PredictorComponent: {
+						URL: &apis.URL{
+							Scheme: "http",
+							Host:   predictorHostname,
+						},
+						Address: &duckv1.Addressable{
+							URL: &apis.URL{
+								Scheme: "http",
+								Host:   network.GetServiceHostname(serviceName, namespace),
+							},
+						},
+					},
+				},
+			},
+			expectedService: nil,
+		}, {
+			name: "found transformer and predictor status",
+			componentStatus: &v1beta1.InferenceServiceStatus{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{
+						{
+							Type:   v1beta1.PredictorReady,
+							Status: corev1.ConditionTrue,
+						},
+						{
+							Type:   v1beta1.TransformerReady,
+							Status: corev1.ConditionTrue,
+						},
+					},
+				},
+				Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
+					v1beta1.TransformerComponent: {
+						URL: &apis.URL{
+							Scheme: "http",
+							Host:   transformerHostname,
+						},
+						Address: &duckv1.Addressable{
+							URL: &apis.URL{
+								Scheme: "http",
+								Host:   network.GetServiceHostname(constants.DefaultTransformerServiceName(serviceName), namespace),
+							},
+						},
+					},
+					v1beta1.PredictorComponent: {
+						URL: &apis.URL{
+							Scheme: "http",
+							Host:   predictorHostname,
+						},
+						Address: &duckv1.Addressable{
+							URL: &apis.URL{
+								Scheme: "http",
+								Host:   network.GetServiceHostname(constants.DefaultPredictorServiceName(serviceName), namespace),
+							},
+						},
+					},
+				},
+			},
+			expectedService: &v1alpha3.VirtualService{
+				ObjectMeta: metav1.ObjectMeta{Name: serviceName, Namespace: namespace},
+				Spec: istiov1alpha3.VirtualService{
+					Hosts:    []string{serviceInternalHostName, serviceHostName},
+					Gateways: []string{constants.KnativeLocalGateway, constants.KnativeIngressGateway},
+					Http: []*istiov1alpha3.HTTPRoute{
+						{
+							Match: predictorRouteMatch,
+							Route: []*istiov1alpha3.HTTPRouteDestination{
+								{
+									Destination: &istiov1alpha3.Destination{Host: constants.LocalGatewayHost, Port: &istiov1alpha3.PortSelector{Number: constants.CommonDefaultHttpPort}},
+									Weight:      100,
+									Headers: &istiov1alpha3.Headers{
+										Request: &istiov1alpha3.Headers_HeaderOperations{Set: map[string]string{
+											"Host": network.GetServiceHostname(constants.DefaultTransformerServiceName(serviceName), namespace),
+										}},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}, {
+			name: "found transformer and predictor status",
+			componentStatus: &v1beta1.InferenceServiceStatus{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{
+						{
+							Type:   v1beta1.PredictorReady,
+							Status: corev1.ConditionTrue,
+						},
+						{
+							Type:   v1beta1.TransformerReady,
+							Status: corev1.ConditionTrue,
+						},
+					},
+				},
+				Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
+					v1beta1.TransformerComponent: {
+						URL: &apis.URL{
+							Scheme: "http",
+							Host:   transformerHostname,
+						},
+						Address: &duckv1.Addressable{
+							URL: &apis.URL{
+								Scheme: "http",
+								Host:   network.GetServiceHostname(constants.DefaultTransformerServiceName(serviceName), namespace),
+							},
+						},
+					},
+					v1beta1.PredictorComponent: {
+						URL: &apis.URL{
+							Scheme: "http",
+							Host:   predictorHostname,
+						},
+						Address: &duckv1.Addressable{
+							URL: &apis.URL{
+								Scheme: "http",
+								Host:   network.GetServiceHostname(constants.DefaultPredictorServiceName(serviceName), namespace),
+							},
+						},
+					},
+				},
+			},
+			expectedService: &v1alpha3.VirtualService{
+				ObjectMeta: metav1.ObjectMeta{Name: serviceName, Namespace: namespace},
+				Spec: istiov1alpha3.VirtualService{
+					Hosts:    []string{serviceInternalHostName, serviceHostName},
+					Gateways: []string{constants.KnativeLocalGateway, constants.KnativeIngressGateway},
+					Http: []*istiov1alpha3.HTTPRoute{
+						{
+							Match: predictorRouteMatch,
+							Route: []*istiov1alpha3.HTTPRouteDestination{
+								{
+									Destination: &istiov1alpha3.Destination{Host: constants.LocalGatewayHost, Port: &istiov1alpha3.PortSelector{Number: constants.CommonDefaultHttpPort}},
+									Weight:      100,
+									Headers: &istiov1alpha3.Headers{
+										Request: &istiov1alpha3.Headers_HeaderOperations{Set: map[string]string{
+											"Host": network.GetServiceHostname(constants.DefaultTransformerServiceName(serviceName), namespace),
+										}},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}, {
+			name: "nil explainer status fails with status unknown",
+			componentStatus: &v1beta1.InferenceServiceStatus{
+				Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
+					v1beta1.ExplainerComponent: {},
+					v1beta1.PredictorComponent: {
+						URL: &apis.URL{
+							Scheme: "http",
+							Host:   predictorHostname,
+						},
+						Address: &duckv1.Addressable{
+							URL: &apis.URL{
+								Scheme: "http",
+								Host:   network.GetServiceHostname(serviceName, namespace),
+							},
+						},
+					},
+				},
+			},
+			expectedService: nil,
+		}, {
+			name: "found explainer and predictor status",
+			componentStatus: &v1beta1.InferenceServiceStatus{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{
+						{
+							Type:   v1beta1.PredictorReady,
+							Status: corev1.ConditionTrue,
+						},
+						{
+							Type:   v1beta1.ExplainerReady,
+							Status: corev1.ConditionTrue,
+						},
+					},
+				},
+				Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
+					v1beta1.ExplainerComponent: {
+						URL: &apis.URL{
+							Scheme: "http",
+							Host:   explainerHostname,
+						},
+						Address: &duckv1.Addressable{
+							URL: &apis.URL{
+								Scheme: "http",
+								Host:   network.GetServiceHostname(constants.DefaultExplainerServiceName(serviceName), namespace),
+							},
+						},
+					},
+					v1beta1.PredictorComponent: {
+						URL: &apis.URL{
+							Scheme: "http",
+							Host:   predictorHostname,
+						},
+						Address: &duckv1.Addressable{
+							URL: &apis.URL{
+								Scheme: "http",
+								Host:   network.GetServiceHostname(serviceName, namespace),
+							},
+						},
+					},
+				},
+			},
+			expectedService: &v1alpha3.VirtualService{
+				ObjectMeta: metav1.ObjectMeta{Name: serviceName, Namespace: namespace},
+				Spec: istiov1alpha3.VirtualService{
+					Hosts:    []string{serviceInternalHostName, serviceHostName},
+					Gateways: []string{constants.KnativeLocalGateway, constants.KnativeIngressGateway},
+					Http: []*istiov1alpha3.HTTPRoute{
+						{
+							Match: []*istiov1alpha3.HTTPMatchRequest{
+								{
+									Uri: &istiov1alpha3.StringMatch{
+										MatchType: &istiov1alpha3.StringMatch_Regex{
+											Regex: constants.ExplainPrefix(),
+										},
+									},
+									Authority: &istiov1alpha3.StringMatch{
+										MatchType: &istiov1alpha3.StringMatch_Regex{
+											Regex: constants.HostRegExp(network.GetServiceHostname(serviceName, namespace)),
+										},
+									},
+									Gateways: []string{constants.KnativeLocalGateway},
+								},
+								{
+									Uri: &istiov1alpha3.StringMatch{
+										MatchType: &istiov1alpha3.StringMatch_Regex{
+											Regex: constants.ExplainPrefix(),
+										},
+									},
+									Authority: &istiov1alpha3.StringMatch{
+										MatchType: &istiov1alpha3.StringMatch_Regex{
+											Regex: constants.HostRegExp(constants.InferenceServiceHostName(serviceName, namespace, domain)),
+										},
+									},
+									Gateways: []string{constants.KnativeIngressGateway},
+								},
+							},
+							Route: []*istiov1alpha3.HTTPRouteDestination{
+								{
+									Destination: &istiov1alpha3.Destination{Host: constants.LocalGatewayHost, Port: &istiov1alpha3.PortSelector{Number: constants.CommonDefaultHttpPort}},
+									Weight:      100,
+									Headers: &istiov1alpha3.Headers{
+										Request: &istiov1alpha3.Headers_HeaderOperations{Set: map[string]string{
+											"Host": network.GetServiceHostname(constants.DefaultExplainerServiceName(serviceName), namespace)},
+										},
+									},
+								},
+							},
+						},
+						{
+							Match: predictorRouteMatch,
+							Route: []*istiov1alpha3.HTTPRouteDestination{
+								{
+									Destination: &istiov1alpha3.Destination{Host: constants.LocalGatewayHost, Port: &istiov1alpha3.PortSelector{Number: constants.CommonDefaultHttpPort}},
+									Weight:      100,
+									Headers: &istiov1alpha3.Headers{
+										Request: &istiov1alpha3.Headers_HeaderOperations{Set: map[string]string{
+											"Host": network.GetServiceHostname(constants.DefaultPredictorServiceName(serviceName), namespace)},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 
 	for _, tc := range cases {
@@ -300,9 +468,9 @@ func TestCreateVirtualService(t *testing.T) {
 				Spec: v1beta1.InferenceServiceSpec{
 					Predictor: v1beta1.PredictorSpec{},
 				},
-				Status: v1beta1.InferenceServiceStatus{
-					Components: tc.componentStatus,
-				},
+			}
+			if tc.componentStatus != nil {
+				testIsvc.Status = *tc.componentStatus
 			}
 			if _, ok := testIsvc.Status.Components[v1beta1.TransformerComponent]; ok {
 				testIsvc.Spec.Transformer = &v1beta1.TransformerSpec{}

@@ -204,6 +204,10 @@ var (
 		StorageInitializerSourceUriInternalAnnotationKey,
 		"kubectl.kubernetes.io/last-applied-configuration",
 	}
+
+	RevisionTemplateLabelDisallowedList = []string{
+		VisibilityLabel,
+	}
 )
 
 func (e InferenceServiceComponent) String() string {
