@@ -61,6 +61,10 @@ data:
         "aix": {
             "image" : "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/aix-explainer",
             "defaultImageVersion": "latest"
+        },
+        "art": {
+            "image" : "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/art-explainer",
+            "defaultImageVersion": "latest"
         }
     }
   storageInitializer: |-
