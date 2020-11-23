@@ -18,6 +18,7 @@ package v1beta1
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/golang/protobuf/proto"
@@ -32,6 +33,7 @@ var (
 	TensorflowServingGRPCPort            = "9000"
 	TensorflowServingRestPort            = "8080"
 	TensorflowServingGPUSuffix           = "-gpu"
+	TimeoutMilliSeconds                  int64
 	InvalidTensorflowRuntimeVersionError = "Tensorflow RuntimeVersion must be one of %s"
 	InvalidTensorflowRuntimeIncludesGPU  = "Tensorflow RuntimeVersion is not GPU enabled but GPU resources are requested. " + InvalidTensorflowRuntimeVersionError
 	InvalidTensorflowRuntimeExcludesGPU  = "Tensorflow RuntimeVersion is GPU enabled but GPU resources are not requested. " + InvalidTensorflowRuntimeVersionError
@@ -83,12 +85,18 @@ func (t *TFServingSpec) GetStorageUri() *string {
 
 // GetContainers transforms the resource into a container spec
 func (t *TFServingSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig) *v1.Container {
+	// Get the timeout from user input or else use the default timeout
+	if extensions.TimeoutSeconds != nil {
+		TimeoutMilliSeconds = 1000 * *extensions.TimeoutSeconds
+	} else {
+		TimeoutMilliSeconds = 1000 * constants.DefaultPredictorTimeout
+	}
 	arguments := []string{
 		fmt.Sprintf("%s=%s", "--port", TensorflowServingGRPCPort),
 		fmt.Sprintf("%s=%s", "--rest_api_port", TensorflowServingRestPort),
 		fmt.Sprintf("%s=%s", "--model_name", metadata.Name),
 		fmt.Sprintf("%s=%s", "--model_base_path", constants.DefaultModelLocalMountPath),
-		fmt.Sprintf("%s=%s", "--rest_api_timeout_in_ms", config.Predictors.Tensorflow.DefaultTimeout),
+		fmt.Sprintf("%s=%s", "--rest_api_timeout_in_ms", strconv.Itoa(int(TimeoutMilliSeconds))),
 	}
 	if t.Container.Image == "" {
 		t.Container.Image = config.Predictors.Tensorflow.ContainerImage + ":" + *t.RuntimeVersion
