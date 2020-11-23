@@ -28,23 +28,23 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func TestAIXExplainer(t *testing.T) {
+func TestARTExplainer(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	config := InferenceServicesConfig{
 		Explainers: ExplainersConfig{
-			AIXExplainer: ExplainerConfig{
-				ContainerImage:      "aipipeline/aixexplainer",
+			ARTExplainer: ExplainerConfig{
+				ContainerImage:      "kfserving/art-server",
 				DefaultImageVersion: "latest",
 			},
 		},
 	}
 
 	scenarios := map[string]struct {
-		spec    AIXExplainerSpec
+		spec    ARTExplainerSpec
 		matcher types.GomegaMatcher
 	}{
 		"AcceptGoodRuntimeVersion": {
-			spec: AIXExplainerSpec{
+			spec: ARTExplainerSpec{
 				ExplainerExtensionSpec: ExplainerExtensionSpec{
 					RuntimeVersion: proto.String("latest"),
 				},
@@ -63,7 +63,7 @@ func TestAIXExplainer(t *testing.T) {
 	}
 }
 
-func TestCreateAIXExplainerContainer(t *testing.T) {
+func TestCreateARTExplainerContainer(t *testing.T) {
 
 	var requestedResource = v1.ResourceRequirements{
 		Limits: v1.ResourceList{
@@ -79,8 +79,8 @@ func TestCreateAIXExplainerContainer(t *testing.T) {
 	}
 	config := &InferenceServicesConfig{
 		Explainers: ExplainersConfig{
-			AIXExplainer: ExplainerConfig{
-				ContainerImage:      "aipipeline/aixexplainer",
+			ARTExplainer: ExplainerConfig{
+				ContainerImage:      "kfserving/art-server",
 				DefaultImageVersion: "latest",
 			},
 		},
@@ -88,20 +88,20 @@ func TestCreateAIXExplainerContainer(t *testing.T) {
 	ComponentExtensionSpec := ComponentExtensionSpec{
 		MaxReplicas: 2,
 	}
-	var spec = AIXExplainerSpec{
-		Type: "LimeImages",
+	var spec = ARTExplainerSpec{
+		Type: "SquareAttack",
 		ExplainerExtensionSpec: ExplainerExtensionSpec{
 			StorageURI: "gs://someUri",
 			Container: v1.Container{
 				Resources: requestedResource,
 			},
-			RuntimeVersion: proto.String("0.2.2"),
+			RuntimeVersion: proto.String("0.5.0"),
 		},
 	}
 	g := gomega.NewGomegaWithT(t)
 
 	expectedContainer := &v1.Container{
-		Image:     "aipipeline/aixexplainer:0.2.2",
+		Image:     "kfserving/art-server:0.5.0",
 		Name:      constants.InferenceServiceContainerName,
 		Resources: requestedResource,
 		Args: []string{
@@ -113,8 +113,8 @@ func TestCreateAIXExplainerContainer(t *testing.T) {
 			constants.InferenceServiceDefaultHttpPort,
 			"--storage_uri",
 			"/mnt/models",
-			"--explainer_type",
-			"LimeImages",
+			"--adversary_type",
+			"SquareAttack",
 		},
 	}
 
@@ -123,7 +123,7 @@ func TestCreateAIXExplainerContainer(t *testing.T) {
 	g.Expect(container).To(gomega.Equal(expectedContainer))
 }
 
-func TestCreateAIXExplainerContainerWithConfig(t *testing.T) {
+func TestCreateARTExplainerContainerWithConfig(t *testing.T) {
 
 	var requestedResource = v1.ResourceRequirements{
 		Limits: v1.ResourceList{
@@ -139,8 +139,8 @@ func TestCreateAIXExplainerContainerWithConfig(t *testing.T) {
 	}
 	config := &InferenceServicesConfig{
 		Explainers: ExplainersConfig{
-			AIXExplainer: ExplainerConfig{
-				ContainerImage:      "aipipeline/aixexplainer",
+			ARTExplainer: ExplainerConfig{
+				ContainerImage:      "kfserving/art-server",
 				DefaultImageVersion: "latest",
 			},
 		},
@@ -148,14 +148,14 @@ func TestCreateAIXExplainerContainerWithConfig(t *testing.T) {
 	ComponentExtensionSpec := ComponentExtensionSpec{
 		MaxReplicas: 2,
 	}
-	var spec = AIXExplainerSpec{
-		Type: "LimeImages",
+	var spec = ARTExplainerSpec{
+		Type: "SquareAttack",
 		ExplainerExtensionSpec: ExplainerExtensionSpec{
 			StorageURI: "gs://someUri",
 			Container: v1.Container{
 				Resources: requestedResource,
 			},
-			RuntimeVersion: proto.String("0.2.2"),
+			RuntimeVersion: proto.String("0.5.0"),
 			Config: map[string]string{
 				"num_classes": "10",
 				"num_samples": "20",
@@ -166,7 +166,7 @@ func TestCreateAIXExplainerContainerWithConfig(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	expectedContainer := &v1.Container{
-		Image:     "aipipeline/aixexplainer:0.2.2",
+		Image:     "kfserving/art-server:0.5.0",
 		Name:      constants.InferenceServiceContainerName,
 		Resources: requestedResource,
 		Args: []string{
@@ -178,8 +178,8 @@ func TestCreateAIXExplainerContainerWithConfig(t *testing.T) {
 			"8080",
 			"--storage_uri",
 			"/mnt/models",
-			"--explainer_type",
-			"LimeImages",
+			"--adversary_type",
+			"SquareAttack",
 			"--min_weight",
 			"0",
 			"--num_classes",

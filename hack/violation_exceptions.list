@@ -6,11 +6,12 @@ API rule violation: list_type_missing,./pkg/apis/serving/v1beta1,PodSpec,InitCon
 API rule violation: list_type_missing,./pkg/apis/serving/v1beta1,PodSpec,ReadinessGates
 API rule violation: list_type_missing,./pkg/apis/serving/v1beta1,PodSpec,Tolerations
 API rule violation: list_type_missing,./pkg/apis/serving/v1beta1,PodSpec,Volumes
-API rule violation: names_match,./pkg/apis/serving/v1beta1,AIXExplainerSpec,StorageURI
 API rule violation: names_match,./pkg/apis/serving/v1beta1,AlibiExplainerSpec,StorageURI
 API rule violation: names_match,./pkg/apis/serving/v1beta1,ComponentExtensionSpec,TimeoutSeconds
 API rule violation: names_match,./pkg/apis/serving/v1beta1,ExplainerConfig,ContainerImage
+API rule violation: names_match,./pkg/apis/serving/v1beta1,ExplainerExtensionSpec,StorageURI
 API rule violation: names_match,./pkg/apis/serving/v1beta1,ExplainersConfig,AIXExplainer
+API rule violation: names_match,./pkg/apis/serving/v1beta1,ExplainersConfig,ARTExplainer
 API rule violation: names_match,./pkg/apis/serving/v1beta1,ExplainersConfig,AlibiExplainer
 API rule violation: names_match,./pkg/apis/serving/v1beta1,IngressConfig,IngressServiceName
 API rule violation: names_match,./pkg/apis/serving/v1beta1,PodSpec,DeprecatedServiceAccount

@@ -101,6 +101,10 @@ data:
         "aix": {
             "image" : "kfserving/aix-explainer",
             "defaultImageVersion": "v0.5.0-rc0"
+        },
+        "art": {
+            "image" : "tomcli/art-server",
+            "defaultImageVersion": "latest"
         }
     }
   storageInitializer: |-

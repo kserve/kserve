@@ -1,6 +1,6 @@
-# V1beta1AIXExplainerSpec
+# V1beta1ARTExplainerSpec
 
-AIXExplainerSpec defines the arguments for configuring an AIX Explanation Server
+ARTExplainerType defines the arguments for configuring an ART Explanation Server
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
@@ -26,7 +26,7 @@ Name | Type | Description | Notes
 **termination_message_path** | **str** | Optional: Path at which the file to which the container&#39;s termination message will be written is mounted into the container&#39;s filesystem. Message written is intended to be brief final status, such as an assertion failure message. Will be truncated by the node if greater than 4096 bytes. The total message length across all containers will be limited to 12kb. Defaults to /dev/termination-log. Cannot be updated. | [optional] 
 **termination_message_policy** | **str** | Indicate how the termination message should be populated. File will use the contents of terminationMessagePath to populate the container status message on both success and failure. FallbackToLogsOnError will use the last chunk of container log output if the termination message file is empty and the container exited with an error. The log output is limited to 2048 bytes or 80 lines, whichever is smaller. Defaults to File. Cannot be updated. | [optional] 
 **tty** | **bool** | Whether this container should allocate a TTY for itself, also requires &#39;stdin&#39; to be true. Default is false. | [optional] 
-**type** | **str** | The type of AIX explainer | 
+**type** | **str** | The type of ART explainer | 
 **volume_devices** | [**list[V1VolumeDevice]**](https://github.com/kubernetes-client/python/blob/master/kubernetes/docs/V1VolumeDevice.md) | volumeDevices is the list of block devices to be used by the container. | [optional] 
 **volume_mounts** | [**list[V1VolumeMount]**](https://github.com/kubernetes-client/python/blob/master/kubernetes/docs/V1VolumeMount.md) | Pod volumes to mount into the container&#39;s filesystem. Cannot be updated. | [optional] 
 **working_dir** | **str** | Container&#39;s working directory. If not specified, the container runtime&#39;s default will be used, which might be configured in the container image. Cannot be updated. | [optional] 
