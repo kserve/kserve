@@ -14,9 +14,7 @@ git clone https://github.com/kubeflow/kfserving
 
 ## Add Security Context Constraint (SCC)
 
-Run the following to enable containers to run with UID 0 for Istio’s service accounts. As we make further progress,
-we will be revisiting these instructions to enable it to work without having to run containers with UID 0.
-
+Run the following to enable containers to run with UID 0 for Istio’s service accounts, as recommended on [Istio's installation instructions for OpenShift](https://istio.io/latest/docs/setup/platform-setup/openshift/)
 
 ```bash
 oc adm policy add-scc-to-group anyuid system:serviceaccounts:istio-system
