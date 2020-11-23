@@ -1,35 +1,15 @@
-apiVersion: serving.kubeflow.org/v1alpha2
-kind: InferenceService
+apiVersion: "serving.kubeflow.org/v1beta1"
+kind: "InferenceService"
 metadata:
-  labels:
-    controller-tools.k8s.io: "1.0"
-  name: artserver
+  name: "artserver"
 spec:
-  default:
-    predictor:
-      custom:
-        container:
-          name: predictor
-          image: ibmandrewbutler/art-server:sklearn-mnist-v2
-          imagePullPolicy: Always
-          resources:
-            requests:
-              memory: "2Gi"
-              cpu: "1"
-            limits:
-              memory: "2Gi"
-              cpu: "1"
-    explainer:
-      custom:
-        container:
-          name: explainer
-          image: ibmandrewbutler/art-server:squareattack-mnist-v4
-          command: ["python", "-m", "artserver", "--adversary_type", "SquareAttack", "--predictor_host", "artserver-predictor-default.default.svc.cluster.local", "--nb_classes", "10"]
-          imagePullPolicy: Always
-          resources:
-            requests:
-              memory: "2Gi"
-              cpu: "1"
-            limits:
-              memory: "2Gi"
-              cpu: "1"
+  predictor:
+    containers:
+    - name: predictor
+      image: ibmandrewbutler/art-server:sklearn-mnist-v2
+      imagePullPolicy: Always
+  explainer:
+    art:
+      type: SquareAttack
+      config:
+        nb_classes: "10"
