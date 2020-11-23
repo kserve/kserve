@@ -98,16 +98,16 @@ data:
   batcher: |-
     {
         "image" : "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/batcher:latest",
-        "memoryRequest": "1Gi",
-        "memoryLimit": "1Gi",
-        "cpuRequest": "1",
-        "cpuLimit": "1"
+        "memoryRequest": "100Mi",
+        "memoryLimit": "500Mi",
+        "cpuRequest": "100m",
+        "cpuLimit": "300m"
     }
   agent: |-
     {
         "image" : "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/agent:latest",
         "memoryRequest": "100Mi",
-        "memoryLimit": "1Gi",
+        "memoryLimit": "500Mi",
         "cpuRequest": "100m",
-        "cpuLimit": "1"
+        "cpuLimit": "300m"
     }

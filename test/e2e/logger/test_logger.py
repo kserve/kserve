@@ -76,7 +76,15 @@ def test_kfserving_logger():
                                     spec=V1alpha2InferenceServiceSpec(default=default_endpoint_spec))
 
     KFServing.create(isvc)
-    KFServing.wait_isvc_ready(service_name, namespace=KFSERVING_TEST_NAMESPACE)
+    try:
+        KFServing.wait_isvc_ready(service_name, namespace=KFSERVING_TEST_NAMESPACE)
+    except RuntimeError as e:
+        pods = KFServing.core_api.list_namespaced_pod(KFSERVING_TEST_NAMESPACE,
+                                                      label_selector='serving.kubeflow.org/inferenceservice={}'.
+                                                      format(service_name))
+        for pod in pods.items:
+            print(pod)
+
     res = predict(service_name, './data/iris_input.json')
     assert(res["predictions"] == [1, 1])
     pods = KFServing.core_api.list_namespaced_pod(KFSERVING_TEST_NAMESPACE,
