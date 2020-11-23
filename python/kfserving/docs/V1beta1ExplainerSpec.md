@@ -8,6 +8,7 @@ Name | Type | Description | Notes
 **affinity** | [**V1Affinity**](https://github.com/kubernetes-client/python/blob/master/kubernetes/docs/V1Affinity.md) |  | [optional] 
 **aix** | [**V1beta1AIXExplainerSpec**](V1beta1AIXExplainerSpec.md) |  | [optional] 
 **alibi** | [**V1beta1AlibiExplainerSpec**](V1beta1AlibiExplainerSpec.md) |  | [optional] 
+**art** | [**V1beta1ARTExplainerSpec**](V1beta1ARTExplainerSpec.md) |  | [optional] 
 **automount_service_account_token** | **bool** | AutomountServiceAccountToken indicates whether a service account token should be automatically mounted. | [optional] 
 **batcher** | [**V1beta1Batcher**](V1beta1Batcher.md) |  | [optional] 
 **canary_traffic_percent** | **int** | CanaryTrafficPercent defines the traffic split percentage between the candidate revision and the last ready revision | [optional] 

@@ -170,11 +170,13 @@ func (src *InferenceService) ConvertTo(dstRaw conversion.Hub) error {
 					ContainerConcurrency: proto.Int64(int64(src.Spec.Default.Explainer.Parallelism)),
 				},
 				AIX: &v1beta1.AIXExplainerSpec{
-					Type:           v1beta1.AIXExplainerType(src.Spec.Default.Explainer.AIX.Type),
-					StorageURI:     src.Spec.Default.Explainer.AIX.StorageURI,
-					RuntimeVersion: proto.String(src.Spec.Default.Explainer.AIX.RuntimeVersion),
-					Container: v1.Container{
-						Resources: src.Spec.Default.Explainer.AIX.Resources,
+					Type: v1beta1.AIXExplainerType(src.Spec.Default.Explainer.AIX.Type),
+					ExplainerExtensionSpec: v1beta1.ExplainerExtensionSpec{
+						StorageURI:     src.Spec.Default.Explainer.AIX.StorageURI,
+						RuntimeVersion: proto.String(src.Spec.Default.Explainer.AIX.RuntimeVersion),
+						Container: v1.Container{
+							Resources: src.Spec.Default.Explainer.AIX.Resources,
+						},
 					},
 				},
 			}

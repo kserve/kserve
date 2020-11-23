@@ -28,35 +28,35 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-type AIXExplainerType string
+type ARTExplainerType string
 
 const (
-	AIXLimeImageExplainer AIXExplainerType = "LimeImages"
+	ARTSquareAttackExplainer ARTExplainerType = "SquareAttack"
 )
 
-// AIXExplainerSpec defines the arguments for configuring an AIX Explanation Server
-type AIXExplainerSpec struct {
-	// The type of AIX explainer
-	Type AIXExplainerType `json:"type"`
+// ARTExplainerType defines the arguments for configuring an ART Explanation Server
+type ARTExplainerSpec struct {
+	// The type of ART explainer
+	Type ARTExplainerType `json:"type"`
 	// Contains fields shared across all explainers
 	ExplainerExtensionSpec `json:",inline"`
 }
 
-var _ ComponentImplementation = &AIXExplainerSpec{}
+var _ ComponentImplementation = &ARTExplainerSpec{}
 
-func (s *AIXExplainerSpec) GetStorageUri() *string {
+func (s *ARTExplainerSpec) GetStorageUri() *string {
 	if s.StorageURI == "" {
 		return nil
 	}
 	return &s.StorageURI
 }
 
-func (s *AIXExplainerSpec) GetResourceRequirements() *v1.ResourceRequirements {
+func (s *ARTExplainerSpec) GetResourceRequirements() *v1.ResourceRequirements {
 	// return the ResourceRequirements value if set on the spec
 	return &s.Resources
 }
 
-func (s *AIXExplainerSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig) *v1.Container {
+func (s *ARTExplainerSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig) *v1.Container {
 	var args = []string{
 		constants.ArgumentModelName, metadata.Name,
 		constants.ArgumentPredictorHost, fmt.Sprintf("%s.%s", constants.DefaultPredictorServiceName(metadata.Name), metadata.Namespace),
@@ -69,7 +69,7 @@ func (s *AIXExplainerSpec) GetContainer(metadata metav1.ObjectMeta, extensions *
 		args = append(args, "--storage_uri", constants.DefaultModelLocalMountPath)
 	}
 
-	args = append(args, "--explainer_type", string(s.Type))
+	args = append(args, "--adversary_type", string(s.Type))
 
 	// Order explainer config map keys
 	var keys []string
@@ -83,23 +83,23 @@ func (s *AIXExplainerSpec) GetContainer(metadata metav1.ObjectMeta, extensions *
 	}
 
 	return &v1.Container{
-		Image:     config.Explainers.AIXExplainer.ContainerImage + ":" + *s.RuntimeVersion,
+		Image:     config.Explainers.ARTExplainer.ContainerImage + ":" + *s.RuntimeVersion,
 		Name:      constants.InferenceServiceContainerName,
 		Resources: s.Resources,
 		Args:      args,
 	}
 }
 
-func (s *AIXExplainerSpec) Default(config *InferenceServicesConfig) {
+func (s *ARTExplainerSpec) Default(config *InferenceServicesConfig) {
 	s.Name = constants.InferenceServiceContainerName
 	if s.RuntimeVersion == nil {
-		s.RuntimeVersion = proto.String(config.Explainers.AIXExplainer.DefaultImageVersion)
+		s.RuntimeVersion = proto.String(config.Explainers.ARTExplainer.DefaultImageVersion)
 	}
 	setResourceRequirementDefaults(&s.Resources)
 }
 
 // Validate the spec
-func (s *AIXExplainerSpec) Validate() error {
+func (s *ARTExplainerSpec) Validate() error {
 	return utils.FirstNonNilError([]error{
 		validateStorageURI(s.GetStorageUri()),
 	})
