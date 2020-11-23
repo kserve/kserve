@@ -57,6 +57,12 @@ var onnxSpecWithQueryParameterFilename = ONNXSpec{
 	RuntimeVersion: "someAmazingVersion",
 }
 
+var onnxSpecWithBadFileExt = ONNXSpec{
+	StorageURI:     "gs://someUri/model.notonnx",
+	Resources:      onnxRequestedResource,
+	RuntimeVersion: "someUnAmazingVersion",
+}
+
 var onnxConfig = InferenceServicesConfig{
 	Predictors: &PredictorsConfig{
 		ONNX: PredictorConfig{
@@ -123,4 +129,18 @@ func TestCreateOnnxModelServingContainerWithQueryParameter(t *testing.T) {
 	// Test Create with config
 	container := onnxSpecWithQueryParameterFilename.GetContainer("someName", 0, &onnxConfig)
 	g.Expect(container).To(gomega.Equal(expectedContainer))
+}
+
+func TestOnnxPathValidationSuccess(t *testing.T) {
+
+	g := gomega.NewGomegaWithT(t)
+	g.Expect(onnxSpec.Validate(&onnxConfig)).Should(gomega.Succeed())
+	g.Expect(onnxSpecWithOtherFilename.Validate(&onnxConfig)).Should(gomega.Succeed())
+	g.Expect(onnxSpecWithQueryParameterFilename.Validate(&onnxConfig)).Should(gomega.Succeed())
+}
+
+func TestOnnxPathValidationFailure(t *testing.T) {
+
+	g := gomega.NewGomegaWithT(t)
+	g.Expect(onnxSpecWithBadFileExt.Validate(&onnxConfig)).ShouldNot(gomega.Succeed())
 }

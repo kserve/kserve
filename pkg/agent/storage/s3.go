@@ -20,36 +20,21 @@ import (
 	"fmt"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go/service/s3/s3iface"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
-	"log"
+	"github.com/aws/aws-sdk-go/service/s3/s3manager/s3manageriface"
 	"os"
 	"path/filepath"
+	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"strings"
 )
 
 type S3Provider struct {
-	Client *s3.S3
+	Client     s3iface.S3API
+	Downloader s3manageriface.DownloadWithIterator
 }
 
-func (m *S3Provider) Download(modelDir string, modelName string, storageUri string) error {
-	s3Uri := strings.TrimPrefix(storageUri, string(S3))
-	path := strings.Split(s3Uri, "/")
-	s3ObjectDownloader := &S3ObjectDownloader{
-		StorageUri: storageUri,
-		ModelDir:   modelDir,
-		ModelName:  modelName,
-		Bucket:     path[0],
-		Item:       path[1],
-	}
-	objects, err := s3ObjectDownloader.GetAllObjects(m.Client)
-	if err != nil {
-		return fmt.Errorf("unable to get batch objects %v", err)
-	}
-	if err := s3ObjectDownloader.Download(m.Client, objects); err != nil {
-		return fmt.Errorf("unable to get download objects %v", err)
-	}
-	return nil
-}
+var log = logf.Log.WithName("modelAgent")
 
 var _ Provider = (*S3Provider)(nil)
 
@@ -58,13 +43,40 @@ type S3ObjectDownloader struct {
 	ModelDir   string
 	ModelName  string
 	Bucket     string
-	Item       string
+	Prefix     string
+	downloader s3manageriface.DownloadWithIterator
 }
 
-func (s *S3ObjectDownloader) GetAllObjects(s3Svc *s3.S3) ([]s3manager.BatchDownloadObject, error) {
+func (m *S3Provider) DownloadModel(modelDir string, modelName string, storageUri string) error {
+	log.Info("Download model ", "modelName", modelName, "storageUri", storageUri, "modelDir", modelDir)
+	s3Uri := strings.TrimPrefix(storageUri, string(S3))
+	tokens := strings.SplitN(s3Uri, "/", 2)
+	prefix := ""
+	if len(tokens) == 2 {
+		prefix = tokens[1]
+	}
+	s3ObjectDownloader := &S3ObjectDownloader{
+		StorageUri: storageUri,
+		ModelDir:   modelDir,
+		ModelName:  modelName,
+		Bucket:     tokens[0],
+		Prefix:     prefix,
+		downloader: m.Downloader,
+	}
+	objects, err := s3ObjectDownloader.GetAllObjects(m.Client)
+	if err != nil {
+		return fmt.Errorf("unable to get batch objects %v", err)
+	}
+	if err := s3ObjectDownloader.Download(objects); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *S3ObjectDownloader) GetAllObjects(s3Svc s3iface.S3API) ([]s3manager.BatchDownloadObject, error) {
 	resp, err := s3Svc.ListObjects(&s3.ListObjectsInput{
 		Bucket: aws.String(s.Bucket),
-		Prefix: aws.String(s.Item),
+		Prefix: aws.String(s.Prefix),
 	})
 	if err != nil {
 		return nil, err
@@ -76,11 +88,11 @@ func (s *S3ObjectDownloader) GetAllObjects(s3Svc *s3.S3) ([]s3manager.BatchDownl
 	}
 
 	for _, object := range resp.Contents {
-		fileName := filepath.Join(s.ModelDir, s.ModelName, *object.Key)
+		subObjectKey := strings.TrimPrefix(*object.Key, s.Prefix)
+		fileName := filepath.Join(s.ModelDir, s.ModelName, subObjectKey)
 		if FileExists(fileName) {
 			// File got corrupted or is mid-download :(
 			// TODO: Figure out if we can maybe continue?
-			log.Println("Deleting", fileName)
 			if err := os.Remove(fileName); err != nil {
 				return nil, fmt.Errorf("file is unable to be deleted: %v", err)
 			}
@@ -105,12 +117,9 @@ func (s *S3ObjectDownloader) GetAllObjects(s3Svc *s3.S3) ([]s3manager.BatchDownl
 	return results, nil
 }
 
-func (s *S3ObjectDownloader) Download(s3Svc *s3.S3, objects []s3manager.BatchDownloadObject) error {
+func (s *S3ObjectDownloader) Download(objects []s3manager.BatchDownloadObject) error {
 	iter := &s3manager.DownloadObjectsIterator{Objects: objects}
-	downloader := s3manager.NewDownloaderWithClient(s3Svc, func(d *s3manager.Downloader) {
-		// TODO: Consider to do overrides
-	})
-	if err := downloader.DownloadWithIterator(aws.BackgroundContext(), iter); err != nil {
+	if err := s.downloader.DownloadWithIterator(aws.BackgroundContext(), iter); err != nil {
 		return err
 	}
 	return nil

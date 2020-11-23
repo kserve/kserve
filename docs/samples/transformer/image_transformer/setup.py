@@ -38,7 +38,7 @@ setup(
         "pandas>=0.24.2",
         "numpy>=1.16.3",
         "kubernetes >= 9.0.0",
-        "torchvision>=0.4.0",
+        "torchvision>=0.4.1",
         "pillow==6.2.0"
     ],
     tests_require=tests_require,

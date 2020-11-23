@@ -1,8 +1,8 @@
-set -e 
+set -e
 
 export ISTIO_VERSION=1.6.2
 export KNATIVE_VERSION=v0.15.0
-export KFSERVING_VERSION=v0.4.0
+export KFSERVING_VERSION=v0.4.1
 curl -L https://git.io/getLatestIstio | sh -
 cd istio-${ISTIO_VERSION}
 
@@ -73,14 +73,11 @@ kubectl wait --for=condition=available --timeout=600s deployment/cert-manager-we
 cd ..
 # Install KFServing
 K8S_MINOR=$(kubectl version | perl -ne 'print $1."\n" if /Server Version:.*?Minor:"(\d+)"/')
-if [[ $K8S_MINOR -gt 17 ]]; then
-  echo "Kubernetes minor version must be <= 17 got ${K8S_MINOR}"
-  exit 1
-elif [[ $K8S_MINOR -lt 16 ]]; then
+if [[ $K8S_MINOR -lt 16 ]]; then
   kubectl apply -f install/${KFSERVING_VERSION}/kfserving.yaml --validate=false
 else
   kubectl apply -f install/${KFSERVING_VERSION}/kfserving.yaml
 fi
 
 # Clean up
-rm -rf istio-${ISTIO_VERSION} 
+rm -rf istio-${ISTIO_VERSION}

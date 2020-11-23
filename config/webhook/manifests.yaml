@@ -8,8 +8,8 @@ webhooks:
   - clientConfig:
       caBundle: Cg==
       service:
-        name: kfserving-webhook-server-service
-        namespace: kfserving-system
+        name: $(webhookServiceName)
+        namespace: $(kfservingNamespace)
         path: /mutate-serving-kubeflow-org-v1alpha2-inferenceservice
     failurePolicy: Fail
     name: inferenceservice.kfserving-webhook-server.defaulter
@@ -26,8 +26,8 @@ webhooks:
   - clientConfig:
       caBundle: Cg==
       service:
-        name: kfserving-webhook-server-service
-        namespace: kfserving-system
+        name: $(webhookServiceName)
+        namespace: $(kfservingNamespace)
         path: /mutate-serving-kubeflow-org-v1beta1-inferenceservice
     failurePolicy: Fail
     name: inferenceservice.kfserving-webhook-server.v1beta1.defaulter
@@ -44,8 +44,8 @@ webhooks:
   - clientConfig:
       caBundle: Cg==
       service:
-        name: kfserving-webhook-server-service
-        namespace: kfserving-system
+        name: $(webhookServiceName)
+        namespace: $(kfservingNamespace)
         path: /mutate-pods
     failurePolicy: Fail
     name: inferenceservice.kfserving-webhook-server.pod-mutator
@@ -78,8 +78,8 @@ webhooks:
   - clientConfig:
       caBundle: Cg==
       service:
-        name: kfserving-webhook-server-service
-        namespace: kfserving-system
+        name: $(webhookServiceName)
+        namespace: $(kfservingNamespace)
         path: /validate-serving-kubeflow-org-v1alpha2-inferenceservice
     failurePolicy: Fail
     name: inferenceservice.kfserving-webhook-server.validator
@@ -96,8 +96,8 @@ webhooks:
   - clientConfig:
       caBundle: Cg==
       service:
-        name: kfserving-webhook-server-service
-        namespace: kfserving-system
+        name: $(webhookServiceName)
+        namespace: $(kfservingNamespace)
         path: /validate-serving-kubeflow-org-v1beta1-inferenceservice
     failurePolicy: Fail
     name: inferenceservice.kfserving-webhook-server.v1beta1.validator

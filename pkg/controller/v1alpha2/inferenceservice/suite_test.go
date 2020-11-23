@@ -17,15 +17,20 @@ limitations under the License.
 package service
 
 import (
+	"context"
+	"github.com/kubeflow/kfserving/pkg/constants"
 	pkgtest "github.com/kubeflow/kfserving/pkg/testing"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
+	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"testing"
@@ -41,7 +46,7 @@ func TestV1alpha2Controller(t *testing.T) {
 
 	RunSpecsWithDefaultAndCustomReporters(t,
 		"v1alpha2 InferenceService Controller Suite",
-		[]Reporter{envtest.NewlineReporter{}})
+		[]Reporter{printer.NewlineReporter{}})
 }
 
 var _ = BeforeSuite(func(done Done) {
@@ -68,6 +73,14 @@ var _ = BeforeSuite(func(done Done) {
 		Recorder: k8sManager.GetEventRecorderFor("InferenceServiceController"),
 	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
+
+	//Create namespace
+	kfservingNamespaceObj := &v1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: constants.KFServingNamespace,
+		},
+	}
+	Expect(k8sClient.Create(context.Background(), kfservingNamespaceObj)).Should(Succeed())
 
 	go func() {
 		err = k8sManager.Start(ctrl.SetupSignalHandler())

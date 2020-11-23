@@ -51,8 +51,8 @@ metadata:
   name: "sklearn-iris"
 spec:
   default:
-    parallelism: 8 # CC=8
     predictor:
+      parallelism: 8 # CC=8
       sklearn:
         storageUri: "gs://kfserving-samples/models/sklearn/iris"
 ```

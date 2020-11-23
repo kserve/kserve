@@ -68,10 +68,15 @@ func (t *TritonSpec) GetContainer(metadata metav1.ObjectMeta, extensions *Compon
 	if extensions.ContainerConcurrency != nil && *extensions.ContainerConcurrency != 0 {
 		arguments = append(arguments, fmt.Sprintf("%s=%d", "--http-thread-count", *extensions.ContainerConcurrency))
 	}
+	// when storageURI is nil we enable explicit load/unload
+	if t.StorageURI == nil {
+		arguments = append(arguments, fmt.Sprintf("%s=%s", "--model-control-mode", "explicit"))
+	}
 	if t.Container.Image == "" {
 		t.Container.Image = config.Predictors.Triton.ContainerImage + ":" + *t.RuntimeVersion
 	}
 	t.Name = constants.InferenceServiceContainerName
+	arguments = append(arguments, t.Args...)
 	t.Args = arguments
 	return &t.Container
 }

@@ -47,6 +47,16 @@ func (src *InferenceService) ConvertTo(dstRaw conversion.Hub) error {
 				},
 			},
 		}
+	} else if src.Spec.Default.Predictor.PMML != nil {
+		dst.Spec.Predictor.PMML = &v1beta1.PMMLSpec{
+			PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
+				RuntimeVersion: &src.Spec.Default.Predictor.PMML.RuntimeVersion,
+				StorageURI:     &src.Spec.Default.Predictor.PMML.StorageURI,
+				Container: v1.Container{
+					Resources: src.Spec.Default.Predictor.PMML.Resources,
+				},
+			},
+		}
 	} else if src.Spec.Default.Predictor.XGBoost != nil {
 		dst.Spec.Predictor.XGBoost = &v1beta1.XGBoostSpec{
 			PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
@@ -201,6 +211,14 @@ func (dst *InferenceService) ConvertFrom(srcRaw conversion.Hub) error {
 		}
 		if src.Spec.Predictor.SKLearn.StorageURI != nil {
 			dst.Spec.Default.Predictor.SKLearn.StorageURI = *src.Spec.Predictor.SKLearn.StorageURI
+		}
+	} else if src.Spec.Predictor.PMML != nil {
+		dst.Spec.Default.Predictor.PMML = &PMMLSpec{
+			RuntimeVersion: *src.Spec.Predictor.PMML.RuntimeVersion,
+			Resources:      src.Spec.Predictor.PMML.Resources,
+		}
+		if src.Spec.Predictor.PMML.StorageURI != nil {
+			dst.Spec.Default.Predictor.PMML.StorageURI = *src.Spec.Predictor.PMML.StorageURI
 		}
 	} else if src.Spec.Predictor.XGBoost != nil {
 		dst.Spec.Default.Predictor.XGBoost = &XGBoostSpec{

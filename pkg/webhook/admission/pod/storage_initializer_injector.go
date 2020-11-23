@@ -83,7 +83,12 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 		return nil
 	}
 
-	// Dont inject if InitContianer already injected
+	// Don't inject if model agent is injected
+	if _, ok := pod.ObjectMeta.Annotations[constants.AgentShouldInjectAnnotationKey]; ok {
+		return nil
+	}
+
+	// Don't inject if InitContianer already injected
 	for _, container := range pod.Spec.InitContainers {
 		if strings.Compare(container.Name, StorageInitializerContainerName) == 0 {
 			return nil

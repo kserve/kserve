@@ -16,21 +16,37 @@ data:
             "defaultImageVersion": "v1.0.0"
         },
         "sklearn": {
-            "image": "gcr.io/kubeflow-ci/kfserving/sklearnserver",
+          "v1": {
+            "image": "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/sklearnserver",
             "defaultImageVersion": "latest"
+          },
+          "v2": {
+            "image": "docker.io/seldonio/mlserver",
+            "defaultImageVersion": "0.1.2"
+          }
         },
         "xgboost": {
-            "image": "gcr.io/kubeflow-ci/kfserving/xgbserver",
+          "v1": {
+            "image": "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/xgbserver",
             "defaultImageVersion": "latest"
+          },
+          "v2": {
+            "image": "docker.io/seldonio/mlserver",
+            "defaultImageVersion": "0.1.2"
+          }
         },
         "pytorch": {
-            "image": "gcr.io/kubeflow-ci/kfserving/pytorchserver",
+            "image": "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/pytorchserver",
             "defaultImageVersion": "latest",
             "defaultGpuImageVersion": "latest-gpu"
         },
         "triton": {
             "image": "nvcr.io/nvidia/tritonserver",
             "defaultImageVersion": "20.08-py3"
+        },
+        "pmml": {
+            "image": "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/pmmlserver",
+            "defaultImageVersion": "latest"
         }
     }
   transformers: |-
@@ -39,17 +55,17 @@ data:
   explainers: |-
     {
         "alibi": {
-            "image" : "gcr.io/kubeflow-ci/kfserving/alibi-explainer",
+            "image" : "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/alibi-explainer",
             "defaultImageVersion": "latest"
         },
-          "aix": {
-            "image" : "gcr.io/kubeflow-ci/kfserving/aix-explainer",
+        "aix": {
+            "image" : "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/aix-explainer",
             "defaultImageVersion": "latest"
         }
     }
   storageInitializer: |-
     {
-        "image" : "gcr.io/kubeflow-ci/kfserving/storage-initializer:latest",
+        "image" : "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/storage-initializer:latest",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
@@ -72,7 +88,7 @@ data:
     }
   logger: |-
     {
-        "image" : "gcr.io/kubeflow-ci/kfserving/logger",
+        "image" : "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/logger",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
@@ -81,9 +97,17 @@ data:
     }
   batcher: |-
     {
-        "image" : "gcr.io/kubeflow-ci/kfserving/batcher",
+        "image" : "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/batcher",
         "memoryRequest": "1Gi",
         "memoryLimit": "1Gi",
         "cpuRequest": "1",
+        "cpuLimit": "1"
+    }
+  agent: |-
+    {
+        "image" : "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/batcherc/kfserving/agent",
+        "memoryRequest": "100Mi",
+        "memoryLimit": "1Gi",
+        "cpuRequest": "100m",
         "cpuLimit": "1"
     }

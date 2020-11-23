@@ -47,13 +47,13 @@ You must install these tools:
 1. [`kubectl`](https://kubernetes.io/docs/tasks/tools/install-kubectl/): For
    managing development environments.
 1. [`kustomize`](https://github.com/kubernetes-sigs/kustomize/) To customize YAMLs for different environments, requires v3.5.4+.
+1. [`yq`](https://github.com/mikefarah/yq) yq is used in the project makefiles to parse and display YAML output
 
 ### Install Knative on a Kubernetes cluster
 
 KFServing currently requires `Knative Serving` for auto-scaling, canary rollout, `Istio` for traffic routing and ingress.
 
-* You can follow the instructions on [Set up a kubernetes cluster and install Knative Serving](https://knative.dev/docs/install/) or
-[Custom Install](https://knative.dev/docs/install/knative-custom-install) to install `Istio` and `Knative Serving`. Observability plug-ins are good to have for monitoring.
+* To install Knative components on your Kubernetes cluster, follow the [generic cluster installation guide](https://knative.dev/docs/install/any-kubernetes-cluster/) or alternatively, use the [Knative Operators](https://knative.dev/docs/install/knative-with-operators/) to manage your installation. Observability, tracing and logging are optional but are often very valuable tools for troubleshooting difficult issues - they can be installed via the [directions here](https://knative.dev/docs/serving/installing-logging-metrics-traces/).
 
 * If you already have `Istio` or `Knative` (e.g. from a Kubeflow install) then you don't need to install them explictly, as long as version dependencies are satisfied. With Kubeflow v0.7, KNative 0.8 and Istio 1.1.6 are installed by default as part of the Kubeflow installation. From Kubeflow 1.0 onwards, KNative 0.11.1 and Istio 1.1.6 are installed by default. If you are using DEX based config for Kubeflow 1.0, Istio 1.3.1 is installed by default in your Kubeflow cluster. To summarize, we would recommend KNative 0.11.1 at a minimum for KFServing 0.3.0 and for the KFServing code in master. For Istio use versions 1.1.6 and 1.3.1 which have been tested, and for Kubernetes use 1.15+ 
 
@@ -308,3 +308,28 @@ It`s a red herring. To resolve it, please ensure you have logged into dockerhub 
 ```
 
 Please make sure not to deploy the inferenceservice in the `kfserving-system` or other namespaces where namespace has  `control-plane` as a label. The `storage-initializer` init container does not get injected for deployments in those namespaces since they do not go through the mutating webhook.
+
+6. Older version of [controller-tools](https://github.com/kubernetes-sigs/controller-tools) does not allow generators to run successfully:
+
+```
+% make deploy
+/Users/theofpa/go/bin/controller-gen "crd:maxDescLen=0" paths=./pkg/apis/serving/... output:crd:dir=config/crd
+/usr/local/Cellar/go/1.15.2/libexec/src/net/url/url.go:359:2: encountered struct field "Scheme" without JSON tag in type "URL"
+/usr/local/Cellar/go/1.15.2/libexec/src/net/url/url.go:360:2: encountered struct field "Opaque" without JSON tag in type "URL"
+/usr/local/Cellar/go/1.15.2/libexec/src/net/url/url.go:361:2: encountered struct field "User" without JSON tag in type "URL"
+/usr/local/Cellar/go/1.15.2/libexec/src/net/url/url.go:362:2: encountered struct field "Host" without JSON tag in type "URL"
+/usr/local/Cellar/go/1.15.2/libexec/src/net/url/url.go:363:2: encountered struct field "Path" without JSON tag in type "URL"
+/usr/local/Cellar/go/1.15.2/libexec/src/net/url/url.go:364:2: encountered struct field "RawPath" without JSON tag in type "URL"
+/usr/local/Cellar/go/1.15.2/libexec/src/net/url/url.go:365:2: encountered struct field "ForceQuery" without JSON tag in type "URL"
+/usr/local/Cellar/go/1.15.2/libexec/src/net/url/url.go:366:2: encountered struct field "RawQuery" without JSON tag in type "URL"
+/usr/local/Cellar/go/1.15.2/libexec/src/net/url/url.go:367:2: encountered struct field "Fragment" without JSON tag in type "URL"
+/usr/local/Cellar/go/1.15.2/libexec/src/net/url/url.go:368:2: encountered struct field "RawFragment" without JSON tag in type "URL"
+/Users/theofpa/go/pkg/mod/knative.dev/pkg@v0.0.0-20191217184203-cf220a867b3d/apis/volatile_time.go:26:2: encountered struct field "Inner" without JSON tag in type "VolatileTime"
+Error: not all generators ran successfully
+run `controller-gen crd:maxDescLen=0 paths=./pkg/apis/serving/... output:crd:dir=config/crd -w` to see all available markers, or `controller-gen crd:maxDescLen=0 paths=./pkg/apis/serving/... output:crd:dir=config/crd -h` for usage
+make: *** [manifests] Error 1
+
+% controller-gen --version
+Version: v0.3.0
+```
+Deleting $GOPATH/bin/controller-gen helps to resolve this issue, as Makefile will fetch the correct version.

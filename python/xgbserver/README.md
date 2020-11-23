@@ -68,7 +68,7 @@ Requirement already satisfied: pluggy>=0.11 in /home/clive/anaconda3/envs/kfserv
 Requirement already satisfied: setuptools in /home/clive/anaconda3/envs/kfserving/lib/python3.7/site-packages (from pytest->xgbserver==0.1.0) (41.0.1)
 Requirement already satisfied: atomicwrites>=1.0 in /home/clive/anaconda3/envs/kfserving/lib/python3.7/site-packages (from pytest->xgbserver==0.1.0) (1.3.0)
 Requirement already satisfied: six>=1.10.0 in /home/clive/anaconda3/envs/kfserving/lib/python3.7/site-packages (from pytest->xgbserver==0.1.0) (1.12.0)
-Requirement already satisfied: mypy-extensions<0.5.0,>=0.4.0 in /home/clive/anaconda3/envs/kfserving/lib/python3.7/site-packages (from mypy->xgbserver==0.1.0) (0.4.1)
+Requirement already satisfied: mypy-extensions<0.5.0,>=0.4.1 in /home/clive/anaconda3/envs/kfserving/lib/python3.7/site-packages (from mypy->xgbserver==0.1.0) (0.4.1)
 Requirement already satisfied: typed-ast<1.4.0,>=1.3.1 in /home/clive/anaconda3/envs/kfserving/lib/python3.7/site-packages (from mypy->xgbserver==0.1.0) (1.3.5)
 Installing collected packages: xgbserver
   Found existing installation: xgbserver 0.1.0

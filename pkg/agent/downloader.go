@@ -20,10 +20,11 @@ import (
 	"encoding/hex"
 	"fmt"
 	"github.com/kubeflow/kfserving/pkg/agent/storage"
-	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
-	"log"
+	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
+	"github.com/pkg/errors"
 	"path/filepath"
 	"regexp"
+	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"strings"
 )
 
@@ -34,47 +35,46 @@ type Downloader struct {
 
 var SupportedProtocols = []storage.Protocol{storage.S3}
 
-func (d *Downloader) DownloadModel(modelName string, modelSpec *v1beta1.ModelSpec) error {
+func (d *Downloader) DownloadModel(modelName string, modelSpec *v1alpha1.ModelSpec) error {
+	log := logf.Log.WithName("Downloader")
 	if modelSpec != nil {
 		modelUri := modelSpec.StorageURI
 		hashModelUri := hash(modelUri)
 		hashFramework := hash(modelSpec.Framework)
 		hashMemory := hash(modelSpec.Memory.String())
-		log.Println("Processing:", modelUri, "=", hashModelUri, hashFramework, hashMemory)
 		successFile := filepath.Join(d.ModelDir, modelName,
 			fmt.Sprintf("SUCCESS.%s.%s.%s", hashModelUri, hashFramework, hashMemory))
+		log.Info("Downloading to model dir", "modelUri", modelUri, "modelDir", d.ModelDir)
 		// Download if the event there is a success file and the event is one which we wish to Download
 		if !storage.FileExists(successFile) {
-			// TODO: Handle retry logic
+			log.V(10).Info("Success file does not exist", "successfile", successFile)
 			if err := d.download(modelName, modelUri); err != nil {
-				return fmt.Errorf("download error: %v", err)
+				return errors.Wrapf(err, "failed to download model")
 			}
 			file, createErr := storage.Create(successFile)
-			if createErr != nil {
-				return fmt.Errorf("create file error: %v", createErr)
-			}
 			defer file.Close()
+			if createErr != nil {
+				return errors.Wrapf(createErr, "failed to create success file")
+			}
 		} else {
-			log.Println("Model", modelSpec.StorageURI, "exists already")
+			log.Info("Model successFile exists already", "model", modelName, "successFile", filepath.Join(d.ModelDir, successFile))
 		}
 	}
 	return nil
 }
 
 func (d *Downloader) download(modelName string, storageUri string) error {
-	log.Println("Downloading: ", storageUri)
 	protocol, err := extractProtocol(storageUri)
 	if err != nil {
-		return fmt.Errorf("unsupported protocol: %v", err)
+		return errors.Wrapf(err, "unsupported protocol")
 	}
 	provider, ok := d.Providers[protocol]
 	if !ok {
-		return fmt.Errorf("protocol manager for %s is not initialized", protocol)
+		return errors.Wrapf(err, "protocol manager for %s is not initialized", protocol)
 	}
-	if err := provider.Download(d.ModelDir, modelName, storageUri); err != nil {
-		return fmt.Errorf("failure on download: %v", err)
+	if err := provider.DownloadModel(d.ModelDir, modelName, storageUri); err != nil {
+		return errors.Wrapf(err, "failed to download model")
 	}
-
 	return nil
 }
 

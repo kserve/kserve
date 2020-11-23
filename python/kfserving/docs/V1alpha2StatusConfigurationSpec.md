@@ -1,5 +1,6 @@
 # V1alpha2StatusConfigurationSpec
 
+StatusConfigurationSpec describes the state of the configuration receiving traffic.
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------

@@ -46,8 +46,8 @@ def test_batcher():
                 storage_uri='gs://kfserving-samples/models/pytorch/cifar10',
                 model_class_name='Net',
                 resources=V1ResourceRequirements(
-                    requests={'cpu': '1000m', 'memory': '2Gi'},
-                    limits={'cpu': '1000m', 'memory': '2Gi'}))))
+                    requests={'cpu': '100m', 'memory': '2Gi'},
+                    limits={'cpu': '100m', 'memory': '2Gi'}))))
 
     isvc = V1alpha2InferenceService(api_version=api_version,
                                     kind=constants.KFSERVING_KIND,

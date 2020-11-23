@@ -1,0 +1,15 @@
+varReference:
+- path: webhooks/clientConfig/service/name
+  kind: MutatingWebhookConfiguration
+- path: webhooks/clientConfig/service/namespace
+  kind: MutatingWebhookConfiguration
+- path: webhooks/clientConfig/service/name
+  kind: ValidatingWebhookConfiguration
+- path: webhooks/clientConfig/service/namespace
+  kind: ValidatingWebhookConfiguration
+- path: spec/conversion/webhookClientConfig/service/name
+  kind: CustomResourceDefinition
+- path: spec/conversion/webhookClientConfig/service/namespace
+  kind: CustomResourceDefinition
+- path: data/ingress
+  kind: ConfigMap

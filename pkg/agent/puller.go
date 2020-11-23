@@ -17,10 +17,14 @@ limitations under the License.
 package agent
 
 import (
+	"bytes"
+	"fmt"
 	"github.com/kubeflow/kfserving/pkg/agent/storage"
-	v1 "github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
-	"log"
+	v1 "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
+	"io/ioutil"
+	"net/http"
 	"path/filepath"
+	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
 
 type OpType string
@@ -31,8 +35,9 @@ const (
 )
 
 type Puller struct {
-	channelMap  map[string]ModelChannel
+	channelMap  map[string]*ModelChannel
 	completions chan *ModelOp
+	opStats     map[string]map[OpType]int
 	Downloader  Downloader
 }
 
@@ -44,8 +49,9 @@ type ModelOp struct {
 
 func StartPuller(downloader Downloader, commands <-chan ModelOp) {
 	puller := Puller{
-		channelMap:  make(map[string]ModelChannel),
+		channelMap:  make(map[string]*ModelChannel),
 		completions: make(chan *ModelOp, 4),
+		opStats:     make(map[string]map[OpType]int),
 		Downloader:  downloader,
 	}
 	go puller.processCommands(commands)
@@ -73,9 +79,10 @@ type ModelChannel struct {
 }
 
 func (p *Puller) enqueueModelOp(modelOp *ModelOp) {
+	log.V(10).Info("enqueue", "modelop", modelOp)
 	modelChan, ok := p.channelMap[modelOp.ModelName]
 	if !ok {
-		modelChan = ModelChannel{
+		modelChan = &ModelChannel{
 			modelOps: make(chan *ModelOp, 8),
 		}
 		go p.modelProcessor(modelOp.ModelName, modelChan.modelOps)
@@ -86,6 +93,13 @@ func (p *Puller) enqueueModelOp(modelOp *ModelOp) {
 }
 
 func (p *Puller) modelOpComplete(modelOp *ModelOp, closed bool) {
+	log := logf.Log.WithName("modelOnComplete")
+	if opMap, ok := p.opStats[modelOp.ModelName]; ok {
+		opMap[modelOp.Op] += 1
+	} else {
+		p.opStats[modelOp.ModelName] = make(map[OpType]int)
+		p.opStats[modelOp.ModelName][modelOp.Op] = 1
+	}
 	modelChan, ok := p.channelMap[modelOp.ModelName]
 	if ok {
 		modelChan.opsInFlight -= 1
@@ -97,13 +111,15 @@ func (p *Puller) modelOpComplete(modelOp *ModelOp, closed bool) {
 				close(p.completions)
 			}
 		}
+		log.Info("completion event for model", "modelName", modelOp.ModelName, "inFlight", modelChan.opsInFlight)
 	} else {
-		log.Println("Op completion event for model", modelOp.ModelName, "not found in channelMap")
+		log.Info("Op completion event did not find channel for", "modelName", modelOp.ModelName)
 	}
 }
 
 func (p *Puller) modelProcessor(modelName string, ops <-chan *ModelOp) {
-	log.Println("worker for", modelName, "is initialized")
+	log := logf.Log.WithName("modelProcessor")
+	log.Info("worker is started for", "model", modelName)
 	// TODO: Instead of going through each event, one-by-one, we need to drain and combine
 	// this is important for handling Load --> Unload requests sent in tandem
 	// Load --> Unload = 0 (cancel first load)
@@ -111,25 +127,48 @@ func (p *Puller) modelProcessor(modelName string, ops <-chan *ModelOp) {
 	for modelOp := range ops {
 		switch modelOp.Op {
 		case Add:
-			// Load
-			log.Println("Should download", modelOp.Spec.StorageURI)
+			log.Info("Downloading model", "storageUri", modelOp.Spec.StorageURI)
 			err := p.Downloader.DownloadModel(modelName, modelOp.Spec)
 			if err != nil {
-				log.Println("Download of model", modelName, "failed because: ", err)
-			} else {
 				// If there is an error, we will NOT send a request. As such, to know about errors, you will
 				// need to call the error endpoint of the puller
-				// TODO: Do request logic
-				log.Println("Now doing load request for", modelName)
+				log.Error(err, "Fails to download model", "modelName", modelName)
+			} else {
+				// Load the model onto the model server
+				resp, err := http.Post(fmt.Sprintf("http://localhost:8080/v2/repository/models/%s/load", modelName),
+					"application/json",
+					bytes.NewBufferString("{}"))
+				if err != nil {
+					// handle error
+					log.Error(err, "Failed to Load model", "modelName", modelName)
+				} else {
+					defer resp.Body.Close()
+					body, err := ioutil.ReadAll(resp.Body)
+					if err != nil {
+						log.Info("Loaded model", "modelName", modelName, "resp", body)
+					}
+				}
 			}
 		case Remove:
-			// Unload
-			// TODO: Do request logic
-			log.Println("Now doing unload request for", modelName)
+			log.Info("unloading model", "modelName", modelName)
 			// If there is an error, we will NOT do a delete... that could be problematic
-			log.Println("Should unload", modelName)
 			if err := storage.RemoveDir(filepath.Join(p.Downloader.ModelDir, modelName)); err != nil {
-				log.Printf("failing to delete model directory: %v", err)
+				log.Error(err, "failing to delete model directory")
+			} else {
+				// unload model from model server
+				resp, err := http.Post(fmt.Sprintf("http://localhost:8080/v2/repository/models/%s/unload", modelName),
+					"application/json",
+					bytes.NewBufferString("{}"))
+				if err != nil {
+					// handle error
+					log.Error(err, "Failed to Unload model", "modelName", modelName)
+				} else {
+					defer resp.Body.Close()
+					body, err := ioutil.ReadAll(resp.Body)
+					if err != nil {
+						log.Info("Unloaded model", "modelName", modelName, "resp", body)
+					}
+				}
 			}
 		}
 		p.completions <- modelOp

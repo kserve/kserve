@@ -97,13 +97,13 @@ class TestTFHttpServerLoadAndUnLoad():
         return server.create_application()
 
     async def test_load(self, http_server_client):
-        resp = await http_server_client.fetch('/v1/models/model/load',
+        resp = await http_server_client.fetch('/v2/repository/models/model/load',
                                               method="POST", body=b'')
         assert resp.code == 200
         assert resp.body == b'{"name": "model", "load": true}'
 
     async def test_unload(self, http_server_client):
-        resp = await http_server_client.fetch('/v1/models/model/unload',
+        resp = await http_server_client.fetch('/v2/repository/models/model/unload',
                                               method="POST", body=b'')
         assert resp.code == 200
         assert resp.body == b'{"name": "model", "unload": true}'
@@ -117,13 +117,13 @@ class TestTFHttpServerLoadAndUnLoadFailure():
 
     async def test_load_fail(self, http_server_client):
         with pytest.raises(HTTPClientError) as err:
-            _ = await http_server_client.fetch('/v1/models/model/load',
+            _ = await http_server_client.fetch('/v2/repository/models/model/load',
                                                method="POST", body=b'')
         assert err.value.code == 503
 
     async def test_unload_fail(self, http_server_client):
         with pytest.raises(HTTPClientError) as err:
-            _ = await http_server_client.fetch('/v1/models/model/unload',
+            _ = await http_server_client.fetch('/v2/repository/models/model/unload',
                                                method="POST", body=b'')
         assert err.value.code == 404
 

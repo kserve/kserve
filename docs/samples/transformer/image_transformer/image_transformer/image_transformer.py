@@ -46,5 +46,5 @@ class ImageTransformer(kfserving.KFModel):
     def preprocess(self, inputs: Dict) -> Dict:
         return {'instances': [image_transform(instance) for instance in inputs['instances']]}
 
-    def postprocess(self, inputs: List) -> List:
-        return inputs
+    def postprocess(self, outputs: Dict) -> Dict:
+        return outputs

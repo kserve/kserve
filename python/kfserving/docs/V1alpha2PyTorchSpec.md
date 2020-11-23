@@ -1,5 +1,6 @@
 # V1alpha2PyTorchSpec
 
+PyTorchSpec defines arguments for configuring PyTorch model serving.
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------

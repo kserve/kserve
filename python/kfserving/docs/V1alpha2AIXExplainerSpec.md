@@ -1,5 +1,6 @@
 # V1alpha2AIXExplainerSpec
 
+AIXExplainerSpec defines the arguments for configuring an AIX Explanation Server
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------

@@ -63,13 +63,20 @@ type PredictorConfig struct {
 }
 
 // +kubebuilder:object:generate=false
+type PredictorProtocols struct {
+	V1 *PredictorConfig `json:"v1,omitempty"`
+	V2 *PredictorConfig `json:"v2,omitempty"`
+}
+
+// +kubebuilder:object:generate=false
 type PredictorsConfig struct {
-	Tensorflow PredictorConfig `json:"tensorflow,omitempty"`
-	Triton     PredictorConfig `json:"triton,omitempty"`
-	XGBoost    PredictorConfig `json:"xgboost,omitempty"`
-	SKlearn    PredictorConfig `json:"sklearn,omitempty"`
-	PyTorch    PredictorConfig `json:"pytorch,omitempty"`
-	ONNX       PredictorConfig `json:"onnx,omitempty"`
+	Tensorflow PredictorConfig    `json:"tensorflow,omitempty"`
+	Triton     PredictorConfig    `json:"triton,omitempty"`
+	XGBoost    PredictorProtocols `json:"xgboost,omitempty"`
+	SKlearn    PredictorProtocols `json:"sklearn,omitempty"`
+	PyTorch    PredictorConfig    `json:"pytorch,omitempty"`
+	ONNX       PredictorConfig    `json:"onnx,omitempty"`
+	PMML       PredictorConfig    `json:"pmml,omitempty"`
 }
 
 // +kubebuilder:object:generate=false

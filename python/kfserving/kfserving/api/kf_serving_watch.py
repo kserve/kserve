@@ -21,21 +21,24 @@ from ..constants import constants
 from ..utils import utils
 
 
-def watch(name=None, namespace=None, timeout_seconds=600):
+def watch(name=None, namespace=None, timeout_seconds=600, version=constants.KFSERVING_V1BETA1_VERSION):
     """Watch the created or patched InferenceService in the specified namespace"""
 
     if namespace is None:
         namespace = utils.get_default_target_namespace()
 
+    if version != 'v1beta1':
+        raise RuntimeError("The watch API only support v1beta1, the v1alpha2 will be deprecated.")
+
     tbl = TableLogger(
-        columns='NAME,READY,DEFAULT_TRAFFIC,CANARY_TRAFFIC,URL',
-        colwidth={'NAME': 20, 'READY':10, 'DEFAULT_TRAFFIC':15, 'CANARY_TRAFFIC':15, 'URL': 50},
+        columns='NAME,READY,PREDICTOR_CANARY_TRAFFIC,URL',
+        colwidth={'NAME': 20, 'READY': 10, 'PREDICTOR_CANARY_TRAFFIC': 25, 'URL': 65},
         border=False)
 
     stream = k8s_watch.Watch().stream(
         client.CustomObjectsApi().list_namespaced_custom_object,
         constants.KFSERVING_GROUP,
-        constants.KFSERVING_VERSION,
+        version,
         namespace,
         constants.KFSERVING_PLURAL,
         timeout_seconds=timeout_seconds)
@@ -48,15 +51,15 @@ def watch(name=None, namespace=None, timeout_seconds=600):
         else:
             if isvc.get('status', ''):
                 url = isvc['status'].get('url', '')
-                default_traffic = isvc['status'].get('traffic', '')
-                canary_traffic = isvc['status'].get('canaryTraffic', '')
+                traffic_percent = isvc['status'].get('components', {}).get(
+                    'predictor', {}).get('trafficPercent', '')
                 status = 'Unknown'
                 for condition in isvc['status'].get('conditions', {}):
                     if condition.get('type', '') == 'Ready':
                         status = condition.get('status', 'Unknown')
-                tbl(isvc_name, status, default_traffic, canary_traffic, url)
+                tbl(isvc_name, status, traffic_percent, url)
             else:
-                tbl(isvc_name, 'Unknown', '', '', '')
+                tbl(isvc_name, 'Unknown', '', '')
                 # Sleep 2 to avoid status section is not generated within a very short time.
                 time.sleep(2)
                 continue

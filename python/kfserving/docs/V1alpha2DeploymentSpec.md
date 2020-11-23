@@ -1,5 +1,6 @@
 # V1alpha2DeploymentSpec
 
+DeploymentSpec defines the configuration for a given InferenceService service component
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------

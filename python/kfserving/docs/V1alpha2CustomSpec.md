@@ -1,5 +1,6 @@
 # V1alpha2CustomSpec
 
+CustomSpec provides a hook for arbitrary container configuration.
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------

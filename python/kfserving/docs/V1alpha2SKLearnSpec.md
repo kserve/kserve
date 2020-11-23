@@ -1,5 +1,6 @@
 # V1alpha2SKLearnSpec
 
+SKLearnSpec defines arguments for configuring SKLearn model serving.
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------

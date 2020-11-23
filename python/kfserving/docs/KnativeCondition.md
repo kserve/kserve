@@ -1,5 +1,6 @@
 # KnativeCondition
 
+Conditions defines a readiness condition for a Knative resource. See: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#typical-status-properties
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
