@@ -55,6 +55,11 @@ As of KFServing 0.4 release [object selector](https://kubernetes.io/docs/referen
 ```bash
 kubectl patch mutatingwebhookconfiguration inferenceservice.serving.kubeflow.org --patch '{"webhooks":[{"name": "inferenceservice.kfserving-webhook-server.pod-mutator","objectSelector":{"matchExpressions":[{"key":"serving.kubeflow.org/inferenceservice", "operator": "Exists"}]}}]}'
 ```
+
+#### Standalone KFServing on OpenShift
+
+To install standalone KFServing on [OpenShift Container Platform](https://www.openshift.com/products/container-platform), please follow the [instructions here](docs/OPENSHIFT_GUIDE.md).
+
 #### KFServing with Kubeflow Installation
 KFServing is installed by default as part of Kubeflow installation using [Kubeflow manifests](https://github.com/kubeflow/manifests/tree/master/kfserving) and KFServing controller is deployed in `kubeflow` namespace.
 Since Kubeflow Kubernetes minimal requirement is 1.14 which does not support object selector, `ENABLE_WEBHOOK_NAMESPACE_SELECTOR` is enabled in Kubeflow installation by default.
