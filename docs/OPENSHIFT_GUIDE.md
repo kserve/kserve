@@ -1,7 +1,6 @@
 # KFServing on OpenShift
 
-To install standalone KFServing on OpenShift, the easiest way is to use the [`quick_install.sh`](./hack/quick_install.sh) script provided
-in this repository. This assumes you do not already have Istio and Knative running on your cluster.
+[OpenShift Container Platform](https://www.openshift.com/products/container-platform) is built on top of Kubernetes, and offers a consistent hybrid cloud foundation for building and scaling containerized applications. To install standalone KFServing on OpenShift, the easiest way is to use the [`quick_install.sh`](./hack/quick_install.sh) script provided in this repository. This assumes you do not already have Istio and Knative running on your cluster.
 
 **Note**: These instructions were tested on OpenShift 4.5.15, with KFServing 0.4.1, Istio 1.6.2, and Knative 0.15.0 which
 are in the quick install script. Additionally, we have tested it with Kubeflow 1.2 recommended versions for Istio and
