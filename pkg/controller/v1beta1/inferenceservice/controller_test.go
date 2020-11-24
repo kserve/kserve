@@ -217,12 +217,12 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			expectedVirtualService := &v1alpha3.VirtualService{
 				Spec: istiov1alpha3.VirtualService{
 					Gateways: []string{
-						constants.KnativeIngressGateway,
 						constants.KnativeLocalGateway,
+						constants.KnativeIngressGateway,
 					},
 					Hosts: []string{
-						constants.InferenceServiceHostName(serviceKey.Name, serviceKey.Namespace, domain),
 						network.GetServiceHostname(serviceKey.Name, serviceKey.Namespace),
+						constants.InferenceServiceHostName(serviceKey.Name, serviceKey.Namespace, domain),
 					},
 					Http: []*istiov1alpha3.HTTPRoute{
 						{
@@ -257,6 +257,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 										Host: network.GetServiceHostname("cluster-local-gateway", "istio-system"),
 										Port: &istiov1alpha3.PortSelector{Number: constants.CommonDefaultHttpPort},
 									},
+									Weight: 100,
 								},
 							},
 						},

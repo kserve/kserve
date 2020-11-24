@@ -19,6 +19,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
 	"github.com/kubeflow/kfserving/pkg/constants"
+	"github.com/kubeflow/kfserving/pkg/utils"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -107,7 +108,9 @@ func createKnativeService(componentMeta metav1.ObjectMeta,
 				Percent:        proto.Int64(100),
 			})
 	}
-
+	labels := utils.Filter(componentMeta.Labels, func(key string) bool {
+		return !utils.Includes(constants.RevisionTemplateLabelDisallowedList, key)
+	})
 	service := &knservingv1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      componentMeta.Name,
@@ -118,7 +121,7 @@ func createKnativeService(componentMeta metav1.ObjectMeta,
 			ConfigurationSpec: knservingv1.ConfigurationSpec{
 				Template: knservingv1.RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
-						Labels:      componentMeta.Labels,
+						Labels:      labels,
 						Annotations: annotations,
 					},
 					Spec: knservingv1.RevisionSpec{
