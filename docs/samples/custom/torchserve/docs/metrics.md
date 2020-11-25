@@ -141,5 +141,21 @@ Expected Output
 
 ### Adding data source
 
+#### Prometheus graph view
+
+* Navigate to prometheus page
+* Add a query in the prometheus page
+
+![Add query](../docs/images/prometheus.png)
+![Graph](../docs/images/prometheus_graph.png)
+
+#### Grafana dashboard
+
+* Navigate to grafana page
+* Add a dashboard from the top left + symbol
+* Click add query and enter the query
+  
+![Add dashboard](../docs/images/grafana.png)
+
 Add Prometheus data source to Grafana to visualize metrics.
 Link: [Add datasource](https://prometheus.io/docs/visualization/grafana/)
