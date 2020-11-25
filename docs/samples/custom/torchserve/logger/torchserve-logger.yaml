@@ -1,0 +1,13 @@
+apiVersion: "serving.kubeflow.org/v1beta1"
+kind: "InferenceService"
+metadata:
+  name: "torchserve-custom"
+spec:
+  predictor:
+    minReplicas: 1      
+    logger:
+      url: http://message-dumper.default/
+      mode: all
+    containers:
+      - image: {username}/torchserve:latest
+        name: torchserve-container
