@@ -89,7 +89,7 @@ data:
             "multiModelServer": "false"
         },
         "lightgbm": {
-            "image": "docker.io/linym/lgbserver",
+            "image": "kfserving/lgbserver",
             "defaultImageVersion": "v0.5.0-rc0",
             "supportedFrameworks": [
               "lightgbm"

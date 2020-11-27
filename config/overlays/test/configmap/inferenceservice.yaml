@@ -47,6 +47,10 @@ data:
         "pmml": {
             "image": "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/pmmlserver",
             "defaultImageVersion": "latest"
+        },
+        "lightgbm": {
+            "image": "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/lgbserver",
+            "defaultImageVersion": "latest"
         }
     }
   transformers: |-
