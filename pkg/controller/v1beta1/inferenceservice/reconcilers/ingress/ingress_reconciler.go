@@ -343,10 +343,12 @@ func (ir *IngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
 
 	if url, err := apis.ParseURL(serviceUrl); err == nil {
 		isvc.Status.URL = url
+		path := constants.PredictPath(isvc.Name, constants.ProtocolV1)
 		isvc.Status.Address = &duckv1.Addressable{
 			URL: &apis.URL{
 				Host:   network.GetServiceHostname(isvc.Name, isvc.Namespace),
 				Scheme: "http",
+				Path:   path,
 			},
 		}
 		isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{

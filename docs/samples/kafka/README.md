@@ -62,38 +62,9 @@ mc mb myminio/mnist
 
 - Setup event notification to publish events to kafka.
 ```bash
-mc event add myminio/mnist arn:minio:sqs:us-east-1:1:kafka --suffix .png
-```
+$ mc admin config set myminio notify_kafka:1 tls_skip_verify="off"  queue_dir="" queue_limit="0" sasl="off" sasl_password="" sasl_username="" tls_client_auth="0" tls="off" client_tls_cert="" client_tls_key="" brokers="my-kafka-cp-kafka-headless:9092" topic="mnist" version=""
 
-you should expect a notification event like following sent to kafka topic `mnist` after uploading an image in `mnist` bucket
-```json
-{
-   "EventType":"s3:ObjectCreated:Put",
-   "Key":"mnist/0.png",
-   "Records":[
-      {"eventVersion":"2.0",
-       "eventSource":"minio:s3",
-       "awsRegion":"",
-       "eventTime":"2019-11-17T19:08:08Z",
-       "eventName":"s3:ObjectCreated:Put",
-       "userIdentity":{"principalId":"minio"},
-       "requestParameters":{"sourceIPAddress":"127.0.0.1:37830"},
-       "responseElements":{"x-amz-request-id":"15D808BF706E0994",
-       "x-minio-origin-endpoint":"http://10.244.0.71:9000"},
-       "s3":{
-          "s3SchemaVersion":"1.0",
-          "configurationId":"Config",
-          "bucket":{
-               "name":"mnist",
-               "ownerIdentity":{"principalId":"minio"},
-               "arn":"arn:aws:s3:::mnist"},
-          "object":{"key":"0.png","size":324,"eTag":"ebed21f6f77b0a64673a3c96b0c623ba","contentType":"image/png","userMetadata":{"content-type":"image/png"},"versionId":"1","sequencer":"15D808BF706E0994"}},
-          "source":{"host":"","port":"","userAgent":""}}
-   ],
-   "level":"info",
-   "msg":"",
-   "time":"2019-11-17T19:08:08Z"
-}
+mc event add myminio/mnist arn:minio:sqs:us-east-1:1:kafka --suffix .png
 ```
 
 ## Train TF mnist model and save on Minio
@@ -155,6 +126,37 @@ kafkasource-kafka-source-3d809fe2-1267-11ea-99d0-42010af00zbn5h   1/1     Runnin
 
 ## Upload a digit image to Minio mnist bucket
 The last step is to upload the image `images/0.png`, image then should be moved to the classified bucket based on the prediction response!
-
-
+```bash
+mc cp images/0.png myminio/mnist
+```
+you should expect a notification event like following sent to kafka topic `mnist` after uploading an image in `mnist` bucket
+```json
+{
+   "EventType":"s3:ObjectCreated:Put",
+   "Key":"mnist/0.png",
+   "Records":[
+      {"eventVersion":"2.0",
+       "eventSource":"minio:s3",
+       "awsRegion":"",
+       "eventTime":"2019-11-17T19:08:08Z",
+       "eventName":"s3:ObjectCreated:Put",
+       "userIdentity":{"principalId":"minio"},
+       "requestParameters":{"sourceIPAddress":"127.0.0.1:37830"},
+       "responseElements":{"x-amz-request-id":"15D808BF706E0994",
+       "x-minio-origin-endpoint":"http://10.244.0.71:9000"},
+       "s3":{
+          "s3SchemaVersion":"1.0",
+          "configurationId":"Config",
+          "bucket":{
+               "name":"mnist",
+               "ownerIdentity":{"principalId":"minio"},
+               "arn":"arn:aws:s3:::mnist"},
+          "object":{"key":"0.png","size":324,"eTag":"ebed21f6f77b0a64673a3c96b0c623ba","contentType":"image/png","userMetadata":{"content-type":"image/png"},"versionId":"1","sequencer":"15D808BF706E0994"}},
+          "source":{"host":"","port":"","userAgent":""}}
+   ],
+   "level":"info",
+   "msg":"",
+   "time":"2019-11-17T19:08:08Z"
+}
+```
 
