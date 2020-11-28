@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
 	"github.com/kubeflow/kfserving/pkg/constants"
+	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/utils"
 	"github.com/pkg/errors"
 	istiov1alpha3 "istio.io/api/networking/v1alpha3"
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
@@ -343,7 +344,14 @@ func (ir *IngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
 
 	if url, err := apis.ParseURL(serviceUrl); err == nil {
 		isvc.Status.URL = url
-		path := constants.PredictPath(isvc.Name, constants.ProtocolV1)
+		path := ""
+		if !utils.IsMMSPredictor(&isvc.Spec.Predictor) {
+			if isvc.Spec.Predictor.GetImplementation().GetProtocol() == constants.ProtocolV2 {
+				path = constants.PredictPath(isvc.Name, constants.ProtocolV2)
+			} else {
+				path = constants.PredictPath(isvc.Name, constants.ProtocolV1)
+			}
+		}
 		isvc.Status.Address = &duckv1.Addressable{
 			URL: &apis.URL{
 				Host:   network.GetServiceHostname(isvc.Name, isvc.Namespace),
