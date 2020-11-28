@@ -1,4 +1,4 @@
-apiVersion: sources.knative.dev/v1alpha1
+apiVersion: sources.knative.dev/v1beta1
 kind: KafkaSource
 metadata:
   name: kafka-source
@@ -6,10 +6,12 @@ spec:
   consumerGroup: knative-group
   # Broker URL. Replace this with the URLs for your kafka cluster,
   # which is in the format of my-cluster-kafka-bootstrap.my-kafka-namespace:9092.
-  bootstrapServers: my-kafka-cp-kafka-headless:9092
-  topics: mnist
+  bootstrapServers:
+  -  my-kafka-cp-kafka-headless:9092
+  topics:
+  -  mnist
   sink:
     ref:
-      apiVersion: serving.kubeflow.org/v1alpha2
+      apiVersion: serving.kubeflow.org/v1beta1
       kind: InferenceService
       name: mnist

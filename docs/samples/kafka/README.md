@@ -36,11 +36,9 @@ my-kafka-cp-zookeeper-0   2/2     Running   0          127m
 ## Deploy Kafka Event Source
 Install Knative Eventing and Kafka Event Source.
 ```bash
-VERSION=v0.14.0
-kubectl apply --selector knative.dev/crd-install=true \
-  --filename https://github.com/knative/eventing/releases/download/$VERSION/eventing-crds.yaml
-kubectl apply --filename https://github.com/knative/eventing/releases/download/$VERSION/eventing.yaml
-kubectl apply --filename https://github.com/knative/eventing-contrib/releases/download/$VERSION/kafka-source.yaml
+kubectl apply --filename https://github.com/knative/eventing/releases/download/v0.18.0/eventing-crds.yaml
+kubectl apply --filename https://github.com/knative/eventing/releases/download/v0.18.0/eventing-core.yaml
+kubectl apply --filename https://github.com/knative/eventing-contrib/releases/download/v0.18.0/kafka-source.yaml
 ```
 Apply the `InferenceService` addressable cluster role
 ```bash
