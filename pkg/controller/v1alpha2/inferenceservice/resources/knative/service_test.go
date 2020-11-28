@@ -72,10 +72,14 @@ var configMapData = map[string]string{
             "image" : "tensorflow/tfserving"
         },
         "sklearn" : {
-            "image" : "kfserving/sklearnserver"
+            "v1": {
+                "image" : "kfserving/sklearnserver"
+            }
         },
         "xgboost" : {
-            "image" : "kfserving/xgbserver"
+            "v1": {
+                "image" : "kfserving/xgbserver"
+            }
         }
     }`,
 }
