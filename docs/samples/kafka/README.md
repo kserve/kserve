@@ -160,3 +160,15 @@ you should expect a notification event like following sent to kafka topic `mnist
 }
 ```
 
+Check the transformer log, you should expect a prediction response and put the image to the corresponding bucket
+```bash
+kubectl logs mnist-transformer-default-rctjm-deployment-54d59c849c-2dq98  kfserving-container
+[I 201128 22:32:27 kfserver:88] Registering model: mnist
+[I 201128 22:32:27 kfserver:77] Listening on port 8080
+[I 201128 22:32:27 kfserver:79] Will fork 0 workers
+[I 201128 22:32:27 process:123] Starting 6 processes
+[I 201128 22:32:44 connectionpool:203] Starting new HTTP connection (1): minio-service
+[I 201128 22:32:58 image_transformer:51] {'predictions': [{'predictions': [0.0247901566, 1.37231364e-05, 0.0202635303, 0.39037028, 0.000513458275, 0.435112566, 0.000607515569, 0.00041125578, 0.127784252, 0.000133168287], 'classes': 5}]}
+[I 201128 22:32:58 image_transformer:53] digit:5
+```
+
