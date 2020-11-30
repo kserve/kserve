@@ -1,15 +1,15 @@
-# Predict on a InferenceService using Torchserve
+# Generate model archiver files for torchserve
 
 ## Setup
 
 1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/#install-kfserving).
 2. Your cluster's Istio Ingress gateway must be [network accessible](https://istio.io/latest/docs/tasks/traffic-management/ingress/ingress-control/).
 
-## Create PV and PVC
+## 1. Create PV and PVC
 
-This document uses amazonEBS PV
+Create a Persistent volume and volume claim. This document uses amazonEBS PV
 
-### Create PV
+### 1.1 Create PV
 
 Edit volume id in pv.yaml file
 
@@ -23,7 +23,7 @@ Expected Output
 persistentvolume/model-pv-volume created
 ```
 
-### Create PVC
+### 1.2 Create PVC
 
 ```bash
 kubectl apply -f pvc.yaml
@@ -35,7 +35,11 @@ Expected Output
 persistentvolumeclaim/model-pv-claim created
 ```
 
-### Create PV Pod
+## 2 Create model store files layout and copy to PV
+
+We create a pod with the PV attached to copy the model files and config.properties for generating model archive file.
+
+### 2.1 Create pod for copying model store files to PV
 
 ```bash
 kubectl apply -f pvpod.yaml
@@ -47,7 +51,9 @@ Expected Output
 pod/model-store-pod created
 ```
 
-### Create properties.json file
+### 2.2 Create model store file layout on PV
+
+#### 2.2.1 Create properties.json file
 
 This file has model-name, version, model-file name, serialized-file name, extra-files, handlers, workers etc. of the models.
 
@@ -84,7 +90,7 @@ This file has model-name, version, model-file name, serialized-file name, extra-
 ]
 ```
 
-### Copy Files
+#### 2.2.2 Copy model and its dependent Files
 
 Copy all the model and dependent files to the PV in the structure given below.
 An empty config folder, a model-store folder containing model name as folder name. Within that model folder, the files required to build the marfile.
@@ -104,7 +110,7 @@ An empty config folder, a model-store folder containing model name as folder nam
 
 ```
 
-#### Create folders in PV
+#### 2.2.3 Create folders for model-store and config in PV
 
 ```bash
 kubectl exec -it model-store-pod -c model-store -n kfserving-test -- mkdir /pv/model-store/
@@ -112,25 +118,30 @@ kubectl exec -it model-store-pod -c model-store -n kfserving-test -- mkdir /pv/m
 kubectl exec -it model-store-pod -c model-store -n kfserving-test -- mkdir /pv/config/
 ```
 
-### Copy model files
+### 2.3 Copy model files and config.properties to the PV
 
 ```bash
-kubectl cp model-store model-store-pod:/pv/ -c model-store -n kfserving-test
+kubectl cp model-store/* model-store-pod:/pv/model-store/ -c model-store -n kfserving-test
+kubectl cp config.properties model-store-pod:/pv/config/ -c model-store -n kfserving-test
 ```
 
-### Delete pv pod
+### 2.4 Delete pv pod
 
-Since amazon EBS provide only ReadWriteOnce mode
+Since amazon EBS provide only ReadWriteOnce mode, we have to unbind the PV for use of model archiver.
 
 ```bash
 kubectl delete pod model-store-pod -n kfserving-test
 ```
 
-### Apply model-archiver
+## 3 Generate model archive file and server configuration file
+
+### 3.1 Create model archive pod and run model archive file generation script
 
 ```bash
 kubectl apply -f model-archiver.yaml -n kfserving-test
 ```
+
+### 3.2 Check the output and delete model archive pod
 
 Verify mar files and config.properties
 
@@ -139,7 +150,7 @@ kubectl exec -it margen-pod -n kfserving-test -- ls -lR /home/model-server/model
 kubectl exec -it margen-pod -n kfserving-test -- cat /home/model-server/config/config.properties
 ```
 
-### Delete model archiver
+### 3.3 Delete model archiver
 
 ```bash
 kubectl delete -f model-archiver.yaml -n kfserving-test
