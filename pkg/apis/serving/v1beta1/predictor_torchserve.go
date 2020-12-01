@@ -18,13 +18,13 @@ package v1beta1
 
 import (
 	"fmt"
-	"strconv"
-	"strings"
-
+	"github.com/golang/protobuf/proto"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/utils"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"strconv"
+	"strings"
 )
 
 const (
@@ -61,9 +61,9 @@ func (t *TorchServeSpec) Default(config *InferenceServicesConfig) {
 	t.Container.Name = constants.InferenceServiceContainerName
 	if t.RuntimeVersion == nil {
 		if utils.IsGPUEnabled(t.Resources) {
-			*t.RuntimeVersion = config.Predictors.PyTorch.DefaultGpuImageVersion
+			t.RuntimeVersion = proto.String(config.Predictors.PyTorch.DefaultGpuImageVersion)
 		} else {
-			*t.RuntimeVersion = config.Predictors.PyTorch.DefaultImageVersion
+			t.RuntimeVersion = proto.String(config.Predictors.PyTorch.DefaultImageVersion)
 		}
 	}
 	if t.ModelClassName == "" {

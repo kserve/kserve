@@ -72,7 +72,7 @@ Requirement already satisfied: wcwidth in /Library/Frameworks/Python.framework/V
 Requirement already satisfied: atomicwrites>=1.0 in /Library/Frameworks/Python.framework/Versions/3.7/lib/python3.7/site-packages (from pytest->pytorchserver==0.1.0) (1.3.0)
 Requirement already satisfied: attrs>=17.4.0 in /Library/Frameworks/Python.framework/Versions/3.7/lib/python3.7/site-packages (from pytest->pytorchserver==0.1.0) (19.1.0)
 Requirement already satisfied: setuptools in /Library/Frameworks/Python.framework/Versions/3.7/lib/python3.7/site-packages (from pytest->pytorchserver==0.1.0) (40.8.0)
-Requirement already satisfied: mypy-extensions<0.5.0,>=0.4.0 in /Library/Frameworks/Python.framework/Versions/3.7/lib/python3.7/site-packages (from mypy->pytorchserver==0.1.0) (0.4.1)
+Requirement already satisfied: mypy-extensions<0.5.0,>=0.4.1 in /Library/Frameworks/Python.framework/Versions/3.7/lib/python3.7/site-packages (from mypy->pytorchserver==0.1.0) (0.4.1)
 Requirement already satisfied: typed-ast<1.4.0,>=1.3.1 in /Library/Frameworks/Python.framework/Versions/3.7/lib/python3.7/site-packages (from mypy->pytorchserver==0.1.0) (1.3.5)
 Installing collected packages: pytorchserver
   Found existing installation: pytorchserver 0.1.0

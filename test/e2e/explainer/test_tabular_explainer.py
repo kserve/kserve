@@ -49,7 +49,7 @@ def test_tabular_explainer():
             min_replicas=1,
             alibi=V1alpha2AlibiExplainerSpec(
                 type='AnchorTabular',
-                storage_uri='gs://seldon-models/sklearn/income/alibi/0.4.0',
+                storage_uri='gs://seldon-models/sklearn/income/explainer-py36-0.5.2',
                 resources=V1ResourceRequirements(
                     requests={'cpu': '100m', 'memory': '1Gi'},
                     limits={'cpu': '100m', 'memory': '1Gi'}))))
@@ -65,7 +65,7 @@ def test_tabular_explainer():
         KFServing.wait_isvc_ready(service_name, namespace=KFSERVING_TEST_NAMESPACE, timeout_seconds=300)
     except RuntimeError as e:
         logging.info(KFServing.api_instance.get_namespaced_custom_object("serving.knative.dev", "v1",
-           KFSERVING_TEST_NAMESPACE, "services", service_name + "-predictor"))
+           KFSERVING_TEST_NAMESPACE, "services", service_name + "-predictor-default"))
         pods = KFServing.core_api.list_namespaced_pod(KFSERVING_TEST_NAMESPACE,
                label_selector='serving.kubeflow.org/inferenceservice={}'.format(service_name))
         for pod in pods.items:

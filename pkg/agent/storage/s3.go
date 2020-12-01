@@ -25,6 +25,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3manager/s3manageriface"
 	"os"
 	"path/filepath"
+	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"strings"
 )
 
@@ -32,6 +33,8 @@ type S3Provider struct {
 	Client     s3iface.S3API
 	Downloader s3manageriface.DownloadWithIterator
 }
+
+var log = logf.Log.WithName("modelAgent")
 
 var _ Provider = (*S3Provider)(nil)
 
@@ -45,14 +48,19 @@ type S3ObjectDownloader struct {
 }
 
 func (m *S3Provider) DownloadModel(modelDir string, modelName string, storageUri string) error {
+	log.Info("Download model ", "modelName", modelName, "storageUri", storageUri, "modelDir", modelDir)
 	s3Uri := strings.TrimPrefix(storageUri, string(S3))
-	path := strings.Split(s3Uri, "/")
+	tokens := strings.SplitN(s3Uri, "/", 2)
+	prefix := ""
+	if len(tokens) == 2 {
+		prefix = tokens[1]
+	}
 	s3ObjectDownloader := &S3ObjectDownloader{
 		StorageUri: storageUri,
 		ModelDir:   modelDir,
 		ModelName:  modelName,
-		Bucket:     path[0],
-		Prefix:     path[1],
+		Bucket:     tokens[0],
+		Prefix:     prefix,
 		downloader: m.Downloader,
 	}
 	objects, err := s3ObjectDownloader.GetAllObjects(m.Client)
@@ -80,7 +88,8 @@ func (s *S3ObjectDownloader) GetAllObjects(s3Svc s3iface.S3API) ([]s3manager.Bat
 	}
 
 	for _, object := range resp.Contents {
-		fileName := filepath.Join(s.ModelDir, s.ModelName, *object.Key)
+		subObjectKey := strings.TrimPrefix(*object.Key, s.Prefix)
+		fileName := filepath.Join(s.ModelDir, s.ModelName, subObjectKey)
 		if FileExists(fileName) {
 			// File got corrupted or is mid-download :(
 			// TODO: Figure out if we can maybe continue?

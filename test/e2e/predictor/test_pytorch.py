@@ -42,14 +42,13 @@ def test_pytorch():
                 storage_uri='gs://kfserving-samples/models/pytorch/cifar10',
                 model_class_name="Net",
                 resources=V1ResourceRequirements(
-                    requests={'cpu': '100m', 'memory': '2Gi', 'nvidia.com/gpu': '1'},
-                    limits={'cpu': '100m', 'memory': '2Gi', 'nvidia.com/gpu': '1'}))))
+                    requests={'cpu': '100m', 'memory': '2Gi'},
+                    limits={'cpu': '100m', 'memory': '2Gi'}))))
 
     isvc = V1alpha2InferenceService(api_version=api_version,
                                     kind=constants.KFSERVING_KIND,
                                     metadata=client.V1ObjectMeta(
-                                        name=service_name, namespace=KFSERVING_TEST_NAMESPACE,
-                                        annotations={'serving.kubeflow.org/gke-accelerator': 'nvidia-tesla-k80'}),
+                                        name=service_name, namespace=KFSERVING_TEST_NAMESPACE),
                                     spec=V1alpha2InferenceServiceSpec(default=default_endpoint_spec))
 
     KFServing.create(isvc)
@@ -57,7 +56,7 @@ def test_pytorch():
         KFServing.wait_isvc_ready(service_name, namespace=KFSERVING_TEST_NAMESPACE)
     except RuntimeError as e:
         print(KFServing.api_instance.get_namespaced_custom_object("serving.knative.dev", "v1", KFSERVING_TEST_NAMESPACE,
-                                                                  "services", service_name + "-predictor"))
+                                                                  "services", service_name + "-predictor-default"))
         pods = KFServing.core_api.list_namespaced_pod(KFSERVING_TEST_NAMESPACE,
                                                       label_selector='serving.kubeflow.org/inferenceservice={}'.
                                                       format(service_name))

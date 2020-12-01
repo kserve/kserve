@@ -1,5 +1,6 @@
 # V1alpha2Logger
 
+Logger provides optional payload logging for all endpoints
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------

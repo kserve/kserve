@@ -19,23 +19,22 @@ package agent
 import (
 	"encoding/hex"
 	"fmt"
-	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
+	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"os"
 	"path/filepath"
+	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"strings"
 )
-
-type Syncer struct {
-	Watcher Watcher
-}
 
 type FileError error
 
 var NoSuccessFile FileError = fmt.Errorf("no success file can be found")
 
 func SyncModelDir(modelDir string) (map[string]modelWrapper, error) {
+	log := logf.Log.WithName("Syncer")
+	log.Info("Syncing model directory..", "modelDir", modelDir)
 	modelTracker := make(map[string]modelWrapper)
 	err := filepath.Walk(modelDir, func(path string, info os.FileInfo, err error) error {
 		if info.IsDir() {
@@ -73,7 +72,7 @@ func SyncModelDir(modelDir string) (map[string]modelWrapper, error) {
 	return modelTracker, nil
 }
 
-func successParse(baseSplit []string) (*v1beta1.ModelSpec, error) {
+func successParse(baseSplit []string) (*v1alpha1.ModelSpec, error) {
 	storageURI, err := unhash(baseSplit[1])
 	errorMessage := "unable to unhash the SUCCESS file, maybe the SUCCESS file has been modified?"
 	if err != nil {
@@ -88,7 +87,7 @@ func successParse(baseSplit []string) (*v1beta1.ModelSpec, error) {
 		return nil, errors.Wrapf(err, errorMessage)
 	}
 	memoryResource := resource.MustParse(memory)
-	return &v1beta1.ModelSpec{
+	return &v1alpha1.ModelSpec{
 		StorageURI: storageURI,
 		Framework:  framework,
 		Memory:     memoryResource,

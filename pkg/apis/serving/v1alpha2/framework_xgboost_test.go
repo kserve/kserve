@@ -45,9 +45,11 @@ func TestFrameworkXgBoost(t *testing.T) {
 	for name, scenario := range scenarios {
 		config := &InferenceServicesConfig{
 			Predictors: &PredictorsConfig{
-				Xgboost: PredictorConfig{
-					ContainerImage:      "kfserving/xgboostserver",
-					DefaultImageVersion: "latest",
+				Xgboost: PredictorProtocols{
+					V1: &PredictorConfig{
+						ContainerImage:      "kfserving/xgboostserver",
+						DefaultImageVersion: "latest",
+					},
 				},
 			},
 		}
@@ -66,9 +68,11 @@ func TestCreateXGBoostContainer(t *testing.T) {
 	}
 	var config = InferenceServicesConfig{
 		Predictors: &PredictorsConfig{
-			Xgboost: PredictorConfig{
-				ContainerImage:      "someOtherImage",
-				DefaultImageVersion: "0.1.0",
+			Xgboost: PredictorProtocols{
+				V1: &PredictorConfig{
+					ContainerImage:      "someOtherImage",
+					DefaultImageVersion: "0.1.0",
+				},
 			},
 		},
 	}
@@ -116,9 +120,11 @@ func TestCreateXGBoostContainer(t *testing.T) {
 func TestCreateXGBoostContainerWithNThread(t *testing.T) {
 	var config = InferenceServicesConfig{
 		Predictors: &PredictorsConfig{
-			Xgboost: PredictorConfig{
-				ContainerImage:      "someOtherImage",
-				DefaultImageVersion: "0.1.0",
+			Xgboost: PredictorProtocols{
+				V1: &PredictorConfig{
+					ContainerImage:      "someOtherImage",
+					DefaultImageVersion: "0.1.0",
+				},
 			},
 		},
 	}

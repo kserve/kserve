@@ -11,7 +11,7 @@ ignore=CVS
 
 # Add files or directories matching the regex patterns to the blacklist. The
 # regex matches against base names, not paths.
-ignore-patterns=server.py,model.py,api_client.py,rest.py,configuration.py,v1alpha2_*,v1_time.py,knative_*,test_knative_*,test_v1alpha2_*,test_s3_storage.py,net_url_userinfo.py,test_net_url_userinfo.py
+ignore-patterns=server.py,model.py,api_client.py,rest.py,configuration.py,v1alpha2_*,v1beta1_*,v1_time.py,knative_*,test_knative_*,test_v1alpha2_*,test_v1beta1_*,test_s3_storage.py,net_url_userinfo.py,test_net_url_userinfo.py
 
 # Python code to execute, usually for sys.path manipulation such as
 # pygtk.require().
@@ -149,6 +149,8 @@ disable=duplicate-code,
         no-member,
         abstract-method,
         no-self-use,
+	invalid-str-returned, # https://github.com/PyCQA/pylint/issues/3649
+	invalid-overridden-method 
 
 # Enable the message, report, category or checker with the given id(s). You can
 # either give multiple identifier separated by comma (,) or put this option

@@ -10,7 +10,7 @@ From KFServing root folder, you can `make generate` or execute the below script 
 ```
 ./hack/update-openapigen.sh
 ```
-After executing, the `openapi_generated.go` and `swagger.json` are generated and stored under `pkg/apis/serving/v1alpha2/`.
+After executing, the `openapi_generated.go` and `swagger.json` are generated and stored under `pkg/apis/serving/v1beta1/`.
 
 ## Generate KFServing Python SDK
 

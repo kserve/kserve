@@ -68,7 +68,7 @@ Requirement already satisfied: more-itertools>=4.0.0; python_version > "2.7" in 
 Requirement already satisfied: six>=1.10.0 in /Library/Frameworks/Python.framework/Versions/3.7/lib/python3.7/site-packages (from pytest->sklearnserver==0.1.0) (1.12.0)
 Requirement already satisfied: py>=1.5.0 in /Library/Frameworks/Python.framework/Versions/3.7/lib/python3.7/site-packages (from pytest->sklearnserver==0.1.0) (1.8.0)
 Requirement already satisfied: typed-ast<1.4.0,>=1.3.1 in /Library/Frameworks/Python.framework/Versions/3.7/lib/python3.7/site-packages (from mypy->sklearnserver==0.1.0) (1.3.5)
-Requirement already satisfied: mypy-extensions<0.5.0,>=0.4.0 in /Library/Frameworks/Python.framework/Versions/3.7/lib/python3.7/site-packages (from mypy->sklearnserver==0.1.0) (0.4.1)
+Requirement already satisfied: mypy-extensions<0.5.0,>=0.4.1 in /Library/Frameworks/Python.framework/Versions/3.7/lib/python3.7/site-packages (from mypy->sklearnserver==0.1.0) (0.4.1)
 Installing collected packages: sklearnserver
   Found existing installation: sklearnserver 0.1.0
     Uninstalling sklearnserver-0.1.0:

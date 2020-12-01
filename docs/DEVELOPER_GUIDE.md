@@ -47,13 +47,13 @@ You must install these tools:
 1. [`kubectl`](https://kubernetes.io/docs/tasks/tools/install-kubectl/): For
    managing development environments.
 1. [`kustomize`](https://github.com/kubernetes-sigs/kustomize/) To customize YAMLs for different environments, requires v3.5.4+.
+1. [`yq`](https://github.com/mikefarah/yq) yq is used in the project makefiles to parse and display YAML output
 
 ### Install Knative on a Kubernetes cluster
 
 KFServing currently requires `Knative Serving` for auto-scaling, canary rollout, `Istio` for traffic routing and ingress.
 
-* You can follow the instructions on [Set up a kubernetes cluster and install Knative Serving](https://knative.dev/docs/install/) or
-[Custom Install](https://knative.dev/docs/install/knative-custom-install) to install `Istio` and `Knative Serving`. Observability plug-ins are good to have for monitoring.
+* To install Knative components on your Kubernetes cluster, follow the [generic cluster installation guide](https://knative.dev/docs/install/any-kubernetes-cluster/) or alternatively, use the [Knative Operators](https://knative.dev/docs/install/knative-with-operators/) to manage your installation. Observability, tracing and logging are optional but are often very valuable tools for troubleshooting difficult issues - they can be installed via the [directions here](https://knative.dev/docs/serving/installing-logging-metrics-traces/).
 
 * If you already have `Istio` or `Knative` (e.g. from a Kubeflow install) then you don't need to install them explictly, as long as version dependencies are satisfied. With Kubeflow v0.7, KNative 0.8 and Istio 1.1.6 are installed by default as part of the Kubeflow installation. From Kubeflow 1.0 onwards, KNative 0.11.1 and Istio 1.1.6 are installed by default. If you are using DEX based config for Kubeflow 1.0, Istio 1.3.1 is installed by default in your Kubeflow cluster. To summarize, we would recommend KNative 0.11.1 at a minimum for KFServing 0.3.0 and for the KFServing code in master. For Istio use versions 1.1.6 and 1.3.1 which have been tested, and for Kubernetes use 1.15+ 
 

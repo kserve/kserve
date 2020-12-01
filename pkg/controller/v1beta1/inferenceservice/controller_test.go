@@ -63,7 +63,12 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				  "defaultTimeout": "60000"
                },
                "sklearn": {
+                 "v1": {
                   "image": "kfserving/sklearnserver"
+                 },
+                 "v2": {
+                  "image": "kfserving/sklearnserver"
+                 }
                },
                "xgboost": {
                   "image": "kfserving/xgbserver"
@@ -214,12 +219,12 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			expectedVirtualService := &v1alpha3.VirtualService{
 				Spec: istiov1alpha3.VirtualService{
 					Gateways: []string{
-						constants.KnativeIngressGateway,
 						constants.KnativeLocalGateway,
+						constants.KnativeIngressGateway,
 					},
 					Hosts: []string{
-						constants.InferenceServiceHostName(serviceKey.Name, serviceKey.Namespace, domain),
 						network.GetServiceHostname(serviceKey.Name, serviceKey.Namespace),
+						constants.InferenceServiceHostName(serviceKey.Name, serviceKey.Namespace, domain),
 					},
 					Http: []*istiov1alpha3.HTTPRoute{
 						{
@@ -254,6 +259,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 										Host: network.GetServiceHostname("cluster-local-gateway", "istio-system"),
 										Port: &istiov1alpha3.PortSelector{Number: constants.CommonDefaultHttpPort},
 									},
+									Weight: 100,
 								},
 							},
 						},
@@ -799,9 +805,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Status: "True",
 				},
 			}
-			Expect(retry.RetryOnConflict(retry.DefaultRetry, func() error {
-				return k8sClient.Status().Update(context.TODO(), canaryService)
-			})).NotTo(gomega.HaveOccurred())
+			Expect(k8sClient.Status().Update(context.TODO(), canaryService)).NotTo(gomega.HaveOccurred())
 
 			// assert inference service predictor status
 			Eventually(func() string {
@@ -862,6 +866,75 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					return actualService.Spec.Traffic
 				}
 			}, timeout).Should(gomega.Equal(expectedTrafficTarget))
+		})
+	})
+
+	Context("When creating and deleting inference service without storageUri (multi-model inferenceservice)", func() {
+		// Create configmap
+		var configMap = &v1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      constants.InferenceServiceConfigMapName,
+				Namespace: constants.KFServingNamespace,
+			},
+			Data: configs,
+		}
+
+		serviceName := "bar"
+		var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
+		var serviceKey = expectedRequest.NamespacedName
+		var modelConfigMapKey = types.NamespacedName{Name: constants.ModelConfigName(serviceName, 0),
+			Namespace: serviceKey.Namespace}
+		ctx := context.Background()
+
+		instance := &v1beta1.InferenceService{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      serviceKey.Name,
+				Namespace: serviceKey.Namespace,
+			},
+			Spec: v1beta1.InferenceServiceSpec{
+				Predictor: v1beta1.PredictorSpec{
+					ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
+						MinReplicas: v1beta1.GetIntReference(1),
+						MaxReplicas: 3,
+					},
+					SKLearn: &v1beta1.SKLearnSpec{
+						PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
+							RuntimeVersion: proto.String("1.14.0"),
+						},
+					},
+				},
+			},
+		}
+
+		It("Should have model config created and mounted", func() {
+			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), configMap)
+			By("By creating a new InferenceService")
+			Expect(k8sClient.Create(ctx, instance)).Should(Succeed())
+
+			inferenceService := &v1beta1.InferenceService{}
+			Eventually(func() bool {
+				//Check if InferenceService is created
+				err := k8sClient.Get(ctx, serviceKey, inferenceService)
+				if err != nil {
+					return false
+				}
+				return true
+			}, timeout, interval).Should(BeTrue())
+
+			modelConfigMap := &v1.ConfigMap{}
+			Eventually(func() bool {
+				//Check if modelconfig is created
+				err := k8sClient.Get(ctx, modelConfigMapKey, modelConfigMap)
+				if err != nil {
+					return false
+				}
+
+				//Verify that this configmap's ownerreference is it's parent InferenceService
+				Expect(modelConfigMap.OwnerReferences[0].Name).To(Equal(serviceKey.Name))
+
+				return true
+			}, timeout, interval).Should(BeTrue())
 		})
 	})
 })

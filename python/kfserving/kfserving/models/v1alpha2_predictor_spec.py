@@ -34,6 +34,7 @@ from kfserving.models.v1alpha2_batcher import V1alpha2Batcher  # noqa: F401,E501
 from kfserving.models.v1alpha2_custom_spec import V1alpha2CustomSpec  # noqa: F401,E501
 from kfserving.models.v1alpha2_logger import V1alpha2Logger  # noqa: F401,E501
 from kfserving.models.v1alpha2_onnx_spec import V1alpha2ONNXSpec  # noqa: F401,E501
+from kfserving.models.v1alpha2_pmml_spec import V1alpha2PMMLSpec  # noqa: F401,E501
 from kfserving.models.v1alpha2_py_torch_spec import V1alpha2PyTorchSpec  # noqa: F401,E501
 from kfserving.models.v1alpha2_sk_learn_spec import V1alpha2SKLearnSpec  # noqa: F401,E501
 from kfserving.models.v1alpha2_tensorflow_spec import V1alpha2TensorflowSpec  # noqa: F401,E501
@@ -49,12 +50,12 @@ class V1alpha2PredictorSpec(object):
 
     """
     Attributes:
-      swagger_types (dict): The key is attribute name
+      openapi_types (dict): The key is attribute name
                             and the value is attribute type.
       attribute_map (dict): The key is attribute name
                             and the value is json key in definition.
     """
-    swagger_types = {
+    openapi_types = {
         'batcher': 'V1alpha2Batcher',
         'custom': 'V1alpha2CustomSpec',
         'logger': 'V1alpha2Logger',
@@ -65,6 +66,7 @@ class V1alpha2PredictorSpec(object):
         'pytorch': 'V1alpha2PyTorchSpec',
         'service_account_name': 'str',
         'sklearn': 'V1alpha2SKLearnSpec',
+        'pmml': 'V1alpha2PMMLSpec',
         'tensorflow': 'V1alpha2TensorflowSpec',
         'triton': 'V1alpha2TritonSpec',
         'xgboost': 'V1alpha2XGBoostSpec'
@@ -81,12 +83,13 @@ class V1alpha2PredictorSpec(object):
         'pytorch': 'pytorch',
         'service_account_name': 'serviceAccountName',
         'sklearn': 'sklearn',
+        'pmml': 'pmml',
         'tensorflow': 'tensorflow',
         'triton': 'triton',
         'xgboost': 'xgboost'
     }
 
-    def __init__(self, batcher=None, custom=None, logger=None, max_replicas=None, min_replicas=None, onnx=None, parallelism=None, pytorch=None, service_account_name=None, sklearn=None, tensorflow=None, triton=None, xgboost=None):  # noqa: E501
+    def __init__(self, batcher=None, custom=None, logger=None, max_replicas=None, min_replicas=None, onnx=None, parallelism=None, pytorch=None, service_account_name=None, sklearn=None, pmml=None, tensorflow=None, triton=None, xgboost=None):  # noqa: E501
         """V1alpha2PredictorSpec - a model defined in Swagger"""  # noqa: E501
 
         self._batcher = None
@@ -99,6 +102,7 @@ class V1alpha2PredictorSpec(object):
         self._pytorch = None
         self._service_account_name = None
         self._sklearn = None
+        self._pmml = None
         self._tensorflow = None
         self._triton = None
         self._xgboost = None
@@ -124,6 +128,8 @@ class V1alpha2PredictorSpec(object):
             self.service_account_name = service_account_name
         if sklearn is not None:
             self.sklearn = sklearn
+        if pmml is not None:
+            self.pmml = pmml
         if tensorflow is not None:
             self.tensorflow = tensorflow
         if triton is not None:
@@ -362,6 +368,29 @@ class V1alpha2PredictorSpec(object):
         self._sklearn = sklearn
 
     @property
+    def pmml(self):
+        """Gets the pmml of this V1alpha2PredictorSpec.  # noqa: E501
+
+        Spec for PMML predictor  # noqa: E501
+
+        :return: The pmml of this V1alpha2PredictorSpec.  # noqa: E501
+        :rtype: V1alpha2PMMLSpec
+        """
+        return self._pmml
+
+    @pmml.setter
+    def pmml(self, pmml):
+        """Sets the pmml of this V1alpha2PredictorSpec.
+
+        Spec for PMML predictor  # noqa: E501
+
+        :param pmml: The pmml of this V1alpha2PredictorSpec.  # noqa: E501
+        :type: V1alpha2PMMLSpec
+        """
+
+        self._pmml = pmml
+
+    @property
     def tensorflow(self):
         """Gets the tensorflow of this V1alpha2PredictorSpec.  # noqa: E501
 
@@ -434,7 +463,7 @@ class V1alpha2PredictorSpec(object):
         """Returns the model properties as a dict"""
         result = {}
 
-        for attr, _ in six.iteritems(self.swagger_types):
+        for attr, _ in six.iteritems(self.openapi_types):
             value = getattr(self, attr)
             if isinstance(value, list):
                 result[attr] = list(map(

@@ -1,5 +1,6 @@
 # V1alpha2InferenceServiceStatus
 
+InferenceServiceStatus defines the observed state of InferenceService
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------

@@ -21,12 +21,10 @@ set -o nounset
 set -o pipefail
 
 CLUSTER_NAME="${CLUSTER_NAME}"
-ZONE="${GCP_ZONE}"
-PROJECT="${GCP_PROJECT}"
-NAMESPACE="${DEPLOY_NAMESPACE}"
-REGISTRY="${GCP_REGISTRY}"
+AWS_REGION="${AWS_REGION}"
+
 ISTIO_VERSION="1.3.1"
-KNATIVE_VERSION="v0.15.0"
+KNATIVE_VERSION="v0.17.0"
 KUBECTL_VERSION="v1.14.0"
 CERT_MANAGER_VERSION="v0.12.0"
 # Check and wait for istio/knative/kfserving pod started normally.
@@ -47,37 +45,14 @@ waiting_pod_running(){
     done
 }
 
-waiting_for_kfserving_controller(){
-    TIMEOUT=120
-    until [[ $(kubectl get statefulsets kfserving-controller-manager -n kfserving-system -o=jsonpath='{.status.readyReplicas}') -eq 1 ]]; do
-        kubectl get pods -n kfserving-system
-        kubectl get cm -n kfserving-system
-        sleep 10
-        TIMEOUT=$(( TIMEOUT - 10 ))
-        if [[ $TIMEOUT -eq 0 ]];then
-            echo "Timeout to waiting for kfserving controller to start."
-            kubectl get pods -n kfserving-system
-            exit 1
-        fi
-    done
-}
-
-echo "Activating service-account ..."
-gcloud auth activate-service-account --key-file=${GOOGLE_APPLICATION_CREDENTIALS}
-
 echo "Upgrading kubectl ..."
 # The kubectl need to be upgraded to 1.14.0 to avoid dismatch issue.
 wget -q -O /usr/local/bin/kubectl https://storage.googleapis.com/kubernetes-release/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl
 chmod a+x /usr/local/bin/kubectl
 
 echo "Configuring kubectl ..."
-gcloud --project ${PROJECT} container clusters get-credentials ${CLUSTER_NAME} --zone ${ZONE}
-kubectl config set-context $(kubectl config current-context) --namespace=default
-
-echo "Grant cluster-admin permissions to the current user ..."
-kubectl create clusterrolebinding cluster-admin-binding \
-  --clusterrole=cluster-admin \
-  --user=$(gcloud config get-value core/account)
+pip3 install awscli --upgrade --user
+aws eks update-kubeconfig --region=${AWS_REGION} --name=${CLUSTER_NAME}
 
 # Install and Initialize Helm
 wget https://get.helm.sh/helm-v3.0.2-linux-amd64.tar.gz
@@ -159,8 +134,7 @@ sleep 2
 kubectl apply --validate=false -f https://github.com/jetstack/cert-manager/releases/download/${CERT_MANAGER_VERSION}/cert-manager.yaml
 
 echo "Waiting for cert manager started ..."
-waiting_pod_running "cert-manager"
-sleep 120  # Wait for webhook install finished totally.
+kubectl wait --for=condition=ready pod -l app=cert-manager -n cert-manager
 
 echo "Install KFServing ..."
 export GOPATH="$HOME/go"
@@ -168,11 +142,15 @@ export PATH="${PATH}:${GOPATH}/bin"
 mkdir -p ${GOPATH}/src/github.com/kubeflow
 cp -rf ../kfserving ${GOPATH}/src/github.com/kubeflow
 cd ${GOPATH}/src/github.com/kubeflow/kfserving
+
+wget -O $GOPATH/bin/yq https://github.com/mikefarah/yq/releases/download/3.3.2/yq_linux_amd64
+chmod +x $GOPATH/bin/yq
+sed -i -e "s/latest/${PULL_BASE_SHA}/g" config/overlays/test/configmap/inferenceservice.yaml
+sed -i -e "s/latest/${PULL_BASE_SHA}/g" config/overlays/test/manager_image_patch.yaml
 make deploy-ci
 
 echo "Waiting for KFServing started ..."
-waiting_for_kfserving_controller
-sleep 60  # Wait for webhook install finished totally.
+kubectl wait --for=condition=ready pod -l control-plane=kfserving-controller-manager -n kfserving-system
 
 echo "Creating a namespace kfserving-ci-test ..."
 kubectl create namespace kfserving-ci-e2e-test
@@ -192,5 +170,5 @@ popd
 
 echo "Starting E2E functional tests ..."
 pushd test/e2e >/dev/null
-  pytest -n 4
+  pytest -n 3 --ignore=credentials/test_set_creds.py
 popd

@@ -83,7 +83,7 @@ func (W *Worker) sendCloudEvent(logReq LogRequest) error {
 	if err != nil {
 		return fmt.Errorf("while creating new cloudevents client: %s", err)
 	}
-	event := cloudevents.NewEvent()
+	event := cloudevents.NewEvent(cloudevents.VersionV1)
 	event.SetID(logReq.Id)
 	if logReq.ReqType == InferenceRequest {
 		event.SetType(CEInferenceRequest)

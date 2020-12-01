@@ -19,15 +19,10 @@
   defaultParams:: {
     project:: "kubeflow-ci",
     zone:: "us-east1-d",
-    // Default registry to use.
-    //registry:: "gcr.io/" + $.defaultParams.project,
 
     // The image tag to use.
     // Defaults to a value based on the name.
     versionTag:: null,
-
-    // The name of the secret containing GCP credentials.
-    gcpCredentialsSecretName:: "kubeflow-testing-credentials",
   },
 
   parts(namespace, name, overrides):: {
@@ -49,7 +44,8 @@
       // The directory containing the kubeflow/kfserving repo
       local srcDir = srcRootDir + "/kubeflow/kfserving";
       local pylintSrcDir = srcDir + "/python";
-      local testWorkerImage = "gcr.io/kubeflow-ci/test-worker-py3@sha256:b679ce5d7edbcc373fd7d28c57454f4f22ae987f200f601252b6dcca1fd8823b";
+      local kanikoExecutorImage = "gcr.io/kaniko-project/executor:v1.0.0";
+      local testWorkerImage = "527798164940.dkr.ecr.us-west-2.amazonaws.com/aws-kubeflow-ci/test-worker:latest";
       local golangImage = "golang:1.9.4-stretch";
       // TODO(jose5918) Build our own helm image
       local pythonImage = "python:3.6-jessie";
@@ -69,6 +65,7 @@
       // py scripts to use.
       local k8sPy = srcDir;
       local kubeflowPy = srcRootDir + "/kubeflow/testing/py";
+      local kfservingPy = srcDir  + "/python/kfserving";
 
       local project = params.project;
       // GKE cluster to use
@@ -79,8 +76,8 @@
       // and if we cut the prefix we might end up starting with "-" or other invalid
       // character for first character.
       local cluster =
-        if std.length(name) > 40 then
-          "z" + std.substr(name, std.length(name) - 39, 39)
+        if std.length(name) > 80 then
+          "z" + std.substr(name, std.length(name) - 79, 79)
         else
           name;
       local zone = params.zone;
@@ -89,7 +86,7 @@
         // Build an Argo template to execute a particular command.
         // step_name: Name for the template
         // command: List to pass as the container command.
-        buildTemplate(step_name, image, command):: {
+        buildTemplate(step_name, image, command, env_vars=[], volume_mounts=[]):: {
           name: step_name,
           retryStrategy: {
             limit: 3,
@@ -108,7 +105,7 @@
               {
                 // Add the source directories to the python path.
                 name: "PYTHONPATH",
-                value: k8sPy + ":" + kubeflowPy,
+                value: k8sPy + ":" + kubeflowPy + ":" + kfservingPy,
               },
               {
                 // Set the GOPATH
@@ -120,24 +117,12 @@
                 value: cluster,
               },
               {
-                name: "GCP_ZONE",
-                value: zone,
-              },
-              {
-                name: "GCP_PROJECT",
-                value: project,
-              },
-              {
                 name: "GCP_REGISTRY",
                 value: registry,
               },
               {
                 name: "DEPLOY_NAMESPACE",
                 value: deployNamespace,
-              },
-              {
-                name: "GOOGLE_APPLICATION_CREDENTIALS",
-                value: "/secret/gcp-credentials/key.json",
               },
               {
                 name: "GIT_TOKEN",
@@ -148,7 +133,29 @@
                   },
                 },
               },
-            ] + prow_env,
+              {
+                name: "AWS_REGION",
+                value: "us-west-2",
+              },
+              {
+                name: "AWS_ACCESS_KEY_ID",
+                valueFrom: {
+                  secretKeyRef: {
+                    name: "aws-credentials",
+                    key: "AWS_ACCESS_KEY_ID",
+                  },
+                },
+              },
+              {
+                name: "AWS_SECRET_ACCESS_KEY",
+                valueFrom: {
+                  secretKeyRef: {
+                    name: "aws-credentials",
+                    key: "AWS_SECRET_ACCESS_KEY",
+                  },
+                },
+              },
+            ] + prow_env + env_vars,
             volumeMounts: [
               {
                 name: dataVolume,
@@ -159,8 +166,8 @@
                 mountPath: "/secret/github-token",
               },
               {
-                name: "gcp-credentials",
-                mountPath: "/secret/gcp-credentials",
+                name: "aws-secret",
+                mountPath: "/root/.aws/",
               },
             ],
           },
@@ -174,6 +181,7 @@
         },
         spec: {
           entrypoint: "e2e",
+          ttlSecondsAfterFinished: 86400,
           volumes: [
             {
               name: "github-token",
@@ -182,15 +190,21 @@
               },
             },
             {
-              name: "gcp-credentials",
-              secret: {
-                secretName: params.gcpCredentialsSecretName,
-              },
-            },
-            {
               name: dataVolume,
               persistentVolumeClaim: {
                 claimName: nfsVolumeClaim,
+              },
+            },
+            {
+              name: "docker-config",
+              configMap: {
+                name: "docker-config",
+              },
+            },
+            {
+              name: "aws-secret",
+              secret: {
+                secretName: "aws-secret",
               },
             },
           ],  // volumes
@@ -206,18 +220,8 @@
                 }],
                 [
                   {
-                    name: "sdk-test",
-                    template: "sdk-test",
-                  },
-                  {
                     name: "pylint-checking",
                     template: "pylint-checking",
-                  },
-                ],
-                [
-                  {
-                    name: "setup-cluster",
-                    template: "setup-cluster",
                   },
                 ],
                 [
@@ -250,12 +254,12 @@
                     template: "build-batcher",
                   },
                   {
-                    name: "build-custom-image-transformer",
-                    template: "build-custom-image-transformer",
+                    name: "build-agent",
+                    template: "build-agent",
                   },
                   {
-                    name: "build-custom-bert-transformer",
-                    template: "build-custom-bert-transformer",
+                    name: "build-custom-image-transformer",
+                    template: "build-custom-image-transformer",
                   },
                   {
                     name: "build-pytorchserver",
@@ -269,6 +273,16 @@
                     name: "build-sklearnserver",
                     template: "build-sklearnserver",
                   },
+                  {
+                    name: "build-pmmlserver",
+                    template: "build-pmmlserver",
+                  },
+                ],
+                [
+                  {
+                    name: "setup-cluster",
+                    template: "setup-cluster",
+                  },
                 ],
                 [
                   {
@@ -281,6 +295,10 @@
             {
               name: "exit-handler",
               steps: [
+                [{
+                  name: "e2e-tests-post-process",
+                  template: "e2e-tests-post-process",
+                }],
                 [{
                   name: "teardown-cluster",
                   template: "teardown-cluster",
@@ -321,48 +339,90 @@
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("teardown-cluster",testWorkerImage, [
               "test/scripts/delete-cluster.sh",
              ]),  // teardown cluster
-            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-kfserving", testWorkerImage, [
-              "test/scripts/build-kfserving.sh",
+            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("e2e-tests-post-process",testWorkerImage, [
+              "test/scripts/post-e2e-tests.sh",
+             ]),  // run debug and clean up steps after running e2e test
+            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-kfserving", kanikoExecutorImage, [
+              "/kaniko/executor",
+              "--dockerfile=" + srcDir + "/Dockerfile",
+              "--context=dir://" + srcDir,
+              "--destination=" + "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/kfserving-controller:$(PULL_BASE_SHA)",
             ]),  // build-kfserving
-            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-alibi-explainer", testWorkerImage, [
-              "test/scripts/build-python-image.sh", "alibiexplainer.Dockerfile", "alibi-explainer", "latest"
+            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-alibi-explainer", kanikoExecutorImage, [
+              "/kaniko/executor",
+              "--dockerfile=" + srcDir + "/python/alibiexplainer.Dockerfile",
+              "--context=dir://" + srcDir + "/python",
+              "--destination=" + "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/alibi-explainer:$(PULL_BASE_SHA)",
             ]),  // build-alibi-explainer
-            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-aix-explainer", testWorkerImage, [
-              "test/scripts/build-python-image.sh", "aixexplainer.Dockerfile ", "aix-explainer", "latest"
+            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-aix-explainer", kanikoExecutorImage, [
+              "/kaniko/executor",
+              "--dockerfile=" + srcDir + "/python/aixexplainer.Dockerfile",
+              "--context=dir://" + srcDir + "/python",
+              "--destination=" + "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/aix-explainer:$(PULL_BASE_SHA)",
             ]),  // build-aix-explainer
-            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-storage-initializer", testWorkerImage, [
-              "test/scripts/build-python-image.sh", "storage-initializer.Dockerfile", "storage-initializer", "latest"
+            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-storage-initializer", kanikoExecutorImage, [
+              "/kaniko/executor",
+              "--dockerfile=" + srcDir + "/python/storage-initializer.Dockerfile",
+              "--context=dir://" + srcDir + "/python",
+              "--destination=" + "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/storage-initializer:$(PULL_BASE_SHA)",
             ]),  // build-storage-initializer
-            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-xgbserver", testWorkerImage, [
-              "test/scripts/build-python-image.sh", "xgb.Dockerfile", "xgbserver", "latest"
+            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-xgbserver", kanikoExecutorImage, [
+              "/kaniko/executor",
+              "--dockerfile=" + srcDir + "/python/xgb.Dockerfile",
+              "--context=dir://" + srcDir + "/python",
+              "--destination=" + "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/xgbserver:$(PULL_BASE_SHA)",
             ]),  // build-xgbserver
-            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-logger", testWorkerImage, [
-              "test/scripts/build-logger.sh",
+            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-logger", kanikoExecutorImage, [
+              "/kaniko/executor",
+              "--dockerfile=" + srcDir + "/logger.Dockerfile",
+              "--context=dir://" + srcDir,
+              "--destination=" + "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/logger:$(PULL_BASE_SHA)",
             ]),  // build-logger
-            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-batcher", testWorkerImage, [
-              "test/scripts/build-batcher.sh",
+            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-batcher", kanikoExecutorImage, [
+              "/kaniko/executor",
+              "--dockerfile=" + srcDir + "/batcher.Dockerfile",
+              "--context=dir://" + srcDir,
+              "--destination=" + "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/batcher:$(PULL_BASE_SHA)",
             ]),  // build-batcher
-            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-custom-image-transformer", testWorkerImage, [
-              "test/scripts/build-custom-image-transformer.sh",
+            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-agent", kanikoExecutorImage, [
+              "/kaniko/executor",
+              "--dockerfile=" + srcDir + "/agent.Dockerfile",
+              "--context=dir://" + srcDir,
+              "--destination=" + "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/agent:$(PULL_BASE_SHA)",
+            ]),  // build-agent
+            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-custom-image-transformer", kanikoExecutorImage, [
+              "/kaniko/executor",
+              "--dockerfile=" + srcDir + "/docs/samples/transformer/image_transformer/transformer.Dockerfile",
+              "--context=dir://" + srcDir + "/docs/samples/transformer/image_transformer",
+              "--destination=" + "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/image-transformer:latest",
             ]),  // build-custom-image-transformer
-            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-custom-bert-transformer", testWorkerImage, [
-              "test/scripts/build-custom-bert-transformer.sh",
-            ]),  // build-custom-bert-transformer
-            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-pytorchserver", testWorkerImage, [
-              "test/scripts/build-python-image.sh", "pytorch.Dockerfile", "pytorchserver", "latest"
+            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-pytorchserver", kanikoExecutorImage, [
+              "/kaniko/executor",
+              "--dockerfile=" + srcDir + "/python/pytorch.Dockerfile",
+              "--context=dir://" + srcDir + "/python",
+              "--destination=" + "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/pytorchserver:$(PULL_BASE_SHA)",
             ]),  // build-pytorchserver
-            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-pytorchserver-gpu", testWorkerImage, [
-              "test/scripts/build-python-image.sh", "pytorch-gpu.Dockerfile", "pytorchserver", "latest-gpu"
+            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-pytorchserver-gpu", kanikoExecutorImage, [
+              "/kaniko/executor",
+              "--dockerfile=" + srcDir + "/python/pytorch-gpu.Dockerfile",
+              "--context=dir://" + srcDir + "/python",
+              "--destination=" + "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/pytorchserver:$(PULL_BASE_SHA)-gpu",
             ]),  // build-pytorchserver-gpu
-            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-sklearnserver", testWorkerImage, [
-              "test/scripts/build-python-image.sh", "sklearn.Dockerfile", "sklearnserver", "latest"
+            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-sklearnserver", kanikoExecutorImage, [
+              "/kaniko/executor",
+              "--dockerfile=" + srcDir + "/python/sklearn.Dockerfile",
+              "--context=dir://" + srcDir + "/python",
+              "--destination=" + "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/sklearnserver:$(PULL_BASE_SHA)",
             ]),  // build-sklearnserver
+            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-pmmlserver", kanikoExecutorImage, [
+                "/kaniko/executor",
+                "--dockerfile=" + srcDir + "/python/pmml.Dockerfile",
+                "--context=dir://" + srcDir + "/python",
+                "--destination=" + "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/pmmlserver:$(PULL_BASE_SHA)",
+            ]),  // build-pmmlserver
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("unit-test", testWorkerImage, [
               "test/scripts/unit-test.sh",
             ]),  // unit test
-            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("sdk-test", testWorkerImage, [
-              "test/scripts/sdk-test.sh",
-            ]),  // sdk unit test
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("pylint-checking", testWorkerImage, [
               "python",
               "-m",
@@ -373,9 +433,9 @@
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("copy-artifacts", testWorkerImage, [
               "python",
               "-m",
-              "kubeflow.testing.prow_artifacts",
+              "kubeflow.testing.cloudprovider.aws.prow_artifacts",
               "--artifacts_dir=" + outputDir,
-              "copy_artifacts",
+              "copy_artifacts_to_s3",
               "--bucket=" + bucket,
             ]),  // copy-artifacts
           ],  // templates

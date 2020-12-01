@@ -17,6 +17,7 @@ limitations under the License.
 package v1beta1
 
 import (
+	"github.com/kubeflow/kfserving/pkg/constants"
 	v1 "k8s.io/api/core/v1"
 )
 
@@ -35,6 +36,8 @@ type PredictorSpec struct {
 	Triton *TritonSpec `json:"triton,omitempty"`
 	// Spec for ONNX runtime (https://github.com/microsoft/onnxruntime)
 	ONNX *ONNXRuntimeSpec `json:"onnx,omitempty"`
+	// Spec for PMML
+	PMML *PMMLSpec `json:"pmml,omitempty"`
 	// This spec is dual purpose.
 	// 1) Users may choose to provide a full PodSpec for their predictor.
 	// The field PodSpec.Containers is mutually exclusive with other Predictors (i.e. TFServing).
@@ -50,10 +53,13 @@ var _ Component = &PredictorSpec{}
 // PredictorExtensionSpec defines configuration shared across all predictor frameworks
 type PredictorExtensionSpec struct {
 	// This field points to the location of the trained model which is mounted onto the pod.
-	StorageURI *string `json:"storageUri"`
+	// +optional
+	StorageURI *string `json:"storageUri,omitempty"`
 	// Runtime version of the predictor docker image
 	// +optional
 	RuntimeVersion *string `json:"runtimeVersion,omitempty"`
+	// Protocol version to use by the predictor (i.e. v1 or v2)
+	ProtocolVersion *constants.InferenceServiceProtocol `json:"protocolVersion,omitempty"`
 	// Container enables overrides for the predictor.
 	// Each framework will have different defaults that are populated in the underlying container spec.
 	// +optional
@@ -69,6 +75,7 @@ func (s *PredictorSpec) GetImplementations() []ComponentImplementation {
 		s.SKLearn,
 		s.Tensorflow,
 		s.ONNX,
+		s.PMML,
 	})
 	// This struct is not a pointer, so it will never be nil; include if containers are specified
 	if len(s.PodSpec.Containers) != 0 {
