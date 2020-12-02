@@ -17,14 +17,14 @@ To learn more about KFServing, how to deploy it as part of Kubeflow, how to use 
 
 ### Prerequisites
 
-Kubernetes 1.15+ is the recommended version for KFServing. 
+Kubernetes 1.15+ is the minimum recommended version for KFServing.
 
 Knative Serving and Istio should be available on Kubernetes Cluster, Knative depends on Istio Ingress Gateway to route requests to Knative services. To use the exact versions tested by the Kubeflow and KFServing teams, please refer to the [prerequisites on developer guide](docs/DEVELOPER_GUIDE.md#install-knative-on-a-kubernetes-cluster)
 
 - [Istio](https://knative.dev/docs/install/installing-istio): v1.3.1+
 
 If you want to get up running Knative quickly or you do not need service mesh, we recommend installing Istio without service mesh(sidecar injection).
-- [Knative Serving](https://knative.dev/docs/install/knative-with-any-k8s): v0.11.2+
+- [Knative Serving](https://knative.dev/docs/install/knative-with-any-k8s): v0.14.3+
 
 Currently only `Knative Serving` is required, `cluster-local-gateway` is required to serve cluster-internal traffic for transformer and explainer use cases. Please follow instructions here to install [cluster local gateway](https://knative.dev/docs/install/installing-istio/#updating-your-install-to-use-cluster-local-gateway)
 
@@ -55,6 +55,11 @@ As of KFServing 0.4 release [object selector](https://kubernetes.io/docs/referen
 ```bash
 kubectl patch mutatingwebhookconfiguration inferenceservice.serving.kubeflow.org --patch '{"webhooks":[{"name": "inferenceservice.kfserving-webhook-server.pod-mutator","objectSelector":{"matchExpressions":[{"key":"serving.kubeflow.org/inferenceservice", "operator": "Exists"}]}}]}'
 ```
+
+#### Standalone KFServing on OpenShift
+
+To install standalone KFServing on [OpenShift Container Platform](https://www.openshift.com/products/container-platform), please follow the [instructions here](docs/OPENSHIFT_GUIDE.md).
+
 #### KFServing with Kubeflow Installation
 KFServing is installed by default as part of Kubeflow installation using [Kubeflow manifests](https://github.com/kubeflow/manifests/tree/master/kfserving) and KFServing controller is deployed in `kubeflow` namespace.
 Since Kubeflow Kubernetes minimal requirement is 1.14 which does not support object selector, `ENABLE_WEBHOOK_NAMESPACE_SELECTOR` is enabled in Kubeflow installation by default.
@@ -114,7 +119,7 @@ $ kubectl get svc istio-ingressgateway -n istio-system
 NAME                   TYPE           CLUSTER-IP       EXTERNAL-IP      PORT(S)   AGE
 istio-ingressgateway   LoadBalancer   172.21.109.129   130.211.10.121   ...       17h
 ```
-If the EXTERNAL-IP value is set, your environment has an external load balancer that you can use for the ingress gateway. 
+If the EXTERNAL-IP value is set, your environment has an external load balancer that you can use for the ingress gateway.
 
 ```bash
 export INGRESS_HOST=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
@@ -186,9 +191,9 @@ If the default ingress gateway setup does not fit your need, you can choose to s
   ```
   pip install kfserving
   ```
-* Get the KFServing SDK documents from [here](python/kfserving/README.md).
+* Check the KFServing SDK documents from [here](python/kfserving/README.md).
 
-* Follow the [example here](docs/samples/client/kfserving_sdk_sample.ipynb) to use the KFServing SDK to create, rollout, promote, and delete an InferenceService instance.
+* Follow the [example(s) here](docs/samples/client) to use the KFServing SDK to create, rollout, promote, and delete an InferenceService instance.
 
 ### KFServing Features and Examples
 [KFServing Features and Examples](./docs/samples/README.md)

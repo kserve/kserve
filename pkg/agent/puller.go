@@ -20,7 +20,7 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/kubeflow/kfserving/pkg/agent/storage"
-	v1 "github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
+	v1 "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 	"io/ioutil"
 	"net/http"
 	"path/filepath"
@@ -79,6 +79,7 @@ type ModelChannel struct {
 }
 
 func (p *Puller) enqueueModelOp(modelOp *ModelOp) {
+	log.V(10).Info("enqueue", "modelop", modelOp)
 	modelChan, ok := p.channelMap[modelOp.ModelName]
 	if !ok {
 		modelChan = &ModelChannel{

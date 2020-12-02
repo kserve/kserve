@@ -14,6 +14,7 @@ Name | Type | Description | Notes
 **pytorch** | [**V1alpha2PyTorchSpec**](V1alpha2PyTorchSpec.md) | Spec for PyTorch predictor | [optional] 
 **service_account_name** | **str** | ServiceAccountName is the name of the ServiceAccount to use to run the service | [optional] 
 **sklearn** | [**V1alpha2SKLearnSpec**](V1alpha2SKLearnSpec.md) | Spec for SKLearn predictor | [optional] 
+**pmml** | [**V1alpha2PMMLSpec**](V1alpha2PMMLSpec.md) | Spec for PMML predictor | [optional] 
 **tensorflow** | [**V1alpha2TensorflowSpec**](V1alpha2TensorflowSpec.md) | Spec for Tensorflow Serving (https://github.com/tensorflow/serving) | [optional] 
 **triton** | [**V1alpha2TritonSpec**](V1alpha2TritonSpec.md) | Spec for Triton Inference Server (https://github.com/triton-inference-server/server) | [optional] 
 **xgboost** | [**V1alpha2XGBoostSpec**](V1alpha2XGBoostSpec.md) | Spec for XGBoost predictor | [optional] 

@@ -20,7 +20,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"github.com/kubeflow/kfserving/pkg/agent/storage"
-	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
+	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 	"github.com/pkg/errors"
 	"path/filepath"
 	"regexp"
@@ -35,7 +35,7 @@ type Downloader struct {
 
 var SupportedProtocols = []storage.Protocol{storage.S3}
 
-func (d *Downloader) DownloadModel(modelName string, modelSpec *v1beta1.ModelSpec) error {
+func (d *Downloader) DownloadModel(modelName string, modelSpec *v1alpha1.ModelSpec) error {
 	log := logf.Log.WithName("Downloader")
 	if modelSpec != nil {
 		modelUri := modelSpec.StorageURI
@@ -47,6 +47,7 @@ func (d *Downloader) DownloadModel(modelName string, modelSpec *v1beta1.ModelSpe
 		log.Info("Downloading to model dir", "modelUri", modelUri, "modelDir", d.ModelDir)
 		// Download if the event there is a success file and the event is one which we wish to Download
 		if !storage.FileExists(successFile) {
+			log.V(10).Info("Success file does not exist", "successfile", successFile)
 			if err := d.download(modelName, modelUri); err != nil {
 				return errors.Wrapf(err, "failed to download model")
 			}

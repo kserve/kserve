@@ -58,6 +58,7 @@ class V1beta1TorchServeSpec(object):
         'model_class_name': 'str',
         'name': 'str',
         'ports': 'list[V1ContainerPort]',
+        'protocol_version': 'str',
         'readiness_probe': 'V1Probe',
         'resources': 'V1ResourceRequirements',
         'runtime_version': 'str',
@@ -86,6 +87,7 @@ class V1beta1TorchServeSpec(object):
         'model_class_name': 'modelClassName',
         'name': 'name',
         'ports': 'ports',
+        'protocol_version': 'protocolVersion',
         'readiness_probe': 'readinessProbe',
         'resources': 'resources',
         'runtime_version': 'runtimeVersion',
@@ -102,7 +104,7 @@ class V1beta1TorchServeSpec(object):
         'working_dir': 'workingDir'
     }
 
-    def __init__(self, args=None, command=None, env=None, env_from=None, image=None, image_pull_policy=None, lifecycle=None, liveness_probe=None, model_class_name=None, name=None, ports=None, readiness_probe=None, resources=None, runtime_version=None, security_context=None, startup_probe=None, stdin=None, stdin_once=None, storage_uri=None, termination_message_path=None, termination_message_policy=None, tty=None, volume_devices=None, volume_mounts=None, working_dir=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, args=None, command=None, env=None, env_from=None, image=None, image_pull_policy=None, lifecycle=None, liveness_probe=None, model_class_name=None, name=None, ports=None, protocol_version=None, readiness_probe=None, resources=None, runtime_version=None, security_context=None, startup_probe=None, stdin=None, stdin_once=None, storage_uri=None, termination_message_path=None, termination_message_policy=None, tty=None, volume_devices=None, volume_mounts=None, working_dir=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1TorchServeSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -119,6 +121,7 @@ class V1beta1TorchServeSpec(object):
         self._model_class_name = None
         self._name = None
         self._ports = None
+        self._protocol_version = None
         self._readiness_probe = None
         self._resources = None
         self._runtime_version = None
@@ -157,6 +160,8 @@ class V1beta1TorchServeSpec(object):
             self.name = name
         if ports is not None:
             self.ports = ports
+        if protocol_version is not None:
+            self.protocol_version = protocol_version
         if readiness_probe is not None:
             self.readiness_probe = readiness_probe
         if resources is not None:
@@ -171,7 +176,8 @@ class V1beta1TorchServeSpec(object):
             self.stdin = stdin
         if stdin_once is not None:
             self.stdin_once = stdin_once
-        self.storage_uri = storage_uri
+        if storage_uri is not None:
+            self.storage_uri = storage_uri
         if termination_message_path is not None:
             self.termination_message_path = termination_message_path
         if termination_message_policy is not None:
@@ -435,6 +441,29 @@ class V1beta1TorchServeSpec(object):
         self._ports = ports
 
     @property
+    def protocol_version(self):
+        """Gets the protocol_version of this V1beta1TorchServeSpec.  # noqa: E501
+
+        Protocol version to use by the predictor (i.e. v1 or v2)  # noqa: E501
+
+        :return: The protocol_version of this V1beta1TorchServeSpec.  # noqa: E501
+        :rtype: str
+        """
+        return self._protocol_version
+
+    @protocol_version.setter
+    def protocol_version(self, protocol_version):
+        """Sets the protocol_version of this V1beta1TorchServeSpec.
+
+        Protocol version to use by the predictor (i.e. v1 or v2)  # noqa: E501
+
+        :param protocol_version: The protocol_version of this V1beta1TorchServeSpec.  # noqa: E501
+        :type: str
+        """
+
+        self._protocol_version = protocol_version
+
+    @property
     def readiness_probe(self):
         """Gets the readiness_probe of this V1beta1TorchServeSpec.  # noqa: E501
 
@@ -607,8 +636,6 @@ class V1beta1TorchServeSpec(object):
         :param storage_uri: The storage_uri of this V1beta1TorchServeSpec.  # noqa: E501
         :type: str
         """
-        if self.local_vars_configuration.client_side_validation and storage_uri is None:  # noqa: E501
-            raise ValueError("Invalid value for `storage_uri`, must not be `None`")  # noqa: E501
 
         self._storage_uri = storage_uri
 
@@ -685,7 +712,7 @@ class V1beta1TorchServeSpec(object):
     def volume_devices(self):
         """Gets the volume_devices of this V1beta1TorchServeSpec.  # noqa: E501
 
-        volumeDevices is the list of block devices to be used by the container. This is a beta feature.  # noqa: E501
+        volumeDevices is the list of block devices to be used by the container.  # noqa: E501
 
         :return: The volume_devices of this V1beta1TorchServeSpec.  # noqa: E501
         :rtype: list[V1VolumeDevice]
@@ -696,7 +723,7 @@ class V1beta1TorchServeSpec(object):
     def volume_devices(self, volume_devices):
         """Sets the volume_devices of this V1beta1TorchServeSpec.
 
-        volumeDevices is the list of block devices to be used by the container. This is a beta feature.  # noqa: E501
+        volumeDevices is the list of block devices to be used by the container.  # noqa: E501
 
         :param volume_devices: The volume_devices of this V1beta1TorchServeSpec.  # noqa: E501
         :type: list[V1VolumeDevice]

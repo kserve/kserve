@@ -24,7 +24,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/golang/protobuf/proto"
 	"github.com/kubeflow/kfserving/pkg/agent/storage"
-	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
+	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 	"github.com/kubeflow/kfserving/pkg/modelconfig"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -82,9 +82,55 @@ var _ = Describe("Watcher", func() {
 		os.RemoveAll(modelDir)
 		logger.Printf("Deleted temp dir %v\n", modelDir)
 	})
-	Describe("Sync model config", func() {
-		Context("Sync new models", func() {
-			It("should download the new models", func() {
+
+	Describe("Sync models config on startup", func() {
+		Context("Getting new model events", func() {
+			It("should download and load the new models", func() {
+				defer GinkgoRecover()
+				logger.Printf("Sync model config using temp dir %v\n", modelDir)
+				watcher := NewWatcher("/tmp/configs", modelDir)
+				modelConfigs := modelconfig.ModelConfigs{
+					{
+						Name: "model1",
+						Spec: v1alpha1.ModelSpec{
+							StorageURI: "s3://models/model1",
+							Framework:  "sklearn",
+						},
+					},
+					{
+						Name: "model2",
+						Spec: v1alpha1.ModelSpec{
+							StorageURI: "s3://models/model2",
+							Framework:  "sklearn",
+						},
+					},
+				}
+				watcher.parseConfig(modelConfigs)
+				puller := Puller{
+					channelMap:  make(map[string]*ModelChannel),
+					completions: make(chan *ModelOp, 4),
+					opStats:     make(map[string]map[OpType]int),
+					Downloader: Downloader{
+						ModelDir: modelDir + "/test1",
+						Providers: map[storage.Protocol]storage.Provider{
+							storage.S3: &storage.S3Provider{
+								Client:     &mockS3Client{},
+								Downloader: &mockS3Downloder{},
+							},
+						},
+					},
+				}
+				go puller.processCommands(watcher.ModelEvents)
+				Eventually(func() int { return len(puller.channelMap) }).Should(Equal(0))
+				Eventually(func() int { return puller.opStats["model1"][Add] }).Should(Equal(1))
+				Eventually(func() int { return puller.opStats["model2"][Add] }).Should(Equal(1))
+			})
+		})
+	})
+
+	Describe("Watch model config changes", func() {
+		Context("When new models are added", func() {
+			It("Should download and load the new models", func() {
 				defer GinkgoRecover()
 				logger.Printf("Sync model config using temp dir %v\n", modelDir)
 				watcher := NewWatcher("/tmp/configs", modelDir)
@@ -106,14 +152,14 @@ var _ = Describe("Watcher", func() {
 				modelConfigs := modelconfig.ModelConfigs{
 					{
 						Name: "model1",
-						Spec: v1beta1.ModelSpec{
+						Spec: v1alpha1.ModelSpec{
 							StorageURI: "s3://models/model1",
 							Framework:  "sklearn",
 						},
 					},
 					{
 						Name: "model2",
-						Spec: v1beta1.ModelSpec{
+						Spec: v1alpha1.ModelSpec{
 							StorageURI: "s3://models/model2",
 							Framework:  "sklearn",
 						},
@@ -126,8 +172,8 @@ var _ = Describe("Watcher", func() {
 			})
 		})
 
-		Context("Sync delete models", func() {
-			It("should download the deleted models", func() {
+		Context("When models are deleted from config", func() {
+			It("Should remove the model dir and unload the models", func() {
 				defer GinkgoRecover()
 				logger.Printf("Sync delete models using temp dir %v\n", modelDir)
 				watcher := NewWatcher("/tmp/configs", modelDir)
@@ -149,14 +195,14 @@ var _ = Describe("Watcher", func() {
 				modelConfigs := modelconfig.ModelConfigs{
 					{
 						Name: "model1",
-						Spec: v1beta1.ModelSpec{
+						Spec: v1alpha1.ModelSpec{
 							StorageURI: "s3://models/model1",
 							Framework:  "sklearn",
 						},
 					},
 					{
 						Name: "model2",
-						Spec: v1beta1.ModelSpec{
+						Spec: v1alpha1.ModelSpec{
 							StorageURI: "s3://models/model2",
 							Framework:  "sklearn",
 						},
@@ -167,7 +213,7 @@ var _ = Describe("Watcher", func() {
 				modelConfigs = modelconfig.ModelConfigs{
 					{
 						Name: "model1",
-						Spec: v1beta1.ModelSpec{
+						Spec: v1alpha1.ModelSpec{
 							StorageURI: "s3://models/model1",
 							Framework:  "sklearn",
 						},
@@ -181,8 +227,8 @@ var _ = Describe("Watcher", func() {
 			})
 		})
 
-		Context("Sync update models", func() {
-			It("should update models", func() {
+		Context("When models uri are updated in config", func() {
+			It("Should download and reload the model", func() {
 				defer GinkgoRecover()
 				logger.Printf("Sync update models using temp dir %v\n", modelDir)
 				watcher := NewWatcher("/tmp/configs", modelDir)
@@ -204,32 +250,32 @@ var _ = Describe("Watcher", func() {
 				modelConfigs := modelconfig.ModelConfigs{
 					{
 						Name: "model1",
-						Spec: v1beta1.ModelSpec{
+						Spec: v1alpha1.ModelSpec{
 							StorageURI: "s3://models/model1",
 							Framework:  "sklearn",
 						},
 					},
 					{
 						Name: "model2",
-						Spec: v1beta1.ModelSpec{
+						Spec: v1alpha1.ModelSpec{
 							StorageURI: "s3://models/model2",
 							Framework:  "sklearn",
 						},
 					},
 				}
 				watcher.parseConfig(modelConfigs)
-				// remove model2
+				// update model2 storageUri
 				modelConfigs = modelconfig.ModelConfigs{
 					{
 						Name: "model1",
-						Spec: v1beta1.ModelSpec{
+						Spec: v1alpha1.ModelSpec{
 							StorageURI: "s3://models/model1",
 							Framework:  "sklearn",
 						},
 					},
 					{
 						Name: "model2",
-						Spec: v1beta1.ModelSpec{
+						Spec: v1alpha1.ModelSpec{
 							StorageURI: "s3://models/model2v2",
 							Framework:  "sklearn",
 						},
@@ -243,8 +289,8 @@ var _ = Describe("Watcher", func() {
 			})
 		})
 
-		Context("Model download failure", func() {
-			It("should not create success file", func() {
+		Context("When model download fails", func() {
+			It("Should not create the success file", func() {
 				defer GinkgoRecover()
 				logger.Printf("Using temp dir %v\n", modelDir)
 				var errs []s3manager.Error
@@ -274,7 +320,7 @@ var _ = Describe("Watcher", func() {
 				modelConfigs := modelconfig.ModelConfigs{
 					{
 						Name: "model1",
-						Spec: v1beta1.ModelSpec{
+						Spec: v1alpha1.ModelSpec{
 							StorageURI: "s3://models/model1",
 							Framework:  "sklearn",
 						},

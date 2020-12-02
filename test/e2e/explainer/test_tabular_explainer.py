@@ -49,7 +49,7 @@ def test_tabular_explainer():
             min_replicas=1,
             alibi=V1alpha2AlibiExplainerSpec(
                 type='AnchorTabular',
-                storage_uri='gs://seldon-models/sklearn/income/alibi/0.4.0',
+                storage_uri='gs://seldon-models/sklearn/income/explainer-py36-0.5.2',
                 resources=V1ResourceRequirements(
                     requests={'cpu': '100m', 'memory': '1Gi'},
                     limits={'cpu': '100m', 'memory': '1Gi'}))))

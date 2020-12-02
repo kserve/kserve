@@ -15,7 +15,7 @@ NAME         URL                                               READY   DEFAULT T
 aixserver   http://aixserver.somecluster/v1/models/aixserver   True    100                                40m
 ```
 
-## Prediction
+## Explanation
 The first step is to [determine the ingress IP and ports](../../../../../README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
 
 ```
@@ -23,6 +23,14 @@ MODEL_NAME=aix-explainer
 SERVICE_HOSTNAME=$(kubectl get inferenceservice ${MODEL_NAME} -o jsonpath='{.status.url}' | cut -d "/" -f 3)
 python query_explain.py http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/$MODEL_NAME:explain ${SERVICE_HOSTNAME}
 ```
+
+After a bit of time you should see a pop up containing the explanation, similar to the image below. The LIME method used in this example highlights the pixels in red that score above a certain confidence value for indicating a classification. The explanation shown will contain a collection of images that are highlighted paired with a title to describe the context. For each title and image pair, the title will say `Positive for <X> Actual <Y>` to denote that <X> is the classification that LIME is testing for and <Y> is the correct label for that image.
+  
+![example explanation](aix-explanation.png)
+
+To give an example, the top-left image with the title "Positive for 2 Actual 2" is the image with pixels highlighted that score above a specified confidence level for indicating a classification of 2 (where 2 is also the correct classification). 
+
+Similarly, the bottom-right image with the title "Positive for 0 Actual 2" is the image with pixels highlighted that score above a specified confidence level for indicating a classification of 0 (where 2 is the correct classification). If the model were to incorrectly classify the image as 0, then you could get an explanation of why by looking at the highlighted pixels as being especially troublesome. By raising and lowering the min_weight parameter in the deployment yaml you can test to see which pixels your model believes are the most and least relevant for each classification.
 
 To try a different MNIST example add an integer to the end of the query between 0-10,000. The integer chosen will be the index of the image to be chosen in the MNIST dataset.
 
@@ -33,6 +41,10 @@ python query_explain.py http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/$MODEL_
 ## Stopping the Inference Service
 
 `kubectl delete -f aix-explainer.yaml`
+
+## Build a Development AIX Model Explainer Docker Image
+
+If you would like to build a development image for the AIX Model Explainer then follow [these instructions](/python/aixexplainer#build-a-development-aix-model-explainer-docker-image)
 
 ## Troubleshooting
 

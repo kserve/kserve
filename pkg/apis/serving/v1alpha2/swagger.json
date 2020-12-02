@@ -521,6 +521,10 @@
           "description": "Spec for SKLearn predictor",
           "$ref": "#/definitions/v1alpha2.SKLearnSpec"
         },
+        "pmml": {
+          "description": "Spec for PMML predictor",
+          "$ref": "#/definitions/v1alpha2.PMMLSpec"
+        },
         "tensorflow": {
           "description": "Spec for Tensorflow Serving (https://github.com/tensorflow/serving)",
           "$ref": "#/definitions/v1alpha2.TensorflowSpec"
@@ -573,6 +577,27 @@
         },
         "runtimeVersion": {
           "description": "SKLearn KFServer docker image version which defaults to latest release",
+          "type": "string"
+        },
+        "storageUri": {
+          "description": "The URI of the trained model which contains model.pickle, model.pkl or model.joblib",
+          "type": "string"
+        }
+      }
+    },
+    "v1alpha2.PMMLSpec": {
+      "description": "PMMLSpec defines arguments for configuring PMML model serving.",
+      "type": "object",
+      "required": [
+        "storageUri"
+      ],
+      "properties": {
+        "resources": {
+          "description": "Defaults to requests and limits of 1CPU, 2Gb MEM.",
+          "$ref": "#/definitions/v1.ResourceRequirements"
+        },
+        "runtimeVersion": {
+          "description": "PMML KFServer docker image version which defaults to latest release",
           "type": "string"
         },
         "storageUri": {

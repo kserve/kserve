@@ -64,7 +64,3 @@ target/
 
 #Ipython Notebook
 .ipynb_checkpoints
-
-.gitlab-ci.yml
-.openapi-generator-ignore
-.openapi-generator/

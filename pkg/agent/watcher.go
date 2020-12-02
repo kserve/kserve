@@ -18,9 +18,10 @@ package agent
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/fsnotify/fsnotify"
 	"github.com/google/go-cmp/cmp"
-	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
+	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/modelconfig"
 	"io/ioutil"
@@ -43,16 +44,38 @@ func NewWatcher(configDir string, modelDir string) Watcher {
 	if err != nil {
 		log.Error(err, "Failed to sync model dir")
 	}
-	return Watcher{
+	watcher := Watcher{
 		configDir:    configDir,
 		modelTracker: modelTracker,
-		ModelEvents:  make(chan ModelOp),
+		ModelEvents:  make(chan ModelOp, 100),
 	}
+	modelConfigFile := fmt.Sprintf("%s/%s", configDir, constants.ModelConfigFileName)
+	err = watcher.syncModelConfig(modelConfigFile)
+	if err != nil {
+		log.Error(err, "Failed to sync model config file")
+	}
+	return watcher
 }
 
 type modelWrapper struct {
-	Spec  *v1beta1.ModelSpec
+	Spec  *v1alpha1.ModelSpec
 	stale bool
+}
+
+func (w *Watcher) syncModelConfig(modelConfigFile string) error {
+	file, err := ioutil.ReadFile(modelConfigFile)
+	if err != nil {
+		return err
+	} else {
+		modelConfigs := make(modelconfig.ModelConfigs, 0)
+		err = json.Unmarshal(file, &modelConfigs)
+		if err != nil {
+			return err
+		} else {
+			w.parseConfig(modelConfigs)
+		}
+	}
+	return nil
 }
 
 func (w *Watcher) Start() {
@@ -66,6 +89,8 @@ func (w *Watcher) Start() {
 	if err = watcher.Add(w.configDir); err != nil {
 		log.Error(err, "Failed to add watcher config dir")
 	}
+	log.Info("Start to watch model config event")
+	done := make(chan bool)
 	go func() {
 		for {
 			select {
@@ -78,18 +103,12 @@ func (w *Watcher) Start() {
 				isDataDir := filepath.Base(eventPath) == "..data"
 				// TODO: Should we use atomic integer or timestamp??
 				if isDataDir && isCreate {
+					log.Info("Processing event", "event", event)
 					symlink, _ := filepath.EvalSymlinks(eventPath)
-					file, err := ioutil.ReadFile(filepath.Join(symlink, constants.ModelConfigFileName))
+					modelConfigFile := filepath.Join(symlink, constants.ModelConfigFileName)
+					err := w.syncModelConfig(modelConfigFile)
 					if err != nil {
-						log.Error(err, "Error in reading model config file")
-					} else {
-						modelConfigs := make(modelconfig.ModelConfigs, 0)
-						err = json.Unmarshal(file, &modelConfigs)
-						if err != nil {
-							log.Error(err, "Failed to unmarshall model config")
-						} else {
-							w.parseConfig(modelConfigs)
-						}
+						log.Error(err, "Failed to sync model config file")
 					}
 				}
 			case err, ok := <-watcher.Errors:
@@ -103,15 +122,16 @@ func (w *Watcher) Start() {
 		}
 	}()
 	// Add a first create event to the channel to force initial sync
+	watchPath := filepath.Join(w.configDir, "../data", constants.ModelConfigFileName)
 	watcher.Events <- fsnotify.Event{
-		Name: filepath.Join(w.configDir, "..data"),
+		Name: filepath.Join(w.configDir, "..data/"+constants.ModelConfigFileName),
 		Op:   fsnotify.Create,
 	}
-	log.Info("Watching", w.configDir)
+	log.Info("Watching", "modelConfig", watchPath)
+	<-done
 }
 
 func (w *Watcher) parseConfig(modelConfigs modelconfig.ModelConfigs) {
-
 	for _, modelConfig := range modelConfigs {
 		name, spec := modelConfig.Name, modelConfig.Spec
 		existing, exists := w.modelTracker[name]
@@ -127,15 +147,23 @@ func (w *Watcher) parseConfig(modelConfigs modelconfig.ModelConfigs) {
 			// Changed - replace
 			w.modelRemoved(name)
 			w.modelAdded(name, &spec)
+		} else if cmp.Equal(spec, *existing.Spec) {
+			// This model didn't change, mark the stale flag to false
+			w.modelTracker[name] = modelWrapper{
+				Spec:  existing.Spec,
+				stale: false,
+			}
 		}
 	}
 	for name, wrapper := range w.modelTracker {
 		if wrapper.stale {
-			// Gone - remove
+			// Remove the models that are marked as stale
 			delete(w.modelTracker, name)
 			w.modelRemoved(name)
 		} else {
-			// reset for next iteration
+			// Mark all the models as stale by default, when the next CREATE event is triggered
+			// the watcher will mark stale: false to all the models that didn't change so they won't
+			// be removed.
 			w.modelTracker[name] = modelWrapper{
 				Spec:  wrapper.Spec,
 				stale: true,
@@ -144,7 +172,7 @@ func (w *Watcher) parseConfig(modelConfigs modelconfig.ModelConfigs) {
 	}
 }
 
-func (w *Watcher) modelAdded(name string, spec *v1beta1.ModelSpec) {
+func (w *Watcher) modelAdded(name string, spec *v1alpha1.ModelSpec) {
 	log.Info("adding model", "modelName", name)
 	w.ModelEvents <- ModelOp{
 		ModelName: name,

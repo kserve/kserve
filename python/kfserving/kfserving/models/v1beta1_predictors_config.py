@@ -48,15 +48,17 @@ class V1beta1PredictorsConfig(object):
     """
     openapi_types = {
         'onnx': 'V1beta1PredictorConfig',
+        'pmml': 'V1beta1PredictorConfig',
         'pytorch': 'V1beta1PredictorConfig',
-        'sklearn': 'V1beta1PredictorConfig',
+        'sklearn': 'V1beta1PredictorProtocols',
         'tensorflow': 'V1beta1PredictorConfig',
         'triton': 'V1beta1PredictorConfig',
-        'xgboost': 'V1beta1PredictorConfig'
+        'xgboost': 'V1beta1PredictorProtocols'
     }
 
     attribute_map = {
         'onnx': 'onnx',
+        'pmml': 'pmml',
         'pytorch': 'pytorch',
         'sklearn': 'sklearn',
         'tensorflow': 'tensorflow',
@@ -64,13 +66,14 @@ class V1beta1PredictorsConfig(object):
         'xgboost': 'xgboost'
     }
 
-    def __init__(self, onnx=None, pytorch=None, sklearn=None, tensorflow=None, triton=None, xgboost=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, onnx=None, pmml=None, pytorch=None, sklearn=None, tensorflow=None, triton=None, xgboost=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1PredictorsConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._onnx = None
+        self._pmml = None
         self._pytorch = None
         self._sklearn = None
         self._tensorflow = None
@@ -80,6 +83,8 @@ class V1beta1PredictorsConfig(object):
 
         if onnx is not None:
             self.onnx = onnx
+        if pmml is not None:
+            self.pmml = pmml
         if pytorch is not None:
             self.pytorch = pytorch
         if sklearn is not None:
@@ -113,6 +118,27 @@ class V1beta1PredictorsConfig(object):
         self._onnx = onnx
 
     @property
+    def pmml(self):
+        """Gets the pmml of this V1beta1PredictorsConfig.  # noqa: E501
+
+
+        :return: The pmml of this V1beta1PredictorsConfig.  # noqa: E501
+        :rtype: V1beta1PredictorConfig
+        """
+        return self._pmml
+
+    @pmml.setter
+    def pmml(self, pmml):
+        """Sets the pmml of this V1beta1PredictorsConfig.
+
+
+        :param pmml: The pmml of this V1beta1PredictorsConfig.  # noqa: E501
+        :type: V1beta1PredictorConfig
+        """
+
+        self._pmml = pmml
+
+    @property
     def pytorch(self):
         """Gets the pytorch of this V1beta1PredictorsConfig.  # noqa: E501
 
@@ -139,7 +165,7 @@ class V1beta1PredictorsConfig(object):
 
 
         :return: The sklearn of this V1beta1PredictorsConfig.  # noqa: E501
-        :rtype: V1beta1PredictorConfig
+        :rtype: V1beta1PredictorProtocols
         """
         return self._sklearn
 
@@ -149,7 +175,7 @@ class V1beta1PredictorsConfig(object):
 
 
         :param sklearn: The sklearn of this V1beta1PredictorsConfig.  # noqa: E501
-        :type: V1beta1PredictorConfig
+        :type: V1beta1PredictorProtocols
         """
 
         self._sklearn = sklearn
@@ -202,7 +228,7 @@ class V1beta1PredictorsConfig(object):
 
 
         :return: The xgboost of this V1beta1PredictorsConfig.  # noqa: E501
-        :rtype: V1beta1PredictorConfig
+        :rtype: V1beta1PredictorProtocols
         """
         return self._xgboost
 
@@ -212,7 +238,7 @@ class V1beta1PredictorsConfig(object):
 
 
         :param xgboost: The xgboost of this V1beta1PredictorsConfig.  # noqa: E501
-        :type: V1beta1PredictorConfig
+        :type: V1beta1PredictorProtocols
         """
 
         self._xgboost = xgboost

@@ -1,6 +1,5 @@
 # V1alpha2InferenceService
 
-InferenceService is the Schema for the services API
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------

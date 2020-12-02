@@ -53,6 +53,7 @@ from kfserving.models.v1alpha2_transformer_spec import V1alpha2TransformerSpec
 from kfserving.models.v1alpha2_explainer_spec import V1alpha2ExplainerSpec
 from kfserving.models.v1alpha2_py_torch_spec import V1alpha2PyTorchSpec
 from kfserving.models.v1alpha2_sk_learn_spec import V1alpha2SKLearnSpec
+from kfserving.models.v1alpha2_pmml_spec import V1alpha2PMMLSpec
 from kfserving.models.v1alpha2_logger import V1alpha2Logger
 from kfserving.models.v1alpha2_onnx_spec import V1alpha2ONNXSpec
 from kfserving.models.v1alpha2_status_configuration_spec import V1alpha2StatusConfigurationSpec
@@ -87,6 +88,7 @@ from kfserving.models.v1beta1_predictor_extension_spec import V1beta1PredictorEx
 from kfserving.models.v1beta1_predictor_spec import V1beta1PredictorSpec
 from kfserving.models.v1beta1_predictors_config import V1beta1PredictorsConfig
 from kfserving.models.v1beta1_sk_learn_spec import V1beta1SKLearnSpec
+from kfserving.models.v1beta1_pmml_spec import V1beta1PMMLSpec
 from kfserving.models.v1beta1_tf_serving_spec import V1beta1TFServingSpec
 from kfserving.models.v1beta1_torch_serve_spec import V1beta1TorchServeSpec
 from kfserving.models.v1beta1_trained_model import V1beta1TrainedModel
@@ -98,3 +100,6 @@ from kfserving.models.v1beta1_transformer_spec import V1beta1TransformerSpec
 from kfserving.models.v1beta1_transformers_config import V1beta1TransformersConfig
 from kfserving.models.v1beta1_triton_spec import V1beta1TritonSpec
 from kfserving.models.v1beta1_xg_boost_spec import V1beta1XGBoostSpec
+
+from kfserving.models.v1alpha1_trained_model import V1alpha1TrainedModel
+from kfserving.models.v1alpha1_trained_model_list import V1alpha1TrainedModelList
