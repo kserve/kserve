@@ -966,7 +966,7 @@ class V1beta1CustomTransformer(object):
     def topology_spread_constraints(self):
         """Gets the topology_spread_constraints of this V1beta1CustomTransformer.  # noqa: E501
 
-        TopologySpreadConstraints describes how a group of pods ought to spread across topology domains. Scheduler will schedule pods in a way which abides by the constraints. This field is alpha-level and is only honored by clusters that enables the EvenPodsSpread feature. All topologySpreadConstraints are ANDed.  # noqa: E501
+        TopologySpreadConstraints describes how a group of pods ought to spread across topology domains. Scheduler will schedule pods in a way which abides by the constraints. This field is only honored by clusters that enable the EvenPodsSpread feature. All topologySpreadConstraints are ANDed.  # noqa: E501
 
         :return: The topology_spread_constraints of this V1beta1CustomTransformer.  # noqa: E501
         :rtype: list[V1TopologySpreadConstraint]
@@ -977,7 +977,7 @@ class V1beta1CustomTransformer(object):
     def topology_spread_constraints(self, topology_spread_constraints):
         """Sets the topology_spread_constraints of this V1beta1CustomTransformer.
 
-        TopologySpreadConstraints describes how a group of pods ought to spread across topology domains. Scheduler will schedule pods in a way which abides by the constraints. This field is alpha-level and is only honored by clusters that enables the EvenPodsSpread feature. All topologySpreadConstraints are ANDed.  # noqa: E501
+        TopologySpreadConstraints describes how a group of pods ought to spread across topology domains. Scheduler will schedule pods in a way which abides by the constraints. This field is only honored by clusters that enable the EvenPodsSpread feature. All topologySpreadConstraints are ANDed.  # noqa: E501
 
         :param topology_spread_constraints: The topology_spread_constraints of this V1beta1CustomTransformer.  # noqa: E501
         :type: list[V1TopologySpreadConstraint]

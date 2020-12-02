@@ -1,0 +1,37 @@
+name: Python package
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.7]
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+    - name: Test with pytest
+      run: |
+        pip install pytest
+        pip install pytest-cov
+        pip install --upgrade pytest-tornasync
+        cd python
+        pip install -e ./kfserving
+        pip install -e ./aixexplainer
+        pip install -e ./alibiexplainer
+        pip install h5py==2.9.0
+        pip install -e ./sklearnserver
+        pip install -e ./xgbserver
+        pip install -e ./pytorchserver
+        pip install -e ./pmmlserver
+        pytest

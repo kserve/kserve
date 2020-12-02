@@ -17,7 +17,7 @@ limitations under the License.
 package modelconfig
 
 import (
-	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
+	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	testify "github.com/stretchr/testify/assert"
 	v1 "k8s.io/api/core/v1"
@@ -38,7 +38,7 @@ func TestProcessAddOrUpdate(t *testing.T) {
 			modelConfigs: ModelConfigs{
 				ModelConfig{
 					Name: "model1",
-					Spec: v1beta1.ModelSpec{StorageURI: "s3//model1", Framework: "framework1"},
+					Spec: v1alpha1.ModelSpec{StorageURI: "s3//model1", Framework: "framework1"},
 				},
 			},
 			configMap: &v1.ConfigMap{
@@ -50,7 +50,7 @@ func TestProcessAddOrUpdate(t *testing.T) {
 			modelConfigs: ModelConfigs{
 				ModelConfig{
 					Name: "model1",
-					Spec: v1beta1.ModelSpec{StorageURI: "s3//model1", Framework: "framework1"},
+					Spec: v1alpha1.ModelSpec{StorageURI: "s3//model1", Framework: "framework1"},
 				},
 			},
 			configMap: &v1.ConfigMap{
@@ -65,7 +65,7 @@ func TestProcessAddOrUpdate(t *testing.T) {
 			modelConfigs: ModelConfigs{
 				ModelConfig{
 					Name: "model1",
-					Spec: v1beta1.ModelSpec{StorageURI: "s3//model1", Framework: "framework1"},
+					Spec: v1alpha1.ModelSpec{StorageURI: "s3//model1", Framework: "framework1"},
 				},
 			},
 			configMap: &v1.ConfigMap{
@@ -80,7 +80,7 @@ func TestProcessAddOrUpdate(t *testing.T) {
 			modelConfigs: ModelConfigs{
 				ModelConfig{
 					Name: "model2",
-					Spec: v1beta1.ModelSpec{StorageURI: "s3//model2", Framework: "framework2"},
+					Spec: v1alpha1.ModelSpec{StorageURI: "s3//model2", Framework: "framework2"},
 				},
 			},
 			configMap: &v1.ConfigMap{
@@ -96,7 +96,7 @@ func TestProcessAddOrUpdate(t *testing.T) {
 			modelConfigs: ModelConfigs{
 				ModelConfig{
 					Name: "model1",
-					Spec: v1beta1.ModelSpec{StorageURI: "s3//new-model1", Framework: "new-framework1"},
+					Spec: v1alpha1.ModelSpec{StorageURI: "s3//new-model1", Framework: "new-framework1"},
 				},
 			},
 			configMap: &v1.ConfigMap{
@@ -199,11 +199,11 @@ func TestProcess(t *testing.T) {
 			updated: ModelConfigs{
 				ModelConfig{
 					Name: "model1",
-					Spec: v1beta1.ModelSpec{StorageURI: "s3//new-model1", Framework: "new-framework1"},
+					Spec: v1alpha1.ModelSpec{StorageURI: "s3//new-model1", Framework: "new-framework1"},
 				},
 				ModelConfig{
 					Name: "model3",
-					Spec: v1beta1.ModelSpec{StorageURI: "s3//model3", Framework: "framework3"},
+					Spec: v1alpha1.ModelSpec{StorageURI: "s3//model3", Framework: "framework3"},
 				},
 			},
 			deleted: []string{"model2"},

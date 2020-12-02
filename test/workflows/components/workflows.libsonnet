@@ -181,6 +181,7 @@
         },
         spec: {
           entrypoint: "e2e",
+          ttlSecondsAfterFinished: 86400,
           volumes: [
             {
               name: "github-token",
@@ -219,10 +220,6 @@
                 }],
                 [
                   {
-                    name: "sdk-test",
-                    template: "sdk-test",
-                  },
-                  {
                     name: "pylint-checking",
                     template: "pylint-checking",
                   },
@@ -257,6 +254,10 @@
                     template: "build-batcher",
                   },
                   {
+                    name: "build-agent",
+                    template: "build-agent",
+                  },
+                  {
                     name: "build-custom-image-transformer",
                     template: "build-custom-image-transformer",
                   },
@@ -271,6 +272,10 @@
                   {
                     name: "build-sklearnserver",
                     template: "build-sklearnserver",
+                  },
+                  {
+                    name: "build-pmmlserver",
+                    template: "build-pmmlserver",
                   },
                 ],
                 [
@@ -290,6 +295,10 @@
             {
               name: "exit-handler",
               steps: [
+                [{
+                  name: "e2e-tests-post-process",
+                  template: "e2e-tests-post-process",
+                }],
                 [{
                   name: "teardown-cluster",
                   template: "teardown-cluster",
@@ -330,6 +339,9 @@
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("teardown-cluster",testWorkerImage, [
               "test/scripts/delete-cluster.sh",
              ]),  // teardown cluster
+            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("e2e-tests-post-process",testWorkerImage, [
+              "test/scripts/post-e2e-tests.sh",
+             ]),  // run debug and clean up steps after running e2e test
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-kfserving", kanikoExecutorImage, [
               "/kaniko/executor",
               "--dockerfile=" + srcDir + "/Dockerfile",
@@ -372,6 +384,12 @@
               "--context=dir://" + srcDir,
               "--destination=" + "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/batcher:$(PULL_BASE_SHA)",
             ]),  // build-batcher
+            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-agent", kanikoExecutorImage, [
+              "/kaniko/executor",
+              "--dockerfile=" + srcDir + "/agent.Dockerfile",
+              "--context=dir://" + srcDir,
+              "--destination=" + "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/agent:$(PULL_BASE_SHA)",
+            ]),  // build-agent
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-custom-image-transformer", kanikoExecutorImage, [
               "/kaniko/executor",
               "--dockerfile=" + srcDir + "/docs/samples/transformer/image_transformer/transformer.Dockerfile",
@@ -396,12 +414,15 @@
               "--context=dir://" + srcDir + "/python",
               "--destination=" + "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/sklearnserver:$(PULL_BASE_SHA)",
             ]),  // build-sklearnserver
+            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-pmmlserver", kanikoExecutorImage, [
+                "/kaniko/executor",
+                "--dockerfile=" + srcDir + "/python/pmml.Dockerfile",
+                "--context=dir://" + srcDir + "/python",
+                "--destination=" + "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/pmmlserver:$(PULL_BASE_SHA)",
+            ]),  // build-pmmlserver
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("unit-test", testWorkerImage, [
               "test/scripts/unit-test.sh",
             ]),  // unit test
-            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("sdk-test", testWorkerImage, [
-              "test/scripts/sdk-test.sh",
-            ]),  // sdk unit test
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("pylint-checking", testWorkerImage, [
               "python",
               "-m",

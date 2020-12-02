@@ -71,7 +71,7 @@ class AlibiExplainer(kfserving.KFModel):
                 instances.append(req_data.tolist())
             else:
                 instances.append(req_data)
-        loop = asyncio.get_running_loop()
+        loop = asyncio.get_running_loop()  # type: ignore
         resp = loop.run_until_complete(self.predict({"instances": instances}))
         return np.array(resp["predictions"])
 
@@ -85,5 +85,5 @@ class AlibiExplainer(kfserving.KFModel):
             explanationAsJsonStr = explanation.to_json()
             logging.info("Explanation: %s", explanationAsJsonStr)
             return json.loads(explanationAsJsonStr)
-        else:
-            raise NotImplementedError
+
+        raise NotImplementedError

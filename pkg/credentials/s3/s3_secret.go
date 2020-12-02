@@ -31,6 +31,7 @@ const (
 	S3Endpoint             = "S3_ENDPOINT"
 	S3UseHttps             = "S3_USE_HTTPS"
 	S3VerifySSL            = "S3_VERIFY_SSL"
+	S3UseVirtualBucket     = "S3_USER_VIRTUAL_BUCKET"
 )
 
 type S3Config struct {
@@ -41,10 +42,11 @@ type S3Config struct {
 }
 
 var (
-	InferenceServiceS3SecretEndpointAnnotation = constants.KFServingAPIGroupName + "/" + "s3-endpoint"
-	InferenceServiceS3SecretRegionAnnotation   = constants.KFServingAPIGroupName + "/" + "s3-region"
-	InferenceServiceS3SecretSSLAnnotation      = constants.KFServingAPIGroupName + "/" + "s3-verifyssl"
-	InferenceServiceS3SecretHttpsAnnotation    = constants.KFServingAPIGroupName + "/" + "s3-usehttps"
+	InferenceServiceS3SecretEndpointAnnotation   = constants.KFServingAPIGroupName + "/" + "s3-endpoint"
+	InferenceServiceS3SecretRegionAnnotation     = constants.KFServingAPIGroupName + "/" + "s3-region"
+	InferenceServiceS3SecretSSLAnnotation        = constants.KFServingAPIGroupName + "/" + "s3-verifyssl"
+	InferenceServiceS3SecretHttpsAnnotation      = constants.KFServingAPIGroupName + "/" + "s3-usehttps"
+	InferenceServiceS3UseVirtualBucketAnnotation = constants.KFServingAPIGroupName + "/" + "s3-usevirtualbucket"
 )
 
 func BuildSecretEnvs(secret *v1.Secret, s3Config *S3Config) []v1.EnvVar {
@@ -101,6 +103,7 @@ func BuildSecretEnvs(secret *v1.Secret, s3Config *S3Config) []v1.EnvVar {
 			Name:  AWSEndpointUrl,
 			Value: s3EndpointUrl,
 		})
+
 	} else if s3Config.S3Endpoint != "" {
 		s3EndpointUrl := "https://" + s3Config.S3Endpoint
 		if s3Config.S3UseHttps == "0" {
@@ -118,6 +121,7 @@ func BuildSecretEnvs(secret *v1.Secret, s3Config *S3Config) []v1.EnvVar {
 			Name:  AWSEndpointUrl,
 			Value: s3EndpointUrl,
 		})
+
 	}
 
 	if s3Region, ok := secret.Annotations[InferenceServiceS3SecretRegionAnnotation]; ok {
@@ -127,10 +131,17 @@ func BuildSecretEnvs(secret *v1.Secret, s3Config *S3Config) []v1.EnvVar {
 		})
 	}
 
-	if val, ok := secret.Annotations[InferenceServiceS3SecretSSLAnnotation]; ok {
+	if verifySsl, ok := secret.Annotations[InferenceServiceS3SecretSSLAnnotation]; ok {
 		envs = append(envs, v1.EnvVar{
 			Name:  S3VerifySSL,
-			Value: val,
+			Value: verifySsl,
+		})
+	}
+
+	if useVirtualBucket, ok := secret.Annotations[InferenceServiceS3UseVirtualBucketAnnotation]; ok {
+		envs = append(envs, v1.EnvVar{
+			Name:  S3UseVirtualBucket,
+			Value: useVirtualBucket,
 		})
 	}
 	return envs

@@ -149,6 +149,8 @@ disable=duplicate-code,
         no-member,
         abstract-method,
         no-self-use,
+	invalid-str-returned, # https://github.com/PyCQA/pylint/issues/3649
+	invalid-overridden-method 
 
 # Enable the message, report, category or checker with the given id(s). You can
 # either give multiple identifier separated by comma (,) or put this option

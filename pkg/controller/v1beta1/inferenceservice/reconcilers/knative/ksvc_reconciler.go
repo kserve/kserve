@@ -19,6 +19,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
 	"github.com/kubeflow/kfserving/pkg/constants"
+	"github.com/kubeflow/kfserving/pkg/utils"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -45,8 +46,11 @@ type KsvcReconciler struct {
 	componentStatus v1beta1.ComponentStatusSpec
 }
 
-func NewKsvcReconciler(client client.Client, scheme *runtime.Scheme, componentMeta metav1.ObjectMeta,
-	componentExt *v1beta1.ComponentExtensionSpec, podSpec *corev1.PodSpec,
+func NewKsvcReconciler(client client.Client,
+	scheme *runtime.Scheme,
+	componentMeta metav1.ObjectMeta,
+	componentExt *v1beta1.ComponentExtensionSpec,
+	podSpec *corev1.PodSpec,
 	componentStatus v1beta1.ComponentStatusSpec) *KsvcReconciler {
 	return &KsvcReconciler{
 		client:          client,
@@ -58,7 +62,8 @@ func NewKsvcReconciler(client client.Client, scheme *runtime.Scheme, componentMe
 }
 
 func createKnativeService(componentMeta metav1.ObjectMeta,
-	componentExtension *v1beta1.ComponentExtensionSpec, podSpec *corev1.PodSpec,
+	componentExtension *v1beta1.ComponentExtensionSpec,
+	podSpec *corev1.PodSpec,
 	componentStatus v1beta1.ComponentStatusSpec) *knservingv1.Service {
 	annotations := componentMeta.GetAnnotations()
 
@@ -76,6 +81,7 @@ func createKnativeService(componentMeta metav1.ObjectMeta,
 	if _, ok := annotations[autoscaling.ClassAnnotationKey]; !ok {
 		annotations[autoscaling.ClassAnnotationKey] = autoscaling.KPA
 	}
+
 	trafficTargets := []knservingv1.TrafficTarget{}
 	if componentExtension.CanaryTrafficPercent != nil && componentStatus.PreviousReadyRevision != "" {
 		//canary rollout
@@ -102,7 +108,9 @@ func createKnativeService(componentMeta metav1.ObjectMeta,
 				Percent:        proto.Int64(100),
 			})
 	}
-
+	labels := utils.Filter(componentMeta.Labels, func(key string) bool {
+		return !utils.Includes(constants.RevisionTemplateLabelDisallowedList, key)
+	})
 	service := &knservingv1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      componentMeta.Name,
@@ -113,7 +121,7 @@ func createKnativeService(componentMeta metav1.ObjectMeta,
 			ConfigurationSpec: knservingv1.ConfigurationSpec{
 				Template: knservingv1.RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
-						Labels:      componentMeta.Labels,
+						Labels:      labels,
 						Annotations: annotations,
 					},
 					Spec: knservingv1.RevisionSpec{

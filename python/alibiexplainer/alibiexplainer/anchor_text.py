@@ -52,7 +52,7 @@ class AnchorText(ExplainerWrapper):
 
         # check if predictor returns predicted class or prediction probabilities for each class
         # if needed adjust predictor so it returns the predicted class
-        if np.argmax(self.predict_fn(input_words).shape) == 0:
+        if np.argmax(self.predict_fn([input_words]).shape) == 0:
             self.anchors_text.predictor = self.predict_fn
         else:
             self.anchors_text.predictor = ArgmaxTransformer(self.predict_fn)

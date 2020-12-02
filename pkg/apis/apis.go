@@ -21,6 +21,7 @@ limitations under the License.
 package apis
 
 import (
+	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -36,6 +37,7 @@ func AddToScheme(s *runtime.Scheme) error {
 
 func init() {
 	// Register the types with the Scheme so the components can map objects to GroupVersionKinds and back
+	AddToSchemes = append(AddToSchemes, v1alpha1.SchemeBuilder.AddToScheme)
 	AddToSchemes = append(AddToSchemes, v1alpha2.SchemeBuilder.AddToScheme)
 	AddToSchemes = append(AddToSchemes, v1beta1.SchemeBuilder.AddToScheme)
 }

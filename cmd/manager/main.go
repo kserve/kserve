@@ -18,16 +18,15 @@ package main
 
 import (
 	"flag"
-	"os"
-
+	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
+	trainedmodelcontroller "github.com/kubeflow/kfserving/pkg/controller/v1alpha1/trainedmodel"
+	"github.com/kubeflow/kfserving/pkg/controller/v1alpha1/trainedmodel/reconcilers/modelconfig"
 	v1beta1controller "github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice"
-	trainedmodelcontroller "github.com/kubeflow/kfserving/pkg/controller/v1beta1/trainedmodel"
-	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/trainedmodel/reconcilers/modelconfig"
 	"github.com/kubeflow/kfserving/pkg/webhook/admission/pod"
-	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	istio_networking "istio.io/api/networking/v1alpha3"
+	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
@@ -35,6 +34,7 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"k8s.io/client-go/tools/record"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
+	"os"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -78,6 +78,12 @@ func main() {
 	}
 
 	log.Info("Registering Components.")
+
+	log.Info("Setting up KFServing v1alpha1 scheme")
+	if err := v1alpha1.AddToScheme(mgr.GetScheme()); err != nil {
+		log.Error(err, "unable to add KFServing v1alpha1 to scheme")
+		os.Exit(1)
+	}
 
 	log.Info("Setting up KFServing v1alpha2 scheme")
 	if err := v1alpha2.AddToScheme(mgr.GetScheme()); err != nil {
