@@ -34,7 +34,7 @@ import (
 )
 
 var (
-	port          = flag.String("port", "8081", "Agent port")
+	port          = flag.String("port", "9081", "Agent port")
 	componentPort = flag.String("component-port", "8080", "Component port")
 	// model puller flags
 	enablePuller = flag.Bool("enable-puller", false, "Enable model puller")

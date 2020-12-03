@@ -69,7 +69,7 @@ func TestLogger(t *testing.T) {
 	logf.SetLogger(logf.ZapLogger(false))
 	logSvcUrl, err := url.Parse(logSvc.URL)
 	g.Expect(err).To(gomega.BeNil())
-	sourceUri, err := url.Parse("http://localhost:8081/")
+	sourceUri, err := url.Parse("http://localhost:9081/")
 	g.Expect(err).To(gomega.BeNil())
 	targetUri, err := url.Parse(predictor.URL)
 	g.Expect(err).To(gomega.BeNil())

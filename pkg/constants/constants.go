@@ -148,7 +148,7 @@ const (
 // InferenceService Endpoint Ports
 const (
 	InferenceServiceDefaultHttpPort    = "8080"
-	InferenceServiceDefaultLoggerPort  = "8081"
+	InferenceServiceDefaultAgentPort   = "9081"
 	InferenceServiceDefaultBatcherPort = "9082"
 	CommonDefaultHttpPort              = 80
 )
