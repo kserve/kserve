@@ -17,19 +17,19 @@ limitations under the License.
 package logger
 
 import (
-	"github.com/go-logr/logr"
+	"go.uber.org/zap"
 )
 
 var WorkerQueue chan chan LogRequest
 
-func StartDispatcher(nworkers int, log logr.Logger) {
+func StartDispatcher(nworkers int, logger *zap.SugaredLogger) {
 	// First, initialize the channel we are going to but the workers' work channels into.
 	WorkerQueue = make(chan chan LogRequest, nworkers)
 
 	// Now, create all of our workers.
 	for i := 0; i < nworkers; i++ {
-		log.Info("Starting", "worker", i+1)
-		worker := NewWorker(i+1, WorkerQueue, log)
+		logger.Info("Starting worker ", i+1)
+		worker := NewWorker(i+1, WorkerQueue, logger)
 		worker.Start()
 	}
 

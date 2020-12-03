@@ -20,9 +20,6 @@ spec:
           image: ${IMG}
 EOF
 
-LOGGER_IMG=$(ko resolve -f config/overlays/development/configmap/ko_resolve_logger| grep 'image:' | awk '{print $2}')
-if [ -z ${LOGGER_IMG} ]; then exit; fi
-
 BATCHER_IMG=$(ko resolve -f config/overlays/development/configmap/ko_resolve_batcher| grep 'image:' | awk '{print $2}')
 if [ -z ${BATCHER_IMG} ]; then exit; fi
 
@@ -38,7 +35,7 @@ metadata:
 data:
   logger: |-
     {
-        "image" : "${LOGGER_IMG}",
+        "image" : "${AGENT_IMG}",
         "memoryRequest": "100Mi",
         "memoryLimit": "100Mi",
         "cpuRequest": "100m",
@@ -56,7 +53,7 @@ data:
     {
         "image" : "${AGENT_IMG}",
         "memoryRequest": "100Mi",
-        "memoryLimit": "100Mi",
+        "memoryLimit": "500Mi",
         "cpuRequest": "100m",
         "cpuLimit": "100m"
     }

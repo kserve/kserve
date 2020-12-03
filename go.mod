@@ -16,6 +16,7 @@ require (
 	github.com/google/go-cmp v0.5.2
 	github.com/google/uuid v1.1.1
 	github.com/json-iterator/go v1.1.10
+	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/onsi/ginkgo v1.14.0
 	github.com/onsi/gomega v1.10.2
 	github.com/pkg/errors v0.9.1
@@ -23,6 +24,8 @@ require (
 	github.com/shiena/ansicolor v0.0.0-20151119151921-a422bbe96644 // indirect
 	github.com/spf13/cobra v1.0.0
 	github.com/stretchr/testify v1.5.1
+	go.opencensus.io v0.22.4
+	go.uber.org/zap v1.15.0
 	golang.org/dl v0.0.0-20201105230244-7f2637f4aae3 // indirect
 	golang.org/x/net v0.0.0-20200904194848-62affa334b73
 	google.golang.org/grpc v1.31.1
@@ -36,6 +39,7 @@ require (
 	k8s.io/client-go v11.0.1-0.20190805182717-6502b5e7b1b5+incompatible
 	k8s.io/klog v1.0.0
 	k8s.io/kube-openapi v0.0.0-20200410145947-bcb3869e6f29
+	knative.dev/networking v0.0.0-20200922180040-a71b40c69b15
 	knative.dev/pkg v0.0.0-20200922164940-4bf40ad82aab
 	knative.dev/serving v0.18.0
 	sigs.k8s.io/controller-runtime v0.6.3
