@@ -5,7 +5,7 @@ metadata:
 spec:
   transformer:
     containers:
-      - image: {username}/image-transformer:latest
+      - image: jagadeeshj/img_trans:v1.0
         name: transformer-container
         env:
           - name: STORAGE_URI

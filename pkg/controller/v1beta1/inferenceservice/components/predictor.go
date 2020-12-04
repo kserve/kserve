@@ -14,6 +14,8 @@ limitations under the License.
 package components
 
 import (
+	"strconv"
+
 	"github.com/go-logr/logr"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/controller/v1alpha1/trainedmodel/sharding/memory"
@@ -29,7 +31,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"strconv"
 
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
 )
