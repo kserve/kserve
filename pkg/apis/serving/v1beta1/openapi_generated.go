@@ -29,6 +29,8 @@ import (
 
 func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
 	return map[string]common.OpenAPIDefinition{
+		"./pkg/apis/serving/v1alpha1.TrainedModel":           schema_pkg_apis_serving_v1alpha1_TrainedModel(ref),
+		"./pkg/apis/serving/v1alpha1.TrainedModelList":       schema_pkg_apis_serving_v1alpha1_TrainedModelList(ref),
 		"./pkg/apis/serving/v1beta1.AIXExplainerSpec":        schema_pkg_apis_serving_v1beta1_AIXExplainerSpec(ref),
 		"./pkg/apis/serving/v1beta1.AlibiExplainerSpec":      schema_pkg_apis_serving_v1beta1_AlibiExplainerSpec(ref),
 		"./pkg/apis/serving/v1beta1.Batcher":                 schema_pkg_apis_serving_v1beta1_Batcher(ref),
@@ -47,7 +49,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"./pkg/apis/serving/v1beta1.InferenceServicesConfig": schema_pkg_apis_serving_v1beta1_InferenceServicesConfig(ref),
 		"./pkg/apis/serving/v1beta1.IngressConfig":           schema_pkg_apis_serving_v1beta1_IngressConfig(ref),
 		"./pkg/apis/serving/v1beta1.LoggerSpec":              schema_pkg_apis_serving_v1beta1_LoggerSpec(ref),
-		"./pkg/apis/serving/v1beta1.ModelSpec":               schema_pkg_apis_serving_v1beta1_ModelSpec(ref),
 		"./pkg/apis/serving/v1beta1.ONNXRuntimeSpec":         schema_pkg_apis_serving_v1beta1_ONNXRuntimeSpec(ref),
 		"./pkg/apis/serving/v1beta1.PMMLSpec":                schema_pkg_apis_serving_v1beta1_PMMLSpec(ref),
 		"./pkg/apis/serving/v1beta1.PodSpec":                 schema_pkg_apis_serving_v1beta1_PodSpec(ref),
@@ -59,15 +60,107 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"./pkg/apis/serving/v1beta1.SKLearnSpec":             schema_pkg_apis_serving_v1beta1_SKLearnSpec(ref),
 		"./pkg/apis/serving/v1beta1.TFServingSpec":           schema_pkg_apis_serving_v1beta1_TFServingSpec(ref),
 		"./pkg/apis/serving/v1beta1.TorchServeSpec":          schema_pkg_apis_serving_v1beta1_TorchServeSpec(ref),
-		"./pkg/apis/serving/v1beta1.TrainedModel":            schema_pkg_apis_serving_v1beta1_TrainedModel(ref),
-		"./pkg/apis/serving/v1beta1.TrainedModelList":        schema_pkg_apis_serving_v1beta1_TrainedModelList(ref),
-		"./pkg/apis/serving/v1beta1.TrainedModelSpec":        schema_pkg_apis_serving_v1beta1_TrainedModelSpec(ref),
-		"./pkg/apis/serving/v1beta1.TrainedModelStatus":      schema_pkg_apis_serving_v1beta1_TrainedModelStatus(ref),
 		"./pkg/apis/serving/v1beta1.TransformerConfig":       schema_pkg_apis_serving_v1beta1_TransformerConfig(ref),
 		"./pkg/apis/serving/v1beta1.TransformerSpec":         schema_pkg_apis_serving_v1beta1_TransformerSpec(ref),
 		"./pkg/apis/serving/v1beta1.TransformersConfig":      schema_pkg_apis_serving_v1beta1_TransformersConfig(ref),
 		"./pkg/apis/serving/v1beta1.TritonSpec":              schema_pkg_apis_serving_v1beta1_TritonSpec(ref),
 		"./pkg/apis/serving/v1beta1.XGBoostSpec":             schema_pkg_apis_serving_v1beta1_XGBoostSpec(ref),
+	}
+}
+
+func schema_pkg_apis_serving_v1alpha1_TrainedModel(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "TrainedModel is the Schema for the TrainedModel API",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("./pkg/apis/serving/v1alpha1.TrainedModelSpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("./pkg/apis/serving/v1alpha1.TrainedModelStatus"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"./pkg/apis/serving/v1alpha1.TrainedModelSpec", "./pkg/apis/serving/v1alpha1.TrainedModelStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
+func schema_pkg_apis_serving_v1alpha1_TrainedModelList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "TrainedModelList contains a list of TrainedModel",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "set",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("./pkg/apis/serving/v1alpha1.TrainedModel"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"./pkg/apis/serving/v1alpha1.TrainedModel", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
 	}
 }
 
@@ -2641,42 +2734,6 @@ func schema_pkg_apis_serving_v1beta1_LoggerSpec(ref common.ReferenceCallback) co
 	}
 }
 
-func schema_pkg_apis_serving_v1beta1_ModelSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "ModelSpec describes a trained model",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"storageUri": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Storage URI for the model repository",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"framework": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Machine Learning <framework name> The values could be: \"tensorflow\",\"pytorch\",\"sklearn\",\"onnx\",\"xgboost\", \"myawesomeinternalframework\" etc.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"memory": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Maximum memory this model will consume, this field is used to decide if a model server has enough memory to load this model.",
-							Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
-						},
-					},
-				},
-				Required: []string{"storageUri", "framework"},
-			},
-		},
-		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/api/resource.Quantity"},
-	}
-}
-
 func schema_pkg_apis_serving_v1beta1_ONNXRuntimeSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -2927,7 +2984,6 @@ func schema_pkg_apis_serving_v1beta1_ONNXRuntimeSpec(ref common.ReferenceCallbac
 						},
 					},
 				},
-				Required: []string{"storageUri"},
 			},
 		},
 		Dependencies: []string{
@@ -3185,7 +3241,6 @@ func schema_pkg_apis_serving_v1beta1_PMMLSpec(ref common.ReferenceCallback) comm
 						},
 					},
 				},
-				Required: []string{"storageUri"},
 			},
 		},
 		Dependencies: []string{
@@ -3843,7 +3898,6 @@ func schema_pkg_apis_serving_v1beta1_PredictorExtensionSpec(ref common.Reference
 						},
 					},
 				},
-				Required: []string{"storageUri"},
 			},
 		},
 		Dependencies: []string{
@@ -4348,7 +4402,7 @@ func schema_pkg_apis_serving_v1beta1_PredictorsConfig(ref common.ReferenceCallba
 					},
 					"xgboost": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("./pkg/apis/serving/v1beta1.PredictorConfig"),
+							Ref: ref("./pkg/apis/serving/v1beta1.PredictorProtocols"),
 						},
 					},
 					"sklearn": {
@@ -4629,7 +4683,6 @@ func schema_pkg_apis_serving_v1beta1_SKLearnSpec(ref common.ReferenceCallback) c
 						},
 					},
 				},
-				Required: []string{"storageUri"},
 			},
 		},
 		Dependencies: []string{
@@ -4887,7 +4940,6 @@ func schema_pkg_apis_serving_v1beta1_TFServingSpec(ref common.ReferenceCallback)
 						},
 					},
 				},
-				Required: []string{"storageUri"},
 			},
 		},
 		Dependencies: []string{
@@ -5152,198 +5204,10 @@ func schema_pkg_apis_serving_v1beta1_TorchServeSpec(ref common.ReferenceCallback
 						},
 					},
 				},
-				Required: []string{"storageUri"},
 			},
 		},
 		Dependencies: []string{
 			"k8s.io/api/core/v1.ContainerPort", "k8s.io/api/core/v1.EnvFromSource", "k8s.io/api/core/v1.EnvVar", "k8s.io/api/core/v1.Lifecycle", "k8s.io/api/core/v1.Probe", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.SecurityContext", "k8s.io/api/core/v1.VolumeDevice", "k8s.io/api/core/v1.VolumeMount"},
-	}
-}
-
-func schema_pkg_apis_serving_v1beta1_TrainedModel(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "TrainedModel is the Schema for the TrainedModel API",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"kind": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"apiVersion": {
-						SchemaProps: spec.SchemaProps{
-							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"metadata": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
-						},
-					},
-					"spec": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("./pkg/apis/serving/v1beta1.TrainedModelSpec"),
-						},
-					},
-					"status": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("./pkg/apis/serving/v1beta1.TrainedModelStatus"),
-						},
-					},
-				},
-			},
-		},
-		Dependencies: []string{
-			"./pkg/apis/serving/v1beta1.TrainedModelSpec", "./pkg/apis/serving/v1beta1.TrainedModelStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
-	}
-}
-
-func schema_pkg_apis_serving_v1beta1_TrainedModelList(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "TrainedModelList contains a list of TrainedModel",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"kind": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"apiVersion": {
-						SchemaProps: spec.SchemaProps{
-							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"metadata": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
-						},
-					},
-					"items": {
-						VendorExtensible: spec.VendorExtensible{
-							Extensions: spec.Extensions{
-								"x-kubernetes-list-type": "set",
-							},
-						},
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Ref: ref("./pkg/apis/serving/v1beta1.TrainedModel"),
-									},
-								},
-							},
-						},
-					},
-				},
-				Required: []string{"items"},
-			},
-		},
-		Dependencies: []string{
-			"./pkg/apis/serving/v1beta1.TrainedModel", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
-	}
-}
-
-func schema_pkg_apis_serving_v1beta1_TrainedModelSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "TrainedModelSpec defines the trained model spec",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"inferenceService": {
-						SchemaProps: spec.SchemaProps{
-							Description: "parent inference service to deploy to",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"model": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Predictor model spec",
-							Ref:         ref("./pkg/apis/serving/v1beta1.ModelSpec"),
-						},
-					},
-				},
-				Required: []string{"inferenceService", "model"},
-			},
-		},
-		Dependencies: []string{
-			"./pkg/apis/serving/v1beta1.ModelSpec"},
-	}
-}
-
-func schema_pkg_apis_serving_v1beta1_TrainedModelStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "TrainedModelStatus defines the observed state of TrainedModel",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"observedGeneration": {
-						SchemaProps: spec.SchemaProps{
-							Description: "ObservedGeneration is the 'Generation' of the Service that was last processed by the controller.",
-							Type:        []string{"integer"},
-							Format:      "int64",
-						},
-					},
-					"conditions": {
-						VendorExtensible: spec.VendorExtensible{
-							Extensions: spec.Extensions{
-								"x-kubernetes-patch-merge-key": "type",
-								"x-kubernetes-patch-strategy":  "merge",
-							},
-						},
-						SchemaProps: spec.SchemaProps{
-							Description: "Conditions the latest available observations of a resource's current state.",
-							Type:        []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Ref: ref("knative.dev/pkg/apis.Condition"),
-									},
-								},
-							},
-						},
-					},
-					"annotations": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Annotations is additional Status fields for the Resource to save some additional State as well as convey more information to the user. This is roughly akin to Annotations on any k8s resource, just the reconciler conveying richer information outwards.",
-							Type:        []string{"object"},
-							AdditionalProperties: &spec.SchemaOrBool{
-								Allows: true,
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Type:   []string{"string"},
-										Format: "",
-									},
-								},
-							},
-						},
-					},
-					"address": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Addressable endpoint for the deployed trained model http://<inferenceservice.metadata.name>/v1/models/<trainedmodel>.metadata.name",
-							Ref:         ref("knative.dev/pkg/apis/duck/v1.Addressable"),
-						},
-					},
-				},
-			},
-		},
-		Dependencies: []string{
-			"knative.dev/pkg/apis.Condition", "knative.dev/pkg/apis/duck/v1.Addressable"},
 	}
 }
 
@@ -6056,7 +5920,6 @@ func schema_pkg_apis_serving_v1beta1_TritonSpec(ref common.ReferenceCallback) co
 						},
 					},
 				},
-				Required: []string{"storageUri"},
 			},
 		},
 		Dependencies: []string{
@@ -6314,7 +6177,6 @@ func schema_pkg_apis_serving_v1beta1_XGBoostSpec(ref common.ReferenceCallback) c
 						},
 					},
 				},
-				Required: []string{"storageUri"},
 			},
 		},
 		Dependencies: []string{

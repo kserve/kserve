@@ -53,7 +53,7 @@ class V1beta1PredictorsConfig(object):
         'sklearn': 'V1beta1PredictorProtocols',
         'tensorflow': 'V1beta1PredictorConfig',
         'triton': 'V1beta1PredictorConfig',
-        'xgboost': 'V1beta1PredictorConfig'
+        'xgboost': 'V1beta1PredictorProtocols'
     }
 
     attribute_map = {
@@ -228,7 +228,7 @@ class V1beta1PredictorsConfig(object):
 
 
         :return: The xgboost of this V1beta1PredictorsConfig.  # noqa: E501
-        :rtype: V1beta1PredictorConfig
+        :rtype: V1beta1PredictorProtocols
         """
         return self._xgboost
 
@@ -238,7 +238,7 @@ class V1beta1PredictorsConfig(object):
 
 
         :param xgboost: The xgboost of this V1beta1PredictorsConfig.  # noqa: E501
-        :type: V1beta1PredictorConfig
+        :type: V1beta1PredictorProtocols
         """
 
         self._xgboost = xgboost

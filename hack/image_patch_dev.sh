@@ -40,24 +40,24 @@ data:
     {
         "image" : "${LOGGER_IMG}",
         "memoryRequest": "100Mi",
-        "memoryLimit": "1Gi",
+        "memoryLimit": "100Mi",
         "cpuRequest": "100m",
-        "cpuLimit": "1"
+        "cpuLimit": "100m"
     }
   batcher: |-
     {
         "image" : "${BATCHER_IMG}",
         "memoryRequest": "100Mi",
-        "memoryLimit": "1Gi",
+        "memoryLimit": "100Mi",
         "cpuRequest": "100m",
-        "cpuLimit": "1"
+        "cpuLimit": "100m"
     }
   agent: |-
     {
         "image" : "${AGENT_IMG}",
         "memoryRequest": "100Mi",
-        "memoryLimit": "1Gi",
+        "memoryLimit": "100Mi",
         "cpuRequest": "100m",
-        "cpuLimit": "1"
+        "cpuLimit": "100m"
     }
 EOF

@@ -24,7 +24,7 @@ CLUSTER_NAME="${CLUSTER_NAME}"
 AWS_REGION="${AWS_REGION}"
 
 ISTIO_VERSION="1.3.1"
-KNATIVE_VERSION="v0.15.0"
+KNATIVE_VERSION="v0.17.0"
 KUBECTL_VERSION="v1.14.0"
 CERT_MANAGER_VERSION="v0.12.0"
 # Check and wait for istio/knative/kfserving pod started normally.
@@ -134,8 +134,7 @@ sleep 2
 kubectl apply --validate=false -f https://github.com/jetstack/cert-manager/releases/download/${CERT_MANAGER_VERSION}/cert-manager.yaml
 
 echo "Waiting for cert manager started ..."
-waiting_pod_running "cert-manager"
-sleep 120  # Wait for webhook install finished totally.
+kubectl wait --for=condition=ready pod -l app=cert-manager -n cert-manager
 
 echo "Install KFServing ..."
 export GOPATH="$HOME/go"
@@ -171,5 +170,5 @@ popd
 
 echo "Starting E2E functional tests ..."
 pushd test/e2e >/dev/null
-  pytest -n 3
+  pytest -n 3 --ignore=credentials/test_set_creds.py
 popd

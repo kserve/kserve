@@ -171,7 +171,8 @@ class V1beta1PMMLSpec(object):
             self.stdin = stdin
         if stdin_once is not None:
             self.stdin_once = stdin_once
-        self.storage_uri = storage_uri
+        if storage_uri is not None:
+            self.storage_uri = storage_uri
         if termination_message_path is not None:
             self.termination_message_path = termination_message_path
         if termination_message_policy is not None:
@@ -607,8 +608,6 @@ class V1beta1PMMLSpec(object):
         :param storage_uri: The storage_uri of this V1beta1PMMLSpec.  # noqa: E501
         :type: str
         """
-        if self.local_vars_configuration.client_side_validation and storage_uri is None:  # noqa: E501
-            raise ValueError("Invalid value for `storage_uri`, must not be `None`")  # noqa: E501
 
         self._storage_uri = storage_uri
 
