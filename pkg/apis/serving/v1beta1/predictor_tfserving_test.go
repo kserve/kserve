@@ -31,13 +31,13 @@ import (
 )
 
 func TestTensorflowValidation(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-	config := InferenceServicesConfig{
+	g, config := gomega.NewGomegaWithT(t), InferenceServicesConfig{
 		Predictors: PredictorsConfig{
 			Tensorflow: PredictorConfig{
 				ContainerImage:         "tfserving",
 				DefaultImageVersion:    "1.14.0",
 				DefaultGpuImageVersion: "1.14.0-gpu",
+				DefaultTimeout:         60,
 			},
 		},
 	}
@@ -149,6 +149,7 @@ func TestTensorflowDefaulter(t *testing.T) {
 				ContainerImage:         "tfserving",
 				DefaultImageVersion:    "1.14.0",
 				DefaultGpuImageVersion: "1.14.0-gpu",
+				DefaultTimeout:         60,
 			},
 		},
 	}
@@ -266,6 +267,7 @@ func TestCreateTFServingContainer(t *testing.T) {
 			Tensorflow: PredictorConfig{
 				ContainerImage:      "tfserving",
 				DefaultImageVersion: "1.14.0",
+				DefaultTimeout:      60,
 			},
 		},
 	}

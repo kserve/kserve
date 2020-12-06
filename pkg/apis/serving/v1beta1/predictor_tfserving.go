@@ -89,7 +89,7 @@ func (t *TFServingSpec) GetContainer(metadata metav1.ObjectMeta, extensions *Com
 	if extensions.TimeoutSeconds != nil {
 		TimeoutMilliSeconds = 1000 * *extensions.TimeoutSeconds
 	} else {
-		TimeoutMilliSeconds = 1000 * constants.DefaultPredictorTimeout
+		TimeoutMilliSeconds = 1000 * config.Predictors.Tensorflow.DefaultTimeout
 	}
 	arguments := []string{
 		fmt.Sprintf("%s=%s", "--port", TensorflowServingGRPCPort),

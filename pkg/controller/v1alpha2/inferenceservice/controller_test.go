@@ -64,7 +64,7 @@ var configs = map[string]string{
 	"predictors": `{
         "tensorflow" : {
             "image" : "tensorflow/serving",
-			"defaultTimeout" : "60000"
+			"defaultTimeout" : "60"
         },
         "sklearn" : {
             "image" : "kfserving/sklearnserver"

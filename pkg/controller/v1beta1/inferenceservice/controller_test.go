@@ -60,7 +60,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			"predictors": `{
                "tensorflow": {
                   "image": "tensorflow/serving",
-				  "defaultTimeout": "60000"
+				  "defaultTimeout": "60"
                },
                "sklearn": {
                  "v1": {

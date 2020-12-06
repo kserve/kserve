@@ -90,6 +90,7 @@ func TestTensorflowContainer(t *testing.T) {
 			Tensorflow: PredictorConfig{
 				ContainerImage:      "someOtherImage",
 				DefaultImageVersion: "0.1.0",
+				DefaultTimeout:      60,
 			},
 		},
 	}
@@ -110,7 +111,7 @@ func TestTensorflowContainer(t *testing.T) {
 			"--rest_api_port=" + TensorflowServingRestPort,
 			"--model_name=someName",
 			"--model_base_path=/mnt/models",
-			"--rest_api_timeout_in_ms=0",
+			"--rest_api_timeout_in_ms=60000",
 		},
 		LivenessProbe: &v1.Probe{
 			Handler: v1.Handler{

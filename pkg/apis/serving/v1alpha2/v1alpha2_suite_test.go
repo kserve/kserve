@@ -75,7 +75,7 @@ func TestMain(m *testing.M) {
 				"image" : "tensorflow/serving",
 				"defaultImageVersion": "latest",
 				"defaultGPUImageVersion": "latest-gpu",
-				"defaultTimeout": "60000"
+				"defaultTimeout": "60"
 			},
 			"sklearn" : {
                 "v1": {
