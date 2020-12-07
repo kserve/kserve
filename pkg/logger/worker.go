@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"github.com/cloudevents/sdk-go"
 	"github.com/cloudevents/sdk-go/pkg/cloudevents/transport"
-	"github.com/go-logr/logr"
+	"go.uber.org/zap"
 	"net/http"
 	"time"
 )
@@ -36,15 +36,26 @@ const (
 	NamespaceAttr        = "namespace"
 	//endpoint would be either default or canary
 	EndpointAttr = "endpoint"
+
+	LoggerWorkerQueueSize = 100
+	CloudEventsIdHeader   = "Ce-Id"
 )
+
+// A buffered channel that we can send work requests on.
+var WorkQueue = make(chan LogRequest, LoggerWorkerQueueSize)
+
+func QueueLogRequest(req LogRequest) error {
+	WorkQueue <- req
+	return nil
+}
 
 // NewWorker creates, and returns a new Worker object. Its only argument
 // is a channel that the worker can add itself to whenever it is done its
 // work.
-func NewWorker(id int, workerQueue chan chan LogRequest, log logr.Logger) Worker {
+func NewWorker(id int, workerQueue chan chan LogRequest, logger *zap.SugaredLogger) Worker {
 	// Create, and return the worker.
 	return Worker{
-		Log:         log,
+		Log:         logger,
 		ID:          id,
 		Work:        make(chan LogRequest),
 		WorkerQueue: workerQueue,
@@ -57,7 +68,7 @@ func NewWorker(id int, workerQueue chan chan LogRequest, log logr.Logger) Worker
 }
 
 type Worker struct {
-	Log         logr.Logger
+	Log         *zap.SugaredLogger
 	ID          int
 	Work        chan LogRequest
 	WorkerQueue chan chan LogRequest
@@ -67,8 +78,7 @@ type Worker struct {
 	CeTransport transport.Transport
 }
 
-func (W *Worker) sendCloudEvent(logReq LogRequest) error {
-
+func (w *Worker) sendCloudEvent(logReq LogRequest) error {
 	t, err := cloudevents.NewHTTPTransport(
 		cloudevents.WithTarget(logReq.Url.String()),
 		cloudevents.WithEncoding(cloudevents.HTTPBinaryV1),
@@ -77,13 +87,14 @@ func (W *Worker) sendCloudEvent(logReq LogRequest) error {
 	if err != nil {
 		return fmt.Errorf("while creating http transport: %s", err)
 	}
+
 	c, err := cloudevents.NewClient(t,
 		cloudevents.WithTimeNow(),
 	)
 	if err != nil {
 		return fmt.Errorf("while creating new cloudevents client: %s", err)
 	}
-	event := cloudevents.NewEvent()
+	event := cloudevents.NewEvent(cloudevents.VersionV1)
 	event.SetID(logReq.Id)
 	if logReq.ReqType == InferenceRequest {
 		event.SetType(CEInferenceRequest)
@@ -101,7 +112,7 @@ func (W *Worker) sendCloudEvent(logReq LogRequest) error {
 		return fmt.Errorf("while setting cloudevents data: %s", err)
 	}
 
-	if _, _, err := c.Send(W.CeCtx, event); err != nil {
+	if _, _, err := c.Send(w.CeCtx, event); err != nil {
 		return fmt.Errorf("while sending event: %s", err)
 	}
 	return nil
@@ -118,11 +129,10 @@ func (w *Worker) Start() {
 			select {
 			case work := <-w.Work:
 				// Receive a work request.
-				w.Log.Info("Received work request", "workerId", w.ID, "url", work.Url.String(),
-					"requestId", work.Id)
+				w.Log.Infof("Received work request %d, url: %s, requestId: %s", w.ID, work.Url.String(), work.Id)
 
 				if err := w.sendCloudEvent(work); err != nil {
-					w.Log.Error(err, "Failed to send log", "URL", work.Url.String())
+					w.Log.Error(err, "Failed to send cloud event, url: %s", work.Url.String())
 				}
 
 			case <-w.QuitChan:

@@ -148,7 +148,7 @@ const (
 // InferenceService Endpoint Ports
 const (
 	InferenceServiceDefaultHttpPort    = "8080"
-	InferenceServiceDefaultLoggerPort  = "8081"
+	InferenceServiceDefaultAgentPort   = "9081"
 	InferenceServiceDefaultBatcherPort = "9082"
 	CommonDefaultHttpPort              = 80
 )
@@ -163,6 +163,7 @@ const (
 // Labels for TrainedModel
 const (
 	ParentInferenceServiceLabel = "inferenceservice"
+	InferenceServiceLabel       = "serving.kubeflow.org/inferenceservice"
 )
 
 // InferenceService default/canary constants
@@ -203,6 +204,10 @@ var (
 		autoscaling.MaxScaleAnnotationKey,
 		StorageInitializerSourceUriInternalAnnotationKey,
 		"kubectl.kubernetes.io/last-applied-configuration",
+	}
+
+	RevisionTemplateLabelDisallowedList = []string{
+		VisibilityLabel,
 	}
 )
 

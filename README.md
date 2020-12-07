@@ -55,6 +55,11 @@ As of KFServing 0.4 release [object selector](https://kubernetes.io/docs/referen
 ```bash
 kubectl patch mutatingwebhookconfiguration inferenceservice.serving.kubeflow.org --patch '{"webhooks":[{"name": "inferenceservice.kfserving-webhook-server.pod-mutator","objectSelector":{"matchExpressions":[{"key":"serving.kubeflow.org/inferenceservice", "operator": "Exists"}]}}]}'
 ```
+
+#### Standalone KFServing on OpenShift
+
+To install standalone KFServing on [OpenShift Container Platform](https://www.openshift.com/products/container-platform), please follow the [instructions here](docs/OPENSHIFT_GUIDE.md).
+
 #### KFServing with Kubeflow Installation
 KFServing is installed by default as part of Kubeflow installation using [Kubeflow manifests](https://github.com/kubeflow/manifests/tree/master/kfserving) and KFServing controller is deployed in `kubeflow` namespace.
 Since Kubeflow Kubernetes minimal requirement is 1.14 which does not support object selector, `ENABLE_WEBHOOK_NAMESPACE_SELECTOR` is enabled in Kubeflow installation by default.
@@ -97,8 +102,9 @@ Please refer to our [troubleshooting section](docs/DEVELOPER_GUIDE.md#troublesho
 
 #### Create KFServing test inference service
 ```bash
+API_VERSION=v1alpha2
 kubectl create namespace kfserving-test
-kubectl apply -f docs/samples/sklearn/sklearn.yaml -n kfserving-test
+kubectl apply -f docs/samples/${API_VERSION}/sklearn/sklearn.yaml -n kfserving-test
 ```
 #### Check KFServing `InferenceService` status.
 ```bash
@@ -146,11 +152,11 @@ export INGRESS_PORT=8080
 Curl from ingress gateway
 ```bash
 SERVICE_HOSTNAME=$(kubectl get inferenceservice sklearn-iris -n kfserving-test -o jsonpath='{.status.url}' | cut -d "/" -f 3)
-curl -v -H "Host: ${SERVICE_HOSTNAME}" http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/sklearn-iris:predict -d @./docs/samples/sklearn/iris-input.json
+curl -v -H "Host: ${SERVICE_HOSTNAME}" http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/sklearn-iris:predict -d @./docs/samples/${API_VERSION}/sklearn/iris-input.json
 ```
 Curl from local cluster gateway
 ```bash
-curl -v http://sklearn-iris.kfserving-test/v1/models/sklearn-iris:predict -d @./docs/samples/sklearn/iris-input.json
+curl -v http://sklearn-iris.kfserving-test/v1/models/sklearn-iris:predict -d @./docs/samples/${API_VERSION}/sklearn/iris-input.json
 ```
 
 #### Run Performance Test

@@ -24,7 +24,7 @@ CLUSTER_NAME="${CLUSTER_NAME}"
 AWS_REGION="${AWS_REGION}"
 
 ISTIO_VERSION="1.3.1"
-KNATIVE_VERSION="v0.15.0"
+KNATIVE_VERSION="v0.17.0"
 KUBECTL_VERSION="v1.14.0"
 CERT_MANAGER_VERSION="v0.12.0"
 # Check and wait for istio/knative/kfserving pod started normally.

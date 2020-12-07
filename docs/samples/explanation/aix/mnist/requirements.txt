@@ -52,7 +52,7 @@ multiprocess==0.70.9
 nbconvert==5.6.1
 nbformat==5.0.5
 networkx==2.4
-notebook==6.0.3
+notebook==6.1.5
 numpy==1.18.2
 osqp==0.6.1
 pandas==1.0.3
@@ -60,7 +60,7 @@ pandocfilters==1.4.2
 parso==0.6.2
 pexpect==4.8.0
 pickleshare==0.7.5
-Pillow==5.4.1
+Pillow==7.1.0
 prometheus-client==0.7.1
 prompt-toolkit==3.0.5
 protobuf==3.11.3

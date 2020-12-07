@@ -45,7 +45,7 @@ func (s *SKLearnSpec) GetContainer(modelName string, parallelism int, config *In
 		arguments = append(arguments, fmt.Sprintf("%s=%s", constants.ArgumentWorkers, strconv.Itoa(parallelism)))
 	}
 	return &v1.Container{
-		Image:     config.Predictors.SKlearn.ContainerImage + ":" + s.RuntimeVersion,
+		Image:     config.Predictors.SKlearn.V1.ContainerImage + ":" + s.RuntimeVersion,
 		Name:      constants.InferenceServiceContainerName,
 		Resources: s.Resources,
 		Args:      arguments,
@@ -54,7 +54,7 @@ func (s *SKLearnSpec) GetContainer(modelName string, parallelism int, config *In
 
 func (s *SKLearnSpec) ApplyDefaults(config *InferenceServicesConfig) {
 	if s.RuntimeVersion == "" {
-		s.RuntimeVersion = config.Predictors.SKlearn.DefaultImageVersion
+		s.RuntimeVersion = config.Predictors.SKlearn.V1.DefaultImageVersion
 	}
 
 	setResourceRequirementDefaults(&s.Resources)
