@@ -1,6 +1,6 @@
 # ART Model Explainer
 
-## Build a Development AIX Model Explainer Docker Image
+## Build a Development ART Model Explainer Docker Image
 
 First build your docker image by changing directory to kfserving/python and replacing `dockeruser` with your docker username in the snippet below (running this will take some time).
 

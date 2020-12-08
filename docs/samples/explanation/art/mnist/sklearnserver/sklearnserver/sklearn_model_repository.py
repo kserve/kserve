@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import os
-from kfserving.kfmodel_repository import KFModelRepository, MODEL_MOUNT_DIRS
+from .kfmodel_repository import KFModelRepository, MODEL_MOUNT_DIRS
 from sklearnserver import SKLearnModel
 
 

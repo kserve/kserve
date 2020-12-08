@@ -6,7 +6,7 @@ spec:
   predictor:
     containers:
     - name: predictor
-      image: ibmandrewbutler/art-server:sklearn-mnist-v2
+      image: ibmandrewbutler/art-server:art-mnist
       imagePullPolicy: Always
   explainer:
     art:

@@ -4,7 +4,7 @@ This is an example of how to get adversarial examples designed to trick models i
 
 To deploy the inferenceservice with v1beta1 API
 
-`kubectl apply -f art-explainer.yaml`
+`kubectl apply -f art.yaml`
 
 Then find the url.
 
@@ -12,30 +12,41 @@ Then find the url.
 
 ```
 NAME         URL                                               READY   DEFAULT TRAFFIC   CANARY TRAFFIC   AGE
-artserver   http://artserver.somecluster/v1/models/aixserver   True    100                                40m
+artserver   http://artserver.somecluster/v1/models/artserver   True    100                                40m
 ```
 
-## Prediction
+## Explanation
 The first step is to [determine the ingress IP and ports](../../../../../README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
 
 ```
-MODEL_NAME=art-explainer
+MODEL_NAME=artserver
 SERVICE_HOSTNAME=$(kubectl get inferenceservice ${MODEL_NAME} -o jsonpath='{.status.url}' | cut -d "/" -f 3)
 python query_explain.py http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/$MODEL_NAME:explain ${SERVICE_HOSTNAME}
 ```
 
-To try a different MNIST example add an integer to the end of the query between 0-10,000. The integer chosen will be the index of the image to be chosen in the MNIST dataset.
+After a bit of time you should see a pop up containing the explanation, similar to the image below. If a pop up does not display and the message "Unable to find an adversarial example." appears then an adversarial example could not be found for the image given in a timely manner. If a pop up does display then the image on the left is the original image and the image on the right is the adversarial example. The labels above both images represent what classification the model made for each individual image.
+
+![example explanation](art-explanation.png)
+
+The Square Attack method used in this example creates a random update at each iteration and adds this update to the adversarial example if it makes a misclassification more likely (more specifically, if it improves the objective function). Once enough enough random updates are added together and the model misclassifies then the resulting adversarial example will be returned and displayed.
+
+To try a different MNIST example add an integer to the end of the query between 0-9,999. The integer chosen will be the index of the image to be chosen in the MNIST dataset. Or to try a file with custom data add the file path to the end. Keep in mind that the data format must be `{"instances": [<image>, <label>]}`
 
 ```
 python query_explain.py http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/$MODEL_NAME:explain ${SERVICE_HOSTNAME} 100
+python query_explain.py http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/$MODEL_NAME:explain ${SERVICE_HOSTNAME} ./input.json
 ```
 
 ## Stopping the Inference Service
 
-`kubectl delete -f art-explainer.yaml`
+`kubectl delete -f art.yaml`
+
+## Build a Development ART Explainer Docker Image
+
+If you would like to build a development image for the ART Explainer then follow [these instructions](/python/artexplainer#build-a-development-art-model-explainer-docker-image)
 
 ## Troubleshooting
 
-`<504> Gateway Timeout <504>` - the explainer is probably taking too long and not sending a response back quickly enough. Either there aren't enough resources allocated or the number of samples the explainer is allowed to take needs to be reduced. To fix this go to art-explainer.yaml and increase resources. Or to lower the number of allowed samples go to art-explainer.yaml and add a flag to `explainer: command:` '--num_samples' (the default number of samples is 1000)
+`<504> Gateway Timeout <504>` - the explainer is probably taking too long and not sending a response back quickly enough. Either there aren't enough resources allocated or the number of samples the explainer is allowed to take needs to be reduced. To fix this go to art.yaml and increase resources.
 
-If you see `Configuration "artserver-explainer-default" does not have any ready Revision` the container may have taken too long to download. If you run `kubectl get revision` and see your revision is stuck in `ContainerCreating` try deleting the inferenceservice and redeploying.
+If you see `Configuration "artserver-default" does not have any ready Revision` the container may have taken too long to download. If you run `kubectl get revision` and see your revision is stuck in `ContainerCreating` try deleting the inferenceservice and redeploying.
