@@ -77,12 +77,16 @@ func TestMain(m *testing.M) {
 				"defaultGPUImageVersion": "latest-gpu"
 			},
 			"sklearn" : {
-				"image" : "kfserving/sklearnserver",
-				"defaultImageVersion": "0.1.0"
+                "v1": {
+                  "image" : "kfserving/sklearnserver",
+				  "defaultImageVersion": "0.1.0"
+                }
 			},
 			"xgboost" : {
-				"image" : "kfserving/xgbserver",
-				"defaultImageVersion": "0.1.0"
+                "v1": {
+				  "image" : "kfserving/xgbserver",
+				  "defaultImageVersion": "0.1.0"
+                }
 			},
 			"pytorch" : {
 				"image" : "kfserving/pytorchserver",

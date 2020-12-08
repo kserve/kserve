@@ -2,6 +2,7 @@ apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
   name: vae-outlier
+  namespace: cifar10
 spec:
   template:
     metadata:
@@ -9,7 +10,7 @@ spec:
         autoscaling.knative.dev/minScale: "1"
     spec:
       containers:
-      - image: seldonio/alibi-detect-server:0.0.1
+      - image: seldonio/alibi-detect-server:0.0.2
         imagePullPolicy: IfNotPresent
         args:
         - --model_name
@@ -21,7 +22,7 @@ spec:
         - --storage_uri
         - gs://seldon-models/alibi-detect/od/OutlierVAE/cifar10
         - --reply_url
-        - http://message-dumper.default        
+        - http://hello-display.cifar10
         - --event_type
         - org.kubeflow.serving.inference.outlier
         - --event_source

@@ -246,10 +246,6 @@
                     template: "build-xgbserver",
                   },
                   {
-                    name: "build-logger",
-                    template: "build-logger",
-                  },
-                  {
                     name: "build-batcher",
                     template: "build-batcher",
                   },
@@ -372,12 +368,6 @@
               "--context=dir://" + srcDir + "/python",
               "--destination=" + "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/xgbserver:$(PULL_BASE_SHA)",
             ]),  // build-xgbserver
-            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-logger", kanikoExecutorImage, [
-              "/kaniko/executor",
-              "--dockerfile=" + srcDir + "/logger.Dockerfile",
-              "--context=dir://" + srcDir,
-              "--destination=" + "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/logger:$(PULL_BASE_SHA)",
-            ]),  // build-logger
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-batcher", kanikoExecutorImage, [
               "/kaniko/executor",
               "--dockerfile=" + srcDir + "/batcher.Dockerfile",

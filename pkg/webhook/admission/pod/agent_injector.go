@@ -19,6 +19,7 @@ package pod
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/credentials"
 	v1 "k8s.io/api/core/v1"
@@ -27,10 +28,13 @@ import (
 )
 
 const (
-	AgentDefaultCPURequest    = "100m"
-	AgentDefaultCPULimit      = "1"
-	AgentDefaultMemoryRequest = "200Mi"
-	AgentDefaultMemoryLimit   = "1Gi"
+	LoggerConfigMapKeyName         = "logger"
+	LoggerArgumentLogUrl           = "--log-url"
+	LoggerArgumentSourceUri        = "--source-uri"
+	LoggerArgumentMode             = "--log-mode"
+	LoggerArgumentInferenceService = "--inference-service"
+	LoggerArgumentNamespace        = "--namespace"
+	LoggerArgumentEndpoint         = "--endpoint"
 )
 
 type AgentConfig struct {
@@ -41,9 +45,19 @@ type AgentConfig struct {
 	MemoryLimit   string `json:"memoryLimit"`
 }
 
+type LoggerConfig struct {
+	Image         string `json:"image"`
+	CpuRequest    string `json:"cpuRequest"`
+	CpuLimit      string `json:"cpuLimit"`
+	MemoryRequest string `json:"memoryRequest"`
+	MemoryLimit   string `json:"memoryLimit"`
+	DefaultUrl    string `json:"defaultUrl"`
+}
+
 type AgentInjector struct {
 	credentialBuilder *credentials.CredentialBuilder
-	config            *AgentConfig
+	agentConfig       *AgentConfig
+	loggerConfig      *LoggerConfig
 }
 
 func getAgentConfigs(configMap *v1.ConfigMap) (*AgentConfig, error) {
@@ -72,10 +86,37 @@ func getAgentConfigs(configMap *v1.ConfigMap) (*AgentConfig, error) {
 	return agentConfig, nil
 }
 
+func getLoggerConfigs(configMap *v1.ConfigMap) (*LoggerConfig, error) {
+
+	loggerConfig := &LoggerConfig{}
+	if loggerConfigValue, ok := configMap.Data[LoggerConfigMapKeyName]; ok {
+		err := json.Unmarshal([]byte(loggerConfigValue), &loggerConfig)
+		if err != nil {
+			panic(fmt.Errorf("Unable to unmarshall logger json string due to %v ", err))
+		}
+	}
+
+	//Ensure that we set proper values for CPU/Memory Limit/Request
+	resourceDefaults := []string{loggerConfig.MemoryRequest,
+		loggerConfig.MemoryLimit,
+		loggerConfig.CpuRequest,
+		loggerConfig.CpuLimit}
+	for _, key := range resourceDefaults {
+		_, err := resource.ParseQuantity(key)
+		if err != nil {
+			return loggerConfig, fmt.Errorf("Failed to parse resource configuration for %q: %q", LoggerConfigMapKeyName, err.Error())
+		}
+	}
+
+	return loggerConfig, nil
+}
+
 func (ag *AgentInjector) InjectAgent(pod *v1.Pod) error {
 	// Only inject the model agent sidecar if the required annotations are set
-	_, ok := pod.ObjectMeta.Annotations[constants.AgentShouldInjectAnnotationKey]
-	if !ok {
+	_, injectLogger := pod.ObjectMeta.Annotations[constants.LoggerInternalAnnotationKey]
+	_, injectPuller := pod.ObjectMeta.Annotations[constants.AgentShouldInjectAnnotationKey]
+
+	if !injectLogger && !injectPuller {
 		return nil
 	}
 
@@ -99,24 +140,79 @@ func (ag *AgentInjector) InjectAgent(pod *v1.Pod) error {
 		args = append(args, modelDir)
 	}
 
+	// Only inject if the required annotations are set
+	if _, ok := pod.ObjectMeta.Annotations[constants.LoggerInternalAnnotationKey]; ok {
+		logUrl, ok := pod.ObjectMeta.Annotations[constants.LoggerSinkUrlInternalAnnotationKey]
+		if !ok {
+			logUrl = ag.loggerConfig.DefaultUrl
+		}
+
+		logMode, ok := pod.ObjectMeta.Annotations[constants.LoggerModeInternalAnnotationKey]
+		if !ok {
+			logMode = string(v1beta1.LogAll)
+		}
+
+		inferenceServiceName, _ := pod.ObjectMeta.Labels[constants.InferenceServiceLabel]
+		namespace := pod.ObjectMeta.Namespace
+		endpoint := pod.ObjectMeta.Labels[constants.KServiceEndpointLabel]
+
+		loggerArgs := []string{
+			LoggerArgumentLogUrl,
+			logUrl,
+			LoggerArgumentSourceUri,
+			pod.ObjectMeta.Name,
+			LoggerArgumentMode,
+			logMode,
+			LoggerArgumentInferenceService,
+			inferenceServiceName,
+			LoggerArgumentNamespace,
+			namespace,
+			LoggerArgumentEndpoint,
+			endpoint,
+		}
+		args = append(args, loggerArgs...)
+	}
+
+	queueProxyEnvs := []v1.EnvVar{}
+	for _, container := range pod.Spec.Containers {
+		if container.Name == "queue-proxy" {
+			queueProxyEnvs = container.Env
+		}
+	}
+
 	// Make sure securityContext is initialized and valid
 	securityContext := pod.Spec.Containers[0].SecurityContext.DeepCopy()
 
 	agentContainer := &v1.Container{
 		Name:  constants.AgentContainerName,
-		Image: ag.config.Image,
+		Image: ag.agentConfig.Image,
 		Args:  args,
 		Resources: v1.ResourceRequirements{
 			Limits: map[v1.ResourceName]resource.Quantity{
-				v1.ResourceCPU:    resource.MustParse(ag.config.CpuLimit),
-				v1.ResourceMemory: resource.MustParse(ag.config.MemoryLimit),
+				v1.ResourceCPU:    resource.MustParse(ag.agentConfig.CpuLimit),
+				v1.ResourceMemory: resource.MustParse(ag.agentConfig.MemoryLimit),
 			},
 			Requests: map[v1.ResourceName]resource.Quantity{
-				v1.ResourceCPU:    resource.MustParse(ag.config.CpuRequest),
-				v1.ResourceMemory: resource.MustParse(ag.config.MemoryRequest),
+				v1.ResourceCPU:    resource.MustParse(ag.agentConfig.CpuRequest),
+				v1.ResourceMemory: resource.MustParse(ag.agentConfig.MemoryRequest),
 			},
 		},
 		SecurityContext: securityContext,
+		Env:             queueProxyEnvs,
+	}
+	readinessProbe := &v1.Probe{
+		Handler: v1.Handler{
+			Exec: &v1.ExecAction{
+				Command: []string{
+					"/agent",
+					"-probe-period",
+					"0",
+				},
+			},
+		},
+	}
+	if injectLogger {
+		agentContainer.ReadinessProbe = readinessProbe
 	}
 
 	// Inject credentials

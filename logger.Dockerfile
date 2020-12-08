@@ -1,5 +1,5 @@
 # Build the inference-logger binary
-FROM golang:1.13.0 as builder
+FROM golang:1.14.0 as builder
 
 # Copy in the go src
 WORKDIR /go/src/github.com/kubeflow/kfserving
