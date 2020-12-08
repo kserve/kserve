@@ -1,15 +1,17 @@
-apiVersion: "serving.kubeflow.org/v1beta1"
-kind: "InferenceService"
+apiVersion: serving.kubeflow.org/v1beta1
+kind: InferenceService
 metadata:
-  name: "torchserve"
+  name: torchserve
 spec:
   transformer:
     containers:
-      - image: jagadeeshj/img_trans:v1.0
+      - image: <username>/image-transformer:latest
         name: transformer-container
         env:
           - name: STORAGE_URI
-            value: "pvc://model-pv-claim"
+            value: pvc://model-pv-claim
   predictor:
     pytorch:
-      storageUri: "pvc://model-pv-claim"
+      protocolVersion: v2
+      storageUri: pvc://model-pv-claim
+      runtimeVersion: v1.2-gpu

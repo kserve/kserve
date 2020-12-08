@@ -8,4 +8,5 @@ metadata:
 spec:
   predictor:
     pytorch:
+      protocolVersion: v2
       storageUri: "pvc://model-pv-claim"

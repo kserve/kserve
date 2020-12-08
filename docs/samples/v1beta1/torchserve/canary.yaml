@@ -6,4 +6,5 @@ spec:
   predictor:
     canaryTrafficPercent: 20
     pytorch:
+      protocolVersion: v2
       storageUri: "pvc://model-pv-claim1"

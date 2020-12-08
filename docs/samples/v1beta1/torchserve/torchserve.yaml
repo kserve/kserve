@@ -1,9 +1,10 @@
-apiVersion: "serving.kubeflow.org/v1beta1"
-kind: "InferenceService"
+apiVersion: serving.kubeflow.org/v1beta1
+kind: InferenceService
 metadata:
-  name: "ts"
+  name: "torchserve"
 spec:
   predictor:
     pytorch:
       protocolVersion: v2
-      storageUri: "pvc://model-pv-claim"
+      storageUri: pvc://model-pv-claim
+      runtimeVersion: v1.2
