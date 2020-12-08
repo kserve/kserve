@@ -25,8 +25,8 @@ const (
 	MLServerModelVersionEnv        = "MLSERVER_MODEL_VERSION"
 	MLServerModelURIEnv            = "MLSERVER_MODEL_URI"
 
-	MLServerSKLearnImplementation = "mlserver.models.SKLearnModel"
-	MLServerXGBoostImplementation = "mlserver.models.XGBoostModel"
+	MLServerSKLearnImplementation = "mlserver_sklearn.SKLearnModel"
+	MLServerXGBoostImplementation = "mlserver_xgboost.XGBoostModel"
 
 	MLServerModelVersionDefault = "v1"
 )
