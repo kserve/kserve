@@ -45,9 +45,11 @@ func TestFrameworkSKLearn(t *testing.T) {
 	for name, scenario := range scenarios {
 		config := &InferenceServicesConfig{
 			Predictors: &PredictorsConfig{
-				SKlearn: PredictorConfig{
-					ContainerImage:      "kfserving/sklearnserver",
-					DefaultImageVersion: "latest",
+				SKlearn: PredictorProtocols{
+					V1: &PredictorConfig{
+						ContainerImage:      "kfserving/sklearnserver",
+						DefaultImageVersion: "latest",
+					},
 				},
 			},
 		}
@@ -71,9 +73,11 @@ func TestCreateSKLearnModelServingContainer(t *testing.T) {
 	}
 	var config = InferenceServicesConfig{
 		Predictors: &PredictorsConfig{
-			SKlearn: PredictorConfig{
-				ContainerImage:      "someOtherImage",
-				DefaultImageVersion: "0.1.0",
+			SKlearn: PredictorProtocols{
+				V1: &PredictorConfig{
+					ContainerImage:      "someOtherImage",
+					DefaultImageVersion: "0.1.0",
+				},
 			},
 		},
 	}

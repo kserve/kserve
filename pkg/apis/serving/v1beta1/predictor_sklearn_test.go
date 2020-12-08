@@ -236,7 +236,7 @@ func TestCreateSKLearnModelServingContainerV1(t *testing.T) {
 			SKlearn: PredictorProtocols{
 				V1: &PredictorConfig{
 					ContainerImage:      "someOtherImage",
-					DefaultImageVersion: "0.1.0",
+					DefaultImageVersion: "0.2.0",
 				},
 			},
 		},
@@ -246,6 +246,35 @@ func TestCreateSKLearnModelServingContainerV1(t *testing.T) {
 		isvc                  InferenceService
 		expectedContainerSpec *v1.Container
 	}{
+		"ContainerSpecWithoutRuntime": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "sklearn",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						SKLearn: &SKLearnSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI: proto.String("gs://someUri"),
+								Container: v1.Container{
+									Resources: requestedResource,
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedContainerSpec: &v1.Container{
+				Image:     "someOtherImage:0.2.0",
+				Name:      constants.InferenceServiceContainerName,
+				Resources: requestedResource,
+				Args: []string{
+					"--model_name=someName",
+					"--model_dir=/mnt/models",
+					"--http_port=8080",
+				},
+			},
+		},
 		"ContainerSpecWithDefaultImage": {
 			isvc: InferenceService{
 				ObjectMeta: metav1.ObjectMeta{

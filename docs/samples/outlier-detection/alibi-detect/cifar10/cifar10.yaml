@@ -2,6 +2,7 @@ apiVersion: "serving.kubeflow.org/v1alpha2"
 kind: "InferenceService"
 metadata:
   name: "tfserving-cifar10"
+  namespace: cifar10
 spec:
   default:
     predictor:
@@ -9,3 +10,4 @@ spec:
         storageUri: "gs://kfserving-samples/tfserving/cifar10/resnet32"
       logger:
         mode: all
+        url: http://broker-ingress.knative-eventing.svc.cluster.local/cifar10/default

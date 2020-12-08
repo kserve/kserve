@@ -18,62 +18,41 @@ package logger
 
 import (
 	"bytes"
-	"fmt"
 	"github.com/go-logr/logr"
 	guuid "github.com/google/uuid"
-	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
+	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
 	"io/ioutil"
+	"knative.dev/pkg/network"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
+	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
 
 type LoggerHandler struct {
 	log              logr.Logger
-	svcHost          string
-	svcPort          string
 	logUrl           *url.URL
 	sourceUri        *url.URL
-	logMode          v1alpha2.LoggerMode
+	logMode          v1beta1.LoggerType
 	inferenceService string
 	namespace        string
 	endpoint         string
+	next             http.Handler
 }
 
-func New(log logr.Logger, svcHost string, svcPort string, logUrl *url.URL, sourceUri *url.URL, logMode v1alpha2.LoggerMode, inferenceService string, namespace string, endpoint string) http.Handler {
+func New(logUrl *url.URL, sourceUri *url.URL, logMode v1beta1.LoggerType,
+	inferenceService string, namespace string, endpoint string, next http.Handler) http.Handler {
+	logf.SetLogger(logf.ZapLogger(false))
 	return &LoggerHandler{
-		log:              log,
-		svcHost:          svcHost,
-		svcPort:          svcPort,
+		log:              logf.Log.WithName("Logger"),
 		logUrl:           logUrl,
 		sourceUri:        sourceUri,
 		logMode:          logMode,
 		inferenceService: inferenceService,
 		namespace:        namespace,
 		endpoint:         endpoint,
+		next:             next,
 	}
-}
-
-func (eh *LoggerHandler) callService(b []byte, r *http.Request) ([]byte, *string, *int, error) {
-	url := &url.URL{
-		Scheme: "http",
-		Host:   fmt.Sprintf("%s:%s", eh.svcHost, eh.svcPort),
-		Path:   r.URL.Path,
-	}
-	eh.log.Info("Calling server", "url", url.String())
-	response, err := http.Post(url.String(), r.Header.Get("Content-Type"), bytes.NewReader(b))
-	if err != nil {
-		return nil, nil, nil, fmt.Errorf("while calling post: %s", err)
-	}
-	rb, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		return nil, nil, nil, fmt.Errorf("while reading response body: %s", err)
-	}
-	if err := response.Body.Close(); err != nil {
-		return nil, nil, nil, fmt.Errorf("while closing response body: %s", err)
-	}
-	contentType := response.Header.Get("Content-Type")
-	statusCode := response.StatusCode
-	return rb, &contentType, &statusCode, nil
 }
 
 func getOrCreateID(r *http.Request) string {
@@ -86,20 +65,27 @@ func getOrCreateID(r *http.Request) string {
 
 // call svc and add send request/responses to logUrl
 func (eh *LoggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if network.IsKubeletProbe(r) {
+		if eh.next != nil {
+			eh.next.ServeHTTP(w, r)
+		}
+		return
+	}
 	// Read Payload
-	b, err := ioutil.ReadAll(r.Body)
+	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		eh.log.Error(err, "Failed to read request payload")
+		http.Error(w, "can't read body", http.StatusBadRequest)
+		return
 	}
 
 	// Get or Create an ID
 	id := getOrCreateID(r)
 
 	// log Request
-	if eh.logMode == v1alpha2.LogAll || eh.logMode == v1alpha2.LogRequest {
+	if eh.logMode == v1beta1.LogAll || eh.logMode == v1beta1.LogRequest {
 		if err := QueueLogRequest(LogRequest{
 			Url:              eh.logUrl,
-			Bytes:            &b,
+			Bytes:            &body,
 			ContentType:      "application/json", // Always JSON at present
 			ReqType:          InferenceRequest,
 			Id:               id,
@@ -112,20 +98,17 @@ func (eh *LoggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Call service
-	b, respContentType, statusCode, err := eh.callService(b, r)
-	// Error in internal calling of service. Non 200 returns code from service will not cause an error.
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
+	// Proxy Request
+	r.Body = ioutil.NopCloser(bytes.NewBuffer(body))
+	rr := httptest.NewRecorder()
+	eh.next.ServeHTTP(rr, r)
+	responseBody := rr.Body.Bytes()
 	// log response if OK
-	if *statusCode == http.StatusOK {
-		if eh.logMode == v1alpha2.LogAll || eh.logMode == v1alpha2.LogResponse {
+	if rr.Code == http.StatusOK {
+		if eh.logMode == v1beta1.LogAll || eh.logMode == v1beta1.LogResponse {
 			if err := QueueLogRequest(LogRequest{
 				Url:              eh.logUrl,
-				Bytes:            &b,
+				Bytes:            &responseBody,
 				ContentType:      "application/json", // Always JSON at present
 				ReqType:          InferenceResponse,
 				Id:               id,
@@ -138,15 +121,10 @@ func (eh *LoggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	} else {
-		eh.log.Info("Bad call to service.", "status code", *statusCode)
+		eh.log.Info("Failed to proxy request", "status code", rr.Code)
 	}
 
-	// Write final response
-	if *respContentType != "" {
-		w.Header().Set("Content-Type", *respContentType)
-	}
-	w.WriteHeader(*statusCode)
-	_, err = w.Write(b)
+	_, err = w.Write(rr.Body.Bytes())
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
