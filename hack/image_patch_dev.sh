@@ -51,7 +51,7 @@ data:
     }
   agent: |-
     {
-        "image" : "${AGENT_IMG}",
+        "image" : "kfserving/agent:latest",
         "memoryRequest": "100Mi",
         "memoryLimit": "500Mi",
         "cpuRequest": "100m",

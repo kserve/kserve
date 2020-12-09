@@ -48,12 +48,15 @@ type ComponentStatusSpec struct {
 	// Latest revision name that is in ready state
 	// +optional
 	LatestReadyRevision string `json:"latestReadyRevision,omitempty"`
-	// Previous revision name that is in ready state
-	// +optional
-	PreviousReadyRevision string `json:"previousReadyRevision,omitempty"`
-	// Latest revision name that is in created
+	// Latest revision name that is created
 	// +optional
 	LatestCreatedRevision string `json:"latestCreatedRevision,omitempty"`
+	// Previous revision name that is rolled out with 100 percent traffic
+	// +optional
+	PreviousRolledoutRevision string `json:"previousRolledoutRevision,omitempty"`
+	// Latest revision name that is rolled out with 100 percent traffic
+	// +optional
+	LatestRolledoutRevision string `json:"latestRolledoutRevision,omitempty"`
 	// Traffic percent on the latest ready revision
 	// +optional
 	TrafficPercent *int64 `json:"trafficPercent,omitempty"`
@@ -154,8 +157,19 @@ func (ss *InferenceServiceStatus) PropagateStatus(component ComponentType, servi
 		ss.Components[component] = ComponentStatusSpec{}
 	}
 	statusSpec.LatestCreatedRevision = serviceStatus.LatestCreatedRevisionName
+	for _, traffic := range serviceStatus.Traffic {
+		if traffic.RevisionName == serviceStatus.LatestReadyRevisionName {
+			if statusSpec.LatestRolledoutRevision != serviceStatus.LatestReadyRevisionName {
+				if traffic.Percent != nil && *traffic.Percent == 100 {
+					// track the last revision that's rolled out t
+					statusSpec.PreviousRolledoutRevision = statusSpec.LatestRolledoutRevision
+					statusSpec.LatestRolledoutRevision = serviceStatus.LatestReadyRevisionName
+				}
+			}
+		}
+	}
+
 	if serviceStatus.LatestReadyRevisionName != statusSpec.LatestReadyRevision {
-		statusSpec.PreviousReadyRevision = statusSpec.LatestReadyRevision
 		statusSpec.LatestReadyRevision = serviceStatus.LatestReadyRevisionName
 	}
 	// propagate overall service condition

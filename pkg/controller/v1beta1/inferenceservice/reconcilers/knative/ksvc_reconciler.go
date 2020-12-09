@@ -82,8 +82,13 @@ func createKnativeService(componentMeta metav1.ObjectMeta,
 		annotations[autoscaling.ClassAnnotationKey] = autoscaling.KPA
 	}
 
+	lastRolledoutRevision := componentStatus.LatestRolledoutRevision
+	if componentStatus.LatestRolledoutRevision == componentStatus.LatestReadyRevision &&
+		componentExtension.CanaryTrafficPercent != nil && *componentExtension.CanaryTrafficPercent < 100 {
+		lastRolledoutRevision = componentStatus.PreviousRolledoutRevision
+	}
 	trafficTargets := []knservingv1.TrafficTarget{}
-	if componentExtension.CanaryTrafficPercent != nil && componentStatus.PreviousReadyRevision != "" {
+	if componentExtension.CanaryTrafficPercent != nil && lastRolledoutRevision != "" {
 		//canary rollout
 		trafficTargets = append(trafficTargets,
 			knservingv1.TrafficTarget{
@@ -95,7 +100,7 @@ func createKnativeService(componentMeta metav1.ObjectMeta,
 		trafficTargets = append(trafficTargets,
 			knservingv1.TrafficTarget{
 				Tag:            "prev",
-				RevisionName:   componentStatus.PreviousReadyRevision,
+				RevisionName:   lastRolledoutRevision,
 				LatestRevision: proto.Bool(false),
 				Percent:        proto.Int64(remainingTraffic),
 			})

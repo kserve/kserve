@@ -16005,7 +16005,9 @@ spec:
                         type: string
                       latestReadyRevision:
                         type: string
-                      previousReadyRevision:
+                      latestRolledoutRevision:
+                        type: string
+                      previousRolledoutRevision:
                         type: string
                       trafficPercent:
                         format: int64
