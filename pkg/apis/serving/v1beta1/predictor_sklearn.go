@@ -108,6 +108,16 @@ func (k *SKLearnSpec) getContainerV2(metadata metav1.ObjectMeta, extensions *Com
 		},
 	)
 
+	if k.StorageURI == nil {
+		k.Container.Env = append(
+			k.Container.Env,
+			v1.EnvVar{
+				Name:  constants.MLServerLoadModelsStartupEnv,
+				Value: strconv.FormatBool(false),
+			},
+		)
+	}
+
 	// Append fallbacks for model settings
 	k.Container.Env = append(
 		k.Container.Env,

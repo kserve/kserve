@@ -19,6 +19,7 @@ package constants
 const (
 	MLServerHTTPPortEnv            = "MLSERVER_HTTP_PORT"
 	MLServerGRPCPortEnv            = "MLSERVER_GRPC_PORT"
+	MLServerLoadModelsStartupEnv   = "MLSERVER_LOAD_MODELS_AT_STARTUP"
 	MLServerModelsDirEnv           = "MODELS_DIR"
 	MLServerModelImplementationEnv = "MLSERVER_MODEL_IMPLEMENTATION"
 	MLServerModelNameEnv           = "MLSERVER_MODEL_NAME"
