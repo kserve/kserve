@@ -33,7 +33,7 @@ setup(
     install_requires=[
         "kfserving>=0.5.0",
         "argparse >= 1.4.0",
-        "aix360 >= 0.1.0",
+        "aix360 >= 0.2.0",
         "lime >= 0.1.1.37",
         "nest_asyncio>=1.4.0"
     ],
