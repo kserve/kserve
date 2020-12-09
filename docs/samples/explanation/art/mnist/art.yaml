@@ -6,7 +6,7 @@ spec:
   predictor:
     containers:
     - name: predictor
-      image: ibmandrewbutler/art-server:art-mnist
+      image: aipipeline/art-server:mnist-predictor
       imagePullPolicy: Always
   explainer:
     art:

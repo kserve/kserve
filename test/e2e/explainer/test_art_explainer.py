@@ -29,7 +29,7 @@ from kubernetes.client import V1ResourceRequirements
 from kubernetes.client import V1Container
 
 from ..common.utils import predict
-from ..common.utils import explain_aix
+from ..common.utils import explain_art
 from ..common.utils import KFSERVING_TEST_NAMESPACE
 
 import numpy as np
@@ -77,11 +77,9 @@ def test_tabular_explainer():
             logging.info(pod)
         raise e
 
-    # TODO: update the predict and explain below for ART explainer
-    res = predict(service_name, './data/mnist_input.json')
+    res = predict(service_name, './data/mnist_input_bw.json')
     assert(res["predictions"] == [[0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]])
 
-    mask = explain_aix(service_name, './data/mnist_input.json')
-    percent_in_mask = np.count_nonzero(mask) / np.size(np.array(mask))
-    assert(percent_in_mask > 0.6)
+    adv_prediction = explain_art(service_name, './data/mnist_input_bw.json')
+    assert(adv_prediction != 3)
     KFServing.delete(service_name, KFSERVING_TEST_NAMESPACE)

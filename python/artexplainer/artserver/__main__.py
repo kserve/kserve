@@ -21,6 +21,7 @@ DEFAULT_MODEL_NAME = "art-explainer"
 DEFAULT_ADVERSARY_TYPE = "SquareAttack"
 
 DEFAULT_MAX_ITER = "1000"
+DEFAULT_NB_CLASSES = "10"
 
 parser = argparse.ArgumentParser(parents=[kfserving.kfserver.parser])
 parser.add_argument('--model_name', default=DEFAULT_MODEL_NAME,
@@ -29,9 +30,9 @@ parser.add_argument('--adversary_type', default=DEFAULT_ADVERSARY_TYPE,
                     help='What type of adversarial tool to use.')
 parser.add_argument('--max_iter', default=DEFAULT_MAX_ITER,
                     help='The max number of iterations to run.')
+parser.add_argument('--nb_classes', default=DEFAULT_NB_CLASSES,
+                    help='The number of different classification types.')
 
-parser.add_argument('--nb_classes', help='The number of different classification types.'
-                    , required=True)
 parser.add_argument('--predictor_host', help='The host for the predictor', required=True)
 args, _ = parser.parse_known_args()
 
