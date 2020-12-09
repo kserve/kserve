@@ -6,7 +6,7 @@ spec:
   predictor:
     minReplicas: 1      
     logger:
-      url: http://message-dumper.default/
+      url: http://message-dumper.default.svc.cluster.local
       mode: all
     containers:
       - image: {username}/torchserve:latest
