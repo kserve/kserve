@@ -18,7 +18,7 @@ spec:
 Let's apply the resource to the cluster:
 
 ```bash
-kubectl create -f message-dumper.yaml
+kubectl apply -f message-dumper.yaml -n kfserving-test
 ```
 
 We can now create a torchserve predictor with a logger which points at the message dumper. The yaml is shown below.
@@ -32,21 +32,17 @@ spec:
   predictor:
     minReplicas: 1
     logger:
-      url: http://message-dumper.default/
+      url: http://message-dumper.default.svc.cluster.local
       mode: all
     containers:
       - image: {username}/torchserve:latest
         name: torchserve-container
 ```
 
-* By default the logger port is 8081 and component port is 8080. Run torchserve inference on 8080 and management on a port other than 8081.
-
-(Here we set the url explicitly. otherwise it defaults to the namespace knative broker or the value of DefaultUrl in the logger section of the controller configmap.)
-
 Let's apply this yaml:
 
 ```bash
-kubectl create -f torchserve-logger.yaml
+kubectl apply -f torchserve-logger.yaml -n kfserving-test
 ```
 
 We can now send a request to the torchserve model.
@@ -100,7 +96,7 @@ Validation: valid
 Context Attributes,
   specversion: 1.0
   type: org.kubeflow.serving.inference.request
-  source: http://localhost:8081/
+  source: http://localhost:9081/
   id: 5011cc37-0749-4899-8422-f7ac39898cee
   time: 2020-11-25T08:45:32.947168928Z
   datacontenttype: application/json
@@ -119,7 +115,7 @@ Validation: valid
 Context Attributes,
   specversion: 1.0
   type: org.kubeflow.serving.inference.response
-  source: http://localhost:8081/
+  source: http://localhost:9081/
   id: 5011cc37-0749-4899-8422-f7ac39898cee
   time: 2020-11-25T08:45:37.95671692Z
   datacontenttype: application/json
