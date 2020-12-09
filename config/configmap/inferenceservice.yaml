@@ -103,7 +103,7 @@ data:
             "defaultImageVersion": "v0.5.0-rc0"
         },
         "art": {
-            "image" : "tomcli/art-server",
+            "image" : "kfserving/art-explainer",
             "defaultImageVersion": "latest"
         }
     }
