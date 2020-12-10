@@ -81,3 +81,8 @@ Configurations for autoscaling pods [Auto scaling](docs/autoscaling.md)
 ## Canary Rollout
 
 Configurations for canary [Canary Deployment](docs/canary.md)
+
+## Log aggregation
+
+Follow the link for torchserve log aggregation in kubernetes.
+[Log aggregation with EFK Stack](https://www.digitalocean.com/community/tutorials/how-to-set-up-an-elasticsearch-fluentd-and-kibana-efk-logging-stack-on-kubernetes)
