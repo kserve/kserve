@@ -1,12 +1,15 @@
 # ART Model Explainer
 
-## Build a Development ART Model Explainer Docker Image
+## Build your own ART Model Explainer Docker Image
 
-First build your docker image by changing directory to kfserving/python and replacing `dockeruser` with your docker username in the snippet below (running this will take some time).
+
+First build your docker image by changing directory to kfserving/python and replacing `dockeruser` with your docker username in the snippet below.
+
 
 `docker build -t dockeruser/artserver:latest -f artexplainer.Dockerfile .`
 
-Then push your docker image to your dockerhub repo (this will take some time)
+Then push your docker image to your dockerhub repo
+
 
 `docker push dockeruser/artserver:latest`
 

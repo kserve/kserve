@@ -1,6 +1,6 @@
 # Using ART to get adversarial examples for MNIST classifications
 
-This is an example of how to get adversarial examples designed to trick models into predicting incorrectly using the [Adversarial Robustness Toolbox (ART)](https://adversarial-robustness-toolbox.org/) on KFServing. We will be using the MNIST dataset which is a dataset of handwritten digits and find adversarial examples which will make our model predict a classification incorrectly.
+This is an example of how to get adversarial examples designed to trick models into predicting incorrectly using the [Adversarial Robustness Toolbox (ART)](https://adversarial-robustness-toolbox.org/) on KFServing. ART provides tools that enable developers to evaluate, defend, and verify ML models and applications against adversarial threats. We will be using the MNIST dataset which is a dataset of handwritten digits and find adversarial examples which will can make the model predict a classification incorrectly, thereby showing the vulnerability of the model against adversarial attacks.
 
 To deploy the inferenceservice with v1beta1 API
 
@@ -24,11 +24,11 @@ SERVICE_HOSTNAME=$(kubectl get inferenceservice ${MODEL_NAME} -o jsonpath='{.sta
 python query_explain.py http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/$MODEL_NAME:explain ${SERVICE_HOSTNAME}
 ```
 
-After a bit of time you should see a pop up containing the explanation, similar to the image below. If a pop up does not display and the message "Unable to find an adversarial example." appears then an adversarial example could not be found for the image given in a timely manner. If a pop up does display then the image on the left is the original image and the image on the right is the adversarial example. The labels above both images represent what classification the model made for each individual image.
+After some time you should see a pop up containing the explanation, similar to the image below. If a pop up does not display and the message "Unable to find an adversarial example." appears then an adversarial example could not be found for the image given in a timely manner. If a pop up does display then the image on the left is the original image and the image on the right is the adversarial example. The labels above both images represent what classification the model made for each individual image.
 
 ![example explanation](art-explanation.png)
 
-The Square Attack method used in this example creates a random update at each iteration and adds this update to the adversarial example if it makes a misclassification more likely (more specifically, if it improves the objective function). Once enough enough random updates are added together and the model misclassifies then the resulting adversarial example will be returned and displayed.
+The Square Attack method used in this example creates a random update at each iteration and adds this update to the adversarial input if it makes a misclassification more likely (more specifically, if it improves the objective function). Once enough random updates are added together and the model misclassifies then the resulting adversarial input will be returned and displayed.
 
 To try a different MNIST example add an integer to the end of the query between 0-9,999. The integer chosen will be the index of the image to be chosen in the MNIST dataset. Or to try a file with custom data add the file path to the end. Keep in mind that the data format must be `{"instances": [<image>, <label>]}`
 
