@@ -77,8 +77,8 @@ def test_tabular_explainer():
             logging.info(pod)
         raise e
 
-    res = predict(service_name, './data/mnist_input_bw.json')
-    assert(res["predictions"] == [[0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]])
+    res = predict(service_name, './data/mnist_input_bw_flat.json')
+    assert(res["predictions"] == [3])
 
     adv_prediction = explain_art(service_name, './data/mnist_input_bw.json')
     assert(adv_prediction != 3)
