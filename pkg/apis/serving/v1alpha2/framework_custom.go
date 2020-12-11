@@ -38,11 +38,15 @@ func (c *CustomSpec) GetResourceRequirements() *v1.ResourceRequirements {
 }
 
 func (c *CustomSpec) GetContainer(modelName string, hasLogging bool, config *InferenceServicesConfig) *v1.Container {
-	return &c.Container
+	container := c.Container
+	container.Resources = c.Resources
+	return &container
 }
 
 func (c *CustomSpec) CreateExplainerContainer(modelName string, predictUrl string, hasLogging bool, config *InferenceServicesConfig) *v1.Container {
-	return &c.Container
+	container := c.Container
+	container.Resources = c.Resources
+	return &container
 }
 
 func (c *CustomSpec) ApplyDefaults(config *InferenceServicesConfig) {
