@@ -224,7 +224,8 @@ type PyTorchSpec struct {
 
 // CustomSpec provides a hook for arbitrary container configuration.
 type CustomSpec struct {
-	Container v1.Container `json:"container"`
+	Container v1.Container            `json:"container"`
+	Resources v1.ResourceRequirements `json:"resources,omitempty"`
 }
 
 // EndpointStatusMap defines the observed state of InferenceService endpoints

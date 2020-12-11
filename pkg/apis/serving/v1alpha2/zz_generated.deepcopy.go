@@ -83,6 +83,7 @@ func (in ComponentStatusMap) DeepCopy() ComponentStatusMap {
 func (in *CustomSpec) DeepCopyInto(out *CustomSpec) {
 	*out = *in
 	in.Container.DeepCopyInto(&out.Container)
+	in.Resources.DeepCopyInto(&out.Resources)
 	return
 }
 
