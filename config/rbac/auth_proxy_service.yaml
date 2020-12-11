@@ -6,7 +6,7 @@ metadata:
     prometheus.io/scheme: https
     prometheus.io/scrape: "true"
   labels:
-    control-plane: controller-manager
+    control-plane: kfserving-controller-manager
     controller-tools.k8s.io: "1.0"
   name: kfserving-controller-manager-metrics-service
   namespace: kfserving-system
@@ -16,5 +16,5 @@ spec:
     port: 8443
     targetPort: https
   selector:
-    control-plane: controller-manager
+    control-plane: kfserving-controller-manager
     controller-tools.k8s.io: "1.0"
