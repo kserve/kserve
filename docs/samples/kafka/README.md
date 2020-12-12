@@ -33,17 +33,14 @@ my-kafka-cp-kafka-2       2/2     Running   0          126m
 my-kafka-cp-zookeeper-0   2/2     Running   0          127m
 ```
 
-## Deploy Kafka Event Source
-Install Knative Eventing and Kafka Event Source.
-```bash
-kubectl apply --filename https://github.com/knative/eventing/releases/download/v0.18.0/eventing-crds.yaml
-kubectl apply --filename https://github.com/knative/eventing/releases/download/v0.18.0/eventing-core.yaml
-kubectl apply --filename https://github.com/knative/eventing-contrib/releases/download/v0.18.0/kafka-source.yaml
-```
-Apply the `InferenceService` addressable cluster role
+## Install Knative Eventing and Kafka Event Source
+- Install [Knative Eventing Core >= 0.18](https://knative.dev/docs/install/any-kubernetes-cluster/#installing-the-eventing-component)
+- Install [Kafka Event Source](https://github.com/knative-sandbox/eventing-kafka/releases).
+- Install `InferenceService` addressable cluster role
 ```bash
 kubectl apply -f addressable-resolver.yaml
 ```
+
 ## Deploy Minio
 - If you do not have Minio setup in your cluster, you can run following command to install Minio test instance.
 ```bash
@@ -58,13 +55,19 @@ mc config host add myminio http://127.0.0.1:9000 minio minio123
 - Create buckets `mnist` for uploading images and `digit-[0-9]` for classification.
 ```bash
 mc mb myminio/mnist
+mc mb myminio/digit-[0-9]
 ```
 
 - Setup event notification to publish events to kafka.
 ```bash
-$ mc admin config set myminio notify_kafka:1 tls_skip_verify="off"  queue_dir="" queue_limit="0" sasl="off" sasl_password="" sasl_username="" tls_client_auth="0" tls="off" client_tls_cert="" client_tls_key="" brokers="my-kafka-cp-kafka-headless:9092" topic="mnist" version=""
+# Setup bucket event notification with kafka
+mc admin config set myminio notify_kafka:1 tls_skip_verify="off"  queue_dir="" queue_limit="0" sasl="off" sasl_password="" sasl_username="" tls_client_auth="0" tls="off" client_tls_cert="" client_tls_key="" brokers="my-kafka-cp-kafka-headless:9092" topic="mnist" version=""
 
-mc event add myminio/mnist arn:minio:sqs:us-east-1:1:kafka --suffix .png
+# Setup event notification when putting images to the bucket
+mc event add myminio/mnist arn:minio:sqs:1:kafka -p --event put --suffix .png
+
+# Restart minio
+mc admin service restart myminio
 ```
 
 ## Train TF mnist model and save on Minio
