@@ -70,19 +70,13 @@ mc event add myminio/mnist arn:minio:sqs:1:kafka -p --event put --suffix .png
 mc admin service restart myminio
 ```
 
-## Train TF mnist model and save on Minio
-If you already have a mnist model saved on Minio or S3 you can skip this step, otherwise you can install [Kubeflow](https://www.kubeflow.org/docs/started/getting-started/)
-and follow [TF mnist AWS example](https://github.com/kubeflow/examples/tree/master/mnist) to train a TF mnist model and save it on Minio.
-You may need to add following additional S3 environment variables to enable saving model on Minio.
-```yaml
-env:
-- name: S3_USE_HTTPS
-  value: "0"
-- name: S3_ENDPOINT
-  value: "minio-service.kubeflow:9000"
-- name: AWS_ENDPOINT_URL
-  value: "http://minio-service.kubeflow:9000"
+## Upload the mnist model to Minio
 ```
+gsutil cp gs://kfserving-examples/models/mnist .
+mc cp -r mnist myminio/
+```
+
+Alternatively you can copy the saved model from `` and upload to Minio `mnist` bucket.
 
 ## Create S3 Secret for Minio and attach to Service Account
 `KFServing` gets the secrets from your service account, you need to add the created or existing secret to your service account's secret list. 
