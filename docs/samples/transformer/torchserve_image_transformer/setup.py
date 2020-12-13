@@ -31,7 +31,7 @@ setup(
     python_requires='>=3.6',
     packages=find_packages("image_transformer"),
     install_requires=[
-        "kfserving>=0.2.1",
+        "kfserving>=0.4.1",
         "argparse>=1.4.0",
         "requests>=2.22.0",
         "joblib>=0.13.2",

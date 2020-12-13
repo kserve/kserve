@@ -14,8 +14,6 @@ metadata:
   name: "torchserve"
   annotations:
     autoscaling.knative.dev/target: "5"
-    # autoscaling.knative.dev/target: "5"
-    # autoscaling.knative.dev/metric: "rps"
 "spec:
   predictor:
     pytorch:

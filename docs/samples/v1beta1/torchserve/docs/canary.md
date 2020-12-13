@@ -1,7 +1,6 @@
 # Canary Rollouts
 
-## Deploymnet yaml
-
+## Deployment yaml
 
 ### Main model
 
@@ -35,13 +34,13 @@ spec:
 
 Apply the CRD
 
-```
+```bash
 kubectl apply -f torchserve.yaml
 ```
 
 Expected Output
 
-```
+```bash
 $ inferenceservice.serving.kubeflow.org/torchserve created
 ```
 
@@ -49,19 +48,19 @@ $ inferenceservice.serving.kubeflow.org/torchserve created
 The first step is to [determine the ingress IP and ports](../../../README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
 
 
-```
-MODEL_NAME=torchserve
-SERVICE_HOSTNAME=$(kubectl get route torchserve-predictor-default -o jsonpath='{.status.url}' | cut -d "/" -f 3)
-curl -v -H "Host: ${SERVICE_HOSTNAME}" http://${INGRESS_HOST}:${INGRESS_PORT}/predictions/mnist -T 1.png
+```bash
+MODEL_NAME=mnist
+SERVICE_HOSTNAME=$(kubectl get inferenceservice torch-pred  -o jsonpath='{.status.url}' | cut -d "/" -f 3)
+curl -v -H "Host: ${SERVICE_HOSTNAME}" http://${INGRESS_HOST}:${INGRESS_PORT}/predictions/${MODEL_NAME} -T 1.png
 ```
 
 Expected Output
 
-```
+```bash
 *   Trying 52.89.19.61...
 * Connected to a881f5a8c676a41edbccdb0a394a80d6-2069247558.us-west-2.elb.amazonaws.com (52.89.19.61) port 80 (#0)
 > PUT /predictions/mnist HTTP/1.1
-> Host: torchserve-predictor-default.kfserving-test.example.com
+> Host: torch-pred.kfserving-test.example.com
 > User-Agent: curl/7.47.0
 > Accept: */*
 > Content-Length: 167
@@ -83,13 +82,12 @@ Expected Output
 1
 ```
 
-
 ### Get Pods
 
-```
+```bash
 Kubectl get pods -n kfserving-test 
 
 NAME                                                             READY   STATUS        RESTARTS   AGE
-torchserve-predictor-default-cj2d8-deployment-69444c9c74-tsrwr   2/2     Running       0          113s
-torchserve-predictor-default-cj2d8-deployment-69444c9c74-vvpjl   2/2     Running       0          109s
+torch-pred-predictor-default-cj2d8-deployment-69444c9c74-tsrwr   2/2     Running       0          113s
+torch-pred-predictor-default-cj2d8-deployment-69444c9c74-vvpjl   2/2     Running       0          109s
 ```

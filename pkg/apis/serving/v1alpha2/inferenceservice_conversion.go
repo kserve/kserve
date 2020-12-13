@@ -89,6 +89,7 @@ func (src *InferenceService) ConvertTo(dstRaw conversion.Hub) error {
 		}
 	} else if src.Spec.Default.Predictor.PyTorch != nil {
 		dst.Spec.Predictor.PyTorch = &v1beta1.TorchServeSpec{
+			ModelClassName: src.Spec.Default.Predictor.PyTorch.ModelClassName,
 			PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
 				RuntimeVersion: &src.Spec.Default.Predictor.PyTorch.RuntimeVersion,
 				StorageURI:     &src.Spec.Default.Predictor.PyTorch.StorageURI,
