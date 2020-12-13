@@ -39,7 +39,7 @@ func (p *GCSProvider) DownloadModel(modelDir string, modelName string, storageUr
 		return fmt.Errorf("unable to get object iterator because: %v", err)
 	}
 	if err := gcsObjectDownloader.Download(p.Client, it); err != nil {
-		return fmt.Errorf("unable to download object/s %v", err)
+		return fmt.Errorf("unable to download object/s because: %v", err)
 	}
 	return nil
 }
@@ -60,6 +60,8 @@ func (g *GCSObjectDownloader) GetObjectIterator(client stiface.Client) (stiface.
 
 func (g *GCSObjectDownloader) Download(client stiface.Client, it stiface.ObjectIterator) error {
 	var errs []error
+	// flag to help determine if query prefix returned an empty iterator
+	var foundObject = false
 	for {
 		attrs, err := it.Next()
 		if err == iterator.Done {
@@ -68,6 +70,7 @@ func (g *GCSObjectDownloader) Download(client stiface.Client, it stiface.ObjectI
 		if err != nil {
 			return fmt.Errorf("an error occurred while iterating: %v", err)
 		}
+		foundObject = true
 		fileName := filepath.Join(g.ModelDir, g.ModelName, attrs.Name)
 		if FileExists(fileName) {
 			log.Info("Deleting", fileName)
@@ -82,6 +85,9 @@ func (g *GCSObjectDownloader) Download(client stiface.Client, it stiface.ObjectI
 		if err := g.DownloadFile(client, attrs, file); err != nil {
 			errs = append(errs, err)
 		}
+	}
+	if !foundObject {
+		return gstorage.ErrObjectNotExist
 	}
 	if len(errs) > 0 {
 		return awserr.NewBatchError("GCSDownloadIncomplete", "some objects failed to download.", errs)
