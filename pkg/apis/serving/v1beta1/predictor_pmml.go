@@ -36,23 +36,23 @@ type PMMLSpec struct {
 var _ ComponentImplementation = &PMMLSpec{}
 
 // Validate returns an error if invalid
-func (k *PMMLSpec) Validate() error {
+func (p *PMMLSpec) Validate() error {
 	return utils.FirstNonNilError([]error{
-		validateStorageURI(k.GetStorageUri()),
+		validateStorageURI(p.GetStorageUri()),
 	})
 }
 
 // Default sets defaults on the resource
-func (k *PMMLSpec) Default(config *InferenceServicesConfig) {
-	k.Container.Name = constants.InferenceServiceContainerName
-	if k.RuntimeVersion == nil {
-		k.RuntimeVersion = proto.String(config.Predictors.PMML.DefaultImageVersion)
+func (p *PMMLSpec) Default(config *InferenceServicesConfig) {
+	p.Container.Name = constants.InferenceServiceContainerName
+	if p.RuntimeVersion == nil {
+		p.RuntimeVersion = proto.String(config.Predictors.PMML.DefaultImageVersion)
 	}
-	setResourceRequirementDefaults(&k.Resources)
+	setResourceRequirementDefaults(&p.Resources)
 }
 
 // GetContainer transforms the resource into a container spec
-func (k *PMMLSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig) *v1.Container {
+func (p *PMMLSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig) *v1.Container {
 	arguments := []string{
 		fmt.Sprintf("%s=%s", constants.ArgumentModelName, metadata.Name),
 		fmt.Sprintf("%s=%s", constants.ArgumentModelDir, constants.DefaultModelLocalMountPath),
@@ -61,14 +61,18 @@ func (k *PMMLSpec) GetContainer(metadata metav1.ObjectMeta, extensions *Componen
 	if extensions.ContainerConcurrency != nil {
 		arguments = append(arguments, fmt.Sprintf("%s=%s", constants.ArgumentWorkers, strconv.FormatInt(*extensions.ContainerConcurrency, 10)))
 	}
-	if k.Container.Image == "" {
-		k.Container.Image = config.Predictors.PMML.ContainerImage + ":" + *k.RuntimeVersion
+	if p.Container.Image == "" {
+		p.Container.Image = config.Predictors.PMML.ContainerImage + ":" + *p.RuntimeVersion
 	}
-	k.Container.Name = constants.InferenceServiceContainerName
-	k.Container.Args = arguments
-	return &k.Container
+	p.Container.Name = constants.InferenceServiceContainerName
+	p.Container.Args = arguments
+	return &p.Container
 }
 
-func (k *PMMLSpec) GetStorageUri() *string {
-	return k.StorageURI
+func (p *PMMLSpec) GetStorageUri() *string {
+	return p.StorageURI
+}
+
+func (p *PMMLSpec) GetProtocol() constants.InferenceServiceProtocol {
+	return constants.ProtocolV1
 }

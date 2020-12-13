@@ -278,8 +278,12 @@ func InferenceServicePrefix(name string) string {
 	return fmt.Sprintf("/v1/models/%s", name)
 }
 
-func PredictPath(name string) string {
-	return fmt.Sprintf("/v1/models/%s:predict", name)
+func PredictPath(name string, protocol InferenceServiceProtocol) string {
+	if protocol == ProtocolV2 {
+		return fmt.Sprintf("/v2/models/%s/infer", name)
+	} else {
+		return fmt.Sprintf("/v1/models/%s:predict", name)
+	}
 }
 
 func ExplainPath(name string) string {
