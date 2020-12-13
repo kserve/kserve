@@ -1,14 +1,13 @@
-# Setting up canary rollouts in an InferenceService
-To test a canary rollout, you can use the canary.yaml, which declares a canary model that is set to receive 10% of requests.
+# Rollout InferenceService with Canary Strategy
 
 ## Setup
 1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/#install-kfserving).
 2. Your cluster's Istio Ingress gateway must be [network accessible](https://istio.io/latest/docs/tasks/traffic-management/ingress/ingress-control/).
 
 ## Create the InferenceService
-In v1beta1 we no longer need to maintain both default and canary spec on `InferenceService`, KFServing automatically tracks the last good revision that
-is rolled out to 100% percent. KFServing by default does `Blue/Green` rollout, when you set `canaryTrafficPercent` field it automatically splits
-the traffic between the latest ready revision that is rolling out and the last unknown good revision that had 100% traffic rolled out.
+In v1beta1 you no longer need to specify both default and canary spec on `InferenceService` to rollout the `InferenceService` with canary strategy, 
+KFServing automatically tracks the last good revision that was rolled out to 100% percent, you only need to set the `canaryTrafficPercent` field and KFServing automatically splits
+the traffic between the revision that is currently rolling out and the last known good revision that had 100% traffic rolled out.
 
 
 ### Create the InferenceService with the initial model
@@ -27,14 +26,12 @@ Apply the CR:
 kubectl apply -f default.yaml 
 ```
 
-### Verify the traffic
-
-After rolling out the first model, 100% traffic are assigned to the initial revision
+After rolling out the first model, 100% traffic goes to the initial model with service revision 1.
 
 ```
-kubectl get inferenceservice
-NAME       URL                                          READY   TRAFFIC   LATESTREADYREVISION                PREVIOUSROLLEDOUTREVISION   AGE
-my-model   http://my-model.kfserving-test.example.com   True    100       my-model-predictor-default-4rh96                               70s
+kubectl get isvc my-model
+NAME       URL                                          READY   DEFAULT   CANARY   LATESTREADYREVISION                PREVIOUSROLLEDOUTREVISION   AGE
+my-model   http://my-model.kfserving-test.example.com   True    100                my-model-predictor-default-tgfnx                               2m39s                             70s
 ```
 
 ### Update the InferenceService with the canary model
@@ -51,36 +48,34 @@ spec:
       storageUri: "gs://kfserving-samples/models/tensorflow/flowers-2"
 ```
 
-Apply the CR:
+Now you update the `storageUri` for the new model and apply the CR:
 ```
 kubectl apply -f canary.yaml 
 ```
 
-### Verifying split traffic
-
-To verify if your traffic split percentage is applied correctly, you can use the following command:
+After rolling out the canary model, traffic is splitted between the latest ready revision and the previously rolled out revision
 
 ```
 kubectl get isvc my-model
-NAME       URL                                   READY   DEFAULT TRAFFIC   CANARY TRAFFIC   AGE
-my-model   http://my-model.default.example.com   True    90                10               42m
+NAME       URL                                          READY   DEFAULT   CANARY   LATESTREADYREVISION                PREVIOUSROLLEDOUTREVISION          AGE
+my-model   http://my-model.kfserving-test.example.com   True    10        90       my-model-predictor-default-5w6nk   my-model-predictor-default-tgfnx   6m4s
 ```
 
-There should also be two pods:
+You should see two sets of pods running for the two models for both first and second generation revision:
 ```
-kubectl get pods
-NAME                                                           READY   STATUS    RESTARTS   AGE
-my-model-predictor-canary-t5njm-deployment-74dcd94f57-l7lbn    2/2     Running   0          18s
-my-model-predictor-default-wfgrl-deployment-75c7845fcb-v5g7r   2/2     Running   0          49s
+kubectl get pods -l serving.kubeflow.org/inferenceservice=my-model
+NAME                                                          READY   STATUS    RESTARTS   AGE
+my-model-predictor-default-5w6nk-deployment-54749fcb6-xrsfc   2/2     Running   0          2m28s
+my-model-predictor-default-tgfnx-deployment-b875f46c5-68f8j   2/2     Running   0          6m28s
 ```
 
-## Run a prediction
+#### Run a prediction
 The first step is to [determine the ingress IP and ports](../../../README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
 
 ```
 MODEL_NAME=my-model
 INPUT_PATH=@./input.json
-SERVICE_HOSTNAME=$(kubectl get inferenceservice ${MODEL_NAME} -o jsonpath='{.status.url}' | cut -d "/" -f 3)
+SERVICE_HOSTNAME=$(kubectl get isvc ${MODEL_NAME} -o jsonpath='{.status.url}' | cut -d "/" -f 3)
 
 curl -v -H "Host: ${SERVICE_HOSTNAME}" http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/$MODEL_NAME:predict -d $INPUT_PATH
 ```
@@ -118,54 +113,42 @@ Expected Output:
 * Connection #0 to host 169.47.250.204 left intact
 ```
 
-You can use the Kiali console to visually verify that traffic is being routed to both models. First, expose the console locally:
-```
-kubectl port-forward svc kiali -n istio-system 20001:20001
-```
-
-Now you can access the console at `localhost:20001/kiali` with credentials admin/admin. Navigate to the **Graph** perspective, select **Versioned app graph** in the first drop down, and check **Traffic Animation** in the **Display** drop down. While looking at the **Versioned app graph**, keep running predictions. Eventually you will see that traffic is being sent to both models.
-
-Expected Kiali graph:
-![canary screenshot](screenshots/canary.png)
-
-If you stop making requests to the application, you should eventually see that your application scales itself back down to the number of `minReplicas` (default is 1 for KFServing v0.3+, and 0 for lower versions). You should also eventually see the traffic animation in the Kiali graph disappear.
-
-## Pinned canary
-The canary model can also be pinned and receive no traffic as shown in the pinned.yaml. Applying this after you have applied the canary.yaml would essentially be rolling back the canary model.
-
-Apply the CR:
-```
-kubectl apply -f pinned.yaml
-```
-
-As before there will be two pods, but if you run:
-```
-kubectl get inferenceservices
-NAME       URL                                                      READY   DEFAULT TRAFFIC   CANARY TRAFFIC   AGE
-my-model   http://my-model.default.example.com/v1/models/my-model   True    100                                53s
-```
-
-The output will show that all the traffic is going to the default model. You may run predictions again while watching the Kiali console to visually verify that all traffic is routed to the default model.
-
-Expected Kiali graph:
-![pinned screenshot](screenshots/pinned.png)
-
-## Promoting canary
-The canary model can also be promoted by applying the promotion.yaml after either the pinned.yaml and/or the canary.yaml.
+### Promoting canary
+If the canary model runs well you can promote it by removing the `canaryTrafficPercent` field.
 
 Apply the CR:
 ```
 kubectl apply -f promotion.yaml
 ```
 
-Similar to the pinned.yaml example, there will be two pods and all traffic is going to the default model (promoted canary model):
+Now all traffic goes to the revision 2 for the new model and the pods for revision generation 1 automatically scales down to 0 as it is no longer getting the traffic.
 ```
-kubectl get inferenceservices
-NAME       URL                                                      READY   DEFAULT TRAFFIC   CANARY TRAFFIC   AGE
-my-model   http://my-model.default.example.com/v1/models/my-model   True    100                                53s
+kubectl get isvc my-model
+NAME       URL                                          READY   DEFAULT   CANARY   LATESTREADYREVISION                PREVIOUSROLLEDOUTREVISION   AGE
+my-model   http://my-model.kfserving-test.example.com   True    100                my-model-predictor-default-5w6nk                               106m
 ```
 
-You may run predictions again while watching the Kiali console to visually verify that all traffic is routed to the promoted canary model.
+## Rollback and pin the model
+The model can also be pinned to the previous good model and make the current model receive no traffic as shown in the pinned.yaml. 
 
-Expected Kiali graph:
-![pinned screenshot](screenshots/promotion.png)
+Apply this CR essentially rolls back the new model to the previous good model.
+```
+kubectl apply -f pinned.yaml
+```
+
+Check the traffic split now 100% traffic goes to the previous good model for revision generation 1.
+```
+kubectl get isvc my-model 
+NAME       URL                                          READY   DEFAULT   CANARY   LATESTREADYREVISION                PREVIOUSROLLEDOUTREVISION          AGE
+my-model   http://my-model.kfserving-test.example.com   True    0         100      my-model-predictor-default-5w6nk   my-model-predictor-default-tgfnx   115m
+```
+
+The pods for previous revision 1 now scales back
+```
+kubectl get pods -l serving.kubeflow.org/inferenceservice=my-model
+NAME                                                          READY   STATUS    RESTARTS   AGE
+my-model-predictor-default-5w6nk-deployment-54749fcb6-xrsfc   2/2     Running   0          115m
+my-model-predictor-default-tgfnx-deployment-b875f46c5-9lt8p   2/2     Running   0          6m38s
+```
+
+The output will show that all the traffic is going to the default model. You may run predictions again while watching the Kiali console to visually verify that all traffic is routed to the default model.

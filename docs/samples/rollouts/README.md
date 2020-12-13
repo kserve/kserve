@@ -17,17 +17,17 @@ kubectl apply -f canary.yaml
 To verify if your traffic split percentage is applied correctly, you can use the following command:
 
 ```
-kubectl get inferenceservice 
-NAME       URL                                          READY   TRAFFIC   LATESTREADYREVISION                PREVIOUSROLLEDOUTREVISION   AGE
-my-model   http://my-model.kfserving-test.example.com   True    10        my-model-predictor-default-wljvw                               12m
+kubectl get inferenceservices
+NAME       URL                                                      READY   DEFAULT TRAFFIC   CANARY TRAFFIC   AGE
+my-model   http://my-model.default.example.com/v1/models/my-model   True    90                10               42m
 ```
 
-There should also be two pods and splitting the traffic between the two above revisions:
+There should also be two pods:
 ```
 kubectl get pods
 NAME                                                           READY   STATUS    RESTARTS   AGE
-my-model-predictor-default-4rh96-deployment-6bdc67f8cd-mzrl2   2/2     Running   0          18m
-my-model-predictor-default-wljvw-deployment-6446fd879-k8cfh    2/2     Running   0          16m
+my-model-predictor-canary-t5njm-deployment-74dcd94f57-l7lbn    2/2     Running   0          18s
+my-model-predictor-default-wfgrl-deployment-75c7845fcb-v5g7r   2/2     Running   0          49s
 ```
 
 ## Run a prediction
