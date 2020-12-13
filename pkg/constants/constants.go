@@ -148,7 +148,7 @@ const (
 // InferenceService Endpoint Ports
 const (
 	InferenceServiceDefaultHttpPort    = "8080"
-	InferenceServiceDefaultLoggerPort  = "8081"
+	InferenceServiceDefaultAgentPort   = "9081"
 	InferenceServiceDefaultBatcherPort = "9082"
 	CommonDefaultHttpPort              = 80
 )
@@ -163,6 +163,7 @@ const (
 // Labels for TrainedModel
 const (
 	ParentInferenceServiceLabel = "inferenceservice"
+	InferenceServiceLabel       = "serving.kubeflow.org/inferenceservice"
 )
 
 // InferenceService default/canary constants
@@ -277,8 +278,12 @@ func InferenceServicePrefix(name string) string {
 	return fmt.Sprintf("/v1/models/%s", name)
 }
 
-func PredictPath(name string) string {
-	return fmt.Sprintf("/v1/models/%s:predict", name)
+func PredictPath(name string, protocol InferenceServiceProtocol) string {
+	if protocol == ProtocolV2 {
+		return fmt.Sprintf("/v2/models/%s/infer", name)
+	} else {
+		return fmt.Sprintf("/v1/models/%s:predict", name)
+	}
 }
 
 func ExplainPath(name string) string {

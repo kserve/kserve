@@ -337,7 +337,7 @@ var _ = Describe("test inference service controller", func() {
 				Address: &duckv1beta1.Addressable{
 					URL: &apis.URL{
 						Scheme: "http",
-						Path:   constants.PredictPath(serviceKey.Name),
+						Path:   constants.PredictPath(serviceKey.Name, constants.ProtocolV1),
 						Host:   network.GetServiceHostname(serviceKey.Name, serviceKey.Namespace),
 					},
 				},
@@ -416,7 +416,7 @@ var _ = Describe("test inference service controller", func() {
 						URL: &apis.URL{
 							Scheme: "http",
 							Host:   network.GetServiceHostname(canaryServiceKey.Name, canaryServiceKey.Namespace),
-							Path:   constants.PredictPath(canaryServiceKey.Name),
+							Path:   constants.PredictPath(canaryServiceKey.Name, constants.ProtocolV1),
 						},
 					},
 					Default: &map[constants.InferenceServiceComponent]v1alpha2.StatusConfigurationSpec{
@@ -572,7 +572,7 @@ var _ = Describe("test inference service controller", func() {
 				Address: &duckv1beta1.Addressable{
 					URL: &apis.URL{
 						Scheme: "http",
-						Path:   constants.PredictPath(canaryServiceKey.Name),
+						Path:   constants.PredictPath(canaryServiceKey.Name, constants.ProtocolV1),
 						Host:   network.GetServiceHostname(canaryServiceKey.Name, canaryServiceKey.Namespace),
 					},
 				},
@@ -811,7 +811,7 @@ var _ = Describe("test inference service controller", func() {
 				Address: &duckv1beta1.Addressable{
 					URL: &apis.URL{
 						Scheme: "http",
-						Path:   constants.PredictPath(serviceName),
+						Path:   constants.PredictPath(serviceName, constants.ProtocolV1),
 						Host:   network.GetServiceHostname(serviceName, canaryServiceKey.Namespace),
 					},
 				},
@@ -895,7 +895,7 @@ var _ = Describe("test inference service controller", func() {
 				Address: &duckv1beta1.Addressable{
 					URL: &apis.URL{
 						Scheme: "http",
-						Path:   constants.PredictPath(canaryServiceKey.Name),
+						Path:   constants.PredictPath(canaryServiceKey.Name, constants.ProtocolV1),
 						Host:   network.GetServiceHostname(canaryServiceKey.Name, canaryServiceKey.Namespace),
 					},
 				},
@@ -1183,7 +1183,7 @@ var _ = Describe("test inference service controller", func() {
 				Address: &duckv1beta1.Addressable{
 					URL: &apis.URL{
 						Scheme: "http",
-						Path:   constants.PredictPath(serviceKey.Name),
+						Path:   constants.PredictPath(serviceKey.Name, constants.ProtocolV1),
 						Host:   network.GetServiceHostname(serviceKey.Name, serviceKey.Namespace),
 					},
 				},
@@ -1717,7 +1717,7 @@ var _ = Describe("test inference service controller", func() {
 				Address: &duckv1beta1.Addressable{
 					URL: &apis.URL{
 						Scheme: "http",
-						Path:   constants.PredictPath(serviceKey.Name),
+						Path:   constants.PredictPath(serviceKey.Name, constants.ProtocolV1),
 						Host:   network.GetServiceHostname(serviceKey.Name, serviceKey.Namespace),
 					},
 				},

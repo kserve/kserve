@@ -88,3 +88,7 @@ func (c *CustomExplainer) GetContainer(metadata metav1.ObjectMeta, extensions *C
 	}
 	return &c.Containers[0]
 }
+
+func (c *CustomExplainer) GetProtocol() constants.InferenceServiceProtocol {
+	return constants.ProtocolV1
+}

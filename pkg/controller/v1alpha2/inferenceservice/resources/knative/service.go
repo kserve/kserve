@@ -100,7 +100,7 @@ func addLoggerAnnotations(logger *v1alpha2.Logger, annotations map[string]string
 func addLoggerContainerPort(container *v1.Container) {
 	if container != nil {
 		if container.Ports == nil || len(container.Ports) == 0 {
-			port, _ := strconv.Atoi(constants.InferenceServiceDefaultLoggerPort)
+			port, _ := strconv.Atoi(constants.InferenceServiceDefaultAgentPort)
 			container.Ports = []v1.ContainerPort{
 				{
 					ContainerPort: int32(port),

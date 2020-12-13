@@ -120,3 +120,7 @@ func (s *AlibiExplainerSpec) Validate() error {
 		validateStorageURI(s.GetStorageUri()),
 	})
 }
+
+func (s *AlibiExplainerSpec) GetProtocol() constants.InferenceServiceProtocol {
+	return constants.ProtocolV1
+}

@@ -456,6 +456,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					URL: &apis.URL{
 						Scheme: "http",
 						Host:   network.GetServiceHostname(serviceKey.Name, serviceKey.Namespace),
+						Path:   constants.PredictPath(serviceKey.Name, constants.ProtocolV1),
 					},
 				},
 				Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
@@ -673,6 +674,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					URL: &apis.URL{
 						Scheme: "http",
 						Host:   network.GetServiceHostname(serviceKey.Name, serviceKey.Namespace),
+						Path:   constants.PredictPath(serviceKey.Name, constants.ProtocolV1),
 					},
 				},
 				Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{

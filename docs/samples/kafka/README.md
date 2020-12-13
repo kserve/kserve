@@ -33,19 +33,14 @@ my-kafka-cp-kafka-2       2/2     Running   0          126m
 my-kafka-cp-zookeeper-0   2/2     Running   0          127m
 ```
 
-## Deploy Kafka Event Source
-Install Knative Eventing and Kafka Event Source.
-```bash
-VERSION=v0.14.0
-kubectl apply --selector knative.dev/crd-install=true \
-  --filename https://github.com/knative/eventing/releases/download/$VERSION/eventing-crds.yaml
-kubectl apply --filename https://github.com/knative/eventing/releases/download/$VERSION/eventing.yaml
-kubectl apply --filename https://github.com/knative/eventing-contrib/releases/download/$VERSION/kafka-source.yaml
-```
-Apply the `InferenceService` addressable cluster role
+## Install Knative Eventing and Kafka Event Source
+- Install [Knative Eventing Core >= 0.18](https://knative.dev/docs/install/any-kubernetes-cluster/#installing-the-eventing-component)
+- Install [Kafka Event Source](https://github.com/knative-sandbox/eventing-kafka/releases).
+- Install `InferenceService` addressable cluster role
 ```bash
 kubectl apply -f addressable-resolver.yaml
 ```
+
 ## Deploy Minio
 - If you do not have Minio setup in your cluster, you can run following command to install Minio test instance.
 ```bash
@@ -60,57 +55,28 @@ mc config host add myminio http://127.0.0.1:9000 minio minio123
 - Create buckets `mnist` for uploading images and `digit-[0-9]` for classification.
 ```bash
 mc mb myminio/mnist
+mc mb myminio/digit-[0-9]
 ```
 
 - Setup event notification to publish events to kafka.
 ```bash
-mc event add myminio/mnist arn:minio:sqs:us-east-1:1:kafka --suffix .png
+# Setup bucket event notification with kafka
+mc admin config set myminio notify_kafka:1 tls_skip_verify="off"  queue_dir="" queue_limit="0" sasl="off" sasl_password="" sasl_username="" tls_client_auth="0" tls="off" client_tls_cert="" client_tls_key="" brokers="my-kafka-cp-kafka-headless:9092" topic="mnist" version=""
+
+# Setup event notification when putting images to the bucket
+mc event add myminio/mnist arn:minio:sqs:1:kafka -p --event put --suffix .png
+
+# Restart minio
+mc admin service restart myminio
 ```
 
-you should expect a notification event like following sent to kafka topic `mnist` after uploading an image in `mnist` bucket
-```json
-{
-   "EventType":"s3:ObjectCreated:Put",
-   "Key":"mnist/0.png",
-   "Records":[
-      {"eventVersion":"2.0",
-       "eventSource":"minio:s3",
-       "awsRegion":"",
-       "eventTime":"2019-11-17T19:08:08Z",
-       "eventName":"s3:ObjectCreated:Put",
-       "userIdentity":{"principalId":"minio"},
-       "requestParameters":{"sourceIPAddress":"127.0.0.1:37830"},
-       "responseElements":{"x-amz-request-id":"15D808BF706E0994",
-       "x-minio-origin-endpoint":"http://10.244.0.71:9000"},
-       "s3":{
-          "s3SchemaVersion":"1.0",
-          "configurationId":"Config",
-          "bucket":{
-               "name":"mnist",
-               "ownerIdentity":{"principalId":"minio"},
-               "arn":"arn:aws:s3:::mnist"},
-          "object":{"key":"0.png","size":324,"eTag":"ebed21f6f77b0a64673a3c96b0c623ba","contentType":"image/png","userMetadata":{"content-type":"image/png"},"versionId":"1","sequencer":"15D808BF706E0994"}},
-          "source":{"host":"","port":"","userAgent":""}}
-   ],
-   "level":"info",
-   "msg":"",
-   "time":"2019-11-17T19:08:08Z"
-}
+## Upload the mnist model to Minio
+```
+gsutil cp gs://kfserving-examples/models/mnist .
+mc cp -r mnist myminio/
 ```
 
-## Train TF mnist model and save on Minio
-If you already have a mnist model saved on Minio or S3 you can skip this step, otherwise you can install [Kubeflow](https://www.kubeflow.org/docs/started/getting-started/)
-and follow [TF mnist AWS example](https://github.com/kubeflow/examples/tree/master/mnist) to train a TF mnist model and save it on Minio.
-You may need to add following additional S3 environment variables to enable saving model on Minio.
-```yaml
-env:
-- name: S3_USE_HTTPS
-  value: "0"
-- name: S3_ENDPOINT
-  value: "minio-service.kubeflow:9000"
-- name: AWS_ENDPOINT_URL
-  value: "http://minio-service.kubeflow:9000"
-```
+Alternatively you can copy the saved model from `` and upload to Minio `mnist` bucket.
 
 ## Create S3 Secret for Minio and attach to Service Account
 `KFServing` gets the secrets from your service account, you need to add the created or existing secret to your service account's secret list. 
@@ -157,6 +123,49 @@ kafkasource-kafka-source-3d809fe2-1267-11ea-99d0-42010af00zbn5h   1/1     Runnin
 
 ## Upload a digit image to Minio mnist bucket
 The last step is to upload the image `images/0.png`, image then should be moved to the classified bucket based on the prediction response!
+```bash
+mc cp images/0.png myminio/mnist
+```
+you should expect a notification event like following sent to kafka topic `mnist` after uploading an image in `mnist` bucket
+```json
+{
+   "EventType":"s3:ObjectCreated:Put",
+   "Key":"mnist/0.png",
+   "Records":[
+      {"eventVersion":"2.0",
+       "eventSource":"minio:s3",
+       "awsRegion":"",
+       "eventTime":"2019-11-17T19:08:08Z",
+       "eventName":"s3:ObjectCreated:Put",
+       "userIdentity":{"principalId":"minio"},
+       "requestParameters":{"sourceIPAddress":"127.0.0.1:37830"},
+       "responseElements":{"x-amz-request-id":"15D808BF706E0994",
+       "x-minio-origin-endpoint":"http://10.244.0.71:9000"},
+       "s3":{
+          "s3SchemaVersion":"1.0",
+          "configurationId":"Config",
+          "bucket":{
+               "name":"mnist",
+               "ownerIdentity":{"principalId":"minio"},
+               "arn":"arn:aws:s3:::mnist"},
+          "object":{"key":"0.png","size":324,"eTag":"ebed21f6f77b0a64673a3c96b0c623ba","contentType":"image/png","userMetadata":{"content-type":"image/png"},"versionId":"1","sequencer":"15D808BF706E0994"}},
+          "source":{"host":"","port":"","userAgent":""}}
+   ],
+   "level":"info",
+   "msg":"",
+   "time":"2019-11-17T19:08:08Z"
+}
+```
 
-
+Check the transformer log, you should expect a prediction response and put the image to the corresponding bucket
+```bash
+kubectl logs mnist-transformer-default-rctjm-deployment-54d59c849c-2dq98  kfserving-container
+[I 201128 22:32:27 kfserver:88] Registering model: mnist
+[I 201128 22:32:27 kfserver:77] Listening on port 8080
+[I 201128 22:32:27 kfserver:79] Will fork 0 workers
+[I 201128 22:32:27 process:123] Starting 6 processes
+[I 201128 22:32:44 connectionpool:203] Starting new HTTP connection (1): minio-service
+[I 201128 22:32:58 image_transformer:51] {'predictions': [{'predictions': [0.0247901566, 1.37231364e-05, 0.0202635303, 0.39037028, 0.000513458275, 0.435112566, 0.000607515569, 0.00041125578, 0.127784252, 0.000133168287], 'classes': 5}]}
+[I 201128 22:32:58 image_transformer:53] digit:5
+```
 

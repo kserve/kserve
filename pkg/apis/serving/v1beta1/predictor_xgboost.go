@@ -131,25 +131,33 @@ func (x *XGBoostSpec) getDefaultsV2(metadata metav1.ObjectMeta) []v1.EnvVar {
 	// These will be used as fallbacks for any missing properties and / or to run
 	// without a `model-settings.json` file in place.
 	return []v1.EnvVar{
-		v1.EnvVar{
+		{
 			Name:  constants.MLServerModelImplementationEnv,
 			Value: constants.MLServerXGBoostImplementation,
 		},
-		v1.EnvVar{
+		{
 			Name:  constants.MLServerModelNameEnv,
 			Value: metadata.Name,
 		},
-		v1.EnvVar{
+		{
 			Name:  constants.MLServerModelVersionEnv,
 			Value: constants.MLServerModelVersionDefault,
 		},
-		v1.EnvVar{
+		{
 			Name:  constants.MLServerModelURIEnv,
 			Value: constants.DefaultModelLocalMountPath,
 		},
 	}
 }
 
-func (k *XGBoostSpec) GetStorageUri() *string {
-	return k.StorageURI
+func (x *XGBoostSpec) GetStorageUri() *string {
+	return x.StorageURI
+}
+
+func (x *XGBoostSpec) GetProtocol() constants.InferenceServiceProtocol {
+	if x.ProtocolVersion != nil {
+		return *x.ProtocolVersion
+	} else {
+		return constants.ProtocolV1
+	}
 }
