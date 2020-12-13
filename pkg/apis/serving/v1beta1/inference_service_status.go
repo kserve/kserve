@@ -158,7 +158,8 @@ func (ss *InferenceServiceStatus) PropagateStatus(component ComponentType, servi
 	}
 	statusSpec.LatestCreatedRevision = serviceStatus.LatestCreatedRevisionName
 	for _, traffic := range serviceStatus.Traffic {
-		if traffic.RevisionName == serviceStatus.LatestReadyRevisionName {
+		if traffic.RevisionName == serviceStatus.LatestReadyRevisionName && traffic.LatestRevision != nil &&
+			*traffic.LatestRevision {
 			if statusSpec.LatestRolledoutRevision != serviceStatus.LatestReadyRevisionName {
 				if traffic.Percent != nil && *traffic.Percent == 100 {
 					// track the last revision that's rolled out t

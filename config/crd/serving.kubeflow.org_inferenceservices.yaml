@@ -4123,6 +4123,15 @@ spec:
         - JSONPath: .status.conditions[?(@.type=='Ready')].status
           name: Ready
           type: string
+        - JSONPath: .status.components.predictor.trafficPercent
+          name: Traffic
+          type: integer
+        - JSONPath: .status.components.predictor.latestReadyRevision
+          name: LatestReadyRevision
+          type: string
+        - JSONPath: .status.components.predictor.latestRolledoutRevision
+          name: LatestRolledoutRevision
+          type: string
         - JSONPath: .metadata.creationTimestamp
           name: Age
           type: date
