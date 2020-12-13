@@ -1,7 +1,10 @@
 apiVersion: serving.kubeflow.org/v1beta1
 kind: InferenceService
 metadata:
-  name: torchserve
+  name: "torchserve"
+  annotations:
+    prometheus.io/scrape: 'true'
+    prometheus.io/port: '8082'
 spec:
   transformer:
     containers:
@@ -14,3 +17,12 @@ spec:
     pytorch:
       protocolVersion: v2
       storageUri: pvc://model-pv-claim
+      resources:
+        limits:
+          cpu: 16
+          memory: 16Gi
+          nvidia.com/gpu: "1"
+        requests:
+          cpu: 16
+          memory: 16Gi
+          nvidia.com/gpu: "1"

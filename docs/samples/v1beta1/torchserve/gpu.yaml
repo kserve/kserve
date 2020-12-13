@@ -9,4 +9,11 @@ spec:
       storageUri: "pvc://model-pv-claim"
       resources:
         limits:
-          nvidia.com/gpu: 1
+          cpu: 16
+          memory: 16Gi
+          nvidia.com/gpu: "1"
+        requests:
+          cpu: 8
+          memory: 16Gi
+          nvidia.com/gpu: "1"
+ 

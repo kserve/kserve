@@ -7,4 +7,3 @@ spec:
     pytorch:
       protocolVersion: v2
       storageUri: pvc://model-pv-claim
-      runtimeVersion: v1.2

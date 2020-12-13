@@ -5,9 +5,10 @@
 For example, specify a “concurrency target” of “10”, the autoscaler will try to make sure that every replica receives on average 10 requests at a time.
 By default the pod scale with concurrency metrics
 
+Refer [model archive file generation](../model-archiver/README.md) for PV, PVC storage and marfile creation.
 
-
-```
+autoscaling.yaml
+```yaml
 apiVersion: "serving.kubeflow.org/v1beta1"
 kind: "InferenceService"
 metadata:
@@ -17,6 +18,7 @@ metadata:
 "spec:
   predictor:
     pytorch:
+      protocolVersion: v2
       storageUri: "pvc://model-pv-claim"
 ```
 
@@ -24,32 +26,33 @@ metadata:
 
 Apply the CRD
 
-```
+```bash
 kubectl apply -f torchserve.yaml
 ```
 
 Expected Output
 
-```
-$ inferenceservice.serving.kubeflow.org/torchserve created
+```bash
+$inferenceservice.serving.kubeflow.org/torchserve created
 ```
 
 ## Run a prediction
+
 The first step is to [determine the ingress IP and ports](../../../README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
 
+```bash
+MODEL_NAME=mnist
+SERVICE_HOSTNAME=$(kubectl get inferenceservice torchserve -o jsonpath='{.status.url}' | cut -d "/" -f 3)
 
-```
-MODEL_NAME=torchserve
-SERVICE_HOSTNAME=$(kubectl get route torchserve-predictor-default -o jsonpath='{.status.url}' | cut -d "/" -f 3)
-curl -v -H "Host: ${SERVICE_HOSTNAME}" http://${INGRESS_HOST}:${INGRESS_PORT}/predictions/mnist -T 1.png
+curl -v -H "Host: ${SERVICE_HOSTNAME}" http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/${MODEL_NAME}:predict -d @./mnist.json
 ```
 
 Expected Output
 
-```
+```bash
 *   Trying 52.89.19.61...
 * Connected to a881f5a8c676a41edbccdb0a394a80d6-2069247558.us-west-2.elb.amazonaws.com (52.89.19.61) port 80 (#0)
-> PUT /predictions/mnist HTTP/1.1
+> PUT /v1/models/mnist:predict HTTP/1.1
 > Host: torchserve-predictor-default.kfserving-test.example.com
 > User-Agent: curl/7.47.0
 > Accept: */*
@@ -69,13 +72,12 @@ Expected Output
 < server: istio-envoy
 < 
 * Connection #0 to host a881f5a8c676a41edbccdb0a394a80d6-2069247558.us-west-2.elb.amazonaws.com left intact
-1
+{"predictions": [["2"]]}
 ```
-
 
 ### Get Pods
 
-```
+```bash
 Kubectl get pods -n kfserving-test 
 
 NAME                                                             READY   STATUS        RESTARTS   AGE

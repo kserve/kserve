@@ -1,33 +1,39 @@
 # Canary Rollouts
 
+## Creating model storage with model archive file
+
+Refer [model archive file generation](../model-archiver/README.md) for PV, PVC storage and marfile creation.
+
 ## Deployment yaml
 
 ### Main model
 
-```
+```yaml
 apiVersion: "serving.kubeflow.org/v1beta1"
 kind: "InferenceService"
 metadata:
- name: "torch-pred"
+  name: "torch-pred"
 spec:
- predictor:
-   pytorch:
-     storageUri: "pvc://model-pv-claim"
+  predictor:
+    pytorch:
+      protocolVersion: v2
+      storageUri: "pvc://model-pv-claim"
 ```
+
 ### Canary model
 
 Change the path and deploy
 
-```
+```yaml
 apiVersion: "serving.kubeflow.org/v1beta1"
 kind: "InferenceService"
 metadata:
- name: "torch-pred"
+  name: "torch-pred"
 spec:
- predictor:
-   canaryTrafficPercent: 20
-   pytorch:
-     storageUri: "pvc://model-store-claim-1"
+  predictor:
+    canaryTrafficPercent: 20
+    pytorch:
+      storageUri: "pvc://model-store-claim-1"
 ```
 
 ## Create the InferenceService
@@ -41,17 +47,18 @@ kubectl apply -f torchserve.yaml
 Expected Output
 
 ```bash
-$ inferenceservice.serving.kubeflow.org/torchserve created
+$inferenceservice.serving.kubeflow.org/torchserve created
 ```
 
 ## Run a prediction
-The first step is to [determine the ingress IP and ports](../../../README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
 
+The first step is to [determine the ingress IP and ports](../../../README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
 
 ```bash
 MODEL_NAME=mnist
 SERVICE_HOSTNAME=$(kubectl get inferenceservice torch-pred  -o jsonpath='{.status.url}' | cut -d "/" -f 3)
-curl -v -H "Host: ${SERVICE_HOSTNAME}" http://${INGRESS_HOST}:${INGRESS_PORT}/predictions/${MODEL_NAME} -T 1.png
+
+curl -v -H "Host: ${SERVICE_HOSTNAME}" http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/${MODEL_NAME}:predict -d @./mnist.json
 ```
 
 Expected Output
@@ -59,7 +66,7 @@ Expected Output
 ```bash
 *   Trying 52.89.19.61...
 * Connected to a881f5a8c676a41edbccdb0a394a80d6-2069247558.us-west-2.elb.amazonaws.com (52.89.19.61) port 80 (#0)
-> PUT /predictions/mnist HTTP/1.1
+> PUT /v1/models/mnist:predict HTTP/1.1
 > Host: torch-pred.kfserving-test.example.com
 > User-Agent: curl/7.47.0
 > Accept: */*
@@ -79,7 +86,7 @@ Expected Output
 < server: istio-envoy
 < 
 * Connection #0 to host a881f5a8c676a41edbccdb0a394a80d6-2069247558.us-west-2.elb.amazonaws.com left intact
-1
+{"predictions": [["2"]]}
 ```
 
 ### Get Pods

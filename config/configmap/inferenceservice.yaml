@@ -70,9 +70,9 @@ data:
             "multiModelServer": "false"
           },
           "v2" : {
-            "image": "jagadeeshj/ts_kf",
-            "defaultImageVersion": "v1.2",
-            "defaultGpuImageVersion": "v1.2-gpu",
+            "image": "jagadeeshj/mnist",
+            "defaultImageVersion": "latest",
+            "defaultGpuImageVersion": "latest-gpu",
             "supportedFrameworks": [
               "pytorch"
             ],
