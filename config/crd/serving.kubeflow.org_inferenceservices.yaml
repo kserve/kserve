@@ -4129,8 +4129,8 @@ spec:
         - JSONPath: .status.components.predictor.latestReadyRevision
           name: LatestReadyRevision
           type: string
-        - JSONPath: .status.components.predictor.latestRolledoutRevision
-          name: LatestRolledoutRevision
+        - JSONPath: .status.components.predictor.previousRolledoutRevision
+          name: PreviousRolledoutRevision
           type: string
         - JSONPath: .metadata.creationTimestamp
           name: Age
@@ -16018,9 +16018,24 @@ spec:
                         type: string
                       previousRolledoutRevision:
                         type: string
-                      trafficPercent:
-                        format: int64
-                        type: integer
+                      traffic:
+                        items:
+                          properties:
+                            configurationName:
+                              type: string
+                            latestRevision:
+                              type: boolean
+                            percent:
+                              format: int64
+                              type: integer
+                            revisionName:
+                              type: string
+                            tag:
+                              type: string
+                            url:
+                              type: string
+                          type: object
+                        type: array
                       url:
                         type: string
                     type: object

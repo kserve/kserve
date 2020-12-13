@@ -82,9 +82,10 @@ type Batcher struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="URL",type="string",JSONPath=".status.url"
 // +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
-// +kubebuilder:printcolumn:name="Traffic",type="integer",JSONPath=".status.components.predictor.trafficPercent"
-// +kubebuilder:printcolumn:name="LatestReadyRevision",type="string",JSONPath=".status.components.predictor.latestReadyRevision"
-// +kubebuilder:printcolumn:name="PreviousRolledoutRevision",type="string",JSONPath=".status.components.predictor.previousRolledoutRevision"
+// +kubebuilder:printcolumn:name="Default",type="integer",JSONPath=".status.components.predictor.traffic[?(@.tag=='latest')].percent"
+// +kubebuilder:printcolumn:name="Canary",type="integer",JSONPath=".status.components.predictor.traffic[?(@.tag=='prev')].percent"
+// +kubebuilder:printcolumn:name="LatestReadyRevision",type="string",JSONPath=".status.components.predictor.traffic[?(@.tag=='latest')].revisionName"
+// +kubebuilder:printcolumn:name="PreviousRolledoutRevision",type="string",JSONPath=".status.components.predictor.traffic[?(@.tag=='prev')].revisionName"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:resource:path=inferenceservices,shortName=isvc
 // +kubebuilder:storageversion

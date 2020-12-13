@@ -88,7 +88,8 @@ func createKnativeService(componentMeta metav1.ObjectMeta,
 		lastRolledoutRevision = componentStatus.PreviousRolledoutRevision
 	}
 	trafficTargets := []knservingv1.TrafficTarget{}
-	if componentExtension.CanaryTrafficPercent != nil && lastRolledoutRevision != "" {
+	if componentExtension.CanaryTrafficPercent != nil && lastRolledoutRevision != "" &&
+		componentStatus.LatestReadyRevision != lastRolledoutRevision {
 		//canary rollout
 		trafficTargets = append(trafficTargets,
 			knservingv1.TrafficTarget{

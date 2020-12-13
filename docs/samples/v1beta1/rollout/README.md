@@ -1,4 +1,4 @@
-# Setting up canary rollouts in an Inferenceservice
+# Setting up canary rollouts in an InferenceService
 To test a canary rollout, you can use the canary.yaml, which declares a canary model that is set to receive 10% of requests.
 
 ## Setup
@@ -6,28 +6,72 @@ To test a canary rollout, you can use the canary.yaml, which declares a canary m
 2. Your cluster's Istio Ingress gateway must be [network accessible](https://istio.io/latest/docs/tasks/traffic-management/ingress/ingress-control/).
 
 ## Create the InferenceService
+In v1beta1 we no longer need to maintain both default and canary spec on `InferenceService`, KFServing automatically tracks the last good revision that
+is rolled out to 100% percent. KFServing by default does `Blue/Green` rollout, when you set `canaryTrafficPercent` field it automatically splits
+the traffic between the latest ready revision that is rolling out and the last unknown good revision that had 100% traffic rolled out.
+
+
+### Create the InferenceService with the initial model
+```yaml
+apiVersion: "serving.kubeflow.org/v1beta1"
+kind: "InferenceService"
+metadata:
+  name: "my-model"
+spec:
+  predictor:
+    tensorflow:
+      storageUri: "gs://kfserving-samples/models/tensorflow/flowers"
+```
+Apply the CR:
+```
+kubectl apply -f default.yaml 
+```
+
+### Verify the traffic
+
+After rolling out the first model, 100% traffic are assigned to the initial revision
+
+```
+kubectl get inferenceservice
+NAME       URL                                          READY   TRAFFIC   LATESTREADYREVISION                PREVIOUSROLLEDOUTREVISION   AGE
+my-model   http://my-model.kfserving-test.example.com   True    100       my-model-predictor-default-4rh96                               70s
+```
+
+### Update the InferenceService with the canary model
+```yaml
+apiVersion: "serving.kubeflow.org/v1beta1"
+kind: "InferenceService"
+metadata:
+  name: "my-model"
+spec:
+  predictor:
+    # 10% of traffic is sent to this model
+    canaryTrafficPercent: 10
+    tensorflow:
+      storageUri: "gs://kfserving-samples/models/tensorflow/flowers-2"
+```
 
 Apply the CR:
 ```
 kubectl apply -f canary.yaml 
 ```
 
-## Verifying split traffic
+### Verifying split traffic
 
 To verify if your traffic split percentage is applied correctly, you can use the following command:
 
 ```
-kubectl get inferenceservice 
-NAME       URL                                          READY   TRAFFIC   LATESTREADYREVISION                PREVIOUSROLLEDOUTREVISION   AGE
-my-model   http://my-model.kfserving-test.example.com   True    10        my-model-predictor-default-wljvw                               12m
+kubectl get isvc my-model
+NAME       URL                                   READY   DEFAULT TRAFFIC   CANARY TRAFFIC   AGE
+my-model   http://my-model.default.example.com   True    90                10               42m
 ```
 
-There should also be two pods and splitting the traffic between the two above revisions:
+There should also be two pods:
 ```
 kubectl get pods
 NAME                                                           READY   STATUS    RESTARTS   AGE
-my-model-predictor-default-4rh96-deployment-6bdc67f8cd-mzrl2   2/2     Running   0          18m
-my-model-predictor-default-wljvw-deployment-6446fd879-k8cfh    2/2     Running   0          16m
+my-model-predictor-canary-t5njm-deployment-74dcd94f57-l7lbn    2/2     Running   0          18s
+my-model-predictor-default-wfgrl-deployment-75c7845fcb-v5g7r   2/2     Running   0          49s
 ```
 
 ## Run a prediction
