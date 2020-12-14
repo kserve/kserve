@@ -58,17 +58,9 @@ def test_lightgbm_kfserving():
     )
 
     KFServing.create(isvc)
-    try:
-        KFServing.wait_isvc_ready(service_name, namespace=KFSERVING_TEST_NAMESPACE, 
-                                version=constants.KFSERVING_VERSION)
-    except RuntimeError as e:
-        KFServing.wait_isvc_ready(service_name, namespace=KFSERVING_TEST_NAMESPACE, 
-                                version=constants.KFSERVING_V1BETA1_VERSION)
-    try:                                
-        res = predict(service_name, "./data/iris_input_v3.json", 
-                                version=constants.KFSERVING_VERSION)
-    except KeyError:
-        res = predict(service_name, "./data/iris_input_v3.json", 
-                                version=constants.KFSERVING_V1BETA1_VERSION) 
+    KFServing.wait_isvc_ready(service_name, namespace=KFSERVING_TEST_NAMESPACE, 
+                            version=constants.KFSERVING_V1BETA1_VERSION)
+    res = predict(service_name, "./data/iris_input_v3.json", 
+                            version=constants.KFSERVING_V1BETA1_VERSION) 
     assert res["predictions"][0][0] > 0.5
     KFServing.delete(service_name, KFSERVING_TEST_NAMESPACE)
