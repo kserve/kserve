@@ -244,7 +244,7 @@
                   {
                     name: "build-xgbserver",
                     template: "build-xgbserver",
-                  },                 
+                  },
                   {
                     name: "build-batcher",
                     template: "build-batcher",

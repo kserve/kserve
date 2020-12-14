@@ -13,3 +13,4 @@
 # limitations under the License.
 
 from .model import LightGBMModel
+from .lightgbm_model_repository import LightGBMModelRepository

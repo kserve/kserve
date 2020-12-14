@@ -94,7 +94,7 @@ data:
             "supportedFrameworks": [
               "lightgbm"
             ],
-            "multiModelServer": "false"
+            "multiModelServer": "true"
         }
     }
   transformers: |-

@@ -119,6 +119,6 @@ spec:
   default:
     predictor:
       sklearn:
-        storageUri: "gs://kfserving-samples/models/lightgbm/iris"
+        storageUri: "gs://kfserving-examples/models/lightgbm/iris"
         runtimeVersion: X.X.X
 ```

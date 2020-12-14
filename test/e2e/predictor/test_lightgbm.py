@@ -39,7 +39,7 @@ def test_lightgbm_kfserving():
         predictor=V1alpha2PredictorSpec(
             min_replicas=1,
             lightgbm=V1alpha2LightGBMSpec(
-                storage_uri="gs://photon-models/kfserving-samples/models/lightgbm",
+                storage_uri="gs://kfserving-examples/models/lightgbm",
                 resources=V1ResourceRequirements(
                     requests={"cpu": "100m", "memory": "256Mi"},
                     limits={"cpu": "100m", "memory": "256Mi"},
