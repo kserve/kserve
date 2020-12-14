@@ -54,7 +54,7 @@ func TestTorchServeValidation(t *testing.T) {
 			spec: PredictorSpec{
 				PyTorch: &TorchServeSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
-						RuntimeVersion: proto.String("latest"),
+						RuntimeVersion: proto.String("0.3-rc1"),
 					},
 				},
 			},
@@ -64,7 +64,7 @@ func TestTorchServeValidation(t *testing.T) {
 			spec: PredictorSpec{
 				PyTorch: &TorchServeSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
-						RuntimeVersion: proto.String("latest-gpu"),
+						RuntimeVersion: proto.String("0.3-rc1-gpu"),
 					},
 				},
 			},
@@ -74,7 +74,7 @@ func TestTorchServeValidation(t *testing.T) {
 			spec: PredictorSpec{
 				PyTorch: &TorchServeSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
-						RuntimeVersion: proto.String("latest"),
+						RuntimeVersion: proto.String("0.3-rc1"),
 						Container: v1.Container{
 							Resources: v1.ResourceRequirements{
 								Limits: v1.ResourceList{constants.NvidiaGPUResourceType: resource.MustParse("1")},
@@ -162,14 +162,12 @@ func TestTorchServeDefaulter(t *testing.T) {
 			},
 		},
 	}
+
+	protocolV1 := constants.ProtocolV1
+
 	defaultResource = v1.ResourceList{
-		v1.ResourceCPU:    resource.MustParse("1"),
 		v1.ResourceMemory: resource.MustParse("2Gi"),
-	}
-	defaultGpuResource := v1.ResourceList{
-		v1.ResourceCPU:                  resource.MustParse("1"),
-		v1.ResourceMemory:               resource.MustParse("2Gi"),
-		constants.NvidiaGPUResourceType: resource.MustParse("1"),
+		v1.ResourceCPU:    resource.MustParse("1"),
 	}
 	scenarios := map[string]struct {
 		spec     PredictorSpec
@@ -178,13 +176,41 @@ func TestTorchServeDefaulter(t *testing.T) {
 		"DefaultRuntimeVersion": {
 			spec: PredictorSpec{
 				PyTorch: &TorchServeSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						ProtocolVersion: &protocolV1,
+					},
+				},
+			},
+			expected: PredictorSpec{
+				PyTorch: &TorchServeSpec{
+					ModelClassName: "PyTorchModel",
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						RuntimeVersion:  proto.String("latest"),
+						ProtocolVersion: &protocolV1,
+						Container: v1.Container{
+							Name: constants.InferenceServiceContainerName,
+							Resources: v1.ResourceRequirements{
+								Requests: defaultResource,
+								Limits:   defaultResource,
+							},
+						},
+					},
+				},
+			},
+		},
+		"DefaultRuntimeVersionAndProtocol": {
+			spec: PredictorSpec{
+				PyTorch: &TorchServeSpec{
+					ModelClassName:         "PyTorchModel",
 					PredictorExtensionSpec: PredictorExtensionSpec{},
 				},
 			},
 			expected: PredictorSpec{
 				PyTorch: &TorchServeSpec{
+					ModelClassName: "PyTorchModel",
 					PredictorExtensionSpec: PredictorExtensionSpec{
-						RuntimeVersion: proto.String("latest"),
+						RuntimeVersion:  proto.String("latest"),
+						ProtocolVersion: &protocolV1,
 						Container: v1.Container{
 							Name: constants.InferenceServiceContainerName,
 							Resources: v1.ResourceRequirements{
@@ -200,24 +226,22 @@ func TestTorchServeDefaulter(t *testing.T) {
 			spec: PredictorSpec{
 				PyTorch: &TorchServeSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
-						Container: v1.Container{
-							Resources: v1.ResourceRequirements{
-								Requests: defaultGpuResource,
-								Limits:   defaultGpuResource,
-							},
-						},
+						ProtocolVersion: &protocolV1,
+						RuntimeVersion:  proto.String("0.3-rc1"),
 					},
 				},
 			},
 			expected: PredictorSpec{
 				PyTorch: &TorchServeSpec{
+					ModelClassName: "PyTorchModel",
 					PredictorExtensionSpec: PredictorExtensionSpec{
-						RuntimeVersion: proto.String("latest-gpu"),
+						RuntimeVersion:  proto.String("0.3-rc1"),
+						ProtocolVersion: &protocolV1,
 						Container: v1.Container{
 							Name: constants.InferenceServiceContainerName,
 							Resources: v1.ResourceRequirements{
-								Requests: defaultGpuResource,
-								Limits:   defaultGpuResource,
+								Requests: defaultResource,
+								Limits:   defaultResource,
 							},
 						},
 					},
@@ -236,7 +260,8 @@ func TestTorchServeDefaulter(t *testing.T) {
 	}
 }
 
-func TestCreateTorchServeModelServingContainer(t *testing.T) {
+func TestCreateTorchServeModelServingContainerV1(t *testing.T) {
+	protocolV1 := constants.ProtocolV1
 
 	var requestedResource = v1.ResourceRequirements{
 		Limits: v1.ResourceList{
@@ -254,12 +279,8 @@ func TestCreateTorchServeModelServingContainer(t *testing.T) {
 		Predictors: PredictorsConfig{
 			PyTorch: PredictorProtocols{
 				V1: &PredictorConfig{
-					ContainerImage:      "pytorchserver",
-					DefaultImageVersion: "latest",
-				},
-				V2: &PredictorConfig{
-					ContainerImage:      "kfserving/torchserve-kfs",
-					DefaultImageVersion: "0.3-rc1",
+					ContainerImage:      "someOtherImage",
+					DefaultImageVersion: "0.2.0",
 				},
 			},
 		},
@@ -269,17 +290,16 @@ func TestCreateTorchServeModelServingContainer(t *testing.T) {
 		isvc                  InferenceService
 		expectedContainerSpec *v1.Container
 	}{
-		"ContainerSpecWithDefaultImage": {
+		"ContainerSpecWithoutRuntime": {
 			isvc: InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "torchserve",
+					Name: "pytorch",
 				},
 				Spec: InferenceServiceSpec{
 					Predictor: PredictorSpec{
 						PyTorch: &TorchServeSpec{
 							PredictorExtensionSpec: PredictorExtensionSpec{
-								StorageURI:     proto.String("gs://someUri"),
-								RuntimeVersion: proto.String("0.1.0"),
+								StorageURI: proto.String("gs://someUri"),
 								Container: v1.Container{
 									Resources: requestedResource,
 								},
@@ -289,14 +309,46 @@ func TestCreateTorchServeModelServingContainer(t *testing.T) {
 				},
 			},
 			expectedContainerSpec: &v1.Container{
-				Image:     "torchserve:0.1.0",
+				Image:     "someOtherImage:0.2.0",
 				Name:      constants.InferenceServiceContainerName,
 				Resources: requestedResource,
 				Args: []string{
-					"torchserve",
-					"--start",
-					fmt.Sprintf("%s=%s", "--model-store", constants.DefaultModelLocalMountPath+"/model-store"),
-					fmt.Sprintf("%s=%s", "--ts-config", constants.DefaultModelLocalMountPath+"/config/config.properties"),
+					"--model_name=someName",
+					"--model_class_name=PyTorchModel",
+					"--model_dir=/mnt/models",
+					"--http_port=8080",
+				},
+			},
+		},
+		"ContainerSpecWithDefaultImage": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "pytorch",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						PyTorch: &TorchServeSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI:      proto.String("gs://someUri"),
+								RuntimeVersion:  proto.String("latest"),
+								ProtocolVersion: &protocolV1,
+								Container: v1.Container{
+									Resources: requestedResource,
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedContainerSpec: &v1.Container{
+				Image:     "someOtherImage:latest",
+				Name:      constants.InferenceServiceContainerName,
+				Resources: requestedResource,
+				Args: []string{
+					"--model_name=someName",
+					"--model_class_name=PyTorchModel",
+					"--model_dir=/mnt/models",
+					"--http_port=8080",
 				},
 			},
 		},
@@ -324,10 +376,10 @@ func TestCreateTorchServeModelServingContainer(t *testing.T) {
 				Name:      constants.InferenceServiceContainerName,
 				Resources: requestedResource,
 				Args: []string{
-					"torchserve",
-					"--start",
-					fmt.Sprintf("%s=%s", "--model-store", constants.DefaultModelLocalMountPath+"/model-store"),
-					fmt.Sprintf("%s=%s", "--ts-config", constants.DefaultModelLocalMountPath+"/config/config.properties"),
+					"--model_name=someName",
+					"--model_class_name=PyTorchModel",
+					"--model_dir=/mnt/models",
+					"--http_port=8080",
 				},
 			},
 		},
@@ -354,14 +406,15 @@ func TestCreateTorchServeModelServingContainer(t *testing.T) {
 				},
 			},
 			expectedContainerSpec: &v1.Container{
-				Image:     "torchserve:0.1.0",
+				Image:     "someOtherImage:0.1.0",
 				Name:      constants.InferenceServiceContainerName,
 				Resources: requestedResource,
 				Args: []string{
-					"torchserve",
-					"--start",
-					fmt.Sprintf("%s=%s", "--model-store", constants.DefaultModelLocalMountPath+"/model-store"),
-					fmt.Sprintf("%s=%s", "--ts-config", constants.DefaultModelLocalMountPath+"/config/config.properties"),
+					"--model_name=someName",
+					"--model_class_name=PyTorchModel",
+					"--model_dir=/mnt/models",
+					"--http_port=8080",
+					"--workers=1",
 				},
 			},
 		},
@@ -371,6 +424,117 @@ func TestCreateTorchServeModelServingContainer(t *testing.T) {
 			predictor := scenario.isvc.Spec.Predictor.GetImplementation()
 			predictor.Default(&config)
 			res := predictor.GetContainer(metav1.ObjectMeta{Name: "someName"}, &scenario.isvc.Spec.Predictor.ComponentExtensionSpec, &config)
+			if !g.Expect(res).To(gomega.Equal(scenario.expectedContainerSpec)) {
+				t.Errorf("got %q, want %q", res, scenario.expectedContainerSpec)
+			}
+		})
+	}
+}
+
+func TestCreateTorchServeModelServingContainerV2(t *testing.T) {
+	protocolV2 := constants.ProtocolV2
+
+	var requestedResource = v1.ResourceRequirements{
+		Limits: v1.ResourceList{
+			"cpu": resource.Quantity{
+				Format: "100",
+			},
+		},
+		Requests: v1.ResourceList{
+			"cpu": resource.Quantity{
+				Format: "90",
+			},
+		},
+	}
+	var config = InferenceServicesConfig{
+		Predictors: PredictorsConfig{
+			PyTorch: PredictorProtocols{
+				V1: &PredictorConfig{
+					ContainerImage:      "someOtherImage",
+					DefaultImageVersion: "0.1.0",
+				},
+				V2: &PredictorConfig{
+					ContainerImage:      "kfserving/torchserve-kfs",
+					DefaultImageVersion: "0.3-rc1",
+				},
+			},
+		},
+	}
+	g := gomega.NewGomegaWithT(t)
+	scenarios := map[string]struct {
+		isvc                  InferenceService
+		expectedContainerSpec *v1.Container
+	}{
+		"ContainerSpecWithDefaultImage": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "pytorch",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						PyTorch: &TorchServeSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI:      proto.String("gs://someUri"),
+								RuntimeVersion:  proto.String("0.3-rc1"),
+								ProtocolVersion: &protocolV2,
+								Container: v1.Container{
+									Resources: requestedResource,
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedContainerSpec: &v1.Container{
+				Image:     "kfserving/torchserve-kfs:0.3-rc1",
+				Name:      constants.InferenceServiceContainerName,
+				Resources: requestedResource,
+				Args: []string{
+					"torchserve",
+					"--start",
+					"--model-store=/mnt/models/model-store",
+					"--ts-config=/mnt/models/config/config.properties",
+				},
+			},
+		},
+		"ContainerSpecWithCustomImage": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "pytorch",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						PyTorch: &TorchServeSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI:      proto.String("gs://someUri"),
+								ProtocolVersion: &protocolV2,
+								Container: v1.Container{
+									Image:     "customImage:0.1.0",
+									Resources: requestedResource,
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedContainerSpec: &v1.Container{
+				Image:     "customImage:0.1.0",
+				Name:      constants.InferenceServiceContainerName,
+				Resources: requestedResource,
+				Args: []string{
+					"torchserve",
+					"--start",
+					"--model-store=/mnt/models/model-store",
+					"--ts-config=/mnt/models/config/config.properties",
+				},
+			},
+		},
+	}
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			predictor := scenario.isvc.Spec.Predictor.GetImplementation()
+			predictor.Default(&config)
+			res := predictor.GetContainer(scenario.isvc.ObjectMeta, &scenario.isvc.Spec.Predictor.ComponentExtensionSpec, &config)
 			if !g.Expect(res).To(gomega.Equal(scenario.expectedContainerSpec)) {
 				t.Errorf("got %q, want %q", res, scenario.expectedContainerSpec)
 			}

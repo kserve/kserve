@@ -83,11 +83,15 @@ func (t *TorchServeSpec) Default(config *InferenceServicesConfig) {
 		}
 	}
 
-	if *t.ProtocolVersion == constants.ProtocolV1 {
-		if t.ModelClassName == "" {
-			t.ModelClassName = DefaultPyTorchModelClassName
-		}
+	if t.ProtocolVersion == nil {
+		defaultProtocol := constants.ProtocolV1
+		t.ProtocolVersion = &defaultProtocol
 	}
+
+	if *t.ProtocolVersion == constants.ProtocolV1 && t.ModelClassName == "" {
+		t.ModelClassName = DefaultPyTorchModelClassName
+	}
+
 	setResourceRequirementDefaults(&t.Resources)
 }
 
