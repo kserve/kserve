@@ -105,7 +105,7 @@ func TestCreateVirtualService(t *testing.T) {
 			Address: &duckv1beta1.Addressable{
 				URL: &apis.URL{
 					Scheme: "http",
-					Path:   constants.PredictPath(serviceName),
+					Path:   constants.PredictPath(serviceName, constants.ProtocolV1),
 					Host:   network.GetServiceHostname(serviceName, namespace),
 				},
 			},
@@ -184,7 +184,7 @@ func TestCreateVirtualService(t *testing.T) {
 			Address: &duckv1beta1.Addressable{
 				URL: &apis.URL{
 					Scheme: "http",
-					Path:   constants.PredictPath(serviceName),
+					Path:   constants.PredictPath(serviceName, constants.ProtocolV1),
 					Host:   network.GetServiceHostname(serviceName, namespace),
 				},
 			},
@@ -271,7 +271,7 @@ func TestCreateVirtualService(t *testing.T) {
 			Address: &duckv1beta1.Addressable{
 				URL: &apis.URL{
 					Scheme: "http",
-					Path:   constants.PredictPath(serviceName),
+					Path:   constants.PredictPath(serviceName, constants.ProtocolV1),
 					Host:   network.GetServiceHostname(serviceName, namespace),
 				},
 			},
@@ -351,7 +351,7 @@ func TestCreateVirtualService(t *testing.T) {
 			Address: &duckv1beta1.Addressable{
 				URL: &apis.URL{
 					Scheme: "http",
-					Path:   constants.PredictPath(serviceName),
+					Path:   constants.PredictPath(serviceName, constants.ProtocolV1),
 					Host:   network.GetServiceHostname(serviceName, namespace),
 				},
 			},
@@ -436,7 +436,7 @@ func TestCreateVirtualService(t *testing.T) {
 			Address: &duckv1beta1.Addressable{
 				URL: &apis.URL{
 					Scheme: "http",
-					Path:   constants.PredictPath(serviceName),
+					Path:   constants.PredictPath(serviceName, constants.ProtocolV1),
 					Host:   network.GetServiceHostname(serviceName, namespace),
 				},
 			},

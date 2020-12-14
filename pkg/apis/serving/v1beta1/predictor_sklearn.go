@@ -149,3 +149,11 @@ func (k *SKLearnSpec) getDefaultsV2(metadata metav1.ObjectMeta) []v1.EnvVar {
 func (k *SKLearnSpec) GetStorageUri() *string {
 	return k.StorageURI
 }
+
+func (k *SKLearnSpec) GetProtocol() constants.InferenceServiceProtocol {
+	if k.ProtocolVersion != nil {
+		return *k.ProtocolVersion
+	} else {
+		return constants.ProtocolV1
+	}
+}

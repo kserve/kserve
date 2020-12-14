@@ -98,3 +98,7 @@ func (t *TFServingSpec) GetContainer(metadata metav1.ObjectMeta, extensions *Com
 	t.Container.Command = []string{TensorflowEntrypointCommand}
 	return &t.Container
 }
+
+func (t *TFServingSpec) GetProtocol() constants.InferenceServiceProtocol {
+	return constants.ProtocolV1
+}

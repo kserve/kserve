@@ -84,3 +84,7 @@ func (t *TritonSpec) GetContainer(metadata metav1.ObjectMeta, extensions *Compon
 func (t *TritonSpec) GetStorageUri() *string {
 	return t.StorageURI
 }
+
+func (t *TritonSpec) GetProtocol() constants.InferenceServiceProtocol {
+	return constants.ProtocolV2
+}
