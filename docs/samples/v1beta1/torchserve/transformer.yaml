@@ -7,10 +7,13 @@ spec:
     containers:
       - image: kfserving/torchserve-image-transformer:latest
         name: transformer-container
+        env:
+          - name: STORAGE_URI
+            value: pvc://model-pv-claim
   predictor:
     pytorch:
       protocolVersion: v2
-      storageUri: gs://kfserving-examples/models/torchserve/image_classifier
+      storageUri: pvc://model-pv-claim
       resources:
         limits:
           memory: 4Gi

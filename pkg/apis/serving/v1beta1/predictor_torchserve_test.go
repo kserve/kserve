@@ -34,10 +34,15 @@ func TestTorchServeValidation(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	config := InferenceServicesConfig{
 		Predictors: PredictorsConfig{
-			PyTorch: PredictorConfig{
-				ContainerImage:         "pytorch",
-				DefaultImageVersion:    "latest",
-				DefaultGpuImageVersion: "latest-gpu",
+			PyTorch: PredictorProtocols{
+				V1: &PredictorConfig{
+					ContainerImage:      "pytorchserver",
+					DefaultImageVersion: "latest",
+				},
+				V2: &PredictorConfig{
+					ContainerImage:      "kfserving/torchserve-kfs",
+					DefaultImageVersion: "0.3-rc1",
+				},
 			},
 		},
 	}
@@ -145,10 +150,15 @@ func TestTorchServeDefaulter(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	config := InferenceServicesConfig{
 		Predictors: PredictorsConfig{
-			PyTorch: PredictorConfig{
-				ContainerImage:         "torchserve",
-				DefaultImageVersion:    "latest",
-				DefaultGpuImageVersion: "latest-gpu",
+			PyTorch: PredictorProtocols{
+				V1: &PredictorConfig{
+					ContainerImage:      "pytorchserver",
+					DefaultImageVersion: "latest",
+				},
+				V2: &PredictorConfig{
+					ContainerImage:      "kfserving/torchserve-kfs",
+					DefaultImageVersion: "0.3-rc1",
+				},
 			},
 		},
 	}
@@ -242,9 +252,15 @@ func TestCreateTorchServeModelServingContainer(t *testing.T) {
 	}
 	var config = InferenceServicesConfig{
 		Predictors: PredictorsConfig{
-			PyTorch: PredictorConfig{
-				ContainerImage:      "torchserve",
-				DefaultImageVersion: "latest",
+			PyTorch: PredictorProtocols{
+				V1: &PredictorConfig{
+					ContainerImage:      "pytorchserver",
+					DefaultImageVersion: "latest",
+				},
+				V2: &PredictorConfig{
+					ContainerImage:      "kfserving/torchserve-kfs",
+					DefaultImageVersion: "0.3-rc1",
+				},
 			},
 		},
 	}
