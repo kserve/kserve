@@ -70,9 +70,9 @@ data:
             "multiModelServer": "false"
           },
           "v2" : {
-            "image": "jagadeeshj/mnist",
-            "defaultImageVersion": "latest",
-            "defaultGpuImageVersion": "latest-gpu",
+            "image": "kfserving/torchserve-kfs",
+            "defaultImageVersion": "0.3-rc1",
+            "defaultGpuImageVersion": "0.3-rc1-gpu",
             "supportedFrameworks": [
               "pytorch"
             ],

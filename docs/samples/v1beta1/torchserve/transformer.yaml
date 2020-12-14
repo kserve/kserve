@@ -5,12 +5,12 @@ metadata:
 spec:
   transformer:
     containers:
-      - image: <username>/image-transformer:latest
+      - image: kfserving/torchserve-image-transformer:latest
         name: transformer-container
-        env:
-          - name: STORAGE_URI
-            value: pvc://model-pv-claim
   predictor:
     pytorch:
       protocolVersion: v2
-      storageUri: pvc://model-pv-claim
+      storageUri: gs://kfserving-examples/models/torchserve/image_classifier
+      resources:
+        limits:
+          memory: 4Gi

@@ -6,4 +6,8 @@ spec:
   predictor:
     pytorch:
       protocolVersion: v2
-      storageUri: pvc://model-pv-claim
+      storageUri: gs://kfserving-examples/models/torchserve/image_classifier
+      # storageUri: pvc://model-pv-claim
+      resources:
+        limits:
+          memory: 4Gi

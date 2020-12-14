@@ -1,26 +1,30 @@
 # Predict on a InferenceService using Torchserve
 
+In this example, we use a trained pytorch mnist model to predict handwritten digits by running an inference service with pytorch torchserve predictor.
+
 ## Setup
 
 1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/#install-kfserving).
 2. Your cluster's Istio Ingress gateway must be [network accessible](https://istio.io/latest/docs/tasks/traffic-management/ingress/ingress-control/).
 
-## Build image transformer
+**__Note__** For prebuilt mnist marfile and config properties use this remote storage:
 
-This example requires image transformer for converting bytes array image to json array. Refer torchserve image tranformer for building image.
-
-[Image-transformer](../../transformer/torchserve_image_transformer/README.md)
+```storageUri: gs://kfserving-examples/models/torchserve/image_classifier```
 
 ## Creating model storage with model archive file
 
-Refer [model archive file generation](./model-archiver/README.md)
+[Torchserve Model Archive Files (MAR)](https://github.com/pytorch/serve/blob/master/model-archiver/README.md)
+
+We obtain the model and dependent files from [here](https://github.com/pytorch/serve/tree/master/examples/image_classifier/mnist)
+
+Refer [model archive file generation](./model-archiver/README.md) for auto generation of marfiles from model and dependent files.
 
 ## Create the InferenceService
 
 Apply the CRD
 
 ```bash
-kubectl apply -f transformer.yaml
+kubectl apply -f torchserve.yaml
 ```
 
 Expected Output
@@ -29,7 +33,14 @@ Expected Output
 $inferenceservice.serving.kubeflow.org/torchserve created
 ```
 
-[Torchserve inference endpoints](https://github.com/pytorch/serve/blob/master/docs/inference_api.md)
+## Torchserve with KFS envelope inference endpoints
+
+| API  | Verb | Path | Payload |
+| ------------- | ------------- | ------------- | ------------- |
+| Predict  | POST  | /v1/models/<model_name>:predict  | Request:{"instances": []}  Response:{"predictions": []} |
+| Explain  | POST  | /v1/models/<model_name>:explain  | Request:{"instances": []}  Response:{"predictions": [], "explainations": []}   ||
+
+[Sample requests for text and image classification](https://github.com/pytorch/serve/tree/master/kubernetes/kfserving/kf_request_json)
 
 ## Run a prediction
 
@@ -76,6 +87,12 @@ Expected Output
 {"predictions": [["2"]]}
 ```
 
+### Explanation
+
+Model interpretability is an important aspect which help  to understand , which of the input features were important for a particular classification. Captum is a model interpretability libarary. The explain function uses Captum's -integrated graident feature to help us understand, which input features were important for a particular model prediction.
+
+Refer [Captum](https://captum.ai/tutorials/) for more info.
+
 ### Explain Request
 
 ```bash
@@ -118,7 +135,6 @@ kubectl get pods -n <namespace>
 
 NAME                                                                  READY   STATUS    RESTARTS   AGE
 pod/torchserve-predictor-default-8mw55-deployment-57f979c88-f2dkn     2/2     Running   0          4m25s
-pod/torchserve-transformer-default-fssw5-deployment-74cbd5798f94rtd   2/2     Running   0          4m25s
 ```
 
 ## For Autoscaling

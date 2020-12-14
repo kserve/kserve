@@ -46,9 +46,9 @@ data:
             "multiModelServer": "false"
           },
           "v2" : {
-            "image": "jagadeeshj/ts_kf",
-            "defaultImageVersion": "v1.2",
-            "defaultGpuImageVersion": "v1.2-gpu",
+            "image": "kfserving/torchserve-kfs",
+            "defaultImageVersion": "0.3-rc1",
+            "defaultGpuImageVersion": "0.3-rc1-gpu",
             "supportedFrameworks": [
               "pytorch"
             ],

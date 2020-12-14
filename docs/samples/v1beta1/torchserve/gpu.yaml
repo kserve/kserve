@@ -6,14 +6,9 @@ spec:
   predictor:
     pytorch:
       protocolVersion: v2
-      storageUri: "pvc://model-pv-claim"
+      storageUri: gs://kfserving-examples/models/torchserve/image_classifier
       resources:
         limits:
-          cpu: 16
-          memory: 16Gi
-          nvidia.com/gpu: "1"
-        requests:
-          cpu: 8
-          memory: 16Gi
+          memory: 4Gi
           nvidia.com/gpu: "1"
  
