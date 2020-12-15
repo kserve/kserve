@@ -16041,7 +16041,7 @@ data:
             "supportedFrameworks": [
               "sklearn"
             ],
-            "multiModelServer": "ture"
+            "multiModelServer": "true"
           },
           "v2": {
             "image": "docker.io/seldonio/mlserver",
@@ -16071,6 +16071,7 @@ data:
           }
         },
         "pytorch": {
+          "v1" : {
             "image": "gcr.io/kfserving/pytorchserver",
             "defaultImageVersion": "v0.5.0-rc1",
             "defaultGpuImageVersion": "v0.5.0-rc1-gpu",
@@ -16078,6 +16079,16 @@ data:
               "pytorch"
             ],
             "multiModelServer": "false"
+          },
+          "v2" : {
+            "image": "kfserving/torchserve-kfs",
+            "defaultImageVersion": "0.3-rc1",
+            "defaultGpuImageVersion": "0.3-rc1-gpu",
+            "supportedFrameworks": [
+              "pytorch"
+            ],
+            "multiModelServer": "false"
+          }
         },
         "triton": {
             "image": "nvcr.io/nvidia/tritonserver",
