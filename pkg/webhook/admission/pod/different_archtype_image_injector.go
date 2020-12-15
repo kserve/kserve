@@ -9,7 +9,7 @@ import (
 const (
 	ArchTypeForARM64 = "arm64"
 	TargetImageName  = "queue-proxy"
-	ArchTypeLabel    = "archtype"
+	ArchTypeLabel    = "archType"
 )
 
 func MuteImageTag(pod *v1.Pod) error {
