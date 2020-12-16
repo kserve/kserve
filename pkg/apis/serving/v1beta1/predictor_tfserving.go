@@ -33,7 +33,6 @@ var (
 	TensorflowServingGRPCPort            = "9000"
 	TensorflowServingRestPort            = "8080"
 	TensorflowServingGPUSuffix           = "-gpu"
-	TimeoutMilliSeconds                  int64
 	InvalidTensorflowRuntimeVersionError = "Tensorflow RuntimeVersion must be one of %s"
 	InvalidTensorflowRuntimeIncludesGPU  = "Tensorflow RuntimeVersion is not GPU enabled but GPU resources are requested. " + InvalidTensorflowRuntimeVersionError
 	InvalidTensorflowRuntimeExcludesGPU  = "Tensorflow RuntimeVersion is GPU enabled but GPU resources are not requested. " + InvalidTensorflowRuntimeVersionError
@@ -86,10 +85,9 @@ func (t *TFServingSpec) GetStorageUri() *string {
 // GetContainers transforms the resource into a container spec
 func (t *TFServingSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig) *v1.Container {
 	// Get the timeout from user input or else use the default timeout
+	TimeoutMilliSeconds := 1000 * config.Predictors.Tensorflow.DefaultTimeout
 	if extensions.TimeoutSeconds != nil {
 		TimeoutMilliSeconds = 1000 * *extensions.TimeoutSeconds
-	} else {
-		TimeoutMilliSeconds = 1000 * config.Predictors.Tensorflow.DefaultTimeout
 	}
 	arguments := []string{
 		fmt.Sprintf("%s=%s", "--port", TensorflowServingGRPCPort),
