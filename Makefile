@@ -20,7 +20,7 @@ KFSERVING_CONTROLLER_MEMORY_LIMIT ?= 300Mi
 $(shell perl -pi -e 's/cpu:.*/cpu: $(KFSERVING_CONTROLLER_CPU_LIMIT)/' config/default/manager_resources_patch.yaml)
 $(shell perl -pi -e 's/memory:.*/memory: $(KFSERVING_CONTROLLER_MEMORY_LIMIT)/' config/default/manager_resources_patch.yaml)
 
-all: test manager logger batcher
+all: test manager batcher
 
 # Run tests
 test: fmt vet manifests kubebuilder
@@ -33,9 +33,6 @@ manager: generate fmt vet lint
 # Build agent binary
 agent: fmt vet
 	go build -o bin/agent ./cmd/agent
-# Build logger binary
-logger: fmt vet
-	go build -o bin/logger ./cmd/logger
 
 # Build batcher binary
 batcher: fmt vet
