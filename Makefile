@@ -3,7 +3,6 @@ HAS_LINT := $(shell command -v golint;)
 # Image URL to use all building/pushing image targets
 IMG ?= kfserving-controller:latest
 AGENT_IMG ?= agent:latest
-LOGGER_IMG ?= logger:latest
 BATCHER_IMG ?= batcher:latest
 SKLEARN_IMG ?= sklearnserver
 XGB_IMG ?= xgbserver
@@ -170,11 +169,6 @@ docker-build-agent:
 docker-push-agent:
 	docker push ${KO_DOCKER_REPO}/${AGENT_IMG}
 
-docker-build-logger: test
-	docker build -f logger.Dockerfile . -t ${KO_DOCKER_REPO}/${LOGGER_IMG}
-
-docker-push-logger:
-	docker push ${KO_DOCKER_REPO}/${LOGGER_IMG}
 
 docker-build-batcher:
 	docker build -f batcher.Dockerfile . -t ${KO_DOCKER_REPO}/${BATCHER_IMG}
