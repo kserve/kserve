@@ -19,6 +19,7 @@ import kfserving
 
 
 from lgbserver.lightgbm_model_repository import LightGBMModelRepository
+from lgbserver.model import LightGBMModel
 
 DEFAULT_MODEL_NAME = "default"
 DEFAULT_LOCAL_MODEL_DIR = "/tmp/model"
@@ -34,14 +35,15 @@ parser.add_argument('--nthread', default=DEFAULT_NTHREAD,
 args, _ = parser.parse_known_args()
 
 if __name__ == "__main__":
-    model_repository = LightGBMModelRepository(args.model_dir, args.nthread)
     
+    model = LightGBMModel(args.model_name, args.model_dir, args.nthread)
     try:
-        model_repository.load(args.model_name)
+        model.load()
     except Exception as e:
         ex_type, ex_value = sys.exc_info()[:2]
         logging.error(f"fail to load model {args.model_name} from dir {args.model_dir}. "
                       f"exception type {ex_type}, exception msg: {ex_value}")
+    model_repository = LightGBMModelRepository(args.model_dir, args.nthread)                      
     # LightGBM doesn't support multi-process, so the number of http server workers should be 1.
     kfserver = kfserving.KFServer(workers=1, registered_models=model_repository) # pylint:disable=c-extension-no-member
-    kfserver.start()
+    kfserver.start([model] if model.ready else [])
