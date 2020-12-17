@@ -104,3 +104,7 @@ func (s *ARTExplainerSpec) Validate() error {
 		validateStorageURI(s.GetStorageUri()),
 	})
 }
+
+func (s *ARTExplainerSpec) GetProtocol() constants.InferenceServiceProtocol {
+	return constants.ProtocolV1
+}
