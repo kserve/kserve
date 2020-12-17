@@ -145,7 +145,7 @@
           "$ref": "#/definitions/v1.ResourceRequirements"
         },
         "runtimeVersion": {
-          "description": "Defaults to latest ART Version",
+          "description": "Defaults to latest Explainer Version",
           "type": "string"
         },
         "securityContext": {
@@ -296,7 +296,7 @@
           "$ref": "#/definitions/v1.ResourceRequirements"
         },
         "runtimeVersion": {
-          "description": "Defaults to latest ART Version",
+          "description": "Defaults to latest Explainer Version",
           "type": "string"
         },
         "securityContext": {
@@ -1302,7 +1302,7 @@
           "$ref": "#/definitions/v1.ResourceRequirements"
         },
         "runtimeVersion": {
-          "description": "Defaults to latest ART Version",
+          "description": "Defaults to latest Explainer Version",
           "type": "string"
         },
         "securityContext": {
@@ -2695,7 +2695,7 @@
           "$ref": "#/definitions/v1beta1.PredictorConfig"
         },
         "pytorch": {
-          "$ref": "#/definitions/v1beta1.PredictorConfig"
+          "$ref": "#/definitions/v1beta1.PredictorProtocols"
         },
         "sklearn": {
           "$ref": "#/definitions/v1beta1.PredictorProtocols"

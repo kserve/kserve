@@ -41,7 +41,7 @@ type ExplainerSpec struct {
 type ExplainerExtensionSpec struct {
 	// The location of a trained explanation model
 	StorageURI string `json:"storageUri,omitempty"`
-	// Defaults to latest ART Version
+	// Defaults to latest Explainer Version
 	RuntimeVersion *string `json:"runtimeVersion,omitempty"`
 	// Inline custom parameter settings for explainer
 	Config map[string]string `json:"config,omitempty"`

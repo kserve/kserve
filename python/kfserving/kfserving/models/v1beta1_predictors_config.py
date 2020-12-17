@@ -49,7 +49,7 @@ class V1beta1PredictorsConfig(object):
     openapi_types = {
         'onnx': 'V1beta1PredictorConfig',
         'pmml': 'V1beta1PredictorConfig',
-        'pytorch': 'V1beta1PredictorConfig',
+        'pytorch': 'V1beta1PredictorProtocols',
         'sklearn': 'V1beta1PredictorProtocols',
         'tensorflow': 'V1beta1PredictorConfig',
         'triton': 'V1beta1PredictorConfig',
@@ -144,7 +144,7 @@ class V1beta1PredictorsConfig(object):
 
 
         :return: The pytorch of this V1beta1PredictorsConfig.  # noqa: E501
-        :rtype: V1beta1PredictorConfig
+        :rtype: V1beta1PredictorProtocols
         """
         return self._pytorch
 
@@ -154,7 +154,7 @@ class V1beta1PredictorsConfig(object):
 
 
         :param pytorch: The pytorch of this V1beta1PredictorsConfig.  # noqa: E501
-        :type: V1beta1PredictorConfig
+        :type: V1beta1PredictorProtocols
         """
 
         self._pytorch = pytorch

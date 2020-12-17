@@ -486,7 +486,7 @@ class V1beta1AIXExplainerSpec(object):
     def runtime_version(self):
         """Gets the runtime_version of this V1beta1AIXExplainerSpec.  # noqa: E501
 
-        Defaults to latest ART Version  # noqa: E501
+        Defaults to latest Explainer Version  # noqa: E501
 
         :return: The runtime_version of this V1beta1AIXExplainerSpec.  # noqa: E501
         :rtype: str
@@ -497,7 +497,7 @@ class V1beta1AIXExplainerSpec(object):
     def runtime_version(self, runtime_version):
         """Sets the runtime_version of this V1beta1AIXExplainerSpec.
 
-        Defaults to latest ART Version  # noqa: E501
+        Defaults to latest Explainer Version  # noqa: E501
 
         :param runtime_version: The runtime_version of this V1beta1AIXExplainerSpec.  # noqa: E501
         :type: str
