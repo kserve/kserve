@@ -38,7 +38,7 @@ class ImageTransformer(kfserving.KFModel):
         self._key = None
 
     def preprocess(self, inputs: Dict) -> Dict:
-        if inputs['EventType'] == 's3:ObjectCreated:Put':
+        if inputs['EventName'] == 's3:ObjectCreated:Put':
             bucket = inputs['Records'][0]['s3']['bucket']['name']
             key = inputs['Records'][0]['s3']['object']['key']
             self._key = key

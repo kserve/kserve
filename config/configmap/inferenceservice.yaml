@@ -26,11 +26,11 @@ data:
         "sklearn": {
           "v1": {
             "image": "gcr.io/kfserving/sklearnserver",
-            "defaultImageVersion": "v0.5.0-rc0",
+            "defaultImageVersion": "v0.5.0-rc1",
             "supportedFrameworks": [
               "sklearn"
             ],
-            "multiModelServer": "ture"
+            "multiModelServer": "true"
           },
           "v2": {
             "image": "docker.io/seldonio/mlserver",
@@ -44,7 +44,7 @@ data:
         "xgboost": {
           "v1": {
             "image": "gcr.io/kfserving/xgbserver",
-            "defaultImageVersion": "v0.5.0-rc0",
+            "defaultImageVersion": "v0.5.0-rc1",
             "supportedFrameworks": [
               "xgboost"
             ],
@@ -60,13 +60,24 @@ data:
           }
         },
         "pytorch": {
+          "v1" : {
             "image": "gcr.io/kfserving/pytorchserver",
-            "defaultImageVersion": "v0.5.0-rc0",
-            "defaultGpuImageVersion": "v0.5.0-rc0-gpu",
+            "defaultImageVersion": "v0.5.0-rc1",
+            "defaultGpuImageVersion": "v0.5.0-rc1-gpu",
             "supportedFrameworks": [
               "pytorch"
             ],
             "multiModelServer": "false"
+          },
+          "v2" : {
+            "image": "kfserving/torchserve-kfs",
+            "defaultImageVersion": "0.3-rc1",
+            "defaultGpuImageVersion": "0.3-rc1-gpu",
+            "supportedFrameworks": [
+              "pytorch"
+            ],
+            "multiModelServer": "false"
+          }
         },
         "triton": {
             "image": "nvcr.io/nvidia/tritonserver",
@@ -82,7 +93,7 @@ data:
         },
         "pmml": {
             "image": "kfserving/pmmlserver",
-            "defaultImageVersion": "v0.5.0-rc0",
+            "defaultImageVersion": "v0.5.0-rc1",
             "supportedFrameworks": [
               "pmml"
             ],
@@ -96,11 +107,11 @@ data:
     {
         "alibi": {
             "image" : "gcr.io/kfserving/alibi-explainer",
-            "defaultImageVersion": "v0.5.0-rc0"
+            "defaultImageVersion": "v0.5.0-rc1"
         },
         "aix": {
             "image" : "kfserving/aix-explainer",
-            "defaultImageVersion": "v0.5.0-rc0"
+            "defaultImageVersion": "v0.5.0-rc1"
         },
         "art": {
             "image" : "kfserving/art-explainer",
@@ -109,7 +120,7 @@ data:
     }
   storageInitializer: |-
     {
-        "image" : "gcr.io/kfserving/storage-initializer:v0.5.0-rc0",
+        "image" : "gcr.io/kfserving/storage-initializer:v0.5.0-rc1",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
@@ -132,7 +143,7 @@ data:
     }
   logger: |-
     {
-        "image" : "gcr.io/kfserving/logger:v0.5.0-rc0",
+        "image" : "kfserving/agent:v0.5.0-rc1",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
@@ -141,7 +152,7 @@ data:
     }
   batcher: |-
     {
-        "image" : "kfserving/batcher:v0.5.0-rc0",
+        "image" : "kfserving/batcher:v0.5.0-rc1",
         "memoryRequest": "1Gi",
         "memoryLimit": "1Gi",
         "cpuRequest": "1",
@@ -149,7 +160,7 @@ data:
     }
   agent: |-
     {
-        "image" : "kfserving/agent:v0.5.0-rc0",
+        "image" : "kfserving/agent:v0.5.0-rc1",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",

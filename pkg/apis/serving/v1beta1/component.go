@@ -53,6 +53,7 @@ type ComponentImplementation interface {
 	Validate() error
 	GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig) *v1.Container
 	GetStorageUri() *string
+	GetProtocol() constants.InferenceServiceProtocol
 }
 
 // Component interface is implemented by all specs that contain component implementations, e.g. PredictorSpec, ExplainerSpec, TransformerSpec.

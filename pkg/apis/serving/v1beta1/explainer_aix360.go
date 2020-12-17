@@ -104,3 +104,7 @@ func (s *AIXExplainerSpec) Validate() error {
 		validateStorageURI(s.GetStorageUri()),
 	})
 }
+
+func (s *AIXExplainerSpec) GetProtocol() constants.InferenceServiceProtocol {
+	return constants.ProtocolV1
+}

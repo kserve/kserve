@@ -89,3 +89,7 @@ func (c *CustomTransformer) GetContainer(metadata metav1.ObjectMeta, extensions 
 	}
 	return &c.Containers[0]
 }
+
+func (c *CustomTransformer) GetProtocol() constants.InferenceServiceProtocol {
+	return constants.ProtocolV1
+}
