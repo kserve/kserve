@@ -44,7 +44,7 @@ def test_tabular_explainer():
     isvc = V1beta1InferenceService(api_version=api_version,
                                    kind=constants.KFSERVING_KIND,
                                    metadata=client.V1ObjectMeta(
-                                       name=service_name, namespace='default'),
+                                       name=service_name, namespace=KFSERVING_TEST_NAMESPACE,
                                    spec=V1beta1InferenceServiceSpec(
                                        predictor=V1beta1PredictorSpec(
                                            containers=[V1Container(
