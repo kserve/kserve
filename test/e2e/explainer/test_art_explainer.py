@@ -24,7 +24,6 @@ from kfserving import V1beta1InferenceServiceSpec
 from kfserving import V1beta1ExplainerSpec
 from kfserving import V1beta1ARTExplainerSpec
 from kfserving import V1beta1InferenceService
-from kfserving import V1beta1CustomSpec
 from kubernetes.client import V1ResourceRequirements
 from kubernetes.client import V1Container
 
@@ -45,27 +44,25 @@ def test_tabular_explainer():
     isvc = V1beta1InferenceService(api_version=api_version,
                                    kind=constants.KFSERVING_KIND,
                                    metadata=client.V1ObjectMeta(
-                                       name=service_name, namespace=KFSERVING_TEST_NAMESPACE),
+                                       name=service_name, namespace='default'),
                                    spec=V1beta1InferenceServiceSpec(
                                        predictor=V1beta1PredictorSpec(
-                                           custom=V1beta1CustomSpec(
-                                               container=V1Container(
-                                                   name="predictor",
-                                                   # Update the image below to the aipipeline org.
-                                                   image='ibmandrewbutler/art-server:art-mnist',
-                                                   command=["python", "-m", "sklearnserver", "--model_name", "art-explainer"],
-                                                   resources=V1ResourceRequirements(
-                                                       requests={'cpu': '500m', 'memory': '1Gi'},
-                                                       limits={'cpu': '500m', 'memory': '1Gi'})))),
+                                           containers=[V1Container(
+                                               name="predictor",
+                                               # Update the image below to the aipipeline org.
+                                               image='aipipeline/art-server:mnist-predictor',
+                                               command=["python", "-m", "sklearnserver", "--model_name", "art-explainer", "--model_dir", "file://sklearnserver/sklearnserver/example_model"])]
+                                            ),
                                        explainer=V1beta1ExplainerSpec(
                                            min_replicas=1,
-                                           aix=V1beta1ARTExplainerSpec(
+                                           art=V1beta1ARTExplainerSpec(
                                                type='SquareAttack',
-                                               resources=V1ResourceRequirements(
-                                                   requests={'cpu': '500m', 'memory': '1Gi'},
-                                                   limits={'cpu': '500m', 'memory': '1Gi'})))))
+                                               name='explainer',
+                                               config={"nb_classes": "10"}))
+                                        )
+                                    )
 
-    KFServing.create(isvc)
+    KFServing.create(isvc, version=kfserving_version)
     try:
         KFServing.wait_isvc_ready(service_name, namespace=KFSERVING_TEST_NAMESPACE, timeout_seconds=720)
     except RuntimeError as e:
