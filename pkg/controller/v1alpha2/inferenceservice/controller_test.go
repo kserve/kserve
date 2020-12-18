@@ -63,7 +63,8 @@ var (
 var configs = map[string]string{
 	"predictors": `{
         "tensorflow" : {
-            "image" : "tensorflow/serving"
+            "image" : "tensorflow/serving",
+			"defaultTimeout" : "60"
         },
         "sklearn" : {
             "image" : "kfserving/sklearnserver"
@@ -216,6 +217,7 @@ var _ = Describe("test inference service controller", func() {
 												"--rest_api_port=" + kfserving.TensorflowServingRestPort,
 												"--model_name=" + defaultInstance.Name,
 												"--model_base_path=" + constants.DefaultModelLocalMountPath,
+												"--rest_api_timeout_in_ms=60000",
 											},
 											LivenessProbe: &v1.Probe{
 												Handler: v1.Handler{
@@ -490,6 +492,7 @@ var _ = Describe("test inference service controller", func() {
 												"--rest_api_port=" + kfserving.TensorflowServingRestPort,
 												"--model_name=" + canary.Name,
 												"--model_base_path=" + constants.DefaultModelLocalMountPath,
+												"--rest_api_timeout_in_ms=60000",
 											},
 											LivenessProbe: &v1.Probe{
 												Handler: v1.Handler{

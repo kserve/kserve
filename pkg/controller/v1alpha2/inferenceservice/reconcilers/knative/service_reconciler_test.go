@@ -61,7 +61,8 @@ func TestKnativeServiceReconcile(t *testing.T) {
 	configs := map[string]string{
 		"predictors": `{
            "tensorflow" : {
-             "image" : "tensorflow/serving"
+             "image" : "tensorflow/serving",
+			 "defaultTimeout": "60"
            },
            "sklearn" : {
              "image" : "kfserving/sklearnserver"
@@ -144,6 +145,7 @@ func TestKnativeServiceReconcile(t *testing.T) {
 												"--rest_api_port=" + v1alpha2.TensorflowServingRestPort,
 												"--model_name=mnist",
 												"--model_base_path=" + constants.DefaultModelLocalMountPath,
+												"--rest_api_timeout_in_ms=60000",
 											},
 											LivenessProbe: &v1.Probe{
 												Handler: v1.Handler{
@@ -200,6 +202,7 @@ func TestKnativeServiceReconcile(t *testing.T) {
 												"--rest_api_port=" + v1alpha2.TensorflowServingRestPort,
 												"--model_name=mnist",
 												"--model_base_path=" + constants.DefaultModelLocalMountPath,
+												"--rest_api_timeout_in_ms=60000",
 											},
 											LivenessProbe: &v1.Probe{
 												Handler: v1.Handler{
@@ -274,6 +277,7 @@ func TestKnativeServiceReconcile(t *testing.T) {
 												"--rest_api_port=" + v1alpha2.TensorflowServingRestPort,
 												"--model_name=mnist",
 												"--model_base_path=" + constants.DefaultModelLocalMountPath,
+												"--rest_api_timeout_in_ms=60000",
 											},
 											LivenessProbe: &v1.Probe{
 												Handler: v1.Handler{

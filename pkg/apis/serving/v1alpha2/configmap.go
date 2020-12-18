@@ -59,6 +59,8 @@ type PredictorConfig struct {
 
 	DefaultImageVersion    string `json:"defaultImageVersion"`
 	DefaultGpuImageVersion string `json:"defaultGpuImageVersion"`
+	// Default timeout of predictor for serving a request, in seconds
+	DefaultTimeout int64 `json:"defaultTimeout,string,omitempty"`
 }
 
 // +kubebuilder:object:generate=false

@@ -69,7 +69,8 @@ var isvc = v1alpha2.InferenceService{
 var configMapData = map[string]string{
 	"predictors": `{
         "tensorflow" : {
-            "image" : "tensorflow/tfserving"
+            "image" : "tensorflow/tfserving",
+			"defaultTimeout": "60"
         },
         "sklearn" : {
             "v1": {
@@ -122,6 +123,7 @@ var defaultService = &knservingv1.Service{
 									"--rest_api_port=" + v1alpha2.TensorflowServingRestPort,
 									"--model_name=mnist",
 									"--model_base_path=" + constants.DefaultModelLocalMountPath,
+									"--rest_api_timeout_in_ms=60000",
 								},
 								LivenessProbe: &v1.Probe{
 									Handler: v1.Handler{
@@ -181,6 +183,7 @@ var canaryService = &knservingv1.Service{
 									"--rest_api_port=" + v1alpha2.TensorflowServingRestPort,
 									"--model_name=mnist",
 									"--model_base_path=" + constants.DefaultModelLocalMountPath,
+									"--rest_api_timeout_in_ms=60000",
 								},
 								LivenessProbe: &v1.Probe{
 									Handler: v1.Handler{

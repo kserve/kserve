@@ -10,6 +10,7 @@ data:
             "image": "tensorflow/serving",
             "defaultImageVersion": "1.14.0",
             "defaultGpuImageVersion": "1.14.0-gpu",
+            "defaultTimeout": "60",
             "supportedFrameworks": [
               "tensorflow"
             ],
