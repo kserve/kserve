@@ -43,6 +43,7 @@ const (
 	DefaultPyTorchRuntimeVersion        = "0.1.0"
 	DefaultPyTorchRuntimeVersionGPU     = "0.1.0-gpu"
 	DefaultXGBoostRuntimeVersion        = "0.1.0"
+	DefaultLightGBMRuntimeVersion       = "0.1.0"
 	DefaultTritonISRuntimeVersion       = "19.05-py3"
 	DefaultONNXRuntimeVersion           = "v0.5.0"
 	DefaultAlibiExplainerRuntimeVersion = "0.2.3"
@@ -88,6 +89,10 @@ func TestMain(m *testing.M) {
 				  "image" : "kfserving/xgbserver",
 				  "defaultImageVersion": "0.1.0"
                 }
+			},
+			"lightgbm" : {
+				"image" : "kfserving/lgbserver",
+				"defaultImageVersion": "0.1.0"
 			},
 			"pytorch" : {
 				"image" : "kfserving/pytorchserver",

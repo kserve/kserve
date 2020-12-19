@@ -47,6 +47,7 @@ from kfserving.models.v1beta1_inference_service_spec import V1beta1InferenceServ
 from kfserving.models.v1beta1_inference_service_status import V1beta1InferenceServiceStatus
 from kfserving.models.v1beta1_inference_services_config import V1beta1InferenceServicesConfig
 from kfserving.models.v1beta1_ingress_config import V1beta1IngressConfig
+from kfserving.models.v1beta1_light_gbm_spec import V1beta1LightGBMSpec
 from kfserving.models.v1beta1_logger_spec import V1beta1LoggerSpec
 from kfserving.models.v1beta1_onnx_runtime_spec import V1beta1ONNXRuntimeSpec
 from kfserving.models.v1beta1_pmml_spec import V1beta1PMMLSpec
