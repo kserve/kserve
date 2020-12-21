@@ -3,12 +3,11 @@
 > Getting started with Prometheus based monitoring of model versions defined in InferenceService resource objects.
 
 ### Table of Contents
-1. [Prometheus installation](#Prometheus-installation)
-2. [Exposing the Prom UI](#xyz)
-3. [Example 1: Prom queries with InferenceService v1beta1 API](#xyz)
-4. [Example 2: Prom queries with InferenceService v1alpha2 API](#xyz)
-5. [Metrics and AI-driven live experiments, progressive delivery, and automated rollouts](#xyz)
-
+1. [Prometheus installation](#prometheus-installation)
+2. [Exposing the Prom UI](#exposing-the-prom-ui)
+3. [Example 1: Prom queries with InferenceService v1beta1 API](#example-1-prom-queries-with-inferenceservice-v1beta1-api)
+4. [Example 2: Prom queries with InferenceService v1alpha2 API](#example-2-prom-queries-with-inferenceservice-v1alpha2-api)
+5. [Metrics and AI-driven live experiments, progressive delivery, and automated rollouts](#metrics-and-ai-driven-live-experiments-progressive-delivery-and-automated-rollouts)
 
 ### Prometheus installation
 
