@@ -1,5 +1,5 @@
-namePrefix: iter8-
-namespace: iter8-monitoring
+namePrefix: kfserving-
+namespace: kfserving-monitoring
 resources:
 - clusterrole.yaml
 - clusterrolebinding.yaml

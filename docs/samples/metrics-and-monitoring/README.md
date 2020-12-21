@@ -20,6 +20,9 @@ Install Prometheus operator.
 ```shell
 cd kfserving
 kustomize build docs/samples/metrics-and-monitoring/prometheus-operator | kubectl apply -f -
+kubectl wait --for condition=established --timeout=120s crd/prometheuses.monitoring.coreos.com
+kubectl wait --for condition=established --timeout=120s crd/servicemonitors.monitoring.coreos.com
+kustomize build docs/samples/metrics-and-monitoring/prometheus | kubectl apply -f -
 ```
 
 ### Exposing the Prom UI

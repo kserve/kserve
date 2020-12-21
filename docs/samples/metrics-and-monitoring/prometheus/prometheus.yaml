@@ -3,7 +3,7 @@ kind: Prometheus
 metadata:
   name: prometheus
 spec:
-  serviceAccountName: iter8-prometheus
+  serviceAccountName: kfserving-prometheus
   serviceMonitorNamespaceSelector: {}
   serviceMonitorSelector: {}
   resources:
