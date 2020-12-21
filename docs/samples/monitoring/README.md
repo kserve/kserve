@@ -1,6 +1,6 @@
 ## Metrics and Monitoring
 
-This document will help you get started with monitoring the model versions defined in your InferenceService resource objects using Prometheus.
+Getting started with Prometheus based monitoring of model versions defined in InferenceService resource objects.
 
 ### Table of Contents
 1. [Prometheus installation](#Prometheus-installation)
