@@ -13,7 +13,7 @@ The initial focus of this documentation is monitoring and querying system metric
 
 ### Prometheus installation
 
-**Prerequisites:** [Kustomize v3](https://kubectl.docs.kubernetes.io/installation/kustomize/).
+**Prerequisites:** Kubernetes cluster and [Kustomize v3](https://kubectl.docs.kubernetes.io/installation/kustomize/).
 
 Install Prometheus operator.
 
