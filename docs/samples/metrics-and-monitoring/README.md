@@ -13,7 +13,9 @@ The initial focus of this documentation is monitoring and querying system metric
 
 ### Prometheus installation
 
-Install Prometheus operator using [Kustomize v3](https://kubectl.docs.kubernetes.io/installation/kustomize/).
+**Prerequisites:** [Kustomize v3](https://kubectl.docs.kubernetes.io/installation/kustomize/).
+
+Install Prometheus operator.
 
 ```shell
 cd kfserving
