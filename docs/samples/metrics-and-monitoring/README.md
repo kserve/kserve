@@ -27,6 +27,12 @@ kustomize build docs/samples/metrics-and-monitoring/prometheus | kubectl apply -
 
 ### Exposing the Prom UI
 
+```shell
+kubectl port-forward service/kfserving-prometheus -n kfserving-monitoring 30900:9090
+```
+
+You should now be able to access Prometheus UI in your browser at http://localhost:30900.
+
 ### Example 1: Prom queries with InferenceService v1beta1 API
 
 ### Example 2: Prom queries with InferenceService v1alpha2 API
