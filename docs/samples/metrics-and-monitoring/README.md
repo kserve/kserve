@@ -2,7 +2,7 @@
 
 > Getting started with Prometheus based monitoring of model versions defined in InferenceService resource objects.
 
-The initial focus of this documentation is monitoring system metrics such as mean/tail latency and error rates for your model versions. Documentation for ML/business metrics and non-prometheus databases will be added in the future.
+The initial focus of this documentation is monitoring and querying system metrics such as mean/tail latency and error rates. Documentation for ML/business metrics will be added in the future.
 
 ### Table of Contents
 1. [Prometheus installation](#prometheus-installation)
@@ -12,6 +12,13 @@ The initial focus of this documentation is monitoring system metrics such as mea
 5. [Metrics and AI-driven live experiments, progressive delivery, and automated rollouts](#metrics-and-ai-driven-live-experiments-progressive-delivery-and-automated-rollouts)
 
 ### Prometheus installation
+
+Install Prometheus operator using [Kustomize v3](https://kubectl.docs.kubernetes.io/installation/kustomize/).
+
+```shell
+cd kfserving
+kustomize build docs/samples/metrics-and-monitoring/prometheus-operator | kubectl apply -f -
+```
 
 ### Exposing the Prom UI
 

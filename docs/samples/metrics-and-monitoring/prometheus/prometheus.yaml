@@ -1,0 +1,12 @@
+apiVersion: monitoring.coreos.com/v1
+kind: Prometheus
+metadata:
+  name: prometheus
+spec:
+  serviceAccountName: iter8-prometheus
+  serviceMonitorNamespaceSelector: {}
+  serviceMonitorSelector: {}
+  resources:
+    requests:
+      memory: 400Mi
+  enableAdminAPI: false

@@ -1,0 +1,5 @@
+namePrefix: kfserving-
+namespace: kfserving-monitoring
+resources:
+- github.com/prometheus-operator/prometheus-operator?ref=v0.44.1
+- namespace.yaml
