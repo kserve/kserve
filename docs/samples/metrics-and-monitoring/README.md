@@ -2,6 +2,8 @@
 
 > Getting started with Prometheus based monitoring of model versions defined in InferenceService resource objects.
 
+The initial focus of this documentation is monitoring system metrics such as mean/tail latency and error rates for your model versions. Documentation for ML/business metrics and non-prometheus databases will be added in the future.
+
 ### Table of Contents
 1. [Prometheus installation](#prometheus-installation)
 2. [Exposing the Prom UI](#exposing-the-prom-ui)
