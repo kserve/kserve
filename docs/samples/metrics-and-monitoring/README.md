@@ -9,7 +9,7 @@ The initial focus of this documentation is monitoring and querying system metric
 2. [Accessing Prom UI](#accessing-prom-ui)
 3. [Querying Prometheus (InferenceService v1beta1)](#querying-prometheus-inferenceservice-v1beta1)
 4. [Querying Prometheus (InferenceService v1alpha2)](#querying-prometheus-inferenceservice-v1alpha2)
-5. [Metrics and AI-driven live experiments and progressive delivery](#metrics-and-ai-driven-live-experiments-progressive-delivery-and-automated-rollouts)
+5. [Metrics and AI-driven live experiments and progressive delivery](#metrics-and-ai-driven-live-experiments-and-progressive-delivery)
 
 ### Installing Prometheus
 
