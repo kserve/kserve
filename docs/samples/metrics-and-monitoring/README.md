@@ -7,9 +7,9 @@ The initial focus of this documentation is monitoring and querying system metric
 ### Table of Contents
 1. [Installing Prometheus](#installing-prometheus)
 2. [Accessing Prom UI](#accessing-prom-ui)
-3. [Querying Prometheus (InferenceService v1beta1)](#example-1-prom-queries-with-inferenceservice-v1beta1-api)
-4. [Querying Prometheus (InferenceService v1alpha2)](#example-2-prom-queries-with-inferenceservice-v1alpha2-api)
-5. [Metrics and multi-armed bandit (MAB) driven live experiments, progressive delivery, and automated rollouts](#metrics-and-ai-driven-live-experiments-progressive-delivery-and-automated-rollouts)
+3. [Querying Prometheus (InferenceService v1beta1)](#querying-prometheus-inferenceservice-v1beta1)
+4. [Querying Prometheus (InferenceService v1alpha2)](#querying-prometheus-inferenceservice-v1alpha2)
+5. [Metrics and AI-driven live experiments and progressive delivery](#metrics-and-ai-driven-live-experiments-progressive-delivery-and-automated-rollouts)
 
 ### Installing Prometheus
 
@@ -37,5 +37,5 @@ You should now be able to access Prometheus UI in your browser at http://localho
 
 ### Querying Prometheus (InferenceService v1alpha2)
 
-### Metrics and multi-armed bandit (MAB) driven live experiments, progressive delivery, and automated rollouts
+### Metrics and AI-driven live experiments and progressive delivery
 See [iter8-kfserving](https://github.com/iter8-tools/iter8-kfserving).
