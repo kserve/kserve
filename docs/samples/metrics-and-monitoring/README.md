@@ -5,13 +5,13 @@
 The initial focus of this documentation is monitoring and querying system metrics such as mean/tail latency and error rates. Documentation for ML/business metrics will be added in the future.
 
 ### Table of Contents
-1. [Prometheus installation](#prometheus-installation)
-2. [Exposing the Prom UI](#exposing-the-prom-ui)
-3. [Example 1: Prom queries with InferenceService v1beta1 API](#example-1-prom-queries-with-inferenceservice-v1beta1-api)
-4. [Example 2: Prom queries with InferenceService v1alpha2 API](#example-2-prom-queries-with-inferenceservice-v1alpha2-api)
-5. [Metrics and AI-driven live experiments, progressive delivery, and automated rollouts](#metrics-and-ai-driven-live-experiments-progressive-delivery-and-automated-rollouts)
+1. [Installing Prometheus](#installing-prometheus)
+2. [Accessing Prom UI](#accessing-prom-ui)
+3. [Querying Prometheus (InferenceService v1beta1)](#example-1-prom-queries-with-inferenceservice-v1beta1-api)
+4. [Querying Prometheus (InferenceService v1alpha2)](#example-2-prom-queries-with-inferenceservice-v1alpha2-api)
+5. [Metrics and multi-armed bandit (MAB) driven live experiments, progressive delivery, and automated rollouts](#metrics-and-ai-driven-live-experiments-progressive-delivery-and-automated-rollouts)
 
-### Prometheus installation
+### Installing Prometheus
 
 **Prerequisites:** Kubernetes cluster and [Kustomize v3](https://kubectl.docs.kubernetes.io/installation/kustomize/).
 
@@ -25,7 +25,7 @@ kubectl wait --for condition=established --timeout=120s crd/servicemonitors.moni
 kustomize build docs/samples/metrics-and-monitoring/prometheus | kubectl apply -f -
 ```
 
-### Exposing the Prom UI
+### Accessing Prom UI
 
 ```shell
 kubectl port-forward service/kfserving-prometheus -n kfserving-monitoring 30900:9090
@@ -33,9 +33,9 @@ kubectl port-forward service/kfserving-prometheus -n kfserving-monitoring 30900:
 
 You should now be able to access Prometheus UI in your browser at http://localhost:30900.
 
-### Example 1: Prom queries with InferenceService v1beta1 API
+### Querying Prometheus (InferenceService v1beta1)
 
-### Example 2: Prom queries with InferenceService v1alpha2 API
+### Querying Prometheus (InferenceService v1alpha2)
 
-### Metrics and AI-driven live experiments, progressive delivery, and automated rollouts
-See [iter8-kfserving project](https://github.com/iter8-tools/iter8-kfserving).
+### Metrics and multi-armed bandit (MAB) driven live experiments, progressive delivery, and automated rollouts
+See [iter8-kfserving](https://github.com/iter8-tools/iter8-kfserving).
