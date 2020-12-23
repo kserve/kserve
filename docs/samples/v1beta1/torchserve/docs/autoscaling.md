@@ -53,7 +53,7 @@ SERVICE_HOSTNAME=$(kubectl get inferenceservice torchserve -o jsonpath='{.status
 ### Get Pods
 
 ```bash
-Kubectl get pods -n kfserving-test 
+kubectl get pods -n kfserving-test 
 
 NAME                                                             READY   STATUS        RESTARTS   AGE
 torchserve-predictor-default-cj2d8-deployment-69444c9c74-67qwb   2/2     Terminating   0          103s

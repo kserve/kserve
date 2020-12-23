@@ -84,7 +84,7 @@ Expected Output
 < server: istio-envoy
 <
 * Connection #0 to host a881f5a8c676a41edbccdb0a394a80d6-2069247558.us-west-2.elb.amazonaws.com left intact
-{"predictions": [["2"]]}
+{"predictions": ["2"]}
 ```
 
 ### Explanation

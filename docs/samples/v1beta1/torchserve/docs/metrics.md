@@ -10,7 +10,7 @@ This adds prometheus and granfana to the cluster with some default metrics.
 ## Enable request metrics
 
 ```bash
-Kubectl edit cm -n knative-serving config-observability
+kubectl edit cm -n knative-serving config-observability
 ```
 
 Add `metrics.request-metrics-backend-destination: prometheus` to data field. You can find detailed information in `data._example` field in the ConfigMap you are editing.
@@ -20,7 +20,7 @@ Add `metrics.request-metrics-backend-destination: prometheus` to data field. You
 Create namespace
 
 ```bash
-Kubectl create namespace knative-monitoring
+kubectl create namespace knative-monitoring
 
 kubectl apply -f https://github.com/knative/serving/releases/download/v0.17.0/monitoring-metrics-prometheus.yaml
 ```
@@ -136,7 +136,7 @@ Expected Output
 < server: istio-envoy
 <
 * Connection #0 to host a881f5a8c676a41edbccdb0a394a80d6-2069247558.us-west-2.elb.amazonaws.com left intact
-{"predictions": [["2"]]}
+{"predictions": ["2"]}
 ```
 
 ### Adding data source
@@ -146,8 +146,8 @@ Expected Output
 * Navigate to prometheus page
 * Add a query in the prometheus page
 
-![Add query](../docs/images/prometheus.png)
-![Graph](../docs/images/prometheus_graph.png)
+![Add query](./images/prometheus.png)
+![Graph](./images/prometheus_graph.png)
 
 #### Grafana dashboard
 
@@ -155,7 +155,7 @@ Expected Output
 * Add a dashboard from the top left + symbol
 * Click add query and enter the query
   
-![Add dashboard](../docs/images/grafana.png)
+![Add dashboard](./images/grafana.png)
 
 Add Prometheus data source to Grafana to visualize metrics.
 Link: [Add datasource](https://prometheus.io/docs/visualization/grafana/)
