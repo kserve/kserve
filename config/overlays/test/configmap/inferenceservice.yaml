@@ -48,8 +48,8 @@ data:
           },
           "v2" : {
             "image": "kfserving/torchserve-kfs",
-            "defaultImageVersion": "0.3-rc1",
-            "defaultGpuImageVersion": "0.3-rc1-gpu",
+            "defaultImageVersion": "0.3.0",
+            "defaultGpuImageVersion": "0.3.0-gpu",
             "supportedFrameworks": [
               "pytorch"
             ],
@@ -62,6 +62,10 @@ data:
         },
         "pmml": {
             "image": "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/pmmlserver",
+            "defaultImageVersion": "latest"
+        },
+        "lightgbm": {
+            "image": "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/lgbserver",
             "defaultImageVersion": "latest"
         }
     }

@@ -67,6 +67,16 @@ func (src *InferenceService) ConvertTo(dstRaw conversion.Hub) error {
 				},
 			},
 		}
+	} else if src.Spec.Default.Predictor.LightGBM != nil {
+		dst.Spec.Predictor.LightGBM = &v1beta1.LightGBMSpec{
+			PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
+				RuntimeVersion: &src.Spec.Default.Predictor.LightGBM.RuntimeVersion,
+				StorageURI:     &src.Spec.Default.Predictor.LightGBM.StorageURI,
+				Container: v1.Container{
+					Resources: src.Spec.Default.Predictor.LightGBM.Resources,
+				},
+			},
+		}
 	} else if src.Spec.Default.Predictor.Triton != nil {
 		dst.Spec.Predictor.Triton = &v1beta1.TritonSpec{
 			PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
@@ -227,6 +237,14 @@ func (dst *InferenceService) ConvertFrom(srcRaw conversion.Hub) error {
 		}
 		if src.Spec.Predictor.XGBoost.StorageURI != nil {
 			dst.Spec.Default.Predictor.XGBoost.StorageURI = *src.Spec.Predictor.XGBoost.StorageURI
+		}
+	} else if src.Spec.Predictor.LightGBM != nil {
+		dst.Spec.Default.Predictor.LightGBM = &LightGBMSpec{
+			RuntimeVersion: *src.Spec.Predictor.LightGBM.RuntimeVersion,
+			Resources:      src.Spec.Predictor.LightGBM.Resources,
+		}
+		if src.Spec.Predictor.LightGBM.StorageURI != nil {
+			dst.Spec.Default.Predictor.LightGBM.StorageURI = *src.Spec.Predictor.LightGBM.StorageURI
 		}
 	} else if src.Spec.Predictor.Triton != nil {
 		dst.Spec.Default.Predictor.Triton = &TritonSpec{

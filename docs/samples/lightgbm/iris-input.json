@@ -1,0 +1,8 @@
+{
+  "inputs": [{
+    "sepal_length_(cm)": [5.1],
+    "sepal_width_(cm)": [3.5],
+    "petal_length_(cm)": [1.4],
+    "petal_width_(cm)": [0.2]
+  }]
+}

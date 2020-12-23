@@ -40,6 +40,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"./pkg/apis/serving/v1alpha2.InferenceServiceList":    schema_pkg_apis_serving_v1alpha2_InferenceServiceList(ref),
 		"./pkg/apis/serving/v1alpha2.InferenceServiceSpec":    schema_pkg_apis_serving_v1alpha2_InferenceServiceSpec(ref),
 		"./pkg/apis/serving/v1alpha2.InferenceServiceStatus":  schema_pkg_apis_serving_v1alpha2_InferenceServiceStatus(ref),
+		"./pkg/apis/serving/v1alpha2.LightGBMSpec":            schema_pkg_apis_serving_v1alpha2_LightGBMSpec(ref),
 		"./pkg/apis/serving/v1alpha2.Logger":                  schema_pkg_apis_serving_v1alpha2_Logger(ref),
 		"./pkg/apis/serving/v1alpha2.ONNXSpec":                schema_pkg_apis_serving_v1alpha2_ONNXSpec(ref),
 		"./pkg/apis/serving/v1alpha2.PMMLSpec":                schema_pkg_apis_serving_v1alpha2_PMMLSpec(ref),
@@ -681,6 +682,42 @@ func schema_pkg_apis_serving_v1alpha2_ONNXSpec(ref common.ReferenceCallback) com
 	}
 }
 
+func schema_pkg_apis_serving_v1alpha2_LightGBMSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "LightGBMSpec defines arguments for configuring LightGBM model serving.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"storageUri": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The URI of the trained model which contains model.lightgbm",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"runtimeVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "LightGBM KFServer docker image version which defaults to latest release",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"resources": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Defaults to requests and limits of 1CPU, 2Gb MEM.",
+							Ref:         ref("k8s.io/api/core/v1.ResourceRequirements"),
+						},
+					},
+				},
+				Required: []string{"storageUri"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/api/core/v1.ResourceRequirements"},
+	}
+}
+
 func schema_pkg_apis_serving_v1alpha2_PMMLSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -772,6 +809,12 @@ func schema_pkg_apis_serving_v1alpha2_PredictorSpec(ref common.ReferenceCallback
 							Ref:         ref("./pkg/apis/serving/v1alpha2.PMMLSpec"),
 						},
 					},
+					"lightgbm": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Spec for LightGBM predictor",
+							Ref:         ref("./pkg/apis/serving/v1alpha2.LightGBMSpec"),
+						},
+					},
 					"serviceAccountName": {
 						SchemaProps: spec.SchemaProps{
 							Description: "ServiceAccountName is the name of the ServiceAccount to use to run the service",
@@ -816,7 +859,7 @@ func schema_pkg_apis_serving_v1alpha2_PredictorSpec(ref common.ReferenceCallback
 			},
 		},
 		Dependencies: []string{
-			"./pkg/apis/serving/v1alpha2.Batcher", "./pkg/apis/serving/v1alpha2.CustomSpec", "./pkg/apis/serving/v1alpha2.Logger", "./pkg/apis/serving/v1alpha2.ONNXSpec", "./pkg/apis/serving/v1alpha2.PMMLSpec", "./pkg/apis/serving/v1alpha2.PyTorchSpec", "./pkg/apis/serving/v1alpha2.SKLearnSpec", "./pkg/apis/serving/v1alpha2.TensorflowSpec", "./pkg/apis/serving/v1alpha2.TritonSpec", "./pkg/apis/serving/v1alpha2.XGBoostSpec"},
+			"./pkg/apis/serving/v1alpha2.Batcher", "./pkg/apis/serving/v1alpha2.CustomSpec", "./pkg/apis/serving/v1alpha2.LightGBMSpec", "./pkg/apis/serving/v1alpha2.Logger", "./pkg/apis/serving/v1alpha2.ONNXSpec", "./pkg/apis/serving/v1alpha2.PMMLSpec", "./pkg/apis/serving/v1alpha2.PyTorchSpec", "./pkg/apis/serving/v1alpha2.SKLearnSpec", "./pkg/apis/serving/v1alpha2.TensorflowSpec", "./pkg/apis/serving/v1alpha2.TritonSpec", "./pkg/apis/serving/v1alpha2.XGBoostSpec"},
 	}
 }
 

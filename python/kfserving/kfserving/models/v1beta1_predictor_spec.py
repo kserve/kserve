@@ -65,6 +65,7 @@ class V1beta1PredictorSpec(object):
         'hostname': 'str',
         'image_pull_secrets': 'list[V1LocalObjectReference]',
         'init_containers': 'list[V1Container]',
+        'lightgbm': 'V1beta1LightGBMSpec',
         'logger': 'V1beta1LoggerSpec',
         'max_replicas': 'int',
         'min_replicas': 'int',
@@ -116,6 +117,7 @@ class V1beta1PredictorSpec(object):
         'hostname': 'hostname',
         'image_pull_secrets': 'imagePullSecrets',
         'init_containers': 'initContainers',
+        'lightgbm': 'lightgbm',
         'logger': 'logger',
         'max_replicas': 'maxReplicas',
         'min_replicas': 'minReplicas',
@@ -148,7 +150,7 @@ class V1beta1PredictorSpec(object):
         'xgboost': 'xgboost'
     }
 
-    def __init__(self, active_deadline_seconds=None, affinity=None, automount_service_account_token=None, batcher=None, canary_traffic_percent=None, container_concurrency=None, containers=None, dns_config=None, dns_policy=None, enable_service_links=None, ephemeral_containers=None, host_aliases=None, host_ipc=None, host_network=None, host_pid=None, hostname=None, image_pull_secrets=None, init_containers=None, logger=None, max_replicas=None, min_replicas=None, node_name=None, node_selector=None, onnx=None, overhead=None, pmml=None, preemption_policy=None, priority=None, priority_class_name=None, pytorch=None, readiness_gates=None, restart_policy=None, runtime_class_name=None, scheduler_name=None, security_context=None, service_account=None, service_account_name=None, share_process_namespace=None, sklearn=None, subdomain=None, tensorflow=None, termination_grace_period_seconds=None, timeout=None, tolerations=None, topology_spread_constraints=None, triton=None, volumes=None, xgboost=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, active_deadline_seconds=None, affinity=None, automount_service_account_token=None, batcher=None, canary_traffic_percent=None, container_concurrency=None, containers=None, dns_config=None, dns_policy=None, enable_service_links=None, ephemeral_containers=None, host_aliases=None, host_ipc=None, host_network=None, host_pid=None, hostname=None, image_pull_secrets=None, init_containers=None, lightgbm=None, logger=None, max_replicas=None, min_replicas=None, node_name=None, node_selector=None, onnx=None, overhead=None, pmml=None, preemption_policy=None, priority=None, priority_class_name=None, pytorch=None, readiness_gates=None, restart_policy=None, runtime_class_name=None, scheduler_name=None, security_context=None, service_account=None, service_account_name=None, share_process_namespace=None, sklearn=None, subdomain=None, tensorflow=None, termination_grace_period_seconds=None, timeout=None, tolerations=None, topology_spread_constraints=None, triton=None, volumes=None, xgboost=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1PredictorSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -172,6 +174,7 @@ class V1beta1PredictorSpec(object):
         self._hostname = None
         self._image_pull_secrets = None
         self._init_containers = None
+        self._lightgbm = None
         self._logger = None
         self._max_replicas = None
         self._min_replicas = None
@@ -240,6 +243,8 @@ class V1beta1PredictorSpec(object):
             self.image_pull_secrets = image_pull_secrets
         if init_containers is not None:
             self.init_containers = init_containers
+        if lightgbm is not None:
+            self.lightgbm = lightgbm
         if logger is not None:
             self.logger = logger
         if max_replicas is not None:
@@ -708,6 +713,27 @@ class V1beta1PredictorSpec(object):
         """
 
         self._init_containers = init_containers
+
+    @property
+    def lightgbm(self):
+        """Gets the lightgbm of this V1beta1PredictorSpec.  # noqa: E501
+
+
+        :return: The lightgbm of this V1beta1PredictorSpec.  # noqa: E501
+        :rtype: V1beta1LightGBMSpec
+        """
+        return self._lightgbm
+
+    @lightgbm.setter
+    def lightgbm(self, lightgbm):
+        """Sets the lightgbm of this V1beta1PredictorSpec.
+
+
+        :param lightgbm: The lightgbm of this V1beta1PredictorSpec.  # noqa: E501
+        :type: V1beta1LightGBMSpec
+        """
+
+        self._lightgbm = lightgbm
 
     @property
     def logger(self):

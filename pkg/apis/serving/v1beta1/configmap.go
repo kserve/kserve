@@ -79,6 +79,7 @@ type PredictorsConfig struct {
 	PyTorch    PredictorProtocols `json:"pytorch,omitempty"`
 	ONNX       PredictorConfig    `json:"onnx,omitempty"`
 	PMML       PredictorConfig    `json:"pmml,omitempty"`
+	LightGBM   PredictorConfig    `json:"lightgbm,omitempty"`
 }
 
 // +kubebuilder:object:generate=false
