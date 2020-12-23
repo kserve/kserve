@@ -86,13 +86,13 @@ Expected Output
 < server: istio-envoy
 < 
 * Connection #0 to host a881f5a8c676a41edbccdb0a394a80d6-2069247558.us-west-2.elb.amazonaws.com left intact
-{"predictions": [["2"]]}
+{"predictions": ["2"]}
 ```
 
 ### Get Pods
 
 ```bash
-Kubectl get pods -n kfserving-test 
+kubectl get pods -n kfserving-test 
 
 NAME                                                             READY   STATUS        RESTARTS   AGE
 torch-pred-predictor-default-cj2d8-deployment-69444c9c74-tsrwr   2/2     Running       0          113s
