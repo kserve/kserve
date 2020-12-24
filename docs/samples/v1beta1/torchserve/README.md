@@ -144,3 +144,7 @@ Configurations for autoscaling pods [Auto scaling](docs/autoscaling.md)
 ## Canary Rollout
 
 Configurations for canary [Canary Deployment](docs/canary.md)
+
+## For Metrics
+
+Configurations for Metrics [Metrics](docs/metrics.md)
