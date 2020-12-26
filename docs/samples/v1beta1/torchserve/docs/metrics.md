@@ -7,62 +7,20 @@ This adds prometheus and granfana to the cluster with some default metrics.
 1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/#install-kfserving).
 2. Your cluster's Istio Ingress gateway must be [network accessible](https://istio.io/latest/docs/tasks/traffic-management/ingress/ingress-control/).
 
-## Enable request metrics
+##  Open the Istio Dashboard via the Grafana UI and Prometheus UI
 
-```bash
-kubectl edit cm -n knative-serving config-observability
-```
-
-Add `metrics.request-metrics-backend-destination: prometheus` to data field. You can find detailed information in `data._example` field in the ConfigMap you are editing.
-
-## Add Prometheus and Grafana
-
-Create namespace
-
-```bash
-kubectl create namespace knative-monitoring
-
-kubectl apply -f https://github.com/knative/serving/releases/download/v0.17.0/monitoring-metrics-prometheus.yaml
-```
-
-## Check pods are up and running
-
-```bash
-kubectl get pods --namespace knative-monitoring
-```
-
-## Forward Prometheus and Grafana ports
-
-```bash
-# Grafana
-kubectl port-forward --namespace knative-monitoring $(kubectl get pods --namespace knative-monitoring \
---selector=app=grafana --output=jsonpath="{.items..metadata.name}") 3000
-
-# Prometheus
-kubectl port-forward -n knative-monitoring $(kubectl get pods -n knative-monitoring \
---selector=app=prometheus --output=jsonpath="{.items[0].metadata.name}") 9090
-```
+__**Note:**__ Make sure to enable prometheus and grafana while installing istio.
 
 ## Access prometheus and grafana
 
 Grafana and Prometheus can be accessed from the below links
 
-Link: [Prometheus](http://localhost:9090/)
+```bash
+# Grafana
+istioctl dashboard grafana
 
-Link: [Grafana](http://localhost:3000/)
-
-Logout and login as admin with username: admin and password: admin
-
-## For Torchserve
-
-### config.properties
-
-Enable metrics in config.properties
-
-```json
-metrics_address=http://0.0.0.0:8082
-enable_metrics_api=true
-metrics_format=prometheus
+# Prometheus
+istioctl dashboard prometheus
 ```
 
 ### Deployment yaml
@@ -81,7 +39,7 @@ spec:
   predictor:
     pytorch:
       protocolVersion: v2
-      storageUri: pvc://model-pv-claim
+      storageUri: gs://kfserving-examples/models/torchserve/image_classifier
 ```
 
 ## Create the InferenceService
@@ -159,3 +117,56 @@ Expected Output
 
 Add Prometheus data source to Grafana to visualize metrics.
 Link: [Add datasource](https://prometheus.io/docs/visualization/grafana/)
+
+For Exposing grafana and prometheus under istio ingress refer.[Remotely accessing telemetry addons](https://istio.io/latest/docs/tasks/observability/gateways/)
+
+Apply below deployment
+
+```yaml
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: grafana-gateway
+  namespace: istio-system
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http-grafana
+      protocol: HTTP
+    hosts:
+    - "grafana.example.com"
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: grafana-vs
+  namespace: istio-system
+spec:
+  hosts:
+  - "grafana.example.com"
+  gateways:
+  - grafana-gateway
+  http:
+  - route:
+    - destination:
+        host: grafana
+        port:
+          number: 3000
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: grafana
+  namespace: istio-system
+spec:
+  host: grafana
+  trafficPolicy:
+    tls:
+      mode: DISABLE
+---
+```
+
+All request with hostname `grafana.example.com` redirects to grafana.

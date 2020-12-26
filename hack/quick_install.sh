@@ -38,6 +38,8 @@ spec:
       enabled: true
     prometheus:
       enabled: true
+    grafana:
+      enabled: true
 
   components:
     ingressGateways:

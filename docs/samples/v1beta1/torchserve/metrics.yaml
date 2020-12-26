@@ -1,7 +1,7 @@
 apiVersion: serving.kubeflow.org/v1beta1
 kind: InferenceService
 metadata:
-  name: "torchserve"
+  name: "torch-metrics"
   annotations:
     prometheus.io/scrape: 'true'
     prometheus.io/port: '8082'
@@ -10,6 +10,3 @@ spec:
     pytorch:
       protocolVersion: v2
       storageUri: gs://kfserving-examples/models/torchserve/image_classifier
-      resources:
-        limits:
-          memory: 4Gi
