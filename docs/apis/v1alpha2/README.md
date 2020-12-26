@@ -10,6 +10,103 @@
 </p>
 Resource Types:
 <ul></ul>
+<h3 id="serving.kubeflow.org/v1alpha2.AIXExplainerSpec">AIXExplainerSpec
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#serving.kubeflow.org/v1alpha2.ExplainerSpec">ExplainerSpec</a>)
+</p>
+<p>
+<p>AIXExplainerSpec defines the arguments for configuring an AIX Explanation Server</p>
+</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>type</code></br>
+<em>
+<a href="#serving.kubeflow.org/v1alpha2.AIXExplainerType">
+AIXExplainerType
+</a>
+</em>
+</td>
+<td>
+<p>The type of AIX explainer</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>storageUri</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>The location of a trained explanation model</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>runtimeVersion</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Defaults to latest AIX Version</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>resources</code></br>
+<em>
+<a href="https://v1-18.docs.kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#resourcerequirements-v1-core">
+Kubernetes core/v1.ResourceRequirements
+</a>
+</em>
+</td>
+<td>
+<p>Defaults to requests and limits of 1CPU, 2Gb MEM.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>config</code></br>
+<em>
+map[string]string
+</em>
+</td>
+<td>
+<p>Inline custom parameter settings for explainer</p>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="serving.kubeflow.org/v1alpha2.AIXExplainerType">AIXExplainerType
+(<code>string</code> alias)</p></h3>
+<p>
+(<em>Appears on:</em>
+<a href="#serving.kubeflow.org/v1alpha2.AIXExplainerSpec">AIXExplainerSpec</a>)
+</p>
+<p>
+</p>
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr><td><p>&#34;LimeImages&#34;</p></td>
+<td></td>
+</tr></tbody>
+</table>
 <h3 id="serving.kubeflow.org/v1alpha2.AlibiExplainerSpec">AlibiExplainerSpec
 </h3>
 <p>
@@ -441,6 +538,19 @@ AlibiExplainerSpec
 </tr>
 <tr>
 <td>
+<code>aix</code></br>
+<em>
+<a href="#serving.kubeflow.org/v1alpha2.AIXExplainerSpec">
+AIXExplainerSpec
+</a>
+</em>
+</td>
+<td>
+<p>Spec for AIX explainer</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>custom</code></br>
 <em>
 <a href="#serving.kubeflow.org/v1alpha2.CustomSpec">
@@ -488,6 +598,18 @@ DeploymentSpec
 <tr>
 <td>
 <code>alibi</code></br>
+<em>
+<a href="#serving.kubeflow.org/v1alpha2.ExplainerConfig">
+ExplainerConfig
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>aix</code></br>
 <em>
 <a href="#serving.kubeflow.org/v1alpha2.ExplainerConfig">
 ExplainerConfig
@@ -823,6 +945,71 @@ ExplainersConfig
 </tr>
 </tbody>
 </table>
+<h3 id="serving.kubeflow.org/v1alpha2.LightGBMSpec">LightGBMSpec
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#serving.kubeflow.org/v1alpha2.PredictorSpec">PredictorSpec</a>)
+</p>
+<p>
+<p>LightGBMSpec defines arguments for configuring LightGBM model serving.</p>
+</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>storageUri</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>The URI of the trained model which contains model.bst</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>nthread</code></br>
+<em>
+int
+</em>
+</td>
+<td>
+<p>Number of thread to be used by LightGBM</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>runtimeVersion</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>LightGBM KFServer docker image version which defaults to latest release</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>resources</code></br>
+<em>
+<a href="https://v1-18.docs.kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#resourcerequirements-v1-core">
+Kubernetes core/v1.ResourceRequirements
+</a>
+</em>
+</td>
+<td>
+<p>Defaults to requests and limits of 1CPU, 2Gb MEM.</p>
+</td>
+</tr>
+</tbody>
+</table>
 <h3 id="serving.kubeflow.org/v1alpha2.Logger">Logger
 </h3>
 <p>
@@ -944,6 +1131,60 @@ Kubernetes core/v1.ResourceRequirements
 </tr>
 </tbody>
 </table>
+<h3 id="serving.kubeflow.org/v1alpha2.PMMLSpec">PMMLSpec
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#serving.kubeflow.org/v1alpha2.PredictorSpec">PredictorSpec</a>)
+</p>
+<p>
+<p>PMMLSpec defines arguments for configuring PMML model serving.</p>
+</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>storageUri</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>The URI of the trained model which contains model.pmml</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>runtimeVersion</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>PMML KFServer docker image version which defaults to latest release</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>resources</code></br>
+<em>
+<a href="https://v1-18.docs.kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#resourcerequirements-v1-core">
+Kubernetes core/v1.ResourceRequirements
+</a>
+</em>
+</td>
+<td>
+<p>Defaults to requests and limits of 1CPU, 2Gb MEM.</p>
+</td>
+</tr>
+</tbody>
+</table>
 <h3 id="serving.kubeflow.org/v1alpha2.Predictor">Predictor
 </h3>
 <p>
@@ -952,6 +1193,7 @@ Kubernetes core/v1.ResourceRequirements
 </h3>
 <p>
 (<em>Appears on:</em>
+<a href="#serving.kubeflow.org/v1alpha2.PredictorProtocols">PredictorProtocols</a>, 
 <a href="#serving.kubeflow.org/v1alpha2.PredictorsConfig">PredictorsConfig</a>)
 </p>
 <p>
@@ -989,6 +1231,59 @@ string
 <code>defaultGpuImageVersion</code></br>
 <em>
 string
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>defaultTimeout,string</code></br>
+<em>
+int64
+</em>
+</td>
+<td>
+<p>Default timeout of predictor for serving a request, in seconds</p>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="serving.kubeflow.org/v1alpha2.PredictorProtocols">PredictorProtocols
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#serving.kubeflow.org/v1alpha2.PredictorsConfig">PredictorsConfig</a>)
+</p>
+<p>
+</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>v1</code></br>
+<em>
+<a href="#serving.kubeflow.org/v1alpha2.PredictorConfig">
+PredictorConfig
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>v2</code></br>
+<em>
+<a href="#serving.kubeflow.org/v1alpha2.PredictorConfig">
+PredictorConfig
+</a>
 </em>
 </td>
 <td>
@@ -1050,7 +1345,7 @@ TritonSpec
 </em>
 </td>
 <td>
-<p>Spec for Triton Inference Server (<a href="https://github.com/NVIDIA/triton-inference-server">https://github.com/NVIDIA/triton-inference-server</a>)</p>
+<p>Spec for Triton Inference Server (<a href="https://github.com/triton-inference-server/server">https://github.com/triton-inference-server/server</a>)</p>
 </td>
 </tr>
 <tr>
@@ -1064,6 +1359,19 @@ XGBoostSpec
 </td>
 <td>
 <p>Spec for XGBoost predictor</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>lightgbm</code></br>
+<em>
+<a href="#serving.kubeflow.org/v1alpha2.LightGBMSpec">
+LightGBMSpec
+</a>
+</em>
+</td>
+<td>
+<p>Spec for LightGBM predictor</p>
 </td>
 </tr>
 <tr>
@@ -1103,6 +1411,19 @@ PyTorchSpec
 </td>
 <td>
 <p>Spec for PyTorch predictor</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>pmml</code></br>
+<em>
+<a href="#serving.kubeflow.org/v1alpha2.PMMLSpec">
+PMMLSpec
+</a>
+</em>
+</td>
+<td>
+<p>Spec for PMML predictor</p>
 </td>
 </tr>
 <tr>
@@ -1166,6 +1487,18 @@ PredictorConfig
 <td>
 <code>xgboost</code></br>
 <em>
+<a href="#serving.kubeflow.org/v1alpha2.PredictorProtocols">
+PredictorProtocols
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>lightgbm</code></br>
+<em>
 <a href="#serving.kubeflow.org/v1alpha2.PredictorConfig">
 PredictorConfig
 </a>
@@ -1178,8 +1511,8 @@ PredictorConfig
 <td>
 <code>sklearn</code></br>
 <em>
-<a href="#serving.kubeflow.org/v1alpha2.PredictorConfig">
-PredictorConfig
+<a href="#serving.kubeflow.org/v1alpha2.PredictorProtocols">
+PredictorProtocols
 </a>
 </em>
 </td>
@@ -1201,6 +1534,18 @@ PredictorConfig
 <tr>
 <td>
 <code>onnx</code></br>
+<em>
+<a href="#serving.kubeflow.org/v1alpha2.PredictorConfig">
+PredictorConfig
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>pmml</code></br>
 <em>
 <a href="#serving.kubeflow.org/v1alpha2.PredictorConfig">
 PredictorConfig

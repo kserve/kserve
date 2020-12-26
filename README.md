@@ -209,7 +209,9 @@ If the default ingress gateway setup does not fit your need, you can choose to s
 [KFServing Concepts and Data Plane](./docs/README.md)
 
 ### KFServing API Reference
-[KFServing API Docs](./docs/apis/README.md)
+[KFServing v1alpha2 API Docs](./docs/apis/v1alpha2/README.md)
+
+[KFServing v1beta1 API Docs](./docs/apis/v1beta1/README.md)
 
 ### KFServing Debugging Guide :star:
 [Debug KFServing InferenceService](./docs/KFSERVING_DEBUG_GUIDE.md)
