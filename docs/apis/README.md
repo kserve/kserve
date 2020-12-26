@@ -10,92 +10,6 @@
 </p>
 Resource Types:
 <ul></ul>
-<h3 id="serving.kubeflow.org/v1alpha2.AIXExplainerSpec">AIXExplainerSpec
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#serving.kubeflow.org/v1alpha2.ExplainerSpec">ExplainerSpec</a>)
-</p>
-<p>
-<p>AIXExplainerSpec defines the arguments for configuring an AIX Explanation Server</p>
-</p>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>type</code></br>
-<em>
-<a href="#serving.kubeflow.org/v1alpha2.AIXExplainerType">
-AIXExplainerType
-</a>
-</em>
-</td>
-<td>
-<p>The type of AIX explainer</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>storageUri</code></br>
-<em>
-string
-</em>
-</td>
-<td>
-<p>The location of a trained explanation model</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>runtimeVersion</code></br>
-<em>
-string
-</em>
-</td>
-<td>
-<p>Defaults to latest AIX Version</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>resources</code></br>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.13/#resourcerequirements-v1-core">
-Kubernetes core/v1.ResourceRequirements
-</a>
-</em>
-</td>
-<td>
-<p>Defaults to requests and limits of 1CPU, 2Gb MEM.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>config</code></br>
-<em>
-map[string]string
-</em>
-</td>
-<td>
-<p>Inline custom parameter settings for explainer</p>
-</td>
-</tr>
-</tbody>
-</table>
-<h3 id="serving.kubeflow.org/v1alpha2.AIXExplainerType">AIXExplainerType
-(<code>string</code> alias)</p></h3>
-<p>
-(<em>Appears on:</em>
-<a href="#serving.kubeflow.org/v1alpha2.AIXExplainerSpec">AIXExplainerSpec</a>)
-</p>
-<p>
-</p>
 <h3 id="serving.kubeflow.org/v1alpha2.AlibiExplainerSpec">AlibiExplainerSpec
 </h3>
 <p>
@@ -152,7 +66,7 @@ string
 <td>
 <code>resources</code></br>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.13/#resourcerequirements-v1-core">
+<a href="https://v1-18.docs.kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#resourcerequirements-v1-core">
 Kubernetes core/v1.ResourceRequirements
 </a>
 </em>
@@ -182,6 +96,25 @@ map[string]string
 </p>
 <p>
 </p>
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr><td><p>&#34;AnchorImages&#34;</p></td>
+<td></td>
+</tr><tr><td><p>&#34;AnchorTabular&#34;</p></td>
+<td></td>
+</tr><tr><td><p>&#34;AnchorText&#34;</p></td>
+<td></td>
+</tr><tr><td><p>&#34;Contrastive&#34;</p></td>
+<td></td>
+</tr><tr><td><p>&#34;Counterfactuals&#34;</p></td>
+<td></td>
+</tr></tbody>
+</table>
 <h3 id="serving.kubeflow.org/v1alpha2.Batcher">Batcher
 </h3>
 <p>
@@ -265,7 +198,7 @@ int
 <td>
 <code>container</code></br>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.13/#container-v1-core">
+<a href="https://v1-18.docs.kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#container-v1-core">
 Kubernetes core/v1.Container
 </a>
 </em>
@@ -508,19 +441,6 @@ AlibiExplainerSpec
 </tr>
 <tr>
 <td>
-<code>aix</code></br>
-<em>
-<a href="#serving.kubeflow.org/v1alpha2.AIXExplainerSpec">
-AIXExplainerSpec
-</a>
-</em>
-</td>
-<td>
-<p>Spec for AIX explainer</p>
-</td>
-</tr>
-<tr>
-<td>
 <code>custom</code></br>
 <em>
 <a href="#serving.kubeflow.org/v1alpha2.CustomSpec">
@@ -577,18 +497,6 @@ ExplainerConfig
 <td>
 </td>
 </tr>
-<tr>
-<td>
-<code>aix</code></br>
-<em>
-<a href="#serving.kubeflow.org/v1alpha2.ExplainerConfig">
-ExplainerConfig
-</a>
-</em>
-</td>
-<td>
-</td>
-</tr>
 </tbody>
 </table>
 <h3 id="serving.kubeflow.org/v1alpha2.InferenceService">InferenceService
@@ -608,7 +516,7 @@ ExplainerConfig
 <td>
 <code>metadata</code></br>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.13/#objectmeta-v1-meta">
+<a href="https://v1-18.docs.kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#objectmeta-v1-meta">
 Kubernetes meta/v1.ObjectMeta
 </a>
 </em>
@@ -750,6 +658,19 @@ int
 <p>
 <p>InferenceState describes the Readiness of the InferenceService</p>
 </p>
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr><td><p>&#34;InferenceServiceNotReady&#34;</p></td>
+<td></td>
+</tr><tr><td><p>&#34;InferenceServiceReady&#34;</p></td>
+<td></td>
+</tr></tbody>
+</table>
 <h3 id="serving.kubeflow.org/v1alpha2.InferenceServiceStatus">InferenceServiceStatus
 </h3>
 <p>
@@ -954,6 +875,21 @@ LoggerMode
 </p>
 <p>
 </p>
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr><td><p>&#34;all&#34;</p></td>
+<td></td>
+</tr><tr><td><p>&#34;request&#34;</p></td>
+<td></td>
+</tr><tr><td><p>&#34;response&#34;</p></td>
+<td></td>
+</tr></tbody>
+</table>
 <h3 id="serving.kubeflow.org/v1alpha2.ONNXSpec">ONNXSpec
 </h3>
 <p>
@@ -997,61 +933,7 @@ string
 <td>
 <code>resources</code></br>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.13/#resourcerequirements-v1-core">
-Kubernetes core/v1.ResourceRequirements
-</a>
-</em>
-</td>
-<td>
-<p>Defaults to requests and limits of 1CPU, 2Gb MEM.</p>
-</td>
-</tr>
-</tbody>
-</table>
-<h3 id="serving.kubeflow.org/v1alpha2.PMMLSpec">PMMLSpec
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#serving.kubeflow.org/v1alpha2.PredictorSpec">PredictorSpec</a>)
-</p>
-<p>
-<p>PMMLSpec defines arguments for configuring PMML model serving.</p>
-</p>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>storageUri</code></br>
-<em>
-string
-</em>
-</td>
-<td>
-<p>The URI of the trained model which contains model.pmml</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>runtimeVersion</code></br>
-<em>
-string
-</em>
-</td>
-<td>
-<p>PMML KFServer docker image version which defaults to latest release</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>resources</code></br>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.13/#resourcerequirements-v1-core">
+<a href="https://v1-18.docs.kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#resourcerequirements-v1-core">
 Kubernetes core/v1.ResourceRequirements
 </a>
 </em>
@@ -1070,7 +952,6 @@ Kubernetes core/v1.ResourceRequirements
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#serving.kubeflow.org/v1alpha2.PredictorProtocols">PredictorProtocols</a>, 
 <a href="#serving.kubeflow.org/v1alpha2.PredictorsConfig">PredictorsConfig</a>)
 </p>
 <p>
@@ -1108,59 +989,6 @@ string
 <code>defaultGpuImageVersion</code></br>
 <em>
 string
-</em>
-</td>
-<td>
-</td>
-</tr>
-<tr>
-<td>
-<code>defaultTimeout,string</code></br>
-<em>
-int64
-</em>
-</td>
-<td>
-<p>Default timeout of predictor for serving a request, in seconds</p>
-</td>
-</tr>
-</tbody>
-</table>
-<h3 id="serving.kubeflow.org/v1alpha2.PredictorProtocols">PredictorProtocols
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#serving.kubeflow.org/v1alpha2.PredictorsConfig">PredictorsConfig</a>)
-</p>
-<p>
-</p>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>v1</code></br>
-<em>
-<a href="#serving.kubeflow.org/v1alpha2.PredictorConfig">
-PredictorConfig
-</a>
-</em>
-</td>
-<td>
-</td>
-</tr>
-<tr>
-<td>
-<code>v2</code></br>
-<em>
-<a href="#serving.kubeflow.org/v1alpha2.PredictorConfig">
-PredictorConfig
-</a>
 </em>
 </td>
 <td>
@@ -1222,7 +1050,7 @@ TritonSpec
 </em>
 </td>
 <td>
-<p>Spec for Triton Inference Server (<a href="https://github.com/triton-inference-server/server">https://github.com/triton-inference-server/server</a>)</p>
+<p>Spec for Triton Inference Server (<a href="https://github.com/NVIDIA/triton-inference-server">https://github.com/NVIDIA/triton-inference-server</a>)</p>
 </td>
 </tr>
 <tr>
@@ -1275,19 +1103,6 @@ PyTorchSpec
 </td>
 <td>
 <p>Spec for PyTorch predictor</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>pmml</code></br>
-<em>
-<a href="#serving.kubeflow.org/v1alpha2.PMMLSpec">
-PMMLSpec
-</a>
-</em>
-</td>
-<td>
-<p>Spec for PMML predictor</p>
 </td>
 </tr>
 <tr>
@@ -1351,8 +1166,8 @@ PredictorConfig
 <td>
 <code>xgboost</code></br>
 <em>
-<a href="#serving.kubeflow.org/v1alpha2.PredictorProtocols">
-PredictorProtocols
+<a href="#serving.kubeflow.org/v1alpha2.PredictorConfig">
+PredictorConfig
 </a>
 </em>
 </td>
@@ -1363,8 +1178,8 @@ PredictorProtocols
 <td>
 <code>sklearn</code></br>
 <em>
-<a href="#serving.kubeflow.org/v1alpha2.PredictorProtocols">
-PredictorProtocols
+<a href="#serving.kubeflow.org/v1alpha2.PredictorConfig">
+PredictorConfig
 </a>
 </em>
 </td>
@@ -1386,18 +1201,6 @@ PredictorConfig
 <tr>
 <td>
 <code>onnx</code></br>
-<em>
-<a href="#serving.kubeflow.org/v1alpha2.PredictorConfig">
-PredictorConfig
-</a>
-</em>
-</td>
-<td>
-</td>
-</tr>
-<tr>
-<td>
-<code>pmml</code></br>
 <em>
 <a href="#serving.kubeflow.org/v1alpha2.PredictorConfig">
 PredictorConfig
@@ -1463,7 +1266,7 @@ string
 <td>
 <code>resources</code></br>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.13/#resourcerequirements-v1-core">
+<a href="https://v1-18.docs.kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#resourcerequirements-v1-core">
 Kubernetes core/v1.ResourceRequirements
 </a>
 </em>
@@ -1517,7 +1320,7 @@ string
 <td>
 <code>resources</code></br>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.13/#resourcerequirements-v1-core">
+<a href="https://v1-18.docs.kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#resourcerequirements-v1-core">
 Kubernetes core/v1.ResourceRequirements
 </a>
 </em>
@@ -1608,7 +1411,7 @@ string
 <td>
 <code>resources</code></br>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.13/#resourcerequirements-v1-core">
+<a href="https://v1-18.docs.kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#resourcerequirements-v1-core">
 Kubernetes core/v1.ResourceRequirements
 </a>
 </em>
@@ -1782,7 +1585,7 @@ string
 <td>
 <code>resources</code></br>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.13/#resourcerequirements-v1-core">
+<a href="https://v1-18.docs.kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#resourcerequirements-v1-core">
 Kubernetes core/v1.ResourceRequirements
 </a>
 </em>
@@ -1914,7 +1717,7 @@ string
 <td>
 <code>resources</code></br>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.13/#resourcerequirements-v1-core">
+<a href="https://v1-18.docs.kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#resourcerequirements-v1-core">
 Kubernetes core/v1.ResourceRequirements
 </a>
 </em>
@@ -1928,5 +1731,5 @@ Kubernetes core/v1.ResourceRequirements
 <hr/>
 <p><em>
 Generated with <code>gen-crd-api-reference-docs</code>
-on git commit <code>d7f65bc</code>.
+on git commit <code>df869c1</code>.
 </em></p>
