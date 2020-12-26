@@ -7,17 +7,48 @@ In this example, we use a trained pytorch mnist model to predict handwritten dig
 1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/#install-kfserving).
 2. Your cluster's Istio Ingress gateway must be [network accessible](https://istio.io/latest/docs/tasks/traffic-management/ingress/ingress-control/).
 
-**__Note__** For prebuilt mnist marfile and config properties use this remote storage:
-
-```storageUri: gs://kfserving-examples/models/torchserve/image_classifier```
-
 ## Creating model storage with model archive file
 
-[Torchserve Model Archive Files (MAR)](https://github.com/pytorch/serve/blob/master/model-archiver/README.md)
+TorchServe provides a utility to package all the model artifacts into a single [Torchserve Model Archive Files (MAR)](https://github.com/pytorch/serve/blob/master/model-archiver/README.md).
 
-We obtain the model and dependent files from [here](https://github.com/pytorch/serve/tree/master/examples/image_classifier/mnist)
+You can store your model and dependent files on remote storage or local persistent volume, the mnist model and dependent files can be obtained
+from [here](https://github.com/pytorch/serve/tree/master/examples/image_classifier/mnist).
 
-Refer [model archive file generation](./model-archiver/README.md) for auto generation of marfiles from model and dependent files.
+The KFServing/TorchServe integration expects following model store layout.
+
+```bash
+├── config
+│   ├── config.properties
+├── model-store
+│   ├── densenet_161.mar
+│   ├── mnist.mar
+```
+
+- For Remote storage you can choose to start the example using the prebuilt mnist MAR file stored on KFServing example GCS bucket 
+`gs://kfserving-examples/models/torchserve/image_classifier`,
+you can also generate the MAR file with `torch-model-archiver`.
+
+```bash
+torch-model-archiver --model-name mnist --version 1.0 \
+--model-file model-archiver/model-store/mnist/mnist.py \
+--serialized-file model-archiver/model-store/mnist/mnist_cnn.pt \
+--handler model-archiver/model-store/mnist/mnist_handler.py \
+```
+
+
+- For PVC user please refer to [model archive file generation](./model-archiver/README.md) for auto generation of MAR files from
+the model and dependent files.
+
+
+## TorchServe with KFS envelope inference endpoints
+The KFServing/TorchServe integration supports KFServing v1 protocol and we are working on to support v2 protocol.
+
+| API  | Verb | Path | Payload |
+| ------------- | ------------- | ------------- | ------------- |
+| Predict  | POST  | /v1/models/<model_name>:predict  | Request:{"instances": []}  Response:{"predictions": []} |
+| Explain  | POST  | /v1/models/<model_name>:explain  | Request:{"instances": []}  Response:{"predictions": [], "explainations": []}   ||
+
+[Sample requests for text and image classification](https://github.com/pytorch/serve/tree/master/kubernetes/kfserving/kf_request_json)
 
 ## Create the InferenceService
 
@@ -33,30 +64,20 @@ Expected Output
 $inferenceservice.serving.kubeflow.org/torchserve created
 ```
 
-## Torchserve with KFS envelope inference endpoints
-
-| API  | Verb | Path | Payload |
-| ------------- | ------------- | ------------- | ------------- |
-| Predict  | POST  | /v1/models/<model_name>:predict  | Request:{"instances": []}  Response:{"predictions": []} |
-| Explain  | POST  | /v1/models/<model_name>:explain  | Request:{"instances": []}  Response:{"predictions": [], "explainations": []}   ||
-
-[Sample requests for text and image classification](https://github.com/pytorch/serve/tree/master/kubernetes/kfserving/kf_request_json)
-
-## Run a prediction
+## Inference
 
 The first step is to [determine the ingress IP and ports](../../../README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
 
 ```bash
-MODEL_NAME=torchserve
+MODEL_NAME=mnist
 SERVICE_HOSTNAME=$(kubectl get inferenceservice torchserve -o jsonpath='{.status.url}' | cut -d "/" -f 3)
 ```
 
-Use [image converter](../imgconv/README.md) to create input request for mnist. For other models refer [input request](https://github.com/pytorch/serve/tree/master/kubernetes/kfserving/kf_request_json)
-
-### Prediction Request
+Use [image converter](../imgconv/README.md) to create input request for mnist. 
+For other models please refer to [input request](https://github.com/pytorch/serve/tree/master/kubernetes/kfserving/kf_request_json)
 
 ```bash
-curl -v -H "Host: ${SERVICE_HOSTNAME}" http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/mnist:predict -d @./mnist.json
+curl -v -H "Host: ${SERVICE_HOSTNAME}" http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/${MODEL_NAME}:predict -d @./mnist.json
 ```
 
 Expected Output
@@ -87,11 +108,11 @@ Expected Output
 {"predictions": ["2"]}
 ```
 
-### Explanation
+## Explanation
 
-Model interpretability is an important aspect which help  to understand , which of the input features were important for a particular classification. Captum is a model interpretability libarary. The explain function uses Captum's -integrated graident feature to help us understand, which input features were important for a particular model prediction.
+Model interpretability is an important aspect which help to understand which of the input features were important for a particular classification. Captum is a model interpretability libarary. The explain function uses Captum's -integrated graident feature to help us understand, which input features were important for a particular model prediction.
 
-Refer [Captum](https://captum.ai/tutorials/) for more info.
+Your can refer to [Captum](https://captum.ai/tutorials/) for more info.
 
 ### Explain Request
 
@@ -128,16 +149,7 @@ Expected Output
 317543458, 0.0060051362999805355, -0.0008195376963202741, 0.0041728603512658224, -0.0017597169567888774, -0.0010577007775543158, 0.00046033327178068433, -0.0007674196306044449, -0.0], [-0.0, -0.0, 0.0013386963856532302, 0.00035183178922260837, 0.0030610334903526204, 8.951834979315781e-05, 0.0023676793550483524, -0.0002900551076915047, -0.00207019445286608, -7.61697478482574e-05, 0.0012150086715244216, 0.009831239281792168, 0.003479667642621962, 0.0070584324334114525, 0.004161851261339585, 0.0026146296354490665, -9.194746959222099e-05, 0.0013583866966571571, 0.0016821551239318913, -0.0, -0.0, -0.0, -0.0, -0.0, -0.0, -0.0, -0.0, -0.0]]]]}
 ```
 
-Get Pods
-
-```bash
-kubectl get pods -n <namespace>
-
-NAME                                                                  READY   STATUS    RESTARTS   AGE
-pod/torchserve-predictor-default-8mw55-deployment-57f979c88-f2dkn     2/2     Running   0          4m25s
-```
-
-## For Autoscaling
+## Autoscaling
 
 Configurations for autoscaling pods [Auto scaling](docs/autoscaling.md)
 

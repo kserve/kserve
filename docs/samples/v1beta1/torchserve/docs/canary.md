@@ -1,47 +1,45 @@
 # Canary Rollouts
 
-## Creating model storage with model archive file
-
-Refer [model archive file generation](../model-archiver/README.md) for PV, PVC storage and marfile creation.
-
-## Deployment yaml
-
-### Main model
+## Create InferenceService with default model
 
 ```yaml
 apiVersion: "serving.kubeflow.org/v1beta1"
 kind: "InferenceService"
 metadata:
-  name: "torch-pred"
+  name: "torchserve"
 spec:
   predictor:
     pytorch:
       protocolVersion: v2
-      storageUri: "pvc://model-pv-claim"
+      storageUri: "gs://kfserving-examples/models/torchserve/image_classifier"
 ```
 
-### Canary model
+Apply the InferenceService
 
-Change the path and deploy
+```bash
+kubectl apply -f torchserve.yaml
+```
+
+## Create InferenceService with canary model
+
+Change the `storageUri` and apply the InferenceService
 
 ```yaml
 apiVersion: "serving.kubeflow.org/v1beta1"
 kind: "InferenceService"
 metadata:
-  name: "torch-pred"
+  name: "torchserve"
 spec:
   predictor:
     canaryTrafficPercent: 20
     pytorch:
-      storageUri: "pvc://model-store-claim-1"
+      storageUri: "gs://kfserving-examples/models/torchserve/image_classifier/v2"
 ```
 
-## Create the InferenceService
-
-Apply the CRD
+Apply the InferenceService
 
 ```bash
-kubectl apply -f torchserve.yaml
+kubectl apply -f canary.yaml
 ```
 
 Expected Output
@@ -56,7 +54,7 @@ The first step is to [determine the ingress IP and ports](../../../README.md#det
 
 ```bash
 MODEL_NAME=mnist
-SERVICE_HOSTNAME=$(kubectl get inferenceservice torch-pred  -o jsonpath='{.status.url}' | cut -d "/" -f 3)
+SERVICE_HOSTNAME=$(kubectl get inferenceservice torchserve  -o jsonpath='{.status.url}' | cut -d "/" -f 3)
 
 curl -v -H "Host: ${SERVICE_HOSTNAME}" http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/${MODEL_NAME}:predict -d @./mnist.json
 ```

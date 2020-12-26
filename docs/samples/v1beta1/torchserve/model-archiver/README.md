@@ -7,7 +7,7 @@
 
 ## 1. Create PV and PVC
 
-Create a Persistent volume and volume claim. This document uses amazonEBS PV. For AWS EFS storage refer [AWS EFS storage](https://github.com/pytorch/serve/blob/master/kubernetes/EKS/README.md#setup-persistentvolume-backed-by-efs)
+Create a Persistent volume and volume claim. This document uses amazonEBS PV. For AWS EFS storage you can refer to [AWS EFS storage](https://github.com/pytorch/serve/blob/master/kubernetes/EKS/README.md#setup-persistentvolume-backed-by-efs)
 
 ### 1.1 Create PV
 

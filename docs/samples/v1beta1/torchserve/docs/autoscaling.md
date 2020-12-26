@@ -1,13 +1,10 @@
 # Autoscaling
 
-## Deploymnet yaml
+## Create InferenceService with concurrency target
 
-For example, specify a “concurrency target” of “10”, the autoscaler will try to make sure that every replica receives on average 10 requests at a time.
-By default the pod scale with concurrency metrics
-
-Refer [model archive file generation](../model-archiver/README.md) for PV, PVC storage and marfile creation.
-
-autoscaling.yaml
+### Soft limit
+You can configure InferenceService with annotation `autoscaling.knative.dev/target` for a soft limit. The soft limit is a targeted limit rather than
+a strictly enforced bound, particularly if there is a sudden burst of requests, this value can be exceeded.
 
 ```yaml
 apiVersion: "serving.kubeflow.org/v1beta1"
@@ -20,12 +17,28 @@ spec:
   predictor:
     pytorch:
       protocolVersion: v2
-      storageUri: "pvc://model-pv-claim"
+      storageUri: "gs://kfserving-examples/models/torchserve/image_classifier"
 ```
 
-## Create the InferenceService
+### Hard limit
 
-Apply the CRD
+You can also configure InferenceService with field `containerConcurrency` for a hard limit. The hard limit is an enforced upper bound. 
+If concurrency reaches the hard limit, surplus requests will be buffered and must wait until enough capacity is free to execute the requests.
+
+```yaml
+apiVersion: "serving.kubeflow.org/v1beta1"
+kind: "InferenceService"
+metadata:
+  name: "torchserve"
+spec:
+  predictor:
+    containerConcurrency: 10
+    pytorch:
+      protocolVersion: v2
+      storageUri: "gs://kfserving-examples/models/torchserve/image_classifier"
+```
+
+### Create the InferenceService
 
 ```bash
 kubectl apply -f torchserve.yaml
@@ -37,7 +50,7 @@ Expected Output
 $inferenceservice.serving.kubeflow.org/torchserve created
 ```
 
-## Run a prediction
+## Run inference with concurrent requests
 
 The first step is to [determine the ingress IP and ports](../../../README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
 
@@ -50,7 +63,8 @@ SERVICE_HOSTNAME=$(kubectl get inferenceservice torchserve -o jsonpath='{.status
 ./hey -m POST -z 30s -D ./mnist.json -host ${SERVICE_HOSTNAME} http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/${MODEL_NAME}:predict
 ```
 
-### Get Pods
+### Check the pods that are scaled up
+`hey` by default generates 50 requests concurrently, so you can see that the InferenceService scales to 5 pods as the container concurrency target is 10.
 
 ```bash
 kubectl get pods -n kfserving-test 
