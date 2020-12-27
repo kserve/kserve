@@ -52,10 +52,14 @@ The KFServing/TorchServe integration supports KFServing v1 protocol and we are w
 
 ## Create the InferenceService
 
-Apply the CRD
-
+For deploying the `InferenceService` on CPU
 ```bash
 kubectl apply -f torchserve.yaml
+```
+
+For deploying the `InferenceService` on GPU
+```bash
+kubectl apply -f gpu.yaml
 ```
 
 Expected Output
@@ -156,12 +160,12 @@ One of the main serverless inference features is to automatically scale the repl
 KFServing by default enables [Knative Pod Autoscaler](https://knative.dev/docs/serving/autoscaling/) which watches traffic flow and scales up and down
 based on the configured metrics.
 
-[Autoscaling Example](docs/autoscaling.md)
+[Autoscaling Example](autoscaling/README.md)
 
 ## Canary Rollout
 Canary rollout is a deployment strategy when you release a new version of model to a small percent of the production traffic.
 
-[Canary Deployment](docs/canary.md)
+[Canary Deployment](canary/README.md)
 
 ## Monitoring
-[Expose metrics and setup grafana dashboards](docs/metrics.md)
+[Expose metrics and setup grafana dashboards](metrics/README.md)
