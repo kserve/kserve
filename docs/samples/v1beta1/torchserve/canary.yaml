@@ -5,6 +5,7 @@ metadata:
 spec:
   predictor:
     canaryTrafficPercent: 20
+    containerConcurrency: 5
     pytorch:
       protocolVersion: v2
       storageUri: gs://kfserving-examples/models/torchserve/image_classifier

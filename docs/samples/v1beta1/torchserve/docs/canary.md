@@ -1,4 +1,4 @@
-# Canary Rollouts
+# Canary Rollout
 
 ## Create InferenceService with default model
 
@@ -20,9 +20,15 @@ Apply the InferenceService
 kubectl apply -f torchserve.yaml
 ```
 
+Expected Output
+
+```bash
+$inferenceservice.serving.kubeflow.org/torchserve created
+```
+
 ## Create InferenceService with canary model
 
-Change the `storageUri` and apply the InferenceService
+Change the `storageUri` for the new model version and apply the InferenceService
 
 ```yaml
 apiVersion: "serving.kubeflow.org/v1beta1"
@@ -41,12 +47,14 @@ Apply the InferenceService
 ```bash
 kubectl apply -f canary.yaml
 ```
-
-Expected Output
-
+You should now see two revisions created
 ```bash
-$inferenceservice.serving.kubeflow.org/torchserve created
+kubectl get revisions -l serving.kubeflow.org/inferenceservice=torchserve
+NAME                                 CONFIG NAME                    K8S SERVICE NAME                     GENERATION   READY   REASON
+torchserve-predictor-default-9lttm   torchserve-predictor-default   torchserve-predictor-default-9lttm   1            True
+torchserve-predictor-default-kxp96   torchserve-predictor-default   torchserve-predictor-default-kxp96   2            True
 ```
+
 
 ## Run a prediction
 
@@ -54,7 +62,7 @@ The first step is to [determine the ingress IP and ports](../../../README.md#det
 
 ```bash
 MODEL_NAME=mnist
-SERVICE_HOSTNAME=$(kubectl get inferenceservice torchserve  -o jsonpath='{.status.url}' | cut -d "/" -f 3)
+SERVICE_HOSTNAME=$(kubectl get inferenceservice torchserve -o jsonpath='{.status.url}' | cut -d "/" -f 3)
 
 curl -v -H "Host: ${SERVICE_HOSTNAME}" http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/${MODEL_NAME}:predict -d @./mnist.json
 ```
@@ -65,7 +73,7 @@ Expected Output
 *   Trying 52.89.19.61...
 * Connected to a881f5a8c676a41edbccdb0a394a80d6-2069247558.us-west-2.elb.amazonaws.com (52.89.19.61) port 80 (#0)
 > PUT /v1/models/mnist:predict HTTP/1.1
-> Host: torch-pred.kfserving-test.example.com
+> Host: torchserve.kfserving-test.example.com
 > User-Agent: curl/7.47.0
 > Accept: */*
 > Content-Length: 167
@@ -87,12 +95,31 @@ Expected Output
 {"predictions": ["2"]}
 ```
 
-### Get Pods
+## Check the traffic split between the two revisions
 
 ```bash
-kubectl get pods -n kfserving-test 
+kubectl get pods -l serving.kubeflow.org/inferenceservice=torchserve
+NAME                                                             READY   STATUS    RESTARTS   AGE
+torchserve-predictor-default-9lttm-deployment-7dd5cff4cb-tmmlc   2/2     Running   0          21m
+torchserve-predictor-default-kxp96-deployment-5d949864df-bmzfk   2/2     Running   0          20m
+```
 
-NAME                                                             READY   STATUS        RESTARTS   AGE
-torch-pred-predictor-default-cj2d8-deployment-69444c9c74-tsrwr   2/2     Running       0          113s
-torch-pred-predictor-default-cj2d8-deployment-69444c9c74-vvpjl   2/2     Running       0          109s
+Check the traffic split
+```bash
+kubectl get ksvc torchserve-predictor-default -oyaml
+  status:
+    address:
+      url: http://torchserve-predictor-default.default.svc.cluster.local
+    traffic:
+    - latestRevision: true
+      percent: 20
+      revisionName: torchserve-predictor-default-kxp96
+      tag: latest
+      url: http://latest-torchserve-predictor-default.default.example.com
+    - latestRevision: false
+      percent: 80
+      revisionName: torchserve-predictor-default-9lttm
+      tag: prev
+      url: http://prev-torchserve-predictor-default.default.example.com
+    url: http://torchserve-predictor-default.default.example.com
 ```

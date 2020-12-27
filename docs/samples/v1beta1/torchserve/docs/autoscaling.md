@@ -1,6 +1,22 @@
 # Autoscaling
+KFServing supports the implementation of Knative Pod Autoscaler (KPA) and Kubernetes’ Horizontal Pod Autoscaler (HPA).
+The features and limitations of each of these Autoscalers are listed below.
+
+IMPORTANT: If you want to use Kubernetes Horizontal Pod Autoscaler (HPA), you must install [HPA extension](https://knative.dev/docs/install/any-kubernetes-cluster/#optional-serving-extensions)
+ after you install Knative Serving.
+
+Knative Pod Autoscaler (KPA)
+- Part of the Knative Serving core and enabled by default once Knative Serving is installed.
+- Supports scale to zero functionality.
+- Does not support CPU-based autoscaling.
+
+Horizontal Pod Autoscaler (HPA)
+- Not part of the Knative Serving core, and must be enabled after Knative Serving installation.
+- Does not support scale to zero functionality.
+- Supports CPU-based autoscaling.
 
 ## Create InferenceService with concurrency target
+
 
 ### Soft limit
 You can configure InferenceService with annotation `autoscaling.knative.dev/target` for a soft limit. The soft limit is a targeted limit rather than
@@ -12,7 +28,7 @@ kind: "InferenceService"
 metadata:
   name: "torchserve"
   annotations:
-    autoscaling.knative.dev/target: "5"
+    autoscaling.knative.dev/target: "10"
 spec:
   predictor:
     pytorch:
@@ -54,8 +70,12 @@ $inferenceservice.serving.kubeflow.org/torchserve created
 
 The first step is to [determine the ingress IP and ports](../../../README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
 
-Install hey load generator (go get -u github.com/rakyll/hey).
+Install hey load generator 
+```bash
+go get -u github.com/rakyll/hey
+```
 
+Send concurrent inference requests
 ```bash
 MODEL_NAME=mnist
 SERVICE_HOSTNAME=$(kubectl get inferenceservice torchserve -o jsonpath='{.status.url}' | cut -d "/" -f 3)

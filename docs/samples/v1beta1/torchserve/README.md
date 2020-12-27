@@ -1,6 +1,6 @@
-# Predict on a InferenceService using Torchserve
+# Predict on a InferenceService using TorchServe
 
-In this example, we use a trained pytorch mnist model to predict handwritten digits by running an inference service with pytorch torchserve predictor.
+In this example, we use a trained pytorch mnist model to predict handwritten digits by running an inference service with [TorchServe](https://github.com/pytorch/serve) predictor.
 
 ## Setup
 
@@ -24,9 +24,9 @@ The KFServing/TorchServe integration expects following model store layout.
 │   ├── mnist.mar
 ```
 
-- For Remote storage you can choose to start the example using the prebuilt mnist MAR file stored on KFServing example GCS bucket 
+- For remote storage you can choose to start the example using the prebuilt mnist MAR file stored on KFServing example GCS bucket
 `gs://kfserving-examples/models/torchserve/image_classifier`,
-you can also generate the MAR file with `torch-model-archiver`.
+you can also generate the MAR file with `torch-model-archiver` and create the model store on remote storage according to the above layout.
 
 ```bash
 torch-model-archiver --model-name mnist --version 1.0 \
@@ -110,9 +110,11 @@ Expected Output
 
 ## Explanation
 
-Model interpretability is an important aspect which help to understand which of the input features were important for a particular classification. Captum is a model interpretability libarary. The explain function uses Captum's -integrated graident feature to help us understand, which input features were important for a particular model prediction.
+Model interpretability is an important aspect which help to understand which of the input features were important for a particular classification. 
+[Captum](https://captum.ai) is a model interpretability library, the `KFServing Explain Endpoint` uses Captum's state-of-the-art algorithm, including integrated
+gradients to provide user with an easy way to understand which features are contributing to the model output.
 
-Your can refer to [Captum](https://captum.ai/tutorials/) for more info.
+Your can refer to [Captum Tutorial](https://captum.ai/tutorials/) for more examples.
 
 ### Explain Request
 
@@ -150,13 +152,16 @@ Expected Output
 ```
 
 ## Autoscaling
+One of the main serverless inference features is to automatically scale the replicas of an `InferenceService` matching the incoming workload.
+KFServing by default enables [Knative Pod Autoscaler](https://knative.dev/docs/serving/autoscaling/) which watches traffic flow and scales up and down
+based on the configured metrics.
 
-Configurations for autoscaling pods [Auto scaling](docs/autoscaling.md)
+[Autoscaling Example](docs/autoscaling.md)
 
 ## Canary Rollout
+Canary rollout is a deployment strategy when you release a new version of model to a small percent of the production traffic.
 
-Configurations for canary [Canary Deployment](docs/canary.md)
+[Canary Deployment](docs/canary.md)
 
-## For Metrics
-
-Configurations for Metrics [Metrics](docs/metrics.md)
+## Monitoring
+[Expose metrics and setup grafana dashboards](docs/metrics.md)
