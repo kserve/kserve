@@ -126,8 +126,8 @@ def test_no_permission_buckets(mock_connection, mock_minio):
     #bad_gcs_path = "gs://random/path"
     # Access private buckets without credentials
     mock_minio.return_value = Minio("s3.us.cloud-object-storage.appdomain.cloud", secure=True)
-    mock_connection.side_effect = error.AccessDenied()
-    with pytest.raises(error.AccessDenied):
+    mock_connection.side_effect = error.S3Error()
+    with pytest.raises(error.S3Error):
         kfserving.Storage.download(bad_s3_path)
     #mock_connection.side_effect = exceptions.Forbidden(None)
     #with pytest.raises(exceptions.Forbidden):
