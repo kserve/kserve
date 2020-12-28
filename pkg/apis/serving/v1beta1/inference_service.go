@@ -54,11 +54,11 @@ type LoggerSpec struct {
 	// URL to send logging events
 	// +optional
 	URL *string `json:"url,omitempty"`
-	// Specifies the scope of the loggers.
-	// Valid values are:
-	// - "all" (default): log both request and response;
-	// - "request": log only request;
-	// - "response": log only response
+	// Specifies the scope of the loggers. <br />
+	// Valid values are: <br />
+	// - "all" (default): log both request and response; <br />
+	// - "request": log only request; <br />
+	// - "response": log only response <br />
 	// +optional
 	Mode LoggerType `json:"mode,omitempty"`
 }

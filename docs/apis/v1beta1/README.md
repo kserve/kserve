@@ -139,13 +139,13 @@ AlibiExplainerType
 </em>
 </td>
 <td>
-<p>The type of Alibi explainer
-Valid values are:
-- &ldquo;AnchorTabular&rdquo;;
-- &ldquo;AnchorImages&rdquo;;
-- &ldquo;AnchorText&rdquo;;
-- &ldquo;Counterfactuals&rdquo;;
-- &ldquo;Contrastive&rdquo;;</p>
+<p>The type of Alibi explainer <br />
+Valid values are: <br />
+- &ldquo;AnchorTabular&rdquo;; <br />
+- &ldquo;AnchorImages&rdquo;; <br />
+- &ldquo;AnchorText&rdquo;; <br />
+- &ldquo;Counterfactuals&rdquo;; <br />
+- &ldquo;Contrastive&rdquo;; <br /></p>
 </td>
 </tr>
 <tr>
@@ -156,6 +156,7 @@ string
 </em>
 </td>
 <td>
+<em>(Optional)</em>
 <p>The location of a trained explanation model</p>
 </td>
 </tr>
@@ -167,6 +168,7 @@ string
 </em>
 </td>
 <td>
+<em>(Optional)</em>
 <p>Alibi docker image version, defaults to latest Alibi Version</p>
 </td>
 </tr>
@@ -178,6 +180,7 @@ map[string]string
 </em>
 </td>
 <td>
+<em>(Optional)</em>
 <p>Inline custom parameter settings for explainer</p>
 </td>
 </tr>
@@ -703,11 +706,11 @@ PodSpec
 <p>
 (Members of <code>PodSpec</code> are embedded into this type.)
 </p>
-<p>This spec is dual purpose.
-1) Users may choose to provide a full PodSpec for their custom explainer.
-The field PodSpec.Containers is mutually exclusive with other explainers (i.e. Alibi).
-2) Users may choose to provide a Explainer (i.e. Alibi) and specify PodSpec
-overrides in the PodSpec. They must not provide PodSpec.Containers in this case.</p>
+<p>This spec is dual purpose <br />
+1) Provide a full PodSpec for custom explainer.
+The field PodSpec.Containers is mutually exclusive with other explainers (i.e. Alibi). <br />
+2) Provide a explainer (i.e. Alibi) and specify PodSpec
+overrides, you must not provide PodSpec.Containers in this case. <br /></p>
 </td>
 </tr>
 <tr>
@@ -723,7 +726,7 @@ ComponentExtensionSpec
 <p>
 (Members of <code>ComponentExtensionSpec</code> are embedded into this type.)
 </p>
-<p>Extensions available in all components</p>
+<p>Component extension defines the deployment configurations for explainer</p>
 </td>
 </tr>
 </tbody>
@@ -1170,11 +1173,11 @@ LoggerType
 </td>
 <td>
 <em>(Optional)</em>
-<p>Specifies the scope of the loggers.
-Valid values are:
-- &ldquo;all&rdquo; (default): log both request and response;
-- &ldquo;request&rdquo;: log only request;
-- &ldquo;response&rdquo;: log only response</p>
+<p>Specifies the scope of the loggers. <br />
+Valid values are: <br />
+- &ldquo;all&rdquo; (default): log both request and response; <br />
+- &ldquo;request&rdquo;: log only request; <br />
+- &ldquo;response&rdquo;: log only response <br /></p>
 </td>
 </tr>
 </tbody>
@@ -1947,6 +1950,7 @@ invalid type
 </em>
 </td>
 <td>
+<em>(Optional)</em>
 <p>Protocol version to use by the predictor (i.e. v1 or v2)</p>
 </td>
 </tr>
@@ -2118,7 +2122,7 @@ PMMLSpec
 </em>
 </td>
 <td>
-<p>Spec for PMML</p>
+<p>Spec for PMML (<a href="http://dmg.org/pmml/v4-1/GeneralStructure.html">http://dmg.org/pmml/v4-1/GeneralStructure.html</a>)</p>
 </td>
 </tr>
 <tr>
@@ -2147,11 +2151,11 @@ PodSpec
 <p>
 (Members of <code>PodSpec</code> are embedded into this type.)
 </p>
-<p>This spec is dual purpose.
-1) Users may choose to provide a full PodSpec for their predictor.
-The field PodSpec.Containers is mutually exclusive with other Predictors (i.e. TFServing).
-2) Users may choose to provide a Predictor (i.e. TFServing) and specify PodSpec
-overrides in the CustomPredictor PodSpec. They must not provide PodSpec.Containers in this case.</p>
+<p>This spec is dual purpose. <br />
+1) Provide a full PodSpec for custom predictor.
+The field PodSpec.Containers is mutually exclusive with other predictors (i.e. TFServing). <br />
+2) Provide a predictor (i.e. TFServing) and specify PodSpec
+overrides, you must not provide PodSpec.Containers in this case. <br /></p>
 </td>
 </tr>
 <tr>
@@ -2167,7 +2171,7 @@ ComponentExtensionSpec
 <p>
 (Members of <code>ComponentExtensionSpec</code> are embedded into this type.)
 </p>
-<p>Extensions available in all components</p>
+<p>Component extension defines the deployment configurations for a predictor</p>
 </td>
 </tr>
 </tbody>
@@ -2381,6 +2385,7 @@ string
 </em>
 </td>
 <td>
+<em>(Optional)</em>
 <p>Defaults PyTorch model class name to &lsquo;PyTorchModel&rsquo;</p>
 </td>
 </tr>
@@ -2472,11 +2477,11 @@ PodSpec
 <p>
 (Members of <code>PodSpec</code> are embedded into this type.)
 </p>
-<p>This spec is dual purpose.
-1) Users may choose to provide a full PodSpec for their transformer.
-The field PodSpec.Containers is mutually exclusive with other Transformer (i.e. Feast).
-2) Users may choose to provide a Transformer (i.e. Feast) and specify PodSpec
-overrides in the CustomTransformer PodSpec. They must not provide PodSpec.Containers in this case.</p>
+<p>This spec is dual purpose. <br />
+1) Provide a full PodSpec for custom transformer.
+The field PodSpec.Containers is mutually exclusive with other transformers. <br />
+2) Provide a transformer and specify PodSpec
+overrides, you must not provide PodSpec.Containers in this case. <br /></p>
 </td>
 </tr>
 <tr>
@@ -2492,7 +2497,7 @@ ComponentExtensionSpec
 <p>
 (Members of <code>ComponentExtensionSpec</code> are embedded into this type.)
 </p>
-<p>Extensions available in all components</p>
+<p>Component extension defines the deployment configurations for a transformer</p>
 </td>
 </tr>
 </tbody>
