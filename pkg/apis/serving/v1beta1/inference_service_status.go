@@ -25,12 +25,12 @@ import (
 
 // InferenceServiceStatus defines the observed state of InferenceService
 type InferenceServiceStatus struct {
-	// Conditions for the InferenceService
-	// - PredictorReady: predictor readiness condition;
-	// - TransformerReady: transformer readiness condition;
-	// - ExplainerReady: explainer readiness condition;
-	// - RoutesReady: aggregated routing condition;
-	// - Ready: aggregated condition;
+	// Conditions for the InferenceService <br/>
+	// - PredictorReady: predictor readiness condition; <br/>
+	// - TransformerReady: transformer readiness condition; <br/>
+	// - ExplainerReady: explainer readiness condition; <br/>
+	// - RoutesReady: aggregated routing condition; <br/>
+	// - Ready: aggregated condition; <br/>
 	duckv1.Status `json:",inline"`
 	// Addressable endpoint for the InferenceService
 	// +optional
