@@ -2958,6 +2958,7 @@ func schema_pkg_apis_serving_v1beta1_LightGBMSpec(ref common.ReferenceCallback) 
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{
@@ -3242,6 +3243,7 @@ func schema_pkg_apis_serving_v1beta1_ONNXRuntimeSpec(ref common.ReferenceCallbac
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{
@@ -3499,6 +3501,7 @@ func schema_pkg_apis_serving_v1beta1_PMMLSpec(ref common.ReferenceCallback) comm
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{
@@ -3899,6 +3902,13 @@ func schema_pkg_apis_serving_v1beta1_PredictorConfig(ref common.ReferenceCallbac
 							Format:      "",
 						},
 					},
+					"defaultTimeout": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Default timeout of predictor for serving a request, in seconds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 				Required: []string{"image", "defaultImageVersion", "defaultGpuImageVersion"},
 			},
@@ -4156,6 +4166,7 @@ func schema_pkg_apis_serving_v1beta1_PredictorExtensionSpec(ref common.Reference
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{
@@ -4206,12 +4217,6 @@ func schema_pkg_apis_serving_v1beta1_PredictorSpec(ref common.ReferenceCallback)
 							Ref:         ref("./pkg/apis/serving/v1beta1.XGBoostSpec"),
 						},
 					},
-					"lightgbm": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Spec for LightGBM model server",
-							Ref:         ref("./pkg/apis/serving/v1beta1.LightGBMSpec"),
-						},
-					},
 					"tensorflow": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Spec for TFServing (https://github.com/tensorflow/serving)",
@@ -4240,6 +4245,12 @@ func schema_pkg_apis_serving_v1beta1_PredictorSpec(ref common.ReferenceCallback)
 						SchemaProps: spec.SchemaProps{
 							Description: "Spec for PMML",
 							Ref:         ref("./pkg/apis/serving/v1beta1.PMMLSpec"),
+						},
+					},
+					"lightgbm": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Spec for LightGBM model server",
+							Ref:         ref("./pkg/apis/serving/v1beta1.LightGBMSpec"),
 						},
 					},
 					"volumes": {
@@ -4644,7 +4655,7 @@ func schema_pkg_apis_serving_v1beta1_PredictorSpec(ref common.ReferenceCallback)
 			},
 		},
 		Dependencies: []string{
-			"./pkg/apis/serving/v1beta1.Batcher", "./pkg/apis/serving/v1beta1.LoggerSpec", "./pkg/apis/serving/v1beta1.ONNXRuntimeSpec", "./pkg/apis/serving/v1beta1.PMMLSpec", "./pkg/apis/serving/v1beta1.SKLearnSpec", "./pkg/apis/serving/v1beta1.TFServingSpec", "./pkg/apis/serving/v1beta1.TorchServeSpec", "./pkg/apis/serving/v1beta1.TritonSpec", "./pkg/apis/serving/v1beta1.XGBoostSpec", "./pkg/apis/serving/v1beta1.LightGBMSpec", "k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Container", "k8s.io/api/core/v1.EphemeralContainer", "k8s.io/api/core/v1.HostAlias", "k8s.io/api/core/v1.LocalObjectReference", "k8s.io/api/core/v1.PodDNSConfig", "k8s.io/api/core/v1.PodReadinessGate", "k8s.io/api/core/v1.PodSecurityContext", "k8s.io/api/core/v1.Toleration", "k8s.io/api/core/v1.TopologySpreadConstraint", "k8s.io/api/core/v1.Volume", "k8s.io/apimachinery/pkg/api/resource.Quantity"},
+			"./pkg/apis/serving/v1beta1.Batcher", "./pkg/apis/serving/v1beta1.LightGBMSpec", "./pkg/apis/serving/v1beta1.LoggerSpec", "./pkg/apis/serving/v1beta1.ONNXRuntimeSpec", "./pkg/apis/serving/v1beta1.PMMLSpec", "./pkg/apis/serving/v1beta1.SKLearnSpec", "./pkg/apis/serving/v1beta1.TFServingSpec", "./pkg/apis/serving/v1beta1.TorchServeSpec", "./pkg/apis/serving/v1beta1.TritonSpec", "./pkg/apis/serving/v1beta1.XGBoostSpec", "k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Container", "k8s.io/api/core/v1.EphemeralContainer", "k8s.io/api/core/v1.HostAlias", "k8s.io/api/core/v1.LocalObjectReference", "k8s.io/api/core/v1.PodDNSConfig", "k8s.io/api/core/v1.PodReadinessGate", "k8s.io/api/core/v1.PodSecurityContext", "k8s.io/api/core/v1.Toleration", "k8s.io/api/core/v1.TopologySpreadConstraint", "k8s.io/api/core/v1.Volume", "k8s.io/apimachinery/pkg/api/resource.Quantity"},
 	}
 }
 
@@ -4669,11 +4680,6 @@ func schema_pkg_apis_serving_v1beta1_PredictorsConfig(ref common.ReferenceCallba
 							Ref: ref("./pkg/apis/serving/v1beta1.PredictorProtocols"),
 						},
 					},
-					"lightgbm": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("./pkg/apis/serving/v1beta1.PredictorConfig"),
-						},
-					},
 					"sklearn": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("./pkg/apis/serving/v1beta1.PredictorProtocols"),
@@ -4681,7 +4687,7 @@ func schema_pkg_apis_serving_v1beta1_PredictorsConfig(ref common.ReferenceCallba
 					},
 					"pytorch": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("./pkg/apis/serving/v1beta1.PredictorConfig"),
+							Ref: ref("./pkg/apis/serving/v1beta1.PredictorProtocols"),
 						},
 					},
 					"onnx": {
@@ -4690,6 +4696,11 @@ func schema_pkg_apis_serving_v1beta1_PredictorsConfig(ref common.ReferenceCallba
 						},
 					},
 					"pmml": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("./pkg/apis/serving/v1beta1.PredictorConfig"),
+						},
+					},
+					"lightgbm": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("./pkg/apis/serving/v1beta1.PredictorConfig"),
 						},
@@ -4952,6 +4963,7 @@ func schema_pkg_apis_serving_v1beta1_SKLearnSpec(ref common.ReferenceCallback) c
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{
@@ -5209,6 +5221,7 @@ func schema_pkg_apis_serving_v1beta1_TFServingSpec(ref common.ReferenceCallback)
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{
@@ -5473,6 +5486,7 @@ func schema_pkg_apis_serving_v1beta1_TorchServeSpec(ref common.ReferenceCallback
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{
@@ -6189,6 +6203,7 @@ func schema_pkg_apis_serving_v1beta1_TritonSpec(ref common.ReferenceCallback) co
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{
@@ -6446,6 +6461,7 @@ func schema_pkg_apis_serving_v1beta1_XGBoostSpec(ref common.ReferenceCallback) c
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{

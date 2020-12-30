@@ -66,7 +66,7 @@ string
 <td>
 <code>resources</code></br>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.13/#resourcerequirements-v1-core">
+<a href="https://v1-18.docs.kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#resourcerequirements-v1-core">
 Kubernetes core/v1.ResourceRequirements
 </a>
 </em>
@@ -96,6 +96,17 @@ map[string]string
 </p>
 <p>
 </p>
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr><td><p>&#34;LimeImages&#34;</p></td>
+<td></td>
+</tr></tbody>
+</table>
 <h3 id="serving.kubeflow.org/v1alpha2.AlibiExplainerSpec">AlibiExplainerSpec
 </h3>
 <p>
@@ -152,7 +163,7 @@ string
 <td>
 <code>resources</code></br>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.13/#resourcerequirements-v1-core">
+<a href="https://v1-18.docs.kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#resourcerequirements-v1-core">
 Kubernetes core/v1.ResourceRequirements
 </a>
 </em>
@@ -182,6 +193,25 @@ map[string]string
 </p>
 <p>
 </p>
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr><td><p>&#34;AnchorImages&#34;</p></td>
+<td></td>
+</tr><tr><td><p>&#34;AnchorTabular&#34;</p></td>
+<td></td>
+</tr><tr><td><p>&#34;AnchorText&#34;</p></td>
+<td></td>
+</tr><tr><td><p>&#34;Contrastive&#34;</p></td>
+<td></td>
+</tr><tr><td><p>&#34;Counterfactuals&#34;</p></td>
+<td></td>
+</tr></tbody>
+</table>
 <h3 id="serving.kubeflow.org/v1alpha2.Batcher">Batcher
 </h3>
 <p>
@@ -265,7 +295,7 @@ int
 <td>
 <code>container</code></br>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.13/#container-v1-core">
+<a href="https://v1-18.docs.kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#container-v1-core">
 Kubernetes core/v1.Container
 </a>
 </em>
@@ -608,7 +638,7 @@ ExplainerConfig
 <td>
 <code>metadata</code></br>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.13/#objectmeta-v1-meta">
+<a href="https://v1-18.docs.kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#objectmeta-v1-meta">
 Kubernetes meta/v1.ObjectMeta
 </a>
 </em>
@@ -750,6 +780,19 @@ int
 <p>
 <p>InferenceState describes the Readiness of the InferenceService</p>
 </p>
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr><td><p>&#34;InferenceServiceNotReady&#34;</p></td>
+<td></td>
+</tr><tr><td><p>&#34;InferenceServiceReady&#34;</p></td>
+<td></td>
+</tr></tbody>
+</table>
 <h3 id="serving.kubeflow.org/v1alpha2.InferenceServiceStatus">InferenceServiceStatus
 </h3>
 <p>
@@ -902,6 +945,71 @@ ExplainersConfig
 </tr>
 </tbody>
 </table>
+<h3 id="serving.kubeflow.org/v1alpha2.LightGBMSpec">LightGBMSpec
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#serving.kubeflow.org/v1alpha2.PredictorSpec">PredictorSpec</a>)
+</p>
+<p>
+<p>LightGBMSpec defines arguments for configuring LightGBM model serving.</p>
+</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>storageUri</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>The URI of the trained model which contains model.bst</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>nthread</code></br>
+<em>
+int
+</em>
+</td>
+<td>
+<p>Number of thread to be used by LightGBM</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>runtimeVersion</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>LightGBM KFServer docker image version which defaults to latest release</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>resources</code></br>
+<em>
+<a href="https://v1-18.docs.kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#resourcerequirements-v1-core">
+Kubernetes core/v1.ResourceRequirements
+</a>
+</em>
+</td>
+<td>
+<p>Defaults to requests and limits of 1CPU, 2Gb MEM.</p>
+</td>
+</tr>
+</tbody>
+</table>
 <h3 id="serving.kubeflow.org/v1alpha2.Logger">Logger
 </h3>
 <p>
@@ -954,6 +1062,21 @@ LoggerMode
 </p>
 <p>
 </p>
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr><td><p>&#34;all&#34;</p></td>
+<td></td>
+</tr><tr><td><p>&#34;request&#34;</p></td>
+<td></td>
+</tr><tr><td><p>&#34;response&#34;</p></td>
+<td></td>
+</tr></tbody>
+</table>
 <h3 id="serving.kubeflow.org/v1alpha2.ONNXSpec">ONNXSpec
 </h3>
 <p>
@@ -997,7 +1120,7 @@ string
 <td>
 <code>resources</code></br>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.13/#resourcerequirements-v1-core">
+<a href="https://v1-18.docs.kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#resourcerequirements-v1-core">
 Kubernetes core/v1.ResourceRequirements
 </a>
 </em>
@@ -1051,7 +1174,7 @@ string
 <td>
 <code>resources</code></br>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.13/#resourcerequirements-v1-core">
+<a href="https://v1-18.docs.kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#resourcerequirements-v1-core">
 Kubernetes core/v1.ResourceRequirements
 </a>
 </em>
@@ -1240,6 +1363,19 @@ XGBoostSpec
 </tr>
 <tr>
 <td>
+<code>lightgbm</code></br>
+<em>
+<a href="#serving.kubeflow.org/v1alpha2.LightGBMSpec">
+LightGBMSpec
+</a>
+</em>
+</td>
+<td>
+<p>Spec for LightGBM predictor</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>sklearn</code></br>
 <em>
 <a href="#serving.kubeflow.org/v1alpha2.SKLearnSpec">
@@ -1361,6 +1497,18 @@ PredictorProtocols
 </tr>
 <tr>
 <td>
+<code>lightgbm</code></br>
+<em>
+<a href="#serving.kubeflow.org/v1alpha2.PredictorConfig">
+PredictorConfig
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
 <code>sklearn</code></br>
 <em>
 <a href="#serving.kubeflow.org/v1alpha2.PredictorProtocols">
@@ -1463,7 +1611,7 @@ string
 <td>
 <code>resources</code></br>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.13/#resourcerequirements-v1-core">
+<a href="https://v1-18.docs.kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#resourcerequirements-v1-core">
 Kubernetes core/v1.ResourceRequirements
 </a>
 </em>
@@ -1517,7 +1665,7 @@ string
 <td>
 <code>resources</code></br>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.13/#resourcerequirements-v1-core">
+<a href="https://v1-18.docs.kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#resourcerequirements-v1-core">
 Kubernetes core/v1.ResourceRequirements
 </a>
 </em>
@@ -1608,7 +1756,7 @@ string
 <td>
 <code>resources</code></br>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.13/#resourcerequirements-v1-core">
+<a href="https://v1-18.docs.kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#resourcerequirements-v1-core">
 Kubernetes core/v1.ResourceRequirements
 </a>
 </em>
@@ -1782,7 +1930,7 @@ string
 <td>
 <code>resources</code></br>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.13/#resourcerequirements-v1-core">
+<a href="https://v1-18.docs.kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#resourcerequirements-v1-core">
 Kubernetes core/v1.ResourceRequirements
 </a>
 </em>
@@ -1914,7 +2062,7 @@ string
 <td>
 <code>resources</code></br>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.13/#resourcerequirements-v1-core">
+<a href="https://v1-18.docs.kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#resourcerequirements-v1-core">
 Kubernetes core/v1.ResourceRequirements
 </a>
 </em>
@@ -1928,5 +2076,5 @@ Kubernetes core/v1.ResourceRequirements
 <hr/>
 <p><em>
 Generated with <code>gen-crd-api-reference-docs</code>
-on git commit <code>d7f65bc</code>.
+on git commit <code>df869c1</code>.
 </em></p>

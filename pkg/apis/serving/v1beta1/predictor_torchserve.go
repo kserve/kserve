@@ -38,6 +38,7 @@ const (
 // TorchServeSpec defines arguments for configuring PyTorch model serving.
 type TorchServeSpec struct {
 	// Defaults PyTorch model class name to 'PyTorchModel'
+	// +optional
 	ModelClassName string `json:"modelClassName,omitempty"`
 	// Contains fields shared across all predictors
 	PredictorExtensionSpec `json:",inline"`

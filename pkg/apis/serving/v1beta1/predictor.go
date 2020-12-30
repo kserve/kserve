@@ -36,18 +36,18 @@ type PredictorSpec struct {
 	Triton *TritonSpec `json:"triton,omitempty"`
 	// Spec for ONNX runtime (https://github.com/microsoft/onnxruntime)
 	ONNX *ONNXRuntimeSpec `json:"onnx,omitempty"`
-	// Spec for PMML
+	// Spec for PMML (http://dmg.org/pmml/v4-1/GeneralStructure.html)
 	PMML *PMMLSpec `json:"pmml,omitempty"`
 	// Spec for LightGBM model server
 	LightGBM *LightGBMSpec `json:"lightgbm,omitempty"`
 
-	// This spec is dual purpose.
-	// 1) Users may choose to provide a full PodSpec for their predictor.
-	// The field PodSpec.Containers is mutually exclusive with other Predictors (i.e. TFServing).
-	// 2) Users may choose to provide a Predictor (i.e. TFServing) and specify PodSpec
-	// overrides in the CustomPredictor PodSpec. They must not provide PodSpec.Containers in this case.
+	// This spec is dual purpose. <br />
+	// 1) Provide a full PodSpec for custom predictor.
+	// The field PodSpec.Containers is mutually exclusive with other predictors (i.e. TFServing). <br />
+	// 2) Provide a predictor (i.e. TFServing) and specify PodSpec
+	// overrides, you must not provide PodSpec.Containers in this case. <br />
 	PodSpec `json:",inline"`
-	// Extensions available in all components
+	// Component extension defines the deployment configurations for a predictor
 	ComponentExtensionSpec `json:",inline"`
 }
 
@@ -62,6 +62,7 @@ type PredictorExtensionSpec struct {
 	// +optional
 	RuntimeVersion *string `json:"runtimeVersion,omitempty"`
 	// Protocol version to use by the predictor (i.e. v1 or v2)
+	// +optional
 	ProtocolVersion *constants.InferenceServiceProtocol `json:"protocolVersion,omitempty"`
 	// Container enables overrides for the predictor.
 	// Each framework will have different defaults that are populated in the underlying container spec.

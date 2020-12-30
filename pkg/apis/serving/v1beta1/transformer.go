@@ -18,13 +18,13 @@ package v1beta1
 
 // TransformerSpec defines transformer service for pre/post processing
 type TransformerSpec struct {
-	// This spec is dual purpose.
-	// 1) Users may choose to provide a full PodSpec for their transformer.
-	// The field PodSpec.Containers is mutually exclusive with other Transformer (i.e. Feast).
-	// 2) Users may choose to provide a Transformer (i.e. Feast) and specify PodSpec
-	// overrides in the CustomTransformer PodSpec. They must not provide PodSpec.Containers in this case.
+	// This spec is dual purpose. <br />
+	// 1) Provide a full PodSpec for custom transformer.
+	// The field PodSpec.Containers is mutually exclusive with other transformers. <br />
+	// 2) Provide a transformer and specify PodSpec
+	// overrides, you must not provide PodSpec.Containers in this case. <br />
 	PodSpec `json:",inline"`
-	// Extensions available in all components
+	// Component extension defines the deployment configurations for a transformer
 	ComponentExtensionSpec `json:",inline"`
 }
 

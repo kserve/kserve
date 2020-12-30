@@ -2109,6 +2109,10 @@
           "description": "default predictor docker image version on cpu",
           "type": "string"
         },
+        "defaultTimeout": {
+          "description": "Default timeout of predictor for serving a request, in seconds",
+          "type": "string"
+        },
         "image": {
           "description": "predictor docker image name",
           "type": "string"
@@ -2541,7 +2545,7 @@
           "$ref": "#/definitions/v1beta1.PredictorConfig"
         },
         "pytorch": {
-          "$ref": "#/definitions/v1beta1.PredictorConfig"
+          "$ref": "#/definitions/v1beta1.PredictorProtocols"
         },
         "sklearn": {
           "$ref": "#/definitions/v1beta1.PredictorProtocols"

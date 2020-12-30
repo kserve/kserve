@@ -23,13 +23,13 @@ type ExplainerSpec struct {
 	Alibi *AlibiExplainerSpec `json:"alibi,omitempty"`
 	// Spec for AIX explainer
 	AIX *AIXExplainerSpec `json:"aix,omitempty"`
-	// This spec is dual purpose.
-	// 1) Users may choose to provide a full PodSpec for their custom explainer.
-	// The field PodSpec.Containers is mutually exclusive with other explainers (i.e. Alibi).
-	// 2) Users may choose to provide a Explainer (i.e. Alibi) and specify PodSpec
-	// overrides in the PodSpec. They must not provide PodSpec.Containers in this case.
+	// This spec is dual purpose <br />
+	// 1) Provide a full PodSpec for custom explainer.
+	// The field PodSpec.Containers is mutually exclusive with other explainers (i.e. Alibi). <br />
+	// 2) Provide a explainer (i.e. Alibi) and specify PodSpec
+	// overrides, you must not provide PodSpec.Containers in this case. <br />
 	PodSpec `json:",inline"`
-	// Extensions available in all components
+	// Component extension defines the deployment configurations for explainer
 	ComponentExtensionSpec `json:",inline"`
 }
 
