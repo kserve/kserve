@@ -52,8 +52,8 @@ deploy: manifests
 	cd config/default && if [ ${KFSERVING_ENABLE_SELF_SIGNED_CA} != false ]; then \
 	kustomize edit remove resource certmanager/certificate.yaml; \
 	else kustomize edit add resource certmanager/certificate.yaml; fi;
-	kubectl get crd inferenceservices.serving.kubeflow.org || kustomize build config/crd | kubectl create --validate=false -f -
-	kustomize build config/crd | kubectl replace --validate=false -f -
+	kubectl get crd inferenceservices.serving.kubeflow.org && kustomize build config/crd | kubectl replace --validate=false -f - || \
+	kustomize build config/crd | kubectl create --validate=false -f -
 	kustomize build config/default | kubectl apply --validate=false -f -
 	if [ ${KFSERVING_ENABLE_SELF_SIGNED_CA} != false ]; then ./hack/self-signed-ca.sh; fi;
 
@@ -64,8 +64,8 @@ deploy-dev: manifests
 	kustomize edit remove resource certmanager/certificate.yaml; \
 	else kustomize edit add resource certmanager/certificate.yaml; fi;
 
-	kubectl get crd inferenceservices.serving.kubeflow.org || kustomize build config/crd | kubectl create --validate=false -f -
-	kustomize build config/crd | kubectl replace --validate=false -f -
+	kubectl get crd inferenceservices.serving.kubeflow.org && kustomize build config/crd | kubectl replace --validate=false -f - || \
+	kustomize build config/crd | kubectl create --validate=false -f -
 	kustomize build config/overlays/development | kubectl apply --validate=false -f -
 	if [ ${KFSERVING_ENABLE_SELF_SIGNED_CA} != false ]; then ./hack/self-signed-ca.sh; fi;
 
