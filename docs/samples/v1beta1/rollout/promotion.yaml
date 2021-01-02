@@ -5,11 +5,4 @@ metadata:
 spec:
   predictor:
     tensorflow:
-      resources:
-        limits:
-          cpu: 100m
-          memory: "100Mi"
-        requests:
-          cpu: 100m
-          memory: "100Mi"    
       storageUri: "gs://kfserving-samples/models/tensorflow/flowers-2"
