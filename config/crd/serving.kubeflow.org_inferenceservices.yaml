@@ -4123,17 +4123,17 @@ spec:
         - JSONPath: .status.conditions[?(@.type=='Ready')].status
           name: Ready
           type: string
-        - JSONPath: .status.components.predictor.traffic[?(@.tag=='latest')].percent
+        - JSONPath: .status.components.predictor.traffic[?(@.tag=='prev')].percent
           name: Default
           type: integer
-        - JSONPath: .status.components.predictor.traffic[?(@.tag=='prev')].percent
+        - JSONPath: .status.components.predictor.traffic[?(@.tag=='latest')].percent
           name: Canary
           type: integer
-        - JSONPath: .status.components.predictor.traffic[?(@.tag=='latest')].revisionName
-          name: LatestReadyRevision
-          type: string
         - JSONPath: .status.components.predictor.traffic[?(@.tag=='prev')].revisionName
-          name: PreviousRolledoutRevision
+          name: PreviousRolledout
+          type: string
+        - JSONPath: .status.components.predictor.traffic[?(@.tag=='latest')].revisionName
+          name: LatestReady
           type: string
         - JSONPath: .metadata.creationTimestamp
           name: Age

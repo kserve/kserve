@@ -83,11 +83,15 @@ func createKnativeService(componentMeta metav1.ObjectMeta,
 	}
 
 	lastRolledoutRevision := componentStatus.LatestRolledoutRevision
+	// This is to handle case when the latest ready revision is rolled out with 100% and then rolled back
+	// so here we need to get the revision that is previously rolled out with 100%
 	if componentStatus.LatestRolledoutRevision == componentStatus.LatestReadyRevision &&
 		componentExtension.CanaryTrafficPercent != nil && *componentExtension.CanaryTrafficPercent < 100 {
 		lastRolledoutRevision = componentStatus.PreviousRolledoutRevision
 	}
 	trafficTargets := []knservingv1.TrafficTarget{}
+	// Split traffic when canary traffic percent is specified and latest ready revision is not equal to the
+	// last rolled out revision
 	if componentExtension.CanaryTrafficPercent != nil && lastRolledoutRevision != "" &&
 		componentStatus.LatestReadyRevision != lastRolledoutRevision {
 		//canary rollout
@@ -173,37 +177,7 @@ func (r *KsvcReconciler) Reconcile() (*knservingv1.ServiceStatus, error) {
 	log.Info("knative service configuration diff (-desired, +observed):", "diff", diff)
 	existing.Spec.ConfigurationSpec = desired.Spec.ConfigurationSpec
 	existing.ObjectMeta.Labels = desired.ObjectMeta.Labels
-
-	if r.componentExt.CanaryTrafficPercent != nil && r.componentStatus.LatestReadyRevision != "" &&
-		r.componentStatus.LatestReadyRevision != existing.Status.LatestReadyRevisionName {
-		log.Info("Updating knative service traffic target", "namespace", desired.Namespace, "name", desired.Name, "canaryPercent",
-			r.componentExt.CanaryTrafficPercent)
-		trafficTargets := []knservingv1.TrafficTarget{}
-		trafficTargets = append(trafficTargets,
-			knservingv1.TrafficTarget{
-				Tag:            "latest",
-				LatestRevision: proto.Bool(true),
-				Percent:        r.componentExt.CanaryTrafficPercent,
-			})
-		remainingTraffic := 100 - *r.componentExt.CanaryTrafficPercent
-		trafficTargets = append(trafficTargets,
-			knservingv1.TrafficTarget{
-				Tag:            "prev",
-				RevisionName:   r.componentStatus.LatestReadyRevision,
-				LatestRevision: proto.Bool(false),
-				Percent:        proto.Int64(remainingTraffic),
-			})
-		existing.Spec.Traffic = trafficTargets
-	} else {
-		diff, err := kmp.SafeDiff(desired.Spec.RouteSpec, existing.Spec.RouteSpec)
-		if err != nil {
-			return &existing.Status, errors.Wrapf(err, "fails to diff knative service route spec")
-		}
-		if diff != "" {
-			log.Info("knative service routing spec diff (-desired, +observed):", "diff", diff)
-		}
-		existing.Spec.Traffic = desired.Spec.Traffic
-	}
+	existing.Spec.Traffic = desired.Spec.Traffic
 	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		log.Info("Updating knative service", "namespace", desired.Namespace, "name", desired.Name)
 		return r.client.Update(context.TODO(), existing)

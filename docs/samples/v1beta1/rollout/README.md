@@ -30,7 +30,7 @@ After rolling out the first model, 100% traffic goes to the initial model with s
 
 ```
 kubectl get isvc my-model
-NAME       URL                                          READY   DEFAULT   CANARY   LATESTREADYREVISION                PREVIOUSROLLEDOUTREVISION   AGE
+NAME       URL                                          READY   DEFAULT   CANARY   LATESTREADY                          PREVIOUSROLLEDOUT         AGE
 my-model   http://my-model.kfserving-test.example.com   True    100                my-model-predictor-default-tgfnx                               2m39s                             70s
 ```
 
@@ -57,8 +57,8 @@ After rolling out the canary model, traffic is splitted between the latest ready
 
 ```
 kubectl get isvc my-model
-NAME       URL                                          READY   DEFAULT   CANARY   LATESTREADYREVISION                PREVIOUSROLLEDOUTREVISION          AGE
-my-model   http://my-model.kfserving-test.example.com   True    10        90       my-model-predictor-default-5w6nk   my-model-predictor-default-tgfnx   6m4s
+NAME       URL                                          READY   DEFAULT   CANARY   PREVIOUSROLLEDOUT                  LATESTREADY                        AGE
+my-model   http://my-model.kfserving-test.example.com   True    90        10       my-model-predictor-default-tgfnx   my-model-predictor-default-5w6nk   6m4s
 ```
 
 You should see two sets of pods running for the two models for both first and second generation revision:
@@ -124,14 +124,14 @@ kubectl apply -f promotion.yaml
 Now all traffic goes to the revision 2 for the new model and the pods for revision generation 1 automatically scales down to 0 as it is no longer getting the traffic.
 ```
 kubectl get isvc my-model
-NAME       URL                                          READY   DEFAULT   CANARY   LATESTREADYREVISION                PREVIOUSROLLEDOUTREVISION   AGE
-my-model   http://my-model.kfserving-test.example.com   True    100                my-model-predictor-default-5w6nk                               106m
+NAME       URL                                          READY   DEFAULT   CANARY   PREVIOUSROLLEDOUT         LATESTREADY                       AGE
+my-model   http://my-model.kfserving-test.example.com   True    100                                          my-model-predictor-default-5w6nk  106m
 ```
 
 ## Rollback and pin the model
 The model can also be pinned to the previous good model and make the current model receive no traffic as shown in the pinned.yaml. 
 
-Apply this CR essentially rolls back the new model to the previous good model.
+Applying this CR essentially rolls back the new model to the previous good model that gets rolled out with 100% traffic.
 ```
 kubectl apply -f pinned.yaml
 ```
@@ -139,8 +139,8 @@ kubectl apply -f pinned.yaml
 Check the traffic split now 100% traffic goes to the previous good model for revision generation 1.
 ```
 kubectl get isvc my-model 
-NAME       URL                                          READY   DEFAULT   CANARY   LATESTREADYREVISION                PREVIOUSROLLEDOUTREVISION          AGE
-my-model   http://my-model.kfserving-test.example.com   True    0         100      my-model-predictor-default-5w6nk   my-model-predictor-default-tgfnx   115m
+NAME       URL                                          READY   DEFAULT   CANARY   PREVIOUSROLLEDOUT                  LATESTREADY                        AGE
+my-model   http://my-model.kfserving-test.example.com   True    100       0        my-model-predictor-default-tgfnx   my-model-predictor-default-5w6nk   115m
 ```
 
 The pods for previous revision 1 now scales back
