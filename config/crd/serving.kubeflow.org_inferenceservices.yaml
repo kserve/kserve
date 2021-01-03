@@ -4124,16 +4124,16 @@ spec:
           name: Ready
           type: string
         - JSONPath: .status.components.predictor.traffic[?(@.tag=='prev')].percent
-          name: Default
+          name: Prev
           type: integer
         - JSONPath: .status.components.predictor.traffic[?(@.tag=='latest')].percent
-          name: Canary
+          name: Latest
           type: integer
         - JSONPath: .status.components.predictor.traffic[?(@.tag=='prev')].revisionName
-          name: PreviousRolledout
+          name: PrevRolledoutRevision
           type: string
         - JSONPath: .status.components.predictor.traffic[?(@.tag=='latest')].revisionName
-          name: LatestReady
+          name: LatestReadyRevision
           type: string
         - JSONPath: .metadata.creationTimestamp
           name: Age

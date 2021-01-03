@@ -6,9 +6,10 @@
 
 ## Create the InferenceService
 In v1beta1 you no longer need to specify both default and canary spec on `InferenceService` to rollout the `InferenceService` with canary strategy, 
-KFServing automatically tracks the last good revision that was rolled out to 100% percent, you only need to set the `canaryTrafficPercent` field and KFServing automatically splits
-the traffic between the revision that is currently rolling out and the last known good revision that had 100% traffic rolled out.
+KFServing automatically tracks the last good revision that was rolled out with 100% traffic, you only need to set the `canaryTrafficPercent` field on the component
+and KFServing automatically splits the traffic between the revision that is currently rolling out and the last known good revision that had 100% traffic rolled out.
 
+![Canary Rollout](./canary.png)
 
 ### Create the InferenceService with the initial model
 ```yaml
@@ -30,8 +31,8 @@ After rolling out the first model, 100% traffic goes to the initial model with s
 
 ```
 kubectl get isvc my-model
-NAME       URL                                          READY   DEFAULT   CANARY   LATESTREADY                          PREVIOUSROLLEDOUT         AGE
-my-model   http://my-model.kfserving-test.example.com   True    100                my-model-predictor-default-tgfnx                               2m39s                             70s
+NAME       URL                                   READY   DEFAULT   CANARY   PREVIOUSROLLEDOUT   LATESTREADY                        AGE
+my-model   http://my-model.default.example.com   True              100                          my-model-predictor-default-2vp5n   12h                               2m39s                             70s
 ```
 
 ### Update the InferenceService with the canary model
@@ -53,20 +54,20 @@ Now you update the `storageUri` for the new model and apply the CR:
 kubectl apply -f canary.yaml 
 ```
 
-After rolling out the canary model, traffic is splitted between the latest ready revision and the previously rolled out revision
+After rolling out the canary model, traffic is split between the latest ready revision and the previously rolled out revision 1.
 
 ```
-kubectl get isvc my-model
-NAME       URL                                          READY   DEFAULT   CANARY   PREVIOUSROLLEDOUT                  LATESTREADY                        AGE
-my-model   http://my-model.kfserving-test.example.com   True    90        10       my-model-predictor-default-tgfnx   my-model-predictor-default-5w6nk   6m4s
+kubectl get isvc my-model 
+NAME       URL                                   READY   PREV   LATEST   PREVROLLEDOUTREVISION              LATESTREADYREVISION                AGE
+my-model   http://my-model.default.example.com   True    90     10       my-model-predictor-default-2vp5n   my-model-predictor-default-jdn59   12h
 ```
 
 You should see two sets of pods running for the two models for both first and second generation revision:
 ```
 kubectl get pods -l serving.kubeflow.org/inferenceservice=my-model
-NAME                                                          READY   STATUS    RESTARTS   AGE
-my-model-predictor-default-5w6nk-deployment-54749fcb6-xrsfc   2/2     Running   0          2m28s
-my-model-predictor-default-tgfnx-deployment-b875f46c5-68f8j   2/2     Running   0          6m28s
+NAME                                                           READY   STATUS    RESTARTS   AGE
+my-model-predictor-default-2vp5n-deployment-8569645df4-tq8jc   2/2     Running   0          14m
+my-model-predictor-default-jdn59-deployment-58bd86ff68-qkkgb   2/2     Running   0          12m
 ```
 
 #### Run a prediction
@@ -113,42 +114,71 @@ Expected Output:
 * Connection #0 to host 169.47.250.204 left intact
 ```
 
+Send more requests to the `InferenceService` you will notice 20% of time the traffic goes to the new revision.
+
 ### Promoting canary
 If the canary model runs well you can promote it by removing the `canaryTrafficPercent` field.
+```yaml
+apiVersion: "serving.kubeflow.org/v1beta1"
+kind: "InferenceService"
+metadata:
+  name: "my-model"
+spec:
+  predictor:
+    tensorflow:
+      storageUri: "gs://kfserving-samples/models/tensorflow/flowers-2"
+```
 
 Apply the CR:
 ```
 kubectl apply -f promotion.yaml
 ```
 
-Now all traffic goes to the revision 2 for the new model and the pods for revision generation 1 automatically scales down to 0 as it is no longer getting the traffic.
+Now all traffic goes to the revision 2 for the new model.
 ```
 kubectl get isvc my-model
-NAME       URL                                          READY   DEFAULT   CANARY   PREVIOUSROLLEDOUT         LATESTREADY                       AGE
-my-model   http://my-model.kfserving-test.example.com   True    100                                          my-model-predictor-default-5w6nk  106m
+NAME       URL                                   READY   PREV   LATEST   PREVROLLEDOUTREVISION   LATESTREADYREVISION                AGE
+my-model   http://my-model.default.example.com   True           100                              my-model-predictor-default-jdn59   12h
+```
+
+The pods for revision generation 1 automatically scales down to 0 as it is no longer getting the traffic.
+```bash
+kubectl get pods -l serving.kubeflow.org/inferenceservice=my-model
+NAME                                                           READY   STATUS        RESTARTS   AGE
+my-model-predictor-default-2vp5n-deployment-8569645df4-tq8jc   1/2     Terminating   0          15m
+my-model-predictor-default-jdn59-deployment-58bd86ff68-qkkgb   2/2     Running       0          13m
 ```
 
 ## Rollback and pin the model
-The model can also be pinned to the previous good model and make the current model receive no traffic as shown in the pinned.yaml. 
+The model can also be pinned to the previous good model and make the current model receive no traffic. 
+```yaml
+apiVersion: "serving.kubeflow.org/v1beta1"
+kind: "InferenceService"
+metadata:
+  name: "my-model"
+spec:
+  predictor:
+    canaryTrafficPercent: 0
+    tensorflow:
+      storageUri: "gs://kfserving-samples/models/tensorflow/flowers-2"
+```
 
-Applying this CR essentially rolls back the new model to the previous good model that gets rolled out with 100% traffic.
+Applying this CR essentially rolls back the new model to the previous good model which was rolled out with 100% traffic.
 ```
 kubectl apply -f pinned.yaml
 ```
 
-Check the traffic split now 100% traffic goes to the previous good model for revision generation 1.
+Check the traffic split, now 100% traffic goes to the previous good model for revision generation 1.
 ```
-kubectl get isvc my-model 
-NAME       URL                                          READY   DEFAULT   CANARY   PREVIOUSROLLEDOUT                  LATESTREADY                        AGE
-my-model   http://my-model.kfserving-test.example.com   True    100       0        my-model-predictor-default-tgfnx   my-model-predictor-default-5w6nk   115m
+kubectl get isvc my-model
+NAME       URL                                   READY   PREV   LATEST   PREVROLLEDOUTREVISION              LATESTREADYREVISION                AGE
+my-model   http://my-model.default.example.com   True    100    0        my-model-predictor-default-2vp5n   my-model-predictor-default-jdn59   12h
 ```
 
 The pods for previous revision 1 now scales back
 ```
 kubectl get pods -l serving.kubeflow.org/inferenceservice=my-model
-NAME                                                          READY   STATUS    RESTARTS   AGE
-my-model-predictor-default-5w6nk-deployment-54749fcb6-xrsfc   2/2     Running   0          115m
-my-model-predictor-default-tgfnx-deployment-b875f46c5-9lt8p   2/2     Running   0          6m38s
+NAME                                                           READY   STATUS            RESTARTS   AGE
+my-model-predictor-default-2vp5n-deployment-8569645df4-g2qzd   0/2     PodInitializing   0          11s
+my-model-predictor-default-jdn59-deployment-58bd86ff68-qkkgb   2/2     Running           0          17m
 ```
-
-The output will show that all the traffic is going to the default model. You may run predictions again while watching the Kiali console to visually verify that all traffic is routed to the default model.

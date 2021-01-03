@@ -447,7 +447,7 @@ func schema_pkg_apis_serving_v1beta1_AlibiExplainerSpec(ref common.ReferenceCall
 				Properties: map[string]spec.Schema{
 					"type": {
 						SchemaProps: spec.SchemaProps{
-							Description: "The type of Alibi explainer Valid values are: - \"AnchorTabular\"; - \"AnchorImages\"; - \"AnchorText\"; - \"Counterfactuals\"; - \"Contrastive\";",
+							Description: "The type of Alibi explainer <br /> Valid values are: <br /> - \"AnchorTabular\"; <br /> - \"AnchorImages\"; <br /> - \"AnchorText\"; <br /> - \"Counterfactuals\"; <br /> - \"Contrastive\"; <br />",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -821,25 +821,38 @@ func schema_pkg_apis_serving_v1beta1_ComponentStatusSpec(ref common.ReferenceCal
 							Format:      "",
 						},
 					},
-					"previousReadyRevision": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Previous revision name that is in ready state",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
 					"latestCreatedRevision": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Latest revision name that is in created",
+							Description: "Latest revision name that is created",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
-					"trafficPercent": {
+					"previousRolledoutRevision": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Traffic percent on the latest ready revision",
-							Type:        []string{"integer"},
-							Format:      "int64",
+							Description: "Previous revision name that is rolled out with 100 percent traffic",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"latestRolledoutRevision": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Latest revision name that is rolled out with 100 percent traffic",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"traffic": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Traffic holds the configured traffic distribution for latest ready revision and previous rolled out revision.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("knative.dev/serving/pkg/apis/serving/v1.TrafficTarget"),
+									},
+								},
+							},
 						},
 					},
 					"url": {
@@ -858,7 +871,7 @@ func schema_pkg_apis_serving_v1beta1_ComponentStatusSpec(ref common.ReferenceCal
 			},
 		},
 		Dependencies: []string{
-			"knative.dev/pkg/apis.URL", "knative.dev/pkg/apis/duck/v1.Addressable"},
+			"knative.dev/pkg/apis.URL", "knative.dev/pkg/apis/duck/v1.Addressable", "knative.dev/serving/pkg/apis/serving/v1.TrafficTarget"},
 	}
 }
 
@@ -2982,7 +2995,7 @@ func schema_pkg_apis_serving_v1beta1_LoggerSpec(ref common.ReferenceCallback) co
 					},
 					"mode": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Specifies the scope of the loggers. Valid values are: - \"all\" (default): log both request and response; - \"request\": log only request; - \"response\": log only response",
+							Description: "Specifies the scope of the loggers. <br /> Valid values are: <br /> - \"all\" (default): log both request and response; <br /> - \"request\": log only request; <br /> - \"response\": log only response <br />",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -4243,7 +4256,7 @@ func schema_pkg_apis_serving_v1beta1_PredictorSpec(ref common.ReferenceCallback)
 					},
 					"pmml": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Spec for PMML",
+							Description: "Spec for PMML (http://dmg.org/pmml/v4-1/GeneralStructure.html)",
 							Ref:         ref("./pkg/apis/serving/v1beta1.PMMLSpec"),
 						},
 					},
