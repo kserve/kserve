@@ -1,6 +1,6 @@
 # Metrics and Monitoring
 
-> Getting started with Prometheus based monitoring of model versions defined in InferenceService resource objects.
+> Getting started with Prometheus-based monitoring of KFServing models.
 
 # Table of Contents
 1. [Install Prometheus](#install-prometheus)
@@ -23,10 +23,13 @@ kustomize build docs/samples/metrics-and-monitoring/prometheus | kubectl apply -
 ```
 
 ## Accessing Prometheus Metrics
+In this section, we will use a v1beta1 InferenceService sample to demonstrate how to access Prometheus metrics that are automatically collected by [Knative's queue-proxy container](https://knative.dev) for your KFServing models.
+
 1. `kubectl create ns kfserving-test`
 2. `cd docs/samples/v1beta1/sklearn`
-2. `kubectl apply -f sklearn.yaml -n kfserving-test`
-3. In a separate terminal, send requests. First, follow these instructions to find your ingress IP, host, and service hostname. Then, 
+3. `kubectl apply -f sklearn.yaml -n kfserving-test`
+4. If you are using a Minikube based cluster, then in a separate terminal, run `minikube tunnel` and supply password if prompted.
+5. In a separate terminal, follow [these instructions](https://github.com/kubeflow/kfserving/blob/master/README.md#determine-the-ingress-ip-and-ports) to find and set your ingress IP, host, and service hostname. Then, send prediction requests to the `sklearn-iris` model you created in Step 3. above as follows.
 ```
 while clear; do \
   curl -v \
@@ -36,14 +39,14 @@ while clear; do \
   sleep 0.3
 done
 ```
-4. In a separate terminal, run 
+6. In a separate terminal, port forward the Prometheus service.
 ```shell
 kubectl port-forward service/prometheus-operated -n kfserving-monitoring 9090:9090
 ```
-5. Access Prometheus UI in your browser at http://localhost:9090
-6. Access the number of prediction requests to the sklearn model, over the last 60 seconds as follows.
+7. Access Prometheus UI in your browser at http://localhost:9090
+8. Access the number of prediction requests to the sklearn model, over the last 60 seconds as follows.
 ![Request count](requestcount.png)
-7. Access the mean latency for serving prediction requests for the same model as above, over the last 60 seconds as follows.
+9. Access the mean latency for serving prediction requests for the same model as above, over the last 60 seconds as follows.
 ![Request count](requestlatency.png)
 
 ## Metrics-driven experiments and progressive delivery
@@ -56,4 +59,3 @@ cd kfserving
 kustomize build docs/samples/metrics-and-monitoring/prometheus | kubectl delete -f -
 kustomize build docs/samples/metrics-and-monitoring/prometheus-operator | kubectl delete -f -
 ```
-
