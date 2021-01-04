@@ -1,3 +1,0 @@
-namespace: kfserving-monitoring
-resources:
- - kfserving-service-monitor.yaml

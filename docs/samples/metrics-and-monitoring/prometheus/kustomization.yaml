@@ -6,3 +6,4 @@ resources:
 - prometheus.yaml
 - promservice.yaml
 - serviceaccount.yaml
+- kfserving-service-monitor.yaml
