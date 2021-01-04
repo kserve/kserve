@@ -7,6 +7,7 @@ LOGGER_IMG ?= logger:latest
 BATCHER_IMG ?= batcher:latest
 SKLEARN_IMG ?= sklearnserver
 XGB_IMG ?= xgbserver
+LGB_IMG ?= lgbserver
 PYTORCH_IMG ?= pytorchserver
 PMML_IMG ?= pmmlserver
 ALIBI_IMG ?= alibi-explainer
@@ -51,7 +52,8 @@ deploy: manifests
 	cd config/default && if [ ${KFSERVING_ENABLE_SELF_SIGNED_CA} != false ]; then \
 	kustomize edit remove resource certmanager/certificate.yaml; \
 	else kustomize edit add resource certmanager/certificate.yaml; fi;
-
+	kubectl get crd inferenceservices.serving.kubeflow.org && kustomize build config/crd | kubectl replace --validate=false -f - || \
+	kustomize build config/crd | kubectl create --validate=false -f -
 	kustomize build config/default | kubectl apply --validate=false -f -
 	if [ ${KFSERVING_ENABLE_SELF_SIGNED_CA} != false ]; then ./hack/self-signed-ca.sh; fi;
 
@@ -62,6 +64,8 @@ deploy-dev: manifests
 	kustomize edit remove resource certmanager/certificate.yaml; \
 	else kustomize edit add resource certmanager/certificate.yaml; fi;
 
+	kubectl get crd inferenceservices.serving.kubeflow.org && kustomize build config/crd | kubectl replace --validate=false -f - || \
+	kustomize build config/crd | kubectl create --validate=false -f -
 	kustomize build config/overlays/development | kubectl apply --validate=false -f -
 	if [ ${KFSERVING_ENABLE_SELF_SIGNED_CA} != false ]; then ./hack/self-signed-ca.sh; fi;
 
@@ -71,6 +75,10 @@ deploy-dev-sklearn: docker-push-sklearn
 
 deploy-dev-xgb: docker-push-xgb
 	./hack/model_server_patch_dev.sh xgboost ${KO_DOCKER_REPO}/${XGB_IMG}
+	kustomize build config/overlays/dev-image-config | kubectl apply --validate=false -f -
+
+deploy-dev-lgb: docker-push-lgb
+	./hack/model_server_patch_dev.sh lightgbm ${KO_DOCKER_REPO}/${LGB_IMG}
 	kustomize build config/overlays/dev-image-config | kubectl apply --validate=false -f -
 
 deploy-dev-pytorch: docker-push-pytorch
@@ -197,7 +205,13 @@ docker-build-xgb:
 docker-push-xgb: docker-build-xgb
 	docker push ${KO_DOCKER_REPO}/${XGB_IMG}
 
-docker-build-pytorch:
+docker-build-lgb: 
+	cd python && docker build -t ${KO_DOCKER_REPO}/${LGB_IMG} -f lgb.Dockerfile .
+
+docker-push-lgb: docker-build-lgb
+	docker push ${KO_DOCKER_REPO}/${LGB_IMG}
+
+docker-build-pytorch: 
 	cd python && docker build -t ${KO_DOCKER_REPO}/${PYTORCH_IMG} -f pytorch.Dockerfile .
 
 docker-push-pytorch: docker-build-pytorch
@@ -251,4 +265,4 @@ endif
 
 apidocs:
 	docker build -f docs/apis/Dockerfile --rm -t apidocs-gen . && \
-	docker run -it --rm -v ${GOPATH}/src/github.com/kubeflow/kfserving/pkg/apis:/go/src/github.com/kubeflow/kfserving/pkg/apis -v ${PWD}/docs/apis:/go/gen-crd-api-reference-docs/apidocs apidocs-gen
+	docker run -it --rm -v $(CURDIR)/pkg/apis:/go/src/github.com/kubeflow/kfserving/pkg/apis -v ${PWD}/docs/apis:/go/gen-crd-api-reference-docs/apidocs apidocs-gen

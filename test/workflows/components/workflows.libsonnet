@@ -277,6 +277,10 @@
                     name: "build-pmmlserver",
                     template: "build-pmmlserver",
                   },
+                  {
+                    name: "build-lgbserver",
+                    template: "build-lgbserver",
+                  },
                 ],
                 [
                   {
@@ -420,6 +424,12 @@
                 "--context=dir://" + srcDir + "/python",
                 "--destination=" + "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/pmmlserver:$(PULL_BASE_SHA)",
             ]),  // build-pmmlserver
+            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-lgbserver", kanikoExecutorImage, [
+                "/kaniko/executor",
+                "--dockerfile=" + srcDir + "/python/lgb.Dockerfile",
+                "--context=dir://" + srcDir + "/python",
+                "--destination=" + "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/lgbserver:$(PULL_BASE_SHA)",
+            ]),  // build-lgbserver
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("unit-test", testWorkerImage, [
               "test/scripts/unit-test.sh",
             ]),  // unit test

@@ -60,6 +60,7 @@ from kfserving.models.v1alpha2_status_configuration_spec import V1alpha2StatusCo
 from kfserving.models.v1alpha2_triton_spec import V1alpha2TritonSpec
 from kfserving.models.v1alpha2_tensorflow_spec import V1alpha2TensorflowSpec
 from kfserving.models.v1alpha2_xg_boost_spec import V1alpha2XGBoostSpec
+from kfserving.models.v1alpha2_light_gbm_spec import V1alpha2LightGBMSpec
 
 # import v1beta1 models into sdk package
 from kfserving.models.v1beta1_aix_explainer_spec import V1beta1AIXExplainerSpec
@@ -92,15 +93,11 @@ from kfserving.models.v1beta1_sk_learn_spec import V1beta1SKLearnSpec
 from kfserving.models.v1beta1_pmml_spec import V1beta1PMMLSpec
 from kfserving.models.v1beta1_tf_serving_spec import V1beta1TFServingSpec
 from kfserving.models.v1beta1_torch_serve_spec import V1beta1TorchServeSpec
-from kfserving.models.v1beta1_trained_model import V1beta1TrainedModel
-from kfserving.models.v1beta1_trained_model_list import V1beta1TrainedModelList
-from kfserving.models.v1beta1_trained_model_spec import V1beta1TrainedModelSpec
-from kfserving.models.v1beta1_trained_model_status import V1beta1TrainedModelStatus
 from kfserving.models.v1beta1_transformer_config import V1beta1TransformerConfig
 from kfserving.models.v1beta1_transformer_spec import V1beta1TransformerSpec
 from kfserving.models.v1beta1_transformers_config import V1beta1TransformersConfig
 from kfserving.models.v1beta1_triton_spec import V1beta1TritonSpec
 from kfserving.models.v1beta1_xg_boost_spec import V1beta1XGBoostSpec
-
 from kfserving.models.v1alpha1_trained_model import V1alpha1TrainedModel
 from kfserving.models.v1alpha1_trained_model_list import V1alpha1TrainedModelList
+from kfserving.models.v1beta1_light_gbm_spec import V1beta1LightGBMSpec

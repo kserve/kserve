@@ -3,6 +3,7 @@
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
+**lightgbm** | [**V1beta1PredictorConfig**](V1beta1PredictorConfig.md) |  | [optional] 
 **onnx** | [**V1beta1PredictorConfig**](V1beta1PredictorConfig.md) |  | [optional] 
 **pmml** | [**V1beta1PredictorConfig**](V1beta1PredictorConfig.md) |  | [optional] 
 **pytorch** | [**V1beta1PredictorProtocols**](V1beta1PredictorProtocols.md) |  | [optional] 

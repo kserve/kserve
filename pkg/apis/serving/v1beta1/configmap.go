@@ -61,6 +61,8 @@ type PredictorConfig struct {
 	DefaultImageVersion string `json:"defaultImageVersion"`
 	// default predictor docker image version on gpu
 	DefaultGpuImageVersion string `json:"defaultGpuImageVersion"`
+	// Default timeout of predictor for serving a request, in seconds
+	DefaultTimeout int64 `json:"defaultTimeout,string,omitempty"`
 }
 
 // +kubebuilder:object:generate=false
@@ -78,6 +80,7 @@ type PredictorsConfig struct {
 	PyTorch    PredictorProtocols `json:"pytorch,omitempty"`
 	ONNX       PredictorConfig    `json:"onnx,omitempty"`
 	PMML       PredictorConfig    `json:"pmml,omitempty"`
+	LightGBM   PredictorConfig    `json:"lightgbm,omitempty"`
 }
 
 // +kubebuilder:object:generate=false

@@ -33,7 +33,7 @@ type ExplainerSpec struct {
 	// 2) Users may choose to provide a Explainer (i.e. Alibi) and specify PodSpec
 	// overrides in the PodSpec. They must not provide PodSpec.Containers in this case.
 	PodSpec `json:",inline"`
-	// Extensions available in all components
+	// Component extension defines the deployment configurations for explainer
 	ComponentExtensionSpec `json:",inline"`
 }
 

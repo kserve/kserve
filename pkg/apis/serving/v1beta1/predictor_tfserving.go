@@ -18,6 +18,7 @@ package v1beta1
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/golang/protobuf/proto"
@@ -83,11 +84,17 @@ func (t *TFServingSpec) GetStorageUri() *string {
 
 // GetContainers transforms the resource into a container spec
 func (t *TFServingSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig) *v1.Container {
+	// Get the timeout from user input or else use the default timeout
+	TimeoutMilliSeconds := 1000 * config.Predictors.Tensorflow.DefaultTimeout
+	if extensions.TimeoutSeconds != nil {
+		TimeoutMilliSeconds = 1000 * *extensions.TimeoutSeconds
+	}
 	arguments := []string{
 		fmt.Sprintf("%s=%s", "--port", TensorflowServingGRPCPort),
 		fmt.Sprintf("%s=%s", "--rest_api_port", TensorflowServingRestPort),
 		fmt.Sprintf("%s=%s", "--model_name", metadata.Name),
 		fmt.Sprintf("%s=%s", "--model_base_path", constants.DefaultModelLocalMountPath),
+		fmt.Sprintf("%s=%s", "--rest_api_timeout_in_ms", strconv.Itoa(int(TimeoutMilliSeconds))),
 	}
 	if t.Container.Image == "" {
 		t.Container.Image = config.Predictors.Tensorflow.ContainerImage + ":" + *t.RuntimeVersion

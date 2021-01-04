@@ -42,19 +42,22 @@ const (
 
 // AlibiExplainerSpec defines the arguments for configuring an Alibi Explanation Server
 type AlibiExplainerSpec struct {
-	// The type of Alibi explainer
-	// Valid values are:
-	// - "AnchorTabular";
-	// - "AnchorImages";
-	// - "AnchorText";
-	// - "Counterfactuals";
-	// - "Contrastive";
+	// The type of Alibi explainer <br />
+	// Valid values are: <br />
+	// - "AnchorTabular"; <br />
+	// - "AnchorImages"; <br />
+	// - "AnchorText"; <br />
+	// - "Counterfactuals"; <br />
+	// - "Contrastive"; <br />
 	Type AlibiExplainerType `json:"type"`
 	// The location of a trained explanation model
+	// +optional
 	StorageURI string `json:"storageUri,omitempty"`
 	// Alibi docker image version, defaults to latest Alibi Version
+	// +optional
 	RuntimeVersion *string `json:"runtimeVersion,omitempty"`
 	// Inline custom parameter settings for explainer
+	// +optional
 	Config map[string]string `json:"config,omitempty"`
 	// Container enables overrides for the predictor.
 	// Each framework will have different defaults that are populated in the underlying container spec.

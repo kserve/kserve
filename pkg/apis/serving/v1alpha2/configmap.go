@@ -59,6 +59,8 @@ type PredictorConfig struct {
 
 	DefaultImageVersion    string `json:"defaultImageVersion"`
 	DefaultGpuImageVersion string `json:"defaultGpuImageVersion"`
+	// Default timeout of predictor for serving a request, in seconds
+	DefaultTimeout int64 `json:"defaultTimeout,string,omitempty"`
 }
 
 // +kubebuilder:object:generate=false
@@ -66,6 +68,7 @@ type PredictorsConfig struct {
 	Tensorflow PredictorConfig    `json:"tensorflow,omitempty"`
 	Triton     PredictorConfig    `json:"triton,omitempty"`
 	Xgboost    PredictorProtocols `json:"xgboost,omitempty"`
+	LightGBM   PredictorConfig    `json:"lightgbm,omitempty"`
 	SKlearn    PredictorProtocols `json:"sklearn,omitempty"`
 	PyTorch    PredictorConfig    `json:"pytorch,omitempty"`
 	ONNX       PredictorConfig    `json:"onnx,omitempty"`

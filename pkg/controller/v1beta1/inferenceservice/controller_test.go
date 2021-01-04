@@ -59,7 +59,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 		configs = map[string]string{
 			"predictors": `{
                "tensorflow": {
-                  "image": "tensorflow/serving"
+                  "image": "tensorflow/serving",
+				  "defaultTimeout": "60"
                },
                "sklearn": {
                  "v1": {
@@ -180,6 +181,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 												"--rest_api_port=" + v1beta1.TensorflowServingRestPort,
 												"--model_name=" + isvc.Name,
 												"--model_base_path=" + constants.DefaultModelLocalMountPath,
+												"--rest_api_timeout_in_ms=60000",
 											},
 											Resources: defaultResource,
 										},

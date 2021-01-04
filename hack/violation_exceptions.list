@@ -17,9 +17,11 @@ API rule violation: names_match,./pkg/apis/serving/v1beta1,IngressConfig,Ingress
 API rule violation: names_match,./pkg/apis/serving/v1beta1,PodSpec,DeprecatedServiceAccount
 API rule violation: names_match,./pkg/apis/serving/v1beta1,PredictorConfig,ContainerImage
 API rule violation: names_match,./pkg/apis/serving/v1beta1,PredictorExtensionSpec,StorageURI
+API rule violation: names_match,./pkg/apis/serving/v1beta1,PredictorSpec,LightGBM
 API rule violation: names_match,./pkg/apis/serving/v1beta1,PredictorSpec,PyTorch
 API rule violation: names_match,./pkg/apis/serving/v1beta1,PredictorSpec,SKLearn
 API rule violation: names_match,./pkg/apis/serving/v1beta1,PredictorSpec,XGBoost
+API rule violation: names_match,./pkg/apis/serving/v1beta1,PredictorsConfig,LightGBM
 API rule violation: names_match,./pkg/apis/serving/v1beta1,PredictorsConfig,PyTorch
 API rule violation: names_match,./pkg/apis/serving/v1beta1,PredictorsConfig,SKlearn
 API rule violation: names_match,./pkg/apis/serving/v1beta1,PredictorsConfig,XGBoost

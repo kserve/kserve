@@ -28,11 +28,11 @@ KFSERVING_NAMESPACE = "kfserving-system"
 KFSERVING_TEST_NAMESPACE = "kfserving-ci-e2e-test"
 
 
-def predict(service_name, input_json, protocol_version="v1"):
+def predict(service_name, input_json, protocol_version="v1", version=constants.KFSERVING_V1BETA1_VERSION):
     isvc = KFServing.get(
         service_name,
         namespace=KFSERVING_TEST_NAMESPACE,
-        version=constants.KFSERVING_V1BETA1_VERSION,
+        version=version,
     )
     # temporary sleep until this is fixed https://github.com/kubeflow/kfserving/issues/604
     time.sleep(10)
