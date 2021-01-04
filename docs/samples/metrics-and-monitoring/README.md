@@ -22,7 +22,7 @@ kubectl wait --for condition=established --timeout=120s crd/servicemonitors.moni
 kustomize build docs/samples/metrics-and-monitoring/prometheus | kubectl apply -f -
 ```
 
-## Accessing Prometheus Metrics
+## Access Prometheus Metrics
 In this section, we will use a v1beta1 InferenceService sample to demonstrate how to access Prometheus metrics that are automatically collected by [Knative's queue-proxy container](https://knative.dev) for your KFServing models.
 
 1. `kubectl create ns kfserving-test`
