@@ -28,7 +28,7 @@ kustomize build docs/samples/metrics-and-monitoring/prometheus | kubectl apply -
 ## Accessing Prom UI
 
 ```shell
-kubectl port-forward service/kfserving-prometheus -n kfserving-monitoring 30900:9090
+kubectl port-forward service/prometheus-operated -n kfserving-monitoring 9090:9090
 ```
 
 You should now be able to access Prometheus UI in your browser at http://localhost:30900.
