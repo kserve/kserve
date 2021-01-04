@@ -44,9 +44,9 @@ done
 kubectl port-forward service/prometheus-operated -n kfserving-monitoring 9090:9090
 ```
 7. Access Prometheus UI in your browser at http://localhost:9090
-8. Access the number of prediction requests to the sklearn model, over the last 60 seconds as follows.
+8. Access the number of prediction requests to the sklearn model, over the last 60 seconds. You can use the following query in the Prometheus UI: `sum(increase(revision_app_request_latencies_count{service_name=~"sklearn-iris-predictor-default"}[60s]))`. You should a response similar to the following.
 ![Request count](requestcount.png)
-9. Access the mean latency for serving prediction requests for the same model as above, over the last 60 seconds as follows.
+9. Access the mean latency for serving prediction requests for the same model as above, over the last 60 seconds. You can use the following query in the Prometheus UI: `sum(increase(revision_app_request_latencies_sum{service_name=~"sklearn-iris-predictor-default"}[60s]))/sum(increase(revision_app_request_latencies_count{service_name=~"sklearn-iris-predictor-default"}[60s]))`. You should a response similar to the following.
 ![Request count](requestlatency.png)
 
 ## Metrics-driven experiments and progressive delivery
