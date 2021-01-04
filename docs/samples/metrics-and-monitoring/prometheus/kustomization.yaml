@@ -4,6 +4,5 @@ resources:
 - clusterrole.yaml
 - clusterrolebinding.yaml
 - prometheus.yaml
-# - promservice.yaml
 - serviceaccount.yaml
 - kfserving-service-monitor.yaml
