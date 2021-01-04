@@ -483,7 +483,7 @@
           "type": "boolean"
         },
         "type": {
-          "description": "The type of Alibi explainer Valid values are: - \"AnchorTabular\"; - \"AnchorImages\"; - \"AnchorText\"; - \"Counterfactuals\"; - \"Contrastive\";",
+          "description": "The type of Alibi explainer \u003cbr /\u003e Valid values are: \u003cbr /\u003e - \"AnchorTabular\"; \u003cbr /\u003e - \"AnchorImages\"; \u003cbr /\u003e - \"AnchorText\"; \u003cbr /\u003e - \"Counterfactuals\"; \u003cbr /\u003e - \"Contrastive\"; \u003cbr /\u003e",
           "type": "string"
         },
         "volumeDevices": {
@@ -1908,7 +1908,7 @@
       "type": "object",
       "properties": {
         "mode": {
-          "description": "Specifies the scope of the loggers. Valid values are: - \"all\" (default): log both request and response; - \"request\": log only request; - \"response\": log only response",
+          "description": "Specifies the scope of the loggers. \u003cbr /\u003e Valid values are: \u003cbr /\u003e - \"all\" (default): log both request and response; \u003cbr /\u003e - \"request\": log only request; \u003cbr /\u003e - \"response\": log only response \u003cbr /\u003e",
           "type": "string"
         },
         "url": {
@@ -2716,7 +2716,7 @@
           }
         },
         "pmml": {
-          "description": "Spec for PMML",
+          "description": "Spec for PMML (http://dmg.org/pmml/v4-1/GeneralStructure.html)",
           "$ref": "#/definitions/v1beta1.PMMLSpec"
         },
         "preemptionPolicy": {

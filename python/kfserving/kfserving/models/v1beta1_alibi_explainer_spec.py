@@ -689,7 +689,7 @@ class V1beta1AlibiExplainerSpec(object):
     def type(self):
         """Gets the type of this V1beta1AlibiExplainerSpec.  # noqa: E501
 
-        The type of Alibi explainer Valid values are: - \"AnchorTabular\"; - \"AnchorImages\"; - \"AnchorText\"; - \"Counterfactuals\"; - \"Contrastive\";  # noqa: E501
+        The type of Alibi explainer <br /> Valid values are: <br /> - \"AnchorTabular\"; <br /> - \"AnchorImages\"; <br /> - \"AnchorText\"; <br /> - \"Counterfactuals\"; <br /> - \"Contrastive\"; <br />  # noqa: E501
 
         :return: The type of this V1beta1AlibiExplainerSpec.  # noqa: E501
         :rtype: str
@@ -700,7 +700,7 @@ class V1beta1AlibiExplainerSpec(object):
     def type(self, type):
         """Sets the type of this V1beta1AlibiExplainerSpec.
 
-        The type of Alibi explainer Valid values are: - \"AnchorTabular\"; - \"AnchorImages\"; - \"AnchorText\"; - \"Counterfactuals\"; - \"Contrastive\";  # noqa: E501
+        The type of Alibi explainer <br /> Valid values are: <br /> - \"AnchorTabular\"; <br /> - \"AnchorImages\"; <br /> - \"AnchorText\"; <br /> - \"Counterfactuals\"; <br /> - \"Contrastive\"; <br />  # noqa: E501
 
         :param type: The type of this V1beta1AlibiExplainerSpec.  # noqa: E501
         :type: str
