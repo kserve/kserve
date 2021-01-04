@@ -50,7 +50,7 @@ kubectl port-forward service/prometheus-operated -n kfserving-monitoring 9090:90
 sum(increase(revision_app_request_latencies_count{service_name=~"sklearn-iris-predictor-default"}[60s]))
 ``` 
 
-You should a response similar to the following.
+You should see a response similar to the following.
 
 ![Request count](requestcount.png)
 
@@ -60,7 +60,7 @@ You should a response similar to the following.
 sum(increase(revision_app_request_latencies_sum{service_name=~"sklearn-iris-predictor-default"}[60s]))/sum(increase(revision_app_request_latencies_count{service_name=~"sklearn-iris-predictor-default"}[60s]))
 ```
 
-You should a response similar to the following.
+You should see a response similar to the following.
 
 ![Request count](requestlatency.png)
 
