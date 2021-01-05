@@ -447,7 +447,7 @@ func schema_pkg_apis_serving_v1beta1_AlibiExplainerSpec(ref common.ReferenceCall
 				Properties: map[string]spec.Schema{
 					"type": {
 						SchemaProps: spec.SchemaProps{
-							Description: "The type of Alibi explainer Valid values are: - \"AnchorTabular\"; - \"AnchorImages\"; - \"AnchorText\"; - \"Counterfactuals\"; - \"Contrastive\";",
+							Description: "The type of Alibi explainer <br /> Valid values are: <br /> - \"AnchorTabular\"; <br /> - \"AnchorImages\"; <br /> - \"AnchorText\"; <br /> - \"Counterfactuals\"; <br /> - \"Contrastive\"; <br />",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -2982,7 +2982,7 @@ func schema_pkg_apis_serving_v1beta1_LoggerSpec(ref common.ReferenceCallback) co
 					},
 					"mode": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Specifies the scope of the loggers. Valid values are: - \"all\" (default): log both request and response; - \"request\": log only request; - \"response\": log only response",
+							Description: "Specifies the scope of the loggers. <br /> Valid values are: <br /> - \"all\" (default): log both request and response; <br /> - \"request\": log only request; <br /> - \"response\": log only response <br />",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -4243,7 +4243,7 @@ func schema_pkg_apis_serving_v1beta1_PredictorSpec(ref common.ReferenceCallback)
 					},
 					"pmml": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Spec for PMML",
+							Description: "Spec for PMML (http://dmg.org/pmml/v4-1/GeneralStructure.html)",
 							Ref:         ref("./pkg/apis/serving/v1beta1.PMMLSpec"),
 						},
 					},
@@ -5238,7 +5238,7 @@ func schema_pkg_apis_serving_v1beta1_TorchServeSpec(ref common.ReferenceCallback
 				Properties: map[string]spec.Schema{
 					"modelClassName": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Defaults PyTorch model class name to 'PyTorchModel'",
+							Description: "When this field is specified KFS chooses the KFServer implementation, otherwise KFS uses the TorchServe implementation",
 							Type:        []string{"string"},
 							Format:      "",
 						},

@@ -963,12 +963,12 @@ knative.dev/pkg/apis/duck/v1.Status
 <p>
 (Members of <code>Status</code> are embedded into this type.)
 </p>
-<p>Conditions for the InferenceService
-- PredictorReady: predictor readiness condition;
-- TransformerReady: transformer readiness condition;
-- ExplainerReady: explainer readiness condition;
-- RoutesReady: aggregated routing condition;
-- Ready: aggregated condition;</p>
+<p>Conditions for the InferenceService <br/>
+- PredictorReady: predictor readiness condition; <br/>
+- TransformerReady: transformer readiness condition; <br/>
+- ExplainerReady: explainer readiness condition; <br/>
+- RoutesReady: aggregated routing condition; <br/>
+- Ready: aggregated condition; <br/></p>
 </td>
 </tr>
 <tr>
@@ -2386,7 +2386,7 @@ string
 </td>
 <td>
 <em>(Optional)</em>
-<p>Defaults PyTorch model class name to &lsquo;PyTorchModel&rsquo;</p>
+<p>When this field is specified KFS chooses the KFServer implementation, otherwise KFS uses the TorchServe implementation</p>
 </td>
 </tr>
 <tr>
