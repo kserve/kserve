@@ -32,14 +32,11 @@ setup(
     python_requires='>3.7',
     packages=find_packages("artserver"),
     install_requires=[
-        "kfserving>=0.4.0",
+        "kfserving>=0.5.0",
         "argparse >= 1.4.0",
         "numpy >= 1.8.2",
-        "tensorflow == 1.14.0",
-        "keras >= 2.3.1",
-        "adversarial-robustness-toolbox == 1.4.1",
-        "nest_asyncio>=1.4.0",
-        "kornia==0.4.0"
+        "adversarial-robustness-toolbox[keras] == 1.4.1",
+        "nest_asyncio>=1.4.0"
     ],
     tests_require=tests_require,
     extras_require={'test': tests_require}

@@ -19,7 +19,6 @@ import kfserving
 import numpy as np
 from art.classifiers import BlackBoxClassifier
 from art.attacks.evasion.square_attack import SquareAttack
-from art.utils import to_categorical
 
 
 class ARTModel(kfserving.KFModel):  # pylint:disable=c-extension-no-member
