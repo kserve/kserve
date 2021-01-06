@@ -53,6 +53,7 @@ var (
 const (
 	AgentContainerName    = "agent"
 	AgentConfigMapKeyName = "agent"
+	AgentEnableFlag       = "-enable-puller"
 	AgentConfigDirArgName = "-config-dir"
 	AgentModelDirArgName  = "-model-dir"
 )
