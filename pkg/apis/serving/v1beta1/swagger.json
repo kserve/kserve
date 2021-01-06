@@ -332,7 +332,7 @@
           "type": "boolean"
         },
         "type": {
-          "description": "The type of Alibi explainer Valid values are: - \"AnchorTabular\"; - \"AnchorImages\"; - \"AnchorText\"; - \"Counterfactuals\"; - \"Contrastive\";",
+          "description": "The type of Alibi explainer \u003cbr /\u003e Valid values are: \u003cbr /\u003e - \"AnchorTabular\"; \u003cbr /\u003e - \"AnchorImages\"; \u003cbr /\u003e - \"AnchorText\"; \u003cbr /\u003e - \"Counterfactuals\"; \u003cbr /\u003e - \"Contrastive\"; \u003cbr /\u003e",
           "type": "string"
         },
         "volumeDevices": {
@@ -428,21 +428,27 @@
           "$ref": "#/definitions/knative.Addressable"
         },
         "latestCreatedRevision": {
-          "description": "Latest revision name that is in created",
+          "description": "Latest revision name that is created",
           "type": "string"
         },
         "latestReadyRevision": {
           "description": "Latest revision name that is in ready state",
           "type": "string"
         },
-        "previousReadyRevision": {
-          "description": "Previous revision name that is in ready state",
+        "latestRolledoutRevision": {
+          "description": "Latest revision name that is rolled out with 100 percent traffic",
           "type": "string"
         },
-        "trafficPercent": {
-          "description": "Traffic percent on the latest ready revision",
-          "type": "integer",
-          "format": "int64"
+        "previousRolledoutRevision": {
+          "description": "Previous revision name that is rolled out with 100 percent traffic",
+          "type": "string"
+        },
+        "traffic": {
+          "description": "Traffic holds the configured traffic distribution for latest ready revision and previous rolled out revision.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/knative.dev.serving.pkg.apis.serving.v1.TrafficTarget"
+          }
         },
         "url": {
           "description": "URL holds the url that will distribute traffic over the provided traffic targets. It generally has the form http[s]://{route-name}.{route-namespace}.{cluster-level-suffix}",
@@ -1607,7 +1613,7 @@
       "type": "object",
       "properties": {
         "mode": {
-          "description": "Specifies the scope of the loggers. Valid values are: - \"all\" (default): log both request and response; - \"request\": log only request; - \"response\": log only response",
+          "description": "Specifies the scope of the loggers. \u003cbr /\u003e Valid values are: \u003cbr /\u003e - \"all\" (default): log both request and response; \u003cbr /\u003e - \"request\": log only request; \u003cbr /\u003e - \"response\": log only response \u003cbr /\u003e",
           "type": "string"
         },
         "url": {
@@ -2415,7 +2421,7 @@
           }
         },
         "pmml": {
-          "description": "Spec for PMML",
+          "description": "Spec for PMML (http://dmg.org/pmml/v4-1/GeneralStructure.html)",
           "$ref": "#/definitions/v1beta1.PMMLSpec"
         },
         "preemptionPolicy": {
