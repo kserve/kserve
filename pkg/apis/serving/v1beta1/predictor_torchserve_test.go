@@ -176,6 +176,7 @@ func TestTorchServeDefaulter(t *testing.T) {
 		"DefaultRuntimeVersion": {
 			spec: PredictorSpec{
 				PyTorch: &TorchServeSpec{
+					ModelClassName: "PyTorchModel",
 					PredictorExtensionSpec: PredictorExtensionSpec{
 						ProtocolVersion: &protocolV1,
 					},
@@ -225,6 +226,7 @@ func TestTorchServeDefaulter(t *testing.T) {
 		"DefaultResources": {
 			spec: PredictorSpec{
 				PyTorch: &TorchServeSpec{
+					ModelClassName: "PyTorchModel",
 					PredictorExtensionSpec: PredictorExtensionSpec{
 						ProtocolVersion: &protocolV1,
 						RuntimeVersion:  proto.String("0.3.0"),
@@ -298,6 +300,7 @@ func TestCreateTorchServeModelServingContainerV1(t *testing.T) {
 				Spec: InferenceServiceSpec{
 					Predictor: PredictorSpec{
 						PyTorch: &TorchServeSpec{
+							ModelClassName: "PyTorchModel",
 							PredictorExtensionSpec: PredictorExtensionSpec{
 								StorageURI: proto.String("gs://someUri"),
 								Container: v1.Container{
@@ -328,6 +331,7 @@ func TestCreateTorchServeModelServingContainerV1(t *testing.T) {
 				Spec: InferenceServiceSpec{
 					Predictor: PredictorSpec{
 						PyTorch: &TorchServeSpec{
+							ModelClassName: "PyTorchModel",
 							PredictorExtensionSpec: PredictorExtensionSpec{
 								StorageURI:      proto.String("gs://someUri"),
 								RuntimeVersion:  proto.String("latest"),
@@ -360,6 +364,7 @@ func TestCreateTorchServeModelServingContainerV1(t *testing.T) {
 				Spec: InferenceServiceSpec{
 					Predictor: PredictorSpec{
 						PyTorch: &TorchServeSpec{
+							ModelClassName: "PyTorchModel",
 							PredictorExtensionSpec: PredictorExtensionSpec{
 								StorageURI: proto.String("gs://someUri"),
 								Container: v1.Container{
@@ -394,6 +399,7 @@ func TestCreateTorchServeModelServingContainerV1(t *testing.T) {
 							ContainerConcurrency: proto.Int64(1),
 						},
 						PyTorch: &TorchServeSpec{
+							ModelClassName: "PyTorchModel",
 							PredictorExtensionSpec: PredictorExtensionSpec{
 								StorageURI:     proto.String("gs://someUri"),
 								RuntimeVersion: proto.String("0.1.0"),
@@ -432,7 +438,7 @@ func TestCreateTorchServeModelServingContainerV1(t *testing.T) {
 }
 
 func TestCreateTorchServeModelServingContainerV2(t *testing.T) {
-	protocolV2 := constants.ProtocolV2
+	protocolV1 := constants.ProtocolV1
 
 	var requestedResource = v1.ResourceRequirements{
 		Limits: v1.ResourceList{
@@ -476,7 +482,7 @@ func TestCreateTorchServeModelServingContainerV2(t *testing.T) {
 							PredictorExtensionSpec: PredictorExtensionSpec{
 								StorageURI:      proto.String("gs://someUri"),
 								RuntimeVersion:  proto.String("0.3.0"),
-								ProtocolVersion: &protocolV2,
+								ProtocolVersion: &protocolV1,
 								Container: v1.Container{
 									Resources: requestedResource,
 								},
@@ -507,7 +513,7 @@ func TestCreateTorchServeModelServingContainerV2(t *testing.T) {
 						PyTorch: &TorchServeSpec{
 							PredictorExtensionSpec: PredictorExtensionSpec{
 								StorageURI:      proto.String("gs://someUri"),
-								ProtocolVersion: &protocolV2,
+								ProtocolVersion: &protocolV1,
 								Container: v1.Container{
 									Image:     "customImage:0.1.0",
 									Resources: requestedResource,

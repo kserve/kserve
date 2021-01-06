@@ -6,8 +6,4 @@ spec:
   predictor:
     canaryTrafficPercent: 20
     pytorch:
-      protocolVersion: v2
       storageUri: gs://kfserving-examples/models/torchserve/image_classifier/v2
-      resources:
-        limits:
-          memory: 4Gi

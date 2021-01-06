@@ -33,11 +33,12 @@ const (
 	PyTorchServingGPUSuffix          = "-gpu"
 	InvalidPyTorchRuntimeIncludesGPU = "PyTorch RuntimeVersion is not GPU enabled but GPU resources are requested. "
 	InvalidPyTorchRuntimeExcludesGPU = "PyTorch RuntimeVersion is GPU enabled but GPU resources are not requested. "
+	InvalidInferenceProtocolVersion  = "PyTorch ProtocolVersion v2 is not supported"
 )
 
 // TorchServeSpec defines arguments for configuring PyTorch model serving.
 type TorchServeSpec struct {
-	// Defaults PyTorch model class name to 'PyTorchModel'
+	// When this field is specified KFS chooses the KFServer implementation, otherwise KFS uses the TorchServe implementation
 	// +optional
 	ModelClassName string `json:"modelClassName,omitempty"`
 	// Contains fields shared across all predictors
@@ -51,6 +52,7 @@ func (t *TorchServeSpec) Validate() error {
 	return utils.FirstNonNilError([]error{
 		validateStorageURI(t.GetStorageUri()),
 		t.validateGPU(),
+		t.validateProtocol(),
 	})
 }
 
@@ -65,9 +67,20 @@ func (t *TorchServeSpec) validateGPU() error {
 	return nil
 }
 
+func (t *TorchServeSpec) validateProtocol() error {
+	if t.ProtocolVersion != nil && *t.ProtocolVersion == constants.ProtocolV2 {
+		return fmt.Errorf("Invalid inference protocol version")
+	}
+	return nil
+}
+
 // Default sets defaults on the resource
 func (t *TorchServeSpec) Default(config *InferenceServicesConfig) {
 	t.Container.Name = constants.InferenceServiceContainerName
+	if t.ProtocolVersion == nil {
+		defaultProtocol := constants.ProtocolV1
+		t.ProtocolVersion = &defaultProtocol
+	}
 	if t.RuntimeVersion == nil {
 		if t.ProtocolVersion != nil && *t.ProtocolVersion == constants.ProtocolV2 {
 			if utils.IsGPUEnabled(t.Resources) {
@@ -76,21 +89,20 @@ func (t *TorchServeSpec) Default(config *InferenceServicesConfig) {
 				t.RuntimeVersion = proto.String(config.Predictors.PyTorch.V2.DefaultImageVersion)
 			}
 		} else {
-			if utils.IsGPUEnabled(t.Resources) {
-				t.RuntimeVersion = proto.String(config.Predictors.PyTorch.V1.DefaultGpuImageVersion)
+			if t.ModelClassName != "" {
+				if utils.IsGPUEnabled(t.Resources) {
+					t.RuntimeVersion = proto.String(config.Predictors.PyTorch.V1.DefaultGpuImageVersion)
+				} else {
+					t.RuntimeVersion = proto.String(config.Predictors.PyTorch.V1.DefaultImageVersion)
+				}
 			} else {
-				t.RuntimeVersion = proto.String(config.Predictors.PyTorch.V1.DefaultImageVersion)
+				if utils.IsGPUEnabled(t.Resources) {
+					t.RuntimeVersion = proto.String(config.Predictors.PyTorch.V2.DefaultGpuImageVersion)
+				} else {
+					t.RuntimeVersion = proto.String(config.Predictors.PyTorch.V2.DefaultImageVersion)
+				}
 			}
 		}
-	}
-
-	if t.ProtocolVersion == nil {
-		defaultProtocol := constants.ProtocolV1
-		t.ProtocolVersion = &defaultProtocol
-	}
-
-	if *t.ProtocolVersion == constants.ProtocolV1 && t.ModelClassName == "" {
-		t.ModelClassName = DefaultPyTorchModelClassName
 	}
 
 	setResourceRequirementDefaults(&t.Resources)
@@ -99,7 +111,11 @@ func (t *TorchServeSpec) Default(config *InferenceServicesConfig) {
 // GetContainers transforms the resource into a container spec
 func (t *TorchServeSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig) *v1.Container {
 	if t.ProtocolVersion == nil || *t.ProtocolVersion == constants.ProtocolV1 {
-		return t.GetContainerV1(metadata, extensions, config)
+		if t.ModelClassName != "" {
+			return t.GetContainerV1(metadata, extensions, config)
+		} else {
+			return t.GetContainerV2(metadata, extensions, config)
+		}
 	}
 	return t.GetContainerV2(metadata, extensions, config)
 }

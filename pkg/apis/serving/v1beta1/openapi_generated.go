@@ -5251,7 +5251,7 @@ func schema_pkg_apis_serving_v1beta1_TorchServeSpec(ref common.ReferenceCallback
 				Properties: map[string]spec.Schema{
 					"modelClassName": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Defaults PyTorch model class name to 'PyTorchModel'",
+							Description: "When this field is specified KFS chooses the KFServer implementation, otherwise KFS uses the TorchServe implementation",
 							Type:        []string{"string"},
 							Format:      "",
 						},

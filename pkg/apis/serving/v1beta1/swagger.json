@@ -2898,7 +2898,7 @@
           "$ref": "#/definitions/v1.Probe"
         },
         "modelClassName": {
-          "description": "Defaults PyTorch model class name to 'PyTorchModel'",
+          "description": "When this field is specified KFS chooses the KFServer implementation, otherwise KFS uses the TorchServe implementation",
           "type": "string"
         },
         "name": {

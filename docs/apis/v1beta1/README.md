@@ -2398,7 +2398,7 @@ string
 </td>
 <td>
 <em>(Optional)</em>
-<p>Defaults PyTorch model class name to &lsquo;PyTorchModel&rsquo;</p>
+<p>When this field is specified KFS chooses the KFServer implementation, otherwise KFS uses the TorchServe implementation</p>
 </td>
 </tr>
 <tr>
