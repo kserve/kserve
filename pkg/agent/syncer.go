@@ -24,8 +24,12 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	"os"
 	"path/filepath"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"strings"
+)
+
+var (
+	syncLogger = ctrl.Log.WithName("Syncer")
 )
 
 type FileError error
@@ -33,8 +37,7 @@ type FileError error
 var NoSuccessFile FileError = fmt.Errorf("no success file can be found")
 
 func SyncModelDir(modelDir string) (map[string]modelWrapper, error) {
-	log := logf.Log.WithName("Syncer")
-	log.Info("Syncing model directory..", "modelDir", modelDir)
+	syncLogger.Info("Syncing model directory..", "modelDir", modelDir)
 	modelTracker := make(map[string]modelWrapper)
 	err := filepath.Walk(modelDir, func(path string, info os.FileInfo, err error) error {
 		if info.IsDir() {
