@@ -22,21 +22,21 @@ import (
 	"github.com/kubeflow/kfserving/pkg/agent/storage"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 	"path/filepath"
 	"regexp"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"strings"
 )
 
 type Downloader struct {
 	ModelDir  string
 	Providers map[storage.Protocol]storage.Provider
+	Logger    *zap.SugaredLogger
 }
 
 var SupportedProtocols = []storage.Protocol{storage.S3}
 
 func (d *Downloader) DownloadModel(modelName string, modelSpec *v1alpha1.ModelSpec) error {
-	log := logf.Log.WithName("Downloader")
 	if modelSpec != nil {
 		modelUri := modelSpec.StorageURI
 		hashModelUri := hash(modelUri)
@@ -44,10 +44,9 @@ func (d *Downloader) DownloadModel(modelName string, modelSpec *v1alpha1.ModelSp
 		hashMemory := hash(modelSpec.Memory.String())
 		successFile := filepath.Join(d.ModelDir, modelName,
 			fmt.Sprintf("SUCCESS.%s.%s.%s", hashModelUri, hashFramework, hashMemory))
-		log.Info("Downloading to model dir", "modelUri", modelUri, "modelDir", d.ModelDir)
+		d.Logger.Infof("Downloading %s to model dir %s", modelUri, d.ModelDir)
 		// Download if the event there is a success file and the event is one which we wish to Download
 		if !storage.FileExists(successFile) {
-			log.V(10).Info("Success file does not exist", "successfile", successFile)
 			if err := d.download(modelName, modelUri); err != nil {
 				return errors.Wrapf(err, "failed to download model")
 			}
@@ -57,7 +56,7 @@ func (d *Downloader) DownloadModel(modelName string, modelSpec *v1alpha1.ModelSp
 				return errors.Wrapf(createErr, "failed to create success file")
 			}
 		} else {
-			log.Info("Model successFile exists already", "model", modelName, "successFile", filepath.Join(d.ModelDir, successFile))
+			d.Logger.Infof("Model successFile exists already for %s", modelName)
 		}
 	}
 	return nil

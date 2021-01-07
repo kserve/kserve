@@ -53,8 +53,9 @@ var (
 const (
 	AgentContainerName    = "agent"
 	AgentConfigMapKeyName = "agent"
-	AgentConfigDirArgName = "-config-dir"
-	AgentModelDirArgName  = "-model-dir"
+	AgentEnableFlag       = "--enable-puller"
+	AgentConfigDirArgName = "--config-dir"
+	AgentModelDirArgName  = "--model-dir"
 )
 
 // InferenceService Annotations
