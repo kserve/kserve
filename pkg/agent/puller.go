@@ -118,7 +118,7 @@ func (p *Puller) modelOpComplete(modelOp *ModelOp, closed bool) {
 }
 
 func (p *Puller) modelProcessor(modelName string, ops <-chan *ModelOp) {
-	p.logger.Infof("worker is started for %s", modelName)
+	p.logger.Infof("Worker is started for %s", modelName)
 	// TODO: Instead of going through each event, one-by-one, we need to drain and combine
 	// this is important for handling Load --> Unload requests sent in tandem
 	// Load --> Unload = 0 (cancel first load)
@@ -142,9 +142,13 @@ func (p *Puller) modelProcessor(modelName string, ops <-chan *ModelOp) {
 					p.logger.Errorf("Failed to Load model %s", modelName)
 				} else {
 					defer resp.Body.Close()
-					body, err := ioutil.ReadAll(resp.Body)
-					if err == nil {
-						p.logger.Infof("Loaded model %s, resp=", modelName, body)
+					if resp.StatusCode == 200 {
+						p.logger.Infof("Successfully loaded model %s", modelName)
+					} else {
+						body, err := ioutil.ReadAll(resp.Body)
+						if err == nil {
+							p.logger.Infof("Failed to load model %s with status [%d] and resp:%v", modelName, resp.StatusCode, body)
+						}
 					}
 				}
 			}
@@ -163,9 +167,13 @@ func (p *Puller) modelProcessor(modelName string, ops <-chan *ModelOp) {
 					p.logger.Errorf("Failed to Unload model %s", modelName)
 				} else {
 					defer resp.Body.Close()
-					body, err := ioutil.ReadAll(resp.Body)
-					if err == nil {
-						p.logger.Info("Unloaded model %s, resp=", modelName, body)
+					if resp.StatusCode == 200 {
+						p.logger.Infof("Successfully unloaded model %s", modelName)
+					} else {
+						body, err := ioutil.ReadAll(resp.Body)
+						if err == nil {
+							p.logger.Infof("Failed to unload model %s with status [%d] and resp:%v", modelName, resp.StatusCode, body)
+						}
 					}
 				}
 			}

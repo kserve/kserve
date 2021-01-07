@@ -264,9 +264,9 @@ func startModelPuller(logger *zap.SugaredLogger) {
 	}
 
 	watcher := agent.NewWatcher(*configDir, *modelDir, logger)
-	logger.Info("starting puller")
+	logger.Info("Starting puller")
 	agent.StartPuller(downloader, watcher.ModelEvents, logger)
-	logger.Info("starting watcher")
+	logger.Info("Starting watcher")
 	watcher.Start()
 }
 
