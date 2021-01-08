@@ -32,7 +32,6 @@ metadata:
 spec:
   predictor:
     pytorch:
-      protocolVersion: v2
       storageUri: "gs://kfserving-examples/models/torchserve/image_classifier"
 ```
 
@@ -50,7 +49,6 @@ spec:
   predictor:
     containerConcurrency: 10
     pytorch:
-      protocolVersion: v2
       storageUri: "gs://kfserving-examples/models/torchserve/image_classifier"
 ```
 

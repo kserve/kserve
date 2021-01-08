@@ -438,18 +438,6 @@ string
 </tr>
 <tr>
 <td>
-<code>previousReadyRevision</code></br>
-<em>
-string
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Previous revision name that is in ready state</p>
-</td>
-</tr>
-<tr>
-<td>
 <code>latestCreatedRevision</code></br>
 <em>
 string
@@ -457,19 +445,43 @@ string
 </td>
 <td>
 <em>(Optional)</em>
-<p>Latest revision name that is in created</p>
+<p>Latest revision name that is created</p>
 </td>
 </tr>
 <tr>
 <td>
-<code>trafficPercent</code></br>
+<code>previousRolledoutRevision</code></br>
 <em>
-int64
+string
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>Traffic percent on the latest ready revision</p>
+<p>Previous revision name that is rolled out with 100 percent traffic</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>latestRolledoutRevision</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Latest revision name that is rolled out with 100 percent traffic</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>traffic</code></br>
+<em>
+[]knative.dev/serving/pkg/apis/serving/v1.TrafficTarget
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Traffic holds the configured traffic distribution for latest ready revision and previous rolled out revision.</p>
 </td>
 </tr>
 <tr>
@@ -963,12 +975,12 @@ knative.dev/pkg/apis/duck/v1.Status
 <p>
 (Members of <code>Status</code> are embedded into this type.)
 </p>
-<p>Conditions for the InferenceService
-- PredictorReady: predictor readiness condition;
-- TransformerReady: transformer readiness condition;
-- ExplainerReady: explainer readiness condition;
-- RoutesReady: aggregated routing condition;
-- Ready: aggregated condition;</p>
+<p>Conditions for the InferenceService <br/>
+- PredictorReady: predictor readiness condition; <br/>
+- TransformerReady: transformer readiness condition; <br/>
+- ExplainerReady: explainer readiness condition; <br/>
+- RoutesReady: aggregated routing condition; <br/>
+- Ready: aggregated condition; <br/></p>
 </td>
 </tr>
 <tr>
@@ -2386,7 +2398,7 @@ string
 </td>
 <td>
 <em>(Optional)</em>
-<p>Defaults PyTorch model class name to &lsquo;PyTorchModel&rsquo;</p>
+<p>When this field is specified KFS chooses the KFServer implementation, otherwise KFS uses the TorchServe implementation</p>
 </td>
 </tr>
 <tr>

@@ -128,6 +128,11 @@ func (ag *AgentInjector) InjectAgent(pod *v1.Pod) error {
 	}
 
 	var args []string
+	if injectPuller {
+		args = append(args, constants.AgentEnableFlag)
+		args = append(args, "true")
+	}
+
 	modelConfig, ok := pod.ObjectMeta.Annotations[constants.AgentModelConfigMountPathAnnotationKey]
 	if ok {
 		args = append(args, constants.AgentConfigDirArgName)

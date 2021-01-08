@@ -24,35 +24,33 @@ import (
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/modelconfig"
+	"go.uber.org/zap"
 	"io/ioutil"
 	"path/filepath"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
-)
-
-var (
-	log = logf.Log.WithName("modelWatcher")
 )
 
 type Watcher struct {
 	configDir    string
 	modelTracker map[string]modelWrapper
 	ModelEvents  chan ModelOp
+	logger       *zap.SugaredLogger
 }
 
-func NewWatcher(configDir string, modelDir string) Watcher {
+func NewWatcher(configDir string, modelDir string, logger *zap.SugaredLogger) Watcher {
 	modelTracker, err := SyncModelDir(modelDir)
 	if err != nil {
-		log.Error(err, "Failed to sync model dir")
+		logger.Error(err, "Failed to sync model dir")
 	}
 	watcher := Watcher{
 		configDir:    configDir,
 		modelTracker: modelTracker,
 		ModelEvents:  make(chan ModelOp, 100),
+		logger:       logger,
 	}
 	modelConfigFile := fmt.Sprintf("%s/%s", configDir, constants.ModelConfigFileName)
 	err = watcher.syncModelConfig(modelConfigFile)
 	if err != nil {
-		log.Error(err, "Failed to sync model config file")
+		logger.Error(err, "Failed to sync model config file")
 	}
 	return watcher
 }
@@ -79,17 +77,16 @@ func (w *Watcher) syncModelConfig(modelConfigFile string) error {
 }
 
 func (w *Watcher) Start() {
-	log := logf.Log.WithName("Watcher")
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
-		log.Error(err, "Failed to create model dir watcher")
+		w.logger.Error(err, "Failed to create model dir watcher")
 		panic(err)
 	}
 	defer watcher.Close()
 	if err = watcher.Add(w.configDir); err != nil {
-		log.Error(err, "Failed to add watcher config dir")
+		w.logger.Error(err, "Failed to add watcher config dir")
 	}
-	log.Info("Start to watch model config event")
+	w.logger.Info("Start to watch model config event")
 	done := make(chan bool)
 	go func() {
 		for {
@@ -103,17 +100,17 @@ func (w *Watcher) Start() {
 				isDataDir := filepath.Base(eventPath) == "..data"
 				// TODO: Should we use atomic integer or timestamp??
 				if isDataDir && isCreate {
-					log.Info("Processing event", "event", event)
+					w.logger.Infof("Processing event %s", event)
 					symlink, _ := filepath.EvalSymlinks(eventPath)
 					modelConfigFile := filepath.Join(symlink, constants.ModelConfigFileName)
 					err := w.syncModelConfig(modelConfigFile)
 					if err != nil {
-						log.Error(err, "Failed to sync model config file")
+						w.logger.Error(err, "Failed to sync model config file")
 					}
 				}
 			case err, ok := <-watcher.Errors:
 				if ok { // 'Errors' channel is not closed
-					log.Error(err, "watcher error")
+					w.logger.Error(err, "watcher error")
 				}
 				if !ok {
 					return
@@ -127,7 +124,7 @@ func (w *Watcher) Start() {
 		Name: filepath.Join(w.configDir, "..data/"+constants.ModelConfigFileName),
 		Op:   fsnotify.Create,
 	}
-	log.Info("Watching", "modelConfig", watchPath)
+	w.logger.Infof("Watching %s", watchPath)
 	<-done
 }
 
@@ -173,7 +170,7 @@ func (w *Watcher) parseConfig(modelConfigs modelconfig.ModelConfigs) {
 }
 
 func (w *Watcher) modelAdded(name string, spec *v1alpha1.ModelSpec) {
-	log.Info("adding model", "modelName", name)
+	w.logger.Infof("adding model %s", name)
 	w.ModelEvents <- ModelOp{
 		ModelName: name,
 		Op:        Add,
@@ -182,7 +179,7 @@ func (w *Watcher) modelAdded(name string, spec *v1alpha1.ModelSpec) {
 }
 
 func (w *Watcher) modelRemoved(name string) {
-	log.Info("removing model", "modelName", name)
+	w.logger.Infof("removing model %s", name)
 	w.ModelEvents <- ModelOp{
 		ModelName: name,
 		Op:        Remove,

@@ -1096,25 +1096,38 @@ func schema_pkg_apis_serving_v1beta1_ComponentStatusSpec(ref common.ReferenceCal
 							Format:      "",
 						},
 					},
-					"previousReadyRevision": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Previous revision name that is in ready state",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
 					"latestCreatedRevision": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Latest revision name that is in created",
+							Description: "Latest revision name that is created",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
-					"trafficPercent": {
+					"previousRolledoutRevision": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Traffic percent on the latest ready revision",
-							Type:        []string{"integer"},
-							Format:      "int64",
+							Description: "Previous revision name that is rolled out with 100 percent traffic",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"latestRolledoutRevision": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Latest revision name that is rolled out with 100 percent traffic",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"traffic": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Traffic holds the configured traffic distribution for latest ready revision and previous rolled out revision.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("knative.dev/serving/pkg/apis/serving/v1.TrafficTarget"),
+									},
+								},
+							},
 						},
 					},
 					"url": {
@@ -1133,7 +1146,7 @@ func schema_pkg_apis_serving_v1beta1_ComponentStatusSpec(ref common.ReferenceCal
 			},
 		},
 		Dependencies: []string{
-			"knative.dev/pkg/apis.URL", "knative.dev/pkg/apis/duck/v1.Addressable"},
+			"knative.dev/pkg/apis.URL", "knative.dev/pkg/apis/duck/v1.Addressable", "knative.dev/serving/pkg/apis/serving/v1.TrafficTarget"},
 	}
 }
 
@@ -5790,7 +5803,7 @@ func schema_pkg_apis_serving_v1beta1_TorchServeSpec(ref common.ReferenceCallback
 				Properties: map[string]spec.Schema{
 					"modelClassName": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Defaults PyTorch model class name to 'PyTorchModel'",
+							Description: "When this field is specified KFS chooses the KFServer implementation, otherwise KFS uses the TorchServe implementation",
 							Type:        []string{"string"},
 							Format:      "",
 						},

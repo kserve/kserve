@@ -45,7 +45,7 @@ def test_torchserve_kfserving():
         min_replicas=1,
         pytorch=V1beta1TorchServeSpec(
             storage_uri="gs://kfserving-examples/models/torchserve/image_classifier",
-            protocol_version="v2",
+            protocol_version="v1",
             resources=V1ResourceRequirements(
                 requests={"cpu": "1", "memory": "4Gi"},
                 limits={"cpu": "1", "memory": "4Gi"},
@@ -65,11 +65,6 @@ def test_torchserve_kfserving():
     KFServing.create(isvc, version=constants.KFSERVING_V1BETA1_VERSION)
     KFServing.wait_isvc_ready(service_name, namespace=KFSERVING_TEST_NAMESPACE)
 
-    ksvc = KFServing.get(
-        service_name,
-        namespace=KFSERVING_TEST_NAMESPACE,
-        version=constants.KFSERVING_V1BETA1_VERSION,
-    )
     res = predict(service_name, "./data/torchserve_input.json")
     assert(res.get("predictions")[0]==2)
     

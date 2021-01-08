@@ -579,21 +579,27 @@
           "$ref": "#/definitions/knative.Addressable"
         },
         "latestCreatedRevision": {
-          "description": "Latest revision name that is in created",
+          "description": "Latest revision name that is created",
           "type": "string"
         },
         "latestReadyRevision": {
           "description": "Latest revision name that is in ready state",
           "type": "string"
         },
-        "previousReadyRevision": {
-          "description": "Previous revision name that is in ready state",
+        "latestRolledoutRevision": {
+          "description": "Latest revision name that is rolled out with 100 percent traffic",
           "type": "string"
         },
-        "trafficPercent": {
-          "description": "Traffic percent on the latest ready revision",
-          "type": "integer",
-          "format": "int64"
+        "previousRolledoutRevision": {
+          "description": "Previous revision name that is rolled out with 100 percent traffic",
+          "type": "string"
+        },
+        "traffic": {
+          "description": "Traffic holds the configured traffic distribution for latest ready revision and previous rolled out revision.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/knative.dev.serving.pkg.apis.serving.v1.TrafficTarget"
+          }
         },
         "url": {
           "description": "URL holds the url that will distribute traffic over the provided traffic targets. It generally has the form http[s]://{route-name}.{route-namespace}.{cluster-level-suffix}",
@@ -3193,7 +3199,7 @@
           "$ref": "#/definitions/v1.Probe"
         },
         "modelClassName": {
-          "description": "Defaults PyTorch model class name to 'PyTorchModel'",
+          "description": "When this field is specified KFS chooses the KFServer implementation, otherwise KFS uses the TorchServe implementation",
           "type": "string"
         },
         "name": {

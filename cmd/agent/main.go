@@ -231,11 +231,12 @@ func startLogger(workers int, logger *zap.SugaredLogger) *loggerArgs {
 }
 
 func startModelPuller(logger *zap.SugaredLogger) {
-	logger.Info("Initializing model agent with", "config-dir", configDir, "model-dir", modelDir)
+	logger.Infof("Initializing model agent with config-dir %s, model-dir %s", *configDir, *modelDir)
 
 	downloader := agent.Downloader{
 		ModelDir:  *modelDir,
 		Providers: map[storage.Protocol]storage.Provider{},
+		Logger:    logger,
 	}
 
 	if endpoint, ok := os.LookupEnv(s3credential.AWSEndpointUrl); ok {
@@ -250,7 +251,7 @@ func startModelPuller(logger *zap.SugaredLogger) {
 			Region:           aws.String(region),
 			S3ForcePathStyle: aws.Bool(!useVirtualBucket)},
 		)
-		logger.Info("Initializing s3 client with ", "endpoint", endpoint, "region", region)
+		logger.Infof("Initializing s3 client with endpoint %s, region %s", endpoint, region)
 		if err != nil {
 			panic(err)
 		}
@@ -262,8 +263,10 @@ func startModelPuller(logger *zap.SugaredLogger) {
 		}
 	}
 
-	watcher := agent.NewWatcher(*configDir, *modelDir)
-	agent.StartPuller(downloader, watcher.ModelEvents)
+	watcher := agent.NewWatcher(*configDir, *modelDir, logger)
+	logger.Info("Starting puller")
+	agent.StartPuller(downloader, watcher.ModelEvents, logger)
+	logger.Info("Starting watcher")
 	watcher.Start()
 }
 

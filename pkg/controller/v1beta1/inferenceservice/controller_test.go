@@ -773,6 +773,13 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Status: "True",
 				},
 			}
+			updatedService.Status.Traffic = []knservingv1.TrafficTarget{
+				{
+					Tag:            "latest",
+					LatestRevision: proto.Bool(true),
+					RevisionName:   "revision-v1",
+					Percent:        proto.Int64(100),
+				}}
 			Expect(retry.RetryOnConflict(retry.DefaultRetry, func() error {
 				return k8sClient.Status().Update(context.TODO(), updatedService)
 			})).NotTo(gomega.HaveOccurred())
@@ -784,6 +791,15 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					return ""
 				}
 				return inferenceService.Status.Components[v1beta1.PredictorComponent].LatestReadyRevision
+			}, timeout, interval).Should(Equal("revision-v1"))
+
+			// assert latest rolled out revision
+			Eventually(func() string {
+				err := k8sClient.Get(ctx, serviceKey, inferenceService)
+				if err != nil {
+					return ""
+				}
+				return inferenceService.Status.Components[v1beta1.PredictorComponent].LatestRolledoutRevision
 			}, timeout, interval).Should(Equal("revision-v1"))
 
 			// update canary traffic percent to 20%
@@ -808,15 +824,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				},
 			}
 			Expect(k8sClient.Status().Update(context.TODO(), canaryService)).NotTo(gomega.HaveOccurred())
-
-			// assert inference service predictor status
-			Eventually(func() string {
-				err := k8sClient.Get(ctx, serviceKey, inferenceService)
-				if err != nil {
-					return ""
-				}
-				return inferenceService.Status.Components[v1beta1.PredictorComponent].PreviousReadyRevision
-			}, timeout, interval).Should(Equal("revision-v1"))
 
 			expectedTrafficTarget := []knservingv1.TrafficTarget{
 				{
@@ -847,10 +854,12 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				if err != nil {
 					return ""
 				}
-				return inferenceService.Status.Components[v1beta1.PredictorComponent].LatestReadyRevision
+				return rolloutIsvc.Status.Components[v1beta1.PredictorComponent].LatestReadyRevision
 			}, timeout, interval).Should(Equal("revision-v2"))
+
 			// rollout canary
 			rolloutIsvc.Spec.Predictor.CanaryTrafficPercent = nil
+
 			Expect(k8sClient.Update(context.TODO(), rolloutIsvc)).NotTo(gomega.HaveOccurred())
 			expectedTrafficTarget = []knservingv1.TrafficTarget{
 				{
@@ -868,6 +877,38 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					return actualService.Spec.Traffic
 				}
 			}, timeout).Should(gomega.Equal(expectedTrafficTarget))
+
+			// update predictor knative service status
+			serviceRevision2 := &knservingv1.Service{}
+			Eventually(func() string {
+				k8sClient.Get(context.TODO(), predictorServiceKey, serviceRevision2)
+				return serviceRevision2.Spec.Template.Annotations[constants.StorageInitializerSourceUriInternalAnnotationKey]
+			}, timeout).Should(Equal(storageUri2))
+			serviceRevision2.Status.Traffic = []knservingv1.TrafficTarget{
+				{
+					Tag:            "latest",
+					LatestRevision: proto.Bool(true),
+					RevisionName:   "revision-v2",
+					Percent:        proto.Int64(100),
+				}}
+			Expect(k8sClient.Status().Update(context.TODO(), serviceRevision2)).NotTo(gomega.HaveOccurred())
+			// assert latest rolled out revision
+			expectedIsvc := &v1beta1.InferenceService{}
+			Eventually(func() string {
+				err := k8sClient.Get(ctx, serviceKey, expectedIsvc)
+				if err != nil {
+					return ""
+				}
+				return expectedIsvc.Status.Components[v1beta1.PredictorComponent].LatestRolledoutRevision
+			}, timeout, interval).Should(Equal("revision-v2"))
+			// assert previous rolled out revision
+			Eventually(func() string {
+				err := k8sClient.Get(ctx, serviceKey, expectedIsvc)
+				if err != nil {
+					return ""
+				}
+				return expectedIsvc.Status.Components[v1beta1.PredictorComponent].PreviousRolledoutRevision
+			}, timeout, interval).Should(Equal("revision-v1"))
 		})
 	})
 

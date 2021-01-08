@@ -28,6 +28,7 @@ import (
 	"github.com/kubeflow/kfserving/pkg/modelconfig"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"go.uber.org/zap"
 	"io/ioutil"
 	logger "log"
 	"os"
@@ -70,12 +71,15 @@ func (m *mockS3FailDownloder) DownloadWithIterator(aws.Context, s3manager.BatchD
 
 var _ = Describe("Watcher", func() {
 	var modelDir string
+	var sugar *zap.SugaredLogger
 	BeforeEach(func() {
 		dir, err := ioutil.TempDir("", "example")
 		if err != nil {
 			logger.Fatal(err)
 		}
 		modelDir = dir
+		zapLogger, _ := zap.NewProduction()
+		sugar = zapLogger.Sugar()
 		logger.Printf("Creating temp dir %v\n", modelDir)
 	})
 	AfterEach(func() {
@@ -88,7 +92,7 @@ var _ = Describe("Watcher", func() {
 			It("should download and load the new models", func() {
 				defer GinkgoRecover()
 				logger.Printf("Sync model config using temp dir %v\n", modelDir)
-				watcher := NewWatcher("/tmp/configs", modelDir)
+				watcher := NewWatcher("/tmp/configs", modelDir, sugar)
 				modelConfigs := modelconfig.ModelConfigs{
 					{
 						Name: "model1",
@@ -118,7 +122,9 @@ var _ = Describe("Watcher", func() {
 								Downloader: &mockS3Downloder{},
 							},
 						},
+						Logger: sugar,
 					},
+					logger: sugar,
 				}
 				go puller.processCommands(watcher.ModelEvents)
 				Eventually(func() int { return len(puller.channelMap) }).Should(Equal(0))
@@ -133,7 +139,7 @@ var _ = Describe("Watcher", func() {
 			It("Should download and load the new models", func() {
 				defer GinkgoRecover()
 				logger.Printf("Sync model config using temp dir %v\n", modelDir)
-				watcher := NewWatcher("/tmp/configs", modelDir)
+				watcher := NewWatcher("/tmp/configs", modelDir, sugar)
 				puller := Puller{
 					channelMap:  make(map[string]*ModelChannel),
 					completions: make(chan *ModelOp, 4),
@@ -146,7 +152,9 @@ var _ = Describe("Watcher", func() {
 								Downloader: &mockS3Downloder{},
 							},
 						},
+						Logger: sugar,
 					},
+					logger: sugar,
 				}
 				go puller.processCommands(watcher.ModelEvents)
 				modelConfigs := modelconfig.ModelConfigs{
@@ -176,7 +184,7 @@ var _ = Describe("Watcher", func() {
 			It("Should remove the model dir and unload the models", func() {
 				defer GinkgoRecover()
 				logger.Printf("Sync delete models using temp dir %v\n", modelDir)
-				watcher := NewWatcher("/tmp/configs", modelDir)
+				watcher := NewWatcher("/tmp/configs", modelDir, sugar)
 				puller := Puller{
 					channelMap:  make(map[string]*ModelChannel),
 					completions: make(chan *ModelOp, 4),
@@ -189,7 +197,9 @@ var _ = Describe("Watcher", func() {
 								Downloader: &mockS3Downloder{},
 							},
 						},
+						Logger: sugar,
 					},
+					logger: sugar,
 				}
 				go puller.processCommands(watcher.ModelEvents)
 				modelConfigs := modelconfig.ModelConfigs{
@@ -231,7 +241,7 @@ var _ = Describe("Watcher", func() {
 			It("Should download and reload the model", func() {
 				defer GinkgoRecover()
 				logger.Printf("Sync update models using temp dir %v\n", modelDir)
-				watcher := NewWatcher("/tmp/configs", modelDir)
+				watcher := NewWatcher("/tmp/configs", modelDir, sugar)
 				puller := Puller{
 					channelMap:  make(map[string]*ModelChannel),
 					completions: make(chan *ModelOp, 4),
@@ -244,7 +254,9 @@ var _ = Describe("Watcher", func() {
 								Downloader: &mockS3Downloder{},
 							},
 						},
+						Logger: sugar,
 					},
+					logger: sugar,
 				}
 				go puller.processCommands(watcher.ModelEvents)
 				modelConfigs := modelconfig.ModelConfigs{
@@ -301,7 +313,7 @@ var _ = Describe("Watcher", func() {
 				})
 				var err error
 				err = s3manager.NewBatchError("BatchedDownloadIncomplete", "some objects have failed to download.", errs)
-				watcher := NewWatcher("/tmp/configs", modelDir)
+				watcher := NewWatcher("/tmp/configs", modelDir, sugar)
 				puller := Puller{
 					channelMap:  make(map[string]*ModelChannel),
 					completions: make(chan *ModelOp, 4),
@@ -314,7 +326,9 @@ var _ = Describe("Watcher", func() {
 								Downloader: &mockS3FailDownloder{err: err},
 							},
 						},
+						Logger: sugar,
 					},
+					logger: sugar,
 				}
 				go puller.processCommands(watcher.ModelEvents)
 				modelConfigs := modelconfig.ModelConfigs{

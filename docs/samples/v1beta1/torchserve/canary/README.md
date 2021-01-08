@@ -10,7 +10,6 @@ metadata:
 spec:
   predictor:
     pytorch:
-      protocolVersion: v2
       storageUri: "gs://kfserving-examples/models/torchserve/image_classifier"
 ```
 
