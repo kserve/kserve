@@ -30,7 +30,7 @@ In this section, we will use a v1beta1 InferenceService sample to demonstrate ho
 1. `kubectl create ns kfserving-test`
 2. `cd docs/samples/v1beta1/sklearn`
 3. `kubectl apply -f sklearn.yaml -n kfserving-test`
-4. If you are using a Minikube based cluster, then in a separate terminal, run `minikube tunnel` and supply password if prompted.
+4. If you are using a Minikube based cluster, then in a separate terminal, run `minikube tunnel --cleanup` and supply password if prompted.
 5. In a separate terminal, follow [these instructions](https://github.com/kubeflow/kfserving/blob/master/README.md#determine-the-ingress-ip-and-ports) to find and set your ingress IP, host, and service hostname. Then, send prediction requests to the `sklearn-iris` model you created in Step 3. above as follows.
 ```
 while clear; do \
