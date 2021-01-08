@@ -23,7 +23,6 @@ import (
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
-	"log"
 	"path/filepath"
 	"regexp"
 	"strings"

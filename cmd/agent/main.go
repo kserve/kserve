@@ -300,11 +300,6 @@ func startModelPuller(logger *zap.SugaredLogger) {
 		}
 	}
 
-	watcher := agent.NewWatcher(*configDir, *modelDir, logger)
-	logger.Info("Starting puller")
-	agent.StartPuller(downloader, watcher.ModelEvents, logger)
-	logger.Info("Starting watcher")
-
 	if _, ok := os.LookupEnv(gcscredential.GCSCredentialEnvKey); ok {
 		// GCS relies on environment variable GOOGLE_APPLICATION_CREDENTIALS to point to the service-account-key
 		// If set, it will be automatically be picked up by the client.
@@ -319,8 +314,9 @@ func startModelPuller(logger *zap.SugaredLogger) {
 		}
 	}
 
-	watcher := agent.NewWatcher(*configDir, *modelDir)
-	agent.StartPuller(downloader, watcher.ModelEvents)
+	watcher := agent.NewWatcher(*configDir, *modelDir, logger)
+	logger.Info("Starting puller")
+	agent.StartPuller(downloader, watcher.ModelEvents, logger)
 	watcher.Start()
 }
 
