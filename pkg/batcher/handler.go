@@ -67,8 +67,6 @@ type Predictions struct {
 
 type BatcherInfo struct {
 	Timeout         time.Duration
-	Path            string
-	Url             string
 	BatchID         string
 	Request         *http.Request
 	Instances       []interface{}
@@ -101,12 +99,13 @@ func (handler *BatchHandler) batchPredict() {
 	jsonStr, _ := json.Marshal(Request{
 		handler.batcherInfo.Instances,
 	})
-	handler.batcherInfo.Request.Body = ioutil.NopCloser(bytes.NewBuffer(jsonStr))
+	reader := bytes.NewReader(jsonStr)
+	r := httptest.NewRequest("POST", handler.Path, reader)
 	rr := httptest.NewRecorder()
-	handler.next.ServeHTTP(rr, handler.batcherInfo.Request)
+	handler.next.ServeHTTP(rr, r)
 	responseBody := rr.Body.Bytes()
 	if rr.Code != http.StatusOK {
-		handler.log.Errorf("error response with code", rr.Code)
+		handler.log.Errorf("error response with code %v", rr)
 		for _, v := range handler.batcherInfo.ContextMap {
 			res := Response{
 				Message:     string(responseBody),
@@ -139,12 +138,14 @@ func (handler *BatchHandler) batchPredict() {
 }
 
 func (handler *BatchHandler) batch() {
+	handler.log.Info("Starting batch loop")
 	for {
 		select {
 		case req := <-handler.channelIn:
 			if len(handler.batcherInfo.Instances) == 0 {
 				handler.batcherInfo.Start = GetNowTime()
 			}
+			handler.batcherInfo.Request = req.request
 			handler.batcherInfo.CurrentInputLen = len(handler.batcherInfo.Instances)
 			handler.batcherInfo.Instances = append(handler.batcherInfo.Instances, *req.Instances...)
 			var index = make([]int, 0)
@@ -185,6 +186,7 @@ type BatchHandler struct {
 	MaxBatchSize int
 	MaxLatency   int
 	batcherInfo  BatcherInfo
+	Path         string
 	mutex        sync.Mutex
 }
 
@@ -205,7 +207,7 @@ func (handler *BatchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "no instances in the request", http.StatusBadRequest)
 		return
 	}
-
+	handler.log.Infof("serving request %s", r.URL)
 	var ctx = context.Background()
 	var chl = make(chan Response)
 	handler.channelIn <- Input{
