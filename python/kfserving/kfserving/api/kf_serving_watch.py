@@ -28,7 +28,7 @@ def watch(name=None, namespace=None, timeout_seconds=600, version=constants.KFSE
         namespace = utils.get_default_target_namespace()
 
     if version != 'v1beta1':
-        raise RuntimeError("The watch API only support v1beta1, the v1alpha2 will be deprecated.")
+        raise RuntimeError("The watch API only supports v1beta1")
 
     tbl = TableLogger(
         columns='NAME,READY,PREDICTOR_CANARY_TRAFFIC,URL',
@@ -51,8 +51,12 @@ def watch(name=None, namespace=None, timeout_seconds=600, version=constants.KFSE
         else:
             if isvc.get('status', ''):
                 url = isvc['status'].get('url', '')
-                traffic_percent = isvc['status'].get('components', {}).get(
-                    'predictor', {}).get('trafficPercent', '')
+                traffic = isvc['status'].get('components', {}).get(
+                    'predictor', {}).get('traffic', [])
+                traffic_percent = 100
+                for t in traffic:
+                    if t["latestRevision"]:
+                        traffic_percent = t["percent"]
                 status = 'Unknown'
                 for condition in isvc['status'].get('conditions', {}):
                     if condition.get('type', '') == 'Ready':
