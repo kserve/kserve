@@ -27,6 +27,9 @@ def isvc_watch(name=None, namespace=None, timeout_seconds=600):
     if namespace is None:
         namespace = utils.get_default_target_namespace()
 
+    if version != 'v1beta1':
+        raise RuntimeError("The watch API only supports v1beta1")
+
     tbl = TableLogger(
         columns='NAME,READY,PREV,LATEST,URL',
         colwidth={'NAME': 20, 'READY': 10, 'PREV': 25, 'LATEST': 25, 'URL': 65},
