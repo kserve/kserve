@@ -20,26 +20,15 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/astaxie/beego"
-	"github.com/kubeflow/kfserving/pkg/batcher/controllers"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/onsi/gomega"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"path/filepath"
-	"runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
-	"strconv"
 	"testing"
 )
-
-func init() {
-	_, file, _, _ := runtime.Caller(0)
-	apppath := filepath.Join(filepath.Dir(file), string(filepath.Separator))
-	beego.TestBeegoInit(apppath)
-}
 
 func TestBatcher(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
@@ -69,21 +58,16 @@ func TestBatcher(t *testing.T) {
 	log := logf.Log.WithName("entrypoint")
 
 	g.Expect(err).To(gomega.BeNil())
-	controllers.Config(constants.InferenceServiceDefaultBatcherPort, predictorSvcUrl.Hostname(),
+	Config(constants.InferenceServiceDefaultBatcherPort, predictorSvcUrl.Hostname(),
 		predictorSvcUrl.Port(), 32, 1.0, 60)
 	println(constants.InferenceServiceDefaultBatcherPort, predictorSvcUrl.Hostname(),
 		predictorSvcUrl.Port())
 
 	log.Info("Starting", "port", constants.InferenceServiceDefaultBatcherPort)
-	beego.BConfig.AppName = "batcher"
-	beego.BConfig.Listen.HTTPPort, _ = strconv.Atoi(constants.InferenceServiceDefaultBatcherPort)
-	beego.BConfig.RunMode = "dev"
-	beego.BConfig.CopyRequestBody = true
-	beego.BeeApp.Handlers.ServeHTTP(w, r)
 
 	b2, _ := ioutil.ReadAll(w.Result().Body)
-	var res controllers.Response
-	var predictions controllers.Predictions
+	var res Response
+	var predictions Predictions
 	_ = json.Unmarshal(b2, &res)
 	predictions.Predictions = res.Predictions
 	josnStr, _ := json.Marshal(predictions)

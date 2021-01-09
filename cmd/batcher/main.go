@@ -20,7 +20,6 @@ import (
 	"errors"
 	"flag"
 	"github.com/kubeflow/kfserving/pkg/batcher"
-	"github.com/kubeflow/kfserving/pkg/batcher/controllers"
 	"os"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"strconv"
@@ -59,8 +58,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	controllers.Config(*port, *componentHost, *componentPort, maxBatchSizeInt, maxLatencyInt, timeoutInt)
+	batcher.Config(*port, *componentHost, *componentPort, maxBatchSizeInt, maxLatencyInt, timeoutInt)
 
 	log.Info("Starting", "Port", *port)
-	batcher.StartHttpServer()
+	//batcher.StartHttpServer()
 }
