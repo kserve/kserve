@@ -58,6 +58,7 @@ type AgentInjector struct {
 	credentialBuilder *credentials.CredentialBuilder
 	agentConfig       *AgentConfig
 	loggerConfig      *LoggerConfig
+	batcherConfig     *BatcherConfig
 }
 
 func getAgentConfigs(configMap *v1.ConfigMap) (*AgentConfig, error) {
@@ -115,8 +116,9 @@ func (ag *AgentInjector) InjectAgent(pod *v1.Pod) error {
 	// Only inject the model agent sidecar if the required annotations are set
 	_, injectLogger := pod.ObjectMeta.Annotations[constants.LoggerInternalAnnotationKey]
 	_, injectPuller := pod.ObjectMeta.Annotations[constants.AgentShouldInjectAnnotationKey]
+	_, injectBatcher := pod.ObjectMeta.Annotations[constants.BatcherInternalAnnotationKey]
 
-	if !injectLogger && !injectPuller {
+	if !injectLogger && !injectPuller && !injectBatcher {
 		return nil
 	}
 
@@ -131,22 +133,36 @@ func (ag *AgentInjector) InjectAgent(pod *v1.Pod) error {
 	if injectPuller {
 		args = append(args, constants.AgentEnableFlag)
 		args = append(args, "true")
-	}
+		modelConfig, ok := pod.ObjectMeta.Annotations[constants.AgentModelConfigMountPathAnnotationKey]
+		if ok {
+			args = append(args, constants.AgentConfigDirArgName)
+			args = append(args, modelConfig)
+		}
 
-	modelConfig, ok := pod.ObjectMeta.Annotations[constants.AgentModelConfigMountPathAnnotationKey]
-	if ok {
-		args = append(args, constants.AgentConfigDirArgName)
-		args = append(args, modelConfig)
+		modelDir, ok := pod.ObjectMeta.Annotations[constants.AgentModelDirAnnotationKey]
+		if ok {
+			args = append(args, constants.AgentModelDirArgName)
+			args = append(args, modelDir)
+		}
 	}
+	// Only inject if the batcher required annotations are set
+	if injectBatcher {
+		args = append(args, BatcherEnableFlag)
+		args = append(args, "true")
+		maxBatchSize, ok := pod.ObjectMeta.Annotations[constants.BatcherMaxBatchSizeInternalAnnotationKey]
+		if ok {
+			args = append(args, BatcherArgumentMaxBatchSize)
+			args = append(args, maxBatchSize)
+		}
 
-	modelDir, ok := pod.ObjectMeta.Annotations[constants.AgentModelDirAnnotationKey]
-	if ok {
-		args = append(args, constants.AgentModelDirArgName)
-		args = append(args, modelDir)
+		maxLatency, ok := pod.ObjectMeta.Annotations[constants.BatcherMaxLatencyInternalAnnotationKey]
+		if ok {
+			args = append(args, BatcherArgumentMaxLatency)
+			args = append(args, maxLatency)
+		}
 	}
-
-	// Only inject if the required annotations are set
-	if _, ok := pod.ObjectMeta.Annotations[constants.LoggerInternalAnnotationKey]; ok {
+	// Only inject if the logger required annotations are set
+	if injectLogger {
 		logUrl, ok := pod.ObjectMeta.Annotations[constants.LoggerSinkUrlInternalAnnotationKey]
 		if !ok {
 			logUrl = ag.loggerConfig.DefaultUrl
@@ -216,7 +232,7 @@ func (ag *AgentInjector) InjectAgent(pod *v1.Pod) error {
 			},
 		},
 	}
-	if injectLogger {
+	if injectLogger || injectBatcher {
 		agentContainer.ReadinessProbe = readinessProbe
 	}
 

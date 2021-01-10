@@ -28,6 +28,7 @@ import (
 const (
 	BatcherContainerName        = "batcher"
 	BatcherConfigMapKeyName     = "batcher"
+	BatcherEnableFlag           = "--enable-batcher"
 	BatcherArgumentMaxBatchSize = "--max-batchsize"
 	BatcherArgumentMaxLatency   = "--max-latency"
 	BatcherArgumentTimeout      = "--timeout"

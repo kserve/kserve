@@ -1,4 +1,4 @@
-apiVersion: "serving.kubeflow.org/v1alpha2"
+apiVersion: "serving.kubeflow.org/v1beta1"
 kind: "InferenceService"
 metadata:
   name: "pytorch-cifar10"
@@ -8,6 +8,6 @@ spec:
     batcher:
       maxBatchSize: 32
       maxLatency: 5000
-      timeout: 60
     pytorch:
+      modelClassName: "Net"
       storageUri: "gs://kfserving-samples/models/pytorch/cifar10/"

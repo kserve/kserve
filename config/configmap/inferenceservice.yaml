@@ -157,7 +157,7 @@ data:
     }
   batcher: |-
     {
-        "image" : "kfserving/batcher:v0.5.0-rc1",
+        "image" : "kfserving/agent:v0.5.0-rc1",
         "memoryRequest": "1Gi",
         "memoryLimit": "1Gi",
         "cpuRequest": "1",

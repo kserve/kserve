@@ -3,8 +3,6 @@ HAS_LINT := $(shell command -v golint;)
 # Image URL to use all building/pushing image targets
 IMG ?= kfserving-controller:latest
 AGENT_IMG ?= agent:latest
-LOGGER_IMG ?= logger:latest
-BATCHER_IMG ?= batcher:latest
 SKLEARN_IMG ?= sklearnserver
 XGB_IMG ?= xgbserver
 LGB_IMG ?= lgbserver
@@ -21,7 +19,7 @@ KFSERVING_CONTROLLER_MEMORY_LIMIT ?= 300Mi
 $(shell perl -pi -e 's/cpu:.*/cpu: $(KFSERVING_CONTROLLER_CPU_LIMIT)/' config/default/manager_resources_patch.yaml)
 $(shell perl -pi -e 's/memory:.*/memory: $(KFSERVING_CONTROLLER_MEMORY_LIMIT)/' config/default/manager_resources_patch.yaml)
 
-all: test manager logger batcher
+all: test manager agent
 
 # Run tests
 test: fmt vet manifests kubebuilder
@@ -34,13 +32,6 @@ manager: generate fmt vet lint
 # Build agent binary
 agent: fmt vet
 	go build -o bin/agent ./cmd/agent
-# Build logger binary
-logger: fmt vet
-	go build -o bin/logger ./cmd/logger
-
-# Build batcher binary
-batcher: fmt vet
-	go build -o bin/batcher ./cmd/batcher
 
 # Run against the configured Kubernetes cluster in ~/.kube/config
 run: generate fmt vet lint
@@ -180,18 +171,6 @@ docker-build-agent:
 
 docker-push-agent:
 	docker push ${KO_DOCKER_REPO}/${AGENT_IMG}
-
-docker-build-logger: test
-	docker build -f logger.Dockerfile . -t ${KO_DOCKER_REPO}/${LOGGER_IMG}
-
-docker-push-logger:
-	docker push ${KO_DOCKER_REPO}/${LOGGER_IMG}
-
-docker-build-batcher:
-	docker build -f batcher.Dockerfile . -t ${KO_DOCKER_REPO}/${BATCHER_IMG}
-
-docker-push-batcher:
-	docker push ${KO_DOCKER_REPO}/${BATCHER_IMG}
 
 docker-build-sklearn:
 	cd python && docker build -t ${KO_DOCKER_REPO}/${SKLEARN_IMG} -f sklearn.Dockerfile .
