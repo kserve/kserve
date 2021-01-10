@@ -337,7 +337,7 @@ func buildServer(ctx context.Context, port string, userPort string, loggerArgs *
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first.
 	var composedHandler http.Handler = httpProxy
 	if loggerArgs != nil || batcherArgs != nil {
-		if batcherArgs != nil{
+		if batcherArgs != nil {
 			composedHandler = batcher.New(batcherArgs.maxBatchSize, batcherArgs.maxLatency, composedHandler, logging)
 		}
 		if loggerArgs != nil {

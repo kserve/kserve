@@ -47,7 +47,9 @@ var (
 	loggerConfig = &LoggerConfig{
 		Image: "gcr.io/kfserving/agent:latest",
 	}
-
+	batcherTestConfig = &BatcherConfig{
+		Image: "gcr.io/kfserving/batcher:latest",
+	}
 	agentResourceRequirement = v1.ResourceRequirements{
 		Limits: map[v1.ResourceName]resource.Quantity{
 			v1.ResourceCPU:    resource.MustParse(AgentDefaultCPULimit),
@@ -270,6 +272,7 @@ func TestAgentInjector(t *testing.T) {
 			credentialBuilder,
 			agentConfig,
 			loggerConfig,
+			batcherTestConfig,
 		}
 		injector.InjectAgent(scenario.original)
 		if diff, _ := kmp.SafeDiff(scenario.expected.Spec, scenario.original.Spec); diff != "" {
