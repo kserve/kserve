@@ -58,6 +58,7 @@ type AgentInjector struct {
 	credentialBuilder *credentials.CredentialBuilder
 	agentConfig       *AgentConfig
 	loggerConfig      *LoggerConfig
+	batcherConfig     *BatcherConfig
 }
 
 func getAgentConfigs(configMap *v1.ConfigMap) (*AgentConfig, error) {
