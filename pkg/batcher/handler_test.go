@@ -31,11 +31,13 @@ import (
 	"testing"
 )
 
-func serveRequest(batchHandler BatchHandler, targetUrl *url.URL, wg *sync.WaitGroup) {
+func serveRequest(batchHandler *BatchHandler, wg *sync.WaitGroup, index int) {
 	defer wg.Done()
-	predictorRequest := []byte(`{"instances":[[0,0,0]]}`)
+	instances := fmt.Sprintf("{\"instances\": [[%d, %d, %d]]}", index, index, index)
+	predictorRequest := []byte(instances)
 	reader := bytes.NewReader(predictorRequest)
-	r := httptest.NewRequest("POST", targetUrl.String(), reader)
+	path := "/v1/models/test:predict"
+	r := httptest.NewRequest("POST", path, reader)
 	w := httptest.NewRecorder()
 	batchHandler.ServeHTTP(w, r)
 
@@ -48,16 +50,24 @@ func serveRequest(batchHandler BatchHandler, targetUrl *url.URL, wg *sync.WaitGr
 func TestBatcher(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
-	predictorRequest := []byte(`{"instances":[[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0]]}`)
-	predictorResponse := []byte(`{"predictions":[[0,0,0],[1,1,1],[2,2,2],[3,3,3],[4,4,4],[5,5,5],[6,6,6],[7,7,7],[8,8,8],[9,9,9]]}`)
 	logger, _ := pkglogging.NewLogger("", "INFO")
 
+	responseChan := make(chan Response)
 	// Start a local HTTP server
 	predictor := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		b, err := ioutil.ReadAll(req.Body)
 		g.Expect(err).To(gomega.BeNil())
-		g.Expect(b).To(gomega.Or(gomega.Equal(predictorRequest), gomega.Equal(predictorResponse)))
-		_, err = rw.Write(predictorResponse)
+		var request Request
+		err = json.Unmarshal(b, &request)
+		g.Expect(err).To(gomega.BeNil())
+		logger.Infof("Get request %v", string(b))
+		response := Response{
+			Predictions: request.Instances,
+		}
+		responseChan <- response
+		responseBytes, err := json.Marshal(response)
+		g.Expect(err).To(gomega.BeNil())
+		_, err = rw.Write(responseBytes)
 		g.Expect(err).To(gomega.BeNil())
 	}))
 	// Close the server when test finishes
@@ -66,19 +76,13 @@ func TestBatcher(t *testing.T) {
 	logger.Infof("predictor url %s", predictorSvcUrl)
 	g.Expect(err).To(gomega.BeNil())
 	httpProxy := httputil.NewSingleHostReverseProxy(predictorSvcUrl)
-	batchHandler := BatchHandler{
-		next:         httpProxy,
-		log:          logger,
-		channelIn:    make(chan Input, 30),
-		MaxBatchSize: 32,
-		MaxLatency:   500,
-		Path:         "/v1/models/test:predict",
-	}
-	go batchHandler.Consume()
+	batchHandler := New(32, 50, httpProxy, logger)
 	var wg sync.WaitGroup
 	for i := 0; i < 10; i++ {
 		wg.Add(1)
-		go serveRequest(batchHandler, predictorSvcUrl, &wg)
+		go serveRequest(batchHandler, &wg, i)
 	}
+	//var responseBytes []byte
+	<-responseChan
 	wg.Wait()
 }

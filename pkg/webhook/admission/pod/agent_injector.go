@@ -115,8 +115,9 @@ func (ag *AgentInjector) InjectAgent(pod *v1.Pod) error {
 	// Only inject the model agent sidecar if the required annotations are set
 	_, injectLogger := pod.ObjectMeta.Annotations[constants.LoggerInternalAnnotationKey]
 	_, injectPuller := pod.ObjectMeta.Annotations[constants.AgentShouldInjectAnnotationKey]
+	_, injectBatcher := pod.ObjectMeta.Annotations[constants.BatcherInternalAnnotationKey]
 
-	if !injectLogger && !injectPuller {
+	if !injectLogger && !injectPuller && !injectBatcher {
 		return nil
 	}
 
@@ -145,8 +146,21 @@ func (ag *AgentInjector) InjectAgent(pod *v1.Pod) error {
 		args = append(args, modelDir)
 	}
 
-	// Only inject if the required annotations are set
-	if _, ok := pod.ObjectMeta.Annotations[constants.LoggerInternalAnnotationKey]; ok {
+	if injectBatcher {
+		maxBatchSize, ok := pod.ObjectMeta.Annotations[constants.BatcherMaxBatchSizeInternalAnnotationKey]
+		if ok {
+			args = append(args, BatcherArgumentMaxBatchSize)
+			args = append(args, maxBatchSize)
+		}
+
+		maxLatency, ok := pod.ObjectMeta.Annotations[constants.BatcherMaxLatencyInternalAnnotationKey]
+		if ok {
+			args = append(args, BatcherArgumentMaxLatency)
+			args = append(args, maxLatency)
+		}
+	}
+	// Only inject if the logger required annotations are set
+	if injectLogger {
 		logUrl, ok := pod.ObjectMeta.Annotations[constants.LoggerSinkUrlInternalAnnotationKey]
 		if !ok {
 			logUrl = ag.loggerConfig.DefaultUrl
@@ -216,7 +230,7 @@ func (ag *AgentInjector) InjectAgent(pod *v1.Pod) error {
 			},
 		},
 	}
-	if injectLogger {
+	if injectLogger || injectBatcher {
 		agentContainer.ReadinessProbe = readinessProbe
 	}
 

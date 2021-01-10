@@ -25,7 +25,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
-	"sync"
+	"regexp"
 	"time"
 )
 
@@ -41,8 +41,8 @@ type Request struct {
 
 type Input struct {
 	ContextInput *context.Context
+	Path         string
 	Instances    *[]interface{}
-	request      *http.Request
 	ChannelOut   *chan Response
 }
 
@@ -61,20 +61,20 @@ type ResponseError struct {
 	Message string `json:"message"`
 }
 
-type Predictions struct {
+type PredictionResponse struct {
 	Predictions []interface{} `json:"predictions"`
 }
 
 type BatcherInfo struct {
-	Timeout         time.Duration
-	BatchID         string
-	Request         *http.Request
-	Instances       []interface{}
-	Predictions     Predictions
-	ContextMap      map[*context.Context]InputInfo
-	Start           time.Time
-	Now             time.Time
-	CurrentInputLen int
+	Path               string
+	BatchID            string
+	Request            *http.Request
+	Instances          []interface{}
+	PredictionResponse PredictionResponse
+	ContextMap         map[*context.Context]InputInfo
+	Start              time.Time
+	Now                time.Time
+	CurrentInputLen    int
 }
 
 func GetNowTime() time.Time {
@@ -89,7 +89,7 @@ func (batcherInfo *BatcherInfo) InitializeInfo() {
 	batcherInfo.BatchID = ""
 	batcherInfo.CurrentInputLen = 0
 	batcherInfo.Instances = make([]interface{}, 0)
-	batcherInfo.Predictions = Predictions{}
+	batcherInfo.PredictionResponse = PredictionResponse{}
 	batcherInfo.ContextMap = make(map[*context.Context]InputInfo)
 	batcherInfo.Start = GetNowTime()
 	batcherInfo.Now = batcherInfo.Start
@@ -100,7 +100,7 @@ func (handler *BatchHandler) batchPredict() {
 		handler.batcherInfo.Instances,
 	})
 	reader := bytes.NewReader(jsonStr)
-	r := httptest.NewRequest("POST", handler.Path, reader)
+	r := httptest.NewRequest("POST", handler.batcherInfo.Path, reader)
 	rr := httptest.NewRecorder()
 	handler.next.ServeHTTP(rr, r)
 	responseBody := rr.Body.Bytes()
@@ -116,21 +116,37 @@ func (handler *BatchHandler) batchPredict() {
 		}
 	} else {
 		handler.batcherInfo.BatchID = GenerateUUID()
-		err := json.Unmarshal(responseBody, &handler.batcherInfo.Predictions)
+		err := json.Unmarshal(responseBody, &handler.batcherInfo.PredictionResponse)
 		if err != nil {
-
-		} else {
 			for _, v := range handler.batcherInfo.ContextMap {
-				predictions := make([]interface{}, 0)
-				for i := range v.Index {
-					predictions = append(predictions, handler.batcherInfo.Predictions.Predictions[i])
-				}
 				res := Response{
-					Message:     "",
-					BatchID:     handler.batcherInfo.BatchID,
-					Predictions: predictions,
+					Message: err.Error(),
+					BatchID: handler.batcherInfo.BatchID,
 				}
 				*v.ChannelOut <- res
+			}
+		} else {
+			if len(handler.batcherInfo.PredictionResponse.Predictions) != len(handler.batcherInfo.Instances) {
+				for _, v := range handler.batcherInfo.ContextMap {
+					res := Response{
+						Message: "size of prediction is not equal to the size of instances",
+						BatchID: handler.batcherInfo.BatchID,
+					}
+					*v.ChannelOut <- res
+				}
+			} else {
+				for _, v := range handler.batcherInfo.ContextMap {
+					predictions := make([]interface{}, 0)
+					for _, i := range v.Index {
+						predictions = append(predictions, handler.batcherInfo.PredictionResponse.Predictions[i])
+					}
+					res := Response{
+						Message:     "",
+						BatchID:     handler.batcherInfo.BatchID,
+						Predictions: predictions,
+					}
+					*v.ChannelOut <- res
+				}
 			}
 		}
 	}
@@ -145,7 +161,7 @@ func (handler *BatchHandler) batch() {
 			if len(handler.batcherInfo.Instances) == 0 {
 				handler.batcherInfo.Start = GetNowTime()
 			}
-			handler.batcherInfo.Request = req.request
+			handler.batcherInfo.Path = req.Path
 			handler.batcherInfo.CurrentInputLen = len(handler.batcherInfo.Instances)
 			handler.batcherInfo.Instances = append(handler.batcherInfo.Instances, *req.Instances...)
 			var index = make([]int, 0)
@@ -186,11 +202,27 @@ type BatchHandler struct {
 	MaxBatchSize int
 	MaxLatency   int
 	batcherInfo  BatcherInfo
-	Path         string
-	mutex        sync.Mutex
+}
+
+func New(maxBatchSize int, maxLatency int, handler http.Handler, logger *zap.SugaredLogger) *BatchHandler {
+	batchHandler := BatchHandler{
+		next:         handler,
+		log:          logger,
+		channelIn:    make(chan Input),
+		MaxBatchSize: maxBatchSize,
+		MaxLatency:   maxLatency,
+	}
+	go batchHandler.Consume()
+	return &batchHandler
 }
 
 func (handler *BatchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// only batch predict requests
+	var predictVerb = regexp.MustCompile(`:predict$`)
+	if !predictVerb.MatchString(r.URL.Path) {
+		handler.next.ServeHTTP(w, r)
+		return
+	}
 	var req Request
 	var err error
 	// Read Payload
@@ -207,13 +239,13 @@ func (handler *BatchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "no instances in the request", http.StatusBadRequest)
 		return
 	}
-	handler.log.Infof("serving request %s", r.URL)
+	handler.log.Infof("serving request %s", r.URL.Path)
 	var ctx = context.Background()
 	var chl = make(chan Response)
 	handler.channelIn <- Input{
 		&ctx,
+		r.URL.Path,
 		&req.Instances,
-		r,
 		&chl,
 	}
 

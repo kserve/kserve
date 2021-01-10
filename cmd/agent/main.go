@@ -12,6 +12,7 @@ import (
 	"github.com/kubeflow/kfserving/pkg/agent"
 	"github.com/kubeflow/kfserving/pkg/agent/storage"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
+	"github.com/kubeflow/kfserving/pkg/batcher"
 	s3credential "github.com/kubeflow/kfserving/pkg/credentials/s3"
 	kfslogger "github.com/kubeflow/kfserving/pkg/logger"
 	"github.com/pkg/errors"
@@ -29,6 +30,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -48,7 +50,10 @@ var (
 	inferenceService = flag.String("inference-service", "", "The InferenceService name to add as header to log events")
 	namespace        = flag.String("namespace", "", "The namespace to add as header to log events")
 	endpoint         = flag.String("endpoint", "", "The endpoint name to add as header to log events")
-
+	// batcher flags
+	enableBatcher = flag.Bool("enable-batcher", false, "Enable request batcher")
+	maxBatchSize  = flag.String("max-batchsize", "32", "Max Batch Size")
+	maxLatency    = flag.String("max-latency", "5000", "Max Latency in milliseconds")
 	// probing flags
 	readinessProbeTimeout = flag.Duration("probe-period", -1, "run readiness probe with given timeout")
 	// This creates an abstract socket instead of an actual file.
@@ -76,6 +81,11 @@ type loggerArgs struct {
 	inferenceService string
 	namespace        string
 	endpoint         string
+}
+
+type batcherArgs struct {
+	maxBatchSize int
+	maxLatency   int
 }
 
 func main() {
@@ -108,11 +118,16 @@ func main() {
 		loggerArgs = startLogger(*workers, logger)
 	}
 
+	var batcherArgs *batcherArgs
+	if *enableBatcher {
+		batcherArgs = startBatcher(logger)
+	}
+
 	healthState := &health.State{}
 	ctx := signals.NewContext()
 	// Setup probe to run for checking user-application healthiness.
 	probe := buildProbe(logger, env.ServingReadinessProbe, *componentPort)
-	mainServer := buildServer(ctx, *port, *componentPort, loggerArgs, healthState, probe, logger)
+	mainServer := buildServer(ctx, *port, *componentPort, loggerArgs, batcherArgs, healthState, probe, logger)
 	servers := map[string]*http.Server{
 		"main": mainServer,
 	}
@@ -194,18 +209,37 @@ func main() {
 	}
 }
 
+func startBatcher(logger *zap.SugaredLogger) *batcherArgs {
+	maxBatchSizeInt, err := strconv.Atoi(*maxBatchSize)
+	if err != nil || maxBatchSizeInt <= 0 {
+		logger.Error(errors.New("Invalid max batch size"), *maxBatchSize)
+		os.Exit(1)
+	}
+
+	maxLatencyInt, err := strconv.Atoi(*maxLatency)
+	if err != nil || maxLatencyInt <= 0 {
+		logger.Error(errors.New("Invalid max latency"), *maxLatency)
+		os.Exit(1)
+	}
+
+	return &batcherArgs{
+		maxLatency:   maxLatencyInt,
+		maxBatchSize: maxBatchSizeInt,
+	}
+}
+
 func startLogger(workers int, logger *zap.SugaredLogger) *loggerArgs {
 	loggingMode := v1beta1.LoggerType(*logMode)
 	switch loggingMode {
 	case v1beta1.LogAll, v1beta1.LogRequest, v1beta1.LogResponse:
 	default:
-		logger.Info("Malformed log-mode", "mode", *logMode)
+		logger.Errorf("Malformed log-mode %s", *logMode)
 		os.Exit(-1)
 	}
 
 	logUrlParsed, err := url.Parse(*logUrl)
 	if err != nil {
-		logger.Info("Malformed log-url", "URL", *logUrl)
+		logger.Errorf("Malformed log-url %s", *logUrl)
 		os.Exit(-1)
 	}
 
@@ -215,7 +249,7 @@ func startLogger(workers int, logger *zap.SugaredLogger) *loggerArgs {
 
 	sourceUriParsed, err := url.Parse(*sourceUri)
 	if err != nil {
-		logger.Info("Malformed source_uri", "URL", *sourceUri)
+		logger.Errorf("Malformed source_uri %s", *sourceUri)
 		os.Exit(-1)
 	}
 	logger.Info("Starting the log dispatcher")
@@ -283,7 +317,7 @@ func buildProbe(logger *zap.SugaredLogger, probeJSON string, port string) *readi
 	return readiness.NewProbe(coreProbe)
 }
 
-func buildServer(ctx context.Context, port string, userPort string, loggerArgs *loggerArgs,
+func buildServer(ctx context.Context, port string, userPort string, loggerArgs *loggerArgs, batcherArgs *batcherArgs,
 	healthState *health.State, rp *readiness.Probe,
 	logging *zap.SugaredLogger) *http.Server {
 	target := &url.URL{
@@ -303,6 +337,7 @@ func buildServer(ctx context.Context, port string, userPort string, loggerArgs *
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first.
 	var composedHandler http.Handler = httpProxy
 	if loggerArgs != nil {
+		composedHandler = batcher.New(batcherArgs.maxBatchSize, batcherArgs.maxLatency, composedHandler, logging)
 		composedHandler = kfslogger.New(loggerArgs.logUrl, loggerArgs.sourceUrl, loggerArgs.loggerType,
 			loggerArgs.inferenceService, loggerArgs.namespace, loggerArgs.endpoint, composedHandler)
 
