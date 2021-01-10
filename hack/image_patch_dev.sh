@@ -20,9 +20,6 @@ spec:
           image: ${IMG}
 EOF
 
-BATCHER_IMG=$(ko resolve -f config/overlays/development/configmap/ko_resolve_batcher| grep 'image:' | awk '{print $2}')
-if [ -z ${BATCHER_IMG} ]; then exit; fi
-
 AGENT_IMG=$(ko resolve -f config/overlays/development/configmap/ko_resolve_agent| grep 'image:' | awk '{print $2}')
 if [ -z ${AGENT_IMG} ]; then exit; fi
 
@@ -43,7 +40,7 @@ data:
     }
   batcher: |-
     {
-        "image" : "${BATCHER_IMG}",
+        "image" : "${AGENT_IMG}",
         "memoryRequest": "100Mi",
         "memoryLimit": "100Mi",
         "cpuRequest": "100m",

@@ -132,21 +132,22 @@ func (ag *AgentInjector) InjectAgent(pod *v1.Pod) error {
 	if injectPuller {
 		args = append(args, constants.AgentEnableFlag)
 		args = append(args, "true")
-	}
+		modelConfig, ok := pod.ObjectMeta.Annotations[constants.AgentModelConfigMountPathAnnotationKey]
+		if ok {
+			args = append(args, constants.AgentConfigDirArgName)
+			args = append(args, modelConfig)
+		}
 
-	modelConfig, ok := pod.ObjectMeta.Annotations[constants.AgentModelConfigMountPathAnnotationKey]
-	if ok {
-		args = append(args, constants.AgentConfigDirArgName)
-		args = append(args, modelConfig)
+		modelDir, ok := pod.ObjectMeta.Annotations[constants.AgentModelDirAnnotationKey]
+		if ok {
+			args = append(args, constants.AgentModelDirArgName)
+			args = append(args, modelDir)
+		}
 	}
-
-	modelDir, ok := pod.ObjectMeta.Annotations[constants.AgentModelDirAnnotationKey]
-	if ok {
-		args = append(args, constants.AgentModelDirArgName)
-		args = append(args, modelDir)
-	}
-
+	// Only inject if the batcher required annotations are set
 	if injectBatcher {
+		args = append(args, BatcherEnableFlag)
+		args = append(args, "true")
 		maxBatchSize, ok := pod.ObjectMeta.Annotations[constants.BatcherMaxBatchSizeInternalAnnotationKey]
 		if ok {
 			args = append(args, BatcherArgumentMaxBatchSize)
