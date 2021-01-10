@@ -148,10 +148,9 @@ const (
 
 // InferenceService Endpoint Ports
 const (
-	InferenceServiceDefaultHttpPort    = "8080"
-	InferenceServiceDefaultAgentPort   = "9081"
-	InferenceServiceDefaultBatcherPort = "9082"
-	CommonDefaultHttpPort              = 80
+	InferenceServiceDefaultHttpPort  = "8080"
+	InferenceServiceDefaultAgentPort = "9081"
+	CommonDefaultHttpPort            = 80
 )
 
 // Labels to put on kservice

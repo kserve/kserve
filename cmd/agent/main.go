@@ -336,11 +336,14 @@ func buildServer(ctx context.Context, port string, userPort string, loggerArgs *
 	// Create handler chain.
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first.
 	var composedHandler http.Handler = httpProxy
-	if loggerArgs != nil {
-		composedHandler = batcher.New(batcherArgs.maxBatchSize, batcherArgs.maxLatency, composedHandler, logging)
-		composedHandler = kfslogger.New(loggerArgs.logUrl, loggerArgs.sourceUrl, loggerArgs.loggerType,
-			loggerArgs.inferenceService, loggerArgs.namespace, loggerArgs.endpoint, composedHandler)
-
+	if loggerArgs != nil || batcherArgs != nil {
+		if batcherArgs != nil{
+			composedHandler = batcher.New(batcherArgs.maxBatchSize, batcherArgs.maxLatency, composedHandler, logging)
+		}
+		if loggerArgs != nil {
+			composedHandler = kfslogger.New(loggerArgs.logUrl, loggerArgs.sourceUrl, loggerArgs.loggerType,
+				loggerArgs.inferenceService, loggerArgs.namespace, loggerArgs.endpoint, composedHandler)
+		}
 		composedHandler = queue.ForwardedShimHandler(composedHandler)
 
 		composedHandler = ProbeHandler(healthState, rp.ProbeContainer, rp.IsAggressive(), false, composedHandler)
