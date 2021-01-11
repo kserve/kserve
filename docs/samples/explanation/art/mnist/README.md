@@ -1,6 +1,8 @@
 # Using ART to get adversarial examples for MNIST classifications
 
-This is an example of how to get adversarial examples designed to trick models into predicting incorrectly using the [Adversarial Robustness Toolbox (ART)](https://adversarial-robustness-toolbox.org/) on KFServing. ART provides tools that enable developers to evaluate, defend, and verify ML models and applications against adversarial threats. We will be using the MNIST dataset which is a dataset of handwritten digits and find adversarial examples which will can make the model predict a classification incorrectly, thereby showing the vulnerability of the model against adversarial attacks.
+This is an example to show how adversarially modified inputs can trick models to predict incorrectly to highlight model vulnerability to adversarial attacks. It is using the [Adversarial Robustness Toolbox (ART)](https://adversarial-robustness-toolbox.org/) on KFServing. ART provides tools that enable developers to evaluate, defend, and verify ML models and applications against adversarial threats. Apart from giving capabilities to craft [adversarial attacks](https://github.com/Trusted-AI/adversarial-robustness-toolbox/wiki/ART-Attacks), it also provides [algorithms to defend](https://github.com/Trusted-AI/adversarial-robustness-toolbox/wiki/ART-Defences) against them.
+
+We will be using the MNIST dataset which is a dataset of handwritten digits and find adversarial examples which will can make the model predict a classification incorrectly, thereby showing the vulnerability of the model against adversarial attacks.
 
 To deploy the inferenceservice with v1beta1 API
 
@@ -28,7 +30,7 @@ After some time you should see a pop up containing the explanation, similar to t
 
 ![example explanation](art-explanation.png)
 
-The Square Attack method used in this example creates a random update at each iteration and adds this update to the adversarial input if it makes a misclassification more likely (more specifically, if it improves the objective function). Once enough random updates are added together and the model misclassifies then the resulting adversarial input will be returned and displayed.
+The [Square Attack method](https://arxiv.org/abs/1912.00049) used in this example creates a random update at each iteration and adds this update to the adversarial input if it makes a misclassification more likely (more specifically, if it improves the objective function). Once enough random updates are added together and the model misclassifies then the resulting adversarial input will be returned and displayed.
 
 To try a different MNIST example add an integer to the end of the query between 0-9,999. The integer chosen will be the index of the image to be chosen in the MNIST dataset. Or to try a file with custom data add the file path to the end. Keep in mind that the data format must be `{"instances": [<image>, <label>]}`
 
