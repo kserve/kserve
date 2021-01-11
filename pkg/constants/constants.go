@@ -33,7 +33,7 @@ var (
 	KFServingName           = "kfserving"
 	KFServingAPIGroupName   = "serving.kubeflow.org"
 	KFServingNamespace      = getEnvOrDefault("POD_NAMESPACE", "kfserving-system")
-	KFServingDefaultVersion = "v0.4.0"
+	KFServingDefaultVersion = "v0.5.0"
 )
 
 // InferenceService Constants
