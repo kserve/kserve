@@ -171,7 +171,7 @@ func addBatcherAnnotations(batcher *v1beta1.Batcher, annotations map[string]stri
 func addBatcherContainerPort(container *v1.Container) {
 	if container != nil {
 		if container.Ports == nil || len(container.Ports) == 0 {
-			port, _ := strconv.Atoi(constants.InferenceServiceDefaultBatcherPort)
+			port, _ := strconv.Atoi(constants.InferenceServiceDefaultAgentPort)
 			container.Ports = []v1.ContainerPort{
 				{
 					ContainerPort: int32(port),
