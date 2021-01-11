@@ -17,6 +17,7 @@ limitations under the License.
 package v1beta1
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/golang/protobuf/proto"
@@ -345,6 +346,203 @@ func TestCreateXGBoostModelServingContainerV1(t *testing.T) {
 			predictor := scenario.isvc.Spec.Predictor.GetImplementation()
 			predictor.Default(&config)
 			res := predictor.GetContainer(metav1.ObjectMeta{Name: "someName"}, &scenario.isvc.Spec.Predictor.ComponentExtensionSpec, &config)
+			if !g.Expect(res).To(gomega.Equal(scenario.expectedContainerSpec)) {
+				t.Errorf("got %q, want %q", res, scenario.expectedContainerSpec)
+			}
+		})
+	}
+}
+
+func TestCreateXGBoostModelServingContainerV2(t *testing.T) {
+	protocolV2 := constants.ProtocolV2
+
+	var requestedResource = v1.ResourceRequirements{
+		Limits: v1.ResourceList{
+			"cpu": resource.Quantity{
+				Format: "100",
+			},
+		},
+		Requests: v1.ResourceList{
+			"cpu": resource.Quantity{
+				Format: "90",
+			},
+		},
+	}
+	var config = InferenceServicesConfig{
+		Predictors: PredictorsConfig{
+			XGBoost: PredictorProtocols{
+				V1: &PredictorConfig{
+					ContainerImage:      "someOtherImage",
+					DefaultImageVersion: "0.1.0",
+				},
+				V2: &PredictorConfig{
+					ContainerImage:      "mlserver",
+					DefaultImageVersion: "0.1.2",
+				},
+			},
+		},
+	}
+	g := gomega.NewGomegaWithT(t)
+	scenarios := map[string]struct {
+		isvc                  InferenceService
+		expectedContainerSpec *v1.Container
+	}{
+		"ContainerSpecWithDefaultImage": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "xgboost",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						XGBoost: &XGBoostSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI:      proto.String("gs://someUri"),
+								RuntimeVersion:  proto.String("0.1.0"),
+								ProtocolVersion: &protocolV2,
+								Container: v1.Container{
+									Resources: requestedResource,
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedContainerSpec: &v1.Container{
+				Image:     "mlserver:0.1.0",
+				Name:      constants.InferenceServiceContainerName,
+				Resources: requestedResource,
+				Env: []v1.EnvVar{
+					{
+						Name:  constants.MLServerHTTPPortEnv,
+						Value: fmt.Sprint(constants.MLServerISRestPort),
+					},
+					{
+						Name:  constants.MLServerGRPCPortEnv,
+						Value: fmt.Sprint(constants.MLServerISGRPCPort),
+					},
+					{
+						Name:  constants.MLServerModelsDirEnv,
+						Value: constants.DefaultModelLocalMountPath,
+					},
+					{
+						Name:  constants.MLServerModelImplementationEnv,
+						Value: constants.MLServerXGBoostImplementation,
+					},
+					{
+						Name:  constants.MLServerModelNameEnv,
+						Value: "xgboost",
+					},
+					{
+						Name:  constants.MLServerModelURIEnv,
+						Value: constants.DefaultModelLocalMountPath,
+					},
+				},
+			},
+		},
+		"ContainerSpecWithCustomImage": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "xgboost",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						XGBoost: &XGBoostSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI:      proto.String("gs://someUri"),
+								ProtocolVersion: &protocolV2,
+								Container: v1.Container{
+									Image:     "customImage:0.1.0",
+									Resources: requestedResource,
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedContainerSpec: &v1.Container{
+				Image:     "customImage:0.1.0",
+				Name:      constants.InferenceServiceContainerName,
+				Resources: requestedResource,
+				Env: []v1.EnvVar{
+					{
+						Name:  constants.MLServerHTTPPortEnv,
+						Value: fmt.Sprint(constants.MLServerISRestPort),
+					},
+					{
+						Name:  constants.MLServerGRPCPortEnv,
+						Value: fmt.Sprint(constants.MLServerISGRPCPort),
+					},
+					{
+						Name:  constants.MLServerModelsDirEnv,
+						Value: constants.DefaultModelLocalMountPath,
+					},
+					{
+						Name:  constants.MLServerModelImplementationEnv,
+						Value: constants.MLServerXGBoostImplementation,
+					},
+					{
+						Name:  constants.MLServerModelNameEnv,
+						Value: "xgboost",
+					},
+					{
+						Name:  constants.MLServerModelURIEnv,
+						Value: constants.DefaultModelLocalMountPath,
+					},
+				},
+			},
+		},
+		"ContainerSpecWithoutStorageURI": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "xgboost",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						XGBoost: &XGBoostSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								ProtocolVersion: &protocolV2,
+								Container: v1.Container{
+									Resources: requestedResource,
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedContainerSpec: &v1.Container{
+				Image:     "mlserver:0.1.2",
+				Name:      constants.InferenceServiceContainerName,
+				Resources: requestedResource,
+				Env: []v1.EnvVar{
+					{
+						Name:  constants.MLServerHTTPPortEnv,
+						Value: fmt.Sprint(constants.MLServerISRestPort),
+					},
+					{
+						Name:  constants.MLServerGRPCPortEnv,
+						Value: fmt.Sprint(constants.MLServerISGRPCPort),
+					},
+					{
+						Name:  constants.MLServerModelsDirEnv,
+						Value: constants.DefaultModelLocalMountPath,
+					},
+					{
+						Name:  constants.MLServerLoadModelsStartupEnv,
+						Value: fmt.Sprint(false),
+					},
+					{
+						Name:  constants.MLServerModelImplementationEnv,
+						Value: constants.MLServerXGBoostImplementation,
+					},
+				},
+			},
+		},
+	}
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			predictor := scenario.isvc.Spec.Predictor.GetImplementation()
+			predictor.Default(&config)
+			res := predictor.GetContainer(scenario.isvc.ObjectMeta, &scenario.isvc.Spec.Predictor.ComponentExtensionSpec, &config)
 			if !g.Expect(res).To(gomega.Equal(scenario.expectedContainerSpec)) {
 				t.Errorf("got %q, want %q", res, scenario.expectedContainerSpec)
 			}
