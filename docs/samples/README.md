@@ -34,7 +34,8 @@ After models are deployed onto model servers with KFServing, you get all the fol
 | [SKLearn KFServer](https://github.com/kubeflow/kfserving/tree/master/python/sklearnserver) | [Pickled Model](https://scikit-learn.org/stable/modules/model_persistence.html) | v1 | :heavy_check_mark: | -- | 0.20.3 | [SKLearn Iris](./v1alpha2/sklearn)  |
 | [XGBoost KFServer](https://github.com/kubeflow/kfserving/tree/master/python/xgbserver) | [Saved Model](https://xgboost.readthedocs.io/en/latest/tutorials/saving_model.html) | v1 | :heavy_check_mark: | -- | 0.82 | [XGBoost Iris](./v1alpha2/xgboost)  |
 | [PyTorch KFServer](https://github.com/kubeflow/kfserving/tree/master/python/pytorchserver) | [Eager Model](https://pytorch.org/docs/master/generated/torch.save.html) | v1 | :heavy_check_mark: | -- | 1.3.1 |  [PyTorch Cifar10](./v1alpha2/pytorch)  |
-| [PMML KFServer](https://github.com/kubeflow/kfserving/tree/master/python/pmmlserver) | [PMML](http://dmg.org/pmml/v4-4-1/GeneralStructure.html) | v1 | :heavy_check_mark: | -- | [PMML4.4.1](https://github.com/autodeployai/pypmml) | [SKLearn PMML](./v1alpha2/pmml)  |
+| [PMML KFServer](https://github.com/kubeflow/kfserving/tree/master/python/pmmlserver) | [PMML](http://dmg.org/pmml/v4-4-1/GeneralStructure.html) | v1 | :heavy_check_mark: | -- | [PMML4.4.1](https://github.com/autodeployai/pypmml) | [SKLearn PMML](./v1beta1/pmml)  |
+| [LightGBM KFServer](https://github.com/kubeflow/kfserving/tree/master/python/lightgbm) | [Saved LightGBM Model](https://lightgbm.readthedocs.io/en/latest/pythonapi/lightgbm.Booster.html#lightgbm.Booster.save_model) | v1 | :heavy_check_mark: | -- | 2.3.1 | [LightGBM Iris](./v1beta1/lightgbm)  |
 
 | Custom Predictor  | Examples |
 | ------------- |  ------------- |
@@ -55,6 +56,7 @@ scale differently from the predictor if your transformer is CPU bound while pred
 | ------------- | ------------- |
 | Deploy Transformer with KFServer | [Image Transformer with PyTorch KFServer](./transformer/image_transformer)  |
 | Deploy Transformer with Triton Server | [BERT Model with tokenizer](./v1beta1/triton/bert)  |
+| Deploy Transformer with TorchServe| [Image classifier](./v1beta1/transformer/torchserve_image_transformer)  |
 
 ### Deploy InferenceService with Explainer
 Model explainability answers the question: "Why did my model make this prediction" for a given instance. KFServing 
