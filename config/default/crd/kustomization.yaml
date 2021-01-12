@@ -7,6 +7,9 @@ namespace: kfserving-system
 bases:
 - ../../crd
 
+resources:
+- namespace.yaml
+
 patchesStrategicMerge:
 - inferenceservice_conversion_webhook.yaml
 - cainjection_conversion_webhook.yaml
