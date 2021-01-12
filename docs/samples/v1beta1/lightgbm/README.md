@@ -111,14 +111,13 @@ To use your lgbserver image:
 ```
 - Specify the `runtimeVersion` on `InferenceService` spec
 ```yaml
-apiVersion: "serving.kubeflow.org/v1alpha2"
+apiVersion: "serving.kubeflow.org/v1beta1"
 kind: "InferenceService"
 metadata:
   name: "lightgbm-iris"
 spec:
-  default:
-    predictor:
-      sklearn:
-        storageUri: "gs://kfserving-examples/models/lightgbm/iris"
-        runtimeVersion: X.X.X
+  predictor:
+    lightgbm:
+      storageUri: "gs://kfserving-examples/models/lightgbm/iris"
+      runtimeVersion: X.X.X
 ```

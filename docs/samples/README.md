@@ -34,14 +34,15 @@ After models are deployed onto model servers with KFServing, you get all the fol
 | [SKLearn KFServer](https://github.com/kubeflow/kfserving/tree/master/python/sklearnserver) | [Pickled Model](https://scikit-learn.org/stable/modules/model_persistence.html) | v1 | :heavy_check_mark: | -- | 0.20.3 | [SKLearn Iris](./v1alpha2/sklearn)  |
 | [XGBoost KFServer](https://github.com/kubeflow/kfserving/tree/master/python/xgbserver) | [Saved Model](https://xgboost.readthedocs.io/en/latest/tutorials/saving_model.html) | v1 | :heavy_check_mark: | -- | 0.82 | [XGBoost Iris](./v1alpha2/xgboost)  |
 | [PyTorch KFServer](https://github.com/kubeflow/kfserving/tree/master/python/pytorchserver) | [Eager Model](https://pytorch.org/docs/master/generated/torch.save.html) | v1 | :heavy_check_mark: | -- | 1.3.1 |  [PyTorch Cifar10](./v1alpha2/pytorch)  |
-| [PMML KFServer](https://github.com/kubeflow/kfserving/tree/master/python/pmmlserver) | [PMML](http://dmg.org/pmml/v4-4-1/GeneralStructure.html) | v1 | :heavy_check_mark: | -- | [PMML4.4.1](https://github.com/autodeployai/pypmml) | [SKLearn PMML](./v1alpha2/pmml)  |
+| [PMML KFServer](https://github.com/kubeflow/kfserving/tree/master/python/pmmlserver) | [PMML](http://dmg.org/pmml/v4-4-1/GeneralStructure.html) | v1 | :heavy_check_mark: | -- | [PMML4.4.1](https://github.com/autodeployai/pypmml) | [SKLearn PMML](./v1beta1/pmml)  |
+| [LightGBM KFServer](https://github.com/kubeflow/kfserving/tree/master/python/lightgbm) | [Saved LightGBM Model](https://lightgbm.readthedocs.io/en/latest/pythonapi/lightgbm.Booster.html#lightgbm.Booster.save_model) | v1 | :heavy_check_mark: | -- | 2.3.1 | [LightGBM Iris](./v1beta1/lightgbm)  |
 
 | Custom Predictor  | Examples |
 | ------------- |  ------------- |
-| Deploy model on custom KFServer | [Custom KFServer](./custom/kfserving-custom-model)|
+| Deploy model on custom KFServer | [Custom KFServer](./v1alpha2/custom/kfserving-custom-model)|
 | Deploy model on BentoML | [SKLearn Iris with BentoML](./bentoml)|
-| Deploy model on custom HTTP Server  | [Prebuilt Model Server](./custom/prebuilt-image)|
-| Deploy model on custom gRPC Server  | [Prebuilt gRPC Server](./custom/grpc-server)|
+| Deploy model on custom HTTP Server  | [Prebuilt Model Server](./v1alpha2/custom/prebuilt-image)|
+| Deploy model on custom gRPC Server  | [Prebuilt gRPC Server](./v1alpha2/custom/grpc-server)|
 
 In addition to deploy InferenceService with HTTP/gRPC endpoint, you can also deploy InferenceService with [Knative Event Sources](https://knative.dev/docs/eventing/sources/index.html) such as Kafka
 , you can find an example [here](./kafka) which shows how to build an async inference pipeline. 
@@ -53,8 +54,9 @@ scale differently from the predictor if your transformer is CPU bound while pred
 
 | Features  | Examples |
 | ------------- | ------------- |
-| Deploy Transformer with KFServer | [Image Transformer with PyTorch KFServer](./transformer/image_transformer)  |
+| Deploy Transformer with KFServer | [Image Transformer with PyTorch KFServer](./v1alpha2/transformer/image_transformer)  |
 | Deploy Transformer with Triton Server | [BERT Model with tokenizer](./v1beta1/triton/bert)  |
+| Deploy Transformer with TorchServe| [Image classifier](./v1beta1/transformer/torchserve_image_transformer)  |
 
 ### Deploy InferenceService with Explainer
 Model explainability answers the question: "Why did my model make this prediction" for a given instance. KFServing 
@@ -102,7 +104,9 @@ the autoscaler works on GPU as well since the Autoscaler is based on request vol
 ### Canary Rollout
 Canary deployment enables rollout releases by splitting traffic between different versions to ensure safe rollout.
 
-[Canary Rollout](./rollouts)
+[v1alpha2 canary rollout](./v1alpha2/rollouts)
+
+[v1beta1 canary rollout](./v1beta1/rollout)
 
 ### Kubeflow Pipeline Integration
 [InferenceService with Kubeflow Pipeline](./pipelines)
