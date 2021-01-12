@@ -3,20 +3,20 @@
 We first create a pytorch predictor with a batcher. The "maxLatency" is set to a big value (5000 milliseconds) to make us be able to observe the batching process.
 
 ```
-apiVersion: "serving.kubeflow.org/v1alpha2"
+apiVersion: "serving.kubeflow.org/v1beta1"
 kind: "InferenceService"
 metadata:
   name: "pytorch-cifar10"
 spec:
-  default:
-    predictor:
-      minReplicas: 1
-      batcher:
-        maxBatchSize: 32
-        maxLatency: 5000
-        timeout: 60
-      pytorch:
-        storageUri: "gs://kfserving-samples/models/pytorch/cifar10/"
+  predictor:
+    minReplicas: 1
+    timeout: 60
+    batcher:
+      maxBatchSize: 32
+      maxLatency: 5000
+    pytorch:
+      modelClassName: Net
+      storageUri: "gs://kfserving-samples/models/pytorch/cifar10/"
 ```
 
 Let's apply this yaml:
@@ -35,7 +35,7 @@ SERVICE_HOSTNAME=$(kubectl get inferenceservice pytorch-cifar10 -o jsonpath='{.s
 hey -z 10s -c 5 -m POST -host "${SERVICE_HOSTNAME}" -H "Content-Type: application/json" -D ./input.json "http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/$MODEL_NAME:predict"
 ```
 
-The request will go to the batcher container first, and then the batcher container will do batching and send the batching request to the predictor container.
+The request will go to the model agent container first, the batcher in sidecar container batches the requests and send the inference request to the predictor container.
 
 Notice: If the interval of sending the two requests is less than "maxLatency", the returned "batchId" will be the same.
 
