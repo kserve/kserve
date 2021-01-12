@@ -1,0 +1,37 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Adds namespace to all resources.
+namespace: kfserving-system
+
+bases:
+- ../../crd
+
+patchesStrategicMerge:
+- inferenceservice_conversion_webhook.yaml
+- cainjection_conversion_webhook.yaml
+
+generatorOptions:
+  disableNameSuffixHash: true
+
+configMapGenerator:
+  - name: kfserving-crd-config
+    envs:
+    - params.env
+vars:
+- name: webhookServiceName
+  objref:
+    kind: ConfigMap
+    name: kfserving-crd-config
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.webhookServiceName
+- name: kfservingNamespace
+  objref:
+    kind: ConfigMap
+    name: kfserving-crd-config
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.kfservingNamespace
+configurations:
+- params.yaml

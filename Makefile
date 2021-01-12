@@ -43,8 +43,8 @@ deploy: manifests
 	cd config/default && if [ ${KFSERVING_ENABLE_SELF_SIGNED_CA} != false ]; then \
 	kustomize edit remove resource certmanager/certificate.yaml; \
 	else kustomize edit add resource certmanager/certificate.yaml; fi;
-	kubectl get crd inferenceservices.serving.kubeflow.org && kustomize build config/crd | kubectl replace --validate=false -f - || \
-	kustomize build config/crd | kubectl create --validate=false -f -
+	kubectl get crd inferenceservices.serving.kubeflow.org && kustomize build config/default/crd | kubectl replace --validate=false -f - || \
+	kustomize build config/default/crd | kubectl create --validate=false -f -
 	kustomize build config/default | kubectl apply --validate=false -f -
 	if [ ${KFSERVING_ENABLE_SELF_SIGNED_CA} != false ]; then ./hack/self-signed-ca.sh; fi;
 
@@ -55,8 +55,8 @@ deploy-dev: manifests
 	kustomize edit remove resource certmanager/certificate.yaml; \
 	else kustomize edit add resource certmanager/certificate.yaml; fi;
 
-	kubectl get crd inferenceservices.serving.kubeflow.org && kustomize build config/crd | kubectl replace --validate=false -f - || \
-	kustomize build config/crd | kubectl create --validate=false -f -
+	kubectl get crd inferenceservices.serving.kubeflow.org && kustomize build config/default/crd | kubectl replace --validate=false -f - || \
+	kustomize build config/default/crd | kubectl create --validate=false -f -
 	kustomize build config/overlays/development | kubectl apply --validate=false -f -
 	if [ ${KFSERVING_ENABLE_SELF_SIGNED_CA} != false ]; then ./hack/self-signed-ca.sh; fi;
 
@@ -89,6 +89,8 @@ deploy-dev-storageInitializer: docker-push-storageInitializer
 	kustomize build config/overlays/dev-image-config | kubectl apply --validate=false -f -
 
 deploy-ci: manifests
+	kubectl get crd inferenceservices.serving.kubeflow.org && kustomize build config/default/crd | kubectl replace --validate=false -f - || \
+	kustomize build config/default/crd | kubectl create --validate=false -f -
 	kustomize build config/overlays/test | kubectl apply -f -
 
 undeploy:
@@ -184,13 +186,13 @@ docker-build-xgb:
 docker-push-xgb: docker-build-xgb
 	docker push ${KO_DOCKER_REPO}/${XGB_IMG}
 
-docker-build-lgb: 
+docker-build-lgb:
 	cd python && docker build -t ${KO_DOCKER_REPO}/${LGB_IMG} -f lgb.Dockerfile .
 
 docker-push-lgb: docker-build-lgb
 	docker push ${KO_DOCKER_REPO}/${LGB_IMG}
 
-docker-build-pytorch: 
+docker-build-pytorch:
 	cd python && docker build -t ${KO_DOCKER_REPO}/${PYTORCH_IMG} -f pytorch.Dockerfile .
 
 docker-push-pytorch: docker-build-pytorch
