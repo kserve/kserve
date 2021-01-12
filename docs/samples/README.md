@@ -104,7 +104,9 @@ the autoscaler works on GPU as well since the Autoscaler is based on request vol
 ### Canary Rollout
 Canary deployment enables rollout releases by splitting traffic between different versions to ensure safe rollout.
 
-[Canary Rollout](./rollouts)
+[v1alpha2 canary rollout](./v1alpha2/rollouts)
+
+[v1beta1 canary rollout](./v1beta1/rollout)
 
 ### Kubeflow Pipeline Integration
 [InferenceService with Kubeflow Pipeline](./pipelines)
