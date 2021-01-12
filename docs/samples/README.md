@@ -39,10 +39,10 @@ After models are deployed onto model servers with KFServing, you get all the fol
 
 | Custom Predictor  | Examples |
 | ------------- |  ------------- |
-| Deploy model on custom KFServer | [Custom KFServer](./custom/kfserving-custom-model)|
+| Deploy model on custom KFServer | [Custom KFServer](./v1alpha2/custom/kfserving-custom-model)|
 | Deploy model on BentoML | [SKLearn Iris with BentoML](./bentoml)|
-| Deploy model on custom HTTP Server  | [Prebuilt Model Server](./custom/prebuilt-image)|
-| Deploy model on custom gRPC Server  | [Prebuilt gRPC Server](./custom/grpc-server)|
+| Deploy model on custom HTTP Server  | [Prebuilt Model Server](./v1alpha2/custom/prebuilt-image)|
+| Deploy model on custom gRPC Server  | [Prebuilt gRPC Server](./v1alpha2/custom/grpc-server)|
 
 In addition to deploy InferenceService with HTTP/gRPC endpoint, you can also deploy InferenceService with [Knative Event Sources](https://knative.dev/docs/eventing/sources/index.html) such as Kafka
 , you can find an example [here](./kafka) which shows how to build an async inference pipeline. 
@@ -54,7 +54,7 @@ scale differently from the predictor if your transformer is CPU bound while pred
 
 | Features  | Examples |
 | ------------- | ------------- |
-| Deploy Transformer with KFServer | [Image Transformer with PyTorch KFServer](./transformer/image_transformer)  |
+| Deploy Transformer with KFServer | [Image Transformer with PyTorch KFServer](./v1alpha2/transformer/image_transformer)  |
 | Deploy Transformer with Triton Server | [BERT Model with tokenizer](./v1beta1/triton/bert)  |
 | Deploy Transformer with TorchServe| [Image classifier](./v1beta1/transformer/torchserve_image_transformer)  |
 
