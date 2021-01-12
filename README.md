@@ -161,7 +161,8 @@ curl -v http://sklearn-iris.kfserving-test/v1/models/sklearn-iris:predict -d @./
 
 #### Run Performance Test
 ```bash
-kubectl create -f docs/samples/sklearn/perf.yaml -n kfserving-test
+# use kubectl create instead of apply because the job template is using generateName which doesn't work with kubectl apply
+kubectl create -f docs/samples/${API_VERSION}/sklearn/perf.yaml -n kfserving-test
 # wait the job to be done and check the log
 kubectl logs load-test8b58n-rgfxr -n kfserving-test
 Requests      [total, rate, throughput]         30000, 500.02, 499.99
