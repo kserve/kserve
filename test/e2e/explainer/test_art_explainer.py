@@ -24,14 +24,11 @@ from kfserving import V1beta1InferenceServiceSpec
 from kfserving import V1beta1ExplainerSpec
 from kfserving import V1beta1ARTExplainerSpec
 from kfserving import V1beta1InferenceService
-from kubernetes.client import V1ResourceRequirements
 from kubernetes.client import V1Container
 
 from ..common.utils import predict
 from ..common.utils import explain_art
 from ..common.utils import KFSERVING_TEST_NAMESPACE
-
-import numpy as np
 
 logging.basicConfig(level=logging.INFO)
 kfserving_version = 'v1beta1'
@@ -79,4 +76,4 @@ def test_tabular_explainer():
 
     adv_prediction = explain_art(service_name, './data/mnist_input_bw.json')
     assert(adv_prediction != 3)
-    KFServing.delete(service_name, KFSERVING_TEST_NAMESPACE)
+    KFServing.delete(service_name, KFSERVING_TEST_NAMESPACE, version=kfserving_version)
