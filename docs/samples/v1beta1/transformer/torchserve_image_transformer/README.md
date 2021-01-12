@@ -55,3 +55,53 @@ docker build -t {username}/image-transformer:latest -f transformer.Dockerfile .
 
 docker push {username}/image-transformer:latest
 ```
+
+## Create the InferenceService
+Please use the [YAML file](./transformer.yaml) to create the InferenceService, which includes a Transformer and a Predictor.
+
+Apply the CRD
+```
+kubectl apply -f image_transformer.yaml
+```
+
+Expected Output
+```
+$ inferenceservice.serving.kubeflow.org/torchserve-transformer created
+```
+
+## Run a prediction
+The first step is to [determine the ingress IP and ports](../../../../README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
+
+```
+SERVICE_NAME=torchserve-transformer
+MODEL_NAME=mnist
+INPUT_PATH=@./input.json
+SERVICE_HOSTNAME=$(kubectl get inferenceservice $SERVICE_NAME -o jsonpath='{.status.url}' | cut -d "/" -f 3)
+
+curl -v -H "Host: ${SERVICE_HOSTNAME}" -d $INPUT_PATH http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/$MODEL_NAME:predict
+```
+
+Expected Output
+```
+> POST /v1/models/mnist:predict HTTP/1.1
+> Host: torchserve-transformer.default.example.com
+> User-Agent: curl/7.73.0
+> Accept: */*
+> Content-Length: 401
+> Content-Type: application/x-www-form-urlencoded
+> 
+* upload completely sent off: 401 out of 401 bytes
+Handling connection for 8080
+* Mark bundle as not supporting multiuse
+< HTTP/1.1 200 OK
+< content-length: 20
+< content-type: application/json; charset=UTF-8
+< date: Tue, 12 Jan 2021 09:52:30 GMT
+< server: istio-envoy
+< x-envoy-upstream-service-time: 83
+< 
+* Connection #0 to host localhost left intact
+{"predictions": [2]}
+```
+
+
