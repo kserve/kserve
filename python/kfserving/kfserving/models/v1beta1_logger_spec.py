@@ -75,7 +75,7 @@ class V1beta1LoggerSpec(object):
     def mode(self):
         """Gets the mode of this V1beta1LoggerSpec.  # noqa: E501
 
-        Specifies the scope of the loggers. Valid values are: - \"all\" (default): log both request and response; - \"request\": log only request; - \"response\": log only response  # noqa: E501
+        Specifies the scope of the loggers. <br /> Valid values are: <br /> - \"all\" (default): log both request and response; <br /> - \"request\": log only request; <br /> - \"response\": log only response <br />  # noqa: E501
 
         :return: The mode of this V1beta1LoggerSpec.  # noqa: E501
         :rtype: str
@@ -86,7 +86,7 @@ class V1beta1LoggerSpec(object):
     def mode(self, mode):
         """Sets the mode of this V1beta1LoggerSpec.
 
-        Specifies the scope of the loggers. Valid values are: - \"all\" (default): log both request and response; - \"request\": log only request; - \"response\": log only response  # noqa: E501
+        Specifies the scope of the loggers. <br /> Valid values are: <br /> - \"all\" (default): log both request and response; <br /> - \"request\": log only request; <br /> - \"response\": log only response <br />  # noqa: E501
 
         :param mode: The mode of this V1beta1LoggerSpec.  # noqa: E501
         :type: str

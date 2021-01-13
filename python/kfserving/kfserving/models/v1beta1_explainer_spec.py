@@ -51,6 +51,7 @@ class V1beta1ExplainerSpec(object):
         'affinity': 'V1Affinity',
         'aix': 'V1beta1AIXExplainerSpec',
         'alibi': 'V1beta1AlibiExplainerSpec',
+        'art': 'V1beta1ARTExplainerSpec',
         'automount_service_account_token': 'bool',
         'batcher': 'V1beta1Batcher',
         'canary_traffic_percent': 'int',
@@ -97,6 +98,7 @@ class V1beta1ExplainerSpec(object):
         'affinity': 'affinity',
         'aix': 'aix',
         'alibi': 'alibi',
+        'art': 'art',
         'automount_service_account_token': 'automountServiceAccountToken',
         'batcher': 'batcher',
         'canary_traffic_percent': 'canaryTrafficPercent',
@@ -138,7 +140,7 @@ class V1beta1ExplainerSpec(object):
         'volumes': 'volumes'
     }
 
-    def __init__(self, active_deadline_seconds=None, affinity=None, aix=None, alibi=None, automount_service_account_token=None, batcher=None, canary_traffic_percent=None, container_concurrency=None, containers=None, dns_config=None, dns_policy=None, enable_service_links=None, ephemeral_containers=None, host_aliases=None, host_ipc=None, host_network=None, host_pid=None, hostname=None, image_pull_secrets=None, init_containers=None, logger=None, max_replicas=None, min_replicas=None, node_name=None, node_selector=None, overhead=None, preemption_policy=None, priority=None, priority_class_name=None, readiness_gates=None, restart_policy=None, runtime_class_name=None, scheduler_name=None, security_context=None, service_account=None, service_account_name=None, share_process_namespace=None, subdomain=None, termination_grace_period_seconds=None, timeout=None, tolerations=None, topology_spread_constraints=None, volumes=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, active_deadline_seconds=None, affinity=None, aix=None, alibi=None, art=None, automount_service_account_token=None, batcher=None, canary_traffic_percent=None, container_concurrency=None, containers=None, dns_config=None, dns_policy=None, enable_service_links=None, ephemeral_containers=None, host_aliases=None, host_ipc=None, host_network=None, host_pid=None, hostname=None, image_pull_secrets=None, init_containers=None, logger=None, max_replicas=None, min_replicas=None, node_name=None, node_selector=None, overhead=None, preemption_policy=None, priority=None, priority_class_name=None, readiness_gates=None, restart_policy=None, runtime_class_name=None, scheduler_name=None, security_context=None, service_account=None, service_account_name=None, share_process_namespace=None, subdomain=None, termination_grace_period_seconds=None, timeout=None, tolerations=None, topology_spread_constraints=None, volumes=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1ExplainerSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -148,6 +150,7 @@ class V1beta1ExplainerSpec(object):
         self._affinity = None
         self._aix = None
         self._alibi = None
+        self._art = None
         self._automount_service_account_token = None
         self._batcher = None
         self._canary_traffic_percent = None
@@ -197,6 +200,8 @@ class V1beta1ExplainerSpec(object):
             self.aix = aix
         if alibi is not None:
             self.alibi = alibi
+        if art is not None:
+            self.art = art
         if automount_service_account_token is not None:
             self.automount_service_account_token = automount_service_account_token
         if batcher is not None:
@@ -361,6 +366,27 @@ class V1beta1ExplainerSpec(object):
         """
 
         self._alibi = alibi
+
+    @property
+    def art(self):
+        """Gets the art of this V1beta1ExplainerSpec.  # noqa: E501
+
+
+        :return: The art of this V1beta1ExplainerSpec.  # noqa: E501
+        :rtype: V1beta1ARTExplainerSpec
+        """
+        return self._art
+
+    @art.setter
+    def art(self, art):
+        """Sets the art of this V1beta1ExplainerSpec.
+
+
+        :param art: The art of this V1beta1ExplainerSpec.  # noqa: E501
+        :type: V1beta1ARTExplainerSpec
+        """
+
+        self._art = art
 
     @property
     def automount_service_account_token(self):

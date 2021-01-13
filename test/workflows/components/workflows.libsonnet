@@ -238,6 +238,10 @@
                     template: "build-aix-explainer",
                   },
                   {
+                    name: "build-art-explainer",
+                    template: "build-art-explainer",
+                  },
+                  {
                     name: "build-storage-initializer",
                     template: "build-storage-initializer",
                   },
@@ -356,6 +360,12 @@
               "--context=dir://" + srcDir + "/python",
               "--destination=" + "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/aix-explainer:$(PULL_BASE_SHA)",
             ]),  // build-aix-explainer
+            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-art-explainer", kanikoExecutorImage, [
+              "/kaniko/executor",
+              "--dockerfile=" + srcDir + "/python/artexplainer.Dockerfile",
+              "--context=dir://" + srcDir + "/python",
+              "--destination=" + "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/art-explainer:$(PULL_BASE_SHA)",
+            ]),  // build-art-explainer
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-storage-initializer", kanikoExecutorImage, [
               "/kaniko/executor",
               "--dockerfile=" + srcDir + "/python/storage-initializer.Dockerfile",

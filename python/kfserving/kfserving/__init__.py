@@ -64,6 +64,7 @@ from kfserving.models.v1alpha2_light_gbm_spec import V1alpha2LightGBMSpec
 
 # import v1beta1 models into sdk package
 from kfserving.models.v1beta1_aix_explainer_spec import V1beta1AIXExplainerSpec
+from kfserving.models.v1beta1_art_explainer_spec import V1beta1ARTExplainerSpec
 from kfserving.models.v1beta1_alibi_explainer_spec import V1beta1AlibiExplainerSpec
 from kfserving.models.v1beta1_batcher import V1beta1Batcher
 from kfserving.models.v1beta1_component_extension_spec import V1beta1ComponentExtensionSpec

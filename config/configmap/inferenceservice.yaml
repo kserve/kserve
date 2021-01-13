@@ -121,6 +121,10 @@ data:
         "aix": {
             "image" : "kfserving/aix-explainer",
             "defaultImageVersion": "v0.5.0-rc2"
+        },
+        "art": {
+            "image" : "kfserving/art-explainer",
+            "defaultImageVersion": "latest"
         }
     }
   storageInitializer: |-

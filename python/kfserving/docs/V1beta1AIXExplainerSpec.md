@@ -17,7 +17,7 @@ Name | Type | Description | Notes
 **ports** | [**list[V1ContainerPort]**](https://github.com/kubernetes-client/python/blob/master/kubernetes/docs/V1ContainerPort.md) | List of ports to expose from the container. Exposing a port here gives the system additional information about the network connections a container uses, but is primarily informational. Not specifying a port here DOES NOT prevent that port from being exposed. Any port which is listening on the default \&quot;0.0.0.0\&quot; address inside a container will be accessible from the network. Cannot be updated. | [optional] 
 **readiness_probe** | [**V1Probe**](https://github.com/kubernetes-client/python/blob/master/kubernetes/docs/V1Probe.md) |  | [optional] 
 **resources** | [**V1ResourceRequirements**](https://github.com/kubernetes-client/python/blob/master/kubernetes/docs/V1ResourceRequirements.md) |  | [optional] 
-**runtime_version** | **str** | Defaults to latest AIX Version | [optional] 
+**runtime_version** | **str** | Defaults to latest Explainer Version | [optional] 
 **security_context** | [**V1SecurityContext**](https://github.com/kubernetes-client/python/blob/master/kubernetes/docs/V1SecurityContext.md) |  | [optional] 
 **startup_probe** | [**V1Probe**](https://github.com/kubernetes-client/python/blob/master/kubernetes/docs/V1Probe.md) |  | [optional] 
 **stdin** | **bool** | Whether this container should allocate a buffer for stdin in the container runtime. If this is not set, reads from stdin in the container will always result in EOF. Default is false. | [optional] 

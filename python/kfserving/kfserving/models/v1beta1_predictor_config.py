@@ -49,16 +49,18 @@ class V1beta1PredictorConfig(object):
     openapi_types = {
         'default_gpu_image_version': 'str',
         'default_image_version': 'str',
+        'default_timeout': 'str',
         'image': 'str'
     }
 
     attribute_map = {
         'default_gpu_image_version': 'defaultGpuImageVersion',
         'default_image_version': 'defaultImageVersion',
+        'default_timeout': 'defaultTimeout',
         'image': 'image'
     }
 
-    def __init__(self, default_gpu_image_version=None, default_image_version=None, image=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, default_gpu_image_version=None, default_image_version=None, default_timeout=None, image=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1PredictorConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -66,11 +68,14 @@ class V1beta1PredictorConfig(object):
 
         self._default_gpu_image_version = None
         self._default_image_version = None
+        self._default_timeout = None
         self._image = None
         self.discriminator = None
 
         self.default_gpu_image_version = default_gpu_image_version
         self.default_image_version = default_image_version
+        if default_timeout is not None:
+            self.default_timeout = default_timeout
         self.image = image
 
     @property
@@ -122,6 +127,29 @@ class V1beta1PredictorConfig(object):
             raise ValueError("Invalid value for `default_image_version`, must not be `None`")  # noqa: E501
 
         self._default_image_version = default_image_version
+
+    @property
+    def default_timeout(self):
+        """Gets the default_timeout of this V1beta1PredictorConfig.  # noqa: E501
+
+        Default timeout of predictor for serving a request, in seconds  # noqa: E501
+
+        :return: The default_timeout of this V1beta1PredictorConfig.  # noqa: E501
+        :rtype: str
+        """
+        return self._default_timeout
+
+    @default_timeout.setter
+    def default_timeout(self, default_timeout):
+        """Sets the default_timeout of this V1beta1PredictorConfig.
+
+        Default timeout of predictor for serving a request, in seconds  # noqa: E501
+
+        :param default_timeout: The default_timeout of this V1beta1PredictorConfig.  # noqa: E501
+        :type: str
+        """
+
+        self._default_timeout = default_timeout
 
     @property
     def image(self):

@@ -48,15 +48,17 @@ class V1beta1ExplainersConfig(object):
     """
     openapi_types = {
         'aix': 'V1beta1ExplainerConfig',
-        'alibi': 'V1beta1ExplainerConfig'
+        'alibi': 'V1beta1ExplainerConfig',
+        'art': 'V1beta1ExplainerConfig'
     }
 
     attribute_map = {
         'aix': 'aix',
-        'alibi': 'alibi'
+        'alibi': 'alibi',
+        'art': 'art'
     }
 
-    def __init__(self, aix=None, alibi=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, aix=None, alibi=None, art=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1ExplainersConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -64,12 +66,15 @@ class V1beta1ExplainersConfig(object):
 
         self._aix = None
         self._alibi = None
+        self._art = None
         self.discriminator = None
 
         if aix is not None:
             self.aix = aix
         if alibi is not None:
             self.alibi = alibi
+        if art is not None:
+            self.art = art
 
     @property
     def aix(self):
@@ -112,6 +117,27 @@ class V1beta1ExplainersConfig(object):
         """
 
         self._alibi = alibi
+
+    @property
+    def art(self):
+        """Gets the art of this V1beta1ExplainersConfig.  # noqa: E501
+
+
+        :return: The art of this V1beta1ExplainersConfig.  # noqa: E501
+        :rtype: V1beta1ExplainerConfig
+        """
+        return self._art
+
+    @art.setter
+    def art(self, art):
+        """Sets the art of this V1beta1ExplainersConfig.
+
+
+        :param art: The art of this V1beta1ExplainersConfig.  # noqa: E501
+        :type: V1beta1ExplainerConfig
+        """
+
+        self._art = art
 
     def to_dict(self):
         """Returns the model properties as a dict"""

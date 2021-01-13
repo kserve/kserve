@@ -38,16 +38,8 @@ const (
 type AIXExplainerSpec struct {
 	// The type of AIX explainer
 	Type AIXExplainerType `json:"type"`
-	// The location of a trained explanation model
-	StorageURI string `json:"storageUri,omitempty"`
-	// Defaults to latest AIX Version
-	RuntimeVersion *string `json:"runtimeVersion,omitempty"`
-	// Container enables overrides for the predictor.
-	// Each framework will have different defaults that are populated in the underlying container spec.
-	// +optional
-	v1.Container `json:",inline"`
-	// Inline custom parameter settings for explainer
-	Config map[string]string `json:"config,omitempty"`
+	// Contains fields shared across all explainers
+	ExplainerExtensionSpec `json:",inline"`
 }
 
 var _ ComponentImplementation = &AIXExplainerSpec{}

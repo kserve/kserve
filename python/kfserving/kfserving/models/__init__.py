@@ -31,6 +31,7 @@ from __future__ import absolute_import
 from kfserving.models.v1alpha1_trained_model import V1alpha1TrainedModel
 from kfserving.models.v1alpha1_trained_model_list import V1alpha1TrainedModelList
 from kfserving.models.v1beta1_aix_explainer_spec import V1beta1AIXExplainerSpec
+from kfserving.models.v1beta1_art_explainer_spec import V1beta1ARTExplainerSpec
 from kfserving.models.v1beta1_alibi_explainer_spec import V1beta1AlibiExplainerSpec
 from kfserving.models.v1beta1_batcher import V1beta1Batcher
 from kfserving.models.v1beta1_component_extension_spec import V1beta1ComponentExtensionSpec
@@ -39,6 +40,7 @@ from kfserving.models.v1beta1_custom_explainer import V1beta1CustomExplainer
 from kfserving.models.v1beta1_custom_predictor import V1beta1CustomPredictor
 from kfserving.models.v1beta1_custom_transformer import V1beta1CustomTransformer
 from kfserving.models.v1beta1_explainer_config import V1beta1ExplainerConfig
+from kfserving.models.v1beta1_explainer_extension_spec import V1beta1ExplainerExtensionSpec
 from kfserving.models.v1beta1_explainer_spec import V1beta1ExplainerSpec
 from kfserving.models.v1beta1_explainers_config import V1beta1ExplainersConfig
 from kfserving.models.v1beta1_inference_service import V1beta1InferenceService

@@ -45,7 +45,9 @@ func TestAIXExplainer(t *testing.T) {
 	}{
 		"AcceptGoodRuntimeVersion": {
 			spec: AIXExplainerSpec{
-				RuntimeVersion: proto.String("latest"),
+				ExplainerExtensionSpec: ExplainerExtensionSpec{
+					RuntimeVersion: proto.String("latest"),
+				},
 			},
 			matcher: gomega.Succeed(),
 		},
@@ -87,12 +89,14 @@ func TestCreateAIXExplainerContainer(t *testing.T) {
 		MaxReplicas: 2,
 	}
 	var spec = AIXExplainerSpec{
-		Type:       "LimeImages",
-		StorageURI: "gs://someUri",
-		Container: v1.Container{
-			Resources: requestedResource,
+		Type: "LimeImages",
+		ExplainerExtensionSpec: ExplainerExtensionSpec{
+			StorageURI: "gs://someUri",
+			Container: v1.Container{
+				Resources: requestedResource,
+			},
+			RuntimeVersion: proto.String("0.2.2"),
 		},
-		RuntimeVersion: proto.String("0.2.2"),
 	}
 	g := gomega.NewGomegaWithT(t)
 
@@ -145,16 +149,18 @@ func TestCreateAIXExplainerContainerWithConfig(t *testing.T) {
 		MaxReplicas: 2,
 	}
 	var spec = AIXExplainerSpec{
-		Type:       "LimeImages",
-		StorageURI: "gs://someUri",
-		Container: v1.Container{
-			Resources: requestedResource,
-		},
-		RuntimeVersion: proto.String("0.2.2"),
-		Config: map[string]string{
-			"num_classes": "10",
-			"num_samples": "20",
-			"min_weight":  "0",
+		Type: "LimeImages",
+		ExplainerExtensionSpec: ExplainerExtensionSpec{
+			StorageURI: "gs://someUri",
+			Container: v1.Container{
+				Resources: requestedResource,
+			},
+			RuntimeVersion: proto.String("0.2.2"),
+			Config: map[string]string{
+				"num_classes": "10",
+				"num_samples": "20",
+				"min_weight":  "0",
+			},
 		},
 	}
 	g := gomega.NewGomegaWithT(t)
