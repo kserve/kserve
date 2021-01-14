@@ -412,7 +412,7 @@ var _ = Describe("Watcher", func() {
 			It("should download and load the new models", func() {
 				defer GinkgoRecover()
 				logger.Printf("Sync model config using temp dir %v\n", modelDir)
-				watcher := NewWatcher("/tmp/configs", modelDir)
+				watcher := NewWatcher("/tmp/configs", modelDir, sugar)
 				modelConfigs := modelconfig.ModelConfigs{
 					{
 						Name: "model1",
@@ -461,7 +461,9 @@ var _ = Describe("Watcher", func() {
 						Providers: map[storage.Protocol]storage.Provider{
 							storage.GCS: &cl,
 						},
+						Logger: sugar,
 					},
+					logger: sugar,
 				}
 				go puller.processCommands(watcher.ModelEvents)
 				Eventually(func() int { return len(puller.channelMap) }).Should(Equal(0))
