@@ -23,7 +23,7 @@ data:
           },
           "v2": {
             "image": "docker.io/seldonio/mlserver",
-            "defaultImageVersion": "0.1.2"
+            "defaultImageVersion": "0.2.1"
           }
         },
         "xgboost": {
@@ -33,7 +33,7 @@ data:
           },
           "v2": {
             "image": "docker.io/seldonio/mlserver",
-            "defaultImageVersion": "0.1.2"
+            "defaultImageVersion": "0.2.1"
           }
         },
         "pytorch": {

@@ -98,18 +98,7 @@ func (x *XGBoostSpec) getContainerV1(metadata metav1.ObjectMeta, extensions *Com
 func (x *XGBoostSpec) getContainerV2(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig) *v1.Container {
 	x.Container.Env = append(
 		x.Container.Env,
-		v1.EnvVar{
-			Name:  constants.MLServerHTTPPortEnv,
-			Value: strconv.Itoa(int(constants.MLServerISRestPort)),
-		},
-		v1.EnvVar{
-			Name:  constants.MLServerGRPCPortEnv,
-			Value: strconv.Itoa(int(constants.MLServerISGRPCPort)),
-		},
-		v1.EnvVar{
-			Name:  constants.MLServerModelsDirEnv,
-			Value: constants.DefaultModelLocalMountPath,
-		},
+		x.getEnvVarsV2()...,
 	)
 
 	// Append fallbacks for model settings
@@ -125,29 +114,63 @@ func (x *XGBoostSpec) getContainerV2(metadata metav1.ObjectMeta, extensions *Com
 	return &x.Container
 }
 
+func (x *XGBoostSpec) getEnvVarsV2() []v1.EnvVar {
+	vars := []v1.EnvVar{
+		{
+			Name:  constants.MLServerHTTPPortEnv,
+			Value: strconv.Itoa(int(constants.MLServerISRestPort)),
+		},
+		{
+			Name:  constants.MLServerGRPCPortEnv,
+			Value: strconv.Itoa(int(constants.MLServerISGRPCPort)),
+		},
+		{
+			Name:  constants.MLServerModelsDirEnv,
+			Value: constants.DefaultModelLocalMountPath,
+		},
+	}
+
+	if x.StorageURI == nil {
+		vars = append(
+			vars,
+			v1.EnvVar{
+				Name:  constants.MLServerLoadModelsStartupEnv,
+				Value: strconv.FormatBool(false),
+			},
+		)
+	}
+
+	return vars
+}
+
 func (x *XGBoostSpec) getDefaultsV2(metadata metav1.ObjectMeta) []v1.EnvVar {
 	// These env vars set default parameters that can always be overriden
 	// individually through `model-settings.json` config files.
 	// These will be used as fallbacks for any missing properties and / or to run
 	// without a `model-settings.json` file in place.
-	return []v1.EnvVar{
+	vars := []v1.EnvVar{
 		{
 			Name:  constants.MLServerModelImplementationEnv,
 			Value: constants.MLServerXGBoostImplementation,
 		},
-		{
-			Name:  constants.MLServerModelNameEnv,
-			Value: metadata.Name,
-		},
-		{
-			Name:  constants.MLServerModelVersionEnv,
-			Value: constants.MLServerModelVersionDefault,
-		},
-		{
-			Name:  constants.MLServerModelURIEnv,
-			Value: constants.DefaultModelLocalMountPath,
-		},
 	}
+
+	if x.StorageURI != nil {
+		// These env vars only make sense as a default for non-MMS servers
+		vars = append(
+			vars,
+			v1.EnvVar{
+				Name:  constants.MLServerModelNameEnv,
+				Value: metadata.Name,
+			},
+			v1.EnvVar{
+				Name:  constants.MLServerModelURIEnv,
+				Value: constants.DefaultModelLocalMountPath,
+			},
+		)
+	}
+
+	return vars
 }
 
 func (x *XGBoostSpec) GetStorageUri() *string {

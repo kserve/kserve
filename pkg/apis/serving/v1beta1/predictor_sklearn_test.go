@@ -462,10 +462,6 @@ func TestCreateSKLearnModelServingContainerV2(t *testing.T) {
 						Value: "sklearn",
 					},
 					{
-						Name:  constants.MLServerModelVersionEnv,
-						Value: constants.MLServerModelVersionDefault,
-					},
-					{
 						Name:  constants.MLServerModelURIEnv,
 						Value: constants.DefaultModelLocalMountPath,
 					},
@@ -518,12 +514,54 @@ func TestCreateSKLearnModelServingContainerV2(t *testing.T) {
 						Value: "sklearn",
 					},
 					{
-						Name:  constants.MLServerModelVersionEnv,
-						Value: constants.MLServerModelVersionDefault,
-					},
-					{
 						Name:  constants.MLServerModelURIEnv,
 						Value: constants.DefaultModelLocalMountPath,
+					},
+				},
+			},
+		},
+		"ContainerSpecWithoutStorageURI": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "sklearn",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						SKLearn: &SKLearnSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								ProtocolVersion: &protocolV2,
+								Container: v1.Container{
+									Resources: requestedResource,
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedContainerSpec: &v1.Container{
+				Image:     "mlserver:0.1.2",
+				Name:      constants.InferenceServiceContainerName,
+				Resources: requestedResource,
+				Env: []v1.EnvVar{
+					{
+						Name:  constants.MLServerHTTPPortEnv,
+						Value: fmt.Sprint(constants.MLServerISRestPort),
+					},
+					{
+						Name:  constants.MLServerGRPCPortEnv,
+						Value: fmt.Sprint(constants.MLServerISGRPCPort),
+					},
+					{
+						Name:  constants.MLServerModelsDirEnv,
+						Value: constants.DefaultModelLocalMountPath,
+					},
+					{
+						Name:  constants.MLServerLoadModelsStartupEnv,
+						Value: fmt.Sprint(false),
+					},
+					{
+						Name:  constants.MLServerModelImplementationEnv,
+						Value: constants.MLServerSKLearnImplementation,
 					},
 				},
 			},

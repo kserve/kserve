@@ -49,10 +49,10 @@ docs](https://github.com/SeldonIO/MLServer/tree/master/examples/xgboost).
 ### Pre-requisites
 
 Firstly, to use MLServer locally, you will first need to install the `mlserver`
-package in your local environment.
+package in your local environment as well as the XGBoost runtime.
 
 ```bash
-pip install -r ./requirements.txt
+pip install mlserver mlserver-xgboost
 ```
 
 ### Model settings
@@ -61,7 +61,7 @@ The next step will be providing some model settings so that
 MLServer knows:
 
 - The inference runtime that we want our model to use (i.e.
-  `mlserver.models.XGBoostModel`)
+  `mlserver_xgboost.XGBoostModel`)
 - Our model's name and version
 
 These can be specified through environment variables or by creating a local
@@ -71,7 +71,7 @@ These can be specified through environment variables or by creating a local
 {
   "name": "xgboost-iris",
   "version": "v1.0.0",
-  "implementation": "mlserver.models.XGBoostModel"
+  "implementation": "mlserver_xgboost.XGBoostModel"
 }
 ```
 

@@ -35,11 +35,11 @@ data:
           },
           "v2": {
             "image": "docker.io/seldonio/mlserver",
-            "defaultImageVersion": "0.1.2",
+            "defaultImageVersion": "0.2.1",
             "supportedFrameworks": [
               "sklearn"
             ],
-            "multiModelServer": "false"
+            "multiModelServer": "true"
           }
         },
         "xgboost": {
@@ -53,11 +53,11 @@ data:
           },
           "v2": {
             "image": "docker.io/seldonio/mlserver",
-            "defaultImageVersion": "0.1.2",
+            "defaultImageVersion": "0.2.1",
             "supportedFrameworks": [
               "xgboost"
             ],
-            "multiModelServer": "false"
+            "multiModelServer": "true"
           }
         },
         "pytorch": {
