@@ -362,8 +362,9 @@ class TestV1beta1InferenceServiceList(unittest.TestCase):
                                     address = None, 
                                     latest_created_revision = '0', 
                                     latest_ready_revision = '0', 
-                                    previous_ready_revision = '0', 
-                                    traffic_percent = 56, 
+                                    latest_rolledout_revision = '0',
+                                    previous_rolledout_revision = '0',
+                                    traffic = list()
                                     url = None, )
                                 }, 
                             conditions = [
