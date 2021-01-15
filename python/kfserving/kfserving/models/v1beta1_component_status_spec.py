@@ -50,9 +50,8 @@ class V1beta1ComponentStatusSpec(object):
         'address': 'KnativeAddressable',
         'latest_created_revision': 'str',
         'latest_ready_revision': 'str',
-        'latest_rolledout_revision': 'str',
-        'previous_rolledout_revision': 'str',
-        'traffic': 'list[KnativeDevServingPkgApisServingV1TrafficTarget]',
+        'previous_ready_revision': 'str',
+        'traffic_percent': 'int',
         'url': 'KnativeURL'
     }
 
@@ -60,13 +59,12 @@ class V1beta1ComponentStatusSpec(object):
         'address': 'address',
         'latest_created_revision': 'latestCreatedRevision',
         'latest_ready_revision': 'latestReadyRevision',
-        'latest_rolledout_revision': 'latestRolledoutRevision',
-        'previous_rolledout_revision': 'previousRolledoutRevision',
-        'traffic': 'traffic',
+        'previous_ready_revision': 'previousReadyRevision',
+        'traffic_percent': 'trafficPercent',
         'url': 'url'
     }
 
-    def __init__(self, address=None, latest_created_revision=None, latest_ready_revision=None, latest_rolledout_revision=None, previous_rolledout_revision=None, traffic=None, url=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, address=None, latest_created_revision=None, latest_ready_revision=None, previous_ready_revision=None, traffic_percent=None, url=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1ComponentStatusSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -75,9 +73,8 @@ class V1beta1ComponentStatusSpec(object):
         self._address = None
         self._latest_created_revision = None
         self._latest_ready_revision = None
-        self._latest_rolledout_revision = None
-        self._previous_rolledout_revision = None
-        self._traffic = None
+        self._previous_ready_revision = None
+        self._traffic_percent = None
         self._url = None
         self.discriminator = None
 
@@ -87,12 +84,10 @@ class V1beta1ComponentStatusSpec(object):
             self.latest_created_revision = latest_created_revision
         if latest_ready_revision is not None:
             self.latest_ready_revision = latest_ready_revision
-        if latest_rolledout_revision is not None:
-            self.latest_rolledout_revision = latest_rolledout_revision
-        if previous_rolledout_revision is not None:
-            self.previous_rolledout_revision = previous_rolledout_revision
-        if traffic is not None:
-            self.traffic = traffic
+        if previous_ready_revision is not None:
+            self.previous_ready_revision = previous_ready_revision
+        if traffic_percent is not None:
+            self.traffic_percent = traffic_percent
         if url is not None:
             self.url = url
 
@@ -121,7 +116,7 @@ class V1beta1ComponentStatusSpec(object):
     def latest_created_revision(self):
         """Gets the latest_created_revision of this V1beta1ComponentStatusSpec.  # noqa: E501
 
-        Latest revision name that is created  # noqa: E501
+        Latest revision name that is in created  # noqa: E501
 
         :return: The latest_created_revision of this V1beta1ComponentStatusSpec.  # noqa: E501
         :rtype: str
@@ -132,7 +127,7 @@ class V1beta1ComponentStatusSpec(object):
     def latest_created_revision(self, latest_created_revision):
         """Sets the latest_created_revision of this V1beta1ComponentStatusSpec.
 
-        Latest revision name that is created  # noqa: E501
+        Latest revision name that is in created  # noqa: E501
 
         :param latest_created_revision: The latest_created_revision of this V1beta1ComponentStatusSpec.  # noqa: E501
         :type: str
@@ -164,73 +159,50 @@ class V1beta1ComponentStatusSpec(object):
         self._latest_ready_revision = latest_ready_revision
 
     @property
-    def latest_rolledout_revision(self):
-        """Gets the latest_rolledout_revision of this V1beta1ComponentStatusSpec.  # noqa: E501
+    def previous_ready_revision(self):
+        """Gets the previous_ready_revision of this V1beta1ComponentStatusSpec.  # noqa: E501
 
-        Latest revision name that is rolled out with 100 percent traffic  # noqa: E501
+        Previous revision name that is in ready state  # noqa: E501
 
-        :return: The latest_rolledout_revision of this V1beta1ComponentStatusSpec.  # noqa: E501
+        :return: The previous_ready_revision of this V1beta1ComponentStatusSpec.  # noqa: E501
         :rtype: str
         """
-        return self._latest_rolledout_revision
+        return self._previous_ready_revision
 
-    @latest_rolledout_revision.setter
-    def latest_rolledout_revision(self, latest_rolledout_revision):
-        """Sets the latest_rolledout_revision of this V1beta1ComponentStatusSpec.
+    @previous_ready_revision.setter
+    def previous_ready_revision(self, previous_ready_revision):
+        """Sets the previous_ready_revision of this V1beta1ComponentStatusSpec.
 
-        Latest revision name that is rolled out with 100 percent traffic  # noqa: E501
+        Previous revision name that is in ready state  # noqa: E501
 
-        :param latest_rolledout_revision: The latest_rolledout_revision of this V1beta1ComponentStatusSpec.  # noqa: E501
+        :param previous_ready_revision: The previous_ready_revision of this V1beta1ComponentStatusSpec.  # noqa: E501
         :type: str
         """
 
-        self._latest_rolledout_revision = latest_rolledout_revision
+        self._previous_ready_revision = previous_ready_revision
 
     @property
-    def previous_rolledout_revision(self):
-        """Gets the previous_rolledout_revision of this V1beta1ComponentStatusSpec.  # noqa: E501
+    def traffic_percent(self):
+        """Gets the traffic_percent of this V1beta1ComponentStatusSpec.  # noqa: E501
 
-        Previous revision name that is rolled out with 100 percent traffic  # noqa: E501
+        Traffic percent on the latest ready revision  # noqa: E501
 
-        :return: The previous_rolledout_revision of this V1beta1ComponentStatusSpec.  # noqa: E501
-        :rtype: str
+        :return: The traffic_percent of this V1beta1ComponentStatusSpec.  # noqa: E501
+        :rtype: int
         """
-        return self._previous_rolledout_revision
+        return self._traffic_percent
 
-    @previous_rolledout_revision.setter
-    def previous_rolledout_revision(self, previous_rolledout_revision):
-        """Sets the previous_rolledout_revision of this V1beta1ComponentStatusSpec.
+    @traffic_percent.setter
+    def traffic_percent(self, traffic_percent):
+        """Sets the traffic_percent of this V1beta1ComponentStatusSpec.
 
-        Previous revision name that is rolled out with 100 percent traffic  # noqa: E501
+        Traffic percent on the latest ready revision  # noqa: E501
 
-        :param previous_rolledout_revision: The previous_rolledout_revision of this V1beta1ComponentStatusSpec.  # noqa: E501
-        :type: str
-        """
-
-        self._previous_rolledout_revision = previous_rolledout_revision
-
-    @property
-    def traffic(self):
-        """Gets the traffic of this V1beta1ComponentStatusSpec.  # noqa: E501
-
-        Traffic holds the configured traffic distribution for latest ready revision and previous rolled out revision.  # noqa: E501
-
-        :return: The traffic of this V1beta1ComponentStatusSpec.  # noqa: E501
-        :rtype: list[KnativeDevServingPkgApisServingV1TrafficTarget]
-        """
-        return self._traffic
-
-    @traffic.setter
-    def traffic(self, traffic):
-        """Sets the traffic of this V1beta1ComponentStatusSpec.
-
-        Traffic holds the configured traffic distribution for latest ready revision and previous rolled out revision.  # noqa: E501
-
-        :param traffic: The traffic of this V1beta1ComponentStatusSpec.  # noqa: E501
-        :type: list[KnativeDevServingPkgApisServingV1TrafficTarget]
+        :param traffic_percent: The traffic_percent of this V1beta1ComponentStatusSpec.  # noqa: E501
+        :type: int
         """
 
-        self._traffic = traffic
+        self._traffic_percent = traffic_percent
 
     @property
     def url(self):
