@@ -364,7 +364,7 @@ class TestV1beta1InferenceServiceList(unittest.TestCase):
                                     latest_ready_revision = '0', 
                                     latest_rolledout_revision = '0',
                                     previous_rolledout_revision = '0',
-                                    traffic = list()
+                                    traffic = list(),
                                     url = None, )
                                 }, 
                             conditions = [
