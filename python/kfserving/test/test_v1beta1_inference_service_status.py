@@ -57,7 +57,7 @@ class TestV1beta1InferenceServiceStatus(unittest.TestCase):
                         latest_created_revision = '0', 
                         latest_ready_revision = '0', 
                         latest_rolledout_revision = '0',
-                        previous_rolledout_revision ß= '0',
+                        previous_rolledout_revision = '0',
                         traffic = list(),
                         url = None, )
                     }, 
