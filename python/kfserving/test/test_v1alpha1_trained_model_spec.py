@@ -51,7 +51,13 @@ class TestV1alpha1TrainedModelSpec(unittest.TestCase):
         if include_optional :
             return V1alpha1TrainedModelSpec(
                 inference_service = '0', 
-                model = None
+                model = V1alpha1TrainedModel(
+                    api_version = '0',
+                    kind = '0',
+                    metadata = None,
+                    spec = None,
+                    status = None
+                )
             )
         else :
             return V1alpha1TrainedModelSpec(
