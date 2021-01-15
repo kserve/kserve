@@ -57,6 +57,24 @@
         }
       }
     },
+    "v1alpha1.TrainedModelSpec": {
+      "description": "TrainedModelSpec defines the trained model spec",
+      "type": "object",
+      "required": [
+        "inferenceService",
+        "model"
+      ],
+      "properties": {
+        "inferenceService": {
+          "description": "parent inference service to deploy to",
+          "type": "string"
+        },
+        "model": {
+          "description": "Predictor model spec",
+          "$ref": "#/definitions/v1alpha1.ModelSpec"
+        }
+      }
+    },
     "v1beta1.AIXExplainerSpec": {
       "description": "AIXExplainerSpec defines the arguments for configuring an AIX Explanation Server",
       "type": "object",

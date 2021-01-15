@@ -30,6 +30,7 @@ from __future__ import absolute_import
 # import models into model package
 from kfserving.models.v1alpha1_trained_model import V1alpha1TrainedModel
 from kfserving.models.v1alpha1_trained_model_list import V1alpha1TrainedModelList
+from kfserving.models.v1alpha1_trained_model_spec import V1alpha1TrainedModelSpec
 from kfserving.models.v1beta1_aix_explainer_spec import V1beta1AIXExplainerSpec
 from kfserving.models.v1beta1_art_explainer_spec import V1beta1ARTExplainerSpec
 from kfserving.models.v1beta1_alibi_explainer_spec import V1beta1AlibiExplainerSpec

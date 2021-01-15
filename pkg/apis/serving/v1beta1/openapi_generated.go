@@ -31,6 +31,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 	return map[string]common.OpenAPIDefinition{
 		"./pkg/apis/serving/v1alpha1.TrainedModel":           schema_pkg_apis_serving_v1alpha1_TrainedModel(ref),
 		"./pkg/apis/serving/v1alpha1.TrainedModelList":       schema_pkg_apis_serving_v1alpha1_TrainedModelList(ref),
+		"./pkg/apis/serving/v1alpha1.TrainedModelSpec":       schema_pkg_apis_serving_v1alpha1_TrainedModelSpec(ref),
 		"./pkg/apis/serving/v1beta1.AIXExplainerSpec":        schema_pkg_apis_serving_v1beta1_AIXExplainerSpec(ref),
 		"./pkg/apis/serving/v1beta1.ARTExplainerSpec":        schema_pkg_apis_serving_v1beta1_ARTExplainerSpec(ref),
 		"./pkg/apis/serving/v1beta1.AlibiExplainerSpec":      schema_pkg_apis_serving_v1beta1_AlibiExplainerSpec(ref),
@@ -164,6 +165,35 @@ func schema_pkg_apis_serving_v1alpha1_TrainedModelList(ref common.ReferenceCallb
 		},
 		Dependencies: []string{
 			"./pkg/apis/serving/v1alpha1.TrainedModel", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+	}
+}
+
+func schema_pkg_apis_serving_v1alpha1_TrainedModelSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "TrainedModelSpec defines the trained model spec",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"inferenceService": {
+						SchemaProps: spec.SchemaProps{
+							Description: "parent inference service to deploy to",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"model": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Predictor model spec",
+							Ref:         ref("./pkg/apis/serving/v1alpha1.ModelSpec"),
+						},
+					},
+				},
+				Required: []string{"inferenceService", "model"},
+			},
+		},
+		Dependencies: []string{
+			"./pkg/apis/serving/v1alpha1.ModelSpec"},
 	}
 }
 
