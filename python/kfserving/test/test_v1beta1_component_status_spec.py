@@ -51,10 +51,11 @@ class TestV1beta1ComponentStatusSpec(unittest.TestCase):
         if include_optional :
             return V1beta1ComponentStatusSpec(
                 address = None, 
-                latest_created_revision = '0', 
+                latest_created_revision = '0',
                 latest_ready_revision = '0', 
-                previous_ready_revision = '0', 
-                traffic_percent = 56, 
+                latest_rolledout_revision = '0',
+                previous_rolledout_revision = '0',
+                traffic = list(),
                 url = None
             )
         else :

@@ -687,9 +687,10 @@ class TestV1beta1InferenceServiceList(unittest.TestCase):
                                 'key' : kfserving.models.v1beta1_component_status_spec.V1beta1ComponentStatusSpec(
                                     address = None, 
                                     latest_created_revision = '0', 
-                                    latest_ready_revision = '0', 
-                                    previous_ready_revision = '0', 
-                                    traffic_percent = 56, 
+                                    latest_ready_revision = '0',
+                                    latest_rolledout_revision = '0',
+                                    previous_rolledout_revision = '0',
+                                    traffic = list(),
                                     url = None, )
                                 }, 
                             conditions = [
