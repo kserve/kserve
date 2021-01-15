@@ -51,7 +51,7 @@ class TestV1alpha1TrainedModelSpec(unittest.TestCase):
         if include_optional :
             return V1alpha1TrainedModelSpec(
                 inference_service = '0', 
-                model = V1alpha1TrainedModel(
+                model = kfserving.models.v1alpha1_trained_model.V1alpha1TrainedModel(
                     api_version = '0',
                     kind = '0',
                     metadata = None,
@@ -62,7 +62,7 @@ class TestV1alpha1TrainedModelSpec(unittest.TestCase):
         else :
             return V1alpha1TrainedModelSpec(
                 inference_service = '0',
-                model = V1alpha1TrainedModel(
+                model = kfserving.models.v1alpha1_trained_model.V1alpha1TrainedModel(
                     api_version = '0',
                     kind = '0',
                     metadata = None,
