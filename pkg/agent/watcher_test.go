@@ -17,12 +17,12 @@ limitations under the License.
 package agent
 
 import (
+	gstorage "cloud.google.com/go/storage"
+	"context"
 	"fmt"
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/aws/aws-sdk-go/service/s3/s3iface"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
-	"github.com/golang/protobuf/proto"
+	"github.com/kubeflow/kfserving/pkg/agent/mocks"
 	"github.com/kubeflow/kfserving/pkg/agent/storage"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 	"github.com/kubeflow/kfserving/pkg/modelconfig"
@@ -32,42 +32,8 @@ import (
 	"io/ioutil"
 	logger "log"
 	"os"
+	"path/filepath"
 )
-
-type mockS3Client struct {
-	s3iface.S3API
-}
-
-func (m *mockS3Client) ListObjects(*s3.ListObjectsInput) (*s3.ListObjectsOutput, error) {
-	return &s3.ListObjectsOutput{
-		Contents: []*s3.Object{
-			{
-				Key: proto.String("model.pt"),
-			},
-		},
-	}, nil
-}
-
-type mockS3Downloder struct {
-}
-
-func (m *mockS3Downloder) DownloadWithIterator(aws.Context, s3manager.BatchDownloadIterator, ...func(*s3manager.Downloader)) error {
-	return nil
-}
-
-type mockS3FailDownloder struct {
-	err error
-}
-
-func (m *mockS3FailDownloder) DownloadWithIterator(aws.Context, s3manager.BatchDownloadIterator, ...func(*s3manager.Downloader)) error {
-	var errs []s3manager.Error
-	errs = append(errs, s3manager.Error{
-		OrigErr: fmt.Errorf("failed to download"),
-		Bucket:  aws.String("modelRepo"),
-		Key:     aws.String("model1/model.pt"),
-	})
-	return s3manager.NewBatchError("BatchedDownloadIncomplete", "some objects have failed to download.", errs)
-}
 
 var _ = Describe("Watcher", func() {
 	var modelDir string
@@ -118,8 +84,8 @@ var _ = Describe("Watcher", func() {
 						ModelDir: modelDir + "/test1",
 						Providers: map[storage.Protocol]storage.Provider{
 							storage.S3: &storage.S3Provider{
-								Client:     &mockS3Client{},
-								Downloader: &mockS3Downloder{},
+								Client:     &mocks.MockS3Client{},
+								Downloader: &mocks.MockS3Downloader{},
 							},
 						},
 						Logger: sugar,
@@ -148,8 +114,8 @@ var _ = Describe("Watcher", func() {
 						ModelDir: modelDir + "/test1",
 						Providers: map[storage.Protocol]storage.Provider{
 							storage.S3: &storage.S3Provider{
-								Client:     &mockS3Client{},
-								Downloader: &mockS3Downloder{},
+								Client:     &mocks.MockS3Client{},
+								Downloader: &mocks.MockS3Downloader{},
 							},
 						},
 						Logger: sugar,
@@ -193,8 +159,8 @@ var _ = Describe("Watcher", func() {
 						ModelDir: modelDir + "/test2",
 						Providers: map[storage.Protocol]storage.Provider{
 							storage.S3: &storage.S3Provider{
-								Client:     &mockS3Client{},
-								Downloader: &mockS3Downloder{},
+								Client:     &mocks.MockS3Client{},
+								Downloader: &mocks.MockS3Downloader{},
 							},
 						},
 						Logger: sugar,
@@ -250,8 +216,8 @@ var _ = Describe("Watcher", func() {
 						ModelDir: modelDir + "/test3",
 						Providers: map[storage.Protocol]storage.Provider{
 							storage.S3: &storage.S3Provider{
-								Client:     &mockS3Client{},
-								Downloader: &mockS3Downloder{},
+								Client:     &mocks.MockS3Client{},
+								Downloader: &mocks.MockS3Downloader{},
 							},
 						},
 						Logger: sugar,
@@ -322,8 +288,8 @@ var _ = Describe("Watcher", func() {
 						ModelDir: modelDir + "/test4",
 						Providers: map[storage.Protocol]storage.Provider{
 							storage.S3: &storage.S3Provider{
-								Client:     &mockS3Client{},
-								Downloader: &mockS3FailDownloder{err: err},
+								Client:     &mocks.MockS3Client{},
+								Downloader: &mocks.MockS3FailDownloader{Err: err},
 							},
 						},
 						Logger: sugar,
@@ -343,6 +309,166 @@ var _ = Describe("Watcher", func() {
 				watcher.parseConfig(modelConfigs)
 				Eventually(func() int { return len(puller.channelMap) }).Should(Equal(0))
 				Eventually(func() int { return puller.opStats["model1"][Add] }).Should(Equal(1))
+			})
+		})
+	})
+
+	Describe("Use GCS Downloader", func() {
+		Context("Download Mocked Model", func() {
+			It("should download test model and write contents", func() {
+				defer GinkgoRecover()
+
+				logger.Printf("Creating mock GCS Client")
+				ctx := context.Background()
+				client := mocks.NewMockClient()
+				cl := storage.GCSProvider {
+					Client: client,
+				}
+
+				logger.Printf("Populating mocked bucket with test model")
+				bkt := client.Bucket("testBucket")
+				if err := bkt.Create(ctx, "test", nil); err != nil {
+					Fail("Error creating bucket.")
+				}
+				const modelContents = "Model Contents"
+				w := bkt.Object("testModel1").NewWriter(ctx)
+				if _, err := fmt.Fprint(w, modelContents); err != nil {
+					Fail("Failed to write contents.")
+				}
+				modelName := "model1"
+				modelStorageURI := "gs://testBucket/testModel1"
+				err := cl.DownloadModel(modelDir, modelName, modelStorageURI)
+				Expect(err).To(BeNil())
+
+				testFile := filepath.Join(modelDir, "model1/testModel1")
+				dat, err := ioutil.ReadFile(testFile)
+				Expect(err).To(BeNil())
+				Expect(string(dat)).To(Equal(modelContents))
+			})
+		})
+
+		Context("Model Download Failure", func() {
+			It("should fail out if the model does not exist in the bucket", func() {
+				defer GinkgoRecover()
+
+				logger.Printf("Creating mock GCS Client")
+				ctx := context.Background()
+				client := mocks.NewMockClient()
+				cl := storage.GCSProvider {
+					Client: client,
+				}
+
+				logger.Printf("Populating mocked bucket with test model")
+				bkt := client.Bucket("testBucket")
+				if err := bkt.Create(ctx, "test", nil); err != nil {
+					Fail("Error creating bucket.")
+				}
+				const modelContents = "Model Contents"
+				w := bkt.Object("testModel1").NewWriter(ctx)
+				if _, err := fmt.Fprint(w, modelContents); err != nil {
+					Fail("Failed to write contents.")
+				}
+				modelName := "model1"
+				modelStorageURI := "gs://testBucket/testModel2"
+				expectedErr := fmt.Errorf("unable to download object/s because: %v", gstorage.ErrObjectNotExist)
+				actualErr := cl.DownloadModel(modelDir, modelName, modelStorageURI)
+				Expect(actualErr).To(Equal(expectedErr))
+			})
+		})
+
+		Context("Download All Models", func() {
+			It("should download all models if a model name is not specified for bucket", func() {
+				logger.Printf("Creating mock GCS Client")
+				ctx := context.Background()
+				client := mocks.NewMockClient()
+				cl := storage.GCSProvider {
+					Client: client,
+				}
+
+				logger.Printf("Populating mocked bucket with test model")
+				bkt := client.Bucket("testBucket")
+				if err := bkt.Create(ctx, "test", nil); err != nil {
+					Fail("Error creating bucket.")
+				}
+				const modelContents = "Model Contents"
+				w := bkt.Object("testModel1").NewWriter(ctx)
+				if _, err := fmt.Fprint(w, modelContents); err != nil {
+					Fail("Failed to write contents.")
+				}
+
+				const secondaryContents = "Secondary Contents"
+				w2 := bkt.Object("testModel2").NewWriter(ctx)
+				if _, err := fmt.Fprint(w2, modelContents); err != nil {
+					Fail("Failed to write contents.")
+				}
+
+				modelStorageURI := "gs://testBucket/"
+				err := cl.DownloadModel(modelDir, "", modelStorageURI)
+				Expect(err).To(BeNil())
+			})
+		})
+
+		Context("Getting new model events", func() {
+			It("should download and load the new models", func() {
+				defer GinkgoRecover()
+				logger.Printf("Sync model config using temp dir %v\n", modelDir)
+				watcher := NewWatcher("/tmp/configs", modelDir, sugar)
+				modelConfigs := modelconfig.ModelConfigs{
+					{
+						Name: "model1",
+						Spec: v1alpha1.ModelSpec{
+							StorageURI: "gs://testBucket/testModel1",
+							Framework:  "sklearn",
+						},
+					},
+					{
+						Name: "model2",
+						Spec: v1alpha1.ModelSpec{
+							StorageURI: "gs://testBucket/testModel2",
+							Framework:  "sklearn",
+						},
+					},
+				}
+				// Creating GCS mock client and populating buckets
+				ctx := context.Background()
+				client := mocks.NewMockClient()
+				cl := storage.GCSProvider {
+					Client: client,
+				}
+				bkt := client.Bucket("testBucket")
+				if err := bkt.Create(ctx, "test", nil); err != nil {
+					Fail("Error creating bucket.")
+				}
+				const modelContents = "Model Contents"
+				w := bkt.Object("testModel1").NewWriter(ctx)
+				if _, err := fmt.Fprint(w, modelContents); err != nil {
+					Fail("Failed to write contents.")
+				}
+
+				const secondaryContents = "Secondary Contents"
+				w2 := bkt.Object("testModel2").NewWriter(ctx)
+				if _, err := fmt.Fprint(w2, modelContents); err != nil {
+					Fail("Failed to write contents.")
+				}
+
+				watcher.parseConfig(modelConfigs)
+				puller := Puller{
+					channelMap:  make(map[string]*ModelChannel),
+					completions: make(chan *ModelOp, 4),
+					opStats:     make(map[string]map[OpType]int),
+					Downloader: Downloader{
+						ModelDir: modelDir + "/test1",
+						Providers: map[storage.Protocol]storage.Provider{
+							storage.GCS: &cl,
+						},
+						Logger: sugar,
+					},
+					logger: sugar,
+				}
+				go puller.processCommands(watcher.ModelEvents)
+				Eventually(func() int { return len(puller.channelMap) }).Should(Equal(0))
+				Eventually(func() int { return puller.opStats["model1"][Add] }).Should(Equal(1))
+				Eventually(func() int { return puller.opStats["model2"][Add] }).Should(Equal(1))
 			})
 		})
 	})

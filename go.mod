@@ -3,6 +3,7 @@ module github.com/kubeflow/kfserving
 go 1.13
 
 require (
+	cloud.google.com/go/storage v1.11.0
 	github.com/astaxie/beego v1.12.1
 	github.com/aws/aws-sdk-go v1.31.12
 	github.com/cloudevents/sdk-go v1.2.0
@@ -15,7 +16,9 @@ require (
 	github.com/golang/protobuf v1.4.2
 	github.com/google/go-cmp v0.5.2
 	github.com/google/uuid v1.1.1
+	github.com/googleapis/google-cloud-go-testing v0.0.0-20200911160855-bcd43fbb19e8
 	github.com/json-iterator/go v1.1.10
+	github.com/mattbaird/jsonpatch v0.0.0-20171005235357-81af80346b1a // indirect
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/onsi/ginkgo v1.14.0
 	github.com/onsi/gomega v1.10.2
@@ -28,15 +31,14 @@ require (
 	go.uber.org/zap v1.15.0
 	golang.org/dl v0.0.0-20201105230244-7f2637f4aae3 // indirect
 	golang.org/x/net v0.0.0-20200904194848-62affa334b73
+	google.golang.org/api v0.31.0
 	google.golang.org/grpc v1.31.1
 	google.golang.org/protobuf v1.25.0
 	istio.io/api v0.0.0-20200715212100-dbf5277541ef
 	istio.io/client-go v0.0.0-20201005161859-d8818315d678
 	istio.io/gogo-genproto v0.0.0-20191029161641-f7d19ec0141d // indirect
 	k8s.io/api v0.18.8
-	k8s.io/apiextensions-apiserver v0.18.8
 	k8s.io/apimachinery v0.18.8
-	k8s.io/client-go v11.0.1-0.20190805182717-6502b5e7b1b5+incompatible
 	k8s.io/klog v1.0.0
 	k8s.io/kube-openapi v0.0.0-20200410145947-bcb3869e6f29
 	knative.dev/networking v0.0.0-20200922180040-a71b40c69b15
