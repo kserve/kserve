@@ -30,11 +30,11 @@ import unittest
 import datetime
 
 import kfserving
-from kfserving.models.v1beta1_inference_service_status import V1beta1InferenceServiceStatus  # noqa: E501
+from kfserving.models.v1alpha1_model_spec import V1alpha1ModelSpec  # noqa: E501
 from kfserving.rest import ApiException
 
-class TestV1beta1InferenceServiceStatus(unittest.TestCase):
-    """V1beta1InferenceServiceStatus unit test stubs"""
+class TestV1alpha1ModelSpec(unittest.TestCase):
+    """V1alpha1ModelSpec unit test stubs"""
 
     def setUp(self):
         pass
@@ -43,36 +43,25 @@ class TestV1beta1InferenceServiceStatus(unittest.TestCase):
         pass
 
     def make_instance(self, include_optional):
-        """Test V1beta1InferenceServiceStatus
+        """Test V1alpha1ModelSpec
             include_option is a boolean, when False only required
             params are included, when True both required and
             optional params are included """
-        # model = kfserving.models.v1beta1_inference_service_status.V1beta1InferenceServiceStatus()  # noqa: E501
+        # model = kfserving.models.v1alpha1_model_spec.V1alpha1ModelSpec()  # noqa: E501
         if include_optional :
-            return V1beta1InferenceServiceStatus(
-                address = None, 
-                components = {
-                    'key' : kfserving.models.v1beta1_component_status_spec.V1beta1ComponentStatusSpec(
-                        address = None, 
-                        latest_created_revision = '0', 
-                        latest_ready_revision = '0', 
-                        latest_rolledout_revision = '0',
-                        previous_rolledout_revision = '0',
-                        traffic = list(),
-                        url = None, )
-                    }, 
-                conditions = [
-                    None
-                    ], 
-                observed_generation = 56, 
-                url = None
+            return V1alpha1ModelSpec(
+                framework = '0', 
+                memory = None, 
+                storage_uri = '0'
             )
         else :
-            return V1beta1InferenceServiceStatus(
+            return V1alpha1ModelSpec(
+                framework = '0',
+                storage_uri = '0',
         )
 
-    def testV1beta1InferenceServiceStatus(self):
-        """Test V1beta1InferenceServiceStatus"""
+    def testV1alpha1ModelSpec(self):
+        """Test V1alpha1ModelSpec"""
         inst_req_only = self.make_instance(include_optional=False)
         inst_req_and_optional = self.make_instance(include_optional=True)
 
