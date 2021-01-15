@@ -375,7 +375,7 @@ class V1beta1TorchServeSpec(object):
     def model_class_name(self):
         """Gets the model_class_name of this V1beta1TorchServeSpec.  # noqa: E501
 
-        When this field is specified KFS chooses the KFServer implementation, otherwise KFS uses the TorchServe implementation  # noqa: E501
+        Defaults PyTorch model class name to 'PyTorchModel'  # noqa: E501
 
         :return: The model_class_name of this V1beta1TorchServeSpec.  # noqa: E501
         :rtype: str
@@ -386,7 +386,7 @@ class V1beta1TorchServeSpec(object):
     def model_class_name(self, model_class_name):
         """Sets the model_class_name of this V1beta1TorchServeSpec.
 
-        When this field is specified KFS chooses the KFServer implementation, otherwise KFS uses the TorchServe implementation  # noqa: E501
+        Defaults PyTorch model class name to 'PyTorchModel'  # noqa: E501
 
         :param model_class_name: The model_class_name of this V1beta1TorchServeSpec.  # noqa: E501
         :type: str
