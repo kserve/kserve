@@ -28,6 +28,7 @@
 from __future__ import absolute_import
 
 # import models into model package
+from kfserving.models.v1alpha1_model_spec import V1alpha1ModelSpec
 from kfserving.models.v1alpha1_trained_model import V1alpha1TrainedModel
 from kfserving.models.v1alpha1_trained_model_list import V1alpha1TrainedModelList
 from kfserving.models.v1alpha1_trained_model_spec import V1alpha1TrainedModelSpec

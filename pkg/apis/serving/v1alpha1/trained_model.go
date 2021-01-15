@@ -48,7 +48,6 @@ type TrainedModelList struct {
 
 // TrainedModelSpec defines the trained model spec
 // +k8s:openapi-gen=true
-// +kubebuilder:object:root=true
 type TrainedModelSpec struct {
 	// parent inference service to deploy to
 	// +required
@@ -59,6 +58,7 @@ type TrainedModelSpec struct {
 }
 
 // ModelSpec describes a trained model
+// +k8s:openapi-gen=true
 type ModelSpec struct {
 	// Storage URI for the model repository
 	StorageURI string `json:"storageUri"`
