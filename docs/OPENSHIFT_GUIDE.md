@@ -30,7 +30,7 @@ sed -i.bak 's/KFSERVING_VERSION=.*/KFSERVING_VERSION=v0.4.1/' ./hack/quick_insta
 ./hack/quick_install.sh
 ```
 
-This [script](../hack/quick_install.sh) will install Istio, Knative, Cert Manager, and then finally the latest version of KFServing that has been verified on OpenShift.
+This [script](../hack/quick_install.sh) will install Istio, Knative, Cert Manager, and then the latest version of KFServing that has been verified and tested on OpenShift.
 
 ## Verify KFServing installation
 
