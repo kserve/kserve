@@ -12,10 +12,13 @@ It encapsulates the complexity of autoscaling, networking, health checking, and 
 
 ![KFServing](/docs/diagrams/kfserving.png)
 
-### KFServing Concepts and Data Plane
+### Core Concepts
 [KFServing Concepts and Data Plane](./docs/README.md)
 
-### KFServing Features and Examples
+### Architecture
+![architecture](/docs/diagram/kfs_architect.png)
+
+### Core Features and Examples
 [KFServing Features and Examples](./docs/samples/README.md)
 
 ### Learn More
