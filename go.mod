@@ -18,8 +18,8 @@ require (
 	github.com/google/uuid v1.1.1
 	github.com/googleapis/google-cloud-go-testing v0.0.0-20200911160855-bcd43fbb19e8
 	github.com/json-iterator/go v1.1.10
-	github.com/mattbaird/jsonpatch v0.0.0-20171005235357-81af80346b1a // indirect
 	github.com/kelseyhightower/envconfig v1.4.0
+	github.com/mattbaird/jsonpatch v0.0.0-20171005235357-81af80346b1a // indirect
 	github.com/onsi/ginkgo v1.14.0
 	github.com/onsi/gomega v1.10.2
 	github.com/pkg/errors v0.9.1
@@ -39,6 +39,7 @@ require (
 	istio.io/gogo-genproto v0.0.0-20191029161641-f7d19ec0141d // indirect
 	k8s.io/api v0.18.8
 	k8s.io/apimachinery v0.18.8
+	k8s.io/client-go v11.0.1-0.20190805182717-6502b5e7b1b5+incompatible
 	k8s.io/klog v1.0.0
 	k8s.io/kube-openapi v0.0.0-20200410145947-bcb3869e6f29
 	knative.dev/networking v0.0.0-20200922180040-a71b40c69b15

@@ -32,7 +32,6 @@ from kfserving import (
 from ..common.utils import predict, get_cluster_ip
 from ..common.utils import KFSERVING_TEST_NAMESPACE
 
-api_v1alpha1_version = constants.KFSERVING_GROUP + "/v1alpha1"
 api_v1beta1_version = constants.KFSERVING_GROUP + "/" + constants.KFSERVING_V1BETA1_VERSION
 
 KFServing = KFServingClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
@@ -50,7 +49,7 @@ def test_mms_sklearn_kfserving():
         )
     )
 
-    service_name = "isvc-sklearn"
+    service_name = "isvc-sklearn-mms"
     isvc = V1beta1InferenceService(
         api_version=api_v1beta1_version,
         kind=constants.KFSERVING_KIND,
@@ -77,7 +76,7 @@ def test_mms_sklearn_kfserving():
     model1_name = "model1-sklearn"
     model2_name = "model2-sklearn"
     model1 = V1alpha1TrainedModel(
-        api_version=api_v1alpha1_version,
+        api_version=constants.KFSERVING_V1ALPHA1,
         kind=constants.KFSERVING_KIND_TRAINEDMODEL,
         metadata=client.V1ObjectMeta(
             name=model1_name,
@@ -90,7 +89,7 @@ def test_mms_sklearn_kfserving():
     )
 
     model2 = V1alpha1TrainedModel(
-        api_version=api_v1alpha1_version,
+        api_version=constants.KFSERVING_V1ALPHA1,
         kind=constants.KFSERVING_KIND_TRAINEDMODEL,
         metadata=client.V1ObjectMeta(
             name=model2_name,
@@ -103,14 +102,12 @@ def test_mms_sklearn_kfserving():
     )
 
     # Create an instance of inference service with isvc
-    KFServing.create(isvc, version=constants.KFSERVING_V1BETA1_VERSION)
+    KFServing.create(isvc)
     KFServing.wait_isvc_ready(service_name, namespace=KFSERVING_TEST_NAMESPACE)
 
     # Create instances of trained models using model1 and model2
-    KFServing.create(model1, namespace=KFSERVING_TEST_NAMESPACE, version=constants.KFSERVING_V1ALPHA1_VERSION,
-                        plural=constants.KFSERVING_PLURAL_TRAINEDMODEL)
-    KFServing.create(model2, namespace=KFSERVING_TEST_NAMESPACE, version=constants.KFSERVING_V1ALPHA1_VERSION,
-                        plural=constants.KFSERVING_PLURAL_TRAINEDMODEL)
+    KFServing.create_trained_model(model1, KFSERVING_TEST_NAMESPACE)
+    KFServing.create_trained_model(model2, KFSERVING_TEST_NAMESPACE)
 
     cluster_ip = get_cluster_ip()
 
@@ -142,7 +139,7 @@ def test_mms_xgboost_kfserving():
         )
     )
 
-    service_name = "isvc-xgboost"
+    service_name = "isvc-xgboost-mms"
     isvc = V1beta1InferenceService(
         api_version=api_v1beta1_version,
         kind=constants.KFSERVING_KIND,
@@ -169,7 +166,7 @@ def test_mms_xgboost_kfserving():
     model1_name = "model1-xgboost"
     model2_name = "model2-xgboost"
     model1 = V1alpha1TrainedModel(
-        api_version=api_v1alpha1_version,
+        api_version=constants.KFSERVING_V1ALPHA1,
         kind=constants.KFSERVING_KIND_TRAINEDMODEL,
         metadata=client.V1ObjectMeta(
             name=model1_name,
@@ -182,7 +179,7 @@ def test_mms_xgboost_kfserving():
     )
 
     model2 = V1alpha1TrainedModel(
-        api_version=api_v1alpha1_version,
+        api_version=constants.KFSERVING_V1ALPHA1,
         kind=constants.KFSERVING_KIND_TRAINEDMODEL,
         metadata=client.V1ObjectMeta(
             name=model2_name,
@@ -195,14 +192,12 @@ def test_mms_xgboost_kfserving():
     )
 
     # Create an instance of inference service with isvc
-    KFServing.create(isvc, version=constants.KFSERVING_V1BETA1_VERSION)
+    KFServing.create(isvc)
     KFServing.wait_isvc_ready(service_name, namespace=KFSERVING_TEST_NAMESPACE)
 
     # Create instances of trained models using model1 and model2
-    KFServing.create(model1, namespace=KFSERVING_TEST_NAMESPACE, version=constants.KFSERVING_V1ALPHA1_VERSION,
-                        plural=constants.KFSERVING_PLURAL_TRAINEDMODEL)
-    KFServing.create(model2, namespace=KFSERVING_TEST_NAMESPACE, version=constants.KFSERVING_V1ALPHA1_VERSION,
-                        plural=constants.KFSERVING_PLURAL_TRAINEDMODEL)
+    KFServing.create_trained_model(model1, KFSERVING_TEST_NAMESPACE)
+    KFServing.create_trained_model(model2, KFSERVING_TEST_NAMESPACE)
 
     cluster_ip = get_cluster_ip()
 
