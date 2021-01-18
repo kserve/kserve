@@ -9,7 +9,7 @@ standardized around this protocol.
 The protocol is composed of a required set of APIs that must be
 implemented by a compliant server. This required set of APIs is
 described in [required_api.md](./required_api.md). The [GRPC proto
-specification](https://github.com/triton-inference-server/server/blob/master/docs/protocol/grpc_core_service.proto)
+specification](grpc_predict_v2.proto)
 for the required APIs is available.
 
 The protocol supports an extension mechanism as a required part of the
