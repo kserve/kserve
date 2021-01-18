@@ -4,7 +4,6 @@ go 1.13
 
 require (
 	cloud.google.com/go/storage v1.11.0
-	github.com/astaxie/beego v1.12.1
 	github.com/aws/aws-sdk-go v1.31.12
 	github.com/cloudevents/sdk-go v1.2.0
 	github.com/emicklei/go-restful v2.11.0+incompatible // indirect
@@ -24,12 +23,9 @@ require (
 	github.com/onsi/gomega v1.10.2
 	github.com/pkg/errors v0.9.1
 	github.com/satori/go.uuid v1.2.0
-	github.com/shiena/ansicolor v0.0.0-20151119151921-a422bbe96644 // indirect
 	github.com/spf13/cobra v1.0.0
 	github.com/stretchr/testify v1.5.1
-	go.opencensus.io v0.22.4
 	go.uber.org/zap v1.15.0
-	golang.org/dl v0.0.0-20201105230244-7f2637f4aae3 // indirect
 	golang.org/x/net v0.0.0-20200904194848-62affa334b73
 	google.golang.org/api v0.31.0
 	google.golang.org/grpc v1.31.1
