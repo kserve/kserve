@@ -12,6 +12,12 @@ It encapsulates the complexity of autoscaling, networking, health checking, and 
 
 ![KFServing](/docs/diagrams/kfserving.png)
 
+### KFServing Concepts and Data Plane
+[KFServing Concepts and Data Plane](./docs/README.md)
+
+### KFServing Features and Examples
+[KFServing Features and Examples](./docs/samples/README.md)
+
 ### Learn More
 To learn more about KFServing, how to deploy it as part of Kubeflow, how to use various supported features, and how to participate in the KFServing community, please follow the [KFServing docs on the Kubeflow Website](https://www.kubeflow.org/docs/components/serving/kfserving/). Additionally, we have compiled a list of [KFServing presentations and demoes](/docs/PRESENTATIONS.md) to dive through various details.
 
@@ -87,7 +93,8 @@ minikube start --cpus 4 --memory 8192 --kubernetes-version=v1.17.11
 ### Test KFServing Installation
 
 <details>
-  <summary>Click to expand!</summary>
+  <summary>Expand to see testing steps!</summary>
+
 #### 1. Check KFServing controller installation
 ```shell
 kubectl get po -n kfserving-system
@@ -195,17 +202,11 @@ If the default ingress gateway setup does not fit your need, you can choose to s
 
 * Follow the [example(s) here](docs/samples/client) to use the KFServing SDK to create, rollout, promote, and delete an InferenceService instance.
 
-### KFServing Features and Examples
-[KFServing Features and Examples](./docs/samples/README.md)
-
 ### KFServing Presentations and Demoes
 [KFServing Presentations and Demoes](./docs/PRESENTATIONS.md)
 
 ### KFServing Roadmap
 [KFServing Roadmap](./ROADMAP.md)
-
-### KFServing Concepts and Data Plane
-[KFServing Concepts and Data Plane](./docs/README.md)
 
 ### KFServing API Reference
 [KFServing v1alpha2 API Docs](./docs/apis/v1alpha2/README.md)
