@@ -59,7 +59,7 @@ def test_tabular_explainer():
                                         )
                                     )
 
-    KFServing.create(isvc, version=kfserving_version)
+    KFServing.create(isvc)
     try:
         KFServing.wait_isvc_ready(service_name, namespace=KFSERVING_TEST_NAMESPACE, timeout_seconds=720)
     except RuntimeError as e:
