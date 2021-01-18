@@ -19,7 +19,7 @@ from kubernetes import client, config
 from ..constants import constants
 from ..utils import utils
 from .creds_utils import set_gcs_credentials, set_s3_credentials, set_azure_credentials
-from .kf_serving_watch import watch as isvc_watch
+from .kf_serving_watch import isvc_watch
 
 
 class KFServingClient(object):
@@ -117,8 +117,7 @@ class KFServingClient(object):
             isvc_watch(
                 name=outputs['metadata']['name'],
                 namespace=namespace,
-                timeout_seconds=timeout_seconds,
-                version=constants.KFSERVING_V1BETA1_VERSION)
+                timeout_seconds=timeout_seconds)
         else:
             return outputs
 
@@ -143,8 +142,7 @@ class KFServingClient(object):
                 isvc_watch(
                     name=name,
                     namespace=namespace,
-                    timeout_seconds=timeout_seconds,
-                    version=version)
+                    timeout_seconds=timeout_seconds)
             else:
                 try:
                     return self.api_instance.get_namespaced_custom_object(
@@ -161,8 +159,7 @@ class KFServingClient(object):
             if watch:
                 isvc_watch(
                     namespace=namespace,
-                    timeout_seconds=timeout_seconds,
-                    version=version)
+                    timeout_seconds=timeout_seconds)
             else:
                 try:
                     return self.api_instance.list_namespaced_custom_object(
@@ -211,8 +208,7 @@ class KFServingClient(object):
             isvc_watch(
                 name=outputs['metadata']['name'],
                 namespace=namespace,
-                timeout_seconds=timeout_seconds,
-                version=constants.KFSERVING_V1BETA1_VERSION)
+                timeout_seconds=timeout_seconds)
         else:
             return outputs
 
@@ -256,8 +252,7 @@ class KFServingClient(object):
             isvc_watch(
                 name=outputs['metadata']['name'],
                 namespace=namespace,
-                timeout_seconds=timeout_seconds,
-                version=version)
+                timeout_seconds=timeout_seconds)
         else:
             return outputs
 
@@ -353,8 +348,7 @@ class KFServingClient(object):
             isvc_watch(
                 name=name,
                 namespace=namespace,
-                timeout_seconds=timeout_seconds,
-                version=version)
+                timeout_seconds=timeout_seconds)
         else:
             for _ in range(round(timeout_seconds/polling_interval)):
                 time.sleep(polling_interval)

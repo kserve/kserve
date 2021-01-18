@@ -21,14 +21,11 @@ from ..constants import constants
 from ..utils import utils
 
 
-def watch(name=None, namespace=None, timeout_seconds=600, version=constants.KFSERVING_V1BETA1_VERSION):
+def isvc_watch(name=None, namespace=None, timeout_seconds=600):
     """Watch the created or patched InferenceService in the specified namespace"""
 
     if namespace is None:
         namespace = utils.get_default_target_namespace()
-
-    if version != 'v1beta1':
-        raise RuntimeError("The watch API only supports v1beta1")
 
     tbl = TableLogger(
         columns='NAME,READY,PREV,LATEST,URL',
@@ -38,7 +35,7 @@ def watch(name=None, namespace=None, timeout_seconds=600, version=constants.KFSE
     stream = k8s_watch.Watch().stream(
         client.CustomObjectsApi().list_namespaced_custom_object,
         constants.KFSERVING_GROUP,
-        version,
+        constants.KFSERVING_V1BETA1_VERSION,
         namespace,
         constants.KFSERVING_PLURAL,
         timeout_seconds=timeout_seconds)
