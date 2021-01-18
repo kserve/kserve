@@ -17,7 +17,7 @@ To learn more about KFServing, how to deploy it as part of Kubeflow, how to use 
 
 ### Prerequisites
 
-Kubernetes 1.15+ is the minimum recommended version for KFServing.
+Kubernetes 1.16+ is the minimum recommended version for KFServing.
 
 Knative Serving and Istio should be available on Kubernetes Cluster, Knative depends on Istio Ingress Gateway to route requests to Knative services. To use the exact versions tested by the Kubeflow and KFServing teams, please refer to the [prerequisites on developer guide](docs/DEVELOPER_GUIDE.md#install-knative-on-a-kubernetes-cluster)
 
@@ -39,17 +39,12 @@ KFServing can be installed standalone if your kubernetes cluster meets the above
 
 For Kubernetes 1.16+ users
 ```
-TAG=v0.4.1
+TAG=v0.5.0
+kubectl create -f ./install/$TAG/kfserving_crd.yaml
+# As CRD is quite big we suggest using `replace` instead of `apply` for updating crd 
+kubectl replace -f ./install/$TAG/kfserving_crd.yaml
 kubectl apply -f ./install/$TAG/kfserving.yaml
 ```
-For Kubernetes 1.15 users
-```
-TAG=v0.4.1
-kubectl apply -f ./install/$TAG/kfserving.yaml --validate=false
-```
-
-KFServing uses pod mutator or [mutating admission webhooks](https://kubernetes.io/blog/2019/03/21/a-guide-to-kubernetes-admission-controllers/) to inject the storage initializer component of KFServing. By default all the pods in namespaces which are not labelled with `control-plane` label go through the pod mutator.
-This can cause problems and interfere with Kubernetes control panel when KFServing pod mutator webhook is not in ready state yet.
 
 As of KFServing 0.4 release [object selector](https://kubernetes.io/docs/reference/access-authn-authz/extensible-admission-controllers/#matching-requests-objectselector) is turned on by default, the KFServing pod mutator is only invoked for KFServing `InferenceService` pods. For prior releases you can turn on manually by running following command.
 ```bash
@@ -91,7 +86,9 @@ minikube start --cpus 4 --memory 8192 --kubernetes-version=v1.17.11
 
 ### Test KFServing Installation
 
-#### Check KFServing controller installation
+<details>
+  <summary>Click to expand!</summary>
+#### 1. Check KFServing controller installation
 ```shell
 kubectl get po -n kfserving-system
 NAME                             READY   STATUS    RESTARTS   AGE
@@ -100,20 +97,20 @@ kfserving-controller-manager-0   2/2     Running   2          13m
 
 Please refer to our [troubleshooting section](docs/DEVELOPER_GUIDE.md#troubleshooting) for recommendations and tips for issues with installation.
 
-#### Create KFServing test inference service
+#### 2. Create KFServing test inference service
 ```bash
 API_VERSION=v1alpha2
 kubectl create namespace kfserving-test
 kubectl apply -f docs/samples/${API_VERSION}/sklearn/sklearn.yaml -n kfserving-test
 ```
-#### Check KFServing `InferenceService` status.
+#### 3. Check KFServing `InferenceService` status.
 ```bash
 kubectl get inferenceservices sklearn-iris -n kfserving-test
 NAME           URL                                                              READY   DEFAULT TRAFFIC   CANARY TRAFFIC   AGE
 sklearn-iris   http://sklearn-iris.kfserving-test.example.com/v1/models/sklearn-iris   True    100                                109s
 ```
 
-#### Determine the ingress IP and ports
+#### 4. Determine the ingress IP and ports
 Execute the following command to determine if your kubernetes cluster is running in an environment that supports external load balancers
 ```bash
 $ kubectl get svc istio-ingressgateway -n istio-system
@@ -148,7 +145,7 @@ export INGRESS_HOST=localhost
 export INGRESS_PORT=8080
 ```
 
-#### Curl the `InferenceService`
+#### 5. Curl the `InferenceService`
 Curl from ingress gateway
 ```bash
 SERVICE_HOSTNAME=$(kubectl get inferenceservice sklearn-iris -n kfserving-test -o jsonpath='{.status.url}' | cut -d "/" -f 3)
@@ -159,7 +156,7 @@ Curl from local cluster gateway
 curl -v http://sklearn-iris.kfserving-test/v1/models/sklearn-iris:predict -d @./docs/samples/${API_VERSION}/sklearn/iris-input.json
 ```
 
-#### Run Performance Test
+#### 6. Run Performance Test
 ```bash
 # use kubectl create instead of apply because the job template is using generateName which doesn't work with kubectl apply
 kubectl create -f docs/samples/${API_VERSION}/sklearn/perf.yaml -n kfserving-test
@@ -174,6 +171,7 @@ Success       [ratio]                           100.00%
 Status Codes  [code:count]                      200:30000
 Error Set:
 ```
+</details>
 
 ### Setup Ingress Gateway
 If the default ingress gateway setup does not fit your need, you can choose to setup a custom ingress gateway
