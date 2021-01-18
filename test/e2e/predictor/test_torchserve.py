@@ -62,7 +62,7 @@ def test_torchserve_kfserving():
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
-    KFServing.create(isvc, version=constants.KFSERVING_V1BETA1_VERSION)
+    KFServing.create(isvc)
     KFServing.wait_isvc_ready(service_name, namespace=KFSERVING_TEST_NAMESPACE)
 
     res = predict(service_name, "./data/torchserve_input.json")

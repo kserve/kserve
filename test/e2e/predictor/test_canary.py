@@ -66,6 +66,10 @@ def test_canary_rollout():
     KFServing.rollout_canary(service_name, canary=canary_endpoint_spec, percent=10,
                              namespace=KFSERVING_TEST_NAMESPACE, watch=True, timeout_seconds=120)
     KFServing.wait_isvc_ready(service_name, namespace=KFSERVING_TEST_NAMESPACE)
+    canary_isvc = KFServing.get('isvc-canary', namespace=namespace)
+    for traffic in canary_isvc['status']['components']['predictor']['traffic']:
+        if traffic['latestRevision'] == True:
+           assert(traffic['percent'] == 10)
 
     # Delete the InferenceService
     KFServing.delete(service_name, namespace=KFSERVING_TEST_NAMESPACE)

@@ -92,7 +92,7 @@ def test_xgboost_v2_kfserving():
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
-    KFServing.create(isvc, version=constants.KFSERVING_V1BETA1_VERSION)
+    KFServing.create(isvc)
     KFServing.wait_isvc_ready(service_name, namespace=KFSERVING_TEST_NAMESPACE)
 
     res = predict(service_name, "./data/iris_input_v2.json", protocol_version="v2")
