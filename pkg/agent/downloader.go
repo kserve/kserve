@@ -67,6 +67,7 @@ func (d *Downloader) download(modelName string, storageUri string) error {
 	if err != nil {
 		return errors.Wrapf(err, "unsupported protocol")
 	}
+	storage.CreateProviderIfNotExists(d.Providers, protocol)
 	provider, ok := d.Providers[protocol]
 	if !ok {
 		return errors.Wrapf(err, "protocol manager for %s is not initialized", protocol)
