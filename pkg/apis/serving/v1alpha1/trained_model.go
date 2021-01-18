@@ -46,7 +46,7 @@ type TrainedModelList struct {
 	Items []TrainedModel `json:"items"`
 }
 
-// TrainedModelSpec defines the trained model spec
+// TrainedModelSpec defines the TrainedModel spec
 // +k8s:openapi-gen=true
 type TrainedModelSpec struct {
 	// parent inference service to deploy to
@@ -57,7 +57,7 @@ type TrainedModelSpec struct {
 	Model ModelSpec `json:"model"`
 }
 
-// ModelSpec describes a trained model
+// ModelSpec describes a TrainedModel
 // +k8s:openapi-gen=true
 type ModelSpec struct {
 	// Storage URI for the model repository
