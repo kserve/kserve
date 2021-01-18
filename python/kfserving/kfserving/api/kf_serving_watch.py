@@ -31,8 +31,8 @@ def watch(name=None, namespace=None, timeout_seconds=600, version=constants.KFSE
         raise RuntimeError("The watch API only supports v1beta1")
 
     tbl = TableLogger(
-        columns='NAME,READY,PREDICTOR_CANARY_TRAFFIC,URL',
-        colwidth={'NAME': 20, 'READY': 10, 'PREDICTOR_CANARY_TRAFFIC': 25, 'URL': 65},
+        columns='NAME,READY,PREV,LATEST,URL',
+        colwidth={'NAME': 20, 'READY': 10, 'PREV': 25, 'LATEST': 25, 'URL': 65},
         border=False)
 
     stream = k8s_watch.Watch().stream(
@@ -61,9 +61,9 @@ def watch(name=None, namespace=None, timeout_seconds=600, version=constants.KFSE
                 for condition in isvc['status'].get('conditions', {}):
                     if condition.get('type', '') == 'Ready':
                         status = condition.get('status', 'Unknown')
-                tbl(isvc_name, status, traffic_percent, url)
+                tbl(isvc_name, status, 100-traffic_percent, traffic_percent, url)
             else:
-                tbl(isvc_name, 'Unknown', '', '')
+                tbl(isvc_name, 'Unknown', '', '', '')
                 # Sleep 2 to avoid status section is not generated within a very short time.
                 time.sleep(2)
                 continue
