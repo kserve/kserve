@@ -28,7 +28,8 @@ KFSERVING_NAMESPACE = "kfserving-system"
 KFSERVING_TEST_NAMESPACE = "kfserving-ci-e2e-test"
 
 
-def predict(service_name, input_json, protocol_version="v1", version=constants.KFSERVING_V1BETA1_VERSION):
+def predict(service_name, input_json, protocol_version="v1",
+            version=constants.KFSERVING_V1BETA1_VERSION, model_name=None):
     isvc = KFServing.get(
         service_name,
         namespace=KFSERVING_TEST_NAMESPACE,
@@ -40,9 +41,12 @@ def predict(service_name, input_json, protocol_version="v1", version=constants.K
     host = urlparse(isvc["status"]["url"]).netloc
     headers = {"Host": host}
 
-    url = f"http://{cluster_ip}/v1/models/{service_name}:predict"
+    if model_name is None:
+        model_name = service_name
+
+    url = f"http://{cluster_ip}/v1/models/{model_name}:predict"
     if protocol_version == "v2":
-        url = f"http://{cluster_ip}/v2/models/{service_name}/infer"
+        url = f"http://{cluster_ip}/v2/models/{model_name}/infer"
 
     with open(input_json) as json_file:
         data = json.load(json_file)
