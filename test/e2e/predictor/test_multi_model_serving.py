@@ -32,8 +32,6 @@ from kfserving import (
 from ..common.utils import predict, get_cluster_ip
 from ..common.utils import KFSERVING_TEST_NAMESPACE
 
-api_v1beta1_version = constants.KFSERVING_GROUP + "/" + constants.KFSERVING_V1BETA1_VERSION
-
 KFServing = KFServingClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
 
 def test_mms_sklearn_kfserving():
@@ -51,7 +49,7 @@ def test_mms_sklearn_kfserving():
 
     service_name = "isvc-sklearn-mms"
     isvc = V1beta1InferenceService(
-        api_version=api_v1beta1_version,
+        api_version=constants.KFSERVING_V1BETA1,
         kind=constants.KFSERVING_KIND,
         metadata=client.V1ObjectMeta(
             name=service_name,
@@ -141,7 +139,7 @@ def test_mms_xgboost_kfserving():
 
     service_name = "isvc-xgboost-mms"
     isvc = V1beta1InferenceService(
-        api_version=api_v1beta1_version,
+        api_version=constants.KFSERVING_V1BETA1,
         kind=constants.KFSERVING_KIND,
         metadata=client.V1ObjectMeta(
             name=service_name,
