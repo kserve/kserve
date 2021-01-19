@@ -43,6 +43,9 @@ Cert manager is needed to provision KFServing webhook certs for production grade
 generation [script](./hack/self-signed-ca.sh).
 
 ### Install KFServing
+<details>
+  <summary>Expand to see the installation options!</summary>
+  
 #### Standalone KFServing Installation
 KFServing can be installed standalone if your kubernetes cluster meets the above prerequisites and KFServing controller is deployed in `kfserving-system` namespace.
 
@@ -55,11 +58,6 @@ kubectl replace -f ./install/$TAG/kfserving_crd.yaml
 kubectl apply -f ./install/$TAG/kfserving.yaml
 ```
 
-As of KFServing 0.4 release [object selector](https://kubernetes.io/docs/reference/access-authn-authz/extensible-admission-controllers/#matching-requests-objectselector) is turned on by default, the KFServing pod mutator is only invoked for KFServing `InferenceService` pods. For prior releases you can turn on manually by running following command.
-```bash
-kubectl patch mutatingwebhookconfiguration inferenceservice.serving.kubeflow.org --patch '{"webhooks":[{"name": "inferenceservice.kfserving-webhook-server.pod-mutator","objectSelector":{"matchExpressions":[{"key":"serving.kubeflow.org/inferenceservice", "operator": "Exists"}]}}]}'
-```
-
 #### Standalone KFServing on OpenShift
 
 To install standalone KFServing on [OpenShift Container Platform](https://www.openshift.com/products/container-platform), please follow the [instructions here](docs/OPENSHIFT_GUIDE.md).
@@ -70,7 +68,12 @@ Since Kubeflow Kubernetes minimal requirement is 1.14 which does not support obj
 If you are using Kubeflow dashboard or [profile controller](https://www.kubeflow.org/docs/components/multi-tenancy/getting-started/#manual-profile-creation) to create  user namespaces, labels are automatically added to enable KFServing to deploy models. If you are creating namespaces manually using Kubernetes apis directly, you will need to add label `serving.kubeflow.org/inferenceservice: enabled` to allow deploying KFServing `InferenceService` in the given namespaces, and do ensure you do not deploy
 `InferenceService` in `kubeflow` namespace which is labelled as `control-plane`.
 
-#### Install KFServing in 5 Minutes (On your local machine)
+As of KFServing 0.4 release [object selector](https://kubernetes.io/docs/reference/access-authn-authz/extensible-admission-controllers/#matching-requests-objectselector) is turned on by default, the KFServing pod mutator is only invoked for KFServing `InferenceService` pods. For prior releases you can turn on manually by running following command.
+```bash
+kubectl patch mutatingwebhookconfiguration inferenceservice.serving.kubeflow.org --patch '{"webhooks":[{"name": "inferenceservice.kfserving-webhook-server.pod-mutator","objectSelector":{"matchExpressions":[{"key":"serving.kubeflow.org/inferenceservice", "operator": "Exists"}]}}]}'
+```
+
+#### Quick Install (On your local machine)
 
 Make sure you have
 [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/#install-kubectl-on-linux) installed.
@@ -92,6 +95,7 @@ minikube start --cpus 4 --memory 8192 --kubernetes-version=v1.17.11
 ```bash
 ./hack/quick_install.sh
 ```
+</details>
 
 ### Test KFServing Installation
 
