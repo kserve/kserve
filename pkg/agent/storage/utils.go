@@ -68,9 +68,9 @@ func RemoveDir(dir string) error {
 	return nil
 }
 
-func CreateProviderIfNotExists(providers map[Protocol]Provider, protocol Protocol) {
-	if _, ok := providers[protocol]; ok {
-		return
+func GetProvider(providers map[Protocol]Provider, protocol Protocol) (Provider, error) {
+	if provider, ok := providers[protocol]; ok {
+		return provider, nil
 	}
 
 	switch protocol {
@@ -88,7 +88,7 @@ func CreateProviderIfNotExists(providers map[Protocol]Provider, protocol Protoco
 		}
 
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
 
 		providers[GCS] = &GCSProvider{
@@ -108,7 +108,7 @@ func CreateProviderIfNotExists(providers map[Protocol]Provider, protocol Protoco
 				S3ForcePathStyle: aws.Bool(!useVirtualBucket)},
 			)
 			if err != nil {
-				panic(err)
+				return nil, err
 			}
 			sessionClient := s3.New(sess)
 			providers[S3] = &S3Provider{
@@ -119,4 +119,6 @@ func CreateProviderIfNotExists(providers map[Protocol]Provider, protocol Protoco
 		}
 
 	}
+
+	return providers[protocol], nil
 }
