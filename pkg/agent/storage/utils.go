@@ -75,16 +75,16 @@ func CreateProviderIfNotExists(providers map[Protocol]Provider, protocol Protoco
 
 	switch protocol {
 	case GCS:
-		var gcs_client *gstorage.Client
+		var gcsClient *gstorage.Client
 		var err error
 
 		ctx := context.Background()
 		if _, ok := os.LookupEnv(gcscredential.GCSCredentialEnvKey); ok {
 			// GCS relies on environment variable GOOGLE_APPLICATION_CREDENTIALS to point to the service-account-key
 			// If set, it will be automatically be picked up by the client.
-			gcs_client, err = gstorage.NewClient(ctx)
+			gcsClient, err = gstorage.NewClient(ctx)
 		} else {
-			gcs_client, err = gstorage.NewClient(ctx, option.WithoutAuthentication())
+			gcsClient, err = gstorage.NewClient(ctx, option.WithoutAuthentication())
 		}
 
 		if err != nil {
@@ -92,7 +92,7 @@ func CreateProviderIfNotExists(providers map[Protocol]Provider, protocol Protoco
 		}
 
 		providers[GCS] = &GCSProvider{
-			Client: stiface.AdaptClient(gcs_client),
+			Client: stiface.AdaptClient(gcsClient),
 		}
 	case S3:
 		if endpoint, ok := os.LookupEnv(s3credential.AWSEndpointUrl); ok {
