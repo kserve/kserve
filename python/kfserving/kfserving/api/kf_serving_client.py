@@ -368,9 +368,6 @@ class KFServingClient(object):
             :param namespace: defaults to current or default namespace
             :return:
             """
-
-            if trainedmodel.api_version == constants.KFSERVING_V1ALPHA2:
-                logging.warning("The version v1alpha2 will be deprecated from KFServing 0.6 release.")
             version = trainedmodel.api_version.split("/")[1]
 
             try:
