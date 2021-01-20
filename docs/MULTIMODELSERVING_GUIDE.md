@@ -1,109 +1,44 @@
-# Multi Model Serving
+# Multi-Model Serving
+## Introduction
 
-### Example
+### Problem
 
-Firstly, you should have kfserving installed. Check [this](https://github.com/kubeflow/kfserving#install-kfserving) out if you have not installed kfserving.
+With machine learning approaches becoming more widely adopted in organizations, there is a trend to deploy many models. More models aims to provide personalized experience which often need to train a lot of models. Additionally, many models help to isolate each user’s data and train models separately for data privacy.
+Unfortunately, KFserving follows a one model and one server paradigm which presents a challenge for the Kubernetes cluster.
+For example, Kubernetes sets a default limit of 110 pods per node. A 100 nodes cluster can host at most 11,000 pods, which is often not enough.
+Additionally, there is no easy way to request a fraction of GPU in Kubernetes infrastructure, it makes sense to load multiple models in one model server to share GPU resources. KFserving's multi-model serving is a solution that allows for loading multiple models into a server while still keeping the out of the box serverless features.
 
-Copy the content below into a file `inferenceservice.yaml`.
+KFServing's multi-model serving is a solution that can load multiple models into a model server while keeping the out of the box serverless feature.
 
-```yaml
-apiVersion: "serving.kubeflow.org/v1beta1"
-kind: "InferenceService"
-metadata:
-  name: "sklearn-iris-example"
-spec:
-  predictor:
-    minReplicas: 1
-    sklearn:
-      protocolVersion: v1
-      name: "sklearn-iris-predictor"
-      resources:
-        limits:
-          cpu: 100m
-          memory: 256Mi
-        requests:
-          cpu: 100m
-          memory: 256Mi
-```
-Run the command `kubectl apply -f inferenceservice.yaml` to create the inference service. Check if the service is properly deployed by running `k get inferenceservice`. The output should be similar to the below.
-```yaml
-NAME                   URL                                               READY   PREV   LATEST   PREVROLLEDOUTREVISION   LATESTREADYREVISION                            AGE
-sklearn-iris-example   http://sklearn-iris-example.default.example.com   True           100                              sklearn-iris-example-predictor-default-kgtql   22s
-```
+### Benefits
+- Allow multiple models to share the same GPU
+- Increase the total number of models that can be deployed in a cluster
+- Reduced model deployment resource overhead
+    - An InferenceService needs at least 1 CPU and 1GB overhead for each replica
+    - Loading multiple models in one inferenceService is more resource efficient
+    - Good option for teams that have many small models
 
-Next, create another file for the trained models `trainedmodels.yaml` and copy the content below.
-```yaml
-apiVersion: "serving.kubeflow.org/v1alpha1"
-kind: "TrainedModel"
-metadata:
-  name: "model1"
-spec:
-  inferenceService: "sklearn-iris-example"
-  model:
-    storageUri: "gs://kfserving-samples/models/sklearn/iris"
-    framework: "sklearn"
-    memory: "256Mi"
----
-apiVersion: "serving.kubeflow.org/v1alpha1"
-kind: "TrainedModel"
-metadata:
-  name: "model2"
-spec:
-  inferenceService: "sklearn-iris-example"
-  model:
-    storageUri: "gs://kfserving-samples/models/sklearn/iris"
-    framework: "sklearn"
-    memory: "256Mi"
-```
-Run the command `kubectl apply -f trainedmodels.yaml` to create the trained models. Run `k get trainedmodel` to view the resource.
+### Design
+Multi-model serving is created from a parent-child relationship. InferenceService needs to be deployed first and be ready before deploying TrainedModel otherwise it will not persist. 
 
-Run `kubectl logs <name-of-predictor-pod> -c agent` to check if the models are properly loaded. You should get the same output as below. Run `k get po` to get the name of the predictor pod. The name should be similar to sklearn-iris-example-predictor-default-xxxxx-deployment-xxxxx.
+The picture below shows the relationship between InferenceService and TrainedModel, and how models are stored/removed.
 
-```yaml
-{"level":"info","ts":"2021-01-19T15:04:53.503Z","caller":"agent/puller.go:146","msg":"Successfully loaded model model1"}
-{"level":"info","ts":"2021-01-19T15:04:53.503Z","caller":"agent/puller.go:114","msg":"completion event for model model1, in flight ops 0"}
-{"level":"info","ts":"2021-01-19T15:04:53.599Z","caller":"agent/puller.go:146","msg":"Successfully loaded model model2"}
-{"level":"info","ts":"2021-01-19T15:04:53.599Z","caller":"agent/puller.go:114","msg":"completion event for model model2, in flight ops 0"}
-```
+![Multi-model Diagram](./diagrams/mms-overview.png)
 
-Run the command `kubectl get cm modelconfig-sklearn-iris-example-0 -oyaml` to get the configmap. The output should be similar to the below.
-```yaml
-apiVersion: v1
-data:
-  models.json: '[{"modelName":"model1","modelSpec":{"storageUri":"gs://kfserving-samples/models/sklearn/iris","framework":"sklearn","memory":"256Mi"}},{"modelName":"model2","modelSpec":{"storageUri":"gs://kfserving-samples/models/sklearn/iris","framework":"sklearn","memory":"256Mi"}}]'
-kind: ConfigMap
-metadata:
-  creationTimestamp: "2021-01-19T15:02:09Z"
-  name: modelconfig-sklearn-iris-example-0
-  namespace: default
-  ownerReferences:
-    - apiVersion: serving.kubeflow.org/v1beta1
-      blockOwnerDeletion: true
-      controller: true
-      kind: InferenceService
-      name: sklearn-iris-example
-      uid: 6ff54022-4287-4000-b96e-97abcc13c8f2
-  resourceVersion: "1553737"
-  selfLink: /api/v1/namespaces/default/configmaps/modelconfig-sklearn-iris-example-0
-  uid: 0756af76-413c-4c86-a071-f2413989fe11
-```
+The general overview of multi-model serving:
+1. Deploy InferenceService with the framework specified
+2. Deploy TrainedModel(s) with the storageUri, framework, and memory
+3. A config map will be created and will contain details about each trained model
+4. Model Agent will load model onto the model config
+5. An endpoint is set up and is ready to serve model(s)
+6. Deleting a model leads to removing model from config map which causes the model agent to unload the model
+7. Deleting the InferenceService causes the TrainedModel(s) to be deleted
 
-The models will be ready to serve once they are successfully loaded.
 
-For KIND/minikube:
-1. Run `kubectl port-forward -n istio-system svc/istio-ingressgateway 8080:80`
-2. In a different window, run:
-    1. `export INGRESS_HOST=localhost`
-    2. `export INGRESS_PORT=8080`
-   3. `export SERVICE_HOSTNAME=$(kubectl get inferenceservice sklearn-iris-example -n default -o jsonpath='{.status.url}' | cut -d "/" -f 3)`
-3. Go to the root directory of `kfserving`
-4. Query the two models by running:
-    1. `curl -v -H "Host: ${SERVICE_HOSTNAME}" http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/model1:predict -d @./docs/samples/v1alpha2/sklearn/iris-input.json`
-    2. `curl -v -H "Host: ${SERVICE_HOSTNAME}" http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/model2:predict -d @./docs/samples/v1alpha2/sklearn/iris-input.json`
+### Integration with model servers
+Multi-model serving will work with any model server that implements KFServing V2 protocol. More specifically, if the model server implements the load and unload endpoint then it can use KFServing's TrainedModel.
+Currently, the only supported frameworks are Triton, SKLearn, and XGBoost. Click on [Triton](https://github.com/kubeflow/kfserving/tree/master/docs/samples/v1beta1/triton/multimodel) or [SKLearn](https://github.com/kubeflow/kfserving/tree/master/docs/samples/v1beta1/sklearn/multimodel) to see examples on how to run multi-model serving!
 
-The outputs should be
-```yaml
-{"predictions": [1, 1]}* Closing connection 0
-```
 
-To remove the resources, run the command `kubectl delete inferenceservice sklearn-iris-example`. This will delete the inference service and result in the trained models being deleted.
+
+For a more in depth details checkout this [document](https://docs.google.com/document/d/11qETyR--oOIquQke-DCaLsZY75vT1hRu21PesSUDy7o).
