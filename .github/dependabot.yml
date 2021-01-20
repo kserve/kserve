@@ -1,0 +1,164 @@
+version: 2
+updates:
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "daily"
+    # Allow up to 10 open pull requests for pip dependencies
+    open-pull-requests-limit: 10
+  - package-ecosystem: "gomod"
+    directory: "/"
+    schedule:
+      interval: "daily"
+    # Allow up to 10 open pull requests for pip dependencies
+    open-pull-requests-limit: 10
+  - package-ecosystem: docker
+    directory: "/"
+    schedule:
+      interval: daily
+    open-pull-requests-limit: 10
+  - package-ecosystem: docker
+    directory: /docs/apis
+    schedule:
+      interval: daily
+    open-pull-requests-limit: 10
+  - package-ecosystem: docker
+    directory: /docs/samples/explanation/aix/mnist/rfserver
+    schedule:
+      interval: daily
+    open-pull-requests-limit: 10
+  - package-ecosystem: docker
+    directory: /docs/samples/explanation/art/mnist/sklearnserver
+    schedule:
+      interval: daily
+    open-pull-requests-limit: 10
+  - package-ecosystem: docker
+    directory: /docs/samples/kafka
+    schedule:
+      interval: daily
+    open-pull-requests-limit: 10
+  - package-ecosystem: docker
+    directory: /docs/samples/v1alpha2/custom/customized-urls
+    schedule:
+      interval: daily
+    open-pull-requests-limit: 10
+  - package-ecosystem: docker
+    directory: /docs/samples/v1alpha2/custom/grpc-server
+    schedule:
+      interval: daily
+    open-pull-requests-limit: 10
+  - package-ecosystem: docker
+    directory: /docs/samples/v1alpha2/custom/hello-world
+    schedule:
+      interval: daily
+    open-pull-requests-limit: 10
+  - package-ecosystem: docker
+    directory: /docs/samples/v1alpha2/custom/kfserving-custom-model/model-server
+    schedule:
+      interval: daily
+    open-pull-requests-limit: 10
+  - package-ecosystem: docker
+    directory: /docs/samples/v1alpha2/transformer/image_transformer
+    schedule:
+      interval: daily
+    open-pull-requests-limit: 10
+  - package-ecosystem: docker
+    directory: /docs/samples/v1alpha2/triton/bert/bert_tokenizer
+    schedule:
+      interval: daily
+    open-pull-requests-limit: 10
+  - package-ecosystem: docker
+    directory: /docs/samples/v1beta1/custom/torchserve/torchserve-image
+    schedule:
+      interval: daily
+    open-pull-requests-limit: 10
+  - package-ecosystem: docker
+    directory: /docs/samples/v1beta1/torchserve/model-archiver/model-archiver-image
+    schedule:
+      interval: daily
+    open-pull-requests-limit: 10
+  - package-ecosystem: docker
+    directory: /docs/samples/v1beta1/transformer/torchserve_image_transformer
+    schedule:
+      interval: daily
+    open-pull-requests-limit: 10
+  - package-ecosystem: docker
+    directory: /docs/samples/v1beta1/triton/bert/bert_tokenizer_v2
+    schedule:
+      interval: daily
+    open-pull-requests-limit: 10
+  - package-ecosystem: docker
+    directory: /docs/samples/v1beta1/triton/torchscript
+    schedule:
+      interval: daily
+    open-pull-requests-limit: 10
+  - package-ecosystem: docker
+    directory: /python
+    schedule:
+      interval: daily
+    open-pull-requests-limit: 10
+  - package-ecosystem: docker
+    directory: /tools/tf2openapi
+    schedule:
+      interval: daily
+    open-pull-requests-limit: 10
+  - package-ecosystem: pip
+    directory: /docs/samples/explanation/aix/mnist
+    schedule:
+      interval: daily
+    open-pull-requests-limit: 10
+  - package-ecosystem: pip
+    directory: /docs/samples/explanation/alibi/imagenet
+    schedule:
+      interval: daily
+    open-pull-requests-limit: 10
+  - package-ecosystem: pip
+    directory: /docs/samples/explanation/alibi/income
+    schedule:
+      interval: daily
+    open-pull-requests-limit: 10
+  - package-ecosystem: pip
+    directory: /docs/samples/explanation/alibi/moviesentiment
+    schedule:
+      interval: daily
+    open-pull-requests-limit: 10
+  - package-ecosystem: pip
+    directory: /docs/samples/v1alpha2/custom/hello-world
+    schedule:
+      interval: daily
+    open-pull-requests-limit: 10
+  - package-ecosystem: pip
+    directory: /docs/samples/v1alpha2/custom/kfserving-custom-model
+    schedule:
+      interval: daily
+    open-pull-requests-limit: 10
+  - package-ecosystem: pip
+    directory: /docs/samples/v1alpha2/custom/kfserving-custom-model/model-server
+    schedule:
+      interval: daily
+    open-pull-requests-limit: 10
+  - package-ecosystem: pip
+    directory: /docs/samples/v1alpha2/onnx
+    schedule:
+      interval: daily
+    open-pull-requests-limit: 10
+  - package-ecosystem: pip
+    directory: /docs/samples/v1beta1/sklearn
+    schedule:
+      interval: daily
+    open-pull-requests-limit: 10
+  - package-ecosystem: pip
+    directory: /docs/samples/v1beta1/xgboost
+    schedule:
+      interval: daily
+    open-pull-requests-limit: 10
+  - package-ecosystem: pip
+    directory: /python/kfserving
+    schedule:
+      interval: daily
+    open-pull-requests-limit: 10
+  - package-ecosystem: gomod
+    directory: /.github/workflows
+    schedule:
+      interval: daily
+    open-pull-requests-limit: 10
