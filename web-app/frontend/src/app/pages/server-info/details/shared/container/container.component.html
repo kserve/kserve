@@ -1,0 +1,47 @@
+<lib-details-list-item
+  *ngIf="container.name"
+  key="Container name"
+  [copyValue]="container.name"
+>
+  {{ container.name }}
+</lib-details-list-item>
+
+<lib-details-list-item
+  *ngIf="container.image"
+  key="Image"
+  [copyValue]="container.image"
+>
+  {{ container.image }}
+</lib-details-list-item>
+
+<lib-details-list-item *ngIf="container.image" key="Command">
+  {{ cmd }}
+</lib-details-list-item>
+
+<lib-details-list-item *ngIf="env" key="Environment" [chipsList]="env">
+</lib-details-list-item>
+
+<lib-details-list-item *ngIf="container.resources?.limits.cpu" key="CPU limits">
+  {{ container.resources.limits.cpu }}
+</lib-details-list-item>
+
+<lib-details-list-item
+  *ngIf="container.resources?.requests.cpu"
+  key="CPU requests"
+>
+  {{ container.resources.requests.cpu }}
+</lib-details-list-item>
+
+<lib-details-list-item
+  *ngIf="container.resources?.limits.memory"
+  key="Memory limits"
+>
+  {{ container.resources.limits.memory }}
+</lib-details-list-item>
+
+<lib-details-list-item
+  *ngIf="container.resources?.requests.memory"
+  key="Memory requests"
+>
+  {{ container.resources.requests.memory }}
+</lib-details-list-item>

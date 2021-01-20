@@ -1,0 +1,39 @@
+<lib-details-list-item *ngIf="explainerSpec?.alibi" key="Alibi type">
+  {{ explainerSpec.alibi.type }}
+</lib-details-list-item>
+
+<lib-details-list-item *ngIf="config" key="Alibi config" [chipsList]="config">
+</lib-details-list-item>
+
+<!--storage uri-->
+<lib-details-list-item
+  *ngIf="explainerSpec?.alibi?.storageUri"
+  key="Storage uri"
+>
+  {{ explainerSpec.alibi.storageUri }}
+</lib-details-list-item>
+
+<lib-details-list-item *ngIf="explainerSpec?.aix?.storageUri" key="Storage uri">
+  {{ explainerSpec.aix.storageUri }}
+</lib-details-list-item>
+
+<!--runtime-->
+<lib-details-list-item
+  *ngIf="explainerSpec?.alibi?.runtimeVersion"
+  key="Runtime version"
+>
+  {{ explainerSpec.alibi.runtimeVersion }}
+</lib-details-list-item>
+
+<lib-details-list-item
+  *ngIf="explainerSpec?.aix?.runtimeVersion"
+  key="Runtime version"
+>
+  {{ explainerSpec.aix.runtimeVersion }}
+</lib-details-list-item>
+
+<!--container-->
+<app-container-details
+  *ngIf="container"
+  [container]="container"
+></app-container-details>

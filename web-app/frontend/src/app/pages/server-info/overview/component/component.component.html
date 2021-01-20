@@ -1,0 +1,69 @@
+<lib-heading-row [heading]="componentName | titlecase"> </lib-heading-row>
+
+<lib-details-list-item
+  *ngIf="status?.latestReadyRevision"
+  key="Latest Ready Revision"
+>
+  {{ status?.latestReadyRevision }}
+</lib-details-list-item>
+
+<lib-details-list-item
+  *ngIf="status?.latestCreatedRevision"
+  key="Latest Created Revision"
+>
+  {{ status?.latestCreatedRevision }}
+</lib-details-list-item>
+
+<lib-details-list-item
+  *ngIf="status?.previousRolledoutRevision"
+  key="Previous Rolled-out Revision"
+>
+  {{ status?.previousRolledoutRevision }}
+</lib-details-list-item>
+
+<lib-details-list-item
+  *ngIf="status?.latestRolledoutRevision"
+  key="Latest Rolled-out Revision"
+>
+  {{ status?.latestRolledoutRevision }}
+</lib-details-list-item>
+
+<lib-details-list-item
+  *ngFor="let traffic of status?.traffic"
+  key="Traffic ({{ traffic.tag }})"
+>
+  {{ traffic.percent }} %
+</lib-details-list-item>
+
+<!--Conditions-->
+<lib-advanced-options
+  text="Owned objects"
+  *ngIf="ownedObjs?.knativeService?.status"
+>
+  <lib-heading-row heading="Knative:" subHeading="Conditions">
+  </lib-heading-row>
+
+  <lib-conditions-table
+    *ngIf="ownedObjs?.knativeService?.status"
+    [conditions]="ownedObjs?.knativeService?.status?.conditions"
+    title="Service"
+  ></lib-conditions-table>
+
+  <lib-conditions-table
+    *ngIf="ownedObjs?.route?.status"
+    [conditions]="ownedObjs?.route?.status?.conditions"
+    title="Route"
+  ></lib-conditions-table>
+
+  <lib-conditions-table
+    *ngIf="ownedObjs?.configuration?.status"
+    [conditions]="ownedObjs?.configuration?.status?.conditions"
+    title="Configuration"
+  ></lib-conditions-table>
+
+  <lib-conditions-table
+    *ngIf="ownedObjs?.revision?.status"
+    [conditions]="ownedObjs?.revision?.status?.conditions"
+    title="Revision"
+  ></lib-conditions-table>
+</lib-advanced-options>
