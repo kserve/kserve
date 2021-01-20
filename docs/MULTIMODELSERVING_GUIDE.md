@@ -4,9 +4,9 @@
 ### Problem
 
 With machine learning approaches becoming more widely adopted in organizations, there is a trend to deploy many models. More models aims to provide personalized experience which often need to train a lot of models. Additionally, many models help to isolate each user’s data and train models separately for data privacy.
-Unfortunately, KFserving follows a one model and one server paradigm which presents a challenge for the Kubernetes cluster.
+When KFServing was originally designed, it followed the one model and one server paradigm which presents a challenge for the Kubernetes cluster when users want to deploy many models.
 For example, Kubernetes sets a default limit of 110 pods per node. A 100 nodes cluster can host at most 11,000 pods, which is often not enough.
-Additionally, there is no easy way to request a fraction of GPU in Kubernetes infrastructure, it makes sense to load multiple models in one model server to share GPU resources. KFserving's multi-model serving is a solution that allows for loading multiple models into a server while still keeping the out of the box serverless features.
+Additionally, there is no easy way to request a fraction of GPU in Kubernetes infrastructure, it makes sense to load multiple models in one model server to share GPU resources. KFServing's multi-model serving is a solution that allows for loading multiple models into a server while still keeping the out of the box serverless features.
 
 KFServing's multi-model serving is a solution that can load multiple models into a model server while keeping the out of the box serverless feature.
 
@@ -14,7 +14,7 @@ KFServing's multi-model serving is a solution that can load multiple models into
 - Allow multiple models to share the same GPU
 - Increase the total number of models that can be deployed in a cluster
 - Reduced model deployment resource overhead
-    - An InferenceService needs at least 1 CPU and 1GB overhead for each replica
+    - An InferenceService needs some CPU and overhead for each replica
     - Loading multiple models in one inferenceService is more resource efficient
     - Good option for teams that have many small models
 
