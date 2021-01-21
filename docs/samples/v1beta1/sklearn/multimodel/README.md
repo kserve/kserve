@@ -1,5 +1,18 @@
 #Multi-Model Serving with Sklearn
 
+## Overview
+
+The general overview of multi-model serving:
+1. Deploy InferenceService with the framework specified
+2. Deploy TrainedModel(s) with the storageUri, framework, and memory
+3. A config map will be created and will contain details about each trained model
+4. Model Agent loads model from the model config
+5. An endpoint is set up and is ready to serve model(s)
+6. Deleting a model leads to removing model from config map which causes the model agent to unload the model
+7. Deleting the InferenceService causes the TrainedModel(s) to be deleted
+
+
+## Example
 Firstly, you should have kfserving installed. Check [this](https://github.com/kubeflow/kfserving#install-kfserving) out if you have not installed kfserving.
 
 The content below is in the file `inferenceservice.yaml`.
