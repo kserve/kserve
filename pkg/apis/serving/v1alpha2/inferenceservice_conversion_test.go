@@ -17,13 +17,14 @@ limitations under the License.
 package v1alpha2
 
 import (
+	"testing"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/google/go-cmp/cmp"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"testing"
 )
 
 func TestInferenceServiceConversion(t *testing.T) {
@@ -289,6 +290,93 @@ func TestInferenceServiceConversion(t *testing.T) {
 			if cmp.Diff(scenario.v1beta1Spec, dst) != "" {
 				t.Errorf("diff: %s", cmp.Diff(scenario.v1beta1Spec, dst))
 			}
+			v1alpha2ExpectedSpec := &InferenceService{}
+			v1alpha2ExpectedSpec.ConvertFrom(scenario.v1beta1Spec)
+			if cmp.Diff(scenario.v1alpha2spec, v1alpha2ExpectedSpec) != "" {
+				t.Errorf("diff: %s", cmp.Diff(scenario.v1alpha2spec, v1alpha2ExpectedSpec))
+			}
+		})
+	}
+}
+
+func TestInferenceServiceNilExplainerConversion(t *testing.T) {
+	scenarios := map[string]struct {
+		v1alpha2spec *InferenceService
+		v1beta1Spec  *v1beta1.InferenceService
+	}{
+		"explainer": {
+			v1alpha2spec: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "explainerConversionTest",
+					Namespace: "default",
+				},
+				Spec: InferenceServiceSpec{
+					Default: EndpointSpec{
+						Predictor: PredictorSpec{
+							DeploymentSpec: DeploymentSpec{
+								MinReplicas: GetIntReference(1),
+								MaxReplicas: 3,
+								Parallelism: 1,
+							},
+							Tensorflow: &TensorflowSpec{
+								StorageURI:     "s3://test/mnist/export",
+								RuntimeVersion: "1.13.0",
+							},
+						},
+						Explainer: nil,
+					},
+				},
+			},
+			v1beta1Spec: &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "explainerConversionTest",
+					Namespace: "default",
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
+							MinReplicas:          GetIntReference(1),
+							MaxReplicas:          3,
+							ContainerConcurrency: proto.Int64(1),
+						},
+						Tensorflow: &v1beta1.TFServingSpec{
+							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
+								StorageURI:     proto.String("s3://test/mnist/export"),
+								RuntimeVersion: proto.String("1.13.0"),
+							},
+						},
+					},
+					Explainer: &v1beta1.ExplainerSpec{
+						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
+							MinReplicas:          GetIntReference(1),
+							MaxReplicas:          3,
+							ContainerConcurrency: proto.Int64(1),
+						},
+						ART: &v1beta1.ARTExplainerSpec{
+							Type: v1beta1.ARTSquareAttackExplainer,
+							ExplainerExtensionSpec: v1beta1.ExplainerExtensionSpec{
+								RuntimeVersion: proto.String("0.4.0"),
+								Container: v1.Container{
+									Resources: v1.ResourceRequirements{
+										Requests: v1.ResourceList{
+											v1.ResourceCPU:    resource.MustParse("1"),
+											v1.ResourceMemory: resource.MustParse("2Gi"),
+										},
+										Limits: v1.ResourceList{
+											v1.ResourceCPU:    resource.MustParse("1"),
+											v1.ResourceMemory: resource.MustParse("2Gi"),
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
 			v1alpha2ExpectedSpec := &InferenceService{}
 			v1alpha2ExpectedSpec.ConvertFrom(scenario.v1beta1Spec)
 			if cmp.Diff(scenario.v1alpha2spec, v1alpha2ExpectedSpec) != "" {

@@ -343,11 +343,13 @@ func (dst *InferenceService) ConvertFrom(srcRaw conversion.Hub) error {
 				},
 			}
 		}
-		dst.Spec.Default.Explainer.ServiceAccountName = src.Spec.Explainer.PodSpec.ServiceAccountName
-		dst.Spec.Default.Explainer.MinReplicas = src.Spec.Explainer.MinReplicas
-		dst.Spec.Default.Explainer.MaxReplicas = src.Spec.Explainer.MaxReplicas
-		if src.Spec.Explainer.ContainerConcurrency != nil {
-			dst.Spec.Default.Explainer.Parallelism = int(*src.Spec.Explainer.ContainerConcurrency)
+		if dst.Spec.Default.Explainer != nil {
+			dst.Spec.Default.Explainer.ServiceAccountName = src.Spec.Explainer.PodSpec.ServiceAccountName
+			dst.Spec.Default.Explainer.MinReplicas = src.Spec.Explainer.MinReplicas
+			dst.Spec.Default.Explainer.MaxReplicas = src.Spec.Explainer.MaxReplicas
+			if src.Spec.Explainer.ContainerConcurrency != nil {
+				dst.Spec.Default.Explainer.Parallelism = int(*src.Spec.Explainer.ContainerConcurrency)
+			}
 		}
 	}
 	return nil
