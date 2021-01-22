@@ -13,8 +13,10 @@
 # limitations under the License.
 
 import time
+import requests
 import logging
 from kubernetes import client, config
+from urllib.parse import urlparse
 
 from ..constants import constants
 from ..utils import utils
@@ -358,3 +360,61 @@ class KFServingClient(object):
             current_isvc = self.get(name, namespace=namespace, version=version)
             raise RuntimeError("Timeout to start the InferenceService {}. \
                                The InferenceService is as following: {}".format(name, current_isvc))
+
+    def create_trained_model(self, trainedmodel, namespace):
+            """
+            Create a trained model
+            :param trainedmodel: trainedmodel object
+            :param namespace: defaults to current or default namespace
+            :return:
+            """
+            version = trainedmodel.api_version.split("/")[1]
+
+            try:
+                outputs = self.api_instance.create_namespaced_custom_object(
+                    constants.KFSERVING_GROUP,
+                    version,
+                    namespace,
+                    constants.KFSERVING_PLURAL_TRAINEDMODEL,
+                    trainedmodel)
+            except client.rest.ApiException as e:
+                raise RuntimeError(
+                    "Exception when calling CustomObjectsApi->create_namespaced_custom_object:\
+                     %s\n" % e)
+
+    def wait_model_ready(self, service_name, model_name, isvc_namespace=None, # pylint:disable=too-many-arguments
+                            isvc_version=constants.KFSERVING_V1BETA1_VERSION,
+                            cluster_ip=None,
+                            timeout_seconds=600,
+                            polling_interval=10):
+        """
+        Waiting for model to be ready to service, print out trained model if timeout.
+        :param service_name: inference service name
+        :param model_name: trained model name
+        :param isvc_namespace: defaults to current or default namespace of inference service
+        :param isvc_version: api group version of inference service
+        :param cluster_ip: ip of the kuberenetes cluster
+        :param timeout_seconds: timeout seconds for waiting, default to 600s.
+          Print out the InferenceService if timeout.
+        :param polling_interval: The time interval to poll status
+        :return:
+        """
+        isvc = self.get(
+            service_name,
+            namespace=isvc_namespace,
+            version=isvc_version,
+        )
+
+        host = urlparse(isvc["status"]["url"]).netloc
+        headers = {"Host": host}
+
+        for _ in range(round(timeout_seconds/polling_interval)):
+            time.sleep(polling_interval)
+            # Check model health API
+            url = f"http://{cluster_ip}/v1/models/{model_name}"
+            response = requests.get(url, headers=headers).status_code
+            if response == 200:
+                return
+
+        raise RuntimeError(f"InferenceService ({service_name}) has not loaded the \
+                            model ({model_name}) before the timeout.")

@@ -1,22 +1,14 @@
 package main
 
 import (
-	gstorage "cloud.google.com/go/storage"
 	"context"
 	"flag"
 	"fmt"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/aws/aws-sdk-go/service/s3/s3manager"
-	"github.com/googleapis/google-cloud-go-testing/storage/stiface"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/kubeflow/kfserving/pkg/agent"
 	"github.com/kubeflow/kfserving/pkg/agent/storage"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
 	"github.com/kubeflow/kfserving/pkg/batcher"
-	gcscredential "github.com/kubeflow/kfserving/pkg/credentials/gcs"
-	s3credential "github.com/kubeflow/kfserving/pkg/credentials/s3"
 	kfslogger "github.com/kubeflow/kfserving/pkg/logger"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -34,7 +26,6 @@ import (
 	"net/url"
 	"os"
 	"strconv"
-	"strings"
 	"time"
 )
 
@@ -274,44 +265,6 @@ func startModelPuller(logger *zap.SugaredLogger) {
 		ModelDir:  *modelDir,
 		Providers: map[storage.Protocol]storage.Provider{},
 		Logger:    logger,
-	}
-
-	if endpoint, ok := os.LookupEnv(s3credential.AWSEndpointUrl); ok {
-		region, _ := os.LookupEnv(s3credential.AWSRegion)
-		useVirtualBucketString, ok := os.LookupEnv(s3credential.S3UseVirtualBucket)
-		useVirtualBucket := true
-		if ok && strings.ToLower(useVirtualBucketString) == "false" {
-			useVirtualBucket = false
-		}
-		sess, err := session.NewSession(&aws.Config{
-			Endpoint:         aws.String(endpoint),
-			Region:           aws.String(region),
-			S3ForcePathStyle: aws.Bool(!useVirtualBucket)},
-		)
-		logger.Infof("Initializing s3 client with endpoint %s, region %s", endpoint, region)
-		if err != nil {
-			panic(err)
-		}
-		sessionClient := s3.New(sess)
-		downloader.Providers[storage.S3] = &storage.S3Provider{
-			Client: sessionClient,
-			Downloader: s3manager.NewDownloaderWithClient(sessionClient, func(d *s3manager.Downloader) {
-			}),
-		}
-	}
-
-	if _, ok := os.LookupEnv(gcscredential.GCSCredentialEnvKey); ok {
-		// GCS relies on environment variable GOOGLE_APPLICATION_CREDENTIALS to point to the service-account-key
-		// If set, it will be automatically be picked up by the client.
-		logger.Info("Initializing gcs client, using existing GOOGLE_APPLICATION_CREDENTIALS variable.")
-		ctx := context.Background()
-		client, err := gstorage.NewClient(ctx)
-		if err != nil {
-			panic(err)
-		}
-		downloader.Providers[storage.GCS] = &storage.GCSProvider{
-			Client: stiface.AdaptClient(client),
-		}
 	}
 
 	watcher := agent.NewWatcher(*configDir, *modelDir, logger)

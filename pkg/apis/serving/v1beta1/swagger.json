@@ -8,7 +8,7 @@
   "paths": {},
   "definitions": {
     "v1alpha1.ModelSpec": {
-      "description": "ModelSpec describes a trained model",
+      "description": "ModelSpec describes a TrainedModel",
       "type": "object",
       "required": [
         "storageUri",
@@ -80,7 +80,7 @@
       }
     },
     "v1alpha1.TrainedModelSpec": {
-      "description": "TrainedModelSpec defines the trained model spec",
+      "description": "TrainedModelSpec defines the TrainedModel spec",
       "type": "object",
       "required": [
         "inferenceService",

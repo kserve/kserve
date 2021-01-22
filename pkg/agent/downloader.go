@@ -67,9 +67,9 @@ func (d *Downloader) download(modelName string, storageUri string) error {
 	if err != nil {
 		return errors.Wrapf(err, "unsupported protocol")
 	}
-	provider, ok := d.Providers[protocol]
-	if !ok {
-		return errors.Wrapf(err, "protocol manager for %s is not initialized", protocol)
+	provider, err := storage.GetProvider(d.Providers, protocol)
+	if err != nil {
+		return errors.Wrapf(err, "unable to create or get provider for protocol %s", protocol)
 	}
 	if err := provider.DownloadModel(d.ModelDir, modelName, storageUri); err != nil {
 		return errors.Wrapf(err, "failed to download model")

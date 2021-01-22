@@ -77,7 +77,7 @@ func schema_pkg_apis_serving_v1alpha1_ModelSpec(ref common.ReferenceCallback) co
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "ModelSpec describes a trained model",
+				Description: "ModelSpec describes a TrainedModel",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"storageUri": {
@@ -209,7 +209,7 @@ func schema_pkg_apis_serving_v1alpha1_TrainedModelSpec(ref common.ReferenceCallb
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "TrainedModelSpec defines the trained model spec",
+				Description: "TrainedModelSpec defines the TrainedModel spec",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"inferenceService": {

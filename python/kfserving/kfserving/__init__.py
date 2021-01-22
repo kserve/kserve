@@ -33,6 +33,12 @@ from kfserving.exceptions import ApiValueError
 from kfserving.exceptions import ApiKeyError
 from kfserving.exceptions import ApiException
 
+# import v1alpha1 models into kfserving packages
+from kfserving.models.v1alpha1_model_spec import V1alpha1ModelSpec
+from kfserving.models.v1alpha1_trained_model import V1alpha1TrainedModel
+from kfserving.models.v1alpha1_trained_model_list import V1alpha1TrainedModelList
+from kfserving.models.v1alpha1_trained_model_spec import V1alpha1TrainedModelSpec
+
 # import v1alpha2 models into kfserving package
 from kfserving.models.knative_addressable import KnativeAddressable
 from kfserving.models.knative_condition import KnativeCondition
@@ -82,7 +88,6 @@ from kfserving.models.v1beta1_inference_service_status import V1beta1InferenceSe
 from kfserving.models.v1beta1_inference_services_config import V1beta1InferenceServicesConfig
 from kfserving.models.v1beta1_ingress_config import V1beta1IngressConfig
 from kfserving.models.v1beta1_logger_spec import V1beta1LoggerSpec
-from kfserving.models.v1beta1_model_spec import V1beta1ModelSpec
 from kfserving.models.v1beta1_onnx_runtime_spec import V1beta1ONNXRuntimeSpec
 from kfserving.models.v1beta1_pod_spec import V1beta1PodSpec
 from kfserving.models.v1beta1_predictor_config import V1beta1PredictorConfig
@@ -98,6 +103,4 @@ from kfserving.models.v1beta1_transformer_spec import V1beta1TransformerSpec
 from kfserving.models.v1beta1_transformers_config import V1beta1TransformersConfig
 from kfserving.models.v1beta1_triton_spec import V1beta1TritonSpec
 from kfserving.models.v1beta1_xg_boost_spec import V1beta1XGBoostSpec
-from kfserving.models.v1alpha1_trained_model import V1alpha1TrainedModel
-from kfserving.models.v1alpha1_trained_model_list import V1alpha1TrainedModelList
 from kfserving.models.v1beta1_light_gbm_spec import V1beta1LightGBMSpec

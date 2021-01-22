@@ -17,9 +17,20 @@ limitations under the License.
 package storage
 
 import (
+	gstorage "cloud.google.com/go/storage"
+	"context"
 	"fmt"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+	"github.com/googleapis/google-cloud-go-testing/storage/stiface"
+	gcscredential "github.com/kubeflow/kfserving/pkg/credentials/gcs"
+	s3credential "github.com/kubeflow/kfserving/pkg/credentials/s3"
+	"google.golang.org/api/option"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 func FileExists(filename string) bool {
@@ -55,4 +66,59 @@ func RemoveDir(dir string) error {
 		return fmt.Errorf("dir is unable to be deleted: %v", err)
 	}
 	return nil
+}
+
+func GetProvider(providers map[Protocol]Provider, protocol Protocol) (Provider, error) {
+	if provider, ok := providers[protocol]; ok {
+		return provider, nil
+	}
+
+	switch protocol {
+	case GCS:
+		var gcsClient *gstorage.Client
+		var err error
+
+		ctx := context.Background()
+		if _, ok := os.LookupEnv(gcscredential.GCSCredentialEnvKey); ok {
+			// GCS relies on environment variable GOOGLE_APPLICATION_CREDENTIALS to point to the service-account-key
+			// If set, it will be automatically be picked up by the client.
+			gcsClient, err = gstorage.NewClient(ctx)
+		} else {
+			gcsClient, err = gstorage.NewClient(ctx, option.WithoutAuthentication())
+		}
+
+		if err != nil {
+			return nil, err
+		}
+
+		providers[GCS] = &GCSProvider{
+			Client: stiface.AdaptClient(gcsClient),
+		}
+	case S3:
+		if endpoint, ok := os.LookupEnv(s3credential.AWSEndpointUrl); ok {
+			region, _ := os.LookupEnv(s3credential.AWSRegion)
+			useVirtualBucketString, ok := os.LookupEnv(s3credential.S3UseVirtualBucket)
+			useVirtualBucket := true
+			if ok && strings.ToLower(useVirtualBucketString) == "false" {
+				useVirtualBucket = false
+			}
+			sess, err := session.NewSession(&aws.Config{
+				Endpoint:         aws.String(endpoint),
+				Region:           aws.String(region),
+				S3ForcePathStyle: aws.Bool(!useVirtualBucket)},
+			)
+			if err != nil {
+				return nil, err
+			}
+			sessionClient := s3.New(sess)
+			providers[S3] = &S3Provider{
+				Client: sessionClient,
+				Downloader: s3manager.NewDownloaderWithClient(sessionClient, func(d *s3manager.Downloader) {
+				}),
+			}
+		}
+
+	}
+
+	return providers[protocol], nil
 }

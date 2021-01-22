@@ -26,13 +26,13 @@ func (p *GCSProvider) DownloadModel(modelDir string, modelName string, storageUr
 		prefix = tokens[1]
 	}
 	ctx := context.Background()
-	gcsObjectDownloader := &GCSObjectDownloader {
-		Context: ctx,
+	gcsObjectDownloader := &GCSObjectDownloader{
+		Context:    ctx,
 		StorageUri: storageUri,
-		ModelDir: modelDir,
-		ModelName: modelName,
-		Bucket: tokens[0],
-		Item: prefix,
+		ModelDir:   modelDir,
+		ModelName:  modelName,
+		Bucket:     tokens[0],
+		Item:       prefix,
 	}
 	it, err := gcsObjectDownloader.GetObjectIterator(p.Client)
 	if err != nil {
@@ -71,7 +71,8 @@ func (g *GCSObjectDownloader) Download(client stiface.Client, it stiface.ObjectI
 			return fmt.Errorf("an error occurred while iterating: %v", err)
 		}
 		foundObject = true
-		fileName := filepath.Join(g.ModelDir, g.ModelName, attrs.Name)
+		objectValue := strings.TrimPrefix(attrs.Name, g.Item)
+		fileName := filepath.Join(g.ModelDir, g.ModelName, objectValue)
 		if FileExists(fileName) {
 			log.Info("Deleting", fileName)
 			if err := os.Remove(fileName); err != nil {
