@@ -8,7 +8,7 @@ import (
 	"log"
 	"time"
 
-	pb "helloworld/proto"
+	pb "github.com/kubeflow/kfserving/docs/samples/v1alpha2/custom/grpc-server/proto"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
