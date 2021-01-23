@@ -48,7 +48,7 @@ def test_canary_rollout():
                                    kind=constants.KFSERVING_KIND,
                                    metadata=client.V1ObjectMeta(
                                         name=service_name, namespace=KFSERVING_TEST_NAMESPACE),
-                                   spec=V1Beta1InferenceServiceSpec(default=default_endpoint_spec))
+                                   spec=default_endpoint_spec)
 
     KFServing.create(isvc)
     KFServing.wait_isvc_ready(service_name, namespace=KFSERVING_TEST_NAMESPACE)
@@ -66,7 +66,7 @@ def test_canary_rollout():
                                    kind=constants.KFSERVING_KIND,
                                    metadata=client.V1ObjectMeta(
                                         name=service_name, namespace=KFSERVING_TEST_NAMESPACE),
-                                   spec=V1Beta1InferenceServiceSpec(default=canary_endpoint_spec))
+                                   spec=canary_endpoint_spec)
 
     KFServing.patch(service_name, isvc, namespace=KFSERVING_TEST_NAMESPACE)
     KFServing.wait_isvc_ready(service_name, namespace=KFSERVING_TEST_NAMESPACE)
