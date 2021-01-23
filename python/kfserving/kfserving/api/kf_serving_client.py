@@ -258,39 +258,6 @@ class KFServingClient(object):
         else:
             return outputs
 
-    def rollout_canary(self, name, percent, namespace=None,  # pylint:disable=too-many-arguments,inconsistent-return-statements
-                       canary=None, watch=False, timeout_seconds=600, version=constants.KFSERVING_VERSION):
-        """
-        Rollout the canary endpoint
-        :param name: inference service name
-        :param percent: traffic percentage to the canary endpoint
-        :param namespace: defaults to current or default namespace
-        :param canary: canary endpoint spec
-        :param watch: True to watch the service until timeout elapsed or status is ready
-        :param timeout_seconds: timeout seconds for watch, default to 600s
-        :param version: api group version
-        :return: inference service with canary endpoint
-        """
-
-        if version != 'v1alpha2':
-            raise RuntimeError("The rollout_canary is only for KFServing v1alpha2.")
-
-        if namespace is None:
-            namespace = utils.get_default_target_namespace()
-
-        current_isvc = self.get(name, namespace=namespace)
-
-        if canary is None and 'canary' not in current_isvc['spec']:
-            raise RuntimeError("Canary spec missing? Specify canary for the InferenceService.")
-
-        current_isvc['spec']['canaryTrafficPercent'] = percent
-        if canary:
-            current_isvc['spec']['default'] = canary
-            current_isvc['spec']['canary'] = canary
-
-        return self.patch(name=name, inferenceservice=current_isvc, namespace=namespace,
-                          watch=watch, timeout_seconds=timeout_seconds)
-
     def delete(self, name, namespace=None, version=constants.KFSERVING_VERSION):
         """
         Delete the inference service
@@ -371,7 +338,7 @@ class KFServingClient(object):
             version = trainedmodel.api_version.split("/")[1]
 
             try:
-                outputs = self.api_instance.create_namespaced_custom_object(
+                self.api_instance.create_namespaced_custom_object(
                     constants.KFSERVING_GROUP,
                     version,
                     namespace,
@@ -383,10 +350,10 @@ class KFServingClient(object):
                      %s\n" % e)
 
     def wait_model_ready(self, service_name, model_name, isvc_namespace=None, # pylint:disable=too-many-arguments
-                            isvc_version=constants.KFSERVING_V1BETA1_VERSION,
-                            cluster_ip=None,
-                            timeout_seconds=600,
-                            polling_interval=10):
+                         isvc_version=constants.KFSERVING_V1BETA1_VERSION,
+                         cluster_ip=None,
+                         timeout_seconds=600,
+                         polling_interval=10):
         """
         Waiting for model to be ready to service, print out trained model if timeout.
         :param service_name: inference service name
