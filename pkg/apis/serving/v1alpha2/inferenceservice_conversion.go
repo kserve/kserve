@@ -367,7 +367,11 @@ func (dst *InferenceService) ConvertFrom(srcRaw conversion.Hub) error {
 			Name: component.LatestCreatedRevision,
 		}
 		if component.URL != nil {
-			statusSpec.Hostname = component.LatestCreatedRevision
+			statusSpec.Hostname = component.URL.Host
+		}
+		if dst.Status.Default == nil {
+			emptyStatusMap := make(map[constants.InferenceServiceComponent]StatusConfigurationSpec)
+			dst.Status.Default = &emptyStatusMap
 		}
 		if componentType == v1beta1.PredictorComponent {
 			(*dst.Status.Default)[constants.Predictor] = statusSpec
