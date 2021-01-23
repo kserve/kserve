@@ -143,6 +143,8 @@ func validateEndpoint(endpoint *EndpointSpec, client client.Client) error {
 func validateCanaryTrafficPercent(spec InferenceServiceSpec) error {
 	if spec.CanaryTrafficPercent == nil {
 		return nil
+	} else {
+		return fmt.Errorf("Canary rollout is no longer supported on v1alpha2, please convert to v1beta1 to use the feature.")
 	}
 	if spec.Canary == nil && *spec.CanaryTrafficPercent != 0 {
 		return fmt.Errorf(TrafficProvidedWithoutCanaryError)
