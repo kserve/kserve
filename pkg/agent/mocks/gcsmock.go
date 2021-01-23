@@ -50,7 +50,7 @@ func (b mockBucketHandle) Objects(ctx context.Context, query *gstorage.Query) st
 	var items []*gstorage.ObjectAttrs
 	objs := b.c.buckets[b.name].objects
 	for key, element := range objs {
-		if strings.Contains(key, query.Prefix){
+		if strings.Contains(key, query.Prefix) {
 			items = append(items, element)
 		}
 	}
@@ -59,8 +59,8 @@ func (b mockBucketHandle) Objects(ctx context.Context, query *gstorage.Query) st
 
 type mockObjectIterator struct {
 	stiface.ObjectIterator
-	b       mockBucketHandle
-	items   []*gstorage.ObjectAttrs
+	b     mockBucketHandle
+	items []*gstorage.ObjectAttrs
 }
 
 func (i *mockObjectIterator) Next() (*gstorage.ObjectAttrs, error) {
@@ -132,9 +132,9 @@ func (r mockReader) Close() error {
 
 type mockWriter struct {
 	stiface.Writer
-	o     mockObjectHandle
-	buf   bytes.Buffer
-	obj   *gstorage.ObjectAttrs
+	o   mockObjectHandle
+	buf bytes.Buffer
+	obj *gstorage.ObjectAttrs
 }
 
 func (w *mockWriter) Write(data []byte) (int, error) {

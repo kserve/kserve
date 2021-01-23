@@ -19,7 +19,9 @@ package v1alpha2
 import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
+	"github.com/kubeflow/kfserving/pkg/constants"
 	v1 "k8s.io/api/core/v1"
+	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 )
 
@@ -309,11 +311,13 @@ func (dst *InferenceService) ConvertFrom(srcRaw conversion.Hub) error {
 				},
 			}
 		}
-		dst.Spec.Default.Transformer.MinReplicas = src.Spec.Transformer.MinReplicas
-		dst.Spec.Default.Transformer.MaxReplicas = src.Spec.Transformer.MaxReplicas
-		dst.Spec.Default.Transformer.ServiceAccountName = src.Spec.Transformer.PodSpec.ServiceAccountName
-		if src.Spec.Transformer.ContainerConcurrency != nil {
-			dst.Spec.Default.Transformer.Parallelism = int(*src.Spec.Transformer.ContainerConcurrency)
+		if dst.Spec.Default.Transformer != nil {
+			dst.Spec.Default.Transformer.MinReplicas = src.Spec.Transformer.MinReplicas
+			dst.Spec.Default.Transformer.MaxReplicas = src.Spec.Transformer.MaxReplicas
+			dst.Spec.Default.Transformer.ServiceAccountName = src.Spec.Transformer.PodSpec.ServiceAccountName
+			if src.Spec.Transformer.ContainerConcurrency != nil {
+				dst.Spec.Default.Transformer.Parallelism = int(*src.Spec.Transformer.ContainerConcurrency)
+			}
 		}
 	}
 	//Explainer
@@ -350,6 +354,27 @@ func (dst *InferenceService) ConvertFrom(srcRaw conversion.Hub) error {
 			if src.Spec.Explainer.ContainerConcurrency != nil {
 				dst.Spec.Default.Explainer.Parallelism = int(*src.Spec.Explainer.ContainerConcurrency)
 			}
+		}
+	}
+
+	if src.Status.URL != nil {
+		dst.Status.URL = src.Status.URL.String()
+	}
+	dst.Status.Address = (*duckv1beta1.Addressable)(src.Status.Address)
+	dst.Status.Conditions = duckv1beta1.Conditions(src.Status.Conditions)
+	for componentType, component := range src.Status.Components {
+		statusSpec := StatusConfigurationSpec{
+			Name: component.LatestCreatedRevision,
+		}
+		if component.URL != nil {
+			statusSpec.Hostname = component.LatestCreatedRevision
+		}
+		if componentType == v1beta1.PredictorComponent {
+			(*dst.Status.Default)[constants.Predictor] = statusSpec
+		} else if componentType == v1beta1.ExplainerComponent {
+			(*dst.Status.Default)[constants.Explainer] = statusSpec
+		} else if componentType == v1beta1.TransformerComponent {
+			(*dst.Status.Default)[constants.Transformer] = statusSpec
 		}
 	}
 	return nil

@@ -81,7 +81,6 @@ func createKnativeService(componentMeta metav1.ObjectMeta,
 	if _, ok := annotations[autoscaling.ClassAnnotationKey]; !ok {
 		annotations[autoscaling.ClassAnnotationKey] = autoscaling.KPA
 	}
-
 	lastRolledoutRevision := componentStatus.LatestRolledoutRevision
 	// This is to handle case when the latest ready revision is rolled out with 100% and then rolled back
 	// so here we need to get the revision that is previously rolled out with 100%
