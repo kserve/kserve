@@ -5,7 +5,7 @@ The InferenceService Data Plane architecture consists of a static graph of compo
 
 ![Data Plane](./diagrams/dataplane.jpg)
 
-## Concepts
+### Concepts
 **Endpoint**: InferenceServers are divided into two endpoints: "default" and "canary". The endpoints allow users to safely make changes using the Pinned and Canary rollout strategies. Canarying is completely optional enabling users to simply deploy with a BlueGreen deployment strategy on the "default" endpoint.
 
 **Component**: Each endpoint is composed of multiple components: "predictor", "explainer", and "transformer". The only required component is the predictor, which is the core of the system. As KFServing evolves, we plan to increase the number of supported components to enable use cases like Outlier Detection.
@@ -16,7 +16,7 @@ The InferenceService Data Plane architecture consists of a static graph of compo
 
 **Transformer**: The transformer enables users to define a pre and post processing step before the prediction and explanation workflows. Like the explainer, it is configured with relevant environment variables too. For common use cases, KFServing provides out-of-the-box transformers like Feast.
 
-## Data Plane (V1)
+### Data Plane (V1)
 KFServing has a standardized prediction workflow across all model frameworks. 
 
 | API  | Verb | Path | Payload |
@@ -25,32 +25,35 @@ KFServing has a standardized prediction workflow across all model frameworks.
 | Predict  | POST  | /v1/models/<model_name>:predict  | Request:{"instances": []}  Response:{"predictions": []} |
 | Explain  | POST  | /v1/models/<model_name>:explain  | Request:{"instances": []}  Response:{"predictions": [], "explainations": []}   ||
 
-### Predict
+#### Predict
 All InferenceServices speak the Tensorflow V1 HTTP API: https://www.tensorflow.org/tfx/serving/api_rest#predict_api.
 
 Note: Only Tensorflow models support the fields "signature_name" and "inputs".
 
-### Explain
+#### Explain
 All InferenceServices that are deployed with an Explainer support a standardized explanation API. This interface is identical to the Tensorflow V1 HTTP API with the addition of an ":explain" verb.
 
-## Data Plane (V2)
+### Data Plane (V2)
 The second version of the data-plane protocol addresses several issues found with the V1 data-plane protocol, including performance and generality across a large number of model frameworks and servers.
 
-### Predict
+#### Predict
 The V2 protocol proposes both HTTP/REST and GRPC APIs. See the [complete proposal](/docs/predict-api/v2) for more information.
 
-## Serverless Deployment
-KFServing enables the request volume based autoscaling with Knative Autoscaler, it also implements a model agent for handling common serving features
-like request/response logging, batching, model puller.
+## Control Plane
+KFServing control plane reconciles the `InferenceService` and `TrainedModel` custom resources, it creates the serverless deployment for predictor, transformer, explainer to enable
+autoscaling based on incoming request workload including scaling down to zero when no traffic is received.
 
 ![Architect](./diagrams/kfs_architect.png)
 
-- Knative Queue proxy to enforce concurrency limit and expose autoscaling metrics.
+## Control Plane Components
+- Knative Serving Controller: Responsible for service revision management, creating network routing resources, serverless container with queue proxy to expose traffic metrics and 
+enforce concurrency limit. 
 
-- Knative Autoscaler(KPA) for scaling based on traffic volume and allow scale to/from zero.
+- Knative Activator: Brings back scaled-to-zero pods and forwards requests.
 
-- Model Agent for request/response logging, batching and model puller.
+- Knative Autoscaler(KPA): Watches traffic flow to the application, and scales replicas up or down based on configured metrics.
 
-- Model Server for hosting single or multiple models.
+- KFServing Controller: Responsible for creating service, ingress resources, model server container and model agent container for request/response logging
+, batching and model pulling.
 
-- Ingress gateway to route request from external or internal services.
+- Ingress Gateway: Gateway for routing external or internal requests.

@@ -12,11 +12,8 @@ It encapsulates the complexity of autoscaling, networking, health checking, and 
 
 ![KFServing](/docs/diagrams/kfserving.png)
 
-### Core Concepts
-[KFServing Concepts and Data Plane](./docs/README.md)
-
-### Architecture
-![architecture](/docs/diagrams/kfs_architect.png)
+### Architecture Review
+[Control Plane and Data Plane](./docs/README.md)
 
 ### Core Features and Examples
 [KFServing Features and Examples](./docs/samples/README.md)
@@ -52,9 +49,13 @@ KFServing can be installed standalone if your kubernetes cluster meets the above
 For Kubernetes 1.16+ users
 ```
 TAG=v0.5.0
+# Install KFServing CRD
+# For new install
 kubectl create -f ./install/$TAG/kfserving_crd.yaml
-# As CRD is quite big we suggest using `replace` instead of `apply` for updating crd 
+# For upgrade, due to https://github.com/kubernetes-sigs/kubebuilder/issues/1140 we suggest using `replace` instead of `apply`
 kubectl replace -f ./install/$TAG/kfserving_crd.yaml
+
+# Install KFServing Controller
 kubectl apply -f ./install/$TAG/kfserving.yaml
 ```
 
@@ -100,7 +101,7 @@ minikube start --cpus 4 --memory 8192 --kubernetes-version=v1.17.11
 ### Test KFServing Installation
 
 <details>
-  <summary>Expand to see testing steps!</summary>
+  <summary>Expand to see steps for testing the installation!</summary>
 
 #### 1. Check KFServing controller installation
 ```shell

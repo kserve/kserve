@@ -1,6 +1,6 @@
 # KF Serving Roadmap
-## 2020
-### v0.6 Inference Graph (ETA end of Q4)
+## 2021
+### v0.6 Inference Graph
 Objective: "Enable model serving pipelines with flexible routing graph"
 * Inference Router
     * Model Experimentation.
@@ -10,7 +10,8 @@ Objective: "Enable model serving pipelines with flexible routing graph"
  
 Proposal: https://docs.google.com/document/d/1rV8kI_40oiv8jMhY_LwkkyKLdOwSI1Qda-Dc6Dgjz1g
 
-### v0.5 API Stabilization and TCO Reduction (ETA: end of Q3)
+# Historical
+### v0.5 API Stabilization and TCO Reduction(Jan, 2021)
 Objective:  "Stabilize KFServing API"
 * KFServing v1beta1 API
     * Promote v1alpha2 to v1beta1
@@ -31,7 +32,7 @@ Objective: "Reduce Total Cost of Ownership when deploying multiple underutilized
 
 Proposal: https://docs.google.com/document/d/11qETyR--oOIquQke-DCaLsZY75vT1hRu21PesSUDy7o
 
-### v0.4 Performance (end of Q2)
+### v0.4 Performance(Oct, 2020)
 Objective: "Prevent performance regressions across a known set of representative models."
 * Automated Performance Tests
     * Define a set of Models to test covering a wide array of use cases and frameworks.
@@ -41,8 +42,6 @@ Objective: "Increase throughput for the inference service"
 * Adaptive batching support
     * Queue and batch requests to increase throughput.
 
-
-# Historical
 ### v0.3 Stability (Mar 11, 2020)
 Objective: "Improve practices around dependency management." 
 * Migrate to Kubebuilder 2.0.
