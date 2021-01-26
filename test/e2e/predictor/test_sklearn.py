@@ -75,7 +75,7 @@ def test_sklearn_v2_kfserving():
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         sklearn=V1beta1SKLearnSpec(
-            storage_uri="gs://seldon-models/sklearn/iris",
+            storage_uri="gs://kfserving-examples/models/sklearn/irisv2",
             protocol_version="v2",
             resources=V1ResourceRequirements(
                 requests={"cpu": "100m", "memory": "256Mi"},

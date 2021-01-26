@@ -95,14 +95,6 @@ def test_inferenceservice_client_patch():
             'flower-sample', isvc, namespace='kubeflow')
 
 
-def test_inferenceservice_client_rollout_canary():
-    '''Unit test for kfserving promote api'''
-    with patch('kfserving.api.kf_serving_client.KFServingClient.rollout_canary',
-               return_value=mocked_unit_result):
-        assert mocked_unit_result == KFServing.rollout_canary(
-            'flower-sample', namespace='kubeflow')
-
-
 def test_inferenceservice_client_replace():
     '''Unit test for kfserving replace api'''
     with patch('kfserving.api.kf_serving_client.KFServingClient.replace',
