@@ -33,10 +33,14 @@ import (
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/controller/v1alpha1/trainedmodel/reconcilers/modelconfig"
 	"github.com/kubeflow/kfserving/pkg/utils"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
+	"knative.dev/pkg/apis"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -118,6 +122,11 @@ func (r *TrainedModelReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 		return ctrl.Result{}, nil
 	}
 
+	// update URL and Address fo TrainedModel
+	if err := r.updateStatus(req, tm); err != nil {
+		return ctrl.Result{}, err
+	}
+
 	// Reconcile modelconfig to add this TrainedModel to its parent InferenceService's configmap
 	if err := r.ModelConfigReconciler.Reconcile(req, tm); err != nil {
 		return ctrl.Result{}, err
@@ -125,8 +134,66 @@ func (r *TrainedModelReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 	return ctrl.Result{}, nil
 }
 
-func (r *TrainedModelReconciler) updateStatus(desiredService *v1alpha1api.TrainedModel) error {
-	//TODO update TrainedModel status object, this will be done in a separate PR
+func (r *TrainedModelReconciler) updateStatus(req ctrl.Request, desiredModel *v1alpha1api.TrainedModel) error {
+	// Get the parent inference service
+	isvc := &v1beta1api.InferenceService{}
+	if err := r.Get(context.TODO(), types.NamespacedName{Namespace: req.Namespace, Name: desiredModel.Spec.InferenceService}, isvc); err != nil {
+		if errors.IsNotFound(err) {
+			log.Info("Parent InferenceService does not exists, deleting TrainedModel", "TrainedModel", desiredModel.Name, "InferenceService", isvc.Name)
+			r.Delete(context.TODO(), desiredModel)
+			return nil
+		}
+		return err
+	}
+
+	// obtain protocol version of predictor spec
+	protocolVersion := string(isvc.Spec.Predictor.GetImplementation().GetProtocol())
+
+	// Check if parent inference service has the status URL
+	if isvc.Status.URL != nil {
+		// Update status to contain the isvc URL with /v1/models/trained-model-name:predict appened
+		url := isvc.Status.URL.String() + "/" + protocolVersion + "/models/" + desiredModel.Name + ":predict"
+		externURL, err := apis.ParseURL(url)
+		if err != nil {
+			return err
+		}
+		desiredModel.Status.URL = externURL
+	}
+
+	// Check if parent inference service has the address URL
+	if isvc.Status.Address != nil {
+		if isvc.Status.Address.URL != nil {
+			////Update status to contain the isvc address with /v1/models/trained-model-name:predict appened
+			url := isvc.Status.Address.URL.String() + "/" + protocolVersion + "/models/" + desiredModel.Name + ":predict"
+			clusterURL, err := apis.ParseURL(url)
+			if err != nil {
+				return err
+			}
+			desiredModel.Status.Address = &duckv1.Addressable{
+				URL: clusterURL,
+			}
+		}
+	}
+
+	// Get the current model
+	existingModel := &v1alpha1api.TrainedModel{}
+	if err := r.Get(context.TODO(), req.NamespacedName, existingModel); err != nil {
+		if errors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+
+	if equality.Semantic.DeepEqual(existingModel.Status, desiredModel.Status) {
+		// We did not update anything
+	} else {
+		// Try to update model
+		if err := r.Status().Update(context.TODO(), desiredModel); err != nil {
+			r.Recorder.Eventf(desiredModel, v1.EventTypeWarning, "UpdateFailed",
+				"Failed to update status for TrainedModel %q: %v", desiredModel.Name, err)
+		}
+	}
+
 	return nil
 }
 
