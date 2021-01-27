@@ -138,21 +138,22 @@ func (r *TrainedModelReconciler) updateStatus(req ctrl.Request, desiredModel *v1
 	// Get the parent inference service
 	isvc := &v1beta1api.InferenceService{}
 	if err := r.Get(context.TODO(), types.NamespacedName{Namespace: req.Namespace, Name: desiredModel.Spec.InferenceService}, isvc); err != nil {
-		if errors.IsNotFound(err) {
-			log.Info("Parent InferenceService does not exists, deleting TrainedModel", "TrainedModel", desiredModel.Name, "InferenceService", isvc.Name)
-			r.Delete(context.TODO(), desiredModel)
-			return nil
-		}
 		return err
 	}
 
 	// obtain protocol version of predictor spec
 	protocolVersion := string(isvc.Spec.Predictor.GetImplementation().GetProtocol())
 
+	// V1 ends with :predict whereas V2 ends with /infer
+	endpointSuffix := ":predict"
+	if protocolVersion == string(constants.ProtocolV2) {
+		endpointSuffix = "/infer"
+	}
+
 	// Check if parent inference service has the status URL
 	if isvc.Status.URL != nil {
 		// Update status to contain the isvc URL with /v1/models/trained-model-name:predict appened
-		url := isvc.Status.URL.String() + "/" + protocolVersion + "/models/" + desiredModel.Name + ":predict"
+		url := isvc.Status.URL.String() + "/" + protocolVersion + "/models/" + desiredModel.Name + endpointSuffix
 		externURL, err := apis.ParseURL(url)
 		if err != nil {
 			return err
@@ -164,7 +165,7 @@ func (r *TrainedModelReconciler) updateStatus(req ctrl.Request, desiredModel *v1
 	if isvc.Status.Address != nil {
 		if isvc.Status.Address.URL != nil {
 			////Update status to contain the isvc address with /v1/models/trained-model-name:predict appened
-			url := isvc.Status.Address.URL.String() + "/" + protocolVersion + "/models/" + desiredModel.Name + ":predict"
+			url := isvc.Status.Address.URL.String() + "/" + protocolVersion + "/models/" + desiredModel.Name + endpointSuffix
 			clusterURL, err := apis.ParseURL(url)
 			if err != nil {
 				return err
