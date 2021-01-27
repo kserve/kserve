@@ -37,7 +37,7 @@ KFServing = KFServingClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/co
 
 
 @pytest.mark.parametrize(
-    "protocol_version,storage_uris,input_json",
+    "protocol_version,storage_uris",
     [
         (
             "v1",
@@ -45,21 +45,17 @@ KFServing = KFServingClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/co
                 "gs://kfserving-samples/models/sklearn/iris",
                 "gs://kfserving-samples/models/sklearn/iris",
             ],
-            "./data/iris_input.json",
         ),
         (
             "v2",
             [
-                "gs://seldon-models/sklearn/mms/model1-sklearn",
-                "gs://seldon-models/sklearn/mms/model2-sklearn",
+                "gs://seldon-models/sklearn/mms/model1-sklearn-v2",
+                "gs://seldon-models/sklearn/mms/model2-sklearn-v2",
             ],
-            "./data/iris_input_v2.json",
         ),
     ],
 )
-def test_mms_sklearn_kfserving(
-    protocol_version: str, storage_uris: List[str], input_json: str
-):
+def test_mms_sklearn_kfserving(protocol_version: str, storage_uris: List[str]):
     # Define an inference service
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -88,7 +84,10 @@ def test_mms_sklearn_kfserving(
 
     cluster_ip = get_cluster_ip()
 
-    model_names = ["model1-sklearn", "model2-sklearn"]
+    model_names = [
+        f"model1-sklearn-{protocol_version}",
+        f"model2-sklearn-{protocol_version}",
+    ]
 
     for model_name, storage_uri in zip(model_names, storage_uris):
         model_spec = V1alpha1ModelSpec(
@@ -120,6 +119,10 @@ def test_mms_sklearn_kfserving(
             cluster_ip=cluster_ip,
         )
 
+    input_json = "./data/iris_input.json"
+    if protocol_version == "v2":
+        input_json = "./data/iris_input_v2.json"
+
     responses = [
         predict(
             service_name,
@@ -143,12 +146,31 @@ def test_mms_sklearn_kfserving(
     KFServing.delete(service_name, KFSERVING_TEST_NAMESPACE)
 
 
-def test_mms_xgboost_kfserving():
+@pytest.mark.parametrize(
+    "protocol_version,storage_uris",
+    [
+        (
+            "v1",
+            [
+                "gs://kfserving-samples/models/xgboost/iris",
+                "gs://kfserving-samples/models/xgboost/iris",
+            ],
+        ),
+        (
+            "v2",
+            [
+                "gs://seldon-models/xgboost/mms/model1-xgboost-v2",
+                "gs://seldon-models/xgboost/mms/model2-xgboost-v2",
+            ],
+        ),
+    ],
+)
+def test_mms_xgboost_kfserving(protocol_version: str, storage_uris: List[str]):
     # Define an inference service
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         xgboost=V1beta1XGBoostSpec(
-            protocol_version="v1",
+            protocol_version=protocol_version,
             resources=client.V1ResourceRequirements(
                 requests={"cpu": "100m", "memory": "256Mi"},
                 limits={"cpu": "100m", "memory": "256Mi"},
@@ -156,7 +178,7 @@ def test_mms_xgboost_kfserving():
         ),
     )
 
-    service_name = "isvc-xgboost-mms"
+    service_name = f"isvc-xgboost-mms-{protocol_version}"
     isvc = V1beta1InferenceService(
         api_version=constants.KFSERVING_V1BETA1,
         kind=constants.KFSERVING_KIND,
@@ -170,80 +192,65 @@ def test_mms_xgboost_kfserving():
     KFServing.create(isvc)
     KFServing.wait_isvc_ready(service_name, namespace=KFSERVING_TEST_NAMESPACE)
 
-    # Define trained models
-    model1_spec = V1alpha1ModelSpec(
-        storage_uri="gs://kfserving-samples/models/xgboost/iris",
-        memory="256Mi",
-        framework="xgboost",
-    )
-
-    model2_spec = V1alpha1ModelSpec(
-        storage_uri="gs://kfserving-samples/models/xgboost/iris",
-        memory="256Mi",
-        framework="xgboost",
-    )
-
-    model1_name = "model1-xgboost"
-    model2_name = "model2-xgboost"
-    model1 = V1alpha1TrainedModel(
-        api_version=constants.KFSERVING_V1ALPHA1,
-        kind=constants.KFSERVING_KIND_TRAINEDMODEL,
-        metadata=client.V1ObjectMeta(
-            name=model1_name, namespace=KFSERVING_TEST_NAMESPACE
-        ),
-        spec=V1alpha1TrainedModelSpec(
-            inference_service=service_name, model=model1_spec
-        ),
-    )
-
-    model2 = V1alpha1TrainedModel(
-        api_version=constants.KFSERVING_V1ALPHA1,
-        kind=constants.KFSERVING_KIND_TRAINEDMODEL,
-        metadata=client.V1ObjectMeta(
-            name=model2_name, namespace=KFSERVING_TEST_NAMESPACE
-        ),
-        spec=V1alpha1TrainedModelSpec(
-            inference_service=service_name, model=model2_spec
-        ),
-    )
-
-    # Create instances of trained models using model1 and model2
-    KFServing.create_trained_model(model1, KFSERVING_TEST_NAMESPACE)
-    KFServing.create_trained_model(model2, KFSERVING_TEST_NAMESPACE)
-
     cluster_ip = get_cluster_ip()
+    model_names = [
+        f"model1-xgboost-{protocol_version}",
+        f"model2-xgboost-{protocol_version}",
+    ]
 
-    KFServing.wait_model_ready(
-        service_name,
-        model1_name,
-        isvc_namespace=KFSERVING_TEST_NAMESPACE,
-        isvc_version=constants.KFSERVING_V1BETA1_VERSION,
-        cluster_ip=cluster_ip,
-    )
-    KFServing.wait_model_ready(
-        service_name,
-        model2_name,
-        isvc_namespace=KFSERVING_TEST_NAMESPACE,
-        isvc_version=constants.KFSERVING_V1BETA1_VERSION,
-        cluster_ip=cluster_ip,
-    )
+    for model_name, storage_uri in zip(model_names, storage_uris):
+        # Define trained models
+        model_spec = V1alpha1ModelSpec(
+            storage_uri=storage_uri,
+            memory="256Mi",
+            framework="xgboost",
+        )
 
-    # Call predict on the two models
-    res_model1 = predict(
-        service_name,
-        input_json,
-        model_name=model1_name,
-        protocol_version=protocol_version,
-    )
-    res_model2 = predict(
-        service_name,
-        input_json,
-        model_name=model2_name,
-        protocol_version=protocol_version,
-    )
+        model = V1alpha1TrainedModel(
+            api_version=constants.KFSERVING_V1ALPHA1,
+            kind=constants.KFSERVING_KIND_TRAINEDMODEL,
+            metadata=client.V1ObjectMeta(
+                name=model_name, namespace=KFSERVING_TEST_NAMESPACE
+            ),
+            spec=V1alpha1TrainedModelSpec(
+                inference_service=service_name, model=model_spec
+            ),
+        )
 
-    assert res_model1["predictions"] == [1, 1]
-    assert res_model2["predictions"] == [1, 1]
+        # Create instances of trained models using model1 and model2
+        KFServing.create_trained_model(model, KFSERVING_TEST_NAMESPACE)
 
-    # Clean up inference service
+        KFServing.wait_model_ready(
+            service_name,
+            model_name,
+            isvc_namespace=KFSERVING_TEST_NAMESPACE,
+            isvc_version=constants.KFSERVING_V1BETA1_VERSION,
+            protocol_version=protocol_version,
+            cluster_ip=cluster_ip,
+        )
+
+    input_json = "./data/iris_input.json"
+    if protocol_version == "v2":
+        input_json = "./data/iris_input_v2.json"
+
+    responses = [
+        predict(
+            service_name,
+            input_json,
+            model_name=model_name,
+            protocol_version=protocol_version,
+        )
+        for model_name in model_names
+    ]
+
+    if protocol_version == "v1":
+        assert responses[0]["predictions"] == [1, 1]
+        assert responses[1]["predictions"] == [1, 1]
+    elif protocol_version == "v2":
+        assert responses[0]["outputs"][0]["data"] == [1.0, 1.0]
+        assert responses[1]["outputs"][0]["data"] == [1.0, 1.0]
+
+    # Clean up inference service and trained models
+    for model_name in model_names:
+        KFServing.delete_trained_model(model_name, KFSERVING_TEST_NAMESPACE)
     KFServing.delete(service_name, KFSERVING_TEST_NAMESPACE)
