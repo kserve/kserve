@@ -292,8 +292,12 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 
 			// obtain protocol version of predictor spec
 			protocolVersion := string(isvc.Spec.Predictor.GetImplementation().GetProtocol())
-			tmExpectedURL := predictorUrl.String() + "/" + protocolVersion + "/models/" + tmInstanceUpdate.Name + ":predict"
-			tmExpectedAddressURL := clusterURL.String() + "/" + protocolVersion + "/models/" + tmInstanceUpdate.Name + ":predict"
+			endpointSuffix := ":predict"
+			if protocolVersion == string(constants.ProtocolV2) {
+				endpointSuffix = "/infer"
+			}
+			tmExpectedURL := predictorUrl.String() + "/" + protocolVersion + "/models/" + tmInstanceUpdate.Name + endpointSuffix
+			tmExpectedAddressURL := clusterURL.String() + "/" + protocolVersion + "/models/" + tmInstanceUpdate.Name + endpointSuffix
 			Expect(cmp.Diff(tmInstanceUpdate.Status.URL.String(), tmExpectedURL)).To(Equal(""))
 			Expect(cmp.Diff(tmInstanceUpdate.Status.Address.URL.String(), tmExpectedAddressURL)).To(Equal(""))
 
