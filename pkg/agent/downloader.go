@@ -18,11 +18,13 @@ package agent
 
 import (
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"github.com/kubeflow/kfserving/pkg/agent/storage"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -53,6 +55,14 @@ func (d *Downloader) DownloadModel(modelName string, modelSpec *v1alpha1.ModelSp
 			defer file.Close()
 			if createErr != nil {
 				return errors.Wrapf(createErr, "failed to create success file")
+			}
+			encodedJson, err := json.Marshal(modelSpec)
+			if err != nil {
+				return errors.Wrapf(createErr, "failed to encode model spec")
+			}
+			err = ioutil.WriteFile(successFile, encodedJson, 0644)
+			if err != nil {
+				return errors.Wrapf(createErr, "failed to write the success file")
 			}
 		} else if err == nil {
 			d.Logger.Infof("Model successFile exists already for %s", modelName)

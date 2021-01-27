@@ -17,11 +17,11 @@ limitations under the License.
 package agent
 
 import (
-	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 	"github.com/pkg/errors"
-	"k8s.io/apimachinery/pkg/api/resource"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -39,17 +39,23 @@ func SyncModelDir(modelDir string) (map[string]modelWrapper, error) {
 			ierr := filepath.Walk(path, func(path string, f os.FileInfo, _ error) error {
 				if !f.IsDir() {
 					base := filepath.Base(path)
-					baseSplit := strings.SplitN(base, ".", 4)
+					baseSplit := strings.SplitN(base, ".", 2)
 					if baseSplit[0] == "SUCCESS" {
-						if spec, e := successParse(baseSplit); e != nil {
-							return errors.Wrapf(err, "error parsing SUCCESS file")
-						} else {
-							modelTracker[modelName] = modelWrapper{
-								Spec:  spec,
-								stale: true,
-							}
-							return nil
+						jsonFile, err := os.Open(path)
+						if err != nil {
+							return errors.Wrapf(err, "failed to parse success file")
 						}
+						byteValue, _ := ioutil.ReadAll(jsonFile)
+						modelSpec := &v1alpha1.ModelSpec{}
+						err = json.Unmarshal(byteValue, &modelSpec)
+						if err != nil {
+							return errors.Wrapf(err, "failed to unmarshal model spec")
+						}
+						modelTracker[modelName] = modelWrapper{
+							Spec:  modelSpec,
+							stale: true,
+						}
+						return nil
 					}
 				}
 				return NoSuccessFile
@@ -69,32 +75,3 @@ func SyncModelDir(modelDir string) (map[string]modelWrapper, error) {
 	return modelTracker, nil
 }
 
-func successParse(baseSplit []string) (*v1alpha1.ModelSpec, error) {
-	storageURI, err := unhash(baseSplit[1])
-	errorMessage := "unable to unhash the SUCCESS file, maybe the SUCCESS file has been modified?"
-	if err != nil {
-		return nil, errors.Wrapf(err, errorMessage)
-	}
-	framework, err := unhash(baseSplit[2])
-	if err != nil {
-		return nil, errors.Wrapf(err, errorMessage)
-	}
-	memory, err := unhash(baseSplit[3])
-	if err != nil {
-		return nil, errors.Wrapf(err, errorMessage)
-	}
-	memoryResource := resource.MustParse(memory)
-	return &v1alpha1.ModelSpec{
-		StorageURI: storageURI,
-		Framework:  framework,
-		Memory:     memoryResource,
-	}, nil
-}
-
-func unhash(s string) (string, error) {
-	decoded, err := hex.DecodeString(s)
-	if err != nil {
-		return "", nil
-	}
-	return string(decoded), nil
-}
