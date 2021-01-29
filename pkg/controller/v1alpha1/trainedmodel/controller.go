@@ -141,19 +141,10 @@ func (r *TrainedModelReconciler) updateStatus(req ctrl.Request, desiredModel *v1
 		return err
 	}
 
-	// obtain protocol version of predictor spec
-	protocolVersion := string(isvc.Spec.Predictor.GetImplementation().GetProtocol())
-
-	// V1 ends with :predict whereas V2 ends with /infer
-	endpointSuffix := ":predict"
-	if protocolVersion == string(constants.ProtocolV2) {
-		endpointSuffix = "/infer"
-	}
-
 	// Check if parent inference service has the status URL
 	if isvc.Status.URL != nil {
 		// Update status to contain the isvc URL with /v1/models/trained-model-name:predict appened
-		url := isvc.Status.URL.String() + "/" + protocolVersion + "/models/" + desiredModel.Name + endpointSuffix
+		url := isvc.Status.URL.String() + constants.PredictPath(desiredModel.Name, isvc.Spec.Predictor.GetImplementation().GetProtocol())
 		externURL, err := apis.ParseURL(url)
 		if err != nil {
 			return err
@@ -165,7 +156,7 @@ func (r *TrainedModelReconciler) updateStatus(req ctrl.Request, desiredModel *v1
 	if isvc.Status.Address != nil {
 		if isvc.Status.Address.URL != nil {
 			////Update status to contain the isvc address with /v1/models/trained-model-name:predict appened
-			url := isvc.Status.Address.URL.String() + "/" + protocolVersion + "/models/" + desiredModel.Name + endpointSuffix
+			url := isvc.Status.Address.URL.String() + constants.PredictPath(desiredModel.Name, isvc.Spec.Predictor.GetImplementation().GetProtocol())
 			clusterURL, err := apis.ParseURL(url)
 			if err != nil {
 				return err
