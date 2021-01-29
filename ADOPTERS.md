@@ -9,6 +9,7 @@ This page contains a list of organizations who are using KFServing either in pro
 | [Cisco](https://www.cisco.com/) | [Krishna Durai](https://github.com/krishnadurai) |
 | [CoreWeave](https://coreweave.com/) | [Peter Salanki](https://github.com/salanki) |
 | [Gojek](https://www.gojek.com/) | [Willem Pienaar](https://github.com/woop) |
+| [Halodoc ID](https://halodoc.com/) | [Joinal Ahmed](https://github.com/joinal-ahmed) |
 | [IBM](https://www.ibm.com/) | [Animesh Singh](https://github.com/animeshsingh) |
 | [Inspur](https://www.inspur.com/) | [Qingshan Chen](https://github.com/iamlovingit) |
 | [Max Kelsen](https://www.maxkelsen.com/) | [Jacob O'Farrell](https://github.com/ofaz) |
