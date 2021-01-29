@@ -19,6 +19,7 @@ package trainedmodel
 import (
 	"context"
 	"github.com/golang/protobuf/proto"
+	"github.com/google/go-cmp/cmp"
 	v1alpha1api "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
 	"github.com/kubeflow/kfserving/pkg/constants"
@@ -28,6 +29,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"knative.dev/pkg/apis"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"time"
 )
@@ -35,9 +38,11 @@ import (
 var _ = Describe("v1beta1 TrainedModel controller", func() {
 	// Define utility constants for object names and testing timeouts/durations and intervals.
 	const (
-		timeout  = time.Second * 20
-		duration = time.Second * 20
-		interval = time.Millisecond * 250
+		timeout   = time.Second * 20
+		duration  = time.Second * 20
+		interval  = time.Millisecond * 250
+		domain    = "example.com"
+		clusterIp = "example.svc.local.cluster"
 	)
 
 	var (
@@ -227,6 +232,24 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			}
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
 
+			inferenceService := &v1beta1.InferenceService{}
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, serviceKey, inferenceService)
+				if err != nil {
+					return false
+				}
+				return true
+			}, timeout, interval).Should(BeTrue())
+
+			// Updates the url and address of inference service status
+			predictorUrl, _ := apis.ParseURL("http://" + constants.InferenceServiceHostName(constants.DefaultPredictorServiceName(serviceKey.Name), serviceKey.Namespace, domain))
+			clusterURL, _ := apis.ParseURL("http://" + constants.InferenceServiceHostName(constants.DefaultPredictorServiceName(serviceKey.Name), serviceKey.Namespace, clusterIp))
+			inferenceService.Status.URL = predictorUrl
+			inferenceService.Status.Address = &duckv1.Addressable{
+				URL: clusterURL,
+			}
+			Expect(k8sClient.Status().Update(context.TODO(), inferenceService)).To(BeNil())
+
 			tmInstance := &v1alpha1api.TrainedModel{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      modelName,
@@ -260,11 +283,17 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 					return false
 				}
 				if len(tmInstanceUpdate.Finalizers) > 0 {
-					return true
-				} else {
-					return false
+					if tmInstanceUpdate.Status.Address != nil {
+						return tmInstanceUpdate.Status.Address.URL != nil && tmInstanceUpdate.Status.URL != nil
+					}
 				}
+				return false
 			}, timeout).Should(BeTrue())
+
+			tmExpectedURL := predictorUrl.String() + constants.PredictPath(tmInstanceUpdate.Name, isvc.Spec.Predictor.GetImplementation().GetProtocol())
+			tmExpectedAddressURL := clusterURL.String() + constants.PredictPath(tmInstanceUpdate.Name, isvc.Spec.Predictor.GetImplementation().GetProtocol())
+			Expect(cmp.Diff(tmInstanceUpdate.Status.URL.String(), tmExpectedURL)).To(Equal(""))
+			Expect(cmp.Diff(tmInstanceUpdate.Status.Address.URL.String(), tmExpectedAddressURL)).To(Equal(""))
 
 			updatedModelUri := "s3//model2"
 			tmInstanceUpdate.Spec.Model.StorageURI = updatedModelUri

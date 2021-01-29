@@ -22,6 +22,7 @@ package v1alpha1
 
 import (
 	runtime "k8s.io/apimachinery/pkg/runtime"
+	"knative.dev/pkg/apis"
 	"knative.dev/pkg/apis/duck/v1"
 )
 
@@ -120,6 +121,11 @@ func (in *TrainedModelSpec) DeepCopy() *TrainedModelSpec {
 func (in *TrainedModelStatus) DeepCopyInto(out *TrainedModelStatus) {
 	*out = *in
 	in.Status.DeepCopyInto(&out.Status)
+	if in.URL != nil {
+		in, out := &in.URL, &out.URL
+		*out = new(apis.URL)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.Address != nil {
 		in, out := &in.Address, &out.Address
 		*out = new(v1.Addressable)

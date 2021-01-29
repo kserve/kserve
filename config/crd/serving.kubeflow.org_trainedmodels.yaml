@@ -96,6 +96,8 @@ spec:
             observedGeneration:
               format: int64
               type: integer
+            url:
+              type: string
           type: object
       type: object
   version: v1alpha1
