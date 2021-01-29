@@ -349,9 +349,38 @@ class KFServingClient(object):
                     "Exception when calling CustomObjectsApi->create_namespaced_custom_object:\
                      %s\n" % e)
 
+    def delete_trained_model(
+        self, name, namespace=None, version=constants.KFSERVING_V1ALPHA1_VERSION
+    ):
+        """
+        Delete the trained model
+        :param name: trained model name
+        :param namespace: defaults to current or default namespace
+        :param version: api group version
+        :return:
+        """
+        if namespace is None:
+            namespace = utils.get_default_target_namespace()
+
+        try:
+            return self.api_instance.delete_namespaced_custom_object(
+                constants.KFSERVING_GROUP,
+                version,
+                namespace,
+                constants.KFSERVING_PLURAL_TRAINEDMODEL,
+                name,
+            )
+        except client.rest.ApiException as e:
+            raise RuntimeError(
+                "Exception when calling CustomObjectsApi->delete_namespaced_custom_object:\
+                 %s\n"
+                % e
+            )
+
     def wait_model_ready(self, service_name, model_name, isvc_namespace=None, # pylint:disable=too-many-arguments
                          isvc_version=constants.KFSERVING_V1BETA1_VERSION,
                          cluster_ip=None,
+                         protocol_version="v1",
                          timeout_seconds=600,
                          polling_interval=10):
         """
@@ -360,6 +389,7 @@ class KFServingClient(object):
         :param model_name: trained model name
         :param isvc_namespace: defaults to current or default namespace of inference service
         :param isvc_version: api group version of inference service
+        :param protocol_version: version of the dataplane protocol
         :param cluster_ip: ip of the kuberenetes cluster
         :param timeout_seconds: timeout seconds for waiting, default to 600s.
           Print out the InferenceService if timeout.
@@ -378,7 +408,7 @@ class KFServingClient(object):
         for _ in range(round(timeout_seconds/polling_interval)):
             time.sleep(polling_interval)
             # Check model health API
-            url = f"http://{cluster_ip}/v1/models/{model_name}"
+            url = f"http://{cluster_ip}/{protocol_version}/models/{model_name}"
             response = requests.get(url, headers=headers).status_code
             if response == 200:
                 return
