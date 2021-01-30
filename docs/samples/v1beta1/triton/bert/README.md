@@ -164,7 +164,7 @@ MODEL_NAME=bert-v2
 INPUT_PATH=@./input.json
 SERVICE_HOSTNAME=$(kubectl get inferenceservices bert-v2 -o jsonpath='{.status.url}' | cut -d "/" -f 3)
 
-curl -v -H "Host: ${SERVICE_HOSTNAME}" -d $INPUT_PATH http://${INGRESS_HOST}:${INGRESS_PORT}/v2/models/$MODEL_NAME/infer
+curl -v -H "Host: ${SERVICE_HOSTNAME}" -d $INPUT_PATH http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/$MODEL_NAME:predict
 ```
 
 Expected output
