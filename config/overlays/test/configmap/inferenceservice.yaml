@@ -18,7 +18,7 @@ data:
         },
         "sklearn": {
           "v1": {
-            "image": "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/sklearnserver",
+            "image": "809251082950.dkr.ecr.us-west-2.amazonaws.com/kfserving/sklearnserver",
             "defaultImageVersion": "latest"
           },
           "v2": {
@@ -28,7 +28,7 @@ data:
         },
         "xgboost": {
           "v1": {
-            "image": "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/xgbserver",
+            "image": "809251082950.dkr.ecr.us-west-2.amazonaws.com/kfserving/xgbserver",
             "defaultImageVersion": "latest"
           },
           "v2": {
@@ -61,11 +61,11 @@ data:
             "defaultImageVersion": "20.08-py3"
         },
         "pmml": {
-            "image": "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/pmmlserver",
+            "image": "809251082950.dkr.ecr.us-west-2.amazonaws.com/kfserving/pmmlserver",
             "defaultImageVersion": "latest"
         },
         "lightgbm": {
-            "image": "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/lgbserver",
+            "image": "809251082950.dkr.ecr.us-west-2.amazonaws.com/kfserving/lgbserver",
             "defaultImageVersion": "latest"
         }
     }
@@ -75,21 +75,21 @@ data:
   explainers: |-
     {
         "alibi": {
-            "image" : "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/alibi-explainer",
+            "image" : "809251082950.dkr.ecr.us-west-2.amazonaws.com/kfserving/alibi-explainer",
             "defaultImageVersion": "latest"
         },
         "aix": {
-            "image" : "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/aix-explainer",
+            "image" : "809251082950.dkr.ecr.us-west-2.amazonaws.com/kfserving/aix-explainer",
             "defaultImageVersion": "latest"
         },
         "art": {
-            "image" : "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/art-explainer",
+            "image" : "809251082950.dkr.ecr.us-west-2.amazonaws.com/kfserving/art-explainer",
             "defaultImageVersion": "latest"
         }
     }
   storageInitializer: |-
     {
-        "image" : "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/storage-initializer:latest",
+        "image" : "809251082950.dkr.ecr.us-west-2.amazonaws.com/kfserving/storage-initializer:latest",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
@@ -112,7 +112,7 @@ data:
     }
   logger: |-
     {
-        "image" : "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/agent:latest",
+        "image" : "809251082950.dkr.ecr.us-west-2.amazonaws.com/kfserving/agent:latest",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
@@ -121,7 +121,7 @@ data:
     }
   batcher: |-
     {
-        "image" : "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/batcher:latest",
+        "image" : "809251082950.dkr.ecr.us-west-2.amazonaws.com/kfserving/batcher:latest",
         "memoryRequest": "100Mi",
         "memoryLimit": "500Mi",
         "cpuRequest": "100m",
@@ -129,7 +129,7 @@ data:
     }
   agent: |-
     {
-        "image" : "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/agent:latest",
+        "image" : "809251082950.dkr.ecr.us-west-2.amazonaws.com/kfserving/agent:latest",
         "memoryRequest": "100Mi",
         "memoryLimit": "500Mi",
         "cpuRequest": "100m",

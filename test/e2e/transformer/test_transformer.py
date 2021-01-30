@@ -49,7 +49,7 @@ def test_transformer():
             min_replicas=1,
             custom=V1alpha2CustomSpec(
                 container=V1Container(
-                  image='527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/image-transformer:latest',
+                  image='809251082950.dkr.ecr.us-west-2.amazonaws.com/kfserving/image-transformer:latest',
                   name='kfserving-container',
                   resources=V1ResourceRequirements(
                     requests={'cpu': '100m', 'memory': '256Mi'},
