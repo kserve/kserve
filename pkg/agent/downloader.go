@@ -64,6 +64,7 @@ func (d *Downloader) DownloadModel(modelName string, modelSpec *v1alpha1.ModelSp
 			if err != nil {
 				return errors.Wrapf(createErr, "failed to write the success file")
 			}
+			d.Logger.Infof("Creating successFile %s", successFile)
 		} else if err == nil {
 			d.Logger.Infof("Model successFile exists already for %s", modelName)
 		} else {
