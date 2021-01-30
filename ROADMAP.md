@@ -1,6 +1,19 @@
 # KF Serving Roadmap
 ## 2021
-### v0.6 Inference Graph
+### Multi Model Serving Phase Two
+Objective: "Make multi model serving production ready"
+* Trained model status probing and propagate CRD status
+* Memory based Trained model sharding
+* Scalability and Performance testing
+
+Proposal: https://docs.google.com/document/d/1D_SF_RpMbItnupjnIlGazPmq9yzVd4RzP1yDfOK0KdY/edit
+
+### Kubernetes Deployment
+Objective: "Enable raw kubernetes deployment as alternative mode"
+* Support existing ML frameworks
+* Unlock knative limitations
+
+### Inference Graph
 Objective: "Enable model serving pipelines with flexible routing graph"
 * Inference Router
     * Model Experimentation.
@@ -9,6 +22,8 @@ Objective: "Enable model serving pipelines with flexible routing graph"
     * Pipeline
  
 Proposal: https://docs.google.com/document/d/1rV8kI_40oiv8jMhY_LwkkyKLdOwSI1Qda-Dc6Dgjz1g
+
+### Batch Prediction
 
 # Historical
 ### v0.5 API Stabilization and TCO Reduction(Jan, 2021)
