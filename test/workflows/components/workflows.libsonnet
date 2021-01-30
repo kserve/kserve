@@ -45,7 +45,7 @@
       local srcDir = srcRootDir + "/kubeflow/kfserving";
       local pylintSrcDir = srcDir + "/python";
       local kanikoExecutorImage = "gcr.io/kaniko-project/executor:v1.0.0";
-      local testWorkerImage = "527798164940.dkr.ecr.us-west-2.amazonaws.com/aws-kubeflow-ci/test-worker:latest";
+      local testWorkerImage = "public.ecr.aws/j1r0q0g6/kubeflow-testing:latest";
       local golangImage = "golang:1.9.4-stretch";
       // TODO(jose5918) Build our own helm image
       local pythonImage = "python:3.6-jessie";
