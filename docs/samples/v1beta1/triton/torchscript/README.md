@@ -265,25 +265,24 @@ metadata:
   name: torch-transfomer
 spec:
   predictor:
-      triton:
-        storageUri: gs://kfserving-examples/models/torchscript
-        runtimeVersion: 20.10-py3
-        env:
-        - name: OMP_NUM_THREADS
-          value: "1"
+    triton:
+      storageUri: gs://kfserving-examples/models/torchscript
+      runtimeVersion: 20.10-py3
+      env:
+      - name: OMP_NUM_THREADS
+        value: "1"
   transformer:
-      custom:
-        container:
-          image: $DOCKER_USER/image-transformer-v2:latest
-          command:
-            - "python"
-            - "-m"
-            - "image_transformer_v2"
-          args:
-            - --model_name
-            - cifar10
-            - --protocol
-            - v2
+    containers:
+    - image: $DOCKER_USER/image-transformer-v2:latest
+      command:
+      - "python"
+      - "-m"
+      - "image_transformer_v2"
+      args:
+      - --model_name
+      - cifar10
+      - --protocol
+      - v2
 ```
 
 ```
@@ -319,7 +318,7 @@ INPUT_PATH=@./image.json
 
 SERVICE_HOSTNAME=$(kubectl get inferenceservice $SERVICE_NAME -o jsonpath='{.status.url}' | cut -d "/" -f 3)
 
-curl -v -X POST -H "Host: ${SERVICE_HOSTNAME}" https://${INGRESS_HOST}:${INGRESS_PORT}/v2/models/$MODEL_NAME/infer -d $INPUT_PATH
+curl -v -X POST -H "Host: ${SERVICE_HOSTNAME}" https://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/$MODEL_NAME/predict -d $INPUT_PATH
 ```
 
 You should see an output similar to the one below:

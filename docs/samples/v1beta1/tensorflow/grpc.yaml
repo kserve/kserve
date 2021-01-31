@@ -1,7 +1,7 @@
 apiVersion: "serving.kubeflow.org/v1beta1"
 kind: "InferenceService"
 metadata:
-  name: "tensorflow-grpc"
+  name: "flower-grpc"
 spec:
   predictor:
     tensorflow:
