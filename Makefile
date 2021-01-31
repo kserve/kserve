@@ -12,6 +12,7 @@ ALIBI_IMG ?= alibi-explainer
 STORAGE_INIT_IMG ?= storage-initializer
 CRD_OPTIONS ?= "crd:maxDescLen=0"
 KFSERVING_ENABLE_SELF_SIGNED_CA ?= false
+CHECK_IF_FAILED ?= true
 
 # CPU/Memory limits for controller-manager
 KFSERVING_CONTROLLER_CPU_LIMIT ?= 100m
