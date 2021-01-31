@@ -1,7 +1,7 @@
 apiVersion: "serving.kubeflow.org/v1beta1"
 kind: "InferenceService"
 metadata:
-  name: "tensorflow-canary"
+  name: "flower-example"
 spec:
   predictor:
     canaryTrafficPercent: 20
