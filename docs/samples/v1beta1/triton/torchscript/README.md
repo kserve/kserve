@@ -207,21 +207,6 @@ spec:
         value: "1"
 ```
 
-### Run a prediction with triton python client
-First setup Magic DNS(xip.io)
-```bash
-kubectl apply --filename https://github.com/knative/serving/releases/download/$VERSION/serving-default-domain.yaml
-```
-
-Install `tritonclient` and invoke the gRPC endpoint
-```python
-import tritonclient.grpc as grpcclient
-
-triton_client = grpcclient.InferenceServerClient(url="http://torchscript-cifar.default.35.237.217.209.xip.io")
-inputs = [grpcclient.InferInput("INPUT__0", [1,3,32,32], "FP32")]
-outputs = [grpcclient.InferRequestedOutput("OUTPUT__0")]
-triton_client.infer("cifar", inputs=inputs, outputs=outputs)
-```
 
 
 ## Run a performance test
@@ -318,17 +303,17 @@ spec:
         value: "1"
   transformer:
     containers:
-      - image: yuzisun/image-transformer-v2:latest
-        name: kfserving-container
-        command:
-        - "python"
-        - "-m"
-        - "image_transformer_v2"
-        args:
-        - --model_name
-        - cifar10
-        - --protocol
-        - v2
+    - image: yuzisun/image-transformer-v2:latest
+      name: kfserving-container
+      command:
+      - "python"
+      - "-m"
+      - "image_transformer_v2"
+      args:
+      - --model_name
+      - cifar10
+      - --protocol
+      - v2
 ```
 
 ```
@@ -364,7 +349,7 @@ INPUT_PATH=@./image.json
 
 SERVICE_HOSTNAME=$(kubectl get inferenceservice $SERVICE_NAME -o jsonpath='{.status.url}' | cut -d "/" -f 3)
 
-curl -v -X POST -H "Host: ${SERVICE_HOSTNAME}" https://${INGRESS_HOST}:${INGRESS_PORT}/v2/models/$MODEL_NAME/infer -d $INPUT_PATH
+curl -v -X POST -H "Host: ${SERVICE_HOSTNAME}" https://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/$MODEL_NAME:predict -d $INPUT_PATH
 ```
 
 You should see an output similar to the one below:
