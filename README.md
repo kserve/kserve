@@ -46,16 +46,20 @@ generation [script](./hack/self-signed-ca.sh).
 #### Standalone KFServing Installation
 KFServing can be installed standalone if your kubernetes cluster meets the above prerequisites and KFServing controller is deployed in `kfserving-system` namespace.
 
-For Kubernetes 1.16+ users
 ```
 TAG=v0.5.0
-# Install KFServing CRD
-# For new install
-kubectl create -f ./install/$TAG/kfserving_crd.yaml
-# For upgrade, due to https://github.com/kubernetes-sigs/kubebuilder/issues/1140 we suggest using `replace` instead of `apply`
-kubectl replace -f ./install/$TAG/kfserving_crd.yaml
+```
 
-# Install KFServing Controller
+Install KFServing CRD
+
+Due to [large last applied annotation issue](https://github.com/kubernetes-sigs/kubebuilder/issues/1140) with `kubectl apply` we recommend using `kubectl replace` for upgrading crd.
+```shell
+kubectl replace -f ./install/$TAG/kfserving_crd.yaml || kubectl create -f ./install/$TAG/kfserving_crd.yaml
+```
+
+Install KFServing Controller
+
+```shell
 kubectl apply -f ./install/$TAG/kfserving.yaml
 ```
 
@@ -196,9 +200,7 @@ If the default ingress gateway setup does not fit your need, you can choose to s
 - [Configure HTTPS Connection](https://knative.dev/docs/serving/using-a-tls-cert/)
 
 ### Setup Monitoring
-- [Metrics](https://knative.dev/docs/serving/accessing-metrics/)
 - [Tracing](https://knative.dev/docs/serving/accessing-traces/)
-- [Logging](https://knative.dev/docs/serving/accessing-logs/)
 - [Dashboard for ServiceMesh](https://istio.io/latest/docs/tasks/observability/kiali/)
 
 ### Use KFServing SDK
@@ -220,6 +222,8 @@ If the default ingress gateway setup does not fit your need, you can choose to s
 [KFServing v1alpha2 API Docs](./docs/apis/v1alpha2/README.md)
 
 [KFServing v1beta1 API Docs](./docs/apis/v1beta1/README.md)
+
+[Supported PodTemplate Fields](https://knative.dev/docs/serving/feature-flags/)
 
 ### KFServing Debugging Guide :star:
 [Debug KFServing InferenceService](./docs/KFSERVING_DEBUG_GUIDE.md)

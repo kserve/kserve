@@ -40,7 +40,7 @@ The second version of the data-plane protocol addresses several issues found wit
 The V2 protocol proposes both HTTP/REST and GRPC APIs. See the [complete proposal](/docs/predict-api/v2) for more information.
 
 ## Control Plane
-KFServing control plane reconciles the `InferenceService` and `TrainedModel` custom resources, it creates the serverless deployment for predictor, transformer, explainer to enable
+KFServing Control Plane: Responsible for reconciling the `InferenceService` and `TrainedModel` custom resources. Addtionally it creates the serverless deployment for predictor, transformer, explainer to enable
 autoscaling based on incoming request workload including scaling down to zero when no traffic is received.
 
 ![Architect](./diagrams/kfs_architect.png)

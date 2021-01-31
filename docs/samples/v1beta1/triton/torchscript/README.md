@@ -182,11 +182,7 @@ expected output
 ## Inference with gRPC endpoint
 
 ### Create the InferenceService
-Create the inference service yaml and expose the gRPC port, currently only one port is allowed to expose either HTTP or gRPC port and by
-default HTTP port is exposed.
-```
-kubectl apply -f torchscript.yaml
-```
+Create the inference service yaml and expose the gRPC port, currently only one port is allowed to expose either HTTP or gRPC port and by default HTTP port is exposed.
 
 ```yaml
 apiVersion: serving.kubeflow.org/v1beta1
@@ -207,6 +203,11 @@ spec:
         value: "1"
 ```
 
+Apply the gRPC `InferenceService` yaml and then you can call the model with `tritonclient` python library after `InferenceService` is ready.
+```
+kubectl apply -f torchscript_grpc.yaml
+```
+
 
 
 ## Run a performance test
@@ -224,9 +225,9 @@ Status Codes  [code:count]                      200:6000
 Error Set:
 ```
 
-## Add Transformer on the InferenceService
+## Add Transformer to the InferenceService
 
-`Triton Inference Server` expects tensors as input data, often the time a pre-processing step is required before making the prediction call
+`Triton Inference Server` expects tensors as input data, often times a pre-processing step is required before making the prediction call
 when the user is sending in request with raw input format. Transformer component can be specified on InferenceService spec for user implemented pre/post processing code.
 User is responsible to create a python class which extends from KFServing `KFModel` base class which implements `preprocess` handler to transform raw input
 format to tensor format according to V2 prediction protocol, `postprocess` handle is to convert raw prediction response to a more user friendly response.
@@ -303,7 +304,7 @@ spec:
         value: "1"
   transformer:
     containers:
-    - image: yuzisun/image-transformer-v2:latest
+    - image: kfserving/image-transformer-v2:latest
       name: kfserving-container
       command:
       - "python"

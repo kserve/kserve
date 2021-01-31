@@ -10,8 +10,12 @@ Proposal: https://docs.google.com/document/d/1D_SF_RpMbItnupjnIlGazPmq9yzVd4RzP1
 
 ### Kubernetes Deployment
 Objective: "Enable raw kubernetes deployment as alternative mode"
-* Support existing ML frameworks
-* Unlock knative limitations
+* Support existing ML frameworks, transformer/explainer, logger and batching
+* Make Istio/KNative optional and unlock KNative limitations
+  * Allow multiple volumes mounted
+  * Allow TCP/UDP
+
+https://github.com/kubeflow/kfserving/issues/1320
 
 ### Inference Graph
 Objective: "Enable model serving pipelines with flexible routing graph"
@@ -23,7 +27,12 @@ Objective: "Enable model serving pipelines with flexible routing graph"
  
 Proposal: https://docs.google.com/document/d/1rV8kI_40oiv8jMhY_LwkkyKLdOwSI1Qda-Dc6Dgjz1g
 
-### Batch Prediction
+### Batch Inference
+Objective: "Enable batch inference with large dataset"
+* Event trigger based batch inference
+* On-demand batch inference job
+
+https://github.com/kubeflow/kfserving/issues/369
 
 # Historical
 ### v0.5 API Stabilization and TCO Reduction(Jan, 2021)
@@ -47,7 +56,7 @@ Objective: "Reduce Total Cost of Ownership when deploying multiple underutilized
 
 Proposal: https://docs.google.com/document/d/11qETyR--oOIquQke-DCaLsZY75vT1hRu21PesSUDy7o
 
-### v0.4 Performance(Oct, 2020)
+### v0.4 Performance(July, 2020)
 Objective: "Prevent performance regressions across a known set of representative models."
 * Automated Performance Tests
     * Define a set of Models to test covering a wide array of use cases and frameworks.
