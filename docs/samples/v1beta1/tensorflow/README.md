@@ -1,12 +1,25 @@
-
-# Predict on a InferenceService using Tensorflow
+# Predict on an InferenceService with Tensorflow model
 ## Setup
 1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/blob/master/docs/DEVELOPER_GUIDE.md#deploy-kfserving).
 2. Your cluster's Istio Ingress gateway must be network accessible.
 
 
-## Create the InferenceService
-Apply the CRD
+## Create the InferenceService with HTTP
+ 
+Create an `InferenceService` yaml which specifies the framework `tensorflow` and `storageUri` that is pointed to a saved tensorflow model,
+by default it exposes a HTTP/REST endpoint.
+```yaml
+apiVersion: "serving.kubeflow.org/v1beta1"
+kind: "InferenceService"
+metadata:
+  name: "flower-sample"
+spec:
+  predictor:
+    tensorflow:
+      storageUri: "gs://kfserving-samples/models/tensorflow/flowers"
+```
+
+Apply the `tensorflow.yaml` to create the `InferenceService`.
 ```
 kubectl apply -f tensorflow.yaml 
 ```
@@ -16,6 +29,13 @@ Expected Output
 $ inferenceservice.serving.kubeflow.org/flower-sample created
 ```
 
+Wait the `InferenceService` to be in ready state
+```shell
+kubectl get isvc flower-sample
+NAME            URL                                        READY   PREV   LATEST   PREVROLLEDOUTREVISION        LATESTREADYREVISION                     AGE
+flower-sample   http://flower-sample.default.example.com   True           100                                   flower-sample-predictor-default-n9zs6   7m15s
+```
+ 
 ### Run a prediction
 The first step is to [determine the ingress IP and ports](../../../README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
 ```
@@ -57,23 +77,55 @@ Expected Output
 
 ## Canary Rollout
 
-To test a canary rollout, you can apply the canary.yaml 
+Canary rollout is a great way to control the risk of rolling out a new model by first moving a small percent of the traffic to it and then gradually increase the percentage. 
+To run a canary rollout, you can apply the `canary.yaml` with the `canaryTrafficPercent` field specified.
 
-Apply the CRD
+```yaml
+apiVersion: "serving.kubeflow.org/v1beta1"
+kind: "InferenceService"
+metadata:
+  name: "flower-example"
+spec:
+  predictor:
+    canaryTrafficPercent: 20
+    tensorflow:
+      storageUri: "gs://kfserving-samples/models/tensorflow/flowers-2"
+```
+
 ```
 kubectl apply -f canary.yaml 
 ```
 
-To verify if your traffic split percentage is applied correctly, you can use the following command:
+To verify if the traffic split percentage is applied correctly, you can run the following command:
 
 ```
 kubectl get isvc flower-sample
 NAME            URL                                        READY   PREV   LATEST   PREVROLLEDOUTREVISION                   LATESTREADYREVISION                     AGE
-flower-sample   http://flower-sample.default.example.com   True    90     10       flower-sample-predictor-default-n9zs6   flower-sample-predictor-default-2kwtr   7m15s
+flower-sample   http://flower-sample.default.example.com   True    80     20       flower-sample-predictor-default-n9zs6   flower-sample-predictor-default-2kwtr   7m15s
 ```
 
+As you can see the traffic is split between the last rolled out revision and the current latest ready revision, KFServing automatically tracks the last rolled out(stable) revision for you so you
+do not need to maintain both default and canary on the `InferenceService` as in v1alpha2.
+
+
 ## Create the InferenceService with gRPC
-Apply the CRD
+Create `InferenceService` which exposes the gRPC port and by default it listens on port 9000.
+```yaml
+apiVersion: "serving.kubeflow.org/v1beta1"
+kind: "InferenceService"
+metadata:
+  name: "flower-grpc"
+spec:
+  predictor:
+    tensorflow:
+      storageUri: "gs://kfserving-samples/models/tensorflow/flowers"
+      ports:
+        - containerPort: 9000
+          name: h2c
+          protocol: TCP
+```
+
+Apply `grpc.yaml` to create the gRPC InferenceService.
 ```
 kubectl apply -f grpc.yaml 
 ```
@@ -84,8 +136,8 @@ $ inferenceservice.serving.kubeflow.org/flower-grpc created
 ```
 
 ### Run a prediction
-We will be using a python gRPC client for our prediction, so we need to create a python virtual environment and
-install the tensorflow-serving-api. 
+We use a python gRPC client for the prediction, so you need to create a python virtual environment and
+install the `tensorflow-serving-api`. 
 ```shell
 # The prediction script is written in TensorFlow 1.x
 pip install tensorflow-serving-api>=1.14.0,<2.0.0
