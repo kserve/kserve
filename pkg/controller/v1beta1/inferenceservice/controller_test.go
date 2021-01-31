@@ -256,7 +256,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 										},
 									},
 									Destination: &istiov1alpha3.Destination{
-										Host: network.GetServiceHostname("cluster-local-gateway", "istio-system"),
+										Host: network.GetServiceHostname("knative-local-gateway", "istio-system"),
 										Port: &istiov1alpha3.PortSelector{Number: constants.CommonDefaultHttpPort},
 									},
 									Weight: 100,
