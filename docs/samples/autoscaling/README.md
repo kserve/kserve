@@ -301,8 +301,9 @@ Details (average, fastest, slowest):
 Status code distribution:
   [200]	4292 responses
 ```
+## Autoscaling Customization
 
-## Autoscaling with ContainerConcurrency
+### Autoscaling with ContainerConcurrency
 `ContainerConcurrency` determines the number of simultaneous requests that can be processed by each replica of the `InferenceService`
 at any given time, it is a hard limit and if the concurrency reaches the hard limit surplus requests will be buffered and must wait until
 enough capacity is free to execute the requests.
@@ -321,4 +322,20 @@ spec:
 
 ```bash
 kubectl apply -f autoscale_custom.yaml
+```
+
+### Enable scale down to zero
+KFServing by default sets `minReplicas` to 1, if you want to enable scaling down to zero especially for use cases like serving on GPUs you can
+set `minReplicas` to 0 so that the pods automatically scale down to zero when no traffic is received.
+
+```yaml
+apiVersion: "serving.kubeflow.org/v1beta1"
+kind: "InferenceService"
+metadata:
+  name: "flowers-sample"
+spec:
+  predictor:
+    minReplicas: 0
+    tensorflow:
+      storageUri: "gs://kfserving-samples/models/tensorflow/flowers"
 ```
