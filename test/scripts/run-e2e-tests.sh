@@ -121,7 +121,7 @@ kubectl wait --for=condition=Ready pods --all --timeout=180s -n kfserving-system
 
 echo "Creating a namespace kfserving-ci-test ..."
 kubectl create namespace kfserving-ci-e2e-test
-kubectl label namespace kfserving-ci-e2e-test istio-injection=enabled
+
 echo "Istio, Knative and KFServing have been installed and started."
 
 echo "Installing KFServing Python SDK ..."
