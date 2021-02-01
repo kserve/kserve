@@ -345,7 +345,7 @@ func (ir *IngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
 	if url, err := apis.ParseURL(serviceUrl); err == nil {
 		isvc.Status.URL = url
 		path := ""
-		if !utils.IsMMSPredictor(&isvc.Spec.Predictor) {
+		if !utils.IsMMSPredictor(&isvc.Spec.Predictor, ir.client) {
 			if isvc.Spec.Predictor.GetImplementation().GetProtocol() == constants.ProtocolV2 {
 				path = constants.PredictPath(isvc.Name, constants.ProtocolV2)
 			} else {

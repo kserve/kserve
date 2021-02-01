@@ -16,13 +16,16 @@ limitations under the License.
 
 package utils
 
-import v1beta1api "github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
+import (
+	v1beta1api "github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+)
 
 // Only enable MMS predictor for sklearn and xgboost model server
-// TODO should read the InferenceService configmap to decide if MMS should be enabled for this predictor
-func IsMMSPredictor(predictor *v1beta1api.PredictorSpec) bool {
-	if (predictor.SKLearn != nil || predictor.XGBoost != nil || predictor.Triton != nil) && predictor.GetImplementation().GetStorageUri() == nil {
-		return true
+func IsMMSPredictor(predictor *v1beta1api.PredictorSpec, client client.Client) bool {
+	isvcConfig, err := v1beta1api.NewInferenceServicesConfig(client)
+	if err != nil {
+		return false
 	}
-	return false
+	return predictor.GetImplementation().IsMMS(isvcConfig) && predictor.GetImplementation().GetStorageUri() == nil
 }
