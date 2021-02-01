@@ -79,3 +79,7 @@ func (o *ONNXRuntimeSpec) GetStorageUri() *string {
 func (o *ONNXRuntimeSpec) GetProtocol() constants.InferenceServiceProtocol {
 	return constants.ProtocolV1
 }
+
+func (o *ONNXRuntimeSpec) IsMMS(config *InferenceServicesConfig) bool {
+	return config.Predictors.ONNX.MultiModelServer
+}
