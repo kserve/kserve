@@ -115,10 +115,12 @@ func TestXGBoostDefaulter(t *testing.T) {
 				V1: &PredictorConfig{
 					ContainerImage:      "xgboost",
 					DefaultImageVersion: "v0.4.0",
+					MultiModelServer:    true,
 				},
 				V2: &PredictorConfig{
 					ContainerImage:      "mlserver",
 					DefaultImageVersion: "v0.1.2",
+					MultiModelServer:    true,
 				},
 			},
 		},
@@ -234,6 +236,7 @@ func TestCreateXGBoostModelServingContainerV1(t *testing.T) {
 				V1: &PredictorConfig{
 					ContainerImage:      "someOtherImage",
 					DefaultImageVersion: "0.1.0",
+					MultiModelServer:    true,
 				},
 			},
 		},
@@ -374,10 +377,12 @@ func TestCreateXGBoostModelServingContainerV2(t *testing.T) {
 				V1: &PredictorConfig{
 					ContainerImage:      "someOtherImage",
 					DefaultImageVersion: "0.1.0",
+					MultiModelServer:    true,
 				},
 				V2: &PredictorConfig{
 					ContainerImage:      "mlserver",
 					DefaultImageVersion: "0.1.2",
+					MultiModelServer:    true,
 				},
 			},
 		},

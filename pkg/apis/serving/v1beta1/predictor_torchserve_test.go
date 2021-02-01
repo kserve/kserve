@@ -38,10 +38,12 @@ func TestTorchServeValidation(t *testing.T) {
 				V1: &PredictorConfig{
 					ContainerImage:      "pytorchserver",
 					DefaultImageVersion: "latest",
+					MultiModelServer:    false,
 				},
 				V2: &PredictorConfig{
 					ContainerImage:      "kfserving/torchserve-kfs",
 					DefaultImageVersion: "0.3.0",
+					MultiModelServer:    false,
 				},
 			},
 		},
@@ -154,10 +156,12 @@ func TestTorchServeDefaulter(t *testing.T) {
 				V1: &PredictorConfig{
 					ContainerImage:      "pytorchserver",
 					DefaultImageVersion: "latest",
+					MultiModelServer:    false,
 				},
 				V2: &PredictorConfig{
 					ContainerImage:      "kfserving/torchserve-kfs",
 					DefaultImageVersion: "0.3.0",
+					MultiModelServer:    false,
 				},
 			},
 		},
@@ -283,6 +287,7 @@ func TestCreateTorchServeModelServingContainerV1(t *testing.T) {
 				V1: &PredictorConfig{
 					ContainerImage:      "someOtherImage",
 					DefaultImageVersion: "0.2.0",
+					MultiModelServer:    false,
 				},
 			},
 		},
@@ -458,10 +463,12 @@ func TestCreateTorchServeModelServingContainerV2(t *testing.T) {
 				V1: &PredictorConfig{
 					ContainerImage:      "someOtherImage",
 					DefaultImageVersion: "0.1.0",
+					MultiModelServer:    false,
 				},
 				V2: &PredictorConfig{
 					ContainerImage:      "kfserving/torchserve-kfs",
 					DefaultImageVersion: "0.3.0",
+					MultiModelServer:    false,
 				},
 			},
 		},

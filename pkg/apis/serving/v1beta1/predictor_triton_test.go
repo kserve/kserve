@@ -113,6 +113,7 @@ func TestTritonDefaulter(t *testing.T) {
 			Triton: PredictorConfig{
 				ContainerImage:      "tritonserver",
 				DefaultImageVersion: "20.03-py3",
+				MultiModelServer:    true,
 			},
 		},
 	}
@@ -199,6 +200,7 @@ func TestCreateTritonContainer(t *testing.T) {
 			Triton: PredictorConfig{
 				ContainerImage:      "tritonserver",
 				DefaultImageVersion: "20.03-py3",
+				MultiModelServer:    true,
 			},
 		},
 	}

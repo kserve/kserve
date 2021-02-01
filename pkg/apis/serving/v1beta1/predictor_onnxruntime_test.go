@@ -113,6 +113,7 @@ func TestONNXRuntimeDefaulter(t *testing.T) {
 			ONNX: PredictorConfig{
 				ContainerImage:      "onnxruntime",
 				DefaultImageVersion: "v1.0.0",
+				MultiModelServer:    false,
 			},
 		},
 	}
@@ -199,6 +200,7 @@ func TestCreateONNXRuntimeContainer(t *testing.T) {
 			ONNX: PredictorConfig{
 				ContainerImage:      "mcr.microsoft.com/onnxruntime/server",
 				DefaultImageVersion: "v1.0.0",
+				MultiModelServer:    false,
 			},
 		},
 	}

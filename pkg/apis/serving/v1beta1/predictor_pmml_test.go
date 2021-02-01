@@ -113,6 +113,7 @@ func TestPMMLDefaulter(t *testing.T) {
 			PMML: PredictorConfig{
 				ContainerImage:      "pmmlserver",
 				DefaultImageVersion: "v0.4.0",
+				MultiModelServer:    false,
 			},
 		},
 	}
@@ -199,6 +200,7 @@ func TestCreatePMMLModelServingContainer(t *testing.T) {
 			PMML: PredictorConfig{
 				ContainerImage:      "someOtherImage",
 				DefaultImageVersion: "0.1.0",
+				MultiModelServer:    false,
 			},
 		},
 	}

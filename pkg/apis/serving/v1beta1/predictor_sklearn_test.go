@@ -116,10 +116,12 @@ func TestSKLearnDefaulter(t *testing.T) {
 				V1: &PredictorConfig{
 					ContainerImage:      "sklearnserver",
 					DefaultImageVersion: "v0.4.0",
+					MultiModelServer:    true,
 				},
 				V2: &PredictorConfig{
 					ContainerImage:      "mlserver",
 					DefaultImageVersion: "0.1.2",
+					MultiModelServer:    true,
 				},
 			},
 		},
@@ -237,6 +239,7 @@ func TestCreateSKLearnModelServingContainerV1(t *testing.T) {
 				V1: &PredictorConfig{
 					ContainerImage:      "someOtherImage",
 					DefaultImageVersion: "0.2.0",
+					MultiModelServer:    true,
 				},
 			},
 		},
@@ -403,10 +406,12 @@ func TestCreateSKLearnModelServingContainerV2(t *testing.T) {
 				V1: &PredictorConfig{
 					ContainerImage:      "someOtherImage",
 					DefaultImageVersion: "0.1.0",
+					MultiModelServer:    true,
 				},
 				V2: &PredictorConfig{
 					ContainerImage:      "mlserver",
 					DefaultImageVersion: "0.1.2",
+					MultiModelServer:    true,
 				},
 			},
 		},

@@ -113,6 +113,7 @@ func TestLightGBMDefaulter(t *testing.T) {
 			LightGBM: PredictorConfig{
 				ContainerImage:      "lightgbm",
 				DefaultImageVersion: "v0.4.0",
+				MultiModelServer:    true,
 			},
 		},
 	}
@@ -195,6 +196,7 @@ func TestCreateLightGBMModelServingContainer(t *testing.T) {
 			LightGBM: PredictorConfig{
 				ContainerImage:      "someOtherImage",
 				DefaultImageVersion: "0.1.0",
+				MultiModelServer:    true,
 			},
 		},
 	}

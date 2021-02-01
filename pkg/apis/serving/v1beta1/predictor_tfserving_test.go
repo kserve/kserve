@@ -38,6 +38,7 @@ func TestTensorflowValidation(t *testing.T) {
 				DefaultImageVersion:    "1.14.0",
 				DefaultGpuImageVersion: "1.14.0-gpu",
 				DefaultTimeout:         60,
+				MultiModelServer:       false,
 			},
 		},
 	}
@@ -150,6 +151,7 @@ func TestTensorflowDefaulter(t *testing.T) {
 				DefaultImageVersion:    "1.14.0",
 				DefaultGpuImageVersion: "1.14.0-gpu",
 				DefaultTimeout:         60,
+				MultiModelServer:       false,
 			},
 		},
 	}
@@ -268,6 +270,7 @@ func TestCreateTFServingContainer(t *testing.T) {
 				ContainerImage:      "tfserving",
 				DefaultImageVersion: "1.14.0",
 				DefaultTimeout:      60,
+				MultiModelServer:    false,
 			},
 		},
 	}
