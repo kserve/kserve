@@ -45,7 +45,7 @@
       local srcDir = srcRootDir + "/kubeflow/kfserving";
       local pylintSrcDir = srcDir + "/python";
       local kanikoExecutorImage = "gcr.io/kaniko-project/executor:v1.0.0";
-      local testWorkerImage = "527798164940.dkr.ecr.us-west-2.amazonaws.com/aws-kubeflow-ci/test-worker:latest";
+      local testWorkerImage = "public.ecr.aws/j1r0q0g6/kubeflow-testing:latest";
       local golangImage = "golang:1.9.4-stretch";
       // TODO(jose5918) Build our own helm image
       local pythonImage = "python:3.6-jessie";
@@ -89,11 +89,11 @@
         buildTemplate(step_name, image, command, env_vars=[], volume_mounts=[]):: {
           name: step_name,
           retryStrategy: {
-            limit: 3,
+            limit: "3",
             retryPolicy: "Always",
             backoff: {
-              duration: 1,
-              factor: 2,
+              duration: "1",
+              factor: "2",
               maxDuration: "1m",
             },
           },
@@ -181,7 +181,6 @@
         },
         spec: {
           entrypoint: "e2e",
-          ttlSecondsAfterFinished: 86400,
           volumes: [
             {
               name: "github-token",
@@ -346,79 +345,79 @@
               "/kaniko/executor",
               "--dockerfile=" + srcDir + "/Dockerfile",
               "--context=dir://" + srcDir,
-              "--destination=" + "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/kfserving-controller:$(PULL_BASE_SHA)",
+              "--destination=" + "809251082950.dkr.ecr.us-west-2.amazonaws.com/kfserving/kfserving-controller:$(PULL_BASE_SHA)",
             ]),  // build-kfserving
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-alibi-explainer", kanikoExecutorImage, [
               "/kaniko/executor",
               "--dockerfile=" + srcDir + "/python/alibiexplainer.Dockerfile",
               "--context=dir://" + srcDir + "/python",
-              "--destination=" + "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/alibi-explainer:$(PULL_BASE_SHA)",
+              "--destination=" + "809251082950.dkr.ecr.us-west-2.amazonaws.com/kfserving/alibi-explainer:$(PULL_BASE_SHA)",
             ]),  // build-alibi-explainer
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-aix-explainer", kanikoExecutorImage, [
               "/kaniko/executor",
               "--dockerfile=" + srcDir + "/python/aixexplainer.Dockerfile",
               "--context=dir://" + srcDir + "/python",
-              "--destination=" + "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/aix-explainer:$(PULL_BASE_SHA)",
+              "--destination=" + "809251082950.dkr.ecr.us-west-2.amazonaws.com/kfserving/aix-explainer:$(PULL_BASE_SHA)",
             ]),  // build-aix-explainer
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-art-explainer", kanikoExecutorImage, [
               "/kaniko/executor",
               "--dockerfile=" + srcDir + "/python/artexplainer.Dockerfile",
               "--context=dir://" + srcDir + "/python",
-              "--destination=" + "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/art-explainer:$(PULL_BASE_SHA)",
+              "--destination=" + "809251082950.dkr.ecr.us-west-2.amazonaws.com/kfserving/art-explainer:$(PULL_BASE_SHA)",
             ]),  // build-art-explainer
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-storage-initializer", kanikoExecutorImage, [
               "/kaniko/executor",
               "--dockerfile=" + srcDir + "/python/storage-initializer.Dockerfile",
               "--context=dir://" + srcDir + "/python",
-              "--destination=" + "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/storage-initializer:$(PULL_BASE_SHA)",
+              "--destination=" + "809251082950.dkr.ecr.us-west-2.amazonaws.com/kfserving/storage-initializer:$(PULL_BASE_SHA)",
             ]),  // build-storage-initializer
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-xgbserver", kanikoExecutorImage, [
               "/kaniko/executor",
               "--dockerfile=" + srcDir + "/python/xgb.Dockerfile",
               "--context=dir://" + srcDir + "/python",
-              "--destination=" + "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/xgbserver:$(PULL_BASE_SHA)",
+              "--destination=" + "809251082950.dkr.ecr.us-west-2.amazonaws.com/kfserving/xgbserver:$(PULL_BASE_SHA)",
             ]),  // build-xgbserver
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-agent", kanikoExecutorImage, [
               "/kaniko/executor",
               "--dockerfile=" + srcDir + "/agent.Dockerfile",
               "--context=dir://" + srcDir,
-              "--destination=" + "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/agent:$(PULL_BASE_SHA)",
+              "--destination=" + "809251082950.dkr.ecr.us-west-2.amazonaws.com/kfserving/agent:$(PULL_BASE_SHA)",
             ]),  // build-agent
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-custom-image-transformer", kanikoExecutorImage, [
               "/kaniko/executor",
               "--dockerfile=" + srcDir + "/docs/samples/v1alpha2/transformer/image_transformer/transformer.Dockerfile",
               "--context=dir://" + srcDir + "/docs/samples/v1alpha2/transformer/image_transformer",
-              "--destination=" + "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/image-transformer:latest",
+              "--destination=" + "809251082950.dkr.ecr.us-west-2.amazonaws.com/kfserving/image-transformer:latest",
             ]),  // build-custom-image-transformer
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-pytorchserver", kanikoExecutorImage, [
               "/kaniko/executor",
               "--dockerfile=" + srcDir + "/python/pytorch.Dockerfile",
               "--context=dir://" + srcDir + "/python",
-              "--destination=" + "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/pytorchserver:$(PULL_BASE_SHA)",
+              "--destination=" + "809251082950.dkr.ecr.us-west-2.amazonaws.com/kfserving/pytorchserver:$(PULL_BASE_SHA)",
             ]),  // build-pytorchserver
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-pytorchserver-gpu", kanikoExecutorImage, [
               "/kaniko/executor",
               "--dockerfile=" + srcDir + "/python/pytorch-gpu.Dockerfile",
               "--context=dir://" + srcDir + "/python",
-              "--destination=" + "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/pytorchserver:$(PULL_BASE_SHA)-gpu",
+              "--destination=" + "809251082950.dkr.ecr.us-west-2.amazonaws.com/kfserving/pytorchserver:$(PULL_BASE_SHA)-gpu",
             ]),  // build-pytorchserver-gpu
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-sklearnserver", kanikoExecutorImage, [
               "/kaniko/executor",
               "--dockerfile=" + srcDir + "/python/sklearn.Dockerfile",
               "--context=dir://" + srcDir + "/python",
-              "--destination=" + "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/sklearnserver:$(PULL_BASE_SHA)",
+              "--destination=" + "809251082950.dkr.ecr.us-west-2.amazonaws.com/kfserving/sklearnserver:$(PULL_BASE_SHA)",
             ]),  // build-sklearnserver
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-pmmlserver", kanikoExecutorImage, [
                 "/kaniko/executor",
                 "--dockerfile=" + srcDir + "/python/pmml.Dockerfile",
                 "--context=dir://" + srcDir + "/python",
-                "--destination=" + "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/pmmlserver:$(PULL_BASE_SHA)",
+                "--destination=" + "809251082950.dkr.ecr.us-west-2.amazonaws.com/kfserving/pmmlserver:$(PULL_BASE_SHA)",
             ]),  // build-pmmlserver
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-lgbserver", kanikoExecutorImage, [
                 "/kaniko/executor",
                 "--dockerfile=" + srcDir + "/python/lgb.Dockerfile",
                 "--context=dir://" + srcDir + "/python",
-                "--destination=" + "527798164940.dkr.ecr.us-west-2.amazonaws.com/kfserving/lgbserver:$(PULL_BASE_SHA)",
+                "--destination=" + "809251082950.dkr.ecr.us-west-2.amazonaws.com/kfserving/lgbserver:$(PULL_BASE_SHA)",
             ]),  // build-lgbserver
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("unit-test", testWorkerImage, [
               "test/scripts/unit-test.sh",

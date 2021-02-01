@@ -170,5 +170,5 @@ popd
 
 echo "Starting E2E functional tests ..."
 pushd test/e2e >/dev/null
-  pytest -n 3 --ignore=credentials/test_set_creds.py
+  pytest -n 3 --ignore=credentials/test_set_creds.py --ignore=predictor/test_lightgbm.py
 popd
