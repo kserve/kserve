@@ -17,11 +17,12 @@ limitations under the License.
 package agent
 
 import (
-	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 	"github.com/pkg/errors"
-	"k8s.io/apimachinery/pkg/api/resource"
+	"go.uber.org/zap"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -31,34 +32,39 @@ type FileError error
 
 var NoSuccessFile FileError = fmt.Errorf("no success file can be found")
 
-func SyncModelDir(modelDir string) (map[string]modelWrapper, error) {
+func SyncModelDir(modelDir string, logger *zap.SugaredLogger) (map[string]modelWrapper, error) {
+	logger.Infof("Syncing from model dir %s", modelDir)
 	modelTracker := make(map[string]modelWrapper)
 	err := filepath.Walk(modelDir, func(path string, info os.FileInfo, err error) error {
-		if info.IsDir() {
-			modelName := info.Name()
-			ierr := filepath.Walk(path, func(path string, f os.FileInfo, _ error) error {
-				if !f.IsDir() {
-					base := filepath.Base(path)
-					baseSplit := strings.SplitN(base, ".", 4)
-					if baseSplit[0] == "SUCCESS" {
-						if spec, e := successParse(baseSplit); e != nil {
-							return errors.Wrapf(err, "error parsing SUCCESS file")
-						} else {
-							modelTracker[modelName] = modelWrapper{
-								Spec:  spec,
-								stale: true,
-							}
-							return nil
-						}
-					}
+		if !info.IsDir() {
+			fileName := info.Name()
+			if strings.HasPrefix(fileName, "SUCCESS.") {
+				logger.Infof("Syncing from model success file %v", fileName)
+				dir := filepath.Dir(path)
+				dirSplit := strings.Split(dir, "/")
+				if len(dirSplit) < 2 {
+					return errors.Wrapf(err, "invalid model path")
 				}
-				return NoSuccessFile
-			})
-			switch ierr {
-			case NoSuccessFile:
-				return nil
-			default:
-				return errors.Wrapf(ierr, "failed to parse success file")
+				modelName := dirSplit[len(dirSplit)-1]
+
+				jsonFile, err := os.Open(path)
+				if err != nil {
+					return errors.Wrapf(err, "failed to parse success file")
+				}
+				byteValue, err := ioutil.ReadAll(jsonFile)
+				if err != nil {
+					return errors.Wrapf(err, "failed to read from model spec")
+				}
+				modelSpec := &v1alpha1.ModelSpec{}
+				err = json.Unmarshal(byteValue, &modelSpec)
+				if err != nil {
+					return errors.Wrapf(err, "failed to unmarshal model spec")
+				}
+				modelTracker[dirSplit[len(dirSplit)-1]] = modelWrapper{
+					Spec:  modelSpec,
+					stale: true,
+				}
+				logger.Infof("recovered model %s with spec %+v", modelName, modelSpec)
 			}
 		}
 		return nil
@@ -67,34 +73,4 @@ func SyncModelDir(modelDir string) (map[string]modelWrapper, error) {
 		return nil, errors.Wrapf(err, "error in syncing model dir")
 	}
 	return modelTracker, nil
-}
-
-func successParse(baseSplit []string) (*v1alpha1.ModelSpec, error) {
-	storageURI, err := unhash(baseSplit[1])
-	errorMessage := "unable to unhash the SUCCESS file, maybe the SUCCESS file has been modified?"
-	if err != nil {
-		return nil, errors.Wrapf(err, errorMessage)
-	}
-	framework, err := unhash(baseSplit[2])
-	if err != nil {
-		return nil, errors.Wrapf(err, errorMessage)
-	}
-	memory, err := unhash(baseSplit[3])
-	if err != nil {
-		return nil, errors.Wrapf(err, errorMessage)
-	}
-	memoryResource := resource.MustParse(memory)
-	return &v1alpha1.ModelSpec{
-		StorageURI: storageURI,
-		Framework:  framework,
-		Memory:     memoryResource,
-	}, nil
-}
-
-func unhash(s string) (string, error) {
-	decoded, err := hex.DecodeString(s)
-	if err != nil {
-		return "", nil
-	}
-	return string(decoded), nil
 }

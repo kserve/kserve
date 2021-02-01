@@ -18,11 +18,14 @@ package agent
 
 import (
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"github.com/kubeflow/kfserving/pkg/agent/storage"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
+	"io/ioutil"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -38,16 +41,14 @@ var SupportedProtocols = []storage.Protocol{storage.S3, storage.GCS}
 
 func (d *Downloader) DownloadModel(modelName string, modelSpec *v1alpha1.ModelSpec) error {
 	if modelSpec != nil {
-		modelUri := modelSpec.StorageURI
-		hashModelUri := hash(modelUri)
-		hashFramework := hash(modelSpec.Framework)
-		hashMemory := hash(modelSpec.Memory.String())
+		sha256 := storage.AsSha256(modelSpec)
 		successFile := filepath.Join(d.ModelDir, modelName,
-			fmt.Sprintf("SUCCESS.%s.%s.%s", hashModelUri, hashFramework, hashMemory))
-		d.Logger.Infof("Downloading %s to model dir %s", modelUri, d.ModelDir)
+			fmt.Sprintf("SUCCESS.%s", sha256))
+		d.Logger.Infof("Downloading %s to model dir %s", modelSpec.StorageURI, d.ModelDir)
 		// Download if the event there is a success file and the event is one which we wish to Download
-		if !storage.FileExists(successFile) {
-			if err := d.download(modelName, modelUri); err != nil {
+		_, err := os.Stat(successFile)
+		if os.IsNotExist(err) {
+			if err := d.download(modelName, modelSpec.StorageURI); err != nil {
 				return errors.Wrapf(err, "failed to download model")
 			}
 			file, createErr := storage.Create(successFile)
@@ -55,8 +56,19 @@ func (d *Downloader) DownloadModel(modelName string, modelSpec *v1alpha1.ModelSp
 			if createErr != nil {
 				return errors.Wrapf(createErr, "failed to create success file")
 			}
-		} else {
+			encodedJson, err := json.Marshal(modelSpec)
+			if err != nil {
+				return errors.Wrapf(createErr, "failed to encode model spec")
+			}
+			err = ioutil.WriteFile(successFile, encodedJson, 0644)
+			if err != nil {
+				return errors.Wrapf(createErr, "failed to write the success file")
+			}
+			d.Logger.Infof("Creating successFile %s", successFile)
+		} else if err == nil {
 			d.Logger.Infof("Model successFile exists already for %s", modelName)
+		} else {
+			d.Logger.Errorf("Model successFile error %v", err)
 		}
 	}
 	return nil
