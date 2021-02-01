@@ -63,6 +63,8 @@ type PredictorConfig struct {
 	DefaultGpuImageVersion string `json:"defaultGpuImageVersion"`
 	// Default timeout of predictor for serving a request, in seconds
 	DefaultTimeout int64 `json:"defaultTimeout,string,omitempty"`
+	// Flag to determine if multi-model serving is supported
+	MultiModelServer bool `json:"multiModelServer,boolean,omitempty"`
 }
 
 // +kubebuilder:object:generate=false
