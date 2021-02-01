@@ -30,6 +30,7 @@ import (
 	. "github.com/onsi/gomega"
 	"go.uber.org/zap"
 	"io/ioutil"
+	"k8s.io/apimachinery/pkg/api/resource"
 	logger "log"
 	"os"
 	"path/filepath"
@@ -65,6 +66,7 @@ var _ = Describe("Watcher", func() {
 						Spec: v1alpha1.ModelSpec{
 							StorageURI: "s3://models/model1",
 							Framework:  "sklearn",
+							Memory:     resource.MustParse("100Mi"),
 						},
 					},
 					{
@@ -72,6 +74,7 @@ var _ = Describe("Watcher", func() {
 						Spec: v1alpha1.ModelSpec{
 							StorageURI: "s3://models/model2",
 							Framework:  "sklearn",
+							Memory:     resource.MustParse("100Mi"),
 						},
 					},
 				}
@@ -96,6 +99,8 @@ var _ = Describe("Watcher", func() {
 				Eventually(func() int { return len(puller.channelMap) }).Should(Equal(0))
 				Eventually(func() int { return puller.opStats["model1"][Add] }).Should(Equal(1))
 				Eventually(func() int { return puller.opStats["model2"][Add] }).Should(Equal(1))
+				modelSpecMap, _ := SyncModelDir(modelDir+"/test1", watcher.logger)
+				Expect(watcher.modelTracker).Should(Equal(modelSpecMap))
 			})
 		})
 	})

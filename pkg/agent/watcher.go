@@ -37,9 +37,9 @@ type Watcher struct {
 }
 
 func NewWatcher(configDir string, modelDir string, logger *zap.SugaredLogger) Watcher {
-	modelTracker, err := SyncModelDir(modelDir)
+	modelTracker, err := SyncModelDir(modelDir, logger)
 	if err != nil {
-		logger.Error(err, "Failed to sync model dir")
+		logger.Errorf("Failed to sync model dir %v", err)
 	}
 	watcher := Watcher{
 		configDir:    configDir,
@@ -50,7 +50,7 @@ func NewWatcher(configDir string, modelDir string, logger *zap.SugaredLogger) Wa
 	modelConfigFile := fmt.Sprintf("%s/%s", configDir, constants.ModelConfigFileName)
 	err = watcher.syncModelConfig(modelConfigFile)
 	if err != nil {
-		logger.Error(err, "Failed to sync model config file")
+		logger.Errorf("Failed to sync model config file %v", err)
 	}
 	return watcher
 }

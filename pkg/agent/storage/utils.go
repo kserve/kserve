@@ -19,6 +19,7 @@ package storage
 import (
 	gstorage "cloud.google.com/go/storage"
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -35,7 +36,21 @@ import (
 
 func FileExists(filename string) bool {
 	info, err := os.Stat(filename)
-	return !os.IsNotExist(err) && !info.IsDir()
+	if os.IsNotExist(err) {
+		return false
+	}
+	if err == nil && !info.IsDir() {
+		return true
+	} else {
+		return false
+	}
+}
+
+func AsSha256(o interface{}) string {
+	h := sha256.New()
+	h.Write([]byte(fmt.Sprintf("%v", o)))
+
+	return fmt.Sprintf("%x", h.Sum(nil))
 }
 
 func Create(fileName string) (*os.File, error) {
