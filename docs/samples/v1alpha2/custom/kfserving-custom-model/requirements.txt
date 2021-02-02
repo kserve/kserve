@@ -5,7 +5,7 @@ azure-common==1.1.24
 azure-storage-blob==2.1.0
 azure-storage-common==2.1.0
 backcall==0.1.0
-bleach==3.1.4
+bleach==3.3.0
 cachetools==4.0.0
 certifi==2019.11.28
 cffi==1.14.0
