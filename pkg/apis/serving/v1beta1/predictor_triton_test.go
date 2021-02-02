@@ -324,3 +324,57 @@ func TestCreateTritonContainer(t *testing.T) {
 		})
 	}
 }
+
+func TestTritonIsMMS(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	multiModelServerCases := [2]bool{true, false}
+
+	for _, mmsCase := range multiModelServerCases {
+		config := InferenceServicesConfig{
+			Predictors: PredictorsConfig{
+				Triton: PredictorConfig{
+					ContainerImage:      "tritonserver",
+					DefaultImageVersion: "20.03-py3",
+					MultiModelServer:    mmsCase,
+				},
+			},
+		}
+		defaultResource = v1.ResourceList{
+			v1.ResourceCPU:    resource.MustParse("1"),
+			v1.ResourceMemory: resource.MustParse("2Gi"),
+		}
+		scenarios := map[string]struct {
+			spec     PredictorSpec
+			expected bool
+		}{
+			"DefaultRuntimeVersion": {
+				spec: PredictorSpec{
+					Triton: &TritonSpec{
+						PredictorExtensionSpec: PredictorExtensionSpec{},
+					},
+				},
+				expected: mmsCase,
+			},
+			"DefaultResources": {
+				spec: PredictorSpec{
+					Triton: &TritonSpec{
+						PredictorExtensionSpec: PredictorExtensionSpec{
+							RuntimeVersion: proto.String("20.05-py3"),
+						},
+					},
+				},
+				expected: mmsCase,
+			},
+		}
+
+		for name, scenario := range scenarios {
+			t.Run(name, func(t *testing.T) {
+				scenario.spec.Triton.Default(&config)
+				res := scenario.spec.Triton.IsMMS(&config)
+				if !g.Expect(res).To(gomega.Equal(scenario.expected)) {
+					t.Errorf("got %t, want %t", res, scenario.expected)
+				}
+			})
+		}
+	}
+}

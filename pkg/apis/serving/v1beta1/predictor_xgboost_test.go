@@ -554,3 +554,79 @@ func TestCreateXGBoostModelServingContainerV2(t *testing.T) {
 		})
 	}
 }
+
+func TestXGBoostIsMMS(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	multiModelServerCases := [2]bool{true, false}
+
+	for _, mmsCase := range multiModelServerCases {
+		config := InferenceServicesConfig{
+			Predictors: PredictorsConfig{
+				XGBoost: PredictorProtocols{
+					V1: &PredictorConfig{
+						ContainerImage:      "xgboost",
+						DefaultImageVersion: "v0.4.0",
+						MultiModelServer:    mmsCase,
+					},
+					V2: &PredictorConfig{
+						ContainerImage:      "mlserver",
+						DefaultImageVersion: "v0.1.2",
+						MultiModelServer:    mmsCase,
+					},
+				},
+			},
+		}
+
+		protocolV1 := constants.ProtocolV1
+		protocolV2 := constants.ProtocolV2
+
+		defaultResource = v1.ResourceList{
+			v1.ResourceCPU:    resource.MustParse("1"),
+			v1.ResourceMemory: resource.MustParse("2Gi"),
+		}
+
+		scenarios := map[string]struct {
+			spec     PredictorSpec
+			expected bool
+		}{
+			"DefaultRuntimeVersion": {
+				spec: PredictorSpec{
+					XGBoost: &XGBoostSpec{
+						PredictorExtensionSpec: PredictorExtensionSpec{},
+					},
+				},
+				expected: mmsCase,
+			},
+			"DefaultRuntimeVersionAndProtocol": {
+				spec: PredictorSpec{
+					XGBoost: &XGBoostSpec{
+						PredictorExtensionSpec: PredictorExtensionSpec{
+							ProtocolVersion: &protocolV1,
+						},
+					},
+				},
+				expected: mmsCase,
+			},
+			"DefaultRuntimeVersionAndProtocol2": {
+				spec: PredictorSpec{
+					XGBoost: &XGBoostSpec{
+						PredictorExtensionSpec: PredictorExtensionSpec{
+							ProtocolVersion: &protocolV2,
+						},
+					},
+				},
+				expected: mmsCase,
+			},
+		}
+
+		for name, scenario := range scenarios {
+			t.Run(name, func(t *testing.T) {
+				scenario.spec.XGBoost.Default(&config)
+				res := scenario.spec.XGBoost.IsMMS(&config)
+				if !g.Expect(res).To(gomega.Equal(scenario.expected)) {
+					t.Errorf("got %t, want %t", res, scenario.expected)
+				}
+			})
+		}
+	}
+}

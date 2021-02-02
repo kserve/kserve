@@ -269,3 +269,49 @@ func TestCreateCustomPredictorContainer(t *testing.T) {
 		})
 	}
 }
+
+func TestCustomPredictorIsMMS(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	config := InferenceServicesConfig{
+		Predictors: PredictorsConfig{},
+	}
+
+	defaultResource = v1.ResourceList{
+		v1.ResourceCPU:    resource.MustParse("1"),
+		v1.ResourceMemory: resource.MustParse("2Gi"),
+	}
+
+	mmsCase := false
+	scenarios := map[string]struct {
+		spec     PredictorSpec
+		expected bool
+	}{
+		"DefaultResources": {
+			spec: PredictorSpec{
+				PodSpec: PodSpec{
+					Containers: []v1.Container{
+						{
+							Env: []v1.EnvVar{
+								{
+									Name:  "STORAGE_URI",
+									Value: "hdfs://modelzoo",
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: mmsCase,
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			customPredictor := NewCustomPredictor(&scenario.spec.PodSpec)
+			res := customPredictor.IsMMS(&config)
+			if !g.Expect(res).To(gomega.Equal(scenario.expected)) {
+				t.Errorf("got %t, want %t", res, scenario.expected)
+			}
+		})
+	}
+}

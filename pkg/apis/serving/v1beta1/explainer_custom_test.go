@@ -342,3 +342,47 @@ func TestCreateCustomExplainerContainer(t *testing.T) {
 		})
 	}
 }
+
+func TestCustomExplainerIsMMS(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	config := InferenceServicesConfig{
+		Explainers: ExplainersConfig{},
+	}
+	defaultResource = v1.ResourceList{
+		v1.ResourceCPU:    resource.MustParse("1"),
+		v1.ResourceMemory: resource.MustParse("2Gi"),
+	}
+	mmsCase := false
+	scenarios := map[string]struct {
+		spec     ExplainerSpec
+		expected bool
+	}{
+		"DefaultResources": {
+			spec: ExplainerSpec{
+				PodSpec: PodSpec{
+					Containers: []v1.Container{
+						{
+							Env: []v1.EnvVar{
+								{
+									Name:  "STORAGE_URI",
+									Value: "hdfs://modelzoo",
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: mmsCase,
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			explainer := CustomExplainer{PodSpec: v1.PodSpec(scenario.spec.PodSpec)}
+			res := explainer.IsMMS(&config)
+			if !g.Expect(res).To(gomega.Equal(scenario.expected)) {
+				t.Errorf("got %t, want %t", res, scenario.expected)
+			}
+		})
+	}
+}
