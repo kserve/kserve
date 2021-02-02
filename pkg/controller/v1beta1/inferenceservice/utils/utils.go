@@ -18,14 +18,9 @@ package utils
 
 import (
 	v1beta1api "github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // Only enable MMS predictor for sklearn and xgboost model server
-func IsMMSPredictor(predictor *v1beta1api.PredictorSpec, client client.Client) bool {
-	isvcConfig, err := v1beta1api.NewInferenceServicesConfig(client)
-	if err != nil {
-		return false
-	}
+func IsMMSPredictor(predictor *v1beta1api.PredictorSpec, isvcConfig *v1beta1api.InferenceServicesConfig) bool {
 	return predictor.GetImplementation().IsMMS(isvcConfig) && predictor.GetImplementation().GetStorageUri() == nil
 }
