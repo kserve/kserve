@@ -21,7 +21,8 @@ data:
         "sklearn": {
           "v1": {
             "image": "809251082950.dkr.ecr.us-west-2.amazonaws.com/kfserving/sklearnserver",
-            "defaultImageVersion": "latest"
+            "defaultImageVersion": "latest",
+            "multiModelServer": true
           },
           "v2": {
             "image": "docker.io/seldonio/mlserver",
