@@ -65,12 +65,12 @@ type InferenceServiceReconciler struct {
 	Recorder record.EventRecorder
 }
 
-func (r *InferenceServiceReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
+func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	_ = context.Background()
 
 	// Fetch the InferenceService instance
 	isvc := &v1beta1api.InferenceService{}
-	if err := r.Get(context.TODO(), req.NamespacedName, isvc); err != nil {
+	if err := r.Get(ctx, req.NamespacedName, isvc); err != nil {
 		if apierr.IsNotFound(err) {
 			// Object not found, return.  Created objects are automatically garbage collected.
 			// For additional cleanup logic use finalizers.

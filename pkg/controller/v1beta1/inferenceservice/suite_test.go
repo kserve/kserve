@@ -15,13 +15,14 @@ package inferenceservice
 
 import (
 	"context"
+	"testing"
+
 	kfservingv1alpha1 "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	pkgtest "github.com/kubeflow/kfserving/pkg/testing"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"testing"
 
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
 	. "github.com/onsi/ginkgo"
@@ -52,7 +53,7 @@ func TestV1beta1APIs(t *testing.T) {
 }
 
 var _ = BeforeSuite(func(done Done) {
-	logf.SetLogger(zap.LoggerTo(GinkgoWriter, true))
+	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
 	By("bootstrapping test environment")
 	testEnv = pkgtest.SetupEnvTest()

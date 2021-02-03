@@ -84,10 +84,10 @@ func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 // Reconcile reads that state of the cluster for a Service object and makes changes based on the state read
 // and what is in the Service.Spec
-func (r *InferenceServiceReconciler) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
 	// Fetch the InferenceService instance
 	isvc := &kfserving.InferenceService{}
-	if err := r.Get(context.TODO(), request.NamespacedName, isvc); err != nil {
+	if err := r.Get(ctx, request.NamespacedName, isvc); err != nil {
 		if errors.IsNotFound(err) {
 			// Object not found, return.  Created objects are automatically garbage collected.
 			// For additional cleanup logic use finalizers.
@@ -97,7 +97,7 @@ func (r *InferenceServiceReconciler) Reconcile(request reconcile.Request) (recon
 	}
 	r.Log.Info("Reconciling inference service", "apiVersion", isvc.APIVersion, "isvc", isvc.Name)
 	configMap := &v1.ConfigMap{}
-	err := r.Get(context.TODO(), types.NamespacedName{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KFServingNamespace}, configMap)
+	err := r.Get(ctx, types.NamespacedName{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KFServingNamespace}, configMap)
 	if err != nil {
 		r.Log.Error(err, "Failed to find ConfigMap", "name", constants.InferenceServiceConfigMapName, "namespace", constants.KFServingNamespace)
 		// Error reading the object - requeue the request.
