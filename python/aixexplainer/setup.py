@@ -35,7 +35,8 @@ setup(
         "argparse >= 1.4.0",
         "aix360 >= 0.1.0",
         "lime >= 0.1.1.37",
-        "nest_asyncio>=1.4.0"
+        "nest_asyncio>=1.4.0",
+        "cvxpy == 1.1.7"
     ],
     tests_require=tests_require,
     extras_require={'test': tests_require}
