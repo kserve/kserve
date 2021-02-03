@@ -36,7 +36,8 @@ setup(
         "kfserving>=0.4.0",
         "lightgbm == 2.3.1",
         "pandas == 0.25.3",
-        "argparse >= 1.4.0"
+        "argparse >= 1.4.0",
+        "numpy == 1.19.5",
     ],
     tests_require=tests_require,
     extras_require={'test': tests_require}
