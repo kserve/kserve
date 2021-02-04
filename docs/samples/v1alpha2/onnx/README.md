@@ -18,7 +18,7 @@ $ inferenceservice.serving.kubeflow.org/style-sample configured
 ## Run a sample inference
 
 1. Setup env vars
-The first step is to [determine the ingress IP and ports](../../../README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
+The first step is to [determine the ingress IP and ports](../../../../README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
 
 ```
 export MODEL_NAME=style-sample
