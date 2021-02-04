@@ -75,7 +75,7 @@ data:
         "lightgbm": {
             "image": "809251082950.dkr.ecr.us-west-2.amazonaws.com/kfserving/lgbserver",
             "defaultImageVersion": "latest",
-            "multiModelServer": false
+            "multiModelServer": true
         }
     }
   transformers: |-
