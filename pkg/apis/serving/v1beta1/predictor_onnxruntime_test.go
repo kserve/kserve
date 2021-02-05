@@ -94,6 +94,26 @@ func TestOnnxRuntimeValidation(t *testing.T) {
 			},
 			matcher: gomega.Not(gomega.BeNil()),
 		},
+		"ValidModelExtension": {
+			spec: PredictorSpec{
+				ONNX: &ONNXRuntimeSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						StorageURI: proto.String("gs://my_model.onnx"),
+					},
+				},
+			},
+			matcher: gomega.BeNil(),
+		},
+		"InvalidModelExtension": {
+			spec: PredictorSpec{
+				ONNX: &ONNXRuntimeSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						StorageURI: proto.String("gs://my_model.txt"),
+					},
+				},
+			},
+			matcher: gomega.Not(gomega.BeNil()),
+		},
 	}
 
 	for name, scenario := range scenarios {
@@ -295,6 +315,36 @@ func TestCreateONNXRuntimeContainer(t *testing.T) {
 				Resources: requestedResource,
 				Args: []string{
 					"--model_path=/mnt/models/model.onnx",
+					"--http_port=8080",
+					"--grpc_port=9000",
+				},
+			},
+		},
+		"ContainerSpecWithNonDefaultFileName": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "onnx",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						ONNX: &ONNXRuntimeSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI:     proto.String("gs://my_model.onnx"),
+								RuntimeVersion: proto.String("v1.0.0"),
+								Container: v1.Container{
+									Resources: requestedResource,
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedContainerSpec: &v1.Container{
+				Image:     "mcr.microsoft.com/onnxruntime/server:v1.0.0",
+				Name:      constants.InferenceServiceContainerName,
+				Resources: requestedResource,
+				Args: []string{
+					"--model_path=/mnt/models/my_model.onnx",
 					"--http_port=8080",
 					"--grpc_port=9000",
 				},
