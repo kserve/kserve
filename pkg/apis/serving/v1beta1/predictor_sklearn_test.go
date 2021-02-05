@@ -116,10 +116,12 @@ func TestSKLearnDefaulter(t *testing.T) {
 				V1: &PredictorConfig{
 					ContainerImage:      "sklearnserver",
 					DefaultImageVersion: "v0.4.0",
+					MultiModelServer:    true,
 				},
 				V2: &PredictorConfig{
 					ContainerImage:      "mlserver",
 					DefaultImageVersion: "0.1.2",
+					MultiModelServer:    true,
 				},
 			},
 		},
@@ -237,6 +239,7 @@ func TestCreateSKLearnModelServingContainerV1(t *testing.T) {
 				V1: &PredictorConfig{
 					ContainerImage:      "someOtherImage",
 					DefaultImageVersion: "0.2.0",
+					MultiModelServer:    true,
 				},
 			},
 		},
@@ -403,10 +406,12 @@ func TestCreateSKLearnModelServingContainerV2(t *testing.T) {
 				V1: &PredictorConfig{
 					ContainerImage:      "someOtherImage",
 					DefaultImageVersion: "0.1.0",
+					MultiModelServer:    true,
 				},
 				V2: &PredictorConfig{
 					ContainerImage:      "mlserver",
 					DefaultImageVersion: "0.1.2",
+					MultiModelServer:    true,
 				},
 			},
 		},
@@ -576,5 +581,80 @@ func TestCreateSKLearnModelServingContainerV2(t *testing.T) {
 				t.Errorf("got %q, want %q", res, scenario.expectedContainerSpec)
 			}
 		})
+	}
+}
+
+func TestSKLearnIsMMS(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	multiModelServerCases := [2]bool{true, false}
+
+	for _, mmsCase := range multiModelServerCases {
+		config := InferenceServicesConfig{
+			Predictors: PredictorsConfig{
+				SKlearn: PredictorProtocols{
+					V1: &PredictorConfig{
+						ContainerImage:      "sklearnserver",
+						DefaultImageVersion: "v0.4.0",
+						MultiModelServer:    mmsCase,
+					},
+					V2: &PredictorConfig{
+						ContainerImage:      "mlserver",
+						DefaultImageVersion: "0.1.2",
+						MultiModelServer:    mmsCase,
+					},
+				},
+			},
+		}
+
+		protocolV1 := constants.ProtocolV1
+		protocolV2 := constants.ProtocolV2
+
+		defaultResource = v1.ResourceList{
+			v1.ResourceCPU:    resource.MustParse("1"),
+			v1.ResourceMemory: resource.MustParse("2Gi"),
+		}
+		scenarios := map[string]struct {
+			spec     PredictorSpec
+			expected bool
+		}{
+			"DefaultRuntimeVersion": {
+				spec: PredictorSpec{
+					SKLearn: &SKLearnSpec{
+						PredictorExtensionSpec: PredictorExtensionSpec{},
+					},
+				},
+				expected: mmsCase,
+			},
+			"DefaultRuntimeVersionAndProtocol": {
+				spec: PredictorSpec{
+					SKLearn: &SKLearnSpec{
+						PredictorExtensionSpec: PredictorExtensionSpec{
+							ProtocolVersion: &protocolV1,
+						},
+					},
+				},
+				expected: mmsCase,
+			},
+			"DefaultRuntimeVersionAndProtocol2": {
+				spec: PredictorSpec{
+					SKLearn: &SKLearnSpec{
+						PredictorExtensionSpec: PredictorExtensionSpec{
+							ProtocolVersion: &protocolV2,
+						},
+					},
+				},
+				expected: mmsCase,
+			},
+		}
+
+		for name, scenario := range scenarios {
+			t.Run(name, func(t *testing.T) {
+				scenario.spec.SKLearn.Default(&config)
+				res := scenario.spec.SKLearn.IsMMS(&config)
+				if !g.Expect(res).To(gomega.Equal(scenario.expected)) {
+					t.Errorf("got %t, want %t", res, scenario.expected)
+				}
+			})
+		}
 	}
 }

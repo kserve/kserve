@@ -38,6 +38,7 @@ func TestTensorflowValidation(t *testing.T) {
 				DefaultImageVersion:    "1.14.0",
 				DefaultGpuImageVersion: "1.14.0-gpu",
 				DefaultTimeout:         60,
+				MultiModelServer:       false,
 			},
 		},
 	}
@@ -150,6 +151,7 @@ func TestTensorflowDefaulter(t *testing.T) {
 				DefaultImageVersion:    "1.14.0",
 				DefaultGpuImageVersion: "1.14.0-gpu",
 				DefaultTimeout:         60,
+				MultiModelServer:       false,
 			},
 		},
 	}
@@ -268,6 +270,7 @@ func TestCreateTFServingContainer(t *testing.T) {
 				ContainerImage:      "tfserving",
 				DefaultImageVersion: "1.14.0",
 				DefaultTimeout:      60,
+				MultiModelServer:    false,
 			},
 		},
 	}
@@ -387,5 +390,79 @@ func TestCreateTFServingContainer(t *testing.T) {
 				t.Errorf("got %q, want %q", res, scenario.expectedContainerSpec)
 			}
 		})
+	}
+}
+
+func TestTensorflowIsMMS(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	multiModelServerCases := [2]bool{true, false}
+
+	for _, mmsCase := range multiModelServerCases {
+		config := InferenceServicesConfig{
+			Predictors: PredictorsConfig{
+				Tensorflow: PredictorConfig{
+					ContainerImage:         "tfserving",
+					DefaultImageVersion:    "1.14.0",
+					DefaultGpuImageVersion: "1.14.0-gpu",
+					DefaultTimeout:         60,
+					MultiModelServer:       mmsCase,
+				},
+			},
+		}
+		defaultResource = v1.ResourceList{
+			v1.ResourceCPU:    resource.MustParse("1"),
+			v1.ResourceMemory: resource.MustParse("2Gi"),
+		}
+		defaultGpuResource := v1.ResourceList{
+			v1.ResourceCPU:                  resource.MustParse("1"),
+			v1.ResourceMemory:               resource.MustParse("2Gi"),
+			constants.NvidiaGPUResourceType: resource.MustParse("1"),
+		}
+		scenarios := map[string]struct {
+			spec     PredictorSpec
+			expected bool
+		}{
+			"DefaultRuntimeVersion": {
+				spec: PredictorSpec{
+					Tensorflow: &TFServingSpec{
+						PredictorExtensionSpec: PredictorExtensionSpec{},
+					},
+				},
+				expected: mmsCase,
+			},
+			"DefaultGpuRuntimeVersion": {
+				spec: PredictorSpec{
+					Tensorflow: &TFServingSpec{
+						PredictorExtensionSpec: PredictorExtensionSpec{
+							Container: v1.Container{
+								Resources: v1.ResourceRequirements{
+									Requests: defaultGpuResource,
+									Limits:   defaultGpuResource,
+								},
+							},
+						},
+					},
+				},
+				expected: mmsCase,
+			},
+			"DefaultResources": {
+				spec: PredictorSpec{
+					Tensorflow: &TFServingSpec{
+						PredictorExtensionSpec: PredictorExtensionSpec{},
+					},
+				},
+				expected: mmsCase,
+			},
+		}
+
+		for name, scenario := range scenarios {
+			t.Run(name, func(t *testing.T) {
+				scenario.spec.Tensorflow.Default(&config)
+				res := scenario.spec.Tensorflow.IsMMS(&config)
+				if !g.Expect(res).To(gomega.Equal(scenario.expected)) {
+					t.Errorf("got %t, want %t", res, scenario.expected)
+				}
+			})
+		}
 	}
 }

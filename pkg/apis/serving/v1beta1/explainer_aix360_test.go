@@ -193,3 +193,40 @@ func TestCreateAIXExplainerContainerWithConfig(t *testing.T) {
 	container := spec.GetContainer(metav1.ObjectMeta{Name: "someName", Namespace: "default"}, &ComponentExtensionSpec, config)
 	g.Expect(container).To(gomega.Equal(expectedContainer))
 }
+
+func TestAIXExplainerIsMSS(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	config := InferenceServicesConfig{
+		Explainers: ExplainersConfig{
+			AIXExplainer: ExplainerConfig{
+				ContainerImage:      "aipipeline/aixexplainer",
+				DefaultImageVersion: "latest",
+			},
+		},
+	}
+
+	// Explainers do not have mms support
+	mssCase := false
+	scenarios := map[string]struct {
+		spec     AIXExplainerSpec
+		expected bool
+	}{
+		"AcceptGoodRuntimeVersion": {
+			spec: AIXExplainerSpec{
+				ExplainerExtensionSpec: ExplainerExtensionSpec{
+					RuntimeVersion: proto.String("latest"),
+				},
+			},
+			expected: mssCase,
+		},
+	}
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			scenario.spec.Default(&config)
+			res := scenario.spec.IsMMS(&config)
+			if !g.Expect(res).To(gomega.Equal(scenario.expected)) {
+				t.Errorf("got %t, want %t", res, scenario.expected)
+			}
+		})
+	}
+}

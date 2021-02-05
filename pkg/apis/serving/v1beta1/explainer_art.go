@@ -108,3 +108,7 @@ func (s *ARTExplainerSpec) Validate() error {
 func (s *ARTExplainerSpec) GetProtocol() constants.InferenceServiceProtocol {
 	return constants.ProtocolV1
 }
+
+func (s *ARTExplainerSpec) IsMMS(config *InferenceServicesConfig) bool {
+	return false
+}

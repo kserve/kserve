@@ -127,3 +127,7 @@ func (s *AlibiExplainerSpec) Validate() error {
 func (s *AlibiExplainerSpec) GetProtocol() constants.InferenceServiceProtocol {
 	return constants.ProtocolV1
 }
+
+func (s *AlibiExplainerSpec) IsMMS(config *InferenceServicesConfig) bool {
+	return false
+}

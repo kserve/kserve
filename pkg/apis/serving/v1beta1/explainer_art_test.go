@@ -193,3 +193,40 @@ func TestCreateARTExplainerContainerWithConfig(t *testing.T) {
 	container := spec.GetContainer(metav1.ObjectMeta{Name: "someName", Namespace: "default"}, &ComponentExtensionSpec, config)
 	g.Expect(container).To(gomega.Equal(expectedContainer))
 }
+
+func TestARTExplainerIsMMS(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	config := InferenceServicesConfig{
+		Explainers: ExplainersConfig{
+			ARTExplainer: ExplainerConfig{
+				ContainerImage:      "kfserving/art-server",
+				DefaultImageVersion: "latest",
+			},
+		},
+	}
+
+	// Explainer does not support MMS
+	mmsCase := false
+	scenarios := map[string]struct {
+		spec     ARTExplainerSpec
+		expected bool
+	}{
+		"AcceptGoodRuntimeVersion": {
+			spec: ARTExplainerSpec{
+				ExplainerExtensionSpec: ExplainerExtensionSpec{
+					RuntimeVersion: proto.String("latest"),
+				},
+			},
+			expected: mmsCase,
+		},
+	}
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			scenario.spec.Default(&config)
+			res := scenario.spec.IsMMS(&config)
+			if !g.Expect(res).To(gomega.Equal(scenario.expected)) {
+				t.Errorf("got %t, want %t", res, scenario.expected)
+			}
+		})
+	}
+}

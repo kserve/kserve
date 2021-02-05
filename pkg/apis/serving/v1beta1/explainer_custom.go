@@ -92,3 +92,8 @@ func (c *CustomExplainer) GetContainer(metadata metav1.ObjectMeta, extensions *C
 func (c *CustomExplainer) GetProtocol() constants.InferenceServiceProtocol {
 	return constants.ProtocolV1
 }
+
+func (c *CustomExplainer) IsMMS(config *InferenceServicesConfig) bool {
+	// TODO: dynamically figure out if custom explainer supports MMS
+	return false
+}

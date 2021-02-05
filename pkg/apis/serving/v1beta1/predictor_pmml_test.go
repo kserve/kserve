@@ -113,6 +113,7 @@ func TestPMMLDefaulter(t *testing.T) {
 			PMML: PredictorConfig{
 				ContainerImage:      "pmmlserver",
 				DefaultImageVersion: "v0.4.0",
+				MultiModelServer:    false,
 			},
 		},
 	}
@@ -199,6 +200,7 @@ func TestCreatePMMLModelServingContainer(t *testing.T) {
 			PMML: PredictorConfig{
 				ContainerImage:      "someOtherImage",
 				DefaultImageVersion: "0.1.0",
+				MultiModelServer:    false,
 			},
 		},
 	}
@@ -311,5 +313,59 @@ func TestCreatePMMLModelServingContainer(t *testing.T) {
 				t.Errorf("got %q, want %q", res, scenario.expectedContainerSpec)
 			}
 		})
+	}
+}
+
+func TestPMMLIsMNS(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	multiModelServerCases := [2]bool{true, false}
+
+	for _, mmsCase := range multiModelServerCases {
+		config := InferenceServicesConfig{
+			Predictors: PredictorsConfig{
+				PMML: PredictorConfig{
+					ContainerImage:      "pmmlserver",
+					DefaultImageVersion: "v0.4.0",
+					MultiModelServer:    mmsCase,
+				},
+			},
+		}
+		defaultResource = v1.ResourceList{
+			v1.ResourceCPU:    resource.MustParse("1"),
+			v1.ResourceMemory: resource.MustParse("2Gi"),
+		}
+		scenarios := map[string]struct {
+			spec     PredictorSpec
+			expected bool
+		}{
+			"DefaultRuntimeVersion": {
+				spec: PredictorSpec{
+					PMML: &PMMLSpec{
+						PredictorExtensionSpec: PredictorExtensionSpec{},
+					},
+				},
+				expected: mmsCase,
+			},
+			"DefaultResources": {
+				spec: PredictorSpec{
+					PMML: &PMMLSpec{
+						PredictorExtensionSpec: PredictorExtensionSpec{
+							RuntimeVersion: proto.String("v0.3.0"),
+						},
+					},
+				},
+				expected: mmsCase,
+			},
+		}
+
+		for name, scenario := range scenarios {
+			t.Run(name, func(t *testing.T) {
+				scenario.spec.PMML.Default(&config)
+				res := scenario.spec.PMML.IsMMS(&config)
+				if !g.Expect(res).To(gomega.Equal(scenario.expected)) {
+					t.Errorf("got %t, want %t", res, scenario.expected)
+				}
+			})
+		}
 	}
 }
