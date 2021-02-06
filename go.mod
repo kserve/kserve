@@ -9,7 +9,7 @@ require (
 	github.com/emicklei/go-restful v2.11.0+incompatible // indirect
 	github.com/fsnotify/fsnotify v1.4.9
 	github.com/getkin/kin-openapi v0.2.0
-	github.com/go-logr/logr v0.2.0
+	github.com/go-logr/logr v0.3.0
 	github.com/go-openapi/spec v0.19.6
 	github.com/gogo/protobuf v1.3.1
 	github.com/golang/protobuf v1.4.2
@@ -18,8 +18,7 @@ require (
 	github.com/googleapis/google-cloud-go-testing v0.0.0-20200911160855-bcd43fbb19e8
 	github.com/json-iterator/go v1.1.10
 	github.com/kelseyhightower/envconfig v1.4.0
-	github.com/mattbaird/jsonpatch v0.0.0-20171005235357-81af80346b1a // indirect
-	github.com/onsi/ginkgo v1.14.0
+	github.com/onsi/ginkgo v1.14.1
 	github.com/onsi/gomega v1.10.2
 	github.com/pkg/errors v0.9.1
 	github.com/satori/go.uuid v1.2.0
@@ -41,7 +40,7 @@ require (
 	knative.dev/networking v0.0.0-20200922180040-a71b40c69b15
 	knative.dev/pkg v0.0.0-20200922164940-4bf40ad82aab
 	knative.dev/serving v0.18.0
-	sigs.k8s.io/controller-runtime v0.6.3
+	sigs.k8s.io/controller-runtime v0.7.0
 )
 
 replace (
@@ -69,6 +68,4 @@ replace (
 	k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.19.2
 	k8s.io/test-infra => k8s.io/test-infra v0.0.0-20200803112140-d8aa4e063646
 	k8s.io/utils => k8s.io/utils v0.0.0-20200324210504-a9aa75ae1b89
-	// based on https://github.com/openshift/cluster-ingress-operator/pull/429/files#diff-33ef32bf6c23acb95f5902d7097b7a1d5128ca061167ec0716715b0b9eeaa5f6R34
-	sigs.k8s.io/controller-runtime => github.com/zchee/sigs.k8s-controller-runtime v0.6.1-0.20200623114430-46812d3a0a50
 )

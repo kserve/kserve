@@ -18,6 +18,9 @@ package service
 
 import (
 	"context"
+	"testing"
+	"time"
+
 	"github.com/kubeflow/kfserving/pkg/constants"
 	pkgtest "github.com/kubeflow/kfserving/pkg/testing"
 	. "github.com/onsi/ginkgo"
@@ -31,10 +34,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
-	"testing"
-	"time"
 )
 
 var cfg *rest.Config
@@ -50,7 +51,7 @@ func TestV1alpha2Controller(t *testing.T) {
 }
 
 var _ = BeforeSuite(func(done Done) {
-	logf.SetLogger(zap.LoggerTo(GinkgoWriter, true))
+	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 	By("bootstrapping test environment")
 
 	testEnv = pkgtest.SetupEnvTest()

@@ -27,6 +27,7 @@ package trainedmodel
 
 import (
 	"context"
+
 	"github.com/go-logr/logr"
 	v1alpha1api "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 	v1beta1api "github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
@@ -43,8 +44,8 @@ import (
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
 
 var log = logf.Log.WithName("TrainedModel controller")
@@ -58,10 +59,10 @@ type TrainedModelReconciler struct {
 	ModelConfigReconciler *modelconfig.ModelConfigReconciler
 }
 
-func (r *TrainedModelReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
+func (r *TrainedModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	// Fetch the TrainedModel instance
 	tm := &v1alpha1api.TrainedModel{}
-	if err := r.Get(context.TODO(), req.NamespacedName, tm); err != nil {
+	if err := r.Get(ctx, req.NamespacedName, tm); err != nil {
 		if errors.IsNotFound(err) {
 			// Object not found, return.  Created objects are automatically garbage collected.
 			// For additional cleanup logic use finalizers.

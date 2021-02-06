@@ -18,15 +18,17 @@ package logger
 
 import (
 	"bytes"
-	"github.com/go-logr/logr"
-	guuid "github.com/google/uuid"
-	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
 	"io/ioutil"
-	"knative.dev/pkg/network"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
+
+	"github.com/go-logr/logr"
+	guuid "github.com/google/uuid"
+	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
+	"knative.dev/pkg/network"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 type LoggerHandler struct {
@@ -42,7 +44,7 @@ type LoggerHandler struct {
 
 func New(logUrl *url.URL, sourceUri *url.URL, logMode v1beta1.LoggerType,
 	inferenceService string, namespace string, endpoint string, next http.Handler) http.Handler {
-	logf.SetLogger(logf.ZapLogger(false))
+	logf.SetLogger(zap.New())
 	return &LoggerHandler{
 		log:              logf.Log.WithName("Logger"),
 		logUrl:           logUrl,
