@@ -23,7 +23,7 @@ limitations under the License.
 package v1alpha2
 
 import (
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var logger = logf.Log.WithName("kfserving-v1alpha2-types")

@@ -479,8 +479,10 @@ func TestCreateVirtualService(t *testing.T) {
 				testIsvc.Spec.Explainer = &v1beta1.ExplainerSpec{}
 			}
 			ingressConfig := &v1beta1.IngressConfig{
-				IngressGateway:     constants.KnativeIngressGateway,
-				IngressServiceName: "someIngressServiceName",
+				IngressGateway:          constants.KnativeIngressGateway,
+				IngressServiceName:      "someIngressServiceName",
+				LocalGateway:            constants.KnativeLocalGateway,
+				LocalGatewayServiceName: "cluster-local-gateway.istio-system.svc.cluster.local",
 			}
 
 			actualService := createIngress(testIsvc, ingressConfig)

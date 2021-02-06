@@ -5,7 +5,7 @@ import (
 	"log"
 	"net"
 
-	pb "helloworld/proto"
+	pb "github.com/kubeflow/kfserving/docs/samples/v1alpha2/custom/grpc-server/proto"
 	"google.golang.org/grpc"
 	"golang.org/x/net/context"
 )

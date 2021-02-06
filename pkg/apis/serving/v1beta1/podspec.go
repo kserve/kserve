@@ -219,7 +219,7 @@ type PodSpec struct {
 	// PreemptionPolicy is the Policy for preempting pods with lower priority.
 	// One of Never, PreemptLowerPriority.
 	// Defaults to PreemptLowerPriority if unset.
-	// This field is alpha-level and is only honored by servers that enable the NonPreemptingPriority feature.
+	// This field is beta-level, gated by the NonPreemptingPriority feature-gate.
 	// +optional
 	PreemptionPolicy *v1.PreemptionPolicy `json:"preemptionPolicy,omitempty" protobuf:"bytes,31,opt,name=preemptionPolicy"`
 	// Overhead represents the resource overhead associated with running a pod for a given RuntimeClass.
@@ -234,8 +234,6 @@ type PodSpec struct {
 	Overhead v1.ResourceList `json:"overhead,omitempty" protobuf:"bytes,32,opt,name=overhead"`
 	// TopologySpreadConstraints describes how a group of pods ought to spread across topology
 	// domains. Scheduler will schedule pods in a way which abides by the constraints.
-	// This field is alpha-level and is only honored by clusters that enables the EvenPodsSpread
-	// feature.
 	// All topologySpreadConstraints are ANDed.
 	// +optional
 	// +patchMergeKey=topologyKey
@@ -244,4 +242,11 @@ type PodSpec struct {
 	// +listMapKey=topologyKey
 	// +listMapKey=whenUnsatisfiable
 	TopologySpreadConstraints []v1.TopologySpreadConstraint `json:"topologySpreadConstraints,omitempty" patchStrategy:"merge" patchMergeKey:"topologyKey" protobuf:"bytes,33,opt,name=topologySpreadConstraints"`
+	// If true the pod's hostname will be configured as the pod's FQDN, rather than the leaf name (the default).
+	// In Linux containers, this means setting the FQDN in the hostname field of the kernel (the nodename field of struct utsname).
+	// In Windows containers, this means setting the registry value of hostname for the registry key HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters to FQDN.
+	// If a pod does not have FQDN, this has no effect.
+	// Default to false.
+	// +optional
+	SetHostnameAsFQDN *bool `json:"setHostnameAsFQDN,omitempty" protobuf:"varint,35,opt,name=setHostnameAsFQDN"`
 }

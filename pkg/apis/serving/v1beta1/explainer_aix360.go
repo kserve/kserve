@@ -108,3 +108,7 @@ func (s *AIXExplainerSpec) Validate() error {
 func (s *AIXExplainerSpec) GetProtocol() constants.InferenceServiceProtocol {
 	return constants.ProtocolV1
 }
+
+func (s *AIXExplainerSpec) IsMMS(config *InferenceServicesConfig) bool {
+	return false
+}

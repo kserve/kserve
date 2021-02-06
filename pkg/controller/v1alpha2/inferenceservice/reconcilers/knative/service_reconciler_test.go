@@ -49,11 +49,12 @@ func TestKnativeServiceReconcile(t *testing.T) {
 
 	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
 	g.Expect(err).NotTo(gomega.HaveOccurred())
-	stopMgr, mgrStopped := testutils.StartTestManager(mgr, g)
+	ctx, cancel := context.WithCancel(context.Background())
+	mgrStopped := testutils.StartTestManager(ctx, mgr, g)
 	c := mgr.GetClient()
 
 	defer func() {
-		close(stopMgr)
+		cancel()
 		mgrStopped.Wait()
 	}()
 

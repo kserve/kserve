@@ -63,6 +63,8 @@ type PredictorConfig struct {
 	DefaultGpuImageVersion string `json:"defaultGpuImageVersion"`
 	// Default timeout of predictor for serving a request, in seconds
 	DefaultTimeout int64 `json:"defaultTimeout,string,omitempty"`
+	// Flag to determine if multi-model serving is supported
+	MultiModelServer bool `json:"multiModelServer,boolean,omitempty"`
 }
 
 // +kubebuilder:object:generate=false
@@ -108,8 +110,10 @@ type InferenceServicesConfig struct {
 
 // +kubebuilder:object:generate=false
 type IngressConfig struct {
-	IngressGateway     string `json:"ingressGateway,omitempty"`
-	IngressServiceName string `json:"ingressService,omitempty"`
+	IngressGateway          string `json:"ingressGateway,omitempty"`
+	IngressServiceName      string `json:"ingressService,omitempty"`
+	LocalGateway            string `json:"localGateway,omitempty"`
+	LocalGatewayServiceName string `json:"localGatewayService,omitempty"`
 }
 
 func NewInferenceServicesConfig(cli client.Client) (*InferenceServicesConfig, error) {

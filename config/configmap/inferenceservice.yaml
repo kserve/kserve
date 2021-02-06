@@ -14,7 +14,7 @@ data:
             "supportedFrameworks": [
               "tensorflow"
             ],
-            "multiModelServer": "false"
+            "multiModelServer": false
         },
         "onnx": {
             "image": "mcr.microsoft.com/onnxruntime/server",
@@ -22,7 +22,7 @@ data:
             "supportedFrameworks": [
               "onnx"
             ],
-            "multiModelServer": "false"
+            "multiModelServer": false
         },
         "sklearn": {
           "v1": {
@@ -31,7 +31,7 @@ data:
             "supportedFrameworks": [
               "sklearn"
             ],
-            "multiModelServer": "true"
+            "multiModelServer": true
           },
           "v2": {
             "image": "docker.io/seldonio/mlserver",
@@ -39,7 +39,7 @@ data:
             "supportedFrameworks": [
               "sklearn"
             ],
-            "multiModelServer": "true"
+            "multiModelServer": true
           }
         },
         "xgboost": {
@@ -49,7 +49,7 @@ data:
             "supportedFrameworks": [
               "xgboost"
             ],
-            "multiModelServer": "true"
+            "multiModelServer": true
           },
           "v2": {
             "image": "docker.io/seldonio/mlserver",
@@ -57,7 +57,7 @@ data:
             "supportedFrameworks": [
               "xgboost"
             ],
-            "multiModelServer": "true"
+            "multiModelServer": true
           }
         },
         "pytorch": {
@@ -68,7 +68,7 @@ data:
             "supportedFrameworks": [
               "pytorch"
             ],
-            "multiModelServer": "false"
+            "multiModelServer": false
           },
           "v2" : {
             "image": "kfserving/torchserve-kfs",
@@ -77,7 +77,7 @@ data:
             "supportedFrameworks": [
               "pytorch"
             ],
-            "multiModelServer": "false"
+            "multiModelServer": false
           }
         },
         "triton": {
@@ -90,7 +90,7 @@ data:
               "pytorch",
               "caffe2"
             ],
-            "multiModelServer": "true"
+            "multiModelServer": true
         },
         "pmml": {
             "image": "kfserving/pmmlserver",
@@ -98,7 +98,7 @@ data:
             "supportedFrameworks": [
               "pmml"
             ],
-            "multiModelServer": "false"
+            "multiModelServer": false
         },
         "lightgbm": {
             "image": "kfserving/lgbserver",
@@ -106,7 +106,7 @@ data:
             "supportedFrameworks": [
               "lightgbm"
             ],
-            "multiModelServer": "true"
+            "multiModelServer": true
         }
     }
   transformers: |-
@@ -149,6 +149,8 @@ data:
     {
         "ingressGateway" : $(ingressGateway)
         "ingressService" : "istio-ingressgateway.istio-system.svc.cluster.local"
+        "localGateway" : "cluster-local-gateway"
+        "localGatewayService" : "cluster-local-gateway.istio-system.svc.cluster.local"
     }
   logger: |-
     {

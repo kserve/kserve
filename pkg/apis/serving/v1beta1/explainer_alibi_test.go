@@ -361,3 +361,51 @@ func TestCreateAlibiModelServingContainer(t *testing.T) {
 		})
 	}
 }
+
+func TestAlibiIsMMS(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	config := InferenceServicesConfig{
+		Explainers: ExplainersConfig{
+			AlibiExplainer: ExplainerConfig{
+				ContainerImage:      "alibi",
+				DefaultImageVersion: "v0.4.0",
+			},
+		},
+	}
+
+	// MMS is not supported by explainer
+	mssCase := false
+	scenarios := map[string]struct {
+		spec     ExplainerSpec
+		expected bool
+	}{
+		"AcceptGoodRuntimeVersion": {
+			spec: ExplainerSpec{
+				Alibi: &AlibiExplainerSpec{
+					Type:           "AnchorTabular",
+					RuntimeVersion: proto.String("latest"),
+				},
+			},
+			expected: mssCase,
+		},
+		"ValidStorageUri": {
+			spec: ExplainerSpec{
+				Alibi: &AlibiExplainerSpec{
+					Type:       "AnchorTabular",
+					StorageURI: "s3://modelzoo",
+				},
+			},
+			expected: mssCase,
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			scenario.spec.Alibi.Default(&config)
+			res := scenario.spec.Alibi.IsMMS(&config)
+			if !g.Expect(res).To(gomega.Equal(scenario.expected)) {
+				t.Errorf("got %t, want %t", res, scenario.expected)
+			}
+		})
+	}
+}

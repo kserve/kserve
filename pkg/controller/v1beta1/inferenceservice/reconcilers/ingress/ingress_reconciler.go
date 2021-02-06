@@ -38,7 +38,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"strings"
 )
 
@@ -197,7 +197,7 @@ func createHTTPMatchRequest(prefix, targetHost, internalHost string, isInternal 
 					Regex: constants.HostRegExp(internalHost),
 				},
 			},
-			Gateways: []string{constants.KnativeLocalGateway},
+			Gateways: []string{config.LocalGateway},
 		},
 	}
 	if !isInternal {
@@ -266,7 +266,7 @@ func createIngress(isvc *v1beta1.InferenceService, config *v1beta1.IngressConfig
 			Match: createHTTPMatchRequest(constants.ExplainPrefix(), serviceHost,
 				network.GetServiceHostname(isvc.Name, isvc.Namespace), isInternal, config),
 			Route: []*istiov1alpha3.HTTPRouteDestination{
-				createHTTPRouteDestination(constants.DefaultExplainerServiceName(isvc.Name), isvc.Namespace, constants.LocalGatewayHost),
+				createHTTPRouteDestination(constants.DefaultExplainerServiceName(isvc.Name), isvc.Namespace, config.LocalGatewayServiceName),
 			},
 		}
 		httpRoutes = append(httpRoutes, &explainerRouter)
@@ -276,14 +276,14 @@ func createIngress(isvc *v1beta1.InferenceService, config *v1beta1.IngressConfig
 		Match: createHTTPMatchRequest("", serviceHost,
 			network.GetServiceHostname(isvc.Name, isvc.Namespace), isInternal, config),
 		Route: []*istiov1alpha3.HTTPRouteDestination{
-			createHTTPRouteDestination(backend, isvc.Namespace, constants.LocalGatewayHost),
+			createHTTPRouteDestination(backend, isvc.Namespace, config.LocalGatewayServiceName),
 		},
 	})
 	hosts := []string{
 		network.GetServiceHostname(isvc.Name, isvc.Namespace),
 	}
 	gateways := []string{
-		constants.KnativeLocalGateway,
+		config.LocalGateway,
 	}
 	if !isInternal {
 		hosts = append(hosts, serviceHost)
@@ -345,7 +345,11 @@ func (ir *IngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
 	if url, err := apis.ParseURL(serviceUrl); err == nil {
 		isvc.Status.URL = url
 		path := ""
-		if !utils.IsMMSPredictor(&isvc.Spec.Predictor) {
+		isvcConfig, err := v1beta1.NewInferenceServicesConfig(ir.client)
+		if err != nil {
+			return err
+		}
+		if !utils.IsMMSPredictor(&isvc.Spec.Predictor, isvcConfig) {
 			if isvc.Spec.Predictor.GetImplementation().GetProtocol() == constants.ProtocolV2 {
 				path = constants.PredictPath(isvc.Name, constants.ProtocolV2)
 			} else {

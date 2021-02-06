@@ -129,6 +129,8 @@ manifests: controller-gen
 	yq d -i config/crd/serving.kubeflow.org_inferenceservices.yaml 'spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.properties.livenessProbe.properties.httpGet.required'
 	yq d -i config/crd/serving.kubeflow.org_inferenceservices.yaml 'spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.properties.readinessProbe.properties.tcpSocket.required'
 	yq d -i config/crd/serving.kubeflow.org_inferenceservices.yaml 'spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.properties.livenessProbe.properties.tcpSocket.required'
+	yq d -i config/crd/serving.kubeflow.org_inferenceservices.yaml 'spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.*.properties.containers.items.properties.livenessProbe.properties.httpGet.required'
+	yq d -i config/crd/serving.kubeflow.org_inferenceservices.yaml 'spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.*.properties.containers.items.properties.readinessProbe.properties.httpGet.required'
 
 
 # Run go fmt against code

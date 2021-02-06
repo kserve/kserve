@@ -12,11 +12,40 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import pytest
+import avro.io, avro.schema, io, pytest, requests
+from cloudevents.http import CloudEvent, to_binary, to_structured
 from kfserving import kfmodel
 from kfserving import kfserver
 from tornado.httpclient import HTTPClientError
 from kfserving.kfmodel_repository import KFModelRepository
+
+test_avsc_schema = '''
+        {
+        "namespace": "example.avro",
+         "type": "record",
+         "name": "User",
+         "fields": [
+             {"name": "name", "type": "string"},
+             {"name": "favorite_number",  "type": ["int", "null"]},
+             {"name": "favorite_color", "type": ["string", "null"]}
+         ]
+        }
+        '''
+
+def dummy_cloud_event(data, set_contenttype=False):
+    # This data defines a binary cloudevent
+    attributes = {
+        "type": "com.example.sampletype1",
+        "source": "https://example.com/event-producer",
+        "specversion": "1.0",
+        "id": "36077800-0c23-4f38-a0b4-01f4369f670a",
+        "time": "2021-01-28T21:04:43.144141+00:00"
+    }
+    if set_contenttype:
+        attributes["contenttype"] = "application/json"
+
+    event = CloudEvent(attributes, data)
+    return event
 
 
 class DummyModel(kfmodel.KFModel):
@@ -33,6 +62,47 @@ class DummyModel(kfmodel.KFModel):
 
     async def explain(self, request):
         return {"predictions": request["instances"]}
+
+class DummyCEModel(kfmodel.KFModel):
+    def __init__(self, name):
+        super().__init__(name)
+        self.name = name
+        self.ready = False
+
+    def load(self):
+        self.ready = True
+
+    async def predict(self, request):
+        return {"predictions": request.data["instances"]}
+
+    async def explain(self, request):
+        return {"predictions": request.data["instances"]}
+
+class DummyAvroCEModel(kfmodel.KFModel):
+    def __init__(self, name):
+        super().__init__(name)
+        self.name = name
+        self.ready = False
+
+    def load(self):
+        self.ready = True
+
+    def _parserequest(self, request):
+        schema = avro.schema.parse(test_avsc_schema)
+        raw_bytes = request.data
+        bytes_reader = io.BytesIO(raw_bytes)
+        decoder = avro.io.BinaryDecoder(bytes_reader)
+        reader = avro.io.DatumReader(schema)
+        record1 = reader.read(decoder)
+        return record1
+
+    async def predict(self, request):
+        record1 = self._parserequest(request)
+        return {"predictions": [[record1['name'] , record1['favorite_number'], record1['favorite_color']]]}
+
+    async def explain(self, request):
+        record1 = self._parserequest(request)
+        return {"predictions": [[record1['name'] , record1['favorite_number'], record1['favorite_color']]]}
 
 
 class DummyKFModelRepository(KFModelRepository):
@@ -72,6 +142,19 @@ class TestTFHttpServer():
         resp = await http_server_client.fetch('/v1/models/TestModel:predict',
                                               method="POST",
                                               body=b'{"instances":[[1,2]]}')
+        assert resp.code == 200
+        assert resp.body == b'{"predictions": [[1, 2]]}'
+        assert resp.headers['content-type'] == "application/json; charset=UTF-8"
+
+    async def test_predict_ce_structured(self, http_server_client):
+
+        event = dummy_cloud_event({"instances":[[1,2]]})
+        headers, body = to_structured(event)
+        resp = await http_server_client.fetch('/v1/models/TestModel:predict',
+                                              method="POST",
+                                              headers=headers,
+                                              body=body)
+
         assert resp.code == 200
         assert resp.body == b'{"predictions": [[1, 2]]}'
         assert resp.headers['content-type'] == "application/json; charset=UTF-8"
@@ -141,3 +224,68 @@ class TestTFHttpServerModelNotLoaded():
         with pytest.raises(HTTPClientError) as excinfo:
             _ = await http_server_client.fetch('/v1/models/TestModel')
         assert excinfo.value.code == 503
+
+class TestTFHttpServerCloudEvent():
+
+    @pytest.fixture(scope="class")
+    def app(self):  # pylint: disable=no-self-use
+        model = DummyCEModel("TestModel")
+        server = kfserver.KFServer()
+        server.register_model(model)
+        return server.create_application()
+
+    async def test_predict_ce_binary(self, http_server_client):
+        event = dummy_cloud_event({"instances":[[1,2]]}, set_contenttype=True)
+        headers, body = to_binary(event)
+        resp = await http_server_client.fetch('/v1/models/TestModel:predict',
+                                              method="POST",
+                                              headers=headers,
+                                              body=body)
+
+        assert resp.code == 200
+        assert resp.body == b'{"predictions": [[1, 2]]}'
+        assert resp.headers['content-type'] == "application/x-www-form-urlencoded"
+        assert resp.headers['ce-specversion'] == "1.0"
+        assert resp.headers['ce-id'] == "36077800-0c23-4f38-a0b4-01f4369f670a"
+        assert resp.headers['ce-source'] == "https://example.com/event-producer"
+        assert resp.headers['ce-type'] == "com.example.sampletype1"
+        assert resp.headers['ce-datacontenttype'] == "application/x-www-form-urlencoded"
+        assert resp.headers['ce-time'] > "2021-01-28T21:04:43.144141+00:00"
+
+class TestTFHttpServerAvroCloudEvent():
+
+    @pytest.fixture(scope="class")
+    def app(self):  # pylint: disable=no-self-use
+        model = DummyAvroCEModel("TestModel")
+        server = kfserver.KFServer()
+        server.register_model(model)
+        return server.create_application()
+
+    async def test_predict_ce_avro_binary(self, http_server_client):
+        schema = avro.schema.parse(test_avsc_schema)
+        msg = {"name": "foo", "favorite_number": 1, "favorite_color": "pink"}
+
+        writer = avro.io.DatumWriter(schema)
+        bytes_writer = io.BytesIO()
+        encoder = avro.io.BinaryEncoder(bytes_writer)
+        writer.write(msg, encoder)
+        data = bytes_writer.getvalue()
+
+        event = dummy_cloud_event(data, set_contenttype=True)
+
+        # Creates the HTTP request representation of the CloudEvent in binary content mode
+        headers, body = to_binary(event)
+        resp = await http_server_client.fetch('/v1/models/TestModel:predict',
+                                              method="POST",
+                                              headers=headers,
+                                              body=body)
+
+        assert resp.code == 200
+        assert resp.body == b'{"predictions": [["foo", 1, "pink"]]}'
+        assert resp.headers['content-type'] == "application/x-www-form-urlencoded"
+        assert resp.headers['ce-specversion'] == "1.0"
+        assert resp.headers['ce-id'] == "36077800-0c23-4f38-a0b4-01f4369f670a"
+        assert resp.headers['ce-source'] == "https://example.com/event-producer"
+        assert resp.headers['ce-type'] == "com.example.sampletype1"
+        assert resp.headers['ce-datacontenttype'] == "application/x-www-form-urlencoded"
+        assert resp.headers['ce-time'] > "2021-01-28T21:04:43.144141+00:00"

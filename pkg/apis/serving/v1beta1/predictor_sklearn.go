@@ -179,3 +179,12 @@ func (k *SKLearnSpec) GetProtocol() constants.InferenceServiceProtocol {
 		return constants.ProtocolV1
 	}
 }
+
+func (k *SKLearnSpec) IsMMS(config *InferenceServicesConfig) bool {
+	if k.GetProtocol() == constants.ProtocolV1 {
+		return config.Predictors.SKlearn.V1.MultiModelServer
+	} else if k.GetProtocol() == constants.ProtocolV2 {
+		return config.Predictors.SKlearn.V2.MultiModelServer
+	}
+	return false
+}

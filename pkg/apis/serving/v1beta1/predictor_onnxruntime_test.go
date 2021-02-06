@@ -113,6 +113,7 @@ func TestONNXRuntimeDefaulter(t *testing.T) {
 			ONNX: PredictorConfig{
 				ContainerImage:      "onnxruntime",
 				DefaultImageVersion: "v1.0.0",
+				MultiModelServer:    false,
 			},
 		},
 	}
@@ -199,6 +200,7 @@ func TestCreateONNXRuntimeContainer(t *testing.T) {
 			ONNX: PredictorConfig{
 				ContainerImage:      "mcr.microsoft.com/onnxruntime/server",
 				DefaultImageVersion: "v1.0.0",
+				MultiModelServer:    false,
 			},
 		},
 	}
@@ -309,5 +311,59 @@ func TestCreateONNXRuntimeContainer(t *testing.T) {
 				t.Errorf("got %q, want %q", res, scenario.expectedContainerSpec)
 			}
 		})
+	}
+}
+
+func TestONNXRuntimeIsMMS(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	multiModelServerCases := [2]bool{true, false}
+
+	for _, mmsCase := range multiModelServerCases {
+		config := InferenceServicesConfig{
+			Predictors: PredictorsConfig{
+				ONNX: PredictorConfig{
+					ContainerImage:      "onnxruntime",
+					DefaultImageVersion: "v1.0.0",
+					MultiModelServer:    mmsCase,
+				},
+			},
+		}
+		defaultResource = v1.ResourceList{
+			v1.ResourceCPU:    resource.MustParse("1"),
+			v1.ResourceMemory: resource.MustParse("2Gi"),
+		}
+		scenarios := map[string]struct {
+			spec     PredictorSpec
+			expected bool
+		}{
+			"DefaultRuntimeVersion": {
+				spec: PredictorSpec{
+					ONNX: &ONNXRuntimeSpec{
+						PredictorExtensionSpec: PredictorExtensionSpec{},
+					},
+				},
+				expected: mmsCase,
+			},
+			"DefaultResources": {
+				spec: PredictorSpec{
+					ONNX: &ONNXRuntimeSpec{
+						PredictorExtensionSpec: PredictorExtensionSpec{
+							RuntimeVersion: proto.String("v1.0.0"),
+						},
+					},
+				},
+				expected: mmsCase,
+			},
+		}
+
+		for name, scenario := range scenarios {
+			t.Run(name, func(t *testing.T) {
+				scenario.spec.ONNX.Default(&config)
+				res := scenario.spec.ONNX.IsMMS(&config)
+				if !g.Expect(res).To(gomega.Equal(scenario.expected)) {
+					t.Errorf("got %t, want %t", res, scenario.expected)
+				}
+			})
+		}
 	}
 }

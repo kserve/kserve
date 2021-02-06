@@ -109,3 +109,7 @@ func (t *TFServingSpec) GetContainer(metadata metav1.ObjectMeta, extensions *Com
 func (t *TFServingSpec) GetProtocol() constants.InferenceServiceProtocol {
 	return constants.ProtocolV1
 }
+
+func (t *TFServingSpec) IsMMS(config *InferenceServicesConfig) bool {
+	return config.Predictors.Tensorflow.MultiModelServer
+}

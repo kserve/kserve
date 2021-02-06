@@ -10,30 +10,36 @@ data:
             "image": "tensorflow/serving",
             "defaultImageVersion": "1.14.0",
             "defaultGpuImageVersion": "1.14.0-gpu",
-            "defaultTimeout": "60"
+            "defaultTimeout": "60",
+            "multiModelServer": false
         },
         "onnx": {
             "image": "mcr.microsoft.com/onnxruntime/server",
-            "defaultImageVersion": "v1.0.0"
+            "defaultImageVersion": "v1.0.0",
+            "multiModelServer": false
         },
         "sklearn": {
           "v1": {
             "image": "809251082950.dkr.ecr.us-west-2.amazonaws.com/kfserving/sklearnserver",
-            "defaultImageVersion": "latest"
+            "defaultImageVersion": "latest",
+            "multiModelServer": true
           },
           "v2": {
             "image": "docker.io/seldonio/mlserver",
-            "defaultImageVersion": "0.2.1"
+            "defaultImageVersion": "0.2.1",
+            "multiModelServer": true
           }
         },
         "xgboost": {
           "v1": {
             "image": "809251082950.dkr.ecr.us-west-2.amazonaws.com/kfserving/xgbserver",
-            "defaultImageVersion": "latest"
+            "defaultImageVersion": "latest",
+            "multiModelServer": true
           },
           "v2": {
             "image": "docker.io/seldonio/mlserver",
-            "defaultImageVersion": "0.2.1"
+            "defaultImageVersion": "0.2.1",
+            "multiModelServer": true
           }
         },
         "pytorch": {
@@ -44,7 +50,7 @@ data:
             "supportedFrameworks": [
               "pytorch"
             ],
-            "multiModelServer": "false"
+            "multiModelServer": false
           },
           "v2" : {
             "image": "kfserving/torchserve-kfs",
@@ -53,20 +59,23 @@ data:
             "supportedFrameworks": [
               "pytorch"
             ],
-            "multiModelServer": "false"
+            "multiModelServer": false
           }
         },
         "triton": {
             "image": "nvcr.io/nvidia/tritonserver",
-            "defaultImageVersion": "20.08-py3"
+            "defaultImageVersion": "20.08-py3",
+            "multiModelServer": true
         },
         "pmml": {
             "image": "809251082950.dkr.ecr.us-west-2.amazonaws.com/kfserving/pmmlserver",
-            "defaultImageVersion": "latest"
+            "defaultImageVersion": "latest",
+            "multiModelServer": false
         },
         "lightgbm": {
             "image": "809251082950.dkr.ecr.us-west-2.amazonaws.com/kfserving/lgbserver",
-            "defaultImageVersion": "latest"
+            "defaultImageVersion": "latest",
+            "multiModelServer": true
         }
     }
   transformers: |-
@@ -108,7 +117,9 @@ data:
   ingress: |-
     {
         "ingressGateway" : "knative-ingress-gateway.knative-serving",
-        "ingressService" : "istio-ingressgateway.istio-system.svc.cluster.local"
+        "ingressService" : "istio-ingressgateway.istio-system.svc.cluster.local",
+        "localGateway": "cluster-local-gateway.knative-serving",
+        "localGatewayService" : "cluster-local-gateway.istio-system.svc.cluster.local"
     }
   logger: |-
     {
