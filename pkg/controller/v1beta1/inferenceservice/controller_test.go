@@ -86,7 +86,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
             }`,
 			"ingress": `{
                "ingressGateway": "knative-serving/knative-ingress-gateway",
-               "ingressService": "test-destination"
+               "ingressService": "test-destination",
+               "localGateway": "knative-serving/knative-local-gateway",
+               "localGatewayService": "knative-local-gateway.istio-system.svc.cluster.local"
             }`,
 		}
 	)

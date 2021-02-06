@@ -110,8 +110,10 @@ type InferenceServicesConfig struct {
 
 // +kubebuilder:object:generate=false
 type IngressConfig struct {
-	IngressGateway     string `json:"ingressGateway,omitempty"`
-	IngressServiceName string `json:"ingressService,omitempty"`
+	IngressGateway          string `json:"ingressGateway,omitempty"`
+	IngressServiceName      string `json:"ingressService,omitempty"`
+	LocalGateway            string `json:"localGateway,omitempty"`
+	LocalGatewayServiceName string `json:"localGatewayService,omitempty"`
 }
 
 func NewInferenceServicesConfig(cli client.Client) (*InferenceServicesConfig, error) {
