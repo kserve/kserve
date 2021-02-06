@@ -51,7 +51,16 @@ class KFModel:
         return self.ready
 
     def preprocess(self, request: Dict) -> Dict:
-        return request
+        # If cloudevent dict, then parse 'data' field. Otherwise, pass through.
+        if  "data" in request \
+            and "time" in request \
+            and "type" in request \
+            and "source" in request \
+            and "id" in request \
+            and "specversion" in request:
+            return request["data"]
+        else:
+            return request
 
     def postprocess(self, request: Dict) -> Dict:
         return request
@@ -91,3 +100,4 @@ class KFModel:
                 status_code=response.code,
                 reason=response.body)
         return json.loads(response.body)
+
