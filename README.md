@@ -39,6 +39,10 @@ Currently only `Knative Serving` is required, `cluster-local-gateway` is require
 Cert manager is needed to provision KFServing webhook certs for production grade installation, alternatively you can run our self signed certs
 generation [script](./hack/self-signed-ca.sh).
 
+Note that since Knative v0.19.0 `cluster local gateway` has been removed and [shared with ingress gateway](https://github.com/knative-sandbox/net-istio/pull/237), 
+if you are on Knative version older than v0.19.0 you should modify `localGateway` to `knative-local-gateway` and `localGatewayService` to `knative-local-gateway.istio-system.svc.cluster.local` in the
+[inference service config](./config/configmap/inferenceservice.yaml). 
+
 ### Install KFServing
 <details>
   <summary>Expand to see the installation options!</summary>
@@ -107,7 +111,7 @@ minikube start --cpus 4 --memory 8192 --kubernetes-version=v1.17.11
 <details>
   <summary>Expand to see steps for testing the installation!</summary>
 
-#### 1. Check KFServing controller installation
+#### Check KFServing controller installation
 ```shell
 kubectl get po -n kfserving-system
 NAME                             READY   STATUS    RESTARTS   AGE
@@ -116,20 +120,20 @@ kfserving-controller-manager-0   2/2     Running   2          13m
 
 Please refer to our [troubleshooting section](docs/DEVELOPER_GUIDE.md#troubleshooting) for recommendations and tips for issues with installation.
 
-#### 2. Create KFServing test inference service
+#### Create KFServing test inference service
 ```bash
 API_VERSION=v1alpha2
 kubectl create namespace kfserving-test
 kubectl apply -f docs/samples/${API_VERSION}/sklearn/sklearn.yaml -n kfserving-test
 ```
-#### 3. Check KFServing `InferenceService` status.
+#### Check KFServing `InferenceService` status.
 ```bash
 kubectl get inferenceservices sklearn-iris -n kfserving-test
 NAME           URL                                                              READY   DEFAULT TRAFFIC   CANARY TRAFFIC   AGE
 sklearn-iris   http://sklearn-iris.kfserving-test.example.com/v1/models/sklearn-iris   True    100                                109s
 ```
 
-#### 4. Determine the ingress IP and ports
+#### Determine the ingress IP and ports
 Execute the following command to determine if your kubernetes cluster is running in an environment that supports external load balancers
 ```bash
 $ kubectl get svc istio-ingressgateway -n istio-system
@@ -164,7 +168,7 @@ export INGRESS_HOST=localhost
 export INGRESS_PORT=8080
 ```
 
-#### 5. Curl the `InferenceService`
+#### Curl the `InferenceService`
 Curl from ingress gateway
 ```bash
 SERVICE_HOSTNAME=$(kubectl get inferenceservice sklearn-iris -n kfserving-test -o jsonpath='{.status.url}' | cut -d "/" -f 3)
@@ -175,7 +179,7 @@ Curl from local cluster gateway
 curl -v http://sklearn-iris.kfserving-test/v1/models/sklearn-iris:predict -d @./docs/samples/${API_VERSION}/sklearn/iris-input.json
 ```
 
-#### 6. Run Performance Test
+#### Run Performance Test
 ```bash
 # use kubectl create instead of apply because the job template is using generateName which doesn't work with kubectl apply
 kubectl create -f docs/samples/${API_VERSION}/sklearn/perf.yaml -n kfserving-test

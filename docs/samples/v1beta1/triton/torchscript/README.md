@@ -145,7 +145,7 @@ kubectl get inferenceservices torchscript-demo
 ```
 
 ### Run a prediction with curl
-The first step is to [determine the ingress IP and ports](../../../README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
+The first step is to [determine the ingress IP and ports](../../../../../README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
 
 The latest Triton Inference Server already switched to use KFServing [prediction V2 protocol](https://github.com/kubeflow/kfserving/tree/master/docs/predict-api/v2), so 
 the input request needs to follow the V2 schema with the specified data type, shape.

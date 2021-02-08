@@ -25,7 +25,7 @@ model_file = os.path.join(model_dir, BST_FILE)
 lgb_model.save_model(model_file)
 ```
 
-Then, we can install and run the [LightGBM Server](../../../python/lgbserver) using the generated model and test for prediction. Models can be on local filesystem, S3 compatible object storage, Azure Blob Storage, or Google Cloud Storage.
+Then, we can install and run the [LightGBM Server](../../../../python/lgbserver) using the generated model and test for prediction. Models can be on local filesystem, S3 compatible object storage, Azure Blob Storage, or Google Cloud Storage.
 
 ```shell
 python -m lgbserver --model_dir /path/to/model_dir --model_name lgb
@@ -64,7 +64,7 @@ $ inferenceservice.serving.kubeflow.org/lightgbm-iris created
 ```
 
 ## Run a prediction
-The first step is to [determine the ingress IP and ports](../../../README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
+The first step is to [determine the ingress IP and ports](../../../../README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
 
 ```
 MODEL_NAME=lightgbm-iris
@@ -103,7 +103,7 @@ Since the KFServing LightGBM image is built from a specific version of `lightgbm
 you saved from your training environment, however you can build your own lgbserver image following [this instruction](../../../python/lgbserver/README.md#building-your-own-ligthgbm-server-docker-image).
 
 To use your lgbserver image:
-- Add the image to the KFServing [configmap](../../../config/configmap/inferenceservice.yaml)
+- Add the image to the KFServing [configmap](../../../../config/configmap/inferenceservice.yaml)
 ```yaml
         "lightgbm": {
             "image": "<your-dockerhub-id>/kfserving/lgbserver",

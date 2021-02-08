@@ -147,7 +147,7 @@ bert-v2-predictor-default-plhgs     bert-v2-predictor-default     bert-v2-predic
 bert-v2-transformer-default-sd6nc   bert-v2-transformer-default   bert-v2-transformer-default-sd6nc   1            True  
 ```
 ## Run a Prediction
-The first step is to [determine the ingress IP and ports](../../../../README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
+The first step is to [determine the ingress IP and ports](../../../../../README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
 
 Send a question request with following input, the transformer expects sending a list of `instances` or `inputs` and `preprocess` then converts
 the inputs to expected tensor sending to `Triton Inference Server`.
