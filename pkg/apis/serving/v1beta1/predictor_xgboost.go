@@ -184,3 +184,12 @@ func (x *XGBoostSpec) GetProtocol() constants.InferenceServiceProtocol {
 		return constants.ProtocolV1
 	}
 }
+
+func (x *XGBoostSpec) IsMMS(config *InferenceServicesConfig) bool {
+	if x.GetProtocol() == constants.ProtocolV1 {
+		return config.Predictors.XGBoost.V1.MultiModelServer
+	} else if x.GetProtocol() == constants.ProtocolV2 {
+		return config.Predictors.XGBoost.V2.MultiModelServer
+	}
+	return false
+}

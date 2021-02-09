@@ -17,18 +17,20 @@ limitations under the License.
 package modelconfig
 
 import (
+	"sort"
+	"testing"
+
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	testify "github.com/stretchr/testify/assert"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/runtime/log"
-	"sort"
-	"testing"
+	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 func TestProcessAddOrUpdate(t *testing.T) {
-	log.SetLogger(log.ZapLogger(true))
+	log.SetLogger(zap.New())
 	testCases := map[string]struct {
 		modelConfigs ModelConfigs
 		configMap    *v1.ConfigMap
@@ -122,7 +124,7 @@ func TestProcessAddOrUpdate(t *testing.T) {
 }
 
 func TestProcessDelete(t *testing.T) {
-	log.SetLogger(log.ZapLogger(true))
+	log.SetLogger(zap.New())
 	testCases := map[string]struct {
 		modelConfigs []string
 		configMap    *v1.ConfigMap
@@ -188,7 +190,7 @@ func TestProcessDelete(t *testing.T) {
 }
 
 func TestProcess(t *testing.T) {
-	log.SetLogger(log.ZapLogger(true))
+	log.SetLogger(zap.New())
 	testCases := map[string]struct {
 		updated   ModelConfigs
 		deleted   []string

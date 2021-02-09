@@ -18,6 +18,7 @@ package v1beta1
 
 import (
 	"fmt"
+	"path"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/kubeflow/kfserving/pkg/constants"
@@ -29,7 +30,8 @@ import (
 var (
 	ONNXServingRestPort = "8080"
 	ONNXServingGRPCPort = "9000"
-	ONNXModelFileName   = "model.onnx"
+	ONNXFileExt         = ".onnx"
+	DefaultONNXFileName = "model.onnx"
 )
 
 // ONNXRuntimeSpec defines arguments for configuring ONNX model serving.
@@ -42,6 +44,12 @@ var _ ComponentImplementation = &ONNXRuntimeSpec{}
 
 // Validate returns an error if invalid
 func (o *ONNXRuntimeSpec) Validate() error {
+	if o.GetStorageUri() != nil {
+		if ext := path.Ext(*o.GetStorageUri()); ext != ONNXFileExt && ext != "" {
+			return fmt.Errorf("Expected storageUri file extension: '%s' but got '%s'", ONNXFileExt, ext)
+		}
+	}
+
 	return utils.FirstNonNilError([]error{
 		validateStorageURI(o.GetStorageUri()),
 	})
@@ -58,8 +66,16 @@ func (o *ONNXRuntimeSpec) Default(config *InferenceServicesConfig) {
 
 // GetContainers transforms the resource into a container spec
 func (o *ONNXRuntimeSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig) *v1.Container {
+	filename := DefaultONNXFileName
+
+	if o.GetStorageUri() != nil {
+		if ext := path.Ext(*o.GetStorageUri()); ext != "" {
+			filename = path.Base(*o.GetStorageUri())
+		}
+	}
+
 	arguments := []string{
-		fmt.Sprintf("%s=%s", "--model_path", constants.DefaultModelLocalMountPath+"/"+ONNXModelFileName),
+		fmt.Sprintf("%s=%s", "--model_path", constants.DefaultModelLocalMountPath+"/"+filename),
 		fmt.Sprintf("%s=%s", "--http_port", ONNXServingRestPort),
 		fmt.Sprintf("%s=%s", "--grpc_port", ONNXServingGRPCPort),
 	}
@@ -78,4 +94,8 @@ func (o *ONNXRuntimeSpec) GetStorageUri() *string {
 
 func (o *ONNXRuntimeSpec) GetProtocol() constants.InferenceServiceProtocol {
 	return constants.ProtocolV1
+}
+
+func (o *ONNXRuntimeSpec) IsMMS(config *InferenceServicesConfig) bool {
+	return config.Predictors.ONNX.MultiModelServer
 }

@@ -68,3 +68,8 @@ func (c *CustomPredictor) GetContainer(metadata metav1.ObjectMeta, extensions *C
 func (c *CustomPredictor) GetProtocol() constants.InferenceServiceProtocol {
 	return constants.ProtocolV1
 }
+
+func (c *CustomPredictor) IsMMS(config *InferenceServicesConfig) bool {
+	//TODO: Figure out how to check if custom predictor is mms
+	return false
+}

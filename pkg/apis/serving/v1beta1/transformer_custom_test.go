@@ -339,3 +339,50 @@ func TestCreateTransformerContainer(t *testing.T) {
 		})
 	}
 }
+
+func TestTransformerIsMMS(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	config := InferenceServicesConfig{
+		Transformers: TransformersConfig{},
+	}
+	defaultResource = v1.ResourceList{
+		v1.ResourceCPU:    resource.MustParse("1"),
+		v1.ResourceMemory: resource.MustParse("2Gi"),
+	}
+
+	// MMS for transformer is false
+	mmsCase := false
+	scenarios := map[string]struct {
+		spec     TransformerSpec
+		expected bool
+	}{
+		"DefaultResources": {
+			spec: TransformerSpec{
+				PodSpec: PodSpec{
+					Containers: []v1.Container{
+						{
+							Env: []v1.EnvVar{
+								{
+									Name:  "STORAGE_URI",
+									Value: "hdfs://modelzoo",
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: mmsCase,
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			CustomTransformer := NewCustomTransformer(&scenario.spec.PodSpec)
+			CustomTransformer.Default(&config)
+			res := CustomTransformer.IsMMS(&config)
+			if !g.Expect(res).To(gomega.Equal(scenario.expected)) {
+				t.Errorf("got %t, want %t", res, scenario.expected)
+			}
+		})
+	}
+}

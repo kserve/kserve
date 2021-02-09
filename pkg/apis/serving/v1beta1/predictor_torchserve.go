@@ -162,3 +162,12 @@ func (t *TorchServeSpec) GetStorageUri() *string {
 func (t *TorchServeSpec) GetProtocol() constants.InferenceServiceProtocol {
 	return constants.ProtocolV1
 }
+
+func (t *TorchServeSpec) IsMMS(config *InferenceServicesConfig) bool {
+	if t.GetProtocol() == constants.ProtocolV1 {
+		return config.Predictors.PyTorch.V1.MultiModelServer
+	} else if t.GetProtocol() == constants.ProtocolV2 {
+		return config.Predictors.PyTorch.V2.MultiModelServer
+	}
+	return false
+}

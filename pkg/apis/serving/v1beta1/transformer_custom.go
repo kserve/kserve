@@ -93,3 +93,8 @@ func (c *CustomTransformer) GetContainer(metadata metav1.ObjectMeta, extensions 
 func (c *CustomTransformer) GetProtocol() constants.InferenceServiceProtocol {
 	return constants.ProtocolV1
 }
+
+func (c *CustomTransformer) IsMMS(config *InferenceServicesConfig) bool {
+	// TODO: figure out if custom transformer supports MMS
+	return false
+}

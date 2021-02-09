@@ -80,3 +80,7 @@ func (x *LightGBMSpec) GetStorageUri() *string {
 func (x *LightGBMSpec) GetProtocol() constants.InferenceServiceProtocol {
 	return constants.ProtocolV1
 }
+
+func (x *LightGBMSpec) IsMMS(config *InferenceServicesConfig) bool {
+	return config.Predictors.LightGBM.MultiModelServer
+}

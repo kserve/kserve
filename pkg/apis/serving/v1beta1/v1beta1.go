@@ -27,7 +27,7 @@ package v1beta1
 import (
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"sigs.k8s.io/controller-runtime/pkg/runtime/scheme"
+	"sigs.k8s.io/controller-runtime/pkg/scheme"
 )
 
 var (

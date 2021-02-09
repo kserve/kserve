@@ -70,7 +70,7 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
 	hasInferenceLogging := addLoggerAnnotations(isvc.Spec.Predictor.Logger, annotations)
 	hasInferenceBatcher := addBatcherAnnotations(isvc.Spec.Predictor.Batcher, annotations)
 	// Add agent annotations so mutator will mount model agent to multi-model InferenceService's predictor
-	addAgentAnnotations(isvc, annotations)
+	addAgentAnnotations(isvc, annotations, p.inferenceServiceConfig)
 
 	objectMeta := metav1.ObjectMeta{
 		Name:      constants.DefaultPredictorServiceName(isvc.Name),
@@ -181,8 +181,8 @@ func addBatcherContainerPort(container *v1.Container) {
 	}
 }
 
-func addAgentAnnotations(isvc *v1beta1.InferenceService, annotations map[string]string) bool {
-	if v1beta1utils.IsMMSPredictor(&isvc.Spec.Predictor) {
+func addAgentAnnotations(isvc *v1beta1.InferenceService, annotations map[string]string, isvcConfig *v1beta1.InferenceServicesConfig) bool {
+	if v1beta1utils.IsMMSPredictor(&isvc.Spec.Predictor, isvcConfig) {
 		annotations[constants.AgentShouldInjectAnnotationKey] = "true"
 		shardStrategy := memory.MemoryStrategy{}
 		for _, id := range shardStrategy.GetShard(isvc) {

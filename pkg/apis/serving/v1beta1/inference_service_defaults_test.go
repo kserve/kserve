@@ -33,6 +33,7 @@ func TestInferenceServiceDefaults(t *testing.T) {
 				ContainerImage:         "tfserving",
 				DefaultImageVersion:    "1.14.0",
 				DefaultGpuImageVersion: "1.14.0-gpu",
+				MultiModelServer:       false,
 			},
 		},
 		Explainers: ExplainersConfig{
@@ -96,6 +97,7 @@ func TestCustomPredictorDefaults(t *testing.T) {
 				ContainerImage:         "tfserving",
 				DefaultImageVersion:    "1.14.0",
 				DefaultGpuImageVersion: "1.14.0-gpu",
+				MultiModelServer:       false,
 			},
 		},
 		Explainers: ExplainersConfig{

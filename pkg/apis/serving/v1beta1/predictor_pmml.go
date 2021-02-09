@@ -76,3 +76,7 @@ func (p *PMMLSpec) GetStorageUri() *string {
 func (p *PMMLSpec) GetProtocol() constants.InferenceServiceProtocol {
 	return constants.ProtocolV1
 }
+
+func (p *PMMLSpec) IsMMS(config *InferenceServicesConfig) bool {
+	return config.Predictors.PMML.MultiModelServer
+}

@@ -60,18 +60,22 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			"predictors": `{
                "tensorflow": {
                   "image": "tensorflow/serving",
-				  "defaultTimeout": "60"
+				  "defaultTimeout": "60",
+ 				  "multiModelServer": false
                },
                "sklearn": {
                  "v1": {
-                  "image": "kfserving/sklearnserver"
+                  	"image": "kfserving/sklearnserver",
+					"multiModelServer": true
                  },
                  "v2": {
-                  "image": "kfserving/sklearnserver"
+                  	"image": "kfserving/sklearnserver",
+					"multiModelServer": true
                  }
                },
                "xgboost": {
-                  "image": "kfserving/xgbserver"
+				  	"image": "kfserving/xgbserver",
+				  	"multiModelServer": true
                }
 	         }`,
 			"explainers": `{
@@ -82,7 +86,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
             }`,
 			"ingress": `{
                "ingressGateway": "knative-serving/knative-ingress-gateway",
-               "ingressService": "test-destination"
+               "ingressService": "test-destination",
+               "localGateway": "knative-serving/cluster-local-gateway",
+               "localGatewayService": "cluster-local-gateway.istio-system.svc.cluster.local"
             }`,
 		}
 	)

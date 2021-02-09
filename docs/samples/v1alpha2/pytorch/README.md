@@ -85,7 +85,7 @@ OMP_NUM_THREADS is commonly used in numpy, PyTorch, and Tensorflow to perform mu
 We want one thread per worker instead of many threads per worker to avoid contention.
 
 ## Run a prediction
-The first step is to [determine the ingress IP and ports](../../../README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
+The first step is to [determine the ingress IP and ports](../../../../README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
 
 ```
 MODEL_NAME=pytorch-cifar10

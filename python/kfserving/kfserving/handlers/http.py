@@ -14,9 +14,15 @@
 
 import inspect
 import tornado.web
+import typing
 import json
+import pytz
+import cloudevents.exceptions as ce
+from cloudevents.http import CloudEvent, from_http, is_binary, is_structured, to_binary, to_structured
+from cloudevents.sdk.converters.util import has_binary_headers
 from http import HTTPStatus
 from kfserving.kfmodel_repository import KFModelRepository
+from datetime import datetime
 
 
 class HTTPHandler(tornado.web.RequestHandler):
@@ -43,21 +49,52 @@ class HTTPHandler(tornado.web.RequestHandler):
             )
         return request
 
-
 class PredictHandler(HTTPHandler):
     async def post(self, name: str):
+        if has_binary_headers(self.request.headers):            
+            try:
+                #Use default unmarshaller if contenttype is set in header
+                if "ce-contenttype" in self.request.headers:
+                    body = from_http(self.request.headers, self.request.body)
+                else:
+                    body = from_http(self.request.headers, self.request.body, lambda x: x)
+            except (ce.MissingRequiredFields, ce.InvalidRequiredFields, ce.InvalidStructuredJSON, ce.InvalidHeadersFormat, ce.DataMarshallerError, ce.DataUnmarshallerError) as e:
+                raise tornado.web.HTTPError(
+                    status_code=HTTPStatus.BAD_REQUEST,
+                    reason="Cloud Event Exceptions: %s" % e
+                )
+        else:
+            try:
+                body = json.loads(self.request.body)
+            except json.decoder.JSONDecodeError as e:
+                raise tornado.web.HTTPError(
+                    status_code=HTTPStatus.BAD_REQUEST,
+                    reason="Unrecognized request format: %s" % e
+                )
+
         model = self.get_model(name)
-        try:
-            body = json.loads(self.request.body)
-        except json.decoder.JSONDecodeError as e:
-            raise tornado.web.HTTPError(
-                status_code=HTTPStatus.BAD_REQUEST,
-                reason="Unrecognized request format: %s" % e
-            )
         request = model.preprocess(body)
         request = self.validate(request)
         response = (await model.predict(request)) if inspect.iscoroutinefunction(model.predict) else model.predict(request)
         response = model.postprocess(response)
+
+        if has_binary_headers(self.request.headers):
+            event = CloudEvent(body._attributes, response)
+            if is_binary(self.request.headers):
+                eventheader, eventbody = to_binary(event)
+            elif is_structured(self.request.headers):
+                eventheader, eventbody = to_structured(event)
+            for k, v in eventheader.items():
+                if k != "ce-time":
+                    self.set_header(k, v)
+                else: #utc now() timestamp
+                    self.set_header('ce-time', datetime.utcnow().replace(tzinfo=pytz.utc).strftime('%Y-%m-%dT%H:%M:%S.%f%z'))
+
+            if isinstance(eventbody, (bytes, bytearray)):
+                response = eventbody
+            else:
+                response = eventbody.data
+
         self.write(response)
 
 
