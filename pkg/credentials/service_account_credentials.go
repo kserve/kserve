@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/kubeflow/kfserving/pkg/credentials/https"
 
 	"github.com/kubeflow/kfserving/pkg/credentials/azure"
 	"github.com/kubeflow/kfserving/pkg/credentials/gcs"
@@ -68,6 +69,7 @@ func (c *CredentialBuilder) CreateSecretVolumeAndEnv(namespace string, serviceAc
 	}
 	s3SecretAccessKeyName := s3.AWSSecretAccessKeyName
 	gcsCredentialFileName := gcs.GCSCredentialFileName
+	httpsHostURI := https.InferenceServiceHTTPSHostURI
 
 	if c.config.S3.S3SecretAccessKeyName != "" {
 		s3SecretAccessKeyName = c.config.S3.S3SecretAccessKeyName
@@ -113,6 +115,10 @@ func (c *CredentialBuilder) CreateSecretVolumeAndEnv(namespace string, serviceAc
 		} else if _, ok := secret.Data[azure.AzureClientSecret]; ok {
 			log.Info("Setting secret envs for azure", "AzureSecret", secret.Name)
 			envs := azure.BuildSecretEnvs(secret)
+			container.Env = append(container.Env, envs...)
+		} else if _, ok := secret.Annotations[httpsHostURI]; ok {
+			log.Info("Setting secret volume from uri", "HTTP(S)Secret", secret.Name)
+			envs := https.BuildSecretEnvs(secret)
 			container.Env = append(container.Env, envs...)
 		} else {
 			log.V(5).Info("Skipping non gcs/s3/azure secret", "Secret", secret.Name)
