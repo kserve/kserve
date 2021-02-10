@@ -232,12 +232,23 @@ The path or model %s does not exist." % (uri))
         if filename == '':
             raise ValueError('No filename contained in URI: %s' % (uri))
 
-        with requests.get(uri, stream=True) as response:
+        # Get header information from host url
+        headers = {}
+        host_uri = url.hostname
+        fields = os.getenv(host_uri, "").split(",")
+
+        for field in fields:
+            if field.startswith("header."):
+                headers[field[7:]] = os.getenv(field)
+
+        with requests.get(uri, stream=True, headers=headers) as response:
             if response.status_code != 200:
                 raise RuntimeError("URI: %s returned a %s response code." % (uri, response.status_code))
             if mimetype == 'application/zip' and not response.headers.get('Content-Type', '').startswith('application/zip'):
                 raise RuntimeError("URI: %s did not respond with \'Content-Type\': \'application/zip\'" % (uri))
-            if mimetype != 'application/zip' and not response.headers.get('Content-Type', '').startswith('application/octet-stream'):
+            if mimetype == 'application/x-tar' and not response.headers.get('Content-Type', '').startswith('application/x-tar'):
+                raise RuntimeError("URI: %s did not respond with \'Content-Type\': \'application/x-tar\'" % (uri))
+            if (mimetype != 'application/zip' and mimetype != 'application/x-tar') and not response.headers.get('Content-Type', '').startswith('application/octet-stream'):
                 raise RuntimeError("URI: %s did not respond with \'Content-Type\': \'application/octet-stream\'" % (uri))
 
             if encoding == 'gzip':
