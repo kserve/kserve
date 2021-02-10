@@ -11,7 +11,7 @@ certifi==2019.11.28
 cffi==1.14.0
 chardet==3.0.4
 configparser==4.0.2
-cryptography==3.2
+cryptography==3.3.2
 decorator==4.4.2
 defusedxml==0.6.0
 entrypoints==0.3
