@@ -37,7 +37,7 @@ You will need to base64 encode the headers. Make sure each header is on a newlin
 ```text
 account-name: some_account_name
 secret-key: some_secret_key
-# Base64 encoded into:
+# echo -n 'account-name: some_account_name\nsecret-key: some_secret_key' | base64
 YWNjb3VudC1uYW1lOiBzb21lX2FjY291bnRfbmFtZQpzZWNyZXQta2V5OiBzb21lX3NlY3JldF9rZXk=
 ```
 
