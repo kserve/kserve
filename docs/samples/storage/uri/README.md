@@ -33,8 +33,8 @@ secrets:
 ```
 Make sure you have serviceAccountName specified in your predictor in your inference service. These headers will be applied to any http/https requests that have the same host uri.
 
-You will need to base64 encode the headers
-```
+You will need to base64 encode the headers. Make sure each header is on a newline with the format `header_key: header_value`.
+```text
 account-name: some_account_name
 secret-key: some_secret_key
 # Base64 encoded into:
