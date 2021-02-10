@@ -8,6 +8,39 @@ This `storageUri` option supports single file models, like `sklearn` which is sp
 2. Your cluster's Istio Ingress gateway must be network accessible.
 3. Your cluster's Istio Egress gateway must [allow http / https traffic](https://knative.dev/docs/serving/outbound-network-access/)
 
+## Create HTTP/HTTPS header Secret and attach to Service account
+If you do not require headers in your HTTP/HTTPS service request then you can skip this step.
+You can define headers by following the following format:
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mysecret
+  annotations:
+    serving.kubeflow.org/https-host-uri: “example.com”
+type: Opaque
+data:
+  headers: |-
+    YWNjb3VudC1uYW1lOiBzb21lX2FjY291bnRfbmFtZQpzZWNyZXQta2V5OiBzb21lX3NlY3JldF9rZXk=
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: sa
+secrets:
+  - name: mysecret
+```
+Make sure you have serviceAccountName specified in your predictor in your inference service. These headers will be applied to any http/https requests that have the same host uri.
+
+You will need to base64 encode the headers
+```
+account-name: some_account_name
+secret-key: some_secret_key
+# Base64 encoded into:
+YWNjb3VudC1uYW1lOiBzb21lX2FjY291bnRfbmFtZQpzZWNyZXQta2V5OiBzb21lX3NlY3JldF9rZXk=
+```
+
 ## Sklearn
 ### Train and freeze the model
 Here, we'll train a simple iris model. Please note that `kfserving` requires `sklearn==0.20.3`. 
