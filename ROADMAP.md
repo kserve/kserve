@@ -1,6 +1,23 @@
 # KF Serving Roadmap
-## 2020
-### v0.6 Inference Graph (ETA end of Q4)
+## 2021
+### Multi Model Serving Phase Two
+Objective: "Make multi model serving production ready"
+* Trained model status probing and propagate CRD status
+* Memory based Trained model sharding
+* Scalability and Performance testing
+
+Proposal: https://docs.google.com/document/d/1D_SF_RpMbItnupjnIlGazPmq9yzVd4RzP1yDfOK0KdY/edit
+
+### Kubernetes Deployment
+Objective: "Enable raw kubernetes deployment as alternative mode"
+* Support existing ML frameworks, transformer/explainer, logger and batching
+* Make Istio/KNative optional and unlock KNative limitations
+  * Allow multiple volumes mounted
+  * Allow TCP/UDP
+
+https://github.com/kubeflow/kfserving/issues/1320
+
+### Inference Graph
 Objective: "Enable model serving pipelines with flexible routing graph"
 * Inference Router
     * Model Experimentation.
@@ -10,7 +27,15 @@ Objective: "Enable model serving pipelines with flexible routing graph"
  
 Proposal: https://docs.google.com/document/d/1rV8kI_40oiv8jMhY_LwkkyKLdOwSI1Qda-Dc6Dgjz1g
 
-### v0.5 API Stabilization and TCO Reduction (ETA: end of Q3)
+### Batch Inference
+Objective: "Enable batch inference with large dataset"
+* Event trigger based batch inference
+* On-demand batch inference job
+
+https://github.com/kubeflow/kfserving/issues/369
+
+# Historical
+### v0.5 API Stabilization and TCO Reduction(Jan, 2021)
 Objective:  "Stabilize KFServing API"
 * KFServing v1beta1 API
     * Promote v1alpha2 to v1beta1
@@ -31,7 +56,7 @@ Objective: "Reduce Total Cost of Ownership when deploying multiple underutilized
 
 Proposal: https://docs.google.com/document/d/11qETyR--oOIquQke-DCaLsZY75vT1hRu21PesSUDy7o
 
-### v0.4 Performance (end of Q2)
+### v0.4 Performance(July, 2020)
 Objective: "Prevent performance regressions across a known set of representative models."
 * Automated Performance Tests
     * Define a set of Models to test covering a wide array of use cases and frameworks.
@@ -41,8 +66,6 @@ Objective: "Increase throughput for the inference service"
 * Adaptive batching support
     * Queue and batch requests to increase throughput.
 
-
-# Historical
 ### v0.3 Stability (Mar 11, 2020)
 Objective: "Improve practices around dependency management." 
 * Migrate to Kubebuilder 2.0.

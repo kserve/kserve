@@ -12,12 +12,18 @@ It encapsulates the complexity of autoscaling, networking, health checking, and 
 
 ![KFServing](/docs/diagrams/kfserving.png)
 
+### Architecture Review
+[Control Plane and Data Plane](./docs/README.md)
+
+### Core Features and Examples
+[KFServing Features and Examples](./docs/samples/README.md)
+
 ### Learn More
 To learn more about KFServing, how to deploy it as part of Kubeflow, how to use various supported features, and how to participate in the KFServing community, please follow the [KFServing docs on the Kubeflow Website](https://www.kubeflow.org/docs/components/serving/kfserving/). Additionally, we have compiled a list of [KFServing presentations and demoes](/docs/PRESENTATIONS.md) to dive through various details.
 
 ### Prerequisites
 
-Kubernetes 1.15+ is the minimum recommended version for KFServing.
+Kubernetes 1.16+ is the minimum recommended version for KFServing.
 
 Knative Serving and Istio should be available on Kubernetes Cluster, Knative depends on Istio Ingress Gateway to route requests to Knative services. To use the exact versions tested by the Kubeflow and KFServing teams, please refer to the [prerequisites on developer guide](docs/DEVELOPER_GUIDE.md#install-knative-on-a-kubernetes-cluster)
 
@@ -33,27 +39,32 @@ Currently only `Knative Serving` is required, `cluster-local-gateway` is require
 Cert manager is needed to provision KFServing webhook certs for production grade installation, alternatively you can run our self signed certs
 generation [script](./hack/self-signed-ca.sh).
 
+Note that since Knative v0.19.0 `cluster local gateway` has been removed and [shared with ingress gateway](https://github.com/knative-sandbox/net-istio/pull/237), 
+if you are on Knative version older than v0.19.0 you should modify `localGateway` to `knative-local-gateway` and `localGatewayService` to `knative-local-gateway.istio-system.svc.cluster.local` in the
+[inference service config](./config/configmap/inferenceservice.yaml). 
+
 ### Install KFServing
+<details>
+  <summary>Expand to see the installation options!</summary>
+  
 #### Standalone KFServing Installation
 KFServing can be installed standalone if your kubernetes cluster meets the above prerequisites and KFServing controller is deployed in `kfserving-system` namespace.
 
-For Kubernetes 1.16+ users
 ```
-TAG=v0.4.1
+TAG=v0.5.0
+```
+
+Install KFServing CRD
+
+Due to [large last applied annotation issue](https://github.com/kubernetes-sigs/kubebuilder/issues/1140) with `kubectl apply` we recommend using `kubectl replace` for upgrading crd.
+```shell
+kubectl replace -f ./install/$TAG/kfserving_crd.yaml || kubectl create -f ./install/$TAG/kfserving_crd.yaml
+```
+
+Install KFServing Controller
+
+```shell
 kubectl apply -f ./install/$TAG/kfserving.yaml
-```
-For Kubernetes 1.15 users
-```
-TAG=v0.4.1
-kubectl apply -f ./install/$TAG/kfserving.yaml --validate=false
-```
-
-KFServing uses pod mutator or [mutating admission webhooks](https://kubernetes.io/blog/2019/03/21/a-guide-to-kubernetes-admission-controllers/) to inject the storage initializer component of KFServing. By default all the pods in namespaces which are not labelled with `control-plane` label go through the pod mutator.
-This can cause problems and interfere with Kubernetes control panel when KFServing pod mutator webhook is not in ready state yet.
-
-As of KFServing 0.4 release [object selector](https://kubernetes.io/docs/reference/access-authn-authz/extensible-admission-controllers/#matching-requests-objectselector) is turned on by default, the KFServing pod mutator is only invoked for KFServing `InferenceService` pods. For prior releases you can turn on manually by running following command.
-```bash
-kubectl patch mutatingwebhookconfiguration inferenceservice.serving.kubeflow.org --patch '{"webhooks":[{"name": "inferenceservice.kfserving-webhook-server.pod-mutator","objectSelector":{"matchExpressions":[{"key":"serving.kubeflow.org/inferenceservice", "operator": "Exists"}]}}]}'
 ```
 
 #### Standalone KFServing on OpenShift
@@ -66,7 +77,12 @@ Since Kubeflow Kubernetes minimal requirement is 1.14 which does not support obj
 If you are using Kubeflow dashboard or [profile controller](https://www.kubeflow.org/docs/components/multi-tenancy/getting-started/#manual-profile-creation) to create  user namespaces, labels are automatically added to enable KFServing to deploy models. If you are creating namespaces manually using Kubernetes apis directly, you will need to add label `serving.kubeflow.org/inferenceservice: enabled` to allow deploying KFServing `InferenceService` in the given namespaces, and do ensure you do not deploy
 `InferenceService` in `kubeflow` namespace which is labelled as `control-plane`.
 
-#### Install KFServing in 5 Minutes (On your local machine)
+As of KFServing 0.4 release [object selector](https://kubernetes.io/docs/reference/access-authn-authz/extensible-admission-controllers/#matching-requests-objectselector) is turned on by default, the KFServing pod mutator is only invoked for KFServing `InferenceService` pods. For prior releases you can turn on manually by running following command.
+```bash
+kubectl patch mutatingwebhookconfiguration inferenceservice.serving.kubeflow.org --patch '{"webhooks":[{"name": "inferenceservice.kfserving-webhook-server.pod-mutator","objectSelector":{"matchExpressions":[{"key":"serving.kubeflow.org/inferenceservice", "operator": "Exists"}]}}]}'
+```
+
+#### Quick Install (On your local machine)
 
 Make sure you have
 [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/#install-kubectl-on-linux) installed.
@@ -88,8 +104,12 @@ minikube start --cpus 4 --memory 8192 --kubernetes-version=v1.17.11
 ```bash
 ./hack/quick_install.sh
 ```
+</details>
 
 ### Test KFServing Installation
+
+<details>
+  <summary>Expand to see steps for testing the installation!</summary>
 
 #### Check KFServing controller installation
 ```shell
@@ -174,6 +194,7 @@ Success       [ratio]                           100.00%
 Status Codes  [code:count]                      200:30000
 Error Set:
 ```
+</details>
 
 ### Setup Ingress Gateway
 If the default ingress gateway setup does not fit your need, you can choose to setup a custom ingress gateway
@@ -183,9 +204,7 @@ If the default ingress gateway setup does not fit your need, you can choose to s
 - [Configure HTTPS Connection](https://knative.dev/docs/serving/using-a-tls-cert/)
 
 ### Setup Monitoring
-- [Metrics](https://knative.dev/docs/serving/accessing-metrics/)
 - [Tracing](https://knative.dev/docs/serving/accessing-traces/)
-- [Logging](https://knative.dev/docs/serving/accessing-logs/)
 - [Dashboard for ServiceMesh](https://istio.io/latest/docs/tasks/observability/kiali/)
 
 ### Use KFServing SDK
@@ -197,22 +216,18 @@ If the default ingress gateway setup does not fit your need, you can choose to s
 
 * Follow the [example(s) here](docs/samples/client) to use the KFServing SDK to create, rollout, promote, and delete an InferenceService instance.
 
-### KFServing Features and Examples
-[KFServing Features and Examples](./docs/samples/README.md)
-
 ### KFServing Presentations and Demoes
 [KFServing Presentations and Demoes](./docs/PRESENTATIONS.md)
 
 ### KFServing Roadmap
 [KFServing Roadmap](./ROADMAP.md)
 
-### KFServing Concepts and Data Plane
-[KFServing Concepts and Data Plane](./docs/README.md)
-
 ### KFServing API Reference
 [KFServing v1alpha2 API Docs](./docs/apis/v1alpha2/README.md)
 
 [KFServing v1beta1 API Docs](./docs/apis/v1beta1/README.md)
+
+[Supported PodTemplate Fields](https://knative.dev/docs/serving/feature-flags/)
 
 ### KFServing Debugging Guide :star:
 [Debug KFServing InferenceService](./docs/KFSERVING_DEBUG_GUIDE.md)
