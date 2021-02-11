@@ -18,7 +18,7 @@ Installation of standalone KFServing on OpenShift can be done in multiple ways d
 ## Quick install
 
 **Note**: These instructions were tested on OpenShift 4.5.24, with KFServing v0.5.0-rc2, Istio 1.6.2, and Knative 0.18.0
-which are in the quick install script. Additionally, we have tested it with Kubeflow 1.2 recommended versions
+which are in the [`quick_install.sh`](../hack/quick_install.sh) script. Additionally, this has been tested on Kubeflow 1.2 recommended versions
 for Istio and Knative, i.e. Istio 1.3.1 and Knative 0.14.3.
 
 ### 1. Clone repository
