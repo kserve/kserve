@@ -106,34 +106,14 @@ minikube start --cpus 4 --memory 8192 --kubernetes-version=v1.17.11
 ```
 </details>
 
-### Test KFServing Installation
+### Setup Ingress Gateway
+If the default ingress gateway setup does not fit your need, you can choose to setup a custom ingress gateway
+- [Configure Custom Ingress Gateway](https://knative.dev/docs/serving/setting-up-custom-ingress-gateway/)
+  -  In addition you need to update [KFServing configmap](config/default/configmap/inferenceservice.yaml) to use the custom ingress gateway.
+- [Configure Custom Domain](https://knative.dev/docs/serving/using-a-custom-domain/)
+- [Configure HTTPS Connection](https://knative.dev/docs/serving/using-a-tls-cert/)
 
-<details>
-  <summary>Expand to see steps for testing the installation!</summary>
-
-#### Check KFServing controller installation
-```shell
-kubectl get po -n kfserving-system
-NAME                             READY   STATUS    RESTARTS   AGE
-kfserving-controller-manager-0   2/2     Running   2          13m
-```
-
-Please refer to our [troubleshooting section](docs/DEVELOPER_GUIDE.md#troubleshooting) for recommendations and tips for issues with installation.
-
-#### Create KFServing test inference service
-```bash
-API_VERSION=v1alpha2
-kubectl create namespace kfserving-test
-kubectl apply -f docs/samples/${API_VERSION}/sklearn/sklearn.yaml -n kfserving-test
-```
-#### Check KFServing `InferenceService` status.
-```bash
-kubectl get inferenceservices sklearn-iris -n kfserving-test
-NAME           URL                                                              READY   DEFAULT TRAFFIC   CANARY TRAFFIC   AGE
-sklearn-iris   http://sklearn-iris.kfserving-test.example.com/v1/models/sklearn-iris   True    100                                109s
-```
-
-#### Determine the ingress IP and ports
+### Determine the ingress IP and ports
 Execute the following command to determine if your kubernetes cluster is running in an environment that supports external load balancers
 ```bash
 $ kubectl get svc istio-ingressgateway -n istio-system
@@ -168,6 +148,32 @@ export INGRESS_HOST=localhost
 export INGRESS_PORT=8080
 ```
 
+### Test KFServing Installation
+<details>
+  <summary>Expand to see steps for testing the installation!</summary>
+
+#### Check KFServing controller installation
+```shell
+kubectl get po -n kfserving-system
+NAME                             READY   STATUS    RESTARTS   AGE
+kfserving-controller-manager-0   2/2     Running   2          13m
+```
+
+Please refer to our [troubleshooting section](docs/DEVELOPER_GUIDE.md#troubleshooting) for recommendations and tips for issues with installation.
+
+#### Create KFServing test inference service
+```bash
+API_VERSION=v1alpha2
+kubectl create namespace kfserving-test
+kubectl apply -f docs/samples/${API_VERSION}/sklearn/sklearn.yaml -n kfserving-test
+```
+#### Check KFServing `InferenceService` status.
+```bash
+kubectl get inferenceservices sklearn-iris -n kfserving-test
+NAME           URL                                                              READY   DEFAULT TRAFFIC   CANARY TRAFFIC   AGE
+sklearn-iris   http://sklearn-iris.kfserving-test.example.com/v1/models/sklearn-iris   True    100                                109s
+```
+
 #### Curl the `InferenceService`
 Curl from ingress gateway
 ```bash
@@ -195,13 +201,6 @@ Status Codes  [code:count]                      200:30000
 Error Set:
 ```
 </details>
-
-### Setup Ingress Gateway
-If the default ingress gateway setup does not fit your need, you can choose to setup a custom ingress gateway
-- [Configure Custom Ingress Gateway](https://knative.dev/docs/serving/setting-up-custom-ingress-gateway/)
-  -  In addition you need to update [KFServing configmap](config/default/configmap/inferenceservice.yaml) to use the custom ingress gateway.
-- [Configure Custom Domain](https://knative.dev/docs/serving/using-a-custom-domain/)
-- [Configure HTTPS Connection](https://knative.dev/docs/serving/using-a-tls-cert/)
 
 ### Setup Monitoring
 - [Tracing](https://knative.dev/docs/serving/accessing-traces/)
