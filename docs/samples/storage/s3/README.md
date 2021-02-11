@@ -62,7 +62,7 @@ Apply the secret and service account
 kubectl apply -f s3_secret.yaml
 ```
 
-Note: if you are running kfserving with istio sidecars enabled, there can be a race condition between the istio proxy being ready and the agent pulling models. This will result in a `tcp dial connection refused` error when the agent tries to download fmor s3. To resolve it, istio allows the blocking of other containers in a pod until the proxy container is ready. You can enabled this by setting `holdApplicationUntilProxyStarts: true` in istio-discovery (istiod).
+Note: if you are running kfserving with istio sidecars enabled, there can be a race condition between the istio proxy being ready and the agent pulling models. This will result in a `tcp dial connection refused` error when the agent tries to download from s3. To resolve it, istio allows the blocking of other containers in a pod until the proxy container is ready. You can enabled this by setting `holdApplicationUntilProxyStarts: true` in istio-discovery (istiod).
 
 ## Create the InferenceService
 Apply the CRD
