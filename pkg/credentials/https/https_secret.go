@@ -25,6 +25,7 @@ import (
 // Create constants -- baseURI
 const (
 	HTTPSHostURI = "https-base-uri"
+	HEADERS      = "headers"
 	HEADER       = "header"
 	NEWLINE      = "\n"
 )
@@ -47,7 +48,7 @@ func BuildSecretEnvs(secret *v1.Secret) []v1.EnvVar {
 	}
 
 	for key, element := range secret.Data {
-		if key == HEADER {
+		if key == HEADERS {
 			// Headers will be stored in multi-lined string
 			headersKeyValue := strings.Split(string(element), NEWLINE)
 			for _, headerKeyValue := range headersKeyValue {

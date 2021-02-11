@@ -64,7 +64,7 @@ func TestHTTPSSecret(t *testing.T) {
 					},
 				},
 				Data: map[string][]byte{
-					HEADER: []byte(header1 + ColonSeparator + headerValue1 + NEWLINE + header2 + ColonSeparator + headerValue2),
+					HEADERS: []byte(header1 + ColonSeparator + headerValue1 + NEWLINE + header2 + ColonSeparator + headerValue2),
 				},
 			},
 			expected: []v1.EnvVar{
