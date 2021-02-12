@@ -93,7 +93,8 @@ metadata:
 EOF
 
 echo "Waiting for knative started ..."
-kubectl wait --for=condition=Ready pods --all --timeout=180s -n knative-serving
+kubectl wait --for=condition=Ready knativeservings -n knative-serving knative-serving --timeout=180s
+kubectl wait --for=condition=Ready pods --all --timeout=180s -n knative-serving -l 'app in (activator,autoscaler,autoscaler-hpa,controller,istio-webhook,networking-istio)'
 
 echo "Installing cert manager ..."
 kubectl create namespace cert-manager
