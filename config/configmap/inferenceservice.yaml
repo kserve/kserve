@@ -31,7 +31,7 @@ data:
             "supportedFrameworks": [
               "sklearn"
             ],
-            "multiModelServer": true
+            "multiModelServer": false
           },
           "v2": {
             "image": "docker.io/seldonio/mlserver",
@@ -39,7 +39,7 @@ data:
             "supportedFrameworks": [
               "sklearn"
             ],
-            "multiModelServer": true
+            "multiModelServer": false
           }
         },
         "xgboost": {
@@ -49,7 +49,7 @@ data:
             "supportedFrameworks": [
               "xgboost"
             ],
-            "multiModelServer": true
+            "multiModelServer": false
           },
           "v2": {
             "image": "docker.io/seldonio/mlserver",
@@ -57,7 +57,7 @@ data:
             "supportedFrameworks": [
               "xgboost"
             ],
-            "multiModelServer": true
+            "multiModelServer": false
           }
         },
         "pytorch": {
@@ -90,7 +90,7 @@ data:
               "pytorch",
               "caffe2"
             ],
-            "multiModelServer": true
+            "multiModelServer": false
         },
         "pmml": {
             "image": "kfserving/pmmlserver",
@@ -106,7 +106,7 @@ data:
             "supportedFrameworks": [
               "lightgbm"
             ],
-            "multiModelServer": true
+            "multiModelServer": false
         }
     }
   transformers: |-

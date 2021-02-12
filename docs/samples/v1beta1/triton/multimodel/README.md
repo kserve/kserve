@@ -7,6 +7,8 @@ the cost of deploying models increase significantly because you may train anywhe
 These challenges become more pronounced when you don’t access all models at the same time but still need them to be available at all times.
 KFServing multi model serving design addresses these issues and gives a scalable yet cost-effective solution to deploy multiple models.
 
+You must set Triton's multiModelServer flag in `inferenceservice.yaml` to true to enable multi-model serving for Triton.
+
 ## Setup
 1. Your ~/.kube/config should point to a cluster with [KFServing 0.5 installed](https://github.com/kubeflow/kfserving/#install-kfserving).
 2. Your cluster's Istio Ingress gateway must be [network accessible](https://istio.io/latest/docs/tasks/traffic-management/ingress/ingress-control/).
