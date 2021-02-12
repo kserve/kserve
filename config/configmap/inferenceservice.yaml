@@ -148,8 +148,8 @@ data:
   ingress: |-
     {
         "ingressGateway" : $(ingressGateway)
-        "ingressService" : "istio-ingressgateway.istio-system.svc.cluster.local"
-        "localGateway" : "cluster-local-gateway"
+        "ingressService" : "istio-ingressgateway.istio-system.svc.cluster.local",
+        "localGateway" : "cluster-local-gateway",
         "localGatewayService" : "cluster-local-gateway.istio-system.svc.cluster.local"
     }
   logger: |-
