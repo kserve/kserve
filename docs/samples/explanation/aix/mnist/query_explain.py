@@ -26,7 +26,7 @@ test_num = 1002
 is_file = False
 if len(sys.argv) > 3:
     try:
-        test_num = int(sys.argv[2])
+        test_num = int(sys.argv[3])
     except:
         is_file = True
 
