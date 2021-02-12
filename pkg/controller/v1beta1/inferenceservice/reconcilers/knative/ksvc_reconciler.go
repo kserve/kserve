@@ -97,7 +97,6 @@ func createKnativeService(componentMeta metav1.ObjectMeta,
 		//canary rollout
 		trafficTargets = append(trafficTargets,
 			knservingv1.TrafficTarget{
-				Tag:            "latest",
 				LatestRevision: proto.Bool(true),
 				Percent:        proto.Int64(*componentExtension.CanaryTrafficPercent),
 			})
@@ -113,7 +112,6 @@ func createKnativeService(componentMeta metav1.ObjectMeta,
 		//blue green rollout
 		trafficTargets = append(trafficTargets,
 			knservingv1.TrafficTarget{
-				Tag:            "latest",
 				LatestRevision: proto.Bool(true),
 				Percent:        proto.Int64(100),
 			})
