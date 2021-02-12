@@ -147,7 +147,7 @@ bert-v2-predictor-default-plhgs     bert-v2-predictor-default     bert-v2-predic
 bert-v2-transformer-default-sd6nc   bert-v2-transformer-default   bert-v2-transformer-default-sd6nc   1            True  
 ```
 ## Run a Prediction
-The first step is to [determine the ingress IP and ports](../../../../README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
+The first step is to [determine the ingress IP and ports](../../../../../README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
 
 Send a question request with following input, the transformer expects sending a list of `instances` or `inputs` and `preprocess` then converts
 the inputs to expected tensor sending to `Triton Inference Server`.
@@ -164,7 +164,7 @@ MODEL_NAME=bert-v2
 INPUT_PATH=@./input.json
 SERVICE_HOSTNAME=$(kubectl get inferenceservices bert-v2 -o jsonpath='{.status.url}' | cut -d "/" -f 3)
 
-curl -v -H "Host: ${SERVICE_HOSTNAME}" -d $INPUT_PATH http://${INGRESS_HOST}:${INGRESS_PORT}/v2/models/$MODEL_NAME/infer
+curl -v -H "Host: ${SERVICE_HOSTNAME}" -d $INPUT_PATH http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/$MODEL_NAME:predict
 ```
 
 Expected output

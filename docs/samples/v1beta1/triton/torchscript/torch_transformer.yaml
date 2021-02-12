@@ -14,7 +14,7 @@ spec:
       - --log-verbose=1
   transformer:
     containers:
-    - image: yuzisun/image-transformer-v2:latest
+    - image: kfserving/image-transformer-v2:latest
       name: kfserving-container
       command:
       - "python"

@@ -37,7 +37,7 @@ flower-sample   http://flower-sample.default.example.com   True           100   
 ```
  
 ### Run a prediction
-The first step is to [determine the ingress IP and ports](../../../README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
+The first step is to [determine the ingress IP and ports](../../../../README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
 ```
 MODEL_NAME=flower-sample
 INPUT_PATH=@./input.json

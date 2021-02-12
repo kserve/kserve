@@ -30,7 +30,22 @@
 ## Load your InferenceService with target concurrency
 
 ### Create the InferenceService
-Apply the tensorflow example CR
+Apply the tensorflow example CR with scaling target set to 1. Annotation `autoscaling.knative.dev/target` is the soft limit rather than a strictly
+enforced limit, if there is sudden burst of the requests, this value can be exceeded.
+
+```yaml
+apiVersion: "serving.kubeflow.org/v1beta1"
+kind: "InferenceService"
+metadata:
+  name: "flowers-sample"
+  annotations:
+    autoscaling.knative.dev/target: "1"
+spec:
+  predictor:
+    tensorflow:
+      storageUri: "gs://kfserving-samples/models/tensorflow/flowers"
+```
+
 ```
 kubectl apply -f autoscale.yaml
 ```
@@ -96,7 +111,7 @@ Status code distribution:
   [200]	4126 responses
 ```
 Check the number of running pods now, `KFServing` uses `Knative Serving` autoscaler which is based on the
-average number of in-flight requests per pod(concurrency). `KFServing` by default sets target concurrency to be 1 and we
+average number of in-flight requests per pod(concurrency). As the scaling target is set to 1 and we
 load the service with 5 concurrent requests, so the autoscaler tries scaling up to 5 pods. Notice that out of all the requests there are 
 5 requests on the histogram that take around 10s, that's the cold start time cost to initially spawn the pods and download model to be ready
 to serve. The cold start may take longer(to pull the serving image) if the image is not cached on the node that the pod is scheduled on.
@@ -213,19 +228,18 @@ is pretty easy and effective!
 ### Create the InferenceService with GPU resource
 Apply the tensorflow gpu example CR
 ```
-apiVersion: "serving.kubeflow.org/v1alpha2"
+apiVersion: "serving.kubeflow.org/v1beta1"
 kind: "InferenceService"
 metadata:
   name: "flowers-sample-gpu"
 spec:
-  default:
-    predictor:
-      tensorflow:
-        storageUri: "gs://kfserving-samples/models/tensorflow/flowers"
-        runtimeVersion: "1.13.0-gpu"
-        resources:
-          limits:
-            nvidia.com/gpu: 1
+  predictor:
+    tensorflow:
+      storageUri: "gs://kfserving-samples/models/tensorflow/flowers"
+      runtimeVersion: "1.14.0-gpu"
+      resources:
+        limits:
+          nvidia.com/gpu: 1
 ```
 
 ```
@@ -287,24 +301,41 @@ Details (average, fastest, slowest):
 Status code distribution:
   [200]	4292 responses
 ```
-
 ## Autoscaling Customization
-You can also customize the target concurrency by adding annotation `autoscaling.knative.dev/target: "10"` on `InferenceService` CR.
+
+### Autoscaling with ContainerConcurrency
+`ContainerConcurrency` determines the number of simultaneous requests that can be processed by each replica of the `InferenceService`
+at any given time, it is a hard limit and if the concurrency reaches the hard limit surplus requests will be buffered and must wait until
+enough capacity is free to execute the requests.
 
 ```yaml
-apiVersion: "serving.kubeflow.org/v1alpha2"
+apiVersion: "serving.kubeflow.org/v1beta1"
 kind: "InferenceService"
 metadata:
   name: "flowers-sample"
-  annotations:
-    autoscaling.knative.dev/target: "10"
 spec:
-  default:
-    predictor:
-      tensorflow:
-        storageUri: "gs://kfserving-samples/models/tensorflow/flowers"
+  predictor:
+    containerConcurrency: 10
+    tensorflow:
+      storageUri: "gs://kfserving-samples/models/tensorflow/flowers"
 ```
 
 ```bash
 kubectl apply -f autoscale_custom.yaml
+```
+
+### Enable scale down to zero
+KFServing by default sets `minReplicas` to 1, if you want to enable scaling down to zero especially for use cases like serving on GPUs you can
+set `minReplicas` to 0 so that the pods automatically scale down to zero when no traffic is received.
+
+```yaml
+apiVersion: "serving.kubeflow.org/v1beta1"
+kind: "InferenceService"
+metadata:
+  name: "flowers-sample"
+spec:
+  predictor:
+    minReplicas: 0
+    tensorflow:
+      storageUri: "gs://kfserving-samples/models/tensorflow/flowers"
 ```

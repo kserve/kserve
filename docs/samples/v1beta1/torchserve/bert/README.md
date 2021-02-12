@@ -31,7 +31,7 @@ $inferenceservice.serving.kubeflow.org/torchserve-bert created
 
 ## Run a prediction
 
-The first step is to [determine the ingress IP and ports](../../../../README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
+The first step is to [determine the ingress IP and ports](../../../../../README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
 
 ```bash
 MODEL_NAME=torchserve-bert

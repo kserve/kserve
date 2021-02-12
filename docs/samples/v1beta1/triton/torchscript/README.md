@@ -107,7 +107,9 @@ instance_group [
 ```
 
 
-## Create the InferenceService
+## Inference with HTTP endpoint
+
+### Create the InferenceService
 Create the inference service yaml with the above specified model repository uri.
 ```
 kubectl apply -f torchscript.yaml
@@ -142,8 +144,8 @@ $ inferenceservice.serving.kubeflow.org/torchscript-cifar10 created
 kubectl get inferenceservices torchscript-demo
 ```
 
-## Run a prediction with curl
-The first step is to [determine the ingress IP and ports](../../../README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
+### Run a prediction with curl
+The first step is to [determine the ingress IP and ports](../../../../../README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
 
 The latest Triton Inference Server already switched to use KFServing [prediction V2 protocol](https://github.com/kubeflow/kfserving/tree/master/docs/predict-api/v2), so 
 the input request needs to follow the V2 schema with the specified data type, shape.
@@ -177,6 +179,37 @@ expected output
 {"model_name":"cifar10","model_version":"1","outputs":[{"name":"OUTPUT__0","datatype":"FP32","shape":[1,10],"data":[-2.0964810848236086,-0.13700756430625916,-0.5095657706260681,2.795621395111084,-0.5605481863021851,1.9934231042861939,1.1288187503814698,-1.4043136835098267,0.6004879474639893,-2.1237082481384279]}]}
 ```
 
+## Inference with gRPC endpoint
+
+### Create the InferenceService
+Create the inference service yaml and expose the gRPC port, currently only one port is allowed to expose either HTTP or gRPC port and by default HTTP port is exposed.
+
+```yaml
+apiVersion: serving.kubeflow.org/v1beta1
+kind: InferenceService
+metadata:
+  name: torchscript-cifar10
+spec:
+  predictor:
+    triton:
+      storageUri: gs://kfserving-examples/models/torchscript
+      runtimeVersion: 20.10-py3
+      ports:
+      - containerPort: 9000
+        name: h2c
+        protocol: TCP
+      env:
+      - name: OMP_NUM_THREADS
+        value: "1"
+```
+
+Apply the gRPC `InferenceService` yaml and then you can call the model with `tritonclient` python library after `InferenceService` is ready.
+```
+kubectl apply -f torchscript_grpc.yaml
+```
+
+
+
 ## Run a performance test
 QPS rate `--rate` can be changed in the [perf.yaml](./perf.yaml).
 ```
@@ -192,16 +225,14 @@ Status Codes  [code:count]                      200:6000
 Error Set:
 ```
 
-# Add transformer step before the triton inference server
+## Add Transformer to the InferenceService
 
-`Triton Inference Server` expects tensors as input data, often the time a pre-processing step is required before making the prediction call
+`Triton Inference Server` expects tensors as input data, often times a pre-processing step is required before making the prediction call
 when the user is sending in request with raw input format. Transformer component can be specified on InferenceService spec for user implemented pre/post processing code.
 User is responsible to create a python class which extends from KFServing `KFModel` base class which implements `preprocess` handler to transform raw input
 format to tensor format according to V2 prediction protocol, `postprocess` handle is to convert raw prediction response to a more user friendly response.
 
-##  Build Transformer image
-
-### Extend Transformer and implement pre/post processing functions
+### Implement pre/post processing functions
 ```python
 import kfserving
 from typing import List, Dict
@@ -256,7 +287,7 @@ class ImageTransformer(kfserving.KFModel):
 docker build -t $DOCKER_USER/image-transformer-v2:latest -f transformer.Dockerfile . --rm
 ```
 
-## Create the InferenceService with Transformer
+### Create the InferenceService with Transformer
 Please use the [YAML file](./torch_transformer.yaml) to create the InferenceService, which adds the image transformer component with the docker image built from above.
 ```yaml
 apiVersion: serving.kubeflow.org/v1beta1
@@ -273,7 +304,8 @@ spec:
         value: "1"
   transformer:
     containers:
-    - image: $DOCKER_USER/image-transformer-v2:latest
+    - image: kfserving/image-transformer-v2:latest
+      name: kfserving-container
       command:
       - "python"
       - "-m"
@@ -294,7 +326,7 @@ Expected Output
 $ inferenceservice.serving.kubeflow.org/torch-transfomer created
 ```
 
-## Run a prediction from curl
+### Run a prediction from curl
 The transformer does not enforce a specific schema like predictor but the general recommendation is to send in as a list of object(dict): 
 `"instances": <value>|<list-of-objects>`
 ```json
@@ -318,7 +350,7 @@ INPUT_PATH=@./image.json
 
 SERVICE_HOSTNAME=$(kubectl get inferenceservice $SERVICE_NAME -o jsonpath='{.status.url}' | cut -d "/" -f 3)
 
-curl -v -X POST -H "Host: ${SERVICE_HOSTNAME}" https://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/$MODEL_NAME/predict -d $INPUT_PATH
+curl -v -X POST -H "Host: ${SERVICE_HOSTNAME}" https://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/$MODEL_NAME:predict -d $INPUT_PATH
 ```
 
 You should see an output similar to the one below:
