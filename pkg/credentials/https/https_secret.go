@@ -24,7 +24,7 @@ import (
 
 // Create constants -- baseURI
 const (
-	HTTPSHostURI = "https-base-uri"
+	HTTPSHostURI = "https-host-uri"
 	HEADERS      = "headers"
 	HEADER       = "header"
 	NEWLINE      = "\n"
