@@ -23,14 +23,14 @@ from kfserving import constants
 
 logging.basicConfig(level=logging.INFO)
 
-KFServing = KFServingClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
 KFSERVING_NAMESPACE = "kfserving-system"
 KFSERVING_TEST_NAMESPACE = "kfserving-ci-e2e-test"
 
 
 def predict(service_name, input_json, protocol_version="v1",
             version=constants.KFSERVING_V1BETA1_VERSION, model_name=None):
-    isvc = KFServing.get(
+    kfs_client = KFServingClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+    isvc = kfs_client.get(
         service_name,
         namespace=KFSERVING_TEST_NAMESPACE,
         version=version,
@@ -66,12 +66,14 @@ def explain(service_name, input_json):
 def explain_aix(service_name, input_json):
     return explain_response(service_name, input_json)["explanations"]["masks"][0]
 
+
 def explain_art(service_name, input_json):
     return explain_response(service_name, input_json)["explanations"]["adversarial_prediction"]
 
 
 def explain_response(service_name, input_json):
-    isvc = KFServing.get(
+    kfs_client = KFServingClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+    isvc = kfs_client.get(
         service_name,
         namespace=KFSERVING_TEST_NAMESPACE,
         version=constants.KFSERVING_V1BETA1_VERSION,
@@ -96,7 +98,7 @@ def explain_response(service_name, input_json):
         except (RuntimeError, json.decoder.JSONDecodeError) as e:
             logging.info("Explain error -------")
             logging.info(
-                KFServing.api_instance.get_namespaced_custom_object(
+                kfs_client.api_instance.get_namespaced_custom_object(
                     "serving.knative.dev",
                     "v1",
                     KFSERVING_TEST_NAMESPACE,
@@ -104,7 +106,7 @@ def explain_response(service_name, input_json):
                     service_name + "-explainer",
                 )
             )
-            pods = KFServing.core_api.list_namespaced_pod(
+            pods = kfs_client.core_api.list_namespaced_pod(
                 KFSERVING_TEST_NAMESPACE,
                 label_selector="serving.kubeflow.org/inferenceservice={}".format(
                     service_name
@@ -116,7 +118,7 @@ def explain_response(service_name, input_json):
                     "%s\t%s\t%s"
                     % (pod.metadata.name, pod.status.phase, pod.status.pod_ip)
                 )
-                api_response = KFServing.core_api.read_namespaced_pod_log(
+                api_response = kfs_client.core_api.read_namespaced_pod_log(
                     pod.metadata.name,
                     KFSERVING_TEST_NAMESPACE,
                     container="kfserving-container",
