@@ -27,7 +27,7 @@ data:
         "sklearn": {
           "v1": {
             "image": "gcr.io/kfserving/sklearnserver",
-            "defaultImageVersion": "v0.5.0",
+            "defaultImageVersion": "latest",
             "supportedFrameworks": [
               "sklearn"
             ],
@@ -45,7 +45,7 @@ data:
         "xgboost": {
           "v1": {
             "image": "gcr.io/kfserving/xgbserver",
-            "defaultImageVersion": "v0.5.0",
+            "defaultImageVersion": "latest",
             "supportedFrameworks": [
               "xgboost"
             ],
@@ -63,8 +63,8 @@ data:
         "pytorch": {
           "v1" : {
             "image": "gcr.io/kfserving/pytorchserver",
-            "defaultImageVersion": "v0.5.0",
-            "defaultGpuImageVersion": "v0.5.0-gpu",
+            "defaultImageVersion": "latest",
+            "defaultGpuImageVersion": "latest-gpu",
             "supportedFrameworks": [
               "pytorch"
             ],
@@ -94,7 +94,7 @@ data:
         },
         "pmml": {
             "image": "kfserving/pmmlserver",
-            "defaultImageVersion": "v0.5.0",
+            "defaultImageVersion": "latest",
             "supportedFrameworks": [
               "pmml"
             ],
@@ -102,7 +102,7 @@ data:
         },
         "lightgbm": {
             "image": "kfserving/lgbserver",
-            "defaultImageVersion": "v0.5.0",
+            "defaultImageVersion": "latest",
             "supportedFrameworks": [
               "lightgbm"
             ],
@@ -116,20 +116,20 @@ data:
     {
         "alibi": {
             "image" : "gcr.io/kfserving/alibi-explainer",
-            "defaultImageVersion": "v0.5.0"
+            "defaultImageVersion": "latest"
         },
         "aix": {
             "image" : "kfserving/aix-explainer",
-            "defaultImageVersion": "v0.5.0"
+            "defaultImageVersion": "latest"
         },
         "art": {
             "image" : "kfserving/art-explainer",
-            "defaultImageVersion": "v0.5.0"
+            "defaultImageVersion": "latest"
         }
     }
   storageInitializer: |-
     {
-        "image" : "gcr.io/kfserving/storage-initializer:v0.5.0",
+        "image" : "gcr.io/kfserving/storage-initializer:latest",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
@@ -154,7 +154,7 @@ data:
     }
   logger: |-
     {
-        "image" : "kfserving/agent:v0.5.0",
+        "image" : "kfserving/agent:latest",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
@@ -163,7 +163,7 @@ data:
     }
   batcher: |-
     {
-        "image" : "kfserving/agent:v0.5.0",
+        "image" : "kfserving/agent:latest",
         "memoryRequest": "1Gi",
         "memoryLimit": "1Gi",
         "cpuRequest": "1",
@@ -171,7 +171,7 @@ data:
     }
   agent: |-
     {
-        "image" : "kfserving/agent:v0.5.0",
+        "image" : "kfserving/agent:latest",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
