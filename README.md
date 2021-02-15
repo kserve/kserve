@@ -25,7 +25,7 @@ To learn more about KFServing, how to deploy it as part of Kubeflow, how to use 
 
 Kubernetes 1.16+ is the minimum recommended version for KFServing.
 
-Knative Serving and Istio should be available on Kubernetes Cluster, Knative depends on Istio Ingress Gateway to route requests to Knative services.
+Knative Serving and Istio should be available on Kubernetes Cluster, KFServing currently depends on Istio Ingress Gateway to route requests to inference services.
 
 - [Istio](https://knative.dev/docs/install/installing-istio): v1.3.1+
 
@@ -34,8 +34,8 @@ If you want to get up running Knative quickly or you do not need service mesh, w
 
 `cluster-local-gateway` is required to serve cluster-internal traffic for transformer and explainer use cases. Please follow instructions here to install [cluster local gateway](https://knative.dev/docs/install/installing-istio/#updating-your-install-to-use-cluster-local-gateway).
 
-Since Knative v0.19.0 `cluster local gateway` has been removed and [shared with ingress gateway](https://github.com/knative-sandbox/net-istio/pull/237),
-if you are on Knative version older than v0.19.0 you should modify `localGateway` to `knative-local-gateway` and `localGatewayService` to `knative-local-gateway.istio-system.svc.cluster.local` in the
+Since Knative v0.19.0 `cluster local gateway` deployment has been removed and [shared with ingress gateway](https://github.com/knative-sandbox/net-istio/pull/237),
+if you are on Knative version later than v0.19.0 you should modify `localGateway` to `knative-local-gateway` and `localGatewayService` to `knative-local-gateway.istio-system.svc.cluster.local` in the
 [inference service config](./config/configmap/inferenceservice.yaml).
 
 - [Cert Manager](https://cert-manager.io/docs/installation/kubernetes): v0.12.0+
@@ -59,14 +59,14 @@ Install KFServing CRD
 
 Due to [large last applied annotation issue](https://github.com/kubernetes-sigs/kubebuilder/issues/1140) with `kubectl apply` we recommend using `kubectl replace` for upgrading crd.
 ```shell
-CRD=https://github.com/kubeflow/kfserving/releases/download/v0.5.0/kfserving_crds.yaml
+CRD=https://github.com/kubeflow/kfserving/releases/download/$TAG/kfserving_crds.yaml
 kubectl replace -f $CRD || kubectl create -f $CRD
 ```
 
 Install KFServing Controller
 
 ```shell
-kubectl apply -f https://github.com/kubeflow/kfserving/releases/download/v0.5.0/kfserving.yaml
+kubectl apply -f https://github.com/kubeflow/kfserving/releases/download/$TAG/kfserving.yaml
 ```
 
 #### Standalone KFServing on OpenShift
@@ -83,26 +83,6 @@ If you are creating namespaces manually using Kubernetes apis directly, you will
 As of KFServing 0.4 release [object selector](https://kubernetes.io/docs/reference/access-authn-authz/extensible-admission-controllers/#matching-requests-objectselector) is turned on by default, the KFServing pod mutator is only invoked for KFServing `InferenceService` pods. For prior releases you can turn on manually by running following command.
 ```bash
 kubectl patch mutatingwebhookconfiguration inferenceservice.serving.kubeflow.org --patch '{"webhooks":[{"name": "inferenceservice.kfserving-webhook-server.pod-mutator","objectSelector":{"matchExpressions":[{"key":"serving.kubeflow.org/inferenceservice", "operator": "Exists"}]}}]}'
-```
-
-Currently Kubeflow 1.2 installs KFServing 0.4
-
-```
-TAG=v0.5.0
-```
-
-Install KFServing CRD
-
-Due to [large last applied annotation issue](https://github.com/kubernetes-sigs/kubebuilder/issues/1140) with `kubectl apply` we recommend using `kubectl replace` for upgrading crd.
-```shell
-CRD=https://github.com/kubeflow/kfserving/releases/download/v0.5.0/kfserving_kubeflow_crds.yaml
-kubectl replace -f $CRD || kubectl create -f $CRD
-```
-
-Install KFServing Controller
-
-```shell
-kubectl apply -f https://github.com/kubeflow/kfserving/releases/download/v0.5.0/kfserving_kubeflow.yaml
 ```
 
 #### Quick Install (On your local machine)
@@ -186,7 +166,7 @@ Please refer to our [troubleshooting section](docs/DEVELOPER_GUIDE.md#troublesho
 
 #### Create KFServing test inference service
 ```bash
-API_VERSION=v1alpha2
+API_VERSION=v1beta1
 kubectl create namespace kfserving-test
 kubectl apply -f docs/samples/${API_VERSION}/sklearn/sklearn.yaml -n kfserving-test
 ```
