@@ -76,10 +76,11 @@ cd ..
 # Install KFServing
 K8S_MINOR=$(kubectl version | perl -ne 'print $1."\n" if /Server Version:.*?Minor:"(\d+)"/')
 if [[ $K8S_MINOR -lt 16 ]]; then
-  kubectl apply -f install/${KFSERVING_VERSION}/kfserving.yaml --validate=false
+  kubectl apply -f install/${KFSERVING_VERSION}/kfserving_crds.yaml --validate=false
 else
-  kubectl apply -f install/${KFSERVING_VERSION}/kfserving.yaml
+  kubectl apply -f install/${KFSERVING_VERSION}/kfserving_crds.yaml
 fi
+kubectl apply -f install/${KFSERVING_VERSION}/kfserving.yaml
 
 # Clean up
 rm -rf istio-${ISTIO_VERSION}
