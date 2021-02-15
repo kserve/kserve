@@ -43,17 +43,17 @@ Kubernetes clusters also have an IP address limit per cluster.
 Each pod in InferenceService needs an independent IP. 
 For example a cluster with 4096 IP addresses can deploy at most 1024 models assuming each InferenceService has 4 pods on average (two transformer replicas and two predictor replicas).
 
-## Benefit of using Multi-model serving
+## Benefit of using Multi-Model serving
 The Multi-model serving feature is designed to address the three limitations above. 
 It decreases the average resource overhead per model so model deployment becomes more cost efficient. 
 And the number of models which can be deployed in a cluster will no longer be limited 
 by the maximum pods limitation and the maximum IP address limitation.
 
-## How Multi-model serving address those limitations
+## How Multi-Model serving address those limitations
 We designed a new CustomResource called "TrainedModel" which represents a machine learning model. 
 It can be loaded into a designated InferenceService.
 
-The common user flow with Multi-model serving is:
+The common user flow with Multi-Model serving is:
 1) Deploy an InferenceService without the "storageUri" field i.e. without any models loaded
 2) Deploy multiple TrainedModel CRs which load models to a designated InferenceService
 3) Resolve the model prediction endpoint from TrainedModel's status object
@@ -83,10 +83,13 @@ Remember to set the respective model server's `multiModelServer` flag in `infere
 
 
 ## Roadmap
-Model agent readiness check: When a new replica of InferenceService predictor starts up, it will be necessary to block the new replica until the model agent attempts to load all the models for this InferenceService first.
-Model probing: We plan to probe each TrainedModel's current status such as Downloading, Downloading success/failed, Loading, Loading success/failed, Ready and propagate the status back to TrainedModels status object.
-Sharding: When an InferenceService is full, a new shard will be created to load more models.
-Multiple transformers for Multi-model serving: When multiple models are loaded to a predictor, each of them may require a different transformer. An approach to share multiple transformers is desired for Multi-model serving.
+**Model agent readiness check**: When a new replica of InferenceService predictor starts up, it will be necessary to block the new replica until the model agent attempts to load all the models for this InferenceService first.
+
+**Model probing**: We plan to probe each TrainedModel's current status such as Downloading, Downloading success/failed, Loading, Loading success/failed, Ready and propagate the status back to TrainedModels status object.
+
+**Sharding**: When an InferenceService is full, a new shard will be created to load more models.
+
+**Multiple transformers for Multi-model serving**: When multiple models are loaded to a predictor, each of them may require a different transformer. An approach to share multiple transformers is desired for Multi-model serving.
 
 
 
