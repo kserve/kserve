@@ -15596,11 +15596,3 @@ status:
   conditions: []
   storedVersions: []
 ---
-apiVersion: v1
-data:
-  kfservingNamespace: kfserving-system
-  webhookServiceName: kfserving-webhook-server-service
-kind: ConfigMap
-metadata:
-  name: kfserving-crd-config
-  namespace: kfserving-system
