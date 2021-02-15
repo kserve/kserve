@@ -92,12 +92,12 @@ For this, we will just need to use **version `v1beta1`** of the
 apiVersion: "serving.kubeflow.org/v1beta1"
 kind: "InferenceService"
 metadata:
-  name: "sklearn-iris"
+  name: "sklearn-irisv2"
 spec:
   predictor:
     sklearn:
       protocolVersion: "v2"
-      storageUri: "gs://seldon-models/sklearn/iris"
+      storageUri: "gs://kfserving-examples/models/sklearn/irisv2"
 ```
 
 Note that this makes the following assumptions:
@@ -153,7 +153,7 @@ SERVICE_HOSTNAME=$(kubectl get inferenceservice sklearn-iris -o jsonpath='{.stat
 curl -v \
   -H "Host: ${SERVICE_HOSTNAME}" \
   -d @./iris-input.json \
-  http://${INGRESS_HOST}:${INGRESS_PORT}/v2/models/sklearn-iris/infer
+  http://${INGRESS_HOST}:${INGRESS_PORT}/v2/models/sklearn-irisv2/infer
 ```
 
 The output will be something similar to:

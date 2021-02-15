@@ -1,9 +1,9 @@
 apiVersion: "serving.kubeflow.org/v1beta1"
 kind: "InferenceService"
 metadata:
-  name: "sklearn-iris"
+  name: "sklearn-irisv2"
 spec:
   predictor:
     sklearn:
       protocolVersion: v2
-      storageUri: "gs://seldon-models/sklearn/iris"
+      storageUri: "gs://kfserving-examples/models/sklearn/irisv2"
