@@ -4180,13 +4180,13 @@ spec:
         - JSONPath: .status.components.predictor.traffic[?(@.tag=='prev')].percent
           name: Prev
           type: integer
-        - JSONPath: .status.components.predictor.traffic[?(@.tag=='latest')].percent
+        - JSONPath: .status.components.predictor.traffic[?(@.latestRevision==true)].percent
           name: Latest
           type: integer
         - JSONPath: .status.components.predictor.traffic[?(@.tag=='prev')].revisionName
           name: PrevRolledoutRevision
           type: string
-        - JSONPath: .status.components.predictor.traffic[?(@.tag=='latest')].revisionName
+        - JSONPath: .status.components.predictor.traffic[?(@.latestRevision==true)].revisionName
           name: LatestReadyRevision
           type: string
         - JSONPath: .metadata.creationTimestamp
