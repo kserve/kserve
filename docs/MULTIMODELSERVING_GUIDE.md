@@ -1,29 +1,95 @@
 # Multi-Model Serving
-## Introduction
+Multi-model serving is an [alpha](https://kubernetes.io/docs/reference/using-api/#api-versioning) 
+feature added recently to increase KFServing’s scalability.
+Please assume that the interface is subject to changes.
 
-### Problem
+## The model deployment scalability problem
+With machine learning approaches becoming more widely adopted in organizations, 
+there is a trend to deploy a large number of models. 
+For example, a news classification service may train a custom model based on a news category. 
+Another important reason why organizations desire to train a lot of models is to protect data privacy. 
+It is safer to isolate each user's data and train models separately. 
+While you get the benefit of better inference accuracy and data privacy by building models for each use case, 
+it is more challenging to deploy thousands to hundreds of thousands of models. 
+Furthermore, there are an increasing number of use cases which serve neural network-based models. 
+Those models are better served on GPUs to achieve reasonable latency. 
+However, since GPUs are expensive resources, it is very costly to serve a lot of GPU-based models.
 
-With machine learning approaches becoming more widely adopted in organizations, there is a trend to deploy many models. More models aims to provide personalized experience which often need to train a lot of models. Additionally, many models help to isolate each user’s data and train models separately for data privacy.
-When KFServing was originally designed, it followed the one model and one server paradigm which presents a challenge for the Kubernetes cluster when users want to deploy many models.
-For example, Kubernetes sets a default limit of 110 pods per node. A 100 nodes cluster can host at most 11,000 pods, which is often not enough.
-Additionally, there is no easy way to request a fraction of GPU in Kubernetes infrastructure, it makes sense to load multiple models in one model server to share GPU resources. KFServing's multi-model serving is a solution that allows for loading multiple models into a server while still keeping the out of the box serverless features.
+The original design of KFServing deploys one model per InferenceService. 
+But, its 'one model, one server' paradigm presents challenges for a Kubernetes cluster when dealing with a large number of models. 
+To scale the number of models, we have to scale the number of InferenceServices, 
+something that can quickly challenge the cluster's limits.
 
-### Benefits
-- Allow multiple models to share the same GPU
-- Increase the total number of models that can be deployed in a cluster
-- Reduced model deployment resource overhead
-    - An InferenceService needs some CPU and overhead for each replica
-    - Loading multiple models in one inferenceService is more resource efficient
-    - Allow deploying hundreds of thousands of models with ease and monitoring deployed trained models at scale
+Multi-model serving is designed to address three types of limitations KFServing will run into: 1) Compute resource limitation, 2) Maximum pods limitation, 3) Maximum IP address limitation.
+
+### Compute resource limitation
+Each InferenceService has a resource overhead because of the sidecars injected into each pod. 
+This normally adds about 0.5 CPU and 0.5G Memory resource per InferenceService replica. 
+For example, if we deploy 10 models, each with 2 replicas, then the resource overhead is 10 * 2 * 0.5 = 10 CPU and 10 * 2 * 0.5 = 10 GB memory. 
+Each model’s resource overhead is 1CPU and 1 GB memory. 
+Deploying many models using the current approach will quickly use up a cluster's computing resource. 
+With Multi-model serving, these models can be loaded in one InferenceService, 
+then each model's average overhead is 0.1 CPU and 0.1GB memory.
+For GPU based models, the number of GPUs required grows linearly as the number of models grows, which is not cost efficient. 
+If multiple models can be loaded in one GPU enabled model server such as TritonServer, we need a lot less GPUs in the cluster.
+
+### Maximum pods limitation
+Kubernetes has a maximum number of pods per node with the default limit set to 110. 
+A typical 50-node cluster with default pod limit can run at most 1000 models
+ assuming each InferenceService has 4 pods on average (two transformer replicas and two predictor replicas).
+
+### Maximum IP address limitation.
+Kubernetes clusters also have an IP address limit per cluster. 
+Each pod in InferenceService needs an independent IP. 
+For example a cluster with 4096 IP addresses can deploy at most 1024 models assuming each InferenceService has 4 pods on average (two transformer replicas and two predictor replicas).
+
+## Benefit of using Multi-model serving
+The Multi-model serving feature is designed to address the three limitations above. 
+It decreases the average resource overhead per model so model deployment becomes more cost efficient. 
+And the number of models which can be deployed in a cluster will no longer be limited 
+by the maximum pods limitation and the maximum IP address limitation.
+
+## How Multi-model serving address those limitations
+We designed a new CustomResource called "TrainedModel" which represents a machine learning model. 
+It can be loaded into a designated InferenceService.
+
+The common user flow with Multi-model serving is:
+1) Deploy an InferenceService without the "storageUri" field i.e. without any models loaded
+2) Deploy multiple TrainedModel CRs which load models to a designated InferenceService
+3) Resolve the model prediction endpoint from TrainedModel's status object
+4) Run prediction using the resolved endpoint
 
 ### Design
 ![Multi-model Diagram](./diagrams/mms-design.png)
+For a more in depth details checkout this [document](https://docs.google.com/document/d/11qETyR--oOIquQke-DCaLsZY75vT1hRu21PesSUDy7o).
 
 ### Integration with model servers
 Multi-model serving will work with any model server that implements KFServing V2 protocol. More specifically, if the model server implements the load and unload endpoint then it can use KFServing's TrainedModel.
 Currently, Triton, LightGBM, SKLearn, and XGBoost are able to use Multi-model serving. Click on [Triton](https://github.com/kubeflow/kfserving/tree/master/docs/samples/v1beta1/triton/multimodel) or [SKLearn](https://github.com/kubeflow/kfserving/tree/master/docs/samples/v1beta1/sklearn/multimodel) to see examples on how to run multi-model serving!
 
+Multi-model serving will work with any model server that implements KFServing 
+[V2 protocol](https://github.com/kubeflow/kfserving/tree/master/docs/predict-api/v2). 
+More specifically, if the model server implements the 
+[load](https://github.com/triton-inference-server/server/blob/master/docs/protocol/extension_model_repository.md#load),
+[unload](https://github.com/triton-inference-server/server/blob/master/docs/protocol/extension_model_repository.md#unload) 
+and [model health check](https://github.com/kubeflow/kfserving/blob/master/docs/predict-api/v2/required_api.md#httprest) endpoints 
+then it can use KFServing's TrainedModel. 
+Currently, Triton, LightGBM, SKLearn, and XGBoost are able to use Multi-model serving. 
+Click on [Triton](https://github.com/kubeflow/kfserving/tree/master/docs/samples/v1beta1/triton/multimodel) 
+or [SKLearn](https://github.com/kubeflow/kfserving/tree/master/docs/samples/v1beta1/sklearn/multimodel) 
+to see examples on how to run multi-model serving!
 
-Remember to set the respective model server's multiModelServer flag in `inferenceservice.yaml` to true to enable the experimental feature.
+Remember to set the respective model server's `multiModelServer` flag in `inferenceservice.yaml` to true to enable the experimental feature.
 
-For a more in depth details checkout this [document](https://docs.google.com/document/d/11qETyR--oOIquQke-DCaLsZY75vT1hRu21PesSUDy7o).
+
+## Roadmap
+Model agent readiness check: When a new replica of InferenceService predictor starts up, it will be necessary to block the new replica until the model agent attempts to load all the models for this InferenceService first.
+Model probing: We plan to probe each TrainedModel's current status such as Downloading, Downloading success/failed, Loading, Loading success/failed, Ready and propagate the status back to TrainedModels status object.
+Sharding: When an InferenceService is full, a new shard will be created to load more models.
+Multiple transformers for Multi-model serving: When multiple models are loaded to a predictor, each of them may require a different transformer. An approach to share multiple transformers is desired for Multi-model serving.
+
+
+
+
+
+
