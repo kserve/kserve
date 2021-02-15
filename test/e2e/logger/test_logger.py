@@ -61,7 +61,7 @@ def test_kfserving_logger():
             min_replicas=1,
             logger=V1alpha2Logger(
                mode="all",
-               url="http://message-dumper."+KFSERVING_TEST_NAMESPACE
+               url="http://message-dumper."+KFSERVING_TEST_NAMESPACE+".svc.cluster.local"
             ),
             sklearn=V1alpha2SKLearnSpec(
                 storage_uri='gs://kfserving-samples/models/sklearn/iris',
