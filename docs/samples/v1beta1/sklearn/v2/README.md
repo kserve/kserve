@@ -97,7 +97,7 @@ spec:
   predictor:
     sklearn:
       protocolVersion: "v2"
-      storageUri: "gs://kfserving-examples/models/sklearn/irisv2"
+      storageUri: "gs://seldon-models/sklearn/iris"
 ```
 
 Note that this makes the following assumptions:
@@ -148,7 +148,7 @@ request as:
 > out your ingress IP and port.
 
 ```bash
-SERVICE_HOSTNAME=$(kubectl get inferenceservice sklearn-iris -o jsonpath='{.status.url}' | cut -d "/" -f 3)
+SERVICE_HOSTNAME=$(kubectl get inferenceservice sklearn-irisv2 -o jsonpath='{.status.url}' | cut -d "/" -f 3)
 
 curl -v \
   -H "Host: ${SERVICE_HOSTNAME}" \
