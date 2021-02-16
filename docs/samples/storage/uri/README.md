@@ -17,10 +17,9 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: mysecret
-  annotations:
-    serving.kubeflow.org/https-host-uri: “example.com”
 type: Opaque
 data:
+  https-host-uri: ZXhhbXBsZS5jb20=
   headers: |-
     YWNjb3VudC1uYW1lOiBzb21lX2FjY291bnRfbmFtZQpzZWNyZXQta2V5OiBzb21lX3NlY3JldF9rZXk=
 ---
@@ -33,8 +32,12 @@ secrets:
 ```
 Make sure you have serviceAccountName specified in your predictor in your inference service. These headers will be applied to any http/https requests that have the same host uri.
 
-You will need to base64 encode the headers. Make sure each header is on a newline with the format `header_key: header_value`.
+You will need to base64 encode the headers and host uri. Make sure each header is on a newline with the format `header_key: header_value`.
 ```text
+example.com
+# echo -n "example.com" | base64
+ZXhhbXBsZS5jb20=
+---
 account-name: some_account_name
 secret-key: some_secret_key
 # echo -n 'account-name: some_account_name\nsecret-key: some_secret_key' | base64
