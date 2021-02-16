@@ -168,7 +168,7 @@ Please refer to our [troubleshooting section](docs/DEVELOPER_GUIDE.md#troublesho
 ```bash
 API_VERSION=v1beta1
 kubectl create namespace kfserving-test
-kubectl apply -f docs/samples/${API_VERSION}/sklearn/sklearn.yaml -n kfserving-test
+kubectl apply -f docs/samples/${API_VERSION}/v1/sklearn/sklearn.yaml -n kfserving-test
 ```
 #### Check KFServing `InferenceService` status.
 ```bash
@@ -181,7 +181,7 @@ sklearn-iris   http://sklearn-iris.kfserving-test.example.com/v1/models/sklearn-
 Curl from ingress gateway
 ```bash
 SERVICE_HOSTNAME=$(kubectl get inferenceservice sklearn-iris -n kfserving-test -o jsonpath='{.status.url}' | cut -d "/" -f 3)
-curl -v -H "Host: ${SERVICE_HOSTNAME}" http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/sklearn-iris:predict -d @./docs/samples/${API_VERSION}/sklearn/iris-input.json
+curl -v -H "Host: ${SERVICE_HOSTNAME}" http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/sklearn-iris:predict -d @./docs/samples/${API_VERSION}/sklearn/v1/iris-input.json
 ```
 Curl from local cluster gateway
 ```bash
