@@ -6,7 +6,7 @@ Please assume that the interface is subject to changes.
 ## The model deployment scalability problem
 With machine learning approaches becoming more widely adopted in organizations, 
 there is a trend to deploy a large number of models. 
-For example, a news classification service may train a custom model based on a news category. 
+For example, a news classification service may train custom models for each news category. 
 Another important reason why organizations desire to train a lot of models is to protect data privacy. 
 It is safer to isolate each user's data and train models separately. 
 While you get the benefit of better inference accuracy and data privacy by building models for each use case, 
@@ -90,7 +90,6 @@ Remember to set the respective model server's `multiModelServer` flag in `infere
 **Sharding**: When an InferenceService is full, a new shard will be created to load more models.
 
 **Multiple transformers for Multi-model serving**: When multiple models are loaded to a predictor, each of them may require a different transformer. An approach to share multiple transformers is desired for Multi-model serving.
-
 
 
 
