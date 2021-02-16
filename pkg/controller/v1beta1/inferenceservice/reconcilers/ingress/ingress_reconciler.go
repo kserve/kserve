@@ -110,14 +110,14 @@ func getServiceUrl(isvc *v1beta1.InferenceService) string {
 	}
 }
 
-func (r *IngressReconciler) reconcileExternalService(isvc *v1beta1.InferenceService) error {
+func (r *IngressReconciler) reconcileExternalService(isvc *v1beta1.InferenceService, config *v1beta1.IngressConfig) error {
 	desired := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      isvc.Name,
 			Namespace: isvc.Namespace,
 		},
 		Spec: corev1.ServiceSpec{
-			ExternalName:    constants.LocalGatewayHost,
+			ExternalName:    config.LocalGatewayServiceName,
 			Type:            corev1.ServiceTypeExternalName,
 			SessionAffinity: corev1.ServiceAffinityNone,
 		},
@@ -316,7 +316,7 @@ func (ir *IngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
 	}
 
 	//Create external service which points to local gateway
-	if err := ir.reconcileExternalService(isvc); err != nil {
+	if err := ir.reconcileExternalService(isvc, ir.ingressConfig); err != nil {
 		return errors.Wrapf(err, "fails to reconcile external name service")
 	}
 
