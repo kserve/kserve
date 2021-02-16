@@ -35,7 +35,7 @@ print(res)
 print(res.text)
 ```
 
-# Predict on a InferenceService using SKLearnServer
+# Predict on an InferenceService using SKLearnServer
 
 ## Setup
 1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/#install-kfserving).
