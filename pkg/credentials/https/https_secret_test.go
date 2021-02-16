@@ -59,21 +59,13 @@ func TestHTTPSSecret(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{},
 				Data: map[string][]byte{
 					HTTPSHost: []byte(uriHost),
-					HEADERS:   []byte(header1 + ColonSeparator + headerValue1 + NEWLINE + header2 + ColonSeparator + headerValue2),
+					HEADERS:   []byte(`{` + NEWLINE + header1 + ColonSeparator + headerValue1 + NEWLINE + header2 + ColonSeparator + headerValue2 + NEWLINE + `}`),
 				},
 			},
 			expected: []v1.EnvVar{
 				{
-					Name:  HeaderPrefix + header1,
-					Value: headerValue1,
-				},
-				{
-					Name:  HeaderPrefix + header2,
-					Value: headerValue2,
-				},
-				{
-					Name:  uriHost,
-					Value: HeaderPrefix + header1 + CommaSeparator + HeaderPrefix + header2,
+					Name:  uriHost + HeadersSuffix,
+					Value: `{` + NEWLINE + header1 + ColonSeparator + headerValue1 + NEWLINE + header2 + ColonSeparator + headerValue2 + NEWLINE + `}`,
 				},
 			},
 		},

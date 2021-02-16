@@ -18,26 +18,22 @@ package https
 
 import (
 	v1 "k8s.io/api/core/v1"
-	"strings"
 )
 
 // Create constants -- baseURI
 const (
 	HTTPSHost = "https-host"
 	HEADERS   = "headers"
-	HEADER    = "header"
 	NEWLINE   = "\n"
 )
 
 var (
-	HeaderPrefix   = HEADER + "."
-	CommaSeparator = ","
+	HeadersSuffix  = "-" + HEADERS
 	ColonSeparator = ": "
 )
 
 // Can be used for http and https uris
 func BuildSecretEnvs(secret *v1.Secret) []v1.EnvVar {
-	var fieldKeys []string
 	envs := []v1.EnvVar{}
 	uriHost, ok := secret.Data[HTTPSHost]
 
@@ -51,28 +47,10 @@ func BuildSecretEnvs(secret *v1.Secret) []v1.EnvVar {
 		return envs
 	}
 
-	// Headers are stored in multi-lined string
-	headersKeyValue := strings.Split(string(headers), NEWLINE)
-	for _, headerKeyValue := range headersKeyValue {
-		res := strings.Split(headerKeyValue, ColonSeparator)
-		if len(res) != 2 {
-			continue
-		}
-		headerKey, headerValue := HeaderPrefix+res[0], res[1]
-
-		fieldKeys = append(fieldKeys, headerKey)
-		envs = append(envs, v1.EnvVar{
-			Name:  headerKey,
-			Value: headerValue,
-		})
-	}
-
-	if len(envs) > 0 {
-		envs = append(envs, v1.EnvVar{
-			Name:  string(uriHost),
-			Value: strings.Join(fieldKeys, CommaSeparator),
-		})
-	}
+	envs = append(envs, v1.EnvVar{
+		Name:  string(uriHost) + HeadersSuffix,
+		Value: string(headers),
+	})
 
 	return envs
 }
