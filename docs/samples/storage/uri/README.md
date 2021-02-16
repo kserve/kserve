@@ -10,7 +10,7 @@ This `storageUri` option supports single file models, like `sklearn` which is sp
 
 ## Create HTTP/HTTPS header Secret and attach to Service account
 If you do not require headers in your HTTP/HTTPS service request then you can skip this step.
-You can define headers by following the following format:
+You can define headers using the following format:
 
 ```yaml
 apiVersion: v1
@@ -21,7 +21,7 @@ type: Opaque
 data:
   https-host: ZXhhbXBsZS5jb20=
   headers: |-
-    YWNjb3VudC1uYW1lOiBzb21lX2FjY291bnRfbmFtZQpzZWNyZXQta2V5OiBzb21lX3NlY3JldF9rZXk=
+    ewoiYWNjb3VudC1uYW1lIjogInNvbWVfYWNjb3VudF9uYW1lIiwKInNlY3JldC1rZXkiOiAic29tZV9zZWNyZXRfa2V5Igp9
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -32,16 +32,18 @@ secrets:
 ```
 Make sure you have serviceAccountName specified in your predictor in your inference service. These headers will be applied to any http/https requests that have the same host.
 
-You will need to base64 encode the headers and host. Make sure each header is on a newline with the format `header_key: header_value`.
+You will need to base64 encode the headers and host. Make sure the headers are in proper json format.
 ```text
 example.com
 # echo -n "example.com" | base64
 ZXhhbXBsZS5jb20=
 ---
-account-name: some_account_name
-secret-key: some_secret_key
-# echo -n 'account-name: some_account_name\nsecret-key: some_secret_key' | base64
-YWNjb3VudC1uYW1lOiBzb21lX2FjY291bnRfbmFtZQpzZWNyZXQta2V5OiBzb21lX3NlY3JldF9rZXk=
+{
+  "account-name": "some_account_name",
+  "secret-key": "some_secret_key"
+}
+# echo -n '{\n"account-name": "some_account_name",\n"secret-key": "some_secret_key"\n}' | base64
+ewoiYWNjb3VudC1uYW1lIjogInNvbWVfYWNjb3VudF9uYW1lIiwKInNlY3JldC1rZXkiOiAic29tZV9zZWNyZXRfa2V5Igp9
 ```
 
 ## Sklearn
