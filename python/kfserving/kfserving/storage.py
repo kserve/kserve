@@ -18,6 +18,7 @@ import tempfile
 import mimetypes
 import os
 import re
+import json
 import shutil
 import tarfile
 import zipfile
@@ -36,7 +37,7 @@ _BLOB_RE = "https://(.+?).blob.core.windows.net/(.+)"
 _LOCAL_PREFIX = "file://"
 _URI_RE = "https?://(.+)/(.+)"
 _HTTP_PREFIX = "http(s)://"
-_HEADER_PREFIX = "header."
+_HEADERS_SUFFIX = "-headers"
 
 class Storage(object): # pylint: disable=too-few-public-methods
     @staticmethod
@@ -236,11 +237,12 @@ The path or model %s does not exist." % (uri))
         # Get header information from host url
         headers = {}
         host_uri = url.hostname
-        request_arg_keys = os.getenv(host_uri, "").split(",")
 
-        for request_arg_key in request_arg_keys:
-            if request_arg_key.startswith(_HEADER_PREFIX):
-                headers[request_arg_key[len(_HEADER_PREFIX):]] = os.getenv(request_arg_key)
+        headers_json = os.getenv(host_uri + _HEADERS_SUFFIX, "{}")
+        headers_keys_values = json.loads(headers_json)
+
+        for key in headers_keys_values:
+            headers[key] = headers_keys_values[key]
 
         with requests.get(uri, stream=True, headers=headers) as response:
             if response.status_code != 200:
