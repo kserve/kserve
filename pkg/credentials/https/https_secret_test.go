@@ -36,7 +36,7 @@ func TestHTTPSSecret(t *testing.T) {
 		secret   *v1.Secret
 		expected []v1.EnvVar
 	}{
-		"noBaseUri": {
+		"noHostUri": {
 			secret: &v1.Secret{
 				Data: map[string][]byte{
 					header1: []byte(headerValue1),
@@ -47,24 +47,19 @@ func TestHTTPSSecret(t *testing.T) {
 		},
 		"noHeaders": {
 			secret: &v1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						InferenceServiceHTTPSHostURI: hostUri,
-					},
+				ObjectMeta: metav1.ObjectMeta{},
+				Data: map[string][]byte{
+					HTTPSHostURI: []byte(hostUri),
 				},
-				Data: map[string][]byte{},
 			},
 			expected: []v1.EnvVar{},
 		},
 		"secretEnvs": {
 			secret: &v1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						InferenceServiceHTTPSHostURI: hostUri,
-					},
-				},
+				ObjectMeta: metav1.ObjectMeta{},
 				Data: map[string][]byte{
-					HEADERS: []byte(header1 + ColonSeparator + headerValue1 + NEWLINE + header2 + ColonSeparator + headerValue2),
+					HTTPSHostURI: []byte(hostUri),
+					HEADERS:      []byte(header1 + ColonSeparator + headerValue1 + NEWLINE + header2 + ColonSeparator + headerValue2),
 				},
 			},
 			expected: []v1.EnvVar{
