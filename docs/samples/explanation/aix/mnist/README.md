@@ -37,6 +37,12 @@ To try a different MNIST example add an integer to the end of the query between 
 ```
 python query_explain.py http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/${MODEL_NAME}:explain ${SERVICE_HOSTNAME} 100
 ```
+To try different explainer's parameters, add another string json argument to specify the parameters. Supported modified parameters: top_labels, segmentation_alg, num_samples, positive_only, and min_weight. 
+
+```
+python query_explain.py http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/${MODEL_NAME}:explain ${SERVICE_HOSTNAME} 100 '{"top_labels":"10"}'
+
+```
 
 ## Stopping the Inference Service
 

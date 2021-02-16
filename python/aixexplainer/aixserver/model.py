@@ -51,6 +51,21 @@ class AIXModel(kfserving.KFModel):  # pylint:disable=c-extension-no-member
     def explain(self, request: Dict) -> Dict:
         instances = request["instances"]
         try:
+            if "top_labels" in request:
+                self.top_labels = int(request["top_labels"]) 
+            if "segmentation_alg" in request:
+                self.segmentation_alg = request["segmentation_alg"]
+            if "num_samples" in request:
+                self.num_samples = int(request["num_samples"])
+            if "positive_only" in request:
+                postive_only = request["positive_only"].lower()
+                self.positive_only = (postive_only == "true") | (postive_only == "t")
+            if "min_weight" in request:
+                self.min_weight = float(request['min_weight'])
+        except Exception as err:
+            raise Exception("Failed to specify parameters: %s", (err,))
+
+        try:
             inputs = np.array(instances[0])
             logging.info("Calling explain on image of shape %s", (inputs.shape,))
         except Exception as err:
