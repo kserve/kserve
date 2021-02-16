@@ -19,7 +19,7 @@ metadata:
   name: mysecret
 type: Opaque
 data:
-  https-host-uri: ZXhhbXBsZS5jb20=
+  https-host: ZXhhbXBsZS5jb20=
   headers: |-
     YWNjb3VudC1uYW1lOiBzb21lX2FjY291bnRfbmFtZQpzZWNyZXQta2V5OiBzb21lX3NlY3JldF9rZXk=
 ---
@@ -30,9 +30,9 @@ metadata:
 secrets:
   - name: mysecret
 ```
-Make sure you have serviceAccountName specified in your predictor in your inference service. These headers will be applied to any http/https requests that have the same host uri.
+Make sure you have serviceAccountName specified in your predictor in your inference service. These headers will be applied to any http/https requests that have the same host.
 
-You will need to base64 encode the headers and host uri. Make sure each header is on a newline with the format `header_key: header_value`.
+You will need to base64 encode the headers and host. Make sure each header is on a newline with the format `header_key: header_value`.
 ```text
 example.com
 # echo -n "example.com" | base64

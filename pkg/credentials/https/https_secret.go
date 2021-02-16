@@ -23,10 +23,10 @@ import (
 
 // Create constants -- baseURI
 const (
-	HTTPSHostURI = "https-host-uri"
-	HEADERS      = "headers"
-	HEADER       = "header"
-	NEWLINE      = "\n"
+	HTTPSHost = "https-host"
+	HEADERS   = "headers"
+	HEADER    = "header"
+	NEWLINE   = "\n"
 )
 
 var (
@@ -39,7 +39,7 @@ var (
 func BuildSecretEnvs(secret *v1.Secret) []v1.EnvVar {
 	var fieldKeys []string
 	envs := []v1.EnvVar{}
-	hostURI, ok := secret.Data[HTTPSHostURI]
+	uriHost, ok := secret.Data[HTTPSHost]
 
 	if !ok {
 		return envs
@@ -69,7 +69,7 @@ func BuildSecretEnvs(secret *v1.Secret) []v1.EnvVar {
 
 	if len(envs) > 0 {
 		envs = append(envs, v1.EnvVar{
-			Name:  string(hostURI),
+			Name:  string(uriHost),
 			Value: strings.Join(fieldKeys, CommaSeparator),
 		})
 	}

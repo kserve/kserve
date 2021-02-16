@@ -28,7 +28,7 @@ var (
 	header2      = "password"
 	headerValue1 = "someUsername"
 	headerValue2 = "somePassword"
-	hostUri      = "www.example.com"
+	uriHost      = "example.com"
 )
 
 func TestHTTPSSecret(t *testing.T) {
@@ -36,7 +36,7 @@ func TestHTTPSSecret(t *testing.T) {
 		secret   *v1.Secret
 		expected []v1.EnvVar
 	}{
-		"noHostUri": {
+		"noUriHost": {
 			secret: &v1.Secret{
 				Data: map[string][]byte{
 					header1: []byte(headerValue1),
@@ -49,7 +49,7 @@ func TestHTTPSSecret(t *testing.T) {
 			secret: &v1.Secret{
 				ObjectMeta: metav1.ObjectMeta{},
 				Data: map[string][]byte{
-					HTTPSHostURI: []byte(hostUri),
+					HTTPSHost: []byte(uriHost),
 				},
 			},
 			expected: []v1.EnvVar{},
@@ -58,8 +58,8 @@ func TestHTTPSSecret(t *testing.T) {
 			secret: &v1.Secret{
 				ObjectMeta: metav1.ObjectMeta{},
 				Data: map[string][]byte{
-					HTTPSHostURI: []byte(hostUri),
-					HEADERS:      []byte(header1 + ColonSeparator + headerValue1 + NEWLINE + header2 + ColonSeparator + headerValue2),
+					HTTPSHost: []byte(uriHost),
+					HEADERS:   []byte(header1 + ColonSeparator + headerValue1 + NEWLINE + header2 + ColonSeparator + headerValue2),
 				},
 			},
 			expected: []v1.EnvVar{
@@ -72,7 +72,7 @@ func TestHTTPSSecret(t *testing.T) {
 					Value: headerValue2,
 				},
 				{
-					Name:  hostUri,
+					Name:  uriHost,
 					Value: HeaderPrefix + header1 + CommaSeparator + HeaderPrefix + header2,
 				},
 			},
