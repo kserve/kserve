@@ -17,7 +17,6 @@ limitations under the License.
 package https
 
 import (
-	"github.com/kubeflow/kfserving/pkg/constants"
 	v1 "k8s.io/api/core/v1"
 	"strings"
 )
@@ -31,45 +30,46 @@ const (
 )
 
 var (
-	InferenceServiceHTTPSHostURI = constants.KFServingAPIGroupName + "/" + HTTPSHostURI
-	HeaderPrefix                 = HEADER + "."
-	CommaSeparator               = ","
-	ColonSeparator               = ": "
+	HeaderPrefix   = HEADER + "."
+	CommaSeparator = ","
+	ColonSeparator = ": "
 )
 
 // Can be used for http and https uris
 func BuildSecretEnvs(secret *v1.Secret) []v1.EnvVar {
 	var fieldKeys []string
 	envs := []v1.EnvVar{}
-	hostURI, ok := secret.Annotations[InferenceServiceHTTPSHostURI]
+	hostURI, ok := secret.Data[HTTPSHostURI]
 
 	if !ok {
 		return envs
 	}
 
-	for key, element := range secret.Data {
-		if key == HEADERS {
-			// Headers will be stored in multi-lined string
-			headersKeyValue := strings.Split(string(element), NEWLINE)
-			for _, headerKeyValue := range headersKeyValue {
-				res := strings.Split(headerKeyValue, ColonSeparator)
-				if len(res) != 2 {
-					continue
-				}
-				headerKey, headerValue := HeaderPrefix+res[0], res[1]
+	headers, ok := secret.Data[HEADERS]
 
-				fieldKeys = append(fieldKeys, headerKey)
-				envs = append(envs, v1.EnvVar{
-					Name:  headerKey,
-					Value: headerValue,
-				})
-			}
+	if !ok {
+		return envs
+	}
+
+	// Headers are stored in multi-lined string
+	headersKeyValue := strings.Split(string(headers), NEWLINE)
+	for _, headerKeyValue := range headersKeyValue {
+		res := strings.Split(headerKeyValue, ColonSeparator)
+		if len(res) != 2 {
+			continue
 		}
+		headerKey, headerValue := HeaderPrefix+res[0], res[1]
+
+		fieldKeys = append(fieldKeys, headerKey)
+		envs = append(envs, v1.EnvVar{
+			Name:  headerKey,
+			Value: headerValue,
+		})
 	}
 
 	if len(envs) > 0 {
 		envs = append(envs, v1.EnvVar{
-			Name:  hostURI,
+			Name:  string(hostURI),
 			Value: strings.Join(fieldKeys, CommaSeparator),
 		})
 	}
