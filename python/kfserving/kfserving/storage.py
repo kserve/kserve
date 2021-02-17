@@ -90,8 +90,17 @@ class Storage(object):  # pylint: disable=too-few-public-methods
 
         bucket = s3.Bucket(bucket_name)
         for obj in bucket.objects.filter(Prefix=bucket_path):
-            target = temp_dir + '/' + os.path.basename(obj.key)
-            print(f"Moving {obj.key} -> {temp_dir}/{os.path.basename(obj.key)}")
+            # Skip where boto3 lists the directory as an object
+            if obj.key.endswith("/"):
+                continue
+            # In the case where bucket_path points to a single object, set the target key to bucket_path
+            # Otherwise, remove the bucket_path prefix, strip any extra slashes, then prepend the target_dir
+            target_key = (
+                obj.key
+                if bucket_path == obj.key
+                else obj.key.replace(bucket_path, "", 1).lstrip("/")
+            )
+            target = f"{temp_dir}/{target_key}"
             if not os.path.exists(os.path.dirname(target)):
                 os.makedirs(os.path.dirname(target), exist_ok=True)
             bucket.download_file(obj.key, target)
