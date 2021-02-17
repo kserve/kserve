@@ -59,14 +59,14 @@ Install KFServing CRD
 
 Due to [large last applied annotation issue](https://github.com/kubernetes-sigs/kubebuilder/issues/1140) with `kubectl apply` we recommend using `kubectl replace` for upgrading crd.
 ```shell
-CRD=https://github.com/kubeflow/kfserving/releases/download/$TAG/kfserving_crds.yaml
+CRD=https://github.com/kubeflow/kfserving/install/$TAG/kfserving_crds.yaml
 kubectl replace -f $CRD || kubectl create -f $CRD
 ```
 
 Install KFServing Controller
 
 ```shell
-kubectl apply -f https://github.com/kubeflow/kfserving/releases/download/$TAG/kfserving.yaml
+kubectl apply -f https://github.com/kubeflow/kfserving/install/$TAG/kfserving.yaml
 ```
 
 #### Standalone KFServing on OpenShift
