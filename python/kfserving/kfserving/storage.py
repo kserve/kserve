@@ -239,10 +239,7 @@ The path or model %s does not exist." % (uri))
         host_uri = url.hostname
 
         headers_json = os.getenv(host_uri + _HEADERS_SUFFIX, "{}")
-        headers_keys_values = json.loads(headers_json)
-
-        for key in headers_keys_values:
-            headers[key] = headers_keys_values[key]
+        headers = json.loads(headers_json)
 
         with requests.get(uri, stream=True, headers=headers) as response:
             if response.status_code != 200:
