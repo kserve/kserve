@@ -12,7 +12,7 @@ as it is safer to isolate each user's data and train models separately.
 While you get the benefit of better inference accuracy and data privacy by building models for each use case, 
 it is more challenging to deploy thousands to hundreds of thousands of models on a Kubernetes cluster. 
 Furthermore, there are an increasing number of use cases of serving neural network-based models. 
-Those models are better served on GPUs to achieve reasonable latency. 
+To achieve reasonable latency, those models are better served on GPUs. 
 However, since GPUs are expensive resources, it is costly to serve many GPU-based models.
 
 The original design of KFServing deploys one model per InferenceService. 
