@@ -51,17 +51,21 @@ class AIXModel(kfserving.KFModel):  # pylint:disable=c-extension-no-member
     def explain(self, request: Dict) -> Dict:
         instances = request["instances"]
         try:
-            if "top_labels" in request:
-                self.top_labels = int(request["top_labels"]) 
-            if "segmentation_alg" in request:
-                self.segmentation_alg = request["segmentation_alg"]
-            if "num_samples" in request:
-                self.num_samples = int(request["num_samples"])
-            if "positive_only" in request:
-                postive_only = request["positive_only"].lower()
-                self.positive_only = (postive_only == "true") | (postive_only == "t")
-            if "min_weight" in request:
-                self.min_weight = float(request['min_weight'])
+            top_labels = (int(request["top_labels"]) 
+                          if "top_labels" in request else 
+                          self.top_labels)
+            segmentation_alg = (request["segmentation_alg"] 
+                                if "segmentation_alg" in request else 
+                                self.segmentation_alg)
+            num_samples = (int(request["num_samples"]) 
+                           if "num_samples" in request else 
+                           self.num_samples)
+            positive_only = ((request["positive_only"].lower() == "true") | (request["positive_only"].lower() == "t") 
+                             if "positive_only" in request else 
+                             self.positive_only)
+            min_weight = (float(request['min_weight']) 
+                          if "min_weight" in request else 
+                          self.min_weight)
         except Exception as err:
             raise Exception("Failed to specify parameters: %s", (err,))
 
@@ -74,23 +78,23 @@ class AIXModel(kfserving.KFModel):  # pylint:disable=c-extension-no-member
         try:
             if str.lower(self.explainer_type) == "limeimages":
                 explainer = LimeImageExplainer(verbose=False)
-                segmenter = SegmentationAlgorithm(self.segmentation_alg, kernel_size=1,
+                segmenter = SegmentationAlgorithm(segmentation_alg, kernel_size=1,
                                                   max_dist=200, ratio=0.2)
                 explanation = explainer.explain_instance(inputs,
                                                          classifier_fn=self._predict,
-                                                         top_labels=self.top_labels,
+                                                         top_labels=top_labels,
                                                          hide_color=0,
-                                                         num_samples=self.num_samples,
+                                                         num_samples=num_samples,
                                                          segmentation_fn=segmenter)
 
                 temp = []
                 masks = []
-                for i in range(0, self.top_labels):
+                for i in range(0, top_labels):
                     temp, mask = explanation.get_image_and_mask(explanation.top_labels[i],
-                                                                positive_only=self.positive_only,
+                                                                positive_only=positive_only,
                                                                 num_features=10,
                                                                 hide_rest=False,
-                                                                min_weight=self.min_weight)
+                                                                min_weight=min_weight)
                     masks.append(mask.tolist())
 
                 return {"explanations": {
