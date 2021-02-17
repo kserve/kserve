@@ -34,8 +34,10 @@ For GPU based models, the number of GPUs required grows linearly as the number o
 If multiple models can be loaded in one GPU enabled model server such as TritonServer, we need a lot less GPUs in the cluster.
 
 ### Maximum pods limitation
-Kubernetes has a maximum number of pods per node with the default limit set to 110. 
-A typical 50-node cluster with default pod limit can run at most 1000 models
+Kubelet has a maximum number of pods per node with the default limit set to [110](https://kubernetes.io/docs/reference/command-line-tools-reference/kubelet/).
+According to Kubernetes best [practice](https://kubernetes.io/docs/setup/best-practices/cluster-large/), 
+a node shouldn't run more than 100 pods.  
+With this limitation, a typical 50-node cluster with default pod limit can run at most 1000 models
  assuming each InferenceService has 4 pods on average (two transformer replicas and two predictor replicas).
 
 ### Maximum IP address limitation.
