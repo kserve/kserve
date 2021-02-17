@@ -50,7 +50,7 @@ func TestInferenceService(t *testing.T) {
 					},
 				},
 			},
-			CanaryTrafficPercent: 20,
+			CanaryTrafficPercent: GetIntReference(20),
 			Canary: &EndpointSpec{
 				Predictor: PredictorSpec{
 					DeploymentSpec: DeploymentSpec{

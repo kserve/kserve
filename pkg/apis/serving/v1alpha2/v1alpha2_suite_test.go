@@ -43,16 +43,18 @@ const (
 	DefaultPyTorchRuntimeVersion        = "0.1.0"
 	DefaultPyTorchRuntimeVersionGPU     = "0.1.0-gpu"
 	DefaultXGBoostRuntimeVersion        = "0.1.0"
+	DefaultLightGBMRuntimeVersion       = "0.1.0"
 	DefaultTritonISRuntimeVersion       = "19.05-py3"
 	DefaultONNXRuntimeVersion           = "v0.5.0"
 	DefaultAlibiExplainerRuntimeVersion = "0.2.3"
+	DefaultAIXExplainerRuntimeVersion   = "0.2.2"
 )
 
 func TestMain(m *testing.M) {
 	t := &envtest.Environment{
-		CRDDirectoryPaths: []string{filepath.Join("..", "..", "..", "..", "config", "crd")},
+		CRDDirectoryPaths: []string{filepath.Join("..", "..", "..", "..", "config", "crd", "serving.kubeflow.org_inferenceservices.yaml"),
+			filepath.Join("..", "..", "..", "..", "config", "crd", "serving.kubeflow.org_trainedmodels.yaml")},
 	}
-
 	err := SchemeBuilder.AddToScheme(scheme.Scheme)
 
 	if err != nil {
@@ -73,14 +75,23 @@ func TestMain(m *testing.M) {
 			"tensorflow" : {
 				"image" : "tensorflow/serving",
 				"defaultImageVersion": "latest",
-				"defaultGPUImageVersion": "latest-gpu"
+				"defaultGPUImageVersion": "latest-gpu",
+				"defaultTimeout": "60"
 			},
 			"sklearn" : {
-				"image" : "kfserving/sklearnserver",
-				"defaultImageVersion": "0.1.0"
+                "v1": {
+                  "image" : "kfserving/sklearnserver",
+				  "defaultImageVersion": "0.1.0"
+                }
 			},
 			"xgboost" : {
-				"image" : "kfserving/xgbserver",
+                "v1": {
+				  "image" : "kfserving/xgbserver",
+				  "defaultImageVersion": "0.1.0"
+                }
+			},
+			"lightgbm" : {
+				"image" : "kfserving/lgbserver",
 				"defaultImageVersion": "0.1.0"
 			},
 			"pytorch" : {
@@ -111,7 +122,17 @@ func TestMain(m *testing.M) {
 		},
 		Data: configs,
 	}
-	if err := c.Create(context.TODO(), configMap); err != nil {
+	//Create namespace
+	kfservingNamespaceObj := &v1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: constants.KFServingNamespace,
+		},
+	}
+	if err := c.Create(context.Background(), kfservingNamespaceObj); err != nil {
+		klog.Fatal(err)
+	}
+
+	if err = c.Create(context.TODO(), configMap); err != nil {
 		klog.Fatal(err)
 	}
 	defer c.Delete(context.TODO(), configMap)

@@ -17,13 +17,15 @@ limitations under the License.
 package v1beta1
 
 import (
+	"reflect"
+
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
-
-var logger = logf.Log.WithName("kfserving-v1beta1-defaulter")
 
 var (
 	defaultResource = v1.ResourceList{
@@ -58,21 +60,31 @@ func setResourceRequirementDefaults(requirements *v1.ResourceRequirements) {
 }
 
 func (isvc *InferenceService) Default() {
-	logger.Info("Defaulting InferenceService", "namespace", isvc.Namespace, "name", isvc.Name)
-	configMap, err := NewInferenceServicesConfig()
+	mutatorLogger.Info("Defaulting InferenceService", "namespace", isvc.Namespace, "isvc", isvc.Spec.Predictor)
+	cli, err := client.New(config.GetConfigOrDie(), client.Options{})
+	if err != nil {
+		panic("Failed to create client in defaulter")
+	}
+	configMap, err := NewInferenceServicesConfig(cli)
 	if err != nil {
 		panic(err)
 	}
-	isvc.defaultInferenceService(configMap)
+	isvc.DefaultInferenceService(configMap)
 }
 
-func (isvc *InferenceService) defaultInferenceService(config *InferenceServicesConfig) {
+func (isvc *InferenceService) DefaultInferenceService(config *InferenceServicesConfig) {
 	for _, component := range []Component{
 		&isvc.Spec.Predictor,
 		isvc.Spec.Transformer,
 		isvc.Spec.Explainer,
 	} {
-		component.GetImplementation().Default(config)
-		component.GetExtensions().Default(config)
+		if !reflect.ValueOf(component).IsNil() {
+			if err := validateExactlyOneImplementation(component); err != nil {
+				mutatorLogger.Error(ExactlyOneErrorFor(component), "Missing component implementation")
+			} else {
+				component.GetImplementation().Default(config)
+				component.GetExtensions().Default(config)
+			}
+		}
 	}
 }

@@ -1,0 +1,15 @@
+apiVersion: "serving.kubeflow.org/v1beta1"
+kind: "InferenceService"
+metadata:
+  name: "artserver"
+spec:
+  predictor:
+    containers:
+    - name: predictor
+      image: aipipeline/art-server:mnist-predictor
+      imagePullPolicy: Always
+  explainer:
+    art:
+      type: SquareAttack
+      config:
+        nb_classes: "10"

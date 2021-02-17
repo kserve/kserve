@@ -40,7 +40,7 @@ func (x *XGBoostSpec) GetContainer(modelName string, parallelism int, config *In
 		arguments = append(arguments, fmt.Sprintf("%s=%s", constants.ArgumentWorkers, strconv.Itoa(parallelism)))
 	}
 	return &v1.Container{
-		Image:     config.Predictors.Xgboost.ContainerImage + ":" + x.RuntimeVersion,
+		Image:     config.Predictors.Xgboost.V1.ContainerImage + ":" + x.RuntimeVersion,
 		Name:      constants.InferenceServiceContainerName,
 		Resources: x.Resources,
 		Args:      arguments,
@@ -49,7 +49,7 @@ func (x *XGBoostSpec) GetContainer(modelName string, parallelism int, config *In
 
 func (x *XGBoostSpec) ApplyDefaults(config *InferenceServicesConfig) {
 	if x.RuntimeVersion == "" {
-		x.RuntimeVersion = config.Predictors.Xgboost.DefaultImageVersion
+		x.RuntimeVersion = config.Predictors.Xgboost.V1.DefaultImageVersion
 	}
 
 	setResourceRequirementDefaults(&x.Resources)

@@ -1,6 +1,23 @@
+/*
+Copyright 2020 kubeflow.org.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package v1beta1
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/golang/protobuf/proto"
@@ -149,7 +166,7 @@ func TestAlibiDefaulter(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			scenario.spec.Alibi.Default(&config)
 			if !g.Expect(scenario.spec).To(gomega.Equal(scenario.expected)) {
-				t.Errorf("got %q, want %q", scenario.spec, scenario.expected)
+				t.Errorf("got %v, want %v", scenario.spec, scenario.expected)
 			}
 		})
 	}
@@ -221,7 +238,7 @@ func TestCreateAlibiModelServingContainer(t *testing.T) {
 					"--model_name",
 					"someName",
 					"--predictor_host",
-					"someName-predictor-default.default",
+					fmt.Sprintf("%s.%s", constants.DefaultPredictorServiceName("someName"), "default"),
 					"--http_port",
 					"8080",
 					"--storage_uri",
@@ -268,7 +285,7 @@ func TestCreateAlibiModelServingContainer(t *testing.T) {
 					"--model_name",
 					"someName",
 					"--predictor_host",
-					"someName-predictor-default.default",
+					fmt.Sprintf("%s.%s", constants.DefaultPredictorServiceName("someName"), "default"),
 					"--http_port",
 					"8080",
 					"--storage_uri",
@@ -321,7 +338,7 @@ func TestCreateAlibiModelServingContainer(t *testing.T) {
 					"--model_name",
 					"someName",
 					"--predictor_host",
-					"someName-predictor-default.default",
+					fmt.Sprintf("%s.%s", constants.DefaultPredictorServiceName("someName"), "default"),
 					"--http_port",
 					"8080",
 					"--workers",
@@ -340,6 +357,54 @@ func TestCreateAlibiModelServingContainer(t *testing.T) {
 			res := explainer.GetContainer(metav1.ObjectMeta{Name: "someName", Namespace: "default"}, &scenario.isvc.Spec.Explainer.ComponentExtensionSpec, &config)
 			if !g.Expect(res).To(gomega.Equal(scenario.expectedContainerSpec)) {
 				t.Errorf("got %q, want %q", res, scenario.expectedContainerSpec)
+			}
+		})
+	}
+}
+
+func TestAlibiIsMMS(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	config := InferenceServicesConfig{
+		Explainers: ExplainersConfig{
+			AlibiExplainer: ExplainerConfig{
+				ContainerImage:      "alibi",
+				DefaultImageVersion: "v0.4.0",
+			},
+		},
+	}
+
+	// MMS is not supported by explainer
+	mssCase := false
+	scenarios := map[string]struct {
+		spec     ExplainerSpec
+		expected bool
+	}{
+		"AcceptGoodRuntimeVersion": {
+			spec: ExplainerSpec{
+				Alibi: &AlibiExplainerSpec{
+					Type:           "AnchorTabular",
+					RuntimeVersion: proto.String("latest"),
+				},
+			},
+			expected: mssCase,
+		},
+		"ValidStorageUri": {
+			spec: ExplainerSpec{
+				Alibi: &AlibiExplainerSpec{
+					Type:       "AnchorTabular",
+					StorageURI: "s3://modelzoo",
+				},
+			},
+			expected: mssCase,
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			scenario.spec.Alibi.Default(&config)
+			res := scenario.spec.Alibi.IsMMS(&config)
+			if !g.Expect(res).To(gomega.Equal(scenario.expected)) {
+				t.Errorf("got %t, want %t", res, scenario.expected)
 			}
 		})
 	}

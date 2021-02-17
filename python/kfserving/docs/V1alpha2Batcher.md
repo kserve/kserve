@@ -1,5 +1,6 @@
 # V1alpha2Batcher
 
+Batcher provides optional payload batcher for all endpoints
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------

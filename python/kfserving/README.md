@@ -49,13 +49,15 @@ KFServing supports the following storage providers:
     * The `pvcname` is the name of the PVC that contains the model.
     * The `[path]` is the relative path to the model on the PVC.
     * For e.g. `pvc://mypvcname/model/path/on/pvc`
-
+* Generic URI, over either `HTTP`, prefixed with `http://` or `HTTPS`, prefixed with `https://`. For example:
+    * `https://<some_url>.com/model.joblib`
+    * `http://<some_url>.com/model.joblib`
 
 ## KFServing Client
 
 ### Getting Started
 
-KFServing's python client interacts with KFServing APIs for executing operations on a remote KFServing cluster, such as creating, patching and deleting of a InferenceService instance. See the [Sample for KFServing Python SDK Client](../../docs/samples/client/kfserving_sdk_sample.ipynb) to get started.
+KFServing's python client interacts with KFServing APIs for executing operations on a remote KFServing cluster, such as creating, patching and deleting of a InferenceService instance. See the [Sample for KFServing Python SDK Client](../../docs/samples/client) to get started.
 
 ### Documentation for Client API
 
@@ -99,3 +101,40 @@ Class | Method |  Description
  - [V1alpha2TensorflowSpec](docs/V1alpha2TensorflowSpec.md)
  - [V1alpha2TransformerSpec](docs/V1alpha2TransformerSpec.md)
  - [V1alpha2XGBoostSpec](docs/V1alpha2XGBoostSpec.md)
+ - [V1beta1AIXExplainerSpec](docs/V1beta1AIXExplainerSpec.md)
+ - [V1beta1AlibiExplainerSpec](docs/V1beta1AlibiExplainerSpec.md)
+ - [V1beta1Batcher](docs/V1beta1Batcher.md)
+ - [V1beta1ComponentExtensionSpec](docs/V1beta1ComponentExtensionSpec.md)
+ - [V1beta1ComponentStatusSpec](docs/V1beta1ComponentStatusSpec.md)
+ - [V1beta1CustomExplainer](docs/V1beta1CustomExplainer.md)
+ - [V1beta1CustomPredictor](docs/V1beta1CustomPredictor.md)
+ - [V1beta1CustomTransformer](docs/V1beta1CustomTransformer.md)
+ - [V1beta1ExplainerConfig](docs/V1beta1ExplainerConfig.md)
+ - [V1beta1ExplainerSpec](docs/V1beta1ExplainerSpec.md)
+ - [V1beta1ExplainersConfig](docs/V1beta1ExplainersConfig.md)
+ - [V1beta1InferenceService](docs/V1beta1InferenceService.md)
+ - [V1beta1InferenceServiceList](docs/V1beta1InferenceServiceList.md)
+ - [V1beta1InferenceServiceSpec](docs/V1beta1InferenceServiceSpec.md)
+ - [V1beta1InferenceServiceStatus](docs/V1beta1InferenceServiceStatus.md)
+ - [V1beta1InferenceServicesConfig](docs/V1beta1InferenceServicesConfig.md)
+ - [V1beta1IngressConfig](docs/V1beta1IngressConfig.md)
+ - [V1beta1LoggerSpec](docs/V1beta1LoggerSpec.md)
+ - [V1beta1ModelSpec](docs/V1beta1ModelSpec.md)
+ - [V1beta1ONNXRuntimeSpec](docs/V1beta1ONNXRuntimeSpec.md)
+ - [V1beta1PodSpec](docs/V1beta1PodSpec.md)
+ - [V1beta1PredictorConfig](docs/V1beta1PredictorConfig.md)
+ - [V1beta1PredictorExtensionSpec](docs/V1beta1PredictorExtensionSpec.md)
+ - [V1beta1PredictorSpec](docs/V1beta1PredictorSpec.md)
+ - [V1beta1PredictorsConfig](docs/V1beta1PredictorsConfig.md)
+ - [V1beta1SKLearnSpec](docs/V1beta1SKLearnSpec.md)
+ - [V1beta1TFServingSpec](docs/V1beta1TFServingSpec.md)
+ - [V1beta1TorchServeSpec](docs/V1beta1TorchServeSpec.md)
+ - [V1beta1TrainedModel](docs/V1beta1TrainedModel.md)
+ - [V1beta1TrainedModelList](docs/V1beta1TrainedModelList.md)
+ - [V1beta1TrainedModelSpec](docs/V1beta1TrainedModelSpec.md)
+ - [V1beta1TrainedModelStatus](docs/V1beta1TrainedModelStatus.md)
+ - [V1beta1TransformerConfig](docs/V1beta1TransformerConfig.md)
+ - [V1beta1TransformerSpec](docs/V1beta1TransformerSpec.md)
+ - [V1beta1TransformersConfig](docs/V1beta1TransformersConfig.md)
+ - [V1beta1TritonSpec](docs/V1beta1TritonSpec.md)
+ - [V1beta1XGBoostSpec](docs/V1beta1XGBoostSpec.md)

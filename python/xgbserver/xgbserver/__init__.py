@@ -13,3 +13,4 @@
 # limitations under the License.
 
 from .model import XGBoostModel
+from .xgboost_model_repository import XGBoostModelRepository

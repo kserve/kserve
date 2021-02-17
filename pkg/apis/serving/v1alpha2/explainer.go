@@ -31,7 +31,7 @@ type Explainer interface {
 
 const (
 	// ExactlyOneExplainerViolatedError is a known error message
-	ExactlyOneExplainerViolatedError = "Exactly one of [Custom, Alibi] must be specified in ExplainerSpec"
+	ExactlyOneExplainerViolatedError = "Exactly one of [Custom, Alibi, AIX] must be specified in ExplainerSpec"
 )
 
 // Returns a URI to the explainer. This URI is passed to the model-initializer via the ModelInitializerSourceUriInternalAnnotationKey
@@ -84,6 +84,9 @@ func getExplainer(explainerSpec *ExplainerSpec) (Explainer, error) {
 	}
 	if explainerSpec.Alibi != nil {
 		handlers = append(handlers, explainerSpec.Alibi)
+	}
+	if explainerSpec.AIX != nil {
+		handlers = append(handlers, explainerSpec.AIX)
 	}
 	if len(handlers) != 1 {
 		err := fmt.Errorf(ExactlyOneExplainerViolatedError)

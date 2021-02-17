@@ -17,6 +17,7 @@ limitations under the License.
 package v1beta1
 
 import (
+	"fmt"
 	"sort"
 	"strconv"
 
@@ -41,19 +42,22 @@ const (
 
 // AlibiExplainerSpec defines the arguments for configuring an Alibi Explanation Server
 type AlibiExplainerSpec struct {
-	// The type of Alibi explainer
-	// Valid values are:
-	// - "AnchorTabular";
-	// - "AnchorImages";
-	// - "AnchorText";
-	// - "Counterfactuals";
-	// - "Contrastive";
+	// The type of Alibi explainer <br />
+	// Valid values are: <br />
+	// - "AnchorTabular"; <br />
+	// - "AnchorImages"; <br />
+	// - "AnchorText"; <br />
+	// - "Counterfactuals"; <br />
+	// - "Contrastive"; <br />
 	Type AlibiExplainerType `json:"type"`
 	// The location of a trained explanation model
+	// +optional
 	StorageURI string `json:"storageUri,omitempty"`
 	// Alibi docker image version, defaults to latest Alibi Version
+	// +optional
 	RuntimeVersion *string `json:"runtimeVersion,omitempty"`
 	// Inline custom parameter settings for explainer
+	// +optional
 	Config map[string]string `json:"config,omitempty"`
 	// Container enables overrides for the predictor.
 	// Each framework will have different defaults that are populated in the underlying container spec.
@@ -75,7 +79,7 @@ func (s *AlibiExplainerSpec) GetResourceRequirements() *v1.ResourceRequirements 
 func (s *AlibiExplainerSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig) *v1.Container {
 	var args = []string{
 		constants.ArgumentModelName, metadata.Name,
-		constants.ArgumentPredictorHost, constants.PredictorURL(metadata, false),
+		constants.ArgumentPredictorHost, fmt.Sprintf("%s.%s", constants.DefaultPredictorServiceName(metadata.Name), metadata.Namespace),
 		constants.ArgumentHttpPort, constants.InferenceServiceDefaultHttpPort,
 	}
 	if extensions.ContainerConcurrency != nil {
@@ -118,4 +122,12 @@ func (s *AlibiExplainerSpec) Validate() error {
 	return utils.FirstNonNilError([]error{
 		validateStorageURI(s.GetStorageUri()),
 	})
+}
+
+func (s *AlibiExplainerSpec) GetProtocol() constants.InferenceServiceProtocol {
+	return constants.ProtocolV1
+}
+
+func (s *AlibiExplainerSpec) IsMMS(config *InferenceServicesConfig) bool {
+	return false
 }

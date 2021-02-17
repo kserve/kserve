@@ -25,7 +25,7 @@ import (
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/credentials"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
@@ -93,24 +93,27 @@ func (mutator *Mutator) mutate(pod *v1.Pod, configMap *v1.ConfigMap) error {
 		return err
 	}
 
-	loggerInjector := &LoggerInjector{
-		config: loggerConfig,
-	}
-
 	batcherConfig, err := getBatcherConfigs(configMap)
 	if err != nil {
 		return err
 	}
 
-	batcherInjector := &BatcherInjector{
-		config: batcherConfig,
+	agentConfig, err := getAgentConfigs(configMap)
+	if err != nil {
+		return err
+	}
+
+	agentInjector := &AgentInjector{
+		credentialBuilder: credentialBuilder,
+		agentConfig:       agentConfig,
+		loggerConfig:      loggerConfig,
+		batcherConfig:     batcherConfig,
 	}
 
 	mutators := []func(pod *v1.Pod) error{
 		InjectGKEAcceleratorSelector,
 		storageInitializer.InjectStorageInitializer,
-		loggerInjector.InjectLogger,
-		batcherInjector.InjectBatcher,
+		agentInjector.InjectAgent,
 	}
 
 	for _, mutator := range mutators {

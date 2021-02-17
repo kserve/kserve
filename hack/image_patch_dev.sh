@@ -20,11 +20,8 @@ spec:
           image: ${IMG}
 EOF
 
-LOGGER_IMG=$(ko resolve -f config/overlays/development/configmap/ko_resolve_logger| grep 'image:' | awk '{print $2}')
-if [ -z ${LOGGER_IMG} ]; then exit; fi
-
-BATCHER_IMG=$(ko resolve -f config/overlays/development/configmap/ko_resolve_batcher| grep 'image:' | awk '{print $2}')
-if [ -z ${BATCHER_IMG} ]; then exit; fi
+AGENT_IMG=$(ko resolve -f config/overlays/development/configmap/ko_resolve_agent| grep 'image:' | awk '{print $2}')
+if [ -z ${AGENT_IMG} ]; then exit; fi
 
 cat > config/overlays/${OVERLAY}/configmap/inferenceservice_patch.yaml << EOF
 apiVersion: v1
@@ -35,18 +32,26 @@ metadata:
 data:
   logger: |-
     {
-        "image" : "${LOGGER_IMG}",
+        "image" : "${AGENT_IMG}",
         "memoryRequest": "100Mi",
-        "memoryLimit": "1Gi",
+        "memoryLimit": "100Mi",
         "cpuRequest": "100m",
-        "cpuLimit": "1"
+        "cpuLimit": "100m"
     }
   batcher: |-
     {
-        "image" : "${BATCHER_IMG}",
+        "image" : "${AGENT_IMG}",
         "memoryRequest": "100Mi",
-        "memoryLimit": "1Gi",
+        "memoryLimit": "100Mi",
         "cpuRequest": "100m",
-        "cpuLimit": "1"
+        "cpuLimit": "100m"
+    }
+  agent: |-
+    {
+        "image" : "${AGENT_IMG}",
+        "memoryRequest": "100Mi",
+        "memoryLimit": "500Mi",
+        "cpuRequest": "100m",
+        "cpuLimit": "100m"
     }
 EOF

@@ -1,5 +1,6 @@
 # V1alpha2TensorflowSpec
 
+TensorflowSpec defines arguments for configuring Tensorflow model serving.
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------

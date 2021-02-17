@@ -54,11 +54,11 @@ type LoggerSpec struct {
 	// URL to send logging events
 	// +optional
 	URL *string `json:"url,omitempty"`
-	// Specifies the scope of the loggers.
-	// Valid values are:
-	// - "all" (default): log both request and response;
-	// - "request": log only request;
-	// - "response": log only response
+	// Specifies the scope of the loggers. <br />
+	// Valid values are: <br />
+	// - "all" (default): log both request and response; <br />
+	// - "request": log only request; <br />
+	// - "response": log only response <br />
 	// +optional
 	Mode LoggerType `json:"mode,omitempty"`
 }
@@ -77,10 +77,15 @@ type Batcher struct {
 }
 
 // InferenceService is the Schema for the InferenceServices API
+// +k8s:openapi-gen=true
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="URL",type="string",JSONPath=".status.url"
 // +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
+// +kubebuilder:printcolumn:name="Prev",type="integer",JSONPath=".status.components.predictor.traffic[?(@.tag=='prev')].percent"
+// +kubebuilder:printcolumn:name="Latest",type="integer",JSONPath=".status.components.predictor.traffic[?(@.latestRevision==true)].percent"
+// +kubebuilder:printcolumn:name="PrevRolledoutRevision",type="string",JSONPath=".status.components.predictor.traffic[?(@.tag=='prev')].revisionName"
+// +kubebuilder:printcolumn:name="LatestReadyRevision",type="string",JSONPath=".status.components.predictor.traffic[?(@.latestRevision==true)].revisionName"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:resource:path=inferenceservices,shortName=isvc
 // +kubebuilder:storageversion

@@ -1,3 +1,19 @@
+/*
+Copyright 2020 kubeflow.org.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package v1beta1
 
 import (
@@ -20,11 +36,13 @@ const (
 	ParallelismLowerBoundExceededError  = "Parallelism cannot be less than 0."
 	UnsupportedStorageURIFormatError    = "storageUri, must be one of: [%s] or match https://{}.blob.core.windows.net/{}/{} or be an absolute or relative local path. StorageUri [%s] is not supported."
 	InvalidLoggerType                   = "Invalid logger type"
+	InvalidISVCNameFormatError          = "The InferenceService \"%s\" is invalid: a InferenceService name must consist of lower case alphanumeric characters or '-', and must start with alphabetical character. (e.g. \"my-name\" or \"abc-123\", regex used for validation is '%s')"
 )
 
 // Constants
 var (
-	SupportedStorageURIPrefixList = []string{"gs://", "s3://", "pvc://", "file://"}
+	SupportedStorageURIPrefixList = []string{"gs://", "s3://", "pvc://", "file://", "https://", "http://"}
+	AzureBlobURL                  = "blob.core.windows.net"
 	AzureBlobURIRegEx             = "https://(.+?).blob.core.windows.net/(.+)"
 )
 
@@ -35,9 +53,11 @@ type ComponentImplementation interface {
 	Validate() error
 	GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig) *v1.Container
 	GetStorageUri() *string
+	GetProtocol() constants.InferenceServiceProtocol
+	IsMMS(config *InferenceServicesConfig) bool
 }
 
-// Component interface is implemented by all specs that contain component implentations, e.g. PredictorSpec, ExplainerSpec, TransformerSpec.
+// Component interface is implemented by all specs that contain component implementations, e.g. PredictorSpec, ExplainerSpec, TransformerSpec.
 // +kubebuilder:object:generate=false
 type Component interface {
 	GetImplementation() ComponentImplementation
@@ -62,10 +82,10 @@ type ComponentExtensionSpec struct {
 	TimeoutSeconds *int64 `json:"timeout,omitempty"`
 	// CanaryTrafficPercent defines the traffic split percentage between the candidate revision and the last ready revision
 	// +optional
-	CanaryTrafficPercent *int `json:"canaryTrafficPercent,omitempty"`
+	CanaryTrafficPercent *int64 `json:"canaryTrafficPercent,omitempty"`
 	// Activate request/response logging and logger configurations
 	// +optional
-	LoggerSpec *LoggerSpec `json:"logger,omitempty"`
+	Logger *LoggerSpec `json:"logger,omitempty"`
 	// Activate request batching and batching configurations
 	// +optional
 	Batcher *Batcher `json:"batcher,omitempty"`
@@ -79,7 +99,7 @@ func (s *ComponentExtensionSpec) Validate() error {
 	return utils.FirstNonNilError([]error{
 		validateContainerConcurrency(s.ContainerConcurrency),
 		validateReplicas(s.MinReplicas, s.MaxReplicas),
-		validateLogger(s.LoggerSpec),
+		validateLogger(s.Logger),
 	})
 }
 
@@ -93,16 +113,18 @@ func validateStorageURI(storageURI *string) error {
 		return nil
 	}
 
-	// one of the prefixes we know?
-	for _, prefix := range SupportedStorageURIPrefixList {
-		if strings.HasPrefix(*storageURI, prefix) {
+	// need to verify Azure Blob first, because it uses http(s):// prefix
+	if strings.Contains(*storageURI, AzureBlobURL) {
+		azureURIMatcher := regexp.MustCompile(AzureBlobURIRegEx)
+		if parts := azureURIMatcher.FindStringSubmatch(*storageURI); parts != nil {
 			return nil
 		}
-	}
-
-	azureURIMatcher := regexp.MustCompile(AzureBlobURIRegEx)
-	if parts := azureURIMatcher.FindStringSubmatch(*storageURI); parts != nil {
-		return nil
+	} else {
+		for _, prefix := range SupportedStorageURIPrefixList {
+			if strings.HasPrefix(*storageURI, prefix) {
+				return nil
+			}
+		}
 	}
 
 	return fmt.Errorf(UnsupportedStorageURIFormatError, strings.Join(SupportedStorageURIPrefixList, ", "), *storageURI)
@@ -144,22 +166,10 @@ func validateLogger(logger *LoggerSpec) error {
 }
 
 func validateExactlyOneImplementation(component Component) error {
-	implementations := NonNilComponents(component.GetImplementations())
-	count := len(implementations)
-	if count == 2 { // If two implementations, allow if one of them is custom overrides
-		for _, implementation := range implementations {
-			switch reflect.ValueOf(implementation).Type().Elem().Name() {
-			case
-				reflect.ValueOf(CustomPredictor{}).Type().Name(),
-				reflect.ValueOf(CustomExplainer{}).Type().Name(),
-				reflect.ValueOf(CustomTransformer{}).Type().Name():
-				return nil
-			}
-		}
-	} else if count == 1 {
-		return nil
+	if len(component.GetImplementations()) != 1 {
+		return ExactlyOneErrorFor(component)
 	}
-	return ExactlyOneErrorFor(component)
+	return nil
 }
 
 // FirstNonNilComponent returns the first non nil object or returns nil
@@ -185,7 +195,7 @@ func ExactlyOneErrorFor(component Component) error {
 	componentType := reflect.ValueOf(component).Type().Elem()
 	implementationTypes := []string{}
 	for i := 0; i < componentType.NumField()-1; i++ {
-		implementationTypes = append(implementationTypes, componentType.Field(i).Type.Elem().Name())
+		implementationTypes = append(implementationTypes, componentType.Field(i).Name)
 	}
 	return fmt.Errorf(
 		"Exactly one of [%s] must be specified in %s",

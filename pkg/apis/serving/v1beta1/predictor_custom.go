@@ -17,8 +17,6 @@ limitations under the License.
 package v1beta1
 
 import (
-	"strconv"
-
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/utils"
 	v1 "k8s.io/api/core/v1"
@@ -27,15 +25,14 @@ import (
 
 // CustomPredictor defines arguments for configuring a custom server.
 type CustomPredictor struct {
-	// This spec is dual purpose.
-	// 1) Users may choose to provide a full PodSpec for their predictor.
-	// The field PodSpec.Containers is mutually exclusive with other Predictors (i.e. TFServing).
-	// 2) Users may choose to provide a Predictor (i.e. TFServing) and specify PodSpec
-	// overrides in the CustomPredictor PodSpec. They must not provide PodSpec.Containers in this case.
-	v1.PodTemplateSpec `json:",inline"`
+	v1.PodSpec `json:",inline"`
 }
 
 var _ ComponentImplementation = &CustomPredictor{}
+
+func NewCustomPredictor(podSpec *PodSpec) *CustomPredictor {
+	return &CustomPredictor{PodSpec: v1.PodSpec(*podSpec)}
+}
 
 // Validate returns an error if invalid
 func (c *CustomPredictor) Validate() error {
@@ -46,16 +43,16 @@ func (c *CustomPredictor) Validate() error {
 
 // Default sets defaults on the resource
 func (c *CustomPredictor) Default(config *InferenceServicesConfig) {
-	if len(c.Spec.Containers) == 0 {
-		c.Spec.Containers = append(c.Spec.Containers, v1.Container{})
+	if len(c.Containers) == 0 {
+		c.Containers = append(c.Containers, v1.Container{})
 	}
-	c.Spec.Containers[0].Name = constants.InferenceServiceContainerName
-	setResourceRequirementDefaults(&c.Spec.Containers[0].Resources)
+	c.Containers[0].Name = constants.InferenceServiceContainerName
+	setResourceRequirementDefaults(&c.Containers[0].Resources)
 }
 
 func (c *CustomPredictor) GetStorageUri() *string {
 	// return the CustomSpecStorageUri env variable value if set on the spec
-	for _, envVar := range c.Spec.Containers[0].Env {
+	for _, envVar := range c.Containers[0].Env {
 		if envVar.Name == constants.CustomSpecStorageUriEnvVarKey {
 			return &envVar.Value
 		}
@@ -65,21 +62,14 @@ func (c *CustomPredictor) GetStorageUri() *string {
 
 // GetContainers transforms the resource into a container spec
 func (c *CustomPredictor) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig) *v1.Container {
-	container := &c.Spec.Containers[0]
-	modelNameExists := false
-	for _, arg := range container.Args {
-		if arg == constants.ArgumentModelName {
-			modelNameExists = true
-		}
-	}
-	if !modelNameExists {
-		container.Args = append(container.Args, []string{
-			constants.ArgumentModelName,
-			metadata.Name,
-		}...)
-	}
-	if extensions.ContainerConcurrency != nil {
-		container.Args = append(container.Args, constants.ArgumentWorkers, strconv.FormatInt(*extensions.ContainerConcurrency, 10))
-	}
-	return &c.Spec.Containers[0]
+	return &c.Containers[0]
+}
+
+func (c *CustomPredictor) GetProtocol() constants.InferenceServiceProtocol {
+	return constants.ProtocolV1
+}
+
+func (c *CustomPredictor) IsMMS(config *InferenceServicesConfig) bool {
+	//TODO: Figure out how to check if custom predictor is mms
+	return false
 }

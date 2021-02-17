@@ -17,18 +17,20 @@ limitations under the License.
 package testing
 
 import (
-	"github.com/gogo/protobuf/proto"
-	"istio.io/client-go/pkg/apis/networking/v1alpha3"
+	"context"
 	"path/filepath"
 	"sync"
+
+	"github.com/gogo/protobuf/proto"
+	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
 	"github.com/onsi/gomega"
 	"k8s.io/client-go/kubernetes/scheme"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
 
 var log = logf.Log.WithName("TestingEnvSetup")
@@ -38,10 +40,12 @@ func SetupEnvTest() *envtest.Environment {
 		// The relative paths must be provided for each level of test nesting
 		// This code should be illegal
 		CRDDirectoryPaths: []string{
-			filepath.Join("..", "..", "..", "..", "..", "config", "crd"),
-			filepath.Join("..", "..", "..", "..", "..", "test", "crds"),
-			filepath.Join("..", "..", "..", "config", "crd"),
-			filepath.Join("..", "..", "..", "test", "crds"),
+			filepath.Join("..", "..", "..", "..", "..", "..", "config", "crd", "serving.kubeflow.org_inferenceservices.yaml"),
+			filepath.Join("..", "..", "..", "..", "..", "..", "config", "crd", "serving.kubeflow.org_trainedmodels.yaml"),
+			filepath.Join("..", "..", "..", "..", "..", "..", "test", "crds"),
+			filepath.Join("..", "..", "..", "..", "config", "crd", "serving.kubeflow.org_inferenceservices.yaml"),
+			filepath.Join("..", "..", "..", "..", "config", "crd", "serving.kubeflow.org_trainedmodels.yaml"),
+			filepath.Join("..", "..", "..", "..", "test", "crds"),
 		},
 		UseExistingCluster: proto.Bool(false),
 	}
@@ -63,13 +67,12 @@ func SetupEnvTest() *envtest.Environment {
 }
 
 // StartTestManager adds recFn
-func StartTestManager(mgr manager.Manager, g *gomega.GomegaWithT) (chan struct{}, *sync.WaitGroup) {
-	stop := make(chan struct{})
+func StartTestManager(ctx context.Context, mgr manager.Manager, g *gomega.GomegaWithT) *sync.WaitGroup {
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		g.Expect(mgr.Start(stop)).NotTo(gomega.HaveOccurred())
+		g.Expect(mgr.Start(ctx)).NotTo(gomega.HaveOccurred())
 	}()
-	return stop, wg
+	return wg
 }

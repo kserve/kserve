@@ -23,7 +23,7 @@ import (
 	"strings"
 
 	"github.com/go-openapi/spec"
-	kfserving "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha2"
+	kfserving "github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
 	"k8s.io/klog"
 	"k8s.io/kube-openapi/pkg/common"
 )
@@ -66,11 +66,13 @@ func main() {
 }
 
 func swaggify(name string) string {
+	name = strings.Replace(name, "github.com/kubeflow/kfserving/pkg/apis/serving/", "", -1)
 	name = strings.Replace(name, "./pkg/apis/serving/", "", -1)
-	name = strings.Replace(name, "knative.dev/pkg/apis/duck/v1beta1.", "knative/", -1)
+	name = strings.Replace(name, "knative.dev/pkg/apis/duck/v1.", "knative/", -1)
 	name = strings.Replace(name, "knative.dev/pkg/apis.", "knative/", -1)
 	name = strings.Replace(name, "k8s.io/api/core/", "", -1)
 	name = strings.Replace(name, "k8s.io/apimachinery/pkg/apis/meta/", "", -1)
+	name = strings.Replace(name, "k8s.io/apimachinery/pkg/api/", "", -1)
 	name = strings.Replace(name, "/", ".", -1)
 	return name
 }

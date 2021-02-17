@@ -1,6 +1,23 @@
+/*
+Copyright 2020 kubeflow.org.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package v1beta1
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/golang/protobuf/proto"
@@ -23,17 +40,13 @@ func TestCustomExplainerValidation(t *testing.T) {
 	}{
 		"ValidStorageUri": {
 			spec: ExplainerSpec{
-				CustomExplainer: &CustomExplainer{
-					PodTemplateSpec: v1.PodTemplateSpec{
-						Spec: v1.PodSpec{
-							Containers: []v1.Container{
+				PodSpec: PodSpec{
+					Containers: []v1.Container{
+						{
+							Env: []v1.EnvVar{
 								{
-									Env: []v1.EnvVar{
-										{
-											Name:  "STORAGE_URI",
-											Value: "s3://modelzoo",
-										},
-									},
+									Name:  "STORAGE_URI",
+									Value: "s3://modelzoo",
 								},
 							},
 						},
@@ -44,17 +57,13 @@ func TestCustomExplainerValidation(t *testing.T) {
 		},
 		"InvalidStorageUri": {
 			spec: ExplainerSpec{
-				CustomExplainer: &CustomExplainer{
-					PodTemplateSpec: v1.PodTemplateSpec{
-						Spec: v1.PodSpec{
-							Containers: []v1.Container{
+				PodSpec: PodSpec{
+					Containers: []v1.Container{
+						{
+							Env: []v1.EnvVar{
 								{
-									Env: []v1.EnvVar{
-										{
-											Name:  "STORAGE_URI",
-											Value: "hdfs://modelzoo",
-										},
-									},
+									Name:  "STORAGE_URI",
+									Value: "hdfs://modelzoo",
 								},
 							},
 						},
@@ -69,17 +78,13 @@ func TestCustomExplainerValidation(t *testing.T) {
 					MinReplicas: GetIntReference(3),
 					MaxReplicas: 2,
 				},
-				CustomExplainer: &CustomExplainer{
-					PodTemplateSpec: v1.PodTemplateSpec{
-						Spec: v1.PodSpec{
-							Containers: []v1.Container{
+				PodSpec: PodSpec{
+					Containers: []v1.Container{
+						{
+							Env: []v1.EnvVar{
 								{
-									Env: []v1.EnvVar{
-										{
-											Name:  "STORAGE_URI",
-											Value: "hdfs://modelzoo",
-										},
-									},
+									Name:  "STORAGE_URI",
+									Value: "hdfs://modelzoo",
 								},
 							},
 						},
@@ -94,17 +99,13 @@ func TestCustomExplainerValidation(t *testing.T) {
 					MinReplicas:          GetIntReference(3),
 					ContainerConcurrency: proto.Int64(-1),
 				},
-				CustomExplainer: &CustomExplainer{
-					PodTemplateSpec: v1.PodTemplateSpec{
-						Spec: v1.PodSpec{
-							Containers: []v1.Container{
+				PodSpec: PodSpec{
+					Containers: []v1.Container{
+						{
+							Env: []v1.EnvVar{
 								{
-									Env: []v1.EnvVar{
-										{
-											Name:  "STORAGE_URI",
-											Value: "hdfs://modelzoo",
-										},
-									},
+									Name:  "STORAGE_URI",
+									Value: "hdfs://modelzoo",
 								},
 							},
 						},
@@ -117,8 +118,9 @@ func TestCustomExplainerValidation(t *testing.T) {
 
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
-			scenario.spec.CustomExplainer.Default(&config)
-			res := scenario.spec.CustomExplainer.Validate()
+			explainer := CustomExplainer{PodSpec: v1.PodSpec(scenario.spec.PodSpec)}
+			explainer.Default(&config)
+			res := explainer.Validate()
 			if !g.Expect(res).To(scenario.matcher) {
 				t.Errorf("got %q, want %q", res, scenario.matcher)
 			}
@@ -141,17 +143,13 @@ func TestCustomExplainerDefaulter(t *testing.T) {
 	}{
 		"DefaultResources": {
 			spec: ExplainerSpec{
-				CustomExplainer: &CustomExplainer{
-					PodTemplateSpec: v1.PodTemplateSpec{
-						Spec: v1.PodSpec{
-							Containers: []v1.Container{
+				PodSpec: PodSpec{
+					Containers: []v1.Container{
+						{
+							Env: []v1.EnvVar{
 								{
-									Env: []v1.EnvVar{
-										{
-											Name:  "STORAGE_URI",
-											Value: "hdfs://modelzoo",
-										},
-									},
+									Name:  "STORAGE_URI",
+									Value: "hdfs://modelzoo",
 								},
 							},
 						},
@@ -159,23 +157,19 @@ func TestCustomExplainerDefaulter(t *testing.T) {
 				},
 			},
 			expected: ExplainerSpec{
-				CustomExplainer: &CustomExplainer{
-					PodTemplateSpec: v1.PodTemplateSpec{
-						Spec: v1.PodSpec{
-							Containers: []v1.Container{
+				PodSpec: PodSpec{
+					Containers: []v1.Container{
+						{
+							Name: constants.InferenceServiceContainerName,
+							Env: []v1.EnvVar{
 								{
-									Name: constants.InferenceServiceContainerName,
-									Env: []v1.EnvVar{
-										{
-											Name:  "STORAGE_URI",
-											Value: "hdfs://modelzoo",
-										},
-									},
-									Resources: v1.ResourceRequirements{
-										Requests: defaultResource,
-										Limits:   defaultResource,
-									},
+									Name:  "STORAGE_URI",
+									Value: "hdfs://modelzoo",
 								},
+							},
+							Resources: v1.ResourceRequirements{
+								Requests: defaultResource,
+								Limits:   defaultResource,
 							},
 						},
 					},
@@ -186,9 +180,10 @@ func TestCustomExplainerDefaulter(t *testing.T) {
 
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
-			scenario.spec.CustomExplainer.Default(&config)
+			explainer := CustomExplainer{PodSpec: v1.PodSpec(scenario.spec.PodSpec)}
+			explainer.Default(&config)
 			if !g.Expect(scenario.spec).To(gomega.Equal(scenario.expected)) {
-				t.Errorf("got %q, want %q", scenario.spec, scenario.expected)
+				t.Errorf("got %v, want %v", scenario.spec, scenario.expected)
 			}
 		})
 	}
@@ -236,21 +231,17 @@ func TestCreateCustomExplainerContainer(t *testing.T) {
 						},
 					},
 					Explainer: &ExplainerSpec{
-						CustomExplainer: &CustomExplainer{
-							PodTemplateSpec: v1.PodTemplateSpec{
-								Spec: v1.PodSpec{
-									Containers: []v1.Container{
+						PodSpec: PodSpec{
+							Containers: []v1.Container{
+								{
+									Image: "explainer:0.1.0",
+									Env: []v1.EnvVar{
 										{
-											Image: "explainer:0.1.0",
-											Env: []v1.EnvVar{
-												{
-													Name:  "STORAGE_URI",
-													Value: "hdfs://modelzoo",
-												},
-											},
-											Resources: requestedResource,
+											Name:  "STORAGE_URI",
+											Value: "hdfs://modelzoo",
 										},
 									},
+									Resources: requestedResource,
 								},
 							},
 						},
@@ -265,7 +256,7 @@ func TestCreateCustomExplainerContainer(t *testing.T) {
 					"--model_name",
 					"someName",
 					"--predictor_host",
-					"someName-predictor-default.default",
+					fmt.Sprintf("%s.%s", constants.DefaultPredictorServiceName("someName"), "default"),
 					"--http_port",
 					"8080",
 				},
@@ -300,21 +291,17 @@ func TestCreateCustomExplainerContainer(t *testing.T) {
 						ComponentExtensionSpec: ComponentExtensionSpec{
 							ContainerConcurrency: proto.Int64(2),
 						},
-						CustomExplainer: &CustomExplainer{
-							PodTemplateSpec: v1.PodTemplateSpec{
-								Spec: v1.PodSpec{
-									Containers: []v1.Container{
+						PodSpec: PodSpec{
+							Containers: []v1.Container{
+								{
+									Image: "explainer:0.1.0",
+									Env: []v1.EnvVar{
 										{
-											Image: "explainer:0.1.0",
-											Env: []v1.EnvVar{
-												{
-													Name:  "STORAGE_URI",
-													Value: "hdfs://modelzoo",
-												},
-											},
-											Resources: requestedResource,
+											Name:  "STORAGE_URI",
+											Value: "hdfs://modelzoo",
 										},
 									},
+									Resources: requestedResource,
 								},
 							},
 						},
@@ -329,7 +316,7 @@ func TestCreateCustomExplainerContainer(t *testing.T) {
 					"--model_name",
 					"someName",
 					"--predictor_host",
-					"someName-predictor-default.default",
+					fmt.Sprintf("%s.%s", constants.DefaultPredictorServiceName("someName"), "default"),
 					"--http_port",
 					"8080",
 					"--workers",
@@ -351,6 +338,50 @@ func TestCreateCustomExplainerContainer(t *testing.T) {
 			res := explainer.GetContainer(metav1.ObjectMeta{Name: "someName", Namespace: "default"}, &scenario.isvc.Spec.Explainer.ComponentExtensionSpec, &config)
 			if !g.Expect(res).To(gomega.Equal(scenario.expectedContainerSpec)) {
 				t.Errorf("got %q, want %q", res, scenario.expectedContainerSpec)
+			}
+		})
+	}
+}
+
+func TestCustomExplainerIsMMS(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	config := InferenceServicesConfig{
+		Explainers: ExplainersConfig{},
+	}
+	defaultResource = v1.ResourceList{
+		v1.ResourceCPU:    resource.MustParse("1"),
+		v1.ResourceMemory: resource.MustParse("2Gi"),
+	}
+	mmsCase := false
+	scenarios := map[string]struct {
+		spec     ExplainerSpec
+		expected bool
+	}{
+		"DefaultResources": {
+			spec: ExplainerSpec{
+				PodSpec: PodSpec{
+					Containers: []v1.Container{
+						{
+							Env: []v1.EnvVar{
+								{
+									Name:  "STORAGE_URI",
+									Value: "hdfs://modelzoo",
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: mmsCase,
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			explainer := CustomExplainer{PodSpec: v1.PodSpec(scenario.spec.PodSpec)}
+			res := explainer.IsMMS(&config)
+			if !g.Expect(res).To(gomega.Equal(scenario.expected)) {
+				t.Errorf("got %t, want %t", res, scenario.expected)
 			}
 		})
 	}

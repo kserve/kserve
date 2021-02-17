@@ -58,25 +58,37 @@ func (t *TritonSpec) Default(config *InferenceServicesConfig) {
 // GetContainers transforms the resource into a container spec
 func (t *TritonSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig) *v1.Container {
 	arguments := []string{
+		"tritonserver",
 		fmt.Sprintf("%s=%s", "--model-store", constants.DefaultModelLocalMountPath),
 		fmt.Sprintf("%s=%s", "--grpc-port", fmt.Sprint(TritonISGRPCPort)),
 		fmt.Sprintf("%s=%s", "--http-port", fmt.Sprint(TritonISRestPort)),
-		fmt.Sprintf("%s=%s", "--allow-poll-model-repository", "false"),
 		fmt.Sprintf("%s=%s", "--allow-grpc", "true"),
 		fmt.Sprintf("%s=%s", "--allow-http", "true"),
 	}
-	if extensions.ContainerConcurrency != nil {
+	if extensions.ContainerConcurrency != nil && *extensions.ContainerConcurrency != 0 {
 		arguments = append(arguments, fmt.Sprintf("%s=%d", "--http-thread-count", *extensions.ContainerConcurrency))
+	}
+	// when storageURI is nil we enable explicit load/unload
+	if t.StorageURI == nil {
+		arguments = append(arguments, fmt.Sprintf("%s=%s", "--model-control-mode", "explicit"))
 	}
 	if t.Container.Image == "" {
 		t.Container.Image = config.Predictors.Triton.ContainerImage + ":" + *t.RuntimeVersion
 	}
 	t.Name = constants.InferenceServiceContainerName
-	t.Command = []string{"trtserver"}
+	arguments = append(arguments, t.Args...)
 	t.Args = arguments
 	return &t.Container
 }
 
 func (t *TritonSpec) GetStorageUri() *string {
 	return t.StorageURI
+}
+
+func (t *TritonSpec) GetProtocol() constants.InferenceServiceProtocol {
+	return constants.ProtocolV2
+}
+
+func (t *TritonSpec) IsMMS(config *InferenceServicesConfig) bool {
+	return config.Predictors.Triton.MultiModelServer
 }

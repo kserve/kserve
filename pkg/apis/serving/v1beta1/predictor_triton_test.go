@@ -113,6 +113,7 @@ func TestTritonDefaulter(t *testing.T) {
 			Triton: PredictorConfig{
 				ContainerImage:      "tritonserver",
 				DefaultImageVersion: "20.03-py3",
+				MultiModelServer:    true,
 			},
 		},
 	}
@@ -174,7 +175,7 @@ func TestTritonDefaulter(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			scenario.spec.Triton.Default(&config)
 			if !g.Expect(scenario.spec).To(gomega.Equal(scenario.expected)) {
-				t.Errorf("got %q, want %q", scenario.spec, scenario.expected)
+				t.Errorf("got %v, want %v", scenario.spec, scenario.expected)
 			}
 		})
 	}
@@ -199,6 +200,7 @@ func TestCreateTritonContainer(t *testing.T) {
 			Triton: PredictorConfig{
 				ContainerImage:      "tritonserver",
 				DefaultImageVersion: "20.03-py3",
+				MultiModelServer:    true,
 			},
 		},
 	}
@@ -230,14 +232,11 @@ func TestCreateTritonContainer(t *testing.T) {
 				Image:     "tritonserver:20.03-py3",
 				Name:      constants.InferenceServiceContainerName,
 				Resources: requestedResource,
-				Command: []string{
-					"trtserver",
-				},
 				Args: []string{
+					"tritonserver",
 					"--model-store=/mnt/models",
 					"--grpc-port=9000",
 					"--http-port=8080",
-					"--allow-poll-model-repository=false",
 					"--allow-grpc=true",
 					"--allow-http=true",
 				},
@@ -266,14 +265,11 @@ func TestCreateTritonContainer(t *testing.T) {
 				Image:     "tritonserver:19.10-py3",
 				Name:      constants.InferenceServiceContainerName,
 				Resources: requestedResource,
-				Command: []string{
-					"trtserver",
-				},
 				Args: []string{
+					"tritonserver",
 					"--model-store=/mnt/models",
 					"--grpc-port=9000",
 					"--http-port=8080",
-					"--allow-poll-model-repository=false",
 					"--allow-grpc=true",
 					"--allow-http=true",
 				},
@@ -305,14 +301,11 @@ func TestCreateTritonContainer(t *testing.T) {
 				Image:     "tritonserver:20.03-py3",
 				Name:      constants.InferenceServiceContainerName,
 				Resources: requestedResource,
-				Command: []string{
-					"trtserver",
-				},
 				Args: []string{
+					"tritonserver",
 					"--model-store=/mnt/models",
 					"--grpc-port=9000",
 					"--http-port=8080",
-					"--allow-poll-model-repository=false",
 					"--allow-grpc=true",
 					"--allow-http=true",
 					"--http-thread-count=4",
@@ -329,5 +322,59 @@ func TestCreateTritonContainer(t *testing.T) {
 				t.Errorf("got %q, want %q", res, scenario.expectedContainerSpec)
 			}
 		})
+	}
+}
+
+func TestTritonIsMMS(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	multiModelServerCases := [2]bool{true, false}
+
+	for _, mmsCase := range multiModelServerCases {
+		config := InferenceServicesConfig{
+			Predictors: PredictorsConfig{
+				Triton: PredictorConfig{
+					ContainerImage:      "tritonserver",
+					DefaultImageVersion: "20.03-py3",
+					MultiModelServer:    mmsCase,
+				},
+			},
+		}
+		defaultResource = v1.ResourceList{
+			v1.ResourceCPU:    resource.MustParse("1"),
+			v1.ResourceMemory: resource.MustParse("2Gi"),
+		}
+		scenarios := map[string]struct {
+			spec     PredictorSpec
+			expected bool
+		}{
+			"DefaultRuntimeVersion": {
+				spec: PredictorSpec{
+					Triton: &TritonSpec{
+						PredictorExtensionSpec: PredictorExtensionSpec{},
+					},
+				},
+				expected: mmsCase,
+			},
+			"DefaultResources": {
+				spec: PredictorSpec{
+					Triton: &TritonSpec{
+						PredictorExtensionSpec: PredictorExtensionSpec{
+							RuntimeVersion: proto.String("20.05-py3"),
+						},
+					},
+				},
+				expected: mmsCase,
+			},
+		}
+
+		for name, scenario := range scenarios {
+			t.Run(name, func(t *testing.T) {
+				scenario.spec.Triton.Default(&config)
+				res := scenario.spec.Triton.IsMMS(&config)
+				if !g.Expect(res).To(gomega.Equal(scenario.expected)) {
+					t.Errorf("got %t, want %t", res, scenario.expected)
+				}
+			})
+		}
 	}
 }

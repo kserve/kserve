@@ -1,0 +1,32 @@
+apiVersion: "serving.kubeflow.org/v1alpha2"
+kind: "InferenceService"
+metadata:
+  name: "aix-explainer"
+  namespace: default
+spec:
+  default:
+    predictor:
+      custom:
+        container:
+          name: predictor
+          image: aipipeline/rf-predictor:0.4.1
+          command: ["python", "-m", "rfserver", "--model_name", "aix-explainer"]
+          imagePullPolicy: Always
+          resources:
+            requests:
+              memory: "2Gi"
+              cpu: "1"
+            limits:
+              memory: "2Gi"
+              cpu: "1"
+    explainer:
+      aix:
+        type: LimeImages
+        config:
+          num_samples: "100"
+          top_labels: "10"
+          min_weight: "0.01"
+        resources:
+          requests:
+            cpu: 1
+            memory: 2Gi

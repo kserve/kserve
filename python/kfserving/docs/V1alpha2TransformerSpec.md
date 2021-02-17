@@ -1,5 +1,6 @@
 # V1alpha2TransformerSpec
 
+TransformerSpec defines transformer service for pre/post processing
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------

@@ -1,5 +1,6 @@
 # V1alpha2AlibiExplainerSpec
 
+AlibiExplainerSpec defines the arguments for configuring an Alibi Explanation Server
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------

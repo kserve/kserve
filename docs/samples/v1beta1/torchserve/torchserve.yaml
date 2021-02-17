@@ -1,0 +1,9 @@
+apiVersion: serving.kubeflow.org/v1beta1
+kind: InferenceService
+metadata:
+  name: "torchserve"
+spec:
+  predictor:
+    pytorch:
+      storageUri: gs://kfserving-examples/models/torchserve/image_classifier
+      # storageUri: pvc://model-pv-claim

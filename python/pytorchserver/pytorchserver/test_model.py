@@ -18,12 +18,11 @@ import torchvision
 import torchvision.transforms as transforms
 import os
 
-model_dir = model_dir = os.path.join(os.path.dirname(__file__), "example_model")
-MODEL_FILE = "model.pt"
+model_dir = model_dir = os.path.join(os.path.dirname(__file__), "example_model", "model")
 
 
 def test_model():
-    server = PyTorchModel("pytorchmodel", "Net", model_dir)
+    server = PyTorchModel("model", "Net", model_dir)
     server.load()
 
     transform = transforms.Compose([transforms.ToTensor(),
@@ -35,6 +34,6 @@ def test_model():
     dataiter = iter(testloader)
     images, _ = dataiter.next()
 
-    request = {"instances" : images[0:1].tolist()}
+    request = {"instances": images[0:1].tolist()}
     response = server.predict(request)
-    assert isinstance(response["instances"][0], list)
+    assert isinstance(response["predictions"][0], list)

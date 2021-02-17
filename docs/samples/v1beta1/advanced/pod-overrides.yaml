@@ -1,7 +1,7 @@
 apiVersion: "serving.kubeflow.org/v1beta1"
 kind: "InferenceService"
 metadata:
-  name: "tensorflow-pod-overridess"
+  name: "tensorflow-pod-overrides"
 spec:
   predictor:
     serviceAccount: "serving-admin"

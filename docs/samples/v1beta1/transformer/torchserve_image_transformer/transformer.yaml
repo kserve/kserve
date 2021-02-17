@@ -1,0 +1,17 @@
+apiVersion: serving.kubeflow.org/v1beta1
+kind: InferenceService
+metadata:
+  name: torchserve-transformer
+spec:
+  transformer:
+    containers:
+    - image: kfserving/torchserve-image-transformer:latest
+      name: transformer-container
+      env:
+        - name: STORAGE_URI
+          value: gs://kfserving-examples/models/torchserve/image_classifier
+            #value: pvc://model-pv-claim
+  predictor:
+    pytorch:
+      storageUri: gs://kfserving-examples/models/torchserve/image_classifier
+      #storageUri: pvc://model-pv-claim

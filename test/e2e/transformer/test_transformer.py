@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 import numpy as np
 from kubernetes import client
 
@@ -30,7 +31,7 @@ from ..common.utils import predict
 from ..common.utils import KFSERVING_TEST_NAMESPACE
 
 api_version = constants.KFSERVING_GROUP + '/' + constants.KFSERVING_VERSION
-KFServing = KFServingClient(config_file="~/.kube/config")
+KFServing = KFServingClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
 
 
 def test_transformer():
@@ -48,7 +49,7 @@ def test_transformer():
             min_replicas=1,
             custom=V1alpha2CustomSpec(
                 container=V1Container(
-                  image='gcr.io/kubeflow-ci/kfserving/image-transformer:latest',
+                  image='809251082950.dkr.ecr.us-west-2.amazonaws.com/kfserving/image-transformer:latest',
                   name='kfserving-container',
                   resources=V1ResourceRequirements(
                     requests={'cpu': '100m', 'memory': '256Mi'},

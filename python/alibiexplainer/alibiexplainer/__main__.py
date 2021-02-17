@@ -29,6 +29,7 @@ EXPLAINER_FILENAME = "explainer.dill"
 def main():
     args, extra = parse_args(sys.argv[1:])
     # Pretrained Alibi explainer
+
     alibi_model = None
     if args.storage_uri is not None:
         alibi_model = os.path.join(
@@ -46,7 +47,7 @@ def main():
         alibi_model,
     )
     explainer.load()
-    kfserving.KFServer().start(models=[explainer])
+    kfserving.KFServer().start(models=[explainer], nest_asyncio=True)
 
 
 if __name__ == "__main__":

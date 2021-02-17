@@ -35,6 +35,10 @@ bin
 # Notebook Checkpoints
 .ipynb_checkpoints
 
+.gitlab-ci.yml
+.openapi-generator-ignore
+.openapi-generator/
+
 # Ignore files for local deployment
 config/overlays/development/manager_image_patch.yaml
 config/overlays/development/configmap/inferenceservice_patch.yaml
@@ -45,7 +49,7 @@ config/overlays/dev-image-config/inferenceservice_patch.yaml
 
 # swagger-codegen tools and auto generated files but useless
 hack/current_violation_exceptions.list
-hack/python-sdk/swagger-codegen-cli.jar
+hack/python-sdk/openapi-generator-cli.jar
 python/kfserving/.swagger-codegen-ignore
 python/kfserving/.swagger-codegen/
 python/kfserving/.travis.yml

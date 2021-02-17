@@ -18,9 +18,11 @@ package v1alpha2
 
 import (
 	"fmt"
-
 	"k8s.io/apimachinery/pkg/runtime"
+	"regexp"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
 // Known error messages
@@ -32,21 +34,44 @@ const (
 	TrafficBoundsExceededError          = "TrafficPercent must be between [0, 100]."
 	TrafficProvidedWithoutCanaryError   = "Canary must be specified when CanaryTrafficPercent > 0."
 	UnsupportedStorageURIFormatError    = "storageUri, must be one of: [%s] or match https://{}.blob.core.windows.net/{}/{} or be an absolute or relative local path. StorageUri [%s] is not supported."
+	InvalidISVCNameFormatError          = "The InferenceService \"%s\" is invalid: a InferenceService name must consist of lower case alphanumeric characters or '-', and must start with alphabetical character. (e.g. \"my-name\" or \"abc-123\", regex used for validation is '%s')"
+)
+
+// Validation for isvc name
+const (
+	IsvcNameFmt string = "[a-z]([-a-z0-9]*[a-z0-9])?"
 )
 
 var (
-	SupportedStorageURIPrefixList = []string{"gs://", "s3://", "pvc://", "file://"}
+	SupportedStorageURIPrefixList = []string{"gs://", "s3://", "pvc://", "file://", "https://", "http://"}
+	AzureBlobURL                  = "blob.core.windows.net"
 	AzureBlobURIRegEx             = "https://(.+?).blob.core.windows.net/(.+)"
+	IsvcRegexp                    = regexp.MustCompile("^" + IsvcNameFmt + "$")
 )
 
+var _ webhook.Validator = &InferenceService{}
+
 // ValidateCreate implements https://godoc.org/sigs.k8s.io/controller-runtime/pkg/webhook/admission#Validator
-func (isvc *InferenceService) ValidateCreate(client client.Client) error {
+func (isvc *InferenceService) ValidateCreate() error {
+	client, err := client.New(config.GetConfigOrDie(), client.Options{})
+	if err != nil {
+		panic("Failed to create client in validator")
+	}
 	return isvc.validate(client)
 }
 
 // ValidateUpdate implements https://godoc.org/sigs.k8s.io/controller-runtime/pkg/webhook/admission#Validator
-func (isvc *InferenceService) ValidateUpdate(old runtime.Object, client client.Client) error {
+func (isvc *InferenceService) ValidateUpdate(old runtime.Object) error {
+	client, err := client.New(config.GetConfigOrDie(), client.Options{})
+	if err != nil {
+		panic("Failed to create client in validator")
+	}
 	return isvc.validate(client)
+}
+
+// ValidateDelete implements webhook.Validator so a webhook will be registered for the type
+func (isvc *InferenceService) ValidateDelete() error {
+	return nil
 }
 
 func (isvc *InferenceService) validate(client client.Client) error {
@@ -64,6 +89,11 @@ func validateInferenceService(isvc *InferenceService, client client.Client) erro
 	if isvc == nil {
 		return fmt.Errorf("Unable to validate, InferenceService is nil")
 	}
+
+	if err := validateInferenceServiceName(isvc); err != nil {
+		return err
+	}
+
 	endpoints := []*EndpointSpec{
 		&isvc.Spec.Default,
 		isvc.Spec.Canary,
@@ -111,12 +141,23 @@ func validateEndpoint(endpoint *EndpointSpec, client client.Client) error {
 }
 
 func validateCanaryTrafficPercent(spec InferenceServiceSpec) error {
-	if spec.Canary == nil && spec.CanaryTrafficPercent != 0 {
+	if spec.CanaryTrafficPercent == nil {
+		return nil
+	}
+
+	if spec.Canary == nil && *spec.CanaryTrafficPercent != 0 {
 		return fmt.Errorf(TrafficProvidedWithoutCanaryError)
 	}
 
-	if spec.CanaryTrafficPercent < 0 || spec.CanaryTrafficPercent > 100 {
+	if *spec.CanaryTrafficPercent < 0 || *spec.CanaryTrafficPercent > 100 {
 		return fmt.Errorf(TrafficBoundsExceededError)
+	}
+	return fmt.Errorf("Canary rollout is no longer supported on v1alpha2, please convert to v1beta1 to use the feature.")
+}
+
+func validateInferenceServiceName(isvc *InferenceService) error {
+	if !IsvcRegexp.MatchString(isvc.Name) {
+		return fmt.Errorf(InvalidISVCNameFormatError, isvc.Name, IsvcNameFmt)
 	}
 	return nil
 }

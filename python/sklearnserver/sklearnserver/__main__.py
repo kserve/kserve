@@ -12,11 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import kfserving
 import argparse
+import logging
+import sys
 
-
-from sklearnserver import SKLearnModel
+import kfserving
+from sklearnserver import SKLearnModel, SKLearnModelRepository
 
 DEFAULT_MODEL_NAME = "model"
 DEFAULT_LOCAL_MODEL_DIR = "/tmp/model"
@@ -30,5 +31,11 @@ args, _ = parser.parse_known_args()
 
 if __name__ == "__main__":
     model = SKLearnModel(args.model_name, args.model_dir)
-    model.load()
-    kfserving.KFServer().start([model])
+    try:
+        model.load()
+    except Exception as e:
+        ex_type, ex_value, _ = sys.exc_info()
+        logging.error(f"fail to load model {args.model_name} from dir {args.model_dir}. "
+                      f"exception type {ex_type}, exception msg: {ex_value}")
+        model.ready = False
+    kfserving.KFServer(registered_models=SKLearnModelRepository(args.model_dir)).start([model] if model.ready else [])

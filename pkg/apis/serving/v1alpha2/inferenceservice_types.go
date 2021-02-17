@@ -30,7 +30,7 @@ type InferenceServiceSpec struct {
 	Canary *EndpointSpec `json:"canary,omitempty"`
 	// CanaryTrafficPercent defines the percentage of traffic going to canary InferenceService endpoints
 	// +optional
-	CanaryTrafficPercent int `json:"canaryTrafficPercent,omitempty"`
+	CanaryTrafficPercent *int `json:"canaryTrafficPercent,omitempty"`
 }
 
 type EndpointSpec struct {
@@ -110,16 +110,20 @@ type PredictorSpec struct {
 	Custom *CustomSpec `json:"custom,omitempty"`
 	// Spec for Tensorflow Serving (https://github.com/tensorflow/serving)
 	Tensorflow *TensorflowSpec `json:"tensorflow,omitempty"`
-	// Spec for Triton Inference Server (https://github.com/NVIDIA/triton-inference-server)
+	// Spec for Triton Inference Server (https://github.com/triton-inference-server/server)
 	Triton *TritonSpec `json:"triton,omitempty"`
 	// Spec for XGBoost predictor
 	XGBoost *XGBoostSpec `json:"xgboost,omitempty"`
+	// Spec for LightGBM predictor
+	LightGBM *LightGBMSpec `json:"lightgbm,omitempty"`
 	// Spec for SKLearn predictor
 	SKLearn *SKLearnSpec `json:"sklearn,omitempty"`
 	// Spec for ONNX runtime (https://github.com/microsoft/onnxruntime)
 	ONNX *ONNXSpec `json:"onnx,omitempty"`
 	// Spec for PyTorch predictor
 	PyTorch *PyTorchSpec `json:"pytorch,omitempty"`
+	// Spec for PMML predictor
+	PMML *PMMLSpec `json:"pmml,omitempty"`
 
 	DeploymentSpec `json:",inline"`
 }
@@ -129,6 +133,8 @@ type PredictorSpec struct {
 type ExplainerSpec struct {
 	// Spec for alibi explainer
 	Alibi *AlibiExplainerSpec `json:"alibi,omitempty"`
+	// Spec for AIX explainer
+	AIX *AIXExplainerSpec `json:"aix,omitempty"`
 	// Spec for a custom explainer
 	Custom *CustomSpec `json:"custom,omitempty"`
 
@@ -160,6 +166,26 @@ type AlibiExplainerSpec struct {
 	// The location of a trained explanation model
 	StorageURI string `json:"storageUri,omitempty"`
 	// Alibi docker image version which defaults to latest release
+	RuntimeVersion string `json:"runtimeVersion,omitempty"`
+	// Defaults to requests and limits of 1CPU, 2Gb MEM.
+	Resources v1.ResourceRequirements `json:"resources,omitempty"`
+	// Inline custom parameter settings for explainer
+	Config map[string]string `json:"config,omitempty"`
+}
+
+type AIXExplainerType string
+
+const (
+	AIXLimeImageExplainer AIXExplainerType = "LimeImages"
+)
+
+// AIXExplainerSpec defines the arguments for configuring an AIX Explanation Server
+type AIXExplainerSpec struct {
+	// The type of AIX explainer
+	Type AIXExplainerType `json:"type"`
+	// The location of a trained explanation model
+	StorageURI string `json:"storageUri,omitempty"`
+	// Defaults to latest AIX Version
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
 	// Defaults to requests and limits of 1CPU, 2Gb MEM.
 	Resources v1.ResourceRequirements `json:"resources,omitempty"`
@@ -199,6 +225,18 @@ type XGBoostSpec struct {
 	Resources v1.ResourceRequirements `json:"resources,omitempty"`
 }
 
+// LightGBMSpec defines arguments for configuring LightGBM model serving.
+type LightGBMSpec struct {
+	// The URI of the trained model which contains model.bst
+	StorageURI string `json:"storageUri"`
+	// Number of thread to be used by LightGBM
+	NThread int `json:"nthread,omitempty"`
+	// LightGBM KFServer docker image version which defaults to latest release
+	RuntimeVersion string `json:"runtimeVersion,omitempty"`
+	// Defaults to requests and limits of 1CPU, 2Gb MEM.
+	Resources v1.ResourceRequirements `json:"resources,omitempty"`
+}
+
 // SKLearnSpec defines arguments for configuring SKLearn model serving.
 type SKLearnSpec struct {
 	// The URI of the trained model which contains model.pickle, model.pkl or model.joblib
@@ -226,6 +264,16 @@ type PyTorchSpec struct {
 	// Defaults PyTorch model class name to 'PyTorchModel'
 	ModelClassName string `json:"modelClassName,omitempty"`
 	// PyTorch KFServer docker image version which defaults to latest release
+	RuntimeVersion string `json:"runtimeVersion,omitempty"`
+	// Defaults to requests and limits of 1CPU, 2Gb MEM.
+	Resources v1.ResourceRequirements `json:"resources,omitempty"`
+}
+
+// PMMLSpec defines arguments for configuring PMML model serving.
+type PMMLSpec struct {
+	// The URI of the trained model which contains model.pmml
+	StorageURI string `json:"storageUri"`
+	// PMML KFServer docker image version which defaults to latest release
 	RuntimeVersion string `json:"runtimeVersion,omitempty"`
 	// Defaults to requests and limits of 1CPU, 2Gb MEM.
 	Resources v1.ResourceRequirements `json:"resources,omitempty"`
@@ -273,7 +321,7 @@ type StatusConfigurationSpec struct {
 // +kubebuilder:printcolumn:name="Default Traffic",type="integer",JSONPath=".status.traffic"
 // +kubebuilder:printcolumn:name="Canary Traffic",type="integer",JSONPath=".status.canaryTraffic"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
-// +kubebuilder:resource:path=inferenceservices,shortName=inferenceservice
+// +kubebuilder:resource:path=inferenceservices,shortName=isvc
 type InferenceService struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

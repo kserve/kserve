@@ -18,12 +18,20 @@ package v1alpha2
 
 import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
 // Default implements https://godoc.org/sigs.k8s.io/controller-runtime/pkg/webhook/admission#Defaulter
 
-func (isvc *InferenceService) Default(client client.Client) {
+var _ webhook.Defaulter = &InferenceService{}
+
+func (isvc *InferenceService) Default() {
 	logger.Info("Defaulting InferenceService", "namespace", isvc.Namespace, "name", isvc.Name)
+	client, err := client.New(config.GetConfigOrDie(), client.Options{})
+	if err != nil {
+		panic("Failed to create client in defauler")
+	}
 	if err := isvc.applyDefaultsEndpoint(&isvc.Spec.Default, client); err != nil {
 		logger.Error(err, "Failed to apply defaults for default endpoints")
 	}

@@ -29,6 +29,7 @@ import (
 
 func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
 	return map[string]common.OpenAPIDefinition{
+		"./pkg/apis/serving/v1alpha2.AIXExplainerSpec":        schema_pkg_apis_serving_v1alpha2_AIXExplainerSpec(ref),
 		"./pkg/apis/serving/v1alpha2.AlibiExplainerSpec":      schema_pkg_apis_serving_v1alpha2_AlibiExplainerSpec(ref),
 		"./pkg/apis/serving/v1alpha2.Batcher":                 schema_pkg_apis_serving_v1alpha2_Batcher(ref),
 		"./pkg/apis/serving/v1alpha2.CustomSpec":              schema_pkg_apis_serving_v1alpha2_CustomSpec(ref),
@@ -39,8 +40,10 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"./pkg/apis/serving/v1alpha2.InferenceServiceList":    schema_pkg_apis_serving_v1alpha2_InferenceServiceList(ref),
 		"./pkg/apis/serving/v1alpha2.InferenceServiceSpec":    schema_pkg_apis_serving_v1alpha2_InferenceServiceSpec(ref),
 		"./pkg/apis/serving/v1alpha2.InferenceServiceStatus":  schema_pkg_apis_serving_v1alpha2_InferenceServiceStatus(ref),
+		"./pkg/apis/serving/v1alpha2.LightGBMSpec":            schema_pkg_apis_serving_v1alpha2_LightGBMSpec(ref),
 		"./pkg/apis/serving/v1alpha2.Logger":                  schema_pkg_apis_serving_v1alpha2_Logger(ref),
 		"./pkg/apis/serving/v1alpha2.ONNXSpec":                schema_pkg_apis_serving_v1alpha2_ONNXSpec(ref),
+		"./pkg/apis/serving/v1alpha2.PMMLSpec":                schema_pkg_apis_serving_v1alpha2_PMMLSpec(ref),
 		"./pkg/apis/serving/v1alpha2.PredictorSpec":           schema_pkg_apis_serving_v1alpha2_PredictorSpec(ref),
 		"./pkg/apis/serving/v1alpha2.PyTorchSpec":             schema_pkg_apis_serving_v1alpha2_PyTorchSpec(ref),
 		"./pkg/apis/serving/v1alpha2.SKLearnSpec":             schema_pkg_apis_serving_v1alpha2_SKLearnSpec(ref),
@@ -49,10 +52,69 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"./pkg/apis/serving/v1alpha2.TransformerSpec":         schema_pkg_apis_serving_v1alpha2_TransformerSpec(ref),
 		"./pkg/apis/serving/v1alpha2.TritonSpec":              schema_pkg_apis_serving_v1alpha2_TritonSpec(ref),
 		"./pkg/apis/serving/v1alpha2.XGBoostSpec":             schema_pkg_apis_serving_v1alpha2_XGBoostSpec(ref),
-		"knative.dev/pkg/apis.URL":                            schema_knativedev_pkg_apis_URL(ref),
-		"knative.dev/pkg/apis.Condition":                      schema_knativedev_pkg_apis_Condition(ref),
-		"knative.dev/pkg/apis.VolatileTime":                   schema_knativedev_pkg_apis_VolatileTime(ref),
-		"knative.dev/pkg/apis/duck/v1beta1.Addressable":       schema_pkg_apis_duck_v1beta1_Addressable(ref),
+		//TODO: `make generate` will remove this due to knative version upgrade but is used by python client
+		"knative.dev/pkg/apis.URL":                      schema_knativedev_pkg_apis_URL(ref),
+		"knative.dev/pkg/apis.Condition":                schema_knativedev_pkg_apis_Condition(ref),
+		"knative.dev/pkg/apis.VolatileTime":             schema_knativedev_pkg_apis_VolatileTime(ref),
+		"knative.dev/pkg/apis/duck/v1beta1.Addressable": schema_pkg_apis_duck_v1beta1_Addressable(ref),
+	}
+}
+
+func schema_pkg_apis_serving_v1alpha2_AIXExplainerSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AIXExplainerSpec defines the arguments for configuring an AIX Explanation Server",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The type of AIX explainer",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"storageUri": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The location of a trained explanation model",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"runtimeVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Defaults to latest AIX Version",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"resources": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Defaults to requests and limits of 1CPU, 2Gb MEM.",
+							Ref:         ref("k8s.io/api/core/v1.ResourceRequirements"),
+						},
+					},
+					"config": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Inline custom parameter settings for explainer",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"type"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/api/core/v1.ResourceRequirements"},
 	}
 }
 
@@ -270,6 +332,12 @@ func schema_pkg_apis_serving_v1alpha2_ExplainerSpec(ref common.ReferenceCallback
 							Ref:         ref("./pkg/apis/serving/v1alpha2.AlibiExplainerSpec"),
 						},
 					},
+					"aix": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Spec for AIX explainer",
+							Ref:         ref("./pkg/apis/serving/v1alpha2.AIXExplainerSpec"),
+						},
+					},
 					"custom": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Spec for a custom explainer",
@@ -320,7 +388,7 @@ func schema_pkg_apis_serving_v1alpha2_ExplainerSpec(ref common.ReferenceCallback
 			},
 		},
 		Dependencies: []string{
-			"./pkg/apis/serving/v1alpha2.AlibiExplainerSpec", "./pkg/apis/serving/v1alpha2.Batcher", "./pkg/apis/serving/v1alpha2.CustomSpec", "./pkg/apis/serving/v1alpha2.Logger"},
+			"./pkg/apis/serving/v1alpha2.AIXExplainerSpec", "./pkg/apis/serving/v1alpha2.AlibiExplainerSpec", "./pkg/apis/serving/v1alpha2.Batcher", "./pkg/apis/serving/v1alpha2.CustomSpec", "./pkg/apis/serving/v1alpha2.Logger"},
 	}
 }
 
@@ -614,6 +682,78 @@ func schema_pkg_apis_serving_v1alpha2_ONNXSpec(ref common.ReferenceCallback) com
 	}
 }
 
+func schema_pkg_apis_serving_v1alpha2_LightGBMSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "LightGBMSpec defines arguments for configuring LightGBM model serving.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"storageUri": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The URI of the trained model which contains model.lightgbm",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"runtimeVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "LightGBM KFServer docker image version which defaults to latest release",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"resources": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Defaults to requests and limits of 1CPU, 2Gb MEM.",
+							Ref:         ref("k8s.io/api/core/v1.ResourceRequirements"),
+						},
+					},
+				},
+				Required: []string{"storageUri"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/api/core/v1.ResourceRequirements"},
+	}
+}
+
+func schema_pkg_apis_serving_v1alpha2_PMMLSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "PMMLSpec defines arguments for configuring PMML model serving.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"storageUri": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The URI of the trained model which contains model.pmml",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"runtimeVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PMML KFServer docker image version which defaults to latest release",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"resources": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Defaults to requests and limits of 1CPU, 2Gb MEM.",
+							Ref:         ref("k8s.io/api/core/v1.ResourceRequirements"),
+						},
+					},
+				},
+				Required: []string{"storageUri"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/api/core/v1.ResourceRequirements"},
+	}
+}
+
 func schema_pkg_apis_serving_v1alpha2_PredictorSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -635,7 +775,7 @@ func schema_pkg_apis_serving_v1alpha2_PredictorSpec(ref common.ReferenceCallback
 					},
 					"triton": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Spec for Triton Inference Server (https://github.com/NVIDIA/triton-inference-server)",
+							Description: "Spec for Triton Inference Server (https://github.com/triton-inference-server/server)",
 							Ref:         ref("./pkg/apis/serving/v1alpha2.TritonSpec"),
 						},
 					},
@@ -661,6 +801,18 @@ func schema_pkg_apis_serving_v1alpha2_PredictorSpec(ref common.ReferenceCallback
 						SchemaProps: spec.SchemaProps{
 							Description: "Spec for PyTorch predictor",
 							Ref:         ref("./pkg/apis/serving/v1alpha2.PyTorchSpec"),
+						},
+					},
+					"pmml": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Spec for PMML predictor",
+							Ref:         ref("./pkg/apis/serving/v1alpha2.PMMLSpec"),
+						},
+					},
+					"lightgbm": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Spec for LightGBM predictor",
+							Ref:         ref("./pkg/apis/serving/v1alpha2.LightGBMSpec"),
 						},
 					},
 					"serviceAccountName": {
@@ -707,7 +859,7 @@ func schema_pkg_apis_serving_v1alpha2_PredictorSpec(ref common.ReferenceCallback
 			},
 		},
 		Dependencies: []string{
-			"./pkg/apis/serving/v1alpha2.Batcher", "./pkg/apis/serving/v1alpha2.CustomSpec", "./pkg/apis/serving/v1alpha2.Logger", "./pkg/apis/serving/v1alpha2.ONNXSpec", "./pkg/apis/serving/v1alpha2.PyTorchSpec", "./pkg/apis/serving/v1alpha2.SKLearnSpec", "./pkg/apis/serving/v1alpha2.TensorflowSpec", "./pkg/apis/serving/v1alpha2.TritonSpec", "./pkg/apis/serving/v1alpha2.XGBoostSpec"},
+			"./pkg/apis/serving/v1alpha2.Batcher", "./pkg/apis/serving/v1alpha2.CustomSpec", "./pkg/apis/serving/v1alpha2.LightGBMSpec", "./pkg/apis/serving/v1alpha2.Logger", "./pkg/apis/serving/v1alpha2.ONNXSpec", "./pkg/apis/serving/v1alpha2.PMMLSpec", "./pkg/apis/serving/v1alpha2.PyTorchSpec", "./pkg/apis/serving/v1alpha2.SKLearnSpec", "./pkg/apis/serving/v1alpha2.TensorflowSpec", "./pkg/apis/serving/v1alpha2.TritonSpec", "./pkg/apis/serving/v1alpha2.XGBoostSpec"},
 	}
 }
 
@@ -993,6 +1145,7 @@ func schema_pkg_apis_serving_v1alpha2_XGBoostSpec(ref common.ReferenceCallback) 
 	}
 }
 
+//TODO: `make generate` will remove this due to knative version upgrade - not sure specifically why
 func schema_knativedev_pkg_apis_Condition(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{

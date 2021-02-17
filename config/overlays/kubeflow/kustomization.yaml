@@ -1,0 +1,24 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Adds namespace to all resources.
+namespace: kubeflow
+
+# Labels to add to all resources and selectors.
+#commonLabels:
+#  someName: someValue
+
+bases:
+- ../../default
+
+generatorOptions:
+  disableNameSuffixHash: true
+
+# To make namespace for standalone installation kustomizable,
+# variabalize ingress gateway, webhook service name and
+# kfserving namespace in webhook configurations
+configMapGenerator:
+  - name: kfserving-config
+    behavior: replace
+    envs: 
+    - params.env

@@ -32,7 +32,7 @@ type Predictor interface {
 
 const (
 	// ExactlyOnePredictorViolatedError is a known error message
-	ExactlyOnePredictorViolatedError = "Exactly one of [Custom, ONNX, Tensorflow, Triton, SKLearn, XGBoost] must be specified in PredictorSpec"
+	ExactlyOnePredictorViolatedError = "Exactly one of [Custom, ONNX, Tensorflow, Triton, SKLearn, XGBoost, LightGBM] must be specified in PredictorSpec"
 )
 
 // Returns a URI to the model. This URI is passed to the storage-initializer via the StorageInitializerSourceUriInternalAnnotationKey
@@ -92,6 +92,9 @@ func getPredictor(predictorSpec *PredictorSpec) (Predictor, error) {
 	if predictorSpec.XGBoost != nil {
 		predictors = append(predictors, predictorSpec.XGBoost)
 	}
+	if predictorSpec.LightGBM != nil {
+		predictors = append(predictors, predictorSpec.LightGBM)
+	}
 	if predictorSpec.SKLearn != nil {
 		predictors = append(predictors, predictorSpec.SKLearn)
 	}
@@ -106,6 +109,9 @@ func getPredictor(predictorSpec *PredictorSpec) (Predictor, error) {
 	}
 	if predictorSpec.Triton != nil {
 		predictors = append(predictors, predictorSpec.Triton)
+	}
+	if predictorSpec.PMML != nil {
+		predictors = append(predictors, predictorSpec.PMML)
 	}
 	if len(predictors) != 1 {
 		err := fmt.Errorf(ExactlyOnePredictorViolatedError)

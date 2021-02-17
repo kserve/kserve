@@ -10,10 +10,11 @@ data:
             "image": "tensorflow/serving",
             "defaultImageVersion": "1.14.0",
             "defaultGpuImageVersion": "1.14.0-gpu",
+            "defaultTimeout": "60",
             "supportedFrameworks": [
               "tensorflow"
             ],
-            "multiModelServer": "true"
+            "multiModelServer": false
         },
         "onnx": {
             "image": "mcr.microsoft.com/onnxruntime/server",
@@ -21,36 +22,67 @@ data:
             "supportedFrameworks": [
               "onnx"
             ],
-            "multiModelServer": "false"
+            "multiModelServer": false
         },
         "sklearn": {
+          "v1": {
             "image": "gcr.io/kfserving/sklearnserver",
-            "defaultImageVersion": "v0.4.0",
+            "defaultImageVersion": "latest",
             "supportedFrameworks": [
               "sklearn"
             ],
-            "multiModelServer": "false"
+            "multiModelServer": false
+          },
+          "v2": {
+            "image": "docker.io/seldonio/mlserver",
+            "defaultImageVersion": "0.2.1",
+            "supportedFrameworks": [
+              "sklearn"
+            ],
+            "multiModelServer": false
+          }
         },
         "xgboost": {
+          "v1": {
             "image": "gcr.io/kfserving/xgbserver",
-            "defaultImageVersion": "v0.4.0",
+            "defaultImageVersion": "latest",
             "supportedFrameworks": [
               "xgboost"
             ],
-            "multiModelServer": "false"
+            "multiModelServer": false
+          },
+          "v2": {
+            "image": "docker.io/seldonio/mlserver",
+            "defaultImageVersion": "0.2.1",
+            "supportedFrameworks": [
+              "xgboost"
+            ],
+            "multiModelServer": false
+          }
         },
         "pytorch": {
+          "v1" : {
             "image": "gcr.io/kfserving/pytorchserver",
-            "defaultImageVersion": "v0.4.0",
-            "defaultGpuImageVersion": "v0.4.0-gpu",
+            "defaultImageVersion": "latest",
+            "defaultGpuImageVersion": "latest-gpu",
             "supportedFrameworks": [
               "pytorch"
             ],
-            "multiModelServer": "false"
+            "multiModelServer": false
+          },
+          "v2" : {
+            "image": "kfserving/torchserve-kfs",
+            "defaultImageVersion": "0.3.0",
+            "defaultGpuImageVersion": "0.3.0-gpu",
+            "supportedFrameworks": [
+              "pytorch"
+            ],
+            "multiModelServer": false
+          }
         },
         "triton": {
             "image": "nvcr.io/nvidia/tritonserver",
-            "defaultImageVersion": "20.03-py3",
+            "defaultImageVersion": "20.08-py3",
             "supportedFrameworks": [
               "tensorrt",
               "tensorflow",
@@ -58,7 +90,23 @@ data:
               "pytorch",
               "caffe2"
             ],
-            "multiModelServer": "true"
+            "multiModelServer": false
+        },
+        "pmml": {
+            "image": "kfserving/pmmlserver",
+            "defaultImageVersion": "latest",
+            "supportedFrameworks": [
+              "pmml"
+            ],
+            "multiModelServer": false
+        },
+        "lightgbm": {
+            "image": "kfserving/lgbserver",
+            "defaultImageVersion": "latest",
+            "supportedFrameworks": [
+              "lightgbm"
+            ],
+            "multiModelServer": false
         }
     }
   transformers: |-
@@ -68,12 +116,20 @@ data:
     {
         "alibi": {
             "image" : "gcr.io/kfserving/alibi-explainer",
-            "defaultImageVersion": "v0.4.0"
+            "defaultImageVersion": "latest"
+        },
+        "aix": {
+            "image" : "kfserving/aix-explainer",
+            "defaultImageVersion": "latest"
+        },
+        "art": {
+            "image" : "kfserving/art-explainer",
+            "defaultImageVersion": "latest"
         }
     }
   storageInitializer: |-
     {
-        "image" : "gcr.io/kfserving/storage-initializer:v0.4.0",
+        "image" : "gcr.io/kfserving/storage-initializer:latest",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
@@ -91,12 +147,14 @@ data:
     }
   ingress: |-
     {
-        "ingressGateway" : "knative-ingress-gateway.knative-serving",
-        "ingressService" : "istio-ingressgateway.istio-system.svc.cluster.local"
+        "ingressGateway" : $(ingressGateway)
+        "ingressService" : "istio-ingressgateway.istio-system.svc.cluster.local",
+        "localGateway" : "cluster-local-gateway.knative-serving",
+        "localGatewayService" : "cluster-local-gateway.istio-system.svc.cluster.local"
     }
   logger: |-
     {
-        "image" : "gcr.io/kfserving/logger:v0.4.0",
+        "image" : "kfserving/agent:latest",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
@@ -105,9 +163,17 @@ data:
     }
   batcher: |-
     {
-        "image" : "gcr.io/kfserving/batcher:v0.4.0",
+        "image" : "kfserving/agent:latest",
         "memoryRequest": "1Gi",
         "memoryLimit": "1Gi",
         "cpuRequest": "1",
+        "cpuLimit": "1"
+    }
+  agent: |-
+    {
+        "image" : "kfserving/agent:latest",
+        "memoryRequest": "100Mi",
+        "memoryLimit": "1Gi",
+        "cpuRequest": "100m",
         "cpuLimit": "1"
     }

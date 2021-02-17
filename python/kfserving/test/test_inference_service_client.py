@@ -23,7 +23,7 @@ from kfserving import V1alpha2InferenceServiceSpec
 from kfserving import V1alpha2InferenceService
 from kfserving import KFServingClient
 
-KFServing = KFServingClient()
+KFServing = KFServingClient(config_file='./kfserving/test/kubeconfig')
 
 mocked_unit_result = \
     '''
@@ -93,14 +93,6 @@ def test_inferenceservice_client_patch():
         isvc = generate_inferenceservice()
         assert mocked_unit_result == KFServing.patch(
             'flower-sample', isvc, namespace='kubeflow')
-
-
-def test_inferenceservice_client_promote():
-    '''Unit test for kfserving promote api'''
-    with patch('kfserving.api.kf_serving_client.KFServingClient.promote',
-               return_value=mocked_unit_result):
-        assert mocked_unit_result == KFServing.promote(
-            'flower-sample', namespace='kubeflow')
 
 
 def test_inferenceservice_client_replace():

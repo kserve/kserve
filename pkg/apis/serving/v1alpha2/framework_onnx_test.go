@@ -45,6 +45,24 @@ var onnxSpec = ONNXSpec{
 	RuntimeVersion: "someAmazingVersion",
 }
 
+var onnxSpecWithOtherFilename = ONNXSpec{
+	StorageURI:     "gs://someUri/other_name.onnx",
+	Resources:      onnxRequestedResource,
+	RuntimeVersion: "someAmazingVersion",
+}
+
+var onnxSpecWithQueryParameterFilename = ONNXSpec{
+	StorageURI:     "https://someUri/other_name.onnx?raw=true",
+	Resources:      onnxRequestedResource,
+	RuntimeVersion: "someAmazingVersion",
+}
+
+var onnxSpecWithBadFileExt = ONNXSpec{
+	StorageURI:     "gs://someUri/model.notonnx",
+	Resources:      onnxRequestedResource,
+	RuntimeVersion: "someUnAmazingVersion",
+}
+
 var onnxConfig = InferenceServicesConfig{
 	Predictors: &PredictorsConfig{
 		ONNX: PredictorConfig{
@@ -71,4 +89,58 @@ func TestCreateOnnxModelServingContainer(t *testing.T) {
 	// Test Create with config
 	container := onnxSpec.GetContainer("someName", 0, &onnxConfig)
 	g.Expect(container).To(gomega.Equal(expectedContainer))
+}
+
+func TestCreateOnnxModelServingContainerWithOtherFilename(t *testing.T) {
+
+	g := gomega.NewGomegaWithT(t)
+
+	expectedContainer := &v1.Container{
+		Image:     "someOtherImage:someAmazingVersion",
+		Name:      constants.InferenceServiceContainerName,
+		Resources: onnxRequestedResource,
+		Args: []string{
+			"--model_path", "/mnt/models/other_name.onnx",
+			"--http_port", "8080",
+			"--grpc_port", "9000",
+		},
+	}
+
+	// Test Create with config
+	container := onnxSpecWithOtherFilename.GetContainer("someName", 0, &onnxConfig)
+	g.Expect(container).To(gomega.Equal(expectedContainer))
+}
+
+func TestCreateOnnxModelServingContainerWithQueryParameter(t *testing.T) {
+
+	g := gomega.NewGomegaWithT(t)
+
+	expectedContainer := &v1.Container{
+		Image:     "someOtherImage:someAmazingVersion",
+		Name:      constants.InferenceServiceContainerName,
+		Resources: onnxRequestedResource,
+		Args: []string{
+			"--model_path", "/mnt/models/other_name.onnx",
+			"--http_port", "8080",
+			"--grpc_port", "9000",
+		},
+	}
+
+	// Test Create with config
+	container := onnxSpecWithQueryParameterFilename.GetContainer("someName", 0, &onnxConfig)
+	g.Expect(container).To(gomega.Equal(expectedContainer))
+}
+
+func TestOnnxPathValidationSuccess(t *testing.T) {
+
+	g := gomega.NewGomegaWithT(t)
+	g.Expect(onnxSpec.Validate(&onnxConfig)).Should(gomega.Succeed())
+	g.Expect(onnxSpecWithOtherFilename.Validate(&onnxConfig)).Should(gomega.Succeed())
+	g.Expect(onnxSpecWithQueryParameterFilename.Validate(&onnxConfig)).Should(gomega.Succeed())
+}
+
+func TestOnnxPathValidationFailure(t *testing.T) {
+
+	g := gomega.NewGomegaWithT(t)
+	g.Expect(onnxSpecWithBadFileExt.Validate(&onnxConfig)).ShouldNot(gomega.Succeed())
 }

@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
+import pytest
 from kubernetes import client
 
 from kfserving import KFServingClient
@@ -27,9 +29,10 @@ from kubernetes.client import V1ResourceRequirements
 from kubernetes.client import V1Container
 from ..common.utils import predict
 from ..common.utils import KFSERVING_TEST_NAMESPACE
+import time
 
 api_version = constants.KFSERVING_GROUP + '/' + constants.KFSERVING_VERSION
-KFServing = KFServingClient(config_file="~/.kube/config")
+KFServing = KFServingClient(config_file=os.environ.get("KUBECONFIG","~/.kube/config"))
 
 
 def test_kfserving_logger():
@@ -58,7 +61,7 @@ def test_kfserving_logger():
             min_replicas=1,
             logger=V1alpha2Logger(
                mode="all",
-               url="http://message-dumper-predictor-default."+KFSERVING_TEST_NAMESPACE
+               url="http://message-dumper."+KFSERVING_TEST_NAMESPACE+".svc.cluster.local"
             ),
             sklearn=V1alpha2SKLearnSpec(
                 storage_uri='gs://kfserving-samples/models/sklearn/iris',
@@ -73,12 +76,21 @@ def test_kfserving_logger():
                                     spec=V1alpha2InferenceServiceSpec(default=default_endpoint_spec))
 
     KFServing.create(isvc)
-    KFServing.wait_isvc_ready(service_name, namespace=KFSERVING_TEST_NAMESPACE)
+    try:
+        KFServing.wait_isvc_ready(service_name, namespace=KFSERVING_TEST_NAMESPACE)
+    except RuntimeError as e:
+        pods = KFServing.core_api.list_namespaced_pod(KFSERVING_TEST_NAMESPACE,
+                                                      label_selector='serving.kubeflow.org/inferenceservice={}'.
+                                                      format(service_name))
+        for pod in pods.items:
+            print(pod)
+
     res = predict(service_name, './data/iris_input.json')
     assert(res["predictions"] == [1, 1])
     pods = KFServing.core_api.list_namespaced_pod(KFSERVING_TEST_NAMESPACE,
                                                   label_selector='serving.kubeflow.org/inferenceservice={}'.
                                                   format(msg_dumper))
+    time.sleep(5)
     for pod in pods.items:
         log = KFServing.core_api.read_namespaced_pod_log(name=pod.metadata.name,
                                                          namespace=pod.metadata.namespace,

@@ -1,5 +1,6 @@
 # V1alpha2InferenceServiceList
 
+InferenceServiceList contains a list of Service
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------

@@ -18,22 +18,29 @@ package v1beta1
 
 // TransformerSpec defines transformer service for pre/post processing
 type TransformerSpec struct {
-	// Pass through Pod fields or specify a custom container spec
-	*CustomTransformer `json:",inline"`
-	// Extensions available in all components
+	// This spec is dual purpose. <br />
+	// 1) Provide a full PodSpec for custom transformer.
+	// The field PodSpec.Containers is mutually exclusive with other transformers. <br />
+	// 2) Provide a transformer and specify PodSpec
+	// overrides, you must not provide PodSpec.Containers in this case. <br />
+	PodSpec `json:",inline"`
+	// Component extension defines the deployment configurations for a transformer
 	ComponentExtensionSpec `json:",inline"`
 }
 
 // GetImplementations returns the implementations for the component
 func (s *TransformerSpec) GetImplementations() []ComponentImplementation {
-	return []ComponentImplementation{
-		s.CustomTransformer,
+	implementations := []ComponentImplementation{}
+	// This struct is not a pointer, so it will never be nil; include if containers are specified
+	if len(s.PodSpec.Containers) != 0 {
+		implementations = append(implementations, NewCustomTransformer(&s.PodSpec))
 	}
+	return implementations
 }
 
 // GetImplementation returns the implementation for the component
 func (s *TransformerSpec) GetImplementation() ComponentImplementation {
-	return FirstNonNilComponent(s.GetImplementations())
+	return s.GetImplementations()[0]
 }
 
 // GetExtensions returns the extensions for the component

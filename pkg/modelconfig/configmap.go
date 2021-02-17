@@ -1,12 +1,31 @@
+/*
+Copyright 2020 kubeflow.org.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package modelconfig
 
 import (
 	"fmt"
+
 	jsoniter "github.com/json-iterator/go"
+	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
 	"github.com/kubeflow/kfserving/pkg/constants"
-	"k8s.io/api/core/v1"
-	"sigs.k8s.io/controller-runtime/pkg/runtime/log"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var logger = log.Log.WithName("ModelConfig")
@@ -14,7 +33,7 @@ var json = jsoniter.ConfigCompatibleWithStandardLibrary
 
 type ModelConfig struct {
 	Name string             `json:"modelName"`
-	Spec v1beta1.ModelSpec  `json:"modelSpec"`
+	Spec v1alpha1.ModelSpec `json:"modelSpec"`
 }
 
 type ModelConfigs []ModelConfig
@@ -89,6 +108,22 @@ func (config *ConfigsDelta) Process(configMap *v1.ConfigMap) (err error) {
 	}
 	configMap.Data[constants.ModelConfigFileName] = to
 	return nil
+}
+
+func CreateEmptyModelConfig(isvc *v1beta1.InferenceService, shardId int) (*v1.ConfigMap, error) {
+	multiModelConfigMapName := constants.ModelConfigName(isvc.Name, shardId)
+	// Create a modelConfig without any models in it
+	multiModelConfigMap := &v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      multiModelConfigMapName,
+			Namespace: isvc.Namespace,
+			Labels:    isvc.Labels,
+		},
+		Data: map[string]string{
+			constants.ModelConfigFileName: "[]",
+		},
+	}
+	return multiModelConfigMap, nil
 }
 
 func slice2Map(from ModelConfigs) map[string]ModelConfig {

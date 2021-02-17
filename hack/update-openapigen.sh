@@ -20,12 +20,16 @@ set -o pipefail
 
 KNOWN_VIOLATION_EXCEPTIONS=hack/violation_exceptions.list
 CURRENT_VIOLATION_EXCEPTIONS=hack/current_violation_exceptions.list
+OPENAPI_SPEC_FILE=pkg/apis/serving/v1beta1/openapi_generated.go
 
 # Generating OpenAPI specification
 go run k8s.io/kube-openapi/cmd/openapi-gen \
-    --input-dirs ./pkg/apis/serving/v1alpha2,knative.dev/pkg/apis,knative.dev/pkg/apis/duck/v1beta1 \
-    --output-package ./pkg/apis/serving/v1alpha2 -o ./ -v 5 --go-header-file hack/boilerplate.go.txt \
+    --input-dirs ./pkg/apis/serving/v1beta1,./pkg/apis/serving/v1alpha1,knative.dev/pkg/apis,knative.dev/pkg/apis/duck/v1 \
+    --output-package ./pkg/apis/serving/v1beta1 -o ./ -v 5 --go-header-file hack/boilerplate.go.txt \
     -r $CURRENT_VIOLATION_EXCEPTIONS
+
+# Hack, the name is required in openAPI specification even if set "+optional" for v1.Container in PredictorExtensionSpec.
+sed -i'.bak' -e 's/Required: \[\]string{\"name\"},//g' $OPENAPI_SPEC_FILE && rm -rf $OPENAPI_SPEC_FILE.bak
 
 test -f $CURRENT_VIOLATION_EXCEPTIONS || touch $CURRENT_VIOLATION_EXCEPTIONS
 
@@ -36,4 +40,4 @@ diff $CURRENT_VIOLATION_EXCEPTIONS $KNOWN_VIOLATION_EXCEPTIONS || \
     (echo -e "ERROR: \n\t API rule check failed. Reported violations in file $CURRENT_VIOLATION_EXCEPTIONS differ from known violations in file $KNOWN_VIOLATION_EXCEPTIONS. \n"; exit 1)
 
 # Generating swagger file
-go run cmd/spec-gen/main.go 0.1 > pkg/apis/serving/v1alpha2/swagger.json
+go run cmd/spec-gen/main.go 0.1 > pkg/apis/serving/v1beta1/swagger.json

@@ -8,13 +8,27 @@ metadata:
   creationTimestamp: null
   name: trainedmodels.serving.kubeflow.org
 spec:
+  additionalPrinterColumns:
+  - JSONPath: .status.url
+    name: URL
+    type: string
+  - JSONPath: .status.conditions[?(@.type=='Ready')].status
+    name: Ready
+    type: string
+  - JSONPath: .metadata.creationTimestamp
+    name: Age
+    type: date
   group: serving.kubeflow.org
   names:
     kind: TrainedModel
     listKind: TrainedModelList
     plural: trainedmodels
+    shortNames:
+    - tm
     singular: trainedmodel
   scope: Namespaced
+  subresources:
+    status: {}
   validation:
     openAPIV3Schema:
       properties:
@@ -28,7 +42,7 @@ spec:
           properties:
             inferenceService:
               type: string
-            predictorModel:
+            model:
               properties:
                 framework:
                   type: string
@@ -46,20 +60,24 @@ spec:
               type: object
           required:
           - inferenceService
-          - predictorModel
+          - model
           type: object
         status:
           properties:
             address:
               properties:
                 url:
-                  type: Any
+                  type: string
+              type: object
+            annotations:
+              additionalProperties:
+                type: string
               type: object
             conditions:
               items:
                 properties:
                   lastTransitionTime:
-                    type: Any
+                    type: string
                   message:
                     type: string
                   reason:
@@ -78,16 +96,18 @@ spec:
             observedGeneration:
               format: int64
               type: integer
+            url:
+              type: string
           type: object
       type: object
-  version: v1beta1
+  version: v1alpha1
   versions:
-  - name: v1beta1
+  - name: v1alpha1
     served: true
     storage: true
 status:
   acceptedNames:
     kind: ""
     plural: ""
-  conditions: null
-  storedVersions: null
+  conditions: []
+  storedVersions: []

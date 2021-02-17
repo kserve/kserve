@@ -5,7 +5,7 @@ kind: MutatingWebhookConfiguration
 metadata:
   name: inferenceservice.serving.kubeflow.org
   annotations:
-    cert-manager.io/inject-ca-from: kfserving-system/serving-cert
+    cert-manager.io/inject-ca-from: $(kfservingNamespace)/serving-cert
 webhooks:
   - name: inferenceservice.kfserving-webhook-server.defaulter
 ---
@@ -14,6 +14,6 @@ kind: ValidatingWebhookConfiguration
 metadata:
   name: inferenceservice.serving.kubeflow.org
   annotations:
-    cert-manager.io/inject-ca-from: kfserving-system/serving-cert
+    cert-manager.io/inject-ca-from: $(kfservingNamespace)/serving-cert
 webhooks:
   - name: inferenceservice.kfserving-webhook-server.validator

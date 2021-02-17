@@ -9,4 +9,4 @@ spec:
       containers:
         - name: manager
           command:
-          image: gcr.io/kubeflow-ci/kfserving/kfserving-controller:latest
+          image: 809251082950.dkr.ecr.us-west-2.amazonaws.com/kfserving/kfserving-controller:latest

@@ -33,6 +33,7 @@ func TestInferenceServiceDefaults(t *testing.T) {
 				ContainerImage:         "tfserving",
 				DefaultImageVersion:    "1.14.0",
 				DefaultGpuImageVersion: "1.14.0-gpu",
+				MultiModelServer:       false,
 			},
 		},
 		Explainers: ExplainersConfig{
@@ -56,17 +57,13 @@ func TestInferenceServiceDefaults(t *testing.T) {
 				},
 			},
 			Transformer: &TransformerSpec{
-				CustomTransformer: &CustomTransformer{
-					PodTemplateSpec: v1.PodTemplateSpec{
-						Spec: v1.PodSpec{
-							Containers: []v1.Container{
+				PodSpec: PodSpec{
+					Containers: []v1.Container{
+						{
+							Env: []v1.EnvVar{
 								{
-									Env: []v1.EnvVar{
-										{
-											Name:  "STORAGE_URI",
-											Value: "s3://transformer",
-										},
-									},
+									Name:  "STORAGE_URI",
+									Value: "s3://transformer",
 								},
 							},
 						},
@@ -82,12 +79,58 @@ func TestInferenceServiceDefaults(t *testing.T) {
 	}
 	resources := v1.ResourceRequirements{Requests: defaultResource, Limits: defaultResource}
 	isvc.Spec.DeepCopy()
-	isvc.defaultInferenceService(config)
+	isvc.DefaultInferenceService(config)
 	g.Expect(*isvc.Spec.Predictor.Tensorflow.RuntimeVersion).To(gomega.Equal("1.14.0"))
 	g.Expect(isvc.Spec.Predictor.Tensorflow.Resources).To(gomega.Equal(resources))
 
-	g.Expect(isvc.Spec.Transformer.CustomTransformer.Spec.Containers[0].Resources).To(gomega.Equal(resources))
+	g.Expect(isvc.Spec.Transformer.PodSpec.Containers[0].Resources).To(gomega.Equal(resources))
 
 	g.Expect(*isvc.Spec.Explainer.Alibi.RuntimeVersion).To(gomega.Equal("v0.4.0"))
 	g.Expect(isvc.Spec.Explainer.Alibi.Resources).To(gomega.Equal(resources))
+}
+
+func TestCustomPredictorDefaults(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	config := &InferenceServicesConfig{
+		Predictors: PredictorsConfig{
+			Tensorflow: PredictorConfig{
+				ContainerImage:         "tfserving",
+				DefaultImageVersion:    "1.14.0",
+				DefaultGpuImageVersion: "1.14.0-gpu",
+				MultiModelServer:       false,
+			},
+		},
+		Explainers: ExplainersConfig{
+			AlibiExplainer: ExplainerConfig{
+				ContainerImage:      "alibi",
+				DefaultImageVersion: "v0.4.0",
+			},
+		},
+	}
+	isvc := InferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "foo",
+			Namespace: "default",
+		},
+		Spec: InferenceServiceSpec{
+			Predictor: PredictorSpec{
+				PodSpec: PodSpec{
+					Containers: []v1.Container{
+						{
+							Env: []v1.EnvVar{
+								{
+									Name:  "STORAGE_URI",
+									Value: "s3://transformer",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	resources := v1.ResourceRequirements{Requests: defaultResource, Limits: defaultResource}
+	isvc.Spec.DeepCopy()
+	isvc.DefaultInferenceService(config)
+	g.Expect(isvc.Spec.Predictor.PodSpec.Containers[0].Resources).To(gomega.Equal(resources))
 }

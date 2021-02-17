@@ -357,3 +357,9 @@ dashboard and tools to help investigate such issues. You can follow up [Knative 
 doc to diagnose `InferenceService` performance with [metrics](https://knative.dev/docs/serving/accessing-metrics/) and [distributed tracing](https://knative.dev/docs/serving/accessing-traces/).
 
 ![sklearn-iris distributed tracing](./diagrams/sklearn-iris-tracing.png)
+
+### KNative Probes are failing
+You have deployed your `InferenceService` in your custom namespace (any other than Kubeflow specific namespaces) but the KNative probes are failing and you are often getting `IngressNotConfigured` errors. Please check KNative `activator`, `controller` pod logs to see if you face any specific errors related to RBAC or probes failing. 
+
+Check your ClusterRbacConfig definition by running `kubectl edit clusterrbacconfig default` and ensure appropriate policy is selected for your custom namepsace. See issue 
+[1153](https://github.com/kubeflow/kfserving/issues/1153) for more details.

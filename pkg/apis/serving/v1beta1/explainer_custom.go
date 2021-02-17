@@ -27,15 +27,14 @@ import (
 
 // CustomExplainer defines arguments for configuring a custom explainer.
 type CustomExplainer struct {
-	// This spec is dual purpose.
-	// 1) Users may choose to provide a full PodSpec for their explainer.
-	// The field PodSpec.Containers is mutually exclusive with other explainers (i.e. Alibi).
-	// 2) Users may choose to provide a Explainer (i.e. Alibi) and specify PodSpec
-	// overrides in the CustomExplainer PodSpec. They must not provide PodSpec.Containers in this case.
-	v1.PodTemplateSpec `json:",inline"`
+	v1.PodSpec `json:",inline"`
 }
 
 var _ ComponentImplementation = &CustomExplainer{}
+
+func NewCustomExplainer(podSpec *PodSpec) *CustomExplainer {
+	return &CustomExplainer{PodSpec: v1.PodSpec(*podSpec)}
+}
 
 // Validate the spec
 func (s *CustomExplainer) Validate() error {
@@ -46,16 +45,16 @@ func (s *CustomExplainer) Validate() error {
 
 // Default sets defaults on the resource
 func (c *CustomExplainer) Default(config *InferenceServicesConfig) {
-	if len(c.Spec.Containers) == 0 {
-		c.Spec.Containers = append(c.Spec.Containers, v1.Container{})
+	if len(c.Containers) == 0 {
+		c.Containers = append(c.Containers, v1.Container{})
 	}
-	c.Spec.Containers[0].Name = constants.InferenceServiceContainerName
-	setResourceRequirementDefaults(&c.Spec.Containers[0].Resources)
+	c.Containers[0].Name = constants.InferenceServiceContainerName
+	setResourceRequirementDefaults(&c.Containers[0].Resources)
 }
 
 func (c *CustomExplainer) GetStorageUri() *string {
 	// return the CustomSpecStorageUri env variable value if set on the spec
-	for _, envVar := range c.Spec.Containers[0].Env {
+	for _, envVar := range c.Containers[0].Env {
 		if envVar.Name == constants.CustomSpecStorageUriEnvVarKey {
 			return &envVar.Value
 		}
@@ -65,7 +64,7 @@ func (c *CustomExplainer) GetStorageUri() *string {
 
 // GetContainer transforms the resource into a container spec
 func (c *CustomExplainer) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig) *v1.Container {
-	container := &c.Spec.Containers[0]
+	container := &c.Containers[0]
 	modelNameExists := false
 	for _, arg := range container.Args {
 		if arg == constants.ArgumentModelName {
@@ -87,5 +86,14 @@ func (c *CustomExplainer) GetContainer(metadata metav1.ObjectMeta, extensions *C
 	if extensions.ContainerConcurrency != nil {
 		container.Args = append(container.Args, constants.ArgumentWorkers, strconv.FormatInt(*extensions.ContainerConcurrency, 10))
 	}
-	return &c.Spec.Containers[0]
+	return &c.Containers[0]
+}
+
+func (c *CustomExplainer) GetProtocol() constants.InferenceServiceProtocol {
+	return constants.ProtocolV1
+}
+
+func (c *CustomExplainer) IsMMS(config *InferenceServicesConfig) bool {
+	// TODO: dynamically figure out if custom explainer supports MMS
+	return false
 }

@@ -1,3 +1,6 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
 # Adds namespace to all resources.
 namespace: kfserving-system
 
@@ -6,7 +9,6 @@ namespace: kfserving-system
 #  someName: someValue
 
 bases:
-- ../crd
 - ../configmap
 - ../rbac
 - ../manager
@@ -27,5 +29,39 @@ patchesStrategicMerge:
 - manager_auth_proxy_patch.yaml
 - webhookcainjection_patch.yaml
 - manager_resources_patch.yaml
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
+
+generatorOptions:
+  disableNameSuffixHash: true
+
+# To make namespace for standalone installation kustomizable,
+# variabalize ingress gateway, webhook service name and
+# kfserving namespace in webhook configurations
+configMapGenerator:
+  - name: kfserving-config
+    envs:
+    - params.env
+vars:
+- name: ingressGateway
+  objref:
+    kind: ConfigMap
+    name: kfserving-config
+    apiVersion: v1
+  fieldref:
+    fieldpath: data.ingressGateway
+- fieldref:
+    fieldPath: metadata.name
+  name: webhookServiceName
+  objref:
+    apiVersion: v1
+    kind: Service
+    name: kfserving-webhook-server-service
+- name: kfservingNamespace
+  objref:
+    kind: Certificate
+    group: cert-manager.io
+    version: v1alpha2
+    name: serving-cert
+  fieldref:
+    fieldpath: metadata.namespace
+configurations:
+- params.yaml

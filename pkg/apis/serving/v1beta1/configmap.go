@@ -20,7 +20,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
 	"github.com/kubeflow/kfserving/pkg/constants"
 	v1 "k8s.io/api/core/v1"
@@ -35,6 +34,10 @@ const (
 	ExplainerConfigKeyName   = "explainers"
 )
 
+const (
+	IngressConfigKeyName = "ingress"
+)
+
 // +kubebuilder:object:generate=false
 type ExplainerConfig struct {
 	// explainer docker image name
@@ -46,6 +49,8 @@ type ExplainerConfig struct {
 // +kubebuilder:object:generate=false
 type ExplainersConfig struct {
 	AlibiExplainer ExplainerConfig `json:"alibi,omitempty"`
+	AIXExplainer   ExplainerConfig `json:"aix,omitempty"`
+	ARTExplainer   ExplainerConfig `json:"art,omitempty"`
 }
 
 // +kubebuilder:object:generate=false
@@ -56,16 +61,28 @@ type PredictorConfig struct {
 	DefaultImageVersion string `json:"defaultImageVersion"`
 	// default predictor docker image version on gpu
 	DefaultGpuImageVersion string `json:"defaultGpuImageVersion"`
+	// Default timeout of predictor for serving a request, in seconds
+	DefaultTimeout int64 `json:"defaultTimeout,string,omitempty"`
+	// Flag to determine if multi-model serving is supported
+	MultiModelServer bool `json:"multiModelServer,boolean,omitempty"`
+}
+
+// +kubebuilder:object:generate=false
+type PredictorProtocols struct {
+	V1 *PredictorConfig `json:"v1,omitempty"`
+	V2 *PredictorConfig `json:"v2,omitempty"`
 }
 
 // +kubebuilder:object:generate=false
 type PredictorsConfig struct {
-	Tensorflow PredictorConfig `json:"tensorflow,omitempty"`
-	Triton     PredictorConfig `json:"triton,omitempty"`
-	XGBoost    PredictorConfig `json:"xgboost,omitempty"`
-	SKlearn    PredictorConfig `json:"sklearn,omitempty"`
-	PyTorch    PredictorConfig `json:"pytorch,omitempty"`
-	ONNX       PredictorConfig `json:"onnx,omitempty"`
+	Tensorflow PredictorConfig    `json:"tensorflow,omitempty"`
+	Triton     PredictorConfig    `json:"triton,omitempty"`
+	XGBoost    PredictorProtocols `json:"xgboost,omitempty"`
+	SKlearn    PredictorProtocols `json:"sklearn,omitempty"`
+	PyTorch    PredictorProtocols `json:"pytorch,omitempty"`
+	ONNX       PredictorConfig    `json:"onnx,omitempty"`
+	PMML       PredictorConfig    `json:"pmml,omitempty"`
+	LightGBM   PredictorConfig    `json:"lightgbm,omitempty"`
 }
 
 // +kubebuilder:object:generate=false
@@ -91,22 +108,25 @@ type InferenceServicesConfig struct {
 	Explainers ExplainersConfig `json:"explainers"`
 }
 
-func NewInferenceServicesConfig() (*InferenceServicesConfig, error) {
-	cli, err := client.New(config.GetConfigOrDie(), client.Options{})
-	if err != nil {
-		return nil, err
-	}
-	configMap := &v1.ConfigMap{}
-	err = cli.Get(context.TODO(), types.NamespacedName{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KFServingNamespace}, configMap)
-	if err != nil {
-		return nil, err
-	}
+// +kubebuilder:object:generate=false
+type IngressConfig struct {
+	IngressGateway          string `json:"ingressGateway,omitempty"`
+	IngressServiceName      string `json:"ingressService,omitempty"`
+	LocalGateway            string `json:"localGateway,omitempty"`
+	LocalGatewayServiceName string `json:"localGatewayService,omitempty"`
+}
 
+func NewInferenceServicesConfig(cli client.Client) (*InferenceServicesConfig, error) {
+	configMap := &v1.ConfigMap{}
+	err := cli.Get(context.TODO(), types.NamespacedName{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KFServingNamespace}, configMap)
+	if err != nil {
+		return nil, err
+	}
 	icfg := &InferenceServicesConfig{}
 	for _, err := range []error{
-		getComponentConfig(PredictorConfigKeyName, configMap, icfg.Predictors),
-		getComponentConfig(ExplainerConfigKeyName, configMap, icfg.Explainers),
-		getComponentConfig(TransformerConfigKeyName, configMap, icfg.Transformers),
+		getComponentConfig(PredictorConfigKeyName, configMap, &icfg.Predictors),
+		getComponentConfig(ExplainerConfigKeyName, configMap, &icfg.Explainers),
+		getComponentConfig(TransformerConfigKeyName, configMap, &icfg.Transformers),
 	} {
 		if err != nil {
 			return nil, err
@@ -115,9 +135,29 @@ func NewInferenceServicesConfig() (*InferenceServicesConfig, error) {
 	return icfg, nil
 }
 
+func NewIngressConfig(cli client.Client) (*IngressConfig, error) {
+	configMap := &v1.ConfigMap{}
+	err := cli.Get(context.TODO(), types.NamespacedName{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KFServingNamespace}, configMap)
+	if err != nil {
+		return nil, err
+	}
+	ingressConfig := &IngressConfig{}
+	if ingress, ok := configMap.Data[IngressConfigKeyName]; ok {
+		err := json.Unmarshal([]byte(ingress), &ingressConfig)
+		if err != nil {
+			return nil, fmt.Errorf("Unable to parse ingress config json: %v", err)
+		}
+
+		if ingressConfig.IngressGateway == "" || ingressConfig.IngressServiceName == "" {
+			return nil, fmt.Errorf("Invalid ingress config, ingressGateway and ingressService are required.")
+		}
+	}
+	return ingressConfig, nil
+}
+
 func getComponentConfig(key string, configMap *v1.ConfigMap, componentConfig interface{}) error {
 	if data, ok := configMap.Data[key]; ok {
-		err := json.Unmarshal([]byte(data), &componentConfig)
+		err := json.Unmarshal([]byte(data), componentConfig)
 		if err != nil {
 			return fmt.Errorf("Unable to unmarshall %v json string due to %v ", key, err)
 		}

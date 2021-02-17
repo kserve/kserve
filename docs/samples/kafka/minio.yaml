@@ -1,24 +1,5 @@
----
-apiVersion: v1
-data:
-  config.json: |-
-       {
-         "version": "22",
-         "notify": {
-           "kafka": {
-              "1": {
-                "enable": true,
-                "brokers": ["my-kafka-cp-kafka-headless:9092"],
-                "topic": "mnist"
-              }
-           }
-         }
-       }
-kind: ConfigMap
-metadata:
-  name: minio-config
 ---  
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
@@ -47,29 +28,12 @@ spec:
           value: minio
         - name: MINIO_SECRET_KEY
           value: minio123
-        image: minio/minio:RELEASE.2018-02-09T22-40-05Z
+        image: minio/minio:RELEASE.2020-10-18T21-54-12Z
         imagePullPolicy: IfNotPresent
         name: minio
         ports:
         - containerPort: 9000
           protocol: TCP
-        resources: {}
-        terminationMessagePath: /dev/termination-log
-        terminationMessagePolicy: File
-        volumeMounts:
-        - mountPath: /root/.minio/config.json
-          name: minio-config-vol
-          subPath: config.json
-      dnsPolicy: ClusterFirst
-      restartPolicy: Always
-      schedulerName: default-scheduler
-      securityContext: {}
-      terminationGracePeriodSeconds: 30
-      volumes:
-      - configMap:
-          defaultMode: 420
-          name: minio-config
-        name: minio-config-vol
 ---
 apiVersion: v1
 kind: Service

@@ -19,7 +19,7 @@ spec:
     transformer:
       custom:
         container:
-          image: yuzisun/mnist-transformer:latest
+          image: kfserving/mnist-transformer:latest
           name: kfserving-container
           resources:
             limits:

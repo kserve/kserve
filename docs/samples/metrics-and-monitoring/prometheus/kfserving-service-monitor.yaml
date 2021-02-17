@@ -1,0 +1,13 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: monitoring
+spec:
+  namespaceSelector:
+    any: true
+  selector:
+    matchLabels:
+      networking.internal.knative.dev/serviceType: Private
+  endpoints:
+  - port: http-usermetric
+    interval: 15s
