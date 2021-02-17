@@ -25,23 +25,24 @@ To learn more about KFServing, how to deploy it as part of Kubeflow, how to use 
 
 Kubernetes 1.16+ is the minimum recommended version for KFServing.
 
-Knative Serving and Istio should be available on Kubernetes Cluster, Knative depends on Istio Ingress Gateway to route requests to Knative services. To use the exact versions tested by the Kubeflow and KFServing teams, please refer to the [prerequisites on developer guide](docs/DEVELOPER_GUIDE.md#install-knative-on-a-kubernetes-cluster)
+Knative Serving and Istio should be available on Kubernetes Cluster, KFServing currently depends on Istio Ingress Gateway to route requests to inference services.
 
 - [Istio](https://knative.dev/docs/install/installing-istio): v1.3.1+
 
 If you want to get up running Knative quickly or you do not need service mesh, we recommend installing Istio without service mesh(sidecar injection).
 - [Knative Serving](https://knative.dev/docs/install/knative-with-any-k8s): v0.14.3+
 
-Currently only `Knative Serving` is required, `cluster-local-gateway` is required to serve cluster-internal traffic for transformer and explainer use cases. Please follow instructions here to install [cluster local gateway](https://knative.dev/docs/install/installing-istio/#updating-your-install-to-use-cluster-local-gateway)
+`cluster-local-gateway` is required to serve cluster-internal traffic for transformer and explainer use cases. Please follow instructions here to install [cluster local gateway](https://knative.dev/docs/install/installing-istio/#updating-your-install-to-use-cluster-local-gateway).
+
+Since Knative v0.19.0 `cluster local gateway` deployment has been removed and [shared with ingress gateway](https://github.com/knative-sandbox/net-istio/pull/237),
+if you are on Knative version later than v0.19.0 you should modify `localGateway` to `knative-local-gateway` and `localGatewayService` to `knative-local-gateway.istio-system.svc.cluster.local` in the
+[inference service config](./config/configmap/inferenceservice.yaml).
 
 - [Cert Manager](https://cert-manager.io/docs/installation/kubernetes): v0.12.0+
 
 Cert manager is needed to provision KFServing webhook certs for production grade installation, alternatively you can run our self signed certs
 generation [script](./hack/self-signed-ca.sh).
 
-Note that since Knative v0.19.0 `cluster local gateway` has been removed and [shared with ingress gateway](https://github.com/knative-sandbox/net-istio/pull/237), 
-if you are on Knative version older than v0.19.0 you should modify `localGateway` to `knative-local-gateway` and `localGatewayService` to `knative-local-gateway.istio-system.svc.cluster.local` in the
-[inference service config](./config/configmap/inferenceservice.yaml). 
 
 ### Install KFServing
 <details>
@@ -58,13 +59,14 @@ Install KFServing CRD
 
 Due to [large last applied annotation issue](https://github.com/kubernetes-sigs/kubebuilder/issues/1140) with `kubectl apply` we recommend using `kubectl replace` for upgrading crd.
 ```shell
-kubectl replace -f ./install/$TAG/kfserving_crd.yaml || kubectl create -f ./install/$TAG/kfserving_crd.yaml
+CRD=https://github.com/kubeflow/kfserving/releases/download/$TAG/kfserving_crds.yaml
+kubectl replace -f $CRD || kubectl create -f $CRD
 ```
 
 Install KFServing Controller
 
 ```shell
-kubectl apply -f ./install/$TAG/kfserving.yaml
+kubectl apply -f https://github.com/kubeflow/kfserving/releases/download/$TAG/kfserving.yaml
 ```
 
 #### Standalone KFServing on OpenShift
@@ -74,7 +76,8 @@ To install standalone KFServing on [OpenShift Container Platform](https://www.op
 #### KFServing with Kubeflow Installation
 KFServing is installed by default as part of Kubeflow installation using [Kubeflow manifests](https://github.com/kubeflow/manifests/tree/master/kfserving) and KFServing controller is deployed in `kubeflow` namespace.
 Since Kubeflow Kubernetes minimal requirement is 1.14 which does not support object selector, `ENABLE_WEBHOOK_NAMESPACE_SELECTOR` is enabled in Kubeflow installation by default.
-If you are using Kubeflow dashboard or [profile controller](https://www.kubeflow.org/docs/components/multi-tenancy/getting-started/#manual-profile-creation) to create  user namespaces, labels are automatically added to enable KFServing to deploy models. If you are creating namespaces manually using Kubernetes apis directly, you will need to add label `serving.kubeflow.org/inferenceservice: enabled` to allow deploying KFServing `InferenceService` in the given namespaces, and do ensure you do not deploy
+If you are using Kubeflow dashboard or [profile controller](https://www.kubeflow.org/docs/components/multi-tenancy/getting-started/#manual-profile-creation) to create  user namespaces, labels are automatically added to enable KFServing to deploy models. 
+If you are creating namespaces manually using Kubernetes apis directly, you will need to add label `serving.kubeflow.org/inferenceservice: enabled` to allow deploying KFServing `InferenceService` in the given namespaces, and do ensure you do not deploy
 `InferenceService` in `kubeflow` namespace which is labelled as `control-plane`.
 
 As of KFServing 0.4 release [object selector](https://kubernetes.io/docs/reference/access-authn-authz/extensible-admission-controllers/#matching-requests-objectselector) is turned on by default, the KFServing pod mutator is only invoked for KFServing `InferenceService` pods. For prior releases you can turn on manually by running following command.
@@ -163,9 +166,9 @@ Please refer to our [troubleshooting section](docs/DEVELOPER_GUIDE.md#troublesho
 
 #### Create KFServing test inference service
 ```bash
-API_VERSION=v1alpha2
+API_VERSION=v1beta1
 kubectl create namespace kfserving-test
-kubectl apply -f docs/samples/${API_VERSION}/sklearn/sklearn.yaml -n kfserving-test
+kubectl apply -f docs/samples/${API_VERSION}/v1/sklearn/sklearn.yaml -n kfserving-test
 ```
 #### Check KFServing `InferenceService` status.
 ```bash
@@ -178,7 +181,7 @@ sklearn-iris   http://sklearn-iris.kfserving-test.example.com/v1/models/sklearn-
 Curl from ingress gateway
 ```bash
 SERVICE_HOSTNAME=$(kubectl get inferenceservice sklearn-iris -n kfserving-test -o jsonpath='{.status.url}' | cut -d "/" -f 3)
-curl -v -H "Host: ${SERVICE_HOSTNAME}" http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/sklearn-iris:predict -d @./docs/samples/${API_VERSION}/sklearn/iris-input.json
+curl -v -H "Host: ${SERVICE_HOSTNAME}" http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/sklearn-iris:predict -d @./docs/samples/${API_VERSION}/sklearn/v1/iris-input.json
 ```
 Curl from local cluster gateway
 ```bash
