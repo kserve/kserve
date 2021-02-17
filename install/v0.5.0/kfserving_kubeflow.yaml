@@ -1,17 +1,80 @@
-apiVersion: v1
-kind: Namespace
+---
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: MutatingWebhookConfiguration
 metadata:
-  labels:
-    control-plane: kfserving-controller-manager
-    controller-tools.k8s.io: "1.0"
-    istio-injection: disabled
-  name: kfserving-system
+  annotations:
+    cert-manager.io/inject-ca-from: kubeflow/serving-cert
+  creationTimestamp: null
+  name: inferenceservice.serving.kubeflow.org
+webhooks:
+- clientConfig:
+    caBundle: Cg==
+    service:
+      name: kfserving-webhook-server-service
+      namespace: kubeflow
+      path: /mutate-serving-kubeflow-org-v1alpha2-inferenceservice
+  failurePolicy: Fail
+  name: inferenceservice.kfserving-webhook-server.defaulter
+  rules:
+  - apiGroups:
+    - serving.kubeflow.org
+    apiVersions:
+    - v1alpha2
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - inferenceservices
+- clientConfig:
+    caBundle: Cg==
+    service:
+      name: kfserving-webhook-server-service
+      namespace: kubeflow
+      path: /mutate-serving-kubeflow-org-v1beta1-inferenceservice
+  failurePolicy: Fail
+  name: inferenceservice.kfserving-webhook-server.v1beta1.defaulter
+  rules:
+  - apiGroups:
+    - serving.kubeflow.org
+    apiVersions:
+    - v1beta1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - inferenceservices
+- clientConfig:
+    caBundle: Cg==
+    service:
+      name: kfserving-webhook-server-service
+      namespace: kubeflow
+      path: /mutate-pods
+  failurePolicy: Fail
+  name: inferenceservice.kfserving-webhook-server.pod-mutator
+  namespaceSelector:
+    matchExpressions:
+    - key: control-plane
+      operator: DoesNotExist
+  objectSelector:
+    matchExpressions:
+    - key: serving.kubeflow.org/inferenceservice
+      operator: Exists
+  rules:
+  - apiGroups:
+    - ""
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - pods
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: leader-election-role
-  namespace: kfserving-system
+  name: kfserving-leader-election-role
+  namespace: kubeflow
 rules:
 - apiGroups:
   - ""
@@ -248,16 +311,16 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: leader-election-rolebinding
-  namespace: kfserving-system
+  name: kfserving-leader-election-rolebinding
+  namespace: kubeflow
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: leader-election-role
+  name: kfserving-leader-election-role
 subjects:
 - kind: ServiceAccount
   name: default
-  namespace: kfserving-system
+  namespace: kubeflow
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -270,7 +333,7 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: default
-  namespace: kfserving-system
+  namespace: kubeflow
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -283,7 +346,7 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: default
-  namespace: kfserving-system
+  namespace: kubeflow
 ---
 apiVersion: v1
 data:
@@ -330,7 +393,7 @@ data:
     }
   ingress: |-
     {
-        "ingressGateway" : "knative-ingress-gateway.knative-serving",
+        "ingressGateway" : "kubeflow-gateway.kubeflow",
         "ingressService" : "istio-ingressgateway.istio-system.svc.cluster.local",
         "localGateway" : "cluster-local-gateway.knative-serving",
         "localGatewayService" : "cluster-local-gateway.istio-system.svc.cluster.local"
@@ -463,21 +526,13 @@ data:
 kind: ConfigMap
 metadata:
   name: inferenceservice-config
-  namespace: kfserving-system
----
-apiVersion: v1
-data:
-  ingressGateway: '"knative-ingress-gateway.knative-serving",'
-kind: ConfigMap
-metadata:
-  name: kfserving-config
-  namespace: kfserving-system
+  namespace: kubeflow
 ---
 apiVersion: v1
 kind: Secret
 metadata:
   name: kfserving-webhook-server-secret
-  namespace: kfserving-system
+  namespace: kubeflow
 ---
 apiVersion: v1
 kind: Service
@@ -490,7 +545,7 @@ metadata:
     control-plane: kfserving-controller-manager
     controller-tools.k8s.io: "1.0"
   name: kfserving-controller-manager-metrics-service
-  namespace: kfserving-system
+  namespace: kubeflow
 spec:
   ports:
   - name: https
@@ -507,7 +562,7 @@ metadata:
     control-plane: kfserving-controller-manager
     controller-tools.k8s.io: "1.0"
   name: kfserving-controller-manager-service
-  namespace: kfserving-system
+  namespace: kubeflow
 spec:
   ports:
   - port: 443
@@ -519,7 +574,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: kfserving-webhook-server-service
-  namespace: kfserving-system
+  namespace: kubeflow
 spec:
   ports:
   - port: 443
@@ -534,7 +589,7 @@ metadata:
     control-plane: kfserving-controller-manager
     controller-tools.k8s.io: "1.0"
   name: kfserving-controller-manager
-  namespace: kfserving-system
+  namespace: kubeflow
 spec:
   selector:
     matchLabels:
@@ -548,6 +603,16 @@ spec:
         controller-tools.k8s.io: "1.0"
     spec:
       containers:
+      - args:
+        - --secure-listen-address=0.0.0.0:8443
+        - --upstream=http://127.0.0.1:8080/
+        - --logtostderr=true
+        - --v=10
+        image: gcr.io/kubebuilder/kube-rbac-proxy:v0.4.0
+        name: kube-rbac-proxy
+        ports:
+        - containerPort: 8443
+          name: https
       - args:
         - --metrics-addr=127.0.0.1:8080
         command:
@@ -577,16 +642,6 @@ spec:
         - mountPath: /tmp/k8s-webhook-server/serving-certs
           name: cert
           readOnly: true
-      - args:
-        - --secure-listen-address=0.0.0.0:8443
-        - --upstream=http://127.0.0.1:8080/
-        - --logtostderr=true
-        - --v=10
-        image: gcr.io/kubebuilder/kube-rbac-proxy:v0.4.0
-        name: kube-rbac-proxy
-        ports:
-        - containerPort: 8443
-          name: https
       terminationGracePeriodSeconds: 10
       volumes:
       - name: cert
@@ -598,11 +653,11 @@ apiVersion: cert-manager.io/v1alpha2
 kind: Certificate
 metadata:
   name: serving-cert
-  namespace: kfserving-system
+  namespace: kubeflow
 spec:
-  commonName: kfserving-webhook-server-service.kfserving-system.svc
+  commonName: kfserving-webhook-server-service.kubeflow.svc
   dnsNames:
-  - kfserving-webhook-server-service.kfserving-system.svc
+  - kfserving-webhook-server-service.kubeflow.svc
   issuerRef:
     kind: Issuer
     name: selfsigned-issuer
@@ -612,92 +667,23 @@ apiVersion: cert-manager.io/v1alpha2
 kind: Issuer
 metadata:
   name: selfsigned-issuer
-  namespace: kfserving-system
+  namespace: kubeflow
 spec:
   selfSigned: {}
----
-apiVersion: admissionregistration.k8s.io/v1beta1
-kind: MutatingWebhookConfiguration
-metadata:
-  annotations:
-    cert-manager.io/inject-ca-from: kfserving-system/serving-cert
-  name: inferenceservice.serving.kubeflow.org
-webhooks:
-- clientConfig:
-    caBundle: Cg==
-    service:
-      name: kfserving-webhook-server-service
-      namespace: kfserving-system
-      path: /mutate-serving-kubeflow-org-v1alpha2-inferenceservice
-  failurePolicy: Fail
-  name: inferenceservice.kfserving-webhook-server.defaulter
-  rules:
-  - apiGroups:
-    - serving.kubeflow.org
-    apiVersions:
-    - v1alpha2
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - inferenceservices
-- clientConfig:
-    caBundle: Cg==
-    service:
-      name: kfserving-webhook-server-service
-      namespace: kfserving-system
-      path: /mutate-serving-kubeflow-org-v1beta1-inferenceservice
-  failurePolicy: Fail
-  name: inferenceservice.kfserving-webhook-server.v1beta1.defaulter
-  rules:
-  - apiGroups:
-    - serving.kubeflow.org
-    apiVersions:
-    - v1beta1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - inferenceservices
-- clientConfig:
-    caBundle: Cg==
-    service:
-      name: kfserving-webhook-server-service
-      namespace: kfserving-system
-      path: /mutate-pods
-  failurePolicy: Fail
-  name: inferenceservice.kfserving-webhook-server.pod-mutator
-  namespaceSelector:
-    matchExpressions:
-    - key: control-plane
-      operator: DoesNotExist
-  objectSelector:
-    matchExpressions:
-    - key: serving.kubeflow.org/inferenceservice
-      operator: Exists
-  rules:
-  - apiGroups:
-    - ""
-    apiVersions:
-    - v1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - pods
 ---
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: ValidatingWebhookConfiguration
 metadata:
   annotations:
-    cert-manager.io/inject-ca-from: kfserving-system/serving-cert
+    cert-manager.io/inject-ca-from: kubeflow/serving-cert
+  creationTimestamp: null
   name: inferenceservice.serving.kubeflow.org
 webhooks:
 - clientConfig:
     caBundle: Cg==
     service:
       name: kfserving-webhook-server-service
-      namespace: kfserving-system
+      namespace: kubeflow
       path: /validate-serving-kubeflow-org-v1alpha2-inferenceservice
   failurePolicy: Fail
   name: inferenceservice.kfserving-webhook-server.validator
@@ -715,7 +701,7 @@ webhooks:
     caBundle: Cg==
     service:
       name: kfserving-webhook-server-service
-      namespace: kfserving-system
+      namespace: kubeflow
       path: /validate-serving-kubeflow-org-v1beta1-inferenceservice
   failurePolicy: Fail
   name: inferenceservice.kfserving-webhook-server.v1beta1.validator

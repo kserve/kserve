@@ -67,7 +67,7 @@ For a more in depth details checkout this [document](https://docs.google.com/doc
 
 ### Integration with model servers
 Multi-model serving will work with any model server that implements KFServing V2 protocol. More specifically, if the model server implements the load and unload endpoint then it can use KFServing's TrainedModel.
-Currently, Triton, LightGBM, SKLearn, and XGBoost are able to use Multi-model serving. Click on [Triton](https://github.com/kubeflow/kfserving/tree/master/docs/samples/v1beta1/triton/multimodel) or [SKLearn](https://github.com/kubeflow/kfserving/tree/master/docs/samples/v1beta1/sklearn/multimodel) to see examples on how to run multi-model serving!
+Currently, Triton, LightGBM, SKLearn, and XGBoost are able to use Multi-model serving. Click on [Triton](https://github.com/kubeflow/kfserving/tree/master/docs/samples/v1beta1/triton/multimodel) or [SKLearn](https://github.com/kubeflow/kfserving/tree/master/docs/samples/v1beta1/sklearn/v1/multimodel) to see examples on how to run multi-model serving!
 
 Multi-model serving will work with any model server that implements KFServing 
 [V2 protocol](https://github.com/kubeflow/kfserving/tree/master/docs/predict-api/v2). 
@@ -92,3 +92,4 @@ Remember to set the respective model server's `multiModelServer` flag in `infere
 **Sharding**: When an InferenceService is full, a new shard will be created to load more models.
 
 **Multiple transformers for Multi-model serving**: When multiple models are loaded to a predictor, each of them may require a different transformer. An approach to share multiple transformers is desired for Multi-model serving.
+

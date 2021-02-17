@@ -1,7 +1,7 @@
 apiVersion: "serving.kubeflow.org/v1beta1"
 kind: "InferenceService"
 metadata:
-  name: "sklearn-iris"
+  name: "sklearn-irisv2"
 spec:
   predictor:
     sklearn:

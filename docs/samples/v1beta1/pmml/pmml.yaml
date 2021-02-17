@@ -5,4 +5,4 @@ metadata:
 spec:
   predictor:
     pmml:
-      storageUri: "https://raw.githubusercontent.com/openscoring/openscoring/master/openscoring-service/src/etc/DecisionTreeIris.pmml"
+      storageUri: gs://kfserving-examples/models/pmml
