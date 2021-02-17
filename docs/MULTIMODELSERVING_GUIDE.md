@@ -10,7 +10,7 @@ For example, a news classification service may train custom models for each news
 Another important reason why organizations desire to train a lot of models is to protect data privacy,
 as it is safer to isolate each user's data and train models separately. 
 While you get the benefit of better inference accuracy and data privacy by building models for each use case, 
-it is more challenging to deploy thousands to hundreds of thousands of models. 
+it is more challenging to deploy thousands to hundreds of thousands of models on a Kubernetes cluster. 
 Furthermore, there are an increasing number of use cases of serving neural network-based models. 
 Those models are better served on GPUs to achieve reasonable latency. 
 However, since GPUs are expensive resources, it is very costly to serve a lot of GPU-based models.
@@ -90,6 +90,5 @@ Remember to set the respective model server's `multiModelServer` flag in `infere
 **Sharding**: When an InferenceService is full, a new shard will be created to load more models.
 
 **Multiple transformers for Multi-model serving**: When multiple models are loaded to a predictor, each of them may require a different transformer. An approach to share multiple transformers is desired for Multi-model serving.
-
 
 
