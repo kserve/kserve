@@ -13,7 +13,7 @@ While you get the benefit of better inference accuracy and data privacy by build
 it is more challenging to deploy thousands to hundreds of thousands of models on a Kubernetes cluster. 
 Furthermore, there are an increasing number of use cases of serving neural network-based models. 
 Those models are better served on GPUs to achieve reasonable latency. 
-However, since GPUs are expensive resources, it is very costly to serve a lot of GPU-based models.
+However, since GPUs are expensive resources, it is costly to serve many GPU-based models.
 
 The original design of KFServing deploys one model per InferenceService. 
 But, its 'one model, one server' paradigm presents challenges for a Kubernetes cluster when dealing with a large number of models. 
@@ -90,5 +90,4 @@ Remember to set the respective model server's `multiModelServer` flag in `infere
 **Sharding**: When an InferenceService is full, a new shard will be created to load more models.
 
 **Multiple transformers for Multi-model serving**: When multiple models are loaded to a predictor, each of them may require a different transformer. An approach to share multiple transformers is desired for Multi-model serving.
-
 
