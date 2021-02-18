@@ -96,11 +96,13 @@ deploy-ci: manifests
 undeploy:
 	kustomize build config/default | kubectl delete -f -
 	kubectl delete validatingwebhookconfigurations.admissionregistration.k8s.io inferenceservice.serving.kubeflow.org
+	kubectl delete validatingwebhookconfigurations.admissionregistration.k8s.io trainedmodel.serving.kubeflow.org
 	kubectl delete mutatingwebhookconfigurations.admissionregistration.k8s.io inferenceservice.serving.kubeflow.org
 
 undeploy-dev:
 	kustomize build config/overlays/development | kubectl delete -f -
 	kubectl delete validatingwebhookconfigurations.admissionregistration.k8s.io inferenceservice.serving.kubeflow.org
+	kubectl delete validatingwebhookconfigurations.admissionregistration.k8s.io trainedmodel.serving.kubeflow.org
 	kubectl delete mutatingwebhookconfigurations.admissionregistration.k8s.io inferenceservice.serving.kubeflow.org
 
 # Generate manifests e.g. CRD, RBAC etc.
