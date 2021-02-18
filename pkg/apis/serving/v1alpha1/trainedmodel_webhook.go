@@ -37,7 +37,7 @@ var (
 	TmRegexp = regexp.MustCompile("^" + TmNameFmt + "$")
 )
 
-// +kubebuilder:webhook:verbs=create;update,path=/validate-serving-kubeflow-org-serving-kubeflow-org-v1alpha1-trainedmodel,mutating=false,failurePolicy=fail,groups=serving.kubeflow.org.serving.kubeflow.org,resources=trainedmodels,versions=v1alpha1,name=vtrainedmodel.kb.io
+// +kubebuilder:webhook:verbs=create;update,path=/validate-trainedmodel,mutating=false,failurePolicy=fail,groups=serving.kubeflow.org,resources=trainedmodels,versions=v1alpha1,name=trainedmodel.kfserving-webhook-server.validator
 
 var _ webhook.Validator = &TrainedModel{}
 
