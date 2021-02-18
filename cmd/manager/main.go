@@ -159,6 +159,12 @@ func main() {
 	hookServer.Register("/mutate-pods", &webhook.Admission{Handler: &pod.Mutator{}})
 
 	if err = ctrl.NewWebhookManagedBy(mgr).
+		For(&v1alpha1.TrainedModel{}).
+		Complete(); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "v1alpha1")
+		os.Exit(1)
+	}
+	if err = ctrl.NewWebhookManagedBy(mgr).
 		For(&v1alpha2.InferenceService{}).
 		Complete(); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "v1alpha2")
