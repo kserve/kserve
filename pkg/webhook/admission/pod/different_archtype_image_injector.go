@@ -16,7 +16,9 @@ const (
 
 func MuteImageTag(pod *v1.Pod) error {
 	if version, ok := pod.ObjectMeta.Labels[VersionLabel]; ok {
+		klog.Info("version is", version)
 		for _, container := range pod.Spec.Containers {
+			klog.Info("container is", container.Name, container.Image)
 			if strings.Compare(container.Name, ChangeImageName) == 0 {
 				if strings.Contains(container.Image, "@") {
 					klog.Info("current image name is", container.Image)
