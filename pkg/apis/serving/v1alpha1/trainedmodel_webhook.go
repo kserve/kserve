@@ -27,9 +27,9 @@ import (
 
 // regular expressions for validation of isvc name
 const (
-	TmNameFmt                string = "[a-z]([-a-z0-9]*[a-z0-9])?"
-	InvalidTmNameFormatError        = "the Trained Model \"%s\" is invalid: a Trained Model name must consist of lower case alphanumeric characters or '-', and must start with alphabetical character. (e.g. \"my-name\" or \"abc-123\", regex used for validation is '%s')"
-	InvalidTmMemoryMutation         = "failed to update trained model \"%s\" in validator because memory was changed"
+	TmNameFmt                   string = "[a-z]([-a-z0-9]*[a-z0-9])?"
+	InvalidTmNameFormatError           = "the Trained Model \"%s\" is invalid: a Trained Model name must consist of lower case alphanumeric characters or '-', and must start with alphabetical character. (e.g. \"my-name\" or \"abc-123\", regex used for validation is '%s')"
+	InvalidTmMemoryModification        = "the Trained Model \"%s\" update is invalid: a Trained Model's Model Spec memory must not be altered after being create. The memory is \"%s\" but the update request memory is \"%s\""
 )
 
 var (
@@ -59,7 +59,7 @@ func (tm *TrainedModel) ValidateUpdate(old runtime.Object) error {
 
 	return utils.FirstNonNilError([]error{
 		tm.validateTrainedModel(),
-		tm.validateMemoryNotModified(oldTm),
+		tm.validateMemorySpecNotModified(oldTm),
 	})
 }
 
@@ -70,9 +70,11 @@ func (tm *TrainedModel) ValidateDelete() error {
 }
 
 // Validates ModelSpec memory is not modified from previous TrainedModel state
-func (tm *TrainedModel) validateMemoryNotModified(oldTm *TrainedModel) error {
-	if !tm.Spec.Model.Memory.Equal(oldTm.Spec.Model.Memory) {
-		return fmt.Errorf(InvalidTmMemoryMutation, tm.Name)
+func (tm *TrainedModel) validateMemorySpecNotModified(oldTm *TrainedModel) error {
+	newTmMemory := tm.Spec.Model.Memory
+	currentTmMemory := oldTm.Spec.Model.Memory
+	if !newTmMemory.Equal(currentTmMemory) {
+		return fmt.Errorf(InvalidTmMemoryModification, tm.Name, currentTmMemory.Format, newTmMemory.Format)
 	}
 	return nil
 }
