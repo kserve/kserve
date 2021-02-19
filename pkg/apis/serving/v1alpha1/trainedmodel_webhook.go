@@ -18,6 +18,7 @@ package v1alpha1
 
 import (
 	"fmt"
+	"github.com/kubeflow/kfserving/pkg/utils"
 	"k8s.io/apimachinery/pkg/runtime"
 	"regexp"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -28,6 +29,7 @@ import (
 const (
 	TmNameFmt                string = "[a-z]([-a-z0-9]*[a-z0-9])?"
 	InvalidTmNameFormatError        = "the Trained Model \"%s\" is invalid: a Trained Model name must consist of lower case alphanumeric characters or '-', and must start with alphabetical character. (e.g. \"my-name\" or \"abc-123\", regex used for validation is '%s')"
+	InvalidTmMemoryMutation         = "failed to update trained model \"%s\" in validator because memory was changed"
 )
 
 var (
@@ -45,19 +47,20 @@ var _ webhook.Validator = &TrainedModel{}
 func (tm *TrainedModel) ValidateCreate() error {
 	trainedmodellog.Info("validate create", "name", tm.Name)
 	// TODO: Validate storageURI
-	return tm.validateTrainedModel()
+	return utils.FirstNonNilError([]error{
+		tm.validateTrainedModel(),
+	})
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (tm *TrainedModel) ValidateUpdate(old runtime.Object) error {
 	trainedmodellog.Info("validate update", "name", tm.Name)
-
 	oldTm := convertToTrainedModel(old)
-	if !tm.Spec.Model.Memory.Equal(oldTm.Spec.Model.Memory) {
-		return fmt.Errorf("failed to update trained model \"%s\" in validator because memory was changed", tm.Name)
-	}
 
-	return tm.validateTrainedModel()
+	return utils.FirstNonNilError([]error{
+		tm.validateTrainedModel(),
+		tm.validateMemoryNotModified(oldTm),
+	})
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
@@ -66,8 +69,19 @@ func (tm *TrainedModel) ValidateDelete() error {
 	return nil
 }
 
+// Validates ModelSpec memory is not modified from previous TrainedModel state
+func (tm *TrainedModel) validateMemoryNotModified(oldTm *TrainedModel) error {
+	if !tm.Spec.Model.Memory.Equal(oldTm.Spec.Model.Memory) {
+		return fmt.Errorf(InvalidTmMemoryMutation, tm.Name)
+	}
+	return nil
+}
+
+// Validates format of TrainedModel's fields
 func (tm *TrainedModel) validateTrainedModel() error {
-	return tm.validateTrainedModelName()
+	return utils.FirstNonNilError([]error{
+		tm.validateTrainedModelName(),
+	})
 }
 
 // Convert runtime.Object into TrainedModel
@@ -76,6 +90,7 @@ func convertToTrainedModel(old runtime.Object) *TrainedModel {
 	return tm
 }
 
+// Validates format for TrainedModel's name
 func (tm *TrainedModel) validateTrainedModelName() error {
 	if !TmRegexp.MatchString(tm.Name) {
 		return fmt.Errorf(InvalidTmNameFormatError, tm.Name, TmRegexp)
