@@ -2,6 +2,7 @@ package pod
 
 import (
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/klog"
 	"strings"
 )
 
@@ -18,6 +19,7 @@ func MuteImageTag(pod *v1.Pod) error {
 		for _, container := range pod.Spec.Containers {
 			if strings.Compare(container.Name, ChangeImageName) == 0 {
 				if strings.Contains(container.Image, "@") {
+					klog.Info("current image name is", container.Image)
 					container.Image = strings.SplitN(container.Image, "@", 2)[0] + ":" + version
 				}
 				break
