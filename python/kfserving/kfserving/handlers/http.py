@@ -41,12 +41,13 @@ class HTTPHandler(tornado.web.RequestHandler):
         return model
 
     def validate(self, request):
-        if ("instances" in request and not isinstance(request["instances"], list)) or \
-           ("inputs" in request and not isinstance(request["inputs"], list)):
-            raise tornado.web.HTTPError(
-                status_code=HTTPStatus.BAD_REQUEST,
-                reason="Expected \"instances\" or \"inputs\" to be a list"
-            )
+        if(isinstance(request, dict)):
+            if ("instances" in request and not isinstance(request["instances"], list)) or \
+               ("inputs" in request and not isinstance(request["inputs"], list)):
+                raise tornado.web.HTTPError(
+                    status_code=HTTPStatus.BAD_REQUEST,
+                    reason="Expected \"instances\" or \"inputs\" to be a list"
+                )
         return request
 
 class PredictHandler(HTTPHandler):
@@ -89,11 +90,7 @@ class PredictHandler(HTTPHandler):
                     self.set_header(k, v)
                 else: #utc now() timestamp
                     self.set_header('ce-time', datetime.utcnow().replace(tzinfo=pytz.utc).strftime('%Y-%m-%dT%H:%M:%S.%f%z'))
-
-            if isinstance(eventbody, (bytes, bytearray)):
-                response = eventbody
-            else:
-                response = eventbody.data
+            response = eventbody
 
         self.write(response)
 

@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import avro.io, avro.schema, io, pytest, requests
+import avro.io, avro.schema, io, json, pytest, requests
 from cloudevents.http import CloudEvent, to_binary, to_structured
 from kfserving import kfmodel
 from kfserving import kfserver
@@ -42,7 +42,7 @@ def dummy_cloud_event(data, set_contenttype=False):
         "time": "2021-01-28T21:04:43.144141+00:00"
     }
     if set_contenttype:
-        attributes["contenttype"] = "application/json"
+        attributes["content-type"] = "application/json"
 
     event = CloudEvent(attributes, data)
     return event
@@ -73,10 +73,10 @@ class DummyCEModel(kfmodel.KFModel):
         self.ready = True
 
     async def predict(self, request):
-        return {"predictions": request.data["instances"]}
+        return {"predictions": request["instances"]}
 
     async def explain(self, request):
-        return {"predictions": request.data["instances"]}
+        return {"predictions": request["instances"]}
 
 class DummyAvroCEModel(kfmodel.KFModel):
     def __init__(self, name):
@@ -89,12 +89,22 @@ class DummyAvroCEModel(kfmodel.KFModel):
 
     def _parserequest(self, request):
         schema = avro.schema.parse(test_avsc_schema)
-        raw_bytes = request.data
+        raw_bytes = request
         bytes_reader = io.BytesIO(raw_bytes)
         decoder = avro.io.BinaryDecoder(bytes_reader)
         reader = avro.io.DatumReader(schema)
         record1 = reader.read(decoder)
         return record1
+
+    def preprocess(self, request):
+        if(isinstance(request, CloudEvent)):
+            attributes = request._attributes
+            assert attributes["specversion"] == "1.0"
+            assert attributes["source"] == "https://example.com/event-producer"
+            assert attributes["type"] == "com.example.sampletype1"
+            assert attributes["datacontenttype"] == "application/x-www-form-urlencoded"
+            assert attributes["content-type"] == "application/json"
+            return request.data
 
     async def predict(self, request):
         record1 = self._parserequest(request)
@@ -234,14 +244,14 @@ class TestTFHttpServerCloudEvent():
         server.register_model(model)
         return server.create_application()
 
-    async def test_predict_ce_binary(self, http_server_client):
+    async def test_predict_ce_binary_dict(self, http_server_client):
         event = dummy_cloud_event({"instances":[[1,2]]}, set_contenttype=True)
         headers, body = to_binary(event)
         resp = await http_server_client.fetch('/v1/models/TestModel:predict',
                                               method="POST",
                                               headers=headers,
                                               body=body)
-
+    
         assert resp.code == 200
         assert resp.body == b'{"predictions": [[1, 2]]}'
         assert resp.headers['content-type'] == "application/x-www-form-urlencoded"
@@ -252,6 +262,46 @@ class TestTFHttpServerCloudEvent():
         assert resp.headers['ce-datacontenttype'] == "application/x-www-form-urlencoded"
         assert resp.headers['ce-time'] > "2021-01-28T21:04:43.144141+00:00"
 
+    async def test_predict_ce_binary_bytes(self, http_server_client):
+        event = dummy_cloud_event(b'{"instances":[[1,2]]}', set_contenttype=True)
+        headers, body = to_binary(event)
+        resp = await http_server_client.fetch('/v1/models/TestModel:predict',
+                                              method="POST",
+                                              headers=headers,
+                                              body=body)
+    
+        assert resp.code == 200
+        assert resp.body == b'{"predictions": [[1, 2]]}'
+        assert resp.headers['content-type'] == "application/x-www-form-urlencoded"
+        assert resp.headers['ce-specversion'] == "1.0"
+        assert resp.headers['ce-id'] == "36077800-0c23-4f38-a0b4-01f4369f670a"
+        assert resp.headers['ce-source'] == "https://example.com/event-producer"
+        assert resp.headers['ce-type'] == "com.example.sampletype1"
+        assert resp.headers['ce-datacontenttype'] == "application/x-www-form-urlencoded"
+        assert resp.headers['ce-time'] > "2021-01-28T21:04:43.144141+00:00"
+
+    async def test_predict_ce_bytes_bad_format_exception(self, http_server_client):
+        event = dummy_cloud_event(b'{', set_contenttype=True)
+        headers, body = to_binary(event)
+        with pytest.raises(
+            HTTPClientError, match=r".*HTTP 400: Unrecognized request format: Expecting property name enclosed in double quotes.*"
+        ):
+            resp = await http_server_client.fetch('/v1/models/TestModel:predict',
+                                              method="POST",
+                                              headers=headers,
+                                              body=body)
+
+    async def test_predict_ce_bytes_bad_hex_format_exception(self, http_server_client):
+        event = dummy_cloud_event(b'0\x80\x80\x06World!\x00\x00', set_contenttype=True)
+        headers, body = to_binary(event)
+        with pytest.raises(
+            HTTPClientError, match=r".*HTTP 400: Unrecognized request format: 'utf-8' codec can't decode byte 0x80 in position 1: invalid start byte.*"
+        ):
+            resp = await http_server_client.fetch('/v1/models/TestModel:predict',
+                                              method="POST",
+                                              headers=headers,
+                                              body=body)
+    
 class TestTFHttpServerAvroCloudEvent():
 
     @pytest.fixture(scope="class")
