@@ -16,7 +16,7 @@ func MuteImageTag(pod *v1.Pod) error {
 		if strings.Contains(selector, ArchTypeForARM64) {
 			for idx, container := range pod.Spec.Containers {
 				if strings.Compare(container.Name, TargetImageName) == 0 {
-					if strings.Contains(selector, ":") {
+					if strings.Contains(pod.Spec.Containers[idx].Image, ":") {
 						pod.Spec.Containers[idx].Image += "-arm64"
 					} else {
 						pod.Spec.Containers[idx].Image += ":latest-arm64"
@@ -29,7 +29,7 @@ func MuteImageTag(pod *v1.Pod) error {
 			// modify storage init container
 			for idx, container := range pod.Spec.InitContainers {
 				if strings.Compare(container.Name, StorageInitializerContainerName) == 0 {
-					if strings.Contains(selector, ":") {
+					if strings.Contains(pod.Spec.Containers[idx].Image, ":") {
 						pod.Spec.Containers[idx].Image += "-arm64"
 					} else {
 						pod.Spec.Containers[idx].Image += ":latest-arm64"
