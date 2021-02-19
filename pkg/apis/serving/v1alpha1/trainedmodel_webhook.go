@@ -72,9 +72,9 @@ func (tm *TrainedModel) ValidateDelete() error {
 // Validates ModelSpec memory is not modified from previous TrainedModel state
 func (tm *TrainedModel) validateMemorySpecNotModified(oldTm *TrainedModel) error {
 	newTmMemory := tm.Spec.Model.Memory
-	currentTmMemory := oldTm.Spec.Model.Memory
-	if !newTmMemory.Equal(currentTmMemory) {
-		return fmt.Errorf(InvalidTmMemoryModification, tm.Name, currentTmMemory.Format, newTmMemory.Format)
+	oldTmMemory := oldTm.Spec.Model.Memory
+	if !newTmMemory.Equal(oldTmMemory) {
+		return fmt.Errorf(InvalidTmMemoryModification, tm.Name, oldTmMemory.Format, newTmMemory.Format)
 	}
 	return nil
 }
