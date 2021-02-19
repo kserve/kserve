@@ -9,39 +9,52 @@ const (
 	ArchTypeForARM64 = "arm64"
 	TargetImageName  = "queue-proxy"
 	ArchTypeLabel    = "archType"
+	VersionLabel     = "imageVersion"
+	ChangeImageName  = "kfserving-container"
 )
 
 func MuteImageTag(pod *v1.Pod) error {
-	if selector, ok := pod.ObjectMeta.Labels[ArchTypeLabel]; ok {
-		if strings.Contains(selector, ArchTypeForARM64) {
-			for _, container := range pod.Spec.Containers {
-				if strings.Compare(container.Name, TargetImageName) == 0 {
-					if strings.Contains(container.Image, "/") {
-						if strings.Contains(strings.SplitN(container.Image, "/", 2)[1], ":") {
-							container.Image += "-arm64"
-						} else {
-							container.Image += ":latest-arm64"
-						}
-					}
-
-					break
+	if version, ok := pod.ObjectMeta.Labels[VersionLabel]; ok {
+		for _, container := range pod.Spec.Containers {
+			if strings.Compare(container.Name, ChangeImageName) == 0 {
+				if strings.Contains(container.Image, "@") {
+					container.Image = strings.SplitN(container.Image, "@", 2)[0] + ":" + version
 				}
-			}
-
-			// modify storage init container
-			for _, container := range pod.Spec.InitContainers {
-				if strings.Compare(container.Name, StorageInitializerContainerName) == 0 {
-					if strings.Contains(container.Image, "/") {
-						if strings.Contains(strings.SplitN(container.Image, "/", 2)[1], ":") {
-							container.Image += "-arm64"
-						} else {
-							container.Image += ":latest-arm64"
-						}
-					}
-					break
-				}
+				break
 			}
 		}
 	}
+	//if selector, ok := pod.ObjectMeta.Labels[ArchTypeLabel]; ok {
+
+	//if strings.Contains(selector, ArchTypeForARM64) {
+	//	for _, container := range pod.Spec.Containers {
+	//		if strings.Compare(container.Name, TargetImageName) == 0 {
+	//			if strings.Contains(container.Image, "/") {
+	//				if strings.Contains(strings.SplitN(container.Image, "/", 2)[1], ":") {
+	//					container.Image += "-arm64"
+	//				} else {
+	//					container.Image += ":latest-arm64"
+	//				}
+	//			}
+	//
+	//			break
+	//		}
+	//	}
+	//
+	//	// modify storage init container
+	//	for _, container := range pod.Spec.InitContainers {
+	//		if strings.Compare(container.Name, StorageInitializerContainerName) == 0 {
+	//			if strings.Contains(container.Image, "/") {
+	//				if strings.Contains(strings.SplitN(container.Image, "/", 2)[1], ":") {
+	//					container.Image += "-arm64"
+	//				} else {
+	//					container.Image += ":latest-arm64"
+	//				}
+	//			}
+	//			break
+	//		}
+	//	}
+	//}
+	//}
 	return nil
 }
