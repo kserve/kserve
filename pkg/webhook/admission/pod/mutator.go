@@ -98,7 +98,7 @@ func (mutator *Mutator) mutate(pod *v1.Pod, configMap *v1.ConfigMap) error {
 		InjectNodeSelector,
 		storageInitializer.InjectStorageInitializer,
 		loggerInjector.InjectLogger,
-		MuteImageTag,
+		//MuteImageTag,
 	}
 
 	for _, mutator := range mutators {
