@@ -21,7 +21,7 @@ func MuteImageTag(pod *v1.Pod) error {
 			klog.Info("container is", container.Name, container.Image)
 			if strings.Compare(container.Name, ChangeImageName) == 0 {
 				if strings.Contains(container.Image, "@") {
-					klog.Info("current image name is", container.Image)
+					klog.Info("current image name is", container.Image, " to ", strings.SplitN(container.Image, "@", 2)[0]+":"+version)
 					container.Image = strings.SplitN(container.Image, "@", 2)[0] + ":" + version
 				}
 				break
