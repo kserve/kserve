@@ -14,12 +14,12 @@ const (
 func MuteImageTag(pod *v1.Pod) error {
 	if selector, ok := pod.ObjectMeta.Labels[ArchTypeLabel]; ok {
 		if strings.Contains(selector, ArchTypeForARM64) {
-			for idx, container := range pod.Spec.Containers {
+			for _, container := range pod.Spec.Containers {
 				if strings.Compare(container.Name, TargetImageName) == 0 {
-					if strings.Contains(pod.Spec.Containers[idx].Image, ":") {
-						pod.Spec.Containers[idx].Image += "-arm64"
+					if strings.Contains(container.Image, "/") && strings.Contains(strings.SplitN(container.Image, "/", 2)[1], ":") {
+						container.Image += "-arm64"
 					} else {
-						pod.Spec.Containers[idx].Image += ":latest-arm64"
+						container.Image += ":latest-arm64"
 					}
 
 					break
@@ -27,12 +27,12 @@ func MuteImageTag(pod *v1.Pod) error {
 			}
 
 			// modify storage init container
-			for idx, container := range pod.Spec.InitContainers {
+			for _, container := range pod.Spec.InitContainers {
 				if strings.Compare(container.Name, StorageInitializerContainerName) == 0 {
-					if strings.Contains(pod.Spec.InitContainers[idx].Image, ":") {
-						pod.Spec.InitContainers[idx].Image += "-arm64"
+					if strings.Contains(container.Image, "/") && strings.Contains(strings.SplitN(container.Image, "/", 2)[1], ":") {
+						container.Image += "-arm64"
 					} else {
-						pod.Spec.InitContainers[idx].Image += ":latest-arm64"
+						container.Image += ":latest-arm64"
 					}
 					break
 				}
