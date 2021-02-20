@@ -55,11 +55,8 @@ KFServing currently requires `Knative Serving` for auto-scaling, canary rollout,
 
 * To install Knative components on your Kubernetes cluster, follow the [generic cluster installation guide](https://knative.dev/docs/install/any-kubernetes-cluster/) or alternatively, use the [Knative Operators](https://knative.dev/docs/install/knative-with-operators/) to manage your installation. Observability, tracing and logging are optional but are often very valuable tools for troubleshooting difficult issues - they can be installed via the [directions here](https://github.com/knative/docs/blob/release-0.15/docs/serving/installing-logging-metrics-traces.md).
 
-* If you already have `Istio` or `Knative` (e.g. from a Kubeflow install) then you don't need to install them explictly, as long as version dependencies are satisfied.
-  * With Kubeflow v0.7, KNative 0.8 and Istio 1.1.6 are installed by default as part of the Kubeflow installation.
-  * From Kubeflow 1.0 onwards, KNative 0.11.1 and Istio 1.1.6 are installed by default.
-  * If you are using DEX based config for Kubeflow 1.0, Istio 1.3.1 is installed by default in your Kubeflow cluster.
-* Prior to Knative 0.19, you had to follow the instructions on [Updating your install to use cluster local gateway](https://knative.dev/docs/install/installing-istio/#updating-your-install-to-use-cluster-local-gateway) to add cluster local gateway to your cluster to serve cluster-internal traffic for transformer and explainer use cases. As of Knative 0.19 this has been replaced by `knative-local-gateway` and is no longer require separate installation instructions. 
+* If you already have `Istio` or `Knative` (e.g. from a Kubeflow install) then you don't need to install them explictly, as long as version dependencies are satisfied. If you are using DEX based config for Kubeflow 1.0, Istio 1.3.1 is installed by default in your Kubeflow cluster.
+* Prior to Knative 0.19, you had to follow the instructions on [Updating your install to use cluster local gateway](https://knative.dev/docs/install/installing-istio/#updating-your-install-to-use-cluster-local-gateway) to add cluster local gateway to your cluster to serve cluster-internal traffic for transformer and explainer use cases. As of Knative 0.19, `cluster-local-gateway` has been replaced by `knative-local-gateway` and doesn't require separate installation instructions. 
   
 If you start from scratch, we would recommend Knative 0.20 for KFServing 0.5.0 and for the KFServing code in master. For Istio use version 1.7.1 which is been tested, and for Kubernetes use 1.18+
 
