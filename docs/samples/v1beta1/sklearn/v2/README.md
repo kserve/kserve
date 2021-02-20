@@ -92,7 +92,7 @@ For this, we will just need to use **version `v1beta1`** of the
 apiVersion: "serving.kubeflow.org/v1beta1"
 kind: "InferenceService"
 metadata:
-  name: "sklearn-iris"
+  name: "sklearn-irisv2"
 spec:
   predictor:
     sklearn:
@@ -148,12 +148,12 @@ request as:
 > out your ingress IP and port.
 
 ```bash
-SERVICE_HOSTNAME=$(kubectl get inferenceservice sklearn-iris -o jsonpath='{.status.url}' | cut -d "/" -f 3)
+SERVICE_HOSTNAME=$(kubectl get inferenceservice sklearn-irisv2 -o jsonpath='{.status.url}' | cut -d "/" -f 3)
 
 curl -v \
   -H "Host: ${SERVICE_HOSTNAME}" \
   -d @./iris-input.json \
-  http://${INGRESS_HOST}:${INGRESS_PORT}/v2/models/sklearn-iris/infer
+  http://${INGRESS_HOST}:${INGRESS_PORT}/v2/models/sklearn-irisv2/infer
 ```
 
 The output will be something similar to:
