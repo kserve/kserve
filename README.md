@@ -168,7 +168,7 @@ Please refer to our [troubleshooting section](docs/DEVELOPER_GUIDE.md#troublesho
 ```bash
 API_VERSION=v1beta1
 kubectl create namespace kfserving-test
-kubectl apply -f docs/samples/${API_VERSION}/v1/sklearn/sklearn.yaml -n kfserving-test
+kubectl apply -f docs/samples/${API_VERSION}/sklearn/v1/sklearn.yaml -n kfserving-test
 ```
 #### Check KFServing `InferenceService` status.
 ```bash
@@ -184,7 +184,7 @@ If your DNS contains example.com please consult your admin for configuring DNS o
 If you have configured the DNS, you can directly curl the `InferenceService` with the URL obtained from the status print.
 e.g
 ```
-curl -v http://sklearn-iris.kfserving-test.${CUSTOM_DOMAIN}/v1/models/sklearn-iris:predict -d @./docs/samples/${API_VERSION}/v1/sklearn/iris-input.json
+curl -v http://sklearn-iris.kfserving-test.${CUSTOM_DOMAIN}/v1/models/sklearn-iris:predict -d @./docs/samples/${API_VERSION}/sklearn/v1/iris-input.json
 ```
 
 - Curl with magic DNS
@@ -213,7 +213,6 @@ With the change applied you can now directly curl the URL
 curl -v http://sklearn-iris.kfserving-test.35.237.217.209.xip.io/v1/models/sklearn-iris:predict -d @./docs/samples/${API_VERSION}/sklearn/v1/iris-input.json
 ```
 
-
 - Curl from ingress gateway with HOST Header
 
 If you do not have DNS, you can still curl with the ingress gateway external IP using the HOST Header.
@@ -224,15 +223,15 @@ curl -v -H "Host: ${SERVICE_HOSTNAME}" http://${INGRESS_HOST}:${INGRESS_PORT}/v1
 
 - Curl from local cluster gateway
 
-If you are calling from in cluster you can curl with the internal url
+If you are calling from in cluster you can curl with the internal url with host {{InferenceServiceName}}.{{namespace}}
 ```bash
-curl -v http://sklearn-iris.kfserving-test/v1/models/sklearn-iris:predict -d @./docs/samples/${API_VERSION}/v1/sklearn/iris-input.json
+curl -v http://sklearn-iris.kfserving-test/v1/models/sklearn-iris:predict -d @./docs/samples/${API_VERSION}/sklearn/v1/iris-input.json
 ```
 
 #### Run Performance Test
 ```bash
 # use kubectl create instead of apply because the job template is using generateName which doesn't work with kubectl apply
-kubectl create -f docs/samples/${API_VERSION}/v1/sklearn/perf.yaml -n kfserving-test
+kubectl create -f docs/samples/${API_VERSION}/sklearn/v1/perf.yaml -n kfserving-test
 # wait the job to be done and check the log
 kubectl logs load-test8b58n-rgfxr -n kfserving-test
 Requests      [total, rate, throughput]         30000, 500.02, 499.99
