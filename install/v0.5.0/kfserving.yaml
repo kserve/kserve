@@ -333,7 +333,7 @@ data:
         "ingressGateway" : "knative-ingress-gateway.knative-serving",
         "ingressService" : "istio-ingressgateway.istio-system.svc.cluster.local",
         "localGateway" : "cluster-local-gateway",
-        "localGatewayService" : "knative-local-gateway.istio-system.svc.cluster.local"
+        "localGatewayService" : "cluster-local-gateway.istio-system.svc.cluster.local"
     }
   logger: |-
     {
