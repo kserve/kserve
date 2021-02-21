@@ -62,14 +62,16 @@ func (x *LightGBMSpec) GetContainer(metadata metav1.ObjectMeta, extensions *Comp
 		fmt.Sprintf("%s=%s", constants.ArgumentHttpPort, constants.InferenceServiceDefaultHttpPort),
 		fmt.Sprintf("%s=%s", "--nthread", strconv.Itoa(int(cpuLimit.Value()))),
 	}
-	if extensions.ContainerConcurrency != nil {
-		arguments = append(arguments, fmt.Sprintf("%s=%s", constants.ArgumentWorkers, strconv.FormatInt(*extensions.ContainerConcurrency, 10)))
+	if !utils.IncludesArg(x.Container.Args, constants.ArgumentWorkers) {
+		if extensions.ContainerConcurrency != nil {
+			arguments = append(arguments, fmt.Sprintf("%s=%s", constants.ArgumentWorkers, strconv.FormatInt(*extensions.ContainerConcurrency, 10)))
+		}
 	}
 	if x.Container.Image == "" {
 		x.Container.Image = config.Predictors.LightGBM.ContainerImage + ":" + *x.RuntimeVersion
 	}
 	x.Container.Name = constants.InferenceServiceContainerName
-	x.Container.Args = arguments
+	x.Container.Args = append(arguments, x.Container.Args...)
 	return &x.Container
 }
 

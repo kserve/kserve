@@ -130,7 +130,9 @@ func (t *TorchServeSpec) GetContainerV1(metadata metav1.ObjectMeta, extensions *
 	if utils.IsGPUEnabled(t.Resources) {
 		arguments = append(arguments, fmt.Sprintf("%s=%s", constants.ArgumentWorkers, "1"))
 	} else if extensions.ContainerConcurrency != nil {
-		arguments = append(arguments, fmt.Sprintf("%s=%s", constants.ArgumentWorkers, strconv.FormatInt(*extensions.ContainerConcurrency, 10)))
+		if !utils.IncludesArg(t.Container.Args, constants.ArgumentWorkers) {
+			arguments = append(arguments, fmt.Sprintf("%s=%s", constants.ArgumentWorkers, strconv.FormatInt(*extensions.ContainerConcurrency, 10)))
+		}
 	}
 	if t.Container.Image == "" {
 		t.Container.Image = config.Predictors.PyTorch.V1.ContainerImage + ":" + *t.RuntimeVersion

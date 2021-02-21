@@ -596,10 +596,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 											Args: []string{
 												"--model_name",
 												serviceName,
-												"--predictor_host",
-												constants.DefaultPredictorServiceName(instance.Name) + "." + instance.Namespace,
 												constants.ArgumentHttpPort,
 												constants.InferenceServiceDefaultHttpPort,
+												"--predictor_host",
+												constants.DefaultPredictorServiceName(instance.Name) + "." + instance.Namespace,
 												"--storage_uri",
 												"/mnt/models",
 												"AnchorTabular",

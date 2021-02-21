@@ -79,11 +79,17 @@ func (s *AlibiExplainerSpec) GetResourceRequirements() *v1.ResourceRequirements 
 func (s *AlibiExplainerSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig) *v1.Container {
 	var args = []string{
 		constants.ArgumentModelName, metadata.Name,
-		constants.ArgumentPredictorHost, fmt.Sprintf("%s.%s", constants.DefaultPredictorServiceName(metadata.Name), metadata.Namespace),
 		constants.ArgumentHttpPort, constants.InferenceServiceDefaultHttpPort,
 	}
-	if extensions.ContainerConcurrency != nil {
-		args = append(args, constants.ArgumentWorkers, strconv.FormatInt(*extensions.ContainerConcurrency, 10))
+	if !utils.IncludesArg(s.Container.Args, constants.ArgumentPredictorHost) {
+		args = append(args, constants.ArgumentPredictorHost,
+			fmt.Sprintf("%s.%s", constants.DefaultPredictorServiceName(metadata.Name), metadata.Namespace))
+
+	}
+	if !utils.IncludesArg(s.Container.Args, constants.ArgumentWorkers) {
+		if extensions.ContainerConcurrency != nil {
+			args = append(args, constants.ArgumentWorkers, strconv.FormatInt(*extensions.ContainerConcurrency, 10))
+		}
 	}
 	if s.StorageURI != "" {
 		args = append(args, "--storage_uri", constants.DefaultModelLocalMountPath)

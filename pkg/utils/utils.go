@@ -19,6 +19,7 @@ package utils
 import (
 	"github.com/kubeflow/kfserving/pkg/constants"
 	v1 "k8s.io/api/core/v1"
+	"strings"
 )
 
 /* NOTE TO AUTHORS:
@@ -50,6 +51,15 @@ func Union(maps ...map[string]string) map[string]string {
 func Includes(slice []string, value string) bool {
 	for _, v := range slice {
 		if v == value {
+			return true
+		}
+	}
+	return false
+}
+
+func IncludesArg(slice []string, arg string) bool {
+	for _, v := range slice {
+		if v == arg || strings.HasPrefix(v, arg) {
 			return true
 		}
 	}

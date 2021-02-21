@@ -100,6 +100,80 @@ func TestInferenceServiceConversion(t *testing.T) {
 				},
 			},
 		},
+		"customPredictorWithWorker": {
+			v1alpha2spec: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "custom-predictor",
+					Namespace: "default",
+				},
+				Spec: InferenceServiceSpec{
+					Default: EndpointSpec{
+						Predictor: PredictorSpec{
+							DeploymentSpec: DeploymentSpec{
+								MinReplicas: GetIntReference(1),
+								MaxReplicas: 3,
+							},
+							Custom: &CustomSpec{
+								Container: v1.Container{
+									Name:  "kfserving-container",
+									Image: "custom-predictor:v1",
+									Resources: v1.ResourceRequirements{
+										Requests: v1.ResourceList{
+											v1.ResourceCPU:    resource.MustParse("1"),
+											v1.ResourceMemory: resource.MustParse("2Gi"),
+										},
+										Limits: v1.ResourceList{
+											v1.ResourceCPU:    resource.MustParse("1"),
+											v1.ResourceMemory: resource.MustParse("2Gi"),
+										},
+									},
+									Args: []string{
+										"--workers",
+										"1",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			v1beta1Spec: &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "custom-predictor",
+					Namespace: "default",
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
+							MinReplicas: GetIntReference(1),
+							MaxReplicas: 3,
+						},
+						PodSpec: v1beta1.PodSpec{
+							Containers: []v1.Container{
+								{
+									Name:  "kfserving-container",
+									Image: "custom-predictor:v1",
+									Resources: v1.ResourceRequirements{
+										Requests: v1.ResourceList{
+											v1.ResourceCPU:    resource.MustParse("1"),
+											v1.ResourceMemory: resource.MustParse("2Gi"),
+										},
+										Limits: v1.ResourceList{
+											v1.ResourceCPU:    resource.MustParse("1"),
+											v1.ResourceMemory: resource.MustParse("2Gi"),
+										},
+									},
+									Args: []string{
+										"--workers",
+										"1",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
 		"transformer": {
 			v1alpha2spec: &InferenceService{
 				ObjectMeta: metav1.ObjectMeta{

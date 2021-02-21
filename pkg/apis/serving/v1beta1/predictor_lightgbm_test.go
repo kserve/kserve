@@ -302,6 +302,44 @@ func TestCreateLightGBMModelServingContainer(t *testing.T) {
 				},
 			},
 		},
+		"ContainerSpecWithWorker": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "lightgbm",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						ComponentExtensionSpec: ComponentExtensionSpec{
+							ContainerConcurrency: proto.Int64(2),
+						},
+						LightGBM: &LightGBMSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI:     proto.String("gs://someUri"),
+								RuntimeVersion: proto.String("0.1.0"),
+								Container: v1.Container{
+									Resources: requestedResource,
+									Args: []string{
+										constants.ArgumentWorkers + "=1",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedContainerSpec: &v1.Container{
+				Image:     "someOtherImage:0.1.0",
+				Name:      constants.InferenceServiceContainerName,
+				Resources: requestedResource,
+				Args: []string{
+					"--model_name=someName",
+					"--model_dir=/mnt/models",
+					"--http_port=8080",
+					"--nthread=1",
+					"--workers=1",
+				},
+			},
+		},
 	}
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
