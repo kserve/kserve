@@ -168,30 +168,70 @@ Please refer to our [troubleshooting section](docs/DEVELOPER_GUIDE.md#troublesho
 ```bash
 API_VERSION=v1beta1
 kubectl create namespace kfserving-test
-kubectl apply -f docs/samples/${API_VERSION}/v1/sklearn/sklearn.yaml -n kfserving-test
+kubectl apply -f docs/samples/${API_VERSION}/sklearn/v1/sklearn.yaml -n kfserving-test
 ```
 #### Check KFServing `InferenceService` status.
 ```bash
 kubectl get inferenceservices sklearn-iris -n kfserving-test
-NAME           URL                                                              READY   DEFAULT TRAFFIC   CANARY TRAFFIC   AGE
-sklearn-iris   http://sklearn-iris.kfserving-test.example.com/v1/models/sklearn-iris   True    100                                109s
+NAME           URL                                                 READY   PREV   LATEST   PREVROLLEDOUTREVISION   LATESTREADYREVISION                    AGE
+sklearn-iris   http://sklearn-iris.kfserving-test.example.com      True           100                              sklearn-iris-predictor-default-47q2g   7d23h
 ```
+If your DNS contains example.com please consult your admin for configuring DNS or using [custom domain](https://knative.dev/docs/serving/using-a-custom-domain).
 
 #### Curl the `InferenceService`
-Curl from ingress gateway
+- Curl with real DNS
+
+If you have configured the DNS, you can directly curl the `InferenceService` with the URL obtained from the status print.
+e.g
+```
+curl -v http://sklearn-iris.kfserving-test.${CUSTOM_DOMAIN}/v1/models/sklearn-iris:predict -d @./docs/samples/${API_VERSION}/sklearn/v1/iris-input.json
+```
+
+- Curl with magic DNS
+
+If you don't want to go through the trouble to get a real domain, you can instead use "magic" dns [xip.io](http://xip.io/).
+The key is to get the external IP for your KFServing cluster.
+```
+kubectl get svc istio-ingressgateway --namespace istio-system
+```
+Look for the `EXTERNAL-IP` column's value(in this case 35.237.217.209)
+
+```bash
+NAME                   TYPE           CLUSTER-IP     EXTERNAL-IP      PORT(S)                                                                                                                                      AGE
+istio-ingressgateway   LoadBalancer   10.51.253.94   35.237.217.209
+```
+
+Next step is to setting up the custom domain:
+```bash
+kubectl edit cm config-domain --namespace knative-serving
+```
+
+Now in your editor, change example.com to {{external-ip}}.xip.io (make sure to replace {{external-ip}} with the IP you found earlier).
+
+With the change applied you can now directly curl the URL
+```bash
+curl -v http://sklearn-iris.kfserving-test.35.237.217.209.xip.io/v1/models/sklearn-iris:predict -d @./docs/samples/${API_VERSION}/sklearn/v1/iris-input.json
+```
+
+- Curl from ingress gateway with HOST Header
+
+If you do not have DNS, you can still curl with the ingress gateway external IP using the HOST Header.
 ```bash
 SERVICE_HOSTNAME=$(kubectl get inferenceservice sklearn-iris -n kfserving-test -o jsonpath='{.status.url}' | cut -d "/" -f 3)
 curl -v -H "Host: ${SERVICE_HOSTNAME}" http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/sklearn-iris:predict -d @./docs/samples/${API_VERSION}/sklearn/v1/iris-input.json
 ```
-Curl from local cluster gateway
+
+- Curl from local cluster gateway
+
+If you are calling from in cluster you can curl with the internal url with host {{InferenceServiceName}}.{{namespace}}
 ```bash
-curl -v http://sklearn-iris.kfserving-test/v1/models/sklearn-iris:predict -d @./docs/samples/${API_VERSION}/sklearn/iris-input.json
+curl -v http://sklearn-iris.kfserving-test/v1/models/sklearn-iris:predict -d @./docs/samples/${API_VERSION}/sklearn/v1/iris-input.json
 ```
 
 #### Run Performance Test
 ```bash
 # use kubectl create instead of apply because the job template is using generateName which doesn't work with kubectl apply
-kubectl create -f docs/samples/${API_VERSION}/sklearn/perf.yaml -n kfserving-test
+kubectl create -f docs/samples/${API_VERSION}/sklearn/v1/perf.yaml -n kfserving-test
 # wait the job to be done and check the log
 kubectl logs load-test8b58n-rgfxr -n kfserving-test
 Requests      [total, rate, throughput]         30000, 500.02, 499.99
