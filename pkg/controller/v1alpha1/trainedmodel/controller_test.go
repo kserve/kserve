@@ -31,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
+	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"time"
 )
@@ -79,14 +80,120 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
                "ingressService": "test-destination"
             }`,
 		}
-		namespace  = "default"
-		storageUri = "s3//model1"
-		framework  = "pytorch"
-		memory, _  = resource.ParseQuantity("1G")
-		shardId    = 0
+		namespace        = "default"
+		storageUri       = "s3//model1"
+		framework        = "pytorch"
+		memory, _        = resource.ParseQuantity("1G")
+		shardId          = 0
+		statusConditions = duckv1.Status{
+			Conditions: duckv1.Conditions{
+				{
+					Type:               knservingv1.ServiceConditionReady,
+					Status:             "True",
+					LastTransitionTime: apis.VolatileTime{Inner: metav1.NewTime(time.Now())},
+				},
+			},
+		}
 	)
 
-	Context("When creating a new TrainedModel", func() {
+	Context("When creating a new TrainedModel with an unready InferenceService", func() {
+		It("Should not add a model to the model configmap", func() {
+			modelName := "model0-create"
+			parentInferenceService := modelName + "-parent"
+			modelConfigName := constants.ModelConfigName(parentInferenceService, shardId)
+			configmapKey := types.NamespacedName{Name: modelConfigName, Namespace: namespace}
+			tmKey := types.NamespacedName{Name: modelName, Namespace: namespace}
+
+			// Create InferenceService configmap
+			var configMap = &v1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.InferenceServiceConfigMapName,
+					Namespace: constants.KFServingNamespace,
+				},
+				Data: configs,
+			}
+			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), configMap)
+
+			// Create the parent InferenceService
+			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: parentInferenceService, Namespace: namespace}}
+			var serviceKey = expectedRequest.NamespacedName
+			ctx := context.Background()
+			isvc := &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      serviceKey.Name,
+					Namespace: serviceKey.Namespace,
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
+							MinReplicas: v1beta1.GetIntReference(1),
+							MaxReplicas: 3,
+						},
+						Tensorflow: &v1beta1.TFServingSpec{
+							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
+								StorageURI:     &storageUri,
+								RuntimeVersion: proto.String("1.14.0"),
+								Container: v1.Container{
+									Name:      "kfserving-container",
+									Resources: defaultResource,
+								},
+							},
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
+
+			// Create modelConfig
+			modelConfig := &v1.ConfigMap{
+				TypeMeta:   metav1.TypeMeta{Kind: "ConfigMap", APIVersion: "v1"},
+				ObjectMeta: metav1.ObjectMeta{Name: modelConfigName, Namespace: namespace},
+				Data: map[string]string{
+					constants.ModelConfigFileName: "",
+				},
+			}
+
+			tmInstance := &v1alpha1api.TrainedModel{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      modelName,
+					Namespace: namespace,
+				},
+				Spec: v1alpha1api.TrainedModelSpec{
+					InferenceService: parentInferenceService,
+					Model: v1alpha1api.ModelSpec{
+						StorageURI: storageUri,
+						Framework:  framework,
+						Memory:     memory,
+					},
+				},
+			}
+
+			Expect(k8sClient.Create(context.TODO(), modelConfig)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), modelConfig)
+			Expect(k8sClient.Create(context.TODO(), tmInstance)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), tmInstance)
+
+			// Verify that the model configmap is updated with the TrainedModel
+			configmapActual := &v1.ConfigMap{}
+			tmActual := &v1alpha1api.TrainedModel{}
+			expected := &v1.ConfigMap{
+				TypeMeta:   metav1.TypeMeta{Kind: "ConfigMap", APIVersion: "v1"},
+				ObjectMeta: metav1.ObjectMeta{Name: modelConfigName, Namespace: namespace},
+				Data: map[string]string{
+					constants.ModelConfigFileName: ``,
+				},
+			}
+			Eventually(func() map[string]string {
+				ctx := context.Background()
+				k8sClient.Get(ctx, configmapKey, configmapActual)
+				k8sClient.Get(ctx, tmKey, tmActual)
+				return configmapActual.Data
+			}, timeout, interval).Should(Equal(expected.Data))
+		})
+	})
+
+	Context("When creating a new TrainedModel with an ready InferenceService", func() {
 		It("Should add a model to the model configmap", func() {
 			modelName := "model1-create"
 			parentInferenceService := modelName + "-parent"
@@ -134,6 +241,18 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 				},
 			}
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
+
+			inferenceService := &v1beta1.InferenceService{}
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, serviceKey, inferenceService)
+				if err != nil {
+					return false
+				}
+				return true
+			}, timeout, interval).Should(BeTrue())
+
+			inferenceService.Status.Status = statusConditions
+			Expect(k8sClient.Status().Update(context.TODO(), inferenceService)).To(BeNil())
 
 			// Create modelConfig
 			modelConfig := &v1.ConfigMap{
@@ -248,6 +367,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			inferenceService.Status.Address = &duckv1.Addressable{
 				URL: clusterURL,
 			}
+			inferenceService.Status.Status = statusConditions
 			Expect(k8sClient.Status().Update(context.TODO(), inferenceService)).To(BeNil())
 
 			tmInstance := &v1alpha1api.TrainedModel{
@@ -369,6 +489,18 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 				},
 			}
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
+
+			inferenceService := &v1beta1.InferenceService{}
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, serviceKey, inferenceService)
+				if err != nil {
+					return false
+				}
+				return true
+			}, timeout, interval).Should(BeTrue())
+
+			inferenceService.Status.Status = statusConditions
+			Expect(k8sClient.Status().Update(context.TODO(), inferenceService)).To(BeNil())
 
 			tmInstance := &v1alpha1api.TrainedModel{
 				ObjectMeta: metav1.ObjectMeta{
