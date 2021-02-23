@@ -27,6 +27,7 @@ package trainedmodel
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/go-logr/logr"
 	v1alpha1api "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
@@ -81,6 +82,13 @@ func (r *TrainedModelReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		}
 		return reconcile.Result{}, err
 	}
+
+	// Check if isvc is ready
+	if !isvc.Status.IsReady() {
+		log.Info("Parent InferenceService is not ready", "TrainedModel", tm.Name, "InferenceService", isvc.Name)
+		return reconcile.Result{}, fmt.Errorf("fails as parent inference service is not ready")
+	}
+
 	// Add parent InferenceService's name to TrainedModel's label
 	if tm.Labels == nil {
 		tm.Labels = make(map[string]string)
