@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"k8s.io/api/core/v1"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 )
@@ -32,4 +33,49 @@ type TrainedModelStatus struct {
 	// Addressable endpoint for the deployed trained model
 	// http://<inferenceservice.metadata.name>/v1/models/<trainedmodel>.metadata.name
 	Address *duckv1.Addressable `json:"address,omitempty"`
+}
+
+// ConditionType represents a Service condition value
+// TODO: Add conditions for framework supported and memory availability
+const (
+	// InferenceServiceReady is set when inference service reported readiness
+	InferenceServiceReady apis.ConditionType = "InferenceServiceReady"
+)
+
+// TrainedModel Ready condition is depending on inference service readiness condition
+// TODO: Similar to above, add the constants here
+var conditionSet = apis.NewLivingConditionSet(
+	InferenceServiceReady,
+)
+
+var _ apis.ConditionsAccessor = (*TrainedModelStatus)(nil)
+
+func (ss *TrainedModelStatus) InitializeConditions() {
+	conditionSet.Manage(ss).InitializeConditions()
+}
+
+// IsReady returns if the service is ready to serve the requested configuration.
+func (ss *TrainedModelStatus) IsReady() bool {
+	return conditionSet.Manage(ss).IsHappy()
+}
+
+// GetCondition returns the condition by name.
+func (ss *TrainedModelStatus) GetCondition(t apis.ConditionType) *apis.Condition {
+	return conditionSet.Manage(ss).GetCondition(t)
+}
+
+// IsConditionReady returns the readiness for a given condition
+func (ss *TrainedModelStatus) IsConditionReady(t apis.ConditionType) bool {
+	return conditionSet.Manage(ss).GetCondition(t) != nil && conditionSet.Manage(ss).GetCondition(t).Status == v1.ConditionTrue
+}
+func (ss *TrainedModelStatus) SetCondition(conditionType apis.ConditionType, condition *apis.Condition) {
+	switch {
+	case condition == nil:
+	case condition.Status == v1.ConditionUnknown:
+		conditionSet.Manage(ss).MarkUnknown(conditionType, condition.Reason, condition.Message)
+	case condition.Status == v1.ConditionTrue:
+		conditionSet.Manage(ss).MarkTrue(conditionType)
+	case condition.Status == v1.ConditionFalse:
+		conditionSet.Manage(ss).MarkFalse(conditionType, condition.Reason, condition.Message)
+	}
 }
