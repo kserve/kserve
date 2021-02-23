@@ -87,7 +87,7 @@ func (s *ARTExplainerSpec) GetContainer(metadata metav1.ObjectMeta, extensions *
 		args = append(args, "--"+k)
 		args = append(args, s.Config[k])
 	}
-
+	args = append(args, s.Args...)
 	return &v1.Container{
 		Image:     config.Explainers.ARTExplainer.ContainerImage + ":" + *s.RuntimeVersion,
 		Name:      constants.InferenceServiceContainerName,

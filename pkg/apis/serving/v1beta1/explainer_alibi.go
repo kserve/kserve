@@ -111,7 +111,7 @@ func (s *AlibiExplainerSpec) GetContainer(metadata metav1.ObjectMeta, extensions
 		s.Image = config.Explainers.AlibiExplainer.ContainerImage + ":" + *s.RuntimeVersion
 	}
 	s.Name = constants.InferenceServiceContainerName
-	s.Args = args
+	s.Args = append(args, s.Args...)
 	return &s.Container
 }
 

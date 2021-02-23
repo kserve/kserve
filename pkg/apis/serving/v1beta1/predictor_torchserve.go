@@ -138,7 +138,7 @@ func (t *TorchServeSpec) GetContainerV1(metadata metav1.ObjectMeta, extensions *
 		t.Container.Image = config.Predictors.PyTorch.V1.ContainerImage + ":" + *t.RuntimeVersion
 	}
 	t.Name = constants.InferenceServiceContainerName
-	t.Args = arguments
+	t.Args = append(arguments, t.Args...)
 	return &t.Container
 }
 
@@ -153,7 +153,7 @@ func (t *TorchServeSpec) GetContainerV2(metadata metav1.ObjectMeta, extensions *
 		t.Container.Image = config.Predictors.PyTorch.V2.ContainerImage + ":" + *t.RuntimeVersion
 	}
 	t.Name = constants.InferenceServiceContainerName
-	t.Args = arguments
+	t.Args = append(arguments, t.Args...)
 	return &t.Container
 }
 
