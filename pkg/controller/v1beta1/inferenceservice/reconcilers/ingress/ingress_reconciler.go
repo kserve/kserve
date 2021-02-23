@@ -293,6 +293,8 @@ func createIngress(isvc *v1beta1.InferenceService, config *v1beta1.IngressConfig
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      isvc.Name,
 			Namespace: isvc.Namespace,
+			Annotations: isvc.Annotations,
+			Labels: isvc.Labels,
 		},
 		Spec: istiov1alpha3.VirtualService{
 			Hosts:    hosts,
