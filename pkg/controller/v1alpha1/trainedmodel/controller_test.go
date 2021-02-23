@@ -174,6 +174,17 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			Expect(k8sClient.Create(context.TODO(), tmInstance)).NotTo(HaveOccurred())
 			defer k8sClient.Delete(context.TODO(), tmInstance)
 
+			Eventually(func() bool {
+				tmInstanceUpdate := &v1alpha1api.TrainedModel{}
+				if err := k8sClient.Get(context.TODO(), tmKey, tmInstanceUpdate); err != nil {
+					return false
+				}
+
+				// Condition for inferenceserviceready should be false as isvc is not ready
+				isvcReadyCondition := tmInstanceUpdate.Status.GetCondition(v1alpha1api.InferenceServiceReady)
+				return isvcReadyCondition != nil && isvcReadyCondition.Status == v1.ConditionFalse
+			}, timeout).Should(BeTrue())
+
 			// Verify that the model configmap is updated with the TrainedModel
 			configmapActual := &v1.ConfigMap{}
 			tmActual := &v1alpha1api.TrainedModel{}
