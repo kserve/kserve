@@ -65,26 +65,26 @@ func (c *CustomExplainer) GetStorageUri() *string {
 // GetContainer transforms the resource into a container spec
 func (c *CustomExplainer) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig) *v1.Container {
 	container := &c.Containers[0]
-	modelNameExists := false
-	for _, arg := range container.Args {
-		if arg == constants.ArgumentModelName {
-			modelNameExists = true
-		}
-	}
-	if !modelNameExists {
+	if !utils.IncludesArg(container.Args, constants.ArgumentModelName) {
 		container.Args = append(container.Args, []string{
 			constants.ArgumentModelName,
 			metadata.Name,
 		}...)
 	}
+	if !utils.IncludesArg(container.Args, constants.ArgumentPredictorHost) {
+		container.Args = append(container.Args, []string{
+			constants.ArgumentPredictorHost,
+			constants.PredictorURL(metadata, false),
+		}...)
+	}
 	container.Args = append(container.Args, []string{
-		constants.ArgumentPredictorHost,
-		constants.PredictorURL(metadata, false),
 		constants.ArgumentHttpPort,
 		constants.InferenceServiceDefaultHttpPort,
 	}...)
-	if extensions.ContainerConcurrency != nil {
-		container.Args = append(container.Args, constants.ArgumentWorkers, strconv.FormatInt(*extensions.ContainerConcurrency, 10))
+	if !utils.IncludesArg(container.Args, constants.ArgumentWorkers) {
+		if extensions.ContainerConcurrency != nil {
+			container.Args = append(container.Args, constants.ArgumentWorkers, strconv.FormatInt(*extensions.ContainerConcurrency, 10))
+		}
 	}
 	return &c.Containers[0]
 }

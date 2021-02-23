@@ -58,14 +58,16 @@ func (p *PMMLSpec) GetContainer(metadata metav1.ObjectMeta, extensions *Componen
 		fmt.Sprintf("%s=%s", constants.ArgumentModelDir, constants.DefaultModelLocalMountPath),
 		fmt.Sprintf("%s=%s", constants.ArgumentHttpPort, constants.InferenceServiceDefaultHttpPort),
 	}
-	if extensions.ContainerConcurrency != nil {
-		arguments = append(arguments, fmt.Sprintf("%s=%s", constants.ArgumentWorkers, strconv.FormatInt(*extensions.ContainerConcurrency, 10)))
+	if !utils.IncludesArg(p.Container.Args, constants.ArgumentWorkers) {
+		if extensions.ContainerConcurrency != nil {
+			arguments = append(arguments, fmt.Sprintf("%s=%s", constants.ArgumentWorkers, strconv.FormatInt(*extensions.ContainerConcurrency, 10)))
+		}
 	}
 	if p.Container.Image == "" {
 		p.Container.Image = config.Predictors.PMML.ContainerImage + ":" + *p.RuntimeVersion
 	}
 	p.Container.Name = constants.InferenceServiceContainerName
-	p.Container.Args = arguments
+	p.Container.Args = append(arguments, p.Container.Args...)
 	return &p.Container
 }
 

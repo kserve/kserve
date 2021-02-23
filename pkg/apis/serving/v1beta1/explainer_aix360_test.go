@@ -107,10 +107,10 @@ func TestCreateAIXExplainerContainer(t *testing.T) {
 		Args: []string{
 			constants.ArgumentModelName,
 			"someName",
-			constants.ArgumentPredictorHost,
-			"someName-predictor-default.default",
 			constants.ArgumentHttpPort,
 			constants.InferenceServiceDefaultHttpPort,
+			constants.ArgumentPredictorHost,
+			"someName-predictor-default.default",
 			"--storage_uri",
 			"/mnt/models",
 			"--explainer_type",
@@ -172,10 +172,10 @@ func TestCreateAIXExplainerContainerWithConfig(t *testing.T) {
 		Args: []string{
 			"--model_name",
 			"someName",
-			"--predictor_host",
-			"someName-predictor-default.default",
 			"--http_port",
 			"8080",
+			"--predictor_host",
+			"someName-predictor-default.default",
 			"--storage_uri",
 			"/mnt/models",
 			"--explainer_type",
@@ -194,7 +194,7 @@ func TestCreateAIXExplainerContainerWithConfig(t *testing.T) {
 	g.Expect(container).To(gomega.Equal(expectedContainer))
 }
 
-func TestAIXExplainerIsMSS(t *testing.T) {
+func TestAIXExplainerIsMMS(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	config := InferenceServicesConfig{
 		Explainers: ExplainersConfig{

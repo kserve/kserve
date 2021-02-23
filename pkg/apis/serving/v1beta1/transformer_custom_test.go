@@ -327,6 +327,82 @@ func TestCreateTransformerContainer(t *testing.T) {
 				},
 			},
 		},
+		"ContainerSpecWithWorker": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "sklearn",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						ComponentExtensionSpec: ComponentExtensionSpec{
+							ContainerConcurrency: proto.Int64(4),
+						},
+						SKLearn: &SKLearnSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI: proto.String("gs://someUri"),
+								Container: v1.Container{
+									Resources: requestedResource,
+									Args: []string{
+										"--workers",
+										"1",
+									},
+								},
+							},
+						},
+					},
+					Transformer: &TransformerSpec{
+						ComponentExtensionSpec: ComponentExtensionSpec{
+							ContainerConcurrency: proto.Int64(2),
+						},
+						PodSpec: PodSpec{
+							Containers: []v1.Container{
+								{
+									Image: "transformer:0.1.0",
+									Env: []v1.EnvVar{
+										{
+											Name:  "STORAGE_URI",
+											Value: "hdfs://modelzoo",
+										},
+									},
+									Resources: requestedResource,
+									Args: []string{
+										"--model_name",
+										"someName",
+										"--predictor_host",
+										"localhost",
+										"--http_port",
+										"8080",
+										"--workers",
+										"1",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedContainerSpec: &v1.Container{
+				Image:     "transformer:0.1.0",
+				Name:      constants.InferenceServiceContainerName,
+				Resources: requestedResource,
+				Args: []string{
+					"--model_name",
+					"someName",
+					"--predictor_host",
+					"localhost",
+					"--http_port",
+					"8080",
+					"--workers",
+					"1",
+				},
+				Env: []v1.EnvVar{
+					{
+						Name:  "STORAGE_URI",
+						Value: "hdfs://modelzoo",
+					},
+				},
+			},
+		},
 	}
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {

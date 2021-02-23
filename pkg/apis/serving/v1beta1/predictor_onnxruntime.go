@@ -84,7 +84,7 @@ func (o *ONNXRuntimeSpec) GetContainer(metadata metav1.ObjectMeta, extensions *C
 		o.Container.Image = config.Predictors.ONNX.ContainerImage + ":" + *o.RuntimeVersion
 	}
 	o.Name = constants.InferenceServiceContainerName
-	o.Args = arguments
+	o.Args = append(arguments, o.Args...)
 	return &o.Container
 }
 
