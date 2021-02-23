@@ -74,7 +74,7 @@ func (tm *TrainedModel) validateMemorySpecNotModified(oldTm *TrainedModel) error
 	newTmMemory := tm.Spec.Model.Memory
 	oldTmMemory := oldTm.Spec.Model.Memory
 	if !newTmMemory.Equal(oldTmMemory) {
-		return fmt.Errorf(InvalidTmMemoryModification, tm.Name, oldTmMemory.Format, newTmMemory.Format)
+		return fmt.Errorf(InvalidTmMemoryModification, tm.Name, oldTmMemory.String(), newTmMemory.String())
 	}
 	return nil
 }
