@@ -10,7 +10,7 @@ spec:
       custom:
         container:
           name: predictor
-          image: rzgry/german-credit
+          image: ibmandrewbutler/aif-server:predictor
       logger:
         url: http://message-dumper.default/
         mode: all

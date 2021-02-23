@@ -4,7 +4,6 @@ from typing import List, Dict
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LogisticRegression
 from aif360.algorithms.preprocessing.optim_preproc_helpers.data_preproc_functions import load_preproc_data_german
-from aif360.datasets import GermanDataset
 
 
 class KFServingSampleModel(kfserving.KFModel):
