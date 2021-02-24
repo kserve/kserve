@@ -27,6 +27,7 @@ package trainedmodel
 
 import (
 	"context"
+	"fmt"
 	"github.com/go-logr/logr"
 	v1alpha1api "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
 	v1beta1api "github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
@@ -45,6 +46,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+)
+
+const (
+	InferenceServiceNotReady = "Inference Service \"%s\" is not ready. Trained Model \"%s\" cannot deploy"
 )
 
 var log = logf.Log.WithName("TrainedModel controller")
@@ -81,15 +86,8 @@ func (r *TrainedModelReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return reconcile.Result{}, err
 	}
 
-	// Check if isvc is ready
-	if !isvc.Status.IsReady() {
-		log.Info("Parent InferenceService is not ready", "TrainedModel", tm.Name, "InferenceService", isvc.Name)
-		tm.Status.SetCondition(v1alpha1api.InferenceServiceReady, &apis.Condition{
-			Type:    v1alpha1api.InferenceServiceReady,
-			Status:  v1.ConditionFalse,
-			Reason:  "InferenceServiceNotReady",
-			Message: "Inference Service needs to be ready before Trained Model can be ready",
-		})
+	if err := r.updateConditions(req, tm); err != nil {
+		return reconcile.Result{}, nil
 	}
 
 	// Add parent InferenceService's name to TrainedModel's label
@@ -199,6 +197,45 @@ func (r *TrainedModelReconciler) updateStatus(req ctrl.Request, desiredModel *v1
 	}
 
 	return nil
+}
+
+func (r *TrainedModelReconciler) updateConditions(req ctrl.Request, tm *v1alpha1api.TrainedModel) error {
+	// Get the parent inference service
+	isvc := &v1beta1api.InferenceService{}
+	if err := r.Get(context.TODO(), types.NamespacedName{Namespace: req.Namespace, Name: tm.Spec.InferenceService}, isvc); err != nil {
+		return err
+	}
+
+	var conditionErr error = nil
+	// Update Inference Service Ready condition
+	if isvc.Status.IsReady() {
+		log.Info("Parent InferenceService is ready", "TrainedModel", tm.Name, "InferenceService", isvc.Name)
+		tm.Status.SetCondition(v1alpha1api.InferenceServiceReady, &apis.Condition{
+			Status: v1.ConditionTrue,
+		})
+	} else {
+		log.Info("Parent InferenceService is not ready", "TrainedModel", tm.Name, "InferenceService", isvc.Name)
+		tm.Status.SetCondition(v1alpha1api.InferenceServiceReady, &apis.Condition{
+			Type:    v1alpha1api.InferenceServiceReady,
+			Status:  v1.ConditionFalse,
+			Reason:  "InferenceServiceNotReady",
+			Message: "Inference Service needs to be ready before Trained Model can be ready",
+		})
+
+		conditionErr = utils.FirstNonNilError([]error{
+			conditionErr,
+			fmt.Errorf(InferenceServiceNotReady, isvc.Name, tm.Name),
+		})
+	}
+
+	if conditionErr != nil {
+		if statusErr := r.Status().Update(context.TODO(), tm); statusErr != nil {
+			r.Recorder.Eventf(tm, v1.EventTypeWarning, "UpdateFailed",
+				"Failed to update status for TrainedModel %q: %v", tm.Name, conditionErr)
+		}
+	}
+
+	return conditionErr
 }
 
 func (r *TrainedModelReconciler) SetupWithManager(mgr ctrl.Manager) error {
