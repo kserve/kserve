@@ -4,6 +4,13 @@ To test the [PMMLServer](http://dmg.org/pmml/pmml_examples/#Iris) server, first 
 
 # Predict on a InferenceService using PMMLServer
 
+## Disadvantages
+
+Because the `pmmlserver` based on [Py4J](https://github.com/bartdag/py4j) and that isn't support multi-process mode. So we can't set `spec.predictor.containerConcurrency`.
+
+If you want to scale the PMMLServer to improve predict performance, you should to set the InferenceService's `resources.limits.cpu` to 1 and scale it replica size.
+
+
 ## Setup
 1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/#install-kfserving).
 2. Your cluster's Istio Ingress gateway must be [network accessible](https://istio.io/latest/docs/tasks/traffic-management/ingress/ingress-control/).
@@ -50,6 +57,6 @@ Expected Output
 < x-envoy-upstream-service-time: 12
 <
 * Connection #0 to host localhost left intact
-{"predictions": [[1.0, 0.0, 0.0, "2"]]}* Closing connection 0
+{"predictions": [{'Species': 'setosa', 'Probability_setosa': 1.0, 'Probability_versicolor': 0.0, 'Probability_virginica': 0.0, 'Node_Id': '2'}]}* Closing connection 0
 ```
 

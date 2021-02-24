@@ -257,3 +257,30 @@ func TestRejectBadNameIncludeDot(t *testing.T) {
 	isvc.Name = "abc.de"
 	g.Expect(isvc.ValidateCreate()).ShouldNot(gomega.Succeed())
 }
+
+func TestPMMLWorkersArguments(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	isvc := InferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "foo",
+			Namespace: "default",
+		},
+		Spec: InferenceServiceSpec{
+			Predictor: PredictorSpec{
+				PMML: &PMMLSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						StorageURI: proto.String("gs://testbucket/testmodel"),
+					},
+				},
+			},
+		},
+	}
+
+	isvc.Spec.Predictor.PMML.Container.Args = []string{"--workers=2"}
+	g.Expect(isvc.ValidateCreate()).Should(gomega.MatchError(fmt.Sprintf(MaxWorkersShouldBeLessThanMaxError, 1)))
+	isvc.Spec.Predictor.PMML.Container.Args = []string{"--workers=foo"}
+	g.Expect(isvc.ValidateCreate()).Should(gomega.MatchError(InvalidWorkerArgument))
+	isvc.Spec.Predictor.PMML.Container.Args = []string{"--workers=1"}
+	g.Expect(isvc.ValidateCreate()).Should(gomega.Succeed())
+}
