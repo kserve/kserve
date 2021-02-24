@@ -27,16 +27,20 @@ import (
 
 // regular expressions for validation of isvc name
 const (
-	TmNameFmt                   string = "[a-z]([-a-z0-9]*[a-z0-9])?"
-	InvalidTmNameFormatError           = "the Trained Model \"%s\" is invalid: a Trained Model name must consist of lower case alphanumeric characters or '-', and must start with alphabetical character. (e.g. \"my-name\" or \"abc-123\", regex used for validation is '%s')"
-	InvalidTmMemoryModification        = "the Trained Model \"%s\" memory field is immutable. The memory was \"%s\" but it is updated to \"%s\""
+	TmNameFmt                    string = "[a-z]([-a-z0-9]*[a-z0-9])?"
+	StorageUriFmt                string = "(gs|s3)://(([a-z]([-a-z0-9]*[a-z0-9])?/))*([a-z]([-a-z0-9]*[a-z0-9]))"
+	InvalidTmNameFormatError            = "the Trained Model \"%s\" is invalid: a Trained Model name must consist of lower case alphanumeric characters or '-', and must start with alphabetical character. (e.g. \"my-name\" or \"abc-123\", regex used for validation is '%s')"
+	InvalidStorageUriFormatError        = "the Trained Model \"%s\" storageUri field is invalid. The storage uri must have the prefix gs:// or s3:// and consist of lower case alphanumeric characters or '-' or '/', and must start with alphabetical character. (the storage uri given is \"%s\", regex used for validation is '%s')"
+	InvalidTmMemoryModification         = "the Trained Model \"%s\" memory field is immutable. The memory was \"%s\" but it is updated to \"%s\""
 )
 
 var (
 	// log is for logging in this package.
 	tmLogger = logf.Log.WithName("trainedmodel-alpha1-validator")
-	// regular expressions for validation of isvc name
+	// regular expressions for validation of tm name
 	TmRegexp = regexp.MustCompile("^" + TmNameFmt + "$")
+	// regular expression for validation of storageURI
+	StorageUriRegex = regexp.MustCompile("^" + StorageUriFmt + "$")
 )
 
 // +kubebuilder:webhook:verbs=create;update,path=/validate-trainedmodel,mutating=false,failurePolicy=fail,groups=serving.kubeflow.org,resources=trainedmodels,versions=v1alpha1,name=trainedmodel.kfserving-webhook-server.validator
@@ -46,7 +50,6 @@ var _ webhook.Validator = &TrainedModel{}
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (tm *TrainedModel) ValidateCreate() error {
 	tmLogger.Info("validate create", "name", tm.Name)
-	// TODO: Validate storageURI
 	return utils.FirstNonNilError([]error{
 		tm.validateTrainedModel(),
 	})
@@ -83,6 +86,7 @@ func (tm *TrainedModel) validateMemorySpecNotModified(oldTm *TrainedModel) error
 func (tm *TrainedModel) validateTrainedModel() error {
 	return utils.FirstNonNilError([]error{
 		tm.validateTrainedModelName(),
+		tm.validateStorageURI(),
 	})
 }
 
@@ -96,6 +100,14 @@ func convertToTrainedModel(old runtime.Object) *TrainedModel {
 func (tm *TrainedModel) validateTrainedModelName() error {
 	if !TmRegexp.MatchString(tm.Name) {
 		return fmt.Errorf(InvalidTmNameFormatError, tm.Name, TmRegexp)
+	}
+	return nil
+}
+
+// Validates TrainModel's storageURI
+func (tm *TrainedModel) validateStorageURI() error {
+	if !StorageUriRegex.MatchString(tm.Spec.Model.StorageURI) {
+		return fmt.Errorf(InvalidStorageUriFormatError, tm.Name, tm.Spec.Model.StorageURI, StorageUriRegex)
 	}
 	return nil
 }
