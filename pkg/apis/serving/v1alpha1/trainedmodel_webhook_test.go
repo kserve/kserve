@@ -1,13 +1,24 @@
 package v1alpha1
 
 import (
+	"fmt"
 	"github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"testing"
 )
 
+var (
+	name            = "Name"
+	infereceservice = "infrenceservice"
+	storageURI      = "storageURI"
+	framework       = "framework"
+	memory          = "memory"
+)
+
 func makeTestTrainModel() TrainedModel {
+	quantity := resource.MustParse("100Mi")
 	tm := TrainedModel{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "TrainedModel",
@@ -19,75 +30,219 @@ func makeTestTrainModel() TrainedModel {
 		Spec: TrainedModelSpec{
 			InferenceService: "Parent",
 			Model: ModelSpec{
-				StorageURI: "example.com/sklearn/iris",
+				StorageURI: "gcs://kfserving/sklearn/iris",
 				Framework:  "sklearn",
+				Memory:     quantity,
 			},
 		},
-	}
-
-	quantity, err := resource.ParseQuantity("100Mi")
-	if err == nil {
-		tm.Spec.Model.Memory = quantity
 	}
 
 	return tm
 }
 
-func TestTrainedModelCreation(t *testing.T) {
+func TestValidateCreate(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	tm := makeTestTrainModel()
-	g.Expect(tm.ValidateCreate()).Should(gomega.Succeed())
+	scenarios := map[string]struct {
+		tm      TrainedModel
+		update  map[string]string
+		matcher types.GomegaMatcher
+	}{
+		"simple": {
+			tm:      makeTestTrainModel(),
+			matcher: gomega.MatchError(nil),
+		},
+		"alphanumeric model name": {
+			tm: makeTestTrainModel(),
+			update: map[string]string{
+				name: "abc-123",
+			},
+			matcher: gomega.MatchError(nil),
+		},
+		"name starts with number": {
+			tm: makeTestTrainModel(),
+			update: map[string]string{
+				name: "4abc-3",
+			},
+			matcher: gomega.MatchError(fmt.Errorf(InvalidTmNameFormatError, "4abc-3", TmRegexp)),
+		},
+		"name starts with dash": {
+			tm: makeTestTrainModel(),
+			update: map[string]string{
+				name: "-abc-3",
+			},
+			matcher: gomega.MatchError(fmt.Errorf(InvalidTmNameFormatError, "-abc-3", TmRegexp)),
+		},
+		"name ends with dash": {
+			tm: makeTestTrainModel(),
+			update: map[string]string{
+				name: "abc-3-",
+			},
+			matcher: gomega.MatchError(fmt.Errorf(InvalidTmNameFormatError, "abc-3-", TmRegexp)),
+		},
+		"name includes dot": {
+			tm: makeTestTrainModel(),
+			update: map[string]string{
+				name: "abc.123",
+			},
+			matcher: gomega.MatchError(fmt.Errorf(InvalidTmNameFormatError, "abc.123", TmRegexp)),
+		},
+		"name includes spaces": {
+			tm: makeTestTrainModel(),
+			update: map[string]string{
+				name: "abc 123",
+			},
+			matcher: gomega.MatchError(fmt.Errorf(InvalidTmNameFormatError, "abc 123", TmRegexp)),
+		},
+	}
+
+	for testName, scenario := range scenarios {
+		t.Run(testName, func(t *testing.T) {
+			tm := &scenario.tm
+			for tmField, value := range scenario.update {
+				tm.update(tmField, value)
+			}
+			res := scenario.tm.ValidateCreate()
+			if !g.Expect(gomega.MatchError(res)).To(gomega.Equal(scenario.matcher)) {
+				t.Errorf("got %t, want %t", res, scenario.matcher)
+			}
+		})
+	}
 }
 
-func TestUpdateMutableSpec(t *testing.T) {
+func TestValidateUpdate(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	tm := makeTestTrainModel()
-	old := tm.DeepCopyObject()
-	tm.Spec.InferenceService = "parent2"
-	tm.Spec.Model.StorageURI = "example2.com/sklearn/iris"
-	tm.Spec.Model.Framework = "sklearn2"
-	g.Expect(tm.ValidateUpdate(old)).Should(gomega.Succeed())
+	temptTm := makeTestTrainModel()
+	old := temptTm.DeepCopyObject()
+	newMemory := "300Mi"
+
+	scenarios := map[string]struct {
+		tm      TrainedModel
+		update  map[string]string
+		matcher types.GomegaMatcher
+	}{
+		"no change": {
+			tm:      makeTestTrainModel(),
+			matcher: gomega.MatchError(nil),
+		},
+		"alphanumeric model name": {
+			tm: makeTestTrainModel(),
+			update: map[string]string{
+				name: "abc-123",
+			},
+			matcher: gomega.MatchError(nil),
+		},
+		"name starts with number": {
+			tm: makeTestTrainModel(),
+			update: map[string]string{
+				name: "4abc-3",
+			},
+			matcher: gomega.MatchError(fmt.Errorf(InvalidTmNameFormatError, "4abc-3", TmRegexp)),
+		},
+		"name starts with dash": {
+			tm: makeTestTrainModel(),
+			update: map[string]string{
+				name: "-abc-3",
+			},
+			matcher: gomega.MatchError(fmt.Errorf(InvalidTmNameFormatError, "-abc-3", TmRegexp)),
+		},
+		"name ends with dash": {
+			tm: makeTestTrainModel(),
+			update: map[string]string{
+				name: "abc-3-",
+			},
+			matcher: gomega.MatchError(fmt.Errorf(InvalidTmNameFormatError, "abc-3-", TmRegexp)),
+		},
+		"name includes dot": {
+			tm: makeTestTrainModel(),
+			update: map[string]string{
+				name: "abc.123",
+			},
+			matcher: gomega.MatchError(fmt.Errorf(InvalidTmNameFormatError, "abc.123", TmRegexp)),
+		},
+		"name includes spaces": {
+			tm: makeTestTrainModel(),
+			update: map[string]string{
+				name: "abc 123",
+			},
+			matcher: gomega.MatchError(fmt.Errorf(InvalidTmNameFormatError, "abc 123", TmRegexp)),
+		},
+		"inference service": {
+			tm: makeTestTrainModel(),
+			update: map[string]string{
+				infereceservice: "parent2",
+			},
+			matcher: gomega.MatchError(nil),
+		},
+		"storageURI": {
+			tm: makeTestTrainModel(),
+			update: map[string]string{
+				storageURI: "gcs://kfserving/sklearn2/iris",
+			},
+			matcher: gomega.MatchError(nil),
+		},
+		"framework": {
+			tm: makeTestTrainModel(),
+			update: map[string]string{
+				framework: "sklearn2",
+			},
+			matcher: gomega.MatchError(nil),
+		},
+		"change immutable memory": {
+			tm: makeTestTrainModel(),
+			update: map[string]string{
+				memory: newMemory,
+			},
+			matcher: gomega.MatchError(fmt.Errorf(InvalidTmMemoryModification, temptTm.Name, temptTm.Spec.Model.Memory.String(), newMemory)),
+		},
+	}
+
+	for testName, scenario := range scenarios {
+		t.Run(testName, func(t *testing.T) {
+			tm := &scenario.tm
+			for tmField, value := range scenario.update {
+				tm.update(tmField, value)
+			}
+			res := scenario.tm.ValidateUpdate(old)
+			if !g.Expect(gomega.MatchError(res)).To(gomega.Equal(scenario.matcher)) {
+				t.Errorf("got %t, want %t", res, scenario.matcher)
+			}
+		})
+	}
 }
 
-func TestUpdateWithInvalidName(t *testing.T) {
+func TestValidateDelete(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	tm := makeTestTrainModel()
-	old := tm.DeepCopyObject()
-	tm.Name = "1abc"
-	g.Expect(tm.ValidateUpdate(old)).ShouldNot(gomega.Succeed())
+	scenarios := map[string]struct {
+		tm      TrainedModel
+		update  map[string]string
+		matcher types.GomegaMatcher
+	}{
+		"simple": {
+			tm:      makeTestTrainModel(),
+			matcher: gomega.MatchError(nil),
+		},
+	}
+
+	for testName, scenario := range scenarios {
+		t.Run(testName, func(t *testing.T) {
+			res := scenario.tm.ValidateDelete()
+			if !g.Expect(gomega.MatchError(res)).To(gomega.Equal(scenario.matcher)) {
+				t.Errorf("got %t, want %t", res, scenario.matcher)
+			}
+		})
+	}
 }
 
-func TestUpdateImmutableMemory(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-	tm := makeTestTrainModel()
-	old := tm.DeepCopyObject()
-	tm.Spec.Model.Memory = resource.Quantity{Format: "300Mi"}
-	g.Expect(tm.ValidateUpdate(old)).ShouldNot(gomega.Succeed())
-}
-
-func TestGoodName(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-	tm := makeTestTrainModel()
-	tm.Name = "abc-123"
-	g.Expect(tm.ValidateCreate()).Should(gomega.Succeed())
-}
-
-func TestRejectBadNameStartWithNumber(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-	tm := makeTestTrainModel()
-	tm.Name = "1abcde"
-	g.Expect(tm.ValidateCreate()).ShouldNot(gomega.Succeed())
-}
-
-func TestRejectBadNameIncludeDot(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-	tm := makeTestTrainModel()
-	tm.Name = "abc.de"
-	g.Expect(tm.ValidateCreate()).ShouldNot(gomega.Succeed())
-}
-
-func TestDeleteTrainedModel(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-	tm := makeTestTrainModel()
-	g.Expect(tm.ValidateDelete()).Should(gomega.Succeed())
+func (tm *TrainedModel) update(tmField string, value string) {
+	if tmField == name {
+		tm.Name = value
+	} else if tmField == infereceservice {
+		tm.Spec.InferenceService = value
+	} else if tmField == storageURI {
+		tm.Spec.Model.StorageURI = value
+	} else if tmField == framework {
+		tm.Spec.Model.Framework = value
+	} else if tmField == memory {
+		tm.Spec.Model.Memory = resource.MustParse(value)
+	}
 }
