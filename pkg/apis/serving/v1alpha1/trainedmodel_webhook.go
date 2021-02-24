@@ -29,12 +29,12 @@ import (
 const (
 	TmNameFmt                   string = "[a-z]([-a-z0-9]*[a-z0-9])?"
 	InvalidTmNameFormatError           = "the Trained Model \"%s\" is invalid: a Trained Model name must consist of lower case alphanumeric characters or '-', and must start with alphabetical character. (e.g. \"my-name\" or \"abc-123\", regex used for validation is '%s')"
-	InvalidTmMemoryModification        = "the Trained Model \"%s\" update is invalid: a Trained Model's Model Spec memory must not be altered after being create. The memory is \"%s\" but the update request memory is \"%s\""
+	InvalidTmMemoryModification        = "the Trained Model \"%s\" memory field is immutable. The memory was \"%s\" but it is updated to \"%s\""
 )
 
 var (
 	// log is for logging in this package.
-	trainedmodellog = logf.Log.WithName("trainedmodel-alpha1-resource")
+	tmLogger = logf.Log.WithName("trainedmodel-alpha1-validator")
 	// regular expressions for validation of isvc name
 	TmRegexp = regexp.MustCompile("^" + TmNameFmt + "$")
 )
@@ -45,7 +45,7 @@ var _ webhook.Validator = &TrainedModel{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (tm *TrainedModel) ValidateCreate() error {
-	trainedmodellog.Info("validate create", "name", tm.Name)
+	tmLogger.Info("validate create", "name", tm.Name)
 	// TODO: Validate storageURI
 	return utils.FirstNonNilError([]error{
 		tm.validateTrainedModel(),
@@ -54,7 +54,7 @@ func (tm *TrainedModel) ValidateCreate() error {
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (tm *TrainedModel) ValidateUpdate(old runtime.Object) error {
-	trainedmodellog.Info("validate update", "name", tm.Name)
+	tmLogger.Info("validate update", "name", tm.Name)
 	oldTm := convertToTrainedModel(old)
 
 	return utils.FirstNonNilError([]error{
@@ -65,7 +65,7 @@ func (tm *TrainedModel) ValidateUpdate(old runtime.Object) error {
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
 func (tm *TrainedModel) ValidateDelete() error {
-	trainedmodellog.Info("validate delete", "name", tm.Name)
+	tmLogger.Info("validate delete", "name", tm.Name)
 	return nil
 }
 
