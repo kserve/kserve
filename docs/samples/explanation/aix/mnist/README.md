@@ -21,7 +21,7 @@ The first step is to [determine the ingress IP and ports](../../../../../README.
 ```
 MODEL_NAME=aix-explainer
 SERVICE_HOSTNAME=$(kubectl get inferenceservice ${MODEL_NAME} -o jsonpath='{.status.url}' | cut -d "/" -f 3)
-python query_explain.py http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/$MODEL_NAME:explain ${SERVICE_HOSTNAME}
+python query_explain.py http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/${MODEL_NAME}:explain ${SERVICE_HOSTNAME}
 ```
 
 After a bit of time you should see a pop up containing the explanation, similar to the image below. The LIME method used in this example highlights the pixels in red that score above a certain confidence value for indicating a classification. The explanation shown will contain a collection of images that are highlighted paired with a title to describe the context. For each title and image pair, the title will say `Positive for <X> Actual <Y>` to denote that <X> is the classification that LIME is testing for and <Y> is the correct label for that image.
@@ -35,7 +35,13 @@ Similarly, the bottom-right image with the title "Positive for 0 Actual 2" is th
 To try a different MNIST example add an integer to the end of the query between 0-10,000. The integer chosen will be the index of the image to be chosen in the MNIST dataset.
 
 ```
-python query_explain.py http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/$MODEL_NAME:explain ${SERVICE_HOSTNAME} 100
+python query_explain.py http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/${MODEL_NAME}:explain ${SERVICE_HOSTNAME} 100
+```
+To try different parameters with explainer, add another string json argument to specify the parameters. Supported modified parameters: top_labels, segmentation_alg, num_samples, positive_only, and min_weight. 
+
+```
+python query_explain.py http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/${MODEL_NAME}:explain ${SERVICE_HOSTNAME} 100 '{"top_labels":"10"}'
+
 ```
 
 ## Stopping the Inference Service
