@@ -9,6 +9,7 @@ namespace: kfserving-system
 #  someName: someValue
 
 bases:
+- ../crd
 - ../configmap
 - ../rbac
 - ../manager
@@ -29,6 +30,8 @@ patchesStrategicMerge:
 - manager_auth_proxy_patch.yaml
 - webhookcainjection_patch.yaml
 - manager_resources_patch.yaml
+- inferenceservice_conversion_webhook.yaml
+- cainjection_conversion_webhook.yaml
 
 generatorOptions:
   disableNameSuffixHash: true
