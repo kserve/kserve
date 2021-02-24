@@ -111,3 +111,28 @@ webhooks:
           - UPDATE
         resources:
           - inferenceservices
+---
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: ValidatingWebhookConfiguration
+metadata:
+  creationTimestamp: null
+  name: trainedmodel.serving.kubeflow.org
+webhooks:
+  - clientConfig:
+      caBundle: Cg==
+      service:
+        name: $(webhookServiceName)
+        namespace: $(kfservingNamespace)
+        path: /validate-serving-kubeflow-org-v1alpha1-trainedmodel
+    failurePolicy: Fail
+    name: trainedmodel.kfserving-webhook-server.validator
+    rules:
+      - apiGroups:
+          - serving.kubeflow.org
+        apiVersions:
+          - v1alpha1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - trainedmodels
