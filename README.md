@@ -47,7 +47,7 @@ generation [script](./hack/self-signed-ca.sh).
 ### Install KFServing
 <details>
   <summary>Expand to see the installation options!</summary>
-  
+
 #### Standalone KFServing Installation
 KFServing can be installed standalone if your kubernetes cluster meets the above prerequisites and KFServing controller is deployed in `kfserving-system` namespace.
 
@@ -57,10 +57,10 @@ TAG=v0.5.0
 
 Install KFServing CRD
 
-Due to [large last applied annotation issue](https://github.com/kubernetes-sigs/kubebuilder/issues/1140) with `kubectl apply` we recommend using `kubectl replace` for upgrading crd.
+Due to [a performance issue applying deeply nested CRDs](https://github.com/kubernetes/kubernetes/issues/91615), please ensure that your `kubectl` version
+fits into one of the following categories to ensure that you have the fix: `>=1.16.14,<1.17.0` or `>=1.17.11,<1.18.0` or `>=1.18.8`.
 ```shell
-CRD=https://github.com/kubeflow/kfserving/releases/download/$TAG/kfserving_crds.yaml
-kubectl replace -f $CRD || kubectl create -f $CRD
+kubectl apply -f https://github.com/kubeflow/kfserving/releases/download/$TAG/kfserving_crds.yaml
 ```
 
 Install KFServing Controller
@@ -76,7 +76,7 @@ To install standalone KFServing on [OpenShift Container Platform](https://www.op
 #### KFServing with Kubeflow Installation
 KFServing is installed by default as part of Kubeflow installation using [Kubeflow manifests](https://github.com/kubeflow/manifests/tree/master/kfserving) and KFServing controller is deployed in `kubeflow` namespace.
 Since Kubeflow Kubernetes minimal requirement is 1.14 which does not support object selector, `ENABLE_WEBHOOK_NAMESPACE_SELECTOR` is enabled in Kubeflow installation by default.
-If you are using Kubeflow dashboard or [profile controller](https://www.kubeflow.org/docs/components/multi-tenancy/getting-started/#manual-profile-creation) to create  user namespaces, labels are automatically added to enable KFServing to deploy models. 
+If you are using Kubeflow dashboard or [profile controller](https://www.kubeflow.org/docs/components/multi-tenancy/getting-started/#manual-profile-creation) to create  user namespaces, labels are automatically added to enable KFServing to deploy models.
 If you are creating namespaces manually using Kubernetes apis directly, you will need to add label `serving.kubeflow.org/inferenceservice: enabled` to allow deploying KFServing `InferenceService` in the given namespaces, and do ensure you do not deploy
 `InferenceService` in `kubeflow` namespace which is labelled as `control-plane`.
 
