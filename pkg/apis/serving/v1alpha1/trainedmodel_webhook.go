@@ -29,9 +29,10 @@ import (
 
 // regular expressions for validation of isvc name
 const (
-	CommaSeparator                      = ", "
-	TmNameFmt                    string = "[a-z]([-a-z0-9]*[a-z0-9])?"
-	StorageUriFmt                string = "(([a-z]([-a-z0-9]*[a-z0-9])?/))*([a-z]([-a-z0-9]*[a-z0-9]))"
+	CommaSpaceSeparator                 = ", "
+	AlphaNumericDash                    = "[a-z]([-a-z0-9]*[a-z0-9])"
+	TmNameFmt                    string = AlphaNumericDash + "?"
+	StorageUriFmt                string = "(" + AlphaNumericDash + "/)?)*(" + AlphaNumericDash + ")"
 	InvalidTmNameFormatError            = "the Trained Model \"%s\" is invalid: a Trained Model name must consist of lower case alphanumeric characters or '-', and must start with alphabetical character. (e.g. \"my-name\" or \"abc-123\", regex used for validation is '%s')"
 	InvalidStorageUriFormatError        = "the Trained Model \"%s\" storageUri field is invalid. The storage uri must have the prefix %s and consist of lower case alphanumeric characters or '-' or '/', and must start with alphabetical character. (the storage uri given is \"%s\", regex used for validation is '%s')"
 	InvalidTmMemoryModification         = "the Trained Model \"%s\" memory field is immutable. The memory was \"%s\" but it is updated to \"%s\""
@@ -43,7 +44,7 @@ var (
 	// regular expressions for validation of tm name
 	TmRegexp = regexp.MustCompile("^" + TmNameFmt + "$")
 	// protocols that are accepted by storage uri
-	StorageUriProtocols = strings.Join(storage.GetAllProtocol(), CommaSeparator)
+	StorageUriProtocols = strings.Join(storage.GetAllProtocol(), CommaSpaceSeparator)
 	// prefix allowed in storage uri
 	StorageUriPrefixes = "(" + strings.Join(storage.GetAllProtocol(), "|") + ")"
 	// regular expression for validation of storageURI
