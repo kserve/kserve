@@ -18,19 +18,22 @@ package v1alpha1
 
 import (
 	"fmt"
+	"github.com/kubeflow/kfserving/pkg/agent/storage"
 	"github.com/kubeflow/kfserving/pkg/utils"
 	"k8s.io/apimachinery/pkg/runtime"
 	"regexp"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"strings"
 )
 
 // regular expressions for validation of isvc name
 const (
+	CommaSeparator                      = ", "
 	TmNameFmt                    string = "[a-z]([-a-z0-9]*[a-z0-9])?"
-	StorageUriFmt                string = "(gs|s3)://(([a-z]([-a-z0-9]*[a-z0-9])?/))*([a-z]([-a-z0-9]*[a-z0-9]))"
+	StorageUriFmt                string = "(([a-z]([-a-z0-9]*[a-z0-9])?/))*([a-z]([-a-z0-9]*[a-z0-9]))"
 	InvalidTmNameFormatError            = "the Trained Model \"%s\" is invalid: a Trained Model name must consist of lower case alphanumeric characters or '-', and must start with alphabetical character. (e.g. \"my-name\" or \"abc-123\", regex used for validation is '%s')"
-	InvalidStorageUriFormatError        = "the Trained Model \"%s\" storageUri field is invalid. The storage uri must have the prefix gs:// or s3:// and consist of lower case alphanumeric characters or '-' or '/', and must start with alphabetical character. (the storage uri given is \"%s\", regex used for validation is '%s')"
+	InvalidStorageUriFormatError        = "the Trained Model \"%s\" storageUri field is invalid. The storage uri must have the prefix %s and consist of lower case alphanumeric characters or '-' or '/', and must start with alphabetical character. (the storage uri given is \"%s\", regex used for validation is '%s')"
 	InvalidTmMemoryModification         = "the Trained Model \"%s\" memory field is immutable. The memory was \"%s\" but it is updated to \"%s\""
 )
 
@@ -39,8 +42,12 @@ var (
 	tmLogger = logf.Log.WithName("trainedmodel-alpha1-validator")
 	// regular expressions for validation of tm name
 	TmRegexp = regexp.MustCompile("^" + TmNameFmt + "$")
+	// protocols that are accepted by storage uri
+	StorageUriProtocols = strings.Join(storage.GetAllProtocol(), CommaSeparator)
+	// prefix allowed in storage uri
+	StorageUriPrefixes = "(" + strings.Join(storage.GetAllProtocol(), "|") + ")"
 	// regular expression for validation of storageURI
-	StorageUriRegex = regexp.MustCompile("^" + StorageUriFmt + "$")
+	StorageUriRegex = regexp.MustCompile("^" + StorageUriPrefixes + StorageUriFmt + "$")
 )
 
 // +kubebuilder:webhook:verbs=create;update,path=/validate-trainedmodel,mutating=false,failurePolicy=fail,groups=serving.kubeflow.org,resources=trainedmodels,versions=v1alpha1,name=trainedmodel.kfserving-webhook-server.validator
@@ -107,7 +114,7 @@ func (tm *TrainedModel) validateTrainedModelName() error {
 // Validates TrainModel's storageURI
 func (tm *TrainedModel) validateStorageURI() error {
 	if !StorageUriRegex.MatchString(tm.Spec.Model.StorageURI) {
-		return fmt.Errorf(InvalidStorageUriFormatError, tm.Name, tm.Spec.Model.StorageURI, StorageUriRegex)
+		return fmt.Errorf(InvalidStorageUriFormatError, tm.Name, StorageUriProtocols, tm.Spec.Model.StorageURI, StorageUriRegex)
 	}
 	return nil
 }
