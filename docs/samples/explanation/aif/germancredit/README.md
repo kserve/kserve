@@ -1,6 +1,12 @@
 # Bias detection on a InferenceService using aif360
 
-## Create the InferenceService
+## End-to-end bias detection with german-credit dataset
+
+This is an example of how to get bias metrics using AI Fairness 360 (AIF360) on KFServing. We will be using the German Credit dataset maintained by the [UC Irvine Machine Learning Repository](https://archive.ics.uci.edu/ml/index.php). The German Credit dataset is a dataset that contains data as to whether or not a creditor gave a loan applicant access to a loan along with data about the applicant. The data includes relevant data on an applicant's credit history, savings, and employment as well as some data on the applicant's demographic such as age, sex, and marital status. Data like credit history, savings, and employment can be used by creditors to accurately predict the probability that an applicant will repay their loans, however, data such as age and sex should not be used to decide whether an applicant should be given a loan. 
+
+We would like to be able to check if these "protected classes" are being used in a model's predictions. In this example we will feed the model some predictions and calculate metrics based off of the predictions the model makes. These metrics will give insight as to whether or not the model is biased for or against any protected classes. In this example we will look at the bias our deployed model has on those of age > 25 vs. those of age <= 25 and see if creditors are treating either unfairly.
+
+### Create the InferenceService
 
 Apply the CRD
 
@@ -38,21 +44,38 @@ SERVICE_HOSTNAME=$(kubectl get inferenceservice ${MODEL_NAME} -o jsonpath='{.sta
 python simulate_predicts.py http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/$MODEL_NAME:predict ${SERVICE_HOSTNAME}
 ```
 
-### Run a bias detection
+### Create a payload from the logs
+
+Run `json_from_logs.py` which will craft a payload that AIF can interpret. First, the events logs are taken from the message-dumper and then those logs are parsed to match inputs with outputs. Then the input/outputs pairs are all combined into a list of inputs and a list of outputs for AIF to interpret. A `data.json` file should have been created in this folder which contains the json payload.
 
 ```
-python query_bias.py http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/$MODEL_NAME:explain ${SERVICE_HOSTNAME}
+python json_from_logs.py
 ```
 
-### Expected output
+### Run an explanation
+
+Finally, now that we have collected a number of our model's predictions and their corresponding inputs we will send these to the AIF server to calculate the bias metrics.
 
 ```
-bash-3.2$ python3 query_bias.py http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/$MODEL_NAME:explain ${SERVICE_HOSTNAME}
-Collecting logs...
+python query_bias.py http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/$MODEL_NAME:explain ${SERVICE_HOSTNAME} data.json
+```
+
+### Interpreting the results
+
+Now lets look at one of the metrics. In this example disparate impact represents the ratio between the probability of applicants of the privileged class (age > 25) getting a loan and the probability of applicants of the unprivileged class (age <= 25) getting a loan `P(Y=1|D=privileged)/P(Y=1|D=unprivileged)`. Since the disparate impact is less that 1 then the probability that an applicant whose age is greater than 25 gets a loan is significantly higher than the probability that an applicant whose age is less than or equal to 25 gets a loan. This in and of itself does not mean the model is based, but does hint that there might be some bias inherent in the model.
+
+```
+bash-3.2$ python query_bias.py http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/$MODEL_NAME:explain ${SERVICE_HOSTNAME} data.json
 Sending bias query...
-TIME TAKEN:  0.21054291725158691
+TIME TAKEN:  0.21137404441833496
 <Response [200]>
-{'predictions': [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 2.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 2.0, 1.0, 2.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 2.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 2.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 2.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 2.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 2.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 2.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0], 'metrics': {'base_rate': 0.9497206703910615, 'consistency': [0.9653631284916201], 'disparate_impact': 0.64, 'num_instances': 179.0, 'num_negatives': 9.0, 'num_positives': 170.0, 'statistical_parity_difference': -0.36}}
+base_rate :  0.9329608938547486
+consistency :  [0.982122905027933]
+disparate_impact :  0.52
+num_instances :  179.0
+num_negatives :  12.0
+num_positives :  167.0
+statistical_parity_difference :  -0.48
 ```
 
 # Dataset
