@@ -75,7 +75,7 @@ and [model health check](https://github.com/kubeflow/kfserving/blob/master/docs/
 then it can use KFServing's TrainedModel. 
 Currently, Triton, LightGBM, SKLearn, and XGBoost are able to use Multi-model serving. 
 Click on [Triton](https://github.com/kubeflow/kfserving/tree/master/docs/samples/v1beta1/triton/multimodel) 
-or [SKLearn](https://github.com/kubeflow/kfserving/tree/master/docs/samples/v1beta1/sklearn/multimodel) 
+or [SKLearn](https://github.com/kubeflow/kfserving/tree/master/docs/samples/v1beta1/sklearn/v1/multimodel) 
 to see examples on how to run multi-model serving!
 
 Remember to set the respective model server's `multiModelServer` flag in `inferenceservice.yaml` to true to enable the experimental feature.
