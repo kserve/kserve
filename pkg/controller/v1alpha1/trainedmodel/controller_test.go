@@ -89,7 +89,17 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			Conditions: duckv1.Conditions{
 				{
 					Type:               knservingv1.ServiceConditionReady,
-					Status:             "True",
+					Status:             v1.ConditionTrue,
+					LastTransitionTime: apis.VolatileTime{Inner: metav1.NewTime(time.Now())},
+				},
+				{
+					Type:               v1beta1.PredictorReady,
+					Status:             v1.ConditionTrue,
+					LastTransitionTime: apis.VolatileTime{Inner: metav1.NewTime(time.Now())},
+				},
+				{
+					Type:               v1beta1.IngressReady,
+					Status:             v1.ConditionTrue,
 					LastTransitionTime: apis.VolatileTime{Inner: metav1.NewTime(time.Now())},
 				},
 			},
