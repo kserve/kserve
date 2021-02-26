@@ -68,6 +68,7 @@ func (ss *TrainedModelStatus) GetCondition(t apis.ConditionType) *apis.Condition
 func (ss *TrainedModelStatus) IsConditionReady(t apis.ConditionType) bool {
 	return conditionSet.Manage(ss).GetCondition(t) != nil && conditionSet.Manage(ss).GetCondition(t).Status == v1.ConditionTrue
 }
+
 func (ss *TrainedModelStatus) SetCondition(conditionType apis.ConditionType, condition *apis.Condition) {
 	switch {
 	case condition == nil:
