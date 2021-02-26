@@ -120,14 +120,21 @@ func validateStorageURI(storageURI *string) error {
 			return nil
 		}
 	} else {
-		for _, prefix := range SupportedStorageURIPrefixList {
-			if strings.HasPrefix(*storageURI, prefix) {
-				return nil
-			}
+		if IsPrefixStorageURISupported(*storageURI, SupportedStorageURIPrefixList) {
+			return nil
 		}
 	}
 
 	return fmt.Errorf(UnsupportedStorageURIFormatError, strings.Join(SupportedStorageURIPrefixList, ", "), *storageURI)
+}
+
+func IsPrefixStorageURISupported(storageURI string, supportedStorageURIPrefixes []string) bool {
+	for _, prefix := range supportedStorageURIPrefixes {
+		if strings.HasPrefix(storageURI, prefix) {
+			return true
+		}
+	}
+	return false
 }
 
 func validateReplicas(minReplicas *int, maxReplicas int) error {
