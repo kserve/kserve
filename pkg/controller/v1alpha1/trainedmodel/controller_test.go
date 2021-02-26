@@ -80,12 +80,12 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
                "ingressService": "test-destination"
             }`,
 		}
-		namespace        = "default"
-		storageUri       = "s3//model1"
-		framework        = "pytorch"
-		memory, _        = resource.ParseQuantity("1G")
-		shardId          = 0
-		statusConditions = duckv1.Status{
+		namespace       = "default"
+		storageUri      = "s3//model1"
+		framework       = "pytorch"
+		memory, _       = resource.ParseQuantity("1G")
+		shardId         = 0
+		readyConditions = duckv1.Status{
 			Conditions: duckv1.Conditions{
 				{
 					Type:               knservingv1.ServiceConditionReady,
@@ -262,7 +262,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 				return true
 			}, timeout, interval).Should(BeTrue())
 
-			inferenceService.Status.Status = statusConditions
+			inferenceService.Status.Status = readyConditions
 			Expect(k8sClient.Status().Update(context.TODO(), inferenceService)).To(BeNil())
 
 			// Create modelConfig
@@ -378,7 +378,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			inferenceService.Status.Address = &duckv1.Addressable{
 				URL: clusterURL,
 			}
-			inferenceService.Status.Status = statusConditions
+			inferenceService.Status.Status = readyConditions
 			Expect(k8sClient.Status().Update(context.TODO(), inferenceService)).To(BeNil())
 
 			tmInstance := &v1alpha1api.TrainedModel{
@@ -413,6 +413,12 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 				if err := k8sClient.Get(context.TODO(), tmKey, tmInstanceUpdate); err != nil {
 					return false
 				}
+
+				// Condition for inferenceserviceready should be true
+				if !tmInstanceUpdate.Status.IsConditionReady(v1alpha1api.InferenceServiceReady) {
+					return false
+				}
+
 				if len(tmInstanceUpdate.Finalizers) > 0 {
 					if tmInstanceUpdate.Status.Address != nil {
 						return tmInstanceUpdate.Status.Address.URL != nil && tmInstanceUpdate.Status.URL != nil
@@ -510,7 +516,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 				return true
 			}, timeout, interval).Should(BeTrue())
 
-			inferenceService.Status.Status = statusConditions
+			inferenceService.Status.Status = readyConditions
 			Expect(k8sClient.Status().Update(context.TODO(), inferenceService)).To(BeNil())
 
 			tmInstance := &v1alpha1api.TrainedModel{
