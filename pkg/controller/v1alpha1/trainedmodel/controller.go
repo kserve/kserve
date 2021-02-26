@@ -87,7 +87,7 @@ func (r *TrainedModelReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 
 	if err := r.updateConditions(req, tm); err != nil {
-		return reconcile.Result{}, nil
+		return reconcile.Result{}, err
 	}
 
 	// Add parent InferenceService's name to TrainedModel's label
@@ -222,17 +222,13 @@ func (r *TrainedModelReconciler) updateConditions(req ctrl.Request, tm *v1alpha1
 			Message: "Inference Service needs to be ready before Trained Model can be ready",
 		})
 
-		conditionErr = utils.FirstNonNilError([]error{
-			conditionErr,
-			fmt.Errorf(InferenceServiceNotReady, isvc.Name, tm.Name),
-		})
+		conditionErr = fmt.Errorf(InferenceServiceNotReady, isvc.Name, tm.Name)
 	}
 
-	if conditionErr != nil {
-		if statusErr := r.Status().Update(context.TODO(), tm); statusErr != nil {
-			r.Recorder.Eventf(tm, v1.EventTypeWarning, "UpdateFailed",
-				"Failed to update status for TrainedModel %q: %v", tm.Name, conditionErr)
-		}
+	if statusErr := r.Status().Update(context.TODO(), tm); statusErr != nil {
+		r.Log.Error(statusErr, "Failed to update TrainedModel condition", "TrainedModel", tm.Name)
+		r.Recorder.Eventf(tm, v1.EventTypeWarning, "UpdateFailed",
+			"Failed to update conditions for TrainedModel %q: %v", tm.Name, statusErr)
 	}
 
 	return conditionErr
