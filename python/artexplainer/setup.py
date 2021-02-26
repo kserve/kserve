@@ -32,7 +32,7 @@ setup(
     python_requires='>3.7',
     packages=find_packages("artserver"),
     install_requires=[
-        "kfserving>=0.5.0",
+        "kfserving>=0.5.1",
         "argparse >= 1.4.0",
         "numpy >= 1.8.2",
         "adversarial-robustness-toolbox[keras] == 1.4.1",

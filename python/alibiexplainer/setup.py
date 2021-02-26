@@ -32,7 +32,7 @@ setup(
     python_requires='>=3.6',
     packages=find_packages("alibiexplainer"),
     install_requires=[
-        "kfserving>=0.5.0",
+        "kfserving>=0.5.1",
         "pandas>=0.24.2",
         "nest_asyncio>=1.4.0",
         "alibi==0.5.5",
