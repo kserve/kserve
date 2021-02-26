@@ -98,14 +98,7 @@ func TestValidateCreate(t *testing.T) {
 			update: map[string]string{
 				storageURI: "https://kfserving/sklearn/iris",
 			},
-			matcher: gomega.MatchError(fmt.Errorf(InvalidStorageUriFormatError, "bar", StorageUriProtocols, "https://kfserving/sklearn/iris", StorageUriRegex)),
-		},
-		"invalid storageURI path": {
-			tm: makeTestTrainModel(),
-			update: map[string]string{
-				storageURI: "gs://kfserving/sklearn//iris",
-			},
-			matcher: gomega.MatchError(fmt.Errorf(InvalidStorageUriFormatError, "bar", StorageUriProtocols, "gs://kfserving/sklearn//iris", StorageUriRegex)),
+			matcher: gomega.MatchError(fmt.Errorf(InvalidStorageUriFormatError, "bar", StorageUriProtocols, "https://kfserving/sklearn/iris")),
 		},
 	}
 
@@ -199,14 +192,7 @@ func TestValidateUpdate(t *testing.T) {
 			update: map[string]string{
 				storageURI: "https://kfserving/sklearn/iris",
 			},
-			matcher: gomega.MatchError(fmt.Errorf(InvalidStorageUriFormatError, "bar", StorageUriProtocols, "https://kfserving/sklearn/iris", StorageUriRegex)),
-		},
-		"invalid storageURI path": {
-			tm: makeTestTrainModel(),
-			update: map[string]string{
-				storageURI: "gs://kfserving/sklearn//iris",
-			},
-			matcher: gomega.MatchError(fmt.Errorf(InvalidStorageUriFormatError, "bar", StorageUriProtocols, "gs://kfserving/sklearn//iris", StorageUriRegex)),
+			matcher: gomega.MatchError(fmt.Errorf(InvalidStorageUriFormatError, "bar", StorageUriProtocols, "https://kfserving/sklearn/iris")),
 		},
 		"framework": {
 			tm: makeTestTrainModel(),
