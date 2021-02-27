@@ -18,6 +18,7 @@ package trainedmodel
 
 import (
 	"context"
+	"k8s.io/client-go/tools/record"
 	"path/filepath"
 	"testing"
 
@@ -102,6 +103,7 @@ var _ = BeforeSuite(func(done Done) {
 		Client:                k8sManager.GetClient(),
 		Scheme:                scheme.Scheme,
 		Log:                   ctrl.Log.WithName("v1beta1TrainedModelController"),
+		Recorder:              record.NewBroadcaster().NewRecorder(scheme.Scheme, v1.EventSource{Component: "v1betaController"}),
 		ModelConfigReconciler: modelconfig.NewModelConfigReconciler(k8sManager.GetClient(), scheme.Scheme),
 	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
