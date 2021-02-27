@@ -26,7 +26,7 @@ AWS_REGION="${AWS_REGION}"
 ISTIO_VERSION="1.7.1"
 KNATIVE_VERSION="v0.20.0"
 KUBECTL_VERSION="v1.20.0"
-CERT_MANAGER_VERSION="v1.1.0"
+CERT_MANAGER_VERSION="v0.12.0"
 
 echo "Upgrading kubectl ..."
 wget -q -O /usr/local/bin/kubectl https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl
