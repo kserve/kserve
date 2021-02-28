@@ -417,3 +417,56 @@ func TestONNXRuntimeIsMMS(t *testing.T) {
 		}
 	}
 }
+
+func TestONNXRuntimeIsFrameworkSupported(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	onnx := "onnx"
+	unsupportedFramework := "framework"
+
+	config := InferenceServicesConfig{
+		Predictors: PredictorsConfig{
+			ONNX: PredictorConfig{
+				ContainerImage:      "onnxruntime",
+				SupportedFrameworks: []string{onnx},
+			},
+		},
+	}
+	defaultResource = v1.ResourceList{
+		v1.ResourceCPU:    resource.MustParse("1"),
+		v1.ResourceMemory: resource.MustParse("2Gi"),
+	}
+	scenarios := map[string]struct {
+		spec      PredictorSpec
+		framework string
+		expected  bool
+	}{
+		"SupportedFramework": {
+			spec: PredictorSpec{
+				ONNX: &ONNXRuntimeSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{},
+				},
+			},
+			framework: onnx,
+			expected:  true,
+		},
+		"UnsupportedFramework": {
+			spec: PredictorSpec{
+				ONNX: &ONNXRuntimeSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{},
+				},
+			},
+			framework: unsupportedFramework,
+			expected:  false,
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			scenario.spec.ONNX.Default(&config)
+			res := scenario.spec.ONNX.IsFrameworkSupported(scenario.framework, &config)
+			if !g.Expect(res).To(gomega.Equal(scenario.expected)) {
+				t.Errorf("got %t, want %t", res, scenario.expected)
+			}
+		})
+	}
+}

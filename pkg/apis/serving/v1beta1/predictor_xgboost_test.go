@@ -668,3 +668,93 @@ func TestXGBoostIsMMS(t *testing.T) {
 		}
 	}
 }
+
+func TestXGBoostIsFrameworkSupported(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	xgboost := "xgboost"
+	unsupportedFramework := "framework"
+	config := InferenceServicesConfig{
+		Predictors: PredictorsConfig{
+			XGBoost: PredictorProtocols{
+				V1: &PredictorConfig{
+					ContainerImage:      "xgboost",
+					DefaultImageVersion: "latest",
+					SupportedFrameworks: []string{xgboost},
+				},
+				V2: &PredictorConfig{
+					ContainerImage:      "mlserver",
+					DefaultImageVersion: "0.1.2",
+					SupportedFrameworks: []string{xgboost},
+				},
+			},
+		},
+	}
+
+	protocolV1 := constants.ProtocolV1
+	protocolV2 := constants.ProtocolV2
+
+	defaultResource = v1.ResourceList{
+		v1.ResourceCPU:    resource.MustParse("1"),
+		v1.ResourceMemory: resource.MustParse("2Gi"),
+	}
+	scenarios := map[string]struct {
+		spec      PredictorSpec
+		framework string
+		expected  bool
+	}{
+		"SupportedFrameworkV1": {
+			spec: PredictorSpec{
+				XGBoost: &XGBoostSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						ProtocolVersion: &protocolV1,
+					},
+				},
+			},
+			framework: xgboost,
+			expected:  true,
+		},
+		"SupportedFrameworkV2": {
+			spec: PredictorSpec{
+				XGBoost: &XGBoostSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						ProtocolVersion: &protocolV2,
+					},
+				},
+			},
+			framework: xgboost,
+			expected:  true,
+		},
+		"UnsupportedFrameworkV1": {
+			spec: PredictorSpec{
+				XGBoost: &XGBoostSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						ProtocolVersion: &protocolV1,
+					},
+				},
+			},
+			framework: unsupportedFramework,
+			expected:  false,
+		},
+		"UnsupportedFrameworkV2": {
+			spec: PredictorSpec{
+				XGBoost: &XGBoostSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						ProtocolVersion: &protocolV2,
+					},
+				},
+			},
+			framework: unsupportedFramework,
+			expected:  false,
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			scenario.spec.XGBoost.Default(&config)
+			res := scenario.spec.XGBoost.IsFrameworkSupported(scenario.framework, &config)
+			if !g.Expect(res).To(gomega.Equal(scenario.expected)) {
+				t.Errorf("got %t, want %t", res, scenario.expected)
+			}
+		})
+	}
+}

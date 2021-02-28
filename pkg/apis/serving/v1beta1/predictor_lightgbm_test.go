@@ -406,3 +406,56 @@ func TestLightGBMIsMMS(t *testing.T) {
 		}
 	}
 }
+
+func TestLightGBMIsFrameworkSupported(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	lightbgm := "lightbgm"
+	unsupportedFramework := "framework"
+	config := InferenceServicesConfig{
+		Predictors: PredictorsConfig{
+			LightGBM: PredictorConfig{
+				ContainerImage:      "lightgbm",
+				DefaultImageVersion: "v0.4.0",
+				SupportedFrameworks: []string{"lightbgm"},
+			},
+		},
+	}
+	defaultResource = v1.ResourceList{
+		v1.ResourceCPU:    resource.MustParse("1"),
+		v1.ResourceMemory: resource.MustParse("2Gi"),
+	}
+	scenarios := map[string]struct {
+		spec      PredictorSpec
+		framework string
+		expected  bool
+	}{
+		"SupportedFramework": {
+			spec: PredictorSpec{
+				LightGBM: &LightGBMSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{},
+				},
+			},
+			framework: lightbgm,
+			expected:  true,
+		},
+		"UnsupportedFramework": {
+			spec: PredictorSpec{
+				LightGBM: &LightGBMSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{},
+				},
+			},
+			framework: unsupportedFramework,
+			expected:  false,
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			scenario.spec.LightGBM.Default(&config)
+			res := scenario.spec.LightGBM.IsFrameworkSupported(scenario.framework, &config)
+			if !g.Expect(res).To(gomega.Equal(scenario.expected)) {
+				t.Errorf("got %t, want %t", res, scenario.expected)
+			}
+		})
+	}
+}

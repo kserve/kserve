@@ -632,3 +632,97 @@ func TestTorchServeIsMMS(t *testing.T) {
 		}
 	}
 }
+
+func TestTorchServeIsFrameworkSupported(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	pytorch := "pytorch"
+	unsupportedFramework := "framework"
+	config := InferenceServicesConfig{
+		Predictors: PredictorsConfig{
+			PyTorch: PredictorProtocols{
+				V1: &PredictorConfig{
+					ContainerImage:      "pytorchserver",
+					DefaultImageVersion: "latest",
+					SupportedFrameworks: []string{pytorch},
+				},
+				V2: &PredictorConfig{
+					ContainerImage:      "kfserving/torchserve-kfs",
+					DefaultImageVersion: "0.3.0",
+					SupportedFrameworks: []string{pytorch},
+				},
+			},
+		},
+	}
+
+	protocolV1 := constants.ProtocolV1
+	protocolV2 := constants.ProtocolV2
+
+	defaultResource = v1.ResourceList{
+		v1.ResourceCPU:    resource.MustParse("1"),
+		v1.ResourceMemory: resource.MustParse("2Gi"),
+	}
+	scenarios := map[string]struct {
+		spec      PredictorSpec
+		framework string
+		expected  bool
+	}{
+		"SupportedFrameworkV1": {
+			spec: PredictorSpec{
+				PyTorch: &TorchServeSpec{
+					ModelClassName: "PyTorchModel",
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						ProtocolVersion: &protocolV1,
+					},
+				},
+			},
+			framework: pytorch,
+			expected:  true,
+		},
+		"SupportedFrameworkV2": {
+			spec: PredictorSpec{
+				PyTorch: &TorchServeSpec{
+					ModelClassName: "PyTorchModel",
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						ProtocolVersion: &protocolV2,
+					},
+				},
+			},
+			framework: pytorch,
+			expected:  true,
+		},
+		"UnsupportedFrameworkV1": {
+			spec: PredictorSpec{
+				PyTorch: &TorchServeSpec{
+					ModelClassName: "PyTorchModel",
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						ProtocolVersion: &protocolV1,
+					},
+				},
+			},
+			framework: unsupportedFramework,
+			expected:  false,
+		},
+		"UnsupportedFrameworkV2": {
+			spec: PredictorSpec{
+				PyTorch: &TorchServeSpec{
+					ModelClassName: "PyTorchModel",
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						ProtocolVersion: &protocolV2,
+					},
+				},
+			},
+			framework: unsupportedFramework,
+			expected:  false,
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			scenario.spec.PyTorch.Default(&config)
+			res := scenario.spec.PyTorch.IsFrameworkSupported(scenario.framework, &config)
+			if !g.Expect(res).To(gomega.Equal(scenario.expected)) {
+				t.Errorf("got %t, want %t", res, scenario.expected)
+			}
+		})
+	}
+}
