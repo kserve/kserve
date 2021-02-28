@@ -40,7 +40,10 @@ type ONNXRuntimeSpec struct {
 	PredictorExtensionSpec `json:",inline"`
 }
 
-var _ ComponentImplementation = &ONNXRuntimeSpec{}
+var (
+	_ ComponentImplementation = &ONNXRuntimeSpec{}
+	_ PredictorImplementation = &ONNXRuntimeSpec{}
+)
 
 // Validate returns an error if invalid
 func (o *ONNXRuntimeSpec) Validate() error {
@@ -98,4 +101,10 @@ func (o *ONNXRuntimeSpec) GetProtocol() constants.InferenceServiceProtocol {
 
 func (o *ONNXRuntimeSpec) IsMMS(config *InferenceServicesConfig) bool {
 	return config.Predictors.ONNX.MultiModelServer
+}
+
+func (o *ONNXRuntimeSpec) IsFrameworkSupported(framework string, config *InferenceServicesConfig) bool {
+	predictorConfig := config.Predictors.ONNX
+	supportedFrameworks := predictorConfig.SupportedFrameworks
+	return isFrameworkIncluded(supportedFrameworks, framework)
 }

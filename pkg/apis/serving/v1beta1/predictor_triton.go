@@ -37,7 +37,10 @@ type TritonSpec struct {
 	PredictorExtensionSpec `json:",inline"`
 }
 
-var _ ComponentImplementation = &TritonSpec{}
+var (
+	_ ComponentImplementation = &TritonSpec{}
+	_ PredictorImplementation = &TritonSpec{}
+)
 
 // Validate returns an error if invalid
 func (t *TritonSpec) Validate() error {
@@ -91,4 +94,10 @@ func (t *TritonSpec) GetProtocol() constants.InferenceServiceProtocol {
 
 func (t *TritonSpec) IsMMS(config *InferenceServicesConfig) bool {
 	return config.Predictors.Triton.MultiModelServer
+}
+
+func (t *TritonSpec) IsFrameworkSupported(framework string, config *InferenceServicesConfig) bool {
+	predictorConfig := config.Predictors.Triton
+	supportedFrameworks := predictorConfig.SupportedFrameworks
+	return isFrameworkIncluded(supportedFrameworks, framework)
 }

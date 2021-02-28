@@ -33,7 +33,10 @@ type LightGBMSpec struct {
 	PredictorExtensionSpec `json:",inline"`
 }
 
-var _ ComponentImplementation = &LightGBMSpec{}
+var (
+	_ ComponentImplementation = &LightGBMSpec{}
+	_ PredictorImplementation = &LightGBMSpec{}
+)
 
 // Validate returns an error if invalid
 func (x *LightGBMSpec) Validate() error {
@@ -85,4 +88,10 @@ func (x *LightGBMSpec) GetProtocol() constants.InferenceServiceProtocol {
 
 func (x *LightGBMSpec) IsMMS(config *InferenceServicesConfig) bool {
 	return config.Predictors.LightGBM.MultiModelServer
+}
+
+func (x *LightGBMSpec) IsFrameworkSupported(framework string, config *InferenceServicesConfig) bool {
+	predictorConfig := config.Predictors.LightGBM
+	supportedFrameworks := predictorConfig.SupportedFrameworks
+	return isFrameworkIncluded(supportedFrameworks, framework)
 }

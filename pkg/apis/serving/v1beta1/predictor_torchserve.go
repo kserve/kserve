@@ -45,7 +45,10 @@ type TorchServeSpec struct {
 	PredictorExtensionSpec `json:",inline"`
 }
 
-var _ ComponentImplementation = &TorchServeSpec{}
+var (
+	_ ComponentImplementation = &TorchServeSpec{}
+	_ PredictorImplementation = &TorchServeSpec{}
+)
 
 // Validate returns an error if invalid
 func (t *TorchServeSpec) Validate() error {
@@ -166,10 +169,21 @@ func (t *TorchServeSpec) GetProtocol() constants.InferenceServiceProtocol {
 }
 
 func (t *TorchServeSpec) IsMMS(config *InferenceServicesConfig) bool {
-	if t.GetProtocol() == constants.ProtocolV1 {
-		return config.Predictors.PyTorch.V1.MultiModelServer
-	} else if t.GetProtocol() == constants.ProtocolV2 {
-		return config.Predictors.PyTorch.V2.MultiModelServer
+	predictorConfig := t.getPredictorConfig(config)
+	return predictorConfig.MultiModelServer
+}
+
+func (t *TorchServeSpec) IsFrameworkSupported(framework string, config *InferenceServicesConfig) bool {
+	predictorConfig := t.getPredictorConfig(config)
+	supportedFrameworks := predictorConfig.SupportedFrameworks
+	return isFrameworkIncluded(supportedFrameworks, framework)
+}
+
+func (t *TorchServeSpec) getPredictorConfig(config *InferenceServicesConfig) *PredictorConfig {
+	protocol := t.GetProtocol()
+	if protocol == constants.ProtocolV1 {
+		return config.Predictors.PyTorch.V1
+	} else {
+		return config.Predictors.PyTorch.V2
 	}
-	return false
 }
