@@ -16,12 +16,7 @@ predictor currently you would need to overwrite the `predict` handler to make th
 To implement a `Transformer` you can derive from the base `KFModel` class and then overwrite the `preprocess` and `postprocess` handler to have your own
 customized transformation logic.
 
-`KFServing.KFModel` base class mainly defines three handlers `preprocess`, `predict` and `postprocess`, these handlers are executed
-in sequence, the output of the `preprocess` is passed to `predict` as the input, when `predictor_host` is passed the `predict` handler by default makes a HTTP call to the predictor host and gets back
-a response which then passes to `postproces` handler.
-
-For Transformer you can derive from the base `KFModel` class and then overwrite the `preprocess` and `postprocess` handler to have your own
-customized transformation logic.
+### Extend KFModel and implement pre/post processing functions
 
 ```python
 import kfserving
@@ -148,7 +143,10 @@ Handling connection for 8080
 KFServing by default deploys the Transformer and Predictor as separate services so you can deploy them on different devices and scale independently, however in some cases
 if you transformer is tightly coupled with the predictor and you want to do canary together you can choose to colocate the transformer and predictor in the same pod.
 
-This requires Knative 0.17+ which supports multi containers
+This requires Knative 0.17+ which supports multi containers and transformer, predictor needs to listen on different port to avoid conflicts because
+they are collocated in the same pod now. `Transformer` is configured to listen on port 8000 and `Predictor` listens on port 8080, `Transformer` calls
+`Predictor` on port 8080 via local socket. 
+
 ```yaml
 apiVersion: serving.kubeflow.org/v1beta1
 kind: InferenceService

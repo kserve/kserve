@@ -330,7 +330,7 @@ func TestStorageInitializerFailureCases(t *testing.T) {
 					},
 				},
 			},
-			expectedErrorPrefix: "Invalid configuration: cannot find container",
+			expectedErrorPrefix: StorageInitializerInjectionError,
 		},
 	}
 

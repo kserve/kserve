@@ -68,7 +68,7 @@ spec:
             address:
               properties:
                 url:
-                  type: Any
+                  type: string
               type: object
             annotations:
               additionalProperties:
@@ -78,7 +78,7 @@ spec:
               items:
                 properties:
                   lastTransitionTime:
-                    type: Any
+                    type: string
                   message:
                     type: string
                   reason:
@@ -98,7 +98,7 @@ spec:
               format: int64
               type: integer
             url:
-              type: Any
+              type: string
           type: object
       type: object
   version: v1alpha1
@@ -110,5 +110,5 @@ status:
   acceptedNames:
     kind: ""
     plural: ""
-  conditions: null
-  storedVersions: null
+  conditions: []
+  storedVersions: []

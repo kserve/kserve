@@ -34,6 +34,7 @@ const (
 	PvcURIPrefix                            = "pvc://"
 	PvcSourceMountName                      = "kfserving-pvc-source"
 	PvcSourceMountPath                      = "/mnt/pvc"
+	StorageInitializerInjectionError        = "Invalid configuration: cannot find model server container or STORAGE_URI env"
 )
 
 type StorageInitializerConfig struct {
@@ -98,6 +99,10 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 	// Find the containers with storage URI
 	var userContainers []*v1.Container
 	for _, container := range pod.Spec.Containers {
+		if strings.Compare(container.Name, constants.InferenceServiceContainerName) == 0 {
+			userContainers = append(userContainers, &container)
+			continue
+		}
 		for _, env := range container.Env {
 			if strings.Compare(env.Name, constants.CustomSpecStorageUriEnvVarKey) == 0 {
 				userContainers = append(userContainers, &container)
@@ -106,7 +111,7 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 	}
 
 	if len(userContainers) == 0 {
-		return fmt.Errorf("Invalid configuration: cannot find storage uri")
+		return fmt.Errorf(StorageInitializerInjectionError)
 	}
 
 	podVolumes := []v1.Volume{}
