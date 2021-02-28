@@ -85,7 +85,7 @@ class ImageTransformer(kfserving.KFModel):
         """
         return {'instances': [image_transform(instance) for instance in inputs['instances']]}
 
-    def postprocess(self, inputs: List) -> List:
+    def postprocess(self, inputs: Dict) -> Dict:
         """Post process function of Torchserve on the KFServing side is 
         written here.
 

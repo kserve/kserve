@@ -157,6 +157,21 @@ metadata:
 spec:
   predictor:
     containers:
+    - image: kfserving/torchserve-image-transformer:latest
+      name: transformer-container
+      args:
+        - --model_name
+        - mnist
+        - --http_port
+        - "8000"
+        - --predictor_host
+        - localhost:8080
+      ports:
+        - containerPort: 8000
+          protocol: TCP
+      env:
+        - name: STORAGE_URI
+          value: gs://kfserving-examples/models/torchserve/image_classifier
     - image: kfserving/torchserve-kfs:0.3.0
       name: kfserving-container
       args:
@@ -164,12 +179,7 @@ spec:
         - --start
         - --model-store=/mnt/models/model-store
         - --ts-config=/mnt/models/config/config.properties
-      ports:
-        - containerPort: 8080
-          protocol: TCP
       env:
         - name: STORAGE_URI 
           value: gs://kfserving-examples/models/torchserve/image_classifier
-    - image: kfserving/torchserve-image-transformer:latest
-      name: transformer-container
 ``` 

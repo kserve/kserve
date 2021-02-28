@@ -29,7 +29,6 @@ args, _ = parser.parse_known_args()
 
 CONFIG_PATH = "/mnt/models/config/config.properties"
 
-
 def parse_config():
     separator = "="
     keys = {}
