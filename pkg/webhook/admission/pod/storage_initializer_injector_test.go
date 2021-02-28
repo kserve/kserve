@@ -140,6 +140,12 @@ func TestStorageInitializerInjector(t *testing.T) {
 					Containers: []v1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
+							Env: []v1.EnvVar{
+								{
+									Name:  constants.CustomSpecStorageUriEnvVarKey,
+									Value: "gs://foo",
+								},
+							},
 						},
 					},
 				},
@@ -154,6 +160,12 @@ func TestStorageInitializerInjector(t *testing.T) {
 					Containers: []v1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
+							Env: []v1.EnvVar{
+								{
+									Name:  constants.CustomSpecStorageUriEnvVarKey,
+									Value: "/mnt/models",
+								},
+							},
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kfserving-provision-location",
@@ -200,6 +212,12 @@ func TestStorageInitializerInjector(t *testing.T) {
 					Containers: []v1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
+							Env: []v1.EnvVar{
+								{
+									Name:  constants.CustomSpecStorageUriEnvVarKey,
+									Value: "gs://foo",
+								},
+							},
 						},
 					},
 				},
@@ -214,6 +232,12 @@ func TestStorageInitializerInjector(t *testing.T) {
 					Containers: []v1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
+							Env: []v1.EnvVar{
+								{
+									Name:  constants.CustomSpecStorageUriEnvVarKey,
+									Value: "/mnt/models",
+								},
+							},
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kfserving-pvc-source",

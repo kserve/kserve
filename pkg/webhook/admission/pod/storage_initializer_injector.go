@@ -101,13 +101,12 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 		for _, env := range container.Env {
 			if strings.Compare(env.Name, constants.CustomSpecStorageUriEnvVarKey) == 0 {
 				userContainers = append(userContainers, &container)
-				break
 			}
 		}
 	}
 
 	if len(userContainers) == 0 {
-		return fmt.Errorf("Invalid configuration: cannot find container: %s", constants.InferenceServiceContainerName)
+		return fmt.Errorf("Invalid configuration: cannot find storage uri")
 	}
 
 	podVolumes := []v1.Volume{}
@@ -141,8 +140,8 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 		storageInitializerMounts = append(storageInitializerMounts, pvcSourceVolumeMount)
 
 		// Since the model path is linked from source pvc, userContainer also need to mount the pvc.
-		for i, _ := range userContainers {
-			userContainers[i].VolumeMounts = append(userContainers[i].VolumeMounts, pvcSourceVolumeMount)
+		for i, _ := range pod.Spec.Containers {
+			pod.Spec.Containers[i].VolumeMounts = append(pod.Spec.Containers[i].VolumeMounts, pvcSourceVolumeMount)
 		}
 
 		// modify the sourceURI to point to the PVC path
@@ -201,12 +200,12 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 		MountPath: constants.DefaultModelLocalMountPath,
 		ReadOnly:  true,
 	}
-	for i, _ := range userContainers {
-		userContainers[i].VolumeMounts = append(userContainers[i].VolumeMounts, sharedVolumeReadMount)
+	for i, _ := range pod.Spec.Containers {
+		pod.Spec.Containers[i].VolumeMounts = append(pod.Spec.Containers[i].VolumeMounts, sharedVolumeReadMount)
 		// Change the CustomSpecStorageUri env variable value to the default model path if present
-		for index, envVar := range userContainers[i].Env {
+		for index, envVar := range pod.Spec.Containers[i].Env {
 			if envVar.Name == constants.CustomSpecStorageUriEnvVarKey && envVar.Value != "" {
-				userContainers[i].Env[index].Value = constants.DefaultModelLocalMountPath
+				pod.Spec.Containers[i].Env[index].Value = constants.DefaultModelLocalMountPath
 			}
 		}
 	}
