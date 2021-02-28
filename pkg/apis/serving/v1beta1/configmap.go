@@ -65,6 +65,8 @@ type PredictorConfig struct {
 	DefaultTimeout int64 `json:"defaultTimeout,string,omitempty"`
 	// Flag to determine if multi-model serving is supported
 	MultiModelServer bool `json:"multiModelServer,boolean,omitempty"`
+	// frameworks the model agent is able to run
+	SupportedFrameworks []string `json:"supportedFrameworks"`
 }
 
 // +kubebuilder:object:generate=false
