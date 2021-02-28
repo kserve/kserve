@@ -16,7 +16,12 @@ predictor currently you would need to overwrite the `predict` handler to make th
 To implement a `Transformer` you can derive from the base `KFModel` class and then overwrite the `preprocess` and `postprocess` handler to have your own
 customized transformation logic.
 
-### Extend KFModel and implement pre/post processing functions
+`KFServing.KFModel` base class mainly defines three handlers `preprocess`, `predict` and `postprocess`, these handlers are executed
+in sequence, the output of the `preprocess` is passed to `predict` as the input, when `predictor_host` is passed the `predict` handler by default makes a HTTP call to the predictor host and gets back
+a response which then passes to `postproces` handler.
+
+For Transformer you can derive from the base `KFModel` class and then overwrite the `preprocess` and `postprocess` handler to have your own
+customized transformation logic.
 
 ```python
 import kfserving
@@ -34,7 +39,6 @@ transform = transforms.Compose(
         [transforms.ToTensor(),
          transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
 
-
 def image_transform(instance):
     byte_array = base64.b64decode(instance['image_bytes']['b64'])
     image = Image.open(io.BytesIO(byte_array))
@@ -43,7 +47,6 @@ def image_transform(instance):
     res = transform(im)
     logging.info(res)
     return res.tolist()
-
 
 class ImageTransformer(kfserving.KFModel):
     def __init__(self, name: str, predictor_host: str):
