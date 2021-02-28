@@ -46,8 +46,12 @@ func (c *CustomPredictor) Default(config *InferenceServicesConfig) {
 	if len(c.Containers) == 0 {
 		c.Containers = append(c.Containers, v1.Container{})
 	}
-	c.Containers[0].Name = constants.InferenceServiceContainerName
-	setResourceRequirementDefaults(&c.Containers[0].Resources)
+	for i, _ := range c.Containers {
+		if c.Containers[i].Name == "" {
+			c.Containers[i].Name = constants.InferenceServiceContainerName
+		}
+		setResourceRequirementDefaults(&c.Containers[i].Resources)
+	}
 }
 
 func (c *CustomPredictor) GetStorageUri() *string {

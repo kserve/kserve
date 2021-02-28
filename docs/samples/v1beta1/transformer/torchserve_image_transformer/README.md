@@ -144,3 +144,32 @@ Handling connection for 8080
 {"predictions": [2]}
 ```
 
+## Cocolate Transformer and Predictor
+KFServing by default deploys the Transformer and Predictor as separate services so you can deploy them on different devices and scale independently, however in some cases
+if you transformer is tightly coupled with the predictor and you want to do canary together you can choose to colocate the transformer and predictor in the same pod.
+
+This requires Knative 0.17+ which supports multi containers
+```yaml
+apiVersion: serving.kubeflow.org/v1beta1
+kind: InferenceService
+metadata:
+  name: torchserve-transformer
+spec:
+  predictor:
+    containers:
+    - image: kfserving/torchserve-kfs:0.3.0
+      name: kfserving-container
+      args:
+        - torchserve
+        - --start
+        - --model-store=/mnt/models/model-store
+        - --ts-config=/mnt/models/config/config.properties
+      ports:
+        - containerPort: 8080
+          protocol: TCP
+      env:
+        - name: STORAGE_URI 
+          value: gs://kfserving-examples/models/torchserve/image_classifier
+    - image: kfserving/torchserve-image-transformer:latest
+      name: transformer-container
+``` 

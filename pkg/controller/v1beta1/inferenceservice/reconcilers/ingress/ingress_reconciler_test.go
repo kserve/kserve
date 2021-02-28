@@ -465,10 +465,10 @@ func TestCreateVirtualService(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			testIsvc := &v1beta1.InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      serviceName,
-					Namespace: namespace,
+					Name:        serviceName,
+					Namespace:   namespace,
 					Annotations: isvcAnnotions,
-					Labels: labels,
+					Labels:      labels,
 				},
 				Spec: v1beta1.InferenceServiceSpec{
 					Predictor: v1beta1.PredictorSpec{},
