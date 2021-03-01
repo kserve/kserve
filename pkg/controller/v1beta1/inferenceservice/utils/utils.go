@@ -18,9 +18,22 @@ package utils
 
 import (
 	v1beta1api "github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+)
+
+var (
+	log = logf.Log.WithName("inferenceservice-v1beta1--utils")
 )
 
 // Only enable MMS predictor when predictor config sets MMS to true and storage uri is not set
-func IsMMSPredictor(predictor *v1beta1api.PredictorSpec, isvcConfig *v1beta1api.InferenceServicesConfig) bool {
-	return predictor.GetImplementation().IsMMS(isvcConfig) && predictor.GetImplementation().GetStorageUri() == nil
+func IsMMSPredictor(isvc *v1beta1api.InferenceService, isvcConfig *v1beta1api.InferenceServicesConfig) bool {
+	predictor := isvc.Spec.Predictor
+	isMMS := predictor.GetImplementation().IsMMS(isvcConfig) && predictor.GetImplementation().GetStorageUri() == nil
+
+	if isMMS {
+		log.Info("Predictor is configured to multi-model serving", "InferenceService", isvc.Name)
+	} else {
+		log.Info("Predictor is configured to single model serving", "InferenceService", isvc.Name)
+	}
+	return isMMS
 }
