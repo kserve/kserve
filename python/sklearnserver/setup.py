@@ -32,7 +32,7 @@ setup(
     python_requires='>3.4',
     packages=find_packages("sklearnserver"),
     install_requires=[
-        "kfserving>=0.5.0",
+        "kfserving>=0.5.1",
         "scikit-learn == 0.20.3",
         "joblib >= 0.13.0"
     ],
