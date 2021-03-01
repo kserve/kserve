@@ -62,7 +62,7 @@ python query_bias.py http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/$MODEL_NAM
 
 ### Interpreting the results
 
-Now lets look at one of the metrics. In this example disparate impact represents the ratio between the probability of applicants of the privileged class (age > 25) getting a loan and the probability of applicants of the unprivileged class (age <= 25) getting a loan `P(Y=1|D=privileged)/P(Y=1|D=unprivileged)`. Since the disparate impact is less that 1 then the probability that an applicant whose age is greater than 25 gets a loan is significantly higher than the probability that an applicant whose age is less than or equal to 25 gets a loan. This in and of itself does not mean the model is based, but does hint that there might be some bias inherent in the model.
+Now lets look at one of the metrics. In this example disparate impact represents the ratio between the probability of applicants of the privileged class (age > 25) getting a loan and the probability of applicants of the unprivileged class (age <= 25) getting a loan `P(Y=1|D=privileged)/P(Y=1|D=unprivileged)`. Since the disparate impact is less that 1 then the probability that an applicant whose age is greater than 25 gets a loan is significantly higher than the probability that an applicant whose age is less than or equal to 25 gets a loan. This in and of itself is not proof that the model is biased, but does hint that there may be some bias and a deeper look may be needed.
 
 ```
 bash-3.2$ python query_bias.py http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/$MODEL_NAME:explain ${SERVICE_HOSTNAME} data.json
@@ -81,3 +81,5 @@ statistical_parity_difference :  -0.48
 # Dataset
 
 The dataset used in this example is the German Credit dataset maintained by the [UC Irvine Machine Learning Repository](https://archive.ics.uci.edu/ml/index.php).
+
+Dua, D. and Graff, C. (2019). UCI Machine Learning Repository [http://archive.ics.uci.edu/ml]. Irvine, CA: University of California, School of Information and Computer Science.
