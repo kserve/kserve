@@ -347,7 +347,7 @@ func TestCustomPredictorIsFrameworkSupported(t *testing.T) {
 					},
 				},
 			},
-			expected: true,
+			expected: false,
 		},
 	}
 
