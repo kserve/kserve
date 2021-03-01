@@ -62,7 +62,7 @@ python query_bias.py http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/$MODEL_NAM
 
 ### Interpreting the results
 
-Now lets look at one of the metrics. In this example disparate impact represents the ratio between the probability of applicants of the privileged class (age > 25) getting a loan and the probability of applicants of the unprivileged class (age <= 25) getting a loan `P(Y=1|D=privileged)/P(Y=1|D=unprivileged)`. Since the disparate impact is less that 1 then the probability that an applicant whose age is greater than 25 gets a loan is significantly higher than the probability that an applicant whose age is less than or equal to 25 gets a loan. This in and of itself is not proof that the model is biased, but does hint that there may be some bias and a deeper look may be needed.
+Now lets look at one of the metrics. In this example disparate impact represents the ratio between the probability of applicants of the privileged class (age > 25) getting a loan and the probability of applicants of the unprivileged class (age <= 25) getting a loan `P(Y=1|D=privileged)/P(Y=1|D=unprivileged)`. Since, in the sample output below, the disparate impact is less that 1 then the probability that an applicant whose age is greater than 25 gets a loan is significantly higher than the probability that an applicant whose age is less than or equal to 25 gets a loan. This in and of itself is not proof that the model is biased, but does hint that there may be some bias and a deeper look may be needed.
 
 ```
 bash-3.2$ python query_bias.py http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/$MODEL_NAME:explain ${SERVICE_HOSTNAME} data.json
