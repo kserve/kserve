@@ -22,8 +22,8 @@ tests_require = [
 
 setup(
     name='aifserver',
-    version='0.2.1',
-    author_email='ryan.zegray@ibm.com',
+    version='0.1.1',
+    author_email='Andrew.Butler@ibm.com',
     license='https://github.com/kubeflow/kfserving/LICENSE',
     url='https://github.com/kubeflow/kfserving/python/aifserver',
     description='Model Server implementation for AI fairness. \

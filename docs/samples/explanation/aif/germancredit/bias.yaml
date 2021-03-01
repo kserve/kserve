@@ -10,7 +10,7 @@ spec:
       custom:
         container:
           name: predictor
-          image: ibmandrewbutler/aif-server:predictor
+          image: aipipeline/aifserver:predictor
       logger:
         url: http://message-dumper.default/
         mode: all
@@ -18,7 +18,7 @@ spec:
       custom:
         container:
           name: explainer
-          image: ibmandrewbutler/aif-server:v3
+          image: aipipeline/aifserver:latest
           command:
             [
               "python",
