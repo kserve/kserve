@@ -291,15 +291,15 @@ func createIngress(isvc *v1beta1.InferenceService, config *v1beta1.IngressConfig
 		gateways = append(gateways, config.IngressGateway)
 	}
 
-	annotations :=  utils.Filter(isvc.Annotations, func(key string) bool {
+	annotations := utils.Filter(isvc.Annotations, func(key string) bool {
 		return !utils.Includes(constants.ServiceAnnotationDisallowedList, key)
 	})
 	desiredIngress := &v1alpha3.VirtualService{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      isvc.Name,
-			Namespace: isvc.Namespace,
+			Name:        isvc.Name,
+			Namespace:   isvc.Namespace,
 			Annotations: annotations,
-			Labels: isvc.Labels,
+			Labels:      isvc.Labels,
 		},
 		Spec: istiov1alpha3.VirtualService{
 			Hosts:    hosts,
@@ -356,7 +356,7 @@ func (ir *IngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
 		if err != nil {
 			return err
 		}
-		if !isvcutils.IsMMSPredictor(&isvc.Spec.Predictor, isvcConfig) {
+		if !isvcutils.IsMMSPredictor(isvc, isvcConfig) {
 			if isvc.Spec.Predictor.GetImplementation().GetProtocol() == constants.ProtocolV2 {
 				path = constants.PredictPath(isvc.Name, constants.ProtocolV2)
 			} else {

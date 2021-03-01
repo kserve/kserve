@@ -554,7 +554,7 @@ func TestIsMMSPredictor(t *testing.T) {
 
 		for name, scenario := range scenarios {
 			t.Run(name, func(t *testing.T) {
-				res := IsMMSPredictor(&scenario.isvc.Spec.Predictor, &config)
+				res := IsMMSPredictor(&scenario.isvc, &config)
 				if !g.Expect(res).To(gomega.Equal(scenario.expected)) {
 					t.Errorf("got %t, want %t", res, scenario.expected)
 				}

@@ -52,7 +52,7 @@ func (c *ModelConfigReconciler) Reconcile(isvc *v1beta1api.InferenceService) err
 	if err != nil {
 		return err
 	}
-	if v1beta1utils.IsMMSPredictor(&isvc.Spec.Predictor, isvcConfig) {
+	if v1beta1utils.IsMMSPredictor(isvc, isvcConfig) {
 		// Create an empty modelConfig for every InferenceService shard
 		// An InferenceService without storageUri is an empty model server with for multi-model serving so a modelConfig configmap should be created
 		// An InferenceService with storageUri is considered as multi-model InferenceService with only one model, a modelConfig configmap should be created as well
