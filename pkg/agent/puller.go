@@ -25,6 +25,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"path/filepath"
+	"time"
 )
 
 type OpType string
@@ -48,7 +49,7 @@ type ModelOp struct {
 	Spec      *v1.ModelSpec
 }
 
-func StartPuller(downloader Downloader, commands <-chan ModelOp, logger *zap.SugaredLogger) {
+func StartPullerAndDrainEvents(downloader Downloader, commands <-chan ModelOp, logger *zap.SugaredLogger) {
 	puller := Puller{
 		channelMap:  make(map[string]*ModelChannel),
 		completions: make(chan *ModelOp, 4),
@@ -57,6 +58,10 @@ func StartPuller(downloader Downloader, commands <-chan ModelOp, logger *zap.Sug
 		logger:      logger,
 	}
 	go puller.processCommands(commands)
+	// Wait until all original models in config map have been downloaded, i.e. all events have been drained
+	for len(puller.channelMap) > 0 {
+		time.Sleep(1 * time.Second)
+	}
 }
 
 func (p *Puller) processCommands(commands <-chan ModelOp) {
