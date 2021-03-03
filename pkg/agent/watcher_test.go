@@ -34,6 +34,7 @@ import (
 	logger "log"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 var _ = Describe("Watcher", func() {
@@ -474,6 +475,56 @@ var _ = Describe("Watcher", func() {
 				Eventually(func() int { return len(puller.channelMap) }).Should(Equal(0))
 				Eventually(func() int { return puller.opStats["model1"][Add] }).Should(Equal(1))
 				Eventually(func() int { return puller.opStats["model2"][Add] }).Should(Equal(1))
+			})
+		})
+
+		Context("Puller Waits Before Initializing", func() {
+			It("should download all models before allowing watcher to add new events", func() {
+				defer GinkgoRecover()
+				logger.Printf("Sync model config using temp dir %v\n", modelDir)
+				watcher := NewWatcher("/tmp/configs", modelDir, sugar)
+				puller := Puller{
+					channelMap:  make(map[string]*ModelChannel),
+					completions: make(chan *ModelOp, 4),
+					opStats:     make(map[string]map[OpType]int),
+					Downloader: Downloader{
+						ModelDir: modelDir + "/test2",
+						Providers: map[storage.Protocol]storage.Provider{
+							storage.S3: &storage.S3Provider{
+								Client:     &mocks.MockS3Client{},
+								Downloader: &mocks.MockS3Downloader{},
+							},
+						},
+						Logger: sugar,
+					},
+					logger: sugar,
+				}
+				modelConfigs := modelconfig.ModelConfigs{
+					{
+						Name: "model1",
+						Spec: v1alpha1.ModelSpec{
+							StorageURI: "s3://models/model1",
+							Framework:  "sklearn",
+						},
+					},
+					{
+						Name: "model2",
+						Spec: v1alpha1.ModelSpec{
+							StorageURI: "s3://models/model2",
+							Framework:  "sklearn",
+						},
+					},
+				}
+				watcher.parseConfig(modelConfigs)
+				logger.Printf("Watcher events length: %v", len(watcher.ModelEvents))
+				go puller.processCommands(watcher.ModelEvents)
+				// Wait until all original models in config map have been downloaded, i.e. all events have been drained
+				for len(watcher.ModelEvents) > 0 {
+					time.Sleep(1 * time.Second)
+				}
+				Expect(len(puller.channelMap)).To(Equal(0))
+				Expect(func() int { return puller.opStats["model1"][Add] }).Should(Equal(1))
+				Expect(func() int { return puller.opStats["model2"][Add] }).Should(Equal(1))
 			})
 		})
 	})
