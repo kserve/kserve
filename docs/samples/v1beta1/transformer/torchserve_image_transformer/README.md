@@ -13,7 +13,7 @@ in sequence, the output of the `preprocess` is passed to `predict` as the input,
 and gets back a response which then passes to `postproces` handler. KFServing automatically fills in the `predictor_host` for `Transformer` and handle the call to the `Predictor`, for gRPC
 predictor currently you would need to overwrite the `predict` handler to make the gRPC call.
 
-For Transformer you can derive from the base `KFModel` class and then overwrite the `preprocess` and `postprocess` handler to have your own
+To implement a `Transformer` you can derive from the base `KFModel` class and then overwrite the `preprocess` and `postprocess` handler to have your own
 customized transformation logic.
 
 ### Extend KFModel and implement pre/post processing functions
