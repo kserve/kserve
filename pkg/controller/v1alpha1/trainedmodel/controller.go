@@ -87,10 +87,6 @@ func (r *TrainedModelReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return reconcile.Result{}, err
 	}
 
-	if err := r.updateConditions(req, tm); err != nil {
-		return reconcile.Result{}, err
-	}
-
 	// Add parent InferenceService's name to TrainedModel's label
 	if tm.Labels == nil {
 		tm.Labels = make(map[string]string)
@@ -131,6 +127,11 @@ func (r *TrainedModelReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 		// Stop reconciliation as the item is being deleted
 		return ctrl.Result{}, nil
+	}
+
+	// Update InferenceServiceReady and FrameworkSupported conditions
+	if err := r.updateConditions(req, tm); err != nil {
+		return reconcile.Result{}, err
 	}
 
 	// update URL and Address fo TrainedModel
