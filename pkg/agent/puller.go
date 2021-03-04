@@ -25,6 +25,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"path/filepath"
+	"time"
 )
 
 type OpType string
@@ -48,7 +49,7 @@ type ModelOp struct {
 	Spec      *v1.ModelSpec
 }
 
-func StartPullerAndProcessModels(downloader Downloader, commands <-chan ModelOp, logger *zap.SugaredLogger) {
+func StartPullerAndProcessModels(downloader Downloader, commands <-chan ModelOp, modelTracker map[string]modelWrapper, logger *zap.SugaredLogger) {
 	puller := Puller{
 		channelMap:  make(map[string]*ModelChannel),
 		completions: make(chan *ModelOp, 4),
@@ -57,6 +58,11 @@ func StartPullerAndProcessModels(downloader Downloader, commands <-chan ModelOp,
 		logger:      logger,
 	}
 	go puller.processCommands(commands)
+	for modelName, _ := range modelTracker {
+		for puller.opStats[modelName][Add] != 1 {
+			time.Sleep(1 * time.Second)
+		}
+	}
 }
 
 func (p *Puller) processCommands(commands <-chan ModelOp) {

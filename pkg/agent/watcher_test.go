@@ -101,7 +101,7 @@ var _ = Describe("Watcher", func() {
 				Eventually(func() int { return puller.opStats["model1"][Add] }).Should(Equal(1))
 				Eventually(func() int { return puller.opStats["model2"][Add] }).Should(Equal(1))
 				modelSpecMap, _ := SyncModelDir(modelDir+"/test1", watcher.logger)
-				Expect(watcher.modelTracker).Should(Equal(modelSpecMap))
+				Expect(watcher.ModelTracker).Should(Equal(modelSpecMap))
 			})
 		})
 	})
@@ -516,15 +516,16 @@ var _ = Describe("Watcher", func() {
 					},
 				}
 				watcher.parseConfig(modelConfigs)
-				logger.Printf("Watcher events length: %v", len(watcher.ModelEvents))
 				go puller.processCommands(watcher.ModelEvents)
-				// Wait until all original models in config map have been downloaded, i.e. all events have been drained
-				for len(watcher.ModelEvents) > 0 {
-					time.Sleep(1 * time.Second)
+				models := [2]string{"model1", "model2"}
+				for _, modelName := range models {
+					for puller.opStats[modelName][Add] != 1 {
+						time.Sleep(1 * time.Second)
+					}
 				}
 				Expect(len(puller.channelMap)).To(Equal(0))
-				Expect(func() int { return puller.opStats["model1"][Add] }).Should(Equal(1))
-				Expect(func() int { return puller.opStats["model2"][Add] }).Should(Equal(1))
+				Expect(puller.opStats["model1"][Add]).Should(Equal(1))
+				Expect(puller.opStats["model2"][Add]).Should(Equal(1))
 			})
 		})
 	})
