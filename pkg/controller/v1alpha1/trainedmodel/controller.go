@@ -235,9 +235,6 @@ func (r *TrainedModelReconciler) updateConditions(req ctrl.Request, tm *v1alpha1
 		})
 	} else {
 		predictor := isvc.Spec.Predictor.GetPredictor()
-		if predictor == nil {
-
-		}
 		if predictor != nil && (*predictor).IsFrameworkSupported(tm.Spec.Model.Framework, isvcConfig) {
 			log.Info("Framework is supported", "TrainedModel", tm.Name, "InferenceService", isvc.Name, "Framework", tm.Spec.Model.Framework)
 			tm.Status.SetCondition(v1alpha1api.FrameworkSupported, &apis.Condition{
