@@ -1,5 +1,5 @@
 # Predict on a InferenceService with transformer using Torchserve
-Transformer is an `InferenceService` component which does pre/post processing alongside with model inference. It usually takes raw input and transforms to the
+Transformer is an `InferenceService` component which does pre/post processing alongside with model inference. It usually takes raw input and transforms them to the
 input tensors model server expects. In this example we demonstrate an example of running inference with `Transformer` and `TorchServe` predictor.
 
 ## Setup
@@ -140,5 +140,4 @@ Handling connection for 8080
 * Connection #0 to host localhost left intact
 {"predictions": [2]}
 ```
-
 
