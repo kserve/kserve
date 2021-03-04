@@ -67,6 +67,5 @@ if __name__ == "__main__":
         transformer = ImageTransformer(model_name, predictor_host=args.predictor_host)
         models.append(transformer)
     kfserving.KFServer(
-        registered_models=TransformerModelRepository(args.predictor_host),
-        http_port=8080,
+        registered_models=TransformerModelRepository(args.predictor_host)
     ).start(models=models)
