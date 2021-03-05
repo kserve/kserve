@@ -333,3 +333,8 @@ make: *** [manifests] Error 1
 Version: v0.3.0
 ```
 Deleting $GOPATH/bin/controller-gen helps to resolve this issue, as Makefile will fetch the correct version.
+
+7. When your able to run your changes using make deploy-dev, but it fails when running against test, checkout your `overlays/test` to verify everything is properly configured.
+
+8. When supported framework says it's not supported or multi-model serving not working:
+Check to see if `inferenceservice.yaml` has the fields properly set (supportedFramework and multiModelServer respectively).
