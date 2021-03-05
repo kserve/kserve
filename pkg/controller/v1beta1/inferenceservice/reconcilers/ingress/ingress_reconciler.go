@@ -21,7 +21,8 @@ import (
 	"fmt"
 	"github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
 	"github.com/kubeflow/kfserving/pkg/constants"
-	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/utils"
+	isvcutils "github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/utils"
+	utils "github.com/kubeflow/kfserving/pkg/utils"
 	"github.com/pkg/errors"
 	istiov1alpha3 "istio.io/api/networking/v1alpha3"
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
@@ -289,10 +290,16 @@ func createIngress(isvc *v1beta1.InferenceService, config *v1beta1.IngressConfig
 		hosts = append(hosts, serviceHost)
 		gateways = append(gateways, config.IngressGateway)
 	}
+
+	annotations :=  utils.Filter(isvc.Annotations, func(key string) bool {
+		return !utils.Includes(constants.ServiceAnnotationDisallowedList, key)
+	})
 	desiredIngress := &v1alpha3.VirtualService{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      isvc.Name,
 			Namespace: isvc.Namespace,
+			Annotations: annotations,
+			Labels: isvc.Labels,
 		},
 		Spec: istiov1alpha3.VirtualService{
 			Hosts:    hosts,
@@ -349,7 +356,7 @@ func (ir *IngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
 		if err != nil {
 			return err
 		}
-		if !utils.IsMMSPredictor(&isvc.Spec.Predictor, isvcConfig) {
+		if !isvcutils.IsMMSPredictor(&isvc.Spec.Predictor, isvcConfig) {
 			if isvc.Spec.Predictor.GetImplementation().GetProtocol() == constants.ProtocolV2 {
 				path = constants.PredictPath(isvc.Name, constants.ProtocolV2)
 			} else {

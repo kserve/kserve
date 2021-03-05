@@ -30,6 +30,7 @@ RELEASES=(
     "v0.5.0-rc1"
     "v0.5.0-rc2"
     "v0.5.0"
+    "v0.5.1"
 )
 
 TAG=$1
@@ -41,8 +42,6 @@ fi
 
 INSTALL_DIR=./install/$TAG
 INSTALL_PATH=$INSTALL_DIR/kfserving.yaml
-CRD_INSTALL_PATH=$INSTALL_DIR/kfserving_crds.yaml
 
 mkdir -p $INSTALL_DIR
-kustomize build config/default/crd > $CRD_INSTALL_PATH
-kustomize build config/default | sed s/latest/$TAG/ > $INSTALL_PATH
+kustomize build config/default | sed s/:latest/$TAG/ > $INSTALL_PATH

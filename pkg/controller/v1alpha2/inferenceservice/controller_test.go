@@ -1440,7 +1440,7 @@ var _ = Describe("test inference service controller", func() {
 			g.Eventually(func() bool {
 				isvc := &kfserving.InferenceService{}
 				err := k8sClient.Get(context.TODO(), serviceKey, isvc)
-				if err != nil {
+				if err != nil || isvc.Status.Default == nil {
 					return false
 				}
 				if _, ok := (*isvc.Status.Default)[constants.Transformer]; ok {

@@ -29,3 +29,7 @@ const (
 	//File  Protocol = "file://"
 	//HTTPS Protocol = "https://"
 )
+
+func GetAllProtocol() []string {
+	return []string{string(S3), string(GCS)}
+}

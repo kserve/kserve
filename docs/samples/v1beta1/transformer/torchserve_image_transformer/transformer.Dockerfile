@@ -5,6 +5,6 @@ RUN apt-get update \
 
 COPY . .
 RUN pip install --upgrade pip
-RUN pip install kfserving==0.5.0rc0
+RUN pip install kfserving==0.5.1
 RUN pip install -e .
 ENTRYPOINT ["python", "-m", "image_transformer"]

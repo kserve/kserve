@@ -66,26 +66,28 @@ func (c *CustomTransformer) GetStorageUri() *string {
 // GetContainers transforms the resource into a container spec
 func (c *CustomTransformer) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig) *v1.Container {
 	container := &c.Containers[0]
-	modelNameExists := false
-	for _, arg := range container.Args {
-		if arg == constants.ArgumentModelName {
-			modelNameExists = true
-		}
-	}
-	if !modelNameExists {
+	if !utils.IncludesArg(container.Args, constants.ArgumentModelName) {
 		container.Args = append(container.Args, []string{
 			constants.ArgumentModelName,
 			metadata.Name,
 		}...)
 	}
-	container.Args = append(container.Args, []string{
-		constants.ArgumentPredictorHost,
-		fmt.Sprintf("%s.%s", constants.DefaultPredictorServiceName(metadata.Name), metadata.Namespace),
-		constants.ArgumentHttpPort,
-		constants.InferenceServiceDefaultHttpPort,
-	}...)
-	if extensions.ContainerConcurrency != nil {
-		container.Args = append(container.Args, constants.ArgumentWorkers, strconv.FormatInt(*extensions.ContainerConcurrency, 10))
+	if !utils.IncludesArg(container.Args, constants.ArgumentPredictorHost) {
+		container.Args = append(container.Args, []string{
+			constants.ArgumentPredictorHost,
+			fmt.Sprintf("%s.%s", constants.DefaultPredictorServiceName(metadata.Name), metadata.Namespace),
+		}...)
+	}
+	if !utils.IncludesArg(container.Args, constants.ArgumentHttpPort) {
+		container.Args = append(container.Args, []string{
+			constants.ArgumentHttpPort,
+			constants.InferenceServiceDefaultHttpPort,
+		}...)
+	}
+	if !utils.IncludesArg(container.Args, constants.ArgumentWorkers) {
+		if extensions.ContainerConcurrency != nil {
+			container.Args = append(container.Args, constants.ArgumentWorkers, strconv.FormatInt(*extensions.ContainerConcurrency, 10))
+		}
 	}
 	return &c.Containers[0]
 }

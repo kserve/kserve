@@ -32,7 +32,7 @@ setup(
     python_requires='>3.4',
     packages=find_packages("pmmlserver"),
     install_requires=[
-        "kfserving>=0.5.0",
+        "kfserving>=0.5.1",
         "pypmml == 0.9.7",
     ],
     tests_require=tests_require,

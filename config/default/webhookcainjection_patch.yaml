@@ -17,3 +17,12 @@ metadata:
     cert-manager.io/inject-ca-from: $(kfservingNamespace)/serving-cert
 webhooks:
   - name: inferenceservice.kfserving-webhook-server.validator
+---
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: trainedmodel.serving.kubeflow.org
+  annotations:
+    cert-manager.io/inject-ca-from: $(kfservingNamespace)/serving-cert
+webhooks:
+  - name: trainedmodel.kfserving-webhook-server.validator

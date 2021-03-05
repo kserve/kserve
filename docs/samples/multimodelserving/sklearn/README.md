@@ -1,4 +1,4 @@
-#Multi-Model Serving with Sklearn
+# Multi-Model Serving with Sklearn
 
 ## Overview
 
@@ -11,7 +11,7 @@ The general overview of multi-model serving:
 6. Deleting a model leads to removing model from config map which causes the model agent to unload the model
 7. Deleting the InferenceService causes the TrainedModel(s) to be deleted
 
-You must set SKLearn's multiModelServer flag in `inferenceservice.yaml` to true to enable multi-model serving for SKLearn.
+> :warning: You must set SKLearn's multiModelServer flag in `inferenceservice.yaml` to true to enable multi-model serving for SKLearn.
 
 ## Example
 Firstly, you should have kfserving installed. Check [this](https://github.com/kubeflow/kfserving#install-kfserving) out if you have not installed kfserving.

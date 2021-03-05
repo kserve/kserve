@@ -119,7 +119,9 @@ func (src *InferenceService) ConvertTo(dstRaw conversion.Hub) error {
 	}
 	dst.Spec.Predictor.MinReplicas = src.Spec.Default.Predictor.MinReplicas
 	dst.Spec.Predictor.MaxReplicas = src.Spec.Default.Predictor.MaxReplicas
-	dst.Spec.Predictor.ContainerConcurrency = proto.Int64(int64(src.Spec.Default.Predictor.Parallelism))
+	if src.Spec.Default.Predictor.Parallelism != 0 {
+		dst.Spec.Predictor.ContainerConcurrency = proto.Int64(int64(src.Spec.Default.Predictor.Parallelism))
+	}
 	if src.Spec.CanaryTrafficPercent != nil {
 		dst.Spec.Predictor.CanaryTrafficPercent = proto.Int64(int64(*src.Spec.CanaryTrafficPercent))
 	}
@@ -144,15 +146,17 @@ func (src *InferenceService) ConvertTo(dstRaw conversion.Hub) error {
 		if src.Spec.Default.Transformer.Custom != nil {
 			dst.Spec.Transformer = &v1beta1.TransformerSpec{
 				ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
-					MinReplicas:          src.Spec.Default.Transformer.MinReplicas,
-					MaxReplicas:          src.Spec.Default.Transformer.MaxReplicas,
-					ContainerConcurrency: proto.Int64(int64(src.Spec.Default.Transformer.Parallelism)),
+					MinReplicas: src.Spec.Default.Transformer.MinReplicas,
+					MaxReplicas: src.Spec.Default.Transformer.MaxReplicas,
 				},
 				PodSpec: v1beta1.PodSpec{
 					Containers: []v1.Container{
 						src.Spec.Default.Transformer.Custom.Container,
 					},
 				},
+			}
+			if src.Spec.Default.Transformer.Parallelism != 0 {
+				dst.Spec.Transformer.ContainerConcurrency = proto.Int64(int64(src.Spec.Default.Transformer.Parallelism))
 			}
 		}
 	}
@@ -195,11 +199,18 @@ func (src *InferenceService) ConvertTo(dstRaw conversion.Hub) error {
 		}
 		if src.Spec.Default.Explainer.Custom != nil {
 			dst.Spec.Explainer = &v1beta1.ExplainerSpec{
+				ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
+					MinReplicas: src.Spec.Default.Explainer.MinReplicas,
+					MaxReplicas: src.Spec.Default.Explainer.MaxReplicas,
+				},
 				PodSpec: v1beta1.PodSpec{
 					Containers: []v1.Container{
 						src.Spec.Default.Explainer.Custom.Container,
 					},
 				},
+			}
+			if src.Spec.Default.Explainer.Parallelism != 0 {
+				dst.Spec.Explainer.ContainerConcurrency = proto.Int64(int64(src.Spec.Default.Explainer.Parallelism))
 			}
 		}
 	}

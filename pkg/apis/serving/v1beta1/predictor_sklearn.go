@@ -77,9 +77,10 @@ func (k *SKLearnSpec) getContainerV1(metadata metav1.ObjectMeta, extensions *Com
 		fmt.Sprintf("%s=%s", constants.ArgumentModelDir, constants.DefaultModelLocalMountPath),
 		fmt.Sprintf("%s=%s", constants.ArgumentHttpPort, constants.InferenceServiceDefaultHttpPort),
 	}
-
-	if extensions.ContainerConcurrency != nil {
-		arguments = append(arguments, fmt.Sprintf("%s=%s", constants.ArgumentWorkers, strconv.FormatInt(*extensions.ContainerConcurrency, 10)))
+	if !utils.IncludesArg(k.Container.Args, constants.ArgumentWorkers) {
+		if extensions.ContainerConcurrency != nil {
+			arguments = append(arguments, fmt.Sprintf("%s=%s", constants.ArgumentWorkers, strconv.FormatInt(*extensions.ContainerConcurrency, 10)))
+		}
 	}
 
 	if k.Container.Image == "" {
@@ -87,7 +88,7 @@ func (k *SKLearnSpec) getContainerV1(metadata metav1.ObjectMeta, extensions *Com
 	}
 
 	k.Container.Name = constants.InferenceServiceContainerName
-	k.Container.Args = arguments
+	k.Container.Args = append(arguments, k.Container.Args...)
 	return &k.Container
 }
 

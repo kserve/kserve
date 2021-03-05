@@ -43,8 +43,6 @@ deploy: manifests
 	cd config/default && if [ ${KFSERVING_ENABLE_SELF_SIGNED_CA} != false ]; then \
 	kustomize edit remove resource certmanager/certificate.yaml; \
 	else kustomize edit add resource certmanager/certificate.yaml; fi;
-	kubectl get crd inferenceservices.serving.kubeflow.org && kustomize build config/default/crd | kubectl replace --validate=false -f - || \
-	kustomize build config/default/crd | kubectl create --validate=false -f -
 	kustomize build config/default | kubectl apply --validate=false -f -
 	if [ ${KFSERVING_ENABLE_SELF_SIGNED_CA} != false ]; then ./hack/self-signed-ca.sh; fi;
 
@@ -54,9 +52,6 @@ deploy-dev: manifests
 	cd config/default && if [ ${KFSERVING_ENABLE_SELF_SIGNED_CA} != false ]; then \
 	kustomize edit remove resource certmanager/certificate.yaml; \
 	else kustomize edit add resource certmanager/certificate.yaml; fi;
-
-	kubectl get crd inferenceservices.serving.kubeflow.org && kustomize build config/default/crd | kubectl replace --validate=false -f - || \
-	kustomize build config/default/crd | kubectl create --validate=false -f -
 	kustomize build config/overlays/development | kubectl apply --validate=false -f -
 	if [ ${KFSERVING_ENABLE_SELF_SIGNED_CA} != false ]; then ./hack/self-signed-ca.sh; fi;
 
@@ -89,18 +84,18 @@ deploy-dev-storageInitializer: docker-push-storageInitializer
 	kustomize build config/overlays/dev-image-config | kubectl apply --validate=false -f -
 
 deploy-ci: manifests
-	kubectl get crd inferenceservices.serving.kubeflow.org && kustomize build config/default/crd | kubectl replace --validate=false -f - || \
-	kustomize build config/default/crd | kubectl create --validate=false -f -
 	kustomize build config/overlays/test | kubectl apply -f -
 
 undeploy:
 	kustomize build config/default | kubectl delete -f -
 	kubectl delete validatingwebhookconfigurations.admissionregistration.k8s.io inferenceservice.serving.kubeflow.org
+	kubectl delete validatingwebhookconfigurations.admissionregistration.k8s.io trainedmodel.serving.kubeflow.org
 	kubectl delete mutatingwebhookconfigurations.admissionregistration.k8s.io inferenceservice.serving.kubeflow.org
 
 undeploy-dev:
 	kustomize build config/overlays/development | kubectl delete -f -
 	kubectl delete validatingwebhookconfigurations.admissionregistration.k8s.io inferenceservice.serving.kubeflow.org
+	kubectl delete validatingwebhookconfigurations.admissionregistration.k8s.io trainedmodel.serving.kubeflow.org
 	kubectl delete mutatingwebhookconfigurations.admissionregistration.k8s.io inferenceservice.serving.kubeflow.org
 
 # Generate manifests e.g. CRD, RBAC etc.
@@ -118,8 +113,6 @@ manifests: controller-gen
 	perl -pi -e 's/storedVersions: null/storedVersions: []/g' config/crd/serving.kubeflow.org_trainedmodels.yaml
 	perl -pi -e 's/conditions: null/conditions: []/g' config/crd/serving.kubeflow.org_trainedmodels.yaml
 	perl -pi -e 's/Any/string/g' config/crd/serving.kubeflow.org_trainedmodels.yaml
-	#TODO v1beta1 crd openAPIV3Schema is too big and kubectl client side apply takes long time to do diffs, need to use k8s 1.18's server side apply
-	#https://kubernetes.io/blog/2020/04/01/kubernetes-1.18-feature-server-side-apply-beta-2/#what-is-server-side-apply
 	#remove the required property on framework as name field needs to be optional
 	yq d -i config/crd/serving.kubeflow.org_inferenceservices.yaml 'spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.required'
 	#remove ephemeralContainers properties for compress crd size https://github.com/kubeflow/kfserving/pull/1141#issuecomment-714170602

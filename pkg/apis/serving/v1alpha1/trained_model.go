@@ -66,6 +66,5 @@ type ModelSpec struct {
 	// The values could be: "tensorflow","pytorch","sklearn","onnx","xgboost", "myawesomeinternalframework" etc.
 	Framework string `json:"framework"`
 	// Maximum memory this model will consume, this field is used to decide if a model server has enough memory to load this model.
-	// +optional
-	Memory resource.Quantity `json:"memory,omitempty"`
+	Memory resource.Quantity `json:"memory"`
 }
