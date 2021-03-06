@@ -29,7 +29,7 @@ setuptools.setup(
     author="Kubeflow Authors",
     author_email='ellisbigelow@google.com, hejinchi@cn.ibm.com, dsun20@bloomberg.net',
     license="Apache License Version 2.0",
-    url="https://github.com/kubeflow/kfserving/python/kfserving",
+    url="https://github.com/kubeflow/kfserving/tree/master/python/kfserving",
     description="KFServing Python SDK",
     long_description="Python SDK for KFServing Server and Client.",
     python_requires='>=3.6',
