@@ -34,6 +34,8 @@ If you want to get up running Knative quickly or you do not need service mesh, w
 
 `cluster-local-gateway` is required to serve cluster-internal traffic for transformer and explainer use cases. Please follow instructions here to install [cluster local gateway](https://knative.dev/docs/install/installing-istio/#updating-your-install-to-use-cluster-local-gateway).
 
+If you are looking to use podTemplate fields such as `NodeAffinity` and `Toleration` which are now supported on KFServing v1beta1 API spec, this requires v0.17.0+ and you need to turn on the [feature flags]((https://knative.dev/docs/serving/feature-flags/) in Knative configurations.
+
 Since Knative v0.19.0 `cluster local gateway` deployment has been removed and [shared with ingress gateway](https://github.com/knative-sandbox/net-istio/pull/237),
 if you are on Knative version later than v0.19.0 you should modify `localGateway` to `knative-local-gateway` and `localGatewayService` to `knative-local-gateway.istio-system.svc.cluster.local` in the
 [inference service config](./config/configmap/inferenceservice.yaml).
@@ -269,7 +271,6 @@ Error Set:
 
 [KFServing v1beta1 API Docs](./docs/apis/v1beta1/README.md)
 
-[Supported PodTemplate Fields](https://knative.dev/docs/serving/feature-flags/)
 
 ### KFServing Debugging Guide :star:
 [Debug KFServing InferenceService](./docs/KFSERVING_DEBUG_GUIDE.md)
