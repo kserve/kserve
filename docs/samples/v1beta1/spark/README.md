@@ -4,7 +4,7 @@ spark.mllib supports model export to Predictive Model Markup Language [PMML](htt
 ## Setup
 1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/#install-kfserving).
 2. Your cluster's Istio Ingress gateway must be [network accessible](https://istio.io/latest/docs/tasks/traffic-management/ingress/ingress-control/).
-3. Install pyspark 3.0.x and pyspark2pmml
+3. Install `pyspark` 3.0.x and `pyspark2pmml`
 ```bash
 pip install pyspark~=3.0.0
 pip install pyspark2pmml
@@ -38,14 +38,25 @@ pmmlBuilder = PMMLBuilder(sc, df, pipelineModel)
 pmmlBuilder.buildFile("DecisionTreeIris.pmml")
 ```
 
-Upload the `DecisionTreeIris.pmml` to GCS bucket, note that pmmlserver expect name to be `model.pmml`
+Upload the `DecisionTreeIris.pmml` to a GCS bucket, note that the `PMMLServer` expect model file name to be `model.pmml`
 ```bash
-gsutil cp ./DecisionTreeIris.pmml gs://kfserving-examples/models/sparkpmml/model.pmml
+gsutil cp ./DecisionTreeIris.pmml gs://$BUCKET_NAME/sparkpmml/model.pmml
 ```
  
-## Create the InferenceService
+## Create the InferenceService with PMMLServer
+Create the `InferenceService` with `pmml` predictor and specify the `storageUri` with bucket location you uploaded to
+```yaml
+apiVersion: "serving.kubeflow.org/v1beta1"
+kind: "InferenceService"
+metadata:
+  name: "spark-pmml"
+spec:
+  predictor:
+    pmml:
+      storageUri: gs://kfserving-examples/models/sparkpmml
+```
 
-Apply the CRD
+Apply the `InferenceService` custom resource
 ```
 kubectl apply -f spark_pmml.yaml
 ```
@@ -54,7 +65,14 @@ Expected Output
 ```
 $ inferenceservice.serving.kubeflow.org/spark-pmml created
 ```
-## Run a prediction
+
+Wait the `InferenceService` to be ready
+```bash
+kubectl wait --for=condition=Ready inferenceservice spark-pmml
+inferenceservice.serving.kubeflow.org/spark-pmml condition met
+```
+
+### Run a prediction
 The first step is to [determine the ingress IP and ports](../../../../README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
 
 ```
@@ -87,4 +105,3 @@ Expected Output
 * Connection #0 to host spark-pmml.default.35.237.217.209.xip.io left intact
 {"predictions": [[1.0, 0.0, 1.0, 0.0]]}
 ```
-
