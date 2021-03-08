@@ -1,4 +1,4 @@
-name: AIXExplainer Docker Publisher
+name: Alibi Explainer Docker Publisher
 
 on:
   push:
@@ -14,7 +14,7 @@ on:
   pull_request:
 
 env:
-  IMAGE_NAME: aix-explainer 
+  IMAGE_NAME: alibi-explainer 
 
 jobs:
   # Run tests.
@@ -32,7 +32,7 @@ jobs:
             docker-compose --file docker-compose.test.yml run sut
           else
             cd python
-            docker build . --file aixexplainer.Dockerfile
+            docker build . --file alibiexplainer.Dockerfile
           fi
 
   # Push image to GitHub Packages.
@@ -50,7 +50,7 @@ jobs:
       - name: Build image
         run: |
           cd python
-          docker build . --file aixexplainer.Dockerfile --tag $IMAGE_NAME
+          docker build . --file alibiexplainer.Dockerfile --tag $IMAGE_NAME
 
       - name: Log into registry
         run: docker login -u ${{ secrets.DOCKER_USER }} -p ${{ secrets.DOCKER_PASSWORD }}
