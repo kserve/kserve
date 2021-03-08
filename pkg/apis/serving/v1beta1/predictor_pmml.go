@@ -87,7 +87,6 @@ func (p *PMMLSpec) IsMMS(config *InferenceServicesConfig) bool {
 }
 
 func (p *PMMLSpec) IsFrameworkSupported(framework string, config *InferenceServicesConfig) bool {
-	predictorConfig := config.Predictors.PMML
-	supportedFrameworks := predictorConfig.SupportedFrameworks
+	supportedFrameworks := config.Predictors.PMML.SupportedFrameworks
 	return isFrameworkIncluded(supportedFrameworks, framework)
 }

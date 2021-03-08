@@ -91,7 +91,6 @@ func (x *LightGBMSpec) IsMMS(config *InferenceServicesConfig) bool {
 }
 
 func (x *LightGBMSpec) IsFrameworkSupported(framework string, config *InferenceServicesConfig) bool {
-	predictorConfig := config.Predictors.LightGBM
-	supportedFrameworks := predictorConfig.SupportedFrameworks
+	supportedFrameworks := config.Predictors.LightGBM.SupportedFrameworks
 	return isFrameworkIncluded(supportedFrameworks, framework)
 }

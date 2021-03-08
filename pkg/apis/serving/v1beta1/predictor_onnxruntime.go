@@ -104,7 +104,6 @@ func (o *ONNXRuntimeSpec) IsMMS(config *InferenceServicesConfig) bool {
 }
 
 func (o *ONNXRuntimeSpec) IsFrameworkSupported(framework string, config *InferenceServicesConfig) bool {
-	predictorConfig := config.Predictors.ONNX
-	supportedFrameworks := predictorConfig.SupportedFrameworks
+	supportedFrameworks := config.Predictors.ONNX.SupportedFrameworks
 	return isFrameworkIncluded(supportedFrameworks, framework)
 }
