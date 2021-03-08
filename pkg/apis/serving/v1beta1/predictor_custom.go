@@ -79,5 +79,5 @@ func (c *CustomPredictor) IsMMS(config *InferenceServicesConfig) bool {
 
 func (c *CustomPredictor) IsFrameworkSupported(framework string, config *InferenceServicesConfig) bool {
 	//TODO: Figure out how to check if custom predictor is supports framework
-	return false
+	return true
 }
