@@ -97,7 +97,6 @@ func (t *TritonSpec) IsMMS(config *InferenceServicesConfig) bool {
 }
 
 func (t *TritonSpec) IsFrameworkSupported(framework string, config *InferenceServicesConfig) bool {
-	predictorConfig := config.Predictors.Triton
-	supportedFrameworks := predictorConfig.SupportedFrameworks
+	supportedFrameworks := config.Predictors.Triton.SupportedFrameworks
 	return isFrameworkIncluded(supportedFrameworks, framework)
 }
