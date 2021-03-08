@@ -230,10 +230,7 @@ func (r *TrainedModelReconciler) updateConditions(req ctrl.Request, tm *v1alpha1
 	// Update Framework Supported condition
 	isvcConfig, err := v1beta1api.NewInferenceServicesConfig(r.Client)
 	if err != nil {
-		conditionErr = utils.FirstNonNilError([]error{
-			conditionErr,
-			err,
-		})
+		return err
 	} else {
 		predictor := isvc.Spec.Predictor.GetPredictor()
 		if predictor != nil && (*predictor).IsFrameworkSupported(tm.Spec.Model.Framework, isvcConfig) {
@@ -250,10 +247,7 @@ func (r *TrainedModelReconciler) updateConditions(req ctrl.Request, tm *v1alpha1
 				Message: "Inference Service does not support the Trained Model framework",
 			})
 
-			conditionErr = utils.FirstNonNilError([]error{
-				conditionErr,
-				fmt.Errorf(FrameworkNotSupported, isvc.Name, tm.Name, tm.Spec.Model.Framework),
-			})
+			conditionErr = fmt.Errorf(FrameworkNotSupported, isvc.Name, tm.Name, tm.Spec.Model.Framework)
 		}
 	}
 
