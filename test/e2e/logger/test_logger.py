@@ -91,12 +91,13 @@ def test_kfserving_logger():
                                                   label_selector='serving.kubeflow.org/inferenceservice={}'.
                                                   format(msg_dumper))
     time.sleep(5)
+    log = ''
     for pod in pods.items:
-        log = KFServing.core_api.read_namespaced_pod_log(name=pod.metadata.name,
+        log += KFServing.core_api.read_namespaced_pod_log(name=pod.metadata.name,
                                                          namespace=pod.metadata.namespace,
                                                          container="kfserving-container")
         print(log)
-        assert("org.kubeflow.serving.inference.request" in log)
-        assert("org.kubeflow.serving.inference.response" in log)
+    assert("org.kubeflow.serving.inference.request" in log)
+    assert("org.kubeflow.serving.inference.response" in log)
     KFServing.delete(service_name, KFSERVING_TEST_NAMESPACE)
     KFServing.delete(msg_dumper, KFSERVING_TEST_NAMESPACE)
