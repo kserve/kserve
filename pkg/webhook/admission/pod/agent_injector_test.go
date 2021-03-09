@@ -233,6 +233,7 @@ func TestAgentInjector(t *testing.T) {
 										},
 									},
 								},
+								TimeoutSeconds: 10,
 							},
 						},
 					},
