@@ -1,4 +1,4 @@
-name: ARTExapliner Docker Publisher
+name: ARTExplainer Docker Publisher
 
 on:
   push:

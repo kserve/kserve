@@ -115,7 +115,7 @@ data:
   explainers: |-
     {
         "alibi": {
-            "image" : "gcr.io/kfserving/alibi-explainer",
+            "image" : "kfserving/alibi-explainer",
             "defaultImageVersion": "latest"
         },
         "aix": {
