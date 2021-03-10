@@ -50,6 +50,7 @@ import (
 
 const (
 	InferenceServiceNotReady = "Inference Service \"%s\" is not ready. Trained Model \"%s\" cannot deploy"
+	FrameworkNotSupported    = "Inference Service \"%s\" does not support the Trained Model \"%s\" framework \"%s\""
 )
 
 var log = logf.Log.WithName("TrainedModel controller")
@@ -83,10 +84,6 @@ func (r *TrainedModelReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			r.Delete(context.TODO(), tm)
 			return reconcile.Result{}, nil
 		}
-		return reconcile.Result{}, err
-	}
-
-	if err := r.updateConditions(req, tm); err != nil {
 		return reconcile.Result{}, err
 	}
 
@@ -130,6 +127,11 @@ func (r *TrainedModelReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 		// Stop reconciliation as the item is being deleted
 		return ctrl.Result{}, nil
+	}
+
+	// Update InferenceServiceReady and FrameworkSupported conditions
+	if err := r.updateConditions(req, tm); err != nil {
+		return reconcile.Result{}, err
 	}
 
 	// update URL and Address fo TrainedModel
@@ -225,10 +227,35 @@ func (r *TrainedModelReconciler) updateConditions(req ctrl.Request, tm *v1alpha1
 		conditionErr = fmt.Errorf(InferenceServiceNotReady, isvc.Name, tm.Name)
 	}
 
+	// Update Framework Supported condition
+	isvcConfig, err := v1beta1api.NewInferenceServicesConfig(r.Client)
+	if err != nil {
+		return err
+	} else {
+		predictor := isvc.Spec.Predictor.GetPredictor()
+		if predictor != nil && (*predictor).IsFrameworkSupported(tm.Spec.Model.Framework, isvcConfig) {
+			log.Info("Framework is supported", "TrainedModel", tm.Name, "InferenceService", isvc.Name, "Framework", tm.Spec.Model.Framework)
+			tm.Status.SetCondition(v1alpha1api.FrameworkSupported, &apis.Condition{
+				Status: v1.ConditionTrue,
+			})
+		} else {
+			log.Info("Framework is not supported", "TrainedModel", tm.Name, "InferenceService", isvc.Name, "Framework", tm.Spec.Model.Framework)
+			tm.Status.SetCondition(v1alpha1api.FrameworkSupported, &apis.Condition{
+				Type:    v1alpha1api.FrameworkSupported,
+				Status:  v1.ConditionFalse,
+				Reason:  "FrameworkNotSupported",
+				Message: "Inference Service does not support the Trained Model framework",
+			})
+
+			conditionErr = fmt.Errorf(FrameworkNotSupported, isvc.Name, tm.Name, tm.Spec.Model.Framework)
+		}
+	}
+
 	if statusErr := r.Status().Update(context.TODO(), tm); statusErr != nil {
 		r.Log.Error(statusErr, "Failed to update TrainedModel condition", "TrainedModel", tm.Name)
 		r.Recorder.Eventf(tm, v1.EventTypeWarning, "UpdateFailed",
 			"Failed to update conditions for TrainedModel: %v", statusErr)
+		return statusErr
 	}
 
 	return conditionErr

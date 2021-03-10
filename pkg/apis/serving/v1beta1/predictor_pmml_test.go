@@ -353,7 +353,7 @@ func TestCreatePMMLModelServingContainer(t *testing.T) {
 	}
 }
 
-func TestPMMLIsMNS(t *testing.T) {
+func TestPMMLIsMMS(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	multiModelServerCases := [2]bool{true, false}
 
@@ -404,5 +404,58 @@ func TestPMMLIsMNS(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+func TestPMMLIsFrameworkSupported(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	pmml := "pmml"
+	unsupportedFramework := "framework"
+	config := InferenceServicesConfig{
+		Predictors: PredictorsConfig{
+			PMML: PredictorConfig{
+				ContainerImage:      "pmmlserver",
+				DefaultImageVersion: "v0.4.0",
+				SupportedFrameworks: []string{"pmml"},
+			},
+		},
+	}
+	defaultResource = v1.ResourceList{
+		v1.ResourceCPU:    resource.MustParse("1"),
+		v1.ResourceMemory: resource.MustParse("2Gi"),
+	}
+	scenarios := map[string]struct {
+		spec      PredictorSpec
+		framework string
+		expected  bool
+	}{
+		"SupportedFramework": {
+			spec: PredictorSpec{
+				PMML: &PMMLSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{},
+				},
+			},
+			framework: pmml,
+			expected:  true,
+		},
+		"UnsupportedFramework": {
+			spec: PredictorSpec{
+				PMML: &PMMLSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{},
+				},
+			},
+			framework: unsupportedFramework,
+			expected:  false,
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			scenario.spec.PMML.Default(&config)
+			res := scenario.spec.PMML.IsFrameworkSupported(scenario.framework, &config)
+			if !g.Expect(res).To(gomega.Equal(scenario.expected)) {
+				t.Errorf("got %t, want %t", res, scenario.expected)
+			}
+		})
 	}
 }

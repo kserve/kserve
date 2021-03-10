@@ -315,3 +315,49 @@ func TestCustomPredictorIsMMS(t *testing.T) {
 		})
 	}
 }
+
+func TestCustomPredictorIsFrameworkSupported(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	framework := "framework"
+	config := InferenceServicesConfig{
+		Predictors: PredictorsConfig{},
+	}
+
+	defaultResource = v1.ResourceList{
+		v1.ResourceCPU:    resource.MustParse("1"),
+		v1.ResourceMemory: resource.MustParse("2Gi"),
+	}
+
+	scenarios := map[string]struct {
+		spec     PredictorSpec
+		expected bool
+	}{
+		"DefaultResources": {
+			spec: PredictorSpec{
+				PodSpec: PodSpec{
+					Containers: []v1.Container{
+						{
+							Env: []v1.EnvVar{
+								{
+									Name:  "STORAGE_URI",
+									Value: "hdfs://modelzoo",
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: true,
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			customPredictor := NewCustomPredictor(&scenario.spec.PodSpec)
+			res := customPredictor.IsFrameworkSupported(framework, &config)
+			if !g.Expect(res).To(gomega.Equal(scenario.expected)) {
+				t.Errorf("got %t, want %t", res, scenario.expected)
+			}
+		})
+	}
+}

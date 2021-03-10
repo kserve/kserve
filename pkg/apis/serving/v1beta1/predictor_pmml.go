@@ -33,7 +33,10 @@ type PMMLSpec struct {
 	PredictorExtensionSpec `json:",inline"`
 }
 
-var _ ComponentImplementation = &PMMLSpec{}
+var (
+	_ ComponentImplementation = &PMMLSpec{}
+	_ PredictorImplementation = &PMMLSpec{}
+)
 
 // Validate returns an error if invalid
 func (p *PMMLSpec) Validate() error {
@@ -81,4 +84,9 @@ func (p *PMMLSpec) GetProtocol() constants.InferenceServiceProtocol {
 
 func (p *PMMLSpec) IsMMS(config *InferenceServicesConfig) bool {
 	return config.Predictors.PMML.MultiModelServer
+}
+
+func (p *PMMLSpec) IsFrameworkSupported(framework string, config *InferenceServicesConfig) bool {
+	supportedFrameworks := config.Predictors.PMML.SupportedFrameworks
+	return isFrameworkIncluded(supportedFrameworks, framework)
 }

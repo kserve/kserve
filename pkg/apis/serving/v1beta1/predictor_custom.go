@@ -28,7 +28,10 @@ type CustomPredictor struct {
 	v1.PodSpec `json:",inline"`
 }
 
-var _ ComponentImplementation = &CustomPredictor{}
+var (
+	_ ComponentImplementation = &CustomPredictor{}
+	_ PredictorImplementation = &CustomPredictor{}
+)
 
 func NewCustomPredictor(podSpec *PodSpec) *CustomPredictor {
 	return &CustomPredictor{PodSpec: v1.PodSpec(*podSpec)}
@@ -72,4 +75,9 @@ func (c *CustomPredictor) GetProtocol() constants.InferenceServiceProtocol {
 func (c *CustomPredictor) IsMMS(config *InferenceServicesConfig) bool {
 	//TODO: Figure out how to check if custom predictor is mms
 	return false
+}
+
+func (c *CustomPredictor) IsFrameworkSupported(framework string, config *InferenceServicesConfig) bool {
+	//TODO: Figure out how to check if custom predictor is supports framework
+	return true
 }

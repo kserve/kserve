@@ -44,7 +44,10 @@ type TFServingSpec struct {
 	PredictorExtensionSpec `json:",inline"`
 }
 
-var _ ComponentImplementation = &TFServingSpec{}
+var (
+	_ ComponentImplementation = &TFServingSpec{}
+	_ PredictorImplementation = &TFServingSpec{}
+)
 
 // Validate returns an error if invalid
 func (t *TFServingSpec) Validate() error {
@@ -112,4 +115,9 @@ func (t *TFServingSpec) GetProtocol() constants.InferenceServiceProtocol {
 
 func (t *TFServingSpec) IsMMS(config *InferenceServicesConfig) bool {
 	return config.Predictors.Tensorflow.MultiModelServer
+}
+
+func (t *TFServingSpec) IsFrameworkSupported(framework string, config *InferenceServicesConfig) bool {
+	supportedFrameworks := config.Predictors.Tensorflow.SupportedFrameworks
+	return isFrameworkIncluded(supportedFrameworks, framework)
 }

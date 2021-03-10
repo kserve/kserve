@@ -378,3 +378,56 @@ func TestTritonIsMMS(t *testing.T) {
 		}
 	}
 }
+
+func TestTritonIsFrameworkSupported(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	tensorrt := "tensorrt"
+	unsupportedFramework := "framework"
+	config := InferenceServicesConfig{
+		Predictors: PredictorsConfig{
+			Triton: PredictorConfig{
+				ContainerImage:      "tritonserver",
+				DefaultImageVersion: "20.08-py3",
+				SupportedFrameworks: []string{tensorrt},
+			},
+		},
+	}
+	defaultResource = v1.ResourceList{
+		v1.ResourceCPU:    resource.MustParse("1"),
+		v1.ResourceMemory: resource.MustParse("2Gi"),
+	}
+	scenarios := map[string]struct {
+		spec      PredictorSpec
+		framework string
+		expected  bool
+	}{
+		"SupportedFramework": {
+			spec: PredictorSpec{
+				Triton: &TritonSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{},
+				},
+			},
+			framework: tensorrt,
+			expected:  true,
+		},
+		"UnsupportedFramework": {
+			spec: PredictorSpec{
+				Triton: &TritonSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{},
+				},
+			},
+			framework: unsupportedFramework,
+			expected:  false,
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			scenario.spec.Triton.Default(&config)
+			res := scenario.spec.Triton.IsFrameworkSupported(scenario.framework, &config)
+			if !g.Expect(res).To(gomega.Equal(scenario.expected)) {
+				t.Errorf("got %t, want %t", res, scenario.expected)
+			}
+		})
+	}
+}
