@@ -1,0 +1,49 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kubeflow-kfserving-admin
+  labels:
+    rbac.authorization.kubeflow.org/aggregate-to-kubeflow-admin: "true"
+aggregationRule:
+  clusterRoleSelectors:
+  - matchLabels:
+      rbac.authorization.kubeflow.org/aggregate-to-kubeflow-kfserving-admin: "true"
+rules: []
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kubeflow-kfserving-edit
+  labels:
+    rbac.authorization.kubeflow.org/aggregate-to-kubeflow-edit: "true"
+    rbac.authorization.kubeflow.org/aggregate-to-kubeflow-kfserving-admin: "true"
+rules:
+- apiGroups:
+  - serving.kubeflow.org
+  resources:
+  - inferenceservices
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - delete
+  - deletecollection
+  - patch
+  - update
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kubeflow-kfserving-view
+  labels:
+    rbac.authorization.kubeflow.org/aggregate-to-kubeflow-view: "true"
+rules:
+- apiGroups:
+  - serving.kubeflow.org
+  resources:
+  - inferenceservices
+  verbs:
+  - get
+  - list
+  - watch
