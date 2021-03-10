@@ -1,0 +1,40 @@
+apiVersion: app.k8s.io/v1beta1
+kind: Application
+metadata:
+  name: kfserving
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kfserving
+      app.kubernetes.io/component: kfserving
+  componentKinds:
+    - group: apps
+      kind: StatefulSet
+    - group: core
+      kind: Service
+    - group: core
+      kind: Secret
+    - group: core
+      kind: ConfigMap
+    - group: rbac.authorization.k8s.io/v1
+      kind: Role
+    - group: rbac.authorization.k8s.io/v1
+      kind: RoleBinding
+  descriptor:
+    type: kfserving
+    version: v1beta1
+    description: |-
+      KFServing provides a Kubernetes Custom Resource Definition for serving ML Models on arbitrary frameworks
+    maintainers:
+      - name: KFServing
+        url: https://github.com/kubeflow/kfserving
+    owners:
+      - name: KFServing
+        url: https://github.com/kubeflow/kfserving
+    keywords:
+     - kfserving
+     - inference
+    links:
+      - description: About
+        url: https://github.com/kubeflow/kfserving
+  addOwnerRef: true

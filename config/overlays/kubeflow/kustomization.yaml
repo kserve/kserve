@@ -5,11 +5,20 @@ kind: Kustomization
 namespace: kubeflow
 
 # Labels to add to all resources and selectors.
-#commonLabels:
-#  someName: someValue
+commonLabels:
+  app: kfserving
+  kustomize.component: kfserving
+  app.kubernetes.io/component: kfserving
+  app.kubernetes.io/name: kfserving
 
 bases:
 - ../../default
+- cluster-role.yaml
+- application.yaml
+
+patchesStrategicMerge:
+- statefulset-patch.yaml
+- namespace-patch.yaml
 
 generatorOptions:
   disableNameSuffixHash: true
@@ -20,5 +29,5 @@ generatorOptions:
 configMapGenerator:
   - name: kfserving-config
     behavior: replace
-    envs: 
+    envs:
     - params.env
