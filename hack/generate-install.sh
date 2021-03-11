@@ -42,6 +42,8 @@ fi
 
 INSTALL_DIR=./install/$TAG
 INSTALL_PATH=$INSTALL_DIR/kfserving.yaml
+KUBEFLOW_INSTALL_PATH=$INSTALL_DIR/kfserving_kubeflow.yaml
 
 mkdir -p $INSTALL_DIR
 kustomize build config/default | sed s/:latest/$TAG/ > $INSTALL_PATH
+kustomize build config/overlays/kubeflow | sed s/:latest/$TAG/ > $KUBEFLOW_INSTALL_PATH
