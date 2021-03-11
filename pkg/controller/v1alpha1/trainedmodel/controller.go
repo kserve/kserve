@@ -49,8 +49,9 @@ import (
 )
 
 const (
-	InferenceServiceNotReady = "Inference Service \"%s\" is not ready. Trained Model \"%s\" cannot deploy"
-	FrameworkNotSupported    = "Inference Service \"%s\" does not support the Trained Model \"%s\" framework \"%s\""
+	InferenceServiceNotReady   = "Inference Service \"%s\" is not ready. Trained Model \"%s\" cannot deploy"
+	FrameworkNotSupported      = "Inference Service \"%s\" does not support the Trained Model \"%s\" framework \"%s\""
+	MemoryResourceNotAvailable = "Inference Service \"%s\" memory resources are not available. Trained Model \"%s\" cannot deploy"
 )
 
 var log = logf.Log.WithName("TrainedModel controller")
@@ -90,6 +91,7 @@ func (r *TrainedModelReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	// Add parent InferenceService's name to TrainedModel's label
 	if tm.Labels == nil {
 		tm.Labels = make(map[string]string)
+		tm.Labels[constants.TrainedModelMemoryIncluded] = constants.MemoryCheckPending
 	}
 	tm.Labels[constants.ParentInferenceServiceLabel] = isvc.Name
 
@@ -129,7 +131,7 @@ func (r *TrainedModelReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, nil
 	}
 
-	// Update InferenceServiceReady and FrameworkSupported conditions
+	// Check inferenceserviceready, frameworksupported, and memoryavailability
 	if err := r.updateConditions(req, tm); err != nil {
 		return reconcile.Result{}, err
 	}
@@ -249,6 +251,44 @@ func (r *TrainedModelReconciler) updateConditions(req ctrl.Request, tm *v1alpha1
 
 			conditionErr = fmt.Errorf(FrameworkNotSupported, isvc.Name, tm.Name, tm.Spec.Model.Framework)
 		}
+	}
+
+	// Get trained models with same inference service
+	var trainedModels v1alpha1api.TrainedModelList
+	if err := r.List(context.TODO(), &trainedModels, client.MatchingLabels{constants.ParentInferenceServiceLabel: isvc.Name, constants.TrainedModelMemoryIncluded: "true"}); err != nil {
+		return err
+	}
+
+	// Add the current trained model if not included
+	if status, _ := tm.Labels[constants.TrainedModelMemoryIncluded]; status == constants.MemoryCheckPending {
+		trainedModels.Items = append(trainedModels.Items, *tm)
+	}
+
+	totalReqMemory := trainedModels.TotalRequestedMemory()
+	// Update Inference Service Resource Available condition
+	implementations := isvc.Spec.Predictor.GetImplementations()
+	if len(implementations) == 1 && isvc.Spec.Predictor.GetImplementation().IsMemoryResourceAvailable(totalReqMemory) {
+		log.Info("Parent InferenceService memory resources are available", "TrainedModel", tm.Name, "InferenceService", isvc.Name)
+		tm.Status.SetCondition(v1alpha1api.MemoryResourceAvailable, &apis.Condition{
+			Status: v1.ConditionTrue,
+		})
+
+		// update label to memory check passed
+		tm.Labels[constants.TrainedModelMemoryIncluded] = constants.MemoryCheckPassed
+		if UpdateErr := r.Update(context.Background(), tm); UpdateErr != nil {
+			r.Log.Error(UpdateErr, "Failed to update TrainedModel label", "TrainedModel", tm.Name)
+			return err
+		}
+	} else {
+		log.Info("Parent InferenceService memory resources are not available", "TrainedModel", tm.Name, "InferenceService", isvc.Name)
+		tm.Status.SetCondition(v1alpha1api.MemoryResourceAvailable, &apis.Condition{
+			Type:    v1alpha1api.MemoryResourceAvailable,
+			Status:  v1.ConditionFalse,
+			Reason:  "MemoryResourceNotAvailable",
+			Message: "Inference Service does not have enough memory resources for Trained Model",
+		})
+
+		conditionErr = fmt.Errorf(MemoryResourceNotAvailable, isvc.Name, tm.Name)
 	}
 
 	if statusErr := r.Status().Update(context.TODO(), tm); statusErr != nil {
