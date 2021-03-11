@@ -248,7 +248,8 @@ Error Set:
 </details>
 
 ### Setup Monitoring
-- [Tracing](https://knative.dev/docs/serving/accessing-traces/)
+- [Prometheus based monitoring for KFServing](https://github.com/kubeflow/kfserving/blob/master/docs/samples/metrics-and-monitoring/README.md#install-prometheus)
+- [Metrics driven automated rollouts using Iter8](https://github.com/kubeflow/kfserving/blob/master/docs/samples/metrics-and-monitoring/README.md#metrics-driven-experiments-and-progressive-delivery)
 - [Dashboard for ServiceMesh](https://istio.io/latest/docs/tasks/observability/kiali/)
 
 ### Use KFServing SDK
