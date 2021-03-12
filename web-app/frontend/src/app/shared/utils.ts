@@ -136,8 +136,8 @@ export function getPredictorType(predictor: PredictorSpec): string {
     return 'PMML';
   }
 
-  if ('lightgdm' in predictor) {
-    return 'LightGDM';
+  if ('lightgbm' in predictor) {
+    return 'LightGBM';
   }
 
   return 'Custom';
