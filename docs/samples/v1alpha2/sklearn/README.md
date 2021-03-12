@@ -13,7 +13,7 @@ clf.fit(X, y)
 dump(clf, 'model.joblib')
 ```
 
-Then, we can install and run the [SKLearn Server](../../../python/sklearnserver) using the generated model and test for prediction. Models can be on local filesystem, S3 compatible object storage, Azure Blob Storage, or Google Cloud Storage.
+Then, we can install and run the [SKLearn Server](../../../../python/sklearnserver) using the generated model and test for prediction. Models can be on local filesystem, S3 compatible object storage, Azure Blob Storage, or Google Cloud Storage.
 
 ```shell
 # we should indicate the directory containing the model file (model.joblib) by --model_dir
@@ -89,7 +89,7 @@ Expected Output
 
 ## Run SKLearn InferenceService with your own image
 Since the KFServing SKLearnServer image is built from a specific version of `scikit-learn` pip package, sometimes it might not be compatible with the pickled model
-you saved from your training environment, however you can build your own SKLearnServer image following [this instruction](../../../python/sklearnserver/README.md#building-your-own-scikit-learn-server-docker-image
+you saved from your training environment, however you can build your own SKLearnServer image following [these instructions](../../../../python/sklearnserver/README.md#building-your-own-scikit-learn-server-docker-image
 ).
 
 To use your SKLearnServer image:
