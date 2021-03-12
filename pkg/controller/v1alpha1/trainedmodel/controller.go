@@ -91,7 +91,6 @@ func (r *TrainedModelReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	// Add parent InferenceService's name to TrainedModel's label
 	if tm.Labels == nil {
 		tm.Labels = make(map[string]string)
-		tm.Labels[constants.TrainedModelMemoryIncluded] = constants.MemoryCheckPending
 	}
 	tm.Labels[constants.ParentInferenceServiceLabel] = isvc.Name
 
@@ -255,12 +254,11 @@ func (r *TrainedModelReconciler) updateConditions(req ctrl.Request, tm *v1alpha1
 
 	// Get trained models with same inference service
 	var trainedModels v1alpha1api.TrainedModelList
-	if err := r.List(context.TODO(), &trainedModels, client.MatchingLabels{constants.ParentInferenceServiceLabel: isvc.Name, constants.TrainedModelMemoryIncluded: "true"}); err != nil {
+	if err := r.List(context.TODO(), &trainedModels, client.InNamespace(tm.Namespace), client.MatchingLabels{constants.ParentInferenceServiceLabel: isvc.Name, constants.TrainedModelMemoryIncluded: isvc.Name}); err != nil {
 		return err
 	}
 
-	// Add the current trained model if not included
-	if status, _ := tm.Labels[constants.TrainedModelMemoryIncluded]; status == constants.MemoryCheckPending {
+	if _, ok := tm.Labels[constants.TrainedModelMemoryIncluded]; !ok {
 		trainedModels.Items = append(trainedModels.Items, *tm)
 	}
 
@@ -269,16 +267,17 @@ func (r *TrainedModelReconciler) updateConditions(req ctrl.Request, tm *v1alpha1
 	implementations := isvc.Spec.Predictor.GetImplementations()
 	if len(implementations) == 1 && isvc.Spec.Predictor.GetImplementation().IsMemoryResourceAvailable(totalReqMemory) {
 		log.Info("Parent InferenceService memory resources are available", "TrainedModel", tm.Name, "InferenceService", isvc.Name)
+		if _, ok := tm.Labels[constants.TrainedModelMemoryIncluded]; !ok {
+			tm.Labels[constants.TrainedModelMemoryIncluded] = isvc.Name
+			if updateErr := r.Update(context.Background(), tm); updateErr != nil {
+				r.Log.Error(updateErr, "Failed to update TrainedModel label", "TrainedModel", tm.Name)
+				return updateErr
+			}
+		}
+
 		tm.Status.SetCondition(v1alpha1api.MemoryResourceAvailable, &apis.Condition{
 			Status: v1.ConditionTrue,
 		})
-
-		// update label to memory check passed
-		tm.Labels[constants.TrainedModelMemoryIncluded] = constants.MemoryCheckPassed
-		if UpdateErr := r.Update(context.Background(), tm); UpdateErr != nil {
-			r.Log.Error(UpdateErr, "Failed to update TrainedModel label", "TrainedModel", tm.Name)
-			return err
-		}
 	} else {
 		log.Info("Parent InferenceService memory resources are not available", "TrainedModel", tm.Name, "InferenceService", isvc.Name)
 		tm.Status.SetCondition(v1alpha1api.MemoryResourceAvailable, &apis.Condition{
