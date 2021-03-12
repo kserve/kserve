@@ -231,6 +231,7 @@ func (ag *AgentInjector) InjectAgent(pod *v1.Pod) error {
 				},
 			},
 		},
+		TimeoutSeconds: 10,
 	}
 	if injectLogger || injectBatcher {
 		agentContainer.ReadinessProbe = readinessProbe

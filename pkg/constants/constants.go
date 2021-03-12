@@ -118,13 +118,13 @@ type InferenceServiceProtocol string
 
 // Knative constants
 const (
-	KnativeLocalGateway   = "knative-serving/cluster-local-gateway"
+	KnativeLocalGateway   = "knative-serving/knative-local-gateway"
 	KnativeIngressGateway = "knative-serving/knative-ingress-gateway"
 	VisibilityLabel       = "serving.knative.dev/visibility"
 )
 
 var (
-	LocalGatewayHost = "cluster-local-gateway.istio-system.svc." + network.GetClusterDomainName()
+	LocalGatewayHost = "knative-local-gateway.istio-system.svc." + network.GetClusterDomainName()
 )
 
 // InferenceService Component enums

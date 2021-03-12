@@ -53,11 +53,12 @@ You must install these tools:
 
 KFServing currently requires `Knative Serving` for auto-scaling, canary rollout, `Istio` for traffic routing and ingress.
 
-* To install Knative components on your Kubernetes cluster, follow the [generic cluster installation guide](https://knative.dev/docs/install/any-kubernetes-cluster/) or alternatively, use the [Knative Operators](https://knative.dev/docs/install/knative-with-operators/) to manage your installation. Observability, tracing and logging are optional but are often very valuable tools for troubleshooting difficult issues - they can be installed via the [directions here](https://knative.dev/docs/serving/installing-logging-metrics-traces/).
+* To install Knative components on your Kubernetes cluster, follow the [generic cluster installation guide](https://knative.dev/docs/install/any-kubernetes-cluster/) or alternatively, use the [Knative Operators](https://knative.dev/docs/install/knative-with-operators/) to manage your installation. Observability, tracing and logging are optional but are often very valuable tools for troubleshooting difficult issues - they can be installed via the [directions here](https://github.com/knative/docs/blob/release-0.15/docs/serving/installing-logging-metrics-traces.md).
 
-* If you already have `Istio` or `Knative` (e.g. from a Kubeflow install) then you don't need to install them explictly, as long as version dependencies are satisfied. With Kubeflow v0.7, KNative 0.8 and Istio 1.1.6 are installed by default as part of the Kubeflow installation. From Kubeflow 1.0 onwards, KNative 0.11.1 and Istio 1.1.6 are installed by default. If you are using DEX based config for Kubeflow 1.0, Istio 1.3.1 is installed by default in your Kubeflow cluster. To summarize, we would recommend KNative 0.11.1 at a minimum for KFServing 0.3.0 and for the KFServing code in master. For Istio use versions 1.1.6 and 1.3.1 which have been tested, and for Kubernetes use 1.15+ 
-
-* You need follow the instructions on [Updating your install to use cluster local gateway](https://knative.dev/docs/install/installing-istio/#updating-your-install-to-use-cluster-local-gateway) to add cluster local gateway to your cluster to serve cluster-internal traffic for transformer and explainer use cases.
+* If you already have `Istio` or `Knative` (e.g. from a Kubeflow install) then you don't need to install them explictly, as long as version dependencies are satisfied. If you are using DEX based config for Kubeflow 1.0, Istio 1.3.1 is installed by default in your Kubeflow cluster.
+* Prior to Knative 0.19, you had to follow the instructions on [Updating your install to use cluster local gateway](https://knative.dev/docs/install/installing-istio/#updating-your-install-to-use-cluster-local-gateway) to add cluster local gateway to your cluster to serve cluster-internal traffic for transformer and explainer use cases. As of Knative 0.19, `cluster-local-gateway` has been replaced by `knative-local-gateway` and doesn't require separate installation instructions. 
+  
+If you start from scratch, we would recommend Knative 0.20 for KFServing 0.5.0 and for the KFServing code in master. For Istio use version 1.7.1 which is been tested, and for Kubernetes use 1.18+
 
 ### Setup your environment
 
@@ -123,11 +124,26 @@ Once you've [setup your development environment](#prerequisites), you can see th
 
 ```console
 $ kubectl -n knative-serving get pods
-NAME                          READY     STATUS    RESTARTS   AGE
-activator-c8495dc9-z7xpz      2/2       Running   0          6d
-autoscaler-66897845df-t5cwg   2/2       Running   0          6d
-controller-699fb46bb5-xhlkg   1/1       Running   0          6d
-webhook-76b87b8459-tzj6r      1/1       Running   0          6d
+NAME                                                     READY   STATUS      RESTARTS   AGE
+activator-77784645fc-t2pjf                               1/1     Running     0          11d
+autoscaler-6fddf74d5-z2fzf                               1/1     Running     0          11d
+autoscaler-hpa-5bf4476cc5-tsbw6                          1/1     Running     0          11d
+controller-7b8cd7f95c-6jxxj                              1/1     Running     0          11d
+istio-webhook-866c5bc7f8-t5ztb                           1/1     Running     0          11d
+networking-istio-54fb8b5d4b-xznwd                        1/1     Running     0          11d
+storage-version-migration-serving-serving-0.20.0-qrr2l   0/1     Completed   0          11d
+webhook-5f5f7bd9b4-cv27c                                 1/1     Running     0          11d
+
+$ kubectl get gateway -n knative-serving
+NAME                      AGE
+knative-ingress-gateway   11d
+knative-local-gateway     11d
+
+$ kubectl get svc -n istio-system
+NAME                    TYPE           CLUSTER-IP       EXTERNAL-IP   PORT(S)                                                      AGE
+istio-ingressgateway    LoadBalancer   10.101.196.89    X.X.X.X       15021:31101/TCP,80:31781/TCP,443:30372/TCP,15443:31067/TCP   11d
+istiod                  ClusterIP      10.101.116.203   <none>        15010/TCP,15012/TCP,443/TCP,15014/TCP,853/TCP                11d
+knative-local-gateway   ClusterIP      10.100.179.96    <none>        80/TCP                                                       11d
 ```
 ### Deploy KFServing from default
 We suggest using [cert manager](https://github.com/jetstack/cert-manager) for

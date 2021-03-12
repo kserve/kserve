@@ -487,7 +487,7 @@ func TestCreateVirtualService(t *testing.T) {
 				IngressGateway:          constants.KnativeIngressGateway,
 				IngressServiceName:      "someIngressServiceName",
 				LocalGateway:            constants.KnativeLocalGateway,
-				LocalGatewayServiceName: "cluster-local-gateway.istio-system.svc.cluster.local",
+				LocalGatewayServiceName: "knative-local-gateway.istio-system.svc.cluster.local",
 			}
 
 			actualService := createIngress(testIsvc, ingressConfig)
