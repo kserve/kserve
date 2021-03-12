@@ -17,7 +17,7 @@ KNATIVE_SERVICE = {"group": "serving.knative.dev",
 def inference_service_gvk():
     try:
         version = current_app.config["APP_VERSION"]
-        if version not in ['v1alpha2', 'v1beta2']:
+        if version not in ['v1alpha2', 'v1beta1']:
             version = 'v1beta1'
     except RuntimeError:
         version = "v1alpha2"
