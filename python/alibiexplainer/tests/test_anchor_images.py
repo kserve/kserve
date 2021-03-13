@@ -46,7 +46,7 @@ def test_anchor_images():
         image_shape = (299, 299, 3)
         # the image downloader comes from seldonio/alibi
         # https://github.com/SeldonIO/alibi/blob/76e6192b6d78848dd47c11ba6f6348ca94c424c6/alibi/datasets.py#L104-L125
-        img_urls = json.load(open('./persian_cat.json'))
+        img_urls = json.load(open('alibiexplainer/tests/persian_cat.json'))
         seed = 2
         random.seed(seed)
         random.shuffle(img_urls)
