@@ -54,7 +54,7 @@ func TestValidateCreate(t *testing.T) {
 		"alphanumeric model name": {
 			tm: makeTestTrainModel(),
 			update: map[string]string{
-				name: "abc-123",
+				name: "Abc-123",
 			},
 			matcher: gomega.MatchError(nil),
 		},
@@ -63,21 +63,21 @@ func TestValidateCreate(t *testing.T) {
 			update: map[string]string{
 				name: "4abc-3",
 			},
-			matcher: gomega.MatchError(fmt.Errorf(InvalidTmNameFormatError, "4abc-3", TmRegexp)),
+			matcher: gomega.MatchError(nil),
 		},
 		"name starts with dash": {
 			tm: makeTestTrainModel(),
 			update: map[string]string{
 				name: "-abc-3",
 			},
-			matcher: gomega.MatchError(fmt.Errorf(InvalidTmNameFormatError, "-abc-3", TmRegexp)),
+			matcher: gomega.MatchError(nil),
 		},
 		"name ends with dash": {
 			tm: makeTestTrainModel(),
 			update: map[string]string{
 				name: "abc-3-",
 			},
-			matcher: gomega.MatchError(fmt.Errorf(InvalidTmNameFormatError, "abc-3-", TmRegexp)),
+			matcher: gomega.MatchError(nil),
 		},
 		"name includes dot": {
 			tm: makeTestTrainModel(),
@@ -134,7 +134,7 @@ func TestValidateUpdate(t *testing.T) {
 		"alphanumeric model name": {
 			tm: makeTestTrainModel(),
 			update: map[string]string{
-				name: "abc-123",
+				name: "Abc-123",
 			},
 			matcher: gomega.MatchError(nil),
 		},
@@ -143,21 +143,21 @@ func TestValidateUpdate(t *testing.T) {
 			update: map[string]string{
 				name: "4abc-3",
 			},
-			matcher: gomega.MatchError(fmt.Errorf(InvalidTmNameFormatError, "4abc-3", TmRegexp)),
+			matcher: gomega.MatchError(nil),
 		},
 		"name starts with dash": {
 			tm: makeTestTrainModel(),
 			update: map[string]string{
 				name: "-abc-3",
 			},
-			matcher: gomega.MatchError(fmt.Errorf(InvalidTmNameFormatError, "-abc-3", TmRegexp)),
+			matcher: gomega.MatchError(nil),
 		},
 		"name ends with dash": {
 			tm: makeTestTrainModel(),
 			update: map[string]string{
 				name: "abc-3-",
 			},
-			matcher: gomega.MatchError(fmt.Errorf(InvalidTmNameFormatError, "abc-3-", TmRegexp)),
+			matcher: gomega.MatchError(nil),
 		},
 		"name includes dot": {
 			tm: makeTestTrainModel(),

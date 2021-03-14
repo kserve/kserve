@@ -31,8 +31,8 @@ import (
 // regular expressions for validation of isvc name
 const (
 	CommaSpaceSeparator                 = ", "
-	TmNameFmt                    string = "[a-z]([-a-z0-9]*[a-z0-9])?"
-	InvalidTmNameFormatError            = "the Trained Model \"%s\" is invalid: a Trained Model name must consist of lower case alphanumeric characters or '-', and must start with alphabetical character. (e.g. \"my-name\" or \"abc-123\", regex used for validation is '%s')"
+	TmNameFmt                    string = "[a-zA-Z0-9_-]+"
+	InvalidTmNameFormatError            = "the Trained Model \"%s\" is invalid: a Trained Model name must consist of alphanumeric characters, '_', or '-'. (e.g. \"my-Name\" or \"abc_123\", regex used for validation is '%s')"
 	InvalidStorageUriFormatError        = "the Trained Model \"%s\" storageUri field is invalid. The storage uri must start with one of the prefixes: %s. (the storage uri given is \"%s\")"
 	InvalidTmMemoryModification         = "the Trained Model \"%s\" memory field is immutable. The memory was \"%s\" but it is updated to \"%s\""
 )
