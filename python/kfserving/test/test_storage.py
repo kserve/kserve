@@ -14,6 +14,9 @@
 
 import io
 import os
+import tempfile
+import binascii
+
 import pytest
 import kfserving
 from minio import Minio, error
@@ -22,6 +25,10 @@ import unittest.mock as mock
 
 STORAGE_MODULE = 'kfserving.storage'
 
+# *.tar.gz contains a single empty file model.pth
+FILE_TAR_GZ_RAW = binascii.unhexlify('1f8b0800bac550600003cbcd4f49cdd12b28c960a01d3030303033315100d1e666a660dac008c28701054313a090a189919981998281a1b1b1a1118382010ddd0407a5c525894540a754656466e464e2560754969686c71ca83fe0f4281805a360140c7200009f7e1bb400060000')
+# *.zip contains a single empty file model.pth
+FILE_ZIP_RAW = binascii.unhexlify('504b030414000800080035b67052000000000000000000000000090020006d6f64656c2e70746855540d000786c5506086c5506086c5506075780b000104f501000004140000000300504b0708000000000200000000000000504b0102140314000800080035b67052000000000200000000000000090020000000000000000000a481000000006d6f64656c2e70746855540d000786c5506086c5506086c5506075780b000104f50100000414000000504b0506000000000100010057000000590000000000')
 
 def test_storage_local_path():
     abs_path = 'file:///'
@@ -75,6 +82,34 @@ def test_https_uri_path(_):
     assert kfserving.Storage.download(https_uri, out_dir=out_dir) == out_dir
     assert kfserving.Storage.download(https_with_query_uri, out_dir=out_dir) == out_dir
     os.remove('./model.joblib')
+
+@mock.patch('requests.get', return_value=MockHttpResponse(status_code=200, content_type='application/x-tar', raw=FILE_TAR_GZ_RAW))
+def test_http_uri_path_with_tar_gz(_):
+    with tempfile.TemporaryDirectory() as out_dir:
+        https_uri = 'https://foo.bar/model.tar.gz'
+        assert kfserving.Storage.download(https_uri, out_dir=out_dir) == out_dir
+        assert os.path.exists(os.path.join(out_dir, 'model.pth'))
+
+@mock.patch('requests.get', return_value=MockHttpResponse(status_code=200, content_type='application/x-tar', raw=FILE_TAR_GZ_RAW))
+def test_http_uri_path_with_tar_gz_query_params(_):
+    with tempfile.TemporaryDirectory() as out_dir:
+        https_with_query_uri = 'https://foo.bar/model.tar.gz?foo=bar'
+        assert kfserving.Storage.download(https_with_query_uri, out_dir=out_dir) == out_dir
+        assert os.path.exists(os.path.join(out_dir, 'model.pth'))
+
+@mock.patch('requests.get', return_value=MockHttpResponse(status_code=200, content_type='application/zip', raw=FILE_ZIP_RAW))
+def test_http_uri_path_with_zip(_):
+    with tempfile.TemporaryDirectory() as out_dir:
+        https_uri = 'https://foo.bar/model.zip'
+        assert kfserving.Storage.download(https_uri, out_dir=out_dir) == out_dir
+        assert os.path.exists(os.path.join(out_dir, 'model.pth'))
+
+@mock.patch('requests.get', return_value=MockHttpResponse(status_code=200, content_type='application/zip', raw=FILE_ZIP_RAW))
+def test_http_uri_path_with_zip_query_params(_):
+    with tempfile.TemporaryDirectory() as out_dir:
+        https_with_query_uri = 'https://foo.bar/model.zip?foo=bar'
+        assert kfserving.Storage.download(https_with_query_uri, out_dir=out_dir) == out_dir
+        assert os.path.exists(os.path.join(out_dir, 'model.pth'))
 
 @mock.patch('requests.get', return_value=MockHttpResponse(status_code=404))
 def test_nonexistent_uri(_):

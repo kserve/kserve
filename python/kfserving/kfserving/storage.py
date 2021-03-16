@@ -228,7 +228,7 @@ The path or model %s does not exist." % (uri))
     def _download_from_uri(uri, out_dir=None):
         url = urlparse(uri)
         filename = os.path.basename(url.path)
-        mimetype, encoding = mimetypes.guess_type(uri)
+        mimetype, encoding = mimetypes.guess_type(url.path)
         local_path = os.path.join(out_dir, filename)
 
         if filename == '':
