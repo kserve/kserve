@@ -18,8 +18,6 @@ package v1beta1
 
 import (
 	"fmt"
-	"strconv"
-
 	"github.com/golang/protobuf/proto"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/utils"
@@ -41,6 +39,7 @@ var (
 // Validate returns an error if invalid
 func (p *PMMLSpec) Validate() error {
 	return utils.FirstNonNilError([]error{
+		ValidateMaxArgumentWorkers(p.Container.Args, 1),
 		validateStorageURI(p.GetStorageUri()),
 	})
 }
@@ -61,11 +60,7 @@ func (p *PMMLSpec) GetContainer(metadata metav1.ObjectMeta, extensions *Componen
 		fmt.Sprintf("%s=%s", constants.ArgumentModelDir, constants.DefaultModelLocalMountPath),
 		fmt.Sprintf("%s=%s", constants.ArgumentHttpPort, constants.InferenceServiceDefaultHttpPort),
 	}
-	if !utils.IncludesArg(p.Container.Args, constants.ArgumentWorkers) {
-		if extensions.ContainerConcurrency != nil {
-			arguments = append(arguments, fmt.Sprintf("%s=%s", constants.ArgumentWorkers, strconv.FormatInt(*extensions.ContainerConcurrency, 10)))
-		}
-	}
+
 	if p.Container.Image == "" {
 		p.Container.Image = config.Predictors.PMML.ContainerImage + ":" + *p.RuntimeVersion
 	}

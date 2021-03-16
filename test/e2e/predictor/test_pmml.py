@@ -13,18 +13,19 @@
 # limitations under the License.
 
 import os
-from kubernetes import client
+
 from kfserving import KFServingClient
-from kfserving import constants
 from kfserving import V1alpha2EndpointSpec
-from kfserving import V1alpha2PredictorSpec
-from kfserving import V1alpha2PMMLSpec
-from kfserving import V1alpha2InferenceServiceSpec
 from kfserving import V1alpha2InferenceService
+from kfserving import V1alpha2InferenceServiceSpec
+from kfserving import V1alpha2PMMLSpec
+from kfserving import V1alpha2PredictorSpec
+from kfserving import constants
+from kubernetes import client
 from kubernetes.client import V1ResourceRequirements
 
-from ..common.utils import predict
 from ..common.utils import KFSERVING_TEST_NAMESPACE
+from ..common.utils import predict
 
 api_version = constants.KFSERVING_GROUP + '/' + constants.KFSERVING_VERSION
 KFServing = KFServingClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
@@ -50,5 +51,9 @@ def test_pmml_kfserving():
     KFServing.create(isvc)
     KFServing.wait_isvc_ready(service_name, namespace=KFSERVING_TEST_NAMESPACE)
     res = predict(service_name, './data/pmml_input.json')
-    assert(res["predictions"] == [[1.0, 0.0, 0.0, "2"]])
+    assert (res["predictions"] == [{'Species': 'setosa',
+                                    'Probability_setosa': 1.0,
+                                    'Probability_versicolor': 0.0,
+                                    'Probability_virginica': 0.0,
+                                    'Node_Id': '2'}])
     KFServing.delete(service_name, KFSERVING_TEST_NAMESPACE)

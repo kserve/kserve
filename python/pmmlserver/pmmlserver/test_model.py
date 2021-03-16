@@ -25,4 +25,11 @@ def test_model():
 
     request = {"instances": [[5.1, 3.5, 1.4, 0.2]]}
     response = server.predict(request)
-    assert isinstance(response["predictions"][0], list)
+    expect_result = {'Species': 'setosa',
+                     'Probability_setosa': 1.0,
+                     'Probability_versicolor': 0.0,
+                     'Probability_virginica': 0.0,
+                     'Node_Id': '2'}
+
+    assert isinstance(response["predictions"][0], dict)
+    assert response["predictions"][0] == expect_result
