@@ -114,7 +114,7 @@ minikube start --cpus 4 --memory 8192 --kubernetes-version=v1.17.11
 ### Setup Ingress Gateway
 If the default ingress gateway setup does not fit your need, you can choose to setup a custom ingress gateway
 - [Configure Custom Ingress Gateway](https://knative.dev/docs/serving/setting-up-custom-ingress-gateway/)
-  -  In addition you need to update [KFServing configmap](config/default/configmap/inferenceservice.yaml) to use the custom ingress gateway.
+  -  In addition you need to update [KFServing configmap](config/configmap/inferenceservice.yaml) to use the custom ingress gateway.
 - [Configure Custom Domain](https://knative.dev/docs/serving/using-a-custom-domain/)
 - [Configure HTTPS Connection](https://knative.dev/docs/serving/using-a-tls-cert/)
 
