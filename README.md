@@ -54,7 +54,7 @@ generation [script](./hack/self-signed-ca.sh).
 KFServing can be installed standalone if your kubernetes cluster meets the above prerequisites and KFServing controller is deployed in `kfserving-system` namespace.
 
 ```
-TAG=v0.5.0
+TAG=v0.5.1
 ```
 
 Install KFServing CRD
