@@ -33,6 +33,7 @@ import (
 	v1beta1api "github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/controller/v1alpha1/trainedmodel/reconcilers/modelconfig"
+	v1beta1utils "github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/utils"
 	"github.com/kubeflow/kfserving/pkg/utils"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -264,8 +265,7 @@ func (r *TrainedModelReconciler) updateConditions(req ctrl.Request, tm *v1alpha1
 
 	totalReqMemory := trainedModels.TotalRequestedMemory()
 	// Update Inference Service Resource Available condition
-	implementations := isvc.Spec.Predictor.GetImplementations()
-	if len(implementations) == 1 && isvc.Spec.Predictor.GetImplementation().IsMemoryResourceAvailable(totalReqMemory) {
+	if v1beta1utils.IsMemoryResourceAvailable(isvc, totalReqMemory, isvcConfig) {
 		log.Info("Parent InferenceService memory resources are available", "TrainedModel", tm.Name, "InferenceService", isvc.Name)
 		if _, ok := tm.Labels[constants.TrainedModelMemoryIncluded]; !ok {
 			tm.Labels[constants.TrainedModelMemoryIncluded] = isvc.Name
