@@ -12,9 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import kfp.compiler as compiler
 import kfp.dsl as dsl
 from kfp import components
-import json
+
 
 kfserving_op = components.load_component_from_url('https://raw.githubusercontent.com/kubeflow/pipelines/master/components/kubeflow/kfserving/component.yaml')
 
@@ -23,32 +24,18 @@ kfserving_op = components.load_component_from_url('https://raw.githubusercontent
   description='A pipeline for KFServing.'
 )
 def kfservingPipeline(
-    action = 'create',
+    action='apply',
     model_name='tensorflow-sample',
-    default_model_uri='gs://kfserving-samples/models/tensorflow/flowers',
-    canary_model_uri='gs://kfserving-samples/models/tensorflow/flowers-2',
-    canary_model_traffic_percentage='10',
-    namespace='kubeflow',
-    framework='tensorflow',
-    default_custom_model_spec='{}',
-    canary_custom_model_spec='{}',
-    autoscaling_target=0,
-    kfserving_endpoint=''
-):
+    model_uri='gs://kfserving-samples/models/tensorflow/flowers',
+    namespace='anonymous',
+    framework='tensorflow'):
 
-    # define workflow
     kfserving = kfserving_op(action = action,
                              model_name=model_name,
-                             default_model_uri=default_model_uri,
-                             canary_model_uri=canary_model_uri,
-                             canary_model_traffic_percentage=canary_model_traffic_percentage,
+                             model_uri=model_uri,
                              namespace=namespace,
-                             framework=framework,
-                             default_custom_model_spec=default_custom_model_spec,
-                             canary_custom_model_spec=canary_custom_model_spec,
-                             autoscaling_target=autoscaling_target,
-                             kfserving_endpoint=kfserving_endpoint)
+                             framework=framework)
+
 
 if __name__ == '__main__':
-    import kfp.compiler as compiler
     compiler.Compiler().compile(kfservingPipeline, __file__ + '.tar.gz')
