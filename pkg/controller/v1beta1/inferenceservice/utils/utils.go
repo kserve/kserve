@@ -24,9 +24,9 @@ import (
 // is set or predictor config sets MMS to true and storage uri is not set
 func IsMMSPredictor(predictor *v1beta1api.PredictorSpec, isvcConfig *v1beta1api.InferenceServicesConfig) bool {
 	mmsExtension := predictor.GetExtensions().MultiModelServer
-	isStorageURISet := predictor.GetImplementation().GetStorageUri() == nil
+	storageURINotSet := predictor.GetImplementation().GetStorageUri() == nil
 	if mmsExtension != nil {
-		return *mmsExtension && isStorageURISet
+		return *mmsExtension && storageURINotSet
 	}
-	return predictor.GetImplementation().IsMMS(isvcConfig) && isStorageURISet
+	return predictor.GetImplementation().IsMMS(isvcConfig) && storageURINotSet
 }
