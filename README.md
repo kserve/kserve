@@ -57,16 +57,10 @@ KFServing can be installed standalone if your kubernetes cluster meets the above
 TAG=v0.5.1
 ```
 
-Install KFServing CRD
+Install KFServing CRD and Controller
 
 Due to [a performance issue applying deeply nested CRDs](https://github.com/kubernetes/kubernetes/issues/91615), please ensure that your `kubectl` version
 fits into one of the following categories to ensure that you have the fix: `>=1.16.14,<1.17.0` or `>=1.17.11,<1.18.0` or `>=1.18.8`.
-```shell
-kubectl apply -f https://github.com/kubeflow/kfserving/releases/download/$TAG/kfserving_crds.yaml
-```
-
-Install KFServing Controller
-
 ```shell
 kubectl apply -f https://github.com/kubeflow/kfserving/releases/download/$TAG/kfserving.yaml
 ```
