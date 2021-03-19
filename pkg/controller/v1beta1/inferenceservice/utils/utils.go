@@ -31,9 +31,10 @@ func IsMMSPredictor(isvc *v1beta1api.InferenceService, isvcConfig *v1beta1api.In
 	isMMS := predictor.GetImplementation().IsMMS(isvcConfig) && predictor.GetImplementation().GetStorageUri() == nil
 
 	if isMMS {
-		log.Info("Predictor is configured for multi-model serving", "InferenceService", isvc.Name)
+		log.V(5).Info("Predictor is configured for multi-model serving", "InferenceService", isvc.Name)
 	} else {
-		log.Info("Predictor is configured for single model serving", "InferenceService", isvc.Name)
+		log.V(5).Info("Predictor is configured for single model serving", "InferenceService", isvc.Name)
 	}
+
 	return isMMS
 }
