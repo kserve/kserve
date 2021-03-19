@@ -26,6 +26,8 @@ Requirements:
 ```bash
 # build the common library
 cd $KUBEFLOW_REPO/components/crud-web-apps/common/frontend/kubeflow-common-lib
+git checkout e6fdf51
+
 npm i
 npm run build
 cd dist/kubeflow

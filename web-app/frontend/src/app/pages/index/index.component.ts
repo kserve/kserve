@@ -16,6 +16,7 @@ import {
   DIALOG_RESP,
   SnackBarService,
   SnackType,
+  DashboardState,
 } from 'kubeflow';
 import { Subscription } from 'rxjs';
 import { isEqual } from 'lodash';
@@ -38,16 +39,17 @@ export class IndexComponent implements OnInit, OnDestroy {
   public poller: ExponentialBackoff;
   public subs = new Subscription();
   public config = defaultConfig;
+  public dashboardDisconnectedState = DashboardState.Disconnected;
 
   private rawData: InferenceServiceK8s[] = [];
 
   constructor(
     private backend: MWABackendService,
-    private ns: NamespaceService,
     private confirmDialog: ConfirmDialogService,
     private snack: SnackBarService,
     private router: Router,
     private clipboard: Clipboard,
+    public ns: NamespaceService,
   ) {}
 
   ngOnInit() {
