@@ -168,6 +168,13 @@ func (r *KsvcReconciler) Reconcile() (*knservingv1.ServiceStatus, error) {
 	}
 
 	// Reconcile differences and update
+	// knative mutator defaults the enableServiceLinks to false which would generate a diff despite no changes on desired knative service
+	// https://github.com/knative/serving/blob/main/pkg/apis/serving/v1/revision_defaults.go#L134
+	if desired.Spec.ConfigurationSpec.Template.Spec.EnableServiceLinks == nil &&
+		existing.Spec.ConfigurationSpec.Template.Spec.EnableServiceLinks != nil &&
+		*existing.Spec.ConfigurationSpec.Template.Spec.EnableServiceLinks == false {
+		desired.Spec.ConfigurationSpec.Template.Spec.EnableServiceLinks = proto.Bool(false)
+	}
 	diff, err := kmp.SafeDiff(desired.Spec.ConfigurationSpec, existing.Spec.ConfigurationSpec)
 	if err != nil {
 		return &existing.Status, errors.Wrapf(err, "failed to diff knative service configuration spec")
