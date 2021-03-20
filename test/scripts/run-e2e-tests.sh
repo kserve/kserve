@@ -23,10 +23,10 @@ set -o pipefail
 CLUSTER_NAME="${CLUSTER_NAME}"
 AWS_REGION="${AWS_REGION}"
 
-ISTIO_VERSION="1.7.1"
-KNATIVE_VERSION="v0.20.0"
-KUBECTL_VERSION="v1.20.0"
-CERT_MANAGER_VERSION="v0.12.0"
+ISTIO_VERSION="1.8.2"
+KNATIVE_VERSION="v0.21.0"
+KUBECTL_VERSION="v1.20.2"
+CERT_MANAGER_VERSION="v1.2.0"
 
 echo "Upgrading kubectl ..."
 wget -q -O /usr/local/bin/kubectl https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl
@@ -68,7 +68,7 @@ spec:
       - name: istio-ingressgateway
         enabled: true
 EOF
-  istioctl manifest install -f ./istio-minimal-operator.yaml
+  istioctl manifest install -y -f ./istio-minimal-operator.yaml
 
 popd
 
