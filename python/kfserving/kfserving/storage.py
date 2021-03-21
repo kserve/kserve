@@ -39,7 +39,8 @@ _URI_RE = "https?://(.+)/(.+)"
 _HTTP_PREFIX = "http(s)://"
 _HEADERS_SUFFIX = "-headers"
 
-class Storage(object): # pylint: disable=too-few-public-methods
+
+class Storage(object):  # pylint: disable=too-few-public-methods
     @staticmethod
     def download(uri: str, out_dir: str = None) -> str:
         logging.info("Copying contents of %s to local", uri)
@@ -147,7 +148,7 @@ The path or model %s does not exist." % (uri))
         try:
             block_blob_service = BlockBlobService(account_name=account_name)
             blobs = block_blob_service.list_blobs(container_name, prefix=prefix)
-        except Exception: # pylint: disable=broad-except
+        except Exception:  # pylint: disable=broad-except
             token = Storage._get_azure_storage_token()
             if token is None:
                 logging.warning("Azure credentials not found, retrying anonymous access")
