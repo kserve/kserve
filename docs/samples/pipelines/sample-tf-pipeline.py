@@ -17,11 +17,13 @@ import kfp.dsl as dsl
 from kfp import components
 
 
-kfserving_op = components.load_component_from_url('https://raw.githubusercontent.com/kubeflow/pipelines/master/components/kubeflow/kfserving/component.yaml')
+kfserving_op = components.load_component_from_url('https://raw.githubusercontent.com/kubeflow/pipelines/'
+                                                  'master/components/kubeflow/kfserving/component.yaml')
+
 
 @dsl.pipeline(
-  name='KFServing pipeline',
-  description='A pipeline for KFServing.'
+    name='KFServing pipeline',
+    description='A pipeline for KFServing.'
 )
 def kfservingPipeline(
     action='apply',
@@ -35,6 +37,7 @@ def kfservingPipeline(
                              model_uri=model_uri,
                              namespace=namespace,
                              framework=framework)
+
 
 
 if __name__ == '__main__':

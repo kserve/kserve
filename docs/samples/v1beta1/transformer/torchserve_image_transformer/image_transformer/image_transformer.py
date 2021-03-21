@@ -20,7 +20,6 @@ from typing import List, Dict
 from PIL import Image
 import torchvision.transforms as transforms
 import logging
-import numpy as np
 import kfserving
 
 logging.basicConfig(level=kfserving.constants.KFSERVING_LOGLEVEL)
@@ -32,6 +31,7 @@ image_processing = transforms.Compose([
         transforms.ToTensor(),
         transforms.Normalize((0.1307,), (0.3081,))
     ])
+
 
 def image_transform(instance):
     """converts the input image of Bytes Array into Tensor

@@ -17,7 +17,8 @@ import kfp.dsl as dsl
 from kfp import components
 
 
-kfserving_op = components.load_component_from_url('https://raw.githubusercontent.com/kubeflow/pipelines/master/components/kubeflow/kfserving/component.yaml')
+kfserving_op = components.load_component_from_url('https://raw.githubusercontent.com/kubeflow/pipelines/master/'
+                                                  'components/kubeflow/kfserving/component.yaml')
 
 @dsl.pipeline(
   name='KFServing pipeline',
@@ -26,8 +27,10 @@ kfserving_op = components.load_component_from_url('https://raw.githubusercontent
 def kfservingPipeline(
     action='apply',
     model_name='max-image-segmenter',
-    namespace='anonymous',
-    custom_model_spec='{"name": "image-segmenter", "image": "codait/max-image-segmenter:latest", "port": "5000"}'
+    namespace='kubeflow',
+    framework='custom',
+    default_custom_model_spec='{"name": "image-segmenter", "image": '
+                              '"codait/max-image-segmenter:latest", "port": "5000"}'
 ):
 
     kfserving = kfserving_op(action=action,

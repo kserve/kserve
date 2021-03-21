@@ -62,14 +62,11 @@ explainer = alibi.explainers.AnchorTabular(predict_fn=predict_fn,
                                            feature_names=feature_names,
                                            categorical_names=category_map)
 explainer.fit(X_train)
-explainer.predict_fn = None # Clear explainer predict_fn as its a lambda and will be reset when loaded
+explainer.predict_fn = None  # Clear explainer predict_fn as its a lambda and will be reset when loaded
 
 
 print("Saving individual files")
 
 with open("explainer.dill", 'wb') as f:
-    dill.dump(explainer,f)
+    dill.dump(explainer, f)
 joblib.dump(pipeline, 'model.joblib')
-
-
-

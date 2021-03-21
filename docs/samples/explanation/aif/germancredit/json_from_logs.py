@@ -1,12 +1,7 @@
-from aif360.metrics import BinaryLabelDatasetMetric
-import sys
 from subprocess import PIPE, run
-import requests
 import json
 import yaml
-import time
 
-import enum
 
 def parse_events(stdout):
     line_split = stdout.split('☁️  cloudevents.Event\n')
@@ -40,6 +35,7 @@ def parse_events(stdout):
         log_payload["outputs"].extend(paired_log[1])
 
     return log_payload
+
 
 command = ['sh', './get_logs.sh']
 result = run(command, stdout=PIPE, stderr=PIPE, universal_newlines=True)

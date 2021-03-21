@@ -20,11 +20,16 @@ from . import data_processing
 from tensorrtserver.api import *
 
 
-
 class BertTransformer(kfserving.KFModel):
     def __init__(self, name: str, predictor_host: str):
         super().__init__(name)
-        self.short_paragraph_text = "The Apollo program was the third United States human spaceflight program. First conceived as a three-man spacecraft to follow the one-man Project Mercury which put the first Americans in space, Apollo was dedicated to President John F. Kennedy's national goal of landing a man on the Moon. The first manned flight of Apollo was in 1968. Apollo ran from 1961 to 1972 followed by the Apollo-Soyuz Test Project a joint Earth orbit mission with the Soviet Union in 1975."
+        self.short_paragraph_text = "The Apollo program was the third United States human spaceflight program. " \
+                                    "First conceived as a three-man spacecraft to follow the one-man Project Mercury " \
+                                    "which put the first Americans in space, Apollo was dedicated to " \
+                                    "President John F. Kennedy's national goal of landing a man on the Moon. " \
+                                    "The first manned flight of Apollo was in 1968. Apollo ran from 1961 to 1972" \
+                                    " followed by the Apollo-Soyuz Test Project a joint Earth orbit mission with " \
+                                    "the Soviet Union in 1975."
 
         self.predictor_host = predictor_host
         self.tokenizer = tokenization.FullTokenizer(vocab_file="/mnt/models/vocab.txt", do_lower_case=True)
@@ -35,26 +40,28 @@ class BertTransformer(kfserving.KFModel):
 
     def preprocess(self, inputs: Dict) -> Dict:
         self.doc_tokens = data_processing.convert_doc_tokens(self.short_paragraph_text)
-        self.features = data_processing.convert_examples_to_features(self.doc_tokens, inputs["instances"][0], self.tokenizer, 128, 128, 64)
+        self.features = data_processing.convert_examples_to_features(self.doc_tokens, inputs["instances"][0],
+                                                                     self.tokenizer, 128, 128, 64)
         return self.features
 
     def predict(self, features: Dict) -> Dict:
         if not self.infer_ctx:
-            self.infer_ctx = InferContext(self.predictor_host, self.protocol, self.model_name, self.model_version, http_headers='', verbose=True)
+            self.infer_ctx = InferContext(self.predictor_host, self.protocol, self.model_name, self.model_version,
+                                          http_headers='', verbose=True)
 
         batch_size = 1
         unique_ids = np.int32([1])
         segment_ids = features["segment_ids"]
         input_ids = features["input_ids"]
-        input_mask = features["input_mask"] 
+        input_mask = features["input_mask"]
         result = self.infer_ctx.run({'unique_ids': (unique_ids,),
                                      'segment_ids': (segment_ids,),
                                      'input_ids': (input_ids,),
                                      'input_mask': (input_mask,)},
                                     {'end_logits': InferContext.ResultFormat.RAW,
                                      'start_logits': InferContext.ResultFormat.RAW}, batch_size)
-        return result 
-    
+        return result
+
     def postprocess(self, result: Dict) -> Dict:
         end_logits = result['end_logits'][0]
         start_logits = result['start_logits'][0]
@@ -65,5 +72,6 @@ class BertTransformer(kfserving.KFModel):
         max_answer_length = 30
 
         (prediction, nbest_json, scores_diff_json) = \
-           data_processing.get_predictions(self.doc_tokens, self.features, start_logits, end_logits, n_best_size, max_answer_length)
+            data_processing.get_predictions(self.doc_tokens, self.features, start_logits, end_logits, n_best_size,
+                                            max_answer_length)
         return {"predictions": prediction, "prob": nbest_json[0]['probability'] * 100.0}

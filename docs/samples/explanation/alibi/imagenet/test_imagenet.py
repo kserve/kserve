@@ -1,7 +1,6 @@
 import argparse
 import matplotlib.pyplot as plt
 from tensorflow.keras.applications.inception_v3 import InceptionV3, preprocess_input, decode_predictions
-from alibi.datasets import fetch_imagenet
 import numpy as np
 import requests
 import json
@@ -13,6 +12,7 @@ ssl._create_default_https_context = ssl._create_unverified_context
 PREDICT_TEMPLATE = 'http://{0}/v1/models/imagenet:predict'
 EXPLAIN_TEMPLATE = 'http://{0}/v1/models/imagenet:explain'
 
+
 def get_image_data():
     data = []
     image_shape = (299, 299, 3)
@@ -23,12 +23,13 @@ def get_image_data():
     data = np.concatenate(data, axis=0)
     return data
 
+
 def predict(cluster_ip):
     data = get_image_data()
     images = preprocess_input(data)
 
     payload = {
-    "instances": [images[0].tolist()]
+      "instances": [images[0].tolist()]
     }
 
     # sending post request to TensorFlow Serving server
@@ -68,7 +69,8 @@ def explain(cluster_ip):
         axarr[1].imshow(explanation['data']['anchor'])
         plt.show()
     else:
-        print("Received response code and content",r.status_code,r.content)
+        print("Received response code and content", r.status_code, r.content)
+
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--cluster_ip', default=os.environ.get("CLUSTER_IP"), help='Cluster IP of Istio Ingress Gateway')

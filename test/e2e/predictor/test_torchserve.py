@@ -14,15 +14,10 @@
 
 import numpy as np
 import os
-import pytest
 from kubernetes import client
 from kfserving import (
     constants,
     KFServingClient,
-    V1alpha2EndpointSpec,
-    V1alpha2PredictorSpec,
-    V1alpha2InferenceServiceSpec,
-    V1alpha2InferenceService,
     V1beta1InferenceService,
     V1beta1InferenceServiceSpec,
     V1beta1PredictorSpec,
@@ -38,6 +33,7 @@ api_v1beta1_version = (
     f"{constants.KFSERVING_GROUP}/{constants.KFSERVING_V1BETA1_VERSION}"
 )
 KFServing = KFServingClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+
 
 def test_torchserve_kfserving():
     service_name = "mnist"

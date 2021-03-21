@@ -309,7 +309,7 @@ class TestTFHttpServerCloudEvent:
                                                   body=body)
 
 
-class TestTFHttpServerAvroCloudEvent():
+class TestTFHttpServerAvroCloudEvent:
 
     @pytest.fixture(scope="class")
     def app(self):  # pylint: disable=no-self-use

@@ -57,10 +57,10 @@ for x in range(0, len(input_image[0])):
             if(input_image[0][x][y][z] != adv_im[0][x][y][z]):
                 is_diff = True
 
-if (is_diff):
+if is_diff:
     print("Found an adversarial example.")
-    fig0 = (plt_image[:,:,0] + 0.5) * 255
-    fig_adv = (adv_im[0,:,:,0] + 0.5) * 255
+    fig0 = (plt_image[:, :, 0] + 0.5) * 255
+    fig_adv = (adv_im[0, :, :, 0] + 0.5) * 255
 
     f, axarr = plt.subplots(1, 2, figsize=(10,10))
     axarr[0].set_title("Original (" + str(label) + ")")

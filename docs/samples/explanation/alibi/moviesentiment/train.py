@@ -7,7 +7,6 @@ from alibi.datasets import fetch_movie_sentiment
 from sklearn.pipeline import Pipeline
 import joblib
 from alibi.explainers import AnchorText
-import dill
 import spacy
 from alibi.utils.download import spacy_model
 
@@ -55,5 +54,3 @@ anchors_text = AnchorText(nlp, predict_fn)
 # Test explanations locally
 expl = anchors_text.explain("the actors are very bad")
 print(expl)
-
-

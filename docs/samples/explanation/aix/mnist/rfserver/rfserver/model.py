@@ -25,18 +25,22 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import Normalizer
 from skimage.color import gray2rgb # since the code wants color images
 
+
 class PipeStep(object):
     """
     Wrapper for turning functions into pipeline transforms (no-fitting)
     """
     def __init__(self, step_func):
-        self._step_func=step_func
-    def fit(self,*args):
+        self._step_func = step_func
+
+    def fit(self, *args):
         return self
-    def transform(self,X):
+
+    def transform(self, X):
         return self._step_func(X)
 
-class RFModel(kfserving.KFModel): #pylint:disable=c-extension-no-member
+
+class RFModel(kfserving.KFModel):  # pylint:disable=c-extension-no-member
     def __init__(self, name: str):
         super().__init__(name)
         self.name = name
@@ -73,6 +77,6 @@ class RFModel(kfserving.KFModel): #pylint:disable=c-extension-no-member
                 for i in range(0, len(predictions)):
                     class_preds[j].append(predictions[i][j][1])
 
-            return {"predictions" : class_preds}
+            return {"predictions": class_preds}
         except Exception as e:
             raise Exception("Failed to predict: %s" % e)

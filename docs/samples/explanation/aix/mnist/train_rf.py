@@ -26,16 +26,20 @@ from sklearn.preprocessing import Normalizer
 from skimage.color import gray2rgb # since the code wants color images
 from aix360.datasets import MNISTDataset
 
+
 class PipeStep(object):
     """
     Wrapper for turning functions into pipeline transforms (no-fitting)
     """
     def __init__(self, step_func):
-        self._step_func=step_func
-    def fit(self,*args):
+        self._step_func = step_func
+
+    def fit(self, *args):
         return self
-    def transform(self,X):
+
+    def transform(self, X):
         return self._step_func(X)
+
 
 path_to_save = sys.argv[1]
 
