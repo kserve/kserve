@@ -6,6 +6,18 @@ on:
   pull_request:
     branches: [ master ]
 jobs:
+  flake8-lint:
+    runs-on: ubuntu-latest
+    name: Lint
+    steps:
+      - name: Check out source repository
+        uses: actions/checkout@v2
+      - name: Set up Python environment
+        uses: actions/setup-python@v1
+        with:
+          python-version: "3.7"
+      - name: flake8 Lint
+        uses: py-actions/flake8@v1
   build:
     runs-on: ubuntu-latest
     strategy:
