@@ -57,8 +57,7 @@ pipeline = Pipeline([('preprocessor', preprocessor),
 pipeline.fit(X_train, Y_train)
 
 print("Creating an explainer")
-predict_fn = lambda x: clf.predict(preprocessor.transform(x))
-explainer = alibi.explainers.AnchorTabular(predict_fn=predict_fn,
+explainer = alibi.explainers.AnchorTabular(predict_fn=lambda x: clf.predict(preprocessor.transform(x)),
                                            feature_names=feature_names,
                                            categorical_names=category_map)
 explainer.fit(X_train)

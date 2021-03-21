@@ -4,12 +4,11 @@ import dill
 
 model = InceptionV3(weights='imagenet')
 
-predict_fn = lambda x: model.predict(x)
-
 segmentation_fn = 'slic'
 kwargs = {'n_segments': 15, 'compactness': 20, 'sigma': .5}
 image_shape = (299, 299, 3)
-explainer = AnchorImage(predict_fn, image_shape, segmentation_fn=segmentation_fn, segmentation_kwargs=kwargs,
+explainer = AnchorImage(lambda x: model.predict(x), image_shape, segmentation_fn=segmentation_fn,
+                        segmentation_kwargs=kwargs,
                         images_background=None)
 
 

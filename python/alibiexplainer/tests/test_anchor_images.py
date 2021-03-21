@@ -37,10 +37,9 @@ def test_anchor_images():
     )
     with open(alibi_model, "rb") as f:
         model = InceptionV3(weights="imagenet")
-        predictor = lambda x: model.predict(x)  # pylint:disable=unnecessary-lambda
         alibi_model = dill.load(f)
         anchor_images = AnchorImages(
-            predictor, alibi_model, batch_size=25, stop_on_first=True
+            lambda x: model.predict(x), alibi_model, batch_size=25, stop_on_first=True
         )
         image_shape = (299, 299, 3)
         # the image downloader comes from seldonio/alibi
