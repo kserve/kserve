@@ -34,6 +34,7 @@ import (
 	logger "log"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 )
 
@@ -79,11 +80,13 @@ var _ = Describe("Watcher", func() {
 						},
 					},
 				}
-				watcher.parseConfig(modelConfigs)
+				watcher.parseConfig(modelConfigs, false)
+				var wg sync.WaitGroup
 				puller := Puller{
 					channelMap:  make(map[string]*ModelChannel),
 					completions: make(chan *ModelOp, 4),
 					opStats:     make(map[string]map[OpType]int),
+					workerGroup: wg,
 					Downloader: Downloader{
 						ModelDir: modelDir + "/test1",
 						Providers: map[storage.Protocol]storage.Provider{
@@ -112,10 +115,12 @@ var _ = Describe("Watcher", func() {
 				defer GinkgoRecover()
 				logger.Printf("Sync model config using temp dir %v\n", modelDir)
 				watcher := NewWatcher("/tmp/configs", modelDir, sugar)
+				var wg sync.WaitGroup
 				puller := Puller{
 					channelMap:  make(map[string]*ModelChannel),
 					completions: make(chan *ModelOp, 4),
 					opStats:     make(map[string]map[OpType]int),
+					workerGroup: wg,
 					Downloader: Downloader{
 						ModelDir: modelDir + "/test1",
 						Providers: map[storage.Protocol]storage.Provider{
@@ -145,7 +150,7 @@ var _ = Describe("Watcher", func() {
 						},
 					},
 				}
-				watcher.parseConfig(modelConfigs)
+				watcher.parseConfig(modelConfigs, false)
 				Eventually(func() int { return len(puller.channelMap) }).Should(Equal(0))
 				Eventually(func() int { return puller.opStats["model1"][Add] }).Should(Equal(1))
 				Eventually(func() int { return puller.opStats["model2"][Add] }).Should(Equal(1))
@@ -157,10 +162,12 @@ var _ = Describe("Watcher", func() {
 				defer GinkgoRecover()
 				logger.Printf("Sync delete models using temp dir %v\n", modelDir)
 				watcher := NewWatcher("/tmp/configs", modelDir, sugar)
+				var wg sync.WaitGroup
 				puller := Puller{
 					channelMap:  make(map[string]*ModelChannel),
 					completions: make(chan *ModelOp, 4),
 					opStats:     make(map[string]map[OpType]int),
+					workerGroup: wg,
 					Downloader: Downloader{
 						ModelDir: modelDir + "/test2",
 						Providers: map[storage.Protocol]storage.Provider{
@@ -190,7 +197,7 @@ var _ = Describe("Watcher", func() {
 						},
 					},
 				}
-				watcher.parseConfig(modelConfigs)
+				watcher.parseConfig(modelConfigs, false)
 				// remove model2
 				modelConfigs = modelconfig.ModelConfigs{
 					{
@@ -201,7 +208,7 @@ var _ = Describe("Watcher", func() {
 						},
 					},
 				}
-				watcher.parseConfig(modelConfigs)
+				watcher.parseConfig(modelConfigs, false)
 				Eventually(func() int { return len(puller.channelMap) }).Should(Equal(0))
 				Eventually(func() int { return puller.opStats["model1"][Add] }).Should(Equal(1))
 				Eventually(func() int { return puller.opStats["model2"][Add] }).Should(Equal(1))
@@ -214,10 +221,12 @@ var _ = Describe("Watcher", func() {
 				defer GinkgoRecover()
 				logger.Printf("Sync update models using temp dir %v\n", modelDir)
 				watcher := NewWatcher("/tmp/configs", modelDir, sugar)
+				var wg sync.WaitGroup
 				puller := Puller{
 					channelMap:  make(map[string]*ModelChannel),
 					completions: make(chan *ModelOp, 4),
 					opStats:     make(map[string]map[OpType]int),
+					workerGroup: wg,
 					Downloader: Downloader{
 						ModelDir: modelDir + "/test3",
 						Providers: map[storage.Protocol]storage.Provider{
@@ -230,7 +239,9 @@ var _ = Describe("Watcher", func() {
 					},
 					logger: sugar,
 				}
+				puller.workerGroup.Add(len(watcher.ModelEvents))
 				go puller.processCommands(watcher.ModelEvents)
+				puller.workerGroup.Wait()
 				modelConfigs := modelconfig.ModelConfigs{
 					{
 						Name: "model1",
@@ -247,7 +258,7 @@ var _ = Describe("Watcher", func() {
 						},
 					},
 				}
-				watcher.parseConfig(modelConfigs)
+				watcher.parseConfig(modelConfigs, false)
 				// update model2 storageUri
 				modelConfigs = modelconfig.ModelConfigs{
 					{
@@ -265,7 +276,7 @@ var _ = Describe("Watcher", func() {
 						},
 					},
 				}
-				watcher.parseConfig(modelConfigs)
+				watcher.parseConfig(modelConfigs, false)
 				Eventually(func() int { return len(puller.channelMap) }).Should(Equal(0))
 				Eventually(func() int { return puller.opStats["model1"][Add] }).Should(Equal(1))
 				Eventually(func() int { return puller.opStats["model2"][Add] }).Should(Equal(2))
@@ -312,7 +323,7 @@ var _ = Describe("Watcher", func() {
 						},
 					},
 				}
-				watcher.parseConfig(modelConfigs)
+				watcher.parseConfig(modelConfigs, false)
 				Eventually(func() int { return len(puller.channelMap) }).Should(Equal(0))
 				Eventually(func() int { return puller.opStats["model1"][Add] }).Should(Equal(1))
 			})
@@ -457,7 +468,7 @@ var _ = Describe("Watcher", func() {
 					Fail("Failed to write contents.")
 				}
 
-				watcher.parseConfig(modelConfigs)
+				watcher.parseConfig(modelConfigs, false)
 				puller := Puller{
 					channelMap:  make(map[string]*ModelChannel),
 					completions: make(chan *ModelOp, 4),
@@ -515,7 +526,7 @@ var _ = Describe("Watcher", func() {
 						},
 					},
 				}
-				watcher.parseConfig(modelConfigs)
+				watcher.parseConfig(modelConfigs, false)
 				go puller.processCommands(watcher.ModelEvents)
 				models := [2]string{"model1", "model2"}
 				for _, modelName := range models {

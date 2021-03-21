@@ -25,7 +25,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"path/filepath"
-	"time"
+	"sync"
 )
 
 type OpType string
@@ -39,30 +39,31 @@ type Puller struct {
 	channelMap  map[string]*ModelChannel
 	completions chan *ModelOp
 	opStats     map[string]map[OpType]int
+	workerGroup sync.WaitGroup
 	Downloader  Downloader
 	logger      *zap.SugaredLogger
 }
 
 type ModelOp struct {
+	OnStartup bool
 	ModelName string
 	Op        OpType
 	Spec      *v1.ModelSpec
 }
 
-func StartPullerAndProcessModels(downloader Downloader, commands <-chan ModelOp, modelTracker map[string]modelWrapper, logger *zap.SugaredLogger) {
+func StartPullerAndProcessModels(downloader Downloader, commands <-chan ModelOp, logger *zap.SugaredLogger) {
+	var wg sync.WaitGroup
 	puller := Puller{
 		channelMap:  make(map[string]*ModelChannel),
 		completions: make(chan *ModelOp, 4),
 		opStats:     make(map[string]map[OpType]int),
+		workerGroup: wg,
 		Downloader:  downloader,
 		logger:      logger,
 	}
+	puller.workerGroup.Add(len(commands))
 	go puller.processCommands(commands)
-	for modelName, _ := range modelTracker {
-		for puller.opStats[modelName][Add] != 1 {
-			time.Sleep(1 * time.Second)
-		}
-	}
+	puller.workerGroup.Wait()
 }
 
 func (p *Puller) processCommands(commands <-chan ModelOp) {
@@ -100,6 +101,10 @@ func (p *Puller) enqueueModelOp(modelOp *ModelOp) {
 }
 
 func (p *Puller) modelOpComplete(modelOp *ModelOp, closed bool) {
+	if modelOp.OnStartup {
+		p.logger.Info("Deferring workergroup done.")
+		defer p.workerGroup.Done()
+	}
 	if opMap, ok := p.opStats[modelOp.ModelName]; ok {
 		opMap[modelOp.Op] += 1
 	} else {
