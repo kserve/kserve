@@ -39,7 +39,7 @@ setup(
         "numpy>=1.16.3",
         "kubernetes >= 9.0.0",
         "torchvision>=0.4.1",
-        "pillow==7.1.0"
+        "pillow==8.1.1"
     ],
     tests_require=tests_require,
     extras_require={'test': tests_require}
