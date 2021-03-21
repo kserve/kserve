@@ -49,11 +49,21 @@ class KFModel:
         return self._http_client_instance
 
     def load(self) -> bool:
+        """
+        Load handler can be overridden to load the model from storage
+        self.ready flag is used for model health check
+        :return: bool
+        """
         self.ready = True
         return self.ready
 
     def preprocess(self, request: Dict) -> Dict:
-        # If cloudevent dict, then parse 'data' field. Otherwise, pass through.
+        """
+        The preprocess handler can be overridden for data or feature transformation,
+        the default implementation decodes to Dict if it is cloudevent JSON otherwise pass the data field
+        :param request: JSON Dict or CloudEvent
+        :return: Transformed Dict which passes to predict handler
+        """
         response = request
 
         if isinstance(request, CloudEvent):
@@ -84,9 +94,20 @@ class KFModel:
         return response
 
     def postprocess(self, request: Dict) -> Dict:
+        """
+        The postprocess handler can be overridden for inference response transformation
+        :param request: Dict passed from predict handler
+        :return: Dict
+        """
         return request
 
     async def predict(self, request: Dict) -> Dict:
+        """
+        The predict handler can be overridden to implement the model inference.
+        The default implementation makes an call to the predictor if predictor_host is specified
+        :param request: Dict passed from preprocess handler
+        :return: Dict
+        """
         if not self.predictor_host:
             raise NotImplementedError
         predict_url = PREDICTOR_URL_FORMAT.format(self.predictor_host, self.name)
@@ -105,6 +126,12 @@ class KFModel:
         return json.loads(response.body)
 
     async def explain(self, request: Dict) -> Dict:
+        """
+        The explain handler can be overridden to implement the model explanation.
+        The default implementation makes an call to the explainer if predictor_host is specified
+        :param request: Dict passed from preprocess handler
+        :return: Dict
+        """
         if self.explainer_host is None:
             raise NotImplementedError
         explain_url = EXPLAINER_URL_FORMAT.format(self.predictor_host, self.name)

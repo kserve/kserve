@@ -29,8 +29,6 @@ from __future__ import absolute_import
 
 import unittest
 
-from kfserving.models.net_url_userinfo import NetUrlUserinfo  # noqa: E501
-
 
 class TestNetUrlUserinfo(unittest.TestCase):
     """NetUrlUserinfo unit test stubs"""
@@ -44,7 +42,7 @@ class TestNetUrlUserinfo(unittest.TestCase):
     def testNetUrlUserinfo(self):
         """Test NetUrlUserinfo"""
         # FIXME: construct object with mandatory attributes with example values
-        NetUrlUserinfo()  # noqa: E501
+        # NetUrlUserinfo()  # noqa: E501
         pass
 
 
