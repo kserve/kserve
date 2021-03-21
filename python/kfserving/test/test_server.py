@@ -12,12 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import avro.io, avro.schema, io, json, pytest, requests
+import avro.io
+import avro.schema
+import io
+import pytest
 from cloudevents.http import CloudEvent, to_binary, to_structured
 from kfserving import kfmodel
 from kfserving import kfserver
-from tornado.httpclient import HTTPClientError
 from kfserving.kfmodel_repository import KFModelRepository
+from tornado.httpclient import HTTPClientError
 
 test_avsc_schema = '''
         {
@@ -161,7 +164,7 @@ class TestTFHttpServer():
 
     async def test_predict_ce_structured(self, http_server_client):
 
-        event = dummy_cloud_event({"instances":[[1,2]]})
+        event = dummy_cloud_event({"instances": [[1, 2]]})
         headers, body = to_structured(event)
         resp = await http_server_client.fetch('/v1/models/TestModel:predict',
                                               method="POST",
@@ -249,13 +252,13 @@ class TestTFHttpServerCloudEvent:
         return server.create_application()
 
     async def test_predict_ce_binary_dict(self, http_server_client):
-        event = dummy_cloud_event({"instances":[[1,2]]}, set_contenttype=True)
+        event = dummy_cloud_event({"instances": [[1, 2]]}, set_contenttype=True)
         headers, body = to_binary(event)
         resp = await http_server_client.fetch('/v1/models/TestModel:predict',
                                               method="POST",
                                               headers=headers,
                                               body=body)
-    
+
         assert resp.code == 200
         assert resp.body == b'{"predictions": [[1, 2]]}'
         assert resp.headers['content-type'] == "application/x-www-form-urlencoded"
@@ -273,7 +276,7 @@ class TestTFHttpServerCloudEvent:
                                               method="POST",
                                               headers=headers,
                                               body=body)
-    
+
         assert resp.code == 200
         assert resp.body == b'{"predictions": [[1, 2]]}'
         assert resp.headers['content-type'] == "application/x-www-form-urlencoded"
@@ -291,10 +294,10 @@ class TestTFHttpServerCloudEvent:
             HTTPClientError, match=r".*HTTP 400: Unrecognized request format: "
                                    r"Expecting property name enclosed in double quotes.*"
         ):
-            resp = await http_server_client.fetch('/v1/models/TestModel:predict',
-                                              method="POST",
-                                              headers=headers,
-                                              body=body)
+            await http_server_client.fetch('/v1/models/TestModel:predict',
+                                           method="POST",
+                                           headers=headers,
+                                           body=body)
 
     async def test_predict_ce_bytes_bad_hex_format_exception(self, http_server_client):
         event = dummy_cloud_event(b'0\x80\x80\x06World!\x00\x00', set_contenttype=True)
@@ -303,10 +306,10 @@ class TestTFHttpServerCloudEvent:
             HTTPClientError, match=r".*HTTP 400: Unrecognized request format: "
                                    r"'utf-8' codec can't decode byte 0x80 in position 1: invalid start byte.*"
         ):
-            resp = await http_server_client.fetch('/v1/models/TestModel:predict',
-                                                  method="POST",
-                                                  headers=headers,
-                                                  body=body)
+            await http_server_client.fetch('/v1/models/TestModel:predict',
+                                           method="POST",
+                                           headers=headers,
+                                           body=body)
 
 
 class TestTFHttpServerAvroCloudEvent:

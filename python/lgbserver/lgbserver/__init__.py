@@ -12,5 +12,5 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .model import LightGBMModel
-from .lightgbm_model_repository import LightGBMModelRepository
+from .model import LightGBMModel  # noqa # pylint: disable=unused-import
+from .lightgbm_model_repository import LightGBMModelRepository  # noqa # pylint: disable=unused-import

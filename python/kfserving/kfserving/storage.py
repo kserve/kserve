@@ -24,7 +24,7 @@ import tarfile
 import zipfile
 import gzip
 from urllib.parse import urlparse
-import requests 
+import requests
 from azure.storage.blob import BlockBlobService
 from google.auth import exceptions
 from google.cloud import storage
@@ -132,10 +132,10 @@ The path or model %s does not exist." % (uri))
             count = count + 1
         if count == 0:
             raise RuntimeError("Failed to fetch model. \
-The path or model %s does not exist." % (uri))
+The path or model %s does not exist." % uri)
 
     @staticmethod
-    def _download_blob(uri, out_dir: str): # pylint: disable=too-many-locals
+    def _download_blob(uri, out_dir: str):  # pylint: disable=too-many-locals
         match = re.search(_BLOB_RE, uri)
         account_name = match.group(1)
         storage_url = match.group(2)
@@ -245,12 +245,16 @@ The path or model %s does not exist." % (uri))
         with requests.get(uri, stream=True, headers=headers) as response:
             if response.status_code != 200:
                 raise RuntimeError("URI: %s returned a %s response code." % (uri, response.status_code))
-            if mimetype == 'application/zip' and not response.headers.get('Content-Type', '').startswith('application/zip'):
-                raise RuntimeError("URI: %s did not respond with \'Content-Type\': \'application/zip\'" % (uri))
-            if mimetype == 'application/x-tar' and not response.headers.get('Content-Type', '').startswith('application/x-tar'):
-                raise RuntimeError("URI: %s did not respond with \'Content-Type\': \'application/x-tar\'" % (uri))
-            if (mimetype != 'application/zip' and mimetype != 'application/x-tar') and not response.headers.get('Content-Type', '').startswith('application/octet-stream'):
-                raise RuntimeError("URI: %s did not respond with \'Content-Type\': \'application/octet-stream\'" % (uri))
+            if mimetype == 'application/zip' and not response.headers.get('Content-Type', '')\
+                    .startswith('application/zip'):
+                raise RuntimeError("URI: %s did not respond with \'Content-Type\': \'application/zip\'" % uri)
+            if mimetype == 'application/x-tar' and not response.headers.get('Content-Type', '')\
+                    .startswith('application/x-tar'):
+                raise RuntimeError("URI: %s did not respond with \'Content-Type\': \'application/x-tar\'" % uri)
+            if (mimetype != 'application/zip' and mimetype != 'application/x-tar') and \
+                    not response.headers.get('Content-Type', '').startswith('application/octet-stream'):
+                raise RuntimeError("URI: %s did not respond with \'Content-Type\': \'application/octet-stream\'"
+                                   % uri)
 
             if encoding == 'gzip':
                 stream = gzip.GzipFile(fileobj=response.raw)
@@ -259,7 +263,7 @@ The path or model %s does not exist." % (uri))
                 stream = response.raw
             with open(local_path, 'wb') as out:
                 shutil.copyfileobj(stream, out)
-        
+
         if mimetype in ["application/x-tar", "application/zip"]:
             if mimetype == "application/x-tar":
                 archive = tarfile.open(local_path, 'r', encoding='utf-8')

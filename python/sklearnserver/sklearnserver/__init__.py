@@ -12,5 +12,5 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .model import SKLearnModel  # F401 # imported but unused
-from .sklearn_model_repository import SKLearnModelRepository  # F401 # imported but unused
+from .model import SKLearnModel  # noqa # pylint: disable=unused-import
+from .sklearn_model_repository import SKLearnModelRepository  # noqa # pylint: disable=unused-import

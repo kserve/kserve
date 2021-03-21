@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import numpy as np
 import os
 from kubernetes import client
 from kfserving import (
@@ -62,6 +61,5 @@ def test_torchserve_kfserving():
     KFServing.wait_isvc_ready(service_name, namespace=KFSERVING_TEST_NAMESPACE)
 
     res = predict(service_name, "./data/torchserve_input.json")
-    assert(res.get("predictions")[0]==2)
-    
+    assert(res.get("predictions")[0] == 2)
     KFServing.delete(service_name, KFSERVING_TEST_NAMESPACE)

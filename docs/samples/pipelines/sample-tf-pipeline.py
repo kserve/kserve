@@ -16,7 +16,6 @@ import kfp.compiler as compiler
 import kfp.dsl as dsl
 from kfp import components
 
-
 kfserving_op = components.load_component_from_url('https://raw.githubusercontent.com/kubeflow/pipelines/'
                                                   'master/components/kubeflow/kfserving/component.yaml')
 
@@ -26,18 +25,16 @@ kfserving_op = components.load_component_from_url('https://raw.githubusercontent
     description='A pipeline for KFServing.'
 )
 def kfservingPipeline(
-    action='apply',
-    model_name='tensorflow-sample',
-    model_uri='gs://kfserving-samples/models/tensorflow/flowers',
-    namespace='anonymous',
-    framework='tensorflow'):
-
-    kfserving = kfserving_op(action = action,
-                             model_name=model_name,
-                             model_uri=model_uri,
-                             namespace=namespace,
-                             framework=framework)
-
+        action='apply',
+        model_name='tensorflow-sample',
+        model_uri='gs://kfserving-samples/models/tensorflow/flowers',
+        namespace='anonymous',
+        framework='tensorflow'):
+    kfserving_op(action=action,
+                 model_name=model_name,
+                 model_uri=model_uri,
+                 namespace=namespace,
+                 framework=framework)
 
 
 if __name__ == '__main__':

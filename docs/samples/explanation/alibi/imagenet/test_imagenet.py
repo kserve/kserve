@@ -1,6 +1,6 @@
 import argparse
 import matplotlib.pyplot as plt
-from tensorflow.keras.applications.inception_v3 import InceptionV3, preprocess_input, decode_predictions
+from tensorflow.keras.applications.inception_v3 import preprocess_input, decode_predictions
 import numpy as np
 import requests
 import json
@@ -33,9 +33,9 @@ def predict(cluster_ip):
     }
 
     # sending post request to TensorFlow Serving server
-    headers = {'Host':'imagenet.default.example.com'}
+    headers = {'Host': 'imagenet.default.example.com'}
     url = PREDICT_TEMPLATE.format(cluster_ip)
-    print("Calling ",url)
+    print("Calling ", url)
     r = requests.post(url, json=payload, headers=headers)
     resp_json = json.loads(r.content.decode('utf-8'))
     preds = np.array(resp_json["predictions"])
@@ -62,8 +62,6 @@ def explain(cluster_ip):
     if r.status_code == 200:
         explanation = json.loads(r.content.decode('utf-8'))
 
-        exp_arr = np.array(explanation['data']['anchor'])
-
         f, axarr = plt.subplots(1, 2)
         axarr[0].imshow(data[0])
         axarr[1].imshow(explanation['data']['anchor'])
@@ -74,7 +72,7 @@ def explain(cluster_ip):
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--cluster_ip', default=os.environ.get("CLUSTER_IP"), help='Cluster IP of Istio Ingress Gateway')
-parser.add_argument('--op', choices=["predict","explain"], default="predict",
+parser.add_argument('--op', choices=["predict", "explain"], default="predict",
                     help='Operation to run')
 args, _ = parser.parse_known_args()
 

@@ -12,18 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 import logging
 from typing import Dict
 import pickle
 
 import kfserving
 import numpy as np
-
-from sklearn.pipeline import Pipeline
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.preprocessing import Normalizer
-from skimage.color import gray2rgb # since the code wants color images
 
 
 class PipeStep(object):

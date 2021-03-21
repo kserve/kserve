@@ -6,7 +6,7 @@ import yaml
 def parse_events(stdout):
     line_split = stdout.split('☁️  cloudevents.Event\n')
 
-    # Parse the input and output data from the cloud events 
+    # Parse the input and output data from the cloud events
     log_data = []
     for event_iter in range(1, len(line_split)):
         event = line_split[event_iter]
@@ -23,13 +23,13 @@ def parse_events(stdout):
         if log["id"] in id_map:
             try:
                 paired_logs.append([id_map[log["id"]]["instances"], log["predictions"]])
-            except:
+            except Exception:  # pylint: disable=broad-except
                 paired_logs.append([log["instances"], id_map[log["id"]]["predictions"]])
         else:
             id_map[log["id"]] = log
 
     # Combine the logs
-    log_payload = {"instances":[], "outputs":[]}
+    log_payload = {"instances": [], "outputs": []}
     for paired_log in paired_logs:
         log_payload["instances"].extend(paired_log[0])
         log_payload["outputs"].extend(paired_log[1])

@@ -17,7 +17,7 @@ from typing import Dict
 import numpy as np
 from . import tokenization
 from . import data_processing
-from tensorrtserver.api import *
+from tensorrtserver.api import InferContext, ProtocolType
 
 
 class BertTransformer(kfserving.KFModel):
@@ -67,7 +67,7 @@ class BertTransformer(kfserving.KFModel):
         start_logits = result['start_logits'][0]
         n_best_size = 20
 
-        # The maximum length of an answer that can be generated. This is needed 
+        # The maximum length of an answer that can be generated. This is needed
         #  because the start and end predictions are not conditioned on one another
         max_answer_length = 30
 

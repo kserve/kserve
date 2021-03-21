@@ -37,12 +37,11 @@ def test_anchor_images():
     )
     with open(alibi_model, "rb") as f:
         model = InceptionV3(weights="imagenet")
-        predictor = lambda x: model.predict(x) # pylint:disable=unnecessary-lambda
+        predictor = lambda x: model.predict(x)  # pylint:disable=unnecessary-lambda
         alibi_model = dill.load(f)
         anchor_images = AnchorImages(
             predictor, alibi_model, batch_size=25, stop_on_first=True
         )
-        category = "Persian cat"
         image_shape = (299, 299, 3)
         # the image downloader comes from seldonio/alibi
         # https://github.com/SeldonIO/alibi/blob/76e6192b6d78848dd47c11ba6f6348ca94c424c6/alibi/datasets.py#L104-L125

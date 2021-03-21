@@ -20,7 +20,7 @@ jobs:
         uses: py-actions/flake8@v1
         with:
           max-line-length: "120"
-          exclude: "python/kfserving/test/test_v1*.py,python/kfserving/kfserving/__init__.py,python/kfserving/test/test_knative*.py"
+          exclude: "docs/samples/v1alpha2/onnx/assets/*.py,python/kfserving/test/test_v1*.py,python/kfserving/kfserving/__init__.py,python/kfserving/test/test_knative*.py"
   build:
     runs-on: ubuntu-latest
     strategy:

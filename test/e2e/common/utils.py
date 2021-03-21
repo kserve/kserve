@@ -17,7 +17,7 @@ import json
 import requests
 import os
 from urllib.parse import urlparse
-from kubernetes import client, config
+from kubernetes import client
 from kfserving import KFServingClient
 from kfserving import constants
 

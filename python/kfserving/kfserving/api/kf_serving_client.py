@@ -86,7 +86,8 @@ class KFServingClient(object):
             raise RuntimeError("Invalid storage_type: %s, only support GCS, S3 and Azure\
                 currently.\n" % storage_type)
 
-    def create(self, inferenceservice, namespace=None, watch=False, timeout_seconds=600):  # pylint:disable=inconsistent-return-statements
+    def create(self, inferenceservice, namespace=None, watch=False,
+               timeout_seconds=600):  # pylint:disable=inconsistent-return-statements
         """
         Create the inference service
         :param inferenceservice: inference service object
@@ -123,7 +124,8 @@ class KFServingClient(object):
         else:
             return outputs
 
-    def get(self, name=None, namespace=None, watch=False, timeout_seconds=600, version=constants.KFSERVING_V1BETA1_VERSION):  # pylint:disable=inconsistent-return-statements
+    def get(self, name=None, namespace=None, watch=False, timeout_seconds=600,
+            version=constants.KFSERVING_V1BETA1_VERSION):  # pylint:disable=inconsistent-return-statements
         """
         Get the inference service
         :param name: existing inference service name
@@ -174,7 +176,8 @@ class KFServingClient(object):
                         "Exception when calling CustomObjectsApi->list_namespaced_custom_object:\
                         %s\n" % e)
 
-    def patch(self, name, inferenceservice, namespace=None, watch=False, timeout_seconds=600):  # pylint:disable=too-many-arguments,inconsistent-return-statements
+    def patch(self, name, inferenceservice, namespace=None, watch=False,
+              timeout_seconds=600):  # pylint:disable=too-many-arguments,inconsistent-return-statements
         """
         Patch existing inference service
         :param name: existing inference service name
@@ -214,7 +217,8 @@ class KFServingClient(object):
         else:
             return outputs
 
-    def replace(self, name, inferenceservice, namespace=None, watch=False, timeout_seconds=600):  # pylint:disable=too-many-arguments,inconsistent-return-statements
+    def replace(self, name, inferenceservice, namespace=None, watch=False,
+                timeout_seconds=600):  # pylint:disable=too-many-arguments,inconsistent-return-statements
         """
         Replace the existing inference service
         :param name: existing inference service name
@@ -281,9 +285,11 @@ class KFServingClient(object):
                 "Exception when calling CustomObjectsApi->delete_namespaced_custom_object:\
                  %s\n" % e)
 
-    def is_isvc_ready(self, name, namespace=None, version=constants.KFSERVING_V1BETA1_VERSION):  # pylint:disable=inconsistent-return-statements
+    def is_isvc_ready(self, name, namespace=None,
+                      version=constants.KFSERVING_V1BETA1_VERSION):  # pylint:disable=inconsistent-return-statements
         """
         Check if the inference service is ready.
+        :param version:
         :param name: inference service name
         :param namespace: defaults to current or default namespace
         :return:
@@ -319,7 +325,7 @@ class KFServingClient(object):
                 namespace=namespace,
                 timeout_seconds=timeout_seconds)
         else:
-            for _ in range(round(timeout_seconds/polling_interval)):
+            for _ in range(round(timeout_seconds / polling_interval)):
                 time.sleep(polling_interval)
                 if self.is_isvc_ready(name, namespace=namespace, version=version):
                     return
@@ -329,28 +335,28 @@ class KFServingClient(object):
                                The InferenceService is as following: {}".format(name, current_isvc))
 
     def create_trained_model(self, trainedmodel, namespace):
-            """
-            Create a trained model
-            :param trainedmodel: trainedmodel object
-            :param namespace: defaults to current or default namespace
-            :return:
-            """
-            version = trainedmodel.api_version.split("/")[1]
+        """
+        Create a trained model
+        :param trainedmodel: trainedmodel object
+        :param namespace: defaults to current or default namespace
+        :return:
+        """
+        version = trainedmodel.api_version.split("/")[1]
 
-            try:
-                self.api_instance.create_namespaced_custom_object(
-                    constants.KFSERVING_GROUP,
-                    version,
-                    namespace,
-                    constants.KFSERVING_PLURAL_TRAINEDMODEL,
-                    trainedmodel)
-            except client.rest.ApiException as e:
-                raise RuntimeError(
-                    "Exception when calling CustomObjectsApi->create_namespaced_custom_object:\
+        try:
+            self.api_instance.create_namespaced_custom_object(
+                constants.KFSERVING_GROUP,
+                version,
+                namespace,
+                constants.KFSERVING_PLURAL_TRAINEDMODEL,
+                trainedmodel)
+        except client.rest.ApiException as e:
+            raise RuntimeError(
+                "Exception when calling CustomObjectsApi->create_namespaced_custom_object:\
                      %s\n" % e)
 
     def delete_trained_model(
-        self, name, namespace=None, version=constants.KFSERVING_V1ALPHA1_VERSION
+            self, name, namespace=None, version=constants.KFSERVING_V1ALPHA1_VERSION
     ):
         """
         Delete the trained model
@@ -377,7 +383,7 @@ class KFServingClient(object):
                 % e
             )
 
-    def wait_model_ready(self, service_name, model_name, isvc_namespace=None, # pylint:disable=too-many-arguments
+    def wait_model_ready(self, service_name, model_name, isvc_namespace=None,  # pylint:disable=too-many-arguments
                          isvc_version=constants.KFSERVING_V1BETA1_VERSION,
                          cluster_ip=None,
                          protocol_version="v1",
@@ -405,7 +411,7 @@ class KFServingClient(object):
         host = urlparse(isvc["status"]["url"]).netloc
         headers = {"Host": host}
 
-        for _ in range(round(timeout_seconds/polling_interval)):
+        for _ in range(round(timeout_seconds / polling_interval)):
             time.sleep(polling_interval)
             # Check model health API
             url = f"http://{cluster_ip}/{protocol_version}/models/{model_name}"

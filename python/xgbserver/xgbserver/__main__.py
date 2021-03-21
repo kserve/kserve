@@ -37,10 +37,11 @@ if __name__ == "__main__":
     model = XGBoostModel(args.model_name, args.model_dir, args.nthread)
     try:
         model.load()
-    except Exception as e:
+    except Exception:
         ex_type, ex_value, _ = sys.exc_info()
         logging.error(f"fail to load model {args.model_name} from dir {args.model_dir}. "
                       f"exception type {ex_type}, exception msg: {ex_value}")
         model.ready = False
 
-    kfserving.KFServer(registered_models=XGBoostModelRepository(args.model_dir, args.nthread)).start([model] if model.ready else [])  # pylint:disable=c-extension-no-member
+    kfserving.KFServer(registered_models=XGBoostModelRepository(args.model_dir, args.nthread))\
+        .start([model] if model.ready else [])  # pylint:disable=c-extension-no-member

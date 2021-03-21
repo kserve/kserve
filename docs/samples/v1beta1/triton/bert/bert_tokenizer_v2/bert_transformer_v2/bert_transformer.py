@@ -75,7 +75,7 @@ class BertTransformer(kfserving.KFModel):
         start_logits = result['outputs'][1]['data']
         n_best_size = 20
 
-        # The maximum length of an answer that can be generated. This is needed 
+        # The maximum length of an answer that can be generated. This is needed
         #  because the start and end predictions are not conditioned on one another
         max_answer_length = 30
 
