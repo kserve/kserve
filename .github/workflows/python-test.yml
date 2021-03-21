@@ -20,6 +20,7 @@ jobs:
         uses: py-actions/flake8@v1
         with:
           max-line-length: "100"
+          exclude: "python/kfserving/test/test_v1*.py"
   build:
     runs-on: ubuntu-latest
     strategy:
