@@ -32,6 +32,7 @@ test_avsc_schema = '''
         }
         '''
 
+
 def dummy_cloud_event(data, set_contenttype=False):
     # This data defines a binary cloudevent
     attributes = {
@@ -63,6 +64,7 @@ class DummyModel(kfmodel.KFModel):
     async def explain(self, request):
         return {"predictions": request["instances"]}
 
+
 class DummyCEModel(kfmodel.KFModel):
     def __init__(self, name):
         super().__init__(name)
@@ -77,6 +79,7 @@ class DummyCEModel(kfmodel.KFModel):
 
     async def explain(self, request):
         return {"predictions": request["instances"]}
+
 
 class DummyAvroCEModel(kfmodel.KFModel):
     def __init__(self, name):
@@ -97,7 +100,7 @@ class DummyAvroCEModel(kfmodel.KFModel):
         return record1
 
     def preprocess(self, request):
-        if(isinstance(request, CloudEvent)):
+        if isinstance(request, CloudEvent):
             attributes = request._attributes
             assert attributes["specversion"] == "1.0"
             assert attributes["source"] == "https://example.com/event-producer"
@@ -108,11 +111,11 @@ class DummyAvroCEModel(kfmodel.KFModel):
 
     async def predict(self, request):
         record1 = self._parserequest(request)
-        return {"predictions": [[record1['name'] , record1['favorite_number'], record1['favorite_color']]]}
+        return {"predictions": [[record1['name'], record1['favorite_number'], record1['favorite_color']]]}
 
     async def explain(self, request):
         record1 = self._parserequest(request)
-        return {"predictions": [[record1['name'] , record1['favorite_number'], record1['favorite_color']]]}
+        return {"predictions": [[record1['name'], record1['favorite_number'], record1['favorite_color']]]}
 
 
 class DummyKFModelRepository(KFModelRepository):
@@ -183,7 +186,7 @@ class TestTFHttpServer():
         assert resp.body == b'["TestModel"]'
 
 
-class TestTFHttpServerLoadAndUnLoad():
+class TestTFHttpServerLoadAndUnLoad:
     @pytest.fixture(scope="class")
     def app(self):  # pylint: disable=no-self-use
         server = kfserver.KFServer(registered_models=DummyKFModelRepository(test_load_success=True))
@@ -202,7 +205,7 @@ class TestTFHttpServerLoadAndUnLoad():
         assert resp.body == b'{"name": "model", "unload": true}'
 
 
-class TestTFHttpServerLoadAndUnLoadFailure():
+class TestTFHttpServerLoadAndUnLoadFailure:
     @pytest.fixture(scope="class")
     def app(self):  # pylint: disable=no-self-use
         server = kfserver.KFServer(registered_models=DummyKFModelRepository(test_load_success=False))
@@ -221,7 +224,7 @@ class TestTFHttpServerLoadAndUnLoadFailure():
         assert err.value.code == 404
 
 
-class TestTFHttpServerModelNotLoaded():
+class TestTFHttpServerModelNotLoaded:
 
     @pytest.fixture(scope="class")
     def app(self):  # pylint: disable=no-self-use
@@ -235,7 +238,8 @@ class TestTFHttpServerModelNotLoaded():
             _ = await http_server_client.fetch('/v1/models/TestModel')
         assert excinfo.value.code == 503
 
-class TestTFHttpServerCloudEvent():
+
+class TestTFHttpServerCloudEvent:
 
     @pytest.fixture(scope="class")
     def app(self):  # pylint: disable=no-self-use
@@ -284,7 +288,8 @@ class TestTFHttpServerCloudEvent():
         event = dummy_cloud_event(b'{', set_contenttype=True)
         headers, body = to_binary(event)
         with pytest.raises(
-            HTTPClientError, match=r".*HTTP 400: Unrecognized request format: Expecting property name enclosed in double quotes.*"
+            HTTPClientError, match=r".*HTTP 400: Unrecognized request format: "
+                                   r"Expecting property name enclosed in double quotes.*"
         ):
             resp = await http_server_client.fetch('/v1/models/TestModel:predict',
                                               method="POST",
@@ -295,13 +300,15 @@ class TestTFHttpServerCloudEvent():
         event = dummy_cloud_event(b'0\x80\x80\x06World!\x00\x00', set_contenttype=True)
         headers, body = to_binary(event)
         with pytest.raises(
-            HTTPClientError, match=r".*HTTP 400: Unrecognized request format: 'utf-8' codec can't decode byte 0x80 in position 1: invalid start byte.*"
+            HTTPClientError, match=r".*HTTP 400: Unrecognized request format: "
+                                   r"'utf-8' codec can't decode byte 0x80 in position 1: invalid start byte.*"
         ):
             resp = await http_server_client.fetch('/v1/models/TestModel:predict',
-                                              method="POST",
-                                              headers=headers,
-                                              body=body)
-    
+                                                  method="POST",
+                                                  headers=headers,
+                                                  body=body)
+
+
 class TestTFHttpServerAvroCloudEvent():
 
     @pytest.fixture(scope="class")

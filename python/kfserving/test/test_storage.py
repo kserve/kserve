@@ -20,7 +20,6 @@ import binascii
 import pytest
 import kfserving
 from minio import Minio, error
-from google.cloud import exceptions
 import unittest.mock as mock
 
 STORAGE_MODULE = 'kfserving.storage'
@@ -49,6 +48,7 @@ def test_no_prefix_local_path():
     assert kfserving.Storage.download(abs_path) == abs_path
     assert kfserving.Storage.download(relative_path) == relative_path
 
+
 class MockHttpResponse(object):
     def __init__(
         self,
@@ -62,8 +62,10 @@ class MockHttpResponse(object):
 
     def __enter__(self):
         return self
+
     def __exit__(self, ex_type, ex_val, traceback):
         pass                                                                                                                    
+
 
 @mock.patch('requests.get', return_value=MockHttpResponse(status_code=200, content_type='application/octet-stream'))
 def test_http_uri_path(_):
@@ -73,6 +75,7 @@ def test_http_uri_path(_):
     assert kfserving.Storage.download(http_uri, out_dir=out_dir) == out_dir
     assert kfserving.Storage.download(http_with_query_uri, out_dir=out_dir) == out_dir
     os.remove('./model.joblib')
+
 
 @mock.patch('requests.get', return_value=MockHttpResponse(status_code=200, content_type='application/octet-stream'))
 def test_https_uri_path(_):
@@ -117,17 +120,20 @@ def test_nonexistent_uri(_):
     with pytest.raises(RuntimeError):
         kfserving.Storage.download(non_existent_uri)
 
+
 @mock.patch('requests.get', return_value=MockHttpResponse(status_code=200))
 def test_uri_no_filename(_):
     bad_uri = 'https://foo.bar/test/'
     with pytest.raises(ValueError):
         kfserving.Storage.download(bad_uri)
 
+
 @mock.patch('requests.get', return_value=MockHttpResponse(status_code=200, content_type='text/html'))
 def test_html_content_type(_):
     bad_uri = 'https://some.site.com/test.model'
     with pytest.raises(RuntimeError):
         kfserving.Storage.download(bad_uri)
+
 
 @mock.patch(STORAGE_MODULE + '.storage')
 def test_mock_gcs(mock_storage):
@@ -137,10 +143,12 @@ def test_mock_gcs(mock_storage):
     mock_storage.Client().bucket().list_blobs().__iter__.return_value = [mock_obj]
     assert kfserving.Storage.download(gcs_path)
 
+
 def test_storage_blob_exception():
     blob_path = 'https://accountname.blob.core.windows.net/container/some/blob/'
     with pytest.raises(Exception):
         kfserving.Storage.download(blob_path)
+
 
 @mock.patch('urllib3.PoolManager')
 @mock.patch(STORAGE_MODULE + '.Minio')
@@ -154,16 +162,13 @@ def test_storage_s3_exception(mock_connection, mock_minio):
     with pytest.raises(Exception):
         kfserving.Storage.download(minio_path)
 
+
 @mock.patch('urllib3.PoolManager')
 @mock.patch(STORAGE_MODULE + '.Minio')
 def test_no_permission_buckets(mock_connection, mock_minio):
     bad_s3_path = "s3://random/path"
-    #bad_gcs_path = "gs://random/path"
     # Access private buckets without credentials
     mock_minio.return_value = Minio("s3.us.cloud-object-storage.appdomain.cloud", secure=True)
     mock_connection.side_effect = error.AccessDenied()
     with pytest.raises(error.AccessDenied):
         kfserving.Storage.download(bad_s3_path)
-    #mock_connection.side_effect = exceptions.Forbidden(None)
-    #with pytest.raises(exceptions.Forbidden):
-    #    kfserving.Storage.download(bad_gcs_path)

@@ -63,4 +63,3 @@ setuptools.setup(
     tests_require=TESTS_REQUIRES,
     extras_require={'test': TESTS_REQUIRES}
 )
-
