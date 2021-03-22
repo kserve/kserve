@@ -18,10 +18,11 @@ package constants
 
 import (
 	"fmt"
-	"knative.dev/serving/pkg/apis/autoscaling"
 	"os"
 	"regexp"
 	"strings"
+
+	"knative.dev/serving/pkg/apis/autoscaling"
 
 	"knative.dev/pkg/network"
 
@@ -107,8 +108,9 @@ const (
 
 // InferenceService Environment Variables
 const (
-	CustomSpecStorageUriEnvVarKey = "STORAGE_URI"
-	CustomSpecProtocolEnvVarKey = "PROTOCOL"
+	CustomSpecStorageUriEnvVarKey       = "STORAGE_URI"
+	CustomSpecProtocolEnvVarKey         = "PROTOCOL"
+	CustomSpecMultiModelServerEnvVarKey = "MULTI_MODEL_SERVER"
 )
 
 type InferenceServiceComponent string
