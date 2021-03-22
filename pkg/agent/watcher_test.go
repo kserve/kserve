@@ -35,7 +35,6 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
-	"time"
 )
 
 var _ = Describe("Watcher", func() {
@@ -526,14 +525,10 @@ var _ = Describe("Watcher", func() {
 						},
 					},
 				}
-				watcher.parseConfig(modelConfigs, false)
+				puller.workerGroup.Add(len(modelConfigs))
+				watcher.parseConfig(modelConfigs, true)
 				go puller.processCommands(watcher.ModelEvents)
-				models := [2]string{"model1", "model2"}
-				for _, modelName := range models {
-					for puller.opStats[modelName][Add] != 1 {
-						time.Sleep(1 * time.Second)
-					}
-				}
+				puller.workerGroup.Wait()
 				Expect(len(puller.channelMap)).To(Equal(0))
 				Expect(puller.opStats["model1"][Add]).Should(Equal(1))
 				Expect(puller.opStats["model2"][Add]).Should(Equal(1))

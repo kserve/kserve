@@ -101,8 +101,8 @@ func (p *Puller) enqueueModelOp(modelOp *ModelOp) {
 }
 
 func (p *Puller) modelOpComplete(modelOp *ModelOp, closed bool) {
+	// During startup, the puller will wait until all models have been loaded before starting the watcher
 	if modelOp.OnStartup {
-		p.logger.Info("Deferring workergroup done.")
 		defer p.workerGroup.Done()
 	}
 	if opMap, ok := p.opStats[modelOp.ModelName]; ok {
