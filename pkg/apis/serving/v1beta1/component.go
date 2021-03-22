@@ -93,10 +93,6 @@ type ComponentExtensionSpec struct {
 	// Activate request batching and batching configurations
 	// +optional
 	Batcher *Batcher `json:"batcher,omitempty"`
-	// MultiModelServer can be used to override default mms behaviour specified in predictor config
-	// or to indicate Custom runtimes support MMS
-	// +optional
-	MultiModelServer *bool `json:"multiModelServer,omitempty"`
 }
 
 // Default the ComponentExtensionSpec

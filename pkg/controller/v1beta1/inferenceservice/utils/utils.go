@@ -20,13 +20,7 @@ import (
 	v1beta1api "github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
 )
 
-// IsMMSPredictor enables MMS predictor when MultiModelServer field in ComponentExtensions
-// is set or predictor config sets MMS to true and storage uri is not set
+// Only enable MMS predictor when predictor config sets MMS to true and storage uri is not set
 func IsMMSPredictor(predictor *v1beta1api.PredictorSpec, isvcConfig *v1beta1api.InferenceServicesConfig) bool {
-	mmsExtension := predictor.GetExtensions().MultiModelServer
-	storageURINotSet := predictor.GetImplementation().GetStorageUri() == nil
-	if mmsExtension != nil {
-		return *mmsExtension && storageURINotSet
-	}
-	return predictor.GetImplementation().IsMMS(isvcConfig) && storageURINotSet
+	return predictor.GetImplementation().IsMMS(isvcConfig) && predictor.GetImplementation().GetStorageUri() == nil
 }
