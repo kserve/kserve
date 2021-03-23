@@ -14,7 +14,6 @@
 
 import numpy as np
 import os
-import pytest
 from kubernetes import client
 
 from kfserving import KFServingClient

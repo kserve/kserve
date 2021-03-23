@@ -29,7 +29,7 @@ class LightGBMModel(kfserving.KFModel):
         self.name = name
         self.model_dir = model_dir
         self.nthread = nthread
-        if not booster is None:
+        if booster is not None:
             self._booster = booster
             self.ready = True
 

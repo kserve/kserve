@@ -35,15 +35,15 @@ parser.add_argument('--nthread', default=DEFAULT_NTHREAD,
 args, _ = parser.parse_known_args()
 
 if __name__ == "__main__":
-    
+
     model = LightGBMModel(args.model_name, args.model_dir, args.nthread)
     try:
         model.load()
-    except Exception as e:
+    except Exception:
         ex_type, ex_value = sys.exc_info()[:2]
         logging.error(f"fail to load model {args.model_name} from dir {args.model_dir}. "
                       f"exception type {ex_type}, exception msg: {ex_value}")
-    model_repository = LightGBMModelRepository(args.model_dir, args.nthread)                      
+    model_repository = LightGBMModelRepository(args.model_dir, args.nthread)
     # LightGBM doesn't support multi-process, so the number of http server workers should be 1.
-    kfserver = kfserving.KFServer(workers=1, registered_models=model_repository) # pylint:disable=c-extension-no-member
+    kfserver = kfserving.KFServer(workers=1, registered_models=model_repository)  # pylint:disable=c-extension-no-member
     kfserver.start([model] if model.ready else [])

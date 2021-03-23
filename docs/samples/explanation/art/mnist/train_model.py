@@ -1,12 +1,10 @@
 
 import warnings
 
-import matplotlib.pyplot as plt
 from sklearn.datasets import fetch_openml
 from sklearn.exceptions import ConvergenceWarning
 from sklearn.neural_network import MLPClassifier
 import joblib
-import numpy as np
 
 from aix360.datasets import MNISTDataset
 
@@ -41,7 +39,7 @@ X = X / 255.
 X_train, X_test = X[:60000].extend(X_train_2), X[60000:].extend(X_test_2)
 y_train, y_test = y[:60000].extend(y_train_2), y[60000:].extend(y_test_2)
 
-mlp = MLPClassifier(hidden_layer_sizes=(500,500,500), max_iter=10, alpha=1e-4,
+mlp = MLPClassifier(hidden_layer_sizes=(500, 500, 500), max_iter=10, alpha=1e-4,
                     solver='sgd', verbose=10, random_state=1,
                     learning_rate_init=.1)
 

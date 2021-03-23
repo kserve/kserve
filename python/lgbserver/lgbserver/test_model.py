@@ -16,7 +16,7 @@ import lightgbm as lgb
 import os
 from sklearn.datasets import load_iris
 from lgbserver import LightGBMModel
-import pandas as pd 
+import pandas as pd
 
 model_dir = os.path.join(os.path.dirname(__file__), "example_model", "model")
 BST_FILE = "model.bst"
@@ -30,8 +30,8 @@ def test_model():
     dtrain = lgb.Dataset(X, label=y)
 
     params = {
-        'objective':'multiclass', 
-        'metric':'softmax',
+        'objective': 'multiclass',
+        'metric': 'softmax',
         'num_class': 3
     }
     lgb_model = lgb.train(params=params, train_set=dtrain)
@@ -40,7 +40,8 @@ def test_model():
     model = LightGBMModel("model", model_dir, NTHREAD)
     model.load()
 
-    request = {"x": {0: 1.1}, 'sepal_width_(cm)': {0: 3.5}, 'petal_length_(cm)': {0: 1.4}, 'petal_width_(cm)': {0: 0.2},'sepal_length_(cm)': {0: 5.1} }
+    request = {"x": {0: 1.1}, 'sepal_width_(cm)': {0: 3.5}, 'petal_length_(cm)': {0: 1.4},
+               'petal_width_(cm)': {0: 0.2}, 'sepal_length_(cm)': {0: 5.1}}
 
     response = model.predict({"inputs": [request, request]})
     import numpy

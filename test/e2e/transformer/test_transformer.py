@@ -76,4 +76,3 @@ def test_transformer():
     res = predict(service_name, './data/transformer.json')
     assert(np.argmax(res["predictions"]) == 3)
     KFServing.delete(service_name, KFSERVING_TEST_NAMESPACE)
-

@@ -14,7 +14,6 @@
 
 import kfserving
 import argparse
-import os
 
 from .model import RFModel
 

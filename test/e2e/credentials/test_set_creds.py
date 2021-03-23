@@ -20,7 +20,6 @@ from kfserving import constants
 
 KFSERVING_TEST_NAMESPACE = "kfserving-ci-e2e-test"
 
-
 gcp_testing_creds = '''ewogICAgImNsaWVudF9pZCI6ICI3NjA1MTg1MDY0MDgtNnFyNHA2Z3BpNmhuNTA2cH\
 Q4ZWp1cTgzZGkzNDFodXIuYXBwcy5nb29nbGV1c2VyY29udGVudC5jb20iLAogICAgImNsaWVudF9zZWNyZXQiOiAi\
 ZC1GTDk1UTE5cTdNUW1IRDBUeUZwZDdoIiwKICAgICJyZWZyZXNoX3Rva2VuIjogIjEvYnFZbWt4bkRieEVzdEcxMlh\
@@ -42,7 +41,7 @@ def get_created_sa(sa_name):
 
 
 def delete_sa(sa_name):
-    return client.CoreV1Api().delete_namespaced_service_account( # pylint:disable=no-value-for-parameter
+    return client.CoreV1Api().delete_namespaced_service_account(  # pylint:disable=no-value-for-parameter
         name=sa_name,
         namespace=KFSERVING_TEST_NAMESPACE
     )
@@ -52,7 +51,7 @@ def check_sa_exists(service_account):
     '''Check if the specified service account existing.'''
     sa_list = client.CoreV1Api().list_namespaced_service_account(namespace=KFSERVING_TEST_NAMESPACE)
     sa_name_list = []
-    for item in range(0, len(sa_list.items)-1):
+    for item in range(0, len(sa_list.items) - 1):
         sa_name_list.append(sa_list.items[item].metadata.name)
     if service_account in sa_name_list:
         return True
@@ -60,16 +59,16 @@ def check_sa_exists(service_account):
 
 
 def test_set_credentials_s3():
-    '''Test S3 credentials creating.'''
-    KFServing = KFServingClient()
+    """Test S3 credentials creating."""
+    kfserving = KFServingClient()
     credentials_file = './credentials/aws_credentials'
 
-    #Test creating service account case.
+    # Test creating service account case.
     sa_name = constants.DEFAULT_SA_NAME
     if check_sa_exists(sa_name):
         delete_sa(sa_name)
 
-    KFServing.set_credentials(storage_type='s3',
+    kfserving.set_credentials(storage_type='s3',
                               namespace=KFSERVING_TEST_NAMESPACE,
                               credentials_file=credentials_file,
                               s3_profile='default',
