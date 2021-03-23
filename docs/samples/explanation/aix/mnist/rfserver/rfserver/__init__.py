@@ -12,4 +12,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .model import RFModel
+from .model import RFModel  # noqa # pylint: disable=unused-import

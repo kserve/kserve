@@ -20,11 +20,9 @@ import pandas as pd
 from aif360.metrics import BinaryLabelDatasetMetric
 from aif360.datasets import BinaryLabelDataset
 
-import logging
-
 
 class AIFModel(kfserving.KFModel):
-    def __init__(self, name: str, predictor_host: str, feature_names: list, label_names: list, favorable_label: float, 
+    def __init__(self, name: str, predictor_host: str, feature_names: list, label_names: list, favorable_label: float,
                  unfavorable_label: float, privileged_groups: list, unprivileged_groups: list):
         super().__init__(name)
         self.name = name
@@ -58,7 +56,7 @@ class AIFModel(kfserving.KFModel):
                                                unfavorable_label=self.unfavorable_label,
                                                df=dataframe_predicted,
                                                label_names=self.label_names,
-                                               protected_attribute_names=['age'])   
+                                               protected_attribute_names=['age'])
 
         metrics = BinaryLabelDatasetMetric(dataset_predicted,
                                            unprivileged_groups=self.unprivileged_groups,

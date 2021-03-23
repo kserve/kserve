@@ -20,7 +20,6 @@ from typing import List, Dict
 from PIL import Image
 import torchvision.transforms as transforms
 import logging
-import numpy as np
 import kfserving
 
 logging.basicConfig(level=kfserving.constants.KFSERVING_LOGLEVEL)
@@ -32,6 +31,7 @@ image_processing = transforms.Compose([
         transforms.ToTensor(),
         transforms.Normalize((0.1307,), (0.3081,))
     ])
+
 
 def image_transform(instance):
     """converts the input image of Bytes Array into Tensor
@@ -86,7 +86,7 @@ class ImageTransformer(kfserving.KFModel):
         return {'instances': [image_transform(instance) for instance in inputs['instances']]}
 
     def postprocess(self, inputs: List) -> List:
-        """Post process function of Torchserve on the KFServing side is 
+        """Post process function of Torchserve on the KFServing side is
         written here.
 
         Args:
@@ -113,7 +113,7 @@ class ImageTransformer(kfserving.KFModel):
         """
         if self.explainer_host is None:
             raise NotImplementedError
-        logging.info("Inside Image Transformer explain %s" ,EXPLAINER_URL_FORMAT.format(self.explainer_host, self.name))
+        logging.info("Inside Image Transformer explain %s", EXPLAINER_URL_FORMAT.format(self.explainer_host, self.name))
         response = await self._http_client.fetch(
             EXPLAINER_URL_FORMAT.format(self.explainer_host, self.name),
             method='POST',

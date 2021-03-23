@@ -23,7 +23,7 @@ from kfserving import V1alpha2PredictorSpec
 from kfserving import V1alpha2SKLearnSpec
 from kfserving import V1alpha2InferenceServiceSpec
 from kfserving import V1alpha2ExplainerSpec
-from kfserving import V1alpha2AlibiExplainerSpec   
+from kfserving import V1alpha2AlibiExplainerSpec
 from kfserving import V1alpha2InferenceService
 from kubernetes.client import V1ResourceRequirements
 
@@ -53,11 +53,11 @@ def test_tabular_explainer():
                 resources=V1ResourceRequirements(
                     requests={'cpu': '100m', 'memory': '1Gi'},
                     limits={'cpu': '100m', 'memory': '1Gi'}))))
-    
+
     isvc = V1alpha2InferenceService(api_version=api_version,
                                     kind=constants.KFSERVING_KIND,
                                     metadata=client.V1ObjectMeta(
-                                      name=service_name, namespace=KFSERVING_TEST_NAMESPACE),
+                                        name=service_name, namespace=KFSERVING_TEST_NAMESPACE),
                                     spec=V1alpha2InferenceServiceSpec(default=default_endpoint_spec))
 
     KFServing.create(isvc)
@@ -65,15 +65,17 @@ def test_tabular_explainer():
         KFServing.wait_isvc_ready(service_name, namespace=KFSERVING_TEST_NAMESPACE, timeout_seconds=300)
     except RuntimeError as e:
         logging.info(KFServing.api_instance.get_namespaced_custom_object("serving.knative.dev", "v1",
-           KFSERVING_TEST_NAMESPACE, "services", service_name + "-predictor-default"))
+                                                                         KFSERVING_TEST_NAMESPACE, "services",
+                                                                         service_name + "-predictor-default"))
         pods = KFServing.core_api.list_namespaced_pod(KFSERVING_TEST_NAMESPACE,
-               label_selector='serving.kubeflow.org/inferenceservice={}'.format(service_name))
+                                                      label_selector='serving.kubeflow.org/inferenceservice={}'.format(
+                                                          service_name))
         for pod in pods.items:
             logging.info(pod)
         raise e
-    
+
     res = predict(service_name, './data/income_input.json')
-    assert(res["predictions"] == [0])
+    assert (res["predictions"] == [0])
     precision = explain(service_name, './data/income_input.json')
-    assert(precision > 0.9)
+    assert (precision > 0.9)
     KFServing.delete(service_name, KFSERVING_TEST_NAMESPACE)

@@ -51,20 +51,20 @@ class AIXModel(kfserving.KFModel):  # pylint:disable=c-extension-no-member
     def explain(self, request: Dict) -> Dict:
         instances = request["instances"]
         try:
-            top_labels = (int(request["top_labels"]) 
-                          if "top_labels" in request else 
+            top_labels = (int(request["top_labels"])
+                          if "top_labels" in request else
                           self.top_labels)
-            segmentation_alg = (request["segmentation_alg"] 
-                                if "segmentation_alg" in request else 
+            segmentation_alg = (request["segmentation_alg"]
+                                if "segmentation_alg" in request else
                                 self.segmentation_alg)
-            num_samples = (int(request["num_samples"]) 
-                           if "num_samples" in request else 
+            num_samples = (int(request["num_samples"])
+                           if "num_samples" in request else
                            self.num_samples)
-            positive_only = ((request["positive_only"].lower() == "true") | (request["positive_only"].lower() == "t") 
-                             if "positive_only" in request else 
+            positive_only = ((request["positive_only"].lower() == "true") | (request["positive_only"].lower() == "t")
+                             if "positive_only" in request else
                              self.positive_only)
-            min_weight = (float(request['min_weight']) 
-                          if "min_weight" in request else 
+            min_weight = (float(request['min_weight'])
+                          if "min_weight" in request else
                           self.min_weight)
         except Exception as err:
             raise Exception("Failed to specify parameters: %s", (err,))

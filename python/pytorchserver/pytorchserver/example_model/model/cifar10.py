@@ -23,7 +23,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 
 
-class Net(nn.Module): #pylint:disable=too-few-public-methods
+class Net(nn.Module):  # pylint:disable=too-few-public-methods
     def __init__(self):
         super(Net, self).__init__()
         self.conv1 = nn.Conv2d(3, 6, 5)

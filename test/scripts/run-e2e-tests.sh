@@ -96,6 +96,11 @@ echo "Waiting for knative started ..."
 kubectl wait --for=condition=Ready knativeservings -n knative-serving knative-serving --timeout=180s
 kubectl wait --for=condition=Ready pods --all --timeout=180s -n knative-serving -l 'app in (activator,autoscaler,autoscaler-hpa,controller,istio-webhook,networking-istio)'
 
+# skip nvcr.io for tag resolution due to auth issue
+kubectl patch cm config-deployment --patch '{"data":{"registriesSkippingTagResolving":"nvcr.io"}}' -n knative-serving
+# give longer revision timeout
+kubectl patch cm config-deployment --patch '{"data":{"progressDeadline": "600s"}}' -n knative-serving
+
 echo "Installing cert manager ..."
 kubectl create namespace cert-manager
 sleep 2

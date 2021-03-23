@@ -13,8 +13,6 @@
 # limitations under the License.
 
 import os
-import numpy as np
-import pytest
 from kubernetes import client
 
 from kfserving import KFServingClient
@@ -25,7 +23,6 @@ from kfserving import V1beta1InferenceServiceSpec
 from kfserving import V1beta1InferenceService
 from kubernetes.client import V1ResourceRequirements
 
-from ..common.utils import predict
 from ..common.utils import KFSERVING_TEST_NAMESPACE
 
 

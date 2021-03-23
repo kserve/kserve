@@ -54,19 +54,13 @@ generation [script](./hack/self-signed-ca.sh).
 KFServing can be installed standalone if your kubernetes cluster meets the above prerequisites and KFServing controller is deployed in `kfserving-system` namespace.
 
 ```
-TAG=v0.5.0
+TAG=v0.5.1
 ```
 
-Install KFServing CRD
+Install KFServing CRD and Controller
 
 Due to [a performance issue applying deeply nested CRDs](https://github.com/kubernetes/kubernetes/issues/91615), please ensure that your `kubectl` version
 fits into one of the following categories to ensure that you have the fix: `>=1.16.14,<1.17.0` or `>=1.17.11,<1.18.0` or `>=1.18.8`.
-```shell
-kubectl apply -f https://github.com/kubeflow/kfserving/releases/download/$TAG/kfserving_crds.yaml
-```
-
-Install KFServing Controller
-
 ```shell
 kubectl apply -f https://github.com/kubeflow/kfserving/releases/download/$TAG/kfserving.yaml
 ```
@@ -114,7 +108,7 @@ minikube start --cpus 4 --memory 8192 --kubernetes-version=v1.17.11
 ### Setup Ingress Gateway
 If the default ingress gateway setup does not fit your need, you can choose to setup a custom ingress gateway
 - [Configure Custom Ingress Gateway](https://knative.dev/docs/serving/setting-up-custom-ingress-gateway/)
-  -  In addition you need to update [KFServing configmap](config/default/configmap/inferenceservice.yaml) to use the custom ingress gateway.
+  -  In addition you need to update [KFServing configmap](config/configmap/inferenceservice.yaml) to use the custom ingress gateway.
 - [Configure Custom Domain](https://knative.dev/docs/serving/using-a-custom-domain/)
 - [Configure HTTPS Connection](https://knative.dev/docs/serving/using-a-tls-cert/)
 

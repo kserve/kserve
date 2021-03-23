@@ -13,12 +13,11 @@
 # limitations under the License.
 
 import os
-from typing import Dict
 
 import kfserving
-import numpy as np
-from pypmml import Model
-from py4j.java_collections import JavaList
+from jpmml_evaluator import make_evaluator
+from jpmml_evaluator.py4j import launch_gateway, Py4JBackend
+from typing import Dict
 
 MODEL_BASENAME = "model"
 
@@ -31,6 +30,10 @@ class PmmlModel(kfserving.KFModel):
         self.name = name
         self.model_dir = model_dir
         self.ready = False
+        self.evaluator = None
+        self.input_fields = []
+        self._gateway = None
+        self._backend = None
 
     def load(self) -> bool:
         model_path = kfserving.Storage.download(self.model_dir)
@@ -38,7 +41,10 @@ class PmmlModel(kfserving.KFModel):
                  for model_extension in MODEL_EXTENSIONS]
         for path in paths:
             if os.path.exists(path):
-                self._model = Model.load(path)
+                self._gateway = launch_gateway()
+                self._backend = Py4JBackend(self._gateway)
+                self.evaluator = make_evaluator(self._backend, path).verify()
+                self.input_fields = [inputField.getName() for inputField in self.evaluator.getInputFields()]
                 self.ready = True
                 break
         return self.ready
@@ -46,12 +52,7 @@ class PmmlModel(kfserving.KFModel):
     def predict(self, request: Dict) -> Dict:
         instances = request["instances"]
         try:
-            inputs = np.array(instances)
-        except Exception as e:
-            raise Exception(
-                "Failed to initialize NumPy array from inputs: %s, %s" % (e, instances))
-        try:
-            result = [list(_) for _ in self._model.predict(inputs) if isinstance(_, JavaList)]
+            result = [self.evaluator.evaluate(dict(zip(self.input_fields, instance))) for instance in instances]
             return {"predictions": result}
         except Exception as e:
             raise Exception("Failed to predict %s" % e)

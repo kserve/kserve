@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import kfserving
-from typing import List, Dict
+from typing import Dict
 import logging
 import boto3
 import cv2
@@ -21,7 +21,8 @@ import cv2
 logging.basicConfig(level=kfserving.constants.KFSERVING_LOGLEVEL)
 
 session = boto3.Session()
-client = session.client('s3', endpoint_url='http://minio-service:9000', aws_access_key_id='minio', aws_secret_access_key='minio123')
+client = session.client('s3', endpoint_url='http://minio-service:9000', aws_access_key_id='minio',
+                        aws_secret_access_key='minio123')
 
 
 def image_transform(image):

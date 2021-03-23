@@ -14,4 +14,5 @@ This page contains a list of KFServing presentations and demos.If you'd like to 
 | [Anchor MLOps Podcast: Serving Models with KFServing](https://anchor.fm/mlops/episodes/MLOps-Coffee-Sessions-1-Serving-Models-with-Kubeflow-efbht0) | David Aponte, Demetrios Brinkmann|
 | [Kubeflow 101: What is KFserving?](https://www.youtube.com/watch?v=lj_X2ND2BBI) | Stephanie Wong |
 | [ICML 2020, Workshop on Challenges in Deploying and Monitoring Machine Learning Systems : Serverless inferencing on Kubernetes](https://slideslive.com/38931706/serverless-inferencing-on-kubernetes?ref=account-folder-55868-folders) | Clive Cox |
+| [Serverless Practitioners Summit 2020: Serverless Machine Learning Inference with KFServing](https://www.youtube.com/watch?v=HlKOOgY5OyA) | Clive Cox, Yuzhui Liu|
   

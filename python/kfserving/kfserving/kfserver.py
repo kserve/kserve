@@ -159,7 +159,7 @@ class LoadHandler(tornado.web.RequestHandler):
     async def post(self, name: str):
         try:
             (await self.models.load(name)) if inspect.iscoroutinefunction(self.models.load) else self.models.load(name)
-        except Exception as e:
+        except Exception:
             ex_type, ex_value, ex_traceback = sys.exc_info()
             raise tornado.web.HTTPError(
                 status_code=500,

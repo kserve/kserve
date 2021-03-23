@@ -29,7 +29,7 @@ from ..common.utils import KFSERVING_TEST_NAMESPACE
 from concurrent import futures
 
 api_version = constants.KFSERVING_GROUP + '/' + constants.KFSERVING_VERSION
-KFServing = KFServingClient(config_file=os.environ.get("KUBECONFIG","~/.kube/config"))
+KFServing = KFServingClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
 
 
 def test_batcher():
@@ -75,5 +75,5 @@ def test_batcher():
     results = [
         f.result()["batchId"] for f in future_res
     ]
-    assert(all(x == results[0] for x in results) == True)
+    assert (all(x == results[0] for x in results))
     KFServing.delete(service_name, KFSERVING_TEST_NAMESPACE)

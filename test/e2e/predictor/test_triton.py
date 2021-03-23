@@ -13,23 +13,15 @@
 # limitations under the License.
 
 import os
-import numpy as np
-import pytest
 from kubernetes import client
 
 from kfserving import KFServingClient
 from kfserving import constants
 from kfserving import V1alpha2EndpointSpec
 from kfserving import V1alpha2PredictorSpec
-from kfserving import V1alpha2TransformerSpec
 from kfserving import V1alpha2TritonSpec
-from kfserving import V1alpha2CustomSpec
 from kfserving import V1alpha2InferenceServiceSpec
 from kfserving import V1alpha2InferenceService
-from kubernetes.client import V1ResourceRequirements
-from kubernetes.client import V1Container
-from kubernetes.client import V1EnvVar
-from ..common.utils import predict
 from ..common.utils import KFSERVING_TEST_NAMESPACE
 
 api_version = constants.KFSERVING_GROUP + '/' + constants.KFSERVING_VERSION
@@ -56,11 +48,11 @@ def test_triton():
     except RuntimeError as e:
         print(KFServing.api_instance.get_namespaced_custom_object("serving.knative.dev", "v1", KFSERVING_TEST_NAMESPACE,
                                                                   "services", service_name + "-predictor-default"))
-        deployments = KFServing.app_api.list_namespaced_deployment(KFSERVING_TEST_NAMESPACE,
-                                                                   label_selector='serving.kubeflow.org/inferenceservice={}'.
-                                                                   format(service_name))
+        deployments = KFServing.app_api. \
+            list_namespaced_deployment(KFSERVING_TEST_NAMESPACE, label_selector='serving.kubeflow.org/'
+                                                                                'inferenceservice={}'.
+                                       format(service_name))
         for deployment in deployments.items:
             print(deployment)
         raise e
     KFServing.delete(service_name, KFSERVING_TEST_NAMESPACE)
-
