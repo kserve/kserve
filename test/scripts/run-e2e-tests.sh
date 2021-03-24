@@ -107,7 +107,7 @@ sleep 2
 kubectl apply --validate=false -f https://github.com/jetstack/cert-manager/releases/download/${CERT_MANAGER_VERSION}/cert-manager.yaml
 
 echo "Waiting for cert manager started ..."
-kubectl wait --for=condition=ready pod -l app=cert-manager --timeout=180s -n cert-manager
+kubectl wait --for=condition=ready pod -l 'app in (cert-manager,webhook)' --timeout=180s -n cert-manager
 
 echo "Install KFServing ..."
 export GOPATH="$HOME/go"
