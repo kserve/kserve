@@ -31,7 +31,7 @@ pytz==2019.3
 PyYAML==5.3
 requests==2.22.0
 requests-oauthlib==1.3.0
-rsa==4.0
+rsa==4.1
 six==1.14.0
 table-logger==0.3.6
 torch==1.4.0
