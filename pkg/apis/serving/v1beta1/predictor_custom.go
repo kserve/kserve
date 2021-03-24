@@ -17,10 +17,12 @@ limitations under the License.
 package v1beta1
 
 import (
+	"fmt"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/utils"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"strings"
 )
 
 // CustomPredictor defines arguments for configuring a custom server.
@@ -41,7 +43,21 @@ func NewCustomPredictor(podSpec *PodSpec) *CustomPredictor {
 func (c *CustomPredictor) Validate() error {
 	return utils.FirstNonNilError([]error{
 		validateStorageURI(c.GetStorageUri()),
+		c.validateCustomProtocol(),
 	})
+}
+
+func (c *CustomPredictor) validateCustomProtocol() error {
+	for _, envVar := range c.Containers[0].Env {
+		if envVar.Name == constants.CustomSpecProtocolEnvVarKey {
+			if envVar.Value == string(constants.ProtocolV1) || envVar.Value == string(constants.ProtocolV2) {
+				return nil
+			} else {
+				return fmt.Errorf(InvalidProtocol, strings.Join([]string {string(constants.ProtocolV1),string(constants.ProtocolV2)}, ", "), envVar.Value)
+			}
+		}
+	}
+	return nil
 }
 
 // Default sets defaults on the resource
@@ -69,6 +85,11 @@ func (c *CustomPredictor) GetContainer(metadata metav1.ObjectMeta, extensions *C
 }
 
 func (c *CustomPredictor) GetProtocol() constants.InferenceServiceProtocol {
+	for _, envVar := range c.Containers[0].Env {
+		if envVar.Name == constants.CustomSpecProtocolEnvVarKey {
+			return constants.InferenceServiceProtocol(envVar.Value)
+		}
+	}
 	return constants.ProtocolV1
 }
 

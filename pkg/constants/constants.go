@@ -108,6 +108,7 @@ const (
 // InferenceService Environment Variables
 const (
 	CustomSpecStorageUriEnvVarKey = "STORAGE_URI"
+	CustomSpecProtocolEnvVarKey = "PROTOCOL"
 )
 
 type InferenceServiceComponent string
