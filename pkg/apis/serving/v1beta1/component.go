@@ -40,6 +40,7 @@ const (
 	InvalidISVCNameFormatError          = "The InferenceService \"%s\" is invalid: a InferenceService name must consist of lower case alphanumeric characters or '-', and must start with alphabetical character. (e.g. \"my-name\" or \"abc-123\", regex used for validation is '%s')"
 	MaxWorkersShouldBeLessThanMaxError  = "Workers cannot be greater than %d"
 	InvalidWorkerArgument               = "Invalid workers argument"
+	InvalidProtocol                     = "Invalid protocol %s. Must be one of [%s]"
 )
 
 // Constants

@@ -111,6 +111,69 @@ func TestCustomPredictorValidation(t *testing.T) {
 			},
 			matcher: gomega.Not(gomega.BeNil()),
 		},
+		"ValidProtocolV1": {
+			spec: PredictorSpec{
+				ComponentExtensionSpec: ComponentExtensionSpec{
+					MinReplicas:          GetIntReference(3),
+					ContainerConcurrency: proto.Int64(-1),
+				},
+				PodSpec: PodSpec{
+					Containers: []v1.Container{
+						{
+							Env: []v1.EnvVar{
+								{
+									Name:  "PROTOCOL",
+									Value: "v1",
+								},
+							},
+						},
+					},
+				},
+			},
+			matcher: gomega.BeNil(),
+		},
+		"ValidProtocolV2": {
+			spec: PredictorSpec{
+				ComponentExtensionSpec: ComponentExtensionSpec{
+					MinReplicas:          GetIntReference(3),
+					ContainerConcurrency: proto.Int64(-1),
+				},
+				PodSpec: PodSpec{
+					Containers: []v1.Container{
+						{
+							Env: []v1.EnvVar{
+								{
+									Name:  "PROTOCOL",
+									Value: "v2",
+								},
+							},
+						},
+					},
+				},
+			},
+			matcher: gomega.BeNil(),
+		},
+		"InvalidValidProtocol": {
+			spec: PredictorSpec{
+				ComponentExtensionSpec: ComponentExtensionSpec{
+					MinReplicas:          GetIntReference(3),
+					ContainerConcurrency: proto.Int64(-1),
+				},
+				PodSpec: PodSpec{
+					Containers: []v1.Container{
+						{
+							Env: []v1.EnvVar{
+								{
+									Name:  "PROTOCOL",
+									Value: "unknown",
+								},
+							},
+						},
+					},
+				},
+			},
+			matcher: gomega.Not(gomega.BeNil()),
+		},
 	}
 
 	for name, scenario := range scenarios {
