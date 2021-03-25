@@ -12,7 +12,7 @@ Additional usage instructions can be found in the component [README](https://git
 To dive into the source behind the KFServing Kubeflow Pipelines Component, please look into the YAML for the [KFServing Component](https://github.com/kubeflow/pipelines/blob/master/components/kubeflow/kfserving/component.yaml) and the [source code](https://github.com/kubeflow/pipelines/blob/master/components/kubeflow/kfserving/src/kfservingdeployer.py).
 
 
-**Note**: For those still using an older version of KFServing less than v0.5.0, an older version of of the KFServing Pipelines component must be used
+**Note**: For those still using an older version of KFServing less than v0.5.0, an older version of the KFServing Pipelines component must be used
 as demonstrated in [this notebook](./kfs-pipeline-v1alpha2.ipynb). The source code for this version of the component can be found [here](https://github.com/kubeflow/pipelines/tree/65bed9b6d1d676ef2d541a970d3edc0aee12400d/components/kubeflow/kfserving).
 
 
