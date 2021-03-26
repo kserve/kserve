@@ -255,11 +255,11 @@ func (r *TrainedModelReconciler) updateConditions(req ctrl.Request, tm *v1alpha1
 
 	// Get trained models with same inference service
 	var trainedModels v1alpha1api.TrainedModelList
-	if err := r.List(context.TODO(), &trainedModels, client.InNamespace(tm.Namespace), client.MatchingLabels{constants.ParentInferenceServiceLabel: isvc.Name, constants.TrainedModelMemoryIncluded: isvc.Name}); err != nil {
+	if err := r.List(context.TODO(), &trainedModels, client.InNamespace(tm.Namespace), client.MatchingLabels{constants.ParentInferenceServiceLabel: isvc.Name, constants.TrainedModelAllocated: isvc.Name}); err != nil {
 		return err
 	}
 
-	if _, ok := tm.Labels[constants.TrainedModelMemoryIncluded]; !ok {
+	if _, ok := tm.Labels[constants.TrainedModelAllocated]; !ok {
 		trainedModels.Items = append(trainedModels.Items, *tm)
 	}
 
@@ -267,8 +267,8 @@ func (r *TrainedModelReconciler) updateConditions(req ctrl.Request, tm *v1alpha1
 	// Update Inference Service Resource Available condition
 	if v1beta1utils.IsMemoryResourceAvailable(isvc, totalReqMemory, isvcConfig) {
 		log.Info("Parent InferenceService memory resources are available", "TrainedModel", tm.Name, "InferenceService", isvc.Name)
-		if _, ok := tm.Labels[constants.TrainedModelMemoryIncluded]; !ok {
-			tm.Labels[constants.TrainedModelMemoryIncluded] = isvc.Name
+		if _, ok := tm.Labels[constants.TrainedModelAllocated]; !ok {
+			tm.Labels[constants.TrainedModelAllocated] = isvc.Name
 			if updateErr := r.Update(context.Background(), tm); updateErr != nil {
 				r.Log.Error(updateErr, "Failed to update TrainedModel label", "TrainedModel", tm.Name)
 				return updateErr
