@@ -71,7 +71,7 @@ pyrsistent==0.16.0
 python-dateutil==2.8.1
 pytz==2019.3
 PyWavelets==1.1.1
-PyYAML==5.3.1
+PyYAML==5.4
 pyzmq==19.0.0
 requests==2.23.0
 scikit-image==0.16.2
