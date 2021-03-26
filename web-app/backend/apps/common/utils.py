@@ -4,6 +4,7 @@ from kubeflow.kubeflow.crud_backend import api, helpers, logging
 
 log = logging.getLogger(__name__)
 
+KNATIVE_REVISION_LABEL = "serving.knative.dev/revision"
 FILE_ABS_PATH = os.path.abspath(os.path.dirname(__file__))
 
 INFERENCESERVICE_TEMPLATE_YAML = os.path.join(
@@ -38,10 +39,10 @@ def get_inference_service_pods(svc, components=[]):
     component_pods_dict = {}
     for pod in pods:
         for revision in revisions_dict:
-            if pod.metadata.generate_name is None:
+            if KNATIVE_REVISION_LABEL not in pod.metadata.labels:
                 continue
 
-            if not pod.metadata.generate_name.startswith(revision):
+            if pod.metadata.labels[KNATIVE_REVISION_LABEL] != revision:
                 continue
 
             component = revisions_dict[revision]
