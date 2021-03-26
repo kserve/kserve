@@ -27,7 +27,7 @@ kfserving_op = components.load_component_from_url('https://raw.githubusercontent
 def kfservingPipeline(
         action='apply',
         model_name='max-image-segmenter',
-        namespace='kubeflow',
+        namespace='anonymous',
         custom_model_spec='{"name": "image-segmenter", "image": "codait/max-image-segmenter:latest", "port": "5000"}'
 ):
     kfserving_op(action=action,
