@@ -1,6 +1,9 @@
 package utils
 
 import (
+	"strconv"
+	"testing"
+
 	"github.com/golang/protobuf/proto"
 	. "github.com/kubeflow/kfserving/pkg/apis/serving/v1beta1"
 	"github.com/kubeflow/kfserving/pkg/constants"
@@ -8,7 +11,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"testing"
 )
 
 func TestIsMMSPredictor(t *testing.T) {
@@ -542,6 +544,46 @@ func TestIsMMSPredictor(t *testing.T) {
 									RuntimeVersion:  proto.String("0.1.0"),
 									Container: v1.Container{
 										Resources: requestedResource,
+									},
+								},
+							},
+						},
+					},
+				},
+				expected: false,
+			},
+			"CustomSpec": {
+				isvc: InferenceService{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "CustomSpecMMS",
+					},
+					Spec: InferenceServiceSpec{
+						Predictor: PredictorSpec{
+							PodSpec: PodSpec{
+								Containers: []v1.Container{
+									{Name: "kfserving-container",
+										Image: "some-image",
+										Env:   []v1.EnvVar{{Name: constants.CustomSpecMultiModelServerEnvVarKey, Value: strconv.FormatBool(mmsCase)}},
+									},
+								},
+							},
+						},
+					},
+				},
+				expected: mmsCase,
+			},
+			"CustomSpecWithURI": {
+				isvc: InferenceService{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "CustomSpecMMSWithURI",
+					},
+					Spec: InferenceServiceSpec{
+						Predictor: PredictorSpec{
+							PodSpec: PodSpec{
+								Containers: []v1.Container{
+									{Name: "kfserving-container",
+										Image: "some-image",
+										Env:   []v1.EnvVar{{Name: constants.CustomSpecMultiModelServerEnvVarKey, Value: strconv.FormatBool(mmsCase)}, {Name: constants.CustomSpecStorageUriEnvVarKey, Value: "gs://some-uri"}},
 									},
 								},
 							},

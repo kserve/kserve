@@ -94,7 +94,13 @@ func (c *CustomPredictor) GetProtocol() constants.InferenceServiceProtocol {
 }
 
 func (c *CustomPredictor) IsMMS(config *InferenceServicesConfig) bool {
-	//TODO: Figure out how to check if custom predictor is mms
+	// Check container env if MULTI_MODEL_SERVER env var is set to true
+	container := c.Containers[0]
+	for _, envVar := range container.Env {
+		if envVar.Name == constants.CustomSpecMultiModelServerEnvVarKey && envVar.Value == "true" {
+			return true
+		}
+	}
 	return false
 }
 
