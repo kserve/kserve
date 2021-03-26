@@ -1,0 +1,48 @@
+<!--predictor-->
+<div *ngIf="configs.predictor.length !== 0">
+  <lib-heading-row
+    heading="Predictor:"
+    [subHeading]="configs.predictor[0].componentName"
+    tooltip="Knative Revision"
+  >
+  </lib-heading-row>
+
+  <div class="graphs">
+    <ng-container *ngFor="let conf of configs.predictor">
+      <app-grafana-graph [config]="conf"></app-grafana-graph>
+    </ng-container>
+  </div>
+</div>
+
+<!--transformer-->
+<div *ngIf="configs.transformer.length !== 0" class="heading">
+  <lib-heading-row
+    heading="Transformer:"
+    [subHeading]="configs.transformer[0].componentName"
+    tooltip="Knative Revision"
+  >
+  </lib-heading-row>
+
+  <div class="graphs">
+    <app-grafana-graph
+      *ngFor="let conf of configs.predictor"
+      [config]="conf"
+    ></app-grafana-graph>
+  </div>
+</div>
+
+<!--explainer-->
+<div *ngIf="configs.explainer.length !== 0" class="heading">
+  <lib-heading-row
+    heading="Explainer:"
+    [subHeading]="configs.explainer[0].componentName"
+    tooltip="Knative Revision"
+  >
+  </lib-heading-row>
+  <div class="graphs">
+    <app-grafana-graph
+      *ngFor="let conf of configs.explainer"
+      [config]="conf"
+    ></app-grafana-graph>
+  </div>
+</div>

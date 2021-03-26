@@ -1,0 +1,11 @@
+{
+  "/api": {
+    "target": "http://localhost:5000",
+    "secure": false
+  },
+  "/grafana": {
+    "target": "http://localhost:8300",
+    "pathRewrite": { "^/grafana": "" },
+    "secure": false
+  }
+}

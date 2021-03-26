@@ -1,0 +1,52 @@
+<lib-details-list-item key="Service account" *ngIf="pod.serviceAccountName">
+  {{ pod.serviceAccountName }}
+</lib-details-list-item>
+
+<lib-details-list-item key="Service account" *ngIf="pod.serviceAccount">
+  {{ pod.serviceAccount }}
+</lib-details-list-item>
+
+<lib-details-list-item
+  key="Active deadline seconds"
+  *ngIf="pod.activeDeadlineSeconds"
+>
+  {{ pod.activeDeadlineSeconds }}
+</lib-details-list-item>
+
+<lib-details-list-item
+  key="Automount ServiceAccount token"
+  *ngIf="pod.automountServiceAccountToken"
+>
+  {{ pod.automountServiceAccountToken }}
+</lib-details-list-item>
+
+<lib-details-list-item key="DNS policy" *ngIf="pod.dnsPolicy">
+  {{ pod.dnsPolicy }}
+</lib-details-list-item>
+
+<lib-details-list-item
+  key="Enable service links"
+  *ngIf="pod.enableServiceLinks"
+>
+  {{ pod.enableServiceLinks }}
+</lib-details-list-item>
+
+<lib-details-list-item key="Host IPC namespace" *ngIf="pod.hostIPC">
+  {{ pod.hostIPC }}
+</lib-details-list-item>
+
+<lib-details-list-item key="Host Network namespace" *ngIf="pod.hostNetwork">
+  {{ pod.hostNetwork }}
+</lib-details-list-item>
+
+<lib-details-list-item key="Host PID namespace" *ngIf="pod.hostPID">
+  {{ pod.hostPID }}
+</lib-details-list-item>
+
+<lib-details-list-item key="Node name" *ngIf="pod.hostname">
+  {{ pod.hostname }}
+</lib-details-list-item>
+
+<lib-details-list-item key="Subdomain" *ngIf="pod.subdomain">
+  {{ pod.subdomain }}
+</lib-details-list-item>

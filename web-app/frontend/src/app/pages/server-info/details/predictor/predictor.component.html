@@ -1,0 +1,30 @@
+<lib-details-list-item key="Storage uri" *ngIf="basePredictor?.storageUri">
+  {{ basePredictor?.storageUri }}
+</lib-details-list-item>
+
+<lib-details-list-item key="Runtime">
+  {{ predictorType }} {{ basePredictor.runtimeVersion }}
+</lib-details-list-item>
+
+<lib-details-list-item
+  key="Protocol version"
+  *ngIf="basePredictor.protocolVersion"
+>
+  {{ basePredictor.protocolVersion }}
+</lib-details-list-item>
+
+<lib-details-list-item
+  key="Model class name"
+  *ngIf="predictorSpec?.pytorch?.modelClassName"
+>
+  {{ predictorSpec.pytorch.modelClassName }}
+</lib-details-list-item>
+
+<!--Pod Spec-->
+<app-pod-details [pod]="predictorSpec"></app-pod-details>
+
+<!--Predictor Extension-->
+<app-component-extension [ext]="predictorSpec"></app-component-extension>
+
+<!--Container-->
+<app-container-details [container]="basePredictor"></app-container-details>

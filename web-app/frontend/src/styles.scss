@@ -1,0 +1,28 @@
+/* You can add global styles to this file, and also import other style files */
+@import '~kubeflow/styles.scss';
+
+// Give some space after each input
+mat-form-field {
+  margin-bottom: 1rem;
+}
+
+body {
+  background-color: white;
+  margin: 0;
+}
+
+.flex {
+  display: flex;
+}
+
+.bold {
+  font-weight: bold;
+}
+
+.warning {
+  color: orange;
+}
+
+.check_circle {
+  color: green;
+}
