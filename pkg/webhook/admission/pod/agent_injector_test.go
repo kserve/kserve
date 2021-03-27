@@ -123,6 +123,18 @@ func TestAgentInjector(t *testing.T) {
 							},
 							Args: []string{"--enable-puller", "--config-dir", "/mnt/configs", "--model-dir", "/mnt/models"},
 							Env:  []v1.EnvVar{},
+							ReadinessProbe: &v1.Probe{
+								Handler: v1.Handler{
+									Exec: &v1.ExecAction{
+										Command: []string{
+											"/agent",
+											"--probe-period",
+											"0",
+										},
+									},
+								},
+								TimeoutSeconds: 10,
+							},
 						},
 					},
 					Volumes: []v1.Volume{
@@ -228,7 +240,7 @@ func TestAgentInjector(t *testing.T) {
 									Exec: &v1.ExecAction{
 										Command: []string{
 											"/agent",
-											"-probe-period",
+											"--probe-period",
 											"0",
 										},
 									},

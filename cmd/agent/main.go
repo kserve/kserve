@@ -103,38 +103,32 @@ func main() {
 	}
 
 	logger, _ := pkglogging.NewLogger(env.ServingLoggingConfig, env.ServingLoggingLevel)
-	servingPort, err := strconv.ParseUint(*port, 10, 16 /*ports are 16 bit*/)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "parse serving port:", err)
-		os.Exit(1)
+	probe := buildProbe(logger, env.ServingReadinessProbe, *componentPort)
+	logger.Infof("Probing user container with probe %v", probe)
+	if !probe.ProbeContainer() {
+		logger.Errorf("Failed to probe user container with probe %v", probe)
 	}
-	if servingPort == 0 {
-		fmt.Fprintln(os.Stderr, "port must be a positive value, got 0")
-		os.Exit(1)
-	}
-	transport := http.DefaultTransport.(*http.Transport).Clone()
-	//poll until main container starts
-	if err := probeQueueHealthPath(2*time.Minute, int(servingPort), transport); err != nil {
-		logger.Errorf("Failed to probe user container %v.", err)
-	}
+
 	if *enablePuller {
+		logger.Info("Starting model puller")
 		startModelPuller(logger)
 	}
 
 	var loggerArgs *loggerArgs
 	if *logUrl != "" {
+		logger.Info("Starting logger")
 		loggerArgs = startLogger(*workers, logger)
 	}
 
 	var batcherArgs *batcherArgs
 	if *enableBatcher {
+		logger.Info("Starting batcher")
 		batcherArgs = startBatcher(logger)
 	}
 
 	healthState := &health.State{}
 	ctx := signals.NewContext()
 	// Setup probe to run for checking user-application healthiness.
-	probe := buildProbe(logger, env.ServingReadinessProbe, *componentPort)
 	mainServer := buildServer(ctx, *port, *componentPort, loggerArgs, batcherArgs, healthState, probe, logger)
 	servers := map[string]*http.Server{
 		"main": mainServer,
@@ -158,6 +152,7 @@ func main() {
 			if err := s.Serve(l); err != nil && !errors.Is(err, http.ErrServerClosed) {
 				errCh <- fmt.Errorf("%s server failed to serve: %w", name, err)
 			}
+			logger.Info("agent http server is started.")
 		}(name, server)
 	}
 
@@ -327,11 +322,11 @@ func buildServer(ctx context.Context, port string, userPort string, loggerArgs *
 			composedHandler = kfslogger.New(loggerArgs.logUrl, loggerArgs.sourceUrl, loggerArgs.loggerType,
 				loggerArgs.inferenceService, loggerArgs.namespace, loggerArgs.endpoint, composedHandler)
 		}
-		composedHandler = queue.ForwardedShimHandler(composedHandler)
-
-		composedHandler = ProbeHandler(healthState, rp.ProbeContainer, rp.IsAggressive(), false, composedHandler)
-		composedHandler = network.NewProbeHandler(composedHandler)
 	}
+	composedHandler = queue.ForwardedShimHandler(composedHandler)
+
+	composedHandler = ProbeHandler(healthState, rp.ProbeContainer, rp.IsAggressive(), false, composedHandler)
+	composedHandler = network.NewProbeHandler(composedHandler)
 
 	return pkgnet.NewServer(":"+port, composedHandler)
 }

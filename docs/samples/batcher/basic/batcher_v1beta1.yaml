@@ -6,8 +6,8 @@ spec:
   predictor:
     minReplicas: 1
     batcher:
-      maxBatchSize: 32
-      maxLatency: 5000
+      maxBatchSize: 16
+      maxLatency: 300
     pytorch:
       modelClassName: "Net"
       storageUri: "gs://kfserving-samples/models/pytorch/cifar10/"

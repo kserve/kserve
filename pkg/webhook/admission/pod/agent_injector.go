@@ -224,16 +224,14 @@ func (ag *AgentInjector) InjectAgent(pod *v1.Pod) error {
 			Exec: &v1.ExecAction{
 				Command: []string{
 					"/agent",
-					"-probe-period",
+					"--probe-period",
 					"0",
 				},
 			},
 		},
 		TimeoutSeconds: 10,
 	}
-	if injectLogger || injectBatcher {
-		agentContainer.ReadinessProbe = readinessProbe
-	}
+	agentContainer.ReadinessProbe = readinessProbe
 
 	// Inject credentials
 	if err := ag.credentialBuilder.CreateSecretVolumeAndEnv(
