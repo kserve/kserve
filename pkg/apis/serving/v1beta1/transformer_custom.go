@@ -66,6 +66,15 @@ func (c *CustomTransformer) GetStorageUri() *string {
 // GetContainers transforms the resource into a container spec
 func (c *CustomTransformer) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig) *v1.Container {
 	container := &c.Containers[0]
+	var argumentPredictorHost string
+	annotations := utils.Filter(metadata.Annotations, func(key string) bool {
+		return !utils.Includes(constants.ServiceAnnotationDisallowedList, key)
+	})
+	if value, ok := annotations[constants.RawDeploymentAnnotationKey]; ok && value == "true" {
+		argumentPredictorHost = constants.DefaultPredictorServiceName(metadata.Name)
+	} else {
+		argumentPredictorHost = fmt.Sprintf("%s.%s", constants.DefaultPredictorServiceName(metadata.Name), metadata.Namespace)
+	}
 	if !utils.IncludesArg(container.Args, constants.ArgumentModelName) {
 		container.Args = append(container.Args, []string{
 			constants.ArgumentModelName,
@@ -75,7 +84,7 @@ func (c *CustomTransformer) GetContainer(metadata metav1.ObjectMeta, extensions 
 	if !utils.IncludesArg(container.Args, constants.ArgumentPredictorHost) {
 		container.Args = append(container.Args, []string{
 			constants.ArgumentPredictorHost,
-			fmt.Sprintf("%s.%s", constants.DefaultPredictorServiceName(metadata.Name), metadata.Namespace),
+			argumentPredictorHost,
 		}...)
 	}
 	if !utils.IncludesArg(container.Args, constants.ArgumentHttpPort) {

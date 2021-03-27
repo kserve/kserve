@@ -17,6 +17,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/reconcilers/knative"
+	raw "github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/reconcilers/raw"
 	"github.com/kubeflow/kfserving/pkg/credentials"
 	"github.com/kubeflow/kfserving/pkg/utils"
 	"github.com/pkg/errors"
@@ -90,16 +91,37 @@ func (p *Transformer) Reconcile(isvc *v1beta1.InferenceService) error {
 		addAgentContainerPort(&isvc.Spec.Transformer.PodSpec.Containers[0])
 	}
 	podSpec := corev1.PodSpec(isvc.Spec.Transformer.PodSpec)
-	r := knative.NewKsvcReconciler(p.client, p.scheme, objectMeta, &isvc.Spec.Transformer.ComponentExtensionSpec,
-		&podSpec, isvc.Status.Components[v1beta1.TransformerComponent])
+	// Here we allow switch between knative and vanilla deployment
+	if value, ok := annotations[constants.RawDeploymentAnnotationKey]; ok && value == "true" {
+		r := raw.NewRawReconciler(p.client, p.scheme, objectMeta, &isvc.Spec.Transformer.ComponentExtensionSpec,
+			&podSpec, v1beta1.TransformerComponent)
+		//set Deployment Controller
+		if err := controllerutil.SetControllerReference(isvc, r.Deployment.Deployment, p.scheme); err != nil {
+			return errors.Wrapf(err, "fails to set deployment owner reference for transformer")
+		}
+		//set Service Controller
+		if err := controllerutil.SetControllerReference(isvc, r.Service.Service, p.scheme); err != nil {
+			return errors.Wrapf(err, "fails to set service owner reference for transformer")
+		}
 
-	if err := controllerutil.SetControllerReference(isvc, r.Service, p.scheme); err != nil {
-		return errors.Wrapf(err, "fails to set owner reference for transformer")
+		deployment, err := r.Reconcile()
+		if err != nil {
+			return errors.Wrapf(err, "fails to reoncile transformer")
+		}
+		isvc.Status.PropagateRawStatus(v1beta1.TransformerComponent, deployment, r.URL)
+
+	} else {
+		r := knative.NewKsvcReconciler(p.client, p.scheme, objectMeta, &isvc.Spec.Transformer.ComponentExtensionSpec,
+			&podSpec, isvc.Status.Components[v1beta1.TransformerComponent])
+		if err := controllerutil.SetControllerReference(isvc, r.Service, p.scheme); err != nil {
+			return errors.Wrapf(err, "fails to set owner reference for predictor")
+		}
+		status, err := r.Reconcile()
+		if err != nil {
+			return errors.Wrapf(err, "fails to reconcile predictor")
+		}
+		isvc.Status.PropagateStatus(v1beta1.TransformerComponent, status)
 	}
-	status, err := r.Reconcile()
-	if err != nil {
-		return errors.Wrapf(err, "fails to reconcile transformer")
-	}
-	isvc.Status.PropagateStatus(v1beta1.TransformerComponent, status)
+
 	return nil
 }

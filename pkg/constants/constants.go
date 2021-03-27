@@ -84,6 +84,7 @@ var (
 	AgentModelConfigVolumeNameAnnotationKey          = InferenceServiceInternalAnnotationsPrefix + "/configVolumeName"
 	AgentModelConfigMountPathAnnotationKey           = InferenceServiceInternalAnnotationsPrefix + "/configMountPath"
 	AgentModelDirAnnotationKey                       = InferenceServiceInternalAnnotationsPrefix + "/modelDir"
+	RawDeploymentAnnotationKey                       = KFServingAPIGroupName + "/raw"
 )
 
 // Controller Constants
@@ -193,7 +194,8 @@ const (
 
 // InferenceService container name
 const (
-	InferenceServiceContainerName = "kfserving-container"
+	InferenceServiceContainerName       = "kfserving-container"
+	InferenceServiceCustomContainerName = "kfserving-custom-container"
 )
 
 // DefaultModelLocalMountPath is where models will be mounted by the storage-initializer
@@ -219,6 +221,21 @@ var (
 		VisibilityLabel,
 	}
 )
+
+// raw k8s deployment, resource exist check result
+type CheckResultType int
+
+const (
+	CheckResultCreate  CheckResultType = 0
+	CheckResultUpdate  CheckResultType = 1
+	CheckResultExisted CheckResultType = 2
+	CheckResultUnknown CheckResultType = 3
+)
+
+// GetRawServiceLabel generate native service label
+func GetRawServiceLabel(service string) string {
+	return "isvc." + service
+}
 
 func (e InferenceServiceComponent) String() string {
 	return string(e)

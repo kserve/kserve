@@ -17,7 +17,9 @@ limitations under the License.
 package v1beta1
 
 import (
-	"k8s.io/api/core/v1"
+	appsv1 "k8s.io/api/apps/v1"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -67,6 +69,23 @@ type ComponentStatusSpec struct {
 	// Addressable endpoint for the InferenceService
 	// +optional
 	Address *duckv1.Addressable `json:"address,omitempty"`
+}
+
+type RawConditionType string
+type RawCondition struct {
+	// Type of DaemonSet condition.
+	Type RawConditionType `json:"type" protobuf:"bytes,1,opt,name=type,casttype=RawConditionType"`
+	// Status of the condition, one of True, False, Unknown.
+	Status v1.ConditionStatus `json:"status" protobuf:"bytes,2,opt,name=status,casttype=k8s.io/api/core/v1.ConditionStatus"`
+	// Last time the condition transitioned from one status to another.
+	// +optional
+	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty" protobuf:"bytes,3,opt,name=lastTransitionTime"`
+	// The reason for the condition's last transition.
+	// +optional
+	Reason string `json:"reason,omitempty" protobuf:"bytes,4,opt,name=reason"`
+	// A human readable message indicating details about the transition.
+	// +optional
+	Message string `json:"message,omitempty" protobuf:"bytes,5,opt,name=message"`
 }
 
 // ComponentType contains the different types of components of the service
@@ -146,6 +165,57 @@ func (ss *InferenceServiceStatus) GetCondition(t apis.ConditionType) *apis.Condi
 // IsConditionReady returns the readiness for a given condition
 func (ss *InferenceServiceStatus) IsConditionReady(t apis.ConditionType) bool {
 	return conditionSet.Manage(ss).GetCondition(t) != nil && conditionSet.Manage(ss).GetCondition(t).Status == v1.ConditionTrue
+}
+
+func (ss *InferenceServiceStatus) PropagateRawStatus(
+	component ComponentType,
+	deployment *appsv1.Deployment,
+	url *apis.URL) {
+	if len(ss.Components) == 0 {
+		ss.Components = make(map[ComponentType]ComponentStatusSpec)
+	}
+	statusSpec, ok := ss.Components[component]
+	if !ok {
+		ss.Components[component] = ComponentStatusSpec{}
+	}
+
+	statusSpec.LatestCreatedRevision = deployment.GetObjectMeta().GetAnnotations()["deployment.kubernetes.io/revison"]
+	condition := getDeploymentCondition(deployment, appsv1.DeploymentAvailable)
+	if condition != nil && condition.Status == v1.ConditionTrue {
+		statusSpec.URL = url
+	}
+	ss.SetRawCondition(component, condition)
+	ss.Components[component] = statusSpec
+}
+
+func getDeploymentCondition(deployment *appsv1.Deployment, conditionType appsv1.DeploymentConditionType) *RawCondition {
+	condition := RawCondition{}
+	for _, con := range deployment.Status.Conditions {
+		if con.Type == conditionType {
+			condition.Type = RawConditionType(conditionType)
+			condition.Status = con.Status
+			condition.Message = con.Message
+			condition.LastTransitionTime = con.LastTransitionTime
+			condition.Reason = con.Reason
+			break
+		}
+	}
+	return &condition
+}
+
+func (ss *InferenceServiceStatus) SetRawCondition(component ComponentType, condition *RawCondition) {
+	//set predictor ready condition
+	//log.Info("SetNativeCondition", "condition.status == ", condition.Status)
+	conditionType := conditionsMap[component]
+	switch {
+	case condition == nil:
+	case condition.Status == v1.ConditionUnknown:
+		conditionSet.Manage(ss).MarkUnknown(conditionType, condition.Reason, condition.Message)
+	case condition.Status == v1.ConditionTrue:
+		conditionSet.Manage(ss).MarkTrue(conditionType)
+	case condition.Status == v1.ConditionFalse:
+		conditionSet.Manage(ss).MarkFalse(conditionType, condition.Reason, condition.Message)
+	}
 }
 
 func (ss *InferenceServiceStatus) PropagateStatus(component ComponentType, serviceStatus *knservingv1.ServiceStatus) {
