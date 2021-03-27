@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/kubeflow/kfserving/pkg/agent"
@@ -11,6 +10,7 @@ import (
 	"github.com/kubeflow/kfserving/pkg/batcher"
 	kfslogger "github.com/kubeflow/kfserving/pkg/logger"
 	"github.com/pkg/errors"
+	flag "github.com/spf13/pflag"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	network "knative.dev/networking/pkg"
@@ -101,8 +101,22 @@ func main() {
 
 		os.Exit(standaloneProbeMain(*readinessProbeTimeout, transport, *port))
 	}
-	logger, _ := pkglogging.NewLogger(env.ServingLoggingConfig, env.ServingLoggingLevel)
 
+	logger, _ := pkglogging.NewLogger(env.ServingLoggingConfig, env.ServingLoggingLevel)
+	servingPort, err := strconv.ParseUint(*port, 10, 16 /*ports are 16 bit*/)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "parse serving port:", err)
+		os.Exit(1)
+	}
+	if servingPort == 0 {
+		fmt.Fprintln(os.Stderr, "port must be a positive value, got 0")
+		os.Exit(1)
+	}
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	//poll until main container starts
+	if err := probeQueueHealthPath(2*time.Minute, int(servingPort), transport); err != nil {
+		logger.Errorf("Failed to probe user container %v.", err)
+	}
 	if *enablePuller {
 		startModelPuller(logger)
 	}

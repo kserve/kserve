@@ -121,7 +121,7 @@ func TestAgentInjector(t *testing.T) {
 									MountPath: constants.ModelConfigDir,
 								},
 							},
-							Args: []string{"--enable-puller", "true", "--config-dir", "/mnt/configs", "--model-dir", "/mnt/models"},
+							Args: []string{"--enable-puller", "--config-dir", "/mnt/configs", "--model-dir", "/mnt/models"},
 							Env:  []v1.EnvVar{},
 						},
 					},
