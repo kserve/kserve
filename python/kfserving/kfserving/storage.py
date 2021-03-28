@@ -278,4 +278,3 @@ The path or model %s does not exist." % (uri))
             os.remove(local_path)
 
         return out_dir
-

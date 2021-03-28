@@ -23,6 +23,7 @@ def create_mock_obj(path):
     mock_obj.is_dir = False
     return mock_obj
 
+
 def create_mock_boto3_bucket(mock_storage, paths):
     mock_s3_resource = mock.MagicMock()
     mock_s3_bucket = mock.MagicMock()
@@ -32,6 +33,7 @@ def create_mock_boto3_bucket(mock_storage, paths):
     mock_storage.resource.return_value = mock_s3_resource
 
     return mock_s3_bucket
+
 
 def get_call_args(call_args_list):
     arg_list = []

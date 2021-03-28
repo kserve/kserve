@@ -21,7 +21,6 @@ import unittest.mock as mock
 import botocore
 import kfserving
 import pytest
-from google.cloud import exceptions
 
 STORAGE_MODULE = 'kfserving.storage'
 
@@ -165,6 +164,7 @@ def test_storage_blob_exception():
     blob_path = 'https://accountname.blob.core.windows.net/container/some/blob/'
     with pytest.raises(Exception):
         kfserving.Storage.download(blob_path)
+
 
 @mock.patch(STORAGE_MODULE + '.boto3')
 def test_storage_s3_exception(mock_boto3):
