@@ -13,6 +13,7 @@ import (
 	flag "github.com/spf13/pflag"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/util/wait"
 	network "knative.dev/networking/pkg"
 	pkglogging "knative.dev/pkg/logging"
 	pkgnet "knative.dev/pkg/network"
@@ -105,8 +106,12 @@ func main() {
 	logger, _ := pkglogging.NewLogger(env.ServingLoggingConfig, env.ServingLoggingLevel)
 	probe := buildProbe(logger, env.ServingReadinessProbe, *componentPort)
 	logger.Infof("Probing user container with probe %v", probe)
-	if !probe.ProbeContainer() {
-		logger.Errorf("Failed to probe user container with probe %v", probe)
+	timeoutCtx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancel()
+	if err := wait.PollImmediateUntil(10*time.Second, func() (bool, error) {
+		return probe.ProbeContainer(), nil
+	}, timeoutCtx.Done()); err != nil {
+		logger.Errorf("Failed to probe user container with error %v", err)
 	}
 
 	if *enablePuller {
@@ -152,7 +157,6 @@ func main() {
 			if err := s.Serve(l); err != nil && !errors.Is(err, http.ErrServerClosed) {
 				errCh <- fmt.Errorf("%s server failed to serve: %w", name, err)
 			}
-			logger.Info("agent http server is started.")
 		}(name, server)
 	}
 
@@ -275,10 +279,9 @@ func startModelPuller(logger *zap.SugaredLogger) {
 		Providers: map[storage.Protocol]storage.Provider{},
 		Logger:    logger,
 	}
-
 	watcher := agent.NewWatcher(*configDir, *modelDir, logger)
 	agent.StartPuller(downloader, watcher.ModelEvents, logger)
-	watcher.Start()
+	go watcher.Start()
 }
 
 func buildProbe(logger *zap.SugaredLogger, probeJSON string, port string) *readiness.Probe {
