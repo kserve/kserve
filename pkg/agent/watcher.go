@@ -87,7 +87,6 @@ func (w *Watcher) Start() {
 		w.logger.Error(err, "Failed to add watcher config dir")
 	}
 	w.logger.Info("Start to watch model config event")
-	done := make(chan bool)
 	go func() {
 		for {
 			select {
@@ -125,7 +124,6 @@ func (w *Watcher) Start() {
 		Op:   fsnotify.Create,
 	}
 	w.logger.Infof("Watching %s", watchPath)
-	<-done
 }
 
 func (w *Watcher) parseConfig(modelConfigs modelconfig.ModelConfigs) {

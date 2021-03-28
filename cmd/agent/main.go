@@ -125,7 +125,7 @@ func main() {
 		logger.Info("Starting batcher")
 		batcherArgs = startBatcher(logger)
 	}
-
+	logger.Info("Starting agent http server...")
 	healthState := &health.State{}
 	ctx := signals.NewContext()
 	// Setup probe to run for checking user-application healthiness.
@@ -277,7 +277,6 @@ func startModelPuller(logger *zap.SugaredLogger) {
 	}
 
 	watcher := agent.NewWatcher(*configDir, *modelDir, logger)
-	logger.Info("Starting puller")
 	agent.StartPuller(downloader, watcher.ModelEvents, logger)
 	watcher.Start()
 }
