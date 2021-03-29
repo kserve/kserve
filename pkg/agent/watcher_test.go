@@ -17,8 +17,10 @@ limitations under the License.
 package agent
 
 import (
+	"bytes"
 	gstorage "cloud.google.com/go/storage"
 	"context"
+	"encoding/hex"
 	"fmt"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
@@ -32,6 +34,7 @@ import (
 	"io/ioutil"
 	"k8s.io/apimachinery/pkg/api/resource"
 	logger "log"
+	"net/http"
 	"os"
 	"path/filepath"
 	"sync"
@@ -529,6 +532,166 @@ var _ = Describe("Watcher", func() {
 				Expect(len(puller.channelMap)).To(Equal(0))
 				Expect(puller.opStats["model1"][Add]).Should(Equal(1))
 				Expect(puller.opStats["model2"][Add]).Should(Equal(1))
+			})
+		})
+	})
+
+	Describe("Use HTTPS Downloader", func() {
+		Context("Download Uncompressed Mocked Model", func() {
+			It("should download test model and write contents", func() {
+				logger.Printf("Creating mock HTTPS Client")
+				modelContents := "Test"
+				body := ioutil.NopCloser(bytes.NewReader([]byte(modelContents)))
+				modelName := "model1"
+				modelStorageURI := "https://example.com/model.joblib"
+				responses := map[string]*http.Response{
+					modelStorageURI: {
+						StatusCode:    200,
+						Body:          body,
+						ContentLength: -1,
+						Uncompressed:  true,
+					},
+				}
+				client := mocks.NewHTTPSMockClient(responses)
+				cl := storage.HTTPSProvider{
+					Client: client,
+				}
+
+				err := cl.DownloadModel(modelDir, modelName, modelStorageURI)
+				Expect(err).To(BeNil())
+
+				testFile := filepath.Join(modelDir, "model1", "model.joblib")
+				dat, err := ioutil.ReadFile(testFile)
+				Expect(err).To(BeNil())
+				Expect(string(dat)).To(Equal(modelContents))
+			})
+		})
+
+		Context("Model Download Failure", func() {
+			It("should fail out if the uri does not exist", func() {
+				logger.Printf("Creating mock HTTPS Client")
+				modelName := "model1"
+				modelStorageURI := "https://example.com/model.joblib"
+				body := ioutil.NopCloser(bytes.NewReader([]byte("")))
+				responses := map[string]*http.Response{
+					modelStorageURI: {
+						StatusCode: 404,
+						Body:       body,
+					},
+				}
+				client := mocks.NewHTTPSMockClient(responses)
+				cl := storage.HTTPSProvider{
+					Client: client,
+				}
+
+				expectedErr := fmt.Errorf("URI: %s returned a %d response code", modelStorageURI, 404)
+				actualErr := cl.DownloadModel(modelDir, modelName, modelStorageURI)
+				Expect(actualErr).To(Equal(expectedErr))
+			})
+		})
+
+		Context("Download All Models", func() {
+			It("should download and load zip and tar files", func() {
+				logger.Printf("Setting up tar model")
+				tarModel := "model1"
+				tarContent := "1f8b0800bac550600003cbcd4f49cdd12b28c960a01d3030303033315100d1e666a660dac008c287010" +
+					"54313a090a189919981998281a1b1b1a1118382010ddd0407a5c525894540a754656466e464e2560754" +
+					"969686c71ca83fe0f4281805a360140c7200009f7e1bb400060000"
+				tarByte, err := hex.DecodeString(tarContent)
+				Expect(err).To(BeNil())
+				tarBody := ioutil.NopCloser(bytes.NewReader(tarByte))
+				tarStorageURI := "https://example.com/test.tar"
+				var tarHead http.Header = map[string][]string{}
+				tarHead.Add("Content-type", "application/x-tar; charset='UTF-8'")
+
+				logger.Printf("Setting up zip model")
+				zipModel := "model2"
+				zipContents := "504b030414000800080035b67052000000000000000000000000090020006d6f64656c2e70746855540" +
+					"d000786c5506086c5506086c5506075780b000104f501000004140000000300504b07080000000002000" +
+					"00000000000504b0102140314000800080035b6705200000000020000000000000009002000000000000" +
+					"0000000a481000000006d6f64656c2e70746855540d000786c5506086c5506086c5506075780b000104f" +
+					"50100000414000000504b0506000000000100010057000000590000000000"
+				zipByte, err := hex.DecodeString(zipContents)
+				Expect(err).To(BeNil())
+				zipBody := ioutil.NopCloser(bytes.NewReader(zipByte))
+				zipStorageURI := "https://example.com/test.zip"
+				var zipHead http.Header = map[string][]string{}
+				zipHead.Add("Content-type", "application/zip; charset='UTF-8'")
+
+				responses := map[string]*http.Response{
+					tarStorageURI: {
+						StatusCode:   200,
+						Header:       tarHead,
+						Body:         tarBody,
+						Uncompressed: false,
+					},
+					zipStorageURI: {
+						StatusCode:   200,
+						Header:       zipHead,
+						Body:         zipBody,
+						Uncompressed: false,
+					},
+				}
+
+				logger.Printf("Creating mock HTTPS Client")
+				client := mocks.NewHTTPSMockClient(responses)
+				cl := storage.HTTPSProvider{
+					Client: client,
+				}
+
+				err = cl.DownloadModel(modelDir, zipModel, zipStorageURI)
+				Expect(err).To(BeNil())
+				err = cl.DownloadModel(modelDir, tarModel, tarStorageURI)
+				Expect(err).To(BeNil())
+
+			})
+		})
+
+		Context("Getting new model events", func() {
+			It("should download and load the new models", func() {
+				logger.Printf("Sync model config using temp dir %v\n", modelDir)
+				watcher := NewWatcher("/tmp/configs", modelDir, sugar)
+				modelConfigs := modelconfig.ModelConfigs{
+					{
+						Name: "model1",
+						Spec: v1alpha1.ModelSpec{
+							StorageURI: "https://example.com/test.tar",
+							Framework:  "sklearn",
+						},
+					},
+					{
+						Name: "model2",
+						Spec: v1alpha1.ModelSpec{
+							StorageURI: "https://example.com/test.zip",
+							Framework:  "sklearn",
+						},
+					},
+				}
+
+				// Create HTTPS client
+				client := mocks.NewHTTPSMockClient(nil)
+				cl := storage.HTTPSProvider{
+					Client: client,
+				}
+
+				watcher.parseConfig(modelConfigs)
+				puller := Puller{
+					channelMap:  make(map[string]*ModelChannel),
+					completions: make(chan *ModelOp, 4),
+					opStats:     make(map[string]map[OpType]int),
+					Downloader: Downloader{
+						ModelDir: modelDir + "/test1",
+						Providers: map[storage.Protocol]storage.Provider{
+							storage.HTTPS: &cl,
+						},
+						Logger: sugar,
+					},
+					logger: sugar,
+				}
+				go puller.processCommands(watcher.ModelEvents)
+				Eventually(func() int { return len(puller.channelMap) }).Should(Equal(0))
+				Eventually(func() int { return puller.opStats["model1"][Add] }).Should(Equal(1))
+				Eventually(func() int { return puller.opStats["model2"][Add] }).Should(Equal(1))
 			})
 		})
 	})
