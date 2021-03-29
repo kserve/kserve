@@ -16,8 +16,8 @@ bases:
 - cluster-role.yaml
 
 patchesStrategicMerge:
-- statefulset-patch.yaml
-- namespace-patch.yaml
+- patches/statefulset.yaml
+- patches/namespace.yaml
 
 generatorOptions:
   disableNameSuffixHash: true
