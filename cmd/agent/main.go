@@ -104,7 +104,10 @@ func main() {
 	}
 
 	logger, _ := pkglogging.NewLogger(env.ServingLoggingConfig, env.ServingLoggingLevel)
+	// Setup probe to run for checking user container healthiness.
 	probe := buildProbe(logger, env.ServingReadinessProbe, *componentPort)
+
+	// Poll user container health to make sure agent start after user container is ready
 	logger.Infof("Probing user container with probe %v", probe)
 	timeoutCtx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
@@ -112,6 +115,7 @@ func main() {
 		return probe.ProbeContainer(), nil
 	}, timeoutCtx.Done()); err != nil {
 		logger.Errorf("Failed to probe user container with error %v", err)
+		os.Exit(1)
 	}
 
 	if *enablePuller {
@@ -133,7 +137,6 @@ func main() {
 	logger.Info("Starting agent http server...")
 	healthState := &health.State{}
 	ctx := signals.NewContext()
-	// Setup probe to run for checking user-application healthiness.
 	mainServer := buildServer(ctx, *port, *componentPort, loggerArgs, batcherArgs, healthState, probe, logger)
 	servers := map[string]*http.Server{
 		"main": mainServer,
@@ -184,7 +187,7 @@ func main() {
 	// to act on the first of those to reach here.
 	select {
 	case err := <-errCh:
-		logger.Errorw("Failed to bring up kfserving agent, shutting down.", zap.Error(err))
+		logger.Errorw("Failed to bring up agent, shutting down.", zap.Error(err))
 		// This extra flush is needed because defers are not handled via os.Exit calls.
 		logger.Sync()
 		os.Stdout.Sync()
@@ -272,7 +275,7 @@ func startLogger(workers int, logger *zap.SugaredLogger) *loggerArgs {
 }
 
 func startModelPuller(logger *zap.SugaredLogger) {
-	logger.Infof("Initializing model agent with config-dir %s, model-dir %s", *configDir, *modelDir)
+	logger.Infof("Initializing agent with config-dir %s, model-dir %s", *configDir, *modelDir)
 
 	downloader := agent.Downloader{
 		ModelDir:  *modelDir,
@@ -287,7 +290,7 @@ func startModelPuller(logger *zap.SugaredLogger) {
 func buildProbe(logger *zap.SugaredLogger, probeJSON string, port string) *readiness.Probe {
 	coreProbe, err := readiness.DecodeProbe(probeJSON)
 	if err != nil {
-		logger.Fatalw("Queue container failed to parse readiness probe", zap.Error(err))
+		logger.Fatalw("Agent failed to parse readiness probe", zap.Error(err))
 	}
 	if coreProbe.TCPSocket != nil {
 		coreProbe.TCPSocket.Port = intstr.FromString(port)
@@ -316,15 +319,15 @@ func buildServer(ctx context.Context, port string, userPort string, loggerArgs *
 	// Create handler chain.
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first.
 	var composedHandler http.Handler = httpProxy
-	if loggerArgs != nil || batcherArgs != nil {
-		if batcherArgs != nil {
-			composedHandler = batcher.New(batcherArgs.maxBatchSize, batcherArgs.maxLatency, composedHandler, logging)
-		}
-		if loggerArgs != nil {
-			composedHandler = kfslogger.New(loggerArgs.logUrl, loggerArgs.sourceUrl, loggerArgs.loggerType,
-				loggerArgs.inferenceService, loggerArgs.namespace, loggerArgs.endpoint, composedHandler)
-		}
+
+	if batcherArgs != nil {
+		composedHandler = batcher.New(batcherArgs.maxBatchSize, batcherArgs.maxLatency, composedHandler, logging)
 	}
+	if loggerArgs != nil {
+		composedHandler = kfslogger.New(loggerArgs.logUrl, loggerArgs.sourceUrl, loggerArgs.loggerType,
+			loggerArgs.inferenceService, loggerArgs.namespace, loggerArgs.endpoint, composedHandler)
+	}
+
 	composedHandler = queue.ForwardedShimHandler(composedHandler)
 
 	composedHandler = ProbeHandler(healthState, rp.ProbeContainer, rp.IsAggressive(), false, composedHandler)
