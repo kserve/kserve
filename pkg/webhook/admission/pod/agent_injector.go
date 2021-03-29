@@ -132,7 +132,6 @@ func (ag *AgentInjector) InjectAgent(pod *v1.Pod) error {
 	var args []string
 	if injectPuller {
 		args = append(args, constants.AgentEnableFlag)
-		args = append(args, "true")
 		modelConfig, ok := pod.ObjectMeta.Annotations[constants.AgentModelConfigMountPathAnnotationKey]
 		if ok {
 			args = append(args, constants.AgentConfigDirArgName)
@@ -148,7 +147,6 @@ func (ag *AgentInjector) InjectAgent(pod *v1.Pod) error {
 	// Only inject if the batcher required annotations are set
 	if injectBatcher {
 		args = append(args, BatcherEnableFlag)
-		args = append(args, "true")
 		maxBatchSize, ok := pod.ObjectMeta.Annotations[constants.BatcherMaxBatchSizeInternalAnnotationKey]
 		if ok {
 			args = append(args, BatcherArgumentMaxBatchSize)
@@ -226,16 +224,14 @@ func (ag *AgentInjector) InjectAgent(pod *v1.Pod) error {
 			Exec: &v1.ExecAction{
 				Command: []string{
 					"/agent",
-					"-probe-period",
+					"--probe-period",
 					"0",
 				},
 			},
 		},
 		TimeoutSeconds: 10,
 	}
-	if injectLogger || injectBatcher {
-		agentContainer.ReadinessProbe = readinessProbe
-	}
+	agentContainer.ReadinessProbe = readinessProbe
 
 	// Inject credentials
 	if err := ag.credentialBuilder.CreateSecretVolumeAndEnv(
