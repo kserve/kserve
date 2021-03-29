@@ -103,7 +103,7 @@ func extractProtocol(storageURI string) (storage.Protocol, error) {
 		return "", fmt.Errorf("there is no protocol specificed for the storageUri")
 	}
 
-	for _, prefix := range SupportedProtocols {
+	for _, prefix := range storage.SupportedProtocols {
 		if strings.HasPrefix(storageURI, string(prefix)) {
 			return prefix, nil
 		}
