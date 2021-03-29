@@ -29,6 +29,7 @@ import (
 	gcscredential "github.com/kubeflow/kfserving/pkg/credentials/gcs"
 	s3credential "github.com/kubeflow/kfserving/pkg/credentials/s3"
 	"google.golang.org/api/option"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -132,7 +133,11 @@ func GetProvider(providers map[Protocol]Provider, protocol Protocol) (Provider, 
 				}),
 			}
 		}
-
+	case HTTPS:
+		var httpsClient HTTPSClient = &http.Client{}
+		providers[HTTPS] = &HTTPSProvider{
+			Client: &httpsClient,
+		}
 	}
 
 	return providers[protocol], nil
