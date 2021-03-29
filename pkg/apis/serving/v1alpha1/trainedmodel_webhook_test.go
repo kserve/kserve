@@ -96,9 +96,9 @@ func TestValidateCreate(t *testing.T) {
 		"invalid storageURI prefix": {
 			tm: makeTestTrainModel(),
 			update: map[string]string{
-				storageURI: "https://kfserving/sklearn/iris",
+				storageURI: "pvc://kfserving/sklearn/iris",
 			},
-			matcher: gomega.MatchError(fmt.Errorf(InvalidStorageUriFormatError, "bar", StorageUriProtocols, "https://kfserving/sklearn/iris")),
+			matcher: gomega.MatchError(fmt.Errorf(InvalidStorageUriFormatError, "bar", StorageUriProtocols, "pvc://kfserving/sklearn/iris")),
 		},
 	}
 
@@ -190,9 +190,9 @@ func TestValidateUpdate(t *testing.T) {
 		"invalid storageURI prefix": {
 			tm: makeTestTrainModel(),
 			update: map[string]string{
-				storageURI: "https://kfserving/sklearn/iris",
+				storageURI: "pvc://kfserving/sklearn/iris",
 			},
-			matcher: gomega.MatchError(fmt.Errorf(InvalidStorageUriFormatError, "bar", StorageUriProtocols, "https://kfserving/sklearn/iris")),
+			matcher: gomega.MatchError(fmt.Errorf(InvalidStorageUriFormatError, "bar", StorageUriProtocols, "pvc://kfserving/sklearn/iris")),
 		},
 		"framework": {
 			tm: makeTestTrainModel(),
