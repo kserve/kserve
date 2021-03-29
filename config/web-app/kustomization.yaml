@@ -1,0 +1,13 @@
+namespace: kfserving-system
+resources:
+- rbac.yaml
+- service.yaml
+- deployment.yaml
+- istio.yaml
+commonLabels:
+  kustomize.component: models-web-app
+  app.kubernetes.io/component: models-web-app
+configMapGenerator:
+  - name: models-web-app-config
+    literals:
+    - APP_DISABLE_AUTH="True"
