@@ -27,9 +27,14 @@ const (
 	GCS Protocol = "gs://"
 	//PVC   Protocol = "pvc://"
 	//File  Protocol = "file://"
-	//HTTPS Protocol = "https://"
+	HTTPS Protocol = "https://"
 )
 
-func GetAllProtocol() []string {
-	return []string{string(S3), string(GCS)}
+var SupportedProtocols = []Protocol{S3, GCS, HTTPS}
+
+func GetAllProtocol() (protocols []string) {
+	for _, protocol := range SupportedProtocols {
+		protocols = append(protocols, string(protocol))
+	}
+	return protocols
 }
