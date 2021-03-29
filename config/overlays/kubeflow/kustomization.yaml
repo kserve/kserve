@@ -7,17 +7,18 @@ namespace: kubeflow
 # Labels to add to all resources and selectors.
 commonLabels:
   app: kfserving
-  kustomize.component: kfserving
-  app.kubernetes.io/component: kfserving
   app.kubernetes.io/name: kfserving
 
 bases:
 - ../../default
 - cluster-role.yaml
+- web-app-authorization-policy.yaml
 
 patchesStrategicMerge:
 - patches/statefulset.yaml
 - patches/namespace.yaml
+- patches/web-app-vsvc.yaml
+- patches/web-app-sidecar.yaml
 
 generatorOptions:
   disableNameSuffixHash: true
@@ -30,3 +31,10 @@ configMapGenerator:
     behavior: replace
     envs:
     - params.env
+  - name: models-web-app-config
+    behavior: replace
+    literals:
+    - USERID_HEADER=kubeflow-userid
+
+configurations:
+- params.yaml
