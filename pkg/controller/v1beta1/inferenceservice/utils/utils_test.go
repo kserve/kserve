@@ -604,3 +604,569 @@ func TestIsMMSPredictor(t *testing.T) {
 		}
 	}
 }
+
+func TestIsMemoryResourceAvailable(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	config := InferenceServicesConfig{
+		Predictors: PredictorsConfig{
+			LightGBM: PredictorConfig{
+				ContainerImage:      "lightgbm",
+				DefaultImageVersion: "v0.4.0",
+			},
+			ONNX: PredictorConfig{
+				ContainerImage:      "onnxruntime",
+				DefaultImageVersion: "v1.0.0",
+			},
+			PMML: PredictorConfig{
+				ContainerImage:      "pmmlserver",
+				DefaultImageVersion: "v0.4.0",
+			},
+			SKlearn: PredictorProtocols{
+				V1: &PredictorConfig{
+					ContainerImage:      "sklearnserver",
+					DefaultImageVersion: "v0.4.0",
+				},
+				V2: &PredictorConfig{
+					ContainerImage:      "mlserver",
+					DefaultImageVersion: "0.1.2",
+				},
+			},
+			PyTorch: PredictorProtocols{
+				V1: &PredictorConfig{
+					ContainerImage:      "pytorchserver",
+					DefaultImageVersion: "latest",
+				},
+				V2: &PredictorConfig{
+					ContainerImage:      "kfserving/torchserve-kfs",
+					DefaultImageVersion: "0.3.0",
+				},
+			},
+			Tensorflow: PredictorConfig{
+				ContainerImage:         "tfserving",
+				DefaultImageVersion:    "1.14.0",
+				DefaultGpuImageVersion: "1.14.0-gpu",
+				DefaultTimeout:         60,
+			},
+			Triton: PredictorConfig{
+				ContainerImage:      "tritonserver",
+				DefaultImageVersion: "20.03-py3",
+			},
+			XGBoost: PredictorProtocols{
+				V1: &PredictorConfig{
+					ContainerImage:      "xgboost",
+					DefaultImageVersion: "v0.4.0",
+				},
+				V2: &PredictorConfig{
+					ContainerImage:      "mlserver",
+					DefaultImageVersion: "v0.1.2",
+				},
+			},
+		},
+	}
+	reqResourcesScenarios := map[string]struct {
+		resource v1.ResourceRequirements
+		expected bool
+	}{
+		"EnoughMemoryResource": {
+			// Enough memory
+			resource: v1.ResourceRequirements{
+				Limits: v1.ResourceList{
+					"cpu":    resource.MustParse("100m"),
+					"memory": resource.MustParse("100Gi"),
+				},
+				Requests: v1.ResourceList{
+					"cpu":    resource.MustParse("90m"),
+					"memory": resource.MustParse("100Gi"),
+				},
+			},
+			expected: true,
+		},
+		"NotEnoughMemoryResource": {
+			// Enough memory
+			resource: v1.ResourceRequirements{
+				Limits: v1.ResourceList{
+					"cpu":    resource.MustParse("100m"),
+					"memory": resource.MustParse("1Mi"),
+				},
+				Requests: v1.ResourceList{
+					"cpu":    resource.MustParse("90m"),
+					"memory": resource.MustParse("1Mi"),
+				},
+			},
+			expected: false,
+		},
+	}
+
+	totalReqMemory := resource.MustParse("1Gi")
+
+	protocolV1 := constants.ProtocolV1
+	protocolV2 := constants.ProtocolV2
+
+	for _, reqResourcesScenario := range reqResourcesScenarios {
+		scenarios := map[string]struct {
+			isvc InferenceService
+		}{
+			"LightGBM": {
+				isvc: InferenceService{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "lightgbm",
+					},
+					Spec: InferenceServiceSpec{
+						Predictor: PredictorSpec{
+							LightGBM: &LightGBMSpec{
+								PredictorExtensionSpec: PredictorExtensionSpec{
+									Container: v1.Container{
+										Image:     "customImage:0.1.0",
+										Name:      constants.InferenceServiceContainerName,
+										Resources: reqResourcesScenario.resource,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			"LightGBMWithURI": {
+				isvc: InferenceService{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "lightgbmWithURI",
+					},
+					Spec: InferenceServiceSpec{
+						Predictor: PredictorSpec{
+							LightGBM: &LightGBMSpec{
+								PredictorExtensionSpec: PredictorExtensionSpec{
+									StorageURI: proto.String("gs://someUri"),
+									Container: v1.Container{
+										Image:     "customImage:0.1.0",
+										Name:      constants.InferenceServiceContainerName,
+										Resources: reqResourcesScenario.resource,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			"Onnx": {
+				isvc: InferenceService{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "onnx",
+					},
+					Spec: InferenceServiceSpec{
+						Predictor: PredictorSpec{
+							ONNX: &ONNXRuntimeSpec{
+								PredictorExtensionSpec: PredictorExtensionSpec{
+									Container: v1.Container{
+										Image:     "mcr.microsoft.com/onnxruntime/server:v0.5.0",
+										Name:      constants.InferenceServiceContainerName,
+										Resources: reqResourcesScenario.resource,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			"OnnxWithURI": {
+				isvc: InferenceService{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "onnxWithURI",
+					},
+					Spec: InferenceServiceSpec{
+						Predictor: PredictorSpec{
+							ONNX: &ONNXRuntimeSpec{
+								PredictorExtensionSpec: PredictorExtensionSpec{
+									StorageURI: proto.String("gs://someUri"),
+									Container: v1.Container{
+										Image:     "mcr.microsoft.com/onnxruntime/server:v0.5.0",
+										Name:      constants.InferenceServiceContainerName,
+										Resources: reqResourcesScenario.resource,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			"Pmml": {
+				isvc: InferenceService{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "pmml",
+					},
+					Spec: InferenceServiceSpec{
+						Predictor: PredictorSpec{
+							PMML: &PMMLSpec{
+								PredictorExtensionSpec: PredictorExtensionSpec{
+									Container: v1.Container{
+										Name:      constants.InferenceServiceContainerName,
+										Resources: reqResourcesScenario.resource,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			"PmmlWithURI": {
+				isvc: InferenceService{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "pmmlWithURI",
+					},
+					Spec: InferenceServiceSpec{
+						Predictor: PredictorSpec{
+							PMML: &PMMLSpec{
+								PredictorExtensionSpec: PredictorExtensionSpec{
+									StorageURI: proto.String("gs://someUri"),
+									Container: v1.Container{
+										Name:      constants.InferenceServiceContainerName,
+										Resources: reqResourcesScenario.resource,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			"SKLearnV1": {
+				isvc: InferenceService{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "sklearn",
+					},
+					Spec: InferenceServiceSpec{
+						Predictor: PredictorSpec{
+							SKLearn: &SKLearnSpec{
+								PredictorExtensionSpec: PredictorExtensionSpec{
+									ProtocolVersion: &protocolV1,
+									Container: v1.Container{
+										Name:      constants.InferenceServiceContainerName,
+										Resources: reqResourcesScenario.resource,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			"SKLearnV2": {
+				isvc: InferenceService{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "sklearn2",
+					},
+					Spec: InferenceServiceSpec{
+						Predictor: PredictorSpec{
+							SKLearn: &SKLearnSpec{
+								PredictorExtensionSpec: PredictorExtensionSpec{
+									ProtocolVersion: &protocolV2,
+									Container: v1.Container{
+										Name:      constants.InferenceServiceContainerName,
+										Resources: reqResourcesScenario.resource,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			"SKLearnV1WithURI": {
+				isvc: InferenceService{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "sklearnWithURI",
+					},
+					Spec: InferenceServiceSpec{
+						Predictor: PredictorSpec{
+							SKLearn: &SKLearnSpec{
+								PredictorExtensionSpec: PredictorExtensionSpec{
+									StorageURI:      proto.String("gs://someUri"),
+									ProtocolVersion: &protocolV1,
+									Container: v1.Container{
+										Name:      constants.InferenceServiceContainerName,
+										Resources: reqResourcesScenario.resource,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			"SKLearnV2WithURI": {
+				isvc: InferenceService{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "sklearn2WithURI",
+					},
+					Spec: InferenceServiceSpec{
+						Predictor: PredictorSpec{
+							SKLearn: &SKLearnSpec{
+								PredictorExtensionSpec: PredictorExtensionSpec{
+									StorageURI:      proto.String("gs://someUri"),
+									ProtocolVersion: &protocolV2,
+									Container: v1.Container{
+										Name:      constants.InferenceServiceContainerName,
+										Resources: reqResourcesScenario.resource,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			"tfserving": {
+				isvc: InferenceService{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "tfserving",
+					},
+					Spec: InferenceServiceSpec{
+						Predictor: PredictorSpec{
+							Tensorflow: &TFServingSpec{
+								PredictorExtensionSpec: PredictorExtensionSpec{
+									Container: v1.Container{
+										Name:      constants.InferenceServiceContainerName,
+										Resources: reqResourcesScenario.resource,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			"TfservingWithURI": {
+				isvc: InferenceService{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "tfservingWithURI",
+					},
+					Spec: InferenceServiceSpec{
+						Predictor: PredictorSpec{
+							Tensorflow: &TFServingSpec{
+								PredictorExtensionSpec: PredictorExtensionSpec{
+									StorageURI: proto.String("gs://someUri"),
+									Container: v1.Container{
+										Name:      constants.InferenceServiceContainerName,
+										Resources: reqResourcesScenario.resource,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			"PyTorchV1": {
+				isvc: InferenceService{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "pytorch",
+					},
+					Spec: InferenceServiceSpec{
+						Predictor: PredictorSpec{
+							PyTorch: &TorchServeSpec{
+								ModelClassName: "PyTorchModel",
+								PredictorExtensionSpec: PredictorExtensionSpec{
+									ProtocolVersion: &protocolV1,
+									Container: v1.Container{
+										Name:      constants.InferenceServiceContainerName,
+										Resources: reqResourcesScenario.resource,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			"PyTorchV2": {
+				isvc: InferenceService{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "pytorch2",
+					},
+					Spec: InferenceServiceSpec{
+						Predictor: PredictorSpec{
+							PyTorch: &TorchServeSpec{
+								PredictorExtensionSpec: PredictorExtensionSpec{
+									ProtocolVersion: &protocolV2,
+									Container: v1.Container{
+										Name:      constants.InferenceServiceContainerName,
+										Resources: reqResourcesScenario.resource,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			"PyTorchV1WithURI": {
+				isvc: InferenceService{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "pytorchWithURI",
+					},
+					Spec: InferenceServiceSpec{
+						Predictor: PredictorSpec{
+							PyTorch: &TorchServeSpec{
+								ModelClassName: "PyTorchModel",
+								PredictorExtensionSpec: PredictorExtensionSpec{
+									StorageURI:      proto.String("gs://someUri"),
+									ProtocolVersion: &protocolV1,
+									Container: v1.Container{
+										Name:      constants.InferenceServiceContainerName,
+										Resources: reqResourcesScenario.resource,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			"PyTorchV2WithURI": {
+				isvc: InferenceService{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "pytorch2WithURI",
+					},
+					Spec: InferenceServiceSpec{
+						Predictor: PredictorSpec{
+							PyTorch: &TorchServeSpec{
+								PredictorExtensionSpec: PredictorExtensionSpec{
+									StorageURI:      proto.String("gs://someUri"),
+									ProtocolVersion: &protocolV2,
+									Container: v1.Container{
+										Name:      constants.InferenceServiceContainerName,
+										Resources: reqResourcesScenario.resource,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			"Triton": {
+				isvc: InferenceService{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "triton",
+					},
+					Spec: InferenceServiceSpec{
+						Predictor: PredictorSpec{
+							Triton: &TritonSpec{
+								PredictorExtensionSpec: PredictorExtensionSpec{
+									ProtocolVersion: &protocolV1,
+									Container: v1.Container{
+										Name:      constants.InferenceServiceContainerName,
+										Resources: reqResourcesScenario.resource,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			"TritonWithURI": {
+				isvc: InferenceService{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "tritonWithURI",
+					},
+					Spec: InferenceServiceSpec{
+						Predictor: PredictorSpec{
+							Triton: &TritonSpec{
+								PredictorExtensionSpec: PredictorExtensionSpec{
+									StorageURI:      proto.String("gs://someUri"),
+									ProtocolVersion: &protocolV1,
+									Container: v1.Container{
+										Name:      constants.InferenceServiceContainerName,
+										Resources: reqResourcesScenario.resource,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			"XGBoostV1": {
+				isvc: InferenceService{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "xgboost",
+					},
+					Spec: InferenceServiceSpec{
+						Predictor: PredictorSpec{
+							XGBoost: &XGBoostSpec{
+								PredictorExtensionSpec: PredictorExtensionSpec{
+									RuntimeVersion: proto.String("0.1.0"),
+									Container: v1.Container{
+										Name:      constants.InferenceServiceContainerName,
+										Resources: reqResourcesScenario.resource,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			"XGBoostV2": {
+				isvc: InferenceService{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "xgboost2",
+					},
+					Spec: InferenceServiceSpec{
+						Predictor: PredictorSpec{
+							XGBoost: &XGBoostSpec{
+								PredictorExtensionSpec: PredictorExtensionSpec{
+									ProtocolVersion: &protocolV2,
+									RuntimeVersion:  proto.String("0.1.0"),
+									Container: v1.Container{
+										Name:      constants.InferenceServiceContainerName,
+										Resources: reqResourcesScenario.resource,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			"XGBoostV1WithURI": {
+				isvc: InferenceService{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "xgboostWithURI",
+					},
+					Spec: InferenceServiceSpec{
+						Predictor: PredictorSpec{
+							XGBoost: &XGBoostSpec{
+								PredictorExtensionSpec: PredictorExtensionSpec{
+									StorageURI:     proto.String("gs://someUri"),
+									RuntimeVersion: proto.String("0.1.0"),
+									Container: v1.Container{
+										Name:      constants.InferenceServiceContainerName,
+										Resources: reqResourcesScenario.resource,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			"XGBoostV2WithURI": {
+				isvc: InferenceService{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "xgboost2WithURI",
+					},
+					Spec: InferenceServiceSpec{
+						Predictor: PredictorSpec{
+							XGBoost: &XGBoostSpec{
+								PredictorExtensionSpec: PredictorExtensionSpec{
+									StorageURI:      proto.String("gs://someUri"),
+									ProtocolVersion: &protocolV2,
+									RuntimeVersion:  proto.String("0.1.0"),
+									Container: v1.Container{
+										Name:      constants.InferenceServiceContainerName,
+										Resources: reqResourcesScenario.resource,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+
+		for name, scenario := range scenarios {
+			t.Run(name, func(t *testing.T) {
+				scenario.isvc.Spec.Predictor.GetImplementation().Default(&config)
+				res := IsMemoryResourceAvailable(&scenario.isvc, totalReqMemory, &config)
+				if !g.Expect(res).To(gomega.Equal(reqResourcesScenario.expected)) {
+					t.Errorf("got %t, want %t with memory %s vs %s", res, reqResourcesScenario.expected, reqResourcesScenario.resource.Limits.Memory().String(), totalReqMemory.String())
+				}
+			})
+		}
+	}
+}

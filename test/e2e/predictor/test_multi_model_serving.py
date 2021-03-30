@@ -92,7 +92,7 @@ def test_mms_sklearn_kfserving(protocol_version: str, storage_uris: List[str]):
     for model_name, storage_uri in zip(model_names, storage_uris):
         model_spec = V1alpha1ModelSpec(
             storage_uri=storage_uri,
-            memory="256Mi",
+            memory="128Mi",
             framework="sklearn",
         )
 
@@ -202,7 +202,7 @@ def test_mms_xgboost_kfserving(protocol_version: str, storage_uris: List[str]):
         # Define trained models
         model_spec = V1alpha1ModelSpec(
             storage_uri=storage_uri,
-            memory="256Mi",
+            memory="128Mi",
             framework="xgboost",
         )
 

@@ -45,6 +45,11 @@ var (
 	InferenceServiceConfigMapName = "inferenceservice-config"
 )
 
+// TrainedModel Constants
+var (
+	TrainedModelAllocated = KFServingAPIGroupName + "/" + "trainedmodel-allocated"
+)
+
 // InferenceService MultiModel Constants
 var (
 	ModelConfigFileName = "models.json"

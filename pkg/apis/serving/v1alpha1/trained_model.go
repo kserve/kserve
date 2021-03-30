@@ -68,3 +68,13 @@ type ModelSpec struct {
 	// Maximum memory this model will consume, this field is used to decide if a model server has enough memory to load this model.
 	Memory resource.Quantity `json:"memory"`
 }
+
+func (tms *TrainedModelList) TotalRequestedMemory() resource.Quantity {
+	totalMemory := resource.MustParse("0Mi")
+
+	for _, tm := range tms.Items {
+		totalMemory.Add(tm.Spec.Model.Memory)
+	}
+
+	return totalMemory
+}
