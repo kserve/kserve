@@ -154,7 +154,7 @@ func (handler *BatchHandler) batchPredict() {
 }
 
 func (handler *BatchHandler) batch() {
-	handler.log.Info("Starting batch loop")
+	handler.log.Infof("Starting batch loop maxLatency:%d, maxBatchSize:%d", handler.MaxLatency, handler.MaxBatchSize)
 	for {
 		select {
 		case req := <-handler.channelIn:
@@ -179,6 +179,7 @@ func (handler *BatchHandler) batch() {
 		if handler.batcherInfo.CurrentInputLen >= handler.MaxBatchSize ||
 			(handler.batcherInfo.Now.Sub(handler.batcherInfo.Start).Milliseconds() >= int64(handler.MaxLatency) &&
 				handler.batcherInfo.CurrentInputLen > 0) {
+			handler.log.Infof("batch predict with size %d %s", len(handler.batcherInfo.Instances), handler.batcherInfo.Path)
 			handler.batchPredict()
 		}
 	}
