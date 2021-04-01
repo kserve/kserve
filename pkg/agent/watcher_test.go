@@ -80,12 +80,11 @@ var _ = Describe("Watcher", func() {
 					},
 				}
 				watcher.parseConfig(modelConfigs, false)
-				var wg sync.WaitGroup
 				puller := Puller{
 					channelMap:  make(map[string]*ModelChannel),
 					completions: make(chan *ModelOp, 4),
 					opStats:     make(map[string]map[OpType]int),
-					workerGroup: wg,
+					waitGroup: WaitGroupWrapper{sync.WaitGroup{}},
 					Downloader: Downloader{
 						ModelDir: modelDir + "/test1",
 						Providers: map[storage.Protocol]storage.Provider{
@@ -114,12 +113,11 @@ var _ = Describe("Watcher", func() {
 				defer GinkgoRecover()
 				logger.Printf("Sync model config using temp dir %v\n", modelDir)
 				watcher := NewWatcher("/tmp/configs", modelDir, sugar)
-				var wg sync.WaitGroup
 				puller := Puller{
 					channelMap:  make(map[string]*ModelChannel),
 					completions: make(chan *ModelOp, 4),
 					opStats:     make(map[string]map[OpType]int),
-					workerGroup: wg,
+					waitGroup:   WaitGroupWrapper{sync.WaitGroup{}},
 					Downloader: Downloader{
 						ModelDir: modelDir + "/test1",
 						Providers: map[storage.Protocol]storage.Provider{
@@ -161,12 +159,11 @@ var _ = Describe("Watcher", func() {
 				defer GinkgoRecover()
 				logger.Printf("Sync delete models using temp dir %v\n", modelDir)
 				watcher := NewWatcher("/tmp/configs", modelDir, sugar)
-				var wg sync.WaitGroup
 				puller := Puller{
 					channelMap:  make(map[string]*ModelChannel),
 					completions: make(chan *ModelOp, 4),
 					opStats:     make(map[string]map[OpType]int),
-					workerGroup: wg,
+					waitGroup:   WaitGroupWrapper{sync.WaitGroup{}},
 					Downloader: Downloader{
 						ModelDir: modelDir + "/test2",
 						Providers: map[storage.Protocol]storage.Provider{
@@ -220,12 +217,11 @@ var _ = Describe("Watcher", func() {
 				defer GinkgoRecover()
 				logger.Printf("Sync update models using temp dir %v\n", modelDir)
 				watcher := NewWatcher("/tmp/configs", modelDir, sugar)
-				var wg sync.WaitGroup
 				puller := Puller{
 					channelMap:  make(map[string]*ModelChannel),
 					completions: make(chan *ModelOp, 4),
 					opStats:     make(map[string]map[OpType]int),
-					workerGroup: wg,
+					waitGroup:   WaitGroupWrapper{sync.WaitGroup{}},
 					Downloader: Downloader{
 						ModelDir: modelDir + "/test3",
 						Providers: map[storage.Protocol]storage.Provider{
@@ -238,9 +234,9 @@ var _ = Describe("Watcher", func() {
 					},
 					logger: sugar,
 				}
-				puller.workerGroup.Add(len(watcher.ModelEvents))
+				puller.waitGroup.wg.Add(len(watcher.ModelEvents))
 				go puller.processCommands(watcher.ModelEvents)
-				puller.workerGroup.Wait()
+				puller.waitGroup.wg.Wait()
 				modelConfigs := modelconfig.ModelConfigs{
 					{
 						Name: "model1",
@@ -497,6 +493,7 @@ var _ = Describe("Watcher", func() {
 					channelMap:  make(map[string]*ModelChannel),
 					completions: make(chan *ModelOp, 4),
 					opStats:     make(map[string]map[OpType]int),
+					waitGroup:   WaitGroupWrapper{sync.WaitGroup{}},
 					Downloader: Downloader{
 						ModelDir: modelDir + "/test2",
 						Providers: map[storage.Protocol]storage.Provider{
@@ -525,10 +522,10 @@ var _ = Describe("Watcher", func() {
 						},
 					},
 				}
-				puller.workerGroup.Add(len(modelConfigs))
+				puller.waitGroup.wg.Add(len(modelConfigs))
 				watcher.parseConfig(modelConfigs, true)
 				go puller.processCommands(watcher.ModelEvents)
-				puller.workerGroup.Wait()
+				puller.waitGroup.wg.Wait()
 				Expect(len(puller.channelMap)).To(Equal(0))
 				Expect(puller.opStats["model1"][Add]).Should(Equal(1))
 				Expect(puller.opStats["model2"][Add]).Should(Equal(1))
