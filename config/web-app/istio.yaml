@@ -5,7 +5,7 @@ metadata:
   namespace: kfserving-system
 spec:
   gateways:
-  - knative-ingress-gateway.knative-serving
+  - $(ingressGateway)
   hosts:
   - '*'
   http:

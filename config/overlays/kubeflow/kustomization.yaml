@@ -17,7 +17,6 @@ bases:
 patchesStrategicMerge:
 - patches/statefulset.yaml
 - patches/namespace.yaml
-- patches/web-app-vsvc.yaml
 - patches/web-app-sidecar.yaml
 
 generatorOptions:

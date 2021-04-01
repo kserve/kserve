@@ -13,3 +13,5 @@ varReference:
   kind: CustomResourceDefinition
 - path: data/ingress
   kind: ConfigMap
+- path: spec/gateways
+  kind: VirtualService
