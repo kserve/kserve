@@ -19,6 +19,15 @@ patchesStrategicMerge:
 - patches/namespace.yaml
 - patches/web-app-sidecar.yaml
 
+patchesJson6902:
+- target:
+    group: networking.istio.io
+    version: v1alpha3
+    kind: VirtualService
+    name: models-web-app
+    namespace: kfserving-system
+  path: patches/web-app-vsvc.yaml
+
 generatorOptions:
   disableNameSuffixHash: true
 
