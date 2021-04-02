@@ -223,7 +223,7 @@ func (ag *AgentInjector) InjectAgent(pod *v1.Pod) error {
 		Handler: v1.Handler{
 			Exec: &v1.ExecAction{
 				Command: []string{
-					"/agent",
+					"/ko-app/agent",
 					"--probe-period",
 					"0",
 				},
