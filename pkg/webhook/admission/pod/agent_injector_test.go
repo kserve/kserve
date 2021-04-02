@@ -127,7 +127,7 @@ func TestAgentInjector(t *testing.T) {
 								Handler: v1.Handler{
 									Exec: &v1.ExecAction{
 										Command: []string{
-											"/agent",
+											"/ko-app/agent",
 											"--probe-period",
 											"0",
 										},
@@ -239,7 +239,7 @@ func TestAgentInjector(t *testing.T) {
 								Handler: v1.Handler{
 									Exec: &v1.ExecAction{
 										Command: []string{
-											"/agent",
+											"/ko-app/agent",
 											"--probe-period",
 											"0",
 										},
