@@ -119,7 +119,7 @@ func main() {
 	}
 
 	if *enablePuller {
-		logger.Info("Starting model puller")
+		logger.Infof("Initializing model agent with config-dir %s, model-dir %s", *configDir, *modelDir)
 		startModelPuller(logger)
 	}
 
@@ -275,15 +275,14 @@ func startLogger(workers int, logger *zap.SugaredLogger) *loggerArgs {
 }
 
 func startModelPuller(logger *zap.SugaredLogger) {
-	logger.Infof("Initializing agent with config-dir %s, model-dir %s", *configDir, *modelDir)
-
 	downloader := agent.Downloader{
 		ModelDir:  *modelDir,
 		Providers: map[storage.Protocol]storage.Provider{},
 		Logger:    logger,
 	}
 	watcher := agent.NewWatcher(*configDir, *modelDir, logger)
-	agent.StartPuller(downloader, watcher.ModelEvents, logger)
+	logger.Info("Starting puller")
+	agent.StartPullerAndProcessModels(downloader, watcher.ModelEvents, logger)
 	go watcher.Start()
 }
 

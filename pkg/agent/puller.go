@@ -25,6 +25,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"path/filepath"
+	"sync"
 )
 
 type OpType string
@@ -38,25 +39,34 @@ type Puller struct {
 	channelMap  map[string]*ModelChannel
 	completions chan *ModelOp
 	opStats     map[string]map[OpType]int
+	waitGroup   WaitGroupWrapper
 	Downloader  Downloader
 	logger      *zap.SugaredLogger
 }
 
 type ModelOp struct {
+	OnStartup bool
 	ModelName string
 	Op        OpType
 	Spec      *v1.ModelSpec
 }
 
-func StartPuller(downloader Downloader, commands <-chan ModelOp, logger *zap.SugaredLogger) {
+type WaitGroupWrapper struct {
+	wg sync.WaitGroup
+}
+
+func StartPullerAndProcessModels(downloader Downloader, commands <-chan ModelOp, logger *zap.SugaredLogger) {
 	puller := Puller{
 		channelMap:  make(map[string]*ModelChannel),
 		completions: make(chan *ModelOp, 4),
 		opStats:     make(map[string]map[OpType]int),
+		waitGroup:   WaitGroupWrapper{sync.WaitGroup{}},
 		Downloader:  downloader,
 		logger:      logger,
 	}
+	puller.waitGroup.wg.Add(len(commands))
 	go puller.processCommands(commands)
+	puller.waitGroup.wg.Wait()
 }
 
 func (p *Puller) processCommands(commands <-chan ModelOp) {
@@ -94,6 +104,10 @@ func (p *Puller) enqueueModelOp(modelOp *ModelOp) {
 }
 
 func (p *Puller) modelOpComplete(modelOp *ModelOp, closed bool) {
+	// During startup, the puller will wait until all models have been loaded before starting the watcher
+	if modelOp.OnStartup {
+		defer p.waitGroup.wg.Done()
+	}
 	if opMap, ok := p.opStats[modelOp.ModelName]; ok {
 		opMap[modelOp.Op] += 1
 	} else {

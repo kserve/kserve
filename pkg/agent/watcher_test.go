@@ -34,6 +34,7 @@ import (
 	logger "log"
 	"os"
 	"path/filepath"
+	"sync"
 )
 
 var _ = Describe("Watcher", func() {
@@ -78,11 +79,12 @@ var _ = Describe("Watcher", func() {
 						},
 					},
 				}
-				watcher.parseConfig(modelConfigs)
+				watcher.parseConfig(modelConfigs, false)
 				puller := Puller{
 					channelMap:  make(map[string]*ModelChannel),
 					completions: make(chan *ModelOp, 4),
 					opStats:     make(map[string]map[OpType]int),
+					waitGroup: WaitGroupWrapper{sync.WaitGroup{}},
 					Downloader: Downloader{
 						ModelDir: modelDir + "/test1",
 						Providers: map[storage.Protocol]storage.Provider{
@@ -100,7 +102,7 @@ var _ = Describe("Watcher", func() {
 				Eventually(func() int { return puller.opStats["model1"][Add] }).Should(Equal(1))
 				Eventually(func() int { return puller.opStats["model2"][Add] }).Should(Equal(1))
 				modelSpecMap, _ := SyncModelDir(modelDir+"/test1", watcher.logger)
-				Expect(watcher.modelTracker).Should(Equal(modelSpecMap))
+				Expect(watcher.ModelTracker).Should(Equal(modelSpecMap))
 			})
 		})
 	})
@@ -115,6 +117,7 @@ var _ = Describe("Watcher", func() {
 					channelMap:  make(map[string]*ModelChannel),
 					completions: make(chan *ModelOp, 4),
 					opStats:     make(map[string]map[OpType]int),
+					waitGroup:   WaitGroupWrapper{sync.WaitGroup{}},
 					Downloader: Downloader{
 						ModelDir: modelDir + "/test1",
 						Providers: map[storage.Protocol]storage.Provider{
@@ -144,7 +147,7 @@ var _ = Describe("Watcher", func() {
 						},
 					},
 				}
-				watcher.parseConfig(modelConfigs)
+				watcher.parseConfig(modelConfigs, false)
 				Eventually(func() int { return len(puller.channelMap) }).Should(Equal(0))
 				Eventually(func() int { return puller.opStats["model1"][Add] }).Should(Equal(1))
 				Eventually(func() int { return puller.opStats["model2"][Add] }).Should(Equal(1))
@@ -160,6 +163,7 @@ var _ = Describe("Watcher", func() {
 					channelMap:  make(map[string]*ModelChannel),
 					completions: make(chan *ModelOp, 4),
 					opStats:     make(map[string]map[OpType]int),
+					waitGroup:   WaitGroupWrapper{sync.WaitGroup{}},
 					Downloader: Downloader{
 						ModelDir: modelDir + "/test2",
 						Providers: map[storage.Protocol]storage.Provider{
@@ -189,7 +193,7 @@ var _ = Describe("Watcher", func() {
 						},
 					},
 				}
-				watcher.parseConfig(modelConfigs)
+				watcher.parseConfig(modelConfigs, false)
 				// remove model2
 				modelConfigs = modelconfig.ModelConfigs{
 					{
@@ -200,7 +204,7 @@ var _ = Describe("Watcher", func() {
 						},
 					},
 				}
-				watcher.parseConfig(modelConfigs)
+				watcher.parseConfig(modelConfigs, false)
 				Eventually(func() int { return len(puller.channelMap) }).Should(Equal(0))
 				Eventually(func() int { return puller.opStats["model1"][Add] }).Should(Equal(1))
 				Eventually(func() int { return puller.opStats["model2"][Add] }).Should(Equal(1))
@@ -217,6 +221,7 @@ var _ = Describe("Watcher", func() {
 					channelMap:  make(map[string]*ModelChannel),
 					completions: make(chan *ModelOp, 4),
 					opStats:     make(map[string]map[OpType]int),
+					waitGroup:   WaitGroupWrapper{sync.WaitGroup{}},
 					Downloader: Downloader{
 						ModelDir: modelDir + "/test3",
 						Providers: map[storage.Protocol]storage.Provider{
@@ -229,7 +234,9 @@ var _ = Describe("Watcher", func() {
 					},
 					logger: sugar,
 				}
+				puller.waitGroup.wg.Add(len(watcher.ModelEvents))
 				go puller.processCommands(watcher.ModelEvents)
+				puller.waitGroup.wg.Wait()
 				modelConfigs := modelconfig.ModelConfigs{
 					{
 						Name: "model1",
@@ -246,7 +253,7 @@ var _ = Describe("Watcher", func() {
 						},
 					},
 				}
-				watcher.parseConfig(modelConfigs)
+				watcher.parseConfig(modelConfigs, false)
 				// update model2 storageUri
 				modelConfigs = modelconfig.ModelConfigs{
 					{
@@ -264,7 +271,7 @@ var _ = Describe("Watcher", func() {
 						},
 					},
 				}
-				watcher.parseConfig(modelConfigs)
+				watcher.parseConfig(modelConfigs, false)
 				Eventually(func() int { return len(puller.channelMap) }).Should(Equal(0))
 				Eventually(func() int { return puller.opStats["model1"][Add] }).Should(Equal(1))
 				Eventually(func() int { return puller.opStats["model2"][Add] }).Should(Equal(2))
@@ -311,7 +318,7 @@ var _ = Describe("Watcher", func() {
 						},
 					},
 				}
-				watcher.parseConfig(modelConfigs)
+				watcher.parseConfig(modelConfigs, false)
 				Eventually(func() int { return len(puller.channelMap) }).Should(Equal(0))
 				Eventually(func() int { return puller.opStats["model1"][Add] }).Should(Equal(1))
 			})
@@ -456,7 +463,7 @@ var _ = Describe("Watcher", func() {
 					Fail("Failed to write contents.")
 				}
 
-				watcher.parseConfig(modelConfigs)
+				watcher.parseConfig(modelConfigs, false)
 				puller := Puller{
 					channelMap:  make(map[string]*ModelChannel),
 					completions: make(chan *ModelOp, 4),
@@ -474,6 +481,54 @@ var _ = Describe("Watcher", func() {
 				Eventually(func() int { return len(puller.channelMap) }).Should(Equal(0))
 				Eventually(func() int { return puller.opStats["model1"][Add] }).Should(Equal(1))
 				Eventually(func() int { return puller.opStats["model2"][Add] }).Should(Equal(1))
+			})
+		})
+
+		Context("Puller Waits Before Initializing", func() {
+			It("should download all models before allowing watcher to add new events", func() {
+				defer GinkgoRecover()
+				logger.Printf("Sync model config using temp dir %v\n", modelDir)
+				watcher := NewWatcher("/tmp/configs", modelDir, sugar)
+				puller := Puller{
+					channelMap:  make(map[string]*ModelChannel),
+					completions: make(chan *ModelOp, 4),
+					opStats:     make(map[string]map[OpType]int),
+					waitGroup:   WaitGroupWrapper{sync.WaitGroup{}},
+					Downloader: Downloader{
+						ModelDir: modelDir + "/test2",
+						Providers: map[storage.Protocol]storage.Provider{
+							storage.S3: &storage.S3Provider{
+								Client:     &mocks.MockS3Client{},
+								Downloader: &mocks.MockS3Downloader{},
+							},
+						},
+						Logger: sugar,
+					},
+					logger: sugar,
+				}
+				modelConfigs := modelconfig.ModelConfigs{
+					{
+						Name: "model1",
+						Spec: v1alpha1.ModelSpec{
+							StorageURI: "s3://models/model1",
+							Framework:  "sklearn",
+						},
+					},
+					{
+						Name: "model2",
+						Spec: v1alpha1.ModelSpec{
+							StorageURI: "s3://models/model2",
+							Framework:  "sklearn",
+						},
+					},
+				}
+				puller.waitGroup.wg.Add(len(modelConfigs))
+				watcher.parseConfig(modelConfigs, true)
+				go puller.processCommands(watcher.ModelEvents)
+				puller.waitGroup.wg.Wait()
+				Expect(len(puller.channelMap)).To(Equal(0))
+				Expect(puller.opStats["model1"][Add]).Should(Equal(1))
+				Expect(puller.opStats["model2"][Add]).Should(Equal(1))
 			})
 		})
 	})
