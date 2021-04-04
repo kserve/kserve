@@ -1,10 +1,9 @@
-apiVersion: "serving.kubeflow.org/v1alpha2"
+apiVersion: "serving.kubeflow.org/v1beta1"
 kind: "InferenceService"
 metadata:
   name: "mnist-s3"
 spec:
-  default:
-    predictor:
-      serviceAccountName: sa
-      tensorflow:
-        storageUri: "s3://mnist/v1/export"
+  predictor:
+    serviceAccountName: sa
+    tensorflow:
+      storageUri: "s3://kfserving-examples/mnist"

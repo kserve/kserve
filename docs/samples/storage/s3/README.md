@@ -1,52 +1,29 @@
-    
 # Predict on a InferenceService with saved model on S3
 ## Setup
 1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/#install-kfserving).
 2. Your cluster's Istio Ingress gateway must be [network accessible](https://istio.io/latest/docs/tasks/traffic-management/ingress/ingress-control/).
 3. Your cluster's Istio Egresss gateway must [allow accessing S3 Storage](https://knative.dev/docs/serving/outbound-network-access/)
-4. The example uses the Kubeflow's Minio setup if you have [Kubeflow](https://www.kubeflow.org/docs/started/getting-started/) installed,
-you can also setup your own [Minio server](https://docs.min.io/docs/deploy-minio-on-kubernetes.html) or use other S3 compatible cloud storage.
-
-
-## Train TF mnist model and save on S3
-Follow Kubeflow's [TF mnist example](https://github.com/kubeflow/examples/tree/master/mnist#using-s3) to train a TF mnist model and save on S3,
-change following S3 access settings, `modelDir` and `exportDir` as needed. If you already have a mnist model saved on S3 you can skip this step.
-```bash
-export S3_USE_HTTPS=0 #set to 0 for default minio installs
-export S3_ENDPOINT=minio-service.kubeflow:9000
-export AWS_ENDPOINT_URL=http://${S3_ENDPOINT}
-
-kustomize edit add configmap mnist-map-training --from-literal=S3_ENDPOINT=${S3_ENDPOINT}
-kustomize edit add configmap mnist-map-training --from-literal=AWS_ENDPOINT_URL=${AWS_ENDPOINT_URL}
-kustomize edit add configmap mnist-map-training --from-literal=S3_USE_HTTPS=${S3_USE_HTTPS}
-
-kustomize edit add configmap mnist-map-training --from-literal=modelDir=s3://mnist/v1
-kustomize edit add configmap mnist-map-training --from-literal=exportDir=s3://mnist/v1/export
-```
 
 ## Create S3 Secret and attach to Service Account
-If you already have a S3 secret created from last step you can skip this step, since `KFServing` is relying on secret annotations to setup proper
-S3 environment variables you may still need to add following annotations to your secret to overwrite S3 endpoint or other S3 options.
+Create a secret with your [S3 user credential](https://console.aws.amazon.com/iam/home#/users), `KFServing` reads the secret annotations to inject 
+the S3 environment variables on storage initializer or model agent to download the models from S3 storage. 
 ```yaml
 apiVersion: v1
 kind: Secret
 metadata:
   name: mysecret
   annotations:
-     serving.kubeflow.org/s3-endpoint: minio-service.kubeflow:9000 # replace with your s3 endpoint
-     serving.kubeflow.org/s3-usehttps: "0" # by default 1, for testing with minio you need to set to 0
+     serving.kubeflow.org/s3-endpoint: s3.amazonaws.com # replace with your s3 endpoint e.g minio-service.kubeflow:9000 
+     serving.kubeflow.org/s3-usehttps: "1" # by default 1, if testing with minio you can set to 0
+     serving.kubeflow.org/s3-region: "us-east-2
 type: Opaque
 stringData:
-# Before KFServing 0.3
-  awsAccessKeyID: XXXX
-  awsSecretAccessKey: XXXXXXXX
-# KFServing 0.4
   AWS_ACCESS_KEY_ID: XXXX
   AWS_SECRET_ACCESS_KEY: XXXXXXXX
 ```
 
-`KFServing` gets the secrets from your service account, you need to add the above created or existing secret to your service account's secret list.
-By default `KFServing` uses `default` service account, user can use own service account and overwrite on `InferenceService` CRD.
+The next step is to attach the created secret to the service account's secret list.
+By default `KFServing` uses `default` service account, you can create your own service account and overwrite on `InferenceService` CRD.
 
 ```yaml
 apiVersion: v1
@@ -62,10 +39,26 @@ Apply the secret and service account
 kubectl apply -f s3_secret.yaml
 ```
 
-Note: if you are running kfserving with istio sidecars enabled, there can be a race condition between the istio proxy being ready and the agent pulling models. This will result in a `tcp dial connection refused` error when the agent tries to download from s3. To resolve it, istio allows the blocking of other containers in a pod until the proxy container is ready. You can enabled this by setting `proxy.holdApplicationUntilProxyStarts: true` in `istio-sidecar-injector` configmap, `proxy.holdApplicationUntilProxyStarts` flag  was introduced in Istio 1.7 as an experimental feature and is turned off by default.
+Note: if you are running kfserving with istio sidecars enabled, there can be a race condition between the istio proxy being ready and the agent pulling models. 
+This will result in a `tcp dial connection refused` error when the agent tries to download from s3.
+To resolve it, istio allows the blocking of other containers in a pod until the proxy container is ready. 
+You can enabled this by setting `proxy.holdApplicationUntilProxyStarts: true` in `istio-sidecar-injector` configmap,
+`proxy.holdApplicationUntilProxyStarts` flag was introduced in Istio 1.7 as an experimental feature and is turned off by default.
 
 ## Create the InferenceService
-Apply the CRD
+Create the InferenceService with the s3 `storageUri` and the service account with s3 credential attached.
+```yaml
+apiVersion: "serving.kubeflow.org/v1beta1"
+kind: "InferenceService"
+metadata:
+  name: "mnist-s3"
+spec:
+  predictor:
+    serviceAccountName: sa
+    tensorflow:
+      storageUri: "s3://kfserving-examples/mnist"
+```
+
 ```bash
 kubectl apply -f tensorflow_s3.yaml
 ```
@@ -76,7 +69,7 @@ $ inferenceservice.serving.kubeflow.org/mnist-s3 created
 ```
 
 ## Run a prediction
-The first step is to [determine the ingress IP and ports](../../../README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
+The first step is to [determine the ingress IP and ports](../../../../README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
 
 ```bash
 MODEL_NAME=mnist-s3
