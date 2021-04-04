@@ -79,12 +79,13 @@ curl -v -H "Host: ${SERVICE_HOSTNAME}" http://${INGRESS_HOST}:${INGRESS_PORT}/v1
 ```
 Expected Output
 ```
-*   Trying 34.73.93.217...
+Note: Unnecessary use of -X or --request, POST is already inferred.
+*   Trying 35.237.217.209...
 * TCP_NODELAY set
-* Connected to 34.73.93.217 (34.73.93.217) port 80 (#0)
+* Connected to mnist-s3.default.35.237.217.209.xip.io (35.237.217.209) port 80 (#0)
 > POST /v1/models/mnist-s3:predict HTTP/1.1
-> Host: mnist-s3.default.svc.cluster.local
-> User-Agent: curl/7.54.0
+> Host: mnist-s3.default.35.237.217.209.xip.io
+> User-Agent: curl/7.55.1
 > Accept: */*
 > Content-Length: 2052
 > Content-Type: application/x-www-form-urlencoded
@@ -92,20 +93,19 @@ Expected Output
 >
 < HTTP/1.1 100 Continue
 * We are completely uploaded and fine
-
 < HTTP/1.1 200 OK
-< content-length: 218
+< content-length: 251
 < content-type: application/json
-< date: Thu, 23 May 2019 01:33:08 GMT
+< date: Sun, 04 Apr 2021 20:06:27 GMT
+< x-envoy-upstream-service-time: 5
 < server: istio-envoy
-< x-envoy-upstream-service-time: 20536
 <
 {
     "predictions": [
         {
-            "classes": 2,
-            "predictions": [0.28852, 3.02198e-06, 0.484786, 0.123249, 0.000372552, 0.0635331, 0.00168883, 0.00327147, 0.0344911, 8.54185e-05]
+            "predictions": [0.327352405, 2.00153053e-07, 0.0113353515, 0.203903764, 3.62863029e-05, 0.416683704, 0.000281196437, 8.36911859e-05, 0.0403052084, 1.82206513e-05],
+            "classes": 5
         }
     ]
-* Connection #0 to host 34.73.93.217 left intact
+}* Connection #0 to host mnist-s3.default.35.237.217.209.xip.io left intact
 ```
