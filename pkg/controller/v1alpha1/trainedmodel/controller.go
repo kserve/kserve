@@ -50,9 +50,10 @@ import (
 )
 
 const (
-	InferenceServiceNotReady   = "Inference Service \"%s\" is not ready. Trained Model \"%s\" cannot deploy"
-	FrameworkNotSupported      = "Inference Service \"%s\" does not support the Trained Model \"%s\" framework \"%s\""
-	MemoryResourceNotAvailable = "Inference Service \"%s\" memory resources are not available. Trained Model \"%s\" cannot deploy"
+	InferenceServiceNotReady        = "Inference Service \"%s\" is not ready. Trained Model \"%s\" cannot deploy"
+	FrameworkNotSupported           = "Inference Service \"%s\" does not support the Trained Model \"%s\" framework \"%s\""
+	MemoryResourceNotAvailable      = "Inference Service \"%s\" memory resources are not available. Trained Model \"%s\" cannot deploy"
+	InferenceServicePredictorNotMMS = "Inference Service \"%s\" predictor is not configured for multi-model serving. Trained Model \"%s\" cannot deploy"
 )
 
 var log = logf.Log.WithName("TrainedModel controller")
@@ -229,28 +230,46 @@ func (r *TrainedModelReconciler) updateConditions(req ctrl.Request, tm *v1alpha1
 		conditionErr = fmt.Errorf(InferenceServiceNotReady, isvc.Name, tm.Name)
 	}
 
-	// Update Framework Supported condition
 	isvcConfig, err := v1beta1api.NewInferenceServicesConfig(r.Client)
 	if err != nil {
 		return err
-	} else {
-		predictor := isvc.Spec.Predictor.GetPredictor()
-		if predictor != nil && (*predictor).IsFrameworkSupported(tm.Spec.Model.Framework, isvcConfig) {
-			log.Info("Framework is supported", "TrainedModel", tm.Name, "InferenceService", isvc.Name, "Framework", tm.Spec.Model.Framework)
-			tm.Status.SetCondition(v1alpha1api.FrameworkSupported, &apis.Condition{
-				Status: v1.ConditionTrue,
-			})
-		} else {
-			log.Info("Framework is not supported", "TrainedModel", tm.Name, "InferenceService", isvc.Name, "Framework", tm.Spec.Model.Framework)
-			tm.Status.SetCondition(v1alpha1api.FrameworkSupported, &apis.Condition{
-				Type:    v1alpha1api.FrameworkSupported,
-				Status:  v1.ConditionFalse,
-				Reason:  "FrameworkNotSupported",
-				Message: "Inference Service does not support the Trained Model framework",
-			})
+	}
 
-			conditionErr = fmt.Errorf(FrameworkNotSupported, isvc.Name, tm.Name, tm.Spec.Model.Framework)
-		}
+	// Update Inference Service MMS Enabled condition
+	if !isvc.Spec.Predictor.IsEmpty() && v1beta1utils.IsMMSPredictor(&isvc.Spec.Predictor, isvcConfig) {
+		log.Info("Predictor is multi-model serving", "TrainedModel", tm.Name, "InferenceService", isvc.Name)
+		tm.Status.SetCondition(v1alpha1api.InferenceServiceMMSPredictor, &apis.Condition{
+			Status: v1.ConditionTrue,
+		})
+	} else {
+		log.Info("Predictor is not configured for multi-model serving", "TrainedModel", tm.Name, "InferenceService", isvc.Name)
+		tm.Status.SetCondition(v1alpha1api.InferenceServiceMMSPredictor, &apis.Condition{
+			Type:    v1alpha1api.InferenceServiceMMSPredictor,
+			Status:  v1.ConditionFalse,
+			Reason:  "InferenceServicePredictorNotMMS",
+			Message: "Inference Service predictor is not configured for multi-model serving",
+		})
+
+		conditionErr = fmt.Errorf(InferenceServicePredictorNotMMS, isvc.Name, tm.Name)
+	}
+
+	// Update Framework Supported condition
+	predictor := isvc.Spec.Predictor.GetPredictor()
+	if predictor != nil && (*predictor).IsFrameworkSupported(tm.Spec.Model.Framework, isvcConfig) {
+		log.Info("Framework is supported", "TrainedModel", tm.Name, "InferenceService", isvc.Name, "Framework", tm.Spec.Model.Framework)
+		tm.Status.SetCondition(v1alpha1api.FrameworkSupported, &apis.Condition{
+			Status: v1.ConditionTrue,
+		})
+	} else {
+		log.Info("Framework is not supported", "TrainedModel", tm.Name, "InferenceService", isvc.Name, "Framework", tm.Spec.Model.Framework)
+		tm.Status.SetCondition(v1alpha1api.FrameworkSupported, &apis.Condition{
+			Type:    v1alpha1api.FrameworkSupported,
+			Status:  v1.ConditionFalse,
+			Reason:  "FrameworkNotSupported",
+			Message: "Inference Service does not support the Trained Model framework",
+		})
+
+		conditionErr = fmt.Errorf(FrameworkNotSupported, isvc.Name, tm.Name, tm.Spec.Model.Framework)
 	}
 
 	// Get trained models with same inference service

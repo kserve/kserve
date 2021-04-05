@@ -101,6 +101,11 @@ func (s *PredictorSpec) GetImplementation() ComponentImplementation {
 	return s.GetImplementations()[0]
 }
 
+// IsEmpty returns if all components does not exist
+func (s *PredictorSpec) IsEmpty() bool {
+	return len(s.GetImplementations()) == 0
+}
+
 // GetExtensions returns the extensions for the component
 func (s *PredictorSpec) GetExtensions() *ComponentExtensionSpec {
 	return &s.ComponentExtensionSpec
