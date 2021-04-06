@@ -339,8 +339,10 @@ func (ir *IngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
 			err = ir.client.Create(context.TODO(), desiredIngress)
 		}
 	} else {
-		if !equality.Semantic.DeepEqual(desiredIngress.Spec, existing.Spec) {
+		if !routeSemanticEquals(desiredIngress, existing) {
 			existing.Spec = desiredIngress.Spec
+			existing.Annotations = desiredIngress.Annotations
+			existing.Labels = desiredIngress.Labels
 			log.Info("Update Ingress for isvc", "namespace", desiredIngress.Namespace, "name", desiredIngress.Name)
 			err = ir.client.Update(context.TODO(), existing)
 		}
@@ -378,4 +380,10 @@ func (ir *IngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
 	} else {
 		return errors.Wrapf(err, "fails to parse service url")
 	}
+}
+
+func routeSemanticEquals(desired, existing *v1alpha3.VirtualService) bool {
+	return equality.Semantic.DeepEqual(desired.Spec, existing.Spec) &&
+		equality.Semantic.DeepEqual(desired.ObjectMeta.Labels, existing.ObjectMeta.Labels) &&
+		equality.Semantic.DeepEqual(desired.ObjectMeta.Annotations, existing.ObjectMeta.Annotations)
 }
