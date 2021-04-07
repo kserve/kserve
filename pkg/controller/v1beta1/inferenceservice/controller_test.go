@@ -105,7 +105,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
 			defer k8sClient.Delete(context.TODO(), configMap)
-
 			serviceName := "foo"
 			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
 			var serviceKey = expectedRequest.NamespacedName
@@ -273,6 +272,35 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				},
 			}
 			Expect(virtualService.Spec).To(gomega.Equal(expectedVirtualService.Spec))
+
+			//get inference service
+			time.Sleep(10 * time.Second)
+			actualIsvc := &v1beta1.InferenceService{}
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, expectedRequest.NamespacedName, actualIsvc)
+				if err != nil {
+					return false
+				}
+				return true
+			}, timeout, interval).Should(BeTrue())
+			//update inference service with annotations and labels
+			annotations := map[string]string{"testAnnotation": "test"}
+			labels := map[string]string{"testLabel": "test"}
+			updatedIsvc := actualIsvc.DeepCopy()
+			updatedIsvc.Annotations = annotations
+			updatedIsvc.Labels = labels
+
+			Expect(k8sClient.Update(ctx, updatedIsvc)).NotTo(gomega.HaveOccurred())
+			time.Sleep(10 * time.Second)
+			updatedVirtualService := &v1alpha3.VirtualService{}
+			Eventually(func() error {
+				return k8sClient.Get(ctx, types.NamespacedName{Name: serviceKey.Name,
+					Namespace: serviceKey.Namespace}, updatedVirtualService)
+			}, timeout, interval).Should(gomega.Succeed())
+
+			Expect(updatedVirtualService.Spec).To(gomega.Equal(expectedVirtualService.Spec))
+			Expect(updatedVirtualService.Annotations).To(gomega.Equal(annotations))
+			Expect(updatedVirtualService.Labels).To(gomega.Equal(labels))
 		})
 	})
 
