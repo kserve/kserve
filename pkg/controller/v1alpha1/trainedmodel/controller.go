@@ -238,12 +238,10 @@ func (r *TrainedModelReconciler) updateConditions(req ctrl.Request, tm *v1alpha1
 	// Update Is MMS Predictor condition
 	implementations := isvc.Spec.Predictor.GetImplementations()
 	if len(implementations) > 0 && v1beta1utils.IsMMSPredictor(&isvc.Spec.Predictor, isvcConfig) {
-		log.Info("Predictor is multi-model serving", "TrainedModel", tm.Name, "InferenceService", isvc.Name)
 		tm.Status.SetCondition(v1alpha1api.IsMMSPredictor, &apis.Condition{
 			Status: v1.ConditionTrue,
 		})
 	} else {
-		log.Info("Predictor is not configured for multi-model serving", "TrainedModel", tm.Name, "InferenceService", isvc.Name)
 		tm.Status.SetCondition(v1alpha1api.IsMMSPredictor, &apis.Condition{
 			Type:    v1alpha1api.IsMMSPredictor,
 			Status:  v1.ConditionFalse,

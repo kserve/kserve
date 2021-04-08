@@ -101,18 +101,13 @@ func (s *PredictorSpec) GetImplementation() ComponentImplementation {
 	return s.GetImplementations()[0]
 }
 
-// IsEmpty returns if all components does not exist
-func (s *PredictorSpec) IsEmpty() bool {
-	return len(s.GetImplementations()) == 0
-}
-
 // GetExtensions returns the extensions for the component
 func (s *PredictorSpec) GetExtensions() *ComponentExtensionSpec {
 	return &s.ComponentExtensionSpec
 }
 
 // GetPredictor returns the implementation for the predictor
-func (s *PredictorSpec) GetPredictors() []PredictorImplementation {
+func (s *PredictorSpec) GetPredictorImplementations() []PredictorImplementation {
 	implementations := NonNilPredictors([]PredictorImplementation{
 		s.XGBoost,
 		s.PyTorch,
@@ -130,12 +125,12 @@ func (s *PredictorSpec) GetPredictors() []PredictorImplementation {
 	return implementations
 }
 
-func (s *PredictorSpec) GetPredictor() *PredictorImplementation {
-	predictors := s.GetPredictors()
+func (s *PredictorSpec) GetPredictorImplementation() *PredictorImplementation {
+	predictors := s.GetPredictorImplementations()
 	if len(predictors) == 0 {
 		return nil
 	}
-	return &s.GetPredictors()[0]
+	return &s.GetPredictorImplementations()[0]
 }
 
 func NonNilPredictors(objects []PredictorImplementation) (results []PredictorImplementation) {
