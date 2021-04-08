@@ -163,11 +163,11 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 				// Condition for inferenceserviceready should be false as isvc is not ready
 				isvcReadyCondition := tmInstanceUpdate.Status.GetCondition(v1alpha1api.InferenceServiceReady)
 
-				// Condition for InferenceServiceMMSPredictor should be false as isvc is not ready
-				inferenceServiceMMSCondition := tmInstanceUpdate.Status.GetCondition(v1alpha1api.InferenceServiceMMSPredictor)
+				// Condition for IsMMSPredictor should be false as isvc is not ready
+				isMMSPredictorCondition := tmInstanceUpdate.Status.GetCondition(v1alpha1api.IsMMSPredictor)
 
 				if isvcReadyCondition != nil && isvcReadyCondition.Status == v1.ConditionFalse {
-					return inferenceServiceMMSCondition != nil && inferenceServiceMMSCondition.Status == v1.ConditionFalse
+					return isMMSPredictorCondition != nil && isMMSPredictorCondition.Status == v1.ConditionFalse
 				}
 
 				return false
@@ -388,8 +388,8 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 					return false
 				}
 
-				// Condition for InferenceServiceMMSPredictor should be true
-				if !tmInstanceUpdate.Status.IsConditionReady(v1alpha1api.InferenceServiceMMSPredictor) {
+				// Condition for IsMMSPredictor should be true
+				if !tmInstanceUpdate.Status.IsConditionReady(v1alpha1api.IsMMSPredictor) {
 					return false
 				}
 
@@ -666,8 +666,8 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 					return false
 				}
 
-				// Condition for InferenceServiceMMSPredictor should be true
-				if !tmInstanceUpdate.Status.IsConditionReady(v1alpha1api.InferenceServiceMMSPredictor) {
+				// Condition for IsMMSPredictor should be true
+				if !tmInstanceUpdate.Status.IsConditionReady(v1alpha1api.IsMMSPredictor) {
 					return false
 				}
 
@@ -796,8 +796,8 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 					return false
 				}
 
-				// Condition for InferenceServiceMMSPredictor should be true
-				if !tmInstanceUpdate.Status.IsConditionReady(v1alpha1api.InferenceServiceMMSPredictor) {
+				// Condition for IsMMSPredictor should be true
+				if !tmInstanceUpdate.Status.IsConditionReady(v1alpha1api.IsMMSPredictor) {
 					return false
 				}
 
@@ -926,8 +926,8 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 					return false
 				}
 
-				// Condition for InferenceServiceMMSPredictor should be true
-				return !tmInstanceUpdate.Status.IsConditionReady(v1alpha1api.InferenceServiceMMSPredictor)
+				// Condition for IsMMSPredictor should be true
+				return !tmInstanceUpdate.Status.IsConditionReady(v1alpha1api.IsMMSPredictor)
 
 			}, timeout).Should(BeTrue())
 
