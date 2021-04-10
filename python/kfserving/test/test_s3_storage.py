@@ -13,20 +13,26 @@
 # limitations under the License.
 
 import unittest.mock as mock
+
 import kfserving
 
 
 def create_mock_obj(path):
     mock_obj = mock.MagicMock()
-    mock_obj.object_name = path
+    mock_obj.key = path
     mock_obj.is_dir = False
     return mock_obj
 
 
-def create_mock_minio_client(mock_storage, paths):
-    mock_minio_client = mock_storage.return_value
-    mock_minio_client.list_objects.return_value = [create_mock_obj(p) for p in paths]
-    return mock_minio_client
+def create_mock_boto3_bucket(mock_storage, paths):
+    mock_s3_resource = mock.MagicMock()
+    mock_s3_bucket = mock.MagicMock()
+    mock_s3_bucket.objects.filter.return_value = [create_mock_obj(p) for p in paths]
+
+    mock_s3_resource.Bucket.return_value = mock_s3_bucket
+    mock_storage.resource.return_value = mock_s3_resource
+
+    return mock_s3_bucket
 
 
 def get_call_args(call_args_list):
@@ -37,14 +43,14 @@ def get_call_args(call_args_list):
     return arg_list
 
 
-def expected_call_args_list(bucket_name, parent_key, dest, paths):
-    return [(bucket_name, f'{parent_key}/{p}'.strip('/'), f'{dest}/{p}'.strip('/'))
+def expected_call_args_list(parent_key, dest, paths):
+    return [(f'{parent_key}/{p}'.strip('/'), f'{dest}/{p}'.strip('/'))
             for p in paths]
 
 # pylint: disable=protected-access
 
 
-@mock.patch('kfserving.storage.Minio')
+@mock.patch('kfserving.storage.boto3')
 def test_parent_key(mock_storage):
 
     # given
@@ -53,17 +59,17 @@ def test_parent_key(mock_storage):
     object_paths = ['bar/' + p for p in paths]
 
     # when
-    mock_minio_client = create_mock_minio_client(mock_storage, object_paths)
+    mock_boto3_bucket = create_mock_boto3_bucket(mock_storage, object_paths)
     kfserving.Storage._download_s3(f's3://{bucket_name}/bar', 'dest_path')
 
     # then
-    arg_list = get_call_args(mock_minio_client.fget_object.call_args_list)
-    assert arg_list == expected_call_args_list(bucket_name, 'bar', 'dest_path', paths)
+    arg_list = get_call_args(mock_boto3_bucket.download_file.call_args_list)
+    assert arg_list == expected_call_args_list('bar', 'dest_path', paths)
 
-    mock_minio_client.list_objects.assert_called_with(bucket_name, prefix='bar', recursive=True)
+    mock_boto3_bucket.objects.filter.assert_called_with(Prefix='bar')
 
 
-@mock.patch('kfserving.storage.Minio')
+@mock.patch('kfserving.storage.boto3')
 def test_no_key(mock_storage):
 
     # given
@@ -71,17 +77,17 @@ def test_no_key(mock_storage):
     object_paths = ['models/weights.pt', '0002.h5', 'a/very/long/path/config.json']
 
     # when
-    mock_minio_client = create_mock_minio_client(mock_storage, object_paths)
+    mock_boto3_bucket = create_mock_boto3_bucket(mock_storage, object_paths)
     kfserving.Storage._download_s3(f's3://{bucket_name}/', 'dest_path')
 
     # then
-    arg_list = get_call_args(mock_minio_client.fget_object.call_args_list)
-    assert arg_list == expected_call_args_list(bucket_name, '', 'dest_path', object_paths)
+    arg_list = get_call_args(mock_boto3_bucket.download_file.call_args_list)
+    assert arg_list == expected_call_args_list('', 'dest_path', object_paths)
 
-    mock_minio_client.list_objects.assert_called_with(bucket_name, prefix='', recursive=True)
+    mock_boto3_bucket.objects.filter.assert_called_with(Prefix='')
 
 
-@mock.patch('kfserving.storage.Minio')
+@mock.patch('kfserving.storage.boto3')
 def test_full_name_key(mock_storage):
 
     # given
@@ -89,13 +95,12 @@ def test_full_name_key(mock_storage):
     object_key = 'path/to/model/name.pt'
 
     # when
-    mock_minio_client = create_mock_minio_client(mock_storage, [object_key])
+    mock_boto3_bucket = create_mock_boto3_bucket(mock_storage, [object_key])
     kfserving.Storage._download_s3(f's3://{bucket_name}/{object_key}', 'dest_path')
 
     # then
-    arg_list = get_call_args(mock_minio_client.fget_object.call_args_list)
-    assert arg_list == expected_call_args_list(bucket_name, '', 'dest_path',
+    arg_list = get_call_args(mock_boto3_bucket.download_file.call_args_list)
+    assert arg_list == expected_call_args_list('', 'dest_path',
                                                [object_key])
 
-    mock_minio_client.list_objects.assert_called_with(bucket_name, prefix=object_key,
-                                                      recursive=True)
+    mock_boto3_bucket.objects.filter.assert_called_with(Prefix=object_key)

@@ -16,11 +16,11 @@ import io
 import os
 import tempfile
 import binascii
-
-import pytest
-import kfserving
-from minio import Minio, error
 import unittest.mock as mock
+
+import botocore
+import kfserving
+import pytest
 
 STORAGE_MODULE = 'kfserving.storage'
 
@@ -166,25 +166,31 @@ def test_storage_blob_exception():
         kfserving.Storage.download(blob_path)
 
 
-@mock.patch('urllib3.PoolManager')
-@mock.patch(STORAGE_MODULE + '.Minio')
-def test_storage_s3_exception(mock_connection, mock_minio):
-    minio_path = 's3://foo/bar'
-    # Create mock connection
-    mock_server = mock.MagicMock()
-    mock_connection.return_value = mock_server
+@mock.patch(STORAGE_MODULE + '.boto3')
+def test_storage_s3_exception(mock_boto3):
+    path = 's3://foo/bar'
     # Create mock client
-    mock_minio.return_value = Minio("s3.us.cloud-object-storage.appdomain.cloud", secure=True)
+    mock_s3_resource = mock.MagicMock()
+    mock_s3_resource.Bucket.side_effect = Exception()
+    mock_boto3.resource.return_value = mock_s3_resource
+
     with pytest.raises(Exception):
-        kfserving.Storage.download(minio_path)
+        kfserving.Storage.download(path)
 
 
+@mock.patch(STORAGE_MODULE + '.boto3')
 @mock.patch('urllib3.PoolManager')
-@mock.patch(STORAGE_MODULE + '.Minio')
-def test_no_permission_buckets(mock_connection, mock_minio):
+def test_no_permission_buckets(mock_connection, mock_boto3):
     bad_s3_path = "s3://random/path"
     # Access private buckets without credentials
-    mock_minio.return_value = Minio("s3.us.cloud-object-storage.appdomain.cloud", secure=True)
-    mock_connection.side_effect = error.AccessDenied()
-    with pytest.raises(error.AccessDenied):
+    mock_s3_resource = mock.MagicMock()
+    mock_s3_bucket = mock.MagicMock()
+    mock_s3_bucket.objects.filter.return_value = [mock.MagicMock()]
+    mock_s3_bucket.objects.filter.side_effect = botocore.exceptions.ClientError(
+        {}, "GetObject"
+    )
+    mock_s3_resource.Bucket.return_value = mock_s3_bucket
+    mock_boto3.resource.return_value = mock_s3_resource
+
+    with pytest.raises(botocore.exceptions.ClientError):
         kfserving.Storage.download(bad_s3_path)
