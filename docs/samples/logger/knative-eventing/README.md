@@ -1,12 +1,15 @@
 # Knative Eventing Inference Logger Demo
 
-This demo assumes you have a cluster running with [KNative eventing installed](https://knative.dev/docs/eventing/getting-started/), along with kfserving.
+This demo assumes you have a cluster running with [Knative Eventing installed](https://knative.dev/docs/eventing/getting-started/),
+along with KFServing.
 
-First let us create a message dumper KNative service which will print out the Cloud Events it receives.
-We will use the following resource yaml:
+Note: this was tested using Knative Eventing v0.17.
+
+First let us create a message dumper Knative service which will print out the CloudEvents it receives.
+We will use the following resource YAML:
 
 ```
-apiVersion: serving.knative.dev/v1alpha1
+apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
   name: message-dumper
@@ -15,7 +18,6 @@ spec:
     spec:
       containers:
       - image: gcr.io/knative-releases/github.com/knative/eventing-sources/cmd/event_display
-
 ```
 
 Let's apply the resource to the cluster:
@@ -24,27 +26,51 @@ Let's apply the resource to the cluster:
 kubectl create -f message-dumper.yaml
 ```
 
-Now lets activate the default broker on the default namespace:
+Next, a channel broker needs to be created, so we will use the following resource YAML:
 
 ```
-kubectl label namespace default knative-eventing-injection=enabled
+apiVersion: eventing.knative.dev/v1
+kind: broker
+metadata:
+ name: default
 ```
 
-We now create a trigger to pass events to our message-dumper service with the following resource yaml:
+Let's apply the resource to the cluster:
 
 ```
-apiVersion: eventing.knative.dev/v1alpha1
+kubectl create -f broker.yaml
+```
+
+Check the broker status with the following:
+
+```
+kubectl get broker default
+```
+
+Example Output:
+
+```
+NAME      URL                                                                        AGE     READY   REASON
+default   http://broker-ingress.knative-eventing.svc.cluster.local/default/default   1m2s    True
+
+```
+
+Take note of the broker **URL** as that is what we'll be using in the InferenceService later on.
+
+We now create a trigger to pass events to our message-dumper service with the following resource YAML:
+
+```
+apiVersion: eventing.knative.dev/v1
 kind: Trigger
 metadata:
   name: message-dumper-trigger
-  namespace: default
 spec:
+  broker: default
   subscriber:
     ref:
-      apiVersion: serving.knative.dev/v1alpha1
+      apiVersion: serving.knative.dev/v1
       kind: Service
       name: message-dumper
-
 ```
 
 Let's apply this resource to the cluster.
@@ -53,65 +79,46 @@ Let's apply this resource to the cluster.
 kubectl create -f trigger.yaml
 ```
 
-We can now create a sklearn predictor with a logger:
+We can now create an sklearn predictor with a logger:
 
 ```
-apiVersion: "serving.kubeflow.org/v1alpha2"
-kind: "InferenceService"
+apiVersion: serving.kubeflow.org/v1beta1
+kind: InferenceService
 metadata:
-  name: "sklearn-iris"
+  name: sklearn-iris
 spec:
-  default:
-    predictor:
-      minReplicas: 1
-      logger:
-        mode: all
-      sklearn:
-        storageUri: "gs://kfserving-samples/models/sklearn/iris"
+  predictor:
+    minReplicas: 1
+    logger:
+      mode: all
+      url: http://broker-ingress.knative-eventing.svc.cluster.local/default/default
+    sklearn:
+      storageUri: gs://kfserving-samples/models/sklearn/iris
 ```
 
-Let's apply this yaml:
+Let's apply this YAML:
 
 ```
 kubectl create -f sklearn-logging.yaml
 ```
 
-We can now send a request to the sklearn model.
+We can now send a request to the sklearn model. Check the README [here](https://github.com/kubeflow/kfserving#determine-the-ingress-ip-and-ports)
+to learn how to determine the INGRESS_HOST and INGRESS_PORT used in curling the InferenceService.
 
 ```
 MODEL_NAME=sklearn-iris
 INPUT_PATH=@./iris-input.json
-INGRESS_GATEWAY=istio-ingressgateway
-CLUSTER_IP=$(kubectl -n istio-system get service $INGRESS_GATEWAY -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 SERVICE_HOSTNAME=$(kubectl get inferenceservice sklearn-iris -o jsonpath='{.status.url}' | cut -d "/" -f 3)
-curl -v -H "Host: ${SERVICE_HOSTNAME}" http://$CLUSTER_IP/v1/models/$MODEL_NAME:predict -d $INPUT_PATH  -H "Content-Type: application/json"
+curl -v -H "Host: ${SERVICE_HOSTNAME}" http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/$MODEL_NAME:predict -d $INPUT_PATH
 ```
-Expected Output
+
+Expected response:
 
 ```
-*   Trying 169.63.251.68...
-* TCP_NODELAY set
-* Connected to 169.63.251.68 (169.63.251.68) port 80 (#0)
-> POST /models/sklearn-iris:predict HTTP/1.1
-> Host: sklearn-iris.default.svc.cluster.local
-> User-Agent: curl/7.60.0
-> Accept: */*
-> Content-Length: 76
-> Content-Type: application/x-www-form-urlencoded
->
-* upload completely sent off: 76 out of 76 bytes
-< HTTP/1.1 200 OK
-< content-length: 23
-< content-type: application/json; charset=UTF-8
-< date: Mon, 20 May 2019 20:49:02 GMT
-< server: istio-envoy
-< x-envoy-upstream-service-time: 1943
-<
-* Connection #0 to host 169.63.251.68 left intact
 {"predictions": [1, 1]}
 ```
 
-If we now check the logs of the message dumper:
+If we now check the logs of the message dumper, we can see the CloudEvents associated with our previous curl request.
 
 ```
 kubectl logs $(kubectl get pod -l serving.knative.dev/service=message-dumper -o jsonpath='{.items[0].metadata.name}') user-container
@@ -123,12 +130,19 @@ Expected output:
 ☁️  cloudevents.Event
 Validation: valid
 Context Attributes,
-  specversion: 0.2
+  specversion: 1.0
   type: org.kubeflow.serving.inference.request
-  source: http://localhost:8080/
-  id: 0f99bba8-dfa1-415f-b053-970890db8a60
-  time: 2019-10-20T14:36:01.54878345Z
-  contenttype: application/json
+  source: http://localhost:9081/
+  id: defb5816-35f7-4947-a2b1-b9e5d7764ad2
+  time: 2021-04-10T01:22:16.498917288Z
+  datacontenttype: application/json
+Extensions,
+  endpoint:
+  inferenceservicename: sklearn-iris
+  knativearrivaltime: 2021-04-10T01:22:16.500656431Z
+  knativehistory: default-kne-trigger-kn-channel.default.svc.cluster.local
+  namespace: default
+  traceparent: 00-16456300519c5227ffe5f784a88da2f7-2db26af1daae870c-00
 Data,
   {
     "instances": [
@@ -149,12 +163,19 @@ Data,
 ☁️  cloudevents.Event
 Validation: valid
 Context Attributes,
-  specversion: 0.2
+  specversion: 1.0
   type: org.kubeflow.serving.inference.response
-  source: http://localhost:8080/
-  id: 0f99bba8-dfa1-415f-b053-970890db8a60
-  time: 2019-10-20T14:36:01.564571486Z
-  contenttype: application/json
+  source: http://localhost:9081/
+  id: defb5816-35f7-4947-a2b1-b9e5d7764ad2
+  time: 2021-04-10T01:22:16.500492939Z
+  datacontenttype: application/json
+Extensions,
+  endpoint:
+  inferenceservicename: sklearn-iris
+  knativearrivaltime: 2021-04-10T01:22:16.501931207Z
+  knativehistory: default-kne-trigger-kn-channel.default.svc.cluster.local
+  namespace: default
+  traceparent: 00-2156a24451a4d4ea575fcf6c4f52a672-2b6ea035c83d3200-00
 Data,
   {
     "predictions": [
@@ -162,4 +183,5 @@ Data,
       1
     ]
   }
+
 ```

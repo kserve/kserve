@@ -1,13 +1,11 @@
-apiVersion: "serving.kubeflow.org/v1alpha2"
-kind: "InferenceService"
+apiVersion: serving.kubeflow.org/v1beta1
+kind: InferenceService
 metadata:
-  name: "sklearn-iris"
+  name: sklearn-iris
 spec:
-  default:
-    predictor:
-      minReplicas: 1      
-      logger:
-        url: http://message-dumper.default/
-        mode: all
-      sklearn:
-        storageUri: "gs://kfserving-samples/models/sklearn/iris"
+  predictor:
+    logger:
+      mode: all
+      url: http://message-dumper.default/
+    sklearn:
+      storageUri: gs://kfserving-samples/models/sklearn/iris
