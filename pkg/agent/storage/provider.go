@@ -28,9 +28,10 @@ const (
 	//PVC   Protocol = "pvc://"
 	//File  Protocol = "file://"
 	HTTPS Protocol = "https://"
+	HTTP  Protocol = "http://"
 )
 
-var SupportedProtocols = []Protocol{S3, GCS, HTTPS}
+var SupportedProtocols = []Protocol{S3, GCS, HTTPS, HTTP}
 
 func GetAllProtocol() (protocols []string) {
 	for _, protocol := range SupportedProtocols {

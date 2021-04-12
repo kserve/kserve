@@ -134,9 +134,14 @@ func GetProvider(providers map[Protocol]Provider, protocol Protocol) (Provider, 
 			}
 		}
 	case HTTPS:
-		var httpsClient HTTPSClient = &http.Client{}
+		httpsClient := &http.Client{}
 		providers[HTTPS] = &HTTPSProvider{
-			Client: &httpsClient,
+			Client: httpsClient,
+		}
+	case HTTP:
+		httpsClient := &http.Client{}
+		providers[HTTP] = &HTTPSProvider{
+			Client: httpsClient,
 		}
 	}
 
