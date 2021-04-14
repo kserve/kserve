@@ -84,7 +84,7 @@ var _ = Describe("Watcher", func() {
 					channelMap:  make(map[string]*ModelChannel),
 					completions: make(chan *ModelOp, 4),
 					opStats:     make(map[string]map[OpType]int),
-					waitGroup: WaitGroupWrapper{sync.WaitGroup{}},
+					waitGroup:   WaitGroupWrapper{sync.WaitGroup{}},
 					Downloader: Downloader{
 						ModelDir: modelDir + "/test1",
 						Providers: map[storage.Protocol]storage.Provider{

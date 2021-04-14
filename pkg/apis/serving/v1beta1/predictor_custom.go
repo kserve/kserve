@@ -53,7 +53,7 @@ func (c *CustomPredictor) validateCustomProtocol() error {
 			if envVar.Value == string(constants.ProtocolV1) || envVar.Value == string(constants.ProtocolV2) {
 				return nil
 			} else {
-				return fmt.Errorf(InvalidProtocol, strings.Join([]string {string(constants.ProtocolV1),string(constants.ProtocolV2)}, ", "), envVar.Value)
+				return fmt.Errorf(InvalidProtocol, strings.Join([]string{string(constants.ProtocolV1), string(constants.ProtocolV2)}, ", "), envVar.Value)
 			}
 		}
 	}

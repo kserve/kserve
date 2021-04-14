@@ -125,7 +125,11 @@ func (eh *LoggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	} else {
 		eh.log.Info("Failed to proxy request", "status code", rr.Code)
 	}
-
+	contentType := rr.Header().Get("Content-Type")
+	if contentType != "" {
+		w.Header().Set("Content-Type", contentType)
+	}
+	w.WriteHeader(rr.Code)
 	_, err = w.Write(rr.Body.Bytes())
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
