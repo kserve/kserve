@@ -43,6 +43,8 @@ const (
 	FrameworkSupported apis.ConditionType = "FrameworkSupported"
 	// MemoryResourceAvailable is set when inference service reported resources availability
 	MemoryResourceAvailable apis.ConditionType = "MemoryResourceAvailable"
+	// IsMMSPredictor is set when inference service predictor is set to multi-model serving
+	IsMMSPredictor apis.ConditionType = "IsMMSPredictor"
 )
 
 // TrainedModel Ready condition is depending on inference service readiness condition
@@ -51,6 +53,7 @@ var conditionSet = apis.NewLivingConditionSet(
 	InferenceServiceReady,
 	FrameworkSupported,
 	MemoryResourceAvailable,
+	IsMMSPredictor,
 )
 
 var _ apis.ConditionsAccessor = (*TrainedModelStatus)(nil)

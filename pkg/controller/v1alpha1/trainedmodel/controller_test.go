@@ -60,7 +60,8 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			"predictors": `{
                "tensorflow": {
                   "image": "tensorflow/serving",
-				  "supportedFrameworks": ["tensorflow"]
+				  "supportedFrameworks": ["tensorflow"],
+				  "multiModelServer": true
                },
                "sklearn": {
                   "image": "kfserving/sklearnserver"
@@ -161,7 +162,15 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 
 				// Condition for inferenceserviceready should be false as isvc is not ready
 				isvcReadyCondition := tmInstanceUpdate.Status.GetCondition(v1alpha1api.InferenceServiceReady)
-				return isvcReadyCondition != nil && isvcReadyCondition.Status == v1.ConditionFalse
+
+				// Condition for IsMMSPredictor should be false as isvc is not ready
+				isMMSPredictorCondition := tmInstanceUpdate.Status.GetCondition(v1alpha1api.IsMMSPredictor)
+
+				if isvcReadyCondition != nil && isvcReadyCondition.Status == v1.ConditionFalse {
+					return isMMSPredictorCondition != nil && isMMSPredictorCondition.Status == v1.ConditionFalse
+				}
+
+				return false
 			}, timeout).Should(BeTrue())
 		})
 	})
@@ -376,6 +385,11 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 
 				// Condition for inferenceserviceready should be true
 				if !tmInstanceUpdate.Status.IsConditionReady(v1alpha1api.InferenceServiceReady) {
+					return false
+				}
+
+				// Condition for IsMMSPredictor should be true
+				if !tmInstanceUpdate.Status.IsConditionReady(v1alpha1api.IsMMSPredictor) {
 					return false
 				}
 
@@ -648,12 +662,18 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 				}
 
 				// Condition for inferenceserviceready should be true
-				if tmInstanceUpdate.Status.IsConditionReady(v1alpha1api.InferenceServiceReady) {
-					frameworkSupportedCondition := tmInstanceUpdate.Status.GetCondition(v1alpha1api.FrameworkSupported)
-					return frameworkSupportedCondition != nil && frameworkSupportedCondition.Status == v1.ConditionFalse
+				if !tmInstanceUpdate.Status.IsConditionReady(v1alpha1api.InferenceServiceReady) {
+					return false
 				}
 
-				return false
+				// Condition for IsMMSPredictor should be true
+				if !tmInstanceUpdate.Status.IsConditionReady(v1alpha1api.IsMMSPredictor) {
+					return false
+				}
+
+				frameworkSupportedCondition := tmInstanceUpdate.Status.GetCondition(v1alpha1api.FrameworkSupported)
+				return frameworkSupportedCondition != nil && frameworkSupportedCondition.Status == v1.ConditionFalse
+
 			}, timeout).Should(BeTrue())
 
 			// Verify that the model configmap is updated with the TrainedModel
@@ -776,6 +796,11 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 					return false
 				}
 
+				// Condition for IsMMSPredictor should be true
+				if !tmInstanceUpdate.Status.IsConditionReady(v1alpha1api.IsMMSPredictor) {
+					return false
+				}
+
 				// Condition for MemoryResourceAvailable should be false
 				return !tmInstanceUpdate.Status.IsConditionReady(v1alpha1api.MemoryResourceAvailable)
 
@@ -798,6 +823,114 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 
 				return configmapActual.Data
 			}, timeout, interval).Should(Equal(expected.Data))
+		})
+	})
+
+	Context("When creating a new TrainedModel with a non-mms predictor", func() {
+		It("Should not add a model to the model configmap", func() {
+			modelName := "model1-non-mms"
+			parentInferenceService := modelName + "-parent"
+			modelConfigName := constants.ModelConfigName(parentInferenceService, shardId)
+			tmKey := types.NamespacedName{Name: modelName, Namespace: namespace}
+
+			// Create InferenceService configmap
+			var configMap = &v1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.InferenceServiceConfigMapName,
+					Namespace: constants.KFServingNamespace,
+				},
+				Data: configs,
+			}
+			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), configMap)
+
+			// Create the parent InferenceService
+			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: parentInferenceService, Namespace: namespace}}
+			var serviceKey = expectedRequest.NamespacedName
+			ctx := context.Background()
+			isvc := &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      serviceKey.Name,
+					Namespace: serviceKey.Namespace,
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
+							MinReplicas: v1beta1.GetIntReference(1),
+							MaxReplicas: 3,
+						},
+						Tensorflow: &v1beta1.TFServingSpec{
+							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
+								RuntimeVersion: proto.String("1.14.0"),
+								Container: v1.Container{
+									Name:      "kfserving-container",
+									Resources: defaultResource,
+								},
+								StorageURI: &storageUri,
+							},
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
+
+			inferenceService := &v1beta1.InferenceService{}
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, serviceKey, inferenceService)
+				if err != nil {
+					return false
+				}
+				return true
+			}, timeout, interval).Should(BeTrue())
+
+			inferenceService.Status.Status = readyConditions
+			Expect(k8sClient.Status().Update(context.TODO(), inferenceService)).To(BeNil())
+
+			// Create modelConfig
+			modelConfig := &v1.ConfigMap{
+				TypeMeta:   metav1.TypeMeta{Kind: "ConfigMap", APIVersion: "v1"},
+				ObjectMeta: metav1.ObjectMeta{Name: modelConfigName, Namespace: namespace},
+				Data: map[string]string{
+					constants.ModelConfigFileName: "",
+				},
+			}
+
+			tmInstance := &v1alpha1api.TrainedModel{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      modelName,
+					Namespace: namespace,
+				},
+				Spec: v1alpha1api.TrainedModelSpec{
+					InferenceService: parentInferenceService,
+					Model: v1alpha1api.ModelSpec{
+						StorageURI: storageUri,
+						Framework:  framework,
+						Memory:     memory,
+					},
+				},
+			}
+
+			Expect(k8sClient.Create(context.TODO(), modelConfig)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), modelConfig)
+			Expect(k8sClient.Create(context.TODO(), tmInstance)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), tmInstance)
+
+			Eventually(func() bool {
+				tmInstanceUpdate := &v1alpha1api.TrainedModel{}
+				if err := k8sClient.Get(context.TODO(), tmKey, tmInstanceUpdate); err != nil {
+					return false
+				}
+
+				// Condition for inferenceserviceready should be true
+				if !tmInstanceUpdate.Status.IsConditionReady(v1alpha1api.InferenceServiceReady) {
+					return false
+				}
+
+				// Condition for IsMMSPredictor should be true
+				return !tmInstanceUpdate.Status.IsConditionReady(v1alpha1api.IsMMSPredictor)
+
+			}, timeout).Should(BeTrue())
+
 		})
 	})
 })
