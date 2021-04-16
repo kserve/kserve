@@ -37,8 +37,6 @@ type Downloader struct {
 	Logger    *zap.SugaredLogger
 }
 
-var SupportedProtocols = []storage.Protocol{storage.S3, storage.GCS}
-
 func (d *Downloader) DownloadModel(modelName string, modelSpec *v1alpha1.ModelSpec) error {
 	if modelSpec != nil {
 		sha256 := storage.AsSha256(modelSpec)
@@ -105,7 +103,7 @@ func extractProtocol(storageURI string) (storage.Protocol, error) {
 		return "", fmt.Errorf("there is no protocol specificed for the storageUri")
 	}
 
-	for _, prefix := range SupportedProtocols {
+	for _, prefix := range storage.SupportedProtocols {
 		if strings.HasPrefix(storageURI, string(prefix)) {
 			return prefix, nil
 		}

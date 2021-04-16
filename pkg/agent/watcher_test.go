@@ -32,6 +32,8 @@ import (
 	"io/ioutil"
 	"k8s.io/apimachinery/pkg/api/resource"
 	logger "log"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"sync"
@@ -84,7 +86,7 @@ var _ = Describe("Watcher", func() {
 					channelMap:  make(map[string]*ModelChannel),
 					completions: make(chan *ModelOp, 4),
 					opStats:     make(map[string]map[OpType]int),
-					waitGroup: WaitGroupWrapper{sync.WaitGroup{}},
+					waitGroup:   WaitGroupWrapper{sync.WaitGroup{}},
 					Downloader: Downloader{
 						ModelDir: modelDir + "/test1",
 						Providers: map[storage.Protocol]storage.Provider{
@@ -529,6 +531,196 @@ var _ = Describe("Watcher", func() {
 				Expect(len(puller.channelMap)).To(Equal(0))
 				Expect(puller.opStats["model1"][Add]).Should(Equal(1))
 				Expect(puller.opStats["model2"][Add]).Should(Equal(1))
+			})
+		})
+	})
+
+	Describe("Use HTTP(S) Downloader", func() {
+		Context("Download Uncompressed Model", func() {
+			It("should download test model and write contents", func() {
+				modelContents := "Temporary content"
+				scenarios := map[string]struct {
+					server *httptest.Server
+				}{
+					"HTTP": {
+						httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+							fmt.Fprintln(w, modelContents)
+						})),
+					},
+					"HTTPS": {
+						httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+							fmt.Fprintln(w, modelContents)
+						})),
+					},
+				}
+
+				for protocol, scenario := range scenarios {
+					logger.Printf("Setting up %s Server", protocol)
+					ts := scenario.server
+					defer ts.Close()
+
+					modelName := "model1"
+					modelFile := "model.joblib"
+					modelStorageURI := ts.URL + "/" + modelFile
+					cl := storage.HTTPSProvider{
+						Client: ts.Client(),
+					}
+
+					err := cl.DownloadModel(modelDir, modelName, modelStorageURI)
+					Expect(err).To(BeNil())
+
+					testFile := filepath.Join(modelDir, modelName, modelFile)
+					dat, err := ioutil.ReadFile(testFile)
+					Expect(err).To(BeNil())
+					Expect(string(dat)).To(Equal(modelContents + "\n"))
+				}
+			})
+		})
+
+		Context("Model Download Failure", func() {
+			It("should fail out if the uri does not exist", func() {
+				logger.Printf("Creating Client")
+				modelName := "model1"
+				invalidModelStorageURI := "https://example.com/model.joblib"
+				ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+				defer ts.Close()
+				cl := storage.HTTPSProvider{
+					Client: ts.Client(),
+				}
+
+				expectedErr := fmt.Errorf("URI: %s returned a %d response code", invalidModelStorageURI, 404)
+				actualErr := cl.DownloadModel(modelDir, modelName, invalidModelStorageURI)
+				Expect(actualErr).To(Equal(expectedErr))
+			})
+		})
+
+		Context("Download All Models", func() {
+			It("should download and load zip and tar files", func() {
+				tarContent := "1f8b0800bac550600003cbcd4f49cdd12b28c960a01d3030303033315100d1e666a660dac008c287010" +
+					"54313a090a189919981998281a1b1b1a1118382010ddd0407a5c525894540a754656466e464e2560754" +
+					"969686c71ca83fe0f4281805a360140c7200009f7e1bb400060000"
+
+				zipContents := "504b030414000800080035b67052000000000000000000000000090020006d6f64656c2e70746855540" +
+					"d000786c5506086c5506086c5506075780b000104f501000004140000000300504b07080000000002000" +
+					"00000000000504b0102140314000800080035b6705200000000020000000000000009002000000000000" +
+					"0000000a481000000006d6f64656c2e70746855540d000786c5506086c5506086c5506075780b000104f" +
+					"50100000414000000504b0506000000000100010057000000590000000000"
+
+				scenarios := map[string]struct {
+					tarServer *httptest.Server
+					zipServer *httptest.Server
+				}{
+					"HTTP": {
+						httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+							fmt.Fprintln(w, tarContent)
+						})),
+						httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+							fmt.Fprintln(w, zipContents)
+						})),
+					},
+					"HTTPS": {
+						httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+							fmt.Fprintln(w, tarContent)
+						})),
+						httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+							fmt.Fprintln(w, zipContents)
+						})),
+					},
+				}
+				for protocol, scenario := range scenarios {
+					logger.Printf("Using %s Server", protocol)
+					logger.Printf("Setting up tar model")
+					tarServer := scenario.tarServer
+					defer tarServer.Close()
+
+					tarModel := "model1"
+					tarStorageURI := tarServer.URL + "/test.tar"
+					tarcl := storage.HTTPSProvider{
+						Client: tarServer.Client(),
+					}
+
+					logger.Printf("Setting up zip model")
+					zipServer := scenario.zipServer
+					defer zipServer.Close()
+
+					zipModel := "model2"
+					zipStorageURI := zipServer.URL + "/test.zip"
+					zipcl := storage.HTTPSProvider{
+						Client: tarServer.Client(),
+					}
+
+					err := zipcl.DownloadModel(modelDir, zipModel, zipStorageURI)
+					Expect(err).To(BeNil())
+					err = tarcl.DownloadModel(modelDir, tarModel, tarStorageURI)
+					Expect(err).To(BeNil())
+				}
+			})
+		})
+
+		Context("Getting new model events", func() {
+			It("should download and load the new models", func() {
+				modelContents := "Temporary content"
+				scenarios := map[string]struct {
+					server *httptest.Server
+				}{
+					"HTTP": {
+						httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+							fmt.Fprintln(w, modelContents)
+						})),
+					},
+					"HTTPS": {
+						httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+							fmt.Fprintln(w, modelContents)
+						})),
+					},
+				}
+				for protocol, scenario := range scenarios {
+					logger.Printf("Setting up %s Server", protocol)
+					logger.Printf("Sync model config using temp dir %v\n", modelDir)
+					watcher := NewWatcher("/tmp/configs", modelDir, sugar)
+					modelConfigs := modelconfig.ModelConfigs{
+						{
+							Name: "model1",
+							Spec: v1alpha1.ModelSpec{
+								StorageURI: "http://example.com/test.tar",
+								Framework:  "sklearn",
+							},
+						},
+						{
+							Name: "model2",
+							Spec: v1alpha1.ModelSpec{
+								StorageURI: "https://example.com/test.zip",
+								Framework:  "sklearn",
+							},
+						},
+					}
+
+					// Create HTTPS client
+					ts := scenario.server
+					defer ts.Close()
+					cl := storage.HTTPSProvider{
+						Client: ts.Client(),
+					}
+
+					watcher.parseConfig(modelConfigs, false)
+					puller := Puller{
+						channelMap:  make(map[string]*ModelChannel),
+						completions: make(chan *ModelOp, 4),
+						opStats:     make(map[string]map[OpType]int),
+						Downloader: Downloader{
+							ModelDir: modelDir + "/test1",
+							Providers: map[storage.Protocol]storage.Provider{
+								storage.HTTPS: &cl,
+							},
+							Logger: sugar,
+						},
+						logger: sugar,
+					}
+					go puller.processCommands(watcher.ModelEvents)
+					Eventually(func() int { return len(puller.channelMap) }).Should(Equal(0))
+					Eventually(func() int { return puller.opStats["model1"][Add] }).Should(Equal(1))
+					Eventually(func() int { return puller.opStats["model2"][Add] }).Should(Equal(1))
+				}
 			})
 		})
 	})
