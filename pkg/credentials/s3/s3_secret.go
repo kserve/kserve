@@ -32,6 +32,7 @@ const (
 	S3UseHttps             = "S3_USE_HTTPS"
 	S3VerifySSL            = "S3_VERIFY_SSL"
 	S3UseVirtualBucket     = "S3_USER_VIRTUAL_BUCKET"
+	AWSAnonymousCredential = "awsAnonymousCredential"
 )
 
 type S3Config struct {
@@ -47,6 +48,7 @@ var (
 	InferenceServiceS3SecretSSLAnnotation        = constants.KFServingAPIGroupName + "/" + "s3-verifyssl"
 	InferenceServiceS3SecretHttpsAnnotation      = constants.KFServingAPIGroupName + "/" + "s3-usehttps"
 	InferenceServiceS3UseVirtualBucketAnnotation = constants.KFServingAPIGroupName + "/" + "s3-usevirtualbucket"
+	InferenceServiceS3UseAnonymousCredential     = constants.KFServingAPIGroupName + "/" + "s3-useanoncredential"
 )
 
 func BuildSecretEnvs(secret *v1.Secret, s3Config *S3Config) []v1.EnvVar {
@@ -128,6 +130,13 @@ func BuildSecretEnvs(secret *v1.Secret, s3Config *S3Config) []v1.EnvVar {
 		envs = append(envs, v1.EnvVar{
 			Name:  AWSRegion,
 			Value: s3Region,
+		})
+	}
+
+	if useAnonymousCredential, ok := secret.Annotations[InferenceServiceS3UseAnonymousCredential]; ok {
+		envs = append(envs, v1.EnvVar{
+			Name:  AWSAnonymousCredential,
+			Value: useAnonymousCredential,
 		})
 	}
 

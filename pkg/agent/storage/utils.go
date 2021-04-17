@@ -22,6 +22,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
@@ -111,27 +112,39 @@ func GetProvider(providers map[Protocol]Provider, protocol Protocol) (Provider, 
 			Client: stiface.AdaptClient(gcsClient),
 		}
 	case S3:
+		var sess *session.Session
+		var err error
+
+		region, _ := os.LookupEnv(s3credential.AWSRegion)
+		useVirtualBucketString, ok := os.LookupEnv(s3credential.S3UseVirtualBucket)
+		useVirtualBucket := true
+		if ok && strings.ToLower(useVirtualBucketString) == "false" {
+			useVirtualBucket = false
+		}
+
+		awsConfig := aws.Config{
+			Region:           aws.String(region),
+			S3ForcePathStyle: aws.Bool(!useVirtualBucket),
+		}
+
 		if endpoint, ok := os.LookupEnv(s3credential.AWSEndpointUrl); ok {
-			region, _ := os.LookupEnv(s3credential.AWSRegion)
-			useVirtualBucketString, ok := os.LookupEnv(s3credential.S3UseVirtualBucket)
-			useVirtualBucket := true
-			if ok && strings.ToLower(useVirtualBucketString) == "false" {
-				useVirtualBucket = false
-			}
-			sess, err := session.NewSession(&aws.Config{
-				Endpoint:         aws.String(endpoint),
-				Region:           aws.String(region),
-				S3ForcePathStyle: aws.Bool(!useVirtualBucket)},
-			)
-			if err != nil {
-				return nil, err
-			}
-			sessionClient := s3.New(sess)
-			providers[S3] = &S3Provider{
-				Client: sessionClient,
-				Downloader: s3manager.NewDownloaderWithClient(sessionClient, func(d *s3manager.Downloader) {
-				}),
-			}
+			awsConfig.Endpoint = aws.String(endpoint)
+		}
+
+		if useAnonCred, ok := os.LookupEnv(s3credential.AWSAnonymousCredential); ok && strings.ToLower(useAnonCred) == "true" {
+			awsConfig.Credentials = credentials.AnonymousCredentials
+		}
+
+		sess, err = session.NewSession(&awsConfig)
+
+		if err != nil {
+			return nil, err
+		}
+
+		sessionClient := s3.New(sess)
+		providers[S3] = &S3Provider{
+			Client:     sessionClient,
+			Downloader: s3manager.NewDownloaderWithClient(sessionClient, func(d *s3manager.Downloader) {}),
 		}
 	case HTTPS:
 		httpsClient := &http.Client{}
