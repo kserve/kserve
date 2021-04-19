@@ -89,14 +89,27 @@ export class ServerInfoComponent implements OnInit, OnDestroy {
     });
 
     // don't show a METRICS tab if Grafana is not exposed
+    console.log('Checking if Grafana endpoint is exposed');
+    const grafanaApi = environment.grafanaPrefix + '/api/search';
+
     this.http
-      .head(environment.grafanaPrefix)
+      .get(grafanaApi)
       .pipe(timeout(1000))
       .subscribe({
-        next: () => {
+        next: resp => {
+          if (!Array.isArray(resp)) {
+            console.log(
+              'Response from the Grafana endpoint was not as expected.',
+            );
+            this.grafanaFound = false;
+            return;
+          }
+
+          console.log('Grafana endpoint detected. Will expose a metrics tab.');
           this.grafanaFound = true;
         },
         error: () => {
+          console.log('Could not detect a Grafana endpoint..');
           this.grafanaFound = false;
         },
       });
