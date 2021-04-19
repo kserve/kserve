@@ -19,13 +19,14 @@ package agent
 import (
 	"bytes"
 	"fmt"
-	"github.com/kubeflow/kfserving/pkg/agent/storage"
-	v1 "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
-	"go.uber.org/zap"
 	"io/ioutil"
 	"net/http"
 	"path/filepath"
 	"sync"
+
+	"github.com/kubeflow/kfserving/pkg/agent/storage"
+	v1 "github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
+	"go.uber.org/zap"
 )
 
 type OpType string
@@ -40,7 +41,7 @@ type Puller struct {
 	completions chan *ModelOp
 	opStats     map[string]map[OpType]int
 	waitGroup   WaitGroupWrapper
-	Downloader  Downloader
+	Downloader  *Downloader
 	logger      *zap.SugaredLogger
 }
 
@@ -55,7 +56,7 @@ type WaitGroupWrapper struct {
 	wg sync.WaitGroup
 }
 
-func StartPullerAndProcessModels(downloader Downloader, commands <-chan ModelOp, logger *zap.SugaredLogger) {
+func StartPullerAndProcessModels(downloader *Downloader, commands <-chan ModelOp, logger *zap.SugaredLogger) {
 	puller := Puller{
 		channelMap:  make(map[string]*ModelChannel),
 		completions: make(chan *ModelOp, 4),

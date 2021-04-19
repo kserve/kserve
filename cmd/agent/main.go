@@ -3,6 +3,14 @@ package main
 import (
 	"context"
 	"fmt"
+	"net"
+	"net/http"
+	"net/http/httputil"
+	"net/url"
+	"os"
+	"strconv"
+	"time"
+
 	"github.com/kelseyhightower/envconfig"
 	"github.com/kubeflow/kfserving/pkg/agent"
 	"github.com/kubeflow/kfserving/pkg/agent/storage"
@@ -21,13 +29,6 @@ import (
 	"knative.dev/serving/pkg/queue"
 	"knative.dev/serving/pkg/queue/health"
 	"knative.dev/serving/pkg/queue/readiness"
-	"net"
-	"net/http"
-	"net/http/httputil"
-	"net/url"
-	"os"
-	"strconv"
-	"time"
 )
 
 var (
@@ -282,7 +283,7 @@ func startModelPuller(logger *zap.SugaredLogger) {
 	}
 	watcher := agent.NewWatcher(*configDir, *modelDir, logger)
 	logger.Info("Starting puller")
-	agent.StartPullerAndProcessModels(downloader, watcher.ModelEvents, logger)
+	agent.StartPullerAndProcessModels(&downloader, watcher.ModelEvents, logger)
 	go watcher.Start()
 }
 
