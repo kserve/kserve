@@ -22,7 +22,7 @@ patchesStrategicMerge:
 patchesJson6902:
 - target:
     group: networking.istio.io
-    version: v1alpha3
+    version: v1beta1
     kind: VirtualService
     name: models-web-app
     namespace: kfserving-system
