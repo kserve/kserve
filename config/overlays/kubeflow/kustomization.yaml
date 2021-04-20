@@ -14,7 +14,6 @@ commonLabels:
 bases:
 - ../../default
 - cluster-role.yaml
-- application.yaml
 
 patchesStrategicMerge:
 - statefulset-patch.yaml
