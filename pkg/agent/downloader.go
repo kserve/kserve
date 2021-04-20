@@ -20,21 +20,22 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/kubeflow/kfserving/pkg/agent/storage"
-	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
-	"github.com/pkg/errors"
-	"go.uber.org/zap"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
+
+	"github.com/kubeflow/kfserving/pkg/agent/storage"
+	"github.com/kubeflow/kfserving/pkg/apis/serving/v1alpha1"
+	"github.com/pkg/errors"
+	"go.uber.org/zap"
 )
 
 type Downloader struct {
-	ModelDir  string
-	mu        sync.Mutex
+	ModelDir string
+	sync.Mutex
 	Providers map[storage.Protocol]storage.Provider
 	Logger    *zap.SugaredLogger
 }
@@ -79,9 +80,9 @@ func (d *Downloader) download(modelName string, storageUri string) error {
 	if err != nil {
 		return errors.Wrapf(err, "unsupported protocol")
 	}
-	d.mu.Lock()
+	d.Lock()
 	provider, err := storage.GetProvider(d.Providers, protocol)
-	d.mu.Unlock()
+	d.Unlock()
 	if err != nil {
 		return errors.Wrapf(err, "unable to create or get provider for protocol %s", protocol)
 	}
