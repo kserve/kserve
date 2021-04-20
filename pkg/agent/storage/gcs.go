@@ -62,6 +62,7 @@ func (g *GCSObjectDownloader) Download(client stiface.Client, it stiface.ObjectI
 	var errs []error
 	// flag to help determine if query prefix returned an empty iterator
 	var foundObject = false
+	filePath := filepath.Join(g.ModelDir, g.ModelName)
 	for {
 		attrs, err := it.Next()
 		if err == iterator.Done {
@@ -70,9 +71,12 @@ func (g *GCSObjectDownloader) Download(client stiface.Client, it stiface.ObjectI
 		if err != nil {
 			return fmt.Errorf("an error occurred while iterating: %v", err)
 		}
-		foundObject = true
 		objectValue := strings.TrimPrefix(attrs.Name, g.Item)
 		fileName := filepath.Join(g.ModelDir, g.ModelName, objectValue)
+		if fileName == filePath {
+			continue
+		}
+		foundObject = true
 		if FileExists(fileName) {
 			log.Info("Deleting", fileName)
 			if err := os.Remove(fileName); err != nil {
