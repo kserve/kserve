@@ -350,11 +350,11 @@ var _ = Describe("Watcher", func() {
 					Fail("Failed to write contents.")
 				}
 				modelName := "model1"
-				modelStorageURI := "gs://testBucket/testModel1"
+				modelStorageURI := "gs://testBucket/"
 				err := cl.DownloadModel(modelDir, modelName, modelStorageURI)
 				Expect(err).To(BeNil())
 
-				testFile := filepath.Join(modelDir, "model1")
+				testFile := filepath.Join(modelDir, modelName, "testModel1")
 				dat, err := ioutil.ReadFile(testFile)
 				Expect(err).To(BeNil())
 				Expect(string(dat)).To(Equal(modelContents))
