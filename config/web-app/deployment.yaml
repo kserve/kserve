@@ -1,25 +1,25 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: models-web-app
+  name: kfserving-models-web-app
   namespace: kfserving-system
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app.kubernetes.io/component: models-web-app
+      app.kubernetes.io/component: kfserving-models-web-app
   template:
     metadata:
       labels:
-        app.kubernetes.io/component: models-web-app
+        app.kubernetes.io/component: kfserving-models-web-app
     spec:
       containers:
       - image: kfserving/models-web-app
         imagePullPolicy: Always
-        name: models-web-app
+        name: kfserving-models-web-app
         envFrom:
           - configMapRef:
-              name: models-web-app-config
+              name: kfserving-models-web-app-config
         ports:
         - containerPort: 5000
-      serviceAccountName: models-web-app
+      serviceAccountName: kfserving-models-web-app

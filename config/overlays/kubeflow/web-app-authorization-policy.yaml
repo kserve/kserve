@@ -2,15 +2,15 @@ apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
   labels:
-    kustomize.component: models-web-app
-    app.kubernetes.io/component: models-web-app
-  name: models-web-app
+    kustomize.component: kfserving-models-web-app
+    app.kubernetes.io/component: kfserving-models-web-app
+  name: kfserving-models-web-app
 spec:
   action: ALLOW
   selector:
     matchLabels:
-      kustomize.component: models-web-app
-      app.kubernetes.io/component: models-web-app
+      kustomize.component: kfserving-models-web-app
+      app.kubernetes.io/component: kfserving-models-web-app
   rules:
   - from:
     - source:

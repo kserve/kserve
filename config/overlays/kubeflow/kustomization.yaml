@@ -24,7 +24,7 @@ patchesJson6902:
     group: networking.istio.io
     version: v1beta1
     kind: VirtualService
-    name: models-web-app
+    name: kfserving-models-web-app
     namespace: kfserving-system
   path: patches/web-app-vsvc.yaml
 
@@ -39,7 +39,7 @@ configMapGenerator:
     behavior: replace
     envs:
     - params.env
-  - name: models-web-app-config
+  - name: kfserving-models-web-app-config
     behavior: replace
     literals:
     - USERID_HEADER=kubeflow-userid
