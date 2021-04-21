@@ -34,8 +34,8 @@ import (
 )
 
 type Downloader struct {
-	ModelDir string
-	sync.Mutex
+	ModelDir  string
+	mu        sync.Mutex
 	Providers map[storage.Protocol]storage.Provider
 	Logger    *zap.SugaredLogger
 }
@@ -80,9 +80,9 @@ func (d *Downloader) download(modelName string, storageUri string) error {
 	if err != nil {
 		return errors.Wrapf(err, "unsupported protocol")
 	}
-	d.Lock()
+	d.mu.Lock()
 	provider, err := storage.GetProvider(d.Providers, protocol)
-	d.Unlock()
+	d.mu.Unlock()
 	if err != nil {
 		return errors.Wrapf(err, "unable to create or get provider for protocol %s", protocol)
 	}
