@@ -87,9 +87,15 @@ func (s *S3ObjectDownloader) GetAllObjects(s3Svc s3iface.S3API) ([]s3manager.Bat
 		return nil, fmt.Errorf("%s has no objects or does not exist", s.StorageUri)
 	}
 
+	var foundObject = false
+	filePath := filepath.Join(s.ModelDir, s.ModelName)
+
 	for _, object := range resp.Contents {
 		subObjectKey := strings.TrimPrefix(*object.Key, s.Prefix)
 		fileName := filepath.Join(s.ModelDir, s.ModelName, subObjectKey)
+		if fileName == filePath {
+			continue
+		}
 		if FileExists(fileName) {
 			// File got corrupted or is mid-download :(
 			// TODO: Figure out if we can maybe continue?
@@ -112,8 +118,14 @@ func (s *S3ObjectDownloader) GetAllObjects(s3Svc s3iface.S3API) ([]s3manager.Bat
 				return nil
 			},
 		}
+		foundObject = true
 		results = append(results, object)
 	}
+
+	if !foundObject {
+		return nil, fmt.Errorf("%s has no objects or does not exist", s.StorageUri)
+	}
+
 	return results, nil
 }
 
