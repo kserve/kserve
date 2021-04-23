@@ -17,9 +17,17 @@ limitations under the License.
 package agent
 
 import (
-	gstorage "cloud.google.com/go/storage"
 	"context"
 	"fmt"
+	"io/ioutil"
+	logger "log"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"sync"
+
+	gstorage "cloud.google.com/go/storage"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/kubeflow/kfserving/pkg/agent/mocks"
@@ -29,14 +37,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"go.uber.org/zap"
-	"io/ioutil"
 	"k8s.io/apimachinery/pkg/api/resource"
-	logger "log"
-	"net/http"
-	"net/http/httptest"
-	"os"
-	"path/filepath"
-	"sync"
 )
 
 var _ = Describe("Watcher", func() {
@@ -87,7 +88,7 @@ var _ = Describe("Watcher", func() {
 					completions: make(chan *ModelOp, 4),
 					opStats:     make(map[string]map[OpType]int),
 					waitGroup:   WaitGroupWrapper{sync.WaitGroup{}},
-					Downloader: Downloader{
+					Downloader: &Downloader{
 						ModelDir: modelDir + "/test1",
 						Providers: map[storage.Protocol]storage.Provider{
 							storage.S3: &storage.S3Provider{
@@ -120,7 +121,7 @@ var _ = Describe("Watcher", func() {
 					completions: make(chan *ModelOp, 4),
 					opStats:     make(map[string]map[OpType]int),
 					waitGroup:   WaitGroupWrapper{sync.WaitGroup{}},
-					Downloader: Downloader{
+					Downloader: &Downloader{
 						ModelDir: modelDir + "/test1",
 						Providers: map[storage.Protocol]storage.Provider{
 							storage.S3: &storage.S3Provider{
@@ -166,7 +167,7 @@ var _ = Describe("Watcher", func() {
 					completions: make(chan *ModelOp, 4),
 					opStats:     make(map[string]map[OpType]int),
 					waitGroup:   WaitGroupWrapper{sync.WaitGroup{}},
-					Downloader: Downloader{
+					Downloader: &Downloader{
 						ModelDir: modelDir + "/test2",
 						Providers: map[storage.Protocol]storage.Provider{
 							storage.S3: &storage.S3Provider{
@@ -224,7 +225,7 @@ var _ = Describe("Watcher", func() {
 					completions: make(chan *ModelOp, 4),
 					opStats:     make(map[string]map[OpType]int),
 					waitGroup:   WaitGroupWrapper{sync.WaitGroup{}},
-					Downloader: Downloader{
+					Downloader: &Downloader{
 						ModelDir: modelDir + "/test3",
 						Providers: map[storage.Protocol]storage.Provider{
 							storage.S3: &storage.S3Provider{
@@ -298,7 +299,7 @@ var _ = Describe("Watcher", func() {
 					channelMap:  make(map[string]*ModelChannel),
 					completions: make(chan *ModelOp, 4),
 					opStats:     make(map[string]map[OpType]int),
-					Downloader: Downloader{
+					Downloader: &Downloader{
 						ModelDir: modelDir + "/test4",
 						Providers: map[storage.Protocol]storage.Provider{
 							storage.S3: &storage.S3Provider{
@@ -470,7 +471,7 @@ var _ = Describe("Watcher", func() {
 					channelMap:  make(map[string]*ModelChannel),
 					completions: make(chan *ModelOp, 4),
 					opStats:     make(map[string]map[OpType]int),
-					Downloader: Downloader{
+					Downloader: &Downloader{
 						ModelDir: modelDir + "/test1",
 						Providers: map[storage.Protocol]storage.Provider{
 							storage.GCS: &cl,
@@ -496,7 +497,7 @@ var _ = Describe("Watcher", func() {
 					completions: make(chan *ModelOp, 4),
 					opStats:     make(map[string]map[OpType]int),
 					waitGroup:   WaitGroupWrapper{sync.WaitGroup{}},
-					Downloader: Downloader{
+					Downloader: &Downloader{
 						ModelDir: modelDir + "/test2",
 						Providers: map[storage.Protocol]storage.Provider{
 							storage.S3: &storage.S3Provider{
@@ -707,7 +708,7 @@ var _ = Describe("Watcher", func() {
 						channelMap:  make(map[string]*ModelChannel),
 						completions: make(chan *ModelOp, 4),
 						opStats:     make(map[string]map[OpType]int),
-						Downloader: Downloader{
+						Downloader: &Downloader{
 							ModelDir: modelDir + "/test1",
 							Providers: map[storage.Protocol]storage.Provider{
 								storage.HTTPS: &cl,
