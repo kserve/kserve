@@ -40,7 +40,7 @@ To determine the maximum amount of models that can be deployed
         - Comparing the queue-proxy usage
             - The traditional model serving queue-proxies used `352 CPU` and `176 GB`
             - Multi-model serving queue-proxies used `6 CPU` and `3 GB`
-    - Adding/removing models in multi-model serving causes new revisions to be generated without the previous being removed which can be harmful to etcd when deploying thousands of models
+    - Adding/removing models in multi-model serving causes new configmap versions to be generated without ETCD getting the chance to remove the previous versions. This can exhaust the memory of ETCD in case of deploying thousands of models
         - Should consider an external storage to store models
 
 ## Performance Test
