@@ -16,6 +16,7 @@ metadata:
      serving.kubeflow.org/s3-endpoint: s3.amazonaws.com # replace with your s3 endpoint e.g minio-service.kubeflow:9000 
      serving.kubeflow.org/s3-usehttps: "1" # by default 1, if testing with minio you can set to 0
      serving.kubeflow.org/s3-region: "us-east-2"
+     serving.kubeflow.org/s3-useanoncredential: "false" # omitting this is the same as false, if true will ignore provided credential and use anonymous credentials
 type: Opaque
 stringData: # use `stringData` for raw credential string or `data` for base64 encoded string
   AWS_ACCESS_KEY_ID: XXXX
