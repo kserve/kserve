@@ -1,4 +1,7 @@
 # Benchmark of Multi-Model Serving
+
+The following stress and performance tests have been executed to support that Multi-Model Serving is a solution to the model deployment scalability problem as discussed in the [MMS Guide](../../../MULTIMODELSERVING_GUIDE.md).
+
 ## Stress Test
 To determine the maximum amount of models that can be deployed
 - Environment Setup:
@@ -7,7 +10,7 @@ To determine the maximum amount of models that can be deployed
     - istio: v1.7.x
 - Cluster limitation:
     - Maximum 2048 IP Addresses
-    - Maximum 0.55 TiB memory per workder node
+    - Maximum 0.55 TiB memory per worker node
     - Maximum ~2000 kubernetes services resources
         - Limited by istio ingress gateway
     - Maximum 660 pods on worker nodes
@@ -39,7 +42,6 @@ To determine the maximum amount of models that can be deployed
             - Multi-model serving queue-proxies used `6 CPU` and `3 GB`
     - Adding/removing models in multi-model serving causes new revisions to be generated without the previous being removed which can be harmful to etcd when deploying thousands of models
         - Should consider an external storage to store models
-        - More details [here](https://docs.google.com/document/d/1RI-2Gk-IlRbeNfk0wiNgNlS505CESlJgK5CyxwAXLpM/edit)
 
 ## Performance Test
 To compare the latency between traditional model serving and multi-model serving
@@ -78,7 +80,7 @@ To compare the latency between traditional model serving and multi-model serving
     - Traditional model serving with 5 inferenceServices
 
       | Client side QPS | QPS per InferenceService (model) | mean | p50 | p90 | p95 | p99 | max |
-              | --- | --- | --- | --- | --- | --- | --- | --- |
+      | --- | --- | --- | --- | --- | --- | --- | --- |
       | 25 | 5 | 3.763 | 3.669 | 4.089 | 4.222 | 4.511 | 43.877 |
       | 50 | 10 | 3.78 | 3.546 | 3.936 | 4.097 | 6.956 | 220.716 |
       | 100 | 20 | 3.594 | 3.496 | 3.875 | 4.008 | 4.438 | 84.529 |
@@ -103,7 +105,7 @@ To compare the latency between traditional model serving and multi-model serving
         | 250 | 250 | 50 | 6.846 | 3.223 | 3.575 | 23.825 | 100.167 | 351.26 |
         | 500 | 500 | 100 | 260.202 | 2.846 | 1298| 2025| 2241| 2475 |
 
-    At 500 multi-model serving starts to scale up which causes the latency to dramatically increase. The benchmark for this case will stop at 500 QPS because 500+ QPS will lead to pods scaling which is not what the focus should be on.
+    At 500 QPS the multi-model serving starts to scale up which causes the latency to dramatically increase. The benchmark for this case will stop at 500 QPS because 500+ QPS will lead to pods scaling which is not what the focus should be on.
 
     ![](./plots/simple_string_25_qps_cpu.png)
     ![](./plots/simple_string_50_qps_cpu.png)
@@ -123,7 +125,7 @@ To compare the latency between traditional model serving and multi-model serving
     - Traditional model serving with 5 inferenceServices
 
       | Client side QPS | QPS per InferenceService (model) | mean | p50 | p90 | p95 | p99 | max |
-              | --- | --- | --- | --- | --- | --- | --- | --- |
+      | --- | --- | --- | --- | --- | --- | --- | --- |
       | 5 | 1 | 33.845ms | 32.986ms | 36.644ms | 41.596ms | 100.959ms | 131.195ms |
       | 10 | 2 | 34.212ms | 32.058ms | 42.791ms | 55.192ms | 89.832ms | 154.485ms |
       | 20 | 4 | 30.133ms | 31.262ms | 33.721ms | 35.142ms | 40.981ms | 102.801ms |
