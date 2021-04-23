@@ -51,6 +51,8 @@ It decreases the average resource overhead per model so model deployment becomes
 And the number of models which can be deployed in a cluster will no longer be limited 
 by the maximum pods limitation and the maximum IP address limitation.
 
+The [benchmark test results](./samples/multimodelserving/benchmark/BENCHMARK.md) are able to support the statements above.
+
 ## How Multi-Model serving address those limitations
 We designed a new CustomResource called "TrainedModel" which represents a machine learning model. 
 It can be loaded into a designated InferenceService.
