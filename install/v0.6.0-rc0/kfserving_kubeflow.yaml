@@ -16068,7 +16068,7 @@ apiVersion: v1
 data:
   agent: |-
     {
-        "image" : "kfserving/agentv0.6.0-rc0",
+        "image" : "kfserving/agent:v0.6.0-rc0",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
@@ -16076,7 +16076,7 @@ data:
     }
   batcher: |-
     {
-        "image" : "kfserving/agentv0.6.0-rc0",
+        "image" : "kfserving/agent:v0.6.0-rc0",
         "memoryRequest": "1Gi",
         "memoryLimit": "1Gi",
         "cpuRequest": "1",
@@ -16096,15 +16096,15 @@ data:
     {
         "alibi": {
             "image" : "kfserving/alibi-explainer",
-            "defaultImageVersion": "latest"
+            "defaultImageVersion": "v0.6.0-rc0"
         },
         "aix": {
             "image" : "kfserving/aix-explainer",
-            "defaultImageVersion": "latest"
+            "defaultImageVersion": "v0.6.0-rc0"
         },
         "art": {
             "image" : "kfserving/art-explainer",
-            "defaultImageVersion": "latest"
+            "defaultImageVersion": "v0.6.0-rc0"
         }
     }
   ingress: |-
@@ -16116,7 +16116,7 @@ data:
     }
   logger: |-
     {
-        "image" : "kfserving/agentv0.6.0-rc0",
+        "image" : "kfserving/agent:v0.6.0-rc0",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
@@ -16146,7 +16146,7 @@ data:
         "sklearn": {
           "v1": {
             "image": "gcr.io/kfserving/sklearnserver",
-            "defaultImageVersion": "latest",
+            "defaultImageVersion": "v0.6.0-rc0",
             "supportedFrameworks": [
               "sklearn"
             ],
@@ -16164,7 +16164,7 @@ data:
         "xgboost": {
           "v1": {
             "image": "gcr.io/kfserving/xgbserver",
-            "defaultImageVersion": "latest",
+            "defaultImageVersion": "v0.6.0-rc0",
             "supportedFrameworks": [
               "xgboost"
             ],
@@ -16182,8 +16182,8 @@ data:
         "pytorch": {
           "v1" : {
             "image": "gcr.io/kfserving/pytorchserver",
-            "defaultImageVersion": "latest",
-            "defaultGpuImageVersion": "latest-gpu",
+            "defaultImageVersion": "v0.6.0-rc0",
+            "defaultGpuImageVersion": "v0.6.0-rc0-gpu",
             "supportedFrameworks": [
               "pytorch"
             ],
@@ -16213,7 +16213,7 @@ data:
         },
         "pmml": {
             "image": "kfserving/pmmlserver",
-            "defaultImageVersion": "latest",
+            "defaultImageVersion": "v0.6.0-rc0",
             "supportedFrameworks": [
               "pmml"
             ],
@@ -16221,7 +16221,7 @@ data:
         },
         "lightgbm": {
             "image": "kfserving/lgbserver",
-            "defaultImageVersion": "latest",
+            "defaultImageVersion": "v0.6.0-rc0",
             "supportedFrameworks": [
               "lightgbm"
             ],
@@ -16230,7 +16230,7 @@ data:
     }
   storageInitializer: |-
     {
-        "image" : "gcr.io/kfserving/storage-initializerv0.6.0-rc0",
+        "image" : "gcr.io/kfserving/storage-initializer:v0.6.0-rc0",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
@@ -16443,7 +16443,7 @@ spec:
               fieldPath: metadata.namespace
         - name: SECRET_NAME
           value: kfserving-webhook-server-cert
-        image: gcr.io/kfserving/kfserving-controllerv0.6.0-rc0
+        image: gcr.io/kfserving/kfserving-controller:v0.6.0-rc0
         imagePullPolicy: Always
         name: manager
         ports:
