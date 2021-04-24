@@ -1,0 +1,21 @@
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: kfserving-models-web-app
+  namespace: kfserving-system
+spec:
+  gateways:
+  - $(ingressGateway)
+  hosts:
+  - '*'
+  http:
+  - match:
+    - uri:
+        prefix: /models/
+    rewrite:
+      uri: /
+    route:
+    - destination:
+        host: kfserving-models-web-app.kfserving-system.svc.cluster.local
+        port:
+          number: 80
