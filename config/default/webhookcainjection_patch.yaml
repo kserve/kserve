@@ -29,4 +29,4 @@ metadata:
   annotations:
     cert-manager.io/inject-ca-from: $(kfservingNamespace)/serving-cert
 webhooks:
-    - name: trainedmodel.kfserving-webhook-server.validator
+  - name: trainedmodel.kfserving-webhook-server.validator
