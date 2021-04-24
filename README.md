@@ -37,7 +37,7 @@ If you want to get up running Knative quickly or you do not need service mesh, w
 If you are looking to use [PodSpec fields](https://v1-18.docs.kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#podspec-v1-core) such as `nodeSelector`, `affinity` or `tolerations` which are now supported in the KFServing v1beta1 API spec, this requires Knative v0.17.0+, and you need to turn on the corresponding [feature flags](https://knative.dev/docs/serving/feature-flags/) in your Knative configuration.
 
 Since Knative v0.19.0 `cluster local gateway` deployment has been removed and [shared with ingress gateway](https://github.com/knative-sandbox/net-istio/pull/237),
-if you are on Knative version later than v0.19.0 you should modify `localGateway` to `knative-local-gateway` and `localGatewayService` to `knative-local-gateway.istio-system.svc.cluster.local` in the
+if you are on Knative version later than v0.19.0 and KFServing version older than v0.6.0 you should modify `localGateway` to `knative-local-gateway` and `localGatewayService` to `knative-local-gateway.istio-system.svc.cluster.local` in the
 [inference service config](./config/configmap/inferenceservice.yaml).
 
 - [Cert Manager](https://cert-manager.io/docs/installation/kubernetes): v0.12.0+
