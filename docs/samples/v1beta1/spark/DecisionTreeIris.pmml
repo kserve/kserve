@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<PMML xmlns="http://www.dmg.org/PMML-4_4" xmlns:data="http://jpmml.org/jpmml-model/InlineTable" version="4.4">
+	<Header>
+		<Application name="JPMML-SparkML" version="1.6.3"/>
+		<Timestamp>2021-03-07T18:49:32Z</Timestamp>
+	</Header>
+	<DataDictionary>
+		<DataField name="Species" optype="categorical" dataType="string">
+			<Value value="Iris-setosa"/>
+			<Value value="Iris-versicolor"/>
+			<Value value="Iris-virginica"/>
+		</DataField>
+		<DataField name="Sepal_Length" optype="continuous" dataType="double"/>
+		<DataField name="Petal_Length" optype="continuous" dataType="double"/>
+		<DataField name="Petal_Width" optype="continuous" dataType="double"/>
+	</DataDictionary>
+	<TransformationDictionary/>
+	<TreeModel functionName="classification" missingValueStrategy="nullPrediction">
+		<MiningSchema>
+			<MiningField name="Species" usageType="target"/>
+			<MiningField name="Sepal_Length"/>
+			<MiningField name="Petal_Length"/>
+			<MiningField name="Petal_Width"/>
+		</MiningSchema>
+		<Output>
+			<OutputField name="pmml(prediction)" optype="categorical" dataType="string" isFinalResult="false"/>
+			<OutputField name="prediction" optype="continuous" dataType="double" feature="transformedValue">
+				<MapValues outputColumn="data:output" dataType="double">
+					<FieldColumnPair field="pmml(prediction)" column="data:input"/>
+					<InlineTable>
+						<row>
+							<data:input>Iris-setosa</data:input>
+							<data:output>0</data:output>
+						</row>
+						<row>
+							<data:input>Iris-versicolor</data:input>
+							<data:output>1</data:output>
+						</row>
+						<row>
+							<data:input>Iris-virginica</data:input>
+							<data:output>2</data:output>
+						</row>
+					</InlineTable>
+				</MapValues>
+			</OutputField>
+			<OutputField name="probability(Iris-setosa)" optype="continuous" dataType="double" feature="probability" value="Iris-setosa"/>
+			<OutputField name="probability(Iris-versicolor)" optype="continuous" dataType="double" feature="probability" value="Iris-versicolor"/>
+			<OutputField name="probability(Iris-virginica)" optype="continuous" dataType="double" feature="probability" value="Iris-virginica"/>
+		</Output>
+		<Node>
+			<True/>
+			<Node score="Iris-setosa" recordCount="50">
+				<SimplePredicate field="Petal_Length" operator="lessOrEqual" value="2.45"/>
+				<ScoreDistribution value="Iris-setosa" recordCount="50"/>
+				<ScoreDistribution value="Iris-versicolor" recordCount="0"/>
+				<ScoreDistribution value="Iris-virginica" recordCount="0"/>
+			</Node>
+			<Node>
+				<SimplePredicate field="Petal_Width" operator="lessOrEqual" value="1.75"/>
+				<Node>
+					<SimplePredicate field="Petal_Length" operator="lessOrEqual" value="4.95"/>
+					<Node score="Iris-versicolor" recordCount="47">
+						<SimplePredicate field="Petal_Width" operator="lessOrEqual" value="1.65"/>
+						<ScoreDistribution value="Iris-setosa" recordCount="0"/>
+						<ScoreDistribution value="Iris-versicolor" recordCount="47"/>
+						<ScoreDistribution value="Iris-virginica" recordCount="0"/>
+					</Node>
+					<Node score="Iris-virginica" recordCount="1">
+						<True/>
+						<ScoreDistribution value="Iris-setosa" recordCount="0"/>
+						<ScoreDistribution value="Iris-versicolor" recordCount="0"/>
+						<ScoreDistribution value="Iris-virginica" recordCount="1"/>
+					</Node>
+				</Node>
+				<Node score="Iris-virginica" recordCount="3">
+					<SimplePredicate field="Petal_Width" operator="lessOrEqual" value="1.55"/>
+					<ScoreDistribution value="Iris-setosa" recordCount="0"/>
+					<ScoreDistribution value="Iris-versicolor" recordCount="0"/>
+					<ScoreDistribution value="Iris-virginica" recordCount="3"/>
+				</Node>
+				<Node score="Iris-versicolor" recordCount="2">
+					<SimplePredicate field="Sepal_Length" operator="lessOrEqual" value="6.75"/>
+					<ScoreDistribution value="Iris-setosa" recordCount="0"/>
+					<ScoreDistribution value="Iris-versicolor" recordCount="2"/>
+					<ScoreDistribution value="Iris-virginica" recordCount="0"/>
+				</Node>
+				<Node score="Iris-virginica" recordCount="1">
+					<True/>
+					<ScoreDistribution value="Iris-setosa" recordCount="0"/>
+					<ScoreDistribution value="Iris-versicolor" recordCount="0"/>
+					<ScoreDistribution value="Iris-virginica" recordCount="1"/>
+				</Node>
+			</Node>
+			<Node>
+				<SimplePredicate field="Petal_Length" operator="lessOrEqual" value="4.85"/>
+				<Node score="Iris-versicolor" recordCount="1">
+					<SimplePredicate field="Sepal_Length" operator="lessOrEqual" value="5.95"/>
+					<ScoreDistribution value="Iris-setosa" recordCount="0"/>
+					<ScoreDistribution value="Iris-versicolor" recordCount="1"/>
+					<ScoreDistribution value="Iris-virginica" recordCount="0"/>
+				</Node>
+				<Node score="Iris-virginica" recordCount="2">
+					<True/>
+					<ScoreDistribution value="Iris-setosa" recordCount="0"/>
+					<ScoreDistribution value="Iris-versicolor" recordCount="0"/>
+					<ScoreDistribution value="Iris-virginica" recordCount="2"/>
+				</Node>
+			</Node>
+			<Node score="Iris-virginica" recordCount="43">
+				<True/>
+				<ScoreDistribution value="Iris-setosa" recordCount="0"/>
+				<ScoreDistribution value="Iris-versicolor" recordCount="0"/>
+				<ScoreDistribution value="Iris-virginica" recordCount="43"/>
+			</Node>
+		</Node>
+	</TreeModel>
+</PMML>
