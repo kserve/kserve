@@ -17,9 +17,10 @@ limitations under the License.
 package v1beta1
 
 import (
+	"reflect"
+
 	"github.com/kubeflow/kfserving/pkg/constants"
 	v1 "k8s.io/api/core/v1"
-	"reflect"
 )
 
 // PredictorImplementation defines common functions for all predictors e.g Tensorflow, Triton, etc
@@ -47,6 +48,8 @@ type PredictorSpec struct {
 	PMML *PMMLSpec `json:"pmml,omitempty"`
 	// Spec for LightGBM model server
 	LightGBM *LightGBMSpec `json:"lightgbm,omitempty"`
+	// Spec for Paddle model server (https://github.com/PaddlePaddle/Serving)
+	Paddle *PaddleServerSpec `json:"paddle,omitempty"`
 
 	// This spec is dual purpose. <br />
 	// 1) Provide a full PodSpec for custom predictor.
@@ -88,6 +91,7 @@ func (s *PredictorSpec) GetImplementations() []ComponentImplementation {
 		s.ONNX,
 		s.PMML,
 		s.LightGBM,
+		s.Paddle,
 	})
 	// This struct is not a pointer, so it will never be nil; include if containers are specified
 	if len(s.PodSpec.Containers) != 0 {
@@ -117,6 +121,7 @@ func (s *PredictorSpec) GetPredictorImplementations() []PredictorImplementation 
 		s.ONNX,
 		s.PMML,
 		s.LightGBM,
+		s.Paddle,
 	})
 	// This struct is not a pointer, so it will never be nil; include if containers are specified
 	if len(s.PodSpec.Containers) != 0 {
