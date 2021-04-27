@@ -4,7 +4,7 @@
   "scripts": {
     "ng": "ng",
     "format": "prettier --write './**/*.{ts,html,css}'",
-    "build": "npm run copyLibAssets && ng build --prod --base-href /models/ --deploy-url /models/static/",
+    "build": "npm run copyLibAssets && ng build --prod --deploy-url static/",
     "build:watch": "npm run copyLibAssets && ng build --watch --deploy-url static/ --outputPath ../backend/apps/v1beta1/static/ --outputHashing all",
     "build:watch:ng": "npm run copyLibAssets && ng serve --proxy-config proxy.conf.json",
     "copyLibAssets": "cp ./node_modules/kubeflow/assets/* ./src/assets/",
