@@ -9,6 +9,7 @@ API rule violation: list_type_missing,./pkg/apis/serving/v1beta1,PodSpec,InitCon
 API rule violation: list_type_missing,./pkg/apis/serving/v1beta1,PodSpec,ReadinessGates
 API rule violation: list_type_missing,./pkg/apis/serving/v1beta1,PodSpec,Tolerations
 API rule violation: list_type_missing,./pkg/apis/serving/v1beta1,PodSpec,Volumes
+API rule violation: list_type_missing,./pkg/apis/serving/v1beta1,PredictorConfig,SupportedFrameworks
 API rule violation: names_match,./pkg/apis/serving/v1alpha1,ModelSpec,StorageURI
 API rule violation: names_match,./pkg/apis/serving/v1beta1,AlibiExplainerSpec,StorageURI
 API rule violation: names_match,./pkg/apis/serving/v1beta1,ComponentExtensionSpec,TimeoutSeconds
