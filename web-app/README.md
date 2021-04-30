@@ -4,6 +4,55 @@ This web app is responsible for allowing the user to manipulate the Model Server
 
 The web app currently works with `v1beta1` versions of `InferenceService` objects.
 
+## Connect to the app
+
+The web app is installed alongside the other KFServing components, either in the `kfserving-system` or in the `kubeflow` namespace. There is a `VirtualService` that exposes the app via an Istio Ingress Gateway. Depending on the installation environment the following Ingress Gateway will be used.
+
+| Installation mode | IngressGateway |
+| - | - |
+| Standalone KFServing | knative-ingress-gateway.knative-serving |
+| Kubeflow | kubeflow-gateway.kubeflow |
+
+To access the app you will need to navigate with your browser to
+```sh
+${INGRESS_IP}/models/
+```
+
+Alternatively you can access the app via `kubectl port-forward`. In that case you will need to configure the app to:
+1. Not perform any authorization checks, since there is no logged in user
+2. Work under the `/` prefix
+3. Disable Secure cookies, since the app will be exposed under plain http
+
+You can apply the mentioned configurations by doing the following commands:
+```bash
+# edit the configmap
+# CONFIG=config/overlays/kubeflow/kustomization.yaml
+CONFIG=config/web-app/kustomization.yaml
+vim ${CONFIG}
+
+# Add the following env vars to the configMapGenerator's literals
+# for kfserving-models-web-app-config
+- APP_PREFIX=/
+- APP_DISABLE_AUTH="True"
+- APP_SECURE_COOKIES="False"
+
+# reapply the kustomization
+# kustomize build config/overlays/kubeflow | kubectl apply -f -
+kustomize build config/default | kubectl apply -f -
+```
+
+## Configuration
+
+The following is a list of ENV var that can be set for any web app that is using this base app.
+| ENV Var | Default value | Description |
+| - | - | - |
+| APP_PREFIX | /models | Controls the app's prefix, by setting the [base-url](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base) element |
+| APP_DISABLE_AUTH | False | Controls whether the app should use SubjectAccessReviews to ensure the user is authorized to perform an action |
+| APP_SECURE_COOKIES | True | Controls whether the app should use [Secure](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie#Secure) CSRF cookies. By default the app expects to be exposed with https |
+| CSRF_SAMESITE | Strict| Controls the [SameSite value](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie#SameSite) of the CSRF cookie |
+| USERID_HEADER | kubeflow-userid | Header in each request that will contain the username of the logged in user |
+| USERID_PREFIX | "" | Prefix to remove from the `USERID_HEADER` value to extract the logged in user name |
+
 ## Development
 
 The frontend is build with [Angular](https://angular.io/) and the backend is written with the Python [Flask](https://flask.palletsprojects.com/en/1.1.x/) framework.
