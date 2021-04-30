@@ -19,6 +19,7 @@ API rule violation: names_match,./pkg/apis/serving/v1beta1,ExplainersConfig,AIXE
 API rule violation: names_match,./pkg/apis/serving/v1beta1,ExplainersConfig,ARTExplainer
 API rule violation: names_match,./pkg/apis/serving/v1beta1,ExplainersConfig,AlibiExplainer
 API rule violation: names_match,./pkg/apis/serving/v1beta1,IngressConfig,IngressServiceName
+API rule violation: names_match,./pkg/apis/serving/v1beta1,IngressConfig,LocalGatewayServiceName
 API rule violation: names_match,./pkg/apis/serving/v1beta1,PodSpec,DeprecatedServiceAccount
 API rule violation: names_match,./pkg/apis/serving/v1beta1,PredictorConfig,ContainerImage
 API rule violation: names_match,./pkg/apis/serving/v1beta1,PredictorExtensionSpec,StorageURI
@@ -31,4 +32,3 @@ API rule violation: names_match,./pkg/apis/serving/v1beta1,PredictorsConfig,PyTo
 API rule violation: names_match,./pkg/apis/serving/v1beta1,PredictorsConfig,SKlearn
 API rule violation: names_match,./pkg/apis/serving/v1beta1,PredictorsConfig,XGBoost
 API rule violation: names_match,./pkg/apis/serving/v1beta1,TransformerConfig,ContainerImage
-API rule violation: names_match,./pkg/apis/serving/v1beta1,IngressConfig,LocalGatewayServiceName
