@@ -25,8 +25,9 @@ const (
 	MLServerModelNameEnv           = "MLSERVER_MODEL_NAME"
 	MLServerModelURIEnv            = "MLSERVER_MODEL_URI"
 
-	MLServerSKLearnImplementation = "mlserver_sklearn.SKLearnModel"
-	MLServerXGBoostImplementation = "mlserver_xgboost.XGBoostModel"
+	MLServerSKLearnImplementation  = "mlserver_sklearn.SKLearnModel"
+	MLServerXGBoostImplementation  = "mlserver_xgboost.XGBoostModel"
+	MLServerCatBoostImplementation = "mlserver_catboost.CatBoostModel"
 )
 
 var (

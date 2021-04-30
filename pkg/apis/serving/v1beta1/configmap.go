@@ -77,6 +77,7 @@ type PredictorProtocols struct {
 
 // +kubebuilder:object:generate=false
 type PredictorsConfig struct {
+	CatBoost   PredictorConfig    `json:"catboost,omitempty"`
 	Tensorflow PredictorConfig    `json:"tensorflow,omitempty"`
 	Triton     PredictorConfig    `json:"triton,omitempty"`
 	XGBoost    PredictorProtocols `json:"xgboost,omitempty"`
