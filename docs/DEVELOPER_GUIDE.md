@@ -39,7 +39,7 @@ Before submitting a PR, see also [CONTRIBUTING.md](../CONTRIBUTING.md).
 
 You must install these tools:
 
-1. [`go`](https://golang.org/doc/install): KFServing controller is written in Go and requires Go 1.13.0+.
+1. [`go`](https://golang.org/doc/install): KFServing controller is written in Go and requires Go 1.14.0+.
 1. [`git`](https://help.github.com/articles/set-up-git/): For source control.
 1. [`Go Module`](https://blog.golang.org/using-go-modules): Go's new dependency management system.
 1. [`ko`](https://github.com/google/ko):
