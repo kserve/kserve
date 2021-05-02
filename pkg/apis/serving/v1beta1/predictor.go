@@ -113,6 +113,7 @@ func (s *PredictorSpec) GetExtensions() *ComponentExtensionSpec {
 // GetPredictor returns the implementation for the predictor
 func (s *PredictorSpec) GetPredictorImplementations() []PredictorImplementation {
 	implementations := NonNilPredictors([]PredictorImplementation{
+		s.CatBoost,
 		s.XGBoost,
 		s.PyTorch,
 		s.Triton,
