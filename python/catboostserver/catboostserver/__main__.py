@@ -26,6 +26,8 @@ DEFAULT_NTHREAD = -1
 parser = argparse.ArgumentParser(parents=[kfserving.kfserver.parser])
 parser.add_argument('--model_dir', required=True,
                     help='A URI pointer to the model binary')
+parser.add_argument('--kind',required=True,
+                    help='Type of model, Classification or Regerssion')
 parser.add_argument('--model_name', default=DEFAULT_MODEL_NAME,
                     help='The name that the model is served under.')
 parser.add_argument('--nthread', default=DEFAULT_NTHREAD,
@@ -33,12 +35,12 @@ parser.add_argument('--nthread', default=DEFAULT_NTHREAD,
 args, _ = parser.parse_known_args()
 
 if __name__ == "__main__":
-    model = CatBoostModel(args.model_name, args.model_dir)
+    model = CatBoostModel(args.model_name, args.model_dir, args.kind, args.nthread)
     try:
         model.load()
     except Exception:
-        ex_type, ex_value, _ = sys.exc_info()
+        exc_info = sys.exc_info()
         logging.error(f"fail to load model {args.model_name} from dir {args.model_dir}. "
-                      f"exception type {ex_type}, exception msg: {ex_value}")
+                      f"exception type {exc_info[0]}, exception msg: {exc_info[1]}")
         model.ready = False
     kfserving.KFServer(registered_models=CatBoostModelRepository(args.model_dir)).start([model] if model.ready else [])
