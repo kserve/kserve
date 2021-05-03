@@ -6929,7 +6929,7 @@ func schema_pkg_apis_serving_v1beta1_XGBoostSpec(ref common.ReferenceCallback) c
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "SKLearnSpec defines arguments for configuring SKLearn model serving.",
+				Description: "XGBoostSpec defines arguments for configuring XGBoost model serving.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"storageUri": {

@@ -3775,7 +3775,7 @@
       }
     },
     "v1beta1.XGBoostSpec": {
-      "description": "SKLearnSpec defines arguments for configuring SKLearn model serving.",
+      "description": "XGBoostSpec defines arguments for configuring XGBoost model serving.",
       "type": "object",
       "properties": {
         "args": {
