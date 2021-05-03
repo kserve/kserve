@@ -26,7 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// SKLearnSpec defines arguments for configuring SKLearn model serving.
+// XGBoostSpec defines arguments for configuring XGBoost model serving.
 type XGBoostSpec struct {
 	// Contains fields shared across all predictors
 	PredictorExtensionSpec `json:",inline"`
