@@ -17,7 +17,6 @@ limitations under the License.
 package v1beta1
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/golang/protobuf/proto"
@@ -112,20 +111,16 @@ func TestCatBoostDefaulter(t *testing.T) {
 	config := InferenceServicesConfig{
 		Predictors: PredictorsConfig{
 			CatBoost: PredictorConfig{
-				ContainerImage:      "mlserver",
-				DefaultImageVersion: "v0.1.2",
+				ContainerImage:      "CatBoost",
+				DefaultImageVersion: "v0.4.0",
 				MultiModelServer:    true,
 			},
 		},
 	}
-
-	protocolV2 := constants.ProtocolV2
-
 	defaultResource = v1.ResourceList{
 		v1.ResourceCPU:    resource.MustParse("1"),
 		v1.ResourceMemory: resource.MustParse("2Gi"),
 	}
-
 	scenarios := map[string]struct {
 		spec     PredictorSpec
 		expected PredictorSpec
@@ -139,32 +134,7 @@ func TestCatBoostDefaulter(t *testing.T) {
 			expected: PredictorSpec{
 				CatBoost: &CatBoostSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
-						RuntimeVersion:  proto.String("v0.1.2"),
-						ProtocolVersion: &protocolV2,
-						Container: v1.Container{
-							Name: constants.InferenceServiceContainerName,
-							Resources: v1.ResourceRequirements{
-								Requests: defaultResource,
-								Limits:   defaultResource,
-							},
-						},
-					},
-				},
-			},
-		},
-		"DefaultRuntimeVersionAndProtocol": {
-			spec: PredictorSpec{
-				CatBoost: &CatBoostSpec{
-					PredictorExtensionSpec: PredictorExtensionSpec{
-						ProtocolVersion: &protocolV2,
-					},
-				},
-			},
-			expected: PredictorSpec{
-				CatBoost: &CatBoostSpec{
-					PredictorExtensionSpec: PredictorExtensionSpec{
-						RuntimeVersion:  proto.String("v0.1.2"),
-						ProtocolVersion: &protocolV2,
+						RuntimeVersion: proto.String("v0.4.0"),
 						Container: v1.Container{
 							Name: constants.InferenceServiceContainerName,
 							Resources: v1.ResourceRequirements{
@@ -187,8 +157,7 @@ func TestCatBoostDefaulter(t *testing.T) {
 			expected: PredictorSpec{
 				CatBoost: &CatBoostSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
-						RuntimeVersion:  proto.String("v0.3.0"),
-						ProtocolVersion: &protocolV2,
+						RuntimeVersion: proto.String("v0.3.0"),
 						Container: v1.Container{
 							Name: constants.InferenceServiceContainerName,
 							Resources: v1.ResourceRequirements{
@@ -212,19 +181,14 @@ func TestCatBoostDefaulter(t *testing.T) {
 	}
 }
 
-func TestCreateCatBoostModelServingContainerV2(t *testing.T) {
-	protocolV2 := constants.ProtocolV2
+func TestCreateCatBoostModelServingContainer(t *testing.T) {
 
 	var requestedResource = v1.ResourceRequirements{
 		Limits: v1.ResourceList{
-			"cpu": resource.Quantity{
-				Format: "100",
-			},
+			"cpu": resource.MustParse("100m"),
 		},
 		Requests: v1.ResourceList{
-			"cpu": resource.Quantity{
-				Format: "90",
-			},
+			"cpu": resource.MustParse("90m"),
 		},
 	}
 	var config = InferenceServicesConfig{
@@ -250,9 +214,8 @@ func TestCreateCatBoostModelServingContainerV2(t *testing.T) {
 					Predictor: PredictorSpec{
 						CatBoost: &CatBoostSpec{
 							PredictorExtensionSpec: PredictorExtensionSpec{
-								StorageURI:      proto.String("gs://someUri"),
-								RuntimeVersion:  proto.String("0.1.0"),
-								ProtocolVersion: &protocolV2,
+								StorageURI:     proto.String("gs://someUri"),
+								RuntimeVersion: proto.String("0.1.0"),
 								Container: v1.Container{
 									Resources: requestedResource,
 								},
@@ -265,31 +228,11 @@ func TestCreateCatBoostModelServingContainerV2(t *testing.T) {
 				Image:     "someOtherImage:0.1.0",
 				Name:      constants.InferenceServiceContainerName,
 				Resources: requestedResource,
-				Env: []v1.EnvVar{
-					{
-						Name:  constants.MLServerHTTPPortEnv,
-						Value: fmt.Sprint(constants.MLServerISRestPort),
-					},
-					{
-						Name:  constants.MLServerGRPCPortEnv,
-						Value: fmt.Sprint(constants.MLServerISGRPCPort),
-					},
-					{
-						Name:  constants.MLServerModelsDirEnv,
-						Value: constants.DefaultModelLocalMountPath,
-					},
-					{
-						Name:  constants.MLServerModelImplementationEnv,
-						Value: constants.MLServerCatBoostImplementation,
-					},
-					{
-						Name:  constants.MLServerModelNameEnv,
-						Value: "CatBoost",
-					},
-					{
-						Name:  constants.MLServerModelURIEnv,
-						Value: constants.DefaultModelLocalMountPath,
-					},
+				Args: []string{
+					"--model_name=someName",
+					"--model_dir=/mnt/models",
+					"--http_port=8080",
+					"--nthread=1",
 				},
 			},
 		},
@@ -302,8 +245,7 @@ func TestCreateCatBoostModelServingContainerV2(t *testing.T) {
 					Predictor: PredictorSpec{
 						CatBoost: &CatBoostSpec{
 							PredictorExtensionSpec: PredictorExtensionSpec{
-								StorageURI:      proto.String("gs://someUri"),
-								ProtocolVersion: &protocolV2,
+								StorageURI: proto.String("gs://someUri"),
 								Container: v1.Container{
 									Image:     "customImage:0.1.0",
 									Resources: requestedResource,
@@ -317,44 +259,28 @@ func TestCreateCatBoostModelServingContainerV2(t *testing.T) {
 				Image:     "customImage:0.1.0",
 				Name:      constants.InferenceServiceContainerName,
 				Resources: requestedResource,
-				Env: []v1.EnvVar{
-					{
-						Name:  constants.MLServerHTTPPortEnv,
-						Value: fmt.Sprint(constants.MLServerISRestPort),
-					},
-					{
-						Name:  constants.MLServerGRPCPortEnv,
-						Value: fmt.Sprint(constants.MLServerISGRPCPort),
-					},
-					{
-						Name:  constants.MLServerModelsDirEnv,
-						Value: constants.DefaultModelLocalMountPath,
-					},
-					{
-						Name:  constants.MLServerModelImplementationEnv,
-						Value: constants.MLServerCatBoostImplementation,
-					},
-					{
-						Name:  constants.MLServerModelNameEnv,
-						Value: "CatBoost",
-					},
-					{
-						Name:  constants.MLServerModelURIEnv,
-						Value: constants.DefaultModelLocalMountPath,
-					},
+				Args: []string{
+					"--model_name=someName",
+					"--model_dir=/mnt/models",
+					"--http_port=8080",
+					"--nthread=1",
 				},
 			},
 		},
-		"ContainerSpecWithoutStorageURI": {
+		"ContainerSpecWithContainerConcurrency": {
 			isvc: InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "CatBoost",
 				},
 				Spec: InferenceServiceSpec{
 					Predictor: PredictorSpec{
+						ComponentExtensionSpec: ComponentExtensionSpec{
+							ContainerConcurrency: proto.Int64(1),
+						},
 						CatBoost: &CatBoostSpec{
 							PredictorExtensionSpec: PredictorExtensionSpec{
-								ProtocolVersion: &protocolV2,
+								StorageURI:     proto.String("gs://someUri"),
+								RuntimeVersion: proto.String("0.1.0"),
 								Container: v1.Container{
 									Resources: requestedResource,
 								},
@@ -367,27 +293,50 @@ func TestCreateCatBoostModelServingContainerV2(t *testing.T) {
 				Image:     "someOtherImage:0.1.0",
 				Name:      constants.InferenceServiceContainerName,
 				Resources: requestedResource,
-				Env: []v1.EnvVar{
-					{
-						Name:  constants.MLServerHTTPPortEnv,
-						Value: fmt.Sprint(constants.MLServerISRestPort),
+				Args: []string{
+					"--model_name=someName",
+					"--model_dir=/mnt/models",
+					"--http_port=8080",
+					"--nthread=1",
+					"--workers=1",
+				},
+			},
+		},
+		"ContainerSpecWithWorker": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "CatBoost",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						ComponentExtensionSpec: ComponentExtensionSpec{
+							ContainerConcurrency: proto.Int64(2),
+						},
+						CatBoost: &CatBoostSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI:     proto.String("gs://someUri"),
+								RuntimeVersion: proto.String("0.1.0"),
+								Container: v1.Container{
+									Resources: requestedResource,
+									Args: []string{
+										constants.ArgumentWorkers + "=1",
+									},
+								},
+							},
+						},
 					},
-					{
-						Name:  constants.MLServerGRPCPortEnv,
-						Value: fmt.Sprint(constants.MLServerISGRPCPort),
-					},
-					{
-						Name:  constants.MLServerModelsDirEnv,
-						Value: constants.DefaultModelLocalMountPath,
-					},
-					{
-						Name:  constants.MLServerLoadModelsStartupEnv,
-						Value: fmt.Sprint(false),
-					},
-					{
-						Name:  constants.MLServerModelImplementationEnv,
-						Value: constants.MLServerCatBoostImplementation,
-					},
+				},
+			},
+			expectedContainerSpec: &v1.Container{
+				Image:     "someOtherImage:0.1.0",
+				Name:      constants.InferenceServiceContainerName,
+				Resources: requestedResource,
+				Args: []string{
+					"--model_name=someName",
+					"--model_dir=/mnt/models",
+					"--http_port=8080",
+					"--nthread=1",
+					"--workers=1",
 				},
 			},
 		},
@@ -396,7 +345,7 @@ func TestCreateCatBoostModelServingContainerV2(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			predictor := scenario.isvc.Spec.Predictor.GetImplementation()
 			predictor.Default(&config)
-			res := predictor.GetContainer(scenario.isvc.ObjectMeta, &scenario.isvc.Spec.Predictor.ComponentExtensionSpec, &config)
+			res := predictor.GetContainer(metav1.ObjectMeta{Name: "someName"}, &scenario.isvc.Spec.Predictor.ComponentExtensionSpec, &config)
 			if !g.Expect(res).To(gomega.Equal(scenario.expectedContainerSpec)) {
 				t.Errorf("got %q, want %q", res, scenario.expectedContainerSpec)
 			}
@@ -412,21 +361,16 @@ func TestCatBoostIsMMS(t *testing.T) {
 		config := InferenceServicesConfig{
 			Predictors: PredictorsConfig{
 				CatBoost: PredictorConfig{
-					ContainerImage:      "mlserver",
-					DefaultImageVersion: "v0.1.2",
+					ContainerImage:      "CatBoost",
+					DefaultImageVersion: "v0.4.0",
 					MultiModelServer:    mmsCase,
 				},
 			},
 		}
-
-		protocolV1 := constants.ProtocolV1
-		protocolV2 := constants.ProtocolV2
-
 		defaultResource = v1.ResourceList{
 			v1.ResourceCPU:    resource.MustParse("1"),
 			v1.ResourceMemory: resource.MustParse("2Gi"),
 		}
-
 		scenarios := map[string]struct {
 			spec     PredictorSpec
 			expected bool
@@ -439,21 +383,11 @@ func TestCatBoostIsMMS(t *testing.T) {
 				},
 				expected: mmsCase,
 			},
-			"DefaultRuntimeVersionAndProtocol": {
+			"DefaultResources": {
 				spec: PredictorSpec{
 					CatBoost: &CatBoostSpec{
 						PredictorExtensionSpec: PredictorExtensionSpec{
-							ProtocolVersion: &protocolV1,
-						},
-					},
-				},
-				expected: mmsCase,
-			},
-			"DefaultRuntimeVersionAndProtocol2": {
-				spec: PredictorSpec{
-					CatBoost: &CatBoostSpec{
-						PredictorExtensionSpec: PredictorExtensionSpec{
-							ProtocolVersion: &protocolV2,
+							RuntimeVersion: proto.String("v0.3.0"),
 						},
 					},
 				},
@@ -475,20 +409,17 @@ func TestCatBoostIsMMS(t *testing.T) {
 
 func TestCatBoostIsFrameworkSupported(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	CatBoost := "CatBoost"
+	lightbgm := "lightbgm"
 	unsupportedFramework := "framework"
 	config := InferenceServicesConfig{
 		Predictors: PredictorsConfig{
 			CatBoost: PredictorConfig{
-				ContainerImage:      "mlserver",
-				DefaultImageVersion: "0.1.2",
-				SupportedFrameworks: []string{CatBoost},
+				ContainerImage:      "CatBoost",
+				DefaultImageVersion: "v0.4.0",
+				SupportedFrameworks: []string{"lightbgm"},
 			},
 		},
 	}
-
-	protocolV2 := constants.ProtocolV2
-
 	defaultResource = v1.ResourceList{
 		v1.ResourceCPU:    resource.MustParse("1"),
 		v1.ResourceMemory: resource.MustParse("2Gi"),
@@ -498,23 +429,19 @@ func TestCatBoostIsFrameworkSupported(t *testing.T) {
 		framework string
 		expected  bool
 	}{
-		"SupportedFrameworkV2": {
+		"SupportedFramework": {
 			spec: PredictorSpec{
 				CatBoost: &CatBoostSpec{
-					PredictorExtensionSpec: PredictorExtensionSpec{
-						ProtocolVersion: &protocolV2,
-					},
+					PredictorExtensionSpec: PredictorExtensionSpec{},
 				},
 			},
-			framework: CatBoost,
+			framework: lightbgm,
 			expected:  true,
 		},
-		"UnsupportedFrameworkV2": {
+		"UnsupportedFramework": {
 			spec: PredictorSpec{
 				CatBoost: &CatBoostSpec{
-					PredictorExtensionSpec: PredictorExtensionSpec{
-						ProtocolVersion: &protocolV2,
-					},
+					PredictorExtensionSpec: PredictorExtensionSpec{},
 				},
 			},
 			framework: unsupportedFramework,

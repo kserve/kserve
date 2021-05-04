@@ -17,15 +17,17 @@ limitations under the License.
 package v1beta1
 
 import (
+	"fmt"
 	"strconv"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/kubeflow/kfserving/pkg/constants"
 	"github.com/kubeflow/kfserving/pkg/utils"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// CatBoostSpec defines arguments for configuring CatBoost model serving.
+// CatBoostSpec defines arguments for configuring CatBoostSpec model serving.
 type CatBoostSpec struct {
 	// Contains fields shared across all predictors
 	PredictorExtensionSpec `json:",inline"`
@@ -46,102 +48,34 @@ func (x *CatBoostSpec) Validate() error {
 // Default sets defaults on the resource
 func (x *CatBoostSpec) Default(config *InferenceServicesConfig) {
 	x.Container.Name = constants.InferenceServiceContainerName
-
-	if x.ProtocolVersion == nil {
-		defaultProtocol := constants.ProtocolV2
-		x.ProtocolVersion = &defaultProtocol
-	}
-
 	if x.RuntimeVersion == nil {
-		defaultVersion := config.Predictors.CatBoost.DefaultImageVersion
-		x.RuntimeVersion = &defaultVersion
+		x.RuntimeVersion = proto.String(config.Predictors.CatBoost.DefaultImageVersion)
 	}
-
 	setResourceRequirementDefaults(&x.Resources)
 
 }
 
 // GetContainer transforms the resource into a container spec
 func (x *CatBoostSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig) *v1.Container {
-	return x.getContainerV2(metadata, extensions, config)
-}
-
-func (x *CatBoostSpec) getContainerV2(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig) *v1.Container {
-	x.Container.Env = append(
-		x.Container.Env,
-		x.getEnvVars()...,
-	)
-
-	// Append fallbacks for model settings
-	x.Container.Env = append(
-		x.Container.Env,
-		x.getDefaults(metadata)...,
-	)
-
+	cpuLimit := x.Resources.Limits.Cpu()
+	cpuLimit.RoundUp(0)
+	arguments := []string{
+		fmt.Sprintf("%s=%s", constants.ArgumentModelName, metadata.Name),
+		fmt.Sprintf("%s=%s", constants.ArgumentModelDir, constants.DefaultModelLocalMountPath),
+		fmt.Sprintf("%s=%s", constants.ArgumentHttpPort, constants.InferenceServiceDefaultHttpPort),
+		fmt.Sprintf("%s=%s", "--nthread", strconv.Itoa(int(cpuLimit.Value()))),
+	}
+	if !utils.IncludesArg(x.Container.Args, constants.ArgumentWorkers) {
+		if extensions.ContainerConcurrency != nil {
+			arguments = append(arguments, fmt.Sprintf("%s=%s", constants.ArgumentWorkers, strconv.FormatInt(*extensions.ContainerConcurrency, 10)))
+		}
+	}
 	if x.Container.Image == "" {
 		x.Container.Image = config.Predictors.CatBoost.ContainerImage + ":" + *x.RuntimeVersion
 	}
-
+	x.Container.Name = constants.InferenceServiceContainerName
+	x.Container.Args = append(arguments, x.Container.Args...)
 	return &x.Container
-}
-
-func (x *CatBoostSpec) getEnvVars() []v1.EnvVar {
-	vars := []v1.EnvVar{
-		{
-			Name:  constants.MLServerHTTPPortEnv,
-			Value: strconv.Itoa(int(constants.MLServerISRestPort)),
-		},
-		{
-			Name:  constants.MLServerGRPCPortEnv,
-			Value: strconv.Itoa(int(constants.MLServerISGRPCPort)),
-		},
-		{
-			Name:  constants.MLServerModelsDirEnv,
-			Value: constants.DefaultModelLocalMountPath,
-		},
-	}
-
-	if x.StorageURI == nil {
-		vars = append(
-			vars,
-			v1.EnvVar{
-				Name:  constants.MLServerLoadModelsStartupEnv,
-				Value: strconv.FormatBool(false),
-			},
-		)
-	}
-
-	return vars
-}
-
-func (x *CatBoostSpec) getDefaults(metadata metav1.ObjectMeta) []v1.EnvVar {
-	// These env vars set default parameters that can always be overriden
-	// individually through `model-settings.json` config files.
-	// These will be used as fallbacks for any missing properties and / or to run
-	// without a `model-settings.json` file in place.
-	vars := []v1.EnvVar{
-		{
-			Name:  constants.MLServerModelImplementationEnv,
-			Value: constants.MLServerCatBoostImplementation,
-		},
-	}
-
-	if x.StorageURI != nil {
-		// These env vars only make sense as a default for non-MMS servers
-		vars = append(
-			vars,
-			v1.EnvVar{
-				Name:  constants.MLServerModelNameEnv,
-				Value: metadata.Name,
-			},
-			v1.EnvVar{
-				Name:  constants.MLServerModelURIEnv,
-				Value: constants.DefaultModelLocalMountPath,
-			},
-		)
-	}
-
-	return vars
 }
 
 func (x *CatBoostSpec) GetStorageUri() *string {
@@ -149,24 +83,14 @@ func (x *CatBoostSpec) GetStorageUri() *string {
 }
 
 func (x *CatBoostSpec) GetProtocol() constants.InferenceServiceProtocol {
-	if x.ProtocolVersion != nil {
-		return *x.ProtocolVersion
-	} else {
-		return constants.ProtocolV2
-	}
+	return constants.ProtocolV2
 }
 
 func (x *CatBoostSpec) IsMMS(config *InferenceServicesConfig) bool {
-	predictorConfig := x.getPredictorConfig(config)
-	return predictorConfig.MultiModelServer
+	return config.Predictors.CatBoost.MultiModelServer
 }
 
 func (x *CatBoostSpec) IsFrameworkSupported(framework string, config *InferenceServicesConfig) bool {
-	predictorConfig := x.getPredictorConfig(config)
-	supportedFrameworks := predictorConfig.SupportedFrameworks
+	supportedFrameworks := config.Predictors.CatBoost.SupportedFrameworks
 	return isFrameworkIncluded(supportedFrameworks, framework)
-}
-
-func (x *CatBoostSpec) getPredictorConfig(config *InferenceServicesConfig) *PredictorConfig {
-	return &config.Predictors.CatBoost
 }

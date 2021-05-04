@@ -83,7 +83,6 @@ type PredictorExtensionSpec struct {
 // GetImplementations returns the implementations for the component
 func (s *PredictorSpec) GetImplementations() []ComponentImplementation {
 	implementations := NonNilComponents([]ComponentImplementation{
-		s.CatBoost,
 		s.XGBoost,
 		s.PyTorch,
 		s.Triton,
@@ -92,6 +91,7 @@ func (s *PredictorSpec) GetImplementations() []ComponentImplementation {
 		s.ONNX,
 		s.PMML,
 		s.LightGBM,
+		s.CatBoost,
 	})
 	// This struct is not a pointer, so it will never be nil; include if containers are specified
 	if len(s.PodSpec.Containers) != 0 {
@@ -113,7 +113,6 @@ func (s *PredictorSpec) GetExtensions() *ComponentExtensionSpec {
 // GetPredictor returns the implementation for the predictor
 func (s *PredictorSpec) GetPredictorImplementations() []PredictorImplementation {
 	implementations := NonNilPredictors([]PredictorImplementation{
-		s.CatBoost,
 		s.XGBoost,
 		s.PyTorch,
 		s.Triton,
@@ -122,6 +121,7 @@ func (s *PredictorSpec) GetPredictorImplementations() []PredictorImplementation 
 		s.ONNX,
 		s.PMML,
 		s.LightGBM,
+		s.CatBoost,
 	})
 	// This struct is not a pointer, so it will never be nil; include if containers are specified
 	if len(s.PodSpec.Containers) != 0 {
