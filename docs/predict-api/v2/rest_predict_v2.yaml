@@ -282,10 +282,9 @@ components:
       items:
         anyOf:
           - $ref: '#/components/schemas/tensor_data'
-          - type:
-              - number
-              - string
-              - boolean
+          - type: number
+          - type: string
+          - type: boolean
     request_output:
       title: request_output
       type: object
