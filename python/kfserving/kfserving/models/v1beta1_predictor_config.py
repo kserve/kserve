@@ -50,17 +50,21 @@ class V1beta1PredictorConfig(object):
         'default_gpu_image_version': 'str',
         'default_image_version': 'str',
         'default_timeout': 'str',
-        'image': 'str'
+        'image': 'str',
+        'multi_model_server': 'bool',
+        'supported_frameworks': 'list[str]'
     }
 
     attribute_map = {
         'default_gpu_image_version': 'defaultGpuImageVersion',
         'default_image_version': 'defaultImageVersion',
         'default_timeout': 'defaultTimeout',
-        'image': 'image'
+        'image': 'image',
+        'multi_model_server': 'multiModelServer',
+        'supported_frameworks': 'supportedFrameworks'
     }
 
-    def __init__(self, default_gpu_image_version=None, default_image_version=None, default_timeout=None, image=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, default_gpu_image_version=None, default_image_version=None, default_timeout=None, image=None, multi_model_server=None, supported_frameworks=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1PredictorConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -70,6 +74,8 @@ class V1beta1PredictorConfig(object):
         self._default_image_version = None
         self._default_timeout = None
         self._image = None
+        self._multi_model_server = None
+        self._supported_frameworks = None
         self.discriminator = None
 
         self.default_gpu_image_version = default_gpu_image_version
@@ -77,6 +83,9 @@ class V1beta1PredictorConfig(object):
         if default_timeout is not None:
             self.default_timeout = default_timeout
         self.image = image
+        if multi_model_server is not None:
+            self.multi_model_server = multi_model_server
+        self.supported_frameworks = supported_frameworks
 
     @property
     def default_gpu_image_version(self):
@@ -175,6 +184,54 @@ class V1beta1PredictorConfig(object):
             raise ValueError("Invalid value for `image`, must not be `None`")  # noqa: E501
 
         self._image = image
+
+    @property
+    def multi_model_server(self):
+        """Gets the multi_model_server of this V1beta1PredictorConfig.  # noqa: E501
+
+        Flag to determine if multi-model serving is supported  # noqa: E501
+
+        :return: The multi_model_server of this V1beta1PredictorConfig.  # noqa: E501
+        :rtype: bool
+        """
+        return self._multi_model_server
+
+    @multi_model_server.setter
+    def multi_model_server(self, multi_model_server):
+        """Sets the multi_model_server of this V1beta1PredictorConfig.
+
+        Flag to determine if multi-model serving is supported  # noqa: E501
+
+        :param multi_model_server: The multi_model_server of this V1beta1PredictorConfig.  # noqa: E501
+        :type: bool
+        """
+
+        self._multi_model_server = multi_model_server
+
+    @property
+    def supported_frameworks(self):
+        """Gets the supported_frameworks of this V1beta1PredictorConfig.  # noqa: E501
+
+        frameworks the model agent is able to run  # noqa: E501
+
+        :return: The supported_frameworks of this V1beta1PredictorConfig.  # noqa: E501
+        :rtype: list[str]
+        """
+        return self._supported_frameworks
+
+    @supported_frameworks.setter
+    def supported_frameworks(self, supported_frameworks):
+        """Sets the supported_frameworks of this V1beta1PredictorConfig.
+
+        frameworks the model agent is able to run  # noqa: E501
+
+        :param supported_frameworks: The supported_frameworks of this V1beta1PredictorConfig.  # noqa: E501
+        :type: list[str]
+        """
+        if self.local_vars_configuration.client_side_validation and supported_frameworks is None:  # noqa: E501
+            raise ValueError("Invalid value for `supported_frameworks`, must not be `None`")  # noqa: E501
+
+        self._supported_frameworks = supported_frameworks
 
     def to_dict(self):
         """Returns the model properties as a dict"""

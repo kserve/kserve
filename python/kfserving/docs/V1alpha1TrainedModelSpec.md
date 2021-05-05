@@ -1,6 +1,6 @@
 # V1alpha1TrainedModelSpec
 
-TrainedModelSpec defines the trained model spec
+TrainedModelSpec defines the TrainedModel spec
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
