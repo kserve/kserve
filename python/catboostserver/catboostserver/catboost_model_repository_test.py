@@ -16,7 +16,6 @@ import os
 import pytest
 import tempfile
 from catboostserver import CatBoostModelRepository
-from catboost import CatBoostClassifier
 from catboostserver.model_test import save_model
 
 invalid_model_dir = os.path.join(os.path.dirname(__file__), "model_not_exist")

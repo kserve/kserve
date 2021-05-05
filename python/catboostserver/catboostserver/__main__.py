@@ -26,7 +26,7 @@ DEFAULT_NTHREAD = -1
 parser = argparse.ArgumentParser(parents=[kfserving.kfserver.parser])
 parser.add_argument('--model_dir', required=True,
                     help='A URI pointer to the model binary')
-parser.add_argument('--kind',required=True,
+parser.add_argument('--kind', required=True,
                     help='Type of model, Classification or Regerssion')
 parser.add_argument('--model_name', default=DEFAULT_MODEL_NAME,
                     help='The name that the model is served under.')

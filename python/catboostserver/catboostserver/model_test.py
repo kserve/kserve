@@ -12,17 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from catboost import CatBoostClassifier, CatBoostRegressor
+from catboost import CatBoostClassifier
 import os
 import time
 import tempfile
-import pytest
 from pathlib import Path
-from sklearn.datasets import load_iris
 from catboostserver import CatBoostModel
 
 MODEL_FILE = "model"
 NTHREAD = 1
+
 
 def test_model():
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -39,7 +38,7 @@ def save_model(tmpdirname :str):
     train_labels = [1, 0, 1]
     cat_boost_model = CatBoostClassifier(learning_rate=0.03)
     cat_boost_model.fit(train_data,
-            train_labels,
-            verbose=False)
+                        train_labels,
+                        verbose=False)
     cat_boost_model_file = os.path.join(tmpdirname, "model")
     cat_boost_model.save_model(cat_boost_model_file)

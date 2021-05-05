@@ -20,6 +20,7 @@ from typing import Dict
 
 MODEL_BASENAME = "model"
 
+
 class CatBoostModel(kfserving.KFModel):  # pylint:disable=c-extension-no-member
     def __init__(self, name: str, model_dir: str, kind: str, nthread: int):
         super().__init__(name)
