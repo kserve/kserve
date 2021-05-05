@@ -14,4 +14,3 @@
 
 from .model import CatBoostModel  # noqa # pylint: disable=unused-import
 from .catboost_model_repository import CatBoostModelRepository  # noqa # pylint: disable=unused-import
-
