@@ -52,6 +52,7 @@ class V1beta1PredictorSpec(object):
         'automount_service_account_token': 'bool',
         'batcher': 'V1beta1Batcher',
         'canary_traffic_percent': 'int',
+        'catboost': 'V1beta1CatBoostSpec',
         'container_concurrency': 'int',
         'containers': 'list[V1Container]',
         'dns_config': 'V1PodDNSConfig',
@@ -105,6 +106,7 @@ class V1beta1PredictorSpec(object):
         'automount_service_account_token': 'automountServiceAccountToken',
         'batcher': 'batcher',
         'canary_traffic_percent': 'canaryTrafficPercent',
+        'catboost': 'catboost',
         'container_concurrency': 'containerConcurrency',
         'containers': 'containers',
         'dns_config': 'dnsConfig',
@@ -152,7 +154,7 @@ class V1beta1PredictorSpec(object):
         'xgboost': 'xgboost'
     }
 
-    def __init__(self, active_deadline_seconds=None, affinity=None, automount_service_account_token=None, batcher=None, canary_traffic_percent=None, container_concurrency=None, containers=None, dns_config=None, dns_policy=None, enable_service_links=None, ephemeral_containers=None, host_aliases=None, host_ipc=None, host_network=None, host_pid=None, hostname=None, image_pull_secrets=None, init_containers=None, lightgbm=None, logger=None, max_replicas=None, min_replicas=None, node_name=None, node_selector=None, onnx=None, overhead=None, pmml=None, preemption_policy=None, priority=None, priority_class_name=None, pytorch=None, readiness_gates=None, restart_policy=None, runtime_class_name=None, scheduler_name=None, security_context=None, service_account=None, service_account_name=None, set_hostname_as_fqdn=None, share_process_namespace=None, sklearn=None, subdomain=None, tensorflow=None, termination_grace_period_seconds=None, timeout=None, tolerations=None, topology_spread_constraints=None, triton=None, volumes=None, xgboost=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, active_deadline_seconds=None, affinity=None, automount_service_account_token=None, batcher=None, canary_traffic_percent=None, catboost=None, container_concurrency=None, containers=None, dns_config=None, dns_policy=None, enable_service_links=None, ephemeral_containers=None, host_aliases=None, host_ipc=None, host_network=None, host_pid=None, hostname=None, image_pull_secrets=None, init_containers=None, lightgbm=None, logger=None, max_replicas=None, min_replicas=None, node_name=None, node_selector=None, onnx=None, overhead=None, pmml=None, preemption_policy=None, priority=None, priority_class_name=None, pytorch=None, readiness_gates=None, restart_policy=None, runtime_class_name=None, scheduler_name=None, security_context=None, service_account=None, service_account_name=None, set_hostname_as_fqdn=None, share_process_namespace=None, sklearn=None, subdomain=None, tensorflow=None, termination_grace_period_seconds=None, timeout=None, tolerations=None, topology_spread_constraints=None, triton=None, volumes=None, xgboost=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1PredictorSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -163,6 +165,7 @@ class V1beta1PredictorSpec(object):
         self._automount_service_account_token = None
         self._batcher = None
         self._canary_traffic_percent = None
+        self._catboost = None
         self._container_concurrency = None
         self._containers = None
         self._dns_config = None
@@ -220,6 +223,8 @@ class V1beta1PredictorSpec(object):
             self.batcher = batcher
         if canary_traffic_percent is not None:
             self.canary_traffic_percent = canary_traffic_percent
+        if catboost is not None:
+            self.catboost = catboost
         if container_concurrency is not None:
             self.container_concurrency = container_concurrency
         if containers is not None:
@@ -421,6 +426,27 @@ class V1beta1PredictorSpec(object):
         """
 
         self._canary_traffic_percent = canary_traffic_percent
+
+    @property
+    def catboost(self):
+        """Gets the catboost of this V1beta1PredictorSpec.  # noqa: E501
+
+
+        :return: The catboost of this V1beta1PredictorSpec.  # noqa: E501
+        :rtype: V1beta1CatBoostSpec
+        """
+        return self._catboost
+
+    @catboost.setter
+    def catboost(self, catboost):
+        """Sets the catboost of this V1beta1PredictorSpec.
+
+
+        :param catboost: The catboost of this V1beta1PredictorSpec.  # noqa: E501
+        :type: V1beta1CatBoostSpec
+        """
+
+        self._catboost = catboost
 
     @property
     def container_concurrency(self):

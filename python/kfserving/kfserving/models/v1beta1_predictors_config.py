@@ -47,6 +47,7 @@ class V1beta1PredictorsConfig(object):
                             and the value is json key in definition.
     """
     openapi_types = {
+        'catboost': 'V1beta1PredictorConfig',
         'lightgbm': 'V1beta1PredictorConfig',
         'onnx': 'V1beta1PredictorConfig',
         'pmml': 'V1beta1PredictorConfig',
@@ -58,6 +59,7 @@ class V1beta1PredictorsConfig(object):
     }
 
     attribute_map = {
+        'catboost': 'catboost',
         'lightgbm': 'lightgbm',
         'onnx': 'onnx',
         'pmml': 'pmml',
@@ -68,12 +70,13 @@ class V1beta1PredictorsConfig(object):
         'xgboost': 'xgboost'
     }
 
-    def __init__(self, lightgbm=None, onnx=None, pmml=None, pytorch=None, sklearn=None, tensorflow=None, triton=None, xgboost=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, catboost=None, lightgbm=None, onnx=None, pmml=None, pytorch=None, sklearn=None, tensorflow=None, triton=None, xgboost=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1PredictorsConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
+        self._catboost = None
         self._lightgbm = None
         self._onnx = None
         self._pmml = None
@@ -84,6 +87,8 @@ class V1beta1PredictorsConfig(object):
         self._xgboost = None
         self.discriminator = None
 
+        if catboost is not None:
+            self.catboost = catboost
         if lightgbm is not None:
             self.lightgbm = lightgbm
         if onnx is not None:
@@ -100,6 +105,27 @@ class V1beta1PredictorsConfig(object):
             self.triton = triton
         if xgboost is not None:
             self.xgboost = xgboost
+
+    @property
+    def catboost(self):
+        """Gets the catboost of this V1beta1PredictorsConfig.  # noqa: E501
+
+
+        :return: The catboost of this V1beta1PredictorsConfig.  # noqa: E501
+        :rtype: V1beta1PredictorConfig
+        """
+        return self._catboost
+
+    @catboost.setter
+    def catboost(self, catboost):
+        """Sets the catboost of this V1beta1PredictorsConfig.
+
+
+        :param catboost: The catboost of this V1beta1PredictorsConfig.  # noqa: E501
+        :type: V1beta1PredictorConfig
+        """
+
+        self._catboost = catboost
 
     @property
     def lightgbm(self):

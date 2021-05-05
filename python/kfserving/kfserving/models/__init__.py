@@ -36,6 +36,7 @@ from kfserving.models.v1beta1_aix_explainer_spec import V1beta1AIXExplainerSpec
 from kfserving.models.v1beta1_art_explainer_spec import V1beta1ARTExplainerSpec
 from kfserving.models.v1beta1_alibi_explainer_spec import V1beta1AlibiExplainerSpec
 from kfserving.models.v1beta1_batcher import V1beta1Batcher
+from kfserving.models.v1beta1_cat_boost_spec import V1beta1CatBoostSpec
 from kfserving.models.v1beta1_component_extension_spec import V1beta1ComponentExtensionSpec
 from kfserving.models.v1beta1_component_status_spec import V1beta1ComponentStatusSpec
 from kfserving.models.v1beta1_custom_explainer import V1beta1CustomExplainer

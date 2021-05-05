@@ -3,6 +3,7 @@
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
+**catboost** | [**V1beta1PredictorConfig**](V1beta1PredictorConfig.md) |  | [optional] 
 **lightgbm** | [**V1beta1PredictorConfig**](V1beta1PredictorConfig.md) |  | [optional] 
 **onnx** | [**V1beta1PredictorConfig**](V1beta1PredictorConfig.md) |  | [optional] 
 **pmml** | [**V1beta1PredictorConfig**](V1beta1PredictorConfig.md) |  | [optional] 
