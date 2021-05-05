@@ -14,9 +14,7 @@
 
 from catboost import CatBoostClassifier
 import os
-import time
 import tempfile
-from pathlib import Path
 from catboostserver import CatBoostModel
 
 MODEL_FILE = "model"
@@ -31,10 +29,11 @@ def test_model():
     response = model.predict({"instances": [1, 3]})
     assert response["predictions"] == [1]
 
-def save_model(tmpdirname :str):
+
+def save_model(tmpdirname: str):
     train_data = [[1, 3],
-              [0, 4],
-              [1, 7]]
+                  [0, 4],
+                  [1, 7]]
     train_labels = [1, 0, 1]
     cat_boost_model = CatBoostClassifier(learning_rate=0.03)
     cat_boost_model.fit(train_data,
