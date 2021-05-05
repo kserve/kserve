@@ -20,6 +20,7 @@ from catboostserver.model_test import save_model
 
 invalid_model_dir = os.path.join(os.path.dirname(__file__), "model_not_exist")
 
+
 @pytest.mark.asyncio
 async def test_load():
     with tempfile.TemporaryDirectory() as tmpdirname:
