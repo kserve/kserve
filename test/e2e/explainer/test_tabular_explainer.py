@@ -62,7 +62,7 @@ def test_tabular_explainer():
 
     KFServing.create(isvc)
     try:
-        KFServing.wait_isvc_ready(service_name, namespace=KFSERVING_TEST_NAMESPACE, timeout_seconds=300)
+        KFServing.wait_isvc_ready(service_name, namespace=KFSERVING_TEST_NAMESPACE, timeout_seconds=720)
     except RuntimeError as e:
         logging.info(KFServing.api_instance.get_namespaced_custom_object("serving.knative.dev", "v1",
                                                                          KFSERVING_TEST_NAMESPACE, "services",
