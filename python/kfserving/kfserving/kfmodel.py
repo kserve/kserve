@@ -128,15 +128,15 @@ class KFModel:
     async def explain(self, request: Dict) -> Dict:
         """
         The explain handler can be overridden to implement the model explanation.
-        The default implementation makes an call to the explainer if predictor_host is specified
+        The default implementation makes an call to the explainer if explainer_host is specified
         :param request: Dict passed from preprocess handler
         :return: Dict
         """
         if self.explainer_host is None:
             raise NotImplementedError
-        explain_url = EXPLAINER_URL_FORMAT.format(self.predictor_host, self.name)
+        explain_url = EXPLAINER_URL_FORMAT.format(self.explainer_host, self.name)
         if self.protocol == "v2":
-            explain_url = EXPLAINER_V2_URL_FORMAT.format(self.predictor_host, self.name)
+            explain_url = EXPLAINER_V2_URL_FORMAT.format(self.explainer_host, self.name)
         response = await self._http_client.fetch(
             url=explain_url,
             method='POST',
