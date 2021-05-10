@@ -117,9 +117,9 @@ echo "Encoded CA:"
 echo -e "${caBundle} \n"
 
 # Patch CA Certificate to webhooks
-mutatingPatchString='[{"op": "replace", "path": "/webhooks/0/clientConfig/caBundle", "value":"{{CA_BUNDLE}}"}, {"op": "replace", "path": "/webhooks/1/clientConfig/caBundle", "value":"{{CA_BUNDLE}}"}]'
+mutatingPatchString='[{"op": "replace", "path": "/webhooks/0/clientConfig/caBundle", "value":"{{CA_BUNDLE}}"}, {"op": "replace", "path": "/webhooks/1/clientConfig/caBundle", "value":"{{CA_BUNDLE}}"}, {"op": "replace", "path": "/webhooks/2/clientConfig/caBundle", "value":"{{CA_BUNDLE}}"}]'
 mutatingPatchString=$(echo ${mutatingPatchString} | sed "s|{{CA_BUNDLE}}|${caBundle}|g")
-validatingPatchString='[{"op": "replace", "path": "/webhooks/0/clientConfig/caBundle", "value":"{{CA_BUNDLE}}"}]'
+validatingPatchString='[{"op": "replace", "path": "/webhooks/0/clientConfig/caBundle", "value":"{{CA_BUNDLE}}"}, {"op": "replace", "path": "/webhooks/1/clientConfig/caBundle", "value":"{{CA_BUNDLE}}"}]'
 validatingPatchString=$(echo ${validatingPatchString} | sed "s|{{CA_BUNDLE}}|${caBundle}|g")
 
 echo "patching ca bundle for mutating webhook configuration..."
