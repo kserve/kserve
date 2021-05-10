@@ -12,7 +12,8 @@
       "type": "object",
       "required": [
         "storageUri",
-        "framework"
+        "framework",
+        "memory"
       ],
       "properties": {
         "framework": {
