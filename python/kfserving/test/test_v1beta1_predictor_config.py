@@ -52,13 +52,15 @@ class TestV1beta1PredictorConfig(unittest.TestCase):
             return V1beta1PredictorConfig(
                 default_gpu_image_version = '0', 
                 default_image_version = '0', 
-                image = '0'
+                image = '0',
+                supported_frameworks=['0']
             )
         else :
             return V1beta1PredictorConfig(
                 default_gpu_image_version = '0',
                 default_image_version = '0',
                 image = '0',
+                supported_frameworks=['0']
         )
 
     def testV1beta1PredictorConfig(self):

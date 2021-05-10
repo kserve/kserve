@@ -101,7 +101,7 @@ func schema_pkg_apis_serving_v1alpha1_ModelSpec(ref common.ReferenceCallback) co
 						},
 					},
 				},
-				Required: []string{"storageUri", "framework", "memory"},
+				Required: []string{"storageUri", "framework"},
 			},
 		},
 		Dependencies: []string{
