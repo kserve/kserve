@@ -39,6 +39,10 @@ torch-model-archiver --model-name mnist --version 1.0 \
 - For PVC user please refer to [model archive file generation](./model-archiver/README.md) for auto generation of MAR files from
 the model and dependent files.
 
+- The [config.properties](./config.properties) file includes the flag `service_envelope=kfserving` to enable the KFServing inference protocol.
+The requests are converted from KFServing inference request format to torchserve request format and sent to the `inference_address` configured
+via local socket.
+
 
 ## TorchServe with KFS envelope inference endpoints
 The KFServing/TorchServe integration supports KFServing v1 protocol and we are working on to support v2 protocol.
