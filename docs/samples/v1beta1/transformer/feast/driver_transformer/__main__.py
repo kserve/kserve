@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import argparse
-import json
 import kfserving
 from .driver_transformer import DriverTransformer
 
@@ -24,24 +23,26 @@ DEFAULT_MODEL_NAME = "sklearn-driver-transformer"
 
 parser = argparse.ArgumentParser(parents=[kfserving.kfserver.parser])
 parser.add_argument(
-    "--predictor_host", 
+    "--predictor_host",
     help="The URL for the model predict function", required=True
 )
 parser.add_argument(
     "--model_name", default=DEFAULT_MODEL_NAME,
-     help='The name that the model is served under.')
+    help='The name that the model is served under.')
 parser.add_argument(
     "--feast_serving_url",
     type=str,
     help="The url of the Feast Serving Service.", required=True)
 parser.add_argument(
-    "--entity_ids", 
+    "--entity_ids",
     type=str, nargs="+",
-    help="A list of entity_ids to use as keys in the feature store.", required=True)
+    help="A list of entity ids to use as keys in the feature store.",
+    required=True)
 parser.add_argument(
     "--feature_refs",
     type=str, nargs="+",
-    help="A list of features to retrieve from the feature store.", required=True)
+    help="A list of features to retrieve from the feature store.",
+    required=True)
 
 
 args, _ = parser.parse_known_args()
@@ -54,4 +55,4 @@ if __name__ == "__main__":
         entity_ids=args.entity_ids,
         feature_refs=args.feature_refs)
     kfserver = kfserving.KFServer()
-    kfserver.start(models=[transformer])    
+    kfserver.start(models=[transformer])

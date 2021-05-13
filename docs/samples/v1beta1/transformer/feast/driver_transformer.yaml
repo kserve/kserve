@@ -13,7 +13,7 @@ spec:
       - "driver_transformer"
       args:
       - --feast_serving_url
-      - x.x.x.x:xx
+      - x.x.x.x:x
       - --entity_ids
       - driver_id
       - --feature_refs

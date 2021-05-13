@@ -12,10 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import io
-import base64
-import json
-import tornado
 from typing import List, Dict
 import logging
 import kfserving
@@ -23,6 +19,7 @@ import kfserving
 from feast import Client
 
 logging.basicConfig(level=kfserving.constants.KFSERVING_LOGLEVEL)
+
 
 class DriverTransformer(kfserving.KFModel):
     """ A class object for the data handling activities of driver ranking
@@ -32,11 +29,11 @@ class DriverTransformer(kfserving.KFModel):
         kfserving (class object): The KFModel class from the KFServing
         modeule is passed here.
     """
-    def __init__(self, name: str, 
-            predictor_host: str,
-            feast_serving_url: str,
-            entity_ids: List[str],
-            feature_refs: List[str]):
+    def __init__(self, name: str,
+                 predictor_host: str,
+                 feast_serving_url: str,
+                 entity_ids: List[str],
+                 feature_refs: List[str]):
         """Initialize the model name, predictor host, Feast serving URL,
            entity IDs, and feature references
 
@@ -90,15 +87,15 @@ class DriverTransformer(kfserving.KFModel):
         """
         request_data = []
         for i in range(len(inputs['instances'])):
-          entity_req = [features[self.feature_refs[j]][i] for j in range(len(self.feature_refs))]
-          for j in range(len(self.entity_ids)):
-              entity_req.append(inputs['instances'][i][j])
-          request_data.insert(i, entity_req)
+            entity_req = [features[self.feature_refs[j]][i] for j in range(len(self.feature_refs))]
+            for j in range(len(self.entity_ids)):
+                entity_req.append(inputs['instances'][i][j])
+            request_data.insert(i, entity_req)
 
         return {'instances': request_data}
 
     def preprocess(self, inputs: Dict) -> Dict:
-        """Pre-process activity of the driver Input data.
+        """Pre-process activity of the driver input data.
 
         Args:
             inputs (Dict): KFServing http request
@@ -110,25 +107,23 @@ class DriverTransformer(kfserving.KFModel):
         entity_rows = [self.buildEntityRow(instance) for instance in inputs['instances']]
         features = self.client.get_online_features(feature_refs=self.feature_refs, entity_rows=entity_rows).to_dict()
 
-        outputs=self.buildPredictRequest(inputs, features)
+        outputs = self.buildPredictRequest(inputs, features)
 
-        logging.info("inputs for predict = %s",outputs)
+        logging.info("The input for model predict is %s", outputs)
 
         return outputs
 
-
     def postprocess(self, inputs: List) -> List:
-        """Post process function of Torchserve on the KFServing side is
-        written here.
+        """Post process function of the driver ranking output data. Here we
+        simply pass the raw rankings through.
 
         Args:
             inputs (List): The list of the inputs
 
         Returns:
-            List: If a post process functionality is specified, it converts that into
-            a list.
+            List: If a post process functionality is specified, it could convert
+            raw rankings into a different list.
         """
-        logging.info("outputs from predict = %s",inputs)
+        logging.info("The output from model predict is %s", inputs)
 
         return inputs
-
