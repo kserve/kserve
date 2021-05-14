@@ -84,7 +84,7 @@ func (p *Explainer) Reconcile(isvc *v1beta1.InferenceService) error {
 		isvc.Spec.Explainer.PodSpec.Containers[0] = *container
 	}
 	if hasInferenceLogging {
-		addLoggerContainerPort(&isvc.Spec.Explainer.PodSpec.Containers[0])
+		addAgentContainerPort(&isvc.Spec.Explainer.PodSpec.Containers[0])
 	}
 
 	podSpec := v1.PodSpec(isvc.Spec.Explainer.PodSpec)

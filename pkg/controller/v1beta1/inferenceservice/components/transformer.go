@@ -63,6 +63,7 @@ func (p *Transformer) Reconcile(isvc *v1beta1.InferenceService) error {
 		annotations[constants.StorageInitializerSourceUriInternalAnnotationKey] = *sourceURI
 	}
 	hasInferenceLogging := addLoggerAnnotations(isvc.Spec.Transformer.Logger, annotations)
+	hasInferenceBatcher := addBatcherAnnotations(isvc.Spec.Transformer.Batcher, annotations)
 
 	objectMeta := metav1.ObjectMeta{
 		Name:      constants.DefaultTransformerServiceName(isvc.Name),
@@ -85,8 +86,8 @@ func (p *Transformer) Reconcile(isvc *v1beta1.InferenceService) error {
 		isvc.Spec.Transformer.PodSpec.Containers[0] = *container
 	}
 
-	if hasInferenceLogging {
-		addLoggerContainerPort(&isvc.Spec.Transformer.PodSpec.Containers[0])
+	if hasInferenceLogging || hasInferenceBatcher {
+		addAgentContainerPort(&isvc.Spec.Transformer.PodSpec.Containers[0])
 	}
 	podSpec := corev1.PodSpec(isvc.Spec.Transformer.PodSpec)
 	r := knative.NewKsvcReconciler(p.client, p.scheme, objectMeta, &isvc.Spec.Transformer.ComponentExtensionSpec,

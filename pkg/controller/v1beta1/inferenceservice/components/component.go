@@ -39,19 +39,6 @@ func addLoggerAnnotations(logger *v1beta1.LoggerSpec, annotations map[string]str
 	return false
 }
 
-func addLoggerContainerPort(container *v1.Container) {
-	if container != nil {
-		if container.Ports == nil || len(container.Ports) == 0 {
-			port, _ := strconv.Atoi(constants.InferenceServiceDefaultAgentPort)
-			container.Ports = []v1.ContainerPort{
-				{
-					ContainerPort: int32(port),
-				},
-			}
-		}
-	}
-}
-
 func addBatcherAnnotations(batcher *v1beta1.Batcher, annotations map[string]string) bool {
 	if batcher != nil {
 		annotations[constants.BatcherInternalAnnotationKey] = "true"
@@ -73,19 +60,6 @@ func addBatcherAnnotations(batcher *v1beta1.Batcher, annotations map[string]stri
 	return false
 }
 
-func addBatcherContainerPort(container *v1.Container) {
-	if container != nil {
-		if container.Ports == nil || len(container.Ports) == 0 {
-			port, _ := strconv.Atoi(constants.InferenceServiceDefaultAgentPort)
-			container.Ports = []v1.ContainerPort{
-				{
-					ContainerPort: int32(port),
-				},
-			}
-		}
-	}
-}
-
 func addAgentAnnotations(isvc *v1beta1.InferenceService, annotations map[string]string, isvcConfig *v1beta1.InferenceServicesConfig) bool {
 	if v1beta1utils.IsMMSPredictor(&isvc.Spec.Predictor, isvcConfig) {
 		annotations[constants.AgentShouldInjectAnnotationKey] = "true"
@@ -99,4 +73,17 @@ func addAgentAnnotations(isvc *v1beta1.InferenceService, annotations map[string]
 		return true
 	}
 	return false
+}
+
+func addAgentContainerPort(container *v1.Container) {
+	if container != nil {
+		if container.Ports == nil || len(container.Ports) == 0 {
+			port, _ := strconv.Atoi(constants.InferenceServiceDefaultAgentPort)
+			container.Ports = []v1.ContainerPort{
+				{
+					ContainerPort: int32(port),
+				},
+			}
+		}
+	}
 }
