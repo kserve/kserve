@@ -116,8 +116,13 @@ caBundle=$(cat ${tmpdir}/ca.crt | openssl enc -a -A)
 echo "Encoded CA:"
 echo -e "${caBundle} \n"
 
+# check if jq is installed
+if [ ! -x "$(command -v jq)" ]; then
+    echo "jq not found"
+    exit 1
+fi
 # Patch CA Certificate to mutatingWebhook
-mutatingWebhookCount=$(kubectl get mutatingwebhookconfiguration | grep ${webhookConfigName} | awk '{print $2}')
+mutatingWebhookCount=$(kubectl get mutatingwebhookconfiguration ${webhookConfigName} -ojson | jq -r '.webhooks' | jq length)
 # build patchstring based on webhook counts
 mutatingPatchString='['
 for i in $(seq 0 $(($mutatingWebhookCount-1)))
@@ -133,7 +138,7 @@ kubectl patch mutatingwebhookconfiguration ${webhookConfigName} \
     --type='json' -p="${mutatingPatchString}"
 
 # Patch CA Certificate to validatingWebhook
-validatingWebhookCount=$(kubectl get validatingwebhookconfiguration | grep ${webhookConfigName} | awk '{print $2}')
+validatingWebhookCount=$(kubectl get validatingwebhookconfiguration ${webhookConfigName} -ojson | jq -r '.webhooks' | jq length)
 validatingPatchString='['
 for i in $(seq 0 $(($validatingWebhookCount-1)))
 do
