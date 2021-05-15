@@ -14,14 +14,10 @@ limitations under the License.
 package components
 
 import (
-	"strconv"
-
 	"github.com/go-logr/logr"
 	"github.com/kubeflow/kfserving/pkg/constants"
-	"github.com/kubeflow/kfserving/pkg/controller/v1alpha1/trainedmodel/sharding/memory"
 	"github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/reconcilers/knative"
 	modelconfig "github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/reconcilers/modelconfig"
-	v1beta1utils "github.com/kubeflow/kfserving/pkg/controller/v1beta1/inferenceservice/utils"
 	"github.com/kubeflow/kfserving/pkg/credentials"
 	"github.com/kubeflow/kfserving/pkg/utils"
 	"github.com/pkg/errors"
@@ -91,12 +87,8 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
 	}
 	//TODO now knative supports multi containers, consolidate logger/batcher/puller to the sidecar container
 	//https://github.com/kubeflow/kfserving/issues/973
-	if hasInferenceLogging {
-		addLoggerContainerPort(&isvc.Spec.Predictor.PodSpec.Containers[0])
-	}
-
-	if hasInferenceBatcher {
-		addBatcherContainerPort(&isvc.Spec.Predictor.PodSpec.Containers[0])
+	if hasInferenceLogging || hasInferenceBatcher {
+		addAgentContainerPort(&isvc.Spec.Predictor.PodSpec.Containers[0])
 	}
 
 	podSpec := v1.PodSpec(isvc.Spec.Predictor.PodSpec)
@@ -120,78 +112,4 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) error {
 	}
 	isvc.Status.PropagateStatus(v1beta1.PredictorComponent, status)
 	return nil
-}
-
-func addLoggerAnnotations(logger *v1beta1.LoggerSpec, annotations map[string]string) bool {
-	if logger != nil {
-		annotations[constants.LoggerInternalAnnotationKey] = "true"
-		if logger.URL != nil {
-			annotations[constants.LoggerSinkUrlInternalAnnotationKey] = *logger.URL
-		}
-		annotations[constants.LoggerModeInternalAnnotationKey] = string(logger.Mode)
-		return true
-	}
-	return false
-}
-
-func addLoggerContainerPort(container *v1.Container) {
-	if container != nil {
-		if container.Ports == nil || len(container.Ports) == 0 {
-			port, _ := strconv.Atoi(constants.InferenceServiceDefaultAgentPort)
-			container.Ports = []v1.ContainerPort{
-				{
-					ContainerPort: int32(port),
-				},
-			}
-		}
-	}
-}
-
-func addBatcherAnnotations(batcher *v1beta1.Batcher, annotations map[string]string) bool {
-	if batcher != nil {
-		annotations[constants.BatcherInternalAnnotationKey] = "true"
-
-		if batcher.MaxBatchSize != nil {
-			s := strconv.Itoa(*batcher.MaxBatchSize)
-			annotations[constants.BatcherMaxBatchSizeInternalAnnotationKey] = s
-		}
-		if batcher.MaxLatency != nil {
-			s := strconv.Itoa(*batcher.MaxLatency)
-			annotations[constants.BatcherMaxLatencyInternalAnnotationKey] = s
-		}
-		if batcher.Timeout != nil {
-			s := strconv.Itoa(*batcher.Timeout)
-			annotations[constants.BatcherTimeoutInternalAnnotationKey] = s
-		}
-		return true
-	}
-	return false
-}
-
-func addBatcherContainerPort(container *v1.Container) {
-	if container != nil {
-		if container.Ports == nil || len(container.Ports) == 0 {
-			port, _ := strconv.Atoi(constants.InferenceServiceDefaultAgentPort)
-			container.Ports = []v1.ContainerPort{
-				{
-					ContainerPort: int32(port),
-				},
-			}
-		}
-	}
-}
-
-func addAgentAnnotations(isvc *v1beta1.InferenceService, annotations map[string]string, isvcConfig *v1beta1.InferenceServicesConfig) bool {
-	if v1beta1utils.IsMMSPredictor(&isvc.Spec.Predictor, isvcConfig) {
-		annotations[constants.AgentShouldInjectAnnotationKey] = "true"
-		shardStrategy := memory.MemoryStrategy{}
-		for _, id := range shardStrategy.GetShard(isvc) {
-			multiModelConfigMapName := constants.ModelConfigName(isvc.Name, id)
-			annotations[constants.AgentModelConfigVolumeNameAnnotationKey] = multiModelConfigMapName
-			annotations[constants.AgentModelConfigMountPathAnnotationKey] = constants.ModelConfigDir
-			annotations[constants.AgentModelDirAnnotationKey] = constants.ModelDir
-		}
-		return true
-	}
-	return false
 }
