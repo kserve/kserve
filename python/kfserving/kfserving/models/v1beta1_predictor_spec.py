@@ -85,6 +85,7 @@ class V1beta1PredictorSpec(object):
         'security_context': 'V1PodSecurityContext',
         'service_account': 'str',
         'service_account_name': 'str',
+        'set_hostname_as_fqdn': 'bool',
         'share_process_namespace': 'bool',
         'sklearn': 'V1beta1SKLearnSpec',
         'subdomain': 'str',
@@ -137,6 +138,7 @@ class V1beta1PredictorSpec(object):
         'security_context': 'securityContext',
         'service_account': 'serviceAccount',
         'service_account_name': 'serviceAccountName',
+        'set_hostname_as_fqdn': 'setHostnameAsFQDN',
         'share_process_namespace': 'shareProcessNamespace',
         'sklearn': 'sklearn',
         'subdomain': 'subdomain',
@@ -150,7 +152,7 @@ class V1beta1PredictorSpec(object):
         'xgboost': 'xgboost'
     }
 
-    def __init__(self, active_deadline_seconds=None, affinity=None, automount_service_account_token=None, batcher=None, canary_traffic_percent=None, container_concurrency=None, containers=None, dns_config=None, dns_policy=None, enable_service_links=None, ephemeral_containers=None, host_aliases=None, host_ipc=None, host_network=None, host_pid=None, hostname=None, image_pull_secrets=None, init_containers=None, lightgbm=None, logger=None, max_replicas=None, min_replicas=None, node_name=None, node_selector=None, onnx=None, overhead=None, pmml=None, preemption_policy=None, priority=None, priority_class_name=None, pytorch=None, readiness_gates=None, restart_policy=None, runtime_class_name=None, scheduler_name=None, security_context=None, service_account=None, service_account_name=None, share_process_namespace=None, sklearn=None, subdomain=None, tensorflow=None, termination_grace_period_seconds=None, timeout=None, tolerations=None, topology_spread_constraints=None, triton=None, volumes=None, xgboost=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, active_deadline_seconds=None, affinity=None, automount_service_account_token=None, batcher=None, canary_traffic_percent=None, container_concurrency=None, containers=None, dns_config=None, dns_policy=None, enable_service_links=None, ephemeral_containers=None, host_aliases=None, host_ipc=None, host_network=None, host_pid=None, hostname=None, image_pull_secrets=None, init_containers=None, lightgbm=None, logger=None, max_replicas=None, min_replicas=None, node_name=None, node_selector=None, onnx=None, overhead=None, pmml=None, preemption_policy=None, priority=None, priority_class_name=None, pytorch=None, readiness_gates=None, restart_policy=None, runtime_class_name=None, scheduler_name=None, security_context=None, service_account=None, service_account_name=None, set_hostname_as_fqdn=None, share_process_namespace=None, sklearn=None, subdomain=None, tensorflow=None, termination_grace_period_seconds=None, timeout=None, tolerations=None, topology_spread_constraints=None, triton=None, volumes=None, xgboost=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1PredictorSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -194,6 +196,7 @@ class V1beta1PredictorSpec(object):
         self._security_context = None
         self._service_account = None
         self._service_account_name = None
+        self._set_hostname_as_fqdn = None
         self._share_process_namespace = None
         self._sklearn = None
         self._subdomain = None
@@ -283,6 +286,8 @@ class V1beta1PredictorSpec(object):
             self.service_account = service_account
         if service_account_name is not None:
             self.service_account_name = service_account_name
+        if set_hostname_as_fqdn is not None:
+            self.set_hostname_as_fqdn = set_hostname_as_fqdn
         if share_process_namespace is not None:
             self.share_process_namespace = share_process_namespace
         if sklearn is not None:
@@ -917,7 +922,7 @@ class V1beta1PredictorSpec(object):
     def preemption_policy(self):
         """Gets the preemption_policy of this V1beta1PredictorSpec.  # noqa: E501
 
-        PreemptionPolicy is the Policy for preempting pods with lower priority. One of Never, PreemptLowerPriority. Defaults to PreemptLowerPriority if unset. This field is alpha-level and is only honored by servers that enable the NonPreemptingPriority feature.  # noqa: E501
+        PreemptionPolicy is the Policy for preempting pods with lower priority. One of Never, PreemptLowerPriority. Defaults to PreemptLowerPriority if unset. This field is beta-level, gated by the NonPreemptingPriority feature-gate.  # noqa: E501
 
         :return: The preemption_policy of this V1beta1PredictorSpec.  # noqa: E501
         :rtype: str
@@ -928,7 +933,7 @@ class V1beta1PredictorSpec(object):
     def preemption_policy(self, preemption_policy):
         """Sets the preemption_policy of this V1beta1PredictorSpec.
 
-        PreemptionPolicy is the Policy for preempting pods with lower priority. One of Never, PreemptLowerPriority. Defaults to PreemptLowerPriority if unset. This field is alpha-level and is only honored by servers that enable the NonPreemptingPriority feature.  # noqa: E501
+        PreemptionPolicy is the Policy for preempting pods with lower priority. One of Never, PreemptLowerPriority. Defaults to PreemptLowerPriority if unset. This field is beta-level, gated by the NonPreemptingPriority feature-gate.  # noqa: E501
 
         :param preemption_policy: The preemption_policy of this V1beta1PredictorSpec.  # noqa: E501
         :type: str
@@ -1163,6 +1168,29 @@ class V1beta1PredictorSpec(object):
         self._service_account_name = service_account_name
 
     @property
+    def set_hostname_as_fqdn(self):
+        """Gets the set_hostname_as_fqdn of this V1beta1PredictorSpec.  # noqa: E501
+
+        If true the pod's hostname will be configured as the pod's FQDN, rather than the leaf name (the default). In Linux containers, this means setting the FQDN in the hostname field of the kernel (the nodename field of struct utsname). In Windows containers, this means setting the registry value of hostname for the registry key HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters to FQDN. If a pod does not have FQDN, this has no effect. Default to false.  # noqa: E501
+
+        :return: The set_hostname_as_fqdn of this V1beta1PredictorSpec.  # noqa: E501
+        :rtype: bool
+        """
+        return self._set_hostname_as_fqdn
+
+    @set_hostname_as_fqdn.setter
+    def set_hostname_as_fqdn(self, set_hostname_as_fqdn):
+        """Sets the set_hostname_as_fqdn of this V1beta1PredictorSpec.
+
+        If true the pod's hostname will be configured as the pod's FQDN, rather than the leaf name (the default). In Linux containers, this means setting the FQDN in the hostname field of the kernel (the nodename field of struct utsname). In Windows containers, this means setting the registry value of hostname for the registry key HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters to FQDN. If a pod does not have FQDN, this has no effect. Default to false.  # noqa: E501
+
+        :param set_hostname_as_fqdn: The set_hostname_as_fqdn of this V1beta1PredictorSpec.  # noqa: E501
+        :type: bool
+        """
+
+        self._set_hostname_as_fqdn = set_hostname_as_fqdn
+
+    @property
     def share_process_namespace(self):
         """Gets the share_process_namespace of this V1beta1PredictorSpec.  # noqa: E501
 
@@ -1323,7 +1351,7 @@ class V1beta1PredictorSpec(object):
     def topology_spread_constraints(self):
         """Gets the topology_spread_constraints of this V1beta1PredictorSpec.  # noqa: E501
 
-        TopologySpreadConstraints describes how a group of pods ought to spread across topology domains. Scheduler will schedule pods in a way which abides by the constraints. This field is alpha-level and is only honored by clusters that enables the EvenPodsSpread feature. All topologySpreadConstraints are ANDed.  # noqa: E501
+        TopologySpreadConstraints describes how a group of pods ought to spread across topology domains. Scheduler will schedule pods in a way which abides by the constraints. All topologySpreadConstraints are ANDed.  # noqa: E501
 
         :return: The topology_spread_constraints of this V1beta1PredictorSpec.  # noqa: E501
         :rtype: list[V1TopologySpreadConstraint]
@@ -1334,7 +1362,7 @@ class V1beta1PredictorSpec(object):
     def topology_spread_constraints(self, topology_spread_constraints):
         """Sets the topology_spread_constraints of this V1beta1PredictorSpec.
 
-        TopologySpreadConstraints describes how a group of pods ought to spread across topology domains. Scheduler will schedule pods in a way which abides by the constraints. This field is alpha-level and is only honored by clusters that enables the EvenPodsSpread feature. All topologySpreadConstraints are ANDed.  # noqa: E501
+        TopologySpreadConstraints describes how a group of pods ought to spread across topology domains. Scheduler will schedule pods in a way which abides by the constraints. All topologySpreadConstraints are ANDed.  # noqa: E501
 
         :param topology_spread_constraints: The topology_spread_constraints of this V1beta1PredictorSpec.  # noqa: E501
         :type: list[V1TopologySpreadConstraint]

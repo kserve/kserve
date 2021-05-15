@@ -51,12 +51,13 @@ class TestV1alpha1ModelSpec(unittest.TestCase):
         if include_optional :
             return V1alpha1ModelSpec(
                 framework = '0', 
-                memory = None, 
+                memory = '0', 
                 storage_uri = '0'
             )
         else :
             return V1alpha1ModelSpec(
                 framework = '0',
+                memory = '0', 
                 storage_uri = '0',
         )
 

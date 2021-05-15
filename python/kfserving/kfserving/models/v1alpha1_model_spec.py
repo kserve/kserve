@@ -70,8 +70,7 @@ class V1alpha1ModelSpec(object):
         self.discriminator = None
 
         self.framework = framework
-        if memory is not None:
-            self.memory = memory
+        self.memory = memory
         self.storage_uri = storage_uri
 
     @property
@@ -117,6 +116,8 @@ class V1alpha1ModelSpec(object):
         :param memory: The memory of this V1alpha1ModelSpec.  # noqa: E501
         :type: ResourceQuantity
         """
+        if self.local_vars_configuration.client_side_validation and memory is None:  # noqa: E501
+            raise ValueError("Invalid value for `memory`, must not be `None`")  # noqa: E501
 
         self._memory = memory
 

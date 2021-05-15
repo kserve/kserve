@@ -53,27 +53,33 @@ class TestV1beta1PredictorsConfig(unittest.TestCase):
                 onnx = kfserving.models.v1beta1_predictor_config.V1beta1PredictorConfig(
                     default_gpu_image_version = '0', 
                     default_image_version = '0', 
-                    image = '0', ), 
+                    image = '0', 
+                    supported_frameworks=['0'] ), 
                 pytorch = kfserving.models.v1beta1_predictor_config.V1beta1PredictorConfig(
                     default_gpu_image_version = '0', 
                     default_image_version = '0', 
-                    image = '0', ), 
+                    image = '0',
+                    supported_frameworks=['0'] ), 
                 sklearn = kfserving.models.v1beta1_predictor_config.V1beta1PredictorConfig(
                     default_gpu_image_version = '0', 
                     default_image_version = '0', 
-                    image = '0', ), 
+                    image = '0',
+                    supported_frameworks=['0'] ), 
                 tensorflow = kfserving.models.v1beta1_predictor_config.V1beta1PredictorConfig(
                     default_gpu_image_version = '0', 
                     default_image_version = '0', 
-                    image = '0', ), 
+                    image = '0',
+                    supported_frameworks=['0'] ), 
                 triton = kfserving.models.v1beta1_predictor_config.V1beta1PredictorConfig(
                     default_gpu_image_version = '0', 
                     default_image_version = '0', 
-                    image = '0', ), 
+                    image = '0',
+                    supported_frameworks=['0'] ),
                 xgboost = kfserving.models.v1beta1_predictor_config.V1beta1PredictorConfig(
                     default_gpu_image_version = '0', 
                     default_image_version = '0', 
-                    image = '0', )
+                    image = '0',
+                    supported_frameworks=['0'] ),
             )
         else :
             return V1beta1PredictorsConfig(

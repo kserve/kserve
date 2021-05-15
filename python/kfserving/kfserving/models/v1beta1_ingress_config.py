@@ -48,15 +48,19 @@ class V1beta1IngressConfig(object):
     """
     openapi_types = {
         'ingress_gateway': 'str',
-        'ingress_service': 'str'
+        'ingress_service': 'str',
+        'local_gateway': 'str',
+        'local_gateway_service': 'str'
     }
 
     attribute_map = {
         'ingress_gateway': 'ingressGateway',
-        'ingress_service': 'ingressService'
+        'ingress_service': 'ingressService',
+        'local_gateway': 'localGateway',
+        'local_gateway_service': 'localGatewayService'
     }
 
-    def __init__(self, ingress_gateway=None, ingress_service=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, ingress_gateway=None, ingress_service=None, local_gateway=None, local_gateway_service=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1IngressConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -64,12 +68,18 @@ class V1beta1IngressConfig(object):
 
         self._ingress_gateway = None
         self._ingress_service = None
+        self._local_gateway = None
+        self._local_gateway_service = None
         self.discriminator = None
 
         if ingress_gateway is not None:
             self.ingress_gateway = ingress_gateway
         if ingress_service is not None:
             self.ingress_service = ingress_service
+        if local_gateway is not None:
+            self.local_gateway = local_gateway
+        if local_gateway_service is not None:
+            self.local_gateway_service = local_gateway_service
 
     @property
     def ingress_gateway(self):
@@ -112,6 +122,48 @@ class V1beta1IngressConfig(object):
         """
 
         self._ingress_service = ingress_service
+
+    @property
+    def local_gateway(self):
+        """Gets the local_gateway of this V1beta1IngressConfig.  # noqa: E501
+
+
+        :return: The local_gateway of this V1beta1IngressConfig.  # noqa: E501
+        :rtype: str
+        """
+        return self._local_gateway
+
+    @local_gateway.setter
+    def local_gateway(self, local_gateway):
+        """Sets the local_gateway of this V1beta1IngressConfig.
+
+
+        :param local_gateway: The local_gateway of this V1beta1IngressConfig.  # noqa: E501
+        :type: str
+        """
+
+        self._local_gateway = local_gateway
+
+    @property
+    def local_gateway_service(self):
+        """Gets the local_gateway_service of this V1beta1IngressConfig.  # noqa: E501
+
+
+        :return: The local_gateway_service of this V1beta1IngressConfig.  # noqa: E501
+        :rtype: str
+        """
+        return self._local_gateway_service
+
+    @local_gateway_service.setter
+    def local_gateway_service(self, local_gateway_service):
+        """Sets the local_gateway_service of this V1beta1IngressConfig.
+
+
+        :param local_gateway_service: The local_gateway_service of this V1beta1IngressConfig.  # noqa: E501
+        :type: str
+        """
+
+        self._local_gateway_service = local_gateway_service
 
     def to_dict(self):
         """Returns the model properties as a dict"""
