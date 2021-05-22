@@ -31,7 +31,7 @@ from ..common.utils import explain_art
 from ..common.utils import KFSERVING_TEST_NAMESPACE
 
 logging.basicConfig(level=logging.INFO)
-kfserving_version = 'v1beta1'
+kfserving_version = constants.KFSERVING_V1BETA1_VERSION
 api_version = constants.KFSERVING_GROUP + '/' + kfserving_version
 KFServing = KFServingClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
 
