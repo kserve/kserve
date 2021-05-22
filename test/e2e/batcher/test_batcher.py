@@ -27,7 +27,6 @@ from ..common.utils import predict
 from ..common.utils import KFSERVING_TEST_NAMESPACE
 from concurrent import futures
 
-api_version = constants.KFSERVING_GROUP + '/' + constants.KFSERVING_VERSION
 KFServing = KFServingClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
 
 
@@ -49,7 +48,7 @@ def test_batcher():
         )
     )
 
-    isvc = V1beta1InferenceService(api_version=api_version,
+    isvc = V1beta1InferenceService(api_version=constants.KFSERVING_V1BETA1,
                                    kind=constants.KFSERVING_KIND,
                                    metadata=client.V1ObjectMeta(
                                        name=service_name,

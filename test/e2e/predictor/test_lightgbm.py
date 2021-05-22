@@ -26,10 +26,6 @@ from kubernetes.client import V1ResourceRequirements
 
 from ..common.utils import predict, KFSERVING_TEST_NAMESPACE
 
-api_version = f"{constants.KFSERVING_GROUP}/{constants.KFSERVING_VERSION}"
-api_v1beta1_version = (
-    f"{constants.KFSERVING_GROUP}/{constants.KFSERVING_V1BETA1_VERSION}"
-)
 KFServing = KFServingClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
 
 
@@ -47,7 +43,7 @@ def test_lightgbm_kfserving():
     )
 
     isvc = V1beta1InferenceService(
-        api_version=api_version,
+        api_version=constants.KFSERVING_V1BETA1,
         kind=constants.KFSERVING_KIND,
         metadata=client.V1ObjectMeta(
             name=service_name, namespace=KFSERVING_TEST_NAMESPACE
@@ -56,10 +52,8 @@ def test_lightgbm_kfserving():
     )
 
     KFServing.create(isvc)
-    KFServing.wait_isvc_ready(service_name, namespace=KFSERVING_TEST_NAMESPACE,
-                              version=constants.KFSERVING_VERSION)
+    KFServing.wait_isvc_ready(service_name, namespace=KFSERVING_TEST_NAMESPACE)
 
-    res = predict(service_name, "./data/iris_input_v3.json",
-                  version=constants.KFSERVING_VERSION)
+    res = predict(service_name, "./data/iris_input_v3.json")
     assert res["predictions"][0][0] > 0.5
     KFServing.delete(service_name, KFSERVING_TEST_NAMESPACE)

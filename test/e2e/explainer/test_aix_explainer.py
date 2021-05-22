@@ -34,7 +34,6 @@ from ..common.utils import KFSERVING_TEST_NAMESPACE
 import numpy as np
 
 logging.basicConfig(level=logging.INFO)
-api_version = constants.KFSERVING_GROUP + '/' + constants.KFSERVING_V1BETA1_VERSION
 KFServing = KFServingClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
 
 
@@ -52,6 +51,7 @@ def test_tabular_explainer():
     explainer = V1beta1ExplainerSpec(
         min_replicas=1,
         aix=V1beta1AIXExplainerSpec(
+            name='explainer',
             type='LimeImages',
             resources=V1ResourceRequirements(
                 requests={'cpu': '500m', 'memory': '1Gi'},
@@ -59,7 +59,7 @@ def test_tabular_explainer():
         )
     )
 
-    isvc = V1beta1InferenceService(api_version=api_version,
+    isvc = V1beta1InferenceService(api_version=constants.KFSERVING_V1BETA1,
                                    kind=constants.KFSERVING_KIND,
                                    metadata=client.V1ObjectMeta(
                                        name=service_name, namespace=KFSERVING_TEST_NAMESPACE),

@@ -31,7 +31,6 @@ from ..common.utils import explain
 from ..common.utils import KFSERVING_TEST_NAMESPACE
 
 logging.basicConfig(level=logging.INFO)
-api_version = constants.KFSERVING_GROUP + '/' + constants.KFSERVING_V1BETA1_VERSION
 KFServing = KFServingClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
 
 
@@ -49,6 +48,7 @@ def test_tabular_explainer():
     explainer = V1beta1ExplainerSpec(
         min_replicas=1,
         alibi=V1beta1AlibiExplainerSpec(
+            name='kfserving-container',
             type='AnchorTabular',
             storage_uri='gs://seldon-models/sklearn/income/explainer-py36-0.5.2',
             resources=V1ResourceRequirements(
@@ -58,7 +58,7 @@ def test_tabular_explainer():
         )
     )
 
-    isvc = V1beta1InferenceService(api_version=api_version,
+    isvc = V1beta1InferenceService(api_version=constants.KFSERVING_V1BETA1,
                                    kind=constants.KFSERVING_KIND,
                                    metadata=client.V1ObjectMeta(
                                        name=service_name, namespace=KFSERVING_TEST_NAMESPACE),

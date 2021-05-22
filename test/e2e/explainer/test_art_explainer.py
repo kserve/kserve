@@ -31,14 +31,12 @@ from ..common.utils import explain_art
 from ..common.utils import KFSERVING_TEST_NAMESPACE
 
 logging.basicConfig(level=logging.INFO)
-kfserving_version = constants.KFSERVING_V1BETA1_VERSION
-api_version = constants.KFSERVING_GROUP + '/' + kfserving_version
 KFServing = KFServingClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
 
 
 def test_tabular_explainer():
     service_name = 'art-explainer'
-    isvc = V1beta1InferenceService(api_version=api_version,
+    isvc = V1beta1InferenceService(api_version=constants.KFSERVING_V1BETA1,
                                    kind=constants.KFSERVING_KIND,
                                    metadata=client.V1ObjectMeta(
                                        name=service_name, namespace=KFSERVING_TEST_NAMESPACE),
@@ -79,4 +77,4 @@ def test_tabular_explainer():
 
     adv_prediction = explain_art(service_name, './data/mnist_input_bw.json')
     assert (adv_prediction != 3)
-    KFServing.delete(service_name, KFSERVING_TEST_NAMESPACE, version=kfserving_version)
+    KFServing.delete(service_name, KFSERVING_TEST_NAMESPACE)

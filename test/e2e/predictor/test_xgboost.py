@@ -26,9 +26,6 @@ from kubernetes.client import V1ResourceRequirements
 
 from ..common.utils import predict, KFSERVING_TEST_NAMESPACE
 
-api_v1beta1_version = (
-    f"{constants.KFSERVING_GROUP}/{constants.KFSERVING_V1BETA1_VERSION}"
-)
 KFServing = KFServingClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
 
 
@@ -46,7 +43,7 @@ def test_xgboost_kfserving():
     )
 
     isvc = V1beta1InferenceService(
-        api_version=api_v1beta1_version,
+        api_version=constants.KFSERVING_V1BETA1,
         kind=constants.KFSERVING_KIND,
         metadata=client.V1ObjectMeta(
             name=service_name, namespace=KFSERVING_TEST_NAMESPACE
@@ -76,7 +73,7 @@ def test_xgboost_v2_kfserving():
     )
 
     isvc = V1beta1InferenceService(
-        api_version=api_v1beta1_version,
+        api_version=constants.KFSERVING_V1BETA1,
         kind=constants.KFSERVING_KIND,
         metadata=client.V1ObjectMeta(
             name=service_name, namespace=KFSERVING_TEST_NAMESPACE

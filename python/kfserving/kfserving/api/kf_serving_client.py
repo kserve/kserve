@@ -262,7 +262,7 @@ class KFServingClient(object):
         else:
             return outputs
 
-    def delete(self, name, namespace=None, version=constants.KFSERVING_VERSION):
+    def delete(self, name, namespace=None, version=constants.KFSERVING_V1BETA1_VERSION):
         """
         Delete the inference service
         :param name: inference service name
