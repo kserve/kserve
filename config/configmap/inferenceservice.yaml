@@ -90,7 +90,7 @@ data:
               "pytorch",
               "caffe2"
             ],
-            "multiModelServer": false
+            "multiModelServer": true
         },
         "pmml": {
             "image": "kfserving/pmmlserver",

@@ -20,26 +20,10 @@ kubectl patch cm config-deployment --patch '{"data":{"registriesSkippingTagResol
 ```bash
 kubectl patch cm config-deployment --patch '{"data":{"progressDeadline": "600s"}}' -n knative-serving
 ```
-5. Setup Minio for storing the models as currently model agent sidecar only supports S3 protocol.
-```bash
-# Setup Minio
-kubectl apply -f minio.yaml
-kubectl apply -f s3_secret.yaml
-kubectl port-forward $(kubectl get pod --selector="app=minio" --output jsonpath='{.items[0].metadata.name}') 9000:9000
-mc config host add myminio http://127.0.0.1:9000 minio minio123
-
-# Copy cifar10 model to minio
-gsutil cp -r gs://kfserving-examples/models/torchscript/cifar10 .
-mc cp -r cifar10 myminio/triton/torchscript
-
-# Copy simple string model to minio
-gsutil cp -r gs://kfserving-samples/models/triton/simple_string
-mc cp -r simple_string myminio/triton
-```
 
 ## Create the hosting InferenceService
-KFServing `Multi Model Serving` design decouples the trained model artifact from hosting service. User can create a hosting `InferenceService` without `StoragegUri`
-and then deploy multiple `TrainedModel` onto the assigned `InferenceService`.
+KFServing `Multi Model Serving` design decouples the trained model artifact from the hosting service. User can create a hosting `InferenceService` without `StoragegUri`
+and then deploy multiple `TrainedModel`s onto the assigned `InferenceService`.
 
 ```yaml
 apiVersion: "serving.kubeflow.org/v1beta1"
@@ -54,10 +38,10 @@ spec:
       resources:
         limits:
           cpu: "1"
-          memory: 16Gi
+          memory: 2Gi
         requests:
           cpu: "1"
-          memory: 16Gi
+          memory: 2Gi
 ```
 Note that you create the hosting `InferenceService` with enough memory resource without specifying the `StorageUri` as single model service initially.
 
@@ -73,7 +57,7 @@ triton-mms   http://triton-mms.default.35.229.120.99.xip.io   True    8h
 ```
 
 ## Deploy Trained Model
-Now you have an `InferenceService` running with 16Gi memory but no model is loaded on the server yet, let's deploy the model onto the server using `TrainedModel` CR.
+Now you have an `InferenceService` running with 2Gi memory but no model is loaded on the server yet, let's deploy the model on `InferenceService` by applying the `TrainedModel` CR.
 
 On `TrainedModel` CR you specify the model framework you trained with and the `storageUri` where the model is getting stored, last you set the `InferenceService` name you want
 the model to deploy onto.
@@ -88,7 +72,8 @@ spec:
   inferenceService: triton-mms
   model:
     framework: pytorch
-    storageUri: s3://triton/torchscript/cifar10
+    storageUri: gs://kfserving-examples/models/torchscript/cifar10
+    memory: 1Gi
 ``` 
 
 ```bash
@@ -130,7 +115,9 @@ curl -H "Host: ${SERVICE_HOSTNAME}" http://${INGRESS_HOST}:${INGRESS_PORT}/v2/mo
 ```
 
 ### Deploy Simple String Tensorflow Model
-Next let's deploy another model to the same `InferenceService`
+Next let's deploy another model to the same `InferenceService`.
+> :warning: The TrainModel resource name must be the same as the model name specified in triton model configuration.
+
 
 ```yaml
 apiVersion: "serving.kubeflow.org/v1alpha1"
@@ -140,8 +127,9 @@ metadata:
 spec:
   inferenceService: triton-mms
   model:
-    framework: pytorch
-    storageUri: s3://triton/simple_string
+    framework: tensorflow
+    storageUri: gs://kfserving-samples/models/tensorrt/simple_string
+    memory: 1Gi
 ``` 
 
 Check the `Triton Inference Service` log you will see that the model is also loaded into the memory
