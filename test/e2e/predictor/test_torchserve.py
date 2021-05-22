@@ -27,7 +27,6 @@ from kubernetes.client import V1ResourceRequirements
 from ..common.utils import predict
 from ..common.utils import KFSERVING_TEST_NAMESPACE
 
-api_version = f"{constants.KFSERVING_GROUP}/{constants.KFSERVING_VERSION}"
 api_v1beta1_version = (
     f"{constants.KFSERVING_GROUP}/{constants.KFSERVING_V1BETA1_VERSION}"
 )
