@@ -17,11 +17,10 @@ from kubernetes import client
 from kfserving import (
     KFServingClient,
     constants,
-    V1alpha2EndpointSpec,
-    V1alpha2PredictorSpec,
-    V1alpha2LightGBMSpec,
-    V1alpha2InferenceServiceSpec,
-    V1alpha2InferenceService
+    V1beta1PredictorSpec,
+    V1beta1LightGBMSpec,
+    V1beta1InferenceServiceSpec,
+    V1beta1InferenceService
 )
 from kubernetes.client import V1ResourceRequirements
 
@@ -36,26 +35,24 @@ KFServing = KFServingClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/co
 
 def test_lightgbm_kfserving():
     service_name = "isvc-lightgbm"
-    default_endpoint_spec = V1alpha2EndpointSpec(
-        predictor=V1alpha2PredictorSpec(
-            min_replicas=1,
-            lightgbm=V1alpha2LightGBMSpec(
-                storage_uri="gs://kfserving-examples/models/lightgbm",
-                resources=V1ResourceRequirements(
-                    requests={"cpu": "100m", "memory": "256Mi"},
-                    limits={"cpu": "100m", "memory": "256Mi"},
-                ),
+    predictor = V1beta1PredictorSpec(
+        min_replicas=1,
+        lightgbm=V1beta1LightGBMSpec(
+            storage_uri="gs://kfserving-examples/models/lightgbm",
+            resources=V1ResourceRequirements(
+                requests={"cpu": "100m", "memory": "256Mi"},
+                limits={"cpu": "100m", "memory": "256Mi"},
             ),
-        )
+        ),
     )
 
-    isvc = V1alpha2InferenceService(
+    isvc = V1beta1InferenceService(
         api_version=api_version,
         kind=constants.KFSERVING_KIND,
         metadata=client.V1ObjectMeta(
             name=service_name, namespace=KFSERVING_TEST_NAMESPACE
         ),
-        spec=V1alpha2InferenceServiceSpec(default=default_endpoint_spec),
+        spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
     KFServing.create(isvc)
