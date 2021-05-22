@@ -49,7 +49,7 @@ def test_tabular_explainer():
                         requests={'cpu': '500m', 'memory': '1Gi'},
                         limits={'cpu': '500m', 'memory': '1Gi'}))]
     )
-    explainer=V1beta1ExplainerSpec(
+    explainer = V1beta1ExplainerSpec(
         min_replicas=1,
         aix=V1beta1AIXExplainerSpec(
             type='LimeImages',

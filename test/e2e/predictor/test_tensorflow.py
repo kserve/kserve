@@ -32,7 +32,7 @@ KFServing = KFServingClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/co
 
 def test_tensorflow_kfserving():
     service_name = 'isvc-tensorflow'
-    predictor=V1beta1PredictorSpec(
+    predictor = V1beta1PredictorSpec(
         min_replicas=1,
         tensorflow=V1beta1TFServingSpec(
             storage_uri='gs://kfserving-samples/models/tensorflow/flowers',

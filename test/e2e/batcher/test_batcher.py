@@ -33,7 +33,7 @@ KFServing = KFServingClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/co
 
 def test_batcher():
     service_name = 'isvc-pytorch-batcher'
-    predictor=V1beta1PredictorSpec(
+    predictor = V1beta1PredictorSpec(
         batcher=V1beta1Batcher(
             max_batch_size=32,
             max_latency=5000,

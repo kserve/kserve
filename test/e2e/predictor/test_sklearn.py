@@ -35,7 +35,7 @@ KFServing = KFServingClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/co
 
 def test_sklearn_kfserving():
     service_name = "isvc-sklearn"
-    predictor=V1beta1PredictorSpec(
+    predictor = V1beta1PredictorSpec(
         min_replicas=1,
         sklearn=V1beta1SKLearnSpec(
             storage_uri="gs://kfserving-samples/models/sklearn/iris",
