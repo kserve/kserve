@@ -1,10 +1,10 @@
 apiVersion: "serving.kubeflow.org/v1alpha1"
 kind: "TrainedModel"
 metadata:
-  name: "simple_string"
+  name: "simple-string"
 spec:
   inferenceService: triton-mms
   model:
     framework: tensorflow 
-    storageUri: gs://kfserving-samples/models/tensorrt/simple_string 
+    storageUri: gs://kfserving-examples/models/triton/simple_string
     memory: "1Gi"
