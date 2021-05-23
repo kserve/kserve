@@ -6,11 +6,14 @@ spec:
   predictor:
     triton:
       args:
-      - --log-verbose=1     
+      - --log-verbose=1
+      env:
+      - name: OMP_NUM_THREADS
+        value: "1"  
       resources:
         limits:
           cpu: "1"
-          memory: 1Gi
+          memory: 2Gi
         requests:
           cpu: "1"
-          memory: 1Gi
+          memory: 2Gi

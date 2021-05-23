@@ -32,10 +32,10 @@ spec:
       resources:
         limits:
           cpu: 100m
-          memory: 256Mi
+          memory: 512Mi
         requests:
           cpu: 100m
-          memory: 256Mi
+          memory: 512Mi
 ```
 Run the command `kubectl apply -f inferenceservice.yaml` to create the inference service. Check if the service is properly deployed by running `kubectl get inferenceservice`. The output should be similar to the below.
 ```yaml
