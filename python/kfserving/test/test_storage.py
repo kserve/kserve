@@ -127,9 +127,9 @@ test_http_uri_path_with_xgtar_query_params = gen_download_tests(HTTPS_URI_TARGZ_
 test_http_uri_path_with_xgzip = gen_download_tests(HTTPS_URI_TARGZ,
                                                    MockHttpResponse(200, FILE_TAR_GZ_RAW,
                                                                     'application/x-gzip'))
-test_http_uri_path_with_xgip_query_params = gen_download_tests(HTTPS_URI_TARGZ_WITH_QUERY,
-                                                               MockHttpResponse(200, FILE_TAR_GZ_RAW,
-                                                                                'application/x-gzip'))
+test_http_uri_path_with_xgzip_query_params = gen_download_tests(HTTPS_URI_TARGZ_WITH_QUERY,
+                                                                MockHttpResponse(200, FILE_TAR_GZ_RAW,
+                                                                                 'application/x-gzip'))
 test_http_uri_path_with_gzip = gen_download_tests(HTTPS_URI_TARGZ,
                                                   MockHttpResponse(200, FILE_TAR_GZ_RAW,
                                                                    'application/gzip'))
