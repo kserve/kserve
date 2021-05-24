@@ -23,6 +23,8 @@ import kfserving
 import pytest
 
 STORAGE_MODULE = 'kfserving.storage'
+HTTPS_URI_TARGZ = 'https://foo.bar/model.tar.gz'
+HTTPS_URI_TARGZ_WITH_QUERY = HTTPS_URI_TARGZ + '?foo=bar'
 
 # *.tar.gz contains a single empty file model.pth
 FILE_TAR_GZ_RAW = binascii.unhexlify('1f8b0800bac550600003cbcd4f49cdd12b28c960a01d3030303033315100d1e666a660dac008c28'
@@ -94,62 +96,61 @@ def test_https_uri_path(_):
     os.remove('./model.joblib')
 
 
-@mock.patch('requests.get', return_value=MockHttpResponse(status_code=200, content_type='application/x-tar',
-                                                          raw=FILE_TAR_GZ_RAW))
-def test_http_uri_path_with_tar_gz(_):
-    with tempfile.TemporaryDirectory() as out_dir:
-        https_uri = 'https://foo.bar/model.tar.gz'
-        assert kfserving.Storage.download(https_uri, out_dir=out_dir) == out_dir
-        assert os.path.exists(os.path.join(out_dir, 'model.pth'))
+def gen_download_tests(uri, response, expected_error=None):
+    @mock.patch('requests.get', return_value=response)
+    def test_success(_):
+        with tempfile.TemporaryDirectory() as out_dir:
+            assert kfserving.Storage.download(uri, out_dir=out_dir) == out_dir
+            assert os.path.exists(os.path.join(out_dir, 'model.pth'))
 
+    @mock.patch('requests.get', return_value=response)
+    def test_fail(_):
+        with pytest.raises(expected_error):
+            kfserving.Storage.download(uri)
 
-@mock.patch('requests.get', return_value=MockHttpResponse(status_code=200, content_type='application/x-tar',
-                                                          raw=FILE_TAR_GZ_RAW))
-def test_http_uri_path_with_tar_gz_query_params(_):
-    with tempfile.TemporaryDirectory() as out_dir:
-        https_with_query_uri = 'https://foo.bar/model.tar.gz?foo=bar'
-        assert kfserving.Storage.download(https_with_query_uri, out_dir=out_dir) == out_dir
-        assert os.path.exists(os.path.join(out_dir, 'model.pth'))
+    if expected_error is None:
+        return test_success
+    return test_fail
 
-
-@mock.patch('requests.get', return_value=MockHttpResponse(status_code=200, content_type='application/zip',
-                                                          raw=FILE_ZIP_RAW))
-def test_http_uri_path_with_zip(_):
-    with tempfile.TemporaryDirectory() as out_dir:
-        https_uri = 'https://foo.bar/model.zip'
-        assert kfserving.Storage.download(https_uri, out_dir=out_dir) == out_dir
-        assert os.path.exists(os.path.join(out_dir, 'model.pth'))
-
-
-@mock.patch('requests.get', return_value=MockHttpResponse(status_code=200, content_type='application/zip',
-                                                          raw=FILE_ZIP_RAW))
-def test_http_uri_path_with_zip_query_params(_):
-    with tempfile.TemporaryDirectory() as out_dir:
-        https_with_query_uri = 'https://foo.bar/model.zip?foo=bar'
-        assert kfserving.Storage.download(https_with_query_uri, out_dir=out_dir) == out_dir
-        assert os.path.exists(os.path.join(out_dir, 'model.pth'))
-
-
-@mock.patch('requests.get', return_value=MockHttpResponse(status_code=404))
-def test_nonexistent_uri(_):
-    non_existent_uri = 'https://theabyss.net/model.joblib'
-    with pytest.raises(RuntimeError):
-        kfserving.Storage.download(non_existent_uri)
-
-
-@mock.patch('requests.get', return_value=MockHttpResponse(status_code=200))
-def test_uri_no_filename(_):
-    bad_uri = 'https://foo.bar/test/'
-    with pytest.raises(ValueError):
-        kfserving.Storage.download(bad_uri)
-
-
-@mock.patch('requests.get', return_value=MockHttpResponse(status_code=200, content_type='text/html'))
-def test_html_content_type(_):
-    bad_uri = 'https://some.site.com/test.model'
-    with pytest.raises(RuntimeError):
-        kfserving.Storage.download(bad_uri)
-
+test_http_uri_path_with_xtar = gen_download_tests(HTTPS_URI_TARGZ,
+                                                  MockHttpResponse(200, FILE_TAR_GZ_RAW,
+                                                                   'application/x-tar'))
+test_http_uri_path_with_xtar_query_params = gen_download_tests(HTTPS_URI_TARGZ_WITH_QUERY,
+                                                               MockHttpResponse(200, FILE_TAR_GZ_RAW,
+                                                                                'application/x-tar'))
+test_http_uri_path_with_xgtar = gen_download_tests(HTTPS_URI_TARGZ,
+                                                   MockHttpResponse(200, FILE_TAR_GZ_RAW,
+                                                                    'application/x-gtar'))
+test_http_uri_path_with_xgtar_query_params = gen_download_tests(HTTPS_URI_TARGZ_WITH_QUERY,
+                                                                MockHttpResponse(200, FILE_TAR_GZ_RAW,
+                                                                                 'application/x-gtar'))
+test_http_uri_path_with_xgzip = gen_download_tests(HTTPS_URI_TARGZ,
+                                                   MockHttpResponse(200, FILE_TAR_GZ_RAW,
+                                                                    'application/x-gzip'))
+test_http_uri_path_with_xgip_query_params = gen_download_tests(HTTPS_URI_TARGZ_WITH_QUERY,
+                                                               MockHttpResponse(200, FILE_TAR_GZ_RAW,
+                                                                                'application/x-gzip'))
+test_http_uri_path_with_gzip = gen_download_tests(HTTPS_URI_TARGZ,
+                                                  MockHttpResponse(200, FILE_TAR_GZ_RAW,
+                                                                   'application/gzip'))
+test_http_uri_path_with_gzip_query_params = gen_download_tests(HTTPS_URI_TARGZ_WITH_QUERY,
+                                                               MockHttpResponse(200, FILE_TAR_GZ_RAW,
+                                                                                'application/gzip'))
+test_http_uri_path_with_zip = gen_download_tests('https://foo.bar/model.zip',
+                                                 MockHttpResponse(200, FILE_ZIP_RAW,
+                                                                  'application/zip'))
+test_http_uri_path_with_zip_query_params = gen_download_tests('https://foo.bar/model.zip?foo=bar',
+                                                              MockHttpResponse(200, FILE_ZIP_RAW,
+                                                                               'application/zip'))
+test_nonexistent_uri = gen_download_tests('https://theabyss.net/model.joblib',
+                                          MockHttpResponse(404),
+                                          RuntimeError)
+test_uri_no_filename = gen_download_tests('https://foo.bar/test/',
+                                          MockHttpResponse(200),
+                                          ValueError)
+test_html_content_type = gen_download_tests('https://some.site.com/test.model',
+                                            MockHttpResponse(status_code=200, content_type='text/html'),
+                                            RuntimeError)
 
 @mock.patch(STORAGE_MODULE + '.storage')
 def test_mock_gcs(mock_storage):
