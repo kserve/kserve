@@ -160,7 +160,7 @@ spec:
   inferenceService: triton-mms
   model:
     framework: tensorflow
-    storageUri: gs://kfserving-samples/models/tensorrt/simple_string
+    storageUri: gs://kfserving-examples/models/tensorrt/simple_string
     memory: 1Gi
 ``` 
 

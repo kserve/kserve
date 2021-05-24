@@ -73,14 +73,14 @@ Additionally KFServing also integrates with The [AI Explainability 360 (AIX360)]
 | Deploy AIX360 Image Explainer| [AIX360 Image Explainer](./explanation/aix/mnist/README.md) |
 
 ### Deploy InferenceService with Multiple Models(Alpha)
-Multi Model Serving allows deploying `TrainedModels` at scale without bounded by the Kubernetes service/pod limits and reducing the TCO, 
-see [Multi Model Serving](../MULTIMODELSERVING_GUIDE.md) for more details. Multi Model Serving is supported for Triton, SKLearn/XGBoost
-as well as Custom KFServer.
+Multi Model Serving allows deploying `TrainedModels` at scale without being bounded by the Kubernetes compute resources(CPU/GPU/Memory), 
+service/pod limits and reducing the TCO, see [Multi Model Serving](../MULTIMODELSERVING_GUIDE.md) for more details. 
+Multi Model Serving is supported for Triton, SKLearn/XGBoost as well as Custom KFServer.
  
 | Features  | Examples |
 | ------------- | ------------- |
-| Deploy multiple models with Triton Inference Server| [Multi Model Triton InferenceService](./mutlimodelserving/triton/README.md)  |
-| Deploy multiple models with SKLearn/XGBoost KFServer| [Multi Model SKLearn InferenceService](./mutlimodelserving/sklearn/README.md)  |
+| Deploy multiple models with Triton Inference Server| [Multi Model Triton InferenceService](./multimodelserving/triton/README.md)  |
+| Deploy multiple models with SKLearn/XGBoost KFServer| [Multi Model SKLearn InferenceService](./multimodelserving/sklearn/README.md)  |
 
 
 ### Deploy InferenceService with Outlier/Drift Detector
