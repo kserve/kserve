@@ -6,5 +6,5 @@ spec:
   inferenceService: triton-mms
   model:
     framework: pytorch
-    storageUri: s3://triton/torchscript/cifar10
+    storageUri: gs://kfserving-examples/models/torchscript/cifar10
     memory: "1Gi"  

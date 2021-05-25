@@ -31,7 +31,7 @@ data:
             "supportedFrameworks": [
               "sklearn"
             ],
-            "multiModelServer": false
+            "multiModelServer": true
           },
           "v2": {
             "image": "docker.io/seldonio/mlserver",
@@ -49,7 +49,7 @@ data:
             "supportedFrameworks": [
               "xgboost"
             ],
-            "multiModelServer": false
+            "multiModelServer": true
           },
           "v2": {
             "image": "docker.io/seldonio/mlserver",
@@ -90,7 +90,7 @@ data:
               "pytorch",
               "caffe2"
             ],
-            "multiModelServer": false
+            "multiModelServer": true
         },
         "pmml": {
             "image": "kfserving/pmmlserver",

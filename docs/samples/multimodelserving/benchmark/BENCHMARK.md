@@ -1,6 +1,6 @@
 # Benchmark of Multi-Model Serving
 
-The following stress and performance tests have been executed to support that Multi-Model Serving is a solution to the model deployment scalability problem as discussed in the [MMS Guide](../../../MULTIMODELSERVING_GUIDE.md).
+The following stress and performance tests have been executed to support that Multi-Model Serving is a solution to the model deployment scalability problem as discussed in the [MMS Guide](../MULTIMODELSERVING_GUIDE.md).
 
 ## Stress Test
 To determine the maximum amount of models that can be deployed

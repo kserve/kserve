@@ -10,7 +10,7 @@ KFServing multi model serving design addresses these issues and gives a scalable
 > :warning: You must set Triton's multiModelServer flag in `inferenceservice.yaml` to true to enable multi-model serving for Triton.
 
 ## Setup
-1. Your ~/.kube/config should point to a cluster with [KFServing 0.5 installed](https://github.com/kubeflow/kfserving/#install-kfserving).
+1. Your ~/.kube/config should point to a cluster with [KFServing 0.6 installed](https://github.com/kubeflow/kfserving/#install-kfserving).
 2. Your cluster's Istio Ingress gateway must be [network accessible](https://istio.io/latest/docs/tasks/traffic-management/ingress/ingress-control/).
 3. Skip [tag resolution](https://knative.dev/docs/serving/tag-resolution/) for `nvcr.io` which requires auth to resolve triton inference server image digest
 ```bash
@@ -20,26 +20,10 @@ kubectl patch cm config-deployment --patch '{"data":{"registriesSkippingTagResol
 ```bash
 kubectl patch cm config-deployment --patch '{"data":{"progressDeadline": "600s"}}' -n knative-serving
 ```
-5. Setup Minio for storing the models as currently model agent sidecar only supports S3 protocol.
-```bash
-# Setup Minio
-kubectl apply -f minio.yaml
-kubectl apply -f s3_secret.yaml
-kubectl port-forward $(kubectl get pod --selector="app=minio" --output jsonpath='{.items[0].metadata.name}') 9000:9000
-mc config host add myminio http://127.0.0.1:9000 minio minio123
-
-# Copy cifar10 model to minio
-gsutil cp -r gs://kfserving-examples/models/torchscript/cifar10 .
-mc cp -r cifar10 myminio/triton/torchscript
-
-# Copy simple string model to minio
-gsutil cp -r gs://kfserving-samples/models/triton/simple_string
-mc cp -r simple_string myminio/triton
-```
 
 ## Create the hosting InferenceService
-KFServing `Multi Model Serving` design decouples the trained model artifact from hosting service. User can create a hosting `InferenceService` without `StoragegUri`
-and then deploy multiple `TrainedModel` onto the assigned `InferenceService`.
+KFServing `Multi Model Serving` design decouples the trained model artifact from the hosting `InferenceService`. You first create a hosting `InferenceService` without `StoragegUri`
+and then deploy multiple `TrainedModel` CRs onto the designated `InferenceService`.
 
 ```yaml
 apiVersion: "serving.kubeflow.org/v1beta1"
@@ -54,12 +38,12 @@ spec:
       resources:
         limits:
           cpu: "1"
-          memory: 16Gi
+          memory: 2Gi
         requests:
           cpu: "1"
-          memory: 16Gi
+          memory: 2Gi
 ```
-Note that you create the hosting `InferenceService` with enough memory resource without specifying the `StorageUri` as single model service initially.
+Note that you create the hosting `InferenceService` with enough memory resource for hosting multiple models.
 
 ```bash
 kubectl apply -f multi_model_triton.yaml
@@ -67,18 +51,22 @@ kubectl apply -f multi_model_triton.yaml
 Check the `InferenceService` status
 
 ```bash
- kubectl get inferenceservice triton-mms
-NAME   URL                                                    READY   AGE
-triton-mms   http://triton-mms.default.35.229.120.99.xip.io   True    8h
+kubectl get isvc triton-mms
+NAME         URL                                     READY   PREV   LATEST   PREVROLLEDOUTREVISION   LATESTREADYREVISION                  AGE
+triton-mms   http://triton-mms.default.example.com   True           100                              triton-mms-predictor-default-00001   23h
 ```
 
 ## Deploy Trained Model
-Now you have an `InferenceService` running with 16Gi memory but no model is loaded on the server yet, let's deploy the model onto the server using `TrainedModel` CR.
+Now you have an `InferenceService` running with 2Gi memory but no model is deployed on `InferenceService` yet, let's deploy the trained models on `InferenceService` 
+by applying the `TrainedModel` CRs.
 
-On `TrainedModel` CR you specify the model framework you trained with and the `storageUri` where the model is getting stored, last you set the `InferenceService` name you want
-the model to deploy onto.
+On `TrainedModel` CR you specify the following fields:
+- Hosting `InferenceService`: The `InferenceService` you want the trained model to deploy to.
+- Model framework: the ML framework you trained with, the trained model validation webhook validates the framework if it is supported by the model server in this case `Triton Inference Server`.
+- Estimated model memory resource: the trained model validation webhook validates that the summed memory of all trained models do no exceed the parent `InferenceService` memory limit.  
 
-### Deploy Cifar10 Torchscript Model
+
+### Deploy Cifar10 TorchScript Model
 ```yaml
 apiVersion: "serving.kubeflow.org/v1alpha1"
 kind: "TrainedModel"
@@ -88,37 +76,66 @@ spec:
   inferenceService: triton-mms
   model:
     framework: pytorch
-    storageUri: s3://triton/torchscript/cifar10
+    storageUri: gs://kfserving-examples/models/torchscript/cifar10
+    memory: 1Gi
 ``` 
 
 ```bash
-kubectl apply -f multi_model_triton.yaml
+kubectl apply -f trained_model.yaml
 ```
 
-Check the model agent sidecar logs, after the `TrainedModel` CR is created the agent downloads the model from specified `StorageUri` to the mounted
-model repository and calls the load endpoint of the model server.
+After `TrainedModel` CR is applied, check the model agent sidecar logs, the model agent downloads the model from specified `StorageUri` to the mounted
+model repository and then calls the load endpoint of `Triton Inference Server`.
 ```bash
 kubectl logs triton-mms-predictor-default-2g8lg-deployment-69c9964bc4-mfg92 agent
 
-{"level":"info","ts":1605449512.0457177,"logger":"Watcher","msg":"Processing event","event":"\"/mnt/configs/..data\": CREATE"}
-{"level":"info","ts":1605449512.0464094,"logger":"modelWatcher","msg":"removing model","modelName":"cifar10"}
-{"level":"info","ts":1605449512.0464404,"logger":"modelWatcher","msg":"adding model","modelName":"cifar10"}
-{"level":"info","ts":1605449512.046505,"logger":"modelProcessor","msg":"worker is started for","model":"cifar10"}
-{"level":"info","ts":1605449512.0465908,"logger":"modelProcessor","msg":"unloading model","modelName":"cifar10"}
-{"level":"info","ts":1605449512.0487478,"logger":"modelProcessor","msg":"Downloading model","storageUri":"s3://triton/torchscript/cifar10"}
-{"level":"info","ts":1605449512.048788,"logger":"Downloader","msg":"Downloading to model dir","modelUri":"s3://triton/torchscript/cifar10","modelDir":"/mnt/models"}
-{"level":"info","ts":1605449512.0488636,"logger":"modelAgent","msg":"Download model ","modelName":"cifar10","storageUri":"s3://triton/torchscript/cifar10","modelDir":"/mnt/models"}
-{"level":"info","ts":1605449512.0488217,"logger":"modelOnComplete","msg":"completion event for model","modelName":"cifar10","inFlight":1}
-{"level":"info","ts":1605449512.6908782,"logger":"modelOnComplete","msg":"completion event for model","modelName":"cifar10","inFlight":0}
-```
-Check the `Triton Inference Service` log you will see that the model is loaded into the memory
-```bash
-I1115 14:11:52.060489 1 model_repository_manager.cc:737] loading: cifar10:1
-I1115 14:11:52.061524 1 libtorch_backend.cc:217] Creating instance cifar10_0_0_cpu on CPU using model.pt
-I1115 14:11:52.690479 1 model_repository_manager.cc:925] successfully loaded 'cifar10' version 1
+{"level":"info","ts":1621717148.93849,"logger":"fallback-logger","caller":"agent/watcher.go:173","msg":"adding model cifar10"}
+{"level":"info","ts":1621717148.939014,"logger":"fallback-logger","caller":"agent/puller.go:136","msg":"Worker is started for cifar10"}
+{"level":"info","ts":1621717148.9393005,"logger":"fallback-logger","caller":"agent/puller.go:144","msg":"Downloading model from gs://kfserving-examples/models/torchscript/cifar10"}
+{"level":"info","ts":1621717148.939781,"logger":"fallback-logger","caller":"agent/downloader.go:48","msg":"Downloading gs://kfserving-examples/models/torchscript/cifar10 to model dir /mnt/models"}
+{"level":"info","ts":1621717149.4635677,"logger":"fallback-logger","caller":"agent/downloader.go:68","msg":"Creating successFile /mnt/models/cifar10/SUCCESS.71f376a9daa07a04ae1bd52cbe7f3a2c46ceb701350d9dffc73381df5a230923"}
+{"level":"info","ts":1621717149.6402793,"logger":"fallback-logger","caller":"agent/puller.go:161","msg":"Successfully loaded model cifar10"}
+{"level":"info","ts":1621717149.6404483,"logger":"fallback-logger","caller":"agent/puller.go:129","msg":"completion event for model cifar10, in flight ops 0"}
 ```
 
-Now you can curl the model endpoint
+Check the `Triton Inference Service` log you will see that the model is loaded into the memory.
+```bash
+I0522 20:59:09.469834 1 model_repository_manager.cc:737] loading: cifar10:1
+I0522 20:59:09.471278 1 libtorch_backend.cc:217] Creating instance cifar10_0_0_cpu on CPU using model.pt
+I0522 20:59:09.638318 1 model_repository_manager.cc:925] successfully loaded 'cifar10' version 1
+```
+
+Check the `TrainedModel` CR status
+```bash
+kubectl get tm cifar10  
+NAME      URL                                                             READY   AGE
+cifar10   http://triton-mms.default.example.com/v2/models/cifar10/infer   True    3h45m
+
+# to show more detailed status
+kubectl get tm cifar10 -oyaml
+status:
+  address:
+    url: http://triton-mms.default.svc.cluster.local/v2/models/cifar10/infer
+  conditions:
+  - lastTransitionTime: "2021-05-22T20:56:12Z"
+    status: "True"
+    type: FrameworkSupported
+  - lastTransitionTime: "2021-05-22T20:56:12Z"
+    status: "True"
+    type: InferenceServiceReady
+  - lastTransitionTime: "2021-05-22T20:56:12Z"
+    status: "True"
+    type: IsMMSPredictor
+  - lastTransitionTime: "2021-05-22T20:58:56Z"
+    status: "True"
+    type: MemoryResourceAvailable
+  - lastTransitionTime: "2021-05-22T20:58:56Z"
+    status: "True"
+    type: Ready
+  url: http://triton-mms.default.example.com/v2/models/cifar10/infer
+```
+
+Now you can curl the model metadata endpoint
 ```bash
 MODEL_NAME=cifar10
 INPUT_PATH=@./input.json
@@ -130,34 +147,85 @@ curl -H "Host: ${SERVICE_HOSTNAME}" http://${INGRESS_HOST}:${INGRESS_PORT}/v2/mo
 ```
 
 ### Deploy Simple String Tensorflow Model
-Next let's deploy another model to the same `InferenceService`
+Next let's deploy another model to the same `InferenceService`.
+> :warning: The TrainModel resource name must be the same as the model name specified in triton model configuration.
+
 
 ```yaml
 apiVersion: "serving.kubeflow.org/v1alpha1"
 kind: "TrainedModel"
 metadata:
-  name: "simple_string"
+  name: "simple-string"
 spec:
   inferenceService: triton-mms
   model:
-    framework: pytorch
-    storageUri: s3://triton/simple_string
+    framework: tensorflow
+    storageUri: gs://kfserving-examples/models/tensorrt/simple_string
+    memory: 1Gi
 ``` 
 
-Check the `Triton Inference Service` log you will see that the model is also loaded into the memory
+Check the `Triton Inference Service` log you will see that the `simple-string` model is also loaded into the memory.
 ```bash
-I1115 14:11:52.060489 1 model_repository_manager.cc:737] loading: cifar10:1
-I1115 14:11:52.061524 1 libtorch_backend.cc:217] Creating instance cifar10_0_0_cpu on CPU using model.pt
-I1115 14:11:52.690479 1 model_repository_manager.cc:925] successfully loaded 'cifar10' version 1
+I0523 00:04:19.298966 1 model_repository_manager.cc:737] loading: simple-string:1
+I0523 00:04:20.367808 1 tensorflow.cc:1281] Creating instance simple-string on CPU using model.graphdef
+I0523 00:04:20.497748 1 model_repository_manager.cc:925] successfully loaded 'simple-string' version 1
 ```
 
-Now you can curl the `simple_string` model endpoint
+Check the `TrainedModel` CR status
 ```bash
-MODEL_NAME=simple_string
-INPUT_PATH=@./input.json
+kubectl get tm simple-string
+NAME            URL                                                                   READY   AGE
+simple-string   http://triton-mms.default.example.com/v2/models/simple-string/infer   True    20h
+
+# to show more detailed status
+kubectl get tm cifar10 -oyaml
+status:
+  address:
+    url: http://triton-mms.default.svc.cluster.local/v2/models/simple-string/infer
+  conditions:
+  - lastTransitionTime: "2021-05-23T00:02:42Z"
+    status: "True"
+    type: FrameworkSupported
+  - lastTransitionTime: "2021-05-23T00:02:42Z"
+    status: "True"
+    type: InferenceServiceReady
+  - lastTransitionTime: "2021-05-23T00:02:42Z"
+    status: "True"
+    type: IsMMSPredictor
+  - lastTransitionTime: "2021-05-23T00:02:42Z"
+    status: "True"
+    type: MemoryResourceAvailable
+  - lastTransitionTime: "2021-05-23T00:02:42Z"
+    status: "True"
+    type: Ready
+  url: http://triton-mms.default.example.com/v2/models/simple-string/infer
+```
+
+Now you can curl the `simple-string` model metadata endpoint
+```bash
+MODEL_NAME=simple-string
 SERVICE_HOSTNAME=$(kubectl get inferenceservices triton-mms -o jsonpath='{.status.url}' | cut -d "/" -f 3)
 
 curl -H "Host: ${SERVICE_HOSTNAME}" http://${INGRESS_HOST}:${INGRESS_PORT}/v2/models/$MODEL_NAME
 
-{"name":"simple_string","versions":["1"],"platform":"tensorflow_graphdef","inputs":[{"name":"INPUT0","datatype":"BYTES","shape":[-1,16]},{"name":"INPUT1","datatype":"BYTES","shape":[-1,16]}],"outputs":[{"name":"OUTPUT0","datatype":"BYTES","shape":[-1,16]},{"name":"OUTPUT1","datatype":"BYTES","shape":[-1,16]}]}
+{"name":"simple-string","versions":["1"],"platform":"tensorflow_graphdef","inputs":[{"name":"INPUT0","datatype":"BYTES","shape":[-1,16]},{"name":"INPUT1","datatype":"BYTES","shape":[-1,16]}],"outputs":[{"name":"OUTPUT0","datatype":"BYTES","shape":[-1,16]},{"name":"OUTPUT1","datatype":"BYTES","shape":[-1,16]}]}
 ```
+
+### Run Performance Test
+The performance job runs vegeta load testing to the `MultiModelInferenceService` with model `cifar10`.
+```bash
+kubectl create -f perf.yaml
+Requests      [total, rate, throughput]         600, 10.02, 10.01
+Duration      [total, attack, wait]             59.912s, 59.9s, 11.755ms
+Latencies     [min, mean, 50, 90, 95, 99, max]  5.893ms, 11.262ms, 10.252ms, 16.077ms, 18.804ms, 26.745ms, 39.202ms
+Bytes In      [total, mean]                     189000, 315.00
+Bytes Out     [total, mean]                     66587400, 110979.00
+Success       [ratio]                           100.00%
+Status Codes  [code:count]                      200:600  
+Error Set:
+```
+
+### Delete Trained Models
+To remove the resources, run the command `kubectl delete inferenceservice triton-mms`. 
+This will delete the inference service and result in the trained models deleted. To delete individual `TrainedModel` you
+can run the command `kubectl delete tm $MODEL_NAME`.

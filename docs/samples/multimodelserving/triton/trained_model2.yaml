@@ -6,5 +6,5 @@ spec:
   inferenceService: triton-mms
   model:
     framework: tensorflow 
-    storageUri: s3://triton/simple_string
+    storageUri: gs://kfserving-examples/models/triton/simple_string
     memory: "1Gi"
