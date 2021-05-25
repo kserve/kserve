@@ -17,62 +17,58 @@ from kubernetes import client
 
 from kfserving import KFServingClient
 from kfserving import constants
-from kfserving import V1alpha2EndpointSpec
-from kfserving import V1alpha2PredictorSpec
-from kfserving import V1alpha2CustomSpec
-from kfserving import V1alpha2SKLearnSpec
-from kfserving import V1alpha2InferenceServiceSpec
-from kfserving import V1alpha2InferenceService
-from kfserving import V1alpha2Logger
+from kfserving import V1beta1PredictorSpec
+from kfserving import V1beta1SKLearnSpec
+from kfserving import V1beta1InferenceServiceSpec
+from kfserving import V1beta1InferenceService
+from kfserving import V1beta1LoggerSpec
 from kubernetes.client import V1ResourceRequirements
 from kubernetes.client import V1Container
 from ..common.utils import predict
 from ..common.utils import KFSERVING_TEST_NAMESPACE
 import time
 
-api_version = constants.KFSERVING_GROUP + '/' + constants.KFSERVING_VERSION
 KFServing = KFServingClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
 
 
 def test_kfserving_logger():
     msg_dumper = 'message-dumper'
-    default_endpoint_spec = V1alpha2EndpointSpec(
-        predictor=V1alpha2PredictorSpec(
-            min_replicas=1,
-            custom=V1alpha2CustomSpec(
-                container=V1Container(
-                    name="kfserving-container",
-                    image='gcr.io/knative-releases/knative.dev/eventing-contrib/cmd/event_display',
-                ))))
+    predictor = V1beta1PredictorSpec(
+        min_replicas=1,
+        containers=[V1Container(name="kfserving-container",
+                                image='gcr.io/knative-releases/knative.dev/eventing-contrib/cmd/event_display')]
+    )
 
-    isvc = V1alpha2InferenceService(api_version=api_version,
-                                    kind=constants.KFSERVING_KIND,
-                                    metadata=client.V1ObjectMeta(
+    isvc = V1beta1InferenceService(api_version=constants.KFSERVING_V1BETA1,
+                                   kind=constants.KFSERVING_KIND,
+                                   metadata=client.V1ObjectMeta(
                                         name=msg_dumper, namespace=KFSERVING_TEST_NAMESPACE),
-                                    spec=V1alpha2InferenceServiceSpec(default=default_endpoint_spec))
+                                   spec=V1beta1InferenceServiceSpec(predictor=predictor))
 
     KFServing.create(isvc)
     KFServing.wait_isvc_ready(msg_dumper, namespace=KFSERVING_TEST_NAMESPACE)
 
     service_name = 'isvc-logger'
-    default_endpoint_spec = V1alpha2EndpointSpec(
-        predictor=V1alpha2PredictorSpec(
-            min_replicas=1,
-            logger=V1alpha2Logger(
-               mode="all",
-               url="http://message-dumper."+KFSERVING_TEST_NAMESPACE+".svc.cluster.local"
-            ),
-            sklearn=V1alpha2SKLearnSpec(
-                storage_uri='gs://kfserving-samples/models/sklearn/iris',
-                resources=V1ResourceRequirements(
-                    requests={'cpu': '100m', 'memory': '256Mi'},
-                    limits={'cpu': '100m', 'memory': '256Mi'}))))
+    predictor = V1beta1PredictorSpec(
+        min_replicas=1,
+        logger=V1beta1LoggerSpec(
+            mode="all",
+            url="http://message-dumper."+KFSERVING_TEST_NAMESPACE+".svc.cluster.local"
+        ),
+        sklearn=V1beta1SKLearnSpec(
+            storage_uri='gs://kfserving-samples/models/sklearn/iris',
+            resources=V1ResourceRequirements(
+                requests={'cpu': '100m', 'memory': '256Mi'},
+                limits={'cpu': '100m', 'memory': '256Mi'}
+            )
+        )
+    )
 
-    isvc = V1alpha2InferenceService(api_version=api_version,
-                                    kind=constants.KFSERVING_KIND,
-                                    metadata=client.V1ObjectMeta(
-                                        name=service_name, namespace=KFSERVING_TEST_NAMESPACE),
-                                    spec=V1alpha2InferenceServiceSpec(default=default_endpoint_spec))
+    isvc = V1beta1InferenceService(api_version=constants.KFSERVING_V1BETA1,
+                                   kind=constants.KFSERVING_KIND,
+                                   metadata=client.V1ObjectMeta(
+                                       name=service_name, namespace=KFSERVING_TEST_NAMESPACE),
+                                   spec=V1beta1InferenceServiceSpec(predictor=predictor))
 
     KFServing.create(isvc)
     try:
