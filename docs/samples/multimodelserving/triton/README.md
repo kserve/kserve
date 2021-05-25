@@ -134,11 +134,12 @@ status:
     type: Ready
   url: http://triton-mms.default.example.com/v2/models/cifar10/infer
 ```
+> :warning: Currently the trained model CR does not reflect download and load/unload status, it has been worked on in
+the issue for adding the [probing component](https://github.com/kubeflow/kfserving/issues/1045).
 
 Now you can curl the model metadata endpoint
 ```bash
 MODEL_NAME=cifar10
-INPUT_PATH=@./input.json
 SERVICE_HOSTNAME=$(kubectl get inferenceservices triton-mms -o jsonpath='{.status.url}' | cut -d "/" -f 3)
 
 curl -H "Host: ${SERVICE_HOSTNAME}" http://${INGRESS_HOST}:${INGRESS_PORT}/v2/models/$MODEL_NAME
@@ -224,6 +225,15 @@ Success       [ratio]                           100.00%
 Status Codes  [code:count]                      200:600  
 Error Set:
 ```
+
+### Homogeneous model allocation and Autoscaling
+The current MMS implementation uses the homogeneous approach meaning that each `InferenceService` replica holds the same
+set of models. Autoscaling is based on the aggregated traffic for this set of models NOT the request volume for individual
+model, this set of models is always scaled up together. The downside of this approach is that traffic spike for one model
+can result in scaling out entire set of models despite the low request volume for other models hosted on the same `InferenceService`,
+this may not be desirable for `InferenceService` that hosts a set of big models. The other approach is to use the heterogeneous
+allocation where each replica can host a different set of models, models are scaled up/down individually based on its own
+traffic and in this way it ensures better resource utilization.
 
 ### Delete Trained Models
 To remove the resources, run the command `kubectl delete inferenceservice triton-mms`. 
