@@ -112,6 +112,7 @@ def gen_download_tests(uri, response, expected_error=None):
         return test_success
     return test_fail
 
+
 test_http_uri_path_with_xtar = gen_download_tests(HTTPS_URI_TARGZ,
                                                   MockHttpResponse(200, FILE_TAR_GZ_RAW,
                                                                    'application/x-tar'))
@@ -151,6 +152,7 @@ test_uri_no_filename = gen_download_tests('https://foo.bar/test/',
 test_html_content_type = gen_download_tests('https://some.site.com/test.model',
                                             MockHttpResponse(status_code=200, content_type='text/html'),
                                             RuntimeError)
+
 
 @mock.patch(STORAGE_MODULE + '.storage')
 def test_mock_gcs(mock_storage):
