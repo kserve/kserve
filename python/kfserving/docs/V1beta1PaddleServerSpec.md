@@ -1,6 +1,5 @@
-# V1beta1XGBoostSpec
+# V1beta1PaddleServerSpec
 
-XGBoostSpec defines arguments for configuring XGBoost model serving.
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
