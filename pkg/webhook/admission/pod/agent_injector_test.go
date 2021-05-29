@@ -233,7 +233,7 @@ func TestAgentInjector(t *testing.T) {
 								LoggerArgumentEndpoint,
 								"default",
 								LoggerArgumentComponent,
-								"default",
+								"predictor",
 							},
 							Env:       []v1.EnvVar{},
 							Resources: agentResourceRequirement,
