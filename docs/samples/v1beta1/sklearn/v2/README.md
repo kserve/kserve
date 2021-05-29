@@ -5,7 +5,7 @@ the `v1beta1` version of the `InferenceService` CRD.
 Note that, by default the `v1beta1` version will expose your model through an
 API compatible with the existing V1 Dataplane.
 However, this example will show you how to serve a model through an API
-compatible with the new [V2 Dataplane](../../../predict-api/v2).
+compatible with the new [V2 Dataplane](https://github.com/kubeflow/kfserving/tree/master/docs/predict-api/v2).
 
 ## Training
 
@@ -121,7 +121,7 @@ kubectl apply -f ./sklearn.yaml
 We can now test our deployed model by sending a sample request.
 
 Note that this request **needs to follow the [V2 Dataplane
-protocol](../../../predict-api/v2)**.
+protocol](https://github.com/kubeflow/kfserving/tree/master/docs/predict-api/v2)**.
 You can see an example payload below:
 
 ```json
