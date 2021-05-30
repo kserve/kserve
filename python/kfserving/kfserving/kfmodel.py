@@ -51,12 +51,14 @@ class KFModel:
     async def __call__(self, body, model_type: ModelType = ModelType.PREDICTOR):
         request = self.preprocess(body)
         request = self.validate(request)
-        if model_type == ModelType.PREDICTOR:
+        if model_type == ModelType.EXPLAINER:
             response = (await self.explain(request)) if inspect.iscoroutinefunction(self.explain) \
                 else self.explain(request)
-        else:
+        elif model_type == ModelType.PREDICTOR:
             response = (await self.predict(request)) if inspect.iscoroutinefunction(self.predict) \
                 else self.predict(request)
+        else:
+            raise NotImplementedError
         response = self.postprocess(response)
         return response
 
