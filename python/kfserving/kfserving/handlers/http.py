@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import inspect
 import tornado.web
 import json
 import pytz
@@ -39,16 +38,6 @@ class HTTPHandler(tornado.web.RequestHandler):
             model.load()
         return model
 
-    def validate(self, request):
-        if(isinstance(request, dict)):
-            if ("instances" in request and not isinstance(request["instances"], list)) or \
-               ("inputs" in request and not isinstance(request["inputs"], list)):
-                raise tornado.web.HTTPError(
-                    status_code=HTTPStatus.BAD_REQUEST,
-                    reason="Expected \"instances\" or \"inputs\" to be a list"
-                )
-        return request
-
 
 class PredictHandler(HTTPHandler):
     async def post(self, name: str):
@@ -73,13 +62,8 @@ class PredictHandler(HTTPHandler):
                     status_code=HTTPStatus.BAD_REQUEST,
                     reason="Unrecognized request format: %s" % e
                 )
-
         model = self.get_model(name)
-        request = model.preprocess(body)
-        request = self.validate(request)
-        response = (await model.predict(request)) if inspect.iscoroutinefunction(model.predict) \
-            else model.predict(request)
-        response = model.postprocess(response)
+        response = await model(body)
 
         if has_binary_headers(self.request.headers):
             event = CloudEvent(body._attributes, response)
@@ -108,9 +92,5 @@ class ExplainHandler(HTTPHandler):
                 status_code=HTTPStatus.BAD_REQUEST,
                 reason="Unrecognized request format: %s" % e
             )
-        request = model.preprocess(body)
-        request = self.validate(request)
-        response = (await model.explain(request)) if inspect.iscoroutinefunction(model.explain) \
-            else model.explain(request)
-        response = model.postprocess(response)
+        response = await model(body)
         self.write(response)

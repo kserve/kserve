@@ -14,7 +14,7 @@
 
 from typing import Dict
 import sys
-
+import inspect
 import json
 import tornado.web
 from tornado.httpclient import AsyncHTTPClient
@@ -42,11 +42,36 @@ class KFModel:
         self.timeout = 600
         self._http_client_instance = None
 
+    async def __call__(self, body):
+        request = self.preprocess(body)
+        request = self.validate(request)
+        if self.predictor_host:
+            response = (await self.predict(request)) if inspect.iscoroutinefunction(self.predict) \
+                else self.predict(request)
+        elif self.explainer_host:
+            response = (await self.explain(request)) if inspect.iscoroutinefunction(self.explain) \
+                else self.explain(request)
+        else:
+            response = self.predict(request)
+        response = self.postprocess(response)
+        return response
+
     @property
     def _http_client(self):
         if self._http_client_instance is None:
             self._http_client_instance = AsyncHTTPClient(max_clients=sys.maxsize)
         return self._http_client_instance
+
+    @staticmethod
+    def validate(request):
+        if isinstance(request, dict):
+            if ("instances" in request and not isinstance(request["instances"], list)) or \
+               ("inputs" in request and not isinstance(request["inputs"], list)):
+                raise tornado.web.HTTPError(
+                    status_code=HTTPStatus.BAD_REQUEST,
+                    reason="Expected \"instances\" or \"inputs\" to be a list"
+                )
+        return request
 
     def load(self) -> bool:
         """
