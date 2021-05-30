@@ -20,6 +20,7 @@ from cloudevents.http import CloudEvent, from_http, is_binary, is_structured, to
 from cloudevents.sdk.converters.util import has_binary_headers
 from http import HTTPStatus
 from kfserving.kfmodel_repository import KFModelRepository
+from kfserving.kfmodel import ModelType
 from datetime import datetime
 
 
@@ -62,9 +63,10 @@ class PredictHandler(HTTPHandler):
                     status_code=HTTPStatus.BAD_REQUEST,
                     reason="Unrecognized request format: %s" % e
                 )
+        # call model locally or remote model workers
         model = self.get_model(name)
         response = await model(body)
-
+        # process response from the model
         if has_binary_headers(self.request.headers):
             event = CloudEvent(body._attributes, response)
             if is_binary(self.request.headers):
@@ -92,5 +94,5 @@ class ExplainHandler(HTTPHandler):
                 status_code=HTTPStatus.BAD_REQUEST,
                 reason="Unrecognized request format: %s" % e
             )
-        response = await model(body)
+        response = await model(body, model_type=ModelType.EXPLAINER)
         self.write(response)

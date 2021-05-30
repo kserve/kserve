@@ -20,11 +20,17 @@ import tornado.web
 from tornado.httpclient import AsyncHTTPClient
 from cloudevents.http import CloudEvent
 from http import HTTPStatus
+from enum import Enum
 
 PREDICTOR_URL_FORMAT = "http://{0}/v1/models/{1}:predict"
 EXPLAINER_URL_FORMAT = "http://{0}/v1/models/{1}:explain"
 PREDICTOR_V2_URL_FORMAT = "http://{0}/v2/models/{1}/infer"
 EXPLAINER_V2_URL_FORMAT = "http://{0}/v2/models/{1}/explain"
+
+
+class ModelType(Enum):
+    EXPLAINER = 1
+    PREDICTOR = 2
 
 
 # KFModel is intended to be subclassed by various components within KFServing.
@@ -42,17 +48,15 @@ class KFModel:
         self.timeout = 600
         self._http_client_instance = None
 
-    async def __call__(self, body):
+    async def __call__(self, body, model_type: ModelType = ModelType.PREDICTOR):
         request = self.preprocess(body)
         request = self.validate(request)
-        if self.predictor_host:
-            response = (await self.predict(request)) if inspect.iscoroutinefunction(self.predict) \
-                else self.predict(request)
-        elif self.explainer_host:
+        if model_type == ModelType.PREDICTOR:
             response = (await self.explain(request)) if inspect.iscoroutinefunction(self.explain) \
                 else self.explain(request)
         else:
-            response = self.predict(request)
+            response = (await self.predict(request)) if inspect.iscoroutinefunction(self.predict) \
+                else self.predict(request)
         response = self.postprocess(response)
         return response
 
