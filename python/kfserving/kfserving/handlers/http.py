@@ -23,6 +23,8 @@ from kfserving.kfmodel_repository import KFModelRepository
 from kfserving.kfmodel import ModelType
 from datetime import datetime
 
+from ray.serve.api import RayServeHandle
+
 
 class HTTPHandler(tornado.web.RequestHandler):
     def initialize(self, models: KFModelRepository):
@@ -35,7 +37,7 @@ class HTTPHandler(tornado.web.RequestHandler):
                 status_code=HTTPStatus.NOT_FOUND,
                 reason="Model with name %s does not exist." % name
             )
-        if not model.ready:
+        if not self.models.is_model_ready(name):
             model.load()
         return model
 
@@ -65,7 +67,11 @@ class PredictHandler(HTTPHandler):
                 )
         # call model locally or remote model workers
         model = self.get_model(name)
-        response = await model(body)
+        if not isinstance(model, RayServeHandle):
+            response = await model(body)
+        else:
+            model_handle = model
+            response = await model_handle.remote(body)
         # process response from the model
         if has_binary_headers(self.request.headers):
             event = CloudEvent(body._attributes, response)
@@ -86,7 +92,6 @@ class PredictHandler(HTTPHandler):
 
 class ExplainHandler(HTTPHandler):
     async def post(self, name: str):
-        model = self.get_model(name)
         try:
             body = json.loads(self.request.body)
         except json.decoder.JSONDecodeError as e:
@@ -94,5 +99,11 @@ class ExplainHandler(HTTPHandler):
                 status_code=HTTPStatus.BAD_REQUEST,
                 reason="Unrecognized request format: %s" % e
             )
-        response = await model(body, model_type=ModelType.EXPLAINER)
+        # call model locally or remote model workers
+        model = self.get_model(name)
+        if not isinstance(model, RayServeHandle):
+            response = await model(body, model_type=ModelType.EXPLAINER)
+        else:
+            model_handle = model
+            response = await model_handle.remote(body, model_type=ModelType.EXPLAINER)
         self.write(response)
