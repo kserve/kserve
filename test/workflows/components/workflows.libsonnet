@@ -265,6 +265,10 @@
                     template: "build-pytorchserver-gpu",
                   },
                   {
+                    name: "build-paddleserver",
+                    template: "build-paddleserver",
+                  },
+                  {
                     name: "build-sklearnserver",
                     template: "build-sklearnserver",
                   },
@@ -401,6 +405,12 @@
               "--context=dir://" + srcDir + "/python",
               "--destination=" + "809251082950.dkr.ecr.us-west-2.amazonaws.com/kfserving/pytorchserver:$(PULL_BASE_SHA)-gpu",
             ]),  // build-pytorchserver-gpu
+            $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-paddleserver", kanikoExecutorImage, [
+              "/kaniko/executor",
+              "--dockerfile=" + srcDir + "/python/paddle.Dockerfile",
+              "--context=dir://" + srcDir + "/python",
+              "--destination=" + "809251082950.dkr.ecr.us-west-2.amazonaws.com/kfserving/paddleserver:$(PULL_BASE_SHA)",
+            ]),  // build-paddleserver
             $.parts(namespace, name, overrides).e2e(prow_env, bucket).buildTemplate("build-sklearnserver", kanikoExecutorImage, [
               "/kaniko/executor",
               "--dockerfile=" + srcDir + "/python/sklearn.Dockerfile",

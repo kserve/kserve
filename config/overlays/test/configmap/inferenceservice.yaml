@@ -80,6 +80,14 @@ data:
             "multiModelServer": false
           }
         },
+        "paddle": {
+            "image": "809251082950.dkr.ecr.us-west-2.amazonaws.com/kfserving/paddleserver",
+            "defaultImageVersion": "latest",
+            "supportedFrameworks": [
+              "paddle"
+            ],
+            "multiModelServer": false
+        },
         "triton": {
             "image": "nvcr.io/nvidia/tritonserver",
             "defaultImageVersion": "20.08-py3",
