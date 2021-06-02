@@ -159,7 +159,6 @@ func (r *IngressReconciler) reconcileExternalService(isvc *v1beta1.InferenceServ
 	}
 
 	return nil
-	return nil
 }
 
 func createHTTPRouteDestination(targetHost, namespace string, gatewayService string) *istiov1alpha3.HTTPRouteDestination {
