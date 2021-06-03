@@ -12,6 +12,10 @@ metadata:
 data:
     ${CONFIG_NAME}: |-
       {
-        "image" : "${IMG}"
+        "image" : "${IMG}",
+        "memoryRequest": "100Mi",
+        "memoryLimit": "1Gi",
+        "cpuRequest": "100m",
+        "cpuLimit": "1"
       }
 EOF
