@@ -41,8 +41,8 @@ func TestTorchServeValidation(t *testing.T) {
 					MultiModelServer:    false,
 				},
 				V2: &PredictorConfig{
-					ContainerImage:      "kfserving/torchserve-kfs",
-					DefaultImageVersion: "0.3.0",
+					ContainerImage:      "pytorch/torchserve-kfs",
+					DefaultImageVersion: "0.4.0",
 					MultiModelServer:    false,
 				},
 			},
@@ -159,8 +159,8 @@ func TestTorchServeDefaulter(t *testing.T) {
 					MultiModelServer:    false,
 				},
 				V2: &PredictorConfig{
-					ContainerImage:      "kfserving/torchserve-kfs",
-					DefaultImageVersion: "0.3.0",
+					ContainerImage:      "pytorch/torchserve-kfs",
+					DefaultImageVersion: "0.4.0",
 					MultiModelServer:    false,
 				},
 			},
@@ -466,8 +466,8 @@ func TestCreateTorchServeModelServingContainerV2(t *testing.T) {
 					MultiModelServer:    false,
 				},
 				V2: &PredictorConfig{
-					ContainerImage:      "kfserving/torchserve-kfs",
-					DefaultImageVersion: "0.3.0",
+					ContainerImage:      "pytorch/torchserve-kfs",
+					DefaultImageVersion: "0.4.0",
 					MultiModelServer:    false,
 				},
 			},
@@ -499,7 +499,7 @@ func TestCreateTorchServeModelServingContainerV2(t *testing.T) {
 				},
 			},
 			expectedContainerSpec: &v1.Container{
-				Image:     "kfserving/torchserve-kfs:0.3.0",
+				Image:     "pytorch/torchserve-kfs:0.4.0",
 				Name:      constants.InferenceServiceContainerName,
 				Resources: requestedResource,
 				Args: []string{
@@ -569,8 +569,8 @@ func TestTorchServeIsMMS(t *testing.T) {
 						MultiModelServer:    mmsCase,
 					},
 					V2: &PredictorConfig{
-						ContainerImage:      "kfserving/torchserve-kfs",
-						DefaultImageVersion: "0.3.0",
+						ContainerImage:      "pytorch/torchserve-kfs",
+						DefaultImageVersion: "0.4.0",
 						MultiModelServer:    mmsCase,
 					},
 				},
@@ -646,8 +646,8 @@ func TestTorchServeIsFrameworkSupported(t *testing.T) {
 					SupportedFrameworks: []string{pytorch},
 				},
 				V2: &PredictorConfig{
-					ContainerImage:      "kfserving/torchserve-kfs",
-					DefaultImageVersion: "0.3.0",
+					ContainerImage:      "pytorch/torchserve-kfs",
+					DefaultImageVersion: "0.4.0",
 					SupportedFrameworks: []string{pytorch},
 				},
 			},
