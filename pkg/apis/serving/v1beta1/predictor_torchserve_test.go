@@ -56,7 +56,7 @@ func TestTorchServeValidation(t *testing.T) {
 			spec: PredictorSpec{
 				PyTorch: &TorchServeSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
-						RuntimeVersion: proto.String("0.3.0"),
+						RuntimeVersion: proto.String("0.4.0"),
 					},
 				},
 			},
@@ -66,7 +66,7 @@ func TestTorchServeValidation(t *testing.T) {
 			spec: PredictorSpec{
 				PyTorch: &TorchServeSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
-						RuntimeVersion: proto.String("0.3.0-gpu"),
+						RuntimeVersion: proto.String("0.4.0-gpu"),
 					},
 				},
 			},
@@ -76,7 +76,7 @@ func TestTorchServeValidation(t *testing.T) {
 			spec: PredictorSpec{
 				PyTorch: &TorchServeSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
-						RuntimeVersion: proto.String("0.3.0"),
+						RuntimeVersion: proto.String("0.4.0"),
 						Container: v1.Container{
 							Resources: v1.ResourceRequirements{
 								Limits: v1.ResourceList{constants.NvidiaGPUResourceType: resource.MustParse("1")},
@@ -233,7 +233,7 @@ func TestTorchServeDefaulter(t *testing.T) {
 					ModelClassName: "PyTorchModel",
 					PredictorExtensionSpec: PredictorExtensionSpec{
 						ProtocolVersion: &protocolV1,
-						RuntimeVersion:  proto.String("0.3.0"),
+						RuntimeVersion:  proto.String("0.4.0"),
 					},
 				},
 			},
@@ -241,7 +241,7 @@ func TestTorchServeDefaulter(t *testing.T) {
 				PyTorch: &TorchServeSpec{
 					ModelClassName: "PyTorchModel",
 					PredictorExtensionSpec: PredictorExtensionSpec{
-						RuntimeVersion:  proto.String("0.3.0"),
+						RuntimeVersion:  proto.String("0.4.0"),
 						ProtocolVersion: &protocolV1,
 						Container: v1.Container{
 							Name: constants.InferenceServiceContainerName,
@@ -488,7 +488,7 @@ func TestCreateTorchServeModelServingContainerV2(t *testing.T) {
 						PyTorch: &TorchServeSpec{
 							PredictorExtensionSpec: PredictorExtensionSpec{
 								StorageURI:      proto.String("gs://someUri"),
-								RuntimeVersion:  proto.String("0.3.0"),
+								RuntimeVersion:  proto.String("0.4.0"),
 								ProtocolVersion: &protocolV1,
 								Container: v1.Container{
 									Resources: requestedResource,
