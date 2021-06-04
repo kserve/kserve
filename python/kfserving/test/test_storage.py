@@ -101,6 +101,7 @@ http_uri_path_testparams = [
     (HTTPS_URI_TARGZ, MockHttpResponse(200, FILE_TAR_GZ_RAW, 'application/x-gtar'), None),
     (HTTPS_URI_TARGZ, MockHttpResponse(200, FILE_TAR_GZ_RAW, 'application/x-gzip'), None),
     (HTTPS_URI_TARGZ, MockHttpResponse(200, FILE_TAR_GZ_RAW, 'application/gzip'), None),
+    (HTTPS_URI_TARGZ, MockHttpResponse(200, FILE_TAR_GZ_RAW, 'application/zip'), RuntimeError),
     (HTTPS_URI_TARGZ_WITH_QUERY, MockHttpResponse(200, FILE_TAR_GZ_RAW, 'application/x-tar'), None),
     (HTTPS_URI_TARGZ_WITH_QUERY, MockHttpResponse(200, FILE_TAR_GZ_RAW, 'application/x-gtar'), None),
     (HTTPS_URI_TARGZ_WITH_QUERY, MockHttpResponse(200, FILE_TAR_GZ_RAW, 'application/x-gzip'), None),

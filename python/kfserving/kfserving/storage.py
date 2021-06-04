@@ -252,11 +252,11 @@ The path or model %s does not exist." % (uri))
             if mimetype == 'application/zip' and not response.headers.get('Content-Type', '')\
                     .startswith('application/zip'):
                 raise RuntimeError("URI: %s did not respond with \'Content-Type\': \'application/zip\'" % uri)
+            tar_content_types = ('application/x-tar', 'application/x-gtar', 'application/x-gzip', 'application/gzip')
             if mimetype == 'application/x-tar' and not response.headers.get('Content-Type', '')\
-                    .startswith(('application/x-tar', 'application/x-gtar', 'application/x-gzip', 'application/gzip')):
-                raise RuntimeError("URI: %s did not respond with \'Content-Type\': "
-                                   "\'application/x-tar\', \'application/x-gtar\', "
-                                   "\'application/x-gzip\', or \'application/gzip\'" % uri)
+                    .startswith(tar_content_types):
+                raise RuntimeError("URI: %s did not respond with any of following \'Content-Type\': " % uri +
+                                   ", ".join(tar_content_types))
             if (mimetype != 'application/zip' and mimetype != 'application/x-tar') and \
                     not response.headers.get('Content-Type', '').startswith('application/octet-stream'):
                 raise RuntimeError("URI: %s did not respond with \'Content-Type\': \'application/octet-stream\'"
