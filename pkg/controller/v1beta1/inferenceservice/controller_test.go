@@ -253,18 +253,18 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							},
 							Route: []*istiov1alpha3.HTTPRouteDestination{
 								{
-									Headers: &istiov1alpha3.Headers{
-										Request: &istiov1alpha3.Headers_HeaderOperations{
-											Set: map[string]string{
-												"Host": network.GetServiceHostname(constants.DefaultPredictorServiceName(serviceKey.Name), serviceKey.Namespace),
-											},
-										},
-									},
 									Destination: &istiov1alpha3.Destination{
 										Host: network.GetServiceHostname("knative-local-gateway", "istio-system"),
 										Port: &istiov1alpha3.PortSelector{Number: constants.CommonDefaultHttpPort},
 									},
 									Weight: 100,
+								},
+							},
+							Headers: &istiov1alpha3.Headers{
+								Request: &istiov1alpha3.Headers_HeaderOperations{
+									Set: map[string]string{
+										"Host": network.GetServiceHostname(constants.DefaultPredictorServiceName(serviceKey.Name), serviceKey.Namespace),
+									},
 								},
 							},
 						},
