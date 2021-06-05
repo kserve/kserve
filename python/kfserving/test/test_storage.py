@@ -118,17 +118,16 @@ http_uri_path_testparams = [
 def test_http_uri_paths(uri, response, expected_error):
     if expected_error:
         @mock.patch('requests.get', return_value=response)
-        def test_fail(_):
+        def test(_):
             with pytest.raises(expected_error):
                 kfserving.Storage.download(uri)
-        test_fail()
     else:
         @mock.patch('requests.get', return_value=response)
-        def test_success(_):
+        def test(_):
             with tempfile.TemporaryDirectory() as out_dir:
                 assert kfserving.Storage.download(uri, out_dir=out_dir) == out_dir
                 assert os.path.exists(os.path.join(out_dir, 'model.pth'))
-        test_success()
+    test()
 
 
 @mock.patch(STORAGE_MODULE + '.storage')
