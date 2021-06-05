@@ -117,17 +117,15 @@ http_uri_path_testparams = [
 @pytest.mark.parametrize('uri,response,expected_error', http_uri_path_testparams)
 def test_http_uri_paths(uri, response, expected_error):
     if expected_error:
-        @mock.patch('requests.get', return_value=response)
         def test(_):
             with pytest.raises(expected_error):
                 kfserving.Storage.download(uri)
     else:
-        @mock.patch('requests.get', return_value=response)
         def test(_):
             with tempfile.TemporaryDirectory() as out_dir:
                 assert kfserving.Storage.download(uri, out_dir=out_dir) == out_dir
                 assert os.path.exists(os.path.join(out_dir, 'model.pth'))
-    test()
+    mock.patch('requests.get', return_value=response)(test)()
 
 
 @mock.patch(STORAGE_MODULE + '.storage')
