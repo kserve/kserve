@@ -36,5 +36,6 @@ type LogRequest struct {
 	SourceUri        *url.URL
 	InferenceService string
 	Namespace        string
+	Component        string
 	Endpoint         string
 }

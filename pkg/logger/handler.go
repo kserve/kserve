@@ -38,12 +38,13 @@ type LoggerHandler struct {
 	logMode          v1beta1.LoggerType
 	inferenceService string
 	namespace        string
+	component        string
 	endpoint         string
 	next             http.Handler
 }
 
 func New(logUrl *url.URL, sourceUri *url.URL, logMode v1beta1.LoggerType,
-	inferenceService string, namespace string, endpoint string, next http.Handler) http.Handler {
+	inferenceService string, namespace string, endpoint string, component string, next http.Handler) http.Handler {
 	logf.SetLogger(zap.New())
 	return &LoggerHandler{
 		log:              logf.Log.WithName("Logger"),
@@ -52,6 +53,7 @@ func New(logUrl *url.URL, sourceUri *url.URL, logMode v1beta1.LoggerType,
 		logMode:          logMode,
 		inferenceService: inferenceService,
 		namespace:        namespace,
+		component:        component,
 		endpoint:         endpoint,
 		next:             next,
 	}
@@ -95,6 +97,7 @@ func (eh *LoggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			InferenceService: eh.inferenceService,
 			Namespace:        eh.namespace,
 			Endpoint:         eh.endpoint,
+			Component:        eh.component,
 		}); err != nil {
 			eh.log.Error(err, "Failed to log request")
 		}
@@ -122,6 +125,7 @@ func (eh *LoggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				InferenceService: eh.inferenceService,
 				Namespace:        eh.namespace,
 				Endpoint:         eh.endpoint,
+				Component:        eh.component,
 			}); err != nil {
 				eh.log.Error(err, "Failed to log response")
 			}
