@@ -81,8 +81,8 @@ data:
           }
         },
         "paddle": {
-            "image": "809251082950.dkr.ecr.us-west-2.amazonaws.com/kfserving/paddleserver",
-            "defaultImageVersion": "latest",
+            "image": "ruminateer/paddleserver",
+            "defaultImageVersion": "v0.1.0",
             "supportedFrameworks": [
               "paddle"
             ],
