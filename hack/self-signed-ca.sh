@@ -94,7 +94,7 @@ openssl genrsa -out ${tmpdir}/server.key 2048
 openssl req -new -key ${tmpdir}/server.key -subj "/CN=${service}.${namespace}.svc" -out ${tmpdir}/server.csr -config ${tmpdir}/csr.conf
 
 # Self sign
-openssl x509 -req -days 365 -in ${tmpdir}/server.csr -CA ${tmpdir}/ca.crt -CAkey ${tmpdir}/ca.key -CAcreateserial -out ${tmpdir}/server.crt -extfile ${tmpdir}/csr.conf
+openssl x509 -extensions v3_req -req -days 365 -in ${tmpdir}/server.csr -CA ${tmpdir}/ca.crt -CAkey ${tmpdir}/ca.key -CAcreateserial -out ${tmpdir}/server.crt -extfile ${tmpdir}/csr.conf
 # create the secret with server cert/key
 kubectl create secret generic ${secret} \
         --from-file=tls.key=${tmpdir}/server.key \
@@ -150,3 +150,9 @@ validatingPatchString=$(echo ${validatingPatchString} | sed "s|{{CA_BUNDLE}}|${c
 echo "patching ca bundle for validating webhook configuration..."
 kubectl patch validatingwebhookconfiguration ${webhookConfigName} \
     --type='json' -p="${validatingPatchString}"
+
+echo "patching ca bundler for conversion webhook configuration.."
+conversionPatchString='[{"op": "replace", "path": "/spec/conversion/webhook/clientConfig/caBundle", "value":"{{CA_BUNDLE}}"}]'
+conversionPatchString=$(echo ${conversionPatchString} | sed "s|{{CA_BUNDLE}}|${caBundle}|g")
+kubectl patch CustomResourceDefinition inferenceservices.serving.kubeflow.org \
+    --type='json' -p="${conversionPatchString}"
