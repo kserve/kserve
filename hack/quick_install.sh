@@ -65,7 +65,7 @@ kubectl apply --validate=false -f https://github.com/jetstack/cert-manager/relea
 kubectl wait --for=condition=available --timeout=600s deployment/cert-manager-webhook -n cert-manager
 cd ..
 # Install KFServing
-kubectl apply -f install/${KFSERVING_VERSION}/kfserving.yaml
+kubectl apply -f install/${KFSERVING_VERSION}/kfserving.yaml -; do echo "Retrying to apply resources"; sleep 10; done
 
 # Clean up
 rm -rf istio-${ISTIO_VERSION}
